@@ -123,12 +123,22 @@ def cl_drug_info(label_matrix, label_matrix_LPO, indx):
     else:
         col_nr = indx - nr_cols * row_nr
 
-    # label_matrix_LPO.iloc[row_nr, col_nr]
-
     drug = label_matrix["Compound"][row_nr]  # drug of linear indx
     cl = label_matrix_LPO.columns[col_nr]  # cl of linear indx
 
     return drug, cl
+
+
+def cl_drug_info_df(split_index_arr, label_matrix, label_matrix_LPO):
+    indx_drug_ls = []
+    indx_cl_ls = []
+
+    for indx in split_index_arr:
+        indx_drug, indx_cl = cl_drug_info(label_matrix, label_matrix_LPO, indx)
+        indx_drug_ls.append(indx_drug)
+        indx_cl_ls.append(indx_cl)
+
+    return indx_drug_ls, indx_cl_ls
 
 
 def remove_outliers(drp_con, metric, mode):
@@ -175,7 +185,7 @@ def normalize_data(drp_con, metric):
     return drp_con
 
 
-def get_train_test_set(label_matrix, mode, train_size):
+def get_train_test_set(label_matrix, mode, train_size, metric):
     if mode == "LCO":
         # LCO setting: split data into training (80% of cell lines) and test (20% of cell lines) sets
         label_matrix_T = label_matrix.set_index("Compound").transpose()
@@ -208,23 +218,23 @@ def get_train_test_set(label_matrix, mode, train_size):
         train = label_matrix_LPO_np_flat[train_index]
         test = label_matrix_LPO_np_flat[test_index]
 
-        indx_drug, indx_cl = cl_drug_info(label_matrix, label_matrix_LPO, 12095)
+        # get drug and cl info for each indx
+
+        train_indx_drug_ls, train_indx_cl_ls = cl_drug_info_df(train_index, label_matrix, label_matrix_LPO)
+
+        test_indx_drug_ls, test_indx_cl_ls = cl_drug_info_df(test_index, label_matrix, label_matrix_LPO)
+
+        train = pd.DataFrame({"Primary Cell Line Name": train_indx_cl_ls, "Compound": train_indx_drug_ls, metric: train})
+        test = pd.DataFrame({"Primary Cell Line Name": test_indx_cl_ls, "Compound": test_indx_drug_ls, metric: test})
 
     return train, test
 
 
 if __name__ == "__main__":
-    label_matrix = pd.read_csv("datasets/cell_viability/CCLE/matrixes_raw/EC50 (µM)_matrix.csv")
-
+    label_matrix = pd.read_csv("/nfs/home/students/m.lorenz/datasets/cell_viability/CCLE/matrixes_raw/EC50 ("
+                               "µM)_matrix.csv", header=0, index_col=0)
+    label_matrix.reset_index(inplace=True)
     metric = "EC50 (µM)"
-    drp_con = label_matrix.melt(id_vars="Compound"). \
-        sort_values(["Compound", "variable"]).rename(columns={"variable": "Primary Cell Line Name", "value": metric})
+    task = "LPO"
 
-    drp_con = remove_outliers(drp_con, metric, "replace")
-
-    drp_con = normalize_data(drp_con, metric)
-
-    drp_con[metric] = np.log(drp_con[metric])
-
-    label_mat = drp_con.pivot(index="Compound", columns="Primary Cell Line Name", values=metric)
-    label_mat.reset_index(inplace=True)
+    train, test = get_train_test_set(label_matrix, task, 0.8, metric)
