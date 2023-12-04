@@ -79,7 +79,6 @@ def norm_drug_features(drug_features, indices,
     return norm_drug_features
 
 
-# --------------------------------------------my own utils start here -------------------------------------------------#
 def mkdir(directory):
     directories = directory.split("/")
 
@@ -89,6 +88,9 @@ def mkdir(directory):
         if not os.path.exists(folder):
             print('creating folder: %s' % folder)
             os.mkdir(folder)
+
+
+# --------------------------------------------my own utils start here -------------------------------------------------#
 
 
 def split(x, n):
@@ -141,7 +143,7 @@ def cl_drug_info_df(split_index_arr, label_matrix, label_matrix_LPO):
     return indx_drug_ls, indx_cl_ls
 
 
-def remove_outliers(drp_con, metric, mode):
+def remove_outliers(drp_con, metric, mode, data_set_str):
     Q1 = drp_con[metric].quantile(0.25)
     Q3 = drp_con[metric].quantile(0.75)
     IQR = Q3 - Q1
@@ -152,9 +154,9 @@ def remove_outliers(drp_con, metric, mode):
     upper_array = np.where(drp_con[metric] >= upper)[0]
     lower_array = np.where(drp_con[metric] <= lower)[0]
 
-    print(f"{metric}:\n"
+    print(f"{metric} - {data_set_str}:\n"
           f"total upper array outliers {upper_array.size}\n"
-          f"total lower array outliers {lower_array.size}")
+          f"total lower array outliers {lower_array.size}\n")
 
     if mode == "replace":
         # Replace the outliers with nans

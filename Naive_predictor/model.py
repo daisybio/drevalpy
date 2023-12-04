@@ -2,18 +2,20 @@
 
 import numpy as np
 import pandas as pd
+import sys
 import os
 from scipy import stats
 from sklearn.metrics import mean_squared_error
 
-sys.path.append('/nfs/home/students/m.lorenz/Baseline models/utils')
-from utils import split, cl_drug_info, remove_outliers, normalize_data, get_train_test_set
+# sys.path.append('/nfs/home/students/m.lorenz/Baseline models/utils')
+from utils.utils import split, cl_drug_info, remove_outliers, normalize_data, get_train_test_set
 
 
 def preprocessing(train_prepro, test_prepro, task, metric, remove_out=False, norm_data=False, log_transform=False):
     dataset_postpro_ls = []
+    set_string = ["train", "test"]
 
-    for data_set in [train_prepro, test_prepro]:
+    for i, data_set in enumerate([train_prepro, test_prepro]):
         # convert metric matrix into a format easier to process (by melting df by compound)
 
         if task == "LCO" or task == "LDO":
@@ -24,13 +26,20 @@ def preprocessing(train_prepro, test_prepro, task, metric, remove_out=False, nor
             dataset_lin = data_set  # in LPO case data is already linear
 
         if remove_out:
-            dataset_lin = remove_outliers(dataset_lin, metric, "replace")
+            dataset_lin = remove_outliers(dataset_lin, metric, "replace", set_string[i])
 
         if norm_data:
             dataset_lin = normalize_data(dataset_lin, metric)
 
         if log_transform:
-            dataset_lin[metric] = np.log(dataset_lin[metric])
+            # dataset_lin[metric] = np.log(dataset_lin[metric] + 1) # in M umrechnen (also mal 10^-6 und dann -log10 davon)
+
+            if "µM" in metric:
+                dataset_lin[metric] = -np.log10(dataset_lin[metric] * 10 ** -6)
+            elif "Amax" in metric and norm_data:
+                dataset_lin[metric] = np.log(dataset_lin[metric] + 1)
+            elif metric != "Amax":
+                dataset_lin[metric] = np.log(dataset_lin[metric] + 1)
 
         if task == "LCO" or task == "LDO":
             dataset_postpro = dataset_lin.pivot(index="Compound", columns="Primary Cell Line Name", values=metric)
@@ -66,7 +75,7 @@ def calc_metric(train, test, mode, avg_by, metric):
             for drug in drug_avg.index:
                 y_true = test.loc[drug].dropna()  # drop nas from drug vector -> dr vlaues of a drug over all test cl
 
-                if y_true.shape[0] > 1:
+                if y_true.shape[0] > 1 and not np.isnan(drug_avg[drug]): # only if cl is not nan in pred and test contin
                     valid_drugs.append(drug)
                     y_pred = np.repeat(drug_avg[drug], len(y_true))  # array len = y_true repeating predic mean of drug
 
@@ -77,8 +86,8 @@ def calc_metric(train, test, mode, avg_by, metric):
                     rmse_ls.append(rmse_drug)
 
             print('----------------- LCO, average by drug ------------')
-            print('rmse std by drug:', np.std(rmse_ls))
-            print('\nmse by drug:', np.mean(mse_ls), '\nrmse by drug:', np.mean(rmse_ls))
+            print(f'rmse std by drug: {np.std(rmse_ls)}')
+            print('\nmse by drug:', np.mean(mse_ls), '\nrmse by drug:', np.mean(rmse_ls), end="")
 
             metric_df = pd.DataFrame(data={'drug': valid_drugs, 'mse': mse_ls, 'rmse': rmse_ls})
 
@@ -89,14 +98,14 @@ def calc_metric(train, test, mode, avg_by, metric):
 
             for cl in test.columns:
                 y_true_with_nan = test[cl]
-                nan_idx = np.argwhere(np.isnan(y_true_with_nan))
-                y_true = np.delete(y_true_with_nan, nan_idx)  # remove nans in cell line  (drugs not meass. in cl)
+                y_pred_original = drug_avg
+                mask = ~np.isnan(y_true_with_nan) & ~np.isnan(y_pred_original)
+
+                y_true = y_true_with_nan[mask]
+                y_pred = y_pred_original[mask]
 
                 if y_true.shape[0] > 1:
                     valid_cls.append(cl)
-
-                    y_pred_original = drug_avg
-                    y_pred = np.delete(y_pred_original, nan_idx)
 
                     pcc_cl = stats.pearsonr(y_true, y_pred)[0]
                     scc_cl = stats.spearmanr(y_true, y_pred)[0]
@@ -111,7 +120,7 @@ def calc_metric(train, test, mode, avg_by, metric):
             print('----------------- LCO, average by cl ------------')
             print('scc std by cl:', np.std(scc_ls), '\nrmse std by cl:', np.std(rmse_ls))
             print('\npcc by cl:', np.mean(pcc_ls), '\nscc by cl:', np.mean(scc_ls),
-                  '\nmse by cl:', np.mean(mse_ls), '\nrmse by cl:', np.mean(rmse_ls))
+                  '\nmse by cl:', np.mean(mse_ls), '\nrmse by cl:', np.mean(rmse_ls), end="")
 
             metric_df = pd.DataFrame(data={'cl': valid_cls, 'pcc': pcc_ls, 'scc': scc_ls,
                                            'mse': mse_ls, 'rmse': rmse_ls})
@@ -127,14 +136,14 @@ def calc_metric(train, test, mode, avg_by, metric):
 
             for drug in test.index:
                 y_true_with_nan = test.loc[drug]
-                nan_idx = np.argwhere(np.isnan(y_true_with_nan))
-                y_true = np.delete(y_true_with_nan, nan_idx)
+                y_pred_original = cl_avg
+                mask = ~np.isnan(y_true_with_nan) & ~np.isnan(y_pred_original)
+
+                y_true = y_true_with_nan[mask]
+                y_pred = y_pred_original[mask]
 
                 if y_true.shape[0] > 1:
                     valid_drugs.append(drug)
-
-                    y_pred_original = cl_avg
-                    y_pred = np.delete(y_pred_original, nan_idx)
 
                     pcc_cl = stats.pearsonr(y_true, y_pred)[0]
                     scc_cl = stats.spearmanr(y_true, y_pred)[0]
@@ -149,7 +158,7 @@ def calc_metric(train, test, mode, avg_by, metric):
             print('----------------- LDO, average by drug ------------')
             print('scc std by drug:', np.std(scc_ls), '\nrmse std by drug:', np.std(rmse_ls))
             print('\npcc by drug:', np.mean(pcc_ls), '\nscc by drug:', np.mean(scc_ls),
-                  '\nmse by drug:', np.mean(mse_ls), '\nrmse by drug:', np.mean(rmse_ls))
+                  '\nmse by drug:', np.mean(mse_ls), '\nrmse by drug:', np.mean(rmse_ls), end="")
 
             metric_df = pd.DataFrame(data={'drug': valid_drugs, 'pcc': pcc_ls, 'scc': scc_ls,
                                            'mse': mse_ls, 'rmse': rmse_ls})
@@ -160,7 +169,7 @@ def calc_metric(train, test, mode, avg_by, metric):
             for cl in test.columns:
                 y_true = test[cl].dropna()  # drop nas from drug vector -> dr values of a cl over all test drugs
 
-                if y_true.shape[0] > 1:
+                if y_true.shape[0] > 1 and not np.isnan(cl_avg[cl]):
                     valid_cls.append(cl)
 
                     y_pred = np.repeat(cl_avg[cl], len(y_true))  # array as long as y_true repeating predic mean of cl
@@ -173,7 +182,7 @@ def calc_metric(train, test, mode, avg_by, metric):
 
             print('----------------- LDO, average by cl ------------')
             print('rmse std by cl:', np.std(rmse_ls))
-            print('\nmse by cl:', np.mean(mse_ls), '\nrmse by cl:', np.mean(rmse_ls))
+            print('\nmse by cl:', np.mean(mse_ls), '\nrmse by cl:', np.mean(rmse_ls), end="")
 
             metric_df = pd.DataFrame(data={'drug': valid_cls, 'mse': mse_ls, 'rmse': rmse_ls})
 
@@ -212,7 +221,7 @@ def calc_metric(train, test, mode, avg_by, metric):
             print('pcc by drug:', pcc,
                   '\nscc by drug:', scc,
                   '\nmse by drug:', mse,
-                  '\nrmse by drug:', rmse)
+                  '\nrmse by drug:', rmse, end="")
 
             metric_df = pd.Series(data={'pcc': pcc, 'scc': scc, 'mse': mse, 'rmse': rmse})
 
@@ -248,7 +257,7 @@ def calc_metric(train, test, mode, avg_by, metric):
             print('pcc by cl:', pcc,
                   '\nscc by cl:', scc,
                   '\nmse by cl:', mse,
-                  '\nrmse by cl:', rmse)
+                  '\nrmse by cl:', rmse, end="")
 
             metric_df = pd.Series(data={'pcc': pcc, 'scc': scc, 'mse': mse, 'rmse': rmse})
 
@@ -256,7 +265,6 @@ def calc_metric(train, test, mode, avg_by, metric):
 
 
 if __name__ == "__main__":
-    # indices = pd.read_csv("/nfs/home/students/m.lorenz/datasets/cell_viability/CCLE/cl_drug_indices.csv", header=0)
     label_matrix = pd.read_csv("/nfs/home/students/m.lorenz/datasets/cell_viability/CCLE/matrixes_raw/EC50 ("
                                "µM)_matrix.csv", header=0, index_col=0)
     label_matrix.reset_index(inplace=True)
@@ -268,6 +276,3 @@ if __name__ == "__main__":
     train_2, test_2 = preprocessing(train, test, task, metric, remove_out=True, log_transform=True)
 
     prediction, accuracy_meas = calc_metric(train_2, test_2, task, "drug", metric)
-
-    # foldtype = "cl" + '_fold'
-    # train_ic50, test_ic50, train_cls, test_cls = get_train_test_ic50(foldtype, [0,1,2], [4], indices, label_matrix)
