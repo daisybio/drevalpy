@@ -1,6 +1,6 @@
+from abc import ABC, abstractmethod
 
-
-class Dataset(object):
+class Dataset(ABC):
     """
     Abstract wrapper class for datasets.
     """
@@ -13,22 +13,24 @@ class Dataset(object):
         self.path = path
         self.name = name
 
+    @abstractmethod
     def load(self):
         """
         Loads the dataset from data.
         """
-        raise NotImplementedError("load method not implemented")
+        pass
 
+    @abstractmethod
     def save(self):
         """
         Saves the dataset to data.
         """
-        raise NotImplementedError("save method not implemented")
+        pass
 
 
 class DrugResponseDataset(Dataset):
     """
-    Abstract wrapper class for drug response datasets.
+    Drug response dataset.
     """
     def __init__(self, path: str, name: str, target_type: str, *args, **kwargs):
         """
@@ -95,18 +97,20 @@ class FeatureDataset(Dataset):
         """
         super(FeatureDataset, self).__init__(path, name)
         self.features = None
-
+        
+    @abstractmethod
     def load(self):
         """
         Loads the feature dataset from data.
         """
-        raise NotImplementedError("load method not implemented")
-
+        pass
+    
+    @abstractmethod
     def save(self):
         """
         Saves the feature dataset to data.
         """
-        raise NotImplementedError("save method not implemented")
+        pass
 
 
 class DrugFeatureDataset(FeatureDataset):
