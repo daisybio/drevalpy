@@ -1,17 +1,19 @@
 from abc import ABC, abstractmethod
+from typing import Dict, Optional, Union
+import numpy as np
+
 
 class Dataset(ABC):
     """
     Abstract wrapper class for datasets.
     """
-    def __init__(self, path: str, name: str):
+
+    def __init__(self, path: str):
         """
         Initializes the dataset.
         :param path: path to the dataset
-        :param name: name of the dataset
         """
         self.path = path
-        self.name = name
 
     @abstractmethod
     def load(self):
@@ -32,11 +34,11 @@ class DrugResponseDataset(Dataset):
     """
     Drug response dataset.
     """
-    def __init__(self, path: str, name: str, target_type: str, *args, **kwargs):
+
+    def __init__(self, path: str, target_type: str, *args, **kwargs):
         """
         Initializes the drug response dataset.
         :param path: path to the dataset
-        :param name: name of the dataset
         :param target_type: type of the target value (IC50, EC50, AUC, classification)
         :param args: additional arguments
         :param kwargs: additional keyword arguments
@@ -47,9 +49,11 @@ class DrugResponseDataset(Dataset):
         drug_ids: drug IDs
         predictions: optional. Predicted drug response values per cell line and drug
         """
-        super(DrugResponseDataset, self).__init__(path, name)
+        super(DrugResponseDataset, self).__init__(path)
         self.target_type = target_type
-        self.response, self.cell_line_ids, self.drug_ids = self.read_data(*args, **kwargs)
+        self.response, self.cell_line_ids, self.drug_ids = self.read_data(
+            *args, **kwargs
+        )
         self.predictions = None
 
     def read_data(self, *args, **kwargs):
@@ -59,7 +63,7 @@ class DrugResponseDataset(Dataset):
         cell_line_ids = []
         drug_ids = []
         responses = []
-        with open(self.path, 'r') as f:
+        with open(self.path, "r") as f:
             pass
         return responses, cell_line_ids, drug_ids
 
@@ -86,130 +90,109 @@ class DrugResponseDataset(Dataset):
 
 class FeatureDataset(Dataset):
     """
-    Abstract wrapper class for feature datasets.
+    Class for feature datasets.
     """
-    def __init__(self, path: str, name: str):
+
+    def __init__(
+        self, features: Optional[Dict[str : Dict[str : np.ndarray]]], *args, **kwargs
+    ):
         """
         Initializes the feature dataset.
-        :param path: path to the dataset
-        :param name: name of the dataset
-        :param features: features of the dataset
+        :features: dictionary of features, key: drug ID, value: Dict of feature views, key: feature name, value: feature vector
         """
-        super(FeatureDataset, self).__init__(path, name)
-        self.features = None
-        
-    @abstractmethod
-    def load(self):
+        super(FeatureDataset, self).__init__()
+        self.features = features
+        self.view_names = self.get_view_names()
+        self.identifier = self.get_ids()
+
+    @staticmethod
+    def load():
         """
         Loads the feature dataset from data.
         """
-        pass
-    
-    @abstractmethod
+        raise NotImplementedError("load method not implemented")
+
     def save(self):
         """
         Saves the feature dataset to data.
         """
-        pass
-
-
-class DrugFeatureDataset(FeatureDataset):
-    """
-    Abstract wrapper class for drug feature datasets.
-    """
-    def __init__(self, path: str, name: str, *args, **kwargs):
-        """
-        Initializes the drug feature dataset.
-        :param path: path to the dataset
-        :param name: name of the dataset
-
-        features: dictionary of features, key: drug ID, value: feature vector
-        """
-        super(DrugFeatureDataset, self).__init__(path, name)
-        self.features, self.drug_ids = self.read_data(*args, **kwargs)
-
-    def read_data(self, *args, **kwargs):
-        """
-        Reads the data from the input path and possible additional inputs.
-        Returns the drug feature vectors and the drug IDs
-        """
-        drug_ids = []
-        features = []
-        with open(self.path, 'r') as f:
-            pass
-        return features, drug_ids
-
-    def load(self):
-        """
-        Loads the drug feature dataset from data.
-        """
-        raise NotImplementedError("load method not implemented")
-
-    def save(self):
-        """
-        Saves the drug feature dataset to data.
-        """
         raise NotImplementedError("save method not implemented")
 
-    def randomize_drug_features(self):
+    def randomize_features(
+        self, views_to_randomize: Union[str, list], mode: str
+    ) -> None:
         """
-        Randomizes the drug feature vectors.
+        Randomizes the feature vectors.
+        :views_to_randomize: name of feature view or list of names of multiple feature views to randomize. The other views are not randomized.
+        :mode: randomization mode (permutation, gaussian, zeroing)
         """
-        raise NotImplementedError("randomize_drug_features method not implemented")
+        if isinstance(views, str):
+            views = [views]
 
-    def normalize_drug_features(self, mode: str):
-        """
-        Normalizes the drug feature vectors.
-        """
-        raise NotImplementedError("normalize_drug_features method not implemented")
+        if mode == "permutation":
+            # Get the entity names
+            identifiers = self.get_ids()
 
+            # Permute the specified views for each entity (= cell line or drug)
+            self.features = {
+                entity: {
+                    view: self.features[entity][view]
+                    if view not in views_to_randomize
+                    else self.features[other_entity][view]
+                    for view, other_entity in zip(
+                        self.features[entity].keys(), np.random.permutation(identifiers)
+                    )
+                }
+                for entity in identifiers
+            }
 
-class CellLineFeatureDataset(FeatureDataset):
-    """
-    Abstract wrapper class for cell line feature datasets.
-    """
-    def __init__(self, path: str, name: str, *args, **kwargs):
-        """
-        Initializes the cell line feature dataset.
-        :param path: path to the dataset
-        :param name: name of the dataset
+        elif mode == "gaussian":
+            for view in views:
+                for identifier in self.get_ids():
+                    self.features[identifier][view] = np.random.normal(
+                        self.features[identifier][view].mean(),
+                        self.features[identifier][view].std(),
+                        self.features[identifier][view].shape,
+                    )
+        elif mode == "zeroing":
+            for view in views:
+                for identifier in self.get_ids():
+                    self.features[identifier][view] = np.zeros(
+                        self.features[identifier][view].shape
+                    )
+        else:
+            raise ValueError(
+                f"Unknown randomization mode '{mode}'. Choose from 'permutation', 'gaussian', 'zeroing'."
+            )
 
-        features: dictionary of features, key: cell line ID, value: feature vector
+    def normalize_features(
+        self, views: Union[str, list], normalization_parameter
+    ) -> None:
         """
-        super(CellLineFeatureDataset, self).__init__(path, name)
-        self.features, self.cell_line_ids = self.read_data(*args, **kwargs)
+        normalize the feature vectors.
+        :views: name of feature view or list of names of multiple feature views to normalize. The other views are not normalized.
+        :normalization_parameter:
+        """
+        # TODO
+        raise NotImplementedError("normalize_features method not implemented")
 
-    def read_data(self, *args, **kwargs):
+    def get_mean_and_standard_deviation(self) -> None:
         """
-        Reads the data from the input path and possible additional inputs.
-        Returns the cell line feature vectors and the cell line IDs
+        get columnwise mean and standard deviation of the feature vectors for all views.
         """
-        cell_line_ids = []
-        features = []
-        with open(self.path, 'r') as f:
-            pass
-        return features, cell_line_ids
+        # TODO
+        raise NotImplementedError(
+            "get_mean_and_standard_deviation method not implemented"
+        )
 
-    def load(self):
+    def get_ids(self):
         """
-        Loads the cell line feature dataset from data.
+        returns drug ids of the dataset
         """
-        raise NotImplementedError("load method not implemented")
+        return list(self.features.keys())
 
-    def save(self):
+    def get_view_names(self):
         """
-        Saves the cell line feature dataset to data.
+        returns feature view names
         """
-        raise NotImplementedError("save method not implemented")
-
-    def randomize_cell_line_features(self):
-        """
-        Randomizes the cell line feature vectors.
-        """
-        raise NotImplementedError("randomize_cell_line_features method not implemented")
-
-    def normalize_cell_line_features(self, mode: str):
-        """
-        Normalizes the cell line feature vectors.
-        """
-        raise NotImplementedError("normalize_cell_line_features method not implemented")
+        return list(self.features[self.features.keys()[0]].keys())
