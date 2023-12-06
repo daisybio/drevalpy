@@ -86,21 +86,21 @@ class DRPModel(ABC):
         """
         return self.target
 
-    @staticmethod
-    def get_cell_line_features():
+    @abstractmethod
+    def get_cell_line_features(self, cell_line_input: FeatureDataset):
         """
         Transforms the cell line input data into a feature tensor that can be supplied to the train method.
         :return: FeatureDataset
         """
-        raise NotImplementedError("get_cell_line_features method not implemented")
+        pass
 
-    @staticmethod
-    def get_drug_features():
+    @abstractmethod
+    def get_drug_features(self, drug_input: FeatureDataset):
         """
         Transforms the drug input data into a feature tensor that can be supplied to the train method.
         :return: FeatureDataset
         """
-        raise NotImplementedError("get_drug_features method not implemented")
+        pass
 
 
 class SingleDRPModel(DRPModel, ABC):
@@ -189,18 +189,18 @@ class SingleDRPModel(DRPModel, ABC):
         """
         pass
 
-    @staticmethod
-    def get_cell_line_features():
+    @abstractmethod
+    def get_cell_line_features(self, cell_line_input: FeatureDataset):
         """
         Transforms the cell line input data into a feature tensor that can be supplied to the train method.
-        :return: CellLineFeatureDataset
+        :return: FeatureDataset
         """
-        raise NotImplementedError("get_cell_line_features method not implemented")
+        pass
 
-    @staticmethod
-    def get_drug_features():
+    @abstractmethod
+    def get_drug_features(self, drug_input: FeatureDataset):
         """
         Transforms the drug input data into a feature tensor that can be supplied to the train method.
-        :return: DrugFeatureDataset
+        :return: FeatureDataset
         """
-        raise NotImplementedError("get_drug_features method not implemented")
+        pass
