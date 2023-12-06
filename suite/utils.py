@@ -102,7 +102,7 @@ def leave_group_out_cv(group:str,
                 "response": response[test_indices],
             },
         }
-        if validation:
+        if split_validation:
             #TODO validation set should also not contain the same cell lines or drugs as the training set
             
             pass
