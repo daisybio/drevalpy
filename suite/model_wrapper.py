@@ -19,6 +19,24 @@ class DRPModel(ABC):
         self.target = target
         self.build_model(*args, **kwargs)
 
+    @property
+    @abstractmethod
+    def cell_line_views(self):
+        """
+        Returns the sources the model needs as input for describing the cell line.
+        :return: cell line views, e.g., ["methylation", "gene_expression", "mirna_expression", "mutation"]
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def drug_views(self):
+        """
+        Returns the sources the model needs as input for describing the drug.
+        :return: drug views, e.g., ["descriptors", "fingerprints", "targets"]
+        """
+        pass
+
     @abstractmethod
     def build_model(self, *args, **kwargs):
         """
@@ -52,7 +70,7 @@ class DRPModel(ABC):
         Evaluates the model. Call the respective function(s) from models_code here.
         :param cell_line_input: evaluation data associated with the cell line input
         :param drug_input: evaluation data associated with the drug input
-        :param output: evaluation data associated with the reponse output
+        :param output: evaluation data associated with the response output
         """
         pass
 
@@ -72,22 +90,8 @@ class DRPModel(ABC):
         """
         pass
 
-    def get_model_name(self):
-        """
-        Returns the model name.
-        :return: model name
-        """
-        return self.model_name
-
-    def get_target(self):
-        """
-        Returns the target value.
-        :return: target value
-        """
-        return self.target
-
     @abstractmethod
-    def get_cell_line_features(self, cell_line_input: FeatureDataset):
+    def transform_cell_line_features(self, cell_line_input: FeatureDataset):
         """
         Transforms the cell line input data into a feature tensor that can be supplied to the train method.
         :return: FeatureDataset
@@ -95,7 +99,7 @@ class DRPModel(ABC):
         pass
 
     @abstractmethod
-    def get_drug_features(self, drug_input: FeatureDataset):
+    def transform_drug_features(self, drug_input: FeatureDataset):
         """
         Transforms the drug input data into a feature tensor that can be supplied to the train method.
         :return: FeatureDataset
@@ -118,6 +122,24 @@ class SingleDRPModel(DRPModel, ABC):
         """
         super(SingleDRPModel, self).__init__(model_name, target, *args, **kwargs)
 
+    @property
+    @abstractmethod
+    def cell_line_views(self):
+        """
+        Returns the sources the model needs as input for describing the cell line.
+        :return: cell line views, e.g., ["methylation", "gene_expression", "mirna_expression", "mutation"]
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def drug_views(self):
+        """
+        Returns the sources the model needs as input for describing the drug.
+        :return: drug views, e.g., ["descriptors", "fingerprints", "targets"]
+        """
+        pass
+
     @abstractmethod
     def build_model(self, *args, **kwargs):
         """
@@ -130,7 +152,7 @@ class SingleDRPModel(DRPModel, ABC):
         Trains the model.
         :param cell_line_input: training data associated with the cell line input
         :param drug_input: drug name
-        :param output: training data associated with the reponse output
+        :param output: training data associated with the response output
         """
         self.train_drug(cell_line_input, drug_input, output)
 
@@ -140,7 +162,7 @@ class SingleDRPModel(DRPModel, ABC):
         Trains one model per drug.
         :param cell_line_input: training data associated with the cell line input
         :param drug_name: drug name
-        :param output: training data associated with the reponse output
+        :param output: training data associated with the response output
         """
         pass
 
@@ -190,7 +212,7 @@ class SingleDRPModel(DRPModel, ABC):
         pass
 
     @abstractmethod
-    def get_cell_line_features(self, cell_line_input: FeatureDataset):
+    def transform_cell_line_features(self, cell_line_input: FeatureDataset):
         """
         Transforms the cell line input data into a feature tensor that can be supplied to the train method.
         :return: FeatureDataset
@@ -198,7 +220,7 @@ class SingleDRPModel(DRPModel, ABC):
         pass
 
     @abstractmethod
-    def get_drug_features(self, drug_input: FeatureDataset):
+    def transform_drug_features(self, drug_input: FeatureDataset):
         """
         Transforms the drug input data into a feature tensor that can be supplied to the train method.
         :return: FeatureDataset

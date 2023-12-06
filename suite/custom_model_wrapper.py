@@ -6,7 +6,27 @@ class CustomModelWrapper(DRPModel):
     """
     Wrapper class to be implemented for a new custom model.
     """
+
+    @property
+    def cell_line_views(self):
+        """
+        Returns the sources the model needs as input for describing the cell line.
+        :return: cell line views, e.g., ["methylation", "gene_expression", "mirna_expression", "mutation"]
+        """
+        return []
+
+    @property
+    def drug_views(self):
+        """
+        Returns the sources the model needs as input for describing the drug.
+        :return: drug views, e.g., ["descriptors", "fingerprints", "targets"]
+        """
+        return []
+
     def build_model(self, *args, **kwargs):
+        """
+        Builds the model.
+        """
         pass
 
     def train(self, cell_line_input: FeatureDataset, drug_input: FeatureDataset, output: DrugResponseDataset):
@@ -16,9 +36,15 @@ class CustomModelWrapper(DRPModel):
         :param drug_input: training data associated with the drug input
         :param output: training data associated with the reponse output
         """
-        raise NotImplementedError("train method not implemented")
+        pass
 
     def predict(self, cell_line_input: FeatureDataset, drug_input: FeatureDataset):
+        """
+        Predicts the response for the given input. Call the respective function from models_code here.
+        :param cell_line_input: input associated with the cell line
+        :param drug_input: input associated with the drug
+        :return: predicted response
+        """
         pass
 
     def evaluate(self, cell_line_input: FeatureDataset, drug_input: FeatureDataset, output: DrugResponseDataset):
@@ -26,34 +52,34 @@ class CustomModelWrapper(DRPModel):
         Evaluates the model.
         :param cell_line_input: evaluation data associated with the cell line input
         :param drug_input: evaluation data associated with the drug input
-        :param output: evaluation data associated with the reponse output
+        :param output: evaluation data associated with the response output
         """
-        raise NotImplementedError("evaluate method not implemented")
+        pass
 
     def save(self, path):
         """
         Saves the model.
         :param path: path to save the model
         """
-        raise NotImplementedError("save method not implemented")
+        pass
 
     def load(self, path):
         """
         Loads the model.
         :param path: path to load the model
         """
-        raise NotImplementedError("load method not implemented")
+        pass
 
-    def get_cell_line_features(self, cell_line_input: FeatureDataset):
+    def transform_cell_line_features(self, cell_line_input: FeatureDataset):
         """
         Transforms the cell line input data into a feature tensor that can be supplied to the train method.
-        :return: CellLineFeatureDataset
+        :return: FeatureDataset
         """
-        raise NotImplementedError("get_cell_line_features method not implemented")
+        pass
 
-    def get_drug_features(self, drug_input: FeatureDataset):
+    def transform_drug_features(self, drug_input: FeatureDataset):
         """
         Transforms the drug input data into a feature tensor that can be supplied to the train method.
-        :return: DrugFeatureDataset
+        :return: FeatureDataset
         """
-        raise NotImplementedError("get_drug_features method not implemented")
+        pass
