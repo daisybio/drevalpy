@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import Dict, Optional, Union
+from typing import Dict, List, Union
 import numpy as np
+
+from utils import leave_pair_out_cv
 
 
 class Dataset(ABC):
@@ -79,13 +81,43 @@ class DrugResponseDataset(Dataset):
         """
         raise NotImplementedError("save method not implemented")
 
-    def split_dataset(self, mode):
+    def split_dataset(
+        self,
+        n_cv_splits,
+        mode,
+        split_validation=True,
+        validation_ratio=0.1,
+        random_state=42,
+    ) -> List[dict]:
         """
-        Splits the dataset into training, validation and test sets.
+        Splits the dataset into training, validation and test sets for crossvalidation
         :param mode: split mode (LPO=Leave-random-Pairs-Out, LCO=Leave-Cell-line-Out, LDO=Leave-Drug-Out)
         :return: training, validation and test sets
         """
-        raise NotImplementedError("split_dataset method not implemented")
+
+        cell_line_ids = self.cell_line_ids
+        drug_ids = self.drug_ids
+        response = self.response
+
+        if mode == "LPO":
+            cv_splits = leave_pair_out_cv(
+                n_cv_splits,
+                response,
+                cell_line_ids,
+                drug_ids,
+                split_validation,
+                validation_ratio,
+                random_state,
+            )
+
+        elif mode == "LCO":
+            # TODO
+            raise NotImplementedError("LCO split mode not implemented")
+        elif mode == "LDO":
+            # TODO
+            raise NotImplementedError("LDO split mode not implemented")
+        self.cv_splits = cv_splits
+        return cv_splits
 
 
 class FeatureDataset(Dataset):
@@ -93,9 +125,7 @@ class FeatureDataset(Dataset):
     Class for feature datasets.
     """
 
-    def __init__(
-        self, features: Optional[Dict[str : Dict[str : np.ndarray]]], *args, **kwargs
-    ):
+    def __init__(self, features: Dict[str : Dict[str : np.ndarray]], *args, **kwargs):
         """
         Initializes the feature dataset.
         :features: dictionary of features, key: drug ID, value: Dict of feature views, key: feature name, value: feature vector
