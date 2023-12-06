@@ -1,0 +1,1 @@
+This directory is used for storing all raw input and output data provided to the pipeline.
