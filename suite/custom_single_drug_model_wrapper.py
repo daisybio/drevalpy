@@ -1,12 +1,11 @@
-from suite.model_wrapper import DRPModel
+from suite.model_wrapper import SingleDRPModel
 from suite.data_wrapper import DrugResponseDataset, FeatureDataset
 
 
-class CustomModelWrapper(DRPModel):
+class CustomSingleDrugModelWrapper(SingleDRPModel):
     """
-    Wrapper class to be implemented for a new custom model.
+    Wrapper class to be implemented for a new custom model that builds one model per drug.
     """
-
     @property
     def cell_line_views(self):
         """
@@ -29,25 +28,25 @@ class CustomModelWrapper(DRPModel):
         """
         pass
 
-    def train(self, cell_line_input: FeatureDataset, drug_input: FeatureDataset, output: DrugResponseDataset):
+    def train_drug(self, cell_line_input: FeatureDataset, drug_name: str, output: DrugResponseDataset):
         """
-        Trains the model.
+        Trains one model per drug.
         :param cell_line_input: training data associated with the cell line input
-        :param drug_input: training data associated with the drug input
-        :param output: training data associated with the reponse output
+        :param drug_name: drug name
+        :param output: training data associated with the response output
         """
         pass
 
-    def predict(self, cell_line_input: FeatureDataset, drug_input: FeatureDataset):
+    def predict_drug(self, cell_line_input: FeatureDataset, drug_name: str):
         """
-        Predicts the response for the given input. Call the respective function from models_code here.
+        Predicts the response for the given single drug.
         :param cell_line_input: input associated with the cell line
-        :param drug_input: input associated with the drug
+        :param drug_name: drug name
         :return: predicted response
         """
         pass
 
-    def evaluate(self, cell_line_input: FeatureDataset, drug_input: FeatureDataset, output: DrugResponseDataset):
+    def evaluate(self, cell_line_input: FeatureDataset, drug_input: str, output: DrugResponseDataset):
         """
         Evaluates the model.
         :param cell_line_input: evaluation data associated with the cell line input
@@ -58,7 +57,7 @@ class CustomModelWrapper(DRPModel):
 
     def save(self, path):
         """
-        Saves the model.
+        Saves the model to models_saved.
         :param path: path to save the model
         """
         pass

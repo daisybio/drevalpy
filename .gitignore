@@ -1,3 +1,7 @@
+# Data
+data/cell_line_input
+data/response_output
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
