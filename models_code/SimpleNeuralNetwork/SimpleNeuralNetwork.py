@@ -86,7 +86,7 @@ class SimpleNeuralNetwork(DRPModel):
 
     def get_cell_line_features(self, path: str)-> FeatureDataset:
         """
-        Transforms the cell line input data into a feature tensor that can be supplied to the train method.
+        Fetch cell line input data 
         :return: FeatureDataset
         """
         ge = pd.read_csv(f"{path}/gene_expression.csv", index_col=0)
@@ -98,7 +98,7 @@ class SimpleNeuralNetwork(DRPModel):
         
     def get_drug_features(self, path: str)-> FeatureDataset:
         """
-        Transforms the drug input data into a feature tensor that can be supplied to the train method.
+        Fetch drug input data.
         :return: FeatureDataset
         """
         fingerprints = pd.read_csv(f"drug_fingerprints/drug_name_to_demorgan_128_map.csv", index_col=0).T
