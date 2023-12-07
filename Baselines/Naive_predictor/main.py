@@ -4,8 +4,8 @@ import pandas as pd
 import os, sys, argparse
 from os.path import dirname, join, abspath
 
-# sys.path.insert(0, abspath(join(dirname(__file__), '..')))
-sys.path.append('/nfs/home/students/m.lorenz/Baseline models/')
+sys.path.insert(0, abspath(join(dirname(__file__), '..')))
+# sys.path.append('/nfs/home/students/m.lorenz/Baseline models/')
 from Naive_predictor.model import calc_metric, preprocessing
 from utils.utils import mkdir, get_train_test_set
 
@@ -29,9 +29,9 @@ def parse_parameters():
                         help="how to calculate performance metrics (drug, cl or both), \
                         if not specified, then only the naive predictions are outputted")
 
-    # emmulating cl input above so that I can work from the IDE
-    sys.argv = ["main.py", "--dataroot", "../../datasets/cell_viability/CCLE/matrixes_raw/",
-                "--outroot", "results_all_tasks/", "--foldtype", "all", "--avg_by", "both"]
+    # emulating cl input above so that I can work from the IDE
+    '''sys.argv = ["main.py", "--dataroot", "../../../datasets/cell_viability/CCLE/matrixes_raw/",
+                "--outroot", "results_all_tasks/", "--foldtype", "all", "--avg_by", "both"]'''
 
     return parser.parse_args()
 

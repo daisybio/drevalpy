@@ -4,11 +4,10 @@ start_time=$SECONDS
 
 echo "running pre-trained model......"
 
-python main.py --dataroot ../../input_data/ \
---outroot results/ \
---pathway KEGG \
---foldtype pair \
---avg_by drug
+python main.py --dataroot ../../../datasets/cell_viability/CCLE/curveCurator/matrixes_raw/ \
+--outroot results_ec50_curated/ \
+--foldtype all \
+--avg_by both
 
 echo "finished run"
 elapsed=$(( SECONDS - start_time ))

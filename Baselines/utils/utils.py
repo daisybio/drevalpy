@@ -187,6 +187,51 @@ def normalize_data(drp_con, metric):
     return drp_con
 
 
+def preprocessing(train_prepro,
+                  test_prepro,
+                  task, metric,
+                  remove_out=False, norm_data=False, log_transform=False):
+
+    dataset_postpro_ls = []
+    set_string = ["train", "test"]
+
+    for i, data_set in enumerate([train_prepro, test_prepro]):
+        # convert metric matrix into a format easier to process (by melting df by compound)
+
+        if task == "LCO" or task == "LDO":
+            dataset_lin = data_set.reset_index().melt(id_vars="Compound").rename(
+                columns={"variable": "Primary Cell Line Name", "value": metric})
+
+        elif task == "LPO":
+            dataset_lin = data_set  # in LPO case data is already linear
+
+        if remove_out:
+            dataset_lin = remove_outliers(dataset_lin, metric, "replace", set_string[i])
+
+        if norm_data:
+            dataset_lin = normalize_data(dataset_lin, metric)
+
+        if log_transform:
+            # dataset_lin[metric] = np.log(dataset_lin[metric] + 1) # in M umrechnen (also mal 10^-6 und dann -log10 davon)
+
+            if "µM" in metric:
+                dataset_lin[metric] = -np.log10(dataset_lin[metric] * 10 ** -6)
+            elif "Amax" in metric and norm_data:
+                dataset_lin[metric] = np.log(dataset_lin[metric] + 1)
+            elif metric != "Amax":
+                dataset_lin[metric] = np.log(dataset_lin[metric] + 1)
+
+        if task == "LCO" or task == "LDO":
+            dataset_postpro = dataset_lin.pivot(index="Compound", columns="Primary Cell Line Name", values=metric)
+            # dataset_postpro.reset_index(inplace=True)
+
+        elif task == "LPO":
+            dataset_postpro = dataset_lin
+
+        dataset_postpro_ls.append(dataset_postpro)
+
+    return dataset_postpro_ls[0], dataset_postpro_ls[1]
+
 def get_train_test_set(label_matrix, mode, train_size, metric):
     if mode == "LCO":
         # LCO setting: split data into training (80% of cell lines) and test (20% of cell lines) sets
