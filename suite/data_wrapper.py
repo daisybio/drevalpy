@@ -226,3 +226,16 @@ class FeatureDataset(Dataset):
         returns feature view names
         """
         return list(self.features[self.features.keys()[0]].keys())
+
+    
+    def get_feature_matrix(
+        self, view: str, identifiers: str
+    ) -> np.ndarray:
+        """
+        Returns the feature matrix for the given view.
+        :param drug_input: drug input
+        :param cell_line_input: cell line input
+        :param view: view name
+        :return: feature matrix
+        """
+        return np.stack([self.features[identifier][view] for identifier in identifiers])
