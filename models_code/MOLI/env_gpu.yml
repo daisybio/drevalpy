@@ -1,4 +1,4 @@
-name: drp_basic
+name: moli
 channels:
   - conda-forge
   - bioconda
@@ -8,4 +8,7 @@ dependencies:
   - python=3.8
   - scikit-learn=1.3.2
   - pip:
+      - torch==2.1.1
+      - torchaudio==2.1.1
+      - torchvision==0.16.1
       - pyyaml==6.0.1
