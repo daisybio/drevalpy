@@ -28,6 +28,22 @@ class NaivePredictor:
         self.labelmatrix = pd.read_csv(self.dataroot, header=0, index_col=0)
         self.labelmatrix.reset_index(inplace=True)
 
+    @property
+    def cell_line_views(self):
+        """
+        Returns the sources the model needs as input for describing the cell line.
+        :return: cell line views, e.g., ["methylation", "gene_expression", "mirna_expression", "mutation"]
+        """
+        return "Cell viability"
+
+    @property
+    def drug_views(self):
+        """
+        Returns the sources the model needs as input for describing the drug.
+        :return: drug views, e.g., ["descriptors", "fingerprints", "targets"]
+        """
+        return None
+
     def train(self, train):
         if self.task == "LCO":
             train_avg = train.mean(axis=1)
@@ -263,6 +279,9 @@ if __name__ == "__main__":
     naive_predictor = NaivePredictor("/nfs/home/students/m.lorenz/datasets/cell_viability/CCLE/matrixes_raw/Amax_matrix.csv",
                                      "Amax", "LPO", "drug")
 
+    naive_predictor.cell_line_views
+    naive_predictor.drug_views
+
     naive_predictor.get_features()
 
     train_2, test_2 = preprocessing(naive_predictor.train_set,
@@ -273,6 +292,6 @@ if __name__ == "__main__":
     pred = naive_predictor.train(train_2) # train the model
     accuracy_meas = naive_predictor.evaluate(test_2) # evaluate the model
 
-    mkdir("results_2/")
-
-    naive_predictor.save_results("results_2/")
+    # mkdir("results_2/")
+    #
+    # naive_predictor.save_results("results_2/")
