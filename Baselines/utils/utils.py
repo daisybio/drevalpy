@@ -276,6 +276,58 @@ def get_train_test_set(label_matrix, mode, train_size, metric):
 
     return train, test
 
+def get_cell_viab_data(path, train_2, test_2):
+    cell_viab = pd.read_csv(path, index_col="Primary Cell Line Name")
+
+    # mask for cell lines in train set (EC50 data has already been split for training, find corresp. in cell viab data)
+    mask_train = [True if x in train_2.columns else False for x in cell_viab.index]
+    cell_viab_train = cell_viab[mask_train]
+
+    # mask for cell lines in test set
+    mask_test = [True if x in test_2.columns else False for x in cell_viab.index]
+    cell_viab_test = cell_viab[mask_test]
+
+    # generating single drug models
+
+    # prepare viab data
+    cell_viab_train_drug = cell_viab_train[cell_viab_train["Compound"] == "17-AAG"].sort_values(by="Primary Cell Line Name")
+    cell_viab_train_drug.drop("Compound", axis=1, inplace=True)
+
+    cell_viab_test_drug = cell_viab_test[cell_viab_test["Compound"] == "17-AAG"].sort_values(by="Primary Cell Line Name")
+    cell_viab_test_drug.drop("Compound", axis=1, inplace=True)
+
+    # remove cell lines from train and test set which are not in cell viab data (probably because not tested for drug)
+    missing_cl_train = [x for x in cell_viab_train.index.unique() if x not in cell_viab_train_drug.index]
+    missing_cl_test = [x for x in cell_viab_test.index.unique() if x not in cell_viab_test_drug.index]
+
+    # train: fit the lin model using training data
+    X_train = cell_viab_train_drug.to_numpy()
+    y_train = train_2.loc["17-AAG"].drop(missing_cl_train).to_numpy()
+
+    X_test = cell_viab_test_drug.to_numpy()
+    y_test = test_2.loc["17-AAG"].drop(missing_cl_test).to_numpy()
+
+    # drop nans
+    # nans in predicted ec50
+    mask_train_2 = ~np.isnan(y_train)
+    X_train_2 = X_train[mask_train_2]
+    y_train_2 = y_train[mask_train_2]
+
+    mask_test_2 = ~np.isnan(y_test)
+    X_test_2 = X_test[mask_test_2]
+    y_test_2 = y_test[mask_test_2]
+
+    # nans in cell viab meassurements (probably due to technical error during experiment)
+    nan_idx_row = np.unique(np.asarray([i[0] for i in np.argwhere(np.isnan(X_train_2))]))
+    X_train_2 = np.delete(X_train_2, nan_idx_row, 0)
+    y_train_2 = np.delete(y_train_2, nan_idx_row, 0)
+
+    nan_idx_row_test = np.unique(np.asarray([i[0] for i in np.argwhere(np.isnan(X_test_2))]))
+    if len(nan_idx_row_test) > 0:
+        X_test_2 = np.delete(X_test_2, nan_idx_row_test, 0)
+        y_test_2 = np.delete(y_test_2, nan_idx_row_test, 0)
+
+    return X_train_2, y_train_2, X_test_2, y_test_2
 
 if __name__ == "__main__":
     label_matrix = pd.read_csv("/nfs/home/students/m.lorenz/datasets/cell_viability/CCLE/matrixes_raw/EC50 ("

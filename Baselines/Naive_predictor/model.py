@@ -276,8 +276,8 @@ class NaivePredictor:
 
 if __name__ == "__main__":
 
-    naive_predictor = NaivePredictor("/nfs/home/students/m.lorenz/datasets/cell_viability/CCLE/matrixes_raw/Amax_matrix.csv",
-                                     "Amax", "LPO", "drug")
+    naive_predictor = NaivePredictor("/nfs/home/students/m.lorenz/datasets/cell_viability/CCLE/matrixes_raw/EC50 (µM)_matrix.csv",
+                                     "EC50 (µM)", "LCO", "cl")
 
     naive_predictor.cell_line_views
     naive_predictor.drug_views
