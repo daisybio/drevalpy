@@ -129,7 +129,7 @@ class SimpleNeuralNetwork(DRPModel):
         :return: FeatureDataset
         """
         fingerprints = pd.read_csv(
-            "drug_fingerprints/drug_name_to_demorgan_128_map.csv", index_col=0
+            f"{path}/drug_fingerprints/drug_name_to_demorgan_128_map.csv", index_col=0
         ).T
         return FeatureDataset(
             {
