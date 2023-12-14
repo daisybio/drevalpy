@@ -2,20 +2,13 @@ from abc import ABC, abstractmethod
 from typing import Dict, List, Union
 import numpy as np
 
-from utils import leave_pair_out_cv
+from .utils import leave_pair_out_cv
 
 
 class Dataset(ABC):
     """
     Abstract wrapper class for datasets.
     """
-
-    def __init__(self, path: str):
-        """
-        Initializes the dataset.
-        :param path: path to the dataset
-        """
-        self.path = path
 
     @abstractmethod
     def load(self):
@@ -125,7 +118,7 @@ class FeatureDataset(Dataset):
     Class for feature datasets.
     """
 
-    def __init__(self, features: Dict[str : Dict[str : np.ndarray]], *args, **kwargs):
+    def __init__(self, features: Dict[str, Dict[str, np.ndarray]], *args, **kwargs):
         """
         Initializes the feature dataset.
         :features: dictionary of features, key: drug ID, value: Dict of feature views, key: feature name, value: feature vector
@@ -227,10 +220,7 @@ class FeatureDataset(Dataset):
         """
         return list(self.features[self.features.keys()[0]].keys())
 
-    
-    def get_feature_matrix(
-        self, view: str, identifiers: str
-    ) -> np.ndarray:
+    def get_feature_matrix(self, view: str, identifiers: str) -> np.ndarray:
         """
         Returns the feature matrix for the given view.
         :param drug_input: drug input

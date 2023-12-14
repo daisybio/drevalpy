@@ -10,6 +10,7 @@ from pytorch_lightning.callbacks import EarlyStopping
 from pytorch_lightning.callbacks import TQDMProgressBar
 from torch.utils.data import Dataset
 
+
 class RegressionDataset(Dataset):
     def __init__(self, X, y):
         self.X = torch.from_numpy(X).float()
@@ -21,16 +22,15 @@ class RegressionDataset(Dataset):
     def __len__(self):
         return len(self.X)
 
+
 class FeedForwardNetwork(pl.LightningModule):
-    def __init__(
-        self, n_features, n_units_per_layer=None, dropout_prob=None
-    ) -> None:
+    def __init__(self, n_features, n_units_per_layer=None, dropout_prob=None) -> None:
         if n_units_per_layer is None:
             n_units_per_layer = [512, 64]
         super().__init__()
         self.fully_connected_layers = nn.ModuleList()
         self.fully_connected_layers.append(nn.Linear(n_features, n_units_per_layer[0]))
-        
+
         for i in range(1, len(n_units_per_layer)):
             self.fully_connected_layers.append(
                 nn.Linear(n_units_per_layer[i - 1], n_units_per_layer[i])
@@ -128,8 +128,5 @@ class FeedForwardNetwork(pl.LightningModule):
         self.train(is_training)
         return y_pred
 
-
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters())
-
-
