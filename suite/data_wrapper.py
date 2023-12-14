@@ -254,11 +254,11 @@ class FeatureDataset(Dataset):
         :return: feature matrix
         """
         assert view in self.view_names, f"View '{view}' not in in the FeatureDataset."
-        missing_identifiers = [
+        missing_identifiers = {
             id_ for id_ in identifiers if id_ not in self.identifiers
-        ]
+        }
         assert (
             not missing_identifiers
-        ), f"Identifiers {missing_identifiers} not in the FeatureDataset."
+        ), f"{len(missing_identifiers)} of {len(np.unique(identifiers))} ids are not in the FeatureDataset. Missing ids: {missing_identifiers}"
 
         return np.stack([self.features[id_][view] for id_ in identifiers], axis=0)
