@@ -30,7 +30,7 @@ class FeedForwardNetwork(pl.LightningModule):
         super().__init__()
         self.fully_connected_layers = nn.ModuleList()
         self.fully_connected_layers.append(nn.Linear(n_features, n_units_per_layer[0]))
-
+        self.n_features = n_features
         for i in range(1, len(n_units_per_layer)):
             self.fully_connected_layers.append(
                 nn.Linear(n_units_per_layer[i - 1], n_units_per_layer[i])
@@ -53,7 +53,7 @@ class FeedForwardNetwork(pl.LightningModule):
         patience=5,
         checkpoint_path: Optional[str] = None,
         num_workers: int = 2,
-    ):
+    ) -> None:
         if trainer_params is None:
             trainer_params = {"progress_bar_refresh_rate": 0, "max_epochs": 10000}
 
@@ -96,7 +96,7 @@ class FeedForwardNetwork(pl.LightningModule):
             trainer.fit(self, train_loader)
         else:
             trainer.fit(self, train_loader, val_loader)
-        self.load_from_checkpoint(self.checkpoint_callback.best_model_path)
+        # TODO use best model from history self.load_from_checkpoint(self.checkpoint_callback.best_model_path)
 
     def forward(self, x):
         for layer in self.fully_connected_layers[:-2]:
