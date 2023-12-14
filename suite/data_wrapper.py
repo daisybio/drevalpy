@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Dict, List, Union
 import numpy as np
-
+from numpy.typing import ArrayLike
 from .utils import leave_pair_out_cv
 
 
@@ -30,13 +30,21 @@ class DrugResponseDataset(Dataset):
     Drug response dataset.
     """
 
-    def __init__(self, path: str, target_type: str, *args, **kwargs):
+    def __init__(
+        self,
+        target_type: str,
+        response: ArrayLike,
+        cell_line_ids: ArrayLike,
+        drug_ids: ArrayLike,
+        *args,
+        **kwargs,
+    ):
         """
         Initializes the drug response dataset.
-        :param path: path to the dataset
         :param target_type: type of the target value (IC50, EC50, AUC, classification)
-        :param args: additional arguments
-        :param kwargs: additional keyword arguments
+        :param response: drug response values per cell line and drug
+        :param cell_line_ids: cell line IDs
+        :param drug_ids: drug IDs
 
         Variables:
         response: drug response values per cell line and drug
@@ -44,23 +52,12 @@ class DrugResponseDataset(Dataset):
         drug_ids: drug IDs
         predictions: optional. Predicted drug response values per cell line and drug
         """
-        super(DrugResponseDataset, self).__init__(path)
+        super(DrugResponseDataset, self).__init__()
         self.target_type = target_type
-        self.response, self.cell_line_ids, self.drug_ids = self.read_data(
-            *args, **kwargs
-        )
+        self.response = response
+        self.cell_line_ids = cell_line_ids
+        self.drug_ids = drug_ids
         self.predictions = None
-
-    def read_data(self, *args, **kwargs):
-        """
-        Reads the data from the input path with possible additional inputs. Returns the responses, cell line IDs and drug IDs.
-        """
-        cell_line_ids = []
-        drug_ids = []
-        responses = []
-        with open(self.path, "r") as f:
-            pass
-        return responses, cell_line_ids, drug_ids
 
     def load(self):
         """
