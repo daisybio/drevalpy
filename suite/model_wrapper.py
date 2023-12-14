@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from .data_wrapper import DrugResponseDataset, FeatureDataset
-
+import numpy as np
 
 class DRPModel(ABC):
     """
@@ -169,7 +169,7 @@ class SingleDRPModel(DRPModel, ABC):
         """
         pass
 
-    def predict(self, cell_line_input: FeatureDataset, drug_input: str):
+    def predict(self, cell_line_input: FeatureDataset, drug_input: str) -> np.ndarray:
         """
         Predicts the response for the given input.
         :param cell_line_input: input associated with the cell line

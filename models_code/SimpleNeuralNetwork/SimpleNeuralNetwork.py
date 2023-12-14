@@ -99,7 +99,7 @@ class SimpleNeuralNetwork(DRPModel):
         # TODO
         raise NotImplementedError("load method not implemented")
 
-    def predict(self, cell_line_input: FeatureDataset, drug_input: FeatureDataset):
+    def predict(self, cell_line_input: FeatureDataset, drug_input: FeatureDataset) -> np.ndarray:
         """
         Predicts the response for the given input. Call the respective function from models_code here.
         :param cell_line_input: input associated with the cell line
