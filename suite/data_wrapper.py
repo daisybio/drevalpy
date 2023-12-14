@@ -99,6 +99,21 @@ class DrugResponseDataset(Dataset):
         self.cell_line_ids = self.cell_line_ids[mask]
         self.response = self.response[mask]
 
+    def reduce_to(self, cell_line_ids: ArrayLike, drug_ids: ArrayLike) -> None:
+        """
+        Removes all rows which contain a cell_line not in cell_line_ids or a drug not in drug_ids
+        :cell_line_ids: cell line IDs
+        :drug_ids: drug IDs
+        """
+        self.remove_drugs([drug for drug in self.drug_ids if drug not in drug_ids])
+        self.remove_cell_lines(
+            [
+                cell_line
+                for cell_line in self.cell_line_ids
+                if cell_line not in cell_line_ids
+            ]
+        )
+
     def split_dataset(
         self,
         n_cv_splits,
