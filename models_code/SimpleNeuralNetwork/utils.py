@@ -92,8 +92,10 @@ class FeedForwardNetwork(pl.LightningModule):
             callbacks=[early_stop_callback, self.checkpoint_callback, progress_bar],
             **trainer_params_copy
         )
-
-        trainer.fit(self, train_loader, val_loader)
+        if (X_eval is None) or (y_eval is None):
+            trainer.fit(self, train_loader)
+        else:
+            trainer.fit(self, train_loader, val_loader)
         self.load_from_checkpoint(self.checkpoint_callback.best_model_path)
 
     def forward(self, x):
