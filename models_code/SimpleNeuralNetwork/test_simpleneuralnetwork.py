@@ -32,6 +32,14 @@ for model, model_hpam_set in zip(models, hpam_sets):
         cell_line_ids=cl_features.identifiers, drug_ids=drug_features.identifiers
     )
     # todo crossvalidation splits etc
+    # response_data.split_dataset(
+    #    n_cv_splits=5,
+    #    mode="LPO",
+    #    split_validation=True,
+    #    validation_ratio=0.1,
+    #    random_state=42)
+    # something like this
+    # for split in response_data.cv_splits:
 
     for hyperparameter in model_hpam_set:
         model.train(

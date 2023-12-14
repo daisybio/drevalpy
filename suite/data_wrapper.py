@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, List, Union
 import numpy as np
 from numpy.typing import ArrayLike
-from .utils import leave_pair_out_cv
+from .utils import leave_pair_out_cv, leave_group_out_cv
 
 
 class Dataset(ABC):
@@ -143,13 +143,23 @@ class DrugResponseDataset(Dataset):
                 random_state,
             )
 
-        elif mode == "LCO":
-            # TODO
-            raise NotImplementedError("LCO split mode not implemented")
-        elif mode == "LDO":
-            # TODO
-            raise NotImplementedError("LDO split mode not implemented")
-        self.cv_splits = cv_splits
+        elif mode == "LCO" or mode == "LDO":
+            group = "cell_line" if mode == "LCO" else "drug"
+            cv_splits = leave_group_out_cv(
+                group=group,
+                n_cv_splits=n_cv_splits,
+                response=response,
+                cell_line_ids=cell_line_ids,
+                drug_ids=drug_ids,
+                split_validation=split_validation,
+                validation_ratio=validation_ratio,
+                random_state=random_state,
+            )
+        else:
+            raise ValueError(
+                f"Unknown split mode '{mode}'. Choose from 'LPO', 'LCO', 'LDO'."
+            )
+        self.cv_splits = cv_splits  # TODO save these as DrugResponseDatasets !!!
         return cv_splits
 
 
