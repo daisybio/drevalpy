@@ -218,7 +218,7 @@ class FeatureDataset(Dataset):
         """
         returns feature view names
         """
-        return list(self.features[self.features.keys()[0]].keys())
+        return list(self.features[list(self.features.keys())[0]].keys())
 
     def get_feature_matrix(self, view: str, identifiers: str) -> np.ndarray:
         """
