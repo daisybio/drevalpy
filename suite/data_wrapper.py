@@ -54,9 +54,9 @@ class DrugResponseDataset(Dataset):
         """
         super(DrugResponseDataset, self).__init__()
         self.target_type = target_type
-        self.response = response
-        self.cell_line_ids = cell_line_ids
-        self.drug_ids = drug_ids
+        self.response = np.array(response)
+        self.cell_line_ids = np.array(cell_line_ids)
+        self.drug_ids = np.array(drug_ids)
         self.predictions = None
 
     def load(self):
@@ -70,6 +70,34 @@ class DrugResponseDataset(Dataset):
         Saves the drug response dataset to data.
         """
         raise NotImplementedError("save method not implemented")
+
+    def remove_drugs(self, drugs_to_remove: Union[str, list]) -> None:
+        """
+        Removes drugs from the dataset.
+        :drugs_to_remove: name of drug or list of names of multiple drugs to remove
+        """
+        if isinstance(drugs_to_remove, str):
+            drugs_to_remove = [drugs_to_remove]
+
+        mask = [drug not in drugs_to_remove for drug in self.drug_ids]
+        self.drug_ids = self.drug_ids[mask]
+        self.cell_line_ids = self.cell_line_ids[mask]
+        self.response = self.response[mask]
+
+    def remove_cell_lines(self, cell_lines_to_remove: Union[str, list]) -> None:
+        """
+        Removes cell lines from the dataset.
+        :cell_lines_to_remove: name of cell line or list of names of multiple cell lines to remove
+        """
+        if isinstance(cell_lines_to_remove, str):
+            cell_lines_to_remove = [cell_lines_to_remove]
+
+        mask = [
+            cell_line not in cell_lines_to_remove for cell_line in self.cell_line_ids
+        ]
+        self.drug_ids = self.drug_ids[mask]
+        self.cell_line_ids = self.cell_line_ids[mask]
+        self.response = self.response[mask]
 
     def split_dataset(
         self,
@@ -123,7 +151,7 @@ class FeatureDataset(Dataset):
         super(FeatureDataset, self).__init__()
         self.features = features
         self.view_names = self.get_view_names()
-        self.identifier = self.get_ids()
+        self.identifiers = self.get_ids()
 
     @staticmethod
     def load():
@@ -225,4 +253,12 @@ class FeatureDataset(Dataset):
         :param view: view name
         :return: feature matrix
         """
-        return np.stack([self.features[identifier][view] for identifier in identifiers])
+        assert view in self.view_names, f"View '{view}' not in in the FeatureDataset."
+        missing_identifiers = [
+            id_ for id_ in identifiers if id_ not in self.identifiers
+        ]
+        assert (
+            not missing_identifiers
+        ), f"Identifiers {missing_identifiers} not in the FeatureDataset."
+
+        return np.stack([self.features[id_][view] for id_ in identifiers], axis=0)
