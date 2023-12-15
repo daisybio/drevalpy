@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from .data_wrapper import DrugResponseDataset, FeatureDataset
 import numpy as np
 
+
 class DRPModel(ABC):
     """
     Abstract wrapper class for drug response prediction models.
