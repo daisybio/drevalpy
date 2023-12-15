@@ -32,7 +32,6 @@ class DrugResponseDataset(Dataset):
 
     def __init__(
         self,
-        target_type: str,
         response: ArrayLike,
         cell_line_ids: ArrayLike,
         drug_ids: ArrayLike,
@@ -41,7 +40,6 @@ class DrugResponseDataset(Dataset):
     ):
         """
         Initializes the drug response dataset.
-        :param target_type: type of the target value (IC50, EC50, AUC, classification)
         :param response: drug response values per cell line and drug
         :param cell_line_ids: cell line IDs
         :param drug_ids: drug IDs
@@ -53,11 +51,25 @@ class DrugResponseDataset(Dataset):
         predictions: optional. Predicted drug response values per cell line and drug
         """
         super(DrugResponseDataset, self).__init__()
-        self.target_type = target_type
         self.response = np.array(response)
         self.cell_line_ids = np.array(cell_line_ids)
         self.drug_ids = np.array(drug_ids)
         self.predictions = None
+
+    def __len__(self):
+        return len(self.response)
+
+    def __str__(self):
+        if len(self.response) > 3:
+            string = f"DrugResponseDataset: CLs {self.cell_line_ids[:3]}...; Drugs {self.drug_ids[:3]}...; Response {self.response[:3]}..."
+        else:
+            string = f"DrugResponseDataset: CLs {self.cell_line_ids}; Drugs {self.drug_ids}; Response {self.response}"
+        if self.predictions is not None:
+            if len(self.predictions) > 3:
+                string += f"; Predictions {self.predictions[:3]}..."
+            else:
+                string += f"; Predictions {self.predictions}"
+        return string
 
     def load(self):
         """

@@ -99,14 +99,15 @@ class SimpleNeuralNetwork(DRPModel):
         # TODO
         raise NotImplementedError("load method not implemented")
 
-    def predict(self, cell_line_input: FeatureDataset, drug_input: FeatureDataset) -> np.ndarray:
+    def predict(self, cell_line_ids: , drug_ids: ,  cell_line_input: FeatureDataset, drug_input: FeatureDataset) -> np.ndarray: 
         """
         Predicts the response for the given input. Call the respective function from models_code here.
         :param cell_line_input: input associated with the cell line
         :param drug_input: input associated with the drug
         :return: predicted response
         """
-        X = self.get_feature_matrix(drug_input, cell_line_input, None)
+        raise NotImplementedError("predict method not implemented")
+        X = self.get_feature_matrix(drug_input, cell_line_input, None) #todo output is not used here, but is needed for get_feature_matrix restructure! 
         return self.model.predict(X)
 
     def get_cell_line_features(self, path: str) -> FeatureDataset:
