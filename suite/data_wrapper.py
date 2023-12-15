@@ -143,7 +143,7 @@ class DrugResponseDataset(Dataset):
                 random_state,
             )
 
-        elif mode == "LCO" or mode == "LDO":
+        elif mode in ["LCO", "LDO"]:
             group = "cell_line" if mode == "LCO" else "drug"
             cv_splits = leave_group_out_cv(
                 group=group,
