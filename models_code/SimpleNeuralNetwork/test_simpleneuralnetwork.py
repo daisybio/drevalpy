@@ -1,4 +1,3 @@
-# TODO this is not a proper test, but rather example/experimentation script
 from models_code import SimpleNeuralNetwork
 from suite.data_wrapper import DrugResponseDataset
 import pandas as pd
@@ -21,33 +20,36 @@ for model, model_hpam_set in zip(models, hpam_sets):
     cell_line_ids = response_data["CELL_LINE_NAME"].values
     drug_ids = response_data["DRUG_NAME"].values
     response_data = DrugResponseDataset(
-        target_type="IC50",
-        response=output,
-        cell_line_ids=cell_line_ids,
-        drug_ids=drug_ids,
+        response=output, cell_line_ids=cell_line_ids, drug_ids=drug_ids
     )
 
     # making sure there are no missing features:
     response_data.reduce_to(
         cell_line_ids=cl_features.identifiers, drug_ids=drug_features.identifiers
     )
-    # todo crossvalidation splits etc
-    # response_data.split_dataset(
-    #    n_cv_splits=5,
-    #    mode="LPO",
-    #    split_validation=True,
-    #    validation_ratio=0.1,
-    #    random_state=42)
-    # something like this
-    # for split in response_data.cv_splits:
+    response_data.split_dataset(
+        n_cv_splits=5,
+        mode="LPO",
+        split_validation=True,
+        validation_ratio=0.1,
+        random_state=42,
+    )
+    for split in response_data.cv_splits:
+        train_dataset = split["train"]
+        validation_dataset = split["validation"]
 
-    for hyperparameter in model_hpam_set:
-        model.train(
-            cell_line_input=cl_features,
-            drug_input=drug_features,
-            output=response_data,
-            hyperparameters=hyperparameter,
-        )
-        output = model.predict(cell_line_input=cl_features, drug_input=drug_features)
+        test_dataset = split["test"]
+        for hyperparameter in model_hpam_set:
+            model.train(
+                cell_line_input=cl_features,
+                drug_input=drug_features,
+                output=train_dataset,
+                hyperparameters=hyperparameter,
+            )
+            validation_dataset.predictions = model.predict(
+                cell_line_input=cl_features, drug_input=drug_features
+            )
 
-        # eval...
+            # TODO metric = evaluate(validation_dataset)
+            break
+        break
