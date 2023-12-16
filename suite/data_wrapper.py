@@ -83,6 +83,32 @@ class DrugResponseDataset(Dataset):
         """
         raise NotImplementedError("save method not implemented")
 
+    def add_rows(self, other: "DrugResponseDataset") -> None:
+        """
+        Adds rows from another dataset.
+        :other: other dataset
+        """
+        self.response = np.concatenate([self.response, other.response])
+        self.cell_line_ids = np.concatenate([self.cell_line_ids, other.cell_line_ids])
+        self.drug_ids = np.concatenate([self.drug_ids, other.drug_ids])
+
+        if self.predictions is not None and other.predictions is not None:
+            self.predictions = np.concatenate([self.predictions, other.predictions])
+
+    def shuffle(self, random_state: int = 42) -> None:
+        """
+        Shuffles the dataset.
+        :random_state: random state
+        """
+        indices = np.arange(len(self.response))
+        np.random.seed(random_state)
+        np.random.shuffle(indices)
+        self.response = self.response[indices]
+        self.cell_line_ids = self.cell_line_ids[indices]
+        self.drug_ids = self.drug_ids[indices]
+        if self.predictions is not None:
+            self.predictions = self.predictions[indices]
+
     def remove_drugs(self, drugs_to_remove: Union[str, list]) -> None:
         """
         Removes drugs from the dataset.
