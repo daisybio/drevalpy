@@ -26,13 +26,14 @@ class SimpleNeuralNetwork(DRPModel):
 
     def get_feature_matrix(
         self,
-        drug_input: FeatureDataset,
+        cell_line_ids: np.ndarray,
+        drug_ids: np.ndarray,
         cell_line_input: FeatureDataset,
-        output: DrugResponseDataset,
+        drug_input: FeatureDataset,
     ):
-        X_drug = drug_input.get_feature_matrix("fingerprints", output.drug_ids)
+        X_drug = drug_input.get_feature_matrix("fingerprints", drug_ids)
         X_cell_line = cell_line_input.get_feature_matrix(
-            "gene_expression", output.cell_line_ids
+            "gene_expression", cell_line_ids
         )
         return np.concatenate((X_drug, X_cell_line), axis=1)
 
@@ -52,7 +53,12 @@ class SimpleNeuralNetwork(DRPModel):
         :param drug_input: training data associated with the drug input
         :param output: training data associated with the reponse output
         """
-        X = self.get_feature_matrix(drug_input, cell_line_input, output)
+        X = self.get_feature_matrix(
+            cell_line_ids=output.cell_line_ids,
+            drug_ids=output.drug_ids,
+            cell_line_input=cell_line_input,
+            drug_input=drug_input,
+        )
 
         if (
             cell_line_input_earlystopping
@@ -99,15 +105,25 @@ class SimpleNeuralNetwork(DRPModel):
         # TODO
         raise NotImplementedError("load method not implemented")
 
-    def predict(self, cell_line_ids: , drug_ids: ,  cell_line_input: FeatureDataset, drug_input: FeatureDataset) -> np.ndarray: 
+    def predict(
+        self,
+        cell_line_ids: np.ndarray,
+        drug_ids: np.ndarray,
+        cell_line_input: FeatureDataset,
+        drug_input: FeatureDataset,
+    ) -> np.ndarray:
         """
         Predicts the response for the given input. Call the respective function from models_code here.
         :param cell_line_input: input associated with the cell line
         :param drug_input: input associated with the drug
         :return: predicted response
         """
-        raise NotImplementedError("predict method not implemented")
-        X = self.get_feature_matrix(drug_input, cell_line_input, None) #todo output is not used here, but is needed for get_feature_matrix restructure! 
+        X = self.get_feature_matrix(
+            cell_line_ids=cell_line_ids,
+            drug_ids=drug_ids,
+            cell_line_input=cell_line_input,
+            drug_input=drug_input,
+        )
         return self.model.predict(X)
 
     def get_cell_line_features(self, path: str) -> FeatureDataset:

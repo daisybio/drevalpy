@@ -48,7 +48,10 @@ for model, model_hpam_set in zip(models, hpam_sets):
                 hyperparameters=hyperparameter,
             )
             validation_dataset.predictions = model.predict(
-                cell_line_input=cl_features, drug_input=drug_features
+                cell_line_ids=validation_dataset.cell_line_ids,
+                drug_ids=validation_dataset.drug_ids,
+                cell_line_input=cl_features,
+                drug_input=drug_features,
             )
 
             # TODO metric = evaluate(validation_dataset)
