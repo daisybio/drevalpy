@@ -54,3 +54,16 @@ for model, model_hpam_set in zip(models, hpam_sets):
             # TODO metric = evaluate(validation_dataset)
             break
         break
+        # best_hyperparameter = ....
+        # train_dataset.add_rows(validation_dataset)
+        # train_dataset.shuffle(random_state=42)
+        # model.train(
+        #    cell_line_input=cl_features,
+        #    drug_input=drug_features,
+        #    output=train_dataset,
+        #    hyperparameters=best_hyperparameter,
+        # )
+        # test_dataset.predictions = model.predict(
+        #    cell_line_input=cl_features, drug_input=drug_features
+        # )
+        # TODO final_metric_fold = evaluate(test_dataset)
