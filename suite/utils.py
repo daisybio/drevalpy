@@ -129,3 +129,71 @@ def leave_group_out_cv(
             )
         cv_sets.append(cv_fold)
     return cv_sets
+
+
+def partial_correlation(
+    predictions: np.ndarray,
+    response: np.ndarray,
+    cell_line_ids: np.ndarray,
+    drug_ids: np.ndarray,
+) -> float:
+    """
+    Computes the partial correlation between predictions and response, conditioned on cell line and drug.
+    :param predictions: predictions
+    :param response: response
+    :param cell_line_ids: cell line IDs
+    :param drug_ids: drug IDs
+    :return: partial correlation float
+    """
+
+    assert (
+        len(predictions) == len(response) == len(cell_line_ids) == len(drug_ids)
+    ), "predictions, response, drug_ids, and cell_line_ids must have the same length"
+
+    raise NotImplementedError("partial correlation not implemented yet")
+
+
+def pearson(predictions: np.ndarray, response: np.ndarray) -> float:
+    """
+    Computes the pearson correlation between predictions and response.
+    :param predictions: predictions
+    :param response: response
+    :param cell_line_ids: cell line IDs
+    :param drug_ids: drug IDs
+    :return: pearson correlation float
+    """
+
+    assert len(predictions) == len(
+        response
+    ), "predictions, response  must have the same length"
+    return np.corrcoef(predictions, response)[0, 1]
+
+def spearman(predictions: np.ndarray, response: np.ndarray) -> float:
+    """
+    Computes the spearman correlation between predictions and response.
+    :param predictions: predictions
+    :param response: response
+    :param cell_line_ids: cell line IDs
+    :param drug_ids: drug IDs
+    :return: spearman correlation float
+    """
+    # we can use scipy.stats.spearmanr
+    assert len(predictions) == len(
+        response
+    ), "predictions, response  must have the same length"
+    raise NotImplementedError
+
+def kendall(predictions: np.ndarray, response: np.ndarray) -> float:
+    """
+    Computes the kendall tau correlation between predictions and response.
+    :param predictions: predictions
+    :param response: response
+    :param cell_line_ids: cell line IDs
+    :param drug_ids: drug IDs
+    :return: kendall tau correlation float
+    """
+    # we can use scipy.stats.spearmanr
+    assert len(predictions) == len(
+        response
+    ), "predictions, response  must have the same length"
+    raise NotImplementedError

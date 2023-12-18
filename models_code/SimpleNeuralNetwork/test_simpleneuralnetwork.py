@@ -2,6 +2,7 @@
 from models_code import SimpleNeuralNetwork
 from suite.data_wrapper import DrugResponseDataset
 import pandas as pd
+from suite.evaluation import evaluate
 
 neural_net_baseline = SimpleNeuralNetwork("smpl", target="IC50")
 
@@ -54,7 +55,7 @@ for model, model_hpam_set in zip(models, hpam_sets):
                 drug_input=drug_features,
             )
 
-            # TODO metric = evaluate(validation_dataset)
+            metric = evaluate(validation_dataset, metric=["rmse"])["rmse"]
             break
         break
         # best_hyperparameter = ....
