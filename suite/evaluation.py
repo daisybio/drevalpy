@@ -20,6 +20,7 @@ def evaluate(dataset: DrugResponseDataset, metric: Union[List[str], str]):
     """
     Evaluates the model on the given dataset.
     :param dataset: dataset to evaluate on
+    :param metric: evaluation metric(s) (one or a list of "mse", "rmse", "mae", "r2", "pearson", "spearman", "kendall", "partial_correlation")
     :return: evaluation metric
     """
     if isinstance(metric, str):
@@ -39,3 +40,13 @@ def evaluate(dataset: DrugResponseDataset, metric: Union[List[str], str]):
             results[m] = AVAILABLE_METRICS[m](predictions, response)
 
     return results
+
+
+def visualize_results(dataset: DrugResponseDataset, mode: Union[List[str], str]):
+    """
+    Visualizes the model on the given dataset.
+    :param dataset: dataset to evaluate on
+    :mode
+    :return: evaluation metric
+    """
+    raise NotImplementedError("visualize not implemented yet")
