@@ -167,6 +167,9 @@ def get_gene_expression_data(path, train_drp, test_drp, feature_selection=True, 
     else:
         gene_counts_test_np = gene_counts_test.to_numpy()
 
+    # TODO need to remove cell lines where all drug responses are == 0 (in test_drp data set, could also be the
+    # TODO case for train set but less likely but also implement for that, also add this for gen exp. data)
+
     # generating single drug models
     drug_dict = {}
     for drug in train_drp.index:
@@ -194,3 +197,54 @@ def get_gene_expression_data(path, train_drp, test_drp, feature_selection=True, 
         drug_dict[drug] = data_dict  # nested dict
 
     return gene_counts, drug_dict
+
+
+def get_morgan_fingerprints(path, train_drp, test_drp):
+    morgan_fingerprints = pd.read_csv(path, index_col=0)
+
+    # split morgan fingerprints df to train and test set corresponding to already splitted drp data
+    morgan_fingerprints_train = morgan_fingerprints[morgan_fingerprints.index.isin(train_drp.index)]
+    morgan_fingerprints_test = morgan_fingerprints[morgan_fingerprints.index.isin(test_drp.index)]
+
+    # sort index of train and test set to match the order of the drp data
+    morgan_fingerprints_train.sort_index(inplace=True)
+    morgan_fingerprints_test.sort_index(inplace=True)
+
+    # remove cell lines only containing nans in drp data (lead to empty numpy arrays messing up lin regression)
+    mask_drp = (train_drp.isna().sum() != len(train_drp)) & (test_drp.isna().sum() != len(test_drp))
+
+    train_drp = train_drp.loc[:, mask_drp]
+    test_drp = test_drp.loc[:, mask_drp]
+
+    # TODO: potentially add feature selection for morgan fingerprints
+    # convert to numpy array
+    morgan_fingerprints_train_np = morgan_fingerprints_train.to_numpy()
+    morgan_fingerprints_test_np = morgan_fingerprints_test.to_numpy()
+
+    # for the generation of single cell line models, create dict with required data
+    cl_dict = {}
+    for cl in train_drp.columns:
+        # select drp data of cell line
+        train_drp_cl = train_drp[cl].sort_index()
+        train_drp_cl_np = train_drp_cl.to_numpy()
+
+        test_drp_cl = test_drp[cl].sort_index()
+        test_drp_cl_np = test_drp_cl.to_numpy()
+
+        # drop nans in drug response data
+        mask_train = ~np.isnan(train_drp_cl_np)
+        mask_train = mask_train.reshape(-1)
+        morgan_fingerprints_train_np_nona = morgan_fingerprints_train_np[mask_train]
+        train_drp_cl_np_nona = train_drp_cl_np[mask_train]
+
+        mask_test = ~np.isnan(test_drp_cl_np)
+        mask_test = mask_test.reshape(-1)
+        morgan_fingerprints_test_np_nona = morgan_fingerprints_test_np[mask_test]
+        test_drp_cl_np_nona = test_drp_cl_np[mask_test]
+
+        # add data to dict of format {"cl1": {X_train:[..], y_train:[..], X_test:[..], y_test:[..]}, "cl2": ...}
+        data_dict = {"X_train": morgan_fingerprints_train_np_nona, "y_train": train_drp_cl_np_nona,
+                     "X_test": morgan_fingerprints_test_np_nona, "y_test": test_drp_cl_np_nona}
+        cl_dict[cl] = data_dict  # nested dict
+
+    return morgan_fingerprints, cl_dict
