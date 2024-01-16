@@ -2,9 +2,12 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import ShuffleSplit, train_test_split, GroupShuffleSplit
+from sklearn.decomposition import PCA
 from pydeseq2.preprocessing import deseq2_norm
 from pydeseq2.dds import DeseqDataSet
 from itertools import cycle
+
+from utils.utils import split, cl_drug_info_df
 
 
 def get_train_test_set(label_matrix, mode, train_size, metric):
@@ -129,51 +132,52 @@ def select_genexp_features(X_train, ntop=500, mode="NormTransform"):
 
         dds = DeseqDataSet(counts=gene_counts_train_df, metadata=metadata)
         dds.vst(use_design=False)
-
         deseq2_counts = pd.DataFrame(dds.layers["vst_counts"],
                                      index=gene_counts_train_df.index, columns=gene_counts_train_df.columns)
 
     # calculate the variance of each gene
     rv = deseq2_counts.var(axis=0).sort_values(ascending=False)
 
-    # select the top 500 genes with the highest variance
-    ntop = 500
+    # select the top n genes with the highest variance
     gene_ids_top_var_pydeseq2 = rv.index[:ntop]
     gene_ids_top_var_pydeseq2
     deseq2_counts = deseq2_counts[gene_ids_top_var_pydeseq2]
     deseq2_counts_np = deseq2_counts.to_numpy()
 
-    return deseq2_counts_np
+    return gene_ids_top_var_pydeseq2, deseq2_counts_np
 
 
-def get_gene_expression_data(path, train_drp, test_drp, feature_selection=True, selection_method="NormTransform"):
-    gene_counts = pd.read_csv(path, sep="\t", index_col=0).T
+def get_gene_expression_data(feature_df, train_drp, test_drp, feature_selection=True, selection_method="NormTransform"):
+    # gene_counts = pd.read_csv(path, sep="\t", index_col=0).T
+    gene_counts = feature_df
 
     # mask for cell lines in train set (EC50 data has already been split, find corresp. in cell viab data)
     mask_train = [True if x in train_drp.columns else False for x in gene_counts.index]
     gene_counts_train = gene_counts[mask_train].sort_index()  # sort is important for cl ids to be same order as in drp
 
-    if feature_selection:
-        gene_counts_train_np = select_genexp_features(gene_counts_train, ntop=500, mode=selection_method)
-    else:
-        gene_counts_train_np = gene_counts_train.to_numpy()
-
     # mask for cell lines in test set
     mask_test = [True if x in test_drp.columns else False for x in gene_counts.index]
-    gene_counts_test = gene_counts[mask_test]  # might have to sort this as well in the LCO setting (for line 344)
+    gene_counts_test = gene_counts[mask_test].sort_index()  # sort is important for cl ids to be same order as in drp
 
+    # feature selection
     if feature_selection:
-        gene_counts_test_np = select_genexp_features(gene_counts_test, ntop=500, mode=selection_method)
+        selct_genes, gene_counts_train_np = select_genexp_features(gene_counts_train, ntop=500, mode=selection_method)
+        gene_counts_test_np = gene_counts_test[selct_genes].to_numpy()
     else:
+        gene_counts_train_np = gene_counts_train.to_numpy()
         gene_counts_test_np = gene_counts_test.to_numpy()
 
-    # TODO need to remove cell lines where all drug responses are == 0 (in test_drp data set, could also be the
-    # TODO case for train set but less likely but also implement for that, also add this for gen exp. data)
+    # remove drugs only containing nans in drp data (lead to empty numpy arrays messing up lin regression)
+    mask_drp = (train_drp.isna().sum(axis=1) != train_drp.shape[1]) & (train_drp.isna().sum(axis=1) != train_drp.shape[1])
+    train_drp = train_drp.loc[mask_drp, :]
+    test_drp = test_drp.loc[mask_drp, :]
 
-    # generating single drug models
+    # for the generation of single drug models, create dict containing all required data
+
     drug_dict = {}
     for drug in train_drp.index:
         # select drp data of drug
+
         train_drp_drug = train_drp[train_drp.index == drug].T.sort_index()
         train_drp_drug_np = train_drp_drug.to_numpy()
 
@@ -196,11 +200,12 @@ def get_gene_expression_data(path, train_drp, test_drp, feature_selection=True, 
                      "X_test": gene_counts_test_np_nona, "y_test": test_drp_drug_np_nona}
         drug_dict[drug] = data_dict  # nested dict
 
-    return gene_counts, drug_dict
+    return drug_dict
 
 
-def get_morgan_fingerprints(path, train_drp, test_drp):
-    morgan_fingerprints = pd.read_csv(path, index_col=0)
+def get_morgan_fingerprints(feature_df, train_drp, test_drp, feature_selection=True):
+    # morgan_fingerprints = pd.read_csv(path, index_col=0)
+    morgan_fingerprints = feature_df
 
     # split morgan fingerprints df to train and test set corresponding to already splitted drp data
     morgan_fingerprints_train = morgan_fingerprints[morgan_fingerprints.index.isin(train_drp.index)]
@@ -210,18 +215,23 @@ def get_morgan_fingerprints(path, train_drp, test_drp):
     morgan_fingerprints_train.sort_index(inplace=True)
     morgan_fingerprints_test.sort_index(inplace=True)
 
+    # feature selection using PCA
+    if feature_selection:
+        pca_model = PCA(n_components=19)
+        pca_model.fit(morgan_fingerprints_train)
+        morgan_fingerprints_train_np = pca_model.transform(morgan_fingerprints_train)
+        morgan_fingerprints_test_np = pca_model.transform(morgan_fingerprints_test)
+    else:
+        morgan_fingerprints_train_np = morgan_fingerprints_train.to_numpy()
+        morgan_fingerprints_test_np = morgan_fingerprints_test.to_numpy()
+
     # remove cell lines only containing nans in drp data (lead to empty numpy arrays messing up lin regression)
     mask_drp = (train_drp.isna().sum() != len(train_drp)) & (test_drp.isna().sum() != len(test_drp))
-
     train_drp = train_drp.loc[:, mask_drp]
     test_drp = test_drp.loc[:, mask_drp]
 
-    # TODO: potentially add feature selection for morgan fingerprints
-    # convert to numpy array
-    morgan_fingerprints_train_np = morgan_fingerprints_train.to_numpy()
-    morgan_fingerprints_test_np = morgan_fingerprints_test.to_numpy()
-
     # for the generation of single cell line models, create dict with required data
+
     cl_dict = {}
     for cl in train_drp.columns:
         # select drp data of cell line
@@ -247,4 +257,4 @@ def get_morgan_fingerprints(path, train_drp, test_drp):
                      "X_test": morgan_fingerprints_test_np_nona, "y_test": test_drp_cl_np_nona}
         cl_dict[cl] = data_dict  # nested dict
 
-    return morgan_fingerprints, cl_dict
+    return cl_dict
