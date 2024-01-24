@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
 import os
+import logging
 import numpy as np
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 
 def mkdir(directory):
@@ -76,9 +79,9 @@ def remove_outliers(drp_con, metric, mode, data_set_str):
     upper_array = np.where(drp_con[metric] >= upper)[0]
     lower_array = np.where(drp_con[metric] <= lower)[0]
 
-    print(f"{metric} - {data_set_str}:\n"
-          f"total upper array outliers {upper_array.size}\n"
-          f"total lower array outliers {lower_array.size}\n")
+    logger.info(f"\n\n{metric} - {data_set_str}:\n"
+                f"total upper array outliers {upper_array.size}\n"
+                f"total lower array outliers {lower_array.size}\n")
 
     if mode == "replace":
         # Replace the outliers with nans
@@ -127,14 +130,17 @@ def preprocessing(train_prepro,
             dataset_lin = data_set  # in LPO case data is already linear
 
         if remove_out:
+            logger.info(f"Removing outliers from {set_string[i]} set")
             dataset_lin = remove_outliers(dataset_lin, metric, "replace", set_string[i])
 
         if norm_data:
+            logger.info(f"Normalizing {set_string[i]} set")
             dataset_lin = normalize_data(dataset_lin, metric)
 
         if log_transform:
             # dataset_lin[metric] = np.log(dataset_lin[metric] + 1) # in M umrechnen (also mal 10^-6 und dann -log10
             # davon)
+            logger.info(f"Log transforming {set_string[i]} set")
 
             if "µM" in metric:
                 dataset_lin[metric] = -np.log10(dataset_lin[metric] * 10 ** -6)
@@ -148,7 +154,7 @@ def preprocessing(train_prepro,
             # dataset_postpro.reset_index(inplace=True)
 
         elif task == "LPO":
-            dataset_postpro = dataset_lin
+            dataset_postpro = dataset_lin  # .pivot(index="Compound", columns="Primary Cell Line Name", values=metric)
 
         dataset_postpro_ls.append(dataset_postpro)
 
