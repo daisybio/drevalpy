@@ -29,7 +29,12 @@ class CustomModelWrapper(DRPModel):
         """
         pass
 
-    def train(self, cell_line_input: FeatureDataset, drug_input: FeatureDataset, output: DrugResponseDataset):
+    def train(
+        self,
+        cell_line_input: FeatureDataset,
+        drug_input: FeatureDataset,
+        output: DrugResponseDataset,
+    ):
         """
         Trains the model.
         :param cell_line_input: training data associated with the cell line input
@@ -47,7 +52,12 @@ class CustomModelWrapper(DRPModel):
         """
         pass
 
-    def evaluate(self, cell_line_input: FeatureDataset, drug_input: FeatureDataset, output: DrugResponseDataset):
+    def evaluate(
+        self,
+        cell_line_input: FeatureDataset,
+        drug_input: FeatureDataset,
+        output: DrugResponseDataset,
+    ):
         """
         Evaluates the model.
         :param cell_line_input: evaluation data associated with the cell line input

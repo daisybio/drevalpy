@@ -5,6 +5,7 @@ class CustomDRPDataset(DrugResponseDataset):
     """
     Wrapper class to be implemented for a new custom drug response dataset.
     """
+
     def __init__(self, path: str, name: str, target_type: str, *args, **kwargs):
         """
         Initializes the dataset wrapper.
@@ -21,7 +22,7 @@ class CustomDRPDataset(DrugResponseDataset):
         cell_line_ids = []
         drug_ids = []
         responses = []
-        with open(self.path, 'r') as f:
+        with open(self.path, "r") as f:
             pass
         return responses, cell_line_ids, drug_ids
 

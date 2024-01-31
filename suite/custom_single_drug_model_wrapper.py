@@ -6,6 +6,7 @@ class CustomSingleDrugModelWrapper(SingleDRPModel):
     """
     Wrapper class to be implemented for a new custom model that builds one model per drug.
     """
+
     @property
     def cell_line_views(self):
         """
@@ -28,7 +29,12 @@ class CustomSingleDrugModelWrapper(SingleDRPModel):
         """
         pass
 
-    def train_drug(self, cell_line_input: FeatureDataset, drug_name: str, output: DrugResponseDataset):
+    def train_drug(
+        self,
+        cell_line_input: FeatureDataset,
+        drug_name: str,
+        output: DrugResponseDataset,
+    ):
         """
         Trains one model per drug.
         :param cell_line_input: training data associated with the cell line input
@@ -46,7 +52,12 @@ class CustomSingleDrugModelWrapper(SingleDRPModel):
         """
         pass
 
-    def evaluate(self, cell_line_input: FeatureDataset, drug_input: str, output: DrugResponseDataset):
+    def evaluate(
+        self,
+        cell_line_input: FeatureDataset,
+        drug_input: str,
+        output: DrugResponseDataset,
+    ):
         """
         Evaluates the model.
         :param cell_line_input: evaluation data associated with the cell line input

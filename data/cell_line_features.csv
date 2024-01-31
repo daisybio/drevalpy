@@ -1,0 +1,4 @@
+Feature,Path
+Gene Expression,data/cell_line_input/GDSC/gene_expression.csv
+Mutation,data/cell_line_input/GDSC/mutations.csv
+Copy Number Variation,data/cell_line_input/GDSC/copy_number_variation_gistic.csv
