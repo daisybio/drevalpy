@@ -4,6 +4,9 @@ from difflib import SequenceMatcher
 import warnings
 
 set_of_unmatched_cell_lines = set()
+matched_cell_lines = dict()
+renamed_cell_lines = dict()
+no_match = set()
 
 
 def create_cl_dict(df):
@@ -35,6 +38,7 @@ def map_to_cellosaurus(df, cl_dict_ac, cl_dict_sy, species_dict, output_path):
     for index, row in df.iterrows():
         try:
             df.loc[index, 'cellosaurus_id'] = cl_dict_ac[index]
+            matched_cell_lines[index] = cl_dict_ac[index]
             species = species_dict.get(cl_dict_ac[index])
             # if 'Human' is not part of species string, warn
             if 'Human' not in species:
@@ -42,6 +46,7 @@ def map_to_cellosaurus(df, cl_dict_ac, cl_dict_sy, species_dict, output_path):
         except KeyError:
             try:
                 df.loc[index, 'cellosaurus_id'] = cl_dict_sy[index]
+                matched_cell_lines[index] = cl_dict_sy[index]
                 species = species_dict.get(cl_dict_sy[index])
                 # if 'Human' is not part of species string, warn
                 if 'Human' not in species:
@@ -56,6 +61,7 @@ def map_to_cellosaurus(df, cl_dict_ac, cl_dict_sy, species_dict, output_path):
             except KeyError:
                 print(f'no match at all for {index}')
                 df.loc[index, 'cellosaurus_id'] = pd.NA
+                no_match.add(index)
 
     # drop all rows where no cellosaurus ID could be found
     df = df.dropna(subset=['cellosaurus_id'])
@@ -74,8 +80,7 @@ def preprocess_gex():
     # make to index
     gex = gex.set_index('cell_line_name')
     # replace the cell line names, e.g., 'RCM-1' with 'RCM-1 [Human rectal adenocarcinoma]', 'C32' with 'C32 [Human melanoma]'
-    gex = gex.rename(
-        index={'JM1': 'JM-1',
+    renamed = {'JM1': 'JM-1',
                'HT55': 'HT-55',
                'K2': 'K2 [Human melanoma]',
                'MS-1': 'MS-1 [Human lung carcinoma]',
@@ -90,7 +95,10 @@ def preprocess_gex():
                'HH': 'HH [Human lymphoma]',
                'HARA': 'HARA [Human squamous cell lung carcinoma]',
                'TK': 'TK [Human B-cell lymphoma]',
-               'NOS-1': 'NOS-1 [Human osteosarcoma]'})
+               'NOS-1': 'NOS-1 [Human osteosarcoma]'}
+    gex = gex.rename(
+        index=renamed)
+    renamed_cell_lines.update(renamed)
     return gex
 
 
@@ -102,8 +110,7 @@ def preprocess_methylation():
     # make to index
     methylation = methylation.set_index('cell_line_name')
     # replace the cell line names, e.g., 'RCM-1' with 'RCM-1 [Human rectal adenocarcinoma]', 'C32' with 'C32 [Human melanoma]'
-    methylation = methylation.rename(
-        index={'JM1': 'JM-1',
+    renamed = {'JM1': 'JM-1',
                'HT55': 'HT-55',
                'MO': 'Mo',
                'MS-1': 'MS-1 [Human lung carcinoma]',
@@ -133,7 +140,10 @@ def preprocess_methylation():
                'RERF-LC-SQ1': 'RERF-LC-Sq1',
                'SAT': 'SAT [Human HNSCC]',
                'TK': 'TK [Human B-cell lymphoma]',
-               'PC-3_JPC-3': 'PC-3'})
+               'PC-3_JPC-3': 'PC-3'}
+    methylation = methylation.rename(
+        index=renamed)
+    renamed_cell_lines.update(renamed)
     return methylation
 
 
@@ -145,8 +155,7 @@ def preprocess_mutation():
     # make to index
     mutation = mutation.set_index('cell_line_name')
     # replace the cell line names, e.g., 'RCM-1' with 'RCM-1 [Human rectal adenocarcinoma]', 'C32' with 'C32 [Human melanoma]'
-    mutation = mutation.rename(
-        index={'JM1': 'JM-1',
+    renamed = {'JM1': 'JM-1',
                'HT55': 'HT-55',
                'K2': 'K2 [Human melanoma]',
                'MS-1': 'MS-1 [Human lung carcinoma]',
@@ -164,7 +173,10 @@ def preprocess_mutation():
                'SAT': 'SAT [Human HNSCC]',
                'TALL-1': 'TALL-1 [Human adult T-ALL]',
                'TK': 'TK [Human B-cell lymphoma]'
-               })
+               }
+    mutation = mutation.rename(
+        index=renamed)
+    renamed_cell_lines.update(renamed)
     return mutation
 
 
@@ -175,8 +187,7 @@ def preprocess_cnv():
     cnv = cnv.rename(columns={'model_name': 'cell_line_name'})
     # make to index
     cnv = cnv.set_index('cell_line_name')
-    cnv = cnv.rename(
-        index={'JM1': 'JM-1',
+    renamed = {'JM1': 'JM-1',
                'HT55': 'HT-55',
                'K2': 'K2 [Human melanoma]',
                'MS-1': 'MS-1 [Human lung carcinoma]',
@@ -192,7 +203,9 @@ def preprocess_cnv():
                'HARA': 'HARA [Human squamous cell lung carcinoma]',
                'HH': 'HH [Human lymphoma]',
                'Hep3B2-1-7': 'Hep 3B2.1-7',
-               'G-292-Clone-A141B1': 'G-292 clone A141B1'})
+               'G-292-Clone-A141B1': 'G-292 clone A141B1'}
+    cnv = cnv.rename(
+        index=renamed)
     return cnv
 
 
@@ -205,8 +218,7 @@ def preprocess_binarized_drp():
     # make to index
     drp = drp.set_index('cell_line_name')
     # replace the cell line names, e.g., 'RCM-1' with 'RCM-1 [Human rectal adenocarcinoma]', 'C32' with 'C32 [Human melanoma]'
-    drp = drp.rename(
-        index={'JM1': 'JM-1',
+    renamed = {'JM1': 'JM-1',
                'HT55': 'HT-55',
                'K2': 'K2 [Human melanoma]',
                'MS-1': 'MS-1 [Human lung carcinoma]',
@@ -223,7 +235,10 @@ def preprocess_binarized_drp():
                'PC-3 [JPC-3]': 'PC-3',
                'OMC-1': 'OMC-1 [Human cervical carcinoma]',
                'TALL-1': 'TALL-1 [Human adult T-ALL]'
-               })
+               }
+    drp = drp.rename(
+        index=renamed)
+    renamed_cell_lines.update(renamed)
     return drp
 
 
@@ -247,8 +262,7 @@ def preprocess_gdsc_1():
     # get long format into wide format: rows should be cell line names (CELL_LINE_NAME column), columns should be drug names (DRUG_NAME column), values are in LN_IC50 column
     drp = drp.pivot(index='cell_line_name', columns='DRUG_NAME', values='LN_IC50')
     # replace the cell line names, e.g., 'RCM-1' with 'RCM-1 [Human rectal adenocarcinoma]', 'C32' with 'C32 [Human melanoma]'
-    drp = drp.rename(
-        index={'JM1': 'JM-1',
+    renamed = {'JM1': 'JM-1',
                'HT55': 'HT-55',
                'K2': 'K2 [Human melanoma]',
                'MS-1': 'MS-1 [Human lung carcinoma]',
@@ -267,7 +281,9 @@ def preprocess_gdsc_1():
                'RCM-1': 'RCM-1 [Human rectal adenocarcinoma]',
                'SAT': 'SAT [Human HNSCC]',
                'TALL-1': 'TALL-1 [Human adult T-ALL]',
-               'TK': 'TK [Human B-cell lymphoma]'})
+               'TK': 'TK [Human B-cell lymphoma]'}
+    drp = drp.rename(
+        index=renamed)
     return drp
 
 
@@ -286,8 +302,7 @@ def preprocess_gdsc_2():
     # get long format into wide format: rows should be cell line names (CELL_LINE_NAME column), columns should be drug names (DRUG_NAME column), values are in LN_IC50 column
     drp = drp.pivot(index='cell_line_name', columns='DRUG_NAME', values='LN_IC50')
     # replace the cell line names, e.g., 'RCM-1' with 'RCM-1 [Human rectal adenocarcinoma]', 'C32' with 'C32 [Human melanoma]'
-    drp = drp.rename(
-        index={'HT55': 'HT-55',
+    renamed = {'HT55': 'HT-55',
                'MS-1': 'MS-1 [Human lung carcinoma]',
                'C32': 'C32 [Human melanoma]',
                'G-292-Clone-A141B1': 'G-292 clone A141B1',
@@ -301,7 +316,10 @@ def preprocess_gdsc_2():
                'PC-3_[JPC-3]': 'PC-3',
                'RCM-1': 'RCM-1 [Human rectal adenocarcinoma]',
                'SAT': 'SAT [Human HNSCC]',
-               'TK': 'TK [Human B-cell lymphoma]'})
+               'TK': 'TK [Human B-cell lymphoma]'}
+    drp = drp.rename(
+        index=renamed)
+    renamed_cell_lines.update(renamed)
     return drp
 
 
@@ -338,3 +356,15 @@ if __name__ == '__main__':
     drp_gdsc_2 = preprocess_gdsc_2()
     map_to_cellosaurus(drp_gdsc_2, cellosaurus_ac_dict, cellosaurus_sy_dict, species_dict,
                        'response_output/GDSC/response_GDSC2_cellosaurus.csv')
+
+    # export matched cell lines to csv file
+    matched_cell_lines_df = pd.DataFrame.from_dict(matched_cell_lines, orient='index', columns=['cellosaurus_id'])
+    matched_cell_lines_df.to_csv('mapping/matched_cell_lines.csv')
+
+    # export unmatched cell lines to csv file
+    unmatched_cell_lines_df = pd.DataFrame(list(no_match), columns=['cell_line_name'])
+    unmatched_cell_lines_df.to_csv('mapping/unmatched_cell_lines.csv')
+
+    # export renamed cell lines to csv file
+    renamed_cell_lines_df = pd.DataFrame.from_dict(renamed_cell_lines, orient='index', columns=['cell_line_name'])
+    renamed_cell_lines_df.to_csv('mapping/renamed_cell_lines.csv')
