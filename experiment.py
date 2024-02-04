@@ -138,7 +138,7 @@ def hpam_tune_raytune(
             validation_dataset=validation_dataset,
             metric="rmse",
         ),
-        config={"config": tune.grid_search(hpam_set)},
+        config=tune.grid_search(hpam_set),
         mode="min",
         num_samples=len(hpam_set),
         resources_per_trial={"cpu": 1},  # adapt this, also gpu
