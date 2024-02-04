@@ -12,19 +12,12 @@ def drug_response_experiment(
     models: List[DRPModel],
     response_data: DrugResponseDataset,
     multiprocessing: bool = False,
-) -> Dict[List[DrugResponseDataset]]:
+) -> Dict[str, List[DrugResponseDataset]]:
     result = {}
     for model in models:
         result[model.model_name] = []
         model_hpam_set = model.get_hyperparameter_set()
 
-        cl_features = model.get_cell_line_features(path=model_hpam_set["feature_path"])
-        drug_features = model.get_drug_features(path=model_hpam_set["feature_path"])
-
-        # making sure there are no missing features:
-        response_data.reduce_to(
-            cell_line_ids=cl_features.identifiers, drug_ids=drug_features.identifiers
-        )
         response_data.split_dataset(
             n_cv_splits=5,
             mode="LPO",
@@ -42,8 +35,6 @@ def drug_response_experiment(
                     train_dataset=train_dataset,
                     validation_dataset=validation_dataset,
                     hpam_set=model_hpam_set,
-                    cl_features=cl_features,
-                    drug_features=drug_features,
                 )
             else:
                 best_hpams = hpam_tune(
@@ -51,39 +42,63 @@ def drug_response_experiment(
                     train_dataset=train_dataset,
                     validation_dataset=validation_dataset,
                     hpam_set=model_hpam_set,
-                    cl_features=cl_features,
-                    drug_features=drug_features,
                 )
-            model.train(
-                cell_line_input=cl_features,
-                drug_input=drug_features,
-                output=train_dataset,
-                hyperparameters=best_hpams,
+            train_dataset.add_rows(
+                validation_dataset
+            )  # use full train val set data for final training
+            train_dataset.shuffle(random_state=42)
+
+            test_dataset = train_and_predict(
+                model=model,
+                hpams=best_hpams,
+                train_dataset=train_dataset,
+                prediction_dataset=test_dataset,
             )
-            test_dataset.predictions = model.predict(
-                cell_line_input=cl_features, drug_input=drug_features
-            )
+
             result[model.model_name].append(test_dataset)
     return result
 
 
-def train_and_evaluate(
+def train_and_predict(
     model: DRPModel,
-    hpams: Dict[List],
-    cl_features: FeatureDataset,
-    drug_features: FeatureDataset,
+    hpams: Dict[str, List],
     train_dataset: DrugResponseDataset,
-    validation_dataset: DrugResponseDataset,
-    metric: str = "rmse",
-) -> float:
+    prediction_dataset: DrugResponseDataset,
+):
+    cl_features = model.get_cell_line_features(path=hpams["feature_path"])
+    drug_features = model.get_drug_features(path=hpams["feature_path"])
+
+    # making sure there are no missing features:
+    train_dataset.reduce_to(
+        cell_line_ids=cl_features.identifiers, drug_ids=drug_features.identifiers
+    )
+    prediction_dataset.reduce_to(
+        cell_line_ids=cl_features.identifiers, drug_ids=drug_features.identifiers
+    )
     model.train(
         cell_line_input=cl_features,
         drug_input=drug_features,
         output=train_dataset,
         hyperparameters=hpams,
     )
-    validation_dataset.predictions = model.predict(
+    prediction_dataset.predictions = model.predict(
         cell_line_input=cl_features, drug_input=drug_features
+    )
+    return prediction_dataset
+
+
+def train_and_evaluate(
+    model: DRPModel,
+    hpams: Dict[str, List],
+    train_dataset: DrugResponseDataset,
+    validation_dataset: DrugResponseDataset,
+    metric: str = "rmse",
+) -> float:
+    validation_dataset = train_and_predict(
+        model=model,
+        hpams=hpams,
+        train_dataset=train_dataset,
+        prediction_dataset=validation_dataset,
     )
     return evaluate(validation_dataset, metric=[metric])[metric]
 
@@ -93,8 +108,6 @@ def hpam_tune(
     train_dataset: DrugResponseDataset,
     validation_dataset: DrugResponseDataset,
     hpam_set: List[Dict],
-    cl_features: FeatureDataset,
-    drug_features: FeatureDataset,
 ) -> Dict:
     best_rmse = float("inf")
     best_hyperparameters = None
@@ -102,9 +115,6 @@ def hpam_tune(
         rmse = train_and_evaluate(
             model=model,
             hpams=hyperparameter,
-            cl_features=cl_features,
-            drug_features=drug_features,
-            train_dataset=train_dataset,
             validation_dataset=validation_dataset,
             metric="rmse",
         )
@@ -119,15 +129,11 @@ def hpam_tune_raytune(
     train_dataset: DrugResponseDataset,
     validation_dataset: DrugResponseDataset,
     hpam_set: List[Dict],
-    cl_features: FeatureDataset,
-    drug_features: FeatureDataset,
 ) -> Dict:
     analysis = tune.run(
         lambda hpams: train_and_evaluate(
             model=model,
             hpams=hpams,
-            cl_features=cl_features,
-            drug_features=drug_features,
             train_dataset=train_dataset,
             validation_dataset=validation_dataset,
             metric="rmse",
