@@ -6,6 +6,7 @@ import pandas as pd
 from suite.evaluation import evaluate
 from suite.model_wrapper import DRPModel
 from ray import tune
+import os
 
 
 def drug_response_experiment(
@@ -72,6 +73,7 @@ def train_and_predict(
     train_dataset.reduce_to(
         cell_line_ids=cl_features.identifiers, drug_ids=drug_features.identifiers
     )
+
     prediction_dataset.reduce_to(
         cell_line_ids=cl_features.identifiers, drug_ids=drug_features.identifiers
     )
@@ -82,8 +84,12 @@ def train_and_predict(
         hyperparameters=hpams,
     )
     prediction_dataset.predictions = model.predict(
-        cell_line_input=cl_features, drug_input=drug_features
+        cell_line_ids=prediction_dataset.cell_line_ids,
+        drug_ids=prediction_dataset.drug_ids,
+        cell_line_input=cl_features,
+        drug_input=drug_features,
     )
+
     return prediction_dataset
 
 
@@ -100,7 +106,7 @@ def train_and_evaluate(
         train_dataset=train_dataset,
         prediction_dataset=validation_dataset,
     )
-    return evaluate(validation_dataset, metric=[metric])[metric]
+    return evaluate(validation_dataset, metric=[metric])  # TODO [metric]
 
 
 def hpam_tune(
@@ -115,6 +121,7 @@ def hpam_tune(
         rmse = train_and_evaluate(
             model=model,
             hpams=hyperparameter,
+            train_dataset=train_dataset,
             validation_dataset=validation_dataset,
             metric="rmse",
         )
@@ -141,10 +148,12 @@ def hpam_tune_raytune(
         config=tune.grid_search(hpam_set),
         mode="min",
         num_samples=len(hpam_set),
-        resources_per_trial={"cpu": 1},  # adapt this, also gpu
+        resources_per_trial={"cpu": 1},  # TODO adapt this, also gpu
+        chdir_to_trial_dir=False,
+        verbose=0,
     )
 
-    best_config = analysis.get_best_config(metric="mean_rmse", mode="min")
+    best_config = analysis.get_best_config(metric="rmse", mode="min")
     return best_config["config"]
 
 

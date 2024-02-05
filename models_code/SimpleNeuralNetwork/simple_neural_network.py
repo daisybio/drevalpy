@@ -161,5 +161,5 @@ class SimpleNeuralNetwork(DRPModel):
             {"dropout_prob": 0.3, "units_per_layer": [20, 10, 10]},
         ]
         for hpam in hpams:
-            hpam["feature_path"] = "data/GDSC/"
+            hpam["feature_path"] = "data/GDSC"
         return hpams
