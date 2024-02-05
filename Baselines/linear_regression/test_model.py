@@ -1,9 +1,12 @@
 import os
+import toml
 import logging
+import numpy as np
 import pandas as pd
 from pathlib import Path
 import matplotlib.pyplot as plt
 import seaborn as sns
+from sklearn.linear_model import Lasso
 
 from model import LinearRegression
 
@@ -23,51 +26,16 @@ logger = logging.getLogger(__name__)
 # start logging
 logger.info("Running linear regression model")
 
-# meta_data = {"dataroot_drp": "/nfs/home/students/m.lorenz/datasets/cell_viability/CCLE/matrixes_raw/EC50 ("
-#                              "µM)_matrix_cellosaurusID_intersection.csv",
-#              "dataroot_feature": "/nfs/home/students/m.lorenz/datasets/transcriptomics/CCLE/salmon.merged"
-#                                  ".gene_counts.cellosaurusID.intersection.tsv",
-#              "metric": "EC50 (µM)",
-#              "task": "LCO",
-#              "feature_type": "gene_expression",
-#              "feature_selection": True,
-#              "selection_method": "VST",
-#              "HP_tuning": {'alpha': [0.1, 0.01, 0.001, 0.0001, 0.00001], 'max_iter': [1000, 10000]},
-#              "CV_folds": 5,
-#              "n_cpus": 10}
-
-# meta_data = {"dataroot_drp": "/nfs/home/students/m.lorenz/datasets/cell_viability/CCLE/matrixes_raw/EC50 ("
-#                              "µM)_matrix_cellosaurusID_intersection.csv",
-#              "dataroot_feature": "/nfs/home/students/m.lorenz/datasets/compounds/c_morganfp.csv",
-#              "metric": "EC50 (µM)",
-#              "task": "LDO",
-#              "feature_type": "fingerprints",
-#              "feature_selection": True,
-#              "selection_method": "None",
-#              "HP_tuning": {'alpha': [0.1, 0.01, 0.001, 0.0001, 0.00001], 'max_iter': [1000, 10000]},
-#              "CV_folds": 5,
-#              "n_cpus": 1}
-
-logger.info("Reading in meta data")
-
-meta_data = {"dataroot_drp": "/nfs/home/students/m.lorenz/datasets/cell_viability/CCLE/matrixes_raw/EC50 ("
-                             "µM)_matrix_cellosaurusID_intersection.csv",
-             "dataroot_feature": "/nfs/home/students/m.lorenz/datasets/transcriptomics/CCLE/salmon.merged"
-                                 ".gene_counts.cellosaurusID.intersection.tsv",
-             "metric": "EC50 (µM)",
-             "task": "LPO",
-             "feature_type": "gene_expression",
-             "feature_selection": True,
-             "selection_method": "NormTransform",
-             "HP_tuning": {'alpha': [0.1, 0.01, 0.001, 0.0001, 0.00001], 'max_iter': [1000, 10000]},
-             "CV_folds": 5,
-             "n_cpus": 40}
+logger.info("Reading in meta data from TOML file")
+with open('metadata_LPO.toml', 'r') as file:
+    meta_data = toml.load(file)
 
 logger.info("Creating linear regression object")
-linear_regression = LinearRegression(meta_data.get("dataroot_drp"), meta_data.get("dataroot_feature"),
-                                     meta_data.get("metric"), meta_data.get("task"), meta_data.get("feature_type"),
-                                     meta_data.get("feature_selection"), meta_data.get("selection_method"),
-                                     meta_data.get("HP_tuning"), meta_data.get("CV_folds"), meta_data.get("n_cpus"))
+linear_regression = LinearRegression(meta_data["metadata"]["dataroot_drp"], meta_data["metadata"]["dataroot_feature"],
+                                     meta_data["metadata"]["metric"], meta_data["metadata"]["task"],
+                                     meta_data["metadata"]["feature_type"], meta_data["metadata"]["feature_selection"],
+                                     meta_data["metadata"]["selection_method"], meta_data["metadata"]["HP_tuning"],
+                                     meta_data["metadata"]["CV_folds"], meta_data["metadata"]["n_cpus"])
 
 linear_regression.cell_line_views
 linear_regression.drug_views
@@ -91,26 +59,31 @@ linear_regression.predict()
 linear_regression.evaluate()
 
 """
-    # save model parameters and results
-    dir_path = "results_transcriptomics/"
-    mkdir(dir_path)
-    linear_regression.save(dir_path)"""
+# save model parameters and results
+dir_path = "results_transcriptomics/"
+dir_path = "results_transcriptomics/"
+mkdir(dir_path)
+linear_regression.save(dir_path)
+"""
 
-# check model performance
-logger.info(f"\n\nSummary statistics on {meta_data.get('task')} - {meta_data.get('feature_type')}:\n"
+#################################################### DATA ANALYSIS #####################################################
+logger.info("Performing data analysis")
+logger.info(f"\n\nSummary statistics on {meta_data['metadata'].get('task')} - {meta_data['metadata'].get('feature_type')}:\n"
             f"{linear_regression.metric_df.describe()}\n")
 
+### scc distribution ###
 sns.histplot(linear_regression.metric_df["scc"])
 median_value = linear_regression.metric_df["scc"].median()
 plt.axvline(x=median_value, color='red', linestyle='dashed', linewidth=2, label='Median')
 plt.xlabel("scc")
 plt.ylabel("count")
-plt.title(f"{meta_data.get('task')} - scc distribution with {meta_data.get('feature_type')}")
+plt.title(f"{meta_data['metadata'].get('task')} - scc distribution with {meta_data['metadata'].get('feature_type')}")
 plt.legend()
 plt.show()
 plt.close()
 
-if meta_data.get('feature_type') == "fingerprints":
+### scc vs variance ###
+if meta_data['metadata'].get('feature_type') == "fingerprints":
     scc = linear_regression.metric_df["scc"]
     drp = linear_regression.test_drp
 
@@ -119,9 +92,9 @@ if meta_data.get('feature_type') == "fingerprints":
         drp = drp.pivot(index="Primary Cell Line Name", columns="Compound", values=linear_regression.metric)
         var = drp.loc[scc.index].var(axis=1)
     else:
-        var = drp.loc[scc.index].var()
+        var = drp[scc.index].var()
 
-elif meta_data.get('feature_type') == "gene_expression":
+elif meta_data["metadata"].get('feature_type') == "gene_expression":
     scc = linear_regression.metric_df["scc"]
     drp = linear_regression.test_drp
 
@@ -130,11 +103,40 @@ elif meta_data.get('feature_type') == "gene_expression":
         drp = drp.pivot(index="Compound", columns="Primary Cell Line Name", values=linear_regression.metric)
         var = drp.loc[scc.index].var(axis=1)
     else:
-        var = drp.loc[scc.index].var()
+        var = drp.loc[scc.index].var(axis=1)
 
 plt.scatter(var, scc)
 plt.xlabel("variance")
 plt.ylabel("scc")
-plt.title(f"{meta_data.get('task')} - scc vs variance with {meta_data.get('feature_type')}")
+plt.title(f"{meta_data['metadata'].get('task')} - scc vs variance with {meta_data['metadata'].get('feature_type')}")
+plt.show()
+plt.close()
+
+### analysing how many coef. set to 0 ###
+beta0_arr = []
+targets = []
+
+for target in linear_regression.models:
+    if isinstance(linear_regression.models.get(target), Lasso):
+        beta0_arr.append(linear_regression.models.get(target).coef_ == 0)
+        targets.append(target)
+    else:
+        target_GCV = linear_regression.models.get(target)
+        beta0_arr.append(target_GCV.best_estimator_.coef_ == 0)
+        targets.append(target)
+
+
+beta0_df = pd.DataFrame(index=targets, data=beta0_arr)
+beta0_df.sum()
+sns.barplot(x=beta0_df.sum().index, y=beta0_df.sum().values)
+# plt.tick_params(
+#     axis='x',          # changes apply to the x-axis
+#     bottom=False,      # ticks along the bottom edge are off
+#     top=False,         # ticks along the top edge are off
+#     labelbottom=False) # labels along the bottom edge are off
+plt.xlabel('coefficient number')
+plt.ylabel('count')
+plt.title(f'Bar Plot of Coefficients set to 0 ('
+          f'{meta_data["metadata"]["task"]} - {meta_data["metadata"]["feature_type"]})')
 plt.show()
 plt.close()
