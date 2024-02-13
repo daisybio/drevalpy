@@ -156,7 +156,7 @@ def select_genexp_features(X_train, ntop=100, mode="NormTransform", n_cpus=1):
 
 
 def get_gene_expression_data(feature_df, train_drp, test_drp, task,
-                             feature_selection=True, selection_method="NormTransform", n_cpus=1):
+                             feature_selection=True, ntop=100, selection_method="NormTransform", n_cpus=1):
     gene_counts = feature_df
     drug_dict = {}
 
@@ -174,7 +174,7 @@ def get_gene_expression_data(feature_df, train_drp, test_drp, task,
         # feature selection
         if feature_selection:
             logger.info("Performing feature selection: selecting for most variable genes")
-            selct_genes, gene_counts_train_np = select_genexp_features(gene_counts_train, ntop=100,
+            selct_genes, gene_counts_train_np = select_genexp_features(gene_counts_train, ntop=ntop,
                                                                        mode=selection_method, n_cpus=n_cpus)
             gene_counts_test_np = gene_counts_test[selct_genes].to_numpy()
             logger.info("Finished feature selection")
@@ -235,11 +235,9 @@ def get_gene_expression_data(feature_df, train_drp, test_drp, task,
 
             # feature selection
             if feature_selection:
-                logger.info(f"Performing feature selection: selecting for most variable genes for drug {drug}")
-                selct_genes, gene_counts_train_np = select_genexp_features(gene_counts_train, ntop=100,
+                selct_genes, gene_counts_train_np = select_genexp_features(gene_counts_train, ntop=ntop,
                                                                            mode=selection_method, n_cpus=n_cpus)
                 gene_counts_test_np = gene_counts_test[selct_genes].to_numpy()
-                logger.info(f"Finished feature selection for drug {drug}")
             else:
                 gene_counts_train_np = gene_counts_train.to_numpy()
                 gene_counts_test_np = gene_counts_test.to_numpy()
@@ -267,7 +265,7 @@ def get_gene_expression_data(feature_df, train_drp, test_drp, task,
     return drug_dict
 
 
-def get_morgan_fingerprints(feature_df, train_drp, test_drp, task, feature_selection=True):
+def get_morgan_fingerprints(feature_df, train_drp, test_drp, task, feature_selection=True, ntop=10):
     # morgan_fingerprints = pd.read_csv(path, index_col=0)
     morgan_fingerprints = feature_df
     cl_dict = {}
@@ -284,7 +282,7 @@ def get_morgan_fingerprints(feature_df, train_drp, test_drp, task, feature_selec
         # feature selection using PCA
         if feature_selection:
             logger.info("Performing feature selection: using PCA to reduce FP dimensionality")
-            pca_model = PCA(n_components=19)  # TODO HP tuning of n_components
+            pca_model = PCA(n_components=ntop)
             pca_model.fit(morgan_fingerprints_train)
             morgan_fingerprints_train_np = pca_model.transform(morgan_fingerprints_train)
             morgan_fingerprints_test_np = pca_model.transform(morgan_fingerprints_test)
@@ -345,12 +343,10 @@ def get_morgan_fingerprints(feature_df, train_drp, test_drp, task, feature_selec
 
             # feature selection using PCA
             if feature_selection:
-                logger.info(f"Performing feature selection: using PCA to reduce FP dimensionality for cell line {cl}")
                 pca_model = PCA()  # TODO number of components not set here as min number of components varies btw sets
                 pca_model.fit(morgan_fingerprints_train)
                 morgan_fingerprints_train_np = pca_model.transform(morgan_fingerprints_train)
                 morgan_fingerprints_test_np = pca_model.transform(morgan_fingerprints_test)
-                logger.info(f"finished feature selection for cell line {cl}")
             else:
                 morgan_fingerprints_train_np = morgan_fingerprints_train.to_numpy()
                 morgan_fingerprints_test_np = morgan_fingerprints_test.to_numpy()

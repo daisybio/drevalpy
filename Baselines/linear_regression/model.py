@@ -82,7 +82,6 @@ class LinearRegression:
         self.models = {}
         for target in self.data_dict:
 
-            logger.info(f"training single model for {target}")
             X_train = self.data_dict.get(target).get("X_train")  # get the training data for the target from dict
             y_train = self.data_dict.get(target).get("y_train")
 
@@ -153,8 +152,7 @@ class LinearRegression:
             rmse_ls.append(rmse)
             cls.append(target)
 
-        self.metric_df = pd.DataFrame({"pcc": pcc_ls, "scc": scc_ls, "mse": mse_ls, "rmse": rmse_ls},
-                                      index=cls)
+        self.metric_df = pd.DataFrame({"pcc": pcc_ls, "scc": scc_ls, "mse": mse_ls, "rmse": rmse_ls}, index=cls)
         logger.info("finished evaluation")
 
     def get_drug_response_dataset(self):
@@ -168,34 +166,39 @@ class LinearRegression:
                                                       remove_out=True, log_transform=True)
         logger.info("finished preprocessing drug response data")
 
-    def get_feature_dataset(self):
+    def get_feature_dataset(self, ntop):
 
         if self.feature_type == "gene_expression":
-            logger.info("preparing gene expression data")
+            logger.info(f"preparing gene expression data - feature selection: {self.feature_selection}")
             drug_dict = get_gene_expression_data(self.feature_df, self.train_drp, self.test_drp, self.task,
-                                                 feature_selection=self.feature_selection,
+                                                 feature_selection=self.feature_selection, ntop=ntop,
                                                  selection_method=self.selection_method, n_cpus=self.n_cpus)
             self.data_dict = drug_dict
 
         elif self.feature_type == "fingerprints":
-            logger.info("preparing morgan fingerprints")
+            logger.info(f"preparing morgan fingerprints - feature selection: {self.feature_selection}")
             cl_dict = get_morgan_fingerprints(self.feature_df, self.train_drp, self.test_drp, self.task,
-                                              feature_selection=self.feature_selection)
+                                              feature_selection=self.feature_selection, ntop=ntop)
             self.data_dict = cl_dict
 
         logger.info("finished preparing feature data, output stored in data_dict")
 
-    def save(self, result_path):
+    def save(self, result_path, best_model_dict):
         self.models_params = {}
-        for target in self.models:
-            self.models_params[target] = {"coef": self.models.get(target).coef_,
-                                          "intercept": self.models.get(target).intercept_,
-                                          "params": self.models.get(target).get_params()}
+        for target in best_model_dict["models"]:
 
+            target_model = best_model_dict["models"].get(target)
+            if isinstance(target_model, Lasso):
+                self.models_params[target] = {"coef": target_model.coef_,
+                                              "intercept": target_model.intercept_}
+            else:
+                # if model is gridsearchcv, save the best estimator params
+                self.models_params[target] = {"coef": target_model.best_estimator_.coef_,
+                                              "intercept": target_model.best_estimator_.intercept_}
         # save model params dict as pickle
         with open(result_path + self.task + '_model_params.pkl', 'wb') as f:
             pickle.dump(self.models_params, f)
 
         # save accuracy metrics as csv
-        self.metric_df.to_csv(result_path + self.task + '_metrics.csv', index=True)
-        logger.info("saved model parameters as pickles and accuracy metrics as csv")
+        best_model_dict["metric_df"].to_csv(result_path + self.task + '_metrics.csv', index=True)
+        logger.info("saved model parameters as pickle and accuracy metrics as csv")
