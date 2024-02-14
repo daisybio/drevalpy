@@ -80,10 +80,12 @@ class LinearRegression:
         """
         logger.info("Started training models")
         self.models = {}
+        #sum_all_lengths = 0
         for target in self.data_dict:
 
             X_train = self.data_dict.get(target).get("X_train")  # get the training data for the target from dict
             y_train = self.data_dict.get(target).get("y_train")
+            #sum_all_lengths += len(X_train)
 
             reg = Lasso()  # initialize the linear regression model
 
@@ -112,6 +114,7 @@ class LinearRegression:
 
             self.models[target] = model
         logger.info("finished training models")
+        #logger.info(f"average length of training set: {sum_all_lengths / len(self.data_dict)}")
 
     def predict(self):
 
@@ -132,6 +135,36 @@ class LinearRegression:
         mse_ls = []
         rmse_ls = []
         cls = []
+        '''
+        # initialize pandas dataframe with y_true, y_pred, target
+        pred_df = pd.DataFrame({"y_true": np.concatenate([self.data_dict.get(target).get("y_test").reshape(-1)
+                                                          for target in self.data_dict]),
+                                "y_pred": np.concatenate([self.prediction.get(target) for target in self.data_dict]),
+                                "target": np.concatenate(
+                                    [np.repeat(target, len(self.data_dict.get(target).get("y_test").reshape(-1))) for
+                                     target in
+                                     self.data_dict])})
+
+        # compute the overall pcc and scc
+        pcc = stats.pearsonr(pred_df["y_true"], pred_df["y_pred"])[0]
+        scc = stats.spearmanr(pred_df["y_true"], pred_df["y_pred"])[0]
+        # kick out all rows that have only one sample (target-wise)
+        pred_df = pred_df.groupby("target").filter(lambda x: len(x) > 1)
+        # compute the target-wise pcc, scc, mse, rmse and put it in self.metric_df
+        pcc_target = pred_df.groupby("target").apply(lambda x: stats.pearsonr(x["y_true"], x["y_pred"])[0])
+        scc_target = pred_df.groupby("target").apply(lambda x: stats.spearmanr(x["y_true"], x["y_pred"])[0])
+        mse_target = pred_df.groupby("target").apply(lambda x: mean_squared_error(x["y_true"], x["y_pred"]))
+        rmse_target = pred_df.groupby("target").apply(lambda x: mean_squared_error(x["y_true"], x["y_pred"], squared=False))
+        self.metric_df = pd.DataFrame({"pcc": pcc_target, "scc": scc_target, "mse": mse_target, "rmse": rmse_target})
+
+        # plot y_true vs y_pred, in title: overall correlation
+        import matplotlib.pyplot as plt
+        import seaborn as sns
+        sns.set(style="whitegrid")
+        sns.scatterplot(x="y_true", y="y_pred", data=pred_df)
+        plt.title(f"Overall PCC: {pcc:.2f}, SCC: {scc:.2f}")
+        plt.show()
+        '''
         for target in self.data_dict:
             #  skip targets with only one sample as scc can only be calculated with at least two samples
             #  e.g. for LCO, skip drugs with only one cell line
