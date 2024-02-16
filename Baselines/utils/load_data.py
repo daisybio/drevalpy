@@ -116,43 +116,56 @@ def get_cell_viab_data(path, train_2, test_2):
     return X_train_2, y_train_2, X_test_2, y_test_2
 
 
-def select_genexp_features(X_train, ntop=100, mode="NormTransform", n_cpus=1):
+def select_genexp_features(X_train, X_test, ntop=100, mode="NormTransform", n_cpus=1):
     # convert the data frame to a numpy array and round the floats to integers
     gene_counts_train_np = np.round(X_train.values).astype(int)
     gene_counts_train_df = pd.DataFrame(gene_counts_train_np, index=X_train.index,
                                         columns=X_train.columns)
+    gene_counts_test_np = np.round(X_test.values).astype(int)
+    gene_counts_test_df = pd.DataFrame(gene_counts_test_np, index=X_test.index,
+                                        columns=X_test.columns)
 
     if mode == "NormTransform":
         # perform normalisation using the pydeseq2 package
         logger.info("Using Pydeseq2 norm function to normalize counts")
-        deseq2_counts, size_factors = deseq2_norm(gene_counts_train_df)
-        deseq2_counts = np.log2(deseq2_counts + 1)
+        deseq2_counts_train, size_factors = deseq2_norm(gene_counts_train_df)
+        deseq2_counts_train = np.log2(deseq2_counts_train + 1)
+        deseq2_counts_test, size_factors = deseq2_norm(gene_counts_test_df)
+        deseq2_counts_test = np.log2(deseq2_counts_test + 1)
 
     elif mode == "VST":
         # for whatever reason it needs a condition :(
         logger.info(f"Using Pydeseq2 vst function to normalize counts, using {n_cpus} cpus")
         condition = cycle(['Bananas', 'Oranges', 'Strawberries'])
-        metadata = pd.DataFrame({'cell_line': gene_counts_train_df.index})
-        metadata['condition'] = [next(condition) for cond in range(len(metadata))]
-        metadata.index = gene_counts_train_df.index
+        metadata_train = pd.DataFrame({'cell_line': gene_counts_train_df.index})
+        metadata_test = pd.DataFrame({'cell_line': gene_counts_test_df.index})
+        metadata_train['condition'] = [next(condition) for cond in range(len(metadata_train))]
+        metadata_test['condition'] = [next(condition) for cond in range(len(metadata_test))]
+        metadata_train.index = gene_counts_train_df.index
+        metadata_test.index = gene_counts_test_df.index
 
         infer = DefaultInference(n_cpus=n_cpus)  # dds class n_cpu argument not working, so I had to change it here
-        dds = DeseqDataSet(counts=gene_counts_train_df, metadata=metadata, inference=infer)
-        dds.vst(use_design=False)
-        deseq2_counts = pd.DataFrame(dds.layers["vst_counts"],
+        dds_train = DeseqDataSet(counts=gene_counts_train_df, metadata=metadata_train, inference=infer)
+        dds_test = DeseqDataSet(counts=gene_counts_test_df, metadata=metadata_test, inference=infer)
+        dds_train.vst(use_design=False)
+        dds_test.vst(use_design=False)
+        deseq2_counts_train = pd.DataFrame(dds_train.layers["vst_counts"],
                                      index=gene_counts_train_df.index, columns=gene_counts_train_df.columns)
+        deseq2_counts_test = pd.DataFrame(dds_test.layers["vst_counts"],
+                                           index=gene_counts_test_df.index, columns=gene_counts_test_df.columns)
 
     # calculate the variance of each gene
-    rv = deseq2_counts.var(axis=0).sort_values(ascending=False)
+    rv = deseq2_counts_train.var(axis=0).sort_values(ascending=False)
 
-    # select the top n genes with the highest variance
+    # select the top n genes with the highest variance of the train set and use those for both train and test set
     logger.info(f"Selecting top {ntop} genes with highest variance")
     gene_ids_top_var_pydeseq2 = rv.index[:ntop]
-    gene_ids_top_var_pydeseq2
-    deseq2_counts = deseq2_counts[gene_ids_top_var_pydeseq2]
-    deseq2_counts_np = deseq2_counts.to_numpy()
+    deseq2_counts_train = deseq2_counts_train[gene_ids_top_var_pydeseq2]
+    deseq2_counts_test = deseq2_counts_test[gene_ids_top_var_pydeseq2]
+    deseq2_counts_test_np = deseq2_counts_test.to_numpy()
+    deseq2_counts_train_np = deseq2_counts_train.to_numpy()
 
-    return gene_ids_top_var_pydeseq2, deseq2_counts_np
+    return deseq2_counts_train_np, deseq2_counts_test_np
 
 
 def get_gene_expression_data(feature_df, train_drp, test_drp, task,
@@ -174,9 +187,9 @@ def get_gene_expression_data(feature_df, train_drp, test_drp, task,
         # feature selection
         if feature_selection:
             logger.info("Performing feature selection: selecting for most variable genes")
-            selct_genes, gene_counts_train_np = select_genexp_features(gene_counts_train, ntop=ntop,
-                                                                       mode=selection_method, n_cpus=n_cpus)
-            gene_counts_test_np = gene_counts_test[selct_genes].to_numpy()
+            gene_counts_train_np, gene_counts_test_np = select_genexp_features(gene_counts_train, gene_counts_test,
+                                                                               ntop=ntop, mode=selection_method,
+                                                                               n_cpus=n_cpus)
             logger.info("Finished feature selection")
         else:
             gene_counts_train_np = gene_counts_train.to_numpy()
@@ -235,9 +248,11 @@ def get_gene_expression_data(feature_df, train_drp, test_drp, task,
 
             # feature selection
             if feature_selection:
-                selct_genes, gene_counts_train_np = select_genexp_features(gene_counts_train, ntop=ntop,
-                                                                           mode=selection_method, n_cpus=n_cpus)
-                gene_counts_test_np = gene_counts_test[selct_genes].to_numpy()
+                logger.info("Performing feature selection: selecting for most variable genes")
+                gene_counts_train_np, gene_counts_test_np = select_genexp_features(gene_counts_train, gene_counts_test,
+                                                                                   ntop=ntop, mode=selection_method,
+                                                                                   n_cpus=n_cpus)
+                logger.info("Finished feature selection")
             else:
                 gene_counts_train_np = gene_counts_train.to_numpy()
                 gene_counts_test_np = gene_counts_test.to_numpy()
@@ -343,7 +358,7 @@ def get_morgan_fingerprints(feature_df, train_drp, test_drp, task, feature_selec
 
             # feature selection using PCA
             if feature_selection:
-                pca_model = PCA()  # TODO number of components not set here as min number of components varies btw sets
+                pca_model = PCA()  # number of components not set here as min number of components varies btw sets
                 pca_model.fit(morgan_fingerprints_train)
                 morgan_fingerprints_train_np = pca_model.transform(morgan_fingerprints_train)
                 morgan_fingerprints_test_np = pca_model.transform(morgan_fingerprints_test)

@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 import matplotlib.pyplot as plt
+from scipy import stats
 import seaborn as sns
 from sklearn.linear_model import Lasso
 from model import LinearRegression
@@ -32,7 +33,7 @@ logger.info("Running linear regression model")
 
 # read in meta data from TOML file
 logger.info("Reading in meta data from TOML file")
-with open('metadata_LDO.toml', 'r') as file:
+with open('metadata_LPO.toml', 'r') as file:
     meta_data = toml.load(file)
 
 # create linear regression object
@@ -91,39 +92,50 @@ for target in best_model_attr["models"]:
 
 # there are more cl with models in best_model_attr["models"] than in best_model_attr["metric_df"] since there we calc.
 # the scc for cls with more than one drug. Filter out the alpha and max_iter for cl models with more than one drug
-best_models_params = pd.DataFrame({"alpha":alpha, "max_iter" : max_iter}, index=best_model_attr["models"].keys())
+best_models_params = pd.DataFrame({"alpha": alpha, "max_iter": max_iter}, index=best_model_attr["models"].keys())
 best_models_params = best_models_params.loc[best_model_attr["metric_df"].index]
 
 best_model_attr["metric_df"]["nfeatures"] = best_nfeatures
 best_model_attr["metric_df"]["alpha"] = best_models_params["alpha"]
 best_model_attr["metric_df"]["max_iter"] = best_models_params["max_iter"]
 
-
 # save model parameters and results
 dir_path = "results_transcriptomics/"
 # mkdir(dir_path)
 linear_regression.save(dir_path, best_model_attr)
 
-
 #################################################### DATA ANALYSIS #####################################################
 logger.info("Performing data analysis")
-logger.info(f"\n\nSummary statistics on {meta_data['metadata'].get('task')} - {meta_data['metadata'].get('feature_type')}:\n"
-            f"{best_model_attr['metric_df'].describe()}\n")
+logger.info(
+    f"\n\nSummary statistics on {meta_data['metadata'].get('task')} - {meta_data['metadata'].get('feature_type')}:\n"
+    f"{best_model_attr['metric_df'].describe()}\n")
 
-### scc distribution ###
-sns.histplot(best_model_attr["metric_df"]["scc"])
-median_value = best_model_attr["metric_df"]["scc"].median()
-plt.axvline(x=median_value, color='red', linestyle='dashed', linewidth=2, label='Median')
-plt.xlabel("scc")
+sns.set(style="ticks")
+
+### correlation coefficient distribution ###
+fig, axs = plt.subplots(1, 2, sharey=True, figsize=(10, 5))
+sns.histplot(best_model_attr["metric_df"]["pcc"], ax=axs[0])
+sns.histplot(best_model_attr["metric_df"]["scc"], ax=axs[1])
+median_value_pcc = best_model_attr["metric_df"]["pcc"].median()
+median_value_scc = best_model_attr["metric_df"]["scc"].median()
+axs[0].axvline(x=median_value_pcc, color='red', linestyle='dashed', linewidth=2, label='median')
+axs[1].axvline(x=median_value_scc, color='red', linestyle='dashed', linewidth=2, label='median')
+axs[0].set_xlabel("Pearsons's correlation coefficient (PCC)")
+axs[1].set_xlabel("Spearman's correlation coefficient (SCC)")
 plt.ylabel("count")
-plt.title(f"{meta_data['metadata'].get('task')} - scc distribution with {meta_data['metadata'].get('feature_type')}")
-plt.legend()
+plt.suptitle(f"distribution of correlation coefficients "
+             f"({meta_data['metadata'].get('task')} - {meta_data['metadata'].get('feature_type')})",
+             fontsize=12, fontweight='bold')
+# axs[0].legend()
+# axs[1].legend()
+sns.despine(right=True)
 plt.show()
 plt.close()
 
 ### scc vs variance ###
 if meta_data['metadata'].get('feature_type') == "fingerprints":
     scc = best_model_attr["metric_df"]["scc"]
+    pcc = best_model_attr["metric_df"]["pcc"]
     drp = best_model_attr["test_drp"]
 
     if linear_regression.task == "LPO":
@@ -135,6 +147,7 @@ if meta_data['metadata'].get('feature_type') == "fingerprints":
 
 elif meta_data["metadata"].get('feature_type') == "gene_expression":
     scc = best_model_attr["metric_df"]["scc"]
+    pcc = best_model_attr["metric_df"]["pcc"]
     drp = best_model_attr["test_drp"]
 
     if linear_regression.task == "LPO":
@@ -144,12 +157,19 @@ elif meta_data["metadata"].get('feature_type') == "gene_expression":
     else:
         var = drp.loc[scc.index].var(axis=1)
 
-plt.scatter(var, scc)
+fig, axs = plt.subplot_mosaic([['a)', 'c)'], ['b)', 'c)']], figsize=(15, 10))
+axs['a)'].scatter(var, pcc)
+axs['b)'].scatter(var, scc)
 plt.xlabel("variance")
-plt.ylabel("scc")
-plt.title(f"{meta_data['metadata'].get('task')} - scc vs variance with {meta_data['metadata'].get('feature_type')}")
-plt.show()
-plt.close()
+axs['a)'].set_ylabel("Pearsons's correlation coefficient")
+axs['b)'].set_ylabel("Spearman's correlation coefficient")
+axs['a)'].set_title(f"correlation coefficient vs variance "
+                    f"{meta_data['metadata'].get('task')} - {meta_data['metadata'].get('feature_type')}",
+                    fontsize=12, fontweight='bold')
+# sns.despine(right = True)
+# plt.tight_layout()
+# plt.show()
+# plt.close()
 
 ### analysing how many coef. set to 0 ###
 beta0_arr = []
@@ -164,13 +184,54 @@ for target in best_model_attr["models"]:
         beta0_arr.append(target_GCV.best_estimator_.coef_ == 0)
         targets.append(target)
 
-
 beta0_df = pd.DataFrame(index=targets, data=beta0_arr)
 beta0_df.sum()
-sns.barplot(x=beta0_df.sum().index, y=beta0_df.sum().values)
-plt.xlabel('coefficient number')
-plt.ylabel('count')
-plt.title(f'Bar Plot of Coefficients set to 0 ('
-          f'{meta_data["metadata"]["task"]} - {meta_data["metadata"]["feature_type"]})')
+sns.barplot(x=beta0_df.sum().index, y=beta0_df.sum().values, ax=axs['c)'])
+axs['c)'].set_xlabel('coefficient number')
+axs['c)'].set_ylabel('count')
+axs['c)'].set_title(f'frequency of coefficients set to 0 ('
+                    f'{meta_data["metadata"]["task"]} - {meta_data["metadata"]["feature_type"]})', fontsize=12,
+                    fontweight='bold')
+sns.despine(right=True)
+plt.tight_layout()
+plt.show()
+plt.close()
+
+# generate scatter plot of predictions
+# plot y_true vs y_pred, in title: overall correlation
+
+# compute the overall pcc and scc
+pcc = stats.pearsonr(best_model_attr["pred_df"]["y_true"], best_model_attr["pred_df"]["y_pred"])[0]
+scc = stats.spearmanr(best_model_attr["pred_df"]["y_true"], best_model_attr["pred_df"]["y_pred"])[0]
+
+sns.scatterplot(x="y_true", y="y_pred", data=best_model_attr["pred_df"])
+plt.title(f"Overall PCC: {pcc:.2f}, SCC: {scc:.2f}", fontsize=12, fontweight='bold')
+plt.xlabel('pEC50[M] ground truth')
+plt.ylabel('pEC50[M] prediction')
+sns.despine(right=True)
+plt.show()
+plt.close()
+
+# average number of datapoints per model:
+# for training
+ls = []
+for target in self.data_dict:
+    ls.append(np.shape(self.data_dict.get(target).get("X_train"))[0])
+
+logger.info(
+    f"\n\nAverage number of datapoints per model for training: {ls.mean()}\n")
+
+# for testing
+logger.info(
+    f"\n\nAverage number of datapoints per model for testing:"
+    f" {best_model_attr['pred_df'].groupby('target').size().mean()}\n")
+
+sns.histplot(x=best_model_attr['pred_df'].groupby('target').size())
+plt.title(f"Average number of datapoints per model for testing:"
+          f" {best_model_attr['pred_df'].groupby('target').size().mean()}",
+          fontsize=12, fontweight='bold')
+plt.xlabel('number of samples in a model')
+plt.ylabel('number of models')
+sns.despine(right=True)
 plt.show()
 plt.close()
