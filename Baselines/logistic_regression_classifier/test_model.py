@@ -33,7 +33,7 @@ logger.info("Running linear regression model")
 
 # read in meta data from TOML file
 logger.info("Reading in meta data from TOML file")
-with open('metadata_LPO.toml', 'r') as file:
+with open('metadata_LCO.toml', 'r') as file:
     meta_data = toml.load(file)
 
 # create linear regression object
