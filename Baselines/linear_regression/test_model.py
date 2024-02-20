@@ -1,19 +1,19 @@
+import logging
+import matplotlib.pyplot as plt
+import numpy as np
 import os
-from os.path import dirname, join, abspath
+import pandas as pd
+import seaborn as sns
 import sys
 import toml
-import logging
-import numpy as np
-import pandas as pd
+from os.path import dirname, join, abspath
 from pathlib import Path
-import matplotlib.pyplot as plt
 from scipy import stats
-import seaborn as sns
 from sklearn.linear_model import Lasso
+
 from model import LinearRegression
 
 sys.path.insert(0, abspath(join(dirname(__file__), '..')))
-from utils.utils import mkdir
 
 # setting up logging
 logging.basicConfig(format='%(asctime)s: %(levelname)s: %(message)s', level=logging.INFO)
@@ -33,16 +33,18 @@ logger.info("Running linear regression model")
 
 # read in meta data from TOML file
 logger.info("Reading in meta data from TOML file")
-with open('metadata_LPO.toml', 'r') as file:
+with open('metadata_LCO.toml', 'r') as file:
     meta_data = toml.load(file)
 
 # create linear regression object
 logger.info("Creating linear regression object")
 linear_regression = LinearRegression(meta_data["metadata"]["dataroot_drp"], meta_data["metadata"]["dataroot_feature"],
                                      meta_data["metadata"]["metric"], meta_data["metadata"]["task"],
+                                     meta_data["metadata"]["remove_outliers"], meta_data["metadata"]["log_transform"],
                                      meta_data["metadata"]["feature_type"], meta_data["metadata"]["feature_selection"],
-                                     meta_data["metadata"]["selection_method"], meta_data["metadata"]["HP_tuning"],
-                                     meta_data["metadata"]["CV_folds"], meta_data["metadata"]["n_cpus"])
+                                     meta_data["metadata"]["norm_feat"], meta_data["metadata"]["norm_method"],
+                                     meta_data["metadata"]["CV_folds"], meta_data["metadata"]["n_cpus"],
+                                     meta_data["metadata"]["HP_tuning"])
 
 linear_regression.cell_line_views
 linear_regression.drug_views
@@ -216,7 +218,7 @@ plt.close()
 # for training
 ls = []
 for target in linear_regression.data_dict:
-    ls.append(np.shape(self.data_dict.get(target).get("X_train"))[0])
+    ls.append(np.shape(linear_regression.data_dict.get(target).get("X_train"))[0])
 
 logger.info(
     f"\n\nAverage number of datapoints per model for training: {ls.mean()}\n")

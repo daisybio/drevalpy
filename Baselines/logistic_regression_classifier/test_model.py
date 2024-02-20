@@ -1,16 +1,17 @@
+import logging
+import matplotlib.pyplot as plt
+import numpy as np
 import os
-from os.path import dirname, join, abspath
+import pandas as pd
+import seaborn as sns
 import sys
 import toml
-import logging
-import numpy as np
-import pandas as pd
+from os.path import dirname, join, abspath
 from pathlib import Path
-import matplotlib.pyplot as plt
 from scipy import stats
-import seaborn as sns
-from sklearn.linear_model import Lasso
-from model import LinearRegression
+from sklearn.linear_model import LogisticRegression
+
+from model import LogisticClassifier
 
 sys.path.insert(0, abspath(join(dirname(__file__), '..')))
 from utils.utils import mkdir
@@ -38,20 +39,22 @@ with open('metadata_LCO.toml', 'r') as file:
 
 # create linear regression object
 logger.info("Creating linear regression object")
-linear_regression = LinearRegression(meta_data["metadata"]["dataroot_drp"], meta_data["metadata"]["dataroot_feature"],
-                                     meta_data["metadata"]["metric"], meta_data["metadata"]["task"],
-                                     meta_data["metadata"]["feature_type"], meta_data["metadata"]["feature_selection"],
-                                     meta_data["metadata"]["selection_method"], meta_data["metadata"]["HP_tuning"],
-                                     meta_data["metadata"]["CV_folds"], meta_data["metadata"]["n_cpus"])
+logistic_classifier = LogisticClassifier(meta_data["metadata"]["dataroot_drp"], meta_data["metadata"]["dataroot_feature"],
+                                         meta_data["metadata"]["metric"], meta_data["metadata"]["task"],
+                                         meta_data["metadata"]["remove_outliers"], meta_data["metadata"]["log_transform"],
+                                         meta_data["metadata"]["feature_type"], meta_data["metadata"]["feature_selection"],
+                                         meta_data["metadata"]["norm_feat"], meta_data["metadata"]["norm_method"],
+                                         meta_data["metadata"]["CV_folds"], meta_data["metadata"]["n_cpus"],
+                                         meta_data["metadata"]["HP_tuning"])
 
-linear_regression.cell_line_views
-linear_regression.drug_views
+logistic_classifier.cell_line_views
+logistic_classifier.drug_views
 
 # prepare drug response data (splitting it)
-linear_regression.get_drug_response_dataset()
+logistic_classifier.get_drug_response_dataset()
 
 # pre process the drp (y) data
-linear_regression.data_processing()
+logistic_classifier.data_processing()
 
 # load cell viab/transcriptomic data doesn't matter, as long as cl names are the same as in the drug response data
 scc_median = 0
@@ -59,50 +62,46 @@ best_scc = 0
 best_nfeatures = None
 for ntop in meta_data["metadata"]["HP_tuning_features"].get("nfeatures"):
     logger.info(f"Starting dataextraction / training / prediction loop for {ntop} features")
-    linear_regression.get_feature_dataset(ntop)
+    logistic_classifier.get_feature_dataset(ntop)
 
     # fit the model
-    linear_regression.train()
+    logistic_classifier.train()
 
     # predict the ec50 values for the test set
-    linear_regression.predict()
+    logistic_classifier.predict()
 
     # evaluate the model
-    linear_regression.evaluate()
-    scc_median = linear_regression.metric_df["scc"].median()
+    logistic_classifier.evaluate()
+    scc_median = logistic_classifier.metric_df["scc"].median()
 
     # save the model if its scc is better than the previous one in best_model_attr
     if scc_median > best_scc:
         logger.info(f"New best model found with {ntop} features")
-        best_model_attr = vars(linear_regression)
+        best_model_attr = vars(logistic_classifier)
         best_scc = scc_median
         best_nfeatures = ntop
 
-# get best alpha and maximum number of iterations
-alpha = []
+# get best maximum number of iterations
 max_iter = []
 for target in best_model_attr["models"]:
     target_model = best_model_attr["models"].get(target)
-    if isinstance(target_model, Lasso):
-        alpha.append(target_model.get_params()["alpha"])
+    if isinstance(target_model, LogisticRegression):
         max_iter.append(target_model.get_params()["max_iter"])
     else:
-        alpha.append(target_model.best_params_.get("alpha"))
         max_iter.append(target_model.best_params_.get("max_iter"))
 
 # there are more cl with models in best_model_attr["models"] than in best_model_attr["metric_df"] since there we calc.
 # the scc for cls with more than one drug. Filter out the alpha and max_iter for cl models with more than one drug
-best_models_params = pd.DataFrame({"alpha": alpha, "max_iter": max_iter}, index=best_model_attr["models"].keys())
+best_models_params = pd.DataFrame({"max_iter": max_iter}, index=best_model_attr["models"].keys())
 best_models_params = best_models_params.loc[best_model_attr["metric_df"].index]
 
 best_model_attr["metric_df"]["nfeatures"] = best_nfeatures
-best_model_attr["metric_df"]["alpha"] = best_models_params["alpha"]
 best_model_attr["metric_df"]["max_iter"] = best_models_params["max_iter"]
 
 # save model parameters and results
 dir_path = "results_transcriptomics/"
 # mkdir(dir_path)
-linear_regression.save(dir_path, best_model_attr)
+logistic_classifier.save(dir_path, best_model_attr)
 
 #################################################### DATA ANALYSIS #####################################################
 logger.info("Performing data analysis")
@@ -138,7 +137,7 @@ if meta_data['metadata'].get('feature_type') == "fingerprints":
     pcc = best_model_attr["metric_df"]["pcc"]
     drp = best_model_attr["test_drp"]
 
-    if linear_regression.task == "LPO":
+    if logistic_classifier.task == "LPO":
         drp = best_model_attr["test_drp"]
         drp = drp.pivot(index="Primary Cell Line Name", columns="Compound", values=best_model_attr["metric"])
         var = drp.loc[scc.index].var(axis=1)
@@ -150,7 +149,7 @@ elif meta_data["metadata"].get('feature_type') == "gene_expression":
     pcc = best_model_attr["metric_df"]["pcc"]
     drp = best_model_attr["test_drp"]
 
-    if linear_regression.task == "LPO":
+    if logistic_classifier.task == "LPO":
         drp = best_model_attr["test_drp"].reset_index()
         drp = drp.pivot(index="Compound", columns="Primary Cell Line Name", values=best_model_attr["metric"])
         var = drp.loc[scc.index].var(axis=1)
@@ -176,7 +175,7 @@ beta0_arr = []
 targets = []
 
 for target in best_model_attr["models"]:
-    if isinstance(best_model_attr["models"].get(target), Lasso):
+    if isinstance(best_model_attr["models"].get(target), LogisticRegression):
         beta0_arr.append(best_model_attr["models"].get(target).coef_ == 0)
         targets.append(target)
     else:
@@ -215,8 +214,8 @@ plt.close()
 # average number of datapoints per model:
 # for training
 ls = []
-for target in linear_regression.data_dict:
-    ls.append(np.shape(self.data_dict.get(target).get("X_train"))[0])
+for target in logistic_classifier.data_dict:
+    ls.append(np.shape(logistic_classifier.data_dict.get(target).get("X_train"))[0])
 
 logger.info(
     f"\n\nAverage number of datapoints per model for training: {ls.mean()}\n")

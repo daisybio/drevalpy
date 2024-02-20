@@ -1,36 +1,38 @@
 # -*- coding: utf-8 -*-
+import logging
 import numpy as np
 import pandas as pd
-import sys
-import os
-from os.path import dirname, join, abspath
-from pathlib import Path
 import pickle
+import sys
 import warnings
-import logging
+from os.path import dirname, join, abspath
 from scipy import stats
-from sklearn.metrics import mean_squared_error
 from sklearn.linear_model import Lasso
-from sklearn.model_selection import GridSearchCV, ParameterGrid
+from sklearn.metrics import mean_squared_error
+from sklearn.model_selection import GridSearchCV
 
 sys.path.insert(0, abspath(join(dirname(__file__), '..')))
-from utils.utils import mkdir, preprocessing
-from utils.load_data import get_train_test_set, get_cell_viab_data, get_gene_expression_data, get_morgan_fingerprints
+from utils.utils import preprocessing
+from utils.load_data import get_train_test_set, get_gene_expression_data, get_morgan_fingerprints
 
 logger = logging.getLogger(__name__)
 
 
 class LinearRegression:
 
-    def __init__(self, dataroot_drp, dataroot_feature, metric, task, feature_type, feature_selection=False,
-                 selection_method=None, hyperparameters=None, nCV_folds=None, n_cpus=1):
+    def __init__(self, dataroot_drp, dataroot_feature, metric, task, remove_out=True,
+                 log_transform=True, feature_type="gene_expression", feature_selection=False,
+                 norm_feat=False, norm_method=None, nCV_folds=None, n_cpus=1, hyperparameters=None):
         self.path_drp = dataroot_drp  # path to the drug response data
         self.path_feature = dataroot_feature  # path to the feature data
         self.metric = metric  # Amax, IC50, EC50, ...
         self.task = task  # LCO, LDO, LPO
+        self.remove_out = remove_out  # whether to remove outliers from the drug response data
+        self.log_transform = log_transform  # whether to log transform the drug response data
         self.feature_type = feature_type  # view under cell_line_views or drug_views
         self.feature_selection = feature_selection  # whether to perform feature selection
-        self.selection_method = selection_method  # method for feature selection
+        self.norm_feat = norm_feat  # whether to normalize the features
+        self.norm_method = norm_method  # method for feature normalization
         self.hyperparameters = hyperparameters  # hyperparameters for the model
         self.nCV_folds = nCV_folds  # number of cross validation folds
         self.n_cpus = n_cpus  # nr of cpus to use for parallelization, relevant only for feature sel. using VST method
@@ -167,7 +169,7 @@ class LinearRegression:
     def data_processing(self):
         logger.info("preprocessing drug response data")
         self.train_drp, self.test_drp = preprocessing(self.train_drp, self.test_drp, self.task, self.metric,
-                                                      remove_out=True, log_transform=True)
+                                                      remove_out=self.remove_out, log_transform=self.log_transform)
         logger.info("finished preprocessing drug response data")
 
     def get_feature_dataset(self, ntop):
@@ -176,7 +178,8 @@ class LinearRegression:
             logger.info(f"preparing gene expression data - feature selection: {self.feature_selection}")
             drug_dict = get_gene_expression_data(self.feature_df, self.train_drp, self.test_drp, self.task,
                                                  feature_selection=self.feature_selection, ntop=ntop,
-                                                 selection_method=self.selection_method, n_cpus=self.n_cpus)
+                                                 norm_feat=self.norm_feat, norm_method=self.norm_method,
+                                                 n_cpus=self.n_cpus)
             self.data_dict = drug_dict
 
         elif self.feature_type == "fingerprints":

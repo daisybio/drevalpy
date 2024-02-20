@@ -1,8 +1,12 @@
 # -*- coding: utf-8 -*-
-import os
 import logging
 import numpy as np
+import os
 import pandas as pd
+from itertools import cycle
+from pydeseq2.dds import DeseqDataSet
+from pydeseq2.default_inference import DefaultInference
+from pydeseq2.preprocessing import deseq2_norm
 
 logger = logging.getLogger(__name__)
 
@@ -110,6 +114,47 @@ def normalize_data(drp_con, metric):
             drp_con[metric].max() - drp_con[metric].min())
 
     return drp_con
+
+
+def normalize_gene_expression(X_train, X_test, mode="NormTransform", n_cpus=1):
+    # convert the data frame to a numpy array and round the floats to integers
+    gene_counts_train_np = np.round(X_train.values).astype(int)
+    gene_counts_train_df = pd.DataFrame(gene_counts_train_np, index=X_train.index,
+                                        columns=X_train.columns)
+    gene_counts_test_np = np.round(X_test.values).astype(int)
+    gene_counts_test_df = pd.DataFrame(gene_counts_test_np, index=X_test.index,
+                                       columns=X_test.columns)
+
+    if mode == "NormTransform":
+        # perform normalisation using the pydeseq2 package
+        logger.info("Using Pydeseq2 norm function to normalize counts")
+        deseq2_counts_train, size_factors = deseq2_norm(gene_counts_train_df)
+        deseq2_counts_train = np.log2(deseq2_counts_train + 1)
+        deseq2_counts_test, size_factors = deseq2_norm(gene_counts_test_df)
+        deseq2_counts_test = np.log2(deseq2_counts_test + 1)
+
+    elif mode == "VST":
+        # for whatever reason it needs a condition :(
+        logger.info(f"Using Pydeseq2 vst function to normalize counts, using {n_cpus} cpus")
+        condition = cycle(['Bananas', 'Oranges', 'Strawberries'])
+        metadata_train = pd.DataFrame({'cell_line': gene_counts_train_df.index})
+        metadata_test = pd.DataFrame({'cell_line': gene_counts_test_df.index})
+        metadata_train['condition'] = [next(condition) for cond in range(len(metadata_train))]
+        metadata_test['condition'] = [next(condition) for cond in range(len(metadata_test))]
+        metadata_train.index = gene_counts_train_df.index
+        metadata_test.index = gene_counts_test_df.index
+
+        infer = DefaultInference(n_cpus=n_cpus)  # dds class n_cpu argument not working, so I had to change it here
+        dds_train = DeseqDataSet(counts=gene_counts_train_df, metadata=metadata_train, inference=infer)
+        dds_test = DeseqDataSet(counts=gene_counts_test_df, metadata=metadata_test, inference=infer)
+        dds_train.vst(use_design=False)
+        dds_test.vst(use_design=False)
+        X_train = pd.DataFrame(dds_train.layers["vst_counts"],
+                               index=gene_counts_train_df.index, columns=gene_counts_train_df.columns)
+        X_test = pd.DataFrame(dds_test.layers["vst_counts"],
+                              index=gene_counts_test_df.index, columns=gene_counts_test_df.columns)
+
+    return X_train, X_test
 
 
 def preprocessing(train_prepro,
