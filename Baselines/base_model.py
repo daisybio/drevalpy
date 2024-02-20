@@ -1,11 +1,15 @@
 import logging
-from abc import ABC, abstractmethod
 import numpy as np
 import pandas as pd
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import mean_squared_error
-from sklearn.model_selection import GridSearchCV
+import sys
+from abc import ABC, abstractmethod
+from os.path import dirname, join, abspath
 from scipy import stats
+from sklearn.metrics import mean_squared_error
+
+sys.path.insert(0, abspath(join(dirname(__file__), '..')))
+from utils.load_data import get_train_test_set, get_gene_expression_data, get_morgan_fingerprints
+from utils.utils import preprocessing
 
 logger = logging.getLogger(__name__)
 
