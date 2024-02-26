@@ -26,7 +26,7 @@ def drug_response_experiment(
             split_validation=True,
             validation_ratio=0.1,
             random_state=42,
-        ) # this function should be able to split of early stopping data depending on a model parameter use_early_stopping
+        ) 
         for split in response_data.cv_splits:
             train_dataset = split["train"]
             validation_dataset = split["validation"]

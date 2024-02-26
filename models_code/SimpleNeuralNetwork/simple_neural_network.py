@@ -18,6 +18,9 @@ class SimpleNeuralNetwork(DRPModel):
 
     drug_views = ["fingerprints"]
 
+    early_stopping = True
+
+
     def build_model(self, *args, **kwargs):
         """
         Builds the model.
