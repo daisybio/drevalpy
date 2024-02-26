@@ -124,7 +124,7 @@ def hpam_tune(
             train_dataset=train_dataset,
             validation_dataset=validation_dataset,
             metric="rmse",
-        )
+        )["rmse"]
         if rmse < best_rmse:
             best_rmse = rmse
             best_hyperparameters = hyperparameter
@@ -168,5 +168,5 @@ drug_ids = response_data["DRUG_NAME"].values
 response_data = DrugResponseDataset(
     response=output, cell_line_ids=cell_line_ids, drug_ids=drug_ids
 )
-result = drug_response_experiment(models, response_data, multiprocessing=True)
+result = drug_response_experiment(models, response_data, multiprocessing=False)
 print(result)

@@ -87,9 +87,9 @@ class SimpleNeuralNetwork(DRPModel):
             output.response,
             X_earlystopping,
             response_earlystopping,
-            batch_size=64,
+            batch_size=16,
             patience=5,
-            num_workers=2,
+            num_workers=0,
         )
         self.model = neural_network
 
