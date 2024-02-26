@@ -55,7 +55,7 @@ class FeedForwardNetwork(pl.LightningModule):
         num_workers: int = 2,
     ) -> None:
         if trainer_params is None:
-            trainer_params = {"progress_bar_refresh_rate": 0, "max_epochs": 10000}
+            trainer_params = {"progress_bar_refresh_rate": 0, "max_epochs": 100}
 
         train_dataset = RegressionDataset(X_train, y_train)
         train_loader = DataLoader(

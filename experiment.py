@@ -6,6 +6,7 @@ import pandas as pd
 from suite.evaluation import evaluate
 from suite.model_wrapper import DRPModel
 from ray import tune
+import numpy as np
 import os
 
 
@@ -25,7 +26,7 @@ def drug_response_experiment(
             split_validation=True,
             validation_ratio=0.1,
             random_state=42,
-        )
+        ) # this function should be able to split of early stopping data depending on a model parameter use_early_stopping
         for split in response_data.cv_splits:
             train_dataset = split["train"]
             validation_dataset = split["validation"]
@@ -126,6 +127,7 @@ def hpam_tune(
             metric="rmse",
         )["rmse"]
         if rmse < best_rmse:
+            print(f"current best rmse: {np.round(rmse, 3)}")
             best_rmse = rmse
             best_hyperparameters = hyperparameter
     return best_hyperparameters
@@ -152,9 +154,8 @@ def hpam_tune_raytune(
         chdir_to_trial_dir=False,
         verbose=0,
     )
-
     best_config = analysis.get_best_config(metric="rmse", mode="min")
-    return best_config["config"]
+    return best_config
 
 
 neural_net_baseline = SimpleNeuralNetwork("smpl", target="IC50")
@@ -168,5 +169,5 @@ drug_ids = response_data["DRUG_NAME"].values
 response_data = DrugResponseDataset(
     response=output, cell_line_ids=cell_line_ids, drug_ids=drug_ids
 )
-result = drug_response_experiment(models, response_data, multiprocessing=False)
+result = drug_response_experiment(models, response_data, multiprocessing=True)
 print(result)
