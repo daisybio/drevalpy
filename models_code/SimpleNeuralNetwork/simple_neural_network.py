@@ -46,8 +46,6 @@ class SimpleNeuralNetwork(DRPModel):
         drug_input: FeatureDataset,
         output: DrugResponseDataset,
         hyperparameters: dict,
-        cell_line_input_earlystopping: Optional[FeatureDataset] = None,
-        drug_input_earlystopping: Optional[FeatureDataset] = None,
         output_earlystopping: Optional[DrugResponseDataset] = None,
     ):
         """
@@ -63,15 +61,12 @@ class SimpleNeuralNetwork(DRPModel):
             drug_input=drug_input,
         )
 
-        if (
-            cell_line_input_earlystopping
-            and drug_input_earlystopping
-            and output_earlystopping
-        ):
+        if output_earlystopping:
             X_earlystopping = self.get_feature_matrix(
-                drug_input_earlystopping,
-                cell_line_input_earlystopping,
-                output_earlystopping,
+                cell_line_ids=output_earlystopping.cell_line_ids,
+                drug_ids=output_earlystopping.drug_ids,
+                cell_line_input=cell_line_input,
+                drug_input=drug_input,
             )
         else:
             X_earlystopping = None

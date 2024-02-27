@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from models_code import SimpleNeuralNetwork
 from suite.data_wrapper import DrugResponseDataset, FeatureDataset
@@ -31,11 +31,26 @@ def drug_response_experiment(
             train_dataset = split["train"]
             validation_dataset = split["validation"]
             test_dataset = split["test"]
+
+            # if model.early_stopping is true then we split the validation set into a validation and early stopping set
+            if model.early_stopping:
+                validation_dataset.shuffle(random_state=42) 
+                cv_v = validation_dataset.split_dataset(
+                    n_cv_splits=4,
+                    mode="LPO",
+                    split_validation=False,
+                    random_state=42,
+                )
+                # take the first fold of a cv as the split
+                validation_dataset = cv_v[0]["train"]
+                early_stopping_dataset = cv_v[0]["test"]
+
             if multiprocessing:
                 best_hpams = hpam_tune_raytune(
                     model=model,
                     train_dataset=train_dataset,
                     validation_dataset=validation_dataset,
+                    early_stopping_dataset=early_stopping_dataset if model.early_stopping else None,
                     hpam_set=model_hpam_set,
                 )
             else:
@@ -43,6 +58,7 @@ def drug_response_experiment(
                     model=model,
                     train_dataset=train_dataset,
                     validation_dataset=validation_dataset,
+                    early_stopping_dataset=early_stopping_dataset if model.early_stopping else None,
                     hpam_set=model_hpam_set,
                 )
             train_dataset.add_rows(
@@ -55,6 +71,8 @@ def drug_response_experiment(
                 hpams=best_hpams,
                 train_dataset=train_dataset,
                 prediction_dataset=test_dataset,
+                early_stopping_dataset=early_stopping_dataset if model.early_stopping else None,
+
             )
 
             result[model.model_name].append(test_dataset)
@@ -66,7 +84,8 @@ def train_and_predict(
     hpams: Dict[str, List],
     train_dataset: DrugResponseDataset,
     prediction_dataset: DrugResponseDataset,
-):
+    early_stopping_dataset: Optional[DrugResponseDataset] = None,
+) -> DrugResponseDataset:
     cl_features = model.get_cell_line_features(path=hpams["feature_path"])
     drug_features = model.get_drug_features(path=hpams["feature_path"])
 
@@ -78,12 +97,14 @@ def train_and_predict(
     prediction_dataset.reduce_to(
         cell_line_ids=cl_features.identifiers, drug_ids=drug_features.identifiers
     )
-    model.train(
-        cell_line_input=cl_features,
-        drug_input=drug_features,
-        output=train_dataset,
-        hyperparameters=hpams,
-    )
+
+    if early_stopping_dataset is not None:
+        early_stopping_dataset.reduce_to(
+            cell_line_ids=cl_features.identifiers, drug_ids=drug_features.identifiers
+        )
+        
+    model.train(cell_line_input=cl_features, drug_input=drug_features, output=train_dataset, hyperparameters=hpams, output_earlystopping=early_stopping_dataset)
+    
     prediction_dataset.predictions = model.predict(
         cell_line_ids=prediction_dataset.cell_line_ids,
         drug_ids=prediction_dataset.drug_ids,
@@ -99,6 +120,7 @@ def train_and_evaluate(
     hpams: Dict[str, List],
     train_dataset: DrugResponseDataset,
     validation_dataset: DrugResponseDataset,
+    early_stopping_dataset: Optional[DrugResponseDataset] = None,
     metric: str = "rmse",
 ) -> float:
     validation_dataset = train_and_predict(
@@ -106,8 +128,9 @@ def train_and_evaluate(
         hpams=hpams,
         train_dataset=train_dataset,
         prediction_dataset=validation_dataset,
+        early_stopping_dataset=early_stopping_dataset,
     )
-    return evaluate(validation_dataset, metric=[metric])  # TODO [metric]
+    return evaluate(validation_dataset, metric=[metric]) 
 
 
 def hpam_tune(
@@ -115,6 +138,7 @@ def hpam_tune(
     train_dataset: DrugResponseDataset,
     validation_dataset: DrugResponseDataset,
     hpam_set: List[Dict],
+    early_stopping_dataset: Optional[DrugResponseDataset] = None,
 ) -> Dict:
     best_rmse = float("inf")
     best_hyperparameters = None
@@ -124,6 +148,7 @@ def hpam_tune(
             hpams=hyperparameter,
             train_dataset=train_dataset,
             validation_dataset=validation_dataset,
+            early_stopping_dataset=early_stopping_dataset,
             metric="rmse",
         )["rmse"]
         if rmse < best_rmse:
@@ -137,6 +162,7 @@ def hpam_tune_raytune(
     model: DRPModel,
     train_dataset: DrugResponseDataset,
     validation_dataset: DrugResponseDataset,
+    early_stopping_dataset: Optional[DrugResponseDataset],
     hpam_set: List[Dict],
 ) -> Dict:
     analysis = tune.run(
@@ -145,12 +171,13 @@ def hpam_tune_raytune(
             hpams=hpams,
             train_dataset=train_dataset,
             validation_dataset=validation_dataset,
+            early_stopping_dataset=early_stopping_dataset,
             metric="rmse",
         ),
         config=tune.grid_search(hpam_set),
         mode="min",
         num_samples=len(hpam_set),
-        resources_per_trial={"cpu": 1},  # TODO adapt this, also gpu
+        resources_per_trial={"cpu": 1},
         chdir_to_trial_dir=False,
         verbose=0,
     )
