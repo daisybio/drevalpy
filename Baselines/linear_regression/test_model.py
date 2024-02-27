@@ -4,18 +4,27 @@ import numpy as np
 import os
 import pandas as pd
 import seaborn as sns
+import sys
 import toml
+from os.path import dirname, join, abspath
 from pathlib import Path
 from scipy import stats
 from sklearn.linear_model import Lasso
 
+sys.path.insert(0, abspath(join(dirname(__file__), '..')))
 from model import LinearRegression
+from utils.utils import mkdir
 
 # setting up logging
 logging.basicConfig(format='%(asctime)s: %(levelname)s: %(message)s', level=logging.INFO)
 
+# setting up directory for saving results
+# save model parameters and results
+dir_path = "linreg_LCO_10feat_gdsc/"
+mkdir(dir_path)
+
 # setting up file logging as well
-file_logger = logging.FileHandler(Path(os.getcwd() / Path('Baseline-models.log')), mode='w')
+file_logger = logging.FileHandler(Path(os.getcwd() / Path(dir_path + 'Baseline-models.log')), mode='w')
 file_logger.setLevel(logging.INFO)
 formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
 file_logger.setFormatter(formatter)
@@ -97,11 +106,7 @@ best_model_attr["metric_df"]["nfeatures"] = best_nfeatures
 best_model_attr["metric_df"]["alpha"] = best_models_params["alpha"]
 best_model_attr["metric_df"]["max_iter"] = best_models_params["max_iter"]
 
-# save model parameters and results
-dir_path = "results_transcriptomics/"
-# mkdir(dir_path)
 linear_regression.save(dir_path, best_model_attr)
-
 #################################################### DATA ANALYSIS #####################################################
 logger.info("Performing data analysis")
 logger.info(
@@ -127,7 +132,9 @@ plt.suptitle(f"distribution of correlation coefficients "
 # axs[0].legend()
 # axs[1].legend()
 sns.despine(right=True)
+fig=plt.gcf()
 plt.show()
+fig.savefig(Path(dir_path + "correlation_coefficients_distribution.png"))
 plt.close()
 
 ### scc vs variance ###
@@ -192,7 +199,9 @@ axs['c)'].set_title(f'frequency of coefficients set to 0 ('
                     fontweight='bold')
 sns.despine(right=True)
 plt.tight_layout()
+fig=plt.gcf()
 plt.show()
+fig.savefig(Path(dir_path + "coefficient_variance_frequency.png"))
 plt.close()
 
 logger.info(f"\nAverage number of coefficients set to 0 over all models: {beta0_df.T.sum().mean()}\n"
@@ -200,21 +209,23 @@ logger.info(f"\nAverage number of coefficients set to 0 over all models: {beta0_
 
 # generate scatter plot of predictions
 # plot y_true vs y_pred, in title: overall correlation
+if meta_data["metadata"]["task"] != "LDO":
+    # compute the overall pcc and scc
+    pcc = stats.pearsonr(best_model_attr["pred_df"]["y_true"], best_model_attr["pred_df"]["y_pred"])[0]
+    scc = stats.spearmanr(best_model_attr["pred_df"]["y_true"], best_model_attr["pred_df"]["y_pred"])[0]
 
-# compute the overall pcc and scc
-pcc = stats.pearsonr(best_model_attr["pred_df"]["y_true"], best_model_attr["pred_df"]["y_pred"])[0]
-scc = stats.spearmanr(best_model_attr["pred_df"]["y_true"], best_model_attr["pred_df"]["y_pred"])[0]
-
-# plt.figure(figsize=(10, 15))
-sns.lmplot(x="y_true", y="y_pred", data=best_model_attr["pred_df"], hue="target", height=10, aspect=12 / 10)
-plt.title(f"Overall PCC: {pcc:.2f}, SCC: {scc:.2f}", fontsize=12, fontweight='bold')
-plt.xlabel('pEC50[M] ground truth')
-plt.ylabel('pEC50[M] prediction')
-sns.despine(right=True)
-# plt.legend(loc="right")
-plt.tight_layout()
-plt.show()
-plt.close()
+    # plt.figure(figsize=(10, 15))
+    sns.lmplot(x="y_true", y="y_pred", data=best_model_attr["pred_df"], hue="target", height=10, aspect=12 / 10)
+    plt.title(f"Overall PCC: {pcc:.2f}, SCC: {scc:.2f}", fontsize=12, fontweight='bold')
+    plt.xlabel('pEC50[M] ground truth')
+    plt.ylabel('pEC50[M] prediction')
+    sns.despine(right=True)
+    # plt.legend(loc="right")
+    plt.tight_layout()
+    fig = plt.gcf()
+    plt.show()
+    fig.savefig(Path(dir_path + "scatter_plot_predictions.png"))
+    plt.close()
 
 # average number of datapoints per model:
 ls = []
@@ -228,12 +239,14 @@ logger.info(
 
 sns.histplot(x=best_model_attr['pred_df'].groupby('target').size())
 plt.title(f"Average number of datapoints per model for testing:"
-          f" {best_model_attr['pred_df'].groupby('target').size().mean()}",
+          f" {round(best_model_attr['pred_df'].groupby('target').size().mean())}",
           fontsize=12, fontweight='bold')
 plt.xlabel('number of samples in a model')
 plt.ylabel('number of models')
 sns.despine(right=True)
+fig=plt.gcf()
 plt.show()
+fig.savefig(Path(dir_path + "average_number_of_datapoints_per_model.png"))
 plt.close()
 
 # compute F statistic to see if fit is significant
@@ -243,7 +256,7 @@ p_values=[]
 for name, group in groups:
     ssreg = ((group["y_pred"] - group["y_true"].mean())**2).sum()
     ssres = ((group["y_true"] - group["y_pred"])**2).sum()
-    k = best_model_attr["models"][first_group].best_estimator_.coef_.shape[0] # intercept B0 not included in k
+    k = best_model_attr["models"][name].best_estimator_.coef_.shape[0] # intercept B0 not included in k
     n = len(group)
 
     F_group = (ssreg / k) / (ssres / (n - k - 1))
@@ -251,18 +264,16 @@ for name, group in groups:
     F.append(F_group)
     p_values.append(p_value)
 
-"""
 # plot F-distribution
 X = np.linspace(0, 5, 200)
 dfn = k
 dfd = n - k - 1
 Y = stats.f.pdf(X, dfn, dfd)
 plt.plot(X, Y, label=f"F-distribution dfn: {dfn}, dfd: {dfd}")
-plt.fill_between(X, Y, where=(X > F), alpha=0.3)
-plt.title(f"Computed F-statistic: {F:.2f}, p-value: {p_value:.2f}")
+plt.fill_between(X, Y, where=(X > F_group), alpha=0.3)
+plt.title(f"Computed F-statistic: {F_group:.2f}, p-value: {p_value:.2f}")
 plt.xlabel("F-statistic")
 plt.ylabel("probability")
 plt.legend()
 plt.show()
 plt.close()
-"""
