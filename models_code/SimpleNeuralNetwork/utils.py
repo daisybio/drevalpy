@@ -9,6 +9,7 @@ import pytorch_lightning as pl
 from pytorch_lightning.callbacks import EarlyStopping
 from pytorch_lightning.callbacks import TQDMProgressBar
 from torch.utils.data import Dataset
+import random
 
 
 class RegressionDataset(Dataset):
@@ -77,8 +78,9 @@ class FeedForwardNetwork(pl.LightningModule):
         early_stop_callback = EarlyStopping(
             monitor=monitor, mode="min", patience=patience
         )
+        name = "version-" + "".join([random.choice('0123456789abcdef') for i in range(20)]) #preventing conflicts of filenames
         self.checkpoint_callback = pl.callbacks.ModelCheckpoint(
-            dirpath=checkpoint_path, monitor=monitor, mode="min", save_top_k=1
+            dirpath=checkpoint_path, monitor=monitor, mode="min", save_top_k=1, filename=name
         )
 
         progress_bar = TQDMProgressBar(
