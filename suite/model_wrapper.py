@@ -59,12 +59,14 @@ class DRPModel(ABC):
         cell_line_input: FeatureDataset,
         drug_input: FeatureDataset,
         output: DrugResponseDataset,
+        output_earlystopping: Optional[DrugResponseDataset] = None,
     ):
         """
         Trains the model. Call the respective function from models_code here.
         :param cell_line_input: training data associated with the cell line input
         :param drug_input: training data associated with the drug input
         :param output: training data associated with the response output
+        :param output_earlystopping: optional early stopping dataset
         """
         pass
 
