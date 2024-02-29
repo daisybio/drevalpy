@@ -20,7 +20,7 @@ logging.basicConfig(format='%(asctime)s: %(levelname)s: %(message)s', level=logg
 
 # setting up directory for saving results
 # save model parameters and results
-dir_path = "linreg_LCO_10feat_gdsc/"
+dir_path = "linreg_LCO_10_20_50_100feat_gdsc/"
 mkdir(dir_path)
 
 # setting up file logging as well
@@ -81,7 +81,7 @@ for ntop in meta_data["metadata"]["HP_tuning_features"].get("nfeatures"):
     # save the model if its scc is better than the previous one in best_model_attr
     if scc_median > best_scc:
         logger.info(f"New best model found with {ntop} features")
-        best_model_attr = vars(linear_regression)
+        best_model_attr = dict(linear_regression.__dict__)  # vars(linear_regression)
         best_scc = scc_median
         best_nfeatures = ntop
 
@@ -132,7 +132,7 @@ plt.suptitle(f"distribution of correlation coefficients "
 # axs[0].legend()
 # axs[1].legend()
 sns.despine(right=True)
-fig=plt.gcf()
+fig = plt.gcf()
 plt.show()
 fig.savefig(Path(dir_path + "correlation_coefficients_distribution.png"))
 plt.close()
@@ -199,13 +199,15 @@ axs['c)'].set_title(f'frequency of coefficients set to 0 ('
                     fontweight='bold')
 sns.despine(right=True)
 plt.tight_layout()
-fig=plt.gcf()
+fig = plt.gcf()
 plt.show()
 fig.savefig(Path(dir_path + "coefficient_variance_frequency.png"))
 plt.close()
 
 logger.info(f"\nAverage number of coefficients set to 0 over all models: {beta0_df.T.sum().mean()}\n"
-            f"percentage of avg number of coefficients set to 0 over input features: {beta0_df.T.sum().mean() / best_nfeatures * 100}\n")
+            f"Average number of coefficients not set to 0 over all models: {(best_nfeatures - beta0_df.T.sum()).mean()}\n"
+            f"percentage of avg number of coefficients set to 0 over total coef: {beta0_df.T.sum().mean() / best_nfeatures * 100}\n"
+            f"percentage of avg number of coefficients not set to 0 over total coef: {(best_nfeatures - beta0_df.T.sum()).mean() / best_nfeatures * 100}\n")
 
 # generate scatter plot of predictions
 # plot y_true vs y_pred, in title: overall correlation
@@ -215,7 +217,8 @@ if meta_data["metadata"]["task"] != "LDO":
     scc = stats.spearmanr(best_model_attr["pred_df"]["y_true"], best_model_attr["pred_df"]["y_pred"])[0]
 
     # plt.figure(figsize=(10, 15))
-    sns.lmplot(x="y_true", y="y_pred", data=best_model_attr["pred_df"], hue="target", height=10, aspect=12 / 10)
+    sns.lmplot(x="y_true", y="y_pred", data=best_model_attr["pred_df"], hue="target", height=10, aspect=12 / 10,
+               legend=False, ci=None)
     plt.title(f"Overall PCC: {pcc:.2f}, SCC: {scc:.2f}", fontsize=12, fontweight='bold')
     plt.xlabel('pEC50[M] ground truth')
     plt.ylabel('pEC50[M] prediction')
@@ -244,25 +247,28 @@ plt.title(f"Average number of datapoints per model for testing:"
 plt.xlabel('number of samples in a model')
 plt.ylabel('number of models')
 sns.despine(right=True)
-fig=plt.gcf()
+fig = plt.gcf()
 plt.show()
 fig.savefig(Path(dir_path + "average_number_of_datapoints_per_model.png"))
 plt.close()
 
 # compute F statistic to see if fit is significant
 groups = best_model_attr["pred_df"].groupby(by="target")
-F=[]
-p_values=[]
+F = []
+p_values = []
 for name, group in groups:
-    ssreg = ((group["y_pred"] - group["y_true"].mean())**2).sum()
-    ssres = ((group["y_true"] - group["y_pred"])**2).sum()
-    k = best_model_attr["models"][name].best_estimator_.coef_.shape[0] # intercept B0 not included in k
+    ssreg = ((group["y_pred"] - group["y_true"].mean()) ** 2).sum()
+    ssres = ((group["y_true"] - group["y_pred"]) ** 2).sum()
+    k = best_model_attr["models"][name].best_estimator_.coef_.shape[0]  # intercept B0 not included in k
     n = len(group)
 
     F_group = (ssreg / k) / (ssres / (n - k - 1))
-    p_value = 1 - stats.f.cdf(F_group, k, n - k - 1) # this returns nan if number of samples n < number of features k
+    p_value = 1 - stats.f.cdf(F_group, k, n - k - 1)  # this returns nan if number of samples n < number of features k
     F.append(F_group)
     p_values.append(p_value)
+
+logger.info(f"Number of models with p_val < 0.05: {(np.array(p_values) < 0.05).sum()}"
+            f" ({round((np.array(p_values) < 0.05).sum() / len(p_values), 3)}%)")
 
 # plot F-distribution
 X = np.linspace(0, 5, 200)
