@@ -18,7 +18,7 @@ def mkdir(directory):
     for d in directories:
         folder += d + '/'
         if not os.path.exists(folder):
-            print('creating folder: %s' % folder)
+            logger.info('creating folder: %s' % folder)
             os.mkdir(folder)
 
 
