@@ -186,9 +186,14 @@ def get_gene_expression_data(feature_df, train_drp, test_drp, task,
             gene_counts_test_np_nona = gene_counts_test_np[mask_test_2]
             test_drp_drug_np_nona = test_drp_drug_np[mask_test_2]
 
+            # track the sample ids (in this case cell line names)
+            train_drp_drug_cls = train_drp_drug.index[mask_train_2].to_list()
+            test_drp_drug_cls = test_drp_drug.index[mask_test_2].to_list()
+
             # add data to dict of format {"drug1": {X_train:[..], y_train:[..], X_test:[..], y_test:[..]}, "drug2": ...}
             data_dict = {"X_train": gene_counts_train_np_nona, "y_train": train_drp_drug_np_nona,
-                         "X_test": gene_counts_test_np_nona, "y_test": test_drp_drug_np_nona}
+                         "X_test": gene_counts_test_np_nona, "y_test": test_drp_drug_np_nona,
+                         "train_sample_ids": train_drp_drug_cls, "test_sample_ids": test_drp_drug_cls}
             drug_dict[drug] = data_dict  # nested dict
 
     elif task == "LPO":
@@ -239,9 +244,14 @@ def get_gene_expression_data(feature_df, train_drp, test_drp, task,
             gene_counts_test_np_nona = gene_counts_test_np[mask_test]
             test_drp_drug_np_nona = test_drp_drug_np[mask_test]
 
+            # track the sample ids (in this case cell line names)
+            train_drp_drug_cls = train_drp_drug.index[mask_train].to_list()
+            test_drp_drug_cls = test_drp_drug.index[mask_test].to_list()
+
             # add data to dict of format {"drug1": {X_train:[..], y_train:[..], X_test:[..], y_test:[..]}, "drug2": ...}
             data_dict = {"X_train": gene_counts_train_np_nona, "y_train": train_drp_drug_np_nona,
-                         "X_test": gene_counts_test_np_nona, "y_test": test_drp_drug_np_nona}
+                         "X_test": gene_counts_test_np_nona, "y_test": test_drp_drug_np_nona,
+                         "train_sample_ids": train_drp_drug_cls, "test_sample_ids": test_drp_drug_cls}
             drug_dict[drug] = data_dict  # nested dict
 
     return drug_dict
@@ -299,9 +309,14 @@ def get_morgan_fingerprints(feature_df, train_drp, test_drp, task, feature_selec
             morgan_fingerprints_test_np_nona = morgan_fingerprints_test_np[mask_test]
             test_drp_cl_np_nona = test_drp_cl_np[mask_test]
 
+            # track the sample ids (in this case cell line names)
+            train_drp_cl_drugs = train_drp_cl.index[mask_train].to_list()
+            test_drp_drug_drugs = test_drp_cl.index[mask_test].to_list()
+
             # add data to dict of format {"cl1": {X_train:[..], y_train:[..], X_test:[..], y_test:[..]}, "cl2": ...}
             data_dict = {"X_train": morgan_fingerprints_train_np_nona, "y_train": train_drp_cl_np_nona,
-                         "X_test": morgan_fingerprints_test_np_nona, "y_test": test_drp_cl_np_nona}
+                         "X_test": morgan_fingerprints_test_np_nona, "y_test": test_drp_cl_np_nona,
+                         "train_sample_ids": train_drp_cl_drugs, "test_sample_ids": test_drp_drug_drugs}
             cl_dict[cl] = data_dict  # nested dict
 
     elif task == "LPO":
@@ -348,9 +363,14 @@ def get_morgan_fingerprints(feature_df, train_drp, test_drp, task, feature_selec
             morgan_fingerprints_test_np_nona = morgan_fingerprints_test_np[mask_test]
             test_drp_cl_np_nona = test_drp_cl_np[mask_test]
 
+            # track the sample ids (in this case cell line names)
+            train_drp_cl_drugs = train_drp_cl.index[mask_train].to_list()
+            test_drp_drug_drugs = test_drp_cl.index[mask_test].to_list()
+
             # add data to dict of format {"drug1": {X_train:[..], y_train:[..], X_test:[..], y_test:[..]}, "drug2": ...}
             data_dict = {"X_train": morgan_fingerprints_train_np_nona, "y_train": train_drp_cl_np_nona,
-                         "X_test": morgan_fingerprints_test_np_nona, "y_test": test_drp_cl_np_nona}
+                         "X_test": morgan_fingerprints_test_np_nona, "y_test": test_drp_cl_np_nona,
+                         "train_sample_ids": train_drp_cl_drugs, "test_sample_ids": test_drp_drug_drugs}
             cl_dict[cl] = data_dict  # nested dict
 
     return cl_dict

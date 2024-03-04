@@ -13,6 +13,7 @@ from utils.utils import preprocessing
 
 logger = logging.getLogger(__name__)
 
+
 class BaseModel(ABC):
     def __init__(self, dataroot_drp, dataroot_feature, metric, task, remove_out=True,
                  log_transform=True, feature_type="gene_expression", feature_selection=False,
@@ -75,10 +76,11 @@ class BaseModel(ABC):
         pred_df = pd.DataFrame({"y_true": np.concatenate([self.data_dict.get(target).get("y_test").reshape(-1)
                                                           for target in self.data_dict]),
                                 "y_pred": np.concatenate([self.prediction.get(target) for target in self.data_dict]),
+                                "sample_id": np.concatenate(
+                                    [self.data_dict.get(target).get("test_sample_ids") for target in self.data_dict]),
                                 "target": np.concatenate(
                                     [np.repeat(target, len(self.data_dict.get(target).get("y_test").reshape(-1))) for
-                                     target in
-                                     self.data_dict])})
+                                     target in self.data_dict])})
 
         # kick out all rows that have only one sample (target-wise) as pcc/scc needs more than one sample
         pred_df = pred_df.groupby("target").filter(lambda x: len(x) > 1)
@@ -92,6 +94,13 @@ class BaseModel(ABC):
         mse_target = pred_df.groupby("target").apply(lambda x: mean_squared_error(x["y_true"], x["y_pred"]))
         rmse_target = pred_df.groupby("target").apply(
             lambda x: mean_squared_error(x["y_true"], x["y_pred"], squared=False))
+
+        # map performance metrics to targets in pred df - important for plotting later
+        pred_df["pcc"] = pred_df["target"].map(pcc_target)
+        pred_df["scc"] = pred_df["target"].map(scc_target)
+        pred_df["mse"] = pred_df["target"].map(mse_target)
+        pred_df["rmse"] = pred_df["target"].map(rmse_target)
+
         self.metric_df = pd.DataFrame({"pcc": pcc_target, "scc": scc_target, "mse": mse_target, "rmse": rmse_target})
         self.pred_df = pred_df
 

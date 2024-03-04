@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import pandas as pd
+import plotly.express as px
 import seaborn as sns
 import sys
 import toml
@@ -20,7 +21,7 @@ logging.basicConfig(format='%(asctime)s: %(levelname)s: %(message)s', level=logg
 
 # setting up directory for saving results
 # save model parameters and results
-dir_path = "linreg_LCO_10_20_50_100feat_gdsc/"
+dir_path = "~/output/linreg/GDSC/linreg_LPO_2feat_fp/"
 mkdir(dir_path)
 
 # setting up file logging as well
@@ -38,7 +39,7 @@ logger.info("Running linear regression model")
 
 # read in meta data from TOML file
 logger.info("Reading in meta data from TOML file")
-with open('metadata_LCO.toml', 'r') as file:
+with open('metadata_LPO.toml', 'r') as file:
     meta_data = toml.load(file)
 
 # create linear regression object
@@ -117,8 +118,8 @@ sns.set(style="ticks")
 
 ### correlation coefficient distribution ###
 fig, axs = plt.subplots(1, 2, sharey=True, figsize=(10, 5))
-sns.histplot(best_model_attr["metric_df"]["pcc"], ax=axs[0])
-sns.histplot(best_model_attr["metric_df"]["scc"], ax=axs[1])
+sns.histplot(best_model_attr["metric_df"]["pcc"], ax=axs[0], binrange=(-1, 1))
+sns.histplot(best_model_attr["metric_df"]["scc"], ax=axs[1], binrange=(-1, 1))
 median_value_pcc = best_model_attr["metric_df"]["pcc"].median()
 median_value_scc = best_model_attr["metric_df"]["scc"].median()
 axs[0].axvline(x=median_value_pcc, color='red', linestyle='dashed', linewidth=2, label='median')
@@ -211,24 +212,17 @@ logger.info(f"\nAverage number of coefficients set to 0 over all models: {beta0_
 
 # generate scatter plot of predictions
 # plot y_true vs y_pred, in title: overall correlation
-if meta_data["metadata"]["task"] != "LDO":
-    # compute the overall pcc and scc
-    pcc = stats.pearsonr(best_model_attr["pred_df"]["y_true"], best_model_attr["pred_df"]["y_pred"])[0]
-    scc = stats.spearmanr(best_model_attr["pred_df"]["y_true"], best_model_attr["pred_df"]["y_pred"])[0]
 
-    # plt.figure(figsize=(10, 15))
-    sns.lmplot(x="y_true", y="y_pred", data=best_model_attr["pred_df"], hue="target", height=10, aspect=12 / 10,
-               legend=False, ci=None)
-    plt.title(f"Overall PCC: {pcc:.2f}, SCC: {scc:.2f}", fontsize=12, fontweight='bold')
-    plt.xlabel('pEC50[M] ground truth')
-    plt.ylabel('pEC50[M] prediction')
-    sns.despine(right=True)
-    # plt.legend(loc="right")
-    plt.tight_layout()
-    fig = plt.gcf()
-    plt.show()
-    fig.savefig(Path(dir_path + "scatter_plot_predictions.png"))
-    plt.close()
+# compute the overall pcc and scc
+pcc = stats.pearsonr(best_model_attr["pred_df"]["y_true"], best_model_attr["pred_df"]["y_pred"])[0]
+scc = stats.spearmanr(best_model_attr["pred_df"]["y_true"], best_model_attr["pred_df"]["y_pred"])[0]
+
+fig = px.scatter(
+    best_model_attr["pred_df"], x="y_true", y="y_pred", color="target", trendline="ols", hover_name="sample_id",
+    hover_data=["scc", "pcc"], title="Overall PCC: {:.2f}, SCC: {:.2f}".format(pcc, scc)
+)
+
+fig.write_html(Path(dir_path + "scatter_plot_predictions.html"))
 
 # average number of datapoints per model:
 ls = []
