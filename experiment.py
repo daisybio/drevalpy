@@ -92,29 +92,35 @@ def drug_response_experiment(
 
             )
 
-            cl_features = model.get_cell_line_features(path=best_hpams["feature_path"])
-            drug_features = model.get_drug_features(path=best_hpams["feature_path"])   
+            
 
-            #TODO outsource randomization, also need to be able to define randomization mode (e.g. gaussian, permutation, zeroing, etc.)
             if randomization_test_views:
-                result_randomization_fold = {}
-                for test_name, views in randomization_test_views.items():
-                    for view in views:
-                        cl_features_rand = cl_features.copy()
-                        drug_features_rand = drug_features.copy()
-                        if view in cl_features.get_views():
-                            cl_features.randomize_feature(view, how="gaussian")
-                        elif view in drug_features.get_views():
-                            drug_features.randomize_feature(view, how="gaussian")
-                        else:
-                            warnings.warn(f"View {view} not found in features. Skipping randomization test {test_name} which includes this view.")
-                            break
-                        test_dataset_rand = train_and_predict(model=model, hpams=best_hpams, train_dataset=train_dataset, prediction_dataset=test_dataset, early_stopping_dataset=early_stopping_dataset, cl_features=cl_features_rand, drug_features=drug_features_rand)
-                        result_randomization_fold[test_name] = test_dataset_rand
-            result_randomization[model.model_name].append(result_randomization_fold)
+                r = randomization_test(randomization_test_views=randomization_test_views,
+                                       model=model, hpam_set=best_hpams, train_dataset=train_dataset,
+                                       early_stopping_dataset=early_stopping_dataset)
+                result_randomization[model.model_name].append(r)
             result[model.model_name].append(test_dataset)
+
     return result
 
+def randomization_test(randomization_test_views: Dict[str, List[str]], model: DRPModel, hpam_set: Dict, train_dataset: DrugResponseDataset, early_stopping_dataset: Optional[DrugResponseDataset]) -> Dict:
+    cl_features = model.get_cell_line_features(path=hpam_set["feature_path"])
+    drug_features = model.get_drug_features(path=hpam_set["feature_path"])
+    results = {}
+    for test_name, views in randomization_test_views.items():
+        for view in views:
+            cl_features_rand = cl_features.copy()
+            drug_features_rand = drug_features.copy()
+            if view in cl_features.get_views():
+                cl_features.randomize_feature(view, how="gaussian")
+            elif view in drug_features.get_views():
+                drug_features.randomize_feature(view, how="gaussian")
+            else:
+                warnings.warn(f"View {view} not found in features. Skipping randomization test {test_name} which includes this view.")
+                break
+            test_dataset_rand = train_and_predict(model=model, hpams=hpam_set, train_dataset=train_dataset, prediction_dataset=test_dataset, early_stopping_dataset=early_stopping_dataset, cl_features=cl_features_rand, drug_features=drug_features_rand)
+            results[test_name] = test_dataset_rand
+    return results  
 
 def train_and_predict(
     model: DRPModel,
