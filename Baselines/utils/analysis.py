@@ -86,11 +86,11 @@ def base_analysis(best_models, best_nfeatures, predictor, predictor_type, meta_d
 
     for target in best_models["models"]:
         if isinstance(best_models["models"].get(target), predictor_type):
-            beta0_arr.append(best_models["models"].get(target).coef_ == 0)
+            beta0_arr.append(np.reshape(best_models["models"].get(target).coef_ == 0),-1)
             targets.append(target)
         else:
             target_GCV = best_models["models"].get(target)
-            beta0_arr.append(target_GCV.best_estimator_.coef_ == 0)
+            beta0_arr.append(np.reshape(target_GCV.best_estimator_.coef_ == 0,-1))
             targets.append(target)
 
     beta0_df = pd.DataFrame(index=targets, data=beta0_arr)
@@ -215,7 +215,7 @@ def scatter_predictions(best_models, dir_path):
 def cluster(best_models, dir_path):
 
     df = best_models["metric_df"]
-    df = df.drop(columns=["nfeatures", "alpha", "max_iter"])
+    df = df[["pcc", "scc", "mse", "rmse"]]
 
     fig = dash_bio.Clustergram(
         data=df,

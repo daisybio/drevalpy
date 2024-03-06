@@ -56,26 +56,28 @@ def train_test_eval(predictor, predictor_type, meta_data, dir_path):
             best_scc = scc_median
             best_nfeatures = ntop
 
-    # get the best alpha and maximum number of iterations
-    alpha = []
-    max_iter = []
-    for target in best_model_attr["models"]:
-        target_model = best_model_attr["models"].get(target)
-        if isinstance(target_model, predictor_type):
-            alpha.append(target_model.get_params()["alpha"])
-            max_iter.append(target_model.get_params()["max_iter"])
-        else:
-            alpha.append(target_model.best_params_.get("alpha"))
-            max_iter.append(target_model.best_params_.get("max_iter"))
+    # get the best Hyperparameters for each model
+    HPs = []
+    for HP in meta_data["metadata"]["HP_tuning"]:
+        HPs.append(HP)
+
+    HPs_models = {}
+    for HP in HPs:
+        HPs_models[HP] = []
+        for target in best_model_attr["models"]:
+            target_model = best_model_attr["models"].get(target)
+            if isinstance(target_model, predictor_type):
+                HPs_models[HP].append(target_model.get_params()[HP])
+            else:
+                HPs_models[HP].append(target_model.best_params_.get(HP))
 
     # there are more cl with models in best_model_attr["models"] than in best_model_attr["metric_df"] since there we calc.
     # the scc for cls with more than one drug. Filter out the alpha and max_iter for cl models with more than one drug
-    best_models_params = pd.DataFrame({"alpha": alpha, "max_iter": max_iter}, index=best_model_attr["models"].keys())
+    best_models_params = pd.DataFrame(HPs_models, index=best_model_attr["models"].keys())
     best_models_params = best_models_params.loc[best_model_attr["metric_df"].index]
 
     best_model_attr["metric_df"]["nfeatures"] = best_nfeatures
-    best_model_attr["metric_df"]["alpha"] = best_models_params["alpha"]
-    best_model_attr["metric_df"]["max_iter"] = best_models_params["max_iter"]
+    best_model_attr["metric_df"] = best_model_attr["metric_df"].join(best_models_params, how="inner")
 
     predictor.save(dir_path, best_model_attr)
 
