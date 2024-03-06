@@ -16,7 +16,7 @@ logging.basicConfig(format='%(asctime)s: %(levelname)s: %(message)s', level=logg
 
 # setting up directory for saving results
 # save model parameters and results
-dir_path = "/nfs/home/students/m.lorenz/output/linreg/GDSC/linreg_LPO_ex"
+dir_path = "linreg_LCO_ex/"
 mkdir(dir_path)
 
 # setting up file logging as well
@@ -34,7 +34,7 @@ logger.info("Running linear regression model")
 
 # read in meta data from TOML file
 logger.info("Reading in meta data from TOML file")
-with open('metadata_LPO.toml', 'r') as file:
+with open('metadata_LCO.toml', 'r') as file:
     meta_data = toml.load(file)
 
 # create linear regression object
@@ -48,4 +48,8 @@ best_models, best_nfeatures, best_scc, best_models_params = testing.train_test_e
 
 # perform data analysis
 logger.info("Performing data analysis")
-analysis.data_analysis(best_models, best_nfeatures, linear_regression, Lasso, meta_data, dir_path)
+analysis.base_analysis(best_models, best_nfeatures, linear_regression, Lasso, meta_data, dir_path)
+analysis.scatter_predictions(best_models, dir_path)
+analysis.cluster(best_models, dir_path)
+fstat_df = analysis.f_statistic(best_models, best_nfeatures)
+analysis.f_distribution(best_nfeatures, fstat_df.iloc[0, 1], fstat_df.iloc[0, 3],fstat_df.iloc[0, 4])

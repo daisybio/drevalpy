@@ -1,20 +1,18 @@
+import dash_bio
 import logging
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 import seaborn as sns
-import sys
-from os.path import dirname, join, abspath
 from pathlib import Path
 from scipy import stats
-
-sys.path.insert(0, abspath(join(dirname(__file__), '..')))
 
 logger = logging.getLogger(__name__)
 
 
-def data_analysis(best_models, best_nfeatures, predictor, predictor_type, meta_data, dir_path):
+def base_analysis(best_models, best_nfeatures, predictor, predictor_type, meta_data, dir_path):
     logger.info(
         f"\n\nSummary statistics on {meta_data['metadata'].get('task')} - {meta_data['metadata'].get('feature_type')}:\n"
         f"{best_models['metric_df'].describe()}\n")
@@ -115,20 +113,6 @@ def data_analysis(best_models, best_nfeatures, predictor, predictor_type, meta_d
                 f"percentage of avg number of coefficients set to 0 over total coef: {beta0_df.T.sum().mean() / best_nfeatures * 100}\n"
                 f"percentage of avg number of coefficients not set to 0 over total coef: {(best_nfeatures - beta0_df.T.sum()).mean() / best_nfeatures * 100}\n")
 
-    # generate scatter plot of predictions
-    # plot y_true vs y_pred, in title: overall correlation
-
-    # compute the overall pcc and scc
-    pcc = stats.pearsonr(best_models["pred_df"]["y_true"], best_models["pred_df"]["y_pred"])[0]
-    scc = stats.spearmanr(best_models["pred_df"]["y_true"], best_models["pred_df"]["y_pred"])[0]
-
-    fig = px.scatter(
-        best_models["pred_df"], x="y_true", y="y_pred", color="target", trendline="ols", hover_name="sample_id",
-        hover_data=["scc", "pcc"], title="Overall PCC: {:.2f}, SCC: {:.2f}".format(pcc, scc)
-    )
-
-    fig.write_html(Path(dir_path + "scatter_plot_predictions.html"))
-
     # average number of datapoints per model:
     ls = []
     for target in predictor.data_dict:
@@ -151,10 +135,115 @@ def data_analysis(best_models, best_nfeatures, predictor, predictor_type, meta_d
     fig.savefig(Path(dir_path + "average_number_of_datapoints_per_model.png"))
     plt.close()
 
+
+def scatter_predictions(best_models, dir_path):
+    # generate scatter plot of predictions
+    # plot y_true vs y_pred, in title: overall correlation
+
+    # compute the overall pcc and scc
+    pcc = stats.pearsonr(best_models["pred_df"]["y_true"], best_models["pred_df"]["y_pred"])[0]
+    scc = stats.spearmanr(best_models["pred_df"]["y_true"], best_models["pred_df"]["y_pred"])[0]
+
+    # Create figure
+    n_ticks = 21
+    fig = px.scatter(best_models["pred_df"], x="y_true", y="y_pred", color="target", trendline="ols",
+                     hover_name="sample_id", hover_data=["scc", "pcc"], title=f"Overall PCC: {pcc:.2f}, SCC: {scc:.2f}")
+
+    # Create and add slider
+    steps = []
+    # take the range from scc and divide it into 10 equal parts
+    scc_parts = np.linspace(-1, 1, n_ticks)
+    for i in range(n_ticks):
+        # from the fig data, get the hover data and check if it is greater than the scc_parts[i]
+        # only iterate over even numbers
+        sccs = [0 for _ in range(0, len(fig.data))]
+        for j in range(0, len(fig.data)):
+            if j % 2 == 0:
+                sccs[j] = fig.data[j].customdata[0, 0]
+            else:
+                sccs[j] = fig.data[j - 1].customdata[0, 0]
+
+        if i == n_ticks - 1:
+            visible_traces = sccs >= scc_parts[i]
+            if visible_traces.sum() > 0:
+                scc_median = np.median(np.array(sccs)[visible_traces][0:visible_traces.sum():2])
+            else:
+                scc_median = np.nan
+            title = f"Models with SCC >= {str(round(scc_parts[i], 1))} (Median SCC: {str(round(scc_median, 2))})"
+        else:
+            visible_traces_gt = sccs >= scc_parts[i]
+            visible_traces_lt = sccs < scc_parts[i + 1]
+            visible_traces = visible_traces_gt & visible_traces_lt
+            if visible_traces.sum() > 0:
+                scc_median = np.median(np.array(sccs)[visible_traces][0:visible_traces.sum():2])
+            else:
+                scc_median = np.nan
+            title = (f"Models with SCC between {str(round(scc_parts[i], 1))} and {str(round(scc_parts[i + 1], 1))}"
+                     f" (Median SCC: {str(round(scc_median, 2))})")
+        step = dict(
+            method="update",
+            args=[{"visible": visible_traces},
+                  {"title": title}],
+            label=str(round(scc_parts[i], 1))
+        )
+        steps.append(step)
+
+    sliders = [dict(
+        active=0,
+        currentvalue={"prefix": "SCC="},
+        pad={"t": 50},
+        steps=steps
+    )]
+
+    fig.update_layout(
+        sliders=sliders,
+        title_font_size=20,
+        legend=dict(
+            yanchor="top",
+            y=1.0,
+            xanchor="left",
+            x=1.01,
+            entrywidth=1.01
+        )
+    )
+    fig.update_xaxes(range=[np.min(best_models["pred_df"]["y_true"]), np.max(best_models["pred_df"]["y_true"])])
+    fig.update_yaxes(range=[np.min(best_models["pred_df"]["y_pred"]), np.max(best_models["pred_df"]["y_pred"])])
+
+    fig.write_html(Path(dir_path + "scatter_plot_predictions.html"))
+
+
+def cluster(best_models, dir_path):
+
+    df = best_models["metric_df"]
+    df = df.drop(columns=["nfeatures", "alpha", "max_iter"])
+
+    fig = dash_bio.Clustergram(
+        data=df,
+        cluster="row",
+        # standardize="column",
+        column_labels=list(df.columns.values),
+        row_labels=list(df.index),
+        height=1000,
+        width=900,
+        hidden_labels='row',
+        center_values=False,
+        color_threshold={
+            'row': 0,
+            'col': 0
+        }
+    )
+    #fig.layout.autosize=True
+
+    fig.write_html(Path(dir_path + "cluster.html"))
+
+
+def f_statistic(best_models, nfeatures):
     # compute F statistic to see if fit is significant
     groups = best_models["pred_df"].groupby(by="target")
-    F = []
+    F_stats = []
     p_values = []
+    n_samples = []
+    model_name = []
     for name, group in groups:
         ssreg = ((group["y_pred"] - group["y_true"].mean()) ** 2).sum()
         ssres = ((group["y_true"] - group["y_pred"]) ** 2).sum()
@@ -162,13 +251,21 @@ def data_analysis(best_models, best_nfeatures, predictor, predictor_type, meta_d
         n = len(group)
 
         F_group = (ssreg / k) / (ssres / (n - k - 1))
-        p_value = 1 - stats.f.cdf(F_group, k, n - k - 1)  # this returns nan if number of samples n < number of features k
-        F.append(F_group)
+        p_value = 1 - stats.f.cdf(F_group, k,
+                                  n - k - 1)  # this returns nan if number of samples n < number of features k
+        F_stats.append(F_group)
         p_values.append(p_value)
+        n_samples.append(n)
+        model_name.append(name)
 
     logger.info(f"Number of models with p_val < 0.05: {(np.array(p_values) < 0.05).sum()}"
                 f" ({round((np.array(p_values) < 0.05).sum() / len(p_values), 3)}%)")
+    fstat_df = pd.DataFrame(
+        data={"model": model_name, "n_samples": n_samples, "k": nfeatures, "F_statistic": F_stats, "p_value": p_values})
+    return fstat_df
 
+
+def f_distribution(k, n, F_group, p_value):
     # plot F-distribution
     X = np.linspace(0, 5, 200)
     dfn = k
