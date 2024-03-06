@@ -1,4 +1,5 @@
 from typing import Dict, List, Optional
+import warnings
 
 from models_code import SimpleNeuralNetwork
 from suite.data_wrapper import DrugResponseDataset, FeatureDataset
@@ -14,10 +15,25 @@ def drug_response_experiment(
     models: List[DRPModel],
     response_data: DrugResponseDataset,
     multiprocessing: bool = False,
+    randomization_test_views: Optional[Dict[str, List[str]]] = None,
+
 ) -> Dict[str, List[DrugResponseDataset]]:
+    """
+    Run the drug response prediction experiment.
+    :param models: list of models to compare
+    :param response_data: drug response dataset
+    :param multiprocessing: whether to use multiprocessing
+    :param randomization_test_views: views to use for the randomization tests. Key is the name of the randomization test and the value is a list of views to randomize
+            e.g. {"randomize_genomics": ["copy_number_var", "mutation"], "methylation_only": ["gene_expression", "copy_number_var", "mutation"]}"
+    :return: dictionary containing the results
+    """
+
+
     result = {}
+    result_randomization = {}
     for model in models:
         result[model.model_name] = []
+        result_randomization[model.model_name] = []
         model_hpam_set = model.get_hyperparameter_set()
 
         response_data.split_dataset(
@@ -27,6 +43,7 @@ def drug_response_experiment(
             validation_ratio=0.1,
             random_state=42,
         ) 
+
         for split in response_data.cv_splits:
             train_dataset = split["train"]
             validation_dataset = split["validation"]
@@ -75,6 +92,26 @@ def drug_response_experiment(
 
             )
 
+            cl_features = model.get_cell_line_features(path=best_hpams["feature_path"])
+            drug_features = model.get_drug_features(path=best_hpams["feature_path"])   
+
+            #TODO outsource randomization, also need to be able to define randomization mode (e.g. gaussian, permutation, zeroing, etc.)
+            if randomization_test_views:
+                result_randomization_fold = {}
+                for test_name, views in randomization_test_views.items():
+                    for view in views:
+                        cl_features_rand = cl_features.copy()
+                        drug_features_rand = drug_features.copy()
+                        if view in cl_features.get_views():
+                            cl_features.randomize_feature(view, how="gaussian")
+                        elif view in drug_features.get_views():
+                            drug_features.randomize_feature(view, how="gaussian")
+                        else:
+                            warnings.warn(f"View {view} not found in features. Skipping randomization test {test_name} which includes this view.")
+                            break
+                        test_dataset_rand = train_and_predict(model=model, hpams=best_hpams, train_dataset=train_dataset, prediction_dataset=test_dataset, early_stopping_dataset=early_stopping_dataset, cl_features=cl_features_rand, drug_features=drug_features_rand)
+                        result_randomization_fold[test_name] = test_dataset_rand
+            result_randomization[model.model_name].append(result_randomization_fold)
             result[model.model_name].append(test_dataset)
     return result
 
@@ -85,10 +122,13 @@ def train_and_predict(
     train_dataset: DrugResponseDataset,
     prediction_dataset: DrugResponseDataset,
     early_stopping_dataset: Optional[DrugResponseDataset] = None,
+    cl_features: Optional[FeatureDataset] = None,
+    drug_features: Optional[FeatureDataset] = None,
 ) -> DrugResponseDataset:
-    cl_features = model.get_cell_line_features(path=hpams["feature_path"])
-    drug_features = model.get_drug_features(path=hpams["feature_path"])
-
+    if cl_features is None:
+        cl_features = model.get_cell_line_features(path=hpams["feature_path"])
+    if drug_features is None:
+        drug_features = model.get_drug_features(path=hpams["feature_path"])
     # making sure there are no missing features:
     train_dataset.reduce_to(
         cell_line_ids=cl_features.identifiers, drug_ids=drug_features.identifiers

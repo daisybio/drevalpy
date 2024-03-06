@@ -325,3 +325,9 @@ class FeatureDataset(Dataset):
         ), f"{len(missing_identifiers)} of {len(np.unique(identifiers))} ids are not in the FeatureDataset. Missing ids: {missing_identifiers}"
 
         return np.stack([self.features[id_][view] for id_ in identifiers], axis=0)
+
+    def copy(self):
+        """
+        Returns a copy of the feature dataset.
+        """
+        return FeatureDataset(features=self.features.copy())
