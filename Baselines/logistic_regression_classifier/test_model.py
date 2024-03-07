@@ -16,7 +16,7 @@ logging.basicConfig(format='%(asctime)s: %(levelname)s: %(message)s', level=logg
 
 # setting up directory for saving results
 # save model parameters and results
-dir_path = "lincf_LCO_2feat/"
+dir_path = "lincf_LCO_20feat/"
 mkdir(dir_path)
 
 # setting up file logging as well
@@ -50,6 +50,8 @@ best_models, best_nfeatures, best_scc, best_models_params = testing.train_test_e
 # perform data analysis
 logger.info("Performing data analysis")
 analysis.base_analysis(best_models, best_nfeatures, logistic_classifier, LogisticRegression, meta_data, dir_path)
-#analysis.cluster(best_models, dir_path)
+analysis.confusionmatrix_heatmap(best_models, dir_path)
+analysis.roc_plot(best_models, 0)
+analysis.cluster(best_models, dir_path)
 fstat_df = analysis.f_statistic(best_models, best_nfeatures)
 analysis.f_distribution(best_nfeatures, fstat_df.iloc[0, 1], fstat_df.iloc[0, 3], fstat_df.iloc[0, 4])

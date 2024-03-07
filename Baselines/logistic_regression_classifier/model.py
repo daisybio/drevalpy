@@ -1,10 +1,14 @@
 # -*- coding: utf-8 -*-
 import logging
+import numpy as np
+import pandas as pd
 import pickle
 import sys
 import warnings
 from os.path import dirname, join, abspath
+from scipy import stats
 from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import GridSearchCV
 
 sys.path.insert(0, abspath(join(dirname(__file__), '..')))
@@ -16,6 +20,7 @@ logger = logging.getLogger(__name__)
 class LogisticClassifier(BaseModel):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.probability = None
 
     @property
     def cell_line_views(self):
@@ -78,7 +83,58 @@ class LogisticClassifier(BaseModel):
 
             self.models[target] = model
         logger.info("finished training models")
-        # logger.info(f"average length of training set: {sum_all_lengths / len(self.data_dict)}")
+
+    def predict(self):
+        logger.info("predicting drug response for test set")
+        self.prediction = {}
+        self.probability = {}
+        for target in self.data_dict:
+            model = self.models.get(target)
+            X_test = self.data_dict.get(target).get("X_test")
+            yhat = model.predict(X_test)
+            y_prob = model.predict_proba(X_test)[:, 1] # since we are interested in the probability of the positive class
+            self.prediction[target] = yhat  # predicted responses for each target
+            self.probability[target] = y_prob
+        logger.info("finished predicting")
+    # logger.info(f"average length of training set: {sum_all_lengths / len(self.data_dict)}")
+
+    def evaluate(self):
+        logger.info("evaluating models")
+
+        # initialize pandas dataframe with y_true, y_pred, target
+        pred_df = pd.DataFrame({"y_true": np.concatenate([self.data_dict.get(target).get("y_test").reshape(-1)
+                                                          for target in self.data_dict]),
+                                "y_pred": np.concatenate([self.prediction.get(target) for target in self.data_dict]),
+                                "y_prob": np.concatenate([self.probability.get(target) for target in self.data_dict]),
+                                "sample_id": np.concatenate(
+                                    [self.data_dict.get(target).get("test_sample_ids") for target in self.data_dict]),
+                                "target": np.concatenate(
+                                    [np.repeat(target, len(self.data_dict.get(target).get("y_test").reshape(-1))) for
+                                     target in self.data_dict])})
+
+        # kick out all rows that have only one sample (target-wise) as pcc/scc needs more than one sample
+        pred_df = pred_df.groupby("target").filter(lambda x: len(x) > 1)
+
+        #  also skip target where all predictions are the same, leading to a constant -> pcc/scc not calculated
+        pred_df = pred_df.groupby("target").filter(lambda x: x["y_pred"].nunique() > 1)
+
+        # compute the target-wise pcc, scc, mse, rmse and put it in self.metric_df
+        pcc_target = pred_df.groupby("target").apply(lambda x: stats.pearsonr(x["y_true"], x["y_pred"])[0])
+        scc_target = pred_df.groupby("target").apply(lambda x: stats.spearmanr(x["y_true"], x["y_pred"])[0])
+        mse_target = pred_df.groupby("target").apply(lambda x: mean_squared_error(x["y_true"], x["y_pred"]))
+        rmse_target = pred_df.groupby("target").apply(
+            lambda x: mean_squared_error(x["y_true"], x["y_pred"], squared=False))
+
+        # map performance metrics to targets in pred df - important for plotting later
+        pred_df["pcc"] = pred_df["target"].map(pcc_target)
+        pred_df["scc"] = pred_df["target"].map(scc_target)
+        pred_df["mse"] = pred_df["target"].map(mse_target)
+        pred_df["rmse"] = pred_df["target"].map(rmse_target)
+
+        self.metric_df = pd.DataFrame({"pcc": pcc_target, "scc": scc_target, "mse": mse_target, "rmse": rmse_target})
+        self.pred_df = pred_df
+
+        logger.info("finished evaluation")
 
     def save(self, result_path, best_model_dict):
         self.models_params = {}

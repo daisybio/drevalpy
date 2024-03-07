@@ -8,11 +8,20 @@ import plotly.graph_objects as go
 import seaborn as sns
 from pathlib import Path
 from scipy import stats
+from sklearn.metrics import confusion_matrix, precision_score, roc_curve, roc_auc_score, auc, RocCurveDisplay
 
 logger = logging.getLogger(__name__)
 
 
 def base_analysis(best_models, best_nfeatures, predictor, predictor_type, meta_data, dir_path):
+    """
+    Perform a basic analysis of the models. The analysis includes the following:
+    - Summary statistics on the correlation coefficients (PCC, SCC)
+    - Distribution of the correlation coefficients
+    - SCC vs variance
+    - Distribution of model coefficients set to 0
+    - Avg number of datapoints per model
+    """
     logger.info(
         f"\n\nSummary statistics on {meta_data['metadata'].get('task')} - {meta_data['metadata'].get('feature_type')}:\n"
         f"{best_models['metric_df'].describe()}\n")
@@ -86,11 +95,11 @@ def base_analysis(best_models, best_nfeatures, predictor, predictor_type, meta_d
 
     for target in best_models["models"]:
         if isinstance(best_models["models"].get(target), predictor_type):
-            beta0_arr.append(np.reshape(best_models["models"].get(target).coef_ == 0),-1)
+            beta0_arr.append(np.reshape(best_models["models"].get(target).coef_ == 0), -1)
             targets.append(target)
         else:
             target_GCV = best_models["models"].get(target)
-            beta0_arr.append(np.reshape(target_GCV.best_estimator_.coef_ == 0,-1))
+            beta0_arr.append(np.reshape(target_GCV.best_estimator_.coef_ == 0, -1))
             targets.append(target)
 
     beta0_df = pd.DataFrame(index=targets, data=beta0_arr)
@@ -137,9 +146,12 @@ def base_analysis(best_models, best_nfeatures, predictor, predictor_type, meta_d
 
 
 def scatter_predictions(best_models, dir_path):
-    # generate scatter plot of predictions
-    # plot y_true vs y_pred, in title: overall correlation
-
+    """
+    Create a scatter plot of the predictions. The plot is interactive and allows the user to slide through the different
+    models and see how well they performed. The plot is colored according to the target and the hover data shows the
+    pcc and scc of the model. The plot is saved as a html file. The overall pcc and scc are also calculated and
+    displayed in the title of the plot.
+    """
     # compute the overall pcc and scc
     pcc = stats.pearsonr(best_models["pred_df"]["y_true"], best_models["pred_df"]["y_pred"])[0]
     scc = stats.spearmanr(best_models["pred_df"]["y_true"], best_models["pred_df"]["y_pred"])[0]
@@ -212,8 +224,102 @@ def scatter_predictions(best_models, dir_path):
     fig.write_html(Path(dir_path + "scatter_plot_predictions.html"))
 
 
-def cluster(best_models, dir_path):
+def confusionmatrix_heatmap(best_models, dir_path):
+    """
+    Calculate confusion matrix in order to evaluate the quality of the output of a classifier. The diagonal elements
+    represent the number of points for which the predicted label is equal to the true label, while off-diagonal elements
+    are those that are mislabeled by the classifier. (TP, FP, FN, TN). The higher the diagonal values of the confusion
+    matrix the better, indicating many correct predictions. The confusion matrix is used to compute the precision,
+    recall and F1 score. The confusion matrix is also used to compute the ROC curve and AUC. The precision is
+    intuitively the ability of the classifier not to label as positive a sample that is negative (best val 1 worst 0).
+    The recall is intuitively the ability of the classifier to find all the positive samples. The F1 score can be
+    interpreted as a harmonic mean of the precision and recall, where an F1 score reaches its best value at 1 and
+    worst score at 0. The relative contribution of precision and recall to the F1 score are equal. The outputs are
+    plotted in a heatmap and clustermap.
+    """
+    df = best_models["pred_df"]
 
+    # preparing data
+    groups = df.groupby("target")
+    confusion = groups.apply(lambda x: np.round(confusion_matrix(x["y_true"], x["y_pred"], normalize='all'), 3).ravel())
+    confusion_df = pd.DataFrame.from_records(confusion.values, index=confusion.index, columns=["TN", "FP", "FN", "TP"])
+
+    # calculating classification metrices of interest
+    confusion_df["precision"] = np.round(confusion_df["TP"] / (confusion_df["TP"] + confusion_df["FP"]), 3)
+    confusion_df["recall"] = np.round(confusion_df["TP"] / (confusion_df["TP"] + confusion_df["FN"]), 3)
+    confusion_df["F1-score"] = np.round(
+        (2 * confusion_df["TP"]) / (2 * confusion_df["TP"] + confusion_df["FP"] + confusion_df["FN"]), 3)
+    confusion_df["ROC-auc"] = groups.apply(lambda x: roc_auc_score(x["y_true"], x["y_prob"]))
+    # confusion_df["sample_size"] = (groups.size() - groups.size().min()) / (groups.size().max() - groups.size().min())
+
+    confusion_df_mean = confusion_df.mean()
+
+    # plot the results
+    # heatmap
+    fig = px.imshow(confusion_df, text_auto=True, aspect="auto", color_continuous_scale="plasma")
+    fig.update_layout(
+        title=f"Confusion matrix heatmap: over all TN {confusion_df_mean['TN']:.2f}; FP {confusion_df_mean['FP']:.2f};"
+              f" FN {confusion_df_mean['FN']:.2f}; TP {confusion_df_mean['TP']:.2f};"
+              f" precision {confusion_df_mean['precision']:.2f}; recall {confusion_df_mean['recall']:.2f};"
+              f" F1-score {confusion_df_mean['F1-score']:.2f}",
+        xaxis_title="confusion matrix element",
+        yaxis_title="target")
+    fig.write_html(Path(dir_path + "confusion_matrix_heatmap.html"))
+
+    # cluster-map
+    fig = go.Figure(dash_bio.Clustergram(
+        data=confusion_df,
+        cluster="row",
+        # standardize="column",
+        column_labels=list(confusion_df.columns.values),
+        row_labels=list(confusion_df.index),
+        height=1000,
+        width=1600,
+        # hidden_labels='row',
+        center_values=False,
+        color_map='plasma',
+        display_ratio=[0.7]
+    ))
+
+    fig.update_layout(
+        title=f"Confusion matrix clustermap: over all TN {confusion_df_mean['TN']:.2f}; FP {confusion_df_mean['FP']:.2f};"
+              f" FN {confusion_df_mean['FN']:.2f}; TP {confusion_df_mean['TP']:.2f};"
+              f" precision {confusion_df_mean['precision']:.2f}; recall {confusion_df_mean['recall']:.2f};"
+              f" F1-score {confusion_df_mean['F1-score']:.2f}")
+    fig.write_html(Path(dir_path + "confusion_matrix_clustermap.html"))
+
+
+def roc_plot(best_models, target_model):
+    """
+    Plot the ROC curve for a specific model. The ROC curve is created by plotting the true positive rate (TPR) against
+    the false positive rate (FPR) at various threshold settings. The area under the curve (AUC) is also calculated.
+    """
+    df = best_models["pred_df"]
+    groups = df.groupby("target")
+
+    roc_curve_groups = groups.apply(lambda x: roc_curve(x["y_true"], x["y_prob"]))
+    fpr, tpr, threshold = roc_curve_groups[target_model]
+
+    if isinstance(target_model, int):
+        model_name = roc_cuve_groups.index[int(target_model)]
+    else:
+        model_name = target_model
+
+    roc_auc = auc(fpr, tpr)
+    display = RocCurveDisplay(fpr=fpr, tpr=tpr, roc_auc=roc_auc)
+    display.plot()
+    x = np.linspace(0,1,100)
+    y = x
+    plt.plot(x, y, linestyle='--', color='black')
+    plt.title("Receiver operating characteristic (ROC) curve")
+    plt.legend([f"{model_name} curve (AUC = {roc_auc:.2f})", "random guess"], loc="lower right")
+    plt.show()
+
+
+def cluster(best_models, dir_path):
+    """
+    Cluster models according to how well they performed (pcc, scc, mse, rmse) and plot the results in a clustermap.
+    """
     df = best_models["metric_df"]
     df = df[["pcc", "scc", "mse", "rmse"]]
 
@@ -230,15 +336,24 @@ def cluster(best_models, dir_path):
         color_threshold={
             'row': 0,
             'col': 0
-        }
+        },
+        color_map='plasma'
     )
-    #fig.layout.autosize=True
+    # fig.layout.autosize=True
 
     fig.write_html(Path(dir_path + "cluster.html"))
 
 
 def f_statistic(best_models, nfeatures):
     # compute F statistic to see if fit is significant
+    """
+    Compute the F-statistic and p-value for the models. The F-statistic is a measure of how well the independent
+    variables explain the variance of the dependent variable. The p-value is the probability of observing an F-statistic
+    as extreme as the one computed. The F-statistic is used to test the null hypothesis that the model with no
+    independent variables fits the data as well as the model with the independent variables. If the p-value is less
+    than the significance level, the null hypothesis is rejected. The F-statistic is computed as the ratio of the
+    explained variance to the unexplained variance. The p-value is computed using the F-distribution.
+    """
     groups = best_models["pred_df"].groupby(by="target")
     F_stats = []
     p_values = []
@@ -266,7 +381,9 @@ def f_statistic(best_models, nfeatures):
 
 
 def f_distribution(k, n, F_group, p_value):
-    # plot F-distribution
+    """
+    Plot the F-distribution and highlight the computed F-statistic and p-value.
+    """
     X = np.linspace(0, 5, 200)
     dfn = k
     dfd = n - k - 1
