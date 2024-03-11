@@ -27,13 +27,13 @@ def drug_response_experiment(
             e.g. {"randomize_genomics": ["copy_number_var", "mutation"], "methylation_only": ["gene_expression", "copy_number_var", "mutation"]}"
     :return: dictionary containing the results
     """
+    results = {model.model_name: {} for model in models}
 
-
-    result = {}
-    result_randomization = {}
     for model in models:
-        result[model.model_name] = []
-        result_randomization[model.model_name] = []
+        results[model.model_name] = {"predictions": []}
+        if randomization_test_views:
+            results[model.model_name]["randomization_tests"] = []
+
         model_hpam_set = model.get_hyperparameter_set()
 
         response_data.split_dataset(
@@ -91,19 +91,17 @@ def drug_response_experiment(
                 early_stopping_dataset=early_stopping_dataset if model.early_stopping else None,
 
             )
-
-            
+            results[model.model_name]["predictions"].append(test_dataset)
 
             if randomization_test_views:
                 r = randomization_test(randomization_test_views=randomization_test_views,
-                                       model=model, hpam_set=best_hpams, train_dataset=train_dataset,
+                                       model=model, hpam_set=best_hpams, train_dataset=train_dataset, test_dataset=test_dataset,
                                        early_stopping_dataset=early_stopping_dataset)
-                result_randomization[model.model_name].append(r)
-            result[model.model_name].append(test_dataset)
+                results[model.model_name]["randomization_tests"].append(r)
+    
+    return results
 
-    return result
-
-def randomization_test(randomization_test_views: Dict[str, List[str]], model: DRPModel, hpam_set: Dict, train_dataset: DrugResponseDataset, early_stopping_dataset: Optional[DrugResponseDataset]) -> Dict:
+def randomization_test(randomization_test_views: Dict[str, List[str]], model: DRPModel, hpam_set: Dict, train_dataset: DrugResponseDataset, test_dataset: DrugResponseDataset, early_stopping_dataset: Optional[DrugResponseDataset]) -> Dict:
     cl_features = model.get_cell_line_features(path=hpam_set["feature_path"])
     drug_features = model.get_drug_features(path=hpam_set["feature_path"])
     results = {}
@@ -111,10 +109,10 @@ def randomization_test(randomization_test_views: Dict[str, List[str]], model: DR
         for view in views:
             cl_features_rand = cl_features.copy()
             drug_features_rand = drug_features.copy()
-            if view in cl_features.get_views():
-                cl_features.randomize_feature(view, how="gaussian")
-            elif view in drug_features.get_views():
-                drug_features.randomize_feature(view, how="gaussian")
+            if view in cl_features.get_view_names():
+                cl_features.randomize_features(view, mode="gaussian")
+            elif view in drug_features.get_view_names():
+                drug_features.randomize_features(view, mode="gaussian")
             else:
                 warnings.warn(f"View {view} not found in features. Skipping randomization test {test_name} which includes this view.")
                 break
@@ -242,5 +240,5 @@ drug_ids = response_data["DRUG_NAME"].values
 response_data = DrugResponseDataset(
     response=output, cell_line_ids=cell_line_ids, drug_ids=drug_ids
 )
-result = drug_response_experiment(models, response_data, multiprocessing=True)
+result = drug_response_experiment(models, response_data, multiprocessing=True, randomization_test_views={"randomize_ge": ["gene_expression"]})
 print(result)
