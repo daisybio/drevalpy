@@ -13,7 +13,7 @@ drug_ids = response_data["DRUG_NAME"].values
 response_data = DrugResponseDataset(
     response=output, cell_line_ids=cell_line_ids, drug_ids=drug_ids
 )
-result = drug_response_experiment(models, response_data, multiprocessing=True, randomization_test_views={"randomize_ge": ["gene_expression"]})
+result = drug_response_experiment(models, response_data, multiprocessing=True, randomization_test_views={"randomize_gene_expression": ["gene_expression"]})
 print(result)
 
 
