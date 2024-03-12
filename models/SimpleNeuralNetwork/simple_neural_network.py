@@ -4,7 +4,7 @@ from suite.drp_model import DRPModel
 from suite.dataset import DrugResponseDataset, FeatureDataset
 import numpy as np
 import pandas as pd
-
+import warnings
 
 class SimpleNeuralNetwork(DRPModel):
     """
@@ -80,15 +80,18 @@ class SimpleNeuralNetwork(DRPModel):
             response_earlystopping = output_earlystopping.response
         else:
             response_earlystopping = None
-        neural_network.fit(
-            X,
-            output.response,
-            X_earlystopping,
-            response_earlystopping,
-            batch_size=16,
-            patience=5,
-            num_workers=0,
-        )
+
+        with warnings.catch_warnings():
+            warnings.filterwarnings('ignore', message=".*does not have many workers which may be a bottleneck.*")
+            neural_network.fit(
+                X,
+                output.response,
+                X_earlystopping,
+                response_earlystopping,
+                batch_size=16,
+                patience=5,
+                num_workers=0,
+            )
         self.model = neural_network
 
     def save(self, path: str):

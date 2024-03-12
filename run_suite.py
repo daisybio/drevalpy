@@ -46,7 +46,7 @@ if __name__ == '__main__':
     assert all([model in MODEL_FACTORY for model in args.models]), f"Invalid model name. Available models are {list(MODEL_FACTORY.keys())}"    
     models = [MODEL_FACTORY[model](model_name=model, target="IC50") for model in args.models]
     
-    # TODO like the models we want to have a DATASET_FACTORY
+    # TODO like the models we want to have a DATASET_FACTORY which loads and optionally preprocesses the dataset
     if args.dataset_name == "GDSC1":
         response_data = pd.read_csv("data/GDSC/response_GDSC1.csv")
         output = response_data["LN_IC50"].values
@@ -64,13 +64,18 @@ if __name__ == '__main__':
     # TODO implement args.test_mode in drug_response_experiment
     result = drug_response_experiment(models, response_data, multiprocessing=True, randomization_test_views={"randomize_gene_expression": ["gene_expression"]})
     
-    # Convert to JSON string
-    json_string = json.dumps(result, indent=4)
-
-    # Save JSON string to a file
-    with open(f"{args.path_out}/{args.run_id}_results.npy", 'w') as json_file:
-        json_file.write(json_string)
+    
 
     # TODO now do evaluation, visualization, etc.
+
+    # Convert to JSON string
+    if False:
+        # DrugResponseDataset not serializable
+        json_string = json.dumps(result, indent=4)
+
+        # Save JSON string to a file
+        with open(f"{args.path_out}/{args.run_id}_results.npy", 'w') as json_file:
+            json_file.write(json_string)
+        print(f"Done! Results saved to {args.path_out}/{args.run_id}_results.npy")
+    print(result)
     
-    print(f"Done! Results saved to {args.path_out}/{args.run_id}_results.npy")
