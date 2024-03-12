@@ -22,31 +22,59 @@ from models import MODEL_FACTORY
 from suite.dataset import DrugResponseDataset
 from suite.experiment import drug_response_experiment
 
+
 def get_parser():
-    parser = argparse.ArgumentParser(description='Run the drug response prediction model test suite')
-    parser.add_argument('--run_id', type=str, default='', help='identifier to save the results')
-    parser.add_argument("--models", nargs='+', help="model to evalaute or list of models to compare")
-    parser.add_argument('--test_mode', type=str, default='LPO', help='Which tests to run (LPO=Leave-random-Pairs-Out, '
-                                                                     'LCO=Leave-Cell-line-Out, LDO=Leave-Drug-Out)')
-    parser.add_argument('--dataset_name', type=str, default='GDSC1', help='Name of the drug response '
-                                                                    'dataset')
-    parser.add_argument('--path_out', type=str, default='results/', help='Path to the output directory')
-    parser.add_argument('--curve_curator', action=argparse.BooleanOptionalAction, default=False, help='Whether to run '
-                                                                                                      'CurveCurator '
-                                                                                                      'to sort out '
-                                                                                                      'non-reactive '
-                                                                                                      'curves')
+    parser = argparse.ArgumentParser(
+        description="Run the drug response prediction model test suite"
+    )
+    parser.add_argument(
+        "--run_id", type=str, default="", help="identifier to save the results"
+    )
+    parser.add_argument(
+        "--models", nargs="+", help="model to evalaute or list of models to compare"
+    )
+    parser.add_argument(
+        "--test_mode",
+        type=str,
+        default="LPO",
+        help="Which tests to run (LPO=Leave-random-Pairs-Out, "
+        "LCO=Leave-Cell-line-Out, LDO=Leave-Drug-Out)",
+    )
+    parser.add_argument(
+        "--dataset_name",
+        type=str,
+        default="GDSC1",
+        help="Name of the drug response " "dataset",
+    )
+    parser.add_argument(
+        "--path_out", type=str, default="results/", help="Path to the output directory"
+    )
+    parser.add_argument(
+        "--curve_curator",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Whether to run " "CurveCurator " "to sort out " "non-reactive " "curves",
+    )
 
     return parser
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     args = get_parser().parse_args()
 
     assert args.models, "At least one model must be specified"
-    assert all([model in MODEL_FACTORY for model in args.models]), f"Invalid model name. Available models are {list(MODEL_FACTORY.keys())}"    
-    assert args.test_mode in ["LPO", "LCO", "LDO"], f"Invalid test mode. Available test modes are 'LPO', 'LCO', 'LDO'"
-    models = [MODEL_FACTORY[model](model_name=model, target="IC50") for model in args.models]
-    
+    assert all(
+        [model in MODEL_FACTORY for model in args.models]
+    ), f"Invalid model name. Available models are {list(MODEL_FACTORY.keys())}"
+    assert args.test_mode in [
+        "LPO",
+        "LCO",
+        "LDO",
+    ], f"Invalid test mode. Available test modes are 'LPO', 'LCO', 'LDO'"
+    models = [
+        MODEL_FACTORY[model](model_name=model, target="IC50") for model in args.models
+    ]
+
     # TODO like the models we want to have a DATASET_FACTORY which loads and optionally preprocesses the dataset
     if args.dataset_name == "GDSC1":
         response_data = pd.read_csv("data/GDSC/response_GDSC1.csv")
@@ -55,17 +83,21 @@ if __name__ == '__main__':
         drug_ids = response_data["DRUG_NAME"].values
     else:
         raise NotImplementedError(f"Dataset {args.dataset_name} not implemented")
-    
+
     if args.curve_curator:
         raise NotImplementedError("CurveCurator not implemented")
-    
+
     response_data = DrugResponseDataset(
         response=output, cell_line_ids=cell_line_ids, drug_ids=drug_ids
     )
     # TODO implement args.test_mode in drug_response_experiment
-    result = drug_response_experiment(models, response_data, multiprocessing=True, test_mode=args.test_mode, randomization_test_views={"randomize_gene_expression": ["gene_expression"]})
-    
-    
+    result = drug_response_experiment(
+        models,
+        response_data,
+        multiprocessing=True,
+        test_mode=args.test_mode,
+        randomization_test_views={"randomize_gene_expression": ["gene_expression"]},
+    )
 
     # TODO now do evaluation, visualization, etc.
 
@@ -75,8 +107,7 @@ if __name__ == '__main__':
         json_string = json.dumps(result, indent=4)
 
         # Save JSON string to a file
-        with open(f"{args.path_out}/{args.run_id}_results.npy", 'w') as json_file:
+        with open(f"{args.path_out}/{args.run_id}_results.npy", "w") as json_file:
             json_file.write(json_string)
         print(f"Done! Results saved to {args.path_out}/{args.run_id}_results.npy")
     print(result)
-    

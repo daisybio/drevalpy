@@ -8,7 +8,9 @@ class DRPModel(ABC):
     """
     Abstract wrapper class for drug response prediction models.
     """
+
     early_stopping = False
+
     def __init__(self, model_name, target, *args, **kwargs):
         """
         Creates an instance of a drug response prediction model.

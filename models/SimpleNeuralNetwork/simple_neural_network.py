@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import warnings
 
+
 class SimpleNeuralNetwork(DRPModel):
     """
     Simple Feedforward Neural Network model with dropout.
@@ -19,7 +20,6 @@ class SimpleNeuralNetwork(DRPModel):
     drug_views = ["fingerprints"]
 
     early_stopping = True
-
 
     def build_model(self, *args, **kwargs):
         """
@@ -82,7 +82,10 @@ class SimpleNeuralNetwork(DRPModel):
             response_earlystopping = None
 
         with warnings.catch_warnings():
-            warnings.filterwarnings('ignore', message=".*does not have many workers which may be a bottleneck.*")
+            warnings.filterwarnings(
+                "ignore",
+                message=".*does not have many workers which may be a bottleneck.*",
+            )
             neural_network.fit(
                 X,
                 output.response,

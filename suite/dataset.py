@@ -247,9 +247,11 @@ class FeatureDataset(Dataset):
             # Permute the specified views for each entity (= cell line or drug)
             self.features = {
                 entity: {
-                    view: self.features[entity][view]
-                    if view not in views_to_randomize
-                    else self.features[other_entity][view]
+                    view: (
+                        self.features[entity][view]
+                        if view not in views_to_randomize
+                        else self.features[other_entity][view]
+                    )
                     for view, other_entity in zip(
                         self.features[entity].keys(), np.random.permutation(identifiers)
                     )

@@ -16,7 +16,6 @@ def drug_response_experiment(
     multiprocessing: bool = False,
     test_mode: str = "LPO",
     randomization_test_views: Optional[Dict[str, List[str]]] = None,
-
 ) -> Dict[str, List[DrugResponseDataset]]:
     """
     Run the drug response prediction experiment.
@@ -42,7 +41,7 @@ def drug_response_experiment(
             split_validation=True,
             validation_ratio=0.1,
             random_state=42,
-        ) 
+        )
 
         for split in response_data.cv_splits:
             train_dataset = split["train"]
@@ -51,14 +50,18 @@ def drug_response_experiment(
 
             # if model.early_stopping is true then we split the validation set into a validation and early stopping set
             if model.early_stopping:
-                validation_dataset, early_stopping_dataset = split_early_stopping(validation_dataset=validation_dataset, test_mode=test_mode)
+                validation_dataset, early_stopping_dataset = split_early_stopping(
+                    validation_dataset=validation_dataset, test_mode=test_mode
+                )
 
             if multiprocessing:
                 best_hpams = hpam_tune_raytune(
                     model=model,
                     train_dataset=train_dataset,
                     validation_dataset=validation_dataset,
-                    early_stopping_dataset=early_stopping_dataset if model.early_stopping else None,
+                    early_stopping_dataset=(
+                        early_stopping_dataset if model.early_stopping else None
+                    ),
                     hpam_set=model_hpam_set,
                 )
             else:
@@ -66,7 +69,9 @@ def drug_response_experiment(
                     model=model,
                     train_dataset=train_dataset,
                     validation_dataset=validation_dataset,
-                    early_stopping_dataset=early_stopping_dataset if model.early_stopping else None,
+                    early_stopping_dataset=(
+                        early_stopping_dataset if model.early_stopping else None
+                    ),
                     hpam_set=model_hpam_set,
                 )
             train_dataset.add_rows(
@@ -79,21 +84,34 @@ def drug_response_experiment(
                 hpams=best_hpams,
                 train_dataset=train_dataset,
                 prediction_dataset=test_dataset,
-                early_stopping_dataset=early_stopping_dataset if model.early_stopping else None,
-
+                early_stopping_dataset=(
+                    early_stopping_dataset if model.early_stopping else None
+                ),
             )
             results[model.model_name]["predictions"].append(test_dataset)
 
             if randomization_test_views:
-                r = randomization_test(randomization_test_views=randomization_test_views,
-                                       model=model, hpam_set=best_hpams, train_dataset=train_dataset, test_dataset=test_dataset,
-                                       early_stopping_dataset=early_stopping_dataset)
+                r = randomization_test(
+                    randomization_test_views=randomization_test_views,
+                    model=model,
+                    hpam_set=best_hpams,
+                    train_dataset=train_dataset,
+                    test_dataset=test_dataset,
+                    early_stopping_dataset=early_stopping_dataset,
+                )
                 results[model.model_name]["randomization_tests"].append(r)
-    
+
     return results
 
 
-def randomization_test(randomization_test_views: Dict[str, List[str]], model: DRPModel, hpam_set: Dict, train_dataset: DrugResponseDataset, test_dataset: DrugResponseDataset, early_stopping_dataset: Optional[DrugResponseDataset]) -> Dict:
+def randomization_test(
+    randomization_test_views: Dict[str, List[str]],
+    model: DRPModel,
+    hpam_set: Dict,
+    train_dataset: DrugResponseDataset,
+    test_dataset: DrugResponseDataset,
+    early_stopping_dataset: Optional[DrugResponseDataset],
+) -> Dict:
     cl_features = model.get_cell_line_features(path=hpam_set["feature_path"])
     drug_features = model.get_drug_features(path=hpam_set["feature_path"])
     results = {}
@@ -106,13 +124,27 @@ def randomization_test(randomization_test_views: Dict[str, List[str]], model: DR
             elif view in drug_features.get_view_names():
                 drug_features.randomize_features(view, mode="gaussian")
             else:
-                warnings.warn(f"View {view} not found in features. Skipping randomization test {test_name} which includes this view.")
+                warnings.warn(
+                    f"View {view} not found in features. Skipping randomization test {test_name} which includes this view."
+                )
                 break
-            test_dataset_rand = train_and_predict(model=model, hpams=hpam_set, train_dataset=train_dataset, prediction_dataset=test_dataset, early_stopping_dataset=early_stopping_dataset, cl_features=cl_features_rand, drug_features=drug_features_rand)
+            test_dataset_rand = train_and_predict(
+                model=model,
+                hpams=hpam_set,
+                train_dataset=train_dataset,
+                prediction_dataset=test_dataset,
+                early_stopping_dataset=early_stopping_dataset,
+                cl_features=cl_features_rand,
+                drug_features=drug_features_rand,
+            )
             results[test_name] = test_dataset_rand
-    return results  
-def split_early_stopping(validation_dataset: DrugResponseDataset, test_mode: str) -> Tuple[DrugResponseDataset]:
-    validation_dataset.shuffle(random_state=42) 
+    return results
+
+
+def split_early_stopping(
+    validation_dataset: DrugResponseDataset, test_mode: str
+) -> Tuple[DrugResponseDataset]:
+    validation_dataset.shuffle(random_state=42)
     cv_v = validation_dataset.split_dataset(
         n_cv_splits=4,
         mode=test_mode,
@@ -123,6 +155,8 @@ def split_early_stopping(validation_dataset: DrugResponseDataset, test_mode: str
     validation_dataset = cv_v[0]["train"]
     early_stopping_dataset = cv_v[0]["test"]
     return validation_dataset, early_stopping_dataset
+
+
 def train_and_predict(
     model: DRPModel,
     hpams: Dict[str, List],
@@ -149,9 +183,15 @@ def train_and_predict(
         early_stopping_dataset.reduce_to(
             cell_line_ids=cl_features.identifiers, drug_ids=drug_features.identifiers
         )
-        
-    model.train(cell_line_input=cl_features, drug_input=drug_features, output=train_dataset, hyperparameters=hpams, output_earlystopping=early_stopping_dataset)
-    
+
+    model.train(
+        cell_line_input=cl_features,
+        drug_input=drug_features,
+        output=train_dataset,
+        hyperparameters=hpams,
+        output_earlystopping=early_stopping_dataset,
+    )
+
     prediction_dataset.predictions = model.predict(
         cell_line_ids=prediction_dataset.cell_line_ids,
         drug_ids=prediction_dataset.drug_ids,
@@ -177,7 +217,7 @@ def train_and_evaluate(
         prediction_dataset=validation_dataset,
         early_stopping_dataset=early_stopping_dataset,
     )
-    return evaluate(validation_dataset, metric=[metric]) 
+    return evaluate(validation_dataset, metric=[metric])
 
 
 def hpam_tune(
@@ -230,5 +270,3 @@ def hpam_tune_raytune(
     )
     best_config = analysis.get_best_config(metric="rmse", mode="min")
     return best_config
-
-

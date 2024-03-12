@@ -78,9 +78,15 @@ class FeedForwardNetwork(pl.LightningModule):
         early_stop_callback = EarlyStopping(
             monitor=monitor, mode="min", patience=patience
         )
-        name = "version-" + "".join([random.choice('0123456789abcdef') for i in range(20)]) #preventing conflicts of filenames
+        name = "version-" + "".join(
+            [random.choice("0123456789abcdef") for i in range(20)]
+        )  # preventing conflicts of filenames
         self.checkpoint_callback = pl.callbacks.ModelCheckpoint(
-            dirpath=checkpoint_path, monitor=monitor, mode="min", save_top_k=1, filename=name
+            dirpath=checkpoint_path,
+            monitor=monitor,
+            mode="min",
+            save_top_k=1,
+            filename=name,
         )
 
         progress_bar = TQDMProgressBar(
@@ -91,7 +97,10 @@ class FeedForwardNetwork(pl.LightningModule):
 
         # Initialize the Lightning trainer
         trainer = pl.Trainer(
-            callbacks=[early_stop_callback, self.checkpoint_callback, progress_bar], default_root_dir=os.path.join(os.getcwd(), "model_checkpoints/lightning_logs/" + name),
+            callbacks=[early_stop_callback, self.checkpoint_callback, progress_bar],
+            default_root_dir=os.path.join(
+                os.getcwd(), "model_checkpoints/lightning_logs/" + name
+            ),
             **trainer_params_copy
         )
         if (X_eval is None) or (y_eval is None):
