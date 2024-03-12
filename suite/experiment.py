@@ -1,11 +1,10 @@
 from typing import Dict, List, Optional
 import warnings
 
-from models_code import SimpleNeuralNetwork
-from suite.data_wrapper import DrugResponseDataset, FeatureDataset
+from .data_wrapper import DrugResponseDataset, FeatureDataset
 import pandas as pd
-from suite.evaluation import evaluate
-from suite.model_wrapper import DRPModel
+from .evaluation import evaluate
+from .model_wrapper import DRPModel
 from ray import tune
 import numpy as np
 import os
@@ -229,16 +228,3 @@ def hpam_tune_raytune(
     return best_config
 
 
-neural_net_baseline = SimpleNeuralNetwork("smpl", target="IC50")
-
-models = [neural_net_baseline]
-
-response_data = pd.read_csv("data/GDSC/response_GDSC2.csv")
-output = response_data["LN_IC50"].values
-cell_line_ids = response_data["CELL_LINE_NAME"].values
-drug_ids = response_data["DRUG_NAME"].values
-response_data = DrugResponseDataset(
-    response=output, cell_line_ids=cell_line_ids, drug_ids=drug_ids
-)
-result = drug_response_experiment(models, response_data, multiprocessing=True, randomization_test_views={"randomize_ge": ["gene_expression"]})
-print(result)
