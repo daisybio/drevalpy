@@ -1,10 +1,10 @@
 from typing import Dict, List, Optional
 import warnings
 
-from .data_wrapper import DrugResponseDataset, FeatureDataset
+from .dataset import DrugResponseDataset, FeatureDataset
 import pandas as pd
 from .evaluation import evaluate
-from .model_wrapper import DRPModel
+from .model import DRPModel
 from ray import tune
 import numpy as np
 import os

@@ -1,5 +1,5 @@
 from models_code import SimpleNeuralNetwork
-from suite.data_wrapper import DrugResponseDataset
+from suite.dataset import DrugResponseDataset
 from suite.experiment import drug_response_experiment
 import pandas as pd
 neural_net_baseline = SimpleNeuralNetwork("smpl", target="IC50")

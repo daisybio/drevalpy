@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
-from .data_wrapper import DrugResponseDataset, FeatureDataset
+from .dataset import DrugResponseDataset, FeatureDataset
 import numpy as np
 
 
