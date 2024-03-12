@@ -44,6 +44,7 @@ if __name__ == '__main__':
 
     assert args.models, "At least one model must be specified"
     assert all([model in MODEL_FACTORY for model in args.models]), f"Invalid model name. Available models are {list(MODEL_FACTORY.keys())}"    
+    assert args.test_mode in ["LPO", "LCO", "LDO"], f"Invalid test mode. Available test modes are 'LPO', 'LCO', 'LDO'"
     models = [MODEL_FACTORY[model](model_name=model, target="IC50") for model in args.models]
     
     # TODO like the models we want to have a DATASET_FACTORY which loads and optionally preprocesses the dataset
@@ -62,7 +63,7 @@ if __name__ == '__main__':
         response=output, cell_line_ids=cell_line_ids, drug_ids=drug_ids
     )
     # TODO implement args.test_mode in drug_response_experiment
-    result = drug_response_experiment(models, response_data, multiprocessing=True, randomization_test_views={"randomize_gene_expression": ["gene_expression"]})
+    result = drug_response_experiment(models, response_data, multiprocessing=True, test_mode=args.test_mode, randomization_test_views={"randomize_gene_expression": ["gene_expression"]})
     
     
 
