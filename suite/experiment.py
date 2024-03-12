@@ -4,7 +4,7 @@ import warnings
 from .dataset import DrugResponseDataset, FeatureDataset
 import pandas as pd
 from .evaluation import evaluate
-from .model import DRPModel
+from .drp_model import DRPModel
 from ray import tune
 import numpy as np
 import os
