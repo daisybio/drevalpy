@@ -1,5 +1,5 @@
 from typing import Optional
-from models_code.SimpleNeuralNetwork.utils import FeedForwardNetwork
+from models.SimpleNeuralNetwork.utils import FeedForwardNetwork
 from suite.drp_model import DRPModel
 from suite.dataset import DrugResponseDataset, FeatureDataset
 import numpy as np

@@ -91,7 +91,7 @@ class FeedForwardNetwork(pl.LightningModule):
 
         # Initialize the Lightning trainer
         trainer = pl.Trainer(
-            callbacks=[early_stop_callback, self.checkpoint_callback, progress_bar], default_root_dir=os.path.join(os.getcwd(), "lightning_logs/" + name),
+            callbacks=[early_stop_callback, self.checkpoint_callback, progress_bar], default_root_dir=os.path.join(os.getcwd(), "model_checkpoints/lightning_logs/" + name),
             **trainer_params_copy
         )
         if (X_eval is None) or (y_eval is None):
