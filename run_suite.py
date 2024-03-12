@@ -61,6 +61,7 @@ if __name__ == '__main__':
     response_data = DrugResponseDataset(
         response=output, cell_line_ids=cell_line_ids, drug_ids=drug_ids
     )
+    # TODO implement args.test_mode in drug_response_experiment
     result = drug_response_experiment(models, response_data, multiprocessing=True, randomization_test_views={"randomize_gene_expression": ["gene_expression"]})
     
     # Convert to JSON string
