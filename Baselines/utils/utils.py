@@ -7,11 +7,15 @@ from itertools import cycle
 from pydeseq2.dds import DeseqDataSet
 from pydeseq2.default_inference import DefaultInference
 from pydeseq2.preprocessing import deseq2_norm
+from imblearn.over_sampling import RandomOverSampler, SMOTE, SMOTEN, BorderlineSMOTE, KMeansSMOTE, SVMSMOTE, ADASYN
 
 logger = logging.getLogger(__name__)
 
 
 def mkdir(directory):
+    """
+    Create a directory if it does not exist
+    """
     directories = directory.split("/")
 
     folder = ""
@@ -23,6 +27,9 @@ def mkdir(directory):
 
 
 def split(x, n):
+    """
+    Split a number into 'n' parts as evenly as possible and return the lengths of the parts as a list of integers
+    """
     batch_lengths = []
     # If we cannot split the number into exactly 'N' parts
     if (x < n):
@@ -46,6 +53,9 @@ def split(x, n):
 
 
 def cl_drug_info(label_matrix, label_matrix_LPO, indx):
+    """
+    Get drug and cl info for a given index in the label matrix
+    """
     # use linear index to access original pandas df and get drug/cl info
     nr_cols = label_matrix_LPO.shape[1]
     row_nr = indx // nr_cols  # row number
@@ -61,6 +71,9 @@ def cl_drug_info(label_matrix, label_matrix_LPO, indx):
 
 
 def cl_drug_info_df(split_index_arr, label_matrix, label_matrix_LPO):
+    """
+    Get drug and cl info for each index in split_index_arr and return as lists of drugs and cls respectively
+    """
     indx_drug_ls = []
     indx_cl_ls = []
 
@@ -73,6 +86,9 @@ def cl_drug_info_df(split_index_arr, label_matrix, label_matrix_LPO):
 
 
 def remove_outliers(drp_con, metric, mode, data_set_str):
+    """
+    remove or replace outliers in the dataset using the IQR method (1.5 * IQR) as a threshold for outliers
+    """
     Q1 = drp_con[metric].quantile(0.25)
     Q3 = drp_con[metric].quantile(0.75)
     IQR = Q3 - Q1
@@ -117,6 +133,12 @@ def normalize_data(drp_con, metric):
 
 
 def normalize_gene_expression(X_train, X_test, mode="NormTransform", n_cpus=1):
+    """
+    Normalizes the gene expression data using the specified normalization method. The normalization method is specified in
+    the metadata file and can be one of the following: "NormTransform", "VST". The number of cpus to use for the
+    normalization is also specified in the metadata file. The gene expression data is normalized using the pydeseq2
+    package.
+    """
     # convert the data frame to a numpy array and round the floats to integers
     gene_counts_train_np = np.round(X_train.values).astype(int)
     gene_counts_train_df = pd.DataFrame(gene_counts_train_np, index=X_train.index,
@@ -157,10 +179,11 @@ def normalize_gene_expression(X_train, X_test, mode="NormTransform", n_cpus=1):
     return X_train, X_test
 
 
-def preprocessing(train_prepro,
-                  test_prepro,
-                  task, metric,
-                  remove_out=False, norm_data=False, log_transform=False):
+def preprocessing(train_prepro, test_prepro, task, metric, remove_out=False, norm_data=False, log_transform=False):
+    """
+    Preprocesses the datasets for the linear models. The preprocessing steps are: outlier removal, normalization and
+    log transformation. The preprocessing steps are specified in the metadata file.
+    """
     dataset_postpro_ls = []
     set_string = ["train", "test"]
 
@@ -205,12 +228,28 @@ def preprocessing(train_prepro,
 
     return dataset_postpro_ls[0], dataset_postpro_ls[1]
 
+def oversampling(X_train, y_train, oversampling_method, ncpus):
+    """
+    Oversamples the minority class of the training set using the specified oversampling method. The oversampling method
+    is specified in the metadata file and can be one of the following: "RandomOverSampler", "SMOTE", "SMOTEN",
+    "BorderlineSMOTE", "KMeansSMOTE", "SVMSMOTE", "ADASYN". The number of cpus to use for the oversampling is also
+    specified in the metadata file.
+    """
+    if oversampling_method == "RandomOverSampler":
+        ovs = RandomOverSampler(random_state=0, n_jobs=ncpus)
+    if oversampling_method == "SMOTE":
+        ovs = SMOTE(random_state=0, n_jobs=ncpus)
+    elif oversampling_method == "SMOTEN":
+        ovs = SMOTEN(random_state=0, n_jobs=ncpus)
+    elif oversampling_method == "BorderlineSMOTE":
+        ovs = BorderlineSMOTE(random_state=0, n_jobs=ncpus)
+    elif oversampling_method == "KMeansSMOTE":
+        ovs = KMeansSMOTE(random_state=0, n_jobs=ncpus)
+    elif oversampling_method == "SVMSMOTE":
+        ovs = SVMSMOTE(random_state=0, n_jobs=ncpus)
+    elif oversampling_method == "ADASYN":
+        ovs = ADASYN(random_state=0, n_jobs=ncpus)
 
-if __name__ == "__main__":
-    label_matrix = pd.read_csv("/nfs/home/students/m.lorenz/datasets/cell_viability/CCLE/matrixes_raw/EC50 ("
-                               "µM)_matrix.csv", header=0, index_col=0)
-    label_matrix.reset_index(inplace=True)
-    metric = "EC50 (µM)"
-    task = "LPO"
+    X_train, y_train = ovs.fit_resample(X_train, y_train)
 
-    train, test = get_train_test_set(label_matrix, task, 0.8, metric)
+    return X_train, y_train

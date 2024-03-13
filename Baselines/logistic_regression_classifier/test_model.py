@@ -51,7 +51,5 @@ best_models, best_nfeatures, best_scc, best_models_params = testing.train_test_e
 logger.info("Performing data analysis")
 analysis.base_analysis(best_models, best_nfeatures, logistic_classifier, LogisticRegression, meta_data, dir_path)
 analysis.confusionmatrix_heatmap(best_models, dir_path)
-analysis.roc_plot(best_models, 0)
 analysis.cluster(best_models, dir_path)
-fstat_df = analysis.f_statistic(best_models, best_nfeatures)
-analysis.f_distribution(best_nfeatures, fstat_df.iloc[0, 1], fstat_df.iloc[0, 3], fstat_df.iloc[0, 4])
+analysis.roc_plot(best_models, 0)

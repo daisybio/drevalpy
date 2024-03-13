@@ -13,6 +13,7 @@ from sklearn.model_selection import GridSearchCV
 
 sys.path.insert(0, abspath(join(dirname(__file__), '..')))
 from base_model import BaseModel
+from utils.utils import oversampling
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,7 @@ class LogisticClassifier(BaseModel):
         Returns the sources the model needs as input for describing the cell line.
         :return: cell line views, e.g., ["methylation", "gene_expression", "mirna_expression", "mutation"]
         """
-        return "gene_expression"
+        return ["gene_expression"]
 
     @property
     def drug_views(self):
@@ -40,11 +41,9 @@ class LogisticClassifier(BaseModel):
 
     def train(self):
         """
-        Trains the model for each target in the data dictionary. in the case of LCO, single drug models are trained,
-        meaning each target in the data_dict corresponds to a single drug for which a model is being generated. In
-        the case of LDO, single cell line models are trained, meaning each target in the data_dict corresponds to a
-        single cell line. Grid search is performed to find the best hyperparameters for each model with the number of
-        cross validation folds specified by the user. Parameters to be optimized are specified by the user.
+        Trains the model for each target in the data dictionary as explained in base_model.py. The difference here is
+        that the model is a logistic regression model and the hyperparameters are tuned using grid search. Additionally
+        oversampling can be performed to account for class imbalance by specifing the method in the config file.
         """
         logger.info("Started training models")
         self.models = {}
@@ -54,7 +53,15 @@ class LogisticClassifier(BaseModel):
             X_train = self.data_dict.get(target).get("X_train")  # get the training data for the target from dict
             y_train = self.data_dict.get(target).get("y_train")
             y_train = y_train.reshape(-1)
-            # sum_all_lengths += len(X_train)
+
+            # account for class imbalance using an over sampling technique
+            # if at least one unique class has less than or equal to  5 samples (i.e. <= to number of k neighbours set
+            # in oversampling method), no oversampling is performed
+            ovrs = sum(np.unique(y_train, return_counts=True)[1] <= 5) == 0
+            if self.oversampling_method is not None and ovrs:
+                X_train, y_train = oversampling(X_train, y_train, self.oversampling_method, self.n_cpus)
+                self.data_dict.get(target)["X_train"] = X_train
+                self.data_dict.get(target)["y_train"] = y_train
 
             clf = LogisticRegression()  # initialize classifier
 
@@ -85,6 +92,11 @@ class LogisticClassifier(BaseModel):
         logger.info("finished training models")
 
     def predict(self):
+        """
+        Predicts the drug response for the test set as explained in base_model.py. The difference here is that the model
+        is a logistic regression model and the probability of the positive class is also computed (needed for the
+        evaluation and confusion matrix calculation).
+        """
         logger.info("predicting drug response for test set")
         self.prediction = {}
         self.probability = {}
@@ -99,6 +111,11 @@ class LogisticClassifier(BaseModel):
     # logger.info(f"average length of training set: {sum_all_lengths / len(self.data_dict)}")
 
     def evaluate(self):
+        """
+        Evaluates the model by computing the pearson correlation coefficient, spearman correlation coefficient, mean
+        squared error and root mean squared error for each target. The difference here is that probability of the
+        positive class is also computed and saved in the prediction dataframe.
+        """
         logger.info("evaluating models")
 
         # initialize pandas dataframe with y_true, y_pred, target
@@ -137,6 +154,10 @@ class LogisticClassifier(BaseModel):
         logger.info("finished evaluation")
 
     def save(self, result_path, best_model_dict):
+        """
+        Saves the model parameters and the accuracy metrics to the result path as explained in the base_model.py. The
+        difference here is that the model is a logisitc regression model.
+        """
         self.models_params = {}
         for target in best_model_dict["models"]:
 

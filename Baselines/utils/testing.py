@@ -10,21 +10,17 @@ logger = logging.getLogger(__name__)
 
 def parse_data(meta_data, predictor_class):
     predictor_object = predictor_class(meta_data["metadata"]["dataroot_drp"], meta_data["metadata"]["dataroot_feature"],
-                                         meta_data["metadata"]["metric"], meta_data["metadata"]["task"],
-                                         meta_data["metadata"]["remove_outliers"], meta_data["metadata"]["log_transform"],
-                                         meta_data["metadata"]["feature_type"], meta_data["metadata"]["feature_selection"],
-                                         meta_data["metadata"]["norm_feat"], meta_data["metadata"]["norm_method"],
-                                         meta_data["metadata"]["CV_folds"], meta_data["metadata"]["n_cpus"],
-                                         meta_data["metadata"]["HP_tuning"])
+                                       meta_data["metadata"]["metric"], meta_data["metadata"]["task"],
+                                       meta_data["metadata"]["remove_outliers"], meta_data["metadata"]["log_transform"],
+                                       meta_data["metadata"]["feature_type"],
+                                       meta_data["metadata"]["feature_selection"],
+                                       meta_data["metadata"]["norm_feat"], meta_data["metadata"]["norm_method"],
+                                       meta_data["metadata"]["CV_folds"], meta_data["metadata"]["oversampling_method"],
+                                       meta_data["metadata"]["n_cpus"], meta_data["metadata"]["HP_tuning"])
     return predictor_object
 
+
 def train_test_eval(predictor, predictor_type, meta_data, dir_path):
-    # prepare drug response data (splitting it)
-    predictor.get_drug_response_dataset()
-
-    # pre process the drp (y) data
-    predictor.data_processing()
-
     # prepare drug response data (splitting it)
     predictor.get_drug_response_dataset()
 

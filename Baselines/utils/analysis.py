@@ -241,12 +241,24 @@ def confusionmatrix_heatmap(best_models, dir_path):
 
     # preparing data
     groups = df.groupby("target")
+    groups = groups.filter(lambda x: x["y_true"].nunique() > 1).groupby("target") # filter out models with only one class
     confusion = groups.apply(lambda x: np.round(confusion_matrix(x["y_true"], x["y_pred"], normalize='all'), 3).ravel())
     confusion_df = pd.DataFrame.from_records(confusion.values, index=confusion.index, columns=["TN", "FP", "FN", "TP"])
 
+    # checking for test set in balance
+    value_counts_0 = groups.apply(lambda x: x.value_counts(subset=["y_true"])[0])
+    value_counts_1 = groups.apply(lambda x: x.value_counts(subset=["y_true"])[1])
+    in_balance = ((100 / (value_counts_0 + value_counts_1)) * value_counts_1).mean()
+    logger.info(f"Test set in balance: {in_balance:.2f}% of the test set is of class label 1 (sensitive)")
+
     # calculating classification metrices of interest
+    confusion_df["sensitivity"] = np.round(confusion_df["TP"] / (confusion_df["TP"] + confusion_df["FN"]), 3)
+    confusion_df["specificity"] = np.round(confusion_df["TN"] / (confusion_df["TN"] + confusion_df["FP"]), 3)
     confusion_df["precision"] = np.round(confusion_df["TP"] / (confusion_df["TP"] + confusion_df["FP"]), 3)
-    confusion_df["recall"] = np.round(confusion_df["TP"] / (confusion_df["TP"] + confusion_df["FN"]), 3)
+    confusion_df["accuracy"] = np.round((confusion_df["TP"] + confusion_df["TN"]) /
+                                        (confusion_df["TP"] + confusion_df["TN"] + confusion_df["FP"] + confusion_df[
+                                            "FN"]), 3)
+    confusion_df["balanced accuracy"] = np.round((confusion_df["sensitivity"] + confusion_df["specificity"]) / 2, 3)
     confusion_df["F1-score"] = np.round(
         (2 * confusion_df["TP"]) / (2 * confusion_df["TP"] + confusion_df["FP"] + confusion_df["FN"]), 3)
     confusion_df["ROC-auc"] = groups.apply(lambda x: roc_auc_score(x["y_true"], x["y_prob"]))
@@ -254,16 +266,21 @@ def confusionmatrix_heatmap(best_models, dir_path):
 
     confusion_df_mean = confusion_df.mean()
 
+    formatted_strings = []
+    for idx, val in confusion_df_mean.items():
+        formatted_string = f"{idx} = {val:.2f}"
+        formatted_strings.append(formatted_string)
+    title_string = "; ".join(formatted_strings)
+    title_string = f"Avg metric means: {title_string}"
+
     # plot the results
     # heatmap
     fig = px.imshow(confusion_df, text_auto=True, aspect="auto", color_continuous_scale="plasma")
     fig.update_layout(
-        title=f"Confusion matrix heatmap: over all TN {confusion_df_mean['TN']:.2f}; FP {confusion_df_mean['FP']:.2f};"
-              f" FN {confusion_df_mean['FN']:.2f}; TP {confusion_df_mean['TP']:.2f};"
-              f" precision {confusion_df_mean['precision']:.2f}; recall {confusion_df_mean['recall']:.2f};"
-              f" F1-score {confusion_df_mean['F1-score']:.2f}",
+        title=title_string,
         xaxis_title="confusion matrix element",
         yaxis_title="target")
+
     fig.write_html(Path(dir_path + "confusion_matrix_heatmap.html"))
 
     # cluster-map
@@ -282,10 +299,7 @@ def confusionmatrix_heatmap(best_models, dir_path):
     ))
 
     fig.update_layout(
-        title=f"Confusion matrix clustermap: over all TN {confusion_df_mean['TN']:.2f}; FP {confusion_df_mean['FP']:.2f};"
-              f" FN {confusion_df_mean['FN']:.2f}; TP {confusion_df_mean['TP']:.2f};"
-              f" precision {confusion_df_mean['precision']:.2f}; recall {confusion_df_mean['recall']:.2f};"
-              f" F1-score {confusion_df_mean['F1-score']:.2f}")
+        title=title_string)
     fig.write_html(Path(dir_path + "confusion_matrix_clustermap.html"))
 
 
@@ -301,7 +315,7 @@ def roc_plot(best_models, target_model):
     fpr, tpr, threshold = roc_curve_groups[target_model]
 
     if isinstance(target_model, int):
-        model_name = roc_cuve_groups.index[int(target_model)]
+        model_name = roc_curve_groups.index[int(target_model)]
     else:
         model_name = target_model
 
@@ -320,7 +334,7 @@ def cluster(best_models, dir_path):
     """
     Cluster models according to how well they performed (pcc, scc, mse, rmse) and plot the results in a clustermap.
     """
-    df = best_models["metric_df"]
+    df = best_models["metric_df"].dropna()
     df = df[["pcc", "scc", "mse", "rmse"]]
 
     fig = dash_bio.Clustergram(
