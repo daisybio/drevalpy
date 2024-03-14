@@ -44,7 +44,7 @@ def get_parser():
         "--dataset_name",
         type=str,
         default="GDSC1",
-        help="Name of the drug response " "dataset",
+        help="Name of the drug response dataset",
     )
     parser.add_argument(
         "--path_out", type=str, default="results/", help="Path to the output directory"
@@ -90,13 +90,13 @@ if __name__ == "__main__":
     response_data = DrugResponseDataset(
         response=output, cell_line_ids=cell_line_ids, drug_ids=drug_ids
     )
-    # TODO implement args.test_mode in drug_response_experiment
+    # TODO randomization_test_views need to be specified. maybe via config file 
     result = drug_response_experiment(
         models,
         response_data,
         multiprocessing=True,
         test_mode=args.test_mode,
-        randomization_test_views={"randomize_gene_expression": ["gene_expression"]},
+        randomization_test_views={"randomize_gene_expression": ["gene_expression"], "randomize_genomics": ["mutation", "copy_number_var"]},
     )
 
     # TODO now do evaluation, visualization, etc.
