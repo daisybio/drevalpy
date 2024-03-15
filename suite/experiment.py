@@ -8,6 +8,7 @@ from .drp_model import DRPModel
 from ray import tune
 import numpy as np
 import os
+import shutil
 
 # TODO save hpams and their scores to disk
 # 
@@ -34,8 +35,9 @@ def drug_response_experiment(
     """
     result_path = os.path.join(path_out, run_id)
     # if results exists, delete them if overwrite is true
+
     if os.path.exists(result_path) and overwrite:
-        os.rmdir(result_path)
+        shutil.rmtree(result_path)
     os.makedirs(result_path)
     # TODO load existing progress if it exists, currently we just overwrite
     for model in models:

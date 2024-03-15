@@ -29,7 +29,7 @@ def get_parser():
         description="Run the drug response prediction model test suite"
     )
     parser.add_argument(
-        "--run_id", type=str, default="", help="identifier to save the results"
+        "--run_id", type=str, default="my_run", help="identifier to save the results"
     )
     parser.add_argument(
         "--models", nargs="+", help="model to evalaute or list of models to compare"

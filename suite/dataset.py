@@ -45,6 +45,7 @@ class DrugResponseDataset(Dataset):
         :param response: drug response values per cell line and drug
         :param cell_line_ids: cell line IDs
         :param drug_ids: drug IDs
+        :param predictions: optional. Predicted drug response values per cell line and drug
 
         Variables:
         response: drug response values per cell line and drug
@@ -53,7 +54,7 @@ class DrugResponseDataset(Dataset):
         predictions: optional. Predicted drug response values per cell line and drug
         """
         super(DrugResponseDataset, self).__init__()
-        if response:
+        if response is not None:
             self.response = np.array(response)
             self.cell_line_ids = np.array(cell_line_ids)
             self.drug_ids = np.array(drug_ids)
@@ -63,13 +64,18 @@ class DrugResponseDataset(Dataset):
             assert len(self.response) == len(
                 self.drug_ids
             ), "response and drug_ids/cell_line_ids have different lengths"
+        else:
+            self.response = response
+            self.cell_line_ids = cell_line_ids
+            self.drug_ids = drug_ids
 
-        if predictions:
+        if predictions is not None:
             self.predictions = np.array(predictions)
             assert len(self.predictions) == len(
                 self.response
             ), "predictions and response have different lengths"
-            
+        else:
+            self.predictions = None
     def __len__(self):
         return len(self.response)
 
@@ -249,6 +255,12 @@ class FeatureDataset(Dataset):
         Saves the feature dataset to data.
         """
         raise NotImplementedError("save method not implemented")
+    
+    def load(self):
+        """
+        Loads the feature dataset from data.
+        """
+        raise NotImplementedError("load method not implemented")
 
     def randomize_features(
         self, views_to_randomize: Union[str, list], mode: str
