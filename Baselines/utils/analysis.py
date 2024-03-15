@@ -8,12 +8,12 @@ import plotly.graph_objects as go
 import seaborn as sns
 from pathlib import Path
 from scipy import stats
-from sklearn.metrics import confusion_matrix, precision_score, roc_curve, roc_auc_score, auc, RocCurveDisplay
+from sklearn.metrics import roc_curve, auc, RocCurveDisplay
 
 logger = logging.getLogger(__name__)
 
 
-def base_analysis(best_models, best_nfeatures, predictor, predictor_type, meta_data, dir_path):
+def base_analysis(best_models, best_nfeatures, predictor, predictor_class, predictor_type, meta_data, dir_path):
     """
     Perform a basic analysis of the models. The analysis includes the following:
     - Summary statistics on the correlation coefficients (PCC, SCC)
@@ -28,16 +28,23 @@ def base_analysis(best_models, best_nfeatures, predictor, predictor_type, meta_d
 
     sns.set(style="ticks")
 
+    if predictor_type == "classification":
+        metric1 = "ROC-auc"
+        metric2 = "MCC"
+    elif predictor_type == "regression":
+        metric1 = "pcc"
+        metric2 = "scc"
+
     ### correlation coefficient distribution ###
     fig, axs = plt.subplots(1, 2, sharey=True, figsize=(10, 5))
-    sns.histplot(best_models["metric_df"]["pcc"], ax=axs[0], binrange=(-1, 1))
-    sns.histplot(best_models["metric_df"]["scc"], ax=axs[1], binrange=(-1, 1))
-    median_value_pcc = best_models["metric_df"]["pcc"].median()
-    median_value_scc = best_models["metric_df"]["scc"].median()
-    axs[0].axvline(x=median_value_pcc, color='red', linestyle='dashed', linewidth=2, label='median')
-    axs[1].axvline(x=median_value_scc, color='red', linestyle='dashed', linewidth=2, label='median')
-    axs[0].set_xlabel("Pearsons's correlation coefficient (PCC)")
-    axs[1].set_xlabel("Spearman's correlation coefficient (SCC)")
+    sns.histplot(best_models["metric_df"][metric1], ax=axs[0], binrange=(-1, 1))
+    sns.histplot(best_models["metric_df"][metric2], ax=axs[1], binrange=(-1, 1))
+    median_value_metric1 = best_models["metric_df"][metric1].median()
+    median_value_metric2 = best_models["metric_df"][metric2].median()
+    axs[0].axvline(x=median_value_metric1, color='red', linestyle='dashed', linewidth=2, label='median')
+    axs[1].axvline(x=median_value_metric2, color='red', linestyle='dashed', linewidth=2, label='median')
+    axs[0].set_xlabel(metric1)
+    axs[1].set_xlabel(metric2)
     plt.ylabel("count")
     plt.suptitle(f"distribution of correlation coefficients "
                  f"({meta_data['metadata'].get('task')} - {meta_data['metadata'].get('feature_type')})",
@@ -50,51 +57,47 @@ def base_analysis(best_models, best_nfeatures, predictor, predictor_type, meta_d
     fig.savefig(Path(dir_path + "correlation_coefficients_distribution.png"))
     plt.close()
 
-    ### scc vs variance ###
+    ### metric2 vs variance ###
     if meta_data['metadata'].get('feature_type') == "fingerprints":
-        scc = best_models["metric_df"]["scc"]
-        pcc = best_models["metric_df"]["pcc"]
+        metric2_val = best_models["metric_df"][metric2]
+        metric1_val = best_models["metric_df"][metric1]
         drp = best_models["test_drp"]
 
         if predictor.task == "LPO":
             drp = best_models["test_drp"]
             drp = drp.pivot(index="Primary Cell Line Name", columns="Compound", values=best_models["metric"])
-            var = drp.loc[scc.index].var(axis=1)
+            var = drp.loc[metric2_val.index].var(axis=1)
         else:
-            var = drp[scc.index].var()
+            var = drp[metric2_val.index].var()
 
     elif meta_data["metadata"].get('feature_type') == "gene_expression":
-        scc = best_models["metric_df"]["scc"]
-        pcc = best_models["metric_df"]["pcc"]
+        metric2_val = best_models["metric_df"][metric2]
+        metric1_val = best_models["metric_df"][metric1]
         drp = best_models["test_drp"]
 
         if predictor.task == "LPO":
             drp = best_models["test_drp"].reset_index()
             drp = drp.pivot(index="Compound", columns="Primary Cell Line Name", values=best_models["metric"])
-            var = drp.loc[scc.index].var(axis=1)
+            var = drp.loc[metric2_val.index].var(axis=1)
         else:
-            var = drp.loc[scc.index].var(axis=1)
+            var = drp.loc[metric2_val.index].var(axis=1)
 
     fig, axs = plt.subplot_mosaic([['a)', 'c)'], ['b)', 'c)']], figsize=(15, 10))
-    axs['a)'].scatter(var, pcc)
-    axs['b)'].scatter(var, scc)
+    axs['a)'].scatter(var, metric1_val)
+    axs['b)'].scatter(var, metric2_val)
     plt.xlabel("variance")
-    axs['a)'].set_ylabel("Pearsons's correlation coefficient")
-    axs['b)'].set_ylabel("Spearman's correlation coefficient")
+    axs['a)'].set_ylabel(metric1)
+    axs['b)'].set_ylabel(metric2)
     axs['a)'].set_title(f"correlation coefficient vs variance "
                         f"{meta_data['metadata'].get('task')} - {meta_data['metadata'].get('feature_type')}",
                         fontsize=12, fontweight='bold')
-    # sns.despine(right = True)
-    # plt.tight_layout()
-    # plt.show()
-    # plt.close()
 
     ### analysing how many coef. set to 0 ###
     beta0_arr = []
     targets = []
 
     for target in best_models["models"]:
-        if isinstance(best_models["models"].get(target), predictor_type):
+        if isinstance(best_models["models"].get(target), predictor_class):
             beta0_arr.append(np.reshape(best_models["models"].get(target).coef_ == 0), -1)
             targets.append(target)
         else:
@@ -143,6 +146,14 @@ def base_analysis(best_models, best_nfeatures, predictor, predictor_type, meta_d
     plt.show()
     fig.savefig(Path(dir_path + "average_number_of_datapoints_per_model.png"))
     plt.close()
+
+    # checking for test set in balance in classification case
+    if predictor_type == "classification":
+        groups = best_models["pred_df"].groupby("target")
+        value_counts_0 = groups.apply(lambda x: x.value_counts(subset=["y_true"])[0])
+        value_counts_1 = groups.apply(lambda x: x.value_counts(subset=["y_true"])[1])
+        in_balance = ((100 / (value_counts_0 + value_counts_1)) * value_counts_1).mean()
+        logger.info(f"Test set in balance: {in_balance:.2f}% of the test set is of class label 1 (sensitive)")
 
 
 def scatter_predictions(best_models, dir_path):
@@ -224,72 +235,46 @@ def scatter_predictions(best_models, dir_path):
     fig.write_html(Path(dir_path + "scatter_plot_predictions.html"))
 
 
-def confusionmatrix_heatmap(best_models, dir_path):
+def scores_clustering(best_models, dir_path):
     """
-    Calculate confusion matrix in order to evaluate the quality of the output of a classifier. The diagonal elements
-    represent the number of points for which the predicted label is equal to the true label, while off-diagonal elements
-    are those that are mislabeled by the classifier. (TP, FP, FN, TN). The higher the diagonal values of the confusion
-    matrix the better, indicating many correct predictions. The confusion matrix is used to compute the precision,
-    recall and F1 score. The confusion matrix is also used to compute the ROC curve and AUC. The precision is
-    intuitively the ability of the classifier not to label as positive a sample that is negative (best val 1 worst 0).
-    The recall is intuitively the ability of the classifier to find all the positive samples. The F1 score can be
-    interpreted as a harmonic mean of the precision and recall, where an F1 score reaches its best value at 1 and
-    worst score at 0. The relative contribution of precision and recall to the F1 score are equal. The outputs are
-    plotted in a heatmap and clustermap.
+    Create a heatmap and clustermap of the model performance metrices calculated by the evaluate function. Clustering
+    happens according to how well the models performed according to the scores in metric_df (ROC-auc, MCC, F1 etc.
+    for classifier and pcc, scc, mse, rmse for regressor).
     """
-    df = best_models["pred_df"]
-
-    # preparing data
-    groups = df.groupby("target")
-    groups = groups.filter(lambda x: x["y_true"].nunique() > 1).groupby("target") # filter out models with only one class
-    confusion = groups.apply(lambda x: np.round(confusion_matrix(x["y_true"], x["y_pred"], normalize='all'), 3).ravel())
-    confusion_df = pd.DataFrame.from_records(confusion.values, index=confusion.index, columns=["TN", "FP", "FN", "TP"])
-
-    # checking for test set in balance
-    value_counts_0 = groups.apply(lambda x: x.value_counts(subset=["y_true"])[0])
-    value_counts_1 = groups.apply(lambda x: x.value_counts(subset=["y_true"])[1])
-    in_balance = ((100 / (value_counts_0 + value_counts_1)) * value_counts_1).mean()
-    logger.info(f"Test set in balance: {in_balance:.2f}% of the test set is of class label 1 (sensitive)")
-
-    # calculating classification metrices of interest
-    confusion_df["sensitivity"] = np.round(confusion_df["TP"] / (confusion_df["TP"] + confusion_df["FN"]), 3)
-    confusion_df["specificity"] = np.round(confusion_df["TN"] / (confusion_df["TN"] + confusion_df["FP"]), 3)
-    confusion_df["precision"] = np.round(confusion_df["TP"] / (confusion_df["TP"] + confusion_df["FP"]), 3)
-    confusion_df["accuracy"] = np.round((confusion_df["TP"] + confusion_df["TN"]) /
-                                        (confusion_df["TP"] + confusion_df["TN"] + confusion_df["FP"] + confusion_df[
-                                            "FN"]), 3)
-    confusion_df["balanced accuracy"] = np.round((confusion_df["sensitivity"] + confusion_df["specificity"]) / 2, 3)
-    confusion_df["F1-score"] = np.round(
-        (2 * confusion_df["TP"]) / (2 * confusion_df["TP"] + confusion_df["FP"] + confusion_df["FN"]), 3)
-    confusion_df["ROC-auc"] = groups.apply(lambda x: roc_auc_score(x["y_true"], x["y_prob"]))
-    # confusion_df["sample_size"] = (groups.size() - groups.size().min()) / (groups.size().max() - groups.size().min())
-
-    confusion_df_mean = confusion_df.mean()
+    df = best_models["metric_df"].drop(columns=["nfeatures", "max_iter"])
+    # dropping alpha since not really important in the context of the heatmap
+    if "alpha" in df.columns:
+        df = df.drop(columns=["alpha"])
+    # dropping MCC since its value is between -1 and 1 and not between 0 and 1 like the other metrics
+    # (and standardizing is diffucult since would have to remove outliers)
+    if "MCC" in df.columns:
+        df = df.drop(columns=["MCC"])
+    df_mean = df.mean()
 
     formatted_strings = []
-    for idx, val in confusion_df_mean.items():
+    for idx, val in df_mean.items():
         formatted_string = f"{idx} = {val:.2f}"
         formatted_strings.append(formatted_string)
     title_string = "; ".join(formatted_strings)
-    title_string = f"Avg metric means: {title_string}"
+    title_string = f"Avg metric means:\n{title_string}"
 
     # plot the results
     # heatmap
-    fig = px.imshow(confusion_df, text_auto=True, aspect="auto", color_continuous_scale="plasma")
+    fig = px.imshow(df, text_auto=True, aspect="auto", color_continuous_scale="plasma")
     fig.update_layout(
         title=title_string,
-        xaxis_title="confusion matrix element",
+        xaxis_title="Metric",
         yaxis_title="target")
 
-    fig.write_html(Path(dir_path + "confusion_matrix_heatmap.html"))
+    fig.write_html(Path(dir_path + "scores_heatmap.html"))
 
     # cluster-map
     fig = go.Figure(dash_bio.Clustergram(
-        data=confusion_df,
+        data=df,
         cluster="row",
         # standardize="column",
-        column_labels=list(confusion_df.columns.values),
-        row_labels=list(confusion_df.index),
+        column_labels=list(df.columns.values),
+        row_labels=list(df.index),
         height=1000,
         width=1600,
         # hidden_labels='row',
@@ -300,7 +285,7 @@ def confusionmatrix_heatmap(best_models, dir_path):
 
     fig.update_layout(
         title=title_string)
-    fig.write_html(Path(dir_path + "confusion_matrix_clustermap.html"))
+    fig.write_html(Path(dir_path + "scores_clustermap.html"))
 
 
 def roc_plot(best_models, target_model):
@@ -322,40 +307,12 @@ def roc_plot(best_models, target_model):
     roc_auc = auc(fpr, tpr)
     display = RocCurveDisplay(fpr=fpr, tpr=tpr, roc_auc=roc_auc)
     display.plot()
-    x = np.linspace(0,1,100)
+    x = np.linspace(0, 1, 100)
     y = x
     plt.plot(x, y, linestyle='--', color='black')
     plt.title("Receiver operating characteristic (ROC) curve")
     plt.legend([f"{model_name} curve (AUC = {roc_auc:.2f})", "random guess"], loc="lower right")
     plt.show()
-
-
-def cluster(best_models, dir_path):
-    """
-    Cluster models according to how well they performed (pcc, scc, mse, rmse) and plot the results in a clustermap.
-    """
-    df = best_models["metric_df"].dropna()
-    df = df[["pcc", "scc", "mse", "rmse"]]
-
-    fig = dash_bio.Clustergram(
-        data=df,
-        cluster="row",
-        # standardize="column",
-        column_labels=list(df.columns.values),
-        row_labels=list(df.index),
-        height=1000,
-        width=900,
-        hidden_labels='row',
-        center_values=False,
-        color_threshold={
-            'row': 0,
-            'col': 0
-        },
-        color_map='plasma'
-    )
-    # fig.layout.autosize=True
-
-    fig.write_html(Path(dir_path + "cluster.html"))
 
 
 def f_statistic(best_models, nfeatures):

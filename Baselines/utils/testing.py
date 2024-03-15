@@ -20,7 +20,7 @@ def parse_data(meta_data, predictor_class):
     return predictor_object
 
 
-def train_test_eval(predictor, predictor_type, meta_data, dir_path):
+def train_test_eval(predictor, predictor_class, predictor_type, meta_data, dir_path):
     # prepare drug response data (splitting it)
     predictor.get_drug_response_dataset()
 
@@ -28,8 +28,8 @@ def train_test_eval(predictor, predictor_type, meta_data, dir_path):
     predictor.data_processing()
 
     # load cell viab/transcriptomic data doesn't matter, as long as cl names are the same as in the drug response data
-    scc_median = 0
-    best_scc = 0
+    key_metric_median = 0
+    best_key_metric = 0
     best_nfeatures = None
     for ntop in meta_data["metadata"]["HP_tuning_features"].get("nfeatures"):
         logger.info(f"Starting dataextraction / training / prediction loop for {ntop} features")
@@ -43,13 +43,18 @@ def train_test_eval(predictor, predictor_type, meta_data, dir_path):
 
         # evaluate the model
         predictor.evaluate()
-        scc_median = predictor.metric_df["scc"].median()
 
-        # save the model if its scc is better than the previous one in best_model_attr
-        if scc_median > best_scc:
+        if predictor_type == "classification":
+            metric = "ROC-auc"
+        elif predictor_type == "regression":
+            metric = "scc"
+        key_metric_median = predictor.metric_df[metric].median()
+
+        # save the model if its key performance metric is better than the previous one in best_model_attr
+        if key_metric_median > best_key_metric:
             logger.info(f"New best model found with {ntop} features")
             best_model_attr = dict(predictor.__dict__)  # vars(predictor)
-            best_scc = scc_median
+            best_key_metric = key_metric_median
             best_nfeatures = ntop
 
     # get the best Hyperparameters for each model
@@ -62,7 +67,7 @@ def train_test_eval(predictor, predictor_type, meta_data, dir_path):
         HPs_models[HP] = []
         for target in best_model_attr["models"]:
             target_model = best_model_attr["models"].get(target)
-            if isinstance(target_model, predictor_type):
+            if isinstance(target_model, predictor_class):
                 HPs_models[HP].append(target_model.get_params()[HP])
             else:
                 HPs_models[HP].append(target_model.best_params_.get(HP))
@@ -77,4 +82,4 @@ def train_test_eval(predictor, predictor_type, meta_data, dir_path):
 
     predictor.save(dir_path, best_model_attr)
 
-    return best_model_attr, best_nfeatures, best_scc, best_models_params
+    return best_model_attr, best_nfeatures, best_key_metric, best_models_params

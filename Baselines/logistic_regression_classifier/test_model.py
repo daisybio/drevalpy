@@ -16,7 +16,7 @@ logging.basicConfig(format='%(asctime)s: %(levelname)s: %(message)s', level=logg
 
 # setting up directory for saving results
 # save model parameters and results
-dir_path = "lincf_LCO_20feat/"
+dir_path = "lincf_LCO_2feat_SMOTE/"
 mkdir(dir_path)
 
 # setting up file logging as well
@@ -43,13 +43,12 @@ logger.info("Creating linear regression object")
 logistic_classifier = testing.parse_data(meta_data, LogisticClassifier)
 
 # perform training, testing and evaluation
-best_models, best_nfeatures, best_scc, best_models_params = testing.train_test_eval(logistic_classifier,
-                                                                                    LogisticRegression, meta_data,
-                                                                                    dir_path)
+best_models, best_nfeatures, best_scc, best_models_params = (
+    testing.train_test_eval(logistic_classifier, LogisticRegression, "classification", meta_data, dir_path))
 
 # perform data analysis
 logger.info("Performing data analysis")
-analysis.base_analysis(best_models, best_nfeatures, logistic_classifier, LogisticRegression, meta_data, dir_path)
-analysis.confusionmatrix_heatmap(best_models, dir_path)
-analysis.cluster(best_models, dir_path)
+analysis.base_analysis(best_models, best_nfeatures, logistic_classifier, LogisticRegression, "classification",
+                       meta_data, dir_path)
+analysis.scores_clustering(best_models, dir_path)
 analysis.roc_plot(best_models, 0)

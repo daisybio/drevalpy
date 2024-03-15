@@ -6,9 +6,9 @@ import pickle
 import sys
 import warnings
 from os.path import dirname, join, abspath
-from scipy import stats
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import confusion_matrix, roc_auc_score, matthews_corrcoef, accuracy_score, balanced_accuracy_score, \
+    precision_score, recall_score, f1_score
 from sklearn.model_selection import GridSearchCV
 
 sys.path.insert(0, abspath(join(dirname(__file__), '..')))
@@ -104,17 +104,20 @@ class LogisticClassifier(BaseModel):
             model = self.models.get(target)
             X_test = self.data_dict.get(target).get("X_test")
             yhat = model.predict(X_test)
-            y_prob = model.predict_proba(X_test)[:, 1] # since we are interested in the probability of the positive class
+            y_prob = model.predict_proba(X_test)[:,
+                     1]  # since we are interested in the probability of the positive class
             self.prediction[target] = yhat  # predicted responses for each target
             self.probability[target] = y_prob
         logger.info("finished predicting")
+
     # logger.info(f"average length of training set: {sum_all_lengths / len(self.data_dict)}")
 
     def evaluate(self):
         """
-        Evaluates the model by computing the pearson correlation coefficient, spearman correlation coefficient, mean
-        squared error and root mean squared error for each target. The difference here is that probability of the
-        positive class is also computed and saved in the prediction dataframe.
+        Evaluates the model by computing metrics such as confusion matrix, sensitivity, specificity, precision, accuracy,
+        balanced accuracy, F1-score, ROC-auc and MCC as explained in base_model.py. The difference here is that the model
+        is a logistic regression model and the probability of the positive class is also computed (needed for the
+        evaluation and confusion matrix calculation).
         """
         logger.info("evaluating models")
 
@@ -132,23 +135,32 @@ class LogisticClassifier(BaseModel):
         # kick out all rows that have only one sample (target-wise) as pcc/scc needs more than one sample
         pred_df = pred_df.groupby("target").filter(lambda x: len(x) > 1)
 
-        #  also skip target where all predictions are the same, leading to a constant -> pcc/scc not calculated
-        pred_df = pred_df.groupby("target").filter(lambda x: x["y_pred"].nunique() > 1)
+        # filter out models with only one class -> no auc can be calculated
+        pred_df = pred_df.groupby("target").filter(lambda x: x["y_true"].nunique() > 1)
+        grouped = pred_df.groupby("target")
 
-        # compute the target-wise pcc, scc, mse, rmse and put it in self.metric_df
-        pcc_target = pred_df.groupby("target").apply(lambda x: stats.pearsonr(x["y_true"], x["y_pred"])[0])
-        scc_target = pred_df.groupby("target").apply(lambda x: stats.spearmanr(x["y_true"], x["y_pred"])[0])
-        mse_target = pred_df.groupby("target").apply(lambda x: mean_squared_error(x["y_true"], x["y_pred"]))
-        rmse_target = pred_df.groupby("target").apply(
-            lambda x: mean_squared_error(x["y_true"], x["y_pred"], squared=False))
+        # compute confusion matrix for each target
+        confusion = pred_df.groupby("target").apply(
+            lambda x: np.round(confusion_matrix(x["y_true"], x["y_pred"], normalize='all'), 3).ravel())
+        confusion_df = pd.DataFrame.from_records(confusion.values, index=confusion.index,
+                                                 columns=["TN", "FP", "FN", "TP"])
+
+        # calculating classification metrices of interest
+        confusion_df["sensitivity"] = grouped.apply(lambda x: recall_score(x["y_true"], x["y_pred"]))
+        confusion_df["specificity"] = np.round(confusion_df["TN"] / (confusion_df["TN"] + confusion_df["FP"]), 3)
+        confusion_df["precision"] = grouped.apply(lambda x: precision_score(x["y_true"], x["y_pred"]))
+        confusion_df["accuracy"] = grouped.apply(lambda x: accuracy_score(x["y_true"], x["y_pred"]))
+        confusion_df["balanced accuracy"] = grouped.apply(
+            lambda x: balanced_accuracy_score(x["y_true"], x["y_pred"]))
+        confusion_df["F1-score"] = grouped.apply(lambda x: f1_score(x["y_true"], x["y_pred"]))
+        confusion_df["ROC-auc"] = grouped.apply(lambda x: roc_auc_score(x["y_true"], x["y_prob"]))
+        confusion_df["MCC"] = grouped.apply(lambda x: matthews_corrcoef(x["y_true"], x["y_pred"]))
 
         # map performance metrics to targets in pred df - important for plotting later
-        pred_df["pcc"] = pred_df["target"].map(pcc_target)
-        pred_df["scc"] = pred_df["target"].map(scc_target)
-        pred_df["mse"] = pred_df["target"].map(mse_target)
-        pred_df["rmse"] = pred_df["target"].map(rmse_target)
+        mapped_values = pred_df.apply(lambda row: confusion_df.loc[row["target"]], axis=1)
+        pred_df = pred_df.join(mapped_values)
 
-        self.metric_df = pd.DataFrame({"pcc": pcc_target, "scc": scc_target, "mse": mse_target, "rmse": rmse_target})
+        self.metric_df = confusion_df
         self.pred_df = pred_df
 
         logger.info("finished evaluation")
