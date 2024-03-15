@@ -8,7 +8,6 @@ class DRPModel(ABC):
     """
     Abstract wrapper class for drug response prediction models.
     """
-
     early_stopping = False
 
     def __init__(self, model_name, target, *args, **kwargs):
@@ -118,7 +117,7 @@ class SingleDRPModel(DRPModel, ABC):
     Abstract wrapper class for single drug response prediction models.
     """
 
-    def __init__(self, model_name, target, *args, **kwargs):
+    def __init__(self, model_name, target, config_path, *args, **kwargs):
         """
         Creates an instance of a single drug response prediction model.
         :param model_name: model name for displaying results
@@ -126,7 +125,7 @@ class SingleDRPModel(DRPModel, ABC):
         :param args: optional arguments
         :param kwargs: optional keyword arguments
         """
-        super(SingleDRPModel, self).__init__(model_name, target, *args, **kwargs)
+        super(SingleDRPModel, self).__init__(model_name, target, config_path, *args, **kwargs)
 
     @property
     @abstractmethod

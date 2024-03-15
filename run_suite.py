@@ -16,6 +16,7 @@
 
 import argparse
 import pandas as pd
+import numpy as np
 import json
 
 from models import MODEL_FACTORY
@@ -44,16 +45,23 @@ def get_parser():
         "--dataset_name",
         type=str,
         default="GDSC1",
-        help="Name of the drug response dataset",
+        help="Name of the drug response dataset"
     )
+
     parser.add_argument(
         "--path_out", type=str, default="results/", help="Path to the output directory"
     )
     parser.add_argument(
         "--curve_curator",
-        action=argparse.BooleanOptionalAction,
+        action='store_true',
         default=False,
         help="Whether to run " "CurveCurator " "to sort out " "non-reactive " "curves",
+    )
+    parser.add_argument(
+        "--optim_metric",
+        type=str,
+        default="RMSE",
+        help="Metric to optimize for (RMSE, AUC, ACC, F1, MCC, R2, etc.)"
     )
 
     return parser
@@ -61,7 +69,6 @@ def get_parser():
 
 if __name__ == "__main__":
     args = get_parser().parse_args()
-
     assert args.models, "At least one model must be specified"
     assert all(
         [model in MODEL_FACTORY for model in args.models]
@@ -100,7 +107,6 @@ if __name__ == "__main__":
     )
 
     # TODO now do evaluation, visualization, etc.
-
     # Convert to JSON string
     if False:
         # DrugResponseDataset not serializable
