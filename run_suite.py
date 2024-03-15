@@ -1,14 +1,37 @@
-# Main file for running the whole suite of tests
+# from models import SimpleNeuralNetwork
+# import pandas as pd
+# neural_net_baseline = SimpleNeuralNetwork("smpl", target="IC50")
 
-import os
+# models = [neural_net_baseline]
+
+# response_data = pd.read_csv("data/GDSC/response_GDSC2.csv")
+# output = response_data["LN_IC50"].values
+# cell_line_ids = response_data["CELL_LINE_NAME"].values
+# drug_ids = response_data["DRUG_NAME"].values
+# response_data = DrugResponseDataset(
+#     response=output, cell_line_ids=cell_line_ids, drug_ids=drug_ids
+# )
+# result = drug_response_experiment(models, response_data, multiprocessing=True, randomization_test_views={"randomize_gene_expression": ["gene_expression"]})
+# print(result)
+
 import argparse
+import pandas as pd
+import json
 
-from suite.data_wrapper import DrugResponseDataset, FeatureDataset
+from models import MODEL_FACTORY
+from suite.dataset import DrugResponseDataset
+from suite.experiment import drug_response_experiment
 
 
 def get_parser():
     parser = argparse.ArgumentParser(
         description="Run the drug response prediction model test suite"
+    )
+    parser.add_argument(
+        "--run_id", type=str, default="", help="identifier to save the results"
+    )
+    parser.add_argument(
+        "--models", nargs="+", help="model to evalaute or list of models to compare"
     )
     parser.add_argument(
         "--test_mode",
@@ -18,51 +41,10 @@ def get_parser():
         "LCO=Leave-Cell-line-Out, LDO=Leave-Drug-Out)",
     )
     parser.add_argument(
-        "--path_dr",
+        "--dataset_name",
         type=str,
-        default="data/drug_response/",
-        help="Path to the drug response dataset "
-        "/ directory containing all "
-        "relevant files",
-    )
-    parser.add_argument(
-        "--name_dr",
-        type=str,
-        default="CCLE",
-        help="Name of the drug response " "dataset",
-    )
-    parser.add_argument(
-        "--target",
-        type=str,
-        default="IC50",
-        help="Target variable to predict (AUC, IC50, EC50, "
-        "classification into sensitive/resistant)",
-    )
-    parser.add_argument(
-        "--path_df",
-        type=str,
-        default="data/drug_features/",
-        help="Path to the drug feature dataset "
-        "/ directory containing all "
-        "relevant files",
-    )
-    parser.add_argument(
-        "--name_df",
-        type=str,
-        default="CCLE",
-        help="Name of the drug feature " "dataset",
-    )
-    parser.add_argument(
-        "--path_cf",
-        type=str,
-        default="data/cell_line_features/",
-        help="Path to the cell line " "feature dataset",
-    )
-    parser.add_argument(
-        "--name_cf",
-        type=str,
-        default="CCLE",
-        help="Name of the cell line feature " "dataset",
+        default="GDSC1",
+        help="Name of the drug response dataset",
     )
     parser.add_argument(
         "--path_out", type=str, default="results/", help="Path to the output directory"
@@ -73,162 +55,59 @@ def get_parser():
         default=False,
         help="Whether to run " "CurveCurator " "to sort out " "non-reactive " "curves",
     )
-    parser.add_argument(
-        "--custom_models",
-        action=argparse.BooleanOptionalAction,
-        default=False,
-        help="Whether to "
-        "train a custom"
-        " model "
-        "provided by "
-        "the user via "
-        "the wrapper",
-    )
 
     return parser
 
 
-def compare_models(
-    models, drp_dataset, drug_feature_dataset, cell_line_feature_dataset
-):
-    """
-    Compare the models in the list models on the given datasets.
-    """
-    for model in models:
-        # Train the model
-        # Test the model
-        # Save the results
-        pass
-
-
-def robustness_tests(
-    models, drp_dataset, drug_feature_dataset, cell_line_feature_dataset
-):
-    """
-    Run the randomization tests.
-    """
-    train_with_different_seed(
-        models, drp_dataset, drug_feature_dataset, cell_line_feature_dataset
-    )
-    train_with_permuted_input(
-        models, drp_dataset, drug_feature_dataset, cell_line_feature_dataset
-    )
-
-
-def train_with_different_seed(
-    models, drp_dataset, drug_feature_dataset, cell_line_feature_dataset
-):
-    """
-    Train the models with different random seeds.
-    """
-    pass
-
-
-def train_with_permuted_input(
-    models, drp_dataset, drug_feature_dataset, cell_line_feature_dataset
-):
-    """
-    Train the models with input in permuted order.
-    """
-    pass
-
-
-def randomization_tests(
-    models, drp_dataset, drug_feature_dataset, cell_line_feature_dataset
-):
-    """
-    Run the randomization tests.
-    """
-    train_with_shuffled_input(
-        models, drp_dataset, drug_feature_dataset, cell_line_feature_dataset
-    )
-    train_with_zero_inputs(
-        models, drp_dataset, drug_feature_dataset, cell_line_feature_dataset
-    )
-
-
-def train_with_shuffled_input(
-    models, drp_dataset, drug_feature_dataset, cell_line_feature_dataset
-):
-    """
-    Train the models with shuffled input.
-    """
-    pass
-
-
-def train_with_zero_inputs(
-    models, drp_dataset, drug_feature_dataset, cell_line_feature_dataset
-):
-    """
-    Train the models with zero vectors as inputs.
-    """
-    pass
-
-
-def visualize_results(
-    models, drp_dataset, drug_feature_dataset, cell_line_feature_dataset
-):
-    """
-    Visualize the results.
-    """
-    pass
-
-
 if __name__ == "__main__":
-    os.chdir("suite")
     args = get_parser().parse_args()
-    print(args)
 
-    # Get which models should be run
-    if args.target == "classification":
-        models = ["Baselines", "DeepCDR", "MOLI", "Super.FELT"]
-        print(f"Running classification tests on the models {models}")
+    assert args.models, "At least one model must be specified"
+    assert all(
+        [model in MODEL_FACTORY for model in args.models]
+    ), f"Invalid model name. Available models are {list(MODEL_FACTORY.keys())}"
+    assert args.test_mode in [
+        "LPO",
+        "LCO",
+        "LDO",
+    ], f"Invalid test mode. Available test modes are 'LPO', 'LCO', 'LDO'"
+    models = [
+        MODEL_FACTORY[model](model_name=model, target="IC50") for model in args.models
+    ]
+
+    # TODO like the models we want to have a DATASET_FACTORY which loads and optionally preprocesses the dataset
+    if args.dataset_name == "GDSC1":
+        response_data = pd.read_csv("data/GDSC/response_GDSC1.csv")
+        output = response_data["LN_IC50"].values
+        cell_line_ids = response_data["CELL_LINE_NAME"].values
+        drug_ids = response_data["DRUG_NAME"].values
     else:
-        if args.target == "AUC":
-            models = ["Baselines", "DrugCell"]
-        elif args.target == "IC50":
-            models = ["Baselines", "BiGDRP", "DeepCDR", "PaccMan", "SRMF"]
-        elif args.target == "EC50":
-            models = ["Baselines"]
-        else:
-            raise ValueError("Target variable not recognized")
-        print(
-            f"Running regression tests on the models {models} with target variable {args.target}"
-        )
-
-    # Make DRP dataset from path and split it according to test mode
-    drp_dataset = DrugResponseDataset(
-        path=args.path_dr, name=args.name_dr, target_type=args.target
-    )
-    drp_dataset.split_dataset(mode=args.test_mode)
-
-    # Make drug feature dataset from path
-    drug_feature_dataset = FeatureDataset().load(path=args.path_df)
-    # Make cell line feature dataset from path
-    cell_line_feature_dataset = FeatureDataset().load(path=args.path_cf)
+        raise NotImplementedError(f"Dataset {args.dataset_name} not implemented")
 
     if args.curve_curator:
-        # Run CurveCurator
-        pass
+        raise NotImplementedError("CurveCurator not implemented")
 
-    if args.custom_models:
-        # Run custom models
-        pass
-
-    # Compare the models
-    compare_models(models, drp_dataset, drug_feature_dataset, cell_line_feature_dataset)
-
-    # Run the robustness tests
-    robustness_tests(
-        models, drp_dataset, drug_feature_dataset, cell_line_feature_dataset
+    response_data = DrugResponseDataset(
+        response=output, cell_line_ids=cell_line_ids, drug_ids=drug_ids
+    )
+    # TODO randomization_test_views need to be specified. maybe via config file 
+    result = drug_response_experiment(
+        models,
+        response_data,
+        multiprocessing=True,
+        test_mode=args.test_mode,
+        randomization_test_views={"randomize_gene_expression": ["gene_expression"], "randomize_genomics": ["mutation", "copy_number_var"]},
     )
 
-    # Run the randomization tests
-    randomization_tests(
-        models, drp_dataset, drug_feature_dataset, cell_line_feature_dataset
-    )
+    # TODO now do evaluation, visualization, etc.
 
-    # Run the visualization
-    visualize_results(
-        models, drp_dataset, drug_feature_dataset, cell_line_feature_dataset
-    )
+    # Convert to JSON string
+    if False:
+        # DrugResponseDataset not serializable
+        json_string = json.dumps(result, indent=4)
+
+        # Save JSON string to a file
+        with open(f"{args.path_out}/{args.run_id}_results.npy", "w") as json_file:
+            json_file.write(json_string)
+        print(f"Done! Results saved to {args.path_out}/{args.run_id}_results.npy")
+    print(result)

@@ -1,0 +1,9 @@
+name: drp_basic
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+  - pytorch
+dependencies:
+  - python=3.8
+  - scikit-learn=1.3.2
