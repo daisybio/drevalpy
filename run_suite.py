@@ -58,6 +58,12 @@ def get_parser():
         help="Whether to run " "CurveCurator " "to sort out " "non-reactive " "curves",
     )
     parser.add_argument(
+        "--overwrite",
+        action='store_true',
+        default=False,
+        help="Overwrite existing results with the same path out and run_id? ",
+    )
+    parser.add_argument(
         "--optim_metric",
         type=str,
         default="RMSE",
@@ -104,6 +110,9 @@ if __name__ == "__main__":
         multiprocessing=True,
         test_mode=args.test_mode,
         randomization_test_views={"randomize_gene_expression": ["gene_expression"], "randomize_genomics": ["mutation", "copy_number_var"]},
+        path_out=args.path_out,
+        run_id=args.run_id,
+        overwrite=args.overwrite,
     )
 
     # TODO now do evaluation, visualization, etc.

@@ -9,29 +9,43 @@ from ray import tune
 import numpy as np
 import os
 
-
+# TODO save hpams and their scores to disk
+# 
 def drug_response_experiment(
     models: List[DRPModel],
     response_data: DrugResponseDataset,
     multiprocessing: bool = False,
     test_mode: str = "LPO",
     randomization_test_views: Optional[Dict[str, List[str]]] = None,
-) -> Dict[str, List[DrugResponseDataset]]:
+    path_out: str = "results/",
+    run_id: str = "",
+    overwrite: bool = False,
+) -> None :
     """
-    Run the drug response prediction experiment.
+    Run the drug response prediction experiment. Save results to disc.
     :param models: list of models to compare
     :param response_data: drug response dataset
     :param multiprocessing: whether to use multiprocessing
     :param randomization_test_views: views to use for the randomization tests. Key is the name of the randomization test and the value is a list of views to randomize
             e.g. {"randomize_genomics": ["copy_number_var", "mutation"], "methylation_only": ["gene_expression", "copy_number_var", "mutation"]}"
-    :return: dictionary containing the results
+    :param path_out: path to the output directory
+    :param run_id: identifier to save the results
+    :return: None
     """
-    results = {model.model_name: {} for model in models}
-
+    result_path = os.path.join(path_out, run_id)
+    # if results exists, delete them if overwrite is true
+    if os.path.exists(result_path) and overwrite:
+        os.rmdir(result_path)
+    os.makedirs(result_path)
+    # TODO load existing progress if it exists, currently we just overwrite
     for model in models:
-        results[model.model_name] = {"predictions": []}
+        model_path = os.path.join(result_path, model.model_name)
+        os.makedirs(model_path, exist_ok=True)
+        predictions_path = os.path.join(model_path, "predictions")
+        os.makedirs(predictions_path, exist_ok=True)
         if randomization_test_views:
-            results[model.model_name]["randomization_tests"] = []
+            randomization_test_path = os.path.join(model_path, "randomization_tests")
+            os.makedirs(randomization_test_path)
 
         model_hpam_set = model.get_hyperparameter_set()
 
@@ -43,7 +57,7 @@ def drug_response_experiment(
             random_state=42,
         )
 
-        for split in response_data.cv_splits:
+        for split_index, split in enumerate(response_data.cv_splits):
             train_dataset = split["train"]
             validation_dataset = split["validation"]
             test_dataset = split["test"]
@@ -88,20 +102,19 @@ def drug_response_experiment(
                     early_stopping_dataset if model.early_stopping else None
                 ),
             )
-            results[model.model_name]["predictions"].append(test_dataset)
+            test_dataset.save(os.path.join(predictions_path, f"test_dataset_split_{split_index}.csv"))
 
             if randomization_test_views:
-                r = randomization_test(
+                randomization_test(
                     randomization_test_views=randomization_test_views,
                     model=model,
                     hpam_set=best_hpams,
                     train_dataset=train_dataset,
                     test_dataset=test_dataset,
                     early_stopping_dataset=early_stopping_dataset,
+                    path_out=randomization_test_path,
+                    split_index=split_index,
                 )
-                results[model.model_name]["randomization_tests"].append(r)
-
-    return results
 
 
 def randomization_test(
@@ -111,11 +124,28 @@ def randomization_test(
     train_dataset: DrugResponseDataset,
     test_dataset: DrugResponseDataset,
     early_stopping_dataset: Optional[DrugResponseDataset],
-) -> Dict:
+    path_out: str,
+    split_index: int,
+
+) -> None:
+    """
+    Run randomization tests for the given model and dataset
+    :param randomization_test_views: views to use for the randomization tests. Key is the name of the randomization test and the value is a list of views to randomize
+            e.g. {"randomize_genomics": ["copy_number_var", "mutation"], "methylation_only": ["gene_expression", "copy_number_var", "mutation"]}"
+    :param model: model to evaluate
+    :param hpam_set: hyperparameters to use
+    :param train_dataset: training dataset
+    :param test_dataset: test dataset
+    :param early_stopping_dataset: early stopping dataset
+    :param path_out: path to the output directory
+    :param split_index: index of the split
+    :return: None (save results to disk)
+    """
     cl_features = model.get_cell_line_features(path=hpam_set["feature_path"])
     drug_features = model.get_drug_features(path=hpam_set["feature_path"])
-    results = {}
     for test_name, views in randomization_test_views.items():
+        randomization_test_path = os.path.join(path_out, test_name)
+        os.makedirs(randomization_test_path, exist_ok=True)
         for view in views:
             cl_features_rand = cl_features.copy()
             drug_features_rand = drug_features.copy()
@@ -137,9 +167,7 @@ def randomization_test(
                 cl_features=cl_features_rand,
                 drug_features=drug_features_rand,
             )
-            results[test_name] = test_dataset_rand
-    return results
-
+            test_dataset_rand.save(os.path.join(randomization_test_path, f"test_dataset_split_{split_index}.csv"))
 
 def split_early_stopping(
     validation_dataset: DrugResponseDataset, test_mode: str

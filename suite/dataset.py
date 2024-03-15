@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import Dict, List, Union
+from typing import Dict, List, Optional, Union
 import numpy as np
 from numpy.typing import ArrayLike
+import pandas as pd
 from .utils import leave_pair_out_cv, leave_group_out_cv
 
 
@@ -32,9 +33,10 @@ class DrugResponseDataset(Dataset):
 
     def __init__(
         self,
-        response: ArrayLike,
-        cell_line_ids: ArrayLike,
-        drug_ids: ArrayLike,
+        response: Optional[ArrayLike]=None,
+        cell_line_ids: Optional[ArrayLike]=None,
+        drug_ids: Optional[ArrayLike]=None,
+        predictions: Optional[ArrayLike] = None,
         *args,
         **kwargs,
     ):
@@ -51,11 +53,23 @@ class DrugResponseDataset(Dataset):
         predictions: optional. Predicted drug response values per cell line and drug
         """
         super(DrugResponseDataset, self).__init__()
-        self.response = np.array(response)
-        self.cell_line_ids = np.array(cell_line_ids)
-        self.drug_ids = np.array(drug_ids)
-        self.predictions = None
+        if response:
+            self.response = np.array(response)
+            self.cell_line_ids = np.array(cell_line_ids)
+            self.drug_ids = np.array(drug_ids)
+            assert len(self.response) == len(
+                self.cell_line_ids
+            ), "response and cell_line_ids have different lengths"
+            assert len(self.response) == len(
+                self.drug_ids
+            ), "response and drug_ids/cell_line_ids have different lengths"
 
+        if predictions:
+            self.predictions = np.array(predictions)
+            assert len(self.predictions) == len(
+                self.response
+            ), "predictions and response have different lengths"
+            
     def __len__(self):
         return len(self.response)
 
@@ -71,17 +85,31 @@ class DrugResponseDataset(Dataset):
                 string += f"; Predictions {self.predictions}"
         return string
 
-    def load(self):
+    def load(self, path: str):
         """
         Loads the drug response dataset from data.
         """
-        raise NotImplementedError("load method not implemented")
+        data = pd.read_csv(path)
+        self.response = data["response"].values
+        self.cell_line_ids = data["cell_line_ids"].values
+        self.drug_ids = data["drug_ids"].values
+        if "predictions" in data.columns:
+            self.predictions = data["predictions"].values
 
-    def save(self):
+    def save(self, path: str):
         """
         Saves the drug response dataset to data.
         """
-        raise NotImplementedError("save method not implemented")
+        out = pd.DataFrame(
+            {
+                "cell_line_ids": self.cell_line_ids,
+                "drug_ids": self.drug_ids,
+                "response": self.response,
+            }
+        )
+        if self.predictions is not None:
+            out["predictions"] = self.predictions
+        out.to_csv(path, index=False)
 
     def add_rows(self, other: "DrugResponseDataset") -> None:
         """
