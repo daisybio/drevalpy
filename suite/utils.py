@@ -25,7 +25,7 @@ def leave_pair_out_cv(
     :param random_state: random state
     :return: list of dicts of the cross validation sets
     """
-    from .data_wrapper import DrugResponseDataset
+    from .dataset import DrugResponseDataset
 
     assert (
         len(response) == len(cell_line_ids) == len(drug_ids)
@@ -57,13 +57,12 @@ def leave_pair_out_cv(
         }
 
         if split_validation:
-            cv_fold["validation"] = (
-                DrugResponseDataset(
-                    cell_line_ids=cell_line_ids[validation_indices],
-                    drug_ids=drug_ids[validation_indices],
-                    response=response[validation_indices],
-                ),
+            cv_fold["validation"] = DrugResponseDataset(
+                cell_line_ids=cell_line_ids[validation_indices],
+                drug_ids=drug_ids[validation_indices],
+                response=response[validation_indices],
             )
+
         cv_sets.append(cv_fold)
     return cv_sets
 
@@ -78,7 +77,7 @@ def leave_group_out_cv(
     validation_ratio=0.1,
     random_state=42,
 ):
-    from .data_wrapper import DrugResponseDataset
+    from .dataset import DrugResponseDataset
 
     """
     Leave group out cross validation. Splits data into n_cv_splits number of cross validation splits.
@@ -168,6 +167,7 @@ def pearson(predictions: np.ndarray, response: np.ndarray) -> float:
     ), "predictions, response  must have the same length"
     return np.corrcoef(predictions, response)[0, 1]
 
+
 def spearman(predictions: np.ndarray, response: np.ndarray) -> float:
     """
     Computes the spearman correlation between predictions and response.
@@ -182,6 +182,7 @@ def spearman(predictions: np.ndarray, response: np.ndarray) -> float:
         response
     ), "predictions, response  must have the same length"
     raise NotImplementedError
+
 
 def kendall(predictions: np.ndarray, response: np.ndarray) -> float:
     """
