@@ -58,7 +58,7 @@ class LogisticClassifier(BaseModel):
             # if at least one unique class has less than or equal to  5 samples (i.e. <= to number of k neighbours set
             # in oversampling method), no oversampling is performed
             ovrs = sum(np.unique(y_train, return_counts=True)[1] <= 5) == 0
-            if self.oversampling_method is not None and ovrs:
+            if self.oversampling_method != "None" and ovrs:
                 X_train, y_train = oversampling(X_train, y_train, self.oversampling_method, self.n_cpus)
                 self.data_dict.get(target)["X_train"] = X_train
                 self.data_dict.get(target)["y_train"] = y_train
