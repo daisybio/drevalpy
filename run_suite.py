@@ -125,4 +125,3 @@ if __name__ == "__main__":
         with open(f"{args.path_out}/{args.run_id}_results.npy", "w") as json_file:
             json_file.write(json_string)
         print(f"Done! Results saved to {args.path_out}/{args.run_id}_results.npy")
-    print(result)

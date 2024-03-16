@@ -104,7 +104,7 @@ def drug_response_experiment(
                     early_stopping_dataset if model.early_stopping else None
                 ),
             )
-            test_dataset.save(os.path.join(predictions_path, f"test_dataset_split_{split_index}.csv"))
+            test_dataset.save(os.path.join(predictions_path, f"test_dataset_{test_mode}_split_{split_index}.csv"))
 
             if randomization_test_views:
                 randomization_test(
@@ -116,6 +116,7 @@ def drug_response_experiment(
                     early_stopping_dataset=early_stopping_dataset,
                     path_out=randomization_test_path,
                     split_index=split_index,
+                    test_mode=test_mode,
                 )
 
 
@@ -128,6 +129,7 @@ def randomization_test(
     early_stopping_dataset: Optional[DrugResponseDataset],
     path_out: str,
     split_index: int,
+    test_mode: str,
 
 ) -> None:
     """
@@ -141,6 +143,7 @@ def randomization_test(
     :param early_stopping_dataset: early stopping dataset
     :param path_out: path to the output directory
     :param split_index: index of the split
+    :param test_mode: test mode one of "LPO", "LCO", "LDO" (leave-pair-out, leave-cell-line-out, leave-drug-out)
     :return: None (save results to disk)
     """
     cl_features = model.get_cell_line_features(path=hpam_set["feature_path"])
@@ -169,7 +172,7 @@ def randomization_test(
                 cl_features=cl_features_rand,
                 drug_features=drug_features_rand,
             )
-            test_dataset_rand.save(os.path.join(randomization_test_path, f"test_dataset_split_{split_index}.csv"))
+            test_dataset_rand.save(os.path.join(randomization_test_path, f"test_dataset_{test_mode}_split_{split_index}.csv"))
 
 def split_early_stopping(
     validation_dataset: DrugResponseDataset, test_mode: str
