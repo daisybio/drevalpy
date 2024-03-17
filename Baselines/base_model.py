@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 class BaseModel(ABC):
     def __init__(self, dataroot_drp, dataroot_feature, metric, task, remove_out=True,
                  log_transform=True, feature_type="gene_expression", feature_selection=False,
-                 norm_feat=False, norm_method=None, nCV_folds=None, oversampling_method=None, n_cpus=1,
+                 norm_feat=False, norm_method=None, nCV_folds=None, oversampling_method="None", n_cpus=1,
                  hyperparameters=None):
         self.path_drp = dataroot_drp  # path to the drug response data
         self.path_feature = dataroot_feature  # path to the feature data
