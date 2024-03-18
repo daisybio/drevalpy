@@ -231,7 +231,7 @@ class DrugResponseDataset(Dataset):
             raise ValueError(
                 f"Unknown split mode '{mode}'. Choose from 'LPO', 'LCO', 'LDO'."
             )
-        self.cv_splits = cv_splits  # TODO save these as DrugResponseDatasets !!!
+        self.cv_splits = cv_splits  # TODO save these as DrugResponseDatasets
         return cv_splits
 
 
