@@ -4,7 +4,7 @@ import numpy as np
 import json
 
 from models import MODEL_FACTORY
-from datasets import DATASET_FACTORY
+from response_datasets import RESPONSE_DATASET_FACTORY
 from suite.dataset import DrugResponseDataset
 from suite.experiment import drug_response_experiment
 
@@ -63,7 +63,7 @@ if __name__ == "__main__":
     assert args.models, "At least one model must be specified"
     assert all(
         [model in MODEL_FACTORY for model in args.models]
-    ), f"Invalid model name. Available models are {list(MODEL_FACTORY.keys())}"
+    ), f"Invalid model name. Available models are {list(MODEL_FACTORY.keys())}. If you want to use your own model, you need to implement a new model class and add it to the MODEL_FACTORY in the models init"
     assert args.test_mode in [
         "LPO",
         "LCO",
@@ -72,14 +72,15 @@ if __name__ == "__main__":
     models = [
         MODEL_FACTORY[model](model_name=model, target="IC50") for model in args.models
     ]
-    assert args.dataset_name in DATASET_FACTORY, f"Invalid dataset name. Available datasets are {list(DATASET_FACTORY.keys())}"
-    response_data = DATASET_FACTORY[args.dataset_name]()
+    assert args.dataset_name in RESPONSE_DATASET_FACTORY, f"Invalid dataset name. Available datasets are {list(RESPONSE_DATASET_FACTORY.keys())} If you want to use your own dataset, you need to implement a new response dataset class and add it to the RESPONSE_DATASET_FACTORY in the response_datasets init"
+    response_data = RESPONSE_DATASET_FACTORY[args.dataset_name]()
 
 
     if args.curve_curator:
         raise NotImplementedError("CurveCurator not implemented")
 
     # TODO randomization_test_views need to be specified. maybe via config file 
+    # TODO metric for optimization needs to be considered
     drug_response_experiment(
         models,
         response_data,
