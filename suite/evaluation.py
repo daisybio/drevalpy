@@ -3,6 +3,8 @@ from typing import Union, List
 import numpy as np
 import sklearn.metrics as metrics
 from .utils import pearson, spearman, kendall, partial_correlation
+import pandas as pd
+
 
 AVAILABLE_METRICS = {
     "mse": metrics.mean_squared_error,
@@ -34,15 +36,17 @@ def evaluate(dataset: DrugResponseDataset, metric: Union[List[str], str]):
         ), f"invalid metric {m}. Available: {list(AVAILABLE_METRICS.keys())}"
         if m == "partial_correlation":
             results[m] = AVAILABLE_METRICS[m](
-                predictions, response, dataset.cell_line_ids, dataset.drug_ids
+                y_pred=predictions, y_true=response, cell_line_ids=dataset.cell_line_ids, drug_ids=dataset.drug_ids
             )
+        elif m == 'rmse':
+            results[m] = AVAILABLE_METRICS[m](y_pred=predictions, y_true=response, squared=False)
         else:
-            results[m] = AVAILABLE_METRICS[m](predictions, response)
+            results[m] = AVAILABLE_METRICS[m](y_pred=predictions, y_true=response)
 
     return results
 
 
-def visualize_results(dataset: DrugResponseDataset, mode: Union[List[str], str]):
+def visualize_results(results: pd.DataFrame, mode: Union[List[str], str]):
     """
     Visualizes the model on the given dataset.
     :param dataset: dataset to evaluate on

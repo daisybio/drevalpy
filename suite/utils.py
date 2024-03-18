@@ -1,8 +1,12 @@
 from typing import List
+
+import pandas as pd
 from sklearn.model_selection import KFold, GroupKFold
 import numpy as np
 from numpy.typing import ArrayLike
 from sklearn.model_selection import train_test_split
+from scipy.stats import pearsonr, spearmanr, kendalltau
+from pingouin import partial_corr
 
 
 def leave_pair_out_cv(
@@ -131,70 +135,74 @@ def leave_group_out_cv(
 
 
 def partial_correlation(
-    predictions: np.ndarray,
-    response: np.ndarray,
+    y_pred: np.ndarray,
+    y_true: np.ndarray,
     cell_line_ids: np.ndarray,
     drug_ids: np.ndarray,
 ) -> float:
     """
     Computes the partial correlation between predictions and response, conditioned on cell line and drug.
-    :param predictions: predictions
-    :param response: response
+    :param y_pred: predictions
+    :param y_true: response
     :param cell_line_ids: cell line IDs
     :param drug_ids: drug IDs
     :return: partial correlation float
     """
 
     assert (
-        len(predictions) == len(response) == len(cell_line_ids) == len(drug_ids)
+        len(y_pred) == len(y_true) == len(cell_line_ids) == len(drug_ids)
     ), "predictions, response, drug_ids, and cell_line_ids must have the same length"
 
-    raise NotImplementedError("partial correlation not implemented yet")
+    df = pd.DataFrame({'response': y_true,
+                       'predictions': y_pred,
+                       'cell_line_ids': cell_line_ids,
+                       'drug_ids': drug_ids})
+    # convert cell_line_ids and drug_ids to numerics
+    df['cell_line_ids'] = pd.factorize(df['cell_line_ids'])[0]
+    df['drug_ids'] = pd.factorize(df['drug_ids'])[0]
+    return partial_corr(df,
+                        x='response',
+                        y='predictions',
+                        covar=['cell_line_ids', 'drug_ids'])['r'].item()
 
 
-def pearson(predictions: np.ndarray, response: np.ndarray) -> float:
+def pearson(y_pred: np.ndarray, y_true: np.ndarray) -> float:
     """
     Computes the pearson correlation between predictions and response.
-    :param predictions: predictions
-    :param response: response
-    :param cell_line_ids: cell line IDs
-    :param drug_ids: drug IDs
+    :param y_pred: predictions
+    :param y_true: response
     :return: pearson correlation float
     """
 
-    assert len(predictions) == len(
-        response
+    assert len(y_pred) == len(
+        y_true
     ), "predictions, response  must have the same length"
-    return np.corrcoef(predictions, response)[0, 1]
+    return pearsonr(y_pred, y_true)[0]
 
 
-def spearman(predictions: np.ndarray, response: np.ndarray) -> float:
+def spearman(y_pred: np.ndarray, y_true: np.ndarray) -> float:
     """
     Computes the spearman correlation between predictions and response.
-    :param predictions: predictions
-    :param response: response
-    :param cell_line_ids: cell line IDs
-    :param drug_ids: drug IDs
+    :param y_pred: predictions
+    :param y_true: response
     :return: spearman correlation float
     """
     # we can use scipy.stats.spearmanr
-    assert len(predictions) == len(
-        response
+    assert len(y_pred) == len(
+        y_true
     ), "predictions, response  must have the same length"
-    raise NotImplementedError
+    return spearmanr(y_pred, y_true)[0]
 
 
-def kendall(predictions: np.ndarray, response: np.ndarray) -> float:
+def kendall(y_pred: np.ndarray, y_true: np.ndarray) -> float:
     """
     Computes the kendall tau correlation between predictions and response.
-    :param predictions: predictions
-    :param response: response
-    :param cell_line_ids: cell line IDs
-    :param drug_ids: drug IDs
+    :param y_pred: predictions
+    :param y_true: response
     :return: kendall tau correlation float
     """
     # we can use scipy.stats.spearmanr
-    assert len(predictions) == len(
-        response
+    assert len(y_pred) == len(
+        y_true
     ), "predictions, response  must have the same length"
-    raise NotImplementedError
+    return kendalltau(y_pred, y_true)[0]
