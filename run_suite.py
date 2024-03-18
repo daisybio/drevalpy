@@ -88,7 +88,7 @@ if __name__ == "__main__":
         response=output, cell_line_ids=cell_line_ids, drug_ids=drug_ids
     )
     # TODO randomization_test_views need to be specified. maybe via config file 
-    result = drug_response_experiment(
+    drug_response_experiment(
         models,
         response_data,
         multiprocessing=True,
@@ -100,12 +100,4 @@ if __name__ == "__main__":
     )
 
     # TODO now do evaluation, visualization, etc.
-    # Convert to JSON string
-    if False:
-        # DrugResponseDataset not serializable
-        json_string = json.dumps(result, indent=4)
 
-        # Save JSON string to a file
-        with open(f"{args.path_out}/{args.run_id}_results.npy", "w") as json_file:
-            json_file.write(json_string)
-        print(f"Done! Results saved to {args.path_out}/{args.run_id}_results.npy")
