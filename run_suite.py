@@ -4,6 +4,7 @@ import numpy as np
 import json
 
 from models import MODEL_FACTORY
+from datasets import DATASET_FACTORY
 from suite.dataset import DrugResponseDataset
 from suite.experiment import drug_response_experiment
 
@@ -71,22 +72,13 @@ if __name__ == "__main__":
     models = [
         MODEL_FACTORY[model](model_name=model, target="IC50") for model in args.models
     ]
+    assert args.dataset_name in DATASET_FACTORY, f"Invalid dataset name. Available datasets are {list(DATASET_FACTORY.keys())}"
+    response_data = DATASET_FACTORY[args.dataset_name]()
 
-    # TODO like the models we want to have a DATASET_FACTORY which loads and optionally preprocesses the dataset
-    if args.dataset_name == "GDSC1":
-        response_data = pd.read_csv("data/GDSC/response_GDSC1.csv")
-        output = response_data["LN_IC50"].values
-        cell_line_ids = response_data["CELL_LINE_NAME"].values
-        drug_ids = response_data["DRUG_NAME"].values
-    else:
-        raise NotImplementedError(f"Dataset {args.dataset_name} not implemented")
 
     if args.curve_curator:
         raise NotImplementedError("CurveCurator not implemented")
 
-    response_data = DrugResponseDataset(
-        response=output, cell_line_ids=cell_line_ids, drug_ids=drug_ids
-    )
     # TODO randomization_test_views need to be specified. maybe via config file 
     drug_response_experiment(
         models,
