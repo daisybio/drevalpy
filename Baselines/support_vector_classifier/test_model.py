@@ -4,10 +4,10 @@ import sys
 import toml
 from os.path import dirname, join, abspath
 from pathlib import Path
-from sklearn.linear_model import LogisticRegression
+from sklearn.svm import SVC
 
 sys.path.insert(0, abspath(join(dirname(__file__), '..')))
-from model import LogisticClassifier
+from model import SupportVectorClassifier
 from utils.utils import mkdir
 from utils import testing, analysis
 
@@ -16,7 +16,7 @@ logging.basicConfig(format='%(asctime)s: %(levelname)s: %(message)s', level=logg
 
 # setting up directory for saving results
 # save model parameters and results
-dir_path = "lincf_LCO_2feat_ADASYN/"
+dir_path = "/nfs/home/students/m.lorenz/output/svc/GDSC/SVC_LCO_20feat_SMOTE_poly_kernel/"
 mkdir(dir_path)
 
 # setting up file logging as well
@@ -30,7 +30,7 @@ logging.getLogger().addHandler(file_logger)
 logger = logging.getLogger(__name__)
 
 # start logging
-logger.info("Running logisitc regression classifier")
+logger.info("Running support vector classifier")
 
 # read in meta data from TOML file
 logger.info("Reading in meta data from TOML file")
@@ -38,17 +38,18 @@ with open('metadata_LCO.toml', 'r') as file:
     meta_data = toml.load(file)
 
 # create linear regression object
-logger.info("Creating logistic regression classifier object")
+logger.info("Creating support vector classifier object")
 
-logistic_classifier = testing.parse_data(meta_data, LogisticClassifier)
+SVC_classifier = testing.parse_data(meta_data, SupportVectorClassifier, "SVC")
 
 # perform training, testing and evaluation
 best_models, best_nfeatures, best_scc, best_models_params = (
-    testing.train_test_eval(logistic_classifier, LogisticRegression, "classification", meta_data, dir_path))
+    testing.train_test_eval(SVC_classifier, SVC, "classification", meta_data, dir_path))
 
 # perform data analysis
 logger.info("Performing data analysis")
-analysis.base_analysis(best_models, best_nfeatures, logistic_classifier, LogisticRegression, "classification",
-                       meta_data, dir_path)
+analysis.base_analysis(best_models, best_nfeatures, SVC_classifier, SVC, "classification", meta_data, dir_path)
+# analysis.coef0_distribution(best_models, best_nfeatures, SVC, meta_data, dir_path) # only for linear kernel
 analysis.scores_clustering(best_models, dir_path)
 analysis.roc_plot(best_models, 0)
+# analysis.decision_boundary(best_models, "CVCL_0001", SVC) # only for 2D data

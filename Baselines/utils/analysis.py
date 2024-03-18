@@ -8,6 +8,7 @@ import plotly.graph_objects as go
 import seaborn as sns
 from pathlib import Path
 from scipy import stats
+from sklearn.inspection import DecisionBoundaryDisplay
 from sklearn.metrics import roc_curve, auc, RocCurveDisplay
 
 logger = logging.getLogger(__name__)
@@ -18,8 +19,7 @@ def base_analysis(best_models, best_nfeatures, predictor, predictor_class, predi
     Perform a basic analysis of the models. The analysis includes the following:
     - Summary statistics on the correlation coefficients (PCC, SCC)
     - Distribution of the correlation coefficients
-    - SCC vs variance
-    - Distribution of model coefficients set to 0
+    - performance metric vs variance
     - Avg number of datapoints per model
     """
     logger.info(
@@ -82,48 +82,21 @@ def base_analysis(best_models, best_nfeatures, predictor, predictor_class, predi
         else:
             var = drp.loc[metric2_val.index].var(axis=1)
 
-    fig, axs = plt.subplot_mosaic([['a)', 'c)'], ['b)', 'c)']], figsize=(15, 10))
+    fig, axs = plt.subplot_mosaic([['a)', 'b)']], figsize=(15, 10))
     axs['a)'].scatter(var, metric1_val)
     axs['b)'].scatter(var, metric2_val)
     plt.xlabel("variance")
     axs['a)'].set_ylabel(metric1)
     axs['b)'].set_ylabel(metric2)
-    axs['a)'].set_title(f"correlation coefficient vs variance "
+    fig.suptitle(f"correlation coefficient vs variance "
                         f"{meta_data['metadata'].get('task')} - {meta_data['metadata'].get('feature_type')}",
                         fontsize=12, fontweight='bold')
-
-    ### analysing how many coef. set to 0 ###
-    beta0_arr = []
-    targets = []
-
-    for target in best_models["models"]:
-        if isinstance(best_models["models"].get(target), predictor_class):
-            beta0_arr.append(np.reshape(best_models["models"].get(target).coef_ == 0), -1)
-            targets.append(target)
-        else:
-            target_GCV = best_models["models"].get(target)
-            beta0_arr.append(np.reshape(target_GCV.best_estimator_.coef_ == 0, -1))
-            targets.append(target)
-
-    beta0_df = pd.DataFrame(index=targets, data=beta0_arr)
-    beta0_df.sum()
-    sns.barplot(x=beta0_df.sum().index, y=beta0_df.sum().values, ax=axs['c)'])
-    axs['c)'].set_xlabel('coefficient number')
-    axs['c)'].set_ylabel('count')
-    axs['c)'].set_title(f'frequency of coefficients set to 0 ('
-                        f'{meta_data["metadata"]["task"]} - {meta_data["metadata"]["feature_type"]})', fontsize=12,
-                        fontweight='bold')
     sns.despine(right=True)
     plt.tight_layout()
     fig = plt.gcf()
     plt.show()
     fig.savefig(Path(dir_path + "coefficient_variance_frequency.png"))
     plt.close()
-
-    logger.info(f"\nAverage number of coefficients set to 0 over all models: {beta0_df.T.sum().mean()}\n"
-                f"Average number of coefficients not set to 0 over all models: {(best_nfeatures - beta0_df.T.sum()).mean()}\n"
-                f"percentage of avg number of coefficients set to 0 over total coef: {beta0_df.T.sum().mean() / best_nfeatures * 100}\n"
-                f"percentage of avg number of coefficients not set to 0 over total coef: {(best_nfeatures - beta0_df.T.sum()).mean() / best_nfeatures * 100}\n")
 
     # average number of datapoints per model:
     ls = []
@@ -154,6 +127,44 @@ def base_analysis(best_models, best_nfeatures, predictor, predictor_class, predi
         value_counts_1 = groups.apply(lambda x: x.value_counts(subset=["y_true"])[1])
         in_balance = ((100 / (value_counts_0 + value_counts_1)) * value_counts_1).mean()
         logger.info(f"Test set in balance: {in_balance:.2f}% of the test set is of class label 1 (sensitive)")
+
+def coef0_distribution(best_models, best_nfeatures, predictor_class, meta_data, dir_path):
+    """
+    Plot how often coefficients are set to 0. The plot is saved as a png file and the average number of coefficients set
+    to 0 over all models is calculated and displayed.
+    Note: This function is only applicable to linear models and SVMs with linear kernel.
+    """
+    ### analysing how many coef. set to 0 ###
+    beta0_arr = []
+    targets = []
+
+    for target in best_models["models"]:
+        if isinstance(best_models["models"].get(target), predictor_class):
+            beta0_arr.append(np.reshape(best_models["models"].get(target).coef_ == 0), -1)
+            targets.append(target)
+        else:
+            target_GCV = best_models["models"].get(target)
+            beta0_arr.append(np.reshape(target_GCV.best_estimator_.coef_ == 0, -1))
+            targets.append(target)
+
+    beta0_df = pd.DataFrame(index=targets, data=beta0_arr)
+    sns.barplot(x=beta0_df.sum().index, y=beta0_df.sum().values)
+    plt.xlabel('coefficient number')
+    plt.ylabel('count')
+    plt.title(f'frequency of coefficients set to 0 ('
+                        f'{meta_data["metadata"]["task"]} - {meta_data["metadata"]["feature_type"]})', fontsize=12,
+                        fontweight='bold')
+    sns.despine(right=True)
+    plt.tight_layout()
+    fig = plt.gcf()
+    plt.show()
+    fig.savefig(Path(dir_path + "coefficients0.png"))
+    plt.close()
+
+    logger.info(f"\nAverage number of coefficients set to 0 over all models: {beta0_df.T.sum().mean()}\n"
+                f"Average number of coefficients not set to 0 over all models: {(best_nfeatures - beta0_df.T.sum()).mean()}\n"
+                f"percentage of avg number of coefficients set to 0 over total coef: {beta0_df.T.sum().mean() / best_nfeatures * 100}\n"
+                f"percentage of avg number of coefficients not set to 0 over total coef: {(best_nfeatures - beta0_df.T.sum()).mean() / best_nfeatures * 100}\n")
 
 
 def scatter_predictions(best_models, dir_path):
@@ -365,5 +376,46 @@ def f_distribution(k, n, F_group, p_value):
     plt.xlabel("F-statistic")
     plt.ylabel("probability")
     plt.legend()
+    plt.show()
+    plt.close()
+
+def decision_boundary(best_models, model_name, predictor_class):
+    clf = best_models["models"][model_name]
+
+    if not isinstance(clf, predictor_class):
+        clf = clf.best_estimator_
+
+    PC1 = best_models["data_dict"][model_name]["X_train"][:, 0]
+    PC2 = best_models["data_dict"][model_name]["X_train"][:, 1]
+    X = best_models["data_dict"][model_name]["X_train"][:, 0:2]
+    y = best_models["data_dict"][model_name]["y_train"]
+    plt.scatter(PC1, PC2, c=y, s=30, cmap=plt.cm.Paired)
+
+    # plot the decision function
+    ax = plt.gca()
+    DecisionBoundaryDisplay.from_estimator(
+        clf,
+        X,
+        plot_method="contour",
+        colors="k",
+        levels=[-1, 0, 1],
+        alpha=0.5,
+        linestyles=["--", "-", "--"],
+        ax=ax,
+    )
+
+    # plot support vectors
+    ax.scatter(
+        clf.support_vectors_[:, 0],
+        clf.support_vectors_[:, 1],
+        s=100,
+        linewidth=1,
+        facecolors="none",
+        edgecolors="k",
+    )
+
+    plt.xlabel('Principal Component 1')
+    plt.ylabel('Principal Component 2')
+    plt.title('Maximum Margin Separating Hyperplane (2D PCA)')
     plt.show()
     plt.close()

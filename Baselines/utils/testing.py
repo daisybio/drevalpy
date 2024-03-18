@@ -8,15 +8,17 @@ sys.path.insert(0, abspath(join(dirname(__file__), '..')))
 logger = logging.getLogger(__name__)
 
 
-def parse_data(meta_data, predictor_class):
-    predictor_object = predictor_class(meta_data["metadata"]["dataroot_drp"], meta_data["metadata"]["dataroot_feature"],
-                                       meta_data["metadata"]["metric"], meta_data["metadata"]["task"],
-                                       meta_data["metadata"]["remove_outliers"], meta_data["metadata"]["log_transform"],
-                                       meta_data["metadata"]["feature_type"],
-                                       meta_data["metadata"]["feature_selection"],
-                                       meta_data["metadata"]["norm_feat"], meta_data["metadata"]["norm_method"],
-                                       meta_data["metadata"]["CV_folds"], meta_data["metadata"]["oversampling_method"],
-                                       meta_data["metadata"]["n_cpus"], meta_data["metadata"]["HP_tuning"])
+def parse_data(meta_data, predictor, predictor_class=None):
+    predictor_object = predictor(meta_data["metadata"]["dataroot_drp"], meta_data["metadata"]["dataroot_feature"],
+                                 meta_data["metadata"]["metric"], meta_data["metadata"]["task"],
+                                 meta_data["metadata"]["remove_outliers"], meta_data["metadata"]["log_transform"],
+                                 meta_data["metadata"]["feature_type"],
+                                 meta_data["metadata"]["feature_selection"],
+                                 meta_data["metadata"]["norm_feat"], meta_data["metadata"]["norm_method"],
+                                 meta_data["metadata"]["CV_folds"], meta_data["metadata"]["oversampling_method"],
+                                 meta_data["metadata"]["n_cpus"], meta_data["metadata"]["HP_tuning"])
+    if predictor_class == "SVC":
+        predictor_object.kernel = meta_data["metadata"]["kernel"]
     return predictor_object
 
 

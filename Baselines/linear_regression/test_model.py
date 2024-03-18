@@ -16,7 +16,7 @@ logging.basicConfig(format='%(asctime)s: %(levelname)s: %(message)s', level=logg
 
 # setting up directory for saving results
 # save model parameters and results
-dir_path = "linreg_LCO_20feat_rerun/"
+dir_path = "linreg_LCO_20feat_curvecurated/"
 mkdir(dir_path)
 
 # setting up file logging as well

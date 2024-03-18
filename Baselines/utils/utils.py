@@ -16,14 +16,9 @@ def mkdir(directory):
     """
     Create a directory if it does not exist
     """
-    directories = directory.split("/")
-
-    folder = ""
-    for d in directories:
-        folder += d + '/'
-        if not os.path.exists(folder):
-            logger.info('creating folder: %s' % folder)
-            os.mkdir(folder)
+    if not os.path.exists(directory):
+        logger.info('creating folder: %s' % directory)
+        os.makedirs(directory)
 
 
 def split(x, n):
