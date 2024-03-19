@@ -267,7 +267,7 @@ def scores_clustering(best_models, dir_path):
         formatted_string = f"{idx} = {val:.2f}"
         formatted_strings.append(formatted_string)
     title_string = "; ".join(formatted_strings)
-    title_string = f"Avg metric means:\n{title_string}"
+    title_string = f"Metric avg:\n{title_string}"
 
     # plot the results
     # heatmap
@@ -389,31 +389,40 @@ def decision_boundary(best_models, model_name, predictor_class):
     PC2 = best_models["data_dict"][model_name]["X_train"][:, 1]
     X = best_models["data_dict"][model_name]["X_train"][:, 0:2]
     y = best_models["data_dict"][model_name]["y_train"]
-    plt.scatter(PC1, PC2, c=y, s=30, cmap=plt.cm.Paired)
+    #plt.scatter(PC1, PC2, c=y, s=30, cmap=plt.cm.Paired)
 
     # plot the decision function
     ax = plt.gca()
+
+    common_params = {"estimator": clf, "X": X, "ax": ax}
     DecisionBoundaryDisplay.from_estimator(
-        clf,
-        X,
+        **common_params,
+        response_method="predict",
+        plot_method="pcolormesh",
+        cmap=plt.cm.Paired,
+        alpha=0.3,
+    )
+    DecisionBoundaryDisplay.from_estimator(
+        **common_params,
+        response_method="decision_function",
         plot_method="contour",
-        colors="k",
         levels=[-1, 0, 1],
-        alpha=0.5,
+        colors=["k", "k", "k"],
         linestyles=["--", "-", "--"],
-        ax=ax,
     )
 
     # plot support vectors
     ax.scatter(
         clf.support_vectors_[:, 0],
         clf.support_vectors_[:, 1],
-        s=100,
-        linewidth=1,
+        s=250,
         facecolors="none",
         edgecolors="k",
     )
 
+    scatter = ax.scatter(PC1, PC2, c=y, s=150, edgecolors="k", cmap=plt.cm.Paired)
+    legend = ax.legend(*scatter.legend_elements(), loc="upper right", title="Classes")
+    ax.add_artist(legend)
     plt.xlabel('Principal Component 1')
     plt.ylabel('Principal Component 2')
     plt.title('Maximum Margin Separating Hyperplane (2D PCA)')

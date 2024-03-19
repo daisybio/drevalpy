@@ -16,7 +16,7 @@ logging.basicConfig(format='%(asctime)s: %(levelname)s: %(message)s', level=logg
 
 # setting up directory for saving results
 # save model parameters and results
-dir_path = "/nfs/home/students/m.lorenz/output/svc/GDSC/SVC_LCO_20feat_SMOTE_poly_kernel/"
+dir_path = "/nfs/home/students/m.lorenz/output/svc/GDSC/SVC_LDO_2feat_SMOTE_poly_kernel/"
 mkdir(dir_path)
 
 # setting up file logging as well
@@ -34,7 +34,7 @@ logger.info("Running support vector classifier")
 
 # read in meta data from TOML file
 logger.info("Reading in meta data from TOML file")
-with open('metadata_LCO.toml', 'r') as file:
+with open('metadata_LDO.toml', 'r') as file:
     meta_data = toml.load(file)
 
 # create linear regression object
@@ -52,4 +52,4 @@ analysis.base_analysis(best_models, best_nfeatures, SVC_classifier, SVC, "classi
 # analysis.coef0_distribution(best_models, best_nfeatures, SVC, meta_data, dir_path) # only for linear kernel
 analysis.scores_clustering(best_models, dir_path)
 analysis.roc_plot(best_models, 0)
-# analysis.decision_boundary(best_models, "CVCL_0001", SVC) # only for 2D data
+# analysis.decision_boundary(best_models, "CVCL_0002", SVC) # only for 2D data
