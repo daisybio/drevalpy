@@ -169,7 +169,7 @@ class SupportVectorClassifier(BaseModel):
     def save(self, result_path, best_model_dict):
         """
         Saves the model parameters and the accuracy metrics to the result path as explained in the base_model.py. The
-        difference here is that the model is a logisitc regression model.
+        difference here is that the model is a support vector classifier model.
         """
         self.models_params = {}
         for target in best_model_dict["models"]:

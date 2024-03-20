@@ -7,6 +7,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import seaborn as sns
 from pathlib import Path
+from plotly.subplots import make_subplots
 from scipy import stats
 from sklearn.inspection import DecisionBoundaryDisplay
 from sklearn.metrics import roc_curve, auc, RocCurveDisplay
@@ -14,7 +15,7 @@ from sklearn.metrics import roc_curve, auc, RocCurveDisplay
 logger = logging.getLogger(__name__)
 
 
-def base_analysis(best_models, best_nfeatures, predictor, predictor_class, predictor_type, meta_data, dir_path):
+def base_analysis(best_models, predictor, predictor_type, meta_data, dir_path):
     """
     Perform a basic analysis of the models. The analysis includes the following:
     - Summary statistics on the correlation coefficients (PCC, SCC)
@@ -89,8 +90,8 @@ def base_analysis(best_models, best_nfeatures, predictor, predictor_class, predi
     axs['a)'].set_ylabel(metric1)
     axs['b)'].set_ylabel(metric2)
     fig.suptitle(f"correlation coefficient vs variance "
-                        f"{meta_data['metadata'].get('task')} - {meta_data['metadata'].get('feature_type')}",
-                        fontsize=12, fontweight='bold')
+                 f"{meta_data['metadata'].get('task')} - {meta_data['metadata'].get('feature_type')}",
+                 fontsize=12, fontweight='bold')
     sns.despine(right=True)
     plt.tight_layout()
     fig = plt.gcf()
@@ -128,6 +129,7 @@ def base_analysis(best_models, best_nfeatures, predictor, predictor_class, predi
         in_balance = ((100 / (value_counts_0 + value_counts_1)) * value_counts_1).mean()
         logger.info(f"Test set in balance: {in_balance:.2f}% of the test set is of class label 1 (sensitive)")
 
+
 def coef0_distribution(best_models, best_nfeatures, predictor_class, meta_data, dir_path):
     """
     Plot how often coefficients are set to 0. The plot is saved as a png file and the average number of coefficients set
@@ -152,8 +154,8 @@ def coef0_distribution(best_models, best_nfeatures, predictor_class, meta_data, 
     plt.xlabel('coefficient number')
     plt.ylabel('count')
     plt.title(f'frequency of coefficients set to 0 ('
-                        f'{meta_data["metadata"]["task"]} - {meta_data["metadata"]["feature_type"]})', fontsize=12,
-                        fontweight='bold')
+              f'{meta_data["metadata"]["task"]} - {meta_data["metadata"]["feature_type"]})', fontsize=12,
+              fontweight='bold')
     sns.despine(right=True)
     plt.tight_layout()
     fig = plt.gcf()
@@ -246,13 +248,14 @@ def scatter_predictions(best_models, dir_path):
     fig.write_html(Path(dir_path + "scatter_plot_predictions.html"))
 
 
-def scores_clustering(best_models, dir_path):
+def scores_clustering(best_models, dir_path, predictor_type):
     """
     Create a heatmap and clustermap of the model performance metrices calculated by the evaluate function. Clustering
     happens according to how well the models performed according to the scores in metric_df (ROC-auc, MCC, F1 etc.
     for classifier and pcc, scc, mse, rmse for regressor).
     """
     df = best_models["metric_df"].drop(columns=["nfeatures", "max_iter"])
+
     # dropping alpha since not really important in the context of the heatmap
     if "alpha" in df.columns:
         df = df.drop(columns=["alpha"])
@@ -260,43 +263,61 @@ def scores_clustering(best_models, dir_path):
     # (and standardizing is diffucult since would have to remove outliers)
     if "MCC" in df.columns:
         df = df.drop(columns=["MCC"])
-    df_mean = df.mean()
+
+    df_median = df.median()
 
     formatted_strings = []
-    for idx, val in df_mean.items():
+    for idx, val in df_median.items():
         formatted_string = f"{idx} = {val:.2f}"
         formatted_strings.append(formatted_string)
     title_string = "; ".join(formatted_strings)
-    title_string = f"Metric avg:\n{title_string}"
+    title_string = f"<br>Metric median: {title_string}"
 
-    # plot the results
-    # heatmap
-    fig = px.imshow(df, text_auto=True, aspect="auto", color_continuous_scale="plasma")
-    fig.update_layout(
-        title=title_string,
-        xaxis_title="Metric",
-        yaxis_title="target")
+    if predictor_type == "classification":
+        # heatmap
+        fig = px.imshow(df.sort_values(by='ROC-auc', ascending=True), text_auto=True, aspect="auto",
+                        color_continuous_scale="plasma")
+        fig.update_layout(
+            title=title_string,
+            xaxis_title="Metric",
+            yaxis_title="target")
 
-    fig.write_html(Path(dir_path + "scores_heatmap.html"))
+        fig.write_html(Path(dir_path + "scores_heatmap.html"))
 
-    # cluster-map
-    fig = go.Figure(dash_bio.Clustergram(
-        data=df,
-        cluster="row",
-        # standardize="column",
-        column_labels=list(df.columns.values),
-        row_labels=list(df.index),
-        height=1000,
-        width=1600,
-        # hidden_labels='row',
-        center_values=False,
-        color_map='plasma',
-        display_ratio=[0.7]
-    ))
+        # cluster-map
+        fig = go.Figure(dash_bio.Clustergram(
+            data=df,
+            cluster="row",
+            # standardize="column",
+            column_labels=list(df.columns.values),
+            row_labels=list(df.index),
+            height=1000,
+            width=1600,
+            # hidden_labels='row',
+            center_values=False,
+            color_map='plasma',
+            display_ratio=[0.7]
+        ))
 
-    fig.update_layout(
-        title=title_string)
-    fig.write_html(Path(dir_path + "scores_clustermap.html"))
+        fig.update_layout(title=title_string)
+        fig.write_html(Path(dir_path + "scores_clustermap.html"))
+
+    if predictor_type == "regression":
+        df_errors = df[["mse", "rmse"]].sort_values(by='mse', ascending=False)
+        df_corrs = df[["pcc", "scc"]].sort_values(by='pcc', ascending=True)
+
+        fig = make_subplots(rows=1, cols=2, subplot_titles=("Errors", "Correlations"), horizontal_spacing=0.15)
+
+        heatmap_trace_error = go.Heatmap(z=df_errors.values, x=list(df_errors.columns), y=list(df_errors.index),
+                                         colorscale="plasma", colorbar_x=0.44)
+        heatmap_trace_corr = go.Heatmap(z=df_corrs.values, x=list(df_corrs.columns), y=list(df_corrs.index),
+                                        colorscale="plasma", zmin=-1, zmax=1)
+
+        fig = fig.add_traces([heatmap_trace_error, heatmap_trace_corr], rows=[1, 1], cols=[1, 2])
+        fig.update_layout(height=1000, width=1600, title_text="Heatmap of the evaluation metrics" + title_string,
+                          title_font_size=20, title_xanchor='center', title_x=0.5, title_font_family="Arial Black")
+
+        fig.write_html(Path(dir_path + "scores_heatmap.html"))
 
 
 def roc_plot(best_models, target_model):
@@ -379,6 +400,7 @@ def f_distribution(k, n, F_group, p_value):
     plt.show()
     plt.close()
 
+
 def decision_boundary(best_models, model_name, predictor_class):
     clf = best_models["models"][model_name]
 
@@ -389,7 +411,7 @@ def decision_boundary(best_models, model_name, predictor_class):
     PC2 = best_models["data_dict"][model_name]["X_train"][:, 1]
     X = best_models["data_dict"][model_name]["X_train"][:, 0:2]
     y = best_models["data_dict"][model_name]["y_train"]
-    #plt.scatter(PC1, PC2, c=y, s=30, cmap=plt.cm.Paired)
+    # plt.scatter(PC1, PC2, c=y, s=30, cmap=plt.cm.Paired)
 
     # plot the decision function
     ax = plt.gca()

@@ -17,7 +17,7 @@ def parse_data(meta_data, predictor, predictor_class=None):
                                  meta_data["metadata"]["norm_feat"], meta_data["metadata"]["norm_method"],
                                  meta_data["metadata"]["CV_folds"], meta_data["metadata"]["oversampling_method"],
                                  meta_data["metadata"]["n_cpus"], meta_data["metadata"]["HP_tuning"])
-    if predictor_class == "SVC":
+    if predictor_class == "SV":
         predictor_object.kernel = meta_data["metadata"]["kernel"]
     return predictor_object
 

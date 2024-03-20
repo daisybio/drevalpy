@@ -16,7 +16,7 @@ logging.basicConfig(format='%(asctime)s: %(levelname)s: %(message)s', level=logg
 
 # setting up directory for saving results
 # save model parameters and results
-dir_path = "/nfs/home/students/m.lorenz/output/svc/GDSC/SVC_LDO_2feat_SMOTE_poly_kernel/"
+dir_path = "/nfs/home/students/m.lorenz/output/svc/GDSC/SVC_LPO_2feat_SMOTE_poly_kernel/"
 mkdir(dir_path)
 
 # setting up file logging as well
@@ -34,13 +34,13 @@ logger.info("Running support vector classifier")
 
 # read in meta data from TOML file
 logger.info("Reading in meta data from TOML file")
-with open('metadata_LDO.toml', 'r') as file:
+with open('metadata_LPO.toml', 'r') as file:
     meta_data = toml.load(file)
 
 # create linear regression object
 logger.info("Creating support vector classifier object")
 
-SVC_classifier = testing.parse_data(meta_data, SupportVectorClassifier, "SVC")
+SVC_classifier = testing.parse_data(meta_data, SupportVectorClassifier, "SV")
 
 # perform training, testing and evaluation
 best_models, best_nfeatures, best_scc, best_models_params = (
