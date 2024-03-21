@@ -17,10 +17,10 @@ def get_parser():
     )
     parser.add_argument(
         "--test_mode",
-        type=str,
+        nargs="+",
         default="LPO",
         help="Which tests to run (LPO=Leave-random-Pairs-Out, "
-        "LCO=Leave-Cell-line-Out, LDO=Leave-Drug-Out)",
+        "LCO=Leave-Cell-line-Out, LDO=Leave-Drug-Out). Can be a list of test runs e.g. 'LPO LCO LDO' to run all tests. Default is LPO",
     )
     parser.add_argument(
         "--dataset_name",
@@ -60,11 +60,9 @@ if __name__ == "__main__":
     assert all(
         [model in MODEL_FACTORY for model in args.models]
     ), f"Invalid model name. Available models are {list(MODEL_FACTORY.keys())}. If you want to use your own model, you need to implement a new model class and add it to the MODEL_FACTORY in the models init"
-    assert args.test_mode in [
-        "LPO",
-        "LCO",
-        "LDO",
-    ], f"Invalid test mode. Available test modes are 'LPO', 'LCO', 'LDO'"
+    assert all(
+        [test in ["LPO", "LCO", "LDO"] for test in args.test_mode]
+    ), "Invalid test mode. Available test modes are LPO, LCO, LDO"
     models = [
         MODEL_FACTORY[model](model_name=model, target="IC50") for model in args.models
     ]
@@ -77,16 +75,17 @@ if __name__ == "__main__":
 
     # TODO randomization_test_views need to be specified. maybe via config file 
     # TODO metric for optimization needs to be considered
-    drug_response_experiment(
-        models,
-        response_data,
-        multiprocessing=True,
-        test_mode=args.test_mode,
-        randomization_test_views={"randomize_gene_expression": ["gene_expression"], "randomize_genomics": ["mutation", "copy_number_var"]},
-        path_out=args.path_out,
-        run_id=args.run_id,
-        overwrite=args.overwrite,
-    )
+    for test_mode in args.test_mode:
+        drug_response_experiment(
+            models,
+            response_data,
+            multiprocessing=True,
+            test_mode=test_mode
+            randomization_test_views={"randomize_gene_expression": ["gene_expression"], "randomize_genomics": ["mutation", "copy_number_var"]},
+            path_out=args.path_out,
+            run_id=args.run_id,
+            overwrite=args.overwrite,
+        )
 
     # TODO now do evaluation, visualization, etc.
 
