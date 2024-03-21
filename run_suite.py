@@ -18,10 +18,11 @@ def get_parser():
     parser.add_argument(
         "--test_mode",
         nargs="+",
-        default="LPO",
+        default=["LPO"],
         help="Which tests to run (LPO=Leave-random-Pairs-Out, "
         "LCO=Leave-Cell-line-Out, LDO=Leave-Drug-Out). Can be a list of test runs e.g. 'LPO LCO LDO' to run all tests. Default is LPO",
     )
+
     parser.add_argument(
         "--dataset_name",
         type=str,
@@ -32,6 +33,7 @@ def get_parser():
     parser.add_argument(
         "--path_out", type=str, default="results/", help="Path to the output directory"
     )
+
     parser.add_argument(
         "--curve_curator",
         action='store_true',
