@@ -22,7 +22,23 @@ def get_parser():
         help="Which tests to run (LPO=Leave-random-Pairs-Out, "
         "LCO=Leave-Cell-line-Out, LDO=Leave-Drug-Out). Can be a list of test runs e.g. 'LPO LCO LDO' to run all tests. Default is LPO",
     )
-
+    parser.add_argument(
+    "--randomization_mode",
+    nargs="+",
+    default=["None"],
+    help="Which randomization tests to run, additionally to the normal run. Default is None which means no randomization tests are run."
+        "Modes: SVCC, SVRC, SVCD, SVRD"
+        "Can be a list of randomization tests e.g. 'SCVC SCVD' to run all tests. Default is None"
+        "SVCC: Single View Constant for Cell Lines: in this mode, one experiment is done for every cell line view the model uses (e.g. gene expression, mutation, ..)."
+        "For each experiment one cell line view is held constant while the others are randomized. "
+        "SVRC Single View Random for Cell Lines: in this mode, one experiment is done for every cell line view the model uses (e.g. gene expression, mutation, ..)."
+        "For each experiment one cell line view is randomized while the others are held constant."
+        "SVCD: Single View Constant for Drugs: in this mode, one experiment is done for every drug view the model uses (e.g. fingerprints, target_information, ..)."
+        "For each experiment one drug view is held constant while the others are randomized."
+        "SVRD: Single View Random for Drugs: in this mode, one experiment is done for every drug view the model uses (e.g. gene expression, target_information, ..)."
+        "For each experiment one drug view is randomized while the others are held constant."
+        ,
+    )
     parser.add_argument(
         "--dataset_name",
         type=str,
@@ -71,11 +87,19 @@ if __name__ == "__main__":
     assert args.dataset_name in RESPONSE_DATASET_FACTORY, f"Invalid dataset name. Available datasets are {list(RESPONSE_DATASET_FACTORY.keys())} If you want to use your own dataset, you need to implement a new response dataset class and add it to the RESPONSE_DATASET_FACTORY in the response_datasets init"
     response_data = RESPONSE_DATASET_FACTORY[args.dataset_name]()
 
-
+    if args.randomization_mode[0] != "None":
+        assert all(
+            [randomization in ["SVCC", "SVRC", "SVSC", "SVRD"] for randomization in args.randomization_mode]
+        ), "At least one invalid randomization mode. Available randomization modes are SVCC, SVRC, SVSC, SVRD"
+    else:
+        args.randomization_mode = None
     if args.curve_curator:
         raise NotImplementedError("CurveCurator not implemented")
 
-    # TODO randomization_test_views need to be specified. maybe via config file 
+    # TODO Allow for custom randomization tests maybe via config file 
+
+
+
     # TODO metric for optimization needs to be considered
     for test_mode in args.test_mode:
         drug_response_experiment(
@@ -83,7 +107,7 @@ if __name__ == "__main__":
             response_data,
             multiprocessing=True,
             test_mode=test_mode,
-            randomization_test_views={"randomize_gene_expression": ["gene_expression"], "randomize_genomics": ["mutation", "copy_number_var"]},
+            randomization_mode=args.randomization_mode,
             path_out=args.path_out,
             run_id=args.run_id,
             overwrite=args.overwrite,
