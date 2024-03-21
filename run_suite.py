@@ -80,7 +80,7 @@ if __name__ == "__main__":
             models,
             response_data,
             multiprocessing=True,
-            test_mode=test_mode
+            test_mode=test_mode,
             randomization_test_views={"randomize_gene_expression": ["gene_expression"], "randomize_genomics": ["mutation", "copy_number_var"]},
             path_out=args.path_out,
             run_id=args.run_id,
