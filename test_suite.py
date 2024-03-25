@@ -11,8 +11,8 @@ def generate_mock_data():
     drug_ids = np.random.randint(20, 30, size=100).astype(str)
     return response, cell_line_ids, drug_ids
 
-def test_leave_group_out_cv(mock_data):
-    response, cell_line_ids, drug_ids = mock_data
+def test_leave_group_out_cv(generate_mock_data):
+    response, cell_line_ids, drug_ids = generate_mock_data
 
     n_cv_splits = 5
     cv_sets = leave_group_out_cv(
@@ -68,6 +68,6 @@ def test_leave_group_out_cv(mock_data):
         # Check if train and test datasets have unique cell line/drug IDs
         assert len(np.intersect1d(train_dataset.cell_line_ids, test_dataset.cell_line_ids)) == 0
         assert "validation" not in fold
-        
+
 if __name__ == "__main__":
     pytest.main([__file__])
