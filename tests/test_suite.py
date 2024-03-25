@@ -46,6 +46,28 @@ def test_leave_group_out_cv(mock_data):
         assert len(np.intersect1d(validation_dataset.cell_line_ids, test_dataset.cell_line_ids)) == 0
         assert len(np.intersect1d(validation_dataset.cell_line_ids, train_dataset.cell_line_ids)) == 0
 
+    cv_sets = leave_group_out_cv(
+            group="cell_line",
+            n_cv_splits = n_cv_splits,
+            response=response,
+            cell_line_ids=cell_line_ids,
+            drug_ids=drug_ids,
+            split_validation=False,
+            random_state=42,
+        )
+    for fold in cv_sets:
+        train_dataset = fold["train"]
+        test_dataset = fold["test"]
 
+        # Check if train and test datasets are instances of DrugResponseDataset
+        assert isinstance(train_dataset, DrugResponseDataset)
+        assert isinstance(test_dataset, DrugResponseDataset)
+        # Check if train and test datasets have the correct length
+        assert len(train_dataset.response) + len(test_dataset.response) == len(response)
+
+        # Check if train and test datasets have unique cell line/drug IDs
+        assert len(np.intersect1d(train_dataset.cell_line_ids, test_dataset.cell_line_ids)) == 0
+        assert "validation" not in fold
+        
 if __name__ == "__main__":
     pytest.main([__file__])
