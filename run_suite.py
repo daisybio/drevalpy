@@ -28,7 +28,7 @@ def get_parser():
     default=["None"],
     help="Which randomization tests to run, additionally to the normal run. Default is None which means no randomization tests are run."
         "Modes: SVCC, SVRC, SVCD, SVRD"
-        "Can be a list of randomization tests e.g. 'SCVC SCVD' to run all tests. Default is None"
+        "Can be a list of randomization tests e.g. 'SCVC SCVD' to run two tests. Default is None"
         "SVCC: Single View Constant for Cell Lines: in this mode, one experiment is done for every cell line view the model uses (e.g. gene expression, mutation, ..)."
         "For each experiment one cell line view is held constant while the others are randomized. "
         "SVRC Single View Random for Cell Lines: in this mode, one experiment is done for every cell line view the model uses (e.g. gene expression, mutation, ..)."

@@ -3,7 +3,6 @@ import warnings
 from .dataset import DrugResponseDataset, FeatureDataset
 from .evaluation import evaluate
 from .drp_model import DRPModel
-from ray import tune
 import numpy as np
 import os
 import shutil
@@ -287,6 +286,8 @@ def hpam_tune(
     hpam_set: List[Dict],
     early_stopping_dataset: Optional[DrugResponseDataset] = None,
 ) -> Dict:
+    from ray import tune
+    
     best_rmse = float("inf")
     best_hyperparameters = None
     for hyperparameter in hpam_set:

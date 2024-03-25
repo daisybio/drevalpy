@@ -6,8 +6,6 @@ import numpy as np
 from numpy.typing import ArrayLike
 from sklearn.model_selection import train_test_split
 from scipy.stats import pearsonr, spearmanr, kendalltau
-from pingouin import partial_corr
-
 
 def leave_pair_out_cv(
     n_cv_splits: int,
@@ -125,11 +123,28 @@ def leave_group_out_cv(
             ),
         }
         if split_validation:
-            # TODO validation set should also not contain the same cell lines or drugs as the training set
 
-            raise NotImplementedError(
-                "validation set split not implemented for leave_group_out_cv"
+            # split training set into training and validation set. The validation set also does contain unqiue cell lines/drugs
+            unique_train_groups = np.unique(group_ids[train_indices])
+            train_groups, validation_groups = train_test_split(
+                unique_train_groups,
+                test_size=validation_ratio,
+                shuffle=True,
+                random_state=random_state,
             )
+            train_indices = np.where(np.isin(group_ids, train_groups))[0]
+            validation_indices = np.where(np.isin(group_ids, validation_groups))[0]
+            cv_fold["train"] = DrugResponseDataset(
+                cell_line_ids=cell_line_ids[train_indices],
+                drug_ids=drug_ids[train_indices],
+                response=response[train_indices],
+            )
+            cv_fold["validation"] = DrugResponseDataset(
+                cell_line_ids=cell_line_ids[validation_indices],
+                drug_ids=drug_ids[validation_indices],
+                response=response[validation_indices],
+            )
+            
         cv_sets.append(cv_fold)
     return cv_sets
 
@@ -148,6 +163,8 @@ def partial_correlation(
     :param drug_ids: drug IDs
     :return: partial correlation float
     """
+
+    from pingouin import partial_corr
 
     assert (
         len(y_pred) == len(y_true) == len(cell_line_ids) == len(drug_ids)
