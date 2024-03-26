@@ -3,11 +3,13 @@ import logging
 import numpy as np
 import os
 import pandas as pd
+import warnings
+from imblearn.over_sampling import RandomOverSampler, SMOTE, SMOTEN, BorderlineSMOTE, KMeansSMOTE, SVMSMOTE, ADASYN
 from itertools import cycle
 from pydeseq2.dds import DeseqDataSet
 from pydeseq2.default_inference import DefaultInference
 from pydeseq2.preprocessing import deseq2_norm
-from imblearn.over_sampling import RandomOverSampler, SMOTE, SMOTEN, BorderlineSMOTE, KMeansSMOTE, SVMSMOTE, ADASYN
+from sklearn.model_selection import GridSearchCV
 
 logger = logging.getLogger(__name__)
 
@@ -223,27 +225,70 @@ def preprocessing(train_prepro, test_prepro, task, metric, remove_out=False, nor
 
     return dataset_postpro_ls[0], dataset_postpro_ls[1]
 
-def oversampling(X_train, y_train, oversampling_method, ncpus):
+
+def cross_validation_fit(X_train, y_train, predictor, nCV_folds, hyperparameters):
+    """
+    Fits the model to the training set using cross validation. The number of cross validation folds is specified in the
+    metadata file. The hyperparameters are tuned using grid search. If the number of samples in the training set is less
+    than the number of cross validation folds, the number of cross validation folds is set to the number of samples. If
+    the number of samples in the training set is 1, no cross validation or grid search is performed. In this case the
+    model is fitted to the single sample and the output is constant.
+    """
+    # check if CV fold is legal
+    if len(X_train) == 1:
+        warnings.warn("Only one sample for target {}."
+                      " No Cross validation or Grid search performed.".format(target))
+
+        model = predictor  # fit the model
+        model.fit(X_train, y_train)  # fit model to single sample (no CV or grid search, output is constant)
+
+    elif len(X_train) < nCV_folds:
+        nCV_folds = len(X_train)
+        warnings.warn("Number of CV folds is larger than the number of samples. CV folds set to {}".format(nCV_folds))
+
+        # perform grid search to find the best hyperparameters
+        model = GridSearchCV(predictor, hyperparameters, cv=nCV_folds)
+        model.fit(X_train, y_train)  # fit the model
+    else:
+        # perform grid search to find the best hyperparameters
+        model = GridSearchCV(predictor, hyperparameters, cv=nCV_folds)
+        model.fit(X_train, y_train)  # fit the model
+
+    return model
+
+def oversampling(X_train, y_train, oversampling_method, ncpus, k_neighbours = 5):
     """
     Oversamples the minority class of the training set using the specified oversampling method. The oversampling method
     is specified in the metadata file and can be one of the following: "RandomOverSampler", "SMOTE", "SMOTEN",
     "BorderlineSMOTE", "KMeansSMOTE", "SVMSMOTE", "ADASYN". The number of cpus to use for the oversampling is also
-    specified in the metadata file.
+    specified in the metadata file. Accounts for class imbalance.
+    If at least one unique class has less than or equal to  5 samples (i.e. <= to number of k neighbours set in oversampling method)
+    oversampling is performed with the minimum number of samples in the class. If at least one unique class has only 1 sample,
+    random oversampling is performed instead. Note that k_neighbors = number of samples in the class - 1, meaning its
+    the actual number of neighbours around a sample.
     """
+    sample_count = np.unique(y_train, return_counts=True)[1]
+    if 1 < sample_count.min() <= k_neighbours:
+        warnings.warn("At least one unique class has less than or equal to 5 samples. Oversampling performed with {} k_neighbours instead".format(sample_count.min() - 1))
+        k_neighbours = sample_count.min() - 1
+    elif sample_count.min() == 1:
+        warnings.warn("At least one unique class has only 1 sample. Random oversampling performed instead")
+        oversampling_method = "RandomOverSampler"
+
     if oversampling_method == "RandomOverSampler":
-        ovs = RandomOverSampler(random_state=0, n_jobs=ncpus)
+        ovs = RandomOverSampler(random_state=0)
     if oversampling_method == "SMOTE":
-        ovs = SMOTE(random_state=0, n_jobs=ncpus)
+        ovs = SMOTE(random_state=0, n_jobs=ncpus, k_neighbors=k_neighbours)
     elif oversampling_method == "SMOTEN":
-        ovs = SMOTEN(random_state=0, n_jobs=ncpus)
+        ovs = SMOTEN(random_state=0, n_jobs=ncpus, k_neighbors=k_neighbours)
     elif oversampling_method == "BorderlineSMOTE":
-        ovs = BorderlineSMOTE(random_state=0, n_jobs=ncpus)
+        ovs = BorderlineSMOTE(random_state=0, n_jobs=ncpus, k_neighbors=k_neighbours)
     elif oversampling_method == "KMeansSMOTE":
-        ovs = KMeansSMOTE(random_state=0, n_jobs=ncpus)
+        ovs = KMeansSMOTE(random_state=0, n_jobs=ncpus, k_neighbors=k_neighbours)
     elif oversampling_method == "SVMSMOTE":
-        ovs = SVMSMOTE(random_state=0, n_jobs=ncpus)
+        ovs = SVMSMOTE(random_state=0, n_jobs=ncpus, k_neighbors=k_neighbours)
     elif oversampling_method == "ADASYN":
-        ovs = ADASYN(random_state=0, n_jobs=ncpus)
+        ovs = ADASYN(random_state=0, n_jobs=ncpus, n_neighbors=k_neighbours)
 
     X_train, y_train = ovs.fit_resample(X_train, y_train)
 
