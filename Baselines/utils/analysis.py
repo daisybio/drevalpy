@@ -10,7 +10,7 @@ from pathlib import Path
 from plotly.subplots import make_subplots
 from scipy import stats
 from sklearn.inspection import DecisionBoundaryDisplay
-from sklearn.metrics import roc_curve, auc, RocCurveDisplay
+from sklearn.metrics import roc_curve, auc, RocCurveDisplay, mean_squared_error
 
 logger = logging.getLogger(__name__)
 
@@ -254,15 +254,13 @@ def scores_clustering(best_models, dir_path, predictor_type):
     happens according to how well the models performed according to the scores in metric_df (ROC-auc, MCC, F1 etc.
     for classifier and pcc, scc, mse, rmse for regressor).
     """
-    df = best_models["metric_df"].drop(columns=["nfeatures", "max_iter"])
+    df = best_models["metric_df"]
 
-    # dropping alpha since not really important in the context of the heatmap
-    if "alpha" in df.columns:
-        df = df.drop(columns=["alpha"])
-    # dropping MCC since its value is between -1 and 1 and not between 0 and 1 like the other metrics
-    # (and standardizing is diffucult since would have to remove outliers)
-    if "MCC" in df.columns:
-        df = df.drop(columns=["MCC"])
+    if predictor_type == "classification":
+        df = df[['TN', 'FP', 'FN', 'TP', 'sensitivity', 'specificity', 'precision',
+                 'accuracy', 'balanced accuracy', 'F1-score', 'ROC-auc']]
+    elif predictor_type == "regression":
+        df = df[['pcc','scc','mse','rmse']]
 
     df_median = df.median()
 
@@ -448,5 +446,47 @@ def decision_boundary(best_models, model_name, predictor_class):
     plt.xlabel('Principal Component 1')
     plt.ylabel('Principal Component 2')
     plt.title('Maximum Margin Separating Hyperplane (2D PCA)')
+    plt.show()
+    plt.close()
+
+
+def error_iterations(best_models, target):
+
+    gbm_early_stopping = best_models['models'][target].best_estimator_
+
+    X_train = best_models["data_dict"][target]['X_train']
+    y_train = best_models["data_dict"][target]['y_train']
+    X_val = best_models["data_dict"][target]['X_test']
+    y_val = best_models["data_dict"][target]['y_test']
+
+    train_errors = []
+    val_errors = []
+
+    for i, (train_pred, val_pred) in enumerate(
+            zip(
+                gbm_early_stopping.staged_predict(X_train),
+                gbm_early_stopping.staged_predict(X_val),
+            )
+    ):
+        train_errors.append(mean_squared_error(y_train, train_pred))
+        val_errors.append(mean_squared_error(y_val, val_pred))
+
+    fig, axes = plt.subplots(ncols=2, figsize=(12, 4))
+
+    axes[0].plot(train_errors, label=f"GBM {target}")
+    axes[0].set_xlabel("Boosting Iterations")
+    axes[0].set_ylabel("MSE (Training)")
+    axes[0].set_yscale("log")
+    axes[0].legend()
+    axes[0].set_title("Training Error")
+
+    axes[1].plot(val_errors, label=f"GBM {target}")
+    axes[1].set_xlabel("Boosting Iterations")
+    axes[1].set_ylabel("MSE (Validation)")
+    axes[1].set_yscale("log")
+    axes[1].legend()
+    axes[1].set_title("Validation Error")
+
+    plt.tight_layout()
     plt.show()
     plt.close()
