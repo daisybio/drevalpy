@@ -263,17 +263,17 @@ class FeatureDataset(Dataset):
         raise NotImplementedError("load method not implemented")
 
     def randomize_features(
-        self, views_to_randomize: Union[str, list], mode: str
+        self, views_to_randomize: Union[str, list], randomization_type: str
     ) -> None:
         """
         Randomizes the feature vectors.
         :views_to_randomize: name of feature view or list of names of multiple feature views to randomize. The other views are not randomized.
-        :mode: randomization mode (permutation, gaussian, zeroing)
+        :randomization_type: randomization type (permutation, gaussian, zeroing)
         """
         if isinstance(views_to_randomize, str):
             views_to_randomize = [views_to_randomize]
 
-        if mode == "permutation":
+        if randomization_type == "permutation":
             # Get the entity names
             identifiers = self.get_ids()
 
@@ -292,7 +292,7 @@ class FeatureDataset(Dataset):
                 for entity in identifiers
             }
 
-        elif mode == "gaussian":
+        elif randomization_type == "gaussian":
             for view in views_to_randomize:
                 for identifier in self.get_ids():
                     self.features[identifier][view] = np.random.normal(
@@ -300,7 +300,7 @@ class FeatureDataset(Dataset):
                         self.features[identifier][view].std(),
                         self.features[identifier][view].shape,
                     )
-        elif mode == "zeroing":
+        elif randomization_type == "zeroing":
             for view in views_to_randomize:
                 for identifier in self.get_ids():
                     self.features[identifier][view] = np.zeros(
@@ -308,7 +308,7 @@ class FeatureDataset(Dataset):
                     )
         else:
             raise ValueError(
-                f"Unknown randomization mode '{mode}'. Choose from 'permutation', 'gaussian', 'zeroing'."
+                f"Unknown randomization mode '{randomization_type}'. Choose from 'permutation', 'gaussian', 'zeroing'."
             )
 
     def normalize_features(

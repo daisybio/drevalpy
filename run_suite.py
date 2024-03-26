@@ -40,6 +40,15 @@ def get_parser():
         ,
     )
     parser.add_argument(
+        "--randomization_type",
+        type=str,
+        default="permutation",
+        help="""type of randomization to use. Choose from "gaussian", "zeroing", "permutation". Default is "permutation"
+            "gaussian": replace the features with random values sampled from a gaussian distribution with the same mean and standard deviation
+            "zeroing": replace the features with zeros
+            "permutation": permute the features over the instances, keeping the distribution of the features the same but dissolving the relationship to the target"""
+    )
+    parser.add_argument(
         "--dataset_name",
         type=str,
         default="GDSC1",
@@ -108,9 +117,11 @@ if __name__ == "__main__":
             multiprocessing=True,
             test_mode=test_mode,
             randomization_mode=args.randomization_mode,
+            randomization_type=args.randomization_type,
             path_out=args.path_out,
             run_id=args.run_id,
             overwrite=args.overwrite,
+
         )
 
     # TODO now do evaluation, visualization, etc.

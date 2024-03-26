@@ -6,16 +6,18 @@ from .drp_model import DRPModel
 import numpy as np
 import os
 import shutil
+from ray import tune
 
 # TODO save hpams and their scores to disk
 def drug_response_experiment(
     models: List[DRPModel],
     response_data: DrugResponseDataset,
-    multiprocessing: bool = False,
-    test_mode: str = "LPO",
-    randomization_mode: Optional[List[str]] = None,
-    path_out: str = "results/",
     run_id: str = "",
+    test_mode: str = "LPO",
+    multiprocessing: bool = False,
+    randomization_mode: Optional[List[str]] = None,
+    randomization_type: str = "permutation",
+    path_out: str = "results/",
     overwrite: bool = False,
 ) -> None :
     """
@@ -34,6 +36,10 @@ def drug_response_experiment(
         For each experiment one drug view is held constant while the others are randomized.
         SVRD: Single View Random for Drugs: in this mode, one experiment is done for every drug view the model uses (e.g. gene expression, target_information, ..).
         For each experiment one drug view is randomized while the others are held constant.
+    :param randomization_type: type of randomization to use. Choose from "gaussian", "zeroing", "permutation". Default is "permutation"
+            "gaussian": replace the features with random values sampled from a gaussian distribution with the same mean and standard deviation
+            "zeroing": replace the features with zeros
+            "permutation": permute the features over the instances, keeping the distribution of the features the same but dissolving the relationship to the target
     :param path_out: path to the output directory
     :param run_id: identifier to save the results
     :return: None
@@ -126,6 +132,7 @@ def drug_response_experiment(
                     path_out=randomization_test_path,
                     split_index=split_index,
                     test_mode=test_mode,
+                    randomization_type=randomization_type
                 )
 def get_randomization_test_views(model: DRPModel, randomization_mode: List[str]) -> Dict[str, List[str]]:
     cell_line_views = model.cell_line_views
@@ -156,6 +163,7 @@ def randomization_test(
     path_out: str,
     split_index: int,
     test_mode: str,
+    randomization_type: str = "permutation",
 
 ) -> None:
     """
@@ -170,6 +178,7 @@ def randomization_test(
     :param path_out: path to the output directory
     :param split_index: index of the split
     :param test_mode: test mode one of "LPO", "LCO", "LDO" (leave-pair-out, leave-cell-line-out, leave-drug-out)
+    :param randomization_type: type of randomization to use. Choose from "gaussian", "zeroing", "permutation". Default is "permutation"
     :return: None (save results to disk)
     """
     cl_features = model.get_cell_line_features(path=hpam_set["feature_path"])
@@ -181,9 +190,9 @@ def randomization_test(
             cl_features_rand = cl_features.copy()
             drug_features_rand = drug_features.copy()
             if view in cl_features.get_view_names():
-                cl_features.randomize_features(view, mode="gaussian")
+                cl_features.randomize_features(view, randomization_type=randomization_type)
             elif view in drug_features.get_view_names():
-                drug_features.randomize_features(view, mode="gaussian")
+                drug_features.randomize_features(view, randomization_type=randomization_type)
             else:
                 warnings.warn(
                     f"View {view} not found in features. Skipping randomization test {test_name} which includes this view."
@@ -286,7 +295,6 @@ def hpam_tune(
     hpam_set: List[Dict],
     early_stopping_dataset: Optional[DrugResponseDataset] = None,
 ) -> Dict:
-    from ray import tune
     
     best_rmse = float("inf")
     best_hyperparameters = None
