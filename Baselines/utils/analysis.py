@@ -260,7 +260,7 @@ def scores_clustering(best_models, dir_path, predictor_type):
         df = df[['TN', 'FP', 'FN', 'TP', 'sensitivity', 'specificity', 'precision',
                  'accuracy', 'balanced accuracy', 'F1-score', 'ROC-auc']]
     elif predictor_type == "regression":
-        df = df[['pcc','scc','mse','rmse']]
+        df = df[['pcc', 'scc', 'mse', 'rmse']]
 
     df_median = df.median()
 
@@ -451,42 +451,83 @@ def decision_boundary(best_models, model_name, predictor_class):
 
 
 def error_iterations(best_models, target):
+    """
+    Plot the training and validation errors for each boosting iteration. The plot is interactive and allows the user to
+    select different models and see how the errors change over the boosting iterations. The plot is saved as a html file.
+    """
+    train_errors_ls = []
+    val_errors_ls = []
+    targets = []
 
-    gbm_early_stopping = best_models['models'][target].best_estimator_
+    for target in best_models['models']:
+        gbm_early_stopping = best_models['models'][target].best_estimator_
 
-    X_train = best_models["data_dict"][target]['X_train']
-    y_train = best_models["data_dict"][target]['y_train']
-    X_val = best_models["data_dict"][target]['X_test']
-    y_val = best_models["data_dict"][target]['y_test']
+        X_train = best_models["data_dict"][target]['X_train']
+        y_train = best_models["data_dict"][target]['y_train']
+        X_val = best_models["data_dict"][target]['X_test']
+        y_val = best_models["data_dict"][target]['y_test']
 
-    train_errors = []
-    val_errors = []
+        train_errors = []
+        val_errors = []
 
-    for i, (train_pred, val_pred) in enumerate(
-            zip(
-                gbm_early_stopping.staged_predict(X_train),
-                gbm_early_stopping.staged_predict(X_val),
-            )
-    ):
-        train_errors.append(mean_squared_error(y_train, train_pred))
-        val_errors.append(mean_squared_error(y_val, val_pred))
+        for i, (train_pred, val_pred) in enumerate(
+                zip(
+                    gbm_early_stopping.staged_predict(X_train),
+                    gbm_early_stopping.staged_predict(X_val),
+                )
+        ):
+            train_errors.append(mean_squared_error(y_train, train_pred))
+            val_errors.append(mean_squared_error(y_val, val_pred))
 
-    fig, axes = plt.subplots(ncols=2, figsize=(12, 4))
+        train_errors_ls.append(train_errors)
+        val_errors_ls.append(val_errors)
+        targets.append(target)
 
-    axes[0].plot(train_errors, label=f"GBM {target}")
-    axes[0].set_xlabel("Boosting Iterations")
-    axes[0].set_ylabel("MSE (Training)")
-    axes[0].set_yscale("log")
-    axes[0].legend()
-    axes[0].set_title("Training Error")
+    # Create subplots with two rows
+    fig = make_subplots(rows=1, cols=2, subplot_titles=["Training Errors", "Validation Errors"])
 
-    axes[1].plot(val_errors, label=f"GBM {target}")
-    axes[1].set_xlabel("Boosting Iterations")
-    axes[1].set_ylabel("MSE (Validation)")
-    axes[1].set_yscale("log")
-    axes[1].legend()
-    axes[1].set_title("Validation Error")
+    # Add traces to the first subplot for validation errors
+    for i, val_errors in enumerate(val_errors_ls):
+        cols = px.colors.sequential.Plasma # Get a list of colors
+        col = cols[np.random.randint(0, len(cols))]  # Randomly select a color for the current model
 
-    plt.tight_layout()
-    plt.show()
-    plt.close()
+        fig.add_trace(
+            go.Scatter(
+                x=np.arange(len(val_errors)),
+                y=val_errors,
+                name=targets[i],
+                opacity=0.5,
+                hovertemplate="boosting iteration: %{x} <br>MSE: %{y}",
+                line=dict(width=2, color=col),
+                legendgroup=f"group{i}",
+                showlegend=False
+            ),
+            row=1, col=2  # Place trace in the first subplot
+        )
+
+        # Add traces to the second subplot for training errors
+        fig.add_trace(
+            go.Scatter(
+                x=np.arange(len(train_errors)),
+                y=train_errors_ls[i],
+                name=targets[i],
+                opacity=0.5,
+                hovertemplate="boosting iteration: %{x} <br>MSE: %{y}",
+                line=dict(width=2, color=col),
+                legendgroup=f"group{i}"
+            ),
+            row=1, col=1  # Place trace in the second subplot
+        )
+
+    train_errors_max = max([max(x) for x in train_errors_ls])
+    val_errors_max = max([max(x) for x in val_errors_ls])
+
+    # Update layout
+    fig.update_layout(title="Validation and Training Errors for Each Model")
+    fig.update_yaxes(title_text="MSE (Training error)", row=1, col=1, range=[0, train_errors_max + 0.5])
+    fig.update_yaxes(title_text="MSE (Validation error)", row=1, col=2, range=[0, val_errors_max + 0.5])
+    fig.update_xaxes(title_text="Boosting Iteration", row=1, col=1, range=[0, 100])
+    fig.update_xaxes(title_text="Boosting Iteration", row=1, col=2, range=[0, 100])
+
+
+    fig.write_html(Path(dir_path + "error.html"))
