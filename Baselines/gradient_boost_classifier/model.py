@@ -4,12 +4,10 @@ import numpy as np
 import pandas as pd
 import pickle
 import sys
-import warnings
 from os.path import dirname, join, abspath
+from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.metrics import confusion_matrix, roc_auc_score, matthews_corrcoef, accuracy_score, balanced_accuracy_score, \
     precision_score, recall_score, f1_score
-from sklearn.model_selection import GridSearchCV
-from sklearn.ensemble import GradientBoostingClassifier
 
 sys.path.insert(0, abspath(join(dirname(__file__), '..')))
 from base_model import BaseModel

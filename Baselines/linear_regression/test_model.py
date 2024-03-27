@@ -48,7 +48,7 @@ best_models, best_nfeatures, best_scc, best_models_params = (
 
 # perform data analysis
 logger.info("Performing data analysis")
-analysis.base_analysis(best_models, best_nfeatures, linear_regression, Lasso, "regression", meta_data, dir_path)
+analysis.base_analysis(best_models, linear_regression, "regression", meta_data, dir_path)
 analysis.scores_clustering(best_models, dir_path)
 analysis.scatter_predictions(best_models, dir_path)
 fstat_df = analysis.f_statistic(best_models, best_nfeatures)

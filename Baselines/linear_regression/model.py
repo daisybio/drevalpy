@@ -2,13 +2,12 @@
 import logging
 import pickle
 import sys
-import warnings
 from os.path import dirname, join, abspath
 from sklearn.linear_model import Lasso
-from sklearn.model_selection import GridSearchCV
 
 sys.path.insert(0, abspath(join(dirname(__file__), '..')))
 from base_model import BaseModel
+from utils.utils import cross_validation_fit
 
 logger = logging.getLogger(__name__)
 
@@ -54,28 +53,8 @@ class LinearRegression(BaseModel):
 
             reg = Lasso()  # initialize the linear regression model
 
-            # check if CV fold is legal
-            if len(X_train) == 1:
-                warnings.warn("Only one sample for target {}."
-                              " No Cross validation or Grid search performed.".format(target))
-
-                model = reg  # fit the model
-                model.fit(X_train, y_train)  # fit model to single sample (no CV or grid search, output is constant)
-
-            elif len(X_train) < self.nCV_folds:
-                nCV_folds = len(X_train)
-                warnings.warn("Number of CV folds is larger than the number of samples. CV folds set to {}".format(
-                    nCV_folds))
-
-                # perform grid search to find the best hyperparameters
-                model = GridSearchCV(reg, self.hyperparameters, cv=nCV_folds)
-                model.fit(X_train, y_train)  # fit the model
-            else:
-                nCV_folds = self.nCV_folds
-
-                # perform grid search to find the best hyperparameters
-                model = GridSearchCV(reg, self.hyperparameters, cv=nCV_folds)
-                model.fit(X_train, y_train)  # fit the model
+            # hyperparameter tuning using grid search cross validation
+            model = cross_validation_fit(X_train, y_train, reg, self.nCV_folds, self.hyperparameters)
 
             self.models[target] = model
         logger.info("finished training models")

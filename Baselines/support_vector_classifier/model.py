@@ -4,16 +4,14 @@ import numpy as np
 import pandas as pd
 import pickle
 import sys
-import warnings
 from os.path import dirname, join, abspath
 from sklearn.metrics import confusion_matrix, roc_auc_score, matthews_corrcoef, accuracy_score, balanced_accuracy_score, \
     precision_score, recall_score, f1_score
-from sklearn.model_selection import GridSearchCV
 from sklearn.svm import SVC
 
 sys.path.insert(0, abspath(join(dirname(__file__), '..')))
 from base_model import BaseModel
-from utils.utils import oversampling
+from utils.utils import oversampling, cross_validation_fit
 
 logger = logging.getLogger(__name__)
 
@@ -56,38 +54,15 @@ class SupportVectorClassifier(BaseModel):
             y_train = y_train.reshape(-1)
 
             # account for class imbalance using an over sampling technique
-            # if at least one unique class has less than or equal to  5 samples (i.e. <= to number of k neighbours set
-            # in oversampling method), no oversampling is performed
-            ovrs = sum(np.unique(y_train, return_counts=True)[1] <= 5) == 0
-            if self.oversampling_method != "None" and ovrs:
+            if self.oversampling_method != "None":
                 X_train, y_train = oversampling(X_train, y_train, self.oversampling_method, self.n_cpus)
                 self.data_dict.get(target)["X_train"] = X_train
                 self.data_dict.get(target)["y_train"] = y_train
 
             clf = SVC(kernel=self.kernel, probability=True)  # initialize classifier
 
-            # check if CV fold is legal
-            if len(X_train) == 1:
-                warnings.warn("Only one sample for target {}."
-                              " No Cross validation or Grid search performed.".format(target))
-
-                model = clf  # fit the model
-                model.fit(X_train, y_train)  # fit model to single sample (no CV or grid search, output is constant)
-
-            elif len(X_train) < self.nCV_folds:
-                nCV_folds = len(X_train)
-                warnings.warn("Number of CV folds is larger than the number of samples. CV folds set to {}".format(
-                    nCV_folds))
-
-                # perform grid search to find the best hyperparameters
-                model = GridSearchCV(clf, self.hyperparameters, cv=nCV_folds)
-                model.fit(X_train, y_train)  # fit the model
-            else:
-                nCV_folds = self.nCV_folds
-
-                # perform grid search to find the best hyperparameters
-                model = GridSearchCV(clf, self.hyperparameters, cv=nCV_folds)
-                model.fit(X_train, y_train)  # fit the model
+            # hyperparameter tuning using grid search cross validation
+            model = cross_validation_fit(X_train, y_train, clf, self.nCV_folds, self.hyperparameters)
 
             self.models[target] = model
         logger.info("finished training models")

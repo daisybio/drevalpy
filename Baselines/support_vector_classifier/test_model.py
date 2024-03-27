@@ -48,7 +48,7 @@ best_models, best_nfeatures, best_scc, best_models_params = (
 
 # perform data analysis
 logger.info("Performing data analysis")
-analysis.base_analysis(best_models, best_nfeatures, SVC_classifier, SVC, "classification", meta_data, dir_path)
+analysis.base_analysis(best_models, SVC_classifier, "classification", meta_data, dir_path)
 # analysis.coef0_distribution(best_models, best_nfeatures, SVC, meta_data, dir_path) # only for linear kernel
 analysis.scores_clustering(best_models, dir_path)
 analysis.roc_plot(best_models, 0)
