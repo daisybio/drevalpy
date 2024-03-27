@@ -31,7 +31,7 @@ def train_test_eval(predictor, predictor_class, predictor_type, meta_data, dir_p
 
     # load cell viab/transcriptomic data doesn't matter, as long as cl names are the same as in the drug response data
     key_metric_median = 0
-    best_key_metric = 0
+    best_key_metric = -1
     best_nfeatures = None
     for ntop in meta_data["metadata"]["HP_tuning_features"].get("nfeatures"):
         logger.info(f"Starting dataextraction / training / prediction loop for {ntop} features")
