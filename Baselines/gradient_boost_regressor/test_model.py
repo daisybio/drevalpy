@@ -16,7 +16,7 @@ logging.basicConfig(format='%(asctime)s: %(levelname)s: %(message)s', level=logg
 
 # setting up directory for saving results
 # save model parameters and results
-dir_path = "/nfs/home/students/m.lorenz/output/gbr/GDSC/GBR_LDO_2feat/"
+dir_path = "/nfs/home/students/m.lorenz/output/gbr/GDSC/GBR_LCO_20feat/"
 mkdir(dir_path)
 
 # setting up file logging as well
@@ -34,7 +34,7 @@ logger.info("Running gradient boosting regression model")
 
 # read in meta data from TOML file
 logger.info("Reading in meta data from TOML file")
-with open('metadata_LDO.toml', 'r') as file:
+with open('metadata_LCO.toml', 'r') as file:
     meta_data = toml.load(file)
 
 # create linear regression object
@@ -51,4 +51,4 @@ logger.info("Performing data analysis")
 analysis.base_analysis(best_models, gb_regression, "regression", meta_data, dir_path)
 analysis.scores_clustering(best_models, dir_path, "regression")
 analysis.scatter_predictions(best_models, dir_path)
-analysis.error_iterations(best_models, 'CVCL_0002')
+analysis.error_iterations(best_models, meta_data, dir_path)

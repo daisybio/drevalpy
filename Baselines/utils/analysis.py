@@ -450,7 +450,7 @@ def decision_boundary(best_models, model_name, predictor_class):
     plt.close()
 
 
-def error_iterations(best_models, target):
+def error_iterations(best_models, meta_data, dir_path):
     """
     Plot the training and validation errors for each boosting iteration. The plot is interactive and allows the user to
     select different models and see how the errors change over the boosting iterations. The plot is saved as a html file.
@@ -508,7 +508,7 @@ def error_iterations(best_models, target):
         # Add traces to the second subplot for training errors
         fig.add_trace(
             go.Scatter(
-                x=np.arange(len(train_errors)),
+                x=np.arange(len(train_errors_ls[i])),
                 y=train_errors_ls[i],
                 name=targets[i],
                 opacity=0.5,
@@ -526,8 +526,7 @@ def error_iterations(best_models, target):
     fig.update_layout(title="Validation and Training Errors for Each Model")
     fig.update_yaxes(title_text="MSE (Training error)", row=1, col=1, range=[0, train_errors_max + 0.5])
     fig.update_yaxes(title_text="MSE (Validation error)", row=1, col=2, range=[0, val_errors_max + 0.5])
-    fig.update_xaxes(title_text="Boosting Iteration", row=1, col=1, range=[0, 100])
-    fig.update_xaxes(title_text="Boosting Iteration", row=1, col=2, range=[0, 100])
-
+    fig.update_xaxes(title_text="Boosting Iteration", row=1, col=1, range=[0, max(meta_data['metadata']['HP_tuning']['n_estimators'])])
+    fig.update_xaxes(title_text="Boosting Iteration", row=1, col=2, range=[0, max(meta_data['metadata']['HP_tuning']['n_estimators'])])
 
     fig.write_html(Path(dir_path + "error.html"))
