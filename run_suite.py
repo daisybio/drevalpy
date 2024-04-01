@@ -74,8 +74,8 @@ def get_parser():
     parser.add_argument(
         "--optim_metric",
         type=str,
-        default="RMSE",
-        help="Metric to optimize for (RMSE, AUC, ACC, F1, MCC, R2, etc.)"
+        default="rmse",
+        help='Metric for hyperparameter tuning choose from "mse", "rmse", "mae", "r2", "pearson", "spearman", "kendall", "partial_correlation"'
     )
     parser.add_argument(
         "--response_transformation",
@@ -118,6 +118,7 @@ if __name__ == "__main__":
     elif(args.response_transformation == "robust"):
         response_transformation = RobustScaler()
     else:
+        # TODO add log, sinh etc
         raise ValueError(f"Invalid response_transformation: {args.response_transformation}. Choose robust, minmax or standard.")
 
     # TODO Allow for custom randomization tests maybe via config file 
@@ -130,6 +131,7 @@ if __name__ == "__main__":
             models=models,
             response_data=response_data,
             response_transformation=response_transformation,
+            metric=args.optim_metric,
             multiprocessing=True,
             test_mode=test_mode,
             randomization_mode=args.randomization_mode,

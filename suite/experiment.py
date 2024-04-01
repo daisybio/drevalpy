@@ -7,7 +7,7 @@ import numpy as np
 import os
 import shutil
 from ray import tune
-from sklearn.preprocessing import TransformerMixin
+from sklearn.base import TransformerMixin
 
 # TODO save hpams and their scores to disk
 def drug_response_experiment(
@@ -16,6 +16,7 @@ def drug_response_experiment(
     response_transformation: Optional[TransformerMixin] = None,
     run_id: str = "",
     test_mode: str = "LPO",
+    metric: str = "rmse",
     multiprocessing: bool = False,
     randomization_mode: Optional[List[str]] = None,
     randomization_type: str = "permutation",
@@ -27,6 +28,7 @@ def drug_response_experiment(
     :param models: list of models to compare
     :param response_data: drug response dataset
     :param response_transformation: normalizer to use for the response data
+    :param metric: metric to use for hyperparameter optimization
     :param multiprocessing: whether to use multiprocessing
     :param randomization_mode: list of randomization modes to do.
         Modes: SVCC, SVRC, SVCD, SVRD
@@ -98,7 +100,8 @@ def drug_response_experiment(
                         early_stopping_dataset if model.early_stopping else None
                     ),
                     hpam_set=model_hpam_set,
-                    response_transformation=response_transformation
+                    response_transformation=response_transformation,
+                    metric=metric
                 )
             else:
                 best_hpams = hpam_tune(
@@ -109,7 +112,8 @@ def drug_response_experiment(
                         early_stopping_dataset if model.early_stopping else None
                     ),
                     hpam_set=model_hpam_set,
-                    response_transformation=response_transformation
+                    response_transformation=response_transformation,
+                    metric=metric
                 )
             train_dataset.add_rows(
                 validation_dataset
@@ -318,24 +322,25 @@ def hpam_tune(
     validation_dataset: DrugResponseDataset,
     hpam_set: List[Dict],
     early_stopping_dataset: Optional[DrugResponseDataset] = None,
-    response_transformation: Optional[TransformerMixin] = None
+    response_transformation: Optional[TransformerMixin] = None,
+    metric: str = "rmse"
 ) -> Dict:
     
-    best_rmse = float("inf")
+    best_score = float("inf")
     best_hyperparameters = None
     for hyperparameter in hpam_set:
-        rmse = train_and_evaluate(
+        score = train_and_evaluate(
             model=model,
             hpams=hyperparameter,
             train_dataset=train_dataset,
             validation_dataset=validation_dataset,
             early_stopping_dataset=early_stopping_dataset,
-            metric="rmse",
+            metric=metric,
             response_transformation=response_transformation
-        )["rmse"]
-        if rmse < best_rmse:
-            print(f"current best rmse: {np.round(rmse, 3)}")
-            best_rmse = rmse
+        )[metric]
+        if score < best_score:
+            print(f"current best {metric} score: {np.round(score, 3)}")
+            best_score = score
             best_hyperparameters = hyperparameter
     return best_hyperparameters
 
@@ -346,7 +351,8 @@ def hpam_tune_raytune(
     validation_dataset: DrugResponseDataset,
     early_stopping_dataset: Optional[DrugResponseDataset],
     hpam_set: List[Dict],
-    response_transformation: Optional[TransformerMixin] = None
+    response_transformation: Optional[TransformerMixin] = None,
+    metric: str = "rmse"
 ) -> Dict:
     analysis = tune.run(
         lambda hpams: train_and_evaluate(
@@ -355,7 +361,7 @@ def hpam_tune_raytune(
             train_dataset=train_dataset,
             validation_dataset=validation_dataset,
             early_stopping_dataset=early_stopping_dataset,
-            metric="rmse",
+            metric=metric,
             response_transformation=response_transformation
         ),
         config=tune.grid_search(hpam_set),
@@ -365,5 +371,5 @@ def hpam_tune_raytune(
         chdir_to_trial_dir=False,
         verbose=0,
     )
-    best_config = analysis.get_best_config(metric="rmse", mode="min")
+    best_config = analysis.get_best_config(metric=metric, mode="min")
     return best_config
