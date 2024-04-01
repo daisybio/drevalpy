@@ -58,10 +58,6 @@ def drug_response_experiment(
         shutil.rmtree(result_path)
     os.makedirs(result_path)
 
-    if response_data_normalizer:
-        # TODO needs to scale in train and predict and rescale after prediction
-        raise NotImplementedError("response data normalization is not implemented")
-
     # TODO load existing progress if it exists, currently we just overwrite
     for model in models:
         model_path = os.path.join(result_path, model.model_name)
@@ -102,6 +98,7 @@ def drug_response_experiment(
                         early_stopping_dataset if model.early_stopping else None
                     ),
                     hpam_set=model_hpam_set,
+                    response_data_normalizer=response_data_normalizer
                 )
             else:
                 best_hpams = hpam_tune(
@@ -112,6 +109,7 @@ def drug_response_experiment(
                         early_stopping_dataset if model.early_stopping else None
                     ),
                     hpam_set=model_hpam_set,
+                    response_data_normalizer=response_data_normalizer
                 )
             train_dataset.add_rows(
                 validation_dataset
@@ -126,6 +124,7 @@ def drug_response_experiment(
                 early_stopping_dataset=(
                     early_stopping_dataset if model.early_stopping else None
                 ),
+                response_data_normalizer=response_data_normalizer
             )
             test_dataset.save(os.path.join(predictions_path, f"test_dataset_{test_mode}_split_{split_index}.csv"))
 
@@ -143,7 +142,8 @@ def drug_response_experiment(
                     path_out=randomization_test_path,
                     split_index=split_index,
                     test_mode=test_mode,
-                    randomization_type=randomization_type
+                    randomization_type=randomization_type,
+                    response_data_normalizer=response_data_normalizer
                 )
 def get_randomization_test_views(model: DRPModel, randomization_mode: List[str]) -> Dict[str, List[str]]:
     cell_line_views = model.cell_line_views
@@ -175,6 +175,7 @@ def randomization_test(
     split_index: int,
     test_mode: str,
     randomization_type: str = "permutation",
+    response_data_normalizer = Optional[TransformerMixin]
 
 ) -> None:
     """
@@ -190,6 +191,7 @@ def randomization_test(
     :param split_index: index of the split
     :param test_mode: test mode one of "LPO", "LCO", "LDO" (leave-pair-out, leave-cell-line-out, leave-drug-out)
     :param randomization_type: type of randomization to use. Choose from "gaussian", "zeroing", "permutation". Default is "permutation"
+    :param response_data_normalizer sklearn.preprocessing scaler like StandardScaler or MinMaxScaler to use to scale the target
     :return: None (save results to disk)
     """
     cl_features = model.get_cell_line_features(path=hpam_set["feature_path"])
@@ -215,6 +217,7 @@ def randomization_test(
                 train_dataset=train_dataset,
                 prediction_dataset=test_dataset,
                 early_stopping_dataset=early_stopping_dataset,
+                response_data_normalizer=response_data_normalizer,
                 cl_features=cl_features_rand,
                 drug_features=drug_features_rand,
             )
@@ -242,6 +245,7 @@ def train_and_predict(
     train_dataset: DrugResponseDataset,
     prediction_dataset: DrugResponseDataset,
     early_stopping_dataset: Optional[DrugResponseDataset] = None,
+    response_data_normalizer: Optional[TransformerMixin] = None,
     cl_features: Optional[FeatureDataset] = None,
     drug_features: Optional[FeatureDataset] = None,
 ) -> DrugResponseDataset:
@@ -262,6 +266,12 @@ def train_and_predict(
         early_stopping_dataset.reduce_to(
             cell_line_ids=cl_features.identifiers, drug_ids=drug_features.identifiers
         )
+    if response_data_normalizer:
+        response_data_normalizer.fit(train_dataset.response)
+        train_dataset.response = response_data_normalizer.transform(train_dataset.response)
+        early_stopping_dataset.response = response_data_normalizer.transform(early_stopping_dataset.response )
+        prediction_dataset.response = response_data_normalizer.transform(prediction_dataset.response)
+
 
     model.train(
         cell_line_input=cl_features,
@@ -277,7 +287,8 @@ def train_and_predict(
         cell_line_input=cl_features,
         drug_input=drug_features,
     )
-
+    if response_data_normalizer:
+        prediction_dataset.response = response_data_normalizer.inverse_transform(prediction_dataset.response)
     return prediction_dataset
 
 
