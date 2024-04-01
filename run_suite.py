@@ -129,7 +129,7 @@ if __name__ == "__main__":
         drug_response_experiment(
             models=models,
             response_data=response_data,
-            response_transformation=response_transformation
+            response_transformation=response_transformation,
             multiprocessing=True,
             test_mode=test_mode,
             randomization_mode=args.randomization_mode,
