@@ -13,7 +13,7 @@ from sklearn.preprocessing import TransformerMixin
 def drug_response_experiment(
     models: List[DRPModel],
     response_data: DrugResponseDataset,
-    response_data_normalizer: Optional[TransformerMixin] = None,
+    response_transformation: Optional[TransformerMixin] = None,
     run_id: str = "",
     test_mode: str = "LPO",
     multiprocessing: bool = False,
@@ -26,7 +26,7 @@ def drug_response_experiment(
     Run the drug response prediction experiment. Save results to disc.
     :param models: list of models to compare
     :param response_data: drug response dataset
-    :param response_data_normalizer: normalizer to use for the response data
+    :param response_transformation: normalizer to use for the response data
     :param multiprocessing: whether to use multiprocessing
     :param randomization_mode: list of randomization modes to do.
         Modes: SVCC, SVRC, SVCD, SVRD
@@ -98,7 +98,7 @@ def drug_response_experiment(
                         early_stopping_dataset if model.early_stopping else None
                     ),
                     hpam_set=model_hpam_set,
-                    response_data_normalizer=response_data_normalizer
+                    response_transformation=response_transformation
                 )
             else:
                 best_hpams = hpam_tune(
@@ -109,7 +109,7 @@ def drug_response_experiment(
                         early_stopping_dataset if model.early_stopping else None
                     ),
                     hpam_set=model_hpam_set,
-                    response_data_normalizer=response_data_normalizer
+                    response_transformation=response_transformation
                 )
             train_dataset.add_rows(
                 validation_dataset
@@ -124,7 +124,7 @@ def drug_response_experiment(
                 early_stopping_dataset=(
                     early_stopping_dataset if model.early_stopping else None
                 ),
-                response_data_normalizer=response_data_normalizer
+                response_transformation=response_transformation
             )
             test_dataset.save(os.path.join(predictions_path, f"test_dataset_{test_mode}_split_{split_index}.csv"))
 
@@ -143,7 +143,7 @@ def drug_response_experiment(
                     split_index=split_index,
                     test_mode=test_mode,
                     randomization_type=randomization_type,
-                    response_data_normalizer=response_data_normalizer
+                    response_transformation=response_transformation
                 )
 def get_randomization_test_views(model: DRPModel, randomization_mode: List[str]) -> Dict[str, List[str]]:
     cell_line_views = model.cell_line_views
@@ -175,7 +175,7 @@ def randomization_test(
     split_index: int,
     test_mode: str,
     randomization_type: str = "permutation",
-    response_data_normalizer = Optional[TransformerMixin]
+    response_transformation = Optional[TransformerMixin]
 
 ) -> None:
     """
@@ -191,7 +191,7 @@ def randomization_test(
     :param split_index: index of the split
     :param test_mode: test mode one of "LPO", "LCO", "LDO" (leave-pair-out, leave-cell-line-out, leave-drug-out)
     :param randomization_type: type of randomization to use. Choose from "gaussian", "zeroing", "permutation". Default is "permutation"
-    :param response_data_normalizer sklearn.preprocessing scaler like StandardScaler or MinMaxScaler to use to scale the target
+    :param response_transformation sklearn.preprocessing scaler like StandardScaler or MinMaxScaler to use to scale the target
     :return: None (save results to disk)
     """
     cl_features = model.get_cell_line_features(path=hpam_set["feature_path"])
@@ -217,7 +217,7 @@ def randomization_test(
                 train_dataset=train_dataset,
                 prediction_dataset=test_dataset,
                 early_stopping_dataset=early_stopping_dataset,
-                response_data_normalizer=response_data_normalizer,
+                response_transformation=response_transformation,
                 cl_features=cl_features_rand,
                 drug_features=drug_features_rand,
             )
@@ -245,7 +245,7 @@ def train_and_predict(
     train_dataset: DrugResponseDataset,
     prediction_dataset: DrugResponseDataset,
     early_stopping_dataset: Optional[DrugResponseDataset] = None,
-    response_data_normalizer: Optional[TransformerMixin] = None,
+    response_transformation: Optional[TransformerMixin] = None,
     cl_features: Optional[FeatureDataset] = None,
     drug_features: Optional[FeatureDataset] = None,
 ) -> DrugResponseDataset:
@@ -266,11 +266,11 @@ def train_and_predict(
         early_stopping_dataset.reduce_to(
             cell_line_ids=cl_features.identifiers, drug_ids=drug_features.identifiers
         )
-    if response_data_normalizer:
-        response_data_normalizer.fit(train_dataset.response)
-        train_dataset.response = response_data_normalizer.transform(train_dataset.response)
-        early_stopping_dataset.response = response_data_normalizer.transform(early_stopping_dataset.response )
-        prediction_dataset.response = response_data_normalizer.transform(prediction_dataset.response)
+    if response_transformation:
+        response_transformation.fit(train_dataset.response)
+        train_dataset.response = response_transformation.transform(train_dataset.response)
+        early_stopping_dataset.response = response_transformation.transform(early_stopping_dataset.response )
+        prediction_dataset.response = response_transformation.transform(prediction_dataset.response)
 
 
     model.train(
@@ -287,8 +287,8 @@ def train_and_predict(
         cell_line_input=cl_features,
         drug_input=drug_features,
     )
-    if response_data_normalizer:
-        prediction_dataset.response = response_data_normalizer.inverse_transform(prediction_dataset.response)
+    if response_transformation:
+        prediction_dataset.response = response_transformation.inverse_transform(prediction_dataset.response)
     return prediction_dataset
 
 
@@ -298,6 +298,7 @@ def train_and_evaluate(
     train_dataset: DrugResponseDataset,
     validation_dataset: DrugResponseDataset,
     early_stopping_dataset: Optional[DrugResponseDataset] = None,
+    response_transformation: Optional[TransformerMixin] = None,
     metric: str = "rmse",
 ) -> float:
     validation_dataset = train_and_predict(
@@ -306,6 +307,7 @@ def train_and_evaluate(
         train_dataset=train_dataset,
         prediction_dataset=validation_dataset,
         early_stopping_dataset=early_stopping_dataset,
+        response_transformation=response_transformation
     )
     return evaluate(validation_dataset, metric=[metric])
 
@@ -316,6 +318,7 @@ def hpam_tune(
     validation_dataset: DrugResponseDataset,
     hpam_set: List[Dict],
     early_stopping_dataset: Optional[DrugResponseDataset] = None,
+    response_transformation: Optional[TransformerMixin] = None
 ) -> Dict:
     
     best_rmse = float("inf")
@@ -328,6 +331,7 @@ def hpam_tune(
             validation_dataset=validation_dataset,
             early_stopping_dataset=early_stopping_dataset,
             metric="rmse",
+            response_transformation=response_transformation
         )["rmse"]
         if rmse < best_rmse:
             print(f"current best rmse: {np.round(rmse, 3)}")
@@ -342,6 +346,7 @@ def hpam_tune_raytune(
     validation_dataset: DrugResponseDataset,
     early_stopping_dataset: Optional[DrugResponseDataset],
     hpam_set: List[Dict],
+    response_transformation: Optional[TransformerMixin] = None
 ) -> Dict:
     analysis = tune.run(
         lambda hpams: train_and_evaluate(
@@ -351,6 +356,7 @@ def hpam_tune_raytune(
             validation_dataset=validation_dataset,
             early_stopping_dataset=early_stopping_dataset,
             metric="rmse",
+            response_transformation=response_transformation
         ),
         config=tune.grid_search(hpam_set),
         mode="min",
