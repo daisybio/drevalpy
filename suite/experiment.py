@@ -271,10 +271,10 @@ def train_and_predict(
             cell_line_ids=cl_features.identifiers, drug_ids=drug_features.identifiers
         )
     if response_transformation:
-        response_transformation.fit(train_dataset.response)
-        train_dataset.response = response_transformation.transform(train_dataset.response)
-        early_stopping_dataset.response = response_transformation.transform(early_stopping_dataset.response )
-        prediction_dataset.response = response_transformation.transform(prediction_dataset.response)
+        response_transformation.fit(train_dataset.response.reshape(-1, 1))
+        train_dataset.response = response_transformation.transform(train_dataset.response.reshape(-1, 1)).squeeze()
+        early_stopping_dataset.response = response_transformation.transform(early_stopping_dataset.response.reshape(-1, 1)).squeeze()
+        prediction_dataset.response = response_transformation.transform(prediction_dataset.response.reshape(-1, 1)).squeeze()
 
 
     model.train(
