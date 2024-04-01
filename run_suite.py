@@ -1,5 +1,5 @@
 import argparse
-
+from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler
 from models import MODEL_FACTORY
 from response_datasets import RESPONSE_DATASET_FACTORY
 from suite.experiment import drug_response_experiment
@@ -77,6 +77,11 @@ def get_parser():
         default="RMSE",
         help="Metric to optimize for (RMSE, AUC, ACC, F1, MCC, R2, etc.)"
     )
+    parser.add_argument(
+        "--response_transformation",
+        type=str,
+        default="None",
+        help="Transformation to apply to the response variable possible values: standard, minmax, robust")
 
     return parser
 
@@ -104,6 +109,16 @@ if __name__ == "__main__":
         args.randomization_mode = None
     if args.curve_curator:
         raise NotImplementedError("CurveCurator not implemented")
+    if args.response_transformation == "None":
+        response_transformation = None
+    elif(args.response_transformation == "standard"):
+        response_transformation = StandardScaler()
+    elif(args.response_transformation == "minmax"):
+        response_transformation = MinMaxScaler()
+    elif(args.response_transformation == "robust"):
+        response_transformation = RobustScaler()
+    else:
+        raise ValueError(f"Invalid response_transformation: {args.response_transformation}. Choose robust, minmax or standard.")
 
     # TODO Allow for custom randomization tests maybe via config file 
 
@@ -112,8 +127,9 @@ if __name__ == "__main__":
     # TODO metric for optimization needs to be considered
     for test_mode in args.test_mode:
         drug_response_experiment(
-            models,
-            response_data,
+            models=models,
+            response_data=response_data,
+            response_transformation=response_transformation
             multiprocessing=True,
             test_mode=test_mode,
             randomization_mode=args.randomization_mode,
