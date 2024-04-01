@@ -203,9 +203,9 @@ def randomization_test(
             cl_features_rand = cl_features.copy()
             drug_features_rand = drug_features.copy()
             if view in cl_features.get_view_names():
-                cl_features.randomize_features(view, randomization_type=randomization_type)
+                cl_features_rand.randomize_features(view, randomization_type=randomization_type)
             elif view in drug_features.get_view_names():
-                drug_features.randomize_features(view, randomization_type=randomization_type)
+                drug_features_rand.randomize_features(view, randomization_type=randomization_type)
             else:
                 warnings.warn(
                     f"View {view} not found in features. Skipping randomization test {test_name} which includes this view."
