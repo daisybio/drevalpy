@@ -7,11 +7,13 @@ import numpy as np
 import os
 import shutil
 from ray import tune
+from sklearn.preprocessing import TransformerMixin
 
 # TODO save hpams and their scores to disk
 def drug_response_experiment(
     models: List[DRPModel],
     response_data: DrugResponseDataset,
+    response_data_normalizer: Optional[TransformerMixin] = None,
     run_id: str = "",
     test_mode: str = "LPO",
     multiprocessing: bool = False,
@@ -24,6 +26,7 @@ def drug_response_experiment(
     Run the drug response prediction experiment. Save results to disc.
     :param models: list of models to compare
     :param response_data: drug response dataset
+    :param response_data_normalizer: normalizer to use for the response data
     :param multiprocessing: whether to use multiprocessing
     :param randomization_mode: list of randomization modes to do.
         Modes: SVCC, SVRC, SVCD, SVRD
@@ -42,6 +45,9 @@ def drug_response_experiment(
             "permutation": permute the features over the instances, keeping the distribution of the features the same but dissolving the relationship to the target
     :param path_out: path to the output directory
     :param run_id: identifier to save the results
+    :param test_mode: test mode one of "LPO", "LCO", "LDO" (leave-pair-out, leave-cell-line-out, leave-drug-out)
+    :param overwrite: whether to overwrite existing results
+
     :return: None
     """
 
@@ -51,6 +57,11 @@ def drug_response_experiment(
     if os.path.exists(result_path) and overwrite:
         shutil.rmtree(result_path)
     os.makedirs(result_path)
+
+    if response_data_normalizer:
+        # TODO needs to scale in train and predict and rescale after prediction
+        raise NotImplementedError("response data normalization is not implemented")
+
     # TODO load existing progress if it exists, currently we just overwrite
     for model in models:
         model_path = os.path.join(result_path, model.model_name)
