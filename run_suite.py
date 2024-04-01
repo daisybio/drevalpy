@@ -121,11 +121,11 @@ if __name__ == "__main__":
         # TODO add log, sinh etc
         raise ValueError(f"Invalid response_transformation: {args.response_transformation}. Choose robust, minmax or standard.")
 
+    assert args.optim_metric in {"mse", "rmse", "mae", "r2", "pearson", "spearman", "kendall", "partial_correlation"}, "Invalid optim_metric for hyperparameter tuning. Choose from mse, rmse, mae, r2, pearson, spearman, kendall, partial_correlation."
     # TODO Allow for custom randomization tests maybe via config file 
 
 
 
-    # TODO metric for optimization needs to be considered
     for test_mode in args.test_mode:
         drug_response_experiment(
             models=models,
