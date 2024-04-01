@@ -7,7 +7,7 @@ from suite.experiment import drug_response_experiment
 
 def get_parser():
     parser = argparse.ArgumentParser(
-        description="Run the drug response prediction model test suite"
+        description="Run the drug response prediction model test suite."
     )
     parser.add_argument(
         "--run_id", type=str, default="my_run", help="identifier to save the results"
