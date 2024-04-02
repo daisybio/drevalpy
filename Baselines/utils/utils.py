@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import argparse
 import logging
 import numpy as np
 import os
@@ -22,6 +23,17 @@ def mkdir(directory):
         logger.info('creating folder: %s' % directory)
         os.makedirs(directory)
 
+
+def parse_data(argv):
+    """
+    Parse the command line arguments
+    """
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-t", "--toml", help="Path to the toml file containing the metadata", type=str)
+    parser.add_argument("-d", "--dir", help="Path to the directory where the results will be saved", type=str)
+    args = parser.parse_args(argv)
+
+    return args.dir, args.toml
 
 def split(x, n):
     """
