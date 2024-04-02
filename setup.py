@@ -3,8 +3,7 @@ from setuptools import setup, find_packages
 setup(
     name='drp_model_suite',
     version='1.0.0',
-    author='Your Name',
-    author_email='your.email@example.com',
+    author=' ',
     description='Evaluation of cancer cell line drug response models in a fair setting.',
     long_description='todo',
     long_description_content_type='text/markdown',
@@ -14,11 +13,14 @@ setup(
         'Development Status :: Alpha',
         'Programming Language :: Python :: 3.10',
     ],
-    python_requires='>=3.9',  # Specify the minimum Python version required
+    python_requires='>=3.9', 
     install_requires=[
         'pandas',  
         'numpy',     
-        'ray[tune]'
-        'scikit-learn'
+        'ray[tune]',
+        'scikit-learn',
+        'scipy',
+        'matplotlib',
+        'plotly'
     ],
 )
