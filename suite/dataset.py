@@ -311,26 +311,6 @@ class FeatureDataset(Dataset):
                 f"Unknown randomization mode '{randomization_type}'. Choose from 'permutation', 'gaussian', 'zeroing'."
             )
 
-    def normalize_features(
-        self, views: Union[str, list], normalization_parameter
-    ) -> None:
-        """
-        normalize the feature vectors.
-        :views: name of feature view or list of names of multiple feature views to normalize. The other views are not normalized.
-        :normalization_parameter:
-        """
-        # TODO
-        raise NotImplementedError("normalize_features method not implemented")
-
-    def get_mean_and_standard_deviation(self) -> None:
-        """
-        get columnwise mean and standard deviation of the feature vectors for all views.
-        """
-        # TODO
-        raise NotImplementedError(
-            "get_mean_and_standard_deviation method not implemented"
-        )
-
     def get_ids(self):
         """
         returns drug ids of the dataset
