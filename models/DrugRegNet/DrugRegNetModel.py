@@ -34,6 +34,7 @@ class DrugRegNetModel:
             print('Training model for drug:', drug)
             X = self.all_data[drug].X
             y = self.all_data[drug].y
+            # TODO: cross validation?
             model = Lasso(alpha=0.1)
             model.fit(X, y)
             # get p-values for coefficients

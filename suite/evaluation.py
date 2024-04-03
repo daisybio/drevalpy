@@ -7,14 +7,14 @@ import pandas as pd
 
 
 AVAILABLE_METRICS = {
-    "mse": metrics.mean_squared_error,
-    "rmse": metrics.mean_squared_error,
-    "mae": metrics.mean_absolute_error,
-    "r2": metrics.r2_score,
-    "pearson": pearson,
-    "spearman": spearman,
-    "kendall": kendall,
-    "partial_correlation": partial_correlation,
+    "MSE": metrics.mean_squared_error,
+    "RMSE": metrics.mean_squared_error,
+    "MAE": metrics.mean_absolute_error,
+    "R^2": metrics.r2_score,
+    "Pearson": pearson,
+    "Spearman": spearman,
+    "Kendall": kendall,
+    "Partial_Correlation": partial_correlation,
 }
 
 
@@ -32,16 +32,19 @@ def evaluate(dataset: DrugResponseDataset, metric: Union[List[str], str]):
     results = {}
     for m in metric:
         assert (
-            m in AVAILABLE_METRICS
+                m in AVAILABLE_METRICS
         ), f"invalid metric {m}. Available: {list(AVAILABLE_METRICS.keys())}"
-        if m == "partial_correlation":
-            results[m] = AVAILABLE_METRICS[m](
-                y_pred=predictions, y_true=response, cell_line_ids=dataset.cell_line_ids, drug_ids=dataset.drug_ids
-            )
-        elif m == 'rmse':
-            results[m] = AVAILABLE_METRICS[m](y_pred=predictions, y_true=response, squared=False)
+        if len(response) < 2:
+            results[m] = np.nan
         else:
-            results[m] = AVAILABLE_METRICS[m](y_pred=predictions, y_true=response)
+            if m == "Partial_Correlation":
+                results[m] = AVAILABLE_METRICS[m](
+                    y_pred=predictions, y_true=response, cell_line_ids=dataset.cell_line_ids, drug_ids=dataset.drug_ids
+                )
+            elif m == 'RMSE':
+                results[m] = AVAILABLE_METRICS[m](y_pred=predictions, y_true=response, squared=False)
+            else:
+                results[m] = AVAILABLE_METRICS[m](y_pred=predictions, y_true=response)
 
     return results
 
