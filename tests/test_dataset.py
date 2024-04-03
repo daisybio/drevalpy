@@ -116,6 +116,54 @@ def test_response_dataset_reduce_to():
     assert len(dataset.cell_line_ids) == 2
     assert len(dataset.drug_ids) == 2
 
+@pytest.mark.parametrize("mode", ["LPO", "LCO", "LDO"])
+@pytest.mark.parametrize("split_validation", [True, False])
+def test_split_response_dataset(mode, split_validation):
+    # Create a dataset with known values
+    dataset = DrugResponseDataset(
+        response=[1, 2, 3, 4, 5],
+        cell_line_ids=[101, 102, 103, 104, 105],
+        drug_ids=["A", "B", "C", "D", "E"],
+    )
+
+    # Test splitting the dataset with the specified mode and validation split
+    cv_splits = dataset.split_dataset(n_cv_splits=5, mode=mode, split_validation=split_validation, validation_ratio=0.1, random_state=42)
+    assert isinstance(cv_splits, list)
+    assert len(cv_splits) == 5  # Check if the correct number of splits is returned
+    for split in cv_splits:
+        assert isinstance(split["train"], DrugResponseDataset)
+        assert isinstance(split["test"], DrugResponseDataset)
+
+        # Check that drugs/cell lines in the training data are not present in the test data
+        if mode == "LCO":
+            train_cell_lines = set(split["train"].cell_line_ids)
+            test_cell_lines = set(split["test"].cell_line_ids)
+
+            assert train_cell_lines.isdisjoint(test_cell_lines)
+
+            if split_validation:  # Only check if validation split is enabled
+                validation_cell_lines = set(split["validation"].cell_line_ids)
+                assert validation_cell_lines.isdisjoint(test_cell_lines)  # Check for disjointness between validation and test cell lines
+
+        elif mode == "LDO":
+            train_drugs = set(split["train"].drug_ids)
+            test_drugs = set(split["test"].drug_ids)
+
+            assert train_drugs.isdisjoint(test_drugs)
+
+            if split_validation:  # Only check if validation split is enabled
+                validation_drugs = set(split["validation"].drug_ids)
+                assert validation_drugs.isdisjoint(test_drugs)  # Check for disjointness between validation and test drugs
+
+        elif mode == "LPO":
+            train_pairs = set(zip(split["train"].cell_line_ids, split["train"].drug_ids))
+            test_pairs = set(zip(split["test"].cell_line_ids, split["test"].drug_ids))
+
+            assert train_pairs.isdisjoint(test_pairs)
+
+            if split_validation:  # Only check if validation split is enabled
+                validation_pairs = set(zip(split["validation"].cell_line_ids, split["validation"].drug_ids))
+                assert validation_pairs.isdisjoint(test_pairs)  # Check for disjointness between validation and test pairs
 
 # Run the tests
 if __name__ == "__main__":
