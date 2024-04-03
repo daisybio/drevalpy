@@ -95,6 +95,28 @@ def test_response_data_remove_drugs_and_cell_lines():
     assert len(dataset.response) == 3
     assert len(dataset.cell_line_ids) == 3
     assert len(dataset.drug_ids) == 3
+
+def test_response_dataset_reduce_to():
+    # Create a dataset with known values
+    dataset = DrugResponseDataset(
+        response=np.array([1, 2, 3, 4, 5]),
+        cell_line_ids=np.array([101, 102, 103, 104, 105]),
+        drug_ids=np.array(["A", "B", "C", "D", "E"]),
+    )
+
+    # Reduce the dataset to a subset of cell line IDs and drug IDs
+    dataset.reduce_to(cell_line_ids=[102, 104], drug_ids=["B", "D"])
+
+    # Check if only the rows corresponding to the specified cell line IDs and drug IDs remain
+    assert all(cell_line_id in [102, 104] for cell_line_id in dataset.cell_line_ids)
+    assert all(drug_id in ["B", "D"] for drug_id in dataset.drug_ids)
+
+    # Check if the length of response, cell_line_ids, and drug_ids arrays is reduced accordingly
+    assert len(dataset.response) == 2
+    assert len(dataset.cell_line_ids) == 2
+    assert len(dataset.drug_ids) == 2
+
+
 # Run the tests
 if __name__ == "__main__":
     pytest.main([__file__])
