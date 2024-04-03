@@ -1,7 +1,8 @@
 import numpy as np
 import pytest
-from suite.utils import leave_group_out_cv
+from suite.utils import leave_group_out_cv, partial_correlation, pearson, spearman, kendall
 from suite.dataset import DrugResponseDataset
+from flaky import flaky
 
 # Mock dataset generation function
 @pytest.fixture
@@ -68,6 +69,88 @@ def test_leave_group_out_cv(generate_mock_data):
         # Check if train and test datasets have unique cell line/drug IDs
         assert len(np.intersect1d(train_dataset.cell_line_ids, test_dataset.cell_line_ids)) == 0
         assert "validation" not in fold
+
+@pytest.fixture
+def generate_mock_anticorrelated_data():
+    response = np.arange(2e6, 0, -1)
+    y_pred = response[::-1]
+    return y_pred, response
+
+@pytest.fixture
+def generate_mock_uncorrelated_data():
+    response = np.arange(2e6)
+    y_pred = np.random.permutation(response)
+    return y_pred, response
+
+@pytest.fixture
+def generate_mock_correlated_data():
+    response = np.arange(2e6)
+    y_pred = response
+    return y_pred, response
+
+def test_partial_correlation(generate_mock_data):
+    response, cell_line_ids, drug_ids = generate_mock_data
+    y_pred = np.random.rand(len(response))
+    assert False, "Test not implemented"
+    
+def test_pearson_correlated(generate_mock_correlated_data):
+    y_pred, response = generate_mock_correlated_data
+
+    pc = pearson(y_pred, response)
+    assert np.isclose(pc, 1.0, atol=1e-3)
+
+def test_pearson_anticorrelated(generate_mock_anticorrelated_data):
+    y_pred, response = generate_mock_anticorrelated_data
+
+    pc = pearson(y_pred, response)
+    assert np.isclose(pc, -1.0, atol=1e-1)
+
+@flaky(max_runs=3)
+def test_pearson_uncorrelated(generate_mock_uncorrelated_data):
+    y_pred, response = generate_mock_uncorrelated_data
+
+    pc = pearson(y_pred, response)
+    assert np.isclose(pc, 0.0, atol=1e-3)
+
+def test_spearman_correlated(generate_mock_correlated_data):
+    y_pred, response = generate_mock_correlated_data
+
+    sp = spearman(y_pred, response)
+    assert np.isclose(sp, 1.0, atol=1e-3)
+
+def test_spearman_anticorrelated(generate_mock_anticorrelated_data):
+    y_pred, response = generate_mock_anticorrelated_data
+
+    sp = spearman(y_pred, response)
+    assert np.isclose(sp, -1.0, atol=1e-1)
+
+@flaky(max_runs=3)
+def test_spearman_uncorrelated(generate_mock_uncorrelated_data):
+    y_pred, response = generate_mock_uncorrelated_data
+
+    sp = spearman(y_pred, response)
+    print(sp)
+    assert np.isclose(sp, 0.0, atol=1e-3)
+
+def test_kendall_correlated(generate_mock_correlated_data):
+    y_pred, response = generate_mock_correlated_data
+
+    kd = kendall(y_pred, response)
+    assert np.isclose(kd, 1.0, atol=1e-3)
+
+def test_kendall_anticorrelated(generate_mock_anticorrelated_data):
+    y_pred, response = generate_mock_anticorrelated_data
+
+    kd = kendall(y_pred, response)
+    assert np.isclose(kd, -1.0, atol=1e-1)
+
+@flaky(max_runs=3)
+def test_kendall_uncorrelated(generate_mock_uncorrelated_data):
+    y_pred, response = generate_mock_uncorrelated_data
+
+    kd = kendall(y_pred, response)
+    assert np.isclose(kd, 0.0, atol=1e-3)
+
 
 if __name__ == "__main__":
     pytest.main([__file__])
