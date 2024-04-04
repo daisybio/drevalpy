@@ -8,15 +8,16 @@ from sklearn.ensemble import GradientBoostingRegressor
 
 sys.path.insert(0, abspath(join(dirname(__file__), '..')))
 from model import GradientBoostRegressor
-from utils.utils import mkdir
+from utils.utils import mkdir, parse_data
 from utils import testing, analysis
 
 # setting up logging
 logging.basicConfig(format='%(asctime)s: %(levelname)s: %(message)s', level=logging.INFO)
 
+# read in script arguments
+dir_path, toml_path = parse_data(sys.argv[1:])
+
 # setting up directory for saving results
-# save model parameters and results
-dir_path = "/nfs/home/students/m.lorenz/output/gbr/GDSC/GBR_LCO_20feat/"
 mkdir(dir_path)
 
 # setting up file logging as well
@@ -34,10 +35,10 @@ logger.info("Running gradient boosting regression model")
 
 # read in meta data from TOML file
 logger.info("Reading in meta data from TOML file")
-with open('metadata_LCO.toml', 'r') as file:
+with open(toml_path, 'r') as file:
     meta_data = toml.load(file)
 
-# create linear regression object
+# create gbr object
 logger.info("Creating gradient boosting regression object")
 
 gb_regression = testing.parse_data(meta_data, GradientBoostRegressor)

@@ -8,15 +8,16 @@ from sklearn.svm import SVR
 
 sys.path.insert(0, abspath(join(dirname(__file__), '..')))
 from model import SupportVectorRegressor
-from utils.utils import mkdir
+from utils.utils import mkdir, parse_data
 from utils import testing, analysis
 
 # setting up logging
 logging.basicConfig(format='%(asctime)s: %(levelname)s: %(message)s', level=logging.INFO)
 
+# read in script arguments
+dir_path, toml_path = parse_data(sys.argv[1:])
+
 # setting up directory for saving results
-# save model parameters and results
-dir_path = "/nfs/home/students/m.lorenz/output/svr/GDSC/SVR_LDO_2feat_poly_kernel/"
 mkdir(dir_path)
 
 # setting up file logging as well
@@ -34,10 +35,10 @@ logger.info("Running support vector regression model")
 
 # read in meta data from TOML file
 logger.info("Reading in meta data from TOML file")
-with open('metadata_LDO.toml', 'r') as file:
+with open(toml_path, 'r') as file:
     meta_data = toml.load(file)
 
-# create linear regression object
+# create svr object
 logger.info("Creating support vector regression object")
 
 sv_regression = testing.parse_data(meta_data, SupportVectorRegressor, "SV")

@@ -53,4 +53,4 @@ analysis.base_analysis(best_models, linear_regression, "regression", meta_data, 
 analysis.scores_clustering(best_models, dir_path, "regression")
 analysis.scatter_predictions(best_models, dir_path)
 fstat_df = analysis.f_statistic(best_models, best_nfeatures)
-analysis.f_distribution(best_nfeatures, fstat_df.iloc[0, 1], fstat_df.iloc[0, 3],fstat_df.iloc[0, 4])
+# analysis.f_distribution(best_nfeatures, fstat_df.iloc[0, 1], fstat_df.iloc[0, 3],fstat_df.iloc[0, 4])
