@@ -277,7 +277,7 @@ class FeatureDataset(Dataset):
             # Get the entity names
             identifiers = self.get_ids()
 
-            # Permute the specified views for each entity (=cell line or drug)
+            # Permute the specified views for each entity (= cell line or drug)
             self.features = {
                 entity: {
                     view: (
@@ -285,11 +285,8 @@ class FeatureDataset(Dataset):
                         if view not in views_to_randomize
                         else self.features[other_entity][view]
                     )
-                    for view, other_entity in zip(
-                        self.features[entity].keys(), np.random.permutation(identifiers)
-                    )
-                }
-                for entity in identifiers
+                    for view in self.view_names}
+                for entity, other_entity in zip(identifiers, np.random.permutation(identifiers))
             }
 
         elif randomization_type == "gaussian":
