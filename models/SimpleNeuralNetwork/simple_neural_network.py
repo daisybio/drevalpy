@@ -1,7 +1,7 @@
 from typing import Optional
 from models.SimpleNeuralNetwork.utils import FeedForwardNetwork
-from suite.drp_model import DRPModel
-from suite.dataset import DrugResponseDataset, FeatureDataset
+from dreval.drp_model import DRPModel
+from dreval.dataset import DrugResponseDataset, FeatureDataset
 import numpy as np
 import pandas as pd
 import warnings

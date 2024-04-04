@@ -186,6 +186,8 @@ def test_feature_dataset_get_view_names(sample_dataset):
 def test_feature_dataset_get_feature_matrix(sample_dataset):
     feature_matrix = sample_dataset.get_feature_matrix('fingerprints', ['drug1', 'drug2'])
     assert feature_matrix.shape == (2, 5)
+    assert np.allclose(feature_matrix, np.array([sample_dataset.features['drug1']['fingerprints'], sample_dataset.features['drug2']['fingerprints']]))
+    assert type(feature_matrix) == np.ndarray
 
 def test_feature_dataset_copy(sample_dataset):
     copied_dataset = sample_dataset.copy()

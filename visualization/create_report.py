@@ -6,8 +6,8 @@ import numpy as np
 import pathlib
 import pandas as pd
 import os
-from suite.evaluation import evaluate, visualize_results, AVAILABLE_METRICS
-from suite.dataset import DrugResponseDataset
+from dreval.evaluation import evaluate, visualize_results, AVAILABLE_METRICS
+from dreval.dataset import DrugResponseDataset
 
 
 def parse_results(id):

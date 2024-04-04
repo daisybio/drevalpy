@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
-from suite.utils import leave_group_out_cv, partial_correlation, pearson, spearman, kendall
-from suite.dataset import DrugResponseDataset
+from dreval.utils import leave_group_out_cv, partial_correlation, pearson, spearman, kendall
+from dreval.dataset import DrugResponseDataset
 from flaky import flaky
 
 # Mock dataset generation function

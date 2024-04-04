@@ -1,4 +1,4 @@
-from suite.dataset import DrugResponseDataset
+from dreval.dataset import DrugResponseDataset
 import pandas as pd
 
 
