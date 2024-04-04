@@ -8,16 +8,19 @@ def generate_heatmap(df: pd.DataFrame):
     df.sort_index(inplace=True)
     # drop r^2, mse, rmse
     df_errors = df[['MSE', 'RMSE', 'MAE']]
-    df_corrs = df[['Pearson', 'Spearman', 'Kendall', 'Partial_Correlation']]
+    df_corrs = df[["Pearson", "drug normalized Pearson", "cell line normalized Pearson",
+                   "Spearman", "drug normalized Spearman", "cell line normalized Spearman",
+                   "Kendall", "drug normalized Kendall", "cell line normalized Kendall",
+                   "Partial_Correlation", "drug normalized Partial_Correlation", "cell line normalized Partial_Correlation"]]
     titles = ['R^2', 'Correlations', 'Errors']
     fig = make_subplots(rows=3, cols=1, subplot_titles=tuple(titles))
     for i in range(3):
         if i == 0:
             # heatmap for r^2
-            dt = df[['R^2']].sort_values(by='R^2', ascending=True)
+            dt = df[["R^2", "drug normalized R^2", "cell line normalized R^2"]].sort_values(by='R^2', ascending=True)
             fig = fig.add_trace(
                 go.Heatmap(z=dt.values,
-                           x=['R^2'],
+                           x=dt.columns,
                            y=[i.replace('_', ' ') for i in list(dt.index)],
                            colorscale='Blues', texttemplate='%{z:.2f}'),
                 row=1, col=1

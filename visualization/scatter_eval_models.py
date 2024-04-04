@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import scipy
 from scipy import stats
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
@@ -29,7 +30,7 @@ def generate_scatter_eval_models_plot(df: pd.DataFrame, metric, color_by):
     scatterplot = go.Scatter(x=tmp_df[metric],
                              y=tmp_df[metric],
                              mode='markers',
-                             marker=dict(size=10, showscale=False),
+                             marker=dict(size=6, showscale=False),
                              text=tmp_df.index,
                              showlegend=False,
                              visible=True
@@ -64,8 +65,13 @@ def generate_scatter_eval_models_plot(df: pd.DataFrame, metric, color_by):
             y_df.sort_index(inplace=True)
             # replace nan with 0
             y_df[metric] = y_df[metric].fillna(0)
-            density = get_density(x_df[metric], y_df[metric])
-            scatterplot = go.Scatter(x=x_df[metric],
+            # only retain the common indices
+            common_indices = x_df.index.intersection(y_df.index)
+            x_df2 = x_df.loc[common_indices]
+            y_df = y_df.loc[common_indices]
+
+            density = get_density(x_df2[metric], y_df[metric])
+            scatterplot = go.Scatter(x=x_df2[metric],
                                      y=y_df[metric],
                                      mode='markers',
                                      marker=dict(size=4, color=density, colorscale='Viridis', showscale=False),
@@ -91,10 +97,10 @@ def generate_scatter_eval_models_plot(df: pd.DataFrame, metric, color_by):
                     fig_overall['layout'][f'yaxis{y_axis_idx}']['title'] = str(run2).replace('_', '<br>', 2)
                     fig_overall['layout'][f'yaxis{y_axis_idx}']['title']['font']['size'] = 6
 
-    fig.update_layout(title=f'Scatter plot of {metric} for each model',
+    fig.update_layout(title=f'{str(color_by).replace("_", " ").capitalize()}-wise scatter plot of {metric} for each model',
                       xaxis_title=models[0], yaxis_title=models[0],
                       showlegend=False)
-    fig_overall.update_layout(title=f'Scatter plot of {metric} for each model',
+    fig_overall.update_layout(title=f'{str(color_by).replace("_", " ").capitalize()}-wise scatter plot of {metric} for each model',
                       showlegend=False)
 
     fig.update_layout(
@@ -120,12 +126,12 @@ def generate_scatter_eval_models_plot(df: pd.DataFrame, metric, color_by):
     return fig, fig_overall
 
 
-def get_density(x:np.ndarray, y:np.ndarray):
+def get_density(x:pd.Series, y:pd.Series):
     """Get kernal density estimate for each (x, y) point."""
     try:
         values = np.vstack([x, y])
         kernel = stats.gaussian_kde(values)
         density = kernel(values)
-    except:
+    except scipy.linalg.LinAlgError:
         density = np.zeros(len(x))
     return density

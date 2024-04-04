@@ -22,6 +22,8 @@ def generate_regression_plots(df: pd.DataFrame, id):
 
 def make_regression_slider(df: pd.DataFrame):
     n_ticks = 21
+    # sort df by drugname
+    df = df.sort_values("drug")
     fig = px.scatter(df, x="y_true", y="y_pred", color="drug", trendline="ols",
                      hover_name="drug", hover_data=["scc", "cell_line"],
                      title=f"{df['combination'].unique()[0]}: Regression plot")
