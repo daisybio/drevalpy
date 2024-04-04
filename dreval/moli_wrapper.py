@@ -1,5 +1,5 @@
-from suite.model_wrapper import SingleDRPModel
-from suite.data_wrapper import DrugResponseDataset, FeatureDataset
+from dreval.drp_model import SingleDRPModel
+from dreval.dataset import DrugResponseDataset, FeatureDataset
 import yaml
 
 
