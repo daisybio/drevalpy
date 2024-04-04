@@ -3,7 +3,7 @@ import pandas as pd
 import pytest
 from flaky import flaky
 
-from suite.dataset import DrugResponseDataset
+from suite.dataset import DrugResponseDataset, FeatureDataset
 import os
 
 
@@ -164,6 +164,74 @@ def test_split_response_dataset(mode, split_validation):
             if split_validation:  # Only check if validation split is enabled
                 validation_pairs = set(zip(split["validation"].cell_line_ids, split["validation"].drug_ids))
                 assert validation_pairs.isdisjoint(test_pairs)  # Check for disjointness between validation and test pairs
+
+
+@pytest.fixture
+def sample_dataset():
+    features = {
+        'drug1': {'fingerprints': np.random.rand(5), 'chemical_features': np.random.rand(5)},
+        'drug2': {'fingerprints': np.random.rand(5), 'chemical_features': np.random.rand(5)},
+        'drug3': {'fingerprints': np.random.rand(5), 'chemical_features': np.random.rand(5)}
+    }
+    return FeatureDataset(features)
+
+def test_feature_dataset_get_ids(sample_dataset):
+    assert sample_dataset.get_ids() == ['drug1', 'drug2', 'drug3']
+
+def test_feature_dataset_get_view_names(sample_dataset):
+    assert sample_dataset.get_view_names() == ['fingerprints', 'chemical_features']
+
+def test_feature_dataset_get_feature_matrix(sample_dataset):
+    feature_matrix = sample_dataset.get_feature_matrix('fingerprints', ['drug1', 'drug2'])
+    assert feature_matrix.shape == (2, 5)
+
+def test_feature_dataset_copy(sample_dataset):
+    copied_dataset = sample_dataset.copy()
+    assert copied_dataset.features["drug1"]["fingerprints"] is not sample_dataset.features["drug1"]["fingerprints"]
+    assert np.allclose(copied_dataset.features["drug1"]["fingerprints"], sample_dataset.features["drug1"]["fingerprints"])
+    assert copied_dataset.features is not sample_dataset.features
+    copied_dataset.features['drug1']['fingerprints'] = np.zeros(5)
+    assert not np.allclose(copied_dataset.features['drug1']['fingerprints'], sample_dataset.features['drug1']['fingerprints'])
+
+@pytest.mark.parametrize("views_to_randomize, randomization_type", [
+    ('fingerprints', 'permutation'),
+    ('chemical_features', 'gaussian'),
+    (['fingerprints', 'chemical_features'], 'zeroing')
+])
+def test_feature_dataset_randomize_features(sample_dataset, views_to_randomize, randomization_type):
+    start_sample_dataset = sample_dataset.copy()
+    print(start_sample_dataset.features['drug1']['fingerprints'])
+    sample_dataset.randomize_features(views_to_randomize, randomization_type)
+    for drug, features in sample_dataset.features.items():
+        views = views_to_randomize if isinstance(views_to_randomize, list) else [views_to_randomize]
+        for view in views:
+            if randomization_type == 'permutation':
+                print()
+                print()
+                print()
+                print()
+                print(features[view])
+                print()
+                print()
+                print(start_sample_dataset.features[drug][view])
+                print()
+                print()
+                print()
+                print()
+                assert not np.allclose(features[view], start_sample_dataset.features[drug][view])
+                assert np.allclose(sorted(features[view]), sorted(start_sample_dataset.features[drug][view]))
+            elif randomization_type == 'gaussian':
+                assert not np.allclose(features[view], start_sample_dataset.features[drug][view])
+            elif randomization_type == 'zeroing':
+                assert np.allclose(features[view], 0)
+
+
+def test_feature_dataset_save_and_load(sample_dataset):
+    with pytest.raises(NotImplementedError):
+        sample_dataset.save()
+
+    with pytest.raises(NotImplementedError):
+        sample_dataset.load()
 
 # Run the tests
 if __name__ == "__main__":

@@ -4,7 +4,7 @@ import numpy as np
 from numpy.typing import ArrayLike
 import pandas as pd
 from .utils import leave_pair_out_cv, leave_group_out_cv
-
+import copy
 
 class Dataset(ABC):
     """
@@ -277,7 +277,7 @@ class FeatureDataset(Dataset):
             # Get the entity names
             identifiers = self.get_ids()
 
-            # Permute the specified views for each entity (= cell line or drug)
+            # Permute the specified views for each entity (=cell line or drug)
             self.features = {
                 entity: {
                     view: (
@@ -345,4 +345,4 @@ class FeatureDataset(Dataset):
         """
         Returns a copy of the feature dataset.
         """
-        return FeatureDataset(features=self.features.copy())
+        return FeatureDataset(features=copy.deepcopy(self.features))
