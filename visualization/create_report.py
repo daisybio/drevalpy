@@ -53,8 +53,10 @@ def create_index_html(id):
         f.write('<a href="#heatmap">Heatmap</a>\n')
         f.write('<a href="#regression_plots">Regression plots: True vs. Predicted</a>\n')
         f.write('<a href="#corr_comp">Correlation comparison</a>\n')
-        f.write('<a href="#corr_comp_drug" style="font-size: 14px; padding: 6px 8px 6px 26px">Correlation comparison per drug</a>\n')
-        f.write('<a href="#corr_comp_cls" style="font-size: 14px; padding: 6px 8px 6px 26px">Correlation comparison per cell line</a>\n')
+        f.write(
+            '<a href="#corr_comp_drug" style="font-size: 14px; padding: 6px 8px 6px 26px">Correlation comparison per drug</a>\n')
+        f.write(
+            '<a href="#corr_comp_cls" style="font-size: 14px; padding: 6px 8px 6px 26px">Correlation comparison per cell line</a>\n')
         f.write('</div>\n')
 
         f.write('<div class="main">\n')
@@ -86,14 +88,18 @@ def create_index_html(id):
             f.write(f'<li><a href="regression_plots/{file}" target="_blank">{file}</a></li>\n')
         f.write('</ul>\n')
         f.write('<h2 id="corr_comp">Comparison of correlation metrics</h2>\n')
-        f.write('<h3 id="corr_comp_drug">Drug-wise comparison</h3>\n')
-        f.write('<iframe src="scatter_eval_models_drugs_overall.html" width="100%" height="100%" frameBorder="0"></iframe>\n')
-        f.write('<iframe src="scatter_eval_models_drugs.html" width="100%" height="100%" frameBorder="0"></iframe>\n')
+        if os.path.exists(f'../results/{id}/scatter_eval_models_drugs.html'):
+            f.write('<h3 id="corr_comp_drug">Drug-wise comparison</h3>\n')
+            f.write(
+                '<iframe src="scatter_eval_models_drugs_overall.html" width="100%" height="100%" frameBorder="0"></iframe>\n')
+            f.write(
+                '<iframe src="scatter_eval_models_drugs.html" width="100%" height="100%" frameBorder="0"></iframe>\n')
 
-        f.write('<h3 id="corr_comp_cls">Cell-line wise comparison</h3>\n')
-        f.write(
-            '<iframe src="scatter_eval_models_cls_overall.html" width="100%" height="100%" frameBorder="0"></iframe>\n')
-        f.write('<iframe src="scatter_eval_models_cls.html" width="100%" height="100%" frameBorder="0"></iframe>\n')
+        if os.path.exists(f'../results/{id}/scatter_eval_models_cls.html'):
+            f.write('<h3 id="corr_comp_cls">Cell-line wise comparison</h3>\n')
+            f.write(
+                '<iframe src="scatter_eval_models_cls_overall.html" width="100%" height="100%" frameBorder="0"></iframe>\n')
+            f.write('<iframe src="scatter_eval_models_cls.html" width="100%" height="100%" frameBorder="0"></iframe>\n')
         f.write('</div>\n')
         f.write('</body>\n')
         f.write('</html>\n')
@@ -101,7 +107,8 @@ def create_index_html(id):
 
 if __name__ == "__main__":
     # Load the dataset
-    evaluation_results, evaluation_results_per_drug, evaluation_results_per_cell_line, true_vs_pred = parse_results('my_run')
+    evaluation_results, evaluation_results_per_drug, evaluation_results_per_cell_line, true_vs_pred = parse_results(
+        'my_run')
 
     fig = create_evaluation_violin(evaluation_results)
     fig.write_html('../results/my_run/violinplot.html')
@@ -111,12 +118,16 @@ if __name__ == "__main__":
 
     generate_regression_plots(true_vs_pred, 'my_run')
 
-    fig, fig_overall = generate_scatter_eval_models_plot(evaluation_results_per_drug, metric='Pearson', color_by='drug')
-    fig.write_html('../results/my_run/scatter_eval_models_drugs.html')
-    fig_overall.write_html('../results/my_run/scatter_eval_models_drugs_overall.html')
+    if evaluation_results_per_drug is not None:
+        fig, fig_overall = generate_scatter_eval_models_plot(evaluation_results_per_drug, metric='Pearson',
+                                                             color_by='drug')
+        fig.write_html('../results/my_run/scatter_eval_models_drugs.html')
+        fig_overall.write_html('../results/my_run/scatter_eval_models_drugs_overall.html')
 
-    fig, fig_overall = generate_scatter_eval_models_plot(evaluation_results_per_cell_line, metric='Pearson', color_by='cell_line')
-    fig.write_html('../results/my_run/scatter_eval_models_cls.html')
-    fig_overall.write_html('../results/my_run/scatter_eval_models_cls_overall.html')
+    if evaluation_results_per_cell_line is not None:
+        fig, fig_overall = generate_scatter_eval_models_plot(evaluation_results_per_cell_line, metric='Pearson',
+                                                             color_by='cell_line')
+        fig.write_html('../results/my_run/scatter_eval_models_cls.html')
+        fig_overall.write_html('../results/my_run/scatter_eval_models_cls_overall.html')
 
     create_index_html('my_run')

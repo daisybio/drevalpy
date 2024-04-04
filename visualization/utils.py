@@ -41,49 +41,55 @@ def parse_results(id):
             'cell_line': dataset.cell_line_ids,
             'y_true': dataset.response,
             'y_pred': dataset.predictions})
-        # calculate the mean of y_true per drug
-        tmp_df['mean_y_true_per_drug'] = tmp_df.groupby('drug')['y_true'].transform('mean')
-        norm_df = tmp_df.copy()
-        norm_df['y_true'] = norm_df['y_true'] - norm_df['mean_y_true_per_drug']
-        norm_df['y_pred'] = norm_df['y_pred'] - norm_df['mean_y_true_per_drug']
-        norm_drug_eval_results[f"{algorithm}_{rand_setting}_{eval_setting}"] = evaluate(DrugResponseDataset(
-            response=norm_df['y_true'],
-            cell_line_ids=norm_df['cell_line'],
-            drug_ids=norm_df['drug'],
-            predictions=norm_df['y_pred']
-        ), AVAILABLE_METRICS.keys() - {"MSE", "RMSE", "MAE"})
-        # calculate the mean of y_true per cell line
-        tmp_df['mean_y_true_per_cell_line'] = tmp_df.groupby('cell_line')['y_true'].transform('mean')
-        norm_df = tmp_df.copy()
-        norm_df['y_true'] = norm_df['y_true'] - norm_df['mean_y_true_per_cell_line']
-        norm_df['y_pred'] = norm_df['y_pred'] - norm_df['mean_y_true_per_cell_line']
-        norm_cell_line_eval_results[f"{algorithm}_{rand_setting}_{eval_setting}"] = evaluate(DrugResponseDataset(
-            response=norm_df['y_true'],
-            cell_line_ids=norm_df['cell_line'],
-            drug_ids=norm_df['drug'],
-            predictions=norm_df['y_pred']
-        ), AVAILABLE_METRICS.keys() - {"MSE", "RMSE", "MAE"})
+        if 'LPO' in eval_setting or 'LCO' in eval_setting:
+            # calculate the mean of y_true per drug
+            tmp_df['mean_y_true_per_drug'] = tmp_df.groupby('drug')['y_true'].transform('mean')
+            norm_df = tmp_df.copy()
+            norm_df['y_true'] = norm_df['y_true'] - norm_df['mean_y_true_per_drug']
+            norm_df['y_pred'] = norm_df['y_pred'] - norm_df['mean_y_true_per_drug']
+            norm_drug_eval_results[f"{algorithm}_{rand_setting}_{eval_setting}"] = evaluate(DrugResponseDataset(
+                response=norm_df['y_true'],
+                cell_line_ids=norm_df['cell_line'],
+                drug_ids=norm_df['drug'],
+                predictions=norm_df['y_pred']
+            ), AVAILABLE_METRICS.keys() - {"MSE", "RMSE", "MAE"})
+            # evaluation per drug
+            evaluation_results_per_drug = compute_evaluation(tmp_df, evaluation_results_per_drug, 'drug', algorithm,
+                                                             rand_setting, eval_setting)
+        if 'LPO' in eval_setting or 'LDO' in eval_setting:
+            # calculate the mean of y_true per cell line
+            tmp_df['mean_y_true_per_cell_line'] = tmp_df.groupby('cell_line')['y_true'].transform('mean')
+            norm_df = tmp_df.copy()
+            norm_df['y_true'] = norm_df['y_true'] - norm_df['mean_y_true_per_cell_line']
+            norm_df['y_pred'] = norm_df['y_pred'] - norm_df['mean_y_true_per_cell_line']
+            norm_cell_line_eval_results[f"{algorithm}_{rand_setting}_{eval_setting}"] = evaluate(DrugResponseDataset(
+                response=norm_df['y_true'],
+                cell_line_ids=norm_df['cell_line'],
+                drug_ids=norm_df['drug'],
+                predictions=norm_df['y_pred']
+            ), AVAILABLE_METRICS.keys() - {"MSE", "RMSE", "MAE"})
+            # evaluation per cell line
+            evaluation_results_per_cell_line = compute_evaluation(tmp_df, evaluation_results_per_cell_line, 'cell_line', algorithm, rand_setting, eval_setting)
 
-        # evaluation per drug
-        evaluation_results_per_drug = compute_evaluation(tmp_df, evaluation_results_per_drug, 'drug', algorithm, rand_setting, eval_setting)
-        # evaluation per cell line
-        evaluation_results_per_cell_line = compute_evaluation(tmp_df, evaluation_results_per_cell_line, 'cell_line', algorithm, rand_setting, eval_setting)
         true_vs_pred = pd.concat([true_vs_pred, tmp_df])
 
     evaluation_results = pd.DataFrame.from_dict(evaluation_results, orient='index')
-    norm_drug_eval_results = pd.DataFrame.from_dict(norm_drug_eval_results, orient='index')
-    # append 'drug normalized ' to the column names
-    norm_drug_eval_results.columns = [f'drug normalized {col}' for col in norm_drug_eval_results.columns]
-    norm_cell_line_eval_results = pd.DataFrame.from_dict(norm_cell_line_eval_results, orient='index')
-    # append 'cell line normalized ' to the column names
-    norm_cell_line_eval_results.columns = [f'cell line normalized {col}' for col in norm_cell_line_eval_results.columns]
-    # merge evaluation results with normalized results by index
-    evaluation_results = pd.concat([evaluation_results, norm_drug_eval_results, norm_cell_line_eval_results], axis=1)
-    evaluation_results.to_csv(f'../results/{id}/evaluation_results.csv', index=True)
+    if norm_drug_eval_results != {}:
+        norm_drug_eval_results = pd.DataFrame.from_dict(norm_drug_eval_results, orient='index')
+        # append 'drug normalized ' to the column names
+        norm_drug_eval_results.columns = [f'drug normalized {col}' for col in norm_drug_eval_results.columns]
+        evaluation_results = pd.concat([evaluation_results, norm_drug_eval_results], axis=1)
+        evaluation_results_per_drug.to_csv(f'../results/{id}/evaluation_results_per_drug.csv', index=True)
+    if norm_cell_line_eval_results != {}:
+        norm_cell_line_eval_results = pd.DataFrame.from_dict(norm_cell_line_eval_results, orient='index')
+        # append 'cell line normalized ' to the column names
+        norm_cell_line_eval_results.columns = [f'cell line normalized {col}' for col in norm_cell_line_eval_results.columns]
+        evaluation_results = pd.concat([evaluation_results, norm_cell_line_eval_results], axis=1)
+        evaluation_results_per_cell_line.to_csv(f'../results/{id}/evaluation_results_per_cell_line.csv', index=True)
 
-    evaluation_results_per_drug.to_csv(f'../results/{id}/evaluation_results_per_drug.csv', index=True)
-    evaluation_results_per_cell_line.to_csv(f'../results/{id}/evaluation_results_per_cell_line.csv', index=True)
+    evaluation_results.to_csv(f'../results/{id}/evaluation_results.csv', index=True)
     true_vs_pred.to_csv(f'../results/{id}/true_vs_pred.csv', index=True)
+
     return evaluation_results, evaluation_results_per_drug, evaluation_results_per_cell_line, true_vs_pred
 
 

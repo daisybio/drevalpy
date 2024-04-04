@@ -6,18 +6,16 @@ from plotly.subplots import make_subplots
 def generate_heatmap(df: pd.DataFrame):
     # df = df.fillna(0)
     df.sort_index(inplace=True)
-    # drop r^2, mse, rmse
     df_errors = df[['MSE', 'RMSE', 'MAE']]
-    df_corrs = df[["Pearson", "drug normalized Pearson", "cell line normalized Pearson",
-                   "Spearman", "drug normalized Spearman", "cell line normalized Spearman",
-                   "Kendall", "drug normalized Kendall", "cell line normalized Kendall",
-                   "Partial_Correlation", "drug normalized Partial_Correlation", "cell line normalized Partial_Correlation"]]
+    corr_columns = [col for col in df.columns if 'Pearson' in col or 'Spearman' in col or 'Kendall' in col or 'Partial_Correlation' in col]
+    df_corrs = df[corr_columns]
     titles = ['R^2', 'Correlations', 'Errors']
     fig = make_subplots(rows=3, cols=1, subplot_titles=tuple(titles))
     for i in range(3):
         if i == 0:
             # heatmap for r^2
-            dt = df[["R^2", "drug normalized R^2", "cell line normalized R^2"]].sort_values(by='R^2', ascending=True)
+            r2_columns = [col for col in df.columns if 'R^2' in col]
+            dt = df[r2_columns].sort_values(by='R^2', ascending=True)
             fig = fig.add_trace(
                 go.Heatmap(z=dt.values,
                            x=dt.columns,
