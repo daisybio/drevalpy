@@ -1,10 +1,10 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='drp_model_suite',
+    name='dreval',
     version='1.0.0',
     author=' ',
-    description='Evaluation of cancer cell line drug response models in a fair setting.',
+    description='Drug Response Evaluation of cancer cell line drug response models in a fair setting.',
     long_description='todo',
     long_description_content_type='text/markdown',
     url='https://github.com/biomedbigdata/drp_model_suite',
