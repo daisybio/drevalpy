@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 import math
 
 
-def generate_scatter_eval_models_plot(df: pd.DataFrame, metric):
+def generate_scatter_eval_models_plot(df: pd.DataFrame, metric, color_by):
     df.sort_values('model', inplace=True)
     buttons_x = list()
     buttons_y = list()
@@ -18,17 +18,19 @@ def generate_scatter_eval_models_plot(df: pd.DataFrame, metric):
     for i in range(len(models)):
         fig_overall['layout']['annotations'][i]['font']['size'] = 6
     fig = go.Figure()
-    x = df[df["model"] == models[0]][metric]
+    # subset the dataframe to have model==models[0] and get the metric and color_by column
+    tmp_df = df[df["model"] == models[0]][[metric, color_by]]
+    # make color_by the index
+    tmp_df.set_index(color_by, inplace=True)
+    # sort the dataframe by the index
+    tmp_df.sort_index(inplace=True)
     # replace nan with 0
-    x = np.nan_to_num(x)
-    y = df[df["model"] == models[0]][metric]
-    # replace nan with 0
-    y = np.nan_to_num(y)
-    scatterplot = go.Scatter(x=x,
-                             y=y,
+    tmp_df[metric] = tmp_df[metric].fillna(0)
+    scatterplot = go.Scatter(x=tmp_df[metric],
+                             y=tmp_df[metric],
                              mode='markers',
                              marker=dict(size=10, showscale=False),
-                             name=f'{models[0]} vs {models[0]}',
+                             text=tmp_df.index,
                              showlegend=False,
                              visible=True
                              )
@@ -45,28 +47,32 @@ def generate_scatter_eval_models_plot(df: pd.DataFrame, metric):
 
     for run_idx in range(len(models)):
         run = models[run_idx]
-        x = df[df["model"] == run][metric]
-        # replace nan with 0
-        x = np.nan_to_num(x)
+        x_df = df[df["model"] == run][[metric, color_by]]
+        x_df.set_index(color_by, inplace=True)
+        x_df.sort_index(inplace=True)
+        x_df[metric] = x_df[metric].fillna(0)
         buttons_x.append(
             dict(label=run,
                  method="update",
-                 args=[{"x": [x]},
+                 args=[{"x": [x_df[metric]]},
                        {"xaxis": {"title": run, "range": [-1, 1]}}])
         )
         for run2_idx in range(len(models)):
             run2 = models[run2_idx]
-            y = df[df["model"] == run2][metric]
+            y_df = df[df["model"] == run2][[metric, color_by]]
+            y_df.set_index(color_by, inplace=True)
+            y_df.sort_index(inplace=True)
             # replace nan with 0
-            y = np.nan_to_num(y)
-            density = get_density(x, y)
-            scatterplot = go.Scatter(x=x,
-                                     y=y,
+            y_df[metric] = y_df[metric].fillna(0)
+            density = get_density(x_df[metric], y_df[metric])
+            scatterplot = go.Scatter(x=x_df[metric],
+                                     y=y_df[metric],
                                      mode='markers',
                                      marker=dict(size=4, color=density, colorscale='Viridis', showscale=False),
                                      name=f'{run} vs {run2}',
                                      showlegend=False,
                                      visible=True,
+                                     text=y_df.index
                            )
             fig_overall.add_trace(scatterplot, col=run_idx+1, row=run2_idx+1)
             fig_overall.add_trace(line_corr, col=run_idx+1, row=run2_idx+1)
@@ -74,7 +80,7 @@ def generate_scatter_eval_models_plot(df: pd.DataFrame, metric):
                 buttons_y.append(
                     dict(label=run2,
                          method="update",
-                         args=[{"y": [y]},
+                         args=[{"y": [y_df[metric]]},
                                {"yaxis": {"title": run2, "range": [-1, 1]}}])
                 )
                 if run2_idx == 0:

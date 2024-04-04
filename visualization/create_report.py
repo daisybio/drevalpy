@@ -59,11 +59,17 @@ def create_index_html(id):
         f.write(f'<h1>Results for {id}</h1>\n')
         f.write('<p>')
         f.write(
+            '<a href="true_vs_pred.csv" class="button" download="true_vs_pred.csv" target="_blank"><i class="fa '
+            'fa-download"></i> Download True vs. Predicted Values</a>\n')
+        f.write(
             '<a href="evaluation_results.csv" class="button" download="evaluation_results.csv" target="_blank"><i '
             'class="fa fa-download"></i> Download Evaluation Metrics</a>\n')
         f.write(
-            '<a href="true_vs_pred.csv" class="button" download="true_vs_pred.csv" target="_blank"><i class="fa '
-            'fa-download"></i> Download True vs. Predicted Values</a>\n')
+            '<a href="evaluation_results_per_drug.csv" class="button" download="evaluation_results_per_drug.csv" target="_blank"><i '
+            'class="fa fa-download"></i> Download Evaluation Metrics Per Drug</a>\n')
+        f.write(
+            '<a href="evaluation_results_per_cell_line.csv" class="button" download="evaluation_results_per_cell_line.csv" target="_blank"><i '
+            'class="fa fa-download"></i> Download Evaluation Metrics Per Cell Line</a>\n')
         f.write('</p>')
         f.write('<h2 id="violin">Violin Plots of Performance Measures over CV runs</h2>\n')
         f.write('<iframe src="boxplot.html" width="100%" height="80%" frameBorder="0"></iframe>\n')
@@ -76,9 +82,9 @@ def create_index_html(id):
         for file in file_list:
             f.write(f'<li><a href="regression_plots/{file}" target="_blank">{file}</a></li>\n')
         f.write('</ul>\n')
-        f.write('<h2 id="regression_plots_comp">Comparison of Pearson correlation between all models</h2>\n')
+        f.write('<h2 id="regression_plots_comp">Comparison of Pearson correlations per drug between all models</h2>\n')
         f.write('<iframe src="scatter_eval_models_overall.html" width="100%" height="100%" frameBorder="0"></iframe>\n')
-        f.write('<h2>Comparison of Pearson correlation between two models</h2>\n')
+        f.write('<h2>Comparison of Pearson correlations per drug between two models</h2>\n')
         f.write('<iframe src="scatter_eval_models.html" width="100%" height="100%" frameBorder="0"></iframe>\n')
         f.write('</div>\n')
         f.write('</body>\n')
@@ -88,10 +94,10 @@ def create_index_html(id):
 if __name__ == "__main__":
     # Load the dataset
     #evaluation_results, evaluation_results_per_drug, evaluation_results_per_cell_line, true_vs_pred = parse_results('my_run')
-    #evaluation_results_per_drug = pd.read_csv(f'../results/my_run/evaluation_results_per_drug.csv')
-    #fig, fig_overall = generate_scatter_eval_models_plot(evaluation_results_per_drug, "Pearson")
-    #fig.write_html('../results/my_run/scatter_eval_models.html')
-    #fig_overall.write_html('../results/my_run/scatter_eval_models_overall.html')
+    evaluation_results_per_drug = pd.read_csv(f'../results/my_run/evaluation_results_per_drug.csv')
+    fig, fig_overall = generate_scatter_eval_models_plot(evaluation_results_per_drug, "Pearson", color_by='drug')
+    fig.write_html('../results/my_run/scatter_eval_models.html')
+    fig_overall.write_html('../results/my_run/scatter_eval_models_overall.html')
     #fig = create_evaluation_violin(evaluation_results)
     #fig.write_html('../results/my_run/boxplot.html')
     #fig = generate_heatmap(evaluation_results)
