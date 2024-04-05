@@ -1,9 +1,10 @@
 from abc import ABC, abstractmethod
-from typing import Dict, List, Union
+from typing import Dict, List, Optional, Union
 import numpy as np
 from numpy.typing import ArrayLike
+import pandas as pd
 from .utils import leave_pair_out_cv, leave_group_out_cv
-
+import copy
 
 class Dataset(ABC):
     """
@@ -32,9 +33,10 @@ class DrugResponseDataset(Dataset):
 
     def __init__(
         self,
-        response: ArrayLike,
-        cell_line_ids: ArrayLike,
-        drug_ids: ArrayLike,
+        response: Optional[ArrayLike]=None,
+        cell_line_ids: Optional[ArrayLike]=None,
+        drug_ids: Optional[ArrayLike]=None,
+        predictions: Optional[ArrayLike] = None,
         *args,
         **kwargs,
     ):
@@ -43,6 +45,7 @@ class DrugResponseDataset(Dataset):
         :param response: drug response values per cell line and drug
         :param cell_line_ids: cell line IDs
         :param drug_ids: drug IDs
+        :param predictions: optional. Predicted drug response values per cell line and drug
 
         Variables:
         response: drug response values per cell line and drug
@@ -51,11 +54,28 @@ class DrugResponseDataset(Dataset):
         predictions: optional. Predicted drug response values per cell line and drug
         """
         super(DrugResponseDataset, self).__init__()
-        self.response = np.array(response)
-        self.cell_line_ids = np.array(cell_line_ids)
-        self.drug_ids = np.array(drug_ids)
-        self.predictions = None
+        if response is not None:
+            self.response = np.array(response)
+            self.cell_line_ids = np.array(cell_line_ids)
+            self.drug_ids = np.array(drug_ids)
+            assert len(self.response) == len(
+                self.cell_line_ids
+            ), "response and cell_line_ids have different lengths"
+            assert len(self.response) == len(
+                self.drug_ids
+            ), "response and drug_ids/cell_line_ids have different lengths"
+        else:
+            self.response = response
+            self.cell_line_ids = cell_line_ids
+            self.drug_ids = drug_ids
 
+        if predictions is not None:
+            self.predictions = np.array(predictions)
+            assert len(self.predictions) == len(
+                self.response
+            ), "predictions and response have different lengths"
+        else:
+            self.predictions = None
     def __len__(self):
         return len(self.response)
 
@@ -71,17 +91,31 @@ class DrugResponseDataset(Dataset):
                 string += f"; Predictions {self.predictions}"
         return string
 
-    def load(self):
+    def load(self, path: str):
         """
         Loads the drug response dataset from data.
         """
-        raise NotImplementedError("load method not implemented")
+        data = pd.read_csv(path)
+        self.response = data["response"].values
+        self.cell_line_ids = data["cell_line_ids"].values
+        self.drug_ids = data["drug_ids"].values
+        if "predictions" in data.columns:
+            self.predictions = data["predictions"].values
 
-    def save(self):
+    def save(self, path: str):
         """
         Saves the drug response dataset to data.
         """
-        raise NotImplementedError("save method not implemented")
+        out = pd.DataFrame(
+            {
+                "cell_line_ids": self.cell_line_ids,
+                "drug_ids": self.drug_ids,
+                "response": self.response,
+            }
+        )
+        if self.predictions is not None:
+            out["predictions"] = self.predictions
+        out.to_csv(path, index=False)
 
     def add_rows(self, other: "DrugResponseDataset") -> None:
         """
@@ -197,7 +231,7 @@ class DrugResponseDataset(Dataset):
             raise ValueError(
                 f"Unknown split mode '{mode}'. Choose from 'LPO', 'LCO', 'LDO'."
             )
-        self.cv_splits = cv_splits  # TODO save these as DrugResponseDatasets !!!
+        self.cv_splits = cv_splits  # TODO save these as DrugResponseDatasets
         return cv_splits
 
 
@@ -221,19 +255,25 @@ class FeatureDataset(Dataset):
         Saves the feature dataset to data.
         """
         raise NotImplementedError("save method not implemented")
+    
+    def load(self):
+        """
+        Loads the feature dataset from data.
+        """
+        raise NotImplementedError("load method not implemented")
 
     def randomize_features(
-        self, views_to_randomize: Union[str, list], mode: str
+        self, views_to_randomize: Union[str, list], randomization_type: str
     ) -> None:
         """
         Randomizes the feature vectors.
         :views_to_randomize: name of feature view or list of names of multiple feature views to randomize. The other views are not randomized.
-        :mode: randomization mode (permutation, gaussian, zeroing)
+        :randomization_type: randomization type (permutation, gaussian, zeroing)
         """
         if isinstance(views_to_randomize, str):
             views_to_randomize = [views_to_randomize]
 
-        if mode == "permutation":
+        if randomization_type == "permutation":
             # Get the entity names
             identifiers = self.get_ids()
 
@@ -245,14 +285,11 @@ class FeatureDataset(Dataset):
                         if view not in views_to_randomize
                         else self.features[other_entity][view]
                     )
-                    for view, other_entity in zip(
-                        self.features[entity].keys(), np.random.permutation(identifiers)
-                    )
-                }
-                for entity in identifiers
+                    for view in self.view_names}
+                for entity, other_entity in zip(identifiers, np.random.permutation(identifiers))
             }
 
-        elif mode == "gaussian":
+        elif randomization_type == "gaussian":
             for view in views_to_randomize:
                 for identifier in self.get_ids():
                     self.features[identifier][view] = np.random.normal(
@@ -260,7 +297,7 @@ class FeatureDataset(Dataset):
                         self.features[identifier][view].std(),
                         self.features[identifier][view].shape,
                     )
-        elif mode == "zeroing":
+        elif randomization_type == "zeroing":
             for view in views_to_randomize:
                 for identifier in self.get_ids():
                     self.features[identifier][view] = np.zeros(
@@ -268,28 +305,8 @@ class FeatureDataset(Dataset):
                     )
         else:
             raise ValueError(
-                f"Unknown randomization mode '{mode}'. Choose from 'permutation', 'gaussian', 'zeroing'."
+                f"Unknown randomization mode '{randomization_type}'. Choose from 'permutation', 'gaussian', 'zeroing'."
             )
-
-    def normalize_features(
-        self, views: Union[str, list], normalization_parameter
-    ) -> None:
-        """
-        normalize the feature vectors.
-        :views: name of feature view or list of names of multiple feature views to normalize. The other views are not normalized.
-        :normalization_parameter:
-        """
-        # TODO
-        raise NotImplementedError("normalize_features method not implemented")
-
-    def get_mean_and_standard_deviation(self) -> None:
-        """
-        get columnwise mean and standard deviation of the feature vectors for all views.
-        """
-        # TODO
-        raise NotImplementedError(
-            "get_mean_and_standard_deviation method not implemented"
-        )
 
     def get_ids(self):
         """
@@ -325,4 +342,4 @@ class FeatureDataset(Dataset):
         """
         Returns a copy of the feature dataset.
         """
-        return FeatureDataset(features=self.features.copy())
+        return FeatureDataset(features=copy.deepcopy(self.features))

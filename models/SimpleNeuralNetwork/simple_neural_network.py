@@ -1,7 +1,7 @@
 from typing import Optional
 from models.SimpleNeuralNetwork.utils import FeedForwardNetwork
-from suite.drp_model import DRPModel
-from suite.dataset import DrugResponseDataset, FeatureDataset
+from dreval.drp_model import DRPModel
+from dreval.dataset import DrugResponseDataset, FeatureDataset
 import numpy as np
 import pandas as pd
 import warnings
@@ -93,7 +93,7 @@ class SimpleNeuralNetwork(DRPModel):
                 response_earlystopping,
                 batch_size=16,
                 patience=5,
-                num_workers=0,
+                num_workers=1,
             )
         self.model = neural_network
 
