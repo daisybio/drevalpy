@@ -4,7 +4,7 @@ import numpy as np
 from numpy.typing import ArrayLike
 import pandas as pd
 from .utils import leave_pair_out_cv, leave_group_out_cv
-
+import copy
 
 class Dataset(ABC):
     """
@@ -285,11 +285,8 @@ class FeatureDataset(Dataset):
                         if view not in views_to_randomize
                         else self.features[other_entity][view]
                     )
-                    for view, other_entity in zip(
-                        self.features[entity].keys(), np.random.permutation(identifiers)
-                    )
-                }
-                for entity in identifiers
+                    for view in self.view_names}
+                for entity, other_entity in zip(identifiers, np.random.permutation(identifiers))
             }
 
         elif randomization_type == "gaussian":
@@ -310,26 +307,6 @@ class FeatureDataset(Dataset):
             raise ValueError(
                 f"Unknown randomization mode '{randomization_type}'. Choose from 'permutation', 'gaussian', 'zeroing'."
             )
-
-    def normalize_features(
-        self, views: Union[str, list], normalization_parameter
-    ) -> None:
-        """
-        normalize the feature vectors.
-        :views: name of feature view or list of names of multiple feature views to normalize. The other views are not normalized.
-        :normalization_parameter:
-        """
-        # TODO
-        raise NotImplementedError("normalize_features method not implemented")
-
-    def get_mean_and_standard_deviation(self) -> None:
-        """
-        get columnwise mean and standard deviation of the feature vectors for all views.
-        """
-        # TODO
-        raise NotImplementedError(
-            "get_mean_and_standard_deviation method not implemented"
-        )
 
     def get_ids(self):
         """
@@ -365,4 +342,4 @@ class FeatureDataset(Dataset):
         """
         Returns a copy of the feature dataset.
         """
-        return FeatureDataset(features=self.features.copy())
+        return FeatureDataset(features=copy.deepcopy(self.features))

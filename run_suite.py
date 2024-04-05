@@ -2,7 +2,7 @@ import argparse
 from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler
 from models import MODEL_FACTORY
 from response_datasets import RESPONSE_DATASET_FACTORY
-from suite.experiment import drug_response_experiment
+from dreval.experiment import drug_response_experiment
 
 
 def get_parser():
