@@ -5,27 +5,39 @@ import pandas as pd
 import os
 
 
-def generate_regression_plots(df: pd.DataFrame, id):
-    if not os.path.exists(f'../results/{id}/regression_plots'):
-        os.mkdir(f'../results/{id}/regression_plots')
-    sccs = df.groupby(['algorithm', 'rand_setting', 'eval_setting', 'drug']).apply(
+def generate_regression_plots(df: pd.DataFrame, run_id: str, group_by: str = 'drug', normalize=False):
+    if not os.path.exists(f'../results/{run_id}/regression_plots'):
+        os.mkdir(f'../results/{run_id}/regression_plots')
+    if normalize:
+        if group_by == 'drug':
+            df['y_true'] = df['y_true'] - df['mean_y_true_per_drug']
+            df['y_pred'] = df['y_pred'] - df['mean_y_true_per_drug']
+        else:
+            df['y_true'] = df['y_true'] - df['mean_y_true_per_cell_line']
+            df['y_pred'] = df['y_pred'] - df['mean_y_true_per_cell_line']
+    # kick out all groups with less than 2 samples but keep it as grouped object
+    df = df.groupby(['algorithm', 'rand_setting', 'eval_setting', group_by]).filter(lambda x: len(x) > 1)
+    sccs = df.groupby(['algorithm', 'rand_setting', 'eval_setting', group_by]).apply(
         lambda x: scipy.stats.pearsonr(x['y_true'], x['y_pred'])[0])
     sccs = sccs.reset_index()
-    sccs.columns = ['algorithm', 'rand_setting', 'eval_setting', 'drug', 'scc']
-    df = df.merge(sccs, on=['algorithm', 'rand_setting', 'eval_setting', 'drug'])
+    sccs.columns = ['algorithm', 'rand_setting', 'eval_setting', group_by, 'scc']
+    df = df.merge(sccs, on=['algorithm', 'rand_setting', 'eval_setting', group_by])
     df['combination'] = df['algorithm'] + ' ' + df['rand_setting'] + ' ' + df['eval_setting']
     for combination in df['combination'].unique():
         tmp_df = df[df['combination'] == combination]
-        fig = make_regression_slider(tmp_df)
-        fig.write_html(f'../results/{id}/regression_plots/{combination}_regression_lines.html')
+        fig = make_regression_slider(tmp_df, group_by=group_by)
+        if normalize:
+            fig.write_html(f'../results/{run_id}/regression_plots/{combination}_regression_lines_{group_by}_normalized.html')
+        else:
+            fig.write_html(f'../results/{run_id}/regression_plots/{combination}_regression_lines_{group_by}.html')
 
 
-def make_regression_slider(df: pd.DataFrame):
+def make_regression_slider(df: pd.DataFrame, group_by: str = 'drug'):
     n_ticks = 21
-    # sort df by drugname
-    df = df.sort_values("drug")
-    fig = px.scatter(df, x="y_true", y="y_pred", color="drug", trendline="ols",
-                     hover_name="drug", hover_data=["scc", "cell_line"],
+    # sort df by group name
+    df = df.sort_values(group_by)
+    fig = px.scatter(df, x="y_true", y="y_pred", color=group_by, trendline="ols",
+                     hover_name=group_by, hover_data=["scc", "cell_line"],
                      title=f"{df['combination'].unique()[0]}: Regression plot")
 
     # Create and add slider

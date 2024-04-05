@@ -115,7 +115,10 @@ if __name__ == "__main__":
     fig = generate_heatmap(evaluation_results)
     fig.write_html('../results/my_run/heatmap.html')
 
-    generate_regression_plots(true_vs_pred, 'my_run')
+    generate_regression_plots(true_vs_pred, 'my_run', group_by='drug')
+    generate_regression_plots(true_vs_pred, 'my_run', group_by='drug', normalize=True)
+    generate_regression_plots(true_vs_pred, 'my_run', group_by='cell_line')
+    generate_regression_plots(true_vs_pred, 'my_run', group_by='cell_line', normalize=True)
 
     if evaluation_results_per_drug is not None:
         fig, fig_overall = generate_scatter_eval_models_plot(evaluation_results_per_drug, metric='Pearson',
