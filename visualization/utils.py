@@ -7,6 +7,7 @@ from dreval.evaluation import evaluate, AVAILABLE_METRICS
 
 
 def parse_results(id):
+    print('Generating result tables ...')
     result_dir = pathlib.Path(f'../results/{id}')
     # recursively find all the files in the result directory
     result_files = list(result_dir.rglob('*.csv'))

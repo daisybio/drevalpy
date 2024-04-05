@@ -164,8 +164,6 @@ def partial_correlation(
     :return: partial correlation float
     """
 
-    from pingouin import partial_corr
-
     assert (
         len(y_pred) == len(y_true) == len(cell_line_ids) == len(drug_ids)
     ), "predictions, response, drug_ids, and cell_line_ids must have the same length"
@@ -174,13 +172,38 @@ def partial_correlation(
                        'predictions': y_pred,
                        'cell_line_ids': cell_line_ids,
                        'drug_ids': drug_ids})
-    # convert cell_line_ids and drug_ids to numerics
-    df['cell_line_ids'] = pd.factorize(df['cell_line_ids'])[0]
-    df['drug_ids'] = pd.factorize(df['drug_ids'])[0]
-    return partial_corr(df,
-                        x='response',
-                        y='predictions',
-                        covar=['cell_line_ids', 'drug_ids'])['r'].item()
+    # fit a model to compute the biases
+    from statsmodels.formula.api import ols
+    model = ols('response ~ cell_line_ids + drug_ids', data=df).fit()
+    fil = pd.Series(model.params.index).apply(lambda x: x[:4] == "cell")
+    model_cell = model.params[fil.values]
+    fil = pd.Series(model.params.index).apply(lambda x: x[:4] == "drug")
+    model_drug = model.params[fil.values]
+    model_cell.index = pd.Series(model_cell.index).apply(lambda x: x.split("T.")[1][:-1])
+    model_drug.index = pd.Series(model_drug.index).apply(lambda x: x.split("T.")[1][:-1])
+
+    cell_bias = pd.DataFrame(0.0, index=df['cell_line_ids'].unique(), columns=['cell_bias'])
+    cell_bias.loc[
+        model_cell.index,
+        "cell_bias",
+    ] = model_cell.values
+
+    drug_bias = pd.DataFrame(0.0, index=df['drug_ids'].unique(), columns=['drug_bias'])
+    drug_bias.loc[
+        model_drug.index,
+        "drug_bias",
+    ] = model_drug.values
+
+    df["cell_bias"] = df["cell_line_ids"].map(cell_bias["cell_bias"])
+    df["drug_bias"] = df["drug_ids"].map(drug_bias["drug_bias"])
+
+    if (len(df) > 1) & (df['response'].std() > 1e-10) & (df['predictions'].std() > 1e-10):
+        model1 = ols('response ~ cell_bias + drug_bias', data=df).fit()
+        model2 = ols('predictions ~ cell_bias + drug_bias', data=df).fit()
+        r, p = pearsonr(model1.resid, model2.resid)
+    else:
+        r = 1.0
+    return r
 
 
 def pearson(y_pred: np.ndarray, y_true: np.ndarray) -> float:

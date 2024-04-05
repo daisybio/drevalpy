@@ -3,6 +3,7 @@ import plotly.graph_objects as go
 
 
 def create_evaluation_violin(df: pd.DataFrame):
+    print('Drawing violin plots ...')
     df.sort_index(inplace=True)
     df['algorithm'] = df.index.str.split('_').str[0]
     df['rand_setting'] = df.index.str.split('_').str[1]

@@ -6,6 +6,7 @@ import os
 
 
 def generate_regression_plots(df: pd.DataFrame, run_id: str, group_by: str = 'drug', normalize=False):
+    print(f'Generating regression plots for {group_by}, normalize={normalize}...')
     if not os.path.exists(f'../results/{run_id}/regression_plots'):
         os.mkdir(f'../results/{run_id}/regression_plots')
     if normalize:

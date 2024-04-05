@@ -4,7 +4,7 @@ from plotly.subplots import make_subplots
 
 
 def generate_heatmap(df: pd.DataFrame):
-    # df = df.fillna(0)
+    print('Drawing Heatmap ...')
     df.sort_index(inplace=True)
     df_errors = df[['MSE', 'RMSE', 'MAE']]
     corr_columns = [col for col in df.columns if 'Pearson' in col or 'Spearman' in col or 'Kendall' in col or 'Partial_Correlation' in col]

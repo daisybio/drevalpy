@@ -8,6 +8,7 @@ import math
 
 
 def generate_scatter_eval_models_plot(df: pd.DataFrame, metric, color_by):
+    print('Drawing scatterplots ...')
     df.sort_values('model', inplace=True)
     buttons_x = list()
     buttons_y = list()
