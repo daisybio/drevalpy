@@ -53,7 +53,7 @@ def drug_response_experiment(
     :return: None
     """
 
-    result_path = os.path.join(path_out, run_id)
+    result_path = os.path.join(path_out, run_id, test_mode)
     # if results exists, delete them if overwrite is true
 
     if os.path.exists(result_path) and overwrite:
