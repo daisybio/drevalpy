@@ -2,8 +2,8 @@ import pandas as pd
 import pathlib
 import os
 
-from suite.dataset import DrugResponseDataset
-from suite.evaluation import evaluate, AVAILABLE_METRICS
+from dreval.dataset import DrugResponseDataset
+from dreval.evaluation import evaluate, AVAILABLE_METRICS
 
 
 def parse_results(id):
