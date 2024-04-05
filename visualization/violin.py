@@ -10,11 +10,11 @@ def create_evaluation_violin(df: pd.DataFrame):
     df['eval_setting'] = df.index.str.split('_').str[2]
     df['box'] = df['algorithm'] + '_' + df['rand_setting'] + '_' + df['eval_setting']
     fig = go.Figure()
-    all_metrics = ["R^2", "drug normalized R^2", "cell line normalized R^2",
-                   "Pearson", "drug normalized Pearson", "cell line normalized Pearson",
-                   "Spearman", "drug normalized Spearman", "cell line normalized Spearman",
-                   "Kendall", "drug normalized Kendall", "cell line normalized Kendall",
-                   "Partial_Correlation", "drug normalized Partial_Correlation", "cell line normalized Partial_Correlation",
+    all_metrics = ["R^2", "R^2: drug normalized", "R^2: cell line normalized",
+                   "Pearson", "Pearson: drug normalized", "Pearson: cell line normalized",
+                   "Spearman", "Spearman: drug normalized", "Spearman: cell line normalized",
+                   "Kendall", "Kendall: drug normalized", "Kendall: cell line normalized",
+                   "Partial_Correlation", "Partial_Correlation: drug normalized", "Partial_Correlation: cell line normalized",
                    "MSE", "RMSE", "MAE"]
     occurring_metrics = [metric for metric in all_metrics if metric in df.columns]
     count_r2 = 0

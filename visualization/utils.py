@@ -78,13 +78,13 @@ def parse_results(id):
     if norm_drug_eval_results != {}:
         norm_drug_eval_results = pd.DataFrame.from_dict(norm_drug_eval_results, orient='index')
         # append 'drug normalized ' to the column names
-        norm_drug_eval_results.columns = [f'drug normalized {col}' for col in norm_drug_eval_results.columns]
+        norm_drug_eval_results.columns = [f'{col}: drug normalized' for col in norm_drug_eval_results.columns]
         evaluation_results = pd.concat([evaluation_results, norm_drug_eval_results], axis=1)
         evaluation_results_per_drug.to_csv(f'../results/{id}/evaluation_results_per_drug.csv', index=True)
     if norm_cell_line_eval_results != {}:
         norm_cell_line_eval_results = pd.DataFrame.from_dict(norm_cell_line_eval_results, orient='index')
         # append 'cell line normalized ' to the column names
-        norm_cell_line_eval_results.columns = [f'cell line normalized {col}' for col in norm_cell_line_eval_results.columns]
+        norm_cell_line_eval_results.columns = [f'{col}: cell line normalized' for col in norm_cell_line_eval_results.columns]
         evaluation_results = pd.concat([evaluation_results, norm_cell_line_eval_results], axis=1)
         evaluation_results_per_cell_line.to_csv(f'../results/{id}/evaluation_results_per_cell_line.csv', index=True)
 

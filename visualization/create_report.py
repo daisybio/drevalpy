@@ -1,12 +1,10 @@
 import os
-import pandas as pd
 
 from utils import parse_results
 from heatmap import generate_heatmap
 from single_model_regression import generate_regression_plots
 from violin import create_evaluation_violin
 from scatter_eval_models import generate_scatter_eval_models_plot
-from dreval.evaluation import AVAILABLE_METRICS
 
 
 def create_index_html(id):
