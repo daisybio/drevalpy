@@ -55,17 +55,21 @@ def drug_response_experiment(
 
     result_path = os.path.join(path_out, run_id, test_mode)
     # if results exists, delete them if overwrite is true
-
     if os.path.exists(result_path) and overwrite:
         shutil.rmtree(result_path)
-    os.makedirs(result_path)
+        
+    os.makedirs(result_path, exist_ok=True)
 
     # TODO load existing progress if it exists, currently we just overwrite
     for model in models:
+
+        print(f"Running model {model.model_name}")
+
         model_path = os.path.join(result_path, model.model_name)
         os.makedirs(model_path, exist_ok=True)
         predictions_path = os.path.join(model_path, "predictions")
         os.makedirs(predictions_path, exist_ok=True)
+        
         if randomization_mode is not None:
             randomization_test_path = os.path.join(model_path, "randomization_tests")
             os.makedirs(randomization_test_path)
@@ -81,56 +85,60 @@ def drug_response_experiment(
         )
 
         for split_index, split in enumerate(response_data.cv_splits):
-            train_dataset = split["train"]
-            validation_dataset = split["validation"]
-            test_dataset = split["test"]
+            prediction_file = os.path.join(predictions_path, f"test_dataset_{test_mode}_split_{split_index}.csv")
+            if not os.path.isfile(): # if this split has not been run yet
+                train_dataset = split["train"]
+                validation_dataset = split["validation"]
+                test_dataset = split["test"]
 
-            # if model.early_stopping is true then we split the validation set into a validation and early stopping set
-            if model.early_stopping:
-                validation_dataset, early_stopping_dataset = split_early_stopping(
-                    validation_dataset=validation_dataset, test_mode=test_mode
-                )
+                # if model.early_stopping is true then we split the validation set into a validation and early stopping set
+                if model.early_stopping:
+                    validation_dataset, early_stopping_dataset = split_early_stopping(
+                        validation_dataset=validation_dataset, test_mode=test_mode
+                    )
 
-            if multiprocessing:
-                best_hpams = hpam_tune_raytune(
+                if multiprocessing:
+                    best_hpams = hpam_tune_raytune(
+                        model=model,
+                        train_dataset=train_dataset,
+                        validation_dataset=validation_dataset,
+                        early_stopping_dataset=(
+                            early_stopping_dataset if model.early_stopping else None
+                        ),
+                        hpam_set=model_hpam_set,
+                        response_transformation=response_transformation,
+                        metric=metric
+                    )
+                else:
+                    best_hpams = hpam_tune(
+                        model=model,
+                        train_dataset=train_dataset,
+                        validation_dataset=validation_dataset,
+                        early_stopping_dataset=(
+                            early_stopping_dataset if model.early_stopping else None
+                        ),
+                        hpam_set=model_hpam_set,
+                        response_transformation=response_transformation,
+                        metric=metric
+                    )
+                train_dataset.add_rows(
+                    validation_dataset
+                )  # use full train val set data for final training
+                train_dataset.shuffle(random_state=42)
+
+                test_dataset = train_and_predict(
                     model=model,
+                    hpams=best_hpams,
                     train_dataset=train_dataset,
-                    validation_dataset=validation_dataset,
+                    prediction_dataset=test_dataset,
                     early_stopping_dataset=(
                         early_stopping_dataset if model.early_stopping else None
                     ),
-                    hpam_set=model_hpam_set,
-                    response_transformation=response_transformation,
-                    metric=metric
+                    response_transformation=response_transformation
                 )
+                test_dataset.save(prediction_file)
             else:
-                best_hpams = hpam_tune(
-                    model=model,
-                    train_dataset=train_dataset,
-                    validation_dataset=validation_dataset,
-                    early_stopping_dataset=(
-                        early_stopping_dataset if model.early_stopping else None
-                    ),
-                    hpam_set=model_hpam_set,
-                    response_transformation=response_transformation,
-                    metric=metric
-                )
-            train_dataset.add_rows(
-                validation_dataset
-            )  # use full train val set data for final training
-            train_dataset.shuffle(random_state=42)
-
-            test_dataset = train_and_predict(
-                model=model,
-                hpams=best_hpams,
-                train_dataset=train_dataset,
-                prediction_dataset=test_dataset,
-                early_stopping_dataset=(
-                    early_stopping_dataset if model.early_stopping else None
-                ),
-                response_transformation=response_transformation
-            )
-            test_dataset.save(os.path.join(predictions_path, f"test_dataset_{test_mode}_split_{split_index}.csv"))
+                print(f"Split {split_index} already exists. Skipping.")
 
             if randomization_mode is not None:
                 randomization_test_views = get_randomization_test_views(model=model,
@@ -202,31 +210,35 @@ def randomization_test(
     drug_features = model.get_drug_features(path=hpam_set["feature_path"])
     for test_name, views in randomization_test_views.items():
         randomization_test_path = os.path.join(path_out, test_name)
-        os.makedirs(randomization_test_path, exist_ok=True)
-        for view in views:
-            cl_features_rand = cl_features.copy()
-            drug_features_rand = drug_features.copy()
-            if view in cl_features.get_view_names():
-                cl_features_rand.randomize_features(view, randomization_type=randomization_type)
-            elif view in drug_features.get_view_names():
-                drug_features_rand.randomize_features(view, randomization_type=randomization_type)
-            else:
-                warnings.warn(
-                    f"View {view} not found in features. Skipping randomization test {test_name} which includes this view."
-                )
-                break
-            test_dataset_rand = train_and_predict(
-                model=model,
-                hpams=hpam_set,
-                train_dataset=train_dataset,
-                prediction_dataset=test_dataset,
-                early_stopping_dataset=early_stopping_dataset,
-                response_transformation=response_transformation,
-                cl_features=cl_features_rand,
-                drug_features=drug_features_rand,
-            )
-            test_dataset_rand.save(os.path.join(randomization_test_path, f"test_dataset_{test_mode}_split_{split_index}.csv"))
+        randomization_test_file = os.path.join(randomization_test_path, f"test_dataset_{test_mode}_split_{split_index}.csv")
 
+        os.makedirs(randomization_test_path, exist_ok=True)
+        if not os.path.isfile(randomization_test_file): # if this splits test has not been run yet
+            for view in views:
+                cl_features_rand = cl_features.copy()
+                drug_features_rand = drug_features.copy()
+                if view in cl_features.get_view_names():
+                    cl_features_rand.randomize_features(view, randomization_type=randomization_type)
+                elif view in drug_features.get_view_names():
+                    drug_features_rand.randomize_features(view, randomization_type=randomization_type)
+                else:
+                    warnings.warn(
+                        f"View {view} not found in features. Skipping randomization test {test_name} which includes this view."
+                    )
+                    break
+                test_dataset_rand = train_and_predict(
+                    model=model,
+                    hpams=hpam_set,
+                    train_dataset=train_dataset,
+                    prediction_dataset=test_dataset,
+                    early_stopping_dataset=early_stopping_dataset,
+                    response_transformation=response_transformation,
+                    cl_features=cl_features_rand,
+                    drug_features=drug_features_rand,
+                )
+                test_dataset_rand.save(randomization_test_file)
+        else:
+            print(f"Randomization test {test_name} already exists. Skipping.")
 def split_early_stopping(
     validation_dataset: DrugResponseDataset, test_mode: str
 ) -> Tuple[DrugResponseDataset]:
