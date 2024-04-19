@@ -323,9 +323,8 @@ class FeatureDataset(Dataset):
     def get_feature_matrix(self, view: str, identifiers: str) -> np.ndarray:
         """
         Returns the feature matrix for the given view.
-        :param drug_input: drug input
-        :param cell_line_input: cell line input
         :param view: view name
+        :param identifiers: list of identifiers (cell lines oder drugs)
         :return: feature matrix
         """
         assert view in self.view_names, f"View '{view}' not in in the FeatureDataset."
