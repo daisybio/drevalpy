@@ -160,9 +160,9 @@ def normalize_gene_expression(X_train, X_test, mode="NormTransform", n_cpus=1):
         # perform normalisation using the pydeseq2 package
         logger.info("Using Pydeseq2 norm function to normalize counts")
         deseq2_counts_train, size_factors = deseq2_norm(gene_counts_train_df)
-        deseq2_counts_train = np.log2(deseq2_counts_train + 1)
+        X_train = np.log2(deseq2_counts_train + 1)
         deseq2_counts_test, size_factors = deseq2_norm(gene_counts_test_df)
-        deseq2_counts_test = np.log2(deseq2_counts_test + 1)
+        X_test = np.log2(deseq2_counts_test + 1)
 
     elif mode == "VST":
         # for whatever reason it needs a condition :(
