@@ -13,7 +13,9 @@ def generate_scatter_eval_models_plot(df: pd.DataFrame, metric, color_by):
     buttons_x = list()
     buttons_y = list()
 
-    models = df["model"].unique()
+    df["setting"] = df['model'].str.split('_').str[0:3].str.join('_')
+    models = df["setting"].unique()
+    # split the strings of the ndarray by '_' and keep
 
     fig_overall = make_subplots(rows=len(models), cols=len(models),
                                 subplot_titles=[str(model).replace('_', '<br>', 2) for model in models])
@@ -21,7 +23,7 @@ def generate_scatter_eval_models_plot(df: pd.DataFrame, metric, color_by):
         fig_overall['layout']['annotations'][i]['font']['size'] = 6
     fig = go.Figure()
     # subset the dataframe to have model==models[0] and get the metric and color_by column
-    tmp_df = df[df["model"] == models[0]][[metric, color_by]]
+    tmp_df = df[df["setting"] == models[0]][[metric, color_by]]
     # make color_by the index
     tmp_df.set_index(color_by, inplace=True)
     # sort the dataframe by the index
@@ -49,7 +51,7 @@ def generate_scatter_eval_models_plot(df: pd.DataFrame, metric, color_by):
 
     for run_idx in range(len(models)):
         run = models[run_idx]
-        x_df = df[df["model"] == run][[metric, color_by]]
+        x_df = df[df["setting"] == run][[metric, color_by]]
         x_df.set_index(color_by, inplace=True)
         x_df.sort_index(inplace=True)
         x_df[metric] = x_df[metric].fillna(0)
@@ -61,7 +63,7 @@ def generate_scatter_eval_models_plot(df: pd.DataFrame, metric, color_by):
         )
         for run2_idx in range(len(models)):
             run2 = models[run2_idx]
-            y_df = df[df["model"] == run2][[metric, color_by]]
+            y_df = df[df["setting"] == run2][[metric, color_by]]
             y_df.set_index(color_by, inplace=True)
             y_df.sort_index(inplace=True)
             # replace nan with 0

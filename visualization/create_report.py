@@ -1,5 +1,7 @@
 import os
 
+import pandas as pd
+
 from utils import parse_results
 from heatmap import generate_heatmap
 from single_model_regression import generate_regression_plots
@@ -75,7 +77,7 @@ def create_index_html(id):
         f.write('</p>')
         f.write('<h2 id="violin">Violin Plots of Performance Measures over CV runs</h2>\n')
         f.write('<iframe src="violinplot.html" width="100%" height="80%" frameBorder="0"></iframe>\n')
-        f.write('<h2 id="heatmap">Heatmap for Performance Measures for Every Run</h2>\n')
+        f.write('<h2 id="heatmap">Heatmap for Performance Measures</h2>\n')
         f.write('<iframe src="heatmap.html" width="100%" height="100%" frameBorder="0"></iframe>\n')
         f.write('<h2 id="regression_plots">Regression plots</h2>\n')
         f.write('<ul>\n')
@@ -104,30 +106,37 @@ def create_index_html(id):
 
 if __name__ == "__main__":
     # Load the dataset
+    run_id = 'my_run_id'
     evaluation_results, evaluation_results_per_drug, evaluation_results_per_cell_line, true_vs_pred = parse_results(
-        'my_run')
+       run_id)
+
+    #evaluation_results = pd.read_csv(f'../results/{run_id}/evaluation_results.csv', index_col=0)
+    #evaluation_results_per_drug = pd.read_csv(f'../results/{run_id}/evaluation_results_per_drug.csv', index_col=0)
+    #evaluation_results_per_cell_line = pd.read_csv(f'../results/{run_id}/evaluation_results_per_cell_line.csv', index_col=0)
+    #true_vs_pred = pd.read_csv(f'../results/{run_id}/true_vs_pred.csv', index_col=0)
 
     fig = create_evaluation_violin(evaluation_results)
-    fig.write_html('../results/my_run/violinplot.html')
+    fig.write_html(f'../results/{run_id}/violinplot.html')
 
     fig = generate_heatmap(evaluation_results)
-    fig.write_html('../results/my_run/heatmap.html')
+    fig.write_html(f'../results/{run_id}/heatmap.html')
 
-    generate_regression_plots(true_vs_pred, 'my_run', group_by='drug')
-    generate_regression_plots(true_vs_pred, 'my_run', group_by='drug', normalize=True)
-    generate_regression_plots(true_vs_pred, 'my_run', group_by='cell_line')
-    generate_regression_plots(true_vs_pred, 'my_run', group_by='cell_line', normalize=True)
+    generate_regression_plots(true_vs_pred, run_id, group_by='drug')
+    generate_regression_plots(true_vs_pred, run_id, group_by='drug', normalize=True)
+    generate_regression_plots(true_vs_pred, run_id, group_by='cell_line')
+    generate_regression_plots(true_vs_pred, run_id, group_by='cell_line', normalize=True)
 
     if evaluation_results_per_drug is not None:
         fig, fig_overall = generate_scatter_eval_models_plot(evaluation_results_per_drug, metric='Pearson',
                                                              color_by='drug')
-        fig.write_html('../results/my_run/scatter_eval_models_drugs.html')
-        fig_overall.write_html('../results/my_run/scatter_eval_models_drugs_overall.html')
+        fig.write_html(f'../results/{run_id}/scatter_eval_models_drugs.html')
+        fig_overall.write_html(f'../results/{run_id}/scatter_eval_models_drugs_overall.html')
 
     if evaluation_results_per_cell_line is not None:
         fig, fig_overall = generate_scatter_eval_models_plot(evaluation_results_per_cell_line, metric='Pearson',
                                                              color_by='cell_line')
-        fig.write_html('../results/my_run/scatter_eval_models_cls.html')
-        fig_overall.write_html('../results/my_run/scatter_eval_models_cls_overall.html')
+        fig.write_html(f'../results/{run_id}/scatter_eval_models_cls.html')
+        fig_overall.write_html(f'../results/{run_id}/scatter_eval_models_cls_overall.html')
 
-    create_index_html('my_run')
+    create_index_html(run_id)
+

@@ -202,7 +202,8 @@ def partial_correlation(
         model2 = ols('predictions ~ cell_bias + drug_bias', data=df).fit()
         r, p = pearsonr(model1.resid, model2.resid)
     else:
-        r = 1.0
+        # if constant response or predictions, return nan because pearsonnr is not defined
+        r = np.nan
     return r
 
 
@@ -217,6 +218,8 @@ def pearson(y_pred: np.ndarray, y_true: np.ndarray) -> float:
     assert len(y_pred) == len(
         y_true
     ), "predictions, response  must have the same length"
+    if (y_pred == y_pred[0]).all() or (y_true == y_true[0]).all() or len(y_true) < 2:
+        return np.nan
     return pearsonr(y_pred, y_true)[0]
 
 
@@ -231,6 +234,8 @@ def spearman(y_pred: np.ndarray, y_true: np.ndarray) -> float:
     assert len(y_pred) == len(
         y_true
     ), "predictions, response  must have the same length"
+    if (y_pred == y_pred[0]).all() or (y_true == y_true[0]).all() or len(y_true) < 2:
+        return np.nan
     return spearmanr(y_pred, y_true)[0]
 
 
@@ -245,4 +250,6 @@ def kendall(y_pred: np.ndarray, y_true: np.ndarray) -> float:
     assert len(y_pred) == len(
         y_true
     ), "predictions, response  must have the same length"
+    if (y_pred == y_pred[0]).all() or (y_true == y_true[0]).all() or len(y_true) < 2:
+        return np.nan
     return kendalltau(y_pred, y_true)[0]

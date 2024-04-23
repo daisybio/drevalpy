@@ -20,6 +20,7 @@ def parse_results(id):
     evaluation_results_per_cell_line = None
     true_vs_pred = pd.DataFrame({'algorithm': [], 'rand_setting': [], 'eval_setting': [], 'y_true': [], 'y_pred': []})
     for file in result_files:
+        print('Parsing file:', os.path.normpath(file))
         result = pd.read_csv(file)
         dataset = DrugResponseDataset(
             response=result['response'],
@@ -28,8 +29,11 @@ def parse_results(id):
             predictions=result['predictions']
         )
         file_parts = os.path.normpath(file).split('/')
-        algorithm = file_parts[3]
+        algorithm = file_parts[4]
+        randomization = file_parts[-3].split('_')[0]
         rand_setting = file_parts[-2].replace('_', '-')
+        if randomization == 'randomization':
+            rand_setting = 'randomize-' + file_parts[-2].replace('_', '-')
         filename = file_parts[-1]
         # overall evaluation
         eval_setting = f"{filename.split('_')[2]}_split_{filename.split('_')[4].split('.')[0]}"
@@ -44,6 +48,7 @@ def parse_results(id):
             'y_pred': dataset.predictions})
         if 'LPO' in eval_setting or 'LCO' in eval_setting:
             # calculate the mean of y_true per drug
+            print('Calculating drug-wise evaluation measures …')
             tmp_df['mean_y_true_per_drug'] = tmp_df.groupby('drug')['y_true'].transform('mean')
             norm_df = tmp_df.copy()
             norm_df['y_true'] = norm_df['y_true'] - norm_df['mean_y_true_per_drug']
@@ -59,6 +64,7 @@ def parse_results(id):
                                                              rand_setting, eval_setting)
         if 'LPO' in eval_setting or 'LDO' in eval_setting:
             # calculate the mean of y_true per cell line
+            print('Calculating cell-line-wise evaluation measures …')
             tmp_df['mean_y_true_per_cell_line'] = tmp_df.groupby('cell_line')['y_true'].transform('mean')
             norm_df = tmp_df.copy()
             norm_df['y_true'] = norm_df['y_true'] - norm_df['mean_y_true_per_cell_line']

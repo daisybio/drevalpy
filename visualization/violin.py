@@ -100,7 +100,7 @@ def create_evaluation_violin(df: pd.DataFrame):
             )
         ]
     )
-    fig.update_layout(title_text="All Metrics")
+    fig.update_layout(title_text="All Metrics", height=1000, width=1400)
     return fig
 
 
