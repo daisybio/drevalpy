@@ -72,12 +72,16 @@ class DRPModel(ABC):
         pass
 
     @abstractmethod
-    def predict(self, cell_line_input: FeatureDataset, drug_input: FeatureDataset):
+    def predict(cell_line_ids: np.ndarray,
+        drug_ids: np.ndarray,
+        cell_line_input: FeatureDataset,
+        drug_input: FeatureDataset):
         """
-        Predicts the response for the given input. Call the respective function from models_code here.
-        :param cell_line_input: input associated with the cell line
-        :param drug_input: input associated with the drug
-        :return: predicted response
+        Predicts the response for the given input. 
+        :param cell_line_ids: cell line ids of the pairs for which to predict the response
+        :param drug_ids: drug ids of the pairs for which to predict the response
+        :param cell_line_input: feature dataset associated with the cell line
+        :param drug_input: feature dataset associated with the drug
         """
         pass
 
