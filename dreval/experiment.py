@@ -17,6 +17,7 @@ def drug_response_experiment(
     run_id: str = "",
     test_mode: str = "LPO",
     metric: str = "rmse",
+    n_cv_splits: int = 5,
     multiprocessing: bool = False,
     randomization_mode: Optional[List[str]] = None,
     randomization_type: str = "permutation",
@@ -29,6 +30,7 @@ def drug_response_experiment(
     :param response_data: drug response dataset
     :param response_transformation: normalizer to use for the response data
     :param metric: metric to use for hyperparameter optimization
+    :param n_cv_splits: number of cross-validation splits
     :param multiprocessing: whether to use multiprocessing
     :param randomization_mode: list of randomization modes to do.
         Modes: SVCC, SVRC, SVCD, SVRD
@@ -77,7 +79,7 @@ def drug_response_experiment(
         model_hpam_set = model.get_hyperparameter_set()
 
         response_data.split_dataset(
-            n_cv_splits=5,
+            n_cv_splits=n_cv_splits,
             mode=test_mode,
             split_validation=True,
             validation_ratio=0.1,
