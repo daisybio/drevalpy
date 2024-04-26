@@ -2,13 +2,12 @@ import pandas as pd
 import plotly.graph_objects as go
 
 
-def create_evaluation_violin(df: pd.DataFrame):
-    print('Drawing violin plots ...')
-    df.sort_index(inplace=True)
-    df['algorithm'] = df.index.str.split('_').str[0]
-    df['rand_setting'] = df.index.str.split('_').str[1]
-    df['eval_setting'] = df.index.str.split('_').str[2]
-    df['box'] = df['algorithm'] + '_' + df['rand_setting'] + '_' + df['eval_setting']
+def create_evaluation_violin(df: pd.DataFrame, normalized_metrics=False, whole_name=False):
+    print('Drawing Violin plots ...')
+    df = df.sort_index()
+    df['box'] = df['algorithm'] + '_' + df['rand_setting'] + '_' + df['LPO_LCO_LDO']
+    # remove columns with only NaN values
+    df = df.dropna(axis=1, how='all')
     fig = go.Figure()
     all_metrics = ["R^2", "R^2: drug normalized", "R^2: cell line normalized",
                    "Pearson", "Pearson: drug normalized", "Pearson: cell line normalized",
@@ -16,6 +15,10 @@ def create_evaluation_violin(df: pd.DataFrame):
                    "Kendall", "Kendall: drug normalized", "Kendall: cell line normalized",
                    "Partial_Correlation", "Partial_Correlation: drug normalized", "Partial_Correlation: cell line normalized",
                    "MSE", "RMSE", "MAE"]
+    if normalized_metrics:
+        all_metrics = [metric for metric in all_metrics if 'normalized' in metric]
+    else:
+        all_metrics = [metric for metric in all_metrics if 'normalized' not in metric]
     occurring_metrics = [metric for metric in all_metrics if metric in df.columns]
     count_r2 = 0
     count_pearson = 0
@@ -42,7 +45,7 @@ def create_evaluation_violin(df: pd.DataFrame):
             count_mse += 1 * len(df['box'].unique())
         elif 'MAE' in metric:
             count_mae += 1 * len(df['box'].unique())
-        fig = add_violin(fig, df, metric)
+        fig = add_violin(fig, df, metric, whole_name)
 
     count_sum = count_r2 + count_pearson + count_spearman + count_kendall + count_partial_correlation + count_mse + count_rmse + count_mae
 
@@ -104,13 +107,17 @@ def create_evaluation_violin(df: pd.DataFrame):
     return fig
 
 
-def add_violin(fig, df, metric):
+def add_violin(fig, df, metric, whole_name=False):
     for box in df['box'].unique():
         tmp_df = df[df['box'] == box]
+        if whole_name:
+            label = box + ': ' + metric
+        else:
+            label = box.split('_')[0] + ': ' + metric
         fig.add_trace(go.Violin(
             y=tmp_df[metric],
-            x=[label.replace('_', ' ') for label in tmp_df['box']+ '_' + metric],
-            name=(box + ': ' + metric).replace('_', ' '),
+            x=[label]*len(tmp_df[metric]),
+            name=label,
             box_visible=True,
             meanline_visible=True
         ))

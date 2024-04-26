@@ -4,12 +4,12 @@ import scipy
 from scipy import stats
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
-import math
+import plotly
 
 
 def generate_scatter_eval_models_plot(df: pd.DataFrame, metric, color_by):
     print('Drawing scatterplots ...')
-    df.sort_values('model', inplace=True)
+    df = df.sort_values('model')
     buttons_x = list()
     buttons_y = list()
 
@@ -23,7 +23,7 @@ def generate_scatter_eval_models_plot(df: pd.DataFrame, metric, color_by):
         fig_overall['layout']['annotations'][i]['font']['size'] = 6
     fig = go.Figure()
     # subset the dataframe to have model==models[0] and get the metric and color_by column
-    tmp_df = df[df["setting"] == models[0]][[metric, color_by]]
+    tmp_df = df[df["setting"] == models[0]][[metric, color_by, 'model']]
     # make color_by the index
     tmp_df.set_index(color_by, inplace=True)
     # sort the dataframe by the index
@@ -35,7 +35,7 @@ def generate_scatter_eval_models_plot(df: pd.DataFrame, metric, color_by):
                              mode='markers',
                              marker=dict(size=6, showscale=False),
                              text=tmp_df.index,
-                             showlegend=False,
+                             showlegend=True,
                              visible=True
                              )
     fig.add_trace(scatterplot)
@@ -51,7 +51,7 @@ def generate_scatter_eval_models_plot(df: pd.DataFrame, metric, color_by):
 
     for run_idx in range(len(models)):
         run = models[run_idx]
-        x_df = df[df["setting"] == run][[metric, color_by]]
+        x_df = df[df["setting"] == run][[metric, color_by, 'model']]
         x_df.set_index(color_by, inplace=True)
         x_df.sort_index(inplace=True)
         x_df[metric] = x_df[metric].fillna(0)
@@ -63,7 +63,7 @@ def generate_scatter_eval_models_plot(df: pd.DataFrame, metric, color_by):
         )
         for run2_idx in range(len(models)):
             run2 = models[run2_idx]
-            y_df = df[df["setting"] == run2][[metric, color_by]]
+            y_df = df[df["setting"] == run2][[metric, color_by, 'model']]
             y_df.set_index(color_by, inplace=True)
             y_df.sort_index(inplace=True)
             # replace nan with 0
@@ -72,16 +72,30 @@ def generate_scatter_eval_models_plot(df: pd.DataFrame, metric, color_by):
             common_indices = x_df.index.intersection(y_df.index)
             x_df2 = x_df.loc[common_indices]
             y_df = y_df.loc[common_indices]
+            x_df2['setting'] = x_df2['model'].str.split('_').str[4:].str.join('')
+            y_df['setting'] = y_df['model'].str.split('_').str[4:].str.join('')
 
-            density = get_density(x_df2[metric], y_df[metric])
+            joint_df = pd.concat([x_df2, y_df], axis=1)
+            joint_df.columns = [f'{metric}_x', 'model_x', 'setting_x', f'{metric}_y', 'model_y', 'setting_y']
+
+            density = get_density(joint_df[f'{metric}_x'], joint_df[f'{metric}_y'])
+            joint_df['color'] = density
+
+            custom_text = joint_df.apply(
+                lambda row: f'<i>{color_by.capitalize()}:</i>: {row.name}<br>' +
+                            f'<i>Split x:</i>: {row.setting_x}<br>' +
+                            f'<i>Split y:</i>: {row.setting_y}<br>',
+                axis=1
+            )
+
             scatterplot = go.Scatter(x=x_df2[metric],
                                      y=y_df[metric],
                                      mode='markers',
                                      marker=dict(size=4, color=density, colorscale='Viridis', showscale=False),
-                                     name=f'{run} vs {run2}',
                                      showlegend=False,
                                      visible=True,
-                                     text=y_df.index
+                                     meta=[run, run2],
+                                     text=custom_text
                            )
             fig_overall.add_trace(scatterplot, col=run_idx+1, row=run2_idx+1)
             fig_overall.add_trace(line_corr, col=run_idx+1, row=run2_idx+1)

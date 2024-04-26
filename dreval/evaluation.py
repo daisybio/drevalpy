@@ -8,7 +8,7 @@ import numpy as np
 
 AVAILABLE_METRICS = {
     "MSE": metrics.mean_squared_error,
-    "RMSE": metrics.mean_squared_error,
+    "RMSE": metrics.root_mean_squared_error,
     "MAE": metrics.mean_absolute_error,
     "R^2": metrics.r2_score,
     "Pearson": pearson,
@@ -41,8 +41,6 @@ def evaluate(dataset: DrugResponseDataset, metric: Union[List[str], str]):
                 results[m] = AVAILABLE_METRICS[m](
                     y_pred=predictions, y_true=response, cell_line_ids=dataset.cell_line_ids, drug_ids=dataset.drug_ids
                 )
-            elif m == 'RMSE':
-                results[m] = AVAILABLE_METRICS[m](y_pred=predictions, y_true=response, squared=False)
             else:
                 results[m] = AVAILABLE_METRICS[m](y_pred=predictions, y_true=response)
 
