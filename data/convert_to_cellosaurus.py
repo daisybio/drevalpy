@@ -29,6 +29,7 @@ def create_cl_dict(df):
                 cellosaurus_sy_dict[cell_line_name] = row['AC']
     return cellosaurus_ac_dict, cellosaurus_sy_dict, species_dict
 
+
 def create_cl_dict_cell_passp(df):
     # iterate over cellosaurus and make a dictionary mapping the 'ID' column to the 'SID' IDs from the DR column if
     # it contains Cell_Model_Passport
@@ -72,11 +73,12 @@ def map_to_cellosaurus(df, cl_dict_ac, cl_dict_sy, species_dict, output_path):
                     warnings.warn(f'Cell line {cl_dict_sy[index]} matched to {index} is not human, but {species}.')
                 if index not in set_of_unmatched_cell_lines:
                     set_of_unmatched_cell_lines.add(index)
-                    if SequenceMatcher(a=index.lower(), b=list(cl_dict_ac.keys())[list(cl_dict_ac.values()).index(cl_dict_sy[index])].lower()).ratio() < 0.7:
+                    if SequenceMatcher(a=index.lower(), b=list(cl_dict_ac.keys())[
+                        list(cl_dict_ac.values()).index(cl_dict_sy[index])].lower()).ratio() < 0.7:
                         print(
-                        f'no main match for {index}, matched it to {cl_dict_sy[index]} = {list(cl_dict_ac.keys())[list(cl_dict_ac.values()).index(cl_dict_sy[index])]}, '
-                        f'but the similarity was rather low:'
-                        f'{SequenceMatcher(a=index, b=list(cl_dict_ac.keys())[list(cl_dict_ac.values()).index(cl_dict_sy[index])]).ratio()}')
+                            f'no main match for {index}, matched it to {cl_dict_sy[index]} = {list(cl_dict_ac.keys())[list(cl_dict_ac.values()).index(cl_dict_sy[index])]}, '
+                            f'but the similarity was rather low:'
+                            f'{SequenceMatcher(a=index, b=list(cl_dict_ac.keys())[list(cl_dict_ac.values()).index(cl_dict_sy[index])]).ratio()}')
             except KeyError:
                 print(f'no match at all for {index}')
                 df.loc[index, 'cellosaurus_id'] = pd.NA
@@ -90,7 +92,8 @@ def map_to_cellosaurus(df, cl_dict_ac, cl_dict_sy, species_dict, output_path):
     df = df.reset_index().rename(columns={'index': 'cell_line_name'}).set_index('cellosaurus_id')
     df.to_csv(output_path)
 
-def map_to_cellosaurus_model_passp(df, cl_dict_sid, species_dict, output_path, ignore_columns = []):
+
+def map_to_cellosaurus_model_passp(df, cl_dict_sid, species_dict, output_path, ignore_columns=[]):
     # iterate over the cell line names in the dataframe. Try to get the cell line name from the cellosaurus
     # dictionary. If it exists, put it in a column called 'cellosaurus_id'. If it doesn't exist, print the cell line
     # name
@@ -331,6 +334,52 @@ def preprocess_gdsc_1():
                'TK': 'TK [Human B-cell lymphoma]'}
     drp = drp.rename(
         index=renamed)
+    renamed_cell_lines.update(renamed)
+    return drp
+
+
+def preprocess_gdsc_1_curves():
+    # read in drug response dataframe
+    print('Preprocessing drug response dataframe ...')
+    drp = pd.read_csv('response_output/GDSC/curves_GDSC1.txt', sep='\t')
+    # drop all columns except 'Name', 'pEC50', 'Curve Regulation'
+    drp = drp[['Name', 'pEC50', 'Curve Regulation']]
+    # filter out all rows where 'Curve Regulation' is not 'down'
+    print(f'Before filtering: {len(drp)} rows')
+    drp = drp[drp['Curve Regulation'] == 'down']
+    print(f'After filtering: {len(drp)} rows')
+    drp = drp.reset_index(drop=True)
+    # split Name into 'DRUG_NAME' and 'cell_line_name' columns
+    # Name column: replace last space with '|'
+    drp['Name'] = drp['Name'].str.rsplit(' ', n=1).str[0] + '|' + drp['Name'].str.rsplit(' ', n=1).str[1]
+    drp[["DRUG_NAME", "cell_line_name"]] = drp["Name"].str.split("|", n=1, expand=True)
+    drp = drp.drop(columns=['Name', 'Curve Regulation'])
+    # get long format into wide format: rows should be cell line names (CELL_LINE_NAME column), columns should be drug names (DRUG_NAME column), values are in LN_IC50 column
+    drp = drp.pivot(index='cell_line_name', columns='DRUG_NAME', values='pEC50')
+    # replace the cell line names, e.g., 'RCM-1' with 'RCM-1 [Human rectal adenocarcinoma]', 'C32' with 'C32 [Human melanoma]'
+    renamed = {'JM1': 'JM-1',
+               'HT55': 'HT-55',
+               'K2': 'K2 [Human melanoma]',
+               'MS-1': 'MS-1 [Human lung carcinoma]',
+               'C32': 'C32 [Human melanoma]',
+               'G-292-Clone-A141B1': 'G-292 clone A141B1',
+               'HARA': 'HARA [Human squamous cell lung carcinoma]',
+               'HH': 'HH [Human lymphoma]',
+               'Hep3B2-1-7': 'Hep 3B2.1-7',
+               'Hs-633T': 'Hs 633.T',
+               'KS-1': 'KS-1 [Human glioblastoma]',
+               'ML-1': 'ML-1 [Human thyroid carcinoma]',
+               'NOS-1': 'NOS-1 [Human osteosarcoma]',
+               'NTERA-2-cl-D1': 'NT2-D1',
+               'OMC-1': 'OMC-1 [Human cervical carcinoma]',
+               'PC-3_[JPC-3]': 'PC-3',
+               'RCM-1': 'RCM-1 [Human rectal adenocarcinoma]',
+               'SAT': 'SAT [Human HNSCC]',
+               'TALL-1': 'TALL-1 [Human adult T-ALL]',
+               'TK': 'TK [Human B-cell lymphoma]'}
+    drp = drp.rename(
+        index=renamed)
+    renamed_cell_lines.update(renamed)
     return drp
 
 
@@ -370,6 +419,51 @@ def preprocess_gdsc_2():
     return drp
 
 
+def preprocess_gdsc_2_curves():
+    # read in drug response dataframe
+    print('Preprocessing drug response dataframe ...')
+    drp = pd.read_csv('response_output/GDSC/curves_GDSC2.txt', sep='\t')
+    # drop all columns except 'Name', 'pEC50', 'Curve Regulation'
+    drp = drp[['Name', 'pEC50', 'Curve Regulation']]
+    # filter out all rows where 'Curve Regulation' is not 'down'
+    print(f'Before filtering: {len(drp)}')
+    drp = drp[drp['Curve Regulation'] == 'down']
+    print(f'After filtering: {len(drp)}')
+    drp = drp.reset_index(drop=True)
+    # split Name into 'DRUG_NAME' and 'cell_line_name' columns
+    # Name column: replace last space with '|'
+    drp['Name'] = drp['Name'].str.rsplit(' ', n=1).str[0] + '|' + drp['Name'].str.rsplit(' ', n=1).str[1]
+    drp[["DRUG_NAME", "cell_line_name"]] = drp["Name"].str.split("|", n=1, expand=True)
+    drp = drp.drop(columns=['Name', 'Curve Regulation'])
+    # get long format into wide format: rows should be cell line names (CELL_LINE_NAME column), columns should be drug names (DRUG_NAME column), values are in LN_IC50 column
+    drp = drp.pivot(index='cell_line_name', columns='DRUG_NAME', values='pEC50')
+    # replace the cell line names, e.g., 'RCM-1' with 'RCM-1 [Human rectal adenocarcinoma]', 'C32' with 'C32 [Human melanoma]'
+    renamed = {'JM1': 'JM-1',
+               'HT55': 'HT-55',
+               'K2': 'K2 [Human melanoma]',
+               'MS-1': 'MS-1 [Human lung carcinoma]',
+               'C32': 'C32 [Human melanoma]',
+               'G-292-Clone-A141B1': 'G-292 clone A141B1',
+               'HARA': 'HARA [Human squamous cell lung carcinoma]',
+               'HH': 'HH [Human lymphoma]',
+               'Hep3B2-1-7': 'Hep 3B2.1-7',
+               'Hs-633T': 'Hs 633.T',
+               'KS-1': 'KS-1 [Human glioblastoma]',
+               'ML-1': 'ML-1 [Human thyroid carcinoma]',
+               'NOS-1': 'NOS-1 [Human osteosarcoma]',
+               'NTERA-2-cl-D1': 'NT2-D1',
+               'OMC-1': 'OMC-1 [Human cervical carcinoma]',
+               'PC-3_[JPC-3]': 'PC-3',
+               'RCM-1': 'RCM-1 [Human rectal adenocarcinoma]',
+               'SAT': 'SAT [Human HNSCC]',
+               'TALL-1': 'TALL-1 [Human adult T-ALL]',
+               'TK': 'TK [Human B-cell lymphoma]'}
+    drp = drp.rename(
+        index=renamed)
+    renamed_cell_lines.update(renamed)
+    return drp
+
+
 def preprocess_sanger_ccle(tpm=True):
     # read in gene expression dataframe
     print('Preprocessing gene expression dataframe ...')
@@ -396,6 +490,7 @@ if __name__ == '__main__':
     cellosaurus = cellosaurus.fillna('')
     # create cellosaurus dictionary
     cellosaurus_ac_dict, cellosaurus_sy_dict, species_dict = create_cl_dict(cellosaurus)
+
     # map gene expression cell line names to cellosaurus IDs
     gex = preprocess_gex()
     map_to_cellosaurus(gex, cellosaurus_ac_dict, cellosaurus_sy_dict, species_dict,
@@ -423,18 +518,14 @@ if __name__ == '__main__':
     drp_gdsc_2 = preprocess_gdsc_2()
     map_to_cellosaurus(drp_gdsc_2, cellosaurus_ac_dict, cellosaurus_sy_dict, species_dict,
                        'response_output/GDSC/response_GDSC2_cellosaurus.csv')
+    # CurveCurator output
+    curves_gdsc_1 = preprocess_gdsc_1_curves()
+    map_to_cellosaurus(curves_gdsc_1, cellosaurus_ac_dict, cellosaurus_sy_dict, species_dict,
+                       'response_output/GDSC/curves_GDSC1_cellosaurus.csv')
 
-    # export matched cell lines to csv file
-    matched_cell_lines_df = pd.DataFrame.from_dict(matched_cell_lines, orient='index', columns=['cellosaurus_id'])
-    matched_cell_lines_df.to_csv('mapping/matched_cell_lines.csv')
-
-    # export unmatched cell lines to csv file
-    unmatched_cell_lines_df = pd.DataFrame(list(no_match), columns=['cell_line_name'])
-    unmatched_cell_lines_df.to_csv('mapping/unmatched_cell_lines.csv')
-
-    # export renamed cell lines to csv file
-    renamed_cell_lines_df = pd.DataFrame.from_dict(renamed_cell_lines, orient='index', columns=['cell_line_name'])
-    renamed_cell_lines_df.to_csv('mapping/renamed_cell_lines.csv')
+    curves_gdsc_2 = preprocess_gdsc_2_curves()
+    map_to_cellosaurus(curves_gdsc_2, cellosaurus_ac_dict, cellosaurus_sy_dict, species_dict,
+                       'response_output/GDSC/curves_GDSC2_cellosaurus.csv')
 
     cellosaurus_sid_dict, species_dict = create_cl_dict_cell_passp(cellosaurus)
     gex = preprocess_sanger_sanger(tpm=True)
@@ -454,4 +545,16 @@ if __name__ == '__main__':
     map_to_cellosaurus_model_passp(gex, cellosaurus_sid_dict, species_dict,
                                    'cell_line_input/SangerCellModelPassports/sanger_counts_ccle_cvcl.csv',
                                    ignore_columns=['ensembl_gene_id', 'gene_symbol'])
+
+    # export matched cell lines to csv file
+    matched_cell_lines_df = pd.DataFrame.from_dict(matched_cell_lines, orient='index', columns=['cellosaurus_id'])
+    matched_cell_lines_df.to_csv('mapping/matched_cell_lines.csv')
+
+    # export unmatched cell lines to csv file
+    unmatched_cell_lines_df = pd.DataFrame(list(no_match), columns=['cell_line_name'])
+    unmatched_cell_lines_df.to_csv('mapping/unmatched_cell_lines.csv')
+
+    # export renamed cell lines to csv file
+    renamed_cell_lines_df = pd.DataFrame.from_dict(renamed_cell_lines, orient='index', columns=['cell_line_name'])
+    renamed_cell_lines_df.to_csv('mapping/renamed_cell_lines.csv')
 
