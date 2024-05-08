@@ -16,6 +16,21 @@ def write_html_header(f):
     f.write(
         '<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome'
         '.min.css">\n')
+    f.write(
+        '<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.16/css/jquery.dataTables.min.css">\n')
+    f.write(
+        '<script type="text/javascript" language="javascript" src="https://code.jquery.com/jquery-1.12.4.js"></script>\n')
+    f.write(
+        '<script type="text/javascript" language="netdna.bootstrapcdn.com/bootstrap/3.1.1/js/bootstrap.min.js"></script>\n')
+    f.write(
+        '<script type="text/javascript" language="javascript" src="https://cdn.datatables.net/1.10.16/js/jquery.dataTables.min.js"></script>\n')
+    f.write(
+        '<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/v/dt/dt-1.10.18/b-1.5.4/b-html5-1.5.4/r-2.2.2/datatables.min.css"/>\n')
+    f.write(
+        '<script type="text/javascript" src="https://cdn.datatables.net/v/dt/dt-1.10.18/b-1.5.4/b-html5-1.5.4/r-2.2.2/datatables.min.js"></script>\n')
+    f.write('<script src="https://use.fontawesome.com/fab417e5fd.js"></script>\n')
+    f.write(
+        '<script type="text/javascript">console.log("js ready");$(document).ready( function () {console.log("Jquery ready");$(".customDataTable").dataTable( {responsive: "true",} );});</script>\n')
     f.write('<style>\n')
     f.write('body {font-family: Avenir, sans-serif;}\n')
     f.write('ul {list-style-type: none;}\n')
@@ -37,20 +52,22 @@ def write_html_header(f):
     f.write('</head>\n')
 
 
-def write_sidebar(f):
+def write_sidebar(f, index=False):
     f.write('<div class="sidenav">\n')
     f.write(
         '<img src="favicon.png" width="80px" height="80px" alt="Logo" style="margin-left: auto; margin-right: '
         'auto; display: block; width=50%;">\n')
     f.write('<p style="text-align: center; color: #737272; font-size: 12px; ">v0.1</p>\n')
-    f.write('<a href="#violin">Violin Plot</a>\n')
-    f.write('<a href="#heatmap">Heatmap</a>\n')
-    f.write('<a href="#regression_plots">Regression plots: True vs. Predicted</a>\n')
-    f.write('<a href="#corr_comp">Correlation comparison</a>\n')
-    f.write(
-        '<a href="#corr_comp_drug" style="font-size: 14px; padding: 6px 8px 6px 26px">Correlation comparison per drug</a>\n')
-    f.write(
-        '<a href="#corr_comp_cls" style="font-size: 14px; padding: 6px 8px 6px 26px">Correlation comparison per cell line</a>\n')
+    if not index:
+        f.write('<a href="#violin">Violin Plot</a>\n')
+        f.write('<a href="#heatmap">Heatmap</a>\n')
+        f.write('<a href="#regression_plots">Regression plots: True vs. Predicted</a>\n')
+        f.write('<a href="#corr_comp">Correlation comparison</a>\n')
+        f.write(
+            '<a href="#corr_comp_drug" style="font-size: 14px; padding: 6px 8px 6px 26px">Correlation comparison per drug</a>\n')
+        f.write(
+            '<a href="#corr_comp_cls" style="font-size: 14px; padding: 6px 8px 6px 26px">Correlation comparison per cell line</a>\n')
+        f.write('<a href="#tables">Tables</a>\n')
     f.write('</div>\n')
 
 
@@ -66,10 +83,12 @@ def write_violins_and_heatmaps(f, setting, plot='Violin'):
     f.write(f'<h2 id="{nav_id}">{plot} Plots of Performance Measures over CV runs</h2>\n')
     f.write(f'<h3>{plot} plots comparing all models</h3>\n')
     f.write(
-        f'<iframe src="{dir_name}/{prefix}_algorithms_{setting}.html" width="100%" height="80%" frameBorder="0"></iframe>\n')
+        f'<iframe src="{dir_name}/{prefix}_algorithms_{setting}.html" width="100%" height="100%" frameBorder="0"></iframe>\n')
     f.write(f'<h3>{plot} plots comparing all models with normalized metrics</h3>\n')
+    f.write(f'Before calculating the evaluation metrics, all values were normalized by the mean of the drug or cell line. '
+            f'Since this only influences the R^2 and the correlation metrics, the error metrics are not shown. \n')
     f.write(
-        f'<iframe src="{dir_name}/{prefix}_algorithms_{setting}_normalized.html" width="100%" height="80%" frameBorder="0"></iframe>\n')
+        f'<iframe src="{dir_name}/{prefix}_algorithms_{setting}_normalized.html" width="100%" height="100%" frameBorder="0"></iframe>\n')
     plot_list = [f for f in os.listdir(f'../results/{run_id}/{dir_name}') if setting in f
                  and f != f'{prefix}_algorithms_{setting}.html'
                  and f != f'{prefix}_algorithms_{setting}_normalized.html']
@@ -100,8 +119,6 @@ def write_scatter_eval_models(f, setting, group_by):
         f.write('</ul>\n')
 
 
-
-
 def create_html(run_id, setting):
     # copy images to the results directory
     os.system(f'cp favicon.png ../results/{run_id}')
@@ -130,27 +147,53 @@ def create_html(run_id, setting):
         f.write('<h2 id="corr_comp">Comparison of correlation metrics</h2>\n')
         write_scatter_eval_models(f, setting, 'drug')
         write_scatter_eval_models(f, setting, 'cell_line')
+
+        f.write('<h2 id="tables"> Evaluation Results Table</h2>\n')
+        with open(f'../results/{run_id}/evaluation_results_{setting}.html', 'r') as eval_f:
+            eval_results = eval_f.readlines()
+            eval_results[0] = eval_results[0].replace('<table border="1" class="dataframe">', '<table class="display customDataTable" style="width:100%">')
+            for line in eval_results:
+                f.write(line)
+        if setting != 'LCO':
+            f.write('<h2> Evaluation Results per Cell Line Table</h2>\n')
+            with open(f'../results/{run_id}/evaluation_results_per_cell_line_{setting}.html', 'r') as eval_f:
+                eval_results = eval_f.readlines()
+                eval_results[0] = eval_results[0].replace('<table border="1" class="dataframe">', '<table class="display customDataTable" style="width:100%">')
+                for line in eval_results:
+                    f.write(line)
+        if setting != 'LDO':
+            f.write('<h2> Evaluation Results per Drug Table</h2>\n')
+            with open(f'../results/{run_id}/evaluation_results_per_drug_{setting}.html', 'r') as eval_f:
+                eval_results = eval_f.readlines()
+                eval_results[0] = eval_results[0].replace('<table border="1" class="dataframe">', '<table class="display customDataTable" style="width:100%">')
+                for line in eval_results:
+                    f.write(line)
         f.write('</div>\n')
         f.write('</body>\n')
         f.write('</html>\n')
 
 
 def create_index_html(run_id):
+    # copy images to the results directory
+    os.system(f'cp LPO.png ../results/{run_id}')
+    os.system(f'cp LCO.png ../results/{run_id}')
+    os.system(f'cp LDO.png ../results/{run_id}')
     with open(f'../results/{run_id}/index.html', 'w') as f:
         f.write('<html>\n')
         write_html_header(f)
-        write_sidebar(f)
+        write_sidebar(f, index=True)
         f.write('<body>\n')
         f.write('<div class="main">\n')
         f.write('<img src="nf-core-drugresponseeval_logo_light.png" width="364px" height="100px" alt="Logo">\n')
         f.write(f'<h1>Results for {run_id}</h1>\n')
         f.write('<h2>Available settings</h2>\n')
-        settings = [f for f in os.listdir(f'../results/{run_id}') if f.endswith('.html')]
+        f.write('Click on the images to open the respective report in a new tab.\n')
+        settings = [f.split('.html')[0] for f in os.listdir(f'../results/{run_id}') if f.endswith('.html') and f.startswith('L')]
         settings.sort()
-        f.write('<ul>\n')
+        f.write('<div style="display: inline-block;">\n')
         for setting in settings:
-            f.write(f'<li><a href="{setting}" target="_blank">{setting}</a></li>\n')
-        f.write('</ul>\n')
+            f.write(f'<a href="{setting}.html" target="_blank"><img src="{setting}.png" style="width:300px;height:300px;"></a>\n')
+        f.write('</div>\n')
         f.write('</div>\n')
         f.write('</body>\n')
         f.write('</html>\n')
@@ -239,18 +282,37 @@ if __name__ == "__main__":
         # draw figures for each algorithm with all randomizations etc
         for algorithm in eval_results_algorithms['algorithm'].unique():
             eval_results_algorithm = eval_results_subset[eval_results_subset['algorithm'] == algorithm]
-            draw_violin_and_heatmap(eval_results_algorithm, run_id, f'{algorithm}_{setting}', whole_name=True)
+            #draw_violin_and_heatmap(eval_results_algorithm, run_id, f'{algorithm}_{setting}', whole_name=True)
 
         if setting == 'LPO' or setting == 'LCO':
-            draw_scatter_grids_per_group(eval_res_group=evaluation_results_per_drug, group_by='drug', setting=setting,
-                                         run_id=run_id)
-            generate_regression_plots(true_vs_pred_subset, run_id, group_by='cell_line')
-            generate_regression_plots(true_vs_pred_subset, run_id, group_by='cell_line', normalize=True)
+            #draw_scatter_grids_per_group(eval_res_group=evaluation_results_per_drug, group_by='drug', setting=setting,
+             #                            run_id=run_id)
+            evaluation_results_per_drug_subs = evaluation_results_per_drug[evaluation_results_per_drug['LPO_LCO_LDO'] == setting]
+            evaluation_results_per_drug_subs = evaluation_results_per_drug_subs[
+                ['drug', 'algorithm', 'rand_setting', 'CV_split',
+                'MSE', 'R^2', 'Pearson', 'RMSE', 'MAE', 'Spearman', 'Kendall', 'Partial_Correlation', 'LPO_LCO_LDO',]]
+            evaluation_results_per_drug_subs.to_html(f'../results/{run_id}/evaluation_results_per_drug_{setting}.html', index=False)
+            #generate_regression_plots(true_vs_pred_subset, run_id, group_by='cell_line')
+            #generate_regression_plots(true_vs_pred_subset, run_id, group_by='cell_line', normalize=True)
 
         if setting == 'LPO' or setting == 'LDO':
-            draw_scatter_grids_per_group(eval_res_group=evaluation_results_per_cell_line, group_by='cell_line',
-                                         setting=setting, run_id=run_id)
-            generate_regression_plots(true_vs_pred_subset, run_id, group_by='drug')
-            generate_regression_plots(true_vs_pred_subset, run_id, group_by='drug', normalize=True)
+            #draw_scatter_grids_per_group(eval_res_group=evaluation_results_per_cell_line, group_by='cell_line',
+            #                             setting=setting, run_id=run_id)
+            evaluation_results_per_cell_line_subs = evaluation_results_per_cell_line[evaluation_results_per_cell_line['LPO_LCO_LDO'] == setting]
+            evaluation_results_per_cell_line_subs = evaluation_results_per_cell_line_subs[['cell_line', 'algorithm', 'rand_setting', 'CV_split',
+                                                                                  'MSE', 'R^2', 'Pearson', 'RMSE', 'MAE', 'Spearman', 'Kendall', 'Partial_Correlation', 'LPO_LCO_LDO',]]
+            evaluation_results_per_cell_line_subs.to_html(f'../results/{run_id}/evaluation_results_per_cell_line_{setting}.html', index=False)
+            #generate_regression_plots(true_vs_pred_subset, run_id, group_by='drug')
+            #generate_regression_plots(true_vs_pred_subset, run_id, group_by='drug', normalize=True)
+        # reorder columns
+        eval_results_subset = eval_results_subset[['algorithm', 'rand_setting', 'CV_split',
+                                                   'MSE', 'R^2', 'Pearson',
+                                                   'R^2: drug normalized', 'Pearson: drug normalized',
+                                                   'R^2: cell_line normalized', 'Pearson: cell_line normalized',
+                                                   'RMSE', 'MAE',
+                                                   'Spearman', 'Kendall', 'Partial_Correlation', 'Spearman: drug normalized', 'Kendall: drug normalized',
+                                                   'Partial_Correlation: drug normalized', 'Spearman: cell_line normalized', 'Kendall: cell_line normalized',
+                                                   'Partial_Correlation: cell_line normalized', 'LPO_LCO_LDO']]
+        eval_results_subset.to_html(f'../results/{run_id}/evaluation_results_{setting}.html', index=False)
         create_html(run_id, setting)
     create_index_html(run_id)

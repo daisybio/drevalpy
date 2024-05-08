@@ -9,11 +9,12 @@ def create_evaluation_violin(df: pd.DataFrame, normalized_metrics=False, whole_n
     # remove columns with only NaN values
     df = df.dropna(axis=1, how='all')
     fig = go.Figure()
-    all_metrics = ["R^2", "R^2: drug normalized", "R^2: cell line normalized",
-                   "Pearson", "Pearson: drug normalized", "Pearson: cell line normalized",
-                   "Spearman", "Spearman: drug normalized", "Spearman: cell line normalized",
-                   "Kendall", "Kendall: drug normalized", "Kendall: cell line normalized",
-                   "Partial_Correlation", "Partial_Correlation: drug normalized", "Partial_Correlation: cell line normalized",
+    all_metrics = ["R^2", "R^2: drug normalized", "R^2: cell_line normalized",
+                   "Pearson", "Pearson: drug normalized", "Pearson: cell_line normalized",
+                   "Spearman", "Spearman: drug normalized", "Spearman: cell_line normalized",
+                   "Kendall", "Kendall: drug normalized", "Kendall: cell_line normalized",
+                   "Partial_Correlation", "Partial_Correlation: drug normalized",
+                   "Partial_Correlation: cell_line normalized",
                    "MSE", "RMSE", "MAE"]
     if normalized_metrics:
         all_metrics = [metric for metric in all_metrics if 'normalized' in metric]
@@ -49,61 +50,115 @@ def create_evaluation_violin(df: pd.DataFrame, normalized_metrics=False, whole_n
 
     count_sum = count_r2 + count_pearson + count_spearman + count_kendall + count_partial_correlation + count_mse + count_rmse + count_mae
 
+    if normalized_metrics:
+        buttons_update = list([
+            dict(label="All Metrics",
+                 method="update",
+                 args=[{"visible": [True] * count_sum},
+                       {"title": "All Metrics"}]),
+            dict(label="R^2",
+                 method="update",
+                 args=[{"visible": [True] * count_r2 + [False] * (count_sum - count_r2)},
+                       {"title": "R^2"}]),
+            dict(label="Correlations",
+                 method="update",
+                 args=[{"visible": [False] * count_r2 + [True] * (
+                             count_pearson + count_spearman + count_kendall + count_partial_correlation) + [False] * (
+                                               count_mse + count_rmse + count_mae)},
+                       {"title": "All Correlations"}]),
+            dict(label="Pearson",
+                 method="update",
+                 args=[{"visible": [False] * count_r2 + [True] * count_pearson + [False] * (
+                             count_sum - count_r2 - count_pearson)},
+                       {"title": "Pearson"},
+                       ]),
+            dict(label="Spearman",
+                 method="update",
+                 args=[{"visible": [False] * (count_r2 + count_pearson) + [True] * count_spearman + [False] * (
+                             count_sum - count_r2 - count_pearson - count_spearman)},
+                       {"title": "Spearman"}]),
+            dict(label="Kendall",
+                 method="update",
+                 args=[{"visible": [False] * (count_r2 + count_pearson + count_spearman) + [True] * count_kendall + [
+                     False] * (count_sum - count_r2 - count_pearson - count_spearman - count_kendall)},
+                       {"title": "Kendall"}]),
+            dict(label="Partial Correlation",
+                 method="update",
+                 args=[{"visible": [False] * (
+                             count_sum - count_partial_correlation - count_mse - count_rmse - count_mae) + [
+                                       True] * count_partial_correlation + [False] * (
+                                               count_mse + count_rmse + count_mae)},
+                       {"title": "Partial Correlation"}])
+        ])
+    else:
+        buttons_update = list([
+            dict(label="All Metrics",
+                 method="update",
+                 args=[{"visible": [True] * count_sum},
+                       {"title": "All Metrics"}]),
+            dict(label="R^2",
+                 method="update",
+                 args=[{"visible": [True] * count_r2 + [False] * (count_sum - count_r2)},
+                       {"title": "R^2"}]),
+            dict(label="Correlations",
+                 method="update",
+                 args=[{"visible": [False] * count_r2 + [True] * (
+                             count_pearson + count_spearman + count_kendall + count_partial_correlation) + [False] * (
+                                               count_mse + count_rmse + count_mae)},
+                       {"title": "All Correlations"}]),
+            dict(label="Errors",
+                 method="update",
+                 args=[{"visible": [False] * (count_sum - count_mse - count_rmse - count_mae) + [True] * (
+                             count_mse + count_rmse + count_mae)},
+                       {"title": "All Errors"}]),
+            dict(label="Pearson",
+                 method="update",
+                 args=[{"visible": [False] * count_r2 + [True] * count_pearson + [False] * (
+                             count_sum - count_r2 - count_pearson)},
+                       {"title": "Pearson"},
+                       ]),
+            dict(label="Spearman",
+                 method="update",
+                 args=[{"visible": [False] * (count_r2 + count_pearson) + [True] * count_spearman + [False] * (
+                             count_sum - count_r2 - count_pearson - count_spearman)},
+                       {"title": "Spearman"}]),
+            dict(label="Kendall",
+                 method="update",
+                 args=[{"visible": [False] * (count_r2 + count_pearson + count_spearman) + [True] * count_kendall + [
+                     False] * (count_sum - count_r2 - count_pearson - count_spearman - count_kendall)},
+                       {"title": "Kendall"}]),
+            dict(label="Partial Correlation",
+                 method="update",
+                 args=[{"visible": [False] * (
+                             count_sum - count_partial_correlation - count_mse - count_rmse - count_mae) + [
+                                       True] * count_partial_correlation + [False] * (
+                                               count_mse + count_rmse + count_mae)},
+                       {"title": "Partial Correlation"}]),
+            dict(label="MSE",
+                 method="update",
+                 args=[{"visible": [False] * (count_sum - count_mse - count_rmse - count_mae) + [True] * count_mse + [
+                     False] * (count_rmse + count_mae)},
+                       {"title": "MSE"}]),
+            dict(label="RMSE",
+                 method="update",
+                 args=[{"visible": [False] * (count_sum - count_rmse - count_mae) + [True] * count_rmse + [
+                     False] * count_mae},
+                       {"title": "RMSE"}]),
+            dict(label="MAE",
+                 method="update",
+                 args=[{"visible": [False] * (count_sum - count_mae) + [True] * count_mae},
+                       {"title": "MAE"}])
+        ])
+
     fig.update_layout(
-        updatemenus = [
+        updatemenus=[
             dict(
                 active=0,
-                buttons=list([
-                    dict(label="All Metrics",
-                         method="update",
-                         args=[{"visible": [True] * count_sum},
-                                 {"title": "All Metrics"}]),
-                    dict(label="R^2",
-                         method="update",
-                         args=[{"visible": [True] * count_r2 + [False] * (count_sum - count_r2)},
-                               {"title": "R^2"}]),
-                    dict(label="Correlations",
-                         method="update",
-                         args=[{"visible": [False] * count_r2 + [True] * (count_pearson + count_spearman + count_kendall + count_partial_correlation) + [False] * (count_mse  + count_rmse + count_mae)},
-                               {"title": "All Correlations"}]),
-                    dict(label="Errors",
-                            method="update",
-                            args=[{"visible": [False] * (count_sum - count_mse - count_rmse - count_mae) + [True] * (count_mse + count_rmse + count_mae)},
-                                {"title": "All Errors"}]),
-                    dict(label="Pearson",
-                         method="update",
-                         args=[{"visible": [False] * count_r2 + [True] * count_pearson + [False] * (count_sum - count_r2 - count_pearson)},
-                               {"title": "Pearson"},
-                               ]),
-                    dict(label="Spearman",
-                         method="update",
-                         args=[{"visible": [False] * (count_r2 + count_pearson) + [True] * count_spearman + [False] * (count_sum - count_r2 - count_pearson - count_spearman)},
-                               {"title": "Spearman"}]),
-                    dict(label="Kendall",
-                         method="update",
-                         args=[{"visible": [False] * (count_r2 + count_pearson + count_spearman) + [True] * count_kendall + [False] * (count_sum - count_r2 - count_pearson - count_spearman - count_kendall)},
-                               {"title": "Kendall"}]),
-                    dict(label="Partial Correlation",
-                         method="update",
-                         args=[{"visible": [False] * (count_sum - count_partial_correlation - count_mse - count_rmse - count_mae) + [True] * count_partial_correlation + [False] * (count_mse + count_rmse + count_mae)},
-                               {"title": "Partial Correlation"}]),
-                    dict(label="MSE",
-                         method="update",
-                         args=[{"visible": [False] * (count_sum - count_mse - count_rmse - count_mae) + [True] * count_mse + [False] * (count_rmse + count_mae)},
-                               {"title": "MSE"}]),
-                    dict(label="RMSE",
-                         method="update",
-                         args=[{"visible": [False] * (count_sum - count_rmse - count_mae) + [True] * count_rmse + [False] * count_mae},
-                               {"title": "RMSE"}]),
-                    dict(label="MAE",
-                         method="update",
-                         args=[{"visible": [False] * (count_sum - count_mae) + [True] * count_mae},
-                               {"title": "MAE"}]),
-                ]),
+                buttons=buttons_update,
             )
         ]
     )
-    fig.update_layout(title_text="All Metrics", height=1000, width=1400)
+    fig.update_layout(title_text="All Metrics", height=600, width=1100)
     return fig
 
 
@@ -116,7 +171,7 @@ def add_violin(fig, df, metric, whole_name=False):
             label = box.split('_')[0] + ': ' + metric
         fig.add_trace(go.Violin(
             y=tmp_df[metric],
-            x=[label]*len(tmp_df[metric]),
+            x=[label] * len(tmp_df[metric]),
             name=label,
             box_visible=True,
             meanline_visible=True

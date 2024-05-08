@@ -101,7 +101,7 @@ def generate_heatmap(df: pd.DataFrame, normalized_metrics=False, whole_name=Fals
                            texttemplate='%{z:.2f}'),
                 row=4, col=1
             )
-    fig.update_layout(height=1200, width= 1400, title_text="Heatmap of the evaluation metrics")
+    fig.update_layout(height=1000, width=1100, title_text="Heatmap of the evaluation metrics")
     fig.update_traces(showscale=False)
     return fig
 
