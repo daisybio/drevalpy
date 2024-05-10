@@ -3,7 +3,7 @@ from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler
 from models import MODEL_FACTORY
 from response_datasets import RESPONSE_DATASET_FACTORY
 from dreval.experiment import drug_response_experiment
-
+from dreval.evaluation import AVAILABLE_METRICS
 
 def get_parser():
     parser = argparse.ArgumentParser(
@@ -78,6 +78,13 @@ def get_parser():
         help='Metric for hyperparameter tuning choose from "mse", "rmse", "mae", "r2", "pearson", "spearman", "kendall", "partial_correlation"'
     )
     parser.add_argument(
+        "--n_cv_splits",
+        type=int,
+        default=5,
+        help="Number of cross-validation splits to use for the evaluation"
+    )
+
+    parser.add_argument(
         "--response_transformation",
         type=str,
         default="None",
@@ -101,6 +108,9 @@ if __name__ == "__main__":
     assert args.dataset_name in RESPONSE_DATASET_FACTORY, f"Invalid dataset name. Available datasets are {list(RESPONSE_DATASET_FACTORY.keys())} If you want to use your own dataset, you need to implement a new response dataset class and add it to the RESPONSE_DATASET_FACTORY in the response_datasets init"
     response_data = RESPONSE_DATASET_FACTORY[args.dataset_name]()
 
+    assert args.n_cv_splits > 1, "Number of cross-validation splits must be greater than 1"
+
+    # TODO Allow for custom randomization tests maybe via config file 
     if args.randomization_mode[0] != "None":
         assert all(
             [randomization in ["SVCC", "SVRC", "SVSC", "SVRD"] for randomization in args.randomization_mode]
@@ -121,9 +131,7 @@ if __name__ == "__main__":
         # TODO add log, sinh etc
         raise ValueError(f"Invalid response_transformation: {args.response_transformation}. Choose robust, minmax or standard.")
 
-    assert args.optim_metric in {"mse", "rmse", "mae", "r2", "pearson", "spearman", "kendall", "partial_correlation"}, "Invalid optim_metric for hyperparameter tuning. Choose from mse, rmse, mae, r2, pearson, spearman, kendall, partial_correlation."
-    # TODO Allow for custom randomization tests maybe via config file 
-
+    assert args.optim_metric in AVAILABLE_METRICS, f"Invalid optim_metric for hyperparameter tuning. Choose from {list(AVAILABLE_METRICS.keys())}"
 
 
     for test_mode in args.test_mode:
@@ -132,6 +140,7 @@ if __name__ == "__main__":
             response_data=response_data,
             response_transformation=response_transformation,
             metric=args.optim_metric,
+            n_cv_splits=args.n_cv_splits,
             multiprocessing=True,
             test_mode=test_mode,
             randomization_mode=args.randomization_mode,
