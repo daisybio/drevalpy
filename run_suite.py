@@ -74,8 +74,8 @@ def get_parser():
     parser.add_argument(
         "--optim_metric",
         type=str,
-        default="rmse",
-        help='Metric for hyperparameter tuning choose from "mse", "rmse", "mae", "r2", "pearson", "spearman", "kendall", "partial_correlation"'
+        default="RMSE",
+        help=f'Metric for hyperparameter tuning choose from {list(AVAILABLE_METRICS.keys())} Default is RMSE.'
     )
     parser.add_argument(
         "--n_cv_splits",
