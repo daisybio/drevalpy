@@ -88,7 +88,7 @@ def drug_response_experiment(
 
         for split_index, split in enumerate(response_data.cv_splits):
             prediction_file = os.path.join(predictions_path, f"test_dataset_{test_mode}_split_{split_index}.csv")
-            if not os.path.isfile(): # if this split has not been run yet
+            if not os.path.isfile(prediction_file): # if this split has not been run yet
                 train_dataset = split["train"]
                 validation_dataset = split["validation"]
                 test_dataset = split["test"]
