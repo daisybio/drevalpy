@@ -1,21 +1,15 @@
 import numpy as np
 import pandas as pd
-import pytest
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from dreval.dataset import DrugResponseDataset
 from dreval.evaluation import evaluate
 
-# Mock DrugResponseDataset class for testing purposes
-class MockDrugResponseDataset(DrugResponseDataset):
-    def __init__(self, predictions, response):
-        self.predictions = predictions
-        self.response = response
 
 def test_evaluate():
     # Create mock dataset
     predictions = np.array([1, 2, 3, 4, 5])
     response = np.array([1.1, 2.2, 3.3, 4.4, 5.5])
-    dataset = MockDrugResponseDataset(predictions=predictions, response=response)
+    dataset = DrugResponseDataset(predictions=predictions, response=response)
 
     # Test metrics calculation
     mse_expected = mean_squared_error(predictions, response)
