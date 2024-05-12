@@ -248,8 +248,7 @@ def cross_validation_fit(X_train, y_train, predictor, nCV_folds, hyperparameters
     """
     # check if CV fold is legal
     if len(X_train) == 1:
-        warnings.warn("Only one sample for target {}."
-                      " No Cross validation or Grid search performed.".format(target))
+        warnings.warn("Only one sample for target. No Cross validation or Grid search performed.")
 
         model = predictor  # fit the model
         model.fit(X_train, y_train)  # fit model to single sample (no CV or grid search, output is constant)
