@@ -23,6 +23,7 @@ def drug_response_experiment(
     multiprocessing: bool = False,
     randomization_mode: Optional[List[str]] = None,
     randomization_type: str = "permutation",
+    n_trials_robustness: int = 0,
     path_out: str = "results/",
     overwrite: bool = False,
 ) -> None :
@@ -49,6 +50,7 @@ def drug_response_experiment(
             "gaussian": replace the features with random values sampled from a gaussian distribution with the same mean and standard deviation
             "zeroing": replace the features with zeros
             "permutation": permute the features over the instances, keeping the distribution of the features the same but dissolving the relationship to the target
+    :param n_trials_robustness: number of trials to run for the robustness test. The robustness test is a test where models are retrained multiple tiems with varying seeds. Default is 0, which means no robustness test is run.
     :param path_out: path to the output directory
     :param run_id: identifier to save the results
     :param test_mode: test mode one of "LPO", "LCO", "LDO" (leave-pair-out, leave-cell-line-out, leave-drug-out)
@@ -164,6 +166,19 @@ def drug_response_experiment(
                     randomization_type=randomization_type,
                     response_transformation=response_transformation
                 )
+            if n_trials_robustness > 0:
+                robustness_test(
+                    n_trials=n_trials_robustness,
+                    model=model,
+                    hpam_set=best_hpams,
+                    train_dataset=train_dataset,
+                    test_dataset=test_dataset,
+                    early_stopping_dataset=early_stopping_dataset,
+                    path_out=model_path,
+                    split_index=split_index,
+                    test_mode=test_mode,
+                    response_transformation=response_transformation
+                )
 def get_randomization_test_views(model: DRPModel, randomization_mode: List[str]) -> Dict[str, List[str]]:
     cell_line_views = model.cell_line_views
     drug_views = model.drug_views
@@ -183,6 +198,51 @@ def get_randomization_test_views(model: DRPModel, randomization_mode: List[str])
 
     return randomization_test_views
 
+def robustness_test(
+        n_trials: int,
+        model: DRPModel,
+        hpam_set: Dict,
+        train_dataset: DrugResponseDataset,
+        test_dataset: DrugResponseDataset,
+        early_stopping_dataset: Optional[DrugResponseDataset],
+        path_out: str,
+        split_index: int,
+        test_mode: str,
+        response_transformation: Optional[TransformerMixin] = None):
+    """
+    Run robustness tests for the given model and dataset (run the model n times with different random seeds to get a distribution of the results)
+    :param n_trials: number of trials to run
+    :param model: model to evaluate
+    :param hpam_set: hyperparameters to use
+    :param train_dataset: training dataset
+    :param test_dataset: test dataset
+    :param early_stopping_dataset: early stopping dataset
+    :param path_out: path to the output directory
+    :param split_index: index of the split
+    :param test_mode: test mode one of "LPO", "LCO", "LDO" (leave-pair-out, leave-cell-line-out, leave-drug-out)
+    :param response_transformation: sklearn.preprocessing scaler like StandardScaler or MinMaxScaler to use to scale the target
+    :return: None (save results to disk)
+    """
+
+    robustness_test_path = os.path.join(path_out, "robustness_test")
+    os.makedirs(robustness_test_path, exist_ok=True)
+    for trial in range(n_trials):
+        trial_file = os.path.join(robustness_test_path, f"test_dataset_{test_mode}_split_{split_index}_{trial}.csv")
+        if not os.path.isfile(trial_file):
+            train_dataset.shuffle(random_state=trial)
+            test_dataset.shuffle(random_state=trial)
+            if early_stopping_dataset is not None:
+                early_stopping_dataset.shuffle(random_state=trial)
+            test_dataset = train_and_predict(
+                model=model,
+                hpams=hpam_set,
+                train_dataset=train_dataset,
+                prediction_dataset=test_dataset,
+                early_stopping_dataset=early_stopping_dataset,
+                response_transformation=response_transformation
+            )
+            test_dataset.save(trial_file)
+    
 def randomization_test(
     randomization_test_views: Dict[str, List[str]],
     model: DRPModel,

@@ -78,7 +78,7 @@ class DRPModel(ABC):
         pass
 
     @abstractmethod
-    def predict(**inputs: Dict[str, np.ndarray]) -> np.ndarray:
+    def predict(self, **inputs: Dict[str, np.ndarray]) -> np.ndarray:
         """
         Predicts the response for the given input. 
 
