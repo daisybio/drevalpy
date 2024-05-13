@@ -2,6 +2,7 @@ from typing import Optional
 from models.SimpleNeuralNetwork.utils import FeedForwardNetwork
 from dreval.drp_model import DRPModel
 from dreval.dataset import DrugResponseDataset, FeatureDataset
+from ..utils import load_ge_features_from_landmark_genes, load_drug_features_from_fingerprints
 import numpy as np
 import pandas as pd
 import warnings
@@ -16,11 +17,8 @@ class SimpleNeuralNetwork(DRPModel):
     """
 
     cell_line_views = ["gene_expression"]
-
     drug_views = ["fingerprints"]
-
     early_stopping = True
-
     model_name = "SimpleNeuralNetwork"
 
     def build_model(self, hyperparameters: dict):
@@ -109,30 +107,16 @@ class SimpleNeuralNetwork(DRPModel):
         Fetch cell line input data
         :return: FeatureDataset
         """
-        ge = pd.read_csv(f"{path}/gene_expression.csv", index_col=0)
-        landmark_genes = pd.read_csv(f"{path}/gene_lists/landmark_genes.csv", sep="\t")
-        genes_to_use = set(landmark_genes["Symbol"]) & set(ge.columns)
-        ge = ge[list(genes_to_use)]
-
-        return FeatureDataset(
-            {cl: {"gene_expression": ge.loc[cl].values} for cl in ge.index}
-        )
+        return load_ge_features_from_landmark_genes(path)
 
     def load_drug_features(self, path: str) -> FeatureDataset:
         """
         Fetch drug input data.
         :return: FeatureDataset
         """
-        fingerprints = pd.read_csv(
-            f"{path}/drug_fingerprints/drug_name_to_demorgan_128_map.csv", index_col=0
-        ).T
-        return FeatureDataset(
-            {
-                drug: {"fingerprints": fingerprints.loc[drug].values}
-                for drug in fingerprints.index
-            }
-        )
+        load_drug_features_from_fingerprints(path)
 
+    @staticmethod
     def get_hyperparameter_set():
         hpams = [
             {"dropout_prob": 0.2, "units_per_layer": [10, 10, 10]},
