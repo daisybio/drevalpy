@@ -368,6 +368,10 @@ def hpam_tune_raytune(
     response_transformation: Optional[TransformerMixin] = None,
     metric: str = "rmse"
 ) -> Dict:
+    if os.environ.get('CUDA_VISIBLE_DEVICES'):
+        resources_per_trial = {"gpu": 1}
+    else:
+        resources_per_trial = {"cpu": 1}
     analysis = tune.run(
         lambda hpams: train_and_evaluate(
             model=model,
