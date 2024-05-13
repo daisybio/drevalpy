@@ -92,17 +92,20 @@ def drug_response_experiment(
 
         for split_index, split in enumerate(response_data.cv_splits):
             prediction_file = os.path.join(predictions_path, f"test_dataset_{test_mode}_split_{split_index}.csv")
-            if not os.path.isfile(prediction_file): # if this split has not been run yet
-                train_dataset = split["train"]
-                validation_dataset = split["validation"]
-                test_dataset = split["test"]
 
-                # if model.early_stopping is true then we split the validation set into a validation and early stopping set
-                if model_class.early_stopping:
-                    validation_dataset, early_stopping_dataset = split_early_stopping(
-                        validation_dataset=validation_dataset, test_mode=test_mode
-                    )
-                model = model_class(target="IC50")
+            # if model_class.early_stopping is true then we split the validation set into a validation and early stopping set
+            train_dataset = split["train"]
+            validation_dataset = split["validation"]
+            test_dataset = split["test"]
+            
+            if model_class.early_stopping:
+                validation_dataset, early_stopping_dataset = split_early_stopping(
+                    validation_dataset=validation_dataset, test_mode=test_mode
+                )
+            model = model_class(target="IC50")
+            
+            if not os.path.isfile(prediction_file): # if this split has not been run yet
+                
 
                 if multiprocessing:
                     ray.init(_temp_dir=os.path.join(os.path.expanduser('~'), 'raytmp'))
@@ -306,6 +309,14 @@ def randomization_test(
                 test_dataset_rand.save(randomization_test_file)
         else:
             print(f"Randomization test {test_name} already exists. Skipping.")
+
+
+
+
+# TODO RANDOMIZATION TEST AND ROBUSTNESS TEST DONT WORK WITH THE CURRENT MODEL LOGIC!! NEED TO BUILD MODEL ETC
+
+
+
 def split_early_stopping(
     validation_dataset: DrugResponseDataset, test_mode: str
 ) -> Tuple[DrugResponseDataset]:
