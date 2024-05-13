@@ -22,7 +22,7 @@ class DRPModel(ABC):
 
     @staticmethod
     @abstractmethod
-    def get_hyperparameter_set(cls) -> List[dict]:
+    def get_hyperparameter_set() -> List[dict]:
         """
         :return: hyperparameter set list of dicts
         """
