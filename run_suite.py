@@ -96,6 +96,11 @@ def get_parser():
         type=str,
         default="None",
         help="Transformation to apply to the response variable possible values: standard, minmax, robust")
+    parser.add_argument(
+            "--multiprocessing",
+            action='store_true',
+            default=False,
+            help="Whether to use multiprocessing for the evaluation. Default is False")
 
     return parser
 
@@ -148,7 +153,7 @@ if __name__ == "__main__":
             response_transformation=response_transformation,
             metric=args.optim_metric,
             n_cv_splits=args.n_cv_splits,
-            multiprocessing=True,
+            multiprocessing=args.multiprocessing,
             test_mode=test_mode,
             randomization_mode=args.randomization_mode,
             randomization_type=args.randomization_type,
@@ -156,7 +161,6 @@ if __name__ == "__main__":
             path_out=args.path_out,
             run_id=args.run_id,
             overwrite=args.overwrite,
-
         )
 
     # TODO now do evaluation, visualization, etc.
