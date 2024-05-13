@@ -316,13 +316,6 @@ def randomization_test(
         else:
             print(f"Randomization test {test_name} already exists. Skipping.")
 
-
-
-
-# TODO RANDOMIZATION TEST AND ROBUSTNESS TEST DONT WORK WITH THE CURRENT MODEL LOGIC!! NEED TO BUILD MODEL ETC
-
-
-
 def split_early_stopping(
     validation_dataset: DrugResponseDataset, test_mode: str
 ) -> Tuple[DrugResponseDataset]:
