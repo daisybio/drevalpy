@@ -18,8 +18,9 @@ class DRPModel(ABC):
         :param args: optional arguments
         :param kwargs: optional keyword arguments
         """
-        self.target = target    
-    @classmethod
+        self.target = target 
+
+    @staticmethod
     @abstractmethod
     def get_hyperparameter_set(cls) -> List[dict]:
         """
