@@ -88,7 +88,7 @@ def drug_response_experiment(
 
         for split_index, split in enumerate(response_data.cv_splits):
             prediction_file = os.path.join(predictions_path, f"test_dataset_{test_mode}_split_{split_index}.csv")
-            if not os.path.isfile(): # if this split has not been run yet
+            if not os.path.isfile(prediction_file): # if this split has not been run yet
                 train_dataset = split["train"]
                 validation_dataset = split["validation"]
                 test_dataset = split["test"]
@@ -368,6 +368,10 @@ def hpam_tune_raytune(
     response_transformation: Optional[TransformerMixin] = None,
     metric: str = "rmse"
 ) -> Dict:
+    if os.environ.get('CUDA_VISIBLE_DEVICES'):
+        resources_per_trial = {"gpu": 1}
+    else:
+        resources_per_trial = {"cpu": 1}
     analysis = tune.run(
         lambda hpams: train_and_evaluate(
             model=model,
@@ -380,7 +384,7 @@ def hpam_tune_raytune(
         ),
         config=tune.grid_search(hpam_set),
         mode="min",
-        num_samples=len(hpam_set),
+        num_samples=5,
         resources_per_trial={"cpu": 1},
         chdir_to_trial_dir=False,
         verbose=0,
