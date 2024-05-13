@@ -178,9 +178,9 @@ class DrugResponseDataset(Dataset):
         :drug_ids: drug IDs
         """
 
-        self.remove_drugs(list(set(self.drug_ids) - set(cell_line_ids)))
+        self.remove_drugs(list(set(self.drug_ids) - set(drug_ids)))
         
-        self.remove_cell_lines(list(set(self.cell_line_ids) - set(drug_ids)))
+        self.remove_cell_lines(list(set(self.cell_line_ids) - set(cell_line_ids)))
 
     def split_dataset(
         self,
@@ -316,7 +316,7 @@ class FeatureDataset(Dataset):
         """
         return list(self.features[list(self.features.keys())[0]].keys())
 
-    def get_feature_matrix(self, view: str, identifiers: str) -> np.ndarray:
+    def get_feature_matrix(self, view: str, identifiers: List[str]) -> np.ndarray:
         """
         Returns the feature matrix for the given view.
         :param view: view name
