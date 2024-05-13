@@ -21,6 +21,8 @@ class SimpleNeuralNetwork(DRPModel):
 
     early_stopping = True
 
+    model_name = "SimpleNeuralNetwork"
+
     def build_model(self, *args, **kwargs):
         """
         Builds the model.
@@ -159,7 +161,7 @@ class SimpleNeuralNetwork(DRPModel):
             }
         )
 
-    def get_hyperparameter_set(self):
+    def get_hyperparameter_set():
         hpams = [
             {"dropout_prob": 0.2, "units_per_layer": [10, 10, 10]},
             {"dropout_prob": 0.3, "units_per_layer": [20, 10, 10]},

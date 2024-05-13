@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Type
 import warnings
 from .dataset import DrugResponseDataset, FeatureDataset
 from .evaluation import evaluate
@@ -11,7 +11,7 @@ from sklearn.base import TransformerMixin
 
 # TODO save hpams and their scores to disk
 def drug_response_experiment(
-    models: List[DRPModel],
+    models: List[Type[DRPModel]],
     response_data: DrugResponseDataset,
     response_transformation: Optional[TransformerMixin] = None,
     run_id: str = "",
@@ -26,7 +26,7 @@ def drug_response_experiment(
 ) -> None :
     """
     Run the drug response prediction experiment. Save results to disc.
-    :param models: list of models to compare
+    :param models: list of model classes to compare
     :param response_data: drug response dataset
     :param response_transformation: normalizer to use for the response data
     :param metric: metric to use for hyperparameter optimization
@@ -98,7 +98,7 @@ def drug_response_experiment(
                     validation_dataset, early_stopping_dataset = split_early_stopping(
                         validation_dataset=validation_dataset, test_mode=test_mode
                     )
-
+                model = model(target="IC50")
                 if multiprocessing:
                     best_hpams = hpam_tune_raytune(
                         model=model,

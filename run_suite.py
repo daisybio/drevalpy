@@ -103,7 +103,7 @@ if __name__ == "__main__":
         [test in ["LPO", "LCO", "LDO"] for test in args.test_mode]
     ), "Invalid test mode. Available test modes are LPO, LCO, LDO"
     models = [
-        MODEL_FACTORY[model](model_name=model, target="IC50") for model in args.models
+        MODEL_FACTORY[model] for model in args.models
     ]
     assert args.dataset_name in RESPONSE_DATASET_FACTORY, f"Invalid dataset name. Available datasets are {list(RESPONSE_DATASET_FACTORY.keys())} If you want to use your own dataset, you need to implement a new response dataset class and add it to the RESPONSE_DATASET_FACTORY in the response_datasets init"
     response_data = RESPONSE_DATASET_FACTORY[args.dataset_name]()
