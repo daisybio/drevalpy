@@ -95,7 +95,6 @@ class FeedForwardNetwork(pl.LightningModule):
         )
         trainer_params_copy = trainer_params.copy()
         del trainer_params_copy["progress_bar_refresh_rate"]
-
             
         # Initialize the Lightning trainer
         trainer = pl.Trainer(

@@ -140,6 +140,5 @@ class SimpleNeuralNetwork(DRPModel):
         ]
         for hpam in hpams:
             hpam["feature_path"] = "data/GDSC"
-            # TODO add right number of features
-            hpam["n_features"] = 1000
+            hpam["n_features"] = 1036
         return hpams

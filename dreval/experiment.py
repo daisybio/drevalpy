@@ -6,6 +6,8 @@ from .drp_model import DRPModel
 import numpy as np
 import os
 import shutil
+import ray
+import torch
 from ray import tune
 from sklearn.base import TransformerMixin
 
@@ -101,6 +103,7 @@ def drug_response_experiment(
                 model = model_class(target="IC50")
 
                 if multiprocessing:
+                    ray.init(_temp_dir=os.path.join(os.path.expanduser('~'), 'raytmp'))
                     best_hpams = hpam_tune_raytune(
                         model=model,
                         train_dataset=train_dataset,
@@ -110,7 +113,8 @@ def drug_response_experiment(
                         ),
                         hpam_set=model_hpam_set,
                         response_transformation=response_transformation,
-                        metric=metric
+                        metric=metric,
+                        ray_path=os.path.abspath(os.path.join(result_path, "raytune"))
                     )
                 else:
                     best_hpams = hpam_tune(
@@ -384,9 +388,10 @@ def hpam_tune_raytune(
     early_stopping_dataset: Optional[DrugResponseDataset],
     hpam_set: List[Dict],
     response_transformation: Optional[TransformerMixin] = None,
-    metric: str = "rmse"
+    metric: str = "rmse",
+    ray_path: str = "raytune"
 ) -> Dict:
-    if os.environ.get('CUDA_VISIBLE_DEVICES'):
+    if torch.cuda.is_available():
         resources_per_trial = {"gpu": 1}
     else:
         resources_per_trial = {"cpu": 1}
@@ -406,6 +411,7 @@ def hpam_tune_raytune(
         resources_per_trial=resources_per_trial,
         chdir_to_trial_dir=False,
         verbose=0,
+        storage_path=ray_path
     )
     best_config = analysis.get_best_config(metric=metric, mode="min")
     return best_config
