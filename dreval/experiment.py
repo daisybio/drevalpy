@@ -377,12 +377,17 @@ def train_and_predict(
         early_stopping_dataset.response = response_transformation.transform(early_stopping_dataset.response.reshape(-1, 1)).squeeze()
         prediction_dataset.response = response_transformation.transform(prediction_dataset.response.reshape(-1, 1)).squeeze()
 
-
-    model.train(
-        output=train_dataset,
-        output_earlystopping=early_stopping_dataset,
-        **inputs
-    )
+    if model.early_stopping:
+        model.train(
+            output=train_dataset,
+            output_earlystopping=early_stopping_dataset,
+            **inputs
+        )
+    else: 
+        model.train(
+            output=train_dataset,
+            **inputs
+        )
 
     prediction_dataset.predictions = model.predict(**prediction_inputs)
 
