@@ -149,7 +149,7 @@ if __name__ == "__main__":
             response_transformation=response_transformation,
             metric=args.optim_metric,
             n_cv_splits=args.n_cv_splits,
-            multiprocessing=False,
+            multiprocessing=True,
             test_mode=test_mode,
             randomization_mode=args.randomization_mode,
             randomization_type=args.randomization_type,

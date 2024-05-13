@@ -1,6 +1,6 @@
 from typing import List
 import numpy as np
-from sklearn.linear_model import ElasticNet, LogisticRegression
+from sklearn.linear_model import ElasticNet, Ridge, LogisticRegression
 
 from dreval.dataset import FeatureDataset, DrugResponseDataset
 from dreval.drp_model import DRPModel
@@ -39,8 +39,11 @@ class ElasticNetModel(DRPModel):
         Builds the model from hyperparameters.
         :param hyperparameters: Hyperparameters for the model.
         """
-        self.model = ElasticNet(alpha=hyperparameters['alpha'],
-                                l1_ratio=hyperparameters['l1_ratio'])
+        if hyperparameters['l1_ratio'] == 0.0:
+            self.model = Ridge(alpha=hyperparameters['alpha'])
+        else:
+            self.model = ElasticNet(alpha=hyperparameters['alpha'],
+                                    l1_ratio=hyperparameters['l1_ratio'])
 
     def train(self, output: DrugResponseDataset,
               gene_expression: np.ndarray = None,
