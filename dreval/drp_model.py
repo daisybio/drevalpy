@@ -9,8 +9,8 @@ class DRPModel(ABC):
     Abstract wrapper class for drug response prediction models.
     """
     early_stopping = False
-
-    def __init__(self, model_name, target, *args, **kwargs):
+    
+    def __init__(self, target, *args, **kwargs):
         """
         Creates an instance of a drug response prediction model.
         :param model_name: model name for displaying results
@@ -18,14 +18,23 @@ class DRPModel(ABC):
         :param args: optional arguments
         :param kwargs: optional keyword arguments
         """
-        self.model_name = model_name
         self.target = target
         self.build_model(*args, **kwargs)
-
+    
+    @classmethod
     @abstractmethod
-    def get_hyperparameter_set(self) -> List[dict]:
+    def get_hyperparameter_set(cls) -> List[dict]:
         """
         :return: hyperparameter set list of dicts
+        """
+        pass
+    
+    @property
+    @abstractmethod
+    def model_name(self):
+        """
+        Returns the model name.
+        :return: model name
         """
         pass
 
