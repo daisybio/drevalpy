@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Optional
+from typing import Dict, List, Optional
 from .dataset import DrugResponseDataset, FeatureDataset
 import numpy as np
 
@@ -18,9 +18,7 @@ class DRPModel(ABC):
         :param args: optional arguments
         :param kwargs: optional keyword arguments
         """
-        self.target = target
-        self.build_model(*args, **kwargs)
-    
+        self.target = target    
     @classmethod
     @abstractmethod
     def get_hyperparameter_set(cls) -> List[dict]:
@@ -66,31 +64,23 @@ class DRPModel(ABC):
     @abstractmethod
     def train(
         self,
-        cell_line_input: FeatureDataset,
-        drug_input: FeatureDataset,
         output: DrugResponseDataset,
         output_earlystopping: Optional[DrugResponseDataset] = None,
-    ):
+        **inputs: Dict[str, np.ndarray]
+    ) -> None:
         """
         Trains the model. Call the respective function from models_code here.
-        :param cell_line_input: feature data associated with the cell line input
-        :param drug_input: feature data associated with the drug input
         :param output: training data associated with the response output
         :param output_earlystopping: optional early stopping dataset
+        :param inputs: input data Dict of numpy arrays
         """
         pass
 
     @abstractmethod
-    def predict(cell_line_ids: np.ndarray,
-        drug_ids: np.ndarray,
-        cell_line_input: FeatureDataset,
-        drug_input: FeatureDataset):
+    def predict(**inputs: Dict[str, np.ndarray]) -> np.ndarray:
         """
         Predicts the response for the given input. 
-        :param cell_line_ids: cell line ids of the pairs for which to predict the response
-        :param drug_ids: drug ids of the pairs for which to predict the response
-        :param cell_line_input: feature dataset associated with the cell line
-        :param drug_input: feature dataset associated with the drug
+
         """
         pass
 
@@ -111,19 +101,38 @@ class DRPModel(ABC):
         pass
 
     @abstractmethod
-    def get_cell_line_features(self, cell_line_input: FeatureDataset):
+    def load_cell_line_features(self, cell_line_input: FeatureDataset):
         """
         :return: FeatureDataset
         """
         pass
 
     @abstractmethod
-    def get_drug_features(self, drug_input: FeatureDataset):
+    def load_drug_features(self, drug_input: FeatureDataset):
         """
         :return: FeatureDataset
         """
         pass
 
+    def get_feature_matrices(
+        self,
+        cell_line_ids: np.ndarray,
+        drug_ids: np.ndarray,
+        cell_line_input: FeatureDataset,
+        drug_input: FeatureDataset,
+    ):  
+        cell_line_feature_matrices = {}
+        for cell_line_view in self.cell_line_views:
+            if cell_line_view not in cell_line_input.get_view_names():
+                raise ValueError(f"Cell line input does not contain view {cell_line_view}")
+            cell_line_feature_matrices[cell_line_view] = cell_line_input.get_feature_matrix(cell_line_view, cell_line_ids)
+        drug_feature_matrices = {}
+        for drug_view in self.drug_views:
+            if drug_view not in drug_input.get_view_names():
+                raise ValueError(f"Drug input does not contain view {drug_view}")
+            drug_feature_matrices[drug_view] = drug_input.get_feature_matrix(drug_view, drug_ids)
+
+        return {**cell_line_feature_matrices, **drug_feature_matrices}
 
 class SingleDRPModel(DRPModel, ABC):
     """
