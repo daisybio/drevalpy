@@ -1,3 +1,4 @@
+import json
 from typing import Dict, List, Optional, Tuple, Type
 import warnings
 from .dataset import DrugResponseDataset, FeatureDataset
@@ -97,7 +98,7 @@ def drug_response_experiment(
             train_dataset = split["train"]
             validation_dataset = split["validation"]
             test_dataset = split["test"]
-            
+
             if model_class.early_stopping:
                 validation_dataset, early_stopping_dataset = split_early_stopping(
                     validation_dataset=validation_dataset, test_mode=test_mode
@@ -135,6 +136,10 @@ def drug_response_experiment(
 
                 print(f"Best hyperparameters: {best_hpams}")
                 print("Training model on full train and validation set to predict test set")
+                # save best hyperparameters as json
+                with open(os.path.join(predictions_path, f"best_hpams_split_{split_index}.json"), "w") as f:
+                    json.dump(best_hpams, f)
+
                 train_dataset.add_rows(
                     validation_dataset
                 )  # use full train val set data for final training
@@ -153,6 +158,7 @@ def drug_response_experiment(
                 test_dataset.save(prediction_file)
             else:
                 print(f"Split {split_index} already exists. Skipping.")
+                best_hpams = json.load(open(os.path.join(predictions_path, f"best_hpams_split_{split_index}.json")))
 
             if randomization_mode is not None:
                 randomization_test_views = get_randomization_test_views(model=model,
@@ -318,7 +324,6 @@ def randomization_test(
             print(f"Randomization test {test_name} already exists. Skipping.")
 
 
-# TODO RANDOMIZATION TEST AND ROBUSTNESS TEST DONT WORK WITH THE CURRENT MODEL LOGIC!! NEED TO BUILD MODEL ETC
 def split_early_stopping(
         validation_dataset: DrugResponseDataset, test_mode: str
 ) -> Tuple[DrugResponseDataset]:
