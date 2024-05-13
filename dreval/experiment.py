@@ -65,11 +65,11 @@ def drug_response_experiment(
     os.makedirs(result_path, exist_ok=True)
 
     # TODO load existing progress if it exists, currently we just overwrite
-    for model in models:
+    for model_class in models:
 
-        print(f"Running model {model.model_name}")
+        print(f"Running model {model_class.model_name}")
 
-        model_path = os.path.join(result_path, model.model_name)
+        model_path = os.path.join(result_path, model_class.model_name)
         os.makedirs(model_path, exist_ok=True)
         predictions_path = os.path.join(model_path, "predictions")
         os.makedirs(predictions_path, exist_ok=True)
@@ -78,7 +78,7 @@ def drug_response_experiment(
             randomization_test_path = os.path.join(model_path, "randomization_tests")
             os.makedirs(randomization_test_path)
 
-        model_hpam_set = model.get_hyperparameter_set()
+        model_hpam_set = model_class.get_hyperparameter_set()
 
         response_data.split_dataset(
             n_cv_splits=n_cv_splits,
@@ -96,11 +96,12 @@ def drug_response_experiment(
                 test_dataset = split["test"]
 
                 # if model.early_stopping is true then we split the validation set into a validation and early stopping set
-                if model.early_stopping:
+                if model_class.early_stopping:
                     validation_dataset, early_stopping_dataset = split_early_stopping(
                         validation_dataset=validation_dataset, test_mode=test_mode
                     )
-                model = model(target="IC50")
+                model = model_class(target="IC50")
+
                 if multiprocessing:
                     ray.init(_temp_dir=os.path.join(os.path.expanduser('~'), 'raytmp'))
                     best_hpams = hpam_tune_raytune(
@@ -212,8 +213,8 @@ def randomization_test(
     :param response_transformation sklearn.preprocessing scaler like StandardScaler or MinMaxScaler to use to scale the target
     :return: None (save results to disk)
     """
-    cl_features = model.get_cell_line_features(path=hpam_set["feature_path"])
-    drug_features = model.get_drug_features(path=hpam_set["feature_path"])
+    cl_features = model.load_cell_line_features(path=hpam_set["feature_path"])
+    drug_features = model.load_drug_features(path=hpam_set["feature_path"])
     for test_name, views in randomization_test_views.items():
         randomization_test_path = os.path.join(path_out, test_name)
         randomization_test_file = os.path.join(randomization_test_path, f"test_dataset_{test_mode}_split_{split_index}.csv")
@@ -271,10 +272,13 @@ def train_and_predict(
     cl_features: Optional[FeatureDataset] = None,
     drug_features: Optional[FeatureDataset] = None,
 ) -> DrugResponseDataset:
+    
+    model.build_model(hyperparameters=hpams)
+
     if cl_features is None:
-        cl_features = model.get_cell_line_features(path=hpams["feature_path"])
+        cl_features = model.load_cell_line_features(path=hpams["feature_path"])
     if drug_features is None:
-        drug_features = model.get_drug_features(path=hpams["feature_path"])
+        drug_features = model.load_drug_features(path=hpams["feature_path"])
     # making sure there are no missing features:
     train_dataset.reduce_to(
         cell_line_ids=cl_features.identifiers, drug_ids=drug_features.identifiers
@@ -284,10 +288,29 @@ def train_and_predict(
         cell_line_ids=cl_features.identifiers, drug_ids=drug_features.identifiers
     )
 
+    inputs = model.get_feature_matrices(
+                    cell_line_ids=train_dataset.cell_line_ids,
+                    drug_ids=train_dataset.drug_ids,
+                    cell_line_input=cl_features,
+                    drug_input=drug_features)
+    prediction_inputs = model.get_feature_matrices(
+                    cell_line_ids=prediction_dataset.cell_line_ids,
+                    drug_ids=prediction_dataset.drug_ids,
+                    cell_line_input=cl_features,
+                    drug_input=drug_features)
     if early_stopping_dataset is not None:
         early_stopping_dataset.reduce_to(
             cell_line_ids=cl_features.identifiers, drug_ids=drug_features.identifiers
         )
+        early_stopping_inputs = model.get_feature_matrices(
+            cell_line_ids=early_stopping_dataset.cell_line_ids,
+            drug_ids=early_stopping_dataset.drug_ids,
+            cell_line_input=cl_features,
+            drug_input=drug_features,
+        )
+        for key in early_stopping_inputs:
+            inputs[key + "_earlystopping"] = early_stopping_inputs[key]
+
     if response_transformation:
         response_transformation.fit(train_dataset.response.reshape(-1, 1))
         train_dataset.response = response_transformation.transform(train_dataset.response.reshape(-1, 1)).squeeze()
@@ -296,21 +319,16 @@ def train_and_predict(
 
 
     model.train(
-        cell_line_input=cl_features,
-        drug_input=drug_features,
         output=train_dataset,
-        hyperparameters=hpams,
         output_earlystopping=early_stopping_dataset,
+        **inputs
     )
 
-    prediction_dataset.predictions = model.predict(
-        cell_line_ids=prediction_dataset.cell_line_ids,
-        drug_ids=prediction_dataset.drug_ids,
-        cell_line_input=cl_features,
-        drug_input=drug_features,
-    )
+    prediction_dataset.predictions = model.predict(**prediction_inputs)
+
     if response_transformation:
         prediction_dataset.response = response_transformation.inverse_transform(prediction_dataset.response)
+        
     return prediction_dataset
 
 
