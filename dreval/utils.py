@@ -7,14 +7,15 @@ from numpy.typing import ArrayLike
 from sklearn.model_selection import train_test_split
 from scipy.stats import pearsonr, spearmanr, kendalltau
 
+
 def leave_pair_out_cv(
-    n_cv_splits: int,
-    response: ArrayLike,
-    cell_line_ids: ArrayLike,
-    drug_ids: ArrayLike,
-    split_validation=True,
-    validation_ratio=0.1,
-    random_state=42,
+        n_cv_splits: int,
+        response: ArrayLike,
+        cell_line_ids: ArrayLike,
+        drug_ids: ArrayLike,
+        split_validation=True,
+        validation_ratio=0.1,
+        random_state=42,
 ) -> List[dict]:
     """
     Leave pair out cross validation. Splits data into n_cv_splits number of cross validation splits.
@@ -30,7 +31,7 @@ def leave_pair_out_cv(
     from .dataset import DrugResponseDataset
 
     assert (
-        len(response) == len(cell_line_ids) == len(drug_ids)
+            len(response) == len(cell_line_ids) == len(drug_ids)
     ), "response, cell_line_ids and drug_ids must have the same length"
 
     kf = KFold(n_splits=n_cv_splits, shuffle=True, random_state=random_state)
@@ -70,14 +71,14 @@ def leave_pair_out_cv(
 
 
 def leave_group_out_cv(
-    group: str,
-    n_cv_splits: int,
-    response: ArrayLike,
-    cell_line_ids: ArrayLike,
-    drug_ids: ArrayLike,
-    split_validation=True,
-    validation_ratio=0.1,
-    random_state=42,
+        group: str,
+        n_cv_splits: int,
+        response: ArrayLike,
+        cell_line_ids: ArrayLike,
+        drug_ids: ArrayLike,
+        split_validation=True,
+        validation_ratio=0.1,
+        random_state=42,
 ):
     from .dataset import DrugResponseDataset
 
@@ -123,7 +124,6 @@ def leave_group_out_cv(
             ),
         }
         if split_validation:
-
             # split training set into training and validation set. The validation set also does contain unqiue cell lines/drugs
             unique_train_groups = np.unique(group_ids[train_indices])
             train_groups, validation_groups = train_test_split(
@@ -144,16 +144,16 @@ def leave_group_out_cv(
                 drug_ids=drug_ids[validation_indices],
                 response=response[validation_indices],
             )
-            
+
         cv_sets.append(cv_fold)
     return cv_sets
 
 
 def partial_correlation(
-    y_pred: np.ndarray,
-    y_true: np.ndarray,
-    cell_line_ids: np.ndarray,
-    drug_ids: np.ndarray,
+        y_pred: np.ndarray,
+        y_true: np.ndarray,
+        cell_line_ids: np.ndarray,
+        drug_ids: np.ndarray,
 ) -> float:
     """
     Computes the partial correlation between predictions and response, conditioned on cell line and drug.
@@ -165,7 +165,7 @@ def partial_correlation(
     """
 
     assert (
-        len(y_pred) == len(y_true) == len(cell_line_ids) == len(drug_ids)
+            len(y_pred) == len(y_true) == len(cell_line_ids) == len(drug_ids)
     ), "predictions, response, drug_ids, and cell_line_ids must have the same length"
 
     df = pd.DataFrame({'response': y_true,

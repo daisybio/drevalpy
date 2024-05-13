@@ -12,22 +12,23 @@ import torch
 from ray import tune
 from sklearn.base import TransformerMixin
 
+
 # TODO save hpams and their scores to disk
 def drug_response_experiment(
-    models: List[Type[DRPModel]],
-    response_data: DrugResponseDataset,
-    response_transformation: Optional[TransformerMixin] = None,
-    run_id: str = "",
-    test_mode: str = "LPO",
-    metric: str = "rmse",
-    n_cv_splits: int = 5,
-    multiprocessing: bool = False,
-    randomization_mode: Optional[List[str]] = None,
-    randomization_type: str = "permutation",
-    n_trials_robustness: int = 0,
-    path_out: str = "results/",
-    overwrite: bool = False,
-) -> None :
+        models: List[Type[DRPModel]],
+        response_data: DrugResponseDataset,
+        response_transformation: Optional[TransformerMixin] = None,
+        run_id: str = "",
+        test_mode: str = "LPO",
+        metric: str = "rmse",
+        n_cv_splits: int = 5,
+        multiprocessing: bool = False,
+        randomization_mode: Optional[List[str]] = None,
+        randomization_type: str = "permutation",
+        n_trials_robustness: int = 0,
+        path_out: str = "results/",
+        overwrite: bool = False,
+) -> None:
     """
     Run the drug response prediction experiment. Save results to disc.
     :param models: list of model classes to compare
@@ -64,7 +65,7 @@ def drug_response_experiment(
     # if results exists, delete them if overwrite is true
     if os.path.exists(result_path) and overwrite:
         shutil.rmtree(result_path)
-        
+
     os.makedirs(result_path, exist_ok=True)
 
     # TODO load existing progress if it exists, currently we just overwrite
@@ -76,7 +77,7 @@ def drug_response_experiment(
         os.makedirs(model_path, exist_ok=True)
         predictions_path = os.path.join(model_path, "predictions")
         os.makedirs(predictions_path, exist_ok=True)
-        
+
         if randomization_mode is not None:
             randomization_test_path = os.path.join(model_path, "randomization_tests")
             os.makedirs(randomization_test_path)
@@ -93,7 +94,6 @@ def drug_response_experiment(
 
         for split_index, split in enumerate(response_data.cv_splits):
             prediction_file = os.path.join(predictions_path, f"test_dataset_{test_mode}_split_{split_index}.csv")
-
             # if model_class.early_stopping is true then we split the validation set into a validation and early stopping set
             train_dataset = split["train"]
             validation_dataset = split["validation"]
@@ -106,7 +106,6 @@ def drug_response_experiment(
             model = model_class(target="IC50")
             
             if not os.path.isfile(prediction_file): # if this split has not been run yet
-                
 
                 if multiprocessing:
                     ray.init(_temp_dir=os.path.join(os.path.expanduser('~'), 'raytmp'))
@@ -134,10 +133,13 @@ def drug_response_experiment(
                         response_transformation=response_transformation,
                         metric=metric
                     )
+
+                print(f"Best hyperparameters: {best_hpams}")
+                print("Training model on full train and validation set to predict test set")
                 # save best hyperparameters as json
                 with open(os.path.join(predictions_path, f"best_hpams_split_{split_index}.json"), "w") as f:
                     json.dump(best_hpams, f)
-                
+
                 train_dataset.add_rows(
                     validation_dataset
                 )  # use full train val set data for final training
@@ -160,8 +162,8 @@ def drug_response_experiment(
 
             if randomization_mode is not None:
                 randomization_test_views = get_randomization_test_views(model=model,
-                    randomization_mode=randomization_mode
-                )
+                                                                        randomization_mode=randomization_mode
+                                                                        )
                 randomization_test(
                     randomization_test_views=randomization_test_views,
                     model=model,
@@ -188,6 +190,8 @@ def drug_response_experiment(
                     test_mode=test_mode,
                     response_transformation=response_transformation
                 )
+
+
 def get_randomization_test_views(model: DRPModel, randomization_mode: List[str]) -> Dict[str, List[str]]:
     cell_line_views = model.cell_line_views
     drug_views = model.drug_views
@@ -206,6 +210,7 @@ def get_randomization_test_views(model: DRPModel, randomization_mode: List[str])
             randomization_test_views[f"SVRD_{view}"] = [view]
 
     return randomization_test_views
+
 
 def robustness_test(
         n_trials: int,
@@ -251,19 +256,20 @@ def robustness_test(
                 response_transformation=response_transformation
             )
             test_dataset.save(trial_file)
-    
+
+
 def randomization_test(
-    randomization_test_views: Dict[str, List[str]],
-    model: DRPModel,
-    hpam_set: Dict,
-    train_dataset: DrugResponseDataset,
-    test_dataset: DrugResponseDataset,
-    early_stopping_dataset: Optional[DrugResponseDataset],
-    path_out: str,
-    split_index: int,
-    test_mode: str,
-    randomization_type: str = "permutation",
-    response_transformation = Optional[TransformerMixin]
+        randomization_test_views: Dict[str, List[str]],
+        model: DRPModel,
+        hpam_set: Dict,
+        train_dataset: DrugResponseDataset,
+        test_dataset: DrugResponseDataset,
+        early_stopping_dataset: Optional[DrugResponseDataset],
+        path_out: str,
+        split_index: int,
+        test_mode: str,
+        randomization_type: str = "permutation",
+        response_transformation=Optional[TransformerMixin]
 
 ) -> None:
     """
@@ -286,10 +292,11 @@ def randomization_test(
     drug_features = model.load_drug_features(path=hpam_set["feature_path"])
     for test_name, views in randomization_test_views.items():
         randomization_test_path = os.path.join(path_out, test_name)
-        randomization_test_file = os.path.join(randomization_test_path, f"test_dataset_{test_mode}_split_{split_index}.csv")
+        randomization_test_file = os.path.join(randomization_test_path,
+                                               f"test_dataset_{test_mode}_split_{split_index}.csv")
 
         os.makedirs(randomization_test_path, exist_ok=True)
-        if not os.path.isfile(randomization_test_file): # if this splits test has not been run yet
+        if not os.path.isfile(randomization_test_file):  # if this splits test has not been run yet
             for view in views:
                 cl_features_rand = cl_features.copy()
                 drug_features_rand = drug_features.copy()
@@ -316,8 +323,9 @@ def randomization_test(
         else:
             print(f"Randomization test {test_name} already exists. Skipping.")
 
+
 def split_early_stopping(
-    validation_dataset: DrugResponseDataset, test_mode: str
+        validation_dataset: DrugResponseDataset, test_mode: str
 ) -> Tuple[DrugResponseDataset]:
     validation_dataset.shuffle(random_state=42)
     cv_v = validation_dataset.split_dataset(
@@ -333,23 +341,25 @@ def split_early_stopping(
 
 
 def train_and_predict(
-    model: DRPModel,
-    hpams: Dict[str, List],
-    train_dataset: DrugResponseDataset,
-    prediction_dataset: DrugResponseDataset,
-    early_stopping_dataset: Optional[DrugResponseDataset] = None,
-    response_transformation: Optional[TransformerMixin] = None,
-    cl_features: Optional[FeatureDataset] = None,
-    drug_features: Optional[FeatureDataset] = None,
+        model: DRPModel,
+        hpams: Dict[str, List],
+        train_dataset: DrugResponseDataset,
+        prediction_dataset: DrugResponseDataset,
+        early_stopping_dataset: Optional[DrugResponseDataset] = None,
+        response_transformation: Optional[TransformerMixin] = None,
+        cl_features: Optional[FeatureDataset] = None,
+        drug_features: Optional[FeatureDataset] = None,
 ) -> DrugResponseDataset:
-    
     model.build_model(hyperparameters=hpams)
 
     if cl_features is None:
+        print('Loading cell line features ...')
         cl_features = model.load_cell_line_features(path=hpams["feature_path"])
     if drug_features is None:
+        print('Loading drug features ...')
         drug_features = model.load_drug_features(path=hpams["feature_path"])
     # making sure there are no missing features:
+    print('Reducing datasets ...')
     train_dataset.reduce_to(
         cell_line_ids=cl_features.identifiers, drug_ids=drug_features.identifiers
     )
@@ -358,16 +368,17 @@ def train_and_predict(
         cell_line_ids=cl_features.identifiers, drug_ids=drug_features.identifiers
     )
 
+    print('Constructing feature matrices ...')
     inputs = model.get_feature_matrices(
-                    cell_line_ids=train_dataset.cell_line_ids,
-                    drug_ids=train_dataset.drug_ids,
-                    cell_line_input=cl_features,
-                    drug_input=drug_features)
+        cell_line_ids=train_dataset.cell_line_ids,
+        drug_ids=train_dataset.drug_ids,
+        cell_line_input=cl_features,
+        drug_input=drug_features)
     prediction_inputs = model.get_feature_matrices(
-                    cell_line_ids=prediction_dataset.cell_line_ids,
-                    drug_ids=prediction_dataset.drug_ids,
-                    cell_line_input=cl_features,
-                    drug_input=drug_features)
+        cell_line_ids=prediction_dataset.cell_line_ids,
+        drug_ids=prediction_dataset.drug_ids,
+        cell_line_input=cl_features,
+        drug_input=drug_features)
     if early_stopping_dataset is not None:
         early_stopping_dataset.reduce_to(
             cell_line_ids=cl_features.identifiers, drug_ids=drug_features.identifiers
@@ -384,16 +395,19 @@ def train_and_predict(
     if response_transformation:
         response_transformation.fit(train_dataset.response.reshape(-1, 1))
         train_dataset.response = response_transformation.transform(train_dataset.response.reshape(-1, 1)).squeeze()
-        early_stopping_dataset.response = response_transformation.transform(early_stopping_dataset.response.reshape(-1, 1)).squeeze()
-        prediction_dataset.response = response_transformation.transform(prediction_dataset.response.reshape(-1, 1)).squeeze()
+        early_stopping_dataset.response = response_transformation.transform(
+            early_stopping_dataset.response.reshape(-1, 1)).squeeze()
+        prediction_dataset.response = response_transformation.transform(
+            prediction_dataset.response.reshape(-1, 1)).squeeze()
 
+    print('Training model ...')
     if model.early_stopping:
         model.train(
             output=train_dataset,
             output_earlystopping=early_stopping_dataset,
             **inputs
         )
-    else: 
+    else:
         model.train(
             output=train_dataset,
             **inputs
@@ -403,18 +417,18 @@ def train_and_predict(
 
     if response_transformation:
         prediction_dataset.response = response_transformation.inverse_transform(prediction_dataset.response)
-        
+
     return prediction_dataset
 
 
 def train_and_evaluate(
-    model: DRPModel,
-    hpams: Dict[str, List],
-    train_dataset: DrugResponseDataset,
-    validation_dataset: DrugResponseDataset,
-    early_stopping_dataset: Optional[DrugResponseDataset] = None,
-    response_transformation: Optional[TransformerMixin] = None,
-    metric: str = "rmse",
+        model: DRPModel,
+        hpams: Dict[str, List],
+        train_dataset: DrugResponseDataset,
+        validation_dataset: DrugResponseDataset,
+        early_stopping_dataset: Optional[DrugResponseDataset] = None,
+        response_transformation: Optional[TransformerMixin] = None,
+        metric: str = "rmse",
 ) -> float:
     validation_dataset = train_and_predict(
         model=model,
@@ -428,18 +442,18 @@ def train_and_evaluate(
 
 
 def hpam_tune(
-    model: DRPModel,
-    train_dataset: DrugResponseDataset,
-    validation_dataset: DrugResponseDataset,
-    hpam_set: List[Dict],
-    early_stopping_dataset: Optional[DrugResponseDataset] = None,
-    response_transformation: Optional[TransformerMixin] = None,
-    metric: str = "rmse"
+        model: DRPModel,
+        train_dataset: DrugResponseDataset,
+        validation_dataset: DrugResponseDataset,
+        hpam_set: List[Dict],
+        early_stopping_dataset: Optional[DrugResponseDataset] = None,
+        response_transformation: Optional[TransformerMixin] = None,
+        metric: str = "rmse"
 ) -> Dict:
-    
     best_score = float("inf")
     best_hyperparameters = None
     for hyperparameter in hpam_set:
+        print(f"Training model with hyperparameters: {hyperparameter}")
         score = train_and_evaluate(
             model=model,
             hpams=hyperparameter,
@@ -457,14 +471,14 @@ def hpam_tune(
 
 
 def hpam_tune_raytune(
-    model: DRPModel,
-    train_dataset: DrugResponseDataset,
-    validation_dataset: DrugResponseDataset,
-    early_stopping_dataset: Optional[DrugResponseDataset],
-    hpam_set: List[Dict],
-    response_transformation: Optional[TransformerMixin] = None,
-    metric: str = "rmse",
-    ray_path: str = "raytune"
+        model: DRPModel,
+        train_dataset: DrugResponseDataset,
+        validation_dataset: DrugResponseDataset,
+        early_stopping_dataset: Optional[DrugResponseDataset],
+        hpam_set: List[Dict],
+        response_transformation: Optional[TransformerMixin] = None,
+        metric: str = "rmse",
+        ray_path: str = "raytune"
 ) -> Dict:
     if torch.cuda.is_available():
         resources_per_trial = {"gpu": 1}
