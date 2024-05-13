@@ -50,6 +50,13 @@ def get_parser():
             "permutation": permute the features over the instances, keeping the distribution of the features the same but dissolving the relationship to the target"""
     )
     parser.add_argument(
+        "--n_trials_robustness",
+        type=int,
+        default=0,
+        help="Number of trials to run for the robustness test. Default is 0, which means no robustness test is run. The robustness test is a test where the model is trained with varying seeds. This is done multiple times to see how stable the model is."
+    )
+
+    parser.add_argument(
         "--dataset_name",
         type=str,
         default="GDSC1",
@@ -146,6 +153,7 @@ if __name__ == "__main__":
             test_mode=test_mode,
             randomization_mode=args.randomization_mode,
             randomization_type=args.randomization_type,
+            n_trials_robustness=args.n_trials_robustness,
             path_out=args.path_out,
             run_id=args.run_id,
             overwrite=args.overwrite,

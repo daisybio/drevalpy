@@ -102,6 +102,7 @@ class DRPModel(ABC):
         pass
 
     @abstractmethod
+
     def load_cell_line_features(self, path: str) -> FeatureDataset:
         """
         :return: FeatureDataset
