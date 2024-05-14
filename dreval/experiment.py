@@ -12,7 +12,6 @@ import torch
 from ray import tune
 from sklearn.base import TransformerMixin
 
-# TODO save hpams and their scores to disk
 def drug_response_experiment(
     models: List[Type[DRPModel]],
     response_data: DrugResponseDataset,
