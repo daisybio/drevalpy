@@ -5,6 +5,7 @@ from response_datasets import RESPONSE_DATASET_FACTORY
 from dreval.experiment import drug_response_experiment
 from dreval.evaluation import AVAILABLE_METRICS
 
+
 def get_parser():
     parser = argparse.ArgumentParser(
         description="Run the drug response prediction model test suite."
@@ -13,7 +14,7 @@ def get_parser():
         "--run_id", type=str, default="my_run", help="identifier to save the results"
     )
     parser.add_argument(
-        "--models", nargs="+", help="model to evalaute or list of models to compare"
+        "--models", nargs="+", help="model to evaluate or list of models to compare"
     )
     parser.add_argument(
         "--test_mode",
