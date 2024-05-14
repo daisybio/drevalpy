@@ -14,7 +14,7 @@ def get_parser():
         "--run_id", type=str, default="my_run", help="identifier to save the results"
     )
     parser.add_argument(
-        "--models", nargs="+", help="model to evalaute or list of models to compare"
+        "--models", nargs="+", help="model to evaluate or list of models to compare"
     )
     parser.add_argument(
         "--test_mode",
