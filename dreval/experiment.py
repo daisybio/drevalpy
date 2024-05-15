@@ -13,7 +13,6 @@ from ray import tune
 from sklearn.base import TransformerMixin
 
 
-# TODO save hpams and their scores to disk
 def drug_response_experiment(
         models: List[Type[DRPModel]],
         response_data: DrugResponseDataset,
@@ -104,8 +103,8 @@ def drug_response_experiment(
                     validation_dataset=validation_dataset, test_mode=test_mode
                 )
             model = model_class(target="IC50")
-            
-            if not os.path.isfile(prediction_file): # if this split has not been run yet
+
+            if not os.path.isfile(prediction_file):  # if this split has not been run yet
 
                 if multiprocessing:
                     ray.init(_temp_dir=os.path.join(os.path.expanduser('~'), 'raytmp'))
@@ -342,7 +341,7 @@ def split_early_stopping(
 
 def train_and_predict(
         model: DRPModel,
-        hpams: Dict[str, List],
+        hpams: Dict,
         train_dataset: DrugResponseDataset,
         prediction_dataset: DrugResponseDataset,
         early_stopping_dataset: Optional[DrugResponseDataset] = None,
