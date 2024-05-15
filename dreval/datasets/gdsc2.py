@@ -1,6 +1,4 @@
-from dreval.response_datasets.gdsc1 import GDSC1
-import pandas as pd
-
+from dreval.datasets.gdsc1 import GDSC1
 
 class GDSC2(GDSC1):
     """

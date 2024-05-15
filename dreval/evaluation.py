@@ -1,4 +1,4 @@
-from .dataset import DrugResponseDataset
+from .datasets.dataset import DrugResponseDataset
 from typing import Union, List
 import sklearn.metrics as metrics
 from .utils import pearson, spearman, kendall, partial_correlation
