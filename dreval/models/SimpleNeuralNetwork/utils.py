@@ -95,10 +95,6 @@ class FeedForwardNetwork(pl.LightningModule):
         )
         trainer_params_copy = trainer_params.copy()
         del trainer_params_copy["progress_bar_refresh_rate"]
-
-        if torch.cuda.is_available():
-            num_gpus = torch.cuda.device_count()
-            trainer_params_copy["gpus"] = num_gpus
             
         # Initialize the Lightning trainer
         trainer = pl.Trainer(

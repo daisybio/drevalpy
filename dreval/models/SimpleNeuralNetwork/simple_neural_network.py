@@ -21,62 +21,47 @@ class SimpleNeuralNetwork(DRPModel):
 
     early_stopping = True
 
-    def build_model(self, *args, **kwargs):
-        """
-        Builds the model.
-        """
-        pass
+    model_name = "SimpleNeuralNetwork"
 
-    def get_feature_matrix(
-        self,
-        cell_line_ids: np.ndarray,
-        drug_ids: np.ndarray,
-        cell_line_input: FeatureDataset,
-        drug_input: FeatureDataset,
-    ):
-        X_drug = drug_input.get_feature_matrix("fingerprints", drug_ids)
-        X_cell_line = cell_line_input.get_feature_matrix(
-            "gene_expression", cell_line_ids
-        )
-        return np.concatenate((X_drug, X_cell_line), axis=1)
-
-    def train(
-        self,
-        cell_line_input: FeatureDataset,
-        drug_input: FeatureDataset,
-        output: DrugResponseDataset,
-        hyperparameters: dict,
-        output_earlystopping: Optional[DrugResponseDataset] = None,
-    ):
+    def build_model(self, hyperparameters: dict):
         """
-        Trains the model.
-        :param cell_line_input: training data associated with the cell line input
-        :param drug_input: training data associated with the drug input
-        :param output: training data associated with the reponse output
+        Builds the model from hyperparameters.
         """
-        X = self.get_feature_matrix(
-            cell_line_ids=output.cell_line_ids,
-            drug_ids=output.drug_ids,
-            cell_line_input=cell_line_input,
-            drug_input=drug_input,
-        )
-
-        if output_earlystopping:
-            X_earlystopping = self.get_feature_matrix(
-                cell_line_ids=output_earlystopping.cell_line_ids,
-                drug_ids=output_earlystopping.drug_ids,
-                cell_line_input=cell_line_input,
-                drug_input=drug_input,
-            )
-        else:
-            X_earlystopping = None
-
-        neural_network = FeedForwardNetwork(
-            n_features=X.shape[1],
+        self.model = FeedForwardNetwork(
+            n_features=hyperparameters["n_features"],
             n_units_per_layer=hyperparameters["units_per_layer"],
             dropout_prob=hyperparameters["dropout_prob"],
         )
-        if output_earlystopping:
+
+    def train(
+        self,
+        output: DrugResponseDataset,
+        output_earlystopping: Optional[DrugResponseDataset] = None,
+        gene_expression: np.ndarray = None,
+        fingerprints: np.ndarray = None,
+        gene_expression_earlystopping: Optional[np.ndarray] = None,
+        fingerprints_earlystopping: Optional[np.ndarray] = None,
+    ):
+        """
+        Trains the model.
+        :param output: training data associated with the response output
+        :param output_earlystopping: optional early stopping dataset
+        :param gene_expression: gene expression data
+        :param fingerprints: fingerprints data
+        :param gene_expression_earlystopping: gene expression data for early stopping
+        :param fingerprints_earlystopping: fingerprints data for early stopping
+
+        """
+        X = np.concatenate((gene_expression, fingerprints), axis=1)
+
+        if all([ar is not None for ar in [output_earlystopping, gene_expression_earlystopping, fingerprints_earlystopping]]):
+            X_earlystopping = np.concatenate(
+                (gene_expression_earlystopping, fingerprints_earlystopping), axis=1
+            )
+        else:
+            X_earlystopping = None
+        
+        if output_earlystopping is not None:
             response_earlystopping = output_earlystopping.response
         else:
             response_earlystopping = None
@@ -86,16 +71,15 @@ class SimpleNeuralNetwork(DRPModel):
                 "ignore",
                 message=".*does not have many workers which may be a bottleneck.*",
             )
-            neural_network.fit(
-                X,
-                output.response,
-                X_earlystopping,
-                response_earlystopping,
+            self.model.fit(
+                X_train=X,
+                y_train=output.response,
+                X_eval=X_earlystopping,
+                y_eval=response_earlystopping,
                 batch_size=16,
                 patience=5,
                 num_workers=1,
             )
-        self.model = neural_network
 
     def save(self, path: str):
         """
@@ -111,26 +95,16 @@ class SimpleNeuralNetwork(DRPModel):
 
     def predict(
         self,
-        cell_line_ids: np.ndarray,
-        drug_ids: np.ndarray,
-        cell_line_input: FeatureDataset,
-        drug_input: FeatureDataset,
+        gene_expression: np.ndarray = None,
+        fingerprints: np.ndarray = None
     ) -> np.ndarray:
         """
-        Predicts the response for the given input. Call the respective function from models_code here.
-        :param cell_line_input: input associated with the cell line
-        :param drug_input: input associated with the drug
-        :return: predicted response
+        Predicts the response for the given input.
         """
-        X = self.get_feature_matrix(
-            cell_line_ids=cell_line_ids,
-            drug_ids=drug_ids,
-            cell_line_input=cell_line_input,
-            drug_input=drug_input,
-        )
+        X = np.concatenate((gene_expression, fingerprints), axis=1)
         return self.model.predict(X)
 
-    def get_cell_line_features(self, path: str) -> FeatureDataset:
+    def load_cell_line_features(self, path: str) -> FeatureDataset:
         """
         Fetch cell line input data
         :return: FeatureDataset
@@ -144,7 +118,7 @@ class SimpleNeuralNetwork(DRPModel):
             {cl: {"gene_expression": ge.loc[cl].values} for cl in ge.index}
         )
 
-    def get_drug_features(self, path: str) -> FeatureDataset:
+    def load_drug_features(self, path: str) -> FeatureDataset:
         """
         Fetch drug input data.
         :return: FeatureDataset
@@ -159,11 +133,12 @@ class SimpleNeuralNetwork(DRPModel):
             }
         )
 
-    def get_hyperparameter_set(self):
+    def get_hyperparameter_set():
         hpams = [
             {"dropout_prob": 0.2, "units_per_layer": [10, 10, 10]},
             {"dropout_prob": 0.3, "units_per_layer": [20, 10, 10]},
         ]
         for hpam in hpams:
             hpam["feature_path"] = "data/GDSC"
+            hpam["n_features"] = 1036
         return hpams

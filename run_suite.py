@@ -5,6 +5,7 @@ from response_datasets import RESPONSE_DATASET_FACTORY
 from dreval.experiment import drug_response_experiment
 from dreval.evaluation import AVAILABLE_METRICS
 
+
 def get_parser():
     parser = argparse.ArgumentParser(
         description="Run the drug response prediction model test suite."
@@ -13,7 +14,7 @@ def get_parser():
         "--run_id", type=str, default="my_run", help="identifier to save the results"
     )
     parser.add_argument(
-        "--models", nargs="+", help="model to evalaute or list of models to compare"
+        "--models", nargs="+", help="model to evaluate or list of models to compare"
     )
     parser.add_argument(
         "--test_mode",
@@ -48,6 +49,13 @@ def get_parser():
             "zeroing": replace the features with zeros
             "permutation": permute the features over the instances, keeping the distribution of the features the same but dissolving the relationship to the target"""
     )
+    parser.add_argument(
+        "--n_trials_robustness",
+        type=int,
+        default=0,
+        help="Number of trials to run for the robustness test. Default is 0, which means no robustness test is run. The robustness test is a test where the model is trained with varying seeds. This is done multiple times to see how stable the model is."
+    )
+
     parser.add_argument(
         "--dataset_name",
         type=str,
@@ -89,6 +97,11 @@ def get_parser():
         type=str,
         default="None",
         help="Transformation to apply to the response variable possible values: standard, minmax, robust")
+    parser.add_argument(
+            "--multiprocessing",
+            action='store_true',
+            default=False,
+            help="Whether to use multiprocessing for the evaluation. Default is False")
 
     return parser
 
@@ -103,7 +116,7 @@ if __name__ == "__main__":
         [test in ["LPO", "LCO", "LDO"] for test in args.test_mode]
     ), "Invalid test mode. Available test modes are LPO, LCO, LDO"
     models = [
-        MODEL_FACTORY[model](model_name=model, target="IC50") for model in args.models
+        MODEL_FACTORY[model] for model in args.models
     ]
     assert args.dataset_name in RESPONSE_DATASET_FACTORY, f"Invalid dataset name. Available datasets are {list(RESPONSE_DATASET_FACTORY.keys())} If you want to use your own dataset, you need to implement a new response dataset class and add it to the RESPONSE_DATASET_FACTORY in the response_datasets init"
     response_data = RESPONSE_DATASET_FACTORY[args.dataset_name]()
@@ -141,14 +154,14 @@ if __name__ == "__main__":
             response_transformation=response_transformation,
             metric=args.optim_metric,
             n_cv_splits=args.n_cv_splits,
-            multiprocessing=True,
+            multiprocessing=args.multiprocessing,
             test_mode=test_mode,
             randomization_mode=args.randomization_mode,
             randomization_type=args.randomization_type,
+            n_trials_robustness=args.n_trials_robustness,
             path_out=args.path_out,
             run_id=args.run_id,
             overwrite=args.overwrite,
-
         )
 
     # TODO now do evaluation, visualization, etc.

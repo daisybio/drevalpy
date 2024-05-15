@@ -138,7 +138,7 @@ class PaccMann(DRPModel):
         )
         return self.model.predict(X)
 
-    def get_cell_line_features(self, path: str) -> FeatureDataset:
+    def load_cell_line_features(self, path: str) -> FeatureDataset:
         """
         Fetch cell line input data
         :return: FeatureDataset
@@ -152,7 +152,7 @@ class PaccMann(DRPModel):
             {cl: {"gene_expression": ge.loc[cl].values} for cl in ge.index}
         )
 
-    def get_drug_features(self, path: str) -> FeatureDataset:
+    def load_drug_features(self, path: str) -> FeatureDataset:
         """
         Fetch drug input data.
         :return: FeatureDataset

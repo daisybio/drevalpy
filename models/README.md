@@ -1,1 +1,0 @@
-This directory is used for the implementation of the models.
