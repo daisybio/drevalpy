@@ -349,15 +349,6 @@ def train_and_predict(
         cl_features: Optional[FeatureDataset] = None,
         drug_features: Optional[FeatureDataset] = None,
 ) -> DrugResponseDataset:
-    import pickle
-    with open('hyperparameters.pkl', 'wb') as f:
-        pickle.dump(hpams, f)
-    with open('es_dataset.pkl', 'wb') as f:
-        pickle.dump(early_stopping_dataset, f)
-    with open('train_dataset.pkl', 'wb') as f:
-        pickle.dump(train_dataset, f)
-    with open('validation_dataset.pkl', 'wb') as f:
-        pickle.dump(prediction_dataset, f)
     model.build_model(hyperparameters=hpams)
 
     if cl_features is None:
@@ -366,10 +357,6 @@ def train_and_predict(
     if drug_features is None:
         print('Loading drug features ...')
         drug_features = model.load_drug_features(path=hpams["feature_path"])
-    with open('cl_features.pkl', 'wb') as f:
-        pickle.dump(cl_features, f)
-    with open('drug_features.pkl', 'wb') as f:
-        pickle.dump(drug_features, f)
     # making sure there are no missing features:
     print('Reducing datasets ...')
     train_dataset.reduce_to(
