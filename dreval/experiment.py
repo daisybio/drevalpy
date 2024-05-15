@@ -12,6 +12,7 @@ import torch
 from ray import tune
 from sklearn.base import TransformerMixin
 
+
 def drug_response_experiment(
         models: List[Type[DRPModel]],
         response_data: DrugResponseDataset,
@@ -102,8 +103,8 @@ def drug_response_experiment(
                     validation_dataset=validation_dataset, test_mode=test_mode
                 )
             model = model_class(target="IC50")
-            
-            if not os.path.isfile(prediction_file): # if this split has not been run yet
+
+            if not os.path.isfile(prediction_file):  # if this split has not been run yet
 
                 if multiprocessing:
                     ray.init(_temp_dir=os.path.join(os.path.expanduser('~'), 'raytmp'))
@@ -340,7 +341,7 @@ def split_early_stopping(
 
 def train_and_predict(
         model: DRPModel,
-        hpams: Dict[str, List],
+        hpams: Dict,
         train_dataset: DrugResponseDataset,
         prediction_dataset: DrugResponseDataset,
         early_stopping_dataset: Optional[DrugResponseDataset] = None,
@@ -348,6 +349,15 @@ def train_and_predict(
         cl_features: Optional[FeatureDataset] = None,
         drug_features: Optional[FeatureDataset] = None,
 ) -> DrugResponseDataset:
+    import pickle
+    with open('hyperparameters.pkl', 'wb') as f:
+        pickle.dump(hpams, f)
+    with open('es_dataset.pkl', 'wb') as f:
+        pickle.dump(early_stopping_dataset, f)
+    with open('train_dataset.pkl', 'wb') as f:
+        pickle.dump(train_dataset, f)
+    with open('validation_dataset.pkl', 'wb') as f:
+        pickle.dump(prediction_dataset, f)
     model.build_model(hyperparameters=hpams)
 
     if cl_features is None:
@@ -356,6 +366,10 @@ def train_and_predict(
     if drug_features is None:
         print('Loading drug features ...')
         drug_features = model.load_drug_features(path=hpams["feature_path"])
+    with open('cl_features.pkl', 'wb') as f:
+        pickle.dump(cl_features, f)
+    with open('drug_features.pkl', 'wb') as f:
+        pickle.dump(drug_features, f)
     # making sure there are no missing features:
     print('Reducing datasets ...')
     train_dataset.reduce_to(
