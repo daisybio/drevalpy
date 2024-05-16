@@ -1,5 +1,5 @@
 import pandas as pd
-from dreval.dataset import FeatureDataset
+from dreval.datasets.dataset import FeatureDataset
 
 
 def load_cl_ids_from_csv(path: str) -> FeatureDataset:

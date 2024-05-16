@@ -1,7 +1,7 @@
-from typing import List, Dict, Optional
+from typing import List
 import numpy as np
 
-from dreval.dataset import FeatureDataset, DrugResponseDataset
+from dreval.datasets.dataset import FeatureDataset, DrugResponseDataset
 from dreval.models.drp_model import DRPModel
 from ..utils import load_cl_ids_from_csv, load_drug_ids_from_csv
 
@@ -18,7 +18,7 @@ class NaivePredictor(DRPModel):
     @staticmethod
     def get_hyperparameter_set() -> List[dict]:
         # No hyperparameters
-        return [{'feature_path': 'data/GDSC'}]
+        return []
 
     def build_model(self, *args, **kwargs):
         pass

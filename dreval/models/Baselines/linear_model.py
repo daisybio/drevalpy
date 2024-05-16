@@ -1,8 +1,8 @@
 from typing import List
 import numpy as np
-from sklearn.linear_model import ElasticNet, Ridge, LogisticRegression
+from sklearn.linear_model import ElasticNet, Ridge
 
-from dreval.dataset import FeatureDataset, DrugResponseDataset
+from dreval.datasets.dataset import FeatureDataset, DrugResponseDataset
 from dreval.models.drp_model import DRPModel
 from ..utils import load_ge_features_from_landmark_genes, load_drug_features_from_fingerprints
 
@@ -11,28 +11,6 @@ class ElasticNetModel(DRPModel):
     model_name = 'ElasticNet'
     cell_line_views = ['gene_expression']
     drug_views = ['fingerprints']
-
-    @staticmethod
-    def get_hyperparameter_set() -> List[dict]:
-        """
-        Returns a list of hyperparameters for the model.
-        Hyperparameters to consider:
-        - alpha: Constant that multiplies the penalty terms.
-        - l1_ratio: The ElasticNet mixing parameter, with 0 <= l1_ratio <= 1.
-        - feature_path: Path to the feature dataset.
-        :return: List of hyperparameters including the default combination, lasso and ridge.
-        """
-        hpams = [
-            # elastic net default hyperparameters
-            {'alpha': 1.0, 'l1_ratio': 0.5},
-            # only l1 regularization = lasso
-            {'alpha': 1.0, 'l1_ratio': 1.0},
-            # only l2 regularization = ridge
-            {'alpha': 1.0, 'l1_ratio': 0.0}
-        ]
-        for hpam in hpams:
-            hpam['feature_path'] = 'data/GDSC'
-        return hpams
 
     def build_model(self, hyperparameters: dict):
         """
