@@ -287,8 +287,8 @@ def randomization_test(
     :param response_transformation sklearn.preprocessing scaler like StandardScaler or MinMaxScaler to use to scale the target
     :return: None (save results to disk)
     """
-    cl_features = model.load_cell_line_features(path=hpam_set["feature_path"])
-    drug_features = model.load_drug_features(path=hpam_set["feature_path"])
+    cl_features = model.load_cell_line_features(data_path="data")
+    drug_features = model.load_drug_features(data_path="data")
     for test_name, views in randomization_test_views.items():
         randomization_test_path = os.path.join(path_out, test_name)
         randomization_test_file = os.path.join(randomization_test_path,

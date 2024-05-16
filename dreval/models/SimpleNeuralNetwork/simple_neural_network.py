@@ -1,4 +1,3 @@
-import os
 from typing import Optional
 from dreval.models.SimpleNeuralNetwork.utils import FeedForwardNetwork
 from dreval.models.drp_model import DRPModel
@@ -6,7 +5,6 @@ from dreval.datasets.dataset import DrugResponseDataset, FeatureDataset
 import numpy as np
 import pandas as pd
 import warnings
-import yaml
 
 class SimpleNeuralNetwork(DRPModel):
     """
@@ -131,13 +129,13 @@ class SimpleNeuralNetwork(DRPModel):
         )
         return self.model.predict(X)
 
-    def load_cell_line_features(self, data_path: str) -> FeatureDataset:
+    def load_cell_line_features(self, data_path: str, dataset_name:str) -> FeatureDataset:
         """
         Fetch cell line input data
         :return: FeatureDataset
         """
-        ge = pd.read_csv(f"{data_path}/GDSC/gene_expression.csv", index_col=0)
-        landmark_genes = pd.read_csv(f"{data_path}/GDSC/gene_lists/landmark_genes.csv", sep="\t")
+        ge = pd.read_csv(f"{data_path}/{dataset_name}/gene_expression.csv", index_col=0)
+        landmark_genes = pd.read_csv(f"{data_path}/{dataset_name}/gene_lists/landmark_genes.csv", sep="\t")
         genes_to_use = set(landmark_genes["Symbol"]) & set(ge.columns)
         ge = ge[list(genes_to_use)]
 
@@ -145,13 +143,13 @@ class SimpleNeuralNetwork(DRPModel):
             {cl: {"gene_expression": ge.loc[cl].values} for cl in ge.index}
         )
 
-    def load_drug_features(self, data_path: str) -> FeatureDataset:
+    def load_drug_features(self, data_path: str, dataset_name:str) -> FeatureDataset:
         """
         Fetch drug input data.
         :return: FeatureDataset
         """
         fingerprints = pd.read_csv(
-            f"{data_path}/GDSC/drug_fingerprints/drug_name_to_demorgan_128_map.csv", index_col=0
+            f"{data_path}/{dataset_name}/drug_fingerprints/drug_name_to_demorgan_128_map.csv", index_col=0
         ).T
         return FeatureDataset(
             {
