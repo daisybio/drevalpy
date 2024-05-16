@@ -1,8 +1,12 @@
 from abc import ABC, abstractmethod
+import inspect
+import os
 from typing import Dict, List, Optional
-from .dataset import DrugResponseDataset, FeatureDataset
-import numpy as np
 
+import yaml
+from ..datasets.dataset import DrugResponseDataset, FeatureDataset
+import numpy as np
+from sklearn.model_selection import ParameterGrid
 
 class DRPModel(ABC):
     """
@@ -20,13 +24,18 @@ class DRPModel(ABC):
         """
         self.target = target 
 
-    @staticmethod
-    @abstractmethod
-    def get_hyperparameter_set() -> List[dict]:
-        """
-        :return: hyperparameter set list of dicts
-        """
-        pass
+    @classmethod
+    def get_hyperparameter_set(cls, hyperparameter_file: Optional[str] = None):
+        # load yaml file with hyperparameters
+        if hyperparameter_file is None:
+            hyperparameter_file = os.path.join(os.path.dirname(inspect.getfile(cls)), "hyperparameters.yaml")
+
+        hpams = yaml.load(open(hyperparameter_file), Loader=yaml.FullLoader)[cls.model_name]
+
+
+        grid = list(ParameterGrid(hpams))
+
+        return grid
     
     @property
     @abstractmethod

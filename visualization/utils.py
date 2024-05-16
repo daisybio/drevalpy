@@ -2,7 +2,7 @@ import pandas as pd
 import pathlib
 import os
 
-from dreval.dataset import DrugResponseDataset
+from dreval.datasets.dataset import DrugResponseDataset
 from dreval.evaluation import evaluate, AVAILABLE_METRICS
 
 

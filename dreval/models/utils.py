@@ -1,5 +1,5 @@
 import pandas as pd
-from dreval.dataset import FeatureDataset
+from dreval.datasets.dataset import FeatureDataset
 
 
 def load_cl_ids_from_csv(path: str) -> FeatureDataset:
@@ -9,9 +9,9 @@ def load_cl_ids_from_csv(path: str) -> FeatureDataset:
     )
 
 
-def load_ge_features_from_landmark_genes(dataset_path: str) -> FeatureDataset:
-    ge = pd.read_csv(f"{dataset_path}/gene_expression.csv", index_col=0)
-    landmark_genes = pd.read_csv(f"{dataset_path}/gene_lists/landmark_genes.csv", sep="\t")
+def load_ge_features_from_landmark_genes(data_path: str) -> FeatureDataset:
+    ge = pd.read_csv(f"{data_path}/GDSC/gene_expression.csv", index_col=0)
+    landmark_genes = pd.read_csv(f"{data_path}/GDSC/gene_lists/landmark_genes.csv", sep="\t")
     genes_to_use = set(landmark_genes["Symbol"]) & set(ge.columns)
     ge = ge[list(genes_to_use)]
 
@@ -20,15 +20,15 @@ def load_ge_features_from_landmark_genes(dataset_path: str) -> FeatureDataset:
     )
 
 
-def load_drug_ids_from_csv(path: str) -> FeatureDataset:
-    drug_names = pd.read_csv(f"{path}/drug_names.csv", index_col=0)
+def load_drug_ids_from_csv(data_path: str) -> FeatureDataset:
+    drug_names = pd.read_csv(f"{data_path}/GDSC/drug_names.csv", index_col=0)
     return FeatureDataset(
         {drug: {"drug_id": drug} for drug in drug_names.index}
     )
 
 
-def load_drug_features_from_fingerprints(dataset_path: str) -> FeatureDataset:
-    fingerprints = pd.read_csv(f"{dataset_path}/drug_fingerprints/drug_name_to_demorgan_128_map.csv", index_col=0).T
+def load_drug_features_from_fingerprints(data_path: str) -> FeatureDataset:
+    fingerprints = pd.read_csv(f"{data_path}/GDSC/drug_fingerprints/drug_name_to_demorgan_128_map.csv", index_col=0).T
     return FeatureDataset(
         {
             drug: {"fingerprints": fingerprints.loc[drug].values}
