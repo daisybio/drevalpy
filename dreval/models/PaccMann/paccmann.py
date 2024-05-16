@@ -1,5 +1,5 @@
 from typing import Optional
-from dreval.drp_model import DRPModel
+from dreval.models.drp_model import DRPModel
 from dreval.datasets.dataset import DrugResponseDataset, FeatureDataset
 import numpy as np
 import pandas as pd

@@ -3,7 +3,7 @@ from typing import Dict, List, Optional, Tuple, Type
 import warnings
 from .datasets.dataset import DrugResponseDataset, FeatureDataset
 from .evaluation import evaluate
-from .drp_model import DRPModel
+from .models.drp_model import DRPModel
 import numpy as np
 import os
 import shutil

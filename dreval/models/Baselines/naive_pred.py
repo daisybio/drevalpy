@@ -2,7 +2,7 @@ from typing import List, Dict, Optional
 import numpy as np
 
 from dreval.dataset import FeatureDataset, DrugResponseDataset
-from dreval.drp_model import DRPModel
+from dreval.models.drp_model import DRPModel
 from ..utils import load_cl_ids_from_csv, load_drug_ids_from_csv
 
 

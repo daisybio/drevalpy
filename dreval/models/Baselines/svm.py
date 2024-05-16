@@ -3,7 +3,7 @@ import numpy as np
 from sklearn.svm import SVR
 
 from dreval.dataset import FeatureDataset, DrugResponseDataset
-from dreval.drp_model import DRPModel
+from dreval.models.drp_model import DRPModel
 from ..utils import load_ge_features_from_landmark_genes, load_drug_features_from_fingerprints
 
 
