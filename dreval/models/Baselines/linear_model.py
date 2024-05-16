@@ -53,13 +53,13 @@ class ElasticNetModel(DRPModel):
     def load(self, path):
         raise NotImplementedError('ElasticNetModel does not support loading yet ...')
 
-    def load_cell_line_features(self, path: str) -> FeatureDataset:
+    def load_cell_line_features(self, data_path: str) -> FeatureDataset:
         """
         Loads the cell line features.
         :param path: Path to the gene expression and landmark genes
         :return: FeatureDataset containing the cell line gene expression features, filtered through the landmark genes
         """
-        return load_ge_features_from_landmark_genes(path)
+        return load_ge_features_from_landmark_genes(data_path)
 
-    def load_drug_features(self, path: str) -> FeatureDataset:
-        return load_drug_features_from_fingerprints(path)
+    def load_drug_features(self, data_path: str) -> FeatureDataset:
+        return load_drug_features_from_fingerprints(data_path)

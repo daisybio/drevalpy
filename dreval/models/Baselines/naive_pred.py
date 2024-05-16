@@ -68,10 +68,9 @@ class NaiveDrugMeanPredictor(DRPModel):
         self.drug_means = None
         self.dataset_mean = None
 
-    @staticmethod
-    def get_hyperparameter_set() -> List[dict]:
+    def get_hyperparameter_set(cls) -> List[dict]:
         # No hyperparameters
-        return [{'feature_path': 'data/GDSC'}]
+        return []
 
     def build_model(self, *args, **kwargs):
         pass
