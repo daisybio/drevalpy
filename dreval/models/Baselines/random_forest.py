@@ -16,6 +16,8 @@ class RandomForest(DRPModel):
         Builds the model from hyperparameters.
         :param hyperparameters: Hyperparameters for the model.
         """
+        if hyperparameters['max_depth'] == 'None':
+            hyperparameters['max_depth'] = None
         self.model = RandomForestRegressor(n_estimators=hyperparameters['n_estimators'],
                                            criterion=hyperparameters['criterion'],
                                            max_depth=hyperparameters['max_depth'],
