@@ -67,7 +67,6 @@ def drug_response_experiment(
 
     os.makedirs(result_path, exist_ok=True)
 
-    # TODO load existing progress if it exists, currently we just overwrite
     for model_class in models:
 
         print(f"Running model {model_class.model_name}")
@@ -287,8 +286,8 @@ def randomization_test(
     :param response_transformation sklearn.preprocessing scaler like StandardScaler or MinMaxScaler to use to scale the target
     :return: None (save results to disk)
     """
-    cl_features = model.load_cell_line_features(path=hpam_set["feature_path"])
-    drug_features = model.load_drug_features(path=hpam_set["feature_path"])
+    cl_features = model.load_cell_line_features(data_path="data", dataset_name=dataset_name)
+    drug_features = model.load_drug_features(data_path="data", dataset_name=dataset_name)
     for test_name, views in randomization_test_views.items():
         randomization_test_path = os.path.join(path_out, test_name)
         randomization_test_file = os.path.join(randomization_test_path,
@@ -353,10 +352,10 @@ def train_and_predict(
 
     if cl_features is None:
         print('Loading cell line features ...')
-        cl_features = model.load_cell_line_features(path=hpams["feature_path"])
+        cl_features = model.load_drug_features(data_path="data", dataset_name=dataset_name)
     if drug_features is None:
         print('Loading drug features ...')
-        drug_features = model.load_drug_features(path=hpams["feature_path"])
+        drug_features = model.load_drug_features(data_path="data", dataset_name=dataset_name)
     # making sure there are no missing features:
     print('Reducing datasets ...')
     train_dataset.reduce_to(

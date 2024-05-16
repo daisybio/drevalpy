@@ -112,14 +112,14 @@ class DRPModel(ABC):
         pass
 
     @abstractmethod
-    def load_cell_line_features(self, path: str) -> FeatureDataset:
+    def load_cell_line_features(self, data_path: str, dataset_name:str) -> FeatureDataset:
         """
         :return: FeatureDataset
         """
         pass
 
     @abstractmethod
-    def load_drug_features(self, path: str) -> FeatureDataset:
+    def load_drug_features(self, data_path: str, dataset_name:str) -> FeatureDataset:
         """
         :return: FeatureDataset
         """

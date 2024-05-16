@@ -37,6 +37,7 @@ class DrugResponseDataset(Dataset):
         cell_line_ids: Optional[ArrayLike]=None,
         drug_ids: Optional[ArrayLike]=None,
         predictions: Optional[ArrayLike] = None,
+        dataset_name: Optional[str] = None,
         *args,
         **kwargs,
     ):
@@ -46,12 +47,14 @@ class DrugResponseDataset(Dataset):
         :param cell_line_ids: cell line IDs
         :param drug_ids: drug IDs
         :param predictions: optional. Predicted drug response values per cell line and drug
+        :param dataset_name: optional. Name of the dataset
 
         Variables:
         response: drug response values per cell line and drug
         cell_line_ids: cell line IDs
         drug_ids: drug IDs
         predictions: optional. Predicted drug response values per cell line and drug
+        dataset_name: optional. Name of the dataset
         """
         super(DrugResponseDataset, self).__init__()
         if response is not None:
@@ -64,6 +67,7 @@ class DrugResponseDataset(Dataset):
             assert len(self.response) == len(
                 self.drug_ids
             ), "response and drug_ids/cell_line_ids have different lengths"
+            self.dataset_name = dataset_name
         else:
             self.response = response
             self.cell_line_ids = cell_line_ids
@@ -209,6 +213,7 @@ class DrugResponseDataset(Dataset):
                 split_validation,
                 validation_ratio,
                 random_state,
+                self.dataset_name
             )
 
         elif mode in ["LCO", "LDO"]:
@@ -222,6 +227,7 @@ class DrugResponseDataset(Dataset):
                 split_validation=split_validation,
                 validation_ratio=validation_ratio,
                 random_state=random_state,
+                dataset_name = self.dataset_name
             )
         else:
             raise ValueError(
