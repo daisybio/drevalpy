@@ -286,8 +286,8 @@ def randomization_test(
     :param response_transformation sklearn.preprocessing scaler like StandardScaler or MinMaxScaler to use to scale the target
     :return: None (save results to disk)
     """
-    cl_features = model.load_cell_line_features(data_path="data", dataset_name=dataset_name)
-    drug_features = model.load_drug_features(data_path="data", dataset_name=dataset_name)
+    cl_features = model.load_cell_line_features(data_path="data", dataset_name=train_dataset.dataset_name)
+    drug_features = model.load_drug_features(data_path="data", dataset_name=train_dataset.dataset_name)
     for test_name, views in randomization_test_views.items():
         randomization_test_path = os.path.join(path_out, test_name)
         randomization_test_file = os.path.join(randomization_test_path,
@@ -352,10 +352,10 @@ def train_and_predict(
 
     if cl_features is None:
         print('Loading cell line features ...')
-        cl_features = model.load_drug_features(data_path="data", dataset_name=dataset_name)
+        cl_features = model.load_cl_features(data_path="data", dataset_name=train_dataset.dataset_name)
     if drug_features is None:
         print('Loading drug features ...')
-        drug_features = model.load_drug_features(data_path="data", dataset_name=dataset_name)
+        drug_features = model.load_drug_features(data_path="data", dataset_name=train_dataset.dataset_name)
     # making sure there are no missing features:
     print('Reducing datasets ...')
     train_dataset.reduce_to(

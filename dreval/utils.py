@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 import pandas as pd
 from sklearn.model_selection import KFold, GroupKFold
@@ -17,6 +17,7 @@ def leave_pair_out_cv(
         split_validation=True,
         validation_ratio=0.1,
         random_state=42,
+        dataset_name: Optional[str] = None
 ) -> List[dict]:
     """
     Leave pair out cross validation. Splits data into n_cv_splits number of cross validation splits.
@@ -51,11 +52,13 @@ def leave_pair_out_cv(
                 cell_line_ids=cell_line_ids[train_indices],
                 drug_ids=drug_ids[train_indices],
                 response=response[train_indices],
+                dataset_name=dataset_name
             ),
             "test": DrugResponseDataset(
                 cell_line_ids=cell_line_ids[test_indices],
                 drug_ids=drug_ids[test_indices],
                 response=response[test_indices],
+                dataset_name=dataset_name
             ),
         }
 
@@ -64,6 +67,7 @@ def leave_pair_out_cv(
                 cell_line_ids=cell_line_ids[validation_indices],
                 drug_ids=drug_ids[validation_indices],
                 response=response[validation_indices],
+                dataset_name=dataset_name
             )
 
         cv_sets.append(cv_fold)
@@ -79,6 +83,8 @@ def leave_group_out_cv(
         split_validation=True,
         validation_ratio=0.1,
         random_state=42,
+        dataset_name: Optional[str] = None
+
 ):
 
     """
@@ -115,11 +121,13 @@ def leave_group_out_cv(
                 cell_line_ids=cell_line_ids[train_indices],
                 drug_ids=drug_ids[train_indices],
                 response=response[train_indices],
+                dataset_name=dataset_name
             ),
             "test": DrugResponseDataset(
                 cell_line_ids=cell_line_ids[test_indices],
                 drug_ids=drug_ids[test_indices],
                 response=response[test_indices],
+                dataset_name=dataset_name
             ),
         }
         if split_validation:
@@ -137,11 +145,13 @@ def leave_group_out_cv(
                 cell_line_ids=cell_line_ids[train_indices],
                 drug_ids=drug_ids[train_indices],
                 response=response[train_indices],
+                dataset_name=dataset_name
             )
             cv_fold["validation"] = DrugResponseDataset(
                 cell_line_ids=cell_line_ids[validation_indices],
                 drug_ids=drug_ids[validation_indices],
                 response=response[validation_indices],
+                dataset_name=dataset_name
             )
 
         cv_sets.append(cv_fold)
