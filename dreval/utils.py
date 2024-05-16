@@ -6,6 +6,7 @@ import numpy as np
 from numpy.typing import ArrayLike
 from sklearn.model_selection import train_test_split
 from scipy.stats import pearsonr, spearmanr, kendalltau
+from dreval.datasets.dataset import DrugResponseDataset
 
 
 def leave_pair_out_cv(
@@ -28,7 +29,6 @@ def leave_pair_out_cv(
     :param random_state: random state
     :return: list of dicts of the cross validation sets
     """
-    from .datasets.dataset import DrugResponseDataset
 
     assert (
             len(response) == len(cell_line_ids) == len(drug_ids)
@@ -80,7 +80,6 @@ def leave_group_out_cv(
         validation_ratio=0.1,
         random_state=42,
 ):
-    from .datasets.dataset import DrugResponseDataset
 
     """
     Leave group out cross validation. Splits data into n_cv_splits number of cross validation splits.
