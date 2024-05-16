@@ -352,7 +352,7 @@ def train_and_predict(
 
     if cl_features is None:
         print('Loading cell line features ...')
-        cl_features = model.load_cl_features(data_path="data", dataset_name=train_dataset.dataset_name)
+        cl_features = model.load_cell_line_features(data_path="data", dataset_name=train_dataset.dataset_name)
     if drug_features is None:
         print('Loading drug features ...')
         drug_features = model.load_drug_features(data_path="data", dataset_name=train_dataset.dataset_name)
