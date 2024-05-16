@@ -15,5 +15,5 @@ class GDSC1(DrugResponseDataset):
         response_data = pd.read_csv(path)
         super().__init__(response=response_data["LN_IC50"].values,
                          cell_line_ids=response_data["CELL_LINE_NAME"].values,
-                         drug_id=response_data["DRUG_NAME"].values,
+                         drug_ids=response_data["DRUG_NAME"].values,
                          dataset_name=dataset_name)
