@@ -15,11 +15,6 @@ class NaivePredictor(DRPModel):
         super().__init__(target, args, kwargs)
         self.dataset_mean = None
 
-    @staticmethod
-    def get_hyperparameter_set() -> List[dict]:
-        # No hyperparameters
-        return []
-
     def build_model(self, *args, **kwargs):
         pass
 
@@ -67,10 +62,6 @@ class NaiveDrugMeanPredictor(DRPModel):
         super().__init__(target, args, kwargs)
         self.drug_means = None
         self.dataset_mean = None
-
-    def get_hyperparameter_set(cls) -> List[dict]:
-        # No hyperparameters
-        return []
 
     def build_model(self, *args, **kwargs):
         pass
@@ -127,11 +118,6 @@ class NaiveCellLineMeanPredictor(DRPModel):
         super().__init__(target, args, kwargs)
         self.cell_line_means = None
         self.dataset_mean = None
-
-    @staticmethod
-    def get_hyperparameter_set() -> List[dict]:
-        # No hyperparameters
-        return [{'feature_path': 'data/GDSC'}]
 
     def build_model(self, *args, **kwargs):
         pass

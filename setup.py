@@ -23,4 +23,7 @@ setup(
         'matplotlib',
         'plotly'
     ],
+    include_package_data=True,
+    package_data={'': ['models/Baselines/hyperparameters.yaml',
+                       'models/SimpleNeuralNetwork/hyperparameters.yaml']},
 )

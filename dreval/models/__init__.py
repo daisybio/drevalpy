@@ -9,7 +9,7 @@ __all__ = [
 ]
 
 from .Baselines.naive_pred import NaivePredictor, NaiveDrugMeanPredictor, NaiveCellLineMeanPredictor
-from .Baselines.linear_model import ElasticNetModel
+from .Baselines.elastic_net_model import ElasticNetModel
 from .Baselines.random_forest import RandomForest
 from .Baselines.svm import SVMRegressor
 from .SimpleNeuralNetwork.simple_neural_network import SimpleNeuralNetwork

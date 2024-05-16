@@ -1,4 +1,7 @@
 ---
+NaivePredictor:
+NaiveDrugMeanPredictor:
+NaiveCellLineMeanPredictor:
 ElasticNet:
   alpha:
     - 0.1

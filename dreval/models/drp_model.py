@@ -8,12 +8,13 @@ from ..datasets.dataset import DrugResponseDataset, FeatureDataset
 import numpy as np
 from sklearn.model_selection import ParameterGrid
 
+
 class DRPModel(ABC):
     """
     Abstract wrapper class for drug response prediction models.
     """
     early_stopping = False
-    
+
     def __init__(self, target, *args, **kwargs):
         """
         Creates an instance of a drug response prediction model.
@@ -22,7 +23,7 @@ class DRPModel(ABC):
         :param args: optional arguments
         :param kwargs: optional keyword arguments
         """
-        self.target = target 
+        self.target = target
 
     @classmethod
     def get_hyperparameter_set(cls, hyperparameter_file: Optional[str] = None):
@@ -31,12 +32,12 @@ class DRPModel(ABC):
             hyperparameter_file = os.path.join(os.path.dirname(inspect.getfile(cls)), "hyperparameters.yaml")
 
         hpams = yaml.load(open(hyperparameter_file), Loader=yaml.FullLoader)[cls.model_name]
-
+        if hpams is None:
+            return [{}]
 
         grid = list(ParameterGrid(hpams))
-
         return grid
-    
+
     @property
     @abstractmethod
     def model_name(self):
@@ -73,10 +74,10 @@ class DRPModel(ABC):
 
     @abstractmethod
     def train(
-        self,
-        output: DrugResponseDataset,
-        output_earlystopping: Optional[DrugResponseDataset] = None,
-        **inputs: Dict[str, np.ndarray]
+            self,
+            output: DrugResponseDataset,
+            output_earlystopping: Optional[DrugResponseDataset] = None,
+            **inputs: Dict[str, np.ndarray]
     ) -> None:
         """
         Trains the model. Call the respective function from models_code here.
@@ -111,7 +112,6 @@ class DRPModel(ABC):
         pass
 
     @abstractmethod
-
     def load_cell_line_features(self, path: str) -> FeatureDataset:
         """
         :return: FeatureDataset
@@ -126,17 +126,18 @@ class DRPModel(ABC):
         pass
 
     def get_feature_matrices(
-        self,
-        cell_line_ids: np.ndarray,
-        drug_ids: np.ndarray,
-        cell_line_input: FeatureDataset,
-        drug_input: FeatureDataset,
-    ):  
+            self,
+            cell_line_ids: np.ndarray,
+            drug_ids: np.ndarray,
+            cell_line_input: FeatureDataset,
+            drug_input: FeatureDataset,
+    ):
         cell_line_feature_matrices = {}
         for cell_line_view in self.cell_line_views:
             if cell_line_view not in cell_line_input.get_view_names():
                 raise ValueError(f"Cell line input does not contain view {cell_line_view}")
-            cell_line_feature_matrices[cell_line_view] = cell_line_input.get_feature_matrix(cell_line_view, cell_line_ids)
+            cell_line_feature_matrices[cell_line_view] = cell_line_input.get_feature_matrix(cell_line_view,
+                                                                                            cell_line_ids)
         drug_feature_matrices = {}
         for drug_view in self.drug_views:
             if drug_view not in drug_input.get_view_names():
@@ -144,6 +145,7 @@ class DRPModel(ABC):
             drug_feature_matrices[drug_view] = drug_input.get_feature_matrix(drug_view, drug_ids)
 
         return {**cell_line_feature_matrices, **drug_feature_matrices}
+
 
 class SingleDRPModel(DRPModel, ABC):
     """
@@ -186,10 +188,10 @@ class SingleDRPModel(DRPModel, ABC):
         pass
 
     def train(
-        self,
-        cell_line_input: FeatureDataset,
-        drug_input: str,
-        output: DrugResponseDataset,
+            self,
+            cell_line_input: FeatureDataset,
+            drug_input: str,
+            output: DrugResponseDataset,
     ):
         """
         Trains the model.
@@ -201,10 +203,10 @@ class SingleDRPModel(DRPModel, ABC):
 
     @abstractmethod
     def train_drug(
-        self,
-        cell_line_input: FeatureDataset,
-        drug_name: str,
-        output: DrugResponseDataset,
+            self,
+            cell_line_input: FeatureDataset,
+            drug_name: str,
+            output: DrugResponseDataset,
     ):
         """
         Trains one model per drug.
