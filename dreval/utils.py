@@ -18,7 +18,6 @@ def leave_pair_out_cv(
         random_state=42,
         dataset_name: Optional[str] = None
 ) -> List[dict]:
-
     """
     Leave pair out cross validation. Splits data into n_cv_splits number of cross validation splits.
     :param n_cv_splits: number of cross validation splits
@@ -30,6 +29,7 @@ def leave_pair_out_cv(
     :param random_state: random state
     :return: list of dicts of the cross validation sets
     """
+    
     from dreval.datasets.dataset import DrugResponseDataset
 
     assert (
