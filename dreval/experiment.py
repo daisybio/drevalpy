@@ -325,7 +325,7 @@ def randomization_test(
 
 def split_early_stopping(
         validation_dataset: DrugResponseDataset, test_mode: str
-) -> Tuple[DrugResponseDataset]:
+) -> Tuple[DrugResponseDataset, DrugResponseDataset]:
     validation_dataset.shuffle(random_state=42)
     cv_v = validation_dataset.split_dataset(
         n_cv_splits=4,
