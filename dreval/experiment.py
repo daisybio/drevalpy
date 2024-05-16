@@ -146,6 +146,7 @@ def drug_response_experiment(
                 test_dataset = train_and_predict(
                     model=model,
                     hpams=best_hpams,
+                    path_data="data",
                     train_dataset=train_dataset,
                     prediction_dataset=test_dataset,
                     early_stopping_dataset=(
@@ -166,6 +167,7 @@ def drug_response_experiment(
                     randomization_test_views=randomization_test_views,
                     model=model,
                     hpam_set=best_hpams,
+                    path_data="data",
                     train_dataset=train_dataset,
                     test_dataset=test_dataset,
                     early_stopping_dataset=early_stopping_dataset,
@@ -180,6 +182,7 @@ def drug_response_experiment(
                     n_trials=n_trials_robustness,
                     model=model,
                     hpam_set=best_hpams,
+                    path_data="data",
                     train_dataset=train_dataset,
                     test_dataset=test_dataset,
                     early_stopping_dataset=early_stopping_dataset,
@@ -214,6 +217,7 @@ def robustness_test(
         n_trials: int,
         model: DRPModel,
         hpam_set: Dict,
+        path_data: str,
         train_dataset: DrugResponseDataset,
         test_dataset: DrugResponseDataset,
         early_stopping_dataset: Optional[DrugResponseDataset],
@@ -248,6 +252,7 @@ def robustness_test(
             test_dataset = train_and_predict(
                 model=model,
                 hpams=hpam_set,
+                path_data=path_data,
                 train_dataset=train_dataset,
                 prediction_dataset=test_dataset,
                 early_stopping_dataset=early_stopping_dataset,
@@ -260,6 +265,7 @@ def randomization_test(
         randomization_test_views: Dict[str, List[str]],
         model: DRPModel,
         hpam_set: Dict,
+        path_data: str,
         train_dataset: DrugResponseDataset,
         test_dataset: DrugResponseDataset,
         early_stopping_dataset: Optional[DrugResponseDataset],
@@ -310,6 +316,7 @@ def randomization_test(
                 test_dataset_rand = train_and_predict(
                     model=model,
                     hpams=hpam_set,
+                    path_data=path_data,
                     train_dataset=train_dataset,
                     prediction_dataset=test_dataset,
                     early_stopping_dataset=early_stopping_dataset,
@@ -341,6 +348,7 @@ def split_early_stopping(
 def train_and_predict(
         model: DRPModel,
         hpams: Dict,
+        path_data: str,
         train_dataset: DrugResponseDataset,
         prediction_dataset: DrugResponseDataset,
         early_stopping_dataset: Optional[DrugResponseDataset] = None,
@@ -352,10 +360,10 @@ def train_and_predict(
 
     if cl_features is None:
         print('Loading cell line features ...')
-        cl_features = model.load_cell_line_features(data_path="data", dataset_name=train_dataset.dataset_name)
+        cl_features = model.load_cell_line_features(data_path=path_data, dataset_name=train_dataset.dataset_name)
     if drug_features is None:
         print('Loading drug features ...')
-        drug_features = model.load_drug_features(data_path="data", dataset_name=train_dataset.dataset_name)
+        drug_features = model.load_drug_features(data_path=path_data, dataset_name=train_dataset.dataset_name)
     # making sure there are no missing features:
     print('Reducing datasets ...')
     train_dataset.reduce_to(
@@ -422,6 +430,7 @@ def train_and_predict(
 def train_and_evaluate(
         model: DRPModel,
         hpams: Dict[str, List],
+        path_data: str,
         train_dataset: DrugResponseDataset,
         validation_dataset: DrugResponseDataset,
         early_stopping_dataset: Optional[DrugResponseDataset] = None,
@@ -431,6 +440,7 @@ def train_and_evaluate(
     validation_dataset = train_and_predict(
         model=model,
         hpams=hpams,
+        path_data=path_data,
         train_dataset=train_dataset,
         prediction_dataset=validation_dataset,
         early_stopping_dataset=early_stopping_dataset,
@@ -455,6 +465,7 @@ def hpam_tune(
         score = train_and_evaluate(
             model=model,
             hpams=hyperparameter,
+            path_data="data",
             train_dataset=train_dataset,
             validation_dataset=validation_dataset,
             early_stopping_dataset=early_stopping_dataset,
@@ -486,6 +497,7 @@ def hpam_tune_raytune(
         lambda hpams: train_and_evaluate(
             model=model,
             hpams=hpams,
+            path_data="data",
             train_dataset=train_dataset,
             validation_dataset=validation_dataset,
             early_stopping_dataset=early_stopping_dataset,
