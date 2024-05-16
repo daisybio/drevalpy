@@ -2,7 +2,7 @@
 data/cell_line_input
 data/response_output
 data/mapping
-data/GDSC
+data/GDSC1
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
