@@ -46,11 +46,11 @@ class NaivePredictor(DRPModel):
     def load(self, path):
         raise NotImplementedError('Naive predictor does not support loading yet ...')
 
-    def load_cell_line_features(self, path: str, dataset_name: str) -> FeatureDataset:
-        return load_cl_ids_from_csv(path, dataset_name)
+    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+        return load_cl_ids_from_csv(data_path, dataset_name)
 
-    def load_drug_features(self, path: str, dataset_name: str) -> FeatureDataset:
-        return load_drug_ids_from_csv(path, dataset_name)
+    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+        return load_drug_ids_from_csv(data_path, dataset_name)
 
 
 class NaiveDrugMeanPredictor(DRPModel):
@@ -102,11 +102,11 @@ class NaiveDrugMeanPredictor(DRPModel):
     def load(self, path):
         raise NotImplementedError('Naive predictor does not support loading yet ...')
 
-    def load_cell_line_features(self, path: str) -> FeatureDataset:
-        return load_cl_ids_from_csv(path)
+    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+        return load_cl_ids_from_csv(data_path, dataset_name)
 
-    def load_drug_features(self, path: str) -> FeatureDataset:
-        return load_drug_ids_from_csv(path)
+    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+        return load_drug_ids_from_csv(data_path, dataset_name)
 
 
 class NaiveCellLineMeanPredictor(DRPModel):
@@ -158,8 +158,8 @@ class NaiveCellLineMeanPredictor(DRPModel):
     def load(self, path):
         raise NotImplementedError('Naive predictor does not support loading yet ...')
 
-    def load_cell_line_features(self, path: str) -> FeatureDataset:
-        return load_cl_ids_from_csv(path)
+    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+        return load_cl_ids_from_csv(data_path, dataset_name)
 
-    def load_drug_features(self, path: str) -> FeatureDataset:
-        return load_drug_ids_from_csv(path)
+    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+        return load_drug_ids_from_csv(data_path, dataset_name)
