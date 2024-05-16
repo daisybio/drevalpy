@@ -1,6 +1,6 @@
 from typing import Optional
 from dreval.models.utils import load_drug_features_from_fingerprints, load_ge_features_from_landmark_genes
-from models.SimpleNeuralNetwork.utils import FeedForwardNetwork
+from dreval.models.SimpleNeuralNetwork.utils import FeedForwardNetwork
 from dreval.models.drp_model import DRPModel
 from dreval.datasets.dataset import DrugResponseDataset, FeatureDataset
 import numpy as np
