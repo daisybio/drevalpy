@@ -3,7 +3,7 @@ from typing import Dict, List, Optional, Union
 import numpy as np
 from numpy.typing import ArrayLike
 import pandas as pd
-from ..utils import leave_pair_out_cv, leave_group_out_cv
+from ..utils import leave_pair_out_cv, leave_group_out_cv, split_early_stopping
 import copy
 
 class Dataset(ABC):
@@ -192,6 +192,7 @@ class DrugResponseDataset(Dataset):
         n_cv_splits,
         mode,
         split_validation=True,
+        split_early_stopping=True,
         validation_ratio=0.1,
         random_state=42,
     ) -> List[dict]:
@@ -234,6 +235,14 @@ class DrugResponseDataset(Dataset):
             raise ValueError(
                 f"Unknown split mode '{mode}'. Choose from 'LPO', 'LCO', 'LDO'."
             )
+        
+        if split_early_stopping:
+            for split in cv_splits:
+                validation_es, early_stopping = split_early_stopping(split["validation"],
+                                                                    test_mode=mode
+                                                                    )
+                split["validation_es"] = validation_es
+                split["early_stopping"] = early_stopping
         self.cv_splits = cv_splits  
         return cv_splits
     def __hash__(self):
