@@ -35,14 +35,14 @@ def evaluate(dataset: DrugResponseDataset, metric: Union[List[str], str]):
                 m in AVAILABLE_METRICS
         ), f"invalid metric {m}. Available: {list(AVAILABLE_METRICS.keys())}"
         if len(response) < 2:
-            results[m] = np.nan
+            results[m] = float(np.nan)
         else:
             if m == "Partial_Correlation":
-                results[m] = AVAILABLE_METRICS[m](
+                results[m] = float(AVAILABLE_METRICS[m](
                     y_pred=predictions, y_true=response, cell_line_ids=dataset.cell_line_ids, drug_ids=dataset.drug_ids
-                )
+                ))
             else:
-                results[m] = AVAILABLE_METRICS[m](y_pred=predictions, y_true=response)
+                results[m] = float(AVAILABLE_METRICS[m](y_pred=predictions, y_true=response))
 
     return results
 
