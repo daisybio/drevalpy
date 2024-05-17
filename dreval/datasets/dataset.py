@@ -3,7 +3,7 @@ from typing import Dict, List, Optional, Union
 import numpy as np
 from numpy.typing import ArrayLike
 import pandas as pd
-from ..utils import leave_pair_out_cv, leave_group_out_cv, split_early_stopping
+from ..utils import leave_pair_out_cv, leave_group_out_cv, split_early_stopping_data
 import copy
 
 class Dataset(ABC):

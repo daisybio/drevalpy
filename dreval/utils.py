@@ -268,7 +268,7 @@ def kendall(y_pred: np.ndarray, y_true: np.ndarray) -> float:
         return np.nan
     return kendalltau(y_pred, y_true)[0]
 
-def split_early_stopping(
+def split_early_stopping_data(
         validation_dataset: DrugResponseDataset, test_mode: str
 ) -> Tuple[DrugResponseDataset, DrugResponseDataset]:
     validation_dataset.shuffle(random_state=42)
