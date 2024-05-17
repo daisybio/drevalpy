@@ -238,7 +238,7 @@ class DrugResponseDataset(Dataset):
         
         if split_early_stopping:
             for split in cv_splits:
-                validation_es, early_stopping = split_early_stopping(split["validation"],
+                validation_es, early_stopping = split_early_stopping_data(split["validation"],
                                                                     test_mode=mode
                                                                     )
                 split["validation_es"] = validation_es
