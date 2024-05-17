@@ -1,9 +1,9 @@
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Tuple, Union
 import numpy as np
 from numpy.typing import ArrayLike
 import pandas as pd
-from ..utils import leave_pair_out_cv, leave_group_out_cv, split_early_stopping_data
+from ..utils import leave_pair_out_cv, leave_group_out_cv
 import copy
 
 class Dataset(ABC):
@@ -249,6 +249,22 @@ class DrugResponseDataset(Dataset):
         return hash((self.dataset_name, tuple(self.cell_line_ids),
                      tuple(self.drug_ids), tuple(self.response),
                      tuple(self.predictions) if self.predictions is not None else None))
+    
+def split_early_stopping_data(
+        validation_dataset: DrugResponseDataset, test_mode: str
+) -> Tuple[DrugResponseDataset, DrugResponseDataset]:
+
+    validation_dataset.shuffle(random_state=42)
+    cv_v = validation_dataset.split_dataset(
+        n_cv_splits=4,
+        mode=test_mode,
+        split_validation=False,
+        random_state=42,
+    )
+    # take the first fold of a 4 cv as the split ie. 3/4 for validation and 1/4 for early stopping
+    validation_dataset = cv_v[0]["train"]
+    early_stopping_dataset = cv_v[0]["test"]
+    return validation_dataset, early_stopping_dataset
 
 class FeatureDataset(Dataset):
     """
