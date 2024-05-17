@@ -236,7 +236,7 @@ class DrugResponseDataset(Dataset):
                 f"Unknown split mode '{mode}'. Choose from 'LPO', 'LCO', 'LDO'."
             )
         
-        if split_early_stopping:
+        if split_validation and split_early_stopping:
             for split in cv_splits:
                 validation_es, early_stopping = split_early_stopping_data(split["validation"],
                                                                     test_mode=mode
@@ -245,6 +245,7 @@ class DrugResponseDataset(Dataset):
                 split["early_stopping"] = early_stopping
         self.cv_splits = cv_splits  
         return cv_splits
+    
     def __hash__(self):
         return hash((self.dataset_name, tuple(self.cell_line_ids),
                      tuple(self.drug_ids), tuple(self.response),
