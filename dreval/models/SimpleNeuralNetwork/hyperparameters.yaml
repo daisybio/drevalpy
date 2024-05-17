@@ -10,3 +10,5 @@ SimpleNeuralNetwork:
       - - 20
         - 10
         - 10
+  n_features:
+      - 1036
