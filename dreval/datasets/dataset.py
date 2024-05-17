@@ -72,6 +72,7 @@ class DrugResponseDataset(Dataset):
             self.response = response
             self.cell_line_ids = cell_line_ids
             self.drug_ids = drug_ids
+            self.dataset_name = dataset_name
 
         if predictions is not None:
             self.predictions = np.array(predictions)
@@ -235,7 +236,10 @@ class DrugResponseDataset(Dataset):
             )
         self.cv_splits = cv_splits  
         return cv_splits
-
+    def __hash__(self):
+        return hash((self.dataset_name, tuple(self.cell_line_ids),
+                     tuple(self.drug_ids), tuple(self.response),
+                     tuple(self.predictions) if self.predictions is not None else None))
 
 class FeatureDataset(Dataset):
     """
