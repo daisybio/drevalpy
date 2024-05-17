@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import pandas as pd
 from sklearn.model_selection import KFold, GroupKFold
@@ -6,6 +6,8 @@ import numpy as np
 from numpy.typing import ArrayLike
 from sklearn.model_selection import train_test_split
 from scipy.stats import pearsonr, spearmanr, kendalltau
+
+from dreval.datasets.dataset import DrugResponseDataset
 
 
 def leave_pair_out_cv(
@@ -29,7 +31,7 @@ def leave_pair_out_cv(
     :param random_state: random state
     :return: list of dicts of the cross validation sets
     """
-    
+
     from dreval.datasets.dataset import DrugResponseDataset
 
     assert (
@@ -265,3 +267,18 @@ def kendall(y_pred: np.ndarray, y_true: np.ndarray) -> float:
     if (y_pred == y_pred[0]).all() or (y_true == y_true[0]).all() or len(y_true) < 2:
         return np.nan
     return kendalltau(y_pred, y_true)[0]
+
+def split_early_stopping_data(
+        validation_dataset: DrugResponseDataset, test_mode: str
+) -> Tuple[DrugResponseDataset, DrugResponseDataset]:
+    validation_dataset.shuffle(random_state=42)
+    cv_v = validation_dataset.split_dataset(
+        n_cv_splits=4,
+        mode=test_mode,
+        split_validation=False,
+        random_state=42,
+    )
+    # take the first fold of a 4 cv as the split ie. 3/4 for validation and 1/4 for early stopping
+    validation_dataset = cv_v[0]["train"]
+    early_stopping_dataset = cv_v[0]["test"]
+    return validation_dataset, early_stopping_dataset
