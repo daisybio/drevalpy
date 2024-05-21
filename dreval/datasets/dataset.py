@@ -260,6 +260,7 @@ def split_early_stopping_data(
         n_cv_splits=4,
         mode=test_mode,
         split_validation=False,
+        split_early_stopping=False,
         random_state=42,
     )
     # take the first fold of a 4 cv as the split ie. 3/4 for validation and 1/4 for early stopping
