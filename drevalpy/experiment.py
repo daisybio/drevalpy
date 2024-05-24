@@ -24,6 +24,7 @@ def drug_response_experiment(
         multiprocessing: bool = False,
         randomization_mode: Optional[List[str]] = None,
         randomization_type: str = "permutation",
+        cross_study_datasets: Optional[List[DrugResponseDataset]] = None,
         n_trials_robustness: int = 0,
         path_out: str = "results/",
         overwrite: bool = False,
@@ -59,6 +60,9 @@ def drug_response_experiment(
 
     :return: None
     """
+
+    if cross_study_datasets is None:
+        cross_study_datasets = []
 
     result_path = os.path.join(path_out, run_id, test_mode)
     # if results exists, delete them if overwrite is true
@@ -154,6 +158,22 @@ def drug_response_experiment(
                     ),
                     response_transformation=response_transformation
                 )
+
+
+
+                for cross_study_dataset in cross_study_datasets:
+                    cross_study_prediction(
+                        dataset=cross_study_dataset,
+                        model=model,
+                        test_mode=test_mode,
+                        train_dataset=train_dataset,
+                        path_data="data",
+                        early_stopping_dataset=early_stopping_dataset if model.early_stopping else None,
+                        response_transformation=response_transformation,
+                        predictions_path=predictions_path,
+                        split_index=split_index
+                    )
+                    
                 test_dataset.save(prediction_file)
             else:
                 print(f"Split {split_index} already exists. Skipping.")
@@ -191,6 +211,61 @@ def drug_response_experiment(
                     test_mode=test_mode,
                     response_transformation=response_transformation
                 )
+
+def cross_study_prediction(dataset: DrugResponseDataset,
+                            model: DRPModel,
+                            test_mode: str,
+                            train_dataset: DrugResponseDataset,
+                            path_data: str,
+                            early_stopping_dataset: Optional[DrugResponseDataset],
+                            response_transformation: Optional[TransformerMixin],
+                            predictions_path: str,
+                            split_index: int) -> None:
+    """
+    Run the drug response prediction experiment on a cross-study dataset. Save results to disc.
+    :param dataset: cross-study dataset
+    :param model: model to use
+    :param test_mode: test mode one of "LPO", "LCO", "LDO" (leave-pair-out, leave-cell-line-out, leave-drug-out)
+    :param train_dataset: training dataset
+    :param early_stopping_dataset: early stopping dataset
+    """
+    os.makedirs(os.path.join(predictions_path, "cross_study"), exist_ok=True)
+    if response_transformation:
+        dataset.response = response_transformation.transform(dataset.response.reshape(-1, 1)).squeeze()
+    cl_features = model.load_cell_line_features(data_path=path_data, dataset_name=dataset.dataset_name)
+    drug_features = model.load_drug_features(data_path=path_data, dataset_name=dataset.dataset_name)
+
+    # making sure there are no missing features:
+    dataset.reduce_to(
+        cell_line_ids=cl_features.identifiers, drug_ids=drug_features.identifiers
+    )
+    if early_stopping_dataset is not None:
+        train_dataset.add_rows(early_stopping_dataset)
+    #remove rows which overlap in the training. depends on the test mode
+    if test_mode == "LPO":
+        train_pairs = set([f"{cl}_{drug}" for cl, drug in zip(train_dataset.cell_line_ids, train_dataset.drug_ids)])
+        dataset_pairs = [f"{cl}_{drug}" for cl, drug in zip(dataset.cell_line_ids, dataset.drug_ids)]
+        dataset.remove_rows([i for i, pair in enumerate(dataset_pairs) if pair in train_pairs])
+
+    elif test_mode == "LCO":
+        train_cell_lines = set(train_dataset.cell_line_ids)
+        dataset.reduce_to(cell_line_ids=[cl for cl in dataset.cell_line_ids if cl not in train_cell_lines])
+    elif test_mode == "LDO":
+        train_drugs = set(train_dataset.drug_ids)
+        dataset.reduce_to(drug_ids=[drug for drug in dataset.drug_ids if drug not in train_drugs])
+    else:
+        raise ValueError(f"Invalid test mode: {test_mode}. Choose from LPO, LCO, LDO")
+    dataset.shuffle(random_state=42)
+    inputs = model.get_feature_matrices(
+        cell_line_ids=dataset.cell_line_ids,
+        drug_ids=dataset.drug_ids,
+        cell_line_input=cl_features,
+        drug_input=drug_features
+    )
+    dataset.predictions = model.predict(**inputs)
+    if response_transformation:
+        dataset.response = response_transformation.inverse_transform(dataset.response)
+    dataset.save(os.path.join(predictions_path,"cross_study" , f"cross_study_{dataset.dataset_name}_split_{split_index}.csv"))
 
 
 def get_randomization_test_views(model: DRPModel, randomization_mode: List[str]) -> Dict[str, List[str]]:

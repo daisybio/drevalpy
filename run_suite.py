@@ -1,7 +1,7 @@
 import argparse
 from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler
-from models import MODEL_FACTORY
-from response_datasets import RESPONSE_DATASET_FACTORY
+from drevalpy.models import MODEL_FACTORY
+from drevalpy.datasets import RESPONSE_DATASET_FACTORY
 from drevalpy.experiment import drug_response_experiment
 from drevalpy.evaluation import AVAILABLE_METRICS
 
@@ -64,6 +64,13 @@ def get_parser():
     )
 
     parser.add_argument(
+        "--cross_study_datasets",
+        nargs="+",
+        default=[],
+        help="List of datasets to use to evaluate predictions acresso studies. Default is empty list which means no cross-study datasets are used."
+    )
+
+    parser.add_argument(
         "--path_out", type=str, default="results/", help="Path to the output directory"
     )
 
@@ -119,8 +126,11 @@ if __name__ == "__main__":
         MODEL_FACTORY[model] for model in args.models
     ]
     assert args.dataset_name in RESPONSE_DATASET_FACTORY, f"Invalid dataset name. Available datasets are {list(RESPONSE_DATASET_FACTORY.keys())} If you want to use your own dataset, you need to implement a new response dataset class and add it to the RESPONSE_DATASET_FACTORY in the response_datasets init"
+    for dataset in args.cross_study_datasets:
+        assert dataset in RESPONSE_DATASET_FACTORY, f"Invalid dataset name in cross_study_datasets. Available datasets are {list(RESPONSE_DATASET_FACTORY.keys())} If you want to use your own dataset, you need to implement a new response dataset class and add it to the RESPONSE_DATASET_FACTORY in the response_datasets init"
+    
     response_data = RESPONSE_DATASET_FACTORY[args.dataset_name]()
-
+    cross_study_datasets = [RESPONSE_DATASET_FACTORY[dataset]() for dataset in args.cross_study_datasets]
     assert args.n_cv_splits > 1, "Number of cross-validation splits must be greater than 1"
 
     # TODO Allow for custom randomization tests maybe via config file 
@@ -159,6 +169,7 @@ if __name__ == "__main__":
             randomization_mode=args.randomization_mode,
             randomization_type=args.randomization_type,
             n_trials_robustness=args.n_trials_robustness,
+            cross_study_datasets=cross_study_datasets,
             path_out=args.path_out,
             run_id=args.run_id,
             overwrite=args.overwrite,
