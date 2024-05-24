@@ -175,7 +175,16 @@ class DrugResponseDataset(Dataset):
         self.drug_ids = self.drug_ids[mask]
         self.cell_line_ids = self.cell_line_ids[mask]
         self.response = self.response[mask]
-
+    def remove_rows(self, indices: ArrayLike) -> None:
+        """
+        Removes rows from the dataset.
+        :indices: indices of rows to remove
+        """
+        self.drug_ids = np.delete(self.drug_ids, indices)
+        self.cell_line_ids = np.delete(self.cell_line_ids, indices)
+        self.response = np.delete(self.response, indices)
+        if self.predictions is not None:
+            self.predictions = np.delete(self.predictions, indices)
     def reduce_to(self, cell_line_ids: ArrayLike, drug_ids: ArrayLike) -> None:
         """
         Removes all rows which contain a cell_line not in cell_line_ids or a drug not in drug_ids
