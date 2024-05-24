@@ -10,8 +10,6 @@ class SVMRegressor(DRPModel):
     cell_line_views = ['gene_expression']
     drug_views = ['fingerprints']
 
-
-
     def build_model(self, hyperparameters: dict):
         """
         Builds the model from hyperparameters.
@@ -19,7 +17,8 @@ class SVMRegressor(DRPModel):
         """
         self.model = SVR(kernel=hyperparameters['kernel'],
                          C=hyperparameters['C'],
-                         epsilon=hyperparameters['epsilon'])
+                         epsilon=hyperparameters['epsilon'],
+                         max_iter=hyperparameters['max_iter'])
 
     def train(self, output: DrugResponseDataset,
               gene_expression: np.ndarray = None,
@@ -49,7 +48,7 @@ class SVMRegressor(DRPModel):
 
     def load(self, path):
         raise NotImplementedError('SVR does not support loading yet ...')
-    
+
     def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         """
         Loads the cell line features.
@@ -59,5 +58,4 @@ class SVMRegressor(DRPModel):
         return load_ge_features_from_landmark_genes(data_path, dataset_name)
 
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
-
         return load_drug_features_from_fingerprints(data_path, dataset_name)

@@ -200,13 +200,13 @@ def create_index_html(run_id):
 
 
 def prep_results(run_id):
-    # eval_results, eval_results_per_drug, eval_results_per_cell_line, t_vs_p = parse_results(
-    #    run_id)
-    eval_results = pd.read_csv(f'../results/{run_id}/evaluation_results.csv', index_col=0)
-    eval_results_per_drug = pd.read_csv(f'../results/{run_id}/evaluation_results_per_drug.csv', index_col=0)
-    eval_results_per_cell_line = pd.read_csv(f'../results/{run_id}/evaluation_results_per_cell_line.csv',
-                                             index_col=0)
-    t_vs_p = pd.read_csv(f'../results/{run_id}/true_vs_pred.csv', index_col=0)
+    eval_results, eval_results_per_drug, eval_results_per_cell_line, t_vs_p = parse_results(
+        run_id)
+    #eval_results = pd.read_csv(f'../results/{run_id}/evaluation_results.csv', index_col=0)
+    #eval_results_per_drug = pd.read_csv(f'../results/{run_id}/evaluation_results_per_drug.csv', index_col=0)
+    #eval_results_per_cell_line = pd.read_csv(f'../results/{run_id}/evaluation_results_per_cell_line.csv',
+    #                                         index_col=0)
+    #t_vs_p = pd.read_csv(f'../results/{run_id}/true_vs_pred.csv', index_col=0)
     # add variables
     # split the index by "_" into: algorithm, randomization, setting, split, CV_split
     new_columns = eval_results.index.str.split('_', expand=True).to_frame()
@@ -282,28 +282,28 @@ if __name__ == "__main__":
         # draw figures for each algorithm with all randomizations etc
         for algorithm in eval_results_algorithms['algorithm'].unique():
             eval_results_algorithm = eval_results_subset[eval_results_subset['algorithm'] == algorithm]
-            #draw_violin_and_heatmap(eval_results_algorithm, run_id, f'{algorithm}_{setting}', whole_name=True)
+            draw_violin_and_heatmap(eval_results_algorithm, run_id, f'{algorithm}_{setting}', whole_name=True)
 
         if setting == 'LPO' or setting == 'LCO':
-            #draw_scatter_grids_per_group(eval_res_group=evaluation_results_per_drug, group_by='drug', setting=setting,
-             #                            run_id=run_id)
+            draw_scatter_grids_per_group(eval_res_group=evaluation_results_per_drug, group_by='drug', setting=setting,
+                                        run_id=run_id)
             evaluation_results_per_drug_subs = evaluation_results_per_drug[evaluation_results_per_drug['LPO_LCO_LDO'] == setting]
             evaluation_results_per_drug_subs = evaluation_results_per_drug_subs[
                 ['drug', 'algorithm', 'rand_setting', 'CV_split',
                 'MSE', 'R^2', 'Pearson', 'RMSE', 'MAE', 'Spearman', 'Kendall', 'Partial_Correlation', 'LPO_LCO_LDO',]]
             evaluation_results_per_drug_subs.to_html(f'../results/{run_id}/evaluation_results_per_drug_{setting}.html', index=False)
-            #generate_regression_plots(true_vs_pred_subset, run_id, group_by='cell_line')
-            #generate_regression_plots(true_vs_pred_subset, run_id, group_by='cell_line', normalize=True)
+            generate_regression_plots(true_vs_pred_subset, run_id, group_by='cell_line')
+            generate_regression_plots(true_vs_pred_subset, run_id, group_by='cell_line', normalize=True)
 
         if setting == 'LPO' or setting == 'LDO':
-            #draw_scatter_grids_per_group(eval_res_group=evaluation_results_per_cell_line, group_by='cell_line',
-            #                             setting=setting, run_id=run_id)
+            draw_scatter_grids_per_group(eval_res_group=evaluation_results_per_cell_line, group_by='cell_line',
+                                         setting=setting, run_id=run_id)
             evaluation_results_per_cell_line_subs = evaluation_results_per_cell_line[evaluation_results_per_cell_line['LPO_LCO_LDO'] == setting]
             evaluation_results_per_cell_line_subs = evaluation_results_per_cell_line_subs[['cell_line', 'algorithm', 'rand_setting', 'CV_split',
                                                                                   'MSE', 'R^2', 'Pearson', 'RMSE', 'MAE', 'Spearman', 'Kendall', 'Partial_Correlation', 'LPO_LCO_LDO',]]
             evaluation_results_per_cell_line_subs.to_html(f'../results/{run_id}/evaluation_results_per_cell_line_{setting}.html', index=False)
-            #generate_regression_plots(true_vs_pred_subset, run_id, group_by='drug')
-            #generate_regression_plots(true_vs_pred_subset, run_id, group_by='drug', normalize=True)
+            generate_regression_plots(true_vs_pred_subset, run_id, group_by='drug')
+            generate_regression_plots(true_vs_pred_subset, run_id, group_by='drug', normalize=True)
         # reorder columns
         eval_results_subset = eval_results_subset[['algorithm', 'rand_setting', 'CV_split',
                                                    'MSE', 'R^2', 'Pearson',
