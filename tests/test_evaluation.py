@@ -1,8 +1,8 @@
 import numpy as np
 import pandas as pd
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
-from dreval.datasets.dataset import DrugResponseDataset
-from dreval.evaluation import evaluate
+from drevalpy.datasets.dataset import DrugResponseDataset
+from drevalpy.evaluation import evaluate
 
 
 def test_evaluate():

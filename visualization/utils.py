@@ -1,9 +1,9 @@
 import pandas as pd
 import pathlib
 import os
-from dreval.datasets.dataset import DrugResponseDataset
+from drevalpy.datasets.dataset import DrugResponseDataset
 
-from dreval.evaluation import evaluate, AVAILABLE_METRICS
+from drevalpy.evaluation import evaluate, AVAILABLE_METRICS
 
 
 def parse_results(run_id):

@@ -1,5 +1,5 @@
-from dreval.models.drp_model import SingleDRPModel
-from dreval.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.models.drp_model import SingleDRPModel
+from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 import yaml
 
 

@@ -3,7 +3,7 @@ import pandas as pd
 import pytest
 from flaky import flaky
 
-from dreval.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 import os
 
 

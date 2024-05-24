@@ -1,4 +1,4 @@
-from dreval.datasets.dataset import DrugResponseDataset
+from drevalpy.datasets.dataset import DrugResponseDataset
 import pandas as pd
 import os
 

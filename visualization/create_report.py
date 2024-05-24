@@ -261,7 +261,7 @@ def draw_scatter_grids_per_group(eval_res_group, group_by, setting, run_id):
 
 if __name__ == "__main__":
     # Load the dataset
-    run_id = 'my_run_id'
+    run_id = 'test3'
     evaluation_results, evaluation_results_per_drug, evaluation_results_per_cell_line, true_vs_pred = prep_results(
         run_id)
 

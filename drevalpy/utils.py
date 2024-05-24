@@ -30,7 +30,7 @@ def leave_pair_out_cv(
     :return: list of dicts of the cross validation sets
     """
 
-    from dreval.datasets.dataset import DrugResponseDataset
+    from drevalpy.datasets.dataset import DrugResponseDataset
 
     assert (
             len(response) == len(cell_line_ids) == len(drug_ids)
@@ -95,7 +95,7 @@ def leave_group_out_cv(
     :param random_state: random state
     :return: list of dicts of the cross validation sets
     """
-    from dreval.datasets.dataset import DrugResponseDataset
+    from drevalpy.datasets.dataset import DrugResponseDataset
 
     assert group in {
         "cell_line",

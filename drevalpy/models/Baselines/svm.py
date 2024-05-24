@@ -1,30 +1,25 @@
 import numpy as np
-from sklearn.ensemble import RandomForestRegressor
-
-from dreval.datasets.dataset import FeatureDataset, DrugResponseDataset
-from dreval.models.drp_model import DRPModel
+from sklearn.svm import SVR
+from drevalpy.datasets.dataset import FeatureDataset, DrugResponseDataset
+from drevalpy.models.drp_model import DRPModel
 from ..utils import load_ge_features_from_landmark_genes, load_drug_features_from_fingerprints
 
 
-class RandomForest(DRPModel):
-    model_name = 'RandomForest'
+class SVMRegressor(DRPModel):
+    model_name = 'SVR'
     cell_line_views = ['gene_expression']
     drug_views = ['fingerprints']
+
+
 
     def build_model(self, hyperparameters: dict):
         """
         Builds the model from hyperparameters.
         :param hyperparameters: Hyperparameters for the model.
         """
-        if hyperparameters['max_depth'] == 'None':
-            hyperparameters['max_depth'] = None
-        self.model = RandomForestRegressor(n_estimators=hyperparameters['n_estimators'],
-                                           criterion=hyperparameters['criterion'],
-                                           max_depth=hyperparameters['max_depth'],
-                                           min_samples_split=hyperparameters['min_samples_split'],
-                                           min_samples_leaf=hyperparameters['min_samples_leaf'],
-                                           n_jobs=hyperparameters['n_jobs'],
-                                           max_samples=hyperparameters['max_samples'])
+        self.model = SVR(kernel=hyperparameters['kernel'],
+                         C=hyperparameters['C'],
+                         epsilon=hyperparameters['epsilon'])
 
     def train(self, output: DrugResponseDataset,
               gene_expression: np.ndarray = None,
@@ -38,24 +33,23 @@ class RandomForest(DRPModel):
         X = np.concatenate((gene_expression, fingerprints), axis=1)
         self.model.fit(X, output.response)
 
-    def predict(self,
-                gene_expression: np.ndarray = None,
+    def predict(self, gene_expression: np.ndarray = None,
                 fingerprints: np.ndarray = None) -> np.ndarray:
         """
-        Predicts the response for the given input.
-        :param gene_expression: gene expression data
-        :param fingerprints: fingerprints data
-        :return: predicted response
+        Predicts the response values.
+        :param gene_expression:
+        :param fingerprints:
+        :return:
         """
         X = np.concatenate((gene_expression, fingerprints), axis=1)
         return self.model.predict(X)
 
     def save(self, path):
-        raise NotImplementedError('RF does not support saving yet ...')
+        raise NotImplementedError('SVR does not support saving yet ...')
 
     def load(self, path):
-        raise NotImplementedError('RF does not support loading yet ...')
-
+        raise NotImplementedError('SVR does not support loading yet ...')
+    
     def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         """
         Loads the cell line features.
