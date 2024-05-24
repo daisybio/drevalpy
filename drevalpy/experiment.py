@@ -168,7 +168,7 @@ def drug_response_experiment(
                         test_mode=test_mode,
                         train_dataset=train_dataset,
                         path_data="data",
-                        early_stopping_dataset=early_stopping_dataset,
+                        early_stopping_dataset=early_stopping_dataset if model.early_stopping else None,
                         response_transformation=response_transformation,
                         predictions_path=predictions_path,
                         split_index=split_index
