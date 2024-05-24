@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='dreval',
+    name='drevalpy',
     version='1.0.0',
     author=' ',
     description='Drug Response Evaluation of cancer cell line drug response models in a fair setting.',
@@ -10,7 +10,7 @@ setup(
     url='https://github.com/biomedbigdata/drp_model_suite',
     packages=find_packages(), 
     classifiers=[
-        'Development Status :: Alpha',
+        'Development Status :: 2 - Pre-Alpha',
         'Programming Language :: Python :: 3.10',
     ],
     python_requires='>=3.9', 
