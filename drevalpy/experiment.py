@@ -3,7 +3,7 @@ from typing import Dict, List, Optional, Tuple, Type
 import warnings
 from .datasets.dataset import DrugResponseDataset, FeatureDataset
 from .evaluation import evaluate
-from .models.drp_model import DRPModel
+from .models.drp_model import DRPModel, SingleDrugModel, SingleDrugModelDict
 import numpy as np
 import os
 import shutil
@@ -105,7 +105,11 @@ def drug_response_experiment(
                 validation_dataset, early_stopping_dataset = split_early_stopping(
                     validation_dataset=validation_dataset, test_mode=test_mode
                 )
-            model = model_class(target="IC50")
+            if type(model_class) == DRPModel:
+                model = model_class(target="IC50")
+            elif(type(model_class) == SingleDrugModel):
+                model = SingleDrugModelDict(target="IC50")
+                # THIS NEEDS TO TAKE IN THE ACTUAL SINGLE DRUG MODEL
 
             if not os.path.isfile(prediction_file):  # if this split has not been run yet
 

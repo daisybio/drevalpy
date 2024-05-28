@@ -254,7 +254,17 @@ class DrugResponseDataset(Dataset):
                 split["early_stopping"] = early_stopping
         self.cv_splits = cv_splits  
         return cv_splits
-    
+    def copy(self):
+        """
+        Returns a copy of the drug response dataset.
+        """
+        return DrugResponseDataset(
+            response=copy.deepcopy(self.response),
+            cell_line_ids=copy.deepcopy(self.cell_line_ids),
+            drug_ids=copy.deepcopy(self.drug_ids),
+            predictions=copy.deepcopy(self.predictions),
+            dataset_name=self.dataset_name,
+        )
     def __hash__(self):
         return hash((self.dataset_name, tuple(self.cell_line_ids),
                      tuple(self.drug_ids), tuple(self.response),
