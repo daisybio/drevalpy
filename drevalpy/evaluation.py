@@ -16,7 +16,8 @@ AVAILABLE_METRICS = {
     "Kendall": kendall,
     "Partial_Correlation": partial_correlation,
 }
-
+MINIMIZATION_METRICS = ["MSE", "RMSE", "MAE"]
+MAXIMIZATION_METRICS = ["R^2", "Pearson", "Spearman", "Kendall", "Partial_Correlation"]
 
 def evaluate(dataset: DrugResponseDataset, metric: Union[List[str], str]):
     """

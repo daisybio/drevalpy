@@ -193,7 +193,9 @@ class CompositeDrugModel(DRPModel):
         """
         Builds the model.
         """
-        self.hyperparameters = hyperparameters
+        for drug in hyperparameters:
+            self.models[drug] = self.base_model()
+            self.models[drug].build_model(hyperparameters[drug])
 
     def train(self, output: DrugResponseDataset, output_earlystopping: Optional[DrugResponseDataset] = None, **inputs: Dict[str, np.ndarray]) -> None:
         """
@@ -203,9 +205,8 @@ class CompositeDrugModel(DRPModel):
         :param inputs: Dictionary containing input data associated with different views
         """
         for drug in output.drug_ids:
-            model = self.base_model()
-            model.build_model(self.hyperparameters)
-
+            assert drug in self.models, f"Drug {drug} not in models. Maybe the CompositeDrugModel was not built."
+            model = self.models[drug]
             output_mask = output.drug_ids == drug
             output_drug = output.copy()
             output_drug.mask(output_mask)
@@ -213,7 +214,7 @@ class CompositeDrugModel(DRPModel):
             inputs_drug = {view: data[output_mask] for view, data in inputs.items() if not view.endswith('_earlystopping')}
 
             output_earlystopping_drug = None
-            if output_earlystopping:
+            if output_earlystopping is not None:
                 output_earlystopping_mask = output_earlystopping.drug_ids == drug
                 output_earlystopping_drug = output_earlystopping.copy()
                 output_earlystopping_drug.mask(output_earlystopping_mask)

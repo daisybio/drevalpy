@@ -2,7 +2,7 @@ import json
 from typing import Dict, List, Optional, Tuple, Type
 import warnings
 from .datasets.dataset import DrugResponseDataset, FeatureDataset
-from .evaluation import evaluate
+from .evaluation import AVAILABLE_METRICS, MAXIMIZATION_METRICS, MINIMIZATION_METRICS, evaluate
 from .models.drp_model import CompositeDrugModel, DRPModel, SingleDrugModel
 import numpy as np
 import os
@@ -644,9 +644,9 @@ def hpam_tune_raytune(
 
     ray.init(_temp_dir=os.path.join(os.path.expanduser("~"), "raytmp"))
     if torch.cuda.is_available():
-        resources_per_trial = {"gpu": 1}
+        resources_per_trial = {"gpu": 1}  # TODO make this user defined
     else:
-        resources_per_trial = {"cpu": 1}
+        resources_per_trial = {"cpu": 1} # TODO make this user defined
     analysis = tune.run(
         lambda hpams: train_and_evaluate(
             model=model,
@@ -666,5 +666,12 @@ def hpam_tune_raytune(
         verbose=0,
         storage_path=ray_path,
     )
-    best_config = analysis.get_best_config(metric=metric, mode="min")
+    if metric in MINIMIZATION_METRICS:
+        mode = "min"
+    elif metric in MAXIMIZATION_METRICS:
+        mode = "max"
+    else:
+        raise ValueError(f"Invalid metric: {metric}. Need to add to MINIMIZATION_METRICS or MAXIMIZATION_METRICS.")
+    
+    best_config = analysis.get_best_config(metric=metric, mode=mode)  # TODO mode depends on metric
     return best_config
