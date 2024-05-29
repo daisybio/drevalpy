@@ -118,30 +118,48 @@ def drug_response_experiment(
             ):  # if this split has not been run yet
 
                 if multiprocessing:
-                    best_hpams = hpam_tune_raytune(
-                        model=model,
-                        train_dataset=train_dataset,
-                        validation_dataset=validation_dataset,
-                        early_stopping_dataset=(
-                            early_stopping_dataset if model.early_stopping else None
-                        ),
-                        hpam_set=model_hpam_set,
-                        response_transformation=response_transformation,
-                        metric=metric,
-                        ray_path=os.path.abspath(os.path.join(result_path, "raytune")),
-                    )
+                    if Type(model) == CompositeDrugModel:
+                        raise NotImplementedError(
+                            "Multiprocessing is not implemented for SingleDrugModels"
+                        )
+                    else:
+                        best_hpams = hpam_tune_raytune(
+                            model=model,
+                            train_dataset=train_dataset,
+                            validation_dataset=validation_dataset,
+                            early_stopping_dataset=(
+                                early_stopping_dataset if model.early_stopping else None
+                            ),
+                            hpam_set=model_hpam_set,
+                            response_transformation=response_transformation,
+                            metric=metric,
+                            ray_path=os.path.abspath(os.path.join(result_path, "raytune")),
+                        )
                 else:
-                    best_hpams = hpam_tune(
-                        model=model,
-                        train_dataset=train_dataset,
-                        validation_dataset=validation_dataset,
-                        early_stopping_dataset=(
-                            early_stopping_dataset if model.early_stopping else None
-                        ),
-                        hpam_set=model_hpam_set,
-                        response_transformation=response_transformation,
-                        metric=metric,
-                    )
+                    if Type(model) == CompositeDrugModel:
+                        best_hpams = hpam_tune_composite_model(
+                            model=model,
+                            train_dataset=train_dataset,
+                            validation_dataset=validation_dataset,
+                            early_stopping_dataset=(
+                                early_stopping_dataset if model.early_stopping else None
+                            ),
+                            hpam_set=model_hpam_set,
+                            response_transformation=response_transformation,
+                            metric=metric,
+                        )
+                    else:
+                        best_hpams = hpam_tune(
+                            model=model,
+                            train_dataset=train_dataset,
+                            validation_dataset=validation_dataset,
+                            early_stopping_dataset=(
+                                early_stopping_dataset if model.early_stopping else None
+                            ),
+                            hpam_set=model_hpam_set,
+                            response_transformation=response_transformation,
+                            metric=metric,
+                        )
 
                 print(f"Best hyperparameters: {best_hpams}")
                 print(
@@ -610,8 +628,9 @@ def hpam_tune(
     response_transformation: Optional[TransformerMixin] = None,
     metric: str = "rmse",
 ) -> Dict:
-    best_score = float("inf")
     best_hyperparameters = None
+    mode = get_mode(metric)
+    best_score = float("inf") if mode == "min" else float("-inf")
     for hyperparameter in hpam_set:
         print(f"Training model with hyperparameters: {hyperparameter}")
         score = train_and_evaluate(
@@ -624,27 +643,36 @@ def hpam_tune(
             metric=metric,
             response_transformation=response_transformation,
         )[metric]
-        mode = get_mode(metric)
+
         if (mode == "min" and score < best_score) or (mode == "max" and score > best_score):            
             print(f"current best {metric} score: {np.round(score, 3)}")
             best_score = score
             best_hyperparameters = hyperparameter
     return best_hyperparameters
 
+
+
+# TODO build_model needs to be doable with hyperparameters per drug!
 def hpam_tune_composite_model(model: CompositeDrugModel,
                                 train_dataset: DrugResponseDataset,
                                 validation_dataset: DrugResponseDataset,
                                 hpam_set: List[Dict],
                                 early_stopping_dataset: Optional[DrugResponseDataset] = None,
                                 response_transformation: Optional[TransformerMixin] = None,
-                                metric: str = "rmse") -> Dict:
-        best_score = float("inf")
-        best_hyperparameters = None
+                                metric: str = "rmse") -> Dict[str: Dict]:
+
+        mode = get_mode(metric)
+        unique_drugs = np.unique(train_dataset.drug_ids)
+        # seperate best_hyperparameters for each drug
+        best_scores = {drug: float("inf") if mode == "min" else float("-inf") for drug in unique_drugs}
+        best_hyperparameters = {drug: None for drug in unique_drugs}
+
         for hyperparameter in hpam_set:
             print(f"Training model with hyperparameters: {hyperparameter}")
+            hyperparameters_per_drug = {drug: hyperparameter for drug in unique_drugs}
             predictions = train_and_predict(
                 model=model,
-                hpams=hyperparameter,
+                hpams=hyperparameters_per_drug,
                 path_data="data",
                 train_dataset=train_dataset,
                 validation_dataset=validation_dataset,
@@ -653,15 +681,15 @@ def hpam_tune_composite_model(model: CompositeDrugModel,
                 response_transformation=response_transformation,
             )[metric]
             validation_dataset.predictions = predictions
+            # seperate evaluation for each drug
             for drug in np.unique(validation_dataset.drug_ids):
                 mask = validation_dataset.drug_ids == drug
                 validation_dataset_drug = validation_dataset.copy().mask(mask)
                 score = evaluate(validation_dataset_drug, metric=metric)
-            mode = get_mode(metric)
-            if (mode == "min" and score < best_score) or (mode == "max" and score > best_score):
-                print(f"current best {metric} score: {np.round(score, 3)}")
-                best_score = score
-                best_hyperparameters = hyperparameter
+                if (mode == "min" and score < best_scores[drug]) or (mode == "max" and score > best_scores[drug]):
+                    print(f"current best {metric} score: {np.round(score, 3)}")
+                    best_scores[drug] = score
+                    best_hyperparameters[drug] = hyperparameter
         return best_hyperparameters
 
 def hpam_tune_raytune(
