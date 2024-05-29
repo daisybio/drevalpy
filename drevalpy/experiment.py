@@ -2,7 +2,7 @@ import json
 from typing import Dict, List, Optional, Tuple, Type
 import warnings
 from .datasets.dataset import DrugResponseDataset, FeatureDataset
-from .evaluation import AVAILABLE_METRICS, MAXIMIZATION_METRICS, MINIMIZATION_METRICS, evaluate
+from .evaluation import AVAILABLE_METRICS, MAXIMIZATION_METRICS, MINIMIZATION_METRICS, evaluate, get_mode
 from .models.drp_model import CompositeDrugModel, DRPModel, SingleDrugModel
 import numpy as np
 import os
@@ -624,12 +624,45 @@ def hpam_tune(
             metric=metric,
             response_transformation=response_transformation,
         )[metric]
-        if score < best_score:
+        mode = get_mode(metric)
+        if (mode == "min" and score < best_score) or (mode == "max" and score > best_score):            
             print(f"current best {metric} score: {np.round(score, 3)}")
             best_score = score
             best_hyperparameters = hyperparameter
     return best_hyperparameters
 
+def hpam_tune_composite_model(model: CompositeDrugModel,
+                                train_dataset: DrugResponseDataset,
+                                validation_dataset: DrugResponseDataset,
+                                hpam_set: List[Dict],
+                                early_stopping_dataset: Optional[DrugResponseDataset] = None,
+                                response_transformation: Optional[TransformerMixin] = None,
+                                metric: str = "rmse") -> Dict:
+        best_score = float("inf")
+        best_hyperparameters = None
+        for hyperparameter in hpam_set:
+            print(f"Training model with hyperparameters: {hyperparameter}")
+            predictions = train_and_predict(
+                model=model,
+                hpams=hyperparameter,
+                path_data="data",
+                train_dataset=train_dataset,
+                validation_dataset=validation_dataset,
+                early_stopping_dataset=early_stopping_dataset,
+                metric=metric,
+                response_transformation=response_transformation,
+            )[metric]
+            validation_dataset.predictions = predictions
+            for drug in np.unique(validation_dataset.drug_ids):
+                mask = validation_dataset.drug_ids == drug
+                validation_dataset_drug = validation_dataset.copy().mask(mask)
+                score = evaluate(validation_dataset_drug, metric=metric)
+            mode = get_mode(metric)
+            if (mode == "min" and score < best_score) or (mode == "max" and score > best_score):
+                print(f"current best {metric} score: {np.round(score, 3)}")
+                best_score = score
+                best_hyperparameters = hyperparameter
+        return best_hyperparameters
 
 def hpam_tune_raytune(
     model: DRPModel,
@@ -666,12 +699,7 @@ def hpam_tune_raytune(
         verbose=0,
         storage_path=ray_path,
     )
-    if metric in MINIMIZATION_METRICS:
-        mode = "min"
-    elif metric in MAXIMIZATION_METRICS:
-        mode = "max"
-    else:
-        raise ValueError(f"Invalid metric: {metric}. Need to add to MINIMIZATION_METRICS or MAXIMIZATION_METRICS.")
     
+    mode = get_mode(metric)
     best_config = analysis.get_best_config(metric=metric, mode=mode)  # TODO mode depends on metric
     return best_config

@@ -19,6 +19,15 @@ AVAILABLE_METRICS = {
 MINIMIZATION_METRICS = ["MSE", "RMSE", "MAE"]
 MAXIMIZATION_METRICS = ["R^2", "Pearson", "Spearman", "Kendall", "Partial_Correlation"]
 
+def get_mode(metric: str):
+    if metric in MINIMIZATION_METRICS:
+        mode = "min"
+    elif metric in MAXIMIZATION_METRICS:
+        mode = "max"
+    else:
+        raise ValueError(f"Invalid metric: {metric}. Need to add metric to MINIMIZATION_METRICS or MAXIMIZATION_METRICS?")
+    return mode
+
 def evaluate(dataset: DrugResponseDataset, metric: Union[List[str], str]):
     """
     Evaluates the model on the given dataset.
