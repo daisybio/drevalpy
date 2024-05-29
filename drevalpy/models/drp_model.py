@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 import inspect
 import os
-from typing import Dict, Optional
+from typing import Any, Dict, Optional, Type
 import warnings
 
 import yaml
@@ -65,11 +65,12 @@ class DRPModel(ABC):
         :return: drug views, e.g., ["descriptors", "fingerprints", "targets"]
         """
         pass
-
+    
+    # TODO maybe this does not need to be abstract since some models do not require hpams
     @abstractmethod
-    def build_model(self, *args, **kwargs):
+    def build_model(self, hyperparameters: Dict[str, Any], *args, **kwargs):
         """
-        Builds the model.
+        Builds the model, for models that use hyperparameters.
         """
         pass
 
@@ -81,7 +82,7 @@ class DRPModel(ABC):
             **inputs: Dict[str, np.ndarray]
     ) -> None:
         """
-        Trains the model. Call the respective function from models_code here.
+        Trains the model.
         :param output: training data associated with the response output
         :param output_earlystopping: optional early stopping dataset
         :param inputs: input data Dict of numpy arrays
@@ -99,7 +100,7 @@ class DRPModel(ABC):
     @abstractmethod
     def save(self, path):
         """
-        Saves the model to models_saved.
+        Saves the model.
         :param path: path to save the model
         """
         pass
@@ -170,13 +171,13 @@ class SingleDrugModel(DRPModel, ABC):
 
 
 
-class SingleDrugModelDict(DRPModel, ABC):
+class CompositeDrugModel(DRPModel):
     """
-    Abstract wrapper class for single drug response prediction models.
+    Transforms multiple separate single drug response prediction models into a global model by applying a seperate model for each drug.
     """
     early_stopping = False
 
-    def __init__(self, target: str, *args, **kwargs):
+    def __init__(self, target: str, base_model: Type[DRPModel], *args, **kwargs):
         """
         Creates an instance of a single drug response prediction model.
         :param model_name: model name for displaying results
@@ -184,14 +185,15 @@ class SingleDrugModelDict(DRPModel, ABC):
         """
         super().__init__(target, *args, **kwargs)
         self.models = {}    
+        self.base_model = base_model
     
 
     @abstractmethod
-    def build_model(self, models: Dict[str: SingleDrugModel], *args, **kwargs):
+    def build_model(self, hyperparameters: Dict[str: Any], *args, **kwargs):
         """
         Builds the model.
         """
-        self.models = models
+        self.hyperparameters = hyperparameters
 
     def train(
             self,
@@ -207,19 +209,29 @@ class SingleDrugModelDict(DRPModel, ABC):
         """
         # train one model per drug
         for drug in output.drug_ids:
+
+            self.models[drug] = self.base_model()
+            self.models[drug].build_model(self.hyperparameters)
+
             output_drug = output.copy()
-
             inputs_drug = {}
+            mask = output.drug_ids == drug
             for view, data in inputs.items():
-                inputs_drug[view] = data[output_drug.drug_ids == drug]
-
-
-            # remove data from other drugs, keep all cell lines
-            output_drug.reduce_to(drug_ids=[drug], cell_line_ids=list(set(output.cell_line_ids)))
+                if not view.endswith('_earlystopping'):
+                    inputs_drug[view] = data[mask]
+            output_drug.response = output_drug.response[mask]
+            output_drug.drug_ids = output_drug.drug_ids[mask]
+            output_drug.cell_line_ids = output_drug.cell_line_ids[mask]
 
             if output_earlystopping:
                 output_earlystopping_drug = output_earlystopping.copy()
-                output_earlystopping_drug.reduce_to(drug_ids=[drug], cell_line_ids=list(set(output.cell_line_ids)))
+                mask = output_earlystopping.drug_ids == drug
+                output_earlystopping_drug.response = output_earlystopping_drug.response[mask]
+                output_earlystopping_drug.drug_ids = output_earlystopping_drug.drug_ids[mask]
+                output_earlystopping_drug.cell_line_ids = output_earlystopping_drug.cell_line_ids[mask]
+                for view, data in inputs.items():
+                    if view.endswith('_earlystopping'):
+                        inputs_drug[view] = data[mask]
             else:
                 output_earlystopping_drug = None
             self.models[drug] = self.models[drug].train(output=output_drug, output_earlystopping=output_earlystopping_drug, **inputs_drug)
