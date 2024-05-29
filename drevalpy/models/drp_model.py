@@ -195,46 +195,32 @@ class CompositeDrugModel(DRPModel):
         """
         self.hyperparameters = hyperparameters
 
-    def train(
-            self,
-            output: DrugResponseDataset,
-            output_earlystopping: Optional[DrugResponseDataset] = None,
-            **inputs: Dict[str, np.ndarray]
-    ) -> None:
+    def train(self, output: DrugResponseDataset, output_earlystopping: Optional[DrugResponseDataset] = None, **inputs: Dict[str, np.ndarray]) -> None:
         """
         Trains the model.
-        :param cell_line_input: training data associated with the cell line input
-        :param drug_input: drug name
-        :param output: training data associated with the response output
+        :param output: Training data associated with the response output
+        :param output_earlystopping: Optional. Training data associated with the early stopping output
+        :param inputs: Dictionary containing input data associated with different views
         """
-        # train one model per drug
         for drug in output.drug_ids:
+            model = self.base_model()
+            model.build_model(self.hyperparameters)
 
-            self.models[drug] = self.base_model()
-            self.models[drug].build_model(self.hyperparameters)
-
+            output_mask = output.drug_ids == drug
             output_drug = output.copy()
-            inputs_drug = {}
-            mask = output.drug_ids == drug
-            for view, data in inputs.items():
-                if not view.endswith('_earlystopping'):
-                    inputs_drug[view] = data[mask]
-            output_drug.response = output_drug.response[mask]
-            output_drug.drug_ids = output_drug.drug_ids[mask]
-            output_drug.cell_line_ids = output_drug.cell_line_ids[mask]
+            output_drug.mask(output_mask)
 
+            inputs_drug = {view: data[output_mask] for view, data in inputs.items() if not view.endswith('_earlystopping')}
+
+            output_earlystopping_drug = None
             if output_earlystopping:
+                output_earlystopping_mask = output_earlystopping.drug_ids == drug
                 output_earlystopping_drug = output_earlystopping.copy()
-                mask = output_earlystopping.drug_ids == drug
-                output_earlystopping_drug.response = output_earlystopping_drug.response[mask]
-                output_earlystopping_drug.drug_ids = output_earlystopping_drug.drug_ids[mask]
-                output_earlystopping_drug.cell_line_ids = output_earlystopping_drug.cell_line_ids[mask]
-                for view, data in inputs.items():
-                    if view.endswith('_earlystopping'):
-                        inputs_drug[view] = data[mask]
-            else:
-                output_earlystopping_drug = None
-            self.models[drug] = self.models[drug].train(output=output_drug, output_earlystopping=output_earlystopping_drug, **inputs_drug)
+                output_earlystopping_drug.mask(output_earlystopping_mask)
+                inputs_drug.update({view: data[output_earlystopping_mask] for view, data in inputs.items() if view.endswith('_earlystopping')})
+
+            self.models[drug] = model.train(output=output_drug, output_earlystopping=output_earlystopping_drug, **inputs_drug)
+
 
     def predict(self, drug_ids, **inputs) -> np.ndarray:
         """
@@ -245,10 +231,13 @@ class CompositeDrugModel(DRPModel):
         """
         prediction = np.zeros_like(drug_ids, dtype=float)
         for drug in np.unique(drug_ids):
+            mask = drug_ids == drug
+            inputs_drug = {view: data[mask] for view, data in inputs.items()}
+
             if drug not in self.models:
-                prediction[drug_ids == drug] = np.nan
+                prediction[mask] = np.nan
             else:
-                prediction[drug_ids == drug] = self.models[drug].predict(**inputs)
+                prediction[mask] = self.models[drug].predict(**inputs_drug)
         if np.any(np.isnan(prediction)):
             warnings.warn('SingleDRPModel Warning: Some drugs were not in the training set. Prediction is NaN Maybe a SingleDRPModel was used in an LDO setting.')  
         return prediction

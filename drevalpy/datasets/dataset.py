@@ -270,6 +270,19 @@ class DrugResponseDataset(Dataset):
                      tuple(self.drug_ids), tuple(self.response),
                      tuple(self.predictions) if self.predictions is not None else None))
     
+    def mask(self, mask: ArrayLike[bool]) -> None:
+        """
+        Masks the dataset.
+        :mask: boolean mask
+        """
+        self.response = self.response[mask]
+        self.cell_line_ids = self.cell_line_ids[mask]
+        self.drug_ids = self.drug_ids[mask]
+        if self.predictions is not None:
+            self.predictions = self.predictions[mask]
+        
+
+
 def split_early_stopping_data(
         validation_dataset: DrugResponseDataset, test_mode: str
 ) -> Tuple[DrugResponseDataset, DrugResponseDataset]:
