@@ -1,8 +1,10 @@
 import json
 from typing import Dict, List, Optional, Tuple, Type
 import warnings
+
+from drevalpy.utils import handle_overwrite, load_features, transform_response
 from .datasets.dataset import DrugResponseDataset, FeatureDataset
-from .evaluation import AVAILABLE_METRICS, MAXIMIZATION_METRICS, MINIMIZATION_METRICS, evaluate, get_mode
+from .evaluation import evaluate, get_mode
 from .models.drp_model import CompositeDrugModel, DRPModel, SingleDrugModel
 import numpy as np
 import os
@@ -61,22 +63,17 @@ def drug_response_experiment(
     :return: None
     """
 
-    if cross_study_datasets is None:
-        cross_study_datasets = []
-
+    cross_study_datasets = cross_study_datasets or []
     result_path = os.path.join(path_out, run_id, test_mode)
     # if results exists, delete them if overwrite is true
-    if os.path.exists(result_path) and overwrite:
-        shutil.rmtree(result_path)
-
-    os.makedirs(result_path, exist_ok=True)
+    handle_overwrite(result_path, overwrite)
 
     for model_class in models:
 
         print(f"Running model {model_class.model_name}")
 
         model_path = os.path.join(result_path, model_class.model_name)
-        os.makedirs(model_path, exist_ok=True)
+        handle_overwrite(model_path, overwrite)
         predictions_path = os.path.join(model_path, "predictions")
         os.makedirs(predictions_path, exist_ok=True)
 
@@ -272,17 +269,12 @@ def cross_study_prediction(
     """
     os.makedirs(os.path.join(predictions_path, "cross_study"), exist_ok=True)
     if response_transformation:
-        dataset.response = response_transformation.transform(
-            dataset.response.reshape(-1, 1)
-        ).squeeze()
-    cl_features = model.load_cell_line_features(
-        data_path=path_data, dataset_name=dataset.dataset_name
-    )
-    drug_features = model.load_drug_features(
-        data_path=path_data, dataset_name=dataset.dataset_name
-    )
+        transform_response(response_transformation, dataset)
 
-    # making sure there are no missing features:
+    #load features
+    cl_features, drug_features = load_features(model, path_data, dataset)
+
+    # making sure there are no missing features. Only keep cell lines and drugs for which we have a feature representation
     dataset.reduce_to(
         cell_line_ids=cl_features.identifiers, drug_ids=drug_features.identifiers
     )
@@ -444,12 +436,8 @@ def randomization_test(
     :param response_transformation sklearn.preprocessing scaler like StandardScaler or MinMaxScaler to use to scale the target
     :return: None (save results to disk)
     """
-    cl_features = model.load_cell_line_features(
-        data_path="data", dataset_name=train_dataset.dataset_name
-    )
-    drug_features = model.load_drug_features(
-        data_path="data", dataset_name=train_dataset.dataset_name
-    )
+    cl_features, drug_features = load_features(model, path_data, train_dataset)
+
     for test_name, views in randomization_test_views.items():
         randomization_test_path = os.path.join(path_out, test_name)
         randomization_test_file = os.path.join(
@@ -568,16 +556,9 @@ def train_and_predict(
             inputs[key + "_earlystopping"] = early_stopping_inputs[key]
 
     if response_transformation:
-        response_transformation.fit(train_dataset.response.reshape(-1, 1))
-        train_dataset.response = response_transformation.transform(
-            train_dataset.response.reshape(-1, 1)
-        ).squeeze()
-        early_stopping_dataset.response = response_transformation.transform(
-            early_stopping_dataset.response.reshape(-1, 1)
-        ).squeeze()
-        prediction_dataset.response = response_transformation.transform(
-            prediction_dataset.response.reshape(-1, 1)
-        ).squeeze()
+        train_dataset.fit_transform(response_transformation)
+        early_stopping_dataset.transform(response_transformation)
+        prediction_dataset.transform(response_transformation)
 
     print("Training model ...")
     if model.early_stopping:
@@ -590,9 +571,7 @@ def train_and_predict(
     prediction_dataset.predictions = model.predict(**prediction_inputs)
 
     if response_transformation:
-        prediction_dataset.response = response_transformation.inverse_transform(
-            prediction_dataset.response
-        )
+        prediction_dataset.inverse_transform(response_transformation)
 
     return prediction_dataset
 
@@ -652,7 +631,6 @@ def hpam_tune(
 
 
 
-# TODO build_model needs to be doable with hyperparameters per drug!
 def hpam_tune_composite_model(model: CompositeDrugModel,
                                 train_dataset: DrugResponseDataset,
                                 validation_dataset: DrugResponseDataset,
@@ -661,9 +639,10 @@ def hpam_tune_composite_model(model: CompositeDrugModel,
                                 response_transformation: Optional[TransformerMixin] = None,
                                 metric: str = "rmse") -> Dict[str: Dict]:
 
-        mode = get_mode(metric)
         unique_drugs = np.unique(train_dataset.drug_ids)
+
         # seperate best_hyperparameters for each drug
+        mode = get_mode(metric)
         best_scores = {drug: float("inf") if mode == "min" else float("-inf") for drug in unique_drugs}
         best_hyperparameters = {drug: None for drug in unique_drugs}
 
@@ -681,7 +660,8 @@ def hpam_tune_composite_model(model: CompositeDrugModel,
                 response_transformation=response_transformation,
             )[metric]
             validation_dataset.predictions = predictions
-            # seperate evaluation for each drug
+
+            # seperate evaluation for each drug. Each drug might have different best hyperparameters
             for drug in np.unique(validation_dataset.drug_ids):
                 mask = validation_dataset.drug_ids == drug
                 validation_dataset_drug = validation_dataset.copy().mask(mask)

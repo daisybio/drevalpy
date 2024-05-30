@@ -5,7 +5,7 @@ from numpy.typing import ArrayLike
 import pandas as pd
 from ..utils import leave_pair_out_cv, leave_group_out_cv
 import copy
-
+from sklearn.base import TransformerMixin
 class Dataset(ABC):
     """
     Abstract wrapper class for datasets.
@@ -254,6 +254,7 @@ class DrugResponseDataset(Dataset):
                 split["early_stopping"] = early_stopping
         self.cv_splits = cv_splits  
         return cv_splits
+    
     def copy(self):
         """
         Returns a copy of the drug response dataset.
@@ -280,7 +281,23 @@ class DrugResponseDataset(Dataset):
         self.drug_ids = self.drug_ids[mask]
         if self.predictions is not None:
             self.predictions = self.predictions[mask]
+    
+    def transform(self, response_transformation: TransformerMixin) -> None:
+        """Apply transformation to the response data and prediction data of the dataset."""
+        self.response = response_transformation.transform(self.response.reshape(-1, 1)).squeeze()
+        if self.predictions is not None:
+            self.predictions = response_transformation.transform(self.predictions.reshape(-1, 1)).squeeze()
+            
+    def fit_transform(self, response_transformation: TransformerMixin) -> None:
+        """Fit and transform the response data and prediction data of the dataset."""
+        response_transformation.fit(self.response.reshape(-1, 1)).squeeze()
+        self.transform(response_transformation)
         
+    def inverse_transform(self, response_transformation: TransformerMixin) -> None:
+        """Inverse transform the response data and prediction data of the dataset."""
+        self.response = response_transformation.inverse_transform(self.response.reshape(-1, 1)).squeeze()
+        if self.predictions is not None:
+            self.predictions = response_transformation.inverse_transform(self.predictions.reshape(-1, 1)).squeeze()
 
 
 def split_early_stopping_data(
