@@ -1,4 +1,4 @@
-from typing import List
+from typing import Dict, List
 import numpy as np
 
 from drevalpy.datasets.dataset import FeatureDataset, DrugResponseDataset
@@ -15,7 +15,7 @@ class NaivePredictor(DRPModel):
         super().__init__(target, args, kwargs)
         self.dataset_mean = None
 
-    def build_model(self, *args, **kwargs):
+    def build_model(self, hyperparameters: Dict, *args, **kwargs):
         pass
 
     def train(self, output: DrugResponseDataset,

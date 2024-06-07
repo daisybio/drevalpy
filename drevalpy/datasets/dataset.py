@@ -5,7 +5,7 @@ from numpy.typing import ArrayLike
 import pandas as pd
 from ..utils import leave_pair_out_cv, leave_group_out_cv
 import copy
-
+from sklearn.base import TransformerMixin
 class Dataset(ABC):
     """
     Abstract wrapper class for datasets.
@@ -255,11 +255,51 @@ class DrugResponseDataset(Dataset):
         self.cv_splits = cv_splits  
         return cv_splits
     
+    def copy(self):
+        """
+        Returns a copy of the drug response dataset.
+        """
+        return DrugResponseDataset(
+            response=copy.deepcopy(self.response),
+            cell_line_ids=copy.deepcopy(self.cell_line_ids),
+            drug_ids=copy.deepcopy(self.drug_ids),
+            predictions=copy.deepcopy(self.predictions),
+            dataset_name=self.dataset_name,
+        )
     def __hash__(self):
         return hash((self.dataset_name, tuple(self.cell_line_ids),
                      tuple(self.drug_ids), tuple(self.response),
                      tuple(self.predictions) if self.predictions is not None else None))
     
+    def mask(self, mask: ArrayLike[bool]) -> None:
+        """
+        Masks the dataset.
+        :mask: boolean mask
+        """
+        self.response = self.response[mask]
+        self.cell_line_ids = self.cell_line_ids[mask]
+        self.drug_ids = self.drug_ids[mask]
+        if self.predictions is not None:
+            self.predictions = self.predictions[mask]
+    
+    def transform(self, response_transformation: TransformerMixin) -> None:
+        """Apply transformation to the response data and prediction data of the dataset."""
+        self.response = response_transformation.transform(self.response.reshape(-1, 1)).squeeze()
+        if self.predictions is not None:
+            self.predictions = response_transformation.transform(self.predictions.reshape(-1, 1)).squeeze()
+            
+    def fit_transform(self, response_transformation: TransformerMixin) -> None:
+        """Fit and transform the response data and prediction data of the dataset."""
+        response_transformation.fit(self.response.reshape(-1, 1)).squeeze()
+        self.transform(response_transformation)
+        
+    def inverse_transform(self, response_transformation: TransformerMixin) -> None:
+        """Inverse transform the response data and prediction data of the dataset."""
+        self.response = response_transformation.inverse_transform(self.response.reshape(-1, 1)).squeeze()
+        if self.predictions is not None:
+            self.predictions = response_transformation.inverse_transform(self.predictions.reshape(-1, 1)).squeeze()
+
+
 def split_early_stopping_data(
         validation_dataset: DrugResponseDataset, test_mode: str
 ) -> Tuple[DrugResponseDataset, DrugResponseDataset]:

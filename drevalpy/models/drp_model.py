@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
 import inspect
 import os
-from typing import Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Type
+import warnings
 
 import yaml
 from ..datasets.dataset import DrugResponseDataset, FeatureDataset
@@ -64,11 +65,12 @@ class DRPModel(ABC):
         :return: drug views, e.g., ["descriptors", "fingerprints", "targets"]
         """
         pass
-
+    
+    # TODO maybe this does not need to be abstract since some models do not require hpams
     @abstractmethod
-    def build_model(self, *args, **kwargs):
+    def build_model(self, hyperparameters: Dict[str, Any], *args, **kwargs):
         """
-        Builds the model.
+        Builds the model, for models that use hyperparameters.
         """
         pass
 
@@ -80,7 +82,7 @@ class DRPModel(ABC):
             **inputs: Dict[str, np.ndarray]
     ) -> None:
         """
-        Trains the model. Call the respective function from models_code here.
+        Trains the model.
         :param output: training data associated with the response output
         :param output_earlystopping: optional early stopping dataset
         :param inputs: input data Dict of numpy arrays
@@ -98,7 +100,7 @@ class DRPModel(ABC):
     @abstractmethod
     def save(self, path):
         """
-        Saves the model to models_saved.
+        Saves the model.
         :param path: path to save the model
         """
         pass
@@ -147,108 +149,96 @@ class DRPModel(ABC):
         return {**cell_line_feature_matrices, **drug_feature_matrices}
 
 
-class SingleDRPModel(DRPModel, ABC):
+class SingleDrugModel(DRPModel, ABC):
     """
     Abstract wrapper class for single drug response prediction models.
     """
+    early_stopping = False
+    drug_views = []
 
-    def __init__(self, model_name, target, config_path, *args, **kwargs):
+    def __init__(self, target: str, *args, **kwargs):
         """
         Creates an instance of a single drug response prediction model.
         :param model_name: model name for displaying results
         :param target: target value, e.g., IC50, EC50, AUC, classification
-        :param args: optional arguments
-        :param kwargs: optional keyword arguments
         """
-        super(SingleDRPModel, self).__init__(model_name, target, config_path, *args, **kwargs)
+        super().__init__()
+        self.target = target
 
-    @property
-    @abstractmethod
-    def cell_line_views(self):
-        """
-        Returns the sources the model needs as input for describing the cell line.
-        :return: cell line views, e.g., ["methylation", "gene_expression", "mirna_expression", "mutation"]
-        """
-        pass
+    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+        return None
 
-    @property
-    @abstractmethod
-    def drug_views(self):
+
+
+
+class CompositeDrugModel(DRPModel):
+    """
+    Transforms multiple separate single drug response prediction models into a global model by applying a seperate model for each drug.
+    """
+    early_stopping = False
+
+    def __init__(self, target: str, base_model: Type[DRPModel], *args, **kwargs):
         """
-        Returns the sources the model needs as input for describing the drug.
-        :return: drug views, e.g., ["descriptors", "fingerprints", "targets"]
+        Creates an instance of a single drug response prediction model.
+        :param model_name: model name for displaying results
+        :param target: target value, e.g., IC50, EC50, AUC, classification
         """
-        pass
+        super().__init__(target, *args, **kwargs)
+        self.models = {}    
+        self.base_model = base_model
+    
 
     @abstractmethod
-    def build_model(self, *args, **kwargs):
+    def build_model(self, hyperparameters: Dict[str: Any], *args, **kwargs):
         """
         Builds the model.
         """
-        pass
+        for drug in hyperparameters:
+            self.models[drug] = self.base_model()
+            self.models[drug].build_model(hyperparameters[drug])
 
-    def train(
-            self,
-            cell_line_input: FeatureDataset,
-            drug_input: str,
-            output: DrugResponseDataset,
-    ):
+    def train(self, output: DrugResponseDataset, output_earlystopping: Optional[DrugResponseDataset] = None, **inputs: Dict[str, np.ndarray]) -> None:
         """
         Trains the model.
-        :param cell_line_input: training data associated with the cell line input
-        :param drug_input: drug name
-        :param output: training data associated with the response output
+        :param output: Training data associated with the response output
+        :param output_earlystopping: Optional. Training data associated with the early stopping output
+        :param inputs: Dictionary containing input data associated with different views
         """
-        self.train_drug(cell_line_input, drug_input, output)
+        for drug in output.drug_ids:
+            assert drug in self.models, f"Drug {drug} not in models. Maybe the CompositeDrugModel was not built."
+            model = self.models[drug]
+            output_mask = output.drug_ids == drug
+            output_drug = output.copy()
+            output_drug.mask(output_mask)
 
-    @abstractmethod
-    def train_drug(
-            self,
-            cell_line_input: FeatureDataset,
-            drug_name: str,
-            output: DrugResponseDataset,
-    ):
-        """
-        Trains one model per drug.
-        :param cell_line_input: training data associated with the cell line input
-        :param drug_name: drug name
-        :param output: training data associated with the response output
-        """
-        pass
+            inputs_drug = {view: data[output_mask] for view, data in inputs.items() if not view.endswith('_earlystopping')}
 
-    def predict(self, cell_line_input: FeatureDataset, drug_input: str) -> np.ndarray:
+            output_earlystopping_drug = None
+            if output_earlystopping is not None:
+                output_earlystopping_mask = output_earlystopping.drug_ids == drug
+                output_earlystopping_drug = output_earlystopping.copy()
+                output_earlystopping_drug.mask(output_earlystopping_mask)
+                inputs_drug.update({view: data[output_earlystopping_mask] for view, data in inputs.items() if view.endswith('_earlystopping')})
+
+            self.models[drug] = model.train(output=output_drug, output_earlystopping=output_earlystopping_drug, **inputs_drug)
+
+
+    def predict(self, drug_ids, **inputs) -> np.ndarray:
         """
         Predicts the response for the given input.
         :param cell_line_input: input associated with the cell line
         :param drug_input: drug name
         :return: predicted response
         """
-        self.predict_drug(cell_line_input, drug_input)
+        prediction = np.zeros_like(drug_ids, dtype=float)
+        for drug in np.unique(drug_ids):
+            mask = drug_ids == drug
+            inputs_drug = {view: data[mask] for view, data in inputs.items()}
 
-    @abstractmethod
-    def predict_drug(self, cell_line_input: FeatureDataset, drug_name: str):
-        """
-        Predicts the response for the given single drug.
-        :param cell_line_input: input associated with the cell line
-        :param drug_name: drug name
-        :return: predicted response
-        """
-        raise NotImplementedError("predict_drug method not implemented")
-
-    @abstractmethod
-    def save(self, path):
-        """
-        Saves the model to models_saved.
-        :param path: path to save the model
-        """
-        pass
-
-    @abstractmethod
-    def load(self, path):
-        """
-        Loads the model.
-        :param path: path to load the model
-        """
-        pass
-
-
+            if drug not in self.models:
+                prediction[mask] = np.nan
+            else:
+                prediction[mask] = self.models[drug].predict(**inputs_drug)
+        if np.any(np.isnan(prediction)):
+            warnings.warn('SingleDRPModel Warning: Some drugs were not in the training set. Prediction is NaN Maybe a SingleDRPModel was used in an LDO setting.')  
+        return prediction
