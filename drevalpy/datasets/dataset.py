@@ -271,7 +271,7 @@ class DrugResponseDataset(Dataset):
                      tuple(self.drug_ids), tuple(self.response),
                      tuple(self.predictions) if self.predictions is not None else None))
     
-    def mask(self, mask: ArrayLike[bool]) -> None:
+    def mask(self, mask: List[bool]) -> None:
         """
         Masks the dataset.
         :mask: boolean mask

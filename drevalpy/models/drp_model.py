@@ -189,7 +189,7 @@ class CompositeDrugModel(DRPModel):
     
 
     @abstractmethod
-    def build_model(self, hyperparameters: Dict[str: Any], *args, **kwargs):
+    def build_model(self, hyperparameters: Dict[str, Any], *args, **kwargs):
         """
         Builds the model.
         """
