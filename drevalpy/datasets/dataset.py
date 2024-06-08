@@ -185,16 +185,17 @@ class DrugResponseDataset(Dataset):
         self.response = np.delete(self.response, indices)
         if self.predictions is not None:
             self.predictions = np.delete(self.predictions, indices)
-    def reduce_to(self, cell_line_ids: ArrayLike, drug_ids: ArrayLike) -> None:
+    def reduce_to(self, cell_line_ids: Optional[ArrayLike], drug_ids: Optional[ArrayLike]) -> None:
         """
         Removes all rows which contain a cell_line not in cell_line_ids or a drug not in drug_ids
-        :cell_line_ids: cell line IDs
-        :drug_ids: drug IDs
+        :cell_line_ids: cell line IDs or None to keep all cell lines
+        :drug_ids: drug IDs or None to keep all cell lines
         """
+        if drug_ids is not None:
+            self.remove_drugs(list(set(self.drug_ids) - set(drug_ids)))
 
-        self.remove_drugs(list(set(self.drug_ids) - set(drug_ids)))
-        
-        self.remove_cell_lines(list(set(self.cell_line_ids) - set(cell_line_ids)))
+        if cell_line_ids is not None:
+            self.remove_cell_lines(list(set(self.cell_line_ids) - set(cell_line_ids)))
 
     def split_dataset(
         self,
