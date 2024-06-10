@@ -1,14 +1,12 @@
 import json
 from typing import Dict, List, Optional, Tuple, Type
 import warnings
-
-from drevalpy.utils import handle_overwrite, load_features, transform_response
+from drevalpy.utils import handle_overwrite
 from .datasets.dataset import DrugResponseDataset, FeatureDataset
 from .evaluation import evaluate, get_mode
 from .models.drp_model import CompositeDrugModel, DRPModel, SingleDrugModel
 import numpy as np
 import os
-import shutil
 import ray
 import torch
 from ray import tune
@@ -105,10 +103,10 @@ def drug_response_experiment(
                     validation_dataset=validation_dataset, test_mode=test_mode
                 )
 
-            if type(model_class) == DRPModel:
-                model = model_class(target="IC50")
-            elif type(model_class) == SingleDrugModel:
+            if issubclass(model_class, SingleDrugModel):
                 model = CompositeDrugModel(target="IC50", base_model=model_class)
+            else:
+                model = model_class(target="IC50")
 
             if not os.path.isfile(
                 prediction_file
@@ -133,7 +131,7 @@ def drug_response_experiment(
                             ray_path=os.path.abspath(os.path.join(result_path, "raytune")),
                         )
                 else:
-                    if Type(model) == CompositeDrugModel:
+                    if type(model) == CompositeDrugModel:
                         best_hpams = hpam_tune_composite_model(
                             model=model,
                             train_dataset=train_dataset,
@@ -247,6 +245,11 @@ def drug_response_experiment(
                     response_transformation=response_transformation,
                 )
 
+def load_features(model: DRPModel, path_data: str, dataset: DrugResponseDataset) -> Tuple[FeatureDataset, FeatureDataset]:
+    """Load and reduce cell line and drug features for a given dataset."""
+    cl_features = model.load_cell_line_features(data_path=path_data, dataset_name=dataset.dataset_name)
+    drug_features = model.load_drug_features(data_path=path_data, dataset_name=dataset.dataset_name)
+    return cl_features, drug_features
 
 def cross_study_prediction(
     dataset: DrugResponseDataset,
@@ -519,14 +522,19 @@ def train_and_predict(
         drug_features = model.load_drug_features(
             data_path=path_data, dataset_name=train_dataset.dataset_name
         )
+
+    cell_lines_to_remove = cl_features.identifiers if cl_features is not None else None
+    drugs_to_remove = drug_features.identifiers if drug_features is not None else None
+
+    print(f"Reducing datasets ... feature data available for {len(cell_lines_to_remove) if cell_lines_to_remove else "all"} cell lines and {len(drugs_to_remove)if drugs_to_remove else "all"} drugs.")
+    
     # making sure there are no missing features:
-    print("Reducing datasets ...")
     train_dataset.reduce_to(
-        cell_line_ids=cl_features.identifiers, drug_ids=drug_features.identifiers
+        cell_line_ids=cell_lines_to_remove, drug_ids=drugs_to_remove
     )
 
     prediction_dataset.reduce_to(
-        cell_line_ids=cl_features.identifiers, drug_ids=drug_features.identifiers
+        cell_line_ids=cell_lines_to_remove, drug_ids=drugs_to_remove
     )
 
     print("Constructing feature matrices ...")
@@ -637,7 +645,7 @@ def hpam_tune_composite_model(model: CompositeDrugModel,
                                 hpam_set: List[Dict],
                                 early_stopping_dataset: Optional[DrugResponseDataset] = None,
                                 response_transformation: Optional[TransformerMixin] = None,
-                                metric: str = "rmse") -> Dict[str: Dict]:
+                                metric: str = "rmse") -> Dict[str, Dict]:
 
         unique_drugs = np.unique(train_dataset.drug_ids)
 
@@ -654,11 +662,10 @@ def hpam_tune_composite_model(model: CompositeDrugModel,
                 hpams=hyperparameters_per_drug,
                 path_data="data",
                 train_dataset=train_dataset,
-                validation_dataset=validation_dataset,
                 early_stopping_dataset=early_stopping_dataset,
-                metric=metric,
+                prediction_dataset=validation_dataset,
                 response_transformation=response_transformation,
-            )[metric]
+            )
             validation_dataset.predictions = predictions
 
             # seperate evaluation for each drug. Each drug might have different best hyperparameters

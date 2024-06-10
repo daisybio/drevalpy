@@ -1,16 +1,12 @@
-import json
 import os
 import shutil
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 import pandas as pd
 from sklearn.model_selection import KFold, GroupKFold
 import numpy as np
 from numpy.typing import ArrayLike
 from sklearn.model_selection import train_test_split
-from sklearn.base import TransformerMixin
-from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
-from drevalpy.models.drp_model import DRPModel
 from scipy.stats import pearsonr, spearmanr, kendalltau
 
 
@@ -271,14 +267,6 @@ def kendall(y_pred: np.ndarray, y_true: np.ndarray) -> float:
     if (y_pred == y_pred[0]).all() or (y_true == y_true[0]).all() or len(y_true) < 2:
         return np.nan
     return kendalltau(y_pred, y_true)[0]
-
-
-def load_features(model: DRPModel, path_data: str, dataset: DrugResponseDataset) -> Tuple[FeatureDataset, FeatureDataset]:
-    """Load and reduce cell line and drug features for a given dataset."""
-    cl_features = model.load_cell_line_features(data_path=path_data, dataset_name=dataset.dataset_name)
-    drug_features = model.load_drug_features(data_path=path_data, dataset_name=dataset.dataset_name)
-    return cl_features, drug_features
-
 
 def handle_overwrite(path: str, overwrite: bool) -> None:
     """Handle overwrite logic for a given path."""

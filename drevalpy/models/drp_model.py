@@ -97,7 +97,6 @@ class DRPModel(ABC):
         """
         pass
 
-    @abstractmethod
     def save(self, path):
         """
         Saves the model.
@@ -105,7 +104,6 @@ class DRPModel(ABC):
         """
         pass
 
-    @abstractmethod
     def load(self, path):
         """
         Loads the model.
@@ -162,7 +160,7 @@ class SingleDrugModel(DRPModel, ABC):
         :param model_name: model name for displaying results
         :param target: target value, e.g., IC50, EC50, AUC, classification
         """
-        super().__init__()
+        super().__init__(target=target)
         self.target = target
 
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
@@ -175,27 +173,36 @@ class CompositeDrugModel(DRPModel):
     """
     Transforms multiple separate single drug response prediction models into a global model by applying a seperate model for each drug.
     """
-    early_stopping = False
-
+    cell_line_views = None
+    drug_views = []
+    model_name = "CompositeDrugModel"
     def __init__(self, target: str, base_model: Type[DRPModel], *args, **kwargs):
         """
         Creates an instance of a single drug response prediction model.
         :param model_name: model name for displaying results
         :param target: target value, e.g., IC50, EC50, AUC, classification
         """
-        super().__init__(target, *args, **kwargs)
+        super().__init__(target=target, *args, **kwargs)
         self.models = {}    
         self.base_model = base_model
+        self.cell_line_views = base_model.cell_line_views
+        self.model_name = base_model.model_name
+        self.early_stopping = base_model.early_stopping
     
 
-    @abstractmethod
-    def build_model(self, hyperparameters: Dict[str: Any], *args, **kwargs):
+    def build_model(self, hyperparameters: Dict[str, Any], *args, **kwargs):
         """
         Builds the model.
         """
         for drug in hyperparameters:
-            self.models[drug] = self.base_model()
+            self.models[drug] = self.base_model(target=self.target)
             self.models[drug].build_model(hyperparameters[drug])
+    
+    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+        return list(self.models.values())[0].load_cell_line_features(data_path=data_path, dataset_name=dataset_name)
+    
+    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+        return None
 
     def train(self, output: DrugResponseDataset, output_earlystopping: Optional[DrugResponseDataset] = None, **inputs: Dict[str, np.ndarray]) -> None:
         """
@@ -219,8 +226,10 @@ class CompositeDrugModel(DRPModel):
                 output_earlystopping_drug = output_earlystopping.copy()
                 output_earlystopping_drug.mask(output_earlystopping_mask)
                 inputs_drug.update({view: data[output_earlystopping_mask] for view, data in inputs.items() if view.endswith('_earlystopping')})
-
-            self.models[drug] = model.train(output=output_drug, output_earlystopping=output_earlystopping_drug, **inputs_drug)
+            
+                self.models[drug] = model.train(output=output_drug, output_earlystopping=output_earlystopping_drug, **inputs_drug)
+            else:
+                self.models[drug] = model.train(output=output_drug, **inputs_drug)
 
 
     def predict(self, drug_ids, **inputs) -> np.ndarray:
