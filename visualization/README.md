@@ -1,1 +1,0 @@
-This directory contains all code associated with the visualization of the results.

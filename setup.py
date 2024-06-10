@@ -25,5 +25,12 @@ setup(
     ],
     include_package_data=True,
     package_data={'': ['models/Baselines/hyperparameters.yaml',
-                       'models/SimpleNeuralNetwork/hyperparameters.yaml']},
+                       'models/SimpleNeuralNetwork/hyperparameters.yaml',
+                       'visualization/style_utils/favicon.png',
+                       'visualization/style_utils/index_layout.html',
+                       'visualization/style_utils/LCO.png',
+                       'visualization/style_utils/LDO.png',
+                       'visualization/style_utils/LPO.png',
+                       'visualization/style_utils/nf-core-drugresponseeval_logo_light.png',
+                       'visualization/style_utils/page_layout.html']},
 )

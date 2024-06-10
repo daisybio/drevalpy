@@ -6,10 +6,22 @@ from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.evaluation import evaluate, AVAILABLE_METRICS
 
 
-def parse_results(run_id):
+def parse_layout(f, index=False):
+    if index:
+        with open('index_layout.html', 'r') as layout_f:
+            layout = layout_f.readlines()
+    else:
+        with open('page_layout.html', 'r') as layout_f:
+            layout = layout_f.readlines()
+    # remove the last 3 lines (</div>, </body>, </html>)
+    layout = layout[:-3]
+    f.write(''.join(layout))
+
+
+def parse_results(path_to_results):
     print('Generating result tables ...')
     # generate list of all result files
-    result_dir = pathlib.Path(f'../results/{run_id}')
+    result_dir = pathlib.Path(path_to_results)
     result_files = list(result_dir.rglob('*.csv'))
     result_files = [file for file in result_files if file.name not in ['evaluation_results.csv',
                                                                        'evaluation_results_per_drug.csv',
@@ -70,6 +82,31 @@ def parse_results(run_id):
     return evaluation_results, evaluation_results_per_drug, evaluation_results_per_cell_line, true_vs_pred
 
 
+def prep_results(path_to_results):
+    eval_results, eval_results_per_drug, eval_results_per_cell_line, t_vs_p = parse_results(
+        path_to_results)
+    #eval_results = pd.read_csv(f'../results/{run_id}/evaluation_results.csv', index_col=0)
+    #eval_results_per_drug = pd.read_csv(f'../results/{run_id}/evaluation_results_per_drug.csv', index_col=0)
+    #eval_results_per_cell_line = pd.read_csv(f'../results/{run_id}/evaluation_results_per_cell_line.csv',
+    #                                         index_col=0)
+    #t_vs_p = pd.read_csv(f'../results/{run_id}/true_vs_pred.csv', index_col=0)
+    # add variables
+    # split the index by "_" into: algorithm, randomization, setting, split, CV_split
+    new_columns = eval_results.index.str.split('_', expand=True).to_frame()
+    new_columns.columns = ['algorithm', 'rand_setting', 'LPO_LCO_LDO', 'split', 'CV_split']
+    new_columns.index = eval_results.index
+    eval_results = pd.concat([new_columns.drop('split', axis=1), eval_results], axis=1)
+    eval_results_per_drug[['algorithm', 'rand_setting', 'LPO_LCO_LDO', 'split', 'CV_split']] = eval_results_per_drug[
+        'model'].str.split(
+        '_', expand=True)
+    eval_results_per_cell_line[['algorithm', 'rand_setting', 'LPO_LCO_LDO', 'split', 'CV_split']] = \
+    eval_results_per_cell_line['model'].str.split(
+        '_', expand=True)
+    t_vs_p[['algorithm', 'rand_setting', 'LPO_LCO_LDO', 'split', 'CV_split']] = t_vs_p['model'].str.split(
+        '_', expand=True)
+
+    return eval_results, eval_results_per_drug, eval_results_per_cell_line, t_vs_p
+
 def generate_model_names(file):
     file_parts = os.path.normpath(file).split('/')
     algorithm = file_parts[4]
@@ -128,7 +165,7 @@ def write_results(eval_results, norm_d_results, eval_results_d, norm_cl_results,
         eval_results, eval_results_cl = write_group_results(norm_cl_results, 'cell_line', eval_results, eval_results_cl, run_id)
 
     eval_results.to_csv(f'../results/{run_id}/evaluation_results.csv', index=True)
-    t_vs_p.to_csv(f'../results/{run_id}/true_vs_pred.csv', index=True)
+    t_vs_p.to_csv(f'../results/{run_id}/evaluation_true_vs_pred.csv', index=True)
     return eval_results, eval_results_d, eval_results_cl, t_vs_p
 
 

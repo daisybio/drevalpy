@@ -1,74 +1,11 @@
 import os
-import re
 import pandas as pd
 
-from utils import parse_results
+from utils import parse_layout, parse_results, prep_results
 from heatmap import generate_heatmap
 from single_model_regression import generate_regression_plots
 from violin import create_evaluation_violin
 from scatter_eval_models import generate_scatter_eval_models_plot
-
-
-def write_html_header(f):
-    f.write('<head>\n')
-    f.write(f'<title>Results for Run {id}</title>\n')
-    f.write('<link rel="icon" href="favicon.png">\n')
-    f.write(
-        '<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome'
-        '.min.css">\n')
-    f.write(
-        '<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.16/css/jquery.dataTables.min.css">\n')
-    f.write(
-        '<script type="text/javascript" language="javascript" src="https://code.jquery.com/jquery-1.12.4.js"></script>\n')
-    f.write(
-        '<script type="text/javascript" language="netdna.bootstrapcdn.com/bootstrap/3.1.1/js/bootstrap.min.js"></script>\n')
-    f.write(
-        '<script type="text/javascript" language="javascript" src="https://cdn.datatables.net/1.10.16/js/jquery.dataTables.min.js"></script>\n')
-    f.write(
-        '<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/v/dt/dt-1.10.18/b-1.5.4/b-html5-1.5.4/r-2.2.2/datatables.min.css"/>\n')
-    f.write(
-        '<script type="text/javascript" src="https://cdn.datatables.net/v/dt/dt-1.10.18/b-1.5.4/b-html5-1.5.4/r-2.2.2/datatables.min.js"></script>\n')
-    f.write('<script src="https://use.fontawesome.com/fab417e5fd.js"></script>\n')
-    f.write(
-        '<script type="text/javascript">console.log("js ready");$(document).ready( function () {console.log("Jquery ready");$(".customDataTable").dataTable( {responsive: "true",} );});</script>\n')
-    f.write('<style>\n')
-    f.write('body {font-family: Avenir, sans-serif;}\n')
-    f.write('ul {list-style-type: none;}\n')
-    f.write('li {padding: 5px;}\n')
-    f.write(
-        '.sidenav {\nwidth: 200px;\nposition: fixed;\nz-index: 1;\ntop: 20px;\nleft: 10px;\nbackground: '
-        '#eee;\noverflow-x: hidden;\npadding: 8px 0;\n}\n')
-    f.write(
-        '.sidenav a {\npadding: 6px 8px 6px 16px;\ntext-decoration: none;\nfont-size: 20px;\ncolor: '
-        '#2196F3;\ndisplay: block;\n}\n')
-    f.write('.sidenav a:hover {\ncolor: #0645AD;\n}\n')
-    f.write('.main {\nmargin-left: 220px;\nfont-size: 16px;\npadding: 0px 10 px;}\n')
-    f.write(
-        '@media screen and (max-height: 450px) {\n.sidenav {padding-top: 15px;}\n.sidenav a {font-size: 18px;}\n}\n')
-    f.write(
-        '.button {\nfont: 12px Avenir; text-decoration: none; background-color: DodgerBlue; color: white; '
-        'padding: 2px 6px 2px 6px; \n}\n')
-    f.write('</style>\n')
-    f.write('</head>\n')
-
-
-def write_sidebar(f, index=False):
-    f.write('<div class="sidenav">\n')
-    f.write(
-        '<img src="favicon.png" width="80px" height="80px" alt="Logo" style="margin-left: auto; margin-right: '
-        'auto; display: block; width=50%;">\n')
-    f.write('<p style="text-align: center; color: #737272; font-size: 12px; ">v0.1</p>\n')
-    if not index:
-        f.write('<a href="#violin">Violin Plot</a>\n')
-        f.write('<a href="#heatmap">Heatmap</a>\n')
-        f.write('<a href="#regression_plots">Regression plots: True vs. Predicted</a>\n')
-        f.write('<a href="#corr_comp">Correlation comparison</a>\n')
-        f.write(
-            '<a href="#corr_comp_drug" style="font-size: 14px; padding: 6px 8px 6px 26px">Correlation comparison per drug</a>\n')
-        f.write(
-            '<a href="#corr_comp_cls" style="font-size: 14px; padding: 6px 8px 6px 26px">Correlation comparison per cell line</a>\n')
-        f.write('<a href="#tables">Tables</a>\n')
-    f.write('</div>\n')
 
 
 def write_violins_and_heatmaps(f, setting, plot='Violin'):
@@ -124,13 +61,7 @@ def create_html(run_id, setting):
     os.system(f'cp favicon.png ../results/{run_id}')
     os.system(f'cp nf-core-drugresponseeval_logo_light.png ../results/{run_id}')
     with open(f'../results/{run_id}/{setting}.html', 'w') as f:
-        f.write('<html>\n')
-        write_html_header(f)
-        write_sidebar(f)
-
-        f.write('<body>\n')
-        f.write('<div class="main">\n')
-        f.write('<img src="nf-core-drugresponseeval_logo_light.png" width="364px" height="100px" alt="Logo">\n')
+        parse_layout(f)
         f.write(f'<h1>Results for {run_id}: {setting}</h1>\n')
 
         write_violins_and_heatmaps(f, setting, plot='Violin')
@@ -179,12 +110,7 @@ def create_index_html(run_id):
     os.system(f'cp LCO.png ../results/{run_id}')
     os.system(f'cp LDO.png ../results/{run_id}')
     with open(f'../results/{run_id}/index.html', 'w') as f:
-        f.write('<html>\n')
-        write_html_header(f)
-        write_sidebar(f, index=True)
-        f.write('<body>\n')
-        f.write('<div class="main">\n')
-        f.write('<img src="nf-core-drugresponseeval_logo_light.png" width="364px" height="100px" alt="Logo">\n')
+        parse_layout(f, index=True)
         f.write(f'<h1>Results for {run_id}</h1>\n')
         f.write('<h2>Available settings</h2>\n')
         f.write('Click on the images to open the respective report in a new tab.\n')
@@ -197,32 +123,6 @@ def create_index_html(run_id):
         f.write('</div>\n')
         f.write('</body>\n')
         f.write('</html>\n')
-
-
-def prep_results(run_id):
-    eval_results, eval_results_per_drug, eval_results_per_cell_line, t_vs_p = parse_results(
-        run_id)
-    #eval_results = pd.read_csv(f'../results/{run_id}/evaluation_results.csv', index_col=0)
-    #eval_results_per_drug = pd.read_csv(f'../results/{run_id}/evaluation_results_per_drug.csv', index_col=0)
-    #eval_results_per_cell_line = pd.read_csv(f'../results/{run_id}/evaluation_results_per_cell_line.csv',
-    #                                         index_col=0)
-    #t_vs_p = pd.read_csv(f'../results/{run_id}/true_vs_pred.csv', index_col=0)
-    # add variables
-    # split the index by "_" into: algorithm, randomization, setting, split, CV_split
-    new_columns = eval_results.index.str.split('_', expand=True).to_frame()
-    new_columns.columns = ['algorithm', 'rand_setting', 'LPO_LCO_LDO', 'split', 'CV_split']
-    new_columns.index = eval_results.index
-    eval_results = pd.concat([new_columns.drop('split', axis=1), eval_results], axis=1)
-    eval_results_per_drug[['algorithm', 'rand_setting', 'LPO_LCO_LDO', 'split', 'CV_split']] = eval_results_per_drug[
-        'model'].str.split(
-        '_', expand=True)
-    eval_results_per_cell_line[['algorithm', 'rand_setting', 'LPO_LCO_LDO', 'split', 'CV_split']] = \
-    eval_results_per_cell_line['model'].str.split(
-        '_', expand=True)
-    t_vs_p[['algorithm', 'rand_setting', 'LPO_LCO_LDO', 'split', 'CV_split']] = t_vs_p['model'].str.split(
-        '_', expand=True)
-
-    return eval_results, eval_results_per_drug, eval_results_per_cell_line, t_vs_p
 
 
 def draw_violin_and_heatmap(df, run_id, plotname, whole_name=False, normalized_metrics=False):
@@ -263,7 +163,7 @@ if __name__ == "__main__":
     # Load the dataset
     run_id = 'test3'
     evaluation_results, evaluation_results_per_drug, evaluation_results_per_cell_line, true_vs_pred = prep_results(
-        run_id)
+        path_to_results=f'../results/{run_id}')
 
     settings = evaluation_results['LPO_LCO_LDO'].unique()
 
