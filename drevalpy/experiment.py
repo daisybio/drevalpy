@@ -526,7 +526,7 @@ def train_and_predict(
     cell_lines_to_remove = cl_features.identifiers if cl_features is not None else None
     drugs_to_remove = drug_features.identifiers if drug_features is not None else None
 
-    print(f"Reducing datasets ... feature data available for {len(cell_lines_to_remove) if cell_lines_to_remove else "all"} cell lines and {len(drugs_to_remove)if drugs_to_remove else "all"} drugs.")
+    print(f"Reducing datasets ... feature data available for {len(cell_lines_to_remove) if cell_lines_to_remove else 'all'} cell lines and {len(drugs_to_remove)if drugs_to_remove else 'all'} drugs.")
     
     # making sure there are no missing features:
     train_dataset.reduce_to(
@@ -647,8 +647,7 @@ def hpam_tune_composite_model(model: CompositeDrugModel,
                                 response_transformation: Optional[TransformerMixin] = None,
                                 metric: str = "rmse") -> Dict[str, Dict]:
 
-        unique_drugs = np.unique(train_dataset.drug_ids)
-
+        unique_drugs = list(np.unique(train_dataset.drug_ids)) + list(np.unique(validation_dataset.drug_ids))
         # seperate best_hyperparameters for each drug
         mode = get_mode(metric)
         best_scores = {drug: float("inf") if mode == "min" else float("-inf") for drug in unique_drugs}
@@ -657,6 +656,7 @@ def hpam_tune_composite_model(model: CompositeDrugModel,
         for hyperparameter in hpam_set:
             print(f"Training model with hyperparameters: {hyperparameter}")
             hyperparameters_per_drug = {drug: hyperparameter for drug in unique_drugs}
+
             predictions = train_and_predict(
                 model=model,
                 hpams=hyperparameters_per_drug,
