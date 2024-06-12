@@ -5,7 +5,6 @@ from .utils import pearson, spearman, kendall, partial_correlation
 import pandas as pd
 import numpy as np
 
-
 AVAILABLE_METRICS = {
     "MSE": metrics.mean_squared_error,
     "RMSE": metrics.root_mean_squared_error,
@@ -19,14 +18,17 @@ AVAILABLE_METRICS = {
 MINIMIZATION_METRICS = ["MSE", "RMSE", "MAE"]
 MAXIMIZATION_METRICS = ["R^2", "Pearson", "Spearman", "Kendall", "Partial_Correlation"]
 
+
 def get_mode(metric: str):
     if metric in MINIMIZATION_METRICS:
         mode = "min"
     elif metric in MAXIMIZATION_METRICS:
         mode = "max"
     else:
-        raise ValueError(f"Invalid metric: {metric}. Need to add metric to MINIMIZATION_METRICS or MAXIMIZATION_METRICS?")
+        raise ValueError(
+            f"Invalid metric: {metric}. Need to add metric to MINIMIZATION_METRICS or MAXIMIZATION_METRICS?")
     return mode
+
 
 def evaluate(dataset: DrugResponseDataset, metric: Union[List[str], str]):
     """

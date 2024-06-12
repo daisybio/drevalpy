@@ -18,7 +18,7 @@ def parse_layout(f, index=False):
     f.write(''.join(layout))
 
 
-def parse_results(path_to_results):
+def parse_results(path_to_results, path_out='../results'):
     print('Generating result tables ...')
     # generate list of all result files
     result_dir = pathlib.Path(path_to_results)
@@ -65,31 +65,34 @@ def parse_results(path_to_results):
                                                                                      model=model)
         if 'LPO' in model or 'LDO' in model:
             norm_cell_line_eval_results, evaluation_results_per_cell_line = evaluate_per_group(df=tmp_df,
-                                                                                                 group_by='cell_line',
-                                                                                                 norm_group_eval_results=norm_cell_line_eval_results,
-                                                                                                 eval_results_per_group=evaluation_results_per_cell_line,
-                                                                                                 model=model)
+                                                                                               group_by='cell_line',
+                                                                                               norm_group_eval_results=norm_cell_line_eval_results,
+                                                                                               eval_results_per_group=evaluation_results_per_cell_line,
+                                                                                               model=model)
 
         true_vs_pred = pd.concat([true_vs_pred, tmp_df])
 
-    evaluation_results, evaluation_results_per_drug, evaluation_results_per_cell_line, true_vs_pred = write_results(eval_results=evaluation_results,
-                                                                                                                    norm_d_results=norm_drug_eval_results,
-                                                                                                                    eval_results_d=evaluation_results_per_drug,
-                                                                                                                    norm_cl_results=norm_cell_line_eval_results,
-                                                                                                                    eval_results_cl=evaluation_results_per_cell_line,
-                                                                                                                    t_vs_p=true_vs_pred,
-                                                                                                                    run_id=run_id)
+    evaluation_results, evaluation_results_per_drug, evaluation_results_per_cell_line, true_vs_pred = write_results(
+        eval_results=evaluation_results,
+        norm_d_results=norm_drug_eval_results,
+        eval_results_d=evaluation_results_per_drug,
+        norm_cl_results=norm_cell_line_eval_results,
+        eval_results_cl=evaluation_results_per_cell_line,
+        t_vs_p=true_vs_pred,
+        path_out=path_out)
     return evaluation_results, evaluation_results_per_drug, evaluation_results_per_cell_line, true_vs_pred
 
 
-def prep_results(path_to_results):
+def prep_results(path_to_results, path_out='../results'):
     eval_results, eval_results_per_drug, eval_results_per_cell_line, t_vs_p = parse_results(
-        path_to_results)
-    #eval_results = pd.read_csv(f'../results/{run_id}/evaluation_results.csv', index_col=0)
-    #eval_results_per_drug = pd.read_csv(f'../results/{run_id}/evaluation_results_per_drug.csv', index_col=0)
-    #eval_results_per_cell_line = pd.read_csv(f'../results/{run_id}/evaluation_results_per_cell_line.csv',
+        path_to_results=path_to_results,
+        path_out=path_out
+    )
+    # eval_results = pd.read_csv(f'../results/{run_id}/evaluation_results.csv', index_col=0)
+    # eval_results_per_drug = pd.read_csv(f'../results/{run_id}/evaluation_results_per_drug.csv', index_col=0)
+    # eval_results_per_cell_line = pd.read_csv(f'../results/{run_id}/evaluation_results_per_cell_line.csv',
     #                                         index_col=0)
-    #t_vs_p = pd.read_csv(f'../results/{run_id}/true_vs_pred.csv', index_col=0)
+    # t_vs_p = pd.read_csv(f'../results/{run_id}/true_vs_pred.csv', index_col=0)
     # add variables
     # split the index by "_" into: algorithm, randomization, setting, split, CV_split
     new_columns = eval_results.index.str.split('_', expand=True).to_frame()
@@ -100,24 +103,27 @@ def prep_results(path_to_results):
         'model'].str.split(
         '_', expand=True)
     eval_results_per_cell_line[['algorithm', 'rand_setting', 'LPO_LCO_LDO', 'split', 'CV_split']] = \
-    eval_results_per_cell_line['model'].str.split(
-        '_', expand=True)
+        eval_results_per_cell_line['model'].str.split(
+            '_', expand=True)
     t_vs_p[['algorithm', 'rand_setting', 'LPO_LCO_LDO', 'split', 'CV_split']] = t_vs_p['model'].str.split(
         '_', expand=True)
 
     return eval_results, eval_results_per_drug, eval_results_per_cell_line, t_vs_p
 
+
 def generate_model_names(file):
     file_parts = os.path.normpath(file).split('/')
-    algorithm = file_parts[4]
-    randomization = file_parts[-3].split('_')[0]
-    rand_setting = file_parts[-2].replace('_', '-')
-    if randomization == 'randomization':
-        rand_setting = 'randomize-' + file_parts[-2].replace('_', '-')
-    filename = file_parts[-1]
+    lpo_lco_ldo = file_parts[-4]
+    algorithm = file_parts[-3]
+    pred_rand_rob = pred_setting = file_parts[-2]
+    if pred_rand_rob == 'randomization_test':
+        pred_setting = "randomize-" + "-".join(file_parts[-1].split('_')[1:-2])
+    elif pred_rand_rob == 'robustness_test':
+        pred_setting = "-".join(file_parts[-1].split('_')[:2])
+    split = "_".join(file_parts[-1].split('.')[0].split('_')[-2:])
     # overall evaluation
-    eval_setting = f"{filename.split('_')[2]}_split_{filename.split('_')[4].split('.')[0]}"
-    model = f"{algorithm}_{rand_setting}_{eval_setting}"
+    eval_setting = f"{lpo_lco_ldo}_{split}"
+    model = f"{algorithm}_{pred_setting}_{eval_setting}"
     return model
 
 
@@ -157,22 +163,31 @@ def compute_evaluation(df, return_df, group_by, model):
     return return_df
 
 
-def write_results(eval_results, norm_d_results, eval_results_d, norm_cl_results, eval_results_cl, t_vs_p, run_id):
+def write_results(eval_results, norm_d_results, eval_results_d, norm_cl_results, eval_results_cl, t_vs_p, path_out):
     eval_results = pd.DataFrame.from_dict(eval_results, orient='index')
     if norm_d_results != {}:
-        eval_results, eval_results_d = write_group_results(norm_d_results, 'drug', eval_results, eval_results_d, run_id)
+        eval_results, eval_results_d = write_group_results(norm_d_results, 'drug', eval_results, eval_results_d,
+                                                           path_out)
     if norm_cl_results != {}:
-        eval_results, eval_results_cl = write_group_results(norm_cl_results, 'cell_line', eval_results, eval_results_cl, run_id)
+        eval_results, eval_results_cl = write_group_results(norm_cl_results, 'cell_line', eval_results, eval_results_cl,
+                                                            path_out)
 
-    eval_results.to_csv(f'../results/{run_id}/evaluation_results.csv', index=True)
-    t_vs_p.to_csv(f'../results/{run_id}/evaluation_true_vs_pred.csv', index=True)
+    if path_out != '':
+        eval_results.to_csv(f'{path_out}/evaluation_results.csv', index=True)
+        t_vs_p.to_csv(f'{path_out}/evaluation_true_vs_pred.csv', index=True)
+    else:
+        eval_results.to_csv('evaluation_results.csv', index=True)
+        t_vs_p.to_csv('evaluation_true_vs_pred.csv', index=True)
     return eval_results, eval_results_d, eval_results_cl, t_vs_p
 
 
-def write_group_results(norm_group_res, group_by, eval_res, eval_res_group, run_id):
+def write_group_results(norm_group_res, group_by, eval_res, eval_res_group, path_out):
     norm_group_res = pd.DataFrame.from_dict(norm_group_res, orient='index')
     # append 'group normalized ' to the column names
     norm_group_res.columns = [f'{col}: {group_by} normalized' for col in norm_group_res.columns]
     eval_res = pd.concat([eval_res, norm_group_res], axis=1)
-    eval_res_group.to_csv(f'../results/{run_id}/evaluation_results_per_{group_by}.csv', index=True)
+    if path_out != '':
+        eval_res_group.to_csv(f'{path_out}/evaluation_results_per_{group_by}.csv', index=True)
+    else:
+        eval_res_group.to_csv(f'evaluation_results_per_{group_by}.csv', index=True)
     return eval_res, eval_res_group
