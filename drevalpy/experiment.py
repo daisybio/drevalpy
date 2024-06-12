@@ -526,7 +526,7 @@ def train_and_predict(
     cell_lines_to_remove = cl_features.identifiers if cl_features is not None else None
     drugs_to_remove = drug_features.identifiers if drug_features is not None else None
 
-    print(f"Reducing datasets ... feature data available for {len(cell_lines_to_remove) if cell_lines_to_remove else 'all'} cell lines and {len(drugs_to_remove)if drugs_to_remove else 'all'} drugs.")
+    print(f'Reducing datasets ... feature data available for {len(cell_lines_to_remove) if cell_lines_to_remove else "all"} cell lines and {len(drugs_to_remove)if drugs_to_remove else "all"} drugs.')
     
     # making sure there are no missing features:
     train_dataset.reduce_to(
