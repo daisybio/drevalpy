@@ -16,8 +16,6 @@ class Heatmap:
                             "Partial_Correlation: cell_line normalized",
                             "MSE", "RMSE", "MAE"]
         self.df = self.df[[col for col in self.df.columns if col in self.all_metrics]]
-        # remove columns with only NaN values
-        self.df = self.df.dropna(axis=1, how='all')
         self.normalized_metrics = normalized_metrics
         if self.normalized_metrics:
             self.df = self.df[[col for col in self.df.columns if 'normalized' in col]]
