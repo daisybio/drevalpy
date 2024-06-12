@@ -272,7 +272,7 @@ def cross_study_prediction(
     """
     os.makedirs(os.path.join(predictions_path, "cross_study"), exist_ok=True)
     if response_transformation:
-        transform_response(response_transformation, dataset)
+        dataset.transform(response_transformation)
 
     #load features
     cl_features, drug_features = load_features(model, path_data, dataset)
@@ -647,8 +647,7 @@ def hpam_tune_composite_model(model: CompositeDrugModel,
                                 response_transformation: Optional[TransformerMixin] = None,
                                 metric: str = "rmse") -> Dict[str, Dict]:
 
-        unique_drugs = np.unique(train_dataset.drug_ids)
-
+        unique_drugs = list(np.unique(train_dataset.drug_ids)) + list(np.unique(validation_dataset.drug_ids))
         # seperate best_hyperparameters for each drug
         mode = get_mode(metric)
         best_scores = {drug: float("inf") if mode == "min" else float("-inf") for drug in unique_drugs}
@@ -657,6 +656,7 @@ def hpam_tune_composite_model(model: CompositeDrugModel,
         for hyperparameter in hpam_set:
             print(f"Training model with hyperparameters: {hyperparameter}")
             hyperparameters_per_drug = {drug: hyperparameter for drug in unique_drugs}
+
             predictions = train_and_predict(
                 model=model,
                 hpams=hyperparameters_per_drug,

@@ -212,8 +212,7 @@ class CompositeDrugModel(DRPModel):
         :param inputs: Dictionary containing input data associated with different views
         """
         for drug in output.drug_ids:
-            assert drug in self.models, f"Drug {drug} not in models. Maybe the CompositeDrugModel was not built."
-            model = self.models[drug]
+            assert drug in self.models, f"Drug {drug} not in models. Maybe the CompositeDrugModel was not built or drug missing from train data."
             output_mask = output.drug_ids == drug
             output_drug = output.copy()
             output_drug.mask(output_mask)
@@ -227,9 +226,10 @@ class CompositeDrugModel(DRPModel):
                 output_earlystopping_drug.mask(output_earlystopping_mask)
                 inputs_drug.update({view: data[output_earlystopping_mask] for view, data in inputs.items() if view.endswith('_earlystopping')})
             
-                self.models[drug] = model.train(output=output_drug, output_earlystopping=output_earlystopping_drug, **inputs_drug)
+                self.models[drug].train(output=output_drug, output_earlystopping=output_earlystopping_drug, **inputs_drug)
             else:
-                self.models[drug] = model.train(output=output_drug, **inputs_drug)
+                assert self.models[drug] is not None, f"none for drug {drug}"
+                self.models[drug].train(output=output_drug, **inputs_drug)
 
 
     def predict(self, drug_ids, **inputs) -> np.ndarray:
