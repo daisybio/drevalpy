@@ -13,7 +13,7 @@ from .Baselines.elastic_net_model import ElasticNetModel
 from .Baselines.random_forest import RandomForest
 from .Baselines.svm import SVMRegressor
 from .SimpleNeuralNetwork.simple_neural_network import SimpleNeuralNetwork
-#from .Baselines.singledrug_random_forest import SingleDrugRandomForest
+from .Baselines.singledrug_random_forest import SingleDrugRandomForest
 MODEL_FACTORY = {"SimpleNeuralNetwork": SimpleNeuralNetwork,
                  "ElasticNet": ElasticNetModel,
                  "RandomForest": RandomForest,
@@ -21,5 +21,5 @@ MODEL_FACTORY = {"SimpleNeuralNetwork": SimpleNeuralNetwork,
                  "NaivePredictor": NaivePredictor,
                  "NaiveDrugMeanPredictor": NaiveDrugMeanPredictor,
                  "NaiveCellLineMeanPredictor": NaiveCellLineMeanPredictor,
-                 #"SingleDrugRandomForest": SingleDrugRandomForest
+                 "SingleDrugRandomForest": SingleDrugRandomForest
     }

@@ -272,7 +272,7 @@ def cross_study_prediction(
     """
     os.makedirs(os.path.join(predictions_path, "cross_study"), exist_ok=True)
     if response_transformation:
-        transform_response(response_transformation, dataset)
+        dataset.transform(response_transformation)
 
     #load features
     cl_features, drug_features = load_features(model, path_data, dataset)
