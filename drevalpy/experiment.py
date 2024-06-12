@@ -81,6 +81,8 @@ def drug_response_experiment(
 
         model_hpam_set = model_class.get_hyperparameter_set()
 
+        response_data.remove_nan_responses()
+
         response_data.split_dataset(
             n_cv_splits=n_cv_splits,
             mode=test_mode,
@@ -187,6 +189,7 @@ def drug_response_experiment(
                 )
 
                 for cross_study_dataset in cross_study_datasets:
+                    cross_study_dataset.remove_nan_responses()
                     cross_study_prediction(
                         dataset=cross_study_dataset,
                         model=model,
@@ -277,9 +280,14 @@ def cross_study_prediction(
     #load features
     cl_features, drug_features = load_features(model, path_data, dataset)
 
+    cell_lines_to_remove = cl_features.identifiers if cl_features is not None else None
+    drugs_to_remove = drug_features.identifiers if drug_features is not None else None
+
+    print(f'Reducing cross study dataset ... feature data available for {len(cell_lines_to_remove) if cell_lines_to_remove else "all"} cell lines and {len(drugs_to_remove)if drugs_to_remove else "all"} drugs.')
+    
     # making sure there are no missing features. Only keep cell lines and drugs for which we have a feature representation
     dataset.reduce_to(
-        cell_line_ids=cl_features.identifiers, drug_ids=drug_features.identifiers
+        cell_line_ids=cell_lines_to_remove, drug_ids=drugs_to_remove
     )
     if early_stopping_dataset is not None:
         train_dataset.add_rows(early_stopping_dataset)
@@ -319,6 +327,8 @@ def cross_study_prediction(
         cell_line_input=cl_features,
         drug_input=drug_features,
     )
+    if type(model) == CompositeDrugModel:
+        inputs["drug_ids"] = dataset.drug_ids
     dataset.predictions = model.predict(**inputs)
     if response_transformation:
         dataset.response = response_transformation.inverse_transform(dataset.response)
@@ -575,7 +585,8 @@ def train_and_predict(
         )
     else:
         model.train(output=train_dataset, **inputs)
-
+    if type(model) == CompositeDrugModel:
+        prediction_inputs["drug_ids"] = prediction_dataset.drug_ids
     prediction_dataset.predictions = model.predict(**prediction_inputs)
 
     if response_transformation:
@@ -657,7 +668,7 @@ def hpam_tune_composite_model(model: CompositeDrugModel,
             print(f"Training model with hyperparameters: {hyperparameter}")
             hyperparameters_per_drug = {drug: hyperparameter for drug in unique_drugs}
 
-            predictions = train_and_predict(
+            validation_dataset = train_and_predict(
                 model=model,
                 hpams=hyperparameters_per_drug,
                 path_data="data",
@@ -666,15 +677,15 @@ def hpam_tune_composite_model(model: CompositeDrugModel,
                 prediction_dataset=validation_dataset,
                 response_transformation=response_transformation,
             )
-            validation_dataset.predictions = predictions
 
             # seperate evaluation for each drug. Each drug might have different best hyperparameters
             for drug in np.unique(validation_dataset.drug_ids):
                 mask = validation_dataset.drug_ids == drug
-                validation_dataset_drug = validation_dataset.copy().mask(mask)
-                score = evaluate(validation_dataset_drug, metric=metric)
+                validation_dataset_drug = validation_dataset.copy()
+                validation_dataset_drug.mask(mask)
+                score = evaluate(validation_dataset_drug, metric=metric)[metric]
                 if (mode == "min" and score < best_scores[drug]) or (mode == "max" and score > best_scores[drug]):
-                    print(f"current best {metric} score: {np.round(score, 3)}")
+                    print(f"current best {metric} score: { {d: np.round(sc, 3) for d, sc in score} }")
                     best_scores[drug] = score
                     best_hyperparameters[drug] = hyperparameter
         return best_hyperparameters

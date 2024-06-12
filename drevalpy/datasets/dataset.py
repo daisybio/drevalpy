@@ -133,7 +133,17 @@ class DrugResponseDataset(Dataset):
 
         if self.predictions is not None and other.predictions is not None:
             self.predictions = np.concatenate([self.predictions, other.predictions])
-
+    def remove_nan_responses(self) -> None:
+        """
+        Removes rows with NaN values in the repsonse
+        """
+        mask = np.isnan(self.response)
+        self.response = self.response[~mask]
+        self.cell_line_ids = self.cell_line_ids[~mask]
+        self.drug_ids = self.drug_ids[~mask]
+        if self.predictions is not None:
+            self.predictions = self.predictions[~mask]
+        
     def shuffle(self, random_state: int = 42) -> None:
         """
         Shuffles the dataset.

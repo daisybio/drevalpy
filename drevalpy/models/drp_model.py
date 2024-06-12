@@ -211,8 +211,10 @@ class CompositeDrugModel(DRPModel):
         :param output_earlystopping: Optional. Training data associated with the early stopping output
         :param inputs: Dictionary containing input data associated with different views
         """
-        for drug in output.drug_ids:
+        drugs = np.unique(output.drug_ids)
+        for i, drug in enumerate(drugs):
             assert drug in self.models, f"Drug {drug} not in models. Maybe the CompositeDrugModel was not built or drug missing from train data."
+            print(f"Training model for drug {drug} ({i+1}/{len(drugs)})")
             output_mask = output.drug_ids == drug
             output_drug = output.copy()
             output_drug.mask(output_mask)
