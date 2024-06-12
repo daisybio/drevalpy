@@ -685,7 +685,7 @@ def hpam_tune_composite_model(model: CompositeDrugModel,
                 validation_dataset_drug.mask(mask)
                 score = evaluate(validation_dataset_drug, metric=metric)[metric]
                 if (mode == "min" and score < best_scores[drug]) or (mode == "max" and score > best_scores[drug]):
-                    print(f"current best {metric} score: { {d: np.round(sc, 3) for d, sc in score} }")
+                    print(f"current best {metric} score for {drug}: { score }")
                     best_scores[drug] = score
                     best_hyperparameters[drug] = hyperparameter
         return best_hyperparameters
