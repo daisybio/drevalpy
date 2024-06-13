@@ -125,14 +125,17 @@ if __name__ == "__main__":
     assert all(
         [model in MODEL_FACTORY for model in args.models]
     ), f"Invalid model name. Available models are {list(MODEL_FACTORY.keys())}. If you want to use your own model, you need to implement a new model class and add it to the MODEL_FACTORY in the models init"
-    assert all(
-        [baseline in MODEL_FACTORY for baseline in args.baselines]
-    ), f"Invalid baseline name. Available baselines are {list(MODEL_FACTORY.keys())}. If you want to use your own baseline, you need to implement a new model class and add it to the MODEL_FACTORY in the models init"
+    
     assert all(
         [test in ["LPO", "LCO", "LDO"] for test in args.test_mode]
     ), "Invalid test mode. Available test modes are LPO, LCO, LDO"
     models = [MODEL_FACTORY[model] for model in args.models]
-    if args.baselines:
+    
+    if args.baselines is not None:
+        assert all(
+        [baseline in MODEL_FACTORY for baseline in args.baselines]
+    ), f"Invalid baseline name. Available baselines are {list(MODEL_FACTORY.keys())}. If you want to use your own baseline, you need to implement a new model class and add it to the MODEL_FACTORY in the models init"
+        
         baselines = [MODEL_FACTORY[baseline] for baseline in args.baselines]
     else:
         baselines = []
