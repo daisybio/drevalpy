@@ -31,19 +31,25 @@ class MOLIWrapper(SingleDRPModel):
         Builds the model and returns it.
         """
         from models_code.MOLI.moli_model import MOLI
+
         with open(self.config_path, "r") as stream:
             parameter = yaml.safe_load(stream)
-        output_sizes = [parameter["h_dim1"],
-                        parameter["h_dim2"],
-                        parameter["h_dim3"]]
-        dropout_rates = [parameter["dropout_rate_exp"],
-                         parameter["dropout_rate_mut"],
-                         parameter["dropout_rate_cnv"],
-                         parameter["dropout_rate_class"]]
+        output_sizes = [parameter["h_dim1"], parameter["h_dim2"], parameter["h_dim3"]]
+        dropout_rates = [
+            parameter["dropout_rate_exp"],
+            parameter["dropout_rate_mut"],
+            parameter["dropout_rate_cnv"],
+            parameter["dropout_rate_class"],
+        ]
         moli_model = MOLI()
         return moli_model
 
-    def train_drug(self, cell_line_input: FeatureDataset, drug_name: str, output: DrugResponseDataset):
+    def train_drug(
+        self,
+        cell_line_input: FeatureDataset,
+        drug_name: str,
+        output: DrugResponseDataset,
+    ):
         """
         Trains one model per drug.
         :param cell_line_input: training data associated with the cell line input
@@ -61,7 +67,12 @@ class MOLIWrapper(SingleDRPModel):
         """
         pass
 
-    def evaluate(self, cell_line_input: FeatureDataset, drug_input: str, output: DrugResponseDataset):
+    def evaluate(
+        self,
+        cell_line_input: FeatureDataset,
+        drug_input: str,
+        output: DrugResponseDataset,
+    ):
         """
         Evaluates the model.
         :param cell_line_input: evaluation data associated with the cell line input

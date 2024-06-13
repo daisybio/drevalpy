@@ -14,6 +14,7 @@ class DRPModel(ABC):
     """
     Abstract wrapper class for drug response prediction models.
     """
+
     early_stopping = False
 
     def __init__(self, target, *args, **kwargs):
@@ -30,9 +31,13 @@ class DRPModel(ABC):
     def get_hyperparameter_set(cls, hyperparameter_file: Optional[str] = None):
         # load yaml file with hyperparameters
         if hyperparameter_file is None:
-            hyperparameter_file = os.path.join(os.path.dirname(inspect.getfile(cls)), "hyperparameters.yaml")
+            hyperparameter_file = os.path.join(
+                os.path.dirname(inspect.getfile(cls)), "hyperparameters.yaml"
+            )
 
-        hpams = yaml.load(open(hyperparameter_file), Loader=yaml.FullLoader)[cls.model_name]
+        hpams = yaml.load(open(hyperparameter_file), Loader=yaml.FullLoader)[
+            cls.model_name
+        ]
         if hpams is None:
             return [{}]
 
@@ -65,7 +70,7 @@ class DRPModel(ABC):
         :return: drug views, e.g., ["descriptors", "fingerprints", "targets"]
         """
         pass
-    
+
     # TODO maybe this does not need to be abstract since some models do not require hpams
     @abstractmethod
     def build_model(self, hyperparameters: Dict[str, Any], *args, **kwargs):
@@ -76,10 +81,10 @@ class DRPModel(ABC):
 
     @abstractmethod
     def train(
-            self,
-            output: DrugResponseDataset,
-            output_earlystopping: Optional[DrugResponseDataset] = None,
-            **inputs: Dict[str, np.ndarray]
+        self,
+        output: DrugResponseDataset,
+        output_earlystopping: Optional[DrugResponseDataset] = None,
+        **inputs: Dict[str, np.ndarray],
     ) -> None:
         """
         Trains the model.
@@ -92,7 +97,7 @@ class DRPModel(ABC):
     @abstractmethod
     def predict(self, **inputs: Dict[str, np.ndarray]) -> np.ndarray:
         """
-        Predicts the response for the given input. 
+        Predicts the response for the given input.
 
         """
         pass
@@ -112,37 +117,44 @@ class DRPModel(ABC):
         pass
 
     @abstractmethod
-    def load_cell_line_features(self, data_path: str, dataset_name:str) -> FeatureDataset:
+    def load_cell_line_features(
+        self, data_path: str, dataset_name: str
+    ) -> FeatureDataset:
         """
         :return: FeatureDataset
         """
         pass
 
     @abstractmethod
-    def load_drug_features(self, data_path: str, dataset_name:str) -> FeatureDataset:
+    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         """
         :return: FeatureDataset
         """
         pass
 
     def get_feature_matrices(
-            self,
-            cell_line_ids: np.ndarray,
-            drug_ids: np.ndarray,
-            cell_line_input: FeatureDataset,
-            drug_input: FeatureDataset,
+        self,
+        cell_line_ids: np.ndarray,
+        drug_ids: np.ndarray,
+        cell_line_input: FeatureDataset,
+        drug_input: FeatureDataset,
     ):
         cell_line_feature_matrices = {}
         for cell_line_view in self.cell_line_views:
             if cell_line_view not in cell_line_input.get_view_names():
-                raise ValueError(f"Cell line input does not contain view {cell_line_view}")
-            cell_line_feature_matrices[cell_line_view] = cell_line_input.get_feature_matrix(cell_line_view,
-                                                                                            cell_line_ids)
+                raise ValueError(
+                    f"Cell line input does not contain view {cell_line_view}"
+                )
+            cell_line_feature_matrices[cell_line_view] = (
+                cell_line_input.get_feature_matrix(cell_line_view, cell_line_ids)
+            )
         drug_feature_matrices = {}
         for drug_view in self.drug_views:
             if drug_view not in drug_input.get_view_names():
                 raise ValueError(f"Drug input does not contain view {drug_view}")
-            drug_feature_matrices[drug_view] = drug_input.get_feature_matrix(drug_view, drug_ids)
+            drug_feature_matrices[drug_view] = drug_input.get_feature_matrix(
+                drug_view, drug_ids
+            )
 
         return {**cell_line_feature_matrices, **drug_feature_matrices}
 
@@ -151,6 +163,7 @@ class SingleDrugModel(DRPModel, ABC):
     """
     Abstract wrapper class for single drug response prediction models.
     """
+
     early_stopping = False
     drug_views = []
 
@@ -167,15 +180,15 @@ class SingleDrugModel(DRPModel, ABC):
         return None
 
 
-
-
 class CompositeDrugModel(DRPModel):
     """
     Transforms multiple separate single drug response prediction models into a global model by applying a seperate model for each drug.
     """
+
     cell_line_views = None
     drug_views = []
     model_name = "CompositeDrugModel"
+
     def __init__(self, target: str, base_model: Type[DRPModel], *args, **kwargs):
         """
         Creates an instance of a single drug response prediction model.
@@ -183,12 +196,11 @@ class CompositeDrugModel(DRPModel):
         :param target: target value, e.g., IC50, EC50, AUC, classification
         """
         super().__init__(target=target, *args, **kwargs)
-        self.models = {}    
+        self.models = {}
         self.base_model = base_model
         self.cell_line_views = base_model.cell_line_views
         self.model_name = base_model.model_name
         self.early_stopping = base_model.early_stopping
-    
 
     def build_model(self, hyperparameters: Dict[str, Any], *args, **kwargs):
         """
@@ -197,40 +209,66 @@ class CompositeDrugModel(DRPModel):
         for drug in hyperparameters:
             self.models[drug] = self.base_model(target=self.target)
             self.models[drug].build_model(hyperparameters[drug])
-    
-    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
-        return list(self.models.values())[0].load_cell_line_features(data_path=data_path, dataset_name=dataset_name)
-    
+
+    def load_cell_line_features(
+        self, data_path: str, dataset_name: str
+    ) -> FeatureDataset:
+        return list(self.models.values())[0].load_cell_line_features(
+            data_path=data_path, dataset_name=dataset_name
+        )
+
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         return None
 
-    def train(self, output: DrugResponseDataset, output_earlystopping: Optional[DrugResponseDataset] = None, **inputs: Dict[str, np.ndarray]) -> None:
+    def train(
+        self,
+        output: DrugResponseDataset,
+        output_earlystopping: Optional[DrugResponseDataset] = None,
+        **inputs: Dict[str, np.ndarray],
+    ) -> None:
         """
         Trains the model.
         :param output: Training data associated with the response output
         :param output_earlystopping: Optional. Training data associated with the early stopping output
         :param inputs: Dictionary containing input data associated with different views
         """
-        for drug in output.drug_ids:
-            assert drug in self.models, f"Drug {drug} not in models. Maybe the CompositeDrugModel was not built or drug missing from train data."
+        drugs = np.unique(output.drug_ids)
+        for i, drug in enumerate(drugs):
+            assert (
+                drug in self.models
+            ), f"Drug {drug} not in models. Maybe the CompositeDrugModel was not built or drug missing from train data."
+            print(f"Training model for drug {drug} ({i+1}/{len(drugs)})")
             output_mask = output.drug_ids == drug
             output_drug = output.copy()
             output_drug.mask(output_mask)
 
-            inputs_drug = {view: data[output_mask] for view, data in inputs.items() if not view.endswith('_earlystopping')}
+            inputs_drug = {
+                view: data[output_mask]
+                for view, data in inputs.items()
+                if not view.endswith("_earlystopping")
+            }
 
             output_earlystopping_drug = None
             if output_earlystopping is not None:
                 output_earlystopping_mask = output_earlystopping.drug_ids == drug
                 output_earlystopping_drug = output_earlystopping.copy()
                 output_earlystopping_drug.mask(output_earlystopping_mask)
-                inputs_drug.update({view: data[output_earlystopping_mask] for view, data in inputs.items() if view.endswith('_earlystopping')})
-            
-                self.models[drug].train(output=output_drug, output_earlystopping=output_earlystopping_drug, **inputs_drug)
+                inputs_drug.update(
+                    {
+                        view: data[output_earlystopping_mask]
+                        for view, data in inputs.items()
+                        if view.endswith("_earlystopping")
+                    }
+                )
+
+                self.models[drug].train(
+                    output=output_drug,
+                    output_earlystopping=output_earlystopping_drug,
+                    **inputs_drug,
+                )
             else:
                 assert self.models[drug] is not None, f"none for drug {drug}"
                 self.models[drug].train(output=output_drug, **inputs_drug)
-
 
     def predict(self, drug_ids, **inputs) -> np.ndarray:
         """
@@ -249,5 +287,7 @@ class CompositeDrugModel(DRPModel):
             else:
                 prediction[mask] = self.models[drug].predict(**inputs_drug)
         if np.any(np.isnan(prediction)):
-            warnings.warn('SingleDRPModel Warning: Some drugs were not in the training set. Prediction is NaN Maybe a SingleDRPModel was used in an LDO setting.')  
+            warnings.warn(
+                "SingleDRPModel Warning: Some drugs were not in the training set. Prediction is NaN Maybe a SingleDRPModel was used in an LDO setting."
+            )
         return prediction

@@ -26,7 +26,8 @@ def get_mode(metric: str):
         mode = "max"
     else:
         raise ValueError(
-            f"Invalid metric: {metric}. Need to add metric to MINIMIZATION_METRICS or MAXIMIZATION_METRICS?")
+            f"Invalid metric: {metric}. Need to add metric to MINIMIZATION_METRICS or MAXIMIZATION_METRICS?"
+        )
     return mode
 
 
@@ -44,17 +45,24 @@ def evaluate(dataset: DrugResponseDataset, metric: Union[List[str], str]):
     results = {}
     for m in metric:
         assert (
-                m in AVAILABLE_METRICS
+            m in AVAILABLE_METRICS
         ), f"invalid metric {m}. Available: {list(AVAILABLE_METRICS.keys())}"
         if len(response) < 2:
             results[m] = float(np.nan)
         else:
             if m == "Partial_Correlation":
-                results[m] = float(AVAILABLE_METRICS[m](
-                    y_pred=predictions, y_true=response, cell_line_ids=dataset.cell_line_ids, drug_ids=dataset.drug_ids
-                ))
+                results[m] = float(
+                    AVAILABLE_METRICS[m](
+                        y_pred=predictions,
+                        y_true=response,
+                        cell_line_ids=dataset.cell_line_ids,
+                        drug_ids=dataset.drug_ids,
+                    )
+                )
             else:
-                results[m] = float(AVAILABLE_METRICS[m](y_pred=predictions, y_true=response))
+                results[m] = float(
+                    AVAILABLE_METRICS[m](y_pred=predictions, y_true=response)
+                )
 
     return results
 

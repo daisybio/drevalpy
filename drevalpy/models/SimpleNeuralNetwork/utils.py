@@ -59,7 +59,11 @@ class FeedForwardNetwork(pl.LightningModule):
 
         train_dataset = RegressionDataset(X_train, y_train)
         train_loader = DataLoader(
-            train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, persistent_workers=True
+            train_dataset,
+            batch_size=batch_size,
+            shuffle=True,
+            num_workers=num_workers,
+            persistent_workers=True,
         )
 
         if (X_eval is not None) and (y_eval is not None):
@@ -69,7 +73,7 @@ class FeedForwardNetwork(pl.LightningModule):
                 batch_size=batch_size,
                 shuffle=False,
                 num_workers=num_workers,
-                persistent_workers=True
+                persistent_workers=True,
             )
 
         # Train the model
@@ -94,7 +98,7 @@ class FeedForwardNetwork(pl.LightningModule):
         )
         trainer_params_copy = trainer_params.copy()
         del trainer_params_copy["progress_bar_refresh_rate"]
-            
+
         # Initialize the Lightning trainer
         trainer = pl.Trainer(
             callbacks=[early_stop_callback, self.checkpoint_callback, progress_bar],

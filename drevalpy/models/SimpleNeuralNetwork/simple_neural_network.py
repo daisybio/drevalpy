@@ -1,5 +1,8 @@
 from typing import Optional
-from drevalpy.models.utils import load_drug_features_from_fingerprints, load_ge_features_from_landmark_genes
+from drevalpy.models.utils import (
+    load_drug_features_from_fingerprints,
+    load_ge_features_from_landmark_genes,
+)
 from drevalpy.models.SimpleNeuralNetwork.utils import FeedForwardNetwork
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
@@ -54,13 +57,22 @@ class SimpleNeuralNetwork(DRPModel):
         """
         X = np.concatenate((gene_expression, fingerprints), axis=1)
 
-        if all([ar is not None for ar in [output_earlystopping, gene_expression_earlystopping, fingerprints_earlystopping]]):
+        if all(
+            [
+                ar is not None
+                for ar in [
+                    output_earlystopping,
+                    gene_expression_earlystopping,
+                    fingerprints_earlystopping,
+                ]
+            ]
+        ):
             X_earlystopping = np.concatenate(
                 (gene_expression_earlystopping, fingerprints_earlystopping), axis=1
             )
         else:
             X_earlystopping = None
-        
+
         if output_earlystopping is not None:
             response_earlystopping = output_earlystopping.response
         else:
@@ -94,9 +106,7 @@ class SimpleNeuralNetwork(DRPModel):
         raise NotImplementedError("load method not implemented")
 
     def predict(
-        self,
-        gene_expression: np.ndarray = None,
-        fingerprints: np.ndarray = None
+        self, gene_expression: np.ndarray = None, fingerprints: np.ndarray = None
     ) -> np.ndarray:
         """
         Predicts the response for the given input.
@@ -104,7 +114,9 @@ class SimpleNeuralNetwork(DRPModel):
         X = np.concatenate((gene_expression, fingerprints), axis=1)
         return self.model.predict(X)
 
-    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+    def load_cell_line_features(
+        self, data_path: str, dataset_name: str
+    ) -> FeatureDataset:
         """
         Loads the cell line features.
         :param path: Path to the gene expression and landmark genes

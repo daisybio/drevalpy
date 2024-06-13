@@ -6,7 +6,7 @@ from ..utils.utils import get_device
 
 
 class Dense(nn.Module):
-    """ This is a Dense model for validation """
+    """This is a Dense model for validation"""
 
     def __init__(self, params, *args, **kwargs):
         """Constructor.
@@ -46,25 +46,25 @@ class Dense(nn.Module):
         # Model Parameter
         self.device = get_device()
         self.params = params
-        self.loss_fn = LOSS_FN_FACTORY[params.get('loss_fn', 'mse')]
-        self.number_of_genes = params.get('number_of_genes', 2128)
-        self.num_drug_features = params.get('num_drug_features', 512)
+        self.loss_fn = LOSS_FN_FACTORY[params.get("loss_fn", "mse")]
+        self.number_of_genes = params.get("number_of_genes", 2128)
+        self.num_drug_features = params.get("num_drug_features", 512)
         self.hidden_sizes = params.get(
-            'stacked_dense_hidden_sizes', [
-                self.number_of_genes + self.num_drug_features, 1024, 512, 256,
-                64
-            ]
+            "stacked_dense_hidden_sizes",
+            [self.number_of_genes + self.num_drug_features, 1024, 512, 256, 64],
         )
 
-        self.dropout = params.get('dropout', 0.0)
-        self.act_fn = ACTIVATION_FN_FACTORY[
-            params.get('activation_fn', 'relu')]
+        self.dropout = params.get("dropout", 0.0)
+        self.act_fn = ACTIVATION_FN_FACTORY[params.get("activation_fn", "relu")]
 
         self.dense_layers = [
             dense_layer(
-                self.hidden_sizes[ind], self.hidden_sizes[ind + 1],
-                self.act_fn, self.dropout
-            ).to(self.device) for ind in range(len(self.hidden_sizes) - 1)
+                self.hidden_sizes[ind],
+                self.hidden_sizes[ind + 1],
+                self.act_fn,
+                self.dropout,
+            ).to(self.device)
+            for ind in range(len(self.hidden_sizes) - 1)
         ]
 
         self.final_dense = nn.Linear(self.hidden_sizes[-1], 1)
@@ -89,7 +89,7 @@ class Dense(nn.Module):
             inputs = dl(inputs)
 
         predictions = self.final_dense(inputs)
-        prediction_dict = {'IC50': predictions}
+        prediction_dict = {"IC50": predictions}
         return predictions, prediction_dict
 
     def loss(self, yhat, y):
