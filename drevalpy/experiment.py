@@ -15,8 +15,8 @@ from sklearn.base import TransformerMixin
 
 def drug_response_experiment(
     models: List[Type[DRPModel]],
-    baselines: List[Type[DRPModel]],
     response_data: DrugResponseDataset,
+    baselines: Optional[List[Type[DRPModel]]] = None,
     response_transformation: Optional[TransformerMixin] = None,
     run_id: str = "",
     test_mode: str = "LPO",
@@ -62,9 +62,11 @@ def drug_response_experiment(
 
     :return: None
     """
-
+    if baselines is None:
+        baselines = []
     cross_study_datasets = cross_study_datasets or []
     result_path = os.path.join(path_out, run_id, test_mode)
+
     # if results exists, delete them if overwrite is true
     handle_overwrite(result_path, overwrite)
 
