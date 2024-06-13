@@ -15,6 +15,7 @@ from sklearn.base import TransformerMixin
 
 def drug_response_experiment(
     models: List[Type[DRPModel]],
+    baselines: List[Type[DRPModel]],
     response_data: DrugResponseDataset,
     response_transformation: Optional[TransformerMixin] = None,
     run_id: str = "",
@@ -113,52 +114,36 @@ def drug_response_experiment(
             if not os.path.isfile(
                 prediction_file
             ):  # if this split has not been run yet
+                
+                tuning_inputs = {
+                    "model": model,
+                    "train_dataset": train_dataset,
+                    "validation_dataset": validation_dataset,
+                    "early_stopping_dataset": (
+                        early_stopping_dataset if model.early_stopping else None
+                    ),
+                    "hpam_set": model_hpam_set,
+                    "response_transformation": response_transformation,
+                    "metric": metric,
+                }
 
                 if multiprocessing:
                     if Type(model) == CompositeDrugModel:
-                        raise NotImplementedError(
-                            "Multiprocessing is not implemented for SingleDrugModels"
+                        warnings.warn(
+                            "Multiprocessing not yet supported for CompositeDrugModel."
                         )
+                        best_hpams = hpam_tune_composite_model(**tuning_inputs)
+
                     else:
-                        best_hpams = hpam_tune_raytune(
-                            model=model,
-                            train_dataset=train_dataset,
-                            validation_dataset=validation_dataset,
-                            early_stopping_dataset=(
-                                early_stopping_dataset if model.early_stopping else None
-                            ),
-                            hpam_set=model_hpam_set,
-                            response_transformation=response_transformation,
-                            metric=metric,
-                            ray_path=os.path.abspath(
-                                os.path.join(result_path, "raytune")
-                            ),
+                        tuning_inputs["ray_path"] = os.path.abspath(
+                            os.path.join(result_path, "raytune")
                         )
+                        best_hpams = hpam_tune_raytune(**tuning_inputs)
                 else:
                     if type(model) == CompositeDrugModel:
-                        best_hpams = hpam_tune_composite_model(
-                            model=model,
-                            train_dataset=train_dataset,
-                            validation_dataset=validation_dataset,
-                            early_stopping_dataset=(
-                                early_stopping_dataset if model.early_stopping else None
-                            ),
-                            hpam_set=model_hpam_set,
-                            response_transformation=response_transformation,
-                            metric=metric,
-                        )
+                        best_hpams = hpam_tune_composite_model(**tuning_inputs)
                     else:
-                        best_hpams = hpam_tune(
-                            model=model,
-                            train_dataset=train_dataset,
-                            validation_dataset=validation_dataset,
-                            early_stopping_dataset=(
-                                early_stopping_dataset if model.early_stopping else None
-                            ),
-                            hpam_set=model_hpam_set,
-                            response_transformation=response_transformation,
-                            metric=metric,
-                        )
+                        best_hpams = hpam_tune(**tuning_inputs)
 
                 print(f"Best hyperparameters: {best_hpams}")
                 print(
@@ -751,7 +736,5 @@ def hpam_tune_raytune(
     )
 
     mode = get_mode(metric)
-    best_config = analysis.get_best_config(
-        metric=metric, mode=mode
-    )  # TODO mode depends on metric
+    best_config = analysis.get_best_config(metric=metric, mode=mode)
     return best_config
