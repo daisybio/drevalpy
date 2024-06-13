@@ -7,9 +7,9 @@ from ..utils import load_cl_ids_from_csv, load_drug_ids_from_csv
 
 
 class NaivePredictor(DRPModel):
-    model_name = 'NaivePredictor'
-    cell_line_views = ['cell_line_id']
-    drug_views = ['drug_id']
+    model_name = "NaivePredictor"
+    cell_line_views = ["cell_line_id"]
+    drug_views = ["drug_id"]
 
     def __init__(self, target, *args, **kwargs):
         super().__init__(target, args, kwargs)
@@ -18,9 +18,12 @@ class NaivePredictor(DRPModel):
     def build_model(self, hyperparameters: Dict, *args, **kwargs):
         pass
 
-    def train(self, output: DrugResponseDataset,
-              cell_line_id: np.ndarray = None,
-              drug_id: np.ndarray = None) -> None:
+    def train(
+        self,
+        output: DrugResponseDataset,
+        cell_line_id: np.ndarray = None,
+        drug_id: np.ndarray = None,
+    ) -> None:
         """
         Computes the overall mean of the output response values and saves them.
         :param output: training dataset containing the response output
@@ -29,9 +32,9 @@ class NaivePredictor(DRPModel):
         """
         self.dataset_mean = np.mean(output.response)
 
-    def predict(self,
-                cell_line_id: np.ndarray = None,
-                drug_id: np.ndarray = None) -> np.ndarray:
+    def predict(
+        self, cell_line_id: np.ndarray = None, drug_id: np.ndarray = None
+    ) -> np.ndarray:
         """
         Predicts the dataset mean for each drug-cell line combination
         :param cell_line_id: cell line id
@@ -41,12 +44,14 @@ class NaivePredictor(DRPModel):
         return np.full(cell_line_id.shape[0], self.dataset_mean)
 
     def save(self, path):
-        raise NotImplementedError('Naive predictor does not support saving yet ...')
+        raise NotImplementedError("Naive predictor does not support saving yet ...")
 
     def load(self, path):
-        raise NotImplementedError('Naive predictor does not support loading yet ...')
+        raise NotImplementedError("Naive predictor does not support loading yet ...")
 
-    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+    def load_cell_line_features(
+        self, data_path: str, dataset_name: str
+    ) -> FeatureDataset:
         return load_cl_ids_from_csv(data_path, dataset_name)
 
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
@@ -54,9 +59,9 @@ class NaivePredictor(DRPModel):
 
 
 class NaiveDrugMeanPredictor(DRPModel):
-    model_name = 'NaiveDrugMeanPredictor'
-    cell_line_views = ['cell_line_id']
-    drug_views = ['drug_id']
+    model_name = "NaiveDrugMeanPredictor"
+    cell_line_views = ["cell_line_id"]
+    drug_views = ["drug_id"]
 
     def __init__(self, target, *args, **kwargs):
         super().__init__(target, args, kwargs)
@@ -66,9 +71,12 @@ class NaiveDrugMeanPredictor(DRPModel):
     def build_model(self, *args, **kwargs):
         pass
 
-    def train(self, output: DrugResponseDataset,
-              cell_line_id: np.ndarray = None,
-              drug_id: np.ndarray = None) -> None:
+    def train(
+        self,
+        output: DrugResponseDataset,
+        cell_line_id: np.ndarray = None,
+        drug_id: np.ndarray = None,
+    ) -> None:
         """
         Computes the mean per drug. If - later on - the drug is not in the training set, the overall mean is used.
         :param output: training dataset containing the response output
@@ -80,9 +88,9 @@ class NaiveDrugMeanPredictor(DRPModel):
         for drug in np.unique(drug_id):
             self.drug_means[drug] = np.mean(output.response[drug_id == drug])
 
-    def predict(self,
-                cell_line_id: np.ndarray = None,
-                drug_id: np.ndarray = None) -> np.ndarray:
+    def predict(
+        self, cell_line_id: np.ndarray = None, drug_id: np.ndarray = None
+    ) -> np.ndarray:
         """
         Predicts the drug mean for each drug-cell line combination. If the drug is not in the training set, the dataset mean is used.
         :param cell_line_id: cell line ids
@@ -97,12 +105,14 @@ class NaiveDrugMeanPredictor(DRPModel):
         return self.dataset_mean
 
     def save(self, path):
-        raise NotImplementedError('Naive predictor does not support saving yet ...')
+        raise NotImplementedError("Naive predictor does not support saving yet ...")
 
     def load(self, path):
-        raise NotImplementedError('Naive predictor does not support loading yet ...')
+        raise NotImplementedError("Naive predictor does not support loading yet ...")
 
-    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+    def load_cell_line_features(
+        self, data_path: str, dataset_name: str
+    ) -> FeatureDataset:
         return load_cl_ids_from_csv(data_path, dataset_name)
 
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
@@ -110,9 +120,9 @@ class NaiveDrugMeanPredictor(DRPModel):
 
 
 class NaiveCellLineMeanPredictor(DRPModel):
-    model_name = 'NaiveCellLineMeanPredictor'
-    cell_line_views = ['cell_line_id']
-    drug_views = ['drug_id']
+    model_name = "NaiveCellLineMeanPredictor"
+    cell_line_views = ["cell_line_id"]
+    drug_views = ["drug_id"]
 
     def __init__(self, target, *args, **kwargs):
         super().__init__(target, args, kwargs)
@@ -122,9 +132,12 @@ class NaiveCellLineMeanPredictor(DRPModel):
     def build_model(self, *args, **kwargs):
         pass
 
-    def train(self, output: DrugResponseDataset,
-              cell_line_id: np.ndarray = None,
-              drug_id: np.ndarray = None) -> None:
+    def train(
+        self,
+        output: DrugResponseDataset,
+        cell_line_id: np.ndarray = None,
+        drug_id: np.ndarray = None,
+    ) -> None:
         """
         Computes the mean per cell line. If - later on - the cell line is not in the training set, the overall mean is used.
         :param output: training dataset containing the response output
@@ -136,9 +149,9 @@ class NaiveCellLineMeanPredictor(DRPModel):
         for cl in np.unique(cell_line_id):
             self.cell_line_means[cl] = np.mean(output.response[cell_line_id == cl])
 
-    def predict(self,
-                cell_line_id: np.ndarray = None,
-                drug_id: np.ndarray = None) -> np.ndarray:
+    def predict(
+        self, cell_line_id: np.ndarray = None, drug_id: np.ndarray = None
+    ) -> np.ndarray:
         """
         Predicts the cell line mean for each drug-cell line combination. If the cell line is not in the training set, the dataset mean is used.
         :param cell_line_id: cell line ids
@@ -153,12 +166,14 @@ class NaiveCellLineMeanPredictor(DRPModel):
         return self.dataset_mean
 
     def save(self, path):
-        raise NotImplementedError('Naive predictor does not support saving yet ...')
+        raise NotImplementedError("Naive predictor does not support saving yet ...")
 
     def load(self, path):
-        raise NotImplementedError('Naive predictor does not support loading yet ...')
+        raise NotImplementedError("Naive predictor does not support loading yet ...")
 
-    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+    def load_cell_line_features(
+        self, data_path: str, dataset_name: str
+    ) -> FeatureDataset:
         return load_cl_ids_from_csv(data_path, dataset_name)
 
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:

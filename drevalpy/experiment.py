@@ -130,7 +130,9 @@ def drug_response_experiment(
                             hpam_set=model_hpam_set,
                             response_transformation=response_transformation,
                             metric=metric,
-                            ray_path=os.path.abspath(os.path.join(result_path, "raytune")),
+                            ray_path=os.path.abspath(
+                                os.path.join(result_path, "raytune")
+                            ),
                         )
                 else:
                     if type(model) == CompositeDrugModel:
@@ -248,11 +250,19 @@ def drug_response_experiment(
                     response_transformation=response_transformation,
                 )
 
-def load_features(model: DRPModel, path_data: str, dataset: DrugResponseDataset) -> Tuple[FeatureDataset, FeatureDataset]:
+
+def load_features(
+    model: DRPModel, path_data: str, dataset: DrugResponseDataset
+) -> Tuple[FeatureDataset, FeatureDataset]:
     """Load and reduce cell line and drug features for a given dataset."""
-    cl_features = model.load_cell_line_features(data_path=path_data, dataset_name=dataset.dataset_name)
-    drug_features = model.load_drug_features(data_path=path_data, dataset_name=dataset.dataset_name)
+    cl_features = model.load_cell_line_features(
+        data_path=path_data, dataset_name=dataset.dataset_name
+    )
+    drug_features = model.load_drug_features(
+        data_path=path_data, dataset_name=dataset.dataset_name
+    )
     return cl_features, drug_features
+
 
 def cross_study_prediction(
     dataset: DrugResponseDataset,
@@ -277,18 +287,18 @@ def cross_study_prediction(
     if response_transformation:
         dataset.transform(response_transformation)
 
-    #load features
+    # load features
     cl_features, drug_features = load_features(model, path_data, dataset)
 
     cell_lines_to_remove = cl_features.identifiers if cl_features is not None else None
     drugs_to_remove = drug_features.identifiers if drug_features is not None else None
 
-    print(f'Reducing cross study dataset ... feature data available for {len(cell_lines_to_remove) if cell_lines_to_remove else "all"} cell lines and {len(drugs_to_remove)if drugs_to_remove else "all"} drugs.')
-    
-    # making sure there are no missing features. Only keep cell lines and drugs for which we have a feature representation
-    dataset.reduce_to(
-        cell_line_ids=cell_lines_to_remove, drug_ids=drugs_to_remove
+    print(
+        f'Reducing cross study dataset ... feature data available for {len(cell_lines_to_remove) if cell_lines_to_remove else "all"} cell lines and {len(drugs_to_remove)if drugs_to_remove else "all"} drugs.'
     )
+
+    # making sure there are no missing features. Only keep cell lines and drugs for which we have a feature representation
+    dataset.reduce_to(cell_line_ids=cell_lines_to_remove, drug_ids=drugs_to_remove)
     if early_stopping_dataset is not None:
         train_dataset.add_rows(early_stopping_dataset)
     # remove rows which overlap in the training. depends on the test mode
@@ -320,7 +330,9 @@ def cross_study_prediction(
         )
     else:
         raise ValueError(f"Invalid test mode: {test_mode}. Choose from LPO, LCO, LDO")
+
     dataset.shuffle(random_state=42)
+
     inputs = model.get_feature_matrices(
         cell_line_ids=dataset.cell_line_ids,
         drug_ids=dataset.drug_ids,
@@ -536,8 +548,10 @@ def train_and_predict(
     cell_lines_to_remove = cl_features.identifiers if cl_features is not None else None
     drugs_to_remove = drug_features.identifiers if drug_features is not None else None
 
-    print(f'Reducing datasets ... feature data available for {len(cell_lines_to_remove) if cell_lines_to_remove else "all"} cell lines and {len(drugs_to_remove)if drugs_to_remove else "all"} drugs.')
-    
+    print(
+        f'Reducing datasets ... feature data available for {len(cell_lines_to_remove) if cell_lines_to_remove else "all"} cell lines and {len(drugs_to_remove)if drugs_to_remove else "all"} drugs.'
+    )
+
     # making sure there are no missing features:
     train_dataset.reduce_to(
         cell_line_ids=cell_lines_to_remove, drug_ids=drugs_to_remove
@@ -642,53 +656,63 @@ def hpam_tune(
             response_transformation=response_transformation,
         )[metric]
 
-        if (mode == "min" and score < best_score) or (mode == "max" and score > best_score):            
+        if (mode == "min" and score < best_score) or (
+            mode == "max" and score > best_score
+        ):
             print(f"current best {metric} score: {np.round(score, 3)}")
             best_score = score
             best_hyperparameters = hyperparameter
     return best_hyperparameters
 
 
+def hpam_tune_composite_model(
+    model: CompositeDrugModel,
+    train_dataset: DrugResponseDataset,
+    validation_dataset: DrugResponseDataset,
+    hpam_set: List[Dict],
+    early_stopping_dataset: Optional[DrugResponseDataset] = None,
+    response_transformation: Optional[TransformerMixin] = None,
+    metric: str = "rmse",
+) -> Dict[str, Dict]:
 
-def hpam_tune_composite_model(model: CompositeDrugModel,
-                                train_dataset: DrugResponseDataset,
-                                validation_dataset: DrugResponseDataset,
-                                hpam_set: List[Dict],
-                                early_stopping_dataset: Optional[DrugResponseDataset] = None,
-                                response_transformation: Optional[TransformerMixin] = None,
-                                metric: str = "rmse") -> Dict[str, Dict]:
+    unique_drugs = list(np.unique(train_dataset.drug_ids)) + list(
+        np.unique(validation_dataset.drug_ids)
+    )
+    # seperate best_hyperparameters for each drug
+    mode = get_mode(metric)
+    best_scores = {
+        drug: float("inf") if mode == "min" else float("-inf") for drug in unique_drugs
+    }
+    best_hyperparameters = {drug: None for drug in unique_drugs}
 
-        unique_drugs = list(np.unique(train_dataset.drug_ids)) + list(np.unique(validation_dataset.drug_ids))
-        # seperate best_hyperparameters for each drug
-        mode = get_mode(metric)
-        best_scores = {drug: float("inf") if mode == "min" else float("-inf") for drug in unique_drugs}
-        best_hyperparameters = {drug: None for drug in unique_drugs}
+    for hyperparameter in hpam_set:
+        print(f"Training model with hyperparameters: {hyperparameter}")
+        hyperparameters_per_drug = {drug: hyperparameter for drug in unique_drugs}
 
-        for hyperparameter in hpam_set:
-            print(f"Training model with hyperparameters: {hyperparameter}")
-            hyperparameters_per_drug = {drug: hyperparameter for drug in unique_drugs}
+        validation_dataset = train_and_predict(
+            model=model,
+            hpams=hyperparameters_per_drug,
+            path_data="data",
+            train_dataset=train_dataset,
+            early_stopping_dataset=early_stopping_dataset,
+            prediction_dataset=validation_dataset,
+            response_transformation=response_transformation,
+        )
 
-            validation_dataset = train_and_predict(
-                model=model,
-                hpams=hyperparameters_per_drug,
-                path_data="data",
-                train_dataset=train_dataset,
-                early_stopping_dataset=early_stopping_dataset,
-                prediction_dataset=validation_dataset,
-                response_transformation=response_transformation,
-            )
+        # seperate evaluation for each drug. Each drug might have different best hyperparameters
+        for drug in np.unique(validation_dataset.drug_ids):
+            mask = validation_dataset.drug_ids == drug
+            validation_dataset_drug = validation_dataset.copy()
+            validation_dataset_drug.mask(mask)
+            score = evaluate(validation_dataset_drug, metric=metric)[metric]
+            if (mode == "min" and score < best_scores[drug]) or (
+                mode == "max" and score > best_scores[drug]
+            ):
+                print(f"current best {metric} score for {drug}: { score }")
+                best_scores[drug] = score
+                best_hyperparameters[drug] = hyperparameter
+    return best_hyperparameters
 
-            # seperate evaluation for each drug. Each drug might have different best hyperparameters
-            for drug in np.unique(validation_dataset.drug_ids):
-                mask = validation_dataset.drug_ids == drug
-                validation_dataset_drug = validation_dataset.copy()
-                validation_dataset_drug.mask(mask)
-                score = evaluate(validation_dataset_drug, metric=metric)[metric]
-                if (mode == "min" and score < best_scores[drug]) or (mode == "max" and score > best_scores[drug]):
-                    print(f"current best {metric} score for {drug}: { score }")
-                    best_scores[drug] = score
-                    best_hyperparameters[drug] = hyperparameter
-        return best_hyperparameters
 
 def hpam_tune_raytune(
     model: DRPModel,
@@ -705,7 +729,7 @@ def hpam_tune_raytune(
     if torch.cuda.is_available():
         resources_per_trial = {"gpu": 1}  # TODO make this user defined
     else:
-        resources_per_trial = {"cpu": 1} # TODO make this user defined
+        resources_per_trial = {"cpu": 1}  # TODO make this user defined
     analysis = tune.run(
         lambda hpams: train_and_evaluate(
             model=model,
@@ -725,7 +749,9 @@ def hpam_tune_raytune(
         verbose=0,
         storage_path=ray_path,
     )
-    
+
     mode = get_mode(metric)
-    best_config = analysis.get_best_config(metric=metric, mode=mode)  # TODO mode depends on metric
+    best_config = analysis.get_best_config(
+        metric=metric, mode=mode
+    )  # TODO mode depends on metric
     return best_config

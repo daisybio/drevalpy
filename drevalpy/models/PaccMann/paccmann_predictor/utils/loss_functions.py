@@ -1,4 +1,5 @@
 """Loss function definitions for paccmann."""
+
 import torch
 import torch.nn as nn
 
@@ -18,26 +19,25 @@ def pearsonr(x, y):
         Pearson correlation coefficient.
     """
     if not isinstance(x, torch.Tensor) or not isinstance(y, torch.Tensor):
-        raise TypeError('Function expects torch Tensors.')
+        raise TypeError("Function expects torch Tensors.")
 
     if len(x.shape) > 1 or len(y.shape) > 1:
-        raise ValueError(' x and y must be 1D Tensors.')
+        raise ValueError(" x and y must be 1D Tensors.")
 
     if len(x) != len(y):
-        raise ValueError('x and y must have the same length.')
+        raise ValueError("x and y must have the same length.")
 
     if len(x) < 2:
-        raise ValueError('x and y must have length at least 2.')
+        raise ValueError("x and y must have length at least 2.")
 
     # If an input is constant, the correlation coefficient is not defined.
     if bool((x == x[0]).all()) or bool((y == y[0]).all()):
-        raise ValueError('Constant input, r is not defined.')
+        raise ValueError("Constant input, r is not defined.")
 
     mx = x - torch.mean(x)
     my = y - torch.mean(y)
-    cost = (
-        torch.sum(mx * my) /
-        (torch.sqrt(torch.sum(mx**2)) * torch.sqrt(torch.sum(my**2)))
+    cost = torch.sum(mx * my) / (
+        torch.sqrt(torch.sum(mx**2)) * torch.sqrt(torch.sum(my**2))
     )
     return torch.clamp(cost, min=-1.0, max=1.0)
 
@@ -53,7 +53,7 @@ def correlation_coefficient_loss(labels, predictions):
         torch.Tensor: A loss that when minimized forces high squared correlation coefficient:
         \$1 - r(labels, predictions)^2\$  # noqa
     """
-    return 1 - pearsonr(labels, predictions)**2
+    return 1 - pearsonr(labels, predictions) ** 2
 
 
 def mse_cc_loss(labels, predictions):

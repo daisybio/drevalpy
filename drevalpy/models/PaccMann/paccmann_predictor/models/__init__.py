@@ -6,9 +6,9 @@ from .knn import knn  # noqa
 
 # More models could follow
 MODEL_FACTORY = {
-    'mca': MCA,
-    'dense': Dense,
-    'bimodal_mca': BimodalMCA,
-    'paccmann_v2': PaccMannV2,
-    'knn': knn
+    "mca": MCA,
+    "dense": Dense,
+    "bimodal_mca": BimodalMCA,
+    "paccmann_v2": PaccMannV2,
+    "knn": knn,
 }

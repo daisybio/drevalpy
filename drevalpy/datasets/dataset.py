@@ -6,6 +6,8 @@ import pandas as pd
 from ..utils import leave_pair_out_cv, leave_group_out_cv
 import copy
 from sklearn.base import TransformerMixin
+
+
 class Dataset(ABC):
     """
     Abstract wrapper class for datasets.
@@ -33,9 +35,9 @@ class DrugResponseDataset(Dataset):
 
     def __init__(
         self,
-        response: Optional[ArrayLike]=None,
-        cell_line_ids: Optional[ArrayLike]=None,
-        drug_ids: Optional[ArrayLike]=None,
+        response: Optional[ArrayLike] = None,
+        cell_line_ids: Optional[ArrayLike] = None,
+        drug_ids: Optional[ArrayLike] = None,
         predictions: Optional[ArrayLike] = None,
         dataset_name: Optional[str] = None,
         *args,
@@ -81,6 +83,7 @@ class DrugResponseDataset(Dataset):
             ), "predictions and response have different lengths"
         else:
             self.predictions = None
+
     def __len__(self):
         return len(self.response)
 
@@ -133,6 +136,7 @@ class DrugResponseDataset(Dataset):
 
         if self.predictions is not None and other.predictions is not None:
             self.predictions = np.concatenate([self.predictions, other.predictions])
+
     def remove_nan_responses(self) -> None:
         """
         Removes rows with NaN values in the repsonse
@@ -143,7 +147,7 @@ class DrugResponseDataset(Dataset):
         self.drug_ids = self.drug_ids[~mask]
         if self.predictions is not None:
             self.predictions = self.predictions[~mask]
-        
+
     def shuffle(self, random_state: int = 42) -> None:
         """
         Shuffles the dataset.
@@ -185,6 +189,7 @@ class DrugResponseDataset(Dataset):
         self.drug_ids = self.drug_ids[mask]
         self.cell_line_ids = self.cell_line_ids[mask]
         self.response = self.response[mask]
+
     def remove_rows(self, indices: ArrayLike) -> None:
         """
         Removes rows from the dataset.
@@ -195,7 +200,10 @@ class DrugResponseDataset(Dataset):
         self.response = np.delete(self.response, indices)
         if self.predictions is not None:
             self.predictions = np.delete(self.predictions, indices)
-    def reduce_to(self, cell_line_ids: Optional[ArrayLike], drug_ids: Optional[ArrayLike]) -> None:
+
+    def reduce_to(
+        self, cell_line_ids: Optional[ArrayLike], drug_ids: Optional[ArrayLike]
+    ) -> None:
         """
         Removes all rows which contain a cell_line not in cell_line_ids or a drug not in drug_ids
         :cell_line_ids: cell line IDs or None to keep all cell lines
@@ -235,7 +243,7 @@ class DrugResponseDataset(Dataset):
                 split_validation,
                 validation_ratio,
                 random_state,
-                self.dataset_name
+                self.dataset_name,
             )
 
         elif mode in ["LCO", "LDO"]:
@@ -249,23 +257,23 @@ class DrugResponseDataset(Dataset):
                 split_validation=split_validation,
                 validation_ratio=validation_ratio,
                 random_state=random_state,
-                dataset_name = self.dataset_name
+                dataset_name=self.dataset_name,
             )
         else:
             raise ValueError(
                 f"Unknown split mode '{mode}'. Choose from 'LPO', 'LCO', 'LDO'."
             )
-        
+
         if split_validation and split_early_stopping:
             for split in cv_splits:
-                validation_es, early_stopping = split_early_stopping_data(split["validation"],
-                                                                    test_mode=mode
-                                                                    )
+                validation_es, early_stopping = split_early_stopping_data(
+                    split["validation"], test_mode=mode
+                )
                 split["validation_es"] = validation_es
                 split["early_stopping"] = early_stopping
-        self.cv_splits = cv_splits  
+        self.cv_splits = cv_splits
         return cv_splits
-    
+
     def copy(self):
         """
         Returns a copy of the drug response dataset.
@@ -277,11 +285,18 @@ class DrugResponseDataset(Dataset):
             predictions=copy.deepcopy(self.predictions),
             dataset_name=self.dataset_name,
         )
+
     def __hash__(self):
-        return hash((self.dataset_name, tuple(self.cell_line_ids),
-                     tuple(self.drug_ids), tuple(self.response),
-                     tuple(self.predictions) if self.predictions is not None else None))
-    
+        return hash(
+            (
+                self.dataset_name,
+                tuple(self.cell_line_ids),
+                tuple(self.drug_ids),
+                tuple(self.response),
+                tuple(self.predictions) if self.predictions is not None else None,
+            )
+        )
+
     def mask(self, mask: List[bool]) -> None:
         """
         Masks the dataset.
@@ -292,27 +307,35 @@ class DrugResponseDataset(Dataset):
         self.drug_ids = self.drug_ids[mask]
         if self.predictions is not None:
             self.predictions = self.predictions[mask]
-    
+
     def transform(self, response_transformation: TransformerMixin) -> None:
         """Apply transformation to the response data and prediction data of the dataset."""
-        self.response = response_transformation.transform(self.response.reshape(-1, 1)).squeeze()
+        self.response = response_transformation.transform(
+            self.response.reshape(-1, 1)
+        ).squeeze()
         if self.predictions is not None:
-            self.predictions = response_transformation.transform(self.predictions.reshape(-1, 1)).squeeze()
-            
+            self.predictions = response_transformation.transform(
+                self.predictions.reshape(-1, 1)
+            ).squeeze()
+
     def fit_transform(self, response_transformation: TransformerMixin) -> None:
         """Fit and transform the response data and prediction data of the dataset."""
         response_transformation.fit(self.response.reshape(-1, 1)).squeeze()
         self.transform(response_transformation)
-        
+
     def inverse_transform(self, response_transformation: TransformerMixin) -> None:
         """Inverse transform the response data and prediction data of the dataset."""
-        self.response = response_transformation.inverse_transform(self.response.reshape(-1, 1)).squeeze()
+        self.response = response_transformation.inverse_transform(
+            self.response.reshape(-1, 1)
+        ).squeeze()
         if self.predictions is not None:
-            self.predictions = response_transformation.inverse_transform(self.predictions.reshape(-1, 1)).squeeze()
+            self.predictions = response_transformation.inverse_transform(
+                self.predictions.reshape(-1, 1)
+            ).squeeze()
 
 
 def split_early_stopping_data(
-        validation_dataset: DrugResponseDataset, test_mode: str
+    validation_dataset: DrugResponseDataset, test_mode: str
 ) -> Tuple[DrugResponseDataset, DrugResponseDataset]:
 
     validation_dataset.shuffle(random_state=42)
@@ -327,6 +350,7 @@ def split_early_stopping_data(
     validation_dataset = cv_v[0]["train"]
     early_stopping_dataset = cv_v[0]["test"]
     return validation_dataset, early_stopping_dataset
+
 
 class FeatureDataset(Dataset):
     """
@@ -348,7 +372,7 @@ class FeatureDataset(Dataset):
         Saves the feature dataset to data.
         """
         raise NotImplementedError("save method not implemented")
-    
+
     def load(self):
         """
         Loads the feature dataset from data.
@@ -378,8 +402,11 @@ class FeatureDataset(Dataset):
                         if view not in views_to_randomize
                         else self.features[other_entity][view]
                     )
-                    for view in self.view_names}
-                for entity, other_entity in zip(identifiers, np.random.permutation(identifiers))
+                    for view in self.view_names
+                }
+                for entity, other_entity in zip(
+                    identifiers, np.random.permutation(identifiers)
+                )
             }
 
         elif randomization_type == "gaussian":

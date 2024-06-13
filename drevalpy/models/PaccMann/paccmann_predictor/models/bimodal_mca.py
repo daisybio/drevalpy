@@ -97,47 +97,37 @@ class BimodalMCA(nn.Module):
         # Model Parameter
         self.device = get_device()
         self.params = params
-        self.ligand_padding_length = params['ligand_padding_length']
-        self.receptor_padding_length = params['receptor_padding_length']
+        self.ligand_padding_length = params["ligand_padding_length"]
+        self.receptor_padding_length = params["receptor_padding_length"]
 
         self.loss_fn = LOSS_FN_FACTORY[
-            params.get('loss_fn', 'binary_cross_entropy')
+            params.get("loss_fn", "binary_cross_entropy")
         ]  # yapf: disable
-        self.ligand_embedding_type = params.get('ligand_embedding', 'learned')
-        self.receptor_embedding_type = params.get(
-            'receptor_embedding', 'learned'
-        )
+        self.ligand_embedding_type = params.get("ligand_embedding", "learned")
+        self.receptor_embedding_type = params.get("receptor_embedding", "learned")
 
         # Hyperparameter
         self.act_fn = ACTIVATION_FN_FACTORY[
-            params.get('activation_fn', 'relu')
+            params.get("activation_fn", "relu")
         ]  # yapf: disable
-        self.dropout = params.get('dropout', 0.5)
-        self.use_batch_norm = params.get('batch_norm', True)
-        self.temperature = params.get('temperature', 1.0)
-        self.ligand_filters = params.get('ligand_filters', [32, 32, 32])
-        self.receptor_filters = params.get('receptor_filters', [32, 32, 32])
+        self.dropout = params.get("dropout", 0.5)
+        self.use_batch_norm = params.get("batch_norm", True)
+        self.temperature = params.get("temperature", 1.0)
+        self.ligand_filters = params.get("ligand_filters", [32, 32, 32])
+        self.receptor_filters = params.get("receptor_filters", [32, 32, 32])
 
         # set embedding_size to vocabulary_size if one_hot encoding is chosen
-        if params.get('ligand_embedding', 'learned') == 'one_hot':
-            self.ligand_embedding_size = params.get(
-                'ligand_vocabulary_size', 32
-            )
+        if params.get("ligand_embedding", "learned") == "one_hot":
+            self.ligand_embedding_size = params.get("ligand_vocabulary_size", 32)
         else:
-            self.ligand_embedding_size = params.get(
-                'ligand_embedding_size', 32
-            )
-        if params.get('receptor_embedding', 'learned') == 'one_hot':
-            self.receptor_embedding_size = params.get(
-                'receptor_vocabulary_size', 35
-            )
+            self.ligand_embedding_size = params.get("ligand_embedding_size", 32)
+        if params.get("receptor_embedding", "learned") == "one_hot":
+            self.receptor_embedding_size = params.get("receptor_vocabulary_size", 35)
         else:
-            self.receptor_embedding_size = params.get(
-                'receptor_embedding_size', 35
-            )
+            self.receptor_embedding_size = params.get("receptor_embedding_size", 35)
 
         self.ligand_kernel_sizes = params.get(
-            'ligand_kernel_sizes',
+            "ligand_kernel_sizes",
             [
                 [3, self.ligand_embedding_size],
                 [5, self.ligand_embedding_size],
@@ -145,7 +135,7 @@ class BimodalMCA(nn.Module):
             ],
         )
         self.receptor_kernel_sizes = params.get(
-            'receptor_kernel_sizes',
+            "receptor_kernel_sizes",
             [
                 [3, self.receptor_embedding_size],
                 [11, self.receptor_embedding_size],
@@ -153,138 +143,126 @@ class BimodalMCA(nn.Module):
             ],
         )
 
-        self.ligand_attention_size = params.get('ligand_attention_size', 16)
-        self.receptor_attention_size = params.get(
-            'receptor_attention_size', 16
-        )
+        self.ligand_attention_size = params.get("ligand_attention_size", 16)
+        self.receptor_attention_size = params.get("receptor_attention_size", 16)
 
-        self.ligand_hidden_sizes = [
-            self.ligand_embedding_size
-        ] + self.ligand_filters
+        self.ligand_hidden_sizes = [self.ligand_embedding_size] + self.ligand_filters
         self.receptor_hidden_sizes = [
             self.receptor_embedding_size
         ] + self.receptor_filters
         self.hidden_sizes = [
-            self.ligand_embedding_size + sum(self.ligand_filters) +
-            self.receptor_embedding_size + sum(self.receptor_filters)
-        ] + params.get('dense_hidden_sizes', [20])
+            self.ligand_embedding_size
+            + sum(self.ligand_filters)
+            + self.receptor_embedding_size
+            + sum(self.receptor_filters)
+        ] + params.get("dense_hidden_sizes", [20])
         if self.use_batch_norm:
             self.batch_norm = nn.BatchNorm1d(self.hidden_sizes[0])
 
         # Sanity checking of model sizes
         if len(self.ligand_filters) != len(self.ligand_kernel_sizes):
             raise ValueError(
-                'Length of ligand filter and kernel size lists do not match.'
+                "Length of ligand filter and kernel size lists do not match."
             )
         if len(self.receptor_filters) != len(self.receptor_kernel_sizes):
             raise ValueError(
-                'Length of receptor filter and kernel size lists do not match.'
+                "Length of receptor filter and kernel size lists do not match."
             )
         if len(self.ligand_filters) != len(self.receptor_filters):
             raise ValueError(
-                'Length of ligand_filters and receptor_filters array must match'
-                f', found ligand_filters: {len(self.ligand_filters)} and '
-                f'receptor_filters: {len(self.receptor_filters)}.'
+                "Length of ligand_filters and receptor_filters array must match"
+                f", found ligand_filters: {len(self.ligand_filters)} and "
+                f"receptor_filters: {len(self.receptor_filters)}."
             )
         """ Construct model  """
         # Embeddings
-        if params.get('ligand_embedding', 'learned') == 'pretrained':
+        if params.get("ligand_embedding", "learned") == "pretrained":
             # Load the pretrained embeddings
             try:
-                with open(params['ligand_embedding_path'], 'rb') as f:
+                with open(params["ligand_embedding_path"], "rb") as f:
                     embeddings = pickle.load(f)
             except KeyError:
-                raise KeyError('Path for ligand embeddings missing in params.')
+                raise KeyError("Path for ligand embeddings missing in params.")
 
             # Plug into layer
             self.ligand_embedding = nn.Embedding(
                 embeddings.shape[0], embeddings.shape[1]
             )
-            self.ligand_embedding.load_state_dict(
-                {'weight': torch.Tensor(embeddings)}
-            )
-            if params.get('fix_ligand_embeddings', True):
+            self.ligand_embedding.load_state_dict({"weight": torch.Tensor(embeddings)})
+            if params.get("fix_ligand_embeddings", True):
                 self.ligand_embedding.weight.requires_grad = False
 
-        elif params.get('ligand_embedding', 'learned') == 'one_hot':
+        elif params.get("ligand_embedding", "learned") == "one_hot":
             self.ligand_embedding = nn.Embedding(
-                self.params['ligand_vocabulary_size'],
-                self.params['ligand_vocabulary_size'],
+                self.params["ligand_vocabulary_size"],
+                self.params["ligand_vocabulary_size"],
             )
             # Plug in one hot-vectors and freeze weights
             self.ligand_embedding.load_state_dict(
                 {
-                    'weight':
-                        torch.nn.functional.one_hot(
-                            torch.arange(
-                                self.params['ligand_vocabulary_size']
-                            )
-                        )
+                    "weight": torch.nn.functional.one_hot(
+                        torch.arange(self.params["ligand_vocabulary_size"])
+                    )
                 }
             )
             self.ligand_embedding.weight.requires_grad = False
 
-        elif params.get('ligand_embedding', 'learned') == 'learned':
+        elif params.get("ligand_embedding", "learned") == "learned":
             self.ligand_embedding = nn.Embedding(
-                self.params['ligand_vocabulary_size'],
+                self.params["ligand_vocabulary_size"],
                 self.ligand_embedding_size,
-                scale_grad_by_freq=params.get('embed_scale_grad', False)
+                scale_grad_by_freq=params.get("embed_scale_grad", False),
             )
         else:
-            assert params.get(
-                'ligand_embedding', 'learned'
-            ) == 'predefined', 'Choose either pretrained, one_hot, predefined \
-             or learned as ligand_embedding. Defaults to learned'
+            assert (
+                params.get("ligand_embedding", "learned") == "predefined"
+            ), "Choose either pretrained, one_hot, predefined \
+             or learned as ligand_embedding. Defaults to learned"
 
-        if params.get('receptor_embedding', 'learned') == 'pretrained':
+        if params.get("receptor_embedding", "learned") == "pretrained":
             # Load the pretrained embeddings
             try:
-                with open(params['receptor_embedding_path'], 'rb') as f:
+                with open(params["receptor_embedding_path"], "rb") as f:
                     embeddings = pickle.load(f)
             except KeyError:
-                raise KeyError(
-                    'Path for receptor embeddings missing in params.'
-                )
+                raise KeyError("Path for receptor embeddings missing in params.")
 
             # Plug into layer
             self.receptor_embedding = nn.Embedding(
                 embeddings.shape[0], embeddings.shape[1]
             )
             self.receptor_embedding.load_state_dict(
-                {'weight': torch.Tensor(embeddings)}
+                {"weight": torch.Tensor(embeddings)}
             )
-            if params.get('fix_receptor_embeddings', True):
+            if params.get("fix_receptor_embeddings", True):
                 self.receptor_embedding.weight.requires_grad = False
 
-        elif params.get('receptor_embedding', 'learned') == 'one_hot':
+        elif params.get("receptor_embedding", "learned") == "one_hot":
             self.receptor_embedding = nn.Embedding(
-                self.params['receptor_vocabulary_size'],
-                self.params['receptor_vocabulary_size'],
+                self.params["receptor_vocabulary_size"],
+                self.params["receptor_vocabulary_size"],
             )
             # Plug in one hot-vectors and freeze weights
             self.receptor_embedding.load_state_dict(
                 {
-                    'weight':
-                        torch.nn.functional.one_hot(
-                            torch.arange(
-                                self.params['receptor_vocabulary_size']
-                            )
-                        )
+                    "weight": torch.nn.functional.one_hot(
+                        torch.arange(self.params["receptor_vocabulary_size"])
+                    )
                 }
             )
             self.receptor_embedding.weight.requires_grad = False
 
-        elif params.get('receptor_embedding', 'learned') == 'learned':
+        elif params.get("receptor_embedding", "learned") == "learned":
             self.receptor_embedding = nn.Embedding(
-                self.params['receptor_vocabulary_size'],
+                self.params["receptor_vocabulary_size"],
                 self.receptor_embedding_size,
-                scale_grad_by_freq=params.get('embed_scale_grad', False),
+                scale_grad_by_freq=params.get("embed_scale_grad", False),
             )
         else:
-            assert params.get(
-                'receptor_embedding', 'learned'
-            ) == 'predefined', 'Choose either pretrained, one_hot, predefined \
-             or learned as ligand_embedding. Defaults to learned'
+            assert (
+                params.get("receptor_embedding", "learned") == "predefined"
+            ), "Choose either pretrained, one_hot, predefined \
+             or learned as ligand_embedding. Defaults to learned"
 
         # Convolutions
         # TODO: Use nn.ModuleDict instead of the nn.Seq/OrderedDict
@@ -292,7 +270,7 @@ class BimodalMCA(nn.Module):
             OrderedDict(
                 [
                     (
-                        f'ligand_convolutional_{index}',
+                        f"ligand_convolutional_{index}",
                         convolutional_layer(
                             num_kernel,
                             kernel_size,
@@ -312,7 +290,7 @@ class BimodalMCA(nn.Module):
             OrderedDict(
                 [
                     (
-                        f'receptor_convolutional_{index}',
+                        f"receptor_convolutional_{index}",
                         convolutional_layer(
                             num_kernel,
                             kernel_size,
@@ -333,21 +311,20 @@ class BimodalMCA(nn.Module):
             OrderedDict(
                 [
                     (
-                        f'context_attention_ligand_{layer}',
+                        f"context_attention_ligand_{layer}",
                         ContextAttentionLayer(
                             self.ligand_hidden_sizes[layer],
-                            self.params['ligand_padding_length'],
+                            self.params["ligand_padding_length"],
                             self.receptor_hidden_sizes[layer],
-                            context_sequence_length=(
-                                self.receptor_padding_length
-                            ),
+                            context_sequence_length=(self.receptor_padding_length),
                             attention_size=self.ligand_attention_size,
                             individual_nonlinearity=params.get(
-                                'context_nonlinearity', nn.Sequential()
+                                "context_nonlinearity", nn.Sequential()
                             ),
                             temperature=self.temperature,
                         ),
-                    ) for layer in range(len(self.ligand_filters) + 1)
+                    )
+                    for layer in range(len(self.ligand_filters) + 1)
                 ]
             )
         )
@@ -356,19 +333,20 @@ class BimodalMCA(nn.Module):
             OrderedDict(
                 [
                     (
-                        f'context_attention_receptor_{layer}',
+                        f"context_attention_receptor_{layer}",
                         ContextAttentionLayer(
                             self.receptor_hidden_sizes[layer],
-                            self.params['receptor_padding_length'],
+                            self.params["receptor_padding_length"],
                             self.ligand_hidden_sizes[layer],
                             context_sequence_length=self.ligand_padding_length,
                             attention_size=self.receptor_attention_size,
                             individual_nonlinearity=params.get(
-                                'context_nonlinearity', nn.Sequential()
+                                "context_nonlinearity", nn.Sequential()
                             ),
                             temperature=self.temperature,
                         ),
-                    ) for layer in range(len(self.receptor_filters) + 1)
+                    )
+                    for layer in range(len(self.receptor_filters) + 1)
                 ]
             )
         )
@@ -377,7 +355,7 @@ class BimodalMCA(nn.Module):
             OrderedDict(
                 [
                     (
-                        f'dense_{ind}',
+                        f"dense_{ind}",
                         dense_layer(
                             self.hidden_sizes[ind],
                             self.hidden_sizes[ind + 1],
@@ -385,15 +363,16 @@ class BimodalMCA(nn.Module):
                             dropout=self.dropout,
                             batch_norm=self.use_batch_norm,
                         ).to(self.device),
-                    ) for ind in range(len(self.hidden_sizes) - 1)
+                    )
+                    for ind in range(len(self.hidden_sizes) - 1)
                 ]
             )
         )
 
         self.final_dense = nn.Linear(self.hidden_sizes[-1], 1)
-        if params.get('final_activation', True):
+        if params.get("final_activation", True):
             self.final_dense = nn.Sequential(
-                self.final_dense, ACTIVATION_FN_FACTORY['sigmoid']
+                self.final_dense, ACTIVATION_FN_FACTORY["sigmoid"]
             )
 
     def forward(self, ligand, receptors, confidence=False):
@@ -414,16 +393,14 @@ class BimodalMCA(nn.Module):
             prediction_dict includes the prediction and attention weights.
         """
         # Embedding
-        if self.ligand_embedding_type == 'predefined':
+        if self.ligand_embedding_type == "predefined":
             embedded_ligand = ligand.to(torch.float)
         else:
             embedded_ligand = self.ligand_embedding(ligand.to(torch.int64))
-        if self.receptor_embedding_type == 'predefined':
+        if self.receptor_embedding_type == "predefined":
             embedded_receptor = receptors.to(torch.float)
         else:
-            embedded_receptor = self.receptor_embedding(
-                receptors.to(torch.int64)
-            )
+            embedded_receptor = self.receptor_embedding(receptors.to(torch.int64))
 
         # Convolutions
         encoded_ligand = [embedded_ligand] + [
@@ -438,7 +415,8 @@ class BimodalMCA(nn.Module):
         # Context attention on ligand
         ligand_encodings, ligand_alphas = zip(
             *[
-                layer(reference, context) for layer, reference, context in zip(
+                layer(reference, context)
+                for layer, reference, context in zip(
                     self.context_attention_ligand_layers,
                     encoded_ligand,
                     encoded_receptor,
@@ -449,7 +427,8 @@ class BimodalMCA(nn.Module):
         # Context attention on receptor
         receptor_encodings, receptor_alphas = zip(
             *[
-                layer(reference, context) for layer, reference, context in zip(
+                layer(reference, context)
+                for layer, reference, context in zip(
                     self.context_attention_receptor_layers,
                     encoded_receptor,
                     encoded_ligand,
@@ -478,21 +457,17 @@ class BimodalMCA(nn.Module):
         if not self.training:
             # The below is to ease postprocessing
             ligand_attention_weights = torch.mean(
-                torch.cat(
-                    [torch.unsqueeze(p, -1) for p in ligand_alphas], dim=-1
-                ),
+                torch.cat([torch.unsqueeze(p, -1) for p in ligand_alphas], dim=-1),
                 dim=-1,
             )
             receptor_attention_weights = torch.mean(
-                torch.cat(
-                    [torch.unsqueeze(p, -1) for p in receptor_alphas], dim=-1
-                ),
+                torch.cat([torch.unsqueeze(p, -1) for p in receptor_alphas], dim=-1),
                 dim=-1,
             )
             prediction_dict.update(
                 {
-                    'ligand_attention': ligand_attention_weights,
-                    'receptor_attention': receptor_attention_weights,
+                    "ligand_attention": ligand_attention_weights,
+                    "receptor_attention": receptor_attention_weights,
                 }
             )  # yapf: disable
 
@@ -500,13 +475,13 @@ class BimodalMCA(nn.Module):
                 augmenter = AugmentTensor(self.smiles_language)
                 epistemic_conf = monte_carlo_dropout(
                     self,
-                    regime='tensors',
+                    regime="tensors",
                     tensors=(ligand, receptors),
                     repetitions=5,
                 )
                 aleatoric_conf = test_time_augmentation(
                     self,
-                    regime='tensors',
+                    regime="tensors",
                     tensors=(ligand, receptors),
                     repetitions=5,
                     augmenter=augmenter,
@@ -515,8 +490,8 @@ class BimodalMCA(nn.Module):
 
                 prediction_dict.update(
                     {
-                        'epistemic_confidence': epistemic_conf,
-                        'aleatoric_confidence': aleatoric_conf,
+                        "epistemic_confidence": epistemic_conf,
+                        "aleatoric_confidence": aleatoric_conf,
                     }
                 )  # yapf: disable
 
@@ -542,16 +517,14 @@ class BimodalMCA(nn.Module):
         if isinstance(language, pytoda.smiles.smiles_language.SMILESLanguage):
             self.smiles_language = language
 
-        elif isinstance(
-            language, pytoda.proteins.protein_language.ProteinLanguage
-        ):
+        elif isinstance(language, pytoda.proteins.protein_language.ProteinLanguage):
             self.protein_language = language
         else:
             raise TypeError(
-                'Please insert a smiles language (object of type '
-                'pytoda.smiles.smiles_language.SMILESLanguage or '
-                'pytoda.proteins.protein_language.ProteinLanguage). Given was '
-                f'{type(language)}'
+                "Please insert a smiles language (object of type "
+                "pytoda.smiles.smiles_language.SMILESLanguage or "
+                "pytoda.proteins.protein_language.ProteinLanguage). Given was "
+                f"{type(language)}"
             )
 
     def load(self, path, *args, **kwargs):

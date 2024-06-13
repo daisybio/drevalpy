@@ -11,14 +11,14 @@ from scipy.stats import pearsonr, spearmanr, kendalltau
 
 
 def leave_pair_out_cv(
-        n_cv_splits: int,
-        response: ArrayLike,
-        cell_line_ids: ArrayLike,
-        drug_ids: ArrayLike,
-        split_validation=True,
-        validation_ratio=0.1,
-        random_state=42,
-        dataset_name: Optional[str] = None
+    n_cv_splits: int,
+    response: ArrayLike,
+    cell_line_ids: ArrayLike,
+    drug_ids: ArrayLike,
+    split_validation=True,
+    validation_ratio=0.1,
+    random_state=42,
+    dataset_name: Optional[str] = None,
 ) -> List[dict]:
     """
     Leave pair out cross validation. Splits data into n_cv_splits number of cross validation splits.
@@ -35,7 +35,7 @@ def leave_pair_out_cv(
     from drevalpy.datasets.dataset import DrugResponseDataset
 
     assert (
-            len(response) == len(cell_line_ids) == len(drug_ids)
+        len(response) == len(cell_line_ids) == len(drug_ids)
     ), "response, cell_line_ids and drug_ids must have the same length"
 
     kf = KFold(n_splits=n_cv_splits, shuffle=True, random_state=random_state)
@@ -55,13 +55,13 @@ def leave_pair_out_cv(
                 cell_line_ids=cell_line_ids[train_indices],
                 drug_ids=drug_ids[train_indices],
                 response=response[train_indices],
-                dataset_name=dataset_name
+                dataset_name=dataset_name,
             ),
             "test": DrugResponseDataset(
                 cell_line_ids=cell_line_ids[test_indices],
                 drug_ids=drug_ids[test_indices],
                 response=response[test_indices],
-                dataset_name=dataset_name
+                dataset_name=dataset_name,
             ),
         }
 
@@ -70,7 +70,7 @@ def leave_pair_out_cv(
                 cell_line_ids=cell_line_ids[validation_indices],
                 drug_ids=drug_ids[validation_indices],
                 response=response[validation_indices],
-                dataset_name=dataset_name
+                dataset_name=dataset_name,
             )
 
         cv_sets.append(cv_fold)
@@ -78,18 +78,16 @@ def leave_pair_out_cv(
 
 
 def leave_group_out_cv(
-        group: str,
-        n_cv_splits: int,
-        response: ArrayLike,
-        cell_line_ids: ArrayLike,
-        drug_ids: ArrayLike,
-        split_validation=True,
-        validation_ratio=0.1,
-        random_state=42,
-        dataset_name: Optional[str] = None
-
+    group: str,
+    n_cv_splits: int,
+    response: ArrayLike,
+    cell_line_ids: ArrayLike,
+    drug_ids: ArrayLike,
+    split_validation=True,
+    validation_ratio=0.1,
+    random_state=42,
+    dataset_name: Optional[str] = None,
 ):
-
     """
     Leave group out cross validation. Splits data into n_cv_splits number of cross validation splits.
     :param group: group to leave out (cell_line or drug)
@@ -126,13 +124,13 @@ def leave_group_out_cv(
                 cell_line_ids=cell_line_ids[train_indices],
                 drug_ids=drug_ids[train_indices],
                 response=response[train_indices],
-                dataset_name=dataset_name
+                dataset_name=dataset_name,
             ),
             "test": DrugResponseDataset(
                 cell_line_ids=cell_line_ids[test_indices],
                 drug_ids=drug_ids[test_indices],
                 response=response[test_indices],
-                dataset_name=dataset_name
+                dataset_name=dataset_name,
             ),
         }
         if split_validation:
@@ -150,13 +148,13 @@ def leave_group_out_cv(
                 cell_line_ids=cell_line_ids[train_indices],
                 drug_ids=drug_ids[train_indices],
                 response=response[train_indices],
-                dataset_name=dataset_name
+                dataset_name=dataset_name,
             )
             cv_fold["validation"] = DrugResponseDataset(
                 cell_line_ids=cell_line_ids[validation_indices],
                 drug_ids=drug_ids[validation_indices],
                 response=response[validation_indices],
-                dataset_name=dataset_name
+                dataset_name=dataset_name,
             )
 
         cv_sets.append(cv_fold)
@@ -164,10 +162,10 @@ def leave_group_out_cv(
 
 
 def partial_correlation(
-        y_pred: np.ndarray,
-        y_true: np.ndarray,
-        cell_line_ids: np.ndarray,
-        drug_ids: np.ndarray,
+    y_pred: np.ndarray,
+    y_true: np.ndarray,
+    cell_line_ids: np.ndarray,
+    drug_ids: np.ndarray,
 ) -> float:
     """
     Computes the partial correlation between predictions and response, conditioned on cell line and drug.
@@ -179,30 +177,41 @@ def partial_correlation(
     """
 
     assert (
-            len(y_pred) == len(y_true) == len(cell_line_ids) == len(drug_ids)
+        len(y_pred) == len(y_true) == len(cell_line_ids) == len(drug_ids)
     ), "predictions, response, drug_ids, and cell_line_ids must have the same length"
 
-    df = pd.DataFrame({'response': y_true,
-                       'predictions': y_pred,
-                       'cell_line_ids': cell_line_ids,
-                       'drug_ids': drug_ids})
+    df = pd.DataFrame(
+        {
+            "response": y_true,
+            "predictions": y_pred,
+            "cell_line_ids": cell_line_ids,
+            "drug_ids": drug_ids,
+        }
+    )
     # fit a model to compute the biases
     from statsmodels.formula.api import ols
-    model = ols('response ~ cell_line_ids + drug_ids', data=df).fit()
+
+    model = ols("response ~ cell_line_ids + drug_ids", data=df).fit()
     fil = pd.Series(model.params.index).apply(lambda x: x[:4] == "cell")
     model_cell = model.params[fil.values]
     fil = pd.Series(model.params.index).apply(lambda x: x[:4] == "drug")
     model_drug = model.params[fil.values]
-    model_cell.index = pd.Series(model_cell.index).apply(lambda x: x.split("T.")[1][:-1])
-    model_drug.index = pd.Series(model_drug.index).apply(lambda x: x.split("T.")[1][:-1])
+    model_cell.index = pd.Series(model_cell.index).apply(
+        lambda x: x.split("T.")[1][:-1]
+    )
+    model_drug.index = pd.Series(model_drug.index).apply(
+        lambda x: x.split("T.")[1][:-1]
+    )
 
-    cell_bias = pd.DataFrame(0.0, index=df['cell_line_ids'].unique(), columns=['cell_bias'])
+    cell_bias = pd.DataFrame(
+        0.0, index=df["cell_line_ids"].unique(), columns=["cell_bias"]
+    )
     cell_bias.loc[
         model_cell.index,
         "cell_bias",
     ] = model_cell.values
 
-    drug_bias = pd.DataFrame(0.0, index=df['drug_ids'].unique(), columns=['drug_bias'])
+    drug_bias = pd.DataFrame(0.0, index=df["drug_ids"].unique(), columns=["drug_bias"])
     drug_bias.loc[
         model_drug.index,
         "drug_bias",
@@ -211,9 +220,13 @@ def partial_correlation(
     df["cell_bias"] = df["cell_line_ids"].map(cell_bias["cell_bias"])
     df["drug_bias"] = df["drug_ids"].map(drug_bias["drug_bias"])
 
-    if (len(df) > 1) & (df['response'].std() > 1e-10) & (df['predictions'].std() > 1e-10):
-        model1 = ols('response ~ cell_bias + drug_bias', data=df).fit()
-        model2 = ols('predictions ~ cell_bias + drug_bias', data=df).fit()
+    if (
+        (len(df) > 1)
+        & (df["response"].std() > 1e-10)
+        & (df["predictions"].std() > 1e-10)
+    ):
+        model1 = ols("response ~ cell_bias + drug_bias", data=df).fit()
+        model2 = ols("predictions ~ cell_bias + drug_bias", data=df).fit()
         r, p = pearsonr(model1.resid, model2.resid)
     else:
         # if constant response or predictions, return nan because pearsonnr is not defined
@@ -267,6 +280,7 @@ def kendall(y_pred: np.ndarray, y_true: np.ndarray) -> float:
     if (y_pred == y_pred[0]).all() or (y_true == y_true[0]).all() or len(y_true) < 2:
         return np.nan
     return kendalltau(y_pred, y_true)[0]
+
 
 def handle_overwrite(path: str, overwrite: bool) -> None:
     """Handle overwrite logic for a given path."""

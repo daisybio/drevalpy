@@ -3,7 +3,7 @@ import torch.nn as nn
 
 
 def get_device():
-    return torch.device('cuda' if cuda() else 'cpu')
+    return torch.device("cuda" if cuda() else "cpu")
 
 
 def cuda():
@@ -31,9 +31,7 @@ def attention_list_to_matrix(coding_tuple, dim=2):
             by default the last dimension.
         coeff: where the dimension is collapsed by averaging.
     """
-    raw_coeff = torch.cat(
-        [torch.unsqueeze(tpl[1], 2) for tpl in coding_tuple], dim=dim
-    )
+    raw_coeff = torch.cat([torch.unsqueeze(tpl[1], 2) for tpl in coding_tuple], dim=dim)
     return raw_coeff, torch.mean(raw_coeff, dim=dim)
 
 
