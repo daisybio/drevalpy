@@ -16,6 +16,7 @@ from sklearn.base import TransformerMixin
 def drug_response_experiment(
     models: List[Type[DRPModel]],
     response_data: DrugResponseDataset,
+    baselines: Optional[List[Type[DRPModel]]] = None,
     response_transformation: Optional[TransformerMixin] = None,
     run_id: str = "",
     test_mode: str = "LPO",
@@ -32,6 +33,7 @@ def drug_response_experiment(
     """
     Run the drug response prediction experiment. Save results to disc.
     :param models: list of model classes to compare
+    :param baselines: list of baseline models. No randomization or robustness tests are run for the baseline models.
     :param response_data: drug response dataset
     :param response_transformation: normalizer to use for the response data
     :param metric: metric to use for hyperparameter optimization
@@ -60,15 +62,21 @@ def drug_response_experiment(
 
     :return: None
     """
-
+    if baselines is None:
+        baselines = []
     cross_study_datasets = cross_study_datasets or []
     result_path = os.path.join(path_out, run_id, test_mode)
+
     # if results exists, delete them if overwrite is true
     handle_overwrite(result_path, overwrite)
 
-    for model_class in models:
-
-        print(f"Running model {model_class.model_name}")
+    for model_class in models + baselines:
+        if model_class in baselines:
+            print(f"Running baseline model {model_class.model_name}")
+            is_baseline = True
+        else:
+            print(f"Running model {model_class.model_name}")
+            is_baseline = False
 
         model_path = os.path.join(result_path, model_class.model_name)
         handle_overwrite(model_path, overwrite)
@@ -114,51 +122,35 @@ def drug_response_experiment(
                 prediction_file
             ):  # if this split has not been run yet
 
+                tuning_inputs = {
+                    "model": model,
+                    "train_dataset": train_dataset,
+                    "validation_dataset": validation_dataset,
+                    "early_stopping_dataset": (
+                        early_stopping_dataset if model.early_stopping else None
+                    ),
+                    "hpam_set": model_hpam_set,
+                    "response_transformation": response_transformation,
+                    "metric": metric,
+                }
+
                 if multiprocessing:
                     if Type(model) == CompositeDrugModel:
-                        raise NotImplementedError(
-                            "Multiprocessing is not implemented for SingleDrugModels"
+                        warnings.warn(
+                            "Multiprocessing not yet supported for CompositeDrugModel."
                         )
+                        best_hpams = hpam_tune_composite_model(**tuning_inputs)
+
                     else:
-                        best_hpams = hpam_tune_raytune(
-                            model=model,
-                            train_dataset=train_dataset,
-                            validation_dataset=validation_dataset,
-                            early_stopping_dataset=(
-                                early_stopping_dataset if model.early_stopping else None
-                            ),
-                            hpam_set=model_hpam_set,
-                            response_transformation=response_transformation,
-                            metric=metric,
-                            ray_path=os.path.abspath(
-                                os.path.join(result_path, "raytune")
-                            ),
+                        tuning_inputs["ray_path"] = os.path.abspath(
+                            os.path.join(result_path, "raytune")
                         )
+                        best_hpams = hpam_tune_raytune(**tuning_inputs)
                 else:
                     if type(model) == CompositeDrugModel:
-                        best_hpams = hpam_tune_composite_model(
-                            model=model,
-                            train_dataset=train_dataset,
-                            validation_dataset=validation_dataset,
-                            early_stopping_dataset=(
-                                early_stopping_dataset if model.early_stopping else None
-                            ),
-                            hpam_set=model_hpam_set,
-                            response_transformation=response_transformation,
-                            metric=metric,
-                        )
+                        best_hpams = hpam_tune_composite_model(**tuning_inputs)
                     else:
-                        best_hpams = hpam_tune(
-                            model=model,
-                            train_dataset=train_dataset,
-                            validation_dataset=validation_dataset,
-                            early_stopping_dataset=(
-                                early_stopping_dataset if model.early_stopping else None
-                            ),
-                            hpam_set=model_hpam_set,
-                            response_transformation=response_transformation,
-                            metric=metric,
-                        )
+                        best_hpams = hpam_tune(**tuning_inputs)
 
                 print(f"Best hyperparameters: {best_hpams}")
                 print(
@@ -216,39 +208,39 @@ def drug_response_experiment(
                         )
                     )
                 )
-
-            if randomization_mode is not None:
-                randomization_test_views = get_randomization_test_views(
-                    model=model, randomization_mode=randomization_mode
-                )
-                randomization_test(
-                    randomization_test_views=randomization_test_views,
-                    model=model,
-                    hpam_set=best_hpams,
-                    path_data="data",
-                    train_dataset=train_dataset,
-                    test_dataset=test_dataset,
-                    early_stopping_dataset=early_stopping_dataset,
-                    path_out=randomization_test_path,
-                    split_index=split_index,
-                    test_mode=test_mode,
-                    randomization_type=randomization_type,
-                    response_transformation=response_transformation,
-                )
-            if n_trials_robustness > 0:
-                robustness_test(
-                    n_trials=n_trials_robustness,
-                    model=model,
-                    hpam_set=best_hpams,
-                    path_data="data",
-                    train_dataset=train_dataset,
-                    test_dataset=test_dataset,
-                    early_stopping_dataset=early_stopping_dataset,
-                    path_out=model_path,
-                    split_index=split_index,
-                    test_mode=test_mode,
-                    response_transformation=response_transformation,
-                )
+            if not is_baseline:
+                if randomization_mode is not None:
+                    randomization_test_views = get_randomization_test_views(
+                        model=model, randomization_mode=randomization_mode
+                    )
+                    randomization_test(
+                        randomization_test_views=randomization_test_views,
+                        model=model,
+                        hpam_set=best_hpams,
+                        path_data="data",
+                        train_dataset=train_dataset,
+                        test_dataset=test_dataset,
+                        early_stopping_dataset=early_stopping_dataset,
+                        path_out=randomization_test_path,
+                        split_index=split_index,
+                        test_mode=test_mode,
+                        randomization_type=randomization_type,
+                        response_transformation=response_transformation,
+                    )
+                if n_trials_robustness > 0:
+                    robustness_test(
+                        n_trials=n_trials_robustness,
+                        model=model,
+                        hpam_set=best_hpams,
+                        path_data="data",
+                        train_dataset=train_dataset,
+                        test_dataset=test_dataset,
+                        early_stopping_dataset=early_stopping_dataset,
+                        path_out=model_path,
+                        split_index=split_index,
+                        test_mode=test_mode,
+                        response_transformation=response_transformation,
+                    )
 
 
 def load_features(
@@ -751,7 +743,5 @@ def hpam_tune_raytune(
     )
 
     mode = get_mode(metric)
-    best_config = analysis.get_best_config(
-        metric=metric, mode=mode
-    )  # TODO mode depends on metric
+    best_config = analysis.get_best_config(metric=metric, mode=mode)
     return best_config
