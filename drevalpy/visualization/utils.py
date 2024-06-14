@@ -6,15 +6,15 @@ from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.evaluation import evaluate, AVAILABLE_METRICS
 
 
-def parse_layout(f, index=False):
-    if index:
-        with open("index_layout.html", "r") as layout_f:
-            layout = layout_f.readlines()
+def parse_layout(f, path_to_layout):
+    with open(path_to_layout, "r") as layout_f:
+        layout = layout_f.readlines()
+    if path_to_layout.endswith("index.html"):
+        # remove the last 2 lines (</body>, </html>)
+        layout = layout[:-2]
     else:
-        with open("page_layout.html", "r") as layout_f:
-            layout = layout_f.readlines()
-    # remove the last 3 lines (</div>, </body>, </html>)
-    layout = layout[:-3]
+        # remove the last 3 lines (</div>, </body>, </html>)
+        layout = layout[:-3]
     f.write("".join(layout))
 
 
@@ -250,3 +250,63 @@ def write_group_results(norm_group_res, group_by, eval_res, eval_res_group, path
     else:
         eval_res_group.to_csv(f"evaluation_results_per_{group_by}.csv", index=True)
     return eval_res, eval_res_group
+
+
+def write_violins_and_heatmaps(f, setting, plot_list, plot="Violin"):
+    if plot == "Violin":
+        nav_id = "violin"
+        dir_name = "violin_plots"
+        prefix = "violinplot"
+    else:
+        nav_id = "heatmap"
+        dir_name = "heatmaps"
+        prefix = "heatmap"
+    f.write(
+        f'<h2 id="{nav_id}">{plot} Plots of Performance Measures over CV runs</h2>\n'
+    )
+    f.write(f"<h3>{plot} plots comparing all models</h3>\n")
+    f.write(
+        f'<iframe src="{dir_name}/{prefix}_{setting}.html" width="100%" height="100%" frameBorder="0"></iframe>\n'
+    )
+    f.write(f"<h3>{plot} plots comparing all models with normalized metrics</h3>\n")
+    f.write(
+        f"Before calculating the evaluation metrics, all values were normalized by the mean of the drug or cell line. "
+        f"Since this only influences the R^2 and the correlation metrics, the error metrics are not shown. \n"
+    )
+    f.write(
+        f'<iframe src="{dir_name}/{prefix}_{setting}_normalized.html" width="100%" height="100%" frameBorder="0"></iframe>\n'
+    )
+    f.write(
+        f"<h3>{plot} plots comparing performance measures for tests within each model</h3>\n"
+    )
+    f.write("<ul>")
+    for plot in plot_list:
+        f.write(f'<li><a href="{dir_name}/{plot}" target="_blank">{plot}</a></li>\n')
+    f.write("</ul>\n")
+
+
+def write_scatter_eval_models(f, setting, group_by, plot_list):
+    if len(plot_list) > 0:
+        f.write('<h3 id="corr_comp_drug">Drug-wise comparison</h3>\n')
+        f.write("<h4>Overall comparison between models</h4>\n")
+        f.write(
+            f'<iframe src="corr_comp_scatter/corr_comp_scatter_overall_{setting}_{group_by}.html" width="100%" height="100%" frameBorder="0"></iframe>\n'
+        )
+        f.write("<h4>Comparison between all models, dropdown menu</h4>\n")
+        f.write(
+            f'<iframe src="corr_comp_scatter/corr_comp_scatter_{setting}_{group_by}.html" width="100%" height="100%" frameBorder="0"></iframe>\n'
+        )
+        f.write("<h4>Comparisons per model</h4>\n")
+        f.write("<ul>\n")
+        plot_list = [
+            elem
+            for elem in plot_list
+            if elem != f"corr_comp_scatter_{setting}_{group_by}.html"
+            and elem != f"corr_comp_scatter_overall_{setting}_{group_by}.html"
+        ]
+        plot_list.sort()
+        for group_comparison in plot_list:
+            f.write(
+                f'<li><a href="corr_comp_scatter/{group_comparison}" target="_blank">{group_comparison}</a></li>\n'
+            )
+        f.write("</ul>\n")

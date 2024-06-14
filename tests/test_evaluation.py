@@ -21,7 +21,15 @@ def test_evaluate():
     results = evaluate(dataset, metric=["mse", "rmse", "mae", "r2"])
 
     # Check if the calculated metrics match the expected values
-    assert np.isclose(results["mse"], mse_expected), f"Expected mse: {mse_expected}, Got: {results['mse']}"
-    assert np.isclose(results["rmse"], rmse_expected), f"Expected rmse: {rmse_expected}, Got: {results['rmse']}"
-    assert np.isclose(results["mae"], mae_expected), f"Expected mae: {mae_expected}, Got: {results['mae']}"
-    assert np.isclose(results["r2"], r2_expected), f"Expected, r2: {r2_expected}, Got: {results['r2']}"
+    assert np.isclose(
+        results["mse"], mse_expected
+    ), f"Expected mse: {mse_expected}, Got: {results['mse']}"
+    assert np.isclose(
+        results["rmse"], rmse_expected
+    ), f"Expected rmse: {rmse_expected}, Got: {results['rmse']}"
+    assert np.isclose(
+        results["mae"], mae_expected
+    ), f"Expected mae: {mae_expected}, Got: {results['mae']}"
+    assert np.isclose(
+        results["r2"], r2_expected
+    ), f"Expected, r2: {r2_expected}, Got: {results['r2']}"

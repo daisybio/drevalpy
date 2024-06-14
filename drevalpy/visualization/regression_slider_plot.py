@@ -5,11 +5,8 @@ import pandas as pd
 
 
 class RegressionSliderPlot:
-    def __init__(
-        self, df: pd.DataFrame, run_id: str, group_by: str = "drug", normalize=False
-    ):
+    def __init__(self, df: pd.DataFrame, group_by: str = "drug", normalize=False):
         self.df = df[df["rand_setting"] == "predictions"]
-        self.run_id = run_id
         self.group_by = group_by
         self.normalize = normalize
         self.fig = None
