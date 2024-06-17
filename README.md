@@ -15,6 +15,5 @@ pip install .
 ## Contact
 Main developers: 
 
-- [Judith Bernett](mailto:judith.bernett@tum.de), TUM, TUM School of Life Sciences, Data Science in Systems Biology
-- [Pascal Iversen](mailto:Pascal.Iversen@hpi.de), FU, Hasso Plattner Institute
-- [Mario Picciani](mailto:mario.picciani@tum.de), TUM, TUM School of Life Sciences, Computational Mass Spectrometry
+- [Judith Bernett](mailto:judith.bernett@tum.de), TUM 
+- [Pascal Iversen](mailto:Pascal.Iversen@hpi.de), FU Berlin, Hasso Plattner Institute
