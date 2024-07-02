@@ -1,6 +1,6 @@
 import os
 import shutil
-from typing import List, Optional
+from typing import List, Optional, Tuple, Any
 import pandas as pd
 from sklearn.model_selection import KFold, GroupKFold
 import numpy as np
@@ -8,6 +8,7 @@ from numpy.typing import ArrayLike
 from sklearn.model_selection import train_test_split
 from scipy.stats import pearsonr, spearmanr, kendalltau
 from pingouin import partial_corr
+
 
 def leave_pair_out_cv(
     n_cv_splits: int,
@@ -167,8 +168,7 @@ def partial_correlation(
     drug_ids: np.ndarray,
     method: str = "pearson",
     return_pvalue: bool = False,
-
-) -> float:
+) -> Tuple[float, float] | float:
     """
     Computes the partial correlation between predictions and response, conditioned on cell line and drug.
     :param y_pred: predictions
@@ -179,6 +179,8 @@ def partial_correlation(
     :return: partial correlation float
     """
 
+    if len(y_true) < 3:
+        return np.nan
     assert (
         len(y_pred) == len(y_true) == len(cell_line_ids) == len(drug_ids)
     ), "predictions, response, drug_ids, and cell_line_ids must have the same length"

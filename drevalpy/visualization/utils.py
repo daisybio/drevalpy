@@ -9,7 +9,7 @@ from drevalpy.evaluation import evaluate, AVAILABLE_METRICS
 def parse_layout(f, path_to_layout):
     with open(path_to_layout, "r") as layout_f:
         layout = layout_f.readlines()
-    if path_to_layout.endswith("index.html"):
+    if path_to_layout.endswith("index_layout.html"):
         # remove the last 2 lines (</body>, </html>)
         layout = layout[:-2]
     else:
