@@ -1,14 +1,13 @@
 import os
 import shutil
-from typing import List, Optional, Tuple
-
+from typing import List, Optional
 import pandas as pd
 from sklearn.model_selection import KFold, GroupKFold
 import numpy as np
 from numpy.typing import ArrayLike
 from sklearn.model_selection import train_test_split
 from scipy.stats import pearsonr, spearmanr, kendalltau
-
+from pingouin import partial_corr
 
 def leave_pair_out_cv(
     n_cv_splits: int,
@@ -166,6 +165,9 @@ def partial_correlation(
     y_true: np.ndarray,
     cell_line_ids: np.ndarray,
     drug_ids: np.ndarray,
+    method: str = "pearson",
+    return_pvalue: bool = False,
+
 ) -> float:
     """
     Computes the partial correlation between predictions and response, conditioned on cell line and drug.
@@ -173,6 +175,7 @@ def partial_correlation(
     :param y_true: response
     :param cell_line_ids: cell line IDs
     :param drug_ids: drug IDs
+    :param method: method to compute the partial correlation (pearson, spearman)
     :return: partial correlation float
     """
 
@@ -188,50 +191,16 @@ def partial_correlation(
             "drug_ids": drug_ids,
         }
     )
-    # fit a model to compute the biases
-    from statsmodels.formula.api import ols
 
-    model = ols("response ~ cell_line_ids + drug_ids", data=df).fit()
-    fil = pd.Series(model.params.index).apply(lambda x: x[:4] == "cell")
-    model_cell = model.params[fil.values]
-    fil = pd.Series(model.params.index).apply(lambda x: x[:4] == "drug")
-    model_drug = model.params[fil.values]
-    model_cell.index = pd.Series(model_cell.index).apply(
-        lambda x: x.split("T.")[1][:-1]
-    )
-    model_drug.index = pd.Series(model_drug.index).apply(
-        lambda x: x.split("T.")[1][:-1]
-    )
-
-    cell_bias = pd.DataFrame(
-        0.0, index=df["cell_line_ids"].unique(), columns=["cell_bias"]
-    )
-    cell_bias.loc[
-        model_cell.index,
-        "cell_bias",
-    ] = model_cell.values
-
-    drug_bias = pd.DataFrame(0.0, index=df["drug_ids"].unique(), columns=["drug_bias"])
-    drug_bias.loc[
-        model_drug.index,
-        "drug_bias",
-    ] = model_drug.values
-
-    df["cell_bias"] = df["cell_line_ids"].map(cell_bias["cell_bias"])
-    df["drug_bias"] = df["drug_ids"].map(drug_bias["drug_bias"])
-
-    if (
-        (len(df) > 1)
-        & (df["response"].std() > 1e-10)
-        & (df["predictions"].std() > 1e-10)
-    ):
-        model1 = ols("response ~ cell_bias + drug_bias", data=df).fit()
-        model2 = ols("predictions ~ cell_bias + drug_bias", data=df).fit()
-        r, p = pearsonr(model1.resid, model2.resid)
+    df["cell_line_ids"] = pd.factorize(df["cell_line_ids"])[0]
+    df["drug_ids"] = pd.factorize(df["drug_ids"])[0]
+    result = partial_corr(data=df, x='predictions', y='response', covar=['cell_line_ids', 'drug_ids'], method=method)
+    r = result['r'].iloc[0]
+    p = result['p-val'].iloc[0]
+    if return_pvalue:
+        return r, p
     else:
-        # if constant response or predictions, return nan because pearsonnr is not defined
-        r = np.nan
-    return r
+        return r
 
 
 def pearson(y_pred: np.ndarray, y_true: np.ndarray) -> float:
