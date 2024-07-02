@@ -194,9 +194,12 @@ def partial_correlation(
 
     df["cell_line_ids"] = pd.factorize(df["cell_line_ids"])[0]
     df["drug_ids"] = pd.factorize(df["drug_ids"])[0]
-    result = partial_corr(data=df, x='predictions', y='response', covar=['cell_line_ids', 'drug_ids'], method=method)
-    r = result['r'].iloc[0]
-    p = result['p-val'].iloc[0]
+    if df.shape[0] < 3:
+        r, p = np.nan, np.nan
+    else:
+        result = partial_corr(data=df, x='predictions', y='response', covar=['cell_line_ids', 'drug_ids'], method=method)
+        r = result['r'].iloc[0]
+        p = result['p-val'].iloc[0]
     if return_pvalue:
         return r, p
     else:
