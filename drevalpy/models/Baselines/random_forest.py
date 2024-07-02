@@ -14,9 +14,10 @@ class RandomForest(DRPModel):
     cell_line_views = ["gene_expression"]
     drug_views = ["fingerprints"]
 
-    def build_model(self, hyperparameters: dict):
+    def build_model(self, hyperparameters: dict, **kwargs):
         """
         Builds the model from hyperparameters.
+        :param **kwargs:
         :param hyperparameters: Hyperparameters for the model.
         """
         if hyperparameters["max_depth"] == "None":

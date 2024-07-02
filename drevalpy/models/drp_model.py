@@ -261,11 +261,7 @@ class CompositeDrugModel(DRPModel):
                     }
                 )
 
-                self.models[drug].train(
-                    output=output_drug,
-                    output_earlystopping=output_earlystopping_drug,
-                    **inputs_drug,
-                )
+                self.models[drug].train(output=output_drug, **inputs_drug)
             else:
                 assert self.models[drug] is not None, f"none for drug {drug}"
                 self.models[drug].train(output=output_drug, **inputs_drug)
