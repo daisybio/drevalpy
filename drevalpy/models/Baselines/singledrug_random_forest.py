@@ -9,7 +9,9 @@ class SingleDrugRandomForest(SingleDrugModel, RandomForest):
     model_name = "SingleDrugRandomForest"
     early_stopping = False
 
-    def train(self, output: DrugResponseDataset, gene_expression: np.ndarray = None, **kwargs) -> None:
+    def train(
+        self, output: DrugResponseDataset, gene_expression: np.ndarray = None, **kwargs
+    ) -> None:
         """
         Trains the model: the number of features is the number of fingerprints.
         :param **kwargs:

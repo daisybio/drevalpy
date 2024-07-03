@@ -42,6 +42,7 @@ def load_drug_features_from_fingerprints(
         }
     )
 
+
 def unique(array):
     # ordered by first occurence
     uniq, index = np.unique(array, return_index=True)
