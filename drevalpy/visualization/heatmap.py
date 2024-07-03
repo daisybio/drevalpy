@@ -52,7 +52,12 @@ class Heatmap:
             nr_subplots = 4
             self.plot_settings = ["standard_errors", "r2", "correlations", "errors"]
         self.whole_name = whole_name
-        self.fig = make_subplots(rows=nr_subplots, cols=1, subplot_titles=tuple(titles))
+        if nr_subplots == 3:
+            self.fig = make_subplots(rows=nr_subplots, cols=1, subplot_titles=tuple(titles),
+                                     vertical_spacing=0.25)
+        else:
+            self.fig = make_subplots(rows=nr_subplots, cols=1, subplot_titles=tuple(titles),
+                                    vertical_spacing=0.1)
         self.__draw_heatmap__()
 
     def __draw_heatmap__(self):
