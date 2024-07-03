@@ -3,7 +3,7 @@ import numpy as np
 
 from drevalpy.datasets.dataset import FeatureDataset, DrugResponseDataset
 from drevalpy.models.drp_model import DRPModel
-from drevalpy.utils import load_cl_ids_from_csv, load_drug_ids_from_csv, unique
+from drevalpy.models.utils import load_cl_ids_from_csv, load_drug_ids_from_csv, unique
 
 
 class NaivePredictor(DRPModel):
