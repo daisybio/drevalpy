@@ -85,8 +85,9 @@ class NaiveDrugMeanPredictor(DRPModel):
         """
         self.dataset_mean = np.mean(output.response)
         self.drug_means = {}
-        for drug in np.unique(drug_id):
-            self.drug_means[drug] = np.mean(output.response[drug_id == drug])
+        for drug_response, drug_feature in zip(np.unique(output.drug_ids), np.unique(drug_id)):
+            self.drug_means[drug_response] = np.mean(output.response[drug_feature == output.drug_ids])
+            
 
     def predict(
         self, cell_line_id: np.ndarray = None, drug_id: np.ndarray = None
@@ -146,8 +147,8 @@ class NaiveCellLineMeanPredictor(DRPModel):
         """
         self.dataset_mean = np.mean(output.response)
         self.cell_line_means = {}
-        for cl in np.unique(cell_line_id):
-            self.cell_line_means[cl] = np.mean(output.response[cell_line_id == cl])
+        for cell_line_response, cell_line_feature in zip(np.unique(output.cell_line_id), np.unique(cell_line_id)):
+            self.cell_line_means[cell_line_response] = np.mean(output.response[cell_line_feature == output.cell_line_id])
 
     def predict(
         self, cell_line_id: np.ndarray = None, drug_id: np.ndarray = None
