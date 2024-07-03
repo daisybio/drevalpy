@@ -150,7 +150,7 @@ class NaiveCellLineMeanPredictor(DRPModel):
 
 
         for cell_line_response, cell_line_feature in zip(unique(output.cell_line_ids), unique(cell_line_id)):
-            self.cell_line_means[cell_line_response] = np.mean(output.response[cell_line_feature == output.cell_line_id])
+            self.cell_line_means[cell_line_response] = np.mean(output.response[cell_line_feature == output.cell_line_ids])
 
     def predict(
         self, cell_line_id: np.ndarray = None, drug_id: np.ndarray = None
