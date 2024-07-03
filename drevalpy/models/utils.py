@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 from drevalpy.datasets.dataset import FeatureDataset
 
 
@@ -40,3 +41,8 @@ def load_drug_features_from_fingerprints(
             for drug in fingerprints.index
         }
     )
+
+def unique(array):
+    # ordered by first occurence
+    uniq, index = np.unique(array, return_index=True)
+    return uniq[index.argsort()]
