@@ -1,9 +1,9 @@
-from typing import Dict, List
+from typing import Dict
 import numpy as np
 
 from drevalpy.datasets.dataset import FeatureDataset, DrugResponseDataset
 from drevalpy.models.drp_model import DRPModel
-from ..utils import load_cl_ids_from_csv, load_drug_ids_from_csv
+from drevalpy.utils import load_cl_ids_from_csv, load_drug_ids_from_csv, unique
 
 
 class NaivePredictor(DRPModel):
@@ -85,7 +85,7 @@ class NaiveDrugMeanPredictor(DRPModel):
         """
         self.dataset_mean = np.mean(output.response)
         self.drug_means = {}
-        for drug_response, drug_feature in zip(np.unique(output.drug_ids), np.unique(drug_id)):
+        for drug_response, drug_feature in zip(unique(output.drug_ids), unique(drug_id)):
             self.drug_means[drug_response] = np.mean(output.response[drug_feature == output.drug_ids])
             
 
@@ -147,7 +147,9 @@ class NaiveCellLineMeanPredictor(DRPModel):
         """
         self.dataset_mean = np.mean(output.response)
         self.cell_line_means = {}
-        for cell_line_response, cell_line_feature in zip(np.unique(output.cell_line_id), np.unique(cell_line_id)):
+
+
+        for cell_line_response, cell_line_feature in zip(unique(output.cell_line_id), unique(cell_line_id)):
             self.cell_line_means[cell_line_response] = np.mean(output.response[cell_line_feature == output.cell_line_id])
 
     def predict(
