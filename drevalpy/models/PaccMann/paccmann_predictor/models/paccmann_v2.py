@@ -234,7 +234,7 @@ class PaccMannV2(nn.Module):
             )
         )
 
-    def forward(self, smiles, gep, confidence=False):
+    def forward(self, smiles, gep):
         """Forward pass through the PaccMannV2.
 
         Args:
@@ -319,58 +319,10 @@ class PaccMannV2(nn.Module):
                 }
             )  # yapf: disable
 
-            if confidence:
-                augmenter = AugmentTensor(self.smiles_language)
-                epi_conf, epi_pred = monte_carlo_dropout(
-                    self, regime="tensors", tensors=(smiles, gep), repetitions=5
-                )
-                ale_conf, ale_pred = test_time_augmentation(
-                    self,
-                    regime="tensors",
-                    tensors=(smiles, gep),
-                    repetitions=5,
-                    augmenter=augmenter,
-                    tensors_to_augment=0,
-                )
-
-                prediction_dict.update(
-                    {
-                        "epistemic_confidence": epi_conf,
-                        "epistemic_predictions": epi_pred,
-                        "aleatoric_confidence": ale_conf,
-                        "aleatoric_predictions": ale_pred,
-                    }
-                )  # yapf: disable
-
-        elif confidence:
-            logger.info("Using confidence in training mode is not supported.")
-
         return predictions, prediction_dict
 
     def loss(self, yhat, y):
         return self.loss_fn(yhat, y)
-
-    def _associate_language(self, smiles_language):
-        """
-        Bind a SMILES language object to the model. Is only used inside the
-        confidence estimation.
-
-        Arguments:
-            smiles_language {[pytoda.smiles.smiles_language.SMILESLanguage]}
-            -- [A SMILES language object]
-
-        Raises:
-            TypeError:
-        """
-        if not isinstance(
-            smiles_language, pytoda.smiles.smiles_language.SMILESLanguage
-        ):
-            raise TypeError(
-                "Please insert a smiles language (object of type "
-                "pytoda.smiles.smiles_language.SMILESLanguage). Given was "
-                f"{type(smiles_language)}"
-            )
-        self.smiles_language = smiles_language
 
     def load(self, path, *args, **kwargs):
         """Load model from path."""

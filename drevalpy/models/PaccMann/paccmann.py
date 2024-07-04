@@ -1,3 +1,4 @@
+from copy import deepcopy
 from typing import Optional
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
@@ -13,7 +14,7 @@ from paccmann_predictor.utils.loss_functions import pearsonr
 from paccmann_predictor.utils.utils import get_device
 from pytoda.datasets import DrugSensitivityDataset
 from pytoda.smiles.smiles_language import SMILESTokenizer
-
+from .paccmann_predictor import PaccMannV2
 
 class PaccMann(DRPModel):
     """
@@ -29,11 +30,42 @@ class PaccMann(DRPModel):
 
     early_stopping = True
 
-    def build_model(self, *args, **kwargs):
+    def build_model(self, hyperparameters: dict):
         """
         Builds the model.
         """
-        pass
+        self.model = PaccMannV2(hyperparameters)
+
+        self.smiles_language = SMILESTokenizer.from_pretrained(smiles_language_filepath)
+ 
+        self.smiles_language.set_encoding_transforms(
+            add_start_and_stop=hyperparameters.get("add_start_and_stop", True),
+            padding=hyperparameters.get("padding", True),
+            padding_length=hyperparameters.get("smiles_padding_length", None),
+        )
+        self.test_smiles_language = deepcopy(self.smiles_language)
+        self.smiles_language.set_smiles_transforms(
+            augment=hyperparameters.get("augment_smiles", False),
+            canonical=hyperparameters.get("smiles_canonical", False),
+            kekulize=hyperparameters.get("smiles_kekulize", False),
+            all_bonds_explicit=hyperparameters.get("smiles_bonds_explicit", False),
+            all_hs_explicit=hyperparameters.get("smiles_all_hs_explicit", False),
+            remove_bonddir=hyperparameters.get("smiles_remove_bonddir", False),
+            remove_chirality=hyperparameters.get("smiles_remove_chirality", False),
+            selfies=hyperparameters.get("selfies", False),
+            sanitize=hyperparameters.get("selfies", False),
+        )
+        self.test_smiles_language.set_smiles_transforms(
+            augment=False,
+            canonical=hyperparameters.get("test_smiles_canonical", True),
+            kekulize=hyperparameters.get("smiles_kekulize", False),
+            all_bonds_explicit=hyperparameters.get("smiles_bonds_explicit", False),
+            all_hs_explicit=hyperparameters.get("smiles_all_hs_explicit", False),
+            remove_bonddir=hyperparameters.get("smiles_remove_bonddir", False),
+            remove_chirality=hyperparameters.get("smiles_remove_chirality", False),
+            selfies=hyperparameters.get("selfies", False),
+            sanitize=hyperparameters.get("selfies", False),
+        )
 
     def get_feature_matrix(
         self,
