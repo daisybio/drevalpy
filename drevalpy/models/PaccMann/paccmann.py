@@ -16,6 +16,7 @@ from pytoda.datasets import DrugSensitivityDataset
 from pytoda.smiles.smiles_language import SMILESTokenizer
 from .paccmann_predictor import PaccMannV2
 
+
 class PaccMann(DRPModel):
     """
     Simple Feedforward Neural Network model with dropout.
@@ -37,7 +38,7 @@ class PaccMann(DRPModel):
         self.model = PaccMannV2(hyperparameters)
 
         self.smiles_language = SMILESTokenizer.from_pretrained(smiles_language_filepath)
- 
+
         self.smiles_language.set_encoding_transforms(
             add_start_and_stop=hyperparameters.get("add_start_and_stop", True),
             padding=hyperparameters.get("padding", True),
