@@ -360,7 +360,7 @@ class FeatureDataset(Dataset):
     def __init__(self, features: Dict[str, Dict[str, np.ndarray]], *args, **kwargs):
         """
         Initializes the feature dataset.
-        :features: dictionary of features, key: drug ID, value: Dict of feature views, key: feature name, value: feature vector
+        :features: dictionary of features, key: drug ID/cell line ID, value: Dict of feature views, key: feature name, value: feature vector
         """
         super(FeatureDataset, self).__init__()
         self.features = features
@@ -462,3 +462,21 @@ class FeatureDataset(Dataset):
         Returns a copy of the feature dataset.
         """
         return FeatureDataset(features=copy.deepcopy(self.features))
+
+    def add_features(self, other: "FeatureDataset") -> None:
+        """
+        Adds features views from another dataset. Inner join (only common identifiers are kept).
+        :other: other dataset
+        """
+        assert (set(self.view_names) & set(other.view_names)) == 0, "Trying to add features but feature views overlap. FeatureDatasets should be distinct."
+
+        common_identifiers = set(self.identifiers).intersection(other.identifiers)
+        new_features = {}
+        for id_ in common_identifiers:
+            new_features[id_] = {view: self.features[id_][view] for view in self.view_names}
+            for view in other.view_names:
+                new_features[id_][view] = other.features[id_][view]
+
+        self.features = new_features
+        self.view_names = self.get_view_names()
+        self.identifiers = self.get_ids()
