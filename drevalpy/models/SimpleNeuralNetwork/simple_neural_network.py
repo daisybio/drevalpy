@@ -1,7 +1,7 @@
 from typing import Optional
 from drevalpy.models.utils import (
     load_drug_features_from_fingerprints,
-    load_ge_features_from_landmark_genes,
+    load_and_reduce_gene_features,
 )
 from drevalpy.models.SimpleNeuralNetwork.utils import FeedForwardNetwork
 from drevalpy.models.drp_model import DRPModel
@@ -106,7 +106,7 @@ class SimpleNeuralNetwork(DRPModel):
         raise NotImplementedError("load method not implemented")
 
     def predict(
-        self, gene_expression: np.ndarray = None, fingerprints: np.ndarray = None
+        self, gene_expression: np.ndarray, fingerprints: np.ndarray
     ) -> np.ndarray:
         """
         Predicts the response for the given input.
@@ -122,7 +122,7 @@ class SimpleNeuralNetwork(DRPModel):
         :param path: Path to the gene expression and landmark genes
         :return: FeatureDataset containing the cell line gene expression features, filtered through the landmark genes
         """
-        return load_ge_features_from_landmark_genes(data_path, dataset_name)
+        return load_and_reduce_gene_features(feature_type="gene_expression", gene_list="landmark_genes", data_path=data_path, dataset_name=dataset_name)
 
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
 
