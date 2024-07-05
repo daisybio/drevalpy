@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+from typing import Optional
 from drevalpy.datasets.dataset import FeatureDataset
 
 
@@ -8,19 +9,24 @@ def load_cl_ids_from_csv(path: str, dataset_name: str) -> FeatureDataset:
     return FeatureDataset({cl: {"cell_line_id": cl} for cl in cl_names.index})
 
 
-def load_and_reduce_gene_features(feature_type: str, gene_list: str,
+def load_and_reduce_gene_features(feature_type: str, gene_list: Optional[str],
     data_path: str, dataset_name: str
 ) -> FeatureDataset:
     ge = pd.read_csv(f"{data_path}/{dataset_name}/{feature_type}.csv", index_col=0)
-    gene_info = pd.read_csv(
-        f"{data_path}/{dataset_name}/gene_lists/{gene_list}.csv"
-    )
-    genes_to_use = set(gene_info["Symbol"]) & set(ge.columns)
-    ge = ge[list(genes_to_use)]
+    if gene_list is None:
+        return FeatureDataset(
+            {cl: {"gene_expression": ge.loc[cl].values} for cl in ge.index}
+        )
+    else:
+        gene_info = pd.read_csv(
+            f"{data_path}/{dataset_name}/gene_lists/{gene_list}.csv"
+        )
+        genes_to_use = set(gene_info["Symbol"]) & set(ge.columns)
+        ge = ge[list(genes_to_use)]
 
-    return FeatureDataset(
-        {cl: {"gene_expression": ge.loc[cl].values} for cl in ge.index}
-    )
+        return FeatureDataset(
+            {cl: {"gene_expression": ge.loc[cl].values} for cl in ge.index}
+        )
 
 
 def load_drug_ids_from_csv(data_path: str, dataset_name: str) -> FeatureDataset:
