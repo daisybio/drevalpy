@@ -13,7 +13,7 @@ SimpleNeuralNetwork:
   n_features:
       - 1036
 
-SimpleNeuralNetwork:
+MultiOmicsNeuralNetwork:
   dropout_prob:
       - 0.2
       - 0.3
