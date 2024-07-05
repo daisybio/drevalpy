@@ -21,7 +21,7 @@ class MultiOmicsNeuralNetwork(DRPModel):
     cell_line_views = [
         "gene_expression",
         "methylation",
-        "mutation",
+        "mutations",
         "copy_number_variation_gistic",
     ]
 
@@ -49,13 +49,13 @@ class MultiOmicsNeuralNetwork(DRPModel):
         output_earlystopping: Optional[DrugResponseDataset] = None,
         gene_expression: np.ndarray = None,
         methylation: np.ndarray = None,
-        mutation: np.ndarray = None,
-        copy_number_variation: np.ndarray = None,
+        mutations: np.ndarray = None,
+        copy_number_variation_gistic: np.ndarray = None,
         fingerprints: np.ndarray = None,
         gene_expression_earlystopping: Optional[np.ndarray] = None,
         methylation_earlystopping: Optional[np.ndarray] = None,
-        mutation_earlystopping: Optional[np.ndarray] = None,
-        copy_number_variation_earlystopping: Optional[np.ndarray] = None,
+        mutations_earlystopping: Optional[np.ndarray] = None,
+        copy_number_variation_gistic_earlystopping: Optional[np.ndarray] = None,
         fingerprints_earlystopping: Optional[np.ndarray] = None,
     ):
         """
@@ -75,8 +75,8 @@ class MultiOmicsNeuralNetwork(DRPModel):
             (
                 gene_expression,
                 methylation,
-                mutation,
-                copy_number_variation,
+                mutations,
+                copy_number_variation_gistic,
                 fingerprints,
             ),
             axis=1,
@@ -96,8 +96,8 @@ class MultiOmicsNeuralNetwork(DRPModel):
                 (
                     gene_expression_earlystopping,
                     methylation_earlystopping,
-                    mutation_earlystopping,
-                    copy_number_variation_earlystopping,
+                    mutations_earlystopping,
+                    copy_number_variation_gistic_earlystopping,
                     fingerprints_earlystopping,
                 ),
                 axis=1,
@@ -138,14 +138,14 @@ class MultiOmicsNeuralNetwork(DRPModel):
         raise NotImplementedError("load method not implemented")
 
     def predict(
-        self, gene_expression: np.ndarray, fingerprints: np.ndarray, methylation: np.ndarray, mutation: np.ndarray, copy_number_variation: np.ndarray
+        self, gene_expression: np.ndarray, fingerprints: np.ndarray, methylation: np.ndarray, mutations: np.ndarray, copy_number_variation_gistic: np.ndarray
     ) -> np.ndarray:
         """
         Predicts the response for the given input.
         """
         methylation = self.pca.transform(methylation)
         X = np.concatenate(
-            (gene_expression, methylation, mutation, copy_number_variation, fingerprints), axis=1
+            (gene_expression, methylation, mutations, copy_number_variation_gistic, fingerprints), axis=1
         )   
         return self.model.predict(X)
 
@@ -161,7 +161,7 @@ class MultiOmicsNeuralNetwork(DRPModel):
         """
         ge_dataset = load_and_reduce_gene_features(feature_type="gene_expression", gene_list="landmark_genes", data_path=data_path, dataset_name=dataset_name)
         me_dataset = load_and_reduce_gene_features(feature_type="methylation", gene_list=None, data_path=data_path, dataset_name=dataset_name)
-        mu_dataset = load_and_reduce_gene_features(feature_type="mutation", gene_list="landmark_genes", data_path=data_path, dataset_name=dataset_name)
+        mu_dataset = load_and_reduce_gene_features(feature_type="mutations", gene_list="landmark_genes", data_path=data_path, dataset_name=dataset_name)
         cnv_dataset = load_and_reduce_gene_features(feature_type="copy_number_variation_gistic", gene_list="landmark_genes", data_path=data_path, dataset_name=dataset_name)
         for fd in [me_dataset, mu_dataset, cnv_dataset]:
             ge_dataset.add_features(fd)

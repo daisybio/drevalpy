@@ -15,17 +15,17 @@ def load_and_reduce_gene_features(feature_type: str, gene_list: Optional[str],
     ge = pd.read_csv(f"{data_path}/{dataset_name}/{feature_type}.csv", index_col=0)
     if gene_list is None:
         return FeatureDataset(
-            {cl: {"gene_expression": ge.loc[cl].values} for cl in ge.index}
+            {cl: {feature_type: ge.loc[cl].values} for cl in ge.index}
         )
     else:
         gene_info = pd.read_csv(
-            f"{data_path}/{dataset_name}/gene_lists/{gene_list}.csv"
+            f"{data_path}/{dataset_name}/gene_lists/{gene_list}.csv", sep="\t"
         )
         genes_to_use = set(gene_info["Symbol"]) & set(ge.columns)
         ge = ge[list(genes_to_use)]
 
         return FeatureDataset(
-            {cl: {"gene_expression": ge.loc[cl].values} for cl in ge.index}
+            {cl: {feature_type: ge.loc[cl].values} for cl in ge.index}
         )
 
 
