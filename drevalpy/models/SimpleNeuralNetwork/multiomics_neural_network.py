@@ -148,19 +148,18 @@ class MultiOmicsNeuralNetwork(DRPModel):
     ) -> FeatureDataset:
         """
         Loads the cell line features.
-        :param path: Path to the gene expression and landmark genes
-        :return: FeatureDataset containing the cell line gene expression features, filtered through the landmark genes
+        :param data_path: data path e.g. data/
+        :param dataset_name: dataset name e.g. GDSC1
+
+        :return: FeatureDataset containing the cell line omics features, filtered through the landmark genes
         """
         ge_dataset = load_and_reduce_gene_features(feature_type="gene_expression", gene_list="landmark_genes", data_path=data_path, dataset_name=dataset_name)
         me_dataset = load_and_reduce_gene_features(feature_type="methylation", gene_list=None, data_path=data_path, dataset_name=dataset_name)
         mu_dataset = load_and_reduce_gene_features(feature_type="mutation", gene_list="landmark_genes", data_path=data_path, dataset_name=dataset_name)
         cnv_dataset = load_and_reduce_gene_features(feature_type="copy_number_variation", gene_list="landmark_genes", data_path=data_path, dataset_name=dataset_name)
-        return FeatureDataset(
-            gene_expression=ge_dataset.gene_expression,
-            methylation=me_dataset.methylation,
-            mutation=mu_dataset.mutation,
-            copy_number_variation=cnv_dataset.copy_number_variation,
-        )
+        for fd in [me_dataset, mu_dataset, cnv_dataset]:
+            ge_dataset.add_features(fd)
+        return ge_dataset
 
 
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
