@@ -8,7 +8,7 @@ from drevalpy.models.drp_model import DRPModel
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 import numpy as np
 import warnings
-
+from sklearn.decomposition import PCA
 
 class MultiOmicsNeuralNetwork(DRPModel):
     """
@@ -22,7 +22,7 @@ class MultiOmicsNeuralNetwork(DRPModel):
         "gene_expression",
         "methylation",
         "mutation",
-        "copy_number_variation",
+        "copy_number_variation_gistic",
     ]
 
     drug_views = ["fingerprints"]
@@ -36,10 +36,12 @@ class MultiOmicsNeuralNetwork(DRPModel):
         Builds the model from hyperparameters.
         """
         self.model = FeedForwardNetwork(
-            n_features=hyperparameters["n_features"],
+            n_features=hyperparameters["n_features"] + hyperparameters["methylation_pca_components"],
             n_units_per_layer=hyperparameters["units_per_layer"],
             dropout_prob=hyperparameters["dropout_prob"],
         )
+        self.pca = PCA(n_components=hyperparameters["methylation_pca_components"])
+
 
     def train(
         self,
@@ -66,6 +68,9 @@ class MultiOmicsNeuralNetwork(DRPModel):
         :param fingerprints_earlystopping: fingerprints data for early stopping
 
         """
+
+        methylation = self.pca.fit_transform(methylation)
+
         X = np.concatenate(
             (
                 gene_expression,
@@ -138,6 +143,7 @@ class MultiOmicsNeuralNetwork(DRPModel):
         """
         Predicts the response for the given input.
         """
+        methylation = self.pca.transform(methylation)
         X = np.concatenate(
             (gene_expression, methylation, mutation, copy_number_variation, fingerprints), axis=1
         )   
@@ -156,7 +162,7 @@ class MultiOmicsNeuralNetwork(DRPModel):
         ge_dataset = load_and_reduce_gene_features(feature_type="gene_expression", gene_list="landmark_genes", data_path=data_path, dataset_name=dataset_name)
         me_dataset = load_and_reduce_gene_features(feature_type="methylation", gene_list=None, data_path=data_path, dataset_name=dataset_name)
         mu_dataset = load_and_reduce_gene_features(feature_type="mutation", gene_list="landmark_genes", data_path=data_path, dataset_name=dataset_name)
-        cnv_dataset = load_and_reduce_gene_features(feature_type="copy_number_variation", gene_list="landmark_genes", data_path=data_path, dataset_name=dataset_name)
+        cnv_dataset = load_and_reduce_gene_features(feature_type="copy_number_variation_gistic", gene_list="landmark_genes", data_path=data_path, dataset_name=dataset_name)
         for fd in [me_dataset, mu_dataset, cnv_dataset]:
             ge_dataset.add_features(fd)
         return ge_dataset

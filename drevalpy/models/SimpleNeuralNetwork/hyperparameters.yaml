@@ -12,3 +12,20 @@ SimpleNeuralNetwork:
         - 10
   n_features:
       - 1036
+
+SimpleNeuralNetwork:
+  dropout_prob:
+      - 0.2
+      - 0.3
+  units_per_layer:
+      - - 10
+        - 10
+        - 10
+      - - 20
+        - 10
+        - 10
+  n_features:
+      - 2938
+  methylation_pca_components:
+      - 300
+
