@@ -3,7 +3,7 @@ from sklearn.svm import SVR
 from drevalpy.datasets.dataset import FeatureDataset, DrugResponseDataset
 from drevalpy.models.drp_model import DRPModel
 from ..utils import (
-    load_ge_features_from_landmark_genes,
+    load_and_reduce_gene_features,
     load_drug_features_from_fingerprints,
 )
 
@@ -66,7 +66,7 @@ class SVMRegressor(DRPModel):
         :param path: Path to the gene expression and landmark genes
         :return: FeatureDataset containing the cell line gene expression features, filtered through the landmark genes
         """
-        return load_ge_features_from_landmark_genes(data_path, dataset_name)
+        return load_and_reduce_gene_features(feature_type="gene_expression", gene_list="landmark_genes", data_path=data_path, dataset_name=dataset_name)
 
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         return load_drug_features_from_fingerprints(data_path, dataset_name)
