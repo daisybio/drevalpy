@@ -122,7 +122,12 @@ class SimpleNeuralNetwork(DRPModel):
         :param path: Path to the gene expression and landmark genes
         :return: FeatureDataset containing the cell line gene expression features, filtered through the landmark genes
         """
-        return load_and_reduce_gene_features(feature_type="gene_expression", gene_list="landmark_genes", data_path=data_path, dataset_name=dataset_name)
+        return load_and_reduce_gene_features(
+            feature_type="gene_expression",
+            gene_list="landmark_genes",
+            data_path=data_path,
+            dataset_name=dataset_name,
+        )
 
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
 

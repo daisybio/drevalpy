@@ -9,8 +9,8 @@ def load_cl_ids_from_csv(path: str, dataset_name: str) -> FeatureDataset:
     return FeatureDataset({cl: {"cell_line_id": cl} for cl in cl_names.index})
 
 
-def load_and_reduce_gene_features(feature_type: str, gene_list: Optional[str],
-    data_path: str, dataset_name: str
+def load_and_reduce_gene_features(
+    feature_type: str, gene_list: Optional[str], data_path: str, dataset_name: str
 ) -> FeatureDataset:
     ge = pd.read_csv(f"{data_path}/{dataset_name}/{feature_type}.csv", index_col=0)
     if gene_list is None:

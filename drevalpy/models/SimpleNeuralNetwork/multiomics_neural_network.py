@@ -10,6 +10,7 @@ import numpy as np
 import warnings
 from sklearn.decomposition import PCA
 
+
 class MultiOmicsNeuralNetwork(DRPModel):
     """
     Simple Feedforward Neural Network model with dropout.
@@ -36,12 +37,12 @@ class MultiOmicsNeuralNetwork(DRPModel):
         Builds the model from hyperparameters.
         """
         self.model = FeedForwardNetwork(
-            n_features=hyperparameters["n_features"] + hyperparameters["methylation_pca_components"],
+            n_features=hyperparameters["n_features"]
+            + hyperparameters["methylation_pca_components"],
             n_units_per_layer=hyperparameters["units_per_layer"],
             dropout_prob=hyperparameters["dropout_prob"],
         )
         self.pca = PCA(n_components=hyperparameters["methylation_pca_components"])
-
 
     def train(
         self,
@@ -97,7 +98,7 @@ class MultiOmicsNeuralNetwork(DRPModel):
                 ]
             ]
         ):
-            
+
             X_earlystopping = np.concatenate(
                 (
                     gene_expression_earlystopping,
@@ -144,15 +145,27 @@ class MultiOmicsNeuralNetwork(DRPModel):
         raise NotImplementedError("load method not implemented")
 
     def predict(
-        self, gene_expression: np.ndarray, fingerprints: np.ndarray, methylation: np.ndarray, mutations: np.ndarray, copy_number_variation_gistic: np.ndarray
+        self,
+        gene_expression: np.ndarray,
+        fingerprints: np.ndarray,
+        methylation: np.ndarray,
+        mutations: np.ndarray,
+        copy_number_variation_gistic: np.ndarray,
     ) -> np.ndarray:
         """
         Predicts the response for the given input.
         """
         methylation = self.pca.transform(methylation)
         X = np.concatenate(
-            (gene_expression, methylation, mutations, copy_number_variation_gistic, fingerprints), axis=1
-        )   
+            (
+                gene_expression,
+                methylation,
+                mutations,
+                copy_number_variation_gistic,
+                fingerprints,
+            ),
+            axis=1,
+        )
         return self.model.predict(X)
 
     def load_cell_line_features(
@@ -165,14 +178,33 @@ class MultiOmicsNeuralNetwork(DRPModel):
 
         :return: FeatureDataset containing the cell line omics features, filtered through the landmark genes
         """
-        ge_dataset = load_and_reduce_gene_features(feature_type="gene_expression", gene_list="landmark_genes", data_path=data_path, dataset_name=dataset_name)
-        me_dataset = load_and_reduce_gene_features(feature_type="methylation", gene_list=None, data_path=data_path, dataset_name=dataset_name)
-        mu_dataset = load_and_reduce_gene_features(feature_type="mutations", gene_list="landmark_genes", data_path=data_path, dataset_name=dataset_name)
-        cnv_dataset = load_and_reduce_gene_features(feature_type="copy_number_variation_gistic", gene_list="landmark_genes", data_path=data_path, dataset_name=dataset_name)
+        ge_dataset = load_and_reduce_gene_features(
+            feature_type="gene_expression",
+            gene_list="landmark_genes",
+            data_path=data_path,
+            dataset_name=dataset_name,
+        )
+        me_dataset = load_and_reduce_gene_features(
+            feature_type="methylation",
+            gene_list=None,
+            data_path=data_path,
+            dataset_name=dataset_name,
+        )
+        mu_dataset = load_and_reduce_gene_features(
+            feature_type="mutations",
+            gene_list="landmark_genes",
+            data_path=data_path,
+            dataset_name=dataset_name,
+        )
+        cnv_dataset = load_and_reduce_gene_features(
+            feature_type="copy_number_variation_gistic",
+            gene_list="landmark_genes",
+            data_path=data_path,
+            dataset_name=dataset_name,
+        )
         for fd in [me_dataset, mu_dataset, cnv_dataset]:
             ge_dataset.add_features(fd)
         return ge_dataset
-
 
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
 

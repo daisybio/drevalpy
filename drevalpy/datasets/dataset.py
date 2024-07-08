@@ -468,12 +468,16 @@ class FeatureDataset(Dataset):
         Adds features views from another dataset. Inner join (only common identifiers are kept).
         :other: other dataset
         """
-        assert len(set(self.view_names) & set(other.view_names)) == 0, "Trying to add features but feature views overlap. FeatureDatasets should be distinct."
+        assert (
+            len(set(self.view_names) & set(other.view_names)) == 0
+        ), "Trying to add features but feature views overlap. FeatureDatasets should be distinct."
 
         common_identifiers = set(self.identifiers).intersection(other.identifiers)
         new_features = {}
         for id_ in common_identifiers:
-            new_features[id_] = {view: self.features[id_][view] for view in self.view_names}
+            new_features[id_] = {
+                view: self.features[id_][view] for view in self.view_names
+            }
             for view in other.view_names:
                 new_features[id_][view] = other.features[id_][view]
 
