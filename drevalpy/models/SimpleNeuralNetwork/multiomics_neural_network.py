@@ -70,6 +70,8 @@ class MultiOmicsNeuralNetwork(DRPModel):
         """
 
         methylation = self.pca.fit_transform(methylation)
+        if methylation_earlystopping is not None:
+            methylation_earlystopping = self.pca.transform(methylation_earlystopping)
 
         X = np.concatenate(
             (
@@ -88,10 +90,14 @@ class MultiOmicsNeuralNetwork(DRPModel):
                 for ar in [
                     output_earlystopping,
                     gene_expression_earlystopping,
+                    methylation_earlystopping,
+                    mutations_earlystopping,
+                    copy_number_variation_gistic_earlystopping,
                     fingerprints_earlystopping,
                 ]
             ]
         ):
+            
             X_earlystopping = np.concatenate(
                 (
                     gene_expression_earlystopping,
