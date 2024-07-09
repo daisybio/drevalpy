@@ -24,8 +24,6 @@ MultiOmicsNeuralNetwork:
       - - 20
         - 10
         - 10
-  n_features:
-      - 2938
   methylation_pca_components:
-      - 300
+      - 100
 

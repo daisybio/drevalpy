@@ -31,7 +31,6 @@ class SimpleNeuralNetwork(DRPModel):
         Builds the model from hyperparameters.
         """
         self.model = FeedForwardNetwork(
-            n_features=hyperparameters["n_features"],
             n_units_per_layer=hyperparameters["units_per_layer"],
             dropout_prob=hyperparameters["dropout_prob"],
         )

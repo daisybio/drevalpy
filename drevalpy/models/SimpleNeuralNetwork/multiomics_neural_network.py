@@ -37,8 +37,6 @@ class MultiOmicsNeuralNetwork(DRPModel):
         Builds the model from hyperparameters.
         """
         self.model = FeedForwardNetwork(
-            n_features=hyperparameters["n_features"]
-            + hyperparameters["methylation_pca_components"],
             n_units_per_layer=hyperparameters["units_per_layer"],
             dropout_prob=hyperparameters["dropout_prob"],
         )
@@ -84,7 +82,7 @@ class MultiOmicsNeuralNetwork(DRPModel):
             ),
             axis=1,
         )
-
+        print(X.shape)
         if all(
             [
                 ar is not None
@@ -180,7 +178,7 @@ class MultiOmicsNeuralNetwork(DRPModel):
         """
         ge_dataset = load_and_reduce_gene_features(
             feature_type="gene_expression",
-            gene_list="landmark_genes",
+            gene_list="drug_target_genes_all_drugs",
             data_path=data_path,
             dataset_name=dataset_name,
         )
@@ -192,13 +190,13 @@ class MultiOmicsNeuralNetwork(DRPModel):
         )
         mu_dataset = load_and_reduce_gene_features(
             feature_type="mutations",
-            gene_list="landmark_genes",
+            gene_list="drug_target_genes_all_drugs",
             data_path=data_path,
             dataset_name=dataset_name,
         )
         cnv_dataset = load_and_reduce_gene_features(
             feature_type="copy_number_variation_gistic",
-            gene_list="landmark_genes",
+            gene_list="drug_target_genes_all_drugs",
             data_path=data_path,
             dataset_name=dataset_name,
         )

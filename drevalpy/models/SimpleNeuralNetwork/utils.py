@@ -24,22 +24,13 @@ class RegressionDataset(Dataset):
 
 
 class FeedForwardNetwork(pl.LightningModule):
-    def __init__(self, n_features, n_units_per_layer=None, dropout_prob=None) -> None:
+    def __init__(self, n_units_per_layer=None, dropout_prob=None) -> None:
+        super().__init__()
         if n_units_per_layer is None:
             n_units_per_layer = [512, 64]
-        super().__init__()
-        self.fully_connected_layers = nn.ModuleList()
-        self.fully_connected_layers.append(nn.Linear(n_features, n_units_per_layer[0]))
-        self.n_features = n_features
-        for i in range(1, len(n_units_per_layer)):
-            self.fully_connected_layers.append(
-                nn.Linear(n_units_per_layer[i - 1], n_units_per_layer[i])
-            )
-        self.fully_connected_layers.append(nn.Linear(n_units_per_layer[-1], 1))
-        if dropout_prob is not None:
-            self.dropout_layer = nn.Dropout(p=dropout_prob)
-        else:
-            self.dropout_layer = None
+        self.n_units_per_layer = n_units_per_layer
+        self.dropout_prob = dropout_prob
+        self.model_initialized = False
         self.loss = nn.MSELoss()
 
     def fit(
@@ -99,6 +90,9 @@ class FeedForwardNetwork(pl.LightningModule):
         trainer_params_copy = trainer_params.copy()
         del trainer_params_copy["progress_bar_refresh_rate"]
 
+        # Force initialize model with dummy data
+        self.force_initialize(train_loader)
+
         # Initialize the Lightning trainer
         trainer = pl.Trainer(
             callbacks=[early_stop_callback, self.checkpoint_callback, progress_bar],
@@ -114,6 +108,9 @@ class FeedForwardNetwork(pl.LightningModule):
         # TODO use best model from history self.load_from_checkpoint(self.checkpoint_callback.best_model_path)
 
     def forward(self, x):
+        if not self.model_initialized:
+            self.initialize_model(x)
+
         for layer in self.fully_connected_layers[:-2]:
             if self.dropout_layer is not None:
                 x = self.dropout_layer(x)
@@ -122,9 +119,30 @@ class FeedForwardNetwork(pl.LightningModule):
         x = self.fully_connected_layers[-1](x)
         return x.squeeze()
 
+    def initialize_model(self, x):
+        n_features = x.size(1)
+        self.fully_connected_layers = nn.ModuleList()
+        self.fully_connected_layers.append(nn.Linear(n_features, self.n_units_per_layer[0]))
+        for i in range(1, len(self.n_units_per_layer)):
+            self.fully_connected_layers.append(
+                nn.Linear(self.n_units_per_layer[i - 1], self.n_units_per_layer[i])
+            )
+        self.fully_connected_layers.append(nn.Linear(self.n_units_per_layer[-1], 1))
+        if self.dropout_prob is not None:
+            self.dropout_layer = nn.Dropout(p=self.dropout_prob)
+        else:
+            self.dropout_layer = None
+        self.model_initialized = True
+
+    def force_initialize(self, dataloader):
+        """Force initialize the model by running a dummy forward pass."""
+        for batch in dataloader:
+            x, _ = batch
+            self.forward(x)
+            break
+
     def _forward_loss_and_log(self, x, y, log_as: str):
         y_pred = self.forward(x)
-
         result = self.loss(y_pred, y)
         self.log(log_as, result)
         return result
@@ -147,3 +165,4 @@ class FeedForwardNetwork(pl.LightningModule):
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters())
+
