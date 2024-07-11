@@ -6,11 +6,11 @@ setup(
     author=" ",
     description="Drug Response Evaluation of cancer cell line drug response models in a fair setting.",
     long_description="<h1>Drug Response Evaluation of cancer cell line drug response models in a fair setting</h1>"
-                     "<p>drevalpy is a Python package that provides a framework for evaluating cancer cell line drug "
-                     "response models in a fair setting. The package includes the functionality to load common drug response "
-                     "datasets and train pre-implemented models with hyperparamter tuning. It also contains robustness "
-                     "and randomization tests and functions to evaluate and visualize the results. The package is the basis "
-                     "for an associated Nextflow pipeline. </p>",
+    "<p>drevalpy is a Python package that provides a framework for evaluating cancer cell line drug "
+    "response models in a fair setting. The package includes the functionality to load common drug response "
+    "datasets and train pre-implemented models with hyperparamter tuning. It also contains robustness "
+    "and randomization tests and functions to evaluate and visualize the results. The package is the basis "
+    "for an associated Nextflow pipeline. </p>",
     long_description_content_type="text/markdown",
     url="https://github.com/daisybio/drevalpy",
     packages=find_packages(),

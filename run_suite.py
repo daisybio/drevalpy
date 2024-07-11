@@ -107,7 +107,7 @@ def get_parser():
         "--response_transformation",
         type=str,
         default="None",
-        help="Transformation to apply to the response variable possible values: standard, minmax, robust",
+        help="Transformation to apply to the response variable during training and prediction. Will be retransformed after the final predictions. Possible values: standard, minmax, robust",
     )
     parser.add_argument(
         "--multiprocessing",

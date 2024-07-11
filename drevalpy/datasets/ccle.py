@@ -1,6 +1,7 @@
-from drevalpy.datasets.dataset import DrugResponseDataset
 import pandas as pd
 import os
+from drevalpy.datasets.dataset import DrugResponseDataset
+from drevalpy.datasets.utils import download_dataset
 
 
 class CCLE(DrugResponseDataset):
@@ -18,6 +19,8 @@ class CCLE(DrugResponseDataset):
         :param path: path to the dataset
         """
         path = os.path.join(path_data, dataset_name, file_name)
+        if not os.path.exists(path):
+            download_dataset(dataset_name, path_data, redownload=True)
         response_data = pd.read_csv(path)
         super().__init__(
             response=response_data["LN_IC50"].values,
