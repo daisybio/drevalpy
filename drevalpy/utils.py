@@ -8,13 +8,15 @@ from numpy.typing import ArrayLike
 from sklearn.model_selection import train_test_split
 from scipy.stats import pearsonr, spearmanr, kendalltau
 from pingouin import partial_corr
+from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
 
-from drevalpy.models import MODEL_FACTORY
-from drevalpy.datasets import RESPONSE_DATASET_FACTORY
-from drevalpy.evaluation import AVAILABLE_METRICS
 
 
 def check_arguments(args):
+    from drevalpy.models import MODEL_FACTORY
+    from drevalpy.datasets import RESPONSE_DATASET_FACTORY
+    from drevalpy.evaluation import AVAILABLE_METRICS
+
     assert args.models, "At least one model must be specified"
     assert all(
         [model in MODEL_FACTORY for model in args.models]
@@ -49,7 +51,7 @@ def check_arguments(args):
                 for randomization in args.randomization_mode
             ]
         ), "At least one invalid randomization mode. Available randomization modes are SVCC, SVRC, SVSC, SVRD"
-    if args.curve_curator != "false":
+    if args.curve_curator:
         raise NotImplementedError("CurveCurator not implemented")
     assert args.response_transformation in [
         "None",
@@ -319,3 +321,17 @@ def handle_overwrite(path: str, overwrite: bool) -> None:
     if os.path.exists(path) and overwrite:
         shutil.rmtree(path)
     os.makedirs(path, exist_ok=True)
+
+
+def get_response_transformation(response_transformation: str):
+    if response_transformation == "None":
+        return None
+    elif response_transformation == "standard":
+        return StandardScaler()
+    elif response_transformation == "minmax":
+        return MinMaxScaler()
+    elif response_transformation == "robust":
+        return RobustScaler()
+    else:
+        raise ValueError(
+            f"Unknown response transformation {response_transformation}. Choose from 'None', 'standard', 'minmax', 'robust'")

@@ -1,9 +1,9 @@
 import argparse
-from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler
 from drevalpy.datasets import RESPONSE_DATASET_FACTORY
 from drevalpy.experiment import drug_response_experiment
 from drevalpy.evaluation import AVAILABLE_METRICS
-from drevalpy.utils import check_arguments
+from drevalpy.models import MODEL_FACTORY
+from drevalpy.utils import check_arguments, get_response_transformation
 
 
 def get_parser():
@@ -133,16 +133,11 @@ if __name__ == "__main__":
         RESPONSE_DATASET_FACTORY[dataset]() for dataset in args.cross_study_datasets
     ]
     # TODO Allow for custom randomization tests maybe via config file
+    
     if args.randomization_mode[0] == "None":
         args.randomization_mode = None
-    if args.response_transformation == "None":
-        response_transformation = None
-    elif args.response_transformation == "standard":
-        response_transformation = StandardScaler()
-    elif args.response_transformation == "minmax":
-        response_transformation = MinMaxScaler()
-    elif args.response_transformation == "robust":
-        response_transformation = RobustScaler()
+    response_transformation = get_response_transformation(args.response_transformation)
+
 
     for test_mode in args.test_mode:
         drug_response_experiment(
