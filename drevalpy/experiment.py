@@ -407,21 +407,39 @@ def robustness_test(
             f"test_dataset_{test_mode}_split_{split_index}_{trial}.csv",
         )
         if not os.path.isfile(trial_file):
-            train_dataset.shuffle(random_state=trial)
-            test_dataset.shuffle(random_state=trial)
-            if early_stopping_dataset is not None:
-                early_stopping_dataset.shuffle(random_state=trial)
-            test_dataset = train_and_predict(
-                model=model,
-                hpams=hpam_set,
-                path_data=path_data,
+            robustness_train_predict(
+                trial=trial,
+                trial_file=trial_file,
                 train_dataset=train_dataset,
-                prediction_dataset=test_dataset,
+                test_dataset=test_dataset,
                 early_stopping_dataset=early_stopping_dataset,
+                model=model,
+                hpam_set=hpam_set,
+                path_data=path_data,
                 response_transformation=response_transformation,
             )
-            test_dataset.save(trial_file)
+            
 
+def robustness_train_predict(trial: int, trial_file: str, train_dataset: DrugResponseDataset,
+                             test_dataset: DrugResponseDataset,
+                             early_stopping_dataset: Optional[DrugResponseDataset],
+                             model: DRPModel,
+                             hpam_set: Dict, path_data: str,
+                             response_transformation: Optional[TransformerMixin] = None):
+    train_dataset.shuffle(random_state=trial)
+    test_dataset.shuffle(random_state=trial)
+    if early_stopping_dataset is not None:
+        early_stopping_dataset.shuffle(random_state=trial)
+    test_dataset = train_and_predict(
+        model=model,
+        hpams=hpam_set,
+        path_data=path_data,
+        train_dataset=train_dataset,
+        prediction_dataset=test_dataset,
+        early_stopping_dataset=early_stopping_dataset,
+        response_transformation=response_transformation,
+    )
+    test_dataset.save(trial_file)
 
 def randomization_test(
     randomization_test_views: Dict[str, List[str]],
