@@ -220,7 +220,7 @@ def drug_response_experiment(
                         path_data="data",
                         train_dataset=train_dataset,
                         test_dataset=test_dataset,
-                        early_stopping_dataset=early_stopping_dataset,
+                        early_stopping_dataset= early_stopping_dataset if model.early_stopping else None,
                         path_out=randomization_test_path,
                         split_index=split_index,
                         test_mode=test_mode,
@@ -235,7 +235,7 @@ def drug_response_experiment(
                         path_data="data",
                         train_dataset=train_dataset,
                         test_dataset=test_dataset,
-                        early_stopping_dataset=early_stopping_dataset,
+                        early_stopping_dataset= early_stopping_dataset if model.early_stopping else None,
                         path_out=model_path,
                         split_index=split_index,
                         test_mode=test_mode,
@@ -466,36 +466,50 @@ def randomization_test(
             randomization_test_file
         ):  # if this splits test has not been run yet
             for view in views:
-                cl_features_rand = cl_features.copy()
-                drug_features_rand = drug_features.copy()
-                if view in cl_features.get_view_names():
-                    cl_features_rand.randomize_features(
-                        view, randomization_type=randomization_type
-                    )
-                elif view in drug_features.get_view_names():
-                    drug_features_rand.randomize_features(
-                        view, randomization_type=randomization_type
-                    )
-                else:
-                    warnings.warn(
-                        f"View {view} not found in features. Skipping randomization test {test_name} which includes this view."
-                    )
+                if (view not in cl_features.get_view_names()) and (view not in drug_features.get_view_names()):
+                    warnings.warn(f"View {view} not found in features. Skipping randomization test {test_name} which includes this view.")
                     break
-                test_dataset_rand = train_and_predict(
+                randomize_train_predict(
+                    view=view,
+                    randomization_type=randomization_type,
+                    randomization_test_file=randomization_test_file,
                     model=model,
-                    hpams=hpam_set,
+                    hpam_set=hpam_set,
                     path_data=path_data,
                     train_dataset=train_dataset,
-                    prediction_dataset=test_dataset,
+                    test_dataset=test_dataset,
                     early_stopping_dataset=early_stopping_dataset,
                     response_transformation=response_transformation,
-                    cl_features=cl_features_rand,
-                    drug_features=drug_features_rand,
+                    cl_features=cl_features,
+                    drug_features=drug_features,
                 )
-                test_dataset_rand.save(randomization_test_file)
         else:
             print(f"Randomization test {test_name} already exists. Skipping.")
 
+def randomize_train_predict(view: str, randomization_type: str, randomization_test_file: str, model: DRPModel, hpam_set: Dict, path_data: str, train_dataset: DrugResponseDataset, test_dataset: DrugResponseDataset, early_stopping_dataset: Optional[DrugResponseDataset], response_transformation: Optional[TransformerMixin], cl_features: Optional[FeatureDataset] = None, drug_features: Optional[FeatureDataset] = None):
+    cl_features_rand = cl_features.copy()
+    drug_features_rand = drug_features.copy()
+    if view in cl_features.get_view_names():
+        cl_features_rand.randomize_features(
+            view, randomization_type=randomization_type
+        )
+    elif view in drug_features.get_view_names():
+        drug_features_rand.randomize_features(
+            view, randomization_type=randomization_type
+        )
+
+    test_dataset_rand = train_and_predict(
+        model=model,
+        hpams=hpam_set,
+        path_data=path_data,
+        train_dataset=train_dataset,
+        prediction_dataset=test_dataset,
+        early_stopping_dataset=early_stopping_dataset,
+        response_transformation=response_transformation,
+        cl_features=cl_features_rand,
+        drug_features=drug_features_rand,
+    )
+    test_dataset_rand.save(randomization_test_file)
 
 def split_early_stopping(
     validation_dataset: DrugResponseDataset, test_mode: str

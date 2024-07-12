@@ -10,12 +10,13 @@ from scipy.stats import pearsonr, spearmanr, kendalltau
 from pingouin import partial_corr
 from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
 
-from drevalpy.models import MODEL_FACTORY
-from drevalpy.datasets import RESPONSE_DATASET_FACTORY
-from drevalpy.evaluation import AVAILABLE_METRICS
 
 
 def check_arguments(args):
+    from drevalpy.models import MODEL_FACTORY
+    from drevalpy.datasets import RESPONSE_DATASET_FACTORY
+    from drevalpy.evaluation import AVAILABLE_METRICS
+
     assert args.models, "At least one model must be specified"
     assert all(
         [model in MODEL_FACTORY for model in args.models]
@@ -50,7 +51,7 @@ def check_arguments(args):
                 for randomization in args.randomization_mode
             ]
         ), "At least one invalid randomization mode. Available randomization modes are SVCC, SVRC, SVSC, SVRD"
-    if args.curve_curator != "false":
+    if args.curve_curator:
         raise NotImplementedError("CurveCurator not implemented")
     assert args.response_transformation in [
         "None",
