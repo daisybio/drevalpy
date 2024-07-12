@@ -1,9 +1,13 @@
 import pandas as pd
 import pathlib
 import os
-from drevalpy.datasets.dataset import DrugResponseDataset
 
+from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.evaluation import evaluate, AVAILABLE_METRICS
+from drevalpy.visualization.violin import Violin
+from drevalpy.visualization.heatmap import Heatmap
+from drevalpy.visualization.corr_comp_scatter import CorrelationComparisonScatter
+from drevalpy.visualization.regression_slider_plot import RegressionSliderPlot
 
 
 def parse_layout(f, path_to_layout):
@@ -27,12 +31,12 @@ def parse_results(path_to_results, path_out="results"):
         file
         for file in result_files
         if file.name
-        not in [
-            "evaluation_results.csv",
-            "evaluation_results_per_drug.csv",
-            "evaluation_results_per_cell_line.csv",
-            "true_vs_pred.csv",
-        ]
+           not in [
+               "evaluation_results.csv",
+               "evaluation_results_per_drug.csv",
+               "evaluation_results_per_cell_line.csv",
+               "true_vs_pred.csv",
+           ]
     ]
     # inititalize dictionaries to store the evaluation results
     evaluation_results = {}
@@ -110,15 +114,9 @@ def parse_results(path_to_results, path_out="results"):
     )
 
 
-def prep_results(path_to_results, path_out="results"):
-    eval_results, eval_results_per_drug, eval_results_per_cell_line, t_vs_p = (
-        parse_results(path_to_results=path_to_results, path_out=path_out)
-    )
-    # eval_results = pd.read_csv(f'results/{run_id}/evaluation_results.csv', index_col=0)
-    # eval_results_per_drug = pd.read_csv(f'results/{run_id}/evaluation_results_per_drug.csv', index_col=0)
-    # eval_results_per_cell_line = pd.read_csv(f'results/{run_id}/evaluation_results_per_cell_line.csv',
-    #                                         index_col=0)
-    # t_vs_p = pd.read_csv(f'results/{run_id}/true_vs_pred.csv', index_col=0)
+def prep_results(
+        eval_results, eval_results_per_drug, eval_results_per_cell_line, t_vs_p
+):
     # add variables
     # split the index by "_" into: algorithm, randomization, setting, split, CV_split
     new_columns = eval_results.index.str.split("_", expand=True).to_frame()
@@ -161,7 +159,7 @@ def generate_model_names(file):
 
 
 def evaluate_per_group(
-    df, group_by, norm_group_eval_results, eval_results_per_group, model
+        df, group_by, norm_group_eval_results, eval_results_per_group, model
 ):
     # calculate the mean of y_true per drug
     print(f"Calculating {group_by}-wise evaluation measures …")
@@ -208,14 +206,119 @@ def compute_evaluation(df, return_df, group_by, model):
     return return_df
 
 
+def draw_violin_or_heatmap(plot_type, df, normalized_metrics, whole_name):
+    if plot_type == "violinplot":
+        out = Violin(
+            df=df, normalized_metrics=normalized_metrics, whole_name=whole_name
+        )
+    else:
+        out = Heatmap(
+            df=df, normalized_metrics=normalized_metrics, whole_name=whole_name
+        )
+    return out
+
+
+def draw_scatter_grids_per_group(df, group_by, lpo_lco_ldo, out_prefix, algorithm=None):
+    if algorithm is None:
+        # draw plots for comparison between all models
+        df = df[
+            (df["LPO_LCO_LDO"] == lpo_lco_ldo) & (df["rand_setting"] == "predictions")
+        ]
+        corr_comp_scatter = CorrelationComparisonScatter(
+            df=df, color_by=group_by
+        )
+        name = f"{group_by}_{lpo_lco_ldo}"
+    else:
+        # draw plots for comparison between all test settings of one model
+        df = df[
+            (df["LPO_LCO_LDO"] == lpo_lco_ldo) & (df["algorithm"] == algorithm)
+        ]
+        corr_comp_scatter = CorrelationComparisonScatter(
+            df=df, color_by=group_by
+        )
+        name = f"{group_by}_{algorithm}_{lpo_lco_ldo}"
+    corr_comp_scatter.dropdown_fig.write_html(
+        f"{out_prefix}corr_comp_scatter_{name}.html"
+    )
+    corr_comp_scatter.fig_overall.write_html(
+        f"{out_prefix}corr_comp_scatter_overall_{name}.html"
+    )
+
+
+def draw_regr_slider(t_v_p, lpo_lco_ldo, model, grouping_slider, out_prefix, name, normalize):
+    t_vs_pred_model = t_v_p[(t_v_p["LPO_LCO_LDO"] == lpo_lco_ldo) & (t_v_p["algorithm"] == model)]
+
+    regr_slider = RegressionSliderPlot(
+        df=t_vs_pred_model,
+        group_by=grouping_slider,
+        normalize=normalize
+    )
+
+    out_path = f"{out_prefix}regression_lines_{name}_{model}.html"
+    regr_slider.fig.write_html(
+        out_path
+    )
+
+
+def export_html_table(df, export_path, grouping):
+    selected_columns = [
+        "algorithm",
+        "rand_setting",
+        "CV_split",
+        "MSE",
+        "R^2",
+        "Pearson",
+        "RMSE",
+        "MAE",
+        "Spearman",
+        "Kendall",
+        "Partial_Correlation",
+        "LPO_LCO_LDO"
+    ]
+    if grouping == "drug":
+        selected_columns = ["drug"] + selected_columns
+    elif grouping == "cell_line":
+        selected_columns = ["cell_line"] + selected_columns
+    else:
+        selected_columns = [
+            "algorithm",
+            "rand_setting",
+            "CV_split",
+            "MSE",
+            "R^2",
+            "Pearson",
+            "R^2: drug normalized",
+            "Pearson: drug normalized",
+            "R^2: cell_line normalized",
+            "Pearson: cell_line normalized",
+            "RMSE",
+            "MAE",
+            "Spearman",
+            "Kendall",
+            "Partial_Correlation",
+            "Spearman: drug normalized",
+            "Kendall: drug normalized",
+            "Partial_Correlation: drug normalized",
+            "Spearman: cell_line normalized",
+            "Kendall: cell_line normalized",
+            "Partial_Correlation: cell_line normalized",
+            "LPO_LCO_LDO"
+        ]
+    # reorder columns, export table as html
+    df = df[selected_columns]
+    df.to_html(
+        export_path, index=False
+    )
+
+
 def write_results(
-    eval_results,
-    norm_d_results,
-    eval_results_d,
-    norm_cl_results,
-    eval_results_cl,
-    t_vs_p,
-    path_out,
+        eval_results,
+        norm_d_results,
+        eval_results_d,
+        norm_cl_results,
+        eval_results_cl,
+        t_vs_p,
+        path_out,
 ):
     eval_results = pd.DataFrame.from_dict(eval_results, orient="index")
     if norm_d_results != {}:
@@ -285,7 +388,7 @@ def write_violins_and_heatmaps(f, setting, plot_list, plot="Violin"):
     f.write("</ul>\n")
 
 
-def write_scatter_eval_models(f, setting, group_by, plot_list):
+def write_corr_comp_scatter(f, setting, group_by, plot_list):
     if len(plot_list) > 0:
         f.write('<h3 id="corr_comp_drug">Drug-wise comparison</h3>\n')
         f.write("<h4>Overall comparison between models</h4>\n")
@@ -302,7 +405,7 @@ def write_scatter_eval_models(f, setting, group_by, plot_list):
             elem
             for elem in plot_list
             if elem != f"corr_comp_scatter_{setting}_{group_by}.html"
-            and elem != f"corr_comp_scatter_overall_{setting}_{group_by}.html"
+               and elem != f"corr_comp_scatter_overall_{setting}_{group_by}.html"
         ]
         plot_list.sort()
         for group_comparison in plot_list:
