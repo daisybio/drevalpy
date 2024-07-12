@@ -1,31 +1,30 @@
 import os
-import pandas as pd
 
-from utils import (
+from drevalpy.visualization.utils import (
     parse_layout,
     prep_results,
     write_violins_and_heatmaps,
     write_scatter_eval_models,
 )
-from heatmap import Heatmap
-from regression_slider_plot import RegressionSliderPlot
-from violin import Violin
-from corr_comp_scatter import CorrelationComparisonScatter
+from drevalpy.visualization.heatmap import Heatmap
+from drevalpy.visualization.regression_slider_plot import RegressionSliderPlot
+from drevalpy.visualization.violin import Violin
+from drevalpy.visualization.corr_comp_scatter import CorrelationComparisonScatter
 
 
 def create_html(run_id, setting):
     # copy images to the results directory
-    os.system(f"cp style_utils/favicon.png ../results/{run_id}")
+    os.system(f"cp drevalpy/visualization/style_utils/favicon.png results/{run_id}")
     os.system(
-        f"cp style_utils/nf-core-drugresponseeval_logo_light.png ../results/{run_id}"
+        f"cp drevalpy/visualization/style_utils/nf-core-drugresponseeval_logo_light.png results/{run_id}"
     )
-    with open(f"../results/{run_id}/{setting}.html", "w") as f:
-        parse_layout(f=f, path_to_layout="style_utils/page_layout.html")
+    with open(f"results/{run_id}/{setting}.html", "w") as f:
+        parse_layout(f=f, path_to_layout="drevalpy/visualization/style_utils/page_layout.html")
         f.write(f"<h1>Results for {run_id}: {setting}</h1>\n")
 
         plot_list = [
             f
-            for f in os.listdir(f"../results/{run_id}/violin_plots")
+            for f in os.listdir(f"results/{run_id}/violin_plots")
             if setting in f
             and f != f"violinplot_{setting}.html"
             and f != f"violinplot_{setting}_normalized.html"
@@ -35,7 +34,7 @@ def create_html(run_id, setting):
         )
         plot_list = [
             f
-            for f in os.listdir(f"../results/{run_id}/heatmaps")
+            for f in os.listdir(f"results/{run_id}/heatmaps")
             if setting in f
             and f != f"heatmap_{setting}.html"
             and f != f"heatmap_{setting}_normalized.html"
@@ -48,7 +47,7 @@ def create_html(run_id, setting):
         f.write("<ul>\n")
         file_list = [
             f
-            for f in os.listdir(f"../results/{run_id}/regression_plots")
+            for f in os.listdir(f"results/{run_id}/regression_plots")
             if setting in f
         ]
         file_list.sort()
@@ -62,7 +61,7 @@ def create_html(run_id, setting):
 
         group_comparison_list = [
             f
-            for f in os.listdir(f"../results/{run_id}/corr_comp_scatter")
+            for f in os.listdir(f"results/{run_id}/corr_comp_scatter")
             if setting in f and f.endswith("drug.html")
         ]
         write_scatter_eval_models(
@@ -70,7 +69,7 @@ def create_html(run_id, setting):
         )
         group_comparison_list = [
             f
-            for f in os.listdir(f"../results/{run_id}/corr_comp_scatter")
+            for f in os.listdir(f"results/{run_id}/corr_comp_scatter")
             if setting in f and f.endswith("cell_line.html")
         ]
         write_scatter_eval_models(
@@ -79,7 +78,7 @@ def create_html(run_id, setting):
 
         f.write('<h2 id="tables"> Evaluation Results Table</h2>\n')
         with open(
-            f"../results/{run_id}/evaluation_results_{setting}.html", "r"
+            f"results/{run_id}/evaluation_results_{setting}.html", "r"
         ) as eval_f:
             eval_results = eval_f.readlines()
             eval_results[0] = eval_results[0].replace(
@@ -91,7 +90,7 @@ def create_html(run_id, setting):
         if setting != "LCO":
             f.write("<h2> Evaluation Results per Cell Line Table</h2>\n")
             with open(
-                f"../results/{run_id}/evaluation_results_per_cell_line_{setting}.html",
+                f"results/{run_id}/evaluation_results_per_cell_line_{setting}.html",
                 "r",
             ) as eval_f:
                 eval_results = eval_f.readlines()
@@ -104,7 +103,7 @@ def create_html(run_id, setting):
         if setting != "LDO":
             f.write("<h2> Evaluation Results per Drug Table</h2>\n")
             with open(
-                f"../results/{run_id}/evaluation_results_per_drug_{setting}.html", "r"
+                f"results/{run_id}/evaluation_results_per_drug_{setting}.html", "r"
             ) as eval_f:
                 eval_results = eval_f.readlines()
                 eval_results[0] = eval_results[0].replace(
@@ -120,11 +119,11 @@ def create_html(run_id, setting):
 
 def create_index_html(run_id):
     # copy images to the results directory
-    os.system(f"cp style_utils/LPO.png ../results/{run_id}")
-    os.system(f"cp style_utils/LCO.png ../results/{run_id}")
-    os.system(f"cp style_utils/LDO.png ../results/{run_id}")
-    with open(f"../results/{run_id}/index.html", "w") as f:
-        parse_layout(f=f, path_to_layout="style_utils/index_layout.html")
+    os.system(f"cp drevalpy/visualization/style_utils/LPO.png results/{run_id}")
+    os.system(f"cp drevalpy/visualization/style_utils/LCO.png results/{run_id}")
+    os.system(f"cp drevalpy/visualization/style_utils/LDO.png results/{run_id}")
+    with open(f"results/{run_id}/index.html", "w") as f:
+        parse_layout(f=f, path_to_layout="drevalpy/visualization/style_utils/index_layout.html")
         f.write('<div class="main">\n')
         f.write(
             '<img src="nf-core-drugresponseeval_logo_light.png" width="364px" height="100px" alt="Logo">\n'
@@ -137,7 +136,7 @@ def create_index_html(run_id):
         )
         settings = [
             f.split(".html")[0]
-            for f in os.listdir(f"../results/{run_id}")
+            for f in os.listdir(f"results/{run_id}")
             if f.endswith(".html") and f.startswith("L")
         ]
         settings.sort()
@@ -154,21 +153,21 @@ def create_index_html(run_id):
 def draw_violin_and_heatmap(
     df, run_id, plotname, whole_name=False, normalized_metrics=False
 ):
-    if not os.path.exists(f"../results/{run_id}/violin_plots"):
-        os.mkdir(f"../results/{run_id}/violin_plots")
-    if not os.path.exists(f"../results/{run_id}/heatmaps"):
-        os.mkdir(f"../results/{run_id}/heatmaps")
+    if not os.path.exists(f"results/{run_id}/violin_plots"):
+        os.mkdir(f"results/{run_id}/violin_plots")
+    if not os.path.exists(f"results/{run_id}/heatmaps"):
+        os.mkdir(f"results/{run_id}/heatmaps")
     violin = Violin(df, normalized_metrics=normalized_metrics, whole_name=whole_name)
     violin.fig.write_html(
-        f"../results/{run_id}/violin_plots/violinplot_{plotname}.html"
+        f"results/{run_id}/violin_plots/violinplot_{plotname}.html"
     )
     heatmap = Heatmap(df, normalized_metrics=normalized_metrics, whole_name=whole_name)
-    heatmap.fig.write_html(f"../results/{run_id}/heatmaps/heatmap_{plotname}.html")
+    heatmap.fig.write_html(f"results/{run_id}/heatmaps/heatmap_{plotname}.html")
 
 
 def draw_scatter_grids_per_group(eval_res_group, group_by, setting, run_id):
-    if not os.path.exists(f"../results/{run_id}/scatter_eval_models"):
-        os.mkdir(f"../results/{run_id}/scatter_eval_models")
+    if not os.path.exists(f"results/{run_id}/scatter_eval_models"):
+        os.mkdir(f"results/{run_id}/scatter_eval_models")
     eval_res_group_subset = eval_res_group[eval_res_group["LPO_LCO_LDO"] == setting]
     eval_res_group_models = eval_res_group_subset[
         eval_res_group_subset["rand_setting"] == "predictions"
@@ -178,10 +177,10 @@ def draw_scatter_grids_per_group(eval_res_group, group_by, setting, run_id):
         eval_res_group_models, color_by=group_by
     )
     corr_comp_scatter.dropdown_fig.write_html(
-        f"../results/{run_id}/scatter_eval_models/scatter_eval_models_{group_by}_{setting}.html"
+        f"results/{run_id}/scatter_eval_models/scatter_eval_models_{group_by}_{setting}.html"
     )
     corr_comp_scatter.fig_overall.write_html(
-        f"../results/{run_id}/scatter_eval_models/scatter_eval_models_{group_by}_overall_{setting}.html"
+        f"results/{run_id}/scatter_eval_models/scatter_eval_models_{group_by}_overall_{setting}.html"
     )
 
     # draw plots per model: compare between original model and models with modification
@@ -193,24 +192,25 @@ def draw_scatter_grids_per_group(eval_res_group, group_by, setting, run_id):
             eval_res_group_algorithm, color_by=group_by
         )
         corr_comp_scatter.dropdown_fig.write_html(
-            f"../results/{run_id}/scatter_eval_models/scatter_eval_models_{group_by}_{algorithm}_{setting}.html"
+            f"results/{run_id}/scatter_eval_models/scatter_eval_models_{group_by}_{algorithm}_{setting}.html"
         )
         corr_comp_scatter.fig_overall.write_html(
-            f"../results/{run_id}/scatter_eval_models/scatter_eval_models_{group_by}_overall_{algorithm}_{setting}.html"
+            f"results/{run_id}/scatter_eval_models/scatter_eval_models_{group_by}_overall_{algorithm}_{setting}.html"
         )
 
 
 if __name__ == "__main__":
     # Load the dataset
-    run_id = "test3"
+    run_id = "myrun42"
+
     (
         evaluation_results,
         evaluation_results_per_drug,
         evaluation_results_per_cell_line,
         true_vs_pred,
-    ) = prep_results(path_to_results=f"../results/{run_id}")
-    if not os.path.exists(f"../results/{run_id}/regression_plots"):
-        os.mkdir(f"../results/{run_id}/regression_plots")
+    ) = prep_results(path_to_results=f"results/{run_id}")
+    if not os.path.exists(f"results/{run_id}/regression_plots"):
+        os.mkdir(f"results/{run_id}/regression_plots")
 
     settings = evaluation_results["LPO_LCO_LDO"].unique()
 
@@ -279,7 +279,7 @@ if __name__ == "__main__":
                 ]
             ]
             evaluation_results_per_drug_subs.to_html(
-                f"../results/{run_id}/evaluation_results_per_drug_{setting}.html",
+                f"results/{run_id}/evaluation_results_per_drug_{setting}.html",
                 index=False,
             )
             for algorithm in true_vs_pred_subset["algorithm"].unique():
@@ -291,7 +291,7 @@ if __name__ == "__main__":
                     df=t_vs_pred_algo, group_by="cell_line"
                 )
                 regr_slider.fig.write_html(
-                    f"../results/{run_id}/regression_plots/{setting}_{algorithm}_regression_lines_cell_line.html"
+                    f"results/{run_id}/regression_plots/{setting}_{algorithm}_regression_lines_cell_line.html"
                 )
                 regr_slider_norm = RegressionSliderPlot(
                     df=t_vs_pred_algo,
@@ -299,7 +299,7 @@ if __name__ == "__main__":
                     normalize=True,
                 )
                 regr_slider_norm.fig.write_html(
-                    f"../results/{run_id}/regression_plots/{setting}_{algorithm}_regression_lines_cell_line_normalized.html"
+                    f"results/{run_id}/regression_plots/{setting}_{algorithm}_regression_lines_cell_line_normalized.html"
                 )
 
         if setting == "LPO" or setting == "LDO":
@@ -334,7 +334,7 @@ if __name__ == "__main__":
                 ]
             )
             evaluation_results_per_cell_line_subs.to_html(
-                f"../results/{run_id}/evaluation_results_per_cell_line_{setting}.html",
+                f"results/{run_id}/evaluation_results_per_cell_line_{setting}.html",
                 index=False,
             )
             for algorithm in true_vs_pred_subset["algorithm"].unique():
@@ -344,13 +344,13 @@ if __name__ == "__main__":
                 # generate regression plots
                 regr_slider = RegressionSliderPlot(df=t_vs_pred_algo, group_by="drug")
                 regr_slider.fig.write_html(
-                    f"../results/{run_id}/regression_plots/{setting}_{algorithm}_regression_lines_drug.html"
+                    f"results/{run_id}/regression_plots/{setting}_{algorithm}_regression_lines_drug.html"
                 )
                 regr_slider_norm = RegressionSliderPlot(
                     df=t_vs_pred_algo, group_by="drug", normalize=True
                 )
                 regr_slider_norm.fig.write_html(
-                    f"../results/{run_id}/regression_plots/{setting}_{algorithm}_regression_lines_drug_normalized.html"
+                    f"results/{run_id}/regression_plots/{setting}_{algorithm}_regression_lines_drug_normalized.html"
                 )
         # reorder columns, export table as html
         eval_results_subset = eval_results_subset[
@@ -380,7 +380,7 @@ if __name__ == "__main__":
             ]
         ]
         eval_results_subset.to_html(
-            f"../results/{run_id}/evaluation_results_{setting}.html", index=False
+            f"results/{run_id}/evaluation_results_{setting}.html", index=False
         )
         # write individual html
         create_html(run_id, setting)

@@ -18,7 +18,7 @@ def parse_layout(f, path_to_layout):
     f.write("".join(layout))
 
 
-def parse_results(path_to_results, path_out="../results"):
+def parse_results(path_to_results, path_out="results"):
     print("Generating result tables ...")
     # generate list of all result files
     result_dir = pathlib.Path(path_to_results)
@@ -110,15 +110,15 @@ def parse_results(path_to_results, path_out="../results"):
     )
 
 
-def prep_results(path_to_results, path_out="../results"):
+def prep_results(path_to_results, path_out="results"):
     eval_results, eval_results_per_drug, eval_results_per_cell_line, t_vs_p = (
         parse_results(path_to_results=path_to_results, path_out=path_out)
     )
-    # eval_results = pd.read_csv(f'../results/{run_id}/evaluation_results.csv', index_col=0)
-    # eval_results_per_drug = pd.read_csv(f'../results/{run_id}/evaluation_results_per_drug.csv', index_col=0)
-    # eval_results_per_cell_line = pd.read_csv(f'../results/{run_id}/evaluation_results_per_cell_line.csv',
+    # eval_results = pd.read_csv(f'results/{run_id}/evaluation_results.csv', index_col=0)
+    # eval_results_per_drug = pd.read_csv(f'results/{run_id}/evaluation_results_per_drug.csv', index_col=0)
+    # eval_results_per_cell_line = pd.read_csv(f'results/{run_id}/evaluation_results_per_cell_line.csv',
     #                                         index_col=0)
-    # t_vs_p = pd.read_csv(f'../results/{run_id}/true_vs_pred.csv', index_col=0)
+    # t_vs_p = pd.read_csv(f'results/{run_id}/true_vs_pred.csv', index_col=0)
     # add variables
     # split the index by "_" into: algorithm, randomization, setting, split, CV_split
     new_columns = eval_results.index.str.split("_", expand=True).to_frame()
