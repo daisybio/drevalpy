@@ -1,9 +1,9 @@
 import argparse
 from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler
-from drevalpy.models import MODEL_FACTORY
 from drevalpy.datasets import RESPONSE_DATASET_FACTORY
 from drevalpy.experiment import drug_response_experiment
 from drevalpy.evaluation import AVAILABLE_METRICS
+from drevalpy.utils import check_arguments
 
 
 def get_parser():
@@ -121,52 +121,20 @@ def get_parser():
 
 if __name__ == "__main__":
     args = get_parser().parse_args()
-    assert args.models, "At least one model must be specified"
-    assert all(
-        [model in MODEL_FACTORY for model in args.models]
-    ), f"Invalid model name. Available models are {list(MODEL_FACTORY.keys())}. If you want to use your own model, you need to implement a new model class and add it to the MODEL_FACTORY in the models init"
-
-    assert all(
-        [test in ["LPO", "LCO", "LDO"] for test in args.test_mode]
-    ), "Invalid test mode. Available test modes are LPO, LCO, LDO"
+    check_arguments(args)
     models = [MODEL_FACTORY[model] for model in args.models]
 
     if args.baselines is not None:
-        assert all(
-            [baseline in MODEL_FACTORY for baseline in args.baselines]
-        ), f"Invalid baseline name. Available baselines are {list(MODEL_FACTORY.keys())}. If you want to use your own baseline, you need to implement a new model class and add it to the MODEL_FACTORY in the models init"
-
         baselines = [MODEL_FACTORY[baseline] for baseline in args.baselines]
     else:
         baselines = []
-    assert (
-        args.dataset_name in RESPONSE_DATASET_FACTORY
-    ), f"Invalid dataset name. Available datasets are {list(RESPONSE_DATASET_FACTORY.keys())} If you want to use your own dataset, you need to implement a new response dataset class and add it to the RESPONSE_DATASET_FACTORY in the response_datasets init"
-    for dataset in args.cross_study_datasets:
-        assert (
-            dataset in RESPONSE_DATASET_FACTORY
-        ), f"Invalid dataset name in cross_study_datasets. Available datasets are {list(RESPONSE_DATASET_FACTORY.keys())} If you want to use your own dataset, you need to implement a new response dataset class and add it to the RESPONSE_DATASET_FACTORY in the response_datasets init"
-
     response_data = RESPONSE_DATASET_FACTORY[args.dataset_name]()
     cross_study_datasets = [
         RESPONSE_DATASET_FACTORY[dataset]() for dataset in args.cross_study_datasets
     ]
-    assert (
-        args.n_cv_splits > 1
-    ), "Number of cross-validation splits must be greater than 1"
-
     # TODO Allow for custom randomization tests maybe via config file
-    if args.randomization_mode[0] != "None":
-        assert all(
-            [
-                randomization in ["SVCC", "SVRC", "SVSC", "SVRD"]
-                for randomization in args.randomization_mode
-            ]
-        ), "At least one invalid randomization mode. Available randomization modes are SVCC, SVRC, SVSC, SVRD"
-    else:
+    if args.randomization_mode[0] == "None":
         args.randomization_mode = None
-    if args.curve_curator:
-        raise NotImplementedError("CurveCurator not implemented")
     if args.response_transformation == "None":
         response_transformation = None
     elif args.response_transformation == "standard":
@@ -175,15 +143,6 @@ if __name__ == "__main__":
         response_transformation = MinMaxScaler()
     elif args.response_transformation == "robust":
         response_transformation = RobustScaler()
-    else:
-        # TODO add log, sinh etc
-        raise ValueError(
-            f"Invalid response_transformation: {args.response_transformation}. Choose robust, minmax or standard."
-        )
-
-    assert (
-        args.optim_metric in AVAILABLE_METRICS
-    ), f"Invalid optim_metric for hyperparameter tuning. Choose from {list(AVAILABLE_METRICS.keys())}"
 
     for test_mode in args.test_mode:
         drug_response_experiment(
