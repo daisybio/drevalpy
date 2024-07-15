@@ -225,7 +225,7 @@ def draw_scatter_grids_per_group(df, group_by, lpo_lco_ldo, out_prefix, algorith
         exclude_models = {'NaiveDrugMeanPredictor'}
     else:
         exclude_models = {'NaiveCellLineMeanPredictor'}
-    exclude_models.union({'NaivePredictor'})
+    exclude_models = exclude_models.union({'NaivePredictor'})
     if algorithm == "all":
         # draw plots for comparison between all models
         df = df[

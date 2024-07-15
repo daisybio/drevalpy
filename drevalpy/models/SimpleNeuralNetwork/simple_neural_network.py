@@ -19,11 +19,8 @@ class SimpleNeuralNetwork(DRPModel):
     """
 
     cell_line_views = ["gene_expression"]
-
     drug_views = ["fingerprints"]
-
     early_stopping = True
-
     model_name = "SimpleNeuralNetwork"
 
     def build_model(self, hyperparameters: dict):
