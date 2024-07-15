@@ -34,7 +34,7 @@ def parse_results(path_to_results, path_out="results"):
         not in [
             "evaluation_results.csv",
             "evaluation_results_per_drug.csv",
-            "evaluation_results_per_cell_line.csv",
+            "evaluation_results_per_cl.csv",
             "true_vs_pred.csv",
         ]
     ]

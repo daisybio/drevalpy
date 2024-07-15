@@ -325,7 +325,7 @@ def create_index_html(custom_id):
 if __name__ == "__main__":
     # Load the dataset
     run_id = "myRun"
-    '''
+
     # PIPELINE: COLLECT_RESULTS
     (
         evaluation_results,
@@ -357,6 +357,7 @@ if __name__ == "__main__":
     evaluation_results_per_cell_line = pd.read_csv(f'results/{run_id}/evaluation_results_per_cl.csv',
                                              index_col=0)
     true_vs_pred = pd.read_csv(f'results/{run_id}/true_vs_pred.csv', index_col=0)
+    '''
 
     # create output directories: violin_plots, heatmaps, regression_plots, corr_comp_scatter, html_tables
     create_output_directories(run_id)
