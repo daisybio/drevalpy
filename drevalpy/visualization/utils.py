@@ -221,18 +221,26 @@ def draw_violin_or_heatmap(plot_type, df, normalized_metrics, whole_name):
 
 
 def draw_scatter_grids_per_group(df, group_by, lpo_lco_ldo, out_prefix, algorithm=None):
+    if group_by == 'drug':
+        exclude_models = {'NaiveDrugMeanPredictor'}
+    else:
+        exclude_models = {'NaiveCellLineMeanPredictor'}
+    exclude_models.union({'NaivePredictor'})
     if algorithm == "all":
         # draw plots for comparison between all models
         df = df[
-            (df["LPO_LCO_LDO"] == lpo_lco_ldo) & (df["rand_setting"] == "predictions")
+            (df["LPO_LCO_LDO"] == lpo_lco_ldo) & (df["rand_setting"] == "predictions") &
+            (~df["algorithm"].isin(exclude_models))
         ]
         corr_comp_scatter = CorrelationComparisonScatter(df=df, color_by=group_by)
         name = f"{group_by}_{lpo_lco_ldo}"
-    else:
+    elif algorithm not in exclude_models:
         # draw plots for comparison between all test settings of one model
         df = df[(df["LPO_LCO_LDO"] == lpo_lco_ldo) & (df["algorithm"] == algorithm)]
         corr_comp_scatter = CorrelationComparisonScatter(df=df, color_by=group_by)
         name = f"{group_by}_{algorithm}_{lpo_lco_ldo}"
+    else:
+        return
     corr_comp_scatter.dropdown_fig.write_html(
         f"{out_prefix}corr_comp_scatter_{name}.html"
     )
@@ -357,7 +365,7 @@ def write_violins_and_heatmaps(f, setting, plot_list, plot="Violin"):
 
 def write_corr_comp_scatter(f, setting, group_by, plot_list):
     if len(plot_list) > 0:
-        f.write('<h3 id="corr_comp_drug">Drug-wise comparison</h3>\n')
+        f.write(f'<h3 id="corr_comp_drug">{group_by.capitalize()}-wise comparison</h3>\n')
         f.write("<h4>Overall comparison between models</h4>\n")
         f.write(
             f'<iframe src="corr_comp_scatter/corr_comp_scatter_overall_{group_by}_{setting}.html" width="100%" height="100%" frameBorder="0"></iframe>\n'
