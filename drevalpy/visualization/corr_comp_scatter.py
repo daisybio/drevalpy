@@ -81,7 +81,7 @@ class CorrelationComparisonScatter:
         self.dropdown_fig.add_trace(scatterplot)
 
         # identity line shown in every subplot of the static scatterplot
-        line_corr = go.Line(
+        line_corr = go.Scatter(
             x=[-1, 1],
             y=[-1, 1],
             mode="lines",

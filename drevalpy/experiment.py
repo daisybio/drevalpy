@@ -83,9 +83,9 @@ def drug_response_experiment(
         predictions_path = os.path.join(model_path, "predictions")
         os.makedirs(predictions_path, exist_ok=True)
 
-        if randomization_mode is not None:
+        if randomization_mode is not None and model_class in models:
             randomization_test_path = os.path.join(model_path, "randomization_tests")
-            os.makedirs(randomization_test_path)
+            os.makedirs(randomization_test_path, exist_ok=True)
 
         model_hpam_set = model_class.get_hyperparameter_set()
 
@@ -101,7 +101,7 @@ def drug_response_experiment(
 
         for split_index, split in enumerate(response_data.cv_splits):
             prediction_file = os.path.join(
-                predictions_path, f"test_dataset_{test_mode}_split_{split_index}.csv"
+                predictions_path, f"predictions_split_{split_index}.csv"
             )
             # if model_class.early_stopping is true then we split the validation set into a validation and early stopping set
             train_dataset = split["train"]
@@ -135,7 +135,7 @@ def drug_response_experiment(
                 }
 
                 if multiprocessing:
-                    if Type(model) == CompositeDrugModel:
+                    if Type[model] == CompositeDrugModel:
                         warnings.warn(
                             "Multiprocessing not yet supported for CompositeDrugModel."
                         )
@@ -220,7 +220,9 @@ def drug_response_experiment(
                         path_data="data",
                         train_dataset=train_dataset,
                         test_dataset=test_dataset,
-                        early_stopping_dataset= early_stopping_dataset if model.early_stopping else None,
+                        early_stopping_dataset=(
+                            early_stopping_dataset if model.early_stopping else None
+                        ),
                         path_out=randomization_test_path,
                         split_index=split_index,
                         test_mode=test_mode,
@@ -235,7 +237,9 @@ def drug_response_experiment(
                         path_data="data",
                         train_dataset=train_dataset,
                         test_dataset=test_dataset,
-                        early_stopping_dataset= early_stopping_dataset if model.early_stopping else None,
+                        early_stopping_dataset=(
+                            early_stopping_dataset if model.early_stopping else None
+                        ),
                         path_out=model_path,
                         split_index=split_index,
                         test_mode=test_mode,
@@ -404,7 +408,7 @@ def robustness_test(
     for trial in range(n_trials):
         trial_file = os.path.join(
             robustness_test_path,
-            f"test_dataset_{test_mode}_split_{split_index}_{trial}.csv",
+            f"robustness_{trial+1}_split_{split_index}.csv",
         )
         if not os.path.isfile(trial_file):
             robustness_train_predict(
@@ -418,14 +422,19 @@ def robustness_test(
                 path_data=path_data,
                 response_transformation=response_transformation,
             )
-            
 
-def robustness_train_predict(trial: int, trial_file: str, train_dataset: DrugResponseDataset,
-                             test_dataset: DrugResponseDataset,
-                             early_stopping_dataset: Optional[DrugResponseDataset],
-                             model: DRPModel,
-                             hpam_set: Dict, path_data: str,
-                             response_transformation: Optional[TransformerMixin] = None):
+
+def robustness_train_predict(
+    trial: int,
+    trial_file: str,
+    train_dataset: DrugResponseDataset,
+    test_dataset: DrugResponseDataset,
+    early_stopping_dataset: Optional[DrugResponseDataset],
+    model: DRPModel,
+    hpam_set: Dict,
+    path_data: str,
+    response_transformation: Optional[TransformerMixin] = None,
+):
     train_dataset.shuffle(random_state=trial)
     test_dataset.shuffle(random_state=trial)
     if early_stopping_dataset is not None:
@@ -440,6 +449,7 @@ def robustness_train_predict(trial: int, trial_file: str, train_dataset: DrugRes
         response_transformation=response_transformation,
     )
     test_dataset.save(trial_file)
+
 
 def randomization_test(
     randomization_test_views: Dict[str, List[str]],
@@ -474,18 +484,22 @@ def randomization_test(
     cl_features, drug_features = load_features(model, path_data, train_dataset)
 
     for test_name, views in randomization_test_views.items():
-        randomization_test_path = os.path.join(path_out, test_name)
         randomization_test_file = os.path.join(
-            randomization_test_path, f"test_dataset_{test_mode}_split_{split_index}.csv"
+            path_out,
+            f"randomization_{test_name}_split_{split_index}.csv",
         )
 
-        os.makedirs(randomization_test_path, exist_ok=True)
+        os.makedirs(path_out, exist_ok=True)
         if not os.path.isfile(
             randomization_test_file
         ):  # if this splits test has not been run yet
             for view in views:
-                if (view not in cl_features.get_view_names()) and (view not in drug_features.get_view_names()):
-                    warnings.warn(f"View {view} not found in features. Skipping randomization test {test_name} which includes this view.")
+                if (view not in cl_features.get_view_names()) and (
+                    view not in drug_features.get_view_names()
+                ):
+                    warnings.warn(
+                        f"View {view} not found in features. Skipping randomization test {test_name} which includes this view."
+                    )
                     break
                 randomize_train_predict(
                     view=view,
@@ -504,13 +518,25 @@ def randomization_test(
         else:
             print(f"Randomization test {test_name} already exists. Skipping.")
 
-def randomize_train_predict(view: str, randomization_type: str, randomization_test_file: str, model: DRPModel, hpam_set: Dict, path_data: str, train_dataset: DrugResponseDataset, test_dataset: DrugResponseDataset, early_stopping_dataset: Optional[DrugResponseDataset], response_transformation: Optional[TransformerMixin], cl_features: Optional[FeatureDataset] = None, drug_features: Optional[FeatureDataset] = None):
+
+def randomize_train_predict(
+    view: str,
+    randomization_type: str,
+    randomization_test_file: str,
+    model: DRPModel,
+    hpam_set: Dict,
+    path_data: str,
+    train_dataset: DrugResponseDataset,
+    test_dataset: DrugResponseDataset,
+    early_stopping_dataset: Optional[DrugResponseDataset],
+    response_transformation: Optional[TransformerMixin],
+    cl_features: Optional[FeatureDataset] = None,
+    drug_features: Optional[FeatureDataset] = None,
+):
     cl_features_rand = cl_features.copy()
     drug_features_rand = drug_features.copy()
     if view in cl_features.get_view_names():
-        cl_features_rand.randomize_features(
-            view, randomization_type=randomization_type
-        )
+        cl_features_rand.randomize_features(view, randomization_type=randomization_type)
     elif view in drug_features.get_view_names():
         drug_features_rand.randomize_features(
             view, randomization_type=randomization_type
@@ -528,6 +554,7 @@ def randomize_train_predict(view: str, randomization_type: str, randomization_te
         drug_features=drug_features_rand,
     )
     test_dataset_rand.save(randomization_test_file)
+
 
 def split_early_stopping(
     validation_dataset: DrugResponseDataset, test_mode: str

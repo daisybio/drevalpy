@@ -31,12 +31,12 @@ def parse_results(path_to_results, path_out="results"):
         file
         for file in result_files
         if file.name
-           not in [
-               "evaluation_results.csv",
-               "evaluation_results_per_drug.csv",
-               "evaluation_results_per_cell_line.csv",
-               "true_vs_pred.csv",
-           ]
+        not in [
+            "evaluation_results.csv",
+            "evaluation_results_per_drug.csv",
+            "evaluation_results_per_cell_line.csv",
+            "true_vs_pred.csv",
+        ]
     ]
     # inititalize dictionaries to store the evaluation results
     evaluation_results = {}
@@ -92,20 +92,22 @@ def parse_results(path_to_results, path_out="results"):
 
         true_vs_pred = pd.concat([true_vs_pred, tmp_df])
 
-    (
-        evaluation_results,
-        evaluation_results_per_drug,
-        evaluation_results_per_cell_line,
-        true_vs_pred,
-    ) = write_results(
-        eval_results=evaluation_results,
-        norm_d_results=norm_drug_eval_results,
-        eval_results_d=evaluation_results_per_drug,
-        norm_cl_results=norm_cell_line_eval_results,
-        eval_results_cl=evaluation_results_per_cell_line,
-        t_vs_p=true_vs_pred,
-        path_out=path_out,
-    )
+    evaluation_results = pd.DataFrame.from_dict(evaluation_results, orient="index")
+    if norm_drug_eval_results != {}:
+        evaluation_results, evaluation_results_per_drug = make_group_results(
+            norm_group_res=norm_drug_eval_results,
+            group_by="drug",
+            eval_res=evaluation_results,
+            eval_res_group=evaluation_results_per_drug,
+        )
+    if norm_cell_line_eval_results != {}:
+        evaluation_results, evaluation_results_per_cell_line = make_group_results(
+            norm_group_res=norm_cell_line_eval_results,
+            group_by="cell_line",
+            eval_res=evaluation_results,
+            eval_res_group=evaluation_results_per_cell_line,
+        )
+
     return (
         evaluation_results,
         evaluation_results_per_drug,
@@ -115,7 +117,7 @@ def parse_results(path_to_results, path_out="results"):
 
 
 def prep_results(
-        eval_results, eval_results_per_drug, eval_results_per_cell_line, t_vs_p
+    eval_results, eval_results_per_drug, eval_results_per_cell_line, t_vs_p
 ):
     # add variables
     # split the index by "_" into: algorithm, randomization, setting, split, CV_split
@@ -147,7 +149,7 @@ def generate_model_names(file):
     lpo_lco_ldo = file_parts[-4]
     algorithm = file_parts[-3]
     pred_rand_rob = pred_setting = file_parts[-2]
-    if pred_rand_rob == "randomization_test":
+    if pred_rand_rob == "randomization_tests":
         pred_setting = "randomize-" + "-".join(file_parts[-1].split("_")[1:-2])
     elif pred_rand_rob == "robustness_test":
         pred_setting = "-".join(file_parts[-1].split("_")[:2])
@@ -159,7 +161,7 @@ def generate_model_names(file):
 
 
 def evaluate_per_group(
-        df, group_by, norm_group_eval_results, eval_results_per_group, model
+    df, group_by, norm_group_eval_results, eval_results_per_group, model
 ):
     # calculate the mean of y_true per drug
     print(f"Calculating {group_by}-wise evaluation measures …")
@@ -219,23 +221,17 @@ def draw_violin_or_heatmap(plot_type, df, normalized_metrics, whole_name):
 
 
 def draw_scatter_grids_per_group(df, group_by, lpo_lco_ldo, out_prefix, algorithm=None):
-    if algorithm is None:
+    if algorithm == "all":
         # draw plots for comparison between all models
         df = df[
             (df["LPO_LCO_LDO"] == lpo_lco_ldo) & (df["rand_setting"] == "predictions")
         ]
-        corr_comp_scatter = CorrelationComparisonScatter(
-            df=df, color_by=group_by
-        )
+        corr_comp_scatter = CorrelationComparisonScatter(df=df, color_by=group_by)
         name = f"{group_by}_{lpo_lco_ldo}"
     else:
         # draw plots for comparison between all test settings of one model
-        df = df[
-            (df["LPO_LCO_LDO"] == lpo_lco_ldo) & (df["algorithm"] == algorithm)
-        ]
-        corr_comp_scatter = CorrelationComparisonScatter(
-            df=df, color_by=group_by
-        )
+        df = df[(df["LPO_LCO_LDO"] == lpo_lco_ldo) & (df["algorithm"] == algorithm)]
+        corr_comp_scatter = CorrelationComparisonScatter(df=df, color_by=group_by)
         name = f"{group_by}_{algorithm}_{lpo_lco_ldo}"
     corr_comp_scatter.dropdown_fig.write_html(
         f"{out_prefix}corr_comp_scatter_{name}.html"
@@ -245,19 +241,19 @@ def draw_scatter_grids_per_group(df, group_by, lpo_lco_ldo, out_prefix, algorith
     )
 
 
-def draw_regr_slider(t_v_p, lpo_lco_ldo, model, grouping_slider, out_prefix, name, normalize):
-    t_vs_pred_model = t_v_p[(t_v_p["LPO_LCO_LDO"] == lpo_lco_ldo) & (t_v_p["algorithm"] == model)]
+def draw_regr_slider(
+    t_v_p, lpo_lco_ldo, model, grouping_slider, out_prefix, name, normalize
+):
+    t_vs_pred_model = t_v_p[
+        (t_v_p["LPO_LCO_LDO"] == lpo_lco_ldo) & (t_v_p["algorithm"] == model)
+    ]
 
     regr_slider = RegressionSliderPlot(
-        df=t_vs_pred_model,
-        group_by=grouping_slider,
-        normalize=normalize
+        df=t_vs_pred_model, group_by=grouping_slider, normalize=normalize
     )
 
     out_path = f"{out_prefix}regression_lines_{name}_{model}.html"
-    regr_slider.fig.write_html(
-        out_path
-    )
+    regr_slider.fig.write_html(out_path)
 
 
 def export_html_table(df, export_path, grouping):
@@ -273,7 +269,7 @@ def export_html_table(df, export_path, grouping):
         "Spearman",
         "Kendall",
         "Partial_Correlation",
-        "LPO_LCO_LDO"
+        "LPO_LCO_LDO",
     ]
     if grouping == "drug":
         selected_columns = ["drug"] + selected_columns
@@ -302,56 +298,27 @@ def export_html_table(df, export_path, grouping):
             "Spearman: cell_line normalized",
             "Kendall: cell_line normalized",
             "Partial_Correlation: cell_line normalized",
-            "LPO_LCO_LDO"
+            "LPO_LCO_LDO",
         ]
     # reorder columns, export table as html
     df = df[selected_columns]
-    df.to_html(
-        export_path, index=False
-    )
+    df.to_html(export_path, index=False)
 
 
-def write_results(
-        eval_results,
-        norm_d_results,
-        eval_results_d,
-        norm_cl_results,
-        eval_results_cl,
-        t_vs_p,
-        path_out,
-):
-    eval_results = pd.DataFrame.from_dict(eval_results, orient="index")
-    if norm_d_results != {}:
-        eval_results, eval_results_d = write_group_results(
-            norm_d_results, "drug", eval_results, eval_results_d, path_out
-        )
-    if norm_cl_results != {}:
-        eval_results, eval_results_cl = write_group_results(
-            norm_cl_results, "cell_line", eval_results, eval_results_cl, path_out
-        )
-
-    if path_out != "":
-        eval_results.to_csv(f"{path_out}/evaluation_results.csv", index=True)
-        t_vs_p.to_csv(f"{path_out}/evaluation_true_vs_pred.csv", index=True)
-    else:
-        eval_results.to_csv("evaluation_results.csv", index=True)
-        t_vs_p.to_csv("evaluation_true_vs_pred.csv", index=True)
-    return eval_results, eval_results_d, eval_results_cl, t_vs_p
+def write_results(path_out, eval_results, eval_results_per_drug, eval_results_per_cl, t_vs_p):
+    eval_results.to_csv(f"{path_out}evaluation_results.csv", index=True)
+    eval_results_per_drug.to_csv(f"{path_out}evaluation_results_per_drug.csv", index=True)
+    eval_results_per_cl.to_csv(f"{path_out}evaluation_results_per_cl.csv", index=True)
+    t_vs_p.to_csv(f"{path_out}true_vs_pred.csv", index=True)
 
 
-def write_group_results(norm_group_res, group_by, eval_res, eval_res_group, path_out):
+def make_group_results(norm_group_res, group_by, eval_res, eval_res_group):
     norm_group_res = pd.DataFrame.from_dict(norm_group_res, orient="index")
     # append 'group normalized ' to the column names
     norm_group_res.columns = [
         f"{col}: {group_by} normalized" for col in norm_group_res.columns
     ]
     eval_res = pd.concat([eval_res, norm_group_res], axis=1)
-    if path_out != "":
-        eval_res_group.to_csv(
-            f"{path_out}/evaluation_results_per_{group_by}.csv", index=True
-        )
-    else:
-        eval_res_group.to_csv(f"evaluation_results_per_{group_by}.csv", index=True)
     return eval_res, eval_res_group
 
 
@@ -369,7 +336,7 @@ def write_violins_and_heatmaps(f, setting, plot_list, plot="Violin"):
     )
     f.write(f"<h3>{plot} plots comparing all models</h3>\n")
     f.write(
-        f'<iframe src="{dir_name}/{prefix}_{setting}.html" width="100%" height="100%" frameBorder="0"></iframe>\n'
+        f'<iframe src="{dir_name}/{prefix}_algorithms_{setting}.html" width="100%" height="100%" frameBorder="0"></iframe>\n'
     )
     f.write(f"<h3>{plot} plots comparing all models with normalized metrics</h3>\n")
     f.write(
@@ -377,7 +344,7 @@ def write_violins_and_heatmaps(f, setting, plot_list, plot="Violin"):
         f"Since this only influences the R^2 and the correlation metrics, the error metrics are not shown. \n"
     )
     f.write(
-        f'<iframe src="{dir_name}/{prefix}_{setting}_normalized.html" width="100%" height="100%" frameBorder="0"></iframe>\n'
+        f'<iframe src="{dir_name}/{prefix}_algorithms_{setting}_normalized.html" width="100%" height="100%" frameBorder="0"></iframe>\n'
     )
     f.write(
         f"<h3>{plot} plots comparing performance measures for tests within each model</h3>\n"
@@ -393,11 +360,11 @@ def write_corr_comp_scatter(f, setting, group_by, plot_list):
         f.write('<h3 id="corr_comp_drug">Drug-wise comparison</h3>\n')
         f.write("<h4>Overall comparison between models</h4>\n")
         f.write(
-            f'<iframe src="corr_comp_scatter/corr_comp_scatter_overall_{setting}_{group_by}.html" width="100%" height="100%" frameBorder="0"></iframe>\n'
+            f'<iframe src="corr_comp_scatter/corr_comp_scatter_overall_{group_by}_{setting}.html" width="100%" height="100%" frameBorder="0"></iframe>\n'
         )
         f.write("<h4>Comparison between all models, dropdown menu</h4>\n")
         f.write(
-            f'<iframe src="corr_comp_scatter/corr_comp_scatter_{setting}_{group_by}.html" width="100%" height="100%" frameBorder="0"></iframe>\n'
+            f'<iframe src="corr_comp_scatter/corr_comp_scatter_{group_by}_{setting}.html" width="100%" height="100%" frameBorder="0"></iframe>\n'
         )
         f.write("<h4>Comparisons per model</h4>\n")
         f.write("<ul>\n")
@@ -405,7 +372,7 @@ def write_corr_comp_scatter(f, setting, group_by, plot_list):
             elem
             for elem in plot_list
             if elem != f"corr_comp_scatter_{setting}_{group_by}.html"
-               and elem != f"corr_comp_scatter_overall_{setting}_{group_by}.html"
+            and elem != f"corr_comp_scatter_overall_{setting}_{group_by}.html"
         ]
         plot_list.sort()
         for group_comparison in plot_list:

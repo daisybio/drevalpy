@@ -21,7 +21,7 @@ class Dataset(ABC):
         pass
 
     @abstractmethod
-    def save(self):
+    def save(self, path: str):
         """
         Saves the dataset to data.
         """
