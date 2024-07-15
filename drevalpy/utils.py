@@ -233,7 +233,7 @@ def partial_correlation(
     """
 
     if len(y_true) < 3:
-        return np.nan
+        return np.nan if not return_pvalue else (np.nan, np.nan)
     assert (
         len(y_pred) == len(y_true) == len(cell_line_ids) == len(drug_ids)
     ), "predictions, response, drug_ids, and cell_line_ids must have the same length"
