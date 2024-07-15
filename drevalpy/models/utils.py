@@ -19,7 +19,10 @@ def load_and_reduce_gene_features(
         )
     else:
         gene_info = pd.read_csv(
-            f"{data_path}/{dataset_name}/gene_lists/{gene_list}.csv", sep="\t" if gene_list == "landmark_genes" else "," #TODO harmonize gene lists
+            f"{data_path}/{dataset_name}/gene_lists/{gene_list}.csv",
+            sep=(
+                "\t" if gene_list == "landmark_genes" else ","
+            ),  # TODO harmonize gene lists
         )
         genes_to_use = set(gene_info["Symbol"]) & set(ge.columns)
         ge = ge[list(genes_to_use)]

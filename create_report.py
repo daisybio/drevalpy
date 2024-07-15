@@ -1,5 +1,5 @@
 import os
-import pandas as pd
+import argparse
 
 from drevalpy.visualization.utils import (
     parse_results,
@@ -324,7 +324,7 @@ def create_index_html(custom_id):
 
 if __name__ == "__main__":
     # Load the dataset
-    run_id = "myRun"
+    run_id = "myrun42"
 
     # PIPELINE: COLLECT_RESULTS
     (
@@ -346,18 +346,20 @@ if __name__ == "__main__":
         true_vs_pred,
     )
 
-    write_results(path_out=f"results/{run_id}/",
-                  eval_results=evaluation_results,
-                  eval_results_per_drug=evaluation_results_per_drug,
-                  eval_results_per_cl=evaluation_results_per_cell_line,
-                  t_vs_p=true_vs_pred)
-    '''
+    write_results(
+        path_out=f"results/{run_id}/",
+        eval_results=evaluation_results,
+        eval_results_per_drug=evaluation_results_per_drug,
+        eval_results_per_cl=evaluation_results_per_cell_line,
+        t_vs_p=true_vs_pred,
+    )
+    """
     evaluation_results = pd.read_csv(f'results/{run_id}/evaluation_results.csv', index_col=0)
     evaluation_results_per_drug = pd.read_csv(f'results/{run_id}/evaluation_results_per_drug.csv', index_col=0)
     evaluation_results_per_cell_line = pd.read_csv(f'results/{run_id}/evaluation_results_per_cl.csv',
                                              index_col=0)
     true_vs_pred = pd.read_csv(f'results/{run_id}/true_vs_pred.csv', index_col=0)
-    '''
+    """
 
     # create output directories: violin_plots, heatmaps, regression_plots, corr_comp_scatter, html_tables
     create_output_directories(run_id)

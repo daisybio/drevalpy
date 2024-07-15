@@ -221,16 +221,17 @@ def draw_violin_or_heatmap(plot_type, df, normalized_metrics, whole_name):
 
 
 def draw_scatter_grids_per_group(df, group_by, lpo_lco_ldo, out_prefix, algorithm=None):
-    if group_by == 'drug':
-        exclude_models = {'NaiveDrugMeanPredictor'}
+    if group_by == "drug":
+        exclude_models = {"NaiveDrugMeanPredictor"}
     else:
-        exclude_models = {'NaiveCellLineMeanPredictor'}
-    exclude_models.union({'NaivePredictor'})
+        exclude_models = {"NaiveCellLineMeanPredictor"}
+    exclude_models.union({"NaivePredictor"})
     if algorithm == "all":
         # draw plots for comparison between all models
         df = df[
-            (df["LPO_LCO_LDO"] == lpo_lco_ldo) & (df["rand_setting"] == "predictions") &
-            (~df["algorithm"].isin(exclude_models))
+            (df["LPO_LCO_LDO"] == lpo_lco_ldo)
+            & (df["rand_setting"] == "predictions")
+            & (~df["algorithm"].isin(exclude_models))
         ]
         corr_comp_scatter = CorrelationComparisonScatter(df=df, color_by=group_by)
         name = f"{group_by}_{lpo_lco_ldo}"
@@ -313,9 +314,13 @@ def export_html_table(df, export_path, grouping):
     df.to_html(export_path, index=False)
 
 
-def write_results(path_out, eval_results, eval_results_per_drug, eval_results_per_cl, t_vs_p):
+def write_results(
+    path_out, eval_results, eval_results_per_drug, eval_results_per_cl, t_vs_p
+):
     eval_results.to_csv(f"{path_out}evaluation_results.csv", index=True)
-    eval_results_per_drug.to_csv(f"{path_out}evaluation_results_per_drug.csv", index=True)
+    eval_results_per_drug.to_csv(
+        f"{path_out}evaluation_results_per_drug.csv", index=True
+    )
     eval_results_per_cl.to_csv(f"{path_out}evaluation_results_per_cl.csv", index=True)
     t_vs_p.to_csv(f"{path_out}true_vs_pred.csv", index=True)
 
@@ -365,7 +370,9 @@ def write_violins_and_heatmaps(f, setting, plot_list, plot="Violin"):
 
 def write_corr_comp_scatter(f, setting, group_by, plot_list):
     if len(plot_list) > 0:
-        f.write(f'<h3 id="corr_comp_drug">{group_by.capitalize()}-wise comparison</h3>\n')
+        f.write(
+            f'<h3 id="corr_comp_drug">{group_by.capitalize()}-wise comparison</h3>\n'
+        )
         f.write("<h4>Overall comparison between models</h4>\n")
         f.write(
             f'<iframe src="corr_comp_scatter/corr_comp_scatter_overall_{group_by}_{setting}.html" width="100%" height="100%" frameBorder="0"></iframe>\n'

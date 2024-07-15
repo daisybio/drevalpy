@@ -133,11 +133,10 @@ if __name__ == "__main__":
         RESPONSE_DATASET_FACTORY[dataset]() for dataset in args.cross_study_datasets
     ]
     # TODO Allow for custom randomization tests maybe via config file
-    
+
     if args.randomization_mode[0] == "None":
         args.randomization_mode = None
     response_transformation = get_response_transformation(args.response_transformation)
-
 
     for test_mode in args.test_mode:
         drug_response_experiment(

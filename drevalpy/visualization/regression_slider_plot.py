@@ -13,8 +13,12 @@ class RegressionSliderPlot:
 
         if self.normalize:
             if self.group_by == "cell_line":
-                self.df.loc[:, "y_true"] = self.df["y_true"] - self.df["mean_y_true_per_drug"]
-                self.df.loc[:, "y_pred"] = self.df["y_pred"] - self.df["mean_y_true_per_drug"]
+                self.df.loc[:, "y_true"] = (
+                    self.df["y_true"] - self.df["mean_y_true_per_drug"]
+                )
+                self.df.loc[:, "y_pred"] = (
+                    self.df["y_pred"] - self.df["mean_y_true_per_drug"]
+                )
             else:
                 self.df.loc[:, "y_true"] = (
                     self.df["y_true"] - self.df["mean_y_true_per_cell_line"]
