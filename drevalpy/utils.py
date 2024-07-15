@@ -11,7 +11,6 @@ from pingouin import partial_corr
 from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
 
 
-
 def check_arguments(args):
     from drevalpy.models import MODEL_FACTORY
     from drevalpy.datasets import RESPONSE_DATASET_FACTORY
@@ -334,4 +333,5 @@ def get_response_transformation(response_transformation: str):
         return RobustScaler()
     else:
         raise ValueError(
-            f"Unknown response transformation {response_transformation}. Choose from 'None', 'standard', 'minmax', 'robust'")
+            f"Unknown response transformation {response_transformation}. Choose from 'None', 'standard', 'minmax', 'robust'"
+        )

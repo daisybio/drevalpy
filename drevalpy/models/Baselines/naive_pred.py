@@ -91,9 +91,7 @@ class NaiveDrugMeanPredictor(DRPModel):
             responses_drug = output.response[drug_feature == output.drug_ids]
             if len(responses_drug) > 0:
                 # prevent nan response
-                self.drug_means[drug_response] = np.mean(
-                    responses_drug
-                )
+                self.drug_means[drug_response] = np.mean(responses_drug)
 
     def predict(
         self, cell_line_id: np.ndarray = None, drug_id: np.ndarray = None
@@ -160,9 +158,7 @@ class NaiveCellLineMeanPredictor(DRPModel):
             responses_cl = output.response[cell_line_feature == output.cell_line_ids]
             if len(responses_cl) > 0:
                 # prevent nan response
-                self.cell_line_means[cell_line_response] = np.mean(
-                    responses_cl
-                )
+                self.cell_line_means[cell_line_response] = np.mean(responses_cl)
 
     def predict(
         self, cell_line_id: np.ndarray = None, drug_id: np.ndarray = None

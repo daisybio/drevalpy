@@ -221,16 +221,17 @@ def draw_violin_or_heatmap(plot_type, df, normalized_metrics, whole_name):
 
 
 def draw_scatter_grids_per_group(df, group_by, lpo_lco_ldo, out_prefix, algorithm=None):
-    if group_by == 'drug':
-        exclude_models = {'NaiveDrugMeanPredictor'}
+    if group_by == "drug":
+        exclude_models = {"NaiveDrugMeanPredictor"}
     else:
-        exclude_models = {'NaiveCellLineMeanPredictor'}
-    exclude_models = exclude_models.union({'NaivePredictor'})
+        exclude_models = {"NaiveCellLineMeanPredictor"}
+    exclude_models = exclude_models.union({"NaivePredictor"})
     if algorithm == "all":
         # draw plots for comparison between all models
         df = df[
-            (df["LPO_LCO_LDO"] == lpo_lco_ldo) & (df["rand_setting"] == "predictions") &
-            (~df["algorithm"].isin(exclude_models))
+            (df["LPO_LCO_LDO"] == lpo_lco_ldo)
+            & (df["rand_setting"] == "predictions")
+            & (~df["algorithm"].isin(exclude_models))
         ]
         corr_comp_scatter = CorrelationComparisonScatter(df=df, color_by=group_by)
         name = f"{group_by}_{lpo_lco_ldo}"

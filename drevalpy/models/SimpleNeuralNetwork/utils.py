@@ -122,7 +122,9 @@ class FeedForwardNetwork(pl.LightningModule):
     def initialize_model(self, x):
         n_features = x.size(1)
         self.fully_connected_layers = nn.ModuleList()
-        self.fully_connected_layers.append(nn.Linear(n_features, self.n_units_per_layer[0]))
+        self.fully_connected_layers.append(
+            nn.Linear(n_features, self.n_units_per_layer[0])
+        )
         for i in range(1, len(self.n_units_per_layer)):
             self.fully_connected_layers.append(
                 nn.Linear(self.n_units_per_layer[i - 1], self.n_units_per_layer[i])
@@ -165,4 +167,3 @@ class FeedForwardNetwork(pl.LightningModule):
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters())
-
