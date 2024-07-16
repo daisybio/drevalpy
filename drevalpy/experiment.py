@@ -13,6 +13,7 @@ from ray import tune
 from sklearn.base import TransformerMixin
 import shutil
 
+
 def drug_response_experiment(
     models: List[Type[DRPModel]],
     response_data: DrugResponseDataset,
@@ -83,7 +84,6 @@ def drug_response_experiment(
 
         os.makedirs(result_path, exist_ok=True)
 
-
         response_data.remove_nan_responses()
         response_data.split_dataset(
             n_cv_splits=n_cv_splits,
@@ -112,7 +112,6 @@ def drug_response_experiment(
             os.makedirs(randomization_test_path, exist_ok=True)
 
         model_hpam_set = model_class.get_hyperparameter_set()
-
 
         for split_index, split in enumerate(response_data.cv_splits):
             prediction_file = os.path.join(

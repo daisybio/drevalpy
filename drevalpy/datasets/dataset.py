@@ -276,22 +276,24 @@ class DrugResponseDataset(Dataset):
                 split["early_stopping"] = early_stopping
         self.cv_splits = cv_splits
         return cv_splits
-    
+
     def save_splits(self, path: str) -> None:
         """
-        Save cross validation splits to 
+        Save cross validation splits to
         path/cv_split_0.csv
         path/cv_split_2.csv
         ...
         """
-        assert self.cv_splits is not None, "trying to save splits, but DrugResponseDataset was not split."
+        assert (
+            self.cv_splits is not None
+        ), "trying to save splits, but DrugResponseDataset was not split."
         for i, split in enumerate(self.cv_splits):
             split_path = os.path.join(path, f"cv_split_{i}.csv")
             split.save(path=split_path)
 
     def load_splits(self, path: str) -> None:
         """
-        Load cross validation splits from 
+        Load cross validation splits from
         path/cv_split_0.csv
         path/cv_split_2.csv
         ...
@@ -302,6 +304,7 @@ class DrugResponseDataset(Dataset):
             split = DrugResponseDataset()
             split.load(path=split_path)
             self.cv_splits.append(split)
+
     def copy(self):
         """
         Returns a copy of the drug response dataset.
@@ -512,5 +515,3 @@ class FeatureDataset(Dataset):
         self.features = new_features
         self.view_names = self.get_view_names()
         self.identifiers = self.get_ids()
-    
-
