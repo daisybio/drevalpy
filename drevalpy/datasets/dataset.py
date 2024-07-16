@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+import os
 from typing import Dict, List, Optional, Tuple, Union
 import numpy as np
 from numpy.typing import ArrayLike
@@ -57,6 +58,7 @@ class DrugResponseDataset(Dataset):
         drug_ids: drug IDs
         predictions: optional. Predicted drug response values per cell line and drug
         dataset_name: optional. Name of the dataset
+        cv_splits: optional. List of DrugResponseDatasets (cross validation splits)
         """
         super(DrugResponseDataset, self).__init__()
         if response is not None:
@@ -83,6 +85,7 @@ class DrugResponseDataset(Dataset):
             ), "predictions and response have different lengths"
         else:
             self.predictions = None
+        self.cv_splits = None
 
     def __len__(self):
         return len(self.response)
@@ -273,7 +276,32 @@ class DrugResponseDataset(Dataset):
                 split["early_stopping"] = early_stopping
         self.cv_splits = cv_splits
         return cv_splits
+    
+    def save_splits(self, path: str) -> None:
+        """
+        Save cross validation splits to 
+        path/cv_split_0.csv
+        path/cv_split_2.csv
+        ...
+        """
+        assert self.cv_splits is not None, "trying to save splits, but DrugResponseDataset was not split."
+        for i, split in enumerate(self.cv_splits):
+            split_path = os.path.join(path, f"cv_split_{i}.csv")
+            split.save(path=split_path)
 
+    def load_splits(self, path: str) -> None:
+        """
+        Load cross validation splits from 
+        path/cv_split_0.csv
+        path/cv_split_2.csv
+        ...
+        """
+        self.cv_splits = []
+        for i in range(len(os.listdir(path))):
+            split_path = os.path.join(path, f"cv_split_{i}.csv")
+            split = DrugResponseDataset()
+            split.load(path=split_path)
+            self.cv_splits.append(split)
     def copy(self):
         """
         Returns a copy of the drug response dataset.
@@ -484,3 +512,5 @@ class FeatureDataset(Dataset):
         self.features = new_features
         self.view_names = self.get_view_names()
         self.identifiers = self.get_ids()
+    
+
