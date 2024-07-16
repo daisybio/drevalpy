@@ -10,6 +10,8 @@ from scipy.stats import pearsonr, spearmanr, kendalltau
 from pingouin import partial_corr
 from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
 import warnings
+
+
 def check_arguments(args):
     from drevalpy.models import MODEL_FACTORY
     from drevalpy.datasets import RESPONSE_DATASET_FACTORY
@@ -212,7 +214,9 @@ def leave_group_out_cv(
         cv_sets.append(cv_fold)
     return cv_sets
 
+
 warning_shown = False
+
 
 def partial_correlation(
     y_pred: np.ndarray,
@@ -250,14 +254,15 @@ def partial_correlation(
     if (len(df["cell_line_ids"].unique()) < 2) or (len(df["drug_ids"].unique()) < 2):
         # if we don't have more than one cell line or drug in the data, partial correlation is meaningless
         global warning_shown
-        if not warning_shown: 
-            warnings.warn("Partial correlation not defined if only one cell line or drug is in the data.")
-            warning_shown=True
-        return (np.nan, np.nan)if return_pvalue else np.nan
+        if not warning_shown:
+            warnings.warn(
+                "Partial correlation not defined if only one cell line or drug is in the data."
+            )
+            warning_shown = True
+        return (np.nan, np.nan) if return_pvalue else np.nan
 
     df["cell_line_ids"] = pd.factorize(df["cell_line_ids"])[0]
     df["drug_ids"] = pd.factorize(df["drug_ids"])[0]
-    
 
     if df.shape[0] < 3:
         r, p = np.nan, np.nan
