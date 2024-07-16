@@ -561,7 +561,7 @@ def hpam_tune_raytune(
         ),
         config=tune.grid_search(hpam_set),
         mode="min",
-        num_samples=5,
+        num_samples=1,
         resources_per_trial=resources_per_trial,
         chdir_to_trial_dir=False,
         verbose=0,
