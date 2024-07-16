@@ -1,7 +1,7 @@
 import json
 from typing import Dict, List, Optional, Tuple, Type
 import warnings
-from drevalpy.utils import handle_overwrite
+from .utils import handle_overwrite
 from .datasets.dataset import DrugResponseDataset, FeatureDataset
 from .evaluation import evaluate, get_mode
 from .models.drp_model import CompositeDrugModel, DRPModel, SingleDrugModel
@@ -73,7 +73,8 @@ def drug_response_experiment(
         # if results exists, delete them if overwrite is True
         print(f"Overwriting existing results at {result_path}")
         shutil.rmtree(result_path)
-    elif result_folder_exists and os.path.exists(split_path):
+
+    if result_folder_exists and os.path.exists(split_path):
         # if the results exist and overwrite is false, load the cv splits.
         # The models will be trained on the existing cv splits.
         print(f"Loading existing cv splits from {split_path}")
@@ -124,7 +125,7 @@ def drug_response_experiment(
 
             if model_class.early_stopping:
                 validation_dataset, early_stopping_dataset = split_early_stopping(
-                    validation_dataset=validation_dataset, test_mode=test_mode
+                    validation_dataset=validation_dataset.copy(), test_mode=test_mode
                 )
 
             if issubclass(model_class, SingleDrugModel):

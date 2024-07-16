@@ -156,5 +156,3 @@ if __name__ == "__main__":
             run_id=args.run_id,
             overwrite=args.overwrite,
         )
-
-    # TODO now do evaluation, visualization, etc.

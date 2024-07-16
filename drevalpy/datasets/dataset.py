@@ -223,7 +223,7 @@ class DrugResponseDataset(Dataset):
         n_cv_splits,
         mode,
         split_validation=True,
-        split_early_stopping=True,
+        split_early_stopping=False,
         validation_ratio=0.1,
         random_state=42,
     ) -> List[dict]:
@@ -280,30 +280,56 @@ class DrugResponseDataset(Dataset):
     def save_splits(self, path: str) -> None:
         """
         Save cross validation splits to
-        path/cv_split_0.csv
-        path/cv_split_2.csv
+        path/cv_split_0_train.csv
+        path/cv_split_0_test.csv
         ...
         """
         assert (
             self.cv_splits is not None
         ), "trying to save splits, but DrugResponseDataset was not split."
+        os.makedirs(path, exist_ok=True)
         for i, split in enumerate(self.cv_splits):
-            split_path = os.path.join(path, f"cv_split_{i}.csv")
-            split.save(path=split_path)
+
+            for mode in ["train", "validation", "test", "validation_es", "early_stopping"]:
+                if mode in split:
+                    split_path = os.path.join(path, f"cv_split_{i}_{mode}.csv")
+                    split[mode].save(path=split_path)
+
 
     def load_splits(self, path: str) -> None:
         """
         Load cross validation splits from
-        path/cv_split_0.csv
-        path/cv_split_2.csv
+        path/cv_split_0_train.csv
+        path/cv_split_0_test.csv
         ...
         """
+        files = os.listdir(path)
+        files = [file for file in files if (file.endswith(".csv") and file.startswith("cv_split"))]
+        assert len(files) > 0, f"No cv split files found in {path}"
+
+        train_splits = [file for file in files if "train" in file]
+        test_splits = [file for file in files if "test" in file]
+
+        validation_splits = [file for file in files if "validation" in file]
+        validation_es_splits = [file for file in files if "validation_es" in file]
+        early_stopping_splits = [file for file in files if "early_stopping" in file]
+        optional_splits = {"validation": validation_splits, "validation_es": validation_es_splits, "early_stopping": early_stopping_splits}
         self.cv_splits = []
-        for i in range(len(os.listdir(path))):
-            split_path = os.path.join(path, f"cv_split_{i}.csv")
-            split = DrugResponseDataset()
-            split.load(path=split_path)
-            self.cv_splits.append(split)
+
+        for split_train, split_test in zip(train_splits, test_splits):
+            tr_split = DrugResponseDataset(dataset_name=self.dataset_name)
+            tr_split.load(os.path.join(path, split_train))
+
+            te_split = DrugResponseDataset(dataset_name=self.dataset_name)
+            te_split.load(os.path.join(path, split_test))
+            self.cv_splits.append({"train": tr_split, "test": te_split})
+        
+        for mode in ["validation", "validation_es", "early_stopping"]:
+            if len(optional_splits[mode]) > 0:
+                for i, v_split in enumerate(optional_splits[mode]):
+                    split = DrugResponseDataset(dataset_name=self.dataset_name)
+                    split.load(os.path.join(path, v_split))
+                    self.cv_splits[i][mode] = split
 
     def copy(self):
         """

@@ -1,4 +1,4 @@
-from drevalpy.datasets.gdsc1 import GDSC1
+from .gdsc1 import GDSC1
 
 
 class GDSC2(GDSC1):
