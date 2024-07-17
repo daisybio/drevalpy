@@ -21,7 +21,7 @@ def drug_response_experiment(
     response_transformation: Optional[TransformerMixin] = None,
     run_id: str = "",
     test_mode: str = "LPO",
-    metric: str = "rmse",
+    metric: str = "RMSE",
     n_cv_splits: int = 5,
     multiprocessing: bool = False,
     randomization_mode: Optional[List[str]] = None,
@@ -130,9 +130,9 @@ def drug_response_experiment(
                 )
 
             if issubclass(model_class, SingleDrugModel):
-                model = CompositeDrugModel(target="IC50", base_model=model_class)
+                model = CompositeDrugModel(base_model=model_class)
             else:
-                model = model_class(target="IC50")
+                model = model_class()
 
             if not os.path.isfile(
                 prediction_file
