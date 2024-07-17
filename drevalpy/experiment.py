@@ -707,6 +707,9 @@ def hpam_tune(
     response_transformation: Optional[TransformerMixin] = None,
     metric: str = "rmse",
 ) -> Dict:
+    if len(hpam_set) == 1:
+        return hpam_set[0]
+    
     best_hyperparameters = None
     mode = get_mode(metric)
     best_score = float("inf") if mode == "min" else float("-inf")
@@ -741,7 +744,7 @@ def hpam_tune_composite_model(
     response_transformation: Optional[TransformerMixin] = None,
     metric: str = "rmse",
 ) -> Dict[str, Dict]:
-
+    
     unique_drugs = list(np.unique(train_dataset.drug_ids)) + list(
         np.unique(validation_dataset.drug_ids)
     )
@@ -791,7 +794,8 @@ def hpam_tune_raytune(
     metric: str = "rmse",
     ray_path: str = "raytune",
 ) -> Dict:
-
+    if len(hpam_set) == 1:
+        return hpam_set[0]
     ray.init(_temp_dir=os.path.join(os.path.expanduser("~"), "raytmp"))
     if torch.cuda.is_available():
         resources_per_trial = {"gpu": 1}  # TODO make this user defined
