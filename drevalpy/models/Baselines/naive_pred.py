@@ -11,8 +11,8 @@ class NaivePredictor(DRPModel):
     cell_line_views = ["cell_line_id"]
     drug_views = ["drug_id"]
 
-    def __init__(self, target, *args, **kwargs):
-        super().__init__(target, args, kwargs)
+    def __init__(self, *args, **kwargs):
+        super().__init__(args, kwargs)
         self.dataset_mean = None
 
     def build_model(self, hyperparameters: Dict, *args, **kwargs):
@@ -63,8 +63,8 @@ class NaiveDrugMeanPredictor(DRPModel):
     cell_line_views = ["cell_line_id"]
     drug_views = ["drug_id"]
 
-    def __init__(self, target, *args, **kwargs):
-        super().__init__(target, args, kwargs)
+    def __init__(self, *args, **kwargs):
+        super().__init__(args, kwargs)
         self.drug_means = None
         self.dataset_mean = None
 
@@ -129,8 +129,8 @@ class NaiveCellLineMeanPredictor(DRPModel):
     cell_line_views = ["cell_line_id"]
     drug_views = ["drug_id"]
 
-    def __init__(self, target, *args, **kwargs):
-        super().__init__(target, args, kwargs)
+    def __init__(self, *args, **kwargs):
+        super().__init__(args, kwargs)
         self.cell_line_means = None
         self.dataset_mean = None
 

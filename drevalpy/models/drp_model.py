@@ -17,15 +17,13 @@ class DRPModel(ABC):
 
     early_stopping = False
 
-    def __init__(self, target, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         """
         Creates an instance of a drug response prediction model.
         :param model_name: model name for displaying results
-        :param target: target value, e.g., IC50, EC50, AUC, classification
         :param args: optional arguments
         :param kwargs: optional keyword arguments
         """
-        self.target = target
 
     @classmethod
     def get_hyperparameter_set(cls, hyperparameter_file: Optional[str] = None):
@@ -167,14 +165,12 @@ class SingleDrugModel(DRPModel, ABC):
     early_stopping = False
     drug_views = []
 
-    def __init__(self, target: str, *args, **kwargs):
+    def __init__(self: str, *args, **kwargs):
         """
         Creates an instance of a single drug response prediction model.
         :param model_name: model name for displaying results
-        :param target: target value, e.g., IC50, EC50, AUC, classification
         """
-        super().__init__(target=target)
-        self.target = target
+        super().__init__(*args, **kwargs)
 
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         return None
@@ -189,13 +185,12 @@ class CompositeDrugModel(DRPModel):
     drug_views = []
     model_name = "CompositeDrugModel"
 
-    def __init__(self, target: str, base_model: Type[DRPModel], *args, **kwargs):
+    def __init__(self, base_model: Type[DRPModel], *args, **kwargs):
         """
         Creates an instance of a single drug response prediction model.
         :param model_name: model name for displaying results
-        :param target: target value, e.g., IC50, EC50, AUC, classification
         """
-        super().__init__(target=target, *args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.models = {}
         self.base_model = base_model
         self.cell_line_views = base_model.cell_line_views
@@ -207,7 +202,7 @@ class CompositeDrugModel(DRPModel):
         Builds the model.
         """
         for drug in hyperparameters:
-            self.models[drug] = self.base_model(target=self.target)
+            self.models[drug] = self.base_model()
             self.models[drug].build_model(hyperparameters[drug])
 
     def load_cell_line_features(
