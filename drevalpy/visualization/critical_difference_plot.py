@@ -9,7 +9,7 @@ import networkx
 matplotlib.use("agg")
 import matplotlib.pyplot as plt
 matplotlib.rcParams["font.family"] = "sans-serif"
-matplotlib.rcParams["font.sans-serif"] = "Arial"
+matplotlib.rcParams["font.sans-serif"] = "Avenir"
 
 from drevalpy.evaluation import MINIMIZATION_METRICS
 class CriticalDifferencePlot:
