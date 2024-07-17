@@ -37,7 +37,9 @@ def parse_results(path_to_results, path_out="results"):
             "evaluation_results_per_cl.csv",
             "true_vs_pred.csv",
         ]
+        and "cv_split" not in file.name
     ]
+
     # inititalize dictionaries to store the evaluation results
     evaluation_results = {}
     norm_drug_eval_results = {}
