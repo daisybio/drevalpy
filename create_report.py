@@ -9,6 +9,7 @@ from drevalpy.visualization.utils import (
     draw_violin_or_heatmap,
     draw_scatter_grids_per_group,
     draw_regr_slider,
+    draw_critical_difference_plot,
     export_html_table,
     write_violins_and_heatmaps,
     write_corr_comp_scatter,
@@ -17,12 +18,13 @@ from drevalpy.visualization.utils import (
 
 def create_output_directories(custom_id):
     # if they do not exist yet:
-    # make directories: violin_plots, heatmaps, regression_plots, corr_comp_scatter, html_tables
+    # make directories: violin_plots, heatmaps, regression_plots, corr_comp_scatter, html_tables, critical_difference_plots
     os.makedirs(f"results/{custom_id}/violin_plots", exist_ok=True)
     os.makedirs(f"results/{custom_id}/heatmaps", exist_ok=True)
     os.makedirs(f"results/{custom_id}/regression_plots", exist_ok=True)
     os.makedirs(f"results/{custom_id}/corr_comp_scatter", exist_ok=True)
     os.makedirs(f"results/{custom_id}/html_tables", exist_ok=True)
+    os.makedirs(f"results/{custom_id}/critical_difference_plots", exist_ok=True)
 
 
 def draw_setting_plots(
@@ -38,6 +40,11 @@ def draw_setting_plots(
 
     # only draw figures for 'real' predictions comparing all models
     eval_results_preds = ev_res_subset[ev_res_subset["rand_setting"] == "predictions"]
+
+    path_out_cd = f"results/{custom_id}/critical_difference_plots/critical_difference_algorithms_{lpo_lco_ldo}.svg"
+    draw_critical_difference_plot(evaluation_results=eval_results_preds, path_out=path_out_cd, metric="MSE")
+
+
     # PIPELINE: DRAW_VIOLIN_AND_HEATMAP
     for plt_type in ["violinplot", "heatmap"]:
         if plt_type == "violinplot":
@@ -191,6 +198,9 @@ def create_html(custom_id, setting):
             f=f, path_to_layout="drevalpy/visualization/style_utils/page_layout.html"
         )
         f.write(f"<h1>Results for {custom_id}: {setting}</h1>\n")
+
+        path_out_cd = f"critical_difference_plots/critical_difference_algorithms_{setting}.svg"
+        f.write(f'<object data={path_out_cd}> </object>')
 
         plot_list = [
             f
@@ -372,7 +382,7 @@ if __name__ == "__main__":
     true_vs_pred = pd.read_csv(f'results/{run_id}/true_vs_pred.csv', index_col=0)
     """
 
-    # create output directories: violin_plots, heatmaps, regression_plots, corr_comp_scatter, html_tables
+    # create output directories: violin_plots, heatmaps, regression_plots, corr_comp_scatter, html_tables, critical_difference_plot
     create_output_directories(run_id)
     # Start loop over all settings
     settings = evaluation_results["LPO_LCO_LDO"].unique()
