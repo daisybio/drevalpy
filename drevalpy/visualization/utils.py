@@ -8,6 +8,7 @@ from drevalpy.visualization.violin import Violin
 from drevalpy.visualization.heatmap import Heatmap
 from drevalpy.visualization.corr_comp_scatter import CorrelationComparisonScatter
 from drevalpy.visualization.regression_slider_plot import RegressionSliderPlot
+from drevalpy.visualization.critical_difference_plot import CriticalDifferencePlot
 
 
 def parse_layout(f, path_to_layout):
@@ -209,6 +210,10 @@ def compute_evaluation(df, return_df, group_by, model):
         return_df = pd.concat([return_df, result_per_group])
     return return_df
 
+def draw_critical_difference_plot(evaluation_results: pd.DataFrame, path_out: str, metric: str) -> None:
+    out = CriticalDifferencePlot(eval_results_preds=evaluation_results, metric=metric)
+    out.fig.savefig(path_out, bbox_inches='tight')
+    
 
 def draw_violin_or_heatmap(plot_type, df, normalized_metrics, whole_name):
     if plot_type == "violinplot":

@@ -216,7 +216,7 @@ def leave_group_out_cv(
 
 
 warning_shown = False
-
+warning_2_shown = False
 
 def partial_correlation(
     y_pred: np.ndarray,
@@ -259,6 +259,13 @@ def partial_correlation(
                 "Partial correlation not defined if only one cell line or drug is in the data."
             )
             warning_shown = True
+        return (np.nan, np.nan) if return_pvalue else np.nan
+    
+    if df["predictions"].var() < 1e-10:
+        global warning_2_shown
+        if not warning_2_shown:
+            warnings.warn("Predictions have zero variance. Partial correlation is undefined.")
+            warning_2_shown = True
         return (np.nan, np.nan) if return_pvalue else np.nan
 
     df["cell_line_ids"] = pd.factorize(df["cell_line_ids"])[0]
