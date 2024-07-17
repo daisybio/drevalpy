@@ -129,10 +129,7 @@ def drug_response_experiment(
                     validation_dataset=validation_dataset.copy(), test_mode=test_mode
                 )
 
-            if issubclass(model_class, SingleDrugModel):
-                model = CompositeDrugModel(base_model=model_class)
-            else:
-                model = model_class()
+            model = instantiate_model(model_class)
 
             if not os.path.isfile(
                 prediction_file
@@ -707,6 +704,9 @@ def hpam_tune(
     response_transformation: Optional[TransformerMixin] = None,
     metric: str = "rmse",
 ) -> Dict:
+    if len(hpam_set) == 1:
+        return hpam_set[0]
+    
     best_hyperparameters = None
     mode = get_mode(metric)
     best_score = float("inf") if mode == "min" else float("-inf")
@@ -741,7 +741,7 @@ def hpam_tune_composite_model(
     response_transformation: Optional[TransformerMixin] = None,
     metric: str = "rmse",
 ) -> Dict[str, Dict]:
-
+    
     unique_drugs = list(np.unique(train_dataset.drug_ids)) + list(
         np.unique(validation_dataset.drug_ids)
     )
@@ -791,7 +791,8 @@ def hpam_tune_raytune(
     metric: str = "rmse",
     ray_path: str = "raytune",
 ) -> Dict:
-
+    if len(hpam_set) == 1:
+        return hpam_set[0]
     ray.init(_temp_dir=os.path.join(os.path.expanduser("~"), "raytmp"))
     if torch.cuda.is_available():
         resources_per_trial = {"gpu": 1}  # TODO make this user defined
@@ -820,3 +821,9 @@ def hpam_tune_raytune(
     mode = get_mode(metric)
     best_config = analysis.get_best_config(metric=metric, mode=mode)
     return best_config
+
+def instantiate_model(model_class: Type[DRPModel]) -> DRPModel:
+    if issubclass(model_class, SingleDrugModel):
+        return CompositeDrugModel(base_model=model_class)
+    else:
+        return model_class()
