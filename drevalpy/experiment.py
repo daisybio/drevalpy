@@ -86,6 +86,7 @@ def drug_response_experiment(
         os.makedirs(result_path, exist_ok=True)
 
         response_data.remove_nan_responses()
+        # if this line changes, also change it in pipeline: cv_split.py
         response_data.split_dataset(
             n_cv_splits=n_cv_splits,
             mode=test_mode,

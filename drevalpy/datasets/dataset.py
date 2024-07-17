@@ -4,9 +4,10 @@ from typing import Dict, List, Optional, Tuple, Union
 import numpy as np
 from numpy.typing import ArrayLike
 import pandas as pd
-from ..utils import leave_pair_out_cv, leave_group_out_cv
 import copy
 from sklearn.base import TransformerMixin
+
+from .utils import leave_pair_out_cv, leave_group_out_cv
 
 
 class Dataset(ABC):
@@ -232,7 +233,6 @@ class DrugResponseDataset(Dataset):
         :param mode: split mode (LPO=Leave-random-Pairs-Out, LCO=Leave-Cell-line-Out, LDO=Leave-Drug-Out)
         :return: training, validation and test sets
         """
-
         cell_line_ids = self.cell_line_ids
         drug_ids = self.drug_ids
         response = self.response

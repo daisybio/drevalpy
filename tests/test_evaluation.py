@@ -9,7 +9,12 @@ def test_evaluate():
     # Create mock dataset
     predictions = np.array([1, 2, 3, 4, 5])
     response = np.array([1.1, 2.2, 3.3, 4.4, 5.5])
-    dataset = DrugResponseDataset(predictions=predictions, response=response)
+    dataset = DrugResponseDataset(
+        response=response,
+        cell_line_ids=pd.Series(["A", "B", "C", "D", "E"]),
+        drug_ids=pd.Series(["a", "b", "c", "d", "e"]),
+        predictions=predictions,
+    )
 
     # Test metrics calculation
     mse_expected = mean_squared_error(predictions, response)
@@ -18,18 +23,18 @@ def test_evaluate():
     r2_expected = r2_score(y_pred=predictions, y_true=response)
 
     # Evaluate using all available metrics
-    results = evaluate(dataset, metric=["mse", "rmse", "mae", "r2"])
+    results = evaluate(dataset, metric=["MSE", "RMSE", "MAE", "R^2"])
 
     # Check if the calculated metrics match the expected values
     assert np.isclose(
-        results["mse"], mse_expected
-    ), f"Expected mse: {mse_expected}, Got: {results['mse']}"
+        results["MSE"], mse_expected
+    ), f"Expected mse: {mse_expected}, Got: {results['MSE']}"
     assert np.isclose(
-        results["rmse"], rmse_expected
-    ), f"Expected rmse: {rmse_expected}, Got: {results['rmse']}"
+        results["RMSE"], rmse_expected
+    ), f"Expected rmse: {rmse_expected}, Got: {results['RMSE']}"
     assert np.isclose(
-        results["mae"], mae_expected
-    ), f"Expected mae: {mae_expected}, Got: {results['mae']}"
+        results["MAE"], mae_expected
+    ), f"Expected mae: {mae_expected}, Got: {results['MAE']}"
     assert np.isclose(
-        results["r2"], r2_expected
-    ), f"Expected, r2: {r2_expected}, Got: {results['r2']}"
+        results["R^2"], r2_expected
+    ), f"Expected, r2: {r2_expected}, Got: {results['R^2']}"
