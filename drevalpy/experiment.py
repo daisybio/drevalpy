@@ -129,10 +129,7 @@ def drug_response_experiment(
                     validation_dataset=validation_dataset.copy(), test_mode=test_mode
                 )
 
-            if issubclass(model_class, SingleDrugModel):
-                model = CompositeDrugModel(base_model=model_class)
-            else:
-                model = model_class()
+            model = instantiate_model(model_class)
 
             if not os.path.isfile(
                 prediction_file
@@ -824,3 +821,9 @@ def hpam_tune_raytune(
     mode = get_mode(metric)
     best_config = analysis.get_best_config(metric=metric, mode=mode)
     return best_config
+
+def instantiate_model(model_class: Type[DRPModel]) -> DRPModel:
+    if issubclass(model_class, SingleDrugModel):
+        return CompositeDrugModel(base_model=model_class)
+    else:
+        return model_class()
