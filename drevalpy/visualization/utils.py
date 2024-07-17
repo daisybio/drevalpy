@@ -51,49 +51,7 @@ def parse_results(path_to_results, path_out="results"):
 
     # read every result file and compute the evaluation metrics
     for file in result_files:
-        print("Parsing file:", os.path.normpath(file))
-        result = pd.read_csv(file)
-        dataset = DrugResponseDataset(
-            response=result["response"],
-            cell_line_ids=result["cell_line_ids"],
-            drug_ids=result["drug_ids"],
-            predictions=result["predictions"],
-        )
-        model = generate_model_names(file)
-
-        # overall evaluation
-        evaluation_results[model] = evaluate(dataset, AVAILABLE_METRICS.keys())
-
-        tmp_df = pd.DataFrame(
-            {
-                "model": [model for _ in range(len(dataset.response))],
-                "drug": dataset.drug_ids,
-                "cell_line": dataset.cell_line_ids,
-                "y_true": dataset.response,
-                "y_pred": dataset.predictions,
-            }
-        )
-
-        if "LPO" in model or "LCO" in model:
-            norm_drug_eval_results, evaluation_results_per_drug = evaluate_per_group(
-                df=tmp_df,
-                group_by="drug",
-                norm_group_eval_results=norm_drug_eval_results,
-                eval_results_per_group=evaluation_results_per_drug,
-                model=model,
-            )
-        if "LPO" in model or "LDO" in model:
-            norm_cell_line_eval_results, evaluation_results_per_cell_line = (
-                evaluate_per_group(
-                    df=tmp_df,
-                    group_by="cell_line",
-                    norm_group_eval_results=norm_cell_line_eval_results,
-                    eval_results_per_group=evaluation_results_per_cell_line,
-                    model=model,
-                )
-            )
-
-        true_vs_pred = pd.concat([true_vs_pred, tmp_df])
+        evaluate_file(file)
 
     evaluation_results = pd.DataFrame.from_dict(evaluation_results, orient="index")
     if norm_drug_eval_results != {}:
@@ -118,6 +76,51 @@ def parse_results(path_to_results, path_out="results"):
         true_vs_pred,
     )
 
+
+def evaluate_file(pred_file):
+    print("Parsing file:", os.path.normpath(pred_file))
+    result = pd.read_csv(pred_file)
+    dataset = DrugResponseDataset(
+        response=result["response"],
+        cell_line_ids=result["cell_line_ids"],
+        drug_ids=result["drug_ids"],
+        predictions=result["predictions"],
+    )
+    model = generate_model_names(pred_file)
+
+    # overall evaluation
+    evaluation_results[model] = evaluate(dataset, AVAILABLE_METRICS.keys())
+
+    tmp_df = pd.DataFrame(
+        {
+            "model": [model for _ in range(len(dataset.response))],
+            "drug": dataset.drug_ids,
+            "cell_line": dataset.cell_line_ids,
+            "y_true": dataset.response,
+            "y_pred": dataset.predictions,
+        }
+    )
+
+    if "LPO" in model or "LCO" in model:
+        norm_drug_eval_results, evaluation_results_per_drug = evaluate_per_group(
+            df=tmp_df,
+            group_by="drug",
+            norm_group_eval_results=norm_drug_eval_results,
+            eval_results_per_group=evaluation_results_per_drug,
+            model=model,
+        )
+    if "LPO" in model or "LDO" in model:
+        norm_cell_line_eval_results, evaluation_results_per_cell_line = (
+            evaluate_per_group(
+                df=tmp_df,
+                group_by="cell_line",
+                norm_group_eval_results=norm_cell_line_eval_results,
+                eval_results_per_group=evaluation_results_per_cell_line,
+                model=model,
+            )
+        )
+
+    true_vs_pred = pd.concat([true_vs_pred, tmp_df])
 
 def prep_results(
     eval_results, eval_results_per_drug, eval_results_per_cell_line, t_vs_p

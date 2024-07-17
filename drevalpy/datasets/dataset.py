@@ -224,7 +224,7 @@ class DrugResponseDataset(Dataset):
         n_cv_splits,
         mode,
         split_validation=True,
-        split_early_stopping=False,
+        split_early_stopping=True,
         validation_ratio=0.1,
         random_state=42,
     ) -> List[dict]:
