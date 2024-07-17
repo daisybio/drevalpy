@@ -1,22 +1,30 @@
-from drevalpy.datasets import RESPONSE_DATASET_FACTORY
 from drevalpy.experiment import drug_response_experiment
 from drevalpy.models import MODEL_FACTORY
-from drevalpy.utils import get_parser, check_arguments, get_response_transformation
+from drevalpy.utils import (
+    get_parser,
+    check_arguments,
+    load_data,
+    get_response_transformation,
+)
 
 
 if __name__ == "__main__":
+    # PIPELINE: PARAMS_CHECK
     args = get_parser().parse_args()
     check_arguments(args)
+
+    # PIPELINE: LOAD_RESPONSE
+    response_data, cross_study_datasets = load_data(
+        dataset_name=args.dataset_name,
+        cross_study_datasets=args.cross_study_datasets
+    )
+
     models = [MODEL_FACTORY[model] for model in args.models]
 
     if args.baselines is not None:
         baselines = [MODEL_FACTORY[baseline] for baseline in args.baselines]
     else:
         baselines = []
-    response_data = RESPONSE_DATASET_FACTORY[args.dataset_name]()
-    cross_study_datasets = [
-        RESPONSE_DATASET_FACTORY[dataset]() for dataset in args.cross_study_datasets
-    ]
     # TODO Allow for custom randomization tests maybe via config file
 
     if args.randomization_mode[0] == "None":

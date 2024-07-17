@@ -1,9 +1,128 @@
-from .datasets.dataset import DrugResponseDataset
+import warnings
 from typing import Union, List
 import sklearn.metrics as metrics
-from .utils import pearson, spearman, kendall, partial_correlation
 import pandas as pd
 import numpy as np
+from typing import Tuple
+from scipy.stats import pearsonr, spearmanr, kendalltau
+from pingouin import partial_corr
+
+from .datasets.dataset import DrugResponseDataset
+
+warning_shown = False
+
+
+def partial_correlation(
+    y_pred: np.ndarray,
+    y_true: np.ndarray,
+    cell_line_ids: np.ndarray,
+    drug_ids: np.ndarray,
+    method: str = "pearson",
+    return_pvalue: bool = False,
+) -> Tuple[float, float] | float:
+    """
+    Computes the partial correlation between predictions and response, conditioned on cell line and drug.
+    :param y_pred: predictions
+    :param y_true: response
+    :param cell_line_ids: cell line IDs
+    :param drug_ids: drug IDs
+    :param method: method to compute the partial correlation (pearson, spearman)
+    :return: partial correlation float
+    """
+
+    if len(y_true) < 3:
+        return np.nan if not return_pvalue else (np.nan, np.nan)
+    assert (
+        len(y_pred) == len(y_true) == len(cell_line_ids) == len(drug_ids)
+    ), "predictions, response, drug_ids, and cell_line_ids must have the same length"
+
+    df = pd.DataFrame(
+        {
+            "response": y_true,
+            "predictions": y_pred,
+            "cell_line_ids": cell_line_ids,
+            "drug_ids": drug_ids,
+        }
+    )
+
+    if (len(df["cell_line_ids"].unique()) < 2) or (len(df["drug_ids"].unique()) < 2):
+        # if we don't have more than one cell line or drug in the data, partial correlation is meaningless
+        global warning_shown
+        if not warning_shown:
+            warnings.warn(
+                "Partial correlation not defined if only one cell line or drug is in the data."
+            )
+            warning_shown = True
+        return (np.nan, np.nan) if return_pvalue else np.nan
+
+    df["cell_line_ids"] = pd.factorize(df["cell_line_ids"])[0]
+    df["drug_ids"] = pd.factorize(df["drug_ids"])[0]
+
+    if df.shape[0] < 3:
+        r, p = np.nan, np.nan
+    else:
+        result = partial_corr(
+            data=df,
+            x="predictions",
+            y="response",
+            covar=["cell_line_ids", "drug_ids"],
+            method=method,
+        )
+        r = result["r"].iloc[0]
+        p = result["p-val"].iloc[0]
+    if return_pvalue:
+        return r, p
+    else:
+        return r
+
+
+def pearson(y_pred: np.ndarray, y_true: np.ndarray) -> float:
+    """
+    Computes the pearson correlation between predictions and response.
+    :param y_pred: predictions
+    :param y_true: response
+    :return: pearson correlation float
+    """
+
+    assert len(y_pred) == len(
+        y_true
+    ), "predictions, response  must have the same length"
+    if (y_pred == y_pred[0]).all() or (y_true == y_true[0]).all() or len(y_true) < 2:
+        return np.nan
+    return pearsonr(y_pred, y_true)[0]
+
+
+def spearman(y_pred: np.ndarray, y_true: np.ndarray) -> float:
+    """
+    Computes the spearman correlation between predictions and response.
+    :param y_pred: predictions
+    :param y_true: response
+    :return: spearman correlation float
+    """
+    # we can use scipy.stats.spearmanr
+    assert len(y_pred) == len(
+        y_true
+    ), "predictions, response  must have the same length"
+    if (y_pred == y_pred[0]).all() or (y_true == y_true[0]).all() or len(y_true) < 2:
+        return np.nan
+    return spearmanr(y_pred, y_true)[0]
+
+
+def kendall(y_pred: np.ndarray, y_true: np.ndarray) -> float:
+    """
+    Computes the kendall tau correlation between predictions and response.
+    :param y_pred: predictions
+    :param y_true: response
+    :return: kendall tau correlation float
+    """
+    # we can use scipy.stats.spearmanr
+    assert len(y_pred) == len(
+        y_true
+    ), "predictions, response  must have the same length"
+    if (y_pred == y_pred[0]).all() or (y_true == y_true[0]).all() or len(y_true) < 2:
+        return np.nan
+    return kendalltau(y_pred, y_true)[0]
+
 
 AVAILABLE_METRICS = {
     "MSE": metrics.mean_squared_error,
