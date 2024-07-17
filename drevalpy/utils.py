@@ -1,7 +1,8 @@
 import argparse
 import os
+import warnings
 import shutil
-from typing import List, Optional, Tuple, Any
+from typing import List, Optional, Tuple
 import pandas as pd
 from sklearn.model_selection import KFold, GroupKFold, train_test_split
 from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
@@ -328,6 +329,9 @@ def leave_group_out_cv(
     return cv_sets
 
 
+warning_shown = False
+
+
 def partial_correlation(
     y_pred: np.ndarray,
     y_true: np.ndarray,
@@ -347,7 +351,7 @@ def partial_correlation(
     """
 
     if len(y_true) < 3:
-        return np.nan
+        return np.nan if not return_pvalue else (np.nan, np.nan)
     assert (
         len(y_pred) == len(y_true) == len(cell_line_ids) == len(drug_ids)
     ), "predictions, response, drug_ids, and cell_line_ids must have the same length"
@@ -361,8 +365,19 @@ def partial_correlation(
         }
     )
 
+    if (len(df["cell_line_ids"].unique()) < 2) or (len(df["drug_ids"].unique()) < 2):
+        # if we don't have more than one cell line or drug in the data, partial correlation is meaningless
+        global warning_shown
+        if not warning_shown:
+            warnings.warn(
+                "Partial correlation not defined if only one cell line or drug is in the data."
+            )
+            warning_shown = True
+        return (np.nan, np.nan) if return_pvalue else np.nan
+
     df["cell_line_ids"] = pd.factorize(df["cell_line_ids"])[0]
     df["drug_ids"] = pd.factorize(df["drug_ids"])[0]
+
     if df.shape[0] < 3:
         r, p = np.nan, np.nan
     else:

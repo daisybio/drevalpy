@@ -323,13 +323,19 @@ def create_index_html(custom_id):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Generate reports from evaluation results")
-    parser.add_argument('--run_id', required=True, help='Run ID for the current execution')
+    parser = argparse.ArgumentParser(
+        description="Generate reports from evaluation results"
+    )
+    parser.add_argument(
+        "--run_id", required=True, help="Run ID for the current execution"
+    )
     args = parser.parse_args()
     run_id = args.run_id
-    
+
     # assert that the run_id folder exists
-    assert os.path.exists(f"results/{run_id}"), f"Folder results/{run_id} does not exist. The pipeline has to be run first."
+    assert os.path.exists(
+        f"results/{run_id}"
+    ), f"Folder results/{run_id} does not exist. The pipeline has to be run first."
 
     # PIPELINE: COLLECT_RESULTS
     (

@@ -1,8 +1,8 @@
 import pandas as pd
 import os
 
-from drevalpy.datasets.dataset import DrugResponseDataset
-from drevalpy.datasets.utils import download_dataset
+from .dataset import DrugResponseDataset
+from .utils import download_dataset
 
 
 class GDSC1(DrugResponseDataset):

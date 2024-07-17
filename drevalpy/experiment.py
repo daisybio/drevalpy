@@ -1,7 +1,7 @@
 import json
 from typing import Dict, List, Optional, Tuple, Type
 import warnings
-from drevalpy.utils import handle_overwrite
+from .utils import handle_overwrite
 from .datasets.dataset import DrugResponseDataset, FeatureDataset
 from .evaluation import evaluate, get_mode
 from .models.drp_model import CompositeDrugModel, DRPModel, SingleDrugModel
@@ -11,6 +11,7 @@ import ray
 import torch
 from ray import tune
 from sklearn.base import TransformerMixin
+import shutil
 
 
 def drug_response_experiment(
@@ -66,9 +67,33 @@ def drug_response_experiment(
         baselines = []
     cross_study_datasets = cross_study_datasets or []
     result_path = os.path.join(path_out, run_id, test_mode)
+    split_path = os.path.join(result_path, "splits")
+    result_folder_exists = os.path.exists(result_path)
+    if result_folder_exists and overwrite:
+        # if results exists, delete them if overwrite is True
+        print(f"Overwriting existing results at {result_path}")
+        shutil.rmtree(result_path)
 
-    # if results exists, delete them if overwrite is true
-    handle_overwrite(result_path, overwrite)
+    if result_folder_exists and os.path.exists(split_path):
+        # if the results exist and overwrite is false, load the cv splits.
+        # The models will be trained on the existing cv splits.
+        print(f"Loading existing cv splits from {split_path}")
+        response_data.load_splits(path=split_path)
+    else:
+        # if the results do not exist, create the cv splits
+        print(f"Creating cv splits at {split_path}")
+
+        os.makedirs(result_path, exist_ok=True)
+
+        response_data.remove_nan_responses()
+        response_data.split_dataset(
+            n_cv_splits=n_cv_splits,
+            mode=test_mode,
+            split_validation=True,
+            validation_ratio=0.1,
+            random_state=42,
+        )
+        response_data.save_splits(path=split_path)
 
     for model_class in models + baselines:
         if model_class in baselines:
@@ -89,16 +114,6 @@ def drug_response_experiment(
 
         model_hpam_set = model_class.get_hyperparameter_set()
 
-        response_data.remove_nan_responses()
-
-        response_data.split_dataset(
-            n_cv_splits=n_cv_splits,
-            mode=test_mode,
-            split_validation=True,
-            validation_ratio=0.1,
-            random_state=42,
-        )
-
         for split_index, split in enumerate(response_data.cv_splits):
             prediction_file = os.path.join(
                 predictions_path, f"predictions_split_{split_index}.csv"
@@ -110,7 +125,7 @@ def drug_response_experiment(
 
             if model_class.early_stopping:
                 validation_dataset, early_stopping_dataset = split_early_stopping(
-                    validation_dataset=validation_dataset, test_mode=test_mode
+                    validation_dataset=validation_dataset.copy(), test_mode=test_mode
                 )
 
             if issubclass(model_class, SingleDrugModel):

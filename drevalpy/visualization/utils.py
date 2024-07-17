@@ -37,7 +37,9 @@ def parse_results(path_to_results, path_out="results"):
             "evaluation_results_per_cl.csv",
             "true_vs_pred.csv",
         ]
+        and "cv_split" not in file.name
     ]
+
     # inititalize dictionaries to store the evaluation results
     evaluation_results = {}
     norm_drug_eval_results = {}
@@ -314,9 +316,13 @@ def export_html_table(df, export_path, grouping):
     df.to_html(export_path, index=False)
 
 
-def write_results(path_out, eval_results, eval_results_per_drug, eval_results_per_cl, t_vs_p):
+def write_results(
+    path_out, eval_results, eval_results_per_drug, eval_results_per_cl, t_vs_p
+):
     eval_results.to_csv(f"{path_out}evaluation_results.csv", index=True)
-    eval_results_per_drug.to_csv(f"{path_out}evaluation_results_per_drug.csv", index=True)
+    eval_results_per_drug.to_csv(
+        f"{path_out}evaluation_results_per_drug.csv", index=True
+    )
     eval_results_per_cl.to_csv(f"{path_out}evaluation_results_per_cl.csv", index=True)
     t_vs_p.to_csv(f"{path_out}true_vs_pred.csv", index=True)
 
@@ -366,7 +372,9 @@ def write_violins_and_heatmaps(f, setting, plot_list, plot="Violin"):
 
 def write_corr_comp_scatter(f, setting, group_by, plot_list):
     if len(plot_list) > 0:
-        f.write(f'<h3 id="corr_comp_drug">{group_by.capitalize()}-wise comparison</h3>\n')
+        f.write(
+            f'<h3 id="corr_comp_drug">{group_by.capitalize()}-wise comparison</h3>\n'
+        )
         f.write("<h4>Overall comparison between models</h4>\n")
         f.write(
             f'<iframe src="corr_comp_scatter/corr_comp_scatter_overall_{group_by}_{setting}.html" width="100%" height="100%" frameBorder="0"></iframe>\n'
