@@ -8,7 +8,7 @@ __all__ = [
     "NaivePredictor",
     "NaiveDrugMeanPredictor",
     "NaiveCellLineMeanPredictor",
-    "MODEL_FACTORY"
+    "MODEL_FACTORY",
 ]
 
 from .Baselines.naive_pred import (

@@ -15,8 +15,7 @@ if __name__ == "__main__":
 
     # PIPELINE: LOAD_RESPONSE
     response_data, cross_study_datasets = load_data(
-        dataset_name=args.dataset_name,
-        cross_study_datasets=args.cross_study_datasets
+        dataset_name=args.dataset_name, cross_study_datasets=args.cross_study_datasets
     )
 
     models = [MODEL_FACTORY[model] for model in args.models]

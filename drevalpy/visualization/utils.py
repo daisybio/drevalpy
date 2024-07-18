@@ -1,3 +1,5 @@
+from typing import Dict
+
 import pandas as pd
 import pathlib
 import os
@@ -23,7 +25,7 @@ def parse_layout(f, path_to_layout):
     f.write("".join(layout))
 
 
-def parse_results(path_to_results, path_out="results"):
+def parse_results(path_to_results: str):
     print("Generating result tables ...")
     # generate list of all result files
     result_dir = pathlib.Path(path_to_results)
@@ -42,32 +44,46 @@ def parse_results(path_to_results, path_out="results"):
     ]
 
     # inititalize dictionaries to store the evaluation results
-    evaluation_results = {}
-    norm_drug_eval_results = {}
-    norm_cell_line_eval_results = {}
+    evaluation_results = None
     evaluation_results_per_drug = None
     evaluation_results_per_cell_line = None
-    true_vs_pred = pd.DataFrame({"model": [], "y_true": [], "y_pred": []})
+    true_vs_pred = None
 
     # read every result file and compute the evaluation metrics
     for file in result_files:
-        evaluate_file(file)
+        file_parts = os.path.normpath(file).split("/")
+        lpo_lco_ldo = file_parts[-4]
+        algorithm = file_parts[-3]
+        (
+            overall_eval,
+            eval_results_per_drug,
+            eval_results_per_cl,
+            t_vs_p,
+            model_name,
+        ) = evaluate_file(pred_file=file, test_mode=lpo_lco_ldo, model_name=algorithm)
 
-    evaluation_results = pd.DataFrame.from_dict(evaluation_results, orient="index")
-    if norm_drug_eval_results != {}:
-        evaluation_results, evaluation_results_per_drug = make_group_results(
-            norm_group_res=norm_drug_eval_results,
-            group_by="drug",
-            eval_res=evaluation_results,
-            eval_res_group=evaluation_results_per_drug,
+        evaluation_results = (
+            overall_eval
+            if evaluation_results is None
+            else pd.concat([evaluation_results, overall_eval])
         )
-    if norm_cell_line_eval_results != {}:
-        evaluation_results, evaluation_results_per_cell_line = make_group_results(
-            norm_group_res=norm_cell_line_eval_results,
-            group_by="cell_line",
-            eval_res=evaluation_results,
-            eval_res_group=evaluation_results_per_cell_line,
+        true_vs_pred = (
+            t_vs_p if true_vs_pred is None else pd.concat([true_vs_pred, t_vs_p])
         )
+
+        if eval_results_per_drug is not None:
+            evaluation_results_per_drug = (
+                eval_results_per_drug
+                if evaluation_results_per_drug is None
+                else pd.concat([evaluation_results_per_drug, eval_results_per_drug])
+            )
+
+        if eval_results_per_cl is not None:
+            evaluation_results_per_cell_line = (
+                eval_results_per_cl
+                if evaluation_results_per_cell_line is None
+                else pd.concat([evaluation_results_per_cell_line, eval_results_per_cl])
+            )
 
     return (
         evaluation_results,
@@ -77,7 +93,7 @@ def parse_results(path_to_results, path_out="results"):
     )
 
 
-def evaluate_file(pred_file):
+def evaluate_file(pred_file: pathlib.Path, test_mode: str, model_name: str):
     print("Parsing file:", os.path.normpath(pred_file))
     result = pd.read_csv(pred_file)
     dataset = DrugResponseDataset(
@@ -86,12 +102,14 @@ def evaluate_file(pred_file):
         drug_ids=result["drug_ids"],
         predictions=result["predictions"],
     )
-    model = generate_model_names(pred_file)
+    model = generate_model_names(
+        test_mode=test_mode, model_name=model_name, pred_file=pred_file
+    )
 
     # overall evaluation
-    evaluation_results[model] = evaluate(dataset, AVAILABLE_METRICS.keys())
+    overall_eval = {model: evaluate(dataset, AVAILABLE_METRICS.keys())}
 
-    tmp_df = pd.DataFrame(
+    true_vs_pred = pd.DataFrame(
         {
             "model": [model for _ in range(len(dataset.response))],
             "drug": dataset.drug_ids,
@@ -101,26 +119,51 @@ def evaluate_file(pred_file):
         }
     )
 
+    evaluation_results_per_drug = None
+    evaluation_results_per_cl = None
+    norm_drug_eval_results = dict()
+    norm_cl_eval_results = dict()
+
     if "LPO" in model or "LCO" in model:
         norm_drug_eval_results, evaluation_results_per_drug = evaluate_per_group(
-            df=tmp_df,
+            df=true_vs_pred,
             group_by="drug",
             norm_group_eval_results=norm_drug_eval_results,
             eval_results_per_group=evaluation_results_per_drug,
             model=model,
         )
     if "LPO" in model or "LDO" in model:
-        norm_cell_line_eval_results, evaluation_results_per_cell_line = (
-            evaluate_per_group(
-                df=tmp_df,
-                group_by="cell_line",
-                norm_group_eval_results=norm_cell_line_eval_results,
-                eval_results_per_group=evaluation_results_per_cell_line,
-                model=model,
-            )
+        norm_cl_eval_results, evaluation_results_per_cl = evaluate_per_group(
+            df=true_vs_pred,
+            group_by="cell_line",
+            norm_group_eval_results=norm_cl_eval_results,
+            eval_results_per_group=evaluation_results_per_cl,
+            model=model,
         )
+    overall_eval = pd.DataFrame.from_dict(overall_eval, orient="index")
+    if len(norm_drug_eval_results) > 0:
+        overall_eval = concat_results(norm_drug_eval_results, "drug", overall_eval)
+    if len(norm_cl_eval_results) > 0:
+        overall_eval = concat_results(norm_cl_eval_results, "cell_line", overall_eval)
 
-    true_vs_pred = pd.concat([true_vs_pred, tmp_df])
+    return (
+        overall_eval,
+        evaluation_results_per_drug,
+        evaluation_results_per_cl,
+        true_vs_pred,
+        model,
+    )
+
+
+def concat_results(norm_group_res, group_by, eval_res):
+    norm_group_res = pd.DataFrame.from_dict(norm_group_res, orient="index")
+    # append 'group normalized ' to the column names
+    norm_group_res.columns = [
+        f"{col}: {group_by} normalized" for col in norm_group_res.columns
+    ]
+    eval_res = pd.concat([eval_res, norm_group_res], axis=1)
+    return eval_res
+
 
 def prep_results(
     eval_results, eval_results_per_drug, eval_results_per_cell_line, t_vs_p
@@ -150,20 +193,19 @@ def prep_results(
     return eval_results, eval_results_per_drug, eval_results_per_cell_line, t_vs_p
 
 
-def generate_model_names(file):
-    file_parts = os.path.normpath(file).split("/")
-    lpo_lco_ldo = file_parts[-4]
-    algorithm = file_parts[-3]
-    pred_rand_rob = pred_setting = file_parts[-2]
-    if pred_rand_rob == "randomization_tests":
-        pred_setting = "randomize-" + "-".join(file_parts[-1].split("_")[1:-2])
+def generate_model_names(test_mode, model_name, pred_file):
+    file_parts = os.path.basename(pred_file).split("_")
+    pred_rand_rob = file_parts[0]
+    if pred_rand_rob == "predictions":
+        pred_setting = "predictions"
+    elif pred_rand_rob == "randomization":
+        pred_setting = "randomize-" + "-".join(file_parts[1:-2])
     elif pred_rand_rob == "robustness_test":
-        pred_setting = "-".join(file_parts[-1].split("_")[:2])
-    split = "_".join(file_parts[-1].split(".")[0].split("_")[-2:])
-    # overall evaluation
-    eval_setting = f"{lpo_lco_ldo}_{split}"
-    model = f"{algorithm}_{pred_setting}_{eval_setting}"
-    return model
+        pred_setting = "-".join(file_parts[:2])
+    else:
+        raise ValueError(f"Unknown prediction setting: {pred_rand_rob}")
+    split = "_".join(os.path.basename(pred_file).split(".")[0].split("_")[-2:])
+    return f"{model_name}_{pred_setting}_{test_mode}_{split}"
 
 
 def evaluate_per_group(
@@ -213,10 +255,13 @@ def compute_evaluation(df, return_df, group_by, model):
         return_df = pd.concat([return_df, result_per_group])
     return return_df
 
-def draw_critical_difference_plot(evaluation_results: pd.DataFrame, path_out: str, metric: str) -> None:
+
+def draw_critical_difference_plot(
+    evaluation_results: pd.DataFrame, path_out: str, metric: str
+) -> None:
     out = CriticalDifferencePlot(eval_results_preds=evaluation_results, metric=metric)
-    out.fig.savefig(path_out, bbox_inches='tight')
-    
+    out.fig.savefig(path_out, bbox_inches="tight")
+
 
 def draw_violin_or_heatmap(plot_type, df, normalized_metrics, whole_name):
     if plot_type == "violinplot":
@@ -333,16 +378,6 @@ def write_results(
     )
     eval_results_per_cl.to_csv(f"{path_out}evaluation_results_per_cl.csv", index=True)
     t_vs_p.to_csv(f"{path_out}true_vs_pred.csv", index=True)
-
-
-def make_group_results(norm_group_res, group_by, eval_res, eval_res_group):
-    norm_group_res = pd.DataFrame.from_dict(norm_group_res, orient="index")
-    # append 'group normalized ' to the column names
-    norm_group_res.columns = [
-        f"{col}: {group_by} normalized" for col in norm_group_res.columns
-    ]
-    eval_res = pd.concat([eval_res, norm_group_res], axis=1)
-    return eval_res, eval_res_group
 
 
 def write_violins_and_heatmaps(f, setting, plot_list, plot="Violin"):

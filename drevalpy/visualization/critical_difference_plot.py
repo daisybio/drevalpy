@@ -6,22 +6,37 @@ import math
 from scipy.stats import wilcoxon
 from scipy.stats import friedmanchisquare
 import networkx
+
 matplotlib.use("agg")
 import matplotlib.pyplot as plt
+
 matplotlib.rcParams["font.family"] = "sans-serif"
 matplotlib.rcParams["font.sans-serif"] = "Avenir"
 
 from drevalpy.evaluation import MINIMIZATION_METRICS
+
+
 class CriticalDifferencePlot:
     def __init__(self, eval_results_preds: pd.DataFrame, metric="MSE"):
 
-        eval_results_preds = eval_results_preds[["algorithm", "CV_split", metric]].rename(columns={"algorithm": "classifier_name",
-                                                                                                   "CV_split": "dataset_name",
-                                                                                                   metric: "accuracy"})
+        eval_results_preds = eval_results_preds[
+            ["algorithm", "CV_split", metric]
+        ].rename(
+            columns={
+                "algorithm": "classifier_name",
+                "CV_split": "dataset_name",
+                metric: "accuracy",
+            }
+        )
         if metric in MINIMIZATION_METRICS:
             eval_results_preds["accuracy"] = -eval_results_preds["accuracy"]
-    
-        self.fig = draw_cd_diagram(eval_results_preds, alpha=0.05, title=f"Critical Difference: {metric}", labels=True)
+
+        self.fig = draw_cd_diagram(
+            eval_results_preds,
+            alpha=0.05,
+            title=f"Critical Difference: {metric}",
+            labels=True,
+        )
 
 
 # The code below is a modified version of the code available at https://github.com/hfawaz/cd-diagram
@@ -48,7 +63,7 @@ def graph_ranks(
     filename=None,
     labels=False,
     colors=None,
-    **kwargs
+    **kwargs,
 ):
     """
     Draws a CD graph, which is used to display  the differences in methods'
@@ -208,7 +223,11 @@ def graph_ranks(
         tick = smalltick
         if a == int(a):
             tick = bigtick
-        line([(rankpos(a), cline - tick / 2), (rankpos(a), cline)], linewidth=2, color="black")
+        line(
+            [(rankpos(a), cline - tick / 2), (rankpos(a), cline)],
+            linewidth=2,
+            color="black",
+        )
 
     for a in range(lowv, highv + 1):
         text(
@@ -235,7 +254,8 @@ def graph_ranks(
                 (rankpos(ssums[i]), chei),
                 (textspace - 0.1, chei),
             ],
-            linewidth=linewidth, color=colors[0]
+            linewidth=linewidth,
+            color=colors[0],
         )
         if labels:
             text(
@@ -262,8 +282,9 @@ def graph_ranks(
                 (rankpos(ssums[i]), cline),
                 (rankpos(ssums[i]), chei),
                 (textspace + scalewidth + 0.1, chei),
-            ], 
-            linewidth=linewidth, color= colors[0]
+            ],
+            linewidth=linewidth,
+            color=colors[0],
         )
         if labels:
             text(
@@ -290,7 +311,8 @@ def graph_ranks(
         for l, r in lines:
             line(
                 [(rankpos(ssums[l]) - side, start), (rankpos(ssums[r]) + side, start)],
-                linewidth=linewidth_sign, color=colors[3]
+                linewidth=linewidth_sign,
+                color=colors[3],
             )
             start += height
             print("drawing: ", l, r)
@@ -320,7 +342,8 @@ def graph_ranks(
                 (rankpos(ssums[min_idx]) - side, start),
                 (rankpos(ssums[max_idx]) + side, start),
             ],
-            linewidth=linewidth_sign, color=colors[2]
+            linewidth=linewidth_sign,
+            color=colors[2],
         )
         start += height
 
@@ -346,15 +369,26 @@ def form_cliques(p_values, nnames):
 
 import matplotlib.pyplot as plt
 
+
 def draw_cd_diagram(df_perf=None, alpha=0.05, title=None, labels=False):
     """
     Draws the critical difference diagram given the list of pairwise classifiers that are
     significant or not
     """
     # Standard Plotly colors
-    plotly_colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', 
-                     '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf']
-    
+    plotly_colors = [
+        "#1f77b4",
+        "#ff7f0e",
+        "#2ca02c",
+        "#d62728",
+        "#9467bd",
+        "#8c564b",
+        "#e377c2",
+        "#7f7f7f",
+        "#bcbd22",
+        "#17becf",
+    ]
+
     p_values, average_ranks, _ = wilcoxon_holm(df_perf=df_perf, alpha=alpha)
 
     print(average_ranks)
@@ -371,7 +405,7 @@ def draw_cd_diagram(df_perf=None, alpha=0.05, title=None, labels=False):
         width=9,
         textspace=1.5,
         labels=labels,
-        colors=plotly_colors  
+        colors=plotly_colors,
     )
 
     font = {
@@ -383,6 +417,7 @@ def draw_cd_diagram(df_perf=None, alpha=0.05, title=None, labels=False):
     if title:
         plt.title(title, fontdict=font, y=0.9, x=0.5)
     return plt.gcf()
+
 
 def wilcoxon_holm(alpha=0.05, df_perf=None):
     """

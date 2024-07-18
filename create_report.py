@@ -42,8 +42,9 @@ def draw_setting_plots(
     eval_results_preds = ev_res_subset[ev_res_subset["rand_setting"] == "predictions"]
 
     path_out_cd = f"results/{custom_id}/critical_difference_plots/critical_difference_algorithms_{lpo_lco_ldo}.svg"
-    draw_critical_difference_plot(evaluation_results=eval_results_preds, path_out=path_out_cd, metric="MSE")
-
+    draw_critical_difference_plot(
+        evaluation_results=eval_results_preds, path_out=path_out_cd, metric="MSE"
+    )
 
     # PIPELINE: DRAW_VIOLIN_AND_HEATMAP
     for plt_type in ["violinplot", "heatmap"]:
@@ -199,8 +200,10 @@ def create_html(custom_id, setting):
         )
         f.write(f"<h1>Results for {custom_id}: {setting}</h1>\n")
 
-        path_out_cd = f"critical_difference_plots/critical_difference_algorithms_{setting}.svg"
-        f.write(f'<object data={path_out_cd}> </object>')
+        path_out_cd = (
+            f"critical_difference_plots/critical_difference_algorithms_{setting}.svg"
+        )
+        f.write(f"<object data={path_out_cd}> </object>")
 
         plot_list = [
             f
@@ -347,13 +350,13 @@ if __name__ == "__main__":
         f"results/{run_id}"
     ), f"Folder results/{run_id} does not exist. The pipeline has to be run first."
 
-    # PIPELINE: COLLECT_RESULTS
+    # PIPELINE: EVALUATE_FINAL, COLLECT_RESULTS
     (
         evaluation_results,
         evaluation_results_per_drug,
         evaluation_results_per_cell_line,
         true_vs_pred,
-    ) = parse_results(path_to_results=f"results/{run_id}", path_out=f"results/{run_id}")
+    ) = parse_results(path_to_results=f"results/{run_id}")
 
     (
         evaluation_results,

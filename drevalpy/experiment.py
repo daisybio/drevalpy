@@ -706,7 +706,7 @@ def hpam_tune(
 ) -> Dict:
     if len(hpam_set) == 1:
         return hpam_set[0]
-    
+
     best_hyperparameters = None
     mode = get_mode(metric)
     best_score = float("inf") if mode == "min" else float("-inf")
@@ -741,7 +741,7 @@ def hpam_tune_composite_model(
     response_transformation: Optional[TransformerMixin] = None,
     metric: str = "rmse",
 ) -> Dict[str, Dict]:
-    
+
     unique_drugs = list(np.unique(train_dataset.drug_ids)) + list(
         np.unique(validation_dataset.drug_ids)
     )
@@ -821,6 +821,7 @@ def hpam_tune_raytune(
     mode = get_mode(metric)
     best_config = analysis.get_best_config(metric=metric, mode=mode)
     return best_config
+
 
 def instantiate_model(model_class: Type[DRPModel]) -> DRPModel:
     if issubclass(model_class, SingleDrugModel):
