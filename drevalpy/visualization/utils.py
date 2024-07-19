@@ -9,8 +9,6 @@ from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.evaluation import evaluate, AVAILABLE_METRICS
 from drevalpy.visualization import HTMLTable
 from drevalpy.visualization.vioheat import VioHeat
-from drevalpy.visualization.violin import Violin
-from drevalpy.visualization.heatmap import Heatmap
 from drevalpy.visualization.corr_comp_scatter import CorrelationComparisonScatter
 from drevalpy.visualization.regression_slider_plot import RegressionSliderPlot
 from drevalpy.visualization.critical_difference_plot import CriticalDifferencePlot
@@ -257,21 +255,6 @@ def compute_evaluation(df, return_df, group_by, model):
     else:
         return_df = pd.concat([return_df, result_per_group])
     return return_df
-
-
-def draw_regr_slider(
-    t_v_p, lpo_lco_ldo, model, grouping_slider, out_prefix, name, normalize
-):
-    t_vs_pred_model = t_v_p[
-        (t_v_p["LPO_LCO_LDO"] == lpo_lco_ldo) & (t_v_p["algorithm"] == model)
-    ]
-
-    regr_slider = RegressionSliderPlot(
-        df=t_vs_pred_model, group_by=grouping_slider, normalize=normalize
-    )
-
-    out_path = f"{out_prefix}regression_lines_{name}_{model}.html"
-    regr_slider.fig.write_html(out_path)
 
 
 def write_results(

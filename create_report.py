@@ -14,7 +14,6 @@ from drevalpy.visualization.utils import (
     parse_results,
     prep_results,
     write_results,
-    draw_regr_slider,
     create_index_html,
     create_html,
 )
