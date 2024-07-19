@@ -1,3 +1,5 @@
+from typing import TextIO
+
 import numpy as np
 import pandas as pd
 import matplotlib
@@ -38,6 +40,12 @@ class CriticalDifferencePlot:
             labels=True,
         )
 
+    @staticmethod
+    def write_to_html(lpo_lco_ldo: str, f: TextIO) -> TextIO:
+        path_out_cd = f"critical_difference_plots/critical_difference_algorithms_{lpo_lco_ldo}.svg"
+        f.write(f"<object data={path_out_cd}> </object>")
+        return f
+
 
 # The code below is a modified version of the code available at https://github.com/hfawaz/cd-diagram
 # Author: Hassan Ismail Fawaz <hassan.ismail-fawaz@uha.fr>
@@ -53,17 +61,13 @@ def graph_ranks(
     avranks,
     names,
     p_values,
-    cd=None,
-    cdmethod=None,
     lowv=None,
     highv=None,
     width=6,
     textspace=1,
     reverse=False,
-    filename=None,
     labels=False,
     colors=None,
-    **kwargs,
 ):
     """
     Draws a CD graph, which is used to display  the differences in methods'
@@ -95,7 +99,6 @@ def graph_ranks(
         values will be displayed
     """
     try:
-        import matplotlib.pyplot as plt
         from matplotlib.backends.backend_agg import FigureCanvasAgg
     except ImportError:
         raise ImportError("Function graph_ranks requires matplotlib.")
@@ -145,10 +148,6 @@ def graph_ranks(
                 for b in mxrange(lr[1:]):
                     yield tuple([a] + list(b))
 
-    def print_figure(fig, *args, **kwargs):
-        canvas = FigureCanvasAgg(fig)
-        canvas.print_figure(*args, **kwargs)
-
     sums = avranks
 
     nnames = names
@@ -162,8 +161,6 @@ def graph_ranks(
     cline = 0.4
 
     k = len(sums)
-
-    lines = None
 
     linesblank = 0
     scalewidth = width - 2 * textspace
@@ -304,20 +301,6 @@ def graph_ranks(
             size=16,
         )
 
-    # no-significance lines
-    def draw_lines(lines, side=0.05, height=0.1):
-        start = cline + 0.2
-
-        for l, r in lines:
-            line(
-                [(rankpos(ssums[l]) - side, start), (rankpos(ssums[r]) + side, start)],
-                linewidth=linewidth_sign,
-                color=colors[3],
-            )
-            start += height
-            print("drawing: ", l, r)
-
-    # draw_lines(lines)
     start = cline + 0.2
     side = -0.02
     height = 0.1
@@ -365,58 +348,6 @@ def form_cliques(p_values, nnames):
 
     g = networkx.Graph(g_data)
     return networkx.find_cliques(g)
-
-
-import matplotlib.pyplot as plt
-
-
-def draw_cd_diagram(df_perf=None, alpha=0.05, title=None, labels=False):
-    """
-    Draws the critical difference diagram given the list of pairwise classifiers that are
-    significant or not
-    """
-    # Standard Plotly colors
-    plotly_colors = [
-        "#1f77b4",
-        "#ff7f0e",
-        "#2ca02c",
-        "#d62728",
-        "#9467bd",
-        "#8c564b",
-        "#e377c2",
-        "#7f7f7f",
-        "#bcbd22",
-        "#17becf",
-    ]
-
-    p_values, average_ranks, _ = wilcoxon_holm(df_perf=df_perf, alpha=alpha)
-
-    print(average_ranks)
-
-    for p in p_values:
-        print(p)
-
-    graph_ranks(
-        average_ranks.values,
-        average_ranks.keys(),
-        p_values,
-        cd=None,
-        reverse=True,
-        width=9,
-        textspace=1.5,
-        labels=labels,
-        colors=plotly_colors,
-    )
-
-    font = {
-        "family": "sans-serif",
-        "color": "black",
-        "weight": "normal",
-        "size": 22,
-    }
-    if title:
-        plt.title(title, fontdict=font, y=0.9, x=0.5)
-    return plt.gcf()
 
 
 def wilcoxon_holm(alpha=0.05, df_perf=None):
@@ -469,7 +400,7 @@ def wilcoxon_holm(alpha=0.05, df_perf=None):
             )
             # calculate the p_value
             p_value = wilcoxon(perf_1, perf_2, zero_method="pratt")[1]
-            # appen to the list
+            # append to the list
             p_values.append((classifier_1, classifier_2, p_value, False))
     # get the number of hypothesis
     k = len(p_values)
@@ -511,3 +442,52 @@ def wilcoxon_holm(alpha=0.05, df_perf=None):
     )
     # return the p-values and the average ranks
     return p_values, average_ranks, max_nb_datasets
+
+
+def draw_cd_diagram(df_perf=None, alpha=0.05, title=None, labels=False):
+    """
+    Draws the critical difference diagram given the list of pairwise classifiers that are
+    significant or not
+    """
+    # Standard Plotly colors
+    plotly_colors = [
+        "#1f77b4",
+        "#ff7f0e",
+        "#2ca02c",
+        "#d62728",
+        "#9467bd",
+        "#8c564b",
+        "#e377c2",
+        "#7f7f7f",
+        "#bcbd22",
+        "#17becf",
+    ]
+
+    p_values, average_ranks, _ = wilcoxon_holm(df_perf=df_perf, alpha=alpha)
+
+    print(average_ranks)
+
+    for p in p_values:
+        print(p)
+
+    graph_ranks(
+        average_ranks.values,
+        average_ranks.keys(),
+        p_values,
+        cd=None,
+        reverse=True,
+        width=9,
+        textspace=1.5,
+        labels=labels,
+        colors=plotly_colors,
+    )
+
+    font = {
+        "family": "sans-serif",
+        "color": "black",
+        "weight": "normal",
+        "size": 22,
+    }
+    if title:
+        plt.title(title, fontdict=font, y=0.9, x=0.5)
+    return plt.gcf()

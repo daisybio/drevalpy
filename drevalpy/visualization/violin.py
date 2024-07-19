@@ -1,10 +1,12 @@
 import pandas as pd
 import plotly.graph_objects as go
 
+from drevalpy.visualization.vioheat import VioHeat
 
-class Violin:
+
+class Violin(VioHeat):
     def __init__(self, df: pd.DataFrame, normalized_metrics=False, whole_name=False):
-        self.df = df.sort_index()
+        super().__init__(df, normalized_metrics, whole_name)
         self.df["box"] = (
             self.df["algorithm"]
             + "_"
@@ -14,37 +16,7 @@ class Violin:
         )
         # remove columns with only NaN values
         self.df = self.df.dropna(axis=1, how="all")
-        self.normalized_metrics = normalized_metrics
-        self.whole_name = whole_name
         self.fig = go.Figure()
-        self.all_metrics = [
-            "R^2",
-            "R^2: drug normalized",
-            "R^2: cell_line normalized",
-            "Pearson",
-            "Pearson: drug normalized",
-            "Pearson: cell_line normalized",
-            "Spearman",
-            "Spearman: drug normalized",
-            "Spearman: cell_line normalized",
-            "Kendall",
-            "Kendall: drug normalized",
-            "Kendall: cell_line normalized",
-            "Partial_Correlation",
-            "Partial_Correlation: drug normalized",
-            "Partial_Correlation: cell_line normalized",
-            "MSE",
-            "RMSE",
-            "MAE",
-        ]
-        if self.normalized_metrics:
-            self.all_metrics = [
-                metric for metric in self.all_metrics if "normalized" in metric
-            ]
-        else:
-            self.all_metrics = [
-                metric for metric in self.all_metrics if "normalized" not in metric
-            ]
         self.occurring_metrics = [
             metric for metric in self.all_metrics if metric in self.df.columns
         ]

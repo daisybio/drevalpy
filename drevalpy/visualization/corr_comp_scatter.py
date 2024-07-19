@@ -1,3 +1,5 @@
+from typing import TextIO, List
+
 import pandas as pd
 import numpy as np
 import scipy
@@ -29,6 +31,49 @@ class CorrelationComparisonScatter:
         self.dropdown_buttons_x = list()
         self.dropdown_buttons_y = list()
         self.__draw_both_scatterplots__()
+
+    @staticmethod
+    def write_to_html(lpo_lco_ldo: str, f: TextIO, files: List) -> TextIO:
+        f.write('<h2 id="corr_comp">Comparison of correlation metrics</h2>\n')
+        for group_by in ["drug", "cell_line"]:
+            plot_list = [
+                f
+                for f in files
+                if lpo_lco_ldo in f
+                and f.startswith("corr_comp_scatter")
+                and f.endswith(f"{group_by}.html")
+            ]
+            if len(plot_list) > 0:
+                f.write(
+                    f'<h3 id="corr_comp_drug">{group_by.capitalize()}-wise comparison</h3>\n'
+                )
+                f.write("<h4>Overall comparison between models</h4>\n")
+                f.write(
+                    f'<iframe src="corr_comp_scatter/corr_comp_scatter_overall_{group_by}_{lpo_lco_ldo}.html" '
+                    f'width="100%" height="100%" frameBorder="0"></iframe>\n'
+                )
+                f.write("<h4>Comparison between all models, dropdown menu</h4>\n")
+                f.write(
+                    f'<iframe src="corr_comp_scatter/corr_comp_scatter_{group_by}_{lpo_lco_ldo}.html" '
+                    f'width="100%" height="100%" frameBorder="0"></iframe>\n'
+                )
+                f.write("<h4>Comparisons per model</h4>\n")
+                f.write("<ul>\n")
+                listed_files = [
+                    elem
+                    for elem in plot_list
+                    if elem != f"corr_comp_scatter_{lpo_lco_ldo}_{group_by}.html"
+                    and elem
+                    != f"corr_comp_scatter_overall_{lpo_lco_ldo}_{group_by}.html"
+                ]
+                listed_files.sort()
+                for group_comparison in listed_files:
+                    f.write(
+                        f'<li><a href="corr_comp_scatter/{group_comparison}" target="_blank">'
+                        f"{group_comparison}</a></li>\n"
+                    )
+                f.write("</ul>\n")
+        return f
 
     def __draw_both_scatterplots__(self):
         print("Drawing scatterplots ...")

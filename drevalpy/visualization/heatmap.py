@@ -3,35 +3,14 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+from drevalpy.visualization.vioheat import VioHeat
 
-class Heatmap:
+
+class Heatmap(VioHeat):
     def __init__(self, df: pd.DataFrame, normalized_metrics=False, whole_name=False):
-        self.df = df.sort_index()
-        # drop the columns that are not needed
-        self.all_metrics = [
-            "R^2",
-            "R^2: drug normalized",
-            "R^2: cell_line normalized",
-            "Pearson",
-            "Pearson: drug normalized",
-            "Pearson: cell_line normalized",
-            "Spearman",
-            "Spearman: drug normalized",
-            "Spearman: cell_line normalized",
-            "Kendall",
-            "Kendall: drug normalized",
-            "Kendall: cell_line normalized",
-            "Partial_Correlation",
-            "Partial_Correlation: drug normalized",
-            "Partial_Correlation: cell_line normalized",
-            "MSE",
-            "RMSE",
-            "MAE",
-        ]
+        super().__init__(df, normalized_metrics, whole_name)
         self.df = self.df[[col for col in self.df.columns if col in self.all_metrics]]
-        self.normalized_metrics = normalized_metrics
         if self.normalized_metrics:
-            self.df = self.df[[col for col in self.df.columns if "normalized" in col]]
             titles = [
                 "Standard Errors over CV folds",
                 "Mean R^2: normalized",
@@ -39,10 +18,13 @@ class Heatmap:
             ]
             nr_subplots = 3
             self.plot_settings = ["standard_errors", "r2", "correlations"]
+            self.fig = make_subplots(
+                rows=nr_subplots,
+                cols=1,
+                subplot_titles=tuple(titles),
+                vertical_spacing=0.25,
+            )
         else:
-            self.df = self.df[
-                [col for col in self.df.columns if "normalized" not in col]
-            ]
             titles = [
                 "Standard Errors over CV folds",
                 "Mean R^2",
@@ -51,15 +33,6 @@ class Heatmap:
             ]
             nr_subplots = 4
             self.plot_settings = ["standard_errors", "r2", "correlations", "errors"]
-        self.whole_name = whole_name
-        if nr_subplots == 3:
-            self.fig = make_subplots(
-                rows=nr_subplots,
-                cols=1,
-                subplot_titles=tuple(titles),
-                vertical_spacing=0.25,
-            )
-        else:
             self.fig = make_subplots(
                 rows=nr_subplots,
                 cols=1,

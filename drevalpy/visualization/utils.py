@@ -1,6 +1,5 @@
 import shutil
-from typing import Dict, List
-
+from typing import List
 import importlib_resources
 import pandas as pd
 import pathlib
@@ -8,6 +7,8 @@ import os
 
 from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.evaluation import evaluate, AVAILABLE_METRICS
+from drevalpy.visualization import HTMLTable
+from drevalpy.visualization.vioheat import VioHeat
 from drevalpy.visualization.violin import Violin
 from drevalpy.visualization.heatmap import Heatmap
 from drevalpy.visualization.corr_comp_scatter import CorrelationComparisonScatter
@@ -322,55 +323,6 @@ def draw_regr_slider(
     regr_slider.fig.write_html(out_path)
 
 
-def export_html_table(df, export_path, grouping):
-    selected_columns = [
-        "algorithm",
-        "rand_setting",
-        "CV_split",
-        "MSE",
-        "R^2",
-        "Pearson",
-        "RMSE",
-        "MAE",
-        "Spearman",
-        "Kendall",
-        "Partial_Correlation",
-        "LPO_LCO_LDO",
-    ]
-    if grouping == "drug":
-        selected_columns = ["drug"] + selected_columns
-    elif grouping == "cell_line":
-        selected_columns = ["cell_line"] + selected_columns
-    else:
-        selected_columns = [
-            "algorithm",
-            "rand_setting",
-            "CV_split",
-            "MSE",
-            "R^2",
-            "Pearson",
-            "R^2: drug normalized",
-            "Pearson: drug normalized",
-            "R^2: cell_line normalized",
-            "Pearson: cell_line normalized",
-            "RMSE",
-            "MAE",
-            "Spearman",
-            "Kendall",
-            "Partial_Correlation",
-            "Spearman: drug normalized",
-            "Kendall: drug normalized",
-            "Partial_Correlation: drug normalized",
-            "Spearman: cell_line normalized",
-            "Kendall: cell_line normalized",
-            "Partial_Correlation: cell_line normalized",
-            "LPO_LCO_LDO",
-        ]
-    # reorder columns, export table as html
-    df = df[selected_columns]
-    df.to_html(export_path, index=False)
-
-
 def write_results(
     path_out, eval_results, eval_results_per_drug, eval_results_per_cl, t_vs_p
 ):
@@ -382,68 +334,6 @@ def write_results(
     t_vs_p.to_csv(f"{path_out}true_vs_pred.csv", index=True)
 
 
-def write_violins_and_heatmaps(f, setting, plot_list, plot="Violin"):
-    if plot == "Violin":
-        nav_id = "violin"
-        dir_name = "violin_plots"
-        prefix = "violinplot"
-    else:
-        nav_id = "heatmap"
-        dir_name = "heatmaps"
-        prefix = "heatmap"
-    f.write(
-        f'<h2 id="{nav_id}">{plot} Plots of Performance Measures over CV runs</h2>\n'
-    )
-    f.write(f"<h3>{plot} plots comparing all models</h3>\n")
-    f.write(
-        f'<iframe src="{dir_name}/{prefix}_algorithms_{setting}.html" width="100%" height="100%" frameBorder="0"></iframe>\n'
-    )
-    f.write(f"<h3>{plot} plots comparing all models with normalized metrics</h3>\n")
-    f.write(
-        f"Before calculating the evaluation metrics, all values were normalized by the mean of the drug or cell line. "
-        f"Since this only influences the R^2 and the correlation metrics, the error metrics are not shown. \n"
-    )
-    f.write(
-        f'<iframe src="{dir_name}/{prefix}_algorithms_{setting}_normalized.html" width="100%" height="100%" frameBorder="0"></iframe>\n'
-    )
-    f.write(
-        f"<h3>{plot} plots comparing performance measures for tests within each model</h3>\n"
-    )
-    f.write("<ul>")
-    for plot in plot_list:
-        f.write(f'<li><a href="{dir_name}/{plot}" target="_blank">{plot}</a></li>\n')
-    f.write("</ul>\n")
-
-
-def write_corr_comp_scatter(f, setting, group_by, plot_list):
-    if len(plot_list) > 0:
-        f.write(
-            f'<h3 id="corr_comp_drug">{group_by.capitalize()}-wise comparison</h3>\n'
-        )
-        f.write("<h4>Overall comparison between models</h4>\n")
-        f.write(
-            f'<iframe src="corr_comp_scatter/corr_comp_scatter_overall_{group_by}_{setting}.html" width="100%" height="100%" frameBorder="0"></iframe>\n'
-        )
-        f.write("<h4>Comparison between all models, dropdown menu</h4>\n")
-        f.write(
-            f'<iframe src="corr_comp_scatter/corr_comp_scatter_{group_by}_{setting}.html" width="100%" height="100%" frameBorder="0"></iframe>\n'
-        )
-        f.write("<h4>Comparisons per model</h4>\n")
-        f.write("<ul>\n")
-        plot_list = [
-            elem
-            for elem in plot_list
-            if elem != f"corr_comp_scatter_{setting}_{group_by}.html"
-            and elem != f"corr_comp_scatter_overall_{setting}_{group_by}.html"
-        ]
-        plot_list.sort()
-        for group_comparison in plot_list:
-            f.write(
-                f'<li><a href="corr_comp_scatter/{group_comparison}" target="_blank">{group_comparison}</a></li>\n'
-            )
-        f.write("</ul>\n")
-
-
 def create_index_html(custom_id: str, test_modes: List[str], prefix_results: str):
     # copy images to the results directory
     file_to_copy = [
@@ -452,12 +342,19 @@ def create_index_html(custom_id: str, test_modes: List[str], prefix_results: str
     ]
     for file in file_to_copy:
         file_path = os.path.join(
-            str(importlib_resources.files("drevalpy")), "visualization", "style_utils", file
+            str(importlib_resources.files("drevalpy")),
+            "visualization",
+            "style_utils",
+            file,
         )
         shutil.copyfile(file_path, os.path.join(prefix_results, file))
 
-    layout_path = os.path.join(str(importlib_resources.files("drevalpy")), "visualization", "style_utils",
-                               "index_layout.html")
+    layout_path = os.path.join(
+        str(importlib_resources.files("drevalpy")),
+        "visualization",
+        "style_utils",
+        "index_layout.html",
+    )
     idx_html_path = os.path.join(prefix_results, "index.html")
     with open(idx_html_path, "w") as f:
         parse_layout(f=f, path_to_layout=layout_path)
@@ -475,13 +372,62 @@ def create_index_html(custom_id: str, test_modes: List[str], prefix_results: str
         test_modes.sort()
         for lpo_lco_ldo in test_modes:
             img_path = os.path.join(
-                str(importlib_resources.files("drevalpy")), "visualization", "style_utils", f"{lpo_lco_ldo}.png"
+                str(importlib_resources.files("drevalpy")),
+                "visualization",
+                "style_utils",
+                f"{lpo_lco_ldo}.png",
             )
-            shutil.copyfile(img_path, os.path.join(prefix_results, f"{lpo_lco_ldo}.png"))
+            shutil.copyfile(
+                img_path, os.path.join(prefix_results, f"{lpo_lco_ldo}.png")
+            )
             f.write(
                 f'<a href="{lpo_lco_ldo}.html" target="_blank"><img src="{lpo_lco_ldo}.png" style="width:300px;height:300px;"></a>\n'
             )
         f.write("</div>\n")
+        f.write("</div>\n")
+        f.write("</body>\n")
+        f.write("</html>\n")
+
+
+def create_html(run_id: str, lpo_lco_ldo: str, files: list, prefix_results: str):
+    page_layout = os.path.join(
+        str(
+            importlib_resources.files("drevalpy"),
+            "visualization/style_utils/page_layout.html",
+        )
+    )
+    html_path = os.path.join(prefix_results, f"{lpo_lco_ldo}.html")
+
+    with open(html_path, "w") as f:
+        parse_layout(f=f, path_to_layout=page_layout)
+        f.write(f"<h1>Results for {run_id}: {lpo_lco_ldo}</h1>\n")
+
+        # Critical difference plot
+        f = CriticalDifferencePlot.write_to_html(lpo_lco_ldo=lpo_lco_ldo, f=f)
+
+        # Violin plots
+        f = VioHeat.write_to_html(
+            lpo_lco_ldo=lpo_lco_ldo, f=f, files=files, plot="Violin"
+        )
+
+        # Heatmaps
+        f = VioHeat.write_to_html(
+            lpo_lco_ldo=lpo_lco_ldo, f=f, files=files, plot="Heatmap"
+        )
+
+        # Regression plots
+        f = RegressionSliderPlot.write_to_html(
+            lpo_lco_ldo=lpo_lco_ldo, f=f, files=files
+        )
+
+        # Correlation comparison: Drug
+        f = CorrelationComparisonScatter.write_to_html(
+            lpo_lco_ldo=lpo_lco_ldo, f=f, files=files
+        )
+
+        # Evaluation results tables
+        f = HTMLTable.write_to_html(lpo_lco_ldo=lpo_lco_ldo, f=f, files=files)
+
         f.write("</div>\n")
         f.write("</body>\n")
         f.write("</html>\n")

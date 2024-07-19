@@ -1,3 +1,5 @@
+from typing import TextIO, List
+
 import plotly.express as px
 from scipy.stats import pearsonr
 import numpy as np
@@ -28,6 +30,21 @@ class RegressionSliderPlot:
                 )
 
         self.__draw_regression_plot__()
+
+    @staticmethod
+    def write_to_html(lpo_lco_ldo: str, f: TextIO, files: List) -> TextIO:
+        f.write('<h2 id="regression_plots">Regression plots</h2>\n')
+        f.write("<ul>\n")
+        regr_files = [
+            f for f in files if lpo_lco_ldo in f and f.startswith("regression_lines")
+        ]
+        regr_files.sort()
+        for regr_file in regr_files:
+            f.write(
+                f'<li><a href="regression_plots/{regr_file}" target="_blank">{regr_file}</a></li>\n'
+            )
+        f.write("</ul>\n")
+        return f
 
     def __draw_regression_plot__(self):
         print(

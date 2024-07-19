@@ -1,18 +1,17 @@
 import os
 import argparse
 
+from drevalpy.visualization import HTMLTable
 from drevalpy.visualization.utils import (
     parse_results,
-    parse_layout,
     prep_results,
     write_results,
     draw_violin_or_heatmap,
     draw_scatter_grids_per_group,
     draw_regr_slider,
     draw_critical_difference_plot,
-    export_html_table,
-    write_violins_and_heatmaps,
-    write_corr_comp_scatter, create_index_html,
+    create_index_html,
+    create_html,
 )
 
 
@@ -32,11 +31,12 @@ def draw_setting_plots(
 ):
     ev_res_subset = ev_res[ev_res["LPO_LCO_LDO"] == lpo_lco_ldo]
     # PIPELINE: SAVE_TABLES
-    export_html_table(
+    html_table = HTMLTable(
         df=ev_res_subset,
-        export_path=f"results/{custom_id}/html_tables/table_all_{lpo_lco_ldo}.html",
+        export_path=f"results/{custom_id}/html_tables/table_{lpo_lco_ldo}.html",
         grouping="all",
     )
+    html_table.export_html_table()
 
     # only draw figures for 'real' predictions comparing all models
     eval_results_preds = ev_res_subset[ev_res_subset["rand_setting"] == "predictions"]
@@ -97,11 +97,12 @@ def draw_per_grouping_setting_plots(grouping, ev_res_per_group, lpo_lco_ldo, cus
         ev_res_per_group["LPO_LCO_LDO"] == lpo_lco_ldo
     ]
     # PIPELINE: SAVE_TABLES
-    export_html_table(
+    html_table = HTMLTable(
         df=evaluation_results_per_group_subs,
         export_path=f"results/{custom_id}/html_tables/table_{grouping}_{lpo_lco_ldo}.html",
         grouping=grouping,
     )
+    html_table.export_html_table()
 
 
 def draw_algorithm_plots(
@@ -188,113 +189,6 @@ def draw_per_grouping_algorithm_plots(
         )
 
 
-def create_html(custom_id, setting):
-    with open(f"results/{custom_id}/{setting}.html", "w") as f:
-        parse_layout(
-            f=f, path_to_layout="drevalpy/visualization/style_utils/page_layout.html"
-        )
-        f.write(f"<h1>Results for {custom_id}: {setting}</h1>\n")
-
-        path_out_cd = (
-            f"critical_difference_plots/critical_difference_algorithms_{setting}.svg"
-        )
-        f.write(f"<object data={path_out_cd}> </object>")
-
-        plot_list = [
-            f
-            for f in os.listdir(f"results/{custom_id}/violin_plots")
-            if setting in f
-            and f != f"violinplot_algorithms_{setting}.html"
-            and f != f"violinplot_algorithms_{setting}_normalized.html"
-        ]
-        write_violins_and_heatmaps(
-            f=f, setting=setting, plot_list=plot_list, plot="Violin"
-        )
-        plot_list = [
-            f
-            for f in os.listdir(f"results/{custom_id}/heatmaps")
-            if setting in f
-            and f != f"heatmap_algorithms_{setting}.html"
-            and f != f"heatmap_algorithms_{setting}_normalized.html"
-        ]
-        write_violins_and_heatmaps(
-            f=f, setting=setting, plot_list=plot_list, plot="Heatmap"
-        )
-
-        f.write('<h2 id="regression_plots">Regression plots</h2>\n')
-        f.write("<ul>\n")
-        file_list = [
-            f
-            for f in os.listdir(f"results/{custom_id}/regression_plots")
-            if setting in f
-        ]
-        file_list.sort()
-        for file in file_list:
-            f.write(
-                f'<li><a href="regression_plots/{file}" target="_blank">{file}</a></li>\n'
-            )
-        f.write("</ul>\n")
-
-        f.write('<h2 id="corr_comp">Comparison of correlation metrics</h2>\n')
-
-        group_comparison_list = [
-            f
-            for f in os.listdir(f"results/{custom_id}/corr_comp_scatter")
-            if setting in f and f.split("_")[3] == "drug"
-        ]
-        write_corr_comp_scatter(
-            f=f, setting=setting, group_by="drug", plot_list=group_comparison_list
-        )
-        group_comparison_list = [
-            f
-            for f in os.listdir(f"results/{custom_id}/corr_comp_scatter")
-            if setting in f and f.split("_")[3] == "cell"
-        ]
-        write_corr_comp_scatter(
-            f=f, setting=setting, group_by="cell_line", plot_list=group_comparison_list
-        )
-
-        f.write('<h2 id="tables"> Evaluation Results Table</h2>\n')
-        with open(
-            f"results/{custom_id}/html_tables/table_all_{setting}.html", "r"
-        ) as eval_f:
-            eval_results = eval_f.readlines()
-            eval_results[0] = eval_results[0].replace(
-                '<table border="1" class="dataframe">',
-                '<table class="display customDataTable" style="width:100%">',
-            )
-            for line in eval_results:
-                f.write(line)
-        if setting != "LCO":
-            f.write("<h2> Evaluation Results per Cell Line Table</h2>\n")
-            with open(
-                f"results/{custom_id}/html_tables/table_cell_line_{setting}.html",
-                "r",
-            ) as eval_f:
-                eval_results = eval_f.readlines()
-                eval_results[0] = eval_results[0].replace(
-                    '<table border="1" class="dataframe">',
-                    '<table class="display customDataTable" style="width:100%">',
-                )
-                for line in eval_results:
-                    f.write(line)
-        if setting != "LDO":
-            f.write("<h2> Evaluation Results per Drug Table</h2>\n")
-            with open(
-                f"results/{custom_id}/html_tables/table_drug_{setting}.html", "r"
-            ) as eval_f:
-                eval_results = eval_f.readlines()
-                eval_results[0] = eval_results[0].replace(
-                    '<table border="1" class="dataframe">',
-                    '<table class="display customDataTable" style="width:100%">',
-                )
-                for line in eval_results:
-                    f.write(line)
-        f.write("</div>\n")
-        f.write("</body>\n")
-        f.write("</html>\n")
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Generate reports from evaluation results"
@@ -349,6 +243,16 @@ if __name__ == "__main__":
     create_output_directories(run_id)
     # Start loop over all settings
     settings = evaluation_results["LPO_LCO_LDO"].unique()
+    # get all html files from results/{run_id}
+    files = [
+        f
+        for f in os.listdir(f"results/{run_id}")
+        if f.endswith(".html")
+        and f != "index.html"
+        and f != "LPO.html"
+        and f != "LCO.html"
+        and f != "LDO.html"
+    ]
 
     for setting in settings:
         print(f"Generating report for {setting} ...")
@@ -370,6 +274,14 @@ if __name__ == "__main__":
                 lpo_lco_ldo=setting,
                 custom_id=run_id,
             )
-        # write individual html
-        create_html(run_id, setting)
-    create_index_html(custom_id=run_id, test_modes=settings, prefix_results=f"results/{run_id}")
+        # PIPELINE: WRITE_HTML
+        create_html(
+            run_id=run_id,
+            lpo_lco_ldo=setting,
+            files=files,
+            prefix_results=f"results/{run_id}",
+        )
+    # PIPELINE: WRITE_INDEX
+    create_index_html(
+        custom_id=run_id, test_modes=settings, prefix_results=f"results/{run_id}"
+    )
