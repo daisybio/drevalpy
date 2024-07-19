@@ -259,55 +259,6 @@ def compute_evaluation(df, return_df, group_by, model):
     return return_df
 
 
-def draw_critical_difference_plot(
-    evaluation_results: pd.DataFrame, path_out: str, metric: str
-) -> None:
-    out = CriticalDifferencePlot(eval_results_preds=evaluation_results, metric=metric)
-    out.fig.savefig(path_out, bbox_inches="tight")
-
-
-def draw_violin_or_heatmap(plot_type, df, normalized_metrics, whole_name):
-    if plot_type == "violinplot":
-        out = Violin(
-            df=df, normalized_metrics=normalized_metrics, whole_name=whole_name
-        )
-    else:
-        out = Heatmap(
-            df=df, normalized_metrics=normalized_metrics, whole_name=whole_name
-        )
-    return out
-
-
-def draw_scatter_grids_per_group(df, group_by, lpo_lco_ldo, out_prefix, algorithm=None):
-    if group_by == "drug":
-        exclude_models = {"NaiveDrugMeanPredictor"}
-    else:
-        exclude_models = {"NaiveCellLineMeanPredictor"}
-    exclude_models = exclude_models.union({"NaivePredictor"})
-    if algorithm == "all":
-        # draw plots for comparison between all models
-        df = df[
-            (df["LPO_LCO_LDO"] == lpo_lco_ldo)
-            & (df["rand_setting"] == "predictions")
-            & (~df["algorithm"].isin(exclude_models))
-        ]
-        corr_comp_scatter = CorrelationComparisonScatter(df=df, color_by=group_by)
-        name = f"{group_by}_{lpo_lco_ldo}"
-    elif algorithm not in exclude_models:
-        # draw plots for comparison between all test settings of one model
-        df = df[(df["LPO_LCO_LDO"] == lpo_lco_ldo) & (df["algorithm"] == algorithm)]
-        corr_comp_scatter = CorrelationComparisonScatter(df=df, color_by=group_by)
-        name = f"{group_by}_{algorithm}_{lpo_lco_ldo}"
-    else:
-        return
-    corr_comp_scatter.dropdown_fig.write_html(
-        f"{out_prefix}corr_comp_scatter_{name}.html"
-    )
-    corr_comp_scatter.fig_overall.write_html(
-        f"{out_prefix}corr_comp_scatter_overall_{name}.html"
-    )
-
-
 def draw_regr_slider(
     t_v_p, lpo_lco_ldo, model, grouping_slider, out_prefix, name, normalize
 ):

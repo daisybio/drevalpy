@@ -1,26 +1,24 @@
 from typing import TextIO
-
 import numpy as np
 import pandas as pd
 import matplotlib
+import matplotlib.pyplot as plt
 import operator
 import math
 from scipy.stats import wilcoxon
 from scipy.stats import friedmanchisquare
 import networkx
 
-matplotlib.use("agg")
-import matplotlib.pyplot as plt
+from drevalpy.evaluation import MINIMIZATION_METRICS
+from drevalpy.visualization.outplot import OutPlot
 
+matplotlib.use("agg")
 matplotlib.rcParams["font.family"] = "sans-serif"
 matplotlib.rcParams["font.sans-serif"] = "Avenir"
 
-from drevalpy.evaluation import MINIMIZATION_METRICS
 
-
-class CriticalDifferencePlot:
+class CriticalDifferencePlot(OutPlot):
     def __init__(self, eval_results_preds: pd.DataFrame, metric="MSE"):
-
         eval_results_preds = eval_results_preds[
             ["algorithm", "CV_split", metric]
         ].rename(
@@ -33,18 +31,73 @@ class CriticalDifferencePlot:
         if metric in MINIMIZATION_METRICS:
             eval_results_preds["accuracy"] = -eval_results_preds["accuracy"]
 
-        self.fig = draw_cd_diagram(
-            eval_results_preds,
-            alpha=0.05,
-            title=f"Critical Difference: {metric}",
-            labels=True,
+        self.eval_results_preds = eval_results_preds
+        self.metric = metric
+
+    def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
+        self.__draw__()
+        path_out = f"{out_prefix}critical_difference_algorithms_{out_suffix}.svg"
+        self.fig.savefig(path_out, bbox_inches="tight")
+
+    def __draw__(self) -> None:
+        self.fig = self.__draw_cd_diagram__(
+            alpha=0.05, title=f"Critical Difference: {self.metric}", labels=True
         )
 
     @staticmethod
-    def write_to_html(lpo_lco_ldo: str, f: TextIO) -> TextIO:
+    def write_to_html(lpo_lco_ldo: str, f: TextIO, *args, **kwargs) -> TextIO:
         path_out_cd = f"critical_difference_plots/critical_difference_algorithms_{lpo_lco_ldo}.svg"
         f.write(f"<object data={path_out_cd}> </object>")
         return f
+
+    def __draw_cd_diagram__(self, alpha=0.05, title=None, labels=False) -> plt.Figure:
+        """
+        Draws the critical difference diagram given the list of pairwise classifiers that are
+        significant or not
+        """
+        # Standard Plotly colors
+        plotly_colors = [
+            "#1f77b4",
+            "#ff7f0e",
+            "#2ca02c",
+            "#d62728",
+            "#9467bd",
+            "#8c564b",
+            "#e377c2",
+            "#7f7f7f",
+            "#bcbd22",
+            "#17becf",
+        ]
+
+        p_values, average_ranks, _ = wilcoxon_holm(
+            alpha=alpha, df_perf=self.eval_results_preds
+        )
+
+        print(average_ranks)
+
+        for p in p_values:
+            print(p)
+
+        graph_ranks(
+            avranks=average_ranks.values,
+            names=average_ranks.keys(),
+            p_values=p_values,
+            reverse=True,
+            width=9,
+            textspace=1.5,
+            labels=labels,
+            colors=plotly_colors,
+        )
+
+        font = {
+            "family": "sans-serif",
+            "color": "black",
+            "weight": "normal",
+            "size": 22,
+        }
+        if title:
+            plt.title(title, fontdict=font, y=0.9, x=0.5)
+        return plt.gcf()
 
 
 # The code below is a modified version of the code available at https://github.com/hfawaz/cd-diagram
@@ -442,52 +495,3 @@ def wilcoxon_holm(alpha=0.05, df_perf=None):
     )
     # return the p-values and the average ranks
     return p_values, average_ranks, max_nb_datasets
-
-
-def draw_cd_diagram(df_perf=None, alpha=0.05, title=None, labels=False):
-    """
-    Draws the critical difference diagram given the list of pairwise classifiers that are
-    significant or not
-    """
-    # Standard Plotly colors
-    plotly_colors = [
-        "#1f77b4",
-        "#ff7f0e",
-        "#2ca02c",
-        "#d62728",
-        "#9467bd",
-        "#8c564b",
-        "#e377c2",
-        "#7f7f7f",
-        "#bcbd22",
-        "#17becf",
-    ]
-
-    p_values, average_ranks, _ = wilcoxon_holm(df_perf=df_perf, alpha=alpha)
-
-    print(average_ranks)
-
-    for p in p_values:
-        print(p)
-
-    graph_ranks(
-        average_ranks.values,
-        average_ranks.keys(),
-        p_values,
-        cd=None,
-        reverse=True,
-        width=9,
-        textspace=1.5,
-        labels=labels,
-        colors=plotly_colors,
-    )
-
-    font = {
-        "family": "sans-serif",
-        "color": "black",
-        "weight": "normal",
-        "size": 22,
-    }
-    if title:
-        plt.title(title, fontdict=font, y=0.9, x=0.5)
-    return plt.gcf()

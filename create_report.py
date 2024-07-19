@@ -1,15 +1,20 @@
 import os
 import argparse
 
-from drevalpy.visualization import HTMLTable
+from drevalpy.visualization import (
+    HTMLTable,
+    CriticalDifferencePlot,
+    Violin,
+    Heatmap,
+    CorrelationComparisonScatter,
+    RegressionSliderPlot,
+)
+
 from drevalpy.visualization.utils import (
     parse_results,
     prep_results,
     write_results,
-    draw_violin_or_heatmap,
-    draw_scatter_grids_per_group,
     draw_regr_slider,
-    draw_critical_difference_plot,
     create_index_html,
     create_html,
 )
@@ -33,17 +38,22 @@ def draw_setting_plots(
     # PIPELINE: SAVE_TABLES
     html_table = HTMLTable(
         df=ev_res_subset,
-        export_path=f"results/{custom_id}/html_tables/table_{lpo_lco_ldo}.html",
-        grouping="all",
+        group_by="all",
     )
-    html_table.export_html_table()
+    html_table.draw_and_save(
+        out_prefix=f"results/{custom_id}/html_tables/", out_suffix=lpo_lco_ldo
+    )
 
     # only draw figures for 'real' predictions comparing all models
     eval_results_preds = ev_res_subset[ev_res_subset["rand_setting"] == "predictions"]
 
-    path_out_cd = f"results/{custom_id}/critical_difference_plots/critical_difference_algorithms_{lpo_lco_ldo}.svg"
-    draw_critical_difference_plot(
-        evaluation_results=eval_results_preds, path_out=path_out_cd, metric="MSE"
+    # PIPELINE: DRAW_CRITICAL_DIFFERENCE
+    cd_plot = CriticalDifferencePlot(
+        eval_results_preds=eval_results_preds, metric="MSE"
+    )
+    cd_plot.draw_and_save(
+        out_prefix=f"results/{custom_id}/critical_difference_plots/",
+        out_suffix=lpo_lco_ldo,
     )
 
     # PIPELINE: DRAW_VIOLIN_AND_HEATMAP
@@ -54,16 +64,24 @@ def draw_setting_plots(
             out_dir = "heatmaps"
         for normalized in [False, True]:
             if normalized:
-                outpath = f"results/{custom_id}/{out_dir}/{plt_type}_algorithms_{lpo_lco_ldo}_normalized.html"
+                out_suffix = f"_algorithms_{lpo_lco_ldo}_normalized"
             else:
-                outpath = f"results/{custom_id}/{out_dir}/{plt_type}_algorithms_{lpo_lco_ldo}.html"
-            outplot = draw_violin_or_heatmap(
-                plot_type=plt_type,
-                df=eval_results_preds,
-                normalized_metrics=normalized,
-                whole_name=False,
+                out_suffix = f"_algorithms_{lpo_lco_ldo}"
+            if plt_type == "violinplot":
+                out_plot = Violin(
+                    df=eval_results_preds,
+                    normalized_metrics=normalized,
+                    whole_name=False,
+                )
+            else:
+                out_plot = Heatmap(
+                    df=eval_results_preds,
+                    normalized_metrics=normalized,
+                    whole_name=False,
+                )
+            out_plot.draw_and_save(
+                out_prefix=f"results/{custom_id}/{out_dir}/", out_suffix=out_suffix
             )
-            outplot.fig.write_html(outpath)
 
     # per group plots
     if lpo_lco_ldo == "LPO" or lpo_lco_ldo == "LCO":
@@ -86,23 +104,28 @@ def draw_setting_plots(
 
 def draw_per_grouping_setting_plots(grouping, ev_res_per_group, lpo_lco_ldo, custom_id):
     # PIPELINE: DRAW_CORR_COMP
-    draw_scatter_grids_per_group(
+    corr_comp = CorrelationComparisonScatter(
         df=ev_res_per_group,
-        group_by=grouping,
-        lpo_lco_ldo=setting,
-        out_prefix=f"results/{custom_id}/corr_comp_scatter/",
+        color_by=grouping,
+        lpo_lco_ldo=lpo_lco_ldo,
         algorithm="all",
     )
+    corr_comp.draw_and_save(
+        out_prefix=f"results/{custom_id}/corr_comp_scatter/", out_suffix=corr_comp.name
+    )
+
     evaluation_results_per_group_subs = ev_res_per_group[
         ev_res_per_group["LPO_LCO_LDO"] == lpo_lco_ldo
     ]
     # PIPELINE: SAVE_TABLES
     html_table = HTMLTable(
         df=evaluation_results_per_group_subs,
-        export_path=f"results/{custom_id}/html_tables/table_{grouping}_{lpo_lco_ldo}.html",
-        grouping=grouping,
+        group_by=grouping,
     )
-    html_table.export_html_table()
+    html_table.draw_and_save(
+        out_prefix=f"results/{custom_id}/html_tables/",
+        out_suffix=f"{grouping}_{lpo_lco_ldo}",
+    )
 
 
 def draw_algorithm_plots(
@@ -119,19 +142,21 @@ def draw_algorithm_plots(
     ]
     # PIPELINE: DRAW_VIOLIN_AND_HEATMAP
     for plt_type in ["violinplot", "heatmap"]:
-        outplot = draw_violin_or_heatmap(
-            plot_type=plt_type,
-            df=eval_results_algorithm,
-            normalized_metrics=False,
-            whole_name=True,
-        )
         if plt_type == "violinplot":
             out_dir = "violin_plots"
+            out_plot = Violin(
+                df=eval_results_algorithm, normalized_metrics=False, whole_name=True
+            )
         else:
             out_dir = "heatmaps"
-        outplot.fig.write_html(
-            f"results/{custom_id}/{out_dir}/{plt_type}_{model}_{lpo_lco_ldo}.html"
+            out_plot = Heatmap(
+                df=eval_results_algorithm, normalized_metrics=False, whole_name=True
+            )
+        out_plot.draw_and_save(
+            out_prefix=f"results/{custom_id}/{out_dir}/",
+            out_suffix=f"{model}_{lpo_lco_ldo}",
         )
+
     if lpo_lco_ldo == "LPO" or lpo_lco_ldo == "LCO":
         draw_per_grouping_algorithm_plots(
             grouping_slider="cell_line",
@@ -164,28 +189,31 @@ def draw_per_grouping_algorithm_plots(
     custom_id,
 ):
     # PIPELINE: DRAW_CORR_COMP
-    draw_scatter_grids_per_group(
+    corr_comp = CorrelationComparisonScatter(
         df=ev_res_per_group,
-        group_by=grouping_scatter_table,
+        color_by=grouping_scatter_table,
         lpo_lco_ldo=lpo_lco_ldo,
-        out_prefix=f"results/{custom_id}/corr_comp_scatter/",
         algorithm=model,
+    )
+    corr_comp.draw_and_save(
+        out_prefix=f"results/{custom_id}/corr_comp_scatter/", out_suffix=corr_comp.name
     )
 
     # PIPELINE: DRAW_REGRESSION
     for normalize in [False, True]:
-        if normalize:
-            name = f"{lpo_lco_ldo}_{grouping_slider}_normalized"
-        else:
-            name = f"{lpo_lco_ldo}_{grouping_slider}"
-        draw_regr_slider(
-            t_v_p=t_v_p,
+        name_suffix = "_normalized" if normalize else ""
+        name = f"{lpo_lco_ldo}_{grouping_slider}{name_suffix}"
+
+        regr_slider = RegressionSliderPlot(
+            df=t_v_p,
             lpo_lco_ldo=lpo_lco_ldo,
             model=model,
-            grouping_slider=grouping_slider,
-            out_prefix=f"results/{custom_id}/regression_plots/",
-            name=name,
+            group_by=grouping_slider,
             normalize=normalize,
+        )
+        regr_slider.draw_and_save(
+            out_prefix=f"results/{custom_id}/regression_plots/",
+            out_suffix=f"{name}_{model}",
         )
 
 

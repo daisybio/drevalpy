@@ -1,9 +1,13 @@
 from typing import TextIO, List
-
 import pandas as pd
+from matplotlib import pyplot as plt
+from plotly import graph_objects as go
+
+from drevalpy.visualization.outplot import OutPlot
 
 
-class VioHeat:
+class VioHeat(OutPlot):
+
     def __init__(self, df: pd.DataFrame, normalized_metrics=False, whole_name=False):
         self.df = df.sort_index()
         self.all_metrics = [
@@ -37,10 +41,17 @@ class VioHeat:
                 metric for metric in self.all_metrics if "normalized" not in metric
             ]
 
+    def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
+        pass
+
+    def __draw__(self) -> None:
+        pass
+
     @staticmethod
-    def write_to_html(
-        lpo_lco_ldo: str, f: TextIO, files: List, plot: str = "Violin"
-    ) -> TextIO:
+    def write_to_html(lpo_lco_ldo: str, f: TextIO, *args, **kwargs) -> TextIO:
+        plot = kwargs.get("plot")
+        files = kwargs.get("files")
+
         if plot == "Violin":
             nav_id = "violin"
             dir_name = "violin_plots"

@@ -20,9 +20,13 @@ class Violin(VioHeat):
         self.occurring_metrics = [
             metric for metric in self.all_metrics if metric in self.df.columns
         ]
-        self.__draw_violin__()
 
-    def __draw_violin__(self):
+    def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
+        self.__draw__()
+        path_out = f"{out_prefix}violin_{out_suffix}.html"
+        self.fig.write_html(path_out)
+
+    def __draw__(self) -> None:
         self.__create_evaluation_violins__()
         count_sum = (
             self.count_r2

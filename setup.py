@@ -27,6 +27,7 @@ setup(
         "scipy",
         "matplotlib",
         "plotly",
+        "networkx",
     ],
     include_package_data=True,
     package_data={

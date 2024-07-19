@@ -1,14 +1,26 @@
 from typing import TextIO, List
-
 import plotly.express as px
 from scipy.stats import pearsonr
 import numpy as np
 import pandas as pd
 
+from drevalpy.visualization.outplot import OutPlot
 
-class RegressionSliderPlot:
-    def __init__(self, df: pd.DataFrame, group_by: str = "drug", normalize=False):
-        self.df = df[df["rand_setting"] == "predictions"]
+
+class RegressionSliderPlot(OutPlot):
+    def __init__(
+        self,
+        df: pd.DataFrame,
+        lpo_lco_ldo: str,
+        model: str,
+        group_by: str = "drug",
+        normalize=False,
+    ):
+        self.df = df[
+            (df["LPO_LCO_LDO"] == lpo_lco_ldo)
+            & (df["algorithm"] == model)
+            & (df["rand_setting"] == "predictions")
+        ]
         self.group_by = group_by
         self.normalize = normalize
         self.fig = None
@@ -29,10 +41,26 @@ class RegressionSliderPlot:
                     self.df["y_pred"] - self.df["mean_y_true_per_cell_line"]
                 )
 
-        self.__draw_regression_plot__()
+    def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
+        self.__draw__()
+        self.fig.write_html(f"{out_prefix}regression_lines_{out_suffix}.html")
+
+    def __draw__(self):
+        print(
+            f"Generating regression plots for {self.group_by}, normalize={self.normalize}..."
+        )
+        self.df = self.df.groupby(self.group_by).filter(lambda x: len(x) > 1)
+        pccs = self.df.groupby(self.group_by).apply(
+            lambda x: pearsonr(x["y_true"], x["y_pred"])[0]
+        )
+        pccs = pccs.reset_index()
+        pccs.columns = [self.group_by, "pcc"]
+        self.df = self.df.merge(pccs, on=self.group_by)
+        self.__render_plot__()
 
     @staticmethod
-    def write_to_html(lpo_lco_ldo: str, f: TextIO, files: List) -> TextIO:
+    def write_to_html(lpo_lco_ldo: str, f: TextIO, *args, **kwargs) -> TextIO:
+        files = kwargs.get("files")
         f.write('<h2 id="regression_plots">Regression plots</h2>\n')
         f.write("<ul>\n")
         regr_files = [
@@ -45,19 +73,6 @@ class RegressionSliderPlot:
             )
         f.write("</ul>\n")
         return f
-
-    def __draw_regression_plot__(self):
-        print(
-            f"Generating regression plots for {self.group_by}, normalize={self.normalize}..."
-        )
-        self.df = self.df.groupby(self.group_by).filter(lambda x: len(x) > 1)
-        pccs = self.df.groupby(self.group_by).apply(
-            lambda x: pearsonr(x["y_true"], x["y_pred"])[0]
-        )
-        pccs = pccs.reset_index()
-        pccs.columns = [self.group_by, "pcc"]
-        self.df = self.df.merge(pccs, on=self.group_by)
-        self.__render_plot__()
 
     def __render_plot__(self):
         # sort df by group name

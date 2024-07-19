@@ -39,9 +39,13 @@ class Heatmap(VioHeat):
                 subplot_titles=tuple(titles),
                 vertical_spacing=0.1,
             )
-        self.__draw_heatmap__()
 
-    def __draw_heatmap__(self):
+    def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
+        self.__draw__()
+        path_out = f"{out_prefix}heatmap_{out_suffix}.html"
+        self.fig.write_html(path_out)
+
+    def __draw__(self) -> None:
         print("Drawing heatmaps ...")
         for plot_setting in self.plot_settings:
             self.__draw_subplots__(plot_setting)

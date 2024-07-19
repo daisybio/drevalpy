@@ -1,5 +1,4 @@
 from typing import TextIO, List
-
 import pandas as pd
 import numpy as np
 import scipy
@@ -7,10 +6,44 @@ from scipy import stats
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 
+from drevalpy.visualization.outplot import OutPlot
 
-class CorrelationComparisonScatter:
-    def __init__(self, df: pd.DataFrame, color_by: str, metric="Pearson"):
+
+class CorrelationComparisonScatter(OutPlot):
+    def __init__(
+        self,
+        df: pd.DataFrame,
+        color_by: str,
+        lpo_lco_ldo: str,
+        metric="Pearson",
+        algorithm="all",
+    ):
+        exclude_models = (
+            {"NaiveDrugMeanPredictor"}
+            if color_by == "drug"
+            else {"NaiveCellLineMeanPredictor"}
+        )
+        exclude_models.add("NaivePredictor")
+
         self.df = df.sort_values("model")
+        if algorithm == "all":
+            # draw plots for comparison between all models
+            self.df = self.df[
+                (self.df["LPO_LCO_LDO"] == lpo_lco_ldo)
+                & (self.df["rand_setting"] == "predictions")
+                & (~self.df["algorithm"].isin(exclude_models))
+            ]
+            self.name = f"{color_by}_{lpo_lco_ldo}"
+        elif algorithm not in exclude_models:
+            # draw plots for comparison between all test settings of one model
+            self.df = self.df[
+                (self.df["LPO_LCO_LDO"] == lpo_lco_ldo)
+                & (self.df["algorithm"] == algorithm)
+            ]
+            self.name = f"{color_by}_{algorithm}_{lpo_lco_ldo}"
+        else:
+            return
+
         self.color_by = color_by
         self.metric = metric
 
@@ -30,10 +63,54 @@ class CorrelationComparisonScatter:
         self.dropdown_fig = go.Figure()
         self.dropdown_buttons_x = list()
         self.dropdown_buttons_y = list()
-        self.__draw_both_scatterplots__()
+
+    def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
+        self.__draw__()
+        assert self.name == out_suffix
+        path_out = f"{out_prefix}corr_comp_scatter_{out_suffix}.html"
+        self.dropdown_fig.write_html(path_out)
+        path_out = f"{out_prefix}corr_comp_scatter_overall_{out_suffix}.html"
+        self.fig_overall.write_html(path_out)
+
+    def __draw__(self) -> None:
+        print("Drawing scatterplots ...")
+        self.__generate_corr_comp_scatterplots__()
+        self.fig_overall.update_layout(
+            title=f'{str(self.color_by).replace("_", " ").capitalize()}-wise scatter plot of {self.metric} for each model',
+            showlegend=False,
+        )
+        self.dropdown_fig.update_layout(
+            title=f'{str(self.color_by).replace("_", " ").capitalize()}-wise scatter plot of {self.metric} for each model',
+            showlegend=False,
+        )
+        self.dropdown_fig.update_layout(
+            updatemenus=[
+                {
+                    "buttons": self.dropdown_buttons_x,
+                    "direction": "down",
+                    "showactive": True,
+                    "x": 0.0,
+                    "xanchor": "left",
+                    "y": 1.5,
+                    "yanchor": "top",
+                },
+                {
+                    "buttons": self.dropdown_buttons_y,
+                    "direction": "down",
+                    "showactive": True,
+                    "x": 0.5,
+                    "xanchor": "left",
+                    "y": 1.5,
+                    "yanchor": "top",
+                },
+            ]
+        )
+        self.dropdown_fig.update_xaxes(range=[-1, 1])
+        self.dropdown_fig.update_yaxes(range=[-1, 1])
 
     @staticmethod
-    def write_to_html(lpo_lco_ldo: str, f: TextIO, files: List) -> TextIO:
+    def write_to_html(lpo_lco_ldo: str, f: TextIO, *args, **kwargs) -> TextIO:
+        files = kwargs.get("files")
         f.write('<h2 id="corr_comp">Comparison of correlation metrics</h2>\n')
         for group_by in ["drug", "cell_line"]:
             plot_list = [
@@ -74,42 +151,6 @@ class CorrelationComparisonScatter:
                     )
                 f.write("</ul>\n")
         return f
-
-    def __draw_both_scatterplots__(self):
-        print("Drawing scatterplots ...")
-        self.__generate_corr_comp_scatterplots__()
-        self.fig_overall.update_layout(
-            title=f'{str(self.color_by).replace("_", " ").capitalize()}-wise scatter plot of {self.metric} for each model',
-            showlegend=False,
-        )
-        self.dropdown_fig.update_layout(
-            title=f'{str(self.color_by).replace("_", " ").capitalize()}-wise scatter plot of {self.metric} for each model',
-            showlegend=False,
-        )
-        self.dropdown_fig.update_layout(
-            updatemenus=[
-                {
-                    "buttons": self.dropdown_buttons_x,
-                    "direction": "down",
-                    "showactive": True,
-                    "x": 0.0,
-                    "xanchor": "left",
-                    "y": 1.5,
-                    "yanchor": "top",
-                },
-                {
-                    "buttons": self.dropdown_buttons_y,
-                    "direction": "down",
-                    "showactive": True,
-                    "x": 0.5,
-                    "xanchor": "left",
-                    "y": 1.5,
-                    "yanchor": "top",
-                },
-            ]
-        )
-        self.dropdown_fig.update_xaxes(range=[-1, 1])
-        self.dropdown_fig.update_yaxes(range=[-1, 1])
 
     def __generate_corr_comp_scatterplots__(self):
         # render first scatterplot that is shown in the dropdown plot
