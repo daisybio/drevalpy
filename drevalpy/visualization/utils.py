@@ -1,5 +1,7 @@
-from typing import Dict
+import shutil
+from typing import Dict, List
 
+import importlib_resources
 import pandas as pd
 import pathlib
 import os
@@ -440,3 +442,46 @@ def write_corr_comp_scatter(f, setting, group_by, plot_list):
                 f'<li><a href="corr_comp_scatter/{group_comparison}" target="_blank">{group_comparison}</a></li>\n'
             )
         f.write("</ul>\n")
+
+
+def create_index_html(custom_id: str, test_modes: List[str], prefix_results: str):
+    # copy images to the results directory
+    file_to_copy = [
+        "favicon.png",
+        "nf-core-drugresponseeval_logo_light.png",
+    ]
+    for file in file_to_copy:
+        file_path = os.path.join(
+            str(importlib_resources.files("drevalpy")), "visualization", "style_utils", file
+        )
+        shutil.copyfile(file_path, os.path.join(prefix_results, file))
+
+    layout_path = os.path.join(str(importlib_resources.files("drevalpy")), "visualization", "style_utils",
+                               "index_layout.html")
+    idx_html_path = os.path.join(prefix_results, "index.html")
+    with open(idx_html_path, "w") as f:
+        parse_layout(f=f, path_to_layout=layout_path)
+        f.write('<div class="main">\n')
+        f.write(
+            '<img src="nf-core-drugresponseeval_logo_light.png" width="364px" height="100px" alt="Logo">\n'
+        )
+        f.write(f"<h1>Results for {custom_id}</h1>\n")
+        f.write("<h2>Available settings</h2>\n")
+        f.write('<div style="display: inline-block;">\n')
+        f.write(
+            "<p>Click on the images to open the respective report in a new tab.</p>\n"
+        )
+
+        test_modes.sort()
+        for lpo_lco_ldo in test_modes:
+            img_path = os.path.join(
+                str(importlib_resources.files("drevalpy")), "visualization", "style_utils", f"{lpo_lco_ldo}.png"
+            )
+            shutil.copyfile(img_path, os.path.join(prefix_results, f"{lpo_lco_ldo}.png"))
+            f.write(
+                f'<a href="{lpo_lco_ldo}.html" target="_blank"><img src="{lpo_lco_ldo}.png" style="width:300px;height:300px;"></a>\n'
+            )
+        f.write("</div>\n")
+        f.write("</div>\n")
+        f.write("</body>\n")
+        f.write("</html>\n")

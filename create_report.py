@@ -12,7 +12,7 @@ from drevalpy.visualization.utils import (
     draw_critical_difference_plot,
     export_html_table,
     write_violins_and_heatmaps,
-    write_corr_comp_scatter,
+    write_corr_comp_scatter, create_index_html,
 )
 
 
@@ -189,11 +189,6 @@ def draw_per_grouping_algorithm_plots(
 
 
 def create_html(custom_id, setting):
-    # copy images to the results directory
-    os.system(f"cp drevalpy/visualization/style_utils/favicon.png results/{custom_id}")
-    os.system(
-        f"cp drevalpy/visualization/style_utils/nf-core-drugresponseeval_logo_light.png results/{custom_id}"
-    )
     with open(f"results/{custom_id}/{setting}.html", "w") as f:
         parse_layout(
             f=f, path_to_layout="drevalpy/visualization/style_utils/page_layout.html"
@@ -300,41 +295,6 @@ def create_html(custom_id, setting):
         f.write("</html>\n")
 
 
-def create_index_html(custom_id):
-    # copy images to the results directory
-    os.system(f"cp drevalpy/visualization/style_utils/LPO.png results/{custom_id}")
-    os.system(f"cp drevalpy/visualization/style_utils/LCO.png results/{custom_id}")
-    os.system(f"cp drevalpy/visualization/style_utils/LDO.png results/{custom_id}")
-    with open(f"results/{custom_id}/index.html", "w") as f:
-        parse_layout(
-            f=f, path_to_layout="drevalpy/visualization/style_utils/index_layout.html"
-        )
-        f.write('<div class="main">\n')
-        f.write(
-            '<img src="nf-core-drugresponseeval_logo_light.png" width="364px" height="100px" alt="Logo">\n'
-        )
-        f.write(f"<h1>Results for {custom_id}</h1>\n")
-        f.write("<h2>Available settings</h2>\n")
-        f.write('<div style="display: inline-block;">\n')
-        f.write(
-            "<p>Click on the images to open the respective report in a new tab.</p>\n"
-        )
-        settings = [
-            f.split(".html")[0]
-            for f in os.listdir(f"results/{custom_id}")
-            if f.endswith(".html") and f.startswith("L")
-        ]
-        settings.sort()
-        for setting in settings:
-            f.write(
-                f'<a href="{setting}.html" target="_blank"><img src="{setting}.png" style="width:300px;height:300px;"></a>\n'
-            )
-        f.write("</div>\n")
-        f.write("</div>\n")
-        f.write("</body>\n")
-        f.write("</html>\n")
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Generate reports from evaluation results"
@@ -412,4 +372,4 @@ if __name__ == "__main__":
             )
         # write individual html
         create_html(run_id, setting)
-    create_index_html(run_id)
+    create_index_html(custom_id=run_id, test_modes=settings, prefix_results=f"results/{run_id}")
