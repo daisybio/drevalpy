@@ -255,7 +255,6 @@ def drug_response_experiment(
                         ),
                         path_out=model_path,
                         split_index=split_index,
-                        test_mode=test_mode,
                         response_transformation=response_transformation,
                     )
 
@@ -398,7 +397,6 @@ def robustness_test(
     early_stopping_dataset: Optional[DrugResponseDataset],
     path_out: str,
     split_index: int,
-    test_mode: str,
     response_transformation: Optional[TransformerMixin] = None,
 ):
     """
