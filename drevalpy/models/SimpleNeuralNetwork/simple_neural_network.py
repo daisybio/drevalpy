@@ -118,6 +118,7 @@ class SimpleNeuralNetwork(DRPModel):
         :param path: Path to the gene expression and landmark genes
         :return: FeatureDataset containing the cell line gene expression features, filtered through the landmark genes
         """
+
         return load_and_reduce_gene_features(
             feature_type="gene_expression",
             gene_list="landmark_genes",

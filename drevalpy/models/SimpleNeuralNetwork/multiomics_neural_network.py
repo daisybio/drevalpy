@@ -1,7 +1,7 @@
 from typing import Optional
 from drevalpy.models.utils import (
     load_drug_features_from_fingerprints,
-    load_and_reduce_gene_features,
+    get_multiomics_feature_dataset,
 )
 from drevalpy.models.SimpleNeuralNetwork.utils import FeedForwardNetwork
 from drevalpy.models.drp_model import DRPModel
@@ -174,35 +174,12 @@ class MultiOmicsNeuralNetwork(DRPModel):
         :param data_path: data path e.g. data/
         :param dataset_name: dataset name e.g. GDSC1
 
-        :return: FeatureDataset containing the cell line omics features, filtered through the landmark genes
+        :return: FeatureDataset containing the cell line omics features, filtered through the drug target genes
         """
-        ge_dataset = load_and_reduce_gene_features(
-            feature_type="gene_expression",
-            gene_list="drug_target_genes_all_drugs",
-            data_path=data_path,
-            dataset_name=dataset_name,
+
+        return get_multiomics_feature_dataset(
+            data_path=data_path, dataset_name=dataset_name
         )
-        me_dataset = load_and_reduce_gene_features(
-            feature_type="methylation",
-            gene_list=None,
-            data_path=data_path,
-            dataset_name=dataset_name,
-        )
-        mu_dataset = load_and_reduce_gene_features(
-            feature_type="mutations",
-            gene_list="drug_target_genes_all_drugs",
-            data_path=data_path,
-            dataset_name=dataset_name,
-        )
-        cnv_dataset = load_and_reduce_gene_features(
-            feature_type="copy_number_variation_gistic",
-            gene_list="drug_target_genes_all_drugs",
-            data_path=data_path,
-            dataset_name=dataset_name,
-        )
-        for fd in [me_dataset, mu_dataset, cnv_dataset]:
-            ge_dataset.add_features(fd)
-        return ge_dataset
 
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
 

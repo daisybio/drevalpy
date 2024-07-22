@@ -3,6 +3,7 @@ __all__ = [
     "MultiOmicsNeuralNetwork",
     "ElasticNetModel",
     "RandomForest",
+    "MultiOmicsRandomForest",
     "SingleDrugRandomForest",
     "SVMRegressor",
     "NaivePredictor",
@@ -17,7 +18,7 @@ from .Baselines.naive_pred import (
     NaiveCellLineMeanPredictor,
 )
 from .Baselines.elastic_net_model import ElasticNetModel
-from .Baselines.random_forest import RandomForest
+from .Baselines.random_forest import RandomForest, MultiOmicsRandomForest
 from .Baselines.svm import SVMRegressor
 from .SimpleNeuralNetwork.simple_neural_network import SimpleNeuralNetwork
 from .SimpleNeuralNetwork.multiomics_neural_network import MultiOmicsNeuralNetwork
@@ -28,6 +29,7 @@ MODEL_FACTORY = {
     "MultiOmicsNeuralNetwork": MultiOmicsNeuralNetwork,
     "ElasticNet": ElasticNetModel,
     "RandomForest": RandomForest,
+    "MultiOmicsRandomForest": MultiOmicsRandomForest,
     "SVR": SVMRegressor,
     "NaivePredictor": NaivePredictor,
     "NaiveDrugMeanPredictor": NaiveDrugMeanPredictor,
