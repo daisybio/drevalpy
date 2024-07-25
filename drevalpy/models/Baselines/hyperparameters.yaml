@@ -34,7 +34,7 @@ MultiOmicsRandomForest:
     - None
     - 10
   max_samples:
-    - 0.4
+    - 0.2
   n_jobs:
     - 3
   min_samples_leaf:
