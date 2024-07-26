@@ -19,7 +19,7 @@ class tCNNs(DRPModel):
         
     """
 
-    cell_line_views = ["gene_sequence"]
+    cell_line_views = ["gene_mutation_sequence"]
     drug_views = ["smiles_sequence"]
     early_stopping = True
     model_name = "tCNNs"
@@ -33,19 +33,19 @@ class tCNNs(DRPModel):
     def train(
         self,
         output: DrugResponseDataset,
+        gene_mutation_sequence: np.ndarray,
+        smiles_sequence: np.ndarray,
         output_earlystopping: Optional[DrugResponseDataset] = None,
-        gene_sequence: np.ndarray = None,
-        smiles_sequence: np.ndarray = None,
-        gene_sequence_earlystopping: Optional[np.ndarray] = None,
+        gene_mutation_sequence_earlystopping: Optional[np.ndarray] = None,
         smiles_sequence_earlystopping: Optional[np.ndarray] = None,
     ):
         """
         Trains the model.
         :param output: training data associated with the response output
         :param output_earlystopping: optional early stopping dataset
-        :param gene_sequence: mutation sequence data
+        :param gene_mutation_sequence: mutation sequence data
         :param smiles_sequence: smiles sequence data
-        :param gene_sequence_earlystopping: mutation sequence data for early stopping
+        :param gene_mutation_sequence_earlystopping: mutation sequence data for early stopping
         :param smiles_sequence_earlystopping: smiles sequence data for early stopping
         """
         
@@ -55,17 +55,39 @@ class tCNNs(DRPModel):
                 "ignore",
                 message=".*does not have many workers which may be a bottleneck.*",
             )
-            # TODO fix
-            """self.model.fit(
-                X_train_gene_sequence=X,
-                y_train=output.response,
-                X_eval=X_earlystopping,
-                y_eval=response_earlystopping,
-                batch_size=16,
-                patience=5,
-                num_workers=1,
+            dataset = DatasettCNNs(gene_mutation_sequence, smiles_sequence, output.response)
+            train_loader = DataLoader(
+                dataset,
+                batch_size=batch_size,
+                shuffle=True,
+                persistent_workers=True,
             )
-"""
+            if all(
+                [
+                    ar is not None
+                    for ar in [
+                        output_earlystopping,
+                        gene_mutation_sequence_earlystopping,
+                        smiles_sequence_earlystopping,
+                    ]
+                ]
+            ):
+                dataset_earlystopping = DatasettCNNs(
+                    gene_mutation_sequence_earlystopping, smiles_sequence_earlystopping, output_earlystopping.response
+                )
+                early_stopping_loader = DataLoader(dataset=dataset_earlystopping, batch_size=batch_size, shuffle=False)
+
+            
+
+            trainer = pl.Trainer(
+                max_epochs=100,
+                progress_bar_refresh_rate=0,
+                gpus=1 if torch.cuda.is_available() else 0,
+            )
+            trainer.fit(self.model, train_loader, val_dataloaders=early_stopping_loader)
+
+            #TODO define trainer properlz and early stopinng via callback
+
     def save(self, path: str):
         """
         Saves the model.
@@ -79,12 +101,12 @@ class tCNNs(DRPModel):
         raise NotImplementedError("load method not implemented")
 
     def predict(
-        self, gene_sequence: np.ndarray, smiles_sequence: np.ndarray
+        self, gene_mutation_sequence: np.ndarray, smiles_sequence: np.ndarray
     ) -> np.ndarray:
         """
         Predicts the response for the given input.
         """
-        return self.model.predict(gene_sequence, smiles_sequence)
+        return self.model.predict(gene_mutation_sequence, smiles_sequence)
 
     def load_cell_line_features(
         self, data_path: str, dataset_name: str
@@ -104,29 +126,22 @@ class tCNNs(DRPModel):
 
 
 
-
-
-
-
-
-
-# Custom Dataset class
-class DrugCellDataset(Dataset):
-    def __init__(self, drug_smile, cell_mut, value, positions):
-        self.drug_smile = drug_smile
-        self.cell_mut = cell_mut
-        self.value = value
-        self.positions = positions
+class DatasettCNNs(Dataset):
+    def __init__(self, gene_mutation_sequence: np.ndarray, smiles_sequence: np.ndarray, response: np.ndarray):
+        self.gene_mutation_sequence = gene_mutation_sequence
+        self.smiles_sequence = smiles_sequence
+        self.response = response
 
     def __len__(self):
-        return len(self.positions)
+        return len(self.response)
 
     def __getitem__(self, idx):
-        row, col = self.positions[idx]
-        drug = self.drug_smile[row]
-        cell = self.cell_mut[col]
-        value = self.value[row, col]
-        return torch.tensor(value, dtype=torch.float32), torch.tensor(drug, dtype=torch.float32), torch.tensor(cell, dtype=torch.float32)
+        return (
+            torch.tensor(self.gene_mutation_sequence[idx], dtype=torch.float32),
+            torch.tensor(self.smiles_sequence[idx], dtype=torch.float32),
+            torch.tensor(self.response[idx], dtype=torch.float32),
+        )
+
 
 # Custom DataModule class
 class DrugCellDataModule(pl.LightningDataModule):
