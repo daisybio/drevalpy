@@ -52,6 +52,38 @@ def load_drug_features_from_fingerprints(
     )
 
 
+def get_multiomics_feature_dataset(
+    data_path: str, dataset_name: str, gene_list: str = "drug_target_genes_all_drugs"
+) -> FeatureDataset:
+    ge_dataset = load_and_reduce_gene_features(
+        feature_type="gene_expression",
+        gene_list=gene_list,
+        data_path=data_path,
+        dataset_name=dataset_name,
+    )
+    me_dataset = load_and_reduce_gene_features(
+        feature_type="methylation",
+        gene_list=None,
+        data_path=data_path,
+        dataset_name=dataset_name,
+    )
+    mu_dataset = load_and_reduce_gene_features(
+        feature_type="mutations",
+        gene_list=gene_list,
+        data_path=data_path,
+        dataset_name=dataset_name,
+    )
+    cnv_dataset = load_and_reduce_gene_features(
+        feature_type="copy_number_variation_gistic",
+        gene_list=gene_list,
+        data_path=data_path,
+        dataset_name=dataset_name,
+    )
+    for fd in [me_dataset, mu_dataset, cnv_dataset]:
+        ge_dataset.add_features(fd)
+    return ge_dataset
+
+
 def unique(array):
     # ordered by first occurence
     uniq, index = np.unique(array, return_index=True)
