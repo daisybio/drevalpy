@@ -96,6 +96,8 @@ class DRPModel(ABC):
 
     @abstractmethod
     def predict(self,
+                drug_ids: List[str],
+                cell_line_ids: List[str],
                 drug_input: FeatureDataset = None,
                 cell_line_input: FeatureDataset = None) -> np.ndarray:
         """
@@ -254,7 +256,8 @@ class CompositeDrugModel(DRPModel):
                                     output_earlystopping=output_earlystopping_drug)
 
     def predict(self,
-                drug_ids,
+                drug_ids: List[str],
+                cell_line_ids: List[str],
                 cell_line_input: FeatureDataset = None) -> np.ndarray:
         """
         Predicts the response for the given input.
@@ -268,7 +271,11 @@ class CompositeDrugModel(DRPModel):
             if drug not in self.models:
                 prediction[mask] = np.nan
             else:
-                prediction[mask] = self.models[drug].predict(cell_line_input=cell_line_input)
+                #TODO
+                prediction[mask] = self.models[drug].predict(
+                    drug_ids=drug,
+                    cell_line_ids=cell_line_ids,
+                    cell_line_input=cell_line_input)
         if np.any(np.isnan(prediction)):
             warnings.warn(
                 "SingleDRPModel Warning: Some drugs were not in the training set. Prediction is NaN Maybe a SingleDRPModel was used in an LDO setting."

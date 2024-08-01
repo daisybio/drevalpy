@@ -623,31 +623,10 @@ def train_and_predict(
         cell_line_ids=cell_lines_to_remove, drug_ids=drugs_to_remove
     )
 
-    print("Constructing feature matrices ...")
-    inputs = model.get_feature_matrices(
-        cell_line_ids=train_dataset.cell_line_ids,
-        drug_ids=train_dataset.drug_ids,
-        cell_line_input=cl_features,
-        drug_input=drug_features,
-    )
-    prediction_inputs = model.get_feature_matrices(
-        cell_line_ids=prediction_dataset.cell_line_ids,
-        drug_ids=prediction_dataset.drug_ids,
-        cell_line_input=cl_features,
-        drug_input=drug_features,
-    )
     if early_stopping_dataset is not None:
         early_stopping_dataset.reduce_to(
             cell_line_ids=cl_features.identifiers, drug_ids=drug_features.identifiers
         )
-        early_stopping_inputs = model.get_feature_matrices(
-            cell_line_ids=early_stopping_dataset.cell_line_ids,
-            drug_ids=early_stopping_dataset.drug_ids,
-            cell_line_input=cl_features,
-            drug_input=drug_features,
-        )
-        for key in early_stopping_inputs:
-            inputs[key + "_earlystopping"] = early_stopping_inputs[key]
 
     if response_transformation:
         train_dataset.fit_transform(response_transformation)
@@ -655,12 +634,13 @@ def train_and_predict(
         prediction_dataset.transform(response_transformation)
 
     print("Training model ...")
-    if model.early_stopping:
-        model.train(
-            output=train_dataset, output_earlystopping=early_stopping_dataset, **inputs
+    model.train(
+        output=train_dataset,
+        cell_line_input=cl_features,
+        drug_input=drug_features,
+        output_earlystopping=early_stopping_dataset
         )
-    else:
-        model.train(output=train_dataset, **inputs)
+    #TODO
     if type(model) == CompositeDrugModel:
         prediction_inputs["drug_ids"] = prediction_dataset.drug_ids
     prediction_dataset.predictions = model.predict(**prediction_inputs)
