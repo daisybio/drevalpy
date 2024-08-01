@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 import inspect
 import os
-from typing import Any, Dict, Optional, Type
+from typing import Any, Dict, Optional, Type, List
 import warnings
 
 import yaml
@@ -81,19 +81,23 @@ class DRPModel(ABC):
     def train(
         self,
         output: DrugResponseDataset,
+        cell_line_input: FeatureDataset,
+        drug_input: Optional[FeatureDataset] = None,
         output_earlystopping: Optional[DrugResponseDataset] = None,
-        **inputs: Dict[str, np.ndarray],
     ) -> None:
         """
         Trains the model.
         :param output: training data associated with the response output
+        :param cell_line_input: input associated with the cell line
+        :param drug_input: input associated with the drug
         :param output_earlystopping: optional early stopping dataset
-        :param inputs: input data Dict of numpy arrays
         """
         pass
 
     @abstractmethod
-    def predict(self, **inputs: Dict[str, np.ndarray]) -> np.ndarray:
+    def predict(self,
+                drug_input: FeatureDataset = None,
+                cell_line_input: FeatureDataset = None) -> np.ndarray:
         """
         Predicts the response for the given input.
 
@@ -132,8 +136,8 @@ class DRPModel(ABC):
 
     def get_feature_matrices(
         self,
-        cell_line_ids: np.ndarray,
-        drug_ids: np.ndarray,
+        cell_line_ids: List[str],
+        drug_ids: List[str],
         cell_line_input: FeatureDataset,
         drug_input: FeatureDataset,
     ):
@@ -144,14 +148,17 @@ class DRPModel(ABC):
                     f"Cell line input does not contain view {cell_line_view}"
                 )
             cell_line_feature_matrices[cell_line_view] = (
-                cell_line_input.get_feature_matrix(cell_line_view, cell_line_ids)
+                cell_line_input.get_feature_matrix(
+                    view=cell_line_view,
+                    identifiers=cell_line_ids)
             )
         drug_feature_matrices = {}
         for drug_view in self.drug_views:
             if drug_view not in drug_input.get_view_names():
                 raise ValueError(f"Drug input does not contain view {drug_view}")
             drug_feature_matrices[drug_view] = drug_input.get_feature_matrix(
-                drug_view, drug_ids
+                view=drug_view,
+                identifiers=drug_ids
             )
 
         return {**cell_line_feature_matrices, **drug_feature_matrices}
@@ -218,14 +225,14 @@ class CompositeDrugModel(DRPModel):
     def train(
         self,
         output: DrugResponseDataset,
+        cell_line_input: FeatureDataset,
         output_earlystopping: Optional[DrugResponseDataset] = None,
-        **inputs: Dict[str, np.ndarray],
     ) -> None:
         """
         Trains the model.
         :param output: Training data associated with the response output
+        :param cell_line_input: Input associated with the cell line
         :param output_earlystopping: Optional. Training data associated with the early stopping output
-        :param inputs: Dictionary containing input data associated with different views
         """
         drugs = np.unique(output.drug_ids)
         for i, drug in enumerate(drugs):
@@ -236,32 +243,19 @@ class CompositeDrugModel(DRPModel):
             output_mask = output.drug_ids == drug
             output_drug = output.copy()
             output_drug.mask(output_mask)
-
-            inputs_drug = {
-                view: data[output_mask]
-                for view, data in inputs.items()
-                if not view.endswith("_earlystopping")
-            }
-
             output_earlystopping_drug = None
             if output_earlystopping is not None:
                 output_earlystopping_mask = output_earlystopping.drug_ids == drug
                 output_earlystopping_drug = output_earlystopping.copy()
                 output_earlystopping_drug.mask(output_earlystopping_mask)
-                inputs_drug.update(
-                    {
-                        view: data[output_earlystopping_mask]
-                        for view, data in inputs.items()
-                        if view.endswith("_earlystopping")
-                    }
-                )
 
-                self.models[drug].train(output=output_drug, **inputs_drug)
-            else:
-                assert self.models[drug] is not None, f"none for drug {drug}"
-                self.models[drug].train(output=output_drug, **inputs_drug)
+            self.models[drug].train(output=output_drug,
+                                    cell_line_input=cell_line_input,
+                                    output_earlystopping=output_earlystopping_drug)
 
-    def predict(self, drug_ids, **inputs) -> np.ndarray:
+    def predict(self,
+                drug_ids,
+                cell_line_input: FeatureDataset = None) -> np.ndarray:
         """
         Predicts the response for the given input.
         :param cell_line_input: input associated with the cell line
@@ -271,12 +265,10 @@ class CompositeDrugModel(DRPModel):
         prediction = np.zeros_like(drug_ids, dtype=float)
         for drug in np.unique(drug_ids):
             mask = drug_ids == drug
-            inputs_drug = {view: data[mask] for view, data in inputs.items()}
-
             if drug not in self.models:
                 prediction[mask] = np.nan
             else:
-                prediction[mask] = self.models[drug].predict(**inputs_drug)
+                prediction[mask] = self.models[drug].predict(cell_line_input=cell_line_input)
         if np.any(np.isnan(prediction)):
             warnings.warn(
                 "SingleDRPModel Warning: Some drugs were not in the training set. Prediction is NaN Maybe a SingleDRPModel was used in an LDO setting."
