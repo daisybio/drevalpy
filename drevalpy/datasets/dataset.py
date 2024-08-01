@@ -428,14 +428,18 @@ class FeatureDataset(Dataset):
     Class for feature datasets.
     """
 
-    def __init__(self, features: Dict[str, Dict[str, Any]], *args, **kwargs):
+    def __init__(self, features: Dict[str, Dict[str, Any]], meta_info: Optional[Dict[str, Any]] = None, *args, **kwargs):
         """
         Initializes the feature dataset.
         :features: dictionary of features, key: drug ID/cell line ID, value: Dict of feature views, key: feature name, value: feature vector
+        :meta_info: additional information for the views, e.g., gene names for gene expression
         """
         super(FeatureDataset, self).__init__()
         self.features = features
         self.view_names = self.get_view_names()
+        if meta_info is not None:
+            # assert that str of meta Dict[str, Any] is in view_names
+            assert all([meta_key in self.view_names for meta_key in meta_info.keys()]), f"Meta keys {meta_info.keys()} not in view names {self.view_names}"
         self.identifiers = self.get_ids()
 
     def save(self, path: str):
