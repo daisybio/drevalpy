@@ -1,11 +1,12 @@
 from abc import ABC, abstractmethod
 import os
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union, Any
 import numpy as np
 from numpy.typing import ArrayLike
 import pandas as pd
 import copy
 from sklearn.base import TransformerMixin
+import networkx as nx
 
 from .utils import leave_pair_out_cv, leave_group_out_cv
 
@@ -427,17 +428,23 @@ class FeatureDataset(Dataset):
     Class for feature datasets.
     """
 
-    def __init__(self, features: Dict[str, Dict[str, np.ndarray]], *args, **kwargs):
+    def __init__(self, features: Dict[str, Dict[str, Any]], *args, **kwargs):
         """
         Initializes the feature dataset.
         :features: dictionary of features, key: drug ID/cell line ID, value: Dict of feature views, key: feature name, value: feature vector
         """
         super(FeatureDataset, self).__init__()
+        # check whether Any of features Dict[str, Dict[str, Any]] is a valid type (np.ndarray or nx.Graph)
+        for view in features[list(features.keys())[0]].values():
+            assert isinstance(view, (np.ndarray, nx.Graph)), (
+                f"Feature view is not a valid type. "
+                f"Expected np.ndarray or nx.Graph, but got {type(view)}."
+            )
         self.features = features
         self.view_names = self.get_view_names()
         self.identifiers = self.get_ids()
 
-    def save(self):
+    def save(self, path: str):
         """
         Saves the feature dataset to data.
         """
@@ -455,15 +462,18 @@ class FeatureDataset(Dataset):
         """
         Randomizes the feature vectors.
         :views_to_randomize: name of feature view or list of names of multiple feature views to randomize. The other views are not randomized.
-        :randomization_type: randomization type (permutation, gaussian, zeroing)
+        :randomization_type: randomization type ('permutation', 'invariant').
+        Permutation permutes the feature vectors.
+        Invariant means that the randomization is done in a way that a key characteristic of the feature is preserved. In case of matrices, this is the mean and standard deviation of the feature view for this instance, for networks it is the degree distribution.
         """
+        assert (
+            randomization_type in ["permutation", "invariant"]
+        ), f"Unknown randomization type '{randomization_type}'. Choose from 'shuffling', 'invariant'."
+
         if isinstance(views_to_randomize, str):
             views_to_randomize = [views_to_randomize]
 
         if randomization_type == "permutation":
-            # Get the entity names
-            identifiers = self.get_ids()
-
             # Permute the specified views for each entity (= cell line or drug)
             self.features = {
                 entity: {
@@ -475,28 +485,44 @@ class FeatureDataset(Dataset):
                     for view in self.view_names
                 }
                 for entity, other_entity in zip(
-                    identifiers, np.random.permutation(identifiers)
+                    self.identifiers, np.random.permutation(self.identifiers)
                 )
             }
 
-        elif randomization_type == "gaussian":
+        elif randomization_type == "invariant":
             for view in views_to_randomize:
-                for identifier in self.get_ids():
-                    self.features[identifier][view] = np.random.normal(
-                        self.features[identifier][view].mean(),
-                        self.features[identifier][view].std(),
-                        self.features[identifier][view].shape,
-                    )
-        elif randomization_type == "zeroing":
-            for view in views_to_randomize:
-                for identifier in self.get_ids():
-                    self.features[identifier][view] = np.zeros(
-                        self.features[identifier][view].shape
-                    )
-        else:
-            raise ValueError(
-                f"Unknown randomization mode '{randomization_type}'. Choose from 'permutation', 'gaussian', 'zeroing'."
-            )
+                for identifier in self.identifiers:
+                    if type(self.features[identifier][view]) is np.ndarray:
+                        new_features = np.random.normal(
+                            self.features[identifier][view].mean(),
+                            self.features[identifier][view].std(),
+                            self.features[identifier][view].shape,
+                        )
+                    elif type(self.features[identifier][view]) is nx.Graph:
+                        original_graph = self.features[identifier][view]
+                        # get edge attributes from original graph
+                        edge_attributes = [attributes for _, _, attributes in original_graph.edges(data=True)]
+                        # degree preserving randomization: nx.expected_degree_graph
+                        # add node features from original graph
+                        degree_view = original_graph.degree()
+                        degree_sequence = [degree_view[node] for node in original_graph.nodes()]
+                        new_features = nx.expected_degree_graph(
+                            degree_sequence,
+                            seed=1234
+                        )
+                        # TODO check whether this works
+                        new_features.add_nodes_from(
+                            self.features[identifier][view].nodes(data=True)
+                        )
+                        # randomly draw edge attribute from edge_attributes for each edge in new_features
+                        for edge in new_features.edges():
+                            new_features[edge[0]][edge[1]] = edge_attributes[np.random.randint(len(edge_attributes))]
+                    else:
+                        raise ValueError(
+                            f"Unknown feature view type '{type(self.features[identifier][view])}'."
+                        )
+                    self.features[identifier][view] = new_features
+
 
     def get_ids(self):
         """
