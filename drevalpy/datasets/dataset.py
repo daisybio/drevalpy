@@ -434,12 +434,6 @@ class FeatureDataset(Dataset):
         :features: dictionary of features, key: drug ID/cell line ID, value: Dict of feature views, key: feature name, value: feature vector
         """
         super(FeatureDataset, self).__init__()
-        # check whether Any of features Dict[str, Dict[str, Any]] is a valid type (np.ndarray or nx.Graph)
-        for view in features[list(features.keys())[0]].values():
-            assert isinstance(view, (np.ndarray, nx.Graph)), (
-                f"Feature view is not a valid type. "
-                f"Expected np.ndarray or nx.Graph, but got {type(view)}."
-            )
         self.features = features
         self.view_names = self.get_view_names()
         self.identifiers = self.get_ids()
@@ -519,7 +513,7 @@ class FeatureDataset(Dataset):
                             new_features[edge[0]][edge[1]] = edge_attributes[np.random.randint(len(edge_attributes))]
                     else:
                         raise ValueError(
-                            f"Unknown feature view type '{type(self.features[identifier][view])}'."
+                            f"No invariant randomization available for feature view type '{type(self.features[identifier][view])}'."
                         )
                     self.features[identifier][view] = new_features
 
