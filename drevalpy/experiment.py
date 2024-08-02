@@ -487,7 +487,7 @@ def randomization_test(
     :param path_out: path to the output directory
     :param split_index: index of the split
     :param test_mode: test mode one of "LPO", "LCO", "LDO" (leave-pair-out, leave-cell-line-out, leave-drug-out)
-    :param randomization_type: type of randomization to use. Choose from "permutation", "invariant". Default is "permutation"
+    :param randomization_type: type of randomization to use. Choose from "permutation", "invariant". Default is "permutation" which permutes the features over the instances, keeping the distribution of the features the same but dissolving the relationship to the target. invariant randomization is done in a way that a key characteristic of the feature is preserved. In case of matrices, this is the mean and standard deviation of the feature view for this instance, for networks it is the degree distribution.
     :param response_transformation sklearn.preprocessing scaler like StandardScaler or MinMaxScaler to use to scale the target
     :return: None (save results to disk)
     """
