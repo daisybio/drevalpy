@@ -1,7 +1,9 @@
+from typing import Optional
 import numpy as np
-from drevalpy.datasets.dataset import DrugResponseDataset
+from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models.drp_model import SingleDrugModel
 from .random_forest import RandomForest
+from numpy.typing import ArrayLike
 
 
 class SingleDrugRandomForest(SingleDrugModel, RandomForest):
@@ -10,7 +12,7 @@ class SingleDrugRandomForest(SingleDrugModel, RandomForest):
     early_stopping = False
 
     def train(
-        self, output: DrugResponseDataset, gene_expression: np.ndarray = None, **kwargs
+        self, output: DrugResponseDataset, cell_line_input: FeatureDataset, **kwargs
     ) -> None:
         """
         Trains the model: the number of features is the number of fingerprints.
@@ -18,13 +20,29 @@ class SingleDrugRandomForest(SingleDrugModel, RandomForest):
         :param output: training dataset containing the response output
         :param gene_expression: training gene expression data
         """
-        self.model.fit(gene_expression, output.response)
+        X = self.get_concatenated_features(
+            cell_line_view="gene_expression",
+            drug_view="fingerprints",
+            cell_line_ids_output=output.cell_line_ids,
+            drug_ids_output=output.drug_ids,
+            cell_line_input=cell_line_input,
+            drug_input=None,
+        )
+        self.model.fit(X, output.response)
 
-    def predict(self, gene_expression: np.ndarray = None, **kwargs) -> np.ndarray:
-        """
-        Predicts the response for the given input.
-        :param **kwargs:
-        :param gene_expression: gene expression data
-        :return: predicted response
-        """
-        return self.model.predict(gene_expression)
+    def predict(
+        self,
+        drug_ids: ArrayLike,
+        cell_line_ids: ArrayLike,
+        cell_line_input: FeatureDataset,
+        **kwargs
+    ) -> np.ndarray:
+        X = self.get_concatenated_features(
+            cell_line_view="gene_expression",
+            drug_view="fingerprints",
+            cell_line_ids_output=cell_line_ids,
+            drug_ids_output=drug_ids,
+            cell_line_input=cell_line_input,
+            drug_input=None,
+        )
+        return self.model.predict(X)

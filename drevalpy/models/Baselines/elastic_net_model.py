@@ -9,6 +9,7 @@ from ..utils import (
     load_drug_features_from_fingerprints,
 )
 
+
 class ElasticNetModel(DRPModel):
     model_name = "ElasticNet"
     cell_line_views = ["gene_expression"]
@@ -31,7 +32,8 @@ class ElasticNetModel(DRPModel):
         output: DrugResponseDataset,
         cell_line_input: FeatureDataset,
         drug_input: FeatureDataset = None,
-        *args, **kwargs
+        *args,
+        **kwargs
     ) -> None:
         """
         Trains the model: the number of features is the number of genes + the number of fingerprints.
@@ -45,15 +47,16 @@ class ElasticNetModel(DRPModel):
             cell_line_ids_output=output.cell_line_ids,
             drug_ids_output=output.drug_ids,
             cell_line_input=cell_line_input,
-            drug_input=drug_input
+            drug_input=drug_input,
         )
         self.model.fit(X, output.response)
 
-    def predict(self,
-                drug_ids: ArrayLike,
-                cell_line_ids: ArrayLike,
-                drug_input: FeatureDataset = None,
-                cell_line_input: FeatureDataset = None
+    def predict(
+        self,
+        drug_ids: ArrayLike,
+        cell_line_ids: ArrayLike,
+        drug_input: FeatureDataset = None,
+        cell_line_input: FeatureDataset = None,
     ) -> np.ndarray:
         """
         Predicts the response for the given input.
@@ -67,7 +70,7 @@ class ElasticNetModel(DRPModel):
             cell_line_ids_output=cell_line_ids,
             drug_ids_output=drug_ids,
             cell_line_input=cell_line_input,
-            drug_input=drug_input
+            drug_input=drug_input,
         )
         return self.model.predict(X)
 

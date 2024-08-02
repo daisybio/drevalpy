@@ -188,11 +188,11 @@ class MultiOmicsRandomForest(RandomForest):
         self.model.fit(X, output.response)
 
     def predict(
-            self,
-            drug_ids: ArrayLike,
-            cell_line_ids: ArrayLike,
-            drug_input: FeatureDataset = None,
-            cell_line_input: FeatureDataset = None,
+        self,
+        drug_ids: ArrayLike,
+        cell_line_ids: ArrayLike,
+        drug_input: FeatureDataset = None,
+        cell_line_input: FeatureDataset = None,
     ) -> np.ndarray:
         """
         Predicts the response for the given input.
