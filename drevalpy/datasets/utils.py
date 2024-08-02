@@ -80,7 +80,30 @@ def randomize_graph(original_graph: nx.Graph) -> nx.Graph:
         ]
     return new_graph
 
+def permute_features(features: dict, identifiers: ArrayLike, views_to_permute: List, all_views: List) -> dict:
+    """Permute the specified views for each entity (= cell line or drug) 
+    E.g. each cell line gets the feature vector/graph/image... of another cell line. Drawn without replacement.
+    :param features: dictionary of features
+    :param identifiers: array of identifiers
+    :param views_to_permute: list of views to permute
+    :param all_views: list of all views
+    :return: permuted features
+    """
+    
 
+    return {
+                entity: {
+                    view: (
+                        features[entity][view]
+                        if view not in views_to_permute
+                        else features[other_entity][view]
+                    )
+                    for view in all_views
+                }
+                for entity, other_entity in zip(
+                    identifiers, np.random.permutation(identifiers)
+                )
+            }
 
 
 def leave_pair_out_cv(
