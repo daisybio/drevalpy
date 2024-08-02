@@ -1,5 +1,6 @@
 import numpy as np
 from sklearn.linear_model import ElasticNet, Ridge
+from numpy.typing import ArrayLike
 
 from drevalpy.datasets.dataset import FeatureDataset, DrugResponseDataset
 from drevalpy.models.drp_model import DRPModel
@@ -7,7 +8,6 @@ from ..utils import (
     load_and_reduce_gene_features,
     load_drug_features_from_fingerprints,
 )
-
 
 class ElasticNetModel(DRPModel):
     model_name = "ElasticNet"
@@ -29,28 +29,46 @@ class ElasticNetModel(DRPModel):
     def train(
         self,
         output: DrugResponseDataset,
-        gene_expression: np.ndarray = None,
-        fingerprints: np.ndarray = None,
+        cell_line_input: FeatureDataset,
+        drug_input: FeatureDataset = None,
+        *args, **kwargs
     ) -> None:
         """
         Trains the model: the number of features is the number of genes + the number of fingerprints.
         :param output: training dataset containing the response output
-        :param gene_expression: training dataset containing gene expression data
-        :param fingerprints: training dataset containing fingerprints data
+        :param cell_line_input: training dataset containing gene expression data
+        :param drug_input: training dataset containing fingerprints data
         """
-        X = np.concatenate((gene_expression, fingerprints), axis=1)
+        X = self.get_concatenated_features(
+            cell_line_view="gene_expression",
+            drug_view="fingerprints",
+            cell_line_ids_output=output.cell_line_ids,
+            drug_ids_output=output.drug_ids,
+            cell_line_input=cell_line_input,
+            drug_input=drug_input
+        )
         self.model.fit(X, output.response)
 
-    def predict(
-        self, gene_expression: np.ndarray = None, fingerprints: np.ndarray = None
+    def predict(self,
+                drug_ids: ArrayLike,
+                cell_line_ids: ArrayLike,
+                drug_input: FeatureDataset = None,
+                cell_line_input: FeatureDataset = None
     ) -> np.ndarray:
         """
-        Predicts the drug response.
-        :param gene_expression:
-        :param fingerprints:
+        Predicts the response for the given input.
+        :param gene_expression: gene expression data
+        :param fingerprints: fingerprints data
         :return: predicted response
         """
-        X = np.concatenate((gene_expression, fingerprints), axis=1)
+        X = self.get_concatenated_features(
+            cell_line_view="gene_expression",
+            drug_view="fingerprints",
+            cell_line_ids_output=cell_line_ids,
+            drug_ids_output=drug_ids,
+            cell_line_input=cell_line_input,
+            drug_input=drug_input
+        )
         return self.model.predict(X)
 
     def save(self, path):

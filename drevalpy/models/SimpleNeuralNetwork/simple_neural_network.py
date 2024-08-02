@@ -8,7 +8,7 @@ from drevalpy.models.drp_model import DRPModel
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 import numpy as np
 import warnings
-
+from numpy.typing import ArrayLike
 
 class SimpleNeuralNetwork(DRPModel):
     """
@@ -36,10 +36,8 @@ class SimpleNeuralNetwork(DRPModel):
         self,
         output: DrugResponseDataset,
         output_earlystopping: Optional[DrugResponseDataset] = None,
-        gene_expression: np.ndarray = None,
-        fingerprints: np.ndarray = None,
-        gene_expression_earlystopping: Optional[np.ndarray] = None,
-        fingerprints_earlystopping: Optional[np.ndarray] = None,
+        cell_line_input: FeatureDataset = None,
+        drug_input: FeatureDataset = None,
     ):
         """
         Trains the model.
@@ -51,21 +49,25 @@ class SimpleNeuralNetwork(DRPModel):
         :param fingerprints_earlystopping: fingerprints data for early stopping
 
         """
-        X = np.concatenate((gene_expression, fingerprints), axis=1)
+        X = self.get_concatenated_features(
+            cell_line_view="gene_expression",
+            drug_view="fingerprints",
+            cell_line_ids_output=output.cell_line_ids,
+            drug_ids_output=output.drug_ids,
+            cell_line_input=cell_line_input,
+            drug_input=drug_input
+        )
 
-        if all(
-            [
-                ar is not None
-                for ar in [
-                    output_earlystopping,
-                    gene_expression_earlystopping,
-                    fingerprints_earlystopping,
-                ]
-            ]
-        ):
-            X_earlystopping = np.concatenate(
-                (gene_expression_earlystopping, fingerprints_earlystopping), axis=1
+        if output_earlystopping is not None:
+            X_earlystopping = self.get_concatenated_features(
+                cell_line_view="gene_expression",
+                drug_view="fingerprints",
+                cell_line_ids_output=output_earlystopping.cell_line_ids,
+                drug_ids_output=output_earlystopping.drug_ids,
+                cell_line_input=cell_line_input,
+                drug_input=drug_input
             )
+
         else:
             X_earlystopping = None
 
@@ -102,12 +104,19 @@ class SimpleNeuralNetwork(DRPModel):
         raise NotImplementedError("load method not implemented")
 
     def predict(
-        self, gene_expression: np.ndarray, fingerprints: np.ndarray
+        self, cell_line_ids: ArrayLike, drug_ids: ArrayLike, cell_line_input: FeatureDataset, drug_input: FeatureDataset
     ) -> np.ndarray:
         """
         Predicts the response for the given input.
         """
-        X = np.concatenate((gene_expression, fingerprints), axis=1)
+        X = self.get_concatenated_features(
+            cell_line_view="gene_expression",
+            drug_view="fingerprints",
+            cell_line_ids_output=cell_line_ids,
+            drug_ids_output=drug_ids,
+            cell_line_input=cell_line_input,
+            drug_input=drug_input)
+        
         return self.model.predict(X)
 
     def load_cell_line_features(
