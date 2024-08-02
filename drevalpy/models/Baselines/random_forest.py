@@ -68,8 +68,10 @@ class RandomForest(DRPModel):
     ) -> np.ndarray:
         """
         Predicts the response for the given input.
-        :param gene_expression: gene expression data
-        :param fingerprints: fingerprints data
+        :param drug_ids: drug ids
+        :param cell_line_ids: cell line ids
+        :param drug_input: drug input
+        :param cell_line_input: cell line input
         :return: predicted response
         """
         X = self.get_concatenated_features(

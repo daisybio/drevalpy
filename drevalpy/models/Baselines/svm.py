@@ -14,7 +14,7 @@ class SVMRegressor(DRPModel):
     cell_line_views = ["gene_expression"]
     drug_views = ["fingerprints"]
 
-    def build_model(self, hyperparameters: dict):
+    def build_model(self, hyperparameters: dict, *args, **kwargs):
         """
         Builds the model from hyperparameters.
         :param hyperparameters: Hyperparameters for the model.
@@ -59,8 +59,10 @@ class SVMRegressor(DRPModel):
     ) -> np.ndarray:
         """
         Predicts the response for the given input.
-        :param gene_expression: gene expression data
-        :param fingerprints: fingerprints data
+        :param drug_ids: Drug IDs
+        :param cell_line_ids: Cell line IDs
+        :param drug_input: Drug features
+        :param cell_line_input: Cell line features
         :return: predicted response
         """
         X = self.get_concatenated_features(

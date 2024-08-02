@@ -34,7 +34,8 @@ class SingleDrugRandomForest(SingleDrugModel, RandomForest):
         self,
         drug_ids: ArrayLike,
         cell_line_ids: ArrayLike,
-        cell_line_input: FeatureDataset,
+        drug_input: Optional[FeatureDataset] = None,
+        cell_line_input: FeatureDataset = None,
         **kwargs
     ) -> np.ndarray:
         X = self.get_concatenated_features(

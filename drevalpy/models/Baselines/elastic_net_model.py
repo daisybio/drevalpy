@@ -15,7 +15,7 @@ class ElasticNetModel(DRPModel):
     cell_line_views = ["gene_expression"]
     drug_views = ["fingerprints"]
 
-    def build_model(self, hyperparameters: dict):
+    def build_model(self, hyperparameters: dict, *args, **kwargs):
         """
         Builds the model from hyperparameters.
         :param hyperparameters: Hyperparameters for the model.
