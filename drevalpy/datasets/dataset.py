@@ -8,7 +8,7 @@ import copy
 from sklearn.base import TransformerMixin
 import networkx as nx
 
-from .utils import leave_pair_out_cv, leave_group_out_cv
+from .utils import leave_pair_out_cv, leave_group_out_cv, randomize_graph
 
 
 class Dataset(ABC):
@@ -495,7 +495,7 @@ class FeatureDataset(Dataset):
             views_to_randomize = [views_to_randomize]
 
         if randomization_type == "permutation":
-            # Permute the specified views for each entity (= cell line or drug)
+            # Permute the specified views for each entity (= cell line or drug) E.g. each cell line gets the feature vector/graph/image... of another cell line. Drawn without replacement.
             self.features = {
                 entity: {
                     view: (
@@ -511,6 +511,7 @@ class FeatureDataset(Dataset):
             }
 
         elif randomization_type == "invariant":
+            # Invariant randomization: Randomize the specified views for each entity in a way that a key characteristic of the feature is preserved. For vectors this is the mean and standard deviation the feature view for this instance, for networks the degree distribution.
             for view in views_to_randomize:
                 for identifier in self.identifiers:
                     if type(self.features[identifier][view]) is np.ndarray:
@@ -520,30 +521,8 @@ class FeatureDataset(Dataset):
                             self.features[identifier][view].shape,
                         )
                     elif type(self.features[identifier][view]) is nx.Graph:
-                        original_graph = self.features[identifier][view]
-                        # get edge attributes from original graph
-                        edge_attributes = [
-                            attributes
-                            for _, _, attributes in original_graph.edges(data=True)
-                        ]
-                        # degree preserving randomization: nx.expected_degree_graph
-                        # add node features from original graph
-                        degree_view = original_graph.degree()
-                        degree_sequence = [
-                            degree_view[node] for node in original_graph.nodes()
-                        ]
-                        new_features = nx.expected_degree_graph(
-                            degree_sequence, seed=1234
-                        )
-                        # TODO check whether this works
-                        new_features.add_nodes_from(
-                            self.features[identifier][view].nodes(data=True)
-                        )
-                        # randomly draw edge attribute from edge_attributes for each edge in new_features
-                        for edge in new_features.edges():
-                            new_features[edge[0]][edge[1]] = edge_attributes[
-                                np.random.randint(len(edge_attributes))
-                            ]
+                        new_features = randomize_graph(self.features[identifier][view])
+                        
                     else:
                         raise ValueError(
                             f"No invariant randomization available for feature view type '{type(self.features[identifier][view])}'."

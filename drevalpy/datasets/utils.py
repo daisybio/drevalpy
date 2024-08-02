@@ -5,7 +5,7 @@ import numpy as np
 from numpy.typing import ArrayLike
 from typing import List, Optional
 from sklearn.model_selection import KFold, GroupKFold, train_test_split
-
+import networkx as nx
 
 def download_dataset(
     dataset: str,
@@ -48,6 +48,39 @@ def download_dataset(
         os.remove(file_path)  # Remove zip file after extraction
 
         print(f"CCLE data downloaded and extracted to {data_path}")
+
+def randomize_graph(original_graph: nx.Graph) -> nx.Graph:
+    """
+    Randomizes the graph by shuffling the edges.
+    :param original_graph: original graph
+    :return: randomized graph
+    """
+    # get edge attributes from original graph
+    edge_attributes = [
+        attributes
+        for _, _, attributes in original_graph.edges(data=True)
+    ]
+    # degree preserving randomization: nx.expected_degree_graph
+    # add node features from original graph
+    degree_view = original_graph.degree()
+    degree_sequence = [
+        degree_view[node] for node in original_graph.nodes()
+    ]
+    new_graph = nx.expected_degree_graph(
+        degree_sequence, seed=1234
+    )
+    # TODO check whether this works
+    new_graph.add_nodes_from(
+        original_graph.nodes(data=True)
+    )
+    # randomly draw edge attribute from edge_attributes for each edge in new_features
+    for edge in new_graph.edges():
+        new_graph[edge[0]][edge[1]] = edge_attributes[
+            np.random.randint(len(edge_attributes))
+        ]
+    return new_graph
+
+
 
 
 def leave_pair_out_cv(
