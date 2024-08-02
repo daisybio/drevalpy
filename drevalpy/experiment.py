@@ -223,6 +223,7 @@ def drug_response_experiment(
                 )
             if not is_baseline:
                 if randomization_mode is not None:
+                    # if this line changes, it also needs to be changed in pipeline: randomization_split.py
                     randomization_test_views = get_randomization_test_views(
                         model=model, randomization_mode=randomization_mode
                     )
@@ -238,7 +239,6 @@ def drug_response_experiment(
                         ),
                         path_out=randomization_test_path,
                         split_index=split_index,
-                        test_mode=test_mode,
                         randomization_type=randomization_type,
                         response_transformation=response_transformation,
                     )
@@ -472,7 +472,6 @@ def randomization_test(
     early_stopping_dataset: Optional[DrugResponseDataset],
     path_out: str,
     split_index: int,
-    test_mode: str,
     randomization_type: str = "permutation",
     response_transformation=Optional[TransformerMixin],
 ) -> None:
@@ -492,7 +491,6 @@ def randomization_test(
     :param response_transformation sklearn.preprocessing scaler like StandardScaler or MinMaxScaler to use to scale the target
     :return: None (save results to disk)
     """
-    cl_features, drug_features = load_features(model, path_data, train_dataset)
 
     for test_name, views in randomization_test_views.items():
         randomization_test_file = os.path.join(
@@ -505,15 +503,9 @@ def randomization_test(
             randomization_test_file
         ):  # if this splits test has not been run yet
             for view in views:
-                if (view not in cl_features.get_view_names()) and (
-                    view not in drug_features.get_view_names()
-                ):
-                    warnings.warn(
-                        f"View {view} not found in features. Skipping randomization test {test_name} which includes this view."
-                    )
-                    break
                 randomize_train_predict(
                     view=view,
+                    test_name=test_name,
                     randomization_type=randomization_type,
                     randomization_test_file=randomization_test_file,
                     model=model,
@@ -522,9 +514,7 @@ def randomization_test(
                     train_dataset=train_dataset,
                     test_dataset=test_dataset,
                     early_stopping_dataset=early_stopping_dataset,
-                    response_transformation=response_transformation,
-                    cl_features=cl_features,
-                    drug_features=drug_features,
+                    response_transformation=response_transformation
                 )
         else:
             print(f"Randomization test {test_name} already exists. Skipping.")
@@ -532,6 +522,7 @@ def randomization_test(
 
 def randomize_train_predict(
     view: str,
+    test_name: str,
     randomization_type: str,
     randomization_test_file: str,
     model: DRPModel,
@@ -541,9 +532,17 @@ def randomize_train_predict(
     test_dataset: DrugResponseDataset,
     early_stopping_dataset: Optional[DrugResponseDataset],
     response_transformation: Optional[TransformerMixin],
-    cl_features: Optional[FeatureDataset] = None,
-    drug_features: Optional[FeatureDataset] = None,
 ):
+    cl_features, drug_features = load_features(model, path_data, train_dataset)
+
+    if (view not in cl_features.get_view_names()) and (
+            view not in drug_features.get_view_names()
+    ):
+        warnings.warn(
+            f"View {view} not found in features. Skipping randomization test {test_name} which includes this view."
+        )
+        return
+
     cl_features_rand = cl_features.copy()
     drug_features_rand = drug_features.copy()
     if view in cl_features.get_view_names():
