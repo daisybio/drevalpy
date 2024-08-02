@@ -514,7 +514,7 @@ def randomization_test(
                     train_dataset=train_dataset,
                     test_dataset=test_dataset,
                     early_stopping_dataset=early_stopping_dataset,
-                    response_transformation=response_transformation
+                    response_transformation=response_transformation,
                 )
         else:
             print(f"Randomization test {test_name} already exists. Skipping.")
@@ -536,7 +536,7 @@ def randomize_train_predict(
     cl_features, drug_features = load_features(model, path_data, train_dataset)
 
     if (view not in cl_features.get_view_names()) and (
-            view not in drug_features.get_view_names()
+        view not in drug_features.get_view_names()
     ):
         warnings.warn(
             f"View {view} not found in features. Skipping randomization test {test_name} which includes this view."

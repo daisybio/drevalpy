@@ -8,7 +8,12 @@ import copy
 from sklearn.base import TransformerMixin
 import networkx as nx
 
-from .utils import leave_pair_out_cv, leave_group_out_cv, randomize_graph, permute_features
+from .utils import (
+    leave_pair_out_cv,
+    leave_group_out_cv,
+    randomize_graph,
+    permute_features,
+)
 
 
 class Dataset(ABC):
@@ -496,8 +501,12 @@ class FeatureDataset(Dataset):
 
         if randomization_type == "permutation":
             # Permute the specified views for each entity (= cell line or drug) E.g. each cell line gets the feature vector/graph/image... of another cell line. Drawn without replacement.
-            self.features = permute_features(features = self.features, views_to_permute = views_to_randomize, identifiers = self.identifiers, all_views = self.view_names)
-            
+            self.features = permute_features(
+                features=self.features,
+                views_to_permute=views_to_randomize,
+                identifiers=self.identifiers,
+                all_views=self.view_names,
+            )
 
         elif randomization_type == "invariant":
             # Invariant randomization: Randomize the specified views for each entity in a way that a key characteristic of the feature is preserved. For vectors this is the mean and standard deviation the feature view for this instance, for networks the degree distribution.
