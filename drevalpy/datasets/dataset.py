@@ -534,11 +534,12 @@ class FeatureDataset(Dataset):
         """
         return list(self.features[list(self.features.keys())[0]].keys())
 
-    def get_feature_matrix(self, view: str, identifiers: ArrayLike) -> np.ndarray:
+    def get_feature_matrix(self, view: str, identifiers: ArrayLike, stack: bool = True) -> Union[np.ndarray, List]:
         """
-        Returns the feature matrix for the given view.
+        Returns the feature matrix for the given view. The feature view must be a vector or matrix.
         :param view: view name
         :param identifiers: list of identifiers (cell lines oder drugs)
+        :param stack: if True, stacks the feature vectors to a matrix. If False, returns a list of features.
         :return: feature matrix
         """
         assert view in self.view_names, f"View '{view}' not in in the FeatureDataset."
@@ -549,7 +550,17 @@ class FeatureDataset(Dataset):
             not missing_identifiers
         ), f"{len(missing_identifiers)} of {len(np.unique(identifiers))} ids are not in the FeatureDataset. Missing ids: {missing_identifiers}"
 
-        return np.stack([self.features[id_][view] for id_ in identifiers], axis=0)
+        assert all(
+            len(self.features[id_][view]) == len(self.features[identifiers[0]][view])
+            for id_ in identifiers
+        ), f"Feature vectors of view {view} have different lengths."
+
+        assert all(
+            type(self.features[id_][view]) is np.ndarray for id_ in identifiers
+        ), f"get_feature_matrix only works for vectors or matrices. {view} is not a numpy array."
+        out = [self.features[id_][view] for id_ in identifiers]
+        return np.stack(out, axis=0) if stack else out
+
 
     def copy(self):
         """
