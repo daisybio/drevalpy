@@ -321,10 +321,20 @@ class DrugResponseDataset(Dataset):
         test_splits = [file for file in files if "test" in file]
 
         validation_es_splits = [file for file in files if "validation_es" in file]
-        validation_splits = [file for file in files if "validation" in file and file not in validation_es_splits]
+        validation_splits = [
+            file
+            for file in files
+            if "validation" in file and file not in validation_es_splits
+        ]
         early_stopping_splits = [file for file in files if "early_stopping" in file]
 
-        for ds in [train_splits, test_splits, validation_splits, validation_es_splits, early_stopping_splits]:
+        for ds in [
+            train_splits,
+            test_splits,
+            validation_splits,
+            validation_es_splits,
+            early_stopping_splits,
+        ]:
             ds.sort()
 
         optional_splits = {

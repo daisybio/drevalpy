@@ -10,6 +10,7 @@ import numpy as np
 import warnings
 from numpy.typing import ArrayLike
 
+
 class SimpleNeuralNetwork(DRPModel):
     """
     Simple Feedforward Neural Network model with dropout.
@@ -55,7 +56,7 @@ class SimpleNeuralNetwork(DRPModel):
             cell_line_ids_output=output.cell_line_ids,
             drug_ids_output=output.drug_ids,
             cell_line_input=cell_line_input,
-            drug_input=drug_input
+            drug_input=drug_input,
         )
 
         if output_earlystopping is not None:
@@ -65,7 +66,7 @@ class SimpleNeuralNetwork(DRPModel):
                 cell_line_ids_output=output_earlystopping.cell_line_ids,
                 drug_ids_output=output_earlystopping.drug_ids,
                 cell_line_input=cell_line_input,
-                drug_input=drug_input
+                drug_input=drug_input,
             )
 
         else:
@@ -104,7 +105,11 @@ class SimpleNeuralNetwork(DRPModel):
         raise NotImplementedError("load method not implemented")
 
     def predict(
-        self, cell_line_ids: ArrayLike, drug_ids: ArrayLike, cell_line_input: FeatureDataset, drug_input: FeatureDataset
+        self,
+        cell_line_ids: ArrayLike,
+        drug_ids: ArrayLike,
+        cell_line_input: FeatureDataset,
+        drug_input: FeatureDataset,
     ) -> np.ndarray:
         """
         Predicts the response for the given input.
@@ -115,8 +120,9 @@ class SimpleNeuralNetwork(DRPModel):
             cell_line_ids_output=cell_line_ids,
             drug_ids_output=drug_ids,
             cell_line_input=cell_line_input,
-            drug_input=drug_input)
-        
+            drug_input=drug_input,
+        )
+
         return self.model.predict(X)
 
     def load_cell_line_features(

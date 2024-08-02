@@ -5,6 +5,7 @@ from drevalpy.models.drp_model import SingleDrugModel
 from .random_forest import RandomForest
 from numpy.typing import ArrayLike
 
+
 class SingleDrugRandomForest(SingleDrugModel, RandomForest):
     drug_views = []
     model_name = "SingleDrugRandomForest"
@@ -29,11 +30,12 @@ class SingleDrugRandomForest(SingleDrugModel, RandomForest):
         )
         self.model.fit(X, output.response)
 
-    def predict(self,
-                drug_ids: ArrayLike,
-                cell_line_ids: ArrayLike,
-                cell_line_input: FeatureDataset,
-                **kwargs
+    def predict(
+        self,
+        drug_ids: ArrayLike,
+        cell_line_ids: ArrayLike,
+        cell_line_input: FeatureDataset,
+        **kwargs
     ) -> np.ndarray:
         X = self.get_concatenated_features(
             cell_line_view="gene_expression",
