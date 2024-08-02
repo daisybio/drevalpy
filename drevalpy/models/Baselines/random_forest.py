@@ -40,7 +40,8 @@ class RandomForest(DRPModel):
         output: DrugResponseDataset,
         cell_line_input: FeatureDataset,
         drug_input: FeatureDataset = None,
-        *args, **kwargs
+        *args,
+        **kwargs
     ) -> None:
         """
         Trains the model: the number of features is the number of genes + the number of fingerprints.
@@ -54,15 +55,16 @@ class RandomForest(DRPModel):
             cell_line_ids_output=output.cell_line_ids,
             drug_ids_output=output.drug_ids,
             cell_line_input=cell_line_input,
-            drug_input=drug_input
+            drug_input=drug_input,
         )
         self.model.fit(X, output.response)
 
-    def predict(self,
-                drug_ids: ArrayLike,
-                cell_line_ids: ArrayLike,
-                drug_input: FeatureDataset = None,
-                cell_line_input: FeatureDataset = None
+    def predict(
+        self,
+        drug_ids: ArrayLike,
+        cell_line_ids: ArrayLike,
+        drug_input: FeatureDataset = None,
+        cell_line_input: FeatureDataset = None,
     ) -> np.ndarray:
         """
         Predicts the response for the given input.
@@ -76,7 +78,7 @@ class RandomForest(DRPModel):
             cell_line_ids_output=cell_line_ids,
             drug_ids_output=drug_ids,
             cell_line_input=cell_line_input,
-            drug_input=drug_input
+            drug_input=drug_input,
         )
         return self.model.predict(X)
 
@@ -141,18 +143,36 @@ class MultiOmicsRandomForest(RandomForest):
     def train(
         self,
         output: DrugResponseDataset,
-        gene_expression: np.ndarray,
-        methylation: np.ndarray,
-        mutations: np.ndarray,
-        copy_number_variation_gistic: np.ndarray,
-        fingerprints: np.ndarray,
+        cell_line_input: FeatureDataset,
+        drug_input: FeatureDataset = None,
+        *args,
+        **kwargs
     ) -> None:
         """
         Trains the model: the number of features is the number of genes + the number of fingerprints.
         :param output: training dataset containing the response output
-        :param gene_expression: training dataset containing gene expression data
-        :param fingerprints: training dataset containing fingerprints data
+        :param cell_line_input: training dataset containing the OMICs
+        :param drug_input: training dataset containing fingerprints data
         """
+        inputs = self.get_feature_matrices(
+            cell_line_ids=output.cell_line_ids,
+            drug_ids=output.drug_ids,
+            cell_line_input=cell_line_input,
+            drug_input=drug_input,
+        )
+        (
+            gene_expression,
+            methylation,
+            mutations,
+            copy_number_variation_gistic,
+            fingerprints,
+        ) = (
+            inputs["gene_expression"],
+            inputs["methylation"],
+            inputs["mutations"],
+            inputs["copy_number_variation_gistic"],
+            inputs["fingerprints"],
+        )
         methylation = self.pca.fit_transform(methylation)
 
         X = np.concatenate(
@@ -168,16 +188,34 @@ class MultiOmicsRandomForest(RandomForest):
         self.model.fit(X, output.response)
 
     def predict(
-        self,
-        gene_expression: np.ndarray = None,
-        methylation: np.ndarray = None,
-        mutations: np.ndarray = None,
-        copy_number_variation_gistic: np.ndarray = None,
-        fingerprints: np.ndarray = None,
+            self,
+            drug_ids: ArrayLike,
+            cell_line_ids: ArrayLike,
+            drug_input: FeatureDataset = None,
+            cell_line_input: FeatureDataset = None,
     ) -> np.ndarray:
         """
         Predicts the response for the given input.
         """
+        inputs = self.get_feature_matrices(
+            cell_line_ids=cell_line_ids,
+            drug_ids=drug_ids,
+            cell_line_input=cell_line_input,
+            drug_input=drug_input,
+        )
+        (
+            gene_expression,
+            methylation,
+            mutations,
+            copy_number_variation_gistic,
+            fingerprints,
+        ) = (
+            inputs["gene_expression"],
+            inputs["methylation"],
+            inputs["mutations"],
+            inputs["copy_number_variation_gistic"],
+            inputs["fingerprints"],
+        )
         methylation = self.pca.transform(methylation)
         X = np.concatenate(
             (

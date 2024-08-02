@@ -13,10 +13,10 @@ import warnings
 
 class tCNNs(DRPModel):
     """
-    tCNNs model adapted from https://bmcbioinformatics.biomedcentral.com/articles/10.1186/s12859-019-2910-6 
+    tCNNs model adapted from https://bmcbioinformatics.biomedcentral.com/articles/10.1186/s12859-019-2910-6
     Liu et al.
     hyperparameters:
-        
+
     """
 
     cell_line_views = ["gene_mutation_sequence"]
@@ -48,14 +48,15 @@ class tCNNs(DRPModel):
         :param gene_mutation_sequence_earlystopping: mutation sequence data for early stopping
         :param smiles_sequence_earlystopping: smiles sequence data for early stopping
         """
-        
 
         with warnings.catch_warnings():
             warnings.filterwarnings(
                 "ignore",
                 message=".*does not have many workers which may be a bottleneck.*",
             )
-            dataset = DatasettCNNs(gene_mutation_sequence, smiles_sequence, output.response)
+            dataset = DatasettCNNs(
+                gene_mutation_sequence, smiles_sequence, output.response
+            )
             train_loader = DataLoader(
                 dataset,
                 batch_size=batch_size,
@@ -73,11 +74,13 @@ class tCNNs(DRPModel):
                 ]
             ):
                 dataset_earlystopping = DatasettCNNs(
-                    gene_mutation_sequence_earlystopping, smiles_sequence_earlystopping, output_earlystopping.response
+                    gene_mutation_sequence_earlystopping,
+                    smiles_sequence_earlystopping,
+                    output_earlystopping.response,
                 )
-                early_stopping_loader = DataLoader(dataset=dataset_earlystopping, batch_size=batch_size, shuffle=False)
-
-            
+                early_stopping_loader = DataLoader(
+                    dataset=dataset_earlystopping, batch_size=batch_size, shuffle=False
+                )
 
             trainer = pl.Trainer(
                 max_epochs=100,
@@ -86,7 +89,7 @@ class tCNNs(DRPModel):
             )
             trainer.fit(self.model, train_loader, val_dataloaders=early_stopping_loader)
 
-            #TODO define trainer properlz and early stopinng via callback
+            # TODO define trainer properlz and early stopinng via callback
 
     def save(self, path: str):
         """
@@ -114,7 +117,7 @@ class tCNNs(DRPModel):
         """
         Loads the cell line features.
         :param path: Path to the data
-        :return: FeatureDataset 
+        :return: FeatureDataset
         """
 
         pass
@@ -123,11 +126,13 @@ class tCNNs(DRPModel):
         pass
 
 
-
-
-
 class DatasettCNNs(Dataset):
-    def __init__(self, gene_mutation_sequence: np.ndarray, smiles_sequence: np.ndarray, response: np.ndarray):
+    def __init__(
+        self,
+        gene_mutation_sequence: np.ndarray,
+        smiles_sequence: np.ndarray,
+        response: np.ndarray,
+    ):
         self.gene_mutation_sequence = gene_mutation_sequence
         self.smiles_sequence = smiles_sequence
         self.response = response
@@ -145,7 +150,9 @@ class DatasettCNNs(Dataset):
 
 # Custom DataModule class
 class DrugCellDataModule(pl.LightningDataModule):
-    def __init__(self, batch_size, drug_smile_dict, drug_cell_dict, cell_mut_dict, label_list):
+    def __init__(
+        self, batch_size, drug_smile_dict, drug_cell_dict, cell_mut_dict, label_list
+    ):
         super().__init__()
         self.batch_size = batch_size
         self.drug_smile_dict = drug_smile_dict
@@ -159,7 +166,11 @@ class DrugCellDataModule(pl.LightningDataModule):
         size = len(self.positions)
         len1 = int(size * 0.8)
         len2 = int(size * 0.9)
-        train_positions, valid_positions, test_positions = self.positions[:len1], self.positions[len1:len2], self.positions[len2:]
+        train_positions, valid_positions, test_positions = (
+            self.positions[:len1],
+            self.positions[len1:len2],
+            self.positions[len2:],
+        )
 
         value_shape = self.drug_cell_dict["IC50"].shape
         value = np.zeros((value_shape[0], value_shape[1], len(self.label_list)))
@@ -168,8 +179,12 @@ class DrugCellDataModule(pl.LightningDataModule):
         drug_smile = self.drug_smile_dict["canonical"]
         cell_mut = self.cell_mut_dict["cell_mut"]
 
-        self.train_dataset = DrugCellDataset(drug_smile, cell_mut, value, train_positions)
-        self.valid_dataset = DrugCellDataset(drug_smile, cell_mut, value, valid_positions)
+        self.train_dataset = DrugCellDataset(
+            drug_smile, cell_mut, value, train_positions
+        )
+        self.valid_dataset = DrugCellDataset(
+            drug_smile, cell_mut, value, valid_positions
+        )
         self.test_dataset = DrugCellDataset(drug_smile, cell_mut, value, test_positions)
 
     def train_dataloader(self):
@@ -181,23 +196,26 @@ class DrugCellDataModule(pl.LightningDataModule):
     def test_dataloader(self):
         return DataLoader(self.test_dataset, batch_size=self.batch_size)
 
+
 class DrugCellModel(pl.LightningModule):
     def __init__(self, hidden_dim, conv1_out, conv2_out, conv3_out):
         super(DrugCellModel, self).__init__()
         self.hidden_dim = hidden_dim
 
-        self.drug_conv1 = nn.Conv1d(29, 40, 7, padding='same') # 29 is the input channels of the drug (alphabet size of the SMILES)
-        self.drug_conv2 = nn.Conv1d(conv1_out, conv2_out, 7, padding='same')
-        self.drug_conv3 = nn.Conv1d(conv2_out, conv3_out, 7, padding='same')
-        
-        self.cell_conv1 = nn.Conv1d(1, 40, 7, padding='same')
-        self.cell_conv2 = nn.Conv1d(conv1_out, conv2_out, 7, padding='same')
-        self.cell_conv3 = nn.Conv1d(conv2_out, conv3_out, 7, padding='same')
-        
+        self.drug_conv1 = nn.Conv1d(
+            29, 40, 7, padding="same"
+        )  # 29 is the input channels of the drug (alphabet size of the SMILES)
+        self.drug_conv2 = nn.Conv1d(conv1_out, conv2_out, 7, padding="same")
+        self.drug_conv3 = nn.Conv1d(conv2_out, conv3_out, 7, padding="same")
+
+        self.cell_conv1 = nn.Conv1d(1, 40, 7, padding="same")
+        self.cell_conv2 = nn.Conv1d(conv1_out, conv2_out, 7, padding="same")
+        self.cell_conv3 = nn.Conv1d(conv2_out, conv3_out, 7, padding="same")
+
         self.fc1 = nn.Linear(1980, 1024)
         self.fc2 = nn.Linear(1024, 1024)
         self.fc3 = nn.Linear(1024, 1)
-        
+
         self.dropout = nn.Dropout(p=0.5)
 
     def forward(self, drug, cell):
@@ -208,16 +226,18 @@ class DrugCellModel(pl.LightningModule):
         drug = F.max_pool1d(drug, kernel_size=3, stride=3)
         drug = F.relu(self.drug_conv3(drug))
         drug = F.max_pool1d(drug, kernel_size=3, stride=3)
-        
+
         # Cell branch
-        cell = cell.unsqueeze(1)  # Adding channel dimension (from (batch_size, seq_len) to (batch_size, 1, seq_len))
+        cell = cell.unsqueeze(
+            1
+        )  # Adding channel dimension (from (batch_size, seq_len) to (batch_size, 1, seq_len))
         cell = F.relu(self.cell_conv1(cell))
         cell = F.max_pool1d(cell, kernel_size=3, stride=3)
         cell = F.relu(self.cell_conv2(cell))
         cell = F.max_pool1d(cell, kernel_size=3, stride=3)
         cell = F.relu(self.cell_conv3(cell))
         cell = F.max_pool1d(cell, kernel_size=3, stride=3)
-        
+
         # Merge branches
         merged = torch.cat((drug, cell), dim=2)
         merged = merged.view(merged.size(0), -1)
@@ -227,40 +247,48 @@ class DrugCellModel(pl.LightningModule):
         merged = F.relu(self.fc2(merged))
         merged = self.dropout(merged)
         output = torch.sigmoid(self.fc3(merged))
-        
+
         return output.squeeze()
 
     def compute_loss(self, batch, stage):
         value, drug, cell = batch
         output = self.forward(drug, cell)
         loss = F.mse_loss(output, value.squeeze())
-        self.log(f'{stage}_loss', loss)
+        self.log(f"{stage}_loss", loss)
         return loss
 
     def training_step(self, batch, batch_idx):
-        return self.compute_loss(batch, 'train')
+        return self.compute_loss(batch, "train")
 
     def validation_step(self, batch, batch_idx):
-        return self.compute_loss(batch, 'val')
+        return self.compute_loss(batch, "val")
 
     def test_step(self, batch, batch_idx):
-        return self.compute_loss(batch, 'test')
-
+        return self.compute_loss(batch, "test")
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=1e-4)
         return optimizer
 
+
 # Load data
 batch_size = 32
 label_list = ["IC50"]
 
-drug_smile_dict = np.load("data/drug_onehot_smiles.npy", encoding="latin1", allow_pickle=True).item()
-drug_cell_dict = np.load("data/drug_cell_interaction.npy", encoding="latin1", allow_pickle=True).item()
-cell_mut_dict = np.load("data/cell_mut_matrix.npy", encoding="latin1", allow_pickle=True).item()
+drug_smile_dict = np.load(
+    "data/drug_onehot_smiles.npy", encoding="latin1", allow_pickle=True
+).item()
+drug_cell_dict = np.load(
+    "data/drug_cell_interaction.npy", encoding="latin1", allow_pickle=True
+).item()
+cell_mut_dict = np.load(
+    "data/cell_mut_matrix.npy", encoding="latin1", allow_pickle=True
+).item()
 
 # Initialize DataModule
-data_module = DrugCellDataModule(batch_size, drug_smile_dict, drug_cell_dict, cell_mut_dict, label_list)
+data_module = DrugCellDataModule(
+    batch_size, drug_smile_dict, drug_cell_dict, cell_mut_dict, label_list
+)
 
 hidden_dim = 128  # Define hidden dimension for the model
 conv1_out = 40
@@ -272,4 +300,3 @@ model = DrugCellModel(hidden_dim, conv1_out, conv2_out, conv3_out)
 trainer = pl.Trainer(max_epochs=2)
 trainer.fit(model, datamodule=data_module)
 mse = trainer.test(model, datamodule=data_module)
-

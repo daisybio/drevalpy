@@ -320,9 +320,13 @@ class DrugResponseDataset(Dataset):
         train_splits = [file for file in files if "train" in file]
         test_splits = [file for file in files if "test" in file]
 
-        validation_splits = [file for file in files if "validation" in file]
         validation_es_splits = [file for file in files if "validation_es" in file]
+        validation_splits = [file for file in files if "validation" in file and file not in validation_es_splits]
         early_stopping_splits = [file for file in files if "early_stopping" in file]
+
+        for ds in [train_splits, test_splits, validation_splits, validation_es_splits, early_stopping_splits]:
+            ds.sort()
+
         optional_splits = {
             "validation": validation_splits,
             "validation_es": validation_es_splits,
@@ -428,7 +432,13 @@ class FeatureDataset(Dataset):
     Class for feature datasets.
     """
 
-    def __init__(self, features: Dict[str, Dict[str, Any]], meta_info: Optional[Dict[str, Any]] = None, *args, **kwargs):
+    def __init__(
+        self,
+        features: Dict[str, Dict[str, Any]],
+        meta_info: Optional[Dict[str, Any]] = None,
+        *args,
+        **kwargs,
+    ):
         """
         Initializes the feature dataset.
         :features: dictionary of features, key: drug ID/cell line ID, value: Dict of feature views, key: feature name, value: feature vector
@@ -439,7 +449,9 @@ class FeatureDataset(Dataset):
         self.view_names = self.get_view_names()
         if meta_info is not None:
             # assert that str of meta Dict[str, Any] is in view_names
-            assert all([meta_key in self.view_names for meta_key in meta_info.keys()]), f"Meta keys {meta_info.keys()} not in view names {self.view_names}"
+            assert all(
+                [meta_key in self.view_names for meta_key in meta_info.keys()]
+            ), f"Meta keys {meta_info.keys()} not in view names {self.view_names}"
         self.identifiers = self.get_ids()
 
     def save(self, path: str):
@@ -464,9 +476,10 @@ class FeatureDataset(Dataset):
         Permutation permutes the feature vectors.
         Invariant means that the randomization is done in a way that a key characteristic of the feature is preserved. In case of matrices, this is the mean and standard deviation of the feature view for this instance, for networks it is the degree distribution.
         """
-        assert (
-            randomization_type in ["permutation", "invariant"]
-        ), f"Unknown randomization type '{randomization_type}'. Choose from 'shuffling', 'invariant'."
+        assert randomization_type in [
+            "permutation",
+            "invariant",
+        ], f"Unknown randomization type '{randomization_type}'. Choose from 'shuffling', 'invariant'."
 
         if isinstance(views_to_randomize, str):
             views_to_randomize = [views_to_randomize]
@@ -499,14 +512,18 @@ class FeatureDataset(Dataset):
                     elif type(self.features[identifier][view]) is nx.Graph:
                         original_graph = self.features[identifier][view]
                         # get edge attributes from original graph
-                        edge_attributes = [attributes for _, _, attributes in original_graph.edges(data=True)]
+                        edge_attributes = [
+                            attributes
+                            for _, _, attributes in original_graph.edges(data=True)
+                        ]
                         # degree preserving randomization: nx.expected_degree_graph
                         # add node features from original graph
                         degree_view = original_graph.degree()
-                        degree_sequence = [degree_view[node] for node in original_graph.nodes()]
+                        degree_sequence = [
+                            degree_view[node] for node in original_graph.nodes()
+                        ]
                         new_features = nx.expected_degree_graph(
-                            degree_sequence,
-                            seed=1234
+                            degree_sequence, seed=1234
                         )
                         # TODO check whether this works
                         new_features.add_nodes_from(
@@ -514,13 +531,14 @@ class FeatureDataset(Dataset):
                         )
                         # randomly draw edge attribute from edge_attributes for each edge in new_features
                         for edge in new_features.edges():
-                            new_features[edge[0]][edge[1]] = edge_attributes[np.random.randint(len(edge_attributes))]
+                            new_features[edge[0]][edge[1]] = edge_attributes[
+                                np.random.randint(len(edge_attributes))
+                            ]
                     else:
                         raise ValueError(
                             f"No invariant randomization available for feature view type '{type(self.features[identifier][view])}'."
                         )
                     self.features[identifier][view] = new_features
-
 
     def get_ids(self):
         """
@@ -534,7 +552,9 @@ class FeatureDataset(Dataset):
         """
         return list(self.features[list(self.features.keys())[0]].keys())
 
-    def get_feature_matrix(self, view: str, identifiers: ArrayLike, stack: bool = True) -> Union[np.ndarray, List]:
+    def get_feature_matrix(
+        self, view: str, identifiers: ArrayLike, stack: bool = True
+    ) -> Union[np.ndarray, List]:
         """
         Returns the feature matrix for the given view. The feature view must be a vector or matrix.
         :param view: view name
@@ -560,7 +580,6 @@ class FeatureDataset(Dataset):
         ), f"get_feature_matrix only works for vectors or matrices. {view} is not a numpy array."
         out = [self.features[id_][view] for id_ in identifiers]
         return np.stack(out, axis=0) if stack else out
-
 
     def copy(self):
         """
