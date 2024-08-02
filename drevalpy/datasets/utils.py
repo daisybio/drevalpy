@@ -5,6 +5,7 @@ import numpy as np
 from numpy.typing import ArrayLike
 from typing import List, Optional
 from sklearn.model_selection import KFold, GroupKFold, train_test_split
+import networkx as nx
 
 
 def download_dataset(
@@ -48,6 +49,56 @@ def download_dataset(
         os.remove(file_path)  # Remove zip file after extraction
 
         print(f"CCLE data downloaded and extracted to {data_path}")
+
+
+def randomize_graph(original_graph: nx.Graph) -> nx.Graph:
+    """
+    Randomizes the graph by shuffling the edges.
+    :param original_graph: original graph
+    :return: randomized graph
+    """
+    # get edge attributes from original graph
+    edge_attributes = [
+        attributes for _, _, attributes in original_graph.edges(data=True)
+    ]
+    # degree preserving randomization: nx.expected_degree_graph
+    # add node features from original graph
+    degree_view = original_graph.degree()
+    degree_sequence = [degree_view[node] for node in original_graph.nodes()]
+    new_graph = nx.expected_degree_graph(degree_sequence, seed=1234)
+    # TODO check whether this works
+    new_graph.add_nodes_from(original_graph.nodes(data=True))
+    # randomly draw edge attribute from edge_attributes for each edge in new_features
+    for edge in new_graph.edges():
+        new_graph[edge[0]][edge[1]] = edge_attributes[
+            np.random.randint(len(edge_attributes))
+        ]
+    return new_graph
+
+
+def permute_features(
+    features: dict, identifiers: ArrayLike, views_to_permute: List, all_views: List
+) -> dict:
+    """Permute the specified views for each entity (= cell line or drug)
+    E.g. each cell line gets the feature vector/graph/image... of another cell line. Drawn without replacement.
+    :param features: dictionary of features
+    :param identifiers: array of identifiers
+    :param views_to_permute: list of views to permute
+    :param all_views: list of all views
+    :return: permuted features
+    """
+
+    return {
+        entity: {
+            view: (
+                features[entity][view]
+                if view not in views_to_permute
+                else features[other_entity][view]
+            )
+            for view in all_views
+        }
+        for entity, other_entity in zip(identifiers, np.random.permutation(identifiers))
+    }
 
 
 def leave_pair_out_cv(
