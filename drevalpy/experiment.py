@@ -638,10 +638,10 @@ def train_and_predict(
         output=train_dataset,
         cell_line_input=cl_features,
         drug_input=drug_features,
-        output_earlystopping=early_stopping_dataset
-        )
-    #TODO
-    #if type(model) == CompositeDrugModel:
+        output_earlystopping=early_stopping_dataset,
+    )
+    # TODO
+    # if type(model) == CompositeDrugModel:
     #    prediction_inputs["drug_ids"] = prediction_dataset.drug_ids
     prediction_dataset.predictions = model.predict(
         cell_line_ids=prediction_dataset.cell_line_ids,

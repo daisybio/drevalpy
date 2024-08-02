@@ -96,11 +96,13 @@ class DRPModel(ABC):
         pass
 
     @abstractmethod
-    def predict(self,
-                drug_ids: ArrayLike,
-                cell_line_ids: ArrayLike,
-                drug_input: FeatureDataset = None,
-                cell_line_input: FeatureDataset = None) -> np.ndarray:
+    def predict(
+        self,
+        drug_ids: ArrayLike,
+        cell_line_ids: ArrayLike,
+        drug_input: FeatureDataset = None,
+        cell_line_input: FeatureDataset = None,
+    ) -> np.ndarray:
         """
         Predicts the response for the given input.
 
@@ -138,13 +140,14 @@ class DRPModel(ABC):
         pass
 
     def get_concatenated_features(
-            self,
-            cell_line_view: str,
-            drug_view: str,
-            cell_line_ids_output: ArrayLike,
-            drug_ids_output: ArrayLike,
-            cell_line_input: FeatureDataset,
-            drug_input: FeatureDataset):
+        self,
+        cell_line_view: str,
+        drug_view: str,
+        cell_line_ids_output: ArrayLike,
+        drug_ids_output: ArrayLike,
+        cell_line_input: FeatureDataset,
+        drug_input: FeatureDataset,
+    ):
         """
         Concatenates the features for the given cell line and drug view.
         :param cell_line_view:
@@ -159,7 +162,7 @@ class DRPModel(ABC):
             cell_line_ids=cell_line_ids_output,
             drug_ids=drug_ids_output,
             cell_line_input=cell_line_input,
-            drug_input=drug_input
+            drug_input=drug_input,
         )
         cell_line_features = inputs[cell_line_view]
         drug_features = inputs[drug_view]
@@ -181,16 +184,15 @@ class DRPModel(ABC):
                 )
             cell_line_feature_matrices[cell_line_view] = (
                 cell_line_input.get_feature_matrix(
-                    view=cell_line_view,
-                    identifiers=cell_line_ids)
+                    view=cell_line_view, identifiers=cell_line_ids
+                )
             )
         drug_feature_matrices = {}
         for drug_view in self.drug_views:
             if drug_view not in drug_input.get_view_names():
                 raise ValueError(f"Drug input does not contain view {drug_view}")
             drug_feature_matrices[drug_view] = drug_input.get_feature_matrix(
-                view=drug_view,
-                identifiers=drug_ids
+                view=drug_view, identifiers=drug_ids
             )
 
         return {**cell_line_feature_matrices, **drug_feature_matrices}
@@ -259,7 +261,8 @@ class CompositeDrugModel(DRPModel):
         output: DrugResponseDataset,
         cell_line_input: FeatureDataset,
         output_earlystopping: Optional[DrugResponseDataset] = None,
-        *args, **kwargs
+        *args,
+        **kwargs,
     ) -> None:
         """
         Trains the model.
@@ -282,15 +285,20 @@ class CompositeDrugModel(DRPModel):
                 output_earlystopping_drug = output_earlystopping.copy()
                 output_earlystopping_drug.mask(output_earlystopping_mask)
 
-            self.models[drug].train(output=output_drug,
-                                    cell_line_input=cell_line_input,
-                                    output_earlystopping=output_earlystopping_drug)
+            self.models[drug].train(
+                output=output_drug,
+                cell_line_input=cell_line_input,
+                output_earlystopping=output_earlystopping_drug,
+            )
 
-    def predict(self,
-                drug_ids: List[str],
-                cell_line_ids: List[str],
-                cell_line_input: FeatureDataset = None,
-                *args, **kwargs) -> np.ndarray:
+    def predict(
+        self,
+        drug_ids: List[str],
+        cell_line_ids: List[str],
+        cell_line_input: FeatureDataset = None,
+        *args,
+        **kwargs,
+    ) -> np.ndarray:
         """
         Predicts the response for the given input.
         :param cell_line_input: input associated with the cell line
@@ -303,11 +311,12 @@ class CompositeDrugModel(DRPModel):
             if drug not in self.models:
                 prediction[mask] = np.nan
             else:
-                #TODO
+                # TODO
                 prediction[mask] = self.models[drug].predict(
                     drug_ids=drug,
                     cell_line_ids=cell_line_ids,
-                    cell_line_input=cell_line_input)
+                    cell_line_input=cell_line_input,
+                )
         if np.any(np.isnan(prediction)):
             warnings.warn(
                 "SingleDRPModel Warning: Some drugs were not in the training set. Prediction is NaN Maybe a SingleDRPModel was used in an LDO setting."
