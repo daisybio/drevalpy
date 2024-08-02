@@ -51,29 +51,38 @@ def download_dataset(
         print(f"CCLE data downloaded and extracted to {data_path}")
 
 
+
+
 def randomize_graph(original_graph: nx.Graph) -> nx.Graph:
     """
-    Randomizes the graph by shuffling the edges.
-    :param original_graph: original graph
-    :return: randomized graph
+    Randomizes the graph by shuffling the edges while preserving the degree sequence.
+    :param original_graph: The original graph
+    :return: Randomized graph with the same degree sequence and node attributes
     """
-    # get edge attributes from original graph
-    edge_attributes = [
-        attributes for _, _, attributes in original_graph.edges(data=True)
-    ]
-    # degree preserving randomization: nx.expected_degree_graph
-    # add node features from original graph
-    degree_view = original_graph.degree()
-    degree_sequence = [degree_view[node] for node in original_graph.nodes()]
+    # Get the degree sequence from the original graph
+    degree_sequence = [degree for node, degree in original_graph.degree()]
+
+    # Generate a new graph with the expected degree sequence
     new_graph = nx.expected_degree_graph(degree_sequence, seed=1234)
-    # TODO check whether this works
-    new_graph.add_nodes_from(original_graph.nodes(data=True))
-    # randomly draw edge attribute from edge_attributes for each edge in new_features
+
+    # Remap nodes to the original labels
+    mapping = {new_node: old_node for new_node, old_node in zip(new_graph.nodes(), original_graph.nodes())}
+    new_graph = nx.relabel_nodes(new_graph, mapping)
+
+    # Copy node attributes from the original graph to the new graph
+    for node, data in original_graph.nodes(data=True):
+        new_graph.nodes[node].update(data)
+
+    # Get the edge attributes from the original graph
+    edge_attributes = list(original_graph.edges(data=True))
+
+    # Assign random edge attributes to the new edges
     for edge in new_graph.edges():
-        new_graph[edge[0]][edge[1]] = edge_attributes[
-            np.random.randint(len(edge_attributes))
-        ]
+        _, _, attr = edge_attributes[np.random.randint(len(edge_attributes))]
+        new_graph[edge[0]][edge[1]].update(attr)
+
     return new_graph
+
 
 
 def permute_features(
