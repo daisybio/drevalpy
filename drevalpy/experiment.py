@@ -488,7 +488,7 @@ def randomization_test(
     :param path_out: path to the output directory
     :param split_index: index of the split
     :param test_mode: test mode one of "LPO", "LCO", "LDO" (leave-pair-out, leave-cell-line-out, leave-drug-out)
-    :param randomization_type: type of randomization to use. Choose from "gaussian", "zeroing", "permutation". Default is "permutation"
+    :param randomization_type: type of randomization to use. Choose from "permutation", "invariant". Default is "permutation"
     :param response_transformation sklearn.preprocessing scaler like StandardScaler or MinMaxScaler to use to scale the target
     :return: None (save results to disk)
     """

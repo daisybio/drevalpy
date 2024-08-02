@@ -52,10 +52,9 @@ def get_parser():
         "--randomization_type",
         type=str,
         default="permutation",
-        help="""type of randomization to use. Choose from "gaussian", "zeroing", "permutation". Default is "permutation"
-            "gaussian": replace the features with random values sampled from a gaussian distribution with the same mean and standard deviation
-            "zeroing": replace the features with zeros
-            "permutation": permute the features over the instances, keeping the distribution of the features the same but dissolving the relationship to the target""",
+        help="""type of randomization to use. Choose from "permutation" or "invariant". Default is "permutation"
+            "permutation": permute the features over the instances, keeping the distribution of the features the same but dissolving the relationship to the target
+            "invariant": the randomization is done in a way that a key characteristic of the feature is preserved. In case of matrices, this is the mean and standard deviation of the feature view for this instance, for networks it is the degree distribution.""",
     )
     parser.add_argument(
         "--n_trials_robustness",
