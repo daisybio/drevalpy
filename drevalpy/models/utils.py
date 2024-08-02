@@ -6,7 +6,7 @@ from drevalpy.datasets.dataset import FeatureDataset
 
 def load_cl_ids_from_csv(path: str, dataset_name: str) -> FeatureDataset:
     cl_names = pd.read_csv(f"{path}/{dataset_name}/cell_line_names.csv", index_col=0)
-    return FeatureDataset(features={cl: {"cell_line_id": cl} for cl in cl_names.index})
+    return FeatureDataset(features={cl: {"cell_line_id": np.array([cl])} for cl in cl_names.index})
 
 
 def load_and_reduce_gene_features(
@@ -37,7 +37,7 @@ def load_and_reduce_gene_features(
 def load_drug_ids_from_csv(data_path: str, dataset_name: str) -> FeatureDataset:
     drug_names = pd.read_csv(f"{data_path}/{dataset_name}/drug_names.csv", index_col=0)
     return FeatureDataset(
-        features={drug: {"drug_id": drug} for drug in drug_names.index}
+        features={drug: {"drug_id": np.array([drug])} for drug in drug_names.index}
     )
 
 
