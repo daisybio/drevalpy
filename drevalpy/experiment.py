@@ -665,7 +665,7 @@ def train_and_evaluate(
     early_stopping_dataset: Optional[DrugResponseDataset] = None,
     response_transformation: Optional[TransformerMixin] = None,
     metric: str = "rmse",
-) -> float:
+) -> Dict[str, float]:
     validation_dataset = train_and_predict(
         model=model,
         hpams=hpams,
