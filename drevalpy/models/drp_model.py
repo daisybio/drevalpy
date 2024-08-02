@@ -7,6 +7,7 @@ import warnings
 import yaml
 from ..datasets.dataset import DrugResponseDataset, FeatureDataset
 import numpy as np
+from numpy.typing import ArrayLike
 from sklearn.model_selection import ParameterGrid
 
 
@@ -96,8 +97,8 @@ class DRPModel(ABC):
 
     @abstractmethod
     def predict(self,
-                drug_ids: List[str],
-                cell_line_ids: List[str],
+                drug_ids: ArrayLike,
+                cell_line_ids: ArrayLike,
                 drug_input: FeatureDataset = None,
                 cell_line_input: FeatureDataset = None) -> np.ndarray:
         """
@@ -138,8 +139,8 @@ class DRPModel(ABC):
 
     def get_feature_matrices(
         self,
-        cell_line_ids: List[str],
-        drug_ids: List[str],
+        cell_line_ids: ArrayLike,
+        drug_ids: ArrayLike,
         cell_line_input: FeatureDataset,
         drug_input: FeatureDataset,
     ):
@@ -229,6 +230,7 @@ class CompositeDrugModel(DRPModel):
         output: DrugResponseDataset,
         cell_line_input: FeatureDataset,
         output_earlystopping: Optional[DrugResponseDataset] = None,
+        *args, **kwargs
     ) -> None:
         """
         Trains the model.
@@ -258,7 +260,8 @@ class CompositeDrugModel(DRPModel):
     def predict(self,
                 drug_ids: List[str],
                 cell_line_ids: List[str],
-                cell_line_input: FeatureDataset = None) -> np.ndarray:
+                cell_line_input: FeatureDataset = None,
+                *args, **kwargs) -> np.ndarray:
         """
         Predicts the response for the given input.
         :param cell_line_input: input associated with the cell line

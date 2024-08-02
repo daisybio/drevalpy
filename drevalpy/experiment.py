@@ -104,7 +104,7 @@ def drug_response_experiment(
             print(f"Running model {model_class.model_name}")
             is_baseline = False
 
-        model_path = os.path.join(result_path, model_class.model_name)
+        model_path = os.path.join(result_path, str(model_class.model_name))
         handle_overwrite(model_path, overwrite)
         predictions_path = os.path.join(model_path, "predictions")
         os.makedirs(predictions_path, exist_ok=True)
@@ -643,7 +643,12 @@ def train_and_predict(
     #TODO
     if type(model) == CompositeDrugModel:
         prediction_inputs["drug_ids"] = prediction_dataset.drug_ids
-    prediction_dataset.predictions = model.predict(**prediction_inputs)
+    prediction_dataset.predictions = model.predict(
+        cell_line_ids=prediction_dataset.cell_line_ids,
+        drug_ids=prediction_dataset.drug_ids,
+        cell_line_input=cl_features,
+        drug_input=drug_features,
+    )
 
     if response_transformation:
         prediction_dataset.inverse_transform(response_transformation)

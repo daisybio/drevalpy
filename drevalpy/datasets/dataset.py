@@ -17,7 +17,7 @@ class Dataset(ABC):
     """
 
     @abstractmethod
-    def load(self):
+    def load(self, path: str):
         """
         Loads the dataset from data.
         """
@@ -448,7 +448,7 @@ class FeatureDataset(Dataset):
         """
         raise NotImplementedError("save method not implemented")
 
-    def load(self):
+    def load(self, path: str):
         """
         Loads the feature dataset from data.
         """
@@ -534,7 +534,7 @@ class FeatureDataset(Dataset):
         """
         return list(self.features[list(self.features.keys())[0]].keys())
 
-    def get_feature_matrix(self, view: str, identifiers: List[str]) -> np.ndarray:
+    def get_feature_matrix(self, view: str, identifiers: ArrayLike) -> np.ndarray:
         """
         Returns the feature matrix for the given view.
         :param view: view name

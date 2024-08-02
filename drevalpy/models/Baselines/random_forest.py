@@ -1,4 +1,5 @@
 import numpy as np
+from numpy.typing import ArrayLike
 from sklearn.decomposition import PCA
 from sklearn.ensemble import RandomForestRegressor
 
@@ -16,7 +17,7 @@ class RandomForest(DRPModel):
     cell_line_views = ["gene_expression"]
     drug_views = ["fingerprints"]
 
-    def build_model(self, hyperparameters: dict):
+    def build_model(self, hyperparameters: dict, *args, **kwargs):
         """
         Builds the model from hyperparameters.
         :param **kwargs:
@@ -37,20 +38,33 @@ class RandomForest(DRPModel):
     def train(
         self,
         output: DrugResponseDataset,
-        gene_expression: np.ndarray = None,
-        fingerprints: np.ndarray = None,
+        cell_line_input: FeatureDataset,
+        drug_input: FeatureDataset = None,
+        *args, **kwargs
     ) -> None:
         """
         Trains the model: the number of features is the number of genes + the number of fingerprints.
         :param output: training dataset containing the response output
-        :param gene_expression: training dataset containing gene expression data
-        :param fingerprints: training dataset containing fingerprints data
+        :param cell_line_input: training dataset containing gene expression data
+        :param drug_input: training dataset containing fingerprints data
         """
+        # subset to IDs in output
+        inputs = self.get_feature_matrices(
+            cell_line_ids=output.cell_line_ids,
+            drug_ids=output.drug_ids,
+            cell_line_input=cell_line_input,
+            drug_input=drug_input
+        )
+        gene_expression = inputs["gene_expression"]
+        fingerprints = inputs["fingerprints"]
         X = np.concatenate((gene_expression, fingerprints), axis=1)
         self.model.fit(X, output.response)
 
-    def predict(
-        self, gene_expression: np.ndarray = None, fingerprints: np.ndarray = None
+    def predict(self,
+                drug_ids: ArrayLike,
+                cell_line_ids: ArrayLike,
+                drug_input: FeatureDataset = None,
+                cell_line_input: FeatureDataset = None
     ) -> np.ndarray:
         """
         Predicts the response for the given input.
@@ -58,6 +72,14 @@ class RandomForest(DRPModel):
         :param fingerprints: fingerprints data
         :return: predicted response
         """
+        input = self.get_feature_matrices(
+            cell_line_ids=cell_line_ids,
+            drug_ids=drug_ids,
+            cell_line_input=cell_line_input,
+            drug_input=drug_input
+        )
+        gene_expression = input["gene_expression"]
+        fingerprints = input["fingerprints"]
         X = np.concatenate((gene_expression, fingerprints), axis=1)
         return self.model.predict(X)
 
