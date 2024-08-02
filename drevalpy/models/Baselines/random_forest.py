@@ -48,16 +48,14 @@ class RandomForest(DRPModel):
         :param cell_line_input: training dataset containing gene expression data
         :param drug_input: training dataset containing fingerprints data
         """
-        # subset to IDs in output
-        inputs = self.get_feature_matrices(
-            cell_line_ids=output.cell_line_ids,
-            drug_ids=output.drug_ids,
+        X = self.get_concatenated_features(
+            cell_line_view="gene_expression",
+            drug_view="fingerprints",
+            cell_line_ids_output=output.cell_line_ids,
+            drug_ids_output=output.drug_ids,
             cell_line_input=cell_line_input,
             drug_input=drug_input
         )
-        gene_expression = inputs["gene_expression"]
-        fingerprints = inputs["fingerprints"]
-        X = np.concatenate((gene_expression, fingerprints), axis=1)
         self.model.fit(X, output.response)
 
     def predict(self,
@@ -72,15 +70,14 @@ class RandomForest(DRPModel):
         :param fingerprints: fingerprints data
         :return: predicted response
         """
-        input = self.get_feature_matrices(
-            cell_line_ids=cell_line_ids,
-            drug_ids=drug_ids,
+        X = self.get_concatenated_features(
+            cell_line_view="gene_expression",
+            drug_view="fingerprints",
+            cell_line_ids_output=cell_line_ids,
+            drug_ids_output=drug_ids,
             cell_line_input=cell_line_input,
             drug_input=drug_input
         )
-        gene_expression = input["gene_expression"]
-        fingerprints = input["fingerprints"]
-        X = np.concatenate((gene_expression, fingerprints), axis=1)
         return self.model.predict(X)
 
     def save(self, path):
@@ -118,7 +115,7 @@ class MultiOmicsRandomForest(RandomForest):
     ]
     model_name = "MultiOmicsRandomForest"
 
-    def build_model(self, hyperparameters: dict):
+    def build_model(self, hyperparameters: dict, *args, **kwargs):
         """
         Builds the model from hyperparameters.
         :param hyperparameters: Hyperparameters for the model.

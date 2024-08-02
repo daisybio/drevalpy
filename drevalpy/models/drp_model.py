@@ -137,6 +137,35 @@ class DRPModel(ABC):
         """
         pass
 
+    def get_concatenated_features(
+            self,
+            cell_line_view: str,
+            drug_view: str,
+            cell_line_ids_output: ArrayLike,
+            drug_ids_output: ArrayLike,
+            cell_line_input: FeatureDataset,
+            drug_input: FeatureDataset):
+        """
+        Concatenates the features for the given cell line and drug view.
+        :param cell_line_view:
+        :param drug_view:
+        :param cell_line_ids_output:
+        :param drug_ids_output:
+        :param cell_line_input:
+        :param drug_input:
+        :return: X, the feature matrix needed for, e.g., sklearn models
+        """
+        inputs = self.get_feature_matrices(
+            cell_line_ids=cell_line_ids_output,
+            drug_ids=drug_ids_output,
+            cell_line_input=cell_line_input,
+            drug_input=drug_input
+        )
+        cell_line_features = inputs[cell_line_view]
+        drug_features = inputs[drug_view]
+        X = np.concatenate((cell_line_features, drug_features), axis=1)
+        return X
+
     def get_feature_matrices(
         self,
         cell_line_ids: ArrayLike,

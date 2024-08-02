@@ -641,8 +641,8 @@ def train_and_predict(
         output_earlystopping=early_stopping_dataset
         )
     #TODO
-    if type(model) == CompositeDrugModel:
-        prediction_inputs["drug_ids"] = prediction_dataset.drug_ids
+    #if type(model) == CompositeDrugModel:
+    #    prediction_inputs["drug_ids"] = prediction_dataset.drug_ids
     prediction_dataset.predictions = model.predict(
         cell_line_ids=prediction_dataset.cell_line_ids,
         drug_ids=prediction_dataset.drug_ids,
