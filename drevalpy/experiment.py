@@ -329,11 +329,13 @@ def cross_study_prediction(
         dataset.reduce_to(
             cell_line_ids=[
                 cl for cl in dataset.cell_line_ids if cl not in train_cell_lines
-            ]
+            ],
+            drug_ids=None
         )
     elif test_mode == "LDO":
         train_drugs = set(train_dataset.drug_ids)
         dataset.reduce_to(
+            cell_line_ids=None,
             drug_ids=[drug for drug in dataset.drug_ids if drug not in train_drugs]
         )
     else:
@@ -341,15 +343,15 @@ def cross_study_prediction(
 
     dataset.shuffle(random_state=42)
 
-    inputs = model.get_feature_matrices(
+    # TODO
+    #if type(model) == CompositeDrugModel:
+    #    inputs["drug_ids"] = dataset.drug_ids
+    dataset.predictions = model.predict(
         cell_line_ids=dataset.cell_line_ids,
         drug_ids=dataset.drug_ids,
         cell_line_input=cl_features,
         drug_input=drug_features,
     )
-    if type(model) == CompositeDrugModel:
-        inputs["drug_ids"] = dataset.drug_ids
-    dataset.predictions = model.predict(**inputs)
     if response_transformation:
         dataset.response = response_transformation.inverse_transform(dataset.response)
     dataset.save(

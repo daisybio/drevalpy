@@ -467,6 +467,7 @@ class FeatureDataset(Dataset):
             assert all(
                 [meta_key in self.view_names for meta_key in meta_info.keys()]
             ), f"Meta keys {meta_info.keys()} not in view names {self.view_names}"
+            self.meta_info = meta_info
         self.identifiers = self.get_ids()
 
     def save(self, path: str):
@@ -494,7 +495,7 @@ class FeatureDataset(Dataset):
         assert randomization_type in [
             "permutation",
             "invariant",
-        ], f"Unknown randomization type '{randomization_type}'. Choose from 'shuffling', 'invariant'."
+        ], f"Unknown randomization type '{randomization_type}'. Choose from 'permutation', 'invariant'."
 
         if isinstance(views_to_randomize, str):
             views_to_randomize = [views_to_randomize]
