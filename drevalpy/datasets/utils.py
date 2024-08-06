@@ -11,7 +11,7 @@ import networkx as nx
 def download_dataset(
     dataset: str,
     data_path: str = "data",
-    record_id: str = 12633988,
+    record_id: str = 13223831,
     redownload: bool = False,
 ):
     file_name = f"{dataset}.zip"
@@ -45,10 +45,12 @@ def download_dataset(
             f.write(response.content)
 
         with zipfile.ZipFile(file_path, "r") as z:
-            z.extractall(data_path)
+            for member in z.infolist():
+                if not member.filename.startswith('__MACOSX/'):
+                    z.extract(member, data_path)
         os.remove(file_path)  # Remove zip file after extraction
 
-        print(f"CCLE data downloaded and extracted to {data_path}")
+        print(f"{dataset} data downloaded and extracted to {data_path}")
 
 
 def randomize_graph(original_graph: nx.Graph) -> nx.Graph:
