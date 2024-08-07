@@ -142,7 +142,7 @@ class DRPModel(ABC):
     def get_concatenated_features(
         self,
         cell_line_view: str,
-        drug_view: str,
+        drug_view: Optional[str],
         cell_line_ids_output: ArrayLike,
         drug_ids_output: ArrayLike,
         cell_line_input: Optional[FeatureDataset],
@@ -164,9 +164,17 @@ class DRPModel(ABC):
             cell_line_input=cell_line_input,
             drug_input=drug_input,
         )
-        cell_line_features = inputs[cell_line_view]
-        drug_features = inputs[drug_view]
-        X = np.concatenate((cell_line_features, drug_features), axis=1)
+        cell_line_features = inputs.get(cell_line_view)
+        drug_features = inputs.get(drug_view)
+
+        if cell_line_features is not None and drug_features is not None:
+            X = np.concatenate((cell_line_features, drug_features), axis=1)
+        elif cell_line_features is not None:
+            X = cell_line_features
+        elif drug_features is not None:
+            X = drug_features
+        else:
+            raise ValueError("No features provided.")
         return X
 
     def get_feature_matrices(
@@ -246,6 +254,7 @@ class CompositeDrugModel(DRPModel):
         """
         for drug in hyperparameters:
             self.models[drug] = self.base_model()
+            self.models[drug].drug_views = self.drug_views
             self.models[drug].build_model(hyperparameters[drug])
 
     def load_cell_line_features(
@@ -313,10 +322,9 @@ class CompositeDrugModel(DRPModel):
             if drug not in self.models:
                 prediction[mask] = np.nan
             else:
-                # TODO
                 prediction[mask] = self.models[drug].predict(
                     drug_ids=drug,
-                    cell_line_ids=cell_line_ids,
+                    cell_line_ids=cell_line_ids[mask],
                     cell_line_input=cell_line_input,
                 )
         if np.any(np.isnan(prediction)):

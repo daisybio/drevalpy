@@ -343,9 +343,6 @@ def cross_study_prediction(
 
     dataset.shuffle(random_state=42)
 
-    # TODO
-    #if type(model) == CompositeDrugModel:
-    #    inputs["drug_ids"] = dataset.drug_ids
     dataset.predictions = model.predict(
         cell_line_ids=dataset.cell_line_ids,
         drug_ids=dataset.drug_ids,
@@ -641,9 +638,6 @@ def train_and_predict(
         drug_input=drug_features,
         output_earlystopping=early_stopping_dataset,
     )
-    # TODO
-    # if type(model) == CompositeDrugModel:
-    #    prediction_inputs["drug_ids"] = prediction_dataset.drug_ids
     prediction_dataset.predictions = model.predict(
         cell_line_ids=prediction_dataset.cell_line_ids,
         drug_ids=prediction_dataset.drug_ids,
