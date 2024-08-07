@@ -583,6 +583,7 @@ class FeatureDataset(Dataset):
         assert (
             len(set(self.view_names) & set(other.view_names)) == 0
         ), "Trying to add features but feature views overlap. FeatureDatasets should be distinct."
+        self.add_meta_info(other)
 
         common_identifiers = set(self.identifiers).intersection(other.identifiers)
         new_features = {}
@@ -596,3 +597,11 @@ class FeatureDataset(Dataset):
         self.features = new_features
         self.view_names = self.get_view_names()
         self.identifiers = self.get_ids()
+
+    def add_meta_info(self, other: "FeatureDataset") -> None:
+        """
+        Adds meta information to the feature dataset.
+        :other: other dataset
+        """
+        other_meta = other.meta_info
+        self.meta_info.update(other_meta)
