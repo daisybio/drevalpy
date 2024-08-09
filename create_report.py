@@ -109,9 +109,10 @@ def draw_per_grouping_setting_plots(grouping, ev_res_per_group, lpo_lco_ldo, cus
         lpo_lco_ldo=lpo_lco_ldo,
         algorithm="all",
     )
-    corr_comp.draw_and_save(
-        out_prefix=f"results/{custom_id}/corr_comp_scatter/", out_suffix=corr_comp.name
-    )
+    if corr_comp.name is not None:
+        corr_comp.draw_and_save(
+            out_prefix=f"results/{custom_id}/corr_comp_scatter/", out_suffix=corr_comp.name
+        )
 
     evaluation_results_per_group_subs = ev_res_per_group[
         ev_res_per_group["LPO_LCO_LDO"] == lpo_lco_ldo
@@ -194,9 +195,10 @@ def draw_per_grouping_algorithm_plots(
         lpo_lco_ldo=lpo_lco_ldo,
         algorithm=model,
     )
-    corr_comp.draw_and_save(
-        out_prefix=f"results/{custom_id}/corr_comp_scatter/", out_suffix=corr_comp.name
-    )
+    if corr_comp.name is not None:
+        corr_comp.draw_and_save(
+            out_prefix=f"results/{custom_id}/corr_comp_scatter/", out_suffix=corr_comp.name
+        )
 
     # PIPELINE: DRAW_REGRESSION
     for normalize in [False, True]:

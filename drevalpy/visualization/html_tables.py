@@ -72,13 +72,13 @@ class HTMLTable(OutPlot):
         if lpo_lco_ldo != "LCO":
             f.write("<h2> Evaluation Results per Cell Line Table</h2>\n")
             cell_line_table = __get_table__(
-                files=files, file_table=f"table_{lpo_lco_ldo}_per_cl.html"
+                files=files, file_table=f"table_cell_line_{lpo_lco_ldo}.html"
             )
             __write_table__(f=f, table=cell_line_table)
         if lpo_lco_ldo != "LDO":
             f.write("<h2> Evaluation Results per Drug Table</h2>\n")
             drug_table = __get_table__(
-                files=files, file_table=f"table_{lpo_lco_ldo}_per_drug.html"
+                files=files, file_table=f"table_drug_{lpo_lco_ldo}.html"
             )
             __write_table__(f=f, table=drug_table)
         return f

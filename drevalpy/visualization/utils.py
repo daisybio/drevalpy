@@ -325,10 +325,8 @@ def create_index_html(custom_id: str, test_modes: List[str], prefix_results: str
 
 def create_html(run_id: str, lpo_lco_ldo: str, files: list, prefix_results: str):
     page_layout = os.path.join(
-        str(
-            importlib_resources.files("drevalpy"),
-            "visualization/style_utils/page_layout.html",
-        )
+        str(importlib_resources.files("drevalpy")),
+            "visualization/style_utils/page_layout.html"
     )
     html_path = os.path.join(prefix_results, f"{lpo_lco_ldo}.html")
 
