@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="drevalpy",
-    version="1.0.3",
+    version="1.0.4",
     author=" ",
     description="Drug Response Evaluation of cancer cell line drug response models in a fair setting.",
     long_description="<h1>Drug Response Evaluation of cancer cell line drug response models in a fair setting</h1>"
@@ -20,14 +20,17 @@ setup(
     ],
     python_requires=">=3.9",
     install_requires=[
-        "pandas",
+        "importlib_resources",
+        "matplotlib",
+        "networkx",
         "numpy",
+        "pandas",
+        "pingouin",
+        "plotly",
+        "pytorch-lightning",
         "ray[tune]",
         "scikit-learn",
         "scipy",
-        "matplotlib",
-        "plotly",
-        "networkx",
     ],
     include_package_data=True,
     package_data={
