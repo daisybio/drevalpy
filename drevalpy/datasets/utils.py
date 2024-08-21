@@ -140,16 +140,21 @@ def leave_pair_out_cv(
     assert (
         len(response) == len(cell_line_ids) == len(drug_ids)
     ), "response, cell_line_ids and drug_ids must have the same length"
-
+    indices = np.arange(len(response))
+    shuffled_indices = np.random.RandomState(seed=random_state).permutation(indices)
+    response = response[shuffled_indices].copy()
+    cell_line_ids = cell_line_ids[shuffled_indices].copy()
+    drug_ids = drug_ids[shuffled_indices].copy()
+    
     # We use GroupKFold to ensure that each pair is only in one fold (prevent data leakage due to experimental replicates).
     # If there are no replicates this is equivalent to KFold.
     groups = [cell + "_" + drug for cell, drug in zip(cell_line_ids, drug_ids)]
     kf = GroupKFold(
-        n_splits=n_cv_splits, shuffle=True, random_state=random_state, groups=groups
+        n_splits=n_cv_splits
     )
     cv_sets = []
 
-    for train_indices, test_indices in kf.split(response):
+    for train_indices, test_indices in kf.split(response,groups=groups):
         if split_validation:
             # split training set into training and validation set
             train_indices, validation_indices = train_test_split(
@@ -218,11 +223,10 @@ def leave_group_out_cv(
     # shuffle, since GroupKFold does not implement this
     indices = np.arange(len(response))
     shuffled_indices = np.random.RandomState(seed=random_state).permutation(indices)
-    response = response[shuffled_indices]
-    cell_line_ids = cell_line_ids[shuffled_indices]
-    drug_ids = drug_ids[shuffled_indices]
-    group_ids = group_ids[shuffled_indices]
-
+    response = response[shuffled_indices].copy()
+    cell_line_ids = cell_line_ids[shuffled_indices].copy()
+    drug_ids = drug_ids[shuffled_indices].copy()
+    group_ids = group_ids[shuffled_indices].copy()
     gkf = GroupKFold(n_splits=n_cv_splits)
     cv_sets = []
 
