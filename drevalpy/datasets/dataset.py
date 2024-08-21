@@ -410,7 +410,7 @@ class DrugResponseDataset(Dataset):
 
     def fit_transform(self, response_transformation: TransformerMixin) -> None:
         """Fit and transform the response data and prediction data of the dataset."""
-        response_transformation.fit(self.response.reshape(-1, 1)).squeeze()
+        response_transformation.fit(self.response.reshape(-1, 1))
         self.transform(response_transformation)
 
     def inverse_transform(self, response_transformation: TransformerMixin) -> None:
@@ -467,6 +467,7 @@ class FeatureDataset(Dataset):
             assert all(
                 [meta_key in self.view_names for meta_key in meta_info.keys()]
             ), f"Meta keys {meta_info.keys()} not in view names {self.view_names}"
+            self.meta_info = meta_info
         self.identifiers = self.get_ids()
 
     def save(self, path: str):
@@ -494,7 +495,7 @@ class FeatureDataset(Dataset):
         assert randomization_type in [
             "permutation",
             "invariant",
-        ], f"Unknown randomization type '{randomization_type}'. Choose from 'shuffling', 'invariant'."
+        ], f"Unknown randomization type '{randomization_type}'. Choose from 'permutation', 'invariant'."
 
         if isinstance(views_to_randomize, str):
             views_to_randomize = [views_to_randomize]
@@ -582,6 +583,7 @@ class FeatureDataset(Dataset):
         assert (
             len(set(self.view_names) & set(other.view_names)) == 0
         ), "Trying to add features but feature views overlap. FeatureDatasets should be distinct."
+        self.add_meta_info(other)
 
         common_identifiers = set(self.identifiers).intersection(other.identifiers)
         new_features = {}
@@ -595,3 +597,11 @@ class FeatureDataset(Dataset):
         self.features = new_features
         self.view_names = self.get_view_names()
         self.identifiers = self.get_ids()
+
+    def add_meta_info(self, other: "FeatureDataset") -> None:
+        """
+        Adds meta information to the feature dataset.
+        :other: other dataset
+        """
+        other_meta = other.meta_info
+        self.meta_info.update(other_meta)

@@ -22,7 +22,7 @@ class SingleDrugRandomForest(SingleDrugModel, RandomForest):
         """
         X = self.get_concatenated_features(
             cell_line_view="gene_expression",
-            drug_view="fingerprints",
+            drug_view=None,
             cell_line_ids_output=output.cell_line_ids,
             drug_ids_output=output.drug_ids,
             cell_line_input=cell_line_input,
@@ -40,7 +40,7 @@ class SingleDrugRandomForest(SingleDrugModel, RandomForest):
     ) -> np.ndarray:
         X = self.get_concatenated_features(
             cell_line_view="gene_expression",
-            drug_view="fingerprints",
+            drug_view=None,
             cell_line_ids_output=cell_line_ids,
             drug_ids_output=drug_ids,
             cell_line_input=cell_line_input,

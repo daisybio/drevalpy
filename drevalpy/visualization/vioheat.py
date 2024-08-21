@@ -55,7 +55,7 @@ class VioHeat(OutPlot):
         if plot == "Violin":
             nav_id = "violin"
             dir_name = "violin_plots"
-            prefix = "violinplot"
+            prefix = "violin"
         else:
             nav_id = "heatmap"
             dir_name = "heatmaps"

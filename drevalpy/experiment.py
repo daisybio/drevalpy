@@ -329,11 +329,13 @@ def cross_study_prediction(
         dataset.reduce_to(
             cell_line_ids=[
                 cl for cl in dataset.cell_line_ids if cl not in train_cell_lines
-            ]
+            ],
+            drug_ids=None
         )
     elif test_mode == "LDO":
         train_drugs = set(train_dataset.drug_ids)
         dataset.reduce_to(
+            cell_line_ids=None,
             drug_ids=[drug for drug in dataset.drug_ids if drug not in train_drugs]
         )
     else:
@@ -341,15 +343,12 @@ def cross_study_prediction(
 
     dataset.shuffle(random_state=42)
 
-    inputs = model.get_feature_matrices(
+    dataset.predictions = model.predict(
         cell_line_ids=dataset.cell_line_ids,
         drug_ids=dataset.drug_ids,
         cell_line_input=cl_features,
         drug_input=drug_features,
     )
-    if type(model) == CompositeDrugModel:
-        inputs["drug_ids"] = dataset.drug_ids
-    dataset.predictions = model.predict(**inputs)
     if response_transformation:
         dataset.response = response_transformation.inverse_transform(dataset.response)
     dataset.save(
@@ -639,9 +638,6 @@ def train_and_predict(
         drug_input=drug_features,
         output_earlystopping=early_stopping_dataset,
     )
-    # TODO
-    # if type(model) == CompositeDrugModel:
-    #    prediction_inputs["drug_ids"] = prediction_dataset.drug_ids
     prediction_dataset.predictions = model.predict(
         cell_line_ids=prediction_dataset.cell_line_ids,
         drug_ids=prediction_dataset.drug_ids,
@@ -684,7 +680,7 @@ def hpam_tune(
     hpam_set: List[Dict],
     early_stopping_dataset: Optional[DrugResponseDataset] = None,
     response_transformation: Optional[TransformerMixin] = None,
-    metric: str = "rmse",
+    metric: str = "RMSE",
 ) -> Dict:
     if len(hpam_set) == 1:
         return hpam_set[0]
@@ -721,11 +717,11 @@ def hpam_tune_composite_model(
     hpam_set: List[Dict],
     early_stopping_dataset: Optional[DrugResponseDataset] = None,
     response_transformation: Optional[TransformerMixin] = None,
-    metric: str = "rmse",
+    metric: str = "RMSE",
 ) -> Dict[str, Dict]:
 
-    unique_drugs = list(np.unique(train_dataset.drug_ids)) + list(
-        np.unique(validation_dataset.drug_ids)
+    unique_drugs = set(np.unique(train_dataset.drug_ids)).union(set(
+        np.unique(validation_dataset.drug_ids))
     )
     # seperate best_hyperparameters for each drug
     mode = get_mode(metric)

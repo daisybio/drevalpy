@@ -74,7 +74,7 @@ def get_parser():
         "--cross_study_datasets",
         nargs="+",
         default=[],
-        help="List of datasets to use to evaluate predictions acresso studies. Default is empty list which means no cross-study datasets are used.",
+        help="List of datasets to use to evaluate predictions across studies. Default is empty list which means no cross-study datasets are used.",
     )
 
     parser.add_argument(
@@ -175,7 +175,7 @@ def load_data(dataset_name: str, cross_study_datasets: List, path_data: str = "d
     response_data = RESPONSE_DATASET_FACTORY[dataset_name](path_data=path_data)
 
     cross_study_datasets = [
-        RESPONSE_DATASET_FACTORY[dataset]() for dataset in cross_study_datasets
+        RESPONSE_DATASET_FACTORY[dataset](path_data=path_data) for dataset in cross_study_datasets
     ]
     return response_data, cross_study_datasets
 

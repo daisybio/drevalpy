@@ -24,7 +24,11 @@ class SimpleNeuralNetwork(DRPModel):
     early_stopping = True
     model_name = "SimpleNeuralNetwork"
 
-    def build_model(self, hyperparameters: dict):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.model = None
+
+    def build_model(self, hyperparameters: dict, *args, **kwargs):
         """
         Builds the model from hyperparameters.
         """
@@ -36,46 +40,18 @@ class SimpleNeuralNetwork(DRPModel):
     def train(
         self,
         output: DrugResponseDataset,
-        output_earlystopping: Optional[DrugResponseDataset] = None,
         cell_line_input: FeatureDataset = None,
         drug_input: FeatureDataset = None,
+        output_earlystopping: Optional[DrugResponseDataset] = None,
     ):
         """
         Trains the model.
         :param output: training data associated with the response output
+        :param cell_line_input: cell line omics features
+        :param drug_input: drug omics features
         :param output_earlystopping: optional early stopping dataset
-        :param gene_expression: gene expression data
-        :param fingerprints: fingerprints data
-        :param gene_expression_earlystopping: gene expression data for early stopping
-        :param fingerprints_earlystopping: fingerprints data for early stopping
 
         """
-        X = self.get_concatenated_features(
-            cell_line_view="gene_expression",
-            drug_view="fingerprints",
-            cell_line_ids_output=output.cell_line_ids,
-            drug_ids_output=output.drug_ids,
-            cell_line_input=cell_line_input,
-            drug_input=drug_input,
-        )
-
-        if output_earlystopping is not None:
-            X_earlystopping = self.get_concatenated_features(
-                cell_line_view="gene_expression",
-                drug_view="fingerprints",
-                cell_line_ids_output=output_earlystopping.cell_line_ids,
-                drug_ids_output=output_earlystopping.drug_ids,
-                cell_line_input=cell_line_input,
-                drug_input=drug_input,
-            )
-
-        else:
-            X_earlystopping = None
-
-        if output_earlystopping is not None:
-            response_earlystopping = output_earlystopping.response
-        else:
-            response_earlystopping = None
 
         with warnings.catch_warnings():
             warnings.filterwarnings(
@@ -83,10 +59,12 @@ class SimpleNeuralNetwork(DRPModel):
                 message=".*does not have many workers which may be a bottleneck.*",
             )
             self.model.fit(
-                X_train=X,
-                y_train=output.response,
-                X_eval=X_earlystopping,
-                y_eval=response_earlystopping,
+                output_train=output,
+                cell_line_input=cell_line_input,
+                drug_input=drug_input,
+                cell_line_views=self.cell_line_views,
+                drug_views=self.drug_views,
+                output_earlystopping=output_earlystopping,
                 batch_size=16,
                 patience=5,
                 num_workers=1,
@@ -99,17 +77,16 @@ class SimpleNeuralNetwork(DRPModel):
         """
         self.model.save(path)
 
-    @staticmethod
-    def load(path: str):
+    def load(str, path: str):
         # TODO
         raise NotImplementedError("load method not implemented")
 
     def predict(
-        self,
-        cell_line_ids: ArrayLike,
-        drug_ids: ArrayLike,
-        cell_line_input: FeatureDataset,
-        drug_input: FeatureDataset,
+            self,
+            drug_ids: ArrayLike,
+            cell_line_ids: ArrayLike,
+            drug_input: FeatureDataset = None,
+            cell_line_input: FeatureDataset = None,
     ) -> np.ndarray:
         """
         Predicts the response for the given input.

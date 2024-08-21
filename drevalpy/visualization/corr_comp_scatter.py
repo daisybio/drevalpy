@@ -42,7 +42,7 @@ class CorrelationComparisonScatter(OutPlot):
             ]
             self.name = f"{color_by}_{algorithm}_{lpo_lco_ldo}"
         else:
-            return
+            self.name = None
 
         self.color_by = color_by
         self.metric = metric

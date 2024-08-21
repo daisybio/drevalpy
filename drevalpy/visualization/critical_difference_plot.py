@@ -35,9 +35,12 @@ class CriticalDifferencePlot(OutPlot):
         self.metric = metric
 
     def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
-        self.__draw__()
-        path_out = f"{out_prefix}critical_difference_algorithms_{out_suffix}.svg"
-        self.fig.savefig(path_out, bbox_inches="tight")
+        try:
+            self.__draw__()
+            path_out = f"{out_prefix}critical_difference_algorithms_{out_suffix}.svg"
+            self.fig.savefig(path_out, bbox_inches="tight")
+        except Exception as e:
+            print(f"Error in drawing critical difference plot: {e}")
 
     def __draw__(self) -> None:
         self.fig = self.__draw_cd_diagram__(

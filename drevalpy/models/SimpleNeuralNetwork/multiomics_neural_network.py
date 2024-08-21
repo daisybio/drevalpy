@@ -7,6 +7,7 @@ from drevalpy.models.SimpleNeuralNetwork.utils import FeedForwardNetwork
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 import numpy as np
+from numpy.typing import ArrayLike
 import warnings
 from sklearn.decomposition import PCA
 
@@ -25,14 +26,16 @@ class MultiOmicsNeuralNetwork(DRPModel):
         "mutations",
         "copy_number_variation_gistic",
     ]
-
     drug_views = ["fingerprints"]
-
     early_stopping = True
-
     model_name = "MultiOmicsNeuralNetwork"
 
-    def build_model(self, hyperparameters: dict):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.model = None
+        self.pca = None
+
+    def build_model(self, hyperparameters: dict, *args, **kwargs):
         """
         Builds the model from hyperparameters.
         """
@@ -45,75 +48,24 @@ class MultiOmicsNeuralNetwork(DRPModel):
     def train(
         self,
         output: DrugResponseDataset,
-        output_earlystopping: Optional[DrugResponseDataset] = None,
-        gene_expression: np.ndarray = None,
-        methylation: np.ndarray = None,
-        mutations: np.ndarray = None,
-        copy_number_variation_gistic: np.ndarray = None,
-        fingerprints: np.ndarray = None,
-        gene_expression_earlystopping: Optional[np.ndarray] = None,
-        methylation_earlystopping: Optional[np.ndarray] = None,
-        mutations_earlystopping: Optional[np.ndarray] = None,
-        copy_number_variation_gistic_earlystopping: Optional[np.ndarray] = None,
-        fingerprints_earlystopping: Optional[np.ndarray] = None,
+        cell_line_input: FeatureDataset,
+        drug_input: FeatureDataset = None,
+        output_earlystopping: Optional[DrugResponseDataset] = None
     ):
         """
         Trains the model.
         :param output: training data associated with the response output
+        :param cell_line_input: cell line omics features
+        :param drug_input: drug omics features
         :param output_earlystopping: optional early stopping dataset
-        :param gene_expression: gene expression data
-        :param fingerprints: fingerprints data
-        :param gene_expression_earlystopping: gene expression data for early stopping
-        :param fingerprints_earlystopping: fingerprints data for early stopping
-
         """
-
-        methylation = self.pca.fit_transform(methylation)
-        if methylation_earlystopping is not None:
-            methylation_earlystopping = self.pca.transform(methylation_earlystopping)
-
-        X = np.concatenate(
-            (
-                gene_expression,
-                methylation,
-                mutations,
-                copy_number_variation_gistic,
-                fingerprints,
-            ),
-            axis=1,
+        unique_methylation = np.stack(
+            [cell_line_input.features[id_]["methylation"]
+             for id_
+             in np.unique(output.cell_line_ids)],
+            axis=0
         )
-        print(X.shape)
-        if all(
-            [
-                ar is not None
-                for ar in [
-                    output_earlystopping,
-                    gene_expression_earlystopping,
-                    methylation_earlystopping,
-                    mutations_earlystopping,
-                    copy_number_variation_gistic_earlystopping,
-                    fingerprints_earlystopping,
-                ]
-            ]
-        ):
-
-            X_earlystopping = np.concatenate(
-                (
-                    gene_expression_earlystopping,
-                    methylation_earlystopping,
-                    mutations_earlystopping,
-                    copy_number_variation_gistic_earlystopping,
-                    fingerprints_earlystopping,
-                ),
-                axis=1,
-            )
-        else:
-            X_earlystopping = None
-
-        if output_earlystopping is not None:
-            response_earlystopping = output_earlystopping.response
-        else:
-            response_earlystopping = None
+        self.pca = self.pca.fit(unique_methylation)
 
         with warnings.catch_warnings():
             warnings.filterwarnings(
@@ -121,13 +73,16 @@ class MultiOmicsNeuralNetwork(DRPModel):
                 message=".*does not have many workers which may be a bottleneck.*",
             )
             self.model.fit(
-                X_train=X,
-                y_train=output.response,
-                X_eval=X_earlystopping,
-                y_eval=response_earlystopping,
+                output_train=output,
+                cell_line_input=cell_line_input,
+                drug_input=drug_input,
+                cell_line_views=self.cell_line_views,
+                drug_views=self.drug_views,
+                output_earlystopping=output_earlystopping,
                 batch_size=16,
                 patience=5,
                 num_workers=1,
+                met_transform=self.pca
             )
 
     def save(self, path: str):
@@ -137,22 +92,39 @@ class MultiOmicsNeuralNetwork(DRPModel):
         """
         self.model.save(path)
 
-    @staticmethod
-    def load(path: str):
+    def load(self, path: str):
         # TODO
         raise NotImplementedError("load method not implemented")
 
     def predict(
         self,
-        gene_expression: np.ndarray,
-        fingerprints: np.ndarray,
-        methylation: np.ndarray,
-        mutations: np.ndarray,
-        copy_number_variation_gistic: np.ndarray,
+        drug_ids: ArrayLike,
+        cell_line_ids: ArrayLike,
+        drug_input: FeatureDataset = None,
+        cell_line_input: FeatureDataset = None,
     ) -> np.ndarray:
         """
         Predicts the response for the given input.
         """
+        inputs = self.get_feature_matrices(
+            cell_line_ids=cell_line_ids,
+            drug_ids=drug_ids,
+            cell_line_input=cell_line_input,
+            drug_input=drug_input,
+        )
+        (
+            gene_expression,
+            methylation,
+            mutations,
+            copy_number_variation_gistic,
+            fingerprints,
+        ) = (
+            inputs["gene_expression"],
+            inputs["methylation"],
+            inputs["mutations"],
+            inputs["copy_number_variation_gistic"],
+            inputs["fingerprints"],
+        )
         methylation = self.pca.transform(methylation)
         X = np.concatenate(
             (
@@ -182,5 +154,4 @@ class MultiOmicsNeuralNetwork(DRPModel):
         )
 
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
-
         return load_drug_features_from_fingerprints(data_path, dataset_name)

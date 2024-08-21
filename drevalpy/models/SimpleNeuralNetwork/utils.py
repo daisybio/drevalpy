@@ -1,5 +1,5 @@
 import os
-from typing import Optional
+from typing import Optional, List
 import numpy as np
 import torch
 from torch import nn
@@ -10,17 +10,63 @@ from pytorch_lightning.callbacks import TQDMProgressBar
 from torch.utils.data import Dataset
 import random
 
+from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+
 
 class RegressionDataset(Dataset):
-    def __init__(self, X, y):
-        self.X = torch.from_numpy(X).float()
-        self.y = torch.from_numpy(y).float()
+    def __init__(
+            self,
+            output: DrugResponseDataset,
+            cell_line_input: FeatureDataset = None,
+            drug_input: FeatureDataset = None,
+            cell_line_views: List[str] = None,
+            drug_views: List[str] = None,
+            met_transform=None
+    ):
+        self.cell_line_views = cell_line_views
+        self.drug_views = drug_views
+        self.output = output
+        self.cell_line_input = cell_line_input
+        self.drug_input = drug_input
+        for cl_view in self.cell_line_views:
+            assert cl_view in cell_line_input.view_names, f"Cell line view {cl_view} not found in cell line input"
+        for d_view in self.drug_views:
+            assert d_view in drug_input.view_names, f"Drug view {d_view} not found in drug input"
+        self.met_transform = met_transform
 
-    def __getitem__(self, index):
-        return self.X[index], self.y[index]
+    def __getitem__(self, idx):
+        cell_line_id = self.output.cell_line_ids[idx]
+        drug_id = self.output.drug_ids[idx]
+        response = self.output.response[idx]
+        cell_line_features = None
+        drug_features = None
+        for cl_view in self.cell_line_views:
+            feature_mat = self.cell_line_input.features[cell_line_id][cl_view]
+            if cl_view == "methylation" and self.met_transform is not None:
+                # reshape because it contains a single sample
+                feature_mat = feature_mat.reshape(1, -1)
+                feature_mat = self.met_transform.transform(feature_mat)
+                # reshape back to original shape
+                feature_mat = feature_mat.reshape(-1)
+            if cell_line_features is None:
+                cell_line_features = feature_mat
+            else:
+                cell_line_features = np.concatenate((cell_line_features, feature_mat))
+        for d_view in self.drug_views:
+            if drug_features is None:
+                drug_features = self.drug_input.features[drug_id][d_view]
+            else:
+                drug_features = np.concatenate((drug_features, self.drug_input.features[drug_id][d_view]))
+        assert type(cell_line_features) == np.ndarray, f"Cell line features for {cell_line_id} are not numpy array"
+        assert type(drug_features) == np.ndarray, f"Drug features for {drug_id} are not numpy array"
+        data = np.concatenate((cell_line_features, drug_features))
+        # cast to float32
+        data = data.astype(np.float32)
+        response = np.float32(response)
+        return data, response
 
     def __len__(self):
-        return len(self.X)
+        return len(self.output.response)
 
 
 class FeedForwardNetwork(pl.LightningModule):
@@ -35,20 +81,30 @@ class FeedForwardNetwork(pl.LightningModule):
 
     def fit(
         self,
-        X_train: np.ndarray,
-        y_train: np.ndarray,
-        X_eval: Optional[np.ndarray],
-        y_eval: Optional[np.ndarray],
+        output_train: DrugResponseDataset,
+        cell_line_input: FeatureDataset,
+        drug_input: FeatureDataset = None,
+        cell_line_views: List[str] = None,
+        drug_views: List[str] = None,
+        output_earlystopping: Optional[DrugResponseDataset] = None,
         trainer_params: Optional[dict] = None,
         batch_size=32,
         patience=5,
         checkpoint_path: Optional[str] = None,
         num_workers: int = 2,
+        met_transform=None
     ) -> None:
         if trainer_params is None:
             trainer_params = {"progress_bar_refresh_rate": 0, "max_epochs": 100}
 
-        train_dataset = RegressionDataset(X_train, y_train)
+        train_dataset = RegressionDataset(
+            output=output_train,
+            cell_line_input=cell_line_input,
+            drug_input=drug_input,
+            cell_line_views=cell_line_views,
+            drug_views=drug_views,
+            met_transform=met_transform
+        )
         train_loader = DataLoader(
             train_dataset,
             batch_size=batch_size,
@@ -57,8 +113,16 @@ class FeedForwardNetwork(pl.LightningModule):
             persistent_workers=True,
         )
 
-        if (X_eval is not None) and (y_eval is not None):
-            val_dataset = RegressionDataset(X_eval, y_eval)
+        val_loader = None
+        if output_earlystopping is not None:
+            val_dataset = RegressionDataset(
+                output=output_earlystopping,
+                cell_line_input=cell_line_input,
+                drug_input=drug_input,
+                cell_line_views=cell_line_views,
+                drug_views=drug_views,
+                met_transform=met_transform
+            )
             val_loader = DataLoader(
                 val_dataset,
                 batch_size=batch_size,
@@ -68,7 +132,7 @@ class FeedForwardNetwork(pl.LightningModule):
             )
 
         # Train the model
-        monitor = "train_loss" if ((X_eval is None) or (y_eval is None)) else "val_loss"
+        monitor = "train_loss" if (val_loader is None) else "val_loss"
 
         early_stop_callback = EarlyStopping(
             monitor=monitor, mode="min", patience=patience
@@ -101,7 +165,7 @@ class FeedForwardNetwork(pl.LightningModule):
             ),
             **trainer_params_copy
         )
-        if (X_eval is None) or (y_eval is None):
+        if val_loader is None:
             trainer.fit(self, train_loader)
         else:
             trainer.fit(self, train_loader, val_loader)
@@ -146,7 +210,7 @@ class FeedForwardNetwork(pl.LightningModule):
     def _forward_loss_and_log(self, x, y, log_as: str):
         y_pred = self.forward(x)
         result = self.loss(y_pred, y)
-        self.log(log_as, result)
+        self.log(log_as, result, on_step=True, on_epoch=True, prog_bar=True)
         return result
 
     def training_step(self, batch, batch_idx):
@@ -157,7 +221,10 @@ class FeedForwardNetwork(pl.LightningModule):
         x, y = batch
         return self._forward_loss_and_log(x, y, "val_loss")
 
-    def predict(self, X: np.ndarray) -> np.ndarray:
+    def predict(
+            self,
+            X: np.ndarray
+    ) -> np.ndarray:
         is_training = self.training
         self.eval()
         with torch.no_grad():

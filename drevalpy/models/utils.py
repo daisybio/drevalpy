@@ -1,3 +1,4 @@
+import warnings
 import pandas as pd
 import numpy as np
 from typing import Optional
@@ -17,7 +18,7 @@ def load_and_reduce_gene_features(
     ge = pd.read_csv(f"{data_path}/{dataset_name}/{feature_type}.csv", index_col=0)
     if gene_list is None:
         return FeatureDataset(
-            features={cl: {feature_type: ge.loc[cl].values} for cl in ge.index},
+            features=iterate_features(df=ge, feature_type=feature_type),
             meta_info={feature_type: ge.columns.values},
         )
     else:
@@ -31,9 +32,21 @@ def load_and_reduce_gene_features(
         ge = ge[list(genes_to_use)]
 
         return FeatureDataset(
-            features={cl: {feature_type: ge.loc[cl].values} for cl in ge.index},
+            features=iterate_features(df=ge, feature_type=feature_type),
             meta_info={feature_type: ge.columns.values},
         )
+
+
+def iterate_features(df: pd.DataFrame, feature_type: str):
+    features = {}
+    for cl in df.index:
+        rows = df.loc[cl]
+        if len(rows.shape) > 1 and rows.shape[0] > 1:  # multiple rows returned
+            warnings.warn(f"Multiple rows returned for {cl} in feature {feature_type}, taking the first one.")
+            features[cl] = {feature_type: rows.iloc[0].values}
+        else:
+            features[cl] = {feature_type: rows.values}
+    return features
 
 
 def load_drug_ids_from_csv(data_path: str, dataset_name: str) -> FeatureDataset:
