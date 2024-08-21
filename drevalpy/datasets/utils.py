@@ -68,13 +68,10 @@ def randomize_graph(original_graph: nx.Graph) -> nx.Graph:
     degree_view = original_graph.degree()
     degree_sequence = [degree_view[node] for node in original_graph.nodes()]
     new_graph = nx.expected_degree_graph(degree_sequence, seed=1234)
-    # TODO check whether this works
     new_graph.add_nodes_from(original_graph.nodes(data=True))
     # randomly draw edge attribute from edge_attributes for each edge in new_features
-    for edge in new_graph.edges():
-        new_graph[edge[0]][edge[1]] = edge_attributes[
-            np.random.randint(len(edge_attributes))
-        ]
+    attrs = {edge: edge_attributes[np.random.randint(len(edge_attributes))] for edge in new_graph.edges()}
+    nx.set_edge_attributes(new_graph, attrs)
     return new_graph
 
 

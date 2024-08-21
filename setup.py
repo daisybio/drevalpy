@@ -20,6 +20,7 @@ setup(
     ],
     python_requires=">=3.9",
     install_requires=[
+        "flaky",
         "importlib_resources",
         "matplotlib",
         "networkx",
@@ -28,6 +29,7 @@ setup(
         "pingouin",
         "plotly",
         "pytorch-lightning",
+        "pytest",
         "ray[tune]",
         "scikit-learn",
         "scipy",

@@ -410,7 +410,7 @@ class DrugResponseDataset(Dataset):
 
     def fit_transform(self, response_transformation: TransformerMixin) -> None:
         """Fit and transform the response data and prediction data of the dataset."""
-        response_transformation.fit(self.response.reshape(-1, 1)).squeeze()
+        response_transformation.fit(self.response.reshape(-1, 1))
         self.transform(response_transformation)
 
     def inverse_transform(self, response_transformation: TransformerMixin) -> None:

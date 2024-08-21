@@ -680,7 +680,7 @@ def hpam_tune(
     hpam_set: List[Dict],
     early_stopping_dataset: Optional[DrugResponseDataset] = None,
     response_transformation: Optional[TransformerMixin] = None,
-    metric: str = "rmse",
+    metric: str = "RMSE",
 ) -> Dict:
     if len(hpam_set) == 1:
         return hpam_set[0]
@@ -717,11 +717,11 @@ def hpam_tune_composite_model(
     hpam_set: List[Dict],
     early_stopping_dataset: Optional[DrugResponseDataset] = None,
     response_transformation: Optional[TransformerMixin] = None,
-    metric: str = "rmse",
+    metric: str = "RMSE",
 ) -> Dict[str, Dict]:
 
-    unique_drugs = list(np.unique(train_dataset.drug_ids)) + list(
-        np.unique(validation_dataset.drug_ids)
+    unique_drugs = set(np.unique(train_dataset.drug_ids)).union(set(
+        np.unique(validation_dataset.drug_ids))
     )
     # seperate best_hyperparameters for each drug
     mode = get_mode(metric)
