@@ -11,7 +11,6 @@ import networkx as nx
 def download_dataset(
     dataset: str,
     data_path: str = "data",
-    record_id: str = 13235105,
     redownload: bool = False,
 ):
     file_name = f"{dataset}.zip"
@@ -19,11 +18,13 @@ def download_dataset(
     if os.path.exists(file_path) and not redownload:
         print(f"{dataset} already exists, skipping download.")
     else:
-        # Zenodo API URL
-        url = f"https://zenodo.org/api/records/{record_id}"
-
-        # Fetch the record metadata
+        url = "https://zenodo.org/doi/10.5281/zenodo.12633909"
+        # Fetch the latest record
         response = requests.get(url)
+        if response.status_code != 200:
+            raise Exception(f"Error fetching record: {response.status_code}")
+        latest_url = response.links["linkset"]["url"]
+        response = requests.get(latest_url)
         if response.status_code != 200:
             raise Exception(f"Error fetching record: {response.status_code}")
         data = response.json()
