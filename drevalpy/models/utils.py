@@ -42,7 +42,9 @@ def iterate_features(df: pd.DataFrame, feature_type: str):
     for cl in df.index:
         rows = df.loc[cl]
         if len(rows.shape) > 1 and rows.shape[0] > 1:  # multiple rows returned
-            warnings.warn(f"Multiple rows returned for {cl} in feature {feature_type}, taking the first one.")
+            warnings.warn(
+                f"Multiple rows returned for {cl} in feature {feature_type}, taking the first one."
+            )
             features[cl] = {feature_type: rows.iloc[0].values}
         else:
             features[cl] = {feature_type: rows.values}

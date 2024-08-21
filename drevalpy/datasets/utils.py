@@ -47,13 +47,11 @@ def download_dataset(
 
         with zipfile.ZipFile(file_path, "r") as z:
             for member in z.infolist():
-                if not member.filename.startswith('__MACOSX/'):
+                if not member.filename.startswith("__MACOSX/"):
                     z.extract(member, data_path)
         os.remove(file_path)  # Remove zip file after extraction
 
         print(f"CCLE data downloaded and extracted to {data_path}")
-
-
 
 
 def randomize_graph(original_graph: nx.Graph) -> nx.Graph:
@@ -69,7 +67,10 @@ def randomize_graph(original_graph: nx.Graph) -> nx.Graph:
     new_graph = nx.expected_degree_graph(degree_sequence, seed=1234)
 
     # Remap nodes to the original labels
-    mapping = {new_node: old_node for new_node, old_node in zip(new_graph.nodes(), original_graph.nodes())}
+    mapping = {
+        new_node: old_node
+        for new_node, old_node in zip(new_graph.nodes(), original_graph.nodes())
+    }
     new_graph = nx.relabel_nodes(new_graph, mapping)
 
     # Copy node attributes from the original graph to the new graph
@@ -85,7 +86,6 @@ def randomize_graph(original_graph: nx.Graph) -> nx.Graph:
         new_graph[edge[0]][edge[1]].update(attr)
 
     return new_graph
-
 
 
 def permute_features(
@@ -140,11 +140,13 @@ def leave_pair_out_cv(
     assert (
         len(response) == len(cell_line_ids) == len(drug_ids)
     ), "response, cell_line_ids and drug_ids must have the same length"
-    
+
     # We use GroupKFold to ensure that each pair is only in one fold (prevent data leakage due to experimental replicates).
     # If there are no replicates this is equivalent to KFold.
     groups = [cell + "_" + drug for cell, drug in zip(cell_line_ids, drug_ids)]
-    kf = GroupKFold(n_splits=n_cv_splits, shuffle=True, random_state=random_state, groups=groups)
+    kf = GroupKFold(
+        n_splits=n_cv_splits, shuffle=True, random_state=random_state, groups=groups
+    )
     cv_sets = []
 
     for train_indices, test_indices in kf.split(response):

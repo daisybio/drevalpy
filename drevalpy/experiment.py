@@ -330,13 +330,13 @@ def cross_study_prediction(
             cell_line_ids=[
                 cl for cl in dataset.cell_line_ids if cl not in train_cell_lines
             ],
-            drug_ids=None
+            drug_ids=None,
         )
     elif test_mode == "LDO":
         train_drugs = set(train_dataset.drug_ids)
         dataset.reduce_to(
             cell_line_ids=None,
-            drug_ids=[drug for drug in dataset.drug_ids if drug not in train_drugs]
+            drug_ids=[drug for drug in dataset.drug_ids if drug not in train_drugs],
         )
     else:
         raise ValueError(f"Invalid test mode: {test_mode}. Choose from LPO, LCO, LDO")
@@ -720,8 +720,8 @@ def hpam_tune_composite_model(
     metric: str = "RMSE",
 ) -> Dict[str, Dict]:
 
-    unique_drugs = set(np.unique(train_dataset.drug_ids)).union(set(
-        np.unique(validation_dataset.drug_ids))
+    unique_drugs = set(np.unique(train_dataset.drug_ids)).union(
+        set(np.unique(validation_dataset.drug_ids))
     )
     # seperate best_hyperparameters for each drug
     mode = get_mode(metric)

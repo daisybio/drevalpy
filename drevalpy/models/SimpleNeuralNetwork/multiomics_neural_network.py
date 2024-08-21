@@ -50,7 +50,7 @@ class MultiOmicsNeuralNetwork(DRPModel):
         output: DrugResponseDataset,
         cell_line_input: FeatureDataset,
         drug_input: FeatureDataset = None,
-        output_earlystopping: Optional[DrugResponseDataset] = None
+        output_earlystopping: Optional[DrugResponseDataset] = None,
     ):
         """
         Trains the model.
@@ -60,10 +60,11 @@ class MultiOmicsNeuralNetwork(DRPModel):
         :param output_earlystopping: optional early stopping dataset
         """
         unique_methylation = np.stack(
-            [cell_line_input.features[id_]["methylation"]
-             for id_
-             in np.unique(output.cell_line_ids)],
-            axis=0
+            [
+                cell_line_input.features[id_]["methylation"]
+                for id_ in np.unique(output.cell_line_ids)
+            ],
+            axis=0,
         )
         self.pca = self.pca.fit(unique_methylation)
 
@@ -82,7 +83,7 @@ class MultiOmicsNeuralNetwork(DRPModel):
                 batch_size=16,
                 patience=5,
                 num_workers=1,
-                met_transform=self.pca
+                met_transform=self.pca,
             )
 
     def save(self, path: str):

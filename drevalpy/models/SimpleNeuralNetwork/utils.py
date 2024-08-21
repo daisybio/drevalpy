@@ -15,13 +15,13 @@ from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 
 class RegressionDataset(Dataset):
     def __init__(
-            self,
-            output: DrugResponseDataset,
-            cell_line_input: FeatureDataset = None,
-            drug_input: FeatureDataset = None,
-            cell_line_views: List[str] = None,
-            drug_views: List[str] = None,
-            met_transform=None
+        self,
+        output: DrugResponseDataset,
+        cell_line_input: FeatureDataset = None,
+        drug_input: FeatureDataset = None,
+        cell_line_views: List[str] = None,
+        drug_views: List[str] = None,
+        met_transform=None,
     ):
         self.cell_line_views = cell_line_views
         self.drug_views = drug_views
@@ -29,9 +29,13 @@ class RegressionDataset(Dataset):
         self.cell_line_input = cell_line_input
         self.drug_input = drug_input
         for cl_view in self.cell_line_views:
-            assert cl_view in cell_line_input.view_names, f"Cell line view {cl_view} not found in cell line input"
+            assert (
+                cl_view in cell_line_input.view_names
+            ), f"Cell line view {cl_view} not found in cell line input"
         for d_view in self.drug_views:
-            assert d_view in drug_input.view_names, f"Drug view {d_view} not found in drug input"
+            assert (
+                d_view in drug_input.view_names
+            ), f"Drug view {d_view} not found in drug input"
         self.met_transform = met_transform
 
     def __getitem__(self, idx):
@@ -56,9 +60,15 @@ class RegressionDataset(Dataset):
             if drug_features is None:
                 drug_features = self.drug_input.features[drug_id][d_view]
             else:
-                drug_features = np.concatenate((drug_features, self.drug_input.features[drug_id][d_view]))
-        assert type(cell_line_features) == np.ndarray, f"Cell line features for {cell_line_id} are not numpy array"
-        assert type(drug_features) == np.ndarray, f"Drug features for {drug_id} are not numpy array"
+                drug_features = np.concatenate(
+                    (drug_features, self.drug_input.features[drug_id][d_view])
+                )
+        assert (
+            type(cell_line_features) == np.ndarray
+        ), f"Cell line features for {cell_line_id} are not numpy array"
+        assert (
+            type(drug_features) == np.ndarray
+        ), f"Drug features for {drug_id} are not numpy array"
         data = np.concatenate((cell_line_features, drug_features))
         # cast to float32
         data = data.astype(np.float32)
@@ -92,7 +102,7 @@ class FeedForwardNetwork(pl.LightningModule):
         patience=5,
         checkpoint_path: Optional[str] = None,
         num_workers: int = 2,
-        met_transform=None
+        met_transform=None,
     ) -> None:
         if trainer_params is None:
             trainer_params = {"progress_bar_refresh_rate": 0, "max_epochs": 100}
@@ -103,7 +113,7 @@ class FeedForwardNetwork(pl.LightningModule):
             drug_input=drug_input,
             cell_line_views=cell_line_views,
             drug_views=drug_views,
-            met_transform=met_transform
+            met_transform=met_transform,
         )
         train_loader = DataLoader(
             train_dataset,
@@ -121,7 +131,7 @@ class FeedForwardNetwork(pl.LightningModule):
                 drug_input=drug_input,
                 cell_line_views=cell_line_views,
                 drug_views=drug_views,
-                met_transform=met_transform
+                met_transform=met_transform,
             )
             val_loader = DataLoader(
                 val_dataset,
@@ -163,7 +173,7 @@ class FeedForwardNetwork(pl.LightningModule):
             default_root_dir=os.path.join(
                 os.getcwd(), "model_checkpoints/lightning_logs/" + name
             ),
-            **trainer_params_copy
+            **trainer_params_copy,
         )
         if val_loader is None:
             trainer.fit(self, train_loader)
@@ -221,10 +231,7 @@ class FeedForwardNetwork(pl.LightningModule):
         x, y = batch
         return self._forward_loss_and_log(x, y, "val_loss")
 
-    def predict(
-            self,
-            X: np.ndarray
-    ) -> np.ndarray:
+    def predict(self, X: np.ndarray) -> np.ndarray:
         is_training = self.training
         self.eval()
         with torch.no_grad():

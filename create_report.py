@@ -111,7 +111,8 @@ def draw_per_grouping_setting_plots(grouping, ev_res_per_group, lpo_lco_ldo, cus
     )
     if corr_comp.name is not None:
         corr_comp.draw_and_save(
-            out_prefix=f"results/{custom_id}/corr_comp_scatter/", out_suffix=corr_comp.name
+            out_prefix=f"results/{custom_id}/corr_comp_scatter/",
+            out_suffix=corr_comp.name,
         )
 
     evaluation_results_per_group_subs = ev_res_per_group[
@@ -197,7 +198,8 @@ def draw_per_grouping_algorithm_plots(
     )
     if corr_comp.name is not None:
         corr_comp.draw_and_save(
-            out_prefix=f"results/{custom_id}/corr_comp_scatter/", out_suffix=corr_comp.name
+            out_prefix=f"results/{custom_id}/corr_comp_scatter/",
+            out_suffix=corr_comp.name,
         )
 
     # PIPELINE: DRAW_REGRESSION

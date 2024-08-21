@@ -519,7 +519,9 @@ class FeatureDataset(Dataset):
                             self.features[identifier][view].std(),
                             self.features[identifier][view].shape,
                         )
-                    elif type(self.features[identifier][view]) is nx.classes.graph.Graph:
+                    elif (
+                        type(self.features[identifier][view]) is nx.classes.graph.Graph
+                    ):
                         new_features = randomize_graph(self.features[identifier][view])
 
                     else:
