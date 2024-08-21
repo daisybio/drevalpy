@@ -140,8 +140,11 @@ def leave_pair_out_cv(
     assert (
         len(response) == len(cell_line_ids) == len(drug_ids)
     ), "response, cell_line_ids and drug_ids must have the same length"
-
-    kf = KFold(n_splits=n_cv_splits, shuffle=True, random_state=random_state)
+    
+    # We use GroupKFold to ensure that each pair is only in one fold (prevent data leakage due to experimental replicates).
+    # If there are no replicates this is equivalent to KFold.
+    groups = [cell + "_" + drug for cell, drug in zip(cell_line_ids, drug_ids)]
+    kf = GroupKFold(n_splits=n_cv_splits, shuffle=True, random_state=random_state, groups=groups)
     cv_sets = []
 
     for train_indices, test_indices in kf.split(response):
