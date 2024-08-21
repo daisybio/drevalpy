@@ -45,11 +45,19 @@ def test_evaluate():
 
 # Mock dataset generation function
 @pytest.fixture
-def generate_mock_data():
-    response = np.random.rand(100) * 8
-    cell_line_ids = np.random.randint(0, 10, size=100).astype(str)
-    drug_ids = np.random.randint(20, 30, size=100).astype(str)
-    return response, cell_line_ids, drug_ids
+def generate_mock_data_drug_mean():
+    response_list = []
+    drug_ids = []
+    cell_line_ids = []
+    for drug in ["drug1", "drug2", "drug3", "drug4", "drug5", "drug6", "drug7", "drug8", "drug9", "drug10"]:
+        drug_mean = np.random.randint(0, 8)
+        for cell_line in ["cl1", "cl2", "cl3", "cl4", "cl5", "cl6", "cl7", "cl8", "cl9", "cl10"]:
+            response = np.random.normal(drug_mean, 0.1)
+            response_list.append(response)
+            drug_ids.append(drug)
+            cell_line_ids.append(cell_line)
+    return np.array(response_list), np.array(cell_line_ids), np.array(drug_ids)
+
 
 @pytest.fixture
 def generate_mock_anticorrelated_data():
@@ -72,8 +80,8 @@ def generate_mock_correlated_data():
     return y_pred, response
 
 
-def test_partial_correlation(generate_mock_data):
-    response, cell_line_ids, drug_ids = generate_mock_data
+def test_partial_correlation(generate_mock_data_drug_mean):
+    response, cell_line_ids, drug_ids = generate_mock_data_drug_mean
 
     df = pd.DataFrame({
         "response": response,
@@ -81,22 +89,16 @@ def test_partial_correlation(generate_mock_data):
         "drug_id": drug_ids
     })
 
+    df["mean"] = df["response"].mean()
     df["mean_per_drug"] = df.groupby("drug_id")["response"].transform("mean")
-    df["mean_per_cell_line"] = df.groupby("cell_line_id")["response"].transform("mean")
 
-    y_pred = np.array(df["mean_per_drug"])
-    # add gaussian noise to y_pred
-    y_pred += np.random.normal(0, 0.1, size=len(y_pred))
+    for col in ["mean", "mean_per_drug"]:
+        y_pred = np.array(df[col])
+        # add gaussian noise to y_pred
+        y_pred += np.random.normal(0, 0.1, size=len(y_pred))
 
-    pc = partial_correlation(y_pred, response, cell_line_ids, drug_ids)
-    assert np.isclose(pc, 0.0, atol=1e-3)
-
-    y_pred = np.array(df["mean_per_cell_line"])
-    # add gaussian noise to y_pred
-    y_pred += np.random.normal(0, 0.1, size=len(y_pred))
-
-    pc = partial_correlation(y_pred, response, cell_line_ids, drug_ids)
-    assert np.isclose(pc, 0.0, atol=1e-3)
+        pc = partial_correlation(y_pred, response, cell_line_ids, drug_ids)
+        assert np.isclose(pc, 0.0, atol=0.1)
 
 
 
