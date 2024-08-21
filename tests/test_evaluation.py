@@ -65,7 +65,6 @@ def generate_mock_data_drug_mean():
     return np.array(response_list), np.array(cell_line_ids), np.array(drug_ids)
 
 
-
 @pytest.fixture
 def generate_mock_anticorrelated_data():
     response = np.arange(2e6, 0, -1)
