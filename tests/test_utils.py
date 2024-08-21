@@ -1,12 +1,7 @@
 import numpy as np
 import pytest
-from drevalpy.utils import (
-    leave_group_out_cv,
-    partial_correlation,
-    pearson,
-    spearman,
-    kendall,
-)
+from drevalpy.evaluation import pearson, spearman, kendall, partial_correlation
+from drevalpy.datasets.utils import leave_group_out_cv
 from drevalpy.datasets.dataset import DrugResponseDataset
 from flaky import flaky
 
