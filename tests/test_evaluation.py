@@ -55,15 +55,14 @@ def generate_mock_data_drug_mean():
     response_list = []
     drug_ids = []
     cell_line_ids = []
-    for drug in ["drug1", "drug2", "drug3", "drug4", "drug5", "drug6", "drug7", "drug8", "drug9", "drug10"]:
+    for drug in [f"drug_{i}" for i in range(100)]:
         drug_mean = np.random.randint(0, 8)
-        for cell_line in ["cl1", "cl2", "cl3", "cl4", "cl5", "cl6", "cl7", "cl8", "cl9", "cl10"]:
+        for cell_line in [f"cell_line_{i}" for i in range(200)]:
             response = np.random.normal(drug_mean, 0.1)
             response_list.append(response)
             drug_ids.append(drug)
             cell_line_ids.append(cell_line)
     return np.array(response_list), np.array(cell_line_ids), np.array(drug_ids)
-
 
 
 @pytest.fixture

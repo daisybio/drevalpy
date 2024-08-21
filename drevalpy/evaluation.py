@@ -5,8 +5,7 @@ import pandas as pd
 import numpy as np
 from typing import Tuple
 from scipy.stats import pearsonr, spearmanr, kendalltau
-from pingouin import partial_corr
-
+import pingouin as pg
 from .datasets.dataset import DrugResponseDataset
 
 warning_shown = False
@@ -57,15 +56,17 @@ def partial_correlation(
 
     df["cell_line_ids"] = pd.factorize(df["cell_line_ids"])[0]
     df["drug_ids"] = pd.factorize(df["drug_ids"])[0]
+    # One-hot encode the categorical covariates
+    df_encoded = pd.get_dummies(df, columns=["cell_line_ids", "drug_ids"])
 
     if df.shape[0] < 3:
         r, p = np.nan, np.nan
     else:
-        result = partial_corr(
-            data=df,
+        result = pg.partial_corr(
+            data=df_encoded,
             x="predictions",
             y="response",
-            covar=["cell_line_ids", "drug_ids"],
+            covar=[col for col in df_encoded.columns if col.startswith('cell_line_ids') or col.startswith('drug_ids')],
             method=method,
         )
         r = result["r"].iloc[0]
