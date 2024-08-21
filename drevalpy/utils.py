@@ -175,7 +175,8 @@ def load_data(dataset_name: str, cross_study_datasets: List, path_data: str = "d
     response_data = RESPONSE_DATASET_FACTORY[dataset_name](path_data=path_data)
 
     cross_study_datasets = [
-        RESPONSE_DATASET_FACTORY[dataset](path_data=path_data) for dataset in cross_study_datasets
+        RESPONSE_DATASET_FACTORY[dataset](path_data=path_data)
+        for dataset in cross_study_datasets
     ]
     return response_data, cross_study_datasets
 

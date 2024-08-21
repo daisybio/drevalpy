@@ -47,32 +47,44 @@ def download_dataset(
 
         with zipfile.ZipFile(file_path, "r") as z:
             for member in z.infolist():
-                if not member.filename.startswith('__MACOSX/'):
+                if not member.filename.startswith("__MACOSX/"):
                     z.extract(member, data_path)
         os.remove(file_path)  # Remove zip file after extraction
 
-        print(f"{dataset} data downloaded and extracted to {data_path}")
+        print(f"CCLE data downloaded and extracted to {data_path}")
 
 
 def randomize_graph(original_graph: nx.Graph) -> nx.Graph:
     """
-    Randomizes the graph by shuffling the edges.
-    :param original_graph: original graph
-    :return: randomized graph
+    Randomizes the graph by shuffling the edges while preserving the degree sequence.
+    :param original_graph: The original graph
+    :return: Randomized graph with the same degree sequence and node attributes
     """
-    # get edge attributes from original graph
-    edge_attributes = [
-        attributes for _, _, attributes in original_graph.edges(data=True)
-    ]
-    # degree preserving randomization: nx.expected_degree_graph
-    # add node features from original graph
-    degree_view = original_graph.degree()
-    degree_sequence = [degree_view[node] for node in original_graph.nodes()]
+    # Get the degree sequence from the original graph
+    degree_sequence = [degree for node, degree in original_graph.degree()]
+
+    # Generate a new graph with the expected degree sequence
     new_graph = nx.expected_degree_graph(degree_sequence, seed=1234)
-    new_graph.add_nodes_from(original_graph.nodes(data=True))
-    # randomly draw edge attribute from edge_attributes for each edge in new_features
-    attrs = {edge: edge_attributes[np.random.randint(len(edge_attributes))] for edge in new_graph.edges()}
-    nx.set_edge_attributes(new_graph, attrs)
+
+    # Remap nodes to the original labels
+    mapping = {
+        new_node: old_node
+        for new_node, old_node in zip(new_graph.nodes(), original_graph.nodes())
+    }
+    new_graph = nx.relabel_nodes(new_graph, mapping)
+
+    # Copy node attributes from the original graph to the new graph
+    for node, data in original_graph.nodes(data=True):
+        new_graph.nodes[node].update(data)
+
+    # Get the edge attributes from the original graph
+    edge_attributes = list(original_graph.edges(data=True))
+
+    # Assign random edge attributes to the new edges
+    for edge in new_graph.edges():
+        _, _, attr = edge_attributes[np.random.randint(len(edge_attributes))]
+        new_graph[edge[0]][edge[1]].update(attr)
+
     return new_graph
 
 
@@ -129,7 +141,12 @@ def leave_pair_out_cv(
         len(response) == len(cell_line_ids) == len(drug_ids)
     ), "response, cell_line_ids and drug_ids must have the same length"
 
-    kf = KFold(n_splits=n_cv_splits, shuffle=True, random_state=random_state)
+    # We use GroupKFold to ensure that each pair is only in one fold (prevent data leakage due to experimental replicates).
+    # If there are no replicates this is equivalent to KFold.
+    groups = [cell + "_" + drug for cell, drug in zip(cell_line_ids, drug_ids)]
+    kf = GroupKFold(
+        n_splits=n_cv_splits, shuffle=True, random_state=random_state, groups=groups
+    )
     cv_sets = []
 
     for train_indices, test_indices in kf.split(response):
