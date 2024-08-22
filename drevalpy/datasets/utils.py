@@ -51,7 +51,7 @@ def download_dataset(
                     z.extract(member, data_path)
         os.remove(file_path)  # Remove zip file after extraction
 
-        print(f"CCLE data downloaded and extracted to {data_path}")
+        print(f"{dataset} data downloaded and extracted to {data_path}")
 
 
 def randomize_graph(original_graph: nx.Graph) -> nx.Graph:

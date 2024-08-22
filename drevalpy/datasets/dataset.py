@@ -468,6 +468,8 @@ class FeatureDataset(Dataset):
                 [meta_key in self.view_names for meta_key in meta_info.keys()]
             ), f"Meta keys {meta_info.keys()} not in view names {self.view_names}"
             self.meta_info = meta_info
+        else:
+            self.meta_info = None
         self.identifiers = self.get_ids()
 
     def save(self, path: str):
@@ -585,7 +587,8 @@ class FeatureDataset(Dataset):
         assert (
             len(set(self.view_names) & set(other.view_names)) == 0
         ), "Trying to add features but feature views overlap. FeatureDatasets should be distinct."
-        self.add_meta_info(other)
+        if other.meta_info is not None:
+            self.add_meta_info(other)
 
         common_identifiers = set(self.identifiers).intersection(other.identifiers)
         new_features = {}
