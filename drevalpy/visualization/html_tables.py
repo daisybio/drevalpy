@@ -1,7 +1,7 @@
 from typing import TextIO, List
 
 import pandas as pd
-
+import os
 from drevalpy.visualization.outplot import OutPlot
 
 
@@ -59,33 +59,37 @@ class HTMLTable(OutPlot):
                 "Partial_Correlation: cell_line normalized",
                 "LPO_LCO_LDO",
             ]
+            # only take the columns that occur
+            selected_columns = [col for col in selected_columns if col in self.df.columns]
         # reorder columns
         self.df = self.df[selected_columns]
 
     @staticmethod
-    def write_to_html(lpo_lco_ldo: str, f: TextIO, *args, **kwargs) -> TextIO:
+    def write_to_html(lpo_lco_ldo: str, f: TextIO, prefix: str = "", *args, **kwargs) -> TextIO:
         files = kwargs.get("files")
+        if prefix != "":
+            prefix = os.path.join(prefix, "html_tables")
         f.write('<h2 id="tables"> Evaluation Results Table</h2>\n')
         whole_table = __get_table__(files=files, file_table=f"table_{lpo_lco_ldo}.html")
-        __write_table__(f=f, table=whole_table)
+        __write_table__(f=f, table=whole_table, prefix=prefix)
 
         if lpo_lco_ldo != "LCO":
             f.write("<h2> Evaluation Results per Cell Line Table</h2>\n")
             cell_line_table = __get_table__(
                 files=files, file_table=f"table_cell_line_{lpo_lco_ldo}.html"
             )
-            __write_table__(f=f, table=cell_line_table)
+            __write_table__(f=f, table=cell_line_table, prefix=prefix)
         if lpo_lco_ldo != "LDO":
             f.write("<h2> Evaluation Results per Drug Table</h2>\n")
             drug_table = __get_table__(
                 files=files, file_table=f"table_drug_{lpo_lco_ldo}.html"
             )
-            __write_table__(f=f, table=drug_table)
+            __write_table__(f=f, table=drug_table, prefix=prefix)
         return f
 
 
-def __write_table__(f: TextIO, table: str):
-    with open(table, "r") as eval_f:
+def __write_table__(f: TextIO, table: str, prefix: str = ""):
+    with open(os.path.join(prefix, table), "r") as eval_f:
         eval_results = eval_f.readlines()
         eval_results[0] = eval_results[0].replace(
             '<table border="1" class="dataframe">',
