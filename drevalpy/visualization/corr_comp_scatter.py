@@ -116,11 +116,10 @@ class CorrelationComparisonScatter(OutPlot):
             plot_list = [
                 f
                 for f in files
-                if lpo_lco_ldo in f
-                and f.startswith("corr_comp_scatter")
-                and f.endswith(f"{group_by}.html")
+                if f.startswith("corr_comp_scatter")
+                and f.endswith(f"{lpo_lco_ldo}.html")
             ]
-            if len(plot_list) > 0:
+            if f"corr_comp_scatter_{group_by}_{lpo_lco_ldo}.html" in plot_list:
                 f.write(
                     f'<h3 id="corr_comp_drug">{group_by.capitalize()}-wise comparison</h3>\n'
                 )

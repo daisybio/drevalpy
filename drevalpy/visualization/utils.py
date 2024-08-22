@@ -181,12 +181,14 @@ def prep_results(
     ]
     new_columns.index = eval_results.index
     eval_results = pd.concat([new_columns.drop("split", axis=1), eval_results], axis=1)
-    eval_results_per_drug[
-        ["algorithm", "rand_setting", "LPO_LCO_LDO", "split", "CV_split"]
-    ] = eval_results_per_drug["model"].str.split("_", expand=True)
-    eval_results_per_cell_line[
-        ["algorithm", "rand_setting", "LPO_LCO_LDO", "split", "CV_split"]
-    ] = eval_results_per_cell_line["model"].str.split("_", expand=True)
+    if eval_results_per_drug is not None:
+        eval_results_per_drug[
+            ["algorithm", "rand_setting", "LPO_LCO_LDO", "split", "CV_split"]
+        ] = eval_results_per_drug["model"].str.split("_", expand=True)
+    if eval_results_per_cell_line is not None:
+        eval_results_per_cell_line[
+            ["algorithm", "rand_setting", "LPO_LCO_LDO", "split", "CV_split"]
+        ] = eval_results_per_cell_line["model"].str.split("_", expand=True)
     t_vs_p[["algorithm", "rand_setting", "LPO_LCO_LDO", "split", "CV_split"]] = t_vs_p[
         "model"
     ].str.split("_", expand=True)
@@ -261,10 +263,12 @@ def write_results(
     path_out, eval_results, eval_results_per_drug, eval_results_per_cl, t_vs_p
 ):
     eval_results.to_csv(f"{path_out}evaluation_results.csv", index=True)
-    eval_results_per_drug.to_csv(
-        f"{path_out}evaluation_results_per_drug.csv", index=True
-    )
-    eval_results_per_cl.to_csv(f"{path_out}evaluation_results_per_cl.csv", index=True)
+    if eval_results_per_drug is not None:
+        eval_results_per_drug.to_csv(
+            f"{path_out}evaluation_results_per_drug.csv", index=True
+        )
+    if eval_results_per_cl is not None:
+        eval_results_per_cl.to_csv(f"{path_out}evaluation_results_per_cl.csv", index=True)
     t_vs_p.to_csv(f"{path_out}true_vs_pred.csv", index=True)
 
 
@@ -358,7 +362,7 @@ def create_html(run_id: str, lpo_lco_ldo: str, files: list, prefix_results: str)
         )
 
         # Evaluation results tables
-        f = HTMLTable.write_to_html(lpo_lco_ldo=lpo_lco_ldo, f=f, files=files)
+        f = HTMLTable.write_to_html(lpo_lco_ldo=lpo_lco_ldo, f=f, files=files, prefix=prefix_results)
 
         f.write("</div>\n")
         f.write("</body>\n")

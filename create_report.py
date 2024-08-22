@@ -63,9 +63,9 @@ def draw_setting_plots(
             out_dir = "heatmaps"
         for normalized in [False, True]:
             if normalized:
-                out_suffix = f"_algorithms_{lpo_lco_ldo}_normalized"
+                out_suffix = f"algorithms_{lpo_lco_ldo}_normalized"
             else:
-                out_suffix = f"_algorithms_{lpo_lco_ldo}"
+                out_suffix = f"algorithms_{lpo_lco_ldo}"
             if plt_type == "violinplot":
                 out_plot = Violin(
                     df=eval_results_preds,
@@ -265,8 +265,7 @@ if __name__ == "__main__":
     """
     evaluation_results = pd.read_csv(f'results/{run_id}/evaluation_results.csv', index_col=0)
     evaluation_results_per_drug = pd.read_csv(f'results/{run_id}/evaluation_results_per_drug.csv', index_col=0)
-    evaluation_results_per_cell_line = pd.read_csv(f'results/{run_id}/evaluation_results_per_cl.csv',
-                                             index_col=0)
+    evaluation_results_per_cell_line = None
     true_vs_pred = pd.read_csv(f'results/{run_id}/true_vs_pred.csv', index_col=0)
     """
 
@@ -274,16 +273,6 @@ if __name__ == "__main__":
     create_output_directories(run_id)
     # Start loop over all settings
     settings = evaluation_results["LPO_LCO_LDO"].unique()
-    # get all html files from results/{run_id}
-    files = [
-        f
-        for f in os.listdir(f"results/{run_id}")
-        if f.endswith(".html")
-        and f != "index.html"
-        and f != "LPO.html"
-        and f != "LCO.html"
-        and f != "LDO.html"
-    ]
 
     for setting in settings:
         print(f"Generating report for {setting} ...")
@@ -305,11 +294,18 @@ if __name__ == "__main__":
                 lpo_lco_ldo=setting,
                 custom_id=run_id,
             )
+        # get all html files from results/{run_id}
+        all_files = []
+        for currentpath, folders, files in os.walk(f"results/{run_id}"):
+            for file in files:
+                if file.endswith(
+                        ".html") and file != "index.html" and file != "LPO.html" and file != "LCO.html" and file != "LDO.html":
+                    all_files.append(file)
         # PIPELINE: WRITE_HTML
         create_html(
             run_id=run_id,
             lpo_lco_ldo=setting,
-            files=files,
+            files=all_files,
             prefix_results=f"results/{run_id}",
         )
     # PIPELINE: WRITE_INDEX
