@@ -91,7 +91,9 @@ def test_load_and_reduce_gene_features(gene_list):
     elif gene_list == "landmark_genes":
         assert len(gene_features_gdsc1.features) == 5
         assert len(gene_features_gdsc1.meta_info["gene_expression"]) == 2
-        assert np.all(gene_features_gdsc1.meta_info["gene_expression"] == ["TSPAN6", "SCYL3"])
+        colnames = gene_features_gdsc1.meta_info["gene_expression"]
+        colnames.sort()
+        assert np.all(colnames == ["SCYL3", "TSPAN6"])
     elif gene_list == "drug_target_genes_all_drugs":
         assert len(gene_features_gdsc1.features) == 5
         assert len(gene_features_gdsc1.meta_info["gene_expression"]) == 1
