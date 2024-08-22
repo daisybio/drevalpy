@@ -57,7 +57,7 @@ def partial_correlation(
     df["cell_line_ids"] = pd.factorize(df["cell_line_ids"])[0]
     df["drug_ids"] = pd.factorize(df["drug_ids"])[0]
     # One-hot encode the categorical covariates
-    df_encoded = pd.get_dummies(df, columns=["cell_line_ids", "drug_ids"])
+    df_encoded = pd.get_dummies(df, columns=["cell_line_ids", "drug_ids"], dtype=int)
 
     if df.shape[0] < 3:
         r, p = np.nan, np.nan
