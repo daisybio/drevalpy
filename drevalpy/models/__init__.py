@@ -1,14 +1,14 @@
 __all__ = [
-    "SimpleNeuralNetwork",
-    "MultiOmicsNeuralNetwork",
-    "ElasticNetModel",
-    "RandomForest",
-    "MultiOmicsRandomForest",
-    "SingleDrugRandomForest",
-    "SVMRegressor",
     "NaivePredictor",
     "NaiveDrugMeanPredictor",
     "NaiveCellLineMeanPredictor",
+    "ElasticNetModel",
+    "RandomForest",
+    "SVMRegressor",
+    "SimpleNeuralNetwork",
+    "MultiOmicsNeuralNetwork",
+    "MultiOmicsRandomForest",
+    "SingleDrugRandomForest",
     "MODEL_FACTORY",
 ]
 
@@ -25,14 +25,14 @@ from .SimpleNeuralNetwork.multiomics_neural_network import MultiOmicsNeuralNetwo
 from .Baselines.singledrug_random_forest import SingleDrugRandomForest
 
 MODEL_FACTORY = {
-    "SimpleNeuralNetwork": SimpleNeuralNetwork,
-    "MultiOmicsNeuralNetwork": MultiOmicsNeuralNetwork,
-    "ElasticNet": ElasticNetModel,
-    "RandomForest": RandomForest,
-    "MultiOmicsRandomForest": MultiOmicsRandomForest,
-    "SVR": SVMRegressor,
     "NaivePredictor": NaivePredictor,
     "NaiveDrugMeanPredictor": NaiveDrugMeanPredictor,
     "NaiveCellLineMeanPredictor": NaiveCellLineMeanPredictor,
+    "ElasticNet": ElasticNetModel,
+    "RandomForest": RandomForest,
+    "SVR": SVMRegressor,
+    "SimpleNeuralNetwork": SimpleNeuralNetwork,
+    "MultiOmicsNeuralNetwork": MultiOmicsNeuralNetwork,
+    "MultiOmicsRandomForest": MultiOmicsRandomForest,
     "SingleDrugRandomForest": SingleDrugRandomForest,
 }

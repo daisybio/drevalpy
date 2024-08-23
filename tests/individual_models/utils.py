@@ -9,7 +9,7 @@ import zipfile
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def sample_dataset() -> Tuple[DrugResponseDataset, FeatureDataset, FeatureDataset]:
     url = "https://zenodo.org/doi/10.5281/zenodo.12633909"
     # Fetch the latest record
