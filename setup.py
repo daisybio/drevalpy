@@ -31,6 +31,7 @@ setup(
         "pytorch-lightning",
         "pytest",
         "ray[tune]",
+        "requests",
         "scikit-learn",
         "scipy",
     ],
