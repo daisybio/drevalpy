@@ -64,6 +64,11 @@ def generate_mock_data_drug_mean():
             cell_line_ids.append(cell_line)
     return np.array(response_list), np.array(cell_line_ids), np.array(drug_ids)
 
+@pytest.fixture
+def generate_mock_data_constant_prediction():
+    response = np.arange(2e6)
+    y_pred = np.ones_like(response, dtype=float)
+    return y_pred, response
 
 @pytest.fixture
 def generate_mock_anticorrelated_data():
@@ -171,6 +176,16 @@ def test_kendall_uncorrelated(generate_mock_uncorrelated_data):
     kd = kendall(y_pred, response)
     assert np.isclose(kd, 0.0, atol=1e-3)
 
+def test_correlations_constant_prediction(generate_mock_data_constant_prediction):
+    y_pred, response = generate_mock_data_constant_prediction
+    pc = pearson(y_pred, response)
+    sp = spearman(y_pred, response)
+    kd = kendall(y_pred, response)
+    assert np.isclose(pc, 0.0, atol=1e-3)
+    assert np.isclose(sp, 0.0, atol=1e-3)
+    assert np.isclose(kd, 0.0, atol=1e-3)
+    
 
+    
 if __name__ == "__main__":
     pytest.main([__file__])
