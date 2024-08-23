@@ -46,7 +46,7 @@ def call_naive_predictor(train_dataset, val_dataset, test_mode):
     assert train_mean == naive.dataset_mean
     assert np.all(val_dataset.predictions == train_mean)
     metrics = evaluate(val_dataset, metric=["Pearson"])
-    assert np.isnan(metrics['Pearson'])
+    assert metrics['Pearson'] == 0.0
     print(f"{test_mode}: Performance of NaivePredictor: PCC = {metrics['Pearson']}")
     call_save_and_load(naive)
 
@@ -86,7 +86,7 @@ def call_naive_group_predictor(group, train_dataset, val_dataset, cell_line_inpu
     metrics = evaluate(val_dataset, metric=["Pearson"])
     print(f"{test_mode}: Performance of {naive.model_name}: PCC = {metrics['Pearson']}")
     if (group == "drug" and test_mode == "LDO") or (group == "cell_line" and test_mode == "LCO"):
-        assert np.isnan(metrics['Pearson'])
+        assert metrics['Pearson'] == 0.0
     call_save_and_load(naive)
 
 
@@ -120,7 +120,7 @@ def call_other_baselines(model, train_dataset, val_dataset, cell_line_input, dru
         print(f"{test_mode}: Performance of {model}, hpams: {hpam_combi}: PCC = {metrics['Pearson']}")
         if model == "ElasticNet" and hpam_combi["l1_ratio"] == 1.0:
             # TODO: Why is this happening? Investigate
-            assert np.isnan(metrics['Pearson'])
+            assert metrics['Pearson'] == 0.0
         elif model == "ElasticNet" and hpam_combi["l1_ratio"] == 0.5:
             # TODO: Why so bad? E.g., LPO+l1_ratio=0.5 -> 0.06, LCO+l1_ratio=0.5 -> 0.1, LDO+l1_ratio=0.5 -> 0.23
             assert metrics['Pearson'] > 0.0
