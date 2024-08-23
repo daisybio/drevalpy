@@ -34,7 +34,7 @@ def partial_correlation(
     assert (
         len(y_pred) == len(y_true) == len(cell_line_ids) == len(drug_ids)
     ), "predictions, response, drug_ids, and cell_line_ids must have the same length"
-
+    
     df = pd.DataFrame(
         {
             "response": y_true,
@@ -43,6 +43,7 @@ def partial_correlation(
             "drug_ids": drug_ids,
         }
     )
+    
 
     if (len(df["cell_line_ids"].unique()) < 2) or (len(df["drug_ids"].unique()) < 2):
         # if we don't have more than one cell line or drug in the data, partial correlation is meaningless
@@ -53,6 +54,16 @@ def partial_correlation(
             )
             warning_shown = True
         return (np.nan, np.nan) if return_pvalue else np.nan
+    
+    # Check if predictions are nearly constant for each cell line or drug (or both (e.g. mean predictor))
+    variance_threshold = 1e-6       
+    for group_col in ["cell_line_ids", "drug_ids"]:
+        group_variances = df.groupby(group_col)["predictions"].var()
+        if (group_variances < variance_threshold).any():
+            warnings.warn(
+                f"Predictions are nearly constant for some {group_col}. Adding some noise to these predictions for partial correlation calculation."
+            )
+            df["predictions"] = df["predictions"] + np.random.normal(0, 1e-5, size=len(df))
 
     df["cell_line_ids"] = pd.factorize(df["cell_line_ids"])[0]
     df["drug_ids"] = pd.factorize(df["drug_ids"])[0]
