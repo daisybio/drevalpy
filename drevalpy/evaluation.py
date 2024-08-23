@@ -9,7 +9,7 @@ import pingouin as pg
 from .datasets.dataset import DrugResponseDataset
 
 warning_shown = False
-
+constant_prediction_warning_shown = False
 
 def partial_correlation(
     y_pred: np.ndarray,
@@ -56,13 +56,16 @@ def partial_correlation(
         return (np.nan, np.nan) if return_pvalue else np.nan
     
     # Check if predictions are nearly constant for each cell line or drug (or both (e.g. mean predictor))
-    variance_threshold = 1e-6       
+    variance_threshold = 1e-5       
     for group_col in ["cell_line_ids", "drug_ids"]:
         group_variances = df.groupby(group_col)["predictions"].var()
-        if (group_variances < variance_threshold).any():
-            warnings.warn(
-                f"Predictions are nearly constant for some {group_col}. Adding some noise to these predictions for partial correlation calculation."
-            )
+        if (group_variances < variance_threshold).all():
+            global constant_prediction_warning_shown
+            if not constant_prediction_warning_shown:
+                warnings.warn(
+                    f"Predictions are nearly constant for {group_col}. Adding some noise to these predictions for partial correlation calculation."
+                )
+                constant_prediction_warning_shown = True
             df["predictions"] = df["predictions"] + np.random.normal(0, 1e-5, size=len(df))
 
     df["cell_line_ids"] = pd.factorize(df["cell_line_ids"])[0]
@@ -87,7 +90,16 @@ def partial_correlation(
     else:
         return r
 
-
+def check_constant_prediction(y_pred: np.ndarray) -> bool:
+    tol = 1e-6
+    # no variation in predictions
+    return np.all(np.isclose(y_pred, y_pred[0], atol=tol))
+    
+def check_constant_target_or_small_sample(y_true: np.ndarray) -> bool:
+    tol = 1e-6
+    # Check for insufficient sample size or no variation in target
+    return len(y_true) < 2 or np.all(np.isclose(y_true, y_true[0], atol=tol))
+    
 def pearson(y_pred: np.ndarray, y_true: np.ndarray) -> float:
     """
     Computes the pearson correlation between predictions and response.
@@ -99,8 +111,12 @@ def pearson(y_pred: np.ndarray, y_true: np.ndarray) -> float:
     assert len(y_pred) == len(
         y_true
     ), "predictions, response  must have the same length"
-    if (y_pred == y_pred[0]).all() or (y_true == y_true[0]).all() or len(y_true) < 2:
+
+    if check_constant_prediction(y_pred):
+        return 0.
+    if check_constant_target_or_small_sample(y_true):
         return np.nan
+    
     return pearsonr(y_pred, y_true)[0]
 
 
@@ -115,8 +131,11 @@ def spearman(y_pred: np.ndarray, y_true: np.ndarray) -> float:
     assert len(y_pred) == len(
         y_true
     ), "predictions, response  must have the same length"
-    if (y_pred == y_pred[0]).all() or (y_true == y_true[0]).all() or len(y_true) < 2:
+    if check_constant_prediction(y_pred):
+        return 0.
+    if check_constant_target_or_small_sample(y_true):
         return np.nan
+    
     return spearmanr(y_pred, y_true)[0]
 
 
@@ -131,8 +150,11 @@ def kendall(y_pred: np.ndarray, y_true: np.ndarray) -> float:
     assert len(y_pred) == len(
         y_true
     ), "predictions, response  must have the same length"
-    if (y_pred == y_pred[0]).all() or (y_true == y_true[0]).all() or len(y_true) < 2:
+    if check_constant_prediction(y_pred):
+        return 0.
+    if check_constant_target_or_small_sample(y_true):
         return np.nan
+    
     return kendalltau(y_pred, y_true)[0]
 
 
