@@ -38,3 +38,11 @@ def sample_dataset() -> Tuple[DrugResponseDataset, FeatureDataset, FeatureDatase
     with open(os.path.join(tmpdir.name, "Toy_Data", "toy_data_drug_features.pkl"), "rb") as f:
         drug_features = pickle.load(f)
     return drug_response, cell_line_features, drug_features
+
+
+def call_save_and_load(model):
+    tmp = tempfile.NamedTemporaryFile()
+    with pytest.raises(NotImplementedError):
+        model.save(path=tmp.name)
+    with pytest.raises(NotImplementedError):
+        model.load(path=tmp.name)

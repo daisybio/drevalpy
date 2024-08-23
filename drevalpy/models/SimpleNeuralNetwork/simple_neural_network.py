@@ -75,7 +75,8 @@ class SimpleNeuralNetwork(DRPModel):
         Saves the model.
         :param path: path to save the model
         """
-        self.model.save(path)
+        # TODO
+        raise NotImplementedError("save method not implemented")
 
     def load(str, path: str):
         # TODO

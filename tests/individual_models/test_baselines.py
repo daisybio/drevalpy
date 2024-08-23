@@ -4,37 +4,29 @@ import tempfile
 from sklearn.linear_model import Ridge, ElasticNet
 
 from drevalpy.evaluation import evaluate
-from drevalpy.models import *
-from .utils import sample_dataset
+from drevalpy.models import NaivePredictor, NaiveDrugMeanPredictor, NaiveCellLineMeanPredictor, MODEL_FACTORY
+from .utils import sample_dataset, call_save_and_load
 
 
 @pytest.mark.parametrize("model_name", ["NaivePredictor", "NaiveDrugMeanPredictor", "NaiveCellLineMeanPredictor","ElasticNet", "RandomForest", "SVR"])
-def test_baselines(sample_dataset, model_name):
+@pytest.mark.parametrize("test_mode", ["LPO", "LCO", "LDO"])
+def test_baselines(sample_dataset, model_name, test_mode):
     drug_response, cell_line_input, drug_input = sample_dataset
-    for test_mode in ["LPO", "LCO", "LDO"]:
-        drug_response.split_dataset(
-            n_cv_splits=5,
-            mode=test_mode,
-        )
-        split = drug_response.cv_splits[0]
-        train_dataset = split["train"]
-        val_dataset = split["validation"]
-        if model_name == "NaivePredictor":
-            call_naive_predictor(train_dataset, val_dataset, test_mode)
-        elif model_name == "NaiveDrugMeanPredictor":
-            call_naive_group_predictor("drug", train_dataset, val_dataset, cell_line_input, drug_input, test_mode)
-        elif model_name == "NaiveCellLineMeanPredictor":
-            call_naive_group_predictor("cell_line", train_dataset, val_dataset, cell_line_input, drug_input, test_mode)
-        else:
-            call_other_baselines(model_name, train_dataset, val_dataset, cell_line_input, drug_input, test_mode)
-
-
-def call_save_and_load(model):
-    tmp = tempfile.NamedTemporaryFile()
-    with pytest.raises(NotImplementedError):
-        model.save(path=tmp.name)
-    with pytest.raises(NotImplementedError):
-        model.load(path=tmp.name)
+    drug_response.split_dataset(
+        n_cv_splits=5,
+        mode=test_mode,
+    )
+    split = drug_response.cv_splits[0]
+    train_dataset = split["train"]
+    val_dataset = split["validation"]
+    if model_name == "NaivePredictor":
+        call_naive_predictor(train_dataset, val_dataset, test_mode)
+    elif model_name == "NaiveDrugMeanPredictor":
+        call_naive_group_predictor("drug", train_dataset, val_dataset, cell_line_input, drug_input, test_mode)
+    elif model_name == "NaiveCellLineMeanPredictor":
+        call_naive_group_predictor("cell_line", train_dataset, val_dataset, cell_line_input, drug_input, test_mode)
+    else:
+        call_other_baselines(model_name, train_dataset, val_dataset, cell_line_input, drug_input, test_mode)
 
 
 def call_naive_predictor(train_dataset, val_dataset, test_mode):

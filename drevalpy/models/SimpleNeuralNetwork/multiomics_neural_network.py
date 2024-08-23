@@ -66,6 +66,8 @@ class MultiOmicsNeuralNetwork(DRPModel):
             ],
             axis=0,
         )
+        if len(unique_methylation) < self.pca.n_components:
+            self.pca.n_components = len(unique_methylation)
         self.pca = self.pca.fit(unique_methylation)
 
         with warnings.catch_warnings():
@@ -91,7 +93,7 @@ class MultiOmicsNeuralNetwork(DRPModel):
         Saves the model.
         :param path: path to save the model
         """
-        self.model.save(path)
+        raise NotImplementedError("save method not implemented")
 
     def load(self, path: str):
         # TODO
