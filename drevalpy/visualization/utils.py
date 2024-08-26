@@ -268,7 +268,9 @@ def write_results(
             f"{path_out}evaluation_results_per_drug.csv", index=True
         )
     if eval_results_per_cl is not None:
-        eval_results_per_cl.to_csv(f"{path_out}evaluation_results_per_cl.csv", index=True)
+        eval_results_per_cl.to_csv(
+            f"{path_out}evaluation_results_per_cl.csv", index=True
+        )
     t_vs_p.to_csv(f"{path_out}true_vs_pred.csv", index=True)
 
 
@@ -362,7 +364,9 @@ def create_html(run_id: str, lpo_lco_ldo: str, files: list, prefix_results: str)
         )
 
         # Evaluation results tables
-        f = HTMLTable.write_to_html(lpo_lco_ldo=lpo_lco_ldo, f=f, files=files, prefix=prefix_results)
+        f = HTMLTable.write_to_html(
+            lpo_lco_ldo=lpo_lco_ldo, f=f, files=files, prefix=prefix_results
+        )
 
         f.write("</div>\n")
         f.write("</body>\n")

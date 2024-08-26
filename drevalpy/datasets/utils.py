@@ -145,16 +145,14 @@ def leave_pair_out_cv(
     response = response[shuffled_indices].copy()
     cell_line_ids = cell_line_ids[shuffled_indices].copy()
     drug_ids = drug_ids[shuffled_indices].copy()
-    
+
     # We use GroupKFold to ensure that each pair is only in one fold (prevent data leakage due to experimental replicates).
     # If there are no replicates this is equivalent to KFold.
     groups = [cell + "_" + drug for cell, drug in zip(cell_line_ids, drug_ids)]
-    kf = GroupKFold(
-        n_splits=n_cv_splits
-    )
+    kf = GroupKFold(n_splits=n_cv_splits)
     cv_sets = []
 
-    for train_indices, test_indices in kf.split(response,groups=groups):
+    for train_indices, test_indices in kf.split(response, groups=groups):
         if split_validation:
             # split training set into training and validation set
             train_indices, validation_indices = train_test_split(

@@ -31,11 +31,17 @@ def sample_dataset() -> Tuple[DrugResponseDataset, FeatureDataset, FeatureDatase
     with zipfile.ZipFile(file_path, "r") as zip_ref:
         zip_ref.extractall(tmpdir.name)
 
-    with open(os.path.join(tmpdir.name, "Toy_Data", "toy_data_drp_dataset.pkl"), "rb") as f:
+    with open(
+        os.path.join(tmpdir.name, "Toy_Data", "toy_data_drp_dataset.pkl"), "rb"
+    ) as f:
         drug_response = pickle.load(f)
-    with open(os.path.join(tmpdir.name, "Toy_Data", "toy_data_cl_features.pkl"), "rb") as f:
+    with open(
+        os.path.join(tmpdir.name, "Toy_Data", "toy_data_cl_features.pkl"), "rb"
+    ) as f:
         cell_line_features = pickle.load(f)
-    with open(os.path.join(tmpdir.name, "Toy_Data", "toy_data_drug_features.pkl"), "rb") as f:
+    with open(
+        os.path.join(tmpdir.name, "Toy_Data", "toy_data_drug_features.pkl"), "rb"
+    ) as f:
         drug_features = pickle.load(f)
     return drug_response, cell_line_features, drug_features
 

@@ -298,8 +298,13 @@ if __name__ == "__main__":
         all_files = []
         for currentpath, folders, files in os.walk(f"results/{run_id}"):
             for file in files:
-                if file.endswith(
-                        ".html") and file != "index.html" and file != "LPO.html" and file != "LCO.html" and file != "LDO.html":
+                if (
+                    file.endswith(".html")
+                    and file != "index.html"
+                    and file != "LPO.html"
+                    and file != "LCO.html"
+                    and file != "LDO.html"
+                ):
                     all_files.append(file)
         # PIPELINE: WRITE_HTML
         create_html(

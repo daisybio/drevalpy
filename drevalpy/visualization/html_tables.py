@@ -60,12 +60,16 @@ class HTMLTable(OutPlot):
                 "LPO_LCO_LDO",
             ]
             # only take the columns that occur
-            selected_columns = [col for col in selected_columns if col in self.df.columns]
+            selected_columns = [
+                col for col in selected_columns if col in self.df.columns
+            ]
         # reorder columns
         self.df = self.df[selected_columns]
 
     @staticmethod
-    def write_to_html(lpo_lco_ldo: str, f: TextIO, prefix: str = "", *args, **kwargs) -> TextIO:
+    def write_to_html(
+        lpo_lco_ldo: str, f: TextIO, prefix: str = "", *args, **kwargs
+    ) -> TextIO:
         files = kwargs.get("files")
         if prefix != "":
             prefix = os.path.join(prefix, "html_tables")
