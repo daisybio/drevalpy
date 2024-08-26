@@ -1,21 +1,26 @@
-from typing import Optional
-from drevalpy.models.utils import (
+"""
+Contains the SimpleNeuralNetwork model.
+"""
+import warnings
+from typing import Optional, Dict
+import numpy as np
+from numpy.typing import ArrayLike
+
+from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from ..utils import (
     load_drug_features_from_fingerprints,
     load_and_reduce_gene_features,
 )
-from drevalpy.models.SimpleNeuralNetwork.utils import FeedForwardNetwork
-from drevalpy.models.drp_model import DRPModel
-from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
-import numpy as np
-import warnings
-from numpy.typing import ArrayLike
+from .utils import FeedForwardNetwork
+from ..drp_model import DRPModel
 
 
 class SimpleNeuralNetwork(DRPModel):
     """
     Simple Feedforward Neural Network model with dropout.
     hyperparameters:
-        units_per_layer: number of units per layer e.g. [100, 50] means 2 layers with 100 and 50 units respectively and the output layer with one unit.
+        units_per_layer: number of units per layer e.g. [100, 50] means 2 layers with 100 and 50
+        units respectively and the output layer with one unit.
         dropout_prob: dropout probability for layers 1, 2, ..., n-1
     """
 
@@ -24,11 +29,11 @@ class SimpleNeuralNetwork(DRPModel):
     early_stopping = True
     model_name = "SimpleNeuralNetwork"
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self):
+        super().__init__()
         self.model = None
 
-    def build_model(self, hyperparameters: dict, *args, **kwargs):
+    def build_model(self, hyperparameters: Dict):
         """
         Builds the model from hyperparameters.
         """
@@ -71,15 +76,9 @@ class SimpleNeuralNetwork(DRPModel):
             )
 
     def save(self, path: str):
-        """
-        Saves the model.
-        :param path: path to save the model
-        """
-        # TODO
         raise NotImplementedError("save method not implemented")
 
-    def load(str, path: str):
-        # TODO
+    def load(self, path: str):
         raise NotImplementedError("load method not implemented")
 
     def predict(
@@ -92,7 +91,7 @@ class SimpleNeuralNetwork(DRPModel):
         """
         Predicts the response for the given input.
         """
-        X = self.get_concatenated_features(
+        x = self.get_concatenated_features(
             cell_line_view="gene_expression",
             drug_view="fingerprints",
             cell_line_ids_output=cell_line_ids,
@@ -101,7 +100,7 @@ class SimpleNeuralNetwork(DRPModel):
             drug_input=drug_input,
         )
 
-        return self.model.predict(X)
+        return self.model.predict(x)
 
     def load_cell_line_features(
         self, data_path: str, dataset_name: str
@@ -109,7 +108,8 @@ class SimpleNeuralNetwork(DRPModel):
         """
         Loads the cell line features.
         :param path: Path to the gene expression and landmark genes
-        :return: FeatureDataset containing the cell line gene expression features, filtered through the landmark genes
+        :return: FeatureDataset containing the cell line gene expression features, filtered
+        through the landmark genes
         """
 
         return load_and_reduce_gene_features(

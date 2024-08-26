@@ -1,11 +1,14 @@
+"""
+Functions for evaluating model performance.
+"""
 import warnings
-from typing import Union, List
-import sklearn.metrics as metrics
+from typing import Union, List, Tuple
+from sklearn import metrics
 import pandas as pd
 import numpy as np
-from typing import Tuple
 from scipy.stats import pearsonr, spearmanr, kendalltau
 import pingouin as pg
+
 from .datasets.dataset import DrugResponseDataset
 
 warning_shown = False
@@ -21,7 +24,8 @@ def partial_correlation(
     return_pvalue: bool = False,
 ) -> Tuple[float, float] | float:
     """
-    Computes the partial correlation between predictions and response, conditioned on cell line and drug.
+    Computes the partial correlation between predictions and response, conditioned on cell line
+    and drug.
     :param y_pred: predictions
     :param y_true: response
     :param cell_line_ids: cell line IDs
@@ -46,7 +50,8 @@ def partial_correlation(
     )
 
     if (len(df["cell_line_ids"].unique()) < 2) or (len(df["drug_ids"].unique()) < 2):
-        # if we don't have more than one cell line or drug in the data, partial correlation is meaningless
+        # if we don't have more than one cell line or drug in the data, partial correlation is
+        # meaningless
         global warning_shown
         if not warning_shown:
             warnings.warn(
@@ -55,7 +60,8 @@ def partial_correlation(
             warning_shown = True
         return (np.nan, np.nan) if return_pvalue else np.nan
 
-    # Check if predictions are nearly constant for each cell line or drug (or both (e.g. mean predictor))
+    # Check if predictions are nearly constant for each cell line or drug (or both (e.g. mean
+    # predictor))
     variance_threshold = 1e-5
     for group_col in ["cell_line_ids", "drug_ids"]:
         group_variances = df.groupby(group_col)["predictions"].var()
@@ -63,7 +69,8 @@ def partial_correlation(
             global constant_prediction_warning_shown
             if not constant_prediction_warning_shown:
                 warnings.warn(
-                    f"Predictions are nearly constant for {group_col}. Adding some noise to these predictions for partial correlation calculation."
+                    f"Predictions are nearly constant for {group_col}. Adding some noise to these "
+                    f"predictions for partial correlation calculation."
                 )
                 constant_prediction_warning_shown = True
             df["predictions"] = df["predictions"] + np.random.normal(
@@ -93,17 +100,26 @@ def partial_correlation(
         p = result["p-val"].iloc[0]
     if return_pvalue:
         return r, p
-    else:
-        return r
+    return r
 
 
 def check_constant_prediction(y_pred: np.ndarray) -> bool:
+    """
+    Check if predictions are constant.
+    :param y_pred:
+    :return:
+    """
     tol = 1e-6
     # no variation in predictions
     return np.all(np.isclose(y_pred, y_pred[0], atol=tol))
 
 
 def check_constant_target_or_small_sample(y_true: np.ndarray) -> bool:
+    """
+    Check if target is constant or sample size is too small.
+    :param y_true:
+    :return:
+    """
     tol = 1e-6
     # Check for insufficient sample size or no variation in target
     return len(y_true) < 2 or np.all(np.isclose(y_true, y_true[0], atol=tol))
@@ -182,13 +198,19 @@ MAXIMIZATION_METRICS = ["R^2", "Pearson", "Spearman", "Kendall", "Partial_Correl
 
 
 def get_mode(metric: str):
+    """
+    Get whether the optimum value of the metric is the minimum or maximum.
+    :param metric:
+    :return:
+    """
     if metric in MINIMIZATION_METRICS:
         mode = "min"
     elif metric in MAXIMIZATION_METRICS:
         mode = "max"
     else:
         raise ValueError(
-            f"Invalid metric: {metric}. Need to add metric to MINIMIZATION_METRICS or MAXIMIZATION_METRICS?"
+            f"Invalid metric: {metric}. Need to add metric to MINIMIZATION_METRICS or "
+            f"MAXIMIZATION_METRICS?"
         )
     return mode
 
@@ -197,7 +219,8 @@ def evaluate(dataset: DrugResponseDataset, metric: Union[List[str], str]):
     """
     Evaluates the model on the given dataset.
     :param dataset: dataset to evaluate on
-    :param metric: evaluation metric(s) (one or a list of "mse", "rmse", "mae", "r2", "pearson", "spearman", "kendall", "partial_correlation")
+    :param metric: evaluation metric(s) (one or a list of "mse", "rmse", "mae", "r2", "pearson",
+    "spearman", "kendall", "partial_correlation")
     :return: evaluation metric
     """
     if isinstance(metric, str):

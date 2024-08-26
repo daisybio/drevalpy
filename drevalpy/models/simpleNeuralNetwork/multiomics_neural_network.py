@@ -1,22 +1,27 @@
-from typing import Optional
-from drevalpy.models.utils import (
+"""
+Contains the MultiOmicsNeuralNetwork model.
+"""
+import warnings
+from typing import Optional, Dict
+import numpy as np
+from numpy.typing import ArrayLike
+from sklearn.decomposition import PCA
+
+from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from .utils import FeedForwardNetwork
+from ..drp_model import DRPModel
+from ..utils import (
     load_drug_features_from_fingerprints,
     get_multiomics_feature_dataset,
 )
-from drevalpy.models.SimpleNeuralNetwork.utils import FeedForwardNetwork
-from drevalpy.models.drp_model import DRPModel
-from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
-import numpy as np
-from numpy.typing import ArrayLike
-import warnings
-from sklearn.decomposition import PCA
 
 
 class MultiOmicsNeuralNetwork(DRPModel):
     """
     Simple Feedforward Neural Network model with dropout.
     hyperparameters:
-        units_per_layer: number of units per layer e.g. [100, 50] means 2 layers with 100 and 50 units respectively and the output layer with one unit.
+        units_per_layer: number of units per layer e.g. [100, 50] means 2 layers with 100 and 50
+        units respectively and the output layer with one unit.
         dropout_prob: dropout probability for layers 1, 2, ..., n-1
     """
 
@@ -30,12 +35,12 @@ class MultiOmicsNeuralNetwork(DRPModel):
     early_stopping = True
     model_name = "MultiOmicsNeuralNetwork"
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self):
+        super().__init__()
         self.model = None
         self.pca = None
 
-    def build_model(self, hyperparameters: dict, *args, **kwargs):
+    def build_model(self, hyperparameters: Dict):
         """
         Builds the model from hyperparameters.
         """
@@ -66,8 +71,8 @@ class MultiOmicsNeuralNetwork(DRPModel):
             ],
             axis=0,
         )
-        if len(unique_methylation) < self.pca.n_components:
-            self.pca.n_components = len(unique_methylation)
+
+        self.pca.n_components = min(self.pca.n_components, len(unique_methylation))
         self.pca = self.pca.fit(unique_methylation)
 
         with warnings.catch_warnings():
@@ -96,7 +101,6 @@ class MultiOmicsNeuralNetwork(DRPModel):
         raise NotImplementedError("save method not implemented")
 
     def load(self, path: str):
-        # TODO
         raise NotImplementedError("load method not implemented")
 
     def predict(
@@ -129,7 +133,7 @@ class MultiOmicsNeuralNetwork(DRPModel):
             inputs["fingerprints"],
         )
         methylation = self.pca.transform(methylation)
-        X = np.concatenate(
+        x = np.concatenate(
             (
                 gene_expression,
                 methylation,
@@ -139,7 +143,7 @@ class MultiOmicsNeuralNetwork(DRPModel):
             ),
             axis=1,
         )
-        return self.model.predict(X)
+        return self.model.predict(x)
 
     def load_cell_line_features(
         self, data_path: str, dataset_name: str
@@ -149,7 +153,8 @@ class MultiOmicsNeuralNetwork(DRPModel):
         :param data_path: data path e.g. data/
         :param dataset_name: dataset name e.g. GDSC1
 
-        :return: FeatureDataset containing the cell line omics features, filtered through the drug target genes
+        :return: FeatureDataset containing the cell line omics features, filtered through the
+        drug target genes
         """
 
         return get_multiomics_feature_dataset(

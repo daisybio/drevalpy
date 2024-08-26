@@ -6,16 +6,17 @@ from drevalpy.models.utils import (
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 import numpy as np
+from numpy.typing import ArrayLike
 from torch import nn
 from torch.nn import functional as F
 import torch
-from utils import (
+from .utils.utils import (
     reset_seed,
-    normalizer,
     reindex_tuples,
     create_fold_mask,
     predict_matrix,
 )
+from .utils.data_initializer import standardize
 
 
 class BiGDRP(DRPModel):
@@ -57,60 +58,62 @@ class BiGDRP(DRPModel):
         :param RDKit_descriptors: RDKit drug descriptors features
 
         """
-
-    label_mask = create_fold_mask(labels, label_matrix)
-    label_matrix = label_matrix.replace(np.nan, 0)
-
-    n_genes = cell_lines.shape[1]
-    metrics = np.zeros((5, 4))
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    RDKit_descriptors = pd.read_csv(encoding_path, index_col=0)
-    dr_idx = RDKit_descriptors.index
-
-    train_folds = [x for x in range(5) if (x != test_fold)]
-    train_tuples = labels.loc[labels["fold"].isin(train_folds)]
-    train_samples = list(train_tuples["cell_line"].unique())
-    train_x = cell_lines.loc[train_samples].values
-    train_y = label_matrix.loc[train_samples].values
-    train_mask = (label_mask.loc[train_samples].isin(train_folds)) * 1
-
-    test_tuples = labels.loc[labels["fold"] == test_fold]
-    test_samples = list(test_tuples["cell_line"].unique())
-    test_x = cell_lines.loc[test_samples].values
-    test_mask = (label_mask.loc[test_samples] == test_fold) * 1
-
-    train_x, test_x = normalizer(train_x, test_x)
-
-    train_tuples = train_tuples[["drug", "cell_line", "response"]]
-    train_tuples = reindex_tuples(train_tuples, dr_idx, train_samples)
-    train_data = TupleMapDataset(
-        train_tuples,
-        RDKit_descriptors,
-        torch.FloatTensor(train_x),
-        torch.FloatTensor(train_y),
-    )
-    train_data = DataLoader(train_data, batch_size=128)
-
-    print("Loading weights from: %s..." % model_path)
-    model = DRPPlus(cell_lines.shape[1], hyperparams)
-    model.load_state_dict(torch.load(model_path), strict=False)
-    model = model.to(device)
-
-    # === train for 1 epoch ===
-    params = model.parameters()
-    optimizer = torch.optim.Adam(params, lr=1e-5)
-    model.train()
-    for x, d, y in train_data:
-        x, d, y = x.to(device), d.to(device), y.to(device)
-
-        optimizer.zero_grad()
-        pred = model(x, d)
-        loss = ((pred - y) ** 2).mean()
-        loss.backward()
-        optimizer.step()
-        print("train MSE: %.4f" % loss.item())
+        pass
+        """
+        label_mask = create_fold_mask(labels, label_matrix)
+        label_matrix = label_matrix.replace(np.nan, 0)
+    
+        n_genes = cell_lines.shape[1]
+        metrics = np.zeros((5, 4))
+    
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    
+        RDKit_descriptors = pd.read_csv(encoding_path, index_col=0)
+        dr_idx = RDKit_descriptors.index
+    
+        train_folds = [x for x in range(5) if (x != test_fold)]
+        train_tuples = labels.loc[labels["fold"].isin(train_folds)]
+        train_samples = list(train_tuples["cell_line"].unique())
+        train_x = cell_lines.loc[train_samples].values
+        train_y = label_matrix.loc[train_samples].values
+        train_mask = (label_mask.loc[train_samples].isin(train_folds)) * 1
+    
+        test_tuples = labels.loc[labels["fold"] == test_fold]
+        test_samples = list(test_tuples["cell_line"].unique())
+        test_x = cell_lines.loc[test_samples].values
+        test_mask = (label_mask.loc[test_samples] == test_fold) * 1
+    
+        train_x, test_x = normalizer(train_x, test_x)
+    
+        train_tuples = train_tuples[["drug", "cell_line", "response"]]
+        train_tuples = reindex_tuples(train_tuples, dr_idx, train_samples)
+        train_data = TupleMapDataset(
+            train_tuples,
+            RDKit_descriptors,
+            torch.FloatTensor(train_x),
+            torch.FloatTensor(train_y),
+        )
+        train_data = DataLoader(train_data, batch_size=128)
+    
+        print("Loading weights from: %s..." % model_path)
+        model = DRPPlus(cell_lines.shape[1], hyperparams)
+        model.load_state_dict(torch.load(model_path), strict=False)
+        model = model.to(device)
+    
+        # === train for 1 epoch ===
+        params = model.parameters()
+        optimizer = torch.optim.Adam(params, lr=1e-5)
+        model.train()
+        for x, d, y in train_data:
+            x, d, y = x.to(device), d.to(device), y.to(device)
+    
+            optimizer.zero_grad()
+            pred = model(x, d)
+            loss = ((pred - y) ** 2).mean()
+            loss.backward()
+            optimizer.step()
+            print("train MSE: %.4f" % loss.item())
+        """
 
     def save(self, path: str):
         """
@@ -125,10 +128,16 @@ class BiGDRP(DRPModel):
         raise NotImplementedError("load method not implemented")
 
     def predict(
-        self, gene_expression: np.ndarray, RDKit_descriptors: np.ndarray
+        self,
+        drug_ids: ArrayLike,
+        cell_line_ids: ArrayLike,
+        drug_input: FeatureDataset = None,
+        cell_line_input: FeatureDataset = None,
     ) -> np.ndarray:
         """
         Predicts the response for the given input.
+        """
+        pass
         """
         # === test on test set ===
         RDKit_descriptors = torch.Tensor(RDKit_descriptors.values).to(device)
@@ -152,6 +161,7 @@ class BiGDRP(DRPModel):
 
         directory = FLAGS.outroot + "/results/" + FLAGS.folder
         torch.save(model.state_dict(), directory + "/model_weights_fold_%d" % test_fold)
+        """
 
     def load_cell_line_features(
         self, data_path: str, dataset_name: str

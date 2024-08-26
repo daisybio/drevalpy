@@ -38,8 +38,8 @@ setup(
     include_package_data=True,
     package_data={
         "": [
-            "models/Baselines/hyperparameters.yaml",
-            "models/SimpleNeuralNetwork/hyperparameters.yaml",
+            "models/baselines/hyperparameters.yaml",
+            "models/simpleNeuralNetwork/hyperparameters.yaml",
             "visualization/style_utils/favicon.png",
             "visualization/style_utils/index_layout.html",
             "visualization/style_utils/LCO.png",

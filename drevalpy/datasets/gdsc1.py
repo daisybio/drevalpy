@@ -1,5 +1,8 @@
-import pandas as pd
+"""
+GDSC1 dataset.
+"""
 import os
+import pandas as pd
 
 from .dataset import DrugResponseDataset
 from .utils import download_dataset

@@ -19,32 +19,32 @@ class DrugRegNetModel:
             drp = drp[~drp.isna()]
             drp = drp[~drp.index.duplicated(keep="first")]
             drp = drp[drp.index.isin(self.dysregnet_scores.index)]
-            X = self.dysregnet_scores.loc[drp.index]
-            X = self.feature_selection(X)
-            all_data[drug] = DrugRegNetDataset(drug, X, drp)
+            x = self.dysregnet_scores.loc[drp.index]
+            x = self.feature_selection(x)
+            all_data[drug] = DrugRegNetDataset(drug, x, drp)
         setattr(self, "all_data", all_data)
 
-    def feature_selection(self, X, n_features=300):
+    def feature_selection(self, x, n_features=300):
         if self.features == "topN":
             # get the n_features columns with the highest variance
-            X = X.loc[:, X.var().nlargest(n_features).index]
-        return X
+            x = x.loc[:, x.var().nlargest(n_features).index]
+        return x
 
     def train_model(self):
         for drug in self.all_data.keys():
             print("Training model for drug:", drug)
-            X = self.all_data[drug].X
+            x = self.all_data[drug].x
             y = self.all_data[drug].y
             # TODO: cross validation?
             model = Lasso(alpha=0.1)
-            model.fit(X, y)
+            model.fit(x, y)
             # get p-values for coefficients
-            p_values = self.calculate_pvalues(model, X, y)
+            p_values = self.calculate_pvalues(model, x, y)
             # do Bonferroni correction by getting minimum of p-value * number of features and 1
-            p_adj = np.minimum(p_values * X.shape[1], 1)
+            p_adj = np.minimum(p_values * x.shape[1], 1)
             result_df = pd.DataFrame(
                 {
-                    "edge": X.columns,
+                    "edge": x.columns,
                     "coef": model.coef_,
                     "p_val": p_values,
                     "p_adj": p_adj,
@@ -54,10 +54,10 @@ class DrugRegNetModel:
             setattr(self, drug, model)
 
     @staticmethod
-    def calculate_pvalues(model, X, y):
+    def calculate_pvalues(model, x, y):
         params = np.append(model.intercept_, model.coef_)
-        predictions = model.predict(X)
-        newX = pd.DataFrame({"Constant": np.ones(len(X))}, index=X.index).join(X)
+        predictions = model.predict(x)
+        newX = pd.DataFrame({"Constant": np.ones(len(x))}, index=x.index).join(x)
         MSE = (sum((y - predictions) ** 2)) / (len(newX) - len(newX.columns))
         var_b = MSE * (np.linalg.inv(np.dot(newX.T, newX)).diagonal())
         sd_b = np.sqrt(var_b)
@@ -92,9 +92,9 @@ class DrugRegNetModel:
 
 
 class DrugRegNetDataset:
-    def __init__(self, drug, X, y):
+    def __init__(self, drug, x, y):
         self.drug = drug
-        self.X = X
+        self.x = x
         self.y = y
 
 

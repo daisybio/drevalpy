@@ -62,3 +62,26 @@ def moving_average(a, n=3):
     ret = np.cumsum(a, dtype=float)
     ret[n:] = ret[n:] - ret[:-n]
     return ret[n - 1 :] / n
+
+
+def predict_matrix(self, data_loader, drug_encoding=None):
+    """
+    returns a prediction matrix of (N, n_drugs)
+    """
+
+    self.model.eval()
+
+    preds = []
+    if drug_encoding is None:
+        drug_encoding = self.get_drug_encoding() # get the encoding first so that we don't have top run the conv every time
+    else:
+        drug_encoding = drug_encoding.to(self.device)
+
+    with torch.no_grad():
+        for (x,) in data_loader:
+            x = x.to(self.device)
+            pred = self.model.predict_response_matrix(x, drug_encoding)
+            preds.append(pred)
+
+    preds = torch.cat(preds, axis=0).cpu().detach().numpy()
+    return preds

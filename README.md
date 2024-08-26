@@ -8,7 +8,7 @@ for evaluating drug response prediction machine learning models in a fair settin
 
 Create the correct environment:
 ```bash
-conda env create -f models/SimpleNeuralNetwork/env.yml
+conda env create -f models/simpleNeuralNetwork/env.yml
 pip install .
 ```
 

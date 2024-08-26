@@ -1,11 +1,21 @@
+"""
+Utility functions for loading and processing data.
+"""
 import warnings
+from typing import Optional
 import pandas as pd
 import numpy as np
-from typing import Optional
+
 from drevalpy.datasets.dataset import FeatureDataset
 
 
 def load_cl_ids_from_csv(path: str, dataset_name: str) -> FeatureDataset:
+    """
+    Load cell line ids from csv file.
+    :param path:
+    :param dataset_name:
+    :return:
+    """
     cl_names = pd.read_csv(f"{path}/{dataset_name}/cell_line_names.csv", index_col=0)
     return FeatureDataset(
         features={cl: {"cell_line_id": np.array([cl])} for cl in cl_names.index}
@@ -15,29 +25,43 @@ def load_cl_ids_from_csv(path: str, dataset_name: str) -> FeatureDataset:
 def load_and_reduce_gene_features(
     feature_type: str, gene_list: Optional[str], data_path: str, dataset_name: str
 ) -> FeatureDataset:
+    """
+    Load and reduce gene features.
+    :param feature_type:
+    :param gene_list:
+    :param data_path:
+    :param dataset_name:
+    :return:
+    """
     ge = pd.read_csv(f"{data_path}/{dataset_name}/{feature_type}.csv", index_col=0)
     if gene_list is None:
         return FeatureDataset(
             features=iterate_features(df=ge, feature_type=feature_type),
             meta_info={feature_type: ge.columns.values},
         )
-    else:
-        gene_info = pd.read_csv(
-            f"{data_path}/{dataset_name}/gene_lists/{gene_list}.csv",
-            sep=(
-                "\t" if gene_list == "landmark_genes" else ","
-            ),  # TODO harmonize gene lists
-        )
-        genes_to_use = set(gene_info["Symbol"]) & set(ge.columns)
-        ge = ge[list(genes_to_use)]
 
-        return FeatureDataset(
-            features=iterate_features(df=ge, feature_type=feature_type),
-            meta_info={feature_type: ge.columns.values},
-        )
+    gene_info = pd.read_csv(
+        f"{data_path}/{dataset_name}/gene_lists/{gene_list}.csv",
+        sep=(
+            "\t" if gene_list == "landmark_genes" else ","
+        ),  # TODO harmonize gene lists
+    )
+    genes_to_use = set(gene_info["Symbol"]) & set(ge.columns)
+    ge = ge[list(genes_to_use)]
+
+    return FeatureDataset(
+        features=iterate_features(df=ge, feature_type=feature_type),
+        meta_info={feature_type: ge.columns.values},
+    )
 
 
 def iterate_features(df: pd.DataFrame, feature_type: str):
+    """
+    Iterate over features.
+    :param df:
+    :param feature_type:
+    :return:
+    """
     features = {}
     for cl in df.index:
         rows = df.loc[cl]
@@ -52,6 +76,12 @@ def iterate_features(df: pd.DataFrame, feature_type: str):
 
 
 def load_drug_ids_from_csv(data_path: str, dataset_name: str) -> FeatureDataset:
+    """
+    Load drug ids from csv file.
+    :param data_path:
+    :param dataset_name:
+    :return:
+    """
     drug_names = pd.read_csv(f"{data_path}/{dataset_name}/drug_names.csv", index_col=0)
     return FeatureDataset(
         features={drug: {"drug_id": np.array([drug])} for drug in drug_names.index}
@@ -61,6 +91,12 @@ def load_drug_ids_from_csv(data_path: str, dataset_name: str) -> FeatureDataset:
 def load_drug_features_from_fingerprints(
     data_path: str, dataset_name: str
 ) -> FeatureDataset:
+    """
+    Load drug features from fingerprints.
+    :param data_path:
+    :param dataset_name:
+    :return:
+    """
     fingerprints = pd.read_csv(
         f"{data_path}/{dataset_name}/drug_fingerprints/drug_name_to_demorgan_128_map.csv",
         index_col=0,
@@ -76,6 +112,13 @@ def load_drug_features_from_fingerprints(
 def get_multiomics_feature_dataset(
     data_path: str, dataset_name: str, gene_list: str = "drug_target_genes_all_drugs"
 ) -> FeatureDataset:
+    """
+    Get multiomics feature dataset.
+    :param data_path:
+    :param dataset_name:
+    :param gene_list:
+    :return:
+    """
     ge_dataset = load_and_reduce_gene_features(
         feature_type="gene_expression",
         gene_list=gene_list,
@@ -106,6 +149,10 @@ def get_multiomics_feature_dataset(
 
 
 def unique(array):
-    # ordered by first occurence
+    """
+    Get unique values ordered by first occurence.
+    :param array:
+    :return:
+    """
     uniq, index = np.unique(array, return_index=True)
     return uniq[index.argsort()]

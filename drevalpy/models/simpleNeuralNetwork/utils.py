@@ -1,19 +1,23 @@
+"""
+Utility functions for the simple neural network models.
+"""
 import os
+import random
 from typing import Optional, List
 import numpy as np
 import torch
 from torch import nn
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 import pytorch_lightning as pl
-from pytorch_lightning.callbacks import EarlyStopping
-from pytorch_lightning.callbacks import TQDMProgressBar
-from torch.utils.data import Dataset
-import random
+from pytorch_lightning.callbacks import EarlyStopping, TQDMProgressBar
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 
 
 class RegressionDataset(Dataset):
+    """
+    Dataset for regression tasks for the data loader.
+    """
     def __init__(
         self,
         output: DrugResponseDataset,
@@ -64,10 +68,10 @@ class RegressionDataset(Dataset):
                     (drug_features, self.drug_input.features[drug_id][d_view])
                 )
         assert (
-            type(cell_line_features) == np.ndarray
+            isinstance(cell_line_features, np.ndarray)
         ), f"Cell line features for {cell_line_id} are not numpy array"
         assert (
-            type(drug_features) == np.ndarray
+            isinstance(drug_features, np.ndarray)
         ), f"Drug features for {drug_id} are not numpy array"
         data = np.concatenate((cell_line_features, drug_features))
         # cast to float32
@@ -80,6 +84,9 @@ class RegressionDataset(Dataset):
 
 
 class FeedForwardNetwork(pl.LightningModule):
+    """
+    Feed forward neural network for regression tasks with basic architecture.
+    """
     def __init__(self, n_units_per_layer=None, dropout_prob=None) -> None:
         super().__init__()
         if n_units_per_layer is None:
@@ -88,6 +95,9 @@ class FeedForwardNetwork(pl.LightningModule):
         self.dropout_prob = dropout_prob
         self.model_initialized = False
         self.loss = nn.MSELoss()
+        self.checkpoint_callback = None
+        self.fully_connected_layers = nn.ModuleList()
+        self.dropout_layer = None
 
     def fit(
         self,
@@ -104,6 +114,22 @@ class FeedForwardNetwork(pl.LightningModule):
         num_workers: int = 2,
         met_transform=None,
     ) -> None:
+        """
+        Fits the model.
+        :param output_train: Response values for training
+        :param cell_line_input: Cell line features
+        :param drug_input: Drug features
+        :param cell_line_views: Cell line info needed for this model
+        :param drug_views: Drug info needed for this model
+        :param output_earlystopping: Response values for early stopping
+        :param trainer_params: custom parameters for the trainer
+        :param batch_size:
+        :param patience:
+        :param checkpoint_path:
+        :param num_workers:
+        :param met_transform:
+        :return:
+        """
         if trainer_params is None:
             trainer_params = {"progress_bar_refresh_rate": 0, "max_epochs": 100}
 
@@ -179,9 +205,15 @@ class FeedForwardNetwork(pl.LightningModule):
             trainer.fit(self, train_loader)
         else:
             trainer.fit(self, train_loader, val_loader)
-        # TODO use best model from history self.load_from_checkpoint(self.checkpoint_callback.best_model_path)
+        # TODO use best model from history self.load_from_checkpoint(
+        #  self.checkpoint_callback.best_model_path)
 
     def forward(self, x):
+        """
+        Forward pass of the model.
+        :param x:
+        :return:
+        """
         if not self.model_initialized:
             self.initialize_model(x)
 
@@ -194,8 +226,12 @@ class FeedForwardNetwork(pl.LightningModule):
         return x.squeeze()
 
     def initialize_model(self, x):
+        """
+        Initializes the model.
+        :param x:
+        :return:
+        """
         n_features = x.size(1)
-        self.fully_connected_layers = nn.ModuleList()
         self.fully_connected_layers.append(
             nn.Linear(n_features, self.n_units_per_layer[0])
         )
@@ -206,8 +242,6 @@ class FeedForwardNetwork(pl.LightningModule):
         self.fully_connected_layers.append(nn.Linear(self.n_units_per_layer[-1], 1))
         if self.dropout_prob is not None:
             self.dropout_layer = nn.Dropout(p=self.dropout_prob)
-        else:
-            self.dropout_layer = None
         self.model_initialized = True
 
     def force_initialize(self, dataloader):
@@ -223,19 +257,24 @@ class FeedForwardNetwork(pl.LightningModule):
         self.log(log_as, result, on_step=True, on_epoch=True, prog_bar=True)
         return result
 
-    def training_step(self, batch, batch_idx):
+    def training_step(self, batch):
         x, y = batch
         return self._forward_loss_and_log(x, y, "train_loss")
 
-    def validation_step(self, batch, batch_idx):
+    def validation_step(self, batch):
         x, y = batch
         return self._forward_loss_and_log(x, y, "val_loss")
 
-    def predict(self, X: np.ndarray) -> np.ndarray:
+    def predict(self, x: np.ndarray) -> np.ndarray:
+        """
+        Predicts the response for the given input.
+        :param x:
+        :return:
+        """
         is_training = self.training
         self.eval()
         with torch.no_grad():
-            y_pred = self.forward(torch.from_numpy(X).float())
+            y_pred = self.forward(torch.from_numpy(x).float())
         self.train(is_training)
         return y_pred
 

@@ -1,6 +1,5 @@
 import pytest
 import numpy as np
-import tempfile
 from sklearn.linear_model import Ridge, ElasticNet
 
 from drevalpy.evaluation import evaluate, pearson

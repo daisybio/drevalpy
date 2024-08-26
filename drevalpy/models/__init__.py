@@ -1,3 +1,6 @@
+"""
+Module containing all drug response prediction models.
+"""
 __all__ = [
     "NaivePredictor",
     "NaiveDrugMeanPredictor",
@@ -12,17 +15,16 @@ __all__ = [
     "MODEL_FACTORY",
 ]
 
-from .Baselines.naive_pred import (
+from .baselines.naive_pred import (
     NaivePredictor,
     NaiveDrugMeanPredictor,
     NaiveCellLineMeanPredictor,
 )
-from .Baselines.elastic_net_model import ElasticNetModel
-from .Baselines.random_forest import RandomForest, MultiOmicsRandomForest
-from .Baselines.svm import SVMRegressor
-from .SimpleNeuralNetwork.simple_neural_network import SimpleNeuralNetwork
-from .SimpleNeuralNetwork.multiomics_neural_network import MultiOmicsNeuralNetwork
-from .Baselines.singledrug_random_forest import SingleDrugRandomForest
+from .baselines.sklearn_models import ElasticNetModel, RandomForest, SVMRegressor
+from .baselines.multi_omics_random_forest import MultiOmicsRandomForest
+from .simpleNeuralNetwork.simple_neural_network import SimpleNeuralNetwork
+from .simpleNeuralNetwork.multiomics_neural_network import MultiOmicsNeuralNetwork
+from .baselines.singledrug_random_forest import SingleDrugRandomForest
 
 MODEL_FACTORY = {
     "NaivePredictor": NaivePredictor,
