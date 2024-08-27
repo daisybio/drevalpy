@@ -12,7 +12,6 @@ import torch
 from ray import tune
 from sklearn.base import TransformerMixin
 
-from .utils import handle_overwrite
 from .datasets.dataset import DrugResponseDataset, FeatureDataset
 from .evaluation import evaluate, get_mode
 from .models.drp_model import CompositeDrugModel, DRPModel, SingleDrugModel
@@ -34,6 +33,7 @@ def drug_response_experiment(
     n_trials_robustness: int = 0,
     path_out: str = "results/",
     overwrite: bool = False,
+    path_data: str = "data",
 ) -> None:
     """
     Run the drug response prediction experiment. Save results to disc.
@@ -76,7 +76,7 @@ def drug_response_experiment(
     :param test_mode: test mode one of "LPO", "LCO", "LDO" (leave-pair-out, leave-cell-line-out,
         leave-drug-out)
     :param overwrite: whether to overwrite existing results
-
+    :param path_data: path to the data directory, usually data/
     :return: None
     """
     if baselines is None:
@@ -132,6 +132,8 @@ def drug_response_experiment(
         model_hpam_set = model_class.get_hyperparameter_set()
 
         for split_index, split in enumerate(response_data.cv_splits):
+            print(f"################# FOLD {split_index+1}/{len(response_data.cv_splits)} "
+                  f"#################")
             prediction_file = os.path.join(
                 predictions_path, f"predictions_split_{split_index}.csv"
             )
@@ -162,6 +164,7 @@ def drug_response_experiment(
                     "hpam_set": model_hpam_set,
                     "response_transformation": response_transformation,
                     "metric": metric,
+                    "path_data": path_data,
                 }
 
                 if multiprocessing:
@@ -204,7 +207,7 @@ def drug_response_experiment(
                 test_dataset = train_and_predict(
                     model=model,
                     hpams=best_hpams,
-                    path_data="data",
+                    path_data=path_data,
                     train_dataset=train_dataset,
                     prediction_dataset=test_dataset,
                     early_stopping_dataset=(
@@ -214,13 +217,14 @@ def drug_response_experiment(
                 )
 
                 for cross_study_dataset in cross_study_datasets:
+                    print(f"Cross study prediction on {cross_study_dataset.dataset_name}")
                     cross_study_dataset.remove_nan_responses()
                     cross_study_prediction(
                         dataset=cross_study_dataset,
                         model=model,
                         test_mode=test_mode,
                         train_dataset=train_dataset,
-                        path_data="data",
+                        path_data=path_data,
                         early_stopping_dataset=(
                             early_stopping_dataset if model.early_stopping else None
                         ),
@@ -240,6 +244,7 @@ def drug_response_experiment(
                     best_hpams = json.load(f)
             if not is_baseline:
                 if randomization_mode is not None:
+                    print(f"Randomization tests for {model_class.model_name}")
                     # if this line changes, it also needs to be changed in pipeline:
                     # randomization_split.py
                     randomization_test_views = get_randomization_test_views(
@@ -249,7 +254,7 @@ def drug_response_experiment(
                         randomization_test_views=randomization_test_views,
                         model=model,
                         hpam_set=best_hpams,
-                        path_data="data",
+                        path_data=path_data,
                         train_dataset=train_dataset,
                         test_dataset=test_dataset,
                         early_stopping_dataset=(
@@ -261,11 +266,12 @@ def drug_response_experiment(
                         response_transformation=response_transformation,
                     )
                 if n_trials_robustness > 0:
+                    print(f"Robustness test for {model_class.model_name}")
                     robustness_test(
                         n_trials=n_trials_robustness,
                         model=model,
                         hpam_set=best_hpams,
-                        path_data="data",
+                        path_data=path_data,
                         train_dataset=train_dataset,
                         test_dataset=test_dataset,
                         early_stopping_dataset=(
@@ -275,6 +281,13 @@ def drug_response_experiment(
                         split_index=split_index,
                         response_transformation=response_transformation,
                     )
+
+
+def handle_overwrite(path: str, overwrite: bool) -> None:
+    """Handle overwrite logic for a given path."""
+    if os.path.exists(path) and overwrite:
+        shutil.rmtree(path)
+    os.makedirs(path, exist_ok=True)
 
 
 def load_features(
@@ -445,6 +458,7 @@ def robustness_test(
     robustness_test_path = os.path.join(path_out, "robustness_test")
     os.makedirs(robustness_test_path, exist_ok=True)
     for trial in range(n_trials):
+        print(f"Running robustness test trial {trial+1}/{n_trials}")
         trial_file = os.path.join(
             robustness_test_path,
             f"robustness_{trial+1}_split_{split_index}.csv",
@@ -552,6 +566,7 @@ def randomization_test(
             randomization_test_file
         ):  # if this splits test has not been run yet
             for view in views:
+                print(f"Randomizing view {view} for randomization test {test_name} ...")
                 randomize_train_predict(
                     view=view,
                     test_name=test_name,
@@ -780,6 +795,7 @@ def hpam_tune(
     early_stopping_dataset: Optional[DrugResponseDataset] = None,
     response_transformation: Optional[TransformerMixin] = None,
     metric: str = "RMSE",
+    path_data: str = "data",
 ) -> Dict:
     """
     Tune the hyperparameters for the given model
@@ -790,6 +806,7 @@ def hpam_tune(
     :param early_stopping_dataset:
     :param response_transformation:
     :param metric:
+    :param path_data:
     :return:
     """
     if len(hpam_set) == 1:
@@ -803,7 +820,7 @@ def hpam_tune(
         score = train_and_evaluate(
             model=model,
             hpams=hyperparameter,
-            path_data="data",
+            path_data=path_data,
             train_dataset=train_dataset,
             validation_dataset=validation_dataset,
             early_stopping_dataset=early_stopping_dataset,
@@ -828,6 +845,7 @@ def hpam_tune_composite_model(
     early_stopping_dataset: Optional[DrugResponseDataset] = None,
     response_transformation: Optional[TransformerMixin] = None,
     metric: str = "RMSE",
+    path_data: str = "data",
 ) -> Dict[str, Dict]:
     """
     Tune the hyperparameters for the composite model
@@ -838,6 +856,7 @@ def hpam_tune_composite_model(
     :param early_stopping_dataset:
     :param response_transformation:
     :param metric:
+    :param path_data:
     :return:
     """
 
@@ -858,7 +877,7 @@ def hpam_tune_composite_model(
         validation_dataset = train_and_predict(
             model=model,
             hpams=hyperparameters_per_drug,
-            path_data="data",
+            path_data=path_data,
             train_dataset=train_dataset,
             early_stopping_dataset=early_stopping_dataset,
             prediction_dataset=validation_dataset,
@@ -887,8 +906,9 @@ def hpam_tune_raytune(
     early_stopping_dataset: Optional[DrugResponseDataset],
     hpam_set: List[Dict],
     response_transformation: Optional[TransformerMixin] = None,
-    metric: str = "rmse",
+    metric: str = "RMSE",
     ray_path: str = "raytune",
+    path_data: str = "data",
 ) -> Dict:
     """
     Tune the hyperparameters for the given model using raytune
@@ -900,6 +920,7 @@ def hpam_tune_raytune(
     :param response_transformation:
     :param metric:
     :param ray_path:
+    :param path_data:
     :return:
     """
     if len(hpam_set) == 1:
@@ -913,7 +934,7 @@ def hpam_tune_raytune(
         lambda hpams: train_and_evaluate(
             model=model,
             hpams=hpams,
-            path_data="data",
+            path_data=path_data,
             train_dataset=train_dataset,
             validation_dataset=validation_dataset,
             early_stopping_dataset=early_stopping_dataset,

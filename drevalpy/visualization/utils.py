@@ -1,9 +1,13 @@
+"""
+Utility functions for the visualization part of the package.
+"""
+import os
+import pathlib
 import shutil
 from typing import List
 import importlib_resources
 import pandas as pd
-import pathlib
-import os
+
 
 from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.evaluation import evaluate, AVAILABLE_METRICS
@@ -15,7 +19,13 @@ from drevalpy.visualization.critical_difference_plot import CriticalDifferencePl
 
 
 def parse_layout(f, path_to_layout):
-    with open(path_to_layout, "r") as layout_f:
+    """
+    Parse the layout file and write it to the output file.
+    :param f:
+    :param path_to_layout:
+    :return:
+    """
+    with open(path_to_layout, "r", encoding="utf-8") as layout_f:
         layout = layout_f.readlines()
     if path_to_layout.endswith("index_layout.html"):
         # remove the last 2 lines (</body>, </html>)
@@ -27,6 +37,11 @@ def parse_layout(f, path_to_layout):
 
 
 def parse_results(path_to_results: str):
+    """
+    Parse the results from the given directory.
+    :param path_to_results:
+    :return:
+    """
     print("Generating result tables ...")
     # generate list of all result files
     result_dir = pathlib.Path(path_to_results)
@@ -95,6 +110,13 @@ def parse_results(path_to_results: str):
 
 
 def evaluate_file(pred_file: pathlib.Path, test_mode: str, model_name: str):
+    """
+    Evaluate the predictions from the final models.
+    :param pred_file:
+    :param test_mode:
+    :param model_name:
+    :return:
+    """
     print("Parsing file:", os.path.normpath(pred_file))
     result = pd.read_csv(pred_file)
     dataset = DrugResponseDataset(
@@ -122,8 +144,8 @@ def evaluate_file(pred_file: pathlib.Path, test_mode: str, model_name: str):
 
     evaluation_results_per_drug = None
     evaluation_results_per_cl = None
-    norm_drug_eval_results = dict()
-    norm_cl_eval_results = dict()
+    norm_drug_eval_results = {}
+    norm_cl_eval_results = {}
 
     if "LPO" in model or "LCO" in model:
         norm_drug_eval_results, evaluation_results_per_drug = evaluate_per_group(
@@ -157,6 +179,13 @@ def evaluate_file(pred_file: pathlib.Path, test_mode: str, model_name: str):
 
 
 def concat_results(norm_group_res, group_by, eval_res):
+    """
+    Concatenate the normalized group results to the evaluation results.
+    :param norm_group_res:
+    :param group_by:
+    :param eval_res:
+    :return:
+    """
     norm_group_res = pd.DataFrame.from_dict(norm_group_res, orient="index")
     # append 'group normalized ' to the column names
     norm_group_res.columns = [
@@ -169,6 +198,15 @@ def concat_results(norm_group_res, group_by, eval_res):
 def prep_results(
     eval_results, eval_results_per_drug, eval_results_per_cell_line, t_vs_p
 ):
+    """
+    Prepare the results by introducing new columns for algorithm, randomization, setting, split,
+    CV_split.
+    :param eval_results:
+    :param eval_results_per_drug:
+    :param eval_results_per_cell_line:
+    :param t_vs_p:
+    :return:
+    """
     # add variables
     # split the index by "_" into: algorithm, randomization, setting, split, CV_split
     new_columns = eval_results.index.str.split("_", expand=True).to_frame()
@@ -197,13 +235,20 @@ def prep_results(
 
 
 def generate_model_names(test_mode, model_name, pred_file):
+    """
+    Generate the model names based on the prediction file.
+    :param test_mode:
+    :param model_name:
+    :param pred_file:
+    :return:
+    """
     file_parts = os.path.basename(pred_file).split("_")
     pred_rand_rob = file_parts[0]
     if pred_rand_rob == "predictions":
         pred_setting = "predictions"
     elif pred_rand_rob == "randomization":
         pred_setting = "randomize-" + "-".join(file_parts[1:-2])
-    elif pred_rand_rob == "robustness_test":
+    elif pred_rand_rob == "robustness":
         pred_setting = "-".join(file_parts[:2])
     else:
         raise ValueError(f"Unknown prediction setting: {pred_rand_rob}")
@@ -214,6 +259,15 @@ def generate_model_names(test_mode, model_name, pred_file):
 def evaluate_per_group(
     df, group_by, norm_group_eval_results, eval_results_per_group, model
 ):
+    """
+    Evaluate the predictions per group.
+    :param df:
+    :param group_by:
+    :param norm_group_eval_results:
+    :param eval_results_per_group:
+    :param model:
+    :return:
+    """
     # calculate the mean of y_true per drug
     print(f"Calculating {group_by}-wise evaluation measures …")
     df[f"mean_y_true_per_{group_by}"] = df.groupby(group_by)["y_true"].transform("mean")
@@ -237,6 +291,14 @@ def evaluate_per_group(
 
 
 def compute_evaluation(df, return_df, group_by, model):
+    """
+    Compute the evaluation metrics per group.
+    :param df:
+    :param return_df:
+    :param group_by:
+    :param model:
+    :return:
+    """
     result_per_group = df.groupby(group_by).apply(
         lambda x: evaluate(
             DrugResponseDataset(
@@ -262,6 +324,15 @@ def compute_evaluation(df, return_df, group_by, model):
 def write_results(
     path_out, eval_results, eval_results_per_drug, eval_results_per_cl, t_vs_p
 ):
+    """
+    Write the results to csv files.
+    :param path_out:
+    :param eval_results:
+    :param eval_results_per_drug:
+    :param eval_results_per_cl:
+    :param t_vs_p:
+    :return:
+    """
     eval_results.to_csv(f"{path_out}evaluation_results.csv", index=True)
     if eval_results_per_drug is not None:
         eval_results_per_drug.to_csv(
@@ -275,6 +346,13 @@ def write_results(
 
 
 def create_index_html(custom_id: str, test_modes: List[str], prefix_results: str):
+    """
+    Create the index.html file.
+    :param custom_id:
+    :param test_modes:
+    :param prefix_results:
+    :return:
+    """
     # copy images to the results directory
     file_to_copy = [
         "favicon.png",
@@ -296,11 +374,12 @@ def create_index_html(custom_id: str, test_modes: List[str], prefix_results: str
         "index_layout.html",
     )
     idx_html_path = os.path.join(prefix_results, "index.html")
-    with open(idx_html_path, "w") as f:
+    with open(idx_html_path, "w", encoding="utf-8") as f:
         parse_layout(f=f, path_to_layout=layout_path)
         f.write('<div class="main">\n')
         f.write(
-            '<img src="nf-core-drugresponseeval_logo_light.png" width="364px" height="100px" alt="Logo">\n'
+            '<img src="nf-core-drugresponseeval_logo_light.png" '
+            'width="364px" height="100px" alt="Logo">\n'
         )
         f.write(f"<h1>Results for {custom_id}</h1>\n")
         f.write("<h2>Available settings</h2>\n")
@@ -321,7 +400,8 @@ def create_index_html(custom_id: str, test_modes: List[str], prefix_results: str
                 img_path, os.path.join(prefix_results, f"{lpo_lco_ldo}.png")
             )
             f.write(
-                f'<a href="{lpo_lco_ldo}.html" target="_blank"><img src="{lpo_lco_ldo}.png" style="width:300px;height:300px;"></a>\n'
+                f'<a href="{lpo_lco_ldo}.html" target="_blank"><img src="{lpo_lco_ldo}.png" '
+                f'style="width:300px;height:300px;"></a>\n'
             )
         f.write("</div>\n")
         f.write("</div>\n")
@@ -330,13 +410,21 @@ def create_index_html(custom_id: str, test_modes: List[str], prefix_results: str
 
 
 def create_html(run_id: str, lpo_lco_ldo: str, files: list, prefix_results: str):
+    """
+    Create the html file for the given test mode.
+    :param run_id:
+    :param lpo_lco_ldo:
+    :param files:
+    :param prefix_results:
+    :return:
+    """
     page_layout = os.path.join(
         str(importlib_resources.files("drevalpy")),
         "visualization/style_utils/page_layout.html",
     )
     html_path = os.path.join(prefix_results, f"{lpo_lco_ldo}.html")
 
-    with open(html_path, "w") as f:
+    with open(html_path, "w", encoding="utf-8") as f:
         parse_layout(f=f, path_to_layout=page_layout)
         f.write(f"<h1>Results for {run_id}: {lpo_lco_ldo}</h1>\n")
 
