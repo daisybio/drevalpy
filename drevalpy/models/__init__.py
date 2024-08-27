@@ -22,8 +22,8 @@ from .baselines.naive_pred import (
 )
 from .baselines.sklearn_models import ElasticNetModel, RandomForest, SVMRegressor
 from .baselines.multi_omics_random_forest import MultiOmicsRandomForest
-from .simpleNeuralNetwork.simple_neural_network import SimpleNeuralNetwork
-from .simpleNeuralNetwork.multiomics_neural_network import MultiOmicsNeuralNetwork
+from .SimpleNeuralNetwork.simple_neural_network import SimpleNeuralNetwork
+from .SimpleNeuralNetwork.multiomics_neural_network import MultiOmicsNeuralNetwork
 from .baselines.singledrug_random_forest import SingleDrugRandomForest
 
 MODEL_FACTORY = {
