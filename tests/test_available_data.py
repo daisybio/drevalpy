@@ -9,7 +9,8 @@ def test_factory():
     assert "GDSC1" in RESPONSE_DATASET_FACTORY
     assert "GDSC2" in RESPONSE_DATASET_FACTORY
     assert "CCLE" in RESPONSE_DATASET_FACTORY
-    assert len(RESPONSE_DATASET_FACTORY) == 3
+    assert "Toy_Data" in RESPONSE_DATASET_FACTORY
+    assert len(RESPONSE_DATASET_FACTORY) == 4
 
 
 def test_gdsc1():
