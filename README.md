@@ -10,7 +10,7 @@ The suite is available as [Nextflow pipeline](https://github.com/JudithBernett/n
 
 Create the correct environment:
 ```bash
-conda env create -f models/simpleNeuralNetwork/env.yml
+conda env create -f models/simple_neural_network/env.yml
 pip install .
 ```
 
