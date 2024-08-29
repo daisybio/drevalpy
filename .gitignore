@@ -5,6 +5,7 @@ data/mapping
 data/GDSC1
 data/GDSC2
 data/CCLE
+data/Toy_Data
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

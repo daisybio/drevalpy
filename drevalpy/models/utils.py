@@ -1,8 +1,10 @@
 """
 Utility functions for loading and processing data.
 """
+import os.path
 import warnings
 from typing import Optional
+import pickle
 import pandas as pd
 import numpy as np
 
@@ -16,6 +18,9 @@ def load_cl_ids_from_csv(path: str, dataset_name: str) -> FeatureDataset:
     :param dataset_name:
     :return:
     """
+    if dataset_name == "Toy_Data":
+        return load_toy_features(path, dataset_name, "cell_line")
+
     cl_names = pd.read_csv(f"{path}/{dataset_name}/cell_line_names.csv", index_col=0)
     return FeatureDataset(
         features={cl: {"cell_line_id": np.array([cl])} for cl in cl_names.index}
@@ -33,26 +38,31 @@ def load_and_reduce_gene_features(
     :param dataset_name:
     :return:
     """
-    ge = pd.read_csv(f"{data_path}/{dataset_name}/{feature_type}.csv", index_col=0)
-    if gene_list is None:
-        return FeatureDataset(
+    if dataset_name == "Toy_Data":
+        cl_features = load_toy_features(data_path, dataset_name, "cell_line")
+        dataset_name = "GDSC1"
+    else:
+        ge = pd.read_csv(f"{data_path}/{dataset_name}/{feature_type}.csv", index_col=0)
+        cl_features = FeatureDataset(
             features=iterate_features(df=ge, feature_type=feature_type),
             meta_info={feature_type: ge.columns.values},
         )
+    if gene_list is None:
+        return cl_features
 
     gene_info = pd.read_csv(
         f"{data_path}/{dataset_name}/gene_lists/{gene_list}.csv",
         sep=(
             "\t" if gene_list == "landmark_genes" else ","
-        ),  # TODO harmonize gene lists
+        ),
     )
-    genes_to_use = set(gene_info["Symbol"]) & set(ge.columns)
-    ge = ge[list(genes_to_use)]
-
-    return FeatureDataset(
-        features=iterate_features(df=ge, feature_type=feature_type),
-        meta_info={feature_type: ge.columns.values},
-    )
+    genes_to_use = set(gene_info["Symbol"]) & set(cl_features.meta_info[feature_type])
+    gene_mask = np.array([gene in genes_to_use for gene in cl_features.meta_info[feature_type]])
+    cl_features.meta_info[feature_type] = cl_features.meta_info[feature_type][gene_mask]
+    for cell_line in cl_features.features.keys():
+        cl_features.features[cell_line][feature_type] = cl_features.features[cell_line][
+            feature_type][gene_mask]
+    return cl_features
 
 
 def iterate_features(df: pd.DataFrame, feature_type: str):
@@ -82,6 +92,8 @@ def load_drug_ids_from_csv(data_path: str, dataset_name: str) -> FeatureDataset:
     :param dataset_name:
     :return:
     """
+    if dataset_name == "Toy_Data":
+        return load_toy_features(data_path, dataset_name, "drug")
     drug_names = pd.read_csv(f"{data_path}/{dataset_name}/drug_names.csv", index_col=0)
     return FeatureDataset(
         features={drug: {"drug_id": np.array([drug])} for drug in drug_names.index}
@@ -97,6 +109,8 @@ def load_drug_features_from_fingerprints(
     :param dataset_name:
     :return:
     """
+    if dataset_name == "Toy_Data":
+        return load_toy_features(data_path, dataset_name, "drug")
     fingerprints = pd.read_csv(
         f"{data_path}/{dataset_name}/drug_fingerprints/drug_name_to_demorgan_128_map.csv",
         index_col=0,
@@ -119,6 +133,9 @@ def get_multiomics_feature_dataset(
     :param gene_list:
     :return:
     """
+    if dataset_name == "Toy_Data":
+        return load_toy_features(data_path, dataset_name, "cell_line")
+
     ge_dataset = load_and_reduce_gene_features(
         feature_type="gene_expression",
         gene_list=gene_list,
@@ -156,3 +173,22 @@ def unique(array):
     """
     uniq, index = np.unique(array, return_index=True)
     return uniq[index.argsort()]
+
+
+def load_toy_features(data_path: str, dataset_name: str, feature: str) -> FeatureDataset:
+    """
+    Load toy features.
+    :param data_path: path to data passed via args
+    :param dataset_name: should be Toy_Data
+    :param feature: cell_line or drug
+    :return:
+    """
+    assert dataset_name == "Toy_Data"
+    assert feature in ["cell_line", "drug"]
+    if feature == "cell_line":
+        path_to_features = os.path.join(data_path, dataset_name, "toy_data_cl_features.pkl")
+    else:
+        path_to_features = os.path.join(data_path, dataset_name, "toy_data_drug_features.pkl")
+    with open(path_to_features, "rb") as f:
+        features = pickle.load(f)
+    return features

@@ -1,12 +1,12 @@
 import pytest
 
 from .utils import sample_dataset, call_save_and_load
-from drevalpy.models import SimpleNeuralNetwork, MultiOmicsNeuralNetwork, MODEL_FACTORY
+from drevalpy.models import MODEL_FACTORY
 from drevalpy.evaluation import evaluate
 
 
 @pytest.mark.parametrize("test_mode", ["LPO", "LCO", "LDO"])
-@pytest.mark.parametrize("model_name", ["MultiOmicsNeuralNetwork"])
+@pytest.mark.parametrize("model_name", ["SimpleNeuralNetwork", "MultiOmicsNeuralNetwork"])
 def test_simple_neural_network(sample_dataset, model_name, test_mode):
     drug_response, cell_line_input, drug_input = sample_dataset
     drug_response.split_dataset(

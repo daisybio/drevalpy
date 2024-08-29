@@ -2,8 +2,6 @@
 Utility functions for the evaluation pipeline.
 """
 import argparse
-import os
-import shutil
 from typing import List
 
 from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
@@ -11,6 +9,7 @@ from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
 from drevalpy.models import MODEL_FACTORY
 from drevalpy.datasets import RESPONSE_DATASET_FACTORY
 from drevalpy.evaluation import AVAILABLE_METRICS
+from drevalpy.experiment import drug_response_experiment
 
 
 def get_parser():
@@ -24,6 +23,11 @@ def get_parser():
     parser.add_argument(
         "--run_id", type=str, default="my_run", help="identifier to save the results"
     )
+
+    parser.add_argument(
+        "--path_data", type=str, default="data", help="Path to the data directory"
+    )
+
     parser.add_argument(
         "--models", nargs="+", help="model to evaluate or list of models to compare"
     )
@@ -66,13 +70,13 @@ def get_parser():
         "--randomization_type",
         type=str,
         default="permutation",
-        help="""type of randomization to use. Choose from "permutation" or "invariant". 
-        Default is "permutation"
-            "permutation": permute the features over the instances, keeping the distribution of the 
-            features the same but dissolving the relationship to the target
-            "invariant": the randomization is done in a way that a key characteristic of the 
-            feature is preserved. In case of matrices, this is the mean and standard deviation of 
-            the feature view for this instance, for networks it is the degree distribution.""",
+        help='type of randomization to use. Choose from "permutation" or "invariant". Default is '
+             '"permutation" "permutation": permute the features over the instances, keeping the '
+             'distribution of the  features the same but dissolving the relationship to the '
+             'target "invariant": the randomization is done in a way that a key characteristic of '
+             'the feature is preserved. In case of matrices, this is the mean and standard '
+             'deviation of the feature view for this instance, for networks it is the degree '
+             'distribution.',
     )
     parser.add_argument(
         "--n_trials_robustness",
@@ -208,6 +212,53 @@ def check_arguments(args):
         f" {list(AVAILABLE_METRICS.keys())}")
 
 
+def main(args):
+    """
+    Main function to run the drug response evaluation pipeline.
+    :param args: passed from command line
+    :return:
+    """
+    check_arguments(args)
+
+    # PIPELINE: LOAD_RESPONSE
+    response_data, cross_study_datasets = load_data(
+        dataset_name=args.dataset_name, cross_study_datasets=args.cross_study_datasets,
+        path_data=args.path_data
+    )
+
+    models = [MODEL_FACTORY[model] for model in args.models]
+
+    if args.baselines is not None:
+        baselines = [MODEL_FACTORY[baseline] for baseline in args.baselines]
+    else:
+        baselines = []
+    # TODO Allow for custom randomization tests maybe via config file
+
+    if args.randomization_mode[0] == "None":
+        args.randomization_mode = None
+    response_transformation = get_response_transformation(args.response_transformation)
+
+    for test_mode in args.test_mode:
+        drug_response_experiment(
+            models=models,
+            baselines=baselines,
+            response_data=response_data,
+            response_transformation=response_transformation,
+            metric=args.optim_metric,
+            n_cv_splits=args.n_cv_splits,
+            multiprocessing=args.multiprocessing,
+            test_mode=test_mode,
+            randomization_mode=args.randomization_mode,
+            randomization_type=args.randomization_type,
+            n_trials_robustness=args.n_trials_robustness,
+            cross_study_datasets=cross_study_datasets,
+            path_out=args.path_out,
+            run_id=args.run_id,
+            overwrite=args.overwrite,
+            path_data=args.path_data
+        )
+
+
 def load_data(dataset_name: str, cross_study_datasets: List, path_data: str = "data"):
     """
     Load the response data and cross-study datasets.
@@ -224,13 +275,6 @@ def load_data(dataset_name: str, cross_study_datasets: List, path_data: str = "d
         for dataset in cross_study_datasets
     ]
     return response_data, cross_study_datasets
-
-
-def handle_overwrite(path: str, overwrite: bool) -> None:
-    """Handle overwrite logic for a given path."""
-    if os.path.exists(path) and overwrite:
-        shutil.rmtree(path)
-    os.makedirs(path, exist_ok=True)
 
 
 def get_response_transformation(response_transformation: str):
