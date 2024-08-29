@@ -73,7 +73,9 @@ def predict_matrix(self, data_loader, drug_encoding=None):
 
     preds = []
     if drug_encoding is None:
-        drug_encoding = self.get_drug_encoding() # get the encoding first so that we don't have top run the conv every time
+        drug_encoding = (
+            self.get_drug_encoding()
+        )  # get the encoding first so that we don't have top run the conv every time
     else:
         drug_encoding = drug_encoding.to(self.device)
 

@@ -8,10 +8,11 @@ The DrugResponseDataset class can be split into training, validation and test se
 cross-validation.
 The FeatureDataset class can be used to randomize feature vectors.
 """
+
 from abc import ABC, abstractmethod
 import os
 import copy
-from typing import Dict, List, Optional, Tuple, Union, Any
+from typing import Dict, List, Optional, Tuple, Union, Any, Callable
 import numpy as np
 from numpy.typing import ArrayLike
 import pandas as pd
@@ -20,9 +21,9 @@ from sklearn.model_selection import GroupKFold, train_test_split
 import networkx as nx
 
 from .utils import (
-            randomize_graph,
-            permute_features,
-        )
+    randomize_graph,
+    permute_features,
+)
 
 
 class Dataset(ABC):
@@ -98,13 +99,17 @@ class DrugResponseDataset(Dataset):
 
     def __str__(self):
         if len(self.response) > 3:
-            string = (f"DrugResponseDataset: CLs {self.cell_line_ids[:3]}...; "
-                      f"Drugs {self.drug_ids[:3]}...; "
-                      f"Response {self.response[:3]}...")
+            string = (
+                f"DrugResponseDataset: CLs {self.cell_line_ids[:3]}...; "
+                f"Drugs {self.drug_ids[:3]}...; "
+                f"Response {self.response[:3]}..."
+            )
         else:
-            string = (f"DrugResponseDataset: CLs {self.cell_line_ids}; "
-                      f"Drugs {self.drug_ids}; "
-                      f"Response {self.response}")
+            string = (
+                f"DrugResponseDataset: CLs {self.cell_line_ids}; "
+                f"Drugs {self.drug_ids}; "
+                f"Response {self.response}"
+            )
         if self.predictions is not None:
             if len(self.predictions) > 3:
                 string += f"; Predictions {self.predictions[:3]}..."
@@ -689,8 +694,10 @@ class FeatureDataset(Dataset):
         assert randomization_type in [
             "permutation",
             "invariant",
-        ], (f"Unknown randomization type '{randomization_type}'. "
-            f"Choose from 'permutation', 'invariant'.")
+        ], (
+            f"Unknown randomization type '{randomization_type}'. "
+            f"Choose from 'permutation', 'invariant'."
+        )
 
         if isinstance(views_to_randomize, str):
             views_to_randomize = [views_to_randomize]
@@ -719,8 +726,8 @@ class FeatureDataset(Dataset):
                             self.features[identifier][view].std(),
                             self.features[identifier][view].shape,
                         )
-                    elif (
-                        isinstance(self.features[identifier][view], nx.classes.graph.Graph)
+                    elif isinstance(
+                        self.features[identifier][view], nx.classes.graph.Graph
                     ):
                         new_features = randomize_graph(self.features[identifier][view])
 
@@ -758,10 +765,10 @@ class FeatureDataset(Dataset):
         missing_identifiers = {
             id_ for id_ in identifiers if id_ not in self.identifiers
         }
-        assert (
-            not missing_identifiers
-        ), (f"{len(missing_identifiers)} of {len(np.unique(identifiers))} ids are not in the "
-            f"FeatureDataset. Missing ids: {missing_identifiers}")
+        assert not missing_identifiers, (
+            f"{len(missing_identifiers)} of {len(np.unique(identifiers))} ids are not in the "
+            f"FeatureDataset. Missing ids: {missing_identifiers}"
+        )
 
         assert all(
             len(self.features[id_][view]) == len(self.features[identifiers[0]][view])
@@ -811,3 +818,62 @@ class FeatureDataset(Dataset):
         """
         other_meta = other.meta_info
         self.meta_info.update(other_meta)
+
+    def transform_features(
+        self, ids: ArrayLike, transformer: TransformerMixin, view: str
+    ):
+        """
+        Applies a transformation like standard scaling to features.
+        :param ids: The IDs to transform
+        :param transformer: fitted sklearn transformer
+        :param view: the view to transform
+        """
+        assert (
+            view in self.view_names
+        ), f"Transform view '{view}' not in in the FeatureDataset."
+        assert all(
+            [clid in self.features for clid in ids]
+        ), "Trying to transform, but a cell line is missing."
+
+        for identifier in ids:
+            feature = self.features[identifier][view]
+            scaled_feature = transformer.transform([feature])[0]
+            self.features[identifier][view] = scaled_feature
+
+    def fit_transform_features(
+        self, train_ids: ArrayLike, transformer: TransformerMixin, view: str
+    ):
+        """
+        Fits and applies a transformation. Fitting is done only on the train_ids.
+        :param train_ids: The IDs corresponding to the training dataset.
+        :param transformer: sklearn transformer
+        :param view: the view to transform
+        :return: The modified FeatureDataset with transformed gene expression features.
+        """
+        assert (
+            view in self.view_names
+        ), f"Transform view '{view}' not in in the FeatureDataset."
+
+        train_features = []
+
+        # Collect all features of the view for fitting the scaler
+        for identifier in train_ids:
+            feature_vector = self.features[identifier][view]
+            train_features.append(feature_vector)
+
+        # Fit the scaler on the collected feature data
+        train_features = np.vstack(train_features)
+        transformer.fit(train_features)
+
+        # Apply transformation and scaling to each feature vector
+        for identifier in self.features:
+            feature_vector = self.features[identifier][view]
+            scaled_gene_expression = transformer.transform([feature_vector])[0]
+            self.features[identifier][view] = scaled_gene_expression
+
+    def apply(self, function: Callable, view: str):
+        """
+        Applies a function to the features of a view.
+        """
+        for identifier in self.features:
+            self.features[identifier][view] = function(self.features[identifier][view])

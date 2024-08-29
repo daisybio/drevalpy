@@ -4,6 +4,7 @@ models, the SingleDrugModel class, which is an abstract wrapper class for single
 CompositeDrugModel class, which transforms multiple separate single drug response prediction models
 into a global model by applying a separate model for each drug.
 """
+
 from abc import ABC, abstractmethod
 import inspect
 import os
@@ -45,9 +46,7 @@ class DRPModel(ABC):
             )
 
         with open(hyperparameter_file, "r", encoding="utf-8") as f:
-            hpams = yaml.load(f, Loader=yaml.FullLoader)[
-                cls.model_name
-            ]
+            hpams = yaml.load(f, Loader=yaml.FullLoader)[cls.model_name]
         if hpams is None:
             return [{}]
 
@@ -288,10 +287,10 @@ class CompositeDrugModel(DRPModel):
         """
         drugs = np.unique(output.drug_ids)
         for i, drug in enumerate(drugs):
-            assert (
-                drug in self.models
-            ), (f"Drug {drug} not in models. Maybe the CompositeDrugModel was not built or drug "
-                f"missing from train data.")
+            assert drug in self.models, (
+                f"Drug {drug} not in models. Maybe the CompositeDrugModel was not built or drug "
+                f"missing from train data."
+            )
             print(f"Training model for drug {drug} ({i+1}/{len(drugs)})")
             output_mask = output.drug_ids == drug
             output_drug = output.copy()

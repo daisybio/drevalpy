@@ -1,6 +1,7 @@
 """
 Toy dataset.
 """
+
 import os
 import pickle
 
@@ -15,10 +16,10 @@ class Toy(DrugResponseDataset):
     """
 
     def __init__(
-            self,
-            path_data: str = "data",
-            file_name: str = "toy_data_drp_dataset.pkl",
-            dataset_name: str = "Toy_Data",
+        self,
+        path_data: str = "data",
+        file_name: str = "toy_data_drp_dataset.pkl",
+        dataset_name: str = "Toy_Data",
     ):
         path = os.path.join(path_data, dataset_name, file_name)
         if not os.path.exists(path):

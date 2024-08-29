@@ -1,6 +1,7 @@
 """
 Contains the MultiOmicsNeuralNetwork model.
 """
+
 import warnings
 from typing import Optional, Dict
 import numpy as np

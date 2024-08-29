@@ -1,6 +1,7 @@
 """
 Contains sklearn baseline models: ElasticNet, RandomForest, SVM
 """
+
 from typing import Dict
 import numpy as np
 from sklearn.linear_model import ElasticNet, Ridge
@@ -20,6 +21,7 @@ class SklearnModel(DRPModel):
     """
     Parent class that contains the common methods for the sklearn models.
     """
+
     cell_line_views = ["gene_expression"]
     drug_views = ["fingerprints"]
 
@@ -33,14 +35,16 @@ class SklearnModel(DRPModel):
         :param hyperparameters: Custom hyperparameters for the model, have to be defined in the
         child class.
         """
-        raise NotImplementedError("build_model method has to be implemented in the child class.")
+        raise NotImplementedError(
+            "build_model method has to be implemented in the child class."
+        )
 
     def train(
         self,
         output: DrugResponseDataset,
         cell_line_input: FeatureDataset,
         drug_input: FeatureDataset = None,
-        output_earlystopping = None
+        output_earlystopping=None,
     ) -> None:
         """
         Trains the model: the number of features is the number of genes + the number of
@@ -60,7 +64,6 @@ class SklearnModel(DRPModel):
             drug_input=drug_input,
         )
         self.model.fit(x, output.response)
-
 
     def predict(
         self,
@@ -115,6 +118,7 @@ class ElasticNetModel(SklearnModel):
     """
     ElasticNet model for drug response prediction.
     """
+
     model_name = "ElasticNet"
 
     def build_model(self, hyperparameters: Dict):
@@ -134,6 +138,7 @@ class RandomForest(SklearnModel):
     """
     RandomForest model for drug response prediction.
     """
+
     model_name = "RandomForest"
 
     def build_model(self, hyperparameters: Dict):
@@ -158,6 +163,7 @@ class SVMRegressor(SklearnModel):
     """
     SVM model for drug response prediction.
     """
+
     model_name = "SVR"
 
     def build_model(self, hyperparameters: Dict):
