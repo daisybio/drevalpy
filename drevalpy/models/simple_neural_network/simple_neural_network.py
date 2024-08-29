@@ -13,6 +13,7 @@ from ..utils import (
 )
 from .utils import FeedForwardNetwork
 from ..drp_model import DRPModel
+from sklearn.preprocessing import StandardScaler
 
 
 class SimpleNeuralNetwork(DRPModel):
@@ -32,6 +33,7 @@ class SimpleNeuralNetwork(DRPModel):
     def __init__(self):
         super().__init__()
         self.model = None
+        self.gene_expression_scaler = StandardScaler()
 
     def build_model(self, hyperparameters: Dict):
         """
@@ -57,7 +59,9 @@ class SimpleNeuralNetwork(DRPModel):
         :param output_earlystopping: optional early stopping dataset
 
         """
-
+        # Apply arcsinh transformation and scaling to gene expression features
+        if "gene_expression" in self.cell_line_views:
+            cell_line_input = self._fit_transform_gene_expression_features(cell_line_input, output.cell_line_ids)
         with warnings.catch_warnings():
             warnings.filterwarnings(
                 "ignore",
@@ -91,6 +95,10 @@ class SimpleNeuralNetwork(DRPModel):
         """
         Predicts the response for the given input.
         """
+        # Apply the transformation to gene expression features before prediction
+        if "gene_expression" in self.cell_line_views:
+            cell_line_input = self._transform_gene_expression_features(cell_line_input=cell_line_input, cell_line_ids=cell_line_ids)
+
         x = self.get_concatenated_features(
             cell_line_view="gene_expression",
             drug_view="fingerprints",
@@ -122,3 +130,47 @@ class SimpleNeuralNetwork(DRPModel):
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
 
         return load_drug_features_from_fingerprints(data_path, dataset_name)
+    
+    def _transform_gene_expression_features(self, cell_line_input: FeatureDataset, cell_line_ids: ArrayLike) -> FeatureDataset:
+        """
+        Applies arcsinh transformation and scaling to gene expression features during prediction.
+        """
+        cell_line_input = cell_line_input.copy()
+        for cell_line_id in cell_line_ids:
+            gene_expression = cell_line_input.features[cell_line_id]["gene_expression"]
+            transformed_gene_expression = np.arcsinh(gene_expression)
+            scaled_gene_expression = self.gene_expression_scaler.transform([transformed_gene_expression])[0]
+            cell_line_input.features[cell_line_id]["gene_expression"] = scaled_gene_expression
+
+        return cell_line_input
+    
+    def _fit_transform_gene_expression_features(self, cell_line_input: FeatureDataset, train_cell_line_ids) -> FeatureDataset:
+        """
+        Applies arcsinh transformation and scaling to gene expression features for each cell line. Only train cell lines are used for fiiting the Scaler.
+        :param cell_line_input: The feature dataset containing cell line features.
+        :param cell_line_ids: The cell line IDs corresponding to the training dataset.
+        :return: The modified FeatureDataset with transformed gene expression features.
+        """
+        cell_line_input = cell_line_input.copy()
+
+        train_gene_expression = []
+
+        # Collect all gene expression features for fitting the scaler
+        for cell_line_id in train_cell_line_ids:
+            gene_expression = cell_line_input.features[cell_line_id]["gene_expression"]
+            transformed_gene_expression = np.arcsinh(gene_expression)
+            train_gene_expression.append(transformed_gene_expression)
+
+        # Fit the scaler on the collected gene expression data
+        train_gene_expression = np.vstack(train_gene_expression)
+        self.gene_expression_scaler.fit(train_gene_expression)
+
+        # Apply transformation and scaling to each cell line's gene expression data
+        for cell_line_id in cell_line_input.features:
+            gene_expression = cell_line_input.features[cell_line_id]["gene_expression"]
+            transformed_gene_expression = np.arcsinh(gene_expression)
+            scaled_gene_expression = self.gene_expression_scaler.transform([transformed_gene_expression])[0]
+            cell_line_input.features[cell_line_id]["gene_expression"] = scaled_gene_expression
+
+        return cell_line_input
+
