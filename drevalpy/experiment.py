@@ -1,6 +1,7 @@
 """
 Main module for running the drug response prediction experiment.
 """
+
 import os
 from typing import Dict, List, Optional, Tuple, Type
 import warnings
@@ -132,8 +133,10 @@ def drug_response_experiment(
         model_hpam_set = model_class.get_hyperparameter_set()
 
         for split_index, split in enumerate(response_data.cv_splits):
-            print(f"################# FOLD {split_index+1}/{len(response_data.cv_splits)} "
-                  f"#################")
+            print(
+                f"################# FOLD {split_index+1}/{len(response_data.cv_splits)} "
+                f"#################"
+            )
             prediction_file = os.path.join(
                 predictions_path, f"predictions_split_{split_index}.csv"
             )
@@ -217,7 +220,9 @@ def drug_response_experiment(
                 )
 
                 for cross_study_dataset in cross_study_datasets:
-                    print(f"Cross study prediction on {cross_study_dataset.dataset_name}")
+                    print(
+                        f"Cross study prediction on {cross_study_dataset.dataset_name}"
+                    )
                     cross_study_dataset.remove_nan_responses()
                     cross_study_prediction(
                         dataset=cross_study_dataset,
@@ -237,10 +242,12 @@ def drug_response_experiment(
             else:
                 print(f"Split {split_index} already exists. Skipping.")
                 with open(
-                        os.path.join(
-                            predictions_path, f"best_hpams_split_{split_index}.json"
-                        ), "w", encoding="utf-8"
-                    ) as f:
+                    os.path.join(
+                        predictions_path, f"best_hpams_split_{split_index}.json"
+                    ),
+                    "w",
+                    encoding="utf-8",
+                ) as f:
                     best_hpams = json.load(f)
             if not is_baseline:
                 if randomization_mode is not None:
@@ -334,7 +341,7 @@ def cross_study_prediction(
     drugs_to_remove = drug_features.identifiers if drug_features is not None else None
 
     print(
-        f'Reducing cross study dataset ... feature data available for '
+        f"Reducing cross study dataset ... feature data available for "
         f'{len(cell_lines_to_remove) if cell_lines_to_remove else "all"} cell lines '
         f'and {len(drugs_to_remove)if drugs_to_remove else "all"} drugs.'
     )
@@ -347,8 +354,8 @@ def cross_study_prediction(
     # remove rows which overlap in the training. depends on the test mode
     if test_mode == "LPO":
         train_pairs = {
-                f"{cl}_{drug}"
-                for cl, drug in zip(train_dataset.cell_line_ids, train_dataset.drug_ids)
+            f"{cl}_{drug}"
+            for cl, drug in zip(train_dataset.cell_line_ids, train_dataset.drug_ids)
         }
         dataset_pairs = [
             f"{cl}_{drug}" for cl, drug in zip(dataset.cell_line_ids, dataset.drug_ids)
@@ -709,7 +716,7 @@ def train_and_predict(
     drugs_to_remove = drug_features.identifiers if drug_features is not None else None
 
     print(
-        f'Reducing datasets ... feature data available for '
+        f"Reducing datasets ... feature data available for "
         f'{len(cell_lines_to_remove) if cell_lines_to_remove else "all"} cell lines '
         f'and {len(drugs_to_remove)if drugs_to_remove else "all"} drugs.'
     )

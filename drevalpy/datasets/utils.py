@@ -1,6 +1,7 @@
 """
 Utility functions for datasets.
 """
+
 import zipfile
 import os
 from typing import List
@@ -31,11 +32,15 @@ def download_dataset(
         # Fetch the latest record
         response = requests.get(url, timeout=10)
         if response.status_code != 200:
-            raise requests.exceptions.HTTPError(f"Error fetching record: {response.status_code}")
+            raise requests.exceptions.HTTPError(
+                f"Error fetching record: {response.status_code}"
+            )
         latest_url = response.links["linkset"]["url"]
         response = requests.get(latest_url, timeout=10)
         if response.status_code != 200:
-            raise requests.exceptions.HTTPError(f"Error fetching record: {response.status_code}")
+            raise requests.exceptions.HTTPError(
+                f"Error fetching record: {response.status_code}"
+            )
         data = response.json()
 
         # Ensure the save path exists
@@ -48,8 +53,9 @@ def download_dataset(
         print(f"Downloading {dataset} from {file_url}...")
         response = requests.get(file_url, timeout=10)
         if response.status_code != 200:
-            raise requests.exceptions.HTTPError(f"Error downloading file {dataset}: "
-                                                f"{response.status_code}")
+            raise requests.exceptions.HTTPError(
+                f"Error downloading file {dataset}: " f"{response.status_code}"
+            )
 
         # Save the file
         with open(file_path, "wb") as f:

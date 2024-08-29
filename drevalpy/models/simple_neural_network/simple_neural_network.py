@@ -1,6 +1,7 @@
 """
 Contains the SimpleNeuralNetwork model.
 """
+
 import warnings
 from typing import Optional, Dict
 import numpy as np
@@ -63,7 +64,11 @@ class SimpleNeuralNetwork(DRPModel):
         if "gene_expression" in self.cell_line_views:
             cell_line_input = cell_line_input.copy()
             cell_line_input.apply(function=np.arcsinh, view="gene_expression")
-            cell_line_input.fit_transform_features(train_ids=output.cell_line_ids, transformer=self.gene_expression_scaler, view="gene_expression")
+            cell_line_input.fit_transform_features(
+                train_ids=output.cell_line_ids,
+                transformer=self.gene_expression_scaler,
+                view="gene_expression",
+            )
 
         with warnings.catch_warnings():
             warnings.filterwarnings(
@@ -102,7 +107,11 @@ class SimpleNeuralNetwork(DRPModel):
         if "gene_expression" in self.cell_line_views:
             cell_line_input = cell_line_input.copy()
             cell_line_input.apply(function=np.arcsinh, view="gene_expression")
-            cell_line_input.transform_features(ids=cell_line_ids, transformer=self.gene_expression_scaler, view="gene_expression")
+            cell_line_input.transform_features(
+                ids=cell_line_ids,
+                transformer=self.gene_expression_scaler,
+                view="gene_expression",
+            )
 
         x = self.get_concatenated_features(
             cell_line_view="gene_expression",

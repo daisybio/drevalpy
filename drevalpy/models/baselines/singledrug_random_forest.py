@@ -2,6 +2,7 @@
 Contains the SingleDrugRandomForest class, which is a RandomForest model that uses only gene
 expression dataset for drug response prediction and trains one model per drug.
 """
+
 from typing import Optional
 import numpy as np
 from numpy.typing import ArrayLike
@@ -15,16 +16,17 @@ class SingleDrugRandomForest(SingleDrugModel, RandomForest):
     """
     SingleDrugRandomForest class.
     """
+
     drug_views = []
     model_name = "SingleDrugRandomForest"
     early_stopping = False
 
     def train(
-            self,
-            output: DrugResponseDataset,
-            cell_line_input: FeatureDataset,
-            drug_input=None,
-            output_earlystopping=None
+        self,
+        output: DrugResponseDataset,
+        cell_line_input: FeatureDataset,
+        drug_input=None,
+        output_earlystopping=None,
     ) -> None:
         """
         Trains the model: the number of features is the number of fingerprints.
@@ -35,8 +37,10 @@ class SingleDrugRandomForest(SingleDrugModel, RandomForest):
         :param output_earlystopping: not needed
         """
         if drug_input is not None or output_earlystopping is not None:
-            raise ValueError("SingleDrugRandomForest does not support drug_input or "
-                             "output_earlystopping!")
+            raise ValueError(
+                "SingleDrugRandomForest does not support drug_input or "
+                "output_earlystopping!"
+            )
 
         x = self.get_concatenated_features(
             cell_line_view="gene_expression",
@@ -53,7 +57,7 @@ class SingleDrugRandomForest(SingleDrugModel, RandomForest):
         drug_ids: ArrayLike,
         cell_line_ids: ArrayLike,
         drug_input: Optional[FeatureDataset] = None,
-        cell_line_input: FeatureDataset = None
+        cell_line_input: FeatureDataset = None,
     ) -> np.ndarray:
         x = self.get_concatenated_features(
             cell_line_view="gene_expression",

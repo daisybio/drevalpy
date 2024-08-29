@@ -1,6 +1,7 @@
 """
 Utility functions for the simple neural network models.
 """
+
 import os
 import random
 from typing import Optional, List
@@ -18,6 +19,7 @@ class RegressionDataset(Dataset):
     """
     Dataset for regression tasks for the data loader.
     """
+
     def __init__(
         self,
         output: DrugResponseDataset,
@@ -67,11 +69,11 @@ class RegressionDataset(Dataset):
                 drug_features = np.concatenate(
                     (drug_features, self.drug_input.features[drug_id][d_view])
                 )
-        assert (
-            isinstance(cell_line_features, np.ndarray)
+        assert isinstance(
+            cell_line_features, np.ndarray
         ), f"Cell line features for {cell_line_id} are not numpy array"
-        assert (
-            isinstance(drug_features, np.ndarray)
+        assert isinstance(
+            drug_features, np.ndarray
         ), f"Drug features for {drug_id} are not numpy array"
         data = np.concatenate((cell_line_features, drug_features))
         # cast to float32
@@ -87,6 +89,7 @@ class FeedForwardNetwork(pl.LightningModule):
     """
     Feed forward neural network for regression tasks with basic architecture.
     """
+
     def __init__(self, n_units_per_layer=None, dropout_prob=None) -> None:
         super().__init__()
         if n_units_per_layer is None:
@@ -225,7 +228,7 @@ class FeedForwardNetwork(pl.LightningModule):
             if self.dropout_layer is not None:
                 x = self.dropout_layer(x)
             x = torch.relu(x)
-            
+
         x = torch.relu(self.fully_connected_layers[-2](x))
         x = self.fully_connected_layers[-1](x)
 
@@ -241,18 +244,14 @@ class FeedForwardNetwork(pl.LightningModule):
         self.fully_connected_layers.append(
             nn.Linear(n_features, self.n_units_per_layer[0])
         )
-        self.batch_norm_layers.append(
-            nn.BatchNorm1d(self.n_units_per_layer[0])
-        )
-        
+        self.batch_norm_layers.append(nn.BatchNorm1d(self.n_units_per_layer[0]))
+
         for i in range(1, len(self.n_units_per_layer)):
             self.fully_connected_layers.append(
                 nn.Linear(self.n_units_per_layer[i - 1], self.n_units_per_layer[i])
             )
-            self.batch_norm_layers.append(
-                nn.BatchNorm1d(self.n_units_per_layer[i])
-            )
-        
+            self.batch_norm_layers.append(nn.BatchNorm1d(self.n_units_per_layer[i]))
+
         self.fully_connected_layers.append(nn.Linear(self.n_units_per_layer[-1], 1))
         if self.dropout_prob is not None:
             self.dropout_layer = nn.Dropout(p=self.dropout_prob)

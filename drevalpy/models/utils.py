@@ -1,6 +1,7 @@
 """
 Utility functions for loading and processing data.
 """
+
 import os.path
 import warnings
 from typing import Optional
@@ -53,16 +54,17 @@ def load_and_reduce_gene_features(
 
     gene_info = pd.read_csv(
         f"{data_path}/{dataset_name}/gene_lists/{gene_list}.csv",
-        sep=(
-            "\t" if gene_list == "landmark_genes" else ","
-        ),
+        sep=("\t" if gene_list == "landmark_genes" else ","),
     )
     genes_to_use = set(gene_info["Symbol"]) & set(cl_features.meta_info[feature_type])
-    gene_mask = np.array([gene in genes_to_use for gene in cl_features.meta_info[feature_type]])
+    gene_mask = np.array(
+        [gene in genes_to_use for gene in cl_features.meta_info[feature_type]]
+    )
     cl_features.meta_info[feature_type] = cl_features.meta_info[feature_type][gene_mask]
     for cell_line in cl_features.features.keys():
         cl_features.features[cell_line][feature_type] = cl_features.features[cell_line][
-            feature_type][gene_mask]
+            feature_type
+        ][gene_mask]
     return cl_features
 
 
@@ -176,7 +178,9 @@ def unique(array):
     return uniq[index.argsort()]
 
 
-def load_toy_features(data_path: str, dataset_name: str, feature: str) -> FeatureDataset:
+def load_toy_features(
+    data_path: str, dataset_name: str, feature: str
+) -> FeatureDataset:
     """
     Load toy features.
     :param data_path: path to data passed via args
@@ -187,9 +191,13 @@ def load_toy_features(data_path: str, dataset_name: str, feature: str) -> Featur
     assert dataset_name == "Toy_Data"
     assert feature in ["cell_line", "drug"]
     if feature == "cell_line":
-        path_to_features = os.path.join(data_path, dataset_name, "toy_data_cl_features.pkl")
+        path_to_features = os.path.join(
+            data_path, dataset_name, "toy_data_cl_features.pkl"
+        )
     else:
-        path_to_features = os.path.join(data_path, dataset_name, "toy_data_drug_features.pkl")
+        path_to_features = os.path.join(
+            data_path, dataset_name, "toy_data_drug_features.pkl"
+        )
     with open(path_to_features, "rb") as f:
         features = pickle.load(f)
     return features

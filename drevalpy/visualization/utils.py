@@ -1,6 +1,7 @@
 """
 Utility functions for the visualization part of the package.
 """
+
 import os
 import pathlib
 import shutil
