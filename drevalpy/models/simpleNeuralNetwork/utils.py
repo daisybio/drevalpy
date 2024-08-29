@@ -90,13 +90,14 @@ class FeedForwardNetwork(pl.LightningModule):
     def __init__(self, n_units_per_layer=None, dropout_prob=None) -> None:
         super().__init__()
         if n_units_per_layer is None:
-            n_units_per_layer = [512, 64]
+            n_units_per_layer = [256, 64]
         self.n_units_per_layer = n_units_per_layer
         self.dropout_prob = dropout_prob
         self.model_initialized = False
         self.loss = nn.MSELoss()
         self.checkpoint_callback = None
         self.fully_connected_layers = nn.ModuleList()
+        self.batch_norm_layers = nn.ModuleList()
         self.dropout_layer = None
 
     def fit(
@@ -131,7 +132,7 @@ class FeedForwardNetwork(pl.LightningModule):
         :return:
         """
         if trainer_params is None:
-            trainer_params = {"progress_bar_refresh_rate": 0, "max_epochs": 100}
+            trainer_params = {"progress_bar_refresh_rate": 300, "max_epochs": 100}
 
         train_dataset = RegressionDataset(
             output=output_train,
@@ -202,6 +203,7 @@ class FeedForwardNetwork(pl.LightningModule):
             **trainer_params_copy,
         )
         if val_loader is None:
+
             trainer.fit(self, train_loader)
         else:
             trainer.fit(self, train_loader, val_loader)
@@ -217,12 +219,16 @@ class FeedForwardNetwork(pl.LightningModule):
         if not self.model_initialized:
             self.initialize_model(x)
 
-        for layer in self.fully_connected_layers[:-2]:
+        for i in range(len(self.fully_connected_layers) - 2):
+            x = self.fully_connected_layers[i](x)
+            x = self.batch_norm_layers[i](x)
             if self.dropout_layer is not None:
                 x = self.dropout_layer(x)
-            x = torch.relu(layer(x))
+            x = torch.relu(x)
+            
         x = torch.relu(self.fully_connected_layers[-2](x))
         x = self.fully_connected_layers[-1](x)
+
         return x.squeeze()
 
     def initialize_model(self, x):
@@ -235,10 +241,18 @@ class FeedForwardNetwork(pl.LightningModule):
         self.fully_connected_layers.append(
             nn.Linear(n_features, self.n_units_per_layer[0])
         )
+        self.batch_norm_layers.append(
+            nn.BatchNorm1d(self.n_units_per_layer[0])
+        )
+        
         for i in range(1, len(self.n_units_per_layer)):
             self.fully_connected_layers.append(
                 nn.Linear(self.n_units_per_layer[i - 1], self.n_units_per_layer[i])
             )
+            self.batch_norm_layers.append(
+                nn.BatchNorm1d(self.n_units_per_layer[i])
+            )
+        
         self.fully_connected_layers.append(nn.Linear(self.n_units_per_layer[-1], 1))
         if self.dropout_prob is not None:
             self.dropout_layer = nn.Dropout(p=self.dropout_prob)
@@ -279,4 +293,5 @@ class FeedForwardNetwork(pl.LightningModule):
         return y_pred
 
     def configure_optimizers(self):
+
         return torch.optim.Adam(self.parameters())
