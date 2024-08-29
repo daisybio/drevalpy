@@ -11,7 +11,7 @@ The FeatureDataset class can be used to randomize feature vectors.
 from abc import ABC, abstractmethod
 import os
 import copy
-from typing import Dict, List, Optional, Tuple, Union, Any
+from typing import Dict, List, Optional, Tuple, Union, Any, Callable
 import numpy as np
 from numpy.typing import ArrayLike
 import pandas as pd
@@ -811,3 +811,53 @@ class FeatureDataset(Dataset):
         """
         other_meta = other.meta_info
         self.meta_info.update(other_meta)
+    
+    def transform_features(self, ids: ArrayLike, transformer: TransformerMixin, view: str):
+        """
+        Applies a transformation like standard scaling to features.
+        :param ids: The IDs to transform
+        :param transformer: fitted sklearn transformer
+        :param view: the view to transform
+        """
+        assert view in self.view_names, f"Transform view '{view}' not in in the FeatureDataset."
+        assert all([clid in self.features for clid in ids]), "Trying to transform, but a cell line is missing."
+
+        for identifier in ids:
+            feature = self.features[identifier][view]
+            scaled_feature = transformer.transform([feature])[0]
+            self.features[identifier][view] = scaled_feature
+
+    
+    def fit_transform_features(self, train_ids: ArrayLike, transformer: TransformerMixin, view: str):
+        """
+        Fits and applies a transformation. Fitting is done only on the train_ids.
+        :param train_ids: The IDs corresponding to the training dataset.
+        :param transformer: sklearn transformer
+        :param view: the view to transform
+        :return: The modified FeatureDataset with transformed gene expression features.
+        """
+        assert view in self.view_names, f"Transform view '{view}' not in in the FeatureDataset."
+
+        train_features = []
+
+        # Collect all features of the view for fitting the scaler 
+        for identifier in train_ids:
+            feature_vector = self.features[identifier][view]
+            train_features.append(feature_vector)
+
+        # Fit the scaler on the collected feature data
+        train_features = np.vstack(train_features)
+        transformer.fit(train_features)
+
+        # Apply transformation and scaling to each feature vector
+        for identifier in self.features:
+            feature_vector = self.features[identifier][view]
+            scaled_gene_expression = transformer.transform([feature_vector])[0]
+            self.features[identifier][view] = scaled_gene_expression
+
+    def apply(self, function: Callable, view: str):
+        """
+        Applies a function to the features of a view.
+        """
+        for identifier in self.features:
+            self.features[identifier][view] = function(self.features[identifier][view])

@@ -7,7 +7,8 @@ from typing import Optional
 import pickle
 import pandas as pd
 import numpy as np
-
+from numpy.typing import ArrayLike
+from sklearn.base import TransformerMixin
 from drevalpy.datasets.dataset import FeatureDataset
 
 
