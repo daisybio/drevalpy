@@ -14,6 +14,7 @@ __all__ = [
     "MultiOmicsRandomForest",
     "SingleDrugRandomForest",
     "MODEL_FACTORY",
+    "SINGLE_DRUG_MODEL_FACTORY",
 ]
 
 from .baselines.naive_pred import (
@@ -27,6 +28,10 @@ from .simple_neural_network.simple_neural_network import SimpleNeuralNetwork
 from .simple_neural_network.multiomics_neural_network import MultiOmicsNeuralNetwork
 from .baselines.singledrug_random_forest import SingleDrugRandomForest
 
+SINGLE_DRUG_MODEL_FACTORY = {
+    "SingleDrugRandomForest": SingleDrugRandomForest,
+}
+
 MODEL_FACTORY = {
     "NaivePredictor": NaivePredictor,
     "NaiveDrugMeanPredictor": NaiveDrugMeanPredictor,
@@ -37,5 +42,6 @@ MODEL_FACTORY = {
     "SimpleNeuralNetwork": SimpleNeuralNetwork,
     "MultiOmicsNeuralNetwork": MultiOmicsNeuralNetwork,
     "MultiOmicsRandomForest": MultiOmicsRandomForest,
-    "SingleDrugRandomForest": SingleDrugRandomForest,
 }
+
+MODEL_FACTORY.update(SINGLE_DRUG_MODEL_FACTORY)

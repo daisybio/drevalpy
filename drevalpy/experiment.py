@@ -16,6 +16,7 @@ from sklearn.base import TransformerMixin
 from .datasets.dataset import DrugResponseDataset, FeatureDataset
 from .evaluation import evaluate, get_mode
 from .models.drp_model import CompositeDrugModel, DRPModel, SingleDrugModel
+from .models import MODEL_FACTORY, SINGLE_DRUG_MODEL_FACTORY
 
 
 def drug_response_experiment(
@@ -113,7 +114,10 @@ def drug_response_experiment(
         )
         response_data.save_splits(path=split_path)
 
-    for model_class in models + baselines:
+    model_list = make_model_list(models + baselines, response_data)
+    for model_name in model_list:
+        model_name, drug_id = get_model_name_and_drug_id(model_name)
+        model_class = MODEL_FACTORY[model_name]
         if model_class in baselines:
             print(f"Running baseline model {model_class.model_name}")
             is_baseline = True
@@ -140,18 +144,15 @@ def drug_response_experiment(
             prediction_file = os.path.join(
                 predictions_path, f"predictions_split_{split_index}.csv"
             )
-            # if model_class.early_stopping is true then we split the validation set into a
-            # validation and early stopping set
-            train_dataset = split["train"]
-            validation_dataset = split["validation"]
-            test_dataset = split["test"]
 
-            if model_class.early_stopping:
-                validation_dataset, early_stopping_dataset = split_early_stopping(
-                    validation_dataset=validation_dataset.copy(), test_mode=test_mode
-                )
+            (
+                train_dataset,
+                validation_dataset,
+                early_stopping_dataset,
+                test_dataset,
+            ) = get_datasets_from_cv_split(split, model_class, model_name, drug_id)
 
-            model = instantiate_model(model_class)
+            model = model_class()
 
             if not os.path.isfile(
                 prediction_file
@@ -161,9 +162,7 @@ def drug_response_experiment(
                     "model": model,
                     "train_dataset": train_dataset,
                     "validation_dataset": validation_dataset,
-                    "early_stopping_dataset": (
-                        early_stopping_dataset if model.early_stopping else None
-                    ),
+                    "early_stopping_dataset": early_stopping_dataset,
                     "hpam_set": model_hpam_set,
                     "response_transformation": response_transformation,
                     "metric": metric,
@@ -171,22 +170,12 @@ def drug_response_experiment(
                 }
 
                 if multiprocessing:
-                    if Type[model] == CompositeDrugModel:
-                        warnings.warn(
-                            "Multiprocessing not yet supported for CompositeDrugModel."
-                        )
-                        best_hpams = hpam_tune_composite_model(**tuning_inputs)
-
-                    else:
-                        tuning_inputs["ray_path"] = os.path.abspath(
-                            os.path.join(result_path, "raytune")
-                        )
-                        best_hpams = hpam_tune_raytune(**tuning_inputs)
+                    tuning_inputs["ray_path"] = os.path.abspath(
+                        os.path.join(result_path, "raytune")
+                    )
+                    best_hpams = hpam_tune_raytune(**tuning_inputs)
                 else:
-                    if isinstance(model, CompositeDrugModel):
-                        best_hpams = hpam_tune_composite_model(**tuning_inputs)
-                    else:
-                        best_hpams = hpam_tune(**tuning_inputs)
+                    best_hpams = hpam_tune(**tuning_inputs)
 
                 print(f"Best hyperparameters: {best_hpams}")
                 print(
@@ -844,6 +833,7 @@ def hpam_tune(
     return best_hyperparameters
 
 
+'''
 def hpam_tune_composite_model(
     model: CompositeDrugModel,
     train_dataset: DrugResponseDataset,
@@ -904,6 +894,7 @@ def hpam_tune_composite_model(
                 best_scores[drug] = score
                 best_hyperparameters[drug] = hyperparameter
     return best_hyperparameters
+'''
 
 
 def hpam_tune_raytune(
@@ -962,6 +953,7 @@ def hpam_tune_raytune(
     return best_config
 
 
+'''
 def instantiate_model(model_class: Type[DRPModel]) -> DRPModel:
     """
     Instantiate the model
@@ -971,3 +963,76 @@ def instantiate_model(model_class: Type[DRPModel]) -> DRPModel:
     if issubclass(model_class, SingleDrugModel):
         return CompositeDrugModel(base_model=model_class)
     return model_class()
+'''
+
+def make_model_list(
+    models: List[Type[DRPModel]], response_data: DrugResponseDataset
+) -> List[str]:
+    """
+    Make a list of models to evaluate
+    :param models:
+    :param baselines:
+    :param response_data:
+    :return:
+    """
+    model_list = []
+    unique_drugs = np.unique(response_data.drug_ids)
+    for model in models:
+        model_class = MODEL_FACTORY[model]()
+        if isinstance(model_class, SingleDrugModel):
+            for drug in unique_drugs:
+                model_list.append(f"{model}.{drug}")
+        else:
+            model_list.append(model)
+    return model_list
+
+
+def get_model_name_and_drug_id(model_name: str):
+    """
+    Get the model name and drug id from the model name
+    :param model_name:
+    :return:
+    """
+    if model_name in MODEL_FACTORY:
+        return model_name, None
+
+    name_split = model_name.split(".")
+    model_name = name_split[0]
+    drug_id = name_split[1]
+    assert model_name in SINGLE_DRUG_MODEL_FACTORY, (
+        f"{model_name} neither in "
+        f"SINGLE_DRUG_MODEL_FACTORY nor in "
+        f"MODEL_FACTORY."
+    )
+    return model_name, drug_id
+
+
+def get_datasets_from_cv_split(split, model_class, model_name, drug_id):
+    train_dataset = split["train"]
+    validation_dataset = split["validation"]
+    test_dataset = split["test"]
+
+    if model_class.early_stopping:
+        validation_dataset = split["validation_es"]
+        early_stopping_dataset = split["early_stopping"]
+    else:
+        early_stopping_dataset = None
+
+    if model_name in SINGLE_DRUG_MODEL_FACTORY.keys():
+        output_mask = train_dataset.drug_ids == drug_id
+        train_cp = train_dataset.copy()
+        train_cp.mask(output_mask)
+        validation_mask = validation_dataset.drug_ids == drug_id
+        val_cp = validation_dataset.copy()
+        val_cp.mask(validation_mask)
+        test_mask = test_dataset.drug_ids == drug_id
+        test_cp = test_dataset.copy()
+        test_cp.mask(test_mask)
+        if early_stopping_dataset is not None:
+            es_mask = early_stopping_dataset.drug_ids == drug_id
+            es_cp = early_stopping_dataset.copy()
+            es_cp.mask(es_mask)
+            return train_cp, val_cp, es_cp, test_cp
+        return train_cp, val_cp, None, test_cp
+
+    return train_dataset, validation_dataset, early_stopping_dataset, test_dataset
