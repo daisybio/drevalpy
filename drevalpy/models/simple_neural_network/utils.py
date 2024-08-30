@@ -135,7 +135,7 @@ class FeedForwardNetwork(pl.LightningModule):
         :return:
         """
         if trainer_params is None:
-            trainer_params = {"progress_bar_refresh_rate": 300, "max_epochs": 100}
+            trainer_params = {"progress_bar_refresh_rate": 300, "max_epochs": 2}
 
         train_dataset = RegressionDataset(
             output=output_train,
@@ -289,7 +289,7 @@ class FeedForwardNetwork(pl.LightningModule):
         with torch.no_grad():
             y_pred = self.forward(torch.from_numpy(x).float())
         self.train(is_training)
-        return y_pred
+        return y_pred.cpu().detach().numpy()
 
     def configure_optimizers(self):
 

@@ -21,7 +21,7 @@ def partial_correlation(
     y_true: np.ndarray,
     cell_line_ids: np.ndarray,
     drug_ids: np.ndarray,
-    method: str = "pearson",
+    method: str = "Pearson",
     return_pvalue: bool = False,
 ) -> Tuple[float, float] | float:
     """
@@ -31,7 +31,7 @@ def partial_correlation(
     :param y_true: response
     :param cell_line_ids: cell line IDs
     :param drug_ids: drug IDs
-    :param method: method to compute the partial correlation (pearson, spearman)
+    :param method: method to compute the partial correlation (Pearson, spearman)
     :return: partial correlation float
     """
 
@@ -220,7 +220,7 @@ def evaluate(dataset: DrugResponseDataset, metric: Union[List[str], str]):
     """
     Evaluates the model on the given dataset.
     :param dataset: dataset to evaluate on
-    :param metric: evaluation metric(s) (one or a list of "mse", "rmse", "mae", "r2", "pearson",
+    :param metric: evaluation metric(s) (one or a list of "MSE", "RMSE", "MAE", "r2", "Pearson",
     "spearman", "kendall", "partial_correlation")
     :return: evaluation metric
     """
@@ -228,6 +228,31 @@ def evaluate(dataset: DrugResponseDataset, metric: Union[List[str], str]):
         metric = [metric]
     predictions = dataset.predictions
     response = dataset.response
+    print()
+    print("preds:")
+    print(predictions)
+    print()
+    print()
+    print("response")
+    print(response)
+    print()
+    try:
+        print(any(np.isnan(predictions)))
+        print(np.mean(predictions))
+        print(np.sum(np.isnan(predictions)))
+        print(np.std(predictions))
+        print(any(np.isnan(response)))
+        print("preds:")
+        for i, p in enumerate(predictions):
+            print(p)
+            if i > 30:
+                break
+
+    except:
+        pass
+        print("except")
+    print()
+
     results = {}
     for m in metric:
         assert (

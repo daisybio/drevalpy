@@ -836,9 +836,9 @@ class FeatureDataset(Dataset):
         ), "Trying to transform, but a cell line is missing."
 
         for identifier in ids:
-            feature = self.features[identifier][view]
-            scaled_feature = transformer.transform([feature])[0]
-            self.features[identifier][view] = scaled_feature
+            feature_vector = self.features[identifier][view]
+            scaled_feature_vector = transformer.transform([feature_vector])[0]
+            self.features[identifier][view] = scaled_feature_vector
 
     def fit_transform_features(
         self, train_ids: ArrayLike, transformer: TransformerMixin, view: str
@@ -870,7 +870,7 @@ class FeatureDataset(Dataset):
             feature_vector = self.features[identifier][view]
             scaled_gene_expression = transformer.transform([feature_vector])[0]
             self.features[identifier][view] = scaled_gene_expression
-
+        return transformer
     def apply(self, function: Callable, view: str):
         """
         Applies a function to the features of a view.

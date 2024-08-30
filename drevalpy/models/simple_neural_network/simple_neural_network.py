@@ -64,12 +64,33 @@ class SimpleNeuralNetwork(DRPModel):
         if "gene_expression" in self.cell_line_views:
             cell_line_input = cell_line_input.copy()
             cell_line_input.apply(function=np.arcsinh, view="gene_expression")
-            cell_line_input.fit_transform_features(
-                train_ids=output.cell_line_ids,
+            self.gene_expression_scaler = cell_line_input.fit_transform_features(
+                train_ids=cell_line_input.features.keys(),
                 transformer=self.gene_expression_scaler,
                 view="gene_expression",
             )
+            print(self.gene_expression_scaler)
 
+            print()
+            #todo delete
+            x = self.get_concatenated_features( #delete
+            cell_line_view="gene_expression",
+            drug_view="fingerprints",
+            cell_line_ids_output=output.cell_line_ids,
+            drug_ids_output=output.drug_ids,
+            cell_line_input=cell_line_input,
+            drug_input=drug_input,
+        )
+            print()
+            print("train set std")
+            print(np.std(x, axis=0))
+            print()
+            print()
+            print()
+            print(np.mean(x, axis=0))
+            print()
+            print()
+            print()
         with warnings.catch_warnings():
             warnings.filterwarnings(
                 "ignore",
@@ -121,6 +142,17 @@ class SimpleNeuralNetwork(DRPModel):
             cell_line_input=cell_line_input,
             drug_input=drug_input,
         )
+        print()
+        print()
+        print()
+        print(np.std(x, axis=0))
+        print()
+        print()
+        print()
+        print(np.mean(x, axis=0))
+        print()
+        print()
+        print()
 
         return self.model.predict(x)
 
