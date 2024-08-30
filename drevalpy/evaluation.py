@@ -228,30 +228,6 @@ def evaluate(dataset: DrugResponseDataset, metric: Union[List[str], str]):
         metric = [metric]
     predictions = dataset.predictions
     response = dataset.response
-    print()
-    print("preds:")
-    print(predictions)
-    print()
-    print()
-    print("response")
-    print(response)
-    print()
-    try:
-        print(any(np.isnan(predictions)))
-        print(np.mean(predictions))
-        print(np.sum(np.isnan(predictions)))
-        print(np.std(predictions))
-        print(any(np.isnan(response)))
-        print("preds:")
-        for i, p in enumerate(predictions):
-            print(p)
-            if i > 30:
-                break
-
-    except:
-        pass
-        print("except")
-    print()
 
     results = {}
     for m in metric:

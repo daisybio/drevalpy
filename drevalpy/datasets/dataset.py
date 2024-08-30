@@ -835,6 +835,8 @@ class FeatureDataset(Dataset):
             [clid in self.features for clid in ids]
         ), "Trying to transform, but a cell line is missing."
 
+        assert (np.unique(ids) == len(ids)), f"IDs should be unique."
+
         for identifier in ids:
             feature_vector = self.features[identifier][view]
             scaled_feature_vector = transformer.transform([feature_vector])[0]
@@ -854,6 +856,8 @@ class FeatureDataset(Dataset):
             view in self.view_names
         ), f"Transform view '{view}' not in in the FeatureDataset."
 
+        assert ( np.unique(train_ids) == len(train_ids)), f"Train IDs should be unique."
+
         train_features = []
 
         # Collect all features of the view for fitting the scaler
@@ -871,6 +875,7 @@ class FeatureDataset(Dataset):
             scaled_gene_expression = transformer.transform([feature_vector])[0]
             self.features[identifier][view] = scaled_gene_expression
         return transformer
+    
     def apply(self, function: Callable, view: str):
         """
         Applies a function to the features of a view.
