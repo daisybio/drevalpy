@@ -135,7 +135,7 @@ class FeedForwardNetwork(pl.LightningModule):
         :return:
         """
         if trainer_params is None:
-            trainer_params = {"progress_bar_refresh_rate": 300, "max_epochs": 2}
+            trainer_params = {"progress_bar_refresh_rate": 300, "max_epochs": 70}
 
         train_dataset = RegressionDataset(
             output=output_train,
