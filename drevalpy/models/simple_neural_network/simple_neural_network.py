@@ -69,7 +69,7 @@ class SimpleNeuralNetwork(DRPModel):
                 transformer=self.gene_expression_scaler,
                 view="gene_expression",
             )
-            
+
         with warnings.catch_warnings():
             warnings.filterwarnings(
                 "ignore",
@@ -121,7 +121,6 @@ class SimpleNeuralNetwork(DRPModel):
             cell_line_input=cell_line_input,
             drug_input=drug_input,
         )
-
 
         return self.model.predict(x)
 

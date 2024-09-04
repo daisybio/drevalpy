@@ -245,7 +245,7 @@ def drug_response_experiment(
                     os.path.join(
                         predictions_path, f"best_hpams_split_{split_index}.json"
                     ),
-                    "w",
+                    "r",
                     encoding="utf-8",
                 ) as f:
                     best_hpams = json.load(f)
