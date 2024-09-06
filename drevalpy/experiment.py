@@ -142,8 +142,17 @@ def drug_response_experiment(
                 f"################# FOLD {split_index+1}/{len(response_data.cv_splits)} "
                 f"#################"
             )
-            prediction_file = os.path.join(
-                predictions_path, f"predictions_split_{split_index}.csv"
+            single_drug_model_prediction_path = os.path.join(predictions_path, drug_id)
+
+            prediction_file = (
+                os.path.join(
+                    single_drug_model_prediction_path,
+                    f"predictions_split_{split_index}.csv",
+                )
+                if model_name in SINGLE_DRUG_MODEL_FACTORY
+                else os.path.join(
+                    predictions_path, f"predictions_split_{split_index}.csv"
+                )
             )
 
             (
@@ -183,6 +192,7 @@ def drug_response_experiment(
                     "Training model on full train and validation set to predict test set"
                 )
                 # save best hyperparameters as json
+
                 with open(
                     os.path.join(
                         predictions_path, f"best_hpams_split_{split_index}.json"
@@ -233,7 +243,8 @@ def drug_response_experiment(
                 print(f"Split {split_index} already exists. Skipping.")
                 with open(
                     os.path.join(
-                        predictions_path, f"best_hpams_split_{split_index}.json"
+                        predictions_path,
+                        f"best_hpams_{model_name}_split_{split_index}.json",
                     ),
                     "r",
                     encoding="utf-8",
@@ -806,6 +817,9 @@ def hpam_tune(
     :param path_data:
     :return:
     """
+    assert (
+        len(hpam_set) > 0
+    ), "hpam_set must contain at least one hyperparameter configuration"
     if len(hpam_set) == 1:
         return hpam_set[0]
 
@@ -825,12 +839,20 @@ def hpam_tune(
             response_transformation=response_transformation,
         )[metric]
 
+        if np.isnan(score):
+            continue
+
         if (mode == "min" and score < best_score) or (
             mode == "max" and score > best_score
         ):
             print(f"current best {metric} score: {np.round(score, 3)}")
             best_score = score
             best_hyperparameters = hyperparameter
+
+    if best_hyperparameters is None:
+        warnings.warn("all hpams lead to NaN respone. using last hpam combination.")
+        best_hyperparameters = hyperparameter
+
     return best_hyperparameters
 
 
@@ -966,6 +988,7 @@ def instantiate_model(model_class: Type[DRPModel]) -> DRPModel:
     return model_class()
 '''
 
+
 def make_model_list(
     models: List[Type[DRPModel]], response_data: DrugResponseDataset
 ) -> List[str]:
@@ -999,7 +1022,9 @@ def get_model_name_and_drug_id(model_name: str):
     else:
         name_split = model_name.split(".")
         model_name = name_split[0]
-        assert model_name in SINGLE_DRUG_MODEL_FACTORY, f"Model {model_name} not found in MODEL_FACTORY or SINGLE_DRUG_MODEL_FACTORY. Please add the model to the factory."
+        assert (
+            model_name in SINGLE_DRUG_MODEL_FACTORY
+        ), f"Model {model_name} not found in MODEL_FACTORY or SINGLE_DRUG_MODEL_FACTORY. Please add the model to the factory."
         drug_id = name_split[1]
 
         return model_name, drug_id
