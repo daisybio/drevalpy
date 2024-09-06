@@ -125,13 +125,19 @@ def drug_response_experiment(
         else:
             print(f"Running model {model_class.model_name}")
             is_baseline = False
+        is_single_drug_model = model_name in SINGLE_DRUG_MODEL_FACTORY
 
         model_path = os.path.join(result_path, str(model_class.model_name))
-        handle_overwrite(model_path, overwrite)
+
+        os.makedirs(model_path, exist_ok=True)
+
         predictions_path = os.path.join(model_path, "predictions")
         os.makedirs(predictions_path, exist_ok=True)
+        if is_single_drug_model:
+            single_drug_prediction_path = os.path.join(predictions_path, drug_id)
+            os.makedirs(single_drug_prediction_path, exist_ok=True)
 
-        if randomization_mode is not None and model_class in models:
+        if randomization_mode is not None and not is_baseline:
             randomization_test_path = os.path.join(model_path, "randomization_tests")
             os.makedirs(randomization_test_path, exist_ok=True)
 
@@ -142,18 +148,20 @@ def drug_response_experiment(
                 f"################# FOLD {split_index+1}/{len(response_data.cv_splits)} "
                 f"#################"
             )
-            single_drug_model_prediction_path = os.path.join(predictions_path, drug_id)
 
             prediction_file = (
                 os.path.join(
-                    single_drug_model_prediction_path,
+                    single_drug_prediction_path,
                     f"predictions_split_{split_index}.csv",
                 )
-                if model_name in SINGLE_DRUG_MODEL_FACTORY
+                if is_single_drug_model
                 else os.path.join(
                     predictions_path, f"predictions_split_{split_index}.csv"
                 )
             )
+            hpam_filename = f"best_hpams_split_{split_index}.json"
+
+            hpam_save_path = os.path.join(predictions_path, hpam_filename) if not is_single_drug_model else os.path.join(single_drug_prediction_path, hpam_filename)
 
             (
                 train_dataset,
@@ -166,7 +174,7 @@ def drug_response_experiment(
 
             if not os.path.isfile(
                 prediction_file
-            ):  # if this split has not been run yet
+            ):  # if this split has not been run yet (or for a single drug model, this drug_id)
 
                 tuning_inputs = {
                     "model": model,
@@ -192,11 +200,8 @@ def drug_response_experiment(
                     "Training model on full train and validation set to predict test set"
                 )
                 # save best hyperparameters as json
-
                 with open(
-                    os.path.join(
-                        predictions_path, f"best_hpams_split_{split_index}.json"
-                    ),
+                    hpam_save_path,
                     "w",
                     encoding="utf-8",
                 ) as f:
@@ -242,10 +247,7 @@ def drug_response_experiment(
             else:
                 print(f"Split {split_index} already exists. Skipping.")
                 with open(
-                    os.path.join(
-                        predictions_path,
-                        f"best_hpams_{model_name}_split_{split_index}.json",
-                    ),
+                    hpam_save_path,
                     "r",
                     encoding="utf-8",
                 ) as f:
