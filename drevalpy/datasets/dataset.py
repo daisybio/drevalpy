@@ -761,6 +761,8 @@ class FeatureDataset(Dataset):
             If False, returns a list of features.
         :return: feature matrix
         """
+        assert len(identifiers) > 0, "get_feature_matrix: No identifiers given."
+
         assert view in self.view_names, f"View '{view}' not in in the FeatureDataset."
         missing_identifiers = {
             id_ for id_ in identifiers if id_ not in self.identifiers

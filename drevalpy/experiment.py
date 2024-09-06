@@ -15,8 +15,8 @@ from sklearn.base import TransformerMixin
 
 from .datasets.dataset import DrugResponseDataset, FeatureDataset
 from .evaluation import evaluate, get_mode
-from .models.drp_model import CompositeDrugModel, DRPModel, SingleDrugModel
-from .models import MODEL_FACTORY, SINGLE_DRUG_MODEL_FACTORY
+from .models.drp_model import DRPModel, SingleDrugModel
+from .models import FULL_MODEL_FACTORY, MODEL_FACTORY, SINGLE_DRUG_MODEL_FACTORY
 
 
 def drug_response_experiment(
@@ -117,7 +117,8 @@ def drug_response_experiment(
     model_list = make_model_list(models + baselines, response_data)
     for model_name in model_list:
         model_name, drug_id = get_model_name_and_drug_id(model_name)
-        model_class = MODEL_FACTORY[model_name]
+
+        model_class = FULL_MODEL_FACTORY[model_name]
         if model_class in baselines:
             print(f"Running baseline model {model_class.model_name}")
             is_baseline = True
@@ -978,12 +979,11 @@ def make_model_list(
     model_list = []
     unique_drugs = np.unique(response_data.drug_ids)
     for model in models:
-        model_class = MODEL_FACTORY[model]()
-        if isinstance(model_class, SingleDrugModel):
+        if issubclass(model, SingleDrugModel):
             for drug in unique_drugs:
-                model_list.append(f"{model}.{drug}")
+                model_list.append(f"{model.model_name}.{drug}")
         else:
-            model_list.append(model)
+            model_list.append(model.model_name)
     return model_list
 
 
@@ -993,18 +993,16 @@ def get_model_name_and_drug_id(model_name: str):
     :param model_name:
     :return:
     """
+
     if model_name in MODEL_FACTORY:
         return model_name, None
+    else:
+        name_split = model_name.split(".")
+        model_name = name_split[0]
+        assert model_name in SINGLE_DRUG_MODEL_FACTORY, f"Model {model_name} not found in MODEL_FACTORY or SINGLE_DRUG_MODEL_FACTORY. Please add the model to the factory."
+        drug_id = name_split[1]
 
-    name_split = model_name.split(".")
-    model_name = name_split[0]
-    drug_id = name_split[1]
-    assert model_name in SINGLE_DRUG_MODEL_FACTORY, (
-        f"{model_name} neither in "
-        f"SINGLE_DRUG_MODEL_FACTORY nor in "
-        f"MODEL_FACTORY."
-    )
-    return model_name, drug_id
+        return model_name, drug_id
 
 
 def get_datasets_from_cv_split(split, model_class, model_name, drug_id):
