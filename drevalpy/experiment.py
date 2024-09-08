@@ -140,6 +140,8 @@ def drug_response_experiment(
         if randomization_mode is not None and not is_baseline:
             randomization_test_path = os.path.join(model_path, "randomization_tests")
             os.makedirs(randomization_test_path, exist_ok=True)
+            if is_single_drug_model:
+                randomization_test_path = os.path.join(randomization_test_path, drug_id)
 
         model_hpam_set = model_class.get_hyperparameter_set()
 
@@ -241,6 +243,7 @@ def drug_response_experiment(
                         response_transformation=response_transformation,
                         predictions_path=predictions_path,
                         split_index=split_index,
+                        single_drug_id=drug_id if is_single_drug_model else None,
                     )
 
                 test_dataset.save(prediction_file)
@@ -323,6 +326,7 @@ def cross_study_prediction(
     response_transformation: Optional[TransformerMixin],
     predictions_path: str,
     split_index: int,
+    single_drug_id: Optional[str] = None,
 ) -> None:
     """
     Run the drug response prediction experiment on a cross-study dataset. Save results to disc.
@@ -332,6 +336,7 @@ def cross_study_prediction(
     leave-drug-out)
     :param train_dataset: training dataset
     :param early_stopping_dataset: early stopping dataset
+    :param single_drug_id: drug id to use for single drug models None for global models
     """
     os.makedirs(os.path.join(predictions_path, "cross_study"), exist_ok=True)
     if response_transformation:
@@ -340,18 +345,22 @@ def cross_study_prediction(
     # load features
     cl_features, drug_features = load_features(model, path_data, dataset)
 
-    cell_lines_to_remove = cl_features.identifiers if cl_features is not None else None
-    drugs_to_remove = drug_features.identifiers if drug_features is not None else None
+    cell_lines_to_keep = cl_features.identifiers if cl_features is not None else None
+
+    if single_drug_id is not None:
+        drugs_to_keep = [single_drug_id]
+    else:
+        drugs_to_keep = drug_features.identifiers if drug_features is not None else None
 
     print(
         f"Reducing cross study dataset ... feature data available for "
-        f'{len(cell_lines_to_remove) if cell_lines_to_remove else "all"} cell lines '
-        f'and {len(drugs_to_remove)if drugs_to_remove else "all"} drugs.'
+        f'{len(cell_lines_to_keep) if cell_lines_to_keep else "all"} cell lines '
+        f'and {len(drugs_to_keep)if drugs_to_keep else "all"} drugs.'
     )
 
     # making sure there are no missing features. Only keep cell lines and drugs for which we have
     # a feature representation
-    dataset.reduce_to(cell_line_ids=cell_lines_to_remove, drug_ids=drugs_to_remove)
+    dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
     if early_stopping_dataset is not None:
         train_dataset.add_rows(early_stopping_dataset)
     # remove rows which overlap in the training. depends on the test mode
@@ -383,17 +392,18 @@ def cross_study_prediction(
         )
     else:
         raise ValueError(f"Invalid test mode: {test_mode}. Choose from LPO, LCO, LDO")
-
-    dataset.shuffle(random_state=42)
-
-    dataset.predictions = model.predict(
-        cell_line_ids=dataset.cell_line_ids,
-        drug_ids=dataset.drug_ids,
-        cell_line_input=cl_features,
-        drug_input=drug_features,
-    )
-    if response_transformation:
-        dataset.response = response_transformation.inverse_transform(dataset.response)
+    if len(dataset) > 0:
+        dataset.shuffle(random_state=42)
+        dataset.predictions = model.predict(
+            cell_line_ids=dataset.cell_line_ids,
+            drug_ids=dataset.drug_ids,
+            cell_line_input=cl_features,
+            drug_input=drug_features,
+        )
+        if response_transformation:
+            dataset.response = response_transformation.inverse_transform(dataset.response)
+    else:
+        dataset.predictions = np.array([])
     dataset.save(
         os.path.join(
             predictions_path,
@@ -401,6 +411,7 @@ def cross_study_prediction(
             f"cross_study_{dataset.dataset_name}_split_{split_index}.csv",
         )
     )
+
 
 
 def get_randomization_test_views(
@@ -632,9 +643,9 @@ def randomize_train_predict(
             f"which includes this view."
         )
         return
+    cl_features_rand = cl_features.copy() if cl_features is not None else None
+    drug_features_rand = drug_features.copy() if drug_features is not None else None
 
-    cl_features_rand = cl_features.copy()
-    drug_features_rand = drug_features.copy()
     if view in cl_features.get_view_names():
         cl_features_rand.randomize_features(view, randomization_type=randomization_type)
     elif view in drug_features.get_view_names():
