@@ -241,7 +241,7 @@ def drug_response_experiment(
                             early_stopping_dataset if model.early_stopping else None
                         ),
                         response_transformation=response_transformation,
-                        predictions_path=predictions_path,
+                        predictions_path=predictions_path if not is_single_drug_model else single_drug_prediction_path,
                         split_index=split_index,
                         single_drug_id=drug_id if is_single_drug_model else None,
                     )
@@ -338,6 +338,7 @@ def cross_study_prediction(
     :param early_stopping_dataset: early stopping dataset
     :param single_drug_id: drug id to use for single drug models None for global models
     """
+    dataset = dataset.copy()
     os.makedirs(os.path.join(predictions_path, "cross_study"), exist_ok=True)
     if response_transformation:
         dataset.transform(response_transformation)
@@ -372,10 +373,11 @@ def cross_study_prediction(
         dataset_pairs = [
             f"{cl}_{drug}" for cl, drug in zip(dataset.cell_line_ids, dataset.drug_ids)
         ]
+
         dataset.remove_rows(
             [i for i, pair in enumerate(dataset_pairs) if pair in train_pairs]
         )
-
+        print(len(dataset))
     elif test_mode == "LCO":
         train_cell_lines = set(train_dataset.cell_line_ids)
         dataset.reduce_to(
