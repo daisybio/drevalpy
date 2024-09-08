@@ -12,6 +12,7 @@ import ray
 import torch
 from ray import tune
 from sklearn.base import TransformerMixin
+import pandas as pd
 
 from .datasets.dataset import DrugResponseDataset, FeatureDataset
 from .evaluation import evaluate, get_mode
@@ -138,10 +139,9 @@ def drug_response_experiment(
             os.makedirs(single_drug_prediction_path, exist_ok=True)
 
         if randomization_mode is not None and not is_baseline:
-            randomization_test_path = os.path.join(model_path, "randomization_tests")
+            randomization_test_path = os.path.join(single_drug_prediction_path if is_single_drug_model else predictions_path, "randomization")
             os.makedirs(randomization_test_path, exist_ok=True)
-            if is_single_drug_model:
-                randomization_test_path = os.path.join(randomization_test_path, drug_id)
+            
 
         model_hpam_set = model_class.get_hyperparameter_set()
 
@@ -290,11 +290,50 @@ def drug_response_experiment(
                         early_stopping_dataset=(
                             early_stopping_dataset if model.early_stopping else None
                         ),
-                        path_out=model_path,
+                        path_out=single_drug_prediction_path if is_single_drug_model else predictions_path,
                         split_index=split_index,
                         response_transformation=response_transformation,
                     )
+    consolidate_single_drug_model_predictions(models=models, drugs=np.unique(response_data.drug_ids), n_cv_splits=n_cv_splits, results_path=result_path)
 
+def consolidate_single_drug_model_predictions(models: List[DRPModel], drugs: List[str], n_cv_splits: int, results_path: str, cross_study_datasets: List[DrugResponseDataset], randomization_mode: str, n_trials_robustness: int) -> None:
+    """
+    Consolidate SingleDrugModel predictions into a single file
+    """
+    for model in models:
+        if model.model_name in SINGLE_DRUG_MODEL_FACTORY:
+            for split in range(n_cv_splits):
+                model_path = os.path.join(results_path, model.model_name)
+                predictions_path = os.path.join(model_path, "predictions")
+                predictions = []
+
+                for drug in drugs:
+                    #predictions
+                    single_drug_prediction_path = os.path.join(predictions_path, drug)
+                    single_drug_prediction = pd.read_csv(os.path.join(single_drug_prediction_path, f"predictions_split_{split}.csv"), index_col=0)
+                    predictions.append(single_drug_prediction)
+
+
+                pd.concat(predictions, axis=0).to_csv(os.path.join(predictions_path, f"predictions_split_{split}.csv"))
+    
+    
+    # TODO consolodate cross study and robustness and randomization tests. harmonize randomization and cross study etc. with the other tests
+    for cross_study_dataset in cross_study_datasets:
+        for model in models:
+            if model.model_name in SINGLE_DRUG_MODEL_FACTORY:
+                for split in range(n_cv_splits):
+                    cross_study_dataset_predictions = []
+                    for drug in drugs:
+                        model_path = os.path.join(results_path, model.model_name)
+                        predictions_path = os.path.join(model_path, "predictions")
+                        single_drug_prediction = os.path.join(single_drug_prediction, drug)
+                        cross_study_prediction_path = os.path.join(single_drug_prediction, "cross_study")
+                        f =  f"cross_study_{cross_study_dataset.dataset_name}_split_{split}.csv"
+                        cross_study_prediction = pd.read_csv(os.path.join(cross_study_prediction_path,f), index_col=0)
+                        cross_study_dataset_predictions.append(cross_study_prediction)
+                    pd.concat(cross_study_dataset_predictions, axis=0).to_csv(os.path.join(predictions_path, "cross_study",f ))
+        for trial in range(n_trials_robustness):
+            pass
 
 def handle_overwrite(path: str, overwrite: bool) -> None:
     """Handle overwrite logic for a given path."""
@@ -478,7 +517,7 @@ def robustness_test(
     :return: None (save results to disk)
     """
 
-    robustness_test_path = os.path.join(path_out, "robustness_test")
+    robustness_test_path = os.path.join(path_out, "robustness")
     os.makedirs(robustness_test_path, exist_ok=True)
     for trial in range(n_trials):
         print(f"Running robustness test trial {trial+1}/{n_trials}")
