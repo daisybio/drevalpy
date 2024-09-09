@@ -135,7 +135,7 @@ def drug_response_experiment(
         predictions_path = os.path.join(model_path, "predictions")
         os.makedirs(predictions_path, exist_ok=True)
         if is_single_drug_model:
-            single_drug_prediction_path = os.path.join(predictions_path, drug_id)
+            single_drug_prediction_path = os.path.join(predictions_path, "drugs", drug_id)
             os.makedirs(single_drug_prediction_path, exist_ok=True)
 
         if randomization_mode is not None and not is_baseline:
@@ -294,46 +294,70 @@ def drug_response_experiment(
                         split_index=split_index,
                         response_transformation=response_transformation,
                     )
-    consolidate_single_drug_model_predictions(models=models, drugs=np.unique(response_data.drug_ids), n_cv_splits=n_cv_splits, results_path=result_path)
+    consolidate_single_drug_model_predictions(models=models, drugs=np.unique(response_data.drug_ids), n_cv_splits=n_cv_splits, results_path=result_path, cross_study_datasets=cross_study_datasets, randomization_test_views=randomization_test_views, n_trials_robustness=n_trials_robustness)
 
-def consolidate_single_drug_model_predictions(models: List[DRPModel], drugs: List[str], n_cv_splits: int, results_path: str, cross_study_datasets: List[DrugResponseDataset], randomization_mode: str, n_trials_robustness: int) -> None:
+def consolidate_single_drug_model_predictions(models: List[DRPModel], drugs: List[str], n_cv_splits: int, results_path: str, cross_study_datasets: List[DrugResponseDataset], randomization_test_views: List[str], n_trials_robustness: int) -> None:
     """
     Consolidate SingleDrugModel predictions into a single file
     """
+    
     for model in models:
         if model.model_name in SINGLE_DRUG_MODEL_FACTORY:
-            for split in range(n_cv_splits):
-                model_path = os.path.join(results_path, model.model_name)
-                predictions_path = os.path.join(model_path, "predictions")
-                predictions = []
 
+            model_path = os.path.join(results_path, model.model_name)
+            predictions_path = os.path.join(model_path, "predictions")
+            
+            if cross_study_datasets:
+                os.makedirs(os.path.join(predictions_path, "cross_study"), exist_ok=True)
+            if randomization_test_views:
+                os.makedirs(os.path.join(predictions_path, "randomization"), exist_ok=True)
+            if n_trials_robustness:
+                os.makedirs(os.path.join(predictions_path, "robustness"), exist_ok=True)
+
+            for split in range(n_cv_splits):
+
+                predictions = []
                 for drug in drugs:
-                    #predictions
-                    single_drug_prediction_path = os.path.join(predictions_path, drug)
+                    single_drug_prediction_path = os.path.join(predictions_path, "drugs", drug)
                     single_drug_prediction = pd.read_csv(os.path.join(single_drug_prediction_path, f"predictions_split_{split}.csv"), index_col=0)
                     predictions.append(single_drug_prediction)
 
 
                 pd.concat(predictions, axis=0).to_csv(os.path.join(predictions_path, f"predictions_split_{split}.csv"))
-    
-    
-    # TODO consolodate cross study and robustness and randomization tests. harmonize randomization and cross study etc. with the other tests
-    for cross_study_dataset in cross_study_datasets:
-        for model in models:
-            if model.model_name in SINGLE_DRUG_MODEL_FACTORY:
-                for split in range(n_cv_splits):
+            for split in range(n_cv_splits):
+                
+                for cross_study_dataset in cross_study_datasets:
                     cross_study_dataset_predictions = []
                     for drug in drugs:
-                        model_path = os.path.join(results_path, model.model_name)
-                        predictions_path = os.path.join(model_path, "predictions")
-                        single_drug_prediction = os.path.join(single_drug_prediction, drug)
-                        cross_study_prediction_path = os.path.join(single_drug_prediction, "cross_study")
-                        f =  f"cross_study_{cross_study_dataset.dataset_name}_split_{split}.csv"
-                        cross_study_prediction = pd.read_csv(os.path.join(cross_study_prediction_path,f), index_col=0)
+                        
+                        single_drug_prediction_path = os.path.join(predictions_path, "drugs", drug)
+                        cross_study_prediction_path = os.path.join(single_drug_prediction_path, "cross_study")
+                        f = f"cross_study_{cross_study_dataset.dataset_name}_split_{split}.csv"
+                        cross_study_prediction = pd.read_csv(os.path.join(cross_study_prediction_path, f), index_col=0)
                         cross_study_dataset_predictions.append(cross_study_prediction)
-                    pd.concat(cross_study_dataset_predictions, axis=0).to_csv(os.path.join(predictions_path, "cross_study",f ))
-        for trial in range(n_trials_robustness):
-            pass
+                    pd.concat(cross_study_dataset_predictions, axis=0).to_csv(os.path.join(predictions_path, "cross_study",f))
+                
+                for trial in range(n_trials_robustness):
+                    trial_predictions = []
+                    for drug in drugs:
+                        single_drug_prediction_path = os.path.join(predictions_path, "drugs", drug)
+                        robustness_path = os.path.join(single_drug_prediction_path, "robustness")
+
+                        f = f"robustness_{trial+1}_split_{split}.csv"
+                        trial_prediction = pd.read_csv(os.path.join(robustness_path, f), index_col=0)
+                        trial_predictions.append(trial_prediction)
+                    pd.concat(trial_predictions, axis=0).to_csv(os.path.join(predictions_path, "robustness", f"robustness_{trial+1}_split_{split}.csv"))
+                
+                for view in randomization_test_views:
+                    randomization_test_predictions = []
+                    for drug in drugs:
+                        single_drug_prediction_path = os.path.join(predictions_path, "drugs", drug)
+                        randomization_path = os.path.join(single_drug_prediction_path, "randomization")
+                        f = f"randomization_{view}_split_{split}.csv"
+                        randomization_test_prediction = pd.read_csv(os.path.join(randomization_path, f), index_col=0)
+                        randomization_test_predictions.append(randomization_test_prediction)
+                    pd.concat(randomization_test_predictions, axis=0).to_csv(os.path.join(predictions_path, "randomization", f))
+            
 
 def handle_overwrite(path: str, overwrite: bool) -> None:
     """Handle overwrite logic for a given path."""
