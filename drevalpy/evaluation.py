@@ -21,7 +21,7 @@ def partial_correlation(
     y_true: np.ndarray,
     cell_line_ids: np.ndarray,
     drug_ids: np.ndarray,
-    method: str = "Pearson",
+    method: str = "pearson",
     return_pvalue: bool = False,
 ) -> Tuple[float, float] | float:
     """
