@@ -7,7 +7,7 @@ from typing import List
 
 from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
 
-from drevalpy.models import FULL_MODEL_FACTORY
+from drevalpy.models import MODEL_FACTORY
 from drevalpy.datasets import RESPONSE_DATASET_FACTORY
 from drevalpy.evaluation import AVAILABLE_METRICS
 from drevalpy.experiment import drug_response_experiment
@@ -158,8 +158,8 @@ def check_arguments(args):
     :return:
     """
     assert args.models, "At least one model must be specified"
-    assert all(model in FULL_MODEL_FACTORY for model in args.models), (
-        f"Invalid model name. Available models are {list(FULL_MODEL_FACTORY.keys())}. If you want to "
+    assert all(model in MODEL_FACTORY for model in args.models), (
+        f"Invalid model name. Available models are {list(MODEL_FACTORY.keys())}. If you want to "
         f"use your own model, you need to implement a new model class and add it to the "
         f"MODEL_FACTORY in the models init"
     )
@@ -168,8 +168,8 @@ def check_arguments(args):
     ), "Invalid test mode. Available test modes are LPO, LCO, LDO"
 
     if args.baselines is not None:
-        assert all(baseline in FULL_MODEL_FACTORY for baseline in args.baselines), (
-            f"Invalid baseline name. Available baselines are {list(FULL_MODEL_FACTORY.keys())}. If you "
+        assert all(baseline in MODEL_FACTORY for baseline in args.baselines), (
+            f"Invalid baseline name. Available baselines are {list(MODEL_FACTORY.keys())}. If you "
             f"want to use your own baseline, you need to implement a new model class and add it to "
             f"the MODEL_FACTORY in the models init"
         )
@@ -230,10 +230,10 @@ def main(args):
         path_data=args.path_data,
     )
 
-    models = [FULL_MODEL_FACTORY[model] for model in args.models]
+    models = [MODEL_FACTORY[model] for model in args.models]
 
     if args.baselines is not None:
-        baselines = [FULL_MODEL_FACTORY[baseline] for baseline in args.baselines]
+        baselines = [MODEL_FACTORY[baseline] for baseline in args.baselines]
     else:
         baselines = []
     # TODO Allow for custom randomization tests maybe via config file

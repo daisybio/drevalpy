@@ -17,7 +17,7 @@ import pandas as pd
 from .datasets.dataset import DrugResponseDataset, FeatureDataset
 from .evaluation import evaluate, get_mode
 from .models.drp_model import DRPModel, SingleDrugModel
-from .models import FULL_MODEL_FACTORY, MODEL_FACTORY, SINGLE_DRUG_MODEL_FACTORY
+from .models import MODEL_FACTORY, MULTI_DRUG_MODEL_FACTORY, SINGLE_DRUG_MODEL_FACTORY
 
 
 def drug_response_experiment(
@@ -119,7 +119,7 @@ def drug_response_experiment(
     for model_name in model_list:
         model_name, drug_id = get_model_name_and_drug_id(model_name)
 
-        model_class = FULL_MODEL_FACTORY[model_name]
+        model_class = MODEL_FACTORY[model_name]
         if model_class in baselines:
             print(f"Running baseline model {model_class.model_name}")
             is_baseline = True
@@ -1201,7 +1201,7 @@ def get_model_name_and_drug_id(model_name: str):
     :return:
     """
 
-    if model_name in MODEL_FACTORY:
+    if model_name in MULTI_DRUG_MODEL_FACTORY:
         return model_name, None
     else:
         name_split = model_name.split(".")

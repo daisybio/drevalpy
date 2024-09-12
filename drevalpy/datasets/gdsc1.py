@@ -27,6 +27,9 @@ class GDSC1(DrugResponseDataset):
         if not os.path.exists(path):
             download_dataset(dataset_name, path_data, redownload=True)
         response_data = pd.read_csv(path)
+
+        response_data["DRUG_NAME"] = response_data["DRUG_NAME"].str.replace(",", "")
+
         super().__init__(
             response=response_data["LN_IC50"].values,
             cell_line_ids=response_data["CELL_LINE_NAME"].values,
