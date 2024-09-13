@@ -88,6 +88,7 @@ def drug_response_experiment(
     result_path = os.path.join(path_out, run_id, test_mode)
     split_path = os.path.join(result_path, "splits")
     result_folder_exists = os.path.exists(result_path)
+    randomization_test_views = []
     if result_folder_exists and overwrite:
         # if results exists, delete them if overwrite is True
         print(f"Overwriting existing results at {result_path}")
@@ -323,7 +324,7 @@ def drug_response_experiment(
         randomization_test_views=randomization_test_views,
         n_trials_robustness=n_trials_robustness,
     )
-
+    print("Done!")
 
 def consolidate_single_drug_model_predictions(
     models: List[DRPModel],
