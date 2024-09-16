@@ -761,6 +761,8 @@ class FeatureDataset(Dataset):
             If False, returns a list of features.
         :return: feature matrix
         """
+        assert len(identifiers) > 0, "get_feature_matrix: No identifiers given."
+
         assert view in self.view_names, f"View '{view}' not in in the FeatureDataset."
         missing_identifiers = {
             id_ for id_ in identifiers if id_ not in self.identifiers
@@ -835,10 +837,12 @@ class FeatureDataset(Dataset):
             [clid in self.features for clid in ids]
         ), "Trying to transform, but a cell line is missing."
 
+        assert len(np.unique(ids)) == len(ids), f"IDs should be unique."
+
         for identifier in ids:
-            feature = self.features[identifier][view]
-            scaled_feature = transformer.transform([feature])[0]
-            self.features[identifier][view] = scaled_feature
+            feature_vector = self.features[identifier][view]
+            scaled_feature_vector = transformer.transform([feature_vector])[0]
+            self.features[identifier][view] = scaled_feature_vector
 
     def fit_transform_features(
         self, train_ids: ArrayLike, transformer: TransformerMixin, view: str
@@ -853,6 +857,10 @@ class FeatureDataset(Dataset):
         assert (
             view in self.view_names
         ), f"Transform view '{view}' not in in the FeatureDataset."
+
+        assert len(np.unique(train_ids)) == len(
+            train_ids
+        ), f"Train IDs should be unique."
 
         train_features = []
 
@@ -870,6 +878,7 @@ class FeatureDataset(Dataset):
             feature_vector = self.features[identifier][view]
             scaled_gene_expression = transformer.transform([feature_vector])[0]
             self.features[identifier][view] = scaled_gene_expression
+        return transformer
 
     def apply(self, function: Callable, view: str):
         """

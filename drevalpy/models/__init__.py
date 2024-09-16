@@ -13,7 +13,7 @@ __all__ = [
     "MultiOmicsNeuralNetwork",
     "MultiOmicsRandomForest",
     "SingleDrugRandomForest",
-    "MODEL_FACTORY",
+    "MULTI_DRUG_MODEL_FACTORY",
     "SINGLE_DRUG_MODEL_FACTORY",
 ]
 
@@ -32,7 +32,7 @@ SINGLE_DRUG_MODEL_FACTORY = {
     "SingleDrugRandomForest": SingleDrugRandomForest,
 }
 
-MODEL_FACTORY = {
+MULTI_DRUG_MODEL_FACTORY = {
     "NaivePredictor": NaivePredictor,
     "NaiveDrugMeanPredictor": NaiveDrugMeanPredictor,
     "NaiveCellLineMeanPredictor": NaiveCellLineMeanPredictor,
@@ -44,4 +44,5 @@ MODEL_FACTORY = {
     "MultiOmicsRandomForest": MultiOmicsRandomForest,
 }
 
+MODEL_FACTORY = MULTI_DRUG_MODEL_FACTORY.copy()
 MODEL_FACTORY.update(SINGLE_DRUG_MODEL_FACTORY)
