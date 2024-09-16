@@ -64,8 +64,8 @@ class SimpleNeuralNetwork(DRPModel):
         if "gene_expression" in self.cell_line_views:
             cell_line_input = cell_line_input.copy()
             cell_line_input.apply(function=np.arcsinh, view="gene_expression")
-            cell_line_input.fit_transform_features(
-                train_ids=output.cell_line_ids,
+            self.gene_expression_scaler = cell_line_input.fit_transform_features(
+                train_ids=np.unique(output.cell_line_ids),
                 transformer=self.gene_expression_scaler,
                 view="gene_expression",
             )
@@ -108,7 +108,7 @@ class SimpleNeuralNetwork(DRPModel):
             cell_line_input = cell_line_input.copy()
             cell_line_input.apply(function=np.arcsinh, view="gene_expression")
             cell_line_input.transform_features(
-                ids=cell_line_ids,
+                ids=np.unique(cell_line_ids),
                 transformer=self.gene_expression_scaler,
                 view="gene_expression",
             )
