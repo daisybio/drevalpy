@@ -44,7 +44,7 @@ class CorrelationComparisonScatter(OutPlot):
                 (self.df["LPO_LCO_LDO"] == lpo_lco_ldo)
                 & (self.df["algorithm"] == algorithm)
             ]
-            self.name = f"{color_by}_{algorithm}_{lpo_lco_ldo}"
+            self.name = f"{color_by} {algorithm} {lpo_lco_ldo}"
         else:
             self.name = None
         if self.df.empty:
@@ -63,9 +63,16 @@ class CorrelationComparisonScatter(OutPlot):
                 str(model).replace("_", "<br>", 2) for model in self.models
             ],
         )
-        for i in range(len(self.models)):
-            self.fig_overall["layout"]["annotations"][i]["font"]["size"] = 6
+   
 
+        # Update axis labels
+        for i in range(len(self.models)):
+            for j in range(len(self.models)):
+                self.fig_overall.update_xaxes(title_text=f"{self.models[j].split('_')[0]} {metric} Score", row=i+1, col=j+1)
+                self.fig_overall.update_yaxes(title_text=f"{self.models[i].split('_')[0]} {metric} Score", row=i+1, col=j+1)
+
+        for i in range(len(self.models)):
+            self.fig_overall["layout"]["annotations"][i]["font"]["size"] = 12
         self.dropdown_fig = go.Figure()
         self.dropdown_buttons_x = list()
         self.dropdown_buttons_y = list()
