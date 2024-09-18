@@ -1,4 +1,4 @@
-from typing import TextIO, List
+from typing import TextIO
 import pandas as pd
 import numpy as np
 import scipy
@@ -7,6 +7,7 @@ from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 
 from drevalpy.visualization.outplot import OutPlot
+from drevalpy.models import SINGLE_DRUG_MODEL_FACTORY
 
 
 class CorrelationComparisonScatter(OutPlot):
@@ -19,7 +20,7 @@ class CorrelationComparisonScatter(OutPlot):
         algorithm="all",
     ):
         exclude_models = (
-            {"NaiveDrugMeanPredictor"}
+            {"NaiveDrugMeanPredictor"}.union({model for model in SINGLE_DRUG_MODEL_FACTORY.keys()})
             if color_by == "drug"
             else {"NaiveCellLineMeanPredictor"}
         )
@@ -32,6 +33,9 @@ class CorrelationComparisonScatter(OutPlot):
                 (self.df["LPO_LCO_LDO"] == lpo_lco_ldo)
                 & (self.df["rand_setting"] == "predictions")
                 & (~self.df["algorithm"].isin(exclude_models))
+                # and exclude all lines for which algorithm starts with any element from
+                # exclude_models
+                & (~self.df["algorithm"].str.startswith(tuple(exclude_models)))
             ]
             self.name = f"{color_by}_{lpo_lco_ldo}"
         elif algorithm not in exclude_models:
@@ -43,7 +47,9 @@ class CorrelationComparisonScatter(OutPlot):
             self.name = f"{color_by}_{algorithm}_{lpo_lco_ldo}"
         else:
             self.name = None
-
+        if self.df.empty:
+            print(f"No data found for {self.name}. Skipping ...")
+            return
         self.color_by = color_by
         self.metric = metric
 
@@ -65,6 +71,8 @@ class CorrelationComparisonScatter(OutPlot):
         self.dropdown_buttons_y = list()
 
     def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
+        if self.df.empty:
+            return
         self.__draw__()
         assert self.name == out_suffix
         path_out = f"{out_prefix}corr_comp_scatter_{out_suffix}.html"

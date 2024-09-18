@@ -15,6 +15,7 @@ __all__ = [
     "SingleDrugRandomForest",
     "MULTI_DRUG_MODEL_FACTORY",
     "SINGLE_DRUG_MODEL_FACTORY",
+    "MODEL_FACTORY",
 ]
 
 from .baselines.naive_pred import (
