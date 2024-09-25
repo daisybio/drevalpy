@@ -23,7 +23,7 @@ from .baselines.naive_pred import (
     NaiveDrugMeanPredictor,
     NaiveCellLineMeanPredictor,
 )
-from .baselines.sklearn_models import ElasticNetModel, RandomForest, SVMRegressor
+from .baselines.sklearn_models import ElasticNetModel, RandomForest, SVMRegressor, GradientBoosting
 from .baselines.multi_omics_random_forest import MultiOmicsRandomForest
 from .simple_neural_network.simple_neural_network import SimpleNeuralNetwork
 from .simple_neural_network.multiomics_neural_network import MultiOmicsNeuralNetwork
@@ -43,6 +43,7 @@ MULTI_DRUG_MODEL_FACTORY = {
     "SimpleNeuralNetwork": SimpleNeuralNetwork,
     "MultiOmicsNeuralNetwork": MultiOmicsNeuralNetwork,
     "MultiOmicsRandomForest": MultiOmicsRandomForest,
+    "GradientBoosting": GradientBoosting,
 }
 
 MODEL_FACTORY = MULTI_DRUG_MODEL_FACTORY.copy()

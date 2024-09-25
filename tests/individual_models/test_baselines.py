@@ -23,6 +23,7 @@ from .utils import sample_dataset, call_save_and_load
         "RandomForest",
         "SVR",
         "MultiOmicsRandomForest",
+        "GradientBoosting",
     ],
 )
 @pytest.mark.parametrize("test_mode", ["LPO", "LCO", "LDO"])
