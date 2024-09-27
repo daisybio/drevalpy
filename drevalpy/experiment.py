@@ -326,6 +326,7 @@ def drug_response_experiment(
     )
     print("Done!")
 
+
 def consolidate_single_drug_model_predictions(
     models: List[DRPModel],
     drugs: List[str],
@@ -901,18 +902,17 @@ def train_and_predict(
     cell_lines_to_keep = cl_features.identifiers if cl_features is not None else None
     drugs_to_keep = drug_features.identifiers if drug_features is not None else None
 
-
     # making sure there are no missing features:
     len_train_before = len(train_dataset)
     len_pred_before = len(prediction_dataset)
-    train_dataset.reduce_to(
-        cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep
-    )
+    train_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
     prediction_dataset.reduce_to(
         cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep
     )
     print(f"Reduced training dataset from {len_train_before} to {len(train_dataset)}")
-    print(f"Reduced prediction dataset from {len_pred_before} to {len(prediction_dataset)}")
+    print(
+        f"Reduced prediction dataset from {len_pred_before} to {len(prediction_dataset)}"
+    )
 
     if early_stopping_dataset is not None:
         early_stopping_dataset.reduce_to(

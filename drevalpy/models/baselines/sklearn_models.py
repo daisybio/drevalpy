@@ -200,4 +200,5 @@ class GradientBoosting(SklearnModel):
             min_samples_split=hyperparameters.get("min_samples_split", 2),
             min_samples_leaf=hyperparameters.get("min_samples_leaf", 1),
             subsample=hyperparameters.get("subsample", 1.0),
-            max_features=hyperparameters.get("max_features", 1.0),        )
+            max_features=hyperparameters.get("max_features", 1.0),
+        )
