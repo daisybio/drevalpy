@@ -15,7 +15,7 @@ from drevalpy.datasets.dataset import FeatureDataset, DrugResponseDataset
 from drevalpy.models.drp_model import DRPModel
 from ..utils import (
     load_and_reduce_gene_features,
-    load_drug_features_from_fingerprints,
+    load_drug_fingerprint_features,
 )
 
 
@@ -113,7 +113,7 @@ class SklearnModel(DRPModel):
         )
 
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
-        return load_drug_features_from_fingerprints(data_path, dataset_name)
+        return load_drug_fingerprint_features(data_path, dataset_name)
 
 
 class ElasticNetModel(SklearnModel):

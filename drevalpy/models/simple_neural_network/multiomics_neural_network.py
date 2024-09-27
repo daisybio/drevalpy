@@ -12,7 +12,7 @@ from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from .utils import FeedForwardNetwork
 from ..drp_model import DRPModel
 from ..utils import (
-    load_drug_features_from_fingerprints,
+    load_drug_fingerprint_features,
     get_multiomics_feature_dataset,
 )
 
@@ -163,4 +163,4 @@ class MultiOmicsNeuralNetwork(DRPModel):
         )
 
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
-        return load_drug_features_from_fingerprints(data_path, dataset_name)
+        return load_drug_fingerprint_features(data_path, dataset_name)

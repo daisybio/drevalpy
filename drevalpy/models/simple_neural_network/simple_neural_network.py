@@ -9,7 +9,7 @@ from numpy.typing import ArrayLike
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from ..utils import (
-    load_drug_features_from_fingerprints,
+    load_drug_fingerprint_features,
     load_and_reduce_gene_features,
 )
 from .utils import FeedForwardNetwork
@@ -143,4 +143,4 @@ class SimpleNeuralNetwork(DRPModel):
 
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
 
-        return load_drug_features_from_fingerprints(data_path, dataset_name)
+        return load_drug_fingerprint_features(data_path, dataset_name)

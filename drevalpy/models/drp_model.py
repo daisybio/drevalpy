@@ -49,7 +49,10 @@ class DRPModel(ABC):
             hpams = yaml.load(f, Loader=yaml.FullLoader)[cls.model_name]
         if hpams is None:
             return [{}]
-
+        #each param should be a list
+        for hp in hpams:
+            if not isinstance(hpams[hp], list):
+                hpams[hp] = [hpams[hp]]
         grid = list(ParameterGrid(hpams))
         return grid
 

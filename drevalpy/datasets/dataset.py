@@ -93,7 +93,7 @@ class DrugResponseDataset(Dataset):
         else:
             self.predictions = None
         self.cv_splits = None
-
+    
     def __len__(self):
         return len(self.response)
 
@@ -117,6 +117,19 @@ class DrugResponseDataset(Dataset):
                 string += f"; Predictions {self.predictions}"
         return string
 
+    def to_dataframe(self):
+            """
+            Convert the dataset into a pandas DataFrame.
+            """
+            data = {
+                'cell_line_id': self.cell_line_ids,
+                'drug_id': self.drug_ids,
+                'response': self.response
+            }
+            if self.predictions is not None:
+                data['predictions'] = self.predictions
+            return pd.DataFrame(data)
+    
     def load(self, path: str):
         """
         Loads the drug response dataset from data.
@@ -742,7 +755,7 @@ class FeatureDataset(Dataset):
         """
         returns drug ids of the dataset
         """
-        return list(self.features.keys())
+        return np.array(list(self.features.keys()))
 
     def get_view_names(self):
         """

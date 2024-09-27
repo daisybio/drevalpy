@@ -103,7 +103,7 @@ def load_drug_ids_from_csv(data_path: str, dataset_name: str) -> FeatureDataset:
     )
 
 
-def load_drug_features_from_fingerprints(
+def load_drug_fingerprint_features(
     data_path: str, dataset_name: str
 ) -> FeatureDataset:
     """
