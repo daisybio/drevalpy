@@ -1,10 +1,12 @@
 # DrEvalPy: Python Cancer Cell Line Drug Response Prediction Suite
-
 Focus on Innovating Your Models — DrEval Handles the Rest!
 - DrEval is a toolkit that ensures drug response prediction evaluations are statistically sound, biologically meaningful, and reproducible.
 - Focus on model innovation while using our automated standardized evaluation protocols and preprocessing workflows.
 - A flexible model interface supports all model types (e.g. Machine Learning, Stats, Network-based analyses)
 By contributing your model to the DrEval catalog, you can increase your work's exposure, reusability, and transferability.
+
+![DrEval](https://github.com/daisybio/drevalpy/blob/main/assets/dreval.png)
+
 
 This project is a collaboration of the Technical University of Munich (TUM, Germany) 
 and the Freie Universität Berlin (FU, Germany).
@@ -26,7 +28,7 @@ pip install .
 
 To run models from the catalog, you can use the command line tool:
 ```bash
-run_suite --run_id "my_first_run" --models ElasticNet SimpleNeuralNetwork --dataset GDSC1 --test_mode LCO
+run_suite --run_id my_first_run --models ElasticNet SimpleNeuralNetwork --dataset GDSC1 --test_mode LCO
 ```
 This will train and tune a neural network and an elastic net model on a subset of gene expression features and drug fingerprint features to predict IC50 values of the GDSC1 database. It will evaluate in "LCO" which is the leave-cell-line-out splitting strategy using 5 fold cross validation. 
 The results will be stored in 
@@ -36,7 +38,7 @@ results/my_first_run/LCO
 ```
 You can visualize them using 
 ```bash
-create_report --run_id "my_first_run"
+create_report --run_id my_first_run
 ```
 This will create an index.html file which you can open in your webbrowser.
 
