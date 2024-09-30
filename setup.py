@@ -36,7 +36,7 @@ setup(
         "scipy",
     ],
     entry_points= {'console_scripts': [
-            'run_suite=run_suite:main', 'create_report=create_report:main'
+            'run_suite=drevalpy.run_suite:main', 'create_report=drevalpy.create_report:main'
         ]},
     include_package_data=True,
     package_data={
