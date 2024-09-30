@@ -9,12 +9,19 @@ By contributing your model to the DrEval catalog, you can increase your work's e
 
 Use DrEval to Build Drug Response Models That Have an Impact
     1. Maintained, up-to-date baseline catalog, no need to re-implement literature models
+
     2. Gold standard datasets for benchmarking
+
     3. Consistent application-driven evaluation
+
     4. Ablation studies with permutation tests
+
     5. Cross-study evaluation for generalization analysis
+
     6. Optimized nextflow pipeline for fast experiments
+
     7. Easy-to-use hyperparameter tuning
+    
     8. Paper-ready visualizations to display performance
 
 This project is a collaboration of the Technical University of Munich (TUM, Germany) 
