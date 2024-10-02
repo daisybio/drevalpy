@@ -3,6 +3,7 @@ Focus on Innovating Your Models — DrEval Handles the Rest!
 - DrEval is a toolkit that ensures drug response prediction evaluations are statistically sound, biologically meaningful, and reproducible.
 - Focus on model innovation while using our automated standardized evaluation protocols and preprocessing workflows.
 - A flexible model interface supports all model types (e.g. Machine Learning, Stats, Network-based analyses)
+
 By contributing your model to the DrEval catalog, you can increase your work's exposure, reusability, and transferability.
 
 ![DrEval](https://github.com/daisybio/drevalpy/blob/main/assets/dreval.png)
