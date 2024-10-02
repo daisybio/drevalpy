@@ -35,9 +35,12 @@ setup(
         "scikit-learn",
         "scipy",
     ],
-    entry_points= {'console_scripts': [
-            'run_suite=drevalpy.run_suite:main', 'create_report=drevalpy.create_report:main'
-        ]},
+    entry_points={
+        "console_scripts": [
+            "run_suite=drevalpy.run_suite:main",
+            "create_report=drevalpy.create_report:main",
+        ]
+    },
     include_package_data=True,
     package_data={
         "": [
@@ -50,7 +53,7 @@ setup(
             "visualization/style_utils/LPO.png",
             "visualization/style_utils/nf-core-drugresponseeval_logo_light.png",
             "visualization/style_utils/page_layout.html",
-            "assets/dreval.png"
+            "assets/dreval.png",
         ]
     },
 )
