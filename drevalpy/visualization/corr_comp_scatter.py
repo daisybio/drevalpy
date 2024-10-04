@@ -20,7 +20,9 @@ class CorrelationComparisonScatter(OutPlot):
         algorithm="all",
     ):
         exclude_models = (
-            {"NaiveDrugMeanPredictor"}.union({model for model in SINGLE_DRUG_MODEL_FACTORY.keys()})
+            {"NaiveDrugMeanPredictor"}.union(
+                {model for model in SINGLE_DRUG_MODEL_FACTORY.keys()}
+            )
             if color_by == "drug"
             else {"NaiveCellLineMeanPredictor"}
         )
@@ -63,13 +65,20 @@ class CorrelationComparisonScatter(OutPlot):
                 str(model).replace("_", "<br>", 2) for model in self.models
             ],
         )
-   
 
         # Update axis labels
         for i in range(len(self.models)):
             for j in range(len(self.models)):
-                self.fig_overall.update_xaxes(title_text=f"{self.models[j].split('_')[0]} {metric} Score", row=i+1, col=j+1)
-                self.fig_overall.update_yaxes(title_text=f"{self.models[i].split('_')[0]} {metric} Score", row=i+1, col=j+1)
+                self.fig_overall.update_xaxes(
+                    title_text=f"{self.models[j].split('_')[0]} {metric} Score",
+                    row=i + 1,
+                    col=j + 1,
+                )
+                self.fig_overall.update_yaxes(
+                    title_text=f"{self.models[i].split('_')[0]} {metric} Score",
+                    row=i + 1,
+                    col=j + 1,
+                )
 
         for i in range(len(self.models)):
             self.fig_overall["layout"]["annotations"][i]["font"]["size"] = 12

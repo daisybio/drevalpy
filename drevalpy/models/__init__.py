@@ -13,7 +13,7 @@ __all__ = [
     "MultiOmicsNeuralNetwork",
     "MultiOmicsRandomForest",
     "SingleDrugRandomForest",
-    "MULTI_DRUG_MODEL_FACTORY",
+    "SRMF" "MULTI_DRUG_MODEL_FACTORY",
     "SINGLE_DRUG_MODEL_FACTORY",
     "MODEL_FACTORY",
 ]
@@ -23,11 +23,17 @@ from .baselines.naive_pred import (
     NaiveDrugMeanPredictor,
     NaiveCellLineMeanPredictor,
 )
-from .baselines.sklearn_models import ElasticNetModel, RandomForest, SVMRegressor
+from .baselines.sklearn_models import (
+    ElasticNetModel,
+    RandomForest,
+    SVMRegressor,
+    GradientBoosting,
+)
 from .baselines.multi_omics_random_forest import MultiOmicsRandomForest
 from .simple_neural_network.simple_neural_network import SimpleNeuralNetwork
 from .simple_neural_network.multiomics_neural_network import MultiOmicsNeuralNetwork
 from .baselines.singledrug_random_forest import SingleDrugRandomForest
+from .SRMF.srmf import SRMF
 
 SINGLE_DRUG_MODEL_FACTORY = {
     "SingleDrugRandomForest": SingleDrugRandomForest,
@@ -43,6 +49,8 @@ MULTI_DRUG_MODEL_FACTORY = {
     "SimpleNeuralNetwork": SimpleNeuralNetwork,
     "MultiOmicsNeuralNetwork": MultiOmicsNeuralNetwork,
     "MultiOmicsRandomForest": MultiOmicsRandomForest,
+    "GradientBoosting": GradientBoosting,
+    "SRMF": SRMF,
 }
 
 MODEL_FACTORY = MULTI_DRUG_MODEL_FACTORY.copy()

@@ -867,22 +867,19 @@ def train_and_predict(
             data_path=path_data, dataset_name=train_dataset.dataset_name
         )
 
-    cell_lines_to_remove = cl_features.identifiers if cl_features is not None else None
-    drugs_to_remove = drug_features.identifiers if drug_features is not None else None
-
-    print(
-        f"Reducing datasets ... feature data available for "
-        f'{len(cell_lines_to_remove) if cell_lines_to_remove else "all"} cell lines '
-        f'and {len(drugs_to_remove)if drugs_to_remove else "all"} drugs.'
-    )
+    cell_lines_to_keep = cl_features.identifiers if cl_features is not None else None
+    drugs_to_keep = drug_features.identifiers if drug_features is not None else None
 
     # making sure there are no missing features:
-    train_dataset.reduce_to(
-        cell_line_ids=cell_lines_to_remove, drug_ids=drugs_to_remove
-    )
-
+    len_train_before = len(train_dataset)
+    len_pred_before = len(prediction_dataset)
+    train_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
     prediction_dataset.reduce_to(
-        cell_line_ids=cell_lines_to_remove, drug_ids=drugs_to_remove
+        cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep
+    )
+    print(f"Reduced training dataset from {len_train_before} to {len(train_dataset)}")
+    print(
+        f"Reduced prediction dataset from {len_pred_before} to {len(prediction_dataset)}"
     )
 
     if early_stopping_dataset is not None:
