@@ -20,10 +20,7 @@ class RegressionSliderPlot(OutPlot):
         self.df = df[
             (df["LPO_LCO_LDO"] == lpo_lco_ldo) & (df["rand_setting"] == "predictions")
         ]
-        if model in SINGLE_DRUG_MODEL_FACTORY:
-            self.df = self.df[(df["algorithm"].str.startswith(model))]
-        else:
-            self.df = self.df[(df["algorithm"] == model)]
+        self.df = self.df[(self.df["algorithm"] == model)]
         self.group_by = group_by
         self.normalize = normalize
         self.fig = None

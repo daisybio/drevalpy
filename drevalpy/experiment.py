@@ -284,24 +284,24 @@ def drug_response_experiment(
                     )
     consolidate_single_drug_model_predictions(
         models=models,
-        drugs=list(np.unique(response_data.drug_ids)),
         n_cv_splits=n_cv_splits,
         results_path=result_path,
         cross_study_datasets=cross_study_datasets,
-        randomization_test_views=randomization_test_views,
+        randomization_mode=randomization_mode,
         n_trials_robustness=n_trials_robustness,
+        out_path = result_path
     )
     print("Done!")
 
 
 def consolidate_single_drug_model_predictions(
     models: List[Type[DRPModel]],
-    drugs: List[str],
     n_cv_splits: int,
     results_path: str,
     cross_study_datasets: List[DrugResponseDataset],
-    randomization_test_views: List[str],
-    n_trials_robustness: int,
+    randomization_mode: Optional[List[str]] = None,
+    n_trials_robustness: int = 0,
+    out_path: str = ""
 ) -> None:
     """
     Consolidate SingleDrugModel predictions into a single file
@@ -309,19 +309,20 @@ def consolidate_single_drug_model_predictions(
 
     for model in models:
         if model.model_name in SINGLE_DRUG_MODEL_FACTORY:
-
+            model_instance = MODEL_FACTORY[model.model_name]()
             model_path = os.path.join(results_path, str(model.model_name))
-            os.makedirs(os.path.join(model_path, "predictions"), exist_ok=True)
+            out_path = os.path.join(out_path, str(model.model_name))
+            os.makedirs(os.path.join(out_path, "predictions"), exist_ok=True)
             if cross_study_datasets:
                 os.makedirs(
-                    os.path.join(model_path, "cross_study"), exist_ok=True
+                    os.path.join(out_path, "cross_study"), exist_ok=True
                 )
-            if randomization_test_views:
+            if randomization_mode:
                 os.makedirs(
-                    os.path.join(model_path, "randomization"), exist_ok=True
+                    os.path.join(out_path, "randomization"), exist_ok=True
                 )
             if n_trials_robustness:
-                os.makedirs(os.path.join(model_path, "robustness"), exist_ok=True)
+                os.makedirs(os.path.join(out_path, "robustness"), exist_ok=True)
 
             for split in range(n_cv_splits):
 
@@ -332,7 +333,12 @@ def consolidate_single_drug_model_predictions(
                     "robustness": {},
                     "randomization": {},
                 }
-
+                # list all dirs in model_path/drugs
+                drugs = [
+                    d
+                    for d in os.listdir(os.path.join(model_path, "drugs"))
+                    if os.path.isdir(os.path.join(model_path, "drugs", d))
+                ]
                 for drug in drugs:
                     single_drug_prediction_path = os.path.join(
                         model_path, "drugs", drug
@@ -385,6 +391,10 @@ def consolidate_single_drug_model_predictions(
                         )
 
                     # Randomization predictions
+                    randomization_test_views = get_randomization_test_views(
+                        model=model_instance,
+                        randomization_mode=randomization_mode
+                    )
                     for view in randomization_test_views:
                         randomization_path = os.path.join(
                             single_drug_prediction_path, "randomization"
@@ -400,7 +410,7 @@ def consolidate_single_drug_model_predictions(
 
                 # Save the consolidated predictions
                 pd.concat(predictions["main"], axis=0).to_csv(
-                    os.path.join(model_path, "predictions", f"predictions_split_{split}.csv")
+                    os.path.join(out_path, "predictions", f"predictions_split_{split}.csv")
                 )
 
                 for dataset_name, dataset_predictions in predictions[
@@ -408,7 +418,7 @@ def consolidate_single_drug_model_predictions(
                 ].items():
                     pd.concat(dataset_predictions, axis=0).to_csv(
                         os.path.join(
-                            model_path,
+                            out_path,
                             "cross_study",
                             f"cross_study_{dataset_name}_split_{split}.csv",
                         )
@@ -417,7 +427,7 @@ def consolidate_single_drug_model_predictions(
                 for trial, trial_predictions in predictions["robustness"].items():
                     pd.concat(trial_predictions, axis=0).to_csv(
                         os.path.join(
-                            model_path,
+                            out_path,
                             "robustness",
                             f"robustness_{trial+1}_split_{split}.csv",
                         )
@@ -426,7 +436,7 @@ def consolidate_single_drug_model_predictions(
                 for view, view_predictions in predictions["randomization"].items():
                     pd.concat(view_predictions, axis=0).to_csv(
                         os.path.join(
-                            model_path,
+                            out_path,
                             "randomization",
                             f"randomization_{view}_split_{split}.csv",
                         )
