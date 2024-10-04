@@ -1,0 +1,9 @@
+---
+SRMF:
+  K: 45
+  lambda_l: 0.01
+  lambda_d: 0
+  lambda_c: 0.01
+  max_iter: 50
+  seed: 1
+  n_features: 1036
