@@ -31,7 +31,7 @@ def partial_correlation(
     :param y_true: response
     :param cell_line_ids: cell line IDs
     :param drug_ids: drug IDs
-    :param method: method to compute the partial correlation (Pearson, spearman)
+    :param method: method to compute the partial correlation (pearson, spearman)
     :return: partial correlation float
     """
 

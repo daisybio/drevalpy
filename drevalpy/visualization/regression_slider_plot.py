@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 
 from drevalpy.visualization.outplot import OutPlot
+from drevalpy.models import SINGLE_DRUG_MODEL_FACTORY
 
 
 class RegressionSliderPlot(OutPlot):
@@ -17,13 +18,16 @@ class RegressionSliderPlot(OutPlot):
         normalize=False,
     ):
         self.df = df[
-            (df["LPO_LCO_LDO"] == lpo_lco_ldo)
-            & (df["algorithm"] == model)
-            & (df["rand_setting"] == "predictions")
+            (df["LPO_LCO_LDO"] == lpo_lco_ldo) & (df["rand_setting"] == "predictions")
         ]
+        if model in SINGLE_DRUG_MODEL_FACTORY:
+            self.df = self.df[(df["algorithm"].str.startswith(model))]
+        else:
+            self.df = self.df[(df["algorithm"] == model)]
         self.group_by = group_by
         self.normalize = normalize
         self.fig = None
+        self.model = model
 
         if self.normalize:
             if self.group_by == "cell_line":
@@ -77,19 +81,29 @@ class RegressionSliderPlot(OutPlot):
     def __render_plot__(self):
         # sort df by group name
         df = self.df.sort_values(self.group_by)
-        setting_title = (
-            df["algorithm"].unique()[0] + " " + df["LPO_LCO_LDO"].unique()[0]
-        )
+        setting_title = self.model + " " + df["LPO_LCO_LDO"].unique()[0]
         if self.normalize:
             if self.group_by == "cell_line":
                 setting_title += f", normalized by drug mean"
-                hover_data = ["pcc", "cell_line", "drug", "mean_y_true_per_drug"]
+                hover_data = [
+                    "pcc",
+                    "cell_line",
+                    "drug",
+                    "mean_y_true_per_drug",
+                    "algorithm",
+                ]
             else:
                 setting_title += f", normalized by cell line mean"
-                hover_data = ["pcc", "cell_line", "drug", "mean_y_true_per_cell_line"]
+                hover_data = [
+                    "pcc",
+                    "cell_line",
+                    "drug",
+                    "mean_y_true_per_cell_line",
+                    "algorithm",
+                ]
 
         else:
-            hover_data = ["pcc", "cell_line", "drug"]
+            hover_data = ["pcc", "cell_line", "drug", "algorithm"]
         self.fig = px.scatter(
             df,
             x="y_true",

@@ -10,7 +10,7 @@ from drevalpy.models.utils import (
     load_and_reduce_gene_features,
     iterate_features,
     load_drug_ids_from_csv,
-    load_drug_features_from_fingerprints,
+    load_drug_fingerprint_features,
     get_multiomics_feature_dataset,
     unique,
 )
@@ -172,7 +172,7 @@ def test_load_drugs_from_fingerprints():
             "3,1,0,1,1,1\n"
             "4,1,1,0,1,1\n"
         )
-    drug_features_gdsc1 = load_drug_features_from_fingerprints(temp.name, "GDSC1_small")
+    drug_features_gdsc1 = load_drug_fingerprint_features(temp.name, "GDSC1_small")
     assert len(drug_features_gdsc1.features) == 5
     assert drug_features_gdsc1.features.keys() == {
         "Zibotentan",

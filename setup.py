@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="drevalpy",
-    version="1.0.4",
+    version="1.0.5",
     author=" ",
     description="Drug Response Evaluation of cancer cell line drug response models in a fair setting.",
     long_description="<h1>Drug Response Evaluation of cancer cell line drug response models in a fair setting</h1>"
@@ -35,6 +35,12 @@ setup(
         "scikit-learn",
         "scipy",
     ],
+    entry_points={
+        "console_scripts": [
+            "run_suite=drevalpy.run_suite:main",
+            "create_report=drevalpy.create_report:main",
+        ]
+    },
     include_package_data=True,
     package_data={
         "": [
@@ -47,6 +53,7 @@ setup(
             "visualization/style_utils/LPO.png",
             "visualization/style_utils/nf-core-drugresponseeval_logo_light.png",
             "visualization/style_utils/page_layout.html",
+            "assets/dreval.png",
         ]
     },
 )

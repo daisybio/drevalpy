@@ -117,6 +117,19 @@ class DrugResponseDataset(Dataset):
                 string += f"; Predictions {self.predictions}"
         return string
 
+    def to_dataframe(self):
+        """
+        Convert the dataset into a pandas DataFrame.
+        """
+        data = {
+            "cell_line_id": self.cell_line_ids,
+            "drug_id": self.drug_ids,
+            "response": self.response,
+        }
+        if self.predictions is not None:
+            data["predictions"] = self.predictions
+        return pd.DataFrame(data)
+
     def load(self, path: str):
         """
         Loads the drug response dataset from data.
@@ -742,7 +755,7 @@ class FeatureDataset(Dataset):
         """
         returns drug ids of the dataset
         """
-        return list(self.features.keys())
+        return np.array(list(self.features.keys()))
 
     def get_view_names(self):
         """
@@ -761,6 +774,8 @@ class FeatureDataset(Dataset):
             If False, returns a list of features.
         :return: feature matrix
         """
+        assert len(identifiers) > 0, "get_feature_matrix: No identifiers given."
+
         assert view in self.view_names, f"View '{view}' not in in the FeatureDataset."
         missing_identifiers = {
             id_ for id_ in identifiers if id_ not in self.identifiers

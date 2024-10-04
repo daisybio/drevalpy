@@ -26,6 +26,8 @@ class Toy(DrugResponseDataset):
             download_dataset(dataset_name, path_data, redownload=True)
         with open(path, "rb") as f:
             response_data = pickle.load(f)
+
+        response_data.drug_ids = [di.replace(",", "") for di in response_data.drug_ids]
         super().__init__(
             response=response_data.response,
             cell_line_ids=response_data.cell_line_ids,
