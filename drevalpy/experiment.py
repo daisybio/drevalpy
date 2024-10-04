@@ -117,7 +117,7 @@ def drug_response_experiment(
         response_data.save_splits(path=split_path)
 
     model_list = make_model_list(models + baselines, response_data)
-    for model_name in model_list:
+    for model_name in model_list.keys():
         model_name, drug_id = get_model_name_and_drug_id(model_name)
 
         model_class = MODEL_FACTORY[model_name]
@@ -1068,7 +1068,7 @@ def hpam_tune_raytune(
 
 def make_model_list(
     models: List[Type[DRPModel]], response_data: DrugResponseDataset
-) -> List[str]:
+) -> Dict[str, str]:
     """
     Make a list of models to evaluate
     :param models:
@@ -1076,14 +1076,14 @@ def make_model_list(
     :param response_data:
     :return:
     """
-    model_list = []
+    model_list = {}
     unique_drugs = np.unique(response_data.drug_ids)
     for model in models:
         if issubclass(model, SingleDrugModel):
             for drug in unique_drugs:
-                model_list.append(f"{model.model_name}.{drug}")
+                model_list[f"{model.model_name}.{drug}"] = str(model.model_name)
         else:
-            model_list.append(model.model_name)
+            model_list[str(model.model_name)] = str(model.model_name)
     return model_list
 
 
