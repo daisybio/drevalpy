@@ -117,7 +117,7 @@ def drug_response_experiment(
         response_data.save_splits(path=split_path)
 
     model_list = make_model_list(models + baselines, response_data)
-    for model_name in model_list:
+    for model_name in model_list.keys():
         model_name, drug_id = get_model_name_and_drug_id(model_name)
 
         model_class = MODEL_FACTORY[model_name]
@@ -127,30 +127,16 @@ def drug_response_experiment(
         else:
             print(f"Running model {model_class.model_name}")
             is_baseline = False
-        is_single_drug_model = model_name in SINGLE_DRUG_MODEL_FACTORY
 
-        model_path = os.path.join(result_path, str(model_class.model_name))
-
-        os.makedirs(model_path, exist_ok=True)
-
-        predictions_path = os.path.join(model_path, "predictions")
-        os.makedirs(predictions_path, exist_ok=True)
-        if is_single_drug_model:
-            single_drug_prediction_path = os.path.join(
-                predictions_path, "drugs", drug_id
-            )
-            os.makedirs(single_drug_prediction_path, exist_ok=True)
-
-        if randomization_mode is not None and not is_baseline:
-            randomization_test_path = os.path.join(
-                (
-                    single_drug_prediction_path
-                    if is_single_drug_model
-                    else predictions_path
-                ),
-                "randomization",
-            )
-            os.makedirs(randomization_test_path, exist_ok=True)
+        predictions_path = generate_data_saving_path(model_name=model_name,
+                                                     drug_id=drug_id,
+                                                     result_path=result_path,
+                                                     suffix="predictions")
+        hpam_path = generate_data_saving_path(model_name=model_name,
+                                              drug_id=drug_id,
+                                              result_path=result_path,
+                                              suffix="best_hpams")
+        parent_dir = os.path.dirname(predictions_path)
 
         model_hpam_set = model_class.get_hyperparameter_set()
 
@@ -160,23 +146,12 @@ def drug_response_experiment(
                 f"#################"
             )
 
-            prediction_file = (
-                os.path.join(
-                    single_drug_prediction_path,
-                    f"predictions_split_{split_index}.csv",
-                )
-                if is_single_drug_model
-                else os.path.join(
+            prediction_file = os.path.join(
                     predictions_path, f"predictions_split_{split_index}.csv"
                 )
-            )
-            hpam_filename = f"best_hpams_split_{split_index}.json"
 
-            hpam_save_path = (
-                os.path.join(predictions_path, hpam_filename)
-                if not is_single_drug_model
-                else os.path.join(single_drug_prediction_path, hpam_filename)
-            )
+            hpam_filename = f"best_hpams_split_{split_index}.json"
+            hpam_save_path = os.path.join(hpam_path, hpam_filename)
 
             (
                 train_dataset,
@@ -254,13 +229,9 @@ def drug_response_experiment(
                             early_stopping_dataset if model.early_stopping else None
                         ),
                         response_transformation=response_transformation,
-                        predictions_path=(
-                            predictions_path
-                            if not is_single_drug_model
-                            else single_drug_prediction_path
-                        ),
+                        path_out=parent_dir,
                         split_index=split_index,
-                        single_drug_id=drug_id if is_single_drug_model else None,
+                        single_drug_id=drug_id if model_name in SINGLE_DRUG_MODEL_FACTORY else None,
                     )
 
                 test_dataset.save(prediction_file)
@@ -290,7 +261,7 @@ def drug_response_experiment(
                         early_stopping_dataset=(
                             early_stopping_dataset if model.early_stopping else None
                         ),
-                        path_out=randomization_test_path,
+                        path_out=parent_dir,
                         split_index=split_index,
                         randomization_type=randomization_type,
                         response_transformation=response_transformation,
@@ -307,34 +278,30 @@ def drug_response_experiment(
                         early_stopping_dataset=(
                             early_stopping_dataset if model.early_stopping else None
                         ),
-                        path_out=(
-                            single_drug_prediction_path
-                            if is_single_drug_model
-                            else predictions_path
-                        ),
+                        path_out=parent_dir,
                         split_index=split_index,
                         response_transformation=response_transformation,
                     )
     consolidate_single_drug_model_predictions(
         models=models,
-        drugs=np.unique(response_data.drug_ids),
         n_cv_splits=n_cv_splits,
         results_path=result_path,
         cross_study_datasets=cross_study_datasets,
-        randomization_test_views=randomization_test_views,
+        randomization_mode=randomization_mode,
         n_trials_robustness=n_trials_robustness,
+        out_path = result_path
     )
     print("Done!")
 
 
 def consolidate_single_drug_model_predictions(
-    models: List[DRPModel],
-    drugs: List[str],
+    models: List[Type[DRPModel]],
     n_cv_splits: int,
     results_path: str,
     cross_study_datasets: List[DrugResponseDataset],
-    randomization_test_views: List[str],
-    n_trials_robustness: int,
+    randomization_mode: Optional[List[str]] = None,
+    n_trials_robustness: int = 0,
+    out_path: str = ""
 ) -> None:
     """
     Consolidate SingleDrugModel predictions into a single file
@@ -342,20 +309,20 @@ def consolidate_single_drug_model_predictions(
 
     for model in models:
         if model.model_name in SINGLE_DRUG_MODEL_FACTORY:
-
-            model_path = os.path.join(results_path, model.model_name)
-            predictions_path = os.path.join(model_path, "predictions")
-
+            model_instance = MODEL_FACTORY[model.model_name]()
+            model_path = os.path.join(results_path, str(model.model_name))
+            out_path = os.path.join(out_path, str(model.model_name))
+            os.makedirs(os.path.join(out_path, "predictions"), exist_ok=True)
             if cross_study_datasets:
                 os.makedirs(
-                    os.path.join(predictions_path, "cross_study"), exist_ok=True
+                    os.path.join(out_path, "cross_study"), exist_ok=True
                 )
-            if randomization_test_views:
+            if randomization_mode:
                 os.makedirs(
-                    os.path.join(predictions_path, "randomization"), exist_ok=True
+                    os.path.join(out_path, "randomization"), exist_ok=True
                 )
             if n_trials_robustness:
-                os.makedirs(os.path.join(predictions_path, "robustness"), exist_ok=True)
+                os.makedirs(os.path.join(out_path, "robustness"), exist_ok=True)
 
             for split in range(n_cv_splits):
 
@@ -366,10 +333,15 @@ def consolidate_single_drug_model_predictions(
                     "robustness": {},
                     "randomization": {},
                 }
-
+                # list all dirs in model_path/drugs
+                drugs = [
+                    d
+                    for d in os.listdir(os.path.join(model_path, "drugs"))
+                    if os.path.isdir(os.path.join(model_path, "drugs", d))
+                ]
                 for drug in drugs:
                     single_drug_prediction_path = os.path.join(
-                        predictions_path, "drugs", drug
+                        model_path, "drugs", drug
                     )
 
                     # Main predictions
@@ -377,6 +349,7 @@ def consolidate_single_drug_model_predictions(
                         pd.read_csv(
                             os.path.join(
                                 single_drug_prediction_path,
+                                "predictions",
                                 f"predictions_split_{split}.csv",
                             ),
                             index_col=0,
@@ -418,6 +391,10 @@ def consolidate_single_drug_model_predictions(
                         )
 
                     # Randomization predictions
+                    randomization_test_views = get_randomization_test_views(
+                        model=model_instance,
+                        randomization_mode=randomization_mode
+                    )
                     for view in randomization_test_views:
                         randomization_path = os.path.join(
                             single_drug_prediction_path, "randomization"
@@ -433,7 +410,7 @@ def consolidate_single_drug_model_predictions(
 
                 # Save the consolidated predictions
                 pd.concat(predictions["main"], axis=0).to_csv(
-                    os.path.join(predictions_path, f"predictions_split_{split}.csv")
+                    os.path.join(out_path, "predictions", f"predictions_split_{split}.csv")
                 )
 
                 for dataset_name, dataset_predictions in predictions[
@@ -441,7 +418,7 @@ def consolidate_single_drug_model_predictions(
                 ].items():
                     pd.concat(dataset_predictions, axis=0).to_csv(
                         os.path.join(
-                            predictions_path,
+                            out_path,
                             "cross_study",
                             f"cross_study_{dataset_name}_split_{split}.csv",
                         )
@@ -450,7 +427,7 @@ def consolidate_single_drug_model_predictions(
                 for trial, trial_predictions in predictions["robustness"].items():
                     pd.concat(trial_predictions, axis=0).to_csv(
                         os.path.join(
-                            predictions_path,
+                            out_path,
                             "robustness",
                             f"robustness_{trial+1}_split_{split}.csv",
                         )
@@ -459,7 +436,7 @@ def consolidate_single_drug_model_predictions(
                 for view, view_predictions in predictions["randomization"].items():
                     pd.concat(view_predictions, axis=0).to_csv(
                         os.path.join(
-                            predictions_path,
+                            out_path,
                             "randomization",
                             f"randomization_{view}_split_{split}.csv",
                         )
@@ -494,7 +471,7 @@ def cross_study_prediction(
     path_data: str,
     early_stopping_dataset: Optional[DrugResponseDataset],
     response_transformation: Optional[TransformerMixin],
-    predictions_path: str,
+    path_out: str,
     split_index: int,
     single_drug_id: Optional[str] = None,
 ) -> None:
@@ -509,7 +486,7 @@ def cross_study_prediction(
     :param single_drug_id: drug id to use for single drug models None for global models
     """
     dataset = dataset.copy()
-    os.makedirs(os.path.join(predictions_path, "cross_study"), exist_ok=True)
+    os.makedirs(os.path.join(path_out, "cross_study"), exist_ok=True)
     if response_transformation:
         dataset.transform(response_transformation)
 
@@ -580,7 +557,7 @@ def cross_study_prediction(
         dataset.predictions = np.array([])
     dataset.save(
         os.path.join(
-            predictions_path,
+            path_out,
             "cross_study",
             f"cross_study_{dataset.dataset_name}_split_{split_index}.csv",
         )
@@ -750,12 +727,13 @@ def randomization_test(
     """
 
     for test_name, views in randomization_test_views.items():
+        randomization_test_path = os.path.join(path_out, "randomization")
+        os.makedirs(randomization_test_path, exist_ok=True)
+
         randomization_test_file = os.path.join(
-            path_out,
+            randomization_test_path,
             f"randomization_{test_name}_split_{split_index}.csv",
         )
-
-        os.makedirs(path_out, exist_ok=True)
         if not os.path.isfile(
             randomization_test_file
         ):  # if this splits test has not been run yet
@@ -1039,70 +1017,6 @@ def hpam_tune(
     return best_hyperparameters
 
 
-'''
-def hpam_tune_composite_model(
-    model: CompositeDrugModel,
-    train_dataset: DrugResponseDataset,
-    validation_dataset: DrugResponseDataset,
-    hpam_set: List[Dict],
-    early_stopping_dataset: Optional[DrugResponseDataset] = None,
-    response_transformation: Optional[TransformerMixin] = None,
-    metric: str = "RMSE",
-    path_data: str = "data",
-) -> Dict[str, Dict]:
-    """
-    Tune the hyperparameters for the composite model
-    :param model:
-    :param train_dataset:
-    :param validation_dataset:
-    :param hpam_set:
-    :param early_stopping_dataset:
-    :param response_transformation:
-    :param metric:
-    :param path_data:
-    :return:
-    """
-
-    unique_drugs = set(np.unique(train_dataset.drug_ids)).union(
-        set(np.unique(validation_dataset.drug_ids))
-    )
-    # seperate best_hyperparameters for each drug
-    mode = get_mode(metric)
-    best_scores = {
-        drug: float("inf") if mode == "min" else float("-inf") for drug in unique_drugs
-    }
-    best_hyperparameters = {drug: None for drug in unique_drugs}
-
-    for hyperparameter in hpam_set:
-        print(f"Training model with hyperparameters: {hyperparameter}")
-        hyperparameters_per_drug = {drug: hyperparameter for drug in unique_drugs}
-
-        validation_dataset = train_and_predict(
-            model=model,
-            hpams=hyperparameters_per_drug,
-            path_data=path_data,
-            train_dataset=train_dataset,
-            early_stopping_dataset=early_stopping_dataset,
-            prediction_dataset=validation_dataset,
-            response_transformation=response_transformation,
-        )
-
-        # seperate evaluation for each drug. Each drug might have different best hyperparameters
-        for drug in np.unique(validation_dataset.drug_ids):
-            mask = validation_dataset.drug_ids == drug
-            validation_dataset_drug = validation_dataset.copy()
-            validation_dataset_drug.mask(mask)
-            score = evaluate(validation_dataset_drug, metric=metric)[metric]
-            if (mode == "min" and score < best_scores[drug]) or (
-                mode == "max" and score > best_scores[drug]
-            ):
-                print(f"current best {metric} score for {drug}: { score }")
-                best_scores[drug] = score
-                best_hyperparameters[drug] = hyperparameter
-    return best_hyperparameters
-'''
-
-
 def hpam_tune_raytune(
     model: DRPModel,
     train_dataset: DrugResponseDataset,
@@ -1159,22 +1073,9 @@ def hpam_tune_raytune(
     return best_config
 
 
-'''
-def instantiate_model(model_class: Type[DRPModel]) -> DRPModel:
-    """
-    Instantiate the model
-    :param model_class:
-    :return:
-    """
-    if issubclass(model_class, SingleDrugModel):
-        return CompositeDrugModel(base_model=model_class)
-    return model_class()
-'''
-
-
 def make_model_list(
     models: List[Type[DRPModel]], response_data: DrugResponseDataset
-) -> List[str]:
+) -> Dict[str, str]:
     """
     Make a list of models to evaluate
     :param models:
@@ -1182,14 +1083,14 @@ def make_model_list(
     :param response_data:
     :return:
     """
-    model_list = []
+    model_list = {}
     unique_drugs = np.unique(response_data.drug_ids)
     for model in models:
         if issubclass(model, SingleDrugModel):
             for drug in unique_drugs:
-                model_list.append(f"{model.model_name}.{drug}")
+                model_list[f"{model.model_name}.{drug}"] = str(model.model_name)
         else:
-            model_list.append(model.model_name)
+            model_list[str(model.model_name)] = str(model.model_name)
     return model_list
 
 
@@ -1242,3 +1143,13 @@ def get_datasets_from_cv_split(split, model_class, model_name, drug_id):
         return train_cp, val_cp, None, test_cp
 
     return train_dataset, validation_dataset, early_stopping_dataset, test_dataset
+
+
+def generate_data_saving_path(model_name, drug_id, result_path, suffix):
+    is_single_drug_model = model_name in SINGLE_DRUG_MODEL_FACTORY
+    if is_single_drug_model:
+        model_path = os.path.join(result_path, model_name, "drugs", drug_id, suffix)
+    else:
+        model_path = os.path.join(result_path, model_name, suffix)
+    os.makedirs(model_path, exist_ok=True)
+    return model_path
