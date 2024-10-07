@@ -505,8 +505,8 @@ def cross_study_prediction(
 
     print(
         f"Reducing cross study dataset ... feature data available for "
-        f'{len(cell_lines_to_keep) if cell_lines_to_keep else "all"} cell lines '
-        f'and {len(drugs_to_keep)if drugs_to_keep else "all"} drugs.'
+        f'{len(cell_lines_to_keep) if cell_lines_to_keep is not None else "all"} cell lines '
+        f'and {len(drugs_to_keep)if drugs_to_keep is not None else "all"} drugs.'
     )
 
     # making sure there are no missing features. Only keep cell lines and drugs for which we have
