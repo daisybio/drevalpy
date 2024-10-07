@@ -494,7 +494,11 @@ def cross_study_prediction(
         dataset.transform(response_transformation)
 
     # load features
-    cl_features, drug_features = load_features(model, path_data, dataset)
+    try:
+        cl_features, drug_features = load_features(model, path_data, dataset)
+    except ValueError as e:
+        warnings.warn(e)
+        return
 
     cell_lines_to_keep = cl_features.identifiers if cl_features is not None else None
 
