@@ -56,9 +56,23 @@ def load_and_reduce_gene_features(
         f"{data_path}/{dataset_name}/gene_lists/{gene_list}.csv",
         sep=("\t" if gene_list == "landmark_genes" else ","),
     )
-    genes_to_use = set(gene_info["Symbol"]) & set(cl_features.meta_info[feature_type])
+
+    
+    genes_in_list = set(gene_info["Symbol"])
+    genes_in_features = set(cl_features.meta_info[feature_type])
+    # Ensure that all genes from gene_list are in the dataset
+    missing_genes = genes_in_list - genes_in_features
+    if missing_genes:
+        missing_genes_list = list(missing_genes)
+        if len(missing_genes_list) > 10:
+            raise ValueError(f"The following genes are missing from the dataset {dataset_name} for {feature_type}: {', '.join(missing_genes_list[:10])}, ... ({len(missing_genes)} genes in total)")
+        else:
+            raise ValueError(f"The following genes are missing from the dataset {dataset_name} for {feature_type}: {', '.join(missing_genes_list)}")
+
+
+    # Only proceed with genes that are available
     gene_mask = np.array(
-        [gene in genes_to_use for gene in cl_features.meta_info[feature_type]]
+        [gene in genes_in_list for gene in cl_features.meta_info[feature_type]]
     )
     cl_features.meta_info[feature_type] = cl_features.meta_info[feature_type][gene_mask]
     for cell_line in cl_features.features.keys():

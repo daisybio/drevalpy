@@ -527,7 +527,6 @@ def cross_study_prediction(
         dataset.remove_rows(
             [i for i, pair in enumerate(dataset_pairs) if pair in train_pairs]
         )
-        print(len(dataset))
     elif test_mode == "LCO":
         train_cell_lines = set(train_dataset.cell_line_ids)
         dataset.reduce_to(
