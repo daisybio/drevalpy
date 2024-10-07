@@ -23,7 +23,7 @@ from drevalpy.visualization.utils import parse_results, prep_results
             "randomization_mode": ["SVRC"],
             "randomization_type": "permutation",
             "n_trials_robustness": 2,
-            "cross_study_datasets": [],
+            "cross_study_datasets": ["GDSC2"],
             "curve_curator": False,
             "overwrite": False,
             "optim_metric": "RMSE",

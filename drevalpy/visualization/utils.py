@@ -251,6 +251,8 @@ def generate_model_names(test_mode, model_name, pred_file):
         pred_setting = "randomize-" + "-".join(file_parts[1:-2])
     elif pred_rand_rob == "robustness":
         pred_setting = "-".join(file_parts[:2])
+    elif pred_rand_rob == "cross":
+        pred_setting = "cross-study-" + file_parts[2]
     else:
         raise ValueError(f"Unknown prediction setting: {pred_rand_rob}")
     split = "_".join(os.path.basename(pred_file).split(".")[0].split("_")[-2:])
