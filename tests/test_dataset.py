@@ -354,7 +354,7 @@ def graph_dataset():
 
 
 def test_feature_dataset_get_ids(sample_dataset):
-    assert sample_dataset.get_ids() == ["drug1", "drug2", "drug3", "drug4", "drug5"]
+    assert np.all(sample_dataset.get_ids() == ["drug1", "drug2", "drug3", "drug4", "drug5"])
 
 
 def test_feature_dataset_get_view_names(sample_dataset):

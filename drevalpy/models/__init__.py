@@ -13,7 +13,9 @@ __all__ = [
     "MultiOmicsNeuralNetwork",
     "MultiOmicsRandomForest",
     "SingleDrugRandomForest",
-    "SRMF" "MULTI_DRUG_MODEL_FACTORY",
+    "SRMF",
+    "GradientBoosting",
+    "MULTI_DRUG_MODEL_FACTORY",
     "SINGLE_DRUG_MODEL_FACTORY",
     "MODEL_FACTORY",
 ]
