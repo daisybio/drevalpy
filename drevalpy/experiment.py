@@ -494,7 +494,11 @@ def cross_study_prediction(
         dataset.transform(response_transformation)
 
     # load features
-    cl_features, drug_features = load_features(model, path_data, dataset)
+    try:
+        cl_features, drug_features = load_features(model, path_data, dataset)
+    except ValueError as e:
+        warnings.warn(e)
+        return
 
     cell_lines_to_keep = cl_features.identifiers if cl_features is not None else None
 
@@ -527,7 +531,6 @@ def cross_study_prediction(
         dataset.remove_rows(
             [i for i, pair in enumerate(dataset_pairs) if pair in train_pairs]
         )
-        print(len(dataset))
     elif test_mode == "LCO":
         train_cell_lines = set(train_dataset.cell_line_ids)
         dataset.reduce_to(
