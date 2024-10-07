@@ -54,7 +54,7 @@ def load_and_reduce_gene_features(
 
     gene_info = pd.read_csv(
         f"{data_path}/{dataset_name}/gene_lists/{gene_list}.csv",
-        sep=("\t" if gene_list == "landmark_genes" else ","),
+        sep=",",
     )
 
     
