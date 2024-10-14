@@ -1,11 +1,10 @@
-from typing import List, TextIO
+from typing import TextIO
 
 import numpy as np
 import pandas as pd
 import plotly.express as px
 from scipy.stats import pearsonr
 
-from drevalpy.models import SINGLE_DRUG_MODEL_FACTORY
 from drevalpy.visualization.outplot import OutPlot
 
 

@@ -72,9 +72,10 @@ def drug_response_experiment(
         "zeroing": replace the features with zeros
         "permutation": permute the features over the instances, keeping the distribution of the
         features the same but dissolving the relationship to the target
-    :param n_trials_robustness: number of trials to run for the robustness test. The robustness test
-        is a test where models are retrained multiple tiems with varying seeds. Default is 0, which
-        means no robustness test is run.
+    :param n_trials_robustness: number of trials to run for the robustness test.
+    The robustness test is a test where models are
+    retrained multiple tiems with varying seeds. Default is 0, which
+    means no robustness test is run.
     :param path_out: path to the output directory
     :param run_id: identifier to save the results
     :param test_mode: test mode one of "LPO", "LCO", "LDO" (leave-pair-out, leave-cell-line-out,

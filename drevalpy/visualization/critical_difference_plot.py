@@ -401,7 +401,7 @@ def form_cliques(p_values, nnames):
     m = len(nnames)
     g_data = np.zeros((m, m), dtype=np.int64)
     for p in p_values:
-        if p[3] == False:
+        if p[3] is False:
             i = np.where(nnames == p[0])[0][0]
             j = np.where(nnames == p[1])[0][0]
             min_i = min(i, j)

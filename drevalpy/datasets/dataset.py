@@ -855,7 +855,7 @@ class FeatureDataset(Dataset):
             [clid in self.features for clid in ids]
         ), "Trying to transform, but a cell line is missing."
 
-        assert len(np.unique(ids)) == len(ids), f"IDs should be unique."
+        assert len(np.unique(ids)) == len(ids), "IDs should be unique."
 
         for identifier in ids:
             feature_vector = self.features[identifier][view]
@@ -878,7 +878,7 @@ class FeatureDataset(Dataset):
 
         assert len(np.unique(train_ids)) == len(
             train_ids
-        ), f"Train IDs should be unique."
+        ), "Train IDs should be unique."
 
         train_features = []
 
