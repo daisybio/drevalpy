@@ -1,8 +1,7 @@
-from typing import List, TextIO
+from typing import TextIO
 
 import pandas as pd
-from matplotlib import pyplot as plt
-from plotly import graph_objects as go
+
 
 from drevalpy.visualization.outplot import OutPlot
 

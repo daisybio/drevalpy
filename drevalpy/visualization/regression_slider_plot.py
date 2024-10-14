@@ -81,7 +81,7 @@ class RegressionSliderPlot(OutPlot):
         setting_title = self.model + " " + df["LPO_LCO_LDO"].unique()[0]
         if self.normalize:
             if self.group_by == "cell_line":
-                setting_title += f", normalized by drug mean"
+                setting_title += ", normalized by drug mean"
                 hover_data = [
                     "pcc",
                     "cell_line",
@@ -90,7 +90,7 @@ class RegressionSliderPlot(OutPlot):
                     "algorithm",
                 ]
             else:
-                setting_title += f", normalized by cell line mean"
+                setting_title += ", normalized by cell line mean"
                 hover_data = [
                     "pcc",
                     "cell_line",

@@ -156,31 +156,27 @@ def graph_ranks(
         labels (bool, optional): if set to `True`, the calculated avg rank
         values will be displayed
     """
-    try:
-        from matplotlib.backends.backend_agg import FigureCanvasAgg
-    except ImportError:
-        raise ImportError("Function graph_ranks requires matplotlib.")
 
     width = float(width)
     textspace = float(textspace)
 
-    def nth(l, n):
+    def nth(data, position):
         """
         Returns only nth elemnt in a list.
         """
-        n = lloc(l, n)
-        return [a[n] for a in l]
+        position = lloc(data, position)
+        return [a[position] for a in data]
 
-    def lloc(l, n):
+    def lloc(data, position):
         """
         List location in list of list structure.
         Enable the use of negative locations:
         -1 is the last element, -2 second last...
         """
-        if n < 0:
-            return len(l[0]) + n
+        if position < 0:
+            return len(data[0]) + position
         else:
-            return n
+            return position
 
     def mxrange(lr):
         """
@@ -246,22 +242,22 @@ def graph_ranks(
     hf = 1.0 / height  # height factor
     wf = 1.0 / width
 
-    def hfl(l):
-        return [a * hf for a in l]
+    def hfl(list_input):
+        return [a * hf for a in list_input]
 
-    def wfl(l):
-        return [a * wf for a in l]
+    def wfl(list_input):
+        return [a * wf for a in list_input]
 
     # Upper left corner is (0,0).
     ax.plot([0, 1], [0, 1], c="w")
     ax.set_xlim(0, 1)
     ax.set_ylim(1, 0)
 
-    def line(l, color="k", **kwargs):
+    def line(list_input, color="k", **kwargs):
         """
         Input is a list of pairs of points.
         """
-        ax.plot(wfl(nth(l, 0)), hfl(nth(l, 1)), color=color, **kwargs)
+        ax.plot(wfl(nth(list_input, 0)), hfl(nth(list_input, 1)), color=color, **kwargs)
 
     def text(x, y, s, *args, **kwargs):
         ax.text(wf * x, hf * y, s, *args, **kwargs)
