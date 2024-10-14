@@ -52,30 +52,19 @@ def write_gene_list(temp_dir, gene_list):
     if gene_list == "landmark_genes":
         with open(temp_file, "w") as f:
             f.write(
-                'Entrez ID,Symbol,Name,Gene Family,Type,RNA-Seq Correlation,RNA-Seq Correlation Self-Rank\n'
-                '3638,INSIG1,insulin induced gene 1,,landmark,,\n'
-                '2309,FOXO3,forkhead box O3,Forkhead boxes,landmark,,\n'
+                "Entrez ID,Symbol,Name,Gene Family,Type,RNA-Seq Correlation,RNA-Seq Correlation Self-Rank\n"
+                "3638,INSIG1,insulin induced gene 1,,landmark,,\n"
+                "2309,FOXO3,forkhead box O3,Forkhead boxes,landmark,,\n"
                 '672,BRCA1,"BRCA1, DNA repair associated","Ring finger proteins, Fanconi anemia complementation groups, Protein phosphatase 1 regulatory subunits, BRCA1 A complex, BRCA1 B complex, BRCA1 C complex",landmark,,\n'
-                '57147,SCYL3,SCY1 like pseudokinase 3,SCY1 like pseudokinases,landmark,,'
+                "57147,SCYL3,SCY1 like pseudokinase 3,SCY1 like pseudokinases,landmark,,"
             )
     elif gene_list == "drug_target_genes_all_drugs":
         with open(temp_file, "w") as f:
-            f.write(
-                "Symbol\n"
-                "TSPAN6\n"
-                "SCYL3\n"
-                "BRCA1\n"
-            )
+            f.write("Symbol\n" "TSPAN6\n" "SCYL3\n" "BRCA1\n")
     elif gene_list == "gene_list_paccmann_network_prop":
         with open(temp_file, "w") as f:
             f.write(
-                "Symbol\n"
-                "HDAC1\n"
-                "ALS2CR12\n"
-                "BFAR\n"
-                "ZCWPW1\n"
-                "ZP1\n"
-                "PDZD7"
+                "Symbol\n" "HDAC1\n" "ALS2CR12\n" "BFAR\n" "ZCWPW1\n" "ZP1\n" "PDZD7"
             )
 
 
@@ -138,8 +127,9 @@ def test_load_and_reduce_gene_features(gene_list):
         colnames.sort()
         assert np.all(colnames == ["BRCA1", "SCYL3", "TSPAN6"])
     elif gene_list == "gene_list_paccmann_network_prop":
-        assert ("The following genes are missing from the dataset GDSC1_small"
-                in str(valerr.value))
+        assert "The following genes are missing from the dataset GDSC1_small" in str(
+            valerr.value
+        )
 
 
 def test_iterate_features():
@@ -308,8 +298,9 @@ def test_get_multiomics_feature_dataset(gene_list):
                 else:
                     assert np.all(dataset.meta_info[key] == feature_names)
     elif gene_list == "gene_list_paccmann_network_prop":
-        assert ("The following genes are missing from the dataset GDSC1_small"
-                in str(valerr.value))
+        assert "The following genes are missing from the dataset GDSC1_small" in str(
+            valerr.value
+        )
 
 
 def test_unique():

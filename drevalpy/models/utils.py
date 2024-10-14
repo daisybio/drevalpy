@@ -57,7 +57,6 @@ def load_and_reduce_gene_features(
         sep=",",
     )
 
-    
     genes_in_list = set(gene_info["Symbol"])
     genes_in_features = set(cl_features.meta_info[feature_type])
     # Ensure that all genes from gene_list are in the dataset
@@ -65,10 +64,13 @@ def load_and_reduce_gene_features(
     if missing_genes:
         missing_genes_list = list(missing_genes)
         if len(missing_genes_list) > 10:
-            raise ValueError(f"The following genes are missing from the dataset {dataset_name} for {feature_type}: {', '.join(missing_genes_list[:10])}, ... ({len(missing_genes)} genes in total)")
+            raise ValueError(
+                f"The following genes are missing from the dataset {dataset_name} for {feature_type}: {', '.join(missing_genes_list[:10])}, ... ({len(missing_genes)} genes in total)"
+            )
         else:
-            raise ValueError(f"The following genes are missing from the dataset {dataset_name} for {feature_type}: {', '.join(missing_genes_list)}")
-
+            raise ValueError(
+                f"The following genes are missing from the dataset {dataset_name} for {feature_type}: {', '.join(missing_genes_list)}"
+            )
 
     # Only proceed with genes that are available
     gene_mask = np.array(
