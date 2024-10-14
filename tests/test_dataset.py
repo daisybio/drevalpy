@@ -292,7 +292,7 @@ def test_transform(resp_transform):
     assert np.allclose(dataset.response, np.array([1, 2, 3, 4, 5]))
 
 
-#### Tests for the FeatureDataset class
+# Tests for the FeatureDataset class
 
 
 @pytest.fixture
@@ -399,7 +399,7 @@ def test_feature_dataset_get_feature_matrix(sample_dataset):
             ]
         ),
     )
-    assert type(feature_matrix) == np.ndarray
+    assert isinstance(feature_matrix, np.ndarray)
 
 
 def test_feature_dataset_copy(sample_dataset):
