@@ -2,22 +2,23 @@
 Main module for running the drug response prediction experiment.
 """
 
-import os
-from typing import Dict, List, Optional, Tuple, Type
-import warnings
 import json
+import os
 import shutil
+import warnings
+from typing import Dict, List, Optional, Tuple, Type
+
 import numpy as np
+import pandas as pd
 import ray
 import torch
 from ray import tune
 from sklearn.base import TransformerMixin
-import pandas as pd
 
 from .datasets.dataset import DrugResponseDataset, FeatureDataset
 from .evaluation import evaluate, get_mode
-from .models.drp_model import DRPModel, SingleDrugModel
 from .models import MODEL_FACTORY, MULTI_DRUG_MODEL_FACTORY, SINGLE_DRUG_MODEL_FACTORY
+from .models.drp_model import DRPModel, SingleDrugModel
 
 
 def drug_response_experiment(
@@ -162,7 +163,9 @@ def drug_response_experiment(
                 validation_dataset,
                 early_stopping_dataset,
                 test_dataset,
-            ) = get_datasets_from_cv_split(split, model_class, model_name, drug_id)
+            ) = get_datasets_from_cv_split(
+                split, model_class, model_name, drug_id
+            )
 
             model = model_class()
 
@@ -213,7 +216,9 @@ def drug_response_experiment(
                     train_dataset=train_dataset,
                     prediction_dataset=test_dataset,
                     early_stopping_dataset=(
-                        early_stopping_dataset if model.early_stopping else None
+                        early_stopping_dataset
+                        if model.early_stopping
+                        else None
                     ),
                     response_transformation=response_transformation,
                 )
@@ -230,13 +235,17 @@ def drug_response_experiment(
                         train_dataset=train_dataset,
                         path_data=path_data,
                         early_stopping_dataset=(
-                            early_stopping_dataset if model.early_stopping else None
+                            early_stopping_dataset
+                            if model.early_stopping
+                            else None
                         ),
                         response_transformation=response_transformation,
                         path_out=parent_dir,
                         split_index=split_index,
                         single_drug_id=(
-                            drug_id if model_name in SINGLE_DRUG_MODEL_FACTORY else None
+                            drug_id
+                            if model_name in SINGLE_DRUG_MODEL_FACTORY
+                            else None
                         ),
                     )
 
@@ -265,7 +274,9 @@ def drug_response_experiment(
                         train_dataset=train_dataset,
                         test_dataset=test_dataset,
                         early_stopping_dataset=(
-                            early_stopping_dataset if model.early_stopping else None
+                            early_stopping_dataset
+                            if model.early_stopping
+                            else None
                         ),
                         path_out=parent_dir,
                         split_index=split_index,
@@ -282,7 +293,9 @@ def drug_response_experiment(
                         train_dataset=train_dataset,
                         test_dataset=test_dataset,
                         early_stopping_dataset=(
-                            early_stopping_dataset if model.early_stopping else None
+                            early_stopping_dataset
+                            if model.early_stopping
+                            else None
                         ),
                         path_out=parent_dir,
                         split_index=split_index,
@@ -320,11 +333,17 @@ def consolidate_single_drug_model_predictions(
             out_path = os.path.join(out_path, str(model.model_name))
             os.makedirs(os.path.join(out_path, "predictions"), exist_ok=True)
             if cross_study_datasets:
-                os.makedirs(os.path.join(out_path, "cross_study"), exist_ok=True)
+                os.makedirs(
+                    os.path.join(out_path, "cross_study"), exist_ok=True
+                )
             if randomization_mode:
-                os.makedirs(os.path.join(out_path, "randomization"), exist_ok=True)
+                os.makedirs(
+                    os.path.join(out_path, "randomization"), exist_ok=True
+                )
             if n_trials_robustness:
-                os.makedirs(os.path.join(out_path, "robustness"), exist_ok=True)
+                os.makedirs(
+                    os.path.join(out_path, "robustness"), exist_ok=True
+                )
 
             for split in range(n_cv_splits):
 
@@ -389,12 +408,15 @@ def consolidate_single_drug_model_predictions(
                         if trial not in predictions["robustness"]:
                             predictions["robustness"][trial] = []
                         predictions["robustness"][trial].append(
-                            pd.read_csv(os.path.join(robustness_path, f), index_col=0)
+                            pd.read_csv(
+                                os.path.join(robustness_path, f), index_col=0
+                            )
                         )
 
                     # Randomization predictions
                     randomization_test_views = get_randomization_test_views(
-                        model=model_instance, randomization_mode=randomization_mode
+                        model=model_instance,
+                        randomization_mode=randomization_mode,
                     )
                     for view in randomization_test_views:
                         randomization_path = os.path.join(
@@ -405,14 +427,17 @@ def consolidate_single_drug_model_predictions(
                             predictions["randomization"][view] = []
                         predictions["randomization"][view].append(
                             pd.read_csv(
-                                os.path.join(randomization_path, f), index_col=0
+                                os.path.join(randomization_path, f),
+                                index_col=0,
                             )
                         )
 
                 # Save the consolidated predictions
                 pd.concat(predictions["main"], axis=0).to_csv(
                     os.path.join(
-                        out_path, "predictions", f"predictions_split_{split}.csv"
+                        out_path,
+                        "predictions",
+                        f"predictions_split_{split}.csv",
                     )
                 )
 
@@ -427,7 +452,9 @@ def consolidate_single_drug_model_predictions(
                         )
                     )
 
-                for trial, trial_predictions in predictions["robustness"].items():
+                for trial, trial_predictions in predictions[
+                    "robustness"
+                ].items():
                     pd.concat(trial_predictions, axis=0).to_csv(
                         os.path.join(
                             out_path,
@@ -436,7 +463,9 @@ def consolidate_single_drug_model_predictions(
                         )
                     )
 
-                for view, view_predictions in predictions["randomization"].items():
+                for view, view_predictions in predictions[
+                    "randomization"
+                ].items():
                     pd.concat(view_predictions, axis=0).to_csv(
                         os.path.join(
                             out_path,
@@ -500,12 +529,16 @@ def cross_study_prediction(
         warnings.warn(e)
         return
 
-    cell_lines_to_keep = cl_features.identifiers if cl_features is not None else None
+    cell_lines_to_keep = (
+        cl_features.identifiers if cl_features is not None else None
+    )
 
     if single_drug_id is not None:
         drugs_to_keep = [single_drug_id]
     else:
-        drugs_to_keep = drug_features.identifiers if drug_features is not None else None
+        drugs_to_keep = (
+            drug_features.identifiers if drug_features is not None else None
+        )
 
     print(
         f"Reducing cross study dataset ... feature data available for "
@@ -522,10 +555,13 @@ def cross_study_prediction(
     if test_mode == "LPO":
         train_pairs = {
             f"{cl}_{drug}"
-            for cl, drug in zip(train_dataset.cell_line_ids, train_dataset.drug_ids)
+            for cl, drug in zip(
+                train_dataset.cell_line_ids, train_dataset.drug_ids
+            )
         }
         dataset_pairs = [
-            f"{cl}_{drug}" for cl, drug in zip(dataset.cell_line_ids, dataset.drug_ids)
+            f"{cl}_{drug}"
+            for cl, drug in zip(dataset.cell_line_ids, dataset.drug_ids)
         ]
 
         dataset.remove_rows(
@@ -535,7 +571,9 @@ def cross_study_prediction(
         train_cell_lines = set(train_dataset.cell_line_ids)
         dataset.reduce_to(
             cell_line_ids=[
-                cl for cl in dataset.cell_line_ids if cl not in train_cell_lines
+                cl
+                for cl in dataset.cell_line_ids
+                if cl not in train_cell_lines
             ],
             drug_ids=None,
         )
@@ -543,10 +581,14 @@ def cross_study_prediction(
         train_drugs = set(train_dataset.drug_ids)
         dataset.reduce_to(
             cell_line_ids=None,
-            drug_ids=[drug for drug in dataset.drug_ids if drug not in train_drugs],
+            drug_ids=[
+                drug for drug in dataset.drug_ids if drug not in train_drugs
+            ],
         )
     else:
-        raise ValueError(f"Invalid test mode: {test_mode}. Choose from LPO, LCO, LDO")
+        raise ValueError(
+            f"Invalid test mode: {test_mode}. Choose from LPO, LCO, LDO"
+        )
     if len(dataset) > 0:
         dataset.shuffle(random_state=42)
         dataset.predictions = model.predict(
@@ -744,7 +786,9 @@ def randomization_test(
             randomization_test_file
         ):  # if this splits test has not been run yet
             for view in views:
-                print(f"Randomizing view {view} for randomization test {test_name} ...")
+                print(
+                    f"Randomizing view {view} for randomization test {test_name} ..."
+                )
                 randomize_train_predict(
                     view=view,
                     test_name=test_name,
@@ -801,10 +845,14 @@ def randomize_train_predict(
         )
         return
     cl_features_rand = cl_features.copy() if cl_features is not None else None
-    drug_features_rand = drug_features.copy() if drug_features is not None else None
+    drug_features_rand = (
+        drug_features.copy() if drug_features is not None else None
+    )
 
     if view in cl_features.get_view_names():
-        cl_features_rand.randomize_features(view, randomization_type=randomization_type)
+        cl_features_rand.randomize_features(
+            view, randomization_type=randomization_type
+        )
     elif view in drug_features.get_view_names():
         drug_features_rand.randomize_features(
             view, randomization_type=randomization_type
@@ -883,24 +931,33 @@ def train_and_predict(
             data_path=path_data, dataset_name=train_dataset.dataset_name
         )
 
-    cell_lines_to_keep = cl_features.identifiers if cl_features is not None else None
-    drugs_to_keep = drug_features.identifiers if drug_features is not None else None
+    cell_lines_to_keep = (
+        cl_features.identifiers if cl_features is not None else None
+    )
+    drugs_to_keep = (
+        drug_features.identifiers if drug_features is not None else None
+    )
 
     # making sure there are no missing features:
     len_train_before = len(train_dataset)
     len_pred_before = len(prediction_dataset)
-    train_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
+    train_dataset.reduce_to(
+        cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep
+    )
     prediction_dataset.reduce_to(
         cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep
     )
-    print(f"Reduced training dataset from {len_train_before} to {len(train_dataset)}")
+    print(
+        f"Reduced training dataset from {len_train_before} to {len(train_dataset)}"
+    )
     print(
         f"Reduced prediction dataset from {len_pred_before} to {len(prediction_dataset)}"
     )
 
     if early_stopping_dataset is not None:
         early_stopping_dataset.reduce_to(
-            cell_line_ids=cl_features.identifiers, drug_ids=drug_features.identifiers
+            cell_line_ids=cl_features.identifiers,
+            drug_ids=drug_features.identifiers,
         )
 
     if response_transformation:
@@ -1017,7 +1074,9 @@ def hpam_tune(
             best_hyperparameters = hyperparameter
 
     if best_hyperparameters is None:
-        warnings.warn("all hpams lead to NaN respone. using last hpam combination.")
+        warnings.warn(
+            "all hpams lead to NaN respone. using last hpam combination."
+        )
         best_hyperparameters = hyperparameter
 
     return best_hyperparameters
@@ -1094,7 +1153,9 @@ def make_model_list(
     for model in models:
         if issubclass(model, SingleDrugModel):
             for drug in unique_drugs:
-                model_list[f"{model.model_name}.{drug}"] = str(model.model_name)
+                model_list[f"{model.model_name}.{drug}"] = str(
+                    model.model_name
+                )
         else:
             model_list[str(model.model_name)] = str(model.model_name)
     return model_list
@@ -1148,13 +1209,20 @@ def get_datasets_from_cv_split(split, model_class, model_name, drug_id):
             return train_cp, val_cp, es_cp, test_cp
         return train_cp, val_cp, None, test_cp
 
-    return train_dataset, validation_dataset, early_stopping_dataset, test_dataset
+    return (
+        train_dataset,
+        validation_dataset,
+        early_stopping_dataset,
+        test_dataset,
+    )
 
 
 def generate_data_saving_path(model_name, drug_id, result_path, suffix):
     is_single_drug_model = model_name in SINGLE_DRUG_MODEL_FACTORY
     if is_single_drug_model:
-        model_path = os.path.join(result_path, model_name, "drugs", drug_id, suffix)
+        model_path = os.path.join(
+            result_path, model_name, "drugs", drug_id, suffix
+        )
     else:
         model_path = os.path.join(result_path, model_name, suffix)
     os.makedirs(model_path, exist_ok=True)

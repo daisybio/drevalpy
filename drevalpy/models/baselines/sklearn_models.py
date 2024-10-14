@@ -3,20 +3,17 @@ Contains sklearn baseline models: ElasticNet, RandomForest, SVM
 """
 
 from typing import Dict
+
 import numpy as np
-from sklearn.linear_model import ElasticNet, Ridge
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.ensemble import GradientBoostingRegressor
-
-from sklearn.svm import SVR
 from numpy.typing import ArrayLike
+from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
+from sklearn.linear_model import ElasticNet, Ridge
+from sklearn.svm import SVR
 
-from drevalpy.datasets.dataset import FeatureDataset, DrugResponseDataset
+from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models.drp_model import DRPModel
-from ..utils import (
-    load_and_reduce_gene_features,
-    load_drug_fingerprint_features,
-)
+
+from ..utils import load_and_reduce_gene_features, load_drug_fingerprint_features
 
 
 class SklearnModel(DRPModel):
@@ -91,10 +88,14 @@ class SklearnModel(DRPModel):
         return self.model.predict(x)
 
     def save(self, path):
-        raise NotImplementedError("ElasticNetModel does not support saving yet ...")
+        raise NotImplementedError(
+            "ElasticNetModel does not support saving yet ..."
+        )
 
     def load(self, path):
-        raise NotImplementedError("ElasticNetModel does not support loading yet ...")
+        raise NotImplementedError(
+            "ElasticNetModel does not support loading yet ..."
+        )
 
     def load_cell_line_features(
         self, data_path: str, dataset_name: str
@@ -112,7 +113,9 @@ class SklearnModel(DRPModel):
             dataset_name=dataset_name,
         )
 
-    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+    def load_drug_features(
+        self, data_path: str, dataset_name: str
+    ) -> FeatureDataset:
         return load_drug_fingerprint_features(data_path, dataset_name)
 
 
@@ -132,7 +135,8 @@ class ElasticNetModel(SklearnModel):
             self.model = Ridge(alpha=hyperparameters["alpha"])
         else:
             self.model = ElasticNet(
-                alpha=hyperparameters["alpha"], l1_ratio=hyperparameters["l1_ratio"]
+                alpha=hyperparameters["alpha"],
+                l1_ratio=hyperparameters["l1_ratio"],
             )
 
 

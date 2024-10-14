@@ -1,14 +1,15 @@
-import numpy as np
-import torch
-from torch.utils.data import Dataset, DataLoader
-import pytorch_lightning as pl
-import torch.nn.functional as F
-from torch import nn
+import warnings
 from typing import Optional
 
-from drevalpy.models.drp_model import DRPModel
+import numpy as np
+import pytorch_lightning as pl
+import torch
+import torch.nn.functional as F
+from torch import nn
+from torch.utils.data import DataLoader, Dataset
+
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
-import warnings
+from drevalpy.models.drp_model import DRPModel
 
 
 class tCNNs(DRPModel):
@@ -79,7 +80,9 @@ class tCNNs(DRPModel):
                     output_earlystopping.response,
                 )
                 early_stopping_loader = DataLoader(
-                    dataset=dataset_earlystopping, batch_size=batch_size, shuffle=False
+                    dataset=dataset_earlystopping,
+                    batch_size=batch_size,
+                    shuffle=False,
                 )
 
             trainer = pl.Trainer(
@@ -87,7 +90,9 @@ class tCNNs(DRPModel):
                 progress_bar_refresh_rate=0,
                 gpus=1 if torch.cuda.is_available() else 0,
             )
-            trainer.fit(self.model, train_loader, val_dataloaders=early_stopping_loader)
+            trainer.fit(
+                self.model, train_loader, val_dataloaders=early_stopping_loader
+            )
 
             # TODO define trainer properlz and early stopinng via callback
 
@@ -122,7 +127,9 @@ class tCNNs(DRPModel):
 
         pass
 
-    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+    def load_drug_features(
+        self, data_path: str, dataset_name: str
+    ) -> FeatureDataset:
         pass
 
 
@@ -142,7 +149,9 @@ class DatasettCNNs(Dataset):
 
     def __getitem__(self, idx):
         return (
-            torch.tensor(self.gene_mutation_sequence[idx], dtype=torch.float32),
+            torch.tensor(
+                self.gene_mutation_sequence[idx], dtype=torch.float32
+            ),
             torch.tensor(self.smiles_sequence[idx], dtype=torch.float32),
             torch.tensor(self.response[idx], dtype=torch.float32),
         )
@@ -151,7 +160,12 @@ class DatasettCNNs(Dataset):
 # Custom DataModule class
 class DrugCellDataModule(pl.LightningDataModule):
     def __init__(
-        self, batch_size, drug_smile_dict, drug_cell_dict, cell_mut_dict, label_list
+        self,
+        batch_size,
+        drug_smile_dict,
+        drug_cell_dict,
+        cell_mut_dict,
+        label_list,
     ):
         super().__init__()
         self.batch_size = batch_size
@@ -173,7 +187,9 @@ class DrugCellDataModule(pl.LightningDataModule):
         )
 
         value_shape = self.drug_cell_dict["IC50"].shape
-        value = np.zeros((value_shape[0], value_shape[1], len(self.label_list)))
+        value = np.zeros(
+            (value_shape[0], value_shape[1], len(self.label_list))
+        )
         for i in range(len(self.label_list)):
             value[:, :, i] = self.drug_cell_dict[self.label_list[i]]
         drug_smile = self.drug_smile_dict["canonical"]
@@ -185,10 +201,14 @@ class DrugCellDataModule(pl.LightningDataModule):
         self.valid_dataset = DrugCellDataset(
             drug_smile, cell_mut, value, valid_positions
         )
-        self.test_dataset = DrugCellDataset(drug_smile, cell_mut, value, test_positions)
+        self.test_dataset = DrugCellDataset(
+            drug_smile, cell_mut, value, test_positions
+        )
 
     def train_dataloader(self):
-        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True)
+        return DataLoader(
+            self.train_dataset, batch_size=self.batch_size, shuffle=True
+        )
 
     def val_dataloader(self):
         return DataLoader(self.valid_dataset, batch_size=self.batch_size)

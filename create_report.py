@@ -2,24 +2,23 @@
 Renders the evaluation results into an HTML report with various plots and tables.
 """
 
-import os
 import argparse
+import os
 
 from drevalpy.visualization import (
-    HTMLTable,
-    CriticalDifferencePlot,
-    Violin,
-    Heatmap,
     CorrelationComparisonScatter,
+    CriticalDifferencePlot,
+    Heatmap,
+    HTMLTable,
     RegressionSliderPlot,
+    Violin,
 )
-
 from drevalpy.visualization.utils import (
+    create_html,
+    create_index_html,
     parse_results,
     prep_results,
     write_results,
-    create_index_html,
-    create_html,
 )
 
 
@@ -34,7 +33,9 @@ def create_output_directories(custom_id):
     os.makedirs(f"results/{custom_id}/regression_plots", exist_ok=True)
     os.makedirs(f"results/{custom_id}/corr_comp_scatter", exist_ok=True)
     os.makedirs(f"results/{custom_id}/html_tables", exist_ok=True)
-    os.makedirs(f"results/{custom_id}/critical_difference_plots", exist_ok=True)
+    os.makedirs(
+        f"results/{custom_id}/critical_difference_plots", exist_ok=True
+    )
 
 
 def draw_setting_plots(
@@ -60,7 +61,9 @@ def draw_setting_plots(
     )
 
     # only draw figures for 'real' predictions comparing all models
-    eval_results_preds = ev_res_subset[ev_res_subset["rand_setting"] == "predictions"]
+    eval_results_preds = ev_res_subset[
+        ev_res_subset["rand_setting"] == "predictions"
+    ]
 
     # PIPELINE: DRAW_CRITICAL_DIFFERENCE
     cd_plot = CriticalDifferencePlot(
@@ -95,7 +98,8 @@ def draw_setting_plots(
                     whole_name=False,
                 )
             out_plot.draw_and_save(
-                out_prefix=f"results/{custom_id}/{out_dir}/", out_suffix=out_suffix
+                out_prefix=f"results/{custom_id}/{out_dir}/",
+                out_suffix=out_suffix,
             )
 
     # per group plots
@@ -117,7 +121,9 @@ def draw_setting_plots(
     return eval_results_preds["algorithm"].unique()
 
 
-def draw_per_grouping_setting_plots(grouping, ev_res_per_group, lpo_lco_ldo, custom_id):
+def draw_per_grouping_setting_plots(
+    grouping, ev_res_per_group, lpo_lco_ldo, custom_id
+):
     """
     Draw plots for a specific grouping (drug or cell line) for a specific setting (LPO, LCO, LDO)
     :param grouping: drug or cell_line
@@ -181,12 +187,16 @@ def draw_algorithm_plots(
         if plt_type == "violinplot":
             out_dir = "violin_plots"
             out_plot = Violin(
-                df=eval_results_algorithm, normalized_metrics=False, whole_name=True
+                df=eval_results_algorithm,
+                normalized_metrics=False,
+                whole_name=True,
             )
         else:
             out_dir = "heatmaps"
             out_plot = Heatmap(
-                df=eval_results_algorithm, normalized_metrics=False, whole_name=True
+                df=eval_results_algorithm,
+                normalized_metrics=False,
+                whole_name=True,
             )
         out_plot.draw_and_save(
             out_prefix=f"results/{custom_id}/{out_dir}/",
@@ -368,5 +378,7 @@ if __name__ == "__main__":
         )
     # PIPELINE: WRITE_INDEX
     create_index_html(
-        custom_id=run_id, test_modes=settings, prefix_results=f"results/{run_id}"
+        custom_id=run_id,
+        test_modes=settings,
+        prefix_results=f"results/{run_id}",
     )

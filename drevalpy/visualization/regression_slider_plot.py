@@ -1,11 +1,12 @@
-from typing import TextIO, List
-import plotly.express as px
-from scipy.stats import pearsonr
+from typing import List, TextIO
+
 import numpy as np
 import pandas as pd
+import plotly.express as px
+from scipy.stats import pearsonr
 
-from drevalpy.visualization.outplot import OutPlot
 from drevalpy.models import SINGLE_DRUG_MODEL_FACTORY
+from drevalpy.visualization.outplot import OutPlot
 
 
 class RegressionSliderPlot(OutPlot):
@@ -18,7 +19,8 @@ class RegressionSliderPlot(OutPlot):
         normalize=False,
     ):
         self.df = df[
-            (df["LPO_LCO_LDO"] == lpo_lco_ldo) & (df["rand_setting"] == "predictions")
+            (df["LPO_LCO_LDO"] == lpo_lco_ldo)
+            & (df["rand_setting"] == "predictions")
         ]
         self.df = self.df[(self.df["algorithm"] == model)]
         self.group_by = group_by
@@ -65,7 +67,9 @@ class RegressionSliderPlot(OutPlot):
         f.write('<h2 id="regression_plots">Regression plots</h2>\n')
         f.write("<ul>\n")
         regr_files = [
-            f for f in files if lpo_lco_ldo in f and f.startswith("regression_lines")
+            f
+            for f in files
+            if lpo_lco_ldo in f and f.startswith("regression_lines")
         ]
         regr_files.sort()
         for regr_file in regr_files:
@@ -159,5 +163,6 @@ class RegressionSliderPlot(OutPlot):
         ]
 
         self.fig.update_layout(
-            sliders=sliders, legend=dict(yanchor="top", y=1.0, xanchor="left", x=1.05)
+            sliders=sliders,
+            legend=dict(yanchor="top", y=1.0, xanchor="left", x=1.05),
         )

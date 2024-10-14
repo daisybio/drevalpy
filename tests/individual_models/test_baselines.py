@@ -1,17 +1,19 @@
-import pytest
-import numpy as np
 import math
-from sklearn.linear_model import Ridge, ElasticNet
+
+import numpy as np
+import pytest
+from sklearn.linear_model import ElasticNet, Ridge
 
 from drevalpy.evaluation import evaluate, pearson
 from drevalpy.models import (
-    NaivePredictor,
-    NaiveDrugMeanPredictor,
-    NaiveCellLineMeanPredictor,
-    SingleDrugRandomForest,
     MODEL_FACTORY,
+    NaiveCellLineMeanPredictor,
+    NaiveDrugMeanPredictor,
+    NaivePredictor,
+    SingleDrugRandomForest,
 )
-from .utils import sample_dataset, call_save_and_load
+
+from .utils import call_save_and_load, sample_dataset
 
 
 @pytest.mark.parametrize(
@@ -41,7 +43,12 @@ def test_baselines(sample_dataset, model_name, test_mode):
         call_naive_predictor(train_dataset, val_dataset, test_mode)
     elif model_name == "NaiveDrugMeanPredictor":
         call_naive_group_predictor(
-            "drug", train_dataset, val_dataset, cell_line_input, drug_input, test_mode
+            "drug",
+            train_dataset,
+            val_dataset,
+            cell_line_input,
+            drug_input,
+            test_mode,
         )
     elif model_name == "NaiveCellLineMeanPredictor":
         call_naive_group_predictor(
@@ -91,7 +98,9 @@ def test_single_drug_baselines(sample_dataset, model_name, test_mode):
             cell_line_ids=val_dataset.cell_line_ids[val_mask],
             cell_line_input=cell_line_input,
         )
-        pcc_drug = pearson(val_dataset.response[val_mask], all_predictions[val_mask])
+        pcc_drug = pearson(
+            val_dataset.response[val_mask], all_predictions[val_mask]
+        )
         print(
             f"{test_mode}: Performance of {model_name} for drug {drug}: PCC = {pcc_drug}"
         )
@@ -106,14 +115,18 @@ def test_single_drug_baselines(sample_dataset, model_name, test_mode):
 def call_naive_predictor(train_dataset, val_dataset, test_mode):
     naive = NaivePredictor()
     naive.train(output=train_dataset)
-    val_dataset.predictions = naive.predict(cell_line_ids=val_dataset.cell_line_ids)
+    val_dataset.predictions = naive.predict(
+        cell_line_ids=val_dataset.cell_line_ids
+    )
     assert val_dataset.predictions is not None
     train_mean = train_dataset.response.mean()
     assert train_mean == naive.dataset_mean
     assert np.all(val_dataset.predictions == train_mean)
     metrics = evaluate(val_dataset, metric=["Pearson"])
     assert metrics["Pearson"] == 0.0
-    print(f"{test_mode}: Performance of NaivePredictor: PCC = {metrics['Pearson']}")
+    print(
+        f"{test_mode}: Performance of NaivePredictor: PCC = {metrics['Pearson']}"
+    )
     call_save_and_load(naive)
 
 
@@ -122,7 +135,9 @@ def assert_group_mean(train_dataset, val_dataset, group_ids, naive_means):
     random_id = np.random.choice(common_ids)
     group_mean = train_dataset.response[group_ids["train"] == random_id].mean()
     assert group_mean == naive_means[random_id]
-    assert np.all(val_dataset.predictions[group_ids["val"] == random_id] == group_mean)
+    assert np.all(
+        val_dataset.predictions[group_ids["val"] == random_id] == group_mean
+    )
 
 
 def call_naive_group_predictor(
@@ -133,7 +148,9 @@ def call_naive_group_predictor(
     else:
         naive = NaiveCellLineMeanPredictor()
     naive.train(
-        output=train_dataset, cell_line_input=cell_line_input, drug_input=drug_input
+        output=train_dataset,
+        cell_line_input=cell_line_input,
+        drug_input=drug_input,
     )
     val_dataset.predictions = naive.predict(
         cell_line_ids=val_dataset.cell_line_ids, drug_ids=val_dataset.drug_ids
@@ -149,7 +166,10 @@ def call_naive_group_predictor(
         assert_group_mean(
             train_dataset,
             val_dataset,
-            group_ids={"train": train_dataset.drug_ids, "val": val_dataset.drug_ids},
+            group_ids={
+                "train": train_dataset.drug_ids,
+                "val": val_dataset.drug_ids,
+            },
             naive_means=naive.drug_means,
         )
     else:  # group == "cell_line"
@@ -163,7 +183,9 @@ def call_naive_group_predictor(
             naive_means=naive.cell_line_means,
         )
     metrics = evaluate(val_dataset, metric=["Pearson"])
-    print(f"{test_mode}: Performance of {naive.model_name}: PCC = {metrics['Pearson']}")
+    print(
+        f"{test_mode}: Performance of {naive.model_name}: PCC = {metrics['Pearson']}"
+    )
     if (group == "drug" and test_mode == "LDO") or (
         group == "cell_line" and test_mode == "LCO"
     ):

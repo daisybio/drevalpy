@@ -6,10 +6,11 @@ NaiveDrugMeanPredictor predicts the mean of the response per drug.
 """
 
 from typing import Dict
+
 import numpy as np
 from numpy.typing import ArrayLike
 
-from drevalpy.datasets.dataset import FeatureDataset, DrugResponseDataset
+from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.models.utils import load_cl_ids_from_csv, load_drug_ids_from_csv, unique
 
@@ -64,17 +65,23 @@ class NaivePredictor(DRPModel):
         return np.full(cell_line_ids.shape[0], self.dataset_mean)
 
     def save(self, path):
-        raise NotImplementedError("Naive predictor does not support saving yet ...")
+        raise NotImplementedError(
+            "Naive predictor does not support saving yet ..."
+        )
 
     def load(self, path):
-        raise NotImplementedError("Naive predictor does not support loading yet ...")
+        raise NotImplementedError(
+            "Naive predictor does not support loading yet ..."
+        )
 
     def load_cell_line_features(
         self, data_path: str, dataset_name: str
     ) -> FeatureDataset:
         return load_cl_ids_from_csv(data_path, dataset_name)
 
-    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+    def load_drug_features(
+        self, data_path: str, dataset_name: str
+    ) -> FeatureDataset:
         return load_drug_ids_from_csv(data_path, dataset_name)
 
 
@@ -154,17 +161,23 @@ class NaiveDrugMeanPredictor(DRPModel):
         return self.dataset_mean
 
     def save(self, path):
-        raise NotImplementedError("Naive predictor does not support saving yet ...")
+        raise NotImplementedError(
+            "Naive predictor does not support saving yet ..."
+        )
 
     def load(self, path):
-        raise NotImplementedError("Naive predictor does not support loading yet ...")
+        raise NotImplementedError(
+            "Naive predictor does not support loading yet ..."
+        )
 
     def load_cell_line_features(
         self, data_path: str, dataset_name: str
     ) -> FeatureDataset:
         return load_cl_ids_from_csv(data_path, dataset_name)
 
-    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+    def load_drug_features(
+        self, data_path: str, dataset_name: str
+    ) -> FeatureDataset:
         return load_drug_ids_from_csv(data_path, dataset_name)
 
 
@@ -209,10 +222,14 @@ class NaiveCellLineMeanPredictor(DRPModel):
         for cell_line_response, cell_line_feature in zip(
             unique(output.cell_line_ids), unique(cell_line_ids)
         ):
-            responses_cl = output.response[cell_line_feature == output.cell_line_ids]
+            responses_cl = output.response[
+                cell_line_feature == output.cell_line_ids
+            ]
             if len(responses_cl) > 0:
                 # prevent nan response
-                self.cell_line_means[cell_line_response] = np.mean(responses_cl)
+                self.cell_line_means[cell_line_response] = np.mean(
+                    responses_cl
+                )
 
     def predict(
         self,
@@ -244,15 +261,21 @@ class NaiveCellLineMeanPredictor(DRPModel):
         return self.dataset_mean
 
     def save(self, path):
-        raise NotImplementedError("Naive predictor does not support saving yet ...")
+        raise NotImplementedError(
+            "Naive predictor does not support saving yet ..."
+        )
 
     def load(self, path):
-        raise NotImplementedError("Naive predictor does not support loading yet ...")
+        raise NotImplementedError(
+            "Naive predictor does not support loading yet ..."
+        )
 
     def load_cell_line_features(
         self, data_path: str, dataset_name: str
     ) -> FeatureDataset:
         return load_cl_ids_from_csv(data_path, dataset_name)
 
-    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+    def load_drug_features(
+        self, data_path: str, dataset_name: str
+    ) -> FeatureDataset:
         return load_drug_ids_from_csv(data_path, dataset_name)

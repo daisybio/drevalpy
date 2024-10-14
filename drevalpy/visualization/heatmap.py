@@ -7,9 +7,13 @@ from drevalpy.visualization.vioheat import VioHeat
 
 
 class Heatmap(VioHeat):
-    def __init__(self, df: pd.DataFrame, normalized_metrics=False, whole_name=False):
+    def __init__(
+        self, df: pd.DataFrame, normalized_metrics=False, whole_name=False
+    ):
         super().__init__(df, normalized_metrics, whole_name)
-        self.df = self.df[[col for col in self.df.columns if col in self.all_metrics]]
+        self.df = self.df[
+            [col for col in self.df.columns if col in self.all_metrics]
+        ]
         if self.normalized_metrics:
             titles = [
                 "Standard Errors over CV folds",
@@ -32,7 +36,12 @@ class Heatmap(VioHeat):
                 "Mean Errors",
             ]
             nr_subplots = 4
-            self.plot_settings = ["standard_errors", "r2", "correlations", "errors"]
+            self.plot_settings = [
+                "standard_errors",
+                "r2",
+                "correlations",
+                "errors",
+            ]
             self.fig = make_subplots(
                 rows=nr_subplots,
                 cols=1,
@@ -50,7 +59,9 @@ class Heatmap(VioHeat):
         for plot_setting in self.plot_settings:
             self.__draw_subplots__(plot_setting)
         self.fig.update_layout(
-            height=1000, width=1100, title_text="Heatmap of the evaluation metrics"
+            height=1000,
+            width=1100,
+            title_text="Heatmap of the evaluation metrics",
         )
         self.fig.update_traces(showscale=False)
 

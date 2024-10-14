@@ -1,7 +1,8 @@
-from typing import TextIO, List
+import os
+from typing import List, TextIO
 
 import pandas as pd
-import os
+
 from drevalpy.visualization.outplot import OutPlot
 
 
@@ -74,7 +75,9 @@ class HTMLTable(OutPlot):
         if prefix != "":
             prefix = os.path.join(prefix, "html_tables")
         f.write('<h2 id="tables"> Evaluation Results Table</h2>\n')
-        whole_table = __get_table__(files=files, file_table=f"table_{lpo_lco_ldo}.html")
+        whole_table = __get_table__(
+            files=files, file_table=f"table_{lpo_lco_ldo}.html"
+        )
         __write_table__(f=f, table=whole_table, prefix=prefix)
 
         if lpo_lco_ldo != "LCO":

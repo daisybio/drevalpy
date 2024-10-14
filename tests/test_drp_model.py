@@ -1,17 +1,18 @@
 import os
-import pytest
-import pandas as pd
-import numpy as np
 import tempfile
+
+import numpy as np
+import pandas as pd
+import pytest
 
 from drevalpy.models import MODEL_FACTORY
 from drevalpy.models.utils import (
-    load_cl_ids_from_csv,
-    load_and_reduce_gene_features,
-    iterate_features,
-    load_drug_ids_from_csv,
-    load_drug_fingerprint_features,
     get_multiomics_feature_dataset,
+    iterate_features,
+    load_and_reduce_gene_features,
+    load_cl_ids_from_csv,
+    load_drug_fingerprint_features,
+    load_drug_ids_from_csv,
     unique,
 )
 
@@ -64,7 +65,13 @@ def write_gene_list(temp_dir, gene_list):
     elif gene_list == "gene_list_paccmann_network_prop":
         with open(temp_file, "w") as f:
             f.write(
-                "Symbol\n" "HDAC1\n" "ALS2CR12\n" "BFAR\n" "ZCWPW1\n" "ZP1\n" "PDZD7"
+                "Symbol\n"
+                "HDAC1\n"
+                "ALS2CR12\n"
+                "BFAR\n"
+                "ZCWPW1\n"
+                "ZP1\n"
+                "PDZD7"
             )
 
 
@@ -127,8 +134,9 @@ def test_load_and_reduce_gene_features(gene_list):
         colnames.sort()
         assert np.all(colnames == ["BRCA1", "SCYL3", "TSPAN6"])
     elif gene_list == "gene_list_paccmann_network_prop":
-        assert "The following genes are missing from the dataset GDSC1_small" in str(
-            valerr.value
+        assert (
+            "The following genes are missing from the dataset GDSC1_small"
+            in str(valerr.value)
         )
 
 
@@ -148,7 +156,9 @@ def test_load_drug_ids_from_csv():
     os.mkdir(os.path.join(temp.name, "GDSC1_small"))
     temp_file = os.path.join(temp.name, "GDSC1_small", "drug_names.csv")
     with open(temp_file, "w") as f:
-        f.write("DRUG_NAME\n(5Z)-7-Oxozeaenol\n5-Fluorouracil\nA-443654\nA-770041\n")
+        f.write(
+            "DRUG_NAME\n(5Z)-7-Oxozeaenol\n5-Fluorouracil\nA-443654\nA-770041\n"
+        )
     drug_ids_gdsc1 = load_drug_ids_from_csv(temp.name, "GDSC1_small")
     assert len(drug_ids_gdsc1.features) == 4
     assert drug_ids_gdsc1.identifiers[0] == "(5Z)-7-Oxozeaenol"
@@ -173,7 +183,9 @@ def test_load_drugs_from_fingerprints():
             "3,1,0,1,1,1\n"
             "4,1,1,0,1,1\n"
         )
-    drug_features_gdsc1 = load_drug_fingerprint_features(temp.name, "GDSC1_small")
+    drug_features_gdsc1 = load_drug_fingerprint_features(
+        temp.name, "GDSC1_small"
+    )
     assert len(drug_features_gdsc1.features) == 5
     assert drug_features_gdsc1.features.keys() == {
         "Zibotentan",
@@ -183,7 +195,8 @@ def test_load_drugs_from_fingerprints():
         "GSK269962A",
     }
     assert np.all(
-        drug_features_gdsc1.features["Zibotentan"]["fingerprints"] == [1, 1, 0, 1, 1]
+        drug_features_gdsc1.features["Zibotentan"]["fingerprints"]
+        == [1, 1, 0, 1, 1]
     )
 
 
@@ -257,11 +270,15 @@ def test_get_multiomics_feature_dataset(gene_list):
     if gene_list == "gene_list_paccmann_network_prop":
         with pytest.raises(ValueError) as valerr:
             dataset = get_multiomics_feature_dataset(
-                data_path=temp.name, dataset_name="GDSC1_small", gene_list=gene_list
+                data_path=temp.name,
+                dataset_name="GDSC1_small",
+                gene_list=gene_list,
             )
     else:
         dataset = get_multiomics_feature_dataset(
-            data_path=temp.name, dataset_name="GDSC1_small", gene_list=gene_list
+            data_path=temp.name,
+            dataset_name="GDSC1_small",
+            gene_list=gene_list,
         )
         assert len(dataset.features) == 2
         common_cls = dataset.get_ids()
@@ -298,13 +315,16 @@ def test_get_multiomics_feature_dataset(gene_list):
                 else:
                     assert np.all(dataset.meta_info[key] == feature_names)
     elif gene_list == "gene_list_paccmann_network_prop":
-        assert "The following genes are missing from the dataset GDSC1_small" in str(
-            valerr.value
+        assert (
+            "The following genes are missing from the dataset GDSC1_small"
+            in str(valerr.value)
         )
 
 
 def test_unique():
-    array = np.array([1, 9, 3, 2, 1, 4, 5, 6, 7, 8, 9, 2, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+    array = np.array(
+        [1, 9, 3, 2, 1, 4, 5, 6, 7, 8, 9, 2, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    )
     unique_array = unique(array)
     assert np.all(unique_array == np.array([1, 9, 3, 2, 4, 5, 6, 7, 8]))
 

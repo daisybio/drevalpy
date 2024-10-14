@@ -3,18 +3,17 @@ Contains the MultiOmicsNeuralNetwork model.
 """
 
 import warnings
-from typing import Optional, Dict
+from typing import Dict, Optional
+
 import numpy as np
 from numpy.typing import ArrayLike
 from sklearn.decomposition import PCA
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
-from .utils import FeedForwardNetwork
+
 from ..drp_model import DRPModel
-from ..utils import (
-    load_drug_fingerprint_features,
-    get_multiomics_feature_dataset,
-)
+from ..utils import get_multiomics_feature_dataset, load_drug_fingerprint_features
+from .utils import FeedForwardNetwork
 
 
 class MultiOmicsNeuralNetwork(DRPModel):
@@ -49,7 +48,9 @@ class MultiOmicsNeuralNetwork(DRPModel):
             n_units_per_layer=hyperparameters["units_per_layer"],
             dropout_prob=hyperparameters["dropout_prob"],
         )
-        self.pca = PCA(n_components=hyperparameters["methylation_pca_components"])
+        self.pca = PCA(
+            n_components=hyperparameters["methylation_pca_components"]
+        )
 
     def train(
         self,
@@ -73,7 +74,9 @@ class MultiOmicsNeuralNetwork(DRPModel):
             axis=0,
         )
 
-        self.pca.n_components = min(self.pca.n_components, len(unique_methylation))
+        self.pca.n_components = min(
+            self.pca.n_components, len(unique_methylation)
+        )
         self.pca = self.pca.fit(unique_methylation)
 
         with warnings.catch_warnings():
@@ -162,5 +165,7 @@ class MultiOmicsNeuralNetwork(DRPModel):
             data_path=data_path, dataset_name=dataset_name
         )
 
-    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+    def load_drug_features(
+        self, data_path: str, dataset_name: str
+    ) -> FeatureDataset:
         return load_drug_fingerprint_features(data_path, dataset_name)

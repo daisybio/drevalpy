@@ -5,14 +5,15 @@ CompositeDrugModel class, which transforms multiple separate single drug respons
 into a global model by applying a separate model for each drug.
 """
 
-from abc import ABC, abstractmethod
 import inspect
 import os
-from typing import Any, Dict, Optional, Type, List
 import warnings
+from abc import ABC, abstractmethod
+from typing import Any, Dict, List, Optional, Type
+
 import numpy as np
-from numpy.typing import ArrayLike
 import yaml
+from numpy.typing import ArrayLike
 from sklearn.model_selection import ParameterGrid
 
 from ..datasets.dataset import DrugResponseDataset, FeatureDataset
@@ -137,7 +138,9 @@ class DRPModel(ABC):
         """
 
     @abstractmethod
-    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+    def load_drug_features(
+        self, data_path: str, dataset_name: str
+    ) -> FeatureDataset:
         """
         :return: FeatureDataset
         """
@@ -212,9 +215,13 @@ class DRPModel(ABC):
         if drug_input is not None:
             for drug_view in self.drug_views:
                 if drug_view not in drug_input.get_view_names():
-                    raise ValueError(f"Drug input does not contain view {drug_view}")
-                drug_feature_matrices[drug_view] = drug_input.get_feature_matrix(
-                    view=drug_view, identifiers=drug_ids
+                    raise ValueError(
+                        f"Drug input does not contain view {drug_view}"
+                    )
+                drug_feature_matrices[drug_view] = (
+                    drug_input.get_feature_matrix(
+                        view=drug_view, identifiers=drug_ids
+                    )
                 )
 
         return {**cell_line_feature_matrices, **drug_feature_matrices}
@@ -228,7 +235,9 @@ class SingleDrugModel(DRPModel, ABC):
     early_stopping = False
     drug_views = []
 
-    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+    def load_drug_features(
+        self, data_path: str, dataset_name: str
+    ) -> FeatureDataset:
         return None
 
 
@@ -270,7 +279,9 @@ class CompositeDrugModel(DRPModel):
             data_path=data_path, dataset_name=dataset_name
         )
 
-    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+    def load_drug_features(
+        self, data_path: str, dataset_name: str
+    ) -> FeatureDataset:
         return None
 
     def train(
@@ -300,7 +311,9 @@ class CompositeDrugModel(DRPModel):
             output_drug.mask(output_mask)
             output_earlystopping_drug = None
             if output_earlystopping is not None:
-                output_earlystopping_mask = output_earlystopping.drug_ids == drug
+                output_earlystopping_mask = (
+                    output_earlystopping.drug_ids == drug
+                )
                 output_earlystopping_drug = output_earlystopping.copy()
                 output_earlystopping_drug.mask(output_earlystopping_mask)
 

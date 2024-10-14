@@ -1,4 +1,5 @@
-from typing import TextIO, List
+from typing import List, TextIO
+
 import pandas as pd
 from matplotlib import pyplot as plt
 from plotly import graph_objects as go
@@ -8,7 +9,9 @@ from drevalpy.visualization.outplot import OutPlot
 
 class VioHeat(OutPlot):
 
-    def __init__(self, df: pd.DataFrame, normalized_metrics=False, whole_name=False):
+    def __init__(
+        self, df: pd.DataFrame, normalized_metrics=False, whole_name=False
+    ):
         self.df = df.sort_index()
         self.all_metrics = [
             "R^2",
@@ -38,7 +41,9 @@ class VioHeat(OutPlot):
             ]
         else:
             self.all_metrics = [
-                metric for metric in self.all_metrics if "normalized" not in metric
+                metric
+                for metric in self.all_metrics
+                if "normalized" not in metric
             ]
 
     def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
@@ -75,7 +80,9 @@ class VioHeat(OutPlot):
         f.write(
             f'<iframe src="{dir_name}/{prefix}_algorithms_{lpo_lco_ldo}.html" width="100%" height="100%" frameBorder="0"></iframe>\n'
         )
-        f.write(f"<h3>{plot} plots comparing all models with normalized metrics</h3>\n")
+        f.write(
+            f"<h3>{plot} plots comparing all models with normalized metrics</h3>\n"
+        )
         f.write(
             f"Before calculating the evaluation metrics, all values were normalized by the mean of the drug or cell line. "
             f"Since this only influences the R^2 and the correlation metrics, the error metrics are not shown. \n"

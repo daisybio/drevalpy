@@ -1,23 +1,28 @@
-import pytest
 import os
 import pickle
-from typing import Tuple
-import requests
 import tempfile
 import zipfile
+from typing import Tuple
+
+import pytest
+import requests
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 
 
 @pytest.fixture(scope="session")
-def sample_dataset() -> Tuple[DrugResponseDataset, FeatureDataset, FeatureDataset]:
+def sample_dataset() -> (
+    Tuple[DrugResponseDataset, FeatureDataset, FeatureDataset]
+):
     url = "https://zenodo.org/doi/10.5281/zenodo.12633909"
     # Fetch the latest record
     response = requests.get(url)
     latest_url = response.links["linkset"]["url"]
     response = requests.get(latest_url)
     data = response.json()
-    name_to_url = {file["key"]: file["links"]["self"] for file in data["files"]}
+    name_to_url = {
+        file["key"]: file["links"]["self"] for file in data["files"]
+    }
     tmpdir = tempfile.TemporaryDirectory()
     toy_data_url = name_to_url["Toy_Data.zip"]
     response = requests.get(toy_data_url)
@@ -40,7 +45,8 @@ def sample_dataset() -> Tuple[DrugResponseDataset, FeatureDataset, FeatureDatase
     ) as f:
         cell_line_features = pickle.load(f)
     with open(
-        os.path.join(tmpdir.name, "Toy_Data", "toy_data_drug_features.pkl"), "rb"
+        os.path.join(tmpdir.name, "Toy_Data", "toy_data_drug_features.pkl"),
+        "rb",
     ) as f:
         drug_features = pickle.load(f)
     return drug_response, cell_line_features, drug_features

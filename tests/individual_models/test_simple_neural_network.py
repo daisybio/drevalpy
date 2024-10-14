@@ -1,8 +1,9 @@
 import pytest
 
-from .utils import sample_dataset, call_save_and_load
-from drevalpy.models import MODEL_FACTORY
 from drevalpy.evaluation import evaluate
+from drevalpy.models import MODEL_FACTORY
+
+from .utils import call_save_and_load, sample_dataset
 
 
 @pytest.mark.parametrize("test_mode", ["LPO", "LCO", "LDO"])

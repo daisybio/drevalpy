@@ -20,21 +20,21 @@ __all__ = [
     "MODEL_FACTORY",
 ]
 
+from .baselines.multi_omics_random_forest import MultiOmicsRandomForest
 from .baselines.naive_pred import (
-    NaivePredictor,
-    NaiveDrugMeanPredictor,
     NaiveCellLineMeanPredictor,
+    NaiveDrugMeanPredictor,
+    NaivePredictor,
 )
+from .baselines.singledrug_random_forest import SingleDrugRandomForest
 from .baselines.sklearn_models import (
     ElasticNetModel,
+    GradientBoosting,
     RandomForest,
     SVMRegressor,
-    GradientBoosting,
 )
-from .baselines.multi_omics_random_forest import MultiOmicsRandomForest
-from .simple_neural_network.simple_neural_network import SimpleNeuralNetwork
 from .simple_neural_network.multiomics_neural_network import MultiOmicsNeuralNetwork
-from .baselines.singledrug_random_forest import SingleDrugRandomForest
+from .simple_neural_network.simple_neural_network import SimpleNeuralNetwork
 from .SRMF.srmf import SRMF
 
 SINGLE_DRUG_MODEL_FACTORY = {

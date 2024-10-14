@@ -2,13 +2,14 @@
 Utility functions for datasets.
 """
 
-import zipfile
 import os
+import zipfile
 from typing import List
-import requests
-import numpy as np
-from numpy.typing import ArrayLike
+
 import networkx as nx
+import numpy as np
+import requests
+from numpy.typing import ArrayLike
 
 
 def download_dataset(
@@ -47,7 +48,9 @@ def download_dataset(
         os.makedirs(data_path, exist_ok=True)
 
         # Download each file
-        name_to_url = {file["key"]: file["links"]["self"] for file in data["files"]}
+        name_to_url = {
+            file["key"]: file["links"]["self"] for file in data["files"]
+        }
         file_url = name_to_url[file_name]
         # Download the file
         print(f"Downloading {dataset} from {file_url}...")
@@ -103,7 +106,10 @@ def randomize_graph(original_graph: nx.Graph) -> nx.Graph:
 
 
 def permute_features(
-    features: dict, identifiers: ArrayLike, views_to_permute: List, all_views: List
+    features: dict,
+    identifiers: ArrayLike,
+    views_to_permute: List,
+    all_views: List,
 ) -> dict:
     """
     Permute the specified views for each entity (= cell line or drug)
@@ -125,5 +131,7 @@ def permute_features(
             )
             for view in all_views
         }
-        for entity, other_entity in zip(identifiers, np.random.permutation(identifiers))
+        for entity, other_entity in zip(
+            identifiers, np.random.permutation(identifiers)
+        )
     }

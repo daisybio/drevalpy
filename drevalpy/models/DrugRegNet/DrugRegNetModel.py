@@ -1,7 +1,7 @@
-import pandas as pd
-from sklearn.linear_model import Lasso
 import numpy as np
+import pandas as pd
 from scipy import stats
+from sklearn.linear_model import Lasso
 
 
 class DrugRegNetModel:
@@ -57,12 +57,16 @@ class DrugRegNetModel:
     def calculate_pvalues(model, x, y):
         params = np.append(model.intercept_, model.coef_)
         predictions = model.predict(x)
-        newX = pd.DataFrame({"Constant": np.ones(len(x))}, index=x.index).join(x)
+        newX = pd.DataFrame({"Constant": np.ones(len(x))}, index=x.index).join(
+            x
+        )
         MSE = (sum((y - predictions) ** 2)) / (len(newX) - len(newX.columns))
         var_b = MSE * (np.linalg.inv(np.dot(newX.T, newX)).diagonal())
         sd_b = np.sqrt(var_b)
         ts_b = params / sd_b
-        p_values = [2 * (1 - stats.t.cdf(np.abs(i), (len(newX) - 1))) for i in ts_b]
+        p_values = [
+            2 * (1 - stats.t.cdf(np.abs(i), (len(newX) - 1))) for i in ts_b
+        ]
         p_values = np.round(p_values, 3)
         p_values = p_values[1:]
         return p_values
@@ -81,7 +85,9 @@ class DrugRegNetModel:
                 drug_specific_network = drug_specific_network.str.replace(
                     "(", ""
                 ).str.replace(")", "")
-                drug_specific_network = drug_specific_network.str.replace("'", "")
+                drug_specific_network = drug_specific_network.str.replace(
+                    "'", ""
+                )
                 drug_specific_network = drug_specific_network.str.split(
                     ", ", expand=True
                 )

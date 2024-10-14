@@ -1,14 +1,15 @@
 import os
-import numpy as np
 import tempfile
+
 import networkx as nx
+import numpy as np
 import pytest
 from flaky import flaky
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.utils import get_response_transformation
 
-#### Tests for the DrugResponseDataset class
+# Tests for the DrugResponseDataset class
 
 
 # Test if the dataset loads correctly from CSV files
@@ -55,7 +56,9 @@ def test_response_dataset_add_rows():
     assert np.array_equal(
         dataset1.cell_line_ids, np.array([101, 102, 103, 104, 105, 106])
     )
-    assert np.array_equal(dataset1.drug_ids, np.array(["A", "B", "C", "D", "E", "F"]))
+    assert np.array_equal(
+        dataset1.drug_ids, np.array(["A", "B", "C", "D", "E", "F"])
+    )
 
 
 def test_remove_nan_responses():
@@ -66,8 +69,12 @@ def test_remove_nan_responses():
     )
     dataset.remove_nan_responses()
     assert np.array_equal(dataset.response, np.array([1, 2, 3, 5, 6]))
-    assert np.array_equal(dataset.cell_line_ids, np.array([101, 102, 103, 105, 106]))
-    assert np.array_equal(dataset.drug_ids, np.array(["A", "B", "C", "E", "F"]))
+    assert np.array_equal(
+        dataset.cell_line_ids, np.array([101, 102, 103, 105, 106])
+    )
+    assert np.array_equal(
+        dataset.drug_ids, np.array(["A", "B", "C", "E", "F"])
+    )
 
 
 def test_response_dataset_shuffle():
@@ -91,7 +98,9 @@ def test_response_dataset_shuffle():
     assert not np.array_equal(
         dataset.cell_line_ids, np.array([101, 102, 103, 104, 105])
     )
-    assert not np.array_equal(dataset.drug_ids, np.array(["A", "B", "C", "D", "E"]))
+    assert not np.array_equal(
+        dataset.drug_ids, np.array(["A", "B", "C", "D", "E"])
+    )
 
 
 def test_response_data_remove_drugs_and_cell_lines():
@@ -142,7 +151,9 @@ def test_response_dataset_reduce_to():
     dataset.reduce_to(cell_line_ids=[102, 104], drug_ids=["B", "D"])
 
     # Check if only the rows corresponding to the specified cell line IDs and drug IDs remain
-    assert all(cell_line_id in [102, 104] for cell_line_id in dataset.cell_line_ids)
+    assert all(
+        cell_line_id in [102, 104] for cell_line_id in dataset.cell_line_ids
+    )
     assert all(drug_id in ["B", "D"] for drug_id in dataset.drug_ids)
 
     # Check if the length of response, cell_line_ids, and drug_ids arrays is reduced accordingly
@@ -182,9 +193,15 @@ def test_split_response_dataset(mode, split_validation):
         * 10,
     )
     # 100 datapoints, 10 cell lines, 10 drugs
-    # LPO: With 10% validation, 5 folds -> in 1 fold: 20 samples in test, 80 in train+val -> 40 in train, 40 samples in validation -> 30 in val_es, 10 in early stopping
-    # LCO: With 10% validation, 5 folds -> in 1 fold: 2 cell lines in test, 8 in train + val -> 4 in train, 4 samples in validation -> 3 in val_es, 1 in early stopping
-    # LDO: With 10% validation, 5 folds -> in 1 fold: 2 drugs in test, 8 in train + val -> 4 in train, 4 samples in validation -> 3 in val_es, 1 in early stopping
+    # LPO: With 10% validation, 5 folds -> in 1 fold: 20 samples in test,
+    # 80 in train+val -> 40 in train,
+    # 40 samples in validation -> 30 in val_es, 10 in early stopping
+    # LCO: With 10% validation, 5 folds ->
+    # in 1 fold: 2 cell lines in test, 8 in train + val ->
+    # 4 in train, 4 samples in validation -> 3 in val_es, 1 in early stopping
+    # LDO: With 10% validation, 5 folds ->
+    # in 1 fold: 2 drugs in test, 8 in train + val ->
+    # 4 in train, 4 samples in validation -> 3 in val_es, 1 in early stopping
 
     # Test splitting the dataset with the specified mode and validation split
     cv_splits = dataset.split_dataset(
@@ -195,7 +212,9 @@ def test_split_response_dataset(mode, split_validation):
         random_state=42,
     )
     assert isinstance(cv_splits, list)
-    assert len(cv_splits) == 5  # Check if the correct number of splits is returned
+    assert (
+        len(cv_splits) == 5
+    )  # Check if the correct number of splits is returned
     for split in cv_splits:
         assert isinstance(split["train"], DrugResponseDataset)
         assert isinstance(split["test"], DrugResponseDataset)
@@ -208,7 +227,11 @@ def test_split_response_dataset(mode, split_validation):
             assert train_cell_lines.isdisjoint(test_cell_lines)
 
             if split_validation:  # Only check if validation split is enabled
-                for val_es in ["validation", "validation_es", "early_stopping"]:
+                for val_es in [
+                    "validation",
+                    "validation_es",
+                    "early_stopping",
+                ]:
                     validation_cell_lines = set(split[val_es].cell_line_ids)
                     assert validation_cell_lines.isdisjoint(
                         test_cell_lines
@@ -221,7 +244,11 @@ def test_split_response_dataset(mode, split_validation):
             assert train_drugs.isdisjoint(test_drugs)
 
             if split_validation:  # Only check if validation split is enabled
-                for val_es in ["validation", "validation_es", "early_stopping"]:
+                for val_es in [
+                    "validation",
+                    "validation_es",
+                    "early_stopping",
+                ]:
                     validation_drugs = set(split[val_es].drug_ids)
                     assert validation_drugs.isdisjoint(
                         test_drugs
@@ -231,14 +258,22 @@ def test_split_response_dataset(mode, split_validation):
             train_pairs = set(
                 zip(split["train"].cell_line_ids, split["train"].drug_ids)
             )
-            test_pairs = set(zip(split["test"].cell_line_ids, split["test"].drug_ids))
+            test_pairs = set(
+                zip(split["test"].cell_line_ids, split["test"].drug_ids)
+            )
 
             assert train_pairs.isdisjoint(test_pairs)
 
             if split_validation:  # Only check if validation split is enabled
-                for val_es in ["validation", "validation_es", "early_stopping"]:
+                for val_es in [
+                    "validation",
+                    "validation_es",
+                    "early_stopping",
+                ]:
                     validation_pairs = set(
-                        zip(split[val_es].cell_line_ids, split[val_es].drug_ids)
+                        zip(
+                            split[val_es].cell_line_ids, split[val_es].drug_ids
+                        )
                     )
                     assert validation_pairs.isdisjoint(
                         test_pairs
@@ -355,12 +390,16 @@ def graph_dataset():
 
 def test_feature_dataset_get_ids(sample_dataset):
     assert np.all(
-        sample_dataset.get_ids() == ["drug1", "drug2", "drug3", "drug4", "drug5"]
+        sample_dataset.get_ids()
+        == ["drug1", "drug2", "drug3", "drug4", "drug5"]
     )
 
 
 def test_feature_dataset_get_view_names(sample_dataset):
-    assert sample_dataset.get_view_names() == ["fingerprints", "chemical_features"]
+    assert sample_dataset.get_view_names() == [
+        "fingerprints",
+        "chemical_features",
+    ]
 
 
 def test_feature_dataset_get_feature_matrix(sample_dataset):
@@ -438,7 +477,9 @@ def test_invariant_randomization_array(sample_dataset):
         )
 
 
-@flaky(max_runs=5)  # expected degree randomization might produce the same graph
+@flaky(
+    max_runs=5
+)  # expected degree randomization might produce the same graph
 def test_invariant_randomization_graph(graph_dataset):
     views_to_randomize, randomization_type = "molecular_graph", "invariant"
     start_graph_dataset = graph_dataset.copy()

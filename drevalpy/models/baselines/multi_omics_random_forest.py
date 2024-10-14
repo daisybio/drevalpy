@@ -6,11 +6,10 @@ import numpy as np
 from numpy.typing import ArrayLike
 from sklearn.decomposition import PCA
 
-from drevalpy.datasets.dataset import FeatureDataset, DrugResponseDataset
+from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+
+from ..utils import get_multiomics_feature_dataset
 from .sklearn_models import RandomForest
-from ..utils import (
-    get_multiomics_feature_dataset,
-)
 
 
 class MultiOmicsRandomForest(RandomForest):

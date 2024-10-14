@@ -4,13 +4,14 @@ Utility functions for the simple neural network models.
 
 import os
 import random
-from typing import Optional, List
+from typing import List, Optional
+
 import numpy as np
+import pytorch_lightning as pl
 import torch
+from pytorch_lightning.callbacks import EarlyStopping, TQDMProgressBar
 from torch import nn
 from torch.utils.data import DataLoader, Dataset
-import pytorch_lightning as pl
-from pytorch_lightning.callbacks import EarlyStopping, TQDMProgressBar
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 
@@ -61,7 +62,9 @@ class RegressionDataset(Dataset):
             if cell_line_features is None:
                 cell_line_features = feature_mat
             else:
-                cell_line_features = np.concatenate((cell_line_features, feature_mat))
+                cell_line_features = np.concatenate(
+                    (cell_line_features, feature_mat)
+                )
         for d_view in self.drug_views:
             if drug_features is None:
                 drug_features = self.drug_input.features[drug_id][d_view]
@@ -135,7 +138,10 @@ class FeedForwardNetwork(pl.LightningModule):
         :return:
         """
         if trainer_params is None:
-            trainer_params = {"progress_bar_refresh_rate": 300, "max_epochs": 70}
+            trainer_params = {
+                "progress_bar_refresh_rate": 300,
+                "max_epochs": 70,
+            }
 
         train_dataset = RegressionDataset(
             output=output_train,
@@ -199,7 +205,11 @@ class FeedForwardNetwork(pl.LightningModule):
 
         # Initialize the Lightning trainer
         trainer = pl.Trainer(
-            callbacks=[early_stop_callback, self.checkpoint_callback, progress_bar],
+            callbacks=[
+                early_stop_callback,
+                self.checkpoint_callback,
+                progress_bar,
+            ],
             default_root_dir=os.path.join(
                 os.getcwd(), "model_checkpoints/lightning_logs/" + name
             ),
@@ -244,15 +254,23 @@ class FeedForwardNetwork(pl.LightningModule):
         self.fully_connected_layers.append(
             nn.Linear(n_features, self.n_units_per_layer[0])
         )
-        self.batch_norm_layers.append(nn.BatchNorm1d(self.n_units_per_layer[0]))
+        self.batch_norm_layers.append(
+            nn.BatchNorm1d(self.n_units_per_layer[0])
+        )
 
         for i in range(1, len(self.n_units_per_layer)):
             self.fully_connected_layers.append(
-                nn.Linear(self.n_units_per_layer[i - 1], self.n_units_per_layer[i])
+                nn.Linear(
+                    self.n_units_per_layer[i - 1], self.n_units_per_layer[i]
+                )
             )
-            self.batch_norm_layers.append(nn.BatchNorm1d(self.n_units_per_layer[i]))
+            self.batch_norm_layers.append(
+                nn.BatchNorm1d(self.n_units_per_layer[i])
+            )
 
-        self.fully_connected_layers.append(nn.Linear(self.n_units_per_layer[-1], 1))
+        self.fully_connected_layers.append(
+            nn.Linear(self.n_units_per_layer[-1], 1)
+        )
         if self.dropout_prob is not None:
             self.dropout_layer = nn.Dropout(p=self.dropout_prob)
         self.model_initialized = True

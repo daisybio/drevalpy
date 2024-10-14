@@ -7,10 +7,10 @@ from typing import List
 
 from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
 
-from drevalpy.models import MODEL_FACTORY
 from drevalpy.datasets import RESPONSE_DATASET_FACTORY
 from drevalpy.evaluation import AVAILABLE_METRICS
 from drevalpy.experiment import drug_response_experiment
+from drevalpy.models import MODEL_FACTORY
 
 
 def get_parser():
@@ -22,15 +22,23 @@ def get_parser():
         description="Run the drug response prediction model test suite."
     )
     parser.add_argument(
-        "--run_id", type=str, default="my_run", help="identifier to save the results"
+        "--run_id",
+        type=str,
+        default="my_run",
+        help="identifier to save the results",
     )
 
     parser.add_argument(
-        "--path_data", type=str, default="data", help="Path to the data directory"
+        "--path_data",
+        type=str,
+        default="data",
+        help="Path to the data directory",
     )
 
     parser.add_argument(
-        "--models", nargs="+", help="model to evaluate or list of models to compare"
+        "--models",
+        nargs="+",
+        help="model to evaluate or list of models to compare",
     )
     parser.add_argument(
         "--baselines",
@@ -104,14 +112,21 @@ def get_parser():
     )
 
     parser.add_argument(
-        "--path_out", type=str, default="results/", help="Path to the output directory"
+        "--path_out",
+        type=str,
+        default="results/",
+        help="Path to the output directory",
     )
 
     parser.add_argument(
         "--curve_curator",
         action="store_true",
         default=False,
-        help="Whether to run " "CurveCurator " "to sort out " "non-reactive " "curves",
+        help="Whether to run "
+        "CurveCurator "
+        "to sort out "
+        "non-reactive "
+        "curves",
     )
     parser.add_argument(
         "--overwrite",
@@ -240,7 +255,9 @@ def main(args):
 
     if args.randomization_mode[0] == "None":
         args.randomization_mode = None
-    response_transformation = get_response_transformation(args.response_transformation)
+    response_transformation = get_response_transformation(
+        args.response_transformation
+    )
 
     for test_mode in args.test_mode:
         drug_response_experiment(
@@ -263,7 +280,9 @@ def main(args):
         )
 
 
-def load_data(dataset_name: str, cross_study_datasets: List, path_data: str = "data"):
+def load_data(
+    dataset_name: str, cross_study_datasets: List, path_data: str = "data"
+):
     """
     Load the response data and cross-study datasets.
     :param dataset_name:

@@ -2,15 +2,15 @@ import numpy as np
 import pandas as pd
 import pytest
 from flaky import flaky
-from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.evaluation import (
     evaluate,
-    pearson,
-    spearman,
     kendall,
     partial_correlation,
+    pearson,
+    spearman,
 )
 
 
@@ -97,7 +97,11 @@ def test_partial_correlation(generate_mock_data_drug_mean):
     response, cell_line_ids, drug_ids = generate_mock_data_drug_mean
 
     df = pd.DataFrame(
-        {"response": response, "cell_line_id": cell_line_ids, "drug_id": drug_ids}
+        {
+            "response": response,
+            "cell_line_id": cell_line_ids,
+            "drug_id": drug_ids,
+        }
     )
 
     df["mean"] = df["response"].mean()
@@ -179,7 +183,9 @@ def test_kendall_uncorrelated(generate_mock_uncorrelated_data):
     assert np.isclose(kd, 0.0, atol=1e-3)
 
 
-def test_correlations_constant_prediction(generate_mock_data_constant_prediction):
+def test_correlations_constant_prediction(
+    generate_mock_data_constant_prediction,
+):
     y_pred, response = generate_mock_data_constant_prediction
     pc = pearson(y_pred, response)
     sp = spearman(y_pred, response)

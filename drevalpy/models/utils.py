@@ -3,13 +3,13 @@ Utility functions for loading and processing data.
 """
 
 import os.path
+import pickle
 import warnings
 from typing import Optional
-import pickle
-import pandas as pd
+
 import numpy as np
-from numpy.typing import ArrayLike
-from sklearn.base import TransformerMixin
+import pandas as pd
+
 from drevalpy.datasets.dataset import FeatureDataset
 
 
@@ -23,14 +23,21 @@ def load_cl_ids_from_csv(path: str, dataset_name: str) -> FeatureDataset:
     if dataset_name == "Toy_Data":
         return load_toy_features(path, dataset_name, "cell_line")
 
-    cl_names = pd.read_csv(f"{path}/{dataset_name}/cell_line_names.csv", index_col=0)
+    cl_names = pd.read_csv(
+        f"{path}/{dataset_name}/cell_line_names.csv", index_col=0
+    )
     return FeatureDataset(
-        features={cl: {"cell_line_id": np.array([cl])} for cl in cl_names.index}
+        features={
+            cl: {"cell_line_id": np.array([cl])} for cl in cl_names.index
+        }
     )
 
 
 def load_and_reduce_gene_features(
-    feature_type: str, gene_list: Optional[str], data_path: str, dataset_name: str
+    feature_type: str,
+    gene_list: Optional[str],
+    data_path: str,
+    dataset_name: str,
 ) -> FeatureDataset:
     """
     Load and reduce gene features.
@@ -44,7 +51,9 @@ def load_and_reduce_gene_features(
         cl_features = load_toy_features(data_path, dataset_name, "cell_line")
         dataset_name = "GDSC1"
     else:
-        ge = pd.read_csv(f"{data_path}/{dataset_name}/{feature_type}.csv", index_col=0)
+        ge = pd.read_csv(
+            f"{data_path}/{dataset_name}/{feature_type}.csv", index_col=0
+        )
         cl_features = FeatureDataset(
             features=iterate_features(df=ge, feature_type=feature_type),
             meta_info={feature_type: ge.columns.values},
@@ -76,11 +85,13 @@ def load_and_reduce_gene_features(
     gene_mask = np.array(
         [gene in genes_in_list for gene in cl_features.meta_info[feature_type]]
     )
-    cl_features.meta_info[feature_type] = cl_features.meta_info[feature_type][gene_mask]
+    cl_features.meta_info[feature_type] = cl_features.meta_info[feature_type][
+        gene_mask
+    ]
     for cell_line in cl_features.features.keys():
-        cl_features.features[cell_line][feature_type] = cl_features.features[cell_line][
-            feature_type
-        ][gene_mask]
+        cl_features.features[cell_line][feature_type] = cl_features.features[
+            cell_line
+        ][feature_type][gene_mask]
     return cl_features
 
 
@@ -104,7 +115,9 @@ def iterate_features(df: pd.DataFrame, feature_type: str):
     return features
 
 
-def load_drug_ids_from_csv(data_path: str, dataset_name: str) -> FeatureDataset:
+def load_drug_ids_from_csv(
+    data_path: str, dataset_name: str
+) -> FeatureDataset:
     """
     Load drug ids from csv file.
     :param data_path:
@@ -113,13 +126,19 @@ def load_drug_ids_from_csv(data_path: str, dataset_name: str) -> FeatureDataset:
     """
     if dataset_name == "Toy_Data":
         return load_toy_features(data_path, dataset_name, "drug")
-    drug_names = pd.read_csv(f"{data_path}/{dataset_name}/drug_names.csv", index_col=0)
+    drug_names = pd.read_csv(
+        f"{data_path}/{dataset_name}/drug_names.csv", index_col=0
+    )
     return FeatureDataset(
-        features={drug: {"drug_id": np.array([drug])} for drug in drug_names.index}
+        features={
+            drug: {"drug_id": np.array([drug])} for drug in drug_names.index
+        }
     )
 
 
-def load_drug_fingerprint_features(data_path: str, dataset_name: str) -> FeatureDataset:
+def load_drug_fingerprint_features(
+    data_path: str, dataset_name: str
+) -> FeatureDataset:
     """
     Load drug features from fingerprints.
     :param data_path:
@@ -129,7 +148,8 @@ def load_drug_fingerprint_features(data_path: str, dataset_name: str) -> Feature
     if dataset_name == "Toy_Data":
         return load_toy_features(data_path, dataset_name, "drug")
     fingerprints = pd.read_csv(
-        f"{data_path}/{dataset_name}/drug_fingerprints/drug_name_to_demorgan_128_map.csv",
+        f"{data_path}/{dataset_name}/drug_fingerprints/"
+        "drug_name_to_demorgan_128_map.csv",
         index_col=0,
     ).T
     return FeatureDataset(
@@ -141,7 +161,9 @@ def load_drug_fingerprint_features(data_path: str, dataset_name: str) -> Feature
 
 
 def get_multiomics_feature_dataset(
-    data_path: str, dataset_name: str, gene_list: str = "drug_target_genes_all_drugs"
+    data_path: str,
+    dataset_name: str,
+    gene_list: str = "drug_target_genes_all_drugs",
 ) -> FeatureDataset:
     """
     Get multiomics feature dataset.

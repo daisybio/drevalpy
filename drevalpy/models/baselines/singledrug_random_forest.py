@@ -4,10 +4,12 @@ expression dataset for drug response prediction and trains one model per drug.
 """
 
 from typing import Optional
+
 import numpy as np
 from numpy.typing import ArrayLike
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+
 from ..drp_model import SingleDrugModel
 from .sklearn_models import RandomForest
 

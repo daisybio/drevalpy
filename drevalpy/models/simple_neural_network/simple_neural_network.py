@@ -3,18 +3,17 @@ Contains the SimpleNeuralNetwork model.
 """
 
 import warnings
-from typing import Optional, Dict
+from typing import Dict, Optional
+
 import numpy as np
 from numpy.typing import ArrayLike
+from sklearn.preprocessing import StandardScaler
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
-from ..utils import (
-    load_drug_fingerprint_features,
-    load_and_reduce_gene_features,
-)
-from .utils import FeedForwardNetwork
+
 from ..drp_model import DRPModel
-from sklearn.preprocessing import StandardScaler
+from ..utils import load_and_reduce_gene_features, load_drug_fingerprint_features
+from .utils import FeedForwardNetwork
 
 
 class SimpleNeuralNetwork(DRPModel):
@@ -64,10 +63,12 @@ class SimpleNeuralNetwork(DRPModel):
         if "gene_expression" in self.cell_line_views:
             cell_line_input = cell_line_input.copy()
             cell_line_input.apply(function=np.arcsinh, view="gene_expression")
-            self.gene_expression_scaler = cell_line_input.fit_transform_features(
-                train_ids=np.unique(output.cell_line_ids),
-                transformer=self.gene_expression_scaler,
-                view="gene_expression",
+            self.gene_expression_scaler = (
+                cell_line_input.fit_transform_features(
+                    train_ids=np.unique(output.cell_line_ids),
+                    transformer=self.gene_expression_scaler,
+                    view="gene_expression",
+                )
             )
 
         with warnings.catch_warnings():
@@ -141,6 +142,8 @@ class SimpleNeuralNetwork(DRPModel):
             dataset_name=dataset_name,
         )
 
-    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+    def load_drug_features(
+        self, data_path: str, dataset_name: str
+    ) -> FeatureDataset:
 
         return load_drug_fingerprint_features(data_path, dataset_name)

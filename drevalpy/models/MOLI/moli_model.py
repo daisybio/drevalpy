@@ -47,7 +47,8 @@ class Moli(nn.Module):
             input_sizes[2], output_sizes[2], dropout_rates[2]
         )
         self.classifier = MOLIClassifier(
-            output_sizes[0] + output_sizes[1] + output_sizes[2], dropout_rates[3]
+            output_sizes[0] + output_sizes[1] + output_sizes[2],
+            dropout_rates[3],
         )
 
     def forward_with_features(self, expression, mutation, cna):

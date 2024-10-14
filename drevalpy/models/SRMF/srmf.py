@@ -1,13 +1,12 @@
-import numpy as np
-import pandas as pd
-from scipy.spatial.distance import jaccard
-from numpy.typing import ArrayLike
 from typing import Dict
 
-from drevalpy.models.drp_model import DRPModel
+import numpy as np
+import pandas as pd
+from numpy.typing import ArrayLike
+from scipy.spatial.distance import jaccard
+
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
-
-
+from drevalpy.models.drp_model import DRPModel
 from drevalpy.models.utils import (
     load_and_reduce_gene_features,
     load_drug_fingerprint_features,
@@ -151,8 +150,12 @@ class SRMF(DRPModel):
         WR = W * intMat
 
         for t in range(self.max_iter):
-            U = self.alg_update(U0, V0, W, WR, drugMat, self.lambda_l, self.lambda_d)
-            V = self.alg_update(V0, U, W.T, WR.T, cellMat, self.lambda_l, self.lambda_c)
+            U = self.alg_update(
+                U0, V0, W, WR, drugMat, self.lambda_l, self.lambda_d
+            )
+            V = self.alg_update(
+                V0, U, W.T, WR.T, cellMat, self.lambda_l, self.lambda_c
+            )
             curr_loss = self.compute_loss(U, V, W, intMat, drugMat, cellMat)
 
             if curr_loss < bestloss:
@@ -219,5 +222,7 @@ class SRMF(DRPModel):
             dataset_name=dataset_name,
         )
 
-    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+    def load_drug_features(
+        self, data_path: str, dataset_name: str
+    ) -> FeatureDataset:
         return load_drug_fingerprint_features(data_path, dataset_name)
