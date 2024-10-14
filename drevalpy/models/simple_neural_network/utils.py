@@ -8,81 +8,12 @@ from typing import Optional, List
 import numpy as np
 import torch
 from torch import nn
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import EarlyStopping, TQDMProgressBar
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
-
-
-class RegressionDataset(Dataset):
-    """
-    Dataset for regression tasks for the data loader.
-    """
-
-    def __init__(
-        self,
-        output: DrugResponseDataset,
-        cell_line_input: FeatureDataset = None,
-        drug_input: FeatureDataset = None,
-        cell_line_views: List[str] = None,
-        drug_views: List[str] = None,
-        met_transform=None,
-    ):
-        self.cell_line_views = cell_line_views
-        self.drug_views = drug_views
-        self.output = output
-        self.cell_line_input = cell_line_input
-        self.drug_input = drug_input
-        for cl_view in self.cell_line_views:
-            assert (
-                cl_view in cell_line_input.view_names
-            ), f"Cell line view {cl_view} not found in cell line input"
-        for d_view in self.drug_views:
-            assert (
-                d_view in drug_input.view_names
-            ), f"Drug view {d_view} not found in drug input"
-        self.met_transform = met_transform
-
-    def __getitem__(self, idx):
-        cell_line_id = self.output.cell_line_ids[idx]
-        drug_id = self.output.drug_ids[idx]
-        response = self.output.response[idx]
-        cell_line_features = None
-        drug_features = None
-        for cl_view in self.cell_line_views:
-            feature_mat = self.cell_line_input.features[cell_line_id][cl_view]
-            if cl_view == "methylation" and self.met_transform is not None:
-                # reshape because it contains a single sample
-                feature_mat = feature_mat.reshape(1, -1)
-                feature_mat = self.met_transform.transform(feature_mat)
-                # reshape back to original shape
-                feature_mat = feature_mat.reshape(-1)
-            if cell_line_features is None:
-                cell_line_features = feature_mat
-            else:
-                cell_line_features = np.concatenate((cell_line_features, feature_mat))
-        for d_view in self.drug_views:
-            if drug_features is None:
-                drug_features = self.drug_input.features[drug_id][d_view]
-            else:
-                drug_features = np.concatenate(
-                    (drug_features, self.drug_input.features[drug_id][d_view])
-                )
-        assert isinstance(
-            cell_line_features, np.ndarray
-        ), f"Cell line features for {cell_line_id} are not numpy array"
-        assert isinstance(
-            drug_features, np.ndarray
-        ), f"Drug features for {drug_id} are not numpy array"
-        data = np.concatenate((cell_line_features, drug_features))
-        # cast to float32
-        data = data.astype(np.float32)
-        response = np.float32(response)
-        return data, response
-
-    def __len__(self):
-        return len(self.output.response)
+from ..utils import RegressionDataset
 
 
 class FeedForwardNetwork(pl.LightningModule):
