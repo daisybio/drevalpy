@@ -51,9 +51,7 @@ def partial_correlation(
         }
     )
 
-    if (len(df["cell_line_ids"].unique()) < 2) or (
-        len(df["drug_ids"].unique()) < 2
-    ):
+    if (len(df["cell_line_ids"].unique()) < 2) or (len(df["drug_ids"].unique()) < 2):
         # if we don't have more than one cell line or drug in the data, partial correlation is
         # meaningless
         global warning_shown
@@ -84,9 +82,7 @@ def partial_correlation(
     df["cell_line_ids"] = pd.factorize(df["cell_line_ids"])[0]
     df["drug_ids"] = pd.factorize(df["drug_ids"])[0]
     # One-hot encode the categorical covariates
-    df_encoded = pd.get_dummies(
-        df, columns=["cell_line_ids", "drug_ids"], dtype=int
-    )
+    df_encoded = pd.get_dummies(df, columns=["cell_line_ids", "drug_ids"], dtype=int)
 
     if df.shape[0] < 3:
         r, p = np.nan, np.nan
@@ -98,8 +94,7 @@ def partial_correlation(
             covar=[
                 col
                 for col in df_encoded.columns
-                if col.startswith("cell_line_ids")
-                or col.startswith("drug_ids")
+                if col.startswith("cell_line_ids") or col.startswith("drug_ids")
             ],
             method=method,
         )

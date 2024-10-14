@@ -33,9 +33,7 @@ def create_output_directories(custom_id):
     os.makedirs(f"results/{custom_id}/regression_plots", exist_ok=True)
     os.makedirs(f"results/{custom_id}/corr_comp_scatter", exist_ok=True)
     os.makedirs(f"results/{custom_id}/html_tables", exist_ok=True)
-    os.makedirs(
-        f"results/{custom_id}/critical_difference_plots", exist_ok=True
-    )
+    os.makedirs(f"results/{custom_id}/critical_difference_plots", exist_ok=True)
 
 
 def draw_setting_plots(
@@ -61,9 +59,7 @@ def draw_setting_plots(
     )
 
     # only draw figures for 'real' predictions comparing all models
-    eval_results_preds = ev_res_subset[
-        ev_res_subset["rand_setting"] == "predictions"
-    ]
+    eval_results_preds = ev_res_subset[ev_res_subset["rand_setting"] == "predictions"]
 
     # PIPELINE: DRAW_CRITICAL_DIFFERENCE
     cd_plot = CriticalDifferencePlot(
@@ -121,9 +117,7 @@ def draw_setting_plots(
     return eval_results_preds["algorithm"].unique()
 
 
-def draw_per_grouping_setting_plots(
-    grouping, ev_res_per_group, lpo_lco_ldo, custom_id
-):
+def draw_per_grouping_setting_plots(grouping, ev_res_per_group, lpo_lco_ldo, custom_id):
     """
     Draw plots for a specific grouping (drug or cell line) for a specific setting (LPO, LCO, LDO)
     :param grouping: drug or cell_line

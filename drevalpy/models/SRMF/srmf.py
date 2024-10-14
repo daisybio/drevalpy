@@ -150,12 +150,8 @@ class SRMF(DRPModel):
         WR = W * intMat
 
         for t in range(self.max_iter):
-            U = self.alg_update(
-                U0, V0, W, WR, drugMat, self.lambda_l, self.lambda_d
-            )
-            V = self.alg_update(
-                V0, U, W.T, WR.T, cellMat, self.lambda_l, self.lambda_c
-            )
+            U = self.alg_update(U0, V0, W, WR, drugMat, self.lambda_l, self.lambda_d)
+            V = self.alg_update(V0, U, W.T, WR.T, cellMat, self.lambda_l, self.lambda_c)
             curr_loss = self.compute_loss(U, V, W, intMat, drugMat, cellMat)
 
             if curr_loss < bestloss:
@@ -222,7 +218,5 @@ class SRMF(DRPModel):
             dataset_name=dataset_name,
         )
 
-    def load_drug_features(
-        self, data_path: str, dataset_name: str
-    ) -> FeatureDataset:
+    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         return load_drug_fingerprint_features(data_path, dataset_name)

@@ -7,13 +7,9 @@ from drevalpy.visualization.vioheat import VioHeat
 
 
 class Heatmap(VioHeat):
-    def __init__(
-        self, df: pd.DataFrame, normalized_metrics=False, whole_name=False
-    ):
+    def __init__(self, df: pd.DataFrame, normalized_metrics=False, whole_name=False):
         super().__init__(df, normalized_metrics, whole_name)
-        self.df = self.df[
-            [col for col in self.df.columns if col in self.all_metrics]
-        ]
+        self.df = self.df[[col for col in self.df.columns if col in self.all_metrics]]
         if self.normalized_metrics:
             titles = [
                 "Standard Errors over CV folds",

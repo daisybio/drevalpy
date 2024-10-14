@@ -5,9 +5,7 @@ from drevalpy.visualization.vioheat import VioHeat
 
 
 class Violin(VioHeat):
-    def __init__(
-        self, df: pd.DataFrame, normalized_metrics=False, whole_name=False
-    ):
+    def __init__(self, df: pd.DataFrame, normalized_metrics=False, whole_name=False):
         super().__init__(df, normalized_metrics, whole_name)
         self.df["box"] = (
             self.df["algorithm"]
@@ -75,11 +73,7 @@ class Violin(VioHeat):
                                 + self.count_partial_correlation
                             )
                             + [False]
-                            * (
-                                self.count_mse
-                                + self.count_rmse
-                                + self.count_mae
-                            )
+                            * (self.count_mse + self.count_rmse + self.count_mae)
                         },
                         {"title": "All Correlations"},
                     ],
@@ -91,8 +85,7 @@ class Violin(VioHeat):
                         {
                             "visible": [False] * self.count_r2
                             + [True] * self.count_pearson
-                            + [False]
-                            * (count_sum - self.count_r2 - self.count_pearson)
+                            + [False] * (count_sum - self.count_r2 - self.count_pearson)
                         },
                         {"title": "Pearson"},
                     ],
@@ -102,8 +95,7 @@ class Violin(VioHeat):
                     method="update",
                     args=[
                         {
-                            "visible": [False]
-                            * (self.count_r2 + self.count_pearson)
+                            "visible": [False] * (self.count_r2 + self.count_pearson)
                             + [True] * self.count_spearman
                             + [False]
                             * (
@@ -122,11 +114,7 @@ class Violin(VioHeat):
                     args=[
                         {
                             "visible": [False]
-                            * (
-                                self.count_r2
-                                + self.count_pearson
-                                + self.count_spearman
-                            )
+                            * (self.count_r2 + self.count_pearson + self.count_spearman)
                             + [True] * self.count_kendall
                             + [False]
                             * (
@@ -155,11 +143,7 @@ class Violin(VioHeat):
                             )
                             + [True] * self.count_partial_correlation
                             + [False]
-                            * (
-                                self.count_mse
-                                + self.count_rmse
-                                + self.count_mae
-                            )
+                            * (self.count_mse + self.count_rmse + self.count_mae)
                         },
                         {"title": "Partial Correlation"},
                     ],
@@ -182,11 +166,7 @@ class Violin(VioHeat):
                                     - self.count_mae
                                 )
                                 + [True]
-                                * (
-                                    self.count_mse
-                                    + self.count_rmse
-                                    + self.count_mae
-                                )
+                                * (self.count_mse + self.count_rmse + self.count_mae)
                             },
                             {"title": "All Errors"},
                         ],
@@ -215,11 +195,7 @@ class Violin(VioHeat):
                         args=[
                             {
                                 "visible": [False]
-                                * (
-                                    count_sum
-                                    - self.count_rmse
-                                    - self.count_mae
-                                )
+                                * (count_sum - self.count_rmse - self.count_mae)
                                 + [True] * self.count_rmse
                                 + [False] * self.count_mae
                             },
@@ -231,8 +207,7 @@ class Violin(VioHeat):
                         method="update",
                         args=[
                             {
-                                "visible": [False]
-                                * (count_sum - self.count_mae)
+                                "visible": [False] * (count_sum - self.count_mae)
                                 + [True] * self.count_mae
                             },
                             {"title": "MAE"},
@@ -248,9 +223,7 @@ class Violin(VioHeat):
                 )
             ]
         )
-        self.fig.update_layout(
-            title_text="All Metrics", height=600, width=1100
-        )
+        self.fig.update_layout(title_text="All Metrics", height=600, width=1100)
 
     def __create_evaluation_violins__(self):
         print("Drawing Violin plots ...")
@@ -272,9 +245,7 @@ class Violin(VioHeat):
             elif "Kendall" in metric:
                 self.count_kendall += 1 * len(self.df["box"].unique())
             elif "Partial_Correlation" in metric:
-                self.count_partial_correlation += 1 * len(
-                    self.df["box"].unique()
-                )
+                self.count_partial_correlation += 1 * len(self.df["box"].unique())
             elif "RMSE" in metric:
                 self.count_rmse += 1 * len(self.df["box"].unique())
             elif "MSE" in metric:

@@ -56,9 +56,7 @@ class CorrelationComparisonScatter(OutPlot):
         self.color_by = color_by
         self.metric = metric
 
-        self.df["setting"] = (
-            self.df["model"].str.split("_").str[0:3].str.join("_")
-        )
+        self.df["setting"] = self.df["model"].str.split("_").str[0:3].str.join("_")
         self.models = self.df["setting"].unique()
 
         self.fig_overall = make_subplots(
@@ -155,9 +153,7 @@ class CorrelationComparisonScatter(OutPlot):
                     f'<iframe src="corr_comp_scatter/corr_comp_scatter_overall_{group_by}_{lpo_lco_ldo}.html" '
                     f'width="100%" height="100%" frameBorder="0"></iframe>\n'
                 )
-                f.write(
-                    "<h4>Comparison between all models, dropdown menu</h4>\n"
-                )
+                f.write("<h4>Comparison between all models, dropdown menu</h4>\n")
                 f.write(
                     f'<iframe src="corr_comp_scatter/corr_comp_scatter_{group_by}_{lpo_lco_ldo}.html" '
                     f'width="100%" height="100%" frameBorder="0"></iframe>\n'
@@ -167,8 +163,7 @@ class CorrelationComparisonScatter(OutPlot):
                 listed_files = [
                     elem
                     for elem in plot_list
-                    if elem
-                    != f"corr_comp_scatter_{lpo_lco_ldo}_{group_by}.html"
+                    if elem != f"corr_comp_scatter_{lpo_lco_ldo}_{group_by}.html"
                     and elem
                     != f"corr_comp_scatter_overall_{lpo_lco_ldo}_{group_by}.html"
                 ]
@@ -226,9 +221,7 @@ class CorrelationComparisonScatter(OutPlot):
                 self.fig_overall.add_trace(
                     scatterplot, col=run_idx + 1, row=run2_idx + 1
                 )
-                self.fig_overall.add_trace(
-                    line_corr, col=run_idx + 1, row=run2_idx + 1
-                )
+                self.fig_overall.add_trace(line_corr, col=run_idx + 1, row=run2_idx + 1)
 
                 # create dropdown buttons for y axis only in the first iteration
                 if run_idx == 0:
@@ -247,17 +240,15 @@ class CorrelationComparisonScatter(OutPlot):
                         self.fig_overall["layout"]["yaxis"]["title"] = str(
                             run2
                         ).replace("_", "<br>", 2)
-                        self.fig_overall["layout"]["yaxis"]["title"]["font"][
-                            "size"
-                        ] = 6
+                        self.fig_overall["layout"]["yaxis"]["title"]["font"]["size"] = 6
                     else:
                         y_axis_idx = (run2_idx) * len(self.models) + 1
-                        self.fig_overall["layout"][f"yaxis{y_axis_idx}"][
-                            "title"
-                        ] = str(run2).replace("_", "<br>", 2)
-                        self.fig_overall["layout"][f"yaxis{y_axis_idx}"][
-                            "title"
-                        ]["font"]["size"] = 6
+                        self.fig_overall["layout"][f"yaxis{y_axis_idx}"]["title"] = str(
+                            run2
+                        ).replace("_", "<br>", 2)
+                        self.fig_overall["layout"][f"yaxis{y_axis_idx}"]["title"][
+                            "font"
+                        ]["size"] = 6
 
     def __subset_df__(self, run_id: str):
         s_df = self.df[self.df["setting"] == run_id][
@@ -273,9 +264,7 @@ class CorrelationComparisonScatter(OutPlot):
         common_indices = x_df.index.intersection(y_df.index)
         x_df_inter = x_df.loc[common_indices]
         y_df = y_df.loc[common_indices]
-        x_df_inter["setting"] = (
-            x_df_inter["model"].str.split("_").str[4:].str.join("")
-        )
+        x_df_inter["setting"] = x_df_inter["model"].str.split("_").str[4:].str.join("")
         y_df["setting"] = y_df["model"].str.split("_").str[4:].str.join("")
 
         joint_df = pd.concat([x_df_inter, y_df], axis=1)
@@ -304,9 +293,7 @@ class CorrelationComparisonScatter(OutPlot):
             x=x_df_inter[self.metric],
             y=y_df[self.metric],
             mode="markers",
-            marker=dict(
-                size=4, color=density, colorscale="Viridis", showscale=False
-            ),
+            marker=dict(size=4, color=density, colorscale="Viridis", showscale=False),
             showlegend=False,
             visible=True,
             meta=[run, run2],

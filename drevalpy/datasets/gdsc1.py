@@ -29,9 +29,7 @@ class GDSC1(DrugResponseDataset):
             download_dataset(dataset_name, path_data, redownload=True)
         response_data = pd.read_csv(path)
 
-        response_data["DRUG_NAME"] = response_data["DRUG_NAME"].str.replace(
-            ",", ""
-        )
+        response_data["DRUG_NAME"] = response_data["DRUG_NAME"].str.replace(",", "")
 
         super().__init__(
             response=response_data["LN_IC50"].values,

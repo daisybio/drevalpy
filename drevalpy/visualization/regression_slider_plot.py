@@ -19,8 +19,7 @@ class RegressionSliderPlot(OutPlot):
         normalize=False,
     ):
         self.df = df[
-            (df["LPO_LCO_LDO"] == lpo_lco_ldo)
-            & (df["rand_setting"] == "predictions")
+            (df["LPO_LCO_LDO"] == lpo_lco_ldo) & (df["rand_setting"] == "predictions")
         ]
         self.df = self.df[(self.df["algorithm"] == model)]
         self.group_by = group_by
@@ -67,9 +66,7 @@ class RegressionSliderPlot(OutPlot):
         f.write('<h2 id="regression_plots">Regression plots</h2>\n')
         f.write("<ul>\n")
         regr_files = [
-            f
-            for f in files
-            if lpo_lco_ldo in f and f.startswith("regression_lines")
+            f for f in files if lpo_lco_ldo in f and f.startswith("regression_lines")
         ]
         regr_files.sort()
         for regr_file in regr_files:

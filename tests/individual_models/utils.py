@@ -11,18 +11,14 @@ from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 
 
 @pytest.fixture(scope="session")
-def sample_dataset() -> (
-    Tuple[DrugResponseDataset, FeatureDataset, FeatureDataset]
-):
+def sample_dataset() -> Tuple[DrugResponseDataset, FeatureDataset, FeatureDataset]:
     url = "https://zenodo.org/doi/10.5281/zenodo.12633909"
     # Fetch the latest record
     response = requests.get(url)
     latest_url = response.links["linkset"]["url"]
     response = requests.get(latest_url)
     data = response.json()
-    name_to_url = {
-        file["key"]: file["links"]["self"] for file in data["files"]
-    }
+    name_to_url = {file["key"]: file["links"]["self"] for file in data["files"]}
     tmpdir = tempfile.TemporaryDirectory()
     toy_data_url = name_to_url["Toy_Data.zip"]
     response = requests.get(toy_data_url)

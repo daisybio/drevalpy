@@ -48,9 +48,7 @@ def download_dataset(
         os.makedirs(data_path, exist_ok=True)
 
         # Download each file
-        name_to_url = {
-            file["key"]: file["links"]["self"] for file in data["files"]
-        }
+        name_to_url = {file["key"]: file["links"]["self"] for file in data["files"]}
         file_url = name_to_url[file_name]
         # Download the file
         print(f"Downloading {dataset} from {file_url}...")
@@ -131,7 +129,5 @@ def permute_features(
             )
             for view in all_views
         }
-        for entity, other_entity in zip(
-            identifiers, np.random.permutation(identifiers)
-        )
+        for entity, other_entity in zip(identifiers, np.random.permutation(identifiers))
     }

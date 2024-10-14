@@ -62,9 +62,7 @@ class RegressionDataset(Dataset):
             if cell_line_features is None:
                 cell_line_features = feature_mat
             else:
-                cell_line_features = np.concatenate(
-                    (cell_line_features, feature_mat)
-                )
+                cell_line_features = np.concatenate((cell_line_features, feature_mat))
         for d_view in self.drug_views:
             if drug_features is None:
                 drug_features = self.drug_input.features[drug_id][d_view]
@@ -254,23 +252,15 @@ class FeedForwardNetwork(pl.LightningModule):
         self.fully_connected_layers.append(
             nn.Linear(n_features, self.n_units_per_layer[0])
         )
-        self.batch_norm_layers.append(
-            nn.BatchNorm1d(self.n_units_per_layer[0])
-        )
+        self.batch_norm_layers.append(nn.BatchNorm1d(self.n_units_per_layer[0]))
 
         for i in range(1, len(self.n_units_per_layer)):
             self.fully_connected_layers.append(
-                nn.Linear(
-                    self.n_units_per_layer[i - 1], self.n_units_per_layer[i]
-                )
+                nn.Linear(self.n_units_per_layer[i - 1], self.n_units_per_layer[i])
             )
-            self.batch_norm_layers.append(
-                nn.BatchNorm1d(self.n_units_per_layer[i])
-            )
+            self.batch_norm_layers.append(nn.BatchNorm1d(self.n_units_per_layer[i]))
 
-        self.fully_connected_layers.append(
-            nn.Linear(self.n_units_per_layer[-1], 1)
-        )
+        self.fully_connected_layers.append(nn.Linear(self.n_units_per_layer[-1], 1))
         if self.dropout_prob is not None:
             self.dropout_layer = nn.Dropout(p=self.dropout_prob)
         self.model_initialized = True

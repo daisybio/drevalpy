@@ -77,9 +77,7 @@ def parse_results(path_to_results: str):
             eval_results_per_cl,
             t_vs_p,
             model_name,
-        ) = evaluate_file(
-            pred_file=file, test_mode=lpo_lco_ldo, model_name=algorithm
-        )
+        ) = evaluate_file(pred_file=file, test_mode=lpo_lco_ldo, model_name=algorithm)
 
         evaluation_results = (
             overall_eval
@@ -87,27 +85,21 @@ def parse_results(path_to_results: str):
             else pd.concat([evaluation_results, overall_eval])
         )
         true_vs_pred = (
-            t_vs_p
-            if true_vs_pred is None
-            else pd.concat([true_vs_pred, t_vs_p])
+            t_vs_p if true_vs_pred is None else pd.concat([true_vs_pred, t_vs_p])
         )
 
         if eval_results_per_drug is not None:
             evaluation_results_per_drug = (
                 eval_results_per_drug
                 if evaluation_results_per_drug is None
-                else pd.concat(
-                    [evaluation_results_per_drug, eval_results_per_drug]
-                )
+                else pd.concat([evaluation_results_per_drug, eval_results_per_drug])
             )
 
         if eval_results_per_cl is not None:
             evaluation_results_per_cell_line = (
                 eval_results_per_cl
                 if evaluation_results_per_cell_line is None
-                else pd.concat(
-                    [evaluation_results_per_cell_line, eval_results_per_cl]
-                )
+                else pd.concat([evaluation_results_per_cell_line, eval_results_per_cl])
             )
 
     return (
@@ -157,14 +149,12 @@ def evaluate_file(pred_file: pathlib.Path, test_mode: str, model_name: str):
     norm_cl_eval_results = {}
 
     if "LPO" in model or "LCO" in model:
-        norm_drug_eval_results, evaluation_results_per_drug = (
-            evaluate_per_group(
-                df=true_vs_pred,
-                group_by="drug",
-                norm_group_eval_results=norm_drug_eval_results,
-                eval_results_per_group=evaluation_results_per_drug,
-                model=model,
-            )
+        norm_drug_eval_results, evaluation_results_per_drug = evaluate_per_group(
+            df=true_vs_pred,
+            group_by="drug",
+            norm_group_eval_results=norm_drug_eval_results,
+            eval_results_per_group=evaluation_results_per_drug,
+            model=model,
         )
     if "LPO" in model or "LDO" in model:
         norm_cl_eval_results, evaluation_results_per_cl = evaluate_per_group(
@@ -176,13 +166,9 @@ def evaluate_file(pred_file: pathlib.Path, test_mode: str, model_name: str):
         )
     overall_eval = pd.DataFrame.from_dict(overall_eval, orient="index")
     if len(norm_drug_eval_results) > 0:
-        overall_eval = concat_results(
-            norm_drug_eval_results, "drug", overall_eval
-        )
+        overall_eval = concat_results(norm_drug_eval_results, "drug", overall_eval)
     if len(norm_cl_eval_results) > 0:
-        overall_eval = concat_results(
-            norm_cl_eval_results, "cell_line", overall_eval
-        )
+        overall_eval = concat_results(norm_cl_eval_results, "cell_line", overall_eval)
 
     return (
         overall_eval,
@@ -233,9 +219,7 @@ def prep_results(
         "CV_split",
     ]
     new_columns.index = eval_results.index
-    eval_results = pd.concat(
-        [new_columns.drop("split", axis=1), eval_results], axis=1
-    )
+    eval_results = pd.concat([new_columns.drop("split", axis=1), eval_results], axis=1)
     if eval_results_per_drug is not None:
         eval_results_per_drug[
             ["algorithm", "rand_setting", "LPO_LCO_LDO", "split", "CV_split"]
@@ -244,9 +228,9 @@ def prep_results(
         eval_results_per_cell_line[
             ["algorithm", "rand_setting", "LPO_LCO_LDO", "split", "CV_split"]
         ] = eval_results_per_cell_line["model"].str.split("_", expand=True)
-    t_vs_p[
-        ["algorithm", "rand_setting", "LPO_LCO_LDO", "split", "CV_split"]
-    ] = t_vs_p["model"].str.split("_", expand=True)
+    t_vs_p[["algorithm", "rand_setting", "LPO_LCO_LDO", "split", "CV_split"]] = t_vs_p[
+        "model"
+    ].str.split("_", expand=True)
 
     return (
         eval_results,
@@ -294,16 +278,10 @@ def evaluate_per_group(
     """
     # calculate the mean of y_true per drug
     print(f"Calculating {group_by}-wise evaluation measures …")
-    df[f"mean_y_true_per_{group_by}"] = df.groupby(group_by)[
-        "y_true"
-    ].transform("mean")
+    df[f"mean_y_true_per_{group_by}"] = df.groupby(group_by)["y_true"].transform("mean")
     norm_df = df.copy()
-    norm_df["y_true"] = (
-        norm_df["y_true"] - norm_df[f"mean_y_true_per_{group_by}"]
-    )
-    norm_df["y_pred"] = (
-        norm_df["y_pred"] - norm_df[f"mean_y_true_per_{group_by}"]
-    )
+    norm_df["y_true"] = norm_df["y_true"] - norm_df[f"mean_y_true_per_{group_by}"]
+    norm_df["y_pred"] = norm_df["y_pred"] - norm_df[f"mean_y_true_per_{group_by}"]
     norm_group_eval_results[model] = evaluate(
         DrugResponseDataset(
             response=norm_df["y_true"],
@@ -375,9 +353,7 @@ def write_results(
     t_vs_p.to_csv(f"{path_out}true_vs_pred.csv", index=True)
 
 
-def create_index_html(
-    custom_id: str, test_modes: List[str], prefix_results: str
-):
+def create_index_html(custom_id: str, test_modes: List[str], prefix_results: str):
     """
     Create the index.html file.
     :param custom_id:
@@ -441,9 +417,7 @@ def create_index_html(
         f.write("</html>\n")
 
 
-def create_html(
-    run_id: str, lpo_lco_ldo: str, files: list, prefix_results: str
-):
+def create_html(run_id: str, lpo_lco_ldo: str, files: list, prefix_results: str):
     """
     Create the html file for the given test mode.
     :param run_id:

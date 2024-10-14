@@ -48,9 +48,7 @@ class MultiOmicsNeuralNetwork(DRPModel):
             n_units_per_layer=hyperparameters["units_per_layer"],
             dropout_prob=hyperparameters["dropout_prob"],
         )
-        self.pca = PCA(
-            n_components=hyperparameters["methylation_pca_components"]
-        )
+        self.pca = PCA(n_components=hyperparameters["methylation_pca_components"])
 
     def train(
         self,
@@ -74,9 +72,7 @@ class MultiOmicsNeuralNetwork(DRPModel):
             axis=0,
         )
 
-        self.pca.n_components = min(
-            self.pca.n_components, len(unique_methylation)
-        )
+        self.pca.n_components = min(self.pca.n_components, len(unique_methylation))
         self.pca = self.pca.fit(unique_methylation)
 
         with warnings.catch_warnings():
@@ -165,7 +161,5 @@ class MultiOmicsNeuralNetwork(DRPModel):
             data_path=data_path, dataset_name=dataset_name
         )
 
-    def load_drug_features(
-        self, data_path: str, dataset_name: str
-    ) -> FeatureDataset:
+    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         return load_drug_fingerprint_features(data_path, dataset_name)

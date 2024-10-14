@@ -88,14 +88,10 @@ class SklearnModel(DRPModel):
         return self.model.predict(x)
 
     def save(self, path):
-        raise NotImplementedError(
-            "ElasticNetModel does not support saving yet ..."
-        )
+        raise NotImplementedError("ElasticNetModel does not support saving yet ...")
 
     def load(self, path):
-        raise NotImplementedError(
-            "ElasticNetModel does not support loading yet ..."
-        )
+        raise NotImplementedError("ElasticNetModel does not support loading yet ...")
 
     def load_cell_line_features(
         self, data_path: str, dataset_name: str
@@ -113,9 +109,7 @@ class SklearnModel(DRPModel):
             dataset_name=dataset_name,
         )
 
-    def load_drug_features(
-        self, data_path: str, dataset_name: str
-    ) -> FeatureDataset:
+    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         return load_drug_fingerprint_features(data_path, dataset_name)
 
 

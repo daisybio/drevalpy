@@ -165,15 +165,11 @@ class DrugResponseDataset(Dataset):
         :param other: other dataset
         """
         self.response = np.concatenate([self.response, other.response])
-        self.cell_line_ids = np.concatenate(
-            [self.cell_line_ids, other.cell_line_ids]
-        )
+        self.cell_line_ids = np.concatenate([self.cell_line_ids, other.cell_line_ids])
         self.drug_ids = np.concatenate([self.drug_ids, other.drug_ids])
 
         if self.predictions is not None and other.predictions is not None:
-            self.predictions = np.concatenate(
-                [self.predictions, other.predictions]
-            )
+            self.predictions = np.concatenate([self.predictions, other.predictions])
 
     def remove_nan_responses(self) -> None:
         """
@@ -213,9 +209,7 @@ class DrugResponseDataset(Dataset):
         self.cell_line_ids = self.cell_line_ids[mask]
         self.response = self.response[mask]
 
-    def remove_cell_lines(
-        self, cell_lines_to_remove: Union[str, list]
-    ) -> None:
+    def remove_cell_lines(self, cell_lines_to_remove: Union[str, list]) -> None:
         """
         Removes cell lines from the dataset.
         :param cell_lines_to_remove: name of cell line or list of names of multiple cell lines to
@@ -225,8 +219,7 @@ class DrugResponseDataset(Dataset):
             cell_lines_to_remove = [cell_lines_to_remove]
 
         mask = [
-            cell_line not in cell_lines_to_remove
-            for cell_line in self.cell_line_ids
+            cell_line not in cell_lines_to_remove for cell_line in self.cell_line_ids
         ]
         self.drug_ids = self.drug_ids[mask]
         self.cell_line_ids = self.cell_line_ids[mask]
@@ -255,9 +248,7 @@ class DrugResponseDataset(Dataset):
             self.remove_drugs(list(set(self.drug_ids) - set(drug_ids)))
 
         if cell_line_ids is not None:
-            self.remove_cell_lines(
-                list(set(self.cell_line_ids) - set(cell_line_ids))
-            )
+            self.remove_cell_lines(list(set(self.cell_line_ids) - set(cell_line_ids)))
 
     def split_dataset(
         self,
@@ -365,17 +356,13 @@ class DrugResponseDataset(Dataset):
         train_splits = [file for file in files if "train" in file]
         test_splits = [file for file in files if "test" in file]
 
-        validation_es_splits = [
-            file for file in files if "validation_es" in file
-        ]
+        validation_es_splits = [file for file in files if "validation_es" in file]
         validation_splits = [
             file
             for file in files
             if "validation" in file and file not in validation_es_splits
         ]
-        early_stopping_splits = [
-            file for file in files if "early_stopping" in file
-        ]
+        early_stopping_splits = [file for file in files if "early_stopping" in file]
 
         for ds in [
             train_splits,
@@ -427,11 +414,7 @@ class DrugResponseDataset(Dataset):
                 tuple(self.cell_line_ids),
                 tuple(self.drug_ids),
                 tuple(self.response),
-                (
-                    tuple(self.predictions)
-                    if self.predictions is not None
-                    else None
-                ),
+                (tuple(self.predictions) if self.predictions is not None else None),
             )
         )
 
@@ -467,9 +450,7 @@ class DrugResponseDataset(Dataset):
         response_transformation.fit(self.response.reshape(-1, 1))
         self.transform(response_transformation)
 
-    def inverse_transform(
-        self, response_transformation: TransformerMixin
-    ) -> None:
+    def inverse_transform(self, response_transformation: TransformerMixin) -> None:
         """
         Inverse transform the response data and prediction data of the dataset.
         :param response_transformation: e.g., StandardScaler, MinMaxScaler, RobustScaler
@@ -649,9 +630,7 @@ def leave_group_out_cv(
                 random_state=random_state,
             )
             train_indices = np.where(np.isin(group_ids, train_groups))[0]
-            validation_indices = np.where(
-                np.isin(group_ids, validation_groups)
-            )[0]
+            validation_indices = np.where(np.isin(group_ids, validation_groups))[0]
             cv_fold["train"] = DrugResponseDataset(
                 cell_line_ids=cell_line_ids[train_indices],
                 drug_ids=drug_ids[train_indices],
@@ -767,9 +746,7 @@ class FeatureDataset(Dataset):
                     elif isinstance(
                         self.features[identifier][view], nx.classes.graph.Graph
                     ):
-                        new_features = randomize_graph(
-                            self.features[identifier][view]
-                        )
+                        new_features = randomize_graph(self.features[identifier][view])
 
                     else:
                         raise ValueError(
@@ -802,13 +779,9 @@ class FeatureDataset(Dataset):
             If False, returns a list of features.
         :return: feature matrix
         """
-        assert (
-            len(identifiers) > 0
-        ), "get_feature_matrix: No identifiers given."
+        assert len(identifiers) > 0, "get_feature_matrix: No identifiers given."
 
-        assert (
-            view in self.view_names
-        ), f"View '{view}' not in in the FeatureDataset."
+        assert view in self.view_names, f"View '{view}' not in in the FeatureDataset."
         missing_identifiers = {
             id_ for id_ in identifiers if id_ not in self.identifiers
         }
@@ -818,14 +791,12 @@ class FeatureDataset(Dataset):
         )
 
         assert all(
-            len(self.features[id_][view])
-            == len(self.features[identifiers[0]][view])
+            len(self.features[id_][view]) == len(self.features[identifiers[0]][view])
             for id_ in identifiers
         ), f"Feature vectors of view {view} have different lengths."
 
         assert all(
-            isinstance(self.features[id_][view], np.ndarray)
-            for id_ in identifiers
+            isinstance(self.features[id_][view], np.ndarray) for id_ in identifiers
         ), f"get_feature_matrix only works for vectors or matrices. {view} is not a numpy array."
         out = [self.features[id_][view] for id_ in identifiers]
         return np.stack(out, axis=0) if stack else out
@@ -847,9 +818,7 @@ class FeatureDataset(Dataset):
         if other.meta_info is not None:
             self.add_meta_info(other)
 
-        common_identifiers = set(self.identifiers).intersection(
-            other.identifiers
-        )
+        common_identifiers = set(self.identifiers).intersection(other.identifiers)
         new_features = {}
         for id_ in common_identifiers:
             new_features[id_] = {
@@ -934,6 +903,4 @@ class FeatureDataset(Dataset):
         Applies a function to the features of a view.
         """
         for identifier in self.features:
-            self.features[identifier][view] = function(
-                self.features[identifier][view]
-            )
+            self.features[identifier][view] = function(self.features[identifier][view])

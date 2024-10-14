@@ -122,11 +122,7 @@ def get_parser():
         "--curve_curator",
         action="store_true",
         default=False,
-        help="Whether to run "
-        "CurveCurator "
-        "to sort out "
-        "non-reactive "
-        "curves",
+        help="Whether to run " "CurveCurator " "to sort out " "non-reactive " "curves",
     )
     parser.add_argument(
         "--overwrite",
@@ -255,9 +251,7 @@ def main(args):
 
     if args.randomization_mode[0] == "None":
         args.randomization_mode = None
-    response_transformation = get_response_transformation(
-        args.response_transformation
-    )
+    response_transformation = get_response_transformation(args.response_transformation)
 
     for test_mode in args.test_mode:
         drug_response_experiment(
@@ -280,9 +274,7 @@ def main(args):
         )
 
 
-def load_data(
-    dataset_name: str, cross_study_datasets: List, path_data: str = "data"
-):
+def load_data(dataset_name: str, cross_study_datasets: List, path_data: str = "data"):
     """
     Load the response data and cross-study datasets.
     :param dataset_name:

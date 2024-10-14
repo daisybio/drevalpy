@@ -70,12 +70,9 @@ def test_run_suite(args):
     assert len(evaluation_results_per_cell_line.columns) == 15
     assert len(true_vs_pred.columns) == 12
 
+    assert all(model in evaluation_results.algorithm.unique() for model in args.models)
     assert all(
-        model in evaluation_results.algorithm.unique() for model in args.models
-    )
-    assert all(
-        baseline in evaluation_results.algorithm.unique()
-        for baseline in args.baselines
+        baseline in evaluation_results.algorithm.unique() for baseline in args.baselines
     )
     assert "predictions" in evaluation_results.rand_setting.unique()
     if len(args.randomization_mode) > 0:
@@ -93,7 +90,5 @@ def test_run_suite(args):
         test_mode in evaluation_results.LPO_LCO_LDO.unique()
         for test_mode in args.test_mode
     )
-    assert evaluation_results.CV_split.astype(int).max() == (
-        args.n_cv_splits - 1
-    )
+    assert evaluation_results.CV_split.astype(int).max() == (args.n_cv_splits - 1)
     assert evaluation_results.Pearson.astype(float).max() > 0.5

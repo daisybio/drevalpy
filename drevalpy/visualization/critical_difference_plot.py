@@ -37,9 +37,7 @@ class CriticalDifferencePlot(OutPlot):
     def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
         try:
             self.__draw__()
-            path_out = (
-                f"{out_prefix}critical_difference_algorithms_{out_suffix}.svg"
-            )
+            path_out = f"{out_prefix}critical_difference_algorithms_{out_suffix}.svg"
             self.fig.savefig(path_out, bbox_inches="tight")
         except Exception as e:
             print(f"Error in drawing critical difference plot: {e}")
@@ -57,9 +55,7 @@ class CriticalDifferencePlot(OutPlot):
         f.write(f"<object data={path_out_cd}> </object>")
         return f
 
-    def __draw_cd_diagram__(
-        self, alpha=0.05, title=None, labels=False
-    ) -> plt.Figure:
+    def __draw_cd_diagram__(self, alpha=0.05, title=None, labels=False) -> plt.Figure:
         """
         Draws the critical difference diagram given the list of pairwise classifiers that are
         significant or not
@@ -441,9 +437,7 @@ def wilcoxon_holm(alpha=0.05, df_perf=None):
     )[1]
     if friedman_p_value >= alpha:
         # then the null hypothesis over the entire classifiers cannot be rejected
-        print(
-            "the null hypothesis over the entire classifiers cannot be rejected"
-        )
+        print("the null hypothesis over the entire classifiers cannot be rejected")
         exit()
     # get the number of classifiers
     m = len(classifiers)
@@ -455,9 +449,7 @@ def wilcoxon_holm(alpha=0.05, df_perf=None):
         classifier_1 = classifiers[i]
         # get the performance of classifier one
         perf_1 = np.array(
-            df_perf.loc[df_perf["classifier_name"] == classifier_1][
-                "accuracy"
-            ],
+            df_perf.loc[df_perf["classifier_name"] == classifier_1]["accuracy"],
             dtype=np.float64,
         )
         for j in range(i + 1, m):
@@ -465,9 +457,7 @@ def wilcoxon_holm(alpha=0.05, df_perf=None):
             classifier_2 = classifiers[j]
             # get the performance of classifier one
             perf_2 = np.array(
-                df_perf.loc[df_perf["classifier_name"] == classifier_2][
-                    "accuracy"
-                ],
+                df_perf.loc[df_perf["classifier_name"] == classifier_2]["accuracy"],
                 dtype=np.float64,
             )
             # calculate the p_value
@@ -500,9 +490,7 @@ def wilcoxon_holm(alpha=0.05, df_perf=None):
         df_perf["classifier_name"].isin(classifiers)
     ].sort_values(["classifier_name", "dataset_name"])
     # get the rank data
-    rank_data = np.array(sorted_df_perf["accuracy"]).reshape(
-        m, max_nb_datasets
-    )
+    rank_data = np.array(sorted_df_perf["accuracy"]).reshape(m, max_nb_datasets)
 
     # create the data frame containg the accuracies
     df_ranks = pd.DataFrame(
@@ -517,9 +505,7 @@ def wilcoxon_holm(alpha=0.05, df_perf=None):
 
     # average the ranks
     average_ranks = (
-        df_ranks.rank(ascending=False)
-        .mean(axis=1)
-        .sort_values(ascending=False)
+        df_ranks.rank(ascending=False).mean(axis=1).sort_values(ascending=False)
     )
     # return the p-values and the average ranks
     return p_values, average_ranks, max_nb_datasets
