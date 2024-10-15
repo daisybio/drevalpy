@@ -1,0 +1,32 @@
+[tool.poetry]
+name = "drevalpy"
+version = "1.0.5"
+description = "Drug response evaluation of cancer cell line drug response models in a fair setting"
+authors = ["DrEvalPy development team"]
+license = "GPL-3.0"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.9,<3.12"
+numpy = ">=1.20,<1.25"
+scipy = "*"
+scikit-learn = "*"
+pandas = "*"
+networkx = "*"
+pyyaml = "*"
+pytorch-lightning = "*"
+
+
+[tool.poetry.group.dev.dependencies]
+sphinx-autodoc-typehints = "<2.0"
+sphinx = ">=4.0.2"
+sphinx-autobuild = ">=2021.3.14"
+sphinx-rtd-theme = ">=1.0.0"
+sphinx-click = ">=3.0.0"
+pytest = "*"
+nox = "*"
+nox-poetry = "*"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
