@@ -1,0 +1,45 @@
+@import "basic.css";
+
+.wy-nav-content {
+    max-width: 1200px;
+}
+
+.wy-side-nav-search {
+    background-color: inherit;
+}
+
+table.align-default {
+    text-align: left;
+}
+
+.autosummary th:first-child,
+.autosummary td:first-child {
+    min-width: 250px;
+}
+
+.autosummary th:first-child,
+.autosummary td:first-child {
+    min-width: 400px;
+}
+
+.autosummary th:last-child,
+.autosummary td:last-child {
+    width: 100%;
+}
+
+.fixed-table {
+    margin-left: 0;
+}
+
+.wy-table-responsive table th p,
+.wy-table-responsive table td p {
+    white-space: normal;
+}
+
+.autosummary {
+    margin-left: 0 !important;
+}
+
+.date {
+    font-size: 50%;
+}
