@@ -53,9 +53,7 @@ def test_response_dataset_add_rows():
     dataset1.add_rows(dataset2)
 
     assert np.array_equal(dataset1.response, np.array([1, 2, 3, 4, 5, 6]))
-    assert np.array_equal(
-        dataset1.cell_line_ids, np.array([101, 102, 103, 104, 105, 106])
-    )
+    assert np.array_equal(dataset1.cell_line_ids, np.array([101, 102, 103, 104, 105, 106]))
     assert np.array_equal(dataset1.drug_ids, np.array(["A", "B", "C", "D", "E", "F"]))
 
 
@@ -89,9 +87,7 @@ def test_response_dataset_shuffle():
 
     # Check if the response, cell_line_ids, and drug_ids arrays are shuffled
     assert not np.array_equal(dataset.response, np.array([1, 2, 3, 4, 5]))
-    assert not np.array_equal(
-        dataset.cell_line_ids, np.array([101, 102, 103, 104, 105])
-    )
+    assert not np.array_equal(dataset.cell_line_ids, np.array([101, 102, 103, 104, 105]))
     assert not np.array_equal(dataset.drug_ids, np.array(["A", "B", "C", "D", "E"]))
 
 
@@ -158,29 +154,8 @@ def test_split_response_dataset(mode, split_validation):
     # Create a dataset with known values
     dataset = DrugResponseDataset(
         response=np.random.random(100),
-        cell_line_ids=["CL-1"] * 10
-        + ["CL-2"] * 10
-        + ["CL-3"] * 10
-        + ["CL-4"] * 10
-        + ["CL-5"] * 10
-        + ["CL-6"] * 10
-        + ["CL-7"] * 10
-        + ["CL-8"] * 10
-        + ["CL-9"] * 10
-        + ["CL-10"] * 10,
-        drug_ids=[
-            "Drug-1",
-            "Drug-2",
-            "Drug-3",
-            "Drug-4",
-            "Drug-5",
-            "Drug-6",
-            "Drug-7",
-            "Drug-8",
-            "Drug-9",
-            "Drug-10",
-        ]
-        * 10,
+        cell_line_ids=np.repeat([f"CL-{i}" for i in range(1, 11)], 10).tolist(),
+        drug_ids=np.tile([f"Drug-{i}" for i in range(1, 11)], 10).tolist(),
     )
     # 100 datapoints, 10 cell lines, 10 drugs
     # LPO: With 10% validation, 5 folds -> in 1 fold: 20 samples in test,
@@ -243,10 +218,8 @@ def test_split_response_dataset(mode, split_validation):
                     )  # Check for disjointness between validation and test drugs
 
         elif mode == "LPO":
-            train_pairs = set(
-                zip(split["train"].cell_line_ids, split["train"].drug_ids)
-            )
-            test_pairs = set(zip(split["test"].cell_line_ids, split["test"].drug_ids))
+            train_pairs = set(zip(split["train"].cell_line_ids, split["train"].drug_ids, strict=True))
+            test_pairs = set(zip(split["test"].cell_line_ids, split["test"].drug_ids, strict=True))
 
             assert train_pairs.isdisjoint(test_pairs)
 
@@ -256,9 +229,7 @@ def test_split_response_dataset(mode, split_validation):
                     "validation_es",
                     "early_stopping",
                 ]:
-                    validation_pairs = set(
-                        zip(split[val_es].cell_line_ids, split[val_es].drug_ids)
-                    )
+                    validation_pairs = set(zip(split[val_es].cell_line_ids, split[val_es].drug_ids, strict=True))
                     assert validation_pairs.isdisjoint(
                         test_pairs
                     )  # Check for disjointness between validation and test pairs
@@ -334,17 +305,17 @@ def sample_dataset():
 
 def random_power_law_graph(size=20):
     # make a graph with degrees distributed as a power law
-    G = nx.Graph()
+    graph = nx.Graph()
     degrees = np.round(nx.utils.powerlaw_sequence(size, 2.5))
-    G.add_nodes_from(range(size))
-    G = nx.expected_degree_graph(degrees, selfloops=False)
+    graph.add_nodes_from(range(size))
+    graph = nx.expected_degree_graph(degrees, selfloops=False)
     # only extract largest connected component
-    largest_cc = max(nx.connected_components(G), key=len)
-    G = G.subgraph(largest_cc).copy()
+    largest_cc = max(nx.connected_components(graph), key=len)
+    graph = graph.subgraph(largest_cc).copy()
     # assign edge attributes
-    for u, v in G.edges():
-        G[u][v]["original_edge"] = f"({u}_{v})"
-    return G
+    for u, v in graph.edges():
+        graph[u][v]["original_edge"] = f"({u}_{v})"
+    return graph
 
 
 @pytest.fixture
@@ -373,9 +344,7 @@ def graph_dataset():
 
 
 def test_feature_dataset_get_ids(sample_dataset):
-    assert np.all(
-        sample_dataset.get_ids() == ["drug1", "drug2", "drug3", "drug4", "drug5"]
-    )
+    assert np.all(sample_dataset.get_ids() == ["drug1", "drug2", "drug3", "drug4", "drug5"])
 
 
 def test_feature_dataset_get_view_names(sample_dataset):
@@ -386,9 +355,7 @@ def test_feature_dataset_get_view_names(sample_dataset):
 
 
 def test_feature_dataset_get_feature_matrix(sample_dataset):
-    feature_matrix = sample_dataset.get_feature_matrix(
-        "fingerprints", ["drug1", "drug2"]
-    )
+    feature_matrix = sample_dataset.get_feature_matrix("fingerprints", ["drug1", "drug2"])
     assert feature_matrix.shape == (2, 5)
     assert np.allclose(
         feature_matrix,
@@ -404,10 +371,7 @@ def test_feature_dataset_get_feature_matrix(sample_dataset):
 
 def test_feature_dataset_copy(sample_dataset):
     copied_dataset = sample_dataset.copy()
-    assert (
-        copied_dataset.features["drug1"]["fingerprints"]
-        is not sample_dataset.features["drug1"]["fingerprints"]
-    )
+    assert copied_dataset.features["drug1"]["fingerprints"] is not sample_dataset.features["drug1"]["fingerprints"]
     assert np.allclose(
         copied_dataset.features["drug1"]["fingerprints"],
         sample_dataset.features["drug1"]["fingerprints"],
@@ -420,9 +384,7 @@ def test_feature_dataset_copy(sample_dataset):
     )
 
 
-@flaky(
-    max_runs=25
-)  # permutation randomization might map to the same feature vector for some tries
+@flaky(max_runs=25)  # permutation randomization might map to the same feature vector for some tries
 def test_permutation_randomization(sample_dataset):
     views_to_randomize, randomization_type = "fingerprints", "permutation"
     start_sample_dataset = sample_dataset.copy()
@@ -434,9 +396,7 @@ def test_permutation_randomization(sample_dataset):
         )
 
 
-@flaky(
-    max_runs=25
-)  # permutation randomization might map to the same feature vector for some tries
+@flaky(max_runs=25)  # permutation randomization might map to the same feature vector for some tries
 def test_permutation_randomization_graph(graph_dataset):
     views_to_randomize, randomization_type = "molecular_graph", "permutation"
     start_graph_dataset = graph_dataset.copy()

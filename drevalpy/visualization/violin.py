@@ -7,19 +7,11 @@ from drevalpy.visualization.vioheat import VioHeat
 class Violin(VioHeat):
     def __init__(self, df: pd.DataFrame, normalized_metrics=False, whole_name=False):
         super().__init__(df, normalized_metrics, whole_name)
-        self.df["box"] = (
-            self.df["algorithm"]
-            + "_"
-            + self.df["rand_setting"]
-            + "_"
-            + self.df["LPO_LCO_LDO"]
-        )
+        self.df["box"] = self.df["algorithm"] + "_" + self.df["rand_setting"] + "_" + self.df["LPO_LCO_LDO"]
         # remove columns with only NaN values
         self.df = self.df.dropna(axis=1, how="all")
         self.fig = go.Figure()
-        self.occurring_metrics = [
-            metric for metric in self.all_metrics if metric in self.df.columns
-        ]
+        self.occurring_metrics = [metric for metric in self.all_metrics if metric in self.df.columns]
 
     def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
         self.__draw__()
@@ -52,10 +44,7 @@ class Violin(VioHeat):
                     label="R^2",
                     method="update",
                     args=[
-                        {
-                            "visible": [True] * self.count_r2
-                            + [False] * (count_sum - self.count_r2)
-                        },
+                        {"visible": [True] * self.count_r2 + [False] * (count_sum - self.count_r2)},
                         {"title": "R^2"},
                     ],
                 ),
@@ -72,8 +61,7 @@ class Violin(VioHeat):
                                 + self.count_kendall
                                 + self.count_partial_correlation
                             )
-                            + [False]
-                            * (self.count_mse + self.count_rmse + self.count_mae)
+                            + [False] * (self.count_mse + self.count_rmse + self.count_mae)
                         },
                         {"title": "All Correlations"},
                     ],
@@ -97,13 +85,7 @@ class Violin(VioHeat):
                         {
                             "visible": [False] * (self.count_r2 + self.count_pearson)
                             + [True] * self.count_spearman
-                            + [False]
-                            * (
-                                count_sum
-                                - self.count_r2
-                                - self.count_pearson
-                                - self.count_spearman
-                            )
+                            + [False] * (count_sum - self.count_r2 - self.count_pearson - self.count_spearman)
                         },
                         {"title": "Spearman"},
                     ],
@@ -113,8 +95,7 @@ class Violin(VioHeat):
                     method="update",
                     args=[
                         {
-                            "visible": [False]
-                            * (self.count_r2 + self.count_pearson + self.count_spearman)
+                            "visible": [False] * (self.count_r2 + self.count_pearson + self.count_spearman)
                             + [True] * self.count_kendall
                             + [False]
                             * (
@@ -142,8 +123,7 @@ class Violin(VioHeat):
                                 - self.count_mae
                             )
                             + [True] * self.count_partial_correlation
-                            + [False]
-                            * (self.count_mse + self.count_rmse + self.count_mae)
+                            + [False] * (self.count_mse + self.count_rmse + self.count_mae)
                         },
                         {"title": "Partial Correlation"},
                     ],
@@ -158,15 +138,8 @@ class Violin(VioHeat):
                         method="update",
                         args=[
                             {
-                                "visible": [False]
-                                * (
-                                    count_sum
-                                    - self.count_mse
-                                    - self.count_rmse
-                                    - self.count_mae
-                                )
-                                + [True]
-                                * (self.count_mse + self.count_rmse + self.count_mae)
+                                "visible": [False] * (count_sum - self.count_mse - self.count_rmse - self.count_mae)
+                                + [True] * (self.count_mse + self.count_rmse + self.count_mae)
                             },
                             {"title": "All Errors"},
                         ],
@@ -176,13 +149,7 @@ class Violin(VioHeat):
                         method="update",
                         args=[
                             {
-                                "visible": [False]
-                                * (
-                                    count_sum
-                                    - self.count_mse
-                                    - self.count_rmse
-                                    - self.count_mae
-                                )
+                                "visible": [False] * (count_sum - self.count_mse - self.count_rmse - self.count_mae)
                                 + [True] * self.count_mse
                                 + [False] * (self.count_rmse + self.count_mae)
                             },
@@ -194,8 +161,7 @@ class Violin(VioHeat):
                         method="update",
                         args=[
                             {
-                                "visible": [False]
-                                * (count_sum - self.count_rmse - self.count_mae)
+                                "visible": [False] * (count_sum - self.count_rmse - self.count_mae)
                                 + [True] * self.count_rmse
                                 + [False] * self.count_mae
                             },
@@ -206,10 +172,7 @@ class Violin(VioHeat):
                         label="MAE",
                         method="update",
                         args=[
-                            {
-                                "visible": [False] * (count_sum - self.count_mae)
-                                + [True] * self.count_mae
-                            },
+                            {"visible": [False] * (count_sum - self.count_mae) + [True] * self.count_mae},
                             {"title": "MAE"},
                         ],
                     ),

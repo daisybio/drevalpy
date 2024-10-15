@@ -17,9 +17,7 @@ class RegressionSliderPlot(OutPlot):
         group_by: str = "drug",
         normalize=False,
     ):
-        self.df = df[
-            (df["LPO_LCO_LDO"] == lpo_lco_ldo) & (df["rand_setting"] == "predictions")
-        ]
+        self.df = df[(df["LPO_LCO_LDO"] == lpo_lco_ldo) & (df["rand_setting"] == "predictions")]
         self.df = self.df[(self.df["algorithm"] == model)]
         self.group_by = group_by
         self.normalize = normalize
@@ -28,32 +26,20 @@ class RegressionSliderPlot(OutPlot):
 
         if self.normalize:
             if self.group_by == "cell_line":
-                self.df.loc[:, "y_true"] = (
-                    self.df["y_true"] - self.df["mean_y_true_per_drug"]
-                )
-                self.df.loc[:, "y_pred"] = (
-                    self.df["y_pred"] - self.df["mean_y_true_per_drug"]
-                )
+                self.df.loc[:, "y_true"] = self.df["y_true"] - self.df["mean_y_true_per_drug"]
+                self.df.loc[:, "y_pred"] = self.df["y_pred"] - self.df["mean_y_true_per_drug"]
             else:
-                self.df.loc[:, "y_true"] = (
-                    self.df["y_true"] - self.df["mean_y_true_per_cell_line"]
-                )
-                self.df.loc[:, "y_pred"] = (
-                    self.df["y_pred"] - self.df["mean_y_true_per_cell_line"]
-                )
+                self.df.loc[:, "y_true"] = self.df["y_true"] - self.df["mean_y_true_per_cell_line"]
+                self.df.loc[:, "y_pred"] = self.df["y_pred"] - self.df["mean_y_true_per_cell_line"]
 
     def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
         self.__draw__()
         self.fig.write_html(f"{out_prefix}regression_lines_{out_suffix}.html")
 
     def __draw__(self):
-        print(
-            f"Generating regression plots for {self.group_by}, normalize={self.normalize}..."
-        )
+        print(f"Generating regression plots for {self.group_by}, normalize={self.normalize}...")
         self.df = self.df.groupby(self.group_by).filter(lambda x: len(x) > 1)
-        pccs = self.df.groupby(self.group_by).apply(
-            lambda x: pearsonr(x["y_true"], x["y_pred"])[0]
-        )
+        pccs = self.df.groupby(self.group_by).apply(lambda x: pearsonr(x["y_true"], x["y_pred"])[0])
         pccs = pccs.reset_index()
         pccs.columns = [self.group_by, "pcc"]
         self.df = self.df.merge(pccs, on=self.group_by)
@@ -64,14 +50,10 @@ class RegressionSliderPlot(OutPlot):
         files = kwargs.get("files")
         f.write('<h2 id="regression_plots">Regression plots</h2>\n')
         f.write("<ul>\n")
-        regr_files = [
-            f for f in files if lpo_lco_ldo in f and f.startswith("regression_lines")
-        ]
+        regr_files = [f for f in files if lpo_lco_ldo in f and f.startswith("regression_lines")]
         regr_files.sort()
         for regr_file in regr_files:
-            f.write(
-                f'<li><a href="regression_plots/{regr_file}" target="_blank">{regr_file}</a></li>\n'
-            )
+            f.write(f'<li><a href="regression_plots/{regr_file}" target="_blank">{regr_file}</a></li>\n')
         f.write("</ul>\n")
         return f
 
