@@ -299,7 +299,7 @@ class DrugResponseDataset(Dataset):
                 dataset_name=self.dataset_name,
             )
         else:
-            raise ValueError(f"Unknown split mode '{mode}'. Choose from 'LPO', 'LCO', 'LDO'.")
+            raise ValueError(f"Unknown split mode {mode!r}. Choose from 'LPO', 'LCO', 'LDO'.")
 
         if split_validation and split_early_stopping:
             for split in cv_splits:
@@ -684,7 +684,7 @@ class FeatureDataset(Dataset):
         """
         if randomization_type not in ["permutation", "invariant"]:
             raise AssertionError(
-                f"Unknown randomization type '{randomization_type}'. " f"Choose from 'permutation', 'invariant'."
+                f"Unknown randomization type {randomization_type!r}. Choose from 'permutation', 'invariant'."
             )
 
         if isinstance(views_to_randomize, str):
@@ -722,7 +722,7 @@ class FeatureDataset(Dataset):
                     else:
                         raise ValueError(
                             f"No invariant randomization available for feature view "
-                            f"type '{type(self.features[identifier][view])}'."
+                            f"type {type(self.features[identifier][view])!r}."
                         )
                     self.features[identifier][view] = new_features
 
@@ -741,15 +741,14 @@ class FeatureDataset(Dataset):
         The feature view must be a vector or matrix.
         :param view: view name
         :param identifiers: list of identifiers (cell lines oder drugs)
-        :param stack: if True, stacks the feature vectors to a matrix.
-            If False, returns a list of features.
+        :param stack: if True, stacks the feature vectors to a matrix. If False, returns a list of features.
         :return: feature matrix
         """
         if len(identifiers) == 0:
             raise AssertionError("get_feature_matrix: No identifiers given.")
 
         if view not in self.view_names:
-            raise AssertionError(f"View '{view}' not in in the FeatureDataset.")
+            raise AssertionError(f"View {view!r} not in in the FeatureDataset.")
         missing_identifiers = {id_ for id_ in identifiers if id_ not in self.identifiers}
         if missing_identifiers:
             raise AssertionError(
@@ -811,7 +810,7 @@ class FeatureDataset(Dataset):
         :param view: the view to transform
         """
         if view not in self.view_names:
-            raise AssertionError(f"Transform view '{view}' not in in the FeatureDataset.")
+            raise AssertionError(f"Transform view {view!r} not in in the FeatureDataset.")
         if not all([clid in self.features for clid in ids]):
             raise AssertionError("Trying to transform, but a cell line is missing.")
 
@@ -833,7 +832,7 @@ class FeatureDataset(Dataset):
         :return: The modified FeatureDataset with transformed gene expression features.
         """
         if view not in self.view_names:
-            raise AssertionError(f"Transform view '{view}' not in in the FeatureDataset.")
+            raise AssertionError(f"Transform view {view!r} not in in the FeatureDataset.")
 
         if len(np.unique(train_ids)) != len(train_ids):
             raise AssertionError("Train IDs should be unique.")
