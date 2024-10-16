@@ -1,8 +1,4 @@
-"""
-Contains sklearn baseline models: ElasticNet, RandomForest, SVM
-"""
-
-from typing import Dict
+"""Contains sklearn baseline models: ElasticNet, RandomForest, SVM."""
 
 import numpy as np
 from numpy.typing import ArrayLike
@@ -28,15 +24,13 @@ class SklearnModel(DRPModel):
         super().__init__()
         self.model = None
 
-    def build_model(self, hyperparameters: Dict):
+    def build_model(self, hyperparameters: dict):
         """
         Builds the model from hyperparameters.
         :param hyperparameters: Custom hyperparameters for the model, have to be defined in the
         child class.
         """
-        raise NotImplementedError(
-            "build_model method has to be implemented in the child class."
-        )
+        raise NotImplementedError("build_model method has to be implemented in the child class.")
 
     def train(
         self,
@@ -93,9 +87,7 @@ class SklearnModel(DRPModel):
     def load(self, path):
         raise NotImplementedError("ElasticNetModel does not support loading yet ...")
 
-    def load_cell_line_features(
-        self, data_path: str, dataset_name: str
-    ) -> FeatureDataset:
+    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         """
         Loads the cell line features.
         :param path: Path to the gene expression and landmark genes
@@ -120,7 +112,7 @@ class ElasticNetModel(SklearnModel):
 
     model_name = "ElasticNet"
 
-    def build_model(self, hyperparameters: Dict):
+    def build_model(self, hyperparameters: dict):
         """
         Builds the ElasticNet model from hyperparameters.
         :param hyperparameters: Contains L1 ratio and alpha.
@@ -141,7 +133,7 @@ class RandomForest(SklearnModel):
 
     model_name = "RandomForest"
 
-    def build_model(self, hyperparameters: Dict):
+    def build_model(self, hyperparameters: dict):
         """
         Builds the model from hyperparameters.
         :param hyperparameters: Hyperparameters for the model.
@@ -166,7 +158,7 @@ class SVMRegressor(SklearnModel):
 
     model_name = "SVR"
 
-    def build_model(self, hyperparameters: Dict):
+    def build_model(self, hyperparameters: dict):
         """
         Builds the model from hyperparameters.
         :param hyperparameters: Hyperparameters for the model.
@@ -186,7 +178,7 @@ class GradientBoosting(SklearnModel):
 
     model_name = "GradientBoosting"
 
-    def build_model(self, hyperparameters: Dict):
+    def build_model(self, hyperparameters: dict):
         """
         Builds the model from hyperparameters.
         :param hyperparameters: Hyperparameters for the model.

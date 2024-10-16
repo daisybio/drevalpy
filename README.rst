@@ -54,5 +54,5 @@ Use DrEval to Build Drug Response Models That Have an Impact
 
     8. Paper-ready visualizations to display performance
 
-This project is a collaboration of the Technical University of Munich (TUM, Germany) 
+This project is a collaboration of the Technical University of Munich (TUM, Germany)
 and the Freie Universität Berlin (FU, Germany).
