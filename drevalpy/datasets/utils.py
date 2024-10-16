@@ -10,7 +10,7 @@ from numpy.typing import ArrayLike
 
 
 def download_dataset(
-    dataset: str,
+    dataset_name: str,
     data_path: str = "data",
     redownload: bool = False,
 ):
@@ -22,10 +22,10 @@ def download_dataset(
     :param redownload: whether to redownload the data
     :return:
     """
-    file_name = f"{dataset}.zip"
+    file_name = f"{dataset_name}.zip"
     file_path = os.path.join(data_path, file_name)
     if os.path.exists(file_path) and not redownload:
-        print(f"{dataset} already exists, skipping download.")
+        print(f"{dataset_name} already exists, skipping download.")
     else:
         url = "https://zenodo.org/doi/10.5281/zenodo.12633909"
         # Fetch the latest record
@@ -45,10 +45,10 @@ def download_dataset(
         name_to_url = {file["key"]: file["links"]["self"] for file in data["files"]}
         file_url = name_to_url[file_name]
         # Download the file
-        print(f"Downloading {dataset} from {file_url}...")
+        print(f"Downloading {dataset_name} from {file_url}...")
         response = requests.get(file_url, timeout=10)
         if response.status_code != 200:
-            raise requests.exceptions.HTTPError(f"Error downloading file {dataset}: " f"{response.status_code}")
+            raise requests.exceptions.HTTPError(f"Error downloading file {dataset_name}: " f"{response.status_code}")
 
         # Save the file
         with open(file_path, "wb") as f:
@@ -60,7 +60,7 @@ def download_dataset(
                     z.extract(member, data_path)
         os.remove(file_path)  # Remove zip file after extraction
 
-        print(f"{dataset} data downloaded and extracted to {data_path}")
+        print(f"{dataset_name} data downloaded and extracted to {data_path}")
 
 
 def randomize_graph(original_graph: nx.Graph) -> nx.Graph:

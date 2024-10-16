@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 
 from drevalpy.datasets.dataset import FeatureDataset
+from drevalpy.datasets.utils import download_dataset
 
 
 def load_cl_ids_from_csv(path: str, dataset_name: str) -> FeatureDataset:
@@ -44,6 +45,7 @@ def load_and_reduce_gene_features(
     if dataset_name == "Toy_Data":
         cl_features = load_toy_features(data_path, "cell_line")
         dataset_name = "GDSC1"
+        download_dataset(dataset_name=dataset_name, data_path=data_path, redownload=False)
     else:
         ge = pd.read_csv(f"{data_path}/{dataset_name}/{feature_type}.csv", index_col=0)
         cl_features = FeatureDataset(
