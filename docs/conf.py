@@ -15,7 +15,7 @@ from pathlib import Path
 
 from jinja2.defaults import DEFAULT_FILTERS
 
-sys.path.insert(0, os.path.abspath(".."))
+sys.path.insert(0, os.path.abspath("../"))
 
 
 # -- General configuration ---------------------------------------------
@@ -163,6 +163,9 @@ man_pages = [
 ]
 
 autodoc_typehints = "description"
+
+
+autodoc_mock_imports = ["numpy", "sklearn", "pandas", "networkx", "yaml", "pytorch_lightning", "torch", "scipy"]
 
 
 # -- Options for Texinfo output ----------------------------------------
