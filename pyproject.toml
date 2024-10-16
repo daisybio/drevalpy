@@ -10,11 +10,14 @@ readme = "README.md"
 python = ">=3.9,<3.12"
 numpy = ">=1.20,<1.25"
 scipy = "*"
-scikit-learn = "*"
+scikit-learn = ">=1.4"
 pandas = "*"
 networkx = "*"
 pyyaml = "*"
 pytorch-lightning = "*"
+flaky = "*"
+requests = "*"
+pingouin = "*"
 
 
 [tool.poetry.group.dev.dependencies]
@@ -26,6 +29,17 @@ sphinx-click = ">=3.0.0"
 pytest = "*"
 nox = "*"
 nox-poetry = "*"
+black = "*"
+isort = "*"
+flake8 = "*"
+flake8-bandit = "*"
+flake8-bugbear = "*"
+flake8-docstrings = "*"
+flake8-rst-docstrings = "*"
+darglint = "*"
+pre-commit = "*"
+pre-commit-hooks = "*"
+pyupgrade = "*"
 
 [tool.black]
 line-length = 120

@@ -46,7 +46,7 @@ class DRPModel(ABC):
             hyperparameter_file = os.path.join(os.path.dirname(inspect.getfile(cls)), "hyperparameters.yaml")
 
         with open(hyperparameter_file, encoding="utf-8") as f:
-            hpams = yaml.safe_load(f, Loader=yaml.FullLoader)[cls.model_name]
+            hpams = yaml.load(f, Loader=yaml.FullLoader)[cls.model_name]
         if hpams is None:
             return [{}]
         # each param should be a list
