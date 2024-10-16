@@ -13,18 +13,19 @@ from sklearn.preprocessing import StandardScaler
 
 from utils import Moli
 from ..drp_model import DRPModel
-from ..utils import RegressionDataset
-from ...models.utils import load_and_reduce_gene_features
+from ..utils import load_and_reduce_gene_features
 from ...datasets.dataset import FeatureDataset, DrugResponseDataset
 
 
-class MOLI(DRPModel):
+class MOLIR(DRPModel):
     """
+    Regression extension of
     MOLI: multi-omics late integration deep neural network.
     Takes somatic mutation, copy number variation and gene expression data as input.
     MOLI uses type-specific encoding sub-networks to learn features for each omics type,
     concatenates them into one representation and optimizes this representation via a combined cost
     function consisting of a triplet loss and a binary cross-entropy loss.
+    We use a regression adaption with MSE loss and an mechanism to find positive and negative samples.
     """
     cell_line_views = [
         "gene_expression",
