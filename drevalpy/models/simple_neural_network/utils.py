@@ -150,6 +150,7 @@ class FeedForwardNetwork(pl.LightningModule):
             shuffle=True,
             num_workers=num_workers,
             persistent_workers=True,
+            drop_last=True # to avoid batch norm errors, if last batch is smaller than batch_size, it is not processed
         )
 
         val_loader = None
