@@ -155,6 +155,7 @@ class FeedForwardNetwork(pl.LightningModule):
             shuffle=True,
             num_workers=num_workers,
             persistent_workers=True,
+            drop_last=True,
         )
 
         val_loader = None
