@@ -24,16 +24,19 @@ def download_dataset(
     """
     file_name = f"{dataset_name}.zip"
     file_path = os.path.join(data_path, file_name)
-    if os.path.exists(file_path) and not redownload:
-        print(f"{dataset_name} already exists, skipping download.")
+    extracted_folder_path = os.path.join(data_path, dataset_name) 
+
+    # Check if the extracted data exists and skip download if not redownloading
+    if os.path.exists(extracted_folder_path) and not redownload:
+        print(f"{dataset_name} is already extracted, skipping download.")
     else:
         url = "https://zenodo.org/doi/10.5281/zenodo.12633909"
         # Fetch the latest record
-        response = requests.get(url, timeout=10)
+        response = requests.get(url, timeout=60)
         if response.status_code != 200:
             raise requests.exceptions.HTTPError(f"Error fetching record: {response.status_code}")
         latest_url = response.links["linkset"]["url"]
-        response = requests.get(latest_url, timeout=10)
+        response = requests.get(latest_url, timeout=60)
         if response.status_code != 200:
             raise requests.exceptions.HTTPError(f"Error fetching record: {response.status_code}")
         data = response.json()
@@ -46,7 +49,7 @@ def download_dataset(
         file_url = name_to_url[file_name]
         # Download the file
         print(f"Downloading {dataset_name} from {file_url}...")
-        response = requests.get(file_url, timeout=10)
+        response = requests.get(file_url, timeout=60)
         if response.status_code != 200:
             raise requests.exceptions.HTTPError(f"Error downloading file {dataset_name}: " f"{response.status_code}")
 
