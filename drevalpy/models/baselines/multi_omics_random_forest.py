@@ -6,11 +6,10 @@ import numpy as np
 from numpy.typing import ArrayLike
 from sklearn.decomposition import PCA
 
-from drevalpy.datasets.dataset import FeatureDataset, DrugResponseDataset
+from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+
+from ..utils import get_multiomics_feature_dataset
 from .sklearn_models import RandomForest
-from ..utils import (
-    get_multiomics_feature_dataset,
-)
 
 
 class MultiOmicsRandomForest(RandomForest):
@@ -38,21 +37,17 @@ class MultiOmicsRandomForest(RandomForest):
         super().build_model(hyperparameters)
         self.pca = PCA(n_components=hyperparameters["n_components"])
 
-    def load_cell_line_features(
-        self, data_path: str, dataset_name: str
-    ) -> FeatureDataset:
+    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         """
         Loads the cell line features.
+
         :param data_path: data path e.g. data/
         :param dataset_name: dataset name e.g. GDSC1
-
         :return: FeatureDataset containing the cell line omics features, filtered through the
-        drug target genes
+            drug target genes
         """
 
-        return get_multiomics_feature_dataset(
-            data_path=data_path, dataset_name=dataset_name
-        )
+        return get_multiomics_feature_dataset(data_path=data_path, dataset_name=dataset_name)
 
     def train(
         self,

@@ -5,11 +5,10 @@ the NaiveCellLineMeanPredictor predicts the mean of the response per cell line, 
 NaiveDrugMeanPredictor predicts the mean of the response per drug.
 """
 
-from typing import Dict
 import numpy as np
 from numpy.typing import ArrayLike
 
-from drevalpy.datasets.dataset import FeatureDataset, DrugResponseDataset
+from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.models.utils import load_cl_ids_from_csv, load_drug_ids_from_csv, unique
 
@@ -27,7 +26,7 @@ class NaivePredictor(DRPModel):
         super().__init__()
         self.dataset_mean = None
 
-    def build_model(self, hyperparameters: Dict):
+    def build_model(self, hyperparameters: dict):
         pass
 
     def train(
@@ -69,9 +68,7 @@ class NaivePredictor(DRPModel):
     def load(self, path):
         raise NotImplementedError("Naive predictor does not support loading yet ...")
 
-    def load_cell_line_features(
-        self, data_path: str, dataset_name: str
-    ) -> FeatureDataset:
+    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         return load_cl_ids_from_csv(data_path, dataset_name)
 
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
@@ -92,7 +89,7 @@ class NaiveDrugMeanPredictor(DRPModel):
         self.drug_means = None
         self.dataset_mean = None
 
-    def build_model(self, hyperparameters: Dict):
+    def build_model(self, hyperparameters: dict):
         pass
 
     def train(
@@ -110,15 +107,11 @@ class NaiveDrugMeanPredictor(DRPModel):
         :param cell_line_input: not needed
         :param output_earlystopping: not needed
         """
-        drug_ids = drug_input.get_feature_matrix(
-            view="drug_id", identifiers=output.drug_ids
-        )
+        drug_ids = drug_input.get_feature_matrix(view="drug_id", identifiers=output.drug_ids)
         self.dataset_mean = np.mean(output.response)
         self.drug_means = {}
 
-        for drug_response, drug_feature in zip(
-            unique(output.drug_ids), unique(drug_ids)
-        ):
+        for drug_response, drug_feature in zip(unique(output.drug_ids), unique(drug_ids), strict=True):
             responses_drug = output.response[drug_feature == output.drug_ids]
             if len(responses_drug) > 0:
                 # prevent nan response
@@ -159,9 +152,7 @@ class NaiveDrugMeanPredictor(DRPModel):
     def load(self, path):
         raise NotImplementedError("Naive predictor does not support loading yet ...")
 
-    def load_cell_line_features(
-        self, data_path: str, dataset_name: str
-    ) -> FeatureDataset:
+    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         return load_cl_ids_from_csv(data_path, dataset_name)
 
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
@@ -182,7 +173,7 @@ class NaiveCellLineMeanPredictor(DRPModel):
         self.cell_line_means = None
         self.dataset_mean = None
 
-    def build_model(self, hyperparameters: Dict):
+    def build_model(self, hyperparameters: dict):
         pass
 
     def train(
@@ -200,14 +191,12 @@ class NaiveCellLineMeanPredictor(DRPModel):
         :param drug_input: not needed
         :param output_earlystopping: not needed
         """
-        cell_line_ids = cell_line_input.get_feature_matrix(
-            view="cell_line_id", identifiers=output.cell_line_ids
-        )
+        cell_line_ids = cell_line_input.get_feature_matrix(view="cell_line_id", identifiers=output.cell_line_ids)
         self.dataset_mean = np.mean(output.response)
         self.cell_line_means = {}
 
         for cell_line_response, cell_line_feature in zip(
-            unique(output.cell_line_ids), unique(cell_line_ids)
+            unique(output.cell_line_ids), unique(cell_line_ids), strict=True
         ):
             responses_cl = output.response[cell_line_feature == output.cell_line_ids]
             if len(responses_cl) > 0:
@@ -249,9 +238,7 @@ class NaiveCellLineMeanPredictor(DRPModel):
     def load(self, path):
         raise NotImplementedError("Naive predictor does not support loading yet ...")
 
-    def load_cell_line_features(
-        self, data_path: str, dataset_name: str
-    ) -> FeatureDataset:
+    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         return load_cl_ids_from_csv(data_path, dataset_name)
 
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:

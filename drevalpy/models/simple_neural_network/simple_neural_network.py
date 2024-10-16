@@ -3,27 +3,27 @@ Contains the SimpleNeuralNetwork model.
 """
 
 import warnings
-from typing import Optional, Dict
+from typing import Optional
+
 import numpy as np
 from numpy.typing import ArrayLike
+from sklearn.preprocessing import StandardScaler
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
-from ..utils import (
-    load_drug_fingerprint_features,
-    load_and_reduce_gene_features,
-)
-from .utils import FeedForwardNetwork
+
 from ..drp_model import DRPModel
-from sklearn.preprocessing import StandardScaler
+from ..utils import load_and_reduce_gene_features, load_drug_fingerprint_features
+from .utils import FeedForwardNetwork
 
 
 class SimpleNeuralNetwork(DRPModel):
     """
     Simple Feedforward Neural Network model with dropout.
+
     hyperparameters:
-        units_per_layer: number of units per layer e.g. [100, 50] means 2 layers with 100 and 50
-        units respectively and the output layer with one unit.
-        dropout_prob: dropout probability for layers 1, 2, ..., n-1
+    units_per_layer: number of units per layer e.g. [100, 50] means 2 layers with 100 and 50
+    units respectively and the output layer with one unit.
+    dropout_prob: dropout probability for layers 1, 2, ..., n-1
     """
 
     cell_line_views = ["gene_expression"]
@@ -36,7 +36,7 @@ class SimpleNeuralNetwork(DRPModel):
         self.model = None
         self.gene_expression_scaler = StandardScaler()
 
-    def build_model(self, hyperparameters: Dict):
+    def build_model(self, hyperparameters: dict):
         """
         Builds the model from hyperparameters.
         """
@@ -124,9 +124,7 @@ class SimpleNeuralNetwork(DRPModel):
 
         return self.model.predict(x)
 
-    def load_cell_line_features(
-        self, data_path: str, dataset_name: str
-    ) -> FeatureDataset:
+    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         """
         Loads the cell line features.
         :param path: Path to the gene expression and landmark genes

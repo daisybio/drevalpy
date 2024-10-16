@@ -3,13 +3,14 @@ Utility functions for loading and processing data.
 """
 
 import os.path
-import warnings
-from typing import Optional, List
 import pickle
-import pandas as pd
+import warnings
+from typing import Optional
+
 import numpy as np
-from torch.utils.data import Dataset
-from drevalpy.datasets.dataset import FeatureDataset, DrugResponseDataset
+import pandas as pd
+
+from drevalpy.datasets.dataset import FeatureDataset
 
 
 def load_cl_ids_from_csv(path: str, dataset_name: str) -> FeatureDataset:
@@ -20,16 +21,17 @@ def load_cl_ids_from_csv(path: str, dataset_name: str) -> FeatureDataset:
     :return:
     """
     if dataset_name == "Toy_Data":
-        return load_toy_features(path, dataset_name, "cell_line")
+        return load_toy_features(path, "cell_line")
 
     cl_names = pd.read_csv(f"{path}/{dataset_name}/cell_line_names.csv", index_col=0)
-    return FeatureDataset(
-        features={cl: {"cell_line_id": np.array([cl])} for cl in cl_names.index}
-    )
+    return FeatureDataset(features={cl: {"cell_line_id": np.array([cl])} for cl in cl_names.index})
 
 
 def load_and_reduce_gene_features(
-    feature_type: str, gene_list: Optional[str], data_path: str, dataset_name: str
+    feature_type: str,
+    gene_list: Optional[str],
+    data_path: str,
+    dataset_name: str,
 ) -> FeatureDataset:
     """
     Load and reduce gene features.
@@ -40,7 +42,7 @@ def load_and_reduce_gene_features(
     :return:
     """
     if dataset_name == "Toy_Data":
-        cl_features = load_toy_features(data_path, dataset_name, "cell_line")
+        cl_features = load_toy_features(data_path, "cell_line")
         dataset_name = "GDSC1"
     else:
         ge = pd.read_csv(f"{data_path}/{dataset_name}/{feature_type}.csv", index_col=0)
@@ -56,7 +58,6 @@ def load_and_reduce_gene_features(
         sep=",",
     )
 
-    
     genes_in_list = set(gene_info["Symbol"])
     genes_in_features = set(cl_features.meta_info[feature_type])
     # Ensure that all genes from gene_list are in the dataset
@@ -64,20 +65,21 @@ def load_and_reduce_gene_features(
     if missing_genes:
         missing_genes_list = list(missing_genes)
         if len(missing_genes_list) > 10:
-            raise ValueError(f"The following genes are missing from the dataset {dataset_name} for {feature_type}: {', '.join(missing_genes_list[:10])}, ... ({len(missing_genes)} genes in total)")
+            raise ValueError(
+                f"The following genes are missing from the dataset {dataset_name} for {feature_type}: "
+                f"{', '.join(missing_genes_list[:10])}, ... ({len(missing_genes)} genes in total)"
+            )
         else:
-            raise ValueError(f"The following genes are missing from the dataset {dataset_name} for {feature_type}: {', '.join(missing_genes_list)}")
-
+            raise ValueError(
+                f"The following genes are missing from the dataset {dataset_name} for {feature_type}: "
+                f"{', '.join(missing_genes_list)}"
+            )
 
     # Only proceed with genes that are available
-    gene_mask = np.array(
-        [gene in genes_in_list for gene in cl_features.meta_info[feature_type]]
-    )
+    gene_mask = np.array([gene in genes_in_list for gene in cl_features.meta_info[feature_type]])
     cl_features.meta_info[feature_type] = cl_features.meta_info[feature_type][gene_mask]
     for cell_line in cl_features.features.keys():
-        cl_features.features[cell_line][feature_type] = cl_features.features[cell_line][
-            feature_type
-        ][gene_mask]
+        cl_features.features[cell_line][feature_type] = cl_features.features[cell_line][feature_type][gene_mask]
     return cl_features
 
 
@@ -92,9 +94,7 @@ def iterate_features(df: pd.DataFrame, feature_type: str):
     for cl in df.index:
         rows = df.loc[cl]
         if len(rows.shape) > 1 and rows.shape[0] > 1:  # multiple rows returned
-            warnings.warn(
-                f"Multiple rows returned for {cl} in feature {feature_type}, taking the first one."
-            )
+            warnings.warn(f"Multiple rows returned for {cl} in feature {feature_type}, taking the first one.")
             features[cl] = {feature_type: rows.iloc[0].values}
         else:
             features[cl] = {feature_type: rows.values}
@@ -109,11 +109,9 @@ def load_drug_ids_from_csv(data_path: str, dataset_name: str) -> FeatureDataset:
     :return:
     """
     if dataset_name == "Toy_Data":
-        return load_toy_features(data_path, dataset_name, "drug")
+        return load_toy_features(data_path, "drug")
     drug_names = pd.read_csv(f"{data_path}/{dataset_name}/drug_names.csv", index_col=0)
-    return FeatureDataset(
-        features={drug: {"drug_id": np.array([drug])} for drug in drug_names.index}
-    )
+    return FeatureDataset(features={drug: {"drug_id": np.array([drug])} for drug in drug_names.index})
 
 
 def load_drug_fingerprint_features(data_path: str, dataset_name: str) -> FeatureDataset:
@@ -124,21 +122,20 @@ def load_drug_fingerprint_features(data_path: str, dataset_name: str) -> Feature
     :return:
     """
     if dataset_name == "Toy_Data":
-        return load_toy_features(data_path, dataset_name, "drug")
+        return load_toy_features(data_path, "drug")
     fingerprints = pd.read_csv(
-        f"{data_path}/{dataset_name}/drug_fingerprints/drug_name_to_demorgan_128_map.csv",
+        f"{data_path}/{dataset_name}/drug_fingerprints/" "drug_name_to_demorgan_128_map.csv",
         index_col=0,
     ).T
     return FeatureDataset(
-        features={
-            drug: {"fingerprints": fingerprints.loc[drug].values}
-            for drug in fingerprints.index
-        }
+        features={drug: {"fingerprints": fingerprints.loc[drug].values} for drug in fingerprints.index}
     )
 
 
 def get_multiomics_feature_dataset(
-    data_path: str, dataset_name: str, gene_list: str = "drug_target_genes_all_drugs"
+    data_path: str,
+    dataset_name: str,
+    gene_list: str = "drug_target_genes_all_drugs",
 ) -> FeatureDataset:
     """
     Get multiomics feature dataset.
@@ -148,7 +145,7 @@ def get_multiomics_feature_dataset(
     :return:
     """
     if dataset_name == "Toy_Data":
-        return load_toy_features(data_path, dataset_name, "cell_line")
+        return load_toy_features(data_path, "cell_line")
 
     ge_dataset = load_and_reduce_gene_features(
         feature_type="gene_expression",
@@ -189,96 +186,19 @@ def unique(array):
     return uniq[index.argsort()]
 
 
-def load_toy_features(
-    data_path: str, dataset_name: str, feature: str
-) -> FeatureDataset:
+def load_toy_features(data_path: str, feature: str) -> FeatureDataset:
     """
     Load toy features.
     :param data_path: path to data passed via args
-    :param dataset_name: should be Toy_Data
     :param feature: cell_line or drug
     :return:
     """
-    assert dataset_name == "Toy_Data"
-    assert feature in ["cell_line", "drug"]
     if feature == "cell_line":
-        path_to_features = os.path.join(
-            data_path, dataset_name, "toy_data_cl_features.pkl"
-        )
+        path_to_features = os.path.join(data_path, "Toy_Data", "toy_data_cl_features.pkl")
+    elif feature == "drug":
+        path_to_features = os.path.join(data_path, "Toy_Data", "toy_data_drug_features.pkl")
     else:
-        path_to_features = os.path.join(
-            data_path, dataset_name, "toy_data_drug_features.pkl"
-        )
+        raise ValueError("feature can only be one of 'drug' or 'cell_line'.")
     with open(path_to_features, "rb") as f:
         features = pickle.load(f)
     return features
-
-
-class RegressionDataset(Dataset):
-    """
-    Dataset for regression tasks for the data loader.
-    """
-
-    def __init__(
-        self,
-        output: DrugResponseDataset,
-        cell_line_input: FeatureDataset = None,
-        drug_input: FeatureDataset = None,
-        cell_line_views: List[str] = None,
-        drug_views: List[str] = None,
-        met_transform=None,
-    ):
-        self.cell_line_views = cell_line_views
-        self.drug_views = drug_views
-        self.output = output
-        self.cell_line_input = cell_line_input
-        self.drug_input = drug_input
-        for cl_view in self.cell_line_views:
-            assert (
-                cl_view in cell_line_input.view_names
-            ), f"Cell line view {cl_view} not found in cell line input"
-        for d_view in self.drug_views:
-            assert (
-                d_view in drug_input.view_names
-            ), f"Drug view {d_view} not found in drug input"
-        self.met_transform = met_transform
-
-    def __getitem__(self, idx):
-        cell_line_id = self.output.cell_line_ids[idx]
-        drug_id = self.output.drug_ids[idx]
-        response = self.output.response[idx]
-        cell_line_features = None
-        drug_features = None
-        for cl_view in self.cell_line_views:
-            feature_mat = self.cell_line_input.features[cell_line_id][cl_view]
-            if cl_view == "methylation" and self.met_transform is not None:
-                # reshape because it contains a single sample
-                feature_mat = feature_mat.reshape(1, -1)
-                feature_mat = self.met_transform.transform(feature_mat)
-                # reshape back to original shape
-                feature_mat = feature_mat.reshape(-1)
-            if cell_line_features is None:
-                cell_line_features = feature_mat
-            else:
-                cell_line_features = np.concatenate((cell_line_features, feature_mat))
-        for d_view in self.drug_views:
-            if drug_features is None:
-                drug_features = self.drug_input.features[drug_id][d_view]
-            else:
-                drug_features = np.concatenate(
-                    (drug_features, self.drug_input.features[drug_id][d_view])
-                )
-        assert isinstance(
-            cell_line_features, np.ndarray
-        ), f"Cell line features for {cell_line_id} are not numpy array"
-        assert isinstance(
-            drug_features, np.ndarray
-        ), f"Drug features for {drug_id} are not numpy array"
-        data = np.concatenate((cell_line_features, drug_features))
-        # cast to float32
-        data = data.astype(np.float32)
-        response = np.float32(response)
-        return data, response
-
-    def __len__(self):
-        return len(self.output.response)

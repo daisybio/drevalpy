@@ -1,13 +1,13 @@
+import math
+import operator
 from typing import TextIO
-import numpy as np
-import pandas as pd
+
 import matplotlib
 import matplotlib.pyplot as plt
-import operator
-import math
-from scipy.stats import wilcoxon
-from scipy.stats import friedmanchisquare
 import networkx
+import numpy as np
+import pandas as pd
+from scipy.stats import friedmanchisquare, wilcoxon
 
 from drevalpy.evaluation import MINIMIZATION_METRICS
 from drevalpy.visualization.outplot import OutPlot
@@ -19,9 +19,7 @@ matplotlib.rcParams["font.sans-serif"] = "Avenir"
 
 class CriticalDifferencePlot(OutPlot):
     def __init__(self, eval_results_preds: pd.DataFrame, metric="MSE"):
-        eval_results_preds = eval_results_preds[
-            ["algorithm", "CV_split", metric]
-        ].rename(
+        eval_results_preds = eval_results_preds[["algorithm", "CV_split", metric]].rename(
             columns={
                 "algorithm": "classifier_name",
                 "CV_split": "dataset_name",
@@ -44,7 +42,9 @@ class CriticalDifferencePlot(OutPlot):
 
     def __draw__(self) -> None:
         self.fig = self.__draw_cd_diagram__(
-            alpha=0.05, title=f"Critical Difference: {self.metric}", labels=True
+            alpha=0.05,
+            title=f"Critical Difference: {self.metric}",
+            labels=True,
         )
 
     @staticmethod
@@ -72,9 +72,7 @@ class CriticalDifferencePlot(OutPlot):
             "#17becf",
         ]
 
-        p_values, average_ranks, _ = wilcoxon_holm(
-            alpha=alpha, df_perf=self.eval_results_preds
-        )
+        p_values, average_ranks, _ = wilcoxon_holm(alpha=alpha, df_perf=self.eval_results_preds)
 
         print(average_ranks)
 
@@ -154,31 +152,27 @@ def graph_ranks(
         labels (bool, optional): if set to `True`, the calculated avg rank
         values will be displayed
     """
-    try:
-        from matplotlib.backends.backend_agg import FigureCanvasAgg
-    except ImportError:
-        raise ImportError("Function graph_ranks requires matplotlib.")
 
     width = float(width)
     textspace = float(textspace)
 
-    def nth(l, n):
+    def nth(data, position):
         """
         Returns only nth elemnt in a list.
         """
-        n = lloc(l, n)
-        return [a[n] for a in l]
+        position = lloc(data, position)
+        return [a[position] for a in data]
 
-    def lloc(l, n):
+    def lloc(data, position):
         """
         List location in list of list structure.
         Enable the use of negative locations:
         -1 is the last element, -2 second last...
         """
-        if n < 0:
-            return len(l[0]) + n
+        if position < 0:
+            return len(data[0]) + position
         else:
-            return n
+            return position
 
     def mxrange(lr):
         """
@@ -244,27 +238,31 @@ def graph_ranks(
     hf = 1.0 / height  # height factor
     wf = 1.0 / width
 
-    def hfl(l):
-        return [a * hf for a in l]
+    def hfl(list_input):
+        return [a * hf for a in list_input]
 
-    def wfl(l):
-        return [a * wf for a in l]
+    def wfl(list_input):
+        return [a * wf for a in list_input]
 
     # Upper left corner is (0,0).
     ax.plot([0, 1], [0, 1], c="w")
     ax.set_xlim(0, 1)
     ax.set_ylim(1, 0)
 
-    def line(l, color="k", **kwargs):
+    def line(list_input, color="k", **kwargs):
         """
         Input is a list of pairs of points.
         """
-        ax.plot(wfl(nth(l, 0)), hfl(nth(l, 1)), color=color, **kwargs)
+        ax.plot(wfl(nth(list_input, 0)), hfl(nth(list_input, 1)), color=color, **kwargs)
 
     def text(x, y, s, *args, **kwargs):
         ax.text(wf * x, hf * y, s, *args, **kwargs)
 
-    line([(textspace, cline), (width - textspace, cline)], linewidth=2, color="black")
+    line(
+        [(textspace, cline), (width - textspace, cline)],
+        linewidth=2,
+        color="black",
+    )
 
     bigtick = 0.3
     smalltick = 0.15
@@ -395,7 +393,7 @@ def form_cliques(p_values, nnames):
     m = len(nnames)
     g_data = np.zeros((m, m), dtype=np.int64)
     for p in p_values:
-        if p[3] == False:
+        if p[3] is False:
             i = np.where(nnames == p[0])[0][0]
             j = np.where(nnames == p[1])[0][0]
             min_i = min(i, j)
@@ -413,21 +411,14 @@ def wilcoxon_holm(alpha=0.05, df_perf=None):
     """
     print(pd.unique(df_perf["classifier_name"]))
     # count the number of tested datasets per classifier
-    df_counts = pd.DataFrame(
-        {"count": df_perf.groupby(["classifier_name"]).size()}
-    ).reset_index()
+    df_counts = pd.DataFrame({"count": df_perf.groupby(["classifier_name"]).size()}).reset_index()
     # get the maximum number of tested datasets
     max_nb_datasets = df_counts["count"].max()
     # get the list of classifiers who have been tested on nb_max_datasets
-    classifiers = list(
-        df_counts.loc[df_counts["count"] == max_nb_datasets]["classifier_name"]
-    )
+    classifiers = list(df_counts.loc[df_counts["count"] == max_nb_datasets]["classifier_name"])
     # test the null hypothesis using friedman before doing a post-hoc analysis
     friedman_p_value = friedmanchisquare(
-        *(
-            np.array(df_perf.loc[df_perf["classifier_name"] == c]["accuracy"])
-            for c in classifiers
-        )
+        *(np.array(df_perf.loc[df_perf["classifier_name"] == c]["accuracy"]) for c in classifiers)
     )[1]
     if friedman_p_value >= alpha:
         # then the null hypothesis over the entire classifiers cannot be rejected
@@ -469,15 +460,20 @@ def wilcoxon_holm(alpha=0.05, df_perf=None):
         new_alpha = float(alpha / (k - i))
         # test if significant after holm's correction of alpha
         if p_values[i][2] <= new_alpha:
-            p_values[i] = (p_values[i][0], p_values[i][1], p_values[i][2], True)
+            p_values[i] = (
+                p_values[i][0],
+                p_values[i][1],
+                p_values[i][2],
+                True,
+            )
         else:
             # stop
             break
     # compute the average ranks to be returned (useful for drawing the cd diagram)
     # sort the dataframe of performances
-    sorted_df_perf = df_perf.loc[
-        df_perf["classifier_name"].isin(classifiers)
-    ].sort_values(["classifier_name", "dataset_name"])
+    sorted_df_perf = df_perf.loc[df_perf["classifier_name"].isin(classifiers)].sort_values(
+        ["classifier_name", "dataset_name"]
+    )
     # get the rank data
     rank_data = np.array(sorted_df_perf["accuracy"]).reshape(m, max_nb_datasets)
 
@@ -493,8 +489,6 @@ def wilcoxon_holm(alpha=0.05, df_perf=None):
     print(dfff[dfff == 1.0].sum(axis=1))
 
     # average the ranks
-    average_ranks = (
-        df_ranks.rank(ascending=False).mean(axis=1).sort_values(ascending=False)
-    )
+    average_ranks = df_ranks.rank(ascending=False).mean(axis=1).sort_values(ascending=False)
     # return the p-values and the average ranks
     return p_values, average_ranks, max_nb_datasets

@@ -1,7 +1,6 @@
-from typing import TextIO, List
+from typing import TextIO
+
 import pandas as pd
-from matplotlib import pyplot as plt
-from plotly import graph_objects as go
 
 from drevalpy.visualization.outplot import OutPlot
 
@@ -33,13 +32,9 @@ class VioHeat(OutPlot):
         self.normalized_metrics = normalized_metrics
         self.whole_name = whole_name
         if self.normalized_metrics:
-            self.all_metrics = [
-                metric for metric in self.all_metrics if "normalized" in metric
-            ]
+            self.all_metrics = [metric for metric in self.all_metrics if "normalized" in metric]
         else:
-            self.all_metrics = [
-                metric for metric in self.all_metrics if "normalized" not in metric
-            ]
+            self.all_metrics = [metric for metric in self.all_metrics if "normalized" not in metric]
 
     def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
         pass
@@ -68,9 +63,7 @@ class VioHeat(OutPlot):
             and f != f"{prefix}_{lpo_lco_ldo}.html"
             and f != f"{prefix}_{lpo_lco_ldo}_normalized.html"
         ]
-        f.write(
-            f'<h2 id="{nav_id}">{plot} Plots of Performance Measures over CV runs</h2>\n'
-        )
+        f.write(f'<h2 id="{nav_id}">{plot} Plots of Performance Measures over CV runs</h2>\n')
         f.write(f"<h3>{plot} plots comparing all models</h3>\n")
         f.write(
             f'<iframe src="{dir_name}/{prefix}_algorithms_{lpo_lco_ldo}.html" width="100%" height="100%" frameBorder="0"></iframe>\n'
@@ -83,13 +76,9 @@ class VioHeat(OutPlot):
         f.write(
             f'<iframe src="{dir_name}/{prefix}_algorithms_{lpo_lco_ldo}_normalized.html" width="100%" height="100%" frameBorder="0"></iframe>\n'
         )
-        f.write(
-            f"<h3>{plot} plots comparing performance measures for tests within each model</h3>\n"
-        )
+        f.write(f"<h3>{plot} plots comparing performance measures for tests within each model</h3>\n")
         f.write("<ul>")
         for plot in plot_list:
-            f.write(
-                f'<li><a href="{dir_name}/{plot}" target="_blank">{plot}</a></li>\n'
-            )
+            f.write(f'<li><a href="{dir_name}/{plot}" target="_blank">{plot}</a></li>\n')
         f.write("</ul>\n")
         return f

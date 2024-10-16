@@ -3,6 +3,7 @@ GDSC1 dataset.
 """
 
 import os
+
 import pandas as pd
 
 from .dataset import DrugResponseDataset
@@ -10,9 +11,7 @@ from .utils import download_dataset
 
 
 class GDSC1(DrugResponseDataset):
-    """
-    GDSC1 dataset.
-    """
+    """GDSC1 dataset."""
 
     def __init__(
         self,
@@ -21,7 +20,9 @@ class GDSC1(DrugResponseDataset):
         dataset_name: str = "GDSC1",
     ):
         """
-        :param path: path to the dataset
+        Initialization method for GDSC1 dataset.
+
+        :param path_data: path to the dataset
         """
         path = os.path.join(path_data, dataset_name, file_name)
         if not os.path.exists(path):

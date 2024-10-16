@@ -4,10 +4,12 @@ expression dataset for drug response prediction and trains one model per drug.
 """
 
 from typing import Optional
+
 import numpy as np
 from numpy.typing import ArrayLike
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+
 from ..drp_model import SingleDrugModel
 from .sklearn_models import RandomForest
 
@@ -29,18 +31,15 @@ class SingleDrugRandomForest(SingleDrugModel, RandomForest):
         output_earlystopping=None,
     ) -> None:
         """
-        Trains the model: the number of features is the number of fingerprints.
-        :param **kwargs:
+        Trains the model; the number of features is the number of fingerprints.
+
         :param output: training dataset containing the response output
         :param cell_line_input: training dataset containing gene expression data
         :param drug_input: not needed
         :param output_earlystopping: not needed
         """
         if drug_input is not None or output_earlystopping is not None:
-            raise ValueError(
-                "SingleDrugRandomForest does not support drug_input or "
-                "output_earlystopping!"
-            )
+            raise ValueError("SingleDrugRandomForest does not support drug_input or " "output_earlystopping!")
 
         x = self.get_concatenated_features(
             cell_line_view="gene_expression",
