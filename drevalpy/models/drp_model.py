@@ -9,7 +9,7 @@ import inspect
 import os
 import warnings
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, Optional
 
 import numpy as np
 import yaml
@@ -26,6 +26,7 @@ class DRPModel(ABC):
 
     early_stopping = False
 
+    @abstractmethod
     def __init__(self, *args, **kwargs):
         """
         Creates an instance of a drug response prediction model.
@@ -42,11 +43,9 @@ class DRPModel(ABC):
         :return:
         """
         if hyperparameter_file is None:
-            hyperparameter_file = os.path.join(
-                os.path.dirname(inspect.getfile(cls)), "hyperparameters.yaml"
-            )
+            hyperparameter_file = os.path.join(os.path.dirname(inspect.getfile(cls)), "hyperparameters.yaml")
 
-        with open(hyperparameter_file, "r", encoding="utf-8") as f:
+        with open(hyperparameter_file, encoding="utf-8") as f:
             hpams = yaml.load(f, Loader=yaml.FullLoader)[cls.model_name]
         if hpams is None:
             return [{}]
@@ -83,7 +82,7 @@ class DRPModel(ABC):
         """
 
     @abstractmethod
-    def build_model(self, hyperparameters: Dict[str, Any]):
+    def build_model(self, hyperparameters: dict[str, Any]):
         """
         Builds the model, for models that use hyperparameters.
         """
@@ -117,22 +116,24 @@ class DRPModel(ABC):
 
         """
 
+    @abstractmethod
     def save(self, path):
         """
         Saves the model.
+
         :param path: path to save the model
         """
 
+    @abstractmethod
     def load(self, path):
         """
         Loads the model.
+
         :param path: path to load the model
         """
 
     @abstractmethod
-    def load_cell_line_features(
-        self, data_path: str, dataset_name: str
-    ) -> FeatureDataset:
+    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         """
         :return: FeatureDataset
         """
@@ -140,6 +141,8 @@ class DRPModel(ABC):
     @abstractmethod
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         """
+        Load the drug features.
+
         :return: FeatureDataset
         """
 
@@ -201,22 +204,16 @@ class DRPModel(ABC):
         if cell_line_input is not None:
             for cell_line_view in self.cell_line_views:
                 if cell_line_view not in cell_line_input.get_view_names():
-                    raise ValueError(
-                        f"Cell line input does not contain view {cell_line_view}"
-                    )
-                cell_line_feature_matrices[cell_line_view] = (
-                    cell_line_input.get_feature_matrix(
-                        view=cell_line_view, identifiers=cell_line_ids
-                    )
+                    raise ValueError(f"Cell line input does not contain view {cell_line_view}")
+                cell_line_feature_matrices[cell_line_view] = cell_line_input.get_feature_matrix(
+                    view=cell_line_view, identifiers=cell_line_ids
                 )
         drug_feature_matrices = {}
         if drug_input is not None:
             for drug_view in self.drug_views:
                 if drug_view not in drug_input.get_view_names():
                     raise ValueError(f"Drug input does not contain view {drug_view}")
-                drug_feature_matrices[drug_view] = drug_input.get_feature_matrix(
-                    view=drug_view, identifiers=drug_ids
-                )
+                drug_feature_matrices[drug_view] = drug_input.get_feature_matrix(view=drug_view, identifiers=drug_ids)
 
         return {**cell_line_feature_matrices, **drug_feature_matrices}
 
@@ -243,7 +240,7 @@ class CompositeDrugModel(DRPModel):
     drug_views = []
     model_name = "CompositeDrugModel"
 
-    def __init__(self, base_model: Type[DRPModel], *args, **kwargs):
+    def __init__(self, base_model: type[DRPModel], *args, **kwargs):
         """
         Creates an instance of a single drug response prediction model.
         :param model_name: model name for displaying results
@@ -255,7 +252,7 @@ class CompositeDrugModel(DRPModel):
         self.model_name = base_model.model_name
         self.early_stopping = base_model.early_stopping
 
-    def build_model(self, hyperparameters: Dict[str, Any]):
+    def build_model(self, hyperparameters: dict[str, Any]):
         """
         Builds the model.
         """
@@ -264,12 +261,8 @@ class CompositeDrugModel(DRPModel):
             self.models[drug].drug_views = self.drug_views
             self.models[drug].build_model(hyperparameters[drug])
 
-    def load_cell_line_features(
-        self, data_path: str, dataset_name: str
-    ) -> FeatureDataset:
-        return list(self.models.values())[0].load_cell_line_features(
-            data_path=data_path, dataset_name=dataset_name
-        )
+    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+        return list(self.models.values())[0].load_cell_line_features(data_path=data_path, dataset_name=dataset_name)
 
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         return None
@@ -291,10 +284,11 @@ class CompositeDrugModel(DRPModel):
         """
         drugs = np.unique(output.drug_ids)
         for i, drug in enumerate(drugs):
-            assert drug in self.models, (
-                f"Drug {drug} not in models. Maybe the CompositeDrugModel was not built or drug "
-                f"missing from train data."
-            )
+            if drug not in self.models:
+                raise AssertionError(
+                    f"Drug {drug} not in models. Maybe the CompositeDrugModel was not built or drug "
+                    f"missing from train data."
+                )
             print(f"Training model for drug {drug} ({i+1}/{len(drugs)})")
             output_mask = output.drug_ids == drug
             output_drug = output.copy()
@@ -313,8 +307,8 @@ class CompositeDrugModel(DRPModel):
 
     def predict(
         self,
-        drug_ids: List[str],
-        cell_line_ids: List[str],
+        drug_ids: list[str],
+        cell_line_ids: list[str],
         drug_input=None,
         cell_line_input: FeatureDataset = None,
     ) -> np.ndarray:

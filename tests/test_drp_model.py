@@ -47,26 +47,23 @@ def test_load_cl_ids_from_csv():
 
 def write_gene_list(temp_dir, gene_list):
     os.mkdir(os.path.join(temp_dir.name, "GDSC1_small", "gene_lists"))
-    temp_file = os.path.join(
-        temp_dir.name, "GDSC1_small", "gene_lists", f"{gene_list}.csv"
-    )
+    temp_file = os.path.join(temp_dir.name, "GDSC1_small", "gene_lists", f"{gene_list}.csv")
     if gene_list == "landmark_genes":
         with open(temp_file, "w") as f:
             f.write(
                 "Entrez ID,Symbol,Name,Gene Family,Type,RNA-Seq Correlation,RNA-Seq Correlation Self-Rank\n"
                 "3638,INSIG1,insulin induced gene 1,,landmark,,\n"
                 "2309,FOXO3,forkhead box O3,Forkhead boxes,landmark,,\n"
-                '672,BRCA1,"BRCA1, DNA repair associated","Ring finger proteins, Fanconi anemia complementation groups, Protein phosphatase 1 regulatory subunits, BRCA1 A complex, BRCA1 B complex, BRCA1 C complex",landmark,,\n'
-                "57147,SCYL3,SCY1 like pseudokinase 3,SCY1 like pseudokinases,landmark,,"
+                '672,BRCA1,"BRCA1, DNA repair associated","Ring finger proteins, Fanconi anemia complementation groups'
+                ',Protein phosphatase 1 regulatory subunits, BRCA1 A complex, BRCA1 B complex, BRCA1 C complex",'
+                "landmark,,\n57147,SCYL3,SCY1 like pseudokinase 3,SCY1 like pseudokinases,landmark,,"
             )
     elif gene_list == "drug_target_genes_all_drugs":
         with open(temp_file, "w") as f:
             f.write("Symbol\n" "TSPAN6\n" "SCYL3\n" "BRCA1\n")
     elif gene_list == "gene_list_paccmann_network_prop":
         with open(temp_file, "w") as f:
-            f.write(
-                "Symbol\n" "HDAC1\n" "ALS2CR12\n" "BFAR\n" "ZCWPW1\n" "ZP1\n" "PDZD7"
-            )
+            f.write("Symbol\n" "HDAC1\n" "ALS2CR12\n" "BFAR\n" "ZCWPW1\n" "ZP1\n" "PDZD7")
 
 
 @pytest.mark.parametrize(
@@ -101,20 +98,14 @@ def test_load_and_reduce_gene_features(gene_list):
 
     if gene_list == "gene_list_paccmann_network_prop":
         with pytest.raises(ValueError) as valerr:
-            gene_features_gdsc1 = load_and_reduce_gene_features(
-                "gene_expression", gene_list, temp.name, "GDSC1_small"
-            )
+            gene_features_gdsc1 = load_and_reduce_gene_features("gene_expression", gene_list, temp.name, "GDSC1_small")
     else:
-        gene_features_gdsc1 = load_and_reduce_gene_features(
-            "gene_expression", gene_list, temp.name, "GDSC1_small"
-        )
+        gene_features_gdsc1 = load_and_reduce_gene_features("gene_expression", gene_list, temp.name, "GDSC1_small")
     if gene_list is None:
         assert len(gene_features_gdsc1.features) == 5
         assert len(gene_features_gdsc1.meta_info["gene_expression"]) == 7
-        assert np.all(
-            gene_features_gdsc1.meta_info["gene_expression"]
-            == ["TSPAN6", "TNMD", "BRCA1", "SCYL3", "HDAC1", "INSIG1", "FOXO3"]
-        )
+        gene_names = ["TSPAN6", "TNMD", "BRCA1", "SCYL3", "HDAC1", "INSIG1", "FOXO3"]
+        assert np.all(gene_features_gdsc1.meta_info["gene_expression"] == gene_names)
     elif gene_list == "landmark_genes":
         assert len(gene_features_gdsc1.features) == 5
         assert len(gene_features_gdsc1.meta_info["gene_expression"]) == 4
@@ -128,15 +119,11 @@ def test_load_and_reduce_gene_features(gene_list):
         colnames.sort()
         assert np.all(colnames == ["BRCA1", "SCYL3", "TSPAN6"])
     elif gene_list == "gene_list_paccmann_network_prop":
-        assert "The following genes are missing from the dataset GDSC1_small" in str(
-            valerr.value
-        )
+        assert "The following genes are missing from the dataset GDSC1_small" in str(valerr.value)
 
 
 def test_iterate_features():
-    df = pd.DataFrame(
-        {"GeneA": [1, 2, 3, 2], "GeneB": [4, 5, 6, 2], "GeneC": [7, 8, 9, 2]}
-    )
+    df = pd.DataFrame({"GeneA": [1, 2, 3, 2], "GeneB": [4, 5, 6, 2], "GeneC": [7, 8, 9, 2]})
     df.index = ["CellLine1", "CellLine2", "CellLine3", "CellLine1"]
     with pytest.warns(UserWarning):
         features = iterate_features(df, "gene_expression")
@@ -183,9 +170,7 @@ def test_load_drugs_from_fingerprints():
         "A-83-01",
         "GSK269962A",
     }
-    assert np.all(
-        drug_features_gdsc1.features["Zibotentan"]["fingerprints"] == [1, 1, 0, 1, 1]
-    )
+    assert np.all(drug_features_gdsc1.features["Zibotentan"]["fingerprints"] == [1, 1, 0, 1, 1])
 
 
 @pytest.mark.parametrize(
@@ -241,9 +226,7 @@ def test_get_multiomics_feature_dataset(gene_list):
         )
 
     # copy number variation
-    temp_file = os.path.join(
-        temp.name, "GDSC1_small", "copy_number_variation_gistic.csv"
-    )
+    temp_file = os.path.join(temp.name, "GDSC1_small", "copy_number_variation_gistic.csv")
     with open(temp_file, "w") as f:
         f.write(
             "CELL_LINE_NAME,TSPAN6,TNMD,BRCA1,SCYL3,HDAC1,INSIG1,FOXO3\n"
@@ -275,8 +258,7 @@ def test_get_multiomics_feature_dataset(gene_list):
         assert len(dataset.meta_info) == 4
     if gene_list is None:
         assert np.all(
-            dataset.meta_info["gene_expression"]
-            == ["TSPAN6", "TNMD", "BRCA1", "SCYL3", "HDAC1", "INSIG1", "FOXO3"]
+            dataset.meta_info["gene_expression"] == ["TSPAN6", "TNMD", "BRCA1", "SCYL3", "HDAC1", "INSIG1", "FOXO3"]
         )
         for key in dataset.meta_info:
             assert len(dataset.meta_info[key]) == 7
@@ -303,9 +285,7 @@ def test_get_multiomics_feature_dataset(gene_list):
                 else:
                     assert np.all(dataset.meta_info[key] == feature_names)
     elif gene_list == "gene_list_paccmann_network_prop":
-        assert "The following genes are missing from the dataset GDSC1_small" in str(
-            valerr.value
-        )
+        assert "The following genes are missing from the dataset GDSC1_small" in str(valerr.value)
 
 
 def test_unique():

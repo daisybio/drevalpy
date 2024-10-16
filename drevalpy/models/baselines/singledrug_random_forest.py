@@ -31,18 +31,15 @@ class SingleDrugRandomForest(SingleDrugModel, RandomForest):
         output_earlystopping=None,
     ) -> None:
         """
-        Trains the model: the number of features is the number of fingerprints.
-        :param **kwargs:
+        Trains the model; the number of features is the number of fingerprints.
+
         :param output: training dataset containing the response output
         :param cell_line_input: training dataset containing gene expression data
         :param drug_input: not needed
         :param output_earlystopping: not needed
         """
         if drug_input is not None or output_earlystopping is not None:
-            raise ValueError(
-                "SingleDrugRandomForest does not support drug_input or "
-                "output_earlystopping!"
-            )
+            raise ValueError("SingleDrugRandomForest does not support drug_input or " "output_earlystopping!")
 
         x = self.get_concatenated_features(
             cell_line_view="gene_expression",
