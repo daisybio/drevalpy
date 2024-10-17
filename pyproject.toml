@@ -44,6 +44,7 @@ darglint = "*"
 pre-commit = "*"
 pre-commit-hooks = "*"
 pyupgrade = "*"
+types-requests = "*"
 
 [tool.black]
 line-length = 120

@@ -2,7 +2,7 @@
 GDSC1 dataset.
 """
 
-import os
+from pathlib import Path
 
 import pandas as pd
 
@@ -15,7 +15,7 @@ class GDSC1(DrugResponseDataset):
 
     def __init__(
         self,
-        path_data: str = "data",
+        path_data: str | Path = "data",
         file_name: str = "response_GDSC1.csv",
         dataset_name: str = "GDSC1",
     ):
@@ -24,11 +24,12 @@ class GDSC1(DrugResponseDataset):
 
         :param path_data: path to the dataset
         """
-        path = os.path.join(path_data, dataset_name, file_name)
-        if not os.path.exists(path):
+        path = Path(path_data) / dataset_name / file_name
+
+        if not path.exists():
+            path.mkdir(parents=True)
             download_dataset(dataset_name, path_data, redownload=True)
         response_data = pd.read_csv(path)
-
         response_data["DRUG_NAME"] = response_data["DRUG_NAME"].str.replace(",", "")
 
         super().__init__(

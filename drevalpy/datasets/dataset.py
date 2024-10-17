@@ -670,6 +670,7 @@ class FeatureDataset(Dataset):
     """Class for feature datasets."""
 
     _meta_info: dict[str, Any] = {}
+    _features: dict[str, dict[str, Any]] = {}
 
     @classmethod
     def from_csv(
@@ -688,6 +689,19 @@ class FeatureDataset(Dataset):
     def meta_info(self) -> dict[str, Any]:
         return self._meta_info
 
+    @property
+    def features(self) -> dict[str, dict[str, Any]]:
+        return self._features
+
+    @property
+    def identifiers(self) -> np.ndarray:
+        return np.array(list(self.features.keys()))
+
+    @property
+    def view_names(self) -> list[str]:
+        """Returns feature view names."""
+        return list(self.features[list(self.features.keys())[0]].keys())  # TODO whut?!
+
     def __init__(
         self,
         features: dict[str, dict[str, Any]],
@@ -702,14 +716,12 @@ class FeatureDataset(Dataset):
         :param meta_info: additional information for the views, e.g. gene names for gene expression
         """
         super().__init__()
-        self.features = features
-        self.view_names = self.get_view_names()
+        self._features = features
         if meta_info is not None:
             # assert that str of meta Dict[str, Any] is in view_names
             if not all(meta_key in self.view_names for meta_key in meta_info.keys()):
                 raise AssertionError(f"Meta keys {meta_info.keys()} not in view names {self.view_names}")
             self._meta_info = meta_info
-        self.identifiers = self.get_ids()
 
     def save(self, path: str):
         """
@@ -727,7 +739,7 @@ class FeatureDataset(Dataset):
         """
         raise NotImplementedError("load method not implemented")
 
-    def randomize_features(self, views_to_randomize: str | list, randomization_type: str) -> None:
+    def randomize_features(self, views_to_randomize: str | list[str], randomization_type: str) -> None:
         """
         Randomizes the feature vectors.
 
@@ -752,7 +764,7 @@ class FeatureDataset(Dataset):
             # E.g. each cell line gets the feature vector/graph/image...
             # of another cell line.
             # Drawn without replacement.
-            self.features = permute_features(
+            self._features = permute_features(
                 features=self.features,
                 views_to_permute=views_to_randomize,
                 identifiers=self.identifiers,
@@ -782,14 +794,6 @@ class FeatureDataset(Dataset):
                             f"type {type(self.features[identifier][view])!r}."
                         )
                     self.features[identifier][view] = new_features
-
-    def get_ids(self):
-        """Returns drug ids of the dataset."""
-        return np.array(list(self.features.keys()))
-
-    def get_view_names(self):
-        """Returns feature view names."""
-        return list(self.features[list(self.features.keys())[0]].keys())
 
     def get_feature_matrix(self, view: str, identifiers: np.ndarray, stack: bool = True) -> np.ndarray | list:
         """
@@ -845,9 +849,7 @@ class FeatureDataset(Dataset):
             for view in other.view_names:
                 new_features[id_][view] = other.features[id_][view]
 
-        self.features = new_features
-        self.view_names = self.get_view_names()
-        self.identifiers = self.get_ids()
+        self._features = new_features
 
     def add_meta_info(self, other: "FeatureDataset") -> None:
         """

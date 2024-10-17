@@ -1,7 +1,7 @@
 """Toy dataset."""
 
-import os
 import pickle
+from pathlib import Path
 
 from .dataset import DrugResponseDataset
 from .utils import download_dataset
@@ -17,7 +17,7 @@ class Toy(DrugResponseDataset):
 
     def __init__(
         self,
-        path_data: str = "data",
+        path_data: str | Path = "data",
         file_name: str = "toy_data_drp_dataset.pkl",
         dataset_name: str = "Toy_Data",
     ):
@@ -26,8 +26,9 @@ class Toy(DrugResponseDataset):
 
         :param path_data: path to the dataset
         """
-        path = os.path.join(path_data, dataset_name, file_name)
-        if not os.path.exists(path):
+        path = Path(path_data) / dataset_name / file_name
+        if not path.exists():
+            path.mkdir(parents=True)
             download_dataset(dataset_name, path_data, redownload=True)
         with open(path, "rb") as f:
             response_data = pickle.load(f)
