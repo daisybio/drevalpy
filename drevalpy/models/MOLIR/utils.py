@@ -20,187 +20,77 @@ import numpy as np
 from itertools import combinations
 
 
-def generate_triplets_multi_features(
-    x_gene_expression: np.ndarray,
-    x_mutations: np.ndarray,
-    x_copy_number_variation_gistic: np.ndarray,
-    y: np.ndarray,
-    positive_range: float,
-    negative_range: float,
-    num_positive_pairs: int = 10,
-    num_negative_pairs: int = 10,
-    random_seed: Optional[int] = None,
-) -> Dict[str, np.ndarray]:
+class RegressionDataset(Dataset):
     """
-    Generates triplets of Anchor, Positive, and Negative samples for multiple feature types:
-    gene expression, mutations, and copy number variation (GISTIC).
-
-    Parameters:
-    -----------
-    x_gene_expression : np.ndarray
-        Gene expression feature matrix of shape (n_samples, n_features).
-    x_mutations : np.ndarray
-        Mutation feature matrix of shape (n_samples, n_features).
-    x_copy_number_variation_gistic : np.ndarray
-        Copy number variation (GISTIC) feature matrix of shape (n_samples, n_features).
-    y : np.ndarray
-        Labels corresponding to each sample in the feature matrices.
-    positive_range : float
-        Tolerance range for identifying positive pairs (samples of the same class).
-    negative_range : float
-        Separation range for identifying negative pairs (samples of different classes).
-    num_positive_pairs : int, optional (default=10)
-        Number of Anchor-Positive pairs to generate per class.
-    num_negative_pairs : int, optional (default=10)
-        Number of Anchor-Negative pairs to generate per class.
-    random_seed : Optional[int], optional (default=None)
-        Random seed for reproducibility of the generated triplets.
-
-    Returns:
-    --------
-    Dict[str, np.ndarray]
-        A dictionary containing the triplets in the format [Anchor, Positive, Negative]
-        for each feature type (x_gene_expression, x_mutations, x_copy_number_variation_gistic).
-
-    Raises:
-    -------
-    ValueError
-        If input arrays do not have matching dimensions, or if there are insufficient
-        samples to create valid triplets under the given conditions.
+    Dataset for regression tasks for the data loader.
     """
 
-    if random_seed is not None:
-        random.seed(random_seed)
-        np.random.seed(random_seed)
-
-    # Validate input dimensions
-    if not (
-        x_gene_expression.shape[0]
-        == x_mutations.shape[0]
-        == x_copy_number_variation_gistic.shape[0]
-        == y.shape[0]
+    def __init__(
+        self,
+        output: DrugResponseDataset,
+        cell_line_input: FeatureDataset = None,
     ):
-        raise ValueError(
-            "All feature matrices and y must have the same number of samples."
-        )
+        self.output = output
+        self.cell_line_input = cell_line_input
 
-    triplets_gene_expression: List[List[np.ndarray]] = []
-    triplets_mutations: List[List[np.ndarray]] = []
-    triplets_copy_number_variation_gistic: List[List[np.ndarray]] = []
+    def __getitem__(self, idx):
+        response = self.output.response[idx].astype(np.float32)
 
-    # Iterate over each label in the dataset
-    for current_label in y:
-        positive_class_indices = get_positive_class_indices(
-            current_label, y, positive_range
-        )
+        cell_line_id = self.output.cell_line_ids[idx]
+        gene_expression = self.cell_line_input.features[cell_line_id]["gene_expression"].astype(np.float32)
+        mutations = self.cell_line_input.features[cell_line_id]["mutations"].astype(np.float32)
+        copy_number = self.cell_line_input.features[cell_line_id]["copy_number_variation_gistic"].astype(np.float32)
 
-        negative_class_indices = get_negative_class_indices(
-            current_label, y, negative_range
-        )
+        return gene_expression, mutations, copy_number, response
 
-        anchor_positive_pairs = generate_anchor_positive_pairs(
-            positive_class_indices, num_positive_pairs
-        )
-        negative_samples = generate_negative_samples(
-            negative_class_indices, num_negative_pairs
-        )
-
-        # Generate triplets for each feature type (x_gene_expression, x_mutations, x_copy_number_variation_gistic)
-        for anchor_positive_pair in anchor_positive_pairs:
-            a_idx, p_idx = anchor_positive_pair
-
-            # Anchor-Positive pairs for each feature type
-            gene_expr_anchor, gene_expr_positive = (
-                x_gene_expression[a_idx],
-                x_gene_expression[p_idx],
-            )
-            mutations_anchor, mutations_positive = (
-                x_mutations[a_idx],
-                x_mutations[p_idx],
-            )
-            cnv_gistic_anchor, cnv_gistic_positive = (
-                x_copy_number_variation_gistic[a_idx],
-                x_copy_number_variation_gistic[p_idx],
-            )
-
-            # Negative samples for each feature type
-            for n_idx in negative_samples:
-                gene_expr_negative = x_gene_expression[n_idx]
-                mutations_negative = x_mutations[n_idx]
-                cnv_gistic_negative = x_copy_number_variation_gistic[n_idx]
-
-                triplets_gene_expression.append(
-                    [gene_expr_anchor, gene_expr_positive, gene_expr_negative]
-                )
-                triplets_mutations.append(
-                    [mutations_anchor, mutations_positive, mutations_negative]
-                )
-                triplets_copy_number_variation_gistic.append(
-                    [cnv_gistic_anchor, cnv_gistic_positive, cnv_gistic_negative]
-                )
-
-    return {
-        "x_gene_expression": np.array(triplets_gene_expression),
-        "x_mutations": np.array(triplets_mutations),
-        "x_copy_number_variation_gistic": np.array(
-            triplets_copy_number_variation_gistic
-        ),
-    }
+    def __len__(self):
+        "Overwrites the len method."
+        return len(self.output.response)
 
 
-def generate_triplets_single_feature(
-    embeddings: np.ndarray,
-    labels: np.ndarray,
-    positive_range: float,
-    negative_range: float,
-    num_positive_pairs: int = 10,
-    num_negative_pairs: int = 10,
-    random_seed: Optional[int] = None,
-) -> np.ndarray:
+def generate_triplets_indices(
+y: np.ndarray,
+positive_range: float,
+negative_range: float,
+random_seed: Optional[int] = None,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Generates triplets for the MOLI model.
+    """
     if random_seed is not None:
         random.seed(random_seed)
         np.random.seed(random_seed)
-
-    if not(embeddings.shape[0] == labels.shape[0]):
-        raise ValueError("Embeddings and labels must have the same number of samples.")
-
-    triplets_embeddings = []
-    for current_label in labels:
+    positive_sample_indices = []
+    negative_sample_indices = []
+    # Iterate over each label in the dataset
+    for idx_current_label, current_label in enumerate(y):
         positive_class_indices = get_positive_class_indices(
-            current_label, labels, positive_range
+          current_label, idx_current_label, y, positive_range
         )
+        positive_sample_idx = np.random.choice(positive_class_indices, 1)[0]
         negative_class_indices = get_negative_class_indices(
-            current_label, labels, negative_range
+          current_label, y, negative_range
         )
-
-        anchor_positive_pairs = generate_anchor_positive_pairs(
-            positive_class_indices, num_positive_pairs
-        )
-        negative_samples = generate_negative_samples(
-            negative_class_indices, num_negative_pairs
-        )
-        for anchor_positive_pair in anchor_positive_pairs:
-            a_idx, p_idx = anchor_positive_pair
-            anchor, positive = embeddings[a_idx], embeddings[p_idx]
-            for n_idx in negative_samples:
-                negative = embeddings[n_idx]
-                triplets_embeddings.append([anchor, positive, negative])
-    return np.array(triplets_embeddings)
+        negative_sample_idx = np.random.choice(negative_class_indices, 1)[0]
+        positive_sample_indices.append(positive_sample_idx)
+        negative_sample_indices.append(negative_sample_idx)
+    return np.array(positive_sample_indices), np.array(negative_sample_indices)
 
 
-# The helper functions remain the same:
 def get_positive_class_indices(
-    label: float, y: np.ndarray, positive_range: float
+    label: float, idx_label: int, y: np.ndarray, positive_range: float
 ) -> np.ndarray:
-    similar_samples = np.where(
+    # find the samples that are within the positive range of the label except the label itself
+    indices_similar_samples = np.where(
         np.logical_and(label - positive_range <= y, y <= label + positive_range)
     )[0]
-    if len(similar_samples) <= 1:
-        # return the closest sample to the label except the label itself
-        idx_next_sample = np.argsort(np.abs(y - label))[1]
-        # extend the similar samples with the next closest sample
-        similar_samples = np.append(similar_samples, idx_next_sample)
-    return similar_samples
+    indices_similar_samples = np.delete(indices_similar_samples,
+                                        np.where(indices_similar_samples == idx_label)
+                                        )
+    if len(indices_similar_samples) == 0:
+        # return the closest samples to the label except the label itself
+        indices_similar_samples = np.array([np.argsort(np.abs(y - label))[1]])
+    return indices_similar_samples
 
 
 def get_negative_class_indices(
@@ -209,9 +99,9 @@ def get_negative_class_indices(
     dissimilar_samples = np.where(
         np.logical_or(label - negative_range >= y, y >= label + negative_range)
     )[0]
-    if len(dissimilar_samples) <= 1:
-        # return the 2 samples that are the furthest away from the label
-        dissimilar_samples = np.argsort(np.abs(y - label))[-2:]
+    if len(dissimilar_samples) == 0:
+        # return the sample that is the furthest away from the label
+        dissimilar_samples = np.argsort(np.abs(y - label))[-1:]
     return dissimilar_samples
 
 
@@ -328,13 +218,13 @@ class Moli(nn.Module):
         self.negative_range = None
 
     def initialize_model(self, x_train_e, x_train_m, x_train_c):
-        _,_, ie_dim = x_train_e.shape
-        _,_, im_dim = x_train_m.shape
-        _,_, ic_dim = x_train_c.shape
+        _, ie_dim = x_train_e.shape
+        _, im_dim = x_train_m.shape
+        _, ic_dim = x_train_c.shape
         self.expression_encoder = MOLIEncoder(ie_dim, self.h_dim1, self.dropout_rate)
         self.mutation_encoder = MOLIEncoder(im_dim, self.h_dim2, self.dropout_rate)
         self.cna_encoder = MOLIEncoder(ic_dim, self.h_dim3, self.dropout_rate)
-        self.regressor = MOLIRegressor(ie_dim + im_dim + ic_dim, self.dropout_rate)
+        self.regressor = MOLIRegressor(self.h_dim1 + self.h_dim2 + self.h_dim3, self.dropout_rate)
         self.model_initialized = True
 
     def fit(
@@ -345,29 +235,13 @@ class Moli(nn.Module):
         patience: int = 5,
     ):
         device = create_device(gpu_number=None)
-        x_gene_expression = cell_line_input.get_feature_matrix(
-            "gene_expression", output_train.cell_line_ids
-        )
-        x_mutations = cell_line_input.get_feature_matrix(
-            "mutations", output_train.cell_line_ids
-        )
-        x_copy_number_variation_gistic = cell_line_input.get_feature_matrix(
-            "copy_number_variation_gistic", output_train.cell_line_ids
-        )
 
         self.positive_range = np.std(output_train.response) * 0.1
         self.negative_range = np.std(output_train.response)
-        triplets = generate_triplets_multi_features(
-            x_gene_expression=x_gene_expression,
-            x_mutations=x_mutations,
-            x_copy_number_variation_gistic=x_copy_number_variation_gistic,
-            y=output_train.response,
-            positive_range=self.positive_range,
-            negative_range=self.negative_range,
+        train_dataset = RegressionDataset(
+            output=output_train,
+            cell_line_input=cell_line_input
         )
-
-        # Create the dataset
-        train_dataset = TripletDataset(triplets, output_train.response)
 
         # Create the DataLoader
         train_loader = DataLoader(
@@ -380,22 +254,9 @@ class Moli(nn.Module):
 
         val_loader = None
         if output_earlystopping is not None:
-            val_triplets = generate_triplets_multi_features(
-                x_gene_expression=cell_line_input.get_feature_matrix(
-                    "gene_expression", output_earlystopping.cell_line_ids
-                ),
-                x_mutations=cell_line_input.get_feature_matrix(
-                    "mutations", output_earlystopping.cell_line_ids
-                ),
-                x_copy_number_variation_gistic=cell_line_input.get_feature_matrix(
-                    "copy_number_variation_gistic", output_earlystopping.cell_line_ids
-                ),
-                y=output_earlystopping.response,
-                positive_range=self.positive_range,
-                negative_range=self.negative_range,
-            )
-            val_dataset = TripletDataset(
-                val_triplets, output_earlystopping.response
+            val_dataset = RegressionDataset(
+                output=output_earlystopping,
+                cell_line_input=cell_line_input,
             )
             val_loader = DataLoader(
                 val_dataset,
@@ -416,8 +277,9 @@ class Moli(nn.Module):
             ],
             weight_decay=self.weight_decay,
         )
-
-        for _ in range(self.epochs):
+        last_val_loss = None
+        for epoch in range(self.epochs):
+            epoch_train_loss = 0
             for (x_train_e, x_train_m, x_train_c, y_train) in train_loader:
                 x_train_e = x_train_e.to(device)
                 x_train_m = x_train_m.to(device)
@@ -440,55 +302,66 @@ class Moli(nn.Module):
                 z = torch.cat((z_ex, z_mu, z_cn), 1)
                 z = F.normalize(z, p=2, dim=0)
                 preds = self.regressor(z)
-                # TODO
-                triplets_joint_representation = generate_triplets_single_feature(
-                    embeddings=z.cpu().numpy(),
-                    labels=y_train.cpu().numpy(),
+
+                positive_indices, negative_indices = generate_triplets_indices(
+                    y=y_train.cpu().detach().numpy(),
                     positive_range=self.positive_range,
-                    negative_range=self.negative_range
+                    negative_range=self.negative_range,
                 )
                 loss = self.triplet_loss(
-                    z[triplets_joint_representation[:, 0]],
-                    z[triplets_joint_representation[:, 1]],
-                    z[triplets_joint_representation[:, 2]],
+                    z,
+                    z[positive_indices],
+                    z[negative_indices],
                 ) + self.regression_loss(preds, y_train)
 
-                train_auc = roc_auc_score(y_train.cpu().detach().numpy(),
-                                          preds.cpu().detach().numpy())
+                epoch_train_loss += loss.item()
 
                 moli_optimiser.zero_grad()
                 loss.backward()
                 moli_optimiser.step()
-                # early stopping
-                if val_loader is not None:
-                    with torch.no_grad():
-                        self.expression_encoder.eval()
-                        self.mutation_encoder.eval()
-                        self.cna_encoder.eval()
-                        self.regressor.eval()
-                        for (x_val_e, x_val_m, x_val_c, y_val) in val_loader:
-                            x_val_e = x_val_e.to(device)
-                            x_val_m = x_val_m.to(device)
-                            x_val_c = x_val_c.to(device)
-                            y_val = y_val.to(device)
+            # early stopping
+            if val_loader is not None:
+                with torch.no_grad():
+                    self.expression_encoder.eval()
+                    self.mutation_encoder.eval()
+                    self.cna_encoder.eval()
+                    self.regressor.eval()
+                    for (x_val_e, x_val_m, x_val_c, y_val) in val_loader:
+                        x_val_e = x_val_e.to(device)
+                        x_val_m = x_val_m.to(device)
+                        x_val_c = x_val_c.to(device)
+                        y_val = y_val.to(device)
 
-                            z_ex = self.expression_encoder(x_val_e)
-                            z_mu = self.mutation_encoder(x_val_m)
-                            z_cn = self.cna_encoder(x_val_c)
-                            z = torch.cat((z_ex, z_mu, z_cn), 1)
-                            z = F.normalize(z, p=2, dim=0)
-                            preds = self.regressor(z)
-                            val_auc = roc_auc_score(y_val.cpu().detach().numpy(),
-                                                    preds.cpu().detach().numpy())
-                            if val_auc > best_val_auc:
-                                best_val_auc = val_auc
-                                best_model = self.state_dict()
-                                patience_counter = 0
-                            else:
-                                patience_counter += 1
-                            if patience_counter == patience:
-                                self.load_state_dict(best_model)
-                                break
+                        z_ex = self.expression_encoder(x_val_e)
+                        z_mu = self.mutation_encoder(x_val_m)
+                        z_cn = self.cna_encoder(x_val_c)
+                        z = torch.cat((z_ex, z_mu, z_cn), 1)
+                        z = F.normalize(z, p=2, dim=0)
+                        preds = self.regressor(z)
+
+                        positive_indices, negative_indices = generate_triplets_indices(
+                            y=y_val.cpu().detach().numpy(),
+                            positive_range=self.positive_range,
+                            negative_range=self.negative_range,
+                        )
+                        epoch_val_loss = self.triplet_loss(
+                            z,
+                            z[positive_indices],
+                            z[negative_indices],
+                        ) + self.regression_loss(preds, y_val)
+                        epoch_val_loss = epoch_val_loss.item()
+                        print(f"Epoch {epoch + 1}/{self.epochs} - Train Loss: {epoch_train_loss}, "
+                              f"Val Loss: {epoch_val_loss}")
+                        if last_val_loss is None:
+                            last_val_loss = epoch_val_loss
+                        if epoch_val_loss > last_val_loss:
+                            patience -= 1
+                        else:
+                            patience = 5
+                        if patience == 0:
+                            return
+            else:
+                print(f"Epoch {epoch+1}/{self.epochs} - Train Loss: {epoch_train_loss}")
 
     def forward_with_features(self, expression, mutation, cna):
         left_out = self.expression_encoder(expression)
@@ -511,6 +384,22 @@ class Moli(nn.Module):
         for (x_train_e, x_train_m, x_train_c, y_train) in dataloader:
             self.forward(x_train_e, x_train_m, x_train_c)
             break
+
+    def predict(self, gene_expression: np.ndarray, mutation: np.ndarray, cnv: np.ndarray):
+        with torch.no_grad():
+            self.expression_encoder.eval()
+            self.mutation_encoder.eval()
+            self.cna_encoder.eval()
+            self.regressor.eval()
+            z_ex = self.expression_encoder(torch.from_numpy(gene_expression.astype(np.float32)))
+            z_mu = self.mutation_encoder(torch.from_numpy(mutation.astype(np.float32)))
+            z_cn = self.cna_encoder(torch.from_numpy(cnv.astype(np.float32)))
+            z = torch.cat((z_ex, z_mu, z_cn), 1)
+            z = F.normalize(z, p=2, dim=0)
+            preds = self.regressor(z)
+        return preds.numpy()
+
+
 
 def create_device(gpu_number):
     if torch.cuda.is_available():

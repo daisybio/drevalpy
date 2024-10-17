@@ -1,7 +1,7 @@
 ---
 MOLIR:
   mini_batch:
-    - 16
+    - 32
   h_dim1:
     - 32
   h_dim2:

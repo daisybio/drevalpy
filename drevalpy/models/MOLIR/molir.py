@@ -80,13 +80,16 @@ class MOLIR(SingleDrugModel):
         drug_input: FeatureDataset = None,
         cell_line_input: FeatureDataset = None,
     ) -> np.ndarray:
-        return self.model.predict(
-            drug_ids=drug_ids,
+        input_data = self.get_feature_matrices(
             cell_line_ids=cell_line_ids,
+            drug_ids=drug_ids,
             cell_line_input=cell_line_input,
-            selector_gex=self.selector_gex,
-            scaler_gex=self.scaler_gex,
+            drug_input=drug_input,
         )
+        gene_expression = input_data["gene_expression"]
+        mutations = input_data["mutations"]
+        cnvs = input_data["copy_number_variation_gistic"]
+        return self.model.predict(gene_expression, mutations, cnvs)
 
     def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         all_data = load_and_reduce_gene_features(
