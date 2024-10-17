@@ -3,27 +3,27 @@ Contains the MultiOmicsNeuralNetwork model.
 """
 
 import warnings
-from typing import Optional, Dict
+from typing import Optional
+
 import numpy as np
 from numpy.typing import ArrayLike
 from sklearn.decomposition import PCA
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
-from .utils import FeedForwardNetwork
+
 from ..drp_model import DRPModel
-from ..utils import (
-    load_drug_fingerprint_features,
-    get_multiomics_feature_dataset,
-)
+from ..utils import get_multiomics_feature_dataset, load_drug_fingerprint_features
+from .utils import FeedForwardNetwork
 
 
 class MultiOmicsNeuralNetwork(DRPModel):
     """
     Simple Feedforward Neural Network model with dropout.
+
     hyperparameters:
-        units_per_layer: number of units per layer e.g. [100, 50] means 2 layers with 100 and 50
-        units respectively and the output layer with one unit.
-        dropout_prob: dropout probability for layers 1, 2, ..., n-1
+    units_per_layer: number of units per layer e.g. [100, 50] means 2 layers with 100 and 50
+    units respectively and the output layer with one unit.
+    dropout_prob: dropout probability for layers 1, 2, ..., n-1
     """
 
     cell_line_views = [
@@ -41,7 +41,7 @@ class MultiOmicsNeuralNetwork(DRPModel):
         self.model = None
         self.pca = None
 
-    def build_model(self, hyperparameters: Dict):
+    def build_model(self, hyperparameters: dict):
         """
         Builds the model from hyperparameters.
         """
@@ -66,10 +66,7 @@ class MultiOmicsNeuralNetwork(DRPModel):
         :param output_earlystopping: optional early stopping dataset
         """
         unique_methylation = np.stack(
-            [
-                cell_line_input.features[id_]["methylation"]
-                for id_ in np.unique(output.cell_line_ids)
-            ],
+            [cell_line_input.features[id_]["methylation"] for id_ in np.unique(output.cell_line_ids)],
             axis=0,
         )
 
@@ -146,21 +143,23 @@ class MultiOmicsNeuralNetwork(DRPModel):
         )
         return self.model.predict(x)
 
-    def load_cell_line_features(
-        self, data_path: str, dataset_name: str
-    ) -> FeatureDataset:
+    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         """
         Loads the cell line features.
+
         :param data_path: data path e.g. data/
         :param dataset_name: dataset name e.g. GDSC1
-
         :return: FeatureDataset containing the cell line omics features, filtered through the
-        drug target genes
+            drug target genes
         """
 
-        return get_multiomics_feature_dataset(
-            data_path=data_path, dataset_name=dataset_name
-        )
+        return get_multiomics_feature_dataset(data_path=data_path, dataset_name=dataset_name)
 
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+        """
+        Load the drug features.
+
+        :param data_path:
+        :param dataset_name:
+        """
         return load_drug_fingerprint_features(data_path, dataset_name)

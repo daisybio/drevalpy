@@ -1,4 +1,4 @@
-This directory stores all wrapper files associated with the suite. 
+This directory stores all wrapper files associated with the suite.
 
 If you have a new model that you would like to add to the suite, you can do so by implementing the custom model wrapper file in this directory.
 

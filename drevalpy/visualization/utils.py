@@ -6,17 +6,17 @@ import os
 import pathlib
 import shutil
 from typing import List
+
 import importlib_resources
 import pandas as pd
 
-
 from drevalpy.datasets.dataset import DrugResponseDataset
-from drevalpy.evaluation import evaluate, AVAILABLE_METRICS
+from drevalpy.evaluation import AVAILABLE_METRICS, evaluate
 from drevalpy.visualization import HTMLTable
-from drevalpy.visualization.vioheat import VioHeat
 from drevalpy.visualization.corr_comp_scatter import CorrelationComparisonScatter
-from drevalpy.visualization.regression_slider_plot import RegressionSliderPlot
 from drevalpy.visualization.critical_difference_plot import CriticalDifferencePlot
+from drevalpy.visualization.regression_slider_plot import RegressionSliderPlot
+from drevalpy.visualization.vioheat import VioHeat
 
 
 def parse_layout(f, path_to_layout):
@@ -26,7 +26,7 @@ def parse_layout(f, path_to_layout):
     :param path_to_layout:
     :return:
     """
-    with open(path_to_layout, "r", encoding="utf-8") as layout_f:
+    with open(path_to_layout, encoding="utf-8") as layout_f:
         layout = layout_f.readlines()
     if path_to_layout.endswith("index_layout.html"):
         # remove the last 2 lines (</body>, </html>)
@@ -79,14 +79,8 @@ def parse_results(path_to_results: str):
             model_name,
         ) = evaluate_file(pred_file=file, test_mode=lpo_lco_ldo, model_name=algorithm)
 
-        evaluation_results = (
-            overall_eval
-            if evaluation_results is None
-            else pd.concat([evaluation_results, overall_eval])
-        )
-        true_vs_pred = (
-            t_vs_p if true_vs_pred is None else pd.concat([true_vs_pred, t_vs_p])
-        )
+        evaluation_results = overall_eval if evaluation_results is None else pd.concat([evaluation_results, overall_eval])
+        true_vs_pred = t_vs_p if true_vs_pred is None else pd.concat([true_vs_pred, t_vs_p])
 
         if eval_results_per_drug is not None:
             evaluation_results_per_drug = (
@@ -126,9 +120,7 @@ def evaluate_file(pred_file: pathlib.Path, test_mode: str, model_name: str):
         drug_ids=result["drug_ids"],
         predictions=result["predictions"],
     )
-    model = generate_model_names(
-        test_mode=test_mode, model_name=model_name, pred_file=pred_file
-    )
+    model = generate_model_names(test_mode=test_mode, model_name=model_name, pred_file=pred_file)
 
     # overall evaluation
     overall_eval = {model: evaluate(dataset, AVAILABLE_METRICS.keys())}
@@ -189,16 +181,12 @@ def concat_results(norm_group_res, group_by, eval_res):
     """
     norm_group_res = pd.DataFrame.from_dict(norm_group_res, orient="index")
     # append 'group normalized ' to the column names
-    norm_group_res.columns = [
-        f"{col}: {group_by} normalized" for col in norm_group_res.columns
-    ]
+    norm_group_res.columns = [f"{col}: {group_by} normalized" for col in norm_group_res.columns]
     eval_res = pd.concat([eval_res, norm_group_res], axis=1)
     return eval_res
 
 
-def prep_results(
-    eval_results, eval_results_per_drug, eval_results_per_cell_line, t_vs_p
-):
+def prep_results(eval_results, eval_results_per_drug, eval_results_per_cell_line, t_vs_p):
     """
     Prepare the results by introducing new columns for algorithm, randomization, setting, split,
     CV_split.
@@ -221,18 +209,21 @@ def prep_results(
     new_columns.index = eval_results.index
     eval_results = pd.concat([new_columns.drop("split", axis=1), eval_results], axis=1)
     if eval_results_per_drug is not None:
-        eval_results_per_drug[
-            ["algorithm", "rand_setting", "LPO_LCO_LDO", "split", "CV_split"]
-        ] = eval_results_per_drug["model"].str.split("_", expand=True)
+        eval_results_per_drug[["algorithm", "rand_setting", "LPO_LCO_LDO", "split", "CV_split"]] = eval_results_per_drug["model"].str.split(
+            "_", expand=True
+        )
     if eval_results_per_cell_line is not None:
-        eval_results_per_cell_line[
-            ["algorithm", "rand_setting", "LPO_LCO_LDO", "split", "CV_split"]
-        ] = eval_results_per_cell_line["model"].str.split("_", expand=True)
-    t_vs_p[["algorithm", "rand_setting", "LPO_LCO_LDO", "split", "CV_split"]] = t_vs_p[
-        "model"
-    ].str.split("_", expand=True)
+        eval_results_per_cell_line[["algorithm", "rand_setting", "LPO_LCO_LDO", "split", "CV_split"]] = eval_results_per_cell_line[
+            "model"
+        ].str.split("_", expand=True)
+    t_vs_p[["algorithm", "rand_setting", "LPO_LCO_LDO", "split", "CV_split"]] = t_vs_p["model"].str.split("_", expand=True)
 
-    return eval_results, eval_results_per_drug, eval_results_per_cell_line, t_vs_p
+    return (
+        eval_results,
+        eval_results_per_drug,
+        eval_results_per_cell_line,
+        t_vs_p,
+    )
 
 
 def generate_model_names(test_mode, model_name, pred_file):
@@ -259,9 +250,7 @@ def generate_model_names(test_mode, model_name, pred_file):
     return f"{model_name}_{pred_setting}_{test_mode}_{split}"
 
 
-def evaluate_per_group(
-    df, group_by, norm_group_eval_results, eval_results_per_group, model
-):
+def evaluate_per_group(df, group_by, norm_group_eval_results, eval_results_per_group, model):
     """
     Evaluate the predictions per group.
     :param df:
@@ -287,9 +276,7 @@ def evaluate_per_group(
         AVAILABLE_METRICS.keys() - {"MSE", "RMSE", "MAE"},
     )
     # evaluation per group
-    eval_results_per_group = compute_evaluation(
-        df, eval_results_per_group, group_by, model
-    )
+    eval_results_per_group = compute_evaluation(df, eval_results_per_group, group_by, model)
     return norm_group_eval_results, eval_results_per_group
 
 
@@ -324,9 +311,7 @@ def compute_evaluation(df, return_df, group_by, model):
     return return_df
 
 
-def write_results(
-    path_out, eval_results, eval_results_per_drug, eval_results_per_cl, t_vs_p
-):
+def write_results(path_out, eval_results, eval_results_per_drug, eval_results_per_cl, t_vs_p):
     """
     Write the results to csv files.
     :param path_out:
@@ -338,17 +323,13 @@ def write_results(
     """
     eval_results.to_csv(f"{path_out}evaluation_results.csv", index=True)
     if eval_results_per_drug is not None:
-        eval_results_per_drug.to_csv(
-            f"{path_out}evaluation_results_per_drug.csv", index=True
-        )
+        eval_results_per_drug.to_csv(f"{path_out}evaluation_results_per_drug.csv", index=True)
     if eval_results_per_cl is not None:
-        eval_results_per_cl.to_csv(
-            f"{path_out}evaluation_results_per_cl.csv", index=True
-        )
+        eval_results_per_cl.to_csv(f"{path_out}evaluation_results_per_cl.csv", index=True)
     t_vs_p.to_csv(f"{path_out}true_vs_pred.csv", index=True)
 
 
-def create_index_html(custom_id: str, test_modes: List[str], prefix_results: str):
+def create_index_html(custom_id: str, test_modes: list[str], prefix_results: str):
     """
     Create the index.html file.
     :param custom_id:
@@ -380,16 +361,11 @@ def create_index_html(custom_id: str, test_modes: List[str], prefix_results: str
     with open(idx_html_path, "w", encoding="utf-8") as f:
         parse_layout(f=f, path_to_layout=layout_path)
         f.write('<div class="main">\n')
-        f.write(
-            '<img src="nf-core-drugresponseeval_logo_light.png" '
-            'width="364px" height="100px" alt="Logo">\n'
-        )
+        f.write('<img src="nf-core-drugresponseeval_logo_light.png" ' 'width="364px" height="100px" alt="Logo">\n')
         f.write(f"<h1>Results for {custom_id}</h1>\n")
         f.write("<h2>Available settings</h2>\n")
         f.write('<div style="display: inline-block;">\n')
-        f.write(
-            "<p>Click on the images to open the respective report in a new tab.</p>\n"
-        )
+        f.write("<p>Click on the images to open the respective report in a new tab.</p>\n")
 
         test_modes.sort()
         for lpo_lco_ldo in test_modes:
@@ -399,12 +375,9 @@ def create_index_html(custom_id: str, test_modes: List[str], prefix_results: str
                 "style_utils",
                 f"{lpo_lco_ldo}.png",
             )
-            shutil.copyfile(
-                img_path, os.path.join(prefix_results, f"{lpo_lco_ldo}.png")
-            )
+            shutil.copyfile(img_path, os.path.join(prefix_results, f"{lpo_lco_ldo}.png"))
             f.write(
-                f'<a href="{lpo_lco_ldo}.html" target="_blank"><img src="{lpo_lco_ldo}.png" '
-                f'style="width:300px;height:300px;"></a>\n'
+                f'<a href="{lpo_lco_ldo}.html" target="_blank"><img src="{lpo_lco_ldo}.png" ' f'style="width:300px;height:300px;"></a>\n'
             )
         f.write("</div>\n")
         f.write("</div>\n")
@@ -435,29 +408,19 @@ def create_html(run_id: str, lpo_lco_ldo: str, files: list, prefix_results: str)
         f = CriticalDifferencePlot.write_to_html(lpo_lco_ldo=lpo_lco_ldo, f=f)
 
         # Violin plots
-        f = VioHeat.write_to_html(
-            lpo_lco_ldo=lpo_lco_ldo, f=f, files=files, plot="Violin"
-        )
+        f = VioHeat.write_to_html(lpo_lco_ldo=lpo_lco_ldo, f=f, files=files, plot="Violin")
 
         # Heatmaps
-        f = VioHeat.write_to_html(
-            lpo_lco_ldo=lpo_lco_ldo, f=f, files=files, plot="Heatmap"
-        )
+        f = VioHeat.write_to_html(lpo_lco_ldo=lpo_lco_ldo, f=f, files=files, plot="Heatmap")
 
         # Regression plots
-        f = RegressionSliderPlot.write_to_html(
-            lpo_lco_ldo=lpo_lco_ldo, f=f, files=files
-        )
+        f = RegressionSliderPlot.write_to_html(lpo_lco_ldo=lpo_lco_ldo, f=f, files=files)
 
         # Correlation comparison: Drug
-        f = CorrelationComparisonScatter.write_to_html(
-            lpo_lco_ldo=lpo_lco_ldo, f=f, files=files
-        )
+        f = CorrelationComparisonScatter.write_to_html(lpo_lco_ldo=lpo_lco_ldo, f=f, files=files)
 
         # Evaluation results tables
-        f = HTMLTable.write_to_html(
-            lpo_lco_ldo=lpo_lco_ldo, f=f, files=files, prefix=prefix_results
-        )
+        f = HTMLTable.write_to_html(lpo_lco_ldo=lpo_lco_ldo, f=f, files=files, prefix=prefix_results)
 
         f.write("</div>\n")
         f.write("</body>\n")

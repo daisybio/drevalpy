@@ -1,13 +1,10 @@
 import numpy as np
 import pandas as pd
-from scipy.spatial.distance import jaccard
 from numpy.typing import ArrayLike
-from typing import Dict
+from scipy.spatial.distance import jaccard
 
-from drevalpy.models.drp_model import DRPModel
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
-
-
+from drevalpy.models.drp_model import DRPModel
 from drevalpy.models.utils import (
     load_and_reduce_gene_features,
     load_drug_fingerprint_features,
@@ -15,26 +12,26 @@ from drevalpy.models.utils import (
 
 
 class SRMF(DRPModel):
-    """
-    SRMF model: Similarity Regularization Matrix Factorization.
-    """
+    """SRMF model: Similarity Regularization Matrix Factorization."""
 
     model_name = "SRMF"
     cell_line_views = ["gene_expression"]
     drug_views = ["fingerprints"]
 
     def __init__(self):
+        """Initalization method for SRMF Model."""
         super().__init__()
-        self.bestU = None
-        self.bestV = None
-        self.W = None
+        self.best_u = None
+        self.best_v = None
+        self.w = None
 
-    def build_model(self, hyperparameters: Dict):
+    def build_model(self, hyperparameters: dict):
         """
         Initializes hyperparameters for SRMF model.
+
         :param hyperparameters: dictionary containing the hyperparameters
         """
-        self.K = hyperparameters.get("K", 45)
+        self.k = hyperparameters.get("K", 45)
         self.lambda_l = hyperparameters.get("lambda_l", 0.01)
         self.lambda_d = hyperparameters.get("lambda_d", 0)
         self.lambda_c = hyperparameters.get("lambda_c", 0.01)
@@ -50,22 +47,17 @@ class SRMF(DRPModel):
     ) -> None:
         """
         Prepares data and trains the SRMF model.
+
         :param output: response data
         :param cell_line_input: feature data for cell lines
         :param drug_input: feature data for drugs
         """
-        drugs = np.unique(
-            drug_input.identifiers
-        )  # transductive approach - all drug features are used
-        cell_lines = np.unique(
-            cell_line_input.identifiers
-        )  # transductive approach - all cell line features are used
+        drugs = np.unique(drug_input.identifiers)  # transductive approach - all drug features are used
+        cell_lines = np.unique(cell_line_input.identifiers)  # transductive approach - all cell line features are used
 
         drug_features = drug_input.features
 
-        drug_similarity = pd.DataFrame(
-            index=drugs, columns=drugs, dtype=float
-        )  # jaccard similarity
+        drug_similarity = pd.DataFrame(index=drugs, columns=drugs, dtype=float)  # jaccard similarity
 
         for drug_from in drugs:
             for drug_to in drugs:
@@ -76,44 +68,32 @@ class SRMF(DRPModel):
                     drug_features[drug_from]["fingerprints"],
                     drug_features[drug_to]["fingerprints"],
                 )
-                drug_similarity.loc[drug_to, drug_from] = drug_similarity.loc[
-                    drug_from, drug_to
-                ]
+                drug_similarity.loc[drug_to, drug_from] = drug_similarity.loc[drug_from, drug_to]
 
-        cell_line_features = cell_line_input.get_feature_matrix(
-            view="gene_expression", identifiers=cell_lines
-        )
+        cell_line_features = cell_line_input.get_feature_matrix(view="gene_expression", identifiers=cell_lines)
         # pearson correlation as similarity
         cell_line_similarity = np.corrcoef(cell_line_features, rowvar=True)
 
         # Prepare response and weight matrices
         drug_response_matrix = output.to_dataframe()
-        drug_response_matrix = (
-            drug_response_matrix.groupby(["cell_line_id", "drug_id"])
-            .mean()
-            .reset_index()
-        )
-        drug_response_matrix = drug_response_matrix.pivot(
-            index="cell_line_id", columns="drug_id", values="response"
-        )
+        drug_response_matrix = drug_response_matrix.groupby(["cell_line_id", "drug_id"]).mean().reset_index()
+        drug_response_matrix = drug_response_matrix.pivot(index="cell_line_id", columns="drug_id", values="response")
 
-        drug_response_matrix = drug_response_matrix.reindex(
-            index=cell_lines, columns=drugs
-        )  # missing rows and columns are filled with NaN
+        drug_response_matrix = drug_response_matrix.reindex(index=cell_lines, columns=drugs)  # missing rows and columns are filled with NaN
 
-        self.W = ~np.isnan(drug_response_matrix)
+        self.w = ~np.isnan(drug_response_matrix)
         drug_response_matrix = drug_response_matrix.copy()
         drug_response_matrix[np.isnan(drug_response_matrix)] = 0
 
         # Train the model
-        bestU, bestV = self.CMF(
-            W=self.W.T.values,
-            intMat=drug_response_matrix.values.T,
-            drugMat=drug_similarity.values,
-            cellMat=cell_line_similarity,
+        best_u, best_v = self.cmf(
+            w=self.w.T.values,
+            int_mat=drug_response_matrix.values.T,
+            drug_mat=drug_similarity.values,
+            cell_mat=cell_line_similarity,
         )
-        self.bestU = pd.DataFrame(bestU, index=drugs)
-        self.bestV = pd.DataFrame(bestV, index=cell_lines)
+        self.best_u = pd.DataFrame(best_u, index=drugs)
+        self.best_v = pd.DataFrame(best_v, index=cell_lines)
 
     def predict(
         self,
@@ -124,94 +104,114 @@ class SRMF(DRPModel):
     ) -> np.ndarray:
         """
         Predicts the drug response based on the trained latent factors.
+
         :param drug_ids: drug identifiers
         :param cell_line_ids: cell line identifiers
         :return: predicted response matrix
         """
-        bestU = self.bestU.loc[drug_ids].values
-        bestV = self.bestV.loc[cell_line_ids].values
-        # calculate the diagonal of the matrix product which is the prediction, faster than np.dot(bestU, bestV.T).diagonal()
-        diagonal_predictions = np.einsum("ij,ji->i", bestU, bestV.T)
+        best_u = self.best_u.loc[drug_ids].values
+        best_v = self.best_v.loc[cell_line_ids].values
+        # calculate the diagonal of the matrix product which is the prediction,
+        # faster than np.dot(best_u, best_v.T).diagonal()
+        diagonal_predictions = np.einsum("ij,ji->i", best_u, best_v.T)
 
         return diagonal_predictions
 
-    def CMF(self, W, intMat, drugMat, cellMat):
+    def cmf(self, w, int_mat, drug_mat, cell_mat):
         """
         Implements the SRMF model with specific update rules and regularization.
+
+        :param w:
+        :param int_mat:
+        :param drug_mat:
+        :param cell_mat:
         """
         np.random.seed(self.seed)
-        m, n = W.shape
-        U0 = np.sqrt(1 / self.K) * np.random.randn(m, self.K)
-        V0 = np.sqrt(1 / self.K) * np.random.randn(n, self.K)
+        m, n = w.shape
+        u0 = np.sqrt(1 / self.k) * np.random.randn(m, self.k)
+        v0 = np.sqrt(1 / self.k) * np.random.randn(n, self.k)
 
-        bestU, bestV = U0, V0
+        best_u, best_v = u0, v0
 
-        last_loss = self.compute_loss(U0, V0, W, intMat, drugMat, cellMat)
-        bestloss = last_loss
-        WR = W * intMat
+        last_loss = self.compute_loss(u0, v0, w, int_mat, drug_mat, cell_mat)
+        best_loss = last_loss
+        wr = w * int_mat
 
-        for t in range(self.max_iter):
-            U = self.alg_update(U0, V0, W, WR, drugMat, self.lambda_l, self.lambda_d)
-            V = self.alg_update(V0, U, W.T, WR.T, cellMat, self.lambda_l, self.lambda_c)
-            curr_loss = self.compute_loss(U, V, W, intMat, drugMat, cellMat)
+        for _ in range(self.max_iter):
+            u = self.alg_update(u0, v0, w, wr, drug_mat, self.lambda_l, self.lambda_d)
+            v = self.alg_update(v0, u, w.T, wr.T, cell_mat, self.lambda_l, self.lambda_c)
+            curr_loss = self.compute_loss(u, v, w, int_mat, drug_mat, cell_mat)
 
-            if curr_loss < bestloss:
-                bestU, bestV = U, V
-                bestloss = curr_loss
+            if curr_loss < best_loss:
+                best_u, best_v = u, v
+                best_loss = curr_loss
 
             delta_loss = (curr_loss - last_loss) / last_loss
             if abs(delta_loss) < 1e-6:
                 break
 
             last_loss = curr_loss
-            U0, V0 = U, V
+            u0, v0 = u, v
 
-        return bestU, bestV
+        return best_u, best_v
 
-    def compute_loss(self, U, V, W, intMat, drugMat, cellMat):
+    def compute_loss(self, u, v, w, int_mat, drug_mat, cell_mat):
         """
         Computes the loss for SRMF, including similarity regularization.
+
+        :param u:
+        :param v:
+        :param w:
+        :param int_mat:
+        :param drug_mat:
+        :param cell_mat:
         """
-        loss = np.sum((W * (intMat - np.dot(U, V.T))) ** 2)
-        loss += self.lambda_l * (np.sum(U**2) + np.sum(V**2))
-        loss += self.lambda_d * np.sum((drugMat - np.dot(U, U.T)) ** 2)
-        loss += self.lambda_c * np.sum((cellMat - np.dot(V, V.T)) ** 2)
+        loss = np.sum((w * (int_mat - np.dot(u, v.T))) ** 2)
+        loss += self.lambda_l * (np.sum(u**2) + np.sum(v**2))
+        loss += self.lambda_d * np.sum((drug_mat - np.dot(u, u.T)) ** 2)
+        loss += self.lambda_c * np.sum((cell_mat - np.dot(v, v.T)) ** 2)
         return loss
 
-    def alg_update(self, U, V, W, R, S, lambda_l, lambda_d):
+    def alg_update(self, u, v, w, r, s, lambda_l, lambda_d):
         """
-        Algorithm update rule for U or V in the SRMF model.
+        Algorithm update rule for u or v in the SRMF model.
+
+        :param u:
+        :param v:
+        :param w:
+        :param r:
+        :param s:
+        :param lambda_l:
+        :param lambda_d:
         """
-        X = np.dot(R, V) + 2 * lambda_d * np.dot(S, U)
-        Y = 2 * lambda_d * np.dot(U.T, U)
-        U0 = np.zeros_like(U)
-        D = np.dot(V.T, V)
-        m, _ = W.shape
+        x = np.dot(r, v) + 2 * lambda_d * np.dot(s, u)
+        y = 2 * lambda_d * np.dot(u.T, u)
+        u0 = np.zeros_like(u)
+        d = np.dot(v.T, v)
+        m, _ = w.shape
 
         for i in range(m):
-            ii = np.where(W[i, :] > 0)[0]
+            ii = np.where(w[i, :] > 0)[0]
             if ii.size == 0:
-                B = Y + lambda_l * np.eye(U.shape[1])
-            elif ii.size == W.shape[1]:
-                B = D + Y + lambda_l * np.eye(U.shape[1])
+                b = y + lambda_l * np.eye(u.shape[1])
+            elif ii.size == w.shape[1]:
+                b = d + y + lambda_l * np.eye(u.shape[1])
             else:
-                A = np.dot(V[ii, :].T, V[ii, :])
-                B = A + Y + lambda_l * np.eye(U.shape[1])
+                a = np.dot(v[ii, :].T, v[ii, :])
+                b = a + y + lambda_l * np.eye(u.shape[1])
 
-            U0[i, :] = np.linalg.solve(B, X[i, :])
+            u0[i, :] = np.linalg.solve(b, x[i, :])
 
-        return U0
+        return u0
 
-    def load_cell_line_features(
-        self, data_path: str, dataset_name: str
-    ) -> FeatureDataset:
+    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         """
         Loads the cell line features.
+
         :param path: Path to the gene expression and landmark genes
         :return: FeatureDataset containing the cell line gene expression features, filtered
-        through the landmark genes
+            through the landmark genes
         """
-
         return load_and_reduce_gene_features(
             feature_type="gene_expression",
             gene_list=None,
@@ -220,4 +220,10 @@ class SRMF(DRPModel):
         )
 
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+        """
+        Loads the drug features.
+
+        :param data_path:
+        :param dataset_name:
+        """
         return load_drug_fingerprint_features(data_path, dataset_name)

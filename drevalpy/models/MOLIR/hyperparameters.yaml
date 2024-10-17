@@ -16,14 +16,9 @@ MOLI:
     - 0.001
   lr_clf:
     - 0.001
-  dropout_rate_e:
+  dropout_rate:
     - 0.5
-  dropout_rate_m:
-    - 0.5
-  dropout_rate_c:
-    - 0.5
-  dropout_rate_clf:
-    - 0.5
+    - 0.3
   weight_decay:
     - 0.0001
   gamma:

@@ -1,14 +1,12 @@
-"""
-Utility functions for datasets.
-"""
+"""Utility functions for datasets."""
 
-import zipfile
 import os
-from typing import List
-import requests
-import numpy as np
-from numpy.typing import ArrayLike
+import zipfile
+
 import networkx as nx
+import numpy as np
+import requests
+from numpy.typing import ArrayLike
 
 
 def download_dataset(
@@ -18,6 +16,7 @@ def download_dataset(
 ):
     """
     Download the latets dataset from Zenodo.
+
     :param dataset: dataset name, e.g., "GDSC1", "GDSC2" or "CCLE"
     :param data_path: where to save the data
     :param redownload: whether to redownload the data
@@ -32,15 +31,11 @@ def download_dataset(
         # Fetch the latest record
         response = requests.get(url, timeout=10)
         if response.status_code != 200:
-            raise requests.exceptions.HTTPError(
-                f"Error fetching record: {response.status_code}"
-            )
+            raise requests.exceptions.HTTPError(f"Error fetching record: {response.status_code}")
         latest_url = response.links["linkset"]["url"]
         response = requests.get(latest_url, timeout=10)
         if response.status_code != 200:
-            raise requests.exceptions.HTTPError(
-                f"Error fetching record: {response.status_code}"
-            )
+            raise requests.exceptions.HTTPError(f"Error fetching record: {response.status_code}")
         data = response.json()
 
         # Ensure the save path exists
@@ -53,9 +48,7 @@ def download_dataset(
         print(f"Downloading {dataset} from {file_url}...")
         response = requests.get(file_url, timeout=10)
         if response.status_code != 200:
-            raise requests.exceptions.HTTPError(
-                f"Error downloading file {dataset}: " f"{response.status_code}"
-            )
+            raise requests.exceptions.HTTPError(f"Error downloading file {dataset}: " f"{response.status_code}")
 
         # Save the file
         with open(file_path, "wb") as f:
@@ -73,6 +66,7 @@ def download_dataset(
 def randomize_graph(original_graph: nx.Graph) -> nx.Graph:
     """
     Randomizes the graph by shuffling the edges while preserving the degree sequence.
+
     :param original_graph: The original graph
     :return: Randomized graph with the same degree sequence and node attributes
     """
@@ -83,7 +77,7 @@ def randomize_graph(original_graph: nx.Graph) -> nx.Graph:
     new_graph = nx.expected_degree_graph(degree_sequence, seed=1234)
 
     # Remap nodes to the original labels
-    mapping = dict(zip(new_graph.nodes(), original_graph.nodes()))
+    mapping = dict(zip(new_graph.nodes(), original_graph.nodes(), strict=True))
     new_graph = nx.relabel_nodes(new_graph, mapping)
 
     # Copy node attributes from the original graph to the new graph
@@ -103,10 +97,14 @@ def randomize_graph(original_graph: nx.Graph) -> nx.Graph:
 
 
 def permute_features(
-    features: dict, identifiers: ArrayLike, views_to_permute: List, all_views: List
+    features: dict,
+    identifiers: ArrayLike,
+    views_to_permute: list,
+    all_views: list,
 ) -> dict:
     """
-    Permute the specified views for each entity (= cell line or drug)
+    Permute the specified views for each entity (= cell line or drug).
+
     E.g. each cell line gets the feature vector/graph/image... of another cell line.
     Drawn without replacement.
     :param features: dictionary of features
@@ -115,15 +113,7 @@ def permute_features(
     :param all_views: list of all views
     :return: permuted features
     """
-
     return {
-        entity: {
-            view: (
-                features[entity][view]
-                if view not in views_to_permute
-                else features[other_entity][view]
-            )
-            for view in all_views
-        }
-        for entity, other_entity in zip(identifiers, np.random.permutation(identifiers))
+        entity: {view: (features[entity][view] if view not in views_to_permute else features[other_entity][view]) for view in all_views}
+        for entity, other_entity in zip(identifiers, np.random.permutation(identifiers), strict=True)
     }

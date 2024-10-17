@@ -1,14 +1,13 @@
 import pytest
 
-from .utils import sample_dataset, call_save_and_load
-from drevalpy.models import MODEL_FACTORY
 from drevalpy.evaluation import evaluate
+from drevalpy.models import MODEL_FACTORY
+
+from .utils import call_save_and_load
 
 
 @pytest.mark.parametrize("test_mode", ["LPO", "LCO", "LDO"])
-@pytest.mark.parametrize(
-    "model_name", ["SimpleNeuralNetwork", "MultiOmicsNeuralNetwork"]
-)
+@pytest.mark.parametrize("model_name", ["SimpleNeuralNetwork", "MultiOmicsNeuralNetwork"])
 def test_simple_neural_network(sample_dataset, model_name, test_mode):
     drug_response, cell_line_input, drug_input = sample_dataset
     drug_response.split_dataset(
@@ -39,9 +38,7 @@ def test_simple_neural_network(sample_dataset, model_name, test_mode):
     )
 
     metrics = evaluate(val_es_dataset, metric=["Pearson"])
-    print(
-        f"{test_mode}: Performance of {model}, hpams: {hpam_combi}: PCC = {metrics['Pearson']}"
-    )
+    print(f"{test_mode}: Performance of {model}, hpams: {hpam_combi}: PCC = {metrics['Pearson']}")
     if test_mode == "LDO":
         assert metrics["Pearson"] > 0.0
     else:

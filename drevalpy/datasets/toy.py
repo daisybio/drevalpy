@@ -1,6 +1,4 @@
-"""
-Toy dataset.
-"""
+"""Toy dataset."""
 
 import os
 import pickle
@@ -11,8 +9,10 @@ from .utils import download_dataset
 
 class Toy(DrugResponseDataset):
     """
-    Toy dataset, subsampled from GDSC1. Used for testing purposes. Contains 40 random drugs and
-    100 random cell lines. Methylation features were subsampled to 250.
+    Toy dataset, subsampled from GDSC1. Used for testing purposes.
+
+    This datasets contains 40 random drugs and 100 random cell lines.
+    Methylation features were subsampled to 250.
     """
 
     def __init__(
@@ -21,6 +21,11 @@ class Toy(DrugResponseDataset):
         file_name: str = "toy_data_drp_dataset.pkl",
         dataset_name: str = "Toy_Data",
     ):
+        """
+        Initialization method for Toy dataset.
+
+        :param path_data: path to the dataset
+        """
         path = os.path.join(path_data, dataset_name, file_name)
         if not os.path.exists(path):
             download_dataset(dataset_name, path_data, redownload=True)
