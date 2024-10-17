@@ -7,14 +7,120 @@ Code adapted from: Hauptmann et al. (2023, 10.1186/s12859-023-05166-7), https://
 import subprocess
 from io import BytesIO
 import pandas as pd
-from typing import Optional, List
+from typing import Optional, List, Tuple
 import torch
 from torch import nn
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
-from ..utils import RegressionDataset
+import random
+import numpy as np
+from itertools import combinations
+
+def generate_triplets(x: np.ndarray, 
+                      y: np.ndarray, 
+                      positive_range: float, 
+                      negative_range: float, 
+                      num_positive_pairs: int = 10, 
+                      num_negative_pairs: int = 10,
+                      random_seed: Optional[int] = None) -> np.ndarray:
+    """
+    Generates triplets of Anchor, Positive, and Negative samples for use in models with triplet loss.
+    
+    Parameters:
+    -----------
+    x : np.ndarray
+        Feature matrix of shape (n_samples, n_features), where each row represents a sample.
+    y : np.ndarray
+        Labels corresponding to each sample in x, of shape (n_samples,).
+    positive_range : float
+        Tolerance range for identifying positive pairs (samples of the same class).
+    negative_range : float
+        Separation range for identifying negative pairs (samples of different classes).
+    num_positive_pairs : int, optional (default=10)
+        Number of Anchor-Positive pairs to generate per class.
+    num_negative_pairs : int, optional (default=10)
+        Number of Anchor-Negative pairs to generate per class.
+    random_seed : Optional[int], optional (default=None)
+        Random seed for reproducibility of the generated triplets.
+
+    Returns:
+    --------
+    np.ndarray
+        A NumPy array containing triplets in the format [Anchor, Positive, Negative].
+
+    Raises:
+    -------
+    ValueError
+        If input arrays x and y do not have matching dimensions, or if there are insufficient 
+        samples to create valid triplets under the given conditions.
+    """
+
+    if random_seed is not None:
+        random.seed(random_seed)
+        np.random.seed(random_seed)
+    
+    # Validate input dimensions
+    if not isinstance(x, np.ndarray) or not isinstance(y, np.ndarray):
+        raise ValueError("Both x and y must be NumPy arrays.")
+    if x.shape[0] != y.shape[0]:
+        raise ValueError("x and y must have the same number of samples.")
+    
+    data = (x, y)
+    triplets: List[List[np.ndarray]] = []
+
+    # Iterate over each label in the dataset
+    for current_label in data[1]:
+        positive_class_indices = get_positive_class_indices(current_label, y, positive_range)
+        negative_class_indices = get_negative_class_indices(current_label, y, negative_range)
+
+        anchor_positive_pairs = generate_anchor_positive_pairs(positive_class_indices, num_positive_pairs)
+        negative_samples = generate_negative_samples(negative_class_indices, num_negative_pairs)
+
+        # Generate triplets
+        for anchor_positive_pair in anchor_positive_pairs:
+            anchor, positive = x[anchor_positive_pair[0]], x[anchor_positive_pair[1]]
+            for negative_idx in negative_samples:
+                negative = x[negative_idx]
+                triplets.append([anchor, positive, negative])
+
+    return np.array(triplets)
+
+def get_positive_class_indices(label: float, y: np.ndarray, positive_range: float) -> np.ndarray:
+    """
+    Find indices of samples that fall within the positive range (same class).
+    """
+    return np.where(np.logical_and(label - positive_range <= y, y <= label + positive_range))[0]
+
+def get_negative_class_indices(label: float, y: np.ndarray, negative_range: float) -> np.ndarray:
+    """
+    Find indices of samples that fall outside the negative range (different class).
+    """
+    return np.where(np.logical_or(label - negative_range >= y, y >= label + negative_range))[0]
+
+def generate_anchor_positive_pairs(positive_class_indices: np.ndarray, num_pairs: int) -> List[Tuple[int, int]]:
+    """
+    Generate Anchor-Positive pairs from the indices of samples within the same class.
+    """
+    if len(positive_class_indices) <= 1:
+        raise ValueError("Not enough positive samples to generate pairs.")
+    if len(positive_class_indices) <= 15:
+        return list(combinations(positive_class_indices, 2))
+    else:
+        sampled_indices = random.sample(list(positive_class_indices), k=15)
+        return random.sample(list(combinations(sampled_indices, 2)), k=num_pairs)
+
+def generate_negative_samples(negative_class_indices: np.ndarray, num_samples: int) -> List[int]:
+    """
+    Sample negative class indices.
+    """
+    if len(negative_class_indices) <= 1:
+        raise ValueError("Not enough negative samples to generate pairs.")
+    if len(negative_class_indices) <= 15:
+        return list(negative_class_indices)
+    else:
+        return random.sample(list(negative_class_indices), k=num_samples)
 
 
 class MOLIEncoder(nn.Module):
@@ -54,17 +160,12 @@ class Moli(nn.Module):
         self.lr_m = hpams["lr_m"]
         self.lr_c = hpams["lr_c"]
         self.lr_clf = hpams["lr_cl"]
-        self.dropout_rate_e = hpams["dropout_rate_e"]
-        self.dropout_rate_m = hpams["dropout_rate_m"]
-        self.dropout_rate_c = hpams["dropout_rate_c"]
-        self.dropout_rate_clf = hpams["dropout_rate_clf"]
+        self.dropout_rate = hpams["dropout_rate"]
         self.weight_decay = hpams["weight_decay"]
         self.gamma = hpams["gamma"]
         self.epochs = hpams["epochs"]
-        self.margin = hpams["margin"]
-        # not BCE or triplet loss because we're treating it as regression problem
-        # TODO Triplet Regression Loss
-        self.loss = nn.MSELoss()
+        self.triplett_loss = torch.nn.TripletMarginLoss(margin=hpams["margin"], p=2)
+        self.regression_loss = nn.MSELoss()
         self.model_initialized = False
         self.expression_encoder = None
         self.mutation_encoder = None
@@ -75,11 +176,11 @@ class Moli(nn.Module):
         _, ie_dim = x_train_e.shape
         _, im_dim = x_train_m.shape
         _, ic_dim = x_train_c.shape
-        self.expression_encoder = MOLIEncoder(ie_dim, self.h_dim1, self.dropout_rate_e)
-        self.mutation_encoder = MOLIEncoder(im_dim, self.h_dim2, self.dropout_rate_m)
-        self.cna_encoder = MOLIEncoder(ic_dim, self.h_dim3, self.dropout_rate_c)
+        self.expression_encoder = MOLIEncoder(ie_dim, self.h_dim1, self.dropout_rate)
+        self.mutation_encoder = MOLIEncoder(im_dim, self.h_dim2, self.dropout_rate)
+        self.cna_encoder = MOLIEncoder(ic_dim, self.h_dim3, self.dropout_rate)
         self.classifier = MOLIClassifier(
-            ie_dim + im_dim + ic_dim, self.dropout_rate_clf
+            ie_dim + im_dim + ic_dim, self.dropout_rate
         )
         self.model_initialized = True
 
@@ -94,14 +195,13 @@ class Moli(nn.Module):
         patience: int = 5,
     ):
         device = create_device(gpu_number=None)
-        train_dataset = RegressionDataset(
+        train_dataset = TripletDataset(
             output=output_train,
             cell_line_input=cell_line_input,
             drug_input=drug_input,
             cell_line_views=cell_line_views,
             drug_views=drug_views,
         )
-        # no weighted random sampler because we are not treating it as a classification problem
         train_loader = DataLoader(
             train_dataset,
             batch_size=self.mini_batch,

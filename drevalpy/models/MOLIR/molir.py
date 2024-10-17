@@ -12,12 +12,12 @@ from sklearn.feature_selection import VarianceThreshold
 from sklearn.preprocessing import StandardScaler
 
 from utils import Moli
-from ..drp_model import DRPModel
+from ..drp_model import SingleDrugModel
 from ..utils import load_and_reduce_gene_features
 from ...datasets.dataset import FeatureDataset, DrugResponseDataset
 
 
-class MOLIR(DRPModel):
+class MOLIR(SingleDrugModel):
     """
     Regression extension of
     MOLI: multi-omics late integration deep neural network.
@@ -63,6 +63,14 @@ class MOLIR(DRPModel):
             transformer=self.scaler_gex,
             view="gene_expression"
         )
+
+
+        #
+        #triplet dataset
+        #
+
+
+
         # TODO
         self.model.fit(
 
