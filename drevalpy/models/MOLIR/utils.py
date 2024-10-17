@@ -203,8 +203,6 @@ class TripletDataset(Dataset):
                 torch.tensor(label, dtype=torch.float32))
 
 
-
-
 class MOLIClassifier(nn.Module):
     def __init__(self, input_size, dropout_rate):
         super(MOLIClassifier, self).__init__()
@@ -263,8 +261,12 @@ class Moli(nn.Module):
         device = create_device(gpu_number=None)
         x_gene_expression = cell_line_input.get_feature_matrix("gene_expression", output_train.cell_line_ids)
         x_mutations = cell_line_input.get_feature_matrix("mutations", output_train.cell_line_ids)
-        x_copy_number_variation_gistic = cell_line_input.get_feature_matrix("copy_number_variation_gistic", output_train.cell_line_ids)
-        triplets = generate_triplets_multi_features(x_gene_expression=x_gene_expression, x_mutations=x_mutations, x_copy_number_variation_gistic=x_copy_number_variation_gistic, y=output_train.response, positive_range=0.1, negative_range=3)
+        x_copy_number_variation_gistic = cell_line_input.get_feature_matrix("copy_number_variation_gistic",
+                                                                            output_train.cell_line_ids)
+        triplets = generate_triplets_multi_features(x_gene_expression=x_gene_expression, x_mutations=x_mutations,
+                                                    x_copy_number_variation_gistic=x_copy_number_variation_gistic,
+                                                    y=output_train.response, positive_range=0.1, negative_range=3)
+        # TODO do with quantile bc drugs have different mean response 
 
         # Create the dataset
         train_dataset = TripletDataset(triplets, output_train.response)
