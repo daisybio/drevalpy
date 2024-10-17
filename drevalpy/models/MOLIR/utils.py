@@ -261,15 +261,7 @@ class Moli(nn.Module):
         patience: int = 5,
     ):
         device = create_device(gpu_number=None)
-        train_dataset = TripletDataset(
-            output=output_train,
-            cell_line_input=cell_line_input,
-            drug_input=drug_input,
-            cell_line_views=cell_line_views,
-            drug_views=drug_views,
-        )
-        # Assuming the triplets dictionary and labels are already generated
-        # For example:
+
         triplets = generate_triplets_multi_features(x_gene_expression, x_mutations, x_copy_number_variation_gistic, y, positive_range, negative_range)
         labels = np.ones(triplets["x_gene_expression"].shape[0])  # Example labels, you would use the correct ones here
 
