@@ -53,10 +53,10 @@ class DrugResponseDataset(Dataset):
 
     def __init__(
         self,
-        response: Optional[ArrayLike] = None,
-        cell_line_ids: Optional[ArrayLike] = None,
-        drug_ids: Optional[ArrayLike] = None,
-        predictions: Optional[ArrayLike] = None,
+        response: Optional[np.ndarray] = None,
+        cell_line_ids: Optional[np.ndarray] = None,
+        drug_ids: Optional[np.ndarray] = None,
+        predictions: Optional[np.ndarray] = None,
         dataset_name: Optional[str] = None,
     ):
         """

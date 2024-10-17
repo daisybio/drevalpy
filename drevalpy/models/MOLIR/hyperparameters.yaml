@@ -1,5 +1,5 @@
 ---
-MOLI:
+MOLIR:
   mini_batch:
     - 16
   h_dim1:
@@ -14,7 +14,7 @@ MOLI:
     - 0.001
   lr_c:
     - 0.001
-  lr_clf:
+  lr_regr:
     - 0.001
   dropout_rate:
     - 0.5
