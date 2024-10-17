@@ -286,8 +286,7 @@ class CompositeDrugModel(DRPModel):
         for i, drug in enumerate(drugs):
             if drug not in self.models:
                 raise AssertionError(
-                    f"Drug {drug} not in models. Maybe the CompositeDrugModel was not built or drug "
-                    f"missing from train data."
+                    f"Drug {drug} not in models. Maybe the CompositeDrugModel was not built or drug " f"missing from train data."
                 )
             print(f"Training model for drug {drug} ({i+1}/{len(drugs)})")
             output_mask = output.drug_ids == drug

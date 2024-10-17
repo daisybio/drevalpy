@@ -79,9 +79,7 @@ def parse_results(path_to_results: str):
             model_name,
         ) = evaluate_file(pred_file=file, test_mode=lpo_lco_ldo, model_name=algorithm)
 
-        evaluation_results = (
-            overall_eval if evaluation_results is None else pd.concat([evaluation_results, overall_eval])
-        )
+        evaluation_results = overall_eval if evaluation_results is None else pd.concat([evaluation_results, overall_eval])
         true_vs_pred = t_vs_p if true_vs_pred is None else pd.concat([true_vs_pred, t_vs_p])
 
         if eval_results_per_drug is not None:
@@ -211,16 +209,14 @@ def prep_results(eval_results, eval_results_per_drug, eval_results_per_cell_line
     new_columns.index = eval_results.index
     eval_results = pd.concat([new_columns.drop("split", axis=1), eval_results], axis=1)
     if eval_results_per_drug is not None:
-        eval_results_per_drug[["algorithm", "rand_setting", "LPO_LCO_LDO", "split", "CV_split"]] = (
-            eval_results_per_drug["model"].str.split("_", expand=True)
+        eval_results_per_drug[["algorithm", "rand_setting", "LPO_LCO_LDO", "split", "CV_split"]] = eval_results_per_drug["model"].str.split(
+            "_", expand=True
         )
     if eval_results_per_cell_line is not None:
-        eval_results_per_cell_line[["algorithm", "rand_setting", "LPO_LCO_LDO", "split", "CV_split"]] = (
-            eval_results_per_cell_line["model"].str.split("_", expand=True)
-        )
-    t_vs_p[["algorithm", "rand_setting", "LPO_LCO_LDO", "split", "CV_split"]] = t_vs_p["model"].str.split(
-        "_", expand=True
-    )
+        eval_results_per_cell_line[["algorithm", "rand_setting", "LPO_LCO_LDO", "split", "CV_split"]] = eval_results_per_cell_line[
+            "model"
+        ].str.split("_", expand=True)
+    t_vs_p[["algorithm", "rand_setting", "LPO_LCO_LDO", "split", "CV_split"]] = t_vs_p["model"].str.split("_", expand=True)
 
     return (
         eval_results,
@@ -381,8 +377,7 @@ def create_index_html(custom_id: str, test_modes: list[str], prefix_results: str
             )
             shutil.copyfile(img_path, os.path.join(prefix_results, f"{lpo_lco_ldo}.png"))
             f.write(
-                f'<a href="{lpo_lco_ldo}.html" target="_blank"><img src="{lpo_lco_ldo}.png" '
-                f'style="width:300px;height:300px;"></a>\n'
+                f'<a href="{lpo_lco_ldo}.html" target="_blank"><img src="{lpo_lco_ldo}.png" ' f'style="width:300px;height:300px;"></a>\n'
             )
         f.write("</div>\n")
         f.write("</div>\n")

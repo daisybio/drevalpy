@@ -105,11 +105,7 @@ class DrugResponseDataset(Dataset):
                 f"Response {self.response[:3]}..."
             )
         else:
-            string = (
-                f"DrugResponseDataset: CLs {self.cell_line_ids}; "
-                f"Drugs {self.drug_ids}; "
-                f"Response {self.response}"
-            )
+            string = f"DrugResponseDataset: CLs {self.cell_line_ids}; " f"Drugs {self.drug_ids}; " f"Response {self.response}"
         if self.predictions is not None:
             if len(self.predictions) > 3:
                 string += f"; Predictions {self.predictions[:3]}..."
@@ -444,9 +440,7 @@ class DrugResponseDataset(Dataset):
             self.predictions = response_transformation.inverse_transform(self.predictions.reshape(-1, 1)).squeeze()
 
 
-def split_early_stopping_data(
-    validation_dataset: DrugResponseDataset, test_mode: str
-) -> tuple[DrugResponseDataset, DrugResponseDataset]:
+def split_early_stopping_data(validation_dataset: DrugResponseDataset, test_mode: str) -> tuple[DrugResponseDataset, DrugResponseDataset]:
     """
     Splits the validation dataset into a validation and an early stopping dataset.
 
@@ -683,9 +677,7 @@ class FeatureDataset(Dataset):
             feature view for this instance, for networks it is the degree distribution.
         """
         if randomization_type not in ["permutation", "invariant"]:
-            raise AssertionError(
-                f"Unknown randomization type {randomization_type!r}. Choose from 'permutation', 'invariant'."
-            )
+            raise AssertionError(f"Unknown randomization type {randomization_type!r}. Choose from 'permutation', 'invariant'.")
 
         if isinstance(views_to_randomize, str):
             views_to_randomize = [views_to_randomize]
@@ -721,8 +713,7 @@ class FeatureDataset(Dataset):
 
                     else:
                         raise ValueError(
-                            f"No invariant randomization available for feature view "
-                            f"type {type(self.features[identifier][view])!r}."
+                            f"No invariant randomization available for feature view " f"type {type(self.features[identifier][view])!r}."
                         )
                     self.features[identifier][view] = new_features
 
@@ -775,9 +766,7 @@ class FeatureDataset(Dataset):
         :param other: other dataset
         """
         if len(set(self.view_names) & set(other.view_names)) != 0:
-            raise AssertionError(
-                "Trying to add features but feature views overlap. FeatureDatasets should be distinct."
-            )
+            raise AssertionError("Trying to add features but feature views overlap. FeatureDatasets should be distinct.")
         if other.meta_info is not None:
             self.add_meta_info(other)
 

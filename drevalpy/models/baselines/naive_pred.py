@@ -195,9 +195,7 @@ class NaiveCellLineMeanPredictor(DRPModel):
         self.dataset_mean = np.mean(output.response)
         self.cell_line_means = {}
 
-        for cell_line_response, cell_line_feature in zip(
-            unique(output.cell_line_ids), unique(cell_line_ids), strict=True
-        ):
+        for cell_line_response, cell_line_feature in zip(unique(output.cell_line_ids), unique(cell_line_ids), strict=True):
             responses_cl = output.response[cell_line_feature == output.cell_line_ids]
             if len(responses_cl) > 0:
                 # prevent nan response

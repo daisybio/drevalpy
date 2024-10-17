@@ -114,9 +114,6 @@ def permute_features(
     :return: permuted features
     """
     return {
-        entity: {
-            view: (features[entity][view] if view not in views_to_permute else features[other_entity][view])
-            for view in all_views
-        }
+        entity: {view: (features[entity][view] if view not in views_to_permute else features[other_entity][view]) for view in all_views}
         for entity, other_entity in zip(identifiers, np.random.permutation(identifiers), strict=True)
     }

@@ -162,9 +162,7 @@ def drug_response_experiment(
 
             model = model_class()
 
-            if not os.path.isfile(
-                prediction_file
-            ):  # if this split has not been run yet (or for a single drug model, this drug_id)
+            if not os.path.isfile(prediction_file):  # if this split has not been run yet (or for a single drug model, this drug_id)
 
                 tuning_inputs = {
                     "model": model,
@@ -235,9 +233,7 @@ def drug_response_experiment(
                     print(f"Randomization tests for {model_class.model_name}")
                     # if this line changes, it also needs to be changed in pipeline:
                     # randomization_split.py
-                    randomization_test_views = get_randomization_test_views(
-                        model=model, randomization_mode=randomization_mode
-                    )
+                    randomization_test_views = get_randomization_test_views(model=model, randomization_mode=randomization_mode)
                     randomization_test(
                         randomization_test_views=randomization_test_views,
                         model=model,
@@ -311,11 +307,7 @@ def consolidate_single_drug_model_predictions(
                     "randomization": {},
                 }
                 # list all dirs in model_path/drugs
-                drugs = [
-                    d
-                    for d in os.listdir(os.path.join(model_path, "drugs"))
-                    if os.path.isdir(os.path.join(model_path, "drugs", d))
-                ]
+                drugs = [d for d in os.listdir(os.path.join(model_path, "drugs")) if os.path.isdir(os.path.join(model_path, "drugs", d))]
                 for drug in drugs:
                     single_drug_prediction_path = os.path.join(model_path, "drugs", drug)
 
@@ -350,9 +342,7 @@ def consolidate_single_drug_model_predictions(
                         f = f"robustness_{trial+1}_split_{split}.csv"
                         if trial not in predictions["robustness"]:
                             predictions["robustness"][trial] = []
-                        predictions["robustness"][trial].append(
-                            pd.read_csv(os.path.join(robustness_path, f), index_col=0)
-                        )
+                        predictions["robustness"][trial].append(pd.read_csv(os.path.join(robustness_path, f), index_col=0))
 
                     # Randomization predictions
                     randomization_test_views = get_randomization_test_views(
@@ -415,9 +405,7 @@ def handle_overwrite(path: str, overwrite: bool) -> None:
     os.makedirs(path, exist_ok=True)
 
 
-def load_features(
-    model: DRPModel, path_data: str, dataset: DrugResponseDataset
-) -> tuple[FeatureDataset, FeatureDataset]:
+def load_features(model: DRPModel, path_data: str, dataset: DrugResponseDataset) -> tuple[FeatureDataset, FeatureDataset]:
     """Load and reduce cell line and drug features for a given dataset."""
     cl_features = model.load_cell_line_features(data_path=path_data, dataset_name=dataset.dataset_name)
     drug_features = model.load_drug_features(data_path=path_data, dataset_name=dataset.dataset_name)
@@ -479,9 +467,7 @@ def cross_study_prediction(
         train_dataset.add_rows(early_stopping_dataset)
     # remove rows which overlap in the training. depends on the test mode
     if test_mode == "LPO":
-        train_pairs = {
-            f"{cl}_{drug}" for cl, drug in zip(train_dataset.cell_line_ids, train_dataset.drug_ids, strict=True)
-        }
+        train_pairs = {f"{cl}_{drug}" for cl, drug in zip(train_dataset.cell_line_ids, train_dataset.drug_ids, strict=True)}
         dataset_pairs = [f"{cl}_{drug}" for cl, drug in zip(dataset.cell_line_ids, dataset.drug_ids, strict=True)]
 
         dataset.remove_rows([i for i, pair in enumerate(dataset_pairs) if pair in train_pairs])
@@ -738,9 +724,7 @@ def randomize_train_predict(
     cl_features, drug_features = load_features(model, path_data, train_dataset)
 
     if (view not in cl_features.get_view_names()) and (view not in drug_features.get_view_names()):
-        warnings.warn(
-            f"View {view} not found in features. Skipping randomization test {test_name} " f"which includes this view."
-        )
+        warnings.warn(f"View {view} not found in features. Skipping randomization test {test_name} " f"which includes this view.")
         return
     cl_features_rand = cl_features.copy() if cl_features is not None else None
     drug_features_rand = drug_features.copy() if drug_features is not None else None
@@ -764,9 +748,7 @@ def randomize_train_predict(
     test_dataset_rand.save(randomization_test_file)
 
 
-def split_early_stopping(
-    validation_dataset: DrugResponseDataset, test_mode: str
-) -> tuple[DrugResponseDataset, DrugResponseDataset]:
+def split_early_stopping(validation_dataset: DrugResponseDataset, test_mode: str) -> tuple[DrugResponseDataset, DrugResponseDataset]:
     """
     Split the validation dataset into a validation and early stopping dataset.
 
@@ -1048,8 +1030,7 @@ def get_model_name_and_drug_id(model_name: str):
         model_name = name_split[0]
         if model_name not in SINGLE_DRUG_MODEL_FACTORY:
             raise AssertionError(
-                f"Model {model_name} not found in MODEL_FACTORY or SINGLE_DRUG_MODEL_FACTORY. "
-                "Please add the model to the factory."
+                f"Model {model_name} not found in MODEL_FACTORY or SINGLE_DRUG_MODEL_FACTORY. " "Please add the model to the factory."
             )
         drug_id = name_split[1]
 

@@ -417,9 +417,7 @@ def wilcoxon_holm(alpha=0.05, df_perf=None):
     # get the list of classifiers who have been tested on nb_max_datasets
     classifiers = list(df_counts.loc[df_counts["count"] == max_nb_datasets]["classifier_name"])
     # test the null hypothesis using friedman before doing a post-hoc analysis
-    friedman_p_value = friedmanchisquare(
-        *(np.array(df_perf.loc[df_perf["classifier_name"] == c]["accuracy"]) for c in classifiers)
-    )[1]
+    friedman_p_value = friedmanchisquare(*(np.array(df_perf.loc[df_perf["classifier_name"] == c]["accuracy"]) for c in classifiers))[1]
     if friedman_p_value >= alpha:
         # then the null hypothesis over the entire classifiers cannot be rejected
         print("the null hypothesis over the entire classifiers cannot be rejected")
@@ -471,9 +469,7 @@ def wilcoxon_holm(alpha=0.05, df_perf=None):
             break
     # compute the average ranks to be returned (useful for drawing the cd diagram)
     # sort the dataframe of performances
-    sorted_df_perf = df_perf.loc[df_perf["classifier_name"].isin(classifiers)].sort_values(
-        ["classifier_name", "dataset_name"]
-    )
+    sorted_df_perf = df_perf.loc[df_perf["classifier_name"].isin(classifiers)].sort_values(["classifier_name", "dataset_name"])
     # get the rank data
     rank_data = np.array(sorted_df_perf["accuracy"]).reshape(m, max_nb_datasets)
 

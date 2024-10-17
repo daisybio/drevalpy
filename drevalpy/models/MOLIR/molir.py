@@ -4,6 +4,7 @@ Original authors: Sharifi-Noghabi et al. (2019, 10.1093/bioinformatics/btz318)
 Code adapted from: Hauptmann et al. (2023, 10.1186/s12859-023-05166-7),
 https://github.com/kramerlab/Multi-Omics_analysis
 """
+
 from typing import Optional, Dict, Any
 
 import numpy as np
@@ -27,11 +28,8 @@ class MOLIR(SingleDrugModel):
     function consisting of a triplet loss and a binary cross-entropy loss.
     We use a regression adaption with MSE loss and an mechanism to find positive and negative samples.
     """
-    cell_line_views = [
-        "gene_expression",
-        "mutations",
-        "copy_number_variation_gistic"
-    ]
+
+    cell_line_views = ["gene_expression", "mutations", "copy_number_variation_gistic"]
     drug_views = []
     early_stopping = True
     model_name = "MOLI"
@@ -48,39 +46,40 @@ class MOLIR(SingleDrugModel):
         """
         self.model = Moli(hpams=hyperparameters)
 
-    def train(self, output: DrugResponseDataset, cell_line_input: FeatureDataset,
-              drug_input: Optional[FeatureDataset] = None,
-              output_earlystopping: Optional[DrugResponseDataset] = None) -> None:
+    def train(
+        self,
+        output: DrugResponseDataset,
+        cell_line_input: FeatureDataset,
+        drug_input: Optional[FeatureDataset] = None,
+        output_earlystopping: Optional[DrugResponseDataset] = None,
+    ) -> None:
         self.selector_gex = VarianceThreshold(0.05)
         self.selector_gex = cell_line_input.fit_transform_features(
             train_ids=np.unique(output.cell_line_ids),
             transformer=self.selector_gex,
-            view="gene_expression"
+            view="gene_expression",
         )
         self.scaler_gex = StandardScaler()
         self.scaler_gex = cell_line_input.fit_transform_features(
             train_ids=np.unique(output.cell_line_ids),
             transformer=self.scaler_gex,
-            view="gene_expression"
+            view="gene_expression",
         )
 
-
         #
-        #triplet dataset
+        # triplet dataset
         #
-
-
 
         # TODO
-        self.model.fit(
+        self.model.fit()
 
-        )
-
-
-
-    def predict(self, drug_ids: ArrayLike, cell_line_ids: ArrayLike,
-                drug_input: FeatureDataset = None,
-                cell_line_input: FeatureDataset = None) -> np.ndarray:
+    def predict(
+        self,
+        drug_ids: ArrayLike,
+        cell_line_ids: ArrayLike,
+        drug_input: FeatureDataset = None,
+        cell_line_input: FeatureDataset = None,
+    ) -> np.ndarray:
         # TODO
         pass
 
@@ -89,7 +88,7 @@ class MOLIR(SingleDrugModel):
             feature_type="gene_expression",
             gene_list=None,
             data_path=data_path,
-            dataset_name=dataset_name
+            dataset_name=dataset_name,
         )
         # log transformation
         all_data.apply(function=np.log, view="gene_expression")
@@ -97,13 +96,13 @@ class MOLIR(SingleDrugModel):
             feature_type="mutations",
             gene_list=None,
             data_path=data_path,
-            dataset_name=dataset_name
+            dataset_name=dataset_name,
         )
         cnv_data = load_and_reduce_gene_features(
             feature_type="copy_number_variation_gistic",
             gene_list=None,
             data_path=data_path,
-            dataset_name=dataset_name
+            dataset_name=dataset_name,
         )
         for fd in [mut_data, cnv_data]:
             all_data.add_features(fd)

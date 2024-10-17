@@ -7,33 +7,43 @@ Code adapted from: Hauptmann et al. (2023, 10.1186/s12859-023-05166-7), https://
 import subprocess
 from io import BytesIO
 import pandas as pd
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Dict
 import torch
 from torch import nn
 from torch.nn import functional as F
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 import random
 import numpy as np
 from itertools import combinations
 
-def generate_triplets(x: np.ndarray, 
-                      y: np.ndarray, 
-                      positive_range: float, 
-                      negative_range: float, 
-                      num_positive_pairs: int = 10, 
-                      num_negative_pairs: int = 10,
-                      random_seed: Optional[int] = None) -> np.ndarray:
+
+def generate_triplets_multi_features(
+    x_gene_expression: np.ndarray,
+    x_mutations: np.ndarray,
+    x_copy_number_variation_gistic: np.ndarray,
+    y: np.ndarray,
+    positive_range: float,
+    negative_range: float,
+    num_positive_pairs: int = 10,
+    num_negative_pairs: int = 10,
+    random_seed: Optional[int] = None,
+) -> Dict[str, np.ndarray]:
     """
-    Generates triplets of Anchor, Positive, and Negative samples for use in models with triplet loss.
-    
+    Generates triplets of Anchor, Positive, and Negative samples for multiple feature types:
+    gene expression, mutations, and copy number variation (GISTIC).
+
     Parameters:
     -----------
-    x : np.ndarray
-        Feature matrix of shape (n_samples, n_features), where each row represents a sample.
+    x_gene_expression : np.ndarray
+        Gene expression feature matrix of shape (n_samples, n_features).
+    x_mutations : np.ndarray
+        Mutation feature matrix of shape (n_samples, n_features).
+    x_copy_number_variation_gistic : np.ndarray
+        Copy number variation (GISTIC) feature matrix of shape (n_samples, n_features).
     y : np.ndarray
-        Labels corresponding to each sample in x, of shape (n_samples,).
+        Labels corresponding to each sample in the feature matrices.
     positive_range : float
         Tolerance range for identifying positive pairs (samples of the same class).
     negative_range : float
@@ -47,62 +57,82 @@ def generate_triplets(x: np.ndarray,
 
     Returns:
     --------
-    np.ndarray
-        A NumPy array containing triplets in the format [Anchor, Positive, Negative].
+    Dict[str, np.ndarray]
+        A dictionary containing the triplets in the format [Anchor, Positive, Negative]
+        for each feature type (x_gene_expression, x_mutations, x_copy_number_variation_gistic).
 
     Raises:
     -------
     ValueError
-        If input arrays x and y do not have matching dimensions, or if there are insufficient 
+        If input arrays do not have matching dimensions, or if there are insufficient
         samples to create valid triplets under the given conditions.
     """
 
     if random_seed is not None:
         random.seed(random_seed)
         np.random.seed(random_seed)
-    
+
     # Validate input dimensions
-    if not isinstance(x, np.ndarray) or not isinstance(y, np.ndarray):
-        raise ValueError("Both x and y must be NumPy arrays.")
-    if x.shape[0] != y.shape[0]:
-        raise ValueError("x and y must have the same number of samples.")
-    
-    data = (x, y)
-    triplets: List[List[np.ndarray]] = []
+    if not (x_gene_expression.shape[0] == x_mutations.shape[0] == x_copy_number_variation_gistic.shape[0] == y.shape[0]):
+        raise ValueError("All feature matrices and y must have the same number of samples.")
+
+    triplets_gene_expression: List[List[np.ndarray]] = []
+    triplets_mutations: List[List[np.ndarray]] = []
+    triplets_copy_number_variation_gistic: List[List[np.ndarray]] = []
 
     # Iterate over each label in the dataset
-    for current_label in data[1]:
+    for current_label in y:
         positive_class_indices = get_positive_class_indices(current_label, y, positive_range)
         negative_class_indices = get_negative_class_indices(current_label, y, negative_range)
 
         anchor_positive_pairs = generate_anchor_positive_pairs(positive_class_indices, num_positive_pairs)
         negative_samples = generate_negative_samples(negative_class_indices, num_negative_pairs)
 
-        # Generate triplets
+        # Generate triplets for each feature type (x_gene_expression, x_mutations, x_copy_number_variation_gistic)
         for anchor_positive_pair in anchor_positive_pairs:
-            anchor, positive = x[anchor_positive_pair[0]], x[anchor_positive_pair[1]]
-            for negative_idx in negative_samples:
-                negative = x[negative_idx]
-                triplets.append([anchor, positive, negative])
+            a_idx, p_idx = anchor_positive_pair
 
-    return np.array(triplets)
+            # Anchor-Positive pairs for each feature type
+            gene_expr_anchor, gene_expr_positive = (
+                x_gene_expression[a_idx],
+                x_gene_expression[p_idx],
+            )
+            mutations_anchor, mutations_positive = (
+                x_mutations[a_idx],
+                x_mutations[p_idx],
+            )
+            cnv_gistic_anchor, cnv_gistic_positive = (
+                x_copy_number_variation_gistic[a_idx],
+                x_copy_number_variation_gistic[p_idx],
+            )
 
+            # Negative samples for each feature type
+            for n_idx in negative_samples:
+                gene_expr_negative = x_gene_expression[n_idx]
+                mutations_negative = x_mutations[n_idx]
+                cnv_gistic_negative = x_copy_number_variation_gistic[n_idx]
+
+                triplets_gene_expression.append([gene_expr_anchor, gene_expr_positive, gene_expr_negative])
+                triplets_mutations.append([mutations_anchor, mutations_positive, mutations_negative])
+                triplets_copy_number_variation_gistic.append([cnv_gistic_anchor, cnv_gistic_positive, cnv_gistic_negative])
+
+    return {
+        "x_gene_expression": np.array(triplets_gene_expression),
+        "x_mutations": np.array(triplets_mutations),
+        "x_copy_number_variation_gistic": np.array(triplets_copy_number_variation_gistic),
+    }
+
+
+# The helper functions remain the same:
 def get_positive_class_indices(label: float, y: np.ndarray, positive_range: float) -> np.ndarray:
-    """
-    Find indices of samples that fall within the positive range (same class).
-    """
     return np.where(np.logical_and(label - positive_range <= y, y <= label + positive_range))[0]
 
+
 def get_negative_class_indices(label: float, y: np.ndarray, negative_range: float) -> np.ndarray:
-    """
-    Find indices of samples that fall outside the negative range (different class).
-    """
     return np.where(np.logical_or(label - negative_range >= y, y >= label + negative_range))[0]
 
+
 def generate_anchor_positive_pairs(positive_class_indices: np.ndarray, num_pairs: int) -> List[Tuple[int, int]]:
-    """
-    Generate Anchor-Positive pairs from the indices of samples within the same class.
-    """
     if len(positive_class_indices) <= 1:
         raise ValueError("Not enough positive samples to generate pairs.")
     if len(positive_class_indices) <= 15:
@@ -111,10 +141,8 @@ def generate_anchor_positive_pairs(positive_class_indices: np.ndarray, num_pairs
         sampled_indices = random.sample(list(positive_class_indices), k=15)
         return random.sample(list(combinations(sampled_indices, 2)), k=num_pairs)
 
+
 def generate_negative_samples(negative_class_indices: np.ndarray, num_samples: int) -> List[int]:
-    """
-    Sample negative class indices.
-    """
     if len(negative_class_indices) <= 1:
         raise ValueError("Not enough negative samples to generate pairs.")
     if len(negative_class_indices) <= 15:
@@ -135,6 +163,46 @@ class MOLIEncoder(nn.Module):
 
     def forward(self, x):
         return self.encode(x)
+
+
+
+
+class TripletDataset(Dataset):
+    def __init__(self, triplets: Dict[str, np.ndarray], labels: np.ndarray):
+        """
+        Custom Dataset for PyTorch to handle triplets of features and their corresponding labels.
+
+        Parameters:
+        -----------
+        triplets : Dict[str, np.ndarray]
+            A dictionary containing the triplets for each feature type ('x_gene_expression', 
+            'x_mutations', 'x_copy_number_variation_gistic').
+        labels : np.ndarray
+            Corresponding labels for the triplets.
+        """
+        self.x_gene_expression = triplets["x_gene_expression"]
+        self.x_mutations = triplets["x_mutations"]
+        self.x_copy_number_variation_gistic = triplets["x_copy_number_variation_gistic"]
+        self.labels = labels
+    
+    def __len__(self):
+        """Returns the total number of samples."""
+        return len(self.labels)
+    
+    def __getitem__(self, idx):
+        """Fetches a sample for a given index."""
+        x_e_triplet = self.x_gene_expression[idx]
+        x_m_triplet = self.x_mutations[idx]
+        x_c_triplet = self.x_copy_number_variation_gistic[idx]
+        label = self.labels[idx]
+        
+        # Convert to PyTorch tensors
+        return (torch.tensor(x_e_triplet, dtype=torch.float32),
+                torch.tensor(x_m_triplet, dtype=torch.float32),
+                torch.tensor(x_c_triplet, dtype=torch.float32),
+                torch.tensor(label, dtype=torch.float32))
+
+
 
 
 class MOLIClassifier(nn.Module):
@@ -179,9 +247,7 @@ class Moli(nn.Module):
         self.expression_encoder = MOLIEncoder(ie_dim, self.h_dim1, self.dropout_rate)
         self.mutation_encoder = MOLIEncoder(im_dim, self.h_dim2, self.dropout_rate)
         self.cna_encoder = MOLIEncoder(ic_dim, self.h_dim3, self.dropout_rate)
-        self.classifier = MOLIClassifier(
-            ie_dim + im_dim + ic_dim, self.dropout_rate
-        )
+        self.classifier = MOLIClassifier(ie_dim + im_dim + ic_dim, self.dropout_rate)
         self.model_initialized = True
 
     def fit(
@@ -202,13 +268,17 @@ class Moli(nn.Module):
             cell_line_views=cell_line_views,
             drug_views=drug_views,
         )
-        train_loader = DataLoader(
-            train_dataset,
-            batch_size=self.mini_batch,
-            shuffle=False,
-            num_workers=1,
-            persistent_workers=True,
-        )
+        # Assuming the triplets dictionary and labels are already generated
+        # For example:
+        triplets = generate_triplets_multi_features(x_gene_expression, x_mutations, x_copy_number_variation_gistic, y, positive_range, negative_range)
+        labels = np.ones(triplets["x_gene_expression"].shape[0])  # Example labels, you would use the correct ones here
+
+        # Create the dataset
+        train_dataset = TripletDataset(triplets, labels)
+
+        # Create the DataLoader
+        train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
+
         val_loader = None
         if output_earlystopping is not None:
             val_dataset = RegressionDataset(
@@ -271,7 +341,6 @@ class Moli(nn.Module):
                         self.cna_encoder.eval()
                         self.classifier.eval()
 
-
     def forward_with_features(self, expression, mutation, cna):
         left_out = self.expression_encoder(expression)
         middle_out = self.mutation_encoder(mutation)
@@ -302,12 +371,7 @@ def create_device(gpu_number):
 
 
 def get_free_gpu():
-    gpu_stats = subprocess.check_output(
-        ["nvidia-smi", "--format=csv", "--query-gpu=memory.free"]
-    )
+    gpu_stats = subprocess.check_output(["nvidia-smi", "--format=csv", "--query-gpu=memory.free"])
     gpu_df = pd.read_csv(BytesIO(gpu_stats), names=["memory.free"], skiprows=1)
     gpu_df["memory.free"] = gpu_df["memory.free"].map(lambda x: int(x.rstrip(" [MiB]")))
     return gpu_df["memory.free"].idxmax()
-
-
-

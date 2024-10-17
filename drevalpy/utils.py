@@ -204,17 +204,13 @@ def check_arguments(args):
     # TODO Allow for custom randomization tests maybe via config file
     if args.randomization_mode[0] != "None":
         if not all(randomization in ["SVCC", "SVRC", "SVSC", "SVRD"] for randomization in args.randomization_mode):
-            raise AssertionError(
-                "At least one invalid randomization mode. Available randomization modes are SVCC, " "SVRC, SVSC, SVRD"
-            )
+            raise AssertionError("At least one invalid randomization mode. Available randomization modes are SVCC, " "SVRC, SVSC, SVRD")
     if args.curve_curator:
         raise NotImplementedError("CurveCurator not implemented")
     if args.response_transformation not in ["None", "standard", "minmax", "robust"]:
         raise AssertionError("Invalid response_transformation. Choose from None, standard, minmax, robust")
     if args.optim_metric not in AVAILABLE_METRICS:
-        raise AssertionError(
-            f"Invalid optim_metric for hyperparameter tuning. Choose from" f" {list(AVAILABLE_METRICS.keys())}"
-        )
+        raise AssertionError(f"Invalid optim_metric for hyperparameter tuning. Choose from" f" {list(AVAILABLE_METRICS.keys())}")
 
 
 def main(args):
@@ -294,7 +290,4 @@ def get_response_transformation(response_transformation: str):
         return MinMaxScaler()
     if response_transformation == "robust":
         return RobustScaler()
-    raise ValueError(
-        f"Unknown response transformation {response_transformation}. Choose from 'None', "
-        f"'standard', 'minmax', 'robust'"
-    )
+    raise ValueError(f"Unknown response transformation {response_transformation}. Choose from 'None', " f"'standard', 'minmax', 'robust'")

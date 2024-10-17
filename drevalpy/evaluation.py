@@ -207,9 +207,7 @@ def get_mode(metric: str):
     elif metric in MAXIMIZATION_METRICS:
         mode = "max"
     else:
-        raise ValueError(
-            f"Invalid metric: {metric}. Need to add metric to MINIMIZATION_METRICS or " f"MAXIMIZATION_METRICS?"
-        )
+        raise ValueError(f"Invalid metric: {metric}. Need to add metric to MINIMIZATION_METRICS or " f"MAXIMIZATION_METRICS?")
     return mode
 
 

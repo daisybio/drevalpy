@@ -150,7 +150,7 @@ class FeedForwardNetwork(pl.LightningModule):
             shuffle=True,
             num_workers=num_workers,
             persistent_workers=True,
-            drop_last=True # to avoid batch norm errors, if last batch is smaller than batch_size, it is not processed
+            drop_last=True,  # to avoid batch norm errors, if last batch is smaller than batch_size, it is not processed
         )
 
         val_loader = None
@@ -175,9 +175,7 @@ class FeedForwardNetwork(pl.LightningModule):
         monitor = "train_loss" if (val_loader is None) else "val_loss"
 
         early_stop_callback = EarlyStopping(monitor=monitor, mode="min", patience=patience)
-        name = "version-" + "".join(
-            [random.choice("0123456789abcdef") for i in range(20)]
-        )  # preventing conflicts of filenames
+        name = "version-" + "".join([random.choice("0123456789abcdef") for i in range(20)])  # preventing conflicts of filenames
         self.checkpoint_callback = pl.callbacks.ModelCheckpoint(
             dirpath=checkpoint_path,
             monitor=monitor,

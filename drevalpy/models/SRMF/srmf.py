@@ -5,7 +5,10 @@ from scipy.spatial.distance import jaccard
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models.drp_model import DRPModel
-from drevalpy.models.utils import load_and_reduce_gene_features, load_drug_fingerprint_features
+from drevalpy.models.utils import (
+    load_and_reduce_gene_features,
+    load_drug_fingerprint_features,
+)
 
 
 class SRMF(DRPModel):
@@ -76,9 +79,7 @@ class SRMF(DRPModel):
         drug_response_matrix = drug_response_matrix.groupby(["cell_line_id", "drug_id"]).mean().reset_index()
         drug_response_matrix = drug_response_matrix.pivot(index="cell_line_id", columns="drug_id", values="response")
 
-        drug_response_matrix = drug_response_matrix.reindex(
-            index=cell_lines, columns=drugs
-        )  # missing rows and columns are filled with NaN
+        drug_response_matrix = drug_response_matrix.reindex(index=cell_lines, columns=drugs)  # missing rows and columns are filled with NaN
 
         self.w = ~np.isnan(drug_response_matrix)
         drug_response_matrix = drug_response_matrix.copy()

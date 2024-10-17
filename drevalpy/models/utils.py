@@ -71,8 +71,7 @@ def load_and_reduce_gene_features(
             )
         else:
             raise ValueError(
-                f"The following genes are missing from the dataset {dataset_name} for {feature_type}: "
-                f"{', '.join(missing_genes_list)}"
+                f"The following genes are missing from the dataset {dataset_name} for {feature_type}: " f"{', '.join(missing_genes_list)}"
             )
 
     # Only proceed with genes that are available
@@ -127,9 +126,7 @@ def load_drug_fingerprint_features(data_path: str, dataset_name: str) -> Feature
         f"{data_path}/{dataset_name}/drug_fingerprints/" "drug_name_to_demorgan_128_map.csv",
         index_col=0,
     ).T
-    return FeatureDataset(
-        features={drug: {"fingerprints": fingerprints.loc[drug].values} for drug in fingerprints.index}
-    )
+    return FeatureDataset(features={drug: {"fingerprints": fingerprints.loc[drug].values} for drug in fingerprints.index})
 
 
 def get_multiomics_feature_dataset(
