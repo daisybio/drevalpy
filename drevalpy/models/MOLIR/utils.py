@@ -261,12 +261,13 @@ class Moli(nn.Module):
         patience: int = 5,
     ):
         device = create_device(gpu_number=None)
-
-        triplets = generate_triplets_multi_features(x_gene_expression, x_mutations, x_copy_number_variation_gistic, y, positive_range, negative_range)
-        labels = np.ones(triplets["x_gene_expression"].shape[0])  # Example labels, you would use the correct ones here
+        x_gene_expression = cell_line_input.get_feature_matrix("gene_expression", output_train.cell_line_ids)
+        x_mutations = cell_line_input.get_feature_matrix("mutations", output_train.cell_line_ids)
+        x_copy_number_variation_gistic = cell_line_input.get_feature_matrix("copy_number_variation_gistic", output_train.cell_line_ids)
+        triplets = generate_triplets_multi_features(x_gene_expression=x_gene_expression, x_mutations=x_mutations, x_copy_number_variation_gistic=x_copy_number_variation_gistic, y=output_train.response, positive_range=0.1, negative_range=3)
 
         # Create the dataset
-        train_dataset = TripletDataset(triplets, labels)
+        train_dataset = TripletDataset(triplets, output_train.response)
 
         # Create the DataLoader
         train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
