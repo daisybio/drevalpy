@@ -31,14 +31,12 @@ class MOLIR(SingleDrugModel):
 
     cell_line_views = ["gene_expression", "mutations", "copy_number_variation_gistic"]
     drug_views = []
-    early_stopping = True
+    early_stopping = False
     model_name = "MOLIR"
 
     def __init__(self):
         super().__init__()
         self.model = None
-        self.selector_gex = None
-        self.scaler_gex = None
 
     def build_model(self, hyperparameters: Dict[str, Any]):
         """
@@ -53,19 +51,19 @@ class MOLIR(SingleDrugModel):
         drug_input: Optional[FeatureDataset] = None,
         output_earlystopping: Optional[DrugResponseDataset] = None,
     ) -> None:
-        self.selector_gex = VarianceThreshold(0.05)
-        self.selector_gex = cell_line_input.fit_transform_features(
+        selector_gex = VarianceThreshold(0.05)
+        selector_gex = cell_line_input.fit_transform_features(
             train_ids=np.unique(output.cell_line_ids),
-            transformer=self.selector_gex,
+            transformer=selector_gex,
             view="gene_expression",
         )
-        self.scaler_gex = StandardScaler()
-        self.scaler_gex = cell_line_input.fit_transform_features(
+        scaler_gex = StandardScaler()
+        scaler_gex = cell_line_input.fit_transform_features(
             train_ids=np.unique(output.cell_line_ids),
-            transformer=self.scaler_gex,
+            transformer=scaler_gex,
             view="gene_expression",
         )
-        if len(output_earlystopping) == 0:
+        if self.early_stopping and len(output_earlystopping) == 0:
             output_earlystopping = None
         self.model.fit(
             output_train=output,

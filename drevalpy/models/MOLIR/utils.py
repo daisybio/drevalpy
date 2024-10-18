@@ -182,13 +182,13 @@ class TripletDataset(Dataset):
 class MOLIRegressor(nn.Module):
     def __init__(self, input_size, dropout_rate):
         super(MOLIRegressor, self).__init__()
-        self.classifier = torch.nn.Sequential(
+        self.regressor = torch.nn.Sequential(
             nn.Dropout(dropout_rate),
             nn.Linear(input_size, 1),
         )
 
     def forward(self, x):
-        return self.classifier(x)
+        return self.regressor(x)
 
 
 class Moli(nn.Module):
