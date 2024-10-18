@@ -8,21 +8,16 @@ MOLIR:
     - 32
   h_dim3:
     - 32
-  lr_e:
-    - 0.001
-  lr_m:
-    - 0.001
-  lr_c:
-    - 0.001
-  lr_regr:
-    - 0.001
+  learning_rate:
+    - 0.01
   dropout_rate:
     - 0.5
+    - 0.3
   weight_decay:
     - 0.0001
   gamma:
     - 0.1
   epochs:
-    - 20
+    - 30
   margin:
     - 0.2

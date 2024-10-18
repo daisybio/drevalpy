@@ -31,7 +31,7 @@ class MOLIR(SingleDrugModel):
 
     cell_line_views = ["gene_expression", "mutations", "copy_number_variation_gistic"]
     drug_views = []
-    early_stopping = False
+    early_stopping = True
     model_name = "MOLIR"
 
     def __init__(self):

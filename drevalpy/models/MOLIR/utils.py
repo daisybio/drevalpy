@@ -141,49 +141,10 @@ class MOLIEncoder(nn.Module):
         return self.encode(x)
 
 
-class TripletDataset(Dataset):
-    def __init__(self, triplets: Dict[str, np.ndarray], labels: np.ndarray):
-        """
-        Custom Dataset for PyTorch to handle triplets of features and their corresponding labels.
-
-        Parameters:
-        -----------
-        triplets : Dict[str, np.ndarray]
-            A dictionary containing the triplets for each feature type ('x_gene_expression',
-            'x_mutations', 'x_copy_number_variation_gistic').
-        labels : np.ndarray
-            Corresponding labels for the triplets.
-        """
-        self.x_gene_expression = triplets["x_gene_expression"]
-        self.x_mutations = triplets["x_mutations"]
-        self.x_copy_number_variation_gistic = triplets["x_copy_number_variation_gistic"]
-        self.labels = labels
-
-    def __len__(self):
-        """Returns the total number of samples."""
-        return len(self.labels)
-
-    def __getitem__(self, idx):
-        """Fetches a sample for a given index."""
-        x_e_triplet = self.x_gene_expression[idx]
-        x_m_triplet = self.x_mutations[idx]
-        x_c_triplet = self.x_copy_number_variation_gistic[idx]
-        label = self.labels[idx]
-
-        # Convert to PyTorch tensors
-        return (
-            torch.tensor(x_e_triplet, dtype=torch.float32),
-            torch.tensor(x_m_triplet, dtype=torch.float32),
-            torch.tensor(x_c_triplet, dtype=torch.float32),
-            torch.tensor(label, dtype=torch.float32),
-        )
-
-
 class MOLIRegressor(nn.Module):
     def __init__(self, input_size, dropout_rate):
         super(MOLIRegressor, self).__init__()
         self.regressor = torch.nn.Sequential(
-            nn.Dropout(dropout_rate),
             nn.Linear(input_size, 1),
         )
 
@@ -198,10 +159,7 @@ class Moli(nn.Module):
         self.h_dim1 = hpams["h_dim1"]
         self.h_dim2 = hpams["h_dim2"]
         self.h_dim3 = hpams["h_dim3"]
-        self.lr_e = hpams["lr_e"]
-        self.lr_m = hpams["lr_m"]
-        self.lr_c = hpams["lr_c"]
-        self.lr_regr = hpams["lr_regr"]
+        self.lr = hpams["learning_rate"]
         self.dropout_rate = hpams["dropout_rate"]
         self.weight_decay = hpams["weight_decay"]
         self.gamma = hpams["gamma"]
@@ -270,10 +228,10 @@ class Moli(nn.Module):
 
         moli_optimiser = torch.optim.Adagrad(
             [
-                {"params": self.expression_encoder.parameters(), "lr": self.lr_e},
-                {"params": self.mutation_encoder.parameters(), "lr": self.lr_m},
-                {"params": self.cna_encoder.parameters(), "lr": self.lr_c},
-                {"params": self.regressor.parameters(), "lr": self.lr_regr},
+                {"params": self.expression_encoder.parameters(), "lr": self.lr},
+                {"params": self.mutation_encoder.parameters(), "lr": self.lr},
+                {"params": self.cna_encoder.parameters(), "lr": self.lr},
+                {"params": self.regressor.parameters(), "lr": self.lr},
             ],
             weight_decay=self.weight_decay,
         )
@@ -283,6 +241,7 @@ class Moli(nn.Module):
             for (x_train_e, x_train_m, x_train_c, y_train) in train_loader:
                 if len(y_train) == 1:
                     continue
+                moli_optimiser.zero_grad()
                 x_train_e = x_train_e.to(device)
                 x_train_m = x_train_m.to(device)
                 x_train_c = x_train_c.to(device)
@@ -317,8 +276,6 @@ class Moli(nn.Module):
                 ) + self.regression_loss(torch.squeeze(preds), y_train)
 
                 epoch_train_loss += loss.item()
-
-                moli_optimiser.zero_grad()
                 loss.backward()
                 moli_optimiser.step()
             # early stopping
@@ -370,13 +327,6 @@ class Moli(nn.Module):
                             return
             else:
                 print(f"Epoch {epoch+1}/{self.epochs} - Train Loss: {epoch_train_loss/len(train_loader)}")
-
-    def forward_with_features(self, expression, mutation, cna):
-        left_out = self.expression_encoder(expression)
-        middle_out = self.mutation_encoder(mutation)
-        right_out = self.cna_encoder(cna)
-        left_middle_right = torch.cat((left_out, middle_out, right_out), 1)
-        return [self.regressor(left_middle_right), left_middle_right]
 
     def forward(self, expression, mutation, cna):
         if not self.model_initialized:
