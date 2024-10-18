@@ -9,7 +9,6 @@ from io import BytesIO
 import pandas as pd
 from typing import Optional, List, Tuple, Dict
 import torch
-from sklearn.metrics import roc_auc_score
 from torch import nn
 from torch.nn import functional as F
 from torch.utils.data import DataLoader, Dataset
@@ -218,6 +217,7 @@ class Moli(nn.Module):
         self.negative_range = None
 
     def initialize_model(self, x_train_e, x_train_m, x_train_c):
+        torch.cuda.empty_cache()  # If using CUDA
         _, ie_dim = x_train_e.shape
         _, im_dim = x_train_m.shape
         _, ic_dim = x_train_c.shape
@@ -281,6 +281,8 @@ class Moli(nn.Module):
         for epoch in range(self.epochs):
             epoch_train_loss = 0
             for (x_train_e, x_train_m, x_train_c, y_train) in train_loader:
+                if len(y_train) == 1:
+                    continue
                 x_train_e = x_train_e.to(device)
                 x_train_m = x_train_m.to(device)
                 x_train_c = x_train_c.to(device)
@@ -312,7 +314,7 @@ class Moli(nn.Module):
                     z,
                     z[positive_indices],
                     z[negative_indices],
-                ) + self.regression_loss(preds, y_train)
+                ) + self.regression_loss(torch.squeeze(preds), y_train)
 
                 epoch_train_loss += loss.item()
 
@@ -327,6 +329,10 @@ class Moli(nn.Module):
                     self.cna_encoder.eval()
                     self.regressor.eval()
                     for (x_val_e, x_val_m, x_val_c, y_val) in val_loader:
+                        if len(y_val) == 1:
+                            print(
+                                f"Epoch {epoch + 1}/{self.epochs} - Train Loss: {epoch_train_loss / len(train_loader)}")
+                            continue
                         x_val_e = x_val_e.to(device)
                         x_val_m = x_val_m.to(device)
                         x_val_c = x_val_c.to(device)
@@ -348,10 +354,11 @@ class Moli(nn.Module):
                             z,
                             z[positive_indices],
                             z[negative_indices],
-                        ) + self.regression_loss(preds, y_val)
+                        ) + self.regression_loss(torch.squeeze(preds), y_val)
                         epoch_val_loss = epoch_val_loss.item()
-                        print(f"Epoch {epoch + 1}/{self.epochs} - Train Loss: {epoch_train_loss}, "
-                              f"Val Loss: {epoch_val_loss}")
+                        print(f"Epoch {epoch + 1}/{self.epochs} - Train Loss: "
+                              f"{epoch_train_loss/len(train_loader)}, "
+                              f"Val Loss: {epoch_val_loss/len(val_loader)}")
                         if last_val_loss is None:
                             last_val_loss = epoch_val_loss
                         if epoch_val_loss > last_val_loss:
@@ -359,9 +366,10 @@ class Moli(nn.Module):
                         else:
                             patience = 5
                         if patience == 0:
+                            print("Early stopping.")
                             return
             else:
-                print(f"Epoch {epoch+1}/{self.epochs} - Train Loss: {epoch_train_loss}")
+                print(f"Epoch {epoch+1}/{self.epochs} - Train Loss: {epoch_train_loss/len(train_loader)}")
 
     def forward_with_features(self, expression, mutation, cna):
         left_out = self.expression_encoder(expression)

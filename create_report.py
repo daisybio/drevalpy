@@ -274,7 +274,7 @@ if __name__ == "__main__":
     if not os.path.exists(f"results/{run_id}"):
         raise AssertionError(f"Folder results/{run_id} does not exist. The pipeline has to be run first.")
 
-    # PIPELINE: EVALUATE_FINAL, COLLECT_RESULTS
+    # not part of pipeline
     (
         evaluation_results,
         evaluation_results_per_drug,
@@ -282,6 +282,7 @@ if __name__ == "__main__":
         true_vs_pred,
     ) = parse_results(path_to_results=f"results/{run_id}")
 
+    # part of pipeline: EVALUATE_FINAL, COLLECT_RESULTS
     (
         evaluation_results,
         evaluation_results_per_drug,
