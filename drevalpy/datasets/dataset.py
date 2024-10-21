@@ -250,12 +250,12 @@ class DrugResponseDataset(Dataset):
 
     def split_dataset(
         self,
-        n_cv_splits,
-        mode,
-        split_validation=True,
-        split_early_stopping=True,
-        validation_ratio=0.1,
-        random_state=42,
+        n_cv_splits: int,
+        mode: str,
+        split_validation: bool = True,
+        split_early_stopping: bool = True,
+        validation_ratio: float = 0.1,
+        random_state: int = 42,
     ) -> list[dict]:
         """
         Splits the dataset into training, validation and test sets for cross-validation.
