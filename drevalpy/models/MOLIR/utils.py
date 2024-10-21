@@ -48,10 +48,10 @@ class RegressionDataset(Dataset):
 
 
 def generate_triplets_indices(
-y: np.ndarray,
-positive_range: float,
-negative_range: float,
-random_seed: Optional[int] = None,
+            y: np.ndarray,
+            positive_range: float,
+            negative_range: float,
+            random_seed: Optional[int] = None,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Generates triplets for the MOLI model.
@@ -140,43 +140,6 @@ class MOLIEncoder(nn.Module):
     def forward(self, x):
         return self.encode(x)
 
-
-class TripletDataset(Dataset):
-    def __init__(self, triplets: Dict[str, np.ndarray], labels: np.ndarray):
-        """
-        Custom Dataset for PyTorch to handle triplets of features and their corresponding labels.
-
-        Parameters:
-        -----------
-        triplets : Dict[str, np.ndarray]
-            A dictionary containing the triplets for each feature type ('x_gene_expression',
-            'x_mutations', 'x_copy_number_variation_gistic').
-        labels : np.ndarray
-            Corresponding labels for the triplets.
-        """
-        self.x_gene_expression = triplets["x_gene_expression"]
-        self.x_mutations = triplets["x_mutations"]
-        self.x_copy_number_variation_gistic = triplets["x_copy_number_variation_gistic"]
-        self.labels = labels
-
-    def __len__(self):
-        """Returns the total number of samples."""
-        return len(self.labels)
-
-    def __getitem__(self, idx):
-        """Fetches a sample for a given index."""
-        x_e_triplet = self.x_gene_expression[idx]
-        x_m_triplet = self.x_mutations[idx]
-        x_c_triplet = self.x_copy_number_variation_gistic[idx]
-        label = self.labels[idx]
-
-        # Convert to PyTorch tensors
-        return (
-            torch.tensor(x_e_triplet, dtype=torch.float32),
-            torch.tensor(x_m_triplet, dtype=torch.float32),
-            torch.tensor(x_c_triplet, dtype=torch.float32),
-            torch.tensor(label, dtype=torch.float32),
-        )
 
 
 class MOLIRegressor(nn.Module):
