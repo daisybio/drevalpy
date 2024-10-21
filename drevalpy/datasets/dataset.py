@@ -768,7 +768,7 @@ class FeatureDataset(Dataset):
         """Returns a copy of the feature dataset."""
         return FeatureDataset(features=copy.deepcopy(self.features))
 
-    def add_features(self, other: "FeatureDataset") -> None:
+    def _add_features(self, other: "FeatureDataset") -> None:
         """
         Adds features views from another dataset. Inner join (only common identifiers are kept).
 
@@ -855,7 +855,7 @@ class FeatureDataset(Dataset):
             self.features[identifier][view] = scaled_gene_expression
         return transformer
 
-    def apply(self, function: Callable, view: str):
+    def _apply(self, function: Callable, view: str):
         """Applies a function to the features of a view."""
         for identifier in self.features:
             self.features[identifier][view] = function(self.features[identifier][view])

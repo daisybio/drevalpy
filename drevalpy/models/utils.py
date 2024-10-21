@@ -174,7 +174,7 @@ def get_multiomics_feature_dataset(
         dataset_name=dataset_name,
     )
     for fd in [me_dataset, mu_dataset, cnv_dataset]:
-        ge_dataset.add_features(fd)
+        ge_dataset._add_features(fd)
     return ge_dataset
 
 

@@ -63,7 +63,7 @@ class SimpleNeuralNetwork(DRPModel):
         # Apply arcsinh transformation and scaling to gene expression features
         if "gene_expression" in self.cell_line_views:
             cell_line_input = cell_line_input.copy()
-            cell_line_input.apply(function=np.arcsinh, view="gene_expression")
+            cell_line_input._apply(function=np.arcsinh, view="gene_expression")
             self.gene_expression_scaler = cell_line_input.fit_transform_features(
                 train_ids=np.unique(output.cell_line_ids),
                 transformer=self.gene_expression_scaler,
@@ -106,7 +106,7 @@ class SimpleNeuralNetwork(DRPModel):
         # Apply transformation to gene expression features before prediction
         if "gene_expression" in self.cell_line_views:
             cell_line_input = cell_line_input.copy()
-            cell_line_input.apply(function=np.arcsinh, view="gene_expression")
+            cell_line_input._apply(function=np.arcsinh, view="gene_expression")
             cell_line_input.transform_features(
                 ids=np.unique(cell_line_ids),
                 transformer=self.gene_expression_scaler,
