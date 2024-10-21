@@ -404,7 +404,7 @@ class DrugResponseDataset(Dataset):
 
     def mask(self, mask: list[bool]) -> None:
         """
-        Masks the dataset.
+        Removes rows from the dataset based on a boolean mask.
 
         :param mask: boolean mask
         """
