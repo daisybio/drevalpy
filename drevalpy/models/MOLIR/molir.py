@@ -64,7 +64,7 @@ class MOLIR(SingleDrugModel):
             transformer=scaler_gex,
             view="gene_expression",
         )
-        if self.early_stopping and len(output_earlystopping) == 0:
+        if self.early_stopping and len(output_earlystopping) < 2:
             output_earlystopping = None
         first_item = next(iter(cell_line_input.features.values()))
         dim_gex = first_item["gene_expression"].shape[0]

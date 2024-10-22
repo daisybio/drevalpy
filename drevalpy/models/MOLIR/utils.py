@@ -182,6 +182,7 @@ class MOLIModel(pl.LightningModule):
             shuffle=False,
             num_workers=1,
             persistent_workers=True,
+            drop_last=True, # avoids batch norm errors if last batch < batch_size
         )
 
         val_loader = None
@@ -260,7 +261,7 @@ class MOLIModel(pl.LightningModule):
                 gene_expression, mutations, copy_number
             )
             preds = best_model.regressor(z)
-        return preds.cpu().detach().numpy()
+        return preds.squeeze().cpu().detach().numpy()
 
     def encode_and_concatenate(self, gene_expression, mutations, copy_number):
         """
