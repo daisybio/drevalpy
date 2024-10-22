@@ -17,7 +17,7 @@ def download_dataset(
     """
     Download the latets dataset from Zenodo.
 
-    :param dataset: dataset name, e.g., "GDSC1", "GDSC2" or "CCLE"
+    :param dataset: dataset name, e.g., "GDSC1", "GDSC2", "CCLE" or "Toy_Data"
     :param data_path: where to save the data
     :param redownload: whether to redownload the data
     :return:
@@ -30,7 +30,7 @@ def download_dataset(
     if os.path.exists(extracted_folder_path) and not redownload:
         print(f"{dataset_name} is already extracted, skipping download.")
     else:
-        url = "https://zenodo.org/doi/10.5281/zenodo.12633909"
+        url = "https://zenodo.org/doi/10.5281/zenodo.13971080"
         # Fetch the latest record
         response = requests.get(url, timeout=60)
         if response.status_code != 200:
