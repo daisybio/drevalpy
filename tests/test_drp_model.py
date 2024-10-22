@@ -257,7 +257,9 @@ def test_get_multiomics_feature_dataset(gene_list):
         assert np.all(common_cls == ["22Rv1", "CAL-120"])
         assert len(dataset.meta_info) == 4
     if gene_list is None:
-        assert np.all(dataset.meta_info["gene_expression"] == ["TSPAN6", "TNMD", "BRCA1", "SCYL3", "HDAC1", "INSIG1", "FOXO3"])
+        assert np.all(
+            dataset.meta_info["gene_expression"] == ["TSPAN6", "TNMD", "BRCA1", "SCYL3", "HDAC1", "INSIG1", "FOXO3"]
+        )
         for key in dataset.meta_info:
             assert len(dataset.meta_info[key]) == 7
     elif gene_list == "landmark_genes":

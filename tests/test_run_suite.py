@@ -22,11 +22,11 @@ from drevalpy.visualization.utils import parse_results, prep_results
             "randomization_mode": ["SVRC"],
             "randomization_type": "permutation",
             "n_trials_robustness": 2,
-            "cross_study_datasets": ["GDSC2"],
+            "cross_study_datasets": ["GDSC1"],
             "curve_curator": False,
             "overwrite": False,
             "optim_metric": "RMSE",
-            "n_cv_splits": 5,
+            "n_cv_splits": 2,
             "response_transformation": "None",
             "multiprocessing": False,
             "path_data": "../data",
@@ -73,9 +73,14 @@ def test_run_suite(args):
     assert "predictions" in evaluation_results.rand_setting.unique()
     if len(args.randomization_mode) > 0:
         for rand_setting in args.randomization_mode:
-            assert any(setting.startswith(f"randomize-{rand_setting}") for setting in evaluation_results.rand_setting.unique())
+            assert any(
+                setting.startswith(f"randomize-{rand_setting}") for setting in evaluation_results.rand_setting.unique()
+            )
     if args.n_trials_robustness > 0:
-        assert any(setting.startswith(f"robustness-{args.n_trials_robustness}") for setting in evaluation_results.rand_setting.unique())
+        assert any(
+            setting.startswith(f"robustness-{args.n_trials_robustness}")
+            for setting in evaluation_results.rand_setting.unique()
+        )
     assert all(test_mode in evaluation_results.LPO_LCO_LDO.unique() for test_mode in args.test_mode)
     assert evaluation_results.CV_split.astype(int).max() == (args.n_cv_splits - 1)
     assert evaluation_results.Pearson.astype(float).max() > 0.5

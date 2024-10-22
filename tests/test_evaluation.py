@@ -5,13 +5,7 @@ from flaky import flaky
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 from drevalpy.datasets.dataset import DrugResponseDataset
-from drevalpy.evaluation import (
-    evaluate,
-    kendall,
-    partial_correlation,
-    pearson,
-    spearman,
-)
+from drevalpy.evaluation import evaluate, kendall, partial_correlation, pearson, spearman
 
 
 def test_evaluate():

@@ -227,14 +227,10 @@ def test_split_response_dataset(mode, split_validation):
                     "validation_es",
                     "early_stopping",
                 ]:
-                    validation_pairs = set(
-                        zip(
-                            split[val_es].cell_line_ids,
-                            split[val_es].drug_ids,
-                            strict=True,
-                        )
-                    )
-                    assert validation_pairs.isdisjoint(test_pairs)  # Check for disjointness between validation and test pairs
+                    validation_pairs = set(zip(split[val_es].cell_line_ids, split[val_es].drug_ids, strict=True))
+                    assert validation_pairs.isdisjoint(
+                        test_pairs
+                    )  # Check for disjointness between validation and test pairs
 
     tempdir = tempfile.TemporaryDirectory()
     dataset.save_splits(path=tempdir.name)

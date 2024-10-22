@@ -22,18 +22,9 @@ __all__ = [
 ]
 
 from .baselines.multi_omics_random_forest import MultiOmicsRandomForest
-from .baselines.naive_pred import (
-    NaiveCellLineMeanPredictor,
-    NaiveDrugMeanPredictor,
-    NaivePredictor,
-)
+from .baselines.naive_pred import NaiveCellLineMeanPredictor, NaiveDrugMeanPredictor, NaivePredictor
 from .baselines.singledrug_random_forest import SingleDrugRandomForest
-from .baselines.sklearn_models import (
-    ElasticNetModel,
-    GradientBoosting,
-    RandomForest,
-    SVMRegressor,
-)
+from .baselines.sklearn_models import ElasticNetModel, GradientBoosting, RandomForest, SVMRegressor
 from .simple_neural_network.multiomics_neural_network import MultiOmicsNeuralNetwork
 from .simple_neural_network.simple_neural_network import SimpleNeuralNetwork
 from .SRMF.srmf import SRMF

@@ -5,10 +5,7 @@ from scipy.spatial.distance import jaccard
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models.drp_model import DRPModel
-from drevalpy.models.utils import (
-    load_and_reduce_gene_features,
-    load_drug_fingerprint_features,
-)
+from drevalpy.models.utils import load_and_reduce_gene_features, load_drug_fingerprint_features
 
 
 class SRMF(DRPModel):

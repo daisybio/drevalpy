@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 
 from drevalpy.datasets.dataset import FeatureDataset
+from drevalpy.datasets.utils import download_dataset
 
 
 def load_cl_ids_from_csv(path: str, dataset_name: str) -> FeatureDataset:
@@ -44,6 +45,7 @@ def load_and_reduce_gene_features(
     if dataset_name == "Toy_Data":
         cl_features = load_toy_features(data_path, "cell_line")
         dataset_name = "GDSC1"
+        download_dataset(dataset_name=dataset_name, data_path=data_path, redownload=False)
     else:
         ge = pd.read_csv(f"{data_path}/{dataset_name}/{feature_type}.csv", index_col=0)
         cl_features = FeatureDataset(
@@ -71,7 +73,8 @@ def load_and_reduce_gene_features(
             )
         else:
             raise ValueError(
-                f"The following genes are missing from the dataset {dataset_name} for {feature_type}: " f"{', '.join(missing_genes_list)}"
+                f"The following genes are missing from the dataset {dataset_name} for {feature_type}: "
+                f"{', '.join(missing_genes_list)}"
             )
 
     # Only proceed with genes that are available
@@ -126,7 +129,9 @@ def load_drug_fingerprint_features(data_path: str, dataset_name: str) -> Feature
         f"{data_path}/{dataset_name}/drug_fingerprints/" "drug_name_to_demorgan_128_map.csv",
         index_col=0,
     ).T
-    return FeatureDataset(features={drug: {"fingerprints": fingerprints.loc[drug].values} for drug in fingerprints.index})
+    return FeatureDataset(
+        features={drug: {"fingerprints": fingerprints.loc[drug].values} for drug in fingerprints.index}
+    )
 
 
 def get_multiomics_feature_dataset(
@@ -169,7 +174,7 @@ def get_multiomics_feature_dataset(
         dataset_name=dataset_name,
     )
     for fd in [me_dataset, mu_dataset, cnv_dataset]:
-        ge_dataset.add_features(fd)
+        ge_dataset._add_features(fd)
     return ge_dataset
 
 

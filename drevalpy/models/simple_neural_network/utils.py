@@ -37,9 +37,7 @@ class RegressionDataset(Dataset):
         self.drug_input = drug_input
         for cl_view in self.cell_line_views:
             if cl_view not in cell_line_input.view_names:
-                raise AssertionError(
-                    f"Cell line view {cl_view} not found in cell line input"
-                )
+                raise AssertionError(f"Cell line view {cl_view} not found in cell line input")
         for d_view in self.drug_views:
             if d_view not in drug_input.view_names:
                 raise AssertionError(f"Drug view {d_view} not found in drug input")
@@ -67,13 +65,9 @@ class RegressionDataset(Dataset):
             if drug_features is None:
                 drug_features = self.drug_input.features[drug_id][d_view]
             else:
-                drug_features = np.concatenate(
-                    (drug_features, self.drug_input.features[drug_id][d_view])
-                )
+                drug_features = np.concatenate((drug_features, self.drug_input.features[drug_id][d_view]))
         if not isinstance(cell_line_features, np.ndarray):
-            raise TypeError(
-                f"Cell line features for {cell_line_id} are not numpy array"
-            )
+            raise TypeError(f"Cell line features for {cell_line_id} are not numpy array")
         if not isinstance(drug_features, np.ndarray):
             raise TypeError(f"Drug features for {drug_id} are not numpy array")
         data = np.concatenate((cell_line_features, drug_features))
@@ -156,7 +150,7 @@ class FeedForwardNetwork(pl.LightningModule):
             shuffle=True,
             num_workers=num_workers,
             persistent_workers=True,
-            drop_last=True,  # to avoid batch norm errors, if last batch is smaller than batch_size, it is not processed
+            drop_last=True # to avoid batch norm errors, if last batch is smaller than batch_size, it is not processed
         )
 
         val_loader = None
@@ -180,9 +174,7 @@ class FeedForwardNetwork(pl.LightningModule):
         # Train the model
         monitor = "train_loss" if (val_loader is None) else "val_loss"
 
-        early_stop_callback = EarlyStopping(
-            monitor=monitor, mode="min", patience=patience
-        )
+        early_stop_callback = EarlyStopping(monitor=monitor, mode="min", patience=patience)
         name = "version-" + "".join(
             [random.choice("0123456789abcdef") for i in range(20)]
         )  # preventing conflicts of filenames
@@ -194,9 +186,7 @@ class FeedForwardNetwork(pl.LightningModule):
             filename=name,
         )
 
-        progress_bar = TQDMProgressBar(
-            refresh_rate=trainer_params["progress_bar_refresh_rate"]
-        )
+        progress_bar = TQDMProgressBar(refresh_rate=trainer_params["progress_bar_refresh_rate"])
         trainer_params_copy = trainer_params.copy()
         del trainer_params_copy["progress_bar_refresh_rate"]
 
@@ -210,9 +200,7 @@ class FeedForwardNetwork(pl.LightningModule):
                 self.checkpoint_callback,
                 progress_bar,
             ],
-            default_root_dir=os.path.join(
-                os.getcwd(), "nn_baseline_checkpoints/lightning_logs/" + name
-            ),
+            default_root_dir=os.path.join(os.getcwd(), "nn_baseline_checkpoints/lightning_logs/" + name),
             **trainer_params_copy,
         )
         if val_loader is None:
@@ -251,15 +239,11 @@ class FeedForwardNetwork(pl.LightningModule):
         :return:
         """
         n_features = x.size(1)
-        self.fully_connected_layers.append(
-            nn.Linear(n_features, self.n_units_per_layer[0])
-        )
+        self.fully_connected_layers.append(nn.Linear(n_features, self.n_units_per_layer[0]))
         self.batch_norm_layers.append(nn.BatchNorm1d(self.n_units_per_layer[0]))
 
         for i in range(1, len(self.n_units_per_layer)):
-            self.fully_connected_layers.append(
-                nn.Linear(self.n_units_per_layer[i - 1], self.n_units_per_layer[i])
-            )
+            self.fully_connected_layers.append(nn.Linear(self.n_units_per_layer[i - 1], self.n_units_per_layer[i]))
             self.batch_norm_layers.append(nn.BatchNorm1d(self.n_units_per_layer[i]))
 
         self.fully_connected_layers.append(nn.Linear(self.n_units_per_layer[-1], 1))

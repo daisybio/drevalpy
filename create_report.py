@@ -11,13 +11,7 @@ from drevalpy.visualization import (
     RegressionSliderPlot,
     Violin,
 )
-from drevalpy.visualization.utils import (
-    create_html,
-    create_index_html,
-    parse_results,
-    prep_results,
-    write_results,
-)
+from drevalpy.visualization.utils import create_html, create_index_html, parse_results, prep_results, write_results
 
 
 def create_output_directories(custom_id):
@@ -344,12 +338,7 @@ if __name__ == "__main__":
         all_files = []
         for _, _, files in os.walk(f"results/{run_id}"):
             for file in files:
-                if file.endswith(".html") and file not in [
-                    "index.html",
-                    "LPO.html",
-                    "LCO.html",
-                    "LDO.html",
-                ]:
+                if file.endswith(".html") and file not in ["index.html", "LPO.html", "LCO.html", "LDO.html"]:
                     all_files.append(file)
         # PIPELINE: WRITE_HTML
         create_html(

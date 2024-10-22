@@ -54,7 +54,13 @@ class Violin(VioHeat):
                     args=[
                         {
                             "visible": [False] * self.count_r2
-                            + [True] * (self.count_pearson + self.count_spearman + self.count_kendall + self.count_partial_correlation)
+                            + [True]
+                            * (
+                                self.count_pearson
+                                + self.count_spearman
+                                + self.count_kendall
+                                + self.count_partial_correlation
+                            )
                             + [False] * (self.count_mse + self.count_rmse + self.count_mae)
                         },
                         {"title": "All Correlations"},

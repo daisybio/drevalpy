@@ -77,7 +77,9 @@ class Heatmap(VioHeat):
             colorscale = "Blues"
         elif plot_setting == "correlations":
             corr_columns = [
-                col for col in self.df.columns if "Pearson" in col or "Spearman" in col or "Kendall" in col or "Partial_Correlation" in col
+                col
+                for col in self.df.columns
+                if "Pearson" in col or "Spearman" in col or "Kendall" in col or "Partial_Correlation" in col
             ]
             corr_columns.sort()
             dt = self.df[corr_columns]
