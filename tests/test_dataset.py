@@ -442,7 +442,7 @@ def test_feature_dataset_save_and_load(sample_dataset):
 
 
 def test_add_features(sample_dataset, graph_dataset):
-    sample_dataset.add_features(graph_dataset)
+    sample_dataset._add_features(graph_dataset)
     assert "molecular_graph" in sample_dataset.meta_info
     assert "molecular_graph" in sample_dataset.get_view_names()
 

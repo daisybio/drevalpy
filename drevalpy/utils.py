@@ -2,9 +2,10 @@
 
 import argparse
 
+from drevalpy.datasets import AVAILABLE_DATASETS
 from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
 
-from drevalpy.datasets import RESPONSE_DATASET_FACTORY
+from drevalpy.datasets.loader import load_dataset
 from drevalpy.evaluation import AVAILABLE_METRICS
 from drevalpy.experiment import drug_response_experiment
 from drevalpy.models import MODEL_FACTORY
@@ -182,20 +183,20 @@ def check_arguments(args):
                 f"the MODEL_FACTORY in the models init"
             )
 
-    if args.dataset_name not in RESPONSE_DATASET_FACTORY:
+    if args.dataset_name not in AVAILABLE_DATASETS:
         raise AssertionError(
-            f"Invalid dataset name. Available datasets are {list(RESPONSE_DATASET_FACTORY.keys())} "
-            f"If you want to use your own dataset, you need to implement a new response dataset class "
-            f"and add it to the RESPONSE_DATASET_FACTORY in the response_datasets init"
+            f"Invalid dataset name. Available datasets are {list(AVAILABLE_DATASETS.keys())} "
+            f"If you want to use your own dataset, you need to implement a new response dataset loader "
+            f"and add it to the AVAILABLE_DATASETS in the response_datasets init"
         )
 
     for dataset in args.cross_study_datasets:
-        if dataset not in RESPONSE_DATASET_FACTORY:
+        if dataset not in AVAILABLE_DATASETS:
             raise AssertionError(
                 f"Invalid dataset name in cross_study_datasets. Available datasets are "
-                f"{list(RESPONSE_DATASET_FACTORY.keys())} If you want to use your own dataset, you "
-                f"need to implement a new response dataset class and add it to the "
-                f"RESPONSE_DATASET_FACTORY in the response_datasets init"
+                f"{list(AVAILABLE_DATASETS.keys())} If you want to use your own dataset, you "
+                f"need to implement a new response dataset loader and add it to the "
+                f"AVAILABLE_DATASETS in the response_datasets init."
             )
 
     if args.n_cv_splits <= 1:
@@ -226,7 +227,7 @@ def main(args):
     check_arguments(args)
 
     # PIPELINE: LOAD_RESPONSE
-    response_data, cross_study_datasets = load_data(
+    response_data, cross_study_datasets = get_datasets(
         dataset_name=args.dataset_name,
         cross_study_datasets=args.cross_study_datasets,
         path_data=args.path_data,
@@ -265,7 +266,7 @@ def main(args):
         )
 
 
-def load_data(dataset_name: str, cross_study_datasets: list, path_data: str = "data"):
+def get_datasets(dataset_name: str, cross_study_datasets: list, path_data: str = "data"):
     """
     Load the response data and cross-study datasets.
     :param dataset_name:
@@ -274,9 +275,9 @@ def load_data(dataset_name: str, cross_study_datasets: list, path_data: str = "d
     :return:
     """
     # PIPELINE: LOAD_RESPONSE
-    response_data = RESPONSE_DATASET_FACTORY[dataset_name](path_data=path_data)
+    response_data = load_dataset(dataset_name=dataset_name, path_data=path_data)
 
-    cross_study_datasets = [RESPONSE_DATASET_FACTORY[dataset](path_data=path_data) for dataset in cross_study_datasets]
+    cross_study_datasets = [load_dataset(dataset_name=dn, path_data=path_data) for dn in cross_study_datasets]
     return response_data, cross_study_datasets
 
 

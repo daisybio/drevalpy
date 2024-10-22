@@ -24,7 +24,7 @@ def download_dataset(
     """
     file_name = f"{dataset_name}.zip"
     file_path = os.path.join(data_path, file_name)
-    extracted_folder_path = os.path.join(data_path, dataset_name) 
+    extracted_folder_path = os.path.join(data_path, dataset_name)
 
     # Check if the extracted data exists and skip download if not redownloading
     if os.path.exists(extracted_folder_path) and not redownload:
