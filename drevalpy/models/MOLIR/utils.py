@@ -4,19 +4,17 @@ Original authors: Sharifi-Noghabi et al. (2019, 10.1093/bioinformatics/btz318)
 Code adapted from: Hauptmann et al. (2023, 10.1186/s12859-023-05166-7), https://github.com/kramerlab/Multi-Omics_analysis
 """
 
-import subprocess
-from io import BytesIO
-import pandas as pd
-from typing import Optional, List, Tuple, Dict
+import os
+from typing import Optional, Tuple
 import torch
 from torch import nn
-from torch.nn import functional as F
 from torch.utils.data import DataLoader, Dataset
+import pytorch_lightning as pl
+from pytorch_lightning.callbacks import EarlyStopping, TQDMProgressBar
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 import random
 import numpy as np
-from itertools import combinations
 
 
 class RegressionDataset(Dataset):
@@ -36,9 +34,15 @@ class RegressionDataset(Dataset):
         response = self.output.response[idx].astype(np.float32)
 
         cell_line_id = self.output.cell_line_ids[idx]
-        gene_expression = self.cell_line_input.features[cell_line_id]["gene_expression"].astype(np.float32)
-        mutations = self.cell_line_input.features[cell_line_id]["mutations"].astype(np.float32)
-        copy_number = self.cell_line_input.features[cell_line_id]["copy_number_variation_gistic"].astype(np.float32)
+        gene_expression = self.cell_line_input.features[cell_line_id][
+            "gene_expression"
+        ].astype(np.float32)
+        mutations = self.cell_line_input.features[cell_line_id]["mutations"].astype(
+            np.float32
+        )
+        copy_number = self.cell_line_input.features[cell_line_id][
+            "copy_number_variation_gistic"
+        ].astype(np.float32)
 
         return gene_expression, mutations, copy_number, response
 
@@ -48,10 +52,10 @@ class RegressionDataset(Dataset):
 
 
 def generate_triplets_indices(
-y: np.ndarray,
-positive_range: float,
-negative_range: float,
-random_seed: Optional[int] = None,
+    y: np.ndarray,
+    positive_range: float,
+    negative_range: float,
+    random_seed: Optional[int] = None,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Generates triplets for the MOLI model.
@@ -64,11 +68,11 @@ random_seed: Optional[int] = None,
     # Iterate over each label in the dataset
     for idx_current_label, current_label in enumerate(y):
         positive_class_indices = get_positive_class_indices(
-          current_label, idx_current_label, y, positive_range
+            current_label, idx_current_label, y, positive_range
         )
         positive_sample_idx = np.random.choice(positive_class_indices, 1)[0]
         negative_class_indices = get_negative_class_indices(
-          current_label, y, negative_range
+            current_label, y, negative_range
         )
         negative_sample_idx = np.random.choice(negative_class_indices, 1)[0]
         positive_sample_indices.append(positive_sample_idx)
@@ -83,9 +87,9 @@ def get_positive_class_indices(
     indices_similar_samples = np.where(
         np.logical_and(label - positive_range <= y, y <= label + positive_range)
     )[0]
-    indices_similar_samples = np.delete(indices_similar_samples,
-                                        np.where(indices_similar_samples == idx_label)
-                                        )
+    indices_similar_samples = np.delete(
+        indices_similar_samples, np.where(indices_similar_samples == idx_label)
+    )
     if len(indices_similar_samples) == 0:
         # return the closest samples to the label except the label itself
         indices_similar_samples = np.array([np.argsort(np.abs(y - label))[1]])
@@ -102,29 +106,6 @@ def get_negative_class_indices(
         # return the sample that is the furthest away from the label
         dissimilar_samples = np.argsort(np.abs(y - label))[-1:]
     return dissimilar_samples
-
-
-def generate_anchor_positive_pairs(
-    positive_class_indices: np.ndarray, num_pairs: int
-) -> List[Tuple[int, int]]:
-    if len(positive_class_indices) <= 1:
-        raise ValueError("Not enough positive samples to generate pairs.")
-    if len(positive_class_indices) <= 15:
-        return list(combinations(positive_class_indices, 2))
-    else:
-        sampled_indices = random.sample(list(positive_class_indices), k=15)
-        return random.sample(list(combinations(sampled_indices, 2)), k=num_pairs)
-
-
-def generate_negative_samples(
-    negative_class_indices: np.ndarray, num_samples: int
-) -> List[int]:
-    if len(negative_class_indices) <= 1:
-        raise ValueError("Not enough negative samples to generate pairs.")
-    if len(negative_class_indices) <= 15:
-        return list(negative_class_indices)
-    else:
-        return random.sample(list(negative_class_indices), k=num_samples)
 
 
 class MOLIEncoder(nn.Module):
@@ -152,9 +133,11 @@ class MOLIRegressor(nn.Module):
         return self.regressor(x)
 
 
-class Moli(nn.Module):
-    def __init__(self, hpams):
-        super().__init__()
+class MOLIModel(pl.LightningModule):
+    def __init__(self, hpams, input_dim_expr, input_dim_mut, input_dim_cnv):
+        super(MOLIModel, self).__init__()
+        self.save_hyperparameters()
+
         self.mini_batch = hpams["mini_batch"]
         self.h_dim1 = hpams["h_dim1"]
         self.h_dim2 = hpams["h_dim2"]
@@ -165,25 +148,21 @@ class Moli(nn.Module):
         self.gamma = hpams["gamma"]
         self.epochs = hpams["epochs"]
         self.triplet_loss = torch.nn.TripletMarginLoss(margin=hpams["margin"], p=2)
-        self.regression_loss = nn.MSELoss()
-        self.model_initialized = False
-        self.expression_encoder = None
-        self.mutation_encoder = None
-        self.cna_encoder = None
-        self.regressor = None
+        self.regression_loss = torch.nn.MSELoss()
+        # Positive and Negative range for triplet loss
         self.positive_range = None
         self.negative_range = None
 
-    def initialize_model(self, x_train_e, x_train_m, x_train_c):
-        torch.cuda.empty_cache()  # If using CUDA
-        _, ie_dim = x_train_e.shape
-        _, im_dim = x_train_m.shape
-        _, ic_dim = x_train_c.shape
-        self.expression_encoder = MOLIEncoder(ie_dim, self.h_dim1, self.dropout_rate)
-        self.mutation_encoder = MOLIEncoder(im_dim, self.h_dim2, self.dropout_rate)
-        self.cna_encoder = MOLIEncoder(ic_dim, self.h_dim3, self.dropout_rate)
-        self.regressor = MOLIRegressor(self.h_dim1 + self.h_dim2 + self.h_dim3, self.dropout_rate)
-        self.model_initialized = True
+        self.expression_encoder = MOLIEncoder(
+            input_dim_expr, self.h_dim1, self.dropout_rate
+        )
+        self.mutation_encoder = MOLIEncoder(
+            input_dim_mut, self.h_dim2, self.dropout_rate
+        )
+        self.cna_encoder = MOLIEncoder(input_dim_cnv, self.h_dim3, self.dropout_rate)
+        self.regressor = MOLIRegressor(
+            self.h_dim1 + self.h_dim2 + self.h_dim3, self.dropout_rate
+        )
 
     def fit(
         self,
@@ -192,16 +171,11 @@ class Moli(nn.Module):
         output_earlystopping: Optional[DrugResponseDataset] = None,
         patience: int = 5,
     ):
-        device = create_device(gpu_number=None)
-
         self.positive_range = np.std(output_train.response) * 0.1
         self.negative_range = np.std(output_train.response)
-        train_dataset = RegressionDataset(
-            output=output_train,
-            cell_line_input=cell_line_input
-        )
 
-        # Create the DataLoader
+        # Create datasets and dataloaders
+        train_dataset = RegressionDataset(output_train, cell_line_input)
         train_loader = DataLoader(
             train_dataset,
             batch_size=self.mini_batch,
@@ -224,9 +198,130 @@ class Moli(nn.Module):
                 persistent_workers=True,
             )
 
-        self.force_initialize(train_loader)
+        # Train the model
+        monitor = "train_loss" if (val_loader is None) else "val_loss"
 
-        moli_optimiser = torch.optim.Adagrad(
+        early_stop_callback = EarlyStopping(
+            monitor=monitor, mode="min", patience=patience
+        )
+        name = "version-" + "".join(
+            [random.choice("0123456789abcdef") for i in range(20)]
+        )  # preventing conflicts of filenames
+        self.checkpoint_callback = pl.callbacks.ModelCheckpoint(
+            dirpath=None,
+            monitor=monitor,
+            mode="min",
+            save_top_k=1,
+            filename=name,
+        )
+
+        # Initialize the Lightning trainer
+        trainer = pl.Trainer(
+            max_epochs=self.epochs,
+            callbacks=[
+                early_stop_callback,
+                self.checkpoint_callback,
+                TQDMProgressBar(),
+            ],
+            default_root_dir=os.path.join(
+                os.getcwd(), "moli_checkpoints/lightning_logs/" + name
+            ),
+        )
+        if val_loader is None:
+            trainer.fit(self, train_loader)
+        else:
+            trainer.fit(self, train_loader, val_loader)
+
+    def predict(
+        self,
+        gene_expression: np.ndarray,
+        mutations: np.ndarray,
+        copy_number: np.ndarray,
+    ):
+        """
+        Perform prediction on given input data.
+        """
+        # load best model
+        if self.checkpoint_callback.best_model_path:
+            best_model = MOLIModel.load_from_checkpoint(
+                self.checkpoint_callback.best_model_path
+            )
+        else:
+            best_model = self
+        # convert to torch tensors
+        gene_expression = (
+            torch.from_numpy(gene_expression).float().to(best_model.device)
+        )
+        mutations = torch.from_numpy(mutations).float().to(best_model.device)
+        copy_number = torch.from_numpy(copy_number).float().to(best_model.device)
+        best_model.eval()
+        with torch.no_grad():
+            z = best_model.encode_and_concatenate(
+                gene_expression, mutations, copy_number
+            )
+            preds = best_model.regressor(z)
+        return preds.cpu().detach().numpy()
+
+    def encode_and_concatenate(self, gene_expression, mutations, copy_number):
+        """
+        Encodes the input modalities (gene expression, mutations, and copy number)
+        and concatenates the resulting embeddings.
+        """
+        z_ex = self.expression_encoder(gene_expression)
+        z_mu = self.mutation_encoder(mutations)
+        z_cn = self.cna_encoder(copy_number)
+
+        z = torch.cat((z_ex, z_mu, z_cn), dim=1)
+        z = torch.nn.functional.normalize(z, p=2, dim=0)
+        return z
+
+    def forward(self, x_gene, x_mutation, x_cna):
+        z = self.encode_and_concatenate(x_gene, x_mutation, x_cna)
+        preds = self.regressor(z)
+        return preds
+
+    def compute_loss(self, z, preds, y):
+        """
+        Computes the combined triplet loss and regression loss.
+        """
+        positive_indices, negative_indices = generate_triplets_indices(
+            y.cpu().detach().numpy(), self.positive_range, self.negative_range
+        )
+
+        triplet_loss = self.triplet_loss(z, z[positive_indices], z[negative_indices])
+        regression_loss = self.regression_loss(preds.squeeze(), y)
+        return triplet_loss + regression_loss
+
+    def training_step(self, batch, batch_idx):
+        gene_expression, mutations, copy_number, response = batch
+
+        # Encode and concatenate
+        z = self.encode_and_concatenate(gene_expression, mutations, copy_number)
+
+        # Get predictions
+        preds = self.regressor(z)
+
+        # Compute loss
+        loss = self.compute_loss(z, preds, response)
+        self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
+        return loss
+
+    def validation_step(self, batch, batch_idx):
+        gene_expression, mutations, copy_number, response = batch
+
+        # Encode and concatenate
+        z = self.encode_and_concatenate(gene_expression, mutations, copy_number)
+
+        # Get predictions
+        preds = self.regressor(z)
+
+        # Compute loss
+        val_loss = self.compute_loss(z, preds, response)
+        self.log("val_loss", val_loss, on_step=False, on_epoch=True, prog_bar=True)
+        return val_loss
+
+    def configure_optimizers(self):
+        optimizer = torch.optim.Adagrad(
             [
                 {"params": self.expression_encoder.parameters(), "lr": self.lr},
                 {"params": self.mutation_encoder.parameters(), "lr": self.lr},
@@ -235,146 +330,4 @@ class Moli(nn.Module):
             ],
             weight_decay=self.weight_decay,
         )
-        last_val_loss = None
-        for epoch in range(self.epochs):
-            epoch_train_loss = 0
-            for (x_train_e, x_train_m, x_train_c, y_train) in train_loader:
-                if len(y_train) == 1:
-                    continue
-                moli_optimiser.zero_grad()
-                x_train_e = x_train_e.to(device)
-                x_train_m = x_train_m.to(device)
-                x_train_c = x_train_c.to(device)
-                y_train = y_train.to(device)
-                self.expression_encoder = self.expression_encoder.to(device)
-                self.mutation_encoder = self.mutation_encoder.to(device)
-                self.cna_encoder = self.cna_encoder.to(device)
-                self.regressor = self.regressor.to(device)
-
-                self.cna_encoder.train()
-                self.mutation_encoder.train()
-                self.expression_encoder.train()
-                self.regressor.train()
-
-                z_ex = self.expression_encoder(x_train_e)
-                z_mu = self.mutation_encoder(x_train_m)
-                z_cn = self.cna_encoder(x_train_c)
-
-                z = torch.cat((z_ex, z_mu, z_cn), 1)
-                z = F.normalize(z, p=2, dim=0)
-                preds = self.regressor(z)
-
-                positive_indices, negative_indices = generate_triplets_indices(
-                    y=y_train.cpu().detach().numpy(),
-                    positive_range=self.positive_range,
-                    negative_range=self.negative_range,
-                )
-                loss = self.triplet_loss(
-                    z,
-                    z[positive_indices],
-                    z[negative_indices],
-                ) + self.regression_loss(torch.squeeze(preds), y_train)
-
-                epoch_train_loss += loss.item()
-                loss.backward()
-                moli_optimiser.step()
-            # early stopping
-            if val_loader is not None:
-                with torch.no_grad():
-                    self.expression_encoder.eval()
-                    self.mutation_encoder.eval()
-                    self.cna_encoder.eval()
-                    self.regressor.eval()
-                    for (x_val_e, x_val_m, x_val_c, y_val) in val_loader:
-                        if len(y_val) == 1:
-                            print(
-                                f"Epoch {epoch + 1}/{self.epochs} - Train Loss: {epoch_train_loss / len(train_loader)}")
-                            continue
-                        x_val_e = x_val_e.to(device)
-                        x_val_m = x_val_m.to(device)
-                        x_val_c = x_val_c.to(device)
-                        y_val = y_val.to(device)
-
-                        z_ex = self.expression_encoder(x_val_e)
-                        z_mu = self.mutation_encoder(x_val_m)
-                        z_cn = self.cna_encoder(x_val_c)
-                        z = torch.cat((z_ex, z_mu, z_cn), 1)
-                        z = F.normalize(z, p=2, dim=0)
-                        preds = self.regressor(z)
-
-                        positive_indices, negative_indices = generate_triplets_indices(
-                            y=y_val.cpu().detach().numpy(),
-                            positive_range=self.positive_range,
-                            negative_range=self.negative_range,
-                        )
-                        epoch_val_loss = self.triplet_loss(
-                            z,
-                            z[positive_indices],
-                            z[negative_indices],
-                        ) + self.regression_loss(torch.squeeze(preds), y_val)
-                        epoch_val_loss = epoch_val_loss.item()
-                        print(f"Epoch {epoch + 1}/{self.epochs} - Train Loss: "
-                              f"{epoch_train_loss/len(train_loader)}, "
-                              f"Val Loss: {epoch_val_loss/len(val_loader)}")
-                        if last_val_loss is None:
-                            last_val_loss = epoch_val_loss
-                        if epoch_val_loss > last_val_loss:
-                            patience -= 1
-                        else:
-                            patience = 5
-                        if patience == 0:
-                            print("Early stopping.")
-                            return
-            else:
-                print(f"Epoch {epoch+1}/{self.epochs} - Train Loss: {epoch_train_loss/len(train_loader)}")
-
-    def forward(self, expression, mutation, cna):
-        if not self.model_initialized:
-            self.initialize_model(expression, mutation, cna)
-        left_out = self.expression_encoder(expression)
-        middle_out = self.mutation_encoder(mutation)
-        right_out = self.cna_encoder(cna)
-        left_middle_right = torch.cat((left_out, middle_out, right_out), 1)
-        return self.regressor(left_middle_right)
-
-    def force_initialize(self, dataloader):
-        """Force initialize the model by running a dummy forward pass."""
-        for (x_train_e, x_train_m, x_train_c, y_train) in dataloader:
-            self.forward(x_train_e, x_train_m, x_train_c)
-            break
-
-    def predict(self, gene_expression: np.ndarray, mutation: np.ndarray, cnv: np.ndarray):
-        with torch.no_grad():
-            self.expression_encoder.eval()
-            self.mutation_encoder.eval()
-            self.cna_encoder.eval()
-            self.regressor.eval()
-            z_ex = self.expression_encoder(torch.from_numpy(gene_expression.astype(np.float32)))
-            z_mu = self.mutation_encoder(torch.from_numpy(mutation.astype(np.float32)))
-            z_cn = self.cna_encoder(torch.from_numpy(cnv.astype(np.float32)))
-            z = torch.cat((z_ex, z_mu, z_cn), 1)
-            z = F.normalize(z, p=2, dim=0)
-            preds = self.regressor(z)
-        return preds.numpy()
-
-
-
-def create_device(gpu_number):
-    if torch.cuda.is_available():
-        if gpu_number is None:
-            free_gpu_id = get_free_gpu()
-        else:
-            free_gpu_id = gpu_number
-        device = torch.device(f"cuda:{free_gpu_id}")
-    else:
-        device = torch.device("cpu")
-    return device
-
-
-def get_free_gpu():
-    gpu_stats = subprocess.check_output(
-        ["nvidia-smi", "--format=csv", "--query-gpu=memory.free"]
-    )
-    gpu_df = pd.read_csv(BytesIO(gpu_stats), names=["memory.free"], skiprows=1)
-    gpu_df["memory.free"] = gpu_df["memory.free"].map(lambda x: int(x.rstrip(" [MiB]")))
-    return gpu_df["memory.free"].idxmax()
+        return optimizer

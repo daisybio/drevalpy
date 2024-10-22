@@ -12,7 +12,7 @@ from numpy._typing import ArrayLike
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.preprocessing import StandardScaler
 
-from .utils import Moli
+from .utils import MOLIModel
 from ..drp_model import SingleDrugModel
 from ..utils import load_and_reduce_gene_features, load_drug_ids_from_csv
 from ...datasets.dataset import FeatureDataset, DrugResponseDataset
@@ -37,12 +37,13 @@ class MOLIR(SingleDrugModel):
     def __init__(self):
         super().__init__()
         self.model = None
+        self.hyperparameters = None
 
     def build_model(self, hyperparameters: Dict[str, Any]):
         """
         Builds the model from hyperparameters.
         """
-        self.model = Moli(hpams=hyperparameters)
+        self.hyperparameters = hyperparameters
 
     def train(
         self,
@@ -65,6 +66,16 @@ class MOLIR(SingleDrugModel):
         )
         if self.early_stopping and len(output_earlystopping) == 0:
             output_earlystopping = None
+        first_item = next(iter(cell_line_input.features.values()))
+        dim_gex = first_item["gene_expression"].shape[0]
+        dim_mut = first_item["mutations"].shape[0]
+        dim_cnv = first_item["copy_number_variation_gistic"].shape[0]
+        self.model = MOLIModel(
+            hpams=self.hyperparameters,
+            input_dim_expr=dim_gex,
+            input_dim_mut=dim_mut,
+            input_dim_cnv=dim_cnv,
+        )
         self.model.fit(
             output_train=output,
             cell_line_input=cell_line_input,
@@ -89,7 +100,9 @@ class MOLIR(SingleDrugModel):
         cnvs = input_data["copy_number_variation_gistic"]
         return self.model.predict(gene_expression, mutations, cnvs)
 
-    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+    def load_cell_line_features(
+        self, data_path: str, dataset_name: str
+    ) -> FeatureDataset:
         all_data = load_and_reduce_gene_features(
             feature_type="gene_expression",
             gene_list=None,
