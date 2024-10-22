@@ -250,12 +250,12 @@ class DrugResponseDataset(Dataset):
 
     def split_dataset(
         self,
-        n_cv_splits,
-        mode,
-        split_validation=True,
-        split_early_stopping=True,
-        validation_ratio=0.1,
-        random_state=42,
+        n_cv_splits: int,
+        mode: str,
+        split_validation: bool = True,
+        split_early_stopping: bool = True,
+        validation_ratio: float = 0.1,
+        random_state: int = 42,
     ) -> list[dict]:
         """
         Splits the dataset into training, validation and test sets for cross-validation.
@@ -274,7 +274,7 @@ class DrugResponseDataset(Dataset):
         response = self.response
 
         if mode == "LPO":
-            cv_splits = leave_pair_out_cv(
+            cv_splits = _leave_pair_out_cv(
                 n_cv_splits,
                 response,
                 cell_line_ids,
@@ -287,7 +287,7 @@ class DrugResponseDataset(Dataset):
 
         elif mode in ["LCO", "LDO"]:
             group = "cell_line" if mode == "LCO" else "drug"
-            cv_splits = leave_group_out_cv(
+            cv_splits = _leave_group_out_cv(
                 group=group,
                 n_cv_splits=n_cv_splits,
                 response=response,
@@ -303,7 +303,7 @@ class DrugResponseDataset(Dataset):
 
         if split_validation and split_early_stopping:
             for split in cv_splits:
-                validation_es, early_stopping = split_early_stopping_data(split["validation"], test_mode=mode)
+                validation_es, early_stopping = _split_early_stopping_data(split["validation"], test_mode=mode)
                 split["validation_es"] = validation_es
                 split["early_stopping"] = early_stopping
         self.cv_splits = cv_splits
@@ -404,7 +404,7 @@ class DrugResponseDataset(Dataset):
 
     def mask(self, mask: list[bool]) -> None:
         """
-        Masks the dataset.
+        Removes rows from the dataset based on a boolean mask.
 
         :param mask: boolean mask
         """
@@ -444,7 +444,7 @@ class DrugResponseDataset(Dataset):
             self.predictions = response_transformation.inverse_transform(self.predictions.reshape(-1, 1)).squeeze()
 
 
-def split_early_stopping_data(
+def _split_early_stopping_data(
     validation_dataset: DrugResponseDataset, test_mode: str
 ) -> tuple[DrugResponseDataset, DrugResponseDataset]:
     """
@@ -468,7 +468,7 @@ def split_early_stopping_data(
     return validation_dataset, early_stopping_dataset
 
 
-def leave_pair_out_cv(
+def _leave_pair_out_cv(
     n_cv_splits: int,
     response: ArrayLike,
     cell_line_ids: ArrayLike,
@@ -543,7 +543,7 @@ def leave_pair_out_cv(
     return cv_sets
 
 
-def leave_group_out_cv(
+def _leave_group_out_cv(
     group: str,
     n_cv_splits: int,
     response: ArrayLike,
@@ -768,7 +768,7 @@ class FeatureDataset(Dataset):
         """Returns a copy of the feature dataset."""
         return FeatureDataset(features=copy.deepcopy(self.features))
 
-    def add_features(self, other: "FeatureDataset") -> None:
+    def _add_features(self, other: "FeatureDataset") -> None:
         """
         Adds features views from another dataset. Inner join (only common identifiers are kept).
 
@@ -855,7 +855,7 @@ class FeatureDataset(Dataset):
             self.features[identifier][view] = scaled_gene_expression
         return transformer
 
-    def apply(self, function: Callable, view: str):
+    def _apply(self, function: Callable, view: str):
         """Applies a function to the features of a view."""
         for identifier in self.features:
             self.features[identifier][view] = function(self.features[identifier][view])
