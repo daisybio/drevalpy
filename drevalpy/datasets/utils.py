@@ -60,7 +60,7 @@ def download_dataset(
         with zipfile.ZipFile(file_path, "r") as z:
             for member in z.infolist():
                 if not member.filename.startswith("__MACOSX/"):
-                    z.extract(member, data_path)
+                    z.extract(member, extracted_folder_path)
         os.remove(file_path)  # Remove zip file after extraction
 
         print(f"{dataset_name} data downloaded and extracted to {data_path}")
