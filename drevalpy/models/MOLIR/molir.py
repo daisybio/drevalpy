@@ -13,7 +13,7 @@ from sklearn.preprocessing import StandardScaler
 
 from .utils import MOLIModel, get_dimensions_of_omics_data
 from ..drp_model import SingleDrugModel
-from ..utils import load_and_reduce_gene_features, load_drug_ids_from_csv
+from ..utils import load_and_reduce_gene_features
 from ...datasets.dataset import FeatureDataset, DrugResponseDataset
 
 
@@ -33,12 +33,12 @@ class MOLIR(SingleDrugModel):
     early_stopping = True
     model_name = "MOLIR"
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.model = None
         self.hyperparameters = None
 
-    def build_model(self, hyperparameters: Dict[str, Any]):
+    def build_model(self, hyperparameters: Dict[str, Any]) -> None:
         """
         Builds the model from hyperparameters.
         """
@@ -52,13 +52,13 @@ class MOLIR(SingleDrugModel):
         output_earlystopping: Optional[DrugResponseDataset] = None,
     ) -> None:
         selector_gex = VarianceThreshold(0.05)
-        selector_gex = cell_line_input.fit_transform_features(
+        cell_line_input.fit_transform_features(
             train_ids=np.unique(output.cell_line_ids),
             transformer=selector_gex,
             view="gene_expression",
         )
         scaler_gex = StandardScaler()
-        scaler_gex = cell_line_input.fit_transform_features(
+        cell_line_input.fit_transform_features(
             train_ids=np.unique(output.cell_line_ids),
             transformer=scaler_gex,
             view="gene_expression",
@@ -96,9 +96,7 @@ class MOLIR(SingleDrugModel):
         cnvs = input_data["copy_number_variation_gistic"]
         return self.model.predict(gene_expression, mutations, cnvs)
 
-    def load_cell_line_features(
-        self, data_path: str, dataset_name: str
-    ) -> FeatureDataset:
+    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         all_data = load_and_reduce_gene_features(
             feature_type="gene_expression",
             gene_list=None,

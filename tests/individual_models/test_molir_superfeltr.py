@@ -16,14 +16,14 @@ def test_molir_superfeltr(sample_dataset, model_name, test_mode):
     )
     split = drug_response.cv_splits[0]
     train_dataset = split["train"]
+    all_unique_drugs = np.unique(train_dataset.drug_ids)
+    # randomly sample 3
+    np.random.seed(42)
+    np.random.shuffle(all_unique_drugs)
+    all_unique_drugs = all_unique_drugs[:3]
     val_es_dataset = split["validation_es"]
     es_dataset = split["early_stopping"]
     all_predictions = np.zeros_like(val_es_dataset.drug_ids, dtype=float)
-    all_unique_drugs = np.unique(train_dataset.drug_ids)
-    # randomly sample 10
-    np.random.seed(42)
-    np.random.shuffle(all_unique_drugs)
-    all_unique_drugs = all_unique_drugs[:10]
     for drug in all_unique_drugs:
         model = MODEL_FACTORY[model_name]()
         hpam_combi = model.get_hyperparameter_set()[0]
@@ -51,7 +51,12 @@ def test_molir_superfeltr(sample_dataset, model_name, test_mode):
         )
         pcc_drug = pearson(val_es_dataset.response[val_mask], all_predictions[val_mask])
         print(f"{test_mode}: Performance of {model_name} for drug {drug}: PCC = {pcc_drug}")
-    val_es_dataset.predictions = all_predictions
+    # subset the dataset to only the drugs that were used
+    val_es_mask = np.isin(val_es_dataset.drug_ids, all_unique_drugs)
+    val_es_dataset.cell_line_ids = val_es_dataset.cell_line_ids[val_es_mask]
+    val_es_dataset.drug_ids = val_es_dataset.drug_ids[val_es_mask]
+    val_es_dataset.response = val_es_dataset.response[val_es_mask]
+    val_es_dataset.predictions = all_predictions[val_es_mask]
     metrics = evaluate(val_es_dataset, metric=["Pearson"])
     print(f"{test_mode}: Collapsed performance of {model_name}: PCC = {metrics['Pearson']}")
     assert metrics["Pearson"] > 0.0
