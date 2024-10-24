@@ -7,8 +7,8 @@ from .utils import call_save_and_load, sample_dataset
 
 
 @pytest.mark.parametrize("test_mode", ["LCO"])
-@pytest.mark.parametrize("model_name", ["MOLIR"])
-def test_molir(sample_dataset, model_name, test_mode):
+@pytest.mark.parametrize("model_name", ["MOLIR", "SuperFELTR"])
+def test_molir_superfeltr(sample_dataset, model_name, test_mode):
     drug_response, cell_line_input, drug_input = sample_dataset
     drug_response.split_dataset(
         n_cv_splits=5,

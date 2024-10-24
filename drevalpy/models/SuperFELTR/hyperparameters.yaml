@@ -16,12 +16,18 @@ SuperFELTR:
   epochs:
     30
   expression_var_threshold:
+    GDSC1:
+      0.1
     GDSC2:
       0.1
   mutation_var_threshold:
+    GDSC1:
+      0.1
     GDSC2:
       0.1
   cnv_var_threshold:
+    GDSC1:
+      0.7
     GDSC2:
       0.7
   margin:
