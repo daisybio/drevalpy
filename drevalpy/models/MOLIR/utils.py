@@ -108,10 +108,61 @@ def get_negative_class_indices(
     return dissimilar_samples
 
 
+def make_ranges(output: DrugResponseDataset):
+    """
+    Compute the positive and negative range for the triplet loss.
+    """
+    positive_range = np.std(output.response) * 0.1
+    negative_range = np.std(output.response)
+    return positive_range, negative_range
+
+
+def create_dataset_and_loaders(
+        batch_size,
+        output_train: DrugResponseDataset,
+        cell_line_input: FeatureDataset,
+        output_earlystopping: Optional[DrugResponseDataset] = None
+):
+    # Create datasets and dataloaders
+    train_dataset = RegressionDataset(output_train, cell_line_input)
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=1,
+        persistent_workers=True,
+        drop_last=True,  # avoids batch norm errors if last batch < batch_size
+    )
+
+    val_loader = None
+    if output_earlystopping is not None:
+        val_dataset = RegressionDataset(
+            output=output_earlystopping,
+            cell_line_input=cell_line_input,
+        )
+        val_loader = DataLoader(
+            val_dataset,
+            batch_size=batch_size,
+            shuffle=False,
+            num_workers=1,
+            persistent_workers=True,
+        )
+    return train_loader, val_loader
+
+
+def get_dimensions_of_omics_data(cell_line_input: FeatureDataset):
+    first_item = next(iter(cell_line_input.features.values())
+    )
+    dim_gex = first_item["gene_expression"].shape[0]
+    dim_mut = first_item["mutations"].shape[0]
+    dim_cnv = first_item["copy_number_variation_gistic"].shape[0]
+    return dim_gex, dim_mut, dim_cnv
+
+
 class MOLIEncoder(nn.Module):
     def __init__(self, input_size, output_size, dropout_rate):
         super(MOLIEncoder, self).__init__()
-        self.encode = torch.nn.Sequential(
+        self.encode = nn.Sequential(
             nn.Linear(input_size, output_size),
             nn.ReLU(),
             nn.BatchNorm1d(output_size),
@@ -125,8 +176,9 @@ class MOLIEncoder(nn.Module):
 class MOLIRegressor(nn.Module):
     def __init__(self, input_size, dropout_rate):
         super(MOLIRegressor, self).__init__()
-        self.regressor = torch.nn.Sequential(
+        self.regressor = nn.Sequential(
             nn.Linear(input_size, 1),
+            nn.Dropout(dropout_rate)
         )
 
     def forward(self, x):
@@ -136,7 +188,6 @@ class MOLIRegressor(nn.Module):
 class MOLIModel(pl.LightningModule):
     def __init__(self, hpams, input_dim_expr, input_dim_mut, input_dim_cnv):
         super(MOLIModel, self).__init__()
-        self.save_hyperparameters()
 
         self.mini_batch = hpams["mini_batch"]
         self.h_dim1 = hpams["h_dim1"]
@@ -147,8 +198,8 @@ class MOLIModel(pl.LightningModule):
         self.weight_decay = hpams["weight_decay"]
         self.gamma = hpams["gamma"]
         self.epochs = hpams["epochs"]
-        self.triplet_loss = torch.nn.TripletMarginLoss(margin=hpams["margin"], p=2)
-        self.regression_loss = torch.nn.MSELoss()
+        self.triplet_loss = nn.TripletMarginLoss(margin=hpams["margin"], p=2)
+        self.regression_loss = nn.MSELoss()
         # Positive and Negative range for triplet loss
         self.positive_range = None
         self.negative_range = None
@@ -171,33 +222,14 @@ class MOLIModel(pl.LightningModule):
         output_earlystopping: Optional[DrugResponseDataset] = None,
         patience: int = 5,
     ):
-        self.positive_range = np.std(output_train.response) * 0.1
-        self.negative_range = np.std(output_train.response)
+        self.positive_range, self.negative_range = make_ranges(output_train)
 
-        # Create datasets and dataloaders
-        train_dataset = RegressionDataset(output_train, cell_line_input)
-        train_loader = DataLoader(
-            train_dataset,
+        train_loader, val_loader = create_dataset_and_loaders(
             batch_size=self.mini_batch,
-            shuffle=False,
-            num_workers=1,
-            persistent_workers=True,
-            drop_last=True, # avoids batch norm errors if last batch < batch_size
+            output_train=output_train,
+            cell_line_input=cell_line_input,
+            output_earlystopping=output_earlystopping,
         )
-
-        val_loader = None
-        if output_earlystopping is not None:
-            val_dataset = RegressionDataset(
-                output=output_earlystopping,
-                cell_line_input=cell_line_input,
-            )
-            val_loader = DataLoader(
-                val_dataset,
-                batch_size=self.mini_batch,
-                shuffle=False,
-                num_workers=1,
-                persistent_workers=True,
-            )
 
         # Train the model
         monitor = "train_loss" if (val_loader is None) else "val_loss"
@@ -273,7 +305,7 @@ class MOLIModel(pl.LightningModule):
         z_cn = self.cna_encoder(copy_number)
 
         z = torch.cat((z_ex, z_mu, z_cn), dim=1)
-        z = torch.nn.functional.normalize(z, p=2, dim=0)
+        z = nn.functional.normalize(z, p=2, dim=0)
         return z
 
     def forward(self, x_gene, x_mutation, x_cna):

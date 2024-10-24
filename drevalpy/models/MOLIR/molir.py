@@ -1,18 +1,17 @@
 """
-Contains the MOLI model.
+Contains the MOLIR model.
 Original authors: Sharifi-Noghabi et al. (2019, 10.1093/bioinformatics/btz318)
-Code adapted from: Hauptmann et al. (2023, 10.1186/s12859-023-05166-7),
-https://github.com/kramerlab/Multi-Omics_analysis
+Code adapted from their Github: https://github.com/hosseinshn/MOLI
+and Hauptmann et al. (2023, 10.1186/s12859-023-05166-7) https://github.com/kramerlab/Multi-Omics_analysis
 """
 
 from typing import Optional, Dict, Any
 
 import numpy as np
-from numpy._typing import ArrayLike
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.preprocessing import StandardScaler
 
-from .utils import MOLIModel
+from .utils import MOLIModel, get_dimensions_of_omics_data
 from ..drp_model import SingleDrugModel
 from ..utils import load_and_reduce_gene_features, load_drug_ids_from_csv
 from ...datasets.dataset import FeatureDataset, DrugResponseDataset
@@ -66,10 +65,7 @@ class MOLIR(SingleDrugModel):
         )
         if self.early_stopping and len(output_earlystopping) < 2:
             output_earlystopping = None
-        first_item = next(iter(cell_line_input.features.values()))
-        dim_gex = first_item["gene_expression"].shape[0]
-        dim_mut = first_item["mutations"].shape[0]
-        dim_cnv = first_item["copy_number_variation_gistic"].shape[0]
+        dim_gex, dim_mut, dim_cnv = get_dimensions_of_omics_data(cell_line_input)
         self.model = MOLIModel(
             hpams=self.hyperparameters,
             input_dim_expr=dim_gex,
@@ -84,8 +80,8 @@ class MOLIR(SingleDrugModel):
 
     def predict(
         self,
-        drug_ids: ArrayLike,
-        cell_line_ids: ArrayLike,
+        drug_ids: np.ndarray,
+        cell_line_ids: np.ndarray,
         drug_input: FeatureDataset = None,
         cell_line_input: FeatureDataset = None,
     ) -> np.ndarray:
@@ -110,7 +106,7 @@ class MOLIR(SingleDrugModel):
             dataset_name=dataset_name,
         )
         # log transformation
-        all_data.apply(function=np.log, view="gene_expression")
+        all_data._apply(function=np.log, view="gene_expression")
         if dataset_name != "Toy_Data":
             # in Toy_Data, everything is already in the dataset
             mut_data = load_and_reduce_gene_features(
@@ -126,11 +122,8 @@ class MOLIR(SingleDrugModel):
                 dataset_name=dataset_name,
             )
             for fd in [mut_data, cnv_data]:
-                all_data.add_features(fd)
+                all_data._add_features(fd)
         return all_data
-
-    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
-        return load_drug_ids_from_csv(data_path, dataset_name)
 
     def load(self, path):
         raise NotImplementedError

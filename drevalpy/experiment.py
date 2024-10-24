@@ -826,8 +826,8 @@ def train_and_predict(
 
     if early_stopping_dataset is not None:
         early_stopping_dataset.reduce_to(
-            cell_line_ids=cl_features.identifiers,
-            drug_ids=drug_features.identifiers,
+            cell_line_ids=cell_lines_to_keep,
+            drug_ids=drugs_to_keep,
         )
 
     if response_transformation:
