@@ -4,6 +4,7 @@ from drevalpy.evaluation import evaluate
 from drevalpy.models import MODEL_FACTORY
 
 from .utils import call_save_and_load
+from .conftest import sample_dataset
 
 
 @pytest.mark.parametrize("test_mode", ["LPO", "LCO", "LDO"])

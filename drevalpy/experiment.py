@@ -119,14 +119,15 @@ def drug_response_experiment(
 
     model_list = make_model_list(models + baselines, response_data)
     for model_name in model_list.keys():
+        print(f"Running {model_name}")
         model_name, drug_id = get_model_name_and_drug_id(model_name)
 
         model_class = MODEL_FACTORY[model_name]
         if model_class in baselines:
-            print(f"Running baseline model {model_class.model_name}")
+            print("- Only Baseline Tests -")
             is_baseline = True
         else:
-            print(f"Running model {model_class.model_name}")
+            print("- Full Test -")
             is_baseline = False
 
         predictions_path = generate_data_saving_path(
@@ -162,9 +163,7 @@ def drug_response_experiment(
 
             model = model_class()
 
-            if not os.path.isfile(
-                prediction_file
-            ):  # if this split has not been run yet (or for a single drug model, this drug_id)
+            if not os.path.isfile(prediction_file):  # if this split has not been run yet (or for a single drug model, this drug_id)
 
                 tuning_inputs = {
                     "model": model,
@@ -235,9 +234,7 @@ def drug_response_experiment(
                     print(f"Randomization tests for {model_class.model_name}")
                     # if this line changes, it also needs to be changed in pipeline:
                     # randomization_split.py
-                    randomization_test_views = get_randomization_test_views(
-                        model=model, randomization_mode=randomization_mode
-                    )
+                    randomization_test_views = get_randomization_test_views(model=model, randomization_mode=randomization_mode)
                     randomization_test(
                         randomization_test_views=randomization_test_views,
                         model=model,
@@ -311,11 +308,7 @@ def consolidate_single_drug_model_predictions(
                     "randomization": {},
                 }
                 # list all dirs in model_path/drugs
-                drugs = [
-                    d
-                    for d in os.listdir(os.path.join(model_path, "drugs"))
-                    if os.path.isdir(os.path.join(model_path, "drugs", d))
-                ]
+                drugs = [d for d in os.listdir(os.path.join(model_path, "drugs")) if os.path.isdir(os.path.join(model_path, "drugs", d))]
                 for drug in drugs:
                     single_drug_prediction_path = os.path.join(model_path, "drugs", drug)
 
@@ -350,26 +343,25 @@ def consolidate_single_drug_model_predictions(
                         f = f"robustness_{trial+1}_split_{split}.csv"
                         if trial not in predictions["robustness"]:
                             predictions["robustness"][trial] = []
-                        predictions["robustness"][trial].append(
-                            pd.read_csv(os.path.join(robustness_path, f), index_col=0)
-                        )
+                        predictions["robustness"][trial].append(pd.read_csv(os.path.join(robustness_path, f), index_col=0))
 
                     # Randomization predictions
-                    randomization_test_views = get_randomization_test_views(
-                        model=model_instance,
-                        randomization_mode=randomization_mode,
-                    )
-                    for view in randomization_test_views:
-                        randomization_path = os.path.join(single_drug_prediction_path, "randomization")
-                        f = f"randomization_{view}_split_{split}.csv"
-                        if view not in predictions["randomization"]:
-                            predictions["randomization"][view] = []
-                        predictions["randomization"][view].append(
-                            pd.read_csv(
-                                os.path.join(randomization_path, f),
-                                index_col=0,
-                            )
+                    if randomization_mode is not None:
+                        randomization_test_views = get_randomization_test_views(
+                            model=model_instance,
+                            randomization_mode=randomization_mode,
                         )
+                        for view in randomization_test_views:
+                            randomization_path = os.path.join(single_drug_prediction_path, "randomization")
+                            f = f"randomization_{view}_split_{split}.csv"
+                            if view not in predictions["randomization"]:
+                                predictions["randomization"][view] = []
+                            predictions["randomization"][view].append(
+                                pd.read_csv(
+                                    os.path.join(randomization_path, f),
+                                    index_col=0,
+                                )
+                            )
 
                 # Save the consolidated predictions
                 pd.concat(predictions["main"], axis=0).to_csv(
@@ -834,8 +826,8 @@ def train_and_predict(
 
     if early_stopping_dataset is not None:
         early_stopping_dataset.reduce_to(
-            cell_line_ids=cl_features.identifiers,
-            drug_ids=drug_features.identifiers,
+            cell_line_ids=cell_lines_to_keep,
+            drug_ids=drugs_to_keep,
         )
 
     if response_transformation:

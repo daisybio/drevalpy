@@ -5,8 +5,7 @@ Utility functions for the visualization part of the package.
 import os
 import pathlib
 import shutil
-from typing import List
-
+import re
 import importlib_resources
 import pandas as pd
 
@@ -47,18 +46,9 @@ def parse_results(path_to_results: str):
     # generate list of all result files
     result_dir = pathlib.Path(path_to_results)
     result_files = list(result_dir.rglob("*.csv"))
-    result_files = [
-        file
-        for file in result_files
-        if file.name
-        not in [
-            "evaluation_results.csv",
-            "evaluation_results_per_drug.csv",
-            "evaluation_results_per_cl.csv",
-            "true_vs_pred.csv",
-        ]
-        and "cv_split" not in file.name
-    ]
+    # filter for all files that follow this pattern: result_dir/*/{predictions|cross_study|randomization|robustness}/*.csv
+    pattern = re.compile(fr"{result_dir}/(LPO|LCO|LDO)/[^/]+/(predictions|cross_study|randomization|robustness)/.*\.csv$")
+    result_files = [file for file in result_files if pattern.match(str(file))]
 
     # inititalize dictionaries to store the evaluation results
     evaluation_results = None
@@ -69,8 +59,8 @@ def parse_results(path_to_results: str):
     # read every result file and compute the evaluation metrics
     for file in result_files:
         file_parts = os.path.normpath(file).split("/")
-        lpo_lco_ldo = file_parts[-4]
-        algorithm = file_parts[-3]
+        lpo_lco_ldo = file_parts[2]
+        algorithm = file_parts[3]
         (
             overall_eval,
             eval_results_per_drug,
@@ -381,8 +371,7 @@ def create_index_html(custom_id: str, test_modes: list[str], prefix_results: str
             )
             shutil.copyfile(img_path, os.path.join(prefix_results, f"{lpo_lco_ldo}.png"))
             f.write(
-                f'<a href="{lpo_lco_ldo}.html" target="_blank"><img src="{lpo_lco_ldo}.png" '
-                f'style="width:300px;height:300px;"></a>\n'
+                f'<a href="{lpo_lco_ldo}.html" target="_blank"><img src="{lpo_lco_ldo}.png" ' f'style="width:300px;height:300px;"></a>\n'
             )
         f.write("</div>\n")
         f.write("</div>\n")

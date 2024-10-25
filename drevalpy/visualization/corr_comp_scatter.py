@@ -154,10 +154,7 @@ class CorrelationComparisonScatter(OutPlot):
                 ]
                 listed_files.sort()
                 for group_comparison in listed_files:
-                    f.write(
-                        f'<li><a href="corr_comp_scatter/{group_comparison}" target="_blank">'
-                        f"{group_comparison}</a></li>\n"
-                    )
+                    f.write(f'<li><a href="corr_comp_scatter/{group_comparison}" target="_blank">' f"{group_comparison}</a></li>\n")
                 f.write("</ul>\n")
         return f
 

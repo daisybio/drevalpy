@@ -1,6 +1,11 @@
+import os
 import tempfile
-
+from typing import Tuple
+from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 import pytest
+import requests
+import zipfile
+import pickle
 
 
 def call_save_and_load(model):

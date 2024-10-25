@@ -97,14 +97,7 @@ class Violin(VioHeat):
                         {
                             "visible": [False] * (self.count_r2 + self.count_pearson + self.count_spearman)
                             + [True] * self.count_kendall
-                            + [False]
-                            * (
-                                count_sum
-                                - self.count_r2
-                                - self.count_pearson
-                                - self.count_spearman
-                                - self.count_kendall
-                            )
+                            + [False] * (count_sum - self.count_r2 - self.count_pearson - self.count_spearman - self.count_kendall)
                         },
                         {"title": "Kendall"},
                     ],
@@ -115,13 +108,7 @@ class Violin(VioHeat):
                     args=[
                         {
                             "visible": [False]
-                            * (
-                                count_sum
-                                - self.count_partial_correlation
-                                - self.count_mse
-                                - self.count_rmse
-                                - self.count_mae
-                            )
+                            * (count_sum - self.count_partial_correlation - self.count_mse - self.count_rmse - self.count_mae)
                             + [True] * self.count_partial_correlation
                             + [False] * (self.count_mse + self.count_rmse + self.count_mae)
                         },

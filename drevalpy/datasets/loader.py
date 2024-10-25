@@ -7,15 +7,16 @@ from .dataset import DrugResponseDataset
 from .utils import download_dataset
 
 
-def load_gdsc1(path_data: str = "data", file_name: str = "response_GDSC1.csv") -> DrugResponseDataset:
+def load_gdsc1(path_data: str = "data", file_name: str = "response_GDSC1.csv", dataset_name: str = "GDSC1") -> (
+        DrugResponseDataset):
     """
     Loads the GDSC1 dataset.
 
     :param path_data: Path to the dataset.
     :param file_name: File name of the dataset.
+    :param dataset_name: Name of the dataset.
     :return: Dictionary containing response, cell line IDs, and drug IDs.
     """
-    dataset_name = "GDSC1"
     path = os.path.join(path_data, dataset_name, file_name)
     if not os.path.exists(path):
         download_dataset(dataset_name, path_data, redownload=True)
@@ -39,7 +40,7 @@ def load_gdsc2(path_data: str = "data", file_name: str = "response_GDSC2.csv"):
     :param file_name: File name of the dataset.
     :return: Dictionary containing response, cell line IDs, and drug IDs.
     """
-    return load_gdsc1(path_data=path_data, file_name=file_name)
+    return load_gdsc1(path_data=path_data, file_name=file_name, dataset_name="GDSC2")
 
 
 def load_ccle(path_data: str = "data", file_name: str = "response_CCLE.csv") -> DrugResponseDataset:

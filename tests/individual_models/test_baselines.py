@@ -14,6 +14,7 @@ from drevalpy.models import (
 )
 
 from .utils import call_save_and_load
+from .conftest import sample_dataset
 
 
 @pytest.mark.parametrize(

@@ -200,7 +200,7 @@ class FeedForwardNetwork(pl.LightningModule):
                 self.checkpoint_callback,
                 progress_bar,
             ],
-            default_root_dir=os.path.join(os.getcwd(), "model_checkpoints/lightning_logs/" + name),
+            default_root_dir=os.path.join(os.getcwd(), "nn_baseline_checkpoints/lightning_logs/" + name),
             **trainer_params_copy,
         )
         if val_loader is None:

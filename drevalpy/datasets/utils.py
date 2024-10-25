@@ -30,7 +30,7 @@ def download_dataset(
     if os.path.exists(extracted_folder_path) and not redownload:
         print(f"{dataset_name} is already extracted, skipping download.")
     else:
-        url = "https://zenodo.org/doi/10.5281/zenodo.13983115"
+        url = "https://zenodo.org/doi/10.5281/zenodo.12633909"
         # Fetch the latest record
         response = requests.get(url, timeout=60)
         if response.status_code != 200:
@@ -60,7 +60,7 @@ def download_dataset(
         with zipfile.ZipFile(file_path, "r") as z:
             for member in z.infolist():
                 if not member.filename.startswith("__MACOSX/"):
-                    z.extract(member, extracted_folder_path)
+                    z.extract(member, data_path)
         os.remove(file_path)  # Remove zip file after extraction
 
         print(f"{dataset_name} data downloaded and extracted to {data_path}")

@@ -15,6 +15,8 @@ __all__ = [
     "SingleDrugRandomForest",
     "SRMF",
     "GradientBoosting",
+    "MOLIR",
+    "SuperFELTR",
     "MULTI_DRUG_MODEL_FACTORY",
     "SINGLE_DRUG_MODEL_FACTORY",
     "MODEL_FACTORY",
@@ -27,9 +29,13 @@ from .baselines.sklearn_models import ElasticNetModel, GradientBoosting, RandomF
 from .simple_neural_network.multiomics_neural_network import MultiOmicsNeuralNetwork
 from .simple_neural_network.simple_neural_network import SimpleNeuralNetwork
 from .SRMF.srmf import SRMF
+from .MOLIR.molir import MOLIR
+from .SuperFELTR.superfeltr import SuperFELTR
 
 SINGLE_DRUG_MODEL_FACTORY = {
     "SingleDrugRandomForest": SingleDrugRandomForest,
+    "MOLIR": MOLIR,
+    "SuperFELTR": SuperFELTR,
 }
 
 MULTI_DRUG_MODEL_FACTORY = {
