@@ -58,10 +58,12 @@ def load_ccle(path_data: str = "data", file_name: str = "response_CCLE.csv") -> 
     response_data = pd.read_csv(path)
     response_data["DRUG_NAME"] = response_data["DRUG_NAME"].str.replace(",", "")
 
-    return DrugResponseDataset(response=response_data["LN_IC50"].values,
+    return DrugResponseDataset(
+        response=response_data["LN_IC50"].values,
         cell_line_ids=response_data["CELL_LINE_NAME"].values,
         drug_ids=response_data["DRUG_NAME"].values,
-        dataset_name=dataset_name)
+        dataset_name=dataset_name,
+    )
 
 
 def load_toy(path_data: str = "data") -> DrugResponseDataset:
@@ -101,5 +103,3 @@ def load_dataset(dataset_name: str, path_data: str = "data") -> DrugResponseData
         return AVAILABLE_DATASETS[dataset_name](path_data)
     else:
         raise ValueError(f"Unknown dataset name: {dataset_name}")
-
-

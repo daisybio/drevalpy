@@ -1,4 +1,3 @@
-
 import tempfile
 
 import pytest
@@ -6,6 +5,7 @@ import pytest
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.datasets.loader import load_toy
 from drevalpy.models import SimpleNeuralNetwork
+
 
 @pytest.fixture(scope="session")
 def sample_dataset() -> tuple[DrugResponseDataset, FeatureDataset, FeatureDataset]:
