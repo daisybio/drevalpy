@@ -18,6 +18,10 @@ SimpleNeuralNetwork:
     - - 64
       - 64
       - 32
+    - - 1024
+      - 128
+      - 64
+      - 16
 
 MultiOmicsNeuralNetwork:
   dropout_prob:

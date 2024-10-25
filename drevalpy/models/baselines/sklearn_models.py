@@ -3,7 +3,7 @@
 import numpy as np
 from numpy.typing import ArrayLike
 from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
-from sklearn.linear_model import ElasticNet, Ridge
+from sklearn.linear_model import ElasticNet, Ridge, Lasso
 from sklearn.svm import SVR
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
@@ -119,6 +119,8 @@ class ElasticNetModel(SklearnModel):
         """
         if hyperparameters["l1_ratio"] == 0.0:
             self.model = Ridge(alpha=hyperparameters["alpha"])
+        elif hyperparameters["l1_ratio"] == 1.0:
+            self.model = Lasso(alpha=hyperparameters["alpha"])
         else:
             self.model = ElasticNet(
                 alpha=hyperparameters["alpha"],
