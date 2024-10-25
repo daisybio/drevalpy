@@ -213,7 +213,9 @@ def test_split_response_dataset(mode, split_validation):
                     "early_stopping",
                 ]:
                     validation_drugs = set(split[val_es].drug_ids)
-                    assert validation_drugs.isdisjoint(test_drugs)  # Check for disjointness between validation and test drugs
+                    assert validation_drugs.isdisjoint(
+                        test_drugs
+                    )  # Check for disjointness between validation and test drugs
 
         elif mode == "LPO":
             train_pairs = set(zip(split["train"].cell_line_ids, split["train"].drug_ids, strict=True))

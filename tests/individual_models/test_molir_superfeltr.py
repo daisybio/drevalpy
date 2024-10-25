@@ -3,7 +3,8 @@ import numpy as np
 
 from drevalpy.evaluation import evaluate, pearson
 from drevalpy.models import MODEL_FACTORY
-from .utils import call_save_and_load, sample_dataset
+from .utils import call_save_and_load
+from .conftest import sample_dataset
 
 
 @pytest.mark.parametrize("test_mode", ["LCO"])

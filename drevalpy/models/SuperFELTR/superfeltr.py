@@ -164,13 +164,13 @@ class SuperFELTR(SingleDrugModel):
         # log transformation
         all_data._apply(function=np.log, view="gene_expression")
         feature_types = ["mutations", "copy_number_variation_gistic"]
-        if dataset_name != "Toy_Data":
-            # in Toy_Data, everything is already in the dataset
-            for feature in feature_types:
-                fd = load_and_reduce_gene_features(
-                    feature_type=feature, gene_list=None, data_path=data_path, dataset_name=dataset_name
-                )
-                all_data._add_features(fd)
+        # in Toy_Data, everything is already in the dataset
+        # TODO: implement this in models/utils.py
+        for feature in feature_types:
+            fd = load_and_reduce_gene_features(
+                feature_type=feature, gene_list=None, data_path=data_path, dataset_name=dataset_name
+            )
+            all_data._add_features(fd)
         return all_data
 
     def load(self, path):
