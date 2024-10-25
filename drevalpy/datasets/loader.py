@@ -24,12 +24,10 @@ def load_gdsc1(path_data: str = "data", file_name: str = "response_GDSC1.csv") -
     response_data["DRUG_NAME"] = response_data["DRUG_NAME"].str.replace(",", "")
 
     return DrugResponseDataset(
-        {
-            "response": response_data["LN_IC50"].values,
-            "cell_line_ids": response_data["CELL_LINE_NAME"].values,
-            "drug_ids": response_data["DRUG_NAME"].values,
-            "dataset_name": dataset_name,
-        }
+        response=response_data["LN_IC50"].values,
+        cell_line_ids=response_data["CELL_LINE_NAME"].values,
+        drug_ids=response_data["DRUG_NAME"].values,
+        dataset_name=dataset_name,
     )
 
 
@@ -60,14 +58,10 @@ def load_ccle(path_data: str = "data", file_name: str = "response_CCLE.csv") -> 
     response_data = pd.read_csv(path)
     response_data["DRUG_NAME"] = response_data["DRUG_NAME"].str.replace(",", "")
 
-    return DrugResponseDataset(
-        {
-            "response": response_data["LN_IC50"].values,
-            "cell_line_ids": response_data["CELL_LINE_NAME"].values,
-            "drug_ids": response_data["DRUG_NAME"].values,
-            "dataset_name": dataset_name,
-        }
-    )
+    return DrugResponseDataset(response=response_data["LN_IC50"].values,
+        cell_line_ids=response_data["CELL_LINE_NAME"].values,
+        drug_ids=response_data["DRUG_NAME"].values,
+        dataset_name=dataset_name)
 
 
 def load_toy(path_data: str = "data") -> DrugResponseDataset:
@@ -84,14 +78,11 @@ def load_toy(path_data: str = "data") -> DrugResponseDataset:
         download_dataset(dataset_name, path_data, redownload=True)
     response_data = pd.read_csv(path)
 
-
     return DrugResponseDataset(
-        {
-            "response": response_data.response,
-            "cell_line_ids": response_data.cell_line_id,
-            "drug_ids": response_data.drug_id,
-            "dataset_name": dataset_name,
-        }
+        response=response_data["response"].values,
+        cell_line_ids=response_data["cell_line_id"].values,
+        drug_ids=response_data["drug_id"].values,
+        dataset_name=dataset_name,
     )
 
 

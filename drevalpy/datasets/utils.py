@@ -30,7 +30,7 @@ def download_dataset(
     if os.path.exists(extracted_folder_path) and not redownload:
         print(f"{dataset_name} is already extracted, skipping download.")
     else:
-        url = "https://zenodo.org/doi/10.5281/zenodo.13971080"
+        url = "https://zenodo.org/doi/10.5281/zenodo.13983115"
         # Fetch the latest record
         response = requests.get(url, timeout=60)
         if response.status_code != 200:
