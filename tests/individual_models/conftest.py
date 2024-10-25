@@ -1,4 +1,3 @@
-import tempfile
 import pytest
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset

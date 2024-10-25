@@ -30,7 +30,9 @@ def test_factory():
     assert "SingleDrugRandomForest" in MODEL_FACTORY
     assert "SRMF" in MODEL_FACTORY
     assert "GradientBoosting" in MODEL_FACTORY
-    assert len(MODEL_FACTORY) == 12
+    assert "MOLIR" in MODEL_FACTORY
+    assert "SuperFELTR" in MODEL_FACTORY
+    assert len(MODEL_FACTORY) == 14
 
 
 def test_load_cl_ids_from_csv():
