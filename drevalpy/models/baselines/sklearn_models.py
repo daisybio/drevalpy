@@ -145,11 +145,8 @@ class RandomForest(SklearnModel):
         self.model = RandomForestRegressor(
             n_estimators=hyperparameters["n_estimators"],
             criterion=hyperparameters["criterion"],
-            max_depth=hyperparameters["max_depth"],
-            min_samples_split=hyperparameters["min_samples_split"],
-            min_samples_leaf=hyperparameters["min_samples_leaf"],
-            n_jobs=hyperparameters["n_jobs"],
             max_samples=hyperparameters["max_samples"],
+            n_jobs=hyperparameters["n_jobs"],
         )
 
 
@@ -185,12 +182,11 @@ class GradientBoosting(SklearnModel):
         Builds the model from hyperparameters.
         :param hyperparameters: Hyperparameters for the model.
         """
+        if hyperparameters["max_depth"] == "None":
+            hyperparameters["max_depth"] = None
         self.model = GradientBoostingRegressor(
             n_estimators=hyperparameters.get("n_estimators", 100),
             learning_rate=hyperparameters.get("learning_rate", 0.1),
             max_depth=hyperparameters.get("max_depth", 3),
-            min_samples_split=hyperparameters.get("min_samples_split", 2),
-            min_samples_leaf=hyperparameters.get("min_samples_leaf", 1),
             subsample=hyperparameters.get("subsample", 1.0),
-            max_features=hyperparameters.get("max_features", 1.0),
         )
