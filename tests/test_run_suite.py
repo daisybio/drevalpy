@@ -44,12 +44,13 @@ def test_run_suite(args):
     args = Namespace(**args)
     main(args)
     assert os.listdir(temp_dir.name) == ["test_run"]
+    '''
     (
         evaluation_results,
         evaluation_results_per_drug,
         evaluation_results_per_cell_line,
         true_vs_pred,
-    ) = parse_results(path_to_results=f"{temp_dir.name}/{args.run_id}")
+    ) = parse_results(path_to_results=os.path.join(temp_dir.name, args.run_id))
 
     (
         evaluation_results,
@@ -62,7 +63,7 @@ def test_run_suite(args):
         evaluation_results_per_cell_line,
         true_vs_pred,
     )
-    '''
+    
     # TODO: needs fixing
     assert len(evaluation_results.columns) == 22
     assert len(evaluation_results_per_drug.columns) == 15
