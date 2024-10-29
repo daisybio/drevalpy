@@ -40,6 +40,17 @@ def test_baselines(sample_dataset, model_name, test_mode):
     split = drug_response.cv_splits[0]
     train_dataset = split["train"]
     val_dataset = split["validation"]
+
+    cell_lines_to_keep = cell_line_input.identifiers
+    drugs_to_keep = drug_input.identifiers
+
+    len_train_before = len(train_dataset)
+    len_pred_before = len(val_dataset)
+    train_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
+    val_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
+    print(f"Reduced training dataset from {len_train_before} to {len(train_dataset)}")
+    print(f"Reduced val dataset from {len_pred_before} to {len(val_dataset)}")
+
     if model_name == "NaivePredictor":
         call_naive_predictor(train_dataset, val_dataset, test_mode)
     elif model_name == "NaiveDrugMeanPredictor":
