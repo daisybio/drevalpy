@@ -163,7 +163,9 @@ def drug_response_experiment(
 
             model = model_class()
 
-            if not os.path.isfile(prediction_file):  # if this split has not been run yet (or for a single drug model, this drug_id)
+            if not os.path.isfile(
+                prediction_file
+            ):  # if this split has not been run yet (or for a single drug model, this drug_id)
 
                 tuning_inputs = {
                     "model": model,
@@ -234,7 +236,9 @@ def drug_response_experiment(
                     print(f"Randomization tests for {model_class.model_name}")
                     # if this line changes, it also needs to be changed in pipeline:
                     # randomization_split.py
-                    randomization_test_views = get_randomization_test_views(model=model, randomization_mode=randomization_mode)
+                    randomization_test_views = get_randomization_test_views(
+                        model=model, randomization_mode=randomization_mode
+                    )
                     randomization_test(
                         randomization_test_views=randomization_test_views,
                         model=model,
@@ -308,7 +312,11 @@ def consolidate_single_drug_model_predictions(
                     "randomization": {},
                 }
                 # list all dirs in model_path/drugs
-                drugs = [d for d in os.listdir(os.path.join(model_path, "drugs")) if os.path.isdir(os.path.join(model_path, "drugs", d))]
+                drugs = [
+                    d
+                    for d in os.listdir(os.path.join(model_path, "drugs"))
+                    if os.path.isdir(os.path.join(model_path, "drugs", d))
+                ]
                 for drug in drugs:
                     single_drug_prediction_path = os.path.join(model_path, "drugs", drug)
 
@@ -343,7 +351,9 @@ def consolidate_single_drug_model_predictions(
                         f = f"robustness_{trial+1}_split_{split}.csv"
                         if trial not in predictions["robustness"]:
                             predictions["robustness"][trial] = []
-                        predictions["robustness"][trial].append(pd.read_csv(os.path.join(robustness_path, f), index_col=0))
+                        predictions["robustness"][trial].append(
+                            pd.read_csv(os.path.join(robustness_path, f), index_col=0)
+                        )
 
                     # Randomization predictions
                     if randomization_mode is not None:

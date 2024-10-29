@@ -44,7 +44,7 @@ def test_run_suite(args):
     args = Namespace(**args)
     main(args)
     assert os.listdir(temp_dir.name) == ["test_run"]
-    '''
+    """
     (
         evaluation_results,
         evaluation_results_per_drug,
@@ -86,4 +86,4 @@ def test_run_suite(args):
     assert all(test_mode in evaluation_results.LPO_LCO_LDO.unique() for test_mode in args.test_mode)
     assert evaluation_results.CV_split.astype(int).max() == (args.n_cv_splits - 1)
     assert evaluation_results.Pearson.astype(float).max() > 0.5
-    '''
+    """
