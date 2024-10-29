@@ -65,7 +65,9 @@ class VioHeat(OutPlot):
         ]
         f.write(f'<h2 id="{nav_id}">{plot} Plots of Performance Measures over CV runs</h2>\n')
         f.write(f"<h3>{plot} plots comparing all models</h3>\n")
-        f.write(f'<iframe src="{dir_name}/{prefix}_algorithms_{lpo_lco_ldo}.html" width="100%" height="100%" frameBorder="0"></iframe>\n')
+        f.write(
+            f'<iframe src="{dir_name}/{prefix}_algorithms_{lpo_lco_ldo}.html" width="100%" height="100%" frameBorder="0"></iframe>\n'
+        )
         f.write(f"<h3>{plot} plots comparing all models with normalized metrics</h3>\n")
         f.write(
             f"Before calculating the evaluation metrics, all values were normalized by the mean of the drug or cell line. "

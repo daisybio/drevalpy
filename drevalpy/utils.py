@@ -295,4 +295,7 @@ def get_response_transformation(response_transformation: str):
         return MinMaxScaler()
     if response_transformation == "robust":
         return RobustScaler()
-    raise ValueError(f"Unknown response transformation {response_transformation}. Choose from 'None', " f"'standard', 'minmax', 'robust'")
+    raise ValueError(
+        f"Unknown response transformation {response_transformation}. Choose from 'None', "
+        f"'standard', 'minmax', 'robust'"
+    )

@@ -105,7 +105,11 @@ class DrugResponseDataset(Dataset):
                 f"Response {self.response[:3]}..."
             )
         else:
-            string = f"DrugResponseDataset: CLs {self.cell_line_ids}; " f"Drugs {self.drug_ids}; " f"Response {self.response}"
+            string = (
+                f"DrugResponseDataset: CLs {self.cell_line_ids}; "
+                f"Drugs {self.drug_ids}; "
+                f"Response {self.response}"
+            )
         if self.predictions is not None:
             if len(self.predictions) > 3:
                 string += f"; Predictions {self.predictions[:3]}..."

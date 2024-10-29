@@ -112,22 +112,10 @@ def load_drug_fingerprint_features(data_path: str, dataset_name: str) -> Feature
     :return:
     """
     if dataset_name == "Toy_Data":
-        fingerprints = pd.read_csv(
-            os.path.join(
-                data_path,
-                dataset_name,
-                "fingerprints.csv"
-            ),
-            index_col=0
-        )
+        fingerprints = pd.read_csv(os.path.join(data_path, dataset_name, "fingerprints.csv"), index_col=0)
     else:
         fingerprints = pd.read_csv(
-            os.path.join(
-                data_path,
-                dataset_name,
-                "drug_fingerprints",
-                "drug_name_to_demorgan_128_map.csv"
-            ),
+            os.path.join(data_path, dataset_name, "drug_fingerprints", "drug_name_to_demorgan_128_map.csv"),
             index_col=0,
         ).T
     return FeatureDataset(
