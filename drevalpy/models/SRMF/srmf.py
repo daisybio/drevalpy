@@ -227,7 +227,6 @@ class SRMF(DRPModel):
         """
         return load_drug_fingerprint_features(data_path, dataset_name)
 
-
     def load(self, path):
         """
         Loads the model from a given path.
@@ -235,7 +234,6 @@ class SRMF(DRPModel):
         :param path: Path to the model
         """
         raise NotImplementedError("SRMF does not support loading yet ...")
-
 
     def save(self, path):
         """
