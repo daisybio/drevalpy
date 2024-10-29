@@ -25,7 +25,7 @@ importlib-resources = "*"
 
 
 [tool.poetry.group.dev.dependencies]
-sphinx-autodoc-typehints = "<2.0"
+sphinx-autodoc-typehints = "<3.0"
 sphinx = ">=4.0.2"
 sphinx-autobuild = ">=2021.3.14"
 sphinx-rtd-theme = ">=1.0.0"
