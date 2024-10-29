@@ -38,6 +38,8 @@ def load_and_reduce_gene_features(
     :return:
     """
     ge = pd.read_csv(f"{data_path}/{dataset_name}/{feature_type}.csv", index_col=1)
+    # remove column
+    ge = ge.drop(columns=["cellosaurus_id"])
     cl_features = FeatureDataset(
         features=iterate_features(df=ge, feature_type=feature_type),
         meta_info={feature_type: ge.columns.values},
@@ -88,8 +90,6 @@ def iterate_features(df: pd.DataFrame, feature_type: str):
         if len(rows.shape) > 1 and rows.shape[0] > 1:  # multiple rows returned
             warnings.warn(f"Multiple rows returned for {cl} in feature {feature_type}, taking the first one.")
             rows = rows.iloc[0]
-        # remove entry cellosaurus_id
-        rows = rows.drop("cellosaurus_id")
         # convert to float values
         rows = rows.astype(float)
         features[cl] = {feature_type: rows.values}
