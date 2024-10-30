@@ -87,6 +87,9 @@ def test_single_drug_baselines(sample_dataset, model_name, test_mode):
     for drug in np.unique(train_dataset.drug_ids):
         model = SingleDrugRandomForest()
         hpam_combi = model.get_hyperparameter_set()[0]
+        hpam_combi["n_estimators"] = 2 # reduce test time
+        hpam_combi["max_depth"] = 2 # reduce test time
+        
         model.build_model(hpam_combi)
         output_mask = train_dataset.drug_ids == drug
         drug_train = train_dataset.copy()
@@ -175,10 +178,14 @@ def call_naive_group_predictor(group, train_dataset, val_dataset, cell_line_inpu
 def call_other_baselines(model, train_dataset, val_dataset, cell_line_input, drug_input, test_mode):
     model_class = MODEL_FACTORY[model]
     hpams = model_class.get_hyperparameter_set()
-    if len(hpams) > 3:
-        hpams = hpams[:3]
+    if len(hpams) > 2:
+        hpams = hpams[:2]
     model_instance = model_class()
     for hpam_combi in hpams:
+        if model == "RandomForest":
+            hpam_combi["n_estimators"] = 2
+            hpam_combi["max_depth"] = 2
+            
         model_instance.build_model(hpam_combi)
         if model == "ElasticNet":
             if hpam_combi["l1_ratio"] == 0.0:
