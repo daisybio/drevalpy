@@ -21,9 +21,7 @@ class CorrelationComparisonScatter(OutPlot):
         algorithm="all",
     ):
         exclude_models = (
-            {"NaiveDrugMeanPredictor"}.union(
-                {model for model in SINGLE_DRUG_MODEL_FACTORY.keys()}
-            )
+            {"NaiveDrugMeanPredictor"}.union({model for model in SINGLE_DRUG_MODEL_FACTORY.keys()})
             if color_by == "drug"
             else {"NaiveCellLineMeanPredictor"}
         )
@@ -36,17 +34,15 @@ class CorrelationComparisonScatter(OutPlot):
                 (self.df["LPO_LCO_LDO"] == lpo_lco_ldo)
                 & (self.df["rand_setting"] == "predictions")
                 & (~self.df["algorithm"].isin(exclude_models))
+                &
                 # and exclude all lines for which algorithm starts with any element from
                 # exclude_models
-                & (~self.df["algorithm"].str.startswith(tuple(exclude_models)))
+                (~self.df["algorithm"].str.startswith(tuple(exclude_models)))
             ]
             self.name = f"{color_by}_{lpo_lco_ldo}"
         elif algorithm not in exclude_models:
             # draw plots for comparison between all test settings of one model
-            self.df = self.df[
-                (self.df["LPO_LCO_LDO"] == lpo_lco_ldo)
-                & (self.df["algorithm"] == algorithm)
-            ]
+            self.df = self.df[(self.df["LPO_LCO_LDO"] == lpo_lco_ldo) & (self.df["algorithm"] == algorithm)]
             self.name = f"{color_by} {algorithm} {lpo_lco_ldo}"
         else:
             self.name = None
@@ -62,9 +58,7 @@ class CorrelationComparisonScatter(OutPlot):
         self.fig_overall = make_subplots(
             rows=len(self.models),
             cols=len(self.models),
-            subplot_titles=[
-                str(model).replace("_", "<br>", 2) for model in self.models
-            ],
+            subplot_titles=[str(model).replace("_", "<br>", 2) for model in self.models],
         )
 
         # Update axis labels
@@ -91,7 +85,8 @@ class CorrelationComparisonScatter(OutPlot):
         if self.df.empty:
             return
         self.__draw__()
-        assert self.name == out_suffix
+        if self.name != out_suffix:
+            raise AssertionError(f"Name mismatch: {self.name} != {out_suffix}")
         path_out = f"{out_prefix}corr_comp_scatter_{out_suffix}.html"
         self.dropdown_fig.write_html(path_out)
         path_out = f"{out_prefix}corr_comp_scatter_overall_{out_suffix}.html"
@@ -101,11 +96,13 @@ class CorrelationComparisonScatter(OutPlot):
         print("Drawing scatterplots ...")
         self.__generate_corr_comp_scatterplots__()
         self.fig_overall.update_layout(
-            title=f'{str(self.color_by).replace("_", " ").capitalize()}-wise scatter plot of {self.metric} for each model',
+            title=f'{str(self.color_by).replace("_", " ").capitalize()}-wise scatter plot of {self.metric} '
+            f"for each model",
             showlegend=False,
         )
         self.dropdown_fig.update_layout(
-            title=f'{str(self.color_by).replace("_", " ").capitalize()}-wise scatter plot of {self.metric} for each model',
+            title=f'{str(self.color_by).replace("_", " ").capitalize()}-wise scatter plot of {self.metric} '
+            f"for each model",
             showlegend=False,
         )
         self.dropdown_fig.update_layout(
@@ -138,16 +135,9 @@ class CorrelationComparisonScatter(OutPlot):
         files = kwargs.get("files")
         f.write('<h2 id="corr_comp">Comparison of correlation metrics</h2>\n')
         for group_by in ["drug", "cell_line"]:
-            plot_list = [
-                f
-                for f in files
-                if f.startswith("corr_comp_scatter")
-                and f.endswith(f"{lpo_lco_ldo}.html")
-            ]
+            plot_list = [f for f in files if f.startswith("corr_comp_scatter") and f.endswith(f"{lpo_lco_ldo}.html")]
             if f"corr_comp_scatter_{group_by}_{lpo_lco_ldo}.html" in plot_list:
-                f.write(
-                    f'<h3 id="corr_comp_drug">{group_by.capitalize()}-wise comparison</h3>\n'
-                )
+                f.write(f'<h3 id="corr_comp_drug">{group_by.capitalize()}-wise comparison</h3>\n')
                 f.write("<h4>Overall comparison between models</h4>\n")
                 f.write(
                     f'<iframe src="corr_comp_scatter/corr_comp_scatter_overall_{group_by}_{lpo_lco_ldo}.html" '
@@ -163,9 +153,10 @@ class CorrelationComparisonScatter(OutPlot):
                 listed_files = [
                     elem
                     for elem in plot_list
-                    if elem != f"corr_comp_scatter_{lpo_lco_ldo}_{group_by}.html"
-                    and elem
-                    != f"corr_comp_scatter_overall_{lpo_lco_ldo}_{group_by}.html"
+                    if (
+                        elem != f"corr_comp_scatter_{lpo_lco_ldo}_{group_by}.html"
+                        and elem != f"corr_comp_scatter_overall_{lpo_lco_ldo}_{group_by}.html"
+                    )
                 ]
                 listed_files.sort()
                 for group_comparison in listed_files:
@@ -218,9 +209,7 @@ class CorrelationComparisonScatter(OutPlot):
                 y_df = self.__subset_df__(run_id=run2)
 
                 scatterplot = self.__draw_subplot__(x_df, y_df, run, run2)
-                self.fig_overall.add_trace(
-                    scatterplot, col=run_idx + 1, row=run2_idx + 1
-                )
+                self.fig_overall.add_trace(scatterplot, col=run_idx + 1, row=run2_idx + 1)
                 self.fig_overall.add_trace(line_corr, col=run_idx + 1, row=run2_idx + 1)
 
                 # create dropdown buttons for y axis only in the first iteration
@@ -237,23 +226,15 @@ class CorrelationComparisonScatter(OutPlot):
                     )
                     # set y axis title
                     if run2_idx == 0:
-                        self.fig_overall["layout"]["yaxis"]["title"] = str(
-                            run2
-                        ).replace("_", "<br>", 2)
+                        self.fig_overall["layout"]["yaxis"]["title"] = str(run2).replace("_", "<br>", 2)
                         self.fig_overall["layout"]["yaxis"]["title"]["font"]["size"] = 6
                     else:
                         y_axis_idx = (run2_idx) * len(self.models) + 1
-                        self.fig_overall["layout"][f"yaxis{y_axis_idx}"]["title"] = str(
-                            run2
-                        ).replace("_", "<br>", 2)
-                        self.fig_overall["layout"][f"yaxis{y_axis_idx}"]["title"][
-                            "font"
-                        ]["size"] = 6
+                        self.fig_overall["layout"][f"yaxis{y_axis_idx}"]["title"] = str(run2).replace("_", "<br>", 2)
+                        self.fig_overall["layout"][f"yaxis{y_axis_idx}"]["title"]["font"]["size"] = 6
 
     def __subset_df__(self, run_id: str):
-        s_df = self.df[self.df["setting"] == run_id][
-            [self.metric, self.color_by, "model"]
-        ]
+        s_df = self.df[self.df["setting"] == run_id][[self.metric, self.color_by, "model"]]
         s_df.set_index(self.color_by, inplace=True)
         s_df.sort_index(inplace=True)
         s_df[self.metric] = s_df[self.metric].fillna(0)
@@ -277,15 +258,15 @@ class CorrelationComparisonScatter(OutPlot):
             "setting_y",
         ]
 
-        density = self.__get_density__(
-            joint_df[f"{self.metric}_x"], joint_df[f"{self.metric}_y"]
-        )
+        density = self.__get_density__(joint_df[f"{self.metric}_x"], joint_df[f"{self.metric}_y"])
         joint_df["color"] = density
 
         custom_text = joint_df.apply(
-            lambda row: f"<i>{self.color_by.capitalize()}:</i>: {row.name}<br>"
-            + f"<i>Split x:</i>: {row.setting_x}<br>"
-            + f"<i>Split y:</i>: {row.setting_y}<br>",
+            lambda row: (
+                f"<i>{self.color_by.capitalize()}:</i>: {row.name}<br>"
+                + f"<i>Split x:</i>: {row.setting_x}<br>"
+                + f"<i>Split y:</i>: {row.setting_y}<br>"
+            ),
             axis=1,
         )
 

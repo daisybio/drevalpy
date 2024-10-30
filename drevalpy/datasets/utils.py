@@ -1,10 +1,7 @@
-"""
-Utility functions for datasets.
-"""
+"""Utility functions for datasets."""
 
 import os
 import zipfile
-from typing import List
 
 import networkx as nx
 import numpy as np
@@ -13,35 +10,35 @@ from numpy.typing import ArrayLike
 
 
 def download_dataset(
-    dataset: str,
+    dataset_name: str,
     data_path: str = "data",
     redownload: bool = False,
 ):
     """
     Download the latets dataset from Zenodo.
-    :param dataset: dataset name, e.g., "GDSC1", "GDSC2" or "CCLE"
+
+    :param dataset: dataset name, e.g., "GDSC1", "GDSC2", "CCLE" or "Toy_Data"
     :param data_path: where to save the data
     :param redownload: whether to redownload the data
     :return:
     """
-    file_name = f"{dataset}.zip"
+    file_name = f"{dataset_name}.zip"
     file_path = os.path.join(data_path, file_name)
-    if os.path.exists(file_path) and not redownload:
-        print(f"{dataset} already exists, skipping download.")
+    extracted_folder_path = os.path.join(data_path, dataset_name)
+
+    # Check if the extracted data exists and skip download if not redownloading
+    if os.path.exists(extracted_folder_path) and not redownload:
+        print(f"{dataset_name} is already extracted, skipping download.")
     else:
         url = "https://zenodo.org/doi/10.5281/zenodo.12633909"
         # Fetch the latest record
-        response = requests.get(url, timeout=10)
+        response = requests.get(url, timeout=60)
         if response.status_code != 200:
-            raise requests.exceptions.HTTPError(
-                f"Error fetching record: {response.status_code}"
-            )
+            raise requests.exceptions.HTTPError(f"Error fetching record: {response.status_code}")
         latest_url = response.links["linkset"]["url"]
-        response = requests.get(latest_url, timeout=10)
+        response = requests.get(latest_url, timeout=60)
         if response.status_code != 200:
-            raise requests.exceptions.HTTPError(
-                f"Error fetching record: {response.status_code}"
-            )
+            raise requests.exceptions.HTTPError(f"Error fetching record: {response.status_code}")
         data = response.json()
 
         # Ensure the save path exists
@@ -51,12 +48,10 @@ def download_dataset(
         name_to_url = {file["key"]: file["links"]["self"] for file in data["files"]}
         file_url = name_to_url[file_name]
         # Download the file
-        print(f"Downloading {dataset} from {file_url}...")
-        response = requests.get(file_url, timeout=10)
+        print(f"Downloading {dataset_name} from {file_url}...")
+        response = requests.get(file_url, timeout=60)
         if response.status_code != 200:
-            raise requests.exceptions.HTTPError(
-                f"Error downloading file {dataset}: " f"{response.status_code}"
-            )
+            raise requests.exceptions.HTTPError(f"Error downloading file {dataset_name}: " f"{response.status_code}")
 
         # Save the file
         with open(file_path, "wb") as f:
@@ -68,12 +63,13 @@ def download_dataset(
                     z.extract(member, data_path)
         os.remove(file_path)  # Remove zip file after extraction
 
-        print(f"{dataset} data downloaded and extracted to {data_path}")
+        print(f"{dataset_name} data downloaded and extracted to {data_path}")
 
 
 def randomize_graph(original_graph: nx.Graph) -> nx.Graph:
     """
     Randomizes the graph by shuffling the edges while preserving the degree sequence.
+
     :param original_graph: The original graph
     :return: Randomized graph with the same degree sequence and node attributes
     """
@@ -84,7 +80,7 @@ def randomize_graph(original_graph: nx.Graph) -> nx.Graph:
     new_graph = nx.expected_degree_graph(degree_sequence, seed=1234)
 
     # Remap nodes to the original labels
-    mapping = dict(zip(new_graph.nodes(), original_graph.nodes()))
+    mapping = dict(zip(new_graph.nodes(), original_graph.nodes(), strict=True))
     new_graph = nx.relabel_nodes(new_graph, mapping)
 
     # Copy node attributes from the original graph to the new graph
@@ -106,11 +102,12 @@ def randomize_graph(original_graph: nx.Graph) -> nx.Graph:
 def permute_features(
     features: dict,
     identifiers: ArrayLike,
-    views_to_permute: List,
-    all_views: List,
+    views_to_permute: list,
+    all_views: list,
 ) -> dict:
     """
-    Permute the specified views for each entity (= cell line or drug)
+    Permute the specified views for each entity (= cell line or drug).
+
     E.g. each cell line gets the feature vector/graph/image... of another cell line.
     Drawn without replacement.
     :param features: dictionary of features
@@ -119,15 +116,10 @@ def permute_features(
     :param all_views: list of all views
     :return: permuted features
     """
-
     return {
         entity: {
-            view: (
-                features[entity][view]
-                if view not in views_to_permute
-                else features[other_entity][view]
-            )
+            view: (features[entity][view] if view not in views_to_permute else features[other_entity][view])
             for view in all_views
         }
-        for entity, other_entity in zip(identifiers, np.random.permutation(identifiers))
+        for entity, other_entity in zip(identifiers, np.random.permutation(identifiers), strict=True)
     }

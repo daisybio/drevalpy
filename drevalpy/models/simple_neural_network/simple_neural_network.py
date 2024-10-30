@@ -3,7 +3,7 @@ Contains the SimpleNeuralNetwork model.
 """
 
 import warnings
-from typing import Dict, Optional
+from typing import Optional
 
 import numpy as np
 from numpy.typing import ArrayLike
@@ -19,10 +19,11 @@ from .utils import FeedForwardNetwork
 class SimpleNeuralNetwork(DRPModel):
     """
     Simple Feedforward Neural Network model with dropout.
+
     hyperparameters:
-        units_per_layer: number of units per layer e.g. [100, 50] means 2 layers with 100 and 50
-        units respectively and the output layer with one unit.
-        dropout_prob: dropout probability for layers 1, 2, ..., n-1
+    units_per_layer: number of units per layer e.g. [100, 50] means 2 layers with 100 and 50
+    units respectively and the output layer with one unit.
+    dropout_prob: dropout probability for layers 1, 2, ..., n-1
     """
 
     cell_line_views = ["gene_expression"]
@@ -35,7 +36,7 @@ class SimpleNeuralNetwork(DRPModel):
         self.model = None
         self.gene_expression_scaler = StandardScaler()
 
-    def build_model(self, hyperparameters: Dict):
+    def build_model(self, hyperparameters: dict):
         """
         Builds the model from hyperparameters.
         """
@@ -61,8 +62,7 @@ class SimpleNeuralNetwork(DRPModel):
         """
         # Apply arcsinh transformation and scaling to gene expression features
         if "gene_expression" in self.cell_line_views:
-            cell_line_input = cell_line_input.copy()
-            cell_line_input.apply(function=np.arcsinh, view="gene_expression")
+            cell_line_input._apply(function=np.arcsinh, view="gene_expression")
             self.gene_expression_scaler = cell_line_input.fit_transform_features(
                 train_ids=np.unique(output.cell_line_ids),
                 transformer=self.gene_expression_scaler,
@@ -105,7 +105,7 @@ class SimpleNeuralNetwork(DRPModel):
         # Apply transformation to gene expression features before prediction
         if "gene_expression" in self.cell_line_views:
             cell_line_input = cell_line_input.copy()
-            cell_line_input.apply(function=np.arcsinh, view="gene_expression")
+            cell_line_input._apply(function=np.arcsinh, view="gene_expression")
             cell_line_input.transform_features(
                 ids=np.unique(cell_line_ids),
                 transformer=self.gene_expression_scaler,
@@ -123,16 +123,13 @@ class SimpleNeuralNetwork(DRPModel):
 
         return self.model.predict(x)
 
-    def load_cell_line_features(
-        self, data_path: str, dataset_name: str
-    ) -> FeatureDataset:
+    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         """
         Loads the cell line features.
         :param path: Path to the gene expression and landmark genes
         :return: FeatureDataset containing the cell line gene expression features, filtered
         through the landmark genes
         """
-
         return load_and_reduce_gene_features(
             feature_type="gene_expression",
             gene_list="landmark_genes",
@@ -141,5 +138,4 @@ class SimpleNeuralNetwork(DRPModel):
         )
 
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
-
         return load_drug_fingerprint_features(data_path, dataset_name)

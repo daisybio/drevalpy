@@ -65,17 +65,13 @@ class Heatmap(VioHeat):
         idx_split = self.df.index.to_series().str.split("_")
         setting = idx_split.str[0:3].str.join("_")
         if plot_setting == "standard_errors":
-            dt = self.df.groupby(setting).apply(
-                lambda x: self.calc_summary_metric(x=x, std_error=True)
-            )
+            dt = self.df.groupby(setting).apply(lambda x: self.calc_summary_metric(x=x, std_error=True))
             row_idx = 1
             colorscale = "Pinkyl"
         elif plot_setting == "r2":
             r2_columns = [col for col in self.df.columns if "R^2" in col]
             dt = self.df[r2_columns]
-            dt = dt.groupby(setting).apply(
-                lambda x: self.calc_summary_metric(x=x, std_error=False)
-            )
+            dt = dt.groupby(setting).apply(lambda x: self.calc_summary_metric(x=x, std_error=False))
             dt = dt.sort_values(by=r2_columns[0], ascending=True)
             row_idx = 2
             colorscale = "Blues"
@@ -83,24 +79,17 @@ class Heatmap(VioHeat):
             corr_columns = [
                 col
                 for col in self.df.columns
-                if "Pearson" in col
-                or "Spearman" in col
-                or "Kendall" in col
-                or "Partial_Correlation" in col
+                if "Pearson" in col or "Spearman" in col or "Kendall" in col or "Partial_Correlation" in col
             ]
             corr_columns.sort()
             dt = self.df[corr_columns]
-            dt = dt.groupby(setting).apply(
-                lambda x: self.calc_summary_metric(x=x, std_error=False)
-            )
+            dt = dt.groupby(setting).apply(lambda x: self.calc_summary_metric(x=x, std_error=False))
             dt = dt.sort_values(by=corr_columns[0], ascending=True)
             row_idx = 3
             colorscale = "Viridis"
         elif plot_setting == "errors":
             dt = self.df[["MSE", "RMSE", "MAE"]]
-            dt = dt.groupby(setting).apply(
-                lambda x: self.calc_summary_metric(x=x, std_error=False)
-            )
+            dt = dt.groupby(setting).apply(lambda x: self.calc_summary_metric(x=x, std_error=False))
             dt = dt.sort_values(by="MSE", ascending=False)
             row_idx = 4
             colorscale = "hot"

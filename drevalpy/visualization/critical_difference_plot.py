@@ -19,9 +19,7 @@ matplotlib.rcParams["font.sans-serif"] = "Avenir"
 
 class CriticalDifferencePlot(OutPlot):
     def __init__(self, eval_results_preds: pd.DataFrame, metric="MSE"):
-        eval_results_preds = eval_results_preds[
-            ["algorithm", "CV_split", metric]
-        ].rename(
+        eval_results_preds = eval_results_preds[["algorithm", "CV_split", metric]].rename(
             columns={
                 "algorithm": "classifier_name",
                 "CV_split": "dataset_name",
@@ -74,9 +72,7 @@ class CriticalDifferencePlot(OutPlot):
             "#17becf",
         ]
 
-        p_values, average_ranks, _ = wilcoxon_holm(
-            alpha=alpha, df_perf=self.eval_results_preds
-        )
+        p_values, average_ranks, _ = wilcoxon_holm(alpha=alpha, df_perf=self.eval_results_preds)
 
         print(average_ranks)
 
@@ -138,23 +134,16 @@ def graph_ranks(
     `import matplotlib.pyplot as plt`.
 
     Args:
-        avranks (list of float): average ranks of methods.
-        names (list of str): names of methods.
-        cd (float): Critical difference used for statistically significance of
-            difference between methods.
-        cdmethod (int, optional): the method that is compared with other methods
-            If omitted, show pairwise comparison of methods
-        lowv (int, optional): the lowest shown rank
-        highv (int, optional): the highest shown rank
-        width (int, optional): default width in inches (default: 6)
-        textspace (int, optional): space on figure sides (in inches) for the
-            method names (default: 1)
-        reverse (bool, optional):  if set to `True`, the lowest rank is on the
-            right (default: `False`)
-        filename (str, optional): output file name (with extension). If not
-            given, the function does not write a file.
-        labels (bool, optional): if set to `True`, the calculated avg rank
-        values will be displayed
+    :param avranks: list of float, average ranks of methods.
+    :param names: list of str, names of methods.
+    :param p_values: list of tuples, p-values of the methods.
+    :param lowv: int, optional the lowest shown rank
+    :param highv: int, optional, the highest shown rank
+    :param width: int, optional, default width in inches (default: 6)
+    :param textspace: int, optional, space on figure sides (in inches) for the method names (default: 1)
+    :param reverse: bool, optional, if set to `True`, the lowest rank is on the right (default: `False`)
+    :param labels: bool, optional, if set to `True`, the calculated avg rank values will be displayed
+    :param colors: list of str, optional, list of colors for the methods
     """
 
     width = float(width)
@@ -415,21 +404,14 @@ def wilcoxon_holm(alpha=0.05, df_perf=None):
     """
     print(pd.unique(df_perf["classifier_name"]))
     # count the number of tested datasets per classifier
-    df_counts = pd.DataFrame(
-        {"count": df_perf.groupby(["classifier_name"]).size()}
-    ).reset_index()
+    df_counts = pd.DataFrame({"count": df_perf.groupby(["classifier_name"]).size()}).reset_index()
     # get the maximum number of tested datasets
     max_nb_datasets = df_counts["count"].max()
     # get the list of classifiers who have been tested on nb_max_datasets
-    classifiers = list(
-        df_counts.loc[df_counts["count"] == max_nb_datasets]["classifier_name"]
-    )
+    classifiers = list(df_counts.loc[df_counts["count"] == max_nb_datasets]["classifier_name"])
     # test the null hypothesis using friedman before doing a post-hoc analysis
     friedman_p_value = friedmanchisquare(
-        *(
-            np.array(df_perf.loc[df_perf["classifier_name"] == c]["accuracy"])
-            for c in classifiers
-        )
+        *(np.array(df_perf.loc[df_perf["classifier_name"] == c]["accuracy"]) for c in classifiers)
     )[1]
     if friedman_p_value >= alpha:
         # then the null hypothesis over the entire classifiers cannot be rejected
@@ -482,9 +464,9 @@ def wilcoxon_holm(alpha=0.05, df_perf=None):
             break
     # compute the average ranks to be returned (useful for drawing the cd diagram)
     # sort the dataframe of performances
-    sorted_df_perf = df_perf.loc[
-        df_perf["classifier_name"].isin(classifiers)
-    ].sort_values(["classifier_name", "dataset_name"])
+    sorted_df_perf = df_perf.loc[df_perf["classifier_name"].isin(classifiers)].sort_values(
+        ["classifier_name", "dataset_name"]
+    )
     # get the rank data
     rank_data = np.array(sorted_df_perf["accuracy"]).reshape(m, max_nb_datasets)
 
@@ -500,8 +482,6 @@ def wilcoxon_holm(alpha=0.05, df_perf=None):
     print(dfff[dfff == 1.0].sum(axis=1))
 
     # average the ranks
-    average_ranks = (
-        df_ranks.rank(ascending=False).mean(axis=1).sort_values(ascending=False)
-    )
+    average_ranks = df_ranks.rank(ascending=False).mean(axis=1).sort_values(ascending=False)
     # return the p-values and the average ranks
     return p_values, average_ranks, max_nb_datasets

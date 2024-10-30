@@ -1,12 +1,10 @@
-"""
-Main module for running the drug response prediction experiment.
-"""
+"""Main module for running the drug response prediction experiment."""
 
 import json
 import os
 import shutil
 import warnings
-from typing import Dict, List, Optional, Tuple, Type
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -22,18 +20,18 @@ from .models.drp_model import DRPModel, SingleDrugModel
 
 
 def drug_response_experiment(
-    models: List[Type[DRPModel]],
+    models: list[type[DRPModel]],
     response_data: DrugResponseDataset,
-    baselines: Optional[List[Type[DRPModel]]] = None,
+    baselines: Optional[list[type[DRPModel]]] = None,
     response_transformation: Optional[TransformerMixin] = None,
     run_id: str = "",
     test_mode: str = "LPO",
     metric: str = "RMSE",
     n_cv_splits: int = 5,
     multiprocessing: bool = False,
-    randomization_mode: Optional[List[str]] = None,
+    randomization_mode: Optional[list[str]] = None,
     randomization_type: str = "permutation",
-    cross_study_datasets: Optional[List[DrugResponseDataset]] = None,
+    cross_study_datasets: Optional[list[DrugResponseDataset]] = None,
     n_trials_robustness: int = 0,
     path_out: str = "results/",
     overwrite: bool = False,
@@ -41,6 +39,7 @@ def drug_response_experiment(
 ) -> None:
     """
     Run the drug response prediction experiment. Save results to disc.
+
     :param models: list of model classes to compare
     :param baselines: list of baseline models. No randomization or robustness tests are run for the
         baseline models.
@@ -73,9 +72,9 @@ def drug_response_experiment(
         "permutation": permute the features over the instances, keeping the distribution of the
         features the same but dissolving the relationship to the target
     :param n_trials_robustness: number of trials to run for the robustness test.
-    The robustness test is a test where models are
-    retrained multiple tiems with varying seeds. Default is 0, which
-    means no robustness test is run.
+        The robustness test is a test where models are
+        retrained multiple tiems with varying seeds. Default is 0, which
+        means no robustness test is run.
     :param path_out: path to the output directory
     :param run_id: identifier to save the results
     :param test_mode: test mode one of "LPO", "LCO", "LDO" (leave-pair-out, leave-cell-line-out,
@@ -120,14 +119,15 @@ def drug_response_experiment(
 
     model_list = make_model_list(models + baselines, response_data)
     for model_name in model_list.keys():
+        print(f"Running {model_name}")
         model_name, drug_id = get_model_name_and_drug_id(model_name)
 
         model_class = MODEL_FACTORY[model_name]
         if model_class in baselines:
-            print(f"Running baseline model {model_class.model_name}")
+            print("- Only Baseline Tests -")
             is_baseline = True
         else:
-            print(f"Running model {model_class.model_name}")
+            print("- Full Test -")
             is_baseline = False
 
         predictions_path = generate_data_saving_path(
@@ -147,14 +147,9 @@ def drug_response_experiment(
         model_hpam_set = model_class.get_hyperparameter_set()
 
         for split_index, split in enumerate(response_data.cv_splits):
-            print(
-                f"################# FOLD {split_index+1}/{len(response_data.cv_splits)} "
-                f"#################"
-            )
+            print(f"################# FOLD {split_index+1}/{len(response_data.cv_splits)} " f"#################")
 
-            prediction_file = os.path.join(
-                predictions_path, f"predictions_split_{split_index}.csv"
-            )
+            prediction_file = os.path.join(predictions_path, f"predictions_split_{split_index}.csv")
 
             hpam_filename = f"best_hpams_split_{split_index}.json"
             hpam_save_path = os.path.join(hpam_path, hpam_filename)
@@ -184,17 +179,13 @@ def drug_response_experiment(
                 }
 
                 if multiprocessing:
-                    tuning_inputs["ray_path"] = os.path.abspath(
-                        os.path.join(result_path, "raytune")
-                    )
+                    tuning_inputs["ray_path"] = os.path.abspath(os.path.join(result_path, "raytune"))
                     best_hpams = hpam_tune_raytune(**tuning_inputs)
                 else:
                     best_hpams = hpam_tune(**tuning_inputs)
 
                 print(f"Best hyperparameters: {best_hpams}")
-                print(
-                    "Training model on full train and validation set to predict test set"
-                )
+                print("Training model on full train and validation set to predict test set")
                 # save best hyperparameters as json
                 with open(
                     hpam_save_path,
@@ -203,9 +194,7 @@ def drug_response_experiment(
                 ) as f:
                     json.dump(best_hpams, f)
 
-                train_dataset.add_rows(
-                    validation_dataset
-                )  # use full train val set data for final training
+                train_dataset.add_rows(validation_dataset)  # use full train val set data for final training
                 train_dataset.shuffle(random_state=42)
 
                 test_dataset = train_and_predict(
@@ -214,16 +203,12 @@ def drug_response_experiment(
                     path_data=path_data,
                     train_dataset=train_dataset,
                     prediction_dataset=test_dataset,
-                    early_stopping_dataset=(
-                        early_stopping_dataset if model.early_stopping else None
-                    ),
+                    early_stopping_dataset=(early_stopping_dataset if model.early_stopping else None),
                     response_transformation=response_transformation,
                 )
 
                 for cross_study_dataset in cross_study_datasets:
-                    print(
-                        f"Cross study prediction on {cross_study_dataset.dataset_name}"
-                    )
+                    print(f"Cross study prediction on {cross_study_dataset.dataset_name}")
                     cross_study_dataset.remove_nan_responses()
                     cross_study_prediction(
                         dataset=cross_study_dataset,
@@ -231,15 +216,11 @@ def drug_response_experiment(
                         test_mode=test_mode,
                         train_dataset=train_dataset,
                         path_data=path_data,
-                        early_stopping_dataset=(
-                            early_stopping_dataset if model.early_stopping else None
-                        ),
+                        early_stopping_dataset=(early_stopping_dataset if model.early_stopping else None),
                         response_transformation=response_transformation,
                         path_out=parent_dir,
                         split_index=split_index,
-                        single_drug_id=(
-                            drug_id if model_name in SINGLE_DRUG_MODEL_FACTORY else None
-                        ),
+                        single_drug_id=(drug_id if model_name in SINGLE_DRUG_MODEL_FACTORY else None),
                     )
 
                 test_dataset.save(prediction_file)
@@ -247,7 +228,6 @@ def drug_response_experiment(
                 print(f"Split {split_index} already exists. Skipping.")
                 with open(
                     hpam_save_path,
-                    "r",
                     encoding="utf-8",
                 ) as f:
                     best_hpams = json.load(f)
@@ -266,9 +246,7 @@ def drug_response_experiment(
                         path_data=path_data,
                         train_dataset=train_dataset,
                         test_dataset=test_dataset,
-                        early_stopping_dataset=(
-                            early_stopping_dataset if model.early_stopping else None
-                        ),
+                        early_stopping_dataset=(early_stopping_dataset if model.early_stopping else None),
                         path_out=parent_dir,
                         split_index=split_index,
                         randomization_type=randomization_type,
@@ -283,9 +261,7 @@ def drug_response_experiment(
                         path_data=path_data,
                         train_dataset=train_dataset,
                         test_dataset=test_dataset,
-                        early_stopping_dataset=(
-                            early_stopping_dataset if model.early_stopping else None
-                        ),
+                        early_stopping_dataset=(early_stopping_dataset if model.early_stopping else None),
                         path_out=parent_dir,
                         split_index=split_index,
                         response_transformation=response_transformation,
@@ -303,17 +279,15 @@ def drug_response_experiment(
 
 
 def consolidate_single_drug_model_predictions(
-    models: List[Type[DRPModel]],
+    models: list[type[DRPModel]],
     n_cv_splits: int,
     results_path: str,
-    cross_study_datasets: List[DrugResponseDataset],
-    randomization_mode: Optional[List[str]] = None,
+    cross_study_datasets: list[DrugResponseDataset],
+    randomization_mode: Optional[list[str]] = None,
     n_trials_robustness: int = 0,
     out_path: str = "",
 ) -> None:
-    """
-    Consolidate SingleDrugModel predictions into a single file
-    """
+    """Consolidate SingleDrugModel predictions into a single file."""
 
     for model in models:
         if model.model_name in SINGLE_DRUG_MODEL_FACTORY:
@@ -344,9 +318,7 @@ def consolidate_single_drug_model_predictions(
                     if os.path.isdir(os.path.join(model_path, "drugs", d))
                 ]
                 for drug in drugs:
-                    single_drug_prediction_path = os.path.join(
-                        model_path, "drugs", drug
-                    )
+                    single_drug_prediction_path = os.path.join(model_path, "drugs", drug)
 
                     # Main predictions
                     predictions["main"].append(
@@ -362,20 +334,11 @@ def consolidate_single_drug_model_predictions(
 
                     # Cross study predictions
                     for cross_study_dataset in cross_study_datasets:
-                        cross_study_prediction_path = os.path.join(
-                            single_drug_prediction_path, "cross_study"
-                        )
+                        cross_study_prediction_path = os.path.join(single_drug_prediction_path, "cross_study")
                         f = f"cross_study_{cross_study_dataset.dataset_name}_split_{split}.csv"
-                        if (
-                            cross_study_dataset.dataset_name
-                            not in predictions["cross_study"]
-                        ):
-                            predictions["cross_study"][
-                                cross_study_dataset.dataset_name
-                            ] = []
-                        predictions["cross_study"][
-                            cross_study_dataset.dataset_name
-                        ].append(
+                        if cross_study_dataset.dataset_name not in predictions["cross_study"]:
+                            predictions["cross_study"][cross_study_dataset.dataset_name] = []
+                        predictions["cross_study"][cross_study_dataset.dataset_name].append(
                             pd.read_csv(
                                 os.path.join(cross_study_prediction_path, f),
                                 index_col=0,
@@ -384,9 +347,7 @@ def consolidate_single_drug_model_predictions(
 
                     # Robustness predictions
                     for trial in range(n_trials_robustness):
-                        robustness_path = os.path.join(
-                            single_drug_prediction_path, "robustness"
-                        )
+                        robustness_path = os.path.join(single_drug_prediction_path, "robustness")
                         f = f"robustness_{trial+1}_split_{split}.csv"
                         if trial not in predictions["robustness"]:
                             predictions["robustness"][trial] = []
@@ -395,23 +356,22 @@ def consolidate_single_drug_model_predictions(
                         )
 
                     # Randomization predictions
-                    randomization_test_views = get_randomization_test_views(
-                        model=model_instance,
-                        randomization_mode=randomization_mode,
-                    )
-                    for view in randomization_test_views:
-                        randomization_path = os.path.join(
-                            single_drug_prediction_path, "randomization"
+                    if randomization_mode is not None:
+                        randomization_test_views = get_randomization_test_views(
+                            model=model_instance,
+                            randomization_mode=randomization_mode,
                         )
-                        f = f"randomization_{view}_split_{split}.csv"
-                        if view not in predictions["randomization"]:
-                            predictions["randomization"][view] = []
-                        predictions["randomization"][view].append(
-                            pd.read_csv(
-                                os.path.join(randomization_path, f),
-                                index_col=0,
+                        for view in randomization_test_views:
+                            randomization_path = os.path.join(single_drug_prediction_path, "randomization")
+                            f = f"randomization_{view}_split_{split}.csv"
+                            if view not in predictions["randomization"]:
+                                predictions["randomization"][view] = []
+                            predictions["randomization"][view].append(
+                                pd.read_csv(
+                                    os.path.join(randomization_path, f),
+                                    index_col=0,
+                                )
                             )
-                        )
 
                 # Save the consolidated predictions
                 pd.concat(predictions["main"], axis=0).to_csv(
@@ -422,9 +382,7 @@ def consolidate_single_drug_model_predictions(
                     )
                 )
 
-                for dataset_name, dataset_predictions in predictions[
-                    "cross_study"
-                ].items():
+                for dataset_name, dataset_predictions in predictions["cross_study"].items():
                     pd.concat(dataset_predictions, axis=0).to_csv(
                         os.path.join(
                             out_path,
@@ -461,14 +419,10 @@ def handle_overwrite(path: str, overwrite: bool) -> None:
 
 def load_features(
     model: DRPModel, path_data: str, dataset: DrugResponseDataset
-) -> Tuple[FeatureDataset, FeatureDataset]:
+) -> tuple[FeatureDataset, FeatureDataset]:
     """Load and reduce cell line and drug features for a given dataset."""
-    cl_features = model.load_cell_line_features(
-        data_path=path_data, dataset_name=dataset.dataset_name
-    )
-    drug_features = model.load_drug_features(
-        data_path=path_data, dataset_name=dataset.dataset_name
-    )
+    cl_features = model.load_cell_line_features(data_path=path_data, dataset_name=dataset.dataset_name)
+    drug_features = model.load_drug_features(data_path=path_data, dataset_name=dataset.dataset_name)
     return cl_features, drug_features
 
 
@@ -486,10 +440,11 @@ def cross_study_prediction(
 ) -> None:
     """
     Run the drug response prediction experiment on a cross-study dataset. Save results to disc.
+
     :param dataset: cross-study dataset
     :param model: model to use
     :param test_mode: test mode one of "LPO", "LCO", "LDO" (leave-pair-out, leave-cell-line-out,
-    leave-drug-out)
+        leave-drug-out)
     :param train_dataset: training dataset
     :param early_stopping_dataset: early stopping dataset
     :param single_drug_id: drug id to use for single drug models None for global models
@@ -503,7 +458,7 @@ def cross_study_prediction(
     try:
         cl_features, drug_features = load_features(model, path_data, dataset)
     except ValueError as e:
-        warnings.warn(e)
+        warnings.warn(e, stacklevel=2)
         return
 
     cell_lines_to_keep = cl_features.identifiers if cl_features is not None else None
@@ -527,22 +482,15 @@ def cross_study_prediction(
     # remove rows which overlap in the training. depends on the test mode
     if test_mode == "LPO":
         train_pairs = {
-            f"{cl}_{drug}"
-            for cl, drug in zip(train_dataset.cell_line_ids, train_dataset.drug_ids)
+            f"{cl}_{drug}" for cl, drug in zip(train_dataset.cell_line_ids, train_dataset.drug_ids, strict=True)
         }
-        dataset_pairs = [
-            f"{cl}_{drug}" for cl, drug in zip(dataset.cell_line_ids, dataset.drug_ids)
-        ]
+        dataset_pairs = [f"{cl}_{drug}" for cl, drug in zip(dataset.cell_line_ids, dataset.drug_ids, strict=True)]
 
-        dataset.remove_rows(
-            [i for i, pair in enumerate(dataset_pairs) if pair in train_pairs]
-        )
+        dataset.remove_rows([i for i, pair in enumerate(dataset_pairs) if pair in train_pairs])
     elif test_mode == "LCO":
         train_cell_lines = set(train_dataset.cell_line_ids)
         dataset.reduce_to(
-            cell_line_ids=[
-                cl for cl in dataset.cell_line_ids if cl not in train_cell_lines
-            ],
+            cell_line_ids=[cl for cl in dataset.cell_line_ids if cl not in train_cell_lines],
             drug_ids=None,
         )
     elif test_mode == "LDO":
@@ -562,9 +510,7 @@ def cross_study_prediction(
             drug_input=drug_features,
         )
         if response_transformation:
-            dataset.response = response_transformation.inverse_transform(
-                dataset.response
-            )
+            dataset.response = response_transformation.inverse_transform(dataset.response)
     else:
         dataset.predictions = np.array([])
     dataset.save(
@@ -576,11 +522,10 @@ def cross_study_prediction(
     )
 
 
-def get_randomization_test_views(
-    model: DRPModel, randomization_mode: List[str]
-) -> Dict[str, List[str]]:
+def get_randomization_test_views(model: DRPModel, randomization_mode: list[str]) -> dict[str, list[str]]:
     """
     Get the views to use for the randomization tests.
+
     :param model:
     :param randomization_mode:
     :return:
@@ -590,17 +535,13 @@ def get_randomization_test_views(
     randomization_test_views = {}
     if "SVCC" in randomization_mode:
         for view in cell_line_views:
-            randomization_test_views[f"SVCC_{view}"] = [
-                v for v in cell_line_views if v != view
-            ]
+            randomization_test_views[f"SVCC_{view}"] = [v for v in cell_line_views if v != view]
     if "SVRC" in randomization_mode:
         for view in cell_line_views:
             randomization_test_views[f"SVRC_{view}"] = [view]
     if "SVCD" in randomization_mode:
         for view in drug_views:
-            randomization_test_views[f"SVCD_{view}"] = [
-                v for v in drug_views if v != view
-            ]
+            randomization_test_views[f"SVCD_{view}"] = [v for v in drug_views if v != view]
     if "SVRD" in randomization_mode:
         for view in drug_views:
             randomization_test_views[f"SVRD_{view}"] = [view]
@@ -611,7 +552,7 @@ def get_randomization_test_views(
 def robustness_test(
     n_trials: int,
     model: DRPModel,
-    hpam_set: Dict,
+    hpam_set: dict,
     path_data: str,
     train_dataset: DrugResponseDataset,
     test_dataset: DrugResponseDataset,
@@ -621,8 +562,9 @@ def robustness_test(
     response_transformation: Optional[TransformerMixin] = None,
 ):
     """
-    Run robustness tests for the given model and dataset (run the model n times with different
-    random seeds to get a distribution of the results)
+    Run robustness tests for the given model and dataset.
+
+    This will run the model n times with different random seeds to get a distribution of the results.
     :param n_trials: number of trials to run
     :param model: model to evaluate
     :param hpam_set: hyperparameters to use
@@ -637,7 +579,6 @@ def robustness_test(
     MinMaxScaler to use to scale the target
     :return: None (save results to disk)
     """
-
     robustness_test_path = os.path.join(path_out, "robustness")
     os.makedirs(robustness_test_path, exist_ok=True)
     for trial in range(n_trials):
@@ -667,12 +608,13 @@ def robustness_train_predict(
     test_dataset: DrugResponseDataset,
     early_stopping_dataset: Optional[DrugResponseDataset],
     model: DRPModel,
-    hpam_set: Dict,
+    hpam_set: dict,
     path_data: str,
     response_transformation: Optional[TransformerMixin] = None,
 ):
     """
-    Train and predict for the robustness test
+    Train and predict for the robustness test.
+
     :param trial:
     :param trial_file:
     :param train_dataset:
@@ -701,9 +643,9 @@ def robustness_train_predict(
 
 
 def randomization_test(
-    randomization_test_views: Dict[str, List[str]],
+    randomization_test_views: dict[str, list[str]],
     model: DRPModel,
-    hpam_set: Dict,
+    hpam_set: dict,
     path_data: str,
     train_dataset: DrugResponseDataset,
     test_dataset: DrugResponseDataset,
@@ -714,7 +656,8 @@ def randomization_test(
     response_transformation=Optional[TransformerMixin],
 ) -> None:
     """
-    Run randomization tests for the given model and dataset
+    Run randomization tests for the given model and dataset.
+
     :param randomization_test_views: views to use for the randomization tests.
         Key is the name of the randomization test and the value is a list of views to randomize
         e.g. {"randomize_genomics": ["copy_number_var", "mutation"],
@@ -728,16 +671,15 @@ def randomization_test(
     :param split_index: index of the split
     :param test_mode: test mode one of "LPO", "LCO", "LDO"
     :param randomization_type: type of randomization to use. Choose from "permutation", "invariant".
-    Default is "permutation" which permutes the features over the instances, keeping the
-    distribution of the features the same but dissolving the relationship to the target.
-    invariant randomization is done in a way that a key characteristic of the feature is preserved.
-    In case of matrices, this is the mean and standard deviation of the feature view for this
-    instance, for networks it is the degree distribution.
-    :param response_transformation sklearn.preprocessing scaler like StandardScaler or MinMaxScaler
-    to use to scale the target
+        Default is "permutation" which permutes the features over the instances, keeping the
+        distribution of the features the same but dissolving the relationship to the target.
+        invariant randomization is done in a way that a key characteristic of the feature is preserved.
+        In case of matrices, this is the mean and standard deviation of the feature view for this
+        instance, for networks it is the degree distribution.
+    :param response_transformation: sklearn.preprocessing scaler like StandardScaler or MinMaxScaler
+        to use to scale the target
     :return: None (save results to disk)
     """
-
     for test_name, views in randomization_test_views.items():
         randomization_test_path = os.path.join(path_out, "randomization")
         os.makedirs(randomization_test_path, exist_ok=True)
@@ -746,9 +688,7 @@ def randomization_test(
             randomization_test_path,
             f"randomization_{test_name}_split_{split_index}.csv",
         )
-        if not os.path.isfile(
-            randomization_test_file
-        ):  # if this splits test has not been run yet
+        if not os.path.isfile(randomization_test_file):  # if this splits test has not been run yet
             for view in views:
                 print(f"Randomizing view {view} for randomization test {test_name} ...")
                 randomize_train_predict(
@@ -774,7 +714,7 @@ def randomize_train_predict(
     randomization_type: str,
     randomization_test_file: str,
     model: DRPModel,
-    hpam_set: Dict,
+    hpam_set: dict,
     path_data: str,
     train_dataset: DrugResponseDataset,
     test_dataset: DrugResponseDataset,
@@ -782,7 +722,8 @@ def randomize_train_predict(
     response_transformation: Optional[TransformerMixin],
 ):
     """
-    Randomize the features for a given view and run the model
+    Randomize the features for a given view and run the model.
+
     :param view:
     :param test_name:
     :param randomization_type:
@@ -798,12 +739,10 @@ def randomize_train_predict(
     """
     cl_features, drug_features = load_features(model, path_data, train_dataset)
 
-    if (view not in cl_features.get_view_names()) and (
-        view not in drug_features.get_view_names()
-    ):
+    if (view not in cl_features.get_view_names()) and (view not in drug_features.get_view_names()):
         warnings.warn(
-            f"View {view} not found in features. Skipping randomization test {test_name} "
-            f"which includes this view."
+            f"View {view} not found in features. Skipping randomization test {test_name} " f"which includes this view.",
+            stacklevel=2,
         )
         return
     cl_features_rand = cl_features.copy() if cl_features is not None else None
@@ -812,9 +751,7 @@ def randomize_train_predict(
     if view in cl_features.get_view_names():
         cl_features_rand.randomize_features(view, randomization_type=randomization_type)
     elif view in drug_features.get_view_names():
-        drug_features_rand.randomize_features(
-            view, randomization_type=randomization_type
-        )
+        drug_features_rand.randomize_features(view, randomization_type=randomization_type)
 
     test_dataset_rand = train_and_predict(
         model=model,
@@ -832,9 +769,10 @@ def randomize_train_predict(
 
 def split_early_stopping(
     validation_dataset: DrugResponseDataset, test_mode: str
-) -> Tuple[DrugResponseDataset, DrugResponseDataset]:
+) -> tuple[DrugResponseDataset, DrugResponseDataset]:
     """
     Split the validation dataset into a validation and early stopping dataset.
+
     :param validation_dataset:
     :param test_mode:
     :return:
@@ -854,7 +792,7 @@ def split_early_stopping(
 
 def train_and_predict(
     model: DRPModel,
-    hpams: Dict,
+    hpams: dict,
     path_data: str,
     train_dataset: DrugResponseDataset,
     prediction_dataset: DrugResponseDataset,
@@ -864,7 +802,8 @@ def train_and_predict(
     drug_features: Optional[FeatureDataset] = None,
 ) -> DrugResponseDataset:
     """
-    Train the model and predict the response for the prediction dataset
+    Train the model and predict the response for the prediction dataset.
+
     :param model:
     :param hpams:
     :param path_data:
@@ -880,14 +819,10 @@ def train_and_predict(
 
     if cl_features is None:
         print("Loading cell line features ...")
-        cl_features = model.load_cell_line_features(
-            data_path=path_data, dataset_name=train_dataset.dataset_name
-        )
+        cl_features = model.load_cell_line_features(data_path=path_data, dataset_name=train_dataset.dataset_name)
     if drug_features is None:
         print("Loading drug features ...")
-        drug_features = model.load_drug_features(
-            data_path=path_data, dataset_name=train_dataset.dataset_name
-        )
+        drug_features = model.load_drug_features(data_path=path_data, dataset_name=train_dataset.dataset_name)
 
     cell_lines_to_keep = cl_features.identifiers if cl_features is not None else None
     drugs_to_keep = drug_features.identifiers if drug_features is not None else None
@@ -896,19 +831,14 @@ def train_and_predict(
     len_train_before = len(train_dataset)
     len_pred_before = len(prediction_dataset)
     train_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
-    prediction_dataset.reduce_to(
-        cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep
-    )
+    prediction_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
     print(f"Reduced training dataset from {len_train_before} to {len(train_dataset)}")
-    print(
-        f"Reduced prediction dataset from {len_pred_before} to {len(prediction_dataset)}"
-    )
+    print(f"Reduced prediction dataset from {len_pred_before} to {len(prediction_dataset)}")
 
     if early_stopping_dataset is not None:
-        early_stopping_dataset.reduce_to(
-            cell_line_ids=cl_features.identifiers,
-            drug_ids=drug_features.identifiers,
-        )
+        len_es_before = len(early_stopping_dataset)
+        early_stopping_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
+        print(f"Reduced early stopping dataset from {len_es_before} to {len(early_stopping_dataset)}")
 
     if response_transformation:
         train_dataset.fit_transform(response_transformation)
@@ -937,16 +867,17 @@ def train_and_predict(
 
 def train_and_evaluate(
     model: DRPModel,
-    hpams: Dict[str, List],
+    hpams: dict[str, list],
     path_data: str,
     train_dataset: DrugResponseDataset,
     validation_dataset: DrugResponseDataset,
     early_stopping_dataset: Optional[DrugResponseDataset] = None,
     response_transformation: Optional[TransformerMixin] = None,
     metric: str = "rmse",
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """
-    Train and evaluate the model
+    Train and evaluate the model.
+
     :param model:
     :param hpams:
     :param path_data:
@@ -973,14 +904,15 @@ def hpam_tune(
     model: DRPModel,
     train_dataset: DrugResponseDataset,
     validation_dataset: DrugResponseDataset,
-    hpam_set: List[Dict],
+    hpam_set: list[dict],
     early_stopping_dataset: Optional[DrugResponseDataset] = None,
     response_transformation: Optional[TransformerMixin] = None,
     metric: str = "RMSE",
     path_data: str = "data",
-) -> Dict:
+) -> dict:
     """
-    Tune the hyperparameters for the given model
+    Tune the hyperparameters for the given model.
+
     :param model:
     :param train_dataset:
     :param validation_dataset:
@@ -991,9 +923,8 @@ def hpam_tune(
     :param path_data:
     :return:
     """
-    assert (
-        len(hpam_set) > 0
-    ), "hpam_set must contain at least one hyperparameter configuration"
+    if len(hpam_set) == 0:
+        raise AssertionError("hpam_set must contain at least one hyperparameter configuration")
     if len(hpam_set) == 1:
         return hpam_set[0]
 
@@ -1016,15 +947,13 @@ def hpam_tune(
         if np.isnan(score):
             continue
 
-        if (mode == "min" and score < best_score) or (
-            mode == "max" and score > best_score
-        ):
+        if (mode == "min" and score < best_score) or (mode == "max" and score > best_score):
             print(f"current best {metric} score: {np.round(score, 3)}")
             best_score = score
             best_hyperparameters = hyperparameter
 
     if best_hyperparameters is None:
-        warnings.warn("all hpams lead to NaN respone. using last hpam combination.")
+        warnings.warn("all hpams lead to NaN respone. using last hpam combination.", stacklevel=2)
         best_hyperparameters = hyperparameter
 
     return best_hyperparameters
@@ -1035,14 +964,15 @@ def hpam_tune_raytune(
     train_dataset: DrugResponseDataset,
     validation_dataset: DrugResponseDataset,
     early_stopping_dataset: Optional[DrugResponseDataset],
-    hpam_set: List[Dict],
+    hpam_set: list[dict],
     response_transformation: Optional[TransformerMixin] = None,
     metric: str = "RMSE",
     ray_path: str = "raytune",
     path_data: str = "data",
-) -> Dict:
+) -> dict:
     """
-    Tune the hyperparameters for the given model using raytune
+    Tune the hyperparameters for the given model using raytune.
+
     :param model:
     :param train_dataset:
     :param validation_dataset:
@@ -1086,11 +1016,10 @@ def hpam_tune_raytune(
     return best_config
 
 
-def make_model_list(
-    models: List[Type[DRPModel]], response_data: DrugResponseDataset
-) -> Dict[str, str]:
+def make_model_list(models: list[type[DRPModel]], response_data: DrugResponseDataset) -> dict[str, str]:
     """
-    Make a list of models to evaluate
+    Make a list of models to evaluate.
+
     :param models:
     :param baselines:
     :param response_data:
@@ -1109,25 +1038,34 @@ def make_model_list(
 
 def get_model_name_and_drug_id(model_name: str):
     """
-    Get the model name and drug id from the model name
+    Get the model name and drug id from the model name.
+
     :param model_name:
     :return:
     """
-
     if model_name in MULTI_DRUG_MODEL_FACTORY:
         return model_name, None
     else:
         name_split = model_name.split(".")
         model_name = name_split[0]
-        assert (
-            model_name in SINGLE_DRUG_MODEL_FACTORY
-        ), f"Model {model_name} not found in MODEL_FACTORY or SINGLE_DRUG_MODEL_FACTORY. Please add the model to the factory."
+        if model_name not in SINGLE_DRUG_MODEL_FACTORY:
+            raise AssertionError(
+                f"Model {model_name} not found in MODEL_FACTORY or SINGLE_DRUG_MODEL_FACTORY. "
+                "Please add the model to the factory."
+            )
         drug_id = name_split[1]
 
         return model_name, drug_id
 
 
 def get_datasets_from_cv_split(split, model_class, model_name, drug_id):
+    """
+    Get dataset from cross validation split.
+
+    :param model_class:
+    :param model_name:
+    :param drug_id:
+    """
     train_dataset = split["train"]
     validation_dataset = split["validation"]
     test_dataset = split["test"]
@@ -1164,6 +1102,14 @@ def get_datasets_from_cv_split(split, model_class, model_name, drug_id):
 
 
 def generate_data_saving_path(model_name, drug_id, result_path, suffix):
+    """
+    Generate a path to save data to.
+
+    :param model_name:
+    :param drug_id:
+    :param result_path:
+    :param suffix:
+    """
     is_single_drug_model = model_name in SINGLE_DRUG_MODEL_FACTORY
     if is_single_drug_model:
         model_path = os.path.join(result_path, model_name, "drugs", drug_id, suffix)

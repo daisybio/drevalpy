@@ -1,13 +1,9 @@
-"""
-Contains sklearn baseline models: ElasticNet, RandomForest, SVM
-"""
-
-from typing import Dict
+"""Contains sklearn baseline models: ElasticNet, RandomForest, SVM."""
 
 import numpy as np
 from numpy.typing import ArrayLike
 from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
-from sklearn.linear_model import ElasticNet, Ridge
+from sklearn.linear_model import ElasticNet, Lasso, Ridge
 from sklearn.svm import SVR
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
@@ -28,15 +24,13 @@ class SklearnModel(DRPModel):
         super().__init__()
         self.model = None
 
-    def build_model(self, hyperparameters: Dict):
+    def build_model(self, hyperparameters: dict):
         """
         Builds the model from hyperparameters.
         :param hyperparameters: Custom hyperparameters for the model, have to be defined in the
         child class.
         """
-        raise NotImplementedError(
-            "build_model method has to be implemented in the child class."
-        )
+        raise NotImplementedError("build_model method has to be implemented in the child class.")
 
     def train(
         self,
@@ -93,9 +87,7 @@ class SklearnModel(DRPModel):
     def load(self, path):
         raise NotImplementedError("ElasticNetModel does not support loading yet ...")
 
-    def load_cell_line_features(
-        self, data_path: str, dataset_name: str
-    ) -> FeatureDataset:
+    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         """
         Loads the cell line features.
         :param path: Path to the gene expression and landmark genes
@@ -120,13 +112,15 @@ class ElasticNetModel(SklearnModel):
 
     model_name = "ElasticNet"
 
-    def build_model(self, hyperparameters: Dict):
+    def build_model(self, hyperparameters: dict):
         """
         Builds the ElasticNet model from hyperparameters.
         :param hyperparameters: Contains L1 ratio and alpha.
         """
         if hyperparameters["l1_ratio"] == 0.0:
             self.model = Ridge(alpha=hyperparameters["alpha"])
+        elif hyperparameters["l1_ratio"] == 1.0:
+            self.model = Lasso(alpha=hyperparameters["alpha"])
         else:
             self.model = ElasticNet(
                 alpha=hyperparameters["alpha"],
@@ -141,7 +135,7 @@ class RandomForest(SklearnModel):
 
     model_name = "RandomForest"
 
-    def build_model(self, hyperparameters: Dict):
+    def build_model(self, hyperparameters: dict):
         """
         Builds the model from hyperparameters.
         :param hyperparameters: Hyperparameters for the model.
@@ -151,11 +145,8 @@ class RandomForest(SklearnModel):
         self.model = RandomForestRegressor(
             n_estimators=hyperparameters["n_estimators"],
             criterion=hyperparameters["criterion"],
-            max_depth=hyperparameters["max_depth"],
-            min_samples_split=hyperparameters["min_samples_split"],
-            min_samples_leaf=hyperparameters["min_samples_leaf"],
-            n_jobs=hyperparameters["n_jobs"],
             max_samples=hyperparameters["max_samples"],
+            n_jobs=hyperparameters["n_jobs"],
         )
 
 
@@ -166,7 +157,7 @@ class SVMRegressor(SklearnModel):
 
     model_name = "SVR"
 
-    def build_model(self, hyperparameters: Dict):
+    def build_model(self, hyperparameters: dict):
         """
         Builds the model from hyperparameters.
         :param hyperparameters: Hyperparameters for the model.
@@ -186,17 +177,16 @@ class GradientBoosting(SklearnModel):
 
     model_name = "GradientBoosting"
 
-    def build_model(self, hyperparameters: Dict):
+    def build_model(self, hyperparameters: dict):
         """
         Builds the model from hyperparameters.
         :param hyperparameters: Hyperparameters for the model.
         """
+        if hyperparameters["max_depth"] == "None":
+            hyperparameters["max_depth"] = None
         self.model = GradientBoostingRegressor(
             n_estimators=hyperparameters.get("n_estimators", 100),
             learning_rate=hyperparameters.get("learning_rate", 0.1),
             max_depth=hyperparameters.get("max_depth", 3),
-            min_samples_split=hyperparameters.get("min_samples_split", 2),
-            min_samples_leaf=hyperparameters.get("min_samples_leaf", 1),
             subsample=hyperparameters.get("subsample", 1.0),
-            max_features=hyperparameters.get("max_features", 1.0),
         )

@@ -1,5 +1,4 @@
 ---
-
 moli:
   epochs: [5, 10, 15, 20]
   batch_size: [8, 16, 32]
@@ -20,19 +19,19 @@ moli:
   loss: triplet
 
 superFELT:
-    epochs: [5, 10, 15, 20]
-    batch_size: [8, 16, 32]
-    h_dim1: 512
-    h_dim2: 128
-    h_dim3: 64
-    lr_exp: 0.001
-    lr_mut: 0.0001
-    lr_cnv: 0.0005
-    lr_class: 0.0005
-    dropout_rate_exp: 0.5
-    dropout_rate_mut: 0.5
-    dropout_rate_cnv: 0.5
-    dropout_rate_class: 0.5
-    weight_decay: 0.0001
-    gamma: 0.5
-    margin: 1.5
+  epochs: [5, 10, 15, 20]
+  batch_size: [8, 16, 32]
+  h_dim1: 512
+  h_dim2: 128
+  h_dim3: 64
+  lr_exp: 0.001
+  lr_mut: 0.0001
+  lr_cnv: 0.0005
+  lr_class: 0.0005
+  dropout_rate_exp: 0.5
+  dropout_rate_mut: 0.5
+  dropout_rate_cnv: 0.5
+  dropout_rate_class: 0.5
+  weight_decay: 0.0001
+  gamma: 0.5
+  margin: 1.5

@@ -1,6 +1,4 @@
-"""
-Renders the evaluation results into an HTML report with various plots and tables.
-"""
+"""Renders the evaluation results into an HTML report with various plots and tables."""
 
 import argparse
 import os
@@ -13,20 +11,12 @@ from drevalpy.visualization import (
     RegressionSliderPlot,
     Violin,
 )
-from drevalpy.visualization.utils import (
-    create_html,
-    create_index_html,
-    parse_results,
-    prep_results,
-    write_results,
-)
+from drevalpy.visualization.utils import create_html, create_index_html, parse_results, prep_results, write_results
 
 
 def create_output_directories(custom_id):
-    """
-    If they do not exist yet, make directories for the visualization files
+    """If they do not exist yet, make directories for the visualization files.
     :param custom_id: run id passed via command line
-    :return:
     """
     os.makedirs(f"results/{custom_id}/violin_plots", exist_ok=True)
     os.makedirs(f"results/{custom_id}/heatmaps", exist_ok=True)
@@ -36,17 +26,13 @@ def create_output_directories(custom_id):
     os.makedirs(f"results/{custom_id}/critical_difference_plots", exist_ok=True)
 
 
-def draw_setting_plots(
-    lpo_lco_ldo, ev_res, ev_res_per_drug, ev_res_per_cell_line, custom_id
-):
-    """
-    Draw all plots for a specific setting (LPO, LCO, LDO)
+def draw_setting_plots(lpo_lco_ldo, ev_res, ev_res_per_drug, ev_res_per_cell_line, custom_id):
+    """Draw all plots for a specific setting (LPO, LCO, LDO).
     :param lpo_lco_ldo: setting
     :param ev_res: overall evaluation results
     :param ev_res_per_drug: evaluation results per drug
     :param ev_res_per_cell_line: evaluation results per cell line
     :param custom_id: run id passed via command line
-    :return:
     """
     ev_res_subset = ev_res[ev_res["LPO_LCO_LDO"] == lpo_lco_ldo]
     # PIPELINE: SAVE_TABLES
@@ -54,17 +40,13 @@ def draw_setting_plots(
         df=ev_res_subset,
         group_by="all",
     )
-    html_table.draw_and_save(
-        out_prefix=f"results/{custom_id}/html_tables/", out_suffix=lpo_lco_ldo
-    )
+    html_table.draw_and_save(out_prefix=f"results/{custom_id}/html_tables/", out_suffix=lpo_lco_ldo)
 
     # only draw figures for 'real' predictions comparing all models
     eval_results_preds = ev_res_subset[ev_res_subset["rand_setting"] == "predictions"]
 
     # PIPELINE: DRAW_CRITICAL_DIFFERENCE
-    cd_plot = CriticalDifferencePlot(
-        eval_results_preds=eval_results_preds, metric="MSE"
-    )
+    cd_plot = CriticalDifferencePlot(eval_results_preds=eval_results_preds, metric="MSE")
     cd_plot.draw_and_save(
         out_prefix=f"results/{custom_id}/critical_difference_plots/",
         out_suffix=lpo_lco_ldo,
@@ -118,13 +100,11 @@ def draw_setting_plots(
 
 
 def draw_per_grouping_setting_plots(grouping, ev_res_per_group, lpo_lco_ldo, custom_id):
-    """
-    Draw plots for a specific grouping (drug or cell line) for a specific setting (LPO, LCO, LDO)
+    """Draw plots for a specific grouping (drug or cell line) for a specific setting (LPO, LCO, LDO).
     :param grouping: drug or cell_line
     :param ev_res_per_group: evaluation results per drug or per cell line
     :param lpo_lco_ldo: setting
     :param custom_id: run id passed over command line
-    :return:
     """
     # PIPELINE: DRAW_CORR_COMP
     corr_comp = CorrelationComparisonScatter(
@@ -139,9 +119,7 @@ def draw_per_grouping_setting_plots(grouping, ev_res_per_group, lpo_lco_ldo, cus
             out_suffix=corr_comp.name,
         )
 
-    evaluation_results_per_group_subs = ev_res_per_group[
-        ev_res_per_group["LPO_LCO_LDO"] == lpo_lco_ldo
-    ]
+    evaluation_results_per_group_subs = ev_res_per_group[ev_res_per_group["LPO_LCO_LDO"] == lpo_lco_ldo]
     # PIPELINE: SAVE_TABLES
     html_table = HTMLTable(
         df=evaluation_results_per_group_subs,
@@ -162,8 +140,7 @@ def draw_algorithm_plots(
     lpo_lco_ldo,
     custom_id,
 ):
-    """
-    Draw all plots for a specific algorithm
+    """Draw all plots for a specific algorithm.
     :param model: name of the model/algorithm
     :param ev_res: overall evaluation results
     :param ev_res_per_drug: evaluation results per drug
@@ -171,11 +148,8 @@ def draw_algorithm_plots(
     :param t_vs_p: true response values vs. predicted response values
     :param lpo_lco_ldo: setting
     :param custom_id: run id passed via command line
-    :return:
     """
-    eval_results_algorithm = ev_res[
-        (ev_res["LPO_LCO_LDO"] == lpo_lco_ldo) & (ev_res["algorithm"] == model)
-    ]
+    eval_results_algorithm = ev_res[(ev_res["LPO_LCO_LDO"] == lpo_lco_ldo) & (ev_res["algorithm"] == model)]
     # PIPELINE: DRAW_VIOLIN_AND_HEATMAP
     for plt_type in ["violinplot", "heatmap"]:
         if plt_type == "violinplot":
@@ -228,8 +202,7 @@ def draw_per_grouping_algorithm_plots(
     lpo_lco_ldo,
     custom_id,
 ):
-    """
-    Draw plots for a specific grouping (drug or cell line) for a specific algorithm
+    """Draw plots for a specific grouping (drug or cell line) for a specific algorithm.
     :param grouping_slider: the grouping variable for the regression plots
     :param grouping_scatter_table: the grouping variable for the scatter plots.
             If grouping_slider is drug, this should be cell_line and vice versa
@@ -238,7 +211,6 @@ def draw_per_grouping_algorithm_plots(
     :param t_v_p: true response values vs. predicted response values
     :param lpo_lco_ldo: setting
     :param custom_id: run id passed via command line
-    :return:
     """
     # PIPELINE: DRAW_CORR_COMP
     corr_comp = CorrelationComparisonScatter(
@@ -272,21 +244,16 @@ def draw_per_grouping_algorithm_plots(
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Generate reports from evaluation results"
-    )
-    parser.add_argument(
-        "--run_id", required=True, help="Run ID for the current execution"
-    )
+    parser = argparse.ArgumentParser(description="Generate reports from evaluation results")
+    parser.add_argument("--run_id", required=True, help="Run ID for the current execution")
     args = parser.parse_args()
     run_id = args.run_id
 
     # assert that the run_id folder exists
-    assert os.path.exists(
-        f"results/{run_id}"
-    ), f"Folder results/{run_id} does not exist. The pipeline has to be run first."
+    if not os.path.exists(f"results/{run_id}"):
+        raise AssertionError(f"Folder results/{run_id} does not exist. The pipeline has to be run first.")
 
-    # PIPELINE: EVALUATE_FINAL, COLLECT_RESULTS
+    # not part of pipeline
     (
         evaluation_results,
         evaluation_results_per_drug,
@@ -294,6 +261,7 @@ if __name__ == "__main__":
         true_vs_pred,
     ) = parse_results(path_to_results=f"results/{run_id}")
 
+    # part of pipeline: EVALUATE_FINAL, COLLECT_RESULTS
     (
         evaluation_results,
         evaluation_results_per_drug,
@@ -353,15 +321,9 @@ if __name__ == "__main__":
             )
         # get all html files from results/{run_id}
         all_files = []
-        for currentpath, folders, files in os.walk(f"results/{run_id}"):
+        for _, _, files in os.walk(f"results/{run_id}"):
             for file in files:
-                if (
-                    file.endswith(".html")
-                    and file != "index.html"
-                    and file != "LPO.html"
-                    and file != "LCO.html"
-                    and file != "LDO.html"
-                ):
+                if file.endswith(".html") and file not in ["index.html", "LPO.html", "LCO.html", "LDO.html"]:
                     all_files.append(file)
         # PIPELINE: WRITE_HTML
         create_html(
