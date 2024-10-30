@@ -34,6 +34,8 @@ repos:
         language: system
         types: [python]
         require_serial: true
+        args:
+          - --ignore=W503
       - id: pyupgrade
         name: pyupgrade
         description: Automatically upgrade syntax for newer versions.

@@ -15,11 +15,8 @@ from drevalpy.visualization.utils import create_html, create_index_html, parse_r
 
 
 def create_output_directories(custom_id):
-    """
-    If they do not exist yet, make directories for the visualization files.
-
+    """If they do not exist yet, make directories for the visualization files.
     :param custom_id: run id passed via command line
-    :return:
     """
     os.makedirs(f"results/{custom_id}/violin_plots", exist_ok=True)
     os.makedirs(f"results/{custom_id}/heatmaps", exist_ok=True)
@@ -30,15 +27,12 @@ def create_output_directories(custom_id):
 
 
 def draw_setting_plots(lpo_lco_ldo, ev_res, ev_res_per_drug, ev_res_per_cell_line, custom_id):
-    """
-    Draw all plots for a specific setting (LPO, LCO, LDO).
-
+    """Draw all plots for a specific setting (LPO, LCO, LDO).
     :param lpo_lco_ldo: setting
     :param ev_res: overall evaluation results
     :param ev_res_per_drug: evaluation results per drug
     :param ev_res_per_cell_line: evaluation results per cell line
     :param custom_id: run id passed via command line
-    :return:
     """
     ev_res_subset = ev_res[ev_res["LPO_LCO_LDO"] == lpo_lco_ldo]
     # PIPELINE: SAVE_TABLES
@@ -106,14 +100,11 @@ def draw_setting_plots(lpo_lco_ldo, ev_res, ev_res_per_drug, ev_res_per_cell_lin
 
 
 def draw_per_grouping_setting_plots(grouping, ev_res_per_group, lpo_lco_ldo, custom_id):
-    """
-    Draw plots for a specific grouping (drug or cell line) for a specific setting (LPO, LCO, LDO).
-
+    """Draw plots for a specific grouping (drug or cell line) for a specific setting (LPO, LCO, LDO).
     :param grouping: drug or cell_line
     :param ev_res_per_group: evaluation results per drug or per cell line
     :param lpo_lco_ldo: setting
     :param custom_id: run id passed over command line
-    :return:
     """
     # PIPELINE: DRAW_CORR_COMP
     corr_comp = CorrelationComparisonScatter(
@@ -149,9 +140,7 @@ def draw_algorithm_plots(
     lpo_lco_ldo,
     custom_id,
 ):
-    """
-    Draw all plots for a specific algorithm.
-
+    """Draw all plots for a specific algorithm.
     :param model: name of the model/algorithm
     :param ev_res: overall evaluation results
     :param ev_res_per_drug: evaluation results per drug
@@ -159,7 +148,6 @@ def draw_algorithm_plots(
     :param t_vs_p: true response values vs. predicted response values
     :param lpo_lco_ldo: setting
     :param custom_id: run id passed via command line
-    :return:
     """
     eval_results_algorithm = ev_res[(ev_res["LPO_LCO_LDO"] == lpo_lco_ldo) & (ev_res["algorithm"] == model)]
     # PIPELINE: DRAW_VIOLIN_AND_HEATMAP
@@ -214,9 +202,7 @@ def draw_per_grouping_algorithm_plots(
     lpo_lco_ldo,
     custom_id,
 ):
-    """
-    Draw plots for a specific grouping (drug or cell line) for a specific algorithm.
-
+    """Draw plots for a specific grouping (drug or cell line) for a specific algorithm.
     :param grouping_slider: the grouping variable for the regression plots
     :param grouping_scatter_table: the grouping variable for the scatter plots.
             If grouping_slider is drug, this should be cell_line and vice versa
@@ -225,7 +211,6 @@ def draw_per_grouping_algorithm_plots(
     :param t_v_p: true response values vs. predicted response values
     :param lpo_lco_ldo: setting
     :param custom_id: run id passed via command line
-    :return:
     """
     # PIPELINE: DRAW_CORR_COMP
     corr_comp = CorrelationComparisonScatter(
