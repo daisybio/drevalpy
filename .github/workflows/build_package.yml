@@ -23,7 +23,6 @@ jobs:
       - name: Install Poetry
         run: |
           pip install poetry
-          pipx inject poetry poetry-plugin
           poetry --version
 
       - name: Build package

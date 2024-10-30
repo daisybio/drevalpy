@@ -43,7 +43,6 @@ jobs:
       - name: Install Poetry
         run: |
           pipx install poetry
-          pipx inject poetry poetry-plugin
           poetry --version
 
       - name: Install nox nox-poetry rich
