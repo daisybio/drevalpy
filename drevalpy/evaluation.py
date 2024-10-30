@@ -52,7 +52,7 @@ def partial_correlation(
         # meaningless
         global warning_shown
         if not warning_shown:
-            warnings.warn("Partial correlation not defined if only one cell line or drug is in the data.")
+            warnings.warn("Partial correlation not defined if only one cell line or drug is in the data.", stacklevel=2)
             warning_shown = True
         return (np.nan, np.nan) if return_pvalue else np.nan
 
@@ -66,7 +66,8 @@ def partial_correlation(
             if not constant_prediction_warning_shown:
                 warnings.warn(
                     f"Predictions are nearly constant for {group_col}. Adding some noise to these "
-                    f"predictions for partial correlation calculation."
+                    f"predictions for partial correlation calculation.",
+                    stacklevel=2,
                 )
                 constant_prediction_warning_shown = True
             df["predictions"] = df["predictions"] + np.random.normal(0, 1e-5, size=len(df))

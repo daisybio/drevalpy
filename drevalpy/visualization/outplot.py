@@ -26,6 +26,7 @@ class OutPlot(ABC):
         pass
 
     @staticmethod
+    @abstractmethod
     def write_to_html(lpo_lco_ldo: str, f: TextIO, *args, **kwargs) -> TextIO:
         """
         Write the plot to html

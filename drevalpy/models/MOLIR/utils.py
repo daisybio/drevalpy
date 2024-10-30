@@ -6,16 +6,17 @@ https://github.com/kramerlab/Multi-Omics_analysis
 """
 
 import os
-from typing import Optional, Tuple, Dict, Union
+import random
+from typing import Optional, Union
+
+import numpy as np
+import pytorch_lightning as pl
 import torch
+from pytorch_lightning.callbacks import EarlyStopping, TQDMProgressBar
 from torch import nn
 from torch.utils.data import DataLoader, Dataset
-import pytorch_lightning as pl
-from pytorch_lightning.callbacks import EarlyStopping, TQDMProgressBar
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
-import random
-import numpy as np
 
 
 class RegressionDataset(Dataset):
@@ -31,7 +32,7 @@ class RegressionDataset(Dataset):
         self.output = output
         self.cell_line_input = cell_line_input
 
-    def __getitem__(self, idx: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    def __getitem__(self, idx: int) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         response = self.output.response[idx].astype(np.float32)
 
         cell_line_id = str(self.output.cell_line_ids[idx])
@@ -53,7 +54,7 @@ def generate_triplets_indices(
     positive_range: float,
     negative_range: float,
     random_seed: Optional[int] = None,
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Generates triplets for the MOLI model.
     """
@@ -91,7 +92,7 @@ def get_negative_class_indices(label: float, y: np.ndarray, negative_range: floa
     return dissimilar_samples
 
 
-def make_ranges(output: DrugResponseDataset) -> Tuple[float, float]:
+def make_ranges(output: DrugResponseDataset) -> tuple[float, float]:
     """
     Compute the positive and negative range for the triplet loss.
     """
@@ -105,7 +106,7 @@ def create_dataset_and_loaders(
     output_train: DrugResponseDataset,
     cell_line_input: FeatureDataset,
     output_earlystopping: Optional[DrugResponseDataset] = None,
-) -> Tuple[DataLoader, Optional[DataLoader]]:
+) -> tuple[DataLoader, Optional[DataLoader]]:
     # Create datasets and dataloaders
     train_dataset = RegressionDataset(output_train, cell_line_input)
     train_loader = DataLoader(
@@ -133,7 +134,7 @@ def create_dataset_and_loaders(
     return train_loader, val_loader
 
 
-def get_dimensions_of_omics_data(cell_line_input: FeatureDataset) -> Tuple[int, int, int]:
+def get_dimensions_of_omics_data(cell_line_input: FeatureDataset) -> tuple[int, int, int]:
     first_item = next(iter(cell_line_input.features.values()))
     dim_gex = first_item["gene_expression"].shape[0]
     dim_mut = first_item["mutations"].shape[0]
@@ -143,7 +144,7 @@ def get_dimensions_of_omics_data(cell_line_input: FeatureDataset) -> Tuple[int, 
 
 class MOLIEncoder(nn.Module):
     def __init__(self, input_size: int, output_size: int, dropout_rate: float) -> None:
-        super(MOLIEncoder, self).__init__()
+        super().__init__()
         self.encode = nn.Sequential(
             nn.Linear(input_size, output_size),
             nn.ReLU(),
@@ -157,7 +158,7 @@ class MOLIEncoder(nn.Module):
 
 class MOLIRegressor(nn.Module):
     def __init__(self, input_size: int, dropout_rate: int) -> None:
-        super(MOLIRegressor, self).__init__()
+        super().__init__()
         self.regressor = nn.Sequential(nn.Linear(input_size, 1), nn.Dropout(dropout_rate))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -166,9 +167,9 @@ class MOLIRegressor(nn.Module):
 
 class MOLIModel(pl.LightningModule):
     def __init__(
-        self, hpams: Dict[str, Union[int, float]], input_dim_expr: int, input_dim_mut: int, input_dim_cnv: int
+        self, hpams: dict[str, Union[int, float]], input_dim_expr: int, input_dim_mut: int, input_dim_cnv: int
     ) -> None:
-        super(MOLIModel, self).__init__()
+        super().__init__()
         self.save_hyperparameters()
 
         self.mini_batch = hpams["mini_batch"]
@@ -295,7 +296,7 @@ class MOLIModel(pl.LightningModule):
         return triplet_loss + regression_loss
 
     def training_step(
-        self, batch: Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor], batch_idx: int
+        self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor], batch_idx: int
     ) -> torch.Tensor:
         gene_expression, mutations, copy_number, response = batch
 
@@ -311,7 +312,7 @@ class MOLIModel(pl.LightningModule):
         return loss
 
     def validation_step(
-        self, batch: Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor], batch_idx: int
+        self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor], batch_idx: int
     ) -> torch.Tensor:
         gene_expression, mutations, copy_number, response = batch
 

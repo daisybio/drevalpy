@@ -2,9 +2,9 @@
 
 import argparse
 
-from drevalpy.datasets import AVAILABLE_DATASETS
 from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
 
+from drevalpy.datasets import AVAILABLE_DATASETS
 from drevalpy.datasets.loader import load_dataset
 from drevalpy.evaluation import AVAILABLE_METRICS
 from drevalpy.experiment import drug_response_experiment
@@ -295,4 +295,7 @@ def get_response_transformation(response_transformation: str):
         return MinMaxScaler()
     if response_transformation == "robust":
         return RobustScaler()
-    raise ValueError(f"Unknown response transformation {response_transformation}. Choose from 'None', " f"'standard', 'minmax', 'robust'")
+    raise ValueError(
+        f"Unknown response transformation {response_transformation}. Choose from 'None', "
+        f"'standard', 'minmax', 'robust'"
+    )

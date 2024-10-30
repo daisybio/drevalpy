@@ -76,7 +76,9 @@ class SRMF(DRPModel):
         drug_response_matrix = drug_response_matrix.groupby(["cell_line_id", "drug_id"]).mean().reset_index()
         drug_response_matrix = drug_response_matrix.pivot(index="cell_line_id", columns="drug_id", values="response")
 
-        drug_response_matrix = drug_response_matrix.reindex(index=cell_lines, columns=drugs)  # missing rows and columns are filled with NaN
+        drug_response_matrix = drug_response_matrix.reindex(
+            index=cell_lines, columns=drugs
+        )  # missing rows and columns are filled with NaN
 
         self.w = ~np.isnan(drug_response_matrix)
         drug_response_matrix = drug_response_matrix.copy()
@@ -224,3 +226,19 @@ class SRMF(DRPModel):
         :param dataset_name:
         """
         return load_drug_fingerprint_features(data_path, dataset_name)
+
+    def load(self, path):
+        """
+        Loads the model from a given path.
+
+        :param path: Path to the model
+        """
+        raise NotImplementedError("SRMF does not support loading yet ...")
+
+    def save(self, path):
+        """
+        Saves the model to a given path.
+
+        :param path: Path to save the model
+        """
+        raise NotImplementedError("SRMF does not support saving yet ...")

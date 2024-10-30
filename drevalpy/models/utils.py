@@ -19,7 +19,7 @@ def load_cl_ids_from_csv(path: str, dataset_name: str) -> FeatureDataset:
     :param dataset_name:
     :return:
     """
-    cl_names = pd.read_csv(f"{path}/{dataset_name}/cell_line_names.csv", index_col=0)
+    cl_names = pd.read_csv(f"{path}/{dataset_name}/cell_line_names.csv", index_col=1)
     return FeatureDataset(features={cl: {"cell_line_id": np.array([cl])} for cl in cl_names.index})
 
 
@@ -37,7 +37,9 @@ def load_and_reduce_gene_features(
     :param dataset_name:
     :return:
     """
-    ge = pd.read_csv(f"{data_path}/{dataset_name}/{feature_type}.csv", index_col=0)
+    ge = pd.read_csv(f"{data_path}/{dataset_name}/{feature_type}.csv", index_col=1)
+    # remove column
+    ge = ge.drop(columns=["cellosaurus_id"])
     cl_features = FeatureDataset(
         features=iterate_features(df=ge, feature_type=feature_type),
         meta_info={feature_type: ge.columns.values},
@@ -86,10 +88,13 @@ def iterate_features(df: pd.DataFrame, feature_type: str):
     for cl in df.index:
         rows = df.loc[cl]
         if len(rows.shape) > 1 and rows.shape[0] > 1:  # multiple rows returned
-            warnings.warn(f"Multiple rows returned for {cl} in feature {feature_type}, taking the first one.")
-            features[cl] = {feature_type: rows.iloc[0].values}
-        else:
-            features[cl] = {feature_type: rows.values}
+            warnings.warn(
+                f"Multiple rows returned for {cl} in feature {feature_type}, taking the first one.", stacklevel=2
+            )
+            rows = rows.iloc[0]
+        # convert to float values
+        rows = rows.astype(float)
+        features[cl] = {feature_type: rows.values}
     return features
 
 
@@ -112,22 +117,10 @@ def load_drug_fingerprint_features(data_path: str, dataset_name: str) -> Feature
     :return:
     """
     if dataset_name == "Toy_Data":
-        fingerprints = pd.read_csv(
-            os.path.join(
-                data_path,
-                dataset_name,
-                "fingerprints.csv"
-            ),
-            index_col=0
-        )
+        fingerprints = pd.read_csv(os.path.join(data_path, dataset_name, "fingerprints.csv"), index_col=0)
     else:
         fingerprints = pd.read_csv(
-            os.path.join(
-                data_path,
-                dataset_name,
-                "drug_fingerprints",
-                "drug_name_to_demorgan_128_map.csv"
-            ),
+            os.path.join(data_path, dataset_name, "drug_fingerprints", "drug_name_to_demorgan_128_map.csv"),
             index_col=0,
         ).T
     return FeatureDataset(

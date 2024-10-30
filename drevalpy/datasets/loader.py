@@ -1,5 +1,4 @@
 import os
-import pickle
 
 import pandas as pd
 
@@ -7,8 +6,9 @@ from .dataset import DrugResponseDataset
 from .utils import download_dataset
 
 
-def load_gdsc1(path_data: str = "data", file_name: str = "response_GDSC1.csv", dataset_name: str = "GDSC1") -> (
-        DrugResponseDataset):
+def load_gdsc1(
+    path_data: str = "data", file_name: str = "response_GDSC1.csv", dataset_name: str = "GDSC1"
+) -> DrugResponseDataset:
     """
     Loads the GDSC1 dataset.
 

@@ -117,13 +117,19 @@ class RegressionSliderPlot(OutPlot):
             if i == n_ticks - 1:
                 # last step
                 visible_traces = pccs >= pcc_parts[i]
-                title = f"{setting_title}: Slider for PCCs >= {str(round(pcc_parts[i], 1))} (step {str(i + 1)} of {str(n_ticks)})"
+                title = (
+                    f"{setting_title}: Slider for PCCs >= {str(round(pcc_parts[i], 1))} (step {str(i + 1)} "
+                    f"of {str(n_ticks)})"
+                )
             else:
                 # get traces between pcc_parts[i] and pcc_parts[i+1]
                 visible_traces_gt = pccs >= pcc_parts[i]
                 visible_traces_lt = pccs < pcc_parts[i + 1]
                 visible_traces = visible_traces_gt & visible_traces_lt
-                title = f"{setting_title}: Slider for PCCs between {str(round(pcc_parts[i], 1))} and {str(round(pcc_parts[i + 1], 1))} (step {str(i + 1)} of {str(n_ticks)})"
+                title = (
+                    f"{setting_title}: Slider for PCCs between {str(round(pcc_parts[i], 1))} "
+                    f"and {str(round(pcc_parts[i + 1], 1))} (step {str(i + 1)} of {str(n_ticks)})"
+                )
             step = dict(
                 method="update",
                 args=[{"visible": visible_traces}, {"title": title}],

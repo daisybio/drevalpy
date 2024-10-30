@@ -163,7 +163,9 @@ def drug_response_experiment(
 
             model = model_class()
 
-            if not os.path.isfile(prediction_file):  # if this split has not been run yet (or for a single drug model, this drug_id)
+            if not os.path.isfile(
+                prediction_file
+            ):  # if this split has not been run yet (or for a single drug model, this drug_id)
 
                 tuning_inputs = {
                     "model": model,
@@ -234,7 +236,9 @@ def drug_response_experiment(
                     print(f"Randomization tests for {model_class.model_name}")
                     # if this line changes, it also needs to be changed in pipeline:
                     # randomization_split.py
-                    randomization_test_views = get_randomization_test_views(model=model, randomization_mode=randomization_mode)
+                    randomization_test_views = get_randomization_test_views(
+                        model=model, randomization_mode=randomization_mode
+                    )
                     randomization_test(
                         randomization_test_views=randomization_test_views,
                         model=model,
@@ -308,7 +312,11 @@ def consolidate_single_drug_model_predictions(
                     "randomization": {},
                 }
                 # list all dirs in model_path/drugs
-                drugs = [d for d in os.listdir(os.path.join(model_path, "drugs")) if os.path.isdir(os.path.join(model_path, "drugs", d))]
+                drugs = [
+                    d
+                    for d in os.listdir(os.path.join(model_path, "drugs"))
+                    if os.path.isdir(os.path.join(model_path, "drugs", d))
+                ]
                 for drug in drugs:
                     single_drug_prediction_path = os.path.join(model_path, "drugs", drug)
 
@@ -343,7 +351,9 @@ def consolidate_single_drug_model_predictions(
                         f = f"robustness_{trial+1}_split_{split}.csv"
                         if trial not in predictions["robustness"]:
                             predictions["robustness"][trial] = []
-                        predictions["robustness"][trial].append(pd.read_csv(os.path.join(robustness_path, f), index_col=0))
+                        predictions["robustness"][trial].append(
+                            pd.read_csv(os.path.join(robustness_path, f), index_col=0)
+                        )
 
                     # Randomization predictions
                     if randomization_mode is not None:
@@ -448,7 +458,7 @@ def cross_study_prediction(
     try:
         cl_features, drug_features = load_features(model, path_data, dataset)
     except ValueError as e:
-        warnings.warn(e)
+        warnings.warn(e, stacklevel=2)
         return
 
     cell_lines_to_keep = cl_features.identifiers if cl_features is not None else None
@@ -731,7 +741,8 @@ def randomize_train_predict(
 
     if (view not in cl_features.get_view_names()) and (view not in drug_features.get_view_names()):
         warnings.warn(
-            f"View {view} not found in features. Skipping randomization test {test_name} " f"which includes this view."
+            f"View {view} not found in features. Skipping randomization test {test_name} " f"which includes this view.",
+            stacklevel=2,
         )
         return
     cl_features_rand = cl_features.copy() if cl_features is not None else None
@@ -825,10 +836,9 @@ def train_and_predict(
     print(f"Reduced prediction dataset from {len_pred_before} to {len(prediction_dataset)}")
 
     if early_stopping_dataset is not None:
-        early_stopping_dataset.reduce_to(
-            cell_line_ids=cell_lines_to_keep,
-            drug_ids=drugs_to_keep,
-        )
+        len_es_before = len(early_stopping_dataset)
+        early_stopping_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
+        print(f"Reduced early stopping dataset from {len_es_before} to {len(early_stopping_dataset)}")
 
     if response_transformation:
         train_dataset.fit_transform(response_transformation)
@@ -943,7 +953,7 @@ def hpam_tune(
             best_hyperparameters = hyperparameter
 
     if best_hyperparameters is None:
-        warnings.warn("all hpams lead to NaN respone. using last hpam combination.")
+        warnings.warn("all hpams lead to NaN respone. using last hpam combination.", stacklevel=2)
         best_hyperparameters = hyperparameter
 
     return best_hyperparameters

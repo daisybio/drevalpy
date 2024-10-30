@@ -1,5 +1,5 @@
 import os
-from typing import List, TextIO
+from typing import TextIO
 
 import pandas as pd
 
@@ -71,21 +71,21 @@ class HTMLTable(OutPlot):
         if prefix != "":
             prefix = os.path.join(prefix, "html_tables")
         f.write('<h2 id="tables"> Evaluation Results Table</h2>\n')
-        whole_table = __get_table__(files=files, file_table=f"table_{lpo_lco_ldo}.html")
-        __write_table__(f=f, table=whole_table, prefix=prefix)
+        whole_table = _get_table(files=files, file_table=f"table_{lpo_lco_ldo}.html")
+        _write_table(f=f, table=whole_table, prefix=prefix)
 
         if lpo_lco_ldo != "LCO":
             f.write("<h2> Evaluation Results per Cell Line Table</h2>\n")
-            cell_line_table = __get_table__(files=files, file_table=f"table_cell_line_{lpo_lco_ldo}.html")
-            __write_table__(f=f, table=cell_line_table, prefix=prefix)
+            cell_line_table = _get_table(files=files, file_table=f"table_cell_line_{lpo_lco_ldo}.html")
+            _write_table(f=f, table=cell_line_table, prefix=prefix)
         if lpo_lco_ldo != "LDO":
             f.write("<h2> Evaluation Results per Drug Table</h2>\n")
-            drug_table = __get_table__(files=files, file_table=f"table_drug_{lpo_lco_ldo}.html")
-            __write_table__(f=f, table=drug_table, prefix=prefix)
+            drug_table = _get_table(files=files, file_table=f"table_drug_{lpo_lco_ldo}.html")
+            _write_table(f=f, table=drug_table, prefix=prefix)
         return f
 
 
-def __write_table__(f: TextIO, table: str, prefix: str = ""):
+def _write_table(f: TextIO, table: str, prefix: str = ""):
     with open(os.path.join(prefix, table)) as eval_f:
         eval_results = eval_f.readlines()
         eval_results[0] = eval_results[0].replace(
@@ -96,5 +96,5 @@ def __write_table__(f: TextIO, table: str, prefix: str = ""):
             f.write(line)
 
 
-def __get_table__(files: list, file_table: str) -> str:
+def _get_table(files: list, file_table: str) -> str:
     return [f for f in files if f == file_table][0]

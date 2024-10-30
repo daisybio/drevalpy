@@ -26,10 +26,10 @@ from .baselines.multi_omics_random_forest import MultiOmicsRandomForest
 from .baselines.naive_pred import NaiveCellLineMeanPredictor, NaiveDrugMeanPredictor, NaivePredictor
 from .baselines.singledrug_random_forest import SingleDrugRandomForest
 from .baselines.sklearn_models import ElasticNetModel, GradientBoosting, RandomForest, SVMRegressor
+from .MOLIR.molir import MOLIR
 from .simple_neural_network.multiomics_neural_network import MultiOmicsNeuralNetwork
 from .simple_neural_network.simple_neural_network import SimpleNeuralNetwork
 from .SRMF.srmf import SRMF
-from .MOLIR.molir import MOLIR
 from .SuperFELTR.superfeltr import SuperFELTR
 
 SINGLE_DRUG_MODEL_FACTORY = {

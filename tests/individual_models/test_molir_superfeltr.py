@@ -1,9 +1,9 @@
-import pytest
 import numpy as np
+import pytest
 
 from drevalpy.evaluation import evaluate, pearson
 from drevalpy.models import MODEL_FACTORY
-from .utils import call_save_and_load
+
 from .conftest import sample_dataset
 
 
@@ -24,6 +24,20 @@ def test_molir_superfeltr(sample_dataset, model_name, test_mode):
     all_unique_drugs = all_unique_drugs[:3]
     val_es_dataset = split["validation_es"]
     es_dataset = split["early_stopping"]
+
+    cell_lines_to_keep = cell_line_input.identifiers
+    drugs_to_keep = drug_input.identifiers
+
+    len_train_before = len(train_dataset)
+    len_pred_before = len(val_es_dataset)
+    len_es_before = len(es_dataset)
+    train_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
+    val_es_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
+    es_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
+    print(f"Reduced training dataset from {len_train_before} to {len(train_dataset)}")
+    print(f"Reduced val_es dataset from {len_pred_before} to {len(val_es_dataset)}")
+    print(f"Reduced es dataset from {len_es_before} to {len(es_dataset)}")
+
     all_predictions = np.zeros_like(val_es_dataset.drug_ids, dtype=float)
     for drug in all_unique_drugs:
         model = MODEL_FACTORY[model_name]()

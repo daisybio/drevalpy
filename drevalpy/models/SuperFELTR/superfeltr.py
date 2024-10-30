@@ -6,14 +6,15 @@ and Hauptmann et al. (2023, 10.1186/s12859-023-05166-7) https://github.com/krame
 """
 
 from typing import Optional
+
 import numpy as np
 from sklearn.feature_selection import VarianceThreshold
 
-from .utils import SuperFELTEncoder, SuperFELTRegressor, train_superfeltr_model
-from ..MOLIR.utils import make_ranges, get_dimensions_of_omics_data
+from ...datasets.dataset import DrugResponseDataset, FeatureDataset
 from ..drp_model import SingleDrugModel
+from ..MOLIR.utils import get_dimensions_of_omics_data, make_ranges
 from ..utils import load_and_reduce_gene_features
-from ...datasets.dataset import FeatureDataset, DrugResponseDataset
+from .utils import SuperFELTEncoder, SuperFELTRegressor, train_superfeltr_model
 
 
 class SuperFELTR(SingleDrugModel):
