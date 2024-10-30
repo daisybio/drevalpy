@@ -7,7 +7,6 @@ from argparse import Namespace
 import pytest
 
 from drevalpy.utils import main
-from drevalpy.visualization.utils import parse_results, prep_results
 
 
 @pytest.mark.parametrize(
@@ -63,7 +62,6 @@ def test_run_suite(args):
         evaluation_results_per_cell_line,
         true_vs_pred,
     )
-    
     # TODO: needs fixing
     assert len(evaluation_results.columns) == 22
     assert len(evaluation_results_per_drug.columns) == 15

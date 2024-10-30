@@ -1,9 +1,9 @@
-import pytest
 import numpy as np
+import pytest
 
 from drevalpy.evaluation import evaluate, pearson
 from drevalpy.models import MODEL_FACTORY
-from .utils import call_save_and_load
+
 from .conftest import sample_dataset
 
 

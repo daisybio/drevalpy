@@ -4,8 +4,9 @@ Utility functions for the visualization part of the package.
 
 import os
 import pathlib
-import shutil
 import re
+import shutil
+
 import importlib_resources
 import pandas as pd
 
@@ -46,7 +47,8 @@ def parse_results(path_to_results: str):
     # generate list of all result files
     result_dir = pathlib.Path(path_to_results)
     result_files = list(result_dir.rglob("*.csv"))
-    # filter for all files that follow this pattern: result_dir/*/{predictions|cross_study|randomization|robustness}/*.csv
+    # filter for all files that follow this pattern:
+    # result_dir/*/{predictions|cross_study|randomization|robustness}/*.csv
     pattern = re.compile(
         rf"{result_dir}/(LPO|LCO|LDO)/[^/]+/(predictions|cross_study|randomization|robustness)/.*\.csv$"
     )

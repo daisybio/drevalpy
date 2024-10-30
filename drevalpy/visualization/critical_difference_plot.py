@@ -134,23 +134,16 @@ def graph_ranks(
     `import matplotlib.pyplot as plt`.
 
     Args:
-        avranks (list of float): average ranks of methods.
-        names (list of str): names of methods.
-        cd (float): Critical difference used for statistically significance of
-            difference between methods.
-        cdmethod (int, optional): the method that is compared with other methods
-            If omitted, show pairwise comparison of methods
-        lowv (int, optional): the lowest shown rank
-        highv (int, optional): the highest shown rank
-        width (int, optional): default width in inches (default: 6)
-        textspace (int, optional): space on figure sides (in inches) for the
-            method names (default: 1)
-        reverse (bool, optional):  if set to `True`, the lowest rank is on the
-            right (default: `False`)
-        filename (str, optional): output file name (with extension). If not
-            given, the function does not write a file.
-        labels (bool, optional): if set to `True`, the calculated avg rank
-        values will be displayed
+    :param avranks: list of float, average ranks of methods.
+    :param names: list of str, names of methods.
+    :param p_values: list of tuples, p-values of the methods.
+    :param lowv: int, optional the lowest shown rank
+    :param highv: int, optional, the highest shown rank
+    :param width: int, optional, default width in inches (default: 6)
+    :param textspace: int, optional, space on figure sides (in inches) for the method names (default: 1)
+    :param reverse: bool, optional, if set to `True`, the lowest rank is on the right (default: `False`)
+    :param labels: bool, optional, if set to `True`, the calculated avg rank values will be displayed
+    :param colors: list of str, optional, list of colors for the methods
     """
 
     width = float(width)

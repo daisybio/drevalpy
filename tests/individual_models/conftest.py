@@ -4,9 +4,9 @@ from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.datasets.loader import load_toy
 from drevalpy.models.utils import (
     get_multiomics_feature_dataset,
+    load_cl_ids_from_csv,
     load_drug_fingerprint_features,
     load_drug_ids_from_csv,
-    load_cl_ids_from_csv,
 )
 
 

@@ -46,7 +46,13 @@ class DRPModel(ABC):
             hyperparameter_file = os.path.join(os.path.dirname(inspect.getfile(cls)), "hyperparameters.yaml")
 
         with open(hyperparameter_file, encoding="utf-8") as f:
-            hpams = yaml.load(f, Loader=yaml.FullLoader)[cls.model_name]
+            try:
+                hpams = yaml.safe_load(f)[cls.model_name]
+            except yaml.YAMLError as exc:
+                raise ValueError(f"Error in hyperparameters.yaml: {exc}") from exc
+            except KeyError as key_exc:
+                raise KeyError(f"Model {cls.model_name} not found in hyperparameters.yaml") from key_exc
+
         if hpams is None:
             return [{}]
         # each param should be a list
@@ -334,6 +340,7 @@ class CompositeDrugModel(DRPModel):
         if np.any(np.isnan(prediction)):
             warnings.warn(
                 "SingleDRPModel Warning: Some drugs were not in the training set. Prediction is "
-                "NaN. Maybe a SingleDRPModel was used in an LDO setting."
+                "NaN. Maybe a SingleDRPModel was used in an LDO setting.",
+                stacklevel=2,
             )
         return prediction

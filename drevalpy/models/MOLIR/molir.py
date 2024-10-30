@@ -5,16 +5,16 @@ Code adapted from their Github: https://github.com/hosseinshn/MOLI
 and Hauptmann et al. (2023, 10.1186/s12859-023-05166-7) https://github.com/kramerlab/Multi-Omics_analysis
 """
 
-from typing import Optional, Dict, Any
+from typing import Any, Optional
 
 import numpy as np
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.preprocessing import StandardScaler
 
-from .utils import MOLIModel, get_dimensions_of_omics_data
+from ...datasets.dataset import DrugResponseDataset, FeatureDataset
 from ..drp_model import SingleDrugModel
 from ..utils import load_and_reduce_gene_features
-from ...datasets.dataset import FeatureDataset, DrugResponseDataset
+from .utils import MOLIModel, get_dimensions_of_omics_data
 
 
 class MOLIR(SingleDrugModel):
@@ -38,7 +38,7 @@ class MOLIR(SingleDrugModel):
         self.model = None
         self.hyperparameters = None
 
-    def build_model(self, hyperparameters: Dict[str, Any]) -> None:
+    def build_model(self, hyperparameters: dict[str, Any]) -> None:
         """
         Builds the model from hyperparameters.
         """

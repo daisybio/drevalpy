@@ -3,7 +3,7 @@
 import numpy as np
 from numpy.typing import ArrayLike
 from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
-from sklearn.linear_model import ElasticNet, Ridge, Lasso
+from sklearn.linear_model import ElasticNet, Lasso, Ridge
 from sklearn.svm import SVR
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset

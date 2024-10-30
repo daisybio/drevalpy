@@ -458,7 +458,7 @@ def cross_study_prediction(
     try:
         cl_features, drug_features = load_features(model, path_data, dataset)
     except ValueError as e:
-        warnings.warn(e)
+        warnings.warn(e, stacklevel=2)
         return
 
     cell_lines_to_keep = cl_features.identifiers if cl_features is not None else None
@@ -741,7 +741,8 @@ def randomize_train_predict(
 
     if (view not in cl_features.get_view_names()) and (view not in drug_features.get_view_names()):
         warnings.warn(
-            f"View {view} not found in features. Skipping randomization test {test_name} " f"which includes this view."
+            f"View {view} not found in features. Skipping randomization test {test_name} " f"which includes this view.",
+            stacklevel=2,
         )
         return
     cl_features_rand = cl_features.copy() if cl_features is not None else None
@@ -952,7 +953,7 @@ def hpam_tune(
             best_hyperparameters = hyperparameter
 
     if best_hyperparameters is None:
-        warnings.warn("all hpams lead to NaN respone. using last hpam combination.")
+        warnings.warn("all hpams lead to NaN respone. using last hpam combination.", stacklevel=2)
         best_hyperparameters = hyperparameter
 
     return best_hyperparameters

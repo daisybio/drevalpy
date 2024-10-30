@@ -1,5 +1,3 @@
-import math
-
 import numpy as np
 import pytest
 from sklearn.linear_model import ElasticNet, Ridge
@@ -13,8 +11,8 @@ from drevalpy.models import (
     SingleDrugRandomForest,
 )
 
-from .utils import call_save_and_load
 from .conftest import sample_dataset
+from .utils import call_save_and_load
 
 
 @pytest.mark.parametrize(
