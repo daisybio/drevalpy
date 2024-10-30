@@ -1,0 +1,130 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DrEvalPy: Python Cancer Cell Line Drug Response Prediction Suite &mdash; DrEvalPy 0.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="_static/custom_cookietemple.css?v=d7704aeb" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=d45e8c67"></script>
+      <script src="_static/doctools.js?v=9a2dae69"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html">
+            
+              <img src="_static/drevalpy.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">Usage Principles</a></li>
+<li class="toctree-l1"><a class="reference internal" href="API.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributor Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="reference.html">How to cite</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">DrEvalPy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">DrEvalPy: Python Cancer Cell Line Drug Response Prediction Suite</li>
+      <li class="wy-breadcrumbs-aside">
+              <a href="https://github.com/daisybio/drevalpy/blob/development/docs/readme.rst" class="fa fa-github"> Edit on GitHub</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="drevalpy-python-cancer-cell-line-drug-response-prediction-suite">
+<h1>DrEvalPy: Python Cancer Cell Line Drug Response Prediction Suite<a class="headerlink" href="#drevalpy-python-cancer-cell-line-drug-response-prediction-suite" title="Link to this heading"></a></h1>
+<p><a class="reference external" href="https://pypi.org/project/drevalpy/"><img alt="PyPI" src="https://img.shields.io/pypi/v/drevalpy.svg" /></a> <a class="reference external" href="https://pypi.org/project/drevalpy"><img alt="Python Version" src="https://img.shields.io/pypi/pyversions/drevalpy" /></a> <a class="reference external" href="https://opensource.org/licenses/GPL3"><img alt="License" src="https://img.shields.io/github/license/daisybio/drevalpy" /></a> <a class="reference external" href="https://drevalpy.readthedocs.io/"><img alt="Read the documentation at https://drevalpy.readthedocs.io/" src="https://img.shields.io/readthedocs/drevalpy/latest.svg?label=Read%20the%20Docs" /></a> <a class="reference external" href="https://github.com/daisybio/drevalpy/actions?workflow=Package"><img alt="Build Package Status" src="https://github.com/daisybio/drevalpy/workflows/Build%20drevalpy%20Package/badge.svg" /></a> <a class="reference external" href="https://github.com/daisybio/drevalpy/actions?workflow=Tests"><img alt="Run Tests Status" src="https://github.com/daisybio/drevalpy/workflows/Run%20drevalpy%20Tests/badge.svg" /></a> <a class="reference external" href="https://codecov.io/gh/daisybio/drevalpy"><img alt="Codecov" src="https://codecov.io/gh/daisybio/drevalpy/branch/main/graph/badge.svg" /></a> <a class="reference external" href="https://github.com/pre-commit/pre-commit"><img alt="pre-commit" src="https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&amp;logoColor=white" /></a> <a class="reference external" href="https://github.com/psf/black"><img alt="Black" src="https://img.shields.io/badge/code%20style-black-000000.svg" /></a></p>
+<p>Focus on Innovating Your Models — DrEval Handles the Rest!
+-  DrEval is a toolkit that ensures drug response prediction evaluations are statistically sound, biologically meaningful, and reproducible.
+-  Focus on model innovation while using our automated standardized evaluation protocols and preprocessing workflows.
+-  A flexible model interface supports all model types (e.g. Machine Learning, Stats, Network-based analyses)</p>
+<p>Use DrEval to Build Drug Response Models That Have an Impact</p>
+<blockquote>
+<div><ol class="arabic simple">
+<li><p>Maintained, up-to-date baseline catalog, no need to re-implement literature models</p></li>
+<li><p>Gold standard datasets for benchmarking</p></li>
+<li><p>Consistent application-driven evaluation</p></li>
+<li><p>Ablation studies with permutation tests</p></li>
+<li><p>Cross-study evaluation for generalization analysis</p></li>
+<li><p>Optimized nextflow pipeline for fast experiments</p></li>
+<li><p>Easy-to-use hyperparameter tuning</p></li>
+<li><p>Paper-ready visualizations to display performance</p></li>
+</ol>
+</div></blockquote>
+<p>This project is a collaboration of the Technical University of Munich (TUM, Germany)
+and the Freie Universität Berlin (FU, Germany).</p>
+</section>
+
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, daisybio at Technical University of Munich.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
