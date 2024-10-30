@@ -10,7 +10,6 @@ Here is a list of important resources for contributors:
 - `Source Code`_
 - `Documentation`_
 - `Issue Tracker`_
-- `Code of Conduct`_
 
 .. _MIT license: https://opensource.org/licenses/MIT
 .. _Source Code: https://github.com/daisybio/drevalpy

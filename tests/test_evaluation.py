@@ -14,8 +14,8 @@ def test_evaluate():
     response = np.array([1.1, 2.2, 3.3, 4.4, 5.5])
     dataset = DrugResponseDataset(
         response=response,
-        cell_line_ids=pd.Series(["A", "B", "C", "D", "E"]),
-        drug_ids=pd.Series(["a", "b", "c", "d", "e"]),
+        cell_line_ids=np.array(["A", "B", "C", "D", "E"]),
+        drug_ids=np.array(["a", "b", "c", "d", "e"]),
         predictions=predictions,
     )
 
@@ -106,14 +106,14 @@ def test_pearson_correlated(generate_mock_correlated_data):
     y_pred, response = generate_mock_correlated_data
 
     pc = pearson(y_pred, response)
-    assert np.isclose(pc, 1.0, atol=1e-3)
+    assert bool(np.isclose(pc, 1.0, atol=1e-3))
 
 
 def test_pearson_anticorrelated(generate_mock_anticorrelated_data):
     y_pred, response = generate_mock_anticorrelated_data
 
     pc = pearson(y_pred, response)
-    assert np.isclose(pc, -1.0, atol=1e-1)
+    assert bool(np.isclose(pc, -1.0, atol=1e-1))
 
 
 @flaky(max_runs=3)
@@ -121,21 +121,21 @@ def test_pearson_uncorrelated(generate_mock_uncorrelated_data):
     y_pred, response = generate_mock_uncorrelated_data
 
     pc = pearson(y_pred, response)
-    assert np.isclose(pc, 0.0, atol=1e-3)
+    assert bool(np.isclose(pc, 0.0, atol=1e-3))
 
 
 def test_spearman_correlated(generate_mock_correlated_data):
     y_pred, response = generate_mock_correlated_data
 
     sp = spearman(y_pred, response)
-    assert np.isclose(sp, 1.0, atol=1e-3)
+    assert bool(np.isclose(sp, 1.0, atol=1e-3))
 
 
 def test_spearman_anticorrelated(generate_mock_anticorrelated_data):
     y_pred, response = generate_mock_anticorrelated_data
 
     sp = spearman(y_pred, response)
-    assert np.isclose(sp, -1.0, atol=1e-1)
+    assert bool(np.isclose(sp, -1.0, atol=1e-1))
 
 
 @flaky(max_runs=3)
@@ -144,21 +144,21 @@ def test_spearman_uncorrelated(generate_mock_uncorrelated_data):
 
     sp = spearman(y_pred, response)
     print(sp)
-    assert np.isclose(sp, 0.0, atol=1e-3)
+    assert bool(np.isclose(sp, 0.0, atol=1e-3))
 
 
 def test_kendall_correlated(generate_mock_correlated_data):
     y_pred, response = generate_mock_correlated_data
 
     kd = kendall(y_pred, response)
-    assert np.isclose(kd, 1.0, atol=1e-3)
+    assert bool(np.isclose(kd, 1.0, atol=1e-3))
 
 
 def test_kendall_anticorrelated(generate_mock_anticorrelated_data):
     y_pred, response = generate_mock_anticorrelated_data
 
     kd = kendall(y_pred, response)
-    assert np.isclose(kd, -1.0, atol=1e-1)
+    assert bool(np.isclose(kd, -1.0, atol=1e-1))
 
 
 @flaky(max_runs=3)
@@ -166,7 +166,7 @@ def test_kendall_uncorrelated(generate_mock_uncorrelated_data):
     y_pred, response = generate_mock_uncorrelated_data
 
     kd = kendall(y_pred, response)
-    assert np.isclose(kd, 0.0, atol=1e-3)
+    assert bool(np.isclose(kd, 0.0, atol=1e-3))
 
 
 def test_correlations_constant_prediction(
@@ -176,9 +176,9 @@ def test_correlations_constant_prediction(
     pc = pearson(y_pred, response)
     sp = spearman(y_pred, response)
     kd = kendall(y_pred, response)
-    assert np.isclose(pc, 0.0, atol=1e-3)
-    assert np.isclose(sp, 0.0, atol=1e-3)
-    assert np.isclose(kd, 0.0, atol=1e-3)
+    assert bool(np.isclose(pc, 0.0, atol=1e-3))
+    assert bool(np.isclose(sp, 0.0, atol=1e-3))
+    assert bool(np.isclose(kd, 0.0, atol=1e-3))
 
 
 if __name__ == "__main__":

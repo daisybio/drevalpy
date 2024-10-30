@@ -16,9 +16,9 @@ from drevalpy.utils import get_response_transformation
 def test_response_dataset_load():
     # Create a temporary CSV file with mock data
     data = {
-        "cell_line_id": [1, 2, 3],
-        "drug_id": ["A", "B", "C"],
-        "response": [0.1, 0.2, 0.3],
+        "cell_line_id": np.array([1, 2, 3]),
+        "drug_id": np.array(["A", "B", "C"]),
+        "response": np.array([0.1, 0.2, 0.3]),
     }
     dataset = DrugResponseDataset(
         cell_line_ids=data["cell_line_id"],
@@ -154,8 +154,8 @@ def test_split_response_dataset(mode, split_validation):
     # Create a dataset with known values
     dataset = DrugResponseDataset(
         response=np.random.random(100),
-        cell_line_ids=np.repeat([f"CL-{i}" for i in range(1, 11)], 10).tolist(),
-        drug_ids=np.tile([f"Drug-{i}" for i in range(1, 11)], 10).tolist(),
+        cell_line_ids=np.repeat([f"CL-{i}" for i in range(1, 11)], 10),
+        drug_ids=np.tile([f"Drug-{i}" for i in range(1, 11)], 10),
     )
     # 100 datapoints, 10 cell lines, 10 drugs
     # LPO: With 10% validation, 5 folds -> in 1 fold: 20 samples in test,
