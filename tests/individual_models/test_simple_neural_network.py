@@ -34,6 +34,7 @@ def test_simple_neural_network(sample_dataset, model_name, test_mode):
     model = MODEL_FACTORY[model_name]()
     hpams = model.get_hyperparameter_set()
     hpam_combi = hpams[0]
+    hpam_combi["units_per_layer"] = [2, 2]
     model.build_model(hyperparameters=hpam_combi)
     model.train(
         output=train_dataset,

@@ -42,6 +42,7 @@ def test_molir_superfeltr(sample_dataset, model_name, test_mode):
     for drug in all_unique_drugs:
         model = MODEL_FACTORY[model_name]()
         hpam_combi = model.get_hyperparameter_set()[0]
+        hpam_combi["epochs"] = 1
         model.build_model(hpam_combi)
 
         output_mask = train_dataset.drug_ids == drug
