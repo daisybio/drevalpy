@@ -40,8 +40,10 @@ def test_load_cl_ids_from_csv():
     os.mkdir(os.path.join(temp.name, "GDSC1_small"))
     temp_file = os.path.join(temp.name, "GDSC1_small", "cell_line_names.csv")
     with open(temp_file, "w") as f:
-        f.write("cellosaurus_id,CELL_LINE_NAME\nCVCL_X481,201T\nCVCL_1045,22Rv1\n"
-                "CVCL_1046,23132/87\nCVCL_1798,42-MG-BA\n")
+        f.write(
+            "cellosaurus_id,CELL_LINE_NAME\nCVCL_X481,201T\nCVCL_1045,22Rv1\n"
+            "CVCL_1046,23132/87\nCVCL_1798,42-MG-BA\n"
+        )
 
     cl_ids_gdsc1 = load_cl_ids_from_csv(temp.name, "GDSC1_small")
     assert len(cl_ids_gdsc1.features) == 4
