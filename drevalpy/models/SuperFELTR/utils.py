@@ -160,6 +160,7 @@ def train_superfeltr_model(
     output_earlystopping: DrugResponseDataset,
     patience: int = 5,
 ) -> pl.callbacks.ModelCheckpoint:
+
     train_loader, val_loader = create_dataset_and_loaders(
         batch_size=hpams["mini_batch"],
         output_train=output_train,

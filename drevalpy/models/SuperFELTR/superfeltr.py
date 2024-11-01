@@ -73,16 +73,19 @@ class SuperFELTR(SingleDrugModel):
             encoder = SuperFELTEncoder(
                 input_size=dim, hpams=self.hyperparameters, omic_type=omic_type, ranges=self.ranges
             )
-            print(f"Training SuperFELTR Encoder for {omic_type} ... ")
-            best_checkpoint = train_superfeltr_model(
-                model=encoder,
-                hpams=self.hyperparameters,
-                output_train=output,
-                cell_line_input=cell_line_input,
-                output_earlystopping=output_earlystopping,
-                patience=5,
-            )
-            encoders[omic_type] = SuperFELTEncoder.load_from_checkpoint(best_checkpoint.best_model_path)
+            if len(output) > 0:
+                print(f"Training SuperFELTR Encoder for {omic_type} ... ")
+                best_checkpoint = train_superfeltr_model(
+                    model=encoder,
+                    hpams=self.hyperparameters,
+                    output_train=output,
+                    cell_line_input=cell_line_input,
+                    output_earlystopping=output_earlystopping,
+                    patience=5,
+                )
+                encoders[omic_type] = SuperFELTEncoder.load_from_checkpoint(best_checkpoint.best_model_path)
+            else:
+                print(f"No training data provided for SuperFELTR Encoder for {omic_type}. Using random initialization.")
 
         self.expr_encoder, self.mut_encoder, self.cnv_encoder = (
             encoders["expression"],
