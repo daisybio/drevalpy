@@ -72,11 +72,12 @@ class MOLIR(SingleDrugModel):
             input_dim_mut=dim_mut,
             input_dim_cnv=dim_cnv,
         )
-        self.model.fit(
-            output_train=output,
-            cell_line_input=cell_line_input,
-            output_earlystopping=output_earlystopping,
-        )
+        if len(output) > 0:
+            self.model.fit(
+                output_train=output,
+                cell_line_input=cell_line_input,
+                output_earlystopping=output_earlystopping,
+            )
 
     def predict(
         self,

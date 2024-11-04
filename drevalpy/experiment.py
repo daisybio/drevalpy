@@ -852,15 +852,18 @@ def train_and_predict(
         drug_input=drug_features,
         output_earlystopping=early_stopping_dataset,
     )
-    prediction_dataset.predictions = model.predict(
-        cell_line_ids=prediction_dataset.cell_line_ids,
-        drug_ids=prediction_dataset.drug_ids,
-        cell_line_input=cl_features,
-        drug_input=drug_features,
-    )
+    if len(prediction_dataset) > 0:
+        prediction_dataset.predictions = model.predict(
+            cell_line_ids=prediction_dataset.cell_line_ids,
+            drug_ids=prediction_dataset.drug_ids,
+            cell_line_input=cl_features,
+            drug_input=drug_features,
+        )
 
-    if response_transformation:
-        prediction_dataset.inverse_transform(response_transformation)
+        if response_transformation:
+            prediction_dataset.inverse_transform(response_transformation)
+    else:
+        prediction_dataset.predictions = np.array([])
 
     return prediction_dataset
 
