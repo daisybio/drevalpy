@@ -20,6 +20,7 @@ __all__ = [
     "MULTI_DRUG_MODEL_FACTORY",
     "SINGLE_DRUG_MODEL_FACTORY",
     "MODEL_FACTORY",
+    "DIPK_Model",
 ]
 
 from .baselines.multi_omics_random_forest import MultiOmicsRandomForest
@@ -31,6 +32,7 @@ from .simple_neural_network.multiomics_neural_network import MultiOmicsNeuralNet
 from .simple_neural_network.simple_neural_network import SimpleNeuralNetwork
 from .SRMF.srmf import SRMF
 from .SuperFELTR.superfeltr import SuperFELTR
+from .DIPK.DIPK import DIPK_Model
 
 SINGLE_DRUG_MODEL_FACTORY = {
     "SingleDrugRandomForest": SingleDrugRandomForest,
@@ -50,6 +52,7 @@ MULTI_DRUG_MODEL_FACTORY = {
     "MultiOmicsRandomForest": MultiOmicsRandomForest,
     "GradientBoosting": GradientBoosting,
     "SRMF": SRMF,
+    "DIPK": DIPK_Model,
 }
 
 MODEL_FACTORY = MULTI_DRUG_MODEL_FACTORY.copy()
