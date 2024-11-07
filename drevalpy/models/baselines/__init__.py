@@ -1,3 +1,1 @@
-"""
-Module containing the baseline models.
-"""
+"""Module containing the baseline models."""

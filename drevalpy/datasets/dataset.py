@@ -58,7 +58,7 @@ class DrugResponseDataset(Dataset):
         drug_ids: Optional[np.ndarray] = None,
         predictions: Optional[np.ndarray] = None,
         dataset_name: Optional[str] = None,
-    ):
+    ) -> None:
         """
         Initializes the drug response dataset.
 
@@ -67,6 +67,9 @@ class DrugResponseDataset(Dataset):
         :param drug_ids: drug IDs
         :param predictions: optional. Predicted drug response values per cell line and drug
         :param dataset_name: optional. Name of the dataset
+        :raises AssertionError: if response and cell_line_ids have different lengths
+        :raises AssertionError: if response and drug_ids have different lengths
+        :raises AssertionError: if predictions and response have different lengths
         """
         super().__init__()
         if response is not None:
@@ -92,12 +95,20 @@ class DrugResponseDataset(Dataset):
             self.predictions = None
         self.cv_splits = None
 
-    def __len__(self):
-        """Overwrites the default length method."""
+    def __len__(self) -> int:
+        """
+        Overwrites the default length method.
+
+        :returns: number of samples in the dataset
+        """
         return len(self.response)
 
-    def __str__(self):
-        """Overwrite the default str method."""
+    def __str__(self) -> str:
+        """
+        Overwrite the default str method.
+
+        :returns: string representation of the dataset
+        """
         if len(self.response) > 3:
             string = (
                 f"DrugResponseDataset: CLs {self.cell_line_ids[:3]}...; "
@@ -117,8 +128,12 @@ class DrugResponseDataset(Dataset):
                 string += f"; Predictions {self.predictions}"
         return string
 
-    def to_dataframe(self):
-        """Convert the dataset into a pandas DataFrame."""
+    def to_dataframe(self) -> pd.DataFrame:
+        """
+        Convert the dataset into a pandas DataFrame.
+
+        :returns: pandas DataFrame of the dataset with columns 'cell_line_id', 'drug_id', 'response'(, 'predictions')
+        """
         data = {
             "cell_line_id": self.cell_line_ids,
             "drug_id": self.drug_ids,
@@ -128,7 +143,7 @@ class DrugResponseDataset(Dataset):
             data["predictions"] = self.predictions
         return pd.DataFrame(data)
 
-    def load(self, path: str):
+    def load(self, path: str) -> None:
         """
         Loads the drug response dataset from data.
 
@@ -141,7 +156,7 @@ class DrugResponseDataset(Dataset):
         if "predictions" in data.columns:
             self.predictions = data["predictions"].values
 
-    def save(self, path: str):
+    def save(self, path: str) -> None:
         """
         Saves the drug response dataset to data.
 
@@ -195,7 +210,7 @@ class DrugResponseDataset(Dataset):
         if self.predictions is not None:
             self.predictions = self.predictions[indices]
 
-    def remove_drugs(self, drugs_to_remove: Union[str, list]) -> None:
+    def _remove_drugs(self, drugs_to_remove: Union[str, list]) -> None:
         """
         Removes drugs from the dataset.
 
@@ -209,7 +224,7 @@ class DrugResponseDataset(Dataset):
         self.cell_line_ids = self.cell_line_ids[mask]
         self.response = self.response[mask]
 
-    def remove_cell_lines(self, cell_lines_to_remove: Union[str, list]) -> None:
+    def _remove_cell_lines(self, cell_lines_to_remove: Union[str, list]) -> None:
         """
         Removes cell lines from the dataset.
 
@@ -243,10 +258,10 @@ class DrugResponseDataset(Dataset):
         :param drug_ids: drug IDs or None to keep all cell lines
         """
         if drug_ids is not None:
-            self.remove_drugs(list(set(self.drug_ids) - set(drug_ids)))
+            self._remove_drugs(list(set(self.drug_ids) - set(drug_ids)))
 
         if cell_line_ids is not None:
-            self.remove_cell_lines(list(set(self.cell_line_ids) - set(cell_line_ids)))
+            self._remove_cell_lines(list(set(self.cell_line_ids) - set(cell_line_ids)))
 
     def split_dataset(
         self,
@@ -266,8 +281,9 @@ class DrugResponseDataset(Dataset):
         :param split_early_stopping: if True, an early stopping set is generated
         :param validation_ratio: ratio of validation set size to training set size
         :param random_state: random state
-        :return: list of dictionaries containing the cross-validation datasets.
+        :returns: list of dictionaries containing the cross-validation datasets.
             Each fold is a dictionary with keys 'train', 'validation', 'test', 'validation_es', 'early_stopping'.
+        :raises ValueError: if mode is not 'LPO', 'LCO', or 'LDO'
         """
         cell_line_ids = self.cell_line_ids
         drug_ids = self.drug_ids
@@ -314,6 +330,7 @@ class DrugResponseDataset(Dataset):
         Save cross validation splits to path/cv_split_0_train.csv and path/cv_split_0_test.csv.
 
         :param path: path to the directory where the cv split files are saved
+        :raises AssertionError: if DrugResponseDataset was not split
         """
         if self.cv_splits is None:
             raise AssertionError("Trying to save splits, but DrugResponseDataset was not split.")
@@ -336,6 +353,7 @@ class DrugResponseDataset(Dataset):
         Load cross validation splits from path/cv_split_0_train.csv and path/cv_split_0_test.csv.
 
         :param path: path to the directory containing the cv split files
+        :raises AssertionError: if no cv split files are found in path
         """
         files = os.listdir(path)
         files = [file for file in files if (file.endswith(".csv") and file.startswith("cv_split"))]
@@ -381,7 +399,10 @@ class DrugResponseDataset(Dataset):
                     self.cv_splits[i][mode] = split
 
     def copy(self):
-        """Returns a copy of the drug response dataset."""
+        """Returns a copy of the drug response dataset.
+
+        :returns: copy of the dataset
+        """
         return DrugResponseDataset(
             response=copy.deepcopy(self.response),
             cell_line_ids=copy.deepcopy(self.cell_line_ids),
@@ -390,8 +411,11 @@ class DrugResponseDataset(Dataset):
             dataset_name=self.dataset_name,
         )
 
-    def __hash__(self):
-        """Overwrites default hash method."""
+    def __hash__(self) -> int:
+        """Overwrites default hash method.
+
+        :returns: hash value of the dataset
+        """
         return hash(
             (
                 self.dataset_name,
@@ -452,7 +476,7 @@ def _split_early_stopping_data(
 
     :param validation_dataset: input validation dataset
     :param test_mode: LCO, LDO, LPO
-    :return: the resulting validation and early stopping datasets
+    :returns: the resulting validation and early stopping datasets
     """
     validation_dataset.shuffle(random_state=42)
     cv_v = validation_dataset.split_dataset(
@@ -489,7 +513,8 @@ def _leave_pair_out_cv(
     :param validation_ratio: ratio of validation set (of the training set)
     :param random_state: random state
     :param dataset_name: name of the dataset
-    :return: list of dicts of the cross validation sets
+    :returns: list of dicts of the cross validation sets
+    :raises AssertionError: if response, cell_line_ids and drug_ids have different lengths
     """
     if not (len(response) == len(cell_line_ids) == len(drug_ids)):
         raise AssertionError("response, cell_line_ids and drug_ids must have the same length")
@@ -559,8 +584,15 @@ def _leave_group_out_cv(
 
     :param group: group to leave out (cell_line or drug)
     :param n_cv_splits: number of cross validation splits
+    :param response: response (e.g. ic50 values)
+    :param cell_line_ids: cell line IDs
+    :param drug_ids: drug IDs
+    :param split_validation: whether to split the training set into training and validation set
+    :param validation_ratio: ratio of validation set (of the training set)
     :param random_state: random state
-    :return: list of dicts of the cross validation sets
+    :param dataset_name: name of the dataset
+    :returns: list of dicts of the cross validation sets
+    :raises AssertionError: if group is not 'cell_line' or 'drug'
     """
     if group not in {"cell_line", "drug"}:
         raise AssertionError(f"group must be 'cell_line' or 'drug', but is {group}")
@@ -641,6 +673,7 @@ class FeatureDataset(Dataset):
             key: drug ID/cell line ID, value: Dict of feature views,
             key: feature name, value: feature vector
         :param meta_info: additional information for the views, e.g. gene names for gene expression
+        :raises AssertionError: if meta_info keys are not in view names
         """
         super().__init__()
         self.features = features
@@ -659,6 +692,7 @@ class FeatureDataset(Dataset):
         Saves the feature dataset to data.
 
         :param path: path to the dataset
+        :raises NotImplementedError: if method is not implemented
         """
         raise NotImplementedError("save method not implemented")
 
@@ -667,6 +701,7 @@ class FeatureDataset(Dataset):
         Loads the feature dataset from data.
 
         :param path: path to the dataset
+        :raises NotImplementedError: if method is not implemented
         """
         raise NotImplementedError("load method not implemented")
 
@@ -674,13 +709,16 @@ class FeatureDataset(Dataset):
         """
         Randomizes the feature vectors.
 
+        Permutation permutes the feature vectors.
+        Invariant means that the randomization is done in a way that a key characteristic of the feature is
+        preserved. In case of matrices, this is the mean and standard deviation of the feature view for this
+        instance, for networks it is the degree distribution.
+
         :param views_to_randomize: name of feature view or list of names of multiple feature views
             to randomize. The other views are not randomized.
         :param randomization_type: randomization type ('permutation', 'invariant').
-        :return: Permutation permutes the feature vectors.
-            Invariant means that the randomization is done in a way that a key characteristic of the
-            feature is preserved. In case of matrices, this is the mean and standard deviation of the
-            feature view for this instance, for networks it is the degree distribution.
+        :raises AssertionError: if randomization_type is not 'permutation' or 'invariant'
+        :raises ValueError: if no invariant randomization is available for the feature view type
         """
         if randomization_type not in ["permutation", "invariant"]:
             raise AssertionError(
@@ -726,12 +764,18 @@ class FeatureDataset(Dataset):
                         )
                     self.features[identifier][view] = new_features
 
-    def get_ids(self):
-        """Returns drug ids of the dataset."""
+    def get_ids(self) -> np.ndarray:
+        """Returns feature ids of the dataset.
+
+        :returns: feature ids
+        """
         return np.array(list(self.features.keys()))
 
-    def get_view_names(self):
-        """Returns feature view names."""
+    def get_view_names(self) -> list[str]:
+        """Returns feature view names.
+
+        :returns: feature view names
+        """
         return list(self.features[list(self.features.keys())[0]].keys())
 
     def get_feature_matrix(self, view: str, identifiers: ArrayLike, stack: bool = True) -> Union[np.ndarray, list]:
@@ -742,7 +786,12 @@ class FeatureDataset(Dataset):
         :param view: view name
         :param identifiers: list of identifiers (cell lines oder drugs)
         :param stack: if True, stacks the feature vectors to a matrix. If False, returns a list of features.
-        :return: feature matrix
+        :returns: feature matrix
+        :raises AssertionError: if no identifiers are given
+        :raises AssertionError: if view is not in the FeatureDataset
+        :raises AssertionError: if identifiers are not in the FeatureDataset
+        :raises AssertionError: if feature vectors of view have different lengths
+        :raises AssertionError: if view is not a numpy array
         """
         if len(identifiers) == 0:
             raise AssertionError("get_feature_matrix: No identifiers given.")
@@ -765,14 +814,18 @@ class FeatureDataset(Dataset):
         return np.stack(out, axis=0) if stack else out
 
     def copy(self):
-        """Returns a copy of the feature dataset."""
+        """Returns a copy of the feature dataset.
+
+        :returns: copy of the dataset
+        """
         return FeatureDataset(features=copy.deepcopy(self.features))
 
-    def _add_features(self, other: "FeatureDataset") -> None:
+    def add_features(self, other: "FeatureDataset") -> None:
         """
         Adds features views from another dataset. Inner join (only common identifiers are kept).
 
         :param other: other dataset
+        :raises AssertionError: if feature views overlap
         """
         if len(set(self.view_names) & set(other.view_names)) != 0:
             raise AssertionError(
@@ -808,6 +861,9 @@ class FeatureDataset(Dataset):
         :param ids: The IDs to transform
         :param transformer: fitted sklearn transformer
         :param view: the view to transform
+        :raises AssertionError: if view is not in the FeatureDataset
+        :raises AssertionError: if a cell line is missing
+        :raises AssertionError: if IDs are not unique
         """
         if view not in self.view_names:
             raise AssertionError(f"Transform view {view!r} not in in the FeatureDataset.")
@@ -829,7 +885,9 @@ class FeatureDataset(Dataset):
         :param train_ids: The IDs corresponding to the training dataset.
         :param transformer: sklearn transformer
         :param view: the view to transform
-        :return: The modified FeatureDataset with transformed gene expression features.
+        :returns: The modified FeatureDataset with transformed gene expression features.
+        :raises AssertionError: if view is not in the FeatureDataset
+        :raises AssertionError: if train IDs are not unique
         """
         if view not in self.view_names:
             raise AssertionError(f"Transform view {view!r} not in in the FeatureDataset.")
@@ -855,7 +913,11 @@ class FeatureDataset(Dataset):
             self.features[identifier][view] = scaled_gene_expression
         return transformer
 
-    def _apply(self, function: Callable, view: str):
-        """Applies a function to the features of a view."""
+    def apply(self, function: Callable, view: str):
+        """Applies a function to the features of a view.
+
+        :param function: function to apply
+        :param view: view to apply the function to
+        """
         for identifier in self.features:
             self.features[identifier][view] = function(self.features[identifier][view])

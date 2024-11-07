@@ -100,8 +100,8 @@ def test_response_data_remove_drugs_and_cell_lines():
     )
 
     # Remove specific drugs and cell lines
-    dataset.remove_drugs(["A", "C"])
-    dataset.remove_cell_lines([101, 103])
+    dataset._remove_drugs(["A", "C"])
+    dataset._remove_cell_lines([101, 103])
 
     # Check if the removed drugs and cell lines are not present in the dataset
     assert "A" not in dataset.drug_ids
@@ -442,7 +442,7 @@ def test_feature_dataset_save_and_load(sample_dataset):
 
 
 def test_add_features(sample_dataset, graph_dataset):
-    sample_dataset._add_features(graph_dataset)
+    sample_dataset.add_features(graph_dataset)
     assert "molecular_graph" in sample_dataset.meta_info
     assert "molecular_graph" in sample_dataset.get_view_names()
 

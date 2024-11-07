@@ -1,6 +1,4 @@
-"""
-Contains the MultiOmicsNeuralNetwork model.
-"""
+"""Contains the baseline MultiOmicsNeuralNetwork model."""
 
 import warnings
 from typing import Optional
@@ -17,14 +15,7 @@ from .utils import FeedForwardNetwork
 
 
 class MultiOmicsNeuralNetwork(DRPModel):
-    """
-    Simple Feedforward Neural Network model with dropout.
-
-    hyperparameters:
-    units_per_layer: number of units per layer e.g. [100, 50] means 2 layers with 100 and 50
-    units respectively and the output layer with one unit.
-    dropout_prob: dropout probability for layers 1, 2, ..., n-1
-    """
+    """Simple Feedforward Neural Network model with dropout using multiple omics data."""
 
     cell_line_views = [
         "gene_expression",
@@ -37,18 +28,27 @@ class MultiOmicsNeuralNetwork(DRPModel):
     model_name = "MultiOmicsNeuralNetwork"
 
     def __init__(self):
+        """
+        Initalization method for MultiOmicsNeuralNetwork Model.
+
+        The model and the PCA are initialized to None because they are built later in the build_model method.
+        """
         super().__init__()
         self.model = None
+        self.hyperparameters = None
         self.pca = None
 
     def build_model(self, hyperparameters: dict):
         """
         Builds the model from hyperparameters.
+
+        The model is a simple feedforward neural network with dropout. The PCA is used to reduce the dimensionality of
+        the methylation data.
+
+        :param hyperparameters: dictionary containing the hyperparameters units_per_layer, dropout_prob, and
+            methylation_pca_components.
         """
-        self.model = FeedForwardNetwork(
-            n_units_per_layer=hyperparameters["units_per_layer"],
-            dropout_prob=hyperparameters["dropout_prob"],
-        )
+        self.hyperparameters = hyperparameters
         self.pca = PCA(n_components=hyperparameters["methylation_pca_components"])
 
     def train(
@@ -59,7 +59,8 @@ class MultiOmicsNeuralNetwork(DRPModel):
         output_earlystopping: Optional[DrugResponseDataset] = None,
     ):
         """
-        Trains the model.
+        Fits the PCA and trains the model.
+
         :param output: training data associated with the response output
         :param cell_line_input: cell line omics features
         :param drug_input: drug omics features
@@ -72,6 +73,18 @@ class MultiOmicsNeuralNetwork(DRPModel):
 
         self.pca.n_components = min(self.pca.n_components, len(unique_methylation))
         self.pca = self.pca.fit(unique_methylation)
+
+        first_feature = next(iter(cell_line_input.features.values()))
+        dim_gex = first_feature["gene_expression"].shape[0]
+        dim_met = self.pca.n_components
+        dim_mut = first_feature["mutations"].shape[0]
+        dim_cnv = first_feature["copy_number_variation_gistic"].shape[0]
+        dim_fingerprint = next(iter(drug_input.features.values()))["fingerprints"].shape[0]
+
+        self.model = FeedForwardNetwork(
+            hyperparameters=self.hyperparameters,
+            input_dim=dim_gex + dim_met + dim_mut + dim_cnv + dim_fingerprint,
+        )
 
         with warnings.catch_warnings():
             warnings.filterwarnings(
@@ -91,16 +104,6 @@ class MultiOmicsNeuralNetwork(DRPModel):
                 met_transform=self.pca,
             )
 
-    def save(self, path: str):
-        """
-        Saves the model.
-        :param path: path to save the model
-        """
-        raise NotImplementedError("save method not implemented")
-
-    def load(self, path: str):
-        raise NotImplementedError("load method not implemented")
-
     def predict(
         self,
         drug_ids: ArrayLike,
@@ -109,7 +112,13 @@ class MultiOmicsNeuralNetwork(DRPModel):
         cell_line_input: FeatureDataset = None,
     ) -> np.ndarray:
         """
-        Predicts the response for the given input.
+        Transforms the methylation data using the fitted PCA and then predicts the response for the given input.
+
+        :param drug_ids: drug identifiers
+        :param cell_line_ids: cell line identifiers
+        :param drug_input: drug omics features
+        :param cell_line_input: cell line omics features
+        :returns: predicted response
         """
         inputs = self.get_feature_matrices(
             cell_line_ids=cell_line_ids,
@@ -152,14 +161,14 @@ class MultiOmicsNeuralNetwork(DRPModel):
         :return: FeatureDataset containing the cell line omics features, filtered through the
             drug target genes
         """
-
         return get_multiomics_feature_dataset(data_path=data_path, dataset_name=dataset_name)
 
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         """
         Load the drug features.
 
-        :param data_path:
-        :param dataset_name:
+        :param data_path: path to the drug features, in this case the drug fingerprints, e.g., data/
+        :param dataset_name: name of the dataset, e.g., GDSC1
+        :returns: FeatureDataset containing the drug fingerprint features
         """
         return load_drug_fingerprint_features(data_path, dataset_name)

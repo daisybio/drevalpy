@@ -1,6 +1,4 @@
-"""
-Contains the Multi-OMICS Random Forest model.
-"""
+"""Contains the Multi-OMICS Random Forest model."""
 
 import numpy as np
 from numpy.typing import ArrayLike
@@ -13,9 +11,7 @@ from .sklearn_models import RandomForest
 
 
 class MultiOmicsRandomForest(RandomForest):
-    """
-    Multi-OMICS Random Forest model.
-    """
+    """Multi-OMICS Random Forest model."""
 
     cell_line_views = [
         "gene_expression",
@@ -26,12 +22,18 @@ class MultiOmicsRandomForest(RandomForest):
     model_name = "MultiOmicsRandomForest"
 
     def __init__(self):
+        """
+        Initializes the model.
+
+        Sets the PCA to None, which is initialized in the build_model method.
+        """
         super().__init__()
         self.pca = None
 
     def build_model(self, hyperparameters: dict):
         """
         Builds the model from hyperparameters.
+
         :param hyperparameters: Hyperparameters for the model.
         """
         super().build_model(hyperparameters)
@@ -43,10 +45,9 @@ class MultiOmicsRandomForest(RandomForest):
 
         :param data_path: data path e.g. data/
         :param dataset_name: dataset name e.g. GDSC1
-        :return: FeatureDataset containing the cell line omics features, filtered through the
+        :returns: FeatureDataset containing the cell line omics features, filtered through the
             drug target genes
         """
-
         return get_multiomics_feature_dataset(data_path=data_path, dataset_name=dataset_name)
 
     def train(
@@ -57,8 +58,8 @@ class MultiOmicsRandomForest(RandomForest):
         output_earlystopping=None,
     ) -> None:
         """
-        Trains the model: the number of features is the number of genes + the number of
-        fingerprints.
+        Trains the model: the number of features is the number of genes + the number of fingerprints.
+
         :param output: training dataset containing the response output
         :param cell_line_input: training dataset containing the OMICs
         :param drug_input: training dataset containing fingerprints data
@@ -106,6 +107,12 @@ class MultiOmicsRandomForest(RandomForest):
     ) -> np.ndarray:
         """
         Predicts the response for the given input.
+
+        :param drug_ids: drug ids
+        :param cell_line_ids: cell line ids
+        :param drug_input: drug input
+        :param cell_line_input: cell line input
+        :returns: predicted response
         """
         inputs = self.get_feature_matrices(
             cell_line_ids=cell_line_ids,

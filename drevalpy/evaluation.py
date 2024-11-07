@@ -31,7 +31,9 @@ def partial_correlation(
     :param cell_line_ids: cell line IDs
     :param drug_ids: drug IDs
     :param method: method to compute the partial correlation (pearson, spearman)
-    :return: partial correlation float
+    :param return_pvalue: whether to return the p-value
+    :returns: partial correlation float
+    :raises AssertionError: if predictions, response, drug_ids, and cell_line_ids do not have the same length
     """
     if len(y_true) < 3:
         return np.nan if not return_pvalue else (np.nan, np.nan)
@@ -94,24 +96,24 @@ def partial_correlation(
     return r
 
 
-def check_constant_prediction(y_pred: np.ndarray) -> bool:
+def _check_constant_prediction(y_pred: np.ndarray) -> bool:
     """
     Check if predictions are constant.
 
-    :param y_pred:
-    :return:
+    :param y_pred: predictions
+    :return: bool whether predictions are constant
     """
     tol = 1e-6
     # no variation in predictions
     return np.all(np.isclose(y_pred, y_pred[0], atol=tol))
 
 
-def check_constant_target_or_small_sample(y_true: np.ndarray) -> bool:
+def _check_constant_target_or_small_sample(y_true: np.ndarray) -> bool:
     """
     Check if target is constant or sample size is too small.
 
-    :param y_true:
-    :return:
+    :param y_true: true response
+    :returns: bool whether target is constant or sample size is too small
     """
     tol = 1e-6
     # Check for insufficient sample size or no variation in target
@@ -125,14 +127,14 @@ def pearson(y_pred: np.ndarray, y_true: np.ndarray) -> float:
     :param y_pred: predictions
     :param y_true: response
     :return: pearson correlation float
+    :raises AssertionError: if predictions and response do not have the same length
     """
-
     if len(y_pred) != len(y_true):
         raise AssertionError("predictions, response  must have the same length")
 
-    if check_constant_prediction(y_pred):
+    if _check_constant_prediction(y_pred):
         return 0.0
-    if check_constant_target_or_small_sample(y_true):
+    if _check_constant_target_or_small_sample(y_true):
         return np.nan
 
     return pearsonr(y_pred, y_true)[0]
@@ -145,13 +147,14 @@ def spearman(y_pred: np.ndarray, y_true: np.ndarray) -> float:
     :param y_pred: predictions
     :param y_true: response
     :return: spearman correlation float
+    :raises AssertionError: if predictions and response do not have the same length
     """
     # we can use scipy.stats.spearmanr
     if len(y_pred) != len(y_true):
         raise AssertionError("predictions, response  must have the same length")
-    if check_constant_prediction(y_pred):
+    if _check_constant_prediction(y_pred):
         return 0.0
-    if check_constant_target_or_small_sample(y_true):
+    if _check_constant_target_or_small_sample(y_true):
         return np.nan
 
     return spearmanr(y_pred, y_true)[0]
@@ -164,13 +167,14 @@ def kendall(y_pred: np.ndarray, y_true: np.ndarray) -> float:
     :param y_pred: predictions
     :param y_true: response
     :return: kendall tau correlation float
+    :raises AssertionError: if predictions and response do not have the same length
     """
     # we can use scipy.stats.spearmanr
     if len(y_pred) != len(y_true):
         raise AssertionError("predictions, response  must have the same length")
-    if check_constant_prediction(y_pred):
+    if _check_constant_prediction(y_pred):
         return 0.0
-    if check_constant_target_or_small_sample(y_true):
+    if _check_constant_target_or_small_sample(y_true):
         return np.nan
 
     return kendalltau(y_pred, y_true)[0]
@@ -200,8 +204,9 @@ def get_mode(metric: str):
     """
     Get whether the optimum value of the metric is the minimum or maximum.
 
-    :param metric:
-    :return:
+    :param metric: metric, e.g., RMSE
+    :returns: whether the optimum value of the metric is the minimum or maximum
+    :raises ValueError: if the metric is not in MINIMIZATION_METRICS or MAXIMIZATION_METRICS
     """
     if metric in MINIMIZATION_METRICS:
         mode = "min"
@@ -222,6 +227,7 @@ def evaluate(dataset: DrugResponseDataset, metric: Union[list[str], str]):
     :param metric: evaluation metric(s) (one or a list of "MSE", "RMSE", "MAE", "r2", "Pearson",
         "spearman", "kendall", "partial_correlation")
     :return: evaluation metric
+    :raises AssertionError: if metric is not in AVAILABLE
     """
     if isinstance(metric, str):
         metric = [metric]
@@ -248,14 +254,3 @@ def evaluate(dataset: DrugResponseDataset, metric: Union[list[str], str]):
                 results[m] = float(AVAILABLE_METRICS[m](y_pred=predictions, y_true=response))
 
     return results
-
-
-def visualize_results(results: pd.DataFrame, mode: Union[list[str], str]):
-    """
-    Visualizes the model on the given dataset.
-
-    :param dataset: dataset to evaluate on
-    :param mode:
-    :return: evaluation metric
-    """
-    raise NotImplementedError("visualize not implemented yet")
