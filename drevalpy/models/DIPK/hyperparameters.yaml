@@ -1,0 +1,23 @@
+---
+DIPK:
+  EPOCHS:
+      - 100
+  batch_size:
+      - 64
+  lr:
+      - 0.00001
+  embedding_dim:
+      - None
+  heads:
+      - None
+  fc_layer_num:
+      - 3
+  fc_layer_dim:
+      - - 256
+        - 128
+        - 1
+        - 1
+        - 1
+        - 1
+  dropout_rate:
+      - 0.3
