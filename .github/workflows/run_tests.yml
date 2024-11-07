@@ -3,8 +3,6 @@ name: Run drevalpy Tests
 on:
   push:
     branches:
-      - development
-      - main
       - "release/*"
   pull_request:
     branches:
