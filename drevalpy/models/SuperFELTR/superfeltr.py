@@ -59,56 +59,70 @@ class SuperFELTR(SingleDrugModel):
         """
         Trains the model.
         """
-        cell_line_input = self.feature_selection(output, cell_line_input)
-        if self.early_stopping and len(output_earlystopping) < 2:
-            output_earlystopping = None
-        dim_gex, dim_mut, dim_cnv = get_dimensions_of_omics_data(cell_line_input)
-        self.ranges = make_ranges(output)
+        if len(output) > 0:
+            cell_line_input = self.feature_selection(output, cell_line_input)
+            if self.early_stopping and len(output_earlystopping) < 2:
+                output_earlystopping = None
+            dim_gex, dim_mut, dim_cnv = get_dimensions_of_omics_data(cell_line_input)
+            self.ranges = make_ranges(output)
 
-        # difference to MOLI: encoders and regressor are trained independently
-        # Create and train encoders
-        encoders = {}
-        encoder_dims = {"expression": dim_gex, "mutation": dim_mut, "copy_number_variation_gistic": dim_cnv}
-        for omic_type, dim in encoder_dims.items():
-            encoder = SuperFELTEncoder(
-                input_size=dim, hpams=self.hyperparameters, omic_type=omic_type, ranges=self.ranges
+            # difference to MOLI: encoders and regressor are trained independently
+            # Create and train encoders
+            encoders = {}
+            encoder_dims = {"expression": dim_gex, "mutation": dim_mut, "copy_number_variation_gistic": dim_cnv}
+            for omic_type, dim in encoder_dims.items():
+                encoder = SuperFELTEncoder(
+                    input_size=dim, hpams=self.hyperparameters, omic_type=omic_type, ranges=self.ranges
+                )
+                if len(output) >= self.hyperparameters["mini_batch"]:
+                    print(f"Training SuperFELTR Encoder for {omic_type} ... ")
+                    best_checkpoint = train_superfeltr_model(
+                        model=encoder,
+                        hpams=self.hyperparameters,
+                        output_train=output,
+                        cell_line_input=cell_line_input,
+                        output_earlystopping=output_earlystopping,
+                        patience=5,
+                    )
+                    encoders[omic_type] = SuperFELTEncoder.load_from_checkpoint(best_checkpoint.best_model_path)
+                else:
+                    print(
+                        f"Not enough training data provided for SuperFELTR Encoder for {omic_type}. Using random "
+                        f"initialization."
+                    )
+                    encoders[omic_type] = encoder
+
+            self.expr_encoder, self.mut_encoder, self.cnv_encoder = (
+                encoders["expression"],
+                encoders["mutation"],
+                encoders["copy_number_variation_gistic"],
             )
-            if len(output) > 0:
-                print(f"Training SuperFELTR Encoder for {omic_type} ... ")
-                best_checkpoint = train_superfeltr_model(
-                    model=encoder,
+
+            self.regressor = SuperFELTRegressor(
+                input_size=self.hyperparameters["out_dim_expr_encoder"]
+                + self.hyperparameters["out_dim_mutation_encoder"]
+                + self.hyperparameters["out_dim_cnv_encoder"],
+                hpams=self.hyperparameters,
+                encoders=(self.expr_encoder, self.mut_encoder, self.cnv_encoder),
+                ranges=self.ranges,
+            )
+            if len(output) >= self.hyperparameters["mini_batch"]:
+                print("Training SuperFELTR Regressor ... ")
+                self.best_checkpoint = train_superfeltr_model(
+                    model=self.regressor,
                     hpams=self.hyperparameters,
                     output_train=output,
                     cell_line_input=cell_line_input,
                     output_earlystopping=output_earlystopping,
                     patience=5,
                 )
-                encoders[omic_type] = SuperFELTEncoder.load_from_checkpoint(best_checkpoint.best_model_path)
             else:
-                print(f"No training data provided for SuperFELTR Encoder for {omic_type}. Using random initialization.")
-
-        self.expr_encoder, self.mut_encoder, self.cnv_encoder = (
-            encoders["expression"],
-            encoders["mutation"],
-            encoders["copy_number_variation_gistic"],
-        )
-
-        self.regressor = SuperFELTRegressor(
-            input_size=self.hyperparameters["out_dim_expr_encoder"]
-            + self.hyperparameters["out_dim_mutation_encoder"]
-            + self.hyperparameters["out_dim_cnv_encoder"],
-            hpams=self.hyperparameters,
-            encoders=(self.expr_encoder, self.mut_encoder, self.cnv_encoder),
-            ranges=self.ranges,
-        )
-        self.best_checkpoint = train_superfeltr_model(
-            model=self.regressor,
-            hpams=self.hyperparameters,
-            output_train=output,
-            cell_line_input=cell_line_input,
-            output_earlystopping=output_earlystopping,
-            patience=5,
-        )
+                print(f"Not enough training data provided for SuperFELTR Regressor. Using random initialization.")
+                self.best_checkpoint = None
+        else:
+            print("No training data provided, skipping model")
+            self.best_checkpoint = None
+            self.expr_encoder, self.mut_encoder, self.cnv_encoder, self.regressor = None, None, None, None
 
     def predict(
         self,
@@ -131,6 +145,12 @@ class SuperFELTR(SingleDrugModel):
             input_data["mutations"],
             input_data["copy_number_variation_gistic"],
         )
+        if self.expr_encoder is None or self.mut_encoder is None or self.cnv_encoder is None or self.regressor is None:
+            print("No training data was available, predicting NA")
+            return np.array([np.nan] * len(cell_line_ids))
+        if self.best_checkpoint is None:
+            print(f"Not enough training data provided for SuperFELTR Regressor. Predicting with random initialization.")
+            return self.regressor.predict(gene_expression, mutations, cnvs)
         best_regressor = SuperFELTRegressor.load_from_checkpoint(
             self.best_checkpoint.best_model_path,
             input_size=self.hyperparameters["out_dim_expr_encoder"]

@@ -51,33 +51,39 @@ class MOLIR(SingleDrugModel):
         drug_input: Optional[FeatureDataset] = None,
         output_earlystopping: Optional[DrugResponseDataset] = None,
     ) -> None:
-        selector_gex = VarianceThreshold(0.05)
-        cell_line_input.fit_transform_features(
-            train_ids=np.unique(output.cell_line_ids),
-            transformer=selector_gex,
-            view="gene_expression",
-        )
-        scaler_gex = StandardScaler()
-        cell_line_input.fit_transform_features(
-            train_ids=np.unique(output.cell_line_ids),
-            transformer=scaler_gex,
-            view="gene_expression",
-        )
-        if self.early_stopping and len(output_earlystopping) < 2:
-            output_earlystopping = None
-        dim_gex, dim_mut, dim_cnv = get_dimensions_of_omics_data(cell_line_input)
-        self.model = MOLIModel(
-            hpams=self.hyperparameters,
-            input_dim_expr=dim_gex,
-            input_dim_mut=dim_mut,
-            input_dim_cnv=dim_cnv,
-        )
         if len(output) > 0:
-            self.model.fit(
-                output_train=output,
-                cell_line_input=cell_line_input,
-                output_earlystopping=output_earlystopping,
+            selector_gex = VarianceThreshold(0.05)
+            cell_line_input.fit_transform_features(
+                train_ids=np.unique(output.cell_line_ids),
+                transformer=selector_gex,
+                view="gene_expression",
             )
+            scaler_gex = StandardScaler()
+            cell_line_input.fit_transform_features(
+                train_ids=np.unique(output.cell_line_ids),
+                transformer=scaler_gex,
+                view="gene_expression",
+            )
+            if self.early_stopping and len(output_earlystopping) < 2:
+                output_earlystopping = None
+            dim_gex, dim_mut, dim_cnv = get_dimensions_of_omics_data(cell_line_input)
+            self.model = MOLIModel(
+                hpams=self.hyperparameters,
+                input_dim_expr=dim_gex,
+                input_dim_mut=dim_mut,
+                input_dim_cnv=dim_cnv,
+            )
+            if len(output) >= self.hyperparameters["mini_batch"]:
+                self.model.fit(
+                    output_train=output,
+                    cell_line_input=cell_line_input,
+                    output_earlystopping=output_earlystopping,
+                )
+            else:
+                print(f"Not enough training data provided ({len(output)}), will predict on randomly initialized model.")
+        else:
+            print("No training data provided, skipping model")
+            self.model = None
 
     def predict(
         self,
@@ -95,6 +101,9 @@ class MOLIR(SingleDrugModel):
         gene_expression = input_data["gene_expression"]
         mutations = input_data["mutations"]
         cnvs = input_data["copy_number_variation_gistic"]
+        if self.model is None:
+            print("No model trained, will predict NA.")
+            return np.array([np.nan] * len(cell_line_ids))
         return self.model.predict(gene_expression, mutations, cnvs)
 
     def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:

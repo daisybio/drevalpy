@@ -249,7 +249,7 @@ class MOLIModel(pl.LightningModule):
         Perform prediction on given input data.
         """
         # load best model
-        if self.checkpoint_callback.best_model_path:
+        if hasattr(self, "checkpoint_callback") and self.checkpoint_callback is not None:
             best_model = MOLIModel.load_from_checkpoint(self.checkpoint_callback.best_model_path)
         else:
             best_model = self

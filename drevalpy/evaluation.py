@@ -232,7 +232,7 @@ def evaluate(dataset: DrugResponseDataset, metric: Union[list[str], str]):
     for m in metric:
         if m not in AVAILABLE_METRICS:
             raise AssertionError(f"invalid metric {m}. Available: {list(AVAILABLE_METRICS.keys())}")
-        if len(response) < 2:
+        if len(response) < 2 or np.all(np.isnan(response)) or np.all(np.isnan(predictions)):
             results[m] = float(np.nan)
         else:
             if m == "Partial_Correlation":

@@ -40,16 +40,19 @@ class SingleDrugRandomForest(SingleDrugModel, RandomForest):
         """
         if drug_input is not None or output_earlystopping is not None:
             raise ValueError("SingleDrugRandomForest does not support drug_input or " "output_earlystopping!")
-
-        x = self.get_concatenated_features(
-            cell_line_view="gene_expression",
-            drug_view=None,
-            cell_line_ids_output=output.cell_line_ids,
-            drug_ids_output=output.drug_ids,
-            cell_line_input=cell_line_input,
-            drug_input=None,
-        )
-        self.model.fit(x, output.response)
+        if len(output) > 0:
+            x = self.get_concatenated_features(
+                cell_line_view="gene_expression",
+                drug_view=None,
+                cell_line_ids_output=output.cell_line_ids,
+                drug_ids_output=output.drug_ids,
+                cell_line_input=cell_line_input,
+                drug_input=None,
+            )
+            self.model.fit(x, output.response)
+        else:
+            print("No training data provided, will predict NA.")
+            self.model = None
 
     def predict(
         self,
@@ -58,6 +61,9 @@ class SingleDrugRandomForest(SingleDrugModel, RandomForest):
         drug_input: Optional[FeatureDataset] = None,
         cell_line_input: FeatureDataset = None,
     ) -> np.ndarray:
+        if self.model is None:
+            print("No training data was available, predicting NA.")
+            return np.array([np.nan] * len(cell_line_ids))
         x = self.get_concatenated_features(
             cell_line_view="gene_expression",
             drug_view=None,
