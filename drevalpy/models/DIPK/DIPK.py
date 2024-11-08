@@ -11,11 +11,10 @@ import numpy as np
 
 from .model_utils import Predictor
 from .data_utils import (
-    GetTrainData,
-    GetTestData,
+    get_train_data,
+    get_test_data,
     GraphDataset,
-    CollateFn_Train,
-    CollateFn_Test,
+    CollateFn,
     load_expression_and_network_features,
     load_drug_feature_from_MolGNet,
 )
@@ -61,9 +60,9 @@ class DIPK_Model(DRPModel):
         optimizer = optim.Adam(params, lr=self.lr)
 
         # load data
-        my_collate = CollateFn_Train()
-        Gtrain = GetTrainData(output.cell_line_ids, output.drug_ids, output.response, cell_line_input, drug_input)
-        train_loader = DataLoader(GraphDataset(Gtrain), batch_size=self.batch_size, shuffle=True, collate_fn=my_collate)
+        collate = CollateFn(train=True)
+        Gtrain = get_train_data(output.cell_line_ids, output.drug_ids, output.response, cell_line_input, drug_input)
+        train_loader = DataLoader(GraphDataset(Gtrain), batch_size=self.batch_size, shuffle=True, collate_fn=collate)
 
         # train model
         for epoch in range(self.EPOCHS):
@@ -92,9 +91,9 @@ class DIPK_Model(DRPModel):
     ) -> np.ndarray:
 
         # load data
-        my_collate = CollateFn_Test()
-        Gtest = GetTestData(cell_line_ids, drug_ids, cell_line_input, drug_input)
-        test_loader = DataLoader(GraphDataset(Gtest), batch_size=self.batch_size, shuffle=False, collate_fn=my_collate)
+        collate = CollateFn(train=False)
+        Gtest = get_test_data(cell_line_ids, drug_ids, cell_line_input, drug_input)
+        test_loader = DataLoader(GraphDataset(Gtest), batch_size=self.batch_size, shuffle=False, collate_fn=collate)
 
         # run prediction
         self.model.eval()
