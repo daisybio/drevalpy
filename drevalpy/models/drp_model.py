@@ -16,14 +16,17 @@ from numpy.typing import ArrayLike
 from sklearn.model_selection import ParameterGrid
 
 from ..datasets.dataset import DrugResponseDataset, FeatureDataset
+from ..pipeline_function import pipeline_function
 
 
 class DRPModel(ABC):
     """Abstract wrapper class for drug response prediction models."""
 
+    # Used in the pipeline!
     early_stopping = False
 
     @abstractmethod
+    @pipeline_function
     def __init__(self, *args, **kwargs) -> None:
         """
         Creates an instance of a drug response prediction model.
@@ -33,6 +36,7 @@ class DRPModel(ABC):
         """
 
     @classmethod
+    @pipeline_function
     def get_hyperparameter_set(cls, hyperparameter_file: Optional[str] = None) -> list[dict[str, Any]]:
         """
         Loads the hyperparameters from a yaml file.

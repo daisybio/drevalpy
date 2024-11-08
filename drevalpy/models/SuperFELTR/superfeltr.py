@@ -219,10 +219,7 @@ class SuperFELTR(SingleDrugModel):
         :returns: FeatureDataset containing the cell line gene expression features, mutations, and copy number variation
         """
         feature_dataset = get_multiomics_feature_dataset(
-            data_path=data_path,
-            dataset_name=dataset_name,
-            gene_list=None,
-            omics=self.cell_line_views
+            data_path=data_path, dataset_name=dataset_name, gene_list=None, omics=self.cell_line_views
         )
         # log transformation
         feature_dataset.apply(function=np.log, view="gene_expression")

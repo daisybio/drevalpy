@@ -4,7 +4,7 @@ import json
 import os
 import shutil
 import warnings
-from typing import Optional
+from typing import Optional, Dict, Tuple
 
 import numpy as np
 import pandas as pd
@@ -13,6 +13,7 @@ import torch
 from ray import tune
 from sklearn.base import TransformerMixin
 
+from .pipeline_function import pipeline_function
 from .datasets.dataset import DrugResponseDataset, FeatureDataset
 from .evaluation import evaluate, get_mode
 from .models import MODEL_FACTORY, MULTI_DRUG_MODEL_FACTORY, SINGLE_DRUG_MODEL_FACTORY
@@ -41,47 +42,46 @@ def drug_response_experiment(
     Run the drug response prediction experiment. Save results to disc.
 
     :param models: list of model classes to compare
-    :param baselines: list of baseline models. No randomization or robustness tests are run for the
-        baseline models.
+    :param baselines: list of baseline models. No randomization or robustness tests are run for the baseline models.
     :param response_data: drug response dataset
     :param response_transformation: normalizer to use for the response data
     :param metric: metric to use for hyperparameter optimization
     :param n_cv_splits: number of cross-validation splits
     :param multiprocessing: whether to use multiprocessing
-    :param randomization_mode: list of randomization modes to do.
-        Modes: SVCC, SVRC, SVCD, SVRD
-        Can be a list of randomization tests e.g. 'SVCC SVCD'. Default is None, which means no
-        randomization tests are run.
-        SVCC: Single View Constant for Cell Lines: in this mode, one experiment is done for every
-        cell line view the model uses (e.g. gene expression, mutation, ..).
-        For each experiment one cell line view is held constant while the others are randomized.
-        SVRC Single View Random for Cell Lines: in this mode, one experiment is done for every
-        cell line view the model uses (e.g. gene expression, mutation, ..).
-        For each experiment one cell line view is randomized while the others are held constant.
-        SVCD: Single View Constant for Drugs: in this mode, one experiment is done for every drug
-        view the model uses (e.g. fingerprints, target_information, ..).
-        For each experiment one drug view is held constant while the others are randomized.
-        SVRD: Single View Random for Drugs: in this mode, one experiment is done for every drug
-        view the model uses (e.g. gene expression, target_information, ..).
-        For each experiment one drug view is randomized while the others are held constant.
-    :param randomization_type: type of randomization to use. Choose from "gaussian", "zeroing",
-        "permutation". Default is "permutation"
-        "gaussian": replace the features with random values sampled from a gaussian distribution
-        with the same mean and standard deviation
-        "zeroing": replace the features with zeros
-        "permutation": permute the features over the instances, keeping the distribution of the
-        features the same but dissolving the relationship to the target
-    :param n_trials_robustness: number of trials to run for the robustness test.
-        The robustness test is a test where models are
-        retrained multiple tiems with varying seeds. Default is 0, which
-        means no robustness test is run.
+    :param randomization_mode: list of randomization modes to do. Modes: SVCC, SVRC, SVCD, SVRD Can be a list of
+        randomization tests e.g. 'SVCC SVCD'. Default is None, which means no randomization tests are run.
+
+        * SVCC: Single View Constant for Cell Lines: in this mode, one experiment is done for every cell line view
+            the model uses (e.g. gene expression, mutation, ...). For each experiment one cell line view is held
+            constant while the others are randomized.
+        * SVRC Single View Random for Cell Lines: in this mode, one experiment is done for every cell line view the
+            model uses (e.g. gene expression, mutation, ...). For each experiment one cell line view is randomized while
+            the others are held constant.
+        * SVCD: Single View Constant for Drugs: in this mode, one experiment is done for every drug view the model
+            uses (e.g. fingerprints, target_information, ...). For each experiment one drug view is held constant
+            while the others are randomized.
+        * SVRD: Single View Random for Drugs: in this mode, one experiment is done for every drug view the model uses
+            (e.g. gene expression, target_information, ...). For each experiment one drug view is randomized while
+            the others are held constant.
+
+    :param randomization_type: type of randomization to use. Choose from "permutation" and "invariant".
+        Default is "permutation".
+
+        * "permutation": permute the features over the instances, keeping the distribution of the features the same
+            but dissolving the relationship to the target
+        * "invariant": the features are permuted in a way that a key characteristic of the feature is kept. In case of
+            matrices, this is the mean and standard deviation of the feature view for this instance, for networks it
+            is the degree distribution.
+
+    :param cross_study_datasets: list of datasets for the cross-study prediction. The trained model is assessed for
+        its generalization to these datasets. Default is None, which means no cross-study prediction is run.
+    :param n_trials_robustness: number of trials to run for the robustness test. The robustness test is a test where
+        models are retrained multiple times with varying seeds. Default is 0, which means no robustness test is run.
     :param path_out: path to the output directory
     :param run_id: identifier to save the results
-    :param test_mode: test mode one of "LPO", "LCO", "LDO" (leave-pair-out, leave-cell-line-out,
-        leave-drug-out)
+    :param test_mode: test mode one of "LPO", "LCO", "LDO" (leave-pair-out, leave-cell-line-out, leave-drug-out)
     :param overwrite: whether to overwrite existing results
     :param path_data: path to the data directory, usually data/
-    :return: None
     """
     if baselines is None:
         baselines = []
@@ -278,6 +278,7 @@ def drug_response_experiment(
     print("Done!")
 
 
+@pipeline_function
 def consolidate_single_drug_model_predictions(
     models: list[type[DRPModel]],
     n_cv_splits: int,
@@ -287,8 +288,18 @@ def consolidate_single_drug_model_predictions(
     n_trials_robustness: int = 0,
     out_path: str = "",
 ) -> None:
-    """Consolidate SingleDrugModel predictions into a single file."""
+    """
+    Consolidate SingleDrugModel predictions into a single file.
 
+    :param models: list of model classes to compare, e.g., [SimpleNeuralNetwork, RandomForest]
+    :param n_cv_splits: number of cross-validation splits, e.g., 5
+    :param results_path: path to the results directory, e.g., results/
+    :param cross_study_datasets: list of cross-study datasets, e.g., [CCLE, GDSC1]
+    :param randomization_mode: list of randomization modes, e.g., ["SVCC", "SVRC"]
+    :param n_trials_robustness: number of robustness trials, e.g., 10
+    :param out_path: for the package, this is the same as results_path. For the pipeline, this is empty because it
+        will be stored in the work directory.
+    """
     for model in models:
         if model.model_name in SINGLE_DRUG_MODEL_FACTORY:
             model_instance = MODEL_FACTORY[model.model_name]()
@@ -410,22 +421,23 @@ def consolidate_single_drug_model_predictions(
                     )
 
 
-def handle_overwrite(path: str, overwrite: bool) -> None:
-    """Handle overwrite logic for a given path."""
-    if os.path.exists(path) and overwrite:
-        shutil.rmtree(path)
-    os.makedirs(path, exist_ok=True)
-
-
 def load_features(
     model: DRPModel, path_data: str, dataset: DrugResponseDataset
 ) -> tuple[FeatureDataset, FeatureDataset]:
-    """Load and reduce cell line and drug features for a given dataset."""
+    """
+    Load and reduce cell line and drug features for a given dataset.
+
+    :param model: model to use, e.g., SimpleNeuralNetwork
+    :param path_data: path to the data directory, e.g., data/
+    :param dataset: dataset to load features for, e.g., GDSC2
+    :returns: tuple of cell line and drug features
+    """
     cl_features = model.load_cell_line_features(data_path=path_data, dataset_name=dataset.dataset_name)
     drug_features = model.load_drug_features(data_path=path_data, dataset_name=dataset.dataset_name)
     return cl_features, drug_features
 
 
+@pipeline_function
 def cross_study_prediction(
     dataset: DrugResponseDataset,
     model: DRPModel,
@@ -439,15 +451,20 @@ def cross_study_prediction(
     single_drug_id: Optional[str] = None,
 ) -> None:
     """
-    Run the drug response prediction experiment on a cross-study dataset. Save results to disc.
+    Run the drug response prediction experiment on a cross-study dataset to assess the generalizability of the model.
 
-    :param dataset: cross-study dataset
-    :param model: model to use
+    :param dataset: cross-study dataset, e.g., GDSC1 if trained on GDSC2
+    :param model: model to use, e.g, SimpleNeuralNetwork
     :param test_mode: test mode one of "LPO", "LCO", "LDO" (leave-pair-out, leave-cell-line-out,
         leave-drug-out)
-    :param train_dataset: training dataset
+    :param train_dataset: training dataset, e.g., GDSC2
+    :param path_data: path to the data directory, e.g., data/
     :param early_stopping_dataset: early stopping dataset
+    :param response_transformation: normalizer to use for the response data, e.g., StandardScaler
+    :param path_out: path to the output directory, e.g., results/
+    :param split_index: index of the split
     :param single_drug_id: drug id to use for single drug models None for global models
+    :raises ValueError: if feature loading fails or if the test mode is invalid
     """
     dataset = dataset.copy()
     os.makedirs(os.path.join(path_out, "cross_study"), exist_ok=True)
@@ -458,7 +475,7 @@ def cross_study_prediction(
     try:
         cl_features, drug_features = load_features(model, path_data, dataset)
     except ValueError as e:
-        warnings.warn(e, stacklevel=2)
+        warnings.warn(str(e), stacklevel=2)
         return
 
     cell_lines_to_keep = cl_features.identifiers if cl_features is not None else None
@@ -522,13 +539,19 @@ def cross_study_prediction(
     )
 
 
-def get_randomization_test_views(model: DRPModel, randomization_mode: list[str]) -> dict[str, list[str]]:
+@pipeline_function
+def get_randomization_test_views(model: DRPModel, randomization_mode: list[str]) -> Dict[str, list[str]]:
     """
     Get the views to use for the randomization tests.
 
-    :param model:
-    :param randomization_mode:
-    :return:
+    * For SVCC, a single cell line view (e.g., gene expression) is held constant while the others are randomized.
+    * For SVCD, a single drug view (e.g., fingerprints) is held constant while the others are randomized.
+    * For SVRC, a single cell line view is randomized while the others are held constant.
+    * For SVRD, a single drug view is randomized while the others are held constant.
+
+    :param model: model to use, e.g., SimpleNeuralNetwork
+    :param randomization_mode: list of randomization modes to do, e.g., ["SVCC", "SVRC"]
+    :returns: dictionary of randomization test views
     """
     cell_line_views = model.cell_line_views
     drug_views = model.drug_views
@@ -536,12 +559,12 @@ def get_randomization_test_views(model: DRPModel, randomization_mode: list[str])
     if "SVCC" in randomization_mode:
         for view in cell_line_views:
             randomization_test_views[f"SVCC_{view}"] = [v for v in cell_line_views if v != view]
-    if "SVRC" in randomization_mode:
-        for view in cell_line_views:
-            randomization_test_views[f"SVRC_{view}"] = [view]
     if "SVCD" in randomization_mode:
         for view in drug_views:
             randomization_test_views[f"SVCD_{view}"] = [v for v in drug_views if v != view]
+    if "SVRC" in randomization_mode:
+        for view in cell_line_views:
+            randomization_test_views[f"SVRC_{view}"] = [view]
     if "SVRD" in randomization_mode:
         for view in drug_views:
             randomization_test_views[f"SVRD_{view}"] = [view]
@@ -565,19 +588,18 @@ def robustness_test(
     Run robustness tests for the given model and dataset.
 
     This will run the model n times with different random seeds to get a distribution of the results.
+
     :param n_trials: number of trials to run
     :param model: model to evaluate
     :param hpam_set: hyperparameters to use
+    :param path_data: path to the data directory
     :param train_dataset: training dataset
     :param test_dataset: test dataset
     :param early_stopping_dataset: early stopping dataset
     :param path_out: path to the output directory
     :param split_index: index of the split
-    :param test_mode: test mode one of "LPO", "LCO", "LDO" (leave-pair-out, leave-cell-line-out,
-    leave-drug-out)
-    :param response_transformation: sklearn.preprocessing scaler like StandardScaler or
-    MinMaxScaler to use to scale the target
-    :return: None (save results to disk)
+    :param response_transformation: sklearn.preprocessing scaler like StandardScaler or MinMaxScaler to use to scale
+        the target
     """
     robustness_test_path = os.path.join(path_out, "robustness")
     os.makedirs(robustness_test_path, exist_ok=True)
@@ -601,6 +623,7 @@ def robustness_test(
             )
 
 
+@pipeline_function
 def robustness_train_predict(
     trial: int,
     trial_file: str,
@@ -615,16 +638,15 @@ def robustness_train_predict(
     """
     Train and predict for the robustness test.
 
-    :param trial:
-    :param trial_file:
-    :param train_dataset:
-    :param test_dataset:
-    :param early_stopping_dataset:
-    :param model:
-    :param hpam_set:
-    :param path_data:
-    :param response_transformation:
-    :return:
+    :param trial: trial number
+    :param trial_file: file to save the results to
+    :param train_dataset: training dataset
+    :param test_dataset: test dataset
+    :param early_stopping_dataset: early stopping dataset
+    :param model: model to evaluate
+    :param hpam_set: hyperparameters to use
+    :param path_data: path to the data directory, e.g., data/
+    :param response_transformation: sklearn.preprocessing scaler like StandardScaler or MinMaxScaler to use to scale
     """
     train_dataset.shuffle(random_state=trial)
     test_dataset.shuffle(random_state=trial)
@@ -664,12 +686,12 @@ def randomization_test(
         "methylation_only": ["gene_expression", "copy_number_var", "mutation"]}"
     :param model: model to evaluate
     :param hpam_set: hyperparameters to use
+    :param path_data: path to the data directory
     :param train_dataset: training dataset
     :param test_dataset: test dataset
     :param early_stopping_dataset: early stopping dataset
     :param path_out: path to the output directory
     :param split_index: index of the split
-    :param test_mode: test mode one of "LPO", "LCO", "LDO"
     :param randomization_type: type of randomization to use. Choose from "permutation", "invariant".
         Default is "permutation" which permutes the features over the instances, keeping the
         distribution of the features the same but dissolving the relationship to the target.
@@ -678,7 +700,6 @@ def randomization_test(
         instance, for networks it is the degree distribution.
     :param response_transformation: sklearn.preprocessing scaler like StandardScaler or MinMaxScaler
         to use to scale the target
-    :return: None (save results to disk)
     """
     for test_name, views in randomization_test_views.items():
         randomization_test_path = os.path.join(path_out, "randomization")
@@ -708,6 +729,7 @@ def randomization_test(
             print(f"Randomization test {test_name} already exists. Skipping.")
 
 
+@pipeline_function
 def randomize_train_predict(
     view: str,
     test_name: str,
@@ -720,22 +742,21 @@ def randomize_train_predict(
     test_dataset: DrugResponseDataset,
     early_stopping_dataset: Optional[DrugResponseDataset],
     response_transformation: Optional[TransformerMixin],
-):
+) -> None:
     """
     Randomize the features for a given view and run the model.
 
-    :param view:
-    :param test_name:
-    :param randomization_type:
-    :param randomization_test_file:
-    :param model:
-    :param hpam_set:
-    :param path_data:
-    :param train_dataset:
-    :param test_dataset:
-    :param early_stopping_dataset:
-    :param response_transformation:
-    :return:
+    :param view: view to randomize, e.g., gene_expression
+    :param test_name: name of the randomization test, e.g., SVRC_gene_expression
+    :param randomization_type: type of randomization to use, e.g., permutation
+    :param randomization_test_file: file to save the results to
+    :param model: model to evaluate
+    :param hpam_set: hyperparameters to use
+    :param path_data: path to the data directory
+    :param train_dataset: training dataset
+    :param test_dataset: test dataset
+    :param early_stopping_dataset: early stopping dataset
+    :param response_transformation: sklearn.preprocessing scaler like StandardScaler or MinMaxScaler to use to scale
     """
     cl_features, drug_features = load_features(model, path_data, train_dataset)
 
@@ -769,13 +790,13 @@ def randomize_train_predict(
 
 def split_early_stopping(
     validation_dataset: DrugResponseDataset, test_mode: str
-) -> tuple[DrugResponseDataset, DrugResponseDataset]:
+) -> Tuple[DrugResponseDataset, DrugResponseDataset]:
     """
     Split the validation dataset into a validation and early stopping dataset.
 
-    :param validation_dataset:
-    :param test_mode:
-    :return:
+    :param validation_dataset: validation dataset
+    :param test_mode: test mode one of "LPO", "LCO", "LDO" (leave-pair-out, leave-cell-line-out, leave-drug-out)
+    :returns: tuple of validation and early stopping datasets
     """
     validation_dataset.shuffle(random_state=42)
     cv_v = validation_dataset.split_dataset(
@@ -790,6 +811,7 @@ def split_early_stopping(
     return validation_dataset, early_stopping_dataset
 
 
+@pipeline_function
 def train_and_predict(
     model: DRPModel,
     hpams: dict,
@@ -804,16 +826,16 @@ def train_and_predict(
     """
     Train the model and predict the response for the prediction dataset.
 
-    :param model:
-    :param hpams:
-    :param path_data:
-    :param train_dataset:
-    :param prediction_dataset:
-    :param early_stopping_dataset:
-    :param response_transformation:
-    :param cl_features:
-    :param drug_features:
-    :return:
+    :param model: model to use, e.g., SimpleNeuralNetwork
+    :param hpams: hyperparameters to use
+    :param path_data: path to the data directory, e.g., data/
+    :param train_dataset: training dataset
+    :param prediction_dataset: prediction dataset
+    :param early_stopping_dataset: early stopping dataset, optional
+    :param response_transformation: normalizer to use for the response data, e.g., StandardScaler
+    :param cl_features: cell line features
+    :param drug_features: drug features
+    :returns: prediction dataset with predictions
     """
     model.build_model(hyperparameters=hpams)
 
@@ -877,19 +899,19 @@ def train_and_evaluate(
     early_stopping_dataset: Optional[DrugResponseDataset] = None,
     response_transformation: Optional[TransformerMixin] = None,
     metric: str = "rmse",
-) -> dict[str, float]:
+) -> Dict[str, float]:
     """
-    Train and evaluate the model.
+    Train and evaluate the model, i.e., call train_and_predict() and then evaluate().
 
-    :param model:
-    :param hpams:
-    :param path_data:
-    :param train_dataset:
-    :param validation_dataset:
-    :param early_stopping_dataset:
-    :param response_transformation:
-    :param metric:
-    :return:
+    :param model: model to use
+    :param hpams: hyperparameters to use
+    :param path_data: path to the data directory
+    :param train_dataset: training dataset
+    :param validation_dataset: validation dataset
+    :param early_stopping_dataset: early stopping dataset
+    :param response_transformation: normalizer to use for the response data
+    :param metric: metric to evaluate the model on
+    :returns: dictionary of the evaluation results, e.g., {"RMSE": 0.1}
     """
     validation_dataset = train_and_predict(
         model=model,
@@ -914,17 +936,18 @@ def hpam_tune(
     path_data: str = "data",
 ) -> dict:
     """
-    Tune the hyperparameters for the given model.
+    Tune the hyperparameters for the given model in an iterative manner.
 
-    :param model:
-    :param train_dataset:
-    :param validation_dataset:
-    :param hpam_set:
-    :param early_stopping_dataset:
-    :param response_transformation:
-    :param metric:
-    :param path_data:
-    :return:
+    :param model: model to use
+    :param train_dataset: training dataset
+    :param validation_dataset: validation dataset
+    :param hpam_set: hyperparameters to tune
+    :param early_stopping_dataset: early stopping dataset
+    :param response_transformation: normalizer to use for the response data
+    :param metric: metric to evaluate which model is the best
+    :param path_data: path to the data directory, e.g., data/
+    :returns: best hyperparameters
+    :raises AssertionError: if hpam_set is empty
     """
     if len(hpam_set) == 0:
         raise AssertionError("hpam_set must contain at least one hyperparameter configuration")
@@ -976,16 +999,16 @@ def hpam_tune_raytune(
     """
     Tune the hyperparameters for the given model using raytune.
 
-    :param model:
-    :param train_dataset:
-    :param validation_dataset:
-    :param early_stopping_dataset:
-    :param hpam_set:
-    :param response_transformation:
-    :param metric:
-    :param ray_path:
-    :param path_data:
-    :return:
+    :param model: model to use
+    :param train_dataset: training dataset
+    :param validation_dataset: validation dataset
+    :param early_stopping_dataset: early stopping dataset
+    :param hpam_set: hyperparameters to tune
+    :param response_transformation: normalizer to use for the response data
+    :param metric: metric to evaluate which model is the best
+    :param ray_path: path to the raytune directory
+    :param path_data: path to the data directory, e.g., data/
+    :returns: best hyperparameters
     """
     if len(hpam_set) == 1:
         return hpam_set[0]
@@ -1019,14 +1042,15 @@ def hpam_tune_raytune(
     return best_config
 
 
+@pipeline_function
 def make_model_list(models: list[type[DRPModel]], response_data: DrugResponseDataset) -> dict[str, str]:
     """
-    Make a list of models to evaluate.
+    Make a list of models to evaluate: if it is a single drug model, add the drug id to the model name.
 
-    :param models:
-    :param baselines:
-    :param response_data:
-    :return:
+    :param models: list of models to evaluate
+    :param response_data: response data, needed to get the unique drugs for single drug models
+    :returns: dictionary of model names: model class, e.g., {"SimpleNeuralNetwork": "SimpleNeuralNetwork",
+        "MOLIR.Afatinib": "MOLIR"}
     """
     model_list = {}
     unique_drugs = np.unique(response_data.drug_ids)
@@ -1039,12 +1063,14 @@ def make_model_list(models: list[type[DRPModel]], response_data: DrugResponseDat
     return model_list
 
 
-def get_model_name_and_drug_id(model_name: str):
+@pipeline_function
+def get_model_name_and_drug_id(model_name: str) -> Tuple[str, Optional[str]]:
     """
     Get the model name and drug id from the model name.
 
-    :param model_name:
-    :return:
+    :param model_name: model name, e.g., SimpleNeuralNetwork or MOLIR.Afatinib
+    :returns: tuple of model name and, potentially drug id if it is a single drug model
+    :raises AssertionError: if the model name is not found in the model factory
     """
     if model_name in MULTI_DRUG_MODEL_FACTORY:
         return model_name, None
@@ -1061,13 +1087,18 @@ def get_model_name_and_drug_id(model_name: str):
         return model_name, drug_id
 
 
-def get_datasets_from_cv_split(split, model_class, model_name, drug_id):
+@pipeline_function
+def get_datasets_from_cv_split(
+    split: Dict[str, DrugResponseDataset], model_class: type[DRPModel], model_name: str, drug_id: Optional[str] = None
+) -> Tuple[DrugResponseDataset, DrugResponseDataset, Optional[DrugResponseDataset], DrugResponseDataset]:
     """
-    Get dataset from cross validation split.
+    Get train, validation, (early stopping), and test datasets from the CV split.
 
-    :param model_class:
-    :param model_name:
-    :param drug_id:
+    :param split: dictionary of the CV split
+    :param model_class: model class
+    :param model_name: model name
+    :param drug_id: drug id for single drug models
+    :returns: tuple of train, validation, (early stopping), and test datasets
     """
     train_dataset = split["train"]
     validation_dataset = split["validation"]
@@ -1104,14 +1135,18 @@ def get_datasets_from_cv_split(split, model_class, model_name, drug_id):
     )
 
 
-def generate_data_saving_path(model_name, drug_id, result_path, suffix):
+@pipeline_function
+def generate_data_saving_path(model_name, drug_id, result_path, suffix) -> str:
     """
     Generate a path to save data to.
 
-    :param model_name:
-    :param drug_id:
-    :param result_path:
-    :param suffix:
+    For single drug models, the path is result_path/model_name/drugs/drug_id/suffix.
+    For all others, it is result_path/model_name/suffix.
+    :param model_name: model name
+    :param drug_id: drug id
+    :param result_path: path to the results directory
+    :param suffix: suffix to add to the path, e.g., "predictions", "best_hpams", "randomization", "robustness"
+    :returns: path to save data to
     """
     is_single_drug_model = model_name in SINGLE_DRUG_MODEL_FACTORY
     if is_single_drug_model:

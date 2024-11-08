@@ -1,10 +1,12 @@
 """Contains functions to load the GDSC1, GDSC2, CCLE, and Toy datasets."""
+
 import os
 
 import pandas as pd
 
 from .dataset import DrugResponseDataset
 from .utils import download_dataset
+from ..pipeline_function import pipeline_function
 
 
 def load_gdsc1(
@@ -92,6 +94,7 @@ def load_toy(path_data: str = "data") -> DrugResponseDataset:
 AVAILABLE_DATASETS = {"GDSC1": load_gdsc1, "GDSC2": load_gdsc2, "CCLE": load_ccle, "Toy_Data": load_toy}
 
 
+@pipeline_function
 def load_dataset(dataset_name: str, path_data: str = "data") -> DrugResponseDataset:
     """
     Load a dataset based on the dataset name.

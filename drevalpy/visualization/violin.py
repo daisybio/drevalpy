@@ -1,11 +1,25 @@
+"""Plots a violin plot of the evaluation metrics."""
+
 import pandas as pd
 import plotly.graph_objects as go
 
-from drevalpy.visualization.vioheat import VioHeat
+from .vioheat import VioHeat
+from ..pipeline_function import pipeline_function
 
 
 class Violin(VioHeat):
+    """Plots a violin plot of the evaluation metrics."""
+
+    @pipeline_function
     def __init__(self, df: pd.DataFrame, normalized_metrics=False, whole_name=False):
+        """
+        Initialize the Violin class.
+
+        :param df: either containing all predictions for all algorithms or all tests for one algorithm (including
+            robustness, randomization, … tests then)
+        :param normalized_metrics: whether the metrics are normalized
+        :param whole_name: whether the whole name should be displayed
+        """
         super().__init__(df, normalized_metrics, whole_name)
         self.df["box"] = self.df["algorithm"] + "_" + self.df["rand_setting"] + "_" + self.df["LPO_LCO_LDO"]
         # remove columns with only NaN values
@@ -13,13 +27,20 @@ class Violin(VioHeat):
         self.fig = go.Figure()
         self.occurring_metrics = [metric for metric in self.all_metrics if metric in self.df.columns]
 
+    @pipeline_function
     def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
-        self.__draw__()
+        """
+        Draw the violin and save it to a file.
+
+        :param out_prefix: e.g., results/my_run/violin_plots/
+        :param out_suffix: e.g., algorithms_normalized
+        """
+        self._draw()
         path_out = f"{out_prefix}violin_{out_suffix}.html"
         self.fig.write_html(path_out)
 
-    def __draw__(self) -> None:
-        self.__create_evaluation_violins__()
+    def _draw(self) -> None:
+        self._create_evaluation_violins()
         count_sum = (
             self.count_r2
             + self.count_pearson
@@ -188,7 +209,7 @@ class Violin(VioHeat):
         )
         self.fig.update_layout(title_text="All Metrics", height=600, width=1100)
 
-    def __create_evaluation_violins__(self):
+    def _create_evaluation_violins(self):
         print("Drawing Violin plots ...")
         self.count_r2 = 0
         self.count_pearson = 0
@@ -215,9 +236,9 @@ class Violin(VioHeat):
                 self.count_mse += 1 * len(self.df["box"].unique())
             elif "MAE" in metric:
                 self.count_mae += 1 * len(self.df["box"].unique())
-            self.__add_violin__(metric)
+            self._add_violin(metric)
 
-    def __add_violin__(self, metric):
+    def _add_violin(self, metric):
         for box in self.df["box"].unique():
             tmp_df = self.df[self.df["box"] == box]
             if self.whole_name:

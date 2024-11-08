@@ -1,4 +1,5 @@
 """Utility functions for the SuperFELTR model."""
+
 import os
 import secrets
 from typing import Union
@@ -19,6 +20,7 @@ class SuperFELTEncoder(pl.LightningModule):
 
     Very similar to MOLIEncoder, but with BatchNorm1d before ReLU.
     """
+
     def __init__(
         self, input_size: int, hpams: dict[str, Union[int, float]], omic_type: str, ranges: tuple[float, float]
     ) -> None:
@@ -155,11 +157,12 @@ class SuperFELTRegressor(pl.LightningModule):
 
     Very similar to SuperFELT classifier, but with a regression loss and without the last sigmoid layer.
     """
+
     def __init__(
         self,
         input_size: int,
         hpams: dict[str, Union[int, float]],
-        encoders: tuple[SuperFELTEncoder, SuperFELTEncoder, SuperFELTEncoder]
+        encoders: tuple[SuperFELTEncoder, SuperFELTEncoder, SuperFELTEncoder],
     ) -> None:
         """
         Initializes the SuperFELTRegressor.
