@@ -4,9 +4,9 @@ import os
 
 import pandas as pd
 
+from ..pipeline_function import pipeline_function
 from .dataset import DrugResponseDataset
 from .utils import download_dataset
-from ..pipeline_function import pipeline_function
 
 
 def load_gdsc1(

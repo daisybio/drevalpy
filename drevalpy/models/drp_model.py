@@ -8,7 +8,7 @@ abstract wrapper class for single drug models.
 import inspect
 import os
 from abc import ABC, abstractmethod
-from typing import Any, Optional, Dict
+from typing import Any, Optional
 
 import numpy as np
 import yaml
@@ -203,7 +203,7 @@ class DRPModel(ABC):
         drug_ids: ArrayLike,
         cell_line_input: Optional[FeatureDataset],
         drug_input: Optional[FeatureDataset],
-    ) -> Dict[str, np.ndarray]:
+    ) -> dict[str, np.ndarray]:
         """
         Returns the feature matrices for the given cell line and drug ids by retrieving the correct views.
 

@@ -4,7 +4,7 @@ import json
 import os
 import shutil
 import warnings
-from typing import Optional, Dict, Tuple
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -13,11 +13,11 @@ import torch
 from ray import tune
 from sklearn.base import TransformerMixin
 
-from .pipeline_function import pipeline_function
 from .datasets.dataset import DrugResponseDataset, FeatureDataset
 from .evaluation import evaluate, get_mode
 from .models import MODEL_FACTORY, MULTI_DRUG_MODEL_FACTORY, SINGLE_DRUG_MODEL_FACTORY
 from .models.drp_model import DRPModel, SingleDrugModel
+from .pipeline_function import pipeline_function
 
 
 def drug_response_experiment(
@@ -540,7 +540,7 @@ def cross_study_prediction(
 
 
 @pipeline_function
-def get_randomization_test_views(model: DRPModel, randomization_mode: list[str]) -> Dict[str, list[str]]:
+def get_randomization_test_views(model: DRPModel, randomization_mode: list[str]) -> dict[str, list[str]]:
     """
     Get the views to use for the randomization tests.
 
@@ -790,7 +790,7 @@ def randomize_train_predict(
 
 def split_early_stopping(
     validation_dataset: DrugResponseDataset, test_mode: str
-) -> Tuple[DrugResponseDataset, DrugResponseDataset]:
+) -> tuple[DrugResponseDataset, DrugResponseDataset]:
     """
     Split the validation dataset into a validation and early stopping dataset.
 
@@ -899,7 +899,7 @@ def train_and_evaluate(
     early_stopping_dataset: Optional[DrugResponseDataset] = None,
     response_transformation: Optional[TransformerMixin] = None,
     metric: str = "rmse",
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """
     Train and evaluate the model, i.e., call train_and_predict() and then evaluate().
 
@@ -1064,7 +1064,7 @@ def make_model_list(models: list[type[DRPModel]], response_data: DrugResponseDat
 
 
 @pipeline_function
-def get_model_name_and_drug_id(model_name: str) -> Tuple[str, Optional[str]]:
+def get_model_name_and_drug_id(model_name: str) -> tuple[str, Optional[str]]:
     """
     Get the model name and drug id from the model name.
 
@@ -1089,8 +1089,8 @@ def get_model_name_and_drug_id(model_name: str) -> Tuple[str, Optional[str]]:
 
 @pipeline_function
 def get_datasets_from_cv_split(
-    split: Dict[str, DrugResponseDataset], model_class: type[DRPModel], model_name: str, drug_id: Optional[str] = None
-) -> Tuple[DrugResponseDataset, DrugResponseDataset, Optional[DrugResponseDataset], DrugResponseDataset]:
+    split: dict[str, DrugResponseDataset], model_class: type[DRPModel], model_name: str, drug_id: Optional[str] = None
+) -> tuple[DrugResponseDataset, DrugResponseDataset, Optional[DrugResponseDataset], DrugResponseDataset]:
     """
     Get train, validation, (early stopping), and test datasets from the CV split.
 

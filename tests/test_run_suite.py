@@ -28,7 +28,7 @@ from drevalpy.utils import main
             "n_cv_splits": 2,
             "response_transformation": "None",
             "multiprocessing": False,
-            "path_data": "../data"
+            "path_data": "../data",
         }
     ],
 )

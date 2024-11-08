@@ -7,8 +7,8 @@ import pandas as pd
 import plotly.express as px
 from scipy.stats import pearsonr
 
-from .outplot import OutPlot
 from ..pipeline_function import pipeline_function
+from .outplot import OutPlot
 
 
 class RegressionSliderPlot(OutPlot):

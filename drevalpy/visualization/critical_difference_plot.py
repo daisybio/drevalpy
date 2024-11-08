@@ -10,7 +10,7 @@ License: GPL3
 
 import math
 import operator
-from typing import TextIO, List, Tuple, Any
+from typing import Any, TextIO
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -19,9 +19,9 @@ import numpy as np
 import pandas as pd
 from scipy.stats import friedmanchisquare, wilcoxon
 
-from .outplot import OutPlot
 from ..evaluation import MINIMIZATION_METRICS
 from ..pipeline_function import pipeline_function
+from .outplot import OutPlot
 
 matplotlib.use("agg")
 matplotlib.rcParams["font.family"] = "sans-serif"
@@ -148,16 +148,16 @@ class CriticalDifferencePlot(OutPlot):
 
 # inspired from orange3 https://docs.orange.biolab.si/3/data-mining-library/reference/evaluation.cd.html
 def _graph_ranks(
-    avranks: List[float],
-    names: List[str],
-    p_values: List[Tuple[str, str, float, bool]],
+    avranks: list[float],
+    names: list[str],
+    p_values: list[tuple[str, str, float, bool]],
     lowv: int = None,
     highv: int = None,
     width: int = 6,
     textspace: float = 1.0,
     reverse: bool = False,
     labels: bool = False,
-    colors: List[str] = None,
+    colors: list[str] = None,
 ) -> None:
     """
     Draws a CD graph, which is used to display  the differences in methods' performance.
@@ -181,7 +181,7 @@ def _graph_ranks(
     width = float(width)
     textspace = float(textspace)
 
-    def nth(data: List[Tuple[float, float]], position: int) -> List[float]:
+    def nth(data: list[tuple[float, float]], position: int) -> list[float]:
         """
         Returns only nth element in a list.
 
@@ -192,7 +192,7 @@ def _graph_ranks(
         position = lloc(data, position)
         return [a[position] for a in data]
 
-    def lloc(data: List[Tuple[float, float]], position: int) -> int:
+    def lloc(data: list[tuple[float, float]], position: int) -> int:
         """
         List location in list of list structure.
 
@@ -263,7 +263,7 @@ def _graph_ranks(
         """
         return [a * hf for a in list_input]
 
-    def wfl(list_input: List[float]) -> List[float]:
+    def wfl(list_input: list[float]) -> list[float]:
         """
         List input multiplied by width factor.
 
@@ -277,7 +277,7 @@ def _graph_ranks(
     ax.set_xlim(0, 1)
     ax.set_ylim(1, 0)
 
-    def line(list_input: List[Tuple[float, float]], color: str = "k", **kwargs) -> None:
+    def line(list_input: list[tuple[float, float]], color: str = "k", **kwargs) -> None:
         """
         Input is a list of pairs of points.
 
@@ -432,7 +432,7 @@ def _graph_ranks(
         start += height
 
 
-def _form_cliques(p_values: List[Tuple[str, str, float, bool]], nnames: List[str]) -> Any:
+def _form_cliques(p_values: list[tuple[str, str, float, bool]], nnames: list[str]) -> Any:
     """
     This method forms the cliques.
 
@@ -457,7 +457,7 @@ def _form_cliques(p_values: List[Tuple[str, str, float, bool]], nnames: List[str
 
 def _wilcoxon_holm(
     alpha: float = 0.05, df_perf: pd.DataFrame = None
-) -> Tuple[List[Tuple[str, str, float, bool]], pd.Series, int]:
+) -> tuple[list[tuple[str, str, float, bool]], pd.Series, int]:
     """
     Applies the Wilcoxon signed rank test between algorithm pair and then use Holm to reject the null hypothesis.
 

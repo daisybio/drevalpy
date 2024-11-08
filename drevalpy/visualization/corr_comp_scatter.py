@@ -1,6 +1,7 @@
 """Contains the code needed to draw the correlation comparison scatter plot."""
 
 from typing import TextIO
+
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
@@ -8,9 +9,9 @@ import scipy
 from plotly.subplots import make_subplots
 from scipy import stats
 
-from .outplot import OutPlot
 from ..models import SINGLE_DRUG_MODEL_FACTORY
 from ..pipeline_function import pipeline_function
+from .outplot import OutPlot
 
 
 class CorrelationComparisonScatter(OutPlot):

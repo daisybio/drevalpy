@@ -2,7 +2,7 @@
 
 import os.path
 import warnings
-from typing import Optional, List, Dict
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -78,7 +78,7 @@ def load_and_reduce_gene_features(
     return cl_features
 
 
-def iterate_features(df: pd.DataFrame, feature_type: str) -> Dict[str, Dict[str, np.ndarray]]:
+def iterate_features(df: pd.DataFrame, feature_type: str) -> dict[str, dict[str, np.ndarray]]:
     """
     Iterate over features.
 
@@ -136,7 +136,7 @@ def get_multiomics_feature_dataset(
     data_path: str,
     dataset_name: str,
     gene_list: Optional[str] = "drug_target_genes_all_drugs",
-    omics: List[str] = None,
+    omics: list[str] = None,
 ) -> FeatureDataset:
     """
     Get multiomics feature dataset for the given list of OMICs.

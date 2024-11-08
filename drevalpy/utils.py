@@ -1,9 +1,10 @@
 """Utility functions for the evaluation pipeline."""
 
 import argparse
-from typing import Tuple, Optional
-from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
+from typing import Optional
+
 from sklearn.base import TransformerMixin
+from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
 
 from .datasets import AVAILABLE_DATASETS
 from .datasets.dataset import DrugResponseDataset
@@ -275,7 +276,7 @@ def main(args) -> None:
 
 def get_datasets(
     dataset_name: str, cross_study_datasets: list, path_data: str = "data"
-) -> Tuple[DrugResponseDataset, Optional[list[DrugResponseDataset]]]:
+) -> tuple[DrugResponseDataset, Optional[list[DrugResponseDataset]]]:
     """
     Load the response data and cross-study datasets.
 

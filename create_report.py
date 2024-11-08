@@ -31,11 +31,11 @@ def create_output_directories(custom_id: str) -> None:
 
 
 def draw_setting_plots(
-        lpo_lco_ldo: str,
-        ev_res: pd.DataFrame,
-        ev_res_per_drug: pd.DataFrame,
-        ev_res_per_cell_line: pd.DataFrame,
-        custom_id: str
+    lpo_lco_ldo: str,
+    ev_res: pd.DataFrame,
+    ev_res_per_drug: pd.DataFrame,
+    ev_res_per_cell_line: pd.DataFrame,
+    custom_id: str,
 ) -> list[str]:
     """
     Draw all plots for a specific setting (LPO, LCO, LDO).
@@ -113,10 +113,7 @@ def draw_setting_plots(
 
 
 def draw_per_grouping_setting_plots(
-        grouping: str,
-        ev_res_per_group: pd.DataFrame,
-        lpo_lco_ldo: str,
-        custom_id: str
+    grouping: str, ev_res_per_group: pd.DataFrame, lpo_lco_ldo: str, custom_id: str
 ) -> None:
     """
     Draw plots for a specific grouping (drug or cell line) for a specific setting (LPO, LCO, LDO).

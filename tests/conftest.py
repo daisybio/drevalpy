@@ -1,4 +1,5 @@
 """Pytest configuration file for the tests directory."""
+
 import os
 
 import pytest

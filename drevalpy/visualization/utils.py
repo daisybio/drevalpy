@@ -4,19 +4,19 @@ import os
 import pathlib
 import re
 import shutil
-from typing import Tuple, TextIO, Dict, Optional
+from typing import Optional, TextIO
 
 import importlib_resources
 import pandas as pd
 
-from .html_tables import HTMLTable
-from .corr_comp_scatter import CorrelationComparisonScatter
-from .critical_difference_plot import CriticalDifferencePlot
-from .regression_slider_plot import RegressionSliderPlot
-from .vioheat import VioHeat
 from ..datasets.dataset import DrugResponseDataset
 from ..evaluation import AVAILABLE_METRICS, evaluate
 from ..pipeline_function import pipeline_function
+from .corr_comp_scatter import CorrelationComparisonScatter
+from .critical_difference_plot import CriticalDifferencePlot
+from .html_tables import HTMLTable
+from .regression_slider_plot import RegressionSliderPlot
+from .vioheat import VioHeat
 
 
 def _parse_layout(f: TextIO, path_to_layout: str) -> None:
@@ -37,7 +37,7 @@ def _parse_layout(f: TextIO, path_to_layout: str) -> None:
     f.write("".join(layout))
 
 
-def parse_results(path_to_results: str) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+def parse_results(path_to_results: str) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
     Parse the results from the given directory.
 
@@ -105,7 +105,7 @@ def parse_results(path_to_results: str) -> Tuple[pd.DataFrame, pd.DataFrame, pd.
 @pipeline_function
 def evaluate_file(
     pred_file: pathlib.Path, test_mode: str, model_name: str
-) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, str]:
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, str]:
     """
     Evaluate the predictions from the final models.
 
@@ -174,7 +174,7 @@ def evaluate_file(
     )
 
 
-def _concat_results(norm_group_res: Dict[str, pd.DataFrame], group_by: str, eval_res: pd.DataFrame) -> pd.DataFrame:
+def _concat_results(norm_group_res: dict[str, pd.DataFrame], group_by: str, eval_res: pd.DataFrame) -> pd.DataFrame:
     """
     Concatenate the normalized group results to the evaluation results.
 
@@ -196,7 +196,7 @@ def prep_results(
     eval_results_per_drug: pd.DataFrame,
     eval_results_per_cell_line: pd.DataFrame,
     t_vs_p: pd.DataFrame,
-) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
     Prepare the results by introducing new columns for algorithm, randomization, setting, split, CV_split.
 
@@ -267,10 +267,10 @@ def _generate_model_names(test_mode: str, model_name: str, pred_file: pathlib.Pa
 def _evaluate_per_group(
     df: pd.DataFrame,
     group_by: str,
-    norm_group_eval_results: Dict[str, Dict[str, float]],
+    norm_group_eval_results: dict[str, dict[str, float]],
     eval_results_per_group: Optional[pd.DataFrame],
     model: str,
-) -> Tuple[Dict[str, Dict[str, float]], pd.DataFrame]:
+) -> tuple[dict[str, dict[str, float]], pd.DataFrame]:
     """
     Evaluate the predictions per group.
 

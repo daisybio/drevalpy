@@ -1,17 +1,16 @@
 """Test the SimpleNeuralNetwork model."""
+
 import pytest
 
+from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.evaluation import evaluate
 from drevalpy.models import MODEL_FACTORY
-from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 
 
 @pytest.mark.parametrize("test_mode", ["LPO"])
 @pytest.mark.parametrize("model_name", ["SRMF", "SimpleNeuralNetwork", "MultiOmicsNeuralNetwork"])
 def test_simple_neural_network(
-        sample_dataset: tuple[DrugResponseDataset, FeatureDataset, FeatureDataset],
-        model_name: str,
-        test_mode: str
+    sample_dataset: tuple[DrugResponseDataset, FeatureDataset, FeatureDataset], model_name: str, test_mode: str
 ) -> None:
     """
     Test the SimpleNeuralNetwork model.

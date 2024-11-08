@@ -3,8 +3,8 @@
 import pandas as pd
 import plotly.graph_objects as go
 
-from .vioheat import VioHeat
 from ..pipeline_function import pipeline_function
+from .vioheat import VioHeat
 
 
 class Violin(VioHeat):

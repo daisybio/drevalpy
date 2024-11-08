@@ -1,18 +1,17 @@
 """Test the MOLIR and SuperFELTR models."""
+
 import numpy as np
 import pytest
 
+from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.evaluation import evaluate, pearson
 from drevalpy.models import MODEL_FACTORY
-from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 
 
 @pytest.mark.parametrize("test_mode", ["LCO"])
 @pytest.mark.parametrize("model_name", ["MOLIR", "SuperFELTR"])
 def test_molir_superfeltr(
-        sample_dataset: tuple[DrugResponseDataset, FeatureDataset, FeatureDataset],
-        model_name: str,
-        test_mode: str
+    sample_dataset: tuple[DrugResponseDataset, FeatureDataset, FeatureDataset], model_name: str, test_mode: str
 ) -> None:
     """
     Test the MOLIR and SuperFELTR models.
@@ -87,4 +86,4 @@ def test_molir_superfeltr(
     val_es_dataset.predictions = all_predictions[val_es_mask]
     metrics = evaluate(val_es_dataset, metric=["Pearson"])
     print(f"{test_mode}: Collapsed performance of {model_name}: PCC = {metrics['Pearson']}")
-    assert metrics["Pearson"] >= -1.
+    assert metrics["Pearson"] >= -1.0

@@ -1,11 +1,12 @@
 """Tests for the DRPModel."""
+
 import os
 import tempfile
+from typing import Optional
 
 import numpy as np
 import pandas as pd
 import pytest
-from typing import Optional
 
 from drevalpy.models import MODEL_FACTORY
 from drevalpy.models.utils import (

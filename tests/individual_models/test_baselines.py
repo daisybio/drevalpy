@@ -1,10 +1,11 @@
 """Tests for the baselines in the models module."""
+
 import numpy as np
 import pytest
 from sklearn.linear_model import ElasticNet, Ridge
 
-from drevalpy.evaluation import evaluate, pearson
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.evaluation import evaluate, pearson
 from drevalpy.models import (
     MODEL_FACTORY,
     NaiveCellLineMeanPredictor,
@@ -29,9 +30,7 @@ from drevalpy.models import (
 )
 @pytest.mark.parametrize("test_mode", ["LPO", "LCO", "LDO"])
 def test_baselines(
-        sample_dataset: tuple[DrugResponseDataset, FeatureDataset, FeatureDataset],
-        model_name: str,
-        test_mode: str
+    sample_dataset: tuple[DrugResponseDataset, FeatureDataset, FeatureDataset], model_name: str, test_mode: str
 ) -> None:
     """
     Test the baselines.
@@ -92,9 +91,7 @@ def test_baselines(
 @pytest.mark.parametrize("model_name", ["SingleDrugRandomForest"])
 @pytest.mark.parametrize("test_mode", ["LPO", "LCO"])
 def test_single_drug_baselines(
-        sample_dataset: tuple[DrugResponseDataset, FeatureDataset, FeatureDataset],
-        model_name: str,
-        test_mode: str
+    sample_dataset: tuple[DrugResponseDataset, FeatureDataset, FeatureDataset], model_name: str, test_mode: str
 ) -> None:
     """
     Test the SingleDrugRandomForest model, can also test other baseline single drug models.
@@ -138,11 +135,7 @@ def test_single_drug_baselines(
     assert metrics["Pearson"] > 0.0
 
 
-def _call_naive_predictor(
-        train_dataset: DrugResponseDataset,
-        val_dataset: DrugResponseDataset,
-        test_mode: str
-) -> None:
+def _call_naive_predictor(train_dataset: DrugResponseDataset, val_dataset: DrugResponseDataset, test_mode: str) -> None:
     """
     Call the NaivePredictor model.
 
@@ -163,10 +156,10 @@ def _call_naive_predictor(
 
 
 def _assert_group_mean(
-        train_dataset: DrugResponseDataset,
-        val_dataset: DrugResponseDataset,
-        group_ids: dict[str, np.ndarray],
-        naive_means: dict[int, float]
+    train_dataset: DrugResponseDataset,
+    val_dataset: DrugResponseDataset,
+    group_ids: dict[str, np.ndarray],
+    naive_means: dict[int, float],
 ) -> None:
     """
     Assert the group mean.
@@ -184,12 +177,12 @@ def _assert_group_mean(
 
 
 def _call_naive_group_predictor(
-        group: str,
-        train_dataset: DrugResponseDataset,
-        val_dataset: DrugResponseDataset,
-        cell_line_input: FeatureDataset,
-        drug_input: FeatureDataset,
-        test_mode: str
+    group: str,
+    train_dataset: DrugResponseDataset,
+    val_dataset: DrugResponseDataset,
+    cell_line_input: FeatureDataset,
+    drug_input: FeatureDataset,
+    test_mode: str,
 ) -> None:
     if group == "drug":
         naive = NaiveDrugMeanPredictor()
@@ -233,11 +226,11 @@ def _call_naive_group_predictor(
 
 
 def _call_other_baselines(
-        model: str,
-        train_dataset: DrugResponseDataset,
-        val_dataset: DrugResponseDataset,
-        cell_line_input: FeatureDataset,
-        drug_input: FeatureDataset,
+    model: str,
+    train_dataset: DrugResponseDataset,
+    val_dataset: DrugResponseDataset,
+    cell_line_input: FeatureDataset,
+    drug_input: FeatureDataset,
 ) -> None:
     """
     Call the other baselines.

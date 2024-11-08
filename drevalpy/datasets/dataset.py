@@ -25,8 +25,8 @@ from numpy.typing import ArrayLike
 from sklearn.base import TransformerMixin
 from sklearn.model_selection import GroupKFold, train_test_split
 
-from .utils import permute_features, randomize_graph
 from ..pipeline_function import pipeline_function
+from .utils import permute_features, randomize_graph
 
 
 class Dataset(ABC):

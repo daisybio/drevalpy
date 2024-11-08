@@ -9,7 +9,6 @@ Matlab code adapted from https://github.com/linwang1982/SRMF.
 
 import numpy as np
 import pandas as pd
-from typing import Tuple
 from scipy.spatial.distance import jaccard
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
@@ -149,7 +148,7 @@ class SRMF(DRPModel):
 
         return diagonal_predictions
 
-    def _cmf(self, w, int_mat, drug_mat, cell_mat) -> Tuple[np.ndarray, np.ndarray]:
+    def _cmf(self, w, int_mat, drug_mat, cell_mat) -> tuple[np.ndarray, np.ndarray]:
         """
         Implements the SRMF model with specific update rules and regularization.
 

@@ -5,8 +5,8 @@ from typing import TextIO
 
 import pandas as pd
 
-from .outplot import OutPlot
 from ..pipeline_function import pipeline_function
+from .outplot import OutPlot
 
 
 class HTMLTable(OutPlot):
