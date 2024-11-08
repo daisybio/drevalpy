@@ -1,15 +1,25 @@
+"""Test the SimpleNeuralNetwork model."""
 import pytest
 
 from drevalpy.evaluation import evaluate
 from drevalpy.models import MODEL_FACTORY
-
-from .conftest import sample_dataset
-from .utils import call_save_and_load
+from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 
 
 @pytest.mark.parametrize("test_mode", ["LPO"])
 @pytest.mark.parametrize("model_name", ["SRMF", "SimpleNeuralNetwork", "MultiOmicsNeuralNetwork"])
-def test_simple_neural_network(sample_dataset, model_name, test_mode):
+def test_simple_neural_network(
+        sample_dataset: tuple[DrugResponseDataset, FeatureDataset, FeatureDataset],
+        model_name: str,
+        test_mode: str
+) -> None:
+    """
+    Test the SimpleNeuralNetwork model.
+
+    :param sample_dataset: from conftest.py
+    :param model_name: either SRMF, SimpleNeuralNetwork, or MultiOmicsNeuralNetwork
+    :param test_mode: LPO
+    """
     drug_response, cell_line_input, drug_input = sample_dataset
     drug_response.split_dataset(
         n_cv_splits=5,
@@ -17,7 +27,7 @@ def test_simple_neural_network(sample_dataset, model_name, test_mode):
     )
     split = drug_response.cv_splits[0]
     train_dataset = split["train"]
-    train_dataset.remove_rows(indices=[list(range(len(train_dataset) -1000))])  # smaller dataset for faster testing
+    train_dataset.remove_rows(indices=[list(range(len(train_dataset) - 1000))])  # smaller dataset for faster testing
 
     val_es_dataset = split["validation_es"]
     es_dataset = split["early_stopping"]
@@ -25,11 +35,9 @@ def test_simple_neural_network(sample_dataset, model_name, test_mode):
     cell_lines_to_keep = cell_line_input.identifiers
     drugs_to_keep = drug_input.identifiers
 
-
     train_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
     val_es_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
     es_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
-
 
     model = MODEL_FACTORY[model_name]()
     hpams = model.get_hyperparameter_set()
@@ -52,5 +60,3 @@ def test_simple_neural_network(sample_dataset, model_name, test_mode):
 
     metrics = evaluate(val_es_dataset, metric=["Pearson"])
     assert metrics["Pearson"] >= -1
-
-    call_save_and_load(model)

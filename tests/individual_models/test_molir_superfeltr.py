@@ -1,15 +1,26 @@
+"""Test the MOLIR and SuperFELTR models."""
 import numpy as np
 import pytest
 
 from drevalpy.evaluation import evaluate, pearson
 from drevalpy.models import MODEL_FACTORY
-
-from .conftest import sample_dataset
+from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 
 
 @pytest.mark.parametrize("test_mode", ["LCO"])
 @pytest.mark.parametrize("model_name", ["MOLIR", "SuperFELTR"])
-def test_molir_superfeltr(sample_dataset, model_name, test_mode):
+def test_molir_superfeltr(
+        sample_dataset: tuple[DrugResponseDataset, FeatureDataset, FeatureDataset],
+        model_name: str,
+        test_mode: str
+) -> None:
+    """
+    Test the MOLIR and SuperFELTR models.
+
+    :param sample_dataset: from conftest.py
+    :param model_name: MOLIR or SuperFELTR
+    :param test_mode: LCO
+    """
     drug_response, cell_line_input, drug_input = sample_dataset
     drug_response.split_dataset(
         n_cv_splits=5,

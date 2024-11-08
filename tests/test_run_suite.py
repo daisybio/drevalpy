@@ -29,7 +29,6 @@ from drevalpy.utils import main
             "response_transformation": "None",
             "multiprocessing": False,
             "path_data": "../data"
-            
         }
     ],
 )

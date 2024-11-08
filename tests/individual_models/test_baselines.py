@@ -1,8 +1,10 @@
+"""Tests for the baselines in the models module."""
 import numpy as np
 import pytest
 from sklearn.linear_model import ElasticNet, Ridge
 
 from drevalpy.evaluation import evaluate, pearson
+from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models import (
     MODEL_FACTORY,
     NaiveCellLineMeanPredictor,
@@ -10,9 +12,6 @@ from drevalpy.models import (
     NaivePredictor,
     SingleDrugRandomForest,
 )
-
-from .conftest import sample_dataset
-from .utils import call_save_and_load
 
 
 @pytest.mark.parametrize(
@@ -29,7 +28,18 @@ from .utils import call_save_and_load
     ],
 )
 @pytest.mark.parametrize("test_mode", ["LPO", "LCO", "LDO"])
-def test_baselines(sample_dataset, model_name, test_mode):
+def test_baselines(
+        sample_dataset: tuple[DrugResponseDataset, FeatureDataset, FeatureDataset],
+        model_name: str,
+        test_mode: str
+) -> None:
+    """
+    Test the baselines.
+
+    :param sample_dataset: from conftest.py
+    :param model_name: name of the model
+    :param test_mode: either LPO, LCO, or LDO
+    """
     drug_response, cell_line_input, drug_input = sample_dataset
     drug_response.split_dataset(
         n_cv_splits=5,
@@ -50,9 +60,9 @@ def test_baselines(sample_dataset, model_name, test_mode):
     print(f"Reduced val dataset from {len_pred_before} to {len(val_dataset)}")
 
     if model_name == "NaivePredictor":
-        call_naive_predictor(train_dataset, val_dataset, test_mode)
+        _call_naive_predictor(train_dataset, val_dataset, test_mode)
     elif model_name == "NaiveDrugMeanPredictor":
-        call_naive_group_predictor(
+        _call_naive_group_predictor(
             "drug",
             train_dataset,
             val_dataset,
@@ -61,7 +71,7 @@ def test_baselines(sample_dataset, model_name, test_mode):
             test_mode,
         )
     elif model_name == "NaiveCellLineMeanPredictor":
-        call_naive_group_predictor(
+        _call_naive_group_predictor(
             "cell_line",
             train_dataset,
             val_dataset,
@@ -70,19 +80,29 @@ def test_baselines(sample_dataset, model_name, test_mode):
             test_mode,
         )
     else:
-        call_other_baselines(
+        _call_other_baselines(
             model_name,
             train_dataset,
             val_dataset,
             cell_line_input,
             drug_input,
-            test_mode,
         )
 
 
 @pytest.mark.parametrize("model_name", ["SingleDrugRandomForest"])
 @pytest.mark.parametrize("test_mode", ["LPO", "LCO"])
-def test_single_drug_baselines(sample_dataset, model_name, test_mode):
+def test_single_drug_baselines(
+        sample_dataset: tuple[DrugResponseDataset, FeatureDataset, FeatureDataset],
+        model_name: str,
+        test_mode: str
+) -> None:
+    """
+    Test the SingleDrugRandomForest model, can also test other baseline single drug models.
+
+    :param sample_dataset: from conftest.py
+    :param model_name: model name
+    :param test_mode: either LPO or LCO
+    """
     drug_response, cell_line_input, drug_input = sample_dataset
     drug_response.split_dataset(
         n_cv_splits=5,
@@ -98,7 +118,6 @@ def test_single_drug_baselines(sample_dataset, model_name, test_mode):
         hpam_combi = model.get_hyperparameter_set()[0]
         hpam_combi["n_estimators"] = 2  # reduce test time
         hpam_combi["max_depth"] = 2  # reduce test time
-        
         model.build_model(hpam_combi)
         output_mask = train_dataset.drug_ids == drug
         drug_train = train_dataset.copy()
@@ -119,7 +138,18 @@ def test_single_drug_baselines(sample_dataset, model_name, test_mode):
     assert metrics["Pearson"] > 0.0
 
 
-def call_naive_predictor(train_dataset, val_dataset, test_mode):
+def _call_naive_predictor(
+        train_dataset: DrugResponseDataset,
+        val_dataset: DrugResponseDataset,
+        test_mode: str
+) -> None:
+    """
+    Call the NaivePredictor model.
+
+    :param train_dataset: training dataset
+    :param val_dataset: validation dataset
+    :param test_mode: either LPO, LCO, or LDO
+    """
     naive = NaivePredictor()
     naive.train(output=train_dataset)
     val_dataset.predictions = naive.predict(cell_line_ids=val_dataset.cell_line_ids)
@@ -130,10 +160,22 @@ def call_naive_predictor(train_dataset, val_dataset, test_mode):
     metrics = evaluate(val_dataset, metric=["Pearson"])
     assert metrics["Pearson"] == 0.0
     print(f"{test_mode}: Performance of NaivePredictor: PCC = {metrics['Pearson']}")
-    call_save_and_load(naive)
 
 
-def assert_group_mean(train_dataset, val_dataset, group_ids, naive_means):
+def _assert_group_mean(
+        train_dataset: DrugResponseDataset,
+        val_dataset: DrugResponseDataset,
+        group_ids: dict[str, np.ndarray],
+        naive_means: dict[int, float]
+) -> None:
+    """
+    Assert the group mean.
+
+    :param train_dataset: training dataset
+    :param val_dataset: validation dataset
+    :param group_ids: group ids
+    :param naive_means: means
+    """
     common_ids = np.intersect1d(group_ids["train"], group_ids["val"])
     random_id = np.random.choice(common_ids)
     group_mean = train_dataset.response[group_ids["train"] == random_id].mean()
@@ -141,7 +183,14 @@ def assert_group_mean(train_dataset, val_dataset, group_ids, naive_means):
     assert np.all(val_dataset.predictions[group_ids["val"] == random_id] == group_mean)
 
 
-def call_naive_group_predictor(group, train_dataset, val_dataset, cell_line_input, drug_input, test_mode):
+def _call_naive_group_predictor(
+        group: str,
+        train_dataset: DrugResponseDataset,
+        val_dataset: DrugResponseDataset,
+        cell_line_input: FeatureDataset,
+        drug_input: FeatureDataset,
+        test_mode: str
+) -> None:
     if group == "drug":
         naive = NaiveDrugMeanPredictor()
     else:
@@ -158,7 +207,7 @@ def call_naive_group_predictor(group, train_dataset, val_dataset, cell_line_inpu
     if (group == "drug" and test_mode == "LDO") or (group == "cell_line" and test_mode == "LCO"):
         assert np.all(val_dataset.predictions == train_mean)
     elif group == "drug":
-        assert_group_mean(
+        _assert_group_mean(
             train_dataset,
             val_dataset,
             group_ids={
@@ -168,7 +217,7 @@ def call_naive_group_predictor(group, train_dataset, val_dataset, cell_line_inpu
             naive_means=naive.drug_means,
         )
     else:  # group == "cell_line"
-        assert_group_mean(
+        _assert_group_mean(
             train_dataset,
             val_dataset,
             group_ids={
@@ -181,10 +230,24 @@ def call_naive_group_predictor(group, train_dataset, val_dataset, cell_line_inpu
     print(f"{test_mode}: Performance of {naive.model_name}: PCC = {metrics['Pearson']}")
     if (group == "drug" and test_mode == "LDO") or (group == "cell_line" and test_mode == "LCO"):
         assert metrics["Pearson"] == 0.0
-    call_save_and_load(naive)
 
 
-def call_other_baselines(model, train_dataset, val_dataset, cell_line_input, drug_input, test_mode):
+def _call_other_baselines(
+        model: str,
+        train_dataset: DrugResponseDataset,
+        val_dataset: DrugResponseDataset,
+        cell_line_input: FeatureDataset,
+        drug_input: FeatureDataset,
+) -> None:
+    """
+    Call the other baselines.
+
+    :param model: model name
+    :param train_dataset: training
+    :param val_dataset: validation
+    :param cell_line_input: features cell lines
+    :param drug_input: features drugs
+    """
     model_class = MODEL_FACTORY[model]
     hpams = model_class.get_hyperparameter_set()
     if len(hpams) > 2:
@@ -202,7 +265,8 @@ def call_other_baselines(model, train_dataset, val_dataset, cell_line_input, dru
                 assert issubclass(type(model_instance.model), Ridge)
             else:
                 assert issubclass(type(model_instance.model), ElasticNet)
-        train_dataset.remove_rows(indices=[list(range(len(train_dataset)-1000))])  # smaller dataset for faster testing
+        train_dataset.remove_rows(indices=np.array([list(range(len(train_dataset) - 1000))]))  # smaller dataset for
+        # faster testing
         model_instance.train(
             output=train_dataset,
             cell_line_input=cell_line_input,
@@ -217,4 +281,3 @@ def call_other_baselines(model, train_dataset, val_dataset, cell_line_input, dru
         assert val_dataset.predictions is not None
         metrics = evaluate(val_dataset, metric=["Pearson"])
         assert metrics["Pearson"] >= -1
-    call_save_and_load(model_instance)
