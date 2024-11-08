@@ -1,15 +1,14 @@
 """
-Contains the DRPModel class, which is an abstract wrapper class for drug response prediction
-models, the SingleDrugModel class, which is an abstract wrapper class for single drug models and
-CompositeDrugModel class, which transforms multiple separate single drug response prediction models
-into a global model by applying a separate model for each drug.
+Contains the DRPModel class and the SingleDrugModel class.
+
+The DRPModel class is an abstract wrapper class for drug response prediction models. The SingleDrugModel class is an
+abstract wrapper class for single drug models.
 """
 
 import inspect
 import os
-import warnings
 from abc import ABC, abstractmethod
-from typing import Any, Optional
+from typing import Any, Optional, Dict
 
 import numpy as np
 import yaml
@@ -20,27 +19,28 @@ from ..datasets.dataset import DrugResponseDataset, FeatureDataset
 
 
 class DRPModel(ABC):
-    """
-    Abstract wrapper class for drug response prediction models.
-    """
+    """Abstract wrapper class for drug response prediction models."""
 
     early_stopping = False
 
     @abstractmethod
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         """
         Creates an instance of a drug response prediction model.
-        :param model_name: model name for displaying results
+
         :param args: optional arguments
         :param kwargs: optional keyword arguments
         """
 
     @classmethod
-    def get_hyperparameter_set(cls, hyperparameter_file: Optional[str] = None):
+    def get_hyperparameter_set(cls, hyperparameter_file: Optional[str] = None) -> list[dict[str, Any]]:
         """
         Loads the hyperparameters from a yaml file.
+
         :param hyperparameter_file: yaml file containing the hyperparameters
-        :return:
+        :returns: list of hyperparameter sets
+        :raises ValueError: if the hyperparameters are not in the correct format
+        :raises KeyError: if the model is not found in the hyperparameters file
         """
         if hyperparameter_file is None:
             hyperparameter_file = os.path.join(os.path.dirname(inspect.getfile(cls)), "hyperparameters.yaml")
@@ -64,33 +64,38 @@ class DRPModel(ABC):
 
     @property
     @abstractmethod
-    def model_name(self):
+    def model_name(self) -> str:
         """
         Returns the model name.
+
         :return: model name
         """
 
     @property
     @abstractmethod
-    def cell_line_views(self):
+    def cell_line_views(self) -> list[str]:
         """
         Returns the sources the model needs as input for describing the cell line.
+
         :return: cell line views, e.g., ["methylation", "gene_expression", "mirna_expression",
-        "mutation"]
+            "mutation"]
         """
 
     @property
     @abstractmethod
-    def drug_views(self):
+    def drug_views(self) -> list[str]:
         """
         Returns the sources the model needs as input for describing the drug.
+
         :return: drug views, e.g., ["descriptors", "fingerprints", "targets"]
         """
 
     @abstractmethod
-    def build_model(self, hyperparameters: dict[str, Any]):
+    def build_model(self, hyperparameters: dict[str, Any]) -> None:
         """
         Builds the model, for models that use hyperparameters.
+
+        :param hyperparameters: hyperparameters for the model
         """
 
     @abstractmethod
@@ -103,6 +108,7 @@ class DRPModel(ABC):
     ) -> None:
         """
         Trains the model.
+
         :param output: training data associated with the response output
         :param cell_line_input: input associated with the cell line
         :param drug_input: input associated with the drug
@@ -120,28 +126,21 @@ class DRPModel(ABC):
         """
         Predicts the response for the given input.
 
-        """
-
-    @abstractmethod
-    def save(self, path):
-        """
-        Saves the model.
-
-        :param path: path to save the model
-        """
-
-    @abstractmethod
-    def load(self, path):
-        """
-        Loads the model.
-
-        :param path: path to load the model
+        :param drug_ids: list of drug ids
+        :param cell_line_ids: list of cell line ids
+        :param cell_line_input: input associated with the cell line
+        :param drug_input: input associated with the drug
+        :returns: predicted response
         """
 
     @abstractmethod
     def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         """
-        :return: FeatureDataset
+        Load the cell line features.
+
+        :param data_path: path to the data, e.g., data/
+        :param dataset_name: name of the dataset, e.g., "GDSC2"
+        :returns: FeatureDataset with the cell line features
         """
 
     @abstractmethod
@@ -149,7 +148,9 @@ class DRPModel(ABC):
         """
         Load the drug features.
 
-        :return: FeatureDataset
+        :param data_path: path to the data, e.g., data/
+        :param dataset_name: name of the dataset, e.g., "GDSC2"
+        :returns: FeatureDataset
         """
 
     def get_concatenated_features(
@@ -160,16 +161,18 @@ class DRPModel(ABC):
         drug_ids_output: ArrayLike,
         cell_line_input: Optional[FeatureDataset],
         drug_input: Optional[FeatureDataset],
-    ):
+    ) -> np.ndarray:
         """
         Concatenates the features for the given cell line and drug view.
-        :param cell_line_view:
-        :param drug_view:
-        :param cell_line_ids_output:
-        :param drug_ids_output:
-        :param cell_line_input:
-        :param drug_input:
-        :return: X, the feature matrix needed for, e.g., sklearn models
+
+        :param cell_line_view: gene expression, methylation, etc.
+        :param drug_view: ids, fingerprints, etc.
+        :param cell_line_ids_output: cell line ids
+        :param drug_ids_output: drug ids
+        :param cell_line_input: input associated with the cell line
+        :param drug_input: input associated with the drug
+        :returns: X, the feature matrix needed for, e.g., sklearn models
+        :raises ValueError: if no features are provided
         """
         inputs = self.get_feature_matrices(
             cell_line_ids=cell_line_ids_output,
@@ -196,15 +199,16 @@ class DRPModel(ABC):
         drug_ids: ArrayLike,
         cell_line_input: Optional[FeatureDataset],
         drug_input: Optional[FeatureDataset],
-    ):
+    ) -> Dict[str, np.ndarray]:
         """
-        Returns the feature matrices for the given cell line and drug ids by retrieving the
-        correct views.
-        :param cell_line_ids:
-        :param drug_ids:
-        :param cell_line_input:
-        :param drug_input:
-        :return:
+        Returns the feature matrices for the given cell line and drug ids by retrieving the correct views.
+
+        :param cell_line_ids: cell line identifiers
+        :param drug_ids: drug identifiers
+        :param cell_line_input: cell line omics features
+        :param drug_input: drug omics features
+        :returns: dictionary with the feature matrices
+        :raises ValueError: if the input does not contain the correct views
         """
         cell_line_feature_matrices = {}
         if cell_line_input is not None:
@@ -225,122 +229,17 @@ class DRPModel(ABC):
 
 
 class SingleDrugModel(DRPModel, ABC):
-    """
-    Abstract wrapper class for single drug response prediction models.
-    """
+    """Abstract wrapper class for single drug response prediction models."""
 
     early_stopping = False
     drug_views = []
 
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+        """
+        Load the drug features, unnecessary for single drug models, so this function is overwritten.
+
+        :param data_path: path to the data, e.g., data/
+        :param dataset_name: name of the dataset, e.g., "GDSC2"
+        :returns: nothing because it is not needed for the single drug models
+        """
         return None
-
-
-class CompositeDrugModel(DRPModel):
-    """
-    Transforms multiple separate single drug response prediction models into a global model by
-    applying a seperate model for each drug.
-    """
-
-    cell_line_views = None
-    drug_views = []
-    model_name = "CompositeDrugModel"
-
-    def __init__(self, base_model: type[DRPModel], *args, **kwargs):
-        """
-        Creates an instance of a single drug response prediction model.
-        :param model_name: model name for displaying results
-        """
-        super().__init__(*args, **kwargs)
-        self.models = {}
-        self.base_model = base_model
-        self.cell_line_views = base_model.cell_line_views
-        self.model_name = base_model.model_name
-        self.early_stopping = base_model.early_stopping
-
-    def build_model(self, hyperparameters: dict[str, Any]):
-        """
-        Builds the model.
-        """
-        for drug in hyperparameters:
-            self.models[drug] = self.base_model()
-            self.models[drug].drug_views = self.drug_views
-            self.models[drug].build_model(hyperparameters[drug])
-
-    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
-        return list(self.models.values())[0].load_cell_line_features(data_path=data_path, dataset_name=dataset_name)
-
-    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
-        return None
-
-    def train(
-        self,
-        output: DrugResponseDataset,
-        cell_line_input: FeatureDataset,
-        drug_input=None,
-        output_earlystopping: Optional[DrugResponseDataset] = None,
-    ) -> None:
-        """
-        Trains the model.
-        :param output: Training data associated with the response output
-        :param cell_line_input: Input associated with the cell line
-        :param drug_input: Not needed for the single drug models
-        :param output_earlystopping: Optional. Training data associated with the early stopping
-        output
-        """
-        drugs = np.unique(output.drug_ids)
-        for i, drug in enumerate(drugs):
-            if drug not in self.models:
-                raise AssertionError(
-                    f"Drug {drug} not in models. Maybe the CompositeDrugModel was not built or drug "
-                    f"missing from train data."
-                )
-            print(f"Training model for drug {drug} ({i+1}/{len(drugs)})")
-            output_mask = output.drug_ids == drug
-            output_drug = output.copy()
-            output_drug.mask(output_mask)
-            output_earlystopping_drug = None
-            if output_earlystopping is not None:
-                output_earlystopping_mask = output_earlystopping.drug_ids == drug
-                output_earlystopping_drug = output_earlystopping.copy()
-                output_earlystopping_drug.mask(output_earlystopping_mask)
-
-            self.models[drug].train(
-                output=output_drug,
-                cell_line_input=cell_line_input,
-                output_earlystopping=output_earlystopping_drug,
-            )
-
-    def predict(
-        self,
-        drug_ids: list[str],
-        cell_line_ids: list[str],
-        drug_input=None,
-        cell_line_input: FeatureDataset = None,
-    ) -> np.ndarray:
-        """
-        Predicts the response for the given input.
-        :param drug_ids: list of drug ids
-        :param cell_line_ids: list of cell line ids
-        :param cell_line_input: input associated with the cell line
-        :param drug_input: not needed for the single drug models
-        :return: predicted response
-        """
-        prediction = np.zeros_like(drug_ids, dtype=float)
-        for drug in np.unique(drug_ids):
-            mask = drug_ids == drug
-            if drug not in self.models:
-                prediction[mask] = np.nan
-            else:
-                prediction[mask] = self.models[drug].predict(
-                    drug_ids=drug,
-                    cell_line_ids=cell_line_ids[mask],
-                    cell_line_input=cell_line_input,
-                )
-        if np.any(np.isnan(prediction)):
-            warnings.warn(
-                "SingleDRPModel Warning: Some drugs were not in the training set. Prediction is "
-                "NaN. Maybe a SingleDRPModel was used in an LDO setting.",
-                stacklevel=2,
-            )
-        return prediction

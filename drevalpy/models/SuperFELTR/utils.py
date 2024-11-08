@@ -1,5 +1,6 @@
+"""Utility functions for the SuperFELTR model."""
 import os
-import random
+import secrets
 from typing import Union
 
 import numpy as np
@@ -13,14 +14,28 @@ from ..MOLIR.utils import create_dataset_and_loaders, generate_triplets_indices
 
 
 class SuperFELTEncoder(pl.LightningModule):
+    """
+    SuperFELT encoder definition for a single omic type, i.e., gene expression, mutation, or copy number variation.
+
+    Very similar to MOLIEncoder, but with BatchNorm1d before ReLU.
+    """
     def __init__(
         self, input_size: int, hpams: dict[str, Union[int, float]], omic_type: str, ranges: tuple[float, float]
     ) -> None:
+        """
+        Initializes the SuperFELTEncoder.
+
+        Save_hyperparameters is turned on to facilitate loading the model from a checkpoint.
+        :param input_size: determined by the variance threshold feature selection
+        :param hpams: hyperparameters for the model
+        :param omic_type: gene expression, mutation, or copy number variation
+        :param ranges: positive and negative ranges for the triplet loss
+        """
         super().__init__()
         self.save_hyperparameters()
 
         self.omic_type = omic_type
-        output_size = self.get_output_size(hpams)
+        output_size = self._get_output_size(hpams)
 
         # only change vs MOLIEncoder: BatchNorm1d before ReLU
         self.encode = nn.Sequential(
@@ -35,20 +50,46 @@ class SuperFELTEncoder(pl.LightningModule):
         self.positive_range, self.negative_range = ranges
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Forward pass of the SuperFELTEncoder.
+
+        :param x: input tensor
+        :returns: encoded tensor
+        """
         return self.encode(x)
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
+        """
+        Override the configure_optimizers method to use the Adam optimizer.
+
+        :returns: Adam optimizer
+        """
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr, weight_decay=self.weight_decay)
         return optimizer
 
-    def get_output_size(self, hpams: dict[str, Union[int, float]]) -> int:
+    def _get_output_size(self, hpams: dict[str, Union[int, float]]) -> int:
+        """
+        Get the output size of the encoder based on the omic type from the hyperparameters.
+
+        :param hpams: hyperparameters
+        :returns: output size of the encoder
+        """
         return {
             "expression": hpams["out_dim_expr_encoder"],
             "mutation": hpams["out_dim_mutation_encoder"],
             "copy_number_variation_gistic": hpams["out_dim_cnv_encoder"],
         }[self.omic_type]
 
-    def get_omic_data(self, data_expr: torch.Tensor, data_mut: torch.Tensor, data_cnv: torch.Tensor) -> torch.Tensor:
+    def _get_omic_data(self, data_expr: torch.Tensor, data_mut: torch.Tensor, data_cnv: torch.Tensor) -> torch.Tensor:
+        """
+        Get the omic data based on the omic type.
+
+        :param data_expr: expression data
+        :param data_mut: mutation data
+        :param data_cnv: copy number variation data
+        :returns: the omic data
+        :raises ValueError: if the omic type is not recognized
+        """
         if self.omic_type == "expression":
             data = data_expr
         elif self.omic_type == "mutation":
@@ -59,7 +100,14 @@ class SuperFELTEncoder(pl.LightningModule):
             raise ValueError(f"omic_type {self.omic_type} not recognized.")
         return data
 
-    def compute_loss(self, encoded: torch.Tensor, response: torch.Tensor) -> torch.Tensor:
+    def _compute_loss(self, encoded: torch.Tensor, response: torch.Tensor) -> torch.Tensor:
+        """
+        Computes the triplet loss.
+
+        :param encoded: encoded data
+        :param response: response data
+        :returns: triplet loss
+        """
         positive_indices, negative_indices = generate_triplets_indices(
             response.cpu().detach().numpy(), self.positive_range, self.negative_range
         )
@@ -69,63 +117,116 @@ class SuperFELTEncoder(pl.LightningModule):
     def training_step(
         self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor], batch_idx: int
     ) -> torch.Tensor:
+        """
+        Override the training_step method to compute the triplet loss.
+
+        :param batch: batch containing the omic data and response
+        :param batch_idx: index of the batch
+        :returns: triplet loss
+        """
         data_expr, data_mut, data_cnv, response = batch
-        data = self.get_omic_data(data_expr, data_mut, data_cnv)
+        data = self._get_omic_data(data_expr, data_mut, data_cnv)
         encoded = self.encode(data)
-        triplet_loss = self.compute_loss(encoded, response)
+        triplet_loss = self._compute_loss(encoded, response)
         self.log("train_loss", triplet_loss, on_step=False, on_epoch=True, prog_bar=True)
         return triplet_loss
 
     def validation_step(
         self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor], batch_idx: int
     ) -> torch.Tensor:
+        """
+        Override the validation_step method to compute the triplet loss.
+
+        :param batch: batch containing the omic data and response
+        :param batch_idx: index of the batch
+        :returns: triplet loss
+        """
         data_expr, data_mut, data_cnv, response = batch
-        data = self.get_omic_data(data_expr, data_mut, data_cnv)
+        data = self._get_omic_data(data_expr, data_mut, data_cnv)
         encoded = self.encode(data)
-        triplet_loss = self.compute_loss(encoded, response)
+        triplet_loss = self._compute_loss(encoded, response)
         self.log("val_loss", triplet_loss, on_step=False, on_epoch=True, prog_bar=True)
         return triplet_loss
 
 
 class SuperFELTRegressor(pl.LightningModule):
+    """
+    SuperFELT regressor definition.
+
+    Very similar to SuperFELT classifier, but with a regression loss and without the last sigmoid layer.
+    """
     def __init__(
         self,
         input_size: int,
         hpams: dict[str, Union[int, float]],
-        encoders: tuple[SuperFELTEncoder, SuperFELTEncoder, SuperFELTEncoder],
-        ranges: tuple[float, float],
+        encoders: tuple[SuperFELTEncoder, SuperFELTEncoder, SuperFELTEncoder]
     ) -> None:
+        """
+        Initializes the SuperFELTRegressor.
+
+        The encoders are put in eval mode because they were fitted before.
+
+        :param input_size: depends on the output of the encoders
+        :param hpams: hyperparameters for the model
+        :param encoders: the fitted encoders for the gene expression, mutation, and copy number variation data
+        """
         super().__init__()
 
         self.regressor = nn.Sequential(nn.Linear(input_size, 1), nn.Dropout(hpams["dropout_rate"]))
         self.lr = hpams["learning_rate"]
         self.weight_decay = hpams["weight_decay"]
         self.encoders = encoders
-        self.positive_ranges, self.negative_ranges = ranges
         # put the encoders in eval mode
         for encoder in self.encoders:
             encoder.eval()
         self.regression_loss = nn.MSELoss()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Forward pass of the SuperFELTRegressor.
+
+        :param x: input tensor
+        :returns: predicted response
+        """
         return self.regressor(x)
 
     def predict(self, data_expr: np.ndarray, data_mut: np.ndarray, data_cnv: np.ndarray) -> np.ndarray:
+        """
+        Predicts the response for the given input.
+
+        :param data_expr: expression data
+        :param data_mut: mutation data
+        :param data_cnv: copy number variation data
+        :returns: predicted response
+        """
         data_expr, data_mut, data_cnv = map(
             lambda data: torch.from_numpy(data).float().to(self.device), [data_expr, data_mut, data_cnv]
         )
         self.eval()
         with torch.no_grad():
-            encoded = self.encode_and_concatenate(data_expr, data_mut, data_cnv)
+            encoded = self._encode_and_concatenate(data_expr, data_mut, data_cnv)
             preds = self.regressor(encoded)
         return preds.squeeze().cpu().detach().numpy()
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
+        """
+        Override the configure_optimizers method to use the Adagrad optimizer.
+
+        :returns: Adagrad optimizer
+        """
         return torch.optim.Adagrad(self.parameters(), lr=self.lr, weight_decay=self.weight_decay)
 
-    def encode_and_concatenate(
+    def _encode_and_concatenate(
         self, data_expr: torch.Tensor, data_mut: torch.Tensor, data_cnv: torch.Tensor
     ) -> torch.Tensor:
+        """
+        Encodes the omic data and concatenates the encoded tensors.
+
+        :param data_expr: expression data
+        :param data_mut: mutation data
+        :param data_cnv: copy number variation data
+        :returns: concatenated encoded tensor
+        """
         encoded_expr = self.encoders[0].encode(data_expr)
         encoded_mut = self.encoders[1].encode(data_mut)
         encoded_cnv = self.encoders[2].encode(data_cnv)
@@ -134,8 +235,15 @@ class SuperFELTRegressor(pl.LightningModule):
     def training_step(
         self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor], batch_idx: int
     ) -> torch.Tensor:
+        """
+        Override the training_step method to compute the regression loss.
+
+        :param batch: batch containing the omic data and response
+        :param batch_idx: index of the batch
+        :returns: regression loss
+        """
         data_expr, data_mut, data_cnv, response = batch
-        encoded = self.encode_and_concatenate(data_expr, data_mut, data_cnv)
+        encoded = self._encode_and_concatenate(data_expr, data_mut, data_cnv)
         pred = self.regressor(encoded)
         loss = self.regression_loss(pred.squeeze(), response)
         self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
@@ -144,8 +252,15 @@ class SuperFELTRegressor(pl.LightningModule):
     def validation_step(
         self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor], batch_idx: int
     ) -> torch.Tensor:
+        """
+        Override the validation_step method to compute the regression loss.
+
+        :param batch: batch containing the omic data and response
+        :param batch_idx: index of the batch
+        :returns: regression loss
+        """
         data_expr, data_mut, data_cnv, response = batch
-        encoded = self.encode_and_concatenate(data_expr, data_mut, data_cnv)
+        encoded = self._encode_and_concatenate(data_expr, data_mut, data_cnv)
         pred = self.regressor(encoded)
         loss = self.regression_loss(pred.squeeze(), response)
         self.log("val_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
@@ -160,7 +275,18 @@ def train_superfeltr_model(
     output_earlystopping: DrugResponseDataset,
     patience: int = 5,
 ) -> pl.callbacks.ModelCheckpoint:
+    """
+    Trains one encoder or the regressor.
 
+    First, the dataset and loaders are created. Then, the model is trained with the Lightning trainer.
+    :param model: either one of the encoders or the regressor
+    :param hpams: hyperparameters for the model
+    :param output_train: response data for training
+    :param cell_line_input: cell line omics features
+    :param output_earlystopping: response data for early stopping
+    :param patience: for early stopping, defaults to 5
+    :returns: checkpoint callback with the best model
+    """
     train_loader, val_loader = create_dataset_and_loaders(
         batch_size=hpams["mini_batch"],
         output_train=output_train,
@@ -170,7 +296,7 @@ def train_superfeltr_model(
     monitor = "train_loss" if (val_loader is None) else "val_loss"
     early_stop_callback = EarlyStopping(monitor=monitor, mode="min", patience=patience)
     name = "version-" + "".join(
-        [random.choice("0123456789abcdef") for _ in range(20)]
+        [secrets.choice("0123456789abcdef") for _ in range(20)]
     )  # preventing conflicts of filenames
     checkpoint_callback = pl.callbacks.ModelCheckpoint(
         dirpath=None,

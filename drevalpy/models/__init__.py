@@ -1,6 +1,4 @@
-"""
-Module containing all drug response prediction models.
-"""
+"""Module containing all drug response prediction models."""
 
 __all__ = [
     "NaivePredictor",
@@ -28,8 +26,8 @@ from .baselines.naive_pred import NaiveCellLineMeanPredictor, NaiveDrugMeanPredi
 from .baselines.singledrug_random_forest import SingleDrugRandomForest
 from .baselines.sklearn_models import ElasticNetModel, GradientBoosting, RandomForest, SVMRegressor
 from .MOLIR.molir import MOLIR
-from .simple_neural_network.multiomics_neural_network import MultiOmicsNeuralNetwork
-from .simple_neural_network.simple_neural_network import SimpleNeuralNetwork
+from .SimpleNeuralNetwork.multiomics_neural_network import MultiOmicsNeuralNetwork
+from .SimpleNeuralNetwork.simple_neural_network import SimpleNeuralNetwork
 from .SRMF.srmf import SRMF
 from .SuperFELTR.superfeltr import SuperFELTR
 from .DIPK.DIPK import DIPK_Model

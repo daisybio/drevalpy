@@ -1,6 +1,8 @@
 """
-Contains the SingleDrugRandomForest class, which is a RandomForest model that uses only gene
-expression dataset for drug response prediction and trains one model per drug.
+Contains the SingleDrugRandomForest class.
+
+It is a RandomForest model that uses only gene expression dataset for drug response prediction and trains one model
+per drug.
 """
 
 from typing import Optional
@@ -15,9 +17,7 @@ from .sklearn_models import RandomForest
 
 
 class SingleDrugRandomForest(SingleDrugModel, RandomForest):
-    """
-    SingleDrugRandomForest class.
-    """
+    """SingleDrugRandomForest class."""
 
     drug_views = []
     model_name = "SingleDrugRandomForest"
@@ -37,6 +37,7 @@ class SingleDrugRandomForest(SingleDrugModel, RandomForest):
         :param cell_line_input: training dataset containing gene expression data
         :param drug_input: not needed
         :param output_earlystopping: not needed
+        :raises ValueError: if drug_input or output_earlystopping is not None
         """
         if drug_input is not None or output_earlystopping is not None:
             raise ValueError("SingleDrugRandomForest does not support drug_input or " "output_earlystopping!")
@@ -61,6 +62,15 @@ class SingleDrugRandomForest(SingleDrugModel, RandomForest):
         drug_input: Optional[FeatureDataset] = None,
         cell_line_input: FeatureDataset = None,
     ) -> np.ndarray:
+        """
+        Predicts the drug response for the given cell lines.
+
+        :param drug_ids: drug ids, not needed here
+        :param cell_line_ids: cell line ids
+        :param drug_input: drug input, not needed here
+        :param cell_line_input: cell line input
+        :returns: predicted drug response
+        """
         if self.model is None:
             print("No training data was available, predicting NA.")
             return np.array([np.nan] * len(cell_line_ids))

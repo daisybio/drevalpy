@@ -1,10 +1,8 @@
-"""
-Utility functions for loading and processing data.
-"""
+"""Utility functions for loading and processing data."""
 
 import os.path
 import warnings
-from typing import Optional
+from typing import Optional, List, Dict
 
 import numpy as np
 import pandas as pd
@@ -15,9 +13,10 @@ from drevalpy.datasets.dataset import FeatureDataset
 def load_cl_ids_from_csv(path: str, dataset_name: str) -> FeatureDataset:
     """
     Load cell line ids from csv file.
-    :param path:
-    :param dataset_name:
-    :return:
+
+    :param path: path to the data, e.g., data/
+    :param dataset_name: name of the dataset, e.g., GDSC2
+    :returns: FeatureDataset with the cell line ids
     """
     cl_names = pd.read_csv(f"{path}/{dataset_name}/cell_line_names.csv", index_col=1)
     return FeatureDataset(features={cl: {"cell_line_id": np.array([cl])} for cl in cl_names.index})
@@ -30,12 +29,14 @@ def load_and_reduce_gene_features(
     dataset_name: str,
 ) -> FeatureDataset:
     """
-    Load and reduce gene features.
-    :param feature_type:
-    :param gene_list:
-    :param data_path:
-    :param dataset_name:
-    :return:
+    Load and reduce features of a single feature type.
+
+    :param feature_type: type of feature, e.g., gene_expression, methylation, etc.
+    :param gene_list: list of genes to include, e.g., landmark_genes
+    :param data_path: path to the data, e.g., data/
+    :param dataset_name: name of the dataset, e.g., GDSC2
+    :returns: FeatureDataset with the reduced features
+    :raises ValueError: if genes from gene_list are missing in the dataset
     """
     ge = pd.read_csv(f"{data_path}/{dataset_name}/{feature_type}.csv", index_col=1)
     # remove column
@@ -77,12 +78,13 @@ def load_and_reduce_gene_features(
     return cl_features
 
 
-def iterate_features(df: pd.DataFrame, feature_type: str):
+def iterate_features(df: pd.DataFrame, feature_type: str) -> Dict[str, Dict[str, np.ndarray]]:
     """
     Iterate over features.
-    :param df:
-    :param feature_type:
-    :return:
+
+    :param df: DataFrame with the features
+    :param feature_type: type of feature, e.g., gene_expression, methylation, etc.
+    :returns: dictionary with the features
     """
     features = {}
     for cl in df.index:
@@ -101,9 +103,10 @@ def iterate_features(df: pd.DataFrame, feature_type: str):
 def load_drug_ids_from_csv(data_path: str, dataset_name: str) -> FeatureDataset:
     """
     Load drug ids from csv file.
-    :param data_path:
-    :param dataset_name:
-    :return:
+
+    :param data_path: path to the data, e.g., data/
+    :param dataset_name: name of the dataset, e.g., GDSC2
+    :returns: FeatureDataset with the drug ids
     """
     drug_names = pd.read_csv(f"{data_path}/{dataset_name}/drug_names.csv", index_col=0)
     return FeatureDataset(features={drug: {"drug_id": np.array([drug])} for drug in drug_names.index})
@@ -112,9 +115,10 @@ def load_drug_ids_from_csv(data_path: str, dataset_name: str) -> FeatureDataset:
 def load_drug_fingerprint_features(data_path: str, dataset_name: str) -> FeatureDataset:
     """
     Load drug features from fingerprints.
-    :param data_path:
-    :param dataset_name:
-    :return:
+
+    :param data_path: path to the data, e.g., data/
+    :param dataset_name: name of the dataset, e.g., GDSC2
+    :returns: FeatureDataset with the drug fingerprints
     """
     if dataset_name == "Toy_Data":
         fingerprints = pd.read_csv(os.path.join(data_path, dataset_name, "fingerprints.csv"), index_col=0)
@@ -132,48 +136,46 @@ def get_multiomics_feature_dataset(
     data_path: str,
     dataset_name: str,
     gene_list: Optional[str] = "drug_target_genes_all_drugs",
+    omics: List[str] = None,
 ) -> FeatureDataset:
     """
-    Get multiomics feature dataset.
-    :param data_path:
-    :param dataset_name:
-    :param gene_list:
-    :return:
+    Get multiomics feature dataset for the given list of OMICs.
+
+    :param data_path: path to the data, e.g., data/
+    :param dataset_name: name of the dataset, e.g., GDSC2
+    :param gene_list: list of genes to include, e.g., landmark_genes
+    :param omics: list of omics to include, e.g., ["gene_expression", "methylation"]
+    :returns: FeatureDataset with the multiomics features
     """
-    ge_dataset = load_and_reduce_gene_features(
-        feature_type="gene_expression",
-        gene_list=gene_list,
-        data_path=data_path,
-        dataset_name=dataset_name,
-    )
-    me_dataset = load_and_reduce_gene_features(
-        feature_type="methylation",
-        gene_list=None,
-        data_path=data_path,
-        dataset_name=dataset_name,
-    )
-    mu_dataset = load_and_reduce_gene_features(
-        feature_type="mutations",
-        gene_list=gene_list,
-        data_path=data_path,
-        dataset_name=dataset_name,
-    )
-    cnv_dataset = load_and_reduce_gene_features(
-        feature_type="copy_number_variation_gistic",
-        gene_list=gene_list,
-        data_path=data_path,
-        dataset_name=dataset_name,
-    )
-    for fd in [me_dataset, mu_dataset, cnv_dataset]:
-        ge_dataset._add_features(fd)
-    return ge_dataset
+    if omics is None:
+        omics = ["gene_expression", "methylation", "mutations", "copy_number_variation_gistic"]
+    feature_dataset = None
+    for omic in omics:
+        if feature_dataset is None:
+            feature_dataset = load_and_reduce_gene_features(
+                feature_type=omic,
+                gene_list=None if omic == "methylation" else gene_list,
+                data_path=data_path,
+                dataset_name=dataset_name,
+            )
+        else:
+            feature_dataset.add_features(
+                load_and_reduce_gene_features(
+                    feature_type=omic,
+                    gene_list=None if omic == "methylation" else gene_list,
+                    data_path=data_path,
+                    dataset_name=dataset_name,
+                )
+            )
+    return feature_dataset
 
 
 def unique(array):
     """
-    Get unique values ordered by first occurence.
-    :param array:
-    :return:
+    Get unique values ordered by first occurrence.
+
+    :param array: array of values
+    :returns: unique values ordered by first occurrence
     """
     uniq, index = np.unique(array, return_index=True)
     return uniq[index.argsort()]
