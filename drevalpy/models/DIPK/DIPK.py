@@ -13,7 +13,7 @@ from .model_utils import Predictor
 from .data_utils import (
     GetTrainData,
     GetTestData,
-    MyDataSet,
+    GraphDataset,
     CollateFn_Train,
     CollateFn_Test,
     load_expression_and_network_features,
@@ -63,7 +63,7 @@ class DIPK_Model(DRPModel):
         # load data
         my_collate = CollateFn_Train()
         Gtrain = GetTrainData(output.cell_line_ids, output.drug_ids, output.response, cell_line_input, drug_input)
-        train_loader = DataLoader(MyDataSet(Gtrain), batch_size=self.batch_size, shuffle=True, collate_fn=my_collate)
+        train_loader = DataLoader(GraphDataset(Gtrain), batch_size=self.batch_size, shuffle=True, collate_fn=my_collate)
 
         # train model
         for epoch in range(self.EPOCHS):
@@ -94,7 +94,7 @@ class DIPK_Model(DRPModel):
         # load data
         my_collate = CollateFn_Test()
         Gtest = GetTestData(cell_line_ids, drug_ids, cell_line_input, drug_input)
-        test_loader = DataLoader(MyDataSet(Gtest), batch_size=self.batch_size, shuffle=False, collate_fn=my_collate)
+        test_loader = DataLoader(GraphDataset(Gtest), batch_size=self.batch_size, shuffle=False, collate_fn=my_collate)
 
         # run prediction
         self.model.eval()
