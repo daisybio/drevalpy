@@ -9,8 +9,8 @@ from torch import nn
 import numpy as np
 
 
-from .Model import Predictor
-from .Data import (
+from .model_utils import Predictor
+from .data_utils import (
     GetTrainData,
     GetTestData,
     MyDataSet,
