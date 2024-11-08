@@ -208,6 +208,7 @@ class MOLIEncoder(nn.Module):
     The MOLIR model has three encoders for the gene expression, mutations, and copy number variation data which are
     trained together.
     """
+
     def __init__(self, input_size: int, output_size: int, dropout_rate: float) -> None:
         """
         Initializes the encoder for the MOLIR model.
@@ -241,6 +242,7 @@ class MOLIRegressor(nn.Module):
     It is identical to the regressor of the original MOLI model, except for the omission of the final sigmoid
     activation function. After the three encoders, the encoded features are concatenated and fed into the regressor.
     """
+
     def __init__(self, input_size: int, dropout_rate: int) -> None:
         """
         Initializes the regressor for the MOLIR model.
@@ -269,6 +271,7 @@ class MOLIModel(pl.LightningModule):
     layer and the usage of a regression MSE loss instead of a binary cross-entropy loss. Additionally, early stopping is
     added instead of tuning the number of epochs as hyperparameter.
     """
+
     def __init__(
         self, hpams: dict[str, Union[int, float]], input_dim_expr: int, input_dim_mut: int, input_dim_cnv: int
     ) -> None:

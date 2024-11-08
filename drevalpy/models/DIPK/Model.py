@@ -51,11 +51,9 @@ class DenseLayers(nn.Module):
             nn.Linear(fc_layer_dim[1], fc_layer_dim[2]),
             nn.Linear(fc_layer_dim[2], fc_layer_dim[3]),
             nn.Linear(fc_layer_dim[3], fc_layer_dim[4]),
-            nn.Linear(fc_layer_dim[4], fc_layer_dim[5])
+            nn.Linear(fc_layer_dim[4], fc_layer_dim[5]),
         )
-        self.dropout_layers = torch.nn.ModuleList(
-            [nn.Dropout(p=dropout_rate) for _ in range(fc_layer_num)]
-        )
+        self.dropout_layers = torch.nn.ModuleList([nn.Dropout(p=dropout_rate) for _ in range(fc_layer_num)])
         self.fc_output = nn.Linear(fc_layer_dim[fc_layer_num - 2], 1)
 
     def forward(self, x, gene, bionic):

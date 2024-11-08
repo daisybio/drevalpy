@@ -17,7 +17,7 @@ def test_simple_neural_network(sample_dataset, model_name, test_mode):
     )
     split = drug_response.cv_splits[0]
     train_dataset = split["train"]
-    train_dataset.remove_rows(indices=[list(range(len(train_dataset) -1000))])  # smaller dataset for faster testing
+    train_dataset.remove_rows(indices=[list(range(len(train_dataset) - 1000))])  # smaller dataset for faster testing
 
     val_es_dataset = split["validation_es"]
     es_dataset = split["early_stopping"]
@@ -25,11 +25,9 @@ def test_simple_neural_network(sample_dataset, model_name, test_mode):
     cell_lines_to_keep = cell_line_input.identifiers
     drugs_to_keep = drug_input.identifiers
 
-
     train_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
     val_es_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
     es_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
-
 
     model = MODEL_FACTORY[model_name]()
     hpams = model.get_hyperparameter_set()

@@ -105,9 +105,7 @@ class RegressionDataset(Dataset):
 class FeedForwardNetwork(pl.LightningModule):
     """Feed forward neural network for regression tasks with basic architecture."""
 
-    def __init__(self,
-                 hyperparameters: dict[str, Union[int, float, List[int]]],
-                 input_dim: int) -> None:
+    def __init__(self, hyperparameters: dict[str, Union[int, float, List[int]]], input_dim: int) -> None:
         """
         Initializes the feed forward network.
 

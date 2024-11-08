@@ -76,4 +76,4 @@ def test_molir_superfeltr(sample_dataset, model_name, test_mode):
     val_es_dataset.predictions = all_predictions[val_es_mask]
     metrics = evaluate(val_es_dataset, metric=["Pearson"])
     print(f"{test_mode}: Collapsed performance of {model_name}: PCC = {metrics['Pearson']}")
-    assert metrics["Pearson"] >= -1.
+    assert metrics["Pearson"] >= -1.0

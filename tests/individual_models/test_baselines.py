@@ -98,7 +98,7 @@ def test_single_drug_baselines(sample_dataset, model_name, test_mode):
         hpam_combi = model.get_hyperparameter_set()[0]
         hpam_combi["n_estimators"] = 2  # reduce test time
         hpam_combi["max_depth"] = 2  # reduce test time
-        
+
         model.build_model(hpam_combi)
         output_mask = train_dataset.drug_ids == drug
         drug_train = train_dataset.copy()
@@ -202,7 +202,9 @@ def call_other_baselines(model, train_dataset, val_dataset, cell_line_input, dru
                 assert issubclass(type(model_instance.model), Ridge)
             else:
                 assert issubclass(type(model_instance.model), ElasticNet)
-        train_dataset.remove_rows(indices=[list(range(len(train_dataset)-1000))])  # smaller dataset for faster testing
+        train_dataset.remove_rows(
+            indices=[list(range(len(train_dataset) - 1000))]
+        )  # smaller dataset for faster testing
         model_instance.train(
             output=train_dataset,
             cell_line_input=cell_line_input,
