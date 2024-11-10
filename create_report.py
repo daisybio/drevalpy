@@ -3,6 +3,8 @@
 import argparse
 import os
 
+import pandas as pd
+
 from drevalpy.visualization import (
     CorrelationComparisonScatter,
     CriticalDifferencePlot,
@@ -14,8 +16,10 @@ from drevalpy.visualization import (
 from drevalpy.visualization.utils import create_html, create_index_html, parse_results, prep_results, write_results
 
 
-def create_output_directories(custom_id):
-    """If they do not exist yet, make directories for the visualization files.
+def create_output_directories(custom_id: str) -> None:
+    """
+    If they do not exist yet, make directories for the visualization files.
+
     :param custom_id: run id passed via command line
     """
     os.makedirs(f"results/{custom_id}/violin_plots", exist_ok=True)
@@ -26,13 +30,22 @@ def create_output_directories(custom_id):
     os.makedirs(f"results/{custom_id}/critical_difference_plots", exist_ok=True)
 
 
-def draw_setting_plots(lpo_lco_ldo, ev_res, ev_res_per_drug, ev_res_per_cell_line, custom_id):
-    """Draw all plots for a specific setting (LPO, LCO, LDO).
+def draw_setting_plots(
+    lpo_lco_ldo: str,
+    ev_res: pd.DataFrame,
+    ev_res_per_drug: pd.DataFrame,
+    ev_res_per_cell_line: pd.DataFrame,
+    custom_id: str,
+) -> list[str]:
+    """
+    Draw all plots for a specific setting (LPO, LCO, LDO).
+
     :param lpo_lco_ldo: setting
     :param ev_res: overall evaluation results
     :param ev_res_per_drug: evaluation results per drug
     :param ev_res_per_cell_line: evaluation results per cell line
     :param custom_id: run id passed via command line
+    :returns: list of unique algorithms
     """
     ev_res_subset = ev_res[ev_res["LPO_LCO_LDO"] == lpo_lco_ldo]
     # PIPELINE: SAVE_TABLES
@@ -99,8 +112,12 @@ def draw_setting_plots(lpo_lco_ldo, ev_res, ev_res_per_drug, ev_res_per_cell_lin
     return eval_results_preds["algorithm"].unique()
 
 
-def draw_per_grouping_setting_plots(grouping, ev_res_per_group, lpo_lco_ldo, custom_id):
-    """Draw plots for a specific grouping (drug or cell line) for a specific setting (LPO, LCO, LDO).
+def draw_per_grouping_setting_plots(
+    grouping: str, ev_res_per_group: pd.DataFrame, lpo_lco_ldo: str, custom_id: str
+) -> None:
+    """
+    Draw plots for a specific grouping (drug or cell line) for a specific setting (LPO, LCO, LDO).
+
     :param grouping: drug or cell_line
     :param ev_res_per_group: evaluation results per drug or per cell line
     :param lpo_lco_ldo: setting
@@ -132,15 +149,17 @@ def draw_per_grouping_setting_plots(grouping, ev_res_per_group, lpo_lco_ldo, cus
 
 
 def draw_algorithm_plots(
-    model,
-    ev_res,
-    ev_res_per_drug,
-    ev_res_per_cell_line,
-    t_vs_p,
-    lpo_lco_ldo,
-    custom_id,
-):
-    """Draw all plots for a specific algorithm.
+    model: str,
+    ev_res: pd.DataFrame,
+    ev_res_per_drug: pd.DataFrame,
+    ev_res_per_cell_line: pd.DataFrame,
+    t_vs_p: pd.DataFrame,
+    lpo_lco_ldo: str,
+    custom_id: str,
+) -> None:
+    """
+    Draw all plots for a specific algorithm.
+
     :param model: name of the model/algorithm
     :param ev_res: overall evaluation results
     :param ev_res_per_drug: evaluation results per drug
@@ -194,15 +213,17 @@ def draw_algorithm_plots(
 
 
 def draw_per_grouping_algorithm_plots(
-    grouping_slider,
-    grouping_scatter_table,
-    model,
-    ev_res_per_group,
-    t_v_p,
-    lpo_lco_ldo,
-    custom_id,
+    grouping_slider: str,
+    grouping_scatter_table: str,
+    model: str,
+    ev_res_per_group: pd.DataFrame,
+    t_v_p: pd.DataFrame,
+    lpo_lco_ldo: str,
+    custom_id: str,
 ):
-    """Draw plots for a specific grouping (drug or cell line) for a specific algorithm.
+    """
+    Draw plots for a specific grouping (drug or cell line) for a specific algorithm.
+
     :param grouping_slider: the grouping variable for the regression plots
     :param grouping_scatter_table: the grouping variable for the scatter plots.
             If grouping_slider is drug, this should be cell_line and vice versa

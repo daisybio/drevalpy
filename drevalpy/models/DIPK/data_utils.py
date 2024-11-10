@@ -36,10 +36,10 @@ def load_drug_feature_from_MolGNet(
     data_path: str,
     dataset_name: str,
 ) -> FeatureDataset:
-    
+
     def load_feature(file_path, sep="\t"):
         return np.array(pd.read_csv(file_path, index_col=0, sep=sep))
-    
+
     drug_path = os.path.join(data_path, dataset_name, "DIPK_features", "Drugs")
     drug_list = os.listdir(drug_path)
 
@@ -75,7 +75,9 @@ def get_data(cell_id, drug_id, cell_line_features, drug_features, ic50=None):
             edge_index=edge_index,
             edge_attr=edge_attr,
             GEF=torch.tensor(cell_line_features.features[cell_id[i]]["gene_expression_features"], dtype=torch.float32),
-            BNF=torch.tensor(cell_line_features.features[cell_id[i]]["biological_network_features"], dtype=torch.float32),
+            BNF=torch.tensor(
+                cell_line_features.features[cell_id[i]]["biological_network_features"], dtype=torch.float32
+            ),
         )
         if ic50 is not None:
             graph_data.ic50 = torch.tensor([ic50[i]], dtype=torch.float32)

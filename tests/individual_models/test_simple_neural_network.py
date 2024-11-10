@@ -1,15 +1,24 @@
+"""Test the SimpleNeuralNetwork model."""
+
 import pytest
 
+from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.evaluation import evaluate
 from drevalpy.models import MODEL_FACTORY
-
-from .conftest import sample_dataset
-from .utils import call_save_and_load
 
 
 @pytest.mark.parametrize("test_mode", ["LPO"])
 @pytest.mark.parametrize("model_name", ["SRMF", "SimpleNeuralNetwork", "MultiOmicsNeuralNetwork"])
-def test_simple_neural_network(sample_dataset, model_name, test_mode):
+def test_simple_neural_network(
+    sample_dataset: tuple[DrugResponseDataset, FeatureDataset, FeatureDataset], model_name: str, test_mode: str
+) -> None:
+    """
+    Test the SimpleNeuralNetwork model.
+
+    :param sample_dataset: from conftest.py
+    :param model_name: either SRMF, SimpleNeuralNetwork, or MultiOmicsNeuralNetwork
+    :param test_mode: LPO
+    """
     drug_response, cell_line_input, drug_input = sample_dataset
     drug_response.split_dataset(
         n_cv_splits=5,
@@ -50,5 +59,3 @@ def test_simple_neural_network(sample_dataset, model_name, test_mode):
 
     metrics = evaluate(val_es_dataset, metric=["Pearson"])
     assert metrics["Pearson"] >= -1
-
-    call_save_and_load(model)

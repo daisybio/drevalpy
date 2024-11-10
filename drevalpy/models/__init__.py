@@ -32,12 +32,14 @@ from .SRMF.srmf import SRMF
 from .SuperFELTR.superfeltr import SuperFELTR
 from .DIPK.DIPK import DIPK_Model
 
+# SINGLE_DRUG_MODEL_FACTORY is used in the pipeline!
 SINGLE_DRUG_MODEL_FACTORY = {
     "SingleDrugRandomForest": SingleDrugRandomForest,
     "MOLIR": MOLIR,
     "SuperFELTR": SuperFELTR,
 }
 
+# MULTI_DRUG_MODEL_FACTORY is used in the pipeline!
 MULTI_DRUG_MODEL_FACTORY = {
     "NaivePredictor": NaivePredictor,
     "NaiveDrugMeanPredictor": NaiveDrugMeanPredictor,
@@ -53,5 +55,6 @@ MULTI_DRUG_MODEL_FACTORY = {
     "DIPK": DIPK_Model,
 }
 
+# MODEL_FACTORY is used in the pipeline!
 MODEL_FACTORY = MULTI_DRUG_MODEL_FACTORY.copy()
 MODEL_FACTORY.update(SINGLE_DRUG_MODEL_FACTORY)

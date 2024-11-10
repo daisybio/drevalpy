@@ -11,8 +11,7 @@ import numpy as np
 
 from .model_utils import Predictor
 from .data_utils import (
-    get_train_data,
-    get_test_data,
+    get_data,
     GraphDataset,
     CollateFn,
     load_expression_and_network_features,
@@ -61,20 +60,28 @@ class DIPK_Model(DRPModel):
 
         # load data
         collate = CollateFn(train=True)
-        Gtrain = get_train_data(output.cell_line_ids, output.drug_ids, output.response, cell_line_input, drug_input)
-        train_loader = DataLoader(GraphDataset(Gtrain), batch_size=self.batch_size, shuffle=True, collate_fn=collate)
+        graphs_train = get_data(
+            cell_id=output.cell_line_ids,
+            drug_id=output.drug_ids,
+            cell_line_features=cell_line_input,
+            drug_features=drug_input,
+            ic50=output.response,
+        )
+        train_loader = DataLoader(
+            GraphDataset(graphs_train), batch_size=self.batch_size, shuffle=True, collate_fn=collate
+        )
 
         # train model
         for epoch in range(self.EPOCHS):
             self.model.train()
             epoch_loss = 0
-            for it, (pyg_batch, GeneFt, BionicFt) in enumerate(train_loader):
-                pyg_batch, GeneFt, BionicFt = (
+            for it, (pyg_batch, gene_features, bionic_features) in enumerate(train_loader):
+                pyg_batch, gene_features, bionic_features = (
                     pyg_batch.to(self.DEVICE),
-                    GeneFt.to(self.DEVICE),
-                    BionicFt.to(self.DEVICE),
+                    gene_features.to(self.DEVICE),
+                    bionic_features.to(self.DEVICE),
                 )
-                prediction = self.model(pyg_batch.x, pyg_batch, GeneFt, BionicFt)
+                prediction = self.model(pyg_batch.x, pyg_batch, gene_features, bionic_features)
                 loss = loss_func(torch.squeeze(prediction), pyg_batch.ic50)
                 optimizer.zero_grad()
                 loss.backward()
@@ -92,20 +99,22 @@ class DIPK_Model(DRPModel):
 
         # load data
         collate = CollateFn(train=False)
-        Gtest = get_test_data(cell_line_ids, drug_ids, cell_line_input, drug_input)
+        Gtest = get_data(
+            cell_id=cell_line_ids, drug_id=drug_ids, cell_line_features=cell_line_input, drug_features=drug_input
+        )
         test_loader = DataLoader(GraphDataset(Gtest), batch_size=self.batch_size, shuffle=False, collate_fn=collate)
 
         # run prediction
         self.model.eval()
         test_pre = []
         with torch.no_grad():
-            for it, (pyg_batch, GeneFt, BionicFt) in enumerate(test_loader):
-                pyg_batch, GeneFt, BionicFt = (
+            for it, (pyg_batch, gene_features, bionic_features) in enumerate(test_loader):
+                pyg_batch, gene_features, bionic_features = (
                     pyg_batch.to(self.DEVICE),
-                    GeneFt.to(self.DEVICE),
-                    BionicFt.to(self.DEVICE),
+                    gene_features.to(self.DEVICE),
+                    bionic_features.to(self.DEVICE),
                 )
-                prediction = self.model(pyg_batch.x, pyg_batch, GeneFt, BionicFt)
+                prediction = self.model(pyg_batch.x, pyg_batch, gene_features, bionic_features)
                 test_pre += torch.squeeze(prediction).cpu().tolist()
 
         return test_pre

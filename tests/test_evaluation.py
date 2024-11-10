@@ -1,3 +1,5 @@
+"""Tests for evaluation.py."""
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -8,7 +10,8 @@ from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.evaluation import evaluate, kendall, partial_correlation, pearson, spearman
 
 
-def test_evaluate():
+def test_evaluate() -> None:
+    """Test the evaluate function."""
     # Create mock dataset
     predictions = np.array([1, 2, 3, 4, 5])
     response = np.array([1.1, 2.2, 3.3, 4.4, 5.5])
@@ -37,7 +40,12 @@ def test_evaluate():
 
 # Mock dataset generation function
 @pytest.fixture
-def generate_mock_data_drug_mean():
+def generate_mock_data_drug_mean() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Generate mock data with a mean response per drug.
+
+    :returns: response, cell_line_ids, drug_ids
+    """
     response_list = []
     drug_ids = []
     cell_line_ids = []
@@ -52,34 +60,59 @@ def generate_mock_data_drug_mean():
 
 
 @pytest.fixture
-def generate_mock_data_constant_prediction():
+def generate_mock_data_constant_prediction() -> tuple[np.ndarray, np.ndarray]:
+    """
+    Generate mock data with constant prediction.
+
+    :returns: y_pred, response
+    """
     response = np.arange(2e6)
     y_pred = np.ones_like(response, dtype=float)
     return y_pred, response
 
 
 @pytest.fixture
-def generate_mock_anticorrelated_data():
+def generate_mock_anticorrelated_data() -> tuple[np.ndarray, np.ndarray]:
+    """
+    Generate mock data with anticorrelated prediction.
+
+    :returns: y_pred, response
+    """
     response = np.arange(2e6, 0, -1)
     y_pred = response[::-1]
     return y_pred, response
 
 
 @pytest.fixture
-def generate_mock_uncorrelated_data():
+def generate_mock_uncorrelated_data() -> tuple[np.ndarray, np.ndarray]:
+    """
+    Generate mock data with uncorrelated prediction.
+
+    :returns: y_pred, response
+    """
     response = np.arange(2e6)
     y_pred = np.random.permutation(response)
     return y_pred, response
 
 
 @pytest.fixture
-def generate_mock_correlated_data():
+def generate_mock_correlated_data() -> tuple[np.ndarray, np.ndarray]:
+    """
+    Generate mock data with correlated prediction.
+
+    :returns: y_pred, response
+    """
     response = np.arange(2e6)
     y_pred = response
     return y_pred, response
 
 
-def test_partial_correlation(generate_mock_data_drug_mean):
+def test_partial_correlation(generate_mock_data_drug_mean: tuple[np.ndarray, np.ndarray, np.ndarray]) -> None:
+    """
+    Test the partial correlation function.
+
+    :param generate_mock_data_drug_mean: mock data generator
+    """
     response, cell_line_ids, drug_ids = generate_mock_data_drug_mean
 
     df = pd.DataFrame(
@@ -102,14 +135,24 @@ def test_partial_correlation(generate_mock_data_drug_mean):
         assert np.isclose(pc, 0.0, atol=0.1)
 
 
-def test_pearson_correlated(generate_mock_correlated_data):
+def test_pearson_correlated(generate_mock_correlated_data: tuple[np.ndarray, np.ndarray]) -> None:
+    """
+    Test the pearson correlation function.
+
+    :param generate_mock_correlated_data: mock data generator
+    """
     y_pred, response = generate_mock_correlated_data
 
     pc = pearson(y_pred, response)
     assert bool(np.isclose(pc, 1.0, atol=1e-3))
 
 
-def test_pearson_anticorrelated(generate_mock_anticorrelated_data):
+def test_pearson_anticorrelated(generate_mock_anticorrelated_data: tuple[np.ndarray, np.ndarray]) -> None:
+    """
+    Test the pearson correlation function.
+
+    :param generate_mock_anticorrelated_data: mock data generator
+    """
     y_pred, response = generate_mock_anticorrelated_data
 
     pc = pearson(y_pred, response)
@@ -117,21 +160,36 @@ def test_pearson_anticorrelated(generate_mock_anticorrelated_data):
 
 
 @flaky(max_runs=3)
-def test_pearson_uncorrelated(generate_mock_uncorrelated_data):
+def test_pearson_uncorrelated(generate_mock_uncorrelated_data: tuple[np.ndarray, np.ndarray]) -> None:
+    """
+    Test the pearson correlation function.
+
+    :param generate_mock_uncorrelated_data: mock data generator
+    """
     y_pred, response = generate_mock_uncorrelated_data
 
     pc = pearson(y_pred, response)
     assert bool(np.isclose(pc, 0.0, atol=1e-3))
 
 
-def test_spearman_correlated(generate_mock_correlated_data):
+def test_spearman_correlated(generate_mock_correlated_data: tuple[np.ndarray, np.ndarray]) -> None:
+    """
+    Test the spearman correlation function.
+
+    :param generate_mock_correlated_data: mock data generator
+    """
     y_pred, response = generate_mock_correlated_data
 
     sp = spearman(y_pred, response)
     assert bool(np.isclose(sp, 1.0, atol=1e-3))
 
 
-def test_spearman_anticorrelated(generate_mock_anticorrelated_data):
+def test_spearman_anticorrelated(generate_mock_anticorrelated_data: tuple[np.ndarray, np.ndarray]) -> None:
+    """
+    Test the spearman correlation function.
+
+    :param generate_mock_anticorrelated_data: mock data generator
+    """
     y_pred, response = generate_mock_anticorrelated_data
 
     sp = spearman(y_pred, response)
@@ -139,7 +197,12 @@ def test_spearman_anticorrelated(generate_mock_anticorrelated_data):
 
 
 @flaky(max_runs=3)
-def test_spearman_uncorrelated(generate_mock_uncorrelated_data):
+def test_spearman_uncorrelated(generate_mock_uncorrelated_data: tuple[np.ndarray, np.ndarray]) -> None:
+    """
+    Test the spearman correlation function.
+
+    :param generate_mock_uncorrelated_data: mock data generator
+    """
     y_pred, response = generate_mock_uncorrelated_data
 
     sp = spearman(y_pred, response)
@@ -147,14 +210,24 @@ def test_spearman_uncorrelated(generate_mock_uncorrelated_data):
     assert bool(np.isclose(sp, 0.0, atol=1e-3))
 
 
-def test_kendall_correlated(generate_mock_correlated_data):
+def test_kendall_correlated(generate_mock_correlated_data: tuple[np.ndarray, np.ndarray]) -> None:
+    """
+    Test the kendall correlation function.
+
+    :param generate_mock_correlated_data: mock data generator
+    """
     y_pred, response = generate_mock_correlated_data
 
     kd = kendall(y_pred, response)
     assert bool(np.isclose(kd, 1.0, atol=1e-3))
 
 
-def test_kendall_anticorrelated(generate_mock_anticorrelated_data):
+def test_kendall_anticorrelated(generate_mock_anticorrelated_data: tuple[np.ndarray, np.ndarray]) -> None:
+    """
+    Test the kendall correlation function.
+
+    :param generate_mock_anticorrelated_data: mock data generator
+    """
     y_pred, response = generate_mock_anticorrelated_data
 
     kd = kendall(y_pred, response)
@@ -163,6 +236,11 @@ def test_kendall_anticorrelated(generate_mock_anticorrelated_data):
 
 @flaky(max_runs=3)
 def test_kendall_uncorrelated(generate_mock_uncorrelated_data):
+    """
+    Test the kendall correlation function.
+
+    :param generate_mock_uncorrelated_data: mock data generator
+    """
     y_pred, response = generate_mock_uncorrelated_data
 
     kd = kendall(y_pred, response)
@@ -170,8 +248,13 @@ def test_kendall_uncorrelated(generate_mock_uncorrelated_data):
 
 
 def test_correlations_constant_prediction(
-    generate_mock_data_constant_prediction,
-):
+    generate_mock_data_constant_prediction: tuple[np.ndarray, np.ndarray]
+) -> None:
+    """
+    Test the correlation functions with constant prediction.
+
+    :param generate_mock_data_constant_prediction: mock data generator
+    """
     y_pred, response = generate_mock_data_constant_prediction
     pc = pearson(y_pred, response)
     sp = spearman(y_pred, response)

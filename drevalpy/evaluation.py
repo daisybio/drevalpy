@@ -10,6 +10,7 @@ from scipy.stats import kendalltau, pearsonr, spearmanr
 from sklearn import metrics
 
 from .datasets.dataset import DrugResponseDataset
+from .pipeline_function import pipeline_function
 
 warning_shown = False
 constant_prediction_warning_shown = False
@@ -190,6 +191,7 @@ AVAILABLE_METRICS = {
     "Kendall": kendall,
     "Partial_Correlation": partial_correlation,
 }
+# both used by pipeline!
 MINIMIZATION_METRICS = ["MSE", "RMSE", "MAE"]
 MAXIMIZATION_METRICS = [
     "R^2",
@@ -219,6 +221,7 @@ def get_mode(metric: str):
     return mode
 
 
+@pipeline_function
 def evaluate(dataset: DrugResponseDataset, metric: Union[list[str], str]):
     """
     Evaluates the model on the given dataset.

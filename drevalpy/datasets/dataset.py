@@ -25,6 +25,7 @@ from numpy.typing import ArrayLike
 from sklearn.base import TransformerMixin
 from sklearn.model_selection import GroupKFold, train_test_split
 
+from ..pipeline_function import pipeline_function
 from .utils import permute_features, randomize_graph
 
 
@@ -51,6 +52,7 @@ class Dataset(ABC):
 class DrugResponseDataset(Dataset):
     """Drug response dataset."""
 
+    @pipeline_function
     def __init__(
         self,
         response: Optional[np.ndarray] = None,
@@ -80,6 +82,7 @@ class DrugResponseDataset(Dataset):
                 raise AssertionError("response and cell_line_ids have different lengths")
             if len(self.response) != len(self.drug_ids):
                 raise AssertionError("response and drug_ids/cell_line_ids have different lengths")
+            # Used in the pipeline!
             self.dataset_name = dataset_name
         else:
             self.response = response
@@ -173,6 +176,7 @@ class DrugResponseDataset(Dataset):
             out["predictions"] = self.predictions
         out.to_csv(path, index=False)
 
+    @pipeline_function
     def add_rows(self, other: "DrugResponseDataset") -> None:
         """
         Adds rows from another dataset.
@@ -186,6 +190,7 @@ class DrugResponseDataset(Dataset):
         if self.predictions is not None and other.predictions is not None:
             self.predictions = np.concatenate([self.predictions, other.predictions])
 
+    @pipeline_function
     def remove_nan_responses(self) -> None:
         """Removes rows with NaN values in the response."""
         mask = np.isnan(self.response)
@@ -195,6 +200,7 @@ class DrugResponseDataset(Dataset):
         if self.predictions is not None:
             self.predictions = self.predictions[~mask]
 
+    @pipeline_function
     def shuffle(self, random_state: int = 42) -> None:
         """
         Shuffles the dataset.
@@ -263,6 +269,7 @@ class DrugResponseDataset(Dataset):
         if cell_line_ids is not None:
             self._remove_cell_lines(list(set(self.cell_line_ids) - set(cell_line_ids)))
 
+    @pipeline_function
     def split_dataset(
         self,
         n_cv_splits: int,

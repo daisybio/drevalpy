@@ -1,3 +1,5 @@
+"""Module for generating regression plots with a slider for Pearson correlation coefficient."""
+
 from typing import TextIO
 
 import numpy as np
@@ -5,10 +7,14 @@ import pandas as pd
 import plotly.express as px
 from scipy.stats import pearsonr
 
-from drevalpy.visualization.outplot import OutPlot
+from ..pipeline_function import pipeline_function
+from .outplot import OutPlot
 
 
 class RegressionSliderPlot(OutPlot):
+    """Generates regression plots with a slider for the Pearson correlation coefficient."""
+
+    @pipeline_function
     def __init__(
         self,
         df: pd.DataFrame,
@@ -17,6 +23,15 @@ class RegressionSliderPlot(OutPlot):
         group_by: str = "drug",
         normalize=False,
     ):
+        """
+        Initialize the RegressionSliderPlot class.
+
+        :param df: true vs. predicted values
+        :param lpo_lco_ldo: setting, e.g., LPO
+        :param model: model name
+        :param group_by: either "drug" or "cell_line"
+        :param normalize: whether to normalize the true and predicted values by the mean of the group
+        """
         self.df = df[(df["LPO_LCO_LDO"] == lpo_lco_ldo) & (df["rand_setting"] == "predictions")]
         self.df = self.df[(self.df["algorithm"] == model)]
         self.group_by = group_by
@@ -32,21 +47,38 @@ class RegressionSliderPlot(OutPlot):
                 self.df.loc[:, "y_true"] = self.df["y_true"] - self.df["mean_y_true_per_cell_line"]
                 self.df.loc[:, "y_pred"] = self.df["y_pred"] - self.df["mean_y_true_per_cell_line"]
 
+    @pipeline_function
     def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
-        self.__draw__()
+        """
+        Draw the regression plot and save it to a file.
+
+        :param out_prefix: e.g., results/my_run/regression_plots/
+        :param out_suffix: e.g., LPO_drug_SimpleNeuralNetwork
+        """
+        self._draw()
         self.fig.write_html(f"{out_prefix}regression_lines_{out_suffix}.html")
 
-    def __draw__(self):
+    def _draw(self):
+        """Draw the regression plot."""
         print(f"Generating regression plots for {self.group_by}, normalize={self.normalize}...")
         self.df = self.df.groupby(self.group_by).filter(lambda x: len(x) > 1)
         pccs = self.df.groupby(self.group_by).apply(lambda x: pearsonr(x["y_true"], x["y_pred"])[0])
         pccs = pccs.reset_index()
         pccs.columns = [self.group_by, "pcc"]
         self.df = self.df.merge(pccs, on=self.group_by)
-        self.__render_plot__()
+        self._render_plot()
 
     @staticmethod
     def write_to_html(lpo_lco_ldo: str, f: TextIO, *args, **kwargs) -> TextIO:
+        """
+        Write the plot to the final report file.
+
+        :param lpo_lco_ldo: setting, e.g., LPO
+        :param f: final report file
+        :param args: additional arguments
+        :param kwargs: additional keyword arguments, in this case all files
+        :return: the final report file
+        """
         files = kwargs.get("files")
         f.write('<h2 id="regression_plots">Regression plots</h2>\n')
         f.write("<ul>\n")
@@ -57,7 +89,8 @@ class RegressionSliderPlot(OutPlot):
         f.write("</ul>\n")
         return f
 
-    def __render_plot__(self):
+    def _render_plot(self):
+        """Render the regression plot."""
         # sort df by group name
         df = self.df.sort_values(self.group_by)
         setting_title = self.model + " " + df["LPO_LCO_LDO"].unique()[0]
@@ -98,9 +131,14 @@ class RegressionSliderPlot(OutPlot):
         max_val = np.max([np.max(df["y_true"]), np.max(df["y_pred"])])
         self.fig.update_xaxes(range=[min_val, max_val])
         self.fig.update_yaxes(range=[min_val, max_val])
-        self.__make_slider__(setting_title)
+        self._make_slider(setting_title)
 
-    def __make_slider__(self, setting_title):
+    def _make_slider(self, setting_title: str) -> None:
+        """
+        Make a slider for the Pearson correlation coefficient.
+
+        :param setting_title: title of the plot
+        """
         n_ticks = 21
         steps = []
         # take the range from pcc (-1 - 1) and divide it into n_ticks-1 equal parts

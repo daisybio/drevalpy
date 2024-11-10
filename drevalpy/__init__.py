@@ -1,1 +1,1 @@
-"""Module containing the drevalpy suite"""
+"""Module containing the drevalpy suite."""
