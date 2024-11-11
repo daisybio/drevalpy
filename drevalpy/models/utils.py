@@ -167,6 +167,7 @@ def get_multiomics_feature_dataset(
                     dataset_name=dataset_name,
                 )
             )
+    assert feature_dataset is not None
     return feature_dataset
 
 

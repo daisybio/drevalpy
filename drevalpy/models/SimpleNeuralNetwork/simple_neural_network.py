@@ -44,10 +44,10 @@ class SimpleNeuralNetwork(DRPModel):
     def train(
         self,
         output: DrugResponseDataset,
-        cell_line_input: FeatureDataset = None,
-        drug_input: FeatureDataset = None,
+        cell_line_input: Optional[FeatureDataset],
+        drug_input: Optional[FeatureDataset] = None,
         output_earlystopping: Optional[DrugResponseDataset] = None,
-    ):
+    ) -> None:
         """
         First scales the gene expression data and trains the model.
 
