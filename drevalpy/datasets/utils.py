@@ -116,6 +116,7 @@ def permute_features(
     :param all_views: list of all views
     :return: permuted features
     """
+    identifiers = np.array(identifiers)
     return {
         entity: {
             view: (features[entity][view] if view not in views_to_permute else features[other_entity][view])

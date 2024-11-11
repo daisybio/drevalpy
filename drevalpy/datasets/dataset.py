@@ -16,12 +16,12 @@ The FeatureDataset class can be used to randomize feature vectors.
 import copy
 import os
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Optional, Union
+from typing import Any, Callable,List, Optional, Union
 
 import networkx as nx
 import numpy as np
 import pandas as pd
-from numpy.typing import ArrayLike
+from numpy.typing import NDArray
 from sklearn.base import TransformerMixin
 from sklearn.model_selection import GroupKFold, train_test_split
 
@@ -55,10 +55,10 @@ class DrugResponseDataset(Dataset):
     @pipeline_function
     def __init__(
         self,
-        response: Optional[np.ndarray] = None,
-        cell_line_ids: Optional[np.ndarray] = None,
-        drug_ids: Optional[np.ndarray] = None,
-        predictions: Optional[np.ndarray] = None,
+        response: np.ndarray,
+        cell_line_ids: np.ndarray,
+        drug_ids: np.ndarray,
+        predictions: Optional[np.ndarray]= None,
         dataset_name: Optional[str] = None,
     ) -> None:
         """
@@ -74,29 +74,25 @@ class DrugResponseDataset(Dataset):
         :raises AssertionError: if predictions and response have different lengths
         """
         super().__init__()
-        if response is not None:
-            self.response = np.array(response)
-            self.cell_line_ids = np.array(cell_line_ids)
-            self.drug_ids = np.array(drug_ids)
-            if len(self.response) != len(self.cell_line_ids):
-                raise AssertionError("response and cell_line_ids have different lengths")
-            if len(self.response) != len(self.drug_ids):
-                raise AssertionError("response and drug_ids/cell_line_ids have different lengths")
-            # Used in the pipeline!
-            self.dataset_name = dataset_name
-        else:
-            self.response = response
-            self.cell_line_ids = cell_line_ids
-            self.drug_ids = drug_ids
-            self.dataset_name = dataset_name
 
+        self.response = np.array(response)
+        self.cell_line_ids = np.array(cell_line_ids)
+        self.drug_ids = np.array(drug_ids)
+        if len(self.response) != len(self.cell_line_ids):
+            raise AssertionError("response and cell_line_ids have different lengths")
+        if len(self.response) != len(self.drug_ids):
+            raise AssertionError("response and drug_ids/cell_line_ids have different lengths")
+        # Used in the pipeline!
+        self.dataset_name = dataset_name
+
+
+        self.predictions: Optional[np.ndarray] = None
         if predictions is not None:
             self.predictions = np.array(predictions)
             if len(self.predictions) != len(self.response):
                 raise AssertionError("predictions and response have different lengths")
-        else:
-            self.predictions = None
-        self.cv_splits = None
+            
+        self.cv_splits: Optional[List] = None
 
     def __len__(self) -> int:
         """
@@ -244,7 +240,7 @@ class DrugResponseDataset(Dataset):
         self.cell_line_ids = self.cell_line_ids[mask]
         self.response = self.response[mask]
 
-    def remove_rows(self, indices: ArrayLike) -> None:
+    def remove_rows(self, indices: NDArray) -> None:
         """
         Removes rows from the dataset.
 
@@ -256,7 +252,7 @@ class DrugResponseDataset(Dataset):
         if self.predictions is not None:
             self.predictions = np.delete(self.predictions, indices)
 
-    def reduce_to(self, cell_line_ids: Optional[ArrayLike], drug_ids: Optional[ArrayLike]) -> None:
+    def reduce_to(self, cell_line_ids: Optional[NDArray], drug_ids: Optional[NDArray]) -> None:
         """
         Removes all rows which contain a cell_line not in cell_line_ids or a drug not in drug_ids.
 
@@ -501,9 +497,9 @@ def _split_early_stopping_data(
 
 def _leave_pair_out_cv(
     n_cv_splits: int,
-    response: ArrayLike,
-    cell_line_ids: ArrayLike,
-    drug_ids: ArrayLike,
+    response: NDArray,
+    cell_line_ids: NDArray,
+    drug_ids: NDArray,
     split_validation=True,
     validation_ratio=0.1,
     random_state=42,
@@ -578,9 +574,9 @@ def _leave_pair_out_cv(
 def _leave_group_out_cv(
     group: str,
     n_cv_splits: int,
-    response: ArrayLike,
-    cell_line_ids: ArrayLike,
-    drug_ids: ArrayLike,
+    response: NDArray,
+    cell_line_ids: NDArray,
+    drug_ids: NDArray,
     split_validation=True,
     validation_ratio=0.1,
     random_state=42,
@@ -685,13 +681,11 @@ class FeatureDataset(Dataset):
         super().__init__()
         self.features = features
         self.view_names = self.get_view_names()
+        self.meta_info = meta_info
         if meta_info is not None:
             # assert that str of meta Dict[str, Any] is in view_names
             if not all(meta_key in self.view_names for meta_key in meta_info.keys()):
                 raise AssertionError(f"Meta keys {meta_info.keys()} not in view names {self.view_names}")
-            self.meta_info = meta_info
-        else:
-            self.meta_info = None
         self.identifiers = self.get_ids()
 
     def save(self, path: str):
@@ -785,7 +779,7 @@ class FeatureDataset(Dataset):
         """
         return list(self.features[list(self.features.keys())[0]].keys())
 
-    def get_feature_matrix(self, view: str, identifiers: ArrayLike) -> np.ndarray:
+    def get_feature_matrix(self, view: str, identifiers: NDArray) -> np.ndarray:
         """
         Returns the feature matrix for the given view.
 
@@ -858,9 +852,13 @@ class FeatureDataset(Dataset):
         :param other: other dataset
         """
         other_meta = other.meta_info
-        self.meta_info.update(other_meta)
+        if self.meta_info is None:
+            self.meta_info = other_meta
+        else:
+            if other_meta is not None:
+                self.meta_info.update(other_meta)
 
-    def transform_features(self, ids: ArrayLike, transformer: TransformerMixin, view: str):
+    def transform_features(self, ids: NDArray, transformer: TransformerMixin, view: str):
         """
         Applies a transformation like standard scaling to features.
 
@@ -884,7 +882,9 @@ class FeatureDataset(Dataset):
             scaled_feature_vector = transformer.transform([feature_vector])[0]
             self.features[identifier][view] = scaled_feature_vector
 
-    def fit_transform_features(self, train_ids: ArrayLike, transformer: TransformerMixin, view: str):
+    def fit_transform_features(
+        self, train_ids: Union[NDArray, list[str]], transformer: TransformerMixin, view: str
+    ):
         """
         Fits and applies a transformation. Fitting is done only on the train_ids.
 
@@ -909,8 +909,8 @@ class FeatureDataset(Dataset):
             train_features.append(feature_vector)
 
         # Fit the scaler on the collected feature data
-        train_features = np.vstack(train_features)
-        transformer.fit(train_features)
+        stacked_train_features = np.vstack(train_features)
+        transformer.fit(stacked_train_features)
 
         # Apply transformation and scaling to each feature vector
         for identifier in self.features:

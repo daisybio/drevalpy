@@ -228,7 +228,7 @@ class DRPModel(ABC):
                 if drug_view not in drug_input.get_view_names():
                     raise ValueError(f"Drug input does not contain view {drug_view}")
                 drug_feature_matrices[drug_view] = drug_input.get_feature_matrix(view=drug_view, identifiers=drug_ids)
-        
+
         return {**cell_line_feature_matrices, **drug_feature_matrices}
 
 

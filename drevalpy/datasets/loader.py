@@ -105,6 +105,6 @@ def load_dataset(dataset_name: str, path_data: str = "data") -> DrugResponseData
     :raises ValueError: If the dataset name is unknown.
     """
     if dataset_name in AVAILABLE_DATASETS:
-        return AVAILABLE_DATASETS[dataset_name](path_data)
+        return AVAILABLE_DATASETS[dataset_name](path_data) # type: ignore
     else:
         raise ValueError(f"Unknown dataset name: {dataset_name}")
