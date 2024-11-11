@@ -91,7 +91,7 @@ def _write_gene_list(temp_dir: tempfile.TemporaryDirectory, gene_list: Optional[
         "gene_list_paccmann_network_prop",
     ],
 )
-def test_load_and_reduce_gene_features(gene_list: Optional[str] = None) -> None:
+def test_load_and_reduce_gene_features(gene_list: Optional[str]) -> None:
     """
     Test the loading and reduction of gene features.
 
@@ -206,7 +206,7 @@ def test_load_drugs_from_fingerprints() -> None:
         "gene_list_paccmann_network_prop",
     ],
 )
-def test_get_multiomics_feature_dataset(gene_list: Optional[str] = None) -> None:
+def test_get_multiomics_feature_dataset(gene_list: Optional[str]) -> None:
     """
     Test the loading of multiomics features.
 
