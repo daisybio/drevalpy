@@ -67,6 +67,7 @@ def parse_results(path_to_results: str) -> tuple[pd.DataFrame, pd.DataFrame, pd.
     # read every result file and compute the evaluation metrics
     for file in result_files:
         rel_file = file.relative_to(result_dir)
+        print(f'Evaluating file: "{os.path.normpath(rel_file)}" ...')
         file_parts = os.path.normpath(rel_file).split("/")
         lpo_lco_ldo = file_parts[0]
         algorithm = file_parts[1]
