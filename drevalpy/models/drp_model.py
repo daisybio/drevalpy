@@ -121,10 +121,10 @@ class DRPModel(ABC):
     @abstractmethod
     def predict(
         self,
-        drug_ids: str | np.ndarray,
-        cell_line_ids: str | np.ndarray,
-        drug_input: FeatureDataset = None,
-        cell_line_input: FeatureDataset = None,
+        drug_ids: str | np.ndarray | None,
+        cell_line_ids: str | np.ndarray | None,
+        drug_input: FeatureDataset | None = None,
+        cell_line_input: FeatureDataset | None = None,
     ) -> np.ndarray:
         """
         Predicts the response for the given input.

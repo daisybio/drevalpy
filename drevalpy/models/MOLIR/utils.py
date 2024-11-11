@@ -243,7 +243,7 @@ class MOLIRegressor(nn.Module):
     activation function. After the three encoders, the encoded features are concatenated and fed into the regressor.
     """
 
-    def __init__(self, input_size: int, dropout_rate: int) -> None:
+    def __init__(self, input_size: int, dropout_rate: float) -> None:
         """
         Initializes the regressor for the MOLIR model.
 

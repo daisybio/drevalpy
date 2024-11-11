@@ -58,8 +58,8 @@ class NaivePredictor(DRPModel):
         self,
         drug_ids=None,
         cell_line_ids: np.ndarray = None,
-        drug_input: FeatureDataset = None,
-        cell_line_input: FeatureDataset = None,
+        drug_input=None,
+        cell_line_input=None,
     ) -> np.ndarray:
         """
         Predicts the dataset mean for each drug-cell line combination.

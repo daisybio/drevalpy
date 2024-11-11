@@ -142,13 +142,13 @@ class DrugResponseDataset(Dataset):
         return pd.DataFrame(data)
 
     @staticmethod
-    def load(path: str, dataset_name: Optional[str] = None):
+    def load(path: str, dataset_name: Optional[str] = None) -> "DrugResponseDataset":
         """
         Loads the drug response dataset from data.
 
         :param path: path to the dataset
         :param dataset_name: name of the dataset
-        :returns: DrugResponseDataset containing response, cell line IDs, and drug IDs
+        :returns: the drug response dataset
         """
         data = pd.read_csv(path)
         response = data["response"].values
