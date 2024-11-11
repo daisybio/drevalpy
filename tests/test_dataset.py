@@ -30,8 +30,7 @@ def test_response_dataset_load() -> None:
     dataset.save("dataset.csv")
     del dataset
     # Load the dataset
-    dataset = DrugResponseDataset()
-    dataset.load("dataset.csv")
+    dataset = DrugResponseDataset.load("dataset.csv")
 
     os.remove("dataset.csv")
 
@@ -521,7 +520,7 @@ def test_feature_dataset_save_and_load(sample_dataset: FeatureDataset) -> None:
         sample_dataset.save(path=tmp.name)
 
     with pytest.raises(NotImplementedError):
-        sample_dataset.load(path=tmp.name)
+        DrugResponseDataset.load(path=tmp.name)
 
 
 def test_add_features(sample_dataset: FeatureDataset, graph_dataset: FeatureDataset) -> None:
