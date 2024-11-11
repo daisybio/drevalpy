@@ -428,7 +428,7 @@ class DrugResponseDataset(Dataset):
             )
         )
 
-    def mask(self, mask: list[bool]) -> None:
+    def mask(self, mask: np.ndarray) -> None:
         """
         Removes rows from the dataset based on a boolean mask.
 

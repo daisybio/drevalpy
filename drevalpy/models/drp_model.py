@@ -105,9 +105,9 @@ class DRPModel(ABC):
     def train(
         self,
         output: DrugResponseDataset,
-        cell_line_input: Optional[FeatureDataset],
-        drug_input: Optional[FeatureDataset] = None,
-        output_earlystopping: Optional[DrugResponseDataset] = None,
+        cell_line_input: FeatureDataset | None,
+        drug_input: FeatureDataset | None = None,
+        output_earlystopping: DrugResponseDataset | None = None,
     ) -> None:
         """
         Trains the model.
