@@ -106,7 +106,7 @@ class DRPModel(ABC):
     def train(
         self,
         output: DrugResponseDataset,
-        cell_line_input: FeatureDataset,
+        cell_line_input: Optional[FeatureDataset],
         drug_input: Optional[FeatureDataset] = None,
         output_earlystopping: Optional[DrugResponseDataset] = None,
     ) -> None:
@@ -124,8 +124,8 @@ class DRPModel(ABC):
         self,
         drug_ids: ArrayLike,
         cell_line_ids: ArrayLike,
-        drug_input: FeatureDataset = None,
-        cell_line_input: FeatureDataset = None,
+        drug_input: Optional[FeatureDataset] = None,
+        cell_line_input: Optional[FeatureDataset] = None,
     ) -> np.ndarray:
         """
         Predicts the response for the given input.
@@ -148,7 +148,7 @@ class DRPModel(ABC):
         """
 
     @abstractmethod
-    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+    def load_drug_features(self, data_path: str, dataset_name: str) -> Optional[FeatureDataset]:
         """
         Load the drug features.
 
@@ -159,7 +159,7 @@ class DRPModel(ABC):
 
     def get_concatenated_features(
         self,
-        cell_line_view: str,
+        cell_line_view: Optional[str],
         drug_view: Optional[str],
         cell_line_ids_output: ArrayLike,
         drug_ids_output: ArrayLike,
@@ -184,8 +184,8 @@ class DRPModel(ABC):
             cell_line_input=cell_line_input,
             drug_input=drug_input,
         )
-        cell_line_features = inputs.get(cell_line_view)
-        drug_features = inputs.get(drug_view)
+        cell_line_features = None if cell_line_view is None else inputs.get(cell_line_view)
+        drug_features = None if drug_view is None else inputs.get(drug_view)
 
         if cell_line_features is not None and drug_features is not None:
             x = np.concatenate((cell_line_features, drug_features), axis=1)
@@ -228,7 +228,7 @@ class DRPModel(ABC):
                 if drug_view not in drug_input.get_view_names():
                     raise ValueError(f"Drug input does not contain view {drug_view}")
                 drug_feature_matrices[drug_view] = drug_input.get_feature_matrix(view=drug_view, identifiers=drug_ids)
-
+        
         return {**cell_line_feature_matrices, **drug_feature_matrices}
 
 
@@ -238,7 +238,7 @@ class SingleDrugModel(DRPModel, ABC):
     early_stopping = False
     drug_views = []
 
-    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+    def load_drug_features(self, data_path: str, dataset_name: str) -> Optional[FeatureDataset]:
         """
         Load the drug features, unnecessary for single drug models, so this function is overwritten.
 

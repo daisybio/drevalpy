@@ -45,10 +45,10 @@ class SimpleNeuralNetwork(DRPModel):
     def train(
         self,
         output: DrugResponseDataset,
-        cell_line_input: FeatureDataset = None,
-        drug_input: FeatureDataset = None,
+        cell_line_input: FeatureDataset,
+        drug_input: FeatureDataset,
         output_earlystopping: Optional[DrugResponseDataset] = None,
-    ):
+    ) -> None:
         """
         First scales the gene expression data and trains the model.
 
@@ -98,8 +98,8 @@ class SimpleNeuralNetwork(DRPModel):
         self,
         drug_ids: ArrayLike,
         cell_line_ids: ArrayLike,
-        drug_input: FeatureDataset = None,
-        cell_line_input: FeatureDataset = None,
+        drug_input: FeatureDataset,
+        cell_line_input: FeatureDataset,
     ) -> np.ndarray:
         """
         Predicts the response for the given input.
