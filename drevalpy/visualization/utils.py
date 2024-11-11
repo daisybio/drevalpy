@@ -51,10 +51,12 @@ def parse_results(path_to_results: str) -> tuple[pd.DataFrame, pd.DataFrame, pd.
     result_files = list(result_dir.rglob("*.csv"))
     # filter for all files that follow this pattern:
     # result_dir/*/{predictions|cross_study|randomization|robustness}/*.csv
+    # Convert the path to a forward-slash version for the regex (for Windows)
+    result_dir_str = str(result_dir).replace("\\", "/")
     pattern = re.compile(
-        rf"{result_dir}/(LPO|LCO|LDO)/[^/]+/(predictions|cross_study|randomization|robustness)/.*\.csv$"
+        rf"{result_dir_str}/(LPO|LCO|LDO)/[^/]+/(predictions|cross_study|randomization|robustness)/.*\.csv$"
     )
-    result_files = [file for file in result_files if pattern.match(str(file))]
+    result_files = [file for file in result_files if pattern.match(str(file).replace("\\", "/"))]
 
     # inititalize dictionaries to store the evaluation results
     evaluation_results = None
