@@ -44,6 +44,7 @@ darglint = "*"
 pre-commit = "*"
 pre-commit-hooks = "*"
 pyupgrade = "*"
+pep8-naming = "*"
 
 [tool.black]
 line-length = 120

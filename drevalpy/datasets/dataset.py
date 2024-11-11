@@ -40,6 +40,7 @@ class Dataset(ABC):
         :param path: path to the dataset
         """
 
+    @abstractmethod
     def save(self, path: str):
         """
         Saves the dataset to data.
@@ -139,24 +140,28 @@ class DrugResponseDataset(Dataset):
         if self.predictions is not None:
             data["predictions"] = self.predictions
         return pd.DataFrame(data)
-    
+
     @staticmethod
-    def load(path: str, dataset_name: Optional[str] = None) -> None:
+    def load(path: str, dataset_name: Optional[str] = None):
         """
         Loads the drug response dataset from data.
 
         :param path: path to the dataset
+        :param dataset_name: name of the dataset
+        :returns: DrugResponseDataset containing response, cell line IDs, and drug IDs
         """
         data = pd.read_csv(path)
         response = data["response"].values
         cell_line_ids = data["cell_line_ids"].values
         drug_ids = data["drug_ids"].values
 
-        dataset_output = DrugResponseDataset(response=response, cell_line_ids=cell_line_ids, drug_ids=drug_ids, dataset_name=dataset_name)
+        dataset_output = DrugResponseDataset(
+            response=response, cell_line_ids=cell_line_ids, drug_ids=drug_ids, dataset_name=dataset_name
+        )
         if "predictions" in data.columns:
             dataset_output.predictions = data["predictions"].values
         return dataset_output
-    
+
     def save(self, path: str) -> None:
         """
         Saves the drug response dataset to data.
@@ -696,7 +701,7 @@ class FeatureDataset(Dataset):
         :raises NotImplementedError: if method is not implemented
         """
         raise NotImplementedError("save method not implemented")
-    
+
     @staticmethod
     def load(path: str):
         """
