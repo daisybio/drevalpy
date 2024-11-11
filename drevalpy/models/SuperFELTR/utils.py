@@ -21,7 +21,7 @@ class SuperFELTEncoder(pl.LightningModule):
     """
 
     def __init__(
-        self, input_size: int, hpams: dict[str, int | float], omic_type: str, ranges: tuple[float, float]
+        self, input_size: int, hpams: dict[str, int | float | dict], omic_type: str, ranges: tuple[float, float]
     ) -> None:
         """
         Initializes the SuperFELTEncoder.
