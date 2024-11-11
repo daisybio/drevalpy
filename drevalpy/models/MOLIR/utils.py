@@ -9,7 +9,7 @@ https://github.com/kramerlab/Multi-Omics_analysis
 import os
 import random
 import secrets
-from typing import Optional, Union
+from typing import Optional
 
 import numpy as np
 import pytorch_lightning as pl
@@ -273,7 +273,7 @@ class MOLIModel(pl.LightningModule):
     """
 
     def __init__(
-        self, hpams: dict[str, Union[int, float]], input_dim_expr: int, input_dim_mut: int, input_dim_cnv: int
+        self, hpams: dict[str, int | float], input_dim_expr: int, input_dim_mut: int, input_dim_cnv: int
     ) -> None:
         """
         Initializes the MOLIR model.

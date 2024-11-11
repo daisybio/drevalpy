@@ -146,8 +146,8 @@ class SuperFELTR(SingleDrugModel):
 
     def predict(
         self,
-        drug_ids: np.ndarray,
-        cell_line_ids: np.ndarray,
+        drug_ids: str | np.ndarray,
+        cell_line_ids: str | np.ndarray,
         drug_input: FeatureDataset = None,
         cell_line_input: FeatureDataset = None,
     ) -> np.ndarray:

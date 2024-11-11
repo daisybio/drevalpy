@@ -1,5 +1,6 @@
 """Test the SimpleNeuralNetwork model."""
 
+import numpy as np
 import pytest
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
@@ -26,7 +27,8 @@ def test_simple_neural_network(
     )
     split = drug_response.cv_splits[0]
     train_dataset = split["train"]
-    train_dataset.remove_rows(indices=[list(range(len(train_dataset) - 1000))])  # smaller dataset for faster testing
+    # smaller dataset for faster testing
+    train_dataset.remove_rows(indices=np.array([list(range(len(train_dataset) - 1000))]))
 
     val_es_dataset = split["validation_es"]
     es_dataset = split["early_stopping"]

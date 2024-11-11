@@ -7,7 +7,6 @@ line, and the NaiveDrugMeanPredictor predicts the mean of the response per drug.
 """
 
 import numpy as np
-from numpy.typing import ArrayLike
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models.drp_model import DRPModel
@@ -58,7 +57,7 @@ class NaivePredictor(DRPModel):
     def predict(
         self,
         drug_ids=None,
-        cell_line_ids: ArrayLike = None,
+        cell_line_ids: np.ndarray = None,
         drug_input: FeatureDataset = None,
         cell_line_input: FeatureDataset = None,
     ) -> np.ndarray:
@@ -146,7 +145,7 @@ class NaiveDrugMeanPredictor(DRPModel):
 
     def predict(
         self,
-        drug_ids: ArrayLike,
+        drug_ids: np.ndarray,
         cell_line_ids=None,
         drug_input=None,
         cell_line_input=None,
@@ -254,7 +253,7 @@ class NaiveCellLineMeanPredictor(DRPModel):
     def predict(
         self,
         drug_ids=None,
-        cell_line_ids: ArrayLike = None,
+        cell_line_ids: np.ndarray = None,
         drug_input=None,
         cell_line_input=None,
     ) -> np.ndarray:

@@ -503,18 +503,18 @@ def cross_study_prediction(
         }
         dataset_pairs = [f"{cl}_{drug}" for cl, drug in zip(dataset.cell_line_ids, dataset.drug_ids, strict=True)]
 
-        dataset.remove_rows([i for i, pair in enumerate(dataset_pairs) if pair in train_pairs])
+        dataset.remove_rows(np.array([i for i, pair in enumerate(dataset_pairs) if pair in train_pairs]))
     elif test_mode == "LCO":
         train_cell_lines = set(train_dataset.cell_line_ids)
         dataset.reduce_to(
-            cell_line_ids=[cl for cl in dataset.cell_line_ids if cl not in train_cell_lines],
+            cell_line_ids=np.array([cl for cl in dataset.cell_line_ids if cl not in train_cell_lines]),
             drug_ids=None,
         )
     elif test_mode == "LDO":
         train_drugs = set(train_dataset.drug_ids)
         dataset.reduce_to(
             cell_line_ids=None,
-            drug_ids=[drug for drug in dataset.drug_ids if drug not in train_drugs],
+            drug_ids=np.array([drug for drug in dataset.drug_ids if drug not in train_drugs]),
         )
     else:
         raise ValueError(f"Invalid test mode: {test_mode}. Choose from LPO, LCO, LDO")

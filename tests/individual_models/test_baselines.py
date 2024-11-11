@@ -109,30 +109,34 @@ def test_single_drug_baselines(
     train_dataset = split["train"]
     val_dataset = split["validation"]
 
-    all_predictions = np.zeros_like(val_dataset.drug_ids, dtype=float)
-    for drug in np.unique(train_dataset.drug_ids):
-        model = SingleDrugRandomForest()
-        hpam_combi = model.get_hyperparameter_set()[0]
-        hpam_combi["n_estimators"] = 2  # reduce test time
-        hpam_combi["max_depth"] = 2  # reduce test time
-        model.build_model(hpam_combi)
-        output_mask = train_dataset.drug_ids == drug
-        drug_train = train_dataset.copy()
-        drug_train.mask(output_mask)
-        model.train(output=drug_train, cell_line_input=cell_line_input)
+    all_unique_drugs = np.unique(train_dataset.drug_ids)
+    # randomly sample a drug to speed up testing
+    np.random.seed(42)
+    np.random.shuffle(all_unique_drugs)
+    random_drug = all_unique_drugs[:1]
 
-        val_mask = val_dataset.drug_ids == drug
-        all_predictions[val_mask] = model.predict(
-            drug_ids=drug,
-            cell_line_ids=val_dataset.cell_line_ids[val_mask],
-            cell_line_input=cell_line_input,
-        )
-        pcc_drug = pearson(val_dataset.response[val_mask], all_predictions[val_mask])
-        print(f"{test_mode}: Performance of {model_name} for drug {drug}: PCC = {pcc_drug}")
-    val_dataset.predictions = all_predictions
-    metrics = evaluate(val_dataset, metric=["Pearson"])
-    print(f"{test_mode}: Collapsed performance of {model_name}: PCC = {metrics['Pearson']}")
-    assert metrics["Pearson"] > 0.0
+    all_predictions = np.zeros_like(val_dataset.drug_ids, dtype=float)
+
+    model = SingleDrugRandomForest()
+    hpam_combi = model.get_hyperparameter_set()[0]
+    hpam_combi["n_estimators"] = 2  # reduce test time
+    hpam_combi["max_depth"] = 2  # reduce test time
+    model.build_model(hpam_combi)
+    output_mask = train_dataset.drug_ids == random_drug
+    drug_train = train_dataset.copy()
+    drug_train.mask(output_mask)
+    model.train(output=drug_train, cell_line_input=cell_line_input)
+
+    val_mask = val_dataset.drug_ids == random_drug
+    all_predictions[val_mask] = model.predict(
+        drug_ids=random_drug,
+        cell_line_ids=val_dataset.cell_line_ids[val_mask],
+        cell_line_input=cell_line_input,
+    )
+    pcc_drug = pearson(val_dataset.response[val_mask], all_predictions[val_mask])
+    print(f"{test_mode}: Performance of {model_name} for drug {random_drug}: PCC = {pcc_drug}")
+
+    assert pcc_drug > 0.0
 
 
 def _call_naive_predictor(train_dataset: DrugResponseDataset, val_dataset: DrugResponseDataset, test_mode: str) -> None:
@@ -258,8 +262,8 @@ def _call_other_baselines(
                 assert issubclass(type(model_instance.model), Ridge)
             else:
                 assert issubclass(type(model_instance.model), ElasticNet)
-        train_dataset.remove_rows(indices=np.array([list(range(len(train_dataset) - 1000))]))  # smaller dataset for
-        # faster testing
+        # smaller dataset for faster testing
+        train_dataset.remove_rows(indices=np.array([list(range(len(train_dataset) - 1000))]))
         model_instance.train(
             output=train_dataset,
             cell_line_input=cell_line_input,

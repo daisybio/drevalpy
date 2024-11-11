@@ -136,7 +136,7 @@ def get_multiomics_feature_dataset(
     data_path: str,
     dataset_name: str,
     gene_list: Optional[str] = "drug_target_genes_all_drugs",
-    omics: list[str] = None,
+    omics: Optional[list[str]] = None,
 ) -> FeatureDataset:
     """
     Get multiomics feature dataset for the given list of OMICs.

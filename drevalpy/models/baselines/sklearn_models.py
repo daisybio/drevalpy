@@ -1,7 +1,6 @@
 """Contains sklearn baseline models: ElasticNet, RandomForest, SVM."""
 
 import numpy as np
-from numpy.typing import ArrayLike
 from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
 from sklearn.linear_model import ElasticNet, Lasso, Ridge
 from sklearn.svm import SVR
@@ -64,8 +63,8 @@ class SklearnModel(DRPModel):
 
     def predict(
         self,
-        drug_ids: ArrayLike,
-        cell_line_ids: ArrayLike,
+        drug_ids: np.ndarray,
+        cell_line_ids: np.ndarray,
         drug_input: FeatureDataset = None,
         cell_line_input: FeatureDataset = None,
     ) -> np.ndarray:

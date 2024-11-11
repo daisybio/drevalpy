@@ -6,7 +6,6 @@ import zipfile
 import networkx as nx
 import numpy as np
 import requests
-from numpy.typing import ArrayLike
 
 
 def download_dataset(
@@ -101,7 +100,7 @@ def randomize_graph(original_graph: nx.Graph) -> nx.Graph:
 
 def permute_features(
     features: dict,
-    identifiers: ArrayLike,
+    identifiers: np.ndarray,
     views_to_permute: list,
     all_views: list,
 ) -> dict:

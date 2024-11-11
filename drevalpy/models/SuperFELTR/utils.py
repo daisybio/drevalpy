@@ -2,7 +2,6 @@
 
 import os
 import secrets
-from typing import Union
 
 import numpy as np
 import pytorch_lightning as pl
@@ -22,7 +21,7 @@ class SuperFELTEncoder(pl.LightningModule):
     """
 
     def __init__(
-        self, input_size: int, hpams: dict[str, Union[int, float]], omic_type: str, ranges: tuple[float, float]
+        self, input_size: int, hpams: dict[str, int | float], omic_type: str, ranges: tuple[float, float]
     ) -> None:
         """
         Initializes the SuperFELTEncoder.
@@ -69,7 +68,7 @@ class SuperFELTEncoder(pl.LightningModule):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr, weight_decay=self.weight_decay)
         return optimizer
 
-    def _get_output_size(self, hpams: dict[str, Union[int, float]]) -> int:
+    def _get_output_size(self, hpams: dict[str, int | float]) -> int:
         """
         Get the output size of the encoder based on the omic type from the hyperparameters.
 
@@ -161,7 +160,7 @@ class SuperFELTRegressor(pl.LightningModule):
     def __init__(
         self,
         input_size: int,
-        hpams: dict[str, Union[int, float]],
+        hpams: dict[str, int | float],
         encoders: tuple[SuperFELTEncoder, SuperFELTEncoder, SuperFELTEncoder],
     ) -> None:
         """
@@ -271,8 +270,8 @@ class SuperFELTRegressor(pl.LightningModule):
 
 
 def train_superfeltr_model(
-    model: Union[SuperFELTEncoder, SuperFELTRegressor],
-    hpams: dict[str, Union[int, float]],
+    model: SuperFELTEncoder | SuperFELTRegressor,
+    hpams: dict[str, int | float],
     output_train: DrugResponseDataset,
     cell_line_input: FeatureDataset,
     output_earlystopping: DrugResponseDataset,

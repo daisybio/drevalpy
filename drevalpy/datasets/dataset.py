@@ -16,12 +16,11 @@ The FeatureDataset class can be used to randomize feature vectors.
 import copy
 import os
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Optional, Union
+from typing import Any, Callable, Optional
 
 import networkx as nx
 import numpy as np
 import pandas as pd
-from numpy.typing import ArrayLike
 from sklearn.base import TransformerMixin
 from sklearn.model_selection import GroupKFold, train_test_split
 
@@ -216,7 +215,7 @@ class DrugResponseDataset(Dataset):
         if self.predictions is not None:
             self.predictions = self.predictions[indices]
 
-    def _remove_drugs(self, drugs_to_remove: Union[str, list]) -> None:
+    def _remove_drugs(self, drugs_to_remove: str | list[str | int]) -> None:
         """
         Removes drugs from the dataset.
 
@@ -230,7 +229,7 @@ class DrugResponseDataset(Dataset):
         self.cell_line_ids = self.cell_line_ids[mask]
         self.response = self.response[mask]
 
-    def _remove_cell_lines(self, cell_lines_to_remove: Union[str, list]) -> None:
+    def _remove_cell_lines(self, cell_lines_to_remove: str | list[str | int]) -> None:
         """
         Removes cell lines from the dataset.
 
@@ -244,19 +243,20 @@ class DrugResponseDataset(Dataset):
         self.cell_line_ids = self.cell_line_ids[mask]
         self.response = self.response[mask]
 
-    def remove_rows(self, indices: ArrayLike) -> None:
+    def remove_rows(self, indices: np.ndarray) -> None:
         """
         Removes rows from the dataset.
 
         :param indices: indices of rows to remove
         """
+        indices = np.array(indices, dtype=int)
         self.drug_ids = np.delete(self.drug_ids, indices)
         self.cell_line_ids = np.delete(self.cell_line_ids, indices)
         self.response = np.delete(self.response, indices)
         if self.predictions is not None:
             self.predictions = np.delete(self.predictions, indices)
 
-    def reduce_to(self, cell_line_ids: Optional[ArrayLike], drug_ids: Optional[ArrayLike]) -> None:
+    def reduce_to(self, cell_line_ids: Optional[np.ndarray], drug_ids: Optional[np.ndarray]) -> None:
         """
         Removes all rows which contain a cell_line not in cell_line_ids or a drug not in drug_ids.
 
@@ -501,9 +501,9 @@ def _split_early_stopping_data(
 
 def _leave_pair_out_cv(
     n_cv_splits: int,
-    response: ArrayLike,
-    cell_line_ids: ArrayLike,
-    drug_ids: ArrayLike,
+    response: np.ndarray,
+    cell_line_ids: np.ndarray,
+    drug_ids: np.ndarray,
     split_validation=True,
     validation_ratio=0.1,
     random_state=42,
@@ -578,9 +578,9 @@ def _leave_pair_out_cv(
 def _leave_group_out_cv(
     group: str,
     n_cv_splits: int,
-    response: ArrayLike,
-    cell_line_ids: ArrayLike,
-    drug_ids: ArrayLike,
+    response: np.ndarray,
+    cell_line_ids: np.ndarray,
+    drug_ids: np.ndarray,
     split_validation=True,
     validation_ratio=0.1,
     random_state=42,
@@ -712,7 +712,7 @@ class FeatureDataset(Dataset):
         """
         raise NotImplementedError("load method not implemented")
 
-    def randomize_features(self, views_to_randomize: Union[str, list], randomization_type: str) -> None:
+    def randomize_features(self, views_to_randomize: str | list[str], randomization_type: str) -> None:
         """
         Randomizes the feature vectors.
 
@@ -785,7 +785,7 @@ class FeatureDataset(Dataset):
         """
         return list(self.features[list(self.features.keys())[0]].keys())
 
-    def get_feature_matrix(self, view: str, identifiers: ArrayLike, stack: bool = True) -> Union[np.ndarray, list]:
+    def get_feature_matrix(self, view: str, identifiers: np.ndarray, stack: bool = True) -> np.ndarray:
         """
         Returns the feature matrix for the given view.
 
@@ -817,7 +817,7 @@ class FeatureDataset(Dataset):
 
         if not all(isinstance(self.features[id_][view], np.ndarray) for id_ in identifiers):
             raise AssertionError(f"get_feature_matrix only works for vectors or matrices. {view} is not a numpy array.")
-        out = [self.features[id_][view] for id_ in identifiers]
+        out = np.array([self.features[id_][view] for id_ in identifiers])
         return np.stack(out, axis=0) if stack else out
 
     def copy(self):
@@ -861,7 +861,7 @@ class FeatureDataset(Dataset):
         other_meta = other.meta_info
         self.meta_info.update(other_meta)
 
-    def transform_features(self, ids: ArrayLike, transformer: TransformerMixin, view: str):
+    def transform_features(self, ids: np.ndarray, transformer: TransformerMixin, view: str):
         """
         Applies a transformation like standard scaling to features.
 
@@ -885,7 +885,7 @@ class FeatureDataset(Dataset):
             scaled_feature_vector = transformer.transform([feature_vector])[0]
             self.features[identifier][view] = scaled_feature_vector
 
-    def fit_transform_features(self, train_ids: ArrayLike, transformer: TransformerMixin, view: str):
+    def fit_transform_features(self, train_ids: np.ndarray, transformer: TransformerMixin, view: str):
         """
         Fits and applies a transformation. Fitting is done only on the train_ids.
 

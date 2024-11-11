@@ -12,7 +12,6 @@ from typing import Any, Optional
 
 import numpy as np
 import yaml
-from numpy.typing import ArrayLike
 from sklearn.model_selection import ParameterGrid
 
 from ..datasets.dataset import DrugResponseDataset, FeatureDataset
@@ -122,8 +121,8 @@ class DRPModel(ABC):
     @abstractmethod
     def predict(
         self,
-        drug_ids: ArrayLike,
-        cell_line_ids: ArrayLike,
+        drug_ids: str | np.ndarray,
+        cell_line_ids: str | np.ndarray,
         drug_input: FeatureDataset = None,
         cell_line_input: FeatureDataset = None,
     ) -> np.ndarray:
@@ -161,8 +160,8 @@ class DRPModel(ABC):
         self,
         cell_line_view: str,
         drug_view: Optional[str],
-        cell_line_ids_output: ArrayLike,
-        drug_ids_output: ArrayLike,
+        cell_line_ids_output: np.ndarray,
+        drug_ids_output: np.ndarray,
         cell_line_input: Optional[FeatureDataset],
         drug_input: Optional[FeatureDataset],
     ) -> np.ndarray:
@@ -199,8 +198,8 @@ class DRPModel(ABC):
 
     def get_feature_matrices(
         self,
-        cell_line_ids: ArrayLike,
-        drug_ids: ArrayLike,
+        cell_line_ids: np.ndarray,
+        drug_ids: np.ndarray,
         cell_line_input: Optional[FeatureDataset],
         drug_input: Optional[FeatureDataset],
     ) -> dict[str, np.ndarray]:
