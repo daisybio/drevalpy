@@ -520,7 +520,7 @@ def test_feature_dataset_save_and_load(sample_dataset: FeatureDataset) -> None:
         sample_dataset.save(path=tmp.name)
 
     with pytest.raises(NotImplementedError):
-        DrugResponseDataset.load(path=tmp.name)
+        FeatureDataset.load(path=tmp.name)
 
 
 def test_add_features(sample_dataset: FeatureDataset, graph_dataset: FeatureDataset) -> None:
