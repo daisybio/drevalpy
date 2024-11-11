@@ -31,15 +31,15 @@ from .utils import permute_features, randomize_graph
 class Dataset(ABC):
     """Abstract wrapper class for datasets."""
 
+    @staticmethod
     @abstractmethod
-    def load(self, path: str):
+    def load(path: str):
         """
         Loads the dataset from data.
 
         :param path: path to the dataset
         """
 
-    @abstractmethod
     def save(self, path: str):
         """
         Saves the dataset to data.
@@ -139,20 +139,24 @@ class DrugResponseDataset(Dataset):
         if self.predictions is not None:
             data["predictions"] = self.predictions
         return pd.DataFrame(data)
-
-    def load(self, path: str) -> None:
+    
+    @staticmethod
+    def load(path: str, dataset_name: Optional[str] = None) -> None:
         """
         Loads the drug response dataset from data.
 
         :param path: path to the dataset
         """
         data = pd.read_csv(path)
-        self.response = data["response"].values
-        self.cell_line_ids = data["cell_line_ids"].values
-        self.drug_ids = data["drug_ids"].values
-        if "predictions" in data.columns:
-            self.predictions = data["predictions"].values
+        response = data["response"].values
+        cell_line_ids = data["cell_line_ids"].values
+        drug_ids = data["drug_ids"].values
 
+        dataset_output = DrugResponseDataset(response=response, cell_line_ids=cell_line_ids, drug_ids=drug_ids, dataset_name=dataset_name)
+        if "predictions" in data.columns:
+            dataset_output.predictions = data["predictions"].values
+        return dataset_output
+    
     def save(self, path: str) -> None:
         """
         Saves the drug response dataset to data.
@@ -386,18 +390,15 @@ class DrugResponseDataset(Dataset):
         self.cv_splits = []
 
         for split_train, split_test in zip(train_splits, test_splits, strict=True):
-            tr_split = DrugResponseDataset(dataset_name=self.dataset_name)
-            tr_split.load(os.path.join(path, split_train))
+            tr_split = DrugResponseDataset.load(os.path.join(path, split_train), dataset_name=self.dataset_name)
 
-            te_split = DrugResponseDataset(dataset_name=self.dataset_name)
-            te_split.load(os.path.join(path, split_test))
+            te_split = DrugResponseDataset.load(os.path.join(path, split_test), dataset_name=self.dataset_name)
             self.cv_splits.append({"train": tr_split, "test": te_split})
 
         for mode in ["validation", "validation_es", "early_stopping"]:
             if len(optional_splits[mode]) > 0:
                 for i, v_split in enumerate(optional_splits[mode]):
-                    split = DrugResponseDataset(dataset_name=self.dataset_name)
-                    split.load(os.path.join(path, v_split))
+                    split = DrugResponseDataset.load(os.path.join(path, v_split), dataset_name=self.dataset_name)
                     self.cv_splits[i][mode] = split
 
     def copy(self):
@@ -695,8 +696,9 @@ class FeatureDataset(Dataset):
         :raises NotImplementedError: if method is not implemented
         """
         raise NotImplementedError("save method not implemented")
-
-    def load(self, path: str):
+    
+    @staticmethod
+    def load(path: str):
         """
         Loads the feature dataset from data.
 
