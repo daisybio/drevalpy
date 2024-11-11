@@ -423,7 +423,7 @@ def consolidate_single_drug_model_predictions(
 
 def load_features(
     model: DRPModel, path_data: str, dataset: DrugResponseDataset
-) -> tuple[FeatureDataset, FeatureDataset]:
+) -> tuple[Optional[FeatureDataset], Optional[FeatureDataset]]:
     """
     Load and reduce cell line and drug features for a given dataset.
 
@@ -481,7 +481,7 @@ def cross_study_prediction(
     cell_lines_to_keep = cl_features.identifiers if cl_features is not None else None
 
     if single_drug_id is not None:
-        drugs_to_keep = [single_drug_id]
+        drugs_to_keep = np.array([single_drug_id])
     else:
         drugs_to_keep = drug_features.identifiers if drug_features is not None else None
 
@@ -503,18 +503,18 @@ def cross_study_prediction(
         }
         dataset_pairs = [f"{cl}_{drug}" for cl, drug in zip(dataset.cell_line_ids, dataset.drug_ids, strict=True)]
 
-        dataset.remove_rows([i for i, pair in enumerate(dataset_pairs) if pair in train_pairs])
+        dataset.remove_rows(np.array([i for i, pair in enumerate(dataset_pairs) if pair in train_pairs]))
     elif test_mode == "LCO":
-        train_cell_lines = set(train_dataset.cell_line_ids)
+        train_cell_lines = train_dataset.cell_line_ids
         dataset.reduce_to(
-            cell_line_ids=[cl for cl in dataset.cell_line_ids if cl not in train_cell_lines],
+            cell_line_ids=np.setdiff1d(dataset.cell_line_ids, train_cell_lines),
             drug_ids=None,
         )
     elif test_mode == "LDO":
-        train_drugs = set(train_dataset.drug_ids)
+        train_drugs = train_dataset.drug_ids
         dataset.reduce_to(
             cell_line_ids=None,
-            drug_ids=[drug for drug in dataset.drug_ids if drug not in train_drugs],
+            drug_ids=np.setdiff1d(dataset.drug_ids, train_drugs),
         )
     else:
         raise ValueError(f"Invalid test mode: {test_mode}. Choose from LPO, LCO, LDO")
@@ -760,18 +760,29 @@ def randomize_train_predict(
     """
     cl_features, drug_features = load_features(model, path_data, train_dataset)
 
-    if (view not in cl_features.get_view_names()) and (view not in drug_features.get_view_names()):
+    # Handle case where both features are None early on
+    if cl_features is None and drug_features is None:
         warnings.warn(
-            f"View {view} not found in features. Skipping randomization test {test_name} " f"which includes this view.",
+            "Both cl_features and drug_features are None. Skipping randomization test.",
             stacklevel=2,
         )
         return
+
+    # Check if view is in either feature set, if not, warn and skip
+    if (cl_features is not None and view not in cl_features.get_view_names()) and (
+        drug_features is not None and view not in drug_features.get_view_names()
+    ):
+        warnings.warn(
+            f"View {view} not found in features. Skipping randomization test {test_name} which includes this view.",
+            stacklevel=2,
+        )
+        return
+
     cl_features_rand = cl_features.copy() if cl_features is not None else None
     drug_features_rand = drug_features.copy() if drug_features is not None else None
-
-    if view in cl_features.get_view_names():
+    if cl_features_rand is not None and view in cl_features.get_view_names():
         cl_features_rand.randomize_features(view, randomization_type=randomization_type)
-    elif view in drug_features.get_view_names():
+    elif drug_features_rand is not None and view in drug_features.get_view_names():
         drug_features_rand.randomize_features(view, randomization_type=randomization_type)
 
     test_dataset_rand = train_and_predict(

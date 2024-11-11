@@ -75,9 +75,9 @@ class DrugResponseDataset(Dataset):
         """
         super().__init__()
 
-        self.response = np.array(response)
-        self.cell_line_ids = np.array(cell_line_ids)
-        self.drug_ids = np.array(drug_ids)
+        self.response = response
+        self.cell_line_ids = cell_line_ids
+        self.drug_ids = drug_ids
         if len(self.response) != len(self.cell_line_ids):
             raise AssertionError("response and cell_line_ids have different lengths")
         if len(self.response) != len(self.drug_ids):
@@ -239,7 +239,7 @@ class DrugResponseDataset(Dataset):
         self.cell_line_ids = self.cell_line_ids[mask]
         self.response = self.response[mask]
 
-    def remove_rows(self, indices: NDArray) -> None:
+    def remove_rows(self, indices: np.ndarray) -> None:
         """
         Removes rows from the dataset.
 
@@ -881,7 +881,7 @@ class FeatureDataset(Dataset):
             scaled_feature_vector = transformer.transform([feature_vector])[0]
             self.features[identifier][view] = scaled_feature_vector
 
-    def fit_transform_features(self, train_ids: Union[NDArray, list[str]], transformer: TransformerMixin, view: str):
+    def fit_transform_features(self, train_ids: np.ndarray, transformer: TransformerMixin, view: str):
         """
         Fits and applies a transformation. Fitting is done only on the train_ids.
 
