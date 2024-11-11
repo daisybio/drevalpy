@@ -68,11 +68,11 @@ class SuperFELTEncoder(pl.LightningModule):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr, weight_decay=self.weight_decay)
         return optimizer
 
-    def _get_output_size(self, hpams: dict[str, int | float]) -> int:
+    def _get_output_size(self, hpams: dict[str, int | float | dict]) -> int:
         """
         Get the output size of the encoder based on the omic type from the hyperparameters.
 
-        :param hpams: hyperparameters
+        :param hpams: hyperparameters for the model
         :returns: output size of the encoder
         """
         return {
@@ -160,7 +160,7 @@ class SuperFELTRegressor(pl.LightningModule):
     def __init__(
         self,
         input_size: int,
-        hpams: dict[str, int | float],
+        hpams: dict[str, int | float | dict],
         encoders: tuple[SuperFELTEncoder, SuperFELTEncoder, SuperFELTEncoder],
     ) -> None:
         """
@@ -271,7 +271,7 @@ class SuperFELTRegressor(pl.LightningModule):
 
 def train_superfeltr_model(
     model: SuperFELTEncoder | SuperFELTRegressor,
-    hpams: dict[str, int | float],
+    hpams: dict[str, int | float | dict],
     output_train: DrugResponseDataset,
     cell_line_input: FeatureDataset,
     output_earlystopping: DrugResponseDataset,
