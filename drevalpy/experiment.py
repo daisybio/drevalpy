@@ -838,7 +838,7 @@ def train_and_predict(
     :returns: prediction dataset with predictions
     """
     model.build_model(hyperparameters=hpams)
-
+    assert train_dataset.dataset_name is not None
     if cl_features is None:
         print("Loading cell line features ...")
         cl_features = model.load_cell_line_features(data_path=path_data, dataset_name=train_dataset.dataset_name)
@@ -864,7 +864,8 @@ def train_and_predict(
 
     if response_transformation:
         train_dataset.fit_transform(response_transformation)
-        early_stopping_dataset.transform(response_transformation)
+        if early_stopping_dataset is not None:
+            early_stopping_dataset.transform(response_transformation)
         prediction_dataset.transform(response_transformation)
 
     print("Training model ...")

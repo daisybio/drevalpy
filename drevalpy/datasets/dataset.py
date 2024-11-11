@@ -16,7 +16,7 @@ The FeatureDataset class can be used to randomize feature vectors.
 import copy
 import os
 from abc import ABC, abstractmethod
-from typing import Any, Callable,List, Optional, Union
+from typing import Any, Callable, List, Optional, Union
 
 import networkx as nx
 import numpy as np
@@ -58,7 +58,7 @@ class DrugResponseDataset(Dataset):
         response: np.ndarray,
         cell_line_ids: np.ndarray,
         drug_ids: np.ndarray,
-        predictions: Optional[np.ndarray]= None,
+        predictions: Optional[np.ndarray] = None,
         dataset_name: Optional[str] = None,
     ) -> None:
         """
@@ -85,13 +85,12 @@ class DrugResponseDataset(Dataset):
         # Used in the pipeline!
         self.dataset_name = dataset_name
 
-
         self.predictions: Optional[np.ndarray] = None
         if predictions is not None:
             self.predictions = np.array(predictions)
             if len(self.predictions) != len(self.response):
                 raise AssertionError("predictions and response have different lengths")
-            
+
         self.cv_splits: Optional[List] = None
 
     def __len__(self) -> int:
@@ -882,9 +881,7 @@ class FeatureDataset(Dataset):
             scaled_feature_vector = transformer.transform([feature_vector])[0]
             self.features[identifier][view] = scaled_feature_vector
 
-    def fit_transform_features(
-        self, train_ids: Union[NDArray, list[str]], transformer: TransformerMixin, view: str
-    ):
+    def fit_transform_features(self, train_ids: Union[NDArray, list[str]], transformer: TransformerMixin, view: str):
         """
         Fits and applies a transformation. Fitting is done only on the train_ids.
 
