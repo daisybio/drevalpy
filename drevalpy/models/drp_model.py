@@ -16,7 +16,26 @@ from sklearn.model_selection import ParameterGrid
 
 from ..datasets.dataset import DrugResponseDataset, FeatureDataset
 from ..pipeline_function import pipeline_function
-from ..utils import _ClassProperty
+
+
+class _ClassProperty:
+    """Class property decorator."""
+
+    def __init__(self, func):
+        """Initialize the class property.
+
+        :param func: function to get the class property
+        """
+        self.fget = func
+
+    def __get__(self, instance, owner):
+        """Get the class property.
+
+        :param instance: instance of the class
+        :param owner: owner of the class
+        :returns: class property
+        """
+        return self.fget(owner)
 
 
 class DRPModel(ABC):
