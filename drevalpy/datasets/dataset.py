@@ -83,7 +83,7 @@ class DrugResponseDataset(Dataset):
         if len(self.response) != len(self.drug_ids):
             raise AssertionError("response and drug_ids/cell_line_ids have different lengths")
         # Used in the pipeline!
-        self.dataset_name = dataset_name
+        self.dataset_name = dataset_name if dataset_name is not None else ""
 
         self.predictions: Optional[np.ndarray] = None
         if predictions is not None:
