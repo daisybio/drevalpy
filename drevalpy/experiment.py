@@ -82,6 +82,7 @@ def drug_response_experiment(
     :param test_mode: test mode one of "LPO", "LCO", "LDO" (leave-pair-out, leave-cell-line-out, leave-drug-out)
     :param overwrite: whether to overwrite existing results
     :param path_data: path to the data directory, usually data/
+    :raises ValueError: if no cv splits are found
     """
     if baselines is None:
         baselines = []
@@ -145,6 +146,9 @@ def drug_response_experiment(
         parent_dir = os.path.dirname(predictions_path)
 
         model_hpam_set = model_class.get_hyperparameter_set()
+
+        if response_data.cv_splits is None:
+            raise ValueError("No cv splits found.")
 
         for split_index, split in enumerate(response_data.cv_splits):
             print(f"################# FOLD {split_index+1}/{len(response_data.cv_splits)} " f"#################")
@@ -480,10 +484,11 @@ def cross_study_prediction(
 
     cell_lines_to_keep = cl_features.identifiers if cl_features is not None else None
 
+    drugs_to_keep: Optional[np.ndarray] = None
     if single_drug_id is not None:
         drugs_to_keep = np.array([single_drug_id])
-    else:
-        drugs_to_keep = drug_features.identifiers if drug_features is not None else None
+    elif drug_features is not None:
+        drugs_to_keep = drug_features.identifiers
 
     print(
         f"Reducing cross study dataset ... feature data available for "
