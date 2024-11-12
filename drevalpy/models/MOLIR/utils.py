@@ -451,7 +451,7 @@ class MOLIModel(pl.LightningModule):
         return triplet_loss + regression_loss
 
     def training_step(
-        self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor], batch_idx: int
+        self, batch: list[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor], batch_idx: int
     ) -> torch.Tensor:
         """
         Training step of the MOLIR model.
@@ -474,7 +474,7 @@ class MOLIModel(pl.LightningModule):
         return loss
 
     def validation_step(
-        self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor], batch_idx: int
+        self, batch: list[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor], batch_idx: int
     ) -> torch.Tensor:
         """
         Validation step of the MOLIR model.
