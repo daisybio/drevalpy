@@ -38,19 +38,21 @@ class RegressionDataset(Dataset):
         self.output = output
         self.cell_line_input = cell_line_input
 
-    def __getitem__(self, idx: int) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    def __getitem__(self, idx: int) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.float32]:
         """
         Overwrites the getitem method.
 
         :param idx: index of the sample
         :returns: gene expression, mutations, copy number variation, and response of the sample as numpy arrays
         """
-        response = self.output.response[idx].astype(np.float32)
+        response: np.float32 = np.float32(self.output.response[idx])
 
         cell_line_id = str(self.output.cell_line_ids[idx])
-        gene_expression = self.cell_line_input.features[cell_line_id]["gene_expression"].astype(np.float32)
-        mutations = self.cell_line_input.features[cell_line_id]["mutations"].astype(np.float32)
-        copy_number = self.cell_line_input.features[cell_line_id]["copy_number_variation_gistic"].astype(np.float32)
+        gene_expression: np.ndarray = self.cell_line_input.features[cell_line_id]["gene_expression"].astype(np.float32)
+        mutations: np.ndarray = self.cell_line_input.features[cell_line_id]["mutations"].astype(np.float32)
+        copy_number: np.ndarray = self.cell_line_input.features[cell_line_id]["copy_number_variation_gistic"].astype(
+            np.float32
+        )
 
         return gene_expression, mutations, copy_number, response
 
