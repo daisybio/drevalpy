@@ -122,20 +122,22 @@ def test_load_and_reduce_gene_features(gene_list: Optional[str]) -> None:
             gene_features_gdsc1 = load_and_reduce_gene_features("gene_expression", gene_list, temp.name, "GDSC1_small")
     else:
         gene_features_gdsc1 = load_and_reduce_gene_features("gene_expression", gene_list, temp.name, "GDSC1_small")
-    assert gene_features_gdsc1.meta_info is not None
     if gene_list is None:
         assert len(gene_features_gdsc1.features) == 5
+        assert gene_features_gdsc1.meta_info is not None
         assert len(gene_features_gdsc1.meta_info["gene_expression"]) == 7
         gene_names = ["TSPAN6", "TNMD", "BRCA1", "SCYL3", "HDAC1", "INSIG1", "FOXO3"]
         assert np.all(gene_features_gdsc1.meta_info["gene_expression"] == gene_names)
     elif gene_list == "landmark_genes":
         assert len(gene_features_gdsc1.features) == 5
+        assert gene_features_gdsc1.meta_info is not None
         assert len(gene_features_gdsc1.meta_info["gene_expression"]) == 4
         colnames = gene_features_gdsc1.meta_info["gene_expression"]
         colnames.sort()
         assert np.all(colnames == ["BRCA1", "FOXO3", "INSIG1", "SCYL3"])
     elif gene_list == "drug_target_genes_all_drugs":
         assert len(gene_features_gdsc1.features) == 5
+        assert gene_features_gdsc1.meta_info is not None
         assert len(gene_features_gdsc1.meta_info["gene_expression"]) == 3
         colnames = gene_features_gdsc1.meta_info["gene_expression"]
         colnames.sort()
@@ -287,8 +289,8 @@ def test_get_multiomics_feature_dataset(gene_list: Optional[str]) -> None:
         assert np.all(common_cls == ["22Rv1", "CAL-120"])
         assert dataset.meta_info is not None
         assert len(dataset.meta_info) == 4
-    assert dataset.meta_info is not None
     if gene_list is None:
+        assert dataset.meta_info is not None
         assert np.all(
             dataset.meta_info["gene_expression"] == ["TSPAN6", "TNMD", "BRCA1", "SCYL3", "HDAC1", "INSIG1", "FOXO3"]
         )
@@ -297,6 +299,7 @@ def test_get_multiomics_feature_dataset(gene_list: Optional[str]) -> None:
     else:
         feature_names: list[str] = []
         if gene_list == "landmark_genes":
+            assert dataset.meta_info is not None
             for key in dataset.meta_info:
                 if key == "methylation":
                     assert len(dataset.meta_info[key]) == 7
@@ -307,6 +310,7 @@ def test_get_multiomics_feature_dataset(gene_list: Optional[str]) -> None:
                     else:
                         assert np.all(dataset.meta_info[key] == feature_names)
         elif gene_list == "drug_target_genes_all_drugs":
+            assert dataset.meta_info is not None
             for key in dataset.meta_info:
                 if key == "methylation":
                     assert len(dataset.meta_info[key]) == 7
