@@ -15,8 +15,6 @@ Code adapted from their Github: https://github.com/DMCB-GIST/Super.FELT
 and Hauptmann et al. (2023, 10.1186/s12859-023-05166-7) https://github.com/kramerlab/Multi-Omics_analysis
 """
 
-from typing import Optional
-
 import numpy as np
 from sklearn.feature_selection import VarianceThreshold
 
@@ -66,8 +64,8 @@ class SuperFELTR(SingleDrugModel):
         self,
         output: DrugResponseDataset,
         cell_line_input: FeatureDataset,
-        drug_input: Optional[FeatureDataset] = None,
-        output_earlystopping: Optional[DrugResponseDataset] = None,
+        drug_input: FeatureDataset | None = None,
+        output_earlystopping: DrugResponseDataset | None = None,
     ) -> None:
         """
         Does feature selection, trains the encoders sequentially, and then trains the regressor.
@@ -146,9 +144,9 @@ class SuperFELTR(SingleDrugModel):
 
     def predict(
         self,
-        drug_ids: np.ndarray,
-        cell_line_ids: np.ndarray,
-        drug_input: FeatureDataset = None,
+        drug_ids: str | np.ndarray,
+        cell_line_ids: str | np.ndarray,
+        drug_input: FeatureDataset | None = None,
         cell_line_input: FeatureDataset = None,
     ) -> np.ndarray:
         """
@@ -159,7 +157,7 @@ class SuperFELTR(SingleDrugModel):
 
         :param drug_ids: drug ids
         :param cell_line_ids: cell line ids
-        :param drug_input: drug omics features
+        :param drug_input: drug omics features, not needed
         :param cell_line_input: cell line omics features
         :returns: predicted drug response
         """

@@ -6,7 +6,7 @@ Code adapted from their Github: https://github.com/hosseinshn/MOLI
 and Hauptmann et al. (2023, 10.1186/s12859-023-05166-7) https://github.com/kramerlab/Multi-Omics_analysis
 """
 
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 from sklearn.feature_selection import VarianceThreshold
@@ -57,8 +57,8 @@ class MOLIR(SingleDrugModel):
         self,
         output: DrugResponseDataset,
         cell_line_input: FeatureDataset,
-        drug_input: Optional[FeatureDataset] = None,
-        output_earlystopping: Optional[DrugResponseDataset] = None,
+        drug_input: FeatureDataset | None = None,
+        output_earlystopping: DrugResponseDataset | None = None,
     ) -> None:
         """
         Initializes and trains the model.
@@ -109,9 +109,9 @@ class MOLIR(SingleDrugModel):
 
     def predict(
         self,
-        drug_ids: np.ndarray,
-        cell_line_ids: np.ndarray,
-        drug_input: FeatureDataset = None,
+        drug_ids: str | np.ndarray,
+        cell_line_ids: str | np.ndarray,
+        drug_input: FeatureDataset | None = None,
         cell_line_input: FeatureDataset = None,
     ) -> np.ndarray:
         """

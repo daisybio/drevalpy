@@ -8,13 +8,14 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = ">=3.9,<=3.13"
-numpy = ">=1.20,<2.1"
+numpy = ">=1.20,<2.0"
 scipy = "*"
-scikit-learn = ">=1.4"
+scikit-learn = ">=1.4,<1.6"
 pandas = "*"
 networkx = "*"
 pyyaml = "*"
 pytorch-lightning = "*"
+torch = ">=2.1,<=2.4"
 flaky = "*"
 requests = "*"
 pingouin = "*"
@@ -44,6 +45,7 @@ darglint = "*"
 pre-commit = "*"
 pre-commit-hooks = "*"
 pyupgrade = "*"
+pep8-naming = "*"
 
 [tool.black]
 line-length = 120

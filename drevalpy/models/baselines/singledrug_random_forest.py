@@ -8,7 +8,6 @@ per drug.
 from typing import Optional
 
 import numpy as np
-from numpy.typing import ArrayLike
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 
@@ -57,8 +56,8 @@ class SingleDrugRandomForest(SingleDrugModel, RandomForest):
 
     def predict(
         self,
-        drug_ids: ArrayLike,
-        cell_line_ids: ArrayLike,
+        drug_ids: str | np.ndarray,
+        cell_line_ids: str | np.ndarray,
         drug_input: Optional[FeatureDataset] = None,
         cell_line_input: FeatureDataset = None,
     ) -> np.ndarray:

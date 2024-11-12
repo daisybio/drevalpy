@@ -12,7 +12,6 @@ from typing import Any, Optional
 
 import numpy as np
 import yaml
-from numpy.typing import ArrayLike
 from sklearn.model_selection import ParameterGrid
 
 from ..datasets.dataset import DrugResponseDataset, FeatureDataset
@@ -106,9 +105,9 @@ class DRPModel(ABC):
     def train(
         self,
         output: DrugResponseDataset,
-        cell_line_input: FeatureDataset,
-        drug_input: Optional[FeatureDataset] = None,
-        output_earlystopping: Optional[DrugResponseDataset] = None,
+        cell_line_input: FeatureDataset | None,
+        drug_input: FeatureDataset | None = None,
+        output_earlystopping: DrugResponseDataset | None = None,
     ) -> None:
         """
         Trains the model.
@@ -122,10 +121,10 @@ class DRPModel(ABC):
     @abstractmethod
     def predict(
         self,
-        drug_ids: ArrayLike,
-        cell_line_ids: ArrayLike,
-        drug_input: FeatureDataset = None,
-        cell_line_input: FeatureDataset = None,
+        drug_ids: str | np.ndarray | None,
+        cell_line_ids: str | np.ndarray | None,
+        drug_input: FeatureDataset | None = None,
+        cell_line_input: FeatureDataset | None = None,
     ) -> np.ndarray:
         """
         Predicts the response for the given input.
@@ -148,7 +147,7 @@ class DRPModel(ABC):
         """
 
     @abstractmethod
-    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+    def load_drug_features(self, data_path: str, dataset_name: str) -> Optional[FeatureDataset]:
         """
         Load the drug features.
 
@@ -159,10 +158,10 @@ class DRPModel(ABC):
 
     def get_concatenated_features(
         self,
-        cell_line_view: str,
+        cell_line_view: Optional[str],
         drug_view: Optional[str],
-        cell_line_ids_output: ArrayLike,
-        drug_ids_output: ArrayLike,
+        cell_line_ids_output: np.ndarray,
+        drug_ids_output: np.ndarray,
         cell_line_input: Optional[FeatureDataset],
         drug_input: Optional[FeatureDataset],
     ) -> np.ndarray:
@@ -184,8 +183,8 @@ class DRPModel(ABC):
             cell_line_input=cell_line_input,
             drug_input=drug_input,
         )
-        cell_line_features = inputs.get(cell_line_view)
-        drug_features = inputs.get(drug_view)
+        cell_line_features = None if cell_line_view is None else inputs.get(cell_line_view)
+        drug_features = None if drug_view is None else inputs.get(drug_view)
 
         if cell_line_features is not None and drug_features is not None:
             x = np.concatenate((cell_line_features, drug_features), axis=1)
@@ -199,8 +198,8 @@ class DRPModel(ABC):
 
     def get_feature_matrices(
         self,
-        cell_line_ids: ArrayLike,
-        drug_ids: ArrayLike,
+        cell_line_ids: np.ndarray,
+        drug_ids: np.ndarray,
         cell_line_input: Optional[FeatureDataset],
         drug_input: Optional[FeatureDataset],
     ) -> dict[str, np.ndarray]:
@@ -238,7 +237,7 @@ class SingleDrugModel(DRPModel, ABC):
     early_stopping = False
     drug_views = []
 
-    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+    def load_drug_features(self, data_path: str, dataset_name: str) -> Optional[FeatureDataset]:
         """
         Load the drug features, unnecessary for single drug models, so this function is overwritten.
 

@@ -2,7 +2,7 @@
 
 import os
 import secrets
-from typing import Optional, Union
+from typing import Optional
 
 import numpy as np
 import pytorch_lightning as pl
@@ -105,7 +105,7 @@ class RegressionDataset(Dataset):
 class FeedForwardNetwork(pl.LightningModule):
     """Feed forward neural network for regression tasks with basic architecture."""
 
-    def __init__(self, hyperparameters: dict[str, Union[int, float, list[int]]], input_dim: int) -> None:
+    def __init__(self, hyperparameters: dict[str, int | float | list[int]], input_dim: int) -> None:
         """
         Initializes the feed forward network.
 

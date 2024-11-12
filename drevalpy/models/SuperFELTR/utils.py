@@ -2,7 +2,6 @@
 
 import os
 import secrets
-from typing import Union
 
 import numpy as np
 import pytorch_lightning as pl
@@ -22,7 +21,7 @@ class SuperFELTEncoder(pl.LightningModule):
     """
 
     def __init__(
-        self, input_size: int, hpams: dict[str, Union[int, float]], omic_type: str, ranges: tuple[float, float]
+        self, input_size: int, hpams: dict[str, int | float | dict], omic_type: str, ranges: tuple[float, float]
     ) -> None:
         """
         Initializes the SuperFELTEncoder.
@@ -69,11 +68,11 @@ class SuperFELTEncoder(pl.LightningModule):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr, weight_decay=self.weight_decay)
         return optimizer
 
-    def _get_output_size(self, hpams: dict[str, Union[int, float]]) -> int:
+    def _get_output_size(self, hpams: dict[str, int | float | dict]) -> int:
         """
         Get the output size of the encoder based on the omic type from the hyperparameters.
 
-        :param hpams: hyperparameters
+        :param hpams: hyperparameters for the model
         :returns: output size of the encoder
         """
         return {
@@ -117,7 +116,7 @@ class SuperFELTEncoder(pl.LightningModule):
         return triplet_loss
 
     def training_step(
-        self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor], batch_idx: int
+        self, batch: list[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor], batch_idx: int
     ) -> torch.Tensor:
         """
         Override the training_step method to compute the triplet loss.
@@ -134,7 +133,7 @@ class SuperFELTEncoder(pl.LightningModule):
         return triplet_loss
 
     def validation_step(
-        self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor], batch_idx: int
+        self, batch: list[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor], batch_idx: int
     ) -> torch.Tensor:
         """
         Override the validation_step method to compute the triplet loss.
@@ -161,7 +160,7 @@ class SuperFELTRegressor(pl.LightningModule):
     def __init__(
         self,
         input_size: int,
-        hpams: dict[str, Union[int, float]],
+        hpams: dict[str, int | float | dict],
         encoders: tuple[SuperFELTEncoder, SuperFELTEncoder, SuperFELTEncoder],
     ) -> None:
         """
@@ -202,12 +201,12 @@ class SuperFELTRegressor(pl.LightningModule):
         :param data_cnv: copy number variation data
         :returns: predicted response
         """
-        data_expr, data_mut, data_cnv = map(
+        data_expr_tensor, data_mut_tensor, data_cnv_tensor = map(
             lambda data: torch.from_numpy(data).float().to(self.device), [data_expr, data_mut, data_cnv]
         )
         self.eval()
         with torch.no_grad():
-            encoded = self._encode_and_concatenate(data_expr, data_mut, data_cnv)
+            encoded = self._encode_and_concatenate(data_expr_tensor, data_mut_tensor, data_cnv_tensor)
             preds = self.regressor(encoded)
         return preds.squeeze().cpu().detach().numpy()
 
@@ -236,7 +235,7 @@ class SuperFELTRegressor(pl.LightningModule):
         return torch.cat((encoded_expr, encoded_mut, encoded_cnv), dim=1)
 
     def training_step(
-        self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor], batch_idx: int
+        self, batch: list[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor], batch_idx: int
     ) -> torch.Tensor:
         """
         Override the training_step method to compute the regression loss.
@@ -253,7 +252,7 @@ class SuperFELTRegressor(pl.LightningModule):
         return loss
 
     def validation_step(
-        self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor], batch_idx: int
+        self, batch: list[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor], batch_idx: int
     ) -> torch.Tensor:
         """
         Override the validation_step method to compute the regression loss.
@@ -271,8 +270,8 @@ class SuperFELTRegressor(pl.LightningModule):
 
 
 def train_superfeltr_model(
-    model: Union[SuperFELTEncoder, SuperFELTRegressor],
-    hpams: dict[str, Union[int, float]],
+    model: SuperFELTEncoder | SuperFELTRegressor,
+    hpams: dict[str, int | float | dict],
     output_train: DrugResponseDataset,
     cell_line_input: FeatureDataset,
     output_earlystopping: DrugResponseDataset,

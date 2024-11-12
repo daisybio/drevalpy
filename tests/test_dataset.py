@@ -30,8 +30,7 @@ def test_response_dataset_load() -> None:
     dataset.save("dataset.csv")
     del dataset
     # Load the dataset
-    dataset = DrugResponseDataset()
-    dataset.load("dataset.csv")
+    dataset = DrugResponseDataset.load("dataset.csv")
 
     os.remove("dataset.csv")
 
@@ -128,7 +127,7 @@ def test_remove_rows():
         cell_line_ids=np.array([101, 102, 103, 104, 105]),
         drug_ids=np.array(["A", "B", "C", "D", "E"]),
     )
-    dataset.remove_rows([0, 2, 4])
+    dataset.remove_rows(np.array([0, 2, 4]))
     assert np.array_equal(dataset.response, np.array([2, 4]))
     assert np.array_equal(dataset.cell_line_ids, np.array([102, 104]))
     assert np.array_equal(dataset.drug_ids, np.array(["B", "D"]))
@@ -144,7 +143,7 @@ def test_response_dataset_reduce_to():
     )
 
     # Reduce the dataset to a subset of cell line IDs and drug IDs
-    dataset.reduce_to(cell_line_ids=[102, 104], drug_ids=["B", "D"])
+    dataset.reduce_to(cell_line_ids=np.array([102, 104]), drug_ids=np.array(["B", "D"]))
 
     # Check if only the rows corresponding to the specified cell line IDs and drug IDs remain
     assert all(cell_line_id in [102, 104] for cell_line_id in dataset.cell_line_ids)
@@ -259,6 +258,7 @@ def test_transform(resp_transform: str):
     Test if the fit_transform and inverse_transform methods work correctly.
 
     :param resp_transform: response transformation method
+    :raises ValueError: if an invalid response transformation method is provided
     """
     from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
 
@@ -275,6 +275,8 @@ def test_transform(resp_transform: str):
         scaler = MinMaxScaler()
     elif resp_transform == "robust":
         scaler = RobustScaler()
+    else:
+        raise ValueError("Invalid response transformation method.")
     vals = scaler.fit_transform(np.array([1, 2, 3, 4, 5]).reshape(-1, 1))
     assert np.allclose(dataset.response, vals.flatten())
 
@@ -405,7 +407,7 @@ def test_feature_dataset_get_feature_matrix(sample_dataset: FeatureDataset) -> N
 
     :param sample_dataset: sample FeatureDataset
     """
-    feature_matrix = sample_dataset.get_feature_matrix("fingerprints", ["drug1", "drug2"])
+    feature_matrix = sample_dataset.get_feature_matrix("fingerprints", np.array(["drug1", "drug2"]))
     assert feature_matrix.shape == (2, 5)
     assert np.allclose(
         feature_matrix,
@@ -518,7 +520,7 @@ def test_feature_dataset_save_and_load(sample_dataset: FeatureDataset) -> None:
         sample_dataset.save(path=tmp.name)
 
     with pytest.raises(NotImplementedError):
-        sample_dataset.load(path=tmp.name)
+        FeatureDataset.load(path=tmp.name)
 
 
 def test_add_features(sample_dataset: FeatureDataset, graph_dataset: FeatureDataset) -> None:

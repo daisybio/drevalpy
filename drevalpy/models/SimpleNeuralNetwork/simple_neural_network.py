@@ -4,7 +4,6 @@ import warnings
 from typing import Optional
 
 import numpy as np
-from numpy.typing import ArrayLike
 from sklearn.preprocessing import StandardScaler
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
@@ -45,10 +44,10 @@ class SimpleNeuralNetwork(DRPModel):
     def train(
         self,
         output: DrugResponseDataset,
-        cell_line_input: FeatureDataset = None,
-        drug_input: FeatureDataset = None,
+        cell_line_input: Optional[FeatureDataset],
+        drug_input: Optional[FeatureDataset] = None,
         output_earlystopping: Optional[DrugResponseDataset] = None,
-    ):
+    ) -> None:
         """
         First scales the gene expression data and trains the model.
 
@@ -96,8 +95,8 @@ class SimpleNeuralNetwork(DRPModel):
 
     def predict(
         self,
-        drug_ids: ArrayLike,
-        cell_line_ids: ArrayLike,
+        drug_ids: np.ndarray,
+        cell_line_ids: np.ndarray,
         drug_input: FeatureDataset = None,
         cell_line_input: FeatureDataset = None,
     ) -> np.ndarray:

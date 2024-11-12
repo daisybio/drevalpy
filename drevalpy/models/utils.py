@@ -136,7 +136,7 @@ def get_multiomics_feature_dataset(
     data_path: str,
     dataset_name: str,
     gene_list: Optional[str] = "drug_target_genes_all_drugs",
-    omics: list[str] = None,
+    omics: Optional[list[str]] = None,
 ) -> FeatureDataset:
     """
     Get multiomics feature dataset for the given list of OMICs.
@@ -146,6 +146,7 @@ def get_multiomics_feature_dataset(
     :param gene_list: list of genes to include, e.g., landmark_genes
     :param omics: list of omics to include, e.g., ["gene_expression", "methylation"]
     :returns: FeatureDataset with the multiomics features
+    :raises ValueError: if no omics features are found
     """
     if omics is None:
         omics = ["gene_expression", "methylation", "mutations", "copy_number_variation_gistic"]
@@ -167,6 +168,8 @@ def get_multiomics_feature_dataset(
                     dataset_name=dataset_name,
                 )
             )
+    if feature_dataset is None:
+        raise ValueError("No omics features found.")
     return feature_dataset
 
 
