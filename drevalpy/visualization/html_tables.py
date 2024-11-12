@@ -1,7 +1,7 @@
 """Renders the evaluation results as HTML tables."""
 
 import os
-from typing import TextIO
+from io import TextIOWrapper
 
 import pandas as pd
 
@@ -86,7 +86,7 @@ class HTMLTable(OutPlot):
         self.df = self.df[selected_columns]
 
     @staticmethod
-    def write_to_html(lpo_lco_ldo: str, f: TextIO, prefix: str = "", *args, **kwargs) -> TextIO:
+    def write_to_html(lpo_lco_ldo: str, f: TextIOWrapper, prefix: str = "", *args, **kwargs) -> TextIOWrapper:
         """
         Write the evaluation results into the report HTML file.
 
@@ -97,7 +97,7 @@ class HTMLTable(OutPlot):
         :param kwargs: additional keyword arguments
         :return: the report file
         """
-        files = kwargs.get("files")
+        files: list[str] = kwargs.get("files", [])
         if prefix != "":
             prefix = os.path.join(prefix, "html_tables")
         f.write('<h2 id="tables"> Evaluation Results Table</h2>\n')
@@ -115,7 +115,7 @@ class HTMLTable(OutPlot):
         return f
 
 
-def _write_table(f: TextIO, table: str, prefix: str = ""):
+def _write_table(f: TextIOWrapper, table: str, prefix: str = ""):
     with open(os.path.join(prefix, table)) as eval_f:
         eval_results = eval_f.readlines()
         eval_results[0] = eval_results[0].replace(
