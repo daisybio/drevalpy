@@ -25,9 +25,9 @@ class SingleDrugRandomForest(SingleDrugModel, RandomForest):
     def train(
         self,
         output: DrugResponseDataset,
-        cell_line_input: FeatureDataset,
-        drug_input=None,
-        output_earlystopping=None,
+        cell_line_input: FeatureDataset | None,
+        drug_input: FeatureDataset | None = None,
+        output_earlystopping: DrugResponseDataset | None = None,
     ) -> None:
         """
         Trains the model; the number of features is the number of fingerprints.
@@ -36,10 +36,13 @@ class SingleDrugRandomForest(SingleDrugModel, RandomForest):
         :param cell_line_input: training dataset containing gene expression data
         :param drug_input: not needed
         :param output_earlystopping: not needed
-        :raises ValueError: if drug_input or output_earlystopping is not None
+        :raises ValueError: if drug_input or output_earlystopping is not None or if cell_line_input is None
         """
         if drug_input is not None or output_earlystopping is not None:
             raise ValueError("SingleDrugRandomForest does not support drug_input or " "output_earlystopping!")
+        if cell_line_input is None:
+            raise ValueError("cell_line_input is required.")
+
         if len(output) > 0:
             x = self.get_concatenated_features(
                 cell_line_view="gene_expression",
@@ -56,10 +59,10 @@ class SingleDrugRandomForest(SingleDrugModel, RandomForest):
 
     def predict(
         self,
-        drug_ids: str | np.ndarray,
-        cell_line_ids: str | np.ndarray,
-        drug_input: Optional[FeatureDataset] = None,
-        cell_line_input: FeatureDataset = None,
+        drug_ids: str | np.ndarray | None,
+        cell_line_ids: str | np.ndarray | None,
+        drug_input: FeatureDataset | None = None,
+        cell_line_input: FeatureDataset | None = None,
     ) -> np.ndarray:
         """
         Predicts the drug response for the given cell lines.
@@ -69,7 +72,18 @@ class SingleDrugRandomForest(SingleDrugModel, RandomForest):
         :param drug_input: drug input, not needed here
         :param cell_line_input: cell line input
         :returns: predicted drug response
+        :raises ValueError: if drug_ids or cell_line_ids are not a numpy array or if cell_line_input is None or if
+            drug_input is not None
         """
+        if not isinstance(drug_ids, np.ndarray):
+            raise ValueError("drug_ids has to be a numpy array.")
+        if not isinstance(cell_line_ids, np.ndarray):
+            raise ValueError("cell_line_ids has to be a numpy array.")
+        if drug_input is not None:
+            raise ValueError("drug_input is not needed.")
+        if cell_line_input is None:
+            raise ValueError("cell_line_input is required.")
+
         if self.model is None:
             print("No training data was available, predicting NA.")
             return np.array([np.nan] * len(cell_line_ids))
@@ -82,3 +96,13 @@ class SingleDrugRandomForest(SingleDrugModel, RandomForest):
             drug_input=None,
         )
         return self.model.predict(x)
+
+    def load_drug_features(self, data_path: str, dataset_name: str) -> Optional[FeatureDataset]:
+        """
+        Function from SingleDrugModel, since SingleDrugModel and RandomForest have conflicting implementations.
+
+        :param data_path: path to the data, e.g., data/
+        :param dataset_name: name of the dataset, e.g., "GDSC2"
+        :returns: nothing because it is not needed for the single drug models
+        """
+        return None

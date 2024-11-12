@@ -1,5 +1,7 @@
 """Contains sklearn baseline models: ElasticNet, RandomForest, SVM."""
 
+from typing import Optional
+
 import numpy as np
 from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
 from sklearn.linear_model import ElasticNet, Lasso, Ridge
@@ -38,9 +40,9 @@ class SklearnModel(DRPModel):
     def train(
         self,
         output: DrugResponseDataset,
-        cell_line_input: FeatureDataset,
-        drug_input: FeatureDataset = None,
-        output_earlystopping=None,
+        cell_line_input: FeatureDataset | None,
+        drug_input: FeatureDataset | None = None,
+        output_earlystopping: DrugResponseDataset | None = None,
     ) -> None:
         """
         Trains the model.
@@ -50,7 +52,15 @@ class SklearnModel(DRPModel):
         :param cell_line_input: training dataset containing gene expression data
         :param drug_input: training dataset containing fingerprints data
         :param output_earlystopping: not needed
+        :raises ValueError: If cell_line_input or drug_input is None or if output_earlystopping is not None.
         """
+        if cell_line_input is None:
+            raise ValueError("cell_line_input is required.")
+        if drug_input is None:
+            raise ValueError("drug_input is required.")
+        if output_earlystopping is not None:
+            raise ValueError("output_earlystopping is not supported.")
+
         x = self.get_concatenated_features(
             cell_line_view="gene_expression",
             drug_view="fingerprints",
@@ -63,10 +73,10 @@ class SklearnModel(DRPModel):
 
     def predict(
         self,
-        drug_ids: np.ndarray,
-        cell_line_ids: np.ndarray,
-        drug_input: FeatureDataset = None,
-        cell_line_input: FeatureDataset = None,
+        drug_ids: str | np.ndarray | None,
+        cell_line_ids: str | np.ndarray | None,
+        drug_input: FeatureDataset | None = None,
+        cell_line_input: FeatureDataset | None = None,
     ) -> np.ndarray:
         """
         Predicts the response for the given input.
@@ -76,7 +86,18 @@ class SklearnModel(DRPModel):
         :param drug_input: drug input
         :param cell_line_input: cell line input
         :returns: predicted drug response
+        :raises ValueError: If drug_ids or cell_line_ids are not a numpy array or if cell_line_input is None or if
+            drug_input is not None.
         """
+        if not isinstance(drug_ids, np.ndarray):
+            raise ValueError("drug_ids has to be a numpy array.")
+        if not isinstance(cell_line_ids, np.ndarray):
+            raise ValueError("cell_line_ids has to be a numpy array.")
+        if drug_input is None:
+            raise ValueError("drug_input is required.")
+        if cell_line_input is None:
+            raise ValueError("cell_line_input is required.")
+
         x = self.get_concatenated_features(
             cell_line_view="gene_expression",
             drug_view="fingerprints",
@@ -102,7 +123,7 @@ class SklearnModel(DRPModel):
             dataset_name=dataset_name,
         )
 
-    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+    def load_drug_features(self, data_path: str, dataset_name: str) -> Optional[FeatureDataset]:
         """
         Load the drug features, in this case the fingerprints.
 

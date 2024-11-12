@@ -52,9 +52,9 @@ class MultiOmicsRandomForest(RandomForest):
     def train(
         self,
         output: DrugResponseDataset,
-        cell_line_input: FeatureDataset,
-        drug_input: FeatureDataset = None,
-        output_earlystopping=None,
+        cell_line_input: FeatureDataset | None,
+        drug_input: FeatureDataset | None = None,
+        output_earlystopping: DrugResponseDataset | None = None,
     ) -> None:
         """
         Trains the model: the number of features is the number of genes + the number of fingerprints.
@@ -63,7 +63,11 @@ class MultiOmicsRandomForest(RandomForest):
         :param cell_line_input: training dataset containing the OMICs
         :param drug_input: training dataset containing fingerprints data
         :param output_earlystopping: not needed
+        :raises ValueError: if cell_line_input is None
         """
+        if cell_line_input is None:
+            raise ValueError("cell_line_input must be provided")
+
         inputs = self.get_feature_matrices(
             cell_line_ids=output.cell_line_ids,
             drug_ids=output.drug_ids,
@@ -99,10 +103,10 @@ class MultiOmicsRandomForest(RandomForest):
 
     def predict(
         self,
-        drug_ids: np.ndarray,
-        cell_line_ids: np.ndarray,
-        drug_input: FeatureDataset = None,
-        cell_line_input: FeatureDataset = None,
+        drug_ids: str | np.ndarray | None,
+        cell_line_ids: str | np.ndarray | None,
+        drug_input: FeatureDataset | None = None,
+        cell_line_input: FeatureDataset | None = None,
     ) -> np.ndarray:
         """
         Predicts the response for the given input.
@@ -112,7 +116,15 @@ class MultiOmicsRandomForest(RandomForest):
         :param drug_input: drug input
         :param cell_line_input: cell line input
         :returns: predicted response
+        :raises ValueError: if drug_ids or cell_line_ids are not numpy arrays or if cell_line_input is None
         """
+        if not isinstance(drug_ids, np.ndarray):
+            raise ValueError("drug_ids must be a numpy array")
+        if not isinstance(cell_line_ids, np.ndarray):
+            raise ValueError("cell_line_ids must be a numpy array")
+        if cell_line_input is None:
+            raise ValueError("cell_line_input must be provided")
+
         inputs = self.get_feature_matrices(
             cell_line_ids=cell_line_ids,
             drug_ids=drug_ids,
