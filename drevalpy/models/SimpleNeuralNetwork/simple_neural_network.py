@@ -22,10 +22,9 @@ class SimpleNeuralNetwork(DRPModel):
     model_name = "SimpleNeuralNetwork"
 
     def __init__(self):
-        """
-        Initializes the SimpleNeuralNetwork.
+        """Initializes the SimpleNeuralNetwork.
 
-        The model is build in train. The gene_expression_scalar is set to the StandardScaler() and later fitted
+        The model is build in train(). The gene_expression_scalar is set to the StandardScaler() and later fitted
         using the training data only.
         """
         super().__init__()
@@ -97,8 +96,8 @@ class SimpleNeuralNetwork(DRPModel):
         self,
         drug_ids: np.ndarray,
         cell_line_ids: np.ndarray,
-        drug_input: FeatureDataset = None,
-        cell_line_input: FeatureDataset = None,
+        drug_input: Optional[FeatureDataset] = None,
+        cell_line_input: Optional[FeatureDataset] = None,
     ) -> np.ndarray:
         """
         Predicts the response for the given input.
