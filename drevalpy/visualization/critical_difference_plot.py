@@ -10,7 +10,8 @@ License: GPL3
 
 import math
 import operator
-from typing import Any, TextIO
+from io import TextIOWrapper
+from typing import Any
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -85,7 +86,7 @@ class CriticalDifferencePlot(OutPlot):
         )
 
     @staticmethod
-    def write_to_html(lpo_lco_ldo: str, f: TextIO, *args, **kwargs) -> TextIO:
+    def write_to_html(lpo_lco_ldo: str, f: TextIOWrapper, *args, **kwargs) -> TextIOWrapper:
         """
         Inserts the critical difference plot into the HTML report file.
 
@@ -128,11 +129,11 @@ class CriticalDifferencePlot(OutPlot):
             avranks=average_ranks.values.tolist(),
             names=list(average_ranks.keys()),
             p_values=p_values,
+            colors=plotly_colors,
             reverse=True,
-            width=9,
+            width=9.0,
             textspace=1.5,
             labels=labels,
-            colors=plotly_colors,
         )
 
         font = {
@@ -151,13 +152,13 @@ def _graph_ranks(
     avranks: list[float],
     names: list[str],
     p_values: list[tuple[str, str, float, bool]],
-    lowv: int = None,
-    highv: int = None,
-    width: int = 6,
+    colors: list[str],
+    lowv: int | None = None,
+    highv: int | None = None,
+    width: float = 9.0,
     textspace: float = 1.0,
     reverse: bool = False,
     labels: bool = False,
-    colors: list[str] = None,
 ) -> None:
     """
     Draws a CD graph, which is used to display  the differences in methods' performance.
@@ -178,8 +179,6 @@ def _graph_ranks(
     :param labels: bool, optional, if set to `True`, the calculated avg rank values will be displayed
     :param colors: list of str, optional, list of colors for the methods
     """
-    width = float(width)
-    textspace = float(textspace)
 
     def nth(data: list[tuple[float, float]], position: int) -> list[float]:
         """
@@ -248,7 +247,7 @@ def _graph_ranks(
 
     fig = plt.figure(figsize=(width, height))
     fig.set_facecolor("white")
-    ax = fig.add_axes([0, 0, 1, 1])  # reverse y axis
+    ax = fig.add_axes(rect=(0.0, 0.0, 1.0, 1.0))  # reverse y axis
     ax.set_axis_off()
 
     hf = 1.0 / height  # height factor
@@ -310,7 +309,6 @@ def _graph_ranks(
     linewidth = 2.0
     linewidth_sign = 4.0
 
-    tick = None
     for a in list(np.arange(lowv, highv, 0.5)) + [highv]:
         tick = smalltick
         if a == int(a):
@@ -324,7 +322,7 @@ def _graph_ranks(
     for a in range(lowv, highv + 1):
         text(
             rankpos(a),
-            cline - tick / 2 - 0.05,
+            cline - bigtick / 2 - 0.05,
             str(a),
             ha="center",
             va="bottom",

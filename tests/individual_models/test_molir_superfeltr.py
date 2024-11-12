@@ -1,11 +1,14 @@
 """Test the MOLIR and SuperFELTR models."""
 
+from typing import cast
+
 import numpy as np
 import pytest
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.evaluation import evaluate, pearson
 from drevalpy.models import MODEL_FACTORY
+from drevalpy.models.drp_model import DRPModel
 
 
 @pytest.mark.parametrize("test_mode", ["LCO"])
@@ -25,6 +28,7 @@ def test_molir_superfeltr(
         n_cv_splits=5,
         mode=test_mode,
     )
+    assert drug_response.cv_splits is not None
     split = drug_response.cv_splits[0]
     train_dataset = split["train"]
     all_unique_drugs = np.unique(train_dataset.drug_ids)
@@ -49,8 +53,8 @@ def test_molir_superfeltr(
     print(f"Reduced es dataset from {len_es_before} to {len(es_dataset)}")
 
     all_predictions = np.zeros_like(val_es_dataset.drug_ids, dtype=float)
-
-    model = MODEL_FACTORY[model_name]()
+    model_class = cast(type[DRPModel], MODEL_FACTORY[model_name])
+    model = model_class()
     hpam_combi = model.get_hyperparameter_set()[0]
     hpam_combi["epochs"] = 1
     model.build_model(hpam_combi)

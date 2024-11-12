@@ -144,8 +144,8 @@ def evaluate_file(
 
     evaluation_results_per_drug = None
     evaluation_results_per_cl = None
-    norm_drug_eval_results = {}
-    norm_cl_eval_results = {}
+    norm_drug_eval_results: dict[str, dict[str, float]] = {}
+    norm_cl_eval_results: dict[str, dict[str, float]] = {}
 
     if "LPO" in model or "LCO" in model:
         norm_drug_eval_results, evaluation_results_per_drug = _evaluate_per_group(
