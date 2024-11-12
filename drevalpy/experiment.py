@@ -306,6 +306,7 @@ def consolidate_single_drug_model_predictions(
     """
     for model in models:
         if model.model_name in SINGLE_DRUG_MODEL_FACTORY:
+
             model_instance = MODEL_FACTORY[model.model_name]()
             model_path = os.path.join(results_path, str(model.model_name))
             out_path = os.path.join(out_path, str(model.model_name))

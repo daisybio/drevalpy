@@ -16,6 +16,7 @@ from sklearn.model_selection import ParameterGrid
 
 from ..datasets.dataset import DrugResponseDataset, FeatureDataset
 from ..pipeline_function import pipeline_function
+from ..utils import _ClassProperty
 
 
 class DRPModel(ABC):
@@ -65,8 +66,8 @@ class DRPModel(ABC):
         grid = list(ParameterGrid(hpams))
         return grid
 
-    @property
     @abstractmethod
+    @_ClassProperty
     def model_name(self) -> str:
         """
         Returns the model name.
