@@ -844,6 +844,7 @@ class FeatureDataset(Dataset):
         common_identifiers = set(self.identifiers).intersection(other.identifiers)
         new_features = {}
         for id_ in common_identifiers:
+            id_ = str(id_)
             new_features[id_] = {view: self.features[id_][view] for view in self.view_names}
             for view in other.view_names:
                 new_features[id_][view] = other.features[id_][view]

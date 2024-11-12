@@ -38,19 +38,21 @@ class RegressionDataset(Dataset):
         self.output = output
         self.cell_line_input = cell_line_input
 
-    def __getitem__(self, idx: int) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    def __getitem__(self, idx: int) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.float32]:
         """
         Overwrites the getitem method.
 
         :param idx: index of the sample
         :returns: gene expression, mutations, copy number variation, and response of the sample as numpy arrays
         """
-        response = self.output.response[idx].astype(np.float32)
+        response: np.float32 = np.float32(self.output.response[idx])
 
         cell_line_id = str(self.output.cell_line_ids[idx])
-        gene_expression = self.cell_line_input.features[cell_line_id]["gene_expression"].astype(np.float32)
-        mutations = self.cell_line_input.features[cell_line_id]["mutations"].astype(np.float32)
-        copy_number = self.cell_line_input.features[cell_line_id]["copy_number_variation_gistic"].astype(np.float32)
+        gene_expression: np.ndarray = self.cell_line_input.features[cell_line_id]["gene_expression"].astype(np.float32)
+        mutations: np.ndarray = self.cell_line_input.features[cell_line_id]["mutations"].astype(np.float32)
+        copy_number: np.ndarray = self.cell_line_input.features[cell_line_id]["copy_number_variation_gistic"].astype(
+            np.float32
+        )
 
         return gene_expression, mutations, copy_number, response
 
@@ -98,7 +100,7 @@ def generate_triplets_indices(
     return np.array(positive_sample_indices), np.array(negative_sample_indices)
 
 
-def _get_positive_class_indices(label: float, idx_label: int, y: np.ndarray, positive_range: float) -> np.ndarray:
+def _get_positive_class_indices(label: np.float32, idx_label: int, y: np.ndarray, positive_range: float) -> np.ndarray:
     """
     Find the samples that are within the positive range of the label except the label itself.
 
@@ -117,7 +119,7 @@ def _get_positive_class_indices(label: float, idx_label: int, y: np.ndarray, pos
     return indices_similar_samples
 
 
-def _get_negative_class_indices(label: float, y: np.ndarray, negative_range: float) -> np.ndarray:
+def _get_negative_class_indices(label: np.float32, y: np.ndarray, negative_range: float) -> np.ndarray:
     """
     Finds dissimilar samples to the label.
 
@@ -141,8 +143,8 @@ def make_ranges(output: DrugResponseDataset) -> tuple[float, float]:
     :param output: drug response dataset
     :returns: positive and negative range for the triplet loss
     """
-    positive_range = np.std(output.response) * 0.1
-    negative_range = np.std(output.response)
+    positive_range = float(np.std(output.response) * 0.1)
+    negative_range = float(np.std(output.response))
     return positive_range, negative_range
 
 
@@ -449,7 +451,7 @@ class MOLIModel(pl.LightningModule):
         return triplet_loss + regression_loss
 
     def training_step(
-        self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor], batch_idx: int
+        self, batch: list[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor], batch_idx: int
     ) -> torch.Tensor:
         """
         Training step of the MOLIR model.
@@ -472,7 +474,7 @@ class MOLIModel(pl.LightningModule):
         return loss
 
     def validation_step(
-        self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor], batch_idx: int
+        self, batch: list[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor], batch_idx: int
     ) -> torch.Tensor:
         """
         Validation step of the MOLIR model.
