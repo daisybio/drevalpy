@@ -100,7 +100,7 @@ def generate_triplets_indices(
     return np.array(positive_sample_indices), np.array(negative_sample_indices)
 
 
-def _get_positive_class_indices(label: float, idx_label: int, y: np.ndarray, positive_range: float) -> np.ndarray:
+def _get_positive_class_indices(label: np.float32, idx_label: int, y: np.ndarray, positive_range: float) -> np.ndarray:
     """
     Find the samples that are within the positive range of the label except the label itself.
 
@@ -119,7 +119,7 @@ def _get_positive_class_indices(label: float, idx_label: int, y: np.ndarray, pos
     return indices_similar_samples
 
 
-def _get_negative_class_indices(label: float, y: np.ndarray, negative_range: float) -> np.ndarray:
+def _get_negative_class_indices(label: np.float32, y: np.ndarray, negative_range: float) -> np.ndarray:
     """
     Finds dissimilar samples to the label.
 
@@ -143,8 +143,8 @@ def make_ranges(output: DrugResponseDataset) -> tuple[float, float]:
     :param output: drug response dataset
     :returns: positive and negative range for the triplet loss
     """
-    positive_range = np.std(output.response) * 0.1
-    negative_range = np.std(output.response)
+    positive_range = float(np.std(output.response) * 0.1)
+    negative_range = float(np.std(output.response))
     return positive_range, negative_range
 
 

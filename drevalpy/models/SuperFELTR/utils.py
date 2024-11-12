@@ -116,7 +116,7 @@ class SuperFELTEncoder(pl.LightningModule):
         return triplet_loss
 
     def training_step(
-        self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor], batch_idx: int
+        self, batch: list[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor], batch_idx: int
     ) -> torch.Tensor:
         """
         Override the training_step method to compute the triplet loss.
@@ -133,7 +133,7 @@ class SuperFELTEncoder(pl.LightningModule):
         return triplet_loss
 
     def validation_step(
-        self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor], batch_idx: int
+        self, batch: list[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor], batch_idx: int
     ) -> torch.Tensor:
         """
         Override the validation_step method to compute the triplet loss.
@@ -235,7 +235,7 @@ class SuperFELTRegressor(pl.LightningModule):
         return torch.cat((encoded_expr, encoded_mut, encoded_cnv), dim=1)
 
     def training_step(
-        self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor], batch_idx: int
+        self, batch: list[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor], batch_idx: int
     ) -> torch.Tensor:
         """
         Override the training_step method to compute the regression loss.
@@ -252,7 +252,7 @@ class SuperFELTRegressor(pl.LightningModule):
         return loss
 
     def validation_step(
-        self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor], batch_idx: int
+        self, batch: list[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor], batch_idx: int
     ) -> torch.Tensor:
         """
         Override the validation_step method to compute the regression loss.
