@@ -392,12 +392,12 @@ class MOLIModel(pl.LightningModule):
         else:
             best_model = self
         # convert to torch tensors
-        gene_expression = torch.from_numpy(gene_expression).float().to(best_model.device)
-        mutations = torch.from_numpy(mutations).float().to(best_model.device)
-        copy_number = torch.from_numpy(copy_number).float().to(best_model.device)
+        gene_expression_tensor = torch.from_numpy(gene_expression).float().to(best_model.device)
+        mutations_tensor = torch.from_numpy(mutations).float().to(best_model.device)
+        copy_number_tensor = torch.from_numpy(copy_number).float().to(best_model.device)
         best_model.eval()
         with torch.no_grad():
-            z = best_model._encode_and_concatenate(gene_expression, mutations, copy_number)
+            z = best_model._encode_and_concatenate(gene_expression_tensor, mutations_tensor, copy_number_tensor)
             preds = best_model.regressor(z)
         return preds.squeeze().cpu().detach().numpy()
 

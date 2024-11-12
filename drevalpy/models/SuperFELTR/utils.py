@@ -201,12 +201,12 @@ class SuperFELTRegressor(pl.LightningModule):
         :param data_cnv: copy number variation data
         :returns: predicted response
         """
-        data_expr, data_mut, data_cnv = map(
+        data_expr_tensor, data_mut_tensor, data_cnv_tensor = map(
             lambda data: torch.from_numpy(data).float().to(self.device), [data_expr, data_mut, data_cnv]
         )
         self.eval()
         with torch.no_grad():
-            encoded = self._encode_and_concatenate(data_expr, data_mut, data_cnv)
+            encoded = self._encode_and_concatenate(data_expr_tensor, data_mut_tensor, data_cnv_tensor)
             preds = self.regressor(encoded)
         return preds.squeeze().cpu().detach().numpy()
 
