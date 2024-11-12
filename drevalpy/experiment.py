@@ -4,7 +4,7 @@ import json
 import os
 import shutil
 import warnings
-from typing import Optional
+from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
@@ -320,7 +320,7 @@ def consolidate_single_drug_model_predictions(
             for split in range(n_cv_splits):
 
                 # Collect predictions for drugs across all scenarios (main, cross_study, robustness, randomization)
-                predictions = {
+                predictions: Any = {
                     "main": [],
                     "cross_study": {},
                     "robustness": {},
@@ -783,12 +783,15 @@ def randomize_train_predict(
         )
         return
 
-    cl_features_rand = cl_features.copy() if cl_features is not None else None
-    drug_features_rand = drug_features.copy() if drug_features is not None else None
-    if cl_features_rand is not None and view in cl_features.get_view_names():
-        cl_features_rand.randomize_features(view, randomization_type=randomization_type)
-    elif drug_features_rand is not None and view in drug_features.get_view_names():
-        drug_features_rand.randomize_features(view, randomization_type=randomization_type)
+    cl_features_rand: Optional[FeatureDataset] = None
+    if cl_features is not None:
+        cl_features_rand = cl_features.copy()
+        cl_features_rand.randomize_features(view, randomization_type=randomization_type)  # type: ignore[union-attr]
+
+    drug_features_rand: Optional[FeatureDataset] = None
+    if drug_features is not None:
+        drug_features_rand = drug_features.copy()
+        drug_features_rand.randomize_features(view, randomization_type=randomization_type)  # type: ignore[union-attr]
 
     test_dataset_rand = train_and_predict(
         model=model,
