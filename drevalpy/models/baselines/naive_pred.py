@@ -51,14 +51,7 @@ class NaivePredictor(DRPModel):
         :param cell_line_input: not needed
         :param drug_input: not needed
         :param output_earlystopping: not needed
-        :raises ValueError: if cell_line_input or drug_input are provided or if output_earlystopping is provided
         """
-        if cell_line_input is not None:
-            raise ValueError("Cell line input should not be provided for the NaivePredictor.")
-        if drug_input is not None:
-            raise ValueError("Drug input should not be provided for the NaivePredictor.")
-        if output_earlystopping is not None:
-            raise ValueError("Output early stopping should not be provided for the NaivePredictor.")
         self.dataset_mean = np.mean(output.response)
 
     def predict(
@@ -76,18 +69,7 @@ class NaivePredictor(DRPModel):
         :param cell_line_input: not needed
         :param drug_input: not needed
         :return: array of the same length as the input cell line id containing the dataset mean
-        :raises ValueError: if drug_ids or cell_line_input or drug_input are provided or if cell_line_ids is not a
-            numpy array
         """
-        if drug_ids is not None:
-            raise ValueError("Drug ids should not be provided for the NaivePredictor.")
-        if cell_line_input is not None:
-            raise ValueError("Cell line input should not be provided for the NaivePredictor.")
-        if drug_input is not None:
-            raise ValueError("Drug input should not be provided for the NaivePredictor.")
-        if not isinstance(cell_line_ids, np.ndarray):
-            raise ValueError("Cell line ids should be a numpy array.")
-
         return np.full(cell_line_ids.shape[0], self.dataset_mean)
 
     def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
@@ -150,15 +132,7 @@ class NaiveDrugMeanPredictor(DRPModel):
         :param drug_input: drug id
         :param cell_line_input: not needed
         :param output_earlystopping: not needed
-        :raises ValueError: if cell_line_input or output_earlystopping is provided or if drug_input is not provided
         """
-        if cell_line_input is not None:
-            raise ValueError("Cell line input should not be provided for the NaiveDrugMeanPredictor.")
-        if output_earlystopping is not None:
-            raise ValueError("Output early stopping should not be provided for the NaiveDrugMeanPredictor.")
-        if drug_input is None:
-            raise ValueError("Drug input should be provided for the NaiveDrugMeanPredictor.")
-
         drug_ids = drug_input.get_feature_matrix(view="drug_id", identifiers=output.drug_ids)
         self.dataset_mean = np.mean(output.response)
         self.drug_means = {}
@@ -186,18 +160,7 @@ class NaiveDrugMeanPredictor(DRPModel):
         :param drug_input: not needed
         :param cell_line_input: not needed
         :return: array of the same length as the input drug_id containing the drug mean
-        :raises ValueError: if cell_line_ids or cell_line_input or drug_input is provided or if drug_ids is not a
-            numpy array
         """
-        if cell_line_ids is not None:
-            raise ValueError("Cell line ids should not be provided for the NaiveDrugMeanPredictor.")
-        if cell_line_input is not None:
-            raise ValueError("Cell line input should not be provided for the NaiveDrugMeanPredictor.")
-        if drug_input is not None:
-            raise ValueError("Drug input should not be provided for the NaiveDrugMeanPredictor.")
-        if not isinstance(drug_ids, np.ndarray):
-            raise ValueError("Drug ids should be a numpy array.")
-
         return np.array([self.predict_drug(drug) for drug in drug_ids])
 
     def predict_drug(self, drug_id: str):
@@ -274,15 +237,7 @@ class NaiveCellLineMeanPredictor(DRPModel):
         :param cell_line_input: cell line inputs
         :param drug_input: not needed
         :param output_earlystopping: not needed
-        :raises ValueError: if drug_input or output_earlystopping is provided or if cell_line_input is not provided
         """
-        if drug_input is not None:
-            raise ValueError("Drug input should not be provided for the NaiveCellLineMeanPredictor.")
-        if output_earlystopping is not None:
-            raise ValueError("Output early stopping should not be provided for the NaiveCellLineMeanPredictor.")
-        if cell_line_input is None:
-            raise ValueError("Cell line input should be provided for the NaiveCellLineMeanPredictor.")
-
         cell_line_ids = cell_line_input.get_feature_matrix(view="cell_line_id", identifiers=output.cell_line_ids)
         self.dataset_mean = np.mean(output.response)
         self.cell_line_means = {}
@@ -312,18 +267,7 @@ class NaiveCellLineMeanPredictor(DRPModel):
         :param drug_input: not needed
         :param cell_line_input: not needed
         :return: array of the same length as the input cell_line_id containing the cell line mean
-        :raises ValueError: if drug_ids or drug_input or cell_line_input is provided or if cell_line_ids is not a
-            numpy array
         """
-        if drug_ids is not None:
-            raise ValueError("Drug ids should not be provided for the NaiveCellLineMeanPredictor.")
-        if drug_input is not None:
-            raise ValueError("Drug input should not be provided for the NaiveCellLineMeanPredictor.")
-        if cell_line_input is not None:
-            raise ValueError("Cell line input should not be provided for the NaiveCellLineMeanPredictor.")
-        if not isinstance(cell_line_ids, np.ndarray):
-            raise ValueError("Cell line ids should be a numpy array.")
-
         return np.array([self.predict_cl(cl) for cl in cell_line_ids])
 
     def predict_cl(self, cl_id: str):

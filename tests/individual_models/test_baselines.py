@@ -153,8 +153,8 @@ def _call_naive_predictor(train_dataset: DrugResponseDataset, val_dataset: DrugR
     :param test_mode: either LPO, LCO, or LDO
     """
     naive = NaivePredictor()
-    naive.train(output=train_dataset)
-    val_dataset.predictions = naive.predict(cell_line_ids=val_dataset.cell_line_ids)
+    naive.train(output=train_dataset, cell_line_input=None, drug_input=None)
+    val_dataset.predictions = naive.predict(cell_line_ids=val_dataset.cell_line_ids, drug_ids=val_dataset.drug_ids)
     assert val_dataset.predictions is not None
     train_mean = train_dataset.response.mean()
     assert train_mean == naive.dataset_mean
