@@ -1,11 +1,14 @@
 """Test the SimpleNeuralNetwork model."""
 
+from typing import cast
+
 import numpy as np
 import pytest
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.evaluation import evaluate
 from drevalpy.models import MODEL_FACTORY
+from drevalpy.models.drp_model import DRPModel
 
 
 @pytest.mark.parametrize("test_mode", ["LPO"])
@@ -25,6 +28,7 @@ def test_simple_neural_network(
         n_cv_splits=5,
         mode=test_mode,
     )
+    assert drug_response.cv_splits is not None
     split = drug_response.cv_splits[0]
     train_dataset = split["train"]
     # smaller dataset for faster testing
@@ -40,7 +44,8 @@ def test_simple_neural_network(
     val_es_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
     es_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
 
-    model = MODEL_FACTORY[model_name]()
+    model_class = cast(type[DRPModel], MODEL_FACTORY[model_name])
+    model = model_class()
     hpams = model.get_hyperparameter_set()
     hpam_combi = hpams[0]
     hpam_combi["units_per_layer"] = [2, 2]

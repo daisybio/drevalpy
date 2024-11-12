@@ -531,6 +531,7 @@ def test_add_features(sample_dataset: FeatureDataset, graph_dataset: FeatureData
     :param graph_dataset: sample FeatureDataset with molecular graphs
     """
     sample_dataset.add_features(graph_dataset)
+    assert sample_dataset.meta_info is not None
     assert "molecular_graph" in sample_dataset.meta_info
     assert "molecular_graph" in sample_dataset.get_view_names()
 
