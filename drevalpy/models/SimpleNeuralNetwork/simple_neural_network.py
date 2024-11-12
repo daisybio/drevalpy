@@ -44,7 +44,7 @@ class SimpleNeuralNetwork(DRPModel):
         self,
         output: DrugResponseDataset,
         cell_line_input: Optional[FeatureDataset],
-        drug_input: Optional[FeatureDataset] = None,
+        drug_input: Optional[FeatureDataset],
         output_earlystopping: Optional[DrugResponseDataset] = None,
     ) -> None:
         """
@@ -56,8 +56,14 @@ class SimpleNeuralNetwork(DRPModel):
         :param cell_line_input: cell line omics features
         :param drug_input: drug omics features
         :param output_earlystopping: optional early stopping dataset
+        :raises ValueError: if cell_line_input or drug_input are missing
 
         """
+        if cell_line_input is None:
+            raise ValueError("cell_line_input is required.")
+        if drug_input is None:
+            raise ValueError("drug_input is required.")
+
         # Apply arcsinh transformation and scaling to gene expression features
         if "gene_expression" in self.cell_line_views:
             cell_line_input.apply(function=np.arcsinh, view="gene_expression")
