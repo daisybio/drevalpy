@@ -785,14 +785,13 @@ class FeatureDataset(Dataset):
         """
         return list(self.features[list(self.features.keys())[0]].keys())
 
-    def get_feature_matrix(self, view: str, identifiers: np.ndarray, stack: bool = True) -> np.ndarray:
+    def get_feature_matrix(self, view: str, identifiers: np.ndarray) -> np.ndarray:
         """
         Returns the feature matrix for the given view.
 
         The feature view must be a vector or matrix.
         :param view: view name
         :param identifiers: list of identifiers (cell lines oder drugs)
-        :param stack: if True, the feature vectors are stacked to a matrix
         :returns: feature matrix
         :raises AssertionError: if no identifiers are given
         :raises AssertionError: if view is not in the FeatureDataset
@@ -818,7 +817,7 @@ class FeatureDataset(Dataset):
         if not all(isinstance(self.features[id_][view], np.ndarray) for id_ in identifiers):
             raise AssertionError(f"get_feature_matrix only works for vectors or matrices. {view} is not a numpy array.")
         out = np.array([self.features[id_][view] for id_ in identifiers])
-        return np.stack(out, axis=0)
+        return out
 
     def copy(self):
         """Returns a copy of the feature dataset.

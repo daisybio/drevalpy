@@ -46,6 +46,7 @@ pre-commit = "*"
 pre-commit-hooks = "*"
 pyupgrade = "*"
 pep8-naming = "*"
+types-requests = "*"
 
 [tool.black]
 line-length = 120
