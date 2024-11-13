@@ -20,10 +20,10 @@ class RegressionDataset(Dataset):
     def __init__(
         self,
         output: DrugResponseDataset,
-        cell_line_input: FeatureDataset = None,
-        drug_input: FeatureDataset = None,
-        cell_line_views: list[str] = None,
-        drug_views: list[str] = None,
+        cell_line_input: FeatureDataset | None = None,
+        drug_input: FeatureDataset | None = None,
+        cell_line_views: list[str] | None = None,
+        drug_views: list[str] | None = None,
         met_transform=None,
     ):
         """
@@ -143,9 +143,9 @@ class FeedForwardNetwork(pl.LightningModule):
         self,
         output_train: DrugResponseDataset,
         cell_line_input: FeatureDataset,
-        drug_input: FeatureDataset = None,
-        cell_line_views: list[str] = None,
-        drug_views: list[str] = None,
+        drug_input: FeatureDataset | None = None,
+        cell_line_views: list[str] | None = None,
+        drug_views: list[str] | None = None,
         output_earlystopping: Optional[DrugResponseDataset] = None,
         trainer_params: Optional[dict] = None,
         batch_size=32,

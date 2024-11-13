@@ -22,10 +22,9 @@ class SimpleNeuralNetwork(DRPModel):
     model_name = "SimpleNeuralNetwork"
 
     def __init__(self):
-        """
-        Initializes the SimpleNeuralNetwork.
+        """Initializes the SimpleNeuralNetwork.
 
-        The model is build in train. The gene_expression_scalar is set to the StandardScaler() and later fitted
+        The model is build in train(). The gene_expression_scalar is set to the StandardScaler() and later fitted
         using the training data only.
         """
         super().__init__()
@@ -45,7 +44,7 @@ class SimpleNeuralNetwork(DRPModel):
         self,
         output: DrugResponseDataset,
         cell_line_input: Optional[FeatureDataset],
-        drug_input: Optional[FeatureDataset] = None,
+        drug_input: Optional[FeatureDataset],
         output_earlystopping: Optional[DrugResponseDataset] = None,
     ) -> None:
         """
@@ -57,8 +56,14 @@ class SimpleNeuralNetwork(DRPModel):
         :param cell_line_input: cell line omics features
         :param drug_input: drug omics features
         :param output_earlystopping: optional early stopping dataset
+        :raises ValueError: if cell_line_input or drug_input are missing
 
         """
+        if cell_line_input is None:
+            raise ValueError("cell_line_input is required.")
+        if drug_input is None:
+            raise ValueError("drug_input is required.")
+
         # Apply arcsinh transformation and scaling to gene expression features
         if "gene_expression" in self.cell_line_views:
             cell_line_input.apply(function=np.arcsinh, view="gene_expression")
@@ -97,8 +102,8 @@ class SimpleNeuralNetwork(DRPModel):
         self,
         drug_ids: np.ndarray,
         cell_line_ids: np.ndarray,
-        drug_input: FeatureDataset = None,
-        cell_line_input: FeatureDataset = None,
+        drug_input: Optional[FeatureDataset] = None,
+        cell_line_input: Optional[FeatureDataset] = None,
     ) -> np.ndarray:
         """
         Predicts the response for the given input.

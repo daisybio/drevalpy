@@ -27,7 +27,7 @@ class RegressionDataset(Dataset):
     def __init__(
         self,
         output: DrugResponseDataset,
-        cell_line_input: FeatureDataset = None,
+        cell_line_input: FeatureDataset | None = None,
     ) -> None:
         """
         Initializes the dataset by setting the output and the cell line input.

@@ -147,7 +147,7 @@ class SuperFELTR(SingleDrugModel):
         drug_ids: str | np.ndarray,
         cell_line_ids: str | np.ndarray,
         drug_input: FeatureDataset | None = None,
-        cell_line_input: FeatureDataset = None,
+        cell_line_input: FeatureDataset | None = None,
     ) -> np.ndarray:
         """
         Predicts the drug response.

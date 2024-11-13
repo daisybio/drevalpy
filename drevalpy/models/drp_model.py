@@ -57,15 +57,6 @@ class DRPModel(ABC):
 
     @property
     @abstractmethod
-    def model_name(self) -> str:
-        """
-        Returns the model name.
-
-        :return: model name
-        """
-
-    @property
-    @abstractmethod
     def cell_line_views(self) -> list[str]:
         """
         Returns the sources the model needs as input for describing the cell line.
@@ -111,8 +102,8 @@ class DRPModel(ABC):
     @abstractmethod
     def predict(
         self,
-        drug_ids: str | np.ndarray | None,
-        cell_line_ids: str | np.ndarray | None,
+        drug_ids: np.ndarray,
+        cell_line_ids: np.ndarray,
         drug_input: FeatureDataset | None = None,
         cell_line_input: FeatureDataset | None = None,
     ) -> np.ndarray:

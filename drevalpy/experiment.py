@@ -90,7 +90,6 @@ def drug_response_experiment(
     result_path = os.path.join(path_out, run_id, test_mode)
     split_path = os.path.join(result_path, "splits")
     result_folder_exists = os.path.exists(result_path)
-    randomization_test_views = []
     if result_folder_exists and overwrite:
         # if results exists, delete them if overwrite is True
         print(f"Overwriting existing results at {result_path}")
@@ -306,6 +305,7 @@ def consolidate_single_drug_model_predictions(
     """
     for model in models:
         if model.model_name in SINGLE_DRUG_MODEL_FACTORY:
+
             model_instance = MODEL_FACTORY[model.model_name]()
             model_path = os.path.join(results_path, str(model.model_name))
             out_path = os.path.join(out_path, str(model.model_name))

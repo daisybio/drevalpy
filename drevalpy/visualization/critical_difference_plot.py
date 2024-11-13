@@ -454,7 +454,7 @@ def _form_cliques(p_values: list[tuple[str, str, float, bool]], nnames: list[str
 
 
 def _wilcoxon_holm(
-    alpha: float = 0.05, df_perf: pd.DataFrame = None
+    alpha: float = 0.05, df_perf: pd.DataFrame | None = None
 ) -> tuple[list[tuple[str, str, float, bool]], pd.Series, int]:
     """
     Applies the Wilcoxon signed rank test between algorithm pair and then use Holm to reject the null hypothesis.
