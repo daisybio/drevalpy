@@ -2039,13 +2039,13 @@ files = [
 
 [[package]]
 name = "patsy"
-version = "1.0.0"
+version = "1.0.1"
 description = "A Python package for describing statistical models and for building design matrices."
 optional = false
 python-versions = ">=3.6"
 files = [
-    {file = "patsy-1.0.0-py2.py3-none-any.whl", hash = "sha256:290ca9aa81b1821f705f86ab3f89cce3f898cdc020ab0304ee6e1f0f42513ef0"},
-    {file = "patsy-1.0.0.tar.gz", hash = "sha256:787d2a5d15333fb1e4dc11331b2e7fd17d92f9a815db2fbca29b50c0e6c0159d"},
+    {file = "patsy-1.0.1-py2.py3-none-any.whl", hash = "sha256:751fb38f9e97e62312e921a1954b81e1bb2bcda4f5eeabaf94db251ee791509c"},
+    {file = "patsy-1.0.1.tar.gz", hash = "sha256:e786a9391eec818c054e359b737bbce692f051aee4c661f4141cc88fb459c0c4"},
 ]
 
 [package.dependencies]
@@ -3673,6 +3673,17 @@ tests = ["autopep8", "flake8", "isort", "llnl-hatchet", "numpy", "pytest", "scip
 tutorials = ["matplotlib", "pandas", "tabulate"]
 
 [[package]]
+name = "types-pyyaml"
+version = "6.0.12.20240917"
+description = "Typing stubs for PyYAML"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "types-PyYAML-6.0.12.20240917.tar.gz", hash = "sha256:d1405a86f9576682234ef83bcb4e6fff7c9305c8b1fbad5e0bcd4f7dbdc9c587"},
+    {file = "types_PyYAML-6.0.12.20240917-py3-none-any.whl", hash = "sha256:392b267f1c0fe6022952462bf5d6523f31e37f6cea49b14cee7ad634b6301570"},
+]
+
+[[package]]
 name = "types-requests"
 version = "2.32.0.20241016"
 description = "Typing stubs for requests"
@@ -4079,4 +4090,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<=3.13"
-content-hash = "920e2c47abb49c2f6fcbcc689ce20ed77fbd32a55708c8dbb1af1d367c414ad2"
+content-hash = "27e8cdf4fb6143ef0465d41e72baa3e0323bd028a18855b49001fdc53e829d44"

@@ -24,16 +24,6 @@ class DRPModel(ABC):
     # Used in the pipeline!
     early_stopping = False
 
-    @abstractmethod
-    @pipeline_function
-    def __init__(self, *args, **kwargs) -> None:
-        """
-        Creates an instance of a drug response prediction model.
-
-        :param args: optional arguments
-        :param kwargs: optional keyword arguments
-        """
-
     @classmethod
     @pipeline_function
     def get_hyperparameter_set(cls, hyperparameter_file: Optional[str] = None) -> list[dict[str, Any]]:
