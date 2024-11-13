@@ -54,7 +54,7 @@ class MultiOmicsNeuralNetwork(DRPModel):
         self,
         output: DrugResponseDataset,
         cell_line_input: FeatureDataset,
-        drug_input: FeatureDataset = None,
+        drug_input: FeatureDataset | None = None,
         output_earlystopping: Optional[DrugResponseDataset] = None,
     ):
         """
@@ -107,8 +107,8 @@ class MultiOmicsNeuralNetwork(DRPModel):
         self,
         drug_ids: np.ndarray,
         cell_line_ids: np.ndarray,
-        drug_input: FeatureDataset = None,
-        cell_line_input: FeatureDataset = None,
+        drug_input: FeatureDataset | None = None,
+        cell_line_input: FeatureDataset | None = None,
     ) -> np.ndarray:
         """
         Transforms the methylation data using the fitted PCA and then predicts the response for the given input.

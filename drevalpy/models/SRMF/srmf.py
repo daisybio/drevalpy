@@ -67,8 +67,8 @@ class SRMF(DRPModel):
     def train(
         self,
         output: DrugResponseDataset,
-        cell_line_input: FeatureDataset = None,
-        drug_input: FeatureDataset = None,
+        cell_line_input: FeatureDataset | None = None,
+        drug_input: FeatureDataset | None = None,
         output_earlystopping=None,
     ) -> None:
         """
@@ -128,8 +128,8 @@ class SRMF(DRPModel):
         self,
         drug_ids: np.ndarray,
         cell_line_ids: np.ndarray,
-        drug_input: FeatureDataset = None,
-        cell_line_input: FeatureDataset = None,
+        drug_input: FeatureDataset | None = None,
+        cell_line_input: FeatureDataset | None = None,
     ) -> np.ndarray:
         """
         Predicts the drug response based on the trained latent factors.
