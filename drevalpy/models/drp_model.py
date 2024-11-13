@@ -43,6 +43,7 @@ class DRPModel(ABC):
 
     # Used in the pipeline!
     early_stopping = False
+    model_name = "Base_DRPModel"
 
     @abstractmethod
     @pipeline_function
@@ -84,15 +85,6 @@ class DRPModel(ABC):
                 hpams[hp] = [hpams[hp]]
         grid = list(ParameterGrid(hpams))
         return grid
-
-    @abstractmethod
-    @_ClassProperty
-    def model_name(self) -> str:
-        """
-        Returns the model name.
-
-        :return: model name
-        """
 
     @property
     @abstractmethod
