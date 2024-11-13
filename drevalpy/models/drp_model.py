@@ -23,6 +23,8 @@ class DRPModel(ABC):
 
     # Used in the pipeline!
     early_stopping = False
+
+    # Abstract model name should be overwritten in the subclasses
     model_name = "Base_DRPModel"
 
     @abstractmethod
