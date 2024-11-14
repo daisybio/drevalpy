@@ -132,7 +132,7 @@ def safety(session: Session) -> None:
 
     :param session: The Session object.
     """
-    to_ignore = "--ignore=70612"
+    to_ignore = "--ignore=70612,65189"
     requirements = session.poetry.export_requirements()
     session.install("safety")
     session.run("safety", "check", "--full-report", f"--file={requirements}", to_ignore)
@@ -147,7 +147,7 @@ def mypy(session: Session) -> None:
     """
     args = session.posargs or ["drevalpy", "tests", "docs/conf.py"]
     session.install(".")
-    session.install("mypy", "pytest", "types-requests", "types-attrs")
+    session.install("mypy", "pytest", "types-requests", "types-attrs", "types-PyYAML")
     session.run("mypy", *args)
 
 

@@ -51,10 +51,12 @@ def parse_results(path_to_results: str) -> tuple[pd.DataFrame, pd.DataFrame, pd.
     result_files = list(result_dir.rglob("*.csv"))
     # filter for all files that follow this pattern:
     # result_dir/*/{predictions|cross_study|randomization|robustness}/*.csv
+    # Convert the path to a forward-slash version for the regex (for Windows)
+    result_dir_str = str(result_dir).replace("\\", "/")
     pattern = re.compile(
-        rf"{result_dir}/(LPO|LCO|LDO)/[^/]+/(predictions|cross_study|randomization|robustness)/.*\.csv$"
+        rf"{result_dir_str}/(LPO|LCO|LDO)/[^/]+/(predictions|cross_study|randomization|robustness)/.*\.csv$"
     )
-    result_files = [file for file in result_files if pattern.match(str(file))]
+    result_files = [file for file in result_files if pattern.match(str(file).replace("\\", "/"))]
 
     # inititalize dictionaries to store the evaluation results
     evaluation_results = None
@@ -64,9 +66,11 @@ def parse_results(path_to_results: str) -> tuple[pd.DataFrame, pd.DataFrame, pd.
 
     # read every result file and compute the evaluation metrics
     for file in result_files:
-        file_parts = os.path.normpath(file).split("/")
-        lpo_lco_ldo = file_parts[2]
-        algorithm = file_parts[3]
+        rel_file = str(os.path.normpath(file.relative_to(result_dir))).replace("\\", "/")
+        print(f'Evaluating file: "{rel_file}" ...')
+        file_parts = rel_file.split("/")
+        lpo_lco_ldo = file_parts[0]
+        algorithm = file_parts[1]
         (
             overall_eval,
             eval_results_per_drug,
@@ -118,15 +122,15 @@ def evaluate_file(
     print("Parsing file:", os.path.normpath(pred_file))
     result = pd.read_csv(pred_file)
     dataset = DrugResponseDataset(
-        response=result["response"],
-        cell_line_ids=result["cell_line_ids"],
-        drug_ids=result["drug_ids"],
-        predictions=result["predictions"],
+        response=result["response"].to_numpy(),
+        cell_line_ids=result["cell_line_ids"].to_numpy(),
+        drug_ids=result["drug_ids"].to_numpy(),
+        predictions=result["predictions"].to_numpy(),
     )
     model = _generate_model_names(test_mode=test_mode, model_name=model_name, pred_file=pred_file)
 
     # overall evaluation
-    overall_eval = {model: evaluate(dataset, AVAILABLE_METRICS.keys())}
+    overall_eval = {model: evaluate(dataset, list(AVAILABLE_METRICS.keys()))}
 
     true_vs_pred = pd.DataFrame(
         {
@@ -140,8 +144,8 @@ def evaluate_file(
 
     evaluation_results_per_drug = None
     evaluation_results_per_cl = None
-    norm_drug_eval_results = {}
-    norm_cl_eval_results = {}
+    norm_drug_eval_results: dict[str, dict[str, float]] = {}
+    norm_cl_eval_results: dict[str, dict[str, float]] = {}
 
     if "LPO" in model or "LCO" in model:
         norm_drug_eval_results, evaluation_results_per_drug = _evaluate_per_group(
@@ -174,7 +178,7 @@ def evaluate_file(
     )
 
 
-def _concat_results(norm_group_res: dict[str, pd.DataFrame], group_by: str, eval_res: pd.DataFrame) -> pd.DataFrame:
+def _concat_results(norm_group_res: dict[str, dict[str, float]], group_by: str, eval_res: pd.DataFrame) -> pd.DataFrame:
     """
     Concatenate the normalized group results to the evaluation results.
 
@@ -183,10 +187,10 @@ def _concat_results(norm_group_res: dict[str, pd.DataFrame], group_by: str, eval
     :param eval_res: overall dataframe
     :returns: overall dataframe extended by the normalized group results
     """
-    norm_group_res = pd.DataFrame.from_dict(norm_group_res, orient="index")
+    norm_group_df = pd.DataFrame.from_dict(norm_group_res, orient="index")
     # append 'group normalized ' to the column names
-    norm_group_res.columns = [f"{col}: {group_by} normalized" for col in norm_group_res.columns]
-    eval_res = pd.concat([eval_res, norm_group_res], axis=1)
+    norm_group_df.columns = [f"{col}: {group_by} normalized" for col in norm_group_df.columns]
+    eval_res = pd.concat([eval_res, norm_group_df], axis=1)
     return eval_res
 
 
@@ -289,19 +293,19 @@ def _evaluate_per_group(
     norm_df["y_pred"] = norm_df["y_pred"] - norm_df[f"mean_y_true_per_{group_by}"]
     norm_group_eval_results[model] = evaluate(
         DrugResponseDataset(
-            response=norm_df["y_true"],
-            cell_line_ids=norm_df["cell_line"],
-            drug_ids=norm_df["drug"],
-            predictions=norm_df["y_pred"],
+            response=norm_df["y_true"].to_numpy(),
+            cell_line_ids=norm_df["cell_line"].to_numpy(),
+            drug_ids=norm_df["drug"].to_numpy(),
+            predictions=norm_df["y_pred"].to_numpy(),
         ),
-        AVAILABLE_METRICS.keys() - {"MSE", "RMSE", "MAE"},
+        list(AVAILABLE_METRICS.keys() - {"MSE", "RMSE", "MAE"}),
     )
     # evaluation per group
     eval_results_per_group = compute_evaluation(df, eval_results_per_group, group_by, model)
     return norm_group_eval_results, eval_results_per_group
 
 
-def compute_evaluation(df: pd.DataFrame, return_df: pd.DataFrame, group_by: str, model: str) -> pd.DataFrame:
+def compute_evaluation(df: pd.DataFrame, return_df: pd.DataFrame | None, group_by: str, model: str) -> pd.DataFrame:
     """
     Compute the evaluation metrics per group.
 
@@ -311,15 +315,15 @@ def compute_evaluation(df: pd.DataFrame, return_df: pd.DataFrame, group_by: str,
     :param model: model name
     :returns: dataframe with the evaluation results per group
     """
-    result_per_group = df.groupby(group_by).apply(
+    result_per_group = df.groupby(group_by)[["y_true", "cell_line", "drug", "y_pred"]].apply(
         lambda x: evaluate(
             DrugResponseDataset(
-                response=x["y_true"],
-                cell_line_ids=x["cell_line"],
-                drug_ids=x["drug"],
-                predictions=x["y_pred"],
+                response=x["y_true"].to_numpy(),
+                cell_line_ids=x["cell_line"].to_numpy(),
+                drug_ids=x["drug"].to_numpy(),
+                predictions=x["y_pred"].to_numpy(),
             ),
-            AVAILABLE_METRICS.keys(),
+            list(AVAILABLE_METRICS.keys()),
         )
     )
     groups = result_per_group.index

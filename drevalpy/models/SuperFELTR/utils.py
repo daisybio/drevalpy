@@ -2,7 +2,6 @@
 
 import os
 import secrets
-from typing import Union
 
 import numpy as np
 import pytorch_lightning as pl
@@ -22,7 +21,7 @@ class SuperFELTEncoder(pl.LightningModule):
     """
 
     def __init__(
-        self, input_size: int, hpams: dict[str, Union[int, float]], omic_type: str, ranges: tuple[float, float]
+        self, input_size: int, hpams: dict[str, int | float | dict], omic_type: str, ranges: tuple[float, float]
     ) -> None:
         """
         Initializes the SuperFELTEncoder.
@@ -32,9 +31,17 @@ class SuperFELTEncoder(pl.LightningModule):
         :param hpams: hyperparameters for the model
         :param omic_type: gene expression, mutation, or copy number variation
         :param ranges: positive and negative ranges for the triplet loss
+        :raises ValueError: if the hyperparameters are not of the correct type
         """
         super().__init__()
         self.save_hyperparameters()
+        if (
+            not isinstance(hpams["dropout_rate"], float)
+            or not isinstance(hpams["margin"], float)
+            or not isinstance(hpams["learning_rate"], float)
+            or not isinstance(hpams["weight_decay"], float)
+        ):
+            raise ValueError("dropout_rate, margin, learning_rate, and weight_decay must be floats!")
 
         self.omic_type = omic_type
         output_size = self._get_output_size(hpams)
@@ -69,18 +76,28 @@ class SuperFELTEncoder(pl.LightningModule):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr, weight_decay=self.weight_decay)
         return optimizer
 
-    def _get_output_size(self, hpams: dict[str, Union[int, float]]) -> int:
+    def _get_output_size(self, hpams: dict[str, int | float | dict]) -> int:
         """
         Get the output size of the encoder based on the omic type from the hyperparameters.
 
-        :param hpams: hyperparameters
+        :param hpams: hyperparameters for the model
         :returns: output size of the encoder
+        :raises ValueError: if the output sizes are not of the correct type
         """
-        return {
+        if (
+            not isinstance(hpams["out_dim_expr_encoder"], int)
+            or not isinstance(hpams["out_dim_mutation_encoder"], int)
+            or not isinstance(hpams["out_dim_cnv_encoder"], int)
+        ):
+            raise ValueError("out_dim_expr_encoder, out_dim_mutation_encoder, and out_dim_cnv_encoder must be ints!")
+
+        output_sizes = {
             "expression": hpams["out_dim_expr_encoder"],
             "mutation": hpams["out_dim_mutation_encoder"],
             "copy_number_variation_gistic": hpams["out_dim_cnv_encoder"],
-        }[self.omic_type]
+        }
+        output_size = output_sizes[self.omic_type]
+        return output_size
 
     def _get_omic_data(self, data_expr: torch.Tensor, data_mut: torch.Tensor, data_cnv: torch.Tensor) -> torch.Tensor:
         """
@@ -116,9 +133,7 @@ class SuperFELTEncoder(pl.LightningModule):
         triplet_loss = self.triplet_loss(encoded, encoded[positive_indices], encoded[negative_indices])
         return triplet_loss
 
-    def training_step(
-        self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor], batch_idx: int
-    ) -> torch.Tensor:
+    def training_step(self, batch: list[torch.Tensor], batch_idx: int) -> torch.Tensor:
         """
         Override the training_step method to compute the triplet loss.
 
@@ -133,9 +148,7 @@ class SuperFELTEncoder(pl.LightningModule):
         self.log("train_loss", triplet_loss, on_step=False, on_epoch=True, prog_bar=True)
         return triplet_loss
 
-    def validation_step(
-        self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor], batch_idx: int
-    ) -> torch.Tensor:
+    def validation_step(self, batch: list[torch.Tensor], batch_idx: int) -> torch.Tensor:
         """
         Override the validation_step method to compute the triplet loss.
 
@@ -161,7 +174,7 @@ class SuperFELTRegressor(pl.LightningModule):
     def __init__(
         self,
         input_size: int,
-        hpams: dict[str, Union[int, float]],
+        hpams: dict[str, int | float | dict],
         encoders: tuple[SuperFELTEncoder, SuperFELTEncoder, SuperFELTEncoder],
     ) -> None:
         """
@@ -172,12 +185,19 @@ class SuperFELTRegressor(pl.LightningModule):
         :param input_size: depends on the output of the encoders
         :param hpams: hyperparameters for the model
         :param encoders: the fitted encoders for the gene expression, mutation, and copy number variation data
+        :raises ValueError: if the hyperparameters are not of the correct type
         """
         super().__init__()
+        if (
+            not isinstance(hpams["learning_rate"], float)
+            or not isinstance(hpams["weight_decay"], float)
+            or not isinstance(hpams["dropout_rate"], float)
+        ):
+            raise ValueError("learning_rate, weight_decay and dropout_rate must be floats!")
 
         self.regressor = nn.Sequential(nn.Linear(input_size, 1), nn.Dropout(hpams["dropout_rate"]))
-        self.lr = hpams["learning_rate"]
-        self.weight_decay = hpams["weight_decay"]
+        self.lr = float(hpams["learning_rate"])
+        self.weight_decay = float(hpams["weight_decay"])
         self.encoders = encoders
         # put the encoders in eval mode
         for encoder in self.encoders:
@@ -202,12 +222,12 @@ class SuperFELTRegressor(pl.LightningModule):
         :param data_cnv: copy number variation data
         :returns: predicted response
         """
-        data_expr, data_mut, data_cnv = map(
+        data_expr_tensor, data_mut_tensor, data_cnv_tensor = map(
             lambda data: torch.from_numpy(data).float().to(self.device), [data_expr, data_mut, data_cnv]
         )
         self.eval()
         with torch.no_grad():
-            encoded = self._encode_and_concatenate(data_expr, data_mut, data_cnv)
+            encoded = self._encode_and_concatenate(data_expr_tensor, data_mut_tensor, data_cnv_tensor)
             preds = self.regressor(encoded)
         return preds.squeeze().cpu().detach().numpy()
 
@@ -235,9 +255,7 @@ class SuperFELTRegressor(pl.LightningModule):
         encoded_cnv = self.encoders[2].encode(data_cnv)
         return torch.cat((encoded_expr, encoded_mut, encoded_cnv), dim=1)
 
-    def training_step(
-        self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor], batch_idx: int
-    ) -> torch.Tensor:
+    def training_step(self, batch: list[torch.Tensor], batch_idx: int) -> torch.Tensor:
         """
         Override the training_step method to compute the regression loss.
 
@@ -252,9 +270,7 @@ class SuperFELTRegressor(pl.LightningModule):
         self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
         return loss
 
-    def validation_step(
-        self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor], batch_idx: int
-    ) -> torch.Tensor:
+    def validation_step(self, batch: list[torch.Tensor], batch_idx: int) -> torch.Tensor:
         """
         Override the validation_step method to compute the regression loss.
 
@@ -271,11 +287,11 @@ class SuperFELTRegressor(pl.LightningModule):
 
 
 def train_superfeltr_model(
-    model: Union[SuperFELTEncoder, SuperFELTRegressor],
-    hpams: dict[str, Union[int, float]],
+    model: SuperFELTEncoder | SuperFELTRegressor,
+    hpams: dict[str, int | float | dict],
     output_train: DrugResponseDataset,
     cell_line_input: FeatureDataset,
-    output_earlystopping: DrugResponseDataset,
+    output_earlystopping: DrugResponseDataset | None = None,
     patience: int = 5,
 ) -> pl.callbacks.ModelCheckpoint:
     """
@@ -289,7 +305,11 @@ def train_superfeltr_model(
     :param output_earlystopping: response data for early stopping
     :param patience: for early stopping, defaults to 5
     :returns: checkpoint callback with the best model
+    :raises ValueError: if the epochs and mini_batch are not integers
     """
+    if not isinstance(hpams["epochs"], int) or not isinstance(hpams["mini_batch"], int):
+        raise ValueError("epochs and mini_batch must be integers!")
+
     train_loader, val_loader = create_dataset_and_loaders(
         batch_size=hpams["mini_batch"],
         output_train=output_train,

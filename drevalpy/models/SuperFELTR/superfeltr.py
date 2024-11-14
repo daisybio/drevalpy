@@ -15,42 +15,58 @@ Code adapted from their Github: https://github.com/DMCB-GIST/Super.FELT
 and Hauptmann et al. (2023, 10.1186/s12859-023-05166-7) https://github.com/kramerlab/Multi-Omics_analysis
 """
 
-from typing import Optional
+from typing import Any
 
 import numpy as np
+import pytorch_lightning as pl
 from sklearn.feature_selection import VarianceThreshold
 
 from ...datasets.dataset import DrugResponseDataset, FeatureDataset
-from ..drp_model import SingleDrugModel
+from ..drp_model import DRPModel
 from ..MOLIR.utils import get_dimensions_of_omics_data, make_ranges
 from ..utils import get_multiomics_feature_dataset
 from .utils import SuperFELTEncoder, SuperFELTRegressor, train_superfeltr_model
 
 
-class SuperFELTR(SingleDrugModel):
+class SuperFELTR(DRPModel):
     """Regression extension of Super.FELT."""
 
+    is_single_drug_model = True
     cell_line_views = ["gene_expression", "mutations", "copy_number_variation_gistic"]
     drug_views = []
     early_stopping = True
-    model_name = "SuperFELTR"
 
     def __init__(self) -> None:
         """
         Initialization method for SuperFELTR Model.
 
         The encoders and the regressor are initialized to None because they are built later in the first training pass.
-        The hyperparameters and ranges are also initialized to None because they are initialized in build_model. The
-        ranges are initialized during training. The best checkpoint is determined after trainingl.
+        The hyperparameters are also initialized to an empty dict because they are initialized in build_model. The
+        ranges are initialized during training which is why here, they get dummy values. The best checkpoint is
+        determined after training.
         """
         super().__init__()
-        self.expr_encoder = None
-        self.mut_encoder = None
-        self.cnv_encoder = None
-        self.regressor = None
-        self.hyperparameters = None
-        self.ranges = None
-        self.best_checkpoint = None
+        # encoders and regressor are initialized to None because they are built later in the first training pass
+        self.expr_encoder: SuperFELTEncoder | None = None
+        self.mut_encoder: SuperFELTEncoder | None = None
+        self.cnv_encoder: SuperFELTEncoder | None = None
+        self.regressor: SuperFELTRegressor | None = None
+        # hyperparameters are initialized to None because they are initialized in build_model
+        self.hyperparameters: dict[str, Any] = dict()
+        # ranges are initialized later because they are initialized using the standard variation of the train
+        # response data which is only available when entering the training
+        self.ranges: tuple[float, float] = (0.0, 1.0)
+        # best checkpoint is determined after training
+        self.best_checkpoint: pl.callbacks.ModelCheckpoint | None = None
+
+    @classmethod
+    def get_model_name(cls) -> str:
+        """
+        Returns the model name.
+
+        :returns: SuperFELTR
+        """
+        return "SuperFELTR"
 
     def build_model(self, hyperparameters) -> None:
         """
@@ -66,8 +82,8 @@ class SuperFELTR(SingleDrugModel):
         self,
         output: DrugResponseDataset,
         cell_line_input: FeatureDataset,
-        drug_input: Optional[FeatureDataset] = None,
-        output_earlystopping: Optional[DrugResponseDataset] = None,
+        drug_input: FeatureDataset | None = None,
+        output_earlystopping: DrugResponseDataset | None = None,
     ) -> None:
         """
         Does feature selection, trains the encoders sequentially, and then trains the regressor.
@@ -77,12 +93,16 @@ class SuperFELTR(SingleDrugModel):
 
         :param output: training data associated with the response output
         :param cell_line_input: cell line omics features
-        :param drug_input: drug omics features
+        :param drug_input: not needed, as it is a single drug model
         :param output_earlystopping: optional early stopping dataset
+        :raises ValueError: if drug_input is not None
         """
+        if drug_input is not None:
+            raise ValueError("SuperFELTR is a single drug model and does not require drug input.")
+
         if len(output) > 0:
             cell_line_input = self._feature_selection(output, cell_line_input)
-            if self.early_stopping and len(output_earlystopping) < 2:
+            if output_earlystopping is not None and self.early_stopping and len(output_earlystopping) < 2:
                 output_earlystopping = None
             dim_gex, dim_mut, dim_cnv = get_dimensions_of_omics_data(cell_line_input)
             self.ranges = make_ranges(output)
@@ -146,10 +166,10 @@ class SuperFELTR(SingleDrugModel):
 
     def predict(
         self,
-        drug_ids: np.ndarray,
         cell_line_ids: np.ndarray,
-        drug_input: FeatureDataset = None,
-        cell_line_input: FeatureDataset = None,
+        drug_ids: np.ndarray,
+        cell_line_input: FeatureDataset,
+        drug_input: FeatureDataset | None = None,
     ) -> np.ndarray:
         """
         Predicts the drug response.
@@ -157,12 +177,16 @@ class SuperFELTR(SingleDrugModel):
         If there is no training data, NA is predicted. If there was not enough training data, predictions are made
         with the randomly initialized model.
 
-        :param drug_ids: drug ids
         :param cell_line_ids: cell line ids
-        :param drug_input: drug omics features
+        :param drug_ids: drug ids
         :param cell_line_input: cell line omics features
+        :param drug_input: drug omics features, not needed
         :returns: predicted drug response
+        :raises ValueError: if drug_input is not None
         """
+        if drug_input is not None:
+            raise ValueError("SuperFELTR is a single drug model and does not require drug input.")
+
         input_data = self.get_feature_matrices(
             cell_line_ids=cell_line_ids,
             drug_ids=drug_ids,
@@ -224,3 +248,13 @@ class SuperFELTR(SingleDrugModel):
         # log transformation
         feature_dataset.apply(function=np.log, view="gene_expression")
         return feature_dataset
+
+    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset | None:
+        """
+        Returns None, as drug features are not needed for SuperFELTR.
+
+        :param data_path: Path to the fingerprints, e.g., data/
+        :param dataset_name: Name of the dataset
+        :returns: None
+        """
+        return None

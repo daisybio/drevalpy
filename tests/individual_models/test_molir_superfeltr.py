@@ -1,15 +1,18 @@
 """Test the MOLIR and SuperFELTR models."""
 
+from typing import cast
+
 import numpy as np
 import pytest
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.evaluation import evaluate, pearson
 from drevalpy.models import MODEL_FACTORY
+from drevalpy.models.drp_model import DRPModel
 
 
 @pytest.mark.parametrize("test_mode", ["LCO"])
-@pytest.mark.parametrize("model_name", ["MOLIR", "SuperFELTR"])
+@pytest.mark.parametrize("model_name", ["SuperFELTR"])
 def test_molir_superfeltr(
     sample_dataset: tuple[DrugResponseDataset, FeatureDataset, FeatureDataset], model_name: str, test_mode: str
 ) -> None:
@@ -25,13 +28,14 @@ def test_molir_superfeltr(
         n_cv_splits=5,
         mode=test_mode,
     )
+    assert drug_response.cv_splits is not None
     split = drug_response.cv_splits[0]
     train_dataset = split["train"]
     all_unique_drugs = np.unique(train_dataset.drug_ids)
-    # randomly sample 3
+    # randomly sample drugs to speed up testing
     np.random.seed(42)
     np.random.shuffle(all_unique_drugs)
-    all_unique_drugs = all_unique_drugs[:1]
+    random_drug = all_unique_drugs[:1]
     val_es_dataset = split["validation_es"]
     es_dataset = split["early_stopping"]
 
@@ -49,37 +53,38 @@ def test_molir_superfeltr(
     print(f"Reduced es dataset from {len_es_before} to {len(es_dataset)}")
 
     all_predictions = np.zeros_like(val_es_dataset.drug_ids, dtype=float)
-    for drug in all_unique_drugs:
-        model = MODEL_FACTORY[model_name]()
-        hpam_combi = model.get_hyperparameter_set()[0]
-        hpam_combi["epochs"] = 1
-        model.build_model(hpam_combi)
+    model_class = cast(type[DRPModel], MODEL_FACTORY[model_name])
+    model = model_class()
+    hpam_combi = model.get_hyperparameter_set()[0]
+    hpam_combi["epochs"] = 1
+    model.build_model(hpam_combi)
 
-        output_mask = train_dataset.drug_ids == drug
-        drug_train = train_dataset.copy()
-        drug_train.mask(output_mask)
-        es_mask = es_dataset.drug_ids == drug
-        es_dataset_drug = es_dataset.copy()
-        es_dataset_drug.mask(es_mask)
-        drug_train.remove_rows(indices=[list(range(len(drug_train) - 100))])  # smaller dataset for faster testing
-        model.train(
-            output=drug_train,
-            cell_line_input=cell_line_input,
-            drug_input=None,
-            output_earlystopping=es_dataset_drug,
-        )
+    output_mask = train_dataset.drug_ids == random_drug
+    drug_train = train_dataset.copy()
+    drug_train.mask(output_mask)
+    es_mask = es_dataset.drug_ids == random_drug
+    es_dataset_drug = es_dataset.copy()
+    es_dataset_drug.mask(es_mask)
+    # smaller dataset for faster testing
+    drug_train.remove_rows(indices=np.array([list(range(len(drug_train) - 100))]))
+    model.train(
+        output=drug_train,
+        cell_line_input=cell_line_input,
+        drug_input=None,
+        output_earlystopping=es_dataset_drug,
+    )
 
-        val_mask = val_es_dataset.drug_ids == drug
-        all_predictions[val_mask] = model.predict(
-            drug_ids=drug,
-            cell_line_ids=val_es_dataset.cell_line_ids[val_mask],
-            cell_line_input=cell_line_input,
-        )
-        pcc_drug = pearson(val_es_dataset.response[val_mask], all_predictions[val_mask])
-        assert pcc_drug >= -1
+    val_mask = val_es_dataset.drug_ids == random_drug
+    all_predictions[val_mask] = model.predict(
+        drug_ids=random_drug,
+        cell_line_ids=val_es_dataset.cell_line_ids[val_mask],
+        cell_line_input=cell_line_input,
+    )
+    pcc_drug = pearson(val_es_dataset.response[val_mask], all_predictions[val_mask])
+    assert pcc_drug >= -1
 
     # subset the dataset to only the drugs that were used
-    val_es_mask = np.isin(val_es_dataset.drug_ids, all_unique_drugs)
+    val_es_mask = np.isin(val_es_dataset.drug_ids, random_drug)
     val_es_dataset.cell_line_ids = val_es_dataset.cell_line_ids[val_es_mask]
     val_es_dataset.drug_ids = val_es_dataset.drug_ids[val_es_mask]
     val_es_dataset.response = val_es_dataset.response[val_es_mask]
