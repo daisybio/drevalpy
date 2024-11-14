@@ -27,7 +27,7 @@ class RegressionDataset(Dataset):
     def __init__(
         self,
         output: DrugResponseDataset,
-        cell_line_input: FeatureDataset = None,
+        cell_line_input: FeatureDataset,
     ) -> None:
         """
         Initializes the dataset by setting the output and the cell line input.
@@ -292,21 +292,23 @@ class MOLIModel(pl.LightningModule):
         super().__init__()
         self.save_hyperparameters()
 
-        self.mini_batch = hpams["mini_batch"]
-        self.h_dim1 = hpams["h_dim1"]
-        self.h_dim2 = hpams["h_dim2"]
-        self.h_dim3 = hpams["h_dim3"]
+        self.mini_batch = int(hpams["mini_batch"])
+        self.h_dim1 = int(hpams["h_dim1"])
+        self.h_dim2 = int(hpams["h_dim2"])
+        self.h_dim3 = int(hpams["h_dim3"])
         self.lr = hpams["learning_rate"]
         self.dropout_rate = hpams["dropout_rate"]
         self.weight_decay = hpams["weight_decay"]
         self.gamma = hpams["gamma"]
-        self.epochs = hpams["epochs"]
+        self.epochs = int(hpams["epochs"])
         self.triplet_loss = nn.TripletMarginLoss(margin=hpams["margin"], p=2)
         self.regression_loss = nn.MSELoss()
-        # Positive and Negative range for triplet loss
-        self.positive_range = None
-        self.negative_range = None
-        self.checkpoint_callback = None
+        # Positive and Negative range for triplet loss, determined by the standard deviation of the training responses,
+        # set in fit method
+        self.positive_range = 1.0
+        self.negative_range = 1.0
+        # Checkpoint callback for early stopping, set in fit method
+        self.checkpoint_callback: pl.callbacks.ModelCheckpoint | None = None
 
         self.expression_encoder = MOLIEncoder(input_dim_expr, self.h_dim1, self.dropout_rate)
         self.mutation_encoder = MOLIEncoder(input_dim_mut, self.h_dim2, self.dropout_rate)
@@ -450,9 +452,7 @@ class MOLIModel(pl.LightningModule):
         regression_loss = self.regression_loss(preds.squeeze(), y)
         return triplet_loss + regression_loss
 
-    def training_step(
-        self, batch: list[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor], batch_idx: int
-    ) -> torch.Tensor:
+    def training_step(self, batch: list[torch.Tensor], batch_idx: int) -> torch.Tensor:
         """
         Training step of the MOLIR model.
 
@@ -473,9 +473,7 @@ class MOLIModel(pl.LightningModule):
         self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
         return loss
 
-    def validation_step(
-        self, batch: list[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor], batch_idx: int
-    ) -> torch.Tensor:
+    def validation_step(self, batch: list[torch.Tensor], batch_idx: int) -> torch.Tensor:
         """
         Validation step of the MOLIR model.
 

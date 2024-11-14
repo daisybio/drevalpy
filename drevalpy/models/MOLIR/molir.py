@@ -13,12 +13,12 @@ from sklearn.feature_selection import VarianceThreshold
 from sklearn.preprocessing import StandardScaler
 
 from ...datasets.dataset import DrugResponseDataset, FeatureDataset
-from ..drp_model import SingleDrugModel
+from ..drp_model import DRPModel
 from ..utils import get_multiomics_feature_dataset
 from .utils import MOLIModel, get_dimensions_of_omics_data
 
 
-class MOLIR(SingleDrugModel):
+class MOLIR(DRPModel):
     """
     Regression extension of MOLI: multi-omics late integration deep neural network.
 
@@ -28,10 +28,10 @@ class MOLIR(SingleDrugModel):
     We use a regression adaption with MSE loss and a mechanism to find positive and negative samples.
     """
 
+    is_single_drug_model = True
     cell_line_views = ["gene_expression", "mutations", "copy_number_variation_gistic"]
     drug_views = []
     early_stopping = True
-    model_name = "MOLIR"
 
     def __init__(self) -> None:
         """
@@ -41,8 +41,17 @@ class MOLIR(SingleDrugModel):
         gene expression, mutation and copy number variation data.
         """
         super().__init__()
-        self.model = None
-        self.hyperparameters = None
+        self.model: MOLIModel | None = None
+        self.hyperparameters: dict[str, Any] = dict()
+
+    @classmethod
+    def get_model_name(cls) -> str:
+        """
+        Returns the model name.
+
+        :returns: MOLIR
+        """
+        return "MOLIR"
 
     def build_model(self, hyperparameters: dict[str, Any]) -> None:
         """
@@ -68,6 +77,7 @@ class MOLIR(SingleDrugModel):
         copy number variation data. If there is no training data, the model is set to None (and predictions will be
         skipped as well). If there is not enough training data, the predictions will be made on the randomly
         initialized model.
+
         :param output: drug response data
         :param cell_line_input: cell line omics features, i.e., gene expression, mutations and copy number variation
         :param drug_input: drug features, not needed
@@ -86,7 +96,7 @@ class MOLIR(SingleDrugModel):
                 transformer=scaler_gex,
                 view="gene_expression",
             )
-            if self.early_stopping and len(output_earlystopping) < 2:
+            if output_earlystopping is not None and self.early_stopping and len(output_earlystopping) < 2:
                 output_earlystopping = None
             dim_gex, dim_mut, dim_cnv = get_dimensions_of_omics_data(cell_line_input)
             self.model = MOLIModel(
@@ -109,19 +119,20 @@ class MOLIR(SingleDrugModel):
 
     def predict(
         self,
-        drug_ids: str | np.ndarray,
-        cell_line_ids: str | np.ndarray,
+        cell_line_ids: np.ndarray,
+        drug_ids: np.ndarray,
+        cell_line_input: FeatureDataset,
         drug_input: FeatureDataset | None = None,
-        cell_line_input: FeatureDataset = None,
     ) -> np.ndarray:
         """
         Predicts the drug response.
 
         If there was no training data, only nans will be returned.
-        :param drug_ids: Drugs to predict
+
         :param cell_line_ids: Cell lines to predict
-        :param drug_input: drug features, not needed
+        :param drug_ids: Drugs to predict
         :param cell_line_input: cell line omics features
+        :param drug_input: drug features, not needed
         :returns: Predicted drug response
         """
         input_data = self.get_feature_matrices(
@@ -130,9 +141,11 @@ class MOLIR(SingleDrugModel):
             cell_line_input=cell_line_input,
             drug_input=drug_input,
         )
-        gene_expression = input_data["gene_expression"]
-        mutations = input_data["mutations"]
-        cnvs = input_data["copy_number_variation_gistic"]
+        (gene_expression, mutations, cnvs) = (
+            input_data["gene_expression"],
+            input_data["mutations"],
+            input_data["copy_number_variation_gistic"],
+        )
         if self.model is None:
             print("No model trained, will predict NA.")
             return np.array([np.nan] * len(cell_line_ids))
@@ -155,3 +168,13 @@ class MOLIR(SingleDrugModel):
         # log transformation
         feature_dataset.apply(function=np.log, view="gene_expression")
         return feature_dataset
+
+    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset | None:
+        """
+        Returns None, as drug features are not needed for MOLIR.
+
+        :param data_path: path to the data
+        :param dataset_name: name of the dataset
+        :returns: None
+        """
+        return None

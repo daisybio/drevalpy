@@ -234,6 +234,8 @@ def evaluate(dataset: DrugResponseDataset, metric: list[str] | str):
     if isinstance(metric, str):
         metric = [metric]
     predictions = dataset.predictions
+    if predictions is None:
+        raise AssertionError("No predictions found in the dataset")
     response = dataset.response
 
     results = {}

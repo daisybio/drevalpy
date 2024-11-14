@@ -1,5 +1,7 @@
 """Tests for the baselines in the models module."""
 
+from typing import cast
+
 import numpy as np
 import pytest
 from sklearn.linear_model import ElasticNet, Ridge
@@ -13,6 +15,8 @@ from drevalpy.models import (
     NaivePredictor,
     SingleDrugRandomForest,
 )
+from drevalpy.models.baselines.sklearn_models import SklearnModel
+from drevalpy.models.drp_model import DRPModel
 
 
 @pytest.mark.parametrize(
@@ -44,6 +48,7 @@ def test_baselines(
         n_cv_splits=5,
         mode=test_mode,
     )
+    assert drug_response.cv_splits is not None
     split = drug_response.cv_splits[0]
     train_dataset = split["train"]
     val_dataset = split["validation"]
@@ -59,7 +64,7 @@ def test_baselines(
     print(f"Reduced val dataset from {len_pred_before} to {len(val_dataset)}")
 
     if model_name == "NaivePredictor":
-        _call_naive_predictor(train_dataset, val_dataset, test_mode)
+        _call_naive_predictor(train_dataset, val_dataset, cell_line_input, test_mode)
     elif model_name == "NaiveDrugMeanPredictor":
         _call_naive_group_predictor(
             "drug",
@@ -105,6 +110,7 @@ def test_single_drug_baselines(
         n_cv_splits=5,
         mode=test_mode,
     )
+    assert drug_response.cv_splits is not None
     split = drug_response.cv_splits[0]
     train_dataset = split["train"]
     val_dataset = split["validation"]
@@ -139,17 +145,25 @@ def test_single_drug_baselines(
     assert pcc_drug > 0.0
 
 
-def _call_naive_predictor(train_dataset: DrugResponseDataset, val_dataset: DrugResponseDataset, test_mode: str) -> None:
+def _call_naive_predictor(
+    train_dataset: DrugResponseDataset,
+    val_dataset: DrugResponseDataset,
+    cell_line_input: FeatureDataset,
+    test_mode: str,
+) -> None:
     """
     Call the NaivePredictor model.
 
     :param train_dataset: training dataset
     :param val_dataset: validation dataset
+    :param cell_line_input: features cell lines
     :param test_mode: either LPO, LCO, or LDO
     """
     naive = NaivePredictor()
-    naive.train(output=train_dataset)
-    val_dataset.predictions = naive.predict(cell_line_ids=val_dataset.cell_line_ids)
+    naive.train(output=train_dataset, cell_line_input=cell_line_input, drug_input=None)
+    val_dataset.predictions = naive.predict(
+        cell_line_ids=val_dataset.cell_line_ids, drug_ids=val_dataset.drug_ids, cell_line_input=cell_line_input
+    )
     assert val_dataset.predictions is not None
     train_mean = train_dataset.response.mean()
     assert train_mean == naive.dataset_mean
@@ -177,6 +191,7 @@ def _assert_group_mean(
     random_id = np.random.choice(common_ids)
     group_mean = train_dataset.response[group_ids["train"] == random_id].mean()
     assert group_mean == naive_means[random_id]
+    assert val_dataset.predictions is not None
     assert np.all(val_dataset.predictions[group_ids["val"] == random_id] == group_mean)
 
 
@@ -188,6 +203,7 @@ def _call_naive_group_predictor(
     drug_input: FeatureDataset,
     test_mode: str,
 ) -> None:
+    naive: NaiveDrugMeanPredictor | NaiveCellLineMeanPredictor
     if group == "drug":
         naive = NaiveDrugMeanPredictor()
     else:
@@ -197,13 +213,16 @@ def _call_naive_group_predictor(
         cell_line_input=cell_line_input,
         drug_input=drug_input,
     )
-    val_dataset.predictions = naive.predict(cell_line_ids=val_dataset.cell_line_ids, drug_ids=val_dataset.drug_ids)
+    val_dataset.predictions = naive.predict(
+        cell_line_ids=val_dataset.cell_line_ids, drug_ids=val_dataset.drug_ids, cell_line_input=cell_line_input
+    )
     assert val_dataset.predictions is not None
     train_mean = train_dataset.response.mean()
     assert train_mean == naive.dataset_mean
     if (group == "drug" and test_mode == "LDO") or (group == "cell_line" and test_mode == "LCO"):
         assert np.all(val_dataset.predictions == train_mean)
     elif group == "drug":
+        assert isinstance(naive, NaiveDrugMeanPredictor)
         _assert_group_mean(
             train_dataset,
             val_dataset,
@@ -214,6 +233,7 @@ def _call_naive_group_predictor(
             naive_means=naive.drug_means,
         )
     else:  # group == "cell_line"
+        assert isinstance(naive, NaiveCellLineMeanPredictor)
         _assert_group_mean(
             train_dataset,
             val_dataset,
@@ -224,7 +244,7 @@ def _call_naive_group_predictor(
             naive_means=naive.cell_line_means,
         )
     metrics = evaluate(val_dataset, metric=["Pearson"])
-    print(f"{test_mode}: Performance of {naive.model_name}: PCC = {metrics['Pearson']}")
+    print(f"{test_mode}: Performance of {naive.get_model_name()}: PCC = {metrics['Pearson']}")
     if (group == "drug" and test_mode == "LDO") or (group == "cell_line" and test_mode == "LCO"):
         assert metrics["Pearson"] == 0.0
 
@@ -245,11 +265,12 @@ def _call_other_baselines(
     :param cell_line_input: features cell lines
     :param drug_input: features drugs
     """
-    model_class = MODEL_FACTORY[model]
+    model_class = cast(type[DRPModel], MODEL_FACTORY[model])
     hpams = model_class.get_hyperparameter_set()
     if len(hpams) > 2:
         hpams = hpams[:2]
     model_instance = model_class()
+    assert isinstance(model_instance, SklearnModel)
     for hpam_combi in hpams:
         if model == "RandomForest" or model == "GradientBoosting":
             hpam_combi["n_estimators"] = 2

@@ -4,7 +4,7 @@ import json
 import os
 import shutil
 import warnings
-from typing import Optional
+from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
@@ -16,7 +16,7 @@ from sklearn.base import TransformerMixin
 from .datasets.dataset import DrugResponseDataset, FeatureDataset
 from .evaluation import evaluate, get_mode
 from .models import MODEL_FACTORY, MULTI_DRUG_MODEL_FACTORY, SINGLE_DRUG_MODEL_FACTORY
-from .models.drp_model import DRPModel, SingleDrugModel
+from .models.drp_model import DRPModel
 from .pipeline_function import pipeline_function
 
 
@@ -82,6 +82,7 @@ def drug_response_experiment(
     :param test_mode: test mode one of "LPO", "LCO", "LDO" (leave-pair-out, leave-cell-line-out, leave-drug-out)
     :param overwrite: whether to overwrite existing results
     :param path_data: path to the data directory, usually data/
+    :raises ValueError: if no cv splits are found
     """
     if baselines is None:
         baselines = []
@@ -89,7 +90,6 @@ def drug_response_experiment(
     result_path = os.path.join(path_out, run_id, test_mode)
     split_path = os.path.join(result_path, "splits")
     result_folder_exists = os.path.exists(result_path)
-    randomization_test_views = []
     if result_folder_exists and overwrite:
         # if results exists, delete them if overwrite is True
         print(f"Overwriting existing results at {result_path}")
@@ -145,6 +145,9 @@ def drug_response_experiment(
         parent_dir = os.path.dirname(predictions_path)
 
         model_hpam_set = model_class.get_hyperparameter_set()
+
+        if response_data.cv_splits is None:
+            raise ValueError("No cv splits found.")
 
         for split_index, split in enumerate(response_data.cv_splits):
             print(f"################# FOLD {split_index+1}/{len(response_data.cv_splits)} " f"#################")
@@ -233,7 +236,7 @@ def drug_response_experiment(
                     best_hpams = json.load(f)
             if not is_baseline:
                 if randomization_mode is not None:
-                    print(f"Randomization tests for {model_class.model_name}")
+                    print(f"Randomization tests for {model_class.get_model_name()}")
                     # if this line changes, it also needs to be changed in pipeline:
                     # randomization_split.py
                     randomization_test_views = get_randomization_test_views(
@@ -253,7 +256,7 @@ def drug_response_experiment(
                         response_transformation=response_transformation,
                     )
                 if n_trials_robustness > 0:
-                    print(f"Robustness test for {model_class.model_name}")
+                    print(f"Robustness test for {model_class.get_model_name()}")
                     robustness_test(
                         n_trials=n_trials_robustness,
                         model=model,
@@ -289,7 +292,7 @@ def consolidate_single_drug_model_predictions(
     out_path: str = "",
 ) -> None:
     """
-    Consolidate SingleDrugModel predictions into a single file.
+    Consolidate single drug model predictions into a single file.
 
     :param models: list of model classes to compare, e.g., [SimpleNeuralNetwork, RandomForest]
     :param n_cv_splits: number of cross-validation splits, e.g., 5
@@ -301,10 +304,11 @@ def consolidate_single_drug_model_predictions(
         will be stored in the work directory.
     """
     for model in models:
-        if model.model_name in SINGLE_DRUG_MODEL_FACTORY:
-            model_instance = MODEL_FACTORY[model.model_name]()
-            model_path = os.path.join(results_path, str(model.model_name))
-            out_path = os.path.join(out_path, str(model.model_name))
+        if model.get_model_name() in SINGLE_DRUG_MODEL_FACTORY:
+
+            model_instance = MODEL_FACTORY[model.get_model_name()]()
+            model_path = os.path.join(results_path, model.get_model_name())
+            out_path = os.path.join(out_path, model.get_model_name())
             os.makedirs(os.path.join(out_path, "predictions"), exist_ok=True)
             if cross_study_datasets:
                 os.makedirs(os.path.join(out_path, "cross_study"), exist_ok=True)
@@ -316,7 +320,7 @@ def consolidate_single_drug_model_predictions(
             for split in range(n_cv_splits):
 
                 # Collect predictions for drugs across all scenarios (main, cross_study, robustness, randomization)
-                predictions = {
+                predictions: Any = {
                     "main": [],
                     "cross_study": {},
                     "robustness": {},
@@ -423,14 +427,14 @@ def consolidate_single_drug_model_predictions(
 
 def load_features(
     model: DRPModel, path_data: str, dataset: DrugResponseDataset
-) -> tuple[Optional[FeatureDataset], Optional[FeatureDataset]]:
+) -> tuple[FeatureDataset, Optional[FeatureDataset]]:
     """
     Load and reduce cell line and drug features for a given dataset.
 
     :param model: model to use, e.g., SimpleNeuralNetwork
     :param path_data: path to the data directory, e.g., data/
     :param dataset: dataset to load features for, e.g., GDSC2
-    :returns: tuple of cell line and drug features
+    :returns: tuple of cell line and, potentially, drug features
     """
     cl_features = model.load_cell_line_features(data_path=path_data, dataset_name=dataset.dataset_name)
     drug_features = model.load_drug_features(data_path=path_data, dataset_name=dataset.dataset_name)
@@ -480,10 +484,11 @@ def cross_study_prediction(
 
     cell_lines_to_keep = cl_features.identifiers if cl_features is not None else None
 
+    drugs_to_keep: Optional[np.ndarray] = None
     if single_drug_id is not None:
         drugs_to_keep = np.array([single_drug_id])
-    else:
-        drugs_to_keep = drug_features.identifiers if drug_features is not None else None
+    elif drug_features is not None:
+        drugs_to_keep = drug_features.identifiers
 
     print(
         f"Reducing cross study dataset ... feature data available for "
@@ -778,12 +783,15 @@ def randomize_train_predict(
         )
         return
 
-    cl_features_rand = cl_features.copy() if cl_features is not None else None
-    drug_features_rand = drug_features.copy() if drug_features is not None else None
-    if cl_features_rand is not None and view in cl_features.get_view_names():
-        cl_features_rand.randomize_features(view, randomization_type=randomization_type)
-    elif drug_features_rand is not None and view in drug_features.get_view_names():
-        drug_features_rand.randomize_features(view, randomization_type=randomization_type)
+    cl_features_rand: Optional[FeatureDataset] = None
+    if cl_features is not None:
+        cl_features_rand = cl_features.copy()
+        cl_features_rand.randomize_features(view, randomization_type=randomization_type)  # type: ignore[union-attr]
+
+    drug_features_rand: Optional[FeatureDataset] = None
+    if drug_features is not None:
+        drug_features_rand = drug_features.copy()
+        drug_features_rand.randomize_features(view, randomization_type=randomization_type)  # type: ignore[union-attr]
 
     test_dataset_rand = train_and_predict(
         model=model,
@@ -1069,11 +1077,11 @@ def make_model_list(models: list[type[DRPModel]], response_data: DrugResponseDat
     model_list = {}
     unique_drugs = np.unique(response_data.drug_ids)
     for model in models:
-        if issubclass(model, SingleDrugModel):
+        if model.is_single_drug_model:
             for drug in unique_drugs:
-                model_list[f"{model.model_name}.{drug}"] = str(model.model_name)
+                model_list[f"{model.get_model_name()}.{drug}"] = model.get_model_name()
         else:
-            model_list[str(model.model_name)] = str(model.model_name)
+            model_list[model.get_model_name()] = model.get_model_name()
     return model_list
 
 

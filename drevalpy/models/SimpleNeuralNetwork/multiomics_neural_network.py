@@ -1,7 +1,6 @@
 """Contains the baseline MultiOmicsNeuralNetwork model."""
 
 import warnings
-from typing import Optional
 
 import numpy as np
 from sklearn.decomposition import PCA
@@ -24,7 +23,6 @@ class MultiOmicsNeuralNetwork(DRPModel):
     ]
     drug_views = ["fingerprints"]
     early_stopping = True
-    model_name = "MultiOmicsNeuralNetwork"
 
     def __init__(self):
         """
@@ -36,6 +34,15 @@ class MultiOmicsNeuralNetwork(DRPModel):
         self.model = None
         self.hyperparameters = None
         self.pca = None
+
+    @classmethod
+    def get_model_name(cls) -> str:
+        """
+        Returns the model name.
+
+        :returns: MultiOmicsNeuralNetwork
+        """
+        return "MultiOmicsNeuralNetwork"
 
     def build_model(self, hyperparameters: dict):
         """
@@ -54,8 +61,8 @@ class MultiOmicsNeuralNetwork(DRPModel):
         self,
         output: DrugResponseDataset,
         cell_line_input: FeatureDataset,
-        drug_input: FeatureDataset = None,
-        output_earlystopping: Optional[DrugResponseDataset] = None,
+        drug_input: FeatureDataset | None = None,
+        output_earlystopping: DrugResponseDataset | None = None,
     ):
         """
         Fits the PCA and trains the model.
@@ -64,7 +71,11 @@ class MultiOmicsNeuralNetwork(DRPModel):
         :param cell_line_input: cell line omics features
         :param drug_input: drug omics features
         :param output_earlystopping: optional early stopping dataset
+        :raises ValueError: if drug_input (fingerprints) is missing
         """
+        if drug_input is None:
+            raise ValueError("Drug input (fingerprints) is needed for the MultiOmicsNeuralNetwork model.")
+
         unique_methylation = np.stack(
             [cell_line_input.features[id_]["methylation"] for id_ in np.unique(output.cell_line_ids)],
             axis=0,
@@ -105,10 +116,10 @@ class MultiOmicsNeuralNetwork(DRPModel):
 
     def predict(
         self,
-        drug_ids: np.ndarray,
         cell_line_ids: np.ndarray,
-        drug_input: FeatureDataset = None,
-        cell_line_input: FeatureDataset = None,
+        drug_ids: np.ndarray,
+        cell_line_input: FeatureDataset,
+        drug_input: FeatureDataset | None = None,
     ) -> np.ndarray:
         """
         Transforms the methylation data using the fitted PCA and then predicts the response for the given input.

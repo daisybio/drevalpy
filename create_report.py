@@ -341,8 +341,8 @@ if __name__ == "__main__":
                 custom_id=run_id,
             )
         # get all html files from results/{run_id}
-        all_files = []
-        for _, _, files in os.walk(f"results/{run_id}"):
+        all_files: list[str] = []
+        for _, _, files in os.walk(f"results/{run_id}"):  # type: ignore[assignment]
             for file in files:
                 if file.endswith(".html") and file not in ["index.html", "LPO.html", "LCO.html", "LDO.html"]:
                     all_files.append(file)

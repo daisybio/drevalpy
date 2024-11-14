@@ -1,7 +1,6 @@
 """Contains the SimpleNeuralNetwork model."""
 
 import warnings
-from typing import Optional
 
 import numpy as np
 from sklearn.preprocessing import StandardScaler
@@ -19,19 +18,26 @@ class SimpleNeuralNetwork(DRPModel):
     cell_line_views = ["gene_expression"]
     drug_views = ["fingerprints"]
     early_stopping = True
-    model_name = "SimpleNeuralNetwork"
 
     def __init__(self):
-        """
-        Initializes the SimpleNeuralNetwork.
+        """Initializes the SimpleNeuralNetwork.
 
-        The model is build in train. The gene_expression_scalar is set to the StandardScaler() and later fitted
+        The model is build in train(). The gene_expression_scalar is set to the StandardScaler() and later fitted
         using the training data only.
         """
         super().__init__()
         self.model = None
         self.hyperparameters = None
         self.gene_expression_scaler = StandardScaler()
+
+    @classmethod
+    def get_model_name(cls) -> str:
+        """
+        Returns the model name.
+
+        :returns: SimpleNeuralNetwork
+        """
+        return "SimpleNeuralNetwork"
 
     def build_model(self, hyperparameters: dict):
         """
@@ -44,9 +50,9 @@ class SimpleNeuralNetwork(DRPModel):
     def train(
         self,
         output: DrugResponseDataset,
-        cell_line_input: Optional[FeatureDataset],
-        drug_input: Optional[FeatureDataset] = None,
-        output_earlystopping: Optional[DrugResponseDataset] = None,
+        cell_line_input: FeatureDataset,
+        drug_input: FeatureDataset | None = None,
+        output_earlystopping: DrugResponseDataset | None = None,
     ) -> None:
         """
         First scales the gene expression data and trains the model.
@@ -57,8 +63,12 @@ class SimpleNeuralNetwork(DRPModel):
         :param cell_line_input: cell line omics features
         :param drug_input: drug omics features
         :param output_earlystopping: optional early stopping dataset
+        :raises ValueError: if drug_input (fingerprints) is missing
 
         """
+        if drug_input is None:
+            raise ValueError("drug_input (fingerprints) are required for SimpleNeuralNetwork.")
+
         # Apply arcsinh transformation and scaling to gene expression features
         if "gene_expression" in self.cell_line_views:
             cell_line_input.apply(function=np.arcsinh, view="gene_expression")
@@ -95,18 +105,18 @@ class SimpleNeuralNetwork(DRPModel):
 
     def predict(
         self,
-        drug_ids: np.ndarray,
         cell_line_ids: np.ndarray,
-        drug_input: FeatureDataset = None,
-        cell_line_input: FeatureDataset = None,
+        drug_ids: np.ndarray,
+        cell_line_input: FeatureDataset,
+        drug_input: FeatureDataset | None = None,
     ) -> np.ndarray:
         """
         Predicts the response for the given input.
 
-        :param drug_ids: IDs of the drugs to be predicted
         :param cell_line_ids: IDs of the cell lines to be predicted
-        :param drug_input: fingerprints of the test data
+        :param drug_ids: IDs of the drugs to be predicted
         :param cell_line_input: gene expression of the test data
+        :param drug_input: fingerprints of the test data
         :returns: the predicted drug responses
         """
         x = self.get_concatenated_features(

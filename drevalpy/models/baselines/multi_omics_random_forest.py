@@ -18,7 +18,6 @@ class MultiOmicsRandomForest(RandomForest):
         "mutations",
         "copy_number_variation_gistic",
     ]
-    model_name = "MultiOmicsRandomForest"
 
     def __init__(self):
         """
@@ -28,6 +27,15 @@ class MultiOmicsRandomForest(RandomForest):
         """
         super().__init__()
         self.pca = None
+
+    @classmethod
+    def get_model_name(cls) -> str:
+        """
+        Returns the model name.
+
+        :returns: MultiOmicsRandomForest
+        """
+        return "MultiOmicsRandomForest"
 
     def build_model(self, hyperparameters: dict):
         """
@@ -53,8 +61,8 @@ class MultiOmicsRandomForest(RandomForest):
         self,
         output: DrugResponseDataset,
         cell_line_input: FeatureDataset,
-        drug_input: FeatureDataset = None,
-        output_earlystopping=None,
+        drug_input: FeatureDataset | None = None,
+        output_earlystopping: DrugResponseDataset | None = None,
     ) -> None:
         """
         Trains the model: the number of features is the number of genes + the number of fingerprints.
@@ -99,18 +107,18 @@ class MultiOmicsRandomForest(RandomForest):
 
     def predict(
         self,
-        drug_ids: np.ndarray,
         cell_line_ids: np.ndarray,
-        drug_input: FeatureDataset = None,
-        cell_line_input: FeatureDataset = None,
+        drug_ids: np.ndarray,
+        cell_line_input: FeatureDataset,
+        drug_input: FeatureDataset | None = None,
     ) -> np.ndarray:
         """
         Predicts the response for the given input.
 
-        :param drug_ids: drug ids
         :param cell_line_ids: cell line ids
-        :param drug_input: drug input
+        :param drug_ids: drug ids
         :param cell_line_input: cell line input
+        :param drug_input: drug input
         :returns: predicted response
         """
         inputs = self.get_feature_matrices(

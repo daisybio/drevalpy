@@ -1,10 +1,11 @@
 """Module for generating regression plots with a slider for Pearson correlation coefficient."""
 
-from typing import TextIO
+from io import TextIOWrapper
 
 import numpy as np
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 from scipy.stats import pearsonr
 
 from ..pipeline_function import pipeline_function
@@ -36,7 +37,7 @@ class RegressionSliderPlot(OutPlot):
         self.df = self.df[(self.df["algorithm"] == model)]
         self.group_by = group_by
         self.normalize = normalize
-        self.fig = None
+        self.fig = go.Figure()
         self.model = model
 
         if self.normalize:
@@ -69,7 +70,7 @@ class RegressionSliderPlot(OutPlot):
         self._render_plot()
 
     @staticmethod
-    def write_to_html(lpo_lco_ldo: str, f: TextIO, *args, **kwargs) -> TextIO:
+    def write_to_html(lpo_lco_ldo: str, f: TextIOWrapper, *args, **kwargs) -> TextIOWrapper:
         """
         Write the plot to the final report file.
 
@@ -79,7 +80,7 @@ class RegressionSliderPlot(OutPlot):
         :param kwargs: additional keyword arguments, in this case all files
         :return: the final report file
         """
-        files = kwargs.get("files")
+        files: list[str] = kwargs.get("files", [])
         f.write('<h2 id="regression_plots">Regression plots</h2>\n')
         f.write("<ul>\n")
         regr_files = [f for f in files if lpo_lco_ldo in f and f.startswith("regression_lines")]
