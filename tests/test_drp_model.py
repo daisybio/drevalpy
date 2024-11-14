@@ -36,7 +36,8 @@ def test_factory() -> None:
     assert "GradientBoosting" in MODEL_FACTORY
     assert "MOLIR" in MODEL_FACTORY
     assert "SuperFELTR" in MODEL_FACTORY
-    assert len(MODEL_FACTORY) == 14
+    assert "DIPK" in MODEL_FACTORY
+    assert len(MODEL_FACTORY) == 15
 
 
 def test_load_cl_ids_from_csv() -> None:
