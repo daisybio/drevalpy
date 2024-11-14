@@ -85,11 +85,11 @@ class SuperFELTEncoder(pl.LightningModule):
         :raises ValueError: if the output sizes are not of the correct type
         """
         if (
-            not isinstance(hpams["out_dim_expr_encoder"], dict)
-            or not isinstance(hpams["out_dim_mutation_encoder"], dict)
-            or not isinstance(hpams["out_dim_cnv_encoder"], dict)
+            not isinstance(hpams["out_dim_expr_encoder"], int)
+            or not isinstance(hpams["out_dim_mutation_encoder"], int)
+            or not isinstance(hpams["out_dim_cnv_encoder"], int)
         ):
-            raise ValueError("out_dim_expr_encoder, out_dim_mutation_encoder, and out_dim_cnv_encoder must be dicts!")
+            raise ValueError("out_dim_expr_encoder, out_dim_mutation_encoder, and out_dim_cnv_encoder must be ints!")
 
         output_sizes = {
             "expression": hpams["out_dim_expr_encoder"],
@@ -97,9 +97,6 @@ class SuperFELTEncoder(pl.LightningModule):
             "copy_number_variation_gistic": hpams["out_dim_cnv_encoder"],
         }
         output_size = output_sizes[self.omic_type]
-        if not isinstance(output_size, int):
-            raise ValueError(f"out_dim_{self.omic_type}_encoder must be an integer!")
-
         return output_size
 
     def _get_omic_data(self, data_expr: torch.Tensor, data_mut: torch.Tensor, data_cnv: torch.Tensor) -> torch.Tensor:

@@ -123,7 +123,7 @@ class CriticalDifferencePlot(OutPlot):
             "#17becf",
         ]
 
-        p_values, average_ranks, _ = _wilcoxon_holm(alpha=alpha, df_perf=self.eval_results_preds)
+        p_values, average_ranks, _ = _wilcoxon_holm(df_perf=self.eval_results_preds, alpha=alpha)
 
         _graph_ranks(
             avranks=average_ranks.values.tolist(),
@@ -454,7 +454,7 @@ def _form_cliques(p_values: list[tuple[str, str, float, bool]], nnames: list[str
 
 
 def _wilcoxon_holm(
-    alpha: float = 0.05, df_perf: pd.DataFrame | None = None
+    df_perf: pd.DataFrame, alpha: float = 0.05
 ) -> tuple[list[tuple[str, str, float, bool]], pd.Series, int]:
     """
     Applies the Wilcoxon signed rank test between algorithm pair and then use Holm to reject the null hypothesis.

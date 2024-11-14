@@ -427,14 +427,14 @@ def consolidate_single_drug_model_predictions(
 
 def load_features(
     model: DRPModel, path_data: str, dataset: DrugResponseDataset
-) -> tuple[Optional[FeatureDataset], Optional[FeatureDataset]]:
+) -> tuple[FeatureDataset, Optional[FeatureDataset]]:
     """
     Load and reduce cell line and drug features for a given dataset.
 
     :param model: model to use, e.g., SimpleNeuralNetwork
     :param path_data: path to the data directory, e.g., data/
     :param dataset: dataset to load features for, e.g., GDSC2
-    :returns: tuple of cell line and drug features
+    :returns: tuple of cell line and, potentially, drug features
     """
     cl_features = model.load_cell_line_features(data_path=path_data, dataset_name=dataset.dataset_name)
     drug_features = model.load_drug_features(data_path=path_data, dataset_name=dataset.dataset_name)

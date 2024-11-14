@@ -15,6 +15,7 @@ from drevalpy.models import (
     NaivePredictor,
     SingleDrugRandomForest,
 )
+from drevalpy.models.baselines.sklearn_models import SklearnModel
 from drevalpy.models.drp_model import DRPModel
 
 
@@ -63,7 +64,7 @@ def test_baselines(
     print(f"Reduced val dataset from {len_pred_before} to {len(val_dataset)}")
 
     if model_name == "NaivePredictor":
-        _call_naive_predictor(train_dataset, val_dataset, test_mode)
+        _call_naive_predictor(train_dataset, val_dataset, cell_line_input, test_mode)
     elif model_name == "NaiveDrugMeanPredictor":
         _call_naive_group_predictor(
             "drug",
@@ -144,17 +145,25 @@ def test_single_drug_baselines(
     assert pcc_drug > 0.0
 
 
-def _call_naive_predictor(train_dataset: DrugResponseDataset, val_dataset: DrugResponseDataset, test_mode: str) -> None:
+def _call_naive_predictor(
+    train_dataset: DrugResponseDataset,
+    val_dataset: DrugResponseDataset,
+    cell_line_input: FeatureDataset,
+    test_mode: str,
+) -> None:
     """
     Call the NaivePredictor model.
 
     :param train_dataset: training dataset
     :param val_dataset: validation dataset
+    :param cell_line_input: features cell lines
     :param test_mode: either LPO, LCO, or LDO
     """
     naive = NaivePredictor()
-    naive.train(output=train_dataset, cell_line_input=None, drug_input=None)
-    val_dataset.predictions = naive.predict(cell_line_ids=val_dataset.cell_line_ids, drug_ids=val_dataset.drug_ids)
+    naive.train(output=train_dataset, cell_line_input=cell_line_input, drug_input=None)
+    val_dataset.predictions = naive.predict(
+        cell_line_ids=val_dataset.cell_line_ids, drug_ids=val_dataset.drug_ids, cell_line_input=cell_line_input
+    )
     assert val_dataset.predictions is not None
     train_mean = train_dataset.response.mean()
     assert train_mean == naive.dataset_mean
@@ -204,7 +213,9 @@ def _call_naive_group_predictor(
         cell_line_input=cell_line_input,
         drug_input=drug_input,
     )
-    val_dataset.predictions = naive.predict(cell_line_ids=val_dataset.cell_line_ids, drug_ids=val_dataset.drug_ids)
+    val_dataset.predictions = naive.predict(
+        cell_line_ids=val_dataset.cell_line_ids, drug_ids=val_dataset.drug_ids, cell_line_input=cell_line_input
+    )
     assert val_dataset.predictions is not None
     train_mean = train_dataset.response.mean()
     assert train_mean == naive.dataset_mean
@@ -259,6 +270,7 @@ def _call_other_baselines(
     if len(hpams) > 2:
         hpams = hpams[:2]
     model_instance = model_class()
+    assert isinstance(model_instance, SklearnModel)
     for hpam_combi in hpams:
         if model == "RandomForest" or model == "GradientBoosting":
             hpam_combi["n_estimators"] = 2
