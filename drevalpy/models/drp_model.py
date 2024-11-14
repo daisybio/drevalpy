@@ -98,8 +98,9 @@ class DRPModel(ABC):
 
         :param hyperparameters: hyperparameters for the model
 
-        Example:
-        >>> self.model = ElasticNet(alpha=hyperparameters["alpha"], l1_ratio=hyperparameters["l1_ratio"])
+        Example::
+
+            self.model = ElasticNet(alpha=hyperparameters["alpha"], l1_ratio=hyperparameters["l1_ratio"])
         """
 
     @abstractmethod
@@ -191,16 +192,17 @@ class DRPModel(ABC):
         the rows are the samples and the columns are the cell line and drug features concatenated. This method is an
         alternative to using DataLoaders. It is used for models operating on the whole input matrix at once.
 
-        Example:
-        >>> x = self.get_concatenated_features(
-        ...    cell_line_view="gene_expression",
-        ...    drug_view="fingerprints",
-        ...    cell_line_ids_output=output.cell_line_ids,
-        ...    drug_ids_output=output.drug_ids,
-        ...    cell_line_input=cell_line_input,
-        ...    drug_input=drug_input,
-        ...)
-        >>> self.model.fit(x, output.response)
+        Example::
+
+            x = self.get_concatenated_features(
+                cell_line_view="gene_expression",
+                drug_view="fingerprints",
+                cell_line_ids_output=output.cell_line_ids,
+                drug_ids_output=output.drug_ids,
+                cell_line_input=cell_line_input,
+                drug_input=drug_input,
+            )
+            self.model.fit(x, output.response)
         """
         inputs = self.get_feature_matrices(
             cell_line_ids=cell_line_ids_output,
@@ -239,48 +241,50 @@ class DRPModel(ABC):
         :raises ValueError: if the input does not contain the correct views
 
         This can e.g., done to produce the input for the predict() method for deep learning models:
-        Example:
-        >>> input_data = self.get_feature_matrices(
-        ...    cell_line_ids=cell_line_ids,
-        ...    drug_ids=drug_ids,
-        ...    cell_line_input=cell_line_input,
-        ...    drug_input=drug_input,
-        ...)
-        >>> (
-        ...    gene_expression,
-        ...    mutations,
-        ...    cnvs
-        ...) = (
-        ...    input_data["gene_expression"],
-        ...    input_data["mutations"],
-        ...    input_data["copy_number_variation_gistic"]
-        ...)
-        >>> return self.model.predict(gene_expression, mutations, cnvs)
+        Example::
+
+            input_data = self.get_feature_matrices(
+                cell_line_ids=cell_line_ids,
+                drug_ids=drug_ids,
+                cell_line_input=cell_line_input,
+                drug_input=drug_input,
+            )
+            (
+                gene_expression,
+                mutations,
+                cnvs
+            ) = (
+                input_data["gene_expression"],
+                input_data["mutations"],
+                input_data["copy_number_variation_gistic"]
+            )
+            return self.model.predict(gene_expression, mutations, cnvs)
 
         Or to produce separate inputs for the train()/predict() method for other models if the model does not operate
-        on the concatenated input matrix:
-        >>> inputs = self.get_feature_matrices(
-        ...    cell_line_ids=output.cell_line_ids,
-        ...    drug_ids=output.drug_ids,
-        ...    cell_line_input=cell_line_input,
-        ...     drug_input=drug_input,
-        ...)
-        >>> (
-        ...    gene_expression,
-        ...    methylation,
-        ...    mutations,
-        ...    copy_number_variation_gistic,
-        ...    fingerprints,
-        ...) = (
-        ...    inputs["gene_expression"],
-        ...    inputs["methylation"],
-        ...    inputs["mutations"],
-        ...    inputs["copy_number_variation_gistic"],
-        ...    inputs["fingerprints"],
-        ...)
-        >>> self.model.fit(
-        ...    gene_expression, methylation, mutations, copy_number_variation_gistic, fingerprints, output.response
-        ...)
+        on the concatenated input matrix::
+
+            inputs = self.get_feature_matrices(
+                cell_line_ids=output.cell_line_ids,
+                drug_ids=output.drug_ids,
+                cell_line_input=cell_line_input,
+                 drug_input=drug_input,
+            )
+            (
+                gene_expression,
+                methylation,
+                mutations,
+                copy_number_variation_gistic,
+                fingerprints,
+            ) = (
+                inputs["gene_expression"],
+                inputs["methylation"],
+                inputs["mutations"],
+                inputs["copy_number_variation_gistic"],
+                inputs["fingerprints"],
+            )
+            self.model.fit(
+                gene_expression, methylation, mutations, copy_number_variation_gistic, fingerprints, output.response
+            )
         """
         cell_line_feature_matrices = {}
         if cell_line_input is not None:

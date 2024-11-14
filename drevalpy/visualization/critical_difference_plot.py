@@ -461,6 +461,7 @@ def _wilcoxon_holm(
 
     Returns the p-values in a format of (Method1, Method2, p-value, is_significant), the average ranks in a format of
     pd.Series(Method: avg_rank), and the maximum number of datasets tested (=n_cv_folds).
+
     :param alpha: significance level
     :param df_perf: the dataframe containing the performance of the algorithms
     :returns: the p-values, the average ranks, and the maximum number of datasets tested
