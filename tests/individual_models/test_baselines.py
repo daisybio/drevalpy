@@ -233,7 +233,7 @@ def _call_naive_group_predictor(
             naive_means=naive.cell_line_means,
         )
     metrics = evaluate(val_dataset, metric=["Pearson"])
-    print(f"{test_mode}: Performance of {naive.model_name}: PCC = {metrics['Pearson']}")
+    print(f"{test_mode}: Performance of {naive.get_model_name()}: PCC = {metrics['Pearson']}")
     if (group == "drug" and test_mode == "LDO") or (group == "cell_line" and test_mode == "LCO"):
         assert metrics["Pearson"] == 0.0
 

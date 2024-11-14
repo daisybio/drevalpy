@@ -54,6 +54,9 @@ def load_and_reduce_gene_features(
     )
 
     genes_in_list = set(gene_info["Symbol"])
+    if cl_features.meta_info is None:
+        raise ValueError("No meta information available in the dataset.")
+
     genes_in_features = set(cl_features.meta_info[feature_type])
     # Ensure that all genes from gene_list are in the dataset
     missing_genes = genes_in_list - genes_in_features

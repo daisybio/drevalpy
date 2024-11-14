@@ -16,7 +16,7 @@ from sklearn.base import TransformerMixin
 from .datasets.dataset import DrugResponseDataset, FeatureDataset
 from .evaluation import evaluate, get_mode
 from .models import MODEL_FACTORY, MULTI_DRUG_MODEL_FACTORY, SINGLE_DRUG_MODEL_FACTORY
-from .models.drp_model import DRPModel, SingleDrugModel
+from .models.drp_model import DRPModel
 from .pipeline_function import pipeline_function
 
 
@@ -236,7 +236,7 @@ def drug_response_experiment(
                     best_hpams = json.load(f)
             if not is_baseline:
                 if randomization_mode is not None:
-                    print(f"Randomization tests for {model_class.model_name}")
+                    print(f"Randomization tests for {model_class.get_model_name()}")
                     # if this line changes, it also needs to be changed in pipeline:
                     # randomization_split.py
                     randomization_test_views = get_randomization_test_views(
@@ -256,7 +256,7 @@ def drug_response_experiment(
                         response_transformation=response_transformation,
                     )
                 if n_trials_robustness > 0:
-                    print(f"Robustness test for {model_class.model_name}")
+                    print(f"Robustness test for {model_class.get_model_name()}")
                     robustness_test(
                         n_trials=n_trials_robustness,
                         model=model,
@@ -292,7 +292,7 @@ def consolidate_single_drug_model_predictions(
     out_path: str = "",
 ) -> None:
     """
-    Consolidate SingleDrugModel predictions into a single file.
+    Consolidate single drug model predictions into a single file.
 
     :param models: list of model classes to compare, e.g., [SimpleNeuralNetwork, RandomForest]
     :param n_cv_splits: number of cross-validation splits, e.g., 5
@@ -304,11 +304,11 @@ def consolidate_single_drug_model_predictions(
         will be stored in the work directory.
     """
     for model in models:
-        if model.model_name in SINGLE_DRUG_MODEL_FACTORY:
+        if model.get_model_name() in SINGLE_DRUG_MODEL_FACTORY:
 
-            model_instance = MODEL_FACTORY[model.model_name]()
-            model_path = os.path.join(results_path, str(model.model_name))
-            out_path = os.path.join(out_path, str(model.model_name))
+            model_instance = MODEL_FACTORY[model.get_model_name()]()
+            model_path = os.path.join(results_path, model.get_model_name())
+            out_path = os.path.join(out_path, model.get_model_name())
             os.makedirs(os.path.join(out_path, "predictions"), exist_ok=True)
             if cross_study_datasets:
                 os.makedirs(os.path.join(out_path, "cross_study"), exist_ok=True)
@@ -1077,11 +1077,11 @@ def make_model_list(models: list[type[DRPModel]], response_data: DrugResponseDat
     model_list = {}
     unique_drugs = np.unique(response_data.drug_ids)
     for model in models:
-        if issubclass(model, SingleDrugModel):
+        if model.is_single_drug_model:
             for drug in unique_drugs:
-                model_list[f"{model.model_name}.{drug}"] = str(model.model_name)
+                model_list[f"{model.get_model_name()}.{drug}"] = model.get_model_name()
         else:
-            model_list[str(model.model_name)] = str(model.model_name)
+            model_list[model.get_model_name()] = model.get_model_name()
     return model_list
 
 
