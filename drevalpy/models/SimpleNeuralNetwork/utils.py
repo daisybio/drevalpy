@@ -2,7 +2,7 @@
 
 import os
 import secrets
-from typing import Optional, Union
+from typing import Any
 
 import numpy as np
 import pytorch_lightning as pl
@@ -20,10 +20,10 @@ class RegressionDataset(Dataset):
     def __init__(
         self,
         output: DrugResponseDataset,
-        cell_line_input: FeatureDataset = None,
-        drug_input: FeatureDataset = None,
-        cell_line_views: list[str] = None,
-        drug_views: list[str] = None,
+        cell_line_input: FeatureDataset,
+        drug_input: FeatureDataset,
+        cell_line_views: list[str],
+        drug_views: list[str],
         met_transform=None,
     ):
         """
@@ -105,7 +105,7 @@ class RegressionDataset(Dataset):
 class FeedForwardNetwork(pl.LightningModule):
     """Feed forward neural network for regression tasks with basic architecture."""
 
-    def __init__(self, hyperparameters: dict[str, Union[int, float, list[int]]], input_dim: int) -> None:
+    def __init__(self, hyperparameters: dict[str, int | float | list[int]], input_dim: int) -> None:
         """
         Initializes the feed forward network.
 
@@ -115,15 +115,23 @@ class FeedForwardNetwork(pl.LightningModule):
         :param hyperparameters: hyperparameters
         :param input_dim: input dimension, for SimpleNeuralNetwork it is the sum of the gene expression and
             fingerprint, for MultiOMICSNeuralNetwork it is the sum of all omics data and fingerprints
+        :raises TypeError: if the hyperparameters are not of the correct type
         """
         super().__init__()
         self.save_hyperparameters()
-        n_units_per_layer = hyperparameters["units_per_layer"]
-        dropout_prob = hyperparameters["dropout_prob"]
+
+        if not isinstance(hyperparameters["units_per_layer"], list):
+            raise TypeError("units_per_layer must be a list of integers")
+        if not isinstance(hyperparameters["dropout_prob"], float):
+            raise TypeError("dropout_prob must be a float")
+
+        n_units_per_layer: list[int] = hyperparameters["units_per_layer"]
+        dropout_prob: float = hyperparameters["dropout_prob"]
         self.n_units_per_layer = n_units_per_layer
         self.dropout_prob = dropout_prob
         self.loss = nn.MSELoss()
-        self.checkpoint_callback = None
+        # self.checkpoint_callback is initialized in the fit method
+        self.checkpoint_callback: pl.callbacks.ModelCheckpoint | None = None
         self.fully_connected_layers = nn.ModuleList()
         self.batch_norm_layers = nn.ModuleList()
         self.dropout_layer = None
@@ -143,16 +151,16 @@ class FeedForwardNetwork(pl.LightningModule):
         self,
         output_train: DrugResponseDataset,
         cell_line_input: FeatureDataset,
-        drug_input: FeatureDataset = None,
-        cell_line_views: list[str] = None,
-        drug_views: list[str] = None,
-        output_earlystopping: Optional[DrugResponseDataset] = None,
-        trainer_params: Optional[dict] = None,
+        drug_input: FeatureDataset | None,
+        cell_line_views: list[str],
+        drug_views: list[str],
+        output_earlystopping: DrugResponseDataset | None = None,
+        trainer_params: dict | None = None,
         batch_size=32,
         patience=5,
-        checkpoint_path: Optional[str] = None,
+        checkpoint_path: str | None = None,
         num_workers: int = 2,
-        met_transform=None,
+        met_transform: Any = None,
     ) -> None:
         """
         Fits the model.
@@ -170,7 +178,13 @@ class FeedForwardNetwork(pl.LightningModule):
         :param checkpoint_path: path to save the checkpoints
         :param num_workers: number of workers for the DataLoader, default is 2
         :param met_transform: transformation for methylation data, default is None, PCA is used for the MultiOMICSNN.
+        :raises ValueError: if drug_input is missing
         """
+        if drug_input is None:
+            raise ValueError(
+                "Drug input (fingerprints) are required for SimpleNeuralNetwork and " "MultiOMICsNeuralNetwork."
+            )
+
         if trainer_params is None:
             trainer_params = {
                 "progress_bar_refresh_rate": 300,

@@ -1,6 +1,7 @@
 """Contains functions to load the GDSC1, GDSC2, CCLE, and Toy datasets."""
 
 import os
+from typing import Callable
 
 import pandas as pd
 
@@ -91,7 +92,12 @@ def load_toy(path_data: str = "data") -> DrugResponseDataset:
     )
 
 
-AVAILABLE_DATASETS = {"GDSC1": load_gdsc1, "GDSC2": load_gdsc2, "CCLE": load_ccle, "Toy_Data": load_toy}
+AVAILABLE_DATASETS: dict[str, Callable] = {
+    "GDSC1": load_gdsc1,
+    "GDSC2": load_gdsc2,
+    "CCLE": load_ccle,
+    "Toy_Data": load_toy,
+}
 
 
 @pipeline_function
@@ -105,6 +111,6 @@ def load_dataset(dataset_name: str, path_data: str = "data") -> DrugResponseData
     :raises ValueError: If the dataset name is unknown.
     """
     if dataset_name in AVAILABLE_DATASETS:
-        return AVAILABLE_DATASETS[dataset_name](path_data)
+        return AVAILABLE_DATASETS[dataset_name](path_data)  # type: ignore
     else:
         raise ValueError(f"Unknown dataset name: {dataset_name}")

@@ -1,7 +1,6 @@
 """Functions for evaluating model performance."""
 
 import warnings
-from typing import Union
 
 import numpy as np
 import pandas as pd
@@ -106,7 +105,7 @@ def _check_constant_prediction(y_pred: np.ndarray) -> bool:
     """
     tol = 1e-6
     # no variation in predictions
-    return np.all(np.isclose(y_pred, y_pred[0], atol=tol))
+    return bool(np.all(np.isclose(y_pred, y_pred[0], atol=tol)))
 
 
 def _check_constant_target_or_small_sample(y_true: np.ndarray) -> bool:
@@ -118,7 +117,7 @@ def _check_constant_target_or_small_sample(y_true: np.ndarray) -> bool:
     """
     tol = 1e-6
     # Check for insufficient sample size or no variation in target
-    return len(y_true) < 2 or np.all(np.isclose(y_true, y_true[0], atol=tol))
+    return len(y_true) < 2 or bool(np.all(np.isclose(y_true, y_true[0], atol=tol)))
 
 
 def pearson(y_pred: np.ndarray, y_true: np.ndarray) -> float:
@@ -222,7 +221,7 @@ def get_mode(metric: str):
 
 
 @pipeline_function
-def evaluate(dataset: DrugResponseDataset, metric: Union[list[str], str]):
+def evaluate(dataset: DrugResponseDataset, metric: list[str] | str):
     """
     Evaluates the model on the given dataset.
 
@@ -235,6 +234,8 @@ def evaluate(dataset: DrugResponseDataset, metric: Union[list[str], str]):
     if isinstance(metric, str):
         metric = [metric]
     predictions = dataset.predictions
+    if predictions is None:
+        raise AssertionError("No predictions found in the dataset")
     response = dataset.response
 
     results = {}

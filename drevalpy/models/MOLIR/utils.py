@@ -9,7 +9,7 @@ https://github.com/kramerlab/Multi-Omics_analysis
 import os
 import random
 import secrets
-from typing import Optional, Union
+from typing import Optional
 
 import numpy as np
 import pytorch_lightning as pl
@@ -27,7 +27,7 @@ class RegressionDataset(Dataset):
     def __init__(
         self,
         output: DrugResponseDataset,
-        cell_line_input: FeatureDataset = None,
+        cell_line_input: FeatureDataset,
     ) -> None:
         """
         Initializes the dataset by setting the output and the cell line input.
@@ -38,19 +38,21 @@ class RegressionDataset(Dataset):
         self.output = output
         self.cell_line_input = cell_line_input
 
-    def __getitem__(self, idx: int) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    def __getitem__(self, idx: int) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.float32]:
         """
         Overwrites the getitem method.
 
         :param idx: index of the sample
         :returns: gene expression, mutations, copy number variation, and response of the sample as numpy arrays
         """
-        response = self.output.response[idx].astype(np.float32)
+        response: np.float32 = np.float32(self.output.response[idx])
 
         cell_line_id = str(self.output.cell_line_ids[idx])
-        gene_expression = self.cell_line_input.features[cell_line_id]["gene_expression"].astype(np.float32)
-        mutations = self.cell_line_input.features[cell_line_id]["mutations"].astype(np.float32)
-        copy_number = self.cell_line_input.features[cell_line_id]["copy_number_variation_gistic"].astype(np.float32)
+        gene_expression: np.ndarray = self.cell_line_input.features[cell_line_id]["gene_expression"].astype(np.float32)
+        mutations: np.ndarray = self.cell_line_input.features[cell_line_id]["mutations"].astype(np.float32)
+        copy_number: np.ndarray = self.cell_line_input.features[cell_line_id]["copy_number_variation_gistic"].astype(
+            np.float32
+        )
 
         return gene_expression, mutations, copy_number, response
 
@@ -98,7 +100,7 @@ def generate_triplets_indices(
     return np.array(positive_sample_indices), np.array(negative_sample_indices)
 
 
-def _get_positive_class_indices(label: float, idx_label: int, y: np.ndarray, positive_range: float) -> np.ndarray:
+def _get_positive_class_indices(label: np.float32, idx_label: int, y: np.ndarray, positive_range: float) -> np.ndarray:
     """
     Find the samples that are within the positive range of the label except the label itself.
 
@@ -117,7 +119,7 @@ def _get_positive_class_indices(label: float, idx_label: int, y: np.ndarray, pos
     return indices_similar_samples
 
 
-def _get_negative_class_indices(label: float, y: np.ndarray, negative_range: float) -> np.ndarray:
+def _get_negative_class_indices(label: np.float32, y: np.ndarray, negative_range: float) -> np.ndarray:
     """
     Finds dissimilar samples to the label.
 
@@ -141,8 +143,8 @@ def make_ranges(output: DrugResponseDataset) -> tuple[float, float]:
     :param output: drug response dataset
     :returns: positive and negative range for the triplet loss
     """
-    positive_range = np.std(output.response) * 0.1
-    negative_range = np.std(output.response)
+    positive_range = float(np.std(output.response) * 0.1)
+    negative_range = float(np.std(output.response))
     return positive_range, negative_range
 
 
@@ -243,7 +245,7 @@ class MOLIRegressor(nn.Module):
     activation function. After the three encoders, the encoded features are concatenated and fed into the regressor.
     """
 
-    def __init__(self, input_size: int, dropout_rate: int) -> None:
+    def __init__(self, input_size: int, dropout_rate: float) -> None:
         """
         Initializes the regressor for the MOLIR model.
 
@@ -273,7 +275,7 @@ class MOLIModel(pl.LightningModule):
     """
 
     def __init__(
-        self, hpams: dict[str, Union[int, float]], input_dim_expr: int, input_dim_mut: int, input_dim_cnv: int
+        self, hpams: dict[str, int | float], input_dim_expr: int, input_dim_mut: int, input_dim_cnv: int
     ) -> None:
         """
         Initializes the MOLIR model.
@@ -290,21 +292,23 @@ class MOLIModel(pl.LightningModule):
         super().__init__()
         self.save_hyperparameters()
 
-        self.mini_batch = hpams["mini_batch"]
-        self.h_dim1 = hpams["h_dim1"]
-        self.h_dim2 = hpams["h_dim2"]
-        self.h_dim3 = hpams["h_dim3"]
+        self.mini_batch = int(hpams["mini_batch"])
+        self.h_dim1 = int(hpams["h_dim1"])
+        self.h_dim2 = int(hpams["h_dim2"])
+        self.h_dim3 = int(hpams["h_dim3"])
         self.lr = hpams["learning_rate"]
         self.dropout_rate = hpams["dropout_rate"]
         self.weight_decay = hpams["weight_decay"]
         self.gamma = hpams["gamma"]
-        self.epochs = hpams["epochs"]
+        self.epochs = int(hpams["epochs"])
         self.triplet_loss = nn.TripletMarginLoss(margin=hpams["margin"], p=2)
         self.regression_loss = nn.MSELoss()
-        # Positive and Negative range for triplet loss
-        self.positive_range = None
-        self.negative_range = None
-        self.checkpoint_callback = None
+        # Positive and Negative range for triplet loss, determined by the standard deviation of the training responses,
+        # set in fit method
+        self.positive_range = 1.0
+        self.negative_range = 1.0
+        # Checkpoint callback for early stopping, set in fit method
+        self.checkpoint_callback: pl.callbacks.ModelCheckpoint | None = None
 
         self.expression_encoder = MOLIEncoder(input_dim_expr, self.h_dim1, self.dropout_rate)
         self.mutation_encoder = MOLIEncoder(input_dim_mut, self.h_dim2, self.dropout_rate)
@@ -390,12 +394,12 @@ class MOLIModel(pl.LightningModule):
         else:
             best_model = self
         # convert to torch tensors
-        gene_expression = torch.from_numpy(gene_expression).float().to(best_model.device)
-        mutations = torch.from_numpy(mutations).float().to(best_model.device)
-        copy_number = torch.from_numpy(copy_number).float().to(best_model.device)
+        gene_expression_tensor = torch.from_numpy(gene_expression).float().to(best_model.device)
+        mutations_tensor = torch.from_numpy(mutations).float().to(best_model.device)
+        copy_number_tensor = torch.from_numpy(copy_number).float().to(best_model.device)
         best_model.eval()
         with torch.no_grad():
-            z = best_model._encode_and_concatenate(gene_expression, mutations, copy_number)
+            z = best_model._encode_and_concatenate(gene_expression_tensor, mutations_tensor, copy_number_tensor)
             preds = best_model.regressor(z)
         return preds.squeeze().cpu().detach().numpy()
 
@@ -448,9 +452,7 @@ class MOLIModel(pl.LightningModule):
         regression_loss = self.regression_loss(preds.squeeze(), y)
         return triplet_loss + regression_loss
 
-    def training_step(
-        self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor], batch_idx: int
-    ) -> torch.Tensor:
+    def training_step(self, batch: list[torch.Tensor], batch_idx: int) -> torch.Tensor:
         """
         Training step of the MOLIR model.
 
@@ -471,9 +473,7 @@ class MOLIModel(pl.LightningModule):
         self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
         return loss
 
-    def validation_step(
-        self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor], batch_idx: int
-    ) -> torch.Tensor:
+    def validation_step(self, batch: list[torch.Tensor], batch_idx: int) -> torch.Tensor:
         """
         Validation step of the MOLIR model.
 

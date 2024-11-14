@@ -1,7 +1,8 @@
 """Contains sklearn baseline models: ElasticNet, RandomForest, SVM."""
 
+from typing import Optional
+
 import numpy as np
-from numpy.typing import ArrayLike
 from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
 from sklearn.linear_model import ElasticNet, Lasso, Ridge
 from sklearn.svm import SVR
@@ -27,6 +28,15 @@ class SklearnModel(DRPModel):
         super().__init__()
         self.model = None
 
+    @classmethod
+    def get_model_name(cls) -> str:
+        """
+        Returns the model name.
+
+        :raises NotImplementedError: If the method is not implemented in the child class.
+        """
+        raise NotImplementedError("get_model_name method has to be implemented in the child class.")
+
     def build_model(self, hyperparameters: dict):
         """
         Builds the model from hyperparameters.
@@ -40,8 +50,8 @@ class SklearnModel(DRPModel):
         self,
         output: DrugResponseDataset,
         cell_line_input: FeatureDataset,
-        drug_input: FeatureDataset = None,
-        output_earlystopping=None,
+        drug_input: FeatureDataset | None = None,
+        output_earlystopping: DrugResponseDataset | None = None,
     ) -> None:
         """
         Trains the model.
@@ -51,7 +61,11 @@ class SklearnModel(DRPModel):
         :param cell_line_input: training dataset containing gene expression data
         :param drug_input: training dataset containing fingerprints data
         :param output_earlystopping: not needed
+        :raises ValueError: If drug_input is None.
         """
+        if drug_input is None:
+            raise ValueError("drug_input (fingerprints) is required for the sklearn models.")
+
         x = self.get_concatenated_features(
             cell_line_view="gene_expression",
             drug_view="fingerprints",
@@ -64,10 +78,10 @@ class SklearnModel(DRPModel):
 
     def predict(
         self,
-        drug_ids: ArrayLike,
-        cell_line_ids: ArrayLike,
-        drug_input: FeatureDataset = None,
-        cell_line_input: FeatureDataset = None,
+        cell_line_ids: np.ndarray,
+        drug_ids: np.ndarray,
+        cell_line_input: FeatureDataset,
+        drug_input: FeatureDataset | None = None,
     ) -> np.ndarray:
         """
         Predicts the response for the given input.
@@ -77,7 +91,11 @@ class SklearnModel(DRPModel):
         :param drug_input: drug input
         :param cell_line_input: cell line input
         :returns: predicted drug response
+        :raises ValueError: If drug_input is not None.
         """
+        if drug_input is None:
+            raise ValueError("drug_input (fingerprints) is required.")
+
         x = self.get_concatenated_features(
             cell_line_view="gene_expression",
             drug_view="fingerprints",
@@ -103,7 +121,7 @@ class SklearnModel(DRPModel):
             dataset_name=dataset_name,
         )
 
-    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+    def load_drug_features(self, data_path: str, dataset_name: str) -> Optional[FeatureDataset]:
         """
         Load the drug features, in this case the fingerprints.
 
@@ -117,7 +135,14 @@ class SklearnModel(DRPModel):
 class ElasticNetModel(SklearnModel):
     """ElasticNet model for drug response prediction."""
 
-    model_name = "ElasticNet"
+    @classmethod
+    def get_model_name(cls) -> str:
+        """
+        Returns the model name.
+
+        :returns: ElasticNet
+        """
+        return "ElasticNet"
 
     def build_model(self, hyperparameters: dict):
         """
@@ -139,7 +164,14 @@ class ElasticNetModel(SklearnModel):
 class RandomForest(SklearnModel):
     """RandomForest model for drug response prediction."""
 
-    model_name = "RandomForest"
+    @classmethod
+    def get_model_name(cls) -> str:
+        """
+        Returns the model name.
+
+        :returns: RandomForest
+        """
+        return "RandomForest"
 
     def build_model(self, hyperparameters: dict):
         """
@@ -161,7 +193,14 @@ class RandomForest(SklearnModel):
 class SVMRegressor(SklearnModel):
     """SVM model for drug response prediction."""
 
-    model_name = "SVR"
+    @classmethod
+    def get_model_name(cls) -> str:
+        """
+        Returns the model name.
+
+        :returns: SVR (Support Vector Regressor)
+        """
+        return "SVR"
 
     def build_model(self, hyperparameters: dict):
         """
@@ -180,7 +219,14 @@ class SVMRegressor(SklearnModel):
 class GradientBoosting(SklearnModel):
     """Gradient Boosting model for drug response prediction."""
 
-    model_name = "GradientBoosting"
+    @classmethod
+    def get_model_name(cls) -> str:
+        """
+        Returns the model name.
+
+        :returns: GradientBoosting
+        """
+        return "GradientBoosting"
 
     def build_model(self, hyperparameters: dict):
         """

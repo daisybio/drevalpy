@@ -31,22 +31,30 @@ class SRMF(DRPModel):
     latent space.
     """
 
-    model_name = "SRMF"
     cell_line_views = ["gene_expression"]
     drug_views = ["fingerprints"]
 
     def __init__(self) -> None:
         """Initalization method for SRMF Model."""
         super().__init__()
-        self.best_u = None
-        self.best_v = None
-        self.w = None
-        self.k = None
-        self.lambda_l = None
-        self.lambda_d = None
-        self.lambda_c = None
-        self.max_iter = None
-        self.seed = None
+        self.best_u: pd.DataFrame = pd.DataFrame()
+        self.best_v: pd.DataFrame = pd.DataFrame()
+        self.w: pd.DataFrame = pd.DataFrame()
+        self.k: int = 45
+        self.lambda_l: float = 0.01
+        self.lambda_d: float = 0.0
+        self.lambda_c: float = 0.01
+        self.max_iter: int = 50
+        self.seed: int = 1
+
+    @classmethod
+    def get_model_name(cls) -> str:
+        """
+        Returns the model name.
+
+        :returns: SRMF
+        """
+        return "SRMF"
 
     def build_model(self, hyperparameters: dict) -> None:
         """
@@ -67,9 +75,9 @@ class SRMF(DRPModel):
     def train(
         self,
         output: DrugResponseDataset,
-        cell_line_input: FeatureDataset = None,
-        drug_input: FeatureDataset = None,
-        output_earlystopping=None,
+        cell_line_input: FeatureDataset,
+        drug_input: FeatureDataset | None = None,
+        output_earlystopping: DrugResponseDataset | None = None,
     ) -> None:
         """
         Prepares data and trains the SRMF model.
@@ -78,7 +86,11 @@ class SRMF(DRPModel):
         :param cell_line_input: feature data for cell lines
         :param drug_input: feature data for drugs
         :param output_earlystopping: optional early stopping dataset
+        :raises ValueError: if drug_input is None
         """
+        if drug_input is None:
+            raise ValueError("SRMF requires drug features.")
+
         drugs = np.unique(drug_input.identifiers)  # transductive approach - all drug features are used
         cell_lines = np.unique(cell_line_input.identifiers)  # transductive approach - all cell line features are used
 
@@ -126,18 +138,18 @@ class SRMF(DRPModel):
 
     def predict(
         self,
-        drug_ids: np.ndarray,
         cell_line_ids: np.ndarray,
-        drug_input: FeatureDataset = None,
-        cell_line_input: FeatureDataset = None,
+        drug_ids: np.ndarray,
+        cell_line_input: FeatureDataset,
+        drug_input: FeatureDataset | None = None,
     ) -> np.ndarray:
         """
         Predicts the drug response based on the trained latent factors.
 
         :param drug_ids: drug identifiers
         :param cell_line_ids: cell line identifiers
-        :param drug_input: drug features
-        :param cell_line_input: cell line features
+        :param cell_line_input: not needed for prediction in SRMF
+        :param drug_input: not needed for prediction in SRMF
         :returns: predicted response matrix
         """
         best_u = self.best_u.loc[drug_ids].values
