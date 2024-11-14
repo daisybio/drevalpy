@@ -18,20 +18,20 @@ __all__ = [
     "MULTI_DRUG_MODEL_FACTORY",
     "SINGLE_DRUG_MODEL_FACTORY",
     "MODEL_FACTORY",
-    "DIPK_Model",
+    "DIPKModel",
 ]
 
 from .baselines.multi_omics_random_forest import MultiOmicsRandomForest
 from .baselines.naive_pred import NaiveCellLineMeanPredictor, NaiveDrugMeanPredictor, NaivePredictor
 from .baselines.singledrug_random_forest import SingleDrugRandomForest
 from .baselines.sklearn_models import ElasticNetModel, GradientBoosting, RandomForest, SVMRegressor
+from .DIPK.dipk import DIPKModel
 from .drp_model import DRPModel
 from .MOLIR.molir import MOLIR
 from .SimpleNeuralNetwork.multiomics_neural_network import MultiOmicsNeuralNetwork
 from .SimpleNeuralNetwork.simple_neural_network import SimpleNeuralNetwork
 from .SRMF.srmf import SRMF
 from .SuperFELTR.superfeltr import SuperFELTR
-from .DIPK.DIPK import DIPK_Model
 
 # SINGLE_DRUG_MODEL_FACTORY is used in the pipeline!
 SINGLE_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]] = {
@@ -53,7 +53,7 @@ MULTI_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]] = {
     "MultiOmicsRandomForest": MultiOmicsRandomForest,
     "GradientBoosting": GradientBoosting,
     "SRMF": SRMF,
-    "DIPK": DIPK_Model,
+    "DIPK": DIPKModel,
 }
 
 # MODEL_FACTORY is used in the pipeline!
