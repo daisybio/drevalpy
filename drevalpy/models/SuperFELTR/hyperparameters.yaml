@@ -1,0 +1,25 @@
+---
+SuperFELTR:
+  mini_batch: 55
+  dropout_rate:
+    - 0.3
+    - 0.5
+  weight_decay: 0.01
+  out_dim_expr_encoder: 256
+  out_dim_mutation_encoder: 32
+  out_dim_cnv_encoder: 64
+  epochs: 30
+  expression_var_threshold:
+    GDSC1: 0.1
+    GDSC2: 0.1
+    Toy_Data: 0.03
+  mutation_var_threshold:
+    GDSC1: 0.1
+    GDSC2: 0.1
+    Toy_Data: 0.05
+  cnv_var_threshold:
+    GDSC1: 0.7
+    GDSC2: 0.7
+    Toy_Data: 0.6
+  margin: 1.0
+  learning_rate: 0.01

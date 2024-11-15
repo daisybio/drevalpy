@@ -1,1 +1,1 @@
-from . import models
+"""Module containing the drevalpy suite."""

@@ -16,7 +16,7 @@ from drevalpy.visualization.utils import parse_results, prep_results
         {
             "run_id": "test_run",
             "dataset_name": "Toy_Data",
-            "models": ["ElasticNet"],
+            "models": ["NaiveCellLineMeanPredictor"],
             "baselines": ["NaiveDrugMeanPredictor"],
             "test_mode": ["LPO"],
             "randomization_mode": ["SVRC"],
@@ -37,19 +37,20 @@ def test_run_suite(args):
     """
     Tests run_suite.py, i.e., all functionality of the main package.
 
-    :param args: TODO
+    :param args: arguments for the main function
     """
     temp_dir = tempfile.TemporaryDirectory()
     args["path_out"] = temp_dir.name
     args = Namespace(**args)
     main(args)
     assert os.listdir(temp_dir.name) == ["test_run"]
+
     (
         evaluation_results,
         evaluation_results_per_drug,
         evaluation_results_per_cell_line,
         true_vs_pred,
-    ) = parse_results(path_to_results=f"{temp_dir.name}/{args.run_id}")
+    ) = parse_results(path_to_results=os.path.join(temp_dir.name, args.run_id))
 
     (
         evaluation_results,
@@ -62,7 +63,6 @@ def test_run_suite(args):
         evaluation_results_per_cell_line,
         true_vs_pred,
     )
-
     assert len(evaluation_results.columns) == 22
     assert len(evaluation_results_per_drug.columns) == 15
     assert len(evaluation_results_per_cell_line.columns) == 15

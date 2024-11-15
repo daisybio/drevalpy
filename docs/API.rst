@@ -27,4 +27,3 @@ Import DrEvalPy using
       :toctree: api/models
 
       models.baselines
-      models.BiGDRP

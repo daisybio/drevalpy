@@ -1,4 +1,6 @@
-from typing import TextIO
+"""Contains the code needed to draw the correlation comparison scatter plot."""
+
+from io import TextIOWrapper
 
 import numpy as np
 import pandas as pd
@@ -7,19 +9,40 @@ import scipy
 from plotly.subplots import make_subplots
 from scipy import stats
 
-from drevalpy.models import SINGLE_DRUG_MODEL_FACTORY
-from drevalpy.visualization.outplot import OutPlot
+from ..models import SINGLE_DRUG_MODEL_FACTORY
+from ..pipeline_function import pipeline_function
+from .outplot import OutPlot
 
 
 class CorrelationComparisonScatter(OutPlot):
+    """
+    Class to draw scatter plots for comparison of correlation metrics between models.
+
+    Produces two types of plots: an overall comparison plot and a dropdown plot for comparison between all models.
+    If one model is consistently better than the other, the points deviate from the identity line (higher if the
+    model is on the y-axis, lower if it is on the x-axis.
+    The dropdown plot allows to select two models for comparison of their per-drug/per-cell-line pearson correlation.
+    The overall plot facets all models and visualizes the density of the points.
+    """
+
+    @pipeline_function
     def __init__(
         self,
         df: pd.DataFrame,
         color_by: str,
         lpo_lco_ldo: str,
-        metric="Pearson",
-        algorithm="all",
+        metric: str = "Pearson",
+        algorithm: str = "all",
     ):
+        """
+        Initialize the CorrelationComparisonScatter object.
+
+        :param df: evaluation results per group, either drug or cell line
+        :param color_by: group variable, i.e., drug or cell line
+        :param lpo_lco_ldo: evaluation setting, e.g., LCO (leave-cell-line-out)
+        :param metric: correlation metric to be compared. Default is Pearson.
+        :param algorithm: used to distinguish between per-algorithm plots and per-setting plots (all models then).
+        """
         exclude_models = (
             {"NaiveDrugMeanPredictor"}.union({model for model in SINGLE_DRUG_MODEL_FACTORY.keys()})
             if color_by == "drug"
@@ -28,6 +51,7 @@ class CorrelationComparisonScatter(OutPlot):
         exclude_models.add("NaivePredictor")
 
         self.df = df.sort_values("model")
+        self.name: str | None = None
         if algorithm == "all":
             # draw plots for comparison between all models
             self.df = self.df[
@@ -43,8 +67,6 @@ class CorrelationComparisonScatter(OutPlot):
             # draw plots for comparison between all test settings of one model
             self.df = self.df[(self.df["LPO_LCO_LDO"] == lpo_lco_ldo) & (self.df["algorithm"] == algorithm)]
             self.name = f"{color_by} {algorithm} {lpo_lco_ldo}"
-        else:
-            self.name = None
         if self.df.empty:
             print(f"No data found for {self.name}. Skipping ...")
             return
@@ -77,30 +99,44 @@ class CorrelationComparisonScatter(OutPlot):
         for i in range(len(self.models)):
             self.fig_overall["layout"]["annotations"][i]["font"]["size"] = 12
         self.dropdown_fig = go.Figure()
-        self.dropdown_buttons_x = list()
-        self.dropdown_buttons_y = list()
+        self.dropdown_buttons_x: list[dict] = list()
+        self.dropdown_buttons_y: list[dict] = list()
 
+    @pipeline_function
     def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
+        """
+        Draws and saves the scatter plots.
+
+        :param out_prefix: e.g., results/my_run/corr_comp_scatter/
+        :param out_suffix: should be self.name
+        :raises AssertionError: if out_suffix does not match self.name
+        """
         if self.df.empty:
             return
-        self.__draw__()
-        assert self.name == out_suffix
+        self._draw()
+        if self.name != out_suffix:
+            raise AssertionError(f"Name mismatch: {self.name} != {out_suffix}")
         path_out = f"{out_prefix}corr_comp_scatter_{out_suffix}.html"
         self.dropdown_fig.write_html(path_out)
         path_out = f"{out_prefix}corr_comp_scatter_overall_{out_suffix}.html"
         self.fig_overall.write_html(path_out)
 
-    def __draw__(self) -> None:
+    def _draw(self) -> None:
+        """Draws the scatter plots."""
         print("Drawing scatterplots ...")
-        self.__generate_corr_comp_scatterplots__()
+        self._generate_corr_comp_scatterplots()
+        # Set titles
         self.fig_overall.update_layout(
-            title=f'{str(self.color_by).replace("_", " ").capitalize()}-wise scatter plot of {self.metric} for each model',
+            title=f'{str(self.color_by).replace("_", " ").capitalize()}-wise scatter plot of {self.metric} '
+            f"for each model",
             showlegend=False,
         )
         self.dropdown_fig.update_layout(
-            title=f'{str(self.color_by).replace("_", " ").capitalize()}-wise scatter plot of {self.metric} for each model',
+            title=f'{str(self.color_by).replace("_", " ").capitalize()}-wise scatter plot of {self.metric} '
+            f"for each model",
             showlegend=False,
         )
+        # Set dropdown menu
         self.dropdown_fig.update_layout(
             updatemenus=[
                 {
@@ -127,8 +163,17 @@ class CorrelationComparisonScatter(OutPlot):
         self.dropdown_fig.update_yaxes(range=[-1, 1])
 
     @staticmethod
-    def write_to_html(lpo_lco_ldo: str, f: TextIO, *args, **kwargs) -> TextIO:
-        files = kwargs.get("files")
+    def write_to_html(lpo_lco_ldo: str, f: TextIOWrapper, *args, **kwargs) -> TextIOWrapper:
+        """
+        Inserts the generated files into the result HTML file.
+
+        :param lpo_lco_ldo: setting, e.g., LCO
+        :param f: file to write to
+        :param args: unused
+        :param kwargs: used to get all files generated by create_report.py / the pipeline
+        :returns: the file f
+        """
+        files: list[str] = kwargs.get("files", [])
         f.write('<h2 id="corr_comp">Comparison of correlation metrics</h2>\n')
         for group_by in ["drug", "cell_line"]:
             plot_list = [f for f in files if f.startswith("corr_comp_scatter") and f.endswith(f"{lpo_lco_ldo}.html")]
@@ -149,8 +194,10 @@ class CorrelationComparisonScatter(OutPlot):
                 listed_files = [
                     elem
                     for elem in plot_list
-                    if elem != f"corr_comp_scatter_{lpo_lco_ldo}_{group_by}.html"
-                    and elem != f"corr_comp_scatter_overall_{lpo_lco_ldo}_{group_by}.html"
+                    if (
+                        elem != f"corr_comp_scatter_{lpo_lco_ldo}_{group_by}.html"
+                        and elem != f"corr_comp_scatter_overall_{lpo_lco_ldo}_{group_by}.html"
+                    )
                 ]
                 listed_files.sort()
                 for group_comparison in listed_files:
@@ -161,9 +208,10 @@ class CorrelationComparisonScatter(OutPlot):
                 f.write("</ul>\n")
         return f
 
-    def __generate_corr_comp_scatterplots__(self):
+    def _generate_corr_comp_scatterplots(self) -> None:
+        """Generates the scatter plots."""
         # render first scatterplot that is shown in the dropdown plot
-        first_df = self.__subset_df__(run_id=self.models[0])
+        first_df = self._subset_df(run_id=self.models[0])
         scatterplot = go.Scatter(
             x=first_df[self.metric],
             y=first_df[self.metric],
@@ -187,7 +235,7 @@ class CorrelationComparisonScatter(OutPlot):
 
         for run_idx in range(len(self.models)):
             run = self.models[run_idx]
-            x_df = self.__subset_df__(run_id=run)
+            x_df = self._subset_df(run_id=run)
             self.dropdown_buttons_x.append(
                 dict(
                     label=run,
@@ -200,9 +248,9 @@ class CorrelationComparisonScatter(OutPlot):
             )
             for run2_idx in range(len(self.models)):
                 run2 = self.models[run2_idx]
-                y_df = self.__subset_df__(run_id=run2)
+                y_df = self._subset_df(run_id=run2)
 
-                scatterplot = self.__draw_subplot__(x_df, y_df, run, run2)
+                scatterplot = self._draw_subplot(x_df, y_df, run, run2)
                 self.fig_overall.add_trace(scatterplot, col=run_idx + 1, row=run2_idx + 1)
                 self.fig_overall.add_trace(line_corr, col=run_idx + 1, row=run2_idx + 1)
 
@@ -227,14 +275,29 @@ class CorrelationComparisonScatter(OutPlot):
                         self.fig_overall["layout"][f"yaxis{y_axis_idx}"]["title"] = str(run2).replace("_", "<br>", 2)
                         self.fig_overall["layout"][f"yaxis{y_axis_idx}"]["title"]["font"]["size"] = 6
 
-    def __subset_df__(self, run_id: str):
+    def _subset_df(self, run_id: str) -> pd.DataFrame:
+        """
+        Subsets the dataframe for a given run_id to the relevant columns and sets the index to the color_by variable.
+
+        :param run_id: user-defined ID of the whole run
+        :returns: subsetted dataframe
+        """
         s_df = self.df[self.df["setting"] == run_id][[self.metric, self.color_by, "model"]]
         s_df.set_index(self.color_by, inplace=True)
         s_df.sort_index(inplace=True)
         s_df[self.metric] = s_df[self.metric].fillna(0)
         return s_df
 
-    def __draw_subplot__(self, x_df, y_df, run, run2):
+    def _draw_subplot(self, x_df, y_df, run, run2) -> go.Scatter:
+        """
+        A subplot of the faceted overall plot.
+
+        :param x_df: dataframe for the x-axis
+        :param y_df: dataframe for the y-axis
+        :param run: title for the x-axis
+        :param run2: title for the y-axis
+        :returns: scatterplot for the subplot
+        """
         # only retain the common indices
         common_indices = x_df.index.intersection(y_df.index)
         x_df_inter = x_df.loc[common_indices]
@@ -252,13 +315,15 @@ class CorrelationComparisonScatter(OutPlot):
             "setting_y",
         ]
 
-        density = self.__get_density__(joint_df[f"{self.metric}_x"], joint_df[f"{self.metric}_y"])
+        density = self._get_density(joint_df[f"{self.metric}_x"], joint_df[f"{self.metric}_y"])
         joint_df["color"] = density
 
         custom_text = joint_df.apply(
-            lambda row: f"<i>{self.color_by.capitalize()}:</i>: {row.name}<br>"
-            + f"<i>Split x:</i>: {row.setting_x}<br>"
-            + f"<i>Split y:</i>: {row.setting_y}<br>",
+            lambda row: (
+                f"<i>{self.color_by.capitalize()}:</i>: {row.name}<br>"
+                + f"<i>Split x:</i>: {row.setting_x}<br>"
+                + f"<i>Split y:</i>: {row.setting_y}<br>"
+            ),
             axis=1,
         )
 
@@ -275,8 +340,14 @@ class CorrelationComparisonScatter(OutPlot):
         return scatterplot
 
     @staticmethod
-    def __get_density__(x: pd.Series, y: pd.Series):
-        """Get kernal density estimate for each (x, y) point."""
+    def _get_density(x: pd.Series, y: pd.Series) -> np.ndarray:
+        """
+        Get kernel density estimate for each (x, y) point.
+
+        :param x: values on the x-axis
+        :param y: values on the y-axis
+        :returns: density of the points
+        """
         try:
             values = np.vstack([x, y])
             kernel = stats.gaussian_kde(values)
