@@ -32,7 +32,7 @@ class GDSC1(DrugResponseDataset):
         response_data = pd.read_csv(path)
         response_data["DRUG_NAME"] = response_data["DRUG_NAME"].str.replace(",", "")
 
-        super().__init__(
+        super(DrugResponseDataset, self).__init__(
             response=response_data["LN_IC50"].values,
             cell_line_ids=response_data["CELL_LINE_NAME"].values,
             drug_ids=response_data["DRUG_NAME"].values,

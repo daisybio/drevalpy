@@ -205,10 +205,10 @@ class NaiveCellLineMeanPredictor(DRPModel):
 
     def predict(
         self,
-        drug_ids=None,
-        cell_line_ids: ArrayLike = None,
-        drug_input=None,
-        cell_line_input=None,
+        drug_ids: np.ndarray | None = None,
+        cell_line_ids: np.ndarray | None = None,
+        drug_input: np.ndarray | None = None,
+        cell_line_input: np.ndarray | None = None,
     ) -> np.ndarray:
         """
         Predicts the cell line mean for each drug-cell line combination. If the cell line is not
@@ -221,7 +221,7 @@ class NaiveCellLineMeanPredictor(DRPModel):
         """
         return np.array([self.predict_cl(cl) for cl in cell_line_ids])
 
-    def predict_cl(self, cl_id: str):
+    def predict_cl(self, cl_id: str) -> float:
         """
         Predicts the mean of the response for a given cell line. If the cell line is not in the
         training set, the dataset mean is used.

@@ -9,11 +9,11 @@ import inspect
 import os
 import warnings
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Any, Optional
 
 import numpy as np
 import yaml
-from numpy.typing import ArrayLike
 from sklearn.model_selection import ParameterGrid
 
 from ..datasets.dataset import DrugResponseDataset, FeatureDataset
@@ -106,10 +106,10 @@ class DRPModel(ABC):
     @abstractmethod
     def predict(
         self,
-        drug_ids: ArrayLike,
-        cell_line_ids: ArrayLike,
-        drug_input: FeatureDataset = None,
-        cell_line_input: FeatureDataset = None,
+        drug_ids: np.ndarray,
+        cell_line_ids: np.ndarray,
+        drug_input: FeatureDataset | None = None,
+        cell_line_input: FeatureDataset | None = None,
     ) -> np.ndarray:
         """
         Predicts the response for the given input.
@@ -117,7 +117,7 @@ class DRPModel(ABC):
         """
 
     @abstractmethod
-    def save(self, path):
+    def save(self, path: str | Path):
         """
         Saves the model.
 
@@ -125,7 +125,7 @@ class DRPModel(ABC):
         """
 
     @abstractmethod
-    def load(self, path):
+    def load(self, path: str | Path):
         """
         Loads the model.
 
@@ -149,11 +149,11 @@ class DRPModel(ABC):
     def get_concatenated_features(
         self,
         cell_line_view: str,
-        drug_view: Optional[str],
-        cell_line_ids_output: ArrayLike,
-        drug_ids_output: ArrayLike,
-        cell_line_input: Optional[FeatureDataset],
-        drug_input: Optional[FeatureDataset],
+        drug_view: str | None,  # TODO should default to None, then reorder
+        cell_line_ids_output: np.ndarray,
+        drug_ids_output: np.ndarray,
+        cell_line_input: FeatureDataset | None = None,
+        drug_input: FeatureDataset | None = None,
     ):
         """
         Concatenates the features for the given cell line and drug view.
@@ -186,8 +186,8 @@ class DRPModel(ABC):
 
     def get_feature_matrices(
         self,
-        cell_line_ids: ArrayLike,
-        drug_ids: ArrayLike,
+        cell_line_ids: np.ndarray,
+        drug_ids: np.ndarray,
         cell_line_input: Optional[FeatureDataset],
         drug_input: Optional[FeatureDataset],
     ):
@@ -203,7 +203,7 @@ class DRPModel(ABC):
         cell_line_feature_matrices = {}
         if cell_line_input is not None:
             for cell_line_view in self.cell_line_views:
-                if cell_line_view not in cell_line_input.get_view_names():
+                if cell_line_view not in cell_line_input.view_names:
                     raise ValueError(f"Cell line input does not contain view {cell_line_view}")
                 cell_line_feature_matrices[cell_line_view] = cell_line_input.get_feature_matrix(
                     view=cell_line_view, identifiers=cell_line_ids
@@ -211,7 +211,7 @@ class DRPModel(ABC):
         drug_feature_matrices = {}
         if drug_input is not None:
             for drug_view in self.drug_views:
-                if drug_view not in drug_input.get_view_names():
+                if drug_view not in drug_input.view_names:
                     raise ValueError(f"Drug input does not contain view {drug_view}")
                 drug_feature_matrices[drug_view] = drug_input.get_feature_matrix(view=drug_view, identifiers=drug_ids)
 
@@ -223,10 +223,10 @@ class SingleDrugModel(DRPModel, ABC):
     Abstract wrapper class for single drug response prediction models.
     """
 
-    early_stopping = False
-    drug_views = []
+    early_stopping: bool = False
+    drug_views: list[str] = []
 
-    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+    def load_drug_features(self, data_path: str, dataset_name: str):
         return None
 
 
@@ -236,17 +236,17 @@ class CompositeDrugModel(DRPModel):
     applying a seperate model for each drug.
     """
 
-    cell_line_views = None
-    drug_views = []
-    model_name = "CompositeDrugModel"
+    cell_line_views: list[str] | None = None
+    drug_views: list[str] = []
+    model_name: str = "CompositeDrugModel"
 
-    def __init__(self, base_model: type[DRPModel], *args, **kwargs):
+    def __init__(self, base_model: type["DRPModel"], *args, **kwargs):
         """
         Creates an instance of a single drug response prediction model.
         :param model_name: model name for displaying results
         """
         super().__init__(*args, **kwargs)
-        self.models = {}
+        self.models: dict[str, "DRPModel"] = {}
         self.base_model = base_model
         self.cell_line_views = base_model.cell_line_views
         self.model_name = base_model.model_name
@@ -264,7 +264,7 @@ class CompositeDrugModel(DRPModel):
     def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         return list(self.models.values())[0].load_cell_line_features(data_path=data_path, dataset_name=dataset_name)
 
-    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+    def load_drug_features(self, data_path: str, dataset_name: str):
         return None
 
     def train(
@@ -307,9 +307,9 @@ class CompositeDrugModel(DRPModel):
 
     def predict(
         self,
-        drug_ids: list[str],
-        cell_line_ids: list[str],
-        drug_input=None,
+        drug_ids: np.ndarray,
+        cell_line_ids: np.ndarray[str],
+        drug_input: np.ndarray | None = None,
         cell_line_input: FeatureDataset = None,
     ) -> np.ndarray:
         """
