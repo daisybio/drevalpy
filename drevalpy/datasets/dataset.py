@@ -90,8 +90,8 @@ class DrugResponseDataset(Dataset):
             predictions = None
         return cls(
             response=data["response"].values,
-            cell_line_ids=data["cell_line_ids"].values,
-            drug_ids=data["drug_ids"].values,
+            cell_line_ids=data["cell_line_id"].values,
+            drug_ids=data["drug_id"].values,
             predictions=predictions,
             dataset_name=dataset_name,
         )
