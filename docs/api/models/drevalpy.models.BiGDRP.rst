@@ -3,4 +3,3 @@
 
 .. automodule:: drevalpy.models.BiGDRP
 
-   

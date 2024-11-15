@@ -7,14 +7,14 @@ To run models from the catalog, you can run:
 
     python run_suite.py --run_id my_first_run --models ElasticNet SimpleNeuralNetwork --dataset GDSC1 --test_mode LCO
 
-This will train and tune a neural network and an elastic net model on a subset of gene expression features and drug fingerprint features to predict IC50 values of the GDSC1 database. It will evaluate in "LCO" which is the leave-cell-line-out splitting strategy using 5 fold cross validation. 
-The results will be stored in 
+This will train and tune a neural network and an elastic net model on a subset of gene expression features and drug fingerprint features to predict IC50 values of the GDSC1 database. It will evaluate in "LCO" which is the leave-cell-line-out splitting strategy using 5 fold cross validation.
+The results will be stored in
 
 .. code-block:: bash
 
     results/my_first_run/LCO
 
-You can visualize them using 
+You can visualize them using
 
 .. code-block:: bash
 
