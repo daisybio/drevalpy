@@ -120,13 +120,8 @@ def evaluate_file(
         values, and model name
     """
     print("Parsing file:", os.path.normpath(pred_file))
-    result = pd.read_csv(pred_file)
-    dataset = DrugResponseDataset(
-        response=result["response"].to_numpy(),
-        cell_line_ids=result["cell_line_ids"].to_numpy(),
-        drug_ids=result["drug_ids"].to_numpy(),
-        predictions=result["predictions"].to_numpy(),
-    )
+    dataset = DrugResponseDataset.from_csv(pred_file)
+
     model = _generate_model_names(test_mode=test_mode, model_name=model_name, pred_file=pred_file)
 
     # overall evaluation
