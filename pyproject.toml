@@ -45,6 +45,7 @@ pre-commit = "*"
 pre-commit-hooks = "*"
 pyupgrade = "*"
 types-requests = "*"
+types-pyyaml = "*"
 
 [tool.black]
 line-length = 120
