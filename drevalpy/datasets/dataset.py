@@ -34,13 +34,15 @@ np.set_printoptions(threshold=6)
 class Dataset(ABC):
     """Abstract wrapper class for datasets."""
 
-    @staticmethod
+    @classmethod
     @abstractmethod
-    def load(path: str):
+    def from_csv(cls: type["Dataset"], input_file: str | Path, dataset_name: str = "unknown") -> "Dataset":
         """
         Loads the dataset from data.
 
-        :param path: path to the dataset
+        :param input_file: Path to the csv file containing the data to be loaded
+        :param dataset_name: Optional name to associate the dataset with, default = "unknown"
+        :returns: Dataset object containing data from provided csv file.
         """
 
     @abstractmethod
