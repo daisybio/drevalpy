@@ -1,6 +1,7 @@
 """Utility functions for the evaluation pipeline."""
 
 import argparse
+import os
 from typing import Optional
 
 from sklearn.base import TransformerMixin
@@ -206,6 +207,9 @@ def check_arguments(args) -> None:
                 f"need to implement a new response dataset loader and add it to the "
                 f"AVAILABLE_DATASETS in the response_datasets init."
             )
+
+    # if the path to args.path_data does not exist, create the directory
+    os.makedirs(args.path_data, exist_ok=True)
 
     if args.n_cv_splits <= 1:
         raise ValueError("Number of cross-validation splits must be greater than 1")

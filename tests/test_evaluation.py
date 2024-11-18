@@ -262,7 +262,3 @@ def test_correlations_constant_prediction(
     assert np.isclose(pc, 0.0, atol=1e-3)
     assert np.isclose(sp, 0.0, atol=1e-3)
     assert np.isclose(kd, 0.0, atol=1e-3)
-
-
-if __name__ == "__main__":
-    pytest.main([__file__])
