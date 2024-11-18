@@ -12,6 +12,7 @@ from typing import Any
 import numpy as np
 import torch
 import torch.optim as optim
+from gene_expression_encoder import GeneExpressionEncoder, encode_gene_expression, train_gene_expession_autoencoder
 from torch import nn
 from torch.utils.data import DataLoader
 
@@ -31,7 +32,7 @@ from .model_utils import Predictor
 class DIPKModel(DRPModel):
     """DIPK model. Adapted from https://github.com/user15632/DIPK."""
 
-    cell_line_views = ["gene_expression_features", "biological_network_features"]
+    cell_line_views = ["gene_expression", "biological_network_features"]
     drug_views = ["drug_feature_embedding"]
 
     def __init__(self) -> None:
@@ -43,6 +44,7 @@ class DIPKModel(DRPModel):
         self.EPOCHS: int = 0
         self.batch_size: int = 0
         self.lr: float = 0.0
+        self.gene_expression_encoder: GeneExpressionEncoder | None = None
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -106,6 +108,12 @@ class DIPKModel(DRPModel):
         params = [{"params": self.model.parameters()}]
         optimizer = optim.Adam(params, lr=self.lr)
 
+        self.gene_expression_encoder = train_gene_expession_autoencoder(
+            cell_line_input.get_feature_matrix(view="gene_expression", identifiers=output.cell_line_ids)
+        )
+
+        cell_line_input.apply(lambda x: encode_gene_expression(x, self.gene_expression_encoder), view="gene_expression")
+
         # load data
         collate = CollateFn(train=True)
         graphs_train = get_data(
@@ -115,6 +123,7 @@ class DIPKModel(DRPModel):
             drug_features=drug_input,
             ic50=output.response,
         )
+
         train_loader: DataLoader = DataLoader(
             GraphDataset(graphs_train), batch_size=self.batch_size, shuffle=True, collate_fn=collate
         )

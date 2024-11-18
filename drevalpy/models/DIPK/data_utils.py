@@ -121,7 +121,7 @@ def get_data(
             x=x,
             edge_index=edge_index,
             edge_attr=edge_attr,
-            GEF=torch.tensor(cell_line_features.features[cell_id]["gene_expression_features"], dtype=torch.float32),
+            GEF=torch.tensor(cell_line_features.features[cell_id]["gene_expression"], dtype=torch.float32),
             BNF=torch.tensor(cell_line_features.features[cell_id]["biological_network_features"], dtype=torch.float32),
         )
         if ic50 is not None:
