@@ -122,8 +122,7 @@ class DIPKModel(DRPModel):
         # train model
         for _ in range(self.EPOCHS):
             self.model.train()
-            epoch_loss = 0.0
-            for it, (pyg_batch, gene_features, bionic_features) in enumerate(train_loader):
+            for pyg_batch, gene_features, bionic_features in train_loader:
                 pyg_batch, gene_features, bionic_features = (
                     pyg_batch.to(self.DEVICE),
                     gene_features.to(self.DEVICE),
@@ -134,8 +133,6 @@ class DIPKModel(DRPModel):
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
-                epoch_loss += loss.detach().item()
-                epoch_loss /= it + 1
 
     def predict(
         self,

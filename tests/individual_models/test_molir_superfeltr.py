@@ -12,15 +12,15 @@ from drevalpy.models.drp_model import DRPModel
 
 
 @pytest.mark.parametrize("test_mode", ["LCO"])
-@pytest.mark.parametrize("model_name", ["SuperFELTR"])
-def test_molir_superfeltr(
+@pytest.mark.parametrize("model_name", ["SuperFELTR", "MOLIR", "DIPK"])
+def test_molir_superfeltr_dipk(
     sample_dataset: tuple[DrugResponseDataset, FeatureDataset, FeatureDataset], model_name: str, test_mode: str
 ) -> None:
     """
-    Test the MOLIR and SuperFELTR models.
+    Test the MOLIR, SuperFELTR and DIPK models.
 
     :param sample_dataset: from conftest.py
-    :param model_name: MOLIR or SuperFELTR
+    :param model_name: model name
     :param test_mode: LCO
     """
     drug_response, cell_line_input, drug_input = sample_dataset
