@@ -12,7 +12,6 @@ from typing import Any
 import numpy as np
 import torch
 import torch.optim as optim
-from gene_expression_encoder import GeneExpressionEncoder, encode_gene_expression, train_gene_expession_autoencoder
 from torch import nn
 from torch.utils.data import DataLoader
 
@@ -26,6 +25,7 @@ from .data_utils import (
     load_drug_feature_from_mol_g_net,
     load_expression_and_network_features,
 )
+from .gene_expression_encoder import GeneExpressionEncoder, encode_gene_expression, train_gene_expession_autoencoder
 from .model_utils import Predictor
 
 
