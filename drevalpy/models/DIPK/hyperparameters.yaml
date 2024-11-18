@@ -9,7 +9,7 @@ DIPK:
   embedding_dim:
     - None
   heads:
-    - 1
+    - 2
   fc_layer_num:
     - 3
   fc_layer_dim:
