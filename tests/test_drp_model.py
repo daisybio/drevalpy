@@ -330,8 +330,3 @@ def test_unique() -> None:
     array = np.array([1, 9, 3, 2, 1, 4, 5, 6, 7, 8, 9, 2, 1, 2, 3, 4, 5, 6, 7, 8, 9])
     unique_array = unique(array)
     assert np.all(unique_array == np.array([1, 9, 3, 2, 4, 5, 6, 7, 8]))
-
-
-# Run the tests
-if __name__ == "__main__":
-    pytest.main([__file__])
