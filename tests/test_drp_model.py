@@ -284,7 +284,7 @@ def test_get_multiomics_feature_dataset(gene_list: Optional[str]) -> None:
             gene_list=gene_list,
         )
         assert len(dataset.features) == 2
-        common_cls = dataset.get_ids()
+        common_cls = dataset.identifiers
         common_cls.sort()
         assert np.all(common_cls == ["22Rv1", "CAL-120"])
         assert dataset.meta_info is not None

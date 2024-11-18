@@ -161,7 +161,7 @@ def _call_naive_predictor(
     """
     naive = NaivePredictor()
     naive.train(output=train_dataset, cell_line_input=cell_line_input, drug_input=None)
-    val_dataset.predictions = naive.predict(
+    val_dataset._predictions = naive.predict(
         cell_line_ids=val_dataset.cell_line_ids, drug_ids=val_dataset.drug_ids, cell_line_input=cell_line_input
     )
     assert val_dataset.predictions is not None
@@ -213,7 +213,7 @@ def _call_naive_group_predictor(
         cell_line_input=cell_line_input,
         drug_input=drug_input,
     )
-    val_dataset.predictions = naive.predict(
+    val_dataset._predictions = naive.predict(
         cell_line_ids=val_dataset.cell_line_ids, drug_ids=val_dataset.drug_ids, cell_line_input=cell_line_input
     )
     assert val_dataset.predictions is not None
@@ -290,7 +290,7 @@ def _call_other_baselines(
             cell_line_input=cell_line_input,
             drug_input=drug_input,
         )
-        val_dataset.predictions = model_instance.predict(
+        val_dataset._predictions = model_instance.predict(
             drug_ids=val_dataset.drug_ids,
             cell_line_ids=val_dataset.cell_line_ids,
             drug_input=drug_input,

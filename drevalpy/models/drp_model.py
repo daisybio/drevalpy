@@ -289,7 +289,7 @@ class DRPModel(ABC):
         cell_line_feature_matrices = {}
         if cell_line_input is not None:
             for cell_line_view in self.cell_line_views:
-                if cell_line_view not in cell_line_input.get_view_names():
+                if cell_line_view not in cell_line_input.view_names:
                     raise ValueError(f"Cell line input does not contain view {cell_line_view}")
                 cell_line_feature_matrices[cell_line_view] = cell_line_input.get_feature_matrix(
                     view=cell_line_view, identifiers=cell_line_ids
@@ -297,7 +297,7 @@ class DRPModel(ABC):
         drug_feature_matrices = {}
         if drug_input is not None:
             for drug_view in self.drug_views:
-                if drug_view not in drug_input.get_view_names():
+                if drug_view not in drug_input.view_names:
                     raise ValueError(f"Drug input does not contain view {drug_view}")
                 drug_feature_matrices[drug_view] = drug_input.get_feature_matrix(view=drug_view, identifiers=drug_ids)
 
