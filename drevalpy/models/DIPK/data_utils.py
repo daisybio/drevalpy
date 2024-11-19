@@ -10,7 +10,6 @@ GraphDataset: Class to create a PyG Dataset from a list of PyG Data objects.
 
 import os
 from abc import ABC
-from collections import defaultdict
 
 import numpy as np
 import pandas as pd
@@ -21,60 +20,48 @@ from drevalpy.datasets.dataset import FeatureDataset
 
 
 def load_bionic_features(data_path: str, dataset_name: str, gene_add_num: int = 512) -> FeatureDataset:
-    """Load biological network (BIONIC) features for DIPK.
+    """
+    Load biological network (BIONIC) features for DIPK.
 
     :param data_path: Path to the data, e.g., "data/"
     :param dataset_name: Name of the dataset, e.g., GDSC2
     :param gene_add_num: Number of genes to add to the feature set
     :returns: FeatureDataset with gene expression and biological network features
     """
-    # Load gene expression dataset and extract gene names
-    gene_expression = pd.read_csv(f"{data_path}/{dataset_name}/gene_expression.csv")
+    # Load gene expression dataset
+    gene_expression_path = os.path.join(data_path, dataset_name, "gene_expression.csv")
+    gene_expression = pd.read_csv(gene_expression_path)
     expression_dict = gene_expression.set_index("cell_line_name").drop("cellosaurus_id", axis=1).T.to_dict()
 
-    f = open("data/GDSC1/DIPK_features/gene_list_sel.txt", encoding="gbk")
-    gene_list = []
-    for each_row in f:
-        gene_list.append(each_row.strip())
+    # Load gene list and PPI features
+    gene_list_path = os.path.join(data_path, dataset_name, "DIPK_features", "gene_list_sel.txt")
+    with open(gene_list_path, encoding="gbk") as f:
+        gene_list = {line.strip() for line in f}
 
-    bionic_gene_dict = dict()
-    dataset = pd.read_csv("data/GDSC1/DIPK_features/human_ppi_features.tsv", header=0, index_col=0, sep="\t")
-    for gene in gene_list:
-        if gene in dataset.index:
-            bionic_gene_dict[gene] = dataset.loc[gene].values
+    ppi_path = os.path.join(data_path, dataset_name, "DIPK_features", "human_ppi_features.tsv")
+    dataset = pd.read_csv(ppi_path, index_col=0, sep="\t")
 
-    cells = list(expression_dict.keys())  # List of cell line names
+    # Ensure BIONIC dictionary uses gene names directly
+    bionic_gene_dict = {gene: dataset.loc[gene].values for gene in gene_list if gene in dataset.index}
 
-    # Sort gene expressions in descending order for each cell line
-    indices_map = {}
-    for cell_line in cells:
-        indices = np.argsort(cell_line)[::-1]
-        indices_map[cell_line] = indices
-
-    # Compute BIONIC features for each cell line
+    # Compute BIONIC features
     bionic_feature_dict = {}
-    for cell in cells:
+    for cell_line, expressions in expression_dict.items():
+        # Sort genes based on descending expression values
+        sorted_genes = sorted(expressions.items(), key=lambda x: -x[1])
+        top_genes = [gene for gene, _ in sorted_genes[:gene_add_num]]
 
-        selected_genes = indices_map[cell][:gene_add_num].tolist()  # Top `gene_add_num` genes for this cell line
-        selected_features = [bionic_gene_dict[gene_id] for gene_id in selected_genes if gene_id in bionic_gene_dict]
-
-        # Check if any valid features are found
+        # Aggregate BIONIC features for selected genes
+        selected_features = [bionic_gene_dict[gene] for gene in top_genes if gene in bionic_gene_dict]
         if selected_features:
-            feature_tensor = np.stack(selected_features)  # Stack into a 2D tensor (genes x feature_dim)
-            aggregated_feature = feature_tensor.mean(dim=0)  # Compute the mean feature across genes
+            aggregated_feature = np.mean(selected_features, axis=0)
         else:
-            aggregated_feature = np.zeros(
-                len(next(iter(bionic_gene_dict.values())))
-            )  # Fill with zeros if no valid features are found
+            # Handle case where no features are found (padding with zeros)
+            aggregated_feature = np.zeros(next(iter(bionic_gene_dict.values())).shape)
 
-        # Store the aggregated feature in the dictionary
-        bionic_feature_dict[cell] = aggregated_feature.tolist()
+        bionic_feature_dict[cell_line] = aggregated_feature
 
-    # Structure data into a FeatureDataset
-    feature_data = defaultdict(dict)
-    for cell_line in cells:
-        feature_data[cell_line]["bionic_features"] = bionic_feature_dict[cell_line]
-
+    feature_data = {cell_line: {"bionic_features": features} for cell_line, features in bionic_feature_dict.items()}
     return FeatureDataset(features=feature_data)
 
 
