@@ -85,10 +85,10 @@ def test_molir_superfeltr_dipk(
 
     # subset the dataset to only the drugs that were used
     val_es_mask = np.isin(val_es_dataset.drug_ids, random_drug)
-    val_es_dataset.cell_line_ids = val_es_dataset.cell_line_ids[val_es_mask]
-    val_es_dataset.drug_ids = val_es_dataset.drug_ids[val_es_mask]
-    val_es_dataset.response = val_es_dataset.response[val_es_mask]
-    val_es_dataset.predictions = all_predictions[val_es_mask]
+    val_es_dataset._cell_line_ids = val_es_dataset.cell_line_ids[val_es_mask]
+    val_es_dataset._drug_ids = val_es_dataset.drug_ids[val_es_mask]
+    val_es_dataset._response = val_es_dataset.response[val_es_mask]
+    val_es_dataset._predictions = all_predictions[val_es_mask]
     metrics = evaluate(val_es_dataset, metric=["Pearson"])
     print(f"{test_mode}: Collapsed performance of {model_name}: PCC = {metrics['Pearson']}")
     assert metrics["Pearson"] >= -1.0
