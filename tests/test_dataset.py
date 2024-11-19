@@ -30,7 +30,7 @@ def test_response_dataset_load() -> None:
     dataset.save("dataset.csv")
     del dataset
     # Load the dataset
-    dataset = DrugResponseDataset.load("dataset.csv")
+    dataset = DrugResponseDataset.from_csv("dataset.csv")
 
     os.remove("dataset.csv")
 
@@ -386,7 +386,7 @@ def test_feature_dataset_get_ids(sample_dataset: FeatureDataset) -> None:
 
     :param sample_dataset: sample FeatureDataset
     """
-    assert np.all(sample_dataset.get_ids() == ["drug1", "drug2", "drug3", "drug4", "drug5"])
+    assert np.all(sample_dataset.identifiers == ["drug1", "drug2", "drug3", "drug4", "drug5"])
 
 
 def test_feature_dataset_get_view_names(sample_dataset: FeatureDataset) -> None:
@@ -395,7 +395,7 @@ def test_feature_dataset_get_view_names(sample_dataset: FeatureDataset) -> None:
 
     :param sample_dataset: sample FeatureDataset
     """
-    assert sample_dataset.get_view_names() == [
+    assert sample_dataset.view_names == [
         "fingerprints",
         "chemical_features",
     ]
@@ -520,7 +520,7 @@ def test_feature_dataset_save_and_load(sample_dataset: FeatureDataset) -> None:
         sample_dataset.save(path=tmp.name)
 
     with pytest.raises(NotImplementedError):
-        FeatureDataset.load(path=tmp.name)
+        FeatureDataset.from_csv(tmp.name)
 
 
 def test_add_features(sample_dataset: FeatureDataset, graph_dataset: FeatureDataset) -> None:
@@ -533,7 +533,7 @@ def test_add_features(sample_dataset: FeatureDataset, graph_dataset: FeatureData
     sample_dataset.add_features(graph_dataset)
     assert sample_dataset.meta_info is not None
     assert "molecular_graph" in sample_dataset.meta_info
-    assert "molecular_graph" in sample_dataset.get_view_names()
+    assert "molecular_graph" in sample_dataset.view_names
 
 
 # Run the tests

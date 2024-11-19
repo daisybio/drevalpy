@@ -525,16 +525,16 @@ def cross_study_prediction(
         raise ValueError(f"Invalid test mode: {test_mode}. Choose from LPO, LCO, LDO")
     if len(dataset) > 0:
         dataset.shuffle(random_state=42)
-        dataset.predictions = model.predict(
+        dataset._predictions = model.predict(
             cell_line_ids=dataset.cell_line_ids,
             drug_ids=dataset.drug_ids,
             cell_line_input=cl_features,
             drug_input=drug_features,
         )
         if response_transformation:
-            dataset.response = response_transformation.inverse_transform(dataset.response)
+            dataset._response = response_transformation.inverse_transform(dataset.response)
     else:
-        dataset.predictions = np.array([])
+        dataset._predictions = np.array([])
     dataset.save(
         os.path.join(
             path_out,
@@ -774,8 +774,8 @@ def randomize_train_predict(
         return
 
     # Check if view is in either feature set, if not, warn and skip
-    if (cl_features is not None and view not in cl_features.get_view_names()) and (
-        drug_features is not None and view not in drug_features.get_view_names()
+    if (cl_features is not None and view not in cl_features.view_names) and (
+        drug_features is not None and view not in drug_features.view_names
     ):
         warnings.warn(
             f"View {view} not found in features. Skipping randomization test {test_name} which includes this view.",
@@ -897,7 +897,7 @@ def train_and_predict(
         output_earlystopping=early_stopping_dataset,
     )
     if len(prediction_dataset) > 0:
-        prediction_dataset.predictions = model.predict(
+        prediction_dataset._predictions = model.predict(
             cell_line_ids=prediction_dataset.cell_line_ids,
             drug_ids=prediction_dataset.drug_ids,
             cell_line_input=cl_features,
@@ -907,7 +907,7 @@ def train_and_predict(
         if response_transformation:
             prediction_dataset.inverse_transform(response_transformation)
     else:
-        prediction_dataset.predictions = np.array([])
+        prediction_dataset._predictions = np.array([])
 
     return prediction_dataset
 
