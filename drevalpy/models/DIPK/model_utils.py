@@ -121,18 +121,16 @@ class Predictor(nn.Module):
         self.dense_layers = DenseLayers(fc_layer_num=fc_layer_num, fc_layer_dim=fc_layer_dim, dropout_rate=dropout_rate)
 
     def forward(
-        self, x: torch.Tensor, g: torch_geometric.data.data.Data, gene: torch.Tensor, bionic: torch.Tensor
+        self, molgnet_drug_features: torch.Tensor, gene_expression: torch.Tensor, bionic: torch.Tensor
     ) -> torch.Tensor:
         """
         Forward pass of the DIPK model.
 
-        :param x: tensor of MolGNet features from graph data
-        :param g: whole graph data
-        :param gene: gene expression features (GEF) of the graph data
+        :param molgnet_drug_features: tensor of MolGNet features from graph data
+        :param gene_expression: gene expression features (GEF) of the graph data
         :param bionic: biological network features (BNF) of the graph data
         :returns: output tensor of the DIPK model
         """
-        # x = self.graph_encoder(g)
-        x = self.attention_layer(x, g, gene, bionic)
-        f = self.dense_layers(x, gene, bionic)
+        molgnet_drug_features = self.attention_layer(molgnet_drug_features, gene_expression, bionic)
+        f = self.dense_layers(molgnet_drug_features, gene_expression, bionic)
         return f

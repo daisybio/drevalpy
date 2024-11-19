@@ -14,7 +14,7 @@ from abc import ABC
 import numpy as np
 import pandas as pd
 import torch
-from torch_geometric.data import Batch, Data, Dataset
+from torch.utils.data import Dataset
 
 from drevalpy.datasets.dataset import FeatureDataset
 
@@ -111,104 +111,102 @@ def get_data(
     cell_line_features: FeatureDataset,
     drug_features: FeatureDataset,
     ic50: np.ndarray | None = None,
-):
+) -> list:
     """
-    Create a list of PyG Data objects from the input cell line and drug features.
+    Prepare data samples for training or prediction.
 
-    :param cell_ids: ids of the cell lines of the DrugResponseDataset
-    :param drug_ids: ids of the drugs of the DrugResponseDataset
-    :param cell_line_features: input cell line features
-    :param drug_features: input drug features
-    :param ic50: response values from the DrugResponseDataset
-    :returns: list of PyG Data objects
+    Each sample includes:
+    - Drug features (e.g., molecular embeddings).
+    - Cell line features (gene expression and biological network features).
+    - Optional IC50 response values for supervised tasks.
+
+    :param cell_ids: IDs of the cell lines from the dataset.
+    :param drug_ids: IDs of the drugs from the dataset.
+    :param cell_line_features: Input features associated with the cell lines.
+    :param drug_features: Input features associated with the drugs.
+    :param ic50: (Optional) Response values (e.g., IC50) to associate with samples.
+    :return: List of dictionaries, each containing drug and cell line features, with optional IC50.
     """
-    graph_list = []
+    data_list = []
     for i in range(len(cell_ids)):
         drug_id = str(drug_ids[i])
         cell_id = str(cell_ids[i])
-        x = torch.tensor(
+        drug_tensor = torch.tensor(
             drug_features.features[drug_id]["drug_feature_embedding"]["MolGNet_features"], dtype=torch.float32
         )
-        edge_index = torch.tensor(
-            drug_features.features[drug_id]["drug_feature_embedding"]["Edge_Index"], dtype=torch.float32
+        gene_expression = torch.tensor(cell_line_features.features[cell_id]["gene_expression"], dtype=torch.float32)
+        bionic_features = torch.tensor(
+            cell_line_features.features[cell_id]["biological_network_features"], dtype=torch.float32
         )
-        edge_attr = torch.tensor(
-            drug_features.features[drug_id]["drug_feature_embedding"]["Edge_Attr"], dtype=torch.float32
-        )
-        graph_data = Data(
-            x=x,
-            edge_index=edge_index,
-            edge_attr=edge_attr,
-            GEF=torch.tensor(cell_line_features.features[cell_id]["gene_expression"], dtype=torch.float32),
-            BNF=torch.tensor(cell_line_features.features[cell_id]["biological_network_features"], dtype=torch.float32),
-        )
-        if ic50 is not None:
-            graph_data.ic50 = torch.tensor([ic50[i]], dtype=torch.float32)
-        graph_list.append(graph_data)
 
-    return graph_list
+        sample = {
+            "drug_features": drug_tensor,
+            "gene_expression": gene_expression,
+            "bionic_features": bionic_features,
+        }
+        if ic50 is not None:
+            sample["ic50"] = torch.tensor([ic50[i]], dtype=torch.float32)
+
+        data_list.append(sample)
+
+    return data_list
 
 
 class CollateFn:
     """Collate function for the DataLoader, either for training or testing."""
 
-    def __init__(self, train=True, follow_batch=None, exclude_keys=None):
+    def __init__(self, train=True):
         """
         Initialize the CollateFn.
 
         :param train: indicates whether the DataLoader is used for training
-        :param follow_batch: unused
-        :param exclude_keys: unused
         """
         self.train = train
-        self.follow_batch = follow_batch
-        self.exclude_keys = exclude_keys
 
     def __call__(self, batch):
         """
         Collate the batch.
 
-        :param batch: batch of PyG Data objects
-        :returns: PyG Batch, gene features, and bionic features
+        :param batch: batch of feature dictionaries
+        :returns: collated node features, gene features, bionic features, and (optional) IC50 values
         """
-        pyg_list = [Data(x=g.x, edge_index=g.edge_index, edge_attr=g.edge_attr) for g in batch]
+        drug_features = torch.stack([sample["drug_features"] for sample in batch])
+        gene_features = torch.stack([sample["gene_expression"] for sample in batch])
+        bionic_features = torch.stack([sample["bionic_features"] for sample in batch])
+
         if self.train:
-            for g, data in zip(batch, pyg_list):
-                data.ic50 = g.ic50
-
-        pyg_batch = Batch.from_data_list(pyg_list, self.follow_batch, self.exclude_keys)
-        gene_features = torch.stack([g.GEF for g in batch])
-        bionic_features = torch.stack([g.BNF for g in batch])
-
-        return pyg_batch, gene_features, bionic_features
+            ic50_values = torch.stack([sample["ic50"] for sample in batch])
+            return drug_features, gene_features, bionic_features, ic50_values
+        else:
+            return drug_features, gene_features, bionic_features
 
 
-class GraphDataset(Dataset, ABC):
+class DIPKDataset(Dataset, ABC):
     """Dataset of graphs from get_data."""
 
-    def __init__(self, graphs):
+    def __init__(self, samples):
         """
         Initialize the GraphDataset.
 
-        :param graphs: list of PyG Data objects
+        :param samples: list
         """
         super().__init__()
-        self._graphs = graphs
+        self._samples = samples
 
     def __getitem__(self, idx):
         """
-        Get the graph at index idx.
+        Get the sample at index idx.
 
         :param idx: index
-        :returns: PyG Data object
+        :returns: sample
         """
-        graph = self._graphs[idx]
-        return graph
+        sample = self._samples[idx]
+        return sample
 
     def __len__(self) -> int:
         """
         Get the number of graphs in the dataset.
 
-        :return: number of graphs
+        :return: number of samples
         """
-        return len(self._graphs)
+        return len(self._samples)

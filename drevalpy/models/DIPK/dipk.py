@@ -19,7 +19,7 @@ from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.models.utils import load_and_reduce_gene_features
 
-from .data_utils import CollateFn, GraphDataset, get_data, load_bionic_features, load_drug_feature_from_mol_g_net
+from .data_utils import CollateFn, DIPKDataset, get_data, load_bionic_features, load_drug_feature_from_mol_g_net
 from .gene_expression_encoder import GeneExpressionEncoder, encode_gene_expression, train_gene_expession_autoencoder
 from .model_utils import Predictor
 
@@ -111,7 +111,7 @@ class DIPKModel(DRPModel):
 
         # load data
         collate = CollateFn(train=True)
-        graphs_train = get_data(
+        train_samples = get_data(
             cell_ids=output.cell_line_ids,
             drug_ids=output.drug_ids,
             cell_line_features=cell_line_input,
@@ -120,20 +120,22 @@ class DIPKModel(DRPModel):
         )
 
         train_loader: DataLoader = DataLoader(
-            GraphDataset(graphs_train), batch_size=self.batch_size, shuffle=True, collate_fn=collate
+            DIPKDataset(train_samples), batch_size=self.batch_size, shuffle=True, collate_fn=collate
         )
 
         # train model
         for _ in range(self.EPOCHS):
             self.model.train()
-            for pyg_batch, gene_features, bionic_features in train_loader:
-                pyg_batch, gene_features, bionic_features = (
-                    pyg_batch.to(self.DEVICE),
+            for drug_features, gene_features, bionic_features in train_loader:
+                drug_features, gene_features, bionic_features = (
+                    drug_features.to(self.DEVICE),
                     gene_features.to(self.DEVICE),
                     bionic_features.to(self.DEVICE),
                 )
-                prediction = self.model(pyg_batch.x, pyg_batch, gene_features, bionic_features)
-                loss = loss_func(torch.squeeze(prediction), pyg_batch.ic50)
+                prediction = self.model(
+                    molgnet_drug_features=drug_features, gene_expression=gene_features, bionic=bionic_features
+                )
+                loss = loss_func(torch.squeeze(prediction), drug_features.ic50)
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
@@ -162,11 +164,11 @@ class DIPKModel(DRPModel):
 
         # load data
         collate = CollateFn(train=False)
-        gtest = get_data(
+        test_data = get_data(
             cell_ids=cell_line_ids, drug_ids=drug_ids, cell_line_features=cell_line_input, drug_features=drug_input
         )
         test_loader: DataLoader = DataLoader(
-            GraphDataset(gtest), batch_size=self.batch_size, shuffle=False, collate_fn=collate
+            DIPKDataset(test_data), batch_size=self.batch_size, shuffle=False, collate_fn=collate
         )
 
         # run prediction
