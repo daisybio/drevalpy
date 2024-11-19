@@ -163,6 +163,8 @@ def train_gene_expession_autoencoder(gene_expression_input: np.ndarray) -> GeneE
     optimizer = optim.Adam(params, lr=lr)
     # load data
     my_collate = CollateFn()
+    gene_expression_input = torch.tensor(gene_expression_input, dtype=torch.float32)
+    gene_expression_input = gene_expression_input.to(device)
     train_loader = DataLoader(
         DataSet(gene_expression_input), batch_size=batch_size, shuffle=True, collate_fn=my_collate
     )
