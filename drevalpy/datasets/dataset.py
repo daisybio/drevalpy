@@ -16,7 +16,8 @@ The FeatureDataset class can be used to randomize feature vectors.
 import copy
 import os
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Optional
+from pathlib import Path
+from typing import Any, Callable
 
 import networkx as nx
 import numpy as np
@@ -27,17 +28,21 @@ from sklearn.model_selection import GroupKFold, train_test_split
 from ..pipeline_function import pipeline_function
 from .utils import permute_features, randomize_graph
 
+np.set_printoptions(threshold=6)
+
 
 class Dataset(ABC):
     """Abstract wrapper class for datasets."""
 
-    @staticmethod
+    @classmethod
     @abstractmethod
-    def load(path: str):
+    def from_csv(cls: type["Dataset"], input_file: str | Path, dataset_name: str = "unknown") -> "Dataset":
         """
         Loads the dataset from data.
 
-        :param path: path to the dataset
+        :param input_file: Path to the csv file containing the data to be loaded
+        :param dataset_name: Optional name to associate the dataset with, default = "unknown"
+        :returns: Dataset object containing data from provided csv file.
         """
 
     @abstractmethod
@@ -52,14 +57,107 @@ class Dataset(ABC):
 class DrugResponseDataset(Dataset):
     """Drug response dataset."""
 
+    _response: np.ndarray
+    _cell_line_ids: np.ndarray
+    _drug_ids: np.ndarray
+    _predictions: np.ndarray | None = None
+    _cv_splits: list[dict[str, "DrugResponseDataset"]] = []
+    _name: str
+
+    @classmethod
+    def from_csv(
+        cls: type["DrugResponseDataset"], input_file: str | Path, dataset_name: str = "unknown"
+    ) -> "DrugResponseDataset":
+        """
+        Load a dataset from a csv file.
+
+        This function creates a DrugResponseDataset from a provided input file in csv format.
+        The following columns are required:
+        - response:         the drug response values as floating point values
+        - cell_line_ids:    a string identifier for cell lines
+        - drug_ids:         a string identifier for drugs
+        - predictions:      an optional column containing a predicted value TODO what exactly?
+
+        :param input_file: Path to the csv file containing the data to be loaded
+        :param dataset_name: Optional name to associate the dataset with, default = "unknown"
+
+        :returns: DrugResponseDataset object containing data from provided csv file.
+        """
+        data = pd.read_csv(input_file)
+        if "predictions" in data.columns:
+            predictions = data["predictions"].values
+        else:
+            predictions = None
+        return cls(
+            response=data["response"].values,
+            cell_line_ids=data["cell_line_id"].values,
+            drug_ids=data["drug_id"].values,
+            predictions=predictions,
+            dataset_name=dataset_name,
+        )
+
+    @property
+    def response(self) -> np.ndarray:
+        """
+        Returns the response values.
+
+        :returns: numpy array containing response values.
+        """
+        return self._response
+
+    @property
+    def cell_line_ids(self) -> np.ndarray:
+        """
+        Returns the cell_line_ids.
+
+        :returns: numpy array containing cell_line_ids values.
+        """
+        return self._cell_line_ids
+
+    @property
+    def drug_ids(self) -> np.ndarray:
+        """
+        Returns the drug_ids.
+
+        :returns: numpy array containing drug_ids values.
+        """
+        return self._drug_ids
+
+    @property
+    def predictions(self) -> np.ndarray | None:
+        """
+        Returns the predictions if they exist.
+
+        :returns: numpy array containing prediction values or None.
+        """
+        return self._predictions
+
+    @property
+    def cv_splits(self) -> list[dict[str, "DrugResponseDataset"]]:
+        """
+        Returns the cv_splits.
+
+        :returns: DrugResponseDatasets containing the CV_splits.
+        """
+        return self._cv_splits
+
+    @property
+    def dataset_name(self) -> str:
+        """
+        Returns the name of this DrugResponseDataset.
+
+        :returns: dataset name.
+        """
+        return self._name
+
     @pipeline_function
     def __init__(
         self,
         response: np.ndarray,
         cell_line_ids: np.ndarray,
         drug_ids: np.ndarray,
-        predictions: Optional[np.ndarray] = None,
-        dataset_name: Optional[str] = None,
+        predictions: np.ndarray | None = None,
+        dataset_name: str = "unnamed",
     ) -> None:
         """
         Initializes the drug response dataset.
@@ -68,36 +166,28 @@ class DrugResponseDataset(Dataset):
         :param cell_line_ids: cell line IDs
         :param drug_ids: drug IDs
         :param predictions: optional. Predicted drug response values per cell line and drug
-        :param dataset_name: optional. Name of the dataset
-        :raises AssertionError: if response and cell_line_ids have different lengths
-        :raises AssertionError: if response and drug_ids have different lengths
-        :raises AssertionError: if predictions and response have different lengths
+        :param dataset_name: optional. Name of the dataset, default: "unnamed"
+        :raises AssertionError: If response, cell_line_ids, drug_ids, (and the optional predictions) do not all have
+            the same length.
         """
         super().__init__()
-
-        self.response = response
-        self.cell_line_ids = cell_line_ids
-        self.drug_ids = drug_ids
-        if len(self.response) != len(self.cell_line_ids):
-            raise AssertionError("response and cell_line_ids have different lengths")
-        if len(self.response) != len(self.drug_ids):
-            raise AssertionError("response and drug_ids/cell_line_ids have different lengths")
-        # Used in the pipeline!
-        self.dataset_name = dataset_name if dataset_name is not None else ""
-
-        self.predictions: Optional[np.ndarray] = None
-        if predictions is not None:
-            self.predictions = np.array(predictions)
-            if len(self.predictions) != len(self.response):
-                raise AssertionError("predictions and response have different lengths")
-
-        self.cv_splits: Optional[list] = None
+        if len(response) != len(cell_line_ids):
+            raise AssertionError("Response and cell_line_ids have different lengths.")
+        if len(response) != len(drug_ids):
+            raise AssertionError("Response and drug_ids have different lengths.")
+        if predictions is not None and len(response) != len(predictions):
+            raise AssertionError("Response and predictions have different lengths.")
+        self._response = response
+        self._cell_line_ids = cell_line_ids
+        self._drug_ids = drug_ids
+        self._predictions = predictions
+        self._name = dataset_name
 
     def __len__(self) -> int:
         """
         Overwrites the default length method.
 
-        :returns: number of samples in the dataset
+        :returns: Number of samples in the dataset
         """
         return len(self.response)
 
@@ -105,25 +195,16 @@ class DrugResponseDataset(Dataset):
         """
         Overwrite the default str method.
 
-        :returns: string representation of the dataset
+        :return: Text summary of the dataset
         """
-        if len(self.response) > 3:
-            string = (
-                f"DrugResponseDataset: CLs {self.cell_line_ids[:3]}...; "
-                f"Drugs {self.drug_ids[:3]}...; "
-                f"Response {self.response[:3]}..."
-            )
-        else:
-            string = (
-                f"DrugResponseDataset: CLs {self.cell_line_ids}; "
-                f"Drugs {self.drug_ids}; "
-                f"Response {self.response}"
-            )
+        string = (
+            f"{self.dataset_name} DrugResponseDataset with {len(self)} entries:\n"
+            f"CLs {self.cell_line_ids}\n"
+            f"Drugs {self.drug_ids}\n"
+            f"Response {self.response}\n"
+        )
         if self.predictions is not None:
-            if len(self.predictions) > 3:
-                string += f"; Predictions {self.predictions[:3]}..."
-            else:
-                string += f"; Predictions {self.predictions}"
+            string += f"Predictions {self.predictions}\n"
         return string
 
     def to_dataframe(self) -> pd.DataFrame:
@@ -141,43 +222,13 @@ class DrugResponseDataset(Dataset):
             data["predictions"] = self.predictions
         return pd.DataFrame(data)
 
-    @staticmethod
-    def load(path: str, dataset_name: Optional[str] = None) -> "DrugResponseDataset":
+    def save(self, path: str | Path):
         """
-        Loads the drug response dataset from data.
+        Stores the drug response dataset on disk.
 
-        :param path: path to the dataset
-        :param dataset_name: name of the dataset
-        :returns: the drug response dataset
+        :param path: path to desired storage location
         """
-        data = pd.read_csv(path)
-        response = data["response"].values
-        cell_line_ids = data["cell_line_ids"].values
-        drug_ids = data["drug_ids"].values
-
-        dataset_output = DrugResponseDataset(
-            response=response, cell_line_ids=cell_line_ids, drug_ids=drug_ids, dataset_name=dataset_name
-        )
-        if "predictions" in data.columns:
-            dataset_output.predictions = data["predictions"].values
-        return dataset_output
-
-    def save(self, path: str) -> None:
-        """
-        Saves the drug response dataset to data.
-
-        :param path: path to the dataset
-        """
-        out = pd.DataFrame(
-            {
-                "cell_line_ids": self.cell_line_ids,
-                "drug_ids": self.drug_ids,
-                "response": self.response,
-            }
-        )
-        if self.predictions is not None:
-            out["predictions"] = self.predictions
-        out.to_csv(path, index=False)
+        self.to_dataframe().to_csv(path, index=False)
 
     @pipeline_function
     def add_rows(self, other: "DrugResponseDataset") -> None:
@@ -186,22 +237,22 @@ class DrugResponseDataset(Dataset):
 
         :param other: other dataset
         """
-        self.response = np.concatenate([self.response, other.response])
-        self.cell_line_ids = np.concatenate([self.cell_line_ids, other.cell_line_ids])
-        self.drug_ids = np.concatenate([self.drug_ids, other.drug_ids])
+        self._response = np.concatenate([self._response, other.response])
+        self._cell_line_ids = np.concatenate([self._cell_line_ids, other.cell_line_ids])
+        self._drug_ids = np.concatenate([self._drug_ids, other.drug_ids])
 
         if self.predictions is not None and other.predictions is not None:
-            self.predictions = np.concatenate([self.predictions, other.predictions])
+            self._predictions = np.concatenate([self._predictions, other.predictions])
 
     @pipeline_function
     def remove_nan_responses(self) -> None:
         """Removes rows with NaN values in the response."""
         mask = np.isnan(self.response)
-        self.response = self.response[~mask]
-        self.cell_line_ids = self.cell_line_ids[~mask]
-        self.drug_ids = self.drug_ids[~mask]
+        self._response = self.response[~mask]
+        self._cell_line_ids = self.cell_line_ids[~mask]
+        self._drug_ids = self.drug_ids[~mask]
         if self.predictions is not None:
-            self.predictions = self.predictions[~mask]
+            self._predictions = self.predictions[~mask]
 
     @pipeline_function
     def shuffle(self, random_state: int = 42) -> None:
@@ -210,14 +261,14 @@ class DrugResponseDataset(Dataset):
 
         :param random_state: random state
         """
-        indices = np.arange(len(self.response))
+        indices = np.arange(len(self))
         np.random.seed(random_state)
         np.random.shuffle(indices)
-        self.response = self.response[indices]
-        self.cell_line_ids = self.cell_line_ids[indices]
-        self.drug_ids = self.drug_ids[indices]
+        self._response = self.response[indices]
+        self._cell_line_ids = self.cell_line_ids[indices]
+        self._drug_ids = self.drug_ids[indices]
         if self.predictions is not None:
-            self.predictions = self.predictions[indices]
+            self._predictions = self.predictions[indices]
 
     def _remove_drugs(self, drugs_to_remove: str | list[str | int]) -> None:
         """
@@ -229,9 +280,9 @@ class DrugResponseDataset(Dataset):
             drugs_to_remove = [drugs_to_remove]
 
         mask = [drug not in drugs_to_remove for drug in self.drug_ids]
-        self.drug_ids = self.drug_ids[mask]
-        self.cell_line_ids = self.cell_line_ids[mask]
-        self.response = self.response[mask]
+        self._drug_ids = self.drug_ids[mask]
+        self._cell_line_ids = self.cell_line_ids[mask]
+        self._response = self.response[mask]
 
     def _remove_cell_lines(self, cell_lines_to_remove: str | list[str | int]) -> None:
         """
@@ -243,9 +294,9 @@ class DrugResponseDataset(Dataset):
             cell_lines_to_remove = [cell_lines_to_remove]
 
         mask = [cell_line not in cell_lines_to_remove for cell_line in self.cell_line_ids]
-        self.drug_ids = self.drug_ids[mask]
-        self.cell_line_ids = self.cell_line_ids[mask]
-        self.response = self.response[mask]
+        self._drug_ids = self.drug_ids[mask]
+        self._cell_line_ids = self.cell_line_ids[mask]
+        self._response = self.response[mask]
 
     def remove_rows(self, indices: np.ndarray) -> None:
         """
@@ -254,13 +305,13 @@ class DrugResponseDataset(Dataset):
         :param indices: indices of rows to remove
         """
         indices = np.array(indices, dtype=int)
-        self.drug_ids = np.delete(self.drug_ids, indices)
-        self.cell_line_ids = np.delete(self.cell_line_ids, indices)
-        self.response = np.delete(self.response, indices)
+        self._drug_ids = np.delete(self.drug_ids, indices)
+        self._cell_line_ids = np.delete(self.cell_line_ids, indices)
+        self._response = np.delete(self.response, indices)
         if self.predictions is not None:
-            self.predictions = np.delete(self.predictions, indices)
+            self._predictions = np.delete(self.predictions, indices)
 
-    def reduce_to(self, cell_line_ids: Optional[np.ndarray], drug_ids: Optional[np.ndarray]) -> None:
+    def reduce_to(self, cell_line_ids: np.ndarray | None = None, drug_ids: np.ndarray | None = None) -> None:
         """
         Removes all rows which contain a cell_line not in cell_line_ids or a drug not in drug_ids.
 
@@ -333,17 +384,17 @@ class DrugResponseDataset(Dataset):
                 validation_es, early_stopping = _split_early_stopping_data(split["validation"], test_mode=mode)
                 split["validation_es"] = validation_es
                 split["early_stopping"] = early_stopping
-        self.cv_splits = cv_splits
+        self._cv_splits = cv_splits
         return cv_splits
 
-    def save_splits(self, path: str) -> None:
+    def save_splits(self, path: str):
         """
         Save cross validation splits to path/cv_split_0_train.csv and path/cv_split_0_test.csv.
 
         :param path: path to the directory where the cv split files are saved
         :raises AssertionError: if DrugResponseDataset was not split
         """
-        if self.cv_splits is None:
+        if not self.cv_splits:
             raise AssertionError("Trying to save splits, but DrugResponseDataset was not split.")
         os.makedirs(path, exist_ok=True)
         for i, split in enumerate(self.cv_splits):
@@ -392,19 +443,18 @@ class DrugResponseDataset(Dataset):
             "validation_es": validation_es_splits,
             "early_stopping": early_stopping_splits,
         }
-        self.cv_splits = []
+        self._cv_splits.clear()  # TODO do we need this?
 
         for split_train, split_test in zip(train_splits, test_splits, strict=True):
-            tr_split = DrugResponseDataset.load(os.path.join(path, split_train), dataset_name=self.dataset_name)
-
-            te_split = DrugResponseDataset.load(os.path.join(path, split_test), dataset_name=self.dataset_name)
-            self.cv_splits.append({"train": tr_split, "test": te_split})
+            tr_split = DrugResponseDataset.from_csv(os.path.join(path, split_train), dataset_name=self.dataset_name)
+            te_split = DrugResponseDataset.from_csv(os.path.join(path, split_test), dataset_name=self.dataset_name)
+            self._cv_splits.append({"train": tr_split, "test": te_split})
 
         for mode in ["validation", "validation_es", "early_stopping"]:
             if len(optional_splits[mode]) > 0:
                 for i, v_split in enumerate(optional_splits[mode]):
-                    split = DrugResponseDataset.load(os.path.join(path, v_split), dataset_name=self.dataset_name)
-                    self.cv_splits[i][mode] = split
+                    split = DrugResponseDataset.from_csv(os.path.join(path, v_split), dataset_name=self.dataset_name)
+                    self._cv_splits[i][mode] = split
 
     def copy(self):
         """Returns a copy of the drug response dataset.
@@ -440,11 +490,11 @@ class DrugResponseDataset(Dataset):
 
         :param mask: boolean mask
         """
-        self.response = self.response[mask]
-        self.cell_line_ids = self.cell_line_ids[mask]
-        self.drug_ids = self.drug_ids[mask]
+        self._response = self.response[mask]
+        self._cell_line_ids = self.cell_line_ids[mask]
+        self._drug_ids = self.drug_ids[mask]
         if self.predictions is not None:
-            self.predictions = self.predictions[mask]
+            self._predictions = self.predictions[mask]
 
     def transform(self, response_transformation: TransformerMixin) -> None:
         """
@@ -452,9 +502,9 @@ class DrugResponseDataset(Dataset):
 
         :param response_transformation: e.g., StandardScaler, MinMaxScaler, RobustScaler
         """
-        self.response = response_transformation.transform(self.response.reshape(-1, 1)).squeeze()
+        self._response = response_transformation.transform(self.response.reshape(-1, 1)).squeeze()
         if self.predictions is not None:
-            self.predictions = response_transformation.transform(self.predictions.reshape(-1, 1)).squeeze()
+            self._predictions = response_transformation.transform(self.predictions.reshape(-1, 1)).squeeze()
 
     def fit_transform(self, response_transformation: TransformerMixin) -> None:
         """
@@ -471,9 +521,9 @@ class DrugResponseDataset(Dataset):
 
         :param response_transformation: e.g., StandardScaler, MinMaxScaler, RobustScaler
         """
-        self.response = response_transformation.inverse_transform(self.response.reshape(-1, 1)).squeeze()
+        self._response = response_transformation.inverse_transform(self.response.reshape(-1, 1)).squeeze()
         if self.predictions is not None:
-            self.predictions = response_transformation.inverse_transform(self.predictions.reshape(-1, 1)).squeeze()
+            self._predictions = response_transformation.inverse_transform(self.predictions.reshape(-1, 1)).squeeze()
 
 
 def _split_early_stopping_data(
@@ -505,11 +555,11 @@ def _leave_pair_out_cv(
     response: np.ndarray,
     cell_line_ids: np.ndarray,
     drug_ids: np.ndarray,
-    split_validation=True,
-    validation_ratio=0.1,
-    random_state=42,
-    dataset_name: Optional[str] = None,
-) -> list[dict]:
+    split_validation: bool = True,
+    validation_ratio: float = 0.1,
+    random_state: int = 42,
+    dataset_name: str = "unknown",
+) -> list[dict[str, DrugResponseDataset]]:
     """
     Leave pair out cross validation. Splits data into n_cv_splits number of cross validation splits.
 
@@ -582,10 +632,10 @@ def _leave_group_out_cv(
     response: np.ndarray,
     cell_line_ids: np.ndarray,
     drug_ids: np.ndarray,
-    split_validation=True,
-    validation_ratio=0.1,
-    random_state=42,
-    dataset_name: Optional[str] = None,
+    split_validation: bool = True,
+    validation_ratio: float = 0.1,
+    random_state: int = 42,
+    dataset_name: str = "unknown",
 ):
     """
     Leave group out cross validation: Splits data into n_cv_splits number of cross validation splits.
@@ -669,10 +719,63 @@ def _leave_group_out_cv(
 class FeatureDataset(Dataset):
     """Class for feature datasets."""
 
+    _meta_info: dict[str, Any] = {}
+    _features: dict[str, dict[str, Any]] = {}
+
+    @classmethod
+    def from_csv(
+        cls: type["FeatureDataset"], input_file: str | Path, dataset_name: str = "unknown"
+    ) -> "FeatureDataset":
+        """
+        Load a feature dataset from a csv file.
+
+        This function creates a FeatureDataset from a provided input file in csv format.
+        :param input_file: Path to the csv file containing the data to be loaded
+        :param dataset_name: Optional name to associate the dataset with, default = "unknown"
+        :raises NotImplementedError: This method is currently not implemented.
+        """
+        raise NotImplementedError
+
+    @property
+    def meta_info(self) -> dict[str, Any]:
+        """
+        Returns the meta information.
+
+        :returns: Meta information of this FeatureDataset
+        """
+        return self._meta_info
+
+    @property
+    def features(self) -> dict[str, dict[str, Any]]:
+        """
+        Returns the features.
+
+        :returns: features of this FeatureDataset
+        """
+        return self._features
+
+    @property
+    def identifiers(self) -> np.ndarray:
+        """
+        Returns the identifiers of the features.
+
+        :returns: feature identifiers of this FeatureDataset
+        """
+        return np.array(list(self.features.keys()))
+
+    @property
+    def view_names(self) -> list[str]:
+        """
+        Returns the view_names.
+
+        :returns: view_names of this FeatureDataset
+        """
+        return list(self.features[list(self.features.keys())[0]].keys())  # TODO whut?!
+
     def __init__(
         self,
         features: dict[str, dict[str, Any]],
-        meta_info: Optional[dict[str, Any]] = None,
+        meta_info: dict[str, Any] | None = None,
     ):
         """
         Initializes the feature dataset.
@@ -684,14 +787,12 @@ class FeatureDataset(Dataset):
         :raises AssertionError: if meta_info keys are not in view names
         """
         super().__init__()
-        self.features = features
-        self.view_names = self.get_view_names()
-        self.meta_info = meta_info
+        self._features = features
         if meta_info is not None:
             # assert that str of meta Dict[str, Any] is in view_names
             if not all(meta_key in self.view_names for meta_key in meta_info.keys()):
                 raise AssertionError(f"Meta keys {meta_info.keys()} not in view names {self.view_names}")
-        self.identifiers = self.get_ids()
+            self._meta_info = meta_info
 
     def save(self, path: str):
         """
@@ -701,16 +802,6 @@ class FeatureDataset(Dataset):
         :raises NotImplementedError: if method is not implemented
         """
         raise NotImplementedError("save method not implemented")
-
-    @staticmethod
-    def load(path: str):
-        """
-        Loads the feature dataset from data.
-
-        :param path: path to the dataset
-        :raises NotImplementedError: if method is not implemented
-        """
-        raise NotImplementedError("load method not implemented")
 
     def randomize_features(self, views_to_randomize: str | list[str], randomization_type: str) -> None:
         """
@@ -740,7 +831,7 @@ class FeatureDataset(Dataset):
             # E.g. each cell line gets the feature vector/graph/image...
             # of another cell line.
             # Drawn without replacement.
-            self.features = permute_features(
+            self._features = permute_features(
                 features=self.features,
                 views_to_permute=views_to_randomize,
                 identifiers=self.identifiers,
@@ -770,20 +861,6 @@ class FeatureDataset(Dataset):
                             f"type {type(self.features[identifier][view])!r}."
                         )
                     self.features[identifier][view] = new_features
-
-    def get_ids(self) -> np.ndarray:
-        """Returns feature ids of the dataset.
-
-        :returns: feature ids
-        """
-        return np.array(list(self.features.keys()))
-
-    def get_view_names(self) -> list[str]:
-        """Returns feature view names.
-
-        :returns: feature view names
-        """
-        return list(self.features[list(self.features.keys())[0]].keys())
 
     def get_feature_matrix(self, view: str, identifiers: np.ndarray) -> np.ndarray:
         """
@@ -837,7 +914,7 @@ class FeatureDataset(Dataset):
             raise AssertionError(
                 "Trying to add features but feature views overlap. FeatureDatasets should be distinct."
             )
-        if other.meta_info is not None:
+        if other.meta_info:
             self.add_meta_info(other)
 
         common_identifiers = set(self.identifiers).intersection(other.identifiers)
@@ -848,9 +925,7 @@ class FeatureDataset(Dataset):
             for view in other.view_names:
                 new_features[id_][view] = other.features[id_][view]
 
-        self.features = new_features
-        self.view_names = self.get_view_names()
-        self.identifiers = self.get_ids()
+        self._features = new_features
 
     def add_meta_info(self, other: "FeatureDataset") -> None:
         """
@@ -906,16 +981,9 @@ class FeatureDataset(Dataset):
         if len(np.unique(train_ids)) != len(train_ids):
             raise AssertionError("Train IDs should be unique.")
 
-        train_features = []
-
         # Collect all features of the view for fitting the scaler
-        for identifier in train_ids:
-            feature_vector = self.features[identifier][view]
-            train_features.append(feature_vector)
-
-        # Fit the scaler on the collected feature data
-        stacked_train_features = np.vstack(train_features)
-        transformer.fit(stacked_train_features)
+        train_features = np.vstack([self.features[identifier][view] for identifier in train_ids])
+        transformer.fit(train_features)
 
         # Apply transformation and scaling to each feature vector
         for identifier in self.features:

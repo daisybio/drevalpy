@@ -57,7 +57,7 @@ def test_simple_neural_network(
         output_earlystopping=es_dataset,
     )
 
-    val_es_dataset.predictions = model.predict(
+    val_es_dataset._predictions = model.predict(
         drug_ids=val_es_dataset.drug_ids,
         cell_line_ids=val_es_dataset.cell_line_ids,
         drug_input=drug_input,
