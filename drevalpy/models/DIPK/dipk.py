@@ -202,7 +202,9 @@ class DIPKModel(DRPModel):
             data_path=data_path,
             dataset_name=dataset_name,
         )
-        return bionic_features.add_features(gene_expression)
+        bionic_features.add_features(gene_expression)
+
+        return bionic_features
 
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         """

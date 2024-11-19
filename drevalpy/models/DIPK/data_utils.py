@@ -89,7 +89,7 @@ def load_drug_feature_from_mol_g_net(
         return np.array(pd.read_csv(file_path, index_col=0, sep=sep))
 
     drug_path = os.path.join(data_path, dataset_name, "DIPK_features", "Drugs")
-    drug_list = os.listdir(drug_path)
+    drug_list = [drug for drug in os.listdir(drug_path) if drug != ".DS_Store"]  # .DS_Store is a macOS file, ignore it
 
     return FeatureDataset(
         features={
