@@ -67,9 +67,6 @@ def load_bionic_features(data_path: str, dataset_name: str, gene_add_num: int = 
 
 def load_drug_feature_from_mol_g_net(
     feature_type: str,
-    feature_subtype1: str,
-    feature_subtype2: str,
-    feature_subtype3: str,
     data_path: str,
     dataset_name: str,
 ) -> FeatureDataset:
@@ -77,9 +74,6 @@ def load_drug_feature_from_mol_g_net(
     Load drug features from the MolGNet dataset.
 
     :param feature_type: drug_feature_embedding
-    :param feature_subtype1: MolGNet_features
-    :param feature_subtype2: Edge_Index
-    :param feature_subtype3: Edge_Attr
     :param data_path: path to the data, e.g. "data/"
     :param dataset_name: name of the dataset, e.g., GDSC2
     :returns: FeatureDataset with drug features
@@ -94,11 +88,7 @@ def load_drug_feature_from_mol_g_net(
     return FeatureDataset(
         features={
             drug: {
-                feature_type: {
-                    feature_subtype1: load_feature(os.path.join(drug_path, drug, f"MolGNet_{drug}.csv")),
-                    feature_subtype2: load_feature(os.path.join(drug_path, drug, f"Edge_Index_{drug}.csv")),
-                    feature_subtype3: load_feature(os.path.join(drug_path, drug, f"Edge_Attr_{drug}.csv")),
-                }
+                feature_type: load_feature(os.path.join(drug_path, drug, f"MolGNet_{drug}.csv")),
             }
             for drug in drug_list
         }
@@ -117,7 +107,7 @@ def get_data(
 
     Each sample includes:
     - Drug features (e.g., molecular embeddings).
-    - Cell line features (gene expression and biological network features).
+    - Cell line features (gene expression and bionic_features).
     - Optional IC50 response values for supervised tasks.
 
     :param cell_ids: IDs of the cell lines from the dataset.
@@ -131,16 +121,12 @@ def get_data(
     for i in range(len(cell_ids)):
         drug_id = str(drug_ids[i])
         cell_id = str(cell_ids[i])
-        drug_tensor = torch.tensor(
-            drug_features.features[drug_id]["drug_feature_embedding"]["MolGNet_features"], dtype=torch.float32
-        )
+        drug_tensor = torch.tensor(drug_features.features[drug_id]["molgnet_features"], dtype=torch.float32)
         gene_expression = torch.tensor(cell_line_features.features[cell_id]["gene_expression"], dtype=torch.float32)
-        bionic_features = torch.tensor(
-            cell_line_features.features[cell_id]["biological_network_features"], dtype=torch.float32
-        )
+        bionic_features = torch.tensor(cell_line_features.features[cell_id]["bionic_features"], dtype=torch.float32)
 
         sample = {
-            "drug_features": drug_tensor,
+            "molgnet_features": drug_tensor,
             "gene_expression": gene_expression,
             "bionic_features": bionic_features,
         }
@@ -170,15 +156,55 @@ class CollateFn:
         :param batch: batch of feature dictionaries
         :returns: collated node features, gene features, bionic features, and (optional) IC50 values
         """
-        drug_features = torch.stack([sample["drug_features"] for sample in batch])
+        # Find the max number of atoms (nodes) in the batch for molgnet_features padding
+        max_atoms_molgnet = max([sample["molgnet_features"].size(0) for sample in batch])
+
+        # Pad molgnet_features to match the maximum number of atoms
+        padded_molgnet_features = []
+        molgnet_mask = []
+
+        for sample in batch:
+            num_atoms = sample["molgnet_features"].size(0)
+            padding_size = max_atoms_molgnet - num_atoms
+
+            # Pad molgnet_features
+            padded_features = torch.cat(
+                [sample["molgnet_features"], torch.zeros(padding_size, sample["molgnet_features"].size(1))], dim=0
+            )
+            padded_molgnet_features.append(padded_features)
+
+            # Create a mask where valid atom features are True and padded ones are False
+            mask = torch.cat(
+                [torch.ones(num_atoms, dtype=torch.bool), torch.zeros(padding_size, dtype=torch.bool)], dim=0
+            )
+            molgnet_mask.append(mask)
+
+        # Stack the padded molgnet features into a single tensor
+        molgnet_features = torch.stack(padded_molgnet_features)
+        molgnet_mask = torch.stack(molgnet_mask)
+
+        # Collate other features
         gene_features = torch.stack([sample["gene_expression"] for sample in batch])
         bionic_features = torch.stack([sample["bionic_features"] for sample in batch])
 
         if self.train:
             ic50_values = torch.stack([sample["ic50"] for sample in batch])
-            return drug_features, gene_features, bionic_features, ic50_values
+            # Return a dictionary with all features
+            return {
+                "molgnet_features": molgnet_features,
+                "gene_features": gene_features,
+                "bionic_features": bionic_features,
+                "ic50_values": ic50_values,
+                "molgnet_mask": molgnet_mask,
+            }
         else:
-            return drug_features, gene_features, bionic_features
+            # Return a dictionary without ic50_values for inference
+            return {
+                "molgnet_features": molgnet_features,
+                "gene_features": gene_features,
+                "bionic_features": bionic_features,
+                "molgnet_mask": molgnet_mask,
+            }
 
 
 class DIPKDataset(Dataset, ABC):

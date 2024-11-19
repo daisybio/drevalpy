@@ -28,7 +28,7 @@ class DIPKModel(DRPModel):
     """DIPK model. Adapted from https://github.com/user15632/DIPK."""
 
     cell_line_views = ["gene_expression", "bionic_features"]
-    drug_views = ["drug_feature_embedding"]
+    drug_views = ["molgnet_features"]
 
     def __init__(self) -> None:
         """Initialize the DIPK model."""
@@ -68,7 +68,6 @@ class DIPKModel(DRPModel):
         - lr: float, learning rate for training
         """
         self.model = Predictor(
-            hyperparameters["embedding_dim"],
             hyperparameters["heads"],
             hyperparameters["fc_layer_num"],
             hyperparameters["fc_layer_dim"],
@@ -109,7 +108,7 @@ class DIPKModel(DRPModel):
 
         cell_line_input.apply(lambda x: encode_gene_expression(x, self.gene_expression_encoder), view="gene_expression")
 
-        # load data
+        # Load data
         collate = CollateFn(train=True)
         train_samples = get_data(
             cell_ids=output.cell_line_ids,
@@ -123,19 +122,32 @@ class DIPKModel(DRPModel):
             DIPKDataset(train_samples), batch_size=self.batch_size, shuffle=True, collate_fn=collate
         )
 
-        # train model
+        # Train model
         for _ in range(self.EPOCHS):
             self.model.train()
-            for drug_features, gene_features, bionic_features in train_loader:
-                drug_features, gene_features, bionic_features = (
-                    drug_features.to(self.DEVICE),
-                    gene_features.to(self.DEVICE),
-                    bionic_features.to(self.DEVICE),
-                )
+            for batch in train_loader:
+                # Access the features and mask from the batch dictionary
+                drug_features = batch["molgnet_features"].to(self.DEVICE)
+                gene_features = batch["gene_features"].to(self.DEVICE)
+                bionic_features = batch["bionic_features"].to(self.DEVICE)
+                molgnet_mask = batch["molgnet_mask"].to(self.DEVICE)  # Get the mask
+
+                # If training, get the ic50 values
+                if self.train:
+                    ic50_values = batch["ic50_values"].to(self.DEVICE)
+
+                # Forward pass with mask included (model needs to handle the mask)
                 prediction = self.model(
-                    molgnet_drug_features=drug_features, gene_expression=gene_features, bionic=bionic_features
+                    molgnet_drug_features=drug_features,
+                    gene_expression=gene_features,
+                    bionic=bionic_features,
+                    molgnet_mask=molgnet_mask,  # Pass the mask as input
                 )
-                loss = loss_func(torch.squeeze(prediction), drug_features.ic50)
+
+                # Compute the loss
+                loss = loss_func(torch.squeeze(prediction), ic50_values)
+
+                # Backpropagation
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
@@ -217,10 +229,7 @@ class DIPKModel(DRPModel):
         :returns: drug features
         """
         return load_drug_feature_from_mol_g_net(
-            feature_type=self.drug_views[0],
-            feature_subtype1="MolGNet_features",
-            feature_subtype2="Edge_Index",
-            feature_subtype3="Edge_Attr",
+            feature_type="molgnet_features",
             data_path=data_path,
             dataset_name=dataset_name,
         )

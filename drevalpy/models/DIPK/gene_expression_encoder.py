@@ -11,8 +11,9 @@ import torch.optim as optim
 from torch.nn import functional
 from torch.utils.data import DataLoader, Dataset
 
-ldim = 512
-hdim = [2048, 1024]
+ldim = 512  # 512
+hdim = [8, 4]  # [2048, 1024]
+print("Warning - using default latent dimension and hidden dimensions for gene expression autoencoder, increase dims")
 
 
 class GeneExpressionEncoder(nn.Module):
@@ -151,7 +152,8 @@ def train_gene_expession_autoencoder(gene_expression_input: np.ndarray) -> GeneE
     """
     lr = 1e-4
     batch_size = 1024
-    epochs = 1000
+    epochs = 1
+    print("Warning - training gene expression autoencoder for 1 epoch only")
     noising = True
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 

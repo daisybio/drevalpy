@@ -2,8 +2,6 @@
 
 import torch
 import torch.nn as nn
-import torch_geometric.data
-from torch_geometric.utils import to_dense_batch
 
 from .attention_utils import MultiHeadAttentionLayer
 
@@ -28,29 +26,37 @@ class AttentionLayer(nn.Module):
         self.attention_1 = MultiHeadAttentionLayer(hid_dim=768, n_heads=heads, dropout=0.3, device=DEVICE)
 
     def forward(
-        self, x: torch.Tensor, g: torch_geometric.data.data.Data, gene: torch.Tensor, bionic: torch.Tensor
+        self, molgnet_features: torch.Tensor, mask: torch.Tensor, gene_expression: torch.Tensor, bionic: torch.Tensor
     ) -> torch.Tensor:
         """
         Forward pass of the attention layer.
 
-        :param x: tensor of MolGNet features from graph data
-        :param g: whole graph data
-        :param gene: gene expression features (GEF) of the graph data
-        :param bionic: bionic network features (BNF) of the graph data
+        :param molgnet_features: MolGNet features
+        :param mask: mask for the MolGNet features, as molecules have varying sizes (valid atom features are True)
+        :param gene_expression: gene expression features of the graph data
+        :param bionic: bionic network features of the graph data
         :returns: tensor of MolGNet features after attention layer
         """
-        gene = torch.nn.functional.relu(self.fc_layer_0(gene))
-        bionic = torch.nn.functional.relu(self.fc_layer_1(bionic))
-        x = to_dense_batch(x, g.batch)
-        query_0 = torch.unsqueeze(gene, 1)
-        query_1 = torch.unsqueeze(bionic, 1)
-        key = x[0]
-        value = x[0]
-        mask = torch.unsqueeze(torch.unsqueeze(x[1], 1), 1)
-        x_att = self.attention_0(query_0, key, value, mask)
-        x = torch.squeeze(x_att[0])
-        x_att = self.attention_1(query_1, key, value, mask)
-        x += torch.squeeze(x_att[0])
+        gene_expression = nn.functional.relu(self.fc_layer_0(gene_expression))  # Shape: [batch_size, feature_dim_gene]
+        bionic = nn.functional.relu(self.fc_layer_1(bionic))  # Shape: [batch_size, feature_dim_bionic]
+
+        # Preparing query, key, value for attention layers
+        query_0 = torch.unsqueeze(gene_expression, 1)  # Shape: [batch_size, 1, 768] for gene
+        query_1 = torch.unsqueeze(bionic, 1)  # Shape: [batch_size, 1, 768] for bionic
+        key = molgnet_features  # Shape: [batch_size, seq_len, 768] (features from MolGNet)
+        value = molgnet_features  # Shape: [batch_size, seq_len, 768] (same as key)
+
+        # The mask should be reshaped to match the required dimensions for attention
+        mask = torch.unsqueeze(mask, 1)  # Shape: [batch_size, 1, seq_len] -> for applying on attention
+
+        # Apply the first attention layer
+        x_att = self.attention_0(query_0, key, value, mask)  # Output: [batch_size, seq_len, hid_dim]
+        x = torch.squeeze(x_att[0])  # Squeeze to remove the extra dimension (1)
+
+        # Apply the second attention layer
+        x_att = self.attention_1(query_1, key, value, mask)  # Output: [batch_size, seq_len, hid_dim]
+        x += torch.squeeze(x_att[0])  # Add the result of the second attention to the first
+
         return x
 
 
@@ -105,23 +111,25 @@ class DenseLayers(nn.Module):
 class Predictor(nn.Module):
     """Whole DIPK model."""
 
-    def __init__(self, embedding_dim: int, heads: int, fc_layer_num: int, fc_layer_dim: list[int], dropout_rate: float):
+    def __init__(self, heads: int, fc_layer_num: int, fc_layer_dim: list[int], dropout_rate: float):
         """
         Initialize the DIPK model with the specified hyperparameters.
 
-        :param embedding_dim: embedding dimension used for the graph encoder which is not used in the final model
         :param heads: number of heads for the multi-head attention layer
         :param fc_layer_num: number of fully connected layers for the dense layers
         :param fc_layer_dim: number of neurons for each fully connected layer
         :param dropout_rate: dropout rate for all fully connected layers
         """
         super().__init__()
-        # self.graph_encoder = GraphEncoder(embedding_dim, heads)
         self.attention_layer = AttentionLayer(heads=heads)
         self.dense_layers = DenseLayers(fc_layer_num=fc_layer_num, fc_layer_dim=fc_layer_dim, dropout_rate=dropout_rate)
 
     def forward(
-        self, molgnet_drug_features: torch.Tensor, gene_expression: torch.Tensor, bionic: torch.Tensor
+        self,
+        molgnet_drug_features: torch.Tensor,
+        gene_expression: torch.Tensor,
+        bionic: torch.Tensor,
+        molgnet_mask: torch.Tensor,
     ) -> torch.Tensor:
         """
         Forward pass of the DIPK model.
@@ -129,8 +137,9 @@ class Predictor(nn.Module):
         :param molgnet_drug_features: tensor of MolGNet features from graph data
         :param gene_expression: gene expression features (GEF) of the graph data
         :param bionic: biological network features (BNF) of the graph data
+        :param molgnet_mask: mask for the MolGNet features, as molecules have varying sizes
         :returns: output tensor of the DIPK model
         """
-        molgnet_drug_features = self.attention_layer(molgnet_drug_features, gene_expression, bionic)
+        molgnet_drug_features = self.attention_layer(molgnet_drug_features, molgnet_mask, gene_expression, bionic)
         f = self.dense_layers(molgnet_drug_features, gene_expression, bionic)
         return f

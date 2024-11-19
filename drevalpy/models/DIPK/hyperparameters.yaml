@@ -6,8 +6,6 @@ DIPK:
     - 64
   lr:
     - 0.00001
-  embedding_dim:
-    - None
   heads:
     - 2
   fc_layer_num:
@@ -17,6 +15,7 @@ DIPK:
       - 128
       - 64
       - 32
+      - 16
       - 1
   dropout_rate:
     - 0.3
