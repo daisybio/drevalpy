@@ -17,21 +17,17 @@ from torch.utils.data import DataLoader
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models.drp_model import DRPModel
+from drevalpy.models.utils import load_and_reduce_gene_features
 
-from .data_utils import (
-    CollateFn,
-    GraphDataset,
-    get_data,
-    load_drug_feature_from_mol_g_net,
-    load_expression_and_network_features,
-)
+from .data_utils import CollateFn, GraphDataset, get_data, load_bionic_features, load_drug_feature_from_mol_g_net
+from .gene_expression_encoder import GeneExpressionEncoder, encode_gene_expression, train_gene_expession_autoencoder
 from .model_utils import Predictor
 
 
 class DIPKModel(DRPModel):
     """DIPK model. Adapted from https://github.com/user15632/DIPK."""
 
-    cell_line_views = ["gene_expression_features", "biological_network_features"]
+    cell_line_views = ["gene_expression", "bionic_features"]
     drug_views = ["drug_feature_embedding"]
 
     def __init__(self) -> None:
@@ -43,6 +39,7 @@ class DIPKModel(DRPModel):
         self.EPOCHS: int = 0
         self.batch_size: int = 0
         self.lr: float = 0.0
+        self.gene_expression_encoder: GeneExpressionEncoder | None = None
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -106,6 +103,12 @@ class DIPKModel(DRPModel):
         params = [{"params": self.model.parameters()}]
         optimizer = optim.Adam(params, lr=self.lr)
 
+        self.gene_expression_encoder = train_gene_expession_autoencoder(
+            cell_line_input.get_feature_matrix(view="gene_expression", identifiers=output.cell_line_ids)
+        )
+
+        cell_line_input.apply(lambda x: encode_gene_expression(x, self.gene_expression_encoder), view="gene_expression")
+
         # load data
         collate = CollateFn(train=True)
         graphs_train = get_data(
@@ -115,6 +118,7 @@ class DIPKModel(DRPModel):
             drug_features=drug_input,
             ic50=output.response,
         )
+
         train_loader: DataLoader = DataLoader(
             GraphDataset(graphs_train), batch_size=self.batch_size, shuffle=True, collate_fn=collate
         )
@@ -188,12 +192,17 @@ class DIPKModel(DRPModel):
         :param dataset_name: path to the dataset
         :returns: cell line features
         """
-        return load_expression_and_network_features(
-            feature_type1=self.cell_line_views[0],
-            feature_type2=self.cell_line_views[1],
+        gene_expression = load_and_reduce_gene_features(
+            feature_type="gene_expression",
+            gene_list=None,
             data_path=data_path,
             dataset_name=dataset_name,
         )
+        bionic_features = load_bionic_features(
+            data_path=data_path,
+            dataset_name=dataset_name,
+        )
+        return bionic_features.add_features(gene_expression)
 
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         """
