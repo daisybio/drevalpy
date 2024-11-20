@@ -144,11 +144,12 @@ class DataSet(Dataset, ABC):
 
 
 def train_gene_expession_autoencoder(
-    gene_expression_input: np.ndarray, epochs_autoencoder: int = 100
+    gene_expression_input: np.ndarray, gene_expression_input_early_stopping: np.ndarray, epochs_autoencoder: int = 100
 ) -> GeneExpressionEncoder:
-    """Train the autoencoder model for gene expression data.
+    """Train the autoencoder model for gene expression data with early stopping.
 
     :param gene_expression_input: gene expression data
+    :param gene_expression_input_early_stopping: validation data for early stopping
     :param epochs_autoencoder: number of epochs for training the autoencoder
     :return: trained encoder model
     """
@@ -163,14 +164,22 @@ def train_gene_expession_autoencoder(
     loss_func = nn.MSELoss()
     params = [{"params": encoder.parameters()}, {"params": decoder.parameters()}]
     optimizer = optim.Adam(params, lr=lr)
+
     # load data
     my_collate = CollateFn()
-    gene_expression_tensor = torch.tensor(gene_expression_input, dtype=torch.float32)
-    gene_expression_tensor = gene_expression_tensor.to(device)
+    gene_expression_tensor = torch.tensor(gene_expression_input, dtype=torch.float32).to(device)
     train_loader = DataLoader(
         DataSet(gene_expression_tensor), batch_size=batch_size, shuffle=True, collate_fn=my_collate
     )
-    # train model
+
+    # prepare early stopping validation data
+    gene_expression_val_tensor = torch.tensor(gene_expression_input_early_stopping, dtype=torch.float32).to(device)
+
+    # early stopping parameters
+    patience = 5
+    best_val_loss = float("inf")
+    epochs_without_improvement = 0
+
     print("Training DIPK autoencoder for gene expression data")
     for epoch_index in range(epochs_autoencoder):
         # training
@@ -195,8 +204,26 @@ def train_gene_expession_autoencoder(
             epoch_loss += loss.detach().item()
             batch_count += 1
         epoch_loss /= batch_count
-        if epoch_index % 10 == 0:
-            print(f"Autoenc. DIPK Epoch: {epoch_index}, Loss: {epoch_loss}")
+
+        # validation
+        encoder.eval()
+        decoder.eval()
+        with torch.no_grad():
+            val_output = decoder(encoder(gene_expression_val_tensor))
+            val_loss = loss_func(val_output, gene_expression_val_tensor).item()
+
+        print(f"DIPK Autoenc. Epoch: {epoch_index}, Train Loss: {epoch_loss}, Val Loss: {val_loss}")
+
+        # early stopping check
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            epochs_without_improvement = 0
+        else:
+            epochs_without_improvement += 1
+            if epochs_without_improvement >= patience:
+                print(f"DIPK Autoenc. Early stopping triggered at epoch {epoch_index}")
+                break
+
     encoder.eval()
     return encoder
 
