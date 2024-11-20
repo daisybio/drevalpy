@@ -119,7 +119,7 @@ def test__dipk(
     hpam_combi["epochs"] = 1
     hpam_combi["epochs_autoencoder"] = 1
     model.build_model(hpam_combi)
-    drug_input = model.load_drug_features(data_path="../data", dataset_name="Toy_Data")
+    drug_input = model.load_drug_features(data_path="../data", dataset_name="Toy_Data")  # type: ignore
     cell_line_input = model.load_cell_line_features(data_path="../data", dataset_name="Toy_Data")
 
     cell_lines_to_keep = cell_line_input.identifiers
