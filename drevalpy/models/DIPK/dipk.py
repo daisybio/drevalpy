@@ -111,7 +111,9 @@ class DIPKModel(DRPModel):
             epochs_autoencoder=self.epochs_autoencoder,
         )
 
-        cell_line_input.apply(lambda x: encode_gene_expression(x, self.gene_expression_encoder), view="gene_expression")
+        cell_line_input.apply(
+            lambda x: encode_gene_expression(x, self.gene_expression_encoder), view="gene_expression"
+        )  # type: ignore[arg-type]
 
         # Load data
         collate = CollateFn(train=True)
@@ -136,10 +138,7 @@ class DIPKModel(DRPModel):
                 gene_features = batch["gene_features"].to(self.DEVICE)
                 bionic_features = batch["bionic_features"].to(self.DEVICE)
                 molgnet_mask = batch["molgnet_mask"].to(self.DEVICE)  # Get the mask
-
-                # If training, get the ic50 values
-                if self.train:
-                    ic50_values = batch["ic50_values"].to(self.DEVICE)
+                ic50_values = batch["ic50_values"].to(self.DEVICE)
 
                 # Forward pass with mask included (model needs to handle the mask)
                 prediction = self.model(

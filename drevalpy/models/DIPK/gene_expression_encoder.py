@@ -165,10 +165,10 @@ def train_gene_expession_autoencoder(
     optimizer = optim.Adam(params, lr=lr)
     # load data
     my_collate = CollateFn()
-    gene_expression_input = torch.tensor(gene_expression_input, dtype=torch.float32)
-    gene_expression_input = gene_expression_input.to(device)
+    gene_expression_tensor = torch.tensor(gene_expression_input, dtype=torch.float32)
+    gene_expression_tensor = gene_expression_tensor.to(device)
     train_loader = DataLoader(
-        DataSet(gene_expression_input), batch_size=batch_size, shuffle=True, collate_fn=my_collate
+        DataSet(gene_expression_tensor), batch_size=batch_size, shuffle=True, collate_fn=my_collate
     )
     # train model
     for _ in range(epochs_autoencoder):
@@ -209,14 +209,14 @@ def encode_gene_expression(gene_expression_input: np.ndarray, encoder: GeneExpre
     # Check the original input shape, because we have to unsqueeze the input if it is a single vector
     original_shape = gene_expression_input.shape
 
-    gene_expression_input = torch.tensor(gene_expression_input, dtype=torch.float32).to(device)
+    gene_expression_tensor = torch.tensor(gene_expression_input, dtype=torch.float32).to(device)
 
     # Add batch dimension if input is a single vector
-    if gene_expression_input.ndim == 1:
-        gene_expression_input = gene_expression_input.unsqueeze(0)
+    if gene_expression_tensor.ndim == 1:
+        gene_expression_tensor = gene_expression_tensor.unsqueeze(0)
 
     with torch.no_grad():
-        encoded_data = encoder(gene_expression_input).cpu().numpy()
+        encoded_data = encoder(gene_expression_tensor).cpu().numpy()
 
     # Match the output shape to the input shape
     if len(original_shape) == 1:
