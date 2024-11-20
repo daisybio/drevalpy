@@ -13,7 +13,7 @@ from drevalpy.models.drp_model import DRPModel
 
 @pytest.mark.parametrize("test_mode", ["LCO"])
 @pytest.mark.parametrize("model_name", ["SuperFELTR", "MOLIR"])
-def test_molir_superfeltr_dipk(
+def test_molir_superfeltr(
     sample_dataset: tuple[DrugResponseDataset, FeatureDataset, FeatureDataset], model_name: str, test_mode: str
 ) -> None:
     """
@@ -96,7 +96,7 @@ def test_molir_superfeltr_dipk(
 
 @pytest.mark.parametrize("test_mode", ["LCO"])
 @pytest.mark.parametrize("model_name", ["DIPK"])
-def test__dipk(
+def test_dipk(
     sample_dataset: tuple[DrugResponseDataset, FeatureDataset, FeatureDataset], model_name: str, test_mode: str
 ) -> None:
     """Test the DIPK model.
