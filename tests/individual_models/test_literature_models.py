@@ -11,7 +11,6 @@ from drevalpy.models import MODEL_FACTORY
 from drevalpy.models.drp_model import DRPModel
 
 
-@pytest.mark.skip(reason="deletme")
 @pytest.mark.parametrize("test_mode", ["LCO"])
 @pytest.mark.parametrize("model_name", ["SuperFELTR", "MOLIR"])
 def test_molir_superfeltr_dipk(
@@ -135,11 +134,12 @@ def test__dipk(
         drug_input=drug_input,
         output_earlystopping=None,
     )
-    model.predict(
+    out = model.predict(
         cell_line_ids=val_es_dataset.cell_line_ids,
         drug_ids=val_es_dataset.drug_ids,
         cell_line_input=cell_line_input,
         drug_input=drug_input,
     )
-    metrics = model.evaluate(val_es_dataset)
+    val_es_dataset._predictions = out
+    metrics = evaluate(val_es_dataset, metric=["Pearson"])
     assert metrics["Pearson"] >= -1.0
