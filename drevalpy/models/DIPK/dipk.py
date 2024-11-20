@@ -112,7 +112,8 @@ class DIPKModel(DRPModel):
         )
 
         cell_line_input.apply(
-            lambda x: encode_gene_expression(x, self.gene_expression_encoder), view="gene_expression"
+            lambda x: encode_gene_expression(x, self.gene_expression_encoder),  # type: ignore[arg-type]
+            view="gene_expression",
         )  # type: ignore[arg-type]
 
         # Load data
