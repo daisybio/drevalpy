@@ -1,11 +1,10 @@
 """
 Includes functions to load and process the DIPK dataset.
 
-load_expression_and_network_features: Loads gene expression and biological network features from the DIPK dataset.
-load_drug_feature_from_MolGNet: Loads drug features from the MolGNet dataset.
-get_data: Creates a list of PyG Data objects from the input cell line and drug features.
-CollateFn: Class to collate PyG Data objects for the DataLoader.
-GraphDataset: Class to create a PyG Dataset from a list of PyG Data objects.
+get_data: Creates a list of dictionaries with drug and cell line features.
+CollateFn: Class to collate the DataLoader batches.
+DIPKDataset: Dataset class for the DIPK model.
+
 """
 
 import os

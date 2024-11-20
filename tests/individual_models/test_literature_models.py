@@ -7,7 +7,7 @@ import pytest
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.evaluation import evaluate, pearson
-from drevalpy.models import MODEL_FACTORY
+from drevalpy.models import MODEL_FACTORY, SINGLE_DRUG_MODEL_FACTORY
 from drevalpy.models.drp_model import DRPModel
 
 
@@ -24,6 +24,12 @@ def test_molir_superfeltr_dipk(
     :param test_mode: LCO
     """
     drug_response, cell_line_input, drug_input = sample_dataset
+    model_class = cast(type[DRPModel], MODEL_FACTORY[model_name])
+    model = model_class()
+    if model_name == "DIPK":
+        drug_input = model.load_drug_features(data_path="../data", dataset_name="Toy_Data")
+        cell_line_input = model.load_cell_line_features(data_path="../data", dataset_name="Toy_Data")
+
     drug_response.split_dataset(
         n_cv_splits=5,
         mode=test_mode,
@@ -35,7 +41,7 @@ def test_molir_superfeltr_dipk(
     # randomly sample drugs to speed up testing
     np.random.seed(42)
     np.random.shuffle(all_unique_drugs)
-    random_drug = all_unique_drugs[:1]
+    random_drug = all_unique_drugs[:1] if model_name in SINGLE_DRUG_MODEL_FACTORY else all_unique_drugs[:5]
     val_es_dataset = split["validation_es"]
     es_dataset = split["early_stopping"]
 
@@ -53,32 +59,37 @@ def test_molir_superfeltr_dipk(
     print(f"Reduced es dataset from {len_es_before} to {len(es_dataset)}")
 
     all_predictions = np.zeros_like(val_es_dataset.drug_ids, dtype=float)
-    model_class = cast(type[DRPModel], MODEL_FACTORY[model_name])
-    model = model_class()
+
     hpam_combi = model.get_hyperparameter_set()[0]
     hpam_combi["epochs"] = 1
     model.build_model(hpam_combi)
+    train_reduced = train_dataset.copy()
+    es_dataset_reduced = es_dataset.copy()
 
-    output_mask = train_dataset.drug_ids == random_drug
-    drug_train = train_dataset.copy()
-    drug_train.mask(output_mask)
-    es_mask = es_dataset.drug_ids == random_drug
-    es_dataset_drug = es_dataset.copy()
-    es_dataset_drug.mask(es_mask)
+    if model_name in SINGLE_DRUG_MODEL_FACTORY:
+        output_mask = train_dataset.drug_ids == random_drug
+        train_reduced.mask(output_mask)
+        es_mask = es_dataset.drug_ids == random_drug
+        es_dataset_reduced.mask(es_mask)
+        val_mask = val_es_dataset.drug_ids == random_drug
+    else:
+        val_mask = np.array([True] * len(val_es_dataset))
+        es_mask = np.array([True] * len(es_dataset))
     # smaller dataset for faster testing
-    drug_train.remove_rows(indices=np.array([list(range(len(drug_train) - 100))]))
+    train_reduced.remove_rows(indices=np.array([list(range(len(train_reduced) - 100))]))
+
     model.train(
-        output=drug_train,
+        output=train_reduced,
         cell_line_input=cell_line_input,
-        drug_input=None,
-        output_earlystopping=es_dataset_drug,
+        drug_input=None if model_name in SINGLE_DRUG_MODEL_FACTORY else drug_input,
+        output_earlystopping=es_dataset_reduced,
     )
 
-    val_mask = val_es_dataset.drug_ids == random_drug
     all_predictions[val_mask] = model.predict(
         drug_ids=random_drug,
         cell_line_ids=val_es_dataset.cell_line_ids[val_mask],
         cell_line_input=cell_line_input,
+        drug_input=None if model_name in SINGLE_DRUG_MODEL_FACTORY else drug_input,
     )
     pcc_drug = pearson(val_es_dataset.response[val_mask], all_predictions[val_mask])
     assert pcc_drug >= -1

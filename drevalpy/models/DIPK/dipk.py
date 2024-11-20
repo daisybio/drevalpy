@@ -176,29 +176,37 @@ class DIPKModel(DRPModel):
         if not isinstance(self.model, Predictor):
             raise ValueError("DIPK model not initialized.")
 
-        # load data
+        # Load data
         collate = CollateFn(train=False)
-        test_data = get_data(
-            cell_ids=cell_line_ids, drug_ids=drug_ids, cell_line_features=cell_line_input, drug_features=drug_input
+        test_samples = get_data(
+            cell_ids=cell_line_ids,
+            drug_ids=drug_ids,
+            cell_line_features=cell_line_input,
+            drug_features=drug_input,
         )
         test_loader: DataLoader = DataLoader(
-            DIPKDataset(test_data), batch_size=self.batch_size, shuffle=False, collate_fn=collate
+            DIPKDataset(test_samples), batch_size=self.batch_size, shuffle=False, collate_fn=collate
         )
 
-        # run prediction
+        # Run prediction
         self.model.eval()
-        test_pre = []
+        predictions = []
         with torch.no_grad():
-            for _, (pyg_batch, gene_features, bionic_features) in enumerate(test_loader):
-                pyg_batch, gene_features, bionic_features = (
-                    pyg_batch.to(self.DEVICE),
-                    gene_features.to(self.DEVICE),
-                    bionic_features.to(self.DEVICE),
-                )
-                prediction = self.model(pyg_batch.x, pyg_batch, gene_features, bionic_features)
-                test_pre += torch.squeeze(prediction).cpu().tolist()
+            for batch in test_loader:
+                drug_features = batch["molgnet_features"].to(self.DEVICE)
+                gene_features = batch["gene_features"].to(self.DEVICE)
+                bionic_features = batch["bionic_features"].to(self.DEVICE)
+                molgnet_mask = batch["molgnet_mask"].to(self.DEVICE)
 
-        return np.array(test_pre)
+                prediction = self.model(
+                    molgnet_drug_features=drug_features,
+                    gene_expression=gene_features,
+                    bionic=bionic_features,
+                    molgnet_mask=molgnet_mask,
+                )
+                predictions += torch.squeeze(prediction).cpu().tolist()
+
+        return np.array(predictions)
 
     def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         """
@@ -237,7 +245,9 @@ class DIPKModel(DRPModel):
         drug_path = os.path.join(data_path, dataset_name, "DIPK_features", "Drugs")
         files_in_drug_path = os.listdir(drug_path)
         drug_list = [
-            file.split("_")[1] for file in files_in_drug_path if file.endswith(".csv") and file.startswith("MolGNet")
+            file.split("_")[1].split(".csv")[0]
+            for file in files_in_drug_path
+            if file.endswith(".csv") and file.startswith("MolGNet")
         ]
 
         return FeatureDataset(
