@@ -873,10 +873,17 @@ def train_and_predict(
     # making sure there are no missing features:
     len_train_before = len(train_dataset)
     len_pred_before = len(prediction_dataset)
+    print(f"Number of cell lines in features: {len(cell_lines_to_keep)}")
+    print(f"Number of drugs in features: {len(drugs_to_keep)}")
+    print(f"Number of cell lines in train dataset: {len(np.unique(train_dataset.cell_line_ids))}")
+    print(f"Number of drugs in train dataset: {len(np.unique(train_dataset.drug_ids))}")
+
     train_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
     prediction_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
-    print(f"Reduced training dataset from {len_train_before} to {len(train_dataset)}")
-    print(f"Reduced prediction dataset from {len_pred_before} to {len(prediction_dataset)}")
+    print(f"Reduced training dataset from {len_train_before} to {len(train_dataset)}, because of missing features")
+    print(
+        f"Reduced prediction dataset from {len_pred_before} to {len(prediction_dataset)}, because of missing features"
+    )
 
     if early_stopping_dataset is not None:
         len_es_before = len(early_stopping_dataset)

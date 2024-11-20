@@ -7,9 +7,11 @@ Pengyong Li, Zhengxiang Jiang, Tianxiao Liu, Xinyu Liu, Hui Qiao, Xiaojun Yao
 Briefings in Bioinformatics, Volume 25, Issue 3, May 2024, bbae153, https://doi.org/10.1093/bib/bbae153
 """
 
+import os
 from typing import Any
 
 import numpy as np
+import pandas as pd
 import torch
 import torch.optim as optim
 from torch import nn
@@ -19,7 +21,7 @@ from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.models.utils import load_and_reduce_gene_features
 
-from .data_utils import CollateFn, DIPKDataset, get_data, load_bionic_features, load_drug_feature_from_mol_g_net
+from .data_utils import CollateFn, DIPKDataset, get_data, load_bionic_features
 from .gene_expression_encoder import GeneExpressionEncoder, encode_gene_expression, train_gene_expession_autoencoder
 from .model_utils import Predictor
 
@@ -145,7 +147,7 @@ class DIPKModel(DRPModel):
                 )
 
                 # Compute the loss
-                loss = loss_func(torch.squeeze(prediction), ic50_values)
+                loss = loss_func(torch.squeeze(prediction), torch.squeeze(ic50_values))
 
                 # Backpropagation
                 optimizer.zero_grad()
@@ -228,8 +230,21 @@ class DIPKModel(DRPModel):
         :param dataset_name: path to the dataset
         :returns: drug features
         """
-        return load_drug_feature_from_mol_g_net(
-            feature_type="molgnet_features",
-            data_path=data_path,
-            dataset_name=dataset_name,
+
+        def load_feature(file_path, sep="\t"):
+            return np.array(pd.read_csv(file_path, index_col=0, sep=sep))
+
+        drug_path = os.path.join(data_path, dataset_name, "DIPK_features", "Drugs")
+        files_in_drug_path = os.listdir(drug_path)
+        drug_list = [
+            file.split("_")[1] for file in files_in_drug_path if file.endswith(".csv") and file.startswith("MolGNet")
+        ]
+
+        return FeatureDataset(
+            features={
+                drug: {
+                    "molgnet_features": load_feature(os.path.join(drug_path, f"MolGNet_{drug}.csv")),
+                }
+                for drug in drug_list
+            }
         )

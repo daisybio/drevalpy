@@ -46,8 +46,7 @@ class AttentionLayer(nn.Module):
         key = molgnet_features  # Shape: [batch_size, seq_len, 768] (features from MolGNet)
         value = molgnet_features  # Shape: [batch_size, seq_len, 768] (same as key)
 
-        # The mask should be reshaped to match the required dimensions for attention
-        mask = torch.unsqueeze(mask, 1)  # Shape: [batch_size, 1, seq_len] -> for applying on attention
+        mask = torch.unsqueeze(mask, 1).unsqueeze(2)
 
         # Apply the first attention layer
         x_att = self.attention_0(query_0, key, value, mask)  # Output: [batch_size, seq_len, hid_dim]

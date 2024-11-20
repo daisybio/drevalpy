@@ -65,36 +65,6 @@ def load_bionic_features(data_path: str, dataset_name: str, gene_add_num: int = 
     return FeatureDataset(features=feature_data)
 
 
-def load_drug_feature_from_mol_g_net(
-    feature_type: str,
-    data_path: str,
-    dataset_name: str,
-) -> FeatureDataset:
-    """
-    Load drug features from the MolGNet dataset.
-
-    :param feature_type: drug_feature_embedding
-    :param data_path: path to the data, e.g. "data/"
-    :param dataset_name: name of the dataset, e.g., GDSC2
-    :returns: FeatureDataset with drug features
-    """
-
-    def load_feature(file_path, sep="\t"):
-        return np.array(pd.read_csv(file_path, index_col=0, sep=sep))
-
-    drug_path = os.path.join(data_path, dataset_name, "DIPK_features", "Drugs")
-    drug_list = [drug for drug in os.listdir(drug_path) if drug != ".DS_Store"]  # .DS_Store is a macOS file, ignore it
-
-    return FeatureDataset(
-        features={
-            drug: {
-                feature_type: load_feature(os.path.join(drug_path, drug, f"MolGNet_{drug}.csv")),
-            }
-            for drug in drug_list
-        }
-    )
-
-
 def get_data(
     cell_ids: np.ndarray,
     drug_ids: np.ndarray,
