@@ -132,7 +132,7 @@ def test_dipk(
         output=train_dataset,
         cell_line_input=cell_line_input,
         drug_input=drug_input,
-        output_earlystopping=None,
+        output_earlystopping=val_es_dataset,
     )
     out = model.predict(
         cell_line_ids=val_es_dataset.cell_line_ids,
