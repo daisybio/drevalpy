@@ -196,7 +196,7 @@ def train_gene_expession_autoencoder(
             batch_count += 1
         epoch_loss /= batch_count
         if epoch_index % 10 == 0:
-            print(f"Autoenc. DIPK Epoch: {epoch_loss}, Loss: {loss.detach().item()}")
+            print(f"Autoenc. DIPK Epoch: {epoch_index}, Loss: {epoch_loss}")
     encoder.eval()
     return encoder
 

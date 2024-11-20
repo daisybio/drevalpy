@@ -167,7 +167,7 @@ class DIPKModel(DRPModel):
 
             # Average loss for the epoch
             epoch_loss /= batch_count
-            print(f"Epoch [{epoch + 1}/{self.epochs}] Average Loss: {epoch_loss:.4f}")
+            print(f"Epoch [{epoch + 1}] Average Loss: {epoch_loss:.4f}")
 
     def predict(
         self,
