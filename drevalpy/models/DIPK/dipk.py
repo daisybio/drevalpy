@@ -38,10 +38,11 @@ class DIPKModel(DRPModel):
         self.DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         # all of this gets initialized in build_model
         self.model: Predictor | None = None
-        self.EPOCHS: int = 0
+        self.epochs: int = 0
         self.batch_size: int = 0
         self.lr: float = 0.0
         self.gene_expression_encoder: GeneExpressionEncoder | None = None
+        self.epochs_autoencoder: int = 100
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -75,9 +76,10 @@ class DIPKModel(DRPModel):
             hyperparameters["fc_layer_dim"],
             hyperparameters["dropout_rate"],
         ).to(self.DEVICE)
-        self.EPOCHS = hyperparameters["EPOCHS"]
+        self.epochs = hyperparameters["epochs"]
         self.batch_size = hyperparameters["batch_size"]
         self.lr = hyperparameters["lr"]
+        self.epochs_autoencoder = hyperparameters["epochs_autoencoder"]
 
     def train(
         self,
@@ -105,7 +107,8 @@ class DIPKModel(DRPModel):
         optimizer = optim.Adam(params, lr=self.lr)
 
         self.gene_expression_encoder = train_gene_expession_autoencoder(
-            cell_line_input.get_feature_matrix(view="gene_expression", identifiers=output.cell_line_ids)
+            cell_line_input.get_feature_matrix(view="gene_expression", identifiers=output.cell_line_ids),
+            epochs_autoencoder=self.epochs_autoencoder,
         )
 
         cell_line_input.apply(lambda x: encode_gene_expression(x, self.gene_expression_encoder), view="gene_expression")
@@ -125,7 +128,7 @@ class DIPKModel(DRPModel):
         )
 
         # Train model
-        for _ in range(self.EPOCHS):
+        for _ in range(self.epochs):
             self.model.train()
             for batch in train_loader:
                 # Access the features and mask from the batch dictionary

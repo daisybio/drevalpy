@@ -143,15 +143,17 @@ class DataSet(Dataset, ABC):
         return len(self._data)
 
 
-def train_gene_expession_autoencoder(gene_expression_input: np.ndarray) -> GeneExpressionEncoder:
+def train_gene_expession_autoencoder(
+    gene_expression_input: np.ndarray, epochs_autoencoder: int = 100
+) -> GeneExpressionEncoder:
     """Train the autoencoder model for gene expression data.
 
     :param gene_expression_input: gene expression data
+    :param epochs_autoencoder: number of epochs for training the autoencoder
     :return: trained encoder model
     """
     lr = 1e-4
     batch_size = 1024
-    epochs = 100
     noising = True
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -169,7 +171,7 @@ def train_gene_expession_autoencoder(gene_expression_input: np.ndarray) -> GeneE
         DataSet(gene_expression_input), batch_size=batch_size, shuffle=True, collate_fn=my_collate
     )
     # train model
-    for _ in range(epochs):
+    for _ in range(epochs_autoencoder):
         # training
         encoder.train()
         decoder.train()

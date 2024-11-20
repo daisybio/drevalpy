@@ -1,7 +1,5 @@
 ---
 DIPK:
-  EPOCHS:
-    - 100
   batch_size:
     - 64
   lr:
@@ -19,3 +17,7 @@ DIPK:
       - 1
   dropout_rate:
     - 0.3
+  epochs:
+    - 100
+  epochs_autoencoder:
+    - 100
