@@ -134,7 +134,7 @@ class DIPKModel(DRPModel):
         print("Training DIPK model")
         for epoch in range(self.epochs):
             self.model.train()
-            epoch_loss = 0
+            epoch_loss = 0.0
             batch_count = 0
 
             for batch in train_loader:

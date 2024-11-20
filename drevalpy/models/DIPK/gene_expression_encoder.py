@@ -176,7 +176,7 @@ def train_gene_expession_autoencoder(
         # training
         encoder.train()
         decoder.train()
-        epoch_loss = 0
+        epoch_loss = 0.0
         batch_count = 0
         for gene_expression_batch in train_loader:
             gene_expression_batch = gene_expression_batch.to(device)
