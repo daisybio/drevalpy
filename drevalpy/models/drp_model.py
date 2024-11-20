@@ -1,8 +1,9 @@
 """
-Contains the DRPModel class class.
+Contains the DRPModel class.
 
-The DRPModel class is an abstract wrapper class for drug response prediction models. It has a boolean attribute
-indicating whether it is a single drug model.
+The DRPModel class is an abstract wrapper class for drug response prediction models.
+
+
 """
 
 import inspect
