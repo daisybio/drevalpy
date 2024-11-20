@@ -103,6 +103,8 @@ class DIPKModel(DRPModel):
             raise ValueError("DIPK model requires drug features.")
         if not isinstance(self.model, Predictor):
             raise ValueError("DIPK model not initialized.")
+        if output_earlystopping is None:
+            raise ValueError("DIPK model requires early stopping data.")
 
         loss_func = nn.MSELoss()
         params = [{"params": self.model.parameters()}]
