@@ -2,8 +2,6 @@
 
 import tempfile
 
-import pytest
-
 from drevalpy.datasets import AVAILABLE_DATASETS
 
 
@@ -35,8 +33,3 @@ def test_ccle():
     tempdir = tempfile.TemporaryDirectory()
     ccle = AVAILABLE_DATASETS["CCLE"](path_data=tempdir.name)
     assert len(ccle) == 8478
-
-
-# Run the tests
-if __name__ == "__main__":
-    pytest.main([__file__])

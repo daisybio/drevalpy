@@ -534,8 +534,3 @@ def test_add_features(sample_dataset: FeatureDataset, graph_dataset: FeatureData
     assert sample_dataset.meta_info is not None
     assert "molecular_graph" in sample_dataset.meta_info
     assert "molecular_graph" in sample_dataset.view_names
-
-
-# Run the tests
-if __name__ == "__main__":
-    pytest.main([__file__])
