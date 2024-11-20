@@ -131,8 +131,12 @@ class DIPKModel(DRPModel):
         )
 
         # Train model
-        for _ in range(self.epochs):
+        print("Training DIPK model")
+        for epoch in range(self.epochs):
             self.model.train()
+            epoch_loss = 0
+            batch_count = 0
+
             for batch in train_loader:
                 # Access the features and mask from the batch dictionary
                 drug_features = batch["molgnet_features"].to(self.DEVICE)
@@ -156,6 +160,14 @@ class DIPKModel(DRPModel):
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
+
+                # Update loss and batch count
+                epoch_loss += loss.detach().item()
+                batch_count += 1
+
+            # Average loss for the epoch
+            epoch_loss /= batch_count
+            print(f"Epoch [{epoch + 1}/{self.epochs}] Average Loss: {epoch_loss:.4f}")
 
     def predict(
         self,

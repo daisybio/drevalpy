@@ -171,11 +171,13 @@ def train_gene_expession_autoencoder(
         DataSet(gene_expression_tensor), batch_size=batch_size, shuffle=True, collate_fn=my_collate
     )
     # train model
-    for _ in range(epochs_autoencoder):
+    print("Training DIPK autoencoder for gene expression data")
+    for epoch_index in range(epochs_autoencoder):
         # training
         encoder.train()
         decoder.train()
         epoch_loss = 0
+        batch_count = 0
         for gene_expression_batch in train_loader:
             gene_expression_batch = gene_expression_batch.to(device)
             if noising:
@@ -191,6 +193,10 @@ def train_gene_expession_autoencoder(
             loss.backward()
             optimizer.step()
             epoch_loss += loss.detach().item()
+            batch_count += 1
+        epoch_loss /= batch_count
+        if epoch_index % 10 == 0:
+            print(f"Autoenc. DIPK Epoch: {epoch_loss}, Loss: {loss.detach().item()}")
     encoder.eval()
     return encoder
 
