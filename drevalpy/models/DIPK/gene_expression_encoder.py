@@ -143,15 +143,18 @@ class DataSet(Dataset, ABC):
         return len(self._data)
 
 
-def train_gene_expession_autoencoder(gene_expression_input: np.ndarray) -> GeneExpressionEncoder:
-    """Train the autoencoder model for gene expression data.
+def train_gene_expession_autoencoder(
+    gene_expression_input: np.ndarray, gene_expression_input_early_stopping: np.ndarray, epochs_autoencoder: int = 100
+) -> GeneExpressionEncoder:
+    """Train the autoencoder model for gene expression data with early stopping.
 
     :param gene_expression_input: gene expression data
+    :param gene_expression_input_early_stopping: validation data for early stopping
+    :param epochs_autoencoder: number of epochs for training the autoencoder
     :return: trained encoder model
     """
     lr = 1e-4
     batch_size = 1024
-    epochs = 1000
     noising = True
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -161,19 +164,29 @@ def train_gene_expession_autoencoder(gene_expression_input: np.ndarray) -> GeneE
     loss_func = nn.MSELoss()
     params = [{"params": encoder.parameters()}, {"params": decoder.parameters()}]
     optimizer = optim.Adam(params, lr=lr)
+
     # load data
     my_collate = CollateFn()
-    gene_expression_input = torch.tensor(gene_expression_input, dtype=torch.float32)
-    gene_expression_input = gene_expression_input.to(device)
+    gene_expression_tensor = torch.tensor(gene_expression_input, dtype=torch.float32).to(device)
     train_loader = DataLoader(
-        DataSet(gene_expression_input), batch_size=batch_size, shuffle=True, collate_fn=my_collate
+        DataSet(gene_expression_tensor), batch_size=batch_size, shuffle=True, collate_fn=my_collate
     )
-    # train model
-    for _ in range(epochs):
+
+    # prepare early stopping validation data
+    gene_expression_val_tensor = torch.tensor(gene_expression_input_early_stopping, dtype=torch.float32).to(device)
+
+    # early stopping parameters
+    patience = 5
+    best_val_loss = float("inf")
+    epochs_without_improvement = 0
+
+    print("Training DIPK autoencoder for gene expression data")
+    for epoch_index in range(epochs_autoencoder):
         # training
         encoder.train()
         decoder.train()
-        epoch_loss = 0
+        epoch_loss = 0.0
+        batch_count = 0
         for gene_expression_batch in train_loader:
             gene_expression_batch = gene_expression_batch.to(device)
             if noising:
@@ -189,6 +202,28 @@ def train_gene_expession_autoencoder(gene_expression_input: np.ndarray) -> GeneE
             loss.backward()
             optimizer.step()
             epoch_loss += loss.detach().item()
+            batch_count += 1
+        epoch_loss /= batch_count
+
+        # validation
+        encoder.eval()
+        decoder.eval()
+        with torch.no_grad():
+            val_output = decoder(encoder(gene_expression_val_tensor))
+            val_loss = loss_func(val_output, gene_expression_val_tensor).item()
+
+        print(f"DIPK Autoenc. Epoch: {epoch_index}, Train Loss: {epoch_loss}, Val Loss: {val_loss}")
+
+        # early stopping check
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            epochs_without_improvement = 0
+        else:
+            epochs_without_improvement += 1
+            if epochs_without_improvement >= patience:
+                print(f"DIPK Autoenc. Early stopping triggered at epoch {epoch_index}")
+                break
+
     encoder.eval()
     return encoder
 
@@ -207,14 +242,14 @@ def encode_gene_expression(gene_expression_input: np.ndarray, encoder: GeneExpre
     # Check the original input shape, because we have to unsqueeze the input if it is a single vector
     original_shape = gene_expression_input.shape
 
-    gene_expression_input = torch.tensor(gene_expression_input, dtype=torch.float32).to(device)
+    gene_expression_tensor = torch.tensor(gene_expression_input, dtype=torch.float32).to(device)
 
     # Add batch dimension if input is a single vector
-    if gene_expression_input.ndim == 1:
-        gene_expression_input = gene_expression_input.unsqueeze(0)
+    if gene_expression_tensor.ndim == 1:
+        gene_expression_tensor = gene_expression_tensor.unsqueeze(0)
 
     with torch.no_grad():
-        encoded_data = encoder(gene_expression_input).cpu().numpy()
+        encoded_data = encoder(gene_expression_tensor).cpu().numpy()
 
     # Match the output shape to the input shape
     if len(original_shape) == 1:

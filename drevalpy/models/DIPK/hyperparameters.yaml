@@ -1,13 +1,9 @@
 ---
 DIPK:
-  EPOCHS:
-    - 100
   batch_size:
     - 64
   lr:
     - 0.00001
-  embedding_dim:
-    - None
   heads:
     - 2
   fc_layer_num:
@@ -15,9 +11,15 @@ DIPK:
   fc_layer_dim:
     - - 256
       - 128
-      - 1
-      - 1
-      - 1
+      - 64
+      - 32
+      - 16
       - 1
   dropout_rate:
     - 0.3
+  epochs:
+    - 100
+  epochs_autoencoder:
+    - 100
+  patience:
+    - 10

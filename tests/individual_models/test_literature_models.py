@@ -12,12 +12,12 @@ from drevalpy.models.drp_model import DRPModel
 
 
 @pytest.mark.parametrize("test_mode", ["LCO"])
-@pytest.mark.parametrize("model_name", ["SuperFELTR", "MOLIR", "DIPK"])
-def test_molir_superfeltr_dipk(
+@pytest.mark.parametrize("model_name", ["SuperFELTR", "MOLIR"])
+def test_molir_superfeltr(
     sample_dataset: tuple[DrugResponseDataset, FeatureDataset, FeatureDataset], model_name: str, test_mode: str
 ) -> None:
     """
-    Test the MOLIR, SuperFELTR and DIPK models.
+    Test the MOLIR, SuperFELTR.
 
     :param sample_dataset: from conftest.py
     :param model_name: model name
@@ -91,4 +91,55 @@ def test_molir_superfeltr_dipk(
     val_es_dataset._predictions = all_predictions[val_es_mask]
     metrics = evaluate(val_es_dataset, metric=["Pearson"])
     print(f"{test_mode}: Collapsed performance of {model_name}: PCC = {metrics['Pearson']}")
+    assert metrics["Pearson"] >= -1.0
+
+
+@pytest.mark.parametrize("test_mode", ["LCO"])
+@pytest.mark.parametrize("model_name", ["DIPK"])
+def test_dipk(
+    sample_dataset: tuple[DrugResponseDataset, FeatureDataset, FeatureDataset], model_name: str, test_mode: str
+) -> None:
+    """Test the DIPK model.
+
+    :param sample_dataset: from conftest.py
+    :param model_name: model name
+    :param test_mode: LCO
+    """
+    drug_response, cell_line_input, drug_input = sample_dataset
+    drug_response.split_dataset(
+        n_cv_splits=5,
+        mode=test_mode,
+    )
+    assert drug_response.cv_splits is not None
+    split = drug_response.cv_splits[0]
+    train_dataset = split["train"]
+    val_es_dataset = split["validation_es"]
+    model = MODEL_FACTORY[model_name]()
+    hpam_combi = model.get_hyperparameter_set()[0]
+    hpam_combi["epochs"] = 1
+    hpam_combi["epochs_autoencoder"] = 1
+    model.build_model(hpam_combi)
+    drug_input = model.load_drug_features(data_path="../data", dataset_name="Toy_Data")  # type: ignore
+    cell_line_input = model.load_cell_line_features(data_path="../data", dataset_name="Toy_Data")
+
+    cell_lines_to_keep = cell_line_input.identifiers
+    drugs_to_keep = drug_input.identifiers
+
+    train_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
+    val_es_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
+
+    model.train(
+        output=train_dataset,
+        cell_line_input=cell_line_input,
+        drug_input=drug_input,
+        output_earlystopping=val_es_dataset,
+    )
+    out = model.predict(
+        cell_line_ids=val_es_dataset.cell_line_ids,
+        drug_ids=val_es_dataset.drug_ids,
+        cell_line_input=cell_line_input,
+        drug_input=drug_input,
+    )
+    val_es_dataset._predictions = out
+    metrics = evaluate(val_es_dataset, metric=["Pearson"])
     assert metrics["Pearson"] >= -1.0

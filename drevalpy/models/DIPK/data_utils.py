@@ -1,11 +1,10 @@
 """
 Includes functions to load and process the DIPK dataset.
 
-load_expression_and_network_features: Loads gene expression and biological network features from the DIPK dataset.
-load_drug_feature_from_MolGNet: Loads drug features from the MolGNet dataset.
-get_data: Creates a list of PyG Data objects from the input cell line and drug features.
-CollateFn: Class to collate PyG Data objects for the DataLoader.
-GraphDataset: Class to create a PyG Dataset from a list of PyG Data objects.
+get_data: Creates a list of dictionaries with drug and cell line features.
+CollateFn: Class to collate the DataLoader batches.
+DIPKDataset: Dataset class for the DIPK model.
+
 """
 
 import os
@@ -14,7 +13,7 @@ from abc import ABC
 import numpy as np
 import pandas as pd
 import torch
-from torch_geometric.data import Batch, Data, Dataset
+from torch.utils.data import Dataset
 
 from drevalpy.datasets.dataset import FeatureDataset
 
@@ -65,150 +64,144 @@ def load_bionic_features(data_path: str, dataset_name: str, gene_add_num: int = 
     return FeatureDataset(features=feature_data)
 
 
-def load_drug_feature_from_mol_g_net(
-    feature_type: str,
-    feature_subtype1: str,
-    feature_subtype2: str,
-    feature_subtype3: str,
-    data_path: str,
-    dataset_name: str,
-) -> FeatureDataset:
-    """
-    Load drug features from the MolGNet dataset.
-
-    :param feature_type: drug_feature_embedding
-    :param feature_subtype1: MolGNet_features
-    :param feature_subtype2: Edge_Index
-    :param feature_subtype3: Edge_Attr
-    :param data_path: path to the data, e.g. "data/"
-    :param dataset_name: name of the dataset, e.g., GDSC2
-    :returns: FeatureDataset with drug features
-    """
-
-    def load_feature(file_path, sep="\t"):
-        return np.array(pd.read_csv(file_path, index_col=0, sep=sep))
-
-    drug_path = os.path.join(data_path, dataset_name, "DIPK_features", "Drugs")
-    drug_list = [drug for drug in os.listdir(drug_path) if drug != ".DS_Store"]  # .DS_Store is a macOS file, ignore it
-
-    return FeatureDataset(
-        features={
-            drug: {
-                feature_type: {
-                    feature_subtype1: load_feature(os.path.join(drug_path, drug, f"MolGNet_{drug}.csv")),
-                    feature_subtype2: load_feature(os.path.join(drug_path, drug, f"Edge_Index_{drug}.csv")),
-                    feature_subtype3: load_feature(os.path.join(drug_path, drug, f"Edge_Attr_{drug}.csv")),
-                }
-            }
-            for drug in drug_list
-        }
-    )
-
-
 def get_data(
     cell_ids: np.ndarray,
     drug_ids: np.ndarray,
     cell_line_features: FeatureDataset,
     drug_features: FeatureDataset,
     ic50: np.ndarray | None = None,
-):
+) -> list:
     """
-    Create a list of PyG Data objects from the input cell line and drug features.
+    Prepare data samples for training or prediction.
 
-    :param cell_ids: ids of the cell lines of the DrugResponseDataset
-    :param drug_ids: ids of the drugs of the DrugResponseDataset
-    :param cell_line_features: input cell line features
-    :param drug_features: input drug features
-    :param ic50: response values from the DrugResponseDataset
-    :returns: list of PyG Data objects
+    Each sample includes:
+    - Drug features (e.g., molecular embeddings).
+    - Cell line features (gene expression and bionic_features).
+    - Optional IC50 response values for supervised tasks.
+
+    :param cell_ids: IDs of the cell lines from the dataset.
+    :param drug_ids: IDs of the drugs from the dataset.
+    :param cell_line_features: Input features associated with the cell lines.
+    :param drug_features: Input features associated with the drugs.
+    :param ic50: (Optional) Response values (e.g., IC50) to associate with samples.
+    :return: List of dictionaries, each containing drug and cell line features, with optional IC50.
     """
-    graph_list = []
+    data_list = []
     for i in range(len(cell_ids)):
         drug_id = str(drug_ids[i])
         cell_id = str(cell_ids[i])
-        x = torch.tensor(
-            drug_features.features[drug_id]["drug_feature_embedding"]["MolGNet_features"], dtype=torch.float32
-        )
-        edge_index = torch.tensor(
-            drug_features.features[drug_id]["drug_feature_embedding"]["Edge_Index"], dtype=torch.float32
-        )
-        edge_attr = torch.tensor(
-            drug_features.features[drug_id]["drug_feature_embedding"]["Edge_Attr"], dtype=torch.float32
-        )
-        graph_data = Data(
-            x=x,
-            edge_index=edge_index,
-            edge_attr=edge_attr,
-            GEF=torch.tensor(cell_line_features.features[cell_id]["gene_expression"], dtype=torch.float32),
-            BNF=torch.tensor(cell_line_features.features[cell_id]["biological_network_features"], dtype=torch.float32),
-        )
-        if ic50 is not None:
-            graph_data.ic50 = torch.tensor([ic50[i]], dtype=torch.float32)
-        graph_list.append(graph_data)
+        drug_tensor = torch.tensor(drug_features.features[drug_id]["molgnet_features"], dtype=torch.float32)
+        gene_expression = torch.tensor(cell_line_features.features[cell_id]["gene_expression"], dtype=torch.float32)
+        bionic_features = torch.tensor(cell_line_features.features[cell_id]["bionic_features"], dtype=torch.float32)
 
-    return graph_list
+        sample = {
+            "molgnet_features": drug_tensor,
+            "gene_expression": gene_expression,
+            "bionic_features": bionic_features,
+        }
+        if ic50 is not None:
+            sample["ic50"] = torch.tensor([ic50[i]], dtype=torch.float32)
+
+        data_list.append(sample)
+
+    return data_list
 
 
 class CollateFn:
     """Collate function for the DataLoader, either for training or testing."""
 
-    def __init__(self, train=True, follow_batch=None, exclude_keys=None):
+    def __init__(self, train=True):
         """
         Initialize the CollateFn.
 
         :param train: indicates whether the DataLoader is used for training
-        :param follow_batch: unused
-        :param exclude_keys: unused
         """
         self.train = train
-        self.follow_batch = follow_batch
-        self.exclude_keys = exclude_keys
 
     def __call__(self, batch):
         """
         Collate the batch.
 
-        :param batch: batch of PyG Data objects
-        :returns: PyG Batch, gene features, and bionic features
+        :param batch: batch of feature dictionaries
+        :returns: collated node features, gene features, bionic features, and (optional) IC50 values
         """
-        pyg_list = [Data(x=g.x, edge_index=g.edge_index, edge_attr=g.edge_attr) for g in batch]
+        # Find the max number of atoms (nodes) in the batch for molgnet_features padding
+        max_atoms_molgnet = max([sample["molgnet_features"].size(0) for sample in batch])
+
+        # Pad molgnet_features to match the maximum number of atoms
+        padded_molgnet_features = []
+        molgnet_mask = []
+
+        for sample in batch:
+            num_atoms = sample["molgnet_features"].size(0)
+            padding_size = max_atoms_molgnet - num_atoms
+
+            # Pad molgnet_features
+            padded_features = torch.cat(
+                [sample["molgnet_features"], torch.zeros(padding_size, sample["molgnet_features"].size(1))], dim=0
+            )
+            padded_molgnet_features.append(padded_features)
+
+            # Create a mask where valid atom features are True and padded ones are False
+            mask = torch.cat(
+                [torch.ones(num_atoms, dtype=torch.bool), torch.zeros(padding_size, dtype=torch.bool)], dim=0
+            )
+            molgnet_mask.append(mask)
+
+        # Stack the padded molgnet features into a single tensor
+        molgnet_features = torch.stack(padded_molgnet_features)
+        molgnet_mask = torch.stack(molgnet_mask)
+
+        # Collate other features
+        gene_features = torch.stack([sample["gene_expression"] for sample in batch])
+        bionic_features = torch.stack([sample["bionic_features"] for sample in batch])
+
         if self.train:
-            for g, data in zip(batch, pyg_list):
-                data.ic50 = g.ic50
+            ic50_values = torch.stack([sample["ic50"] for sample in batch])
+            # Return a dictionary with all features
+            return {
+                "molgnet_features": molgnet_features,
+                "gene_features": gene_features,
+                "bionic_features": bionic_features,
+                "ic50_values": ic50_values,
+                "molgnet_mask": molgnet_mask,
+            }
+        else:
+            # Return a dictionary without ic50_values for inference
+            return {
+                "molgnet_features": molgnet_features,
+                "gene_features": gene_features,
+                "bionic_features": bionic_features,
+                "molgnet_mask": molgnet_mask,
+            }
 
-        pyg_batch = Batch.from_data_list(pyg_list, self.follow_batch, self.exclude_keys)
-        gene_features = torch.stack([g.GEF for g in batch])
-        bionic_features = torch.stack([g.BNF for g in batch])
 
-        return pyg_batch, gene_features, bionic_features
-
-
-class GraphDataset(Dataset, ABC):
+class DIPKDataset(Dataset, ABC):
     """Dataset of graphs from get_data."""
 
-    def __init__(self, graphs):
+    def __init__(self, samples):
         """
         Initialize the GraphDataset.
 
-        :param graphs: list of PyG Data objects
+        :param samples: list
         """
         super().__init__()
-        self._graphs = graphs
+        self._samples = samples
 
     def __getitem__(self, idx):
         """
-        Get the graph at index idx.
+        Get the sample at index idx.
 
         :param idx: index
-        :returns: PyG Data object
+        :returns: sample
         """
-        graph = self._graphs[idx]
-        return graph
+        sample = self._samples[idx]
+        return sample
 
     def __len__(self) -> int:
         """
         Get the number of graphs in the dataset.
 
-        :return: number of graphs
+        :return: number of samples
         """
-        return len(self._graphs)
+        return len(self._samples)
