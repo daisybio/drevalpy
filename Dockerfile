@@ -26,7 +26,7 @@ COPY pyproject.toml poetry.lock ./
 # Because poetry will complain if a README.md is not found, we create a dummy one.
 RUN touch README.md
 
-RUN poetry install --without dev --no-root && rm -rf $POETRY_CACHE_DIR
+RUN poetry install --without development --no-root && rm -rf $POETRY_CACHE_DIR
 
 # The runtime image, used to run the code
 FROM python:3.10-slim-buster as runtime
