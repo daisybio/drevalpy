@@ -1,36 +1,46 @@
-"""
-Utility functions for the evaluation pipeline.
-"""
+"""Utility functions for the evaluation pipeline."""
 
 import argparse
-from typing import List
+import os
+from typing import Optional
 
+from sklearn.base import TransformerMixin
 from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
 
-from drevalpy.models import MODEL_FACTORY
-from drevalpy.datasets import RESPONSE_DATASET_FACTORY
-from drevalpy.evaluation import AVAILABLE_METRICS
-from drevalpy.experiment import drug_response_experiment
+from .datasets import AVAILABLE_DATASETS
+from .datasets.dataset import DrugResponseDataset
+from .datasets.loader import load_dataset
+from .evaluation import AVAILABLE_METRICS
+from .experiment import drug_response_experiment, pipeline_function
+from .models import MODEL_FACTORY
 
 
-def get_parser():
+@pipeline_function
+def get_parser() -> argparse.ArgumentParser:
     """
     Get the parser for the evaluation pipeline.
-    :return:
+
+    :returns: parser
     """
-    parser = argparse.ArgumentParser(
-        description="Run the drug response prediction model test suite."
-    )
+    parser = argparse.ArgumentParser(description="Run the drug response prediction model test suite.")
     parser.add_argument(
-        "--run_id", type=str, default="my_run", help="identifier to save the results"
-    )
-
-    parser.add_argument(
-        "--path_data", type=str, default="data", help="Path to the data directory"
+        "--run_id",
+        type=str,
+        default="my_run",
+        help="identifier to save the results",
     )
 
     parser.add_argument(
-        "--models", nargs="+", help="model to evaluate or list of models to compare"
+        "--path_data",
+        type=str,
+        default="data",
+        help="Path to the data directory",
+    )
+
+    parser.add_argument(
+        "--models",
+        nargs="+",
+        help="model to evaluate or list of models to compare",
     )
     parser.add_argument(
         "--baselines",
@@ -104,7 +114,10 @@ def get_parser():
     )
 
     parser.add_argument(
-        "--path_out", type=str, default="results/", help="Path to the output directory"
+        "--path_out",
+        type=str,
+        default="results/",
+        help="Path to the output directory",
     )
 
     parser.add_argument(
@@ -123,8 +136,7 @@ def get_parser():
         "--optim_metric",
         type=str,
         default="RMSE",
-        help=f"Metric for hyperparameter tuning choose from {list(AVAILABLE_METRICS.keys())} "
-        f"Default is RMSE.",
+        help=f"Metric for hyperparameter tuning choose from {list(AVAILABLE_METRICS.keys())} " f"Default is RMSE.",
     )
     parser.add_argument(
         "--n_cv_splits",
@@ -151,80 +163,83 @@ def get_parser():
     return parser
 
 
-def check_arguments(args):
+@pipeline_function
+def check_arguments(args) -> None:
     """
     Check the validity of the arguments for the evaluation pipeline.
-    :param args:
-    :return:
+
+    :param args: arguments passed from the command line
+    :raises AssertionError: if any of the arguments is invalid
+    :raises NotImplementedError: because CurveCurator is not implemented yet
+    :raises ValueError: if the number of cross-validation splits is less than 1
     """
-    assert args.models, "At least one model must be specified"
-    assert all(model in MODEL_FACTORY for model in args.models), (
-        f"Invalid model name. Available models are {list(MODEL_FACTORY.keys())}. If you want to "
-        f"use your own model, you need to implement a new model class and add it to the "
-        f"MODEL_FACTORY in the models init"
-    )
-    assert all(
-        test in ["LPO", "LCO", "LDO"] for test in args.test_mode
-    ), "Invalid test mode. Available test modes are LPO, LCO, LDO"
+    if not args.models:
+        raise AssertionError("At least one model must be specified")
+    if not all(model in MODEL_FACTORY for model in args.models):
+        raise AssertionError(
+            f"Invalid model name. Available models are {list(MODEL_FACTORY.keys())}. If you want to "
+            f"use your own model, you need to implement a new model class and add it to the "
+            f"MODEL_FACTORY in the models init"
+        )
+    if not all(test in ["LPO", "LCO", "LDO"] for test in args.test_mode):
+        raise AssertionError("Invalid test mode. Available test modes are LPO, LCO, LDO")
 
     if args.baselines is not None:
-        assert all(baseline in MODEL_FACTORY for baseline in args.baselines), (
-            f"Invalid baseline name. Available baselines are {list(MODEL_FACTORY.keys())}. If you "
-            f"want to use your own baseline, you need to implement a new model class and add it to "
-            f"the MODEL_FACTORY in the models init"
-        )
+        if not all(baseline in MODEL_FACTORY for baseline in args.baselines):
+            raise AssertionError(
+                f"Invalid baseline name. Available baselines are {list(MODEL_FACTORY.keys())}. If you "
+                f"want to use your own baseline, you need to implement a new model class and add it to "
+                f"the MODEL_FACTORY in the models init"
+            )
 
-    assert args.dataset_name in RESPONSE_DATASET_FACTORY, (
-        f"Invalid dataset name. Available datasets are {list(RESPONSE_DATASET_FACTORY.keys())} "
-        f"If you want to use your own dataset, you need to implement a new response dataset class "
-        f"and add it to the RESPONSE_DATASET_FACTORY in the response_datasets init"
-    )
+    if args.dataset_name not in AVAILABLE_DATASETS:
+        raise AssertionError(
+            f"Invalid dataset name. Available datasets are {list(AVAILABLE_DATASETS.keys())} "
+            f"If you want to use your own dataset, you need to implement a new response dataset loader "
+            f"and add it to the AVAILABLE_DATASETS in the response_datasets init"
+        )
 
     for dataset in args.cross_study_datasets:
-        assert dataset in RESPONSE_DATASET_FACTORY, (
-            f"Invalid dataset name in cross_study_datasets. Available datasets are "
-            f"{list(RESPONSE_DATASET_FACTORY.keys())} If you want to use your own dataset, you "
-            f"need to implement a new response dataset class and add it to the "
-            f"RESPONSE_DATASET_FACTORY in the response_datasets init"
-        )
+        if dataset not in AVAILABLE_DATASETS:
+            raise AssertionError(
+                f"Invalid dataset name in cross_study_datasets. Available datasets are "
+                f"{list(AVAILABLE_DATASETS.keys())} If you want to use your own dataset, you "
+                f"need to implement a new response dataset loader and add it to the "
+                f"AVAILABLE_DATASETS in the response_datasets init."
+            )
 
-    assert (
-        args.n_cv_splits > 1
-    ), "Number of cross-validation splits must be greater than 1"
+    # if the path to args.path_data does not exist, create the directory
+    os.makedirs(args.path_data, exist_ok=True)
+
+    if args.n_cv_splits <= 1:
+        raise ValueError("Number of cross-validation splits must be greater than 1")
 
     # TODO Allow for custom randomization tests maybe via config file
     if args.randomization_mode[0] != "None":
-        assert all(
-            randomization in ["SVCC", "SVRC", "SVSC", "SVRD"]
-            for randomization in args.randomization_mode
-        ), (
-            "At least one invalid randomization mode. Available randomization modes are SVCC, "
-            "SVRC, SVSC, SVRD"
-        )
+        if not all(randomization in ["SVCC", "SVRC", "SVSC", "SVRD"] for randomization in args.randomization_mode):
+            raise AssertionError(
+                "At least one invalid randomization mode. Available randomization modes are SVCC, " "SVRC, SVSC, SVRD"
+            )
     if args.curve_curator:
         raise NotImplementedError("CurveCurator not implemented")
-    assert args.response_transformation in [
-        "None",
-        "standard",
-        "minmax",
-        "robust",
-    ], "Invalid response_transformation. Choose from None, standard, minmax, robust"
-    assert args.optim_metric in AVAILABLE_METRICS, (
-        f"Invalid optim_metric for hyperparameter tuning. Choose from"
-        f" {list(AVAILABLE_METRICS.keys())}"
-    )
+    if args.response_transformation not in ["None", "standard", "minmax", "robust"]:
+        raise AssertionError("Invalid response_transformation. Choose from None, standard, minmax, robust")
+    if args.optim_metric not in AVAILABLE_METRICS:
+        raise AssertionError(
+            f"Invalid optim_metric for hyperparameter tuning. Choose from" f" {list(AVAILABLE_METRICS.keys())}"
+        )
 
 
-def main(args):
+def main(args) -> None:
     """
     Main function to run the drug response evaluation pipeline.
+
     :param args: passed from command line
-    :return:
     """
     check_arguments(args)
 
     # PIPELINE: LOAD_RESPONSE
-    response_data, cross_study_datasets = load_data(
+    response_data, cross_study_datasets = get_datasets(
         dataset_name=args.dataset_name,
         cross_study_datasets=args.cross_study_datasets,
         path_data=args.path_data,
@@ -263,29 +278,33 @@ def main(args):
         )
 
 
-def load_data(dataset_name: str, cross_study_datasets: List, path_data: str = "data"):
+def get_datasets(
+    dataset_name: str, cross_study_datasets: list, path_data: str = "data"
+) -> tuple[DrugResponseDataset, Optional[list[DrugResponseDataset]]]:
     """
     Load the response data and cross-study datasets.
-    :param dataset_name:
-    :param cross_study_datasets:
-    :param path_data:
-    :return:
+
+    :param dataset_name: name of the dataset
+    :param cross_study_datasets: list of cross-study datasets
+    :param path_data: path to the data directory, default is "data"
+    :returns: response data and, potentially, cross-study datasets
     """
     # PIPELINE: LOAD_RESPONSE
-    response_data = RESPONSE_DATASET_FACTORY[dataset_name](path_data=path_data)
+    response_data = load_dataset(dataset_name=dataset_name, path_data=path_data)
 
-    cross_study_datasets = [
-        RESPONSE_DATASET_FACTORY[dataset](path_data=path_data)
-        for dataset in cross_study_datasets
-    ]
+    cross_study_datasets = [load_dataset(dataset_name=dn, path_data=path_data) for dn in cross_study_datasets]
     return response_data, cross_study_datasets
 
 
-def get_response_transformation(response_transformation: str):
+@pipeline_function
+def get_response_transformation(response_transformation: str) -> Optional[TransformerMixin]:
     """
-    Get the response transformation object.
-    :param response_transformation:
-    :return:
+    Get the skelarn response transformation object of choice.
+
+    Users can choose from "None", "standard", "minmax", "robust".
+    :param response_transformation: response transformation to apply
+    :returns: response transformation object
+    :raises ValueError: if the response transformation is not recognized
     """
     if response_transformation == "None":
         return None

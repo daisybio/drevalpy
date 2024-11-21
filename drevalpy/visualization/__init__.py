@@ -1,3 +1,5 @@
+"""Module containing the drevalpy plotly visualizations."""
+
 __all__ = [
     "CorrelationComparisonScatter",
     "CriticalDifferencePlot",

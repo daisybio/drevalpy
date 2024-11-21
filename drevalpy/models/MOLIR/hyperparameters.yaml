@@ -1,0 +1,28 @@
+---
+MOLIR:
+  mini_batch:
+    - 32
+  h_dim1:
+    - 64
+    - 32
+    - 16
+  h_dim2:
+    - 64
+    - 32
+    - 16
+  h_dim3:
+    - 64
+    - 32
+    - 16
+  learning_rate:
+    - 0.01
+  dropout_rate:
+    - 0.5
+  weight_decay:
+    - 0.0001
+  gamma:
+    - 0.5
+  epochs:
+    - 30
+  margin:
+    - 1.5

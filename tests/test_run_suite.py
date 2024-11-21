@@ -1,10 +1,9 @@
-"""
-Tests whether the main function of the package runs without errors and produces the expected output.
-"""
+"""Tests whether the main function of the package runs without errors and produces the expected output."""
 
 import os
-from argparse import Namespace
 import tempfile
+from argparse import Namespace
+
 import pytest
 
 from drevalpy.utils import main
@@ -17,17 +16,17 @@ from drevalpy.visualization.utils import parse_results, prep_results
         {
             "run_id": "test_run",
             "dataset_name": "Toy_Data",
-            "models": ["ElasticNet"],
+            "models": ["NaiveCellLineMeanPredictor"],
             "baselines": ["NaiveDrugMeanPredictor"],
             "test_mode": ["LPO"],
             "randomization_mode": ["SVRC"],
             "randomization_type": "permutation",
             "n_trials_robustness": 2,
-            "cross_study_datasets": ["GDSC2"],
+            "cross_study_datasets": ["GDSC1"],
             "curve_curator": False,
             "overwrite": False,
             "optim_metric": "RMSE",
-            "n_cv_splits": 5,
+            "n_cv_splits": 2,
             "response_transformation": "None",
             "multiprocessing": False,
             "path_data": "../data",
@@ -36,21 +35,22 @@ from drevalpy.visualization.utils import parse_results, prep_results
 )
 def test_run_suite(args):
     """
-    Tests run_suite.py, i.e., all functionality of the main package
-    :param args:
-    :return:
+    Tests run_suite.py, i.e., all functionality of the main package.
+
+    :param args: arguments for the main function
     """
     temp_dir = tempfile.TemporaryDirectory()
     args["path_out"] = temp_dir.name
     args = Namespace(**args)
     main(args)
     assert os.listdir(temp_dir.name) == ["test_run"]
+
     (
         evaluation_results,
         evaluation_results_per_drug,
         evaluation_results_per_cell_line,
         true_vs_pred,
-    ) = parse_results(path_to_results=f"{temp_dir.name}/{args.run_id}")
+    ) = parse_results(path_to_results=os.path.join(temp_dir.name, args.run_id))
 
     (
         evaluation_results,
@@ -63,31 +63,24 @@ def test_run_suite(args):
         evaluation_results_per_cell_line,
         true_vs_pred,
     )
-
     assert len(evaluation_results.columns) == 22
     assert len(evaluation_results_per_drug.columns) == 15
     assert len(evaluation_results_per_cell_line.columns) == 15
     assert len(true_vs_pred.columns) == 12
 
     assert all(model in evaluation_results.algorithm.unique() for model in args.models)
-    assert all(
-        baseline in evaluation_results.algorithm.unique() for baseline in args.baselines
-    )
+    assert all(baseline in evaluation_results.algorithm.unique() for baseline in args.baselines)
     assert "predictions" in evaluation_results.rand_setting.unique()
     if len(args.randomization_mode) > 0:
         for rand_setting in args.randomization_mode:
             assert any(
-                setting.startswith(f"randomize-{rand_setting}")
-                for setting in evaluation_results.rand_setting.unique()
+                setting.startswith(f"randomize-{rand_setting}") for setting in evaluation_results.rand_setting.unique()
             )
     if args.n_trials_robustness > 0:
         assert any(
             setting.startswith(f"robustness-{args.n_trials_robustness}")
             for setting in evaluation_results.rand_setting.unique()
         )
-    assert all(
-        test_mode in evaluation_results.LPO_LCO_LDO.unique()
-        for test_mode in args.test_mode
-    )
+    assert all(test_mode in evaluation_results.LPO_LCO_LDO.unique() for test_mode in args.test_mode)
     assert evaluation_results.CV_split.astype(int).max() == (args.n_cv_splits - 1)
     assert evaluation_results.Pearson.astype(float).max() > 0.5
