@@ -15,10 +15,10 @@ DrEvalPy: Python Cancer Cell Line Drug Response Prediction Suite
 .. |Read the Docs| image:: https://img.shields.io/readthedocs/drevalpy/latest.svg?label=Read%20the%20Docs
    :target: https://drevalpy.readthedocs.io/
    :alt: Read the documentation at https://drevalpy.readthedocs.io/
-.. |Build| image:: https://github.com/daisybio/drevalpy/workflows/Build%20drevalpy%20Package/badge.svg
+.. |Build| image:: https://github.com/daisybio/drevalpy/actions/workflows/build_package.yml/badge.svg
    :target: https://github.com/daisybio/drevalpy/actions?workflow=Package
    :alt: Build Package Status
-.. |Tests| image:: https://github.com/daisybio/drevalpy/workflows/Run%20drevalpy%20Tests/badge.svg
+.. |Tests| image:: https://github.com/daisybio/drevalpy/actions/workflows/run_tests.yml/badge.svg
    :target: https://github.com/daisybio/drevalpy/actions?workflow=Tests
    :alt: Run Tests Status
 .. |Codecov| image:: https://codecov.io/gh/daisybio/drevalpy/branch/main/graph/badge.svg
