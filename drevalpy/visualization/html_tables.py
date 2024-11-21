@@ -1,22 +1,42 @@
+"""Renders the evaluation results as HTML tables."""
+
 import os
-from typing import TextIO
+from io import TextIOWrapper
 
 import pandas as pd
 
-from drevalpy.visualization.outplot import OutPlot
+from ..pipeline_function import pipeline_function
+from .outplot import OutPlot
 
 
 class HTMLTable(OutPlot):
+    """Renders the evaluation results as HTML tables."""
+
+    @pipeline_function
     def __init__(self, df: pd.DataFrame, group_by: str):
+        """
+        Initialize the HTMLTable class.
+
+        :param df: either all results of a setting or results evaluated by group (cell line, drug) for a setting
+        :param group_by: all or the group by which the results are evaluated
+        """
         self.df = df
         self.group_by = group_by
 
+    @pipeline_function
     def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
-        self.__draw__()
+        """
+        Draw the table and save it to a file.
+
+        :param out_prefix: e.g., results/my_run/html_tables/
+        :param out_suffix: e.g., LPO, LPO_drug
+        """
+        self._draw()
         path_out = f"{out_prefix}table_{out_suffix}.html"
         self.df.to_html(path_out, index=False)
 
-    def __draw__(self) -> None:
+    def _draw(self) -> None:
+        """Draw the table."""
         selected_columns = [
             "algorithm",
             "rand_setting",
@@ -66,8 +86,18 @@ class HTMLTable(OutPlot):
         self.df = self.df[selected_columns]
 
     @staticmethod
-    def write_to_html(lpo_lco_ldo: str, f: TextIO, prefix: str = "", *args, **kwargs) -> TextIO:
-        files = kwargs.get("files")
+    def write_to_html(lpo_lco_ldo: str, f: TextIOWrapper, prefix: str = "", *args, **kwargs) -> TextIOWrapper:
+        """
+        Write the evaluation results into the report HTML file.
+
+        :param lpo_lco_ldo: setting, e.g., LPO
+        :param f: report file
+        :param prefix: e.g., results/my_run
+        :param args: additional arguments
+        :param kwargs: additional keyword arguments
+        :return: the report file
+        """
+        files: list[str] = kwargs.get("files", [])
         if prefix != "":
             prefix = os.path.join(prefix, "html_tables")
         f.write('<h2 id="tables"> Evaluation Results Table</h2>\n')
@@ -85,7 +115,7 @@ class HTMLTable(OutPlot):
         return f
 
 
-def _write_table(f: TextIO, table: str, prefix: str = ""):
+def _write_table(f: TextIOWrapper, table: str, prefix: str = ""):
     with open(os.path.join(prefix, table)) as eval_f:
         eval_results = eval_f.readlines()
         eval_results[0] = eval_results[0].replace(

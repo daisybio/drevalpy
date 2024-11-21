@@ -1,7 +1,11 @@
+"""Contains functions to load the GDSC1, GDSC2, CCLE, and Toy datasets."""
+
 import os
+from typing import Callable
 
 import pandas as pd
 
+from ..pipeline_function import pipeline_function
 from .dataset import DrugResponseDataset
 from .utils import download_dataset
 
@@ -15,7 +19,7 @@ def load_gdsc1(
     :param path_data: Path to the dataset.
     :param file_name: File name of the dataset.
     :param dataset_name: Name of the dataset.
-    :return: Dictionary containing response, cell line IDs, and drug IDs.
+    :return: DrugResponseDataset containing response, cell line IDs, and drug IDs.
     """
     path = os.path.join(path_data, dataset_name, file_name)
     if not os.path.exists(path):
@@ -38,7 +42,7 @@ def load_gdsc2(path_data: str = "data", file_name: str = "response_GDSC2.csv"):
 
     :param path_data: Path to the dataset.
     :param file_name: File name of the dataset.
-    :return: Dictionary containing response, cell line IDs, and drug IDs.
+    :return: DrugResponseDataset containing response, cell line IDs, and drug IDs.
     """
     return load_gdsc1(path_data=path_data, file_name=file_name, dataset_name="GDSC2")
 
@@ -49,7 +53,7 @@ def load_ccle(path_data: str = "data", file_name: str = "response_CCLE.csv") -> 
 
     :param path_data: Path to the dataset.
     :param file_name: File name of the dataset.
-    :return: Dictionary containing response, cell line IDs, and drug IDs.
+    :return: DrugResponseDataset containing response, cell line IDs, and drug IDs.
     """
     dataset_name = "CCLE"
     path = os.path.join(path_data, dataset_name, file_name)
@@ -72,8 +76,7 @@ def load_toy(path_data: str = "data") -> DrugResponseDataset:
     Loads small Toy dataset, subsampled from GDSC1.
 
     :param path_data: Path to the dataset.
-    :param file_name: File name of the dataset.
-    :return: Dictionary containing response, cell line IDs, and drug IDs.
+    :return: DrugResponseDataset containing response, cell line IDs, and drug IDs.
     """
     dataset_name = "Toy_Data"
     path = os.path.join(path_data, dataset_name, "toy_data.csv")
@@ -89,18 +92,25 @@ def load_toy(path_data: str = "data") -> DrugResponseDataset:
     )
 
 
-AVAILABLE_DATASETS = {"GDSC1": load_gdsc1, "GDSC2": load_gdsc2, "CCLE": load_ccle, "Toy_Data": load_toy}
+AVAILABLE_DATASETS: dict[str, Callable] = {
+    "GDSC1": load_gdsc1,
+    "GDSC2": load_gdsc2,
+    "CCLE": load_ccle,
+    "Toy_Data": load_toy,
+}
 
 
+@pipeline_function
 def load_dataset(dataset_name: str, path_data: str = "data") -> DrugResponseDataset:
     """
     Load a dataset based on the dataset name.
 
     :param dataset_name: The name of the dataset to load ('GDSC1', 'GDSC2', 'CCLE', or 'Toy_Data').
     :param path_data: The path to the dataset.
-    :return: A dictionary containing response, cell line IDs, drug IDs, and dataset name.
+    :return: A DrugResponseDataset containing response, cell line IDs, drug IDs, and dataset name.
+    :raises ValueError: If the dataset name is unknown.
     """
     if dataset_name in AVAILABLE_DATASETS:
-        return AVAILABLE_DATASETS[dataset_name](path_data)
+        return AVAILABLE_DATASETS[dataset_name](path_data)  # type: ignore
     else:
         raise ValueError(f"Unknown dataset name: {dataset_name}")

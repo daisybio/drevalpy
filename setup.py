@@ -1,3 +1,5 @@
+"""Setup file for the drevalpy package."""
+
 from setuptools import find_packages, setup
 
 setup(
@@ -45,7 +47,7 @@ setup(
     package_data={
         "": [
             "models/baselines/hyperparameters.yaml",
-            "models/simple_neural_network/hyperparameters.yaml",
+            "models/SimpleNeuralNetwork/hyperparameters.yaml",
             "visualization/style_utils/favicon.png",
             "visualization/style_utils/index_layout.html",
             "visualization/style_utils/LCO.png",

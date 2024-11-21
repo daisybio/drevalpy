@@ -1,10 +1,8 @@
-"""
-Utility functions for the simple neural network models.
-"""
+"""Utility functions for the simple neural network models."""
 
 import os
-import random
-from typing import Optional
+import secrets
+from typing import Any
 
 import numpy as np
 import pytorch_lightning as pl
@@ -17,19 +15,29 @@ from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 
 
 class RegressionDataset(Dataset):
-    """
-    Dataset for regression tasks for the data loader.
-    """
+    """Dataset for regression tasks for the data loader."""
 
     def __init__(
         self,
         output: DrugResponseDataset,
-        cell_line_input: FeatureDataset = None,
-        drug_input: FeatureDataset = None,
-        cell_line_views: list[str] = None,
-        drug_views: list[str] = None,
+        cell_line_input: FeatureDataset,
+        drug_input: FeatureDataset,
+        cell_line_views: list[str],
+        drug_views: list[str],
         met_transform=None,
     ):
+        """
+        Initializes the regression dataset.
+
+        :param output: response values
+        :param cell_line_input: input omics data
+        :param drug_input: input fingerprint data
+        :param cell_line_views: either gene expression for the SimpleNeuralNetwork or all omics data for the
+            MultiOMICSNeuralNetwork
+        :param drug_views: fingerprints
+        :param met_transform: How to transform the methylation data for the MultiOMICSNeuralNetwork (the fitted PCA)
+        :raises AssertionError: if the views are not found in the input data
+        """
         self.cell_line_views = cell_line_views
         self.drug_views = drug_views
         self.output = output
@@ -44,6 +52,15 @@ class RegressionDataset(Dataset):
         self.met_transform = met_transform
 
     def __getitem__(self, idx):
+        """
+        Overwrites the getitem method from the Dataset class.
+
+        Retrieves the cell line and drug features and the response for the given index. If methylation data is
+        present, the data is transformed using the fitted PCA.
+        :param idx: index of the sample of interest
+        :returns: the cell line feature(s) and the response
+        :raises TypeError: if the features are not numpy arrays
+        """
         cell_line_id = self.output.cell_line_ids[idx]
         drug_id = self.output.drug_ids[idx]
         response = self.output.response[idx]
@@ -77,45 +94,78 @@ class RegressionDataset(Dataset):
         return data, response
 
     def __len__(self):
-        "Overwrites the len method."
+        """
+        Overwrites the len method from the Dataset class.
+
+        :returns: the length of the output
+        """
         return len(self.output.response)
 
 
 class FeedForwardNetwork(pl.LightningModule):
-    """
-    Feed forward neural network for regression tasks with basic architecture.
-    """
+    """Feed forward neural network for regression tasks with basic architecture."""
 
-    def __init__(self, n_units_per_layer=None, dropout_prob=None) -> None:
+    def __init__(self, hyperparameters: dict[str, int | float | list[int]], input_dim: int) -> None:
+        """
+        Initializes the feed forward network.
+
+        The model uses a simple architecture with fully connected layers, batch normalization, and dropout. An MSE
+        loss is used.
+
+        :param hyperparameters: hyperparameters
+        :param input_dim: input dimension, for SimpleNeuralNetwork it is the sum of the gene expression and
+            fingerprint, for MultiOMICSNeuralNetwork it is the sum of all omics data and fingerprints
+        :raises TypeError: if the hyperparameters are not of the correct type
+        """
         super().__init__()
-        if n_units_per_layer is None:
-            n_units_per_layer = [256, 64]
+        self.save_hyperparameters()
+
+        if not isinstance(hyperparameters["units_per_layer"], list):
+            raise TypeError("units_per_layer must be a list of integers")
+        if not isinstance(hyperparameters["dropout_prob"], float):
+            raise TypeError("dropout_prob must be a float")
+
+        n_units_per_layer: list[int] = hyperparameters["units_per_layer"]
+        dropout_prob: float = hyperparameters["dropout_prob"]
         self.n_units_per_layer = n_units_per_layer
         self.dropout_prob = dropout_prob
-        self.model_initialized = False
         self.loss = nn.MSELoss()
-        self.checkpoint_callback = None
+        # self.checkpoint_callback is initialized in the fit method
+        self.checkpoint_callback: pl.callbacks.ModelCheckpoint | None = None
         self.fully_connected_layers = nn.ModuleList()
         self.batch_norm_layers = nn.ModuleList()
         self.dropout_layer = None
+
+        self.fully_connected_layers.append(nn.Linear(input_dim, self.n_units_per_layer[0]))
+        self.batch_norm_layers.append(nn.BatchNorm1d(self.n_units_per_layer[0]))
+
+        for i in range(1, len(self.n_units_per_layer)):
+            self.fully_connected_layers.append(nn.Linear(self.n_units_per_layer[i - 1], self.n_units_per_layer[i]))
+            self.batch_norm_layers.append(nn.BatchNorm1d(self.n_units_per_layer[i]))
+
+        self.fully_connected_layers.append(nn.Linear(self.n_units_per_layer[-1], 1))
+        if self.dropout_prob is not None:
+            self.dropout_layer = nn.Dropout(p=self.dropout_prob)
 
     def fit(
         self,
         output_train: DrugResponseDataset,
         cell_line_input: FeatureDataset,
-        drug_input: FeatureDataset = None,
-        cell_line_views: list[str] = None,
-        drug_views: list[str] = None,
-        output_earlystopping: Optional[DrugResponseDataset] = None,
-        trainer_params: Optional[dict] = None,
+        drug_input: FeatureDataset | None,
+        cell_line_views: list[str],
+        drug_views: list[str],
+        output_earlystopping: DrugResponseDataset | None = None,
+        trainer_params: dict | None = None,
         batch_size=32,
         patience=5,
-        checkpoint_path: Optional[str] = None,
+        checkpoint_path: str | None = None,
         num_workers: int = 2,
-        met_transform=None,
+        met_transform: Any = None,
     ) -> None:
         """
         Fits the model.
+
+        First, the data is loaded using a DataLoader. Then, the model is trained using the Lightning Trainer.
         :param output_train: Response values for training
         :param cell_line_input: Cell line features
         :param drug_input: Drug features
@@ -123,13 +173,18 @@ class FeedForwardNetwork(pl.LightningModule):
         :param drug_views: Drug info needed for this model
         :param output_earlystopping: Response values for early stopping
         :param trainer_params: custom parameters for the trainer
-        :param batch_size:
-        :param patience:
-        :param checkpoint_path:
-        :param num_workers:
-        :param met_transform:
-        :return:
+        :param batch_size: batch size for the DataLoader, default is 32
+        :param patience: patience for early stopping, default is 5
+        :param checkpoint_path: path to save the checkpoints
+        :param num_workers: number of workers for the DataLoader, default is 2
+        :param met_transform: transformation for methylation data, default is None, PCA is used for the MultiOMICSNN.
+        :raises ValueError: if drug_input is missing
         """
+        if drug_input is None:
+            raise ValueError(
+                "Drug input (fingerprints) are required for SimpleNeuralNetwork and " "MultiOMICsNeuralNetwork."
+            )
+
         if trainer_params is None:
             trainer_params = {
                 "progress_bar_refresh_rate": 300,
@@ -176,7 +231,7 @@ class FeedForwardNetwork(pl.LightningModule):
 
         early_stop_callback = EarlyStopping(monitor=monitor, mode="min", patience=patience)
         name = "version-" + "".join(
-            [random.choice("0123456789abcdef") for i in range(20)]
+            [secrets.choice("0123456789abcdef") for i in range(20)]
         )  # preventing conflicts of filenames
         self.checkpoint_callback = pl.callbacks.ModelCheckpoint(
             dirpath=checkpoint_path,
@@ -190,9 +245,6 @@ class FeedForwardNetwork(pl.LightningModule):
         trainer_params_copy = trainer_params.copy()
         del trainer_params_copy["progress_bar_refresh_rate"]
 
-        # Force initialize model with dummy data
-        self.force_initialize(train_loader)
-
         # Initialize the Lightning trainer
         trainer = pl.Trainer(
             callbacks=[
@@ -204,22 +256,17 @@ class FeedForwardNetwork(pl.LightningModule):
             **trainer_params_copy,
         )
         if val_loader is None:
-
             trainer.fit(self, train_loader)
         else:
             trainer.fit(self, train_loader, val_loader)
-        # TODO use best model from history self.load_from_checkpoint(
-        #  self.checkpoint_callback.best_model_path)
 
-    def forward(self, x):
+    def forward(self, x) -> torch.Tensor:
         """
         Forward pass of the model.
-        :param x:
-        :return:
-        """
-        if not self.model_initialized:
-            self.initialize_model(x)
 
+        :param x: input data
+        :returns: predicted response
+        """
         for i in range(len(self.fully_connected_layers) - 2):
             x = self.fully_connected_layers[i](x)
             x = self.batch_norm_layers[i](x)
@@ -232,59 +279,64 @@ class FeedForwardNetwork(pl.LightningModule):
 
         return x.squeeze()
 
-    def initialize_model(self, x):
-        """
-        Initializes the model.
-        :param x:
-        :return:
-        """
-        n_features = x.size(1)
-        self.fully_connected_layers.append(nn.Linear(n_features, self.n_units_per_layer[0]))
-        self.batch_norm_layers.append(nn.BatchNorm1d(self.n_units_per_layer[0]))
-
-        for i in range(1, len(self.n_units_per_layer)):
-            self.fully_connected_layers.append(nn.Linear(self.n_units_per_layer[i - 1], self.n_units_per_layer[i]))
-            self.batch_norm_layers.append(nn.BatchNorm1d(self.n_units_per_layer[i]))
-
-        self.fully_connected_layers.append(nn.Linear(self.n_units_per_layer[-1], 1))
-        if self.dropout_prob is not None:
-            self.dropout_layer = nn.Dropout(p=self.dropout_prob)
-        self.model_initialized = True
-
-    def force_initialize(self, dataloader):
-        """Force initialize the model by running a dummy forward pass."""
-        for batch in dataloader:
-            x, _ = batch
-            self.forward(x)
-            break
-
     def _forward_loss_and_log(self, x, y, log_as: str):
+        """
+        Forward pass, calculates the loss, and logs the loss.
+
+        :param x: input data
+        :param y: response
+        :param log_as: either train_loss or val_loss
+        :returns: loss
+        """
         y_pred = self.forward(x)
         result = self.loss(y_pred, y)
         self.log(log_as, result, on_step=True, on_epoch=True, prog_bar=True)
         return result
 
     def training_step(self, batch):
+        """
+        Overwrites the training step from the LightningModule.
+
+        Does a forward pass, calculates the loss and logs the loss.
+        :param batch: batch of data
+        :returns: loss
+        """
         x, y = batch
         return self._forward_loss_and_log(x, y, "train_loss")
 
     def validation_step(self, batch):
+        """
+        Overwrites the validation step from the LightningModule.
+
+        Does a forward pass, calculates the loss and logs the loss.
+        :param batch: batch of data
+        :returns: loss
+        """
         x, y = batch
         return self._forward_loss_and_log(x, y, "val_loss")
 
     def predict(self, x: np.ndarray) -> np.ndarray:
         """
         Predicts the response for the given input.
-        :param x:
-        :return:
+
+        :param x: input data
+        :returns: predicted response
         """
-        is_training = self.training
-        self.eval()
+        if hasattr(self, "checkpoint_callback") and self.checkpoint_callback is not None:
+            best_model = FeedForwardNetwork.load_from_checkpoint(self.checkpoint_callback.best_model_path)
+        else:
+            best_model = self
+        is_training = best_model.training
+        best_model.eval()
         with torch.no_grad():
-            y_pred = self.forward(torch.from_numpy(x).float())
-        self.train(is_training)
+            y_pred = best_model.forward(torch.from_numpy(x).float().to(best_model.device))
+        best_model.train(is_training)
         return y_pred.cpu().detach().numpy()
 
-    def configure_optimizers(self):
+    def configure_optimizers(self) -> torch.optim.Optimizer:
+        """
+        Overwrites the configure_optimizers from the LightningModule.
 
+        :returns: Adam optimizer
+        """
         return torch.optim.Adam(self.parameters())

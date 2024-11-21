@@ -1,5 +1,8 @@
+"""Tests for the DRPModel."""
+
 import os
 import tempfile
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -17,7 +20,8 @@ from drevalpy.models.utils import (
 )
 
 
-def test_factory():
+def test_factory() -> None:
+    """Test the model factory."""
     assert "NaivePredictor" in MODEL_FACTORY
     assert "NaiveDrugMeanPredictor" in MODEL_FACTORY
     assert "NaiveCellLineMeanPredictor" in MODEL_FACTORY
@@ -32,23 +36,33 @@ def test_factory():
     assert "GradientBoosting" in MODEL_FACTORY
     assert "MOLIR" in MODEL_FACTORY
     assert "SuperFELTR" in MODEL_FACTORY
-    assert len(MODEL_FACTORY) == 14
+    assert "DIPK" in MODEL_FACTORY
+    assert len(MODEL_FACTORY) == 15
 
 
-def test_load_cl_ids_from_csv():
+def test_load_cl_ids_from_csv() -> None:
+    """Test the loading of cell line identifiers from a CSV file."""
     temp = tempfile.TemporaryDirectory()
     os.mkdir(os.path.join(temp.name, "GDSC1_small"))
     temp_file = os.path.join(temp.name, "GDSC1_small", "cell_line_names.csv")
     with open(temp_file, "w") as f:
-        f.write("cellosaurus_id,CELL_LINE_NAME\nCVCL_X481,201T\nCVCL_1045,22Rv1\n"
-                "CVCL_1046,23132/87\nCVCL_1798,42-MG-BA\n")
+        f.write(
+            "cellosaurus_id,CELL_LINE_NAME\nCVCL_X481,201T\nCVCL_1045,22Rv1\n"
+            "CVCL_1046,23132/87\nCVCL_1798,42-MG-BA\n"
+        )
 
     cl_ids_gdsc1 = load_cl_ids_from_csv(temp.name, "GDSC1_small")
     assert len(cl_ids_gdsc1.features) == 4
     assert cl_ids_gdsc1.identifiers[0] == "201T"
 
 
-def write_gene_list(temp_dir, gene_list):
+def _write_gene_list(temp_dir: tempfile.TemporaryDirectory, gene_list: Optional[str] = None) -> None:
+    """
+    Write a gene list to a temporary directory.
+
+    :param temp_dir: temporary directory
+    :param gene_list: either None, landmark_genes, drug_target_genes_all_drugs, or gene_list_paccmann_network_prop
+    """
     os.mkdir(os.path.join(temp_dir.name, "GDSC1_small", "gene_lists"))
     temp_file = os.path.join(temp_dir.name, "GDSC1_small", "gene_lists", f"{gene_list}.csv")
     if gene_list == "landmark_genes":
@@ -78,7 +92,12 @@ def write_gene_list(temp_dir, gene_list):
         "gene_list_paccmann_network_prop",
     ],
 )
-def test_load_and_reduce_gene_features(gene_list):
+def test_load_and_reduce_gene_features(gene_list: Optional[str]) -> None:
+    """
+    Test the loading and reduction of gene features.
+
+    :param gene_list: either None, landmark_genes, drug_target_genes_all_drugs, or gene_list_paccmann_network_prop
+    """
     temp = tempfile.TemporaryDirectory()
     os.mkdir(os.path.join(temp.name, "GDSC1_small"))
     temp_file = os.path.join(temp.name, "GDSC1_small", "gene_expression.csv")
@@ -97,7 +116,7 @@ def test_load_and_reduce_gene_features(gene_list):
             "3.54519297942073,3.9337949618623704,2.8629939819029904\n"
         )
     if gene_list is not None:
-        write_gene_list(temp, gene_list)
+        _write_gene_list(temp, gene_list)
 
     if gene_list == "gene_list_paccmann_network_prop":
         with pytest.raises(ValueError) as valerr:
@@ -106,17 +125,20 @@ def test_load_and_reduce_gene_features(gene_list):
         gene_features_gdsc1 = load_and_reduce_gene_features("gene_expression", gene_list, temp.name, "GDSC1_small")
     if gene_list is None:
         assert len(gene_features_gdsc1.features) == 5
+        assert gene_features_gdsc1.meta_info is not None
         assert len(gene_features_gdsc1.meta_info["gene_expression"]) == 7
         gene_names = ["TSPAN6", "TNMD", "BRCA1", "SCYL3", "HDAC1", "INSIG1", "FOXO3"]
         assert np.all(gene_features_gdsc1.meta_info["gene_expression"] == gene_names)
     elif gene_list == "landmark_genes":
         assert len(gene_features_gdsc1.features) == 5
+        assert gene_features_gdsc1.meta_info is not None
         assert len(gene_features_gdsc1.meta_info["gene_expression"]) == 4
         colnames = gene_features_gdsc1.meta_info["gene_expression"]
         colnames.sort()
         assert np.all(colnames == ["BRCA1", "FOXO3", "INSIG1", "SCYL3"])
     elif gene_list == "drug_target_genes_all_drugs":
         assert len(gene_features_gdsc1.features) == 5
+        assert gene_features_gdsc1.meta_info is not None
         assert len(gene_features_gdsc1.meta_info["gene_expression"]) == 3
         colnames = gene_features_gdsc1.meta_info["gene_expression"]
         colnames.sort()
@@ -125,7 +147,8 @@ def test_load_and_reduce_gene_features(gene_list):
         assert "The following genes are missing from the dataset GDSC1_small" in str(valerr.value)
 
 
-def test_iterate_features():
+def test_iterate_features() -> None:
+    """Test the iteration over features."""
     df = pd.DataFrame({"GeneA": [1, 2, 3, 2], "GeneB": [4, 5, 6, 2], "GeneC": [7, 8, 9, 2]})
     df.index = ["CellLine1", "CellLine2", "CellLine3", "CellLine1"]
     with pytest.warns(UserWarning):
@@ -134,7 +157,8 @@ def test_iterate_features():
     assert np.all(features["CellLine1"]["gene_expression"] == [1, 4, 7])
 
 
-def test_load_drug_ids_from_csv():
+def test_load_drug_ids_from_csv() -> None:
+    """Test the loading of drug identifiers from a CSV file."""
     temp = tempfile.TemporaryDirectory()
     os.mkdir(os.path.join(temp.name, "GDSC1_small"))
     temp_file = os.path.join(temp.name, "GDSC1_small", "drug_names.csv")
@@ -145,7 +169,8 @@ def test_load_drug_ids_from_csv():
     assert drug_ids_gdsc1.identifiers[0] == "(5Z)-7-Oxozeaenol"
 
 
-def test_load_drugs_from_fingerprints():
+def test_load_drugs_from_fingerprints() -> None:
+    """Test the loading of drugs from fingerprints."""
     temp = tempfile.TemporaryDirectory()
     os.mkdir(os.path.join(temp.name, "GDSC1_small"))
     os.mkdir(os.path.join(temp.name, "GDSC1_small", "drug_fingerprints"))
@@ -185,7 +210,12 @@ def test_load_drugs_from_fingerprints():
         "gene_list_paccmann_network_prop",
     ],
 )
-def test_get_multiomics_feature_dataset(gene_list):
+def test_get_multiomics_feature_dataset(gene_list: Optional[str]) -> None:
+    """
+    Test the loading of multiomics features.
+
+    :param gene_list: list of genes to keep
+    """
     temp = tempfile.TemporaryDirectory()
     os.mkdir(os.path.join(temp.name, "GDSC1_small"))
     # gene expression
@@ -240,7 +270,7 @@ def test_get_multiomics_feature_dataset(gene_list):
             "CVCL_1045,22Rv1,1.0,1.0,-1.0,1.0,1.0,1.0,1.0\n"
         )
     if gene_list is not None:
-        write_gene_list(temp, gene_list)
+        _write_gene_list(temp, gene_list)
     if gene_list == "gene_list_paccmann_network_prop":
         with pytest.raises(ValueError) as valerr:
             dataset = get_multiomics_feature_dataset(
@@ -255,48 +285,48 @@ def test_get_multiomics_feature_dataset(gene_list):
             gene_list=gene_list,
         )
         assert len(dataset.features) == 2
-        common_cls = dataset.get_ids()
+        common_cls = dataset.identifiers
         common_cls.sort()
         assert np.all(common_cls == ["22Rv1", "CAL-120"])
+        assert dataset.meta_info is not None
         assert len(dataset.meta_info) == 4
     if gene_list is None:
+        assert dataset.meta_info is not None
         assert np.all(
             dataset.meta_info["gene_expression"] == ["TSPAN6", "TNMD", "BRCA1", "SCYL3", "HDAC1", "INSIG1", "FOXO3"]
         )
         for key in dataset.meta_info:
             assert len(dataset.meta_info[key]) == 7
-    elif gene_list == "landmark_genes":
-        feature_names = []
-        for key in dataset.meta_info:
-            if key == "methylation":
-                assert len(dataset.meta_info[key]) == 7
-            else:
-                assert len(dataset.meta_info[key]) == 4
-                if len(feature_names) == 0:
-                    feature_names = dataset.meta_info[key]
+    else:
+        feature_names: list[str] = []
+        if gene_list == "landmark_genes":
+            assert dataset.meta_info is not None
+            for key in dataset.meta_info:
+                if key == "methylation":
+                    assert len(dataset.meta_info[key]) == 7
                 else:
-                    assert np.all(dataset.meta_info[key] == feature_names)
-    elif gene_list == "drug_target_genes_all_drugs":
-        feature_names = []
-        for key in dataset.meta_info:
-            if key == "methylation":
-                assert len(dataset.meta_info[key]) == 7
-            else:
-                assert len(dataset.meta_info[key]) == 3
-                if len(feature_names) == 0:
-                    feature_names = dataset.meta_info[key]
+                    assert len(dataset.meta_info[key]) == 4
+                    if len(feature_names) == 0:
+                        feature_names = dataset.meta_info[key]
+                    else:
+                        assert np.all(dataset.meta_info[key] == feature_names)
+        elif gene_list == "drug_target_genes_all_drugs":
+            assert dataset.meta_info is not None
+            for key in dataset.meta_info:
+                if key == "methylation":
+                    assert len(dataset.meta_info[key]) == 7
                 else:
-                    assert np.all(dataset.meta_info[key] == feature_names)
-    elif gene_list == "gene_list_paccmann_network_prop":
-        assert "The following genes are missing from the dataset GDSC1_small" in str(valerr.value)
+                    assert len(dataset.meta_info[key]) == 3
+                    if len(feature_names) == 0:
+                        feature_names = dataset.meta_info[key]
+                    else:
+                        assert np.all(dataset.meta_info[key] == feature_names)
+        elif gene_list == "gene_list_paccmann_network_prop":
+            assert "The following genes are missing from the dataset GDSC1_small" in str(valerr.value)
 
 
-def test_unique():
+def test_unique() -> None:
+    """Test the unique function."""
     array = np.array([1, 9, 3, 2, 1, 4, 5, 6, 7, 8, 9, 2, 1, 2, 3, 4, 5, 6, 7, 8, 9])
     unique_array = unique(array)
     assert np.all(unique_array == np.array([1, 9, 3, 2, 4, 5, 6, 7, 8]))
-
-
-# Run the tests
-if __name__ == "__main__":
-    pytest.main([__file__])

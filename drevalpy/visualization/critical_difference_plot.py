@@ -1,6 +1,17 @@
+"""
+Draw critical difference plot which shows whether a model is significantly better than another model.
+
+Most code is a modified version of the code available at https://github.com/hfawaz/cd-diagram
+Author: Hassan Ismail Fawaz <hassan.ismail-fawaz@uha.fr>, Germain Forestier <germain.forestier@uha.fr>,
+Jonathan Weber <jonathan.weber@uha.fr>, Lhassane Idoumghar <lhassane.idoumghar@uha.fr>, Pierre-Alain Muller
+<pierre-alain.muller@uha.fr>
+License: GPL3
+"""
+
 import math
 import operator
-from typing import TextIO
+from io import TextIOWrapper
+from typing import Any
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -9,8 +20,9 @@ import numpy as np
 import pandas as pd
 from scipy.stats import friedmanchisquare, wilcoxon
 
-from drevalpy.evaluation import MINIMIZATION_METRICS
-from drevalpy.visualization.outplot import OutPlot
+from ..evaluation import MINIMIZATION_METRICS
+from ..pipeline_function import pipeline_function
+from .outplot import OutPlot
 
 matplotlib.use("agg")
 matplotlib.rcParams["font.family"] = "sans-serif"
@@ -18,7 +30,25 @@ matplotlib.rcParams["font.sans-serif"] = "Avenir"
 
 
 class CriticalDifferencePlot(OutPlot):
+    """
+    Draws the critical difference diagram.
+
+    Used by the pipeline!
+
+    The critical difference diagram is used to compare the performance of multiple classifiers and show whether a
+    model is significantly better than another model. This is calculated over the average ranks of the classifiers
+    which is why there need to be at least 3 classifiers to draw the diagram. Because the ranks are calculated over
+    the cross-validation splits and the significance threshold is set to 0.05, e.g., 10 CV folds are advisable.
+    """
+
+    @pipeline_function
     def __init__(self, eval_results_preds: pd.DataFrame, metric="MSE"):
+        """
+        Initializes the critical difference plot.
+
+        :param eval_results_preds: evaluation results subsetted to predictions only (no randomizations etc)
+        :param metric: to be used to assess the critical difference
+        """
         eval_results_preds = eval_results_preds[["algorithm", "CV_split", metric]].rename(
             columns={
                 "algorithm": "classifier_name",
@@ -32,31 +62,52 @@ class CriticalDifferencePlot(OutPlot):
         self.eval_results_preds = eval_results_preds
         self.metric = metric
 
+    @pipeline_function
     def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
+        """
+        Draws the critical difference plot and saves it to a file.
+
+        :param out_prefix: e.g., results/my_run/critical_difference_plots/
+        :param out_suffix: e.g., LPO
+        """
         try:
-            self.__draw__()
+            self._draw()
             path_out = f"{out_prefix}critical_difference_algorithms_{out_suffix}.svg"
             self.fig.savefig(path_out, bbox_inches="tight")
         except Exception as e:
             print(f"Error in drawing critical difference plot: {e}")
 
-    def __draw__(self) -> None:
-        self.fig = self.__draw_cd_diagram__(
+    def _draw(self) -> None:
+        """Draws the critical difference plot."""
+        self.fig = self._draw_cd_diagram(
             alpha=0.05,
             title=f"Critical Difference: {self.metric}",
             labels=True,
         )
 
     @staticmethod
-    def write_to_html(lpo_lco_ldo: str, f: TextIO, *args, **kwargs) -> TextIO:
+    def write_to_html(lpo_lco_ldo: str, f: TextIOWrapper, *args, **kwargs) -> TextIOWrapper:
+        """
+        Inserts the critical difference plot into the HTML report file.
+
+        :param lpo_lco_ldo: setting, e.g., LPO
+        :param f: HTML report file
+        :param args: not needed
+        :param kwargs: not needed
+        :returns: HTML report file
+        """
         path_out_cd = f"critical_difference_plots/critical_difference_algorithms_{lpo_lco_ldo}.svg"
         f.write(f"<object data={path_out_cd}> </object>")
         return f
 
-    def __draw_cd_diagram__(self, alpha=0.05, title=None, labels=False) -> plt.Figure:
+    def _draw_cd_diagram(self, alpha=0.05, title=None, labels=False) -> plt.Figure:
         """
-        Draws the critical difference diagram given the list of pairwise classifiers that are
-        significant or not
+        Draws the critical difference diagram given the list of pairwise classifiers.
+
+        :param alpha: significance level
+        :param title: title of the plot
+        :param labels: whether to display the average ranks
+        :returns: the figure
         """
         # Standard Plotly colors
         plotly_colors = [
@@ -72,22 +123,17 @@ class CriticalDifferencePlot(OutPlot):
             "#17becf",
         ]
 
-        p_values, average_ranks, _ = wilcoxon_holm(alpha=alpha, df_perf=self.eval_results_preds)
+        p_values, average_ranks, _ = _wilcoxon_holm(df_perf=self.eval_results_preds, alpha=alpha)
 
-        print(average_ranks)
-
-        for p in p_values:
-            print(p)
-
-        graph_ranks(
-            avranks=average_ranks.values,
-            names=average_ranks.keys(),
+        _graph_ranks(
+            avranks=average_ranks.values.tolist(),
+            names=list(average_ranks.keys()),
             p_values=p_values,
+            colors=plotly_colors,
             reverse=True,
-            width=9,
+            width=9.0,
             textspace=1.5,
             labels=labels,
-            colors=plotly_colors,
         )
 
         font = {
@@ -101,39 +147,27 @@ class CriticalDifferencePlot(OutPlot):
         return plt.gcf()
 
 
-# The code below is a modified version of the code available at https://github.com/hfawaz/cd-diagram
-# Author: Hassan Ismail Fawaz <hassan.ismail-fawaz@uha.fr>
-#         Germain Forestier <germain.forestier@uha.fr>
-#         Jonathan Weber <jonathan.weber@uha.fr>
-#         Lhassane Idoumghar <lhassane.idoumghar@uha.fr>
-#         Pierre-Alain Muller <pierre-alain.muller@uha.fr>
-# License: GPL3
-
-
 # inspired from orange3 https://docs.orange.biolab.si/3/data-mining-library/reference/evaluation.cd.html
-def graph_ranks(
-    avranks,
-    names,
-    p_values,
-    lowv=None,
-    highv=None,
-    width=6,
-    textspace=1,
-    reverse=False,
-    labels=False,
-    colors=None,
-):
+def _graph_ranks(
+    avranks: list[float],
+    names: list[str],
+    p_values: list[tuple[str, str, float, bool]],
+    colors: list[str],
+    lowv: int | None = None,
+    highv: int | None = None,
+    width: float = 9.0,
+    textspace: float = 1.0,
+    reverse: bool = False,
+    labels: bool = False,
+) -> None:
     """
-    Draws a CD graph, which is used to display  the differences in methods'
-    performance. See Janez Demsar, Statistical Comparisons of Classifiers over
-    Multiple Data Sets, 7(Jan):1--30, 2006.
+    Draws a CD graph, which is used to display  the differences in methods' performance.
 
-    Needs matplotlib to work.
+    See Janez Demsar, Statistical Comparisons of Classifiers over Multiple Data Sets, 7(Jan):1--30, 2006.
 
-    The image is ploted on `plt` imported using
+    Needs matplotlib to work. The image is ploted on `plt` imported using
     `import matplotlib.pyplot as plt`.
 
-    Args:
     :param avranks: list of float, average ranks of methods.
     :param names: list of str, names of methods.
     :param p_values: list of tuples, p-values of the methods.
@@ -146,50 +180,32 @@ def graph_ranks(
     :param colors: list of str, optional, list of colors for the methods
     """
 
-    width = float(width)
-    textspace = float(textspace)
-
-    def nth(data, position):
+    def nth(data: list[tuple[float, float]], position: int) -> list[float]:
         """
-        Returns only nth elemnt in a list.
+        Returns only nth element in a list.
+
+        :param data: list (text_space, cline), (width - text_space, cline)
+        :param position: position to return
+        :returns: nth element in the list
         """
         position = lloc(data, position)
         return [a[position] for a in data]
 
-    def lloc(data, position):
+    def lloc(data: list[tuple[float, float]], position: int) -> int:
         """
         List location in list of list structure.
+
         Enable the use of negative locations:
         -1 is the last element, -2 second last...
+
+        :param data: list (text_space, cline), (width - text_space, cline)
+        :param position: position to return
+        :returns: location in the list
         """
         if position < 0:
             return len(data[0]) + position
         else:
             return position
-
-    def mxrange(lr):
-        """
-        Multiple xranges. Can be used to traverse matrices.
-        This function is very slow due to unknown number of
-        parameters.
-
-        >>> mxrange([3,5])
-        [(0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (1, 2)]
-
-        >>> mxrange([[3,5,1],[9,0,-3]])
-        [(3, 9), (3, 6), (3, 3), (4, 9), (4, 6), (4, 3)]
-
-        """
-        if not len(lr):
-            yield ()
-        else:
-            # it can work with single numbers
-            index = lr[0]
-            if isinstance(index, int):
-                index = [index]
-            for a in range(*index):
-                for b in mxrange(lr[1:]):
-                    yield tuple([a] + list(b))
 
     sums = avranks
 
@@ -208,7 +224,13 @@ def graph_ranks(
     linesblank = 0
     scalewidth = width - 2 * textspace
 
-    def rankpos(rank):
+    def rankpos(rank: float) -> float:
+        """
+        Calculate the position of the rank.
+
+        :param rank: rank of the method
+        :returns: textspace + scalewidth / (highv - lowv) * a
+        """
         if not reverse:
             a = rank - lowv
         else:
@@ -225,16 +247,28 @@ def graph_ranks(
 
     fig = plt.figure(figsize=(width, height))
     fig.set_facecolor("white")
-    ax = fig.add_axes([0, 0, 1, 1])  # reverse y axis
+    ax = fig.add_axes(rect=(0.0, 0.0, 1.0, 1.0))  # reverse y axis
     ax.set_axis_off()
 
     hf = 1.0 / height  # height factor
     wf = 1.0 / width
 
     def hfl(list_input):
+        """
+        List input multiplied by height factor.
+
+        :param list_input: list of floats (cline)
+        :returns: list of floats
+        """
         return [a * hf for a in list_input]
 
-    def wfl(list_input):
+    def wfl(list_input: list[float]) -> list[float]:
+        """
+        List input multiplied by width factor.
+
+        :param list_input: list of floats (text_space)
+        :returns: list of floats
+        """
         return [a * wf for a in list_input]
 
     # Upper left corner is (0,0).
@@ -242,13 +276,26 @@ def graph_ranks(
     ax.set_xlim(0, 1)
     ax.set_ylim(1, 0)
 
-    def line(list_input, color="k", **kwargs):
+    def line(list_input: list[tuple[float, float]], color: str = "k", **kwargs) -> None:
         """
         Input is a list of pairs of points.
+
+        :param list_input: (text_space, cline), (width - text_space, cline)
+        :param color: color of the line
+        :param kwargs: additional arguments for plotting
         """
         ax.plot(wfl(nth(list_input, 0)), hfl(nth(list_input, 1)), color=color, **kwargs)
 
-    def text(x, y, s, *args, **kwargs):
+    def text(x: float, y: float, s: str, *args, **kwargs):
+        """
+        Add text to the plot.
+
+        :param x: x position
+        :param y: y position
+        :param s: text to display
+        :param args: additional arguments
+        :param kwargs: additional keyword arguments
+        """
         ax.text(wf * x, hf * y, s, *args, **kwargs)
 
     line(
@@ -262,7 +309,6 @@ def graph_ranks(
     linewidth = 2.0
     linewidth_sign = 4.0
 
-    tick = None
     for a in list(np.arange(lowv, highv, 0.5)) + [highv]:
         tick = smalltick
         if a == int(a):
@@ -276,7 +322,7 @@ def graph_ranks(
     for a in range(lowv, highv + 1):
         text(
             rankpos(a),
-            cline - tick / 2 - 0.05,
+            cline - bigtick / 2 - 0.05,
             str(a),
             ha="center",
             va="bottom",
@@ -285,7 +331,13 @@ def graph_ranks(
 
     k = len(ssums)
 
-    def filter_names(name):
+    def filter_names(name: str) -> str:
+        """
+        Filter the names.
+
+        :param name: name of the method
+        :returns: name of the method
+        """
         return name
 
     space_between_names = 0.24
@@ -354,7 +406,7 @@ def graph_ranks(
 
     # draw no significant lines
     # get the cliques
-    cliques = form_cliques(p_values, nnames)
+    cliques = _form_cliques(p_values, nnames)
     i = 1
     achieved_half = False
     print(nnames)
@@ -378,17 +430,21 @@ def graph_ranks(
         start += height
 
 
-def form_cliques(p_values, nnames):
+def _form_cliques(p_values: list[tuple[str, str, float, bool]], nnames: list[str]) -> Any:
     """
-    This method forms the cliques
+    This method forms the cliques.
+
+    :param p_values: list of tuples, p-values of the methods strucutred as (Method1, Method2, p-value, is_significant)
+    :param nnames: list of str, names of the methods
+    :returns: cliques
     """
     # first form the numpy matrix data
     m = len(nnames)
     g_data = np.zeros((m, m), dtype=np.int64)
     for p in p_values:
         if p[3] is False:
-            i = np.where(nnames == p[0])[0][0]
-            j = np.where(nnames == p[1])[0][0]
+            i = int(np.where(np.array(nnames) == p[0])[0][0])
+            j = int(np.where(np.array(nnames) == p[1])[0][0])
             min_i = min(i, j)
             max_j = max(i, j)
             g_data[min_i, max_j] = 1
@@ -397,10 +453,18 @@ def form_cliques(p_values, nnames):
     return networkx.find_cliques(g)
 
 
-def wilcoxon_holm(alpha=0.05, df_perf=None):
+def _wilcoxon_holm(
+    df_perf: pd.DataFrame, alpha: float = 0.05
+) -> tuple[list[tuple[str, str, float, bool]], pd.Series, int]:
     """
-    Applies the wilcoxon signed rank test between each pair of algorithm and then use Holm
-    to reject the null's hypothesis
+    Applies the Wilcoxon signed rank test between algorithm pair and then use Holm to reject the null hypothesis.
+
+    Returns the p-values in a format of (Method1, Method2, p-value, is_significant), the average ranks in a format of
+    pd.Series(Method: avg_rank), and the maximum number of datasets tested (=n_cv_folds).
+
+    :param alpha: significance level
+    :param df_perf: the dataframe containing the performance of the algorithms
+    :returns: the p-values, the average ranks, and the maximum number of datasets tested
     """
     print(pd.unique(df_perf["classifier_name"]))
     # count the number of tested datasets per classifier

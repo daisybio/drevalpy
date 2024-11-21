@@ -1,4 +1,6 @@
-from typing import TextIO
+"""Parent class for Violin and Heatmap plots of performance measures over CV runs."""
+
+from io import TextIOWrapper
 
 import pandas as pd
 
@@ -6,8 +8,16 @@ from drevalpy.visualization.outplot import OutPlot
 
 
 class VioHeat(OutPlot):
+    """Parent class for Violin and Heatmap plots of performance measures over CV runs."""
 
     def __init__(self, df: pd.DataFrame, normalized_metrics=False, whole_name=False):
+        """
+        Initialize the VioHeat class.
+
+        :param df: evaluation results, either overall or per algorithm
+        :param normalized_metrics: whether the metrics are normalized
+        :param whole_name: whether the whole name should be displayed
+        """
         self.df = df.sort_index()
         self.all_metrics = [
             "R^2",
@@ -37,15 +47,30 @@ class VioHeat(OutPlot):
             self.all_metrics = [metric for metric in self.all_metrics if "normalized" not in metric]
 
     def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
+        """
+        Draw and save the plot.
+
+        :param out_prefix: e.g., results/my_run/heatmaps/
+        :param out_suffix: e.g., algorithms_normalized
+        """
         pass
 
-    def __draw__(self) -> None:
+    def _draw(self) -> None:
         pass
 
     @staticmethod
-    def write_to_html(lpo_lco_ldo: str, f: TextIO, *args, **kwargs) -> TextIO:
-        plot = kwargs.get("plot")
-        files = kwargs.get("files")
+    def write_to_html(lpo_lco_ldo: str, f: TextIOWrapper, *args, **kwargs) -> TextIOWrapper:
+        """
+        Write the Violin and Heatmap plots into the result HTML file.
+
+        :param lpo_lco_ldo: setting, e.g., LPO
+        :param f: result HTML file
+        :param args: additional arguments
+        :param kwargs: additional keyword arguments, in this case, the plot type and the files
+        :returns: the result HTML file
+        """
+        plot: str = kwargs.get("plot", "")
+        files: list[str] = kwargs.get("files", [])
 
         if plot == "Violin":
             nav_id = "violin"

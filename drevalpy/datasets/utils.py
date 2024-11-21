@@ -1,33 +1,33 @@
 """Utility functions for datasets."""
 
-import os
 import zipfile
+from pathlib import Path
+from typing import Any
 
 import networkx as nx
 import numpy as np
 import requests
-from numpy.typing import ArrayLike
 
 
 def download_dataset(
     dataset_name: str,
-    data_path: str = "data",
+    data_path: str | Path = "data",
     redownload: bool = False,
 ):
     """
     Download the latets dataset from Zenodo.
 
-    :param dataset: dataset name, e.g., "GDSC1", "GDSC2", "CCLE" or "Toy_Data"
+    :param dataset_name: dataset name, e.g., "GDSC1", "GDSC2", "CCLE" or "Toy_Data"
     :param data_path: where to save the data
     :param redownload: whether to redownload the data
-    :return:
+    :raises HTTPError: if the download fails
     """
     file_name = f"{dataset_name}.zip"
-    file_path = os.path.join(data_path, file_name)
-    extracted_folder_path = os.path.join(data_path, dataset_name)
+    file_path = Path(data_path) / file_name
+    extracted_folder_path = file_path.with_suffix("")
 
     # Check if the extracted data exists and skip download if not redownloading
-    if os.path.exists(extracted_folder_path) and not redownload:
+    if extracted_folder_path.exists() and not redownload:
         print(f"{dataset_name} is already extracted, skipping download.")
     else:
         url = "https://zenodo.org/doi/10.5281/zenodo.12633909"
@@ -42,7 +42,7 @@ def download_dataset(
         data = response.json()
 
         # Ensure the save path exists
-        os.makedirs(data_path, exist_ok=True)
+        extracted_folder_path.parent.mkdir(exist_ok=True, parents=True)
 
         # Download each file
         name_to_url = {file["key"]: file["links"]["self"] for file in data["files"]}
@@ -61,7 +61,7 @@ def download_dataset(
             for member in z.infolist():
                 if not member.filename.startswith("__MACOSX/"):
                     z.extract(member, data_path)
-        os.remove(file_path)  # Remove zip file after extraction
+        file_path.unlink()  # Remove zip file after extraction
 
         print(f"{dataset_name} data downloaded and extracted to {data_path}")
 
@@ -100,10 +100,10 @@ def randomize_graph(original_graph: nx.Graph) -> nx.Graph:
 
 
 def permute_features(
-    features: dict,
-    identifiers: ArrayLike,
-    views_to_permute: list,
-    all_views: list,
+    features: dict[str, dict[str, Any]],
+    identifiers: np.ndarray,
+    views_to_permute: list[str],
+    all_views: list[str],
 ) -> dict:
     """
     Permute the specified views for each entity (= cell line or drug).
