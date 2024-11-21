@@ -51,3 +51,6 @@ COPY poetry.lock ./
 
 # Install drevalpy
 RUN pip install .
+
+# Nextflow needs the command ps to be available
+RUN apt-get update && apt-get install -y procps && rm -rf /var/lib/apt/lists/*
