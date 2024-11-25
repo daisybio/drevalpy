@@ -83,7 +83,7 @@ def get_parser() -> argparse.ArgumentParser:
         default="permutation",
         help='type of randomization to use. Choose from "permutation" or "invariant". Default is '
         '"permutation" "permutation": permute the features over the instances, keeping the '
-        "distribution of the  features the same but dissolving the relationship to the "
+        "distribution of the features the same but dissolving the relationship to the "
         'target "invariant": the randomization is done in a way that a key characteristic of '
         "the feature is preserved. In case of matrices, this is the mean and standard "
         "deviation of the feature view for this instance, for networks it is the degree "
@@ -216,10 +216,17 @@ def check_arguments(args) -> None:
 
     # TODO Allow for custom randomization tests maybe via config file
     if args.randomization_mode[0] != "None":
-        if not all(randomization in ["SVCC", "SVRC", "SVSC", "SVRD"] for randomization in args.randomization_mode):
+        if not all(randomization in ["SVCC", "SVRC", "SVCD", "SVRD"] for randomization in args.randomization_mode):
             raise AssertionError(
                 "At least one invalid randomization mode. Available randomization modes are SVCC, " "SVRC, SVSC, SVRD"
             )
+
+    if args.randomization_type not in ["permutation", "invariant"]:
+        raise AssertionError("Invalid randomization type. Choose from 'permutation' or 'invariant'")
+
+    if args.n_trials_robustness < 0:
+        raise ValueError("Number of trials for robustness test must be greater than or equal to 0")
+
     if args.curve_curator:
         raise NotImplementedError("CurveCurator not implemented")
     if args.response_transformation not in ["None", "standard", "minmax", "robust"]:

@@ -305,14 +305,20 @@ class CorrelationComparisonScatter(OutPlot):
         x_df_inter["setting"] = x_df_inter["model"].str.split("_").str[4:].str.join("")
         y_df["setting"] = y_df["model"].str.split("_").str[4:].str.join("")
 
+        x_df_inter.reset_index(inplace=True)
+        y_df.reset_index(inplace=True)
+        x_df_inter.set_index([self.color_by, "setting"], inplace=True)
+        y_df.set_index([self.color_by, "setting"], inplace=True)
+
         joint_df = pd.concat([x_df_inter, y_df], axis=1)
+
+        # throw out rows with NaN values
+        joint_df.dropna(inplace=True)
         joint_df.columns = [
             f"{self.metric}_x",
             "model_x",
-            "setting_x",
             f"{self.metric}_y",
             "model_y",
-            "setting_y",
         ]
 
         density = self._get_density(joint_df[f"{self.metric}_x"], joint_df[f"{self.metric}_y"])
@@ -320,9 +326,7 @@ class CorrelationComparisonScatter(OutPlot):
 
         custom_text = joint_df.apply(
             lambda row: (
-                f"<i>{self.color_by.capitalize()}:</i>: {row.name}<br>"
-                + f"<i>Split x:</i>: {row.setting_x}<br>"
-                + f"<i>Split y:</i>: {row.setting_y}<br>"
+                f"<i>{self.color_by.capitalize()}:</i>: {row.name[0]}<br>" + f"<i>Split:</i>: {row.name[1]}<br>"
             ),
             axis=1,
         )
