@@ -7,6 +7,8 @@ import numpy as np
 import pandas as pd
 import toml
 
+from ..pipeline_function import pipeline_function
+
 
 def _prepare_raw_data(curve_df: pd.DataFrame, output_dir: str | Path):
     required_columns = ["dose", "response", "sample", "drug"]
@@ -101,6 +103,30 @@ def _exec_curvecurator(output_dir: Path):
     stdout, stderr = process.communicate()
 
 
+@pipeline_function
+def preprocess(input_file: str | Path, output_dir: str | Path, cores: int):
+    """
+    Preprocess raw viability data and create config.toml for use with CurveCurator.
+
+    :param input_file: Path to csv file containing the raw viability data
+    :param output_dir: Path to store all the files to, including the preprocessed data, the config.toml
+        for CurveCurator, CurveCurator's output files, and the postprocessed data
+    :param cores: The number of cores to be used for fitting the curves using CurveCurator.
+        This parameter is written into the config.toml, but it is min of the number of curves to fit
+        and the number given (min(n_curves, cores))
+    """
+    input_file = Path(input_file)
+    curve_df = pd.read_csv(input_file)
+
+    n_exp, doses, n_replicates, n_curves_to_fit = _prepare_raw_data(curve_df, output_dir)
+    cores = min(n_curves_to_fit, cores)
+
+    config = _prepare_toml(input_file.name, n_exp, n_replicates, doses, cores, output_dir)
+    with open(output_dir / "config.toml", "w") as f:
+        toml.dump(config, f)
+
+
+@pipeline_function
 def postprocess(output_folder: str | Path):
     """
     Postprocess CurveCurator output file.
@@ -151,17 +177,6 @@ def fit_curves(input_file: str | Path, output_dir: str | Path, cores: int):
         This parameter is written into the config.toml, but it is min of the number of curves to fit
         and the number given (min(n_curves, cores))
     """
-    input_file = Path(input_file)
-    curve_df = pd.read_csv(input_file, output_dir)
-
-    n_exp, doses, n_replicates, n_curves_to_fit = _prepare_raw_data(curve_df)
-    cores = min(n_curves_to_fit, cores)
-
-    config = _prepare_toml(input_file.name, n_exp, n_replicates, doses, cores, output_dir)
-
-    with open(output_dir / "config.toml", "w") as f:
-        toml.dump(config, f)
-
-    _exec_curvecurator()
-
+    preprocess(input_file, output_dir, cores)
+    _exec_curvecurator(output_dir)
     postprocess(output_dir)
