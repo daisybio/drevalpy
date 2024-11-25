@@ -1,6 +1,7 @@
 """Contains functions to load the GDSC1, GDSC2, CCLE, and Toy datasets."""
 
 import os
+from pathlib import Path
 from typing import Callable
 
 import pandas as pd
@@ -92,6 +93,16 @@ def load_toy(path_data: str = "data") -> DrugResponseDataset:
     )
 
 
+def load_custom(path_data: str) -> DrugResponseDataset:
+    """
+    Load custom dataset.
+
+    :param path_data: Path to location of custom dataset
+    :return: DrugResponseDataset containing response, cell line IDs, and drug IDs
+    """
+    return DrugResponseDataset.from_csv(path_data)
+
+
 AVAILABLE_DATASETS: dict[str, Callable] = {
     "GDSC1": load_gdsc1,
     "GDSC2": load_gdsc2,
@@ -105,12 +116,16 @@ def load_dataset(dataset_name: str, path_data: str = "data") -> DrugResponseData
     """
     Load a dataset based on the dataset name.
 
-    :param dataset_name: The name of the dataset to load ('GDSC1', 'GDSC2', 'CCLE', or 'Toy_Data').
+    :param dataset_name: The name of the dataset to load. Can be one of ('GDSC1', 'GDSC2', 'CCLE', or 'Toy_Data')
+        to download provided datasets, or any other name, to allow for custom datasets. In that case, the following
+        file has to exist: <path_data>/<dataset_name>.csv.
     :param path_data: The path to the dataset.
     :return: A DrugResponseDataset containing response, cell line IDs, drug IDs, and dataset name.
-    :raises ValueError: If the dataset name is unknown.
+    :raises FileNotFoundError: If the custom dataset could not be found at the given path.
     """
     if dataset_name in AVAILABLE_DATASETS:
         return AVAILABLE_DATASETS[dataset_name](path_data)  # type: ignore
-    else:
-        raise ValueError(f"Unknown dataset name: {dataset_name}")
+    custom_path = Path(path_data) / f"{dataset_name}.csv"
+    if custom_path.is_file():
+        return load_custom(custom_path)
+    raise FileNotFoundError(f"Custom dataset does not exist at given path: {custom_path}")
