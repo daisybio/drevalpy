@@ -96,6 +96,9 @@ class DenseLayers(nn.Module):
         :param bionic: biological network features (BNF) of the graph data
         :returns: output tensor after the dense layers
         """
+        if len(x.shape) == 1:  # happens if the batch size is 1
+            x = torch.unsqueeze(x, 0)
+
         gene = torch.nn.functional.relu(self.fc_layer_0(gene))
         bionic = torch.nn.functional.relu(self.fc_layer_1(bionic))
         f = torch.cat((x, gene + bionic), 1)
