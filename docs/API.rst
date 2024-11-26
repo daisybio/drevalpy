@@ -1,8 +1,3 @@
-.. module:: drevalpy
-
-.. automodule:: drevalpy
-   :noindex:
-
 API
 ===
 
@@ -12,18 +7,53 @@ Import DrEvalPy using
 
    import drevalpy as dep
 
-..
-   Models module: :code:`models`
-   -------------------------
+Subpackages
+-----------
 
-   .. module:: devalpy.models
+DrEvalPy consists of three major subpackages:
 
-   .. currentmodule:: drevalpy
+* Datasets
+* Models
+* Visualization
 
-   Available models
-   ~~~~~~~~~~~~~~~~
+.. toctree::
+   :maxdepth: 3
 
-   .. autosummary::
-      :toctree: api/models
+   drevalpy.datasets
+   drevalpy.models
+   drevalpy.visualization
 
-      models.baselines
+Other functions
+---------------
+
+Major functions for running the experiment
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: drevalpy.experiment
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Evaluation functions
+~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: drevalpy.evaluation
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Utility functions
+~~~~~~~~~~~~~~~~~
+
+.. automodule:: drevalpy.utils
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Pipeline function decorator
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: drevalpy.pipeline_function
+   :members:
+   :undoc-members:
+   :show-inheritance:

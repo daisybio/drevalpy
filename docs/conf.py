@@ -51,7 +51,7 @@ master_doc = "index"
 # General information about the project.
 project = "DrEvalPy"
 author = "DrEvalpy development team"
-copyright = f"{datetime.now():%Y}, daisybio at Technical University of Munich"
+copyright = f"{datetime.now():%Y}, DaiSyBio at Technical University of Munich"
 
 # The version info for the project you're documenting, acts as replacement
 # for |version| and |release|, also used in various other places throughout
@@ -102,7 +102,7 @@ html_theme_options = {"pygment_light_style": "default", "pygment_dark_style": "l
 # documentation.
 #
 html_theme_options = dict(
-    navigation_depth=4,
+    navigation_depth=6,
     logo_only=True,
 )
 html_logo = "_static/img/drevalpy.png"
@@ -168,7 +168,8 @@ man_pages = [
 autodoc_typehints = "description"
 
 
-autodoc_mock_imports = ["numpy", "sklearn", "pandas", "networkx", "yaml", "pytorch_lightning", "torch", "scipy"]
+# autodoc_mock_imports = ["numpy", "sklearn", "pandas", "networkx", "yaml", "pytorch_lightning", "torch", "scipy",
+#                        "copy", "os", "abc", "pathlib", "typing"]
 
 
 # -- Options for Texinfo output ----------------------------------------
