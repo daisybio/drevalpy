@@ -158,7 +158,7 @@ def tests(session: Session) -> None:
 
     :param session: The Session object.
     """
-    session.install(".")
+    session.install(".[fit]")
     session.install("coverage[toml]", "pytest", "pygments")
     try:
         session.run("coverage", "run", "--parallel", "-m", "pytest", *session.posargs)
@@ -194,7 +194,7 @@ def typeguard(session: Session) -> None:
 
     :param session: The Session object.
     """
-    session.install(".")
+    session.install(".[fit]")
     session.install("pytest", "typeguard", "pygments")
     session.run("pytest", f"--typeguard-packages={package}", *session.posargs)
 
