@@ -3784,6 +3784,17 @@ files = [
 urllib3 = ">=2"
 
 [[package]]
+name = "types-toml"
+version = "0.10.8.20240310"
+description = "Typing stubs for toml"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "types-toml-0.10.8.20240310.tar.gz", hash = "sha256:3d41501302972436a6b8b239c850b26689657e25281b48ff0ec06345b8830331"},
+    {file = "types_toml-0.10.8.20240310-py3-none-any.whl", hash = "sha256:627b47775d25fa29977d9c70dc0cbab3f314f32c8d8d0c012f2ef5de7aaec05d"},
+]
+
+[[package]]
 name = "typing-extensions"
 version = "4.12.2"
 description = "Backported and Experimental Type Hints for Python 3.8+"
@@ -4159,4 +4170,4 @@ fit = ["curve-curator", "toml"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.11,<3.13"
-content-hash = "ba38736b5a4135bb7e3fbf9a63e95036d47254db4784d8cfe4489d6cfeb3849a"
+content-hash = "030c3622d5ce9cb52777ac16792d856c3bfdac694844b20a1fb54f21c160ee4a"

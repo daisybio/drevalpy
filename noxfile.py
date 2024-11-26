@@ -147,7 +147,7 @@ def mypy(session: Session) -> None:
     """
     args = session.posargs or ["drevalpy", "tests", "docs/conf.py"]
     session.install(".")
-    session.install("mypy", "pytest", "types-requests", "types-attrs", "types-PyYAML")
+    session.install("mypy", "pytest", "types-requests", "types-attrs", "types-PyYAML", "types-toml")
     session.run("mypy", *args)
 
 

@@ -97,7 +97,7 @@ def _prepare_toml(filename: str, n_exp: int, n_replicates: int, doses: list[floa
 
 
 def _exec_curvecurator(output_dir: Path):
-    command = ["CurveCurator", str(Path(output_dir) / "config.toml"), "--mad"]
+    command = ["CurveCurator", str(output_dir / "config.toml"), "--mad"]
     process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     process.communicate()
 
@@ -182,5 +182,5 @@ def fit_curves(input_file: str | Path, output_dir: str | Path, dataset_name: str
         and the number given (min(n_curves, cores))
     """
     preprocess(input_file, output_dir, dataset_name, cores)
-    _exec_curvecurator(output_dir)
+    _exec_curvecurator(Path(output_dir))
     postprocess(output_dir, dataset_name)
