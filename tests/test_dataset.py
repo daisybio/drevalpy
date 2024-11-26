@@ -1,14 +1,17 @@
 """Tests for the DrugResponseDataset and the FeatureDataset class."""
 
-import os
+import shutil
 import tempfile
+from pathlib import Path
 
 import networkx as nx
 import numpy as np
 import pytest
 from flaky import flaky
 
+from drevalpy.datasets.curvecurator import fit_curves
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.datasets.loader import load_dataset
 from drevalpy.utils import get_response_transformation
 
 # Tests for the DrugResponseDataset class
@@ -27,17 +30,33 @@ def test_response_dataset_load() -> None:
         drug_ids=data["drug_id"],
         response=data["response"],
     )
-    dataset.save("dataset.csv")
+    dataset_path = Path("dataset.csv")
+    dataset.save(dataset_path)
     del dataset
     # Load the dataset
-    dataset = DrugResponseDataset.from_csv("dataset.csv")
+    dataset = DrugResponseDataset.from_csv(dataset_path)
 
-    os.remove("dataset.csv")
+    dataset_path.unlink()
 
     # Check if the dataset loaded correctly
     assert np.array_equal(dataset.cell_line_ids, data["cell_line_id"])
     assert np.array_equal(dataset.drug_ids, data["drug_id"])
     assert np.allclose(dataset.response, data["response"])
+
+
+def test_fitting_and_loading_custom_dataset():
+    """Test CurveCurator fitting of raw viability dataset and loading it."""
+    dataset_name = "CTRPv2"
+    output_dir = Path(__file__).parent / dataset_name
+    fit_curves(
+        input_file=Path(__file__).parent / "raw_viability_test_sample.csv",
+        output_dir=output_dir,
+        dataset_name=dataset_name,
+        cores=200,
+    )
+    load_dataset(dataset_name=dataset_name, path_data=output_dir.parent)
+
+    shutil.rmtree(output_dir)
 
 
 def test_response_dataset_add_rows() -> None:

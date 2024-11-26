@@ -93,7 +93,7 @@ def load_toy(path_data: str = "data") -> DrugResponseDataset:
     )
 
 
-def load_custom(path_data: str) -> DrugResponseDataset:
+def load_custom(path_data: str | Path) -> DrugResponseDataset:
     """
     Load custom dataset.
 
@@ -125,7 +125,7 @@ def load_dataset(dataset_name: str, path_data: str = "data") -> DrugResponseData
     """
     if dataset_name in AVAILABLE_DATASETS:
         return AVAILABLE_DATASETS[dataset_name](path_data)  # type: ignore
-    custom_path = Path(path_data) / f"{dataset_name}.csv"
+    custom_path = Path(path_data) / dataset_name / f"{dataset_name}.csv"
     if custom_path.is_file():
         return load_custom(custom_path)
     raise FileNotFoundError(f"Custom dataset does not exist at given path: {custom_path}")

@@ -48,11 +48,11 @@ def _prepare_raw_data(curve_df: pd.DataFrame, output_dir: str | Path):
     return len(experiments), doses, n_replicates, len(df)
 
 
-def _prepare_toml(filename: str, n_exp: int, n_replicates: int, doses: list[float], cores: int, output_dir: str | Path):
+def _prepare_toml(filename: str, n_exp: int, n_replicates: int, doses: list[float], dataset_name: str, cores: int):
     config = {
         "Meta": {
             "id": filename,
-            "description": "custom datasets",
+            "description": dataset_name,
             "condition": "drug",
             "treatment_time": "72 h",
         },
@@ -68,11 +68,11 @@ def _prepare_toml(filename: str, n_exp: int, n_replicates: int, doses: list[floa
             "search_engine_version": "0",
         },
         "Paths": {
-            "input_file": str(output_dir) + "/curvecurator_input.tsv",
-            "curves_file": str(output_dir) + "/curves.txt",
-            "normalization_file": str(output_dir) + "/norm.txt",
-            "mad_file": str(output_dir) + "/mad.txt",
-            "dashboard": str(output_dir) + "/dashboard.html",
+            "input_file": "curvecurator_input.tsv",
+            "curves_file": "curves.txt",
+            "normalization_file": "norm.txt",
+            "mad_file": "mad.txt",
+            "dashboard": "dashboard.html",
         },
         "Processing": {
             "available_cores": cores,
@@ -97,37 +97,38 @@ def _prepare_toml(filename: str, n_exp: int, n_replicates: int, doses: list[floa
 
 
 def _exec_curvecurator(output_dir: Path):
-    command = ["CurveCurator", str(output_dir / "config.toml"), "--mad"]
+    command = ["CurveCurator", str(Path(output_dir) / "config.toml"), "--mad"]
     process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-    stdout, stderr = process.communicate()
+    process.communicate()
 
 
 @pipeline_function
-def preprocess(input_file: str | Path, output_dir: str | Path, cores: int):
+def preprocess(input_file: str | Path, output_dir: str | Path, dataset_name: str, cores: int):
     """
     Preprocess raw viability data and create config.toml for use with CurveCurator.
 
     :param input_file: Path to csv file containing the raw viability data
     :param output_dir: Path to store all the files to, including the preprocessed data, the config.toml
         for CurveCurator, CurveCurator's output files, and the postprocessed data
+    :param dataset_name: Name of the dataset
     :param cores: The number of cores to be used for fitting the curves using CurveCurator.
         This parameter is written into the config.toml, but it is min of the number of curves to fit
         and the number given (min(n_curves, cores))
     """
     input_file = Path(input_file)
+    output_dir = Path(output_dir)
     curve_df = pd.read_csv(input_file)
 
     n_exp, doses, n_replicates, n_curves_to_fit = _prepare_raw_data(curve_df, output_dir)
     cores = min(n_curves_to_fit, cores)
 
-    config = _prepare_toml(input_file.name, n_exp, n_replicates, doses, cores, output_dir)
+    config = _prepare_toml(input_file.name, n_exp, n_replicates, doses, dataset_name, cores)
     with open(output_dir / "config.toml", "w") as f:
         toml.dump(config, f)
 
 
 @pipeline_function
-def postprocess(output_folder: str | Path):
+def postprocess(output_folder: str | Path, dataset_name: str):
     """
     Postprocess CurveCurator output file.
 
@@ -135,10 +136,12 @@ def postprocess(output_folder: str | Path):
     fitted curve parameters and postprocesses it to be used by drevalpy.
 
     :param output_folder: Path to the output folder of CurveCurator containin the curves.txt file.
+    :param dataset_name: The name of the dataset, will be used to prepend the postprocessed <dataset_name>.csv file
     """
+    output_folder = Path(output_folder)
     required_columns = {
-        "Name": "CVCL",
-        "pEC50": "pEC50",
+        "Name": "Name",
+        "pEC50": "response",
         "pEC50 Error": "pEC50Error",
         "Curve Slope": "Slope",
         "Curve Front": "Front",
@@ -158,11 +161,11 @@ def postprocess(output_folder: str | Path):
     fitted_curve_data = pd.read_csv(Path(output_folder) / "curves.txt", sep="\t", usecols=required_columns).rename(
         columns=required_columns
     )
-    fitted_curve_data[["CellLine", "Drug"]] = fitted_curve_data.Name.str.split()
-    fitted_curve_data.to_csv()
+    fitted_curve_data[["cell_line_id", "drug_id"]] = fitted_curve_data.Name.str.split("|", expand=True)
+    fitted_curve_data.to_csv(output_folder / f"{dataset_name}.csv", index=None)
 
 
-def fit_curves(input_file: str | Path, output_dir: str | Path, cores: int):
+def fit_curves(input_file: str | Path, output_dir: str | Path, dataset_name: str, cores: int):
     """
     Fit curves for provided raw viability data.
 
@@ -173,10 +176,11 @@ def fit_curves(input_file: str | Path, output_dir: str | Path, cores: int):
     :param input_file: Path to the file containing the raw viability data
     :param output_dir: Path to store all the files to, including the preprocessed data, the config.toml
         for CurveCurator, CurveCurator's output files, and the postprocessed data
+    :param dataset_name: The name of the dataset, will be used to prepend the postprocessed <dataset_name>.csv file
     :param cores: The number of cores to be used for fitting the curves using CurveCurator.
         This parameter is written into the config.toml, but it is min of the number of curves to fit
         and the number given (min(n_curves, cores))
     """
-    preprocess(input_file, output_dir, cores)
+    preprocess(input_file, output_dir, dataset_name, cores)
     _exec_curvecurator(output_dir)
-    postprocess(output_dir)
+    postprocess(output_dir, dataset_name)
