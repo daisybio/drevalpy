@@ -54,7 +54,7 @@ def test_fitting_and_loading_custom_dataset():
         dataset_name=dataset_name,
         cores=200,
     )
-    load_dataset(dataset_name=dataset_name, path_data=output_dir.parent)
+    load_dataset(dataset_name=dataset_name, path_data=str(output_dir.parent))
 
     shutil.rmtree(output_dir)
 
