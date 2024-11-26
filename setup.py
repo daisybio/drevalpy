@@ -36,6 +36,7 @@ setup(
         "requests",
         "scikit-learn",
         "scipy",
+        "scikit-posthocs",
     ],
     entry_points={
         "console_scripts": [
