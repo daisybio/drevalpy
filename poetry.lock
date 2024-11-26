@@ -3759,42 +3759,6 @@ tests = ["autopep8", "flake8", "isort", "llnl-hatchet", "numpy", "pytest", "scip
 tutorials = ["matplotlib", "pandas", "tabulate"]
 
 [[package]]
-name = "types-pyyaml"
-version = "6.0.12.20240917"
-description = "Typing stubs for PyYAML"
-optional = false
-python-versions = ">=3.8"
-files = [
-    {file = "types-PyYAML-6.0.12.20240917.tar.gz", hash = "sha256:d1405a86f9576682234ef83bcb4e6fff7c9305c8b1fbad5e0bcd4f7dbdc9c587"},
-    {file = "types_PyYAML-6.0.12.20240917-py3-none-any.whl", hash = "sha256:392b267f1c0fe6022952462bf5d6523f31e37f6cea49b14cee7ad634b6301570"},
-]
-
-[[package]]
-name = "types-requests"
-version = "2.32.0.20241016"
-description = "Typing stubs for requests"
-optional = false
-python-versions = ">=3.8"
-files = [
-    {file = "types-requests-2.32.0.20241016.tar.gz", hash = "sha256:0d9cad2f27515d0e3e3da7134a1b6f28fb97129d86b867f24d9c726452634d95"},
-    {file = "types_requests-2.32.0.20241016-py3-none-any.whl", hash = "sha256:4195d62d6d3e043a4eaaf08ff8a62184584d2e8684e9d2aa178c7915a7da3747"},
-]
-
-[package.dependencies]
-urllib3 = ">=2"
-
-[[package]]
-name = "types-toml"
-version = "0.10.8.20240310"
-description = "Typing stubs for toml"
-optional = false
-python-versions = ">=3.8"
-files = [
-    {file = "types-toml-0.10.8.20240310.tar.gz", hash = "sha256:3d41501302972436a6b8b239c850b26689657e25281b48ff0ec06345b8830331"},
-    {file = "types_toml-0.10.8.20240310-py3-none-any.whl", hash = "sha256:627b47775d25fa29977d9c70dc0cbab3f314f32c8d8d0c012f2ef5de7aaec05d"},
-]
-
-[[package]]
 name = "typing-extensions"
 version = "4.12.2"
 description = "Backported and Experimental Type Hints for Python 3.8+"
@@ -4170,4 +4134,4 @@ fit = ["curve-curator", "toml"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.11,<3.13"
-content-hash = "030c3622d5ce9cb52777ac16792d856c3bfdac694844b20a1fb54f21c160ee4a"
+content-hash = "674c80d1f91d8a55d7d3f81712f8b68cc42808cc4936040140c4cc031f55ae7d"
