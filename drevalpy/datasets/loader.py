@@ -93,14 +93,16 @@ def load_toy(path_data: str = "data") -> DrugResponseDataset:
     )
 
 
-def load_custom(path_data: str | Path) -> DrugResponseDataset:
+def load_custom(path_data: str | Path, measure: str = "response") -> DrugResponseDataset:
     """
     Load custom dataset.
 
     :param path_data: Path to location of custom dataset
+    :param measure: The name of the column containing the measure to predict, default = "response"
+
     :return: DrugResponseDataset containing response, cell line IDs, and drug IDs
     """
-    return DrugResponseDataset.from_csv(path_data)
+    return DrugResponseDataset.from_csv(path_data, measure=measure)
 
 
 AVAILABLE_DATASETS: dict[str, Callable] = {
@@ -112,7 +114,7 @@ AVAILABLE_DATASETS: dict[str, Callable] = {
 
 
 @pipeline_function
-def load_dataset(dataset_name: str, path_data: str = "data") -> DrugResponseDataset:
+def load_dataset(dataset_name: str, path_data: str = "data", measure: str = "response") -> DrugResponseDataset:
     """
     Load a dataset based on the dataset name.
 
@@ -120,6 +122,7 @@ def load_dataset(dataset_name: str, path_data: str = "data") -> DrugResponseData
         to download provided datasets, or any other name, to allow for custom datasets. In that case, the following
         file has to exist: <path_data>/<dataset_name>.csv.
     :param path_data: The path to the dataset.
+    :param measure: The name of the column containing the measure to predict, default = "response"
     :return: A DrugResponseDataset containing response, cell line IDs, drug IDs, and dataset name.
     :raises FileNotFoundError: If the custom dataset could not be found at the given path.
     """
@@ -127,5 +130,5 @@ def load_dataset(dataset_name: str, path_data: str = "data") -> DrugResponseData
         return AVAILABLE_DATASETS[dataset_name](path_data)  # type: ignore
     custom_path = Path(path_data) / dataset_name / f"{dataset_name}.csv"
     if custom_path.is_file():
-        return load_custom(custom_path)
+        return load_custom(custom_path, measure=measure)
     raise FileNotFoundError(f"Custom dataset does not exist at given path: {custom_path}")

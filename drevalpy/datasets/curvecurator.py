@@ -1,4 +1,16 @@
-"""Contains all function required for CurveCurator fitting."""
+"""
+Contains all function required for CurveCurator fitting.
+
+CurveCurator publication:
+Bayer, F.P., Gander, M., Kuster, B. et al. CurveCurator: a recalibrated F-statistic to assess,
+classify, and explore significance of dose–response curves. Nat Commun 14, 7902 (2023).
+https://doi-org.eaccess.tum.edu/10.1038/s41467-023-43696-z
+
+CurveCurator applies a recalibrated F-statistic for p-value estimation of 4-point log-logistic
+regression fits. In drevalpy, this can be used to generate training data with higher quality, since
+quality measures, such as p-value, R2, or relevance score can be used to filter out viability
+measurements of low quality.
+"""
 
 import subprocess
 from pathlib import Path
@@ -102,6 +114,28 @@ def _exec_curvecurator(output_dir: Path):
     process.communicate()
 
 
+def _calc_ic50(model_params_df: pd.DataFrame):
+    """
+    Calculate the IC50 from a fitted model.
+
+    This function expects a dataframe that was processed in the postprocess function, containing
+    the columns "Front", "Back", "Slope", "pEC50". It calculates the IC50 for all the models in the
+    dataframe in closed form and adds the column IC50_curvecurator to the input dataframe.
+
+    :param model_params_df: a dataframe containing the fitted parameters
+    """
+
+    def ic50(front, back, slope, pec50):
+        return (np.log10((front - back) / (0.5 + back)) - slope * pec50) / slope
+
+    front = model_params_df["Front"].values
+    back = model_params_df["Back"].values
+    slope = model_params_df["Slope"].values
+    pec50 = model_params_df["pEC50"].values
+
+    model_params_df["IC50_curvecurator"] = ic50(front, back, slope, pec50)
+
+
 @pipeline_function
 def preprocess(input_file: str | Path, output_dir: str | Path, dataset_name: str, cores: int):
     """
@@ -141,7 +175,7 @@ def postprocess(output_folder: str | Path, dataset_name: str):
     output_folder = Path(output_folder)
     required_columns = {
         "Name": "Name",
-        "pEC50": "response",
+        "pEC50": "pEC50",
         "pEC50 Error": "pEC50Error",
         "Curve Slope": "Slope",
         "Curve Front": "Front",
@@ -162,6 +196,10 @@ def postprocess(output_folder: str | Path, dataset_name: str):
         columns=required_columns
     )
     fitted_curve_data[["cell_line_id", "drug_id"]] = fitted_curve_data.Name.str.split("|", expand=True)
+    fitted_curve_data["EC50_curvecurator"] = np.power(
+        10, -fitted_curve_data["pEC50"].values
+    )  # in CurveCurator 10^-pEC50 = EC50
+    _calc_ic50(fitted_curve_data)
     fitted_curve_data.to_csv(output_folder / f"{dataset_name}.csv", index=None)
 
 
