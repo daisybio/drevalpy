@@ -1,7 +1,7 @@
 SRMF
 ============================
 
-SRMF
+SRMF Model
 --------------------------------
 
 .. automodule:: drevalpy.models.SRMF.srmf

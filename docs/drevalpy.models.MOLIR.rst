@@ -1,7 +1,7 @@
 MOLIR
 =============================
 
-MOLIR
+MOLIR Model
 ----------------------------------
 
 .. automodule:: drevalpy.models.MOLIR.molir
