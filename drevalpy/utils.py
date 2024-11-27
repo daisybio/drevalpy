@@ -60,21 +60,21 @@ def get_parser() -> argparse.ArgumentParser:
         "--randomization_mode",
         nargs="+",
         default=["None"],
-        help="Which randomization tests to run, additionally to the normal run. Default is None "
+        help="Which randomization tests to run, additionally to the normal run. Default is None, "
         "which means no randomization tests are run."
-        "Modes: SVCC, SVRC, SVCD, SVRD"
-        "Can be a list of randomization tests e.g. 'SCVC SCVD' to run two tests. Default is None"
+        "Modes: SVCC, SVRC, SVCD, SVRD. "
+        "Can be a list of randomization tests e.g. 'SCVC SCVD' to run two tests."
         "SVCC: Single View Constant for Cell Lines: in this mode, one experiment is done for every "
-        "cell line view the model uses (e.g. gene expression, mutation, ..)."
+        "cell line view the model uses (e.g. gene expression, mutation, ..). "
         "For each experiment one cell line view is held constant while the others are randomized. "
         "SVRC Single View Random for Cell Lines: in this mode, one experiment is done for every "
-        "cell line view the model uses (e.g. gene expression, mutation, ..)."
-        "For each experiment one cell line view is randomized while the others are held constant."
+        "cell line view the model uses (e.g. gene expression, mutation, ..). "
+        "For each experiment one cell line view is randomized while the others are held constant. "
         "SVCD: Single View Constant for Drugs: in this mode, one experiment is done for every "
-        "drug view the model uses (e.g. fingerprints, target_information, ..)."
-        "For each experiment one drug view is held constant while the others are randomized."
+        "drug view the model uses (e.g. fingerprints, target_information, ..). "
+        "For each experiment one drug view is held constant while the others are randomized. "
         "SVRD: Single View Random for Drugs: in this mode, one experiment is done for every "
-        "drug view the model uses (e.g. gene expression, target_information, ..)."
+        "drug view the model uses (e.g. gene expression, target_information, ..). "
         "For each experiment one drug view is randomized while the others are held constant.",
     )
     parser.add_argument(
@@ -141,7 +141,7 @@ def get_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--n_cv_splits",
         type=int,
-        default=5,
+        default=7,
         help="Number of cross-validation splits to use for the evaluation",
     )
 
