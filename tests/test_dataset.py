@@ -47,7 +47,7 @@ def test_fitting_and_loading_custom_dataset():
     dataset_name = "CTRPv2_sample_test"
     load_dataset(
         dataset_name=dataset_name,
-        path_data=Path(__file__).parent,
+        path_data=str(Path(__file__).parent),
         measure="IC50",
         curve_curator=True,
         cores=200,
