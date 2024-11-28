@@ -7,18 +7,24 @@ from typing import Callable
 import pandas as pd
 
 from ..pipeline_function import pipeline_function
+from .curvecurator import fit_curves
 from .dataset import DrugResponseDataset
 from .utils import download_dataset
 
 
 def load_gdsc1(
-    path_data: str = "data", file_name: str = "response_GDSC1.csv", dataset_name: str = "GDSC1"
+    path_data: str = "data",
+    measure: str = "LN_IC50",
+    file_name: str = "response_GDSC1.csv",
+    dataset_name: str = "GDSC1",
 ) -> DrugResponseDataset:
     """
     Loads the GDSC1 dataset.
 
     :param path_data: Path to the dataset.
     :param file_name: File name of the dataset.
+    :param measure: The name of the column containing the measure to predict, default = "LN_IC50"
+
     :param dataset_name: Name of the dataset.
     :return: DrugResponseDataset containing response, cell line IDs, and drug IDs.
     """
@@ -30,30 +36,36 @@ def load_gdsc1(
     response_data["DRUG_NAME"] = response_data["DRUG_NAME"].str.replace(",", "")
 
     return DrugResponseDataset(
-        response=response_data["LN_IC50"].values,
+        response=response_data[measure].values,
         cell_line_ids=response_data["CELL_LINE_NAME"].values,
         drug_ids=response_data["DRUG_NAME"].values,
         dataset_name=dataset_name,
     )
 
 
-def load_gdsc2(path_data: str = "data", file_name: str = "response_GDSC2.csv"):
+def load_gdsc2(path_data: str = "data", measure: str = "LN_IC50", file_name: str = "response_GDSC2.csv"):
     """
     Loads the GDSC2 dataset.
 
     :param path_data: Path to the dataset.
     :param file_name: File name of the dataset.
+    :param measure: The name of the column containing the measure to predict, default = "LN_IC50"
+
     :return: DrugResponseDataset containing response, cell line IDs, and drug IDs.
     """
-    return load_gdsc1(path_data=path_data, file_name=file_name, dataset_name="GDSC2")
+    return load_gdsc1(path_data=path_data, measure=measure, file_name=file_name, dataset_name="GDSC2")
 
 
-def load_ccle(path_data: str = "data", file_name: str = "response_CCLE.csv") -> DrugResponseDataset:
+def load_ccle(
+    path_data: str = "data", measure: str = "LN_IC50", file_name: str = "response_CCLE.csv"
+) -> DrugResponseDataset:
     """
     Loads the CCLE dataset.
 
     :param path_data: Path to the dataset.
     :param file_name: File name of the dataset.
+    :param measure: The name of the column containing the measure to predict, default = "LN_IC50"
+
     :return: DrugResponseDataset containing response, cell line IDs, and drug IDs.
     """
     dataset_name = "CCLE"
@@ -65,18 +77,20 @@ def load_ccle(path_data: str = "data", file_name: str = "response_CCLE.csv") -> 
     response_data["DRUG_NAME"] = response_data["DRUG_NAME"].str.replace(",", "")
 
     return DrugResponseDataset(
-        response=response_data["LN_IC50"].values,
+        response=response_data[measure].values,
         cell_line_ids=response_data["CELL_LINE_NAME"].values,
         drug_ids=response_data["DRUG_NAME"].values,
         dataset_name=dataset_name,
     )
 
 
-def load_toy(path_data: str = "data") -> DrugResponseDataset:
+def load_toy(path_data: str = "data", measure: str = "response") -> DrugResponseDataset:
     """
     Loads small Toy dataset, subsampled from GDSC1.
 
     :param path_data: Path to the dataset.
+    :param measure: The name of the column containing the measure to predict, default = "response"
+
     :return: DrugResponseDataset containing response, cell line IDs, and drug IDs.
     """
     dataset_name = "Toy_Data"
@@ -86,7 +100,7 @@ def load_toy(path_data: str = "data") -> DrugResponseDataset:
     response_data = pd.read_csv(path)
 
     return DrugResponseDataset(
-        response=response_data["response"].values,
+        response=response_data[measure].values,
         cell_line_ids=response_data["cell_line_id"].values,
         drug_ids=response_data["drug_id"].values,
         dataset_name=dataset_name,
@@ -114,21 +128,47 @@ AVAILABLE_DATASETS: dict[str, Callable] = {
 
 
 @pipeline_function
-def load_dataset(dataset_name: str, path_data: str = "data", measure: str = "response") -> DrugResponseDataset:
+def load_dataset(
+    dataset_name: str, path_data: str = "data", measure: str = "response", curve_curator: bool = False, cores: int = 1
+) -> DrugResponseDataset:
     """
     Load a dataset based on the dataset name.
 
     :param dataset_name: The name of the dataset to load. Can be one of ('GDSC1', 'GDSC2', 'CCLE', or 'Toy_Data')
         to download provided datasets, or any other name, to allow for custom datasets. In that case, the following
         file has to exist: <path_data>/<dataset_name>.csv.
-    :param path_data: The path to the dataset.
-    :param measure: The name of the column containing the measure to predict, default = "response"
+    :param path_data: The path to a custom dataset or to which a provided one (see dataset_name) is downloaded.
+        If providing a custom dataset_name and curve_curator is True, this is interpreted as a path to a csv file
+        containing raw viability data, which will be fit using CurveCurator before storing all results in a subfolder
+        called <dataset_name> including a file <dataset_name>.csv containing the fitted curves.
+    :param measure: The name of the column containing the measure to predict, default = "response".
+        If curve_curator is True, this measure is appended with "_curvecurator", e.g. "response_curvecurator".
+    :param curve_curator: If True and a custom dataset_name is provided, this will invoke the fitting procedure and
+        path_data is interpreted as a path to a csv file containing raw viability data. Downloadable datasets already
+        contain original and curvecurated measures, so they will not be refit.
+        Appends "_curvecurator" to the measure, to distinguish between original and curvecurated measures.
+    :param cores: Number of cores to use for CurveCurator fitting. Only used when curve_curator is True, default = 1
     :return: A DrugResponseDataset containing response, cell line IDs, drug IDs, and dataset name.
     :raises FileNotFoundError: If the custom dataset could not be found at the given path.
     """
+    if curve_curator:
+        measure += "_curvecurator"
+        input_file = Path(path_data)
+        output_dir = Path(path_data).parent / dataset_name
+    else:
+        input_file = Path(path_data) / dataset_name / f"{dataset_name}.csv"
+        output_dir = Path(path_data) / dataset_name
+
     if dataset_name in AVAILABLE_DATASETS:
-        return AVAILABLE_DATASETS[dataset_name](path_data)  # type: ignore
-    custom_path = Path(path_data) / dataset_name / f"{dataset_name}.csv"
-    if custom_path.is_file():
-        return load_custom(custom_path, measure=measure)
-    raise FileNotFoundError(f"Custom dataset does not exist at given path: {custom_path}")
+        return AVAILABLE_DATASETS[dataset_name](path_data, measure)  # type: ignore
+
+    if input_file.is_file():
+        if curve_curator:
+            fit_curves(
+                input_file=input_file,
+                output_dir=output_dir,
+                dataset_name=dataset_name,
+                cores=cores,
+            )
+        return load_custom(output_dir / f"{dataset_name}.csv", measure=measure)
+    raise FileNotFoundError(f"Custom dataset does not exist at given path: {input_file}")

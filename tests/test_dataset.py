@@ -9,7 +9,6 @@ import numpy as np
 import pytest
 from flaky import flaky
 
-from drevalpy.datasets.curvecurator import fit_curves
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.datasets.loader import load_dataset
 from drevalpy.utils import get_response_transformation
@@ -46,17 +45,14 @@ def test_response_dataset_load() -> None:
 
 def test_fitting_and_loading_custom_dataset():
     """Test CurveCurator fitting of raw viability dataset and loading it."""
-    dataset_name = "CTRPv2"
-    output_dir = Path(__file__).parent / dataset_name
-    fit_curves(
-        input_file=Path(__file__).parent / "raw_viability_test_sample.csv",
-        output_dir=output_dir,
-        dataset_name=dataset_name,
+    load_dataset(
+        dataset_name="CTRPv2",
+        path_data=Path(__file__).parent / "raw_viability_test_sample.csv",
+        measure="IC50",
+        curve_curator=True,
         cores=200,
     )
-    load_dataset(dataset_name=dataset_name, path_data=str(output_dir.parent), measure="IC50_curvecurator")
-
-    shutil.rmtree(output_dir)
+    shutil.rmtree(Path(__file__).parent / "CTRPv2")
 
 
 def test_response_dataset_add_rows() -> None:
