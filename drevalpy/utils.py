@@ -238,7 +238,7 @@ def check_arguments(args) -> None:
         if args.curve_curator_cores < 1:
             raise ValueError("Number of cores for CurveCurator must be greater than 0.")
 
-    if args.meaures != "LN_IC50":
+    if args.measure != "LN_IC50":
         raise ValueError("Only LN_IC50 is currently available as a drug response measure.")
 
     if args.response_transformation not in ["None", "standard", "minmax", "robust"]:
