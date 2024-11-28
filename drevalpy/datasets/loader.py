@@ -135,29 +135,27 @@ def load_dataset(
     Load a dataset based on the dataset name.
 
     :param dataset_name: The name of the dataset to load. Can be one of ('GDSC1', 'GDSC2', 'CCLE', or 'Toy_Data')
-        to download provided datasets, or any other name, to allow for custom datasets. In that case, the following
-        file has to exist: <path_data>/<dataset_name>.csv.
-    :param path_data: The path to a custom dataset or to which a provided one (see dataset_name) is downloaded.
-        If providing a custom dataset_name and curve_curator is True, this is interpreted as a path to a csv file
-        containing raw viability data, which will be fit using CurveCurator before storing all results in a subfolder
-        called <dataset_name> including a file <dataset_name>.csv containing the fitted curves.
+        to download provided datasets, or any other name to allow for custom datasets.
+    :param path_data: The parent path in which custom or downloaded datasets should be located, or in which raw
+        viability data is to be found for fitting with CurveCurator (see param curve_curator for details).
+        The location of the datasets are resolved by <path_data>/<dataset_name>/<dataset_name>.csv.
     :param measure: The name of the column containing the measure to predict, default = "response".
-        If curve_curator is True, this measure is appended with "_curvecurator", e.g. "response_curvecurator".
-    :param curve_curator: If True and a custom dataset_name is provided, this will invoke the fitting procedure and
-        path_data is interpreted as a path to a csv file containing raw viability data. Downloadable datasets already
-        contain original and curvecurated measures, so they will not be refit.
-        Appends "_curvecurator" to the measure, to distinguish between original and curvecurated measures.
+        If curve_curator is True, this measure is appended with "_curvecurator", e.g. "response_curvecurator" to
+        distinguish between measures provided by the original source of a dataset, or the measures fit by
+        CurveCurator.
+    :param curve_curator: If True, the measure is appended with "_curvecurator".
+        If a custom dataset_name was provided, this will invoke the fitting procedure of raw viability data,
+        which is expected to exist at <path_data>/<dataset_name>/<dataset_name>_raw.csv. The fitted dataset will
+        be stored in the same folder, in a file called <dataset_name>.csv
     :param cores: Number of cores to use for CurveCurator fitting. Only used when curve_curator is True, default = 1
     :return: A DrugResponseDataset containing response, cell line IDs, drug IDs, and dataset name.
-    :raises FileNotFoundError: If the custom dataset could not be found at the given path.
+    :raises FileNotFoundError: If the custom dataset or raw viability data could not be found at the given path.
     """
     if curve_curator:
         measure += "_curvecurator"
-        input_file = Path(path_data)
-        output_dir = Path(path_data).parent / dataset_name
+        input_file = Path(path_data) / dataset_name / f"{dataset_name}_raw.csv"
     else:
         input_file = Path(path_data) / dataset_name / f"{dataset_name}.csv"
-        output_dir = Path(path_data) / dataset_name
 
     if dataset_name in AVAILABLE_DATASETS:
         return AVAILABLE_DATASETS[dataset_name](path_data, measure)  # type: ignore
@@ -166,9 +164,9 @@ def load_dataset(
         if curve_curator:
             fit_curves(
                 input_file=input_file,
-                output_dir=output_dir,
+                output_dir=input_file.parent,
                 dataset_name=dataset_name,
                 cores=cores,
             )
-        return load_custom(output_dir / f"{dataset_name}.csv", measure=measure)
+        return load_custom(Path(path_data) / dataset_name / f"{dataset_name}.csv", measure=measure)
     raise FileNotFoundError(f"Custom dataset does not exist at given path: {input_file}")

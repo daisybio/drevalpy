@@ -1,6 +1,5 @@
 """Tests for the DrugResponseDataset and the FeatureDataset class."""
 
-import shutil
 import tempfile
 from pathlib import Path
 
@@ -45,14 +44,17 @@ def test_response_dataset_load() -> None:
 
 def test_fitting_and_loading_custom_dataset():
     """Test CurveCurator fitting of raw viability dataset and loading it."""
+    dataset_name = "CTRPv2_sample_test"
     load_dataset(
-        dataset_name="CTRPv2",
-        path_data=Path(__file__).parent / "raw_viability_test_sample.csv",
+        dataset_name=dataset_name,
+        path_data=Path(__file__).parent,
         measure="IC50",
         curve_curator=True,
         cores=200,
     )
-    shutil.rmtree(Path(__file__).parent / "CTRPv2")
+    for f in (Path(__file__).parent / dataset_name).glob("*"):
+        if f.name != f"{dataset_name}_raw.csv":
+            f.unlink()
 
 
 def test_response_dataset_add_rows() -> None:

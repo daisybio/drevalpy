@@ -126,6 +126,21 @@ def get_parser() -> argparse.ArgumentParser:
         default=False,
         help="Whether to run " "CurveCurator " "to sort out " "non-reactive " "curves",
     )
+
+    parser.add_argument(
+        "--curve_curator_cores",
+        type=int,
+        default=1,
+        help="Max. number of cores used to fit curves with CurveCurator following min(cores, #curves to fit).",
+    )
+
+    parser.add_argument(
+        "--measure",
+        type=str,
+        default="LN_IC50",
+        help="The drug response measure used as prediction target. Can be one of ['LN_IC50']",
+    )
+
     parser.add_argument(
         "--overwrite",
         action="store_true",
@@ -170,8 +185,7 @@ def check_arguments(args) -> None:
 
     :param args: arguments passed from the command line
     :raises AssertionError: if any of the arguments is invalid
-    :raises NotImplementedError: because CurveCurator is not implemented yet
-    :raises ValueError: if the number of cross-validation splits is less than 1
+    :raises ValueError: if the number of cross-validation splits or curve_curator_cores is less than 1
     """
     if not args.models:
         raise AssertionError("At least one model must be specified")
@@ -212,7 +226,7 @@ def check_arguments(args) -> None:
     os.makedirs(args.path_data, exist_ok=True)
 
     if args.n_cv_splits <= 1:
-        raise ValueError("Number of cross-validation splits must be greater than 1")
+        raise ValueError("Number of cross-validation splits must be greater than 1.")
 
     # TODO Allow for custom randomization tests maybe via config file
     if args.randomization_mode[0] != "None":
@@ -221,9 +235,15 @@ def check_arguments(args) -> None:
                 "At least one invalid randomization mode. Available randomization modes are SVCC, " "SVRC, SVSC, SVRD"
             )
     if args.curve_curator:
-        raise NotImplementedError("CurveCurator not implemented")
+        if args.curve_curator_cores < 1:
+            raise ValueError("Number of cores for CurveCurator must be greater than 0.")
+
+    if args.meaures != "LN_IC50":
+        raise ValueError("Only LN_IC50 is currently available as a drug response measure.")
+
     if args.response_transformation not in ["None", "standard", "minmax", "robust"]:
         raise AssertionError("Invalid response_transformation. Choose from None, standard, minmax, robust")
+
     if args.optim_metric not in AVAILABLE_METRICS:
         raise AssertionError(
             f"Invalid optim_metric for hyperparameter tuning. Choose from" f" {list(AVAILABLE_METRICS.keys())}"
@@ -243,6 +263,9 @@ def main(args) -> None:
         dataset_name=args.dataset_name,
         cross_study_datasets=args.cross_study_datasets,
         path_data=args.path_data,
+        measure=args.measure,
+        curve_curator=args.curve_curator,
+        cores=args.curve_curator_cores,
     )
 
     models = [MODEL_FACTORY[model] for model in args.models]
@@ -279,20 +302,43 @@ def main(args) -> None:
 
 
 def get_datasets(
-    dataset_name: str, cross_study_datasets: list, path_data: str = "data"
+    dataset_name: str,
+    cross_study_datasets: list,
+    path_data: str = "data",
+    measure: str = "response",
+    curve_curator: bool = False,
+    cores: int = 1,
 ) -> tuple[DrugResponseDataset, Optional[list[DrugResponseDataset]]]:
     """
     Load the response data and cross-study datasets.
 
-    :param dataset_name: name of the dataset
-    :param cross_study_datasets: list of cross-study datasets
-    :param path_data: path to the data directory, default is "data"
+    :param dataset_name: The name of the dataset to load. Can be one of ('GDSC1', 'GDSC2', 'CCLE', or 'Toy_Data')
+        to download provided datasets, or any other name to allow for custom datasets.
+    :param cross_study_datasets: list of cross-study datasets. CurveCurator is not applicable to these. If you wish
+        to provide custom cross_study_datasets, you have to invoke curve fitting manually using
+        drevalpy.datasets.curvecurator.fit_curves
+    :param path_data: The parent path in which custom or downloaded datasets should be located, or in which raw
+        viability data is to be found for fitting with CurveCurator (see param curve_curator for details).
+        The location of the datasets are resolved by <path_data>/<dataset_name>/<dataset_name>.csv.
+    :param measure: The name of the column containing the measure to predict, default = "response".
+        If curve_curator is True, this measure is appended with "_curvecurator", e.g. "response_curvecurator" to
+        distinguish between measures provided by the original source of a dataset, or the measures fit by
+        CurveCurator.
+    :param curve_curator: If True, the measure is appended with "_curvecurator".
+        If a custom dataset_name was provided, this will invoke the fitting procedure of raw viability data,
+        which is expected to exist at <path_data>/<dataset_name>/<dataset_name>_raw.csv. The fitted dataset will
+        be stored in the same folder, in a file called <dataset_name>.csv
+    :param cores: Number of cores to use for CurveCurator fitting. Only used when curve_curator is True, default = 1
     :returns: response data and, potentially, cross-study datasets
     """
     # PIPELINE: LOAD_RESPONSE
-    response_data = load_dataset(dataset_name=dataset_name, path_data=path_data)
+    response_data = load_dataset(
+        dataset_name=dataset_name, path_data=path_data, measure=measure, curve_curator=curve_curator, cores=cores
+    )
 
-    cross_study_datasets = [load_dataset(dataset_name=dn, path_data=path_data) for dn in cross_study_datasets]
+    cross_study_datasets = [
+        load_dataset(dataset_name=dn, path_data=path_data, measure=measure) for dn in cross_study_datasets
+    ]
     return response_data, cross_study_datasets
 
 
