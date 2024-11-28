@@ -138,7 +138,7 @@ def get_parser() -> argparse.ArgumentParser:
         "--measure",
         type=str,
         default="LN_IC50",
-        help="The drug response measure used as prediction target. Can be one of ['LN_IC50']",
+        help="The drug response measure used as prediction target. Can be one of ['LN_IC50', 'response']",
     )
 
     parser.add_argument(
@@ -238,8 +238,8 @@ def check_arguments(args) -> None:
         if args.curve_curator_cores < 1:
             raise ValueError("Number of cores for CurveCurator must be greater than 0.")
 
-    if args.measure != "LN_IC50":
-        raise ValueError("Only LN_IC50 is currently available as a drug response measure.")
+    if args.measure not in ["LN_IC50", "response"]:
+        raise ValueError("Only 'LN_IC50' and 'response' are currently available as a drug response measure.")
 
     if args.response_transformation not in ["None", "standard", "minmax", "robust"]:
         raise AssertionError("Invalid response_transformation. Choose from None, standard, minmax, robust")
