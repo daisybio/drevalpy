@@ -66,13 +66,15 @@ Run the image:
 From Source
 -----------
 
-To install DrEvalPy from source, clone the repository and install the package using Poetry:
+To install DrEvalPy from source, clone the repository and install the package using Poetry
+(ensure that Poetry is  >=1.2.0 because otherwise, the group dependencies will not work, e.g., 1.8.4 works):
 
 .. code-block:: bash
 
     git clone https://github.com/daisybio/drevalpy.git
     cd drevalpy
-    pip install poetry
+    mamba create -y -n drevalpy python==3.10 poetry==1.8.4
+    poetry --version
     poetry install
 
 Now, you can test the functionality by referring to the `Quickstart <./quickstart.html>`_ documentation.

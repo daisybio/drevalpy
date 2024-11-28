@@ -1,7 +1,7 @@
 SuperFELTR
 ==================================
 
-SuperFELTR
+SuperFELTR Model
 --------------------------------------------
 
 .. automodule:: drevalpy.models.SuperFELTR.superfeltr

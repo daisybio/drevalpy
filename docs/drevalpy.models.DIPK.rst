@@ -1,7 +1,7 @@
 DIPK
 =====
 
-DIPK
+DIPK Model
 --------------------------------
 
 .. automodule:: drevalpy.models.DIPK.dipk
