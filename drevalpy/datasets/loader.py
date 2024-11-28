@@ -94,6 +94,7 @@ def load_toy(path_data: str = "data", measure: str = "response") -> DrugResponse
     :return: DrugResponseDataset containing response, cell line IDs, and drug IDs.
     """
     dataset_name = "Toy_Data"
+    measure = "response"  # overwrite this explicitly to avoid problems, should be changed in the future
     path = os.path.join(path_data, dataset_name, "toy_data.csv")
     if not os.path.exists(path):
         download_dataset(dataset_name, path_data, redownload=True)
