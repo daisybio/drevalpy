@@ -42,7 +42,7 @@ pip install drevalpy
 From Source:
 
 ```bash
-conda env create -f models/simple_neural_network/env.yml
+conda env create -f models/SimpleNeuralNetwork/env.yml
 pip install .
 ```
 

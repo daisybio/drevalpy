@@ -1,6 +1,14 @@
+"""
+Contains the SRMF (Similarity Regularization Matrix Factorization) model.
+
+Original publication: Wang, L., Li, X., Zhang, L. et al. Improved anticancer drug response prediction in cell lines
+using matrix factorization with similarity regularization. BMC Cancer 17, 513 (2017).
+https://doi.org/10.1186/s12885-017-3500-5.
+Matlab code adapted from https://github.com/linwang1982/SRMF.
+"""
+
 import numpy as np
 import pandas as pd
-from numpy.typing import ArrayLike
 from scipy.spatial.distance import jaccard
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
@@ -9,22 +17,51 @@ from drevalpy.models.utils import load_and_reduce_gene_features, load_drug_finge
 
 
 class SRMF(DRPModel):
-    """SRMF model: Similarity Regularization Matrix Factorization."""
+    """
+    SRMF model: Similarity Regularization Matrix Factorization.
 
-    model_name = "SRMF"
+    The primary idea is to map m drugs and n cell lines into a shared latent space, with a low dimensionality K,
+    where K << min (m, n). The properties of a drug $d_i$ and a cell line $c_j$ are described by two latent coordinates
+    $u_i$ and $v_j$ (K dimensional row vectors), respectively. The drug response matrix Y is approximated by:
+    $min_{U,V} || W * (Y - U * V^T) ||^2_F + lambda_l * (||U||^2_F + ||V||^2_F) + lambda_d * ||S_d - U * U^T||^2_F +
+    lambda_c * ||S_c - V * V^T||^2_F$
+    where W is a weight matrix ($W_{ij} = 1 if Y_{ij}$ is a known response value, else 0). U, V contain $u_i$ ,
+    $v_j$ as row vectors, respectively, $||.||_F$ is the Frobenius norm. To avoid overfitting, L2 regularization is
+    used. S_d, S_c are drug/cell line similarity matrices. Differences between two drugs/cell lines are minimized in
+    latent space.
+    """
+
     cell_line_views = ["gene_expression"]
     drug_views = ["fingerprints"]
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initalization method for SRMF Model."""
         super().__init__()
-        self.best_u = None
-        self.best_v = None
-        self.w = None
+        self.best_u: pd.DataFrame = pd.DataFrame()
+        self.best_v: pd.DataFrame = pd.DataFrame()
+        self.w: pd.DataFrame = pd.DataFrame()
+        self.k: int = 45
+        self.lambda_l: float = 0.01
+        self.lambda_d: float = 0.0
+        self.lambda_c: float = 0.01
+        self.max_iter: int = 50
+        self.seed: int = 1
 
-    def build_model(self, hyperparameters: dict):
+    @classmethod
+    def get_model_name(cls) -> str:
+        """
+        Returns the model name.
+
+        :returns: SRMF
+        """
+        return "SRMF"
+
+    def build_model(self, hyperparameters: dict) -> None:
         """
         Initializes hyperparameters for SRMF model.
+
+        K is the latent dimensionality, lambda_l, lambda_d, lambda_c are regularization parameters, max_iter is the
+        number of iterations, seed is the random seed.
 
         :param hyperparameters: dictionary containing the hyperparameters
         """
@@ -38,9 +75,9 @@ class SRMF(DRPModel):
     def train(
         self,
         output: DrugResponseDataset,
-        cell_line_input: FeatureDataset = None,
-        drug_input: FeatureDataset = None,
-        output_earlystopping=None,
+        cell_line_input: FeatureDataset,
+        drug_input: FeatureDataset | None = None,
+        output_earlystopping: DrugResponseDataset | None = None,
     ) -> None:
         """
         Prepares data and trains the SRMF model.
@@ -48,7 +85,12 @@ class SRMF(DRPModel):
         :param output: response data
         :param cell_line_input: feature data for cell lines
         :param drug_input: feature data for drugs
+        :param output_earlystopping: optional early stopping dataset
+        :raises ValueError: if drug_input is None
         """
+        if drug_input is None:
+            raise ValueError("SRMF requires drug features.")
+
         drugs = np.unique(drug_input.identifiers)  # transductive approach - all drug features are used
         cell_lines = np.unique(cell_line_input.identifiers)  # transductive approach - all cell line features are used
 
@@ -85,7 +127,7 @@ class SRMF(DRPModel):
         drug_response_matrix[np.isnan(drug_response_matrix)] = 0
 
         # Train the model
-        best_u, best_v = self.cmf(
+        best_u, best_v = self._cmf(
             w=self.w.T.values,
             int_mat=drug_response_matrix.values.T,
             drug_mat=drug_similarity.values,
@@ -96,17 +138,19 @@ class SRMF(DRPModel):
 
     def predict(
         self,
-        drug_ids: ArrayLike,
-        cell_line_ids: ArrayLike,
-        drug_input: FeatureDataset = None,
-        cell_line_input: FeatureDataset = None,
+        cell_line_ids: np.ndarray,
+        drug_ids: np.ndarray,
+        cell_line_input: FeatureDataset,
+        drug_input: FeatureDataset | None = None,
     ) -> np.ndarray:
         """
         Predicts the drug response based on the trained latent factors.
 
         :param drug_ids: drug identifiers
         :param cell_line_ids: cell line identifiers
-        :return: predicted response matrix
+        :param cell_line_input: not needed for prediction in SRMF
+        :param drug_input: not needed for prediction in SRMF
+        :returns: predicted response matrix
         """
         best_u = self.best_u.loc[drug_ids].values
         best_v = self.best_v.loc[cell_line_ids].values
@@ -116,14 +160,15 @@ class SRMF(DRPModel):
 
         return diagonal_predictions
 
-    def cmf(self, w, int_mat, drug_mat, cell_mat):
+    def _cmf(self, w, int_mat, drug_mat, cell_mat) -> tuple[np.ndarray, np.ndarray]:
         """
         Implements the SRMF model with specific update rules and regularization.
 
-        :param w:
-        :param int_mat:
-        :param drug_mat:
-        :param cell_mat:
+        :param w: weight matrix
+        :param int_mat: interaction matrix
+        :param drug_mat: drug similarity matrix
+        :param cell_mat: cell line similarity matrix
+        :returns: best drug and cell line latent factors
         """
         np.random.seed(self.seed)
         m, n = w.shape
@@ -132,14 +177,14 @@ class SRMF(DRPModel):
 
         best_u, best_v = u0, v0
 
-        last_loss = self.compute_loss(u0, v0, w, int_mat, drug_mat, cell_mat)
+        last_loss = self._compute_loss(u0, v0, w, int_mat, drug_mat, cell_mat)
         best_loss = last_loss
         wr = w * int_mat
 
         for _ in range(self.max_iter):
-            u = self.alg_update(u0, v0, w, wr, drug_mat, self.lambda_l, self.lambda_d)
-            v = self.alg_update(v0, u, w.T, wr.T, cell_mat, self.lambda_l, self.lambda_c)
-            curr_loss = self.compute_loss(u, v, w, int_mat, drug_mat, cell_mat)
+            u = self._alg_update(u0, v0, w, wr, drug_mat, self.lambda_l, self.lambda_d)
+            v = self._alg_update(v0, u, w.T, wr.T, cell_mat, self.lambda_l, self.lambda_c)
+            curr_loss = self._compute_loss(u, v, w, int_mat, drug_mat, cell_mat)
 
             if curr_loss < best_loss:
                 best_u, best_v = u, v
@@ -154,16 +199,17 @@ class SRMF(DRPModel):
 
         return best_u, best_v
 
-    def compute_loss(self, u, v, w, int_mat, drug_mat, cell_mat):
+    def _compute_loss(self, u, v, w, int_mat, drug_mat, cell_mat) -> np.float64:
         """
         Computes the loss for SRMF, including similarity regularization.
 
-        :param u:
-        :param v:
-        :param w:
-        :param int_mat:
-        :param drug_mat:
-        :param cell_mat:
+        :param u: drug latent factors
+        :param v: cell line latent factors
+        :param w: weight matrix
+        :param int_mat: interaction matrix
+        :param drug_mat: drug similarity matrix
+        :param cell_mat: cell line similarity matrix
+        :returns: loss value
         """
         loss = np.sum((w * (int_mat - np.dot(u, v.T))) ** 2)
         loss += self.lambda_l * (np.sum(u**2) + np.sum(v**2))
@@ -171,17 +217,18 @@ class SRMF(DRPModel):
         loss += self.lambda_c * np.sum((cell_mat - np.dot(v, v.T)) ** 2)
         return loss
 
-    def alg_update(self, u, v, w, r, s, lambda_l, lambda_d):
+    def _alg_update(self, u, v, w, r, s, lambda_l, lambda_d) -> np.ndarray:
         """
         Algorithm update rule for u or v in the SRMF model.
 
-        :param u:
-        :param v:
-        :param w:
-        :param r:
-        :param s:
-        :param lambda_l:
-        :param lambda_d:
+        :param u: drug latent factors
+        :param v: cell line latent factors
+        :param w: weight matrix
+        :param r: weight * interaction matrix
+        :param s: drug/cell line similarity matrix
+        :param lambda_l: regularization parameter
+        :param lambda_d: drug/cell line similarity regularization parameter
+        :returns: updated u or v
         """
         x = np.dot(r, v) + 2 * lambda_d * np.dot(s, u)
         y = 2 * lambda_d * np.dot(u.T, u)
@@ -205,10 +252,11 @@ class SRMF(DRPModel):
 
     def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         """
-        Loads the cell line features.
+        Loads the cell line features, in this case the gene expression features.
 
-        :param path: Path to the gene expression and landmark genes
-        :return: FeatureDataset containing the cell line gene expression features, filtered
+        :param data_path: Path to the gene expression and landmark genes, e.g., data/
+        :param dataset_name: Name of the dataset, e.g., GDSC2
+        :returns: FeatureDataset containing the cell line gene expression features, filtered
             through the landmark genes
         """
         return load_and_reduce_gene_features(
@@ -220,9 +268,10 @@ class SRMF(DRPModel):
 
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         """
-        Loads the drug features.
+        Loads the drug features, in this case the drug fingerprints.
 
-        :param data_path:
-        :param dataset_name:
+        :param data_path: Path to the drug features, in this case the drug fingerprints, e.g., data/
+        :param dataset_name: Name of the dataset, e.g., GDSC2
+        :returns: FeatureDataset containing the drug fingerprint features
         """
         return load_drug_fingerprint_features(data_path, dataset_name)

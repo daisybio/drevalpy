@@ -18,7 +18,7 @@ except ImportError:
     sys.exit(1)
 
 package = "drevalpy"
-python_versions = ["3.10", "3.11"]
+python_versions = ["3.11", "3.12"]
 nox.options.sessions = (
     "pre-commit",
     "safety",
@@ -100,7 +100,11 @@ def activate_virtualenv_in_precommit_hooks(session: Session) -> None:
 
 @session(name="pre-commit", python=python_versions)
 def precommit(session: Session) -> None:
-    """Lint using pre-commit."""
+    """
+    Lint using pre-commit.
+
+    :param session: The Session object.
+    """
     args = session.posargs or ["run", "--all-files"]
     session.install(
         "black",
@@ -123,8 +127,12 @@ def precommit(session: Session) -> None:
 
 @session(python=python_versions)
 def safety(session: Session) -> None:
-    """Scan dependencies for insecure packages."""
-    to_ignore = "--ignore=70612"
+    """
+    Scan dependencies for insecure packages.
+
+    :param session: The Session object.
+    """
+    to_ignore = "--ignore=70612,65189"
     requirements = session.poetry.export_requirements()
     session.install("safety")
     session.run("safety", "check", "--full-report", f"--file={requirements}", to_ignore)
@@ -132,17 +140,25 @@ def safety(session: Session) -> None:
 
 @session(python=python_versions)
 def mypy(session: Session) -> None:
-    """Type-check using mypy."""
+    """
+    Type-check using mypy.
+
+    :param session: The Session object.
+    """
     args = session.posargs or ["drevalpy", "tests", "docs/conf.py"]
     session.install(".")
-    session.install("mypy", "pytest", "types-requests", "types-attrs")
+    session.install("mypy", "pytest", "types-requests", "types-attrs", "types-PyYAML", "types-toml")
     session.run("mypy", *args)
 
 
 @session(python=python_versions)
 def tests(session: Session) -> None:
-    """Run the test suite."""
-    session.install(".")
+    """
+    Run the test suite.
+
+    :param session: The Session object.
+    """
+    session.install(".[fit]")
     session.install("coverage[toml]", "pytest", "pygments")
     try:
         session.run("coverage", "run", "--parallel", "-m", "pytest", *session.posargs)
@@ -153,7 +169,11 @@ def tests(session: Session) -> None:
 
 @session
 def coverage(session: Session) -> None:
-    """Produce the coverage report."""
+    """
+    Produce the coverage report.
+
+    :param session: The Session object.
+    """
     # Do not use session.posargs unless this is the only session.
     nsessions = len(session._runner.manifest)  # type: ignore[attr-defined]
     has_args = session.posargs and nsessions == 1
@@ -169,15 +189,23 @@ def coverage(session: Session) -> None:
 
 @session(python=python_versions)
 def typeguard(session: Session) -> None:
-    """Runtime type checking using Typeguard."""
-    session.install(".")
+    """
+    Runtime type checking using Typeguard.
+
+    :param session: The Session object.
+    """
+    session.install(".[fit]")
     session.install("pytest", "typeguard", "pygments")
     session.run("pytest", f"--typeguard-packages={package}", *session.posargs)
 
 
 @session(python=python_versions)
 def xdoctest(session: Session) -> None:
-    """Run examples with xdoctest."""
+    """
+    Run examples with xdoctest.
+
+    :param session: The Session object.
+    """
     args = session.posargs or ["all"]
     session.install(".")
     session.install("xdoctest[colors]")
@@ -186,7 +214,11 @@ def xdoctest(session: Session) -> None:
 
 @session(name="docs-build", python=python_versions)
 def docs_build(session: Session) -> None:
-    """Build the documentation."""
+    """
+    Build the documentation.
+
+    :param session: The Session object.
+    """
     args = session.posargs or ["docs", "docs/_build"]
     session.install("-r", "./docs/requirements.txt")
 
@@ -199,7 +231,11 @@ def docs_build(session: Session) -> None:
 
 @session(python=python_versions)
 def docs(session: Session) -> None:
-    """Build and serve the documentation with live reloading on file changes."""
+    """
+    Build and serve the documentation with live reloading on file changes.
+
+    :param session: The Session object.
+    """
     args = session.posargs or ["--open-browser", "docs", "docs/_build"]
     session.install(".")
     session.install(
