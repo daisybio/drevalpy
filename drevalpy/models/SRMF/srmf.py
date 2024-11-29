@@ -21,14 +21,14 @@ class SRMF(DRPModel):
     SRMF model: Similarity Regularization Matrix Factorization.
 
     The primary idea is to map m drugs and n cell lines into a shared latent space, with a low dimensionality K,
-    where K << min (m, n). The properties of a drug $d_i$ and a cell line $c_j$ are described by two latent coordinates
-    $u_i$ and $v_j$ (K dimensional row vectors), respectively. The drug response matrix Y is approximated by:
-    $min_{U,V} || W * (Y - U * V^T) ||^2_F + lambda_l * (||U||^2_F + ||V||^2_F) + lambda_d * ||S_d - U * U^T||^2_F +
-    lambda_c * ||S_c - V * V^T||^2_F$
-    where W is a weight matrix ($W_{ij} = 1 if Y_{ij}$ is a known response value, else 0). U, V contain $u_i$ ,
-    $v_j$ as row vectors, respectively, $||.||_F$ is the Frobenius norm. To avoid overfitting, L2 regularization is
-    used. S_d, S_c are drug/cell line similarity matrices. Differences between two drugs/cell lines are minimized in
-    latent space.
+    where :math:`K << min (m, n)`. The properties of a drug :math:`d_i` and a cell line :math:`c_j` are described by
+    two latent coordinates :math:`u_i` and :math:`v_j` (K dimensional row vectors), respectively. The drug response
+    matrix Y is approximated by: :math:`min_{U,V} || W * (Y - U * V^T) ||^2_F + lambda_l * (||U||^2_F + ||V||^2_F) +
+    lambda_d * ||S_d - U * U^T||^2_F + lambda_c * ||S_c - V * V^T||^2_F`
+    where W is a weight matrix (:math:`W_{ij} = 1 if Y_{ij}` is a known response value, else 0). U, V contain
+    :math:`u_i`, :math:`v_j` as row vectors, respectively, :math:`||.||_F` is the Frobenius norm. To avoid overfitting,
+    L2 regularization is used. :math:`S_d, S_c` are drug/cell line similarity matrices. Differences between two
+    drugs/cell lines are minimized in latent space.
     """
 
     cell_line_views = ["gene_expression"]

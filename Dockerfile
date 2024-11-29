@@ -6,15 +6,11 @@ FROM python:3.10-buster as builder
 
 RUN pip install poetry==1.8.4
 
-# POETRY_VIRTUALENVS_CREATE=1: Makes sure that environment will be as isolated as possible and above all that
-# installation will not mess up with the system Python or, even worse, with Poetry itself.
 # POETRY_CACHE_DIR: When removing the cache folder, make sure this is done in the same RUN command. If it’s done in a
 # separate RUN command, the cache will still be part of the previous Docker layer (the one containing poetry install )
 # effectively rendering your optimization useless.
 
 ENV POETRY_NO_INTERACTION=1 \
-    POETRY_VIRTUALENVS_IN_PROJECT=1 \
-    POETRY_VIRTUALENVS_CREATE=1 \
     POETRY_CACHE_DIR=/tmp/poetry_cache
 
 WORKDIR /root
@@ -34,10 +30,9 @@ FROM python:3.10-slim-buster as runtime
 LABEL image.author.name="Judith Bernett"
 LABEL image.author.email="judith.bernett@tum.de"
 
-ENV VIRTUAL_ENV=/root/.venv \
-    PATH="/root/.venv/bin:$PATH"
-
-COPY --from=builder ${VIRTUAL_ENV} ${VIRTUAL_ENV}
+# Copy installed dependencies from the builder image
+COPY --from=builder /usr/local/lib/python3.10/site-packages /usr/local/lib/python3.10/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy all relevant code
 
@@ -51,3 +46,6 @@ COPY poetry.lock ./
 
 # Install drevalpy
 RUN pip install .
+
+# Nextflow needs the command ps to be available
+RUN apt-get update && apt-get install -y procps && rm -rf /var/lib/apt/lists/*
