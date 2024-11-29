@@ -2,7 +2,7 @@ Contributor Guide
 =================
 
 Thank you for your interest in improving this project.
-This project is open-source under the `MIT license`_ and
+This project is open-source under the `GPL-3 license`_ and
 highly welcomes contributions in the form of bug reports, feature requests, and pull requests.
 
 Here is a list of important resources for contributors:
@@ -11,7 +11,7 @@ Here is a list of important resources for contributors:
 - `Documentation`_
 - `Issue Tracker`_
 
-.. _MIT license: https://opensource.org/licenses/MIT
+.. _GPL-3 license: https://opensource.org/license/gpl-3-0
 .. _Source Code: https://github.com/daisybio/drevalpy
 .. _Documentation: https://drevalpy.readthedocs.io/
 .. _Issue Tracker: https://github.com/daisybio/drevalpy/issues
@@ -31,39 +31,19 @@ Request features on the `Issue Tracker`_.
 How to set up your development environment
 ------------------------------------------
 
-You need Python 3.9+ and the following tools:
-
-- Poetry_
-- Nox_
-- nox-poetry_
-
-You can install them with:
-
-.. code:: console
-
-    $ pip install poetry nox nox-poetry
-
-Install the package with development requirements:
-
-.. code:: console
-
-   $ make install
-
-You can now run an interactive Python session,
-or the command-line interface:
-
-.. code:: console
-
-   $ poetry run python
-   $ poetry run drevalpy
+You need Python 3.10+ and Poetry_ to set up your development environment.
 
 .. _Poetry: https://python-poetry.org/
-.. _Nox: https://nox.thea.codes/
-.. _nox-poetry: https://nox-poetry.readthedocs.io/
 
 
 How to test the project
 -----------------------
+
+For this, you need to install nox and nox-poetry:
+
+.. code:: console
+
+   $ pip install nox nox-poetry
 
 Run the full test suite:
 
@@ -93,7 +73,6 @@ How to build and view the documentation
 ---------------------------------------
 
 This project uses Sphinx_ together with several extensions to build the documentation.
-It further requires Pandoc_ to translate various formats.
 
 To install all required dependencies for the documentation run:
 
@@ -111,7 +90,6 @@ from inside the docs folder. The generated static HTML files can be found in the
 Simply open them with your favorite browser.
 
 .. _sphinx: https://www.sphinx-doc.org/en/master/
-.. _pandoc: https://pandoc.org/
 
 How to submit changes
 ---------------------

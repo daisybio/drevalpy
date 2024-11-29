@@ -43,3 +43,7 @@ table.align-default {
 .date {
   font-size: 50%;
 }
+
+a:visited {
+  color: #a63a85;
+}

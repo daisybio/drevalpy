@@ -18,9 +18,9 @@
 
    installation
    usage
-   API
    contributing
    reference
+   API
 
 .. _github: https://github.com/daisybio/drevalpy
 
