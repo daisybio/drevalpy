@@ -1,7 +1,7 @@
 """Tests for the DrugResponseDataset and the FeatureDataset class."""
 
-import os
 import tempfile
+from pathlib import Path
 
 import networkx as nx
 import numpy as np
@@ -9,6 +9,7 @@ import pytest
 from flaky import flaky
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.datasets.loader import load_dataset
 from drevalpy.utils import get_response_transformation
 
 # Tests for the DrugResponseDataset class
@@ -27,17 +28,33 @@ def test_response_dataset_load() -> None:
         drug_ids=data["drug_id"],
         response=data["response"],
     )
-    dataset.save("dataset.csv")
+    dataset_path = Path("dataset.csv")
+    dataset.save(dataset_path)
     del dataset
     # Load the dataset
-    dataset = DrugResponseDataset.from_csv("dataset.csv")
+    dataset = DrugResponseDataset.from_csv(dataset_path)
 
-    os.remove("dataset.csv")
+    dataset_path.unlink()
 
     # Check if the dataset loaded correctly
     assert np.array_equal(dataset.cell_line_ids, data["cell_line_id"])
     assert np.array_equal(dataset.drug_ids, data["drug_id"])
     assert np.allclose(dataset.response, data["response"])
+
+
+def test_fitting_and_loading_custom_dataset():
+    """Test CurveCurator fitting of raw viability dataset and loading it."""
+    dataset_name = "CTRPv2_sample_test"
+    load_dataset(
+        dataset_name=dataset_name,
+        path_data=str(Path(__file__).parent),
+        measure="IC50",
+        curve_curator=True,
+        cores=200,
+    )
+    for f in (Path(__file__).parent / dataset_name).glob("*"):
+        if f.name != f"{dataset_name}_raw.csv":
+            f.unlink()
 
 
 def test_response_dataset_add_rows() -> None:
