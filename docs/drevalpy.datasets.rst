@@ -17,6 +17,14 @@ Loaders
    :undoc-members:
    :show-inheritance:
 
+CurveCurator
+------------
+
+.. automodule:: drevalpy.datasets.curvecurator
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Utility functions
 -----------------
 
