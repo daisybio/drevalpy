@@ -113,9 +113,12 @@ def _get_positive_class_indices(label: np.float32, idx_label: int, y: np.ndarray
     """
     indices_similar_samples = np.where(np.logical_and(label - positive_range <= y, y <= label + positive_range))[0]
     indices_similar_samples = np.delete(indices_similar_samples, np.where(indices_similar_samples == idx_label))
-    if len(indices_similar_samples) == 0:
+    if len(indices_similar_samples) == 0 and len(y) > 1:
         # return the closest samples to the label except the label itself
         indices_similar_samples = np.array([np.argsort(np.abs(y - label))[1]])
+    elif len(indices_similar_samples) == 0:
+        # this happens only when there is just one sample in the validation dataset
+        indices_similar_samples = np.where(y == label)[0]
     return indices_similar_samples
 
 
