@@ -18,7 +18,7 @@ except ImportError:
     sys.exit(1)
 
 package = "drevalpy"
-python_versions = ["3.10", "3.11"]
+python_versions = ["3.11", "3.12"]
 nox.options.sessions = (
     "pre-commit",
     "safety",
@@ -147,7 +147,7 @@ def mypy(session: Session) -> None:
     """
     args = session.posargs or ["drevalpy", "tests", "docs/conf.py"]
     session.install(".")
-    session.install("mypy", "pytest", "types-requests", "types-attrs", "types-PyYAML")
+    session.install("mypy", "pytest", "types-requests", "types-attrs", "types-PyYAML", "types-toml")
     session.run("mypy", *args)
 
 
@@ -158,7 +158,7 @@ def tests(session: Session) -> None:
 
     :param session: The Session object.
     """
-    session.install(".")
+    session.install(".[fit]")
     session.install("coverage[toml]", "pytest", "pygments")
     try:
         session.run("coverage", "run", "--parallel", "-m", "pytest", *session.posargs)
@@ -194,7 +194,7 @@ def typeguard(session: Session) -> None:
 
     :param session: The Session object.
     """
-    session.install(".")
+    session.install(".[fit]")
     session.install("pytest", "typeguard", "pygments")
     session.run("pytest", f"--typeguard-packages={package}", *session.posargs)
 
