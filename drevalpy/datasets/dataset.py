@@ -66,7 +66,10 @@ class DrugResponseDataset(Dataset):
 
     @classmethod
     def from_csv(
-        cls: type["DrugResponseDataset"], input_file: str | Path, dataset_name: str = "unknown"
+        cls: type["DrugResponseDataset"],
+        input_file: str | Path,
+        dataset_name: str = "unknown",
+        measure: str = "response",
     ) -> "DrugResponseDataset":
         """
         Load a dataset from a csv file.
@@ -80,6 +83,7 @@ class DrugResponseDataset(Dataset):
 
         :param input_file: Path to the csv file containing the data to be loaded
         :param dataset_name: Optional name to associate the dataset with, default = "unknown"
+        :param measure: The name of the column containing the measure to predict, default = "response"
 
         :returns: DrugResponseDataset object containing data from provided csv file.
         """
@@ -89,7 +93,7 @@ class DrugResponseDataset(Dataset):
         else:
             predictions = None
         return cls(
-            response=data["response"].values,
+            response=data[measure].values,
             cell_line_ids=data["cell_line_id"].values,
             drug_ids=data["drug_id"].values,
             predictions=predictions,
