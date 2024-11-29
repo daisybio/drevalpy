@@ -5,7 +5,7 @@ name: Python package
 
 on:
   pull_request:
-    types: [opened, reopened]
+    branches: [main, development]
   release:
     types: [published]
 
@@ -33,7 +33,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          poetry install --with development
+          poetry install --with development -E fit
 
       - name: Build package
         run: poetry build --ansi
