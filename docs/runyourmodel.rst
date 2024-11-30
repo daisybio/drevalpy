@@ -1,9 +1,11 @@
 Run your own model
 ====
 
-DrEvalPy provides an easy-to-use interface for running your own model. First, you need to define a Python class for your model. This class should inherit from the DRPModel base class.
-The framework is agnostic to the specific modeling strategy you use.
-However, you need to define the input views, which represent different types of features that your model requires.
+DrEvalPy provides a standardized interface for running your own model.
+First make a new folder for your model at `drevalpy/models/your_model_name`.
+Create `drevalpy/models/your_model_name/your_model.py` in which you need to define the Python class for your model.
+This class should inherit from the DRPModel base class.
+DrEvalPy is agnostic to the specific modeling strategy you use. However, you need to define the input views, which represent different types of features that your model requires.
 In this example, the model uses "gene_expression" and "methylation" features as cell line views, and "fingerprints" as drug views.
 Additionally, you must define a unique model name to identify your model during evaluation.
 
@@ -35,7 +37,7 @@ If the features are different depending on the dataset, use the `dataset_name` p
         :param dataset_name: name of the dataset
         :returns: FeatureDataset containing the drug ids
         """
-        feature_dataset = FeatureDataset.from_csv(f"{data_path}/{dataset_name}_fingerprints.csv")
+        feature_dataset = FeatureDataset.from_csv(f"{data_path}/{dataset_name}/fingerprints.csv") # make sure to adjust the path to your data
 
         return feature_dataset
 
@@ -48,36 +50,34 @@ If the features are different depending on the dataset, use the `dataset_name` p
         :param dataset_name: name of the dataset
         :returns: FeatureDataset containing the cell line ids
         """
-        feature_dataset = FeatureDataset.from_csv(f"{data_path}/{dataset_name}_gene_expression.csv")
-        methylation = FeatureDataset.from_csv(f"{data_path}/{dataset_name}_methylation.csv")
+        feature_dataset = FeatureDataset.from_csv(f"{data_path}/{dataset_name}_gene_expression.csv", id_column="cell_line_ids", view_name="gene_expression") # make sure to adjust the path to your data
+        methylation = FeatureDataset.from_csv(f"{data_path}/{dataset_name}_methylation.csv", id_column="cell_line_ids", view_name="gene_expression") # make sure to adjust the path to your data
         feature_dataset.add_features(methylation)
 
         return feature_dataset
 
-The build_model functions can be used if you want to use tunable hyperparameters. The hyperparameters which get tested are defined in the hyperparameters.yaml which is in the same folder as your model class.
+The build_model functions can be used if you want to use tunable hyperparameters.
+The hyperparameters which get tested are defined in the `drevalpy/models/your_model_name/hyperparameters.yaml`.
+
+.. code-block:: Python
 
 def build_model(self, hyperparameters: dict[str, Any]) -> None:
-    self.hyperparameters = hyperparameters
+    predictor = YourPredictor(hyperparameters) # Initialize your Predictor, this could be a sklearn model, a neural network, etc.
 
-
-The train method should handle model training, and saving any necessary information (e.g., learned parameters). Here we use a simple predictor that just uses the concatenated features to predict the response. (TODO add Methylation)
+The train method should handle model training, and saving any necessary information (e.g., learned parameters). Here we use a simple predictor that just uses the concatenated features to predict the response.
 
 .. code-block:: Python
 
     def train(self, output: DrugResponseDataset, cell_line_input: FeatureDataset, drug_input: FeatureDataset | None = None) -> None:
 
-        predictor = YourPredictor(self.hyperparameters) # Initialize your Predictor
-
-        # Example using sklearn's fit method
-        X = self.get_concatenated_features(
-            cell_line_view="gene_expression",
-            drug_view="fingerprints",
-            cell_line_ids_output=output.cell_line_ids,
-            drug_ids_output=output.drug_ids,
+        inputs = self.get_feature_matrices(
+            cell_line_ids=cell_line_ids,
+            drug_ids=drug_ids,
             cell_line_input=cell_line_input,
-            drug_input=drug_input
+            drug_input=drug_input,
         )
-        predictor.fit(X, output.response)
+
+        predictor.fit(**inputs, output.response)
 
         self.predictor = predictor # save your predictor for the prediciton step
 
@@ -87,16 +87,21 @@ The predict method should handle model prediction, and return the predicted resp
 
     def predict(self, cell_line_input: FeatureDataset, drug_input: FeatureDataset | None = None) -> np.ndarray:
 
-        X = self.get_concatenated_features(
-            cell_line_view="gene_expression",
-            drug_view="fingerprints",
+        inputs = self.get_feature_matrices(
+            cell_line_ids=cell_line_ids,
+            drug_ids=drug_ids,
             cell_line_input=cell_line_input,
-            drug_input=drug_input
+            drug_input=drug_input,
         )
 
-        return self.predictor.predict(X)
+        return self.predictor.predict(**inputs, output.response)
 
-Finally, you need to register your model with the framework. This can be done by adding the following line to the `__init__.py` file in the `models` directory.
+Finally, you need to register your model with the framework. This can be done by adding the following line to the `__init__.py` file in the `drevalpy/models/__init__.py`` directory.
+Update the `MULTI_DRUG_MODEL_FACTORY` if your model is a global model for multiple cancer drugs or to the `SINGLE_DRUG_MODEL_FACTORY` if your model is specific to a single drug and needs to be trained for each drug separately.
+.. code-block:: Python
+
+    from .your_model_name.your_model import YourModel
+    MULTI_DRUG_MODEL_FACTORY.update("YourModel": YourModel)
 
 
 
