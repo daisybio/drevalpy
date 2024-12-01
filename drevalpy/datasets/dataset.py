@@ -17,7 +17,7 @@ import copy
 import os
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 import networkx as nx
 import numpy as np
@@ -728,17 +728,39 @@ class FeatureDataset(Dataset):
 
     @classmethod
     def from_csv(
-        cls: type["FeatureDataset"], input_file: str | Path, dataset_name: str = "unknown"
-    ) -> "FeatureDataset":
+        cls: type["FeatureDataset"],
+        path_to_csv: str | Path,
+        view_name: str = "unknown",
+        id_column: str = "id",
+        drop_columns: Optional[list[str]] = None,
+    ):
         """
         Load a feature dataset from a csv file.
 
-        This function creates a FeatureDataset from a provided input file in csv format.
-        :param input_file: Path to the csv file containing the data to be loaded
-        :param dataset_name: Optional name to associate the dataset with, default = "unknown"
-        :raises NotImplementedError: This method is currently not implemented.
+        :param path_to_csv: path to the csv file containing the data to be loaded
+        :param view_name: name of the view (e.g. gene_expression)
+        :param id_column: name of the column containing the identifiers
+        :param drop_columns: list of columns to drop (e.g. other identifier columns)
+        :returns: FeatureDataset object containing data from provided csv file.
         """
-        raise NotImplementedError
+        data = pd.read_csv(path_to_csv)
+        ids = data[id_column].values
+        data_features = data.drop(columns=[id_column] + (drop_columns or []))
+        features = {}
+        for identifier in ids:
+            features_for_instance = data_features.loc[data_features[id_column] == identifier].values
+
+            if len(features_for_instance) > 1:
+
+                features_for_instance = features_for_instance[0]
+
+                print(
+                    f"{view_name} FeatureDataset.from_csv: Multiple features for identifier {identifier}. Using first."
+                )
+
+            features[identifier] = {view_name: features_for_instance}
+
+        return cls(features=features)
 
     @property
     def meta_info(self) -> dict[str, Any]:
