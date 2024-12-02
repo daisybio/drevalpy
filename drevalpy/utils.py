@@ -60,21 +60,21 @@ def get_parser() -> argparse.ArgumentParser:
         "--randomization_mode",
         nargs="+",
         default=["None"],
-        help="Which randomization tests to run, additionally to the normal run. Default is None "
+        help="Which randomization tests to run, additionally to the normal run. Default is None, "
         "which means no randomization tests are run."
-        "Modes: SVCC, SVRC, SVCD, SVRD"
-        "Can be a list of randomization tests e.g. 'SCVC SCVD' to run two tests. Default is None"
+        "Modes: SVCC, SVRC, SVCD, SVRD. "
+        "Can be a list of randomization tests e.g. 'SCVC SCVD' to run two tests."
         "SVCC: Single View Constant for Cell Lines: in this mode, one experiment is done for every "
-        "cell line view the model uses (e.g. gene expression, mutation, ..)."
+        "cell line view the model uses (e.g. gene expression, mutation, ..). "
         "For each experiment one cell line view is held constant while the others are randomized. "
         "SVRC Single View Random for Cell Lines: in this mode, one experiment is done for every "
-        "cell line view the model uses (e.g. gene expression, mutation, ..)."
-        "For each experiment one cell line view is randomized while the others are held constant."
+        "cell line view the model uses (e.g. gene expression, mutation, ..). "
+        "For each experiment one cell line view is randomized while the others are held constant. "
         "SVCD: Single View Constant for Drugs: in this mode, one experiment is done for every "
-        "drug view the model uses (e.g. fingerprints, target_information, ..)."
-        "For each experiment one drug view is held constant while the others are randomized."
+        "drug view the model uses (e.g. fingerprints, target_information, ..). "
+        "For each experiment one drug view is held constant while the others are randomized. "
         "SVRD: Single View Random for Drugs: in this mode, one experiment is done for every "
-        "drug view the model uses (e.g. gene expression, target_information, ..)."
+        "drug view the model uses (e.g. gene expression, target_information, ..). "
         "For each experiment one drug view is randomized while the others are held constant.",
     )
     parser.add_argument(
@@ -83,7 +83,7 @@ def get_parser() -> argparse.ArgumentParser:
         default="permutation",
         help='type of randomization to use. Choose from "permutation" or "invariant". Default is '
         '"permutation" "permutation": permute the features over the instances, keeping the '
-        "distribution of the  features the same but dissolving the relationship to the "
+        "distribution of the features the same but dissolving the relationship to the "
         'target "invariant": the randomization is done in a way that a key characteristic of '
         "the feature is preserved. In case of matrices, this is the mean and standard "
         "deviation of the feature view for this instance, for networks it is the degree "
@@ -156,7 +156,7 @@ def get_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--n_cv_splits",
         type=int,
-        default=5,
+        default=7,
         help="Number of cross-validation splits to use for the evaluation",
     )
 
@@ -246,10 +246,16 @@ def check_arguments(args) -> None:
 
     # TODO Allow for custom randomization tests maybe via config file
     if args.randomization_mode[0] != "None":
-        if not all(randomization in ["SVCC", "SVRC", "SVSC", "SVRD"] for randomization in args.randomization_mode):
+        if not all(randomization in ["SVCC", "SVRC", "SVCD", "SVRD"] for randomization in args.randomization_mode):
             raise AssertionError(
                 "At least one invalid randomization mode. Available randomization modes are SVCC, " "SVRC, SVSC, SVRD"
             )
+
+    if args.randomization_type not in ["permutation", "invariant"]:
+        raise AssertionError("Invalid randomization type. Choose from 'permutation' or 'invariant'")
+
+    if args.n_trials_robustness < 0:
+        raise ValueError("Number of trials for robustness test must be greater than or equal to 0")
 
     if args.measure not in ["LN_IC50", "response"]:
         raise ValueError("Only 'LN_IC50' and 'response' are currently available as a drug response measure.")
