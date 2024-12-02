@@ -730,12 +730,16 @@ class FeatureDataset(Dataset):
     def from_csv(
         cls: type["FeatureDataset"],
         path_to_csv: str | Path,
-        view_name: str = "unknown",
-        id_column: str = "id",
+        id_column: str,
+        view_name: str,
         drop_columns: Optional[list[str]] = None,
     ):
-        """
-        Load a feature dataset from a csv file.
+        """Load a one-view feature dataset from a csv file.
+
+        Load a feature dataset from a csv file. The rows of the csv file represent the instances (cell lines or drugs),
+        the columns represent the features. A column named id_column contains the identifiers of the instances.
+        All unrelated columns (e.g. other id columns) should be provided as drop_columns,
+        that will be removed from the dataset.
 
         :param path_to_csv: path to the csv file containing the data to be loaded
         :param view_name: name of the view (e.g. gene_expression)
@@ -745,22 +749,42 @@ class FeatureDataset(Dataset):
         """
         data = pd.read_csv(path_to_csv)
         ids = data[id_column].values
-        data_features = data.drop(columns=[id_column] + (drop_columns or []))
+        data_features = data.drop(columns=(drop_columns or []))
+        data_features = data_features.set_index(id_column)
+        # remove duplicate feature rows (rows with the same index)
+        data_features = data_features[~data_features.index.duplicated(keep="first")]
         features = {}
+
         for identifier in ids:
-            features_for_instance = data_features.loc[data_features[id_column] == identifier].values
-
-            if len(features_for_instance) > 1:
-
-                features_for_instance = features_for_instance[0]
-
-                print(
-                    f"{view_name} FeatureDataset.from_csv: Multiple features for identifier {identifier}. Using first."
-                )
-
+            features_for_instance = data_features.loc[identifier].values
             features[identifier] = {view_name: features_for_instance}
 
         return cls(features=features)
+
+    def to_csv(self, path: str | Path, id_column: str, view_name: str, **kwargs):
+        """
+        Save the feature dataset to a CSV file.
+
+        :param path: Path to the CSV file.
+        :param id_column: Name of the column containing the identifiers.
+        :param view_name: Name of the view (e.g., gene_expression).
+        :param kwargs: Additional arguments for pandas to_csv function.
+
+        :raises ValueError: If the view is not found for an identifier.
+        """
+        data = []
+        for identifier, feature_dict in self.features.items():
+            # Get the feature vector for the specified view
+            if view_name in feature_dict:
+                row = {id_column: identifier}
+                row.update({f"feature_{i}": value for i, value in enumerate(feature_dict[view_name])})
+                data.append(row)
+            else:
+                raise ValueError(f"View {view_name!r} not found for identifier {identifier!r}.")
+
+        # Convert to DataFrame and save to CSV
+        df = pd.DataFrame(data)
+        df.to_csv(path, index=False, **kwargs)
 
     @property
     def meta_info(self) -> dict[str, Any]:
@@ -819,15 +843,6 @@ class FeatureDataset(Dataset):
             if not all(meta_key in self.view_names for meta_key in meta_info.keys()):
                 raise AssertionError(f"Meta keys {meta_info.keys()} not in view names {self.view_names}")
             self._meta_info = meta_info
-
-    def save(self, path: str):
-        """
-        Saves the feature dataset to data.
-
-        :param path: path to the dataset
-        :raises NotImplementedError: if method is not implemented
-        """
-        raise NotImplementedError("save method not implemented")
 
     def randomize_features(self, views_to_randomize: str | list[str], randomization_type: str) -> None:
         """
