@@ -412,7 +412,7 @@ class DrugResponseDataset(Dataset):
             ]:
                 if mode in split:
                     split_path = os.path.join(path, f"cv_split_{i}_{mode}.csv")
-                    split[mode].save(path=split_path)
+                    split[mode].to_csv(path=split_path)
 
     def load_splits(self, path: str) -> None:
         """

@@ -30,7 +30,7 @@ def test_response_dataset_load() -> None:
         response=data["response"],
     )
     dataset_path = Path("dataset.csv")
-    dataset.save(dataset_path)
+    dataset.to_csv(dataset_path)
     del dataset
     # Load the dataset
     dataset = DrugResponseDataset.from_csv(dataset_path)
