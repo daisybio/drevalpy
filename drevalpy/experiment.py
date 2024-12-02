@@ -150,7 +150,7 @@ def drug_response_experiment(
             raise ValueError("No cv splits found.")
 
         for split_index, split in enumerate(response_data.cv_splits):
-            print(f"################# FOLD {split_index+1}/{len(response_data.cv_splits)} " f"#################")
+            print(f"################# FOLD {split_index + 1}/{len(response_data.cv_splits)} " f"#################")
 
             prediction_file = os.path.join(predictions_path, f"predictions_split_{split_index}.csv")
 
@@ -226,7 +226,7 @@ def drug_response_experiment(
                         single_drug_id=(drug_id if model_name in SINGLE_DRUG_MODEL_FACTORY else None),
                     )
 
-                test_dataset.save(prediction_file)
+                test_dataset.to_csv(prediction_file)
             else:
                 print(f"Split {split_index} already exists. Skipping.")
                 with open(
@@ -363,7 +363,7 @@ def consolidate_single_drug_model_predictions(
                     # Robustness predictions
                     for trial in range(n_trials_robustness):
                         robustness_path = os.path.join(single_drug_prediction_path, "robustness")
-                        f = f"robustness_{trial+1}_split_{split}.csv"
+                        f = f"robustness_{trial + 1}_split_{split}.csv"
                         if trial not in predictions["robustness"]:
                             predictions["robustness"][trial] = []
                         predictions["robustness"][trial].append(
@@ -411,7 +411,7 @@ def consolidate_single_drug_model_predictions(
                         os.path.join(
                             out_path,
                             "robustness",
-                            f"robustness_{trial+1}_split_{split}.csv",
+                            f"robustness_{trial + 1}_split_{split}.csv",
                         )
                     )
 
@@ -535,7 +535,7 @@ def cross_study_prediction(
             dataset._response = response_transformation.inverse_transform(dataset.response)
     else:
         dataset._predictions = np.array([])
-    dataset.save(
+    dataset.to_csv(
         os.path.join(
             path_out,
             "cross_study",
@@ -609,10 +609,10 @@ def robustness_test(
     robustness_test_path = os.path.join(path_out, "robustness")
     os.makedirs(robustness_test_path, exist_ok=True)
     for trial in range(n_trials):
-        print(f"Running robustness test trial {trial+1}/{n_trials}")
+        print(f"Running robustness test trial {trial + 1}/{n_trials}")
         trial_file = os.path.join(
             robustness_test_path,
-            f"robustness_{trial+1}_split_{split_index}.csv",
+            f"robustness_{trial + 1}_split_{split_index}.csv",
         )
         if not os.path.isfile(trial_file):
             robustness_train_predict(
@@ -666,7 +666,7 @@ def robustness_train_predict(
         early_stopping_dataset=early_stopping_dataset,
         response_transformation=response_transformation,
     )
-    test_dataset.save(trial_file)
+    test_dataset.to_csv(trial_file)
 
 
 def randomization_test(
@@ -804,7 +804,7 @@ def randomize_train_predict(
         cl_features=cl_features_rand,
         drug_features=drug_features_rand,
     )
-    test_dataset_rand.save(randomization_test_file)
+    test_dataset_rand.to_csv(randomization_test_file)
 
 
 def split_early_stopping(
