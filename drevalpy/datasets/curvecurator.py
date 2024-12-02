@@ -169,7 +169,7 @@ def postprocess(output_folder: str | Path, dataset_name: str):
     This function reads the curves.txt file created by CurveCurator, which contains the
     fitted curve parameters and postprocesses it to be used by drevalpy.
 
-    :param output_folder: Path to the output folder of CurveCurator containin the curves.txt file.
+    :param output_folder: Path to the output folder of CurveCurator containing the curves.txt file.
     :param dataset_name: The name of the dataset, will be used to prepend the postprocessed <dataset_name>.csv file
     """
     output_folder = Path(output_folder)
