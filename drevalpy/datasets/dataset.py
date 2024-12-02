@@ -36,21 +36,23 @@ class Dataset(ABC):
 
     @classmethod
     @abstractmethod
-    def from_csv(cls: type["Dataset"], input_file: str | Path, dataset_name: str = "unknown") -> "Dataset":
+    def from_csv(cls: type["Dataset"], input_file: str | Path, **kwargs) -> "Dataset":
         """
         Loads the dataset from data.
 
         :param input_file: Path to the csv file containing the data to be loaded
-        :param dataset_name: Optional name to associate the dataset with, default = "unknown"
+        :param kwargs: additional keyword arguments
+
         :returns: Dataset object containing data from provided csv file.
         """
 
     @abstractmethod
-    def to_csv(self, path: str):
+    def to_csv(self, path: str, **kwargs) -> None:
         """
         Saves the dataset to data.
 
         :param path: path to the dataset
+        :param kwargs: additional keyword arguments
         """
 
 
@@ -761,14 +763,13 @@ class FeatureDataset(Dataset):
 
         return cls(features=features)
 
-    def to_csv(self, path: str | Path, id_column: str, view_name: str, **kwargs):
+    def to_csv(self, path: str | Path, id_column: str, view_name: str):
         """
         Save the feature dataset to a CSV file.
 
         :param path: Path to the CSV file.
         :param id_column: Name of the column containing the identifiers.
         :param view_name: Name of the view (e.g., gene_expression).
-        :param kwargs: Additional arguments for pandas to_csv function.
 
         :raises ValueError: If the view is not found for an identifier.
         """
@@ -784,7 +785,7 @@ class FeatureDataset(Dataset):
 
         # Convert to DataFrame and save to CSV
         df = pd.DataFrame(data)
-        df.to_csv(path, index=False, **kwargs)
+        df.to_csv(path, index=False)
 
     @property
     def meta_info(self) -> dict[str, Any]:
