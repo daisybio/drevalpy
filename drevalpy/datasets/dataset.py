@@ -15,7 +15,6 @@ The FeatureDataset class can be used to randomize feature vectors.
 
 import copy
 import os
-from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Callable, Optional
 
@@ -31,32 +30,7 @@ from .utils import permute_features, randomize_graph
 np.set_printoptions(threshold=6)
 
 
-class Dataset(ABC):
-    """Abstract wrapper class for datasets."""
-
-    @classmethod
-    @abstractmethod
-    def from_csv(cls: type["Dataset"], input_file: str | Path, **kwargs) -> "Dataset":
-        """
-        Loads the dataset from data.
-
-        :param input_file: Path to the csv file containing the data to be loaded
-        :param kwargs: additional keyword arguments
-
-        :returns: Dataset object containing data from provided csv file.
-        """
-
-    @abstractmethod
-    def to_csv(self, path: str, **kwargs) -> None:
-        """
-        Saves the dataset to data.
-
-        :param path: path to the dataset
-        :param kwargs: additional keyword arguments
-        """
-
-
-class DrugResponseDataset(Dataset):
+class DrugResponseDataset:
     """Drug response dataset."""
 
     _response: np.ndarray
@@ -722,7 +696,7 @@ def _leave_group_out_cv(
     return cv_sets
 
 
-class FeatureDataset(Dataset):
+class FeatureDataset:
     """Class for feature datasets."""
 
     _meta_info: dict[str, Any] = {}
