@@ -46,7 +46,7 @@ class Dataset(ABC):
         """
 
     @abstractmethod
-    def save(self, path: str):
+    def to_csv(self, path: str):
         """
         Saves the dataset to data.
 
@@ -226,7 +226,7 @@ class DrugResponseDataset(Dataset):
             data["predictions"] = self.predictions
         return pd.DataFrame(data)
 
-    def save(self, path: str | Path):
+    def to_csv(self, path: str | Path):
         """
         Stores the drug response dataset on disk.
 
