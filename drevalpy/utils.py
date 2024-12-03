@@ -212,7 +212,7 @@ def check_arguments(args) -> None:
             if not expected_custom_input.is_file():
                 raise FileNotFoundError(
                     "You specified the curve_curator option with a custom dataset name which requires raw "
-                    "viability data to be located at {expected_custom_input} but the file does not exist. "
+                    f"viability data to be located at {expected_custom_input} but the file does not exist. "
                     "Please check the 'path_data' and 'dataset_name' arguments and ensure the raw viability "
                     "input file is located at <path_data>/<dataset_name>/<dataset_name>_raw.csv."
                 )
@@ -221,7 +221,7 @@ def check_arguments(args) -> None:
             if not expected_custom_input.is_file():
                 raise FileNotFoundError(
                     "You specified a custom dataset name which requires prefit curve data to be located at "
-                    "{expected_custom_input} but the file does not exist. Please check the 'path_data' and "
+                    f"{expected_custom_input} but the file does not exist. Please check the 'path_data' and "
                     "'dataset_name' arguments and ensure the prefit curve data is located at input file is "
                     "located at <path_data>/<dataset_name>/<dataset_name>.csv."
                 )
