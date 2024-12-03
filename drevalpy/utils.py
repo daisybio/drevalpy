@@ -208,7 +208,7 @@ def check_arguments(args) -> None:
             )
     if args.dataset_name not in AVAILABLE_DATASETS:
         if args.curve_curator:
-            expected_custom_input = Path(args.path_data) / args.dataset_name / f"{args.dataset_name}_raw.csv"
+            expected_custom_input = Path(args.path_data).absolute() / args.dataset_name / f"{args.dataset_name}_raw.csv"
             if not expected_custom_input.is_file():
                 raise FileNotFoundError(
                     "You specified the curve_curator option with a custom dataset name which requires raw "
@@ -217,7 +217,7 @@ def check_arguments(args) -> None:
                     "input file is located at <path_data>/<dataset_name>/<dataset_name>_raw.csv."
                 )
         else:
-            expected_custom_input = Path(args.path_data) / args.dataset_name / f"{args.dataset_name}_raw.csv"
+            expected_custom_input = Path(args.path_data).absolute() / args.dataset_name / f"{args.dataset_name}_raw.csv"
             if not expected_custom_input.is_file():
                 raise FileNotFoundError(
                     "You specified a custom dataset name which requires prefit curve data to be located at "
@@ -281,7 +281,6 @@ def main(args) -> None:
     :param args: passed from command line
     """
     check_arguments(args)
-
     # PIPELINE: LOAD_RESPONSE
     response_data, cross_study_datasets = get_datasets(
         dataset_name=args.dataset_name,
