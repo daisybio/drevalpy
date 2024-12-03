@@ -257,8 +257,13 @@ def check_arguments(args) -> None:
     if args.n_trials_robustness < 0:
         raise ValueError("Number of trials for robustness test must be greater than or equal to 0")
 
-    if args.measure not in ["LN_IC50", "response"]:
-        raise ValueError("Only 'LN_IC50' and 'response' are currently available as a drug response measure.")
+    allowed_measures = ["LN_IC50", "EC50", "IC50", "pEC50", "AUC", "response"]
+    allowed_measures.extend([f"{m}_curvecurator" for m in allowed_measures])
+    if args.measure not in allowed_measures:
+        raise ValueError(
+            "Only 'LN_IC50', 'EC50', 'IC50', 'pEC50', 'AUC', 'response' or their equivalents including "
+            "the '_curvecurator' suffix are allowed drug response measures."
+        )
 
     if args.response_transformation not in ["None", "standard", "minmax", "robust"]:
         raise AssertionError("Invalid response_transformation. Choose from None, standard, minmax, robust")

@@ -175,13 +175,13 @@ def postprocess(output_folder: str | Path, dataset_name: str):
     output_folder = Path(output_folder)
     required_columns = {
         "Name": "Name",
-        "pEC50": "pEC50",
+        "pEC50": "pEC50_curvecurator",
         "pEC50 Error": "pEC50Error",
         "Curve Slope": "Slope",
         "Curve Front": "Front",
         "Curve Back": "Back",
         "Curve Fold Change": "FoldChange",
-        "Curve AUC": "AUC",
+        "Curve AUC": "AUC_curvecurator",
         "Curve R2": "R2",
         "Curve P_Value": "pValue",
         "Curve Relevance Score": "RelevanceScore",
