@@ -131,7 +131,7 @@ def _calc_ic50(model_params_df: pd.DataFrame):
     front = model_params_df["Front"].values
     back = model_params_df["Back"].values
     slope = model_params_df["Slope"].values
-    pec50 = model_params_df["pEC50"].values
+    pec50 = model_params_df["pEC50_curvecurator"].values
 
     model_params_df["IC50_curvecurator"] = ic50(front, back, slope, pec50)
 
@@ -197,7 +197,7 @@ def postprocess(output_folder: str | Path, dataset_name: str):
     )
     fitted_curve_data[["cell_line_id", "drug_id"]] = fitted_curve_data.Name.str.split("|", expand=True)
     fitted_curve_data["EC50_curvecurator"] = np.power(
-        10, -fitted_curve_data["pEC50"].values
+        10, -fitted_curve_data["pEC50_curvecurator"].values
     )  # in CurveCurator 10^-pEC50 = EC50
     _calc_ic50(fitted_curve_data)
     fitted_curve_data.to_csv(output_folder / f"{dataset_name}.csv", index=None)
