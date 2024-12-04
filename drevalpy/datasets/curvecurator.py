@@ -126,12 +126,13 @@ def _calc_ic50(model_params_df: pd.DataFrame):
     """
 
     def ic50(front, back, slope, pec50):
-        return (np.log10((front - back) / (0.5 + back)) - slope * pec50) / slope
+        with np.errstate(invalid="ignore"):
+            return (np.log10((front - back) / (0.5 + back)) - slope * pec50) / slope
 
     front = model_params_df["Front"].values
     back = model_params_df["Back"].values
     slope = model_params_df["Slope"].values
-    pec50 = model_params_df["pEC50"].values
+    pec50 = model_params_df["pEC50_curvecurator"].values
 
     model_params_df["IC50_curvecurator"] = ic50(front, back, slope, pec50)
 
@@ -169,19 +170,19 @@ def postprocess(output_folder: str | Path, dataset_name: str):
     This function reads the curves.txt file created by CurveCurator, which contains the
     fitted curve parameters and postprocesses it to be used by drevalpy.
 
-    :param output_folder: Path to the output folder of CurveCurator containin the curves.txt file.
+    :param output_folder: Path to the output folder of CurveCurator containing the curves.txt file.
     :param dataset_name: The name of the dataset, will be used to prepend the postprocessed <dataset_name>.csv file
     """
     output_folder = Path(output_folder)
     required_columns = {
         "Name": "Name",
-        "pEC50": "pEC50",
+        "pEC50": "pEC50_curvecurator",
         "pEC50 Error": "pEC50Error",
         "Curve Slope": "Slope",
         "Curve Front": "Front",
         "Curve Back": "Back",
         "Curve Fold Change": "FoldChange",
-        "Curve AUC": "AUC",
+        "Curve AUC": "AUC_curvecurator",
         "Curve R2": "R2",
         "Curve P_Value": "pValue",
         "Curve Relevance Score": "RelevanceScore",
@@ -197,7 +198,7 @@ def postprocess(output_folder: str | Path, dataset_name: str):
     )
     fitted_curve_data[["cell_line_id", "drug_id"]] = fitted_curve_data.Name.str.split("|", expand=True)
     fitted_curve_data["EC50_curvecurator"] = np.power(
-        10, -fitted_curve_data["pEC50"].values
+        10, -fitted_curve_data["pEC50_curvecurator"].values
     )  # in CurveCurator 10^-pEC50 = EC50
     _calc_ic50(fitted_curve_data)
     fitted_curve_data.to_csv(output_folder / f"{dataset_name}.csv", index=None)
