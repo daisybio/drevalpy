@@ -126,7 +126,8 @@ def _calc_ic50(model_params_df: pd.DataFrame):
     """
 
     def ic50(front, back, slope, pec50):
-        return (np.log10((front - back) / (0.5 + back)) - slope * pec50) / slope
+        with np.errstate(invalid="ignore"):
+            return (np.log10((front - back) / (0.5 + back)) - slope * pec50) / slope
 
     front = model_params_df["Front"].values
     back = model_params_df["Back"].values
