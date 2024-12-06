@@ -53,6 +53,7 @@ class SimpleNeuralNetwork(DRPModel):
         cell_line_input: FeatureDataset,
         drug_input: FeatureDataset | None = None,
         output_earlystopping: DrugResponseDataset | None = None,
+        model_checkpoint_dir: str = "checkpoints",
     ) -> None:
         """
         First scales the gene expression data and trains the model.
@@ -63,6 +64,7 @@ class SimpleNeuralNetwork(DRPModel):
         :param cell_line_input: cell line omics features
         :param drug_input: drug omics features
         :param output_earlystopping: optional early stopping dataset
+        :param model_checkpoint_dir: directory to save the model checkpoints
         :raises ValueError: if drug_input (fingerprints) is missing
 
         """
@@ -101,6 +103,7 @@ class SimpleNeuralNetwork(DRPModel):
                 batch_size=16,
                 patience=5,
                 num_workers=1,
+                model_checkpoint_dir=model_checkpoint_dir,
             )
 
     def predict(

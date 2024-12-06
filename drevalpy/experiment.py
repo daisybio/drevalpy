@@ -3,6 +3,7 @@
 import json
 import os
 import shutil
+import tempfile
 import warnings
 from typing import Any, Optional
 
@@ -37,6 +38,7 @@ def drug_response_experiment(
     path_out: str = "results/",
     overwrite: bool = False,
     path_data: str = "data",
+    model_checkpoint_dir: Optional[str] = None,
 ) -> None:
     """
     Run the drug response prediction experiment. Save results to disc.
@@ -82,6 +84,7 @@ def drug_response_experiment(
     :param test_mode: test mode one of "LPO", "LCO", "LDO" (leave-pair-out, leave-cell-line-out, leave-drug-out)
     :param overwrite: whether to overwrite existing results
     :param path_data: path to the data directory, usually data/
+    :param model_checkpoint_dir: directory to save model checkpoints. If None, a temporary directory is created.
     :raises ValueError: if no cv splits are found
     """
     if baselines is None:
@@ -116,6 +119,16 @@ def drug_response_experiment(
             random_state=42,
         )
         response_data.save_splits(path=split_path)
+
+    if model_checkpoint_dir is not None:
+        os.makedirs(model_checkpoint_dir, exist_ok=True)
+    else:
+        # Create a temporary directory if model_checkpoint_dir is None
+        print(
+            "Creating temporary directory for model checkpoints.",
+            "If you want to keep the checkpoints, set a model_checkpoint_dir.",
+        )
+        model_checkpoint_dir = tempfile.mkdtemp(prefix="model_checkpoint_")
 
     model_list = make_model_list(models + baselines, response_data)
     for model_name in model_list.keys():
@@ -841,6 +854,7 @@ def train_and_predict(
     response_transformation: Optional[TransformerMixin] = None,
     cl_features: Optional[FeatureDataset] = None,
     drug_features: Optional[FeatureDataset] = None,
+    model_checkpoint_dir: Optional[str] = None,
 ) -> DrugResponseDataset:
     """
     Train the model and predict the response for the prediction dataset.
@@ -854,6 +868,7 @@ def train_and_predict(
     :param response_transformation: normalizer to use for the response data, e.g., StandardScaler
     :param cl_features: cell line features
     :param drug_features: drug features
+    :param model_checkpoint_dir: directory to save model checkpoints
     :returns: prediction dataset with predictions
     :raises ValueError: if train_dataset does not have a dataset_name
     """
@@ -903,6 +918,7 @@ def train_and_predict(
         cell_line_input=cl_features,
         drug_input=drug_features,
         output_earlystopping=early_stopping_dataset,
+        model_checkpoint_dir=model_checkpoint_dir,
     )
     if len(prediction_dataset) > 0:
         prediction_dataset._predictions = model.predict(

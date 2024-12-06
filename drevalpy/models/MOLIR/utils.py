@@ -324,6 +324,7 @@ class MOLIModel(pl.LightningModule):
         cell_line_input: FeatureDataset,
         output_earlystopping: Optional[DrugResponseDataset] = None,
         patience: int = 5,
+        model_checkpoint_dir: str = "checkpoints",
     ) -> None:
         """
         Trains the MOLIR model.
@@ -335,6 +336,7 @@ class MOLIModel(pl.LightningModule):
         :param cell_line_input: feature dataset containing the omics data of the cell lines
         :param output_earlystopping: early stopping dataset
         :param patience: for early stopping
+        :param model_checkpoint_dir: directory to save the model checkpoints
         """
         self.positive_range, self.negative_range = make_ranges(output_train)
 
@@ -353,7 +355,7 @@ class MOLIModel(pl.LightningModule):
             [secrets.choice("0123456789abcdef") for _ in range(20)]
         )  # preventing conflicts of filenames
         self.checkpoint_callback = pl.callbacks.ModelCheckpoint(
-            dirpath=None,
+            dirpath=model_checkpoint_dir,
             monitor=monitor,
             mode="min",
             save_top_k=1,

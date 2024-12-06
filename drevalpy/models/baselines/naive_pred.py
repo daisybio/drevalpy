@@ -51,6 +51,7 @@ class NaivePredictor(DRPModel):
         cell_line_input: FeatureDataset,
         drug_input: FeatureDataset | None = None,
         output_earlystopping: DrugResponseDataset | None = None,
+        model_checkpoint_dir: str = "checkpoints",
     ) -> None:
         """
         Computes the overall mean of the output response values and saves them.
@@ -59,6 +60,7 @@ class NaivePredictor(DRPModel):
         :param cell_line_input: not needed
         :param drug_input: not needed
         :param output_earlystopping: not needed
+        :param model_checkpoint_dir: not needed
         """
         self.dataset_mean = np.mean(output.response)
 
