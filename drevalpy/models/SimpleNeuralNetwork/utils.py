@@ -158,9 +158,9 @@ class FeedForwardNetwork(pl.LightningModule):
         trainer_params: dict | None = None,
         batch_size=32,
         patience=5,
-        checkpoint_path: str | None = None,
         num_workers: int = 2,
         met_transform: Any = None,
+        model_checkpoint_dir: str = "checkpoints",
     ) -> None:
         """
         Fits the model.
@@ -175,9 +175,9 @@ class FeedForwardNetwork(pl.LightningModule):
         :param trainer_params: custom parameters for the trainer
         :param batch_size: batch size for the DataLoader, default is 32
         :param patience: patience for early stopping, default is 5
-        :param checkpoint_path: path to save the checkpoints
         :param num_workers: number of workers for the DataLoader, default is 2
         :param met_transform: transformation for methylation data, default is None, PCA is used for the MultiOMICSNN.
+        :param model_checkpoint_dir: directory to save the model checkpoints
         :raises ValueError: if drug_input is missing
         """
         if drug_input is None:
@@ -234,7 +234,7 @@ class FeedForwardNetwork(pl.LightningModule):
             [secrets.choice("0123456789abcdef") for i in range(20)]
         )  # preventing conflicts of filenames
         self.checkpoint_callback = pl.callbacks.ModelCheckpoint(
-            dirpath=checkpoint_path,
+            dirpath=model_checkpoint_dir,
             monitor=monitor,
             mode="min",
             save_top_k=1,

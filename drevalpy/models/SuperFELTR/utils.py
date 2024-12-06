@@ -293,6 +293,7 @@ def train_superfeltr_model(
     cell_line_input: FeatureDataset,
     output_earlystopping: DrugResponseDataset | None = None,
     patience: int = 5,
+    model_checkpoint_dir: str = "checkpoints",
 ) -> pl.callbacks.ModelCheckpoint:
     """
     Trains one encoder or the regressor.
@@ -304,6 +305,7 @@ def train_superfeltr_model(
     :param cell_line_input: cell line omics features
     :param output_earlystopping: response data for early stopping
     :param patience: for early stopping, defaults to 5
+    :param model_checkpoint_dir: directory to save the model checkpoints
     :returns: checkpoint callback with the best model
     :raises ValueError: if the epochs and mini_batch are not integers
     """
@@ -322,7 +324,7 @@ def train_superfeltr_model(
         [secrets.choice("0123456789abcdef") for _ in range(20)]
     )  # preventing conflicts of filenames
     checkpoint_callback = pl.callbacks.ModelCheckpoint(
-        dirpath=None,
+        dirpath=model_checkpoint_dir,
         monitor=monitor,
         mode="min",
         save_top_k=1,

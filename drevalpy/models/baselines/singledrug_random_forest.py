@@ -33,6 +33,7 @@ class SingleDrugRandomForest(RandomForest):
         cell_line_input: FeatureDataset,
         drug_input: FeatureDataset | None = None,
         output_earlystopping: DrugResponseDataset | None = None,
+        model_checkpoint_dir: str = "checkpoints",
     ) -> None:
         """
         Trains the model; the number of features is the number of fingerprints.
@@ -41,6 +42,7 @@ class SingleDrugRandomForest(RandomForest):
         :param cell_line_input: training dataset containing gene expression data
         :param drug_input: not needed
         :param output_earlystopping: not needed
+        :param model_checkpoint_dir: not needed as checkpoints are not saved
         :raises ValueError: if drug_input is not None
         """
         if drug_input is not None:

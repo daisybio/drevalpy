@@ -84,6 +84,7 @@ class SuperFELTR(DRPModel):
         cell_line_input: FeatureDataset,
         drug_input: FeatureDataset | None = None,
         output_earlystopping: DrugResponseDataset | None = None,
+        model_checkpoint_dir: str = "checkpoints",
     ) -> None:
         """
         Does feature selection, trains the encoders sequentially, and then trains the regressor.
@@ -95,6 +96,7 @@ class SuperFELTR(DRPModel):
         :param cell_line_input: cell line omics features
         :param drug_input: not needed, as it is a single drug model
         :param output_earlystopping: optional early stopping dataset
+        :param model_checkpoint_dir: not needed
         :raises ValueError: if drug_input is not None
         """
         if drug_input is not None:
@@ -124,6 +126,7 @@ class SuperFELTR(DRPModel):
                         cell_line_input=cell_line_input,
                         output_earlystopping=output_earlystopping,
                         patience=5,
+                        model_checkpoint_dir=model_checkpoint_dir,
                     )
                     encoders[omic_type] = SuperFELTEncoder.load_from_checkpoint(best_checkpoint.best_model_path)
                 else:
