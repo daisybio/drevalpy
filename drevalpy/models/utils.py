@@ -1,7 +1,6 @@
 """Utility functions for loading and processing data."""
 
 import os.path
-import tempfile
 import warnings
 from typing import Optional
 
@@ -186,23 +185,3 @@ def unique(array):
     """
     uniq, index = np.unique(array, return_index=True)
     return uniq[index.argsort()]
-
-
-def create_model_checkpoint_dir(model_checkpoint_dir: Optional[str]) -> str:
-    """
-    Ensure a valid directory for saving model checkpoints.
-
-    If `model_checkpoint_dir` is None, create a temporary directory.
-
-    :param model_checkpoint_dir: Optional path to a directory for saving checkpoints.
-    :return: Path to the model checkpoint directory as a string.
-    """
-    if model_checkpoint_dir is not None:
-        os.makedirs(model_checkpoint_dir, exist_ok=True)
-        return model_checkpoint_dir
-
-    print(
-        "Creating temporary directory for model checkpoints.",
-        "If you want to keep the checkpoints, set a model_checkpoint_dir.",
-    )
-    return tempfile.mkdtemp(prefix="model_checkpoint_")
