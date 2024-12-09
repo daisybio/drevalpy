@@ -8,7 +8,7 @@ Briefings in Bioinformatics, Volume 25, Issue 3, May 2024, bbae153, https://doi.
 """
 
 import os
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -87,8 +87,8 @@ class DIPKModel(DRPModel):
         self,
         output: DrugResponseDataset,
         cell_line_input: FeatureDataset,
-        drug_input: Optional[FeatureDataset] = None,
-        output_earlystopping: Optional[DrugResponseDataset] = None,
+        drug_input: FeatureDataset | None = None,
+        output_earlystopping: DrugResponseDataset | None = None,
         model_checkpoint_dir: str = "checkpoints",
     ) -> None:
         """
