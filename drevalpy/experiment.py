@@ -38,7 +38,7 @@ def drug_response_experiment(
     path_out: str = "results/",
     overwrite: bool = False,
     path_data: str = "data",
-    model_checkpoint_dir: Optional[str] = None,
+    model_checkpoint_dir: str | None = None,
 ) -> None:
     """
     Run the drug response prediction experiment. Save results to disc.
