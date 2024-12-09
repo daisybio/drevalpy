@@ -260,6 +260,11 @@ class FeedForwardNetwork(pl.LightningModule):
         else:
             trainer.fit(self, train_loader, val_loader)
 
+        # load best model
+        if self.checkpoint_callback.best_model_path is not None:
+            checkpoint = torch.load(self.checkpoint_callback.best_model_path)  # noqa: S614
+            self.load_state_dict(checkpoint["state_dict"])
+
     def forward(self, x) -> torch.Tensor:
         """
         Forward pass of the model.
@@ -322,15 +327,11 @@ class FeedForwardNetwork(pl.LightningModule):
         :param x: input data
         :returns: predicted response
         """
-        if hasattr(self, "checkpoint_callback") and self.checkpoint_callback is not None:
-            best_model = FeedForwardNetwork.load_from_checkpoint(self.checkpoint_callback.best_model_path)
-        else:
-            best_model = self
-        is_training = best_model.training
-        best_model.eval()
+        is_training = self.training
+        self.eval()
         with torch.no_grad():
-            y_pred = best_model.forward(torch.from_numpy(x).float().to(best_model.device))
-        best_model.train(is_training)
+            y_pred = self.forward(torch.from_numpy(x).float().to(self.device))
+        self.train(is_training)
         return y_pred.cpu().detach().numpy()
 
     def configure_optimizers(self) -> torch.optim.Optimizer:

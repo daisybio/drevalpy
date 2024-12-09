@@ -142,6 +142,7 @@ class NaiveDrugMeanPredictor(DRPModel):
         cell_line_input: FeatureDataset,
         drug_input: FeatureDataset | None = None,
         output_earlystopping: DrugResponseDataset | None = None,
+        model_checkpoint_dir: str = "None",
     ) -> None:
         """
         Computes the mean per drug. If - later on - the drug is not in the training set, the overall mean is used.
@@ -150,6 +151,7 @@ class NaiveDrugMeanPredictor(DRPModel):
         :param cell_line_input: not needed
         :param drug_input: drug id
         :param output_earlystopping: not needed
+        :param model_checkpoint_dir: not needed
         :raises ValueError: If drug_input is None
         """
         if drug_input is None:
@@ -257,6 +259,7 @@ class NaiveCellLineMeanPredictor(DRPModel):
         cell_line_input: FeatureDataset,
         drug_input: FeatureDataset | None = None,
         output_earlystopping: DrugResponseDataset | None = None,
+        model_checkpoint_dir: str = "None",
     ) -> None:
         """
         Computes the mean per cell line.
@@ -266,6 +269,7 @@ class NaiveCellLineMeanPredictor(DRPModel):
         :param cell_line_input: cell line inputs
         :param drug_input: not needed
         :param output_earlystopping: not needed
+        :param model_checkpoint_dir: not needed
         """
         cell_line_ids = cell_line_input.get_feature_matrix(view="cell_line_id", identifiers=output.cell_line_ids)
         self.dataset_mean = np.mean(output.response)

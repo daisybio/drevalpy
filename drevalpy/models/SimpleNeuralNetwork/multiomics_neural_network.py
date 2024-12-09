@@ -63,6 +63,7 @@ class MultiOmicsNeuralNetwork(DRPModel):
         cell_line_input: FeatureDataset,
         drug_input: FeatureDataset | None = None,
         output_earlystopping: DrugResponseDataset | None = None,
+        model_checkpoint_dir: str = "",
     ):
         """
         Fits the PCA and trains the model.
@@ -71,6 +72,7 @@ class MultiOmicsNeuralNetwork(DRPModel):
         :param cell_line_input: cell line omics features
         :param drug_input: drug omics features
         :param output_earlystopping: optional early stopping dataset
+        :param model_checkpoint_dir: directory to save the model checkpoints
         :raises ValueError: if drug_input (fingerprints) is missing
         """
         if drug_input is None:
@@ -112,6 +114,7 @@ class MultiOmicsNeuralNetwork(DRPModel):
                 patience=5,
                 num_workers=1,
                 met_transform=self.pca,
+                model_checkpoint_dir=model_checkpoint_dir,
             )
 
     def predict(
