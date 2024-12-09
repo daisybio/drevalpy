@@ -3,7 +3,6 @@
 import json
 import os
 import shutil
-import tempfile
 import warnings
 from typing import Any, Optional
 
@@ -19,6 +18,7 @@ from .evaluation import evaluate, get_mode
 from .models import MODEL_FACTORY, MULTI_DRUG_MODEL_FACTORY, SINGLE_DRUG_MODEL_FACTORY
 from .models.drp_model import DRPModel
 from .pipeline_function import pipeline_function
+from .utils import create_model_checkpoint_dir
 
 
 def drug_response_experiment(
@@ -120,15 +120,7 @@ def drug_response_experiment(
         )
         response_data.save_splits(path=split_path)
 
-    if model_checkpoint_dir is not None:
-        os.makedirs(model_checkpoint_dir, exist_ok=True)
-    else:
-        # Create a temporary directory if model_checkpoint_dir is None
-        print(
-            "Creating temporary directory for model checkpoints.",
-            "If you want to keep the checkpoints, set a model_checkpoint_dir.",
-        )
-        model_checkpoint_dir = tempfile.mkdtemp(prefix="model_checkpoint_")
+    model_checkpoint_dir = create_model_checkpoint_dir(model_checkpoint_dir)
 
     model_list = make_model_list(models + baselines, response_data)
     for model_name in model_list.keys():
