@@ -376,6 +376,10 @@ class MOLIModel(pl.LightningModule):
             trainer.fit(self, train_loader)
         else:
             trainer.fit(self, train_loader, val_loader)
+        # load best model
+        if self.checkpoint_callback.best_model_path is not None:
+            checkpoint = torch.load(self.checkpoint_callback.best_model_path)  # noqa: S614
+            self.load_state_dict(checkpoint["state_dict"])
 
     def predict(
         self,
@@ -393,19 +397,14 @@ class MOLIModel(pl.LightningModule):
         :param copy_number: copy number variation data
         :returns: predicted drug response
         """
-        # load best model
-        if hasattr(self, "checkpoint_callback") and self.checkpoint_callback is not None:
-            best_model = MOLIModel.load_from_checkpoint(self.checkpoint_callback.best_model_path)
-        else:
-            best_model = self
         # convert to torch tensors
-        gene_expression_tensor = torch.from_numpy(gene_expression).float().to(best_model.device)
-        mutations_tensor = torch.from_numpy(mutations).float().to(best_model.device)
-        copy_number_tensor = torch.from_numpy(copy_number).float().to(best_model.device)
-        best_model.eval()
+        gene_expression_tensor = torch.from_numpy(gene_expression).float().to(self.device)
+        mutations_tensor = torch.from_numpy(mutations).float().to(self.device)
+        copy_number_tensor = torch.from_numpy(copy_number).float().to(self.device)
+        self.eval()
         with torch.no_grad():
-            z = best_model._encode_and_concatenate(gene_expression_tensor, mutations_tensor, copy_number_tensor)
-            preds = best_model.regressor(z)
+            z = self._encode_and_concatenate(gene_expression_tensor, mutations_tensor, copy_number_tensor)
+            preds = self.regressor(z)
         return preds.squeeze().cpu().detach().numpy()
 
     def _encode_and_concatenate(
