@@ -1,9 +1,7 @@
 """Utility functions for the evaluation pipeline."""
 
 import argparse
-import os
 from pathlib import Path
-
 
 from sklearn.base import TransformerMixin
 from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
