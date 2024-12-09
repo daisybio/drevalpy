@@ -184,6 +184,7 @@ def drug_response_experiment(
                     "response_transformation": response_transformation,
                     "metric": metric,
                     "path_data": path_data,
+                    "model_checkpoint_dir": model_checkpoint_dir,
                 }
 
                 if multiprocessing:
@@ -213,6 +214,7 @@ def drug_response_experiment(
                     prediction_dataset=test_dataset,
                     early_stopping_dataset=(early_stopping_dataset if model.early_stopping else None),
                     response_transformation=response_transformation,
+                    model_checkpoint_dir=model_checkpoint_dir,
                 )
 
                 for cross_study_dataset in cross_study_datasets:
@@ -259,6 +261,7 @@ def drug_response_experiment(
                         split_index=split_index,
                         randomization_type=randomization_type,
                         response_transformation=response_transformation,
+                        model_checkpoint_dir=model_checkpoint_dir,
                     )
                 if n_trials_robustness > 0:
                     print(f"Robustness test for {model_class.get_model_name()}")
@@ -644,6 +647,7 @@ def robustness_train_predict(
     hpam_set: dict,
     path_data: str,
     response_transformation: Optional[TransformerMixin] = None,
+    model_checkpoint_dir: Optional[str] = None,
 ):
     """
     Train and predict for the robustness test.
@@ -657,6 +661,7 @@ def robustness_train_predict(
     :param hpam_set: hyperparameters to use
     :param path_data: path to the data directory, e.g., data/
     :param response_transformation: sklearn.preprocessing scaler like StandardScaler or MinMaxScaler to use to scale
+    :param model_checkpoint_dir: directory to save model checkpoints
     """
     train_dataset.shuffle(random_state=trial)
     test_dataset.shuffle(random_state=trial)
@@ -670,6 +675,7 @@ def robustness_train_predict(
         prediction_dataset=test_dataset,
         early_stopping_dataset=early_stopping_dataset,
         response_transformation=response_transformation,
+        model_checkpoint_dir=model_checkpoint_dir,
     )
     test_dataset.save(trial_file)
 
@@ -686,6 +692,7 @@ def randomization_test(
     split_index: int,
     randomization_type: str = "permutation",
     response_transformation=Optional[TransformerMixin],
+    model_checkpoint_dir: str = "",
 ) -> None:
     """
     Run randomization tests for the given model and dataset.
@@ -710,6 +717,7 @@ def randomization_test(
         instance, for networks it is the degree distribution.
     :param response_transformation: sklearn.preprocessing scaler like StandardScaler or MinMaxScaler
         to use to scale the target
+    :param model_checkpoint_dir: directory to save model checkpoints
     """
     for test_name, views in randomization_test_views.items():
         randomization_test_path = os.path.join(path_out, "randomization")
@@ -734,6 +742,7 @@ def randomization_test(
                     test_dataset=test_dataset,
                     early_stopping_dataset=early_stopping_dataset,
                     response_transformation=response_transformation,
+                    model_checkpoint_dir=model_checkpoint_dir,
                 )
         else:
             print(f"Randomization test {test_name} already exists. Skipping.")
@@ -752,6 +761,7 @@ def randomize_train_predict(
     test_dataset: DrugResponseDataset,
     early_stopping_dataset: Optional[DrugResponseDataset],
     response_transformation: Optional[TransformerMixin],
+    model_checkpoint_dir: str = "",
 ) -> None:
     """
     Randomize the features for a given view and run the model.
@@ -766,6 +776,7 @@ def randomize_train_predict(
     :param train_dataset: training dataset
     :param test_dataset: test dataset
     :param early_stopping_dataset: early stopping dataset
+    :param model_checkpoint_dir: directory to save model checkpoints
     :param response_transformation: sklearn.preprocessing scaler like StandardScaler or MinMaxScaler to use to scale
     """
     cl_features, drug_features = load_features(model, path_data, train_dataset)
@@ -808,6 +819,7 @@ def randomize_train_predict(
         response_transformation=response_transformation,
         cl_features=cl_features_rand,
         drug_features=drug_features_rand,
+        model_checkpoint_dir=model_checkpoint_dir,
     )
     test_dataset_rand.save(randomization_test_file)
 
@@ -937,6 +949,7 @@ def train_and_evaluate(
     early_stopping_dataset: Optional[DrugResponseDataset] = None,
     response_transformation: Optional[TransformerMixin] = None,
     metric: str = "rmse",
+    model_checkpoint_dir: str = "",
 ) -> dict[str, float]:
     """
     Train and evaluate the model, i.e., call train_and_predict() and then evaluate().
@@ -949,6 +962,7 @@ def train_and_evaluate(
     :param early_stopping_dataset: early stopping dataset
     :param response_transformation: normalizer to use for the response data
     :param metric: metric to evaluate the model on
+    :param model_checkpoint_dir: directory to save model checkpoints
     :returns: dictionary of the evaluation results, e.g., {"RMSE": 0.1}
     """
     validation_dataset = train_and_predict(
@@ -959,6 +973,7 @@ def train_and_evaluate(
         prediction_dataset=validation_dataset,
         early_stopping_dataset=early_stopping_dataset,
         response_transformation=response_transformation,
+        model_checkpoint_dir=model_checkpoint_dir,
     )
     return evaluate(validation_dataset, metric=[metric])
 
@@ -972,6 +987,7 @@ def hpam_tune(
     response_transformation: Optional[TransformerMixin] = None,
     metric: str = "RMSE",
     path_data: str = "data",
+    model_checkpoint_dir: str = "",
 ) -> dict:
     """
     Tune the hyperparameters for the given model in an iterative manner.
@@ -984,6 +1000,7 @@ def hpam_tune(
     :param response_transformation: normalizer to use for the response data
     :param metric: metric to evaluate which model is the best
     :param path_data: path to the data directory, e.g., data/
+    :param model_checkpoint_dir: directory to save model checkpoints
     :returns: best hyperparameters
     :raises AssertionError: if hpam_set is empty
     """
@@ -1006,6 +1023,7 @@ def hpam_tune(
             early_stopping_dataset=early_stopping_dataset,
             metric=metric,
             response_transformation=response_transformation,
+            model_checkpoint_dir=model_checkpoint_dir,
         )[metric]
 
         if np.isnan(score):
@@ -1033,6 +1051,7 @@ def hpam_tune_raytune(
     metric: str = "RMSE",
     ray_path: str = "raytune",
     path_data: str = "data",
+    model_checkpoint_dir: str = "",
 ) -> dict:
     """
     Tune the hyperparameters for the given model using raytune.
@@ -1046,6 +1065,7 @@ def hpam_tune_raytune(
     :param metric: metric to evaluate which model is the best
     :param ray_path: path to the raytune directory
     :param path_data: path to the data directory, e.g., data/
+    :param model_checkpoint_dir: directory to save model checkpoints
     :returns: best hyperparameters
     """
     if len(hpam_set) == 1:
@@ -1065,6 +1085,7 @@ def hpam_tune_raytune(
             early_stopping_dataset=early_stopping_dataset,
             metric=metric,
             response_transformation=response_transformation,
+            model_checkpoint_dir=model_checkpoint_dir,
         ),
         config=tune.grid_search(hpam_set),
         mode="min",
