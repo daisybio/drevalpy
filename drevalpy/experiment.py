@@ -596,6 +596,7 @@ def robustness_test(
     path_out: str,
     split_index: int,
     response_transformation: Optional[TransformerMixin] = None,
+    model_checkpoint_dir: str = "",
 ):
     """
     Run robustness tests for the given model and dataset.
@@ -613,6 +614,7 @@ def robustness_test(
     :param split_index: index of the split
     :param response_transformation: sklearn.preprocessing scaler like StandardScaler or MinMaxScaler to use to scale
         the target
+    :param model_checkpoint_dir: directory to save model checkpoints
     """
     robustness_test_path = os.path.join(path_out, "robustness")
     os.makedirs(robustness_test_path, exist_ok=True)
@@ -633,6 +635,7 @@ def robustness_test(
                 hpam_set=hpam_set,
                 path_data=path_data,
                 response_transformation=response_transformation,
+                model_checkpoint_dir=model_checkpoint_dir,
             )
 
 
@@ -647,7 +650,7 @@ def robustness_train_predict(
     hpam_set: dict,
     path_data: str,
     response_transformation: Optional[TransformerMixin] = None,
-    model_checkpoint_dir: Optional[str] = None,
+    model_checkpoint_dir: str = "",
 ):
     """
     Train and predict for the robustness test.
@@ -1216,7 +1219,7 @@ def generate_data_saving_path(model_name, drug_id, result_path, suffix) -> str:
     return model_path
 
 
-def create_model_checkpoint_dir(model_checkpoint_dir: Optional[str]) -> str:
+def create_model_checkpoint_dir(model_checkpoint_dir: str | None) -> str:
     """
     Ensure a valid directory for saving model checkpoints.
 

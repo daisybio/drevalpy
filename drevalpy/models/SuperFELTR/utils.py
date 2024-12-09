@@ -293,7 +293,7 @@ def train_superfeltr_model(
     cell_line_input: FeatureDataset,
     output_earlystopping: DrugResponseDataset | None = None,
     patience: int = 5,
-    model_checkpoint_dir: str = "checkpoints",
+    model_checkpoint_dir: str = "superfeltr_checkpoints",
 ) -> pl.callbacks.ModelCheckpoint:
     """
     Trains one encoder or the regressor.
@@ -338,7 +338,7 @@ def train_superfeltr_model(
             checkpoint_callback,
             TQDMProgressBar(),
         ],
-        default_root_dir=os.path.join(os.getcwd(), "superfeltr_checkpoints/lightning_logs/" + name),
+        default_root_dir=os.path.join(model_checkpoint_dir, "superfeltr_checkpoints/lightning_logs/" + name),
     )
     if val_loader is None:
         trainer.fit(model, train_loader)

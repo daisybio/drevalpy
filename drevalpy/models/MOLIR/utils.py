@@ -370,7 +370,7 @@ class MOLIModel(pl.LightningModule):
                 self.checkpoint_callback,
                 TQDMProgressBar(),
             ],
-            default_root_dir=os.path.join(os.getcwd(), "moli_checkpoints/lightning_logs/" + name),
+            default_root_dir=os.path.join(model_checkpoint_dir, "moli_checkpoints/lightning_logs/" + name),
         )
         if val_loader is None:
             trainer.fit(self, train_loader)

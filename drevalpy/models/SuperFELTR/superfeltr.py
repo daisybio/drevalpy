@@ -84,7 +84,7 @@ class SuperFELTR(DRPModel):
         cell_line_input: FeatureDataset,
         drug_input: FeatureDataset | None = None,
         output_earlystopping: DrugResponseDataset | None = None,
-        model_checkpoint_dir: str = "checkpoints",
+        model_checkpoint_dir: str = "superfeltr_checkpoints",
     ) -> None:
         """
         Does feature selection, trains the encoders sequentially, and then trains the regressor.
@@ -158,6 +158,7 @@ class SuperFELTR(DRPModel):
                     cell_line_input=cell_line_input,
                     output_earlystopping=output_earlystopping,
                     patience=5,
+                    model_checkpoint_dir=model_checkpoint_dir,
                 )
             else:
                 print("Not enough training data provided for SuperFELTR Regressor. Using random initialization.")
@@ -166,6 +167,16 @@ class SuperFELTR(DRPModel):
             print("No training data provided, skipping model")
             self.best_checkpoint = None
             self.expr_encoder, self.mut_encoder, self.cnv_encoder, self.regressor = None, None, None, None
+        if self.best_checkpoint is not None:
+            # load best model
+            self.regressor = SuperFELTRegressor.load_from_checkpoint(
+                self.best_checkpoint.best_model_path,
+                input_size=self.hyperparameters["out_dim_expr_encoder"]
+                + self.hyperparameters["out_dim_mutation_encoder"]
+                + self.hyperparameters["out_dim_cnv_encoder"],
+                hpams=self.hyperparameters,
+                encoders=(self.expr_encoder, self.mut_encoder, self.cnv_encoder),
+            )
 
     def predict(
         self,
@@ -207,15 +218,8 @@ class SuperFELTR(DRPModel):
         if self.best_checkpoint is None:
             print("Not enough training data provided for SuperFELTR Regressor. Predicting with random initialization.")
             return self.regressor.predict(gene_expression, mutations, cnvs)
-        best_regressor = SuperFELTRegressor.load_from_checkpoint(
-            self.best_checkpoint.best_model_path,
-            input_size=self.hyperparameters["out_dim_expr_encoder"]
-            + self.hyperparameters["out_dim_mutation_encoder"]
-            + self.hyperparameters["out_dim_cnv_encoder"],
-            hpams=self.hyperparameters,
-            encoders=(self.expr_encoder, self.mut_encoder, self.cnv_encoder),
-        )
-        return best_regressor.predict(gene_expression, mutations, cnvs)
+
+        return self.regressor.predict(gene_expression, mutations, cnvs)
 
     def _feature_selection(self, output: DrugResponseDataset, cell_line_input: FeatureDataset) -> FeatureDataset:
         """
