@@ -1,5 +1,6 @@
 """Test the SimpleNeuralNetwork model."""
 
+import tempfile
 from typing import cast
 
 import numpy as np
@@ -50,12 +51,15 @@ def test_simple_neural_network(
     hpam_combi = hpams[0]
     hpam_combi["units_per_layer"] = [2, 2]
     model.build_model(hyperparameters=hpam_combi)
-    model.train(
-        output=train_dataset,
-        cell_line_input=cell_line_input,
-        drug_input=drug_input,
-        output_earlystopping=es_dataset,
-    )
+
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        model.train(
+            output=train_dataset,
+            cell_line_input=cell_line_input,
+            drug_input=drug_input,
+            output_earlystopping=es_dataset,
+            model_checkpoint_dir=tmpdirname,
+        )
 
     val_es_dataset._predictions = model.predict(
         drug_ids=val_es_dataset.drug_ids,

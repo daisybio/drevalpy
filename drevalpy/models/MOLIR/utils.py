@@ -324,6 +324,7 @@ class MOLIModel(pl.LightningModule):
         cell_line_input: FeatureDataset,
         output_earlystopping: Optional[DrugResponseDataset] = None,
         patience: int = 5,
+        model_checkpoint_dir: str = "checkpoints",
     ) -> None:
         """
         Trains the MOLIR model.
@@ -335,6 +336,7 @@ class MOLIModel(pl.LightningModule):
         :param cell_line_input: feature dataset containing the omics data of the cell lines
         :param output_earlystopping: early stopping dataset
         :param patience: for early stopping
+        :param model_checkpoint_dir: directory to save the model checkpoints
         """
         self.positive_range, self.negative_range = make_ranges(output_train)
 
@@ -353,7 +355,7 @@ class MOLIModel(pl.LightningModule):
             [secrets.choice("0123456789abcdef") for _ in range(20)]
         )  # preventing conflicts of filenames
         self.checkpoint_callback = pl.callbacks.ModelCheckpoint(
-            dirpath=None,
+            dirpath=model_checkpoint_dir,
             monitor=monitor,
             mode="min",
             save_top_k=1,
@@ -368,12 +370,16 @@ class MOLIModel(pl.LightningModule):
                 self.checkpoint_callback,
                 TQDMProgressBar(),
             ],
-            default_root_dir=os.path.join(os.getcwd(), "moli_checkpoints/lightning_logs/" + name),
+            default_root_dir=os.path.join(model_checkpoint_dir, "moli_checkpoints/lightning_logs/" + name),
         )
         if val_loader is None:
             trainer.fit(self, train_loader)
         else:
             trainer.fit(self, train_loader, val_loader)
+        # load best model
+        if self.checkpoint_callback.best_model_path is not None:
+            checkpoint = torch.load(self.checkpoint_callback.best_model_path)  # noqa: S614
+            self.load_state_dict(checkpoint["state_dict"])
 
     def predict(
         self,
@@ -391,19 +397,14 @@ class MOLIModel(pl.LightningModule):
         :param copy_number: copy number variation data
         :returns: predicted drug response
         """
-        # load best model
-        if hasattr(self, "checkpoint_callback") and self.checkpoint_callback is not None:
-            best_model = MOLIModel.load_from_checkpoint(self.checkpoint_callback.best_model_path)
-        else:
-            best_model = self
         # convert to torch tensors
-        gene_expression_tensor = torch.from_numpy(gene_expression).float().to(best_model.device)
-        mutations_tensor = torch.from_numpy(mutations).float().to(best_model.device)
-        copy_number_tensor = torch.from_numpy(copy_number).float().to(best_model.device)
-        best_model.eval()
+        gene_expression_tensor = torch.from_numpy(gene_expression).float().to(self.device)
+        mutations_tensor = torch.from_numpy(mutations).float().to(self.device)
+        copy_number_tensor = torch.from_numpy(copy_number).float().to(self.device)
+        self.eval()
         with torch.no_grad():
-            z = best_model._encode_and_concatenate(gene_expression_tensor, mutations_tensor, copy_number_tensor)
-            preds = best_model.regressor(z)
+            z = self._encode_and_concatenate(gene_expression_tensor, mutations_tensor, copy_number_tensor)
+            preds = self.regressor(z)
         return preds.squeeze().cpu().detach().numpy()
 
     def _encode_and_concatenate(

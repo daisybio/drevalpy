@@ -63,6 +63,7 @@ class MultiOmicsRandomForest(RandomForest):
         cell_line_input: FeatureDataset,
         drug_input: FeatureDataset | None = None,
         output_earlystopping: DrugResponseDataset | None = None,
+        model_checkpoint_dir: str = "checkpoints",
     ) -> None:
         """
         Trains the model: the number of features is the number of genes + the number of fingerprints.
@@ -71,6 +72,7 @@ class MultiOmicsRandomForest(RandomForest):
         :param cell_line_input: training dataset containing the OMICs
         :param drug_input: training dataset containing fingerprints data
         :param output_earlystopping: not needed
+        :param model_checkpoint_dir: not needed
         """
         inputs = self.get_feature_matrices(
             cell_line_ids=output.cell_line_ids,
