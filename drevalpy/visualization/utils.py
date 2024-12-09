@@ -4,7 +4,7 @@ import os
 import pathlib
 import re
 import shutil
-from typing import Optional, TextIO
+from typing import TextIO
 
 import importlib_resources
 import pandas as pd
@@ -267,7 +267,7 @@ def _evaluate_per_group(
     df: pd.DataFrame,
     group_by: str,
     norm_group_eval_results: dict[str, dict[str, float]],
-    eval_results_per_group: Optional[pd.DataFrame],
+    eval_results_per_group: pd.DataFrame | None,
     model: str,
 ) -> tuple[dict[str, dict[str, float]], pd.DataFrame]:
     """

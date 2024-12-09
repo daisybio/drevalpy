@@ -9,7 +9,7 @@ The DRPModel class is an abstract wrapper class for drug response prediction mod
 import inspect
 import os
 from abc import ABC, abstractmethod
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import yaml
@@ -154,7 +154,7 @@ class DRPModel(ABC):
         """
 
     @abstractmethod
-    def load_drug_features(self, data_path: str, dataset_name: str) -> Optional[FeatureDataset]:
+    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset | None:
         """
         Load the drug features before the train/predict method is called.
 
@@ -170,12 +170,12 @@ class DRPModel(ABC):
 
     def get_concatenated_features(
         self,
-        cell_line_view: Optional[str],
-        drug_view: Optional[str],
+        cell_line_view: str | None,
+        drug_view: str | None,
         cell_line_ids_output: np.ndarray,
         drug_ids_output: np.ndarray,
-        cell_line_input: Optional[FeatureDataset],
-        drug_input: Optional[FeatureDataset],
+        cell_line_input: FeatureDataset | None,
+        drug_input: FeatureDataset | None,
     ) -> np.ndarray:
         """
         Concatenates the features to an input matrix X for the given cell line and drug views.
@@ -228,8 +228,8 @@ class DRPModel(ABC):
         self,
         cell_line_ids: np.ndarray,
         drug_ids: np.ndarray,
-        cell_line_input: Optional[FeatureDataset],
-        drug_input: Optional[FeatureDataset],
+        cell_line_input: FeatureDataset | None,
+        drug_input: FeatureDataset | None,
     ) -> dict[str, np.ndarray]:
         """
         Returns the feature matrices for the given cell line and drug ids by retrieving the correct views.

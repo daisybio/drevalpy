@@ -2,7 +2,6 @@
 
 import argparse
 from pathlib import Path
-from typing import Optional
 
 from sklearn.base import TransformerMixin
 from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
@@ -331,7 +330,7 @@ def get_datasets(
     measure: str = "response",
     curve_curator: bool = False,
     cores: int = 1,
-) -> tuple[DrugResponseDataset, Optional[list[DrugResponseDataset]]]:
+) -> tuple[DrugResponseDataset, list[DrugResponseDataset] | None]:
     """
     Load the response data and cross-study datasets.
 
@@ -366,7 +365,7 @@ def get_datasets(
 
 
 @pipeline_function
-def get_response_transformation(response_transformation: str) -> Optional[TransformerMixin]:
+def get_response_transformation(response_transformation: str) -> TransformerMixin | None:
     """
     Get the skelarn response transformation object of choice.
 
