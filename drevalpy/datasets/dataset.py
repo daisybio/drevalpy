@@ -708,7 +708,7 @@ class FeatureDataset:
         path_to_csv: str | Path,
         id_column: str,
         view_name: str,
-        drop_columns: list[str | None] = None,
+        drop_columns: list[str] | None = None,
     ):
         """Load a one-view feature dataset from a csv file.
 
