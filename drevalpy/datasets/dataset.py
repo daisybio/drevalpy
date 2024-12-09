@@ -16,7 +16,7 @@ The FeatureDataset class can be used to randomize feature vectors.
 import copy
 import os
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 import networkx as nx
 import numpy as np
@@ -708,7 +708,7 @@ class FeatureDataset:
         path_to_csv: str | Path,
         id_column: str,
         view_name: str,
-        drop_columns: Optional[list[str]] = None,
+        drop_columns: list[str | None] = None,
     ):
         """Load a one-view feature dataset from a csv file.
 

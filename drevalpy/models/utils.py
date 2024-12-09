@@ -2,7 +2,6 @@
 
 import os.path
 import warnings
-from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -24,7 +23,7 @@ def load_cl_ids_from_csv(path: str, dataset_name: str) -> FeatureDataset:
 
 def load_and_reduce_gene_features(
     feature_type: str,
-    gene_list: Optional[str],
+    gene_list: str | None,
     data_path: str,
     dataset_name: str,
 ) -> FeatureDataset:
@@ -138,8 +137,8 @@ def load_drug_fingerprint_features(data_path: str, dataset_name: str) -> Feature
 def get_multiomics_feature_dataset(
     data_path: str,
     dataset_name: str,
-    gene_list: Optional[str] = "drug_target_genes_all_drugs",
-    omics: Optional[list[str]] = None,
+    gene_list: str | None = "drug_target_genes_all_drugs",
+    omics: list[str | None] = None,
 ) -> FeatureDataset:
     """
     Get multiomics feature dataset for the given list of OMICs.
