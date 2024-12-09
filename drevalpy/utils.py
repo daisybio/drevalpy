@@ -2,7 +2,6 @@
 
 import argparse
 import os
-import tempfile
 from typing import Optional
 
 from sklearn.base import TransformerMixin
@@ -379,23 +378,3 @@ def get_response_transformation(response_transformation: str) -> Optional[Transf
         f"Unknown response transformation {response_transformation}. Choose from 'None', "
         f"'standard', 'minmax', 'robust'"
     )
-
-
-def create_model_checkpoint_dir(model_checkpoint_dir: Optional[str]) -> str:
-    """
-    Ensure a valid directory for saving model checkpoints.
-
-    If `model_checkpoint_dir` is None, create a temporary directory.
-
-    :param model_checkpoint_dir: Optional path to a directory for saving checkpoints.
-    :return: Path to the model checkpoint directory as a string.
-    """
-    if model_checkpoint_dir is not None:
-        os.makedirs(model_checkpoint_dir, exist_ok=True)
-        return model_checkpoint_dir
-
-    print(
-        "Creating temporary directory for model checkpoints.",
-        "If you want to keep the checkpoints, set a model_checkpoint_dir.",
-    )
-    return tempfile.mkdtemp(prefix="model_checkpoint_")
