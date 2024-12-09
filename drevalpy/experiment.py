@@ -846,7 +846,7 @@ def train_and_predict(
     response_transformation: Optional[TransformerMixin] = None,
     cl_features: Optional[FeatureDataset] = None,
     drug_features: Optional[FeatureDataset] = None,
-    model_checkpoint_dir: Optional[str] = None,
+    model_checkpoint_dir: str = "",
 ) -> DrugResponseDataset:
     """
     Train the model and predict the response for the prediction dataset.
