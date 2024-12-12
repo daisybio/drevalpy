@@ -3062,6 +3062,28 @@ maintenance = ["conda-lock (==2.5.6)"]
 tests = ["black (>=24.3.0)", "matplotlib (>=3.3.4)", "mypy (>=1.9)", "numpydoc (>=1.2.0)", "pandas (>=1.1.5)", "polars (>=0.20.30)", "pooch (>=1.6.0)", "pyamg (>=4.0.0)", "pyarrow (>=12.0.0)", "pytest (>=7.1.2)", "pytest-cov (>=2.9.0)", "ruff (>=0.2.1)", "scikit-image (>=0.17.2)"]
 
 [[package]]
+name = "scikit-posthocs"
+version = "0.10.0"
+description = "Statistical post-hoc analysis and outlier detection algorithms"
+optional = false
+python-versions = ">=3.9"
+files = [
+    {file = "scikit_posthocs-0.10.0-py3-none-any.whl", hash = "sha256:0fa1d4640cf2d1d5a602ed7be3848a4ce54f426f179a7df9ae7a5787f94455c1"},
+    {file = "scikit_posthocs-0.10.0.tar.gz", hash = "sha256:b189055b19dcfd33ab5d2ed94825d870e1ae57499653bef016fd24ad455a51bf"},
+]
+
+[package.dependencies]
+matplotlib = "*"
+numpy = "*"
+pandas = ">=0.20.0"
+scipy = ">=1.9.0"
+seaborn = "*"
+statsmodels = "*"
+
+[package.extras]
+test = ["coverage", "pytest"]
+
+[[package]]
 name = "scipy"
 version = "1.14.1"
 description = "Fundamental algorithms for scientific computing in Python"

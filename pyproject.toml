@@ -24,6 +24,7 @@ ray = {extras = ["tune"], version = "^2.37.0"}
 plotly = "*"
 matplotlib = "*"
 importlib-resources = "*"
+scikit-posthocs = "*"
 curve-curator = {version = "*", optional = true}
 toml = {version = "^0.10.2"}
 
