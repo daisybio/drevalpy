@@ -8,9 +8,7 @@ from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
-import ray
 import torch
-from ray import tune
 from sklearn.base import TransformerMixin
 
 from .datasets.dataset import DrugResponseDataset, FeatureDataset
@@ -1040,6 +1038,8 @@ def hpam_tune_raytune(
     :param path_data: path to the data directory, e.g., data/
     :returns: best hyperparameters
     """
+    import ray
+
     if len(hpam_set) == 1:
         return hpam_set[0]
     ray.init(_temp_dir=os.path.join(os.path.expanduser("~"), "raytmp"))
@@ -1047,7 +1047,7 @@ def hpam_tune_raytune(
         resources_per_trial = {"gpu": 1}  # TODO make this user defined
     else:
         resources_per_trial = {"cpu": 1}  # TODO make this user defined
-    analysis = tune.run(
+    analysis = ray.tune.run(
         lambda hpams: train_and_evaluate(
             model=model,
             hpams=hpams,
@@ -1058,7 +1058,7 @@ def hpam_tune_raytune(
             metric=metric,
             response_transformation=response_transformation,
         ),
-        config=tune.grid_search(hpam_set),
+        config=ray.tune.grid_search(hpam_set),
         mode="min",
         num_samples=5,
         resources_per_trial=resources_per_trial,
