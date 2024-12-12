@@ -4,27 +4,49 @@ repos:
       - id: black
         name: black
         entry: black
-        language: system
+        language: python
         types: [python]
         require_serial: true
       - id: check-added-large-files
         name: Check for added large files
         entry: check-added-large-files
-        language: system
+        language: python
       - id: check-toml
         name: Check Toml
         entry: check-toml
-        language: system
+        language: python
         types: [toml]
       - id: check-yaml
         name: Check Yaml
         entry: check-yaml
-        language: system
+        language: python
         types: [yaml]
       - id: end-of-file-fixer
         name: Fix End of Files
         entry: end-of-file-fixer
-        language: system
+        language: python
+        types: [text]
+        stages: [pre-commit, pre-push, manual]
+        exclude: docs/
+      - id: flake8
+        name: flake8
+        entry: flake8
+        language: python
+        types: [python]
+        require_serial: true
+        args:
+          - --ignore=D212,W503,C901
+      - id: pyupgrade
+        name: pyupgrade
+        description: Automatically upgrade syntax for newer versions.
+        entry: pyupgrade
+        language: python
+        types: [python]
+        args: [--py39-plus, --keep-runtime-typing]
+      - id: trailing-whitespace
+        name: Trim Trailing Whitespace
+        entry: trailing-whitespace-fixer
+        language: python
         types: [text]
         stages: [pre-commit, pre-push, manual]
         exclude: docs/
