@@ -24,7 +24,7 @@ ray = {extras = ["tune"], version = "^2.37.0"}
 plotly = "*"
 matplotlib = "*"
 importlib-resources = "*"
-
+scikit-posthocs = "*"
 
 [tool.poetry.group.development.dependencies]
 sphinx-autodoc-typehints = "<3.0"
