@@ -176,7 +176,7 @@ def train_gene_expession_autoencoder(
     gene_expression_val_tensor = torch.tensor(gene_expression_input_early_stopping, dtype=torch.float32).to(device)
 
     # early stopping parameters
-    patience = 5
+    patience = 3
     best_val_loss = float("inf")
     epochs_without_improvement = 0
 

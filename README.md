@@ -1,5 +1,13 @@
 # DrEvalPy: Python Cancer Cell Line Drug Response Prediction Suite
 
+[![PyPI version](https://img.shields.io/pypi/v/drevalpy.svg)](https://pypi.org/project/drevalpy/)
+![Python versions](https://img.shields.io/pypi/pyversions/drevalpy)
+[![License](https://img.shields.io/github/license/daisybio/drevalpy)](https://opensource.org/licenses/GPL3)
+[![Read the Docs](https://img.shields.io/readthedocs/drevalpy/latest.svg?label=Read%20the%20Docs)](https://drevalpy.readthedocs.io/)
+[![Test status](https://github.com/daisybio/drevalpy/actions/workflows/run_tests.yml/badge.svg)](https://github.com/daisybio/drevalpy/actions?workflow=Tests)
+[![Precommit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+
 Focus on Innovating Your Models — DrEval Handles the Rest!
 
 - DrEval is a toolkit that ensures drug response prediction evaluations are statistically sound, biologically meaningful, and reproducible.
@@ -8,7 +16,7 @@ Focus on Innovating Your Models — DrEval Handles the Rest!
 
 By contributing your model to the DrEval catalog, you can increase your work's exposure, reusability, and transferability.
 
-![DrEval](https://github.com/daisybio/drevalpy/blob/main/assets/dreval.png)
+![DrEval](assets/dreval.png)
 
 Use DrEval to Build Drug Response Models That Have an Impact
 
@@ -39,11 +47,19 @@ Using pip:
 pip install drevalpy
 ```
 
-From Source:
+Using docker:
 
 ```bash
-conda env create -f models/SimpleNeuralNetwork/env.yml
-pip install .
+docker pull ghcr.io/daisybio/drevalpy:main
+```
+
+From source:
+
+```bash
+git clone https://github.com/daisybio/drevalpy.git
+cd drevalpy
+pip install poetry
+poetry install
 ```
 
 ## Quickstart
@@ -51,10 +67,12 @@ pip install .
 To run models from the catalog, you can run:
 
 ```bash
-python run_suite.py --run_id my_first_run --models ElasticNet SimpleNeuralNetwork --dataset GDSC1 --test_mode LCO
+python run_suite.py --run_id my_first_run --models ElasticNet SimpleNeuralNetwork --dataset GDSC2 --test_mode LCO
 ```
 
-This will train and tune a neural network and an elastic net model on a subset of gene expression features and drug fingerprint features to predict IC50 values of the GDSC1 database. It will evaluate in "LCO" which is the leave-cell-line-out splitting strategy using 5 fold cross validation.
+This will train and tune a neural network and an elastic net model on gene expression features and drug fingerprint
+features to predict IC50 values of the GDSC2 database. It will evaluate in "LCO" which is the leave-cell-line-out
+splitting strategy using 5 fold cross validation.
 The results will be stored in
 
 ```bash
