@@ -45,7 +45,7 @@ def drug_response_experiment(
     :param response_transformation: normalizer to use for the response data
     :param metric: metric to use for hyperparameter optimization
     :param n_cv_splits: number of cross-validation splits
-    :param multiprocessing: whether to use multiprocessing
+    :param multiprocessing: whether to use multiprocessing. This requires Ray to be installed.
     :param randomization_mode: list of randomization modes to do. Modes: SVCC, SVRC, SVCD, SVRD Can be a list of
         randomization tests e.g. 'SVCC SVCD'. Default is None, which means no randomization tests are run.
 
@@ -1025,7 +1025,7 @@ def hpam_tune_raytune(
     path_data: str = "data",
 ) -> dict:
     """
-    Tune the hyperparameters for the given model using raytune.
+    Tune the hyperparameters for the given model using raytune. This requires ray to be installed.
 
     :param model: model to use
     :param train_dataset: training dataset
