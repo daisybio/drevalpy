@@ -1,5 +1,6 @@
 """Main module for running the drug response prediction experiment."""
 
+import importlib
 import json
 import os
 import shutil
@@ -16,6 +17,11 @@ from .evaluation import evaluate, get_mode
 from .models import MODEL_FACTORY, MULTI_DRUG_MODEL_FACTORY, SINGLE_DRUG_MODEL_FACTORY
 from .models.drp_model import DRPModel
 from .pipeline_function import pipeline_function
+
+if importlib.util.find_spec("ray"):
+    import ray
+else:
+    ray = None
 
 
 def drug_response_experiment(
@@ -1038,8 +1044,6 @@ def hpam_tune_raytune(
     :param path_data: path to the data directory, e.g., data/
     :returns: best hyperparameters
     """
-    import ray
-
     if len(hpam_set) == 1:
         return hpam_set[0]
     ray.init(_temp_dir=os.path.join(os.path.expanduser("~"), "raytmp"))
