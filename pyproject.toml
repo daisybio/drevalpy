@@ -20,7 +20,6 @@ torch-geometric = "*"
 flaky = "*"
 requests = "*"
 pingouin = "*"
-ray = {extras = ["tune"], version = "^2.37.0"}
 plotly = "*"
 matplotlib = "*"
 importlib-resources = "*"
