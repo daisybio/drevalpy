@@ -253,6 +253,7 @@ class FeedForwardNetwork(pl.LightningModule):
                 progress_bar,
             ],
             default_root_dir=os.path.join(os.getcwd(), "nn_baseline_checkpoints/lightning_logs/" + name),
+            strategy="ddp_find_unused_parameters_true",
             **trainer_params_copy,
         )
         if val_loader is None:
