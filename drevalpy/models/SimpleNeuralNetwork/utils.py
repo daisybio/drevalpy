@@ -1,6 +1,5 @@
 """Utility functions for the simple neural network models."""
 
-import os
 import secrets
 from typing import Any
 
@@ -187,7 +186,7 @@ class FeedForwardNetwork(pl.LightningModule):
 
         if trainer_params is None:
             trainer_params = {
-                "progress_bar_refresh_rate": 300,
+                "progress_bar_refresh_rate": 500,
                 "max_epochs": 70,
             }
 
@@ -252,8 +251,8 @@ class FeedForwardNetwork(pl.LightningModule):
                 self.checkpoint_callback,
                 progress_bar,
             ],
-            default_root_dir=os.path.join(model_checkpoint_dir, "nn_baseline_checkpoints/lightning_logs/" + name),
-            strategy="ddp_find_unused_parameters_true",
+            default_root_dir=model_checkpoint_dir,
+            devices=1,
             **trainer_params_copy,
         )
         if val_loader is None:
@@ -265,6 +264,8 @@ class FeedForwardNetwork(pl.LightningModule):
         if self.checkpoint_callback.best_model_path is not None:
             checkpoint = torch.load(self.checkpoint_callback.best_model_path)  # noqa: S614
             self.load_state_dict(checkpoint["state_dict"])
+        else:
+            print("checkpoint_callback: No best model found, using the last model.")
 
     def forward(self, x) -> torch.Tensor:
         """

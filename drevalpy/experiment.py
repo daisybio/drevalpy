@@ -919,26 +919,28 @@ def train_and_predict(
             early_stopping_dataset.transform(response_transformation)
         prediction_dataset.transform(response_transformation)
 
-    train_inputs = {
-        "output": train_dataset,
-        "cell_line_input": cl_features,
-        "drug_input": drug_features,
-        "output_earlystopping": early_stopping_dataset,
-    }
-
+    print("Training model ...")
     if model_checkpoint_dir == "TEMPORARY":
         with tempfile.TemporaryDirectory() as temp_dir:
             print(f"Using temporary directory: {temp_dir} for model checkpoints")
-            train_inputs["model_checkpoint_dir"] = temp_dir
-            print("Training model ...")
-            model.train(**train_inputs)
+            model.train(
+                output=train_dataset,
+                output_earlystopping=early_stopping_dataset,
+                cell_line_input=cl_features,
+                drug_input=drug_features,
+                model_checkpoint_dir=model_checkpoint_dir,
+            )
     else:
         if not os.path.exists(model_checkpoint_dir):
             os.makedirs(model_checkpoint_dir, exist_ok=True)
         print(f"Using directory: {model_checkpoint_dir} for model checkpoints")
-        train_inputs["model_checkpoint_dir"] = model_checkpoint_dir
-        print("Training model ...")
-        model.train(**train_inputs)
+        model.train(
+            output=train_dataset,
+            output_earlystopping=early_stopping_dataset,
+            cell_line_input=cl_features,
+            drug_input=drug_features,
+            model_checkpoint_dir=model_checkpoint_dir,
+        )
 
     if len(prediction_dataset) > 0:
         prediction_dataset._predictions = model.predict(

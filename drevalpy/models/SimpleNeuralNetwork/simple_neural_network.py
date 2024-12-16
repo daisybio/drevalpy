@@ -102,7 +102,7 @@ class SimpleNeuralNetwork(DRPModel):
                 output_earlystopping=output_earlystopping,
                 batch_size=16,
                 patience=5,
-                num_workers=1,
+                num_workers=8,
                 model_checkpoint_dir=model_checkpoint_dir,
             )
 
