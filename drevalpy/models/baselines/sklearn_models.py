@@ -1,7 +1,5 @@
 """Contains sklearn baseline models: ElasticNet, RandomForest, SVM."""
 
-from typing import Optional
-
 import numpy as np
 from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
 from sklearn.linear_model import ElasticNet, Lasso, Ridge
@@ -123,7 +121,7 @@ class SklearnModel(DRPModel):
             dataset_name=dataset_name,
         )
 
-    def load_drug_features(self, data_path: str, dataset_name: str) -> Optional[FeatureDataset]:
+    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset | None:
         """
         Load the drug features, in this case the fingerprints.
 

@@ -9,7 +9,6 @@ https://github.com/kramerlab/Multi-Omics_analysis
 import os
 import random
 import secrets
-from typing import Optional
 
 import numpy as np
 import pytorch_lightning as pl
@@ -69,7 +68,7 @@ def generate_triplets_indices(
     y: np.ndarray,
     positive_range: float,
     negative_range: float,
-    random_seed: Optional[int] = None,
+    random_seed: int | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
     Generates triplets for the MOLIR model.
@@ -155,8 +154,8 @@ def create_dataset_and_loaders(
     batch_size: int,
     output_train: DrugResponseDataset,
     cell_line_input: FeatureDataset,
-    output_earlystopping: Optional[DrugResponseDataset] = None,
-) -> tuple[DataLoader, Optional[DataLoader]]:
+    output_earlystopping: DrugResponseDataset | None = None,
+) -> tuple[DataLoader, DataLoader | None]:
     """
     Creates the RegressionDataset (torch Dataset) and the DataLoader for the training and validation data.
 
@@ -322,7 +321,7 @@ class MOLIModel(pl.LightningModule):
         self,
         output_train: DrugResponseDataset,
         cell_line_input: FeatureDataset,
-        output_earlystopping: Optional[DrugResponseDataset] = None,
+        output_earlystopping: DrugResponseDataset | None = None,
         patience: int = 5,
         model_checkpoint_dir: str = "checkpoints",
     ) -> None:
