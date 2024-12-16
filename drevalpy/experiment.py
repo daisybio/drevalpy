@@ -120,8 +120,6 @@ def drug_response_experiment(
         )
         response_data.save_splits(path=split_path)
 
-    model_checkpoint_dir = create_model_checkpoint_dir(model_checkpoint_dir)
-
     model_list = make_model_list(models + baselines, response_data)
     for model_name in model_list.keys():
         print(f"Running {model_name}")
@@ -596,7 +594,7 @@ def robustness_test(
     path_out: str,
     split_index: int,
     response_transformation: Optional[TransformerMixin] = None,
-    model_checkpoint_dir: str = "",
+    model_checkpoint_dir: str | None = None,
 ):
     """
     Run robustness tests for the given model and dataset.
@@ -650,8 +648,8 @@ def robustness_train_predict(
     hpam_set: dict,
     path_data: str,
     response_transformation: Optional[TransformerMixin] = None,
-    model_checkpoint_dir: str = "",
-):
+    model_checkpoint_dir: str | None = None,
+) -> None:
     """
     Train and predict for the robustness test.
 
@@ -695,7 +693,7 @@ def randomization_test(
     split_index: int,
     randomization_type: str = "permutation",
     response_transformation=Optional[TransformerMixin],
-    model_checkpoint_dir: str = "",
+    model_checkpoint_dir: str | None = None,
 ) -> None:
     """
     Run randomization tests for the given model and dataset.
@@ -764,7 +762,7 @@ def randomize_train_predict(
     test_dataset: DrugResponseDataset,
     early_stopping_dataset: Optional[DrugResponseDataset],
     response_transformation: Optional[TransformerMixin],
-    model_checkpoint_dir: str = "",
+    model_checkpoint_dir: str | None = None,
 ) -> None:
     """
     Randomize the features for a given view and run the model.
@@ -857,11 +855,11 @@ def train_and_predict(
     path_data: str,
     train_dataset: DrugResponseDataset,
     prediction_dataset: DrugResponseDataset,
-    early_stopping_dataset: Optional[DrugResponseDataset] = None,
-    response_transformation: Optional[TransformerMixin] = None,
-    cl_features: Optional[FeatureDataset] = None,
-    drug_features: Optional[FeatureDataset] = None,
-    model_checkpoint_dir: str = "",
+    early_stopping_dataset: DrugResponseDataset | None = None,
+    response_transformation: TransformerMixin | None = None,
+    cl_features: FeatureDataset | None = None,
+    drug_features: FeatureDataset | None = None,
+    model_checkpoint_dir: str | None = None,
 ) -> DrugResponseDataset:
     """
     Train the model and predict the response for the prediction dataset.
@@ -875,7 +873,7 @@ def train_and_predict(
     :param response_transformation: normalizer to use for the response data, e.g., StandardScaler
     :param cl_features: cell line features
     :param drug_features: drug features
-    :param model_checkpoint_dir: directory to save model checkpoints
+    :param model_checkpoint_dir: directory to save model checkpoints, if None, checkpoints are not saved, default is None
     :returns: prediction dataset with predictions
     :raises ValueError: if train_dataset does not have a dataset_name
     """
@@ -919,14 +917,27 @@ def train_and_predict(
             early_stopping_dataset.transform(response_transformation)
         prediction_dataset.transform(response_transformation)
 
-    print("Training model ...")
-    model.train(
-        output=train_dataset,
-        cell_line_input=cl_features,
-        drug_input=drug_features,
-        output_earlystopping=early_stopping_dataset,
-        model_checkpoint_dir=model_checkpoint_dir,
-    )
+    train_inputs = {
+        "output": train_dataset,
+        "cell_line_input": cl_features,
+        "drug_input": drug_features,
+        "output_earlystopping": early_stopping_dataset,
+    }
+
+    if model_checkpoint_dir is None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            print(f"Using temporary directory: {temp_dir} for model checkpoints")
+            train_inputs["model_checkpoint_dir"] = temp_dir
+            print("Training model ...")
+            model.train(**train_inputs)
+    else:
+        if not os.path.exists(model_checkpoint_dir):
+            os.makedirs(model_checkpoint_dir, exist_ok=True)
+        print(f"Using directory: {model_checkpoint_dir} for model checkpoints")
+        train_inputs["model_checkpoint_dir"] = model_checkpoint_dir
+        print("Training model ...")
+        model.train(**train_inputs)
+
     if len(prediction_dataset) > 0:
         prediction_dataset._predictions = model.predict(
             cell_line_ids=prediction_dataset.cell_line_ids,
@@ -1217,23 +1228,3 @@ def generate_data_saving_path(model_name, drug_id, result_path, suffix) -> str:
         model_path = os.path.join(result_path, model_name, suffix)
     os.makedirs(model_path, exist_ok=True)
     return model_path
-
-
-def create_model_checkpoint_dir(model_checkpoint_dir: str | None) -> str:
-    """
-    Ensure a valid directory for saving model checkpoints.
-
-    If `model_checkpoint_dir` is None, create a temporary directory.
-
-    :param model_checkpoint_dir: Optional path to a directory for saving checkpoints.
-    :return: Path to the model checkpoint directory as a string.
-    """
-    if model_checkpoint_dir is not None:
-        os.makedirs(model_checkpoint_dir, exist_ok=True)
-        return model_checkpoint_dir
-
-    print(
-        "Creating temporary directory for model checkpoints.",
-        "If you want to keep the checkpoints, set a model_checkpoint_dir.",
-    )
-    return tempfile.mkdtemp(prefix="model_checkpoint_")

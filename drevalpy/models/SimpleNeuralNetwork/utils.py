@@ -8,6 +8,8 @@ import numpy as np
 import pytorch_lightning as pl
 import torch
 from pytorch_lightning.callbacks import EarlyStopping, TQDMProgressBar
+from pytorch_lightning.strategies.ddp import DDPStrategy
+
 from torch import nn
 from torch.utils.data import DataLoader, Dataset
 
@@ -253,6 +255,7 @@ class FeedForwardNetwork(pl.LightningModule):
                 progress_bar,
             ],
             default_root_dir=os.path.join(model_checkpoint_dir, "nn_baseline_checkpoints/lightning_logs/" + name),
+            strategy="ddp_find_unused_parameters_true",
             **trainer_params_copy,
         )
         if val_loader is None:
