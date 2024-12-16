@@ -177,7 +177,7 @@ def get_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--model_checkpoint_dir",
         type=str,
-        default="None",
+        default="TEMPORARY",
         help="Directory to save model checkpoints",
     )
 
@@ -311,7 +311,7 @@ def main(args) -> None:
             run_id=args.run_id,
             overwrite=args.overwrite,
             path_data=args.path_data,
-            model_checkpoint_dir=args.model_checkpoint_dir if args.model_checkpoint_dir != "None" else None,
+            model_checkpoint_dir=args.model_checkpoint_dir,
         )
 
 

@@ -38,7 +38,7 @@ def drug_response_experiment(
     path_out: str = "results/",
     overwrite: bool = False,
     path_data: str = "data",
-    model_checkpoint_dir: str | None = None,
+    model_checkpoint_dir: str = "TEMPORARY",
 ) -> None:
     """
     Run the drug response prediction experiment. Save results to disc.
@@ -84,7 +84,7 @@ def drug_response_experiment(
     :param test_mode: test mode one of "LPO", "LCO", "LDO" (leave-pair-out, leave-cell-line-out, leave-drug-out)
     :param overwrite: whether to overwrite existing results
     :param path_data: path to the data directory, usually data/
-    :param model_checkpoint_dir: directory to save model checkpoints. If None, a temporary directory is created.
+    :param model_checkpoint_dir: directory to save model checkpoints. If "TEMPORARY", a temporary directory is created.
     :raises ValueError: if no cv splits are found
     """
     if baselines is None:
@@ -172,7 +172,6 @@ def drug_response_experiment(
             if not os.path.isfile(
                 prediction_file
             ):  # if this split has not been run yet (or for a single drug model, this drug_id)
-
                 tuning_inputs = {
                     "model": model,
                     "train_dataset": train_dataset,
@@ -311,7 +310,6 @@ def consolidate_single_drug_model_predictions(
     """
     for model in models:
         if model.get_model_name() in SINGLE_DRUG_MODEL_FACTORY:
-
             model_instance = MODEL_FACTORY[model.get_model_name()]()
             model_path = os.path.join(results_path, model.get_model_name())
             out_path = os.path.join(out_path, model.get_model_name())
@@ -324,7 +322,6 @@ def consolidate_single_drug_model_predictions(
                 os.makedirs(os.path.join(out_path, "robustness"), exist_ok=True)
 
             for split in range(n_cv_splits):
-
                 # Collect predictions for drugs across all scenarios (main, cross_study, robustness, randomization)
                 predictions: Any = {
                     "main": [],
@@ -594,7 +591,7 @@ def robustness_test(
     path_out: str,
     split_index: int,
     response_transformation: Optional[TransformerMixin] = None,
-    model_checkpoint_dir: str | None = None,
+    model_checkpoint_dir: str = "TEMPORARY",
 ):
     """
     Run robustness tests for the given model and dataset.
@@ -612,7 +609,7 @@ def robustness_test(
     :param split_index: index of the split
     :param response_transformation: sklearn.preprocessing scaler like StandardScaler or MinMaxScaler to use to scale
         the target
-    :param model_checkpoint_dir: directory to save model checkpoints
+    :param model_checkpoint_dir: directory to save model checkpoints, if "TEMPORARY": temporary directory is used
     """
     robustness_test_path = os.path.join(path_out, "robustness")
     os.makedirs(robustness_test_path, exist_ok=True)
@@ -648,7 +645,7 @@ def robustness_train_predict(
     hpam_set: dict,
     path_data: str,
     response_transformation: Optional[TransformerMixin] = None,
-    model_checkpoint_dir: str | None = None,
+    model_checkpoint_dir: str = "TEMPORARY",
 ) -> None:
     """
     Train and predict for the robustness test.
@@ -662,7 +659,7 @@ def robustness_train_predict(
     :param hpam_set: hyperparameters to use
     :param path_data: path to the data directory, e.g., data/
     :param response_transformation: sklearn.preprocessing scaler like StandardScaler or MinMaxScaler to use to scale
-    :param model_checkpoint_dir: directory to save model checkpoints
+    :param model_checkpoint_dir: directory to save model checkpoints. If "TEMPORARY", a temporary directory is created.
     """
     train_dataset.shuffle(random_state=trial)
     test_dataset.shuffle(random_state=trial)
@@ -693,7 +690,7 @@ def randomization_test(
     split_index: int,
     randomization_type: str = "permutation",
     response_transformation=Optional[TransformerMixin],
-    model_checkpoint_dir: str | None = None,
+    model_checkpoint_dir: str = "TEMPORARY",
 ) -> None:
     """
     Run randomization tests for the given model and dataset.
@@ -762,7 +759,7 @@ def randomize_train_predict(
     test_dataset: DrugResponseDataset,
     early_stopping_dataset: Optional[DrugResponseDataset],
     response_transformation: Optional[TransformerMixin],
-    model_checkpoint_dir: str | None = None,
+    model_checkpoint_dir: str = "TEMPORARY",
 ) -> None:
     """
     Randomize the features for a given view and run the model.
@@ -859,7 +856,7 @@ def train_and_predict(
     response_transformation: TransformerMixin | None = None,
     cl_features: FeatureDataset | None = None,
     drug_features: FeatureDataset | None = None,
-    model_checkpoint_dir: str | None = None,
+    model_checkpoint_dir: str = "TEMPORARY",
 ) -> DrugResponseDataset:
     """
     Train the model and predict the response for the prediction dataset.
@@ -873,7 +870,8 @@ def train_and_predict(
     :param response_transformation: normalizer to use for the response data, e.g., StandardScaler
     :param cl_features: cell line features
     :param drug_features: drug features
-    :param model_checkpoint_dir: directory for model checkpoints, if None, checkpoints are not saved. Default is None
+    :param model_checkpoint_dir: directory for model checkpoints, if "TEMPORARY", checkpoints are not saved.
+            Default is "TEMPORARY"
     :returns: prediction dataset with predictions
     :raises ValueError: if train_dataset does not have a dataset_name
     """
@@ -924,7 +922,7 @@ def train_and_predict(
         "output_earlystopping": early_stopping_dataset,
     }
 
-    if model_checkpoint_dir is None:
+    if model_checkpoint_dir == "TEMPORARY":
         with tempfile.TemporaryDirectory() as temp_dir:
             print(f"Using temporary directory: {temp_dir} for model checkpoints")
             train_inputs["model_checkpoint_dir"] = temp_dir
@@ -963,7 +961,7 @@ def train_and_evaluate(
     early_stopping_dataset: Optional[DrugResponseDataset] = None,
     response_transformation: Optional[TransformerMixin] = None,
     metric: str = "rmse",
-    model_checkpoint_dir: str = "",
+    model_checkpoint_dir: str = "TEMPORARY",
 ) -> dict[str, float]:
     """
     Train and evaluate the model, i.e., call train_and_predict() and then evaluate().
@@ -1001,7 +999,7 @@ def hpam_tune(
     response_transformation: Optional[TransformerMixin] = None,
     metric: str = "RMSE",
     path_data: str = "data",
-    model_checkpoint_dir: str = "",
+    model_checkpoint_dir: str = "TEMPORARY",
 ) -> dict:
     """
     Tune the hyperparameters for the given model in an iterative manner.
@@ -1065,7 +1063,7 @@ def hpam_tune_raytune(
     metric: str = "RMSE",
     ray_path: str = "raytune",
     path_data: str = "data",
-    model_checkpoint_dir: str = "",
+    model_checkpoint_dir: str = "TEMPORARY",
 ) -> dict:
     """
     Tune the hyperparameters for the given model using raytune.
