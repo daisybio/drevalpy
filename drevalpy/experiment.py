@@ -873,7 +873,7 @@ def train_and_predict(
     :param response_transformation: normalizer to use for the response data, e.g., StandardScaler
     :param cl_features: cell line features
     :param drug_features: drug features
-    :param model_checkpoint_dir: directory to save model checkpoints, if None, checkpoints are not saved, default is None
+    :param model_checkpoint_dir: directory for model checkpoints, if None, checkpoints are not saved. Default is None
     :returns: prediction dataset with predictions
     :raises ValueError: if train_dataset does not have a dataset_name
     """

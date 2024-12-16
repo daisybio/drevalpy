@@ -8,8 +8,6 @@ import numpy as np
 import pytorch_lightning as pl
 import torch
 from pytorch_lightning.callbacks import EarlyStopping, TQDMProgressBar
-from pytorch_lightning.strategies.ddp import DDPStrategy
-
 from torch import nn
 from torch.utils.data import DataLoader, Dataset
 
