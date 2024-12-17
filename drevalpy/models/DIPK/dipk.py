@@ -8,6 +8,7 @@ Briefings in Bioinformatics, Volume 25, Issue 3, May 2024, bbae153, https://doi.
 """
 
 import os
+import secrets
 from typing import Any
 
 import numpy as np
@@ -153,7 +154,11 @@ class DIPKModel(DRPModel):
 
         # Ensure the checkpoint directory exists
         os.makedirs(model_checkpoint_dir, exist_ok=True)
-        checkpoint_path = os.path.join(model_checkpoint_dir, "best_model.pth")
+        version = "version-" + "".join(
+            [secrets.choice("0123456789abcdef") for _ in range(20)]
+        )  # preventing conflicts of filenames
+
+        checkpoint_path = os.path.join(model_checkpoint_dir, f"{version}_best_DIPK_model.pth")
 
         # Train model
         print("Training DIPK model")
@@ -238,7 +243,9 @@ class DIPKModel(DRPModel):
 
         # Reload the best model after training
         print("DIPK: Reloading the best model")
-        self.model.load_state_dict(torch.load(checkpoint_path, map_location=self.DEVICE))  # noqa S614
+        self.model.load_state_dict(
+            torch.load(checkpoint_path, map_location=self.DEVICE, weights_only=True)  # noqa S614
+        )
         self.model.to(self.DEVICE)  # Ensure model is on the correct device
 
     def predict(

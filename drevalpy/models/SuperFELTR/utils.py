@@ -324,11 +324,10 @@ def train_superfeltr_model(
         [secrets.choice("0123456789abcdef") for _ in range(20)]
     )  # preventing conflicts of filenames
     checkpoint_callback = pl.callbacks.ModelCheckpoint(
-        dirpath=model_checkpoint_dir,
+        dirpath=os.path.join(model_checkpoint_dir, name),
         monitor=monitor,
         mode="min",
         save_top_k=1,
-        filename=name,
     )
     # Initialize the Lightning trainer
     trainer = pl.Trainer(
@@ -336,9 +335,8 @@ def train_superfeltr_model(
         callbacks=[
             early_stop_callback,
             checkpoint_callback,
-            TQDMProgressBar(),
+            TQDMProgressBar(refresh_rate=0),
         ],
-        default_root_dir=os.path.join(model_checkpoint_dir, "superfeltr_checkpoints/lightning_logs/" + name),
     )
     if val_loader is None:
         trainer.fit(model, train_loader)
