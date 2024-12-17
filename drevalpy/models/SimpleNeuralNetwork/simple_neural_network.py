@@ -1,5 +1,6 @@
 """Contains the SimpleNeuralNetwork model."""
 
+import platform
 import warnings
 
 import numpy as np
@@ -102,7 +103,7 @@ class SimpleNeuralNetwork(DRPModel):
                 output_earlystopping=output_earlystopping,
                 batch_size=16,
                 patience=5,
-                num_workers=8,
+                num_workers=1 if platform.system() == "Windows" else 8,
                 model_checkpoint_dir=model_checkpoint_dir,
             )
 

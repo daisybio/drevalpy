@@ -928,7 +928,7 @@ def train_and_predict(
                 output_earlystopping=early_stopping_dataset,
                 cell_line_input=cl_features,
                 drug_input=drug_features,
-                model_checkpoint_dir=model_checkpoint_dir,
+                model_checkpoint_dir=temp_dir,
             )
     else:
         if not os.path.exists(model_checkpoint_dir):

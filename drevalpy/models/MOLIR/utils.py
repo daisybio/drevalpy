@@ -170,7 +170,7 @@ def create_dataset_and_loaders(
         train_dataset,
         batch_size=batch_size,
         shuffle=False,
-        num_workers=1,
+        num_workers=1 if os.name == "nt" else 4,  # multiprocessing on Windows is not supported
         persistent_workers=True,
         drop_last=True,  # avoids batch norm errors if last batch < batch_size
     )
@@ -354,11 +354,11 @@ class MOLIModel(pl.LightningModule):
             [secrets.choice("0123456789abcdef") for _ in range(20)]
         )  # preventing conflicts of filenames
         self.checkpoint_callback = pl.callbacks.ModelCheckpoint(
-            dirpath=model_checkpoint_dir,
+            dirpath=os.path.join(model_checkpoint_dir, name),
             monitor=monitor,
             mode="min",
             save_top_k=1,
-            filename=name,
+            save_weights_only=True,
         )
 
         # Initialize the Lightning trainer
@@ -367,9 +367,10 @@ class MOLIModel(pl.LightningModule):
             callbacks=[
                 early_stop_callback,
                 self.checkpoint_callback,
-                TQDMProgressBar(),
+                TQDMProgressBar(refresh_rate=0),
             ],
-            default_root_dir=os.path.join(model_checkpoint_dir, "moli_checkpoints/lightning_logs/" + name),
+            devices=1,
+            enable_model_summary=False,
         )
         if val_loader is None:
             trainer.fit(self, train_loader)
@@ -377,7 +378,7 @@ class MOLIModel(pl.LightningModule):
             trainer.fit(self, train_loader, val_loader)
         # load best model
         if self.checkpoint_callback.best_model_path is not None:
-            checkpoint = torch.load(self.checkpoint_callback.best_model_path)  # noqa: S614
+            checkpoint = torch.load(self.checkpoint_callback.best_model_path, weights_only=True)  # noqa: S614
             self.load_state_dict(checkpoint["state_dict"])
 
     def predict(
