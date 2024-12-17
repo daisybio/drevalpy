@@ -78,6 +78,7 @@ class SRMF(DRPModel):
         cell_line_input: FeatureDataset,
         drug_input: FeatureDataset | None = None,
         output_earlystopping: DrugResponseDataset | None = None,
+        model_checkpoint_dir: str = "checkpoints",
     ) -> None:
         """
         Prepares data and trains the SRMF model.
@@ -85,7 +86,8 @@ class SRMF(DRPModel):
         :param output: response data
         :param cell_line_input: feature data for cell lines
         :param drug_input: feature data for drugs
-        :param output_earlystopping: optional early stopping dataset
+        :param output_earlystopping: optional early stopping dataset, not used in SRMF
+        :param model_checkpoint_dir: directory to save the model checkpoints, not used in SRMF
         :raises ValueError: if drug_input is None
         """
         if drug_input is None:

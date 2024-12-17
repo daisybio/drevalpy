@@ -111,6 +111,7 @@ class DRPModel(ABC):
         cell_line_input: FeatureDataset,
         drug_input: FeatureDataset | None = None,
         output_earlystopping: DrugResponseDataset | None = None,
+        model_checkpoint_dir: str = "checkpoints",
     ) -> None:
         """
         Trains the model.
@@ -119,6 +120,7 @@ class DRPModel(ABC):
         :param cell_line_input: input associated with the cell line, required for all models
         :param drug_input: input associated with the drug, optional because single drug models do not use drug features
         :param output_earlystopping: optional early stopping dataset
+        :param model_checkpoint_dir: directory to save the model checkpoints
         """
 
     @abstractmethod

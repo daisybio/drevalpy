@@ -8,6 +8,7 @@ Briefings in Bioinformatics, Volume 25, Issue 3, May 2024, bbae153, https://doi.
 """
 
 import os
+import secrets
 from typing import Any
 
 import numpy as np
@@ -89,6 +90,7 @@ class DIPKModel(DRPModel):
         cell_line_input: FeatureDataset,
         drug_input: FeatureDataset | None = None,
         output_earlystopping: DrugResponseDataset | None = None,
+        model_checkpoint_dir: str = "checkpoints",
     ) -> None:
         """
         Trains the model.
@@ -96,7 +98,8 @@ class DIPKModel(DRPModel):
         :param output: training data associated with the response output
         :param cell_line_input: input data associated with the cell line
         :param drug_input: input data associated with the drug
-        :param output_earlystopping: early stopping data associated with the response output, not used
+        :param output_earlystopping: early stopping data associated with the response output
+        :param model_checkpoint_dir: directory to save the model checkpoint
         :raises ValueError: if drug_input is None or if the model is not initialized
         """
         if drug_input is None:
@@ -149,6 +152,14 @@ class DIPKModel(DRPModel):
         best_val_loss = float("inf")
         epochs_without_improvement = 0
 
+        # Ensure the checkpoint directory exists
+        os.makedirs(model_checkpoint_dir, exist_ok=True)
+        version = "version-" + "".join(
+            [secrets.choice("0123456789abcdef") for _ in range(20)]
+        )  # preventing conflicts of filenames
+
+        checkpoint_path = os.path.join(model_checkpoint_dir, f"{version}_best_DIPK_model.pth")
+
         # Train model
         print("Training DIPK model")
         for epoch in range(self.epochs):
@@ -185,7 +196,7 @@ class DIPKModel(DRPModel):
                 batch_count += 1
 
             epoch_loss /= batch_count
-            print(f"Epoch [{epoch + 1}] Training Loss: {epoch_loss:.4f}")
+            print(f"DIPK: Epoch [{epoch + 1}] Training Loss: {epoch_loss:.4f}")
 
             # Validation phase for early stopping
             self.model.eval()
@@ -215,17 +226,27 @@ class DIPKModel(DRPModel):
                     val_batch_count += 1
 
             val_loss /= val_batch_count
-            print(f"Epoch [{epoch + 1}] Validation Loss: {val_loss:.4f}")
+            print(f"DIPK: Epoch [{epoch + 1}] Validation Loss: {val_loss:.4f}")
 
-            # Early stopping check
+            # Checkpointing: Save the best model
             if val_loss < best_val_loss:
                 best_val_loss = val_loss
                 epochs_without_improvement = 0
+                # Save the model checkpoint securely
+                torch.save(self.model.state_dict(), checkpoint_path)  # noqa S614
+                print(f"DIPK: Saved best model at epoch {epoch + 1}")
             else:
                 epochs_without_improvement += 1
                 if epochs_without_improvement >= self.patience:
-                    print(f"Early stopping triggered at epoch {epoch + 1}")
+                    print(f"DIPK: Early stopping triggered at epoch {epoch + 1}")
                     break
+
+        # Reload the best model after training
+        print("DIPK: Reloading the best model")
+        self.model.load_state_dict(
+            torch.load(checkpoint_path, map_location=self.DEVICE, weights_only=True)  # noqa S614
+        )
+        self.model.to(self.DEVICE)  # Ensure model is on the correct device
 
     def predict(
         self,

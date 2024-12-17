@@ -32,6 +32,7 @@ from drevalpy.visualization.utils import parse_results, prep_results
             "response_transformation": "None",
             "multiprocessing": False,
             "path_data": "../data",
+            "model_checkpoint_dir": "None",
         }
     ],
 )
