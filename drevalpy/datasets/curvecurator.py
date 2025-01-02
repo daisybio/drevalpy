@@ -106,18 +106,26 @@ def _prepare_toml(
     return config
 
 
-def _exec_curvecurator(output_dir: Path):
+def _exec_curvecurator(output_dir: Path, batched: bool = True):
     """
     Execute CurveCurator in batch mode.
 
     This function spawns a subprocess that runs CurveCurator for all config.toml files that
     are listed in a file "configlist.txt" in the provided output directory.
 
-    :param output_dir: The directory containing configlist.txt as well as subfolders for
-        all the paths listed in configlist.txt that function as input and output directories.
-
+    :param output_dir: The directory containing einter configlist.txt as well as subfolders for
+        all the paths listed in configlist.txt that function as input and output directories for
+        batched CurveCurator execution, or the directory containig a single config.toml and
+        corresponding viability input.
+    :param batched: If True, run CurveCurator in batched mode (default), iterating over a list
+        of configs spefified in <output_dir>/configlist.txt and consecutively executing each
+        CurveCurator run. If False, run a single CurveCurator run (this can be used for
+        parallelisation).
     """
-    command = ["CurveCurator", str(output_dir / "configlist.txt"), "--mad", "--batch"]
+    if batched:
+        command = ["CurveCurator", str(output_dir / "configlist.txt"), "--mad", "--batch"]
+    else:
+        command = ["CurveCurator", str(output_dir / "config.toml"), "--mad"]
     process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     process.communicate()
 
