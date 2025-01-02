@@ -26,19 +26,19 @@ def _prepare_raw_data(curve_df: pd.DataFrame, output_dir: Path, prefix: str = ""
     if "replicate" in curve_df.columns:
         n_replicates = curve_df["replicate"].nunique()
         pivot_columns = ["dose", "replicate"]
-        control_cols = {(0.0, col_id): 1.0 for col_id in range(n_replicates)}
     else:
         n_replicates = 1
         pivot_columns = ["dose"]
-        control_cols = {0.0: 1.0}
 
     df = curve_df.pivot(index=["sample", "drug"], columns=pivot_columns, values="response")
-    control_df = pd.DataFrame(control_cols, index=df.index)
+
+    if "replicate" in curve_df.columns:
+        control_df = pd.DataFrame({(0.0, col_id): 1.0 for col_id in range(n_replicates)}, index=df.index)
+    else:
+        control_df = pd.DataFrame({0.0: 1.0}, index=df.index)
 
     df = pd.concat([control_df, df], axis=1)
-    print("--------------------")
-    print(df)
-    print("--------------------")
+
     concentrations = df.columns.sort_values()
     doses = concentrations.get_level_values(0).to_list()
     df = df[concentrations]
