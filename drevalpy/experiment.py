@@ -1,16 +1,15 @@
 """Main module for running the drug response prediction experiment."""
 
+import importlib
 import json
 import os
 import shutil
 import warnings
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import pandas as pd
-import ray
 import torch
-from ray import tune
 from sklearn.base import TransformerMixin
 
 from .datasets.dataset import DrugResponseDataset, FeatureDataset
@@ -19,20 +18,25 @@ from .models import MODEL_FACTORY, MULTI_DRUG_MODEL_FACTORY, SINGLE_DRUG_MODEL_F
 from .models.drp_model import DRPModel
 from .pipeline_function import pipeline_function
 
+if importlib.util.find_spec("ray"):
+    import ray
+else:
+    ray = None
+
 
 def drug_response_experiment(
     models: list[type[DRPModel]],
     response_data: DrugResponseDataset,
-    baselines: Optional[list[type[DRPModel]]] = None,
-    response_transformation: Optional[TransformerMixin] = None,
+    baselines: list[type[DRPModel]] | None = None,
+    response_transformation: TransformerMixin | None = None,
     run_id: str = "",
     test_mode: str = "LPO",
     metric: str = "RMSE",
     n_cv_splits: int = 5,
     multiprocessing: bool = False,
-    randomization_mode: Optional[list[str]] = None,
+    randomization_mode: list[str] | None = None,
     randomization_type: str = "permutation",
-    cross_study_datasets: Optional[list[DrugResponseDataset]] = None,
+    cross_study_datasets: list[DrugResponseDataset] | None = None,
     n_trials_robustness: int = 0,
     path_out: str = "results/",
     overwrite: bool = False,
@@ -47,7 +51,7 @@ def drug_response_experiment(
     :param response_transformation: normalizer to use for the response data
     :param metric: metric to use for hyperparameter optimization
     :param n_cv_splits: number of cross-validation splits
-    :param multiprocessing: whether to use multiprocessing
+    :param multiprocessing: whether to use multiprocessing. This requires Ray to be installed.
     :param randomization_mode: list of randomization modes to do. Modes: SVCC, SVRC, SVCD, SVRD Can be a list of
         randomization tests e.g. 'SVCC SVCD'. Default is None, which means no randomization tests are run.
 
@@ -150,7 +154,7 @@ def drug_response_experiment(
             raise ValueError("No cv splits found.")
 
         for split_index, split in enumerate(response_data.cv_splits):
-            print(f"################# FOLD {split_index+1}/{len(response_data.cv_splits)} " f"#################")
+            print(f"################# FOLD {split_index + 1}/{len(response_data.cv_splits)} " f"#################")
 
             prediction_file = os.path.join(predictions_path, f"predictions_split_{split_index}.csv")
 
@@ -226,7 +230,7 @@ def drug_response_experiment(
                         single_drug_id=(drug_id if model_name in SINGLE_DRUG_MODEL_FACTORY else None),
                     )
 
-                test_dataset.save(prediction_file)
+                test_dataset.to_csv(prediction_file)
             else:
                 print(f"Split {split_index} already exists. Skipping.")
                 with open(
@@ -287,7 +291,7 @@ def consolidate_single_drug_model_predictions(
     n_cv_splits: int,
     results_path: str,
     cross_study_datasets: list[DrugResponseDataset],
-    randomization_mode: Optional[list[str]] = None,
+    randomization_mode: list[str] | None = None,
     n_trials_robustness: int = 0,
     out_path: str = "",
 ) -> None:
@@ -363,7 +367,7 @@ def consolidate_single_drug_model_predictions(
                     # Robustness predictions
                     for trial in range(n_trials_robustness):
                         robustness_path = os.path.join(single_drug_prediction_path, "robustness")
-                        f = f"robustness_{trial+1}_split_{split}.csv"
+                        f = f"robustness_{trial + 1}_split_{split}.csv"
                         if trial not in predictions["robustness"]:
                             predictions["robustness"][trial] = []
                         predictions["robustness"][trial].append(
@@ -411,7 +415,7 @@ def consolidate_single_drug_model_predictions(
                         os.path.join(
                             out_path,
                             "robustness",
-                            f"robustness_{trial+1}_split_{split}.csv",
+                            f"robustness_{trial + 1}_split_{split}.csv",
                         )
                     )
 
@@ -427,7 +431,7 @@ def consolidate_single_drug_model_predictions(
 
 def load_features(
     model: DRPModel, path_data: str, dataset: DrugResponseDataset
-) -> tuple[FeatureDataset, Optional[FeatureDataset]]:
+) -> tuple[FeatureDataset, FeatureDataset | None]:
     """
     Load and reduce cell line and drug features for a given dataset.
 
@@ -448,11 +452,11 @@ def cross_study_prediction(
     test_mode: str,
     train_dataset: DrugResponseDataset,
     path_data: str,
-    early_stopping_dataset: Optional[DrugResponseDataset],
-    response_transformation: Optional[TransformerMixin],
+    early_stopping_dataset: DrugResponseDataset | None,
+    response_transformation: TransformerMixin | None,
     path_out: str,
     split_index: int,
-    single_drug_id: Optional[str] = None,
+    single_drug_id: str | None = None,
 ) -> None:
     """
     Run the drug response prediction experiment on a cross-study dataset to assess the generalizability of the model.
@@ -484,7 +488,7 @@ def cross_study_prediction(
 
     cell_lines_to_keep = cl_features.identifiers if cl_features is not None else None
 
-    drugs_to_keep: Optional[np.ndarray] = None
+    drugs_to_keep: np.ndarray | None = None
     if single_drug_id is not None:
         drugs_to_keep = np.array([single_drug_id])
     elif drug_features is not None:
@@ -535,7 +539,7 @@ def cross_study_prediction(
             dataset._response = response_transformation.inverse_transform(dataset.response)
     else:
         dataset._predictions = np.array([])
-    dataset.save(
+    dataset.to_csv(
         os.path.join(
             path_out,
             "cross_study",
@@ -584,10 +588,10 @@ def robustness_test(
     path_data: str,
     train_dataset: DrugResponseDataset,
     test_dataset: DrugResponseDataset,
-    early_stopping_dataset: Optional[DrugResponseDataset],
+    early_stopping_dataset: DrugResponseDataset | None,
     path_out: str,
     split_index: int,
-    response_transformation: Optional[TransformerMixin] = None,
+    response_transformation: TransformerMixin | None = None,
 ):
     """
     Run robustness tests for the given model and dataset.
@@ -609,10 +613,10 @@ def robustness_test(
     robustness_test_path = os.path.join(path_out, "robustness")
     os.makedirs(robustness_test_path, exist_ok=True)
     for trial in range(n_trials):
-        print(f"Running robustness test trial {trial+1}/{n_trials}")
+        print(f"Running robustness test trial {trial + 1}/{n_trials}")
         trial_file = os.path.join(
             robustness_test_path,
-            f"robustness_{trial+1}_split_{split_index}.csv",
+            f"robustness_{trial + 1}_split_{split_index}.csv",
         )
         if not os.path.isfile(trial_file):
             robustness_train_predict(
@@ -634,11 +638,11 @@ def robustness_train_predict(
     trial_file: str,
     train_dataset: DrugResponseDataset,
     test_dataset: DrugResponseDataset,
-    early_stopping_dataset: Optional[DrugResponseDataset],
+    early_stopping_dataset: DrugResponseDataset | None,
     model: DRPModel,
     hpam_set: dict,
     path_data: str,
-    response_transformation: Optional[TransformerMixin] = None,
+    response_transformation: TransformerMixin | None = None,
 ):
     """
     Train and predict for the robustness test.
@@ -666,7 +670,7 @@ def robustness_train_predict(
         early_stopping_dataset=early_stopping_dataset,
         response_transformation=response_transformation,
     )
-    test_dataset.save(trial_file)
+    test_dataset.to_csv(trial_file)
 
 
 def randomization_test(
@@ -676,11 +680,11 @@ def randomization_test(
     path_data: str,
     train_dataset: DrugResponseDataset,
     test_dataset: DrugResponseDataset,
-    early_stopping_dataset: Optional[DrugResponseDataset],
+    early_stopping_dataset: DrugResponseDataset | None,
     path_out: str,
     split_index: int,
     randomization_type: str = "permutation",
-    response_transformation=Optional[TransformerMixin],
+    response_transformation=TransformerMixin | None,
 ) -> None:
     """
     Run randomization tests for the given model and dataset.
@@ -745,8 +749,8 @@ def randomize_train_predict(
     path_data: str,
     train_dataset: DrugResponseDataset,
     test_dataset: DrugResponseDataset,
-    early_stopping_dataset: Optional[DrugResponseDataset],
-    response_transformation: Optional[TransformerMixin],
+    early_stopping_dataset: DrugResponseDataset | None,
+    response_transformation: TransformerMixin | None,
 ) -> None:
     """
     Randomize the features for a given view and run the model.
@@ -783,12 +787,12 @@ def randomize_train_predict(
         )
         return
 
-    cl_features_rand: Optional[FeatureDataset] = None
+    cl_features_rand: FeatureDataset | None = None
     if cl_features is not None:
         cl_features_rand = cl_features.copy()
         cl_features_rand.randomize_features(view, randomization_type=randomization_type)  # type: ignore[union-attr]
 
-    drug_features_rand: Optional[FeatureDataset] = None
+    drug_features_rand: FeatureDataset | None = None
     if drug_features is not None:
         drug_features_rand = drug_features.copy()
         drug_features_rand.randomize_features(view, randomization_type=randomization_type)  # type: ignore[union-attr]
@@ -804,7 +808,7 @@ def randomize_train_predict(
         cl_features=cl_features_rand,
         drug_features=drug_features_rand,
     )
-    test_dataset_rand.save(randomization_test_file)
+    test_dataset_rand.to_csv(randomization_test_file)
 
 
 def split_early_stopping(
@@ -837,10 +841,10 @@ def train_and_predict(
     path_data: str,
     train_dataset: DrugResponseDataset,
     prediction_dataset: DrugResponseDataset,
-    early_stopping_dataset: Optional[DrugResponseDataset] = None,
-    response_transformation: Optional[TransformerMixin] = None,
-    cl_features: Optional[FeatureDataset] = None,
-    drug_features: Optional[FeatureDataset] = None,
+    early_stopping_dataset: DrugResponseDataset | None = None,
+    response_transformation: TransformerMixin | None = None,
+    cl_features: FeatureDataset | None = None,
+    drug_features: FeatureDataset | None = None,
 ) -> DrugResponseDataset:
     """
     Train the model and predict the response for the prediction dataset.
@@ -926,8 +930,8 @@ def train_and_evaluate(
     path_data: str,
     train_dataset: DrugResponseDataset,
     validation_dataset: DrugResponseDataset,
-    early_stopping_dataset: Optional[DrugResponseDataset] = None,
-    response_transformation: Optional[TransformerMixin] = None,
+    early_stopping_dataset: DrugResponseDataset | None = None,
+    response_transformation: TransformerMixin | None = None,
     metric: str = "rmse",
 ) -> dict[str, float]:
     """
@@ -960,8 +964,8 @@ def hpam_tune(
     train_dataset: DrugResponseDataset,
     validation_dataset: DrugResponseDataset,
     hpam_set: list[dict],
-    early_stopping_dataset: Optional[DrugResponseDataset] = None,
-    response_transformation: Optional[TransformerMixin] = None,
+    early_stopping_dataset: DrugResponseDataset | None = None,
+    response_transformation: TransformerMixin | None = None,
     metric: str = "RMSE",
     path_data: str = "data",
 ) -> dict:
@@ -1019,15 +1023,15 @@ def hpam_tune_raytune(
     model: DRPModel,
     train_dataset: DrugResponseDataset,
     validation_dataset: DrugResponseDataset,
-    early_stopping_dataset: Optional[DrugResponseDataset],
+    early_stopping_dataset: DrugResponseDataset | None,
     hpam_set: list[dict],
-    response_transformation: Optional[TransformerMixin] = None,
+    response_transformation: TransformerMixin | None = None,
     metric: str = "RMSE",
     ray_path: str = "raytune",
     path_data: str = "data",
 ) -> dict:
     """
-    Tune the hyperparameters for the given model using raytune.
+    Tune the hyperparameters for the given model using raytune. This requires ray to be installed.
 
     :param model: model to use
     :param train_dataset: training dataset
@@ -1047,7 +1051,7 @@ def hpam_tune_raytune(
         resources_per_trial = {"gpu": 1}  # TODO make this user defined
     else:
         resources_per_trial = {"cpu": 1}  # TODO make this user defined
-    analysis = tune.run(
+    analysis = ray.tune.run(
         lambda hpams: train_and_evaluate(
             model=model,
             hpams=hpams,
@@ -1058,7 +1062,7 @@ def hpam_tune_raytune(
             metric=metric,
             response_transformation=response_transformation,
         ),
-        config=tune.grid_search(hpam_set),
+        config=ray.tune.grid_search(hpam_set),
         mode="min",
         num_samples=5,
         resources_per_trial=resources_per_trial,
@@ -1094,7 +1098,7 @@ def make_model_list(models: list[type[DRPModel]], response_data: DrugResponseDat
 
 
 @pipeline_function
-def get_model_name_and_drug_id(model_name: str) -> tuple[str, Optional[str]]:
+def get_model_name_and_drug_id(model_name: str) -> tuple[str, str | None]:
     """
     Get the model name and drug id from the model name.
 
@@ -1119,8 +1123,8 @@ def get_model_name_and_drug_id(model_name: str) -> tuple[str, Optional[str]]:
 
 @pipeline_function
 def get_datasets_from_cv_split(
-    split: dict[str, DrugResponseDataset], model_class: type[DRPModel], model_name: str, drug_id: Optional[str] = None
-) -> tuple[DrugResponseDataset, DrugResponseDataset, Optional[DrugResponseDataset], DrugResponseDataset]:
+    split: dict[str, DrugResponseDataset], model_class: type[DRPModel], model_name: str, drug_id: str | None = None
+) -> tuple[DrugResponseDataset, DrugResponseDataset, DrugResponseDataset | None, DrugResponseDataset]:
     """
     Get train, validation, (early stopping), and test datasets from the CV split.
 

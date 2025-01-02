@@ -20,15 +20,16 @@ torch-geometric = "*"
 flaky = "*"
 requests = "*"
 pingouin = "*"
-ray = {extras = ["tune"], version = "^2.37.0"}
 plotly = "*"
 matplotlib = "*"
 importlib-resources = "*"
 curve-curator = {version = "*", optional = true}
-toml = {version = "^0.10.2", optional = true}
+ray = {version = "*", optional = true}
+toml = {version = "^0.10.2"}
 
 [tool.poetry.extras]
-fit = ["curve-curator", "toml"]
+fit = ["curve-curator"]
+multiprocessing = ["ray"]
 
 [tool.poetry.group.development.dependencies]
 sphinx-autodoc-typehints = "<3.0"
