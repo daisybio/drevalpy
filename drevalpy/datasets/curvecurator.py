@@ -22,50 +22,44 @@ import toml
 from ..pipeline_function import pipeline_function
 
 
-def _prepare_raw_data(curve_df: pd.DataFrame, output_dir: str | Path):
-    required_columns = ["dose", "response", "sample", "drug"]
-    if not all([col in curve_df.columns for col in required_columns]):
-        raise ValueError("Missing columns in viability data. Required columns are {required_columns}.")
-    if "replicate" in curve_df.columns:
-        required_columns.append("replicate")
-    curve_df = curve_df[required_columns]
-    n_replicates = 1
-    conc_columns = ["dose"]
-    has_multicol_index = False
+def _prepare_raw_data(curve_df: pd.DataFrame, output_dir: Path, prefix: str = ""):
     if "replicate" in curve_df.columns:
         n_replicates = curve_df["replicate"].nunique()
-        conc_columns.append("replicate")
-        has_multicol_index = True
+        pivot_columns = ["dose", "replicate"]
+        control_df = pd.DataFrame({(0.0, col_id): 1.0 for col_id in range(n_replicates)}, index=curve_df.index)
+    else:
+        n_replicates = 1
+        pivot_columns = ["dose"]
+        control_df = pd.DataFrame({0.0: 1.0}, index=curve_df.index)
 
-    df = curve_df.pivot(index=["sample", "drug"], columns=conc_columns, values="response")
+    df = curve_df.pivot(index=["sample", "drug"], columns=pivot_columns, values="response")
 
-    for i in range(n_replicates):
-        df.insert(0, (0.0, n_replicates - i), 1.0)
-
+    df = pd.concat([control_df, df])
     concentrations = df.columns.sort_values()
+    doses = concentrations.get_level_values(0).to_list()
     df = df[concentrations]
 
     experiments = np.arange(df.shape[1])
-    df.insert(0, "Name", df.index.map(lambda x: f"{x[0]}|{x[1]}"))
+    df.insert(0, "Name", ["|".join(map(str, i)) for i in df.index.tolist()])
+    df.reset_index(drop=True)
+
     df.columns = ["Name"] + [f"Raw {i}" for i in experiments]
 
-    curvecurator_folder = Path(output_dir)
+    curvecurator_folder = output_dir / prefix
     curvecurator_folder.mkdir(exist_ok=True, parents=True)
     df.to_csv(curvecurator_folder / "curvecurator_input.tsv", sep="\t", index=False)
 
-    if has_multicol_index:
-        doses = [pair[0] for pair in concentrations]
-    else:
-        doses = concentrations.to_list()
     return len(experiments), doses, n_replicates, len(df)
 
 
-def _prepare_toml(filename: str, n_exp: int, n_replicates: int, doses: list[float], dataset_name: str, cores: int):
+def _prepare_toml(
+    filename: str, n_exp: int, n_replicates: int, doses: list[float], dataset_name: str, cores: int, condition: str = ""
+):
     config = {
         "Meta": {
             "id": filename,
             "description": dataset_name,
-            "condition": "drug",
+            "condition": condition,
             "treatment_time": "72 h",
         },
         "Experiment": {
@@ -81,7 +75,7 @@ def _prepare_toml(filename: str, n_exp: int, n_replicates: int, doses: list[floa
         },
         "Paths": {
             "input_file": "curvecurator_input.tsv",
-            "curves_file": "curves.txt",
+            "curves_file": "curves.tsv",
             "normalization_file": "norm.txt",
             "mad_file": "mad.txt",
             "dashboard": "dashboard.html",
@@ -109,7 +103,17 @@ def _prepare_toml(filename: str, n_exp: int, n_replicates: int, doses: list[floa
 
 
 def _exec_curvecurator(output_dir: Path):
-    command = ["CurveCurator", str(output_dir / "config.toml"), "--mad"]
+    """
+    Execute CurveCurator in batch mode.
+
+    This function spawns a subprocess that runs CurveCurator for all config.toml files that
+    are listed in a file "configlist.txt" in the provided output directory.
+
+    :param output_dir: The directory containing configlist.txt as well as subfolders for
+        all the paths listed in configlist.txt that function as input and output directories.
+
+    """
+    command = ["CurveCurator", str(output_dir / "configlist.txt"), "--mad", "--batch"]
     process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     process.communicate()
 
@@ -140,7 +144,13 @@ def _calc_ic50(model_params_df: pd.DataFrame):
 @pipeline_function
 def preprocess(input_file: str | Path, output_dir: str | Path, dataset_name: str, cores: int):
     """
-    Preprocess raw viability data and create config.toml for use with CurveCurator.
+    Preprocess raw viability data and create required input files for CurveCurator.
+
+    This function takes an input file containing raw viability in long format. The required columns
+    are "dose", "response", "sample", and "drug", with an optional "replicate" column.
+    If there are multiple dose ranges or numbers of replicates, groups in the form
+    (maxdose, mindose, n_replicates) are created to keep the number of parameters for fitting low
+    and the input dataframes for curvecurator as dense as possible.
 
     :param input_file: Path to csv file containing the raw viability data
     :param output_dir: Path to store all the files to, including the preprocessed data, the config.toml
@@ -149,31 +159,72 @@ def preprocess(input_file: str | Path, output_dir: str | Path, dataset_name: str
     :param cores: The number of cores to be used for fitting the curves using CurveCurator.
         This parameter is written into the config.toml, but it is min of the number of curves to fit
         and the number given (min(n_curves, cores))
+    :raises ValueError: If required columns are not found in the provided input file.
     """
     input_file = Path(input_file)
     output_dir = Path(output_dir)
-    curve_df = pd.read_csv(input_file)
+    required_columns = ["dose", "response", "sample", "drug", "replicate"]
+    converters = {"dose": float, "response": float, "sample": str, "drug": str, "replicate": int}
+    try:
+        curve_df = pd.read_csv(input_file, usecols=required_columns, converters=converters)
+    except ValueError:
+        required_columns.pop()
+        del converters["replicate"]
+        curve_df = pd.read_csv(input_file, usecols=required_columns, converters=converters)
 
-    n_exp, doses, n_replicates, n_curves_to_fit = _prepare_raw_data(curve_df, output_dir)
-    cores = min(n_curves_to_fit, cores)
+    if not all([col in curve_df.columns for col in required_columns]):
+        raise ValueError(f"Missing columns in viability data. Required columns are {required_columns}.")
+    groupby = []
 
-    config = _prepare_toml(input_file.name, n_exp, n_replicates, doses, dataset_name, cores)
-    with open(output_dir / "config.toml", "w") as f:
-        toml.dump(config, f)
+    curve_df["mindose"] = curve_df.groupby(["sample", "drug"], as_index=False)["dose"].transform("min")
+    curve_df["maxdose"] = curve_df.groupby(["sample", "drug"], as_index=False)["dose"].transform("max")
+
+    if curve_df["maxdose"].nunique() > 1:
+        groupby.append("maxdose")
+    if curve_df["mindose"].nunique() > 1:
+        groupby.append("mindose")
+    if "replicate" in curve_df.columns:
+        curve_df["nreplicates"] = curve_df.groupby(["sample", "drug"])["replicate"].transform("max") + 1
+        if curve_df["nreplicates"].nunique() > 1:
+            groupby.append("nreplicates")
+
+    if len(groupby) > 0:
+        drug_df_groups = curve_df.groupby(groupby)
+    else:
+        drug_df_groups = [("drug_treatment", curve_df)]
+
+    configs = []
+
+    for index, df in drug_df_groups:
+        prefix = "_".join([f"{s}" for s in index])
+        n_exp, doses, n_replicates, n_curves_to_fit = _prepare_raw_data(
+            curve_df=df, output_dir=output_dir, prefix=prefix
+        )
+        cores = min(n_curves_to_fit, cores)
+        config = _prepare_toml(input_file.name, n_exp, n_replicates, doses, dataset_name, cores, prefix)
+        config_path = output_dir / prefix / "config.toml"
+        with open(config_path, "w") as f:
+            toml.dump(config, f)
+        configs.append(f"{config_path}\n")
+
+    with open(output_dir / "configlist.txt", "w") as f:
+        f.writelines(configs)
 
 
 @pipeline_function
 def postprocess(output_folder: str | Path, dataset_name: str):
     """
-    Postprocess CurveCurator output file.
+    Postprocess CurveCurator output files.
 
-    This function reads the curves.txt file created by CurveCurator, which contains the
-    fitted curve parameters and postprocesses it to be used by drevalpy.
+    This function reads all curves.tsv files created by CurveCurator, which contain the
+    fitted curve parameters, postprocesses them to be used by drevalpy and combines everything
+    in one <dataset_name>.csv file for usage by drevalpy.
 
     :param output_folder: Path to the output folder of CurveCurator containing the curves.txt file.
     :param dataset_name: The name of the dataset, will be used to prepend the postprocessed <dataset_name>.csv file
     """
     output_folder = Path(output_folder)
+    curvecurator_output_files = output_folder.rglob("curves.tsv")
     required_columns = {
         "Name": "Name",
         "pEC50": "pEC50_curvecurator",
@@ -193,15 +244,23 @@ def postprocess(output_folder: str | Path, dataset_name: str):
         "Curve F_Value SAM Corrected": "fValueSAMCorrected",
         "Curve Regulation": "Regulation",
     }
-    fitted_curve_data = pd.read_csv(Path(output_folder) / "curves.txt", sep="\t", usecols=required_columns).rename(
-        columns=required_columns
-    )
-    fitted_curve_data[["cell_line_id", "drug_id"]] = fitted_curve_data.Name.str.split("|", expand=True)
-    fitted_curve_data["EC50_curvecurator"] = np.power(
-        10, -fitted_curve_data["pEC50_curvecurator"].values
-    )  # in CurveCurator 10^-pEC50 = EC50
-    _calc_ic50(fitted_curve_data)
-    fitted_curve_data.to_csv(output_folder / f"{dataset_name}.csv", index=None)
+
+    with open(output_folder / f"{dataset_name}.csv", "w") as f:
+        first_file = True
+        for output_file in curvecurator_output_files:
+            fitted_curve_data = pd.read_csv(output_file, sep="\t", usecols=required_columns).rename(
+                columns=required_columns
+            )
+            fitted_curve_data[["cell_line_id", "drug_id"]] = fitted_curve_data.Name.str.split("|", expand=True)
+            fitted_curve_data["EC50_curvecurator"] = np.power(
+                10, -fitted_curve_data["pEC50_curvecurator"].values
+            )  # in CurveCurator 10^-pEC50 = EC50
+            _calc_ic50(fitted_curve_data)
+            fitted_curve_data.to_csv(f, index=None)
+            df = pd.DataFrame({"test": output_file, "other": 1}, index=range(1))
+            df.to_csv(f, index=None, header=first_file, mode="a")
+            first_file = False
+        f.close()
 
 
 def fit_curves(input_file: str | Path, output_dir: str | Path, dataset_name: str, cores: int):

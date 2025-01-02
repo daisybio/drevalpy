@@ -1,5 +1,6 @@
 """Tests for the DrugResponseDataset and the FeatureDataset class."""
 
+import shutil
 import tempfile
 from pathlib import Path
 
@@ -53,9 +54,13 @@ def test_fitting_and_loading_custom_dataset():
         curve_curator=True,
         cores=200,
     )
-    for f in (Path(__file__).parent / dataset_name).glob("*"):
-        if f.name != f"{dataset_name}_raw.csv":
-            f.unlink()
+    for item in (Path(__file__).parent / dataset_name).iterdir():
+        if item.name == f"{dataset_name}_raw.csv":
+            continue
+        if item.is_dir():
+            shutil.rmtree(item)
+        else:
+            item.unlink()
 
 
 def test_response_dataset_add_rows() -> None:
