@@ -132,7 +132,7 @@ def _exec_curvecurator(output_dir: Path, batched: bool = True):
 
 def _calc_ic50(model_params_df: pd.DataFrame):
     """
-    Calculate the IC50 from a fitted model.
+    Calculate the IC50 in µM from a fitted model.
 
     This function expects a dataframe that was processed in the postprocess function, containing
     the columns "Front", "Back", "Slope", "pEC50". It calculates the IC50 for all the models in the
@@ -141,16 +141,17 @@ def _calc_ic50(model_params_df: pd.DataFrame):
     :param model_params_df: a dataframe containing the fitted parameters
     """
 
-    def ic50(front, back, slope, pec50):
+    def pic50(front, back, slope, pec50):
         with np.errstate(invalid="ignore"):
-            return (np.log10((front - back) / (0.5 + back)) - slope * pec50) / slope
+            return (np.log10((front - 0.5) / (0.5 - back)) - slope * pec50) / slope
 
     front = model_params_df["Front"].values
     back = model_params_df["Back"].values
     slope = model_params_df["Slope"].values
     pec50 = model_params_df["pEC50_curvecurator"].values
 
-    model_params_df["IC50_curvecurator"] = ic50(front, back, slope, pec50)
+    model_params_df["pIC50_curvecurator"] = pic50(front, back, slope, pec50)
+    model_params_df["IC50_curvecurator"] = 10 ** model_params_df["pIC50_curvecurator"]
 
 
 @pipeline_function
@@ -163,6 +164,8 @@ def preprocess(input_file: str | Path, output_dir: str | Path, dataset_name: str
     If there are multiple dose ranges or numbers of replicates, groups in the form
     (maxdose, mindose, n_replicates) are created to keep the number of parameters for fitting low
     and the input dataframes for curvecurator as dense as possible.
+    All dosages must be provided in µM!
+    All responses must be normalized against the control already without the response for the control.
 
     :param input_file: Path to csv file containing the raw viability data
     :param output_dir: Path to store all the files to, including the preprocessed data, the config.toml
