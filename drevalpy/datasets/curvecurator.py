@@ -269,9 +269,7 @@ def postprocess(output_folder: str | Path, dataset_name: str):
                 10, -fitted_curve_data["pEC50_curvecurator"].values
             )  # in CurveCurator 10^-pEC50 = EC50
             _calc_ic50(fitted_curve_data)
-            fitted_curve_data.to_csv(f, index=None)
-            df = pd.DataFrame({"test": output_file, "other": 1}, index=range(1))
-            df.to_csv(f, index=None, header=first_file, mode="a")
+            fitted_curve_data.to_csv(f, index=None, header=first_file, mode="a")
             first_file = False
         f.close()
 
