@@ -132,7 +132,7 @@ def _exec_curvecurator(output_dir: Path, batched: bool = True):
 
 def _calc_ic50(model_params_df: pd.DataFrame):
     """
-    Calculate the IC50 in µM from a fitted model.
+    Calculate the IC50 in M from a fitted model.
 
     This function expects a dataframe that was processed in the postprocess function, containing
     the columns "Front", "Back", "Slope", "pEC50". It calculates the IC50 for all the models in the
@@ -141,17 +141,16 @@ def _calc_ic50(model_params_df: pd.DataFrame):
     :param model_params_df: a dataframe containing the fitted parameters
     """
 
-    def pic50(front, back, slope, pec50):
+    def ic50(front, back, slope, pec50):
         with np.errstate(invalid="ignore"):
-            return (np.log10((front - 0.5) / (0.5 - back)) - slope * pec50) / slope
+            return np.power(10, (np.log10((front - 0.5) / (0.5 - back)) - slope * pec50) / slope)
 
     front = model_params_df["Front"].values
     back = model_params_df["Back"].values
     slope = model_params_df["Slope"].values
     pec50 = model_params_df["pEC50_curvecurator"].values
 
-    model_params_df["pIC50_curvecurator"] = pic50(front, back, slope, pec50)
-    model_params_df["IC50_curvecurator"] = 10 ** model_params_df["pIC50_curvecurator"]
+    model_params_df["IC50_curvecurator"] = ic50(front, back, slope, pec50)
 
 
 @pipeline_function
