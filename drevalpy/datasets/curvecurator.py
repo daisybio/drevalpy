@@ -212,8 +212,9 @@ def preprocess(input_file: str | Path, output_dir: str | Path, dataset_name: str
         n_exp, doses, n_replicates, n_curves_to_fit = _prepare_raw_data(
             curve_df=df, output_dir=output_dir, prefix=prefix
         )
-        cores = min(n_curves_to_fit, cores)
-        config = _prepare_toml(input_file.name, n_exp, n_replicates, doses, dataset_name, cores, prefix)
+        config = _prepare_toml(
+            input_file.name, n_exp, n_replicates, doses, dataset_name, min(n_curves_to_fit, cores), prefix
+        )
         config_path = output_dir / prefix / "config.toml"
         with open(config_path, "w") as f:
             toml.dump(config, f)
