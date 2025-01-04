@@ -198,7 +198,7 @@ def preprocess(input_file: str | Path, output_dir: str | Path, dataset_name: str
     if curve_df["mindose"].nunique() > 1:
         groupby.append("mindose")
     if "replicate" in curve_df.columns:
-        curve_df["nreplicates"] = curve_df.groupby(["sample", "drug"])["replicate"].transform("max") + 1
+        curve_df["nreplicates"] = curve_df.groupby(["sample", "drug"])["replicate"].transform("nunique")
         if curve_df["nreplicates"].nunique() > 1:
             groupby.append("nreplicates")
 
