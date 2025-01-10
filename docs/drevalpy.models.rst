@@ -4,6 +4,7 @@ Models
 DRP Model
 ----------
 
+.. _DRP-label:
 .. automodule:: drevalpy.models.drp_model
    :members:
    :undoc-members:

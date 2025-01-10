@@ -18,6 +18,7 @@
 
    installation
    usage
+   runyourmodel
    contributing
    reference
    API
