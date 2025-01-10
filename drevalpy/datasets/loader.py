@@ -159,7 +159,7 @@ def load_dataset(
         input_file = Path(path_data) / dataset_name / f"{dataset_name}.csv"
 
     if dataset_name in AVAILABLE_DATASETS:
-        return AVAILABLE_DATASETS[dataset_name](path_data, measure)  # type: ignore
+        return AVAILABLE_DATASETS[dataset_name](path_data)
 
     if input_file.is_file():
         if curve_curator:

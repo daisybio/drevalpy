@@ -68,6 +68,7 @@ class MOLIR(DRPModel):
         cell_line_input: FeatureDataset,
         drug_input: FeatureDataset | None = None,
         output_earlystopping: DrugResponseDataset | None = None,
+        model_checkpoint_dir: str = "checkpoints",
     ) -> None:
         """
         Initializes and trains the model.
@@ -82,6 +83,7 @@ class MOLIR(DRPModel):
         :param cell_line_input: cell line omics features, i.e., gene expression, mutations and copy number variation
         :param drug_input: drug features, not needed
         :param output_earlystopping: early stopping data, not used when there is not enough data
+        :param model_checkpoint_dir: directory to save the model checkpoints
         """
         if len(output) > 0:
             selector_gex = VarianceThreshold(0.05)
@@ -110,6 +112,7 @@ class MOLIR(DRPModel):
                     output_train=output,
                     cell_line_input=cell_line_input,
                     output_earlystopping=output_earlystopping,
+                    model_checkpoint_dir=model_checkpoint_dir,
                 )
             else:
                 print(f"Not enough training data provided ({len(output)}), will predict on randomly initialized model.")

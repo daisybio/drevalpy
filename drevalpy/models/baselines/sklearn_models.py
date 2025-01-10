@@ -50,6 +50,7 @@ class SklearnModel(DRPModel):
         cell_line_input: FeatureDataset,
         drug_input: FeatureDataset | None = None,
         output_earlystopping: DrugResponseDataset | None = None,
+        model_checkpoint_dir: str = "checkpoints",
     ) -> None:
         """
         Trains the model.
@@ -59,6 +60,7 @@ class SklearnModel(DRPModel):
         :param cell_line_input: training dataset containing gene expression data
         :param drug_input: training dataset containing fingerprints data
         :param output_earlystopping: not needed
+        :param model_checkpoint_dir: not needed
         :raises ValueError: If drug_input is None.
         """
         if drug_input is None:

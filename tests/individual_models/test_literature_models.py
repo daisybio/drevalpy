@@ -1,5 +1,6 @@
 """Test the MOLIR and SuperFELTR models."""
 
+import tempfile
 from typing import cast
 
 import numpy as np
@@ -67,12 +68,15 @@ def test_molir_superfeltr(
     es_dataset_drug.mask(es_mask)
     # smaller dataset for faster testing
     drug_train.remove_rows(indices=np.array([list(range(len(drug_train) - 100))]))
-    model.train(
-        output=drug_train,
-        cell_line_input=cell_line_input,
-        drug_input=None,
-        output_earlystopping=es_dataset_drug,
-    )
+
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        model.train(
+            output=drug_train,
+            cell_line_input=cell_line_input,
+            drug_input=None,
+            output_earlystopping=es_dataset_drug,
+            model_checkpoint_dir=tmpdirname,
+        )
 
     val_mask = val_es_dataset.drug_ids == random_drug
     all_predictions[val_mask] = model.predict(
@@ -128,12 +132,14 @@ def test_dipk(
     train_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
     val_es_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
 
-    model.train(
-        output=train_dataset,
-        cell_line_input=cell_line_input,
-        drug_input=drug_input,
-        output_earlystopping=val_es_dataset,
-    )
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        model.train(
+            output=train_dataset,
+            cell_line_input=cell_line_input,
+            drug_input=drug_input,
+            output_earlystopping=val_es_dataset,
+            model_checkpoint_dir=tmpdirname,
+        )
     out = model.predict(
         cell_line_ids=val_es_dataset.cell_line_ids,
         drug_ids=val_es_dataset.drug_ids,

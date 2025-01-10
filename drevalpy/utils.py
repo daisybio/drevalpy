@@ -173,6 +173,12 @@ def get_parser() -> argparse.ArgumentParser:
         default=False,
         help="Whether to use multiprocessing for the evaluation. Default is False",
     )
+    parser.add_argument(
+        "--model_checkpoint_dir",
+        type=str,
+        default="TEMPORARY",
+        help="Directory to save model checkpoints",
+    )
 
     return parser
 
@@ -320,6 +326,7 @@ def main(args) -> None:
             run_id=args.run_id,
             overwrite=args.overwrite,
             path_data=args.path_data,
+            model_checkpoint_dir=args.model_checkpoint_dir,
         )
 
 
