@@ -24,12 +24,15 @@ from drevalpy.visualization.utils import parse_results, prep_results
             "n_trials_robustness": 2,
             "cross_study_datasets": ["GDSC1"],
             "curve_curator": False,
+            "curve_curator_cores": 1,
+            "measure": "LN_IC50",
             "overwrite": False,
             "optim_metric": "RMSE",
             "n_cv_splits": 2,
             "response_transformation": "None",
             "multiprocessing": False,
             "path_data": "../data",
+            "model_checkpoint_dir": "None",
         }
     ],
 )

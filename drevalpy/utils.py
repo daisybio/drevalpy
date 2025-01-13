@@ -1,8 +1,7 @@
 """Utility functions for the evaluation pipeline."""
 
 import argparse
-import os
-from typing import Optional
+from pathlib import Path
 
 from sklearn.base import TransformerMixin
 from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
@@ -60,21 +59,21 @@ def get_parser() -> argparse.ArgumentParser:
         "--randomization_mode",
         nargs="+",
         default=["None"],
-        help="Which randomization tests to run, additionally to the normal run. Default is None "
+        help="Which randomization tests to run, additionally to the normal run. Default is None, "
         "which means no randomization tests are run."
-        "Modes: SVCC, SVRC, SVCD, SVRD"
-        "Can be a list of randomization tests e.g. 'SCVC SCVD' to run two tests. Default is None"
+        "Modes: SVCC, SVRC, SVCD, SVRD. "
+        "Can be a list of randomization tests e.g. 'SCVC SCVD' to run two tests."
         "SVCC: Single View Constant for Cell Lines: in this mode, one experiment is done for every "
-        "cell line view the model uses (e.g. gene expression, mutation, ..)."
+        "cell line view the model uses (e.g. gene expression, mutation, ..). "
         "For each experiment one cell line view is held constant while the others are randomized. "
         "SVRC Single View Random for Cell Lines: in this mode, one experiment is done for every "
-        "cell line view the model uses (e.g. gene expression, mutation, ..)."
-        "For each experiment one cell line view is randomized while the others are held constant."
+        "cell line view the model uses (e.g. gene expression, mutation, ..). "
+        "For each experiment one cell line view is randomized while the others are held constant. "
         "SVCD: Single View Constant for Drugs: in this mode, one experiment is done for every "
-        "drug view the model uses (e.g. fingerprints, target_information, ..)."
-        "For each experiment one drug view is held constant while the others are randomized."
+        "drug view the model uses (e.g. fingerprints, target_information, ..). "
+        "For each experiment one drug view is held constant while the others are randomized. "
         "SVRD: Single View Random for Drugs: in this mode, one experiment is done for every "
-        "drug view the model uses (e.g. gene expression, target_information, ..)."
+        "drug view the model uses (e.g. gene expression, target_information, ..). "
         "For each experiment one drug view is randomized while the others are held constant.",
     )
     parser.add_argument(
@@ -83,7 +82,7 @@ def get_parser() -> argparse.ArgumentParser:
         default="permutation",
         help='type of randomization to use. Choose from "permutation" or "invariant". Default is '
         '"permutation" "permutation": permute the features over the instances, keeping the '
-        "distribution of the  features the same but dissolving the relationship to the "
+        "distribution of the features the same but dissolving the relationship to the "
         'target "invariant": the randomization is done in a way that a key characteristic of '
         "the feature is preserved. In case of matrices, this is the mean and standard "
         "deviation of the feature view for this instance, for networks it is the degree "
@@ -126,6 +125,21 @@ def get_parser() -> argparse.ArgumentParser:
         default=False,
         help="Whether to run " "CurveCurator " "to sort out " "non-reactive " "curves",
     )
+
+    parser.add_argument(
+        "--curve_curator_cores",
+        type=int,
+        default=1,
+        help="Max. number of cores used to fit curves with CurveCurator following min(cores, #curves to fit).",
+    )
+
+    parser.add_argument(
+        "--measure",
+        type=str,
+        default="LN_IC50",
+        help="The drug response measure used as prediction target. Can be one of ['LN_IC50', 'response']",
+    )
+
     parser.add_argument(
         "--overwrite",
         action="store_true",
@@ -141,7 +155,7 @@ def get_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--n_cv_splits",
         type=int,
-        default=5,
+        default=7,
         help="Number of cross-validation splits to use for the evaluation",
     )
 
@@ -159,6 +173,12 @@ def get_parser() -> argparse.ArgumentParser:
         default=False,
         help="Whether to use multiprocessing for the evaluation. Default is False",
     )
+    parser.add_argument(
+        "--model_checkpoint_dir",
+        type=str,
+        default="TEMPORARY",
+        help="Directory to save model checkpoints",
+    )
 
     return parser
 
@@ -170,8 +190,8 @@ def check_arguments(args) -> None:
 
     :param args: arguments passed from the command line
     :raises AssertionError: if any of the arguments is invalid
-    :raises NotImplementedError: because CurveCurator is not implemented yet
-    :raises ValueError: if the number of cross-validation splits is less than 1
+    :raises ValueError: if the number of cross-validation splits or curve_curator_cores is less than 1
+    :raises FileNotFoundError: if a custom dataset name was specified and the input file could not be found.
     """
     if not args.models:
         raise AssertionError("At least one model must be specified")
@@ -191,13 +211,28 @@ def check_arguments(args) -> None:
                 f"want to use your own baseline, you need to implement a new model class and add it to "
                 f"the MODEL_FACTORY in the models init"
             )
-
     if args.dataset_name not in AVAILABLE_DATASETS:
-        raise AssertionError(
-            f"Invalid dataset name. Available datasets are {list(AVAILABLE_DATASETS.keys())} "
-            f"If you want to use your own dataset, you need to implement a new response dataset loader "
-            f"and add it to the AVAILABLE_DATASETS in the response_datasets init"
-        )
+        if args.curve_curator:
+            expected_custom_input = Path(args.path_data).absolute() / args.dataset_name / f"{args.dataset_name}_raw.csv"
+            if not expected_custom_input.is_file():
+                raise FileNotFoundError(
+                    "You specified the curve_curator option with a custom dataset name which requires raw "
+                    f"viability data to be located at {expected_custom_input} but the file does not exist. "
+                    "Please check the 'path_data' and 'dataset_name' arguments and ensure the raw viability "
+                    "input file is located at <path_data>/<dataset_name>/<dataset_name>_raw.csv."
+                )
+        else:
+            expected_custom_input = Path(args.path_data).absolute() / args.dataset_name / f"{args.dataset_name}_raw.csv"
+            if not expected_custom_input.is_file():
+                raise FileNotFoundError(
+                    "You specified a custom dataset name which requires prefit curve data to be located at "
+                    f"{expected_custom_input} but the file does not exist. Please check the 'path_data' and "
+                    "'dataset_name' arguments and ensure the prefit curve data is located at input file is "
+                    "located at <path_data>/<dataset_name>/<dataset_name>.csv."
+                )
+
+    if args.curve_curator and args.curve_curator_cores < 1:
+        raise ValueError("Number of cores for CurveCurator must be greater than 0.")
 
     for dataset in args.cross_study_datasets:
         if dataset not in AVAILABLE_DATASETS:
@@ -209,21 +244,35 @@ def check_arguments(args) -> None:
             )
 
     # if the path to args.path_data does not exist, create the directory
-    os.makedirs(args.path_data, exist_ok=True)
+    Path(args.path_data).mkdir(parents=True, exist_ok=True)
 
     if args.n_cv_splits <= 1:
-        raise ValueError("Number of cross-validation splits must be greater than 1")
+        raise ValueError("Number of cross-validation splits must be greater than 1.")
 
     # TODO Allow for custom randomization tests maybe via config file
     if args.randomization_mode[0] != "None":
-        if not all(randomization in ["SVCC", "SVRC", "SVSC", "SVRD"] for randomization in args.randomization_mode):
+        if not all(randomization in ["SVCC", "SVRC", "SVCD", "SVRD"] for randomization in args.randomization_mode):
             raise AssertionError(
                 "At least one invalid randomization mode. Available randomization modes are SVCC, " "SVRC, SVSC, SVRD"
             )
-    if args.curve_curator:
-        raise NotImplementedError("CurveCurator not implemented")
+
+    if args.randomization_type not in ["permutation", "invariant"]:
+        raise AssertionError("Invalid randomization type. Choose from 'permutation' or 'invariant'")
+
+    if args.n_trials_robustness < 0:
+        raise ValueError("Number of trials for robustness test must be greater than or equal to 0")
+
+    allowed_measures = ["LN_IC50", "EC50", "IC50", "pEC50", "AUC", "response"]
+    allowed_measures.extend([f"{m}_curvecurator" for m in allowed_measures])
+    if args.measure not in allowed_measures:
+        raise ValueError(
+            "Only 'LN_IC50', 'EC50', 'IC50', 'pEC50', 'AUC', 'response' or their equivalents including "
+            "the '_curvecurator' suffix are allowed drug response measures."
+        )
+
     if args.response_transformation not in ["None", "standard", "minmax", "robust"]:
         raise AssertionError("Invalid response_transformation. Choose from None, standard, minmax, robust")
+
     if args.optim_metric not in AVAILABLE_METRICS:
         raise AssertionError(
             f"Invalid optim_metric for hyperparameter tuning. Choose from" f" {list(AVAILABLE_METRICS.keys())}"
@@ -237,12 +286,14 @@ def main(args) -> None:
     :param args: passed from command line
     """
     check_arguments(args)
-
     # PIPELINE: LOAD_RESPONSE
     response_data, cross_study_datasets = get_datasets(
         dataset_name=args.dataset_name,
         cross_study_datasets=args.cross_study_datasets,
         path_data=args.path_data,
+        measure=args.measure,
+        curve_curator=args.curve_curator,
+        cores=args.curve_curator_cores,
     )
 
     models = [MODEL_FACTORY[model] for model in args.models]
@@ -275,29 +326,53 @@ def main(args) -> None:
             run_id=args.run_id,
             overwrite=args.overwrite,
             path_data=args.path_data,
+            model_checkpoint_dir=args.model_checkpoint_dir,
         )
 
 
 def get_datasets(
-    dataset_name: str, cross_study_datasets: list, path_data: str = "data"
-) -> tuple[DrugResponseDataset, Optional[list[DrugResponseDataset]]]:
+    dataset_name: str,
+    cross_study_datasets: list,
+    path_data: str = "data",
+    measure: str = "response",
+    curve_curator: bool = False,
+    cores: int = 1,
+) -> tuple[DrugResponseDataset, list[DrugResponseDataset] | None]:
     """
     Load the response data and cross-study datasets.
 
-    :param dataset_name: name of the dataset
-    :param cross_study_datasets: list of cross-study datasets
-    :param path_data: path to the data directory, default is "data"
+    :param dataset_name: The name of the dataset to load. Can be one of ('GDSC1', 'GDSC2', 'CCLE', or 'Toy_Data')
+        to download provided datasets, or any other name to allow for custom datasets.
+    :param cross_study_datasets: list of cross-study datasets. CurveCurator is not applicable to these. If you wish
+        to provide custom cross_study_datasets, you have to invoke curve fitting manually using
+        drevalpy.datasets.curvecurator.fit_curves
+    :param path_data: The parent path in which custom or downloaded datasets should be located, or in which raw
+        viability data is to be found for fitting with CurveCurator (see param curve_curator for details).
+        The location of the datasets are resolved by <path_data>/<dataset_name>/<dataset_name>.csv.
+    :param measure: The name of the column containing the measure to predict, default = "response".
+        If curve_curator is True, this measure is appended with "_curvecurator", e.g. "response_curvecurator" to
+        distinguish between measures provided by the original source of a dataset, or the measures fit by
+        CurveCurator.
+    :param curve_curator: If True, the measure is appended with "_curvecurator".
+        If a custom dataset_name was provided, this will invoke the fitting procedure of raw viability data,
+        which is expected to exist at <path_data>/<dataset_name>/<dataset_name>_raw.csv. The fitted dataset will
+        be stored in the same folder, in a file called <dataset_name>.csv
+    :param cores: Number of cores to use for CurveCurator fitting. Only used when curve_curator is True, default = 1
     :returns: response data and, potentially, cross-study datasets
     """
     # PIPELINE: LOAD_RESPONSE
-    response_data = load_dataset(dataset_name=dataset_name, path_data=path_data)
+    response_data = load_dataset(
+        dataset_name=dataset_name, path_data=path_data, measure=measure, curve_curator=curve_curator, cores=cores
+    )
 
-    cross_study_datasets = [load_dataset(dataset_name=dn, path_data=path_data) for dn in cross_study_datasets]
+    cross_study_datasets = [
+        load_dataset(dataset_name=dn, path_data=path_data, measure=measure) for dn in cross_study_datasets
+    ]
     return response_data, cross_study_datasets
 
 
 @pipeline_function
-def get_response_transformation(response_transformation: str) -> Optional[TransformerMixin]:
+def get_response_transformation(response_transformation: str) -> TransformerMixin | None:
     """
     Get the skelarn response transformation object of choice.
 
