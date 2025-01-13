@@ -1,13 +1,13 @@
 [tool.poetry]
 name = "drevalpy"
-version = "1.0.10"
+version = "1.1.0"
 description = "Drug response evaluation of cancer cell line drug response models in a fair setting"
 authors = ["DrEvalPy development team"]
 license = "GPL-3.0"
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = ">=3.9,<=3.13"
+python = ">=3.11,<3.13"
 numpy = ">=1.20,<2.0"
 scipy = "*"
 scikit-learn = ">=1.4,<1.6"
@@ -20,11 +20,17 @@ torch-geometric = "*"
 flaky = "*"
 requests = "*"
 pingouin = "*"
-ray = {extras = ["tune"], version = "^2.37.0"}
 plotly = "*"
 matplotlib = "*"
 importlib-resources = "*"
+curve-curator = {version = "*", optional = true}
+ray = {version = "*", optional = true}
+toml = {version = "^0.10.2"}
+poetry-plugin-export = "*"
 
+[tool.poetry.extras]
+fit = ["curve-curator"]
+multiprocessing = ["ray"]
 
 [tool.poetry.group.development.dependencies]
 sphinx-autodoc-typehints = "<3.0"
@@ -47,8 +53,6 @@ pre-commit = "*"
 pre-commit-hooks = "*"
 pyupgrade = "*"
 pep8-naming = "*"
-types-requests = "*"
-types-PyYAML = "*"
 
 [tool.black]
 line-length = 120

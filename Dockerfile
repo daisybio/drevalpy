@@ -40,7 +40,6 @@ COPY drevalpy ./drevalpy
 COPY create_report.py ./
 COPY README.md ./
 COPY run_suite.py ./
-COPY setup.py ./
 COPY pyproject.toml ./
 COPY poetry.lock ./
 
