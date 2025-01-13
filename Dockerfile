@@ -2,9 +2,9 @@
 # https://medium.com/@albertazzir/blazing-fast-python-docker-builds-with-poetry-a78a66f5aed0
 
 # The builder image, used to build the virtual environment
-FROM python:3.10-buster as builder
+FROM python:3.11-buster as builder
 
-RUN pip install poetry==1.8.4
+RUN pip install poetry==2.0.0
 
 # POETRY_CACHE_DIR: When removing the cache folder, make sure this is done in the same RUN command. If it’s done in a
 # separate RUN command, the cache will still be part of the previous Docker layer (the one containing poetry install )
@@ -25,13 +25,13 @@ RUN touch README.md
 RUN poetry install --without development --no-root && rm -rf $POETRY_CACHE_DIR
 
 # The runtime image, used to run the code
-FROM python:3.10-slim-buster as runtime
+FROM python:3.11-slim-buster as runtime
 
 LABEL image.author.name="Judith Bernett"
 LABEL image.author.email="judith.bernett@tum.de"
 
 # Copy installed dependencies from the builder image
-COPY --from=builder /usr/local/lib/python3.10/site-packages /usr/local/lib/python3.10/site-packages
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy all relevant code
