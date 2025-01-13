@@ -7,21 +7,21 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Contributor Guide &mdash; DrEvalPy 1.0.10 documentation</title>
-      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
-      <link rel="stylesheet" type="text/css" href="_static/custom_cookietemple.css?v=d7704aeb" />
+      <link rel="stylesheet" type="text/css" href="_static/custom_cookietemple.css?v=a7e27724" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
       <script src="_static/documentation_options.js?v=377e76b0"></script>
-      <script src="_static/doctools.js?v=9a2dae69"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="How to cite" href="reference.html" />
-    <link rel="prev" title="API" href="API.html" /> 
+    <link rel="prev" title="Run your own model" href="runyourmodel.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -47,8 +47,8 @@
               <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="usage.html">Usage Principles</a></li>
-<li class="toctree-l1"><a class="reference internal" href="API.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">How to use DrEvalPy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runyourmodel.html">Run your own model</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Contributor Guide</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#how-to-report-a-bug">How to report a bug</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#how-to-request-a-feature">How to request a feature</a></li>
@@ -59,6 +59,7 @@
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="reference.html">How to cite</a></li>
+<li class="toctree-l1"><a class="reference internal" href="API.html">API</a></li>
 </ul>
 
         </div>
@@ -88,7 +89,7 @@
   <section id="contributor-guide">
 <h1>Contributor Guide<a class="headerlink" href="#contributor-guide" title="Link to this heading"></a></h1>
 <p>Thank you for your interest in improving this project.
-This project is open-source under the <a class="reference external" href="https://opensource.org/licenses/MIT">MIT license</a> and
+This project is open-source under the <a class="reference external" href="https://opensource.org/license/gpl-3-0">GPL-3 license</a> and
 highly welcomes contributions in the form of bug reports, feature requests, and pull requests.</p>
 <p>Here is a list of important resources for contributors:</p>
 <ul class="simple">
@@ -106,29 +107,14 @@ highly welcomes contributions in the form of bug reports, feature requests, and 
 </section>
 <section id="how-to-set-up-your-development-environment">
 <h2>How to set up your development environment<a class="headerlink" href="#how-to-set-up-your-development-environment" title="Link to this heading"></a></h2>
-<p>You need Python 3.9+ and the following tools:</p>
-<ul class="simple">
-<li><p><a class="reference external" href="https://python-poetry.org/">Poetry</a></p></li>
-<li><p><a class="reference external" href="https://nox.thea.codes/">Nox</a></p></li>
-<li><p><a class="reference external" href="https://nox-poetry.readthedocs.io/">nox-poetry</a></p></li>
-</ul>
-<p>You can install them with:</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>pip<span class="w"> </span>install<span class="w"> </span>poetry<span class="w"> </span>nox<span class="w"> </span>nox-poetry
-</pre></div>
-</div>
-<p>Install the package with development requirements:</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>make<span class="w"> </span>install
-</pre></div>
-</div>
-<p>You can now run an interactive Python session,
-or the command-line interface:</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>poetry<span class="w"> </span>run<span class="w"> </span>python
-<span class="gp">$ </span>poetry<span class="w"> </span>run<span class="w"> </span>drevalpy
-</pre></div>
-</div>
+<p>You need Python 3.10+ and <a class="reference external" href="https://python-poetry.org/">Poetry</a> to set up your development environment.</p>
 </section>
 <section id="how-to-test-the-project">
 <h2>How to test the project<a class="headerlink" href="#how-to-test-the-project" title="Link to this heading"></a></h2>
+<p>For this, you need to install nox and nox-poetry:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>pip<span class="w"> </span>install<span class="w"> </span>nox<span class="w"> </span>nox-poetry
+</pre></div>
+</div>
 <p>Run the full test suite:</p>
 <div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>nox
 </pre></div>
@@ -147,8 +133,7 @@ and are written using the <a class="reference external" href="https://pytest.rea
 </section>
 <section id="how-to-build-and-view-the-documentation">
 <h2>How to build and view the documentation<a class="headerlink" href="#how-to-build-and-view-the-documentation" title="Link to this heading"></a></h2>
-<p>This project uses <a class="reference external" href="https://www.sphinx-doc.org/en/master/">Sphinx</a> together with several extensions to build the documentation.
-It further requires <a class="reference external" href="https://pandoc.org/">Pandoc</a> to translate various formats.</p>
+<p>This project uses <a class="reference external" href="https://www.sphinx-doc.org/en/master/">Sphinx</a> together with several extensions to build the documentation.</p>
 <p>To install all required dependencies for the documentation run:</p>
 <div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>docs/requirements.txt
 </pre></div>
@@ -182,14 +167,14 @@ This will allow a chance to talk it over with the owners and validate your appro
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="API.html" class="btn btn-neutral float-left" title="API" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="runyourmodel.html" class="btn btn-neutral float-left" title="Run your own model" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
         <a href="reference.html" class="btn btn-neutral float-right" title="How to cite" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2024, daisybio at Technical University of Munich.</p>
+    <p>&#169; Copyright 2025, DaiSyBio at Technical University of Munich.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

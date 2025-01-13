@@ -7,15 +7,15 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>DrEvalPy: Python Cancer Cell Line Drug Response Prediction Suite &mdash; DrEvalPy 1.0.10 documentation</title>
-      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
-      <link rel="stylesheet" type="text/css" href="_static/custom_cookietemple.css?v=d7704aeb" />
+      <link rel="stylesheet" type="text/css" href="_static/custom_cookietemple.css?v=a7e27724" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
       <script src="_static/documentation_options.js?v=377e76b0"></script>
-      <script src="_static/doctools.js?v=9a2dae69"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
@@ -46,10 +46,11 @@
               <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="usage.html">Usage Principles</a></li>
-<li class="toctree-l1"><a class="reference internal" href="API.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">How to use DrEvalPy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runyourmodel.html">Run your own model</a></li>
 <li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributor Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="reference.html">How to cite</a></li>
+<li class="toctree-l1"><a class="reference internal" href="API.html">API</a></li>
 </ul>
 
         </div>
@@ -101,16 +102,35 @@ and the Freie Universität Berlin (FU, Germany).</p>
 <aside class="sidebar">
 <p class="sidebar-title">Key Contributors</p>
 <ul class="simple">
-<li><p><a class="reference external" href="https://github.com/JudithBernett">Judith Bernett</a>: developer, maintainer</p></li>
-<li><p><a class="reference external" href="https://github.com/PascalIversen">Pascal Iversen</a>: developer, maintainer</p></li>
-<li><p><a class="reference external" href="https://github.com/picciama">Mario Picciani</a>: developer</p></li>
-<li><p><a class="reference external" href="https://github.com/mlist">Markus List</a>: advisor and PI of daisybio</p></li>
-<li><p><a class="reference external" href="https://github.com/kathbaum">Katharina Baum</a>: advisor and PI of DILiS</p></li>
-<li><p><a class="reference external" href="https://github.com/mwilhelm42">Mathias Wilhelm</a>: advisor and PI of wilhelmlab</p></li>
+<li><p><a class="reference external" href="https://github.com/JudithBernett">Judith Bernett</a>: Developer, Maintainer</p></li>
+<li><p><a class="reference external" href="https://github.com/PascalIversen">Pascal Iversen</a>: Developer, Maintainer</p></li>
+<li><p><a class="reference external" href="https://github.com/picciama">Mario Picciani</a>: Developer</p></li>
+<li><p><a class="reference external" href="https://github.com/mlist">Markus List</a>: Advisor and PI of Data Science in Systems Biology, TUM</p></li>
+<li><p><a class="reference external" href="https://github.com/kathbaum">Katharina Baum</a>: Advisor and PI of Data Integration in the Life Sciences, FU Berlin</p></li>
+<li><p><a class="reference external" href="https://github.com/mwilhelm42">Mathias Wilhelm</a>: Advisor and PI of Computational Mass Spectrometry, TUM</p></li>
 </ul>
 </aside>
 <section id="quickstart">
 <h2>Quickstart<a class="headerlink" href="#quickstart" title="Link to this heading"></a></h2>
+<p>Make sure you have installed DrEvalPy and its dependencies (see <a class="reference external" href="./installation.html">Installation</a>).</p>
+<p>To make sure the pipeline runs, you can use the fast models NaiveDrugMeanPredictor and NaivePredictor on the Toy_Data
+dataset with the LPO test mode.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>run_suite.py<span class="w"> </span>--run_id<span class="w"> </span>my_first_run<span class="w"> </span>--models<span class="w"> </span>NaiveDrugMeanPredictor<span class="w"> </span>--baselines<span class="w"> </span>NaivePredictor<span class="w"> </span>--dataset<span class="w"> </span>Toy_Data<span class="w"> </span>--test_mode<span class="w"> </span>LPO
+</pre></div>
+</div>
+<p>This will train the two baseline models on a subset of gene expression features and drug fingerprint features to
+predict IC50 values of the GDSC1 database. It will evaluate in “LPO” which is the leave-pairs-out splitting strategy
+(leave random pairs of drugs and cell lines out for testing) using 5 fold cross validation.
+The results will be stored in</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>results/my_first_run/LPO
+</pre></div>
+</div>
+<p>You can visualize them using</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>create_report.py<span class="w"> </span>--run_id<span class="w"> </span>my_first_run
+</pre></div>
+</div>
+<p>We recommend the use of our nextflow pipeline for computational demanding runs and for improved reproducibility. No
+knowledge of nextflow is required to run it. The nextflow pipeline is available on the <a class="reference external" href="https://github.com/nf-core/drugresponseeval.git">nf-core GitHub</a>, the documentation can be found <a class="reference external" href="https://nf-co.re/drugresponseeval/dev/">here</a>.</p>
 <ul class="simple">
 <li><p>Discuss usage, development and issues on <a class="reference external" href="https://github.com/daisybio/drevalpy">GitHub</a>.</p></li>
 <li><p>Check the <a class="reference external" href="./contributing.html">Contributor Guide</a> if you want to participate in developing.</p></li>
@@ -119,8 +139,24 @@ and the Freie Universität Berlin (FU, Germany).</p>
 </section>
 <section id="news">
 <h1>News<a class="headerlink" href="#news" title="Link to this heading"></a></h1>
+<section id="we-have-launched-the-dreval-challenge-2024-11-26">
+<h2>🚀 We have launched the DrEval Challenge 🚀 <span class="date">2024-11-26</span><a class="headerlink" href="#we-have-launched-the-dreval-challenge-2024-11-26" title="Link to this heading"></a></h2>
+<div class="line-block">
+<div class="line">We think that it is possible to design a meaningful drug response prediction model that outperforms simple baseline models.</div>
+<div class="line"><br /></div>
+<div class="line">The DrEval challenge is simple:</div>
+<div class="line"><br /></div>
+<div class="line">1. Integrate your model into DrEval by following the Contributor Guide.</div>
+<div class="line">2. Compare your model to the baseline models provided in the DrEval package, either using the standalone or the Nextflow pipeline.</div>
+<div class="line">3. Let us know your results!</div>
+<div class="line-block">
+<div class="line">3.1. 🎊If you significantly outperform the GradientBoosting baseline model, we will personally send you chocolate or another snack of your choosing 🍫.</div>
+<div class="line">3.2. 🥺If you perform significantly worse than the NaiveDrugMeanPredictor, you will have to send us chocolate.</div>
+</div>
+</div>
 <div class="toctree-wrapper compound">
 </div>
+</section>
 </section>
 
 
@@ -133,7 +169,7 @@ and the Freie Universität Berlin (FU, Germany).</p>
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2024, daisybio at Technical University of Munich.</p>
+    <p>&#169; Copyright 2025, DaiSyBio at Technical University of Munich.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

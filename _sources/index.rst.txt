@@ -18,9 +18,10 @@
 
    installation
    usage
-   API
+   runyourmodel
    contributing
    reference
+   API
 
 .. _github: https://github.com/daisybio/drevalpy
 

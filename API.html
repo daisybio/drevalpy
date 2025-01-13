@@ -7,21 +7,21 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>API &mdash; DrEvalPy 1.0.10 documentation</title>
-      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
-      <link rel="stylesheet" type="text/css" href="_static/custom_cookietemple.css?v=d7704aeb" />
+      <link rel="stylesheet" type="text/css" href="_static/custom_cookietemple.css?v=a7e27724" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
       <script src="_static/documentation_options.js?v=377e76b0"></script>
-      <script src="_static/doctools.js?v=9a2dae69"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Contributor Guide" href="contributing.html" />
-    <link rel="prev" title="Generated outputs" href="outputs.html" /> 
+    <link rel="next" title="Datasets" href="drevalpy.datasets.html" />
+    <link rel="prev" title="How to cite" href="reference.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -47,10 +47,26 @@
               <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="usage.html">Usage Principles</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">How to use DrEvalPy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runyourmodel.html">Run your own model</a></li>
 <li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributor Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="reference.html">How to cite</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">API</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#subpackages">Subpackages</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="drevalpy.datasets.html">Datasets</a></li>
+<li class="toctree-l3"><a class="reference internal" href="drevalpy.models.html">Models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="drevalpy.visualization.html">Visualization</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#other-functions">Other functions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#major-functions-for-running-the-experiment">Major functions for running the experiment</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#evaluation-functions">Evaluation functions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#utility-functions">Utility functions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#pipeline-function-decorator">Pipeline function decorator</a></li>
+</ul>
+</li>
+</ul>
+</li>
 </ul>
 
         </div>
@@ -77,27 +93,87 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <p id="module-drevalpy">Module containing the drevalpy suite.</p>
-<section id="api">
+  <section id="api">
 <h1>API<a class="headerlink" href="#api" title="Link to this heading"></a></h1>
 <p>Import DrEvalPy using</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">drevalpy</span> <span class="k">as</span> <span class="nn">dep</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">drevalpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">dep</span>
 </pre></div>
 </div>
+<section id="subpackages">
+<h2>Subpackages<a class="headerlink" href="#subpackages" title="Link to this heading"></a></h2>
+<p>DrEvalPy consists of three major subpackages:</p>
+<ul class="simple">
+<li><p>Datasets</p></li>
+<li><p>Models</p></li>
+<li><p>Visualization</p></li>
+</ul>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="drevalpy.datasets.html">Datasets</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="drevalpy.datasets.html#dataset-module">Dataset module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="drevalpy.datasets.html#loaders">Loaders</a></li>
+<li class="toctree-l2"><a class="reference internal" href="drevalpy.datasets.html#curvecurator">CurveCurator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="drevalpy.datasets.html#utility-functions">Utility functions</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="drevalpy.models.html">Models</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="drevalpy.models.html#drp-model">DRP Model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="drevalpy.models.html#utility-functions">Utility functions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="drevalpy.models.html#implemented-models">Implemented models</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="drevalpy.models.DIPK.html">DIPK</a></li>
+<li class="toctree-l3"><a class="reference internal" href="drevalpy.models.MOLIR.html">MOLIR</a></li>
+<li class="toctree-l3"><a class="reference internal" href="drevalpy.models.SRMF.html">SRMF</a></li>
+<li class="toctree-l3"><a class="reference internal" href="drevalpy.models.SimpleNeuralNetwork.html">Simple Neural Network</a></li>
+<li class="toctree-l3"><a class="reference internal" href="drevalpy.models.SuperFELTR.html">SuperFELTR</a></li>
+<li class="toctree-l3"><a class="reference internal" href="drevalpy.models.baselines.html">Implemented baselines</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="drevalpy.visualization.html">Visualization</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="drevalpy.visualization.html#outplot">Outplot</a></li>
+<li class="toctree-l2"><a class="reference internal" href="drevalpy.visualization.html#correlation-comparison-scatter-plot">Correlation comparison scatter plot</a></li>
+<li class="toctree-l2"><a class="reference internal" href="drevalpy.visualization.html#critical-difference-plot">Critical difference plot</a></li>
+<li class="toctree-l2"><a class="reference internal" href="drevalpy.visualization.html#html-tables">HTML tables</a></li>
+<li class="toctree-l2"><a class="reference internal" href="drevalpy.visualization.html#regression-slider-plot">Regression slider plot</a></li>
+<li class="toctree-l2"><a class="reference internal" href="drevalpy.visualization.html#violin-and-heatmap-parent-class">Violin and heatmap parent class</a></li>
+<li class="toctree-l2"><a class="reference internal" href="drevalpy.visualization.html#heatmap">Heatmap</a></li>
+<li class="toctree-l2"><a class="reference internal" href="drevalpy.visualization.html#violin-plot">Violin plot</a></li>
+<li class="toctree-l2"><a class="reference internal" href="drevalpy.visualization.html#utility-functions">Utility functions</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+<section id="other-functions">
+<h2>Other functions<a class="headerlink" href="#other-functions" title="Link to this heading"></a></h2>
+<section id="major-functions-for-running-the-experiment">
+<h3>Major functions for running the experiment<a class="headerlink" href="#major-functions-for-running-the-experiment" title="Link to this heading"></a></h3>
+</section>
+<section id="evaluation-functions">
+<h3>Evaluation functions<a class="headerlink" href="#evaluation-functions" title="Link to this heading"></a></h3>
+</section>
+<section id="utility-functions">
+<h3>Utility functions<a class="headerlink" href="#utility-functions" title="Link to this heading"></a></h3>
+</section>
+<section id="pipeline-function-decorator">
+<h3>Pipeline function decorator<a class="headerlink" href="#pipeline-function-decorator" title="Link to this heading"></a></h3>
+</section>
+</section>
 </section>
 
 
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="outputs.html" class="btn btn-neutral float-left" title="Generated outputs" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="contributing.html" class="btn btn-neutral float-right" title="Contributor Guide" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="reference.html" class="btn btn-neutral float-left" title="How to cite" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="drevalpy.datasets.html" class="btn btn-neutral float-right" title="Datasets" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2024, daisybio at Technical University of Munich.</p>
+    <p>&#169; Copyright 2025, DaiSyBio at Technical University of Munich.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
