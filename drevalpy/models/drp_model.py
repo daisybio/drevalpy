@@ -213,6 +213,15 @@ class DRPModel(ABC):
             cell_line_input=cell_line_input,
             drug_input=drug_input,
         )
+        if drug_view is not None:
+            if drug_view not in inputs:
+                raise ValueError(f"Expected drug_view '{drug_view}' to be in inputs, but it was not. Inputs: {inputs}")
+        if cell_line_view is not None:
+            if cell_line_view not in inputs:
+                raise ValueError(
+                    f"Expected cell_line_view '{cell_line_view}' to be in inputs, but it was not. Inputs: {inputs}"
+                )
+
         cell_line_features = None if cell_line_view is None else inputs.get(cell_line_view)
         drug_features = None if drug_view is None else inputs.get(drug_view)
 
