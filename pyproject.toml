@@ -23,13 +23,12 @@ pingouin = "*"
 plotly = "*"
 matplotlib = "*"
 importlib-resources = "*"
-curve-curator = {version = "*", optional = true}
+curve-curator = "*"
 ray = {version = "*", optional = true}
 toml = {version = "^0.10.2"}
 poetry-plugin-export = "*"
 
 [tool.poetry.extras]
-fit = ["curve-curator"]
 multiprocessing = ["ray"]
 
 [tool.poetry.group.development.dependencies]
