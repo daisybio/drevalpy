@@ -1154,9 +1154,9 @@ poetry-core==2.0.0 ; python_version >= "3.11" and python_version < "3.13" \
 poetry-plugin-export==1.8.0 ; python_version >= "3.11" and python_version < "3.13" \
     --hash=sha256:1fa6168a85d59395d835ca564bc19862a7c76061e60c3e7dfaec70d50937fc61 \
     --hash=sha256:adbe232cfa0cc04991ea3680c865cf748bff27593b9abcb1f35fb50ed7ba2c22
-poetry==2.0.0 ; python_version >= "3.11" and python_version < "3.13" \
-    --hash=sha256:9416b1e3657ed02cda9599ae73b604bd68f187adaa2d8d1bcc804dacfa9bcd1f \
-    --hash=sha256:d099fe8b3ee4d21f32d55fe85194f004ea2492749e8fc071980f20a8c65c9416
+poetry==2.0.1 ; python_version >= "3.11" and python_version < "3.13" \
+    --hash=sha256:a2987c3162f6ded6db890701a6fc657d2cfcc702e9421ef4c345211c8bffc5d5 \
+    --hash=sha256:eb780a8acbd6eec4bc95e8ba104058c5129ea5a44115fc9b1fc0a2235412734d
 propcache==0.2.1 ; python_version >= "3.11" and python_version < "3.13" \
     --hash=sha256:03ff9d3f665769b2a85e6157ac8b439644f2d7fd17615a82fa55739bc97863f4 \
     --hash=sha256:049324ee97bb67285b49632132db351b41e77833678432be52bdd0289c0e05e4 \
