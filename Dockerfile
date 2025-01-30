@@ -2,7 +2,7 @@
 # https://medium.com/@albertazzir/blazing-fast-python-docker-builds-with-poetry-a78a66f5aed0
 
 # The builder image, used to build the virtual environment
-FROM python:3.11-buster as builder
+FROM python:3.11-buster AS builder
 
 RUN pip install poetry==2.0.0
 
@@ -22,10 +22,10 @@ COPY pyproject.toml poetry.lock ./
 # Because poetry will complain if a README.md is not found, we create a dummy one.
 RUN touch README.md
 
-RUN poetry install --without development --extras=fit --no-root && rm -rf $POETRY_CACHE_DIR
+RUN poetry install --without development --no-root && rm -rf $POETRY_CACHE_DIR
 
 # The runtime image, used to run the code
-FROM python:3.11-slim-buster as runtime
+FROM python:3.11-slim-buster AS runtime
 
 LABEL image.author.name="Judith Bernett"
 LABEL image.author.email="judith.bernett@tum.de"
