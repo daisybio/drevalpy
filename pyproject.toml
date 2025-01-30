@@ -33,7 +33,7 @@ fit = ["curve-curator"]
 multiprocessing = ["ray"]
 
 [tool.poetry.group.development.dependencies]
-sphinx-autodoc-typehints = ">=3.0.0"
+sphinx-autodoc-typehints = "*"
 sphinx = ">=4.0.2"
 sphinx-autobuild = ">=2021.3.14"
 sphinx-rtd-theme = ">=1.0.0,<3.0.3"
