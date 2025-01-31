@@ -126,6 +126,8 @@ def test_single_drug_baselines(
     random_drug = all_unique_drugs[:1]
 
     all_predictions = np.zeros_like(val_dataset.drug_ids, dtype=float)
+
+    model: SingleDrugRandomForest | SingleDrugElasticNet | SingleDrugProteomicsElasticNet
     if model_name == "SingleDrugElasticNet":
         model = SingleDrugElasticNet()
     elif model_name == "SingleDrugProteomicsElasticNet":
