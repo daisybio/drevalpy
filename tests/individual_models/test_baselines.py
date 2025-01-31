@@ -13,6 +13,8 @@ from drevalpy.models import (
     NaiveCellLineMeanPredictor,
     NaiveDrugMeanPredictor,
     NaivePredictor,
+    SingleDrugElasticNet,
+    SingleDrugProteomicsElasticNet,
     SingleDrugRandomForest,
 )
 from drevalpy.models.baselines.sklearn_models import SklearnModel
@@ -93,7 +95,9 @@ def test_baselines(
         )
 
 
-@pytest.mark.parametrize("model_name", ["SingleDrugRandomForest"])
+@pytest.mark.parametrize(
+    "model_name", ["SingleDrugRandomForest", "SingleDrugElasticNet", "SingleDrugProteomicsElasticNet"]
+)
 @pytest.mark.parametrize("test_mode", ["LPO", "LCO"])
 def test_single_drug_baselines(
     sample_dataset: tuple[DrugResponseDataset, FeatureDataset, FeatureDataset], model_name: str, test_mode: str
@@ -122,8 +126,13 @@ def test_single_drug_baselines(
     random_drug = all_unique_drugs[:1]
 
     all_predictions = np.zeros_like(val_dataset.drug_ids, dtype=float)
+    if model_name == "SingleDrugElasticNet":
+        model = SingleDrugElasticNet()
+    elif model_name == "SingleDrugProteomicsElasticNet":
+        model = SingleDrugProteomicsElasticNet()
+    else:
+        model = SingleDrugRandomForest()
 
-    model = SingleDrugRandomForest()
     hpam_combi = model.get_hyperparameter_set()[0]
     hpam_combi["n_estimators"] = 2  # reduce test time
     hpam_combi["max_depth"] = 2  # reduce test time
