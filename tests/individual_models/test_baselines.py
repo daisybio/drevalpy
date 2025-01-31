@@ -136,8 +136,10 @@ def test_single_drug_baselines(
         model = SingleDrugRandomForest()
 
     hpam_combi = model.get_hyperparameter_set()[0]
-    hpam_combi["n_estimators"] = 2  # reduce test time
-    hpam_combi["max_depth"] = 2  # reduce test time
+    if model_name == "SingleDrugRandomForest":
+        hpam_combi["n_estimators"] = 2  # reduce test time
+        hpam_combi["max_depth"] = 2  # reduce test time
+
     model.build_model(hpam_combi)
     output_mask = train_dataset.drug_ids == random_drug
     drug_train = train_dataset.copy()
