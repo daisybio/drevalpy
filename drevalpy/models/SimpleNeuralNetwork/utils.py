@@ -1,5 +1,6 @@
 """Utility functions for the simple neural network models."""
 
+import os
 import secrets
 from typing import Any
 
@@ -229,11 +230,14 @@ class FeedForwardNetwork(pl.LightningModule):
         monitor = "train_loss" if (val_loader is None) else "val_loss"
 
         early_stop_callback = EarlyStopping(monitor=monitor, mode="min", patience=patience)
-        name = "version-" + "".join(
-            [secrets.choice("0123456789abcdef") for i in range(20)]
-        )  # preventing conflicts of filenames
+
+        unique_subfolder = os.path.join(model_checkpoint_dir, "run_" + secrets.token_hex(8))
+        os.makedirs(unique_subfolder, exist_ok=True)
+
+        # prevent conflicts
+        name = "version-" + "".join([secrets.choice("0123456789abcdef") for _ in range(10)])
         self.checkpoint_callback = pl.callbacks.ModelCheckpoint(
-            dirpath=model_checkpoint_dir,
+            dirpath=unique_subfolder,
             monitor=monitor,
             mode="min",
             save_top_k=1,
