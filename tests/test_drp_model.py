@@ -25,7 +25,7 @@ def test_factory() -> None:
     assert "NaivePredictor" in MODEL_FACTORY
     assert "NaiveDrugMeanPredictor" in MODEL_FACTORY
     assert "NaiveCellLineMeanPredictor" in MODEL_FACTORY
-    assert "NaiveANOVAPredictor" in MODEL_FACTORY
+    assert "NaiveMeanEffectsPredictor" in MODEL_FACTORY
     assert "ElasticNet" in MODEL_FACTORY
     assert "RandomForest" in MODEL_FACTORY
     assert "SVR" in MODEL_FACTORY

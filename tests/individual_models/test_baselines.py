@@ -10,9 +10,9 @@ from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.evaluation import evaluate, pearson
 from drevalpy.models import (
     MODEL_FACTORY,
-    NaiveANOVAPredictor,
     NaiveCellLineMeanPredictor,
     NaiveDrugMeanPredictor,
+    NaiveMeanEffectsPredictor,
     NaivePredictor,
     SingleDrugRandomForest,
 )
@@ -307,7 +307,7 @@ def test_naive_anova_predictor(
     sample_dataset: tuple[DrugResponseDataset, FeatureDataset, FeatureDataset], test_mode: str
 ) -> None:
     """
-    Test the NaiveANOVAPredictor model.
+    Test the NaiveMeanEffectsPredictor model.
 
     :param sample_dataset: from conftest.py
     :param test_mode: either LPO, LCO, or LDO
@@ -330,7 +330,7 @@ def test_naive_anova_predictor(
     print(f"Reduced training dataset from {len_train_before} to {len(train_dataset)}")
     print(f"Reduced val dataset from {len_pred_before} to {len(val_dataset)}")
 
-    naive = NaiveANOVAPredictor()
+    naive = NaiveMeanEffectsPredictor()
     naive.train(output=train_dataset, cell_line_input=cell_line_input, drug_input=drug_input)
     val_dataset._predictions = naive.predict(
         cell_line_ids=val_dataset.cell_line_ids,
@@ -348,5 +348,5 @@ def test_naive_anova_predictor(
     assert np.all(val_dataset.predictions <= np.max(train_dataset.response))
 
     metrics = evaluate(val_dataset, metric=["Pearson"])
-    print(f"{test_mode}: Performance of NaiveANOVAPredictor: PCC = {metrics['Pearson']}")
+    print(f"{test_mode}: Performance of NaiveMeanEffectsPredictor: PCC = {metrics['Pearson']}")
     assert metrics["Pearson"] >= -1  # Should be within valid Pearson range

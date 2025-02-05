@@ -336,7 +336,7 @@ class NaiveCellLineMeanPredictor(DRPModel):
         return load_drug_ids_from_csv(data_path, dataset_name)
 
 
-class NaiveANOVAPredictor(DRPModel):
+class NaiveMeanEffectsPredictor(DRPModel):
     """
     ANOVA-based predictor model that predicts the response as.
 
@@ -354,7 +354,7 @@ class NaiveANOVAPredictor(DRPModel):
 
     def __init__(self):
         """
-        Initializes the NaiveANOVAPredictor model.
+        Initializes the NaiveMeanEffectsPredictor model.
 
         The overall dataset mean, cell line effects, and drug effects are initialized to None
         and empty dictionaries, respectively.
@@ -371,7 +371,7 @@ class NaiveANOVAPredictor(DRPModel):
 
         :return: The name of the model as a string.
         """
-        return "NaiveANOVAPredictor"
+        return "NaiveMeanEffectsPredictor"
 
     def build_model(self, hyperparameters: dict):
         """

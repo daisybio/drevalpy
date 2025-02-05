@@ -4,7 +4,7 @@ __all__ = [
     "NaivePredictor",
     "NaiveDrugMeanPredictor",
     "NaiveCellLineMeanPredictor",
-    "NaiveANOVAPredictor",
+    "NaiveMeanEffectsPredictor",
     "ElasticNetModel",
     "RandomForest",
     "SVMRegressor",
@@ -24,9 +24,9 @@ __all__ = [
 
 from .baselines.multi_omics_random_forest import MultiOmicsRandomForest
 from .baselines.naive_pred import (
-    NaiveANOVAPredictor,
     NaiveCellLineMeanPredictor,
     NaiveDrugMeanPredictor,
+    NaiveMeanEffectsPredictor,
     NaivePredictor,
 )
 from .baselines.singledrug_random_forest import SingleDrugRandomForest
@@ -51,7 +51,7 @@ MULTI_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]] = {
     "NaivePredictor": NaivePredictor,
     "NaiveDrugMeanPredictor": NaiveDrugMeanPredictor,
     "NaiveCellLineMeanPredictor": NaiveCellLineMeanPredictor,
-    "NaiveANOVAPredictor": NaiveANOVAPredictor,
+    "NaiveMeanEffectsPredictor": NaiveMeanEffectsPredictor,
     "ElasticNet": ElasticNetModel,
     "RandomForest": RandomForest,
     "SVR": SVMRegressor,
