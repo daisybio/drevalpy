@@ -10,6 +10,7 @@ from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.evaluation import evaluate, pearson
 from drevalpy.models import (
     MODEL_FACTORY,
+    NaiveANOVAPredictor,
     NaiveCellLineMeanPredictor,
     NaiveDrugMeanPredictor,
     NaivePredictor,
@@ -299,3 +300,53 @@ def _call_other_baselines(
         assert val_dataset.predictions is not None
         metrics = evaluate(val_dataset, metric=["Pearson"])
         assert metrics["Pearson"] >= -1
+
+
+@pytest.mark.parametrize("test_mode", ["LPO", "LCO", "LDO"])
+def test_naive_anova_predictor(
+    sample_dataset: tuple[DrugResponseDataset, FeatureDataset, FeatureDataset], test_mode: str
+) -> None:
+    """
+    Test the NaiveANOVAPredictor model.
+
+    :param sample_dataset: from conftest.py
+    :param test_mode: either LPO, LCO, or LDO
+    """
+    drug_response, cell_line_input, drug_input = sample_dataset
+    drug_response.split_dataset(n_cv_splits=5, mode=test_mode)
+
+    assert drug_response.cv_splits is not None
+    split = drug_response.cv_splits[0]
+    train_dataset = split["train"]
+    val_dataset = split["validation"]
+
+    cell_lines_to_keep = cell_line_input.identifiers
+    drugs_to_keep = drug_input.identifiers
+
+    len_train_before = len(train_dataset)
+    len_pred_before = len(val_dataset)
+    train_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
+    val_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
+    print(f"Reduced training dataset from {len_train_before} to {len(train_dataset)}")
+    print(f"Reduced val dataset from {len_pred_before} to {len(val_dataset)}")
+
+    naive = NaiveANOVAPredictor()
+    naive.train(output=train_dataset, cell_line_input=cell_line_input, drug_input=drug_input)
+    val_dataset._predictions = naive.predict(
+        cell_line_ids=val_dataset.cell_line_ids,
+        drug_ids=val_dataset.drug_ids,
+        cell_line_input=cell_line_input,
+    )
+
+    assert val_dataset.predictions is not None
+    train_mean = train_dataset.response.mean()
+    assert train_mean == naive.dataset_mean
+
+    # Check that predictions are within a reasonable range
+    assert np.all(np.isfinite(val_dataset.predictions))
+    assert np.all(val_dataset.predictions >= np.min(train_dataset.response))
+    assert np.all(val_dataset.predictions <= np.max(train_dataset.response))
+
+    metrics = evaluate(val_dataset, metric=["Pearson"])
+    print(f"{test_mode}: Performance of NaiveANOVAPredictor: PCC = {metrics['Pearson']}")
+    assert metrics["Pearson"] >= -1  # Should be within valid Pearson range
