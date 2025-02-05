@@ -94,6 +94,10 @@ class SimpleNeuralNetwork(DRPModel):
                 "ignore",
                 message=".*does not have many workers which may be a bottleneck.*",
             )
+            warnings.filterwarnings(
+                "ignore",
+                message="Starting from v1\\.9\\.0, `tensorboardX` has been removed.*",
+            )
             self.model.fit(
                 output_train=output,
                 cell_line_input=cell_line_input,
