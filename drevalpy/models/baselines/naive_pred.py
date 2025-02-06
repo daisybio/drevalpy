@@ -4,6 +4,9 @@ Implements the naive predictor models.
 The naive predictor models are simple models that predict the mean of the response values. The NaivePredictor
 predicts the overall mean of the response, the NaiveCellLineMeanPredictor predicts the mean of the response per cell
 line, and the NaiveDrugMeanPredictor predicts the mean of the response per drug.
+The NaiveMeanEffectsPredictor predicts the response as the overall mean plus the cell line effect
+plus the drug effect and should be the strongest naive baselines.
+
 """
 
 import numpy as np
