@@ -341,8 +341,9 @@ class NaiveCellLineMeanPredictor(DRPModel):
 
 class NaiveMeanEffectsPredictor(DRPModel):
     """
-    ANOVA-based predictor model that predicts the response as.
+    ANOVA-like predictor model.
 
+    Predicts the response as:
     response = overall_mean + cell_line_effect + drug_effect.
 
     Here:
