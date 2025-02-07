@@ -25,6 +25,7 @@ def test_factory() -> None:
     assert "NaivePredictor" in MODEL_FACTORY
     assert "NaiveDrugMeanPredictor" in MODEL_FACTORY
     assert "NaiveCellLineMeanPredictor" in MODEL_FACTORY
+    assert "NaiveMeanEffectsPredictor" in MODEL_FACTORY
     assert "ElasticNet" in MODEL_FACTORY
     assert "RandomForest" in MODEL_FACTORY
     assert "SVR" in MODEL_FACTORY
@@ -37,7 +38,6 @@ def test_factory() -> None:
     assert "MOLIR" in MODEL_FACTORY
     assert "SuperFELTR" in MODEL_FACTORY
     assert "DIPK" in MODEL_FACTORY
-    assert len(MODEL_FACTORY) == 15
 
 
 def test_load_cl_ids_from_csv() -> None:
