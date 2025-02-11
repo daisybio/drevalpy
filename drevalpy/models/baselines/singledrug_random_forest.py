@@ -94,3 +94,13 @@ class SingleDrugRandomForest(RandomForest):
             drug_input=None,
         )
         return self.model.predict(x)
+
+    def load_drug_features(self, data_path, dataset_name):
+        """
+        Load drug features. Not needed for SingleDrugRandomForest.
+
+        :param data_path: path to the data
+        :param dataset_name: name of the dataset
+        :returns: None
+        """
+        return None

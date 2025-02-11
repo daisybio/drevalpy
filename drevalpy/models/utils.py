@@ -151,7 +151,7 @@ def get_multiomics_feature_dataset(
     :raises ValueError: if no omics features are found
     """
     if omics is None:
-        omics = ["gene_expression", "methylation", "mutations", "copy_number_variation_gistic"]
+        omics = ["gene_expression", "methylation", "mutations", "copy_number_variation_gistic", "proteomics"]
     feature_dataset = None
     for omic in omics:
         if feature_dataset is None:

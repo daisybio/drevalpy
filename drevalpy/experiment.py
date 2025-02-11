@@ -903,10 +903,11 @@ def train_and_predict(
 
     train_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
     prediction_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
-    print(f"Reduced training dataset from {len_train_before} to {len(train_dataset)}, because of missing features")
-    print(
-        f"Reduced prediction dataset from {len_pred_before} to {len(prediction_dataset)}, because of missing features"
-    )
+    if len(train_dataset) < len_train_before or len(prediction_dataset) < len_pred_before:
+        print(f"Reduced training dataset from {len_train_before} to {len(train_dataset)}, due to missing features")
+        print(
+            f"Reduced prediction dataset from {len_pred_before} to {len(prediction_dataset)}, due to missing features"
+        )
 
     if early_stopping_dataset is not None:
         len_es_before = len(early_stopping_dataset)
@@ -1142,8 +1143,7 @@ def make_model_list(models: list[type[DRPModel]], response_data: DrugResponseDat
 
 @pipeline_function
 def get_model_name_and_drug_id(model_name: str) -> tuple[str, str | None]:
-    """
-    Get the model name and drug id from the model name.
+    """Get the model name and drug id from the model name.
 
     :param model_name: model name, e.g., SimpleNeuralNetwork or MOLIR.Afatinib
     :returns: tuple of model name and, potentially drug id if it is a single drug model
