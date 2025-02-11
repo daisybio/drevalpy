@@ -25,13 +25,13 @@ __all__ = [
 ]
 
 from .baselines.multi_omics_random_forest import MultiOmicsRandomForest
-from .baselines.singledrug_elastic_net import SingleDrugElasticNet, SingleDrugProteomicsElasticNet
 from .baselines.naive_pred import (
     NaiveCellLineMeanPredictor,
     NaiveDrugMeanPredictor,
     NaiveMeanEffectsPredictor,
     NaivePredictor,
 )
+from .baselines.singledrug_elastic_net import SingleDrugElasticNet, SingleDrugProteomicsElasticNet
 from .baselines.singledrug_random_forest import SingleDrugRandomForest
 from .baselines.sklearn_models import ElasticNetModel, GradientBoosting, RandomForest, SVMRegressor
 from .DIPK.dipk import DIPKModel
