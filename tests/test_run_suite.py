@@ -53,7 +53,7 @@ def test_run_suite(args):
         evaluation_results_per_drug,
         evaluation_results_per_cell_line,
         true_vs_pred,
-    ) = parse_results(path_to_results=os.path.join(temp_dir.name, args.run_id))
+    ) = parse_results(path_to_results=os.path.join(temp_dir.name, args.run_id, args.dataset_name))
 
     (
         evaluation_results,

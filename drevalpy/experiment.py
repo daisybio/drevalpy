@@ -94,7 +94,7 @@ def drug_response_experiment(
     if baselines is None:
         baselines = []
     cross_study_datasets = cross_study_datasets or []
-    result_path = os.path.join(path_out, run_id, test_mode)
+    result_path = os.path.join(path_out, run_id, response_data._name, test_mode)
     split_path = os.path.join(result_path, "splits")
     result_folder_exists = os.path.exists(result_path)
     if result_folder_exists and overwrite:
