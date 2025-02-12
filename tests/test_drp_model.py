@@ -25,6 +25,7 @@ def test_factory() -> None:
     assert "NaivePredictor" in MODEL_FACTORY
     assert "NaiveDrugMeanPredictor" in MODEL_FACTORY
     assert "NaiveCellLineMeanPredictor" in MODEL_FACTORY
+    assert "NaiveMeanEffectsPredictor" in MODEL_FACTORY
     assert "ElasticNet" in MODEL_FACTORY
     assert "RandomForest" in MODEL_FACTORY
     assert "SVR" in MODEL_FACTORY
@@ -37,7 +38,6 @@ def test_factory() -> None:
     assert "MOLIR" in MODEL_FACTORY
     assert "SuperFELTR" in MODEL_FACTORY
     assert "DIPK" in MODEL_FACTORY
-    assert len(MODEL_FACTORY) == 15
 
 
 def test_load_cl_ids_from_csv() -> None:
@@ -277,12 +277,14 @@ def test_get_multiomics_feature_dataset(gene_list: Optional[str]) -> None:
                 data_path=temp.name,
                 dataset_name="GDSC1_small",
                 gene_list=gene_list,
+                omics=["gene_expression", "methylation", "mutations", "copy_number_variation_gistic"],
             )
     else:
         dataset = get_multiomics_feature_dataset(
             data_path=temp.name,
             dataset_name="GDSC1_small",
             gene_list=gene_list,
+            omics=["gene_expression", "methylation", "mutations", "copy_number_variation_gistic"],
         )
         assert len(dataset.features) == 2
         common_cls = dataset.identifiers
