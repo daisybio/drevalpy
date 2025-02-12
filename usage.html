@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>How to use DrEvalPy &mdash; DrEvalPy 1.1.3 documentation</title>
+  <title>How to use DrEvalPy &mdash; DrEvalPy 1.1.4 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
       <link rel="stylesheet" type="text/css" href="_static/custom_cookietemple.css?v=a7e27724" />
@@ -14,7 +14,7 @@
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=cb7bf70b"></script>
+      <script src="_static/documentation_options.js?v=00f267c6"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
@@ -175,7 +175,10 @@ that a drug has in the training set (aggregated over all cell lines), you can al
 prediction. This is why we also offer the possibility to compare your model to a <strong>NaivePredictor</strong> that predicts
 the mean IC50 of all drugs in the training set. We also offer two more advanced naive predictors:
 <strong>NaiveCellLineMeanPredictor</strong> and <strong>NaiveDrugMeanPredictor</strong>. The former predicts the mean IC50 of a cell line in
-the training set and the latter predicts the mean IC50 of a drug in the training set.</p>
+the training set and the latter predicts the mean IC50 of a drug in the training set.
+Finally, as the strongest naive baseline we offer the <strong>NaiveMeanEffectPredictor</strong>
+which combines the effects of cell lines and drugs.
+It is equivalent to the <strong>NaiveCellLineMeanPredictor</strong> and <strong>NaiveDrugMeanPredictor</strong> for the LDO and LPO settings, respectively.</p>
 </section>
 <section id="available-models">
 <h2>Available Models<a class="headerlink" href="#available-models" title="Link to this heading"></a></h2>
@@ -209,62 +212,67 @@ For <code class="docutils literal notranslate"><span class="pre">--models</span>
 <td><p>Multi-Drug Model</p></td>
 <td><p>Predicts the mean response of a drug in the training set.</p></td>
 </tr>
-<tr class="row-odd"><td><p>ElasticNet</p></td>
+<tr class="row-odd"><td><p>NaiveMeanEffectPredictor</p></td>
+<td><p>Baseline Method</p></td>
+<td><p>Multi-Drug Model</p></td>
+<td><p>Predicts using ANOVA-like mean effect model of cell lines and drugs</p></td>
+</tr>
+<tr class="row-even"><td><p>ElasticNet</p></td>
 <td><p>Baseline Method</p></td>
 <td><p>Multi-Drug Model</p></td>
 <td><p>Fits an <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.ElasticNet.html">Sklearn Elastic Net</a>, <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html">Lasso</a>, or <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Ridge.html">Ridge</a> model on gene expression data and drug fingerprints (concatenated input matrix).</p></td>
 </tr>
-<tr class="row-even"><td><p>GradientBoosting</p></td>
+<tr class="row-odd"><td><p>GradientBoosting</p></td>
 <td><p>Baseline Method</p></td>
 <td><p>Multi-Drug Model</p></td>
 <td><p>Fits an <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.GradientBoostingRegressor.html">Sklearn Gradient Boosting Regressor</a> gene expression data and drug fingerprints.</p></td>
 </tr>
-<tr class="row-odd"><td><p>RandomForest</p></td>
+<tr class="row-even"><td><p>RandomForest</p></td>
 <td><p>Baseline Method</p></td>
 <td><p>Multi-Drug Model</p></td>
 <td><p>Fits an <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestRegressor.html">Sklearn Random Forest Regressor</a> on gene expression data and drug fingerprints.</p></td>
 </tr>
-<tr class="row-even"><td><p>MultiOmicsRandomForest</p></td>
+<tr class="row-odd"><td><p>MultiOmicsRandomForest</p></td>
 <td><p>Baseline Method</p></td>
 <td><p>Multi-Drug Model</p></td>
 <td><p>Fits an <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestRegressor.html">Sklearn Random Forest Regressor</a> on gene expression, methylation, mutation, copy number variation data, and drug fingerprints (concatenated matrix). The dimensionality of the methylation data is reduced with a PCA to the first 100 components before it is fed to the model.</p></td>
 </tr>
-<tr class="row-odd"><td><p>SingleDrugRandomForest</p></td>
+<tr class="row-even"><td><p>SingleDrugRandomForest</p></td>
 <td><p>Baseline Method</p></td>
 <td><p>Single-Drug Model</p></td>
 <td><p>Fits an <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestRegressor.html">Sklearn Random Forest Regressor</a> on gene expression data for each drug separately.</p></td>
 </tr>
-<tr class="row-even"><td><p>SVR</p></td>
+<tr class="row-odd"><td><p>SVR</p></td>
 <td><p>Baseline Method</p></td>
 <td><p>Multi-Drug Model</p></td>
 <td><p>Fits an <a class="reference external" href="https://scikit-learn.org/1.5/modules/generated/sklearn.svm.SVR.html">Sklearn Support Vector Regressor</a> gene expression data and drug fingerprints.</p></td>
 </tr>
-<tr class="row-odd"><td><p>SimpleNeuralNetwork</p></td>
+<tr class="row-even"><td><p>SimpleNeuralNetwork</p></td>
 <td><p>Baseline Method</p></td>
 <td><p>Multi-Drug Model</p></td>
 <td><p>Fits a simple feedforward neural network (implemented with <a class="reference external" href="https://lightning.ai/docs/pytorch/stable/">Pytorch Lightning</a>) on gene expression and drug fingerprints (concatenated input) with 3 layers of varying dimensions and Dropout layers.</p></td>
 </tr>
-<tr class="row-even"><td><p>MultiOmicsNeuralNetwork</p></td>
+<tr class="row-odd"><td><p>MultiOmicsNeuralNetwork</p></td>
 <td><p>Baseline Method</p></td>
 <td><p>Multi-Drug Model</p></td>
 <td><p>Fits a simple feedforward neural network (implemented with <a class="reference external" href="https://lightning.ai/docs/pytorch/stable/">Pytorch Lightning</a>) on gene expression, methylation, mutation, copy number variation data, and drug fingerprints (concatenated input) with 3 layers of varying dimensions and Dropout layers. The dimensionality of the methylation data is reduced with a PCA to the first 100 components before it is fed to the model.</p></td>
 </tr>
-<tr class="row-odd"><td><p>SRMF</p></td>
+<tr class="row-even"><td><p>SRMF</p></td>
 <td><p>Published Model</p></td>
 <td><p>Multi-Drug Model</p></td>
 <td><p><a class="reference external" href="https://doi.org/10.1186/s12885-017-3500-5">Similarity Regularization Matrix Factorization</a> model by Wang et al. on gene expression data and drug fingerprints. Re-implemented Matlab code into Python. The basic idea is represent each drug and each cell line by their respective similarities to all other drugs/cell lines. Those similarities are mapped into a shared latent low-dimensional space from which responses are predicted.</p></td>
 </tr>
-<tr class="row-even"><td><p>MOLIR</p></td>
+<tr class="row-odd"><td><p>MOLIR</p></td>
 <td><p>Published Model</p></td>
 <td><p>Single-Drug Model</p></td>
 <td><p>Regression extension of <a class="reference external" href="https://doi.org/10.1093/bioinformatics/btz318">MOLI: multi-omics late integration deep neural network.</a> by Sharifi-Noghabi et al. Takes somatic mutation, copy number variation and gene expression data as input. MOLI reduces the dimensionality of each omics type with a hidden layer, concatenates them into one representation and optimizes this representation via a combined cost function consisting of a triplet loss and a binary cross-entropy loss. We implemented a regression adaption with MSE loss and an adapted triplet loss for regression.</p></td>
 </tr>
-<tr class="row-odd"><td><p>SuperFELTR</p></td>
+<tr class="row-even"><td><p>SuperFELTR</p></td>
 <td><p>Published Model</p></td>
 <td><p>Single-Drug Model</p></td>
 <td><p>Regression extension of <a class="reference external" href="https://doi.org/10.1186/s12859-021-04146-z">SuperFELT: supervised feature extraction learning using triplet loss for drug response</a> by Park et al. Very similar to MOLI(R). In MOLI(R), encoders and the classifier were trained jointly. Super.FELT(R) trains them independently. MOLI(R) was trained without feature selection (except for the Variance Threshold on the gene expression). Super.FELT(R) uses feature selection for all omics data.</p></td>
 </tr>
-<tr class="row-even"><td><p>DIPK</p></td>
+<tr class="row-odd"><td><p>DIPK</p></td>
 <td><p>Published Model</p></td>
 <td><p>Multi-Drug Model</p></td>
 <td><p><a class="reference external" href="https://doi.org/10.1093/bib/bbae153">Deep neural network Integrating Prior Knowledge</a> from Li et al. Uses gene interaction relationships (encoded by a graph auto-encoder), gene expression profiles (encoded by a denoising auto-encoder), and molecular topologies (encoded by MolGNet). Those features are integrated using multi-head attention layers.</p></td>
