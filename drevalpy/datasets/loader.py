@@ -7,6 +7,7 @@ from typing import Callable
 import pandas as pd
 
 from ..pipeline_function import pipeline_function
+from . import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
 from .curvecurator import fit_curves
 from .dataset import DrugResponseDataset
 from .utils import download_dataset
@@ -33,12 +34,12 @@ def load_gdsc1(
         download_dataset(dataset_name, path_data, redownload=True)
 
     response_data = pd.read_csv(path)
-    response_data["DRUG_NAME"] = response_data["DRUG_NAME"].str.replace(",", "")
+    response_data[DRUG_IDENTIFIER] = response_data[DRUG_IDENTIFIER].str.replace(",", "")
 
     return DrugResponseDataset(
         response=response_data[measure].values,
-        cell_line_ids=response_data["CELL_LINE_NAME"].values,
-        drug_ids=response_data["DRUG_NAME"].values,
+        cell_line_ids=response_data[CELL_LINE_IDENTIFIER].values,
+        drug_ids=response_data[DRUG_IDENTIFIER].values,
         dataset_name=dataset_name,
     )
 
@@ -74,12 +75,12 @@ def load_ccle(
         download_dataset(dataset_name, path_data, redownload=True)
 
     response_data = pd.read_csv(path)
-    response_data["DRUG_NAME"] = response_data["DRUG_NAME"].str.replace(",", "")
+    response_data[DRUG_IDENTIFIER] = response_data[DRUG_IDENTIFIER].str.replace(",", "")
 
     return DrugResponseDataset(
         response=response_data[measure].values,
-        cell_line_ids=response_data["CELL_LINE_NAME"].values,
-        drug_ids=response_data["DRUG_NAME"].values,
+        cell_line_ids=response_data[CELL_LINE_IDENTIFIER].values,
+        drug_ids=response_data[DRUG_IDENTIFIER].values,
         dataset_name=dataset_name,
     )
 
@@ -103,7 +104,7 @@ def load_toy(path_data: str = "data", measure: str = "response") -> DrugResponse
     return DrugResponseDataset(
         response=response_data[measure].values,
         cell_line_ids=response_data["cell_line_id"].values,
-        drug_ids=response_data["drug_id"].values,
+        drug_ids=response_data[DRUG_IDENTIFIER].values,
         dataset_name=dataset_name,
     )
 
