@@ -7,10 +7,9 @@ from typing import Callable
 import pandas as pd
 
 from ..pipeline_function import pipeline_function
-from . import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
 from .curvecurator import fit_curves
 from .dataset import DrugResponseDataset
-from .utils import download_dataset
+from .utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, download_dataset
 
 
 def load_gdsc1(
@@ -103,10 +102,58 @@ def load_toy(path_data: str = "data", measure: str = "response") -> DrugResponse
 
     return DrugResponseDataset(
         response=response_data[measure].values,
-        cell_line_ids=response_data["cell_line_id"].values,
+        cell_line_ids=response_data[CELL_LINE_IDENTIFIER].values,
         drug_ids=response_data[DRUG_IDENTIFIER].values,
         dataset_name=dataset_name,
     )
+
+
+def _load_ctrpv(version: str, path_data: str = "data", measure: str = "LN_IC50_curvecurator") -> DrugResponseDataset:
+    """
+    Load CTRPv1 dataset.
+
+    :param version: The version of the CTRP dataset to load.
+    :param path_data: Path to location of CTRPv1 dataset
+    :param measure: The name of the column containing the measure to predict, default = "response"
+
+    :return: DrugResponseDataset containing response, cell line IDs, and drug IDs
+    """
+    dataset_name = "CTRPv" + version
+    path = os.path.join(path_data, dataset_name, f"{dataset_name}.csv")
+    if not os.path.exists(path):
+        download_dataset(dataset_name, path_data, redownload=True)
+    response_data = pd.read_csv(path)
+
+    return DrugResponseDataset(
+        response=response_data[measure].values,
+        cell_line_ids=response_data[CELL_LINE_IDENTIFIER].values,
+        drug_ids=response_data[DRUG_IDENTIFIER].values,
+        dataset_name=dataset_name,
+    )
+
+
+def load_ctrpv1(path_data: str = "data", measure: str = "LN_IC50_curvecurator") -> DrugResponseDataset:
+    """
+    Load CTRPv2 dataset.
+
+    :param path_data: Path to location of CTRPv2 dataset
+    :param measure: The name of the column containing the measure to predict, default = "LN_IC50_curvecurator"
+
+    :return: DrugResponseDataset containing response, cell line IDs, and drug IDs
+    """
+    return _load_ctrpv("1", path_data, measure)
+
+
+def load_ctrpv2(path_data: str = "data", measure: str = "LN_IC50_curvecurator") -> DrugResponseDataset:
+    """
+    Load CTRPv2 dataset.
+
+    :param path_data: Path to location of CTRPv2 dataset
+    :param measure: The name of the column containing the measure to predict, default: LN_IC50_curvecurator
+
+    :return: DrugResponseDataset containing response, cell line IDs, and drug IDs
+    """
+    return _load_ctrpv("2", path_data, measure)
 
 
 def load_custom(path_data: str | Path, measure: str = "response") -> DrugResponseDataset:
@@ -126,6 +173,8 @@ AVAILABLE_DATASETS: dict[str, Callable] = {
     "GDSC2": load_gdsc2,
     "CCLE": load_ccle,
     "Toy_Data": load_toy,
+    "CTRPv1": load_ctrpv1,
+    "CTRPv2": load_ctrpv2,
 }
 
 

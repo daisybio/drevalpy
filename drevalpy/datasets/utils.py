@@ -9,6 +9,9 @@ import networkx as nx
 import numpy as np
 import requests
 
+DRUG_IDENTIFIER = "drug_name"
+CELL_LINE_IDENTIFIER = "cell_line_name"
+
 
 def download_dataset(
     dataset_name: str,
