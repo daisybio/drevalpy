@@ -15,7 +15,7 @@ from .utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, download_dataset
 def load_gdsc1(
     path_data: str = "data",
     measure: str = "LN_IC50",
-    file_name: str = "response_GDSC1.csv",
+    file_name: str = "GDSC1.csv",
     dataset_name: str = "GDSC1",
 ) -> DrugResponseDataset:
     """
@@ -43,7 +43,7 @@ def load_gdsc1(
     )
 
 
-def load_gdsc2(path_data: str = "data", measure: str = "LN_IC50", file_name: str = "response_GDSC2.csv"):
+def load_gdsc2(path_data: str = "data", measure: str = "LN_IC50", file_name: str = "GDSC2.csv"):
     """
     Loads the GDSC2 dataset.
 
@@ -56,9 +56,7 @@ def load_gdsc2(path_data: str = "data", measure: str = "LN_IC50", file_name: str
     return load_gdsc1(path_data=path_data, measure=measure, file_name=file_name, dataset_name="GDSC2")
 
 
-def load_ccle(
-    path_data: str = "data", measure: str = "LN_IC50", file_name: str = "response_CCLE.csv"
-) -> DrugResponseDataset:
+def load_ccle(path_data: str = "data", measure: str = "LN_IC50", file_name: str = "CCLE.csv") -> DrugResponseDataset:
     """
     Loads the CCLE dataset.
 
