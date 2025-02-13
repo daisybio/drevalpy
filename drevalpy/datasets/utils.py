@@ -1,5 +1,6 @@
 """Utility functions for datasets."""
 
+import os
 import zipfile
 from pathlib import Path
 from typing import Any
@@ -60,7 +61,7 @@ def download_dataset(
         with zipfile.ZipFile(file_path, "r") as z:
             for member in z.infolist():
                 if not member.filename.startswith("__MACOSX/"):
-                    z.extract(member, data_path)
+                    z.extract(member, os.path.join(data_path, dataset_name))
         file_path.unlink()  # Remove zip file after extraction
 
         print(f"{dataset_name} data downloaded and extracted to {data_path}")
