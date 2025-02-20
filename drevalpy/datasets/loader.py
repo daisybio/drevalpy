@@ -120,7 +120,7 @@ def _load_ctrpv(version: str, path_data: str = "data", measure: str = "LN_IC50_c
     path = os.path.join(path_data, dataset_name, f"{dataset_name}.csv")
     if not os.path.exists(path):
         download_dataset(dataset_name, path_data, redownload=True)
-    response_data = pd.read_csv(path)
+    response_data = pd.read_csv(path, dtype={"pubchem_id": str})
 
     return DrugResponseDataset(
         response=response_data[measure].values,

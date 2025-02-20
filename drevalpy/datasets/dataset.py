@@ -64,6 +64,8 @@ class DrugResponseDataset:
         :returns: DrugResponseDataset object containing data from provided csv file.
         """
         data = pd.read_csv(input_file)
+        data["drug_id"] = data["drug_id"].astype(str)
+
         if "predictions" in data.columns:
             predictions = data["predictions"].values
         else:
