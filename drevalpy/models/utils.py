@@ -111,15 +111,17 @@ def load_drug_ids_from_csv(data_path: str, dataset_name: str) -> FeatureDataset:
     :returns: FeatureDataset with the drug ids
     """
     drug_names = pd.read_csv(f"{data_path}/{dataset_name}/drug_names.csv", index_col=0)
+    drug_names.index = drug_names.index.astype(str)
     return FeatureDataset(features={drug: {"drug_id": np.array([drug])} for drug in drug_names.index})
 
 
-def load_drug_fingerprint_features(data_path: str, dataset_name: str) -> FeatureDataset:
+def load_drug_fingerprint_features(data_path: str, dataset_name: str, default_random=True) -> FeatureDataset:
     """
     Load drug features from fingerprints.
 
     :param data_path: path to the data, e.g., data/
     :param dataset_name: name of the dataset, e.g., GDSC2
+    :param default_random: whether to use default random fingerprints if fingerprint is not available
     :returns: FeatureDataset with the drug fingerprints
     """
     if dataset_name == "Toy_Data":
@@ -129,6 +131,11 @@ def load_drug_fingerprint_features(data_path: str, dataset_name: str) -> Feature
             os.path.join(data_path, dataset_name, "drug_fingerprints", "drug_name_to_demorgan_128_map.csv"),
             index_col=0,
         ).T
+    if default_random:
+        for drug in fingerprints.index:
+            if not np.all(fingerprints.loc[drug].values == 0):
+                continue
+            fingerprints.loc[drug] = np.random.randint(0, 2, size=fingerprints.loc[drug])
     return FeatureDataset(
         features={drug: {"fingerprints": fingerprints.loc[drug].values} for drug in fingerprints.index}
     )
