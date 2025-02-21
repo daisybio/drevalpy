@@ -154,9 +154,9 @@ class DrugResponseDataset:
         """
         super().__init__()
         if len(response) != len(cell_line_ids):
-            raise AssertionError("Response and cell_line_ids have different lengths.")
+            raise AssertionError("Response and cell line identifiers have different lengths.")
         if len(response) != len(drug_ids):
-            raise AssertionError("Response and drug_ids have different lengths.")
+            raise AssertionError("Response and drug identifiers have different lengths.")
         if predictions is not None and len(response) != len(predictions):
             raise AssertionError("Response and predictions have different lengths.")
         self._response = response
