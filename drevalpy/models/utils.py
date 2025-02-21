@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 
 from drevalpy.datasets.dataset import FeatureDataset
+from drevalpy.datasets.utils import DRUG_IDENTIFIER
 
 
 def load_cl_ids_from_csv(path: str, dataset_name: str) -> FeatureDataset:
@@ -112,7 +113,7 @@ def load_drug_ids_from_csv(data_path: str, dataset_name: str) -> FeatureDataset:
     """
     drug_names = pd.read_csv(f"{data_path}/{dataset_name}/drug_names.csv", index_col=0)
     drug_names.index = drug_names.index.astype(str)
-    return FeatureDataset(features={drug: {"drug_id": np.array([drug])} for drug in drug_names.index})
+    return FeatureDataset(features={drug: {DRUG_IDENTIFIER: np.array([drug])} for drug in drug_names.index})
 
 
 def load_drug_fingerprint_features(data_path: str, dataset_name: str, default_random=True) -> FeatureDataset:
@@ -124,13 +125,10 @@ def load_drug_fingerprint_features(data_path: str, dataset_name: str, default_ra
     :param default_random: whether to use default random fingerprints if fingerprint is not available
     :returns: FeatureDataset with the drug fingerprints
     """
-    if dataset_name == "Toy_Data":
-        fingerprints = pd.read_csv(os.path.join(data_path, dataset_name, "fingerprints.csv"), index_col=0)
-    else:
-        fingerprints = pd.read_csv(
-            os.path.join(data_path, dataset_name, "drug_fingerprints", "drug_name_to_demorgan_128_map.csv"),
-            index_col=0,
-        ).T
+    fingerprints = pd.read_csv(
+        os.path.join(data_path, dataset_name, "drug_fingerprints", "pubchem_id_to_demorgan_128_map.csv"),
+        index_col=0,
+    ).T
     if default_random:
         for drug in fingerprints.index:
             if not np.all(fingerprints.loc[drug].values == 0):
