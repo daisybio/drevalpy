@@ -89,7 +89,7 @@ def iterate_features(df: pd.DataFrame, feature_type: str) -> dict[str, dict[str,
     :param feature_type: type of feature, e.g., gene_expression, methylation, etc.
     :returns: dictionary with the features
     """
-    features = {}
+    features: dict[str, dict[str, np.ndarray]] = {}
     for cl in df.index:
         if cl in features.keys():
             continue
