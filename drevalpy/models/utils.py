@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 
 from drevalpy.datasets.dataset import FeatureDataset
-from drevalpy.datasets.utils import DRUG_IDENTIFIER
+from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
 
 
 def load_cl_ids_from_csv(path: str, dataset_name: str) -> FeatureDataset:
@@ -19,7 +19,7 @@ def load_cl_ids_from_csv(path: str, dataset_name: str) -> FeatureDataset:
     :returns: FeatureDataset with the cell line ids
     """
     cl_names = pd.read_csv(f"{path}/{dataset_name}/cell_line_names.csv", index_col=1)
-    return FeatureDataset(features={cl: {"cell_line_id": np.array([cl])} for cl in cl_names.index})
+    return FeatureDataset(features={cl: {CELL_LINE_IDENTIFIER: np.array([cl])} for cl in cl_names.index})
 
 
 def load_and_reduce_gene_features(
