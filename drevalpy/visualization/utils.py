@@ -37,11 +37,12 @@ def _parse_layout(f: TextIO, path_to_layout: str) -> None:
     f.write("".join(layout))
 
 
-def parse_results(path_to_results: str) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+def parse_results(path_to_results: str, dataset: str) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
     Parse the results from the given directory.
 
     :param path_to_results: path to the results directory
+    :param dataset: dataset name, e.g., GDSC2
     :returns: evaluation results, evaluation results per drug, evaluation results per cell line, and true vs. predicted
         values
     """
@@ -54,7 +55,7 @@ def parse_results(path_to_results: str) -> tuple[pd.DataFrame, pd.DataFrame, pd.
     # Convert the path to a forward-slash version for the regex (for Windows)
     result_dir_str = str(result_dir).replace("\\", "/")
     pattern = re.compile(
-        rf"{result_dir_str}/(LPO|LCO|LDO)/[^/]+/(predictions|cross_study|randomization|robustness)/.*\.csv$"
+        rf"{result_dir_str}/{dataset}/(LPO|LCO|LDO)/[^/]+/(predictions|cross_study|randomization|robustness)/.*\.csv$"
     )
     result_files = [file for file in result_files if pattern.match(str(file).replace("\\", "/"))]
 
@@ -69,8 +70,9 @@ def parse_results(path_to_results: str) -> tuple[pd.DataFrame, pd.DataFrame, pd.
         rel_file = str(os.path.normpath(file.relative_to(result_dir))).replace("\\", "/")
         print(f'Evaluating file: "{rel_file}" ...')
         file_parts = rel_file.split("/")
-        lpo_lco_ldo = file_parts[0]
-        algorithm = file_parts[1]
+        dataset = file_parts[0]
+        lpo_lco_ldo = file_parts[1]
+        algorithm = file_parts[2]
         (
             overall_eval,
             eval_results_per_drug,

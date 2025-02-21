@@ -1,7 +1,6 @@
 """Utility functions for loading and processing data."""
 
 import os.path
-import warnings
 
 import numpy as np
 import pandas as pd
@@ -94,17 +93,11 @@ def iterate_features(df: pd.DataFrame, feature_type: str) -> dict[str, dict[str,
         if cl in features.keys():
             continue
         rows = df.loc[cl]
+        rows = rows.astype(float).to_numpy()
         if (len(rows.shape) > 1) and (rows.shape[0] > 1):  # multiple rows returned
-            warnings.warn(
-                f"Multiple rows returned for Cell Line {cl} (and maybe others) "
-                f"in feature {feature_type}, taking the first one.",
-                stacklevel=2,
-            )
-
-            rows = rows.iloc[0]
-        # convert to float values
-        rows = rows.astype(float)
-        features[cl] = {feature_type: rows.values}
+            # take mean
+            rows = np.mean(rows, axis=0)
+        features[cl] = {feature_type: rows}
     return features
 
 
