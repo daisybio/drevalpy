@@ -55,7 +55,7 @@ class DrugResponseDataset:
         - response:         the drug response values as floating point values
         - cell_line_ids:    a string identifier for cell lines
         - drug_ids:         a string identifier for drugs
-        - predictions:      an optional column containing a predicted value TODO what exactly?
+        - predictions:      an optional column containing drug response predictions
 
         :param input_file: Path to the csv file containing the data to be loaded
         :param dataset_name: Optional name to associate the dataset with, default = "unknown"
