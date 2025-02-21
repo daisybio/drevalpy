@@ -49,11 +49,7 @@ class SingleDrugElasticNet(SklearnModel):
         :param drug_input: not needed
         :param output_earlystopping: not needed
         :param model_checkpoint_dir: not needed as checkpoints are not saved
-        :raises ValueError: if drug_input is not None
         """
-        if drug_input is not None:
-            raise ValueError("SingleDrugElasticNet does not support drug_input!")
-
         if len(output) > 0:
             x = self.get_concatenated_features(
                 cell_line_view="gene_expression",
@@ -168,11 +164,7 @@ class SingleDrugProteomicsElasticNet(SingleDrugElasticNet):
         :param drug_input: not needed
         :param output_earlystopping: not needed
         :param model_checkpoint_dir: not needed as checkpoints are not saved
-        :raises ValueError: if drug_input is not None
         """
-        if drug_input is not None:
-            raise ValueError("SingleDrugElasticNet does not support drug_input!")
-
         if len(output) > 0:
             x = self.get_concatenated_features(
                 cell_line_view="proteomics",

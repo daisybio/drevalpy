@@ -267,8 +267,10 @@ def draw_per_grouping_algorithm_plots(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate reports from evaluation results")
     parser.add_argument("--run_id", required=True, help="Run ID for the current execution")
+    parser.add_argument("--dataset", required=True, help="Dataset name for which to render the result file")
     args = parser.parse_args()
     run_id = args.run_id
+    dataset = args.dataset
 
     # assert that the run_id folder exists
     if not os.path.exists(f"results/{run_id}"):
@@ -280,7 +282,7 @@ if __name__ == "__main__":
         evaluation_results_per_drug,
         evaluation_results_per_cell_line,
         true_vs_pred,
-    ) = parse_results(path_to_results=f"results/{run_id}")
+    ) = parse_results(path_to_results=f"results/{run_id}", dataset=dataset)
 
     # part of pipeline: EVALUATE_FINAL, COLLECT_RESULTS
     (

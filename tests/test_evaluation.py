@@ -248,7 +248,7 @@ def test_kendall_uncorrelated(generate_mock_uncorrelated_data):
 
 
 def test_correlations_constant_prediction(
-    generate_mock_data_constant_prediction: tuple[np.ndarray, np.ndarray]
+    generate_mock_data_constant_prediction: tuple[np.ndarray, np.ndarray],
 ) -> None:
     """
     Test the correlation functions with constant prediction.
