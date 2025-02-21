@@ -90,10 +90,11 @@ def iterate_features(df: pd.DataFrame, feature_type: str) -> dict[str, dict[str,
     :returns: dictionary with the features
     """
     features = {}
-    warning_shown = False
     for cl in df.index:
+        if cl in features.keys():
+            continue
         rows = df.loc[cl]
-        if (len(rows.shape) > 1) and (rows.shape[0] > 1) and (not warning_shown):  # multiple rows returned
+        if (len(rows.shape) > 1) and (rows.shape[0] > 1):  # multiple rows returned
             warnings.warn(
                 f"Multiple rows returned for Cell Line {cl} (and maybe others) "
                 f"in feature {feature_type}, taking the first one.",
@@ -101,7 +102,6 @@ def iterate_features(df: pd.DataFrame, feature_type: str) -> dict[str, dict[str,
             )
 
             rows = rows.iloc[0]
-            warning_shown = True
         # convert to float values
         rows = rows.astype(float)
         features[cl] = {feature_type: rows.values}
@@ -131,8 +131,7 @@ def load_drug_fingerprint_features(data_path: str, dataset_name: str, default_ra
     :returns: FeatureDataset with the drug fingerprints
     """
     fingerprints = pd.read_csv(
-        os.path.join(data_path, dataset_name, "drug_fingerprints", "pubchem_id_to_demorgan_128_map.csv"),
-        index_col=0,
+        os.path.join(data_path, dataset_name, "drug_fingerprints", "pubchem_id_to_demorgan_128_map.csv"), index_col=None
     ).T
     if default_random:
         for drug in fingerprints.index:
