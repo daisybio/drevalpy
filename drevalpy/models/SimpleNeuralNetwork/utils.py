@@ -185,12 +185,6 @@ class FeedForwardNetwork(pl.LightningModule):
                 "Drug input (fingerprints) are required for SimpleNeuralNetwork and " "MultiOMICsNeuralNetwork."
             )
 
-        if trainer_params is None:
-            trainer_params = {
-                "progress_bar_refresh_rate": 500,
-                "max_epochs": 70,
-            }
-
         train_dataset = RegressionDataset(
             output=output_train,
             cell_line_input=cell_line_input,
