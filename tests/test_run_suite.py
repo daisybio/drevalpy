@@ -32,7 +32,7 @@ from drevalpy.visualization.utils import parse_results, prep_results
             "response_transformation": "None",
             "multiprocessing": False,
             "path_data": "../data",
-            "model_checkpoint_dir": "None",
+            "model_checkpoint_dir": "TEMPORARY",
         }
     ],
 )
@@ -53,7 +53,7 @@ def test_run_suite(args):
         evaluation_results_per_drug,
         evaluation_results_per_cell_line,
         true_vs_pred,
-    ) = parse_results(path_to_results=os.path.join(temp_dir.name, args.run_id, args.dataset_name))
+    ) = parse_results(path_to_results=os.path.join(temp_dir.name, args.run_id), dataset="Toy_Data")
 
     (
         evaluation_results,

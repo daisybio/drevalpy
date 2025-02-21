@@ -12,6 +12,7 @@ plus the drug effect and should be the strongest naive baseline.
 import numpy as np
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.models.utils import load_cl_ids_from_csv, load_drug_ids_from_csv, unique
 
@@ -19,8 +20,8 @@ from drevalpy.models.utils import load_cl_ids_from_csv, load_drug_ids_from_csv, 
 class NaivePredictor(DRPModel):
     """Naive predictor model that predicts the overall mean of the response."""
 
-    cell_line_views = ["cell_line_id"]
-    drug_views = ["drug_id"]
+    cell_line_views = [CELL_LINE_IDENTIFIER]
+    drug_views = [DRUG_IDENTIFIER]
 
     def __init__(self):
         """
@@ -109,8 +110,8 @@ class NaivePredictor(DRPModel):
 class NaiveDrugMeanPredictor(DRPModel):
     """Naive predictor model that predicts the mean of the response per drug."""
 
-    cell_line_views = ["cell_line_id"]
-    drug_views = ["drug_id"]
+    cell_line_views = [CELL_LINE_IDENTIFIER]
+    drug_views = [DRUG_IDENTIFIER]
 
     def __init__(self):
         """
@@ -159,7 +160,7 @@ class NaiveDrugMeanPredictor(DRPModel):
         """
         if drug_input is None:
             raise ValueError("drug_input (drug_id) is required for the NaiveDrugMeanPredictor.")
-        drug_ids = drug_input.get_feature_matrix(view="drug_id", identifiers=output.drug_ids)
+        drug_ids = drug_input.get_feature_matrix(view=DRUG_IDENTIFIER, identifiers=output.drug_ids)
         self.dataset_mean = np.mean(output.response)
         self.drug_means = {}
 
@@ -226,8 +227,8 @@ class NaiveDrugMeanPredictor(DRPModel):
 class NaiveCellLineMeanPredictor(DRPModel):
     """Naive predictor model that predicts the mean of the response per cell line."""
 
-    cell_line_views = ["cell_line_id"]
-    drug_views = ["drug_id"]
+    cell_line_views = [CELL_LINE_IDENTIFIER]
+    drug_views = [DRUG_IDENTIFIER]
 
     def __init__(self):
         """
@@ -274,7 +275,7 @@ class NaiveCellLineMeanPredictor(DRPModel):
         :param output_earlystopping: not needed
         :param model_checkpoint_dir: not needed
         """
-        cell_line_ids = cell_line_input.get_feature_matrix(view="cell_line_id", identifiers=output.cell_line_ids)
+        cell_line_ids = cell_line_input.get_feature_matrix(view=CELL_LINE_IDENTIFIER, identifiers=output.cell_line_ids)
         self.dataset_mean = np.mean(output.response)
         self.cell_line_means = {}
 
@@ -353,8 +354,8 @@ class NaiveMeanEffectsPredictor(DRPModel):
     This formulation ensures that the overall mean is not counted twice.
     """
 
-    cell_line_views = ["cell_line_id"]
-    drug_views = ["drug_id"]
+    cell_line_views = [CELL_LINE_IDENTIFIER]
+    drug_views = [DRUG_IDENTIFIER]
 
     def __init__(self):
         """
@@ -412,7 +413,7 @@ class NaiveMeanEffectsPredictor(DRPModel):
         self.dataset_mean = np.mean(output.response)
 
         # Obtain cell line features.
-        cell_line_ids = cell_line_input.get_feature_matrix(view="cell_line_id", identifiers=output.cell_line_ids)
+        cell_line_ids = cell_line_input.get_feature_matrix(view=CELL_LINE_IDENTIFIER, identifiers=output.cell_line_ids)
         cell_line_means = {}
         for cl_output, cl_feature in zip(unique(output.cell_line_ids), unique(cell_line_ids), strict=True):
             responses_cl = output.response[cl_feature == output.cell_line_ids]
@@ -420,7 +421,7 @@ class NaiveMeanEffectsPredictor(DRPModel):
                 cell_line_means[cl_output] = np.mean(responses_cl)
 
         # Obtain drug features.
-        drug_ids = drug_input.get_feature_matrix(view="drug_id", identifiers=output.drug_ids)
+        drug_ids = drug_input.get_feature_matrix(view=DRUG_IDENTIFIER, identifiers=output.drug_ids)
         drug_means = {}
         for drug_output, drug_feature in zip(unique(output.drug_ids), unique(drug_ids), strict=True):
             responses_drug = output.response[drug_feature == output.drug_ids]

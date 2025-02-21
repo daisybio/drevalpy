@@ -1,12 +1,12 @@
 """Utility functions for loading and processing data."""
 
 import os.path
-import warnings
 
 import numpy as np
 import pandas as pd
 
 from drevalpy.datasets.dataset import FeatureDataset
+from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
 
 
 def load_cl_ids_from_csv(path: str, dataset_name: str) -> FeatureDataset:
@@ -18,7 +18,7 @@ def load_cl_ids_from_csv(path: str, dataset_name: str) -> FeatureDataset:
     :returns: FeatureDataset with the cell line ids
     """
     cl_names = pd.read_csv(f"{path}/{dataset_name}/cell_line_names.csv", index_col=1)
-    return FeatureDataset(features={cl: {"cell_line_id": np.array([cl])} for cl in cl_names.index})
+    return FeatureDataset(features={cl: {CELL_LINE_IDENTIFIER: np.array([cl])} for cl in cl_names.index})
 
 
 def load_and_reduce_gene_features(
@@ -88,17 +88,16 @@ def iterate_features(df: pd.DataFrame, feature_type: str) -> dict[str, dict[str,
     :param feature_type: type of feature, e.g., gene_expression, methylation, etc.
     :returns: dictionary with the features
     """
-    features = {}
+    features: dict[str, dict[str, np.ndarray]] = {}
     for cl in df.index:
+        if cl in features.keys():
+            continue
         rows = df.loc[cl]
-        if len(rows.shape) > 1 and rows.shape[0] > 1:  # multiple rows returned
-            warnings.warn(
-                f"Multiple rows returned for {cl} in feature {feature_type}, taking the first one.", stacklevel=2
-            )
-            rows = rows.iloc[0]
-        # convert to float values
-        rows = rows.astype(float)
-        features[cl] = {feature_type: rows.values}
+        rows = rows.astype(float).to_numpy()
+        if (len(rows.shape) > 1) and (rows.shape[0] > 1):  # multiple rows returned
+            # take mean
+            rows = np.mean(rows, axis=0)
+        features[cl] = {feature_type: rows}
     return features
 
 
@@ -111,24 +110,27 @@ def load_drug_ids_from_csv(data_path: str, dataset_name: str) -> FeatureDataset:
     :returns: FeatureDataset with the drug ids
     """
     drug_names = pd.read_csv(f"{data_path}/{dataset_name}/drug_names.csv", index_col=0)
-    return FeatureDataset(features={drug: {"drug_id": np.array([drug])} for drug in drug_names.index})
+    drug_names.index = drug_names.index.astype(str)
+    return FeatureDataset(features={drug: {DRUG_IDENTIFIER: np.array([drug])} for drug in drug_names.index})
 
 
-def load_drug_fingerprint_features(data_path: str, dataset_name: str) -> FeatureDataset:
+def load_drug_fingerprint_features(data_path: str, dataset_name: str, default_random=True) -> FeatureDataset:
     """
     Load drug features from fingerprints.
 
     :param data_path: path to the data, e.g., data/
     :param dataset_name: name of the dataset, e.g., GDSC2
+    :param default_random: whether to use default random fingerprints if fingerprint is not available
     :returns: FeatureDataset with the drug fingerprints
     """
-    if dataset_name == "Toy_Data":
-        fingerprints = pd.read_csv(os.path.join(data_path, dataset_name, "fingerprints.csv"), index_col=0)
-    else:
-        fingerprints = pd.read_csv(
-            os.path.join(data_path, dataset_name, "drug_fingerprints", "drug_name_to_demorgan_128_map.csv"),
-            index_col=0,
-        ).T
+    fingerprints = pd.read_csv(
+        os.path.join(data_path, dataset_name, "drug_fingerprints", "pubchem_id_to_demorgan_128_map.csv"), index_col=None
+    ).T
+    if default_random:
+        for drug in fingerprints.index:
+            if not np.all(fingerprints.loc[drug].values == 0):
+                continue
+            fingerprints.loc[drug] = np.random.randint(0, 2, size=fingerprints.loc[drug])
     return FeatureDataset(
         features={drug: {"fingerprints": fingerprints.loc[drug].values} for drug in fingerprints.index}
     )

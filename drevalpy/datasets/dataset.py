@@ -55,7 +55,7 @@ class DrugResponseDataset:
         - response:         the drug response values as floating point values
         - cell_line_ids:    a string identifier for cell lines
         - drug_ids:         a string identifier for drugs
-        - predictions:      an optional column containing a predicted value TODO what exactly?
+        - predictions:      an optional column containing drug response predictions
 
         :param input_file: Path to the csv file containing the data to be loaded
         :param dataset_name: Optional name to associate the dataset with, default = "unknown"
@@ -64,6 +64,8 @@ class DrugResponseDataset:
         :returns: DrugResponseDataset object containing data from provided csv file.
         """
         data = pd.read_csv(input_file)
+        data["drug_id"] = data["drug_id"].astype(str)
+
         if "predictions" in data.columns:
             predictions = data["predictions"].values
         else:
@@ -152,9 +154,9 @@ class DrugResponseDataset:
         """
         super().__init__()
         if len(response) != len(cell_line_ids):
-            raise AssertionError("Response and cell_line_ids have different lengths.")
+            raise AssertionError("Response and cell line identifiers have different lengths.")
         if len(response) != len(drug_ids):
-            raise AssertionError("Response and drug_ids have different lengths.")
+            raise AssertionError("Response and drug identifiers have different lengths.")
         if predictions is not None and len(response) != len(predictions):
             raise AssertionError("Response and predictions have different lengths.")
         self._response = response
