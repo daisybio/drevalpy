@@ -50,6 +50,7 @@ def test_simple_neural_network(
     hpams = model.get_hyperparameter_set()
     hpam_combi = hpams[0]
     hpam_combi["units_per_layer"] = [2, 2]
+    hpam_combi["max_epochs"] = 1
     model.build_model(hyperparameters=hpam_combi)
 
     with tempfile.TemporaryDirectory() as tmpdirname:
