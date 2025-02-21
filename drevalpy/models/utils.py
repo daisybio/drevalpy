@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 
 from drevalpy.datasets.dataset import FeatureDataset
+from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
 
 from ..datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
 
@@ -126,13 +127,10 @@ def load_drug_fingerprint_features(data_path: str, dataset_name: str, default_ra
     :param default_random: whether to use default random fingerprints if fingerprint is not available
     :returns: FeatureDataset with the drug fingerprints
     """
-    if dataset_name == "Toy_Data":
-        fingerprints = pd.read_csv(os.path.join(data_path, dataset_name, "fingerprints.csv"), index_col=0)
-    else:
-        fingerprints = pd.read_csv(
-            os.path.join(data_path, dataset_name, "drug_fingerprints", "drug_name_to_demorgan_128_map.csv"),
-            index_col=0,
-        ).T
+    fingerprints = pd.read_csv(
+        os.path.join(data_path, dataset_name, "drug_fingerprints", "pubchem_id_to_demorgan_128_map.csv"),
+        index_col=0,
+    ).T
     if default_random:
         for drug in fingerprints.index:
             if not np.all(fingerprints.loc[drug].values == 0):
