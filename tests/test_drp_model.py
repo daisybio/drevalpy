@@ -178,27 +178,27 @@ def test_load_drugs_from_fingerprints() -> None:
         temp.name,
         "GDSC1_small",
         "drug_fingerprints",
-        "drug_name_to_demorgan_128_map.csv",
+        "pubchem_id_to_demorgan_128_map.csv",
     )
     with open(temp_file, "w") as f:
         f.write(
-            ",Zibotentan,AZD1208,CI-1040,A-83-01,GSK269962A\n"
-            "0,1,1,1,1,1\n"
-            "1,1,1,0,0,1\n"
-            "2,0,1,1,0,1\n"
-            "3,1,0,1,1,1\n"
-            "4,1,1,0,1,1\n"
+            "3827738,5311510,46883536,73707530,16720766\n"
+            "1,1,1,1,1\n"
+            "1,1,0,0,1\n"
+            "0,1,1,0,1\n"
+            "1,0,1,1,1\n"
+            "1,1,0,1,1\n"
         )
     drug_features_gdsc1 = load_drug_fingerprint_features(temp.name, "GDSC1_small")
     assert len(drug_features_gdsc1.features) == 5
     assert drug_features_gdsc1.features.keys() == {
-        "Zibotentan",
-        "AZD1208",
-        "CI-1040",
-        "A-83-01",
-        "GSK269962A",
+        "3827738",
+        "5311510",
+        "46883536",
+        "73707530",
+        "16720766",
     }
-    assert np.all(drug_features_gdsc1.features["Zibotentan"]["fingerprints"] == [1, 1, 0, 1, 1])
+    assert np.all(drug_features_gdsc1.features["3827738"]["fingerprints"] == [1, 1, 0, 1, 1])
 
 
 @pytest.mark.parametrize(

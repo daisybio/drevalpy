@@ -180,16 +180,15 @@ class FeedForwardNetwork(pl.LightningModule):
         :param model_checkpoint_dir: directory to save the model checkpoints
         :raises ValueError: if drug_input is missing
         """
+        if trainer_params is None:
+            trainer_params = {
+                "max_epochs": 100,
+                "progress_bar_refresh_rate": 500,
+            }
         if drug_input is None:
             raise ValueError(
                 "Drug input (fingerprints) are required for SimpleNeuralNetwork and " "MultiOMICsNeuralNetwork."
             )
-
-        if trainer_params is None:
-            trainer_params = {
-                "progress_bar_refresh_rate": 500,
-                "max_epochs": 70,
-            }
 
         train_dataset = RegressionDataset(
             output=output_train,

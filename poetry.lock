@@ -5125,4 +5125,4 @@ multiprocessing = ["ray"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11,<3.13"
-content-hash = "bf0f826f8f395e1a264fd633e045bd60e57945e152008f1e7c8916c71e85a5a3"
+content-hash = "f7374bb63fe04664d6585936fdb245bec2373eeed9bbc501871f62550239757b"

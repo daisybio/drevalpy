@@ -105,6 +105,10 @@ class SimpleNeuralNetwork(DRPModel):
                 cell_line_views=self.cell_line_views,
                 drug_views=self.drug_views,
                 output_earlystopping=output_earlystopping,
+                trainer_params={
+                    "max_epochs": self.hyperparameters.get("max_epochs", 100),
+                    "progress_bar_refresh_rate": 500,
+                },
                 batch_size=16,
                 patience=5,
                 num_workers=1 if platform.system() == "Windows" else 8,

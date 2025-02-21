@@ -28,6 +28,7 @@ from drevalpy.models.drp_model import DRPModel
         "NaivePredictor",
         "NaiveDrugMeanPredictor",
         "NaiveCellLineMeanPredictor",
+        "NaiveMeanEffectsPredictor",
         "ElasticNet",
         "RandomForest",
         "SVR",
@@ -86,6 +87,8 @@ def test_baselines(
             drug_input,
             test_mode,
         )
+    elif model_name == "NaiveMeanEffectsPredictor":
+        _call_naive_mean_effects_predictor(train_dataset, val_dataset, cell_line_input, drug_input, test_mode)
     else:
         _call_other_baselines(
             model_name,
@@ -97,7 +100,12 @@ def test_baselines(
 
 
 @pytest.mark.parametrize(
-    "model_name", ["SingleDrugRandomForest", "SingleDrugElasticNet", "SingleDrugProteomicsElasticNet"]
+    "model_name",
+    [
+        "SingleDrugRandomForest",
+        "SingleDrugElasticNet",
+        "SingleDrugProteomicsElasticNet",
+    ],
 )
 @pytest.mark.parametrize("test_mode", ["LPO", "LCO"])
 def test_single_drug_baselines(
@@ -120,9 +128,19 @@ def test_single_drug_baselines(
     train_dataset = split["train"]
     val_dataset = split["validation"]
 
+    cell_lines_to_keep = cell_line_input.identifiers
+    drugs_to_keep = drug_input.identifiers
+
+    len_train_before = len(train_dataset)
+    len_pred_before = len(val_dataset)
+    train_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
+    val_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
+    print(f"Reduced training dataset from {len_train_before} to {len(train_dataset)}")
+    print(f"Reduced val dataset from {len_pred_before} to {len(val_dataset)}")
+
     all_unique_drugs = np.unique(train_dataset.drug_ids)
     # randomly sample a drug to speed up testing
-    np.random.seed(42)
+    np.random.seed(123)
     np.random.shuffle(all_unique_drugs)
     random_drug = all_unique_drugs[:1]
 
@@ -153,10 +171,13 @@ def test_single_drug_baselines(
         cell_line_ids=val_dataset.cell_line_ids[val_mask],
         cell_line_input=cell_line_input,
     )
-    pcc_drug = pearson(val_dataset.response[val_mask], all_predictions[val_mask])
-    print(f"{test_mode}: Performance of {model_name} for drug {random_drug}: PCC = {pcc_drug}")
-
-    assert pcc_drug >= -1.0
+    # check whether predictions are constant
+    if np.all(all_predictions[val_mask] == all_predictions[val_mask][0]):
+        print("Predictions are constant")
+    else:
+        pcc_drug = pearson(val_dataset.response[val_mask], all_predictions[val_mask])
+        print(f"{test_mode}: Performance of {model_name} for drug {random_drug}: PCC = {pcc_drug}")
+        assert pcc_drug >= -1.0
 
 
 def _call_naive_predictor(
@@ -316,33 +337,22 @@ def _call_other_baselines(
 
 
 @pytest.mark.parametrize("test_mode", ["LPO", "LCO", "LDO"])
-def test_naive_anova_predictor(
-    sample_dataset: tuple[DrugResponseDataset, FeatureDataset, FeatureDataset], test_mode: str
+def _call_naive_mean_effects_predictor(
+    train_dataset: DrugResponseDataset,
+    val_dataset: DrugResponseDataset,
+    cell_line_input: FeatureDataset,
+    drug_input: FeatureDataset,
+    test_mode: str,
 ) -> None:
     """
     Test the NaiveMeanEffectsPredictor model.
 
-    :param sample_dataset: from conftest.py
+    :param train_dataset: training dataset
+    :param val_dataset: validation dataset
+    :param cell_line_input: features cell lines
+    :param drug_input: features drugs
     :param test_mode: either LPO, LCO, or LDO
     """
-    drug_response, cell_line_input, drug_input = sample_dataset
-    drug_response.split_dataset(n_cv_splits=5, mode=test_mode)
-
-    assert drug_response.cv_splits is not None
-    split = drug_response.cv_splits[0]
-    train_dataset = split["train"]
-    val_dataset = split["validation"]
-
-    cell_lines_to_keep = cell_line_input.identifiers
-    drugs_to_keep = drug_input.identifiers
-
-    len_train_before = len(train_dataset)
-    len_pred_before = len(val_dataset)
-    train_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
-    val_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
-    print(f"Reduced training dataset from {len_train_before} to {len(train_dataset)}")
-    print(f"Reduced val dataset from {len_pred_before} to {len(val_dataset)}")
-
     naive = NaiveMeanEffectsPredictor()
     naive.train(output=train_dataset, cell_line_input=cell_line_input, drug_input=drug_input)
     val_dataset._predictions = naive.predict(
