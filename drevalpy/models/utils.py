@@ -9,8 +9,6 @@ import pandas as pd
 from drevalpy.datasets.dataset import FeatureDataset
 from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
 
-from ..datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
-
 
 def load_cl_ids_from_csv(path: str, dataset_name: str) -> FeatureDataset:
     """
