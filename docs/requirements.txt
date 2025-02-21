@@ -1,4 +1,4 @@
 sphinx-autobuild==2024.10.3 ; python_version >= "3.11" and python_version < "3.13"
-sphinx-autodoc-typehints==3.0.1 ; python_version >= "3.11" and python_version < "3.13"
+sphinx-autodoc-typehints==3.1.0 ; python_version >= "3.11" and python_version < "3.13"
 sphinx-click==6.0.0 ; python_version >= "3.11" and python_version < "3.13"
 sphinx-rtd-theme==3.0.2 ; python_version >= "3.11" and python_version < "3.13"
