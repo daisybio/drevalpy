@@ -151,10 +151,9 @@ def test_iterate_features() -> None:
     """Test the iteration over features."""
     df = pd.DataFrame({"GeneA": [1, 2, 3, 2], "GeneB": [4, 5, 6, 2], "GeneC": [7, 8, 9, 2]})
     df.index = ["CellLine1", "CellLine2", "CellLine3", "CellLine1"]
-    with pytest.warns(UserWarning):
-        features = iterate_features(df, "gene_expression")
+    features = iterate_features(df, "gene_expression")
     assert len(features) == 3
-    assert np.all(features["CellLine1"]["gene_expression"] == [1, 4, 7])
+    assert np.all(features["CellLine1"]["gene_expression"] == [1.5, 3, 4.5])
 
 
 def test_load_drug_ids_from_csv() -> None:
