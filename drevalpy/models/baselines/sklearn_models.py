@@ -1,7 +1,7 @@
 """Contains sklearn baseline models: ElasticNet, RandomForest, SVM."""
 
 import numpy as np
-from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
+from sklearn.ensemble import HistGradientBoostingRegressor, RandomForestRegressor
 from sklearn.linear_model import ElasticNet, Lasso, Ridge
 from sklearn.svm import SVR
 
@@ -237,9 +237,8 @@ class GradientBoosting(SklearnModel):
         """
         if hyperparameters["max_depth"] == "None":
             hyperparameters["max_depth"] = None
-        self.model = GradientBoostingRegressor(
-            n_estimators=hyperparameters.get("n_estimators", 100),
+        self.model = HistGradientBoostingRegressor(
+            max_iter=hyperparameters.get("max_iter", 100),
             learning_rate=hyperparameters.get("learning_rate", 0.1),
             max_depth=hyperparameters.get("max_depth", 3),
-            subsample=hyperparameters.get("subsample", 1.0),
         )

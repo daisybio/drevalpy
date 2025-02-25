@@ -21,34 +21,28 @@ RandomForest:
   n_estimators:
     - 100
   max_depth:
-    - None
     - 5
     - 10
     - 30
-    - 50
   max_samples:
-    - 0.5
+    - 0.2
   n_jobs:
     - -1
   criterion:
     - squared_error
-    - absolute_error
 MultiOmicsRandomForest:
   n_estimators:
     - 100
   max_depth:
-    - None
     - 5
     - 10
     - 30
-    - 50
   max_samples:
-    - 0.5
+    - 0.2
   n_jobs:
     - -1
   criterion:
     - squared_error
-    - absolute_error
   n_components:
     - 100
 SVR:
@@ -73,34 +67,25 @@ SingleDrugRandomForest:
   n_estimators:
     - 100
   max_depth:
-    - None
     - 5
     - 10
     - 30
-    - 50
   max_samples:
-    - 0.5
+    - 0.2
   n_jobs:
     - -1
   criterion:
     - squared_error
-    - absolute_error
 GradientBoosting:
-  n_estimators:
+  max_iter:
     - 100
   learning_rate:
     - 0.1
     - 0.01
   max_depth:
-    - None
     - 5
     - 10
     - 30
-    - 50
-  subsample:
-    - 1.0
-    - 0.8
-    - 0.5
 SingleDrugElasticNet:
   l1_ratio:
     - 0.2
