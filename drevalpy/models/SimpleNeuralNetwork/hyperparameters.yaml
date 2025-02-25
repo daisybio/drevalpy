@@ -1,13 +1,8 @@
 ---
 SimpleNeuralNetwork:
   dropout_prob:
-    - 0.2
     - 0.3
-    - 0.4
   units_per_layer:
-    - - 10
-      - 10
-      - 10
     - - 32
       - 16
       - 8
@@ -27,9 +22,7 @@ SimpleNeuralNetwork:
 
 MultiOmicsNeuralNetwork:
   dropout_prob:
-    - 0.2
     - 0.3
-    - 0.4
   units_per_layer:
     - - 16
       - 8

@@ -2,7 +2,6 @@
 SuperFELTR:
   mini_batch: 55
   dropout_rate:
-    - 0.3
     - 0.5
   weight_decay: 0.01
   out_dim_expr_encoder: 256
@@ -13,13 +12,22 @@ SuperFELTR:
     GDSC1: 0.1
     GDSC2: 0.1
     Toy_Data: 0.03
+    CCLE: 0.1
+    CTRPv1: 0.1
+    CTRPv2: 0.1
   mutation_var_threshold:
     GDSC1: 0.1
     GDSC2: 0.1
     Toy_Data: 0.05
+    CCLE: 0.1
+    CTRPv1: 0.1
+    CTRPv2: 0.1
   cnv_var_threshold:
     GDSC1: 0.7
     GDSC2: 0.7
     Toy_Data: 0.6
+    CCLE: 0.7
+    CTRPv1: 0.7
+    CTRPv2: 0.7
   margin: 1.0
   learning_rate: 0.01
