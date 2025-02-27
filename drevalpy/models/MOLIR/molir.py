@@ -168,7 +168,7 @@ class MOLIR(DRPModel):
             gene_list=None,
             omics=self.cell_line_views,
         )
-        # log transformation
+        # log transformation replaced with arcsinh transformation since log(0) is undefined
         feature_dataset.apply(function=np.arcsinh, view="gene_expression")
         return feature_dataset
 
