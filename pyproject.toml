@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "drevalpy"
-version = "1.0.10"
+version = "1.2.1"
 description = "Drug response evaluation of cancer cell line drug response models in a fair setting"
 authors = ["DrEvalPy development team"]
 license = "GPL-3.0"
@@ -8,31 +8,33 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = ">=3.11,<3.13"
-numpy = ">=1.20,<2.0"
+numpy = ">=1.20"
 scipy = "*"
-scikit-learn = ">=1.4,<1.6"
+scikit-learn = ">=1.4"
 pandas = "*"
 networkx = "*"
 pyyaml = "*"
-pytorch-lightning = "*"
-torch = ">=2.1,<=2.4"
+pytorch-lightning = ">=2.5"
+torch = ">=2.1"
 torch-geometric = "*"
 flaky = "*"
 requests = "*"
 pingouin = "*"
-ray = {extras = ["tune"], version = "^2.37.0"}
 plotly = "*"
 matplotlib = "*"
 importlib-resources = "*"
 scikit-posthocs = "*"
-curve-curator = {version = "*", optional = true}
+curve-curator = "*"
+ray = {version = "*", optional = true}
 toml = {version = "^0.10.2"}
+poetry-plugin-export = "*"
+poetry = "^2.0.1"
 
 [tool.poetry.extras]
-fit = ["curve-curator"]
+multiprocessing = ["ray"]
 
 [tool.poetry.group.development.dependencies]
-sphinx-autodoc-typehints = "<3.0"
+sphinx-autodoc-typehints = "*"
 sphinx = ">=4.0.2"
 sphinx-autobuild = ">=2021.3.14"
 sphinx-rtd-theme = ">=1.0.0,<3.0.3"

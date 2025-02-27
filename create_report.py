@@ -267,9 +267,10 @@ def draw_per_grouping_algorithm_plots(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate reports from evaluation results")
     parser.add_argument("--run_id", required=True, help="Run ID for the current execution")
+    parser.add_argument("--dataset", required=True, help="Dataset name for which to render the result file")
     args = parser.parse_args()
     run_id = args.run_id
-
+    dataset = args.dataset
     # assert that the run_id folder exists
     if not os.path.exists(f"results/{run_id}"):
         raise AssertionError(f"Folder results/{run_id} does not exist. The pipeline has to be run first.")
@@ -280,7 +281,7 @@ if __name__ == "__main__":
         evaluation_results_per_drug,
         evaluation_results_per_cell_line,
         true_vs_pred,
-    ) = parse_results(path_to_results=f"results/{run_id}")
+    ) = parse_results(path_to_results=f"results/{run_id}", dataset=dataset)
 
     # part of pipeline: EVALUATE_FINAL, COLLECT_RESULTS
     (
@@ -303,19 +304,12 @@ if __name__ == "__main__":
         t_vs_p=true_vs_pred,
     )
     """
-    For debugging:
-    evaluation_results = pd.read_csv(
-        f'results/{run_id}/evaluation_results.csv', index_col=0
-    )
-    evaluation_results_per_drug = pd.read_csv(
-        f'results/{run_id}/evaluation_results_per_drug.csv', index_col=0
-    )
-    evaluation_results_per_cell_line = None
-    true_vs_pred = pd.read_csv(
-        f'results/{run_id}/true_vs_pred.csv', index_col=0
-    )
+    # For debugging:
+    evaluation_results = pd.read_csv(f"results/{run_id}/evaluation_results.csv", index_col=0)
+    evaluation_results_per_drug = pd.read_csv(f"results/{run_id}/evaluation_results_per_drug.csv", index_col=0)
+    evaluation_results_per_cell_line = pd.read_csv(f"results/{run_id}/evaluation_results_per_cl.csv", index_col=0)
+    true_vs_pred = pd.read_csv(f"results/{run_id}/true_vs_pred.csv", index_col=0)
     """
-
     create_output_directories(run_id)
     # Start loop over all settings
     settings = evaluation_results["LPO_LCO_LDO"].unique()

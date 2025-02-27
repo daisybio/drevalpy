@@ -1,16 +1,16 @@
 """Main module for running the drug response prediction experiment."""
 
+import importlib
 import json
 import os
 import shutil
+import tempfile
 import warnings
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import pandas as pd
-import ray
 import torch
-from ray import tune
 from sklearn.base import TransformerMixin
 
 from .datasets.dataset import DrugResponseDataset, FeatureDataset
@@ -19,24 +19,30 @@ from .models import MODEL_FACTORY, MULTI_DRUG_MODEL_FACTORY, SINGLE_DRUG_MODEL_F
 from .models.drp_model import DRPModel
 from .pipeline_function import pipeline_function
 
+if importlib.util.find_spec("ray"):
+    import ray
+else:
+    ray = None
+
 
 def drug_response_experiment(
     models: list[type[DRPModel]],
     response_data: DrugResponseDataset,
-    baselines: Optional[list[type[DRPModel]]] = None,
-    response_transformation: Optional[TransformerMixin] = None,
+    baselines: list[type[DRPModel]] | None = None,
+    response_transformation: TransformerMixin | None = None,
     run_id: str = "",
     test_mode: str = "LPO",
     metric: str = "RMSE",
     n_cv_splits: int = 5,
     multiprocessing: bool = False,
-    randomization_mode: Optional[list[str]] = None,
+    randomization_mode: list[str] | None = None,
     randomization_type: str = "permutation",
-    cross_study_datasets: Optional[list[DrugResponseDataset]] = None,
+    cross_study_datasets: list[DrugResponseDataset] | None = None,
     n_trials_robustness: int = 0,
     path_out: str = "results/",
     overwrite: bool = False,
     path_data: str = "data",
+    model_checkpoint_dir: str = "TEMPORARY",
 ) -> None:
     """
     Run the drug response prediction experiment. Save results to disc.
@@ -47,7 +53,7 @@ def drug_response_experiment(
     :param response_transformation: normalizer to use for the response data
     :param metric: metric to use for hyperparameter optimization
     :param n_cv_splits: number of cross-validation splits
-    :param multiprocessing: whether to use multiprocessing
+    :param multiprocessing: whether to use multiprocessing. This requires Ray to be installed.
     :param randomization_mode: list of randomization modes to do. Modes: SVCC, SVRC, SVCD, SVRD Can be a list of
         randomization tests e.g. 'SVCC SVCD'. Default is None, which means no randomization tests are run.
 
@@ -82,12 +88,13 @@ def drug_response_experiment(
     :param test_mode: test mode one of "LPO", "LCO", "LDO" (leave-pair-out, leave-cell-line-out, leave-drug-out)
     :param overwrite: whether to overwrite existing results
     :param path_data: path to the data directory, usually data/
+    :param model_checkpoint_dir: directory to save model checkpoints. If "TEMPORARY", a temporary directory is created.
     :raises ValueError: if no cv splits are found
     """
     if baselines is None:
         baselines = []
     cross_study_datasets = cross_study_datasets or []
-    result_path = os.path.join(path_out, run_id, test_mode)
+    result_path = os.path.join(path_out, run_id, response_data._name, test_mode)
     split_path = os.path.join(result_path, "splits")
     result_folder_exists = os.path.exists(result_path)
     if result_folder_exists and overwrite:
@@ -150,7 +157,7 @@ def drug_response_experiment(
             raise ValueError("No cv splits found.")
 
         for split_index, split in enumerate(response_data.cv_splits):
-            print(f"################# FOLD {split_index+1}/{len(response_data.cv_splits)} " f"#################")
+            print(f"################# FOLD {split_index + 1}/{len(response_data.cv_splits)} " f"#################")
 
             prediction_file = os.path.join(predictions_path, f"predictions_split_{split_index}.csv")
 
@@ -169,7 +176,6 @@ def drug_response_experiment(
             if not os.path.isfile(
                 prediction_file
             ):  # if this split has not been run yet (or for a single drug model, this drug_id)
-
                 tuning_inputs = {
                     "model": model,
                     "train_dataset": train_dataset,
@@ -179,6 +185,7 @@ def drug_response_experiment(
                     "response_transformation": response_transformation,
                     "metric": metric,
                     "path_data": path_data,
+                    "model_checkpoint_dir": model_checkpoint_dir,
                 }
 
                 if multiprocessing:
@@ -208,6 +215,7 @@ def drug_response_experiment(
                     prediction_dataset=test_dataset,
                     early_stopping_dataset=(early_stopping_dataset if model.early_stopping else None),
                     response_transformation=response_transformation,
+                    model_checkpoint_dir=model_checkpoint_dir,
                 )
 
                 for cross_study_dataset in cross_study_datasets:
@@ -226,7 +234,7 @@ def drug_response_experiment(
                         single_drug_id=(drug_id if model_name in SINGLE_DRUG_MODEL_FACTORY else None),
                     )
 
-                test_dataset.save(prediction_file)
+                test_dataset.to_csv(prediction_file)
             else:
                 print(f"Split {split_index} already exists. Skipping.")
                 with open(
@@ -254,6 +262,7 @@ def drug_response_experiment(
                         split_index=split_index,
                         randomization_type=randomization_type,
                         response_transformation=response_transformation,
+                        model_checkpoint_dir=model_checkpoint_dir,
                     )
                 if n_trials_robustness > 0:
                     print(f"Robustness test for {model_class.get_model_name()}")
@@ -287,7 +296,7 @@ def consolidate_single_drug_model_predictions(
     n_cv_splits: int,
     results_path: str,
     cross_study_datasets: list[DrugResponseDataset],
-    randomization_mode: Optional[list[str]] = None,
+    randomization_mode: list[str] | None = None,
     n_trials_robustness: int = 0,
     out_path: str = "",
 ) -> None:
@@ -305,7 +314,6 @@ def consolidate_single_drug_model_predictions(
     """
     for model in models:
         if model.get_model_name() in SINGLE_DRUG_MODEL_FACTORY:
-
             model_instance = MODEL_FACTORY[model.get_model_name()]()
             model_path = os.path.join(results_path, model.get_model_name())
             out_path = os.path.join(out_path, model.get_model_name())
@@ -318,7 +326,6 @@ def consolidate_single_drug_model_predictions(
                 os.makedirs(os.path.join(out_path, "robustness"), exist_ok=True)
 
             for split in range(n_cv_splits):
-
                 # Collect predictions for drugs across all scenarios (main, cross_study, robustness, randomization)
                 predictions: Any = {
                     "main": [],
@@ -363,7 +370,7 @@ def consolidate_single_drug_model_predictions(
                     # Robustness predictions
                     for trial in range(n_trials_robustness):
                         robustness_path = os.path.join(single_drug_prediction_path, "robustness")
-                        f = f"robustness_{trial+1}_split_{split}.csv"
+                        f = f"robustness_{trial + 1}_split_{split}.csv"
                         if trial not in predictions["robustness"]:
                             predictions["robustness"][trial] = []
                         predictions["robustness"][trial].append(
@@ -411,7 +418,7 @@ def consolidate_single_drug_model_predictions(
                         os.path.join(
                             out_path,
                             "robustness",
-                            f"robustness_{trial+1}_split_{split}.csv",
+                            f"robustness_{trial + 1}_split_{split}.csv",
                         )
                     )
 
@@ -427,7 +434,7 @@ def consolidate_single_drug_model_predictions(
 
 def load_features(
     model: DRPModel, path_data: str, dataset: DrugResponseDataset
-) -> tuple[FeatureDataset, Optional[FeatureDataset]]:
+) -> tuple[FeatureDataset, FeatureDataset | None]:
     """
     Load and reduce cell line and drug features for a given dataset.
 
@@ -448,11 +455,11 @@ def cross_study_prediction(
     test_mode: str,
     train_dataset: DrugResponseDataset,
     path_data: str,
-    early_stopping_dataset: Optional[DrugResponseDataset],
-    response_transformation: Optional[TransformerMixin],
+    early_stopping_dataset: DrugResponseDataset | None,
+    response_transformation: TransformerMixin | None,
     path_out: str,
     split_index: int,
-    single_drug_id: Optional[str] = None,
+    single_drug_id: str | None = None,
 ) -> None:
     """
     Run the drug response prediction experiment on a cross-study dataset to assess the generalizability of the model.
@@ -484,7 +491,7 @@ def cross_study_prediction(
 
     cell_lines_to_keep = cl_features.identifiers if cl_features is not None else None
 
-    drugs_to_keep: Optional[np.ndarray] = None
+    drugs_to_keep: np.ndarray | None = None
     if single_drug_id is not None:
         drugs_to_keep = np.array([single_drug_id])
     elif drug_features is not None:
@@ -535,7 +542,7 @@ def cross_study_prediction(
             dataset._response = response_transformation.inverse_transform(dataset.response)
     else:
         dataset._predictions = np.array([])
-    dataset.save(
+    dataset.to_csv(
         os.path.join(
             path_out,
             "cross_study",
@@ -584,10 +591,11 @@ def robustness_test(
     path_data: str,
     train_dataset: DrugResponseDataset,
     test_dataset: DrugResponseDataset,
-    early_stopping_dataset: Optional[DrugResponseDataset],
+    early_stopping_dataset: DrugResponseDataset | None,
     path_out: str,
     split_index: int,
-    response_transformation: Optional[TransformerMixin] = None,
+    response_transformation: TransformerMixin | None = None,
+    model_checkpoint_dir: str = "TEMPORARY",
 ):
     """
     Run robustness tests for the given model and dataset.
@@ -605,14 +613,15 @@ def robustness_test(
     :param split_index: index of the split
     :param response_transformation: sklearn.preprocessing scaler like StandardScaler or MinMaxScaler to use to scale
         the target
+    :param model_checkpoint_dir: directory to save model checkpoints, if "TEMPORARY": temporary directory is used
     """
     robustness_test_path = os.path.join(path_out, "robustness")
     os.makedirs(robustness_test_path, exist_ok=True)
     for trial in range(n_trials):
-        print(f"Running robustness test trial {trial+1}/{n_trials}")
+        print(f"Running robustness test trial {trial + 1}/{n_trials}")
         trial_file = os.path.join(
             robustness_test_path,
-            f"robustness_{trial+1}_split_{split_index}.csv",
+            f"robustness_{trial + 1}_split_{split_index}.csv",
         )
         if not os.path.isfile(trial_file):
             robustness_train_predict(
@@ -625,6 +634,7 @@ def robustness_test(
                 hpam_set=hpam_set,
                 path_data=path_data,
                 response_transformation=response_transformation,
+                model_checkpoint_dir=model_checkpoint_dir,
             )
 
 
@@ -634,12 +644,13 @@ def robustness_train_predict(
     trial_file: str,
     train_dataset: DrugResponseDataset,
     test_dataset: DrugResponseDataset,
-    early_stopping_dataset: Optional[DrugResponseDataset],
+    early_stopping_dataset: DrugResponseDataset | None,
     model: DRPModel,
     hpam_set: dict,
     path_data: str,
-    response_transformation: Optional[TransformerMixin] = None,
-):
+    response_transformation: TransformerMixin | None = None,
+    model_checkpoint_dir: str = "TEMPORARY",
+) -> None:
     """
     Train and predict for the robustness test.
 
@@ -652,6 +663,7 @@ def robustness_train_predict(
     :param hpam_set: hyperparameters to use
     :param path_data: path to the data directory, e.g., data/
     :param response_transformation: sklearn.preprocessing scaler like StandardScaler or MinMaxScaler to use to scale
+    :param model_checkpoint_dir: directory to save model checkpoints. If "TEMPORARY", a temporary directory is created.
     """
     train_dataset.shuffle(random_state=trial)
     test_dataset.shuffle(random_state=trial)
@@ -665,8 +677,9 @@ def robustness_train_predict(
         prediction_dataset=test_dataset,
         early_stopping_dataset=early_stopping_dataset,
         response_transformation=response_transformation,
+        model_checkpoint_dir=model_checkpoint_dir,
     )
-    test_dataset.save(trial_file)
+    test_dataset.to_csv(trial_file)
 
 
 def randomization_test(
@@ -676,11 +689,12 @@ def randomization_test(
     path_data: str,
     train_dataset: DrugResponseDataset,
     test_dataset: DrugResponseDataset,
-    early_stopping_dataset: Optional[DrugResponseDataset],
+    early_stopping_dataset: DrugResponseDataset | None,
     path_out: str,
     split_index: int,
     randomization_type: str = "permutation",
-    response_transformation=Optional[TransformerMixin],
+    response_transformation=TransformerMixin | None,
+    model_checkpoint_dir: str = "TEMPORARY",
 ) -> None:
     """
     Run randomization tests for the given model and dataset.
@@ -705,6 +719,7 @@ def randomization_test(
         instance, for networks it is the degree distribution.
     :param response_transformation: sklearn.preprocessing scaler like StandardScaler or MinMaxScaler
         to use to scale the target
+    :param model_checkpoint_dir: directory to save model checkpoints
     """
     for test_name, views in randomization_test_views.items():
         randomization_test_path = os.path.join(path_out, "randomization")
@@ -729,6 +744,7 @@ def randomization_test(
                     test_dataset=test_dataset,
                     early_stopping_dataset=early_stopping_dataset,
                     response_transformation=response_transformation,
+                    model_checkpoint_dir=model_checkpoint_dir,
                 )
         else:
             print(f"Randomization test {test_name} already exists. Skipping.")
@@ -745,8 +761,9 @@ def randomize_train_predict(
     path_data: str,
     train_dataset: DrugResponseDataset,
     test_dataset: DrugResponseDataset,
-    early_stopping_dataset: Optional[DrugResponseDataset],
-    response_transformation: Optional[TransformerMixin],
+    early_stopping_dataset: DrugResponseDataset | None,
+    model_checkpoint_dir: str = "TEMPORARY",
+    response_transformation: TransformerMixin | None = None,
 ) -> None:
     """
     Randomize the features for a given view and run the model.
@@ -761,6 +778,7 @@ def randomize_train_predict(
     :param train_dataset: training dataset
     :param test_dataset: test dataset
     :param early_stopping_dataset: early stopping dataset
+    :param model_checkpoint_dir: directory to save model checkpoints
     :param response_transformation: sklearn.preprocessing scaler like StandardScaler or MinMaxScaler to use to scale
     """
     cl_features, drug_features = load_features(model, path_data, train_dataset)
@@ -783,12 +801,12 @@ def randomize_train_predict(
         )
         return
 
-    cl_features_rand: Optional[FeatureDataset] = None
+    cl_features_rand: FeatureDataset | None = None
     if cl_features is not None:
         cl_features_rand = cl_features.copy()
         cl_features_rand.randomize_features(view, randomization_type=randomization_type)  # type: ignore[union-attr]
 
-    drug_features_rand: Optional[FeatureDataset] = None
+    drug_features_rand: FeatureDataset | None = None
     if drug_features is not None:
         drug_features_rand = drug_features.copy()
         drug_features_rand.randomize_features(view, randomization_type=randomization_type)  # type: ignore[union-attr]
@@ -803,8 +821,9 @@ def randomize_train_predict(
         response_transformation=response_transformation,
         cl_features=cl_features_rand,
         drug_features=drug_features_rand,
+        model_checkpoint_dir=model_checkpoint_dir,
     )
-    test_dataset_rand.save(randomization_test_file)
+    test_dataset_rand.to_csv(randomization_test_file)
 
 
 def split_early_stopping(
@@ -837,10 +856,11 @@ def train_and_predict(
     path_data: str,
     train_dataset: DrugResponseDataset,
     prediction_dataset: DrugResponseDataset,
-    early_stopping_dataset: Optional[DrugResponseDataset] = None,
-    response_transformation: Optional[TransformerMixin] = None,
-    cl_features: Optional[FeatureDataset] = None,
-    drug_features: Optional[FeatureDataset] = None,
+    early_stopping_dataset: DrugResponseDataset | None = None,
+    response_transformation: TransformerMixin | None = None,
+    cl_features: FeatureDataset | None = None,
+    drug_features: FeatureDataset | None = None,
+    model_checkpoint_dir: str = "TEMPORARY",
 ) -> DrugResponseDataset:
     """
     Train the model and predict the response for the prediction dataset.
@@ -854,6 +874,8 @@ def train_and_predict(
     :param response_transformation: normalizer to use for the response data, e.g., StandardScaler
     :param cl_features: cell line features
     :param drug_features: drug features
+    :param model_checkpoint_dir: directory for model checkpoints, if "TEMPORARY", checkpoints are not saved.
+            Default is "TEMPORARY"
     :returns: prediction dataset with predictions
     :raises ValueError: if train_dataset does not have a dataset_name
     """
@@ -881,10 +903,11 @@ def train_and_predict(
 
     train_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
     prediction_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
-    print(f"Reduced training dataset from {len_train_before} to {len(train_dataset)}, because of missing features")
-    print(
-        f"Reduced prediction dataset from {len_pred_before} to {len(prediction_dataset)}, because of missing features"
-    )
+    if len(train_dataset) < len_train_before or len(prediction_dataset) < len_pred_before:
+        print(f"Reduced training dataset from {len_train_before} to {len(train_dataset)}, due to missing features")
+        print(
+            f"Reduced prediction dataset from {len_pred_before} to {len(prediction_dataset)}, due to missing features"
+        )
 
     if early_stopping_dataset is not None:
         len_es_before = len(early_stopping_dataset)
@@ -898,12 +921,28 @@ def train_and_predict(
         prediction_dataset.transform(response_transformation)
 
     print("Training model ...")
-    model.train(
-        output=train_dataset,
-        cell_line_input=cl_features,
-        drug_input=drug_features,
-        output_earlystopping=early_stopping_dataset,
-    )
+    if model_checkpoint_dir == "TEMPORARY":
+        with tempfile.TemporaryDirectory() as temp_dir:
+            print(f"Using temporary directory: {temp_dir} for model checkpoints")
+            model.train(
+                output=train_dataset,
+                output_earlystopping=early_stopping_dataset,
+                cell_line_input=cl_features,
+                drug_input=drug_features,
+                model_checkpoint_dir=temp_dir,
+            )
+    else:
+        if not os.path.exists(model_checkpoint_dir):
+            os.makedirs(model_checkpoint_dir, exist_ok=True)
+        print(f"Using directory: {model_checkpoint_dir} for model checkpoints")
+        model.train(
+            output=train_dataset,
+            output_earlystopping=early_stopping_dataset,
+            cell_line_input=cl_features,
+            drug_input=drug_features,
+            model_checkpoint_dir=model_checkpoint_dir,
+        )
+
     if len(prediction_dataset) > 0:
         prediction_dataset._predictions = model.predict(
             cell_line_ids=prediction_dataset.cell_line_ids,
@@ -926,9 +965,10 @@ def train_and_evaluate(
     path_data: str,
     train_dataset: DrugResponseDataset,
     validation_dataset: DrugResponseDataset,
-    early_stopping_dataset: Optional[DrugResponseDataset] = None,
-    response_transformation: Optional[TransformerMixin] = None,
+    early_stopping_dataset: DrugResponseDataset | None = None,
+    response_transformation: TransformerMixin | None = None,
     metric: str = "rmse",
+    model_checkpoint_dir: str = "TEMPORARY",
 ) -> dict[str, float]:
     """
     Train and evaluate the model, i.e., call train_and_predict() and then evaluate().
@@ -941,6 +981,7 @@ def train_and_evaluate(
     :param early_stopping_dataset: early stopping dataset
     :param response_transformation: normalizer to use for the response data
     :param metric: metric to evaluate the model on
+    :param model_checkpoint_dir: directory to save model checkpoints
     :returns: dictionary of the evaluation results, e.g., {"RMSE": 0.1}
     """
     validation_dataset = train_and_predict(
@@ -951,6 +992,7 @@ def train_and_evaluate(
         prediction_dataset=validation_dataset,
         early_stopping_dataset=early_stopping_dataset,
         response_transformation=response_transformation,
+        model_checkpoint_dir=model_checkpoint_dir,
     )
     return evaluate(validation_dataset, metric=[metric])
 
@@ -960,10 +1002,11 @@ def hpam_tune(
     train_dataset: DrugResponseDataset,
     validation_dataset: DrugResponseDataset,
     hpam_set: list[dict],
-    early_stopping_dataset: Optional[DrugResponseDataset] = None,
-    response_transformation: Optional[TransformerMixin] = None,
+    early_stopping_dataset: DrugResponseDataset | None = None,
+    response_transformation: TransformerMixin | None = None,
     metric: str = "RMSE",
     path_data: str = "data",
+    model_checkpoint_dir: str = "TEMPORARY",
 ) -> dict:
     """
     Tune the hyperparameters for the given model in an iterative manner.
@@ -976,6 +1019,7 @@ def hpam_tune(
     :param response_transformation: normalizer to use for the response data
     :param metric: metric to evaluate which model is the best
     :param path_data: path to the data directory, e.g., data/
+    :param model_checkpoint_dir: directory to save model checkpoints
     :returns: best hyperparameters
     :raises AssertionError: if hpam_set is empty
     """
@@ -998,6 +1042,7 @@ def hpam_tune(
             early_stopping_dataset=early_stopping_dataset,
             metric=metric,
             response_transformation=response_transformation,
+            model_checkpoint_dir=model_checkpoint_dir,
         )[metric]
 
         if np.isnan(score):
@@ -1019,15 +1064,16 @@ def hpam_tune_raytune(
     model: DRPModel,
     train_dataset: DrugResponseDataset,
     validation_dataset: DrugResponseDataset,
-    early_stopping_dataset: Optional[DrugResponseDataset],
+    early_stopping_dataset: DrugResponseDataset | None,
     hpam_set: list[dict],
-    response_transformation: Optional[TransformerMixin] = None,
+    response_transformation: TransformerMixin | None = None,
     metric: str = "RMSE",
     ray_path: str = "raytune",
     path_data: str = "data",
+    model_checkpoint_dir: str = "TEMPORARY",
 ) -> dict:
     """
-    Tune the hyperparameters for the given model using raytune.
+    Tune the hyperparameters for the given model using raytune. This requires ray to be installed.
 
     :param model: model to use
     :param train_dataset: training dataset
@@ -1038,6 +1084,7 @@ def hpam_tune_raytune(
     :param metric: metric to evaluate which model is the best
     :param ray_path: path to the raytune directory
     :param path_data: path to the data directory, e.g., data/
+    :param model_checkpoint_dir: directory to save model checkpoints
     :returns: best hyperparameters
     """
     if len(hpam_set) == 1:
@@ -1047,7 +1094,7 @@ def hpam_tune_raytune(
         resources_per_trial = {"gpu": 1}  # TODO make this user defined
     else:
         resources_per_trial = {"cpu": 1}  # TODO make this user defined
-    analysis = tune.run(
+    analysis = ray.tune.run(
         lambda hpams: train_and_evaluate(
             model=model,
             hpams=hpams,
@@ -1057,8 +1104,9 @@ def hpam_tune_raytune(
             early_stopping_dataset=early_stopping_dataset,
             metric=metric,
             response_transformation=response_transformation,
+            model_checkpoint_dir=model_checkpoint_dir,
         ),
-        config=tune.grid_search(hpam_set),
+        config=ray.tune.grid_search(hpam_set),
         mode="min",
         num_samples=5,
         resources_per_trial=resources_per_trial,
@@ -1094,9 +1142,8 @@ def make_model_list(models: list[type[DRPModel]], response_data: DrugResponseDat
 
 
 @pipeline_function
-def get_model_name_and_drug_id(model_name: str) -> tuple[str, Optional[str]]:
-    """
-    Get the model name and drug id from the model name.
+def get_model_name_and_drug_id(model_name: str) -> tuple[str, str | None]:
+    """Get the model name and drug id from the model name.
 
     :param model_name: model name, e.g., SimpleNeuralNetwork or MOLIR.Afatinib
     :returns: tuple of model name and, potentially drug id if it is a single drug model
@@ -1119,8 +1166,8 @@ def get_model_name_and_drug_id(model_name: str) -> tuple[str, Optional[str]]:
 
 @pipeline_function
 def get_datasets_from_cv_split(
-    split: dict[str, DrugResponseDataset], model_class: type[DRPModel], model_name: str, drug_id: Optional[str] = None
-) -> tuple[DrugResponseDataset, DrugResponseDataset, Optional[DrugResponseDataset], DrugResponseDataset]:
+    split: dict[str, DrugResponseDataset], model_class: type[DRPModel], model_name: str, drug_id: str | None = None
+) -> tuple[DrugResponseDataset, DrugResponseDataset, DrugResponseDataset | None, DrugResponseDataset]:
     """
     Get train, validation, (early stopping), and test datasets from the CV split.
 

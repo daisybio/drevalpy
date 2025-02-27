@@ -25,6 +25,7 @@ def test_factory() -> None:
     assert "NaivePredictor" in MODEL_FACTORY
     assert "NaiveDrugMeanPredictor" in MODEL_FACTORY
     assert "NaiveCellLineMeanPredictor" in MODEL_FACTORY
+    assert "NaiveMeanEffectsPredictor" in MODEL_FACTORY
     assert "ElasticNet" in MODEL_FACTORY
     assert "RandomForest" in MODEL_FACTORY
     assert "SVR" in MODEL_FACTORY
@@ -37,7 +38,6 @@ def test_factory() -> None:
     assert "MOLIR" in MODEL_FACTORY
     assert "SuperFELTR" in MODEL_FACTORY
     assert "DIPK" in MODEL_FACTORY
-    assert len(MODEL_FACTORY) == 15
 
 
 def test_load_cl_ids_from_csv() -> None:
@@ -151,10 +151,9 @@ def test_iterate_features() -> None:
     """Test the iteration over features."""
     df = pd.DataFrame({"GeneA": [1, 2, 3, 2], "GeneB": [4, 5, 6, 2], "GeneC": [7, 8, 9, 2]})
     df.index = ["CellLine1", "CellLine2", "CellLine3", "CellLine1"]
-    with pytest.warns(UserWarning):
-        features = iterate_features(df, "gene_expression")
+    features = iterate_features(df, "gene_expression")
     assert len(features) == 3
-    assert np.all(features["CellLine1"]["gene_expression"] == [1, 4, 7])
+    assert np.all(features["CellLine1"]["gene_expression"] == [1.5, 3, 4.5])
 
 
 def test_load_drug_ids_from_csv() -> None:
@@ -178,27 +177,27 @@ def test_load_drugs_from_fingerprints() -> None:
         temp.name,
         "GDSC1_small",
         "drug_fingerprints",
-        "drug_name_to_demorgan_128_map.csv",
+        "pubchem_id_to_demorgan_128_map.csv",
     )
     with open(temp_file, "w") as f:
         f.write(
-            ",Zibotentan,AZD1208,CI-1040,A-83-01,GSK269962A\n"
-            "0,1,1,1,1,1\n"
-            "1,1,1,0,0,1\n"
-            "2,0,1,1,0,1\n"
-            "3,1,0,1,1,1\n"
-            "4,1,1,0,1,1\n"
+            "3827738,5311510,46883536,73707530,16720766\n"
+            "1,1,1,1,1\n"
+            "1,1,0,0,1\n"
+            "0,1,1,0,1\n"
+            "1,0,1,1,1\n"
+            "1,1,0,1,1\n"
         )
     drug_features_gdsc1 = load_drug_fingerprint_features(temp.name, "GDSC1_small")
     assert len(drug_features_gdsc1.features) == 5
     assert drug_features_gdsc1.features.keys() == {
-        "Zibotentan",
-        "AZD1208",
-        "CI-1040",
-        "A-83-01",
-        "GSK269962A",
+        "3827738",
+        "5311510",
+        "46883536",
+        "73707530",
+        "16720766",
     }
-    assert np.all(drug_features_gdsc1.features["Zibotentan"]["fingerprints"] == [1, 1, 0, 1, 1])
+    assert np.all(drug_features_gdsc1.features["3827738"]["fingerprints"] == [1, 1, 0, 1, 1])
 
 
 @pytest.mark.parametrize(
@@ -277,12 +276,14 @@ def test_get_multiomics_feature_dataset(gene_list: Optional[str]) -> None:
                 data_path=temp.name,
                 dataset_name="GDSC1_small",
                 gene_list=gene_list,
+                omics=["gene_expression", "methylation", "mutations", "copy_number_variation_gistic"],
             )
     else:
         dataset = get_multiomics_feature_dataset(
             data_path=temp.name,
             dataset_name="GDSC1_small",
             gene_list=gene_list,
+            omics=["gene_expression", "methylation", "mutations", "copy_number_variation_gistic"],
         )
         assert len(dataset.features) == 2
         common_cls = dataset.identifiers

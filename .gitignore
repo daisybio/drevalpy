@@ -6,6 +6,8 @@ data/GDSC1
 data/GDSC2
 data/CCLE
 data/Toy_Data
+data/CTRPv1
+data/CTRPv2
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

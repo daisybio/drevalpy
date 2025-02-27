@@ -63,7 +63,7 @@ class CriticalDifferencePlot(OutPlot):
         """
         eval_results_preds = eval_results_preds[["algorithm", "CV_split", metric]]
         if metric in MINIMIZATION_METRICS:
-            eval_results_preds[metric] = -eval_results_preds[metric]
+            eval_results_preds.loc[:, metric] = -eval_results_preds.loc[:, metric]
 
         self.eval_results_preds = eval_results_preds
         self.metric = metric
@@ -88,19 +88,12 @@ class CriticalDifferencePlot(OutPlot):
         friedman_p_value = stats.friedmanchisquare(
             *self.eval_results_preds.groupby("algorithm")[self.metric].apply(list)
         ).pvalue
-
-        self.test_results = sp.posthoc_conover_friedman(
-            self.eval_results_preds[[self.metric, "algorithm", "CV_split"]],
-            melted=True,
-            block_col="CV_split",
-            group_col="algorithm",
-            y_col=self.metric,
+        # transform: rows = CV_split, columns = algorithms, values = metric
+        input_conover_friedman = self.eval_results_preds.pivot_table(
+            index="CV_split", columns="algorithm", values=self.metric
         )
-        average_ranks = (
-            self.eval_results_preds.pivot(index="algorithm", columns="CV_split", values=self.metric)
-            .rank(ascending=True)
-            .mean(axis=1)
-        )
+        self.test_results = sp.posthoc_conover_friedman(input_conover_friedman.to_numpy())
+        average_ranks = input_conover_friedman.rank(ascending=False, axis=1).mean(axis=0)
         plt.title(
             f"Critical Difference Diagram: Metric: {self.metric}. Overall Friedmam-Chi2 p-value: {friedman_p_value:.2e}"
         )

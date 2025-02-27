@@ -1,5 +1,6 @@
 """Utility functions for datasets."""
 
+import os
 import zipfile
 from pathlib import Path
 from typing import Any
@@ -7,6 +8,9 @@ from typing import Any
 import networkx as nx
 import numpy as np
 import requests
+
+DRUG_IDENTIFIER = "pubchem_id"
+CELL_LINE_IDENTIFIER = "cell_line_name"
 
 
 def download_dataset(
@@ -25,18 +29,18 @@ def download_dataset(
     file_name = f"{dataset_name}.zip"
     file_path = Path(data_path) / file_name
     extracted_folder_path = file_path.with_suffix("")
-
+    timeout = 120
     # Check if the extracted data exists and skip download if not redownloading
     if extracted_folder_path.exists() and not redownload:
         print(f"{dataset_name} is already extracted, skipping download.")
     else:
         url = "https://zenodo.org/doi/10.5281/zenodo.12633909"
         # Fetch the latest record
-        response = requests.get(url, timeout=60)
+        response = requests.get(url, timeout=timeout)
         if response.status_code != 200:
             raise requests.exceptions.HTTPError(f"Error fetching record: {response.status_code}")
         latest_url = response.links["linkset"]["url"]
-        response = requests.get(latest_url, timeout=60)
+        response = requests.get(latest_url, timeout=timeout)
         if response.status_code != 200:
             raise requests.exceptions.HTTPError(f"Error fetching record: {response.status_code}")
         data = response.json()
@@ -49,7 +53,7 @@ def download_dataset(
         file_url = name_to_url[file_name]
         # Download the file
         print(f"Downloading {dataset_name} from {file_url}...")
-        response = requests.get(file_url, timeout=60)
+        response = requests.get(file_url, timeout=timeout)
         if response.status_code != 200:
             raise requests.exceptions.HTTPError(f"Error downloading file {dataset_name}: " f"{response.status_code}")
 
@@ -60,7 +64,7 @@ def download_dataset(
         with zipfile.ZipFile(file_path, "r") as z:
             for member in z.infolist():
                 if not member.filename.startswith("__MACOSX/"):
-                    z.extract(member, data_path)
+                    z.extract(member, os.path.join(data_path))
         file_path.unlink()  # Remove zip file after extraction
 
         print(f"{dataset_name} data downloaded and extracted to {data_path}")

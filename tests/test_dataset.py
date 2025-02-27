@@ -1,10 +1,12 @@
 """Tests for the DrugResponseDataset and the FeatureDataset class."""
 
+import shutil
 import tempfile
 from pathlib import Path
 
 import networkx as nx
 import numpy as np
+import pandas as pd
 import pytest
 from flaky import flaky
 
@@ -29,7 +31,7 @@ def test_response_dataset_load() -> None:
         response=data["response"],
     )
     dataset_path = Path("dataset.csv")
-    dataset.save(dataset_path)
+    dataset.to_csv(dataset_path)
     del dataset
     # Load the dataset
     dataset = DrugResponseDataset.from_csv(dataset_path)
@@ -52,9 +54,13 @@ def test_fitting_and_loading_custom_dataset():
         curve_curator=True,
         cores=200,
     )
-    for f in (Path(__file__).parent / dataset_name).glob("*"):
-        if f.name != f"{dataset_name}_raw.csv":
-            f.unlink()
+    for item in (Path(__file__).parent / dataset_name).iterdir():
+        if item.name == f"{dataset_name}_raw.csv":
+            continue
+        if item.is_dir():
+            shutil.rmtree(item)
+        else:
+            item.unlink()
 
 
 def test_response_dataset_add_rows() -> None:
@@ -526,20 +532,6 @@ def test_invariant_randomization_graph(graph_dataset: FeatureDataset) -> None:
         )
 
 
-def test_feature_dataset_save_and_load(sample_dataset: FeatureDataset) -> None:
-    """
-    Test if the save and load methods work correctly.
-
-    :param sample_dataset: sample FeatureDataset
-    """
-    tmp = tempfile.NamedTemporaryFile()
-    with pytest.raises(NotImplementedError):
-        sample_dataset.save(path=tmp.name)
-
-    with pytest.raises(NotImplementedError):
-        FeatureDataset.from_csv(tmp.name)
-
-
 def test_add_features(sample_dataset: FeatureDataset, graph_dataset: FeatureDataset) -> None:
     """
     Test if the add_features method works correctly.
@@ -551,3 +543,61 @@ def test_add_features(sample_dataset: FeatureDataset, graph_dataset: FeatureData
     assert sample_dataset.meta_info is not None
     assert "molecular_graph" in sample_dataset.meta_info
     assert "molecular_graph" in sample_dataset.view_names
+
+
+def test_feature_dataset_csv_methods():
+    """Test the `from_csv` and `to_csv` methods of the FeatureDataset class."""
+    # Create temporary directory for testing
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_dir = Path(temp_dir)
+
+        # Create test data
+        test_csv_path = temp_dir / "test_features.csv"
+        data = {
+            "id": ["A", "B", "C"],
+            "feature_1": [1.0, 2.0, 3.0],
+            "feature_2": [4.0, 5.0, 6.0],
+        }
+        df = pd.DataFrame(data)
+        df.to_csv(test_csv_path, index=False)
+
+        # Test `from_csv` method
+        view_name = "example_view"
+        feature_dataset = FeatureDataset.from_csv(
+            path_to_csv=test_csv_path, id_column="id", view_name=view_name, drop_columns=None
+        )
+
+        # Validate loaded data
+        assert set(feature_dataset.identifiers) == {"A", "B", "C"}, "Identifiers mismatch."
+        assert feature_dataset.view_names == [view_name], "View names mismatch."
+        expected_features = {
+            "A": {"example_view": np.array([1.0, 4.0])},
+            "B": {"example_view": np.array([2.0, 5.0])},
+            "C": {"example_view": np.array([3.0, 6.0])},
+        }
+        for identifier in expected_features:
+            np.testing.assert_array_equal(
+                feature_dataset.features[identifier][view_name],
+                expected_features[identifier][view_name],
+                f"Feature mismatch for identifier {identifier}.",
+            )
+
+        # Test `to_csv` method
+        output_csv_path = temp_dir / "output_features.csv"
+        feature_dataset.to_csv(path=output_csv_path, id_column="id", view_name=view_name)
+
+        # Validate saved data
+        saved_df = pd.read_csv(output_csv_path)
+        expected_saved_df = pd.DataFrame(
+            {
+                "id": ["A", "B", "C"],
+                "feature_0": [1.0, 2.0, 3.0],
+                "feature_1": [4.0, 5.0, 6.0],
+            }
+        )
+        pd.testing.assert_frame_equal(
+            saved_df,
+            expected_saved_df,
+            check_dtype=False,  # Relax dtype check for cross-platform compatibility
+            obj="Saved CSV data",
+        )

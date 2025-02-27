@@ -1,9 +1,7 @@
 """Contains sklearn baseline models: ElasticNet, RandomForest, SVM."""
 
-from typing import Optional
-
 import numpy as np
-from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
+from sklearn.ensemble import HistGradientBoostingRegressor, RandomForestRegressor
 from sklearn.linear_model import ElasticNet, Lasso, Ridge
 from sklearn.svm import SVR
 
@@ -52,6 +50,7 @@ class SklearnModel(DRPModel):
         cell_line_input: FeatureDataset,
         drug_input: FeatureDataset | None = None,
         output_earlystopping: DrugResponseDataset | None = None,
+        model_checkpoint_dir: str = "checkpoints",
     ) -> None:
         """
         Trains the model.
@@ -61,6 +60,7 @@ class SklearnModel(DRPModel):
         :param cell_line_input: training dataset containing gene expression data
         :param drug_input: training dataset containing fingerprints data
         :param output_earlystopping: not needed
+        :param model_checkpoint_dir: not needed
         :raises ValueError: If drug_input is None.
         """
         if drug_input is None:
@@ -121,7 +121,7 @@ class SklearnModel(DRPModel):
             dataset_name=dataset_name,
         )
 
-    def load_drug_features(self, data_path: str, dataset_name: str) -> Optional[FeatureDataset]:
+    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset | None:
         """
         Load the drug features, in this case the fingerprints.
 
@@ -237,9 +237,8 @@ class GradientBoosting(SklearnModel):
         """
         if hyperparameters["max_depth"] == "None":
             hyperparameters["max_depth"] = None
-        self.model = GradientBoostingRegressor(
-            n_estimators=hyperparameters.get("n_estimators", 100),
+        self.model = HistGradientBoostingRegressor(
+            max_iter=hyperparameters.get("max_iter", 100),
             learning_rate=hyperparameters.get("learning_rate", 0.1),
             max_depth=hyperparameters.get("max_depth", 3),
-            subsample=hyperparameters.get("subsample", 1.0),
         )

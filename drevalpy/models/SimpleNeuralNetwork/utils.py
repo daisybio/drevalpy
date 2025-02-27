@@ -158,9 +158,9 @@ class FeedForwardNetwork(pl.LightningModule):
         trainer_params: dict | None = None,
         batch_size=32,
         patience=5,
-        checkpoint_path: str | None = None,
         num_workers: int = 2,
         met_transform: Any = None,
+        model_checkpoint_dir: str = "checkpoints",
     ) -> None:
         """
         Fits the model.
@@ -175,21 +175,20 @@ class FeedForwardNetwork(pl.LightningModule):
         :param trainer_params: custom parameters for the trainer
         :param batch_size: batch size for the DataLoader, default is 32
         :param patience: patience for early stopping, default is 5
-        :param checkpoint_path: path to save the checkpoints
         :param num_workers: number of workers for the DataLoader, default is 2
         :param met_transform: transformation for methylation data, default is None, PCA is used for the MultiOMICSNN.
+        :param model_checkpoint_dir: directory to save the model checkpoints
         :raises ValueError: if drug_input is missing
         """
+        if trainer_params is None:
+            trainer_params = {
+                "max_epochs": 100,
+                "progress_bar_refresh_rate": 500,
+            }
         if drug_input is None:
             raise ValueError(
                 "Drug input (fingerprints) are required for SimpleNeuralNetwork and " "MultiOMICsNeuralNetwork."
             )
-
-        if trainer_params is None:
-            trainer_params = {
-                "progress_bar_refresh_rate": 300,
-                "max_epochs": 70,
-            }
 
         train_dataset = RegressionDataset(
             output=output_train,
@@ -230,11 +229,14 @@ class FeedForwardNetwork(pl.LightningModule):
         monitor = "train_loss" if (val_loader is None) else "val_loss"
 
         early_stop_callback = EarlyStopping(monitor=monitor, mode="min", patience=patience)
-        name = "version-" + "".join(
-            [secrets.choice("0123456789abcdef") for i in range(20)]
-        )  # preventing conflicts of filenames
+
+        unique_subfolder = os.path.join(model_checkpoint_dir, "run_" + secrets.token_hex(8))
+        os.makedirs(unique_subfolder, exist_ok=True)
+
+        # prevent conflicts
+        name = "version-" + "".join([secrets.choice("0123456789abcdef") for _ in range(10)])
         self.checkpoint_callback = pl.callbacks.ModelCheckpoint(
-            dirpath=checkpoint_path,
+            dirpath=unique_subfolder,
             monitor=monitor,
             mode="min",
             save_top_k=1,
@@ -252,13 +254,21 @@ class FeedForwardNetwork(pl.LightningModule):
                 self.checkpoint_callback,
                 progress_bar,
             ],
-            default_root_dir=os.path.join(os.getcwd(), "nn_baseline_checkpoints/lightning_logs/" + name),
+            default_root_dir=model_checkpoint_dir,
+            devices=1,
             **trainer_params_copy,
         )
         if val_loader is None:
             trainer.fit(self, train_loader)
         else:
             trainer.fit(self, train_loader, val_loader)
+
+        # load best model
+        if self.checkpoint_callback.best_model_path is not None:
+            checkpoint = torch.load(self.checkpoint_callback.best_model_path, weights_only=True)  # noqa: S614
+            self.load_state_dict(checkpoint["state_dict"])
+        else:
+            print("checkpoint_callback: No best model found, using the last model.")
 
     def forward(self, x) -> torch.Tensor:
         """
@@ -322,15 +332,11 @@ class FeedForwardNetwork(pl.LightningModule):
         :param x: input data
         :returns: predicted response
         """
-        if hasattr(self, "checkpoint_callback") and self.checkpoint_callback is not None:
-            best_model = FeedForwardNetwork.load_from_checkpoint(self.checkpoint_callback.best_model_path)
-        else:
-            best_model = self
-        is_training = best_model.training
-        best_model.eval()
+        is_training = self.training
+        self.eval()
         with torch.no_grad():
-            y_pred = best_model.forward(torch.from_numpy(x).float().to(best_model.device))
-        best_model.train(is_training)
+            y_pred = self.forward(torch.from_numpy(x).float().to(self.device))
+        self.train(is_training)
         return y_pred.cpu().detach().numpy()
 
     def configure_optimizers(self) -> torch.optim.Optimizer:

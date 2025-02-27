@@ -2,7 +2,6 @@
 
 import argparse
 from pathlib import Path
-from typing import Optional
 
 from sklearn.base import TransformerMixin
 from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
@@ -174,6 +173,12 @@ def get_parser() -> argparse.ArgumentParser:
         default=False,
         help="Whether to use multiprocessing for the evaluation. Default is False",
     )
+    parser.add_argument(
+        "--model_checkpoint_dir",
+        type=str,
+        default="TEMPORARY",
+        help="Directory to save model checkpoints",
+    )
 
     return parser
 
@@ -321,6 +326,7 @@ def main(args) -> None:
             run_id=args.run_id,
             overwrite=args.overwrite,
             path_data=args.path_data,
+            model_checkpoint_dir=args.model_checkpoint_dir,
         )
 
 
@@ -331,7 +337,7 @@ def get_datasets(
     measure: str = "response",
     curve_curator: bool = False,
     cores: int = 1,
-) -> tuple[DrugResponseDataset, Optional[list[DrugResponseDataset]]]:
+) -> tuple[DrugResponseDataset, list[DrugResponseDataset] | None]:
     """
     Load the response data and cross-study datasets.
 
@@ -366,7 +372,7 @@ def get_datasets(
 
 
 @pipeline_function
-def get_response_transformation(response_transformation: str) -> Optional[TransformerMixin]:
+def get_response_transformation(response_transformation: str) -> TransformerMixin | None:
     """
     Get the skelarn response transformation object of choice.
 

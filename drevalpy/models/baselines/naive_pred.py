@@ -4,11 +4,15 @@ Implements the naive predictor models.
 The naive predictor models are simple models that predict the mean of the response values. The NaivePredictor
 predicts the overall mean of the response, the NaiveCellLineMeanPredictor predicts the mean of the response per cell
 line, and the NaiveDrugMeanPredictor predicts the mean of the response per drug.
+The NaiveMeanEffectsPredictor predicts the response as the overall mean plus the cell line effect
+plus the drug effect and should be the strongest naive baseline.
+
 """
 
 import numpy as np
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.models.utils import load_cl_ids_from_csv, load_drug_ids_from_csv, unique
 
@@ -16,8 +20,8 @@ from drevalpy.models.utils import load_cl_ids_from_csv, load_drug_ids_from_csv, 
 class NaivePredictor(DRPModel):
     """Naive predictor model that predicts the overall mean of the response."""
 
-    cell_line_views = ["cell_line_id"]
-    drug_views = ["drug_id"]
+    cell_line_views = [CELL_LINE_IDENTIFIER]
+    drug_views = [DRUG_IDENTIFIER]
 
     def __init__(self):
         """
@@ -51,6 +55,7 @@ class NaivePredictor(DRPModel):
         cell_line_input: FeatureDataset,
         drug_input: FeatureDataset | None = None,
         output_earlystopping: DrugResponseDataset | None = None,
+        model_checkpoint_dir: str = "checkpoints",
     ) -> None:
         """
         Computes the overall mean of the output response values and saves them.
@@ -59,6 +64,7 @@ class NaivePredictor(DRPModel):
         :param cell_line_input: not needed
         :param drug_input: not needed
         :param output_earlystopping: not needed
+        :param model_checkpoint_dir: not needed
         """
         self.dataset_mean = np.mean(output.response)
 
@@ -104,8 +110,8 @@ class NaivePredictor(DRPModel):
 class NaiveDrugMeanPredictor(DRPModel):
     """Naive predictor model that predicts the mean of the response per drug."""
 
-    cell_line_views = ["cell_line_id"]
-    drug_views = ["drug_id"]
+    cell_line_views = [CELL_LINE_IDENTIFIER]
+    drug_views = [DRUG_IDENTIFIER]
 
     def __init__(self):
         """
@@ -140,6 +146,7 @@ class NaiveDrugMeanPredictor(DRPModel):
         cell_line_input: FeatureDataset,
         drug_input: FeatureDataset | None = None,
         output_earlystopping: DrugResponseDataset | None = None,
+        model_checkpoint_dir: str = "None",
     ) -> None:
         """
         Computes the mean per drug. If - later on - the drug is not in the training set, the overall mean is used.
@@ -148,11 +155,12 @@ class NaiveDrugMeanPredictor(DRPModel):
         :param cell_line_input: not needed
         :param drug_input: drug id
         :param output_earlystopping: not needed
+        :param model_checkpoint_dir: not needed
         :raises ValueError: If drug_input is None
         """
         if drug_input is None:
             raise ValueError("drug_input (drug_id) is required for the NaiveDrugMeanPredictor.")
-        drug_ids = drug_input.get_feature_matrix(view="drug_id", identifiers=output.drug_ids)
+        drug_ids = drug_input.get_feature_matrix(view=DRUG_IDENTIFIER, identifiers=output.drug_ids)
         self.dataset_mean = np.mean(output.response)
         self.drug_means = {}
 
@@ -219,8 +227,8 @@ class NaiveDrugMeanPredictor(DRPModel):
 class NaiveCellLineMeanPredictor(DRPModel):
     """Naive predictor model that predicts the mean of the response per cell line."""
 
-    cell_line_views = ["cell_line_id"]
-    drug_views = ["drug_id"]
+    cell_line_views = [CELL_LINE_IDENTIFIER]
+    drug_views = [DRUG_IDENTIFIER]
 
     def __init__(self):
         """
@@ -255,6 +263,7 @@ class NaiveCellLineMeanPredictor(DRPModel):
         cell_line_input: FeatureDataset,
         drug_input: FeatureDataset | None = None,
         output_earlystopping: DrugResponseDataset | None = None,
+        model_checkpoint_dir: str = "None",
     ) -> None:
         """
         Computes the mean per cell line.
@@ -264,8 +273,9 @@ class NaiveCellLineMeanPredictor(DRPModel):
         :param cell_line_input: cell line inputs
         :param drug_input: not needed
         :param output_earlystopping: not needed
+        :param model_checkpoint_dir: not needed
         """
-        cell_line_ids = cell_line_input.get_feature_matrix(view="cell_line_id", identifiers=output.cell_line_ids)
+        cell_line_ids = cell_line_input.get_feature_matrix(view=CELL_LINE_IDENTIFIER, identifiers=output.cell_line_ids)
         self.dataset_mean = np.mean(output.response)
         self.cell_line_means = {}
 
@@ -326,5 +336,147 @@ class NaiveCellLineMeanPredictor(DRPModel):
         :param data_path: path to the data
         :param dataset_name: name of the dataset
         :returns: FeatureDataset containing the drug ids
+        """
+        return load_drug_ids_from_csv(data_path, dataset_name)
+
+
+class NaiveMeanEffectsPredictor(DRPModel):
+    """
+    ANOVA-like predictor model.
+
+    Predicts the response as:
+    response = overall_mean + cell_line_effect + drug_effect.
+
+    Here:
+        - cell_line_effect = (cell line mean - overall_mean)
+        - drug_effect = (drug mean - overall_mean)
+
+    This formulation ensures that the overall mean is not counted twice.
+    """
+
+    cell_line_views = [CELL_LINE_IDENTIFIER]
+    drug_views = [DRUG_IDENTIFIER]
+
+    def __init__(self):
+        """
+        Initializes the NaiveMeanEffectsPredictor model.
+
+        The overall dataset mean, cell line effects, and drug effects are initialized to None
+        and empty dictionaries, respectively.
+        """
+        super().__init__()
+        self.dataset_mean = None
+        self.cell_line_effects = {}
+        self.drug_effects = {}
+
+    @classmethod
+    def get_model_name(cls) -> str:
+        """
+        Returns the name of the model.
+
+        :return: The name of the model as a string.
+        """
+        return "NaiveMeanEffectsPredictor"
+
+    def build_model(self, hyperparameters: dict):
+        """
+        Builds the model.
+
+        This model does not require any hyperparameter tuning.
+
+        :param hyperparameters: Dictionary of hyperparameters (not used).
+        """
+        pass
+
+    def train(
+        self,
+        output: DrugResponseDataset,
+        cell_line_input: FeatureDataset,
+        drug_input: FeatureDataset | None = None,
+        output_earlystopping: DrugResponseDataset | None = None,
+        model_checkpoint_dir: str = "checkpoints",
+    ) -> None:
+        """
+        Trains with overall mean, cell line effects, and drug effects.
+
+        :param output: Training dataset containing the response output.
+        :param cell_line_input: Feature dataset containing cell line IDs.
+        :param drug_input: Feature dataset containing drug IDs. Must not be None.
+        :param output_earlystopping: Not used.
+        :param model_checkpoint_dir: Not used.
+        :raises ValueError: If drug_input is None.
+        """
+        if drug_input is None:
+            raise ValueError("drug_input (drug_id) is required for ANOVAPredictor.")
+
+        # Compute the overall mean response.
+        self.dataset_mean = np.mean(output.response)
+
+        # Obtain cell line features.
+        cell_line_ids = cell_line_input.get_feature_matrix(view=CELL_LINE_IDENTIFIER, identifiers=output.cell_line_ids)
+        cell_line_means = {}
+        for cl_output, cl_feature in zip(unique(output.cell_line_ids), unique(cell_line_ids), strict=True):
+            responses_cl = output.response[cl_feature == output.cell_line_ids]
+            if len(responses_cl) > 0:
+                cell_line_means[cl_output] = np.mean(responses_cl)
+
+        # Obtain drug features.
+        drug_ids = drug_input.get_feature_matrix(view=DRUG_IDENTIFIER, identifiers=output.drug_ids)
+        drug_means = {}
+        for drug_output, drug_feature in zip(unique(output.drug_ids), unique(drug_ids), strict=True):
+            responses_drug = output.response[drug_feature == output.drug_ids]
+            if len(responses_drug) > 0:
+                drug_means[drug_output] = np.mean(responses_drug)
+
+        # Compute the effects as deviations from the overall mean.
+        self.cell_line_effects = {cl: (mean - self.dataset_mean) for cl, mean in cell_line_means.items()}
+        self.drug_effects = {drug: (mean - self.dataset_mean) for drug, mean in drug_means.items()}
+
+    def predict(
+        self,
+        cell_line_ids: np.ndarray,
+        drug_ids: np.ndarray,
+        cell_line_input: FeatureDataset,
+        drug_input: FeatureDataset | None = None,
+    ) -> np.ndarray:
+        """
+        Predicts responses for given cell line and drug pairs.
+
+        The prediction is computed as:
+            prediction = overall_mean + cell_line_effect + drug_effect
+
+        If a cell line or drug has not been seen during training, their effect is set to zero.
+
+        :param cell_line_ids: Array of cell line IDs.
+        :param drug_ids: Array of drug IDs.
+        :param cell_line_input: Not used.
+        :param drug_input: Not used.
+        :return: NumPy array of predicted responses.
+        """
+        predictions = []
+        for cl, drug in zip(cell_line_ids, drug_ids):
+            effect_cl = self.cell_line_effects.get(cl, 0)
+            effect_drug = self.drug_effects.get(drug, 0)
+            # ANOVA-based prediction: overall mean + cell line effect + drug effect.
+            predictions.append(self.dataset_mean + effect_cl + effect_drug)
+        return np.array(predictions)
+
+    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+        """
+        Loads the cell line features.
+
+        :param data_path: Path to the data.
+        :param dataset_name: Name of the dataset.
+        :return: FeatureDataset containing the cell line IDs.
+        """
+        return load_cl_ids_from_csv(data_path, dataset_name)
+
+    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+        """
+        Loads the drug features.
+
+        :param data_path: Path to the data.
+        :param dataset_name: Name of the dataset.
+        :return: FeatureDataset containing the drug IDs.
         """
         return load_drug_ids_from_csv(data_path, dataset_name)

@@ -40,6 +40,7 @@ jobs:
       - name: Install Poetry
         run: |
           pipx install poetry
+          pipx inject poetry poetry-plugin-export
           poetry --version
 
       - name: Install nox nox-poetry rich
@@ -98,14 +99,15 @@ jobs:
       - name: Check out the repository
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.9
+      - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
-          python-version: 3.9
+          python-version: 3.11
 
       - name: Install Poetry
         run: |
           pipx install poetry
+          pipx inject poetry poetry-plugin-export
           poetry --version
 
       - name: Install nox nox-poetry rich
@@ -127,6 +129,6 @@ jobs:
         run: nox --force-color --session=coverage -- xml -i
 
       - name: Upload coverage report
-        uses: codecov/codecov-action@v5.1.1
+        uses: codecov/codecov-action@v5.3.1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}

@@ -1,5 +1,6 @@
 """Contains the SimpleNeuralNetwork model."""
 
+import platform
 import warnings
 
 import numpy as np
@@ -53,6 +54,7 @@ class SimpleNeuralNetwork(DRPModel):
         cell_line_input: FeatureDataset,
         drug_input: FeatureDataset | None = None,
         output_earlystopping: DrugResponseDataset | None = None,
+        model_checkpoint_dir: str = "checkpoints",
     ) -> None:
         """
         First scales the gene expression data and trains the model.
@@ -63,6 +65,7 @@ class SimpleNeuralNetwork(DRPModel):
         :param cell_line_input: cell line omics features
         :param drug_input: drug omics features
         :param output_earlystopping: optional early stopping dataset
+        :param model_checkpoint_dir: directory to save the model checkpoints
         :raises ValueError: if drug_input (fingerprints) is missing
 
         """
@@ -91,6 +94,10 @@ class SimpleNeuralNetwork(DRPModel):
                 "ignore",
                 message=".*does not have many workers which may be a bottleneck.*",
             )
+            warnings.filterwarnings(
+                "ignore",
+                message="Starting from v1\\.9\\.0, `tensorboardX` has been removed.*",
+            )
             self.model.fit(
                 output_train=output,
                 cell_line_input=cell_line_input,
@@ -98,9 +105,14 @@ class SimpleNeuralNetwork(DRPModel):
                 cell_line_views=self.cell_line_views,
                 drug_views=self.drug_views,
                 output_earlystopping=output_earlystopping,
+                trainer_params={
+                    "max_epochs": self.hyperparameters.get("max_epochs", 100),
+                    "progress_bar_refresh_rate": 500,
+                },
                 batch_size=16,
                 patience=5,
-                num_workers=1,
+                num_workers=1 if platform.system() == "Windows" else 8,
+                model_checkpoint_dir=model_checkpoint_dir,
             )
 
     def predict(

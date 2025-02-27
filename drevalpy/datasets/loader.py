@@ -9,13 +9,13 @@ import pandas as pd
 from ..pipeline_function import pipeline_function
 from .curvecurator import fit_curves
 from .dataset import DrugResponseDataset
-from .utils import download_dataset
+from .utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, download_dataset
 
 
 def load_gdsc1(
     path_data: str = "data",
-    measure: str = "LN_IC50",
-    file_name: str = "response_GDSC1.csv",
+    measure: str = "LN_IC50_curvecurator",
+    file_name: str = "GDSC1.csv",
     dataset_name: str = "GDSC1",
 ) -> DrugResponseDataset:
     """
@@ -32,18 +32,18 @@ def load_gdsc1(
     if not os.path.exists(path):
         download_dataset(dataset_name, path_data, redownload=True)
 
-    response_data = pd.read_csv(path)
-    response_data["DRUG_NAME"] = response_data["DRUG_NAME"].str.replace(",", "")
+    response_data = pd.read_csv(path, dtype={"pubchem_id": str})
+    response_data[DRUG_IDENTIFIER] = response_data[DRUG_IDENTIFIER].str.replace(",", "")
 
     return DrugResponseDataset(
         response=response_data[measure].values,
-        cell_line_ids=response_data["CELL_LINE_NAME"].values,
-        drug_ids=response_data["DRUG_NAME"].values,
+        cell_line_ids=response_data[CELL_LINE_IDENTIFIER].values,
+        drug_ids=response_data[DRUG_IDENTIFIER].values,
         dataset_name=dataset_name,
     )
 
 
-def load_gdsc2(path_data: str = "data", measure: str = "LN_IC50", file_name: str = "response_GDSC2.csv"):
+def load_gdsc2(path_data: str = "data", measure: str = "LN_IC50_curvecurator", file_name: str = "GDSC2.csv"):
     """
     Loads the GDSC2 dataset.
 
@@ -57,7 +57,7 @@ def load_gdsc2(path_data: str = "data", measure: str = "LN_IC50", file_name: str
 
 
 def load_ccle(
-    path_data: str = "data", measure: str = "LN_IC50", file_name: str = "response_CCLE.csv"
+    path_data: str = "data", measure: str = "LN_IC50_curvecurator", file_name: str = "CCLE.csv"
 ) -> DrugResponseDataset:
     """
     Loads the CCLE dataset.
@@ -73,18 +73,18 @@ def load_ccle(
     if not os.path.exists(path):
         download_dataset(dataset_name, path_data, redownload=True)
 
-    response_data = pd.read_csv(path)
-    response_data["DRUG_NAME"] = response_data["DRUG_NAME"].str.replace(",", "")
+    response_data = pd.read_csv(path, dtype={"pubchem_id": str})
+    response_data[DRUG_IDENTIFIER] = response_data[DRUG_IDENTIFIER].str.replace(",", "")
 
     return DrugResponseDataset(
         response=response_data[measure].values,
-        cell_line_ids=response_data["CELL_LINE_NAME"].values,
-        drug_ids=response_data["DRUG_NAME"].values,
+        cell_line_ids=response_data[CELL_LINE_IDENTIFIER].values,
+        drug_ids=response_data[DRUG_IDENTIFIER].values,
         dataset_name=dataset_name,
     )
 
 
-def load_toy(path_data: str = "data", measure: str = "response") -> DrugResponseDataset:
+def load_toy(path_data: str = "data", measure: str = "LN_IC50_curvecurator") -> DrugResponseDataset:
     """
     Loads small Toy dataset, subsampled from GDSC1.
 
@@ -94,18 +94,65 @@ def load_toy(path_data: str = "data", measure: str = "response") -> DrugResponse
     :return: DrugResponseDataset containing response, cell line IDs, and drug IDs.
     """
     dataset_name = "Toy_Data"
-    measure = "response"  # overwrite this explicitly to avoid problems, should be changed in the future
     path = os.path.join(path_data, dataset_name, "toy_data.csv")
     if not os.path.exists(path):
         download_dataset(dataset_name, path_data, redownload=True)
-    response_data = pd.read_csv(path)
+    response_data = pd.read_csv(path, dtype={"pubchem_id": str})
 
     return DrugResponseDataset(
         response=response_data[measure].values,
-        cell_line_ids=response_data["cell_line_id"].values,
-        drug_ids=response_data["drug_id"].values,
+        cell_line_ids=response_data[CELL_LINE_IDENTIFIER].values,
+        drug_ids=response_data[DRUG_IDENTIFIER].values,
         dataset_name=dataset_name,
     )
+
+
+def _load_ctrpv(version: str, path_data: str = "data", measure: str = "LN_IC50_curvecurator") -> DrugResponseDataset:
+    """
+    Load CTRPv1 dataset.
+
+    :param version: The version of the CTRP dataset to load.
+    :param path_data: Path to location of CTRPv1 dataset
+    :param measure: The name of the column containing the measure to predict, default = "response"
+
+    :return: DrugResponseDataset containing response, cell line IDs, and drug IDs
+    """
+    dataset_name = "CTRPv" + version
+    path = os.path.join(path_data, dataset_name, f"{dataset_name}.csv")
+    if not os.path.exists(path):
+        download_dataset(dataset_name, path_data, redownload=True)
+    response_data = pd.read_csv(path, dtype={"pubchem_id": str})
+
+    return DrugResponseDataset(
+        response=response_data[measure].values,
+        cell_line_ids=response_data[CELL_LINE_IDENTIFIER].values,
+        drug_ids=response_data[DRUG_IDENTIFIER].values,
+        dataset_name=dataset_name,
+    )
+
+
+def load_ctrpv1(path_data: str = "data", measure: str = "LN_IC50_curvecurator") -> DrugResponseDataset:
+    """
+    Load CTRPv2 dataset.
+
+    :param path_data: Path to location of CTRPv2 dataset
+    :param measure: The name of the column containing the measure to predict, default = "LN_IC50_curvecurator"
+
+    :return: DrugResponseDataset containing response, cell line IDs, and drug IDs
+    """
+    return _load_ctrpv("1", path_data, measure)
+
+
+def load_ctrpv2(path_data: str = "data", measure: str = "LN_IC50_curvecurator") -> DrugResponseDataset:
+    """
+    Load CTRPv2 dataset.
+
+    :param path_data: Path to location of CTRPv2 dataset
+    :param measure: The name of the column containing the measure to predict, default: LN_IC50_curvecurator
+
+    :return: DrugResponseDataset containing response, cell line IDs, and drug IDs
+    """
+    return _load_ctrpv("2", path_data, measure)
 
 
 def load_custom(path_data: str | Path, measure: str = "response") -> DrugResponseDataset:
@@ -125,6 +172,8 @@ AVAILABLE_DATASETS: dict[str, Callable] = {
     "GDSC2": load_gdsc2,
     "CCLE": load_ccle,
     "Toy_Data": load_toy,
+    "CTRPv1": load_ctrpv1,
+    "CTRPv2": load_ctrpv2,
 }
 
 
@@ -159,7 +208,7 @@ def load_dataset(
         input_file = Path(path_data) / dataset_name / f"{dataset_name}.csv"
 
     if dataset_name in AVAILABLE_DATASETS:
-        return AVAILABLE_DATASETS[dataset_name](path_data, measure)  # type: ignore
+        return AVAILABLE_DATASETS[dataset_name](path_data)
 
     if input_file.is_file():
         if curve_curator:
