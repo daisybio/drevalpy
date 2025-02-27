@@ -165,7 +165,7 @@ class MOLIR(DRPModel):
         feature_dataset = get_multiomics_feature_dataset(
             data_path=data_path,
             dataset_name=dataset_name,
-            gene_list=None,
+            gene_lists=None,
             omics=self.cell_line_views,
         )
         # log transformation replaced with arcsinh transformation since log(0) is undefined
