@@ -253,7 +253,7 @@ class SuperFELTR(DRPModel):
             data_path=data_path, dataset_name=dataset_name, gene_list=None, omics=self.cell_line_views
         )
         # log transformation
-        feature_dataset.apply(function=np.log, view="gene_expression")
+        feature_dataset.apply(function=np.arcsinh, view="gene_expression")
         return feature_dataset
 
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset | None:
