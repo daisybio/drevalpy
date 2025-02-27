@@ -282,7 +282,12 @@ def test_get_multiomics_feature_dataset(gene_list: Optional[str]) -> None:
         dataset = get_multiomics_feature_dataset(
             data_path=temp.name,
             dataset_name="GDSC1_small",
-            gene_list=gene_list,
+            gene_list={
+                "gene_expression": gene_list,
+                "methylation": gene_list,
+                "mutations": gene_list,
+                "copy_number_variation_gistic": gene_list,
+            },
             omics=["gene_expression", "methylation", "mutations", "copy_number_variation_gistic"],
         )
         assert len(dataset.features) == 2

@@ -7,18 +7,8 @@ SimpleNeuralNetwork:
       - 16
       - 8
       - 4
-    - - 128
-      - 64
-      - 32
-    - - 64
-      - 64
-      - 32
-    - - 1024
-      - 128
-      - 64
-      - 16
   max_epochs:
-    - 100
+    - 1
 
 MultiOmicsNeuralNetwork:
   dropout_prob:
@@ -27,17 +17,7 @@ MultiOmicsNeuralNetwork:
     - - 16
       - 8
       - 4
-    - - 32
-      - 16
-      - 8
-      - 4
-    - - 128
-      - 64
-      - 32
-    - - 64
-      - 64
-      - 32
   methylation_pca_components:
     - 100
   max_epochs:
-    - 100
+    - 1
