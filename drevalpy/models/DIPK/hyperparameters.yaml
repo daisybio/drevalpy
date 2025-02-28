@@ -18,8 +18,8 @@ DIPK:
   dropout_rate:
     - 0.3
   epochs:
-    - 1
+    - 100
   epochs_autoencoder:
-    - 1
+    - 100
   patience:
     - 10
