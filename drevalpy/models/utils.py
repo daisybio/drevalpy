@@ -158,7 +158,7 @@ def get_multiomics_feature_dataset(
     if omics is None:
         omics = ["gene_expression", "methylation", "mutations", "copy_number_variation_gistic", "proteomics"]
 
-    if not np.all(k in omics for k in gene_lists.keys()):
+    if not np.all([k in omics for k in gene_lists.keys()]):
         raise ValueError("Gene lists must be provided for all omics types.")
 
     feature_dataset = None
