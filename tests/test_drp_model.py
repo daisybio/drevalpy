@@ -270,20 +270,23 @@ def test_get_multiomics_feature_dataset(gene_list: Optional[str]) -> None:
         )
     if gene_list is not None:
         _write_gene_list(temp, gene_list)
+    omics = ["gene_expression", "methylation", "mutations", "copy_number_variation_gistic"]
+    gene_lists = {o: gene_list for o in omics}
+    gene_lists["methylation"] = None
     if gene_list == "gene_list_paccmann_network_prop":
         with pytest.raises(ValueError) as valerr:
             dataset = get_multiomics_feature_dataset(
                 data_path=temp.name,
                 dataset_name="GDSC1_small",
-                gene_list=gene_list,
-                omics=["gene_expression", "methylation", "mutations", "copy_number_variation_gistic"],
+                gene_lists=gene_lists,
+                omics=omics,
             )
     else:
         dataset = get_multiomics_feature_dataset(
             data_path=temp.name,
             dataset_name="GDSC1_small",
-            gene_list=gene_list,
-            omics=["gene_expression", "methylation", "mutations", "copy_number_variation_gistic"],
+            gene_lists=gene_lists,
+            omics=omics,
         )
         assert len(dataset.features) == 2
         common_cls = dataset.identifiers
