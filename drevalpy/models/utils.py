@@ -153,10 +153,11 @@ def get_multiomics_feature_dataset(
     :returns: FeatureDataset with the multiomics features
     :raises ValueError: if no omics features are found
     """
-    if gene_lists is None:
-        gene_lists = {o: None for o in omics}
     if omics is None:
         omics = ["gene_expression", "methylation", "mutations", "copy_number_variation_gistic", "proteomics"]
+
+    if gene_lists is None:
+        gene_lists = {o: None for o in omics}
 
     if not np.all([k in omics for k in gene_lists.keys()]):
         raise ValueError("Gene lists must be provided for all omics types.")
