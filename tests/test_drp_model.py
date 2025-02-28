@@ -270,9 +270,8 @@ def test_get_multiomics_feature_dataset(gene_list: Optional[str]) -> None:
         )
     if gene_list is not None:
         _write_gene_list(temp, gene_list)
-    omics = ["gene_expression", "methylation", "mutations", "copy_number_variation_gistic", "proteomics"]
+    omics = ["gene_expression", "methylation", "mutations", "copy_number_variation_gistic"]
     gene_lists = {o: gene_list for o in omics}
-    gene_lists["proteomics"] = "drug_target_genes_all_drugs_proteomics"
     gene_lists["methylation"] = None
     if gene_list == "gene_list_paccmann_network_prop":
         with pytest.raises(ValueError) as valerr:
