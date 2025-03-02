@@ -137,6 +137,7 @@ class SRMF(DRPModel):
         )
         self.best_u = pd.DataFrame(best_u, index=drugs)
         self.best_v = pd.DataFrame(best_v, index=cell_lines)
+        self.training_mean = np.nanmean(output._response)  # Store training mean
 
     def predict(
         self,
@@ -154,12 +155,21 @@ class SRMF(DRPModel):
         :param drug_input: not needed for prediction in SRMF
         :returns: predicted response matrix
         """
-        best_u = self.best_u.loc[drug_ids].values
-        best_v = self.best_v.loc[cell_line_ids].values
+        # Use training mean for missing drugs
+        best_u = np.full((len(drug_ids), self.k), self.training_mean)
+        for idx, drug in enumerate(drug_ids):
+            if drug in self.best_u.index:
+                best_u[idx, :] = self.best_u.loc[drug].values
+
+        # Use training mean for missing cell lines
+        best_v = np.full((len(cell_line_ids), self.k), self.training_mean)
+        for idx, cell in enumerate(cell_line_ids):
+            if cell in self.best_v.index:
+                best_v[idx, :] = self.best_v.loc[cell].values
+
         # calculate the diagonal of the matrix product which is the prediction,
         # faster than np.dot(best_u, best_v.T).diagonal()
         diagonal_predictions = np.einsum("ij,ji->i", best_u, best_v.T)
-
         return diagonal_predictions
 
     def _cmf(self, w, int_mat, drug_mat, cell_mat) -> tuple[np.ndarray, np.ndarray]:
