@@ -129,7 +129,7 @@ class SklearnModel(DRPModel):
         :param dataset_name: Name of the dataset
         :returns: FeatureDataset containing the drug fingerprints
         """
-        return load_drug_fingerprint_features(data_path, dataset_name)
+        return load_drug_fingerprint_features(data_path, dataset_name, hash_missing=True)
 
 
 class ElasticNetModel(SklearnModel):
