@@ -312,7 +312,7 @@ class DIPKModel(DRPModel):
         """
         gene_expression = load_and_reduce_gene_features(
             feature_type="gene_expression",
-            gene_list=None,
+            gene_list="gene_expression_genes_intercept_all_datasets",
             data_path=data_path,
             dataset_name=dataset_name,
         )
