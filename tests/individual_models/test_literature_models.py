@@ -6,8 +6,9 @@ from typing import cast
 import numpy as np
 import pytest
 
-from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.evaluation import evaluate, pearson
+from drevalpy.experiment import cross_study_prediction
 from drevalpy.models import MODEL_FACTORY
 from drevalpy.models.drp_model import DRPModel
 
@@ -15,7 +16,10 @@ from drevalpy.models.drp_model import DRPModel
 @pytest.mark.parametrize("test_mode", ["LCO"])
 @pytest.mark.parametrize("model_name", ["SuperFELTR", "MOLIR"])
 def test_molir_superfeltr(
-    sample_dataset: tuple[DrugResponseDataset, FeatureDataset, FeatureDataset], model_name: str, test_mode: str
+    sample_dataset: DrugResponseDataset,
+    model_name: str,
+    test_mode: str,
+    ctrpv1_dataset: DrugResponseDataset,
 ) -> None:
     """
     Test the MOLIR, SuperFELTR.
@@ -23,8 +27,9 @@ def test_molir_superfeltr(
     :param sample_dataset: from conftest.py
     :param model_name: model name
     :param test_mode: LCO
+    :param ctrpv1_dataset: from conftest.py
     """
-    drug_response, cell_line_input, drug_input = sample_dataset
+    drug_response = sample_dataset
     drug_response.split_dataset(
         n_cv_splits=5,
         mode=test_mode,
@@ -40,15 +45,16 @@ def test_molir_superfeltr(
     val_es_dataset = split["validation_es"]
     es_dataset = split["early_stopping"]
 
+    model = MODEL_FACTORY[model_name]()
+    cell_line_input = model.load_cell_line_features(data_path="../data", dataset_name="Toy_Data")
     cell_lines_to_keep = cell_line_input.identifiers
-    drugs_to_keep = drug_input.identifiers
 
     len_train_before = len(train_dataset)
     len_pred_before = len(val_es_dataset)
     len_es_before = len(es_dataset)
-    train_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
-    val_es_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
-    es_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
+    train_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=None)
+    val_es_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=None)
+    es_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=None)
     print(f"Reduced training dataset from {len_train_before} to {len(train_dataset)}")
     print(f"Reduced val_es dataset from {len_pred_before} to {len(val_es_dataset)}")
     print(f"Reduced es dataset from {len_es_before} to {len(es_dataset)}")
@@ -97,19 +103,38 @@ def test_molir_superfeltr(
     print(f"{test_mode}: Collapsed performance of {model_name}: PCC = {metrics['Pearson']}")
     assert metrics["Pearson"] >= -1.0
 
+    with tempfile.TemporaryDirectory() as temp_dir:
+        print(f"Running cross-study prediction for {model_name}")
+        cross_study_prediction(
+            dataset=ctrpv1_dataset,
+            model=model,
+            test_mode=test_mode,
+            train_dataset=train_dataset,
+            path_data="../data",
+            early_stopping_dataset=None,
+            response_transformation=None,
+            path_out=temp_dir,
+            split_index=0,
+            single_drug_id=str(random_drug[0]),
+        )
+
 
 @pytest.mark.parametrize("test_mode", ["LCO"])
 @pytest.mark.parametrize("model_name", ["DIPK"])
 def test_dipk(
-    sample_dataset: tuple[DrugResponseDataset, FeatureDataset, FeatureDataset], model_name: str, test_mode: str
+    sample_dataset: DrugResponseDataset,
+    model_name: str,
+    test_mode: str,
+    ctrpv1_dataset: DrugResponseDataset,
 ) -> None:
     """Test the DIPK model.
 
     :param sample_dataset: from conftest.py
     :param model_name: model name
     :param test_mode: LCO
+    :param ctrpv1_dataset: from conftest.py
     """
-    drug_response, cell_line_input, drug_input = sample_dataset
+    drug_response = sample_dataset
     drug_response.split_dataset(
         n_cv_splits=5,
         mode=test_mode,
@@ -149,3 +174,18 @@ def test_dipk(
     val_es_dataset._predictions = out
     metrics = evaluate(val_es_dataset, metric=["Pearson"])
     assert metrics["Pearson"] >= -1.0
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        print(f"Running cross-study prediction for {model_name}")
+        cross_study_prediction(
+            dataset=ctrpv1_dataset,
+            model=model,
+            test_mode=test_mode,
+            train_dataset=train_dataset,
+            path_data="../data",
+            early_stopping_dataset=None,
+            response_transformation=None,
+            path_out=temp_dir,
+            split_index=0,
+            single_drug_id=None,
+        )

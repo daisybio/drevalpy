@@ -27,20 +27,20 @@ from drevalpy.models.drp_model import DRPModel
 @pytest.mark.parametrize(
     "model_name",
     [
-        # "NaivePredictor",
-        # "NaiveDrugMeanPredictor",
-        # "NaiveCellLineMeanPredictor",
-        # "NaiveMeanEffectsPredictor",
+        "NaivePredictor",
+        "NaiveDrugMeanPredictor",
+        "NaiveCellLineMeanPredictor",
+        "NaiveMeanEffectsPredictor",
         "ElasticNet",
-        # "RandomForest",
-        # "SVR",
-        # "MultiOmicsRandomForest",
-        # "GradientBoosting",
+        "RandomForest",
+        "SVR",
+        "MultiOmicsRandomForest",
+        "GradientBoosting",
     ],
 )
-@pytest.mark.parametrize("test_mode", ["LPO"])
+@pytest.mark.parametrize("test_mode", ["LPO", "LCO", "LDO"])
 def test_baselines(
-    sample_dataset: tuple[DrugResponseDataset, FeatureDataset, FeatureDataset],
+    sample_dataset: DrugResponseDataset,
     model_name: str,
     test_mode: str,
     ctrpv1_dataset: DrugResponseDataset,
@@ -53,7 +53,7 @@ def test_baselines(
     :param test_mode: either LPO, LCO, or LDO
     :param ctrpv1_dataset: dataset
     """
-    drug_response, cell_line_input, drug_input = sample_dataset
+    drug_response = sample_dataset
     drug_response.split_dataset(
         n_cv_splits=5,
         mode=test_mode,
@@ -62,6 +62,10 @@ def test_baselines(
     split = drug_response.cv_splits[0]
     train_dataset = split["train"]
     val_dataset = split["validation"]
+
+    model = MODEL_FACTORY[model_name]()
+    cell_line_input = model.load_cell_line_features(data_path="../data", dataset_name="Toy_Data")
+    drug_input = model.load_drug_features(data_path="../data", dataset_name="Toy_Data")
 
     cell_lines_to_keep = cell_line_input.identifiers
     drugs_to_keep = drug_input.identifiers
@@ -130,7 +134,7 @@ def test_baselines(
 )
 @pytest.mark.parametrize("test_mode", ["LPO", "LCO"])
 def test_single_drug_baselines(
-    sample_dataset: tuple[DrugResponseDataset, FeatureDataset, FeatureDataset], model_name: str, test_mode: str
+    sample_dataset: DrugResponseDataset, model_name: str, test_mode: str, ctrpv1_dataset: DrugResponseDataset
 ) -> None:
     """
     Test the SingleDrugRandomForest model, can also test other baseline single drug models.
@@ -138,8 +142,9 @@ def test_single_drug_baselines(
     :param sample_dataset: from conftest.py
     :param model_name: model name
     :param test_mode: either LPO or LCO
+    :param ctrpv1_dataset: dataset
     """
-    drug_response, cell_line_input, drug_input = sample_dataset
+    drug_response = sample_dataset
     drug_response.split_dataset(
         n_cv_splits=5,
         mode=test_mode,
@@ -149,13 +154,14 @@ def test_single_drug_baselines(
     train_dataset = split["train"]
     val_dataset = split["validation"]
 
+    model = MODEL_FACTORY[model_name]()
+    cell_line_input = model.load_cell_line_features(data_path="../data", dataset_name="Toy_Data")
     cell_lines_to_keep = cell_line_input.identifiers
-    drugs_to_keep = drug_input.identifiers
 
     len_train_before = len(train_dataset)
     len_pred_before = len(val_dataset)
-    train_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
-    val_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
+    train_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=None)
+    val_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=None)
     print(f"Reduced training dataset from {len_train_before} to {len(train_dataset)}")
     print(f"Reduced val dataset from {len_pred_before} to {len(val_dataset)}")
 
@@ -199,6 +205,20 @@ def test_single_drug_baselines(
         pcc_drug = pearson(val_dataset.response[val_mask], all_predictions[val_mask])
         print(f"{test_mode}: Performance of {model_name} for drug {random_drug}: PCC = {pcc_drug}")
         assert pcc_drug >= -1.0
+    with tempfile.TemporaryDirectory() as temp_dir:
+        print(f"Running cross-study prediction for {model_name}")
+        cross_study_prediction(
+            dataset=ctrpv1_dataset,
+            model=model,
+            test_mode=test_mode,
+            train_dataset=train_dataset,
+            path_data="../data",
+            early_stopping_dataset=None,
+            response_transformation=None,
+            path_out=temp_dir,
+            split_index=0,
+            single_drug_id=str(random_drug[0]),
+        )
 
 
 def _call_naive_predictor(
@@ -362,7 +382,6 @@ def _call_other_baselines(
     return model_instance
 
 
-@pytest.mark.parametrize("test_mode", ["LPO", "LCO", "LDO"])
 def _call_naive_mean_effects_predictor(
     train_dataset: DrugResponseDataset,
     val_dataset: DrugResponseDataset,
