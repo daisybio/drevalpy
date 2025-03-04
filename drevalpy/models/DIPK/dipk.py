@@ -310,6 +310,8 @@ class DIPKModel(DRPModel):
         :param dataset_name: path to the dataset
         :returns: cell line features
         """
+        # we use the interception of all genes that are present
+        # in the gene expression features of all datasets
         gene_expression = load_and_reduce_gene_features(
             feature_type="gene_expression",
             gene_list="gene_expression_genes_intercept_all_datasets",
