@@ -10,31 +10,25 @@ from drevalpy.visualization.outplot import OutPlot
 class VioHeat(OutPlot):
     """Parent class for Violin and Heatmap plots of performance measures over CV runs."""
 
-    def __init__(self, df: pd.DataFrame, normalized_metrics=False, whole_name=False):
+    def __init__(self, df: pd.DataFrame, true_vs_pred: pd.DataFrame, normalized_metrics=False, whole_name=False):
         """
         Initialize the VioHeat class.
 
         :param df: evaluation results, either overall or per algorithm
+        :param true_vs_pred: true vs. predicted values
         :param normalized_metrics: whether the metrics are normalized
         :param whole_name: whether the whole name should be displayed
         """
         self.df = df.sort_index()
         self.all_metrics = [
             "R^2",
-            "R^2: drug normalized",
-            "R^2: cell_line normalized",
+            "R^2: normalized",
             "Pearson",
-            "Pearson: drug normalized",
-            "Pearson: cell_line normalized",
+            "Pearson: normalized",
             "Spearman",
-            "Spearman: drug normalized",
-            "Spearman: cell_line normalized",
+            "Spearman: normalized",
             "Kendall",
-            "Kendall: drug normalized",
-            "Kendall: cell_line normalized",
-            "Partial_Correlation",
-            "Partial_Correlation: drug normalized",
-            "Partial_Correlation: cell_line normalized",
+            "Kendall: normalized",
             "MSE",
             "RMSE",
             "MAE",

@@ -35,6 +35,7 @@ def draw_setting_plots(
     ev_res: pd.DataFrame,
     ev_res_per_drug: pd.DataFrame,
     ev_res_per_cell_line: pd.DataFrame,
+    true_vs_pred: pd.DataFrame,
     custom_id: str,
 ) -> list[str]:
     """
@@ -44,6 +45,7 @@ def draw_setting_plots(
     :param ev_res: overall evaluation results
     :param ev_res_per_drug: evaluation results per drug
     :param ev_res_per_cell_line: evaluation results per cell line
+    :param true_vs_pred: true vs. predicted response values
     :param custom_id: run id passed via command line
     :returns: list of unique algorithms
     """
@@ -79,12 +81,14 @@ def draw_setting_plots(
             if plt_type == "violinplot":
                 out_plot = Violin(
                     df=eval_results_preds,
+                    true_vs_pred=true_vs_pred,
                     normalized_metrics=normalized,
                     whole_name=False,
                 )
             else:
                 out_plot = Heatmap(
                     df=eval_results_preds,
+                    true_vs_pred=true_vs_pred,
                     normalized_metrics=normalized,
                     whole_name=False,
                 )
@@ -175,6 +179,7 @@ def draw_algorithm_plots(
             out_dir = "violin_plots"
             out_plot = Violin(
                 df=eval_results_algorithm,
+                true_vs_pred=t_vs_p,
                 normalized_metrics=False,
                 whole_name=True,
             )
@@ -182,6 +187,7 @@ def draw_algorithm_plots(
             out_dir = "heatmaps"
             out_plot = Heatmap(
                 df=eval_results_algorithm,
+                true_vs_pred=t_vs_p,
                 normalized_metrics=False,
                 whole_name=True,
             )
@@ -303,13 +309,13 @@ if __name__ == "__main__":
         eval_results_per_cl=evaluation_results_per_cell_line,
         t_vs_p=true_vs_pred,
     )
-    """
+
     # For debugging:
     evaluation_results = pd.read_csv(f"results/{run_id}/evaluation_results.csv", index_col=0)
     evaluation_results_per_drug = pd.read_csv(f"results/{run_id}/evaluation_results_per_drug.csv", index_col=0)
     evaluation_results_per_cell_line = pd.read_csv(f"results/{run_id}/evaluation_results_per_cl.csv", index_col=0)
     true_vs_pred = pd.read_csv(f"results/{run_id}/true_vs_pred.csv", index_col=0)
-    """
+
     create_output_directories(run_id)
     # Start loop over all settings
     settings = evaluation_results["LPO_LCO_LDO"].unique()
@@ -321,6 +327,7 @@ if __name__ == "__main__":
             ev_res=evaluation_results,
             ev_res_per_drug=evaluation_results_per_drug,
             ev_res_per_cell_line=evaluation_results_per_cell_line,
+            true_vs_pred=true_vs_pred,
             custom_id=run_id,
         )
         # draw figures for each algorithm with all randomizations etc

@@ -1,10 +1,6 @@
 """Functions for evaluating model performance."""
 
-import warnings
-
 import numpy as np
-import pandas as pd
-import pingouin as pg
 from scipy.stats import kendalltau, pearsonr, spearmanr
 from sklearn import metrics
 
@@ -13,87 +9,6 @@ from .pipeline_function import pipeline_function
 
 warning_shown = False
 constant_prediction_warning_shown = False
-
-
-def partial_correlation(
-    y_pred: np.ndarray,
-    y_true: np.ndarray,
-    cell_line_ids: np.ndarray,
-    drug_ids: np.ndarray,
-    method: str = "pearson",
-    return_pvalue: bool = False,
-) -> tuple[float, float] | float:
-    """
-    Computes the partial correlation between predictions and response, conditioned on cell line and drug.
-
-    :param y_pred: predictions
-    :param y_true: response
-    :param cell_line_ids: cell line IDs
-    :param drug_ids: drug IDs
-    :param method: method to compute the partial correlation (pearson, spearman)
-    :param return_pvalue: whether to return the p-value
-    :returns: partial correlation float
-    :raises AssertionError: if predictions, response, drug_ids, and cell_line_ids do not have the same length
-    """
-    if len(y_true) < 3:
-        return np.nan if not return_pvalue else (np.nan, np.nan)
-    if not (len(y_pred) == len(y_true) == len(cell_line_ids) == len(drug_ids)):
-        raise AssertionError("predictions, response, drug_ids, and cell_line_ids must have the same length")
-
-    df = pd.DataFrame(
-        {
-            "response": y_true,
-            "predictions": y_pred,
-            "cell_line_ids": cell_line_ids,
-            "drug_ids": drug_ids,
-        }
-    )
-
-    if (len(df["cell_line_ids"].unique()) < 2) or (len(df["drug_ids"].unique()) < 2):
-        # if we don't have more than one cell line or drug in the data, partial correlation is
-        # meaningless
-        global warning_shown
-        if not warning_shown:
-            warnings.warn("Partial correlation not defined if only one cell line or drug is in the data.", stacklevel=2)
-            warning_shown = True
-        return (np.nan, np.nan) if return_pvalue else np.nan
-
-    # Check if predictions are nearly constant for each cell line or drug (or both (e.g. mean
-    # predictor))
-    variance_threshold = 1e-5
-    for group_col in ["cell_line_ids", "drug_ids"]:
-        group_variances = df.groupby(group_col)["predictions"].var()
-        if (group_variances < variance_threshold).all():
-            global constant_prediction_warning_shown
-            if not constant_prediction_warning_shown:
-                warnings.warn(
-                    f"Predictions are nearly constant for {group_col}. Adding some noise to these "
-                    f"predictions for partial correlation calculation.",
-                    stacklevel=2,
-                )
-                constant_prediction_warning_shown = True
-            df["predictions"] = df["predictions"] + np.random.normal(0, 1e-5, size=len(df))
-
-    df["cell_line_ids"] = pd.factorize(df["cell_line_ids"])[0]
-    df["drug_ids"] = pd.factorize(df["drug_ids"])[0]
-    # One-hot encode the categorical covariates
-    df_encoded = pd.get_dummies(df, columns=["cell_line_ids", "drug_ids"], dtype=int)
-
-    if df.shape[0] < 3:
-        r, p = np.nan, np.nan
-    else:
-        result = pg.partial_corr(
-            data=df_encoded,
-            x="predictions",
-            y="response",
-            covar=[col for col in df_encoded.columns if col.startswith("cell_line_ids") or col.startswith("drug_ids")],
-            method=method,
-        )
-        r = result["r"].iloc[0]
-        p = result["p-val"].iloc[0]
-    if return_pvalue:
-        return r, p
-    return r
 
 
 def _check_constant_prediction(y_pred: np.ndarray) -> bool:
@@ -188,17 +103,10 @@ AVAILABLE_METRICS = {
     "Pearson": pearson,
     "Spearman": spearman,
     "Kendall": kendall,
-    "Partial_Correlation": partial_correlation,
 }
 # both used by pipeline!
 MINIMIZATION_METRICS = ["MSE", "RMSE", "MAE"]
-MAXIMIZATION_METRICS = [
-    "R^2",
-    "Pearson",
-    "Spearman",
-    "Kendall",
-    "Partial_Correlation",
-]
+MAXIMIZATION_METRICS = ["R^2", "Pearson", "Spearman", "Kendall"]
 
 
 def get_mode(metric: str):
@@ -227,7 +135,7 @@ def evaluate(dataset: DrugResponseDataset, metric: list[str] | str):
 
     :param dataset: dataset to evaluate on
     :param metric: evaluation metric(s) (one or a list of "MSE", "RMSE", "MAE", "r2", "Pearson",
-        "spearman", "kendall", "partial_correlation")
+        "spearman", "kendall")
     :return: evaluation metric
     :raises AssertionError: if metric is not in AVAILABLE
     """
@@ -245,16 +153,6 @@ def evaluate(dataset: DrugResponseDataset, metric: list[str] | str):
         if len(response) < 2 or np.all(np.isnan(response)) or np.all(np.isnan(predictions)):
             results[m] = float(np.nan)
         else:
-            if m == "Partial_Correlation":
-                results[m] = float(
-                    AVAILABLE_METRICS[m](
-                        y_pred=predictions,
-                        y_true=response,
-                        cell_line_ids=dataset.cell_line_ids,
-                        drug_ids=dataset.drug_ids,
-                    )
-                )
-            else:
-                results[m] = float(AVAILABLE_METRICS[m](y_pred=predictions, y_true=response))
+            results[m] = float(AVAILABLE_METRICS[m](y_pred=predictions, y_true=response))
 
     return results

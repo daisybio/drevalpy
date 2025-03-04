@@ -41,12 +41,8 @@ class RegressionSliderPlot(OutPlot):
         self.model = model
 
         if self.normalize:
-            if self.group_by == "cell_line":
-                self.df.loc[:, "y_true"] = self.df["y_true"] - self.df["mean_y_true_per_drug"]
-                self.df.loc[:, "y_pred"] = self.df["y_pred"] - self.df["mean_y_true_per_drug"]
-            else:
-                self.df.loc[:, "y_true"] = self.df["y_true"] - self.df["mean_y_true_per_cell_line"]
-                self.df.loc[:, "y_pred"] = self.df["y_pred"] - self.df["mean_y_true_per_cell_line"]
+            self.df.loc[:, "y_true"] = self.df["y_true"] - self.df["mean_effect"]
+            self.df.loc[:, "y_pred"] = self.df["y_pred"] - self.df["mean_effect"]
 
     @pipeline_function
     def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
@@ -96,24 +92,14 @@ class RegressionSliderPlot(OutPlot):
         df = self.df.sort_values(self.group_by)
         setting_title = self.model + " " + df["LPO_LCO_LDO"].unique()[0]
         if self.normalize:
-            if self.group_by == "cell_line":
-                setting_title += ", normalized by drug mean"
-                hover_data = [
-                    "pcc",
-                    "cell_line",
-                    "drug",
-                    "mean_y_true_per_drug",
-                    "algorithm",
-                ]
-            else:
-                setting_title += ", normalized by cell line mean"
-                hover_data = [
-                    "pcc",
-                    "cell_line",
-                    "drug",
-                    "mean_y_true_per_cell_line",
-                    "algorithm",
-                ]
+            setting_title += ", normalized by mean effects"
+            hover_data = [
+                "pcc",
+                "cell_line",
+                "drug",
+                "mean_effect",
+                "algorithm",
+            ]
 
         else:
             hover_data = ["pcc", "cell_line", "drug", "algorithm"]

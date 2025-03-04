@@ -95,7 +95,8 @@ class CriticalDifferencePlot(OutPlot):
         self.test_results = sp.posthoc_conover_friedman(input_conover_friedman.to_numpy())
         average_ranks = input_conover_friedman.rank(ascending=False, axis=1).mean(axis=0)
         plt.title(
-            f"Critical Difference Diagram: Metric: {self.metric}. Overall Friedmam-Chi2 p-value: {friedman_p_value:.2e}"
+            f"Critical Difference Diagram: Metric: {self.metric}.\n"
+            f"Overall Friedman-Chi2 p-value: {friedman_p_value:.2e}"
         )
 
         sp.critical_difference_diagram(ranks=average_ranks, sig_matrix=self.test_results)
