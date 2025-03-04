@@ -286,4 +286,4 @@ class SRMF(DRPModel):
         :param dataset_name: Name of the dataset, e.g., GDSC2
         :returns: FeatureDataset containing the drug fingerprint features
         """
-        return load_drug_fingerprint_features(data_path, dataset_name)
+        return load_drug_fingerprint_features(data_path, dataset_name, fill_na=True)
