@@ -3,7 +3,7 @@
 import pytest
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
-from drevalpy.datasets.loader import load_toy
+from drevalpy.datasets.loader import load_ctrpv1, load_toy
 from drevalpy.models.utils import (
     get_multiomics_feature_dataset,
     load_cl_ids_from_csv,
@@ -22,7 +22,17 @@ def sample_dataset() -> tuple[DrugResponseDataset, FeatureDataset, FeatureDatase
     path_data = "../data"
     drug_response = load_toy(path_data)
     drug_response.remove_nan_responses()
-    cell_line_input = get_multiomics_feature_dataset(data_path=path_data, dataset_name="Toy_Data", gene_lists=None)
+    cell_line_input = get_multiomics_feature_dataset(
+        data_path=path_data,
+        dataset_name="Toy_Data",
+        gene_lists={
+            "gene_expression": "landmark_genes",
+            "methylation": None,
+            "copy_number_variation_gistic": "landmark_genes",
+            "mutations": "landmark_genes",
+            "proteomics": "landmark_genes_proteomics",
+        },
+    )
     cell_line_ids = load_cl_ids_from_csv(path=path_data, dataset_name="Toy_Data")
     cell_line_input.add_features(cell_line_ids)
     # Load the drug features
@@ -30,3 +40,16 @@ def sample_dataset() -> tuple[DrugResponseDataset, FeatureDataset, FeatureDatase
     drug_input = load_drug_fingerprint_features(data_path=path_data, dataset_name="Toy_Data")
     drug_input.add_features(drug_ids)
     return drug_response, cell_line_input, drug_input
+
+
+@pytest.fixture(scope="session")
+def ctrpv1_dataset() -> DrugResponseDataset:
+    """
+    Sample dataset for testing individual models.
+
+    :returns: drug_response, cell_line_input, drug_input
+    """
+    path_data = "../data"
+    drug_response = load_ctrpv1(path_data)
+    drug_response.remove_nan_responses()
+    return drug_response

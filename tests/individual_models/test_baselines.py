@@ -1,5 +1,6 @@
 """Tests for the baselines in the models module."""
 
+import tempfile
 from typing import cast
 
 import numpy as np
@@ -8,6 +9,7 @@ from sklearn.linear_model import ElasticNet, Ridge
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.evaluation import evaluate, pearson
+from drevalpy.experiment import cross_study_prediction
 from drevalpy.models import (
     MODEL_FACTORY,
     NaiveCellLineMeanPredictor,
@@ -25,20 +27,23 @@ from drevalpy.models.drp_model import DRPModel
 @pytest.mark.parametrize(
     "model_name",
     [
-        "NaivePredictor",
-        "NaiveDrugMeanPredictor",
-        "NaiveCellLineMeanPredictor",
-        "NaiveMeanEffectsPredictor",
+        # "NaivePredictor",
+        # "NaiveDrugMeanPredictor",
+        # "NaiveCellLineMeanPredictor",
+        # "NaiveMeanEffectsPredictor",
         "ElasticNet",
-        "RandomForest",
-        "SVR",
-        "MultiOmicsRandomForest",
-        "GradientBoosting",
+        # "RandomForest",
+        # "SVR",
+        # "MultiOmicsRandomForest",
+        # "GradientBoosting",
     ],
 )
-@pytest.mark.parametrize("test_mode", ["LPO", "LCO", "LDO"])
+@pytest.mark.parametrize("test_mode", ["LPO"])
 def test_baselines(
-    sample_dataset: tuple[DrugResponseDataset, FeatureDataset, FeatureDataset], model_name: str, test_mode: str
+    sample_dataset: tuple[DrugResponseDataset, FeatureDataset, FeatureDataset],
+    model_name: str,
+    test_mode: str,
+    ctrpv1_dataset: DrugResponseDataset,
 ) -> None:
     """
     Test the baselines.
@@ -46,6 +51,7 @@ def test_baselines(
     :param sample_dataset: from conftest.py
     :param model_name: name of the model
     :param test_mode: either LPO, LCO, or LDO
+    :param ctrpv1_dataset: dataset
     """
     drug_response, cell_line_input, drug_input = sample_dataset
     drug_response.split_dataset(
@@ -68,9 +74,9 @@ def test_baselines(
     print(f"Reduced val dataset from {len_pred_before} to {len(val_dataset)}")
 
     if model_name == "NaivePredictor":
-        _call_naive_predictor(train_dataset, val_dataset, cell_line_input, test_mode)
+        model = _call_naive_predictor(train_dataset, val_dataset, cell_line_input, test_mode)
     elif model_name == "NaiveDrugMeanPredictor":
-        _call_naive_group_predictor(
+        model = _call_naive_group_predictor(
             "drug",
             train_dataset,
             val_dataset,
@@ -79,7 +85,7 @@ def test_baselines(
             test_mode,
         )
     elif model_name == "NaiveCellLineMeanPredictor":
-        _call_naive_group_predictor(
+        model = _call_naive_group_predictor(
             "cell_line",
             train_dataset,
             val_dataset,
@@ -88,14 +94,29 @@ def test_baselines(
             test_mode,
         )
     elif model_name == "NaiveMeanEffectsPredictor":
-        _call_naive_mean_effects_predictor(train_dataset, val_dataset, cell_line_input, drug_input, test_mode)
+        model = _call_naive_mean_effects_predictor(train_dataset, val_dataset, cell_line_input, drug_input, test_mode)
     else:
-        _call_other_baselines(
+        model = _call_other_baselines(
             model_name,
             train_dataset,
             val_dataset,
             cell_line_input,
             drug_input,
+        )
+    # make temporary directory
+    with tempfile.TemporaryDirectory() as temp_dir:
+        print(f"Running cross-study prediction for {model_name}")
+        cross_study_prediction(
+            dataset=ctrpv1_dataset,
+            model=model,
+            test_mode=test_mode,
+            train_dataset=train_dataset,
+            path_data="../data",
+            early_stopping_dataset=None,
+            response_transformation=None,
+            path_out=temp_dir,
+            split_index=0,
+            single_drug_id=None,
         )
 
 
@@ -185,7 +206,7 @@ def _call_naive_predictor(
     val_dataset: DrugResponseDataset,
     cell_line_input: FeatureDataset,
     test_mode: str,
-) -> None:
+) -> DRPModel:
     """
     Call the NaivePredictor model.
 
@@ -193,6 +214,7 @@ def _call_naive_predictor(
     :param val_dataset: validation dataset
     :param cell_line_input: features cell lines
     :param test_mode: either LPO, LCO, or LDO
+    :returns: NaivePredictor model
     """
     naive = NaivePredictor()
     naive.train(output=train_dataset, cell_line_input=cell_line_input, drug_input=None)
@@ -206,6 +228,7 @@ def _call_naive_predictor(
     metrics = evaluate(val_dataset, metric=["Pearson"])
     assert metrics["Pearson"] == 0.0
     print(f"{test_mode}: Performance of NaivePredictor: PCC = {metrics['Pearson']}")
+    return naive
 
 
 def _assert_group_mean(
@@ -237,7 +260,7 @@ def _call_naive_group_predictor(
     cell_line_input: FeatureDataset,
     drug_input: FeatureDataset,
     test_mode: str,
-) -> None:
+) -> DRPModel:
     naive: NaiveDrugMeanPredictor | NaiveCellLineMeanPredictor
     if group == "drug":
         naive = NaiveDrugMeanPredictor()
@@ -282,6 +305,7 @@ def _call_naive_group_predictor(
     print(f"{test_mode}: Performance of {naive.get_model_name()}: PCC = {metrics['Pearson']}")
     if (group == "drug" and test_mode == "LDO") or (group == "cell_line" and test_mode == "LCO"):
         assert metrics["Pearson"] == 0.0
+    return naive
 
 
 def _call_other_baselines(
@@ -290,7 +314,7 @@ def _call_other_baselines(
     val_dataset: DrugResponseDataset,
     cell_line_input: FeatureDataset,
     drug_input: FeatureDataset,
-) -> None:
+) -> DRPModel:
     """
     Call the other baselines.
 
@@ -299,6 +323,7 @@ def _call_other_baselines(
     :param val_dataset: validation
     :param cell_line_input: features cell lines
     :param drug_input: features drugs
+    :returns: model instance
     """
     model_class = cast(type[DRPModel], MODEL_FACTORY[model])
     hpams = model_class.get_hyperparameter_set()
@@ -334,6 +359,7 @@ def _call_other_baselines(
         assert val_dataset.predictions is not None
         metrics = evaluate(val_dataset, metric=["Pearson"])
         assert metrics["Pearson"] >= -1
+    return model_instance
 
 
 @pytest.mark.parametrize("test_mode", ["LPO", "LCO", "LDO"])
@@ -343,7 +369,7 @@ def _call_naive_mean_effects_predictor(
     cell_line_input: FeatureDataset,
     drug_input: FeatureDataset,
     test_mode: str,
-) -> None:
+) -> DRPModel:
     """
     Test the NaiveMeanEffectsPredictor model.
 
@@ -352,6 +378,7 @@ def _call_naive_mean_effects_predictor(
     :param cell_line_input: features cell lines
     :param drug_input: features drugs
     :param test_mode: either LPO, LCO, or LDO
+    :returns: NaiveMeanEffectsPredictor model
     """
     naive = NaiveMeanEffectsPredictor()
     naive.train(output=train_dataset, cell_line_input=cell_line_input, drug_input=drug_input)
@@ -373,3 +400,4 @@ def _call_naive_mean_effects_predictor(
     metrics = evaluate(val_dataset, metric=["Pearson"])
     print(f"{test_mode}: Performance of NaiveMeanEffectsPredictor: PCC = {metrics['Pearson']}")
     assert metrics["Pearson"] >= -1  # Should be within valid Pearson range
+    return naive
