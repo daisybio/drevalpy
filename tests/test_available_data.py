@@ -14,7 +14,7 @@ def test_factory() -> None:
     assert "TOYv2" in AVAILABLE_DATASETS
     assert "CTRPv1" in AVAILABLE_DATASETS
     assert "CTRPv2" in AVAILABLE_DATASETS
-    assert len(AVAILABLE_DATASETS) == 6
+    assert len(AVAILABLE_DATASETS) == 7
 
 
 def test_gdsc1() -> None:
