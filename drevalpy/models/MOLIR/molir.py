@@ -197,9 +197,9 @@ class MOLIR(DRPModel):
             data_path=data_path,
             dataset_name=dataset_name,
             gene_lists={
-                "gene_expression": "gene_expression_genes_intercept_all_datasets",
-                "mutations": "mutations_genes_intercept_all_datasets",
-                "copy_number_variation_gistic": "copy_number_variation_genes_intercept_all_datasets",
+                "gene_expression": "gene_expression_intersection",
+                "mutations": "mutations_intersection",
+                "copy_number_variation_gistic": "copy_number_variation_intersection",
             },
             omics=self.cell_line_views,
         )
