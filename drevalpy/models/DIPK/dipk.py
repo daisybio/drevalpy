@@ -263,7 +263,8 @@ class DIPKModel(DRPModel):
         :param cell_line_input: input data associated with the cell line
         :param drug_input: input data associated with the drug
         :return: predicted response values
-        :raises ValueError: if drug_input is None or if the model is not initialized
+        :raises ValueError: if drug_input is None or if the model is not initialized or
+            if the gene expression encoder is not initialized
         """
         if drug_input is None:
             raise ValueError("DIPK model requires drug features.")
@@ -271,6 +272,8 @@ class DIPKModel(DRPModel):
             raise ValueError("DIPK model not initialized.")
 
         # Encode gene expression data if this has not been done yet (e.g., for cross-study predictions)
+        if self.gene_expression_encoder is None:
+            raise ValueError("Gene expression encoder is not initialized.")
         random_cell_line = next(iter(cell_line_input.features.keys()))
         if (
             len(cell_line_input.features[random_cell_line]["gene_expression"])
