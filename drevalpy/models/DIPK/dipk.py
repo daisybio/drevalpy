@@ -314,7 +314,7 @@ class DIPKModel(DRPModel):
         # in the gene expression features of all datasets
         gene_expression = load_and_reduce_gene_features(
             feature_type="gene_expression",
-            gene_list="gene_expression_genes_intercept_all_datasets",
+            gene_list="gene_expression_genes_intercept_all_datasets" if dataset_name != "Toy_Data" else None,
             data_path=data_path,
             dataset_name=dataset_name,
         )
