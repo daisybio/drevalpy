@@ -28,7 +28,7 @@ def load_and_reduce_gene_features(
     dataset_name: str,
 ) -> FeatureDataset:
     """
-    Load and reduce features of a single feature type.
+    Load and reduce features of a single feature type, ensuring selection and ordering based on the gene list.
 
     :param feature_type: type of feature, e.g., gene_expression, methylation, etc.
     :param gene_list: list of genes to include, e.g., landmark_genes
@@ -38,12 +38,13 @@ def load_and_reduce_gene_features(
     :raises ValueError: if genes from gene_list are missing in the dataset
     """
     ge = pd.read_csv(f"{data_path}/{dataset_name}/{feature_type}.csv", index_col=1)
-    # remove column
     ge = ge.drop(columns=["cellosaurus_id"])
+
     cl_features = FeatureDataset(
         features=iterate_features(df=ge, feature_type=feature_type),
         meta_info={feature_type: ge.columns.values},
     )
+
     if gene_list is None:
         return cl_features
 
@@ -51,32 +52,26 @@ def load_and_reduce_gene_features(
         f"{data_path}/{dataset_name}/gene_lists/{gene_list}.csv",
         sep=",",
     )
-
-    genes_in_list = set(gene_info["Symbol"])
-    if cl_features.meta_info is None:
-        raise ValueError("No meta information available in the dataset.")
+    ordered_genes = gene_info["Symbol"].tolist()
 
     genes_in_features = set(cl_features.meta_info[feature_type])
-    # Ensure that all genes from gene_list are in the dataset
-    missing_genes = genes_in_list - genes_in_features
-    if missing_genes:
-        missing_genes_list = list(missing_genes)
-        if len(missing_genes_list) > 10:
-            raise ValueError(
-                f"The following genes are missing from the dataset {dataset_name} for {feature_type}: "
-                f"{', '.join(missing_genes_list[:10])}, ... ({len(missing_genes)} genes in total)"
-            )
-        else:
-            raise ValueError(
-                f"The following genes are missing from the dataset {dataset_name} for {feature_type}: "
-                f"{', '.join(missing_genes_list)}"
-            )
+    missing_genes = [gene for gene in ordered_genes if gene not in genes_in_features]
 
-    # Only proceed with genes that are available
-    gene_mask = np.array([gene in genes_in_list for gene in cl_features.meta_info[feature_type]])
-    cl_features.meta_info[feature_type] = cl_features.meta_info[feature_type][gene_mask]
+    if missing_genes:
+        missing_str = (
+            f"{', '.join(missing_genes[:10])}, ... ({len(missing_genes)} genes in total)"
+            if len(missing_genes) > 10
+            else ", ".join(missing_genes)
+        )
+        raise ValueError(
+            f"The following genes are missing from the dataset {dataset_name} for {feature_type}: {missing_str}"
+        )
+
+    cl_features.meta_info[feature_type] = np.array(ordered_genes)
+
     for cell_line in cl_features.features.keys():
-        cl_features.features[cell_line][feature_type] = cl_features.features[cell_line][feature_type][gene_mask]
+        cl_features.features[cell_line][feature_type] = cl_features.features[cell_line][feature_type].loc[ordered_genes]
+
     return cl_features
 
 
