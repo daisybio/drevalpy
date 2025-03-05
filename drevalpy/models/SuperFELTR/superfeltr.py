@@ -201,6 +201,13 @@ class SuperFELTR(DRPModel):
         :returns: predicted drug response
         :raises ValueError: if drug_input is not None
         """
+        if (
+            self.gene_expression_features is None
+            or self.mutations_features is None
+            or self.copy_number_variation_features is None
+        ):
+            raise ValueError("Model was not trained, no features available.")
+
         if drug_input is not None:
             raise ValueError("SuperFELTR is a single drug model and does not require drug input.")
 
@@ -216,6 +223,8 @@ class SuperFELTR(DRPModel):
             input_data["copy_number_variation_gistic"],
         )
 
+        # make cross study prediction possible by selecting only the features that were used during training
+        # missing features are imputed with zeros
         for key, features in {
             "gene_expression": self.gene_expression_features,
             "mutations": self.mutations_features,
