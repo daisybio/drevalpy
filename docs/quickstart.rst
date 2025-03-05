@@ -3,7 +3,7 @@ Quickstart
 
 Make sure you have installed DrEvalPy and its dependencies (see `Installation <./installation.html>`_).
 
-To make sure the pipeline runs, you can use the fast models NaiveDrugMeanPredictor and NaivePredictor on the TOYv1
+To make sure the pipeline runs, you can use the fast models NaiveDrugMeanPredictor and NaivePredictor on the TOYv1 (subset of CTRPv2) or TOYv2 (subset of GDSC2)
 dataset with the LPO test mode.
 
 .. code-block:: bash
