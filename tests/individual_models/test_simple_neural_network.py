@@ -6,8 +6,9 @@ from typing import cast
 import numpy as np
 import pytest
 
-from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.evaluation import evaluate
+from drevalpy.experiment import cross_study_prediction
 from drevalpy.models import MODEL_FACTORY
 from drevalpy.models.drp_model import DRPModel
 
@@ -15,7 +16,10 @@ from drevalpy.models.drp_model import DRPModel
 @pytest.mark.parametrize("test_mode", ["LPO"])
 @pytest.mark.parametrize("model_name", ["SRMF", "SimpleNeuralNetwork", "MultiOmicsNeuralNetwork"])
 def test_simple_neural_network(
-    sample_dataset: tuple[DrugResponseDataset, FeatureDataset, FeatureDataset], model_name: str, test_mode: str
+    sample_dataset: DrugResponseDataset,
+    model_name: str,
+    test_mode: str,
+    cross_study_dataset: DrugResponseDataset,
 ) -> None:
     """
     Test the SimpleNeuralNetwork model.
@@ -23,8 +27,9 @@ def test_simple_neural_network(
     :param sample_dataset: from conftest.py
     :param model_name: either SRMF, SimpleNeuralNetwork, or MultiOmicsNeuralNetwork
     :param test_mode: LPO
+    :param cross_study_dataset: from conftest.py
     """
-    drug_response, cell_line_input, drug_input = sample_dataset
+    drug_response = sample_dataset
     drug_response.split_dataset(
         n_cv_splits=5,
         mode=test_mode,
@@ -37,6 +42,10 @@ def test_simple_neural_network(
 
     val_es_dataset = split["validation_es"]
     es_dataset = split["early_stopping"]
+
+    model = MODEL_FACTORY[model_name]()
+    cell_line_input = model.load_cell_line_features(data_path="../data", dataset_name="Toy_Data")
+    drug_input = model.load_drug_features(data_path="../data", dataset_name="Toy_Data")
 
     cell_lines_to_keep = cell_line_input.identifiers
     drugs_to_keep = drug_input.identifiers
@@ -71,3 +80,18 @@ def test_simple_neural_network(
 
     metrics = evaluate(val_es_dataset, metric=["Pearson"])
     assert metrics["Pearson"] >= -1
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        print(f"Running cross-study prediction for {model_name}")
+        cross_study_prediction(
+            dataset=cross_study_dataset,
+            model=model,
+            test_mode=test_mode,
+            train_dataset=train_dataset,
+            path_data="../data",
+            early_stopping_dataset=None,
+            response_transformation=None,
+            path_out=temp_dir,
+            split_index=0,
+            single_drug_id=None,
+        )
