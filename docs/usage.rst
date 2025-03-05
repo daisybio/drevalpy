@@ -162,8 +162,11 @@ We provide commonly used datasets to evaluate your model on (GDSC1, GDSC2, CCLE,
 +-------------------+-----------------+---------------------+-----------------------------------------------------------------------------------------------------------------------+
 | CCLE              | 18              | 471                 | The Cancer Cell Line Encyclopedia (CCLE) dataset. The response data will soon be replaced with the data from CTRPv2.  |
 +-------------------+-----------------+---------------------+-----------------------------------------------------------------------------------------------------------------------+
-| Toy_Data          | 40              | 98                  | A toy dataset for testing purposes.                                                                                   |
+| TOYv1             | 36              | 90                  | A toy dataset for testing purposes.                                                                                   |
 +-------------------+-----------------+---------------------+-----------------------------------------------------------------------------------------------------------------------+
+| TOYv2             | 32              | 90                  | A second toy dataset for cross study testing purposes. Cell lines and drugs partly overlap TOYv2                      |
++-------------------+-----------------+---------------------+-----------------------------------------------------------------------------------------------------------------------+
+
 
 If using the ``--curve_curator`` option with these datasets, the desired measure provided with the ``--measure`` option is appended with "_curvecurator", e.g. "IC50_curvecurator".
 In the provided datasets, these are the measures calculated with the same fitting procedure using CurveCurator. To use the measures reported from the original publications of the

@@ -23,7 +23,7 @@ def load_gdsc1(
 
     :param path_data: Path to the dataset.
     :param file_name: File name of the dataset.
-    :param measure: The name of the column containing the measure to predict, default = "LN_IC50"
+    :param measure: The name of the column containing the measure to predict, default = "LN_IC50_curvecurator"
 
     :param dataset_name: Name of the dataset.
     :return: DrugResponseDataset containing response, cell line IDs, and drug IDs.
@@ -49,7 +49,7 @@ def load_gdsc2(path_data: str = "data", measure: str = "LN_IC50_curvecurator", f
 
     :param path_data: Path to the dataset.
     :param file_name: File name of the dataset.
-    :param measure: The name of the column containing the measure to predict, default = "LN_IC50"
+    :param measure: The name of the column containing the measure to predict, default = "LN_IC50_curvecurator"
 
     :return: DrugResponseDataset containing response, cell line IDs, and drug IDs.
     """
@@ -64,7 +64,7 @@ def load_ccle(
 
     :param path_data: Path to the dataset.
     :param file_name: File name of the dataset.
-    :param measure: The name of the column containing the measure to predict, default = "LN_IC50"
+    :param measure: The name of the column containing the measure to predict, default = "LN_IC50_curvecurator"
 
     :return: DrugResponseDataset containing response, cell line IDs, and drug IDs.
     """
@@ -84,17 +84,19 @@ def load_ccle(
     )
 
 
-def load_toy(path_data: str = "data", measure: str = "LN_IC50_curvecurator") -> DrugResponseDataset:
+def _load_toy(
+    path_data: str = "data", measure: str = "LN_IC50_curvecurator", dataset_name="TOYv1"
+) -> DrugResponseDataset:
     """
-    Loads small Toy dataset, subsampled from GDSC1.
+    Loads small Toy dataset, subsampled from CTRPv2 or GDSC2.
 
     :param path_data: Path to the dataset.
-    :param measure: The name of the column containing the measure to predict, default = "response"
+    :param measure: The name of the column containing the measure to predict, default = "LN_IC50_curvecurator"
+    :param dataset_name: Name of the dataset. Either "TOYv1" or "TOYv2".
 
     :return: DrugResponseDataset containing response, cell line IDs, and drug IDs.
     """
-    dataset_name = "Toy_Data"
-    path = os.path.join(path_data, dataset_name, "toy_data.csv")
+    path = os.path.join(path_data, dataset_name, f"{dataset_name}.csv")
     if not os.path.exists(path):
         download_dataset(dataset_name, path_data, redownload=True)
     response_data = pd.read_csv(path, dtype={"pubchem_id": str})
@@ -107,13 +109,37 @@ def load_toy(path_data: str = "data", measure: str = "LN_IC50_curvecurator") -> 
     )
 
 
+def load_toyv1(path_data: str = "data", measure: str = "LN_IC50_curvecurator") -> DrugResponseDataset:
+    """
+    Loads small Toy dataset, subsampled from CTRPv2.
+
+    :param path_data: Path to the dataset.
+    :param measure: The name of the column containing the measure to predict, default = "LN_IC50_curvecurator"
+
+    :return: DrugResponseDataset containing response, cell line IDs, and drug IDs.
+    """
+    return _load_toy(path_data, measure, "TOYv1")
+
+
+def load_toyv2(path_data: str = "data", measure: str = "LN_IC50_curvecurator") -> DrugResponseDataset:
+    """
+    Loads small Toy dataset, subsampled from GDSC2. Can be used to test cross study prediction.
+
+    :param path_data: Path to the dataset.
+    :param measure: The name of the column containing the measure to predict, default = "LN_IC50_curvecurator"
+
+    :return: DrugResponseDataset containing response, cell line IDs, and drug IDs.
+    """
+    return _load_toy(path_data, measure, "TOYv2")
+
+
 def _load_ctrpv(version: str, path_data: str = "data", measure: str = "LN_IC50_curvecurator") -> DrugResponseDataset:
     """
     Load CTRPv1 dataset.
 
     :param version: The version of the CTRP dataset to load.
     :param path_data: Path to location of CTRPv1 dataset
-    :param measure: The name of the column containing the measure to predict, default = "response"
+    :param measure: The name of the column containing the measure to predict, default = "LN_IC50_curvecurator"
 
     :return: DrugResponseDataset containing response, cell line IDs, and drug IDs
     """
@@ -171,7 +197,8 @@ AVAILABLE_DATASETS: dict[str, Callable] = {
     "GDSC1": load_gdsc1,
     "GDSC2": load_gdsc2,
     "CCLE": load_ccle,
-    "Toy_Data": load_toy,
+    "TOYv1": load_toyv1,
+    "TOYv2": load_toyv2,
     "CTRPv1": load_ctrpv1,
     "CTRPv2": load_ctrpv2,
 }
@@ -184,7 +211,7 @@ def load_dataset(
     """
     Load a dataset based on the dataset name.
 
-    :param dataset_name: The name of the dataset to load. Can be one of ('GDSC1', 'GDSC2', 'CCLE', or 'Toy_Data')
+    :param dataset_name: The name of the dataset to load. Can be one of ('GDSC1', 'GDSC2', 'CCLE', or 'TOYv1')
         to download provided datasets, or any other name to allow for custom datasets.
     :param path_data: The parent path in which custom or downloaded datasets should be located, or in which raw
         viability data is to be found for fitting with CurveCurator (see param curve_curator for details).

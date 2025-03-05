@@ -3,12 +3,12 @@ Quickstart
 
 Make sure you have installed DrEvalPy and its dependencies (see `Installation <./installation.html>`_).
 
-To make sure the pipeline runs, you can use the fast models NaiveDrugMeanPredictor and NaivePredictor on the Toy_Data
+To make sure the pipeline runs, you can use the fast models NaiveDrugMeanPredictor and NaivePredictor on the TOYv1
 dataset with the LPO test mode.
 
 .. code-block:: bash
 
-    python run_suite.py --run_id my_first_run --models NaiveDrugMeanPredictor --baselines NaivePredictor --dataset Toy_Data --test_mode LPO
+    python run_suite.py --run_id my_first_run --models NaiveDrugMeanPredictor --baselines NaivePredictor --dataset TOYv1 --test_mode LPO
 
 This will train the two baseline models on a subset of gene expression features and drug fingerprint features to
 predict IC50 values of the GDSC1 database. It will evaluate in "LPO" which is the leave-pairs-out splitting strategy
