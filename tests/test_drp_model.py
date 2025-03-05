@@ -147,6 +147,23 @@ def test_load_and_reduce_gene_features(gene_list: Optional[str]) -> None:
         assert "The following genes are missing from the dataset GDSC1_small" in str(valerr.value)
 
 
+def test_order_load_and_reduce_gene_features() -> None:
+    """Test the order of the features after loading and reducing gene features. it should be maintained."""
+    # TODO move to cross study tests where TOYv1 and TOYv2 are available!!!
+    gene_list = "gene_expression_intersection.csv"
+    a = load_and_reduce_gene_features("gene_expression", gene_list, "data", "TOYv1")
+    b = load_and_reduce_gene_features("gene_expression", gene_list, "data", "TOYv2")
+    # assert the meta info (=gene names) are the same
+    assert np.all(a.meta_info["gene_expression"] == b.meta_info["gene_expression"])
+    # assert the shape of the features for a random cell line is actually the same
+    random_cell_line_a = np.random.choice(a.identifiers)
+    random_cell_line_b = np.random.choice(b.identifiers)
+    assert (
+        a.features[random_cell_line_a]["gene_expression"].shape
+        == b.features[random_cell_line_b]["gene_expression"].shape
+    )
+
+
 def test_iterate_features() -> None:
     """Test the iteration over features."""
     df = pd.DataFrame({"GeneA": [1, 2, 3, 2], "GeneB": [4, 5, 6, 2], "GeneC": [7, 8, 9, 2]})
@@ -270,20 +287,23 @@ def test_get_multiomics_feature_dataset(gene_list: Optional[str]) -> None:
         )
     if gene_list is not None:
         _write_gene_list(temp, gene_list)
+    omics = ["gene_expression", "methylation", "mutations", "copy_number_variation_gistic"]
+    gene_lists = {o: gene_list for o in omics}
+    gene_lists["methylation"] = None
     if gene_list == "gene_list_paccmann_network_prop":
         with pytest.raises(ValueError) as valerr:
             dataset = get_multiomics_feature_dataset(
                 data_path=temp.name,
                 dataset_name="GDSC1_small",
-                gene_list=gene_list,
-                omics=["gene_expression", "methylation", "mutations", "copy_number_variation_gistic"],
+                gene_lists=gene_lists,
+                omics=omics,
             )
     else:
         dataset = get_multiomics_feature_dataset(
             data_path=temp.name,
             dataset_name="GDSC1_small",
-            gene_list=gene_list,
-            omics=["gene_expression", "methylation", "mutations", "copy_number_variation_gistic"],
+            gene_lists=gene_lists,
+            omics=omics,
         )
         assert len(dataset.features) == 2
         common_cls = dataset.identifiers

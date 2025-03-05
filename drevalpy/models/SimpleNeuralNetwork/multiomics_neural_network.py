@@ -34,6 +34,7 @@ class MultiOmicsNeuralNetwork(DRPModel):
         self.model = None
         self.hyperparameters = None
         self.pca = None
+        self.methylation_features = None
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -82,6 +83,7 @@ class MultiOmicsNeuralNetwork(DRPModel):
             [cell_line_input.features[id_]["methylation"] for id_ in np.unique(output.cell_line_ids)],
             axis=0,
         )
+        self.methylation_features = cell_line_input.meta_info["methylation"]
 
         self.pca.n_components = min(self.pca.n_components, len(unique_methylation))
         self.pca = self.pca.fit(unique_methylation)
@@ -156,6 +158,16 @@ class MultiOmicsNeuralNetwork(DRPModel):
             inputs["copy_number_variation_gistic"],
             inputs["fingerprints"],
         )
+        if methylation.shape[1] != len(self.methylation_features):
+            # subset, for missing features set to 0
+            new_methylation = np.zeros((methylation.shape[0], len(self.methylation_features)))
+            feature_lookup = {feature: i for i, feature in enumerate(cell_line_input.meta_info["methylation"])}
+            for i, feature in enumerate(self.methylation_features):
+                idx = feature_lookup.get(feature, None)
+                if idx is not None:
+                    new_methylation[:, i] = methylation[:, idx]
+            methylation = new_methylation
+
         methylation = self.pca.transform(methylation)
         x = np.concatenate(
             (
@@ -178,7 +190,14 @@ class MultiOmicsNeuralNetwork(DRPModel):
         :return: FeatureDataset containing the cell line omics features, filtered through the
             drug target genes
         """
-        return get_multiomics_feature_dataset(data_path=data_path, dataset_name=dataset_name)
+        gene_lists = {
+            "gene_expression": "drug_target_genes_all_drugs",
+            "methylation": None,
+            "mutations": "drug_target_genes_all_drugs",
+            "copy_number_variation_gistic": "drug_target_genes_all_drugs",
+            "proteomics": "drug_target_genes_all_drugs_proteomics",
+        }
+        return get_multiomics_feature_dataset(data_path=data_path, gene_lists=gene_lists, dataset_name=dataset_name)
 
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         """
@@ -188,4 +207,4 @@ class MultiOmicsNeuralNetwork(DRPModel):
         :param dataset_name: name of the dataset, e.g., GDSC1
         :returns: FeatureDataset containing the drug fingerprint features
         """
-        return load_drug_fingerprint_features(data_path, dataset_name)
+        return load_drug_fingerprint_features(data_path, dataset_name, fill_na=True)
