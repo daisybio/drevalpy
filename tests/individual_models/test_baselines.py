@@ -43,7 +43,7 @@ def test_baselines(
     sample_dataset: DrugResponseDataset,
     model_name: str,
     test_mode: str,
-    ctrpv1_dataset: DrugResponseDataset,
+    cross_study_dataset: DrugResponseDataset,
 ) -> None:
     """
     Test the baselines.
@@ -51,7 +51,7 @@ def test_baselines(
     :param sample_dataset: from conftest.py
     :param model_name: name of the model
     :param test_mode: either LPO, LCO, or LDO
-    :param ctrpv1_dataset: dataset
+    :param cross_study_dataset: dataset
     """
     drug_response = sample_dataset
     drug_response.split_dataset(
@@ -111,7 +111,7 @@ def test_baselines(
     with tempfile.TemporaryDirectory() as temp_dir:
         print(f"Running cross-study prediction for {model_name}")
         cross_study_prediction(
-            dataset=ctrpv1_dataset,
+            dataset=cross_study_dataset,
             model=model,
             test_mode=test_mode,
             train_dataset=train_dataset,
@@ -134,7 +134,7 @@ def test_baselines(
 )
 @pytest.mark.parametrize("test_mode", ["LPO", "LCO"])
 def test_single_drug_baselines(
-    sample_dataset: DrugResponseDataset, model_name: str, test_mode: str, ctrpv1_dataset: DrugResponseDataset
+    sample_dataset: DrugResponseDataset, model_name: str, test_mode: str, cross_study_dataset: DrugResponseDataset
 ) -> None:
     """
     Test the SingleDrugRandomForest model, can also test other baseline single drug models.
@@ -142,7 +142,7 @@ def test_single_drug_baselines(
     :param sample_dataset: from conftest.py
     :param model_name: model name
     :param test_mode: either LPO or LCO
-    :param ctrpv1_dataset: dataset
+    :param cross_study_dataset: dataset
     """
     drug_response = sample_dataset
     drug_response.split_dataset(
@@ -208,7 +208,7 @@ def test_single_drug_baselines(
     with tempfile.TemporaryDirectory() as temp_dir:
         print(f"Running cross-study prediction for {model_name}")
         cross_study_prediction(
-            dataset=ctrpv1_dataset,
+            dataset=cross_study_dataset,
             model=model,
             test_mode=test_mode,
             train_dataset=train_dataset,

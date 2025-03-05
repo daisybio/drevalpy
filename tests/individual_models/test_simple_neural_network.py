@@ -19,7 +19,7 @@ def test_simple_neural_network(
     sample_dataset: DrugResponseDataset,
     model_name: str,
     test_mode: str,
-    ctrpv1_dataset: DrugResponseDataset,
+    cross_study_dataset: DrugResponseDataset,
 ) -> None:
     """
     Test the SimpleNeuralNetwork model.
@@ -27,7 +27,7 @@ def test_simple_neural_network(
     :param sample_dataset: from conftest.py
     :param model_name: either SRMF, SimpleNeuralNetwork, or MultiOmicsNeuralNetwork
     :param test_mode: LPO
-    :param ctrpv1_dataset: from conftest.py
+    :param cross_study_dataset: from conftest.py
     """
     drug_response = sample_dataset
     drug_response.split_dataset(
@@ -84,7 +84,7 @@ def test_simple_neural_network(
     with tempfile.TemporaryDirectory() as temp_dir:
         print(f"Running cross-study prediction for {model_name}")
         cross_study_prediction(
-            dataset=ctrpv1_dataset,
+            dataset=cross_study_dataset,
             model=model,
             test_mode=test_mode,
             train_dataset=train_dataset,

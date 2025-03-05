@@ -19,7 +19,7 @@ def test_molir_superfeltr(
     sample_dataset: DrugResponseDataset,
     model_name: str,
     test_mode: str,
-    ctrpv1_dataset: DrugResponseDataset,
+    cross_study_dataset: DrugResponseDataset,
 ) -> None:
     """
     Test the MOLIR, SuperFELTR.
@@ -27,7 +27,7 @@ def test_molir_superfeltr(
     :param sample_dataset: from conftest.py
     :param model_name: model name
     :param test_mode: LCO
-    :param ctrpv1_dataset: from conftest.py
+    :param cross_study_dataset: from conftest.py
     """
     drug_response = sample_dataset
     drug_response.split_dataset(
@@ -38,7 +38,7 @@ def test_molir_superfeltr(
     split = drug_response.cv_splits[0]
     train_dataset = split["train"]
     all_unique_drugs = np.unique(train_dataset.drug_ids)
-    all_unique_drugs_cs = np.unique(ctrpv1_dataset.drug_ids)
+    all_unique_drugs_cs = np.unique(cross_study_dataset.drug_ids)
     all_unique_drugs = np.array(list(set(all_unique_drugs).intersection(all_unique_drugs_cs)))
     # randomly sample drugs to speed up testing
     np.random.seed(42)
@@ -108,7 +108,7 @@ def test_molir_superfeltr(
     with tempfile.TemporaryDirectory() as temp_dir:
         print(f"Running cross-study prediction for {model_name}")
         cross_study_prediction(
-            dataset=ctrpv1_dataset,
+            dataset=cross_study_dataset,
             model=model,
             test_mode=test_mode,
             train_dataset=train_dataset,
@@ -127,14 +127,14 @@ def test_dipk(
     sample_dataset: DrugResponseDataset,
     model_name: str,
     test_mode: str,
-    ctrpv1_dataset: DrugResponseDataset,
+    cross_study_dataset: DrugResponseDataset,
 ) -> None:
     """Test the DIPK model.
 
     :param sample_dataset: from conftest.py
     :param model_name: model name
     :param test_mode: LCO
-    :param ctrpv1_dataset: from conftest.py
+    :param cross_study_dataset: from conftest.py
     """
     drug_response = sample_dataset
     drug_response.split_dataset(
@@ -180,7 +180,7 @@ def test_dipk(
     with tempfile.TemporaryDirectory() as temp_dir:
         print(f"Running cross-study prediction for {model_name}")
         cross_study_prediction(
-            dataset=ctrpv1_dataset,
+            dataset=cross_study_dataset,
             model=model,
             test_mode=test_mode,
             train_dataset=train_dataset,
