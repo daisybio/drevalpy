@@ -165,4 +165,4 @@ class SimpleNeuralNetwork(DRPModel):
         :param dataset_name: name of the dataset, e.g., GDSC1
         :returns: FeatureDataset containing the fingerprints
         """
-        return load_drug_fingerprint_features(data_path, dataset_name)
+        return load_drug_fingerprint_features(data_path, dataset_name, fill_na=True)

@@ -114,23 +114,27 @@ def load_drug_ids_from_csv(data_path: str, dataset_name: str) -> FeatureDataset:
     return FeatureDataset(features={drug: {DRUG_IDENTIFIER: np.array([drug])} for drug in drug_names.index})
 
 
-def load_drug_fingerprint_features(data_path: str, dataset_name: str, default_random=True) -> FeatureDataset:
+def load_drug_fingerprint_features(data_path: str, dataset_name: str, fill_na=True, n_bits=128) -> FeatureDataset:
     """
     Load drug features from fingerprints.
 
     :param data_path: path to the data, e.g., data/
     :param dataset_name: name of the dataset, e.g., GDSC2
-    :param default_random: whether to use default random fingerprints if fingerprint is not available
+    :param fill_na: whether to use default pubchemid-hashed fingerprints if fingerprint is not available
+    :param n_bits: number of bits in the fingerprint
     :returns: FeatureDataset with the drug fingerprints
     """
     fingerprints = pd.read_csv(
-        os.path.join(data_path, dataset_name, "drug_fingerprints", "pubchem_id_to_demorgan_128_map.csv"), index_col=None
+        os.path.join(data_path, dataset_name, "drug_fingerprints", f"pubchem_id_to_demorgan_{n_bits}_map.csv"),
+        index_col=None,
     ).T
-    if default_random:
+    if fill_na:
         for drug in fingerprints.index:
-            if not np.all(fingerprints.loc[drug].values == 0):
+            if (
+                not fingerprints.loc[drug].isna().all()
+            ):  # if all values are NaN, replace with random fingerprint for the drug
                 continue
-            fingerprints.loc[drug] = np.random.randint(0, 2, size=fingerprints.loc[drug])
+            fingerprints.loc[drug] = np.random.randint(0, 2, size=fingerprints.loc[drug], seed=hash(drug))
     return FeatureDataset(
         features={drug: {"fingerprints": fingerprints.loc[drug].values} for drug in fingerprints.index}
     )
