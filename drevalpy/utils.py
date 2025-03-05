@@ -341,8 +341,9 @@ def get_datasets(
     """
     Load the response data and cross-study datasets.
 
-    :param dataset_name: The name of the dataset to load. Can be one of ('GDSC1', 'GDSC2', 'CCLE', or 'Toy_Data')
-        to download provided datasets, or any other name to allow for custom datasets.
+    :param dataset_name: The name of the dataset to load. Can be one of ('GDSC1', 'GDSC2', 'CCLE', CTRPv1',
+        'CTRPv2', 'TOYv1', 'TOYv2')
+        to download provided datasets, or any other name to use a custom datasets.
     :param cross_study_datasets: list of cross-study datasets. CurveCurator is not applicable to these. If you wish
         to provide custom cross_study_datasets, you have to invoke curve fitting manually using
         drevalpy.datasets.curvecurator.fit_curves

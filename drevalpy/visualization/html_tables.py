@@ -48,7 +48,6 @@ class HTMLTable(OutPlot):
             "MAE",
             "Spearman",
             "Kendall",
-            "Partial_Correlation",
             "LPO_LCO_LDO",
         ]
         if self.group_by == "drug":
@@ -63,21 +62,14 @@ class HTMLTable(OutPlot):
                 "MSE",
                 "R^2",
                 "Pearson",
-                "R^2: drug normalized",
-                "Pearson: drug normalized",
-                "R^2: cell_line normalized",
-                "Pearson: cell_line normalized",
+                "R^2: normalized",
+                "Pearson: normalized",
                 "RMSE",
                 "MAE",
                 "Spearman",
                 "Kendall",
-                "Partial_Correlation",
-                "Spearman: drug normalized",
-                "Kendall: drug normalized",
-                "Partial_Correlation: drug normalized",
-                "Spearman: cell_line normalized",
-                "Kendall: cell_line normalized",
-                "Partial_Correlation: cell_line normalized",
+                "Spearman: normalized",
+                "Kendall: normalized",
                 "LPO_LCO_LDO",
             ]
             # only take the columns that occur

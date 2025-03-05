@@ -104,11 +104,7 @@ class Heatmap(VioHeat):
             row_idx = 2
             colorscale = "Blues"
         elif plot_setting == "correlations":
-            corr_columns = [
-                col
-                for col in self.df.columns
-                if "Pearson" in col or "Spearman" in col or "Kendall" in col or "Partial_Correlation" in col
-            ]
+            corr_columns = [col for col in self.df.columns if "Pearson" in col or "Spearman" in col or "Kendall" in col]
             corr_columns.sort()
             dt = self.df[corr_columns]
             dt = dt.groupby(setting).apply(lambda x: self._calc_summary_metric(x=x, std_error=False))

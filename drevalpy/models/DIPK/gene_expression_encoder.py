@@ -11,9 +11,6 @@ import torch.optim as optim
 from torch.nn import functional
 from torch.utils.data import DataLoader, Dataset
 
-ldim = 512
-hdim = [2048, 1024]
-
 
 class GeneExpressionEncoder(nn.Module):
     """Gene expression encoder.
@@ -22,7 +19,7 @@ class GeneExpressionEncoder(nn.Module):
     DIPK model https://github.com/user15632/DIPK.
     """
 
-    def __init__(self, input_dim, latent_dim=ldim, h_dims=None, drop_out_rate=0.3):
+    def __init__(self, input_dim, latent_dim=512, h_dims=None, drop_out_rate=0.3):
         """Initialize the gene expression encoder.
 
         :param input_dim: input dimension
@@ -32,7 +29,7 @@ class GeneExpressionEncoder(nn.Module):
         """
         super().__init__()
         if h_dims is None:
-            h_dims = hdim
+            h_dims = [2048, 1024]
         hidden_dims = deepcopy(h_dims)
         hidden_dims.insert(0, input_dim)
         modules = []
@@ -47,6 +44,7 @@ class GeneExpressionEncoder(nn.Module):
             )
         self.encoder = nn.Sequential(*modules)
         self.bottleneck = nn.Linear(hidden_dims[-1], latent_dim)
+        self.latent_dim = latent_dim
 
     def forward(self, input):
         """Forward pass of the gene expression encoder.
@@ -62,7 +60,7 @@ class GeneExpressionEncoder(nn.Module):
 class GeneExpressionDecoder(nn.Module):
     """Gene expression decoder."""
 
-    def __init__(self, input_dim, latent_dim=ldim, h_dims=None, drop_out_rate=0.3):
+    def __init__(self, input_dim, latent_dim=512, h_dims=None, drop_out_rate=0.3):
         """Initialize the gene expression decoder.
 
         :param input_dim: input dimension
@@ -72,7 +70,7 @@ class GeneExpressionDecoder(nn.Module):
         """
         super().__init__()
         if h_dims is None:
-            h_dims = hdim
+            h_dims = [2048, 1024]
         hidden_dims = deepcopy(h_dims)
         hidden_dims.insert(0, input_dim)
         self.decoder_input = nn.Linear(latent_dim, hidden_dims[-1])

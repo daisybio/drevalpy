@@ -263,12 +263,27 @@ class DIPKModel(DRPModel):
         :param cell_line_input: input data associated with the cell line
         :param drug_input: input data associated with the drug
         :return: predicted response values
-        :raises ValueError: if drug_input is None or if the model is not initialized
+        :raises ValueError: if drug_input is None or if the model is not initialized or
+            if the gene expression encoder is not initialized
         """
         if drug_input is None:
             raise ValueError("DIPK model requires drug features.")
         if not isinstance(self.model, Predictor):
             raise ValueError("DIPK model not initialized.")
+
+        # Encode gene expression data if this has not been done yet (e.g., for cross-study predictions)
+        if self.gene_expression_encoder is None:
+            raise ValueError("Gene expression encoder is not initialized.")
+        random_cell_line = next(iter(cell_line_input.features.keys()))
+        if (
+            len(cell_line_input.features[random_cell_line]["gene_expression"])
+            != self.gene_expression_encoder.latent_dim
+        ):
+            print("Encoding gene expression data for cross study prediction")
+            cell_line_input.apply(
+                lambda x: encode_gene_expression(x, self.gene_expression_encoder),  # type: ignore[arg-type]
+                view="gene_expression",
+            )  # type: ignore[arg-type]
 
         # Load data
         collate = CollateFn(train=False)
@@ -310,9 +325,11 @@ class DIPKModel(DRPModel):
         :param dataset_name: path to the dataset
         :returns: cell line features
         """
+        # we use the interception of all genes that are present
+        # in the gene expression features of all datasets
         gene_expression = load_and_reduce_gene_features(
             feature_type="gene_expression",
-            gene_list=None,
+            gene_list="gene_expression_intersection",
             data_path=data_path,
             dataset_name=dataset_name,
         )

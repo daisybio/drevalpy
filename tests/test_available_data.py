@@ -10,10 +10,11 @@ def test_factory() -> None:
     assert "GDSC1" in AVAILABLE_DATASETS
     assert "GDSC2" in AVAILABLE_DATASETS
     assert "CCLE" in AVAILABLE_DATASETS
-    assert "Toy_Data" in AVAILABLE_DATASETS
+    assert "TOYv1" in AVAILABLE_DATASETS
+    assert "TOYv2" in AVAILABLE_DATASETS
     assert "CTRPv1" in AVAILABLE_DATASETS
     assert "CTRPv2" in AVAILABLE_DATASETS
-    assert len(AVAILABLE_DATASETS) == 6
+    assert len(AVAILABLE_DATASETS) == 7
 
 
 def test_gdsc1() -> None:
@@ -51,8 +52,15 @@ def test_ctrpv2():
     assert len(ctrpv2) == 395024
 
 
-def test_toy_data():
-    """Test the Toy_Data dataset."""
+def test_toyv1():
+    """Test the TOYv1 dataset."""
     tempdir = tempfile.TemporaryDirectory()
-    toy_data = AVAILABLE_DATASETS["Toy_Data"](path_data=tempdir.name)
-    assert len(toy_data) == 3426
+    toyv1 = AVAILABLE_DATASETS["TOYv1"](path_data=tempdir.name)
+    assert len(toyv1) == 2711
+
+
+def test_toyv2():
+    """Test the TOYv2 dataset."""
+    tempdir = tempfile.TemporaryDirectory()
+    toyv2 = AVAILABLE_DATASETS["TOYv2"](path_data=tempdir.name)
+    assert len(toyv2) == 2784

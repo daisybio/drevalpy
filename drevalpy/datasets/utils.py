@@ -21,7 +21,7 @@ def download_dataset(
     """
     Download the latets dataset from Zenodo.
 
-    :param dataset_name: dataset name, e.g., "GDSC1", "GDSC2", "CCLE" or "Toy_Data"
+    :param dataset_name: dataset name, from "GDSC1", "GDSC2", "CCLE", "CTRPv1", "CTRPv2", "TOYv1", "TOYv2"
     :param data_path: where to save the data
     :param redownload: whether to redownload the data
     :raises HTTPError: if the download fails

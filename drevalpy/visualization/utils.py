@@ -141,30 +141,22 @@ def evaluate_file(
 
     evaluation_results_per_drug = None
     evaluation_results_per_cl = None
-    norm_drug_eval_results: dict[str, dict[str, float]] = {}
-    norm_cl_eval_results: dict[str, dict[str, float]] = {}
 
     if "LPO" in model or "LCO" in model:
-        norm_drug_eval_results, evaluation_results_per_drug = _evaluate_per_group(
+        evaluation_results_per_drug = _evaluate_per_group(
             df=true_vs_pred,
             group_by="drug",
-            norm_group_eval_results=norm_drug_eval_results,
             eval_results_per_group=evaluation_results_per_drug,
             model=model,
         )
     if "LPO" in model or "LDO" in model:
-        norm_cl_eval_results, evaluation_results_per_cl = _evaluate_per_group(
+        evaluation_results_per_cl = _evaluate_per_group(
             df=true_vs_pred,
             group_by="cell_line",
-            norm_group_eval_results=norm_cl_eval_results,
             eval_results_per_group=evaluation_results_per_cl,
             model=model,
         )
     overall_eval = pd.DataFrame.from_dict(overall_eval, orient="index")
-    if len(norm_drug_eval_results) > 0:
-        overall_eval = _concat_results(norm_drug_eval_results, "drug", overall_eval)
-    if len(norm_cl_eval_results) > 0:
-        overall_eval = _concat_results(norm_cl_eval_results, "cell_line", overall_eval)
 
     return (
         overall_eval,
@@ -175,18 +167,17 @@ def evaluate_file(
     )
 
 
-def _concat_results(norm_group_res: dict[str, dict[str, float]], group_by: str, eval_res: pd.DataFrame) -> pd.DataFrame:
+def _concat_results(norm_group_res: dict[str, dict[str, float]], eval_res: pd.DataFrame) -> pd.DataFrame:
     """
     Concatenate the normalized group results to the evaluation results.
 
     :param norm_group_res: dictionary with the normalized group results, key: model name, value: evaluation results
-    :param group_by: either cell line or drug
     :param eval_res: overall dataframe
     :returns: overall dataframe extended by the normalized group results
     """
     norm_group_df = pd.DataFrame.from_dict(norm_group_res, orient="index")
     # append 'group normalized ' to the column names
-    norm_group_df.columns = [f"{col}: {group_by} normalized" for col in norm_group_df.columns]
+    norm_group_df.columns = [f"{col}: normalized" for col in norm_group_df.columns]
     eval_res = pd.concat([eval_res, norm_group_df], axis=1)
     return eval_res
 
@@ -230,6 +221,58 @@ def prep_results(
     t_vs_p[["algorithm", "rand_setting", "LPO_LCO_LDO", "split", "CV_split"]] = t_vs_p["model"].str.split(
         "_", expand=True
     )
+    t_vs_p = t_vs_p.drop("split", axis=1)
+
+    eval_results_mod = {}
+    # eval_results_per_cl_mod = {}
+    # eval_results_per_drug_mod = {}
+
+    # TODO: calculate normalized metrics if NaiveMeanEffectsPredictor was used
+    if "NaiveMeanEffectsPredictor" in eval_results["algorithm"].unique():
+        # TODO: subtract the prediction of the NaiveMeanEffectsPredictor from the true and predicted values,
+        #  then calculate the metrics
+        # do this: per algorithm, per rand setting, per LPO_LCO_LDO, per CV_split
+        for algorithm in t_vs_p["algorithm"].unique():
+            for rand_setting in t_vs_p["rand_setting"].unique():
+                for lpo_lco_ldo in t_vs_p["LPO_LCO_LDO"].unique():
+                    for cv_split in t_vs_p["CV_split"].unique():
+                        print(
+                            f"Calculating normalized metrics for {algorithm}, {rand_setting}, "
+                            f"{lpo_lco_ldo}, {cv_split} ..."
+                        )
+                        naive_mean_effects = t_vs_p[
+                            (t_vs_p["algorithm"] == "NaiveMeanEffectsPredictor")
+                            & (t_vs_p["rand_setting"] == rand_setting)
+                            & (t_vs_p["LPO_LCO_LDO"] == lpo_lco_ldo)
+                            & (t_vs_p["CV_split"] == cv_split)
+                        ]
+                        naive_mean_effects = naive_mean_effects[["drug", "cell_line", "y_pred"]]
+                        naive_mean_effects.columns = ["drug", "cell_line", "y_pred_naive"]
+                        setting_subset = t_vs_p[
+                            (t_vs_p["algorithm"] == algorithm)
+                            & (t_vs_p["rand_setting"] == rand_setting)
+                            & (t_vs_p["LPO_LCO_LDO"] == lpo_lco_ldo)
+                            & (t_vs_p["CV_split"] == cv_split)
+                        ]
+                        setting_subset = setting_subset[["drug", "cell_line", "y_true", "y_pred"]]
+                        setting_subset = setting_subset.merge(naive_mean_effects, on=["drug", "cell_line"])
+                        setting_subset["y_true"] = setting_subset["y_true"] - setting_subset["y_pred_naive"]
+                        setting_subset["y_pred"] = setting_subset["y_pred"] - setting_subset["y_pred_naive"]
+                        dt = DrugResponseDataset(
+                            response=setting_subset["y_true"].to_numpy(),
+                            cell_line_ids=setting_subset["cell_line"].to_numpy(),
+                            drug_ids=setting_subset["drug"].to_numpy(),
+                            predictions=setting_subset["y_pred"].to_numpy(),
+                        )
+                        res = evaluate(
+                            dataset=dt,
+                            metric=list(AVAILABLE_METRICS.keys() - {"MAE", "MSE", "RMSE"}),
+                        )
+                        eval_results_mod[f"{algorithm}_{rand_setting}_{lpo_lco_ldo}_{cv_split}"] = res
+    mod_table = pd.DataFrame.from_dict(eval_results_mod, orient="index")
+    mod_table.columns = [f"{col}: normalized" for col in mod_table.columns]
+    # TODO: wrong
+    eval_results = pd.concat([eval_results, mod_table], axis=0, ignore_index=True)
 
     return (
         eval_results,
@@ -268,38 +311,23 @@ def _generate_model_names(test_mode: str, model_name: str, pred_file: pathlib.Pa
 def _evaluate_per_group(
     df: pd.DataFrame,
     group_by: str,
-    norm_group_eval_results: dict[str, dict[str, float]],
     eval_results_per_group: pd.DataFrame | None,
     model: str,
-) -> tuple[dict[str, dict[str, float]], pd.DataFrame]:
+) -> pd.DataFrame:
     """
     Evaluate the predictions per group.
 
     :param df: true vs. predicted values
     :param group_by: cell line or drug
-    :param norm_group_eval_results: dictionary to store the normalized group evaluation results
     :param eval_results_per_group: evaluation results per group
     :param model: model name
     :returns: dictionary with the normalized group evaluation results and the evaluation results per group
     """
     # calculate the mean of y_true per drug
     print(f"Calculating {group_by}-wise evaluation measures …")
-    df[f"mean_y_true_per_{group_by}"] = df.groupby(group_by)["y_true"].transform("mean")
-    norm_df = df.copy()
-    norm_df["y_true"] = norm_df["y_true"] - norm_df[f"mean_y_true_per_{group_by}"]
-    norm_df["y_pred"] = norm_df["y_pred"] - norm_df[f"mean_y_true_per_{group_by}"]
-    norm_group_eval_results[model] = evaluate(
-        DrugResponseDataset(
-            response=norm_df["y_true"].to_numpy(),
-            cell_line_ids=norm_df["cell_line"].to_numpy(),
-            drug_ids=norm_df["drug"].to_numpy(),
-            predictions=norm_df["y_pred"].to_numpy(),
-        ),
-        list(AVAILABLE_METRICS.keys() - {"MSE", "RMSE", "MAE"}),
-    )
     # evaluation per group
     eval_results_per_group = compute_evaluation(df, eval_results_per_group, group_by, model)
-    return norm_group_eval_results, eval_results_per_group
+    return eval_results_per_group
 
 
 def compute_evaluation(df: pd.DataFrame, return_df: pd.DataFrame | None, group_by: str, model: str) -> pd.DataFrame:
