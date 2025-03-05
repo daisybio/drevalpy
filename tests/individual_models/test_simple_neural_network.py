@@ -28,6 +28,7 @@ def test_simple_neural_network(
     :param model_name: either SRMF, SimpleNeuralNetwork, or MultiOmicsNeuralNetwork
     :param test_mode: LPO
     :param cross_study_dataset: from conftest.py
+    :raises ValueError: if drug input is None
     """
     drug_response = sample_dataset
     drug_response.split_dataset(
@@ -44,9 +45,10 @@ def test_simple_neural_network(
     es_dataset = split["early_stopping"]
 
     model = MODEL_FACTORY[model_name]()
-    cell_line_input = model.load_cell_line_features(data_path="../data", dataset_name="Toy_Data")
-    drug_input = model.load_drug_features(data_path="../data", dataset_name="Toy_Data")
-
+    cell_line_input = model.load_cell_line_features(data_path="../data", dataset_name="TOYv1")
+    drug_input = model.load_drug_features(data_path="../data", dataset_name="TOYv1")
+    if drug_input is None:
+        raise ValueError("Drug input is None")
     cell_lines_to_keep = cell_line_input.identifiers
     drugs_to_keep = drug_input.identifiers
 
