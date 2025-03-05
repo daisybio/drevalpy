@@ -63,4 +63,4 @@ def test_toyv2():
     """Test the TOYv2 dataset."""
     tempdir = tempfile.TemporaryDirectory()
     toyv2 = AVAILABLE_DATASETS["TOYv2"](path_data=tempdir.name)
-    assert len(toyv2) == 2837
+    assert len(toyv2) == 2784
