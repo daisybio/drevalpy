@@ -211,7 +211,7 @@ class MOLIR(DRPModel):
             gene_lists={
                 "gene_expression": "gene_expression_intersection",
                 "mutations": "mutations_intersection",
-                "copy_number_variation_gistic": "copy_number_variation_intersection",
+                "copy_number_variation_gistic": "copy_number_variation_gistic_intersection",
             },
             omics=self.cell_line_views,
         )

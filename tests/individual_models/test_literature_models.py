@@ -48,7 +48,7 @@ def test_molir_superfeltr(
     es_dataset = split["early_stopping"]
 
     model = MODEL_FACTORY[model_name]()
-    cell_line_input = model.load_cell_line_features(data_path="../data", dataset_name="Toy_Data")
+    cell_line_input = model.load_cell_line_features(data_path="../data", dataset_name="TOYv1")
     cell_lines_to_keep = cell_line_input.identifiers
 
     len_train_before = len(train_dataset)
