@@ -150,7 +150,7 @@ def test_load_and_reduce_gene_features(gene_list: Optional[str]) -> None:
 def test_order_load_and_reduce_gene_features() -> None:
     """Test the order of the features after loading and reducing gene features. it should be maintained."""
     # TODO move to cross study tests where TOYv1 and TOYv2 are available!!!
-    gene_list = "gene_expression_genes_intersection.csv"
+    gene_list = "gene_expression_intersection.csv"
     a = load_and_reduce_gene_features("gene_expression", gene_list, "data", "TOYv1")
     b = load_and_reduce_gene_features("gene_expression", gene_list, "data", "TOYv2")
     # assert the meta info (=gene names) are the same

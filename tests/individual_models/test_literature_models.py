@@ -135,6 +135,7 @@ def test_dipk(
     :param model_name: model name
     :param test_mode: LCO
     :param cross_study_dataset: from conftest.py
+    :raises ValueError: if drug input is None
     """
     drug_response = sample_dataset
     drug_response.split_dataset(
@@ -151,6 +152,8 @@ def test_dipk(
     hpam_combi["epochs_autoencoder"] = 1
     model.build_model(hpam_combi)
     drug_input = model.load_drug_features(data_path="../data", dataset_name="TOYv1")  # type: ignore
+    if drug_input is None:
+        raise ValueError("No drug input is None.")
     cell_line_input = model.load_cell_line_features(data_path="../data", dataset_name="TOYv1")
 
     cell_lines_to_keep = cell_line_input.identifiers
