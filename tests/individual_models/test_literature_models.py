@@ -38,6 +38,8 @@ def test_molir_superfeltr(
     split = drug_response.cv_splits[0]
     train_dataset = split["train"]
     all_unique_drugs = np.unique(train_dataset.drug_ids)
+    all_unique_drugs_cs = np.unique(ctrpv1_dataset.drug_ids)
+    all_unique_drugs = np.array(list(set(all_unique_drugs).intersection(all_unique_drugs_cs)))
     # randomly sample drugs to speed up testing
     np.random.seed(42)
     np.random.shuffle(all_unique_drugs)
