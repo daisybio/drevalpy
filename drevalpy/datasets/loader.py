@@ -211,7 +211,7 @@ def load_dataset(
     """
     Load a dataset based on the dataset name.
 
-    :param dataset_name: The name of the dataset to load. Can be one of ('GDSC1', 'GDSC2', 'CCLE', or 'TOYv1')
+    :param dataset_name: The name of the dataset to load. Can be one of ('GDSC1', 'GDSC2', 'CCLE', 'TOYv1', or 'TOYv2')
         to download provided datasets, or any other name to allow for custom datasets.
     :param path_data: The parent path in which custom or downloaded datasets should be located, or in which raw
         viability data is to be found for fitting with CurveCurator (see param curve_curator for details).
