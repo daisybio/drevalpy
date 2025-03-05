@@ -143,7 +143,15 @@ class MOLIR(DRPModel):
         :param cell_line_input: cell line omics features
         :param drug_input: drug features, not needed
         :returns: Predicted drug response
+        :raises ValueError: If the model was not trained
         """
+        if (
+            (self.gene_expression_features is None)
+            or (self.mutations_features is None)
+            or (self.copy_number_variation_features is None)
+        ):
+            raise ValueError("MOLIR Model not trained, please train the model first.")
+
         input_data = self.get_feature_matrices(
             cell_line_ids=cell_line_ids,
             drug_ids=drug_ids,
@@ -156,6 +164,10 @@ class MOLIR(DRPModel):
             input_data["copy_number_variation_gistic"],
         )
 
+        # Filter out features that were not present during training
+        # This is necessary because the feature order might have changed
+        # or more features are available
+        # impute missing features with zeros
         for key, features in {
             "gene_expression": self.gene_expression_features,
             "mutations": self.mutations_features,
@@ -199,7 +211,7 @@ class MOLIR(DRPModel):
             gene_lists={
                 "gene_expression": "gene_expression_intersection",
                 "mutations": "mutations_intersection",
-                "copy_number_variation_gistic": "copy_number_variation_intersection",
+                "copy_number_variation_gistic": "copy_number_variation_gistic_intersection",
             },
             omics=self.cell_line_views,
         )

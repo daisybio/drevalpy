@@ -16,9 +16,6 @@ from drevalpy.models import (
     NaiveDrugMeanPredictor,
     NaiveMeanEffectsPredictor,
     NaivePredictor,
-    SingleDrugElasticNet,
-    SingleDrugProteomicsElasticNet,
-    SingleDrugRandomForest,
 )
 from drevalpy.models.baselines.sklearn_models import SklearnModel
 from drevalpy.models.drp_model import DRPModel
@@ -52,11 +49,13 @@ def test_baselines(
     :param model_name: name of the model
     :param test_mode: either LPO, LCO, or LDO
     :param cross_study_dataset: dataset
+    :raises ValueError: if drug input is None
     """
     drug_response = sample_dataset
     drug_response.split_dataset(
-        n_cv_splits=5,
+        n_cv_splits=2,
         mode=test_mode,
+        validation_ratio=0.2,
     )
     assert drug_response.cv_splits is not None
     split = drug_response.cv_splits[0]
@@ -64,8 +63,11 @@ def test_baselines(
     val_dataset = split["validation"]
 
     model = MODEL_FACTORY[model_name]()
-    cell_line_input = model.load_cell_line_features(data_path="../data", dataset_name="Toy_Data")
-    drug_input = model.load_drug_features(data_path="../data", dataset_name="Toy_Data")
+    cell_line_input = model.load_cell_line_features(data_path="../data", dataset_name="TOYv1")
+    drug_input = model.load_drug_features(data_path="../data", dataset_name="TOYv1")
+
+    if drug_input is None:
+        raise ValueError("Drug input is None")
 
     cell_lines_to_keep = cell_line_input.identifiers
     drugs_to_keep = drug_input.identifiers
@@ -155,7 +157,7 @@ def test_single_drug_baselines(
     val_dataset = split["validation"]
 
     model = MODEL_FACTORY[model_name]()
-    cell_line_input = model.load_cell_line_features(data_path="../data", dataset_name="Toy_Data")
+    cell_line_input = model.load_cell_line_features(data_path="../data", dataset_name="TOYv1")
     cell_lines_to_keep = cell_line_input.identifiers
 
     len_train_before = len(train_dataset)
@@ -172,14 +174,6 @@ def test_single_drug_baselines(
     random_drug = all_unique_drugs[:1]
 
     all_predictions = np.zeros_like(val_dataset.drug_ids, dtype=float)
-
-    model: SingleDrugRandomForest | SingleDrugElasticNet | SingleDrugProteomicsElasticNet
-    if model_name == "SingleDrugElasticNet":
-        model = SingleDrugElasticNet()
-    elif model_name == "SingleDrugProteomicsElasticNet":
-        model = SingleDrugProteomicsElasticNet()
-    else:
-        model = SingleDrugRandomForest()
 
     hpam_combi = model.get_hyperparameter_set()[0]
     if model_name == "SingleDrugRandomForest":
