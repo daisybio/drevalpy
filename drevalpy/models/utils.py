@@ -67,10 +67,12 @@ def load_and_reduce_gene_features(
             f"The following genes are missing from the dataset {dataset_name} for {feature_type}: {missing_str}"
         )
 
+    indices_to_keep = [i for i, gene in enumerate(cl_features.meta_info[feature_type]) if gene in ordered_genes]
+
     cl_features.meta_info[feature_type] = np.array(ordered_genes)
 
     for cell_line in cl_features.features.keys():
-        cl_features.features[cell_line][feature_type] = cl_features.features[cell_line][feature_type].loc[ordered_genes]
+        cl_features.features[cell_line][feature_type] = cl_features.features[cell_line][feature_type][indices_to_keep]
 
     return cl_features
 
