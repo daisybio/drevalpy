@@ -134,7 +134,10 @@ def load_drug_fingerprint_features(data_path: str, dataset_name: str, fill_na=Tr
                 not fingerprints.loc[drug].isna().all()
             ):  # if all values are NaN, replace with random fingerprint for the drug
                 continue
-            fingerprints.loc[drug] = np.random.randint(0, 2, size=fingerprints.loc[drug], seed=hash(drug))
+            # Create random fingerprint for the drug, which is based on a hash of the pubchemid
+            rng = np.random.default_rng(hash(drug) % (2**32))
+            fingerprints.loc[drug] = rng.integers(0, 2, size=fingerprints.loc[drug].shape)
+
     return FeatureDataset(
         features={drug: {"fingerprints": fingerprints.loc[drug].values} for drug in fingerprints.index}
     )
