@@ -1,11 +1,13 @@
 """Test the MOLIR and SuperFELTR models."""
 
 import os
+import random
 import tempfile
 from typing import cast
 
 import numpy as np
 import pytest
+import torch
 
 from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.evaluation import evaluate, pearson
@@ -30,21 +32,23 @@ def test_molir_superfeltr(
     :param test_mode: LCO
     :param cross_study_dataset: from conftest.py
     """
+    np.random.seed(42)
+    random.seed(42)
+    torch.manual_seed(42)
+    torch.cuda.manual_seed(42)
     drug_response = sample_dataset
-    drug_response.split_dataset(
-        n_cv_splits=5,
-        mode=test_mode,
-    )
+    drug_response.split_dataset(n_cv_splits=6, mode=test_mode, random_state=42)
     assert drug_response.cv_splits is not None
     split = drug_response.cv_splits[0]
     train_dataset = split["train"]
     all_unique_drugs = np.unique(train_dataset.drug_ids)
     all_unique_drugs_cs = np.unique(cross_study_dataset.drug_ids)
-    all_unique_drugs = np.array(list(set(all_unique_drugs).intersection(all_unique_drugs_cs)))
+    all_unique_drugs = np.array(sorted(set(all_unique_drugs).intersection(all_unique_drugs_cs)))
+
     # randomly sample drugs to speed up testing
-    np.random.seed(42)
     np.random.shuffle(all_unique_drugs)
     random_drug = all_unique_drugs[:1]
+
     val_es_dataset = split["validation_es"]
     es_dataset = split["early_stopping"]
 
