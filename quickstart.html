@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Quickstart &mdash; DrEvalPy 1.2.3 documentation</title>
+  <title>Quickstart &mdash; DrEvalPy 1.2.4 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
       <link rel="stylesheet" type="text/css" href="_static/custom_cookietemple.css?v=a7e27724" />
@@ -14,7 +14,7 @@
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=590429e0"></script>
+      <script src="_static/documentation_options.js?v=928db92d"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
@@ -79,9 +79,9 @@
   <section id="quickstart">
 <h1>Quickstart<a class="headerlink" href="#quickstart" title="Link to this heading"></a></h1>
 <p>Make sure you have installed DrEvalPy and its dependencies (see <a class="reference external" href="./installation.html">Installation</a>).</p>
-<p>To make sure the pipeline runs, you can use the fast models NaiveDrugMeanPredictor and NaivePredictor on the Toy_Data
+<p>To make sure the pipeline runs, you can use the fast models NaiveDrugMeanPredictor and NaivePredictor on the TOYv1 (subset of CTRPv2) or TOYv2 (subset of GDSC2)
 dataset with the LPO test mode.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>run_suite.py<span class="w"> </span>--run_id<span class="w"> </span>my_first_run<span class="w"> </span>--models<span class="w"> </span>NaiveDrugMeanPredictor<span class="w"> </span>--baselines<span class="w"> </span>NaivePredictor<span class="w"> </span>--dataset<span class="w"> </span>Toy_Data<span class="w"> </span>--test_mode<span class="w"> </span>LPO
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>run_suite.py<span class="w"> </span>--run_id<span class="w"> </span>my_first_run<span class="w"> </span>--models<span class="w"> </span>NaiveDrugMeanPredictor<span class="w"> </span>--baselines<span class="w"> </span>NaivePredictor<span class="w"> </span>--dataset<span class="w"> </span>TOYv1<span class="w"> </span>--test_mode<span class="w"> </span>LPO
 </pre></div>
 </div>
 <p>This will train the two baseline models on a subset of gene expression features and drug fingerprint features to
