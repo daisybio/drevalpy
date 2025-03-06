@@ -357,6 +357,8 @@ def _call_other_baselines(
                 assert issubclass(type(model_instance.model), Ridge)
             else:
                 assert issubclass(type(model_instance.model), ElasticNet)
+        if model == "MutliOmicsRandomForest":
+            hpam_combi["n_components"] = 10
         # smaller dataset for faster testing
         train_dataset.remove_rows(indices=np.array([list(range(len(train_dataset) - 1000))]))
         model_instance.train(
