@@ -43,6 +43,9 @@ class MOLIR(DRPModel):
         super().__init__()
         self.model: MOLIModel | None = None
         self.hyperparameters: dict[str, Any] = dict()
+        self.gene_expression_features = None
+        self.mutations_features = None
+        self.copy_number_variation_features = None
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -92,6 +95,9 @@ class MOLIR(DRPModel):
                 transformer=selector_gex,
                 view="gene_expression",
             )
+            self.gene_expression_features = cell_line_input.meta_info["gene_expression"]
+            self.mutations_features = cell_line_input.meta_info["mutations"]
+            self.copy_number_variation_features = cell_line_input.meta_info["copy_number_variation_gistic"]
             scaler_gex = StandardScaler()
             cell_line_input.fit_transform_features(
                 train_ids=np.unique(output.cell_line_ids),
@@ -137,7 +143,15 @@ class MOLIR(DRPModel):
         :param cell_line_input: cell line omics features
         :param drug_input: drug features, not needed
         :returns: Predicted drug response
+        :raises ValueError: If the model was not trained
         """
+        if (
+            (self.gene_expression_features is None)
+            or (self.mutations_features is None)
+            or (self.copy_number_variation_features is None)
+        ):
+            raise ValueError("MOLIR Model not trained, please train the model first.")
+
         input_data = self.get_feature_matrices(
             cell_line_ids=cell_line_ids,
             drug_ids=drug_ids,
@@ -149,6 +163,35 @@ class MOLIR(DRPModel):
             input_data["mutations"],
             input_data["copy_number_variation_gistic"],
         )
+
+        # Filter out features that were not present during training
+        # This is necessary because the feature order might have changed
+        # or more features are available
+        # impute missing features with zeros
+        for key, features in {
+            "gene_expression": self.gene_expression_features,
+            "mutations": self.mutations_features,
+            "copy_number_variation_gistic": self.copy_number_variation_features,
+        }.items():
+            if key == "gene_expression":
+                values = gene_expression
+            elif key == "mutations":
+                values = mutations
+            else:
+                values = cnvs
+            if values.shape[1] != len(features):
+                new_value = np.zeros((values.shape[0], len(features)))
+                lookup_table = {feature: i for i, feature in enumerate(cell_line_input.meta_info[key])}
+                for i, feature in enumerate(features):
+                    if feature in lookup_table:
+                        new_value[:, i] = values[:, lookup_table[feature]]
+                if key == "gene_expression":
+                    gene_expression = new_value
+                elif key == "mutations":
+                    mutations = new_value
+                else:
+                    cnvs = new_value
+
         if self.model is None:
             print("No model trained, will predict NA.")
             return np.array([np.nan] * len(cell_line_ids))
@@ -165,7 +208,11 @@ class MOLIR(DRPModel):
         feature_dataset = get_multiomics_feature_dataset(
             data_path=data_path,
             dataset_name=dataset_name,
-            gene_lists=None,
+            gene_lists={
+                "gene_expression": "gene_expression_intersection",
+                "mutations": "mutations_intersection",
+                "copy_number_variation_gistic": "copy_number_variation_gistic_intersection",
+            },
             omics=self.cell_line_views,
         )
         # log transformation replaced with arcsinh transformation since log(0) is undefined
