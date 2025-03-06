@@ -351,14 +351,15 @@ def _call_other_baselines(
             hpam_combi["max_depth"] = 2
             if model == "GradientBoosting":
                 hpam_combi["subsample"] = 0.1
+        elif model == "MultiOmicsRandomForest":
+            hpam_combi["n_components"] = 10
         model_instance.build_model(hpam_combi)
         if model == "ElasticNet":
             if hpam_combi["l1_ratio"] == 0.0:
                 assert issubclass(type(model_instance.model), Ridge)
             else:
                 assert issubclass(type(model_instance.model), ElasticNet)
-        if model == "MutliOmicsRandomForest":
-            hpam_combi["n_components"] = 10
+
         # smaller dataset for faster testing
         train_dataset.remove_rows(indices=np.array([list(range(len(train_dataset) - 1000))]))
         model_instance.train(
