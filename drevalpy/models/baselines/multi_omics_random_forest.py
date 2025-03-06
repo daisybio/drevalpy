@@ -27,7 +27,6 @@ class MultiOmicsRandomForest(RandomForest):
         """
         super().__init__()
         self.pca = None
-        self.methylation_features = None
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -101,7 +100,6 @@ class MultiOmicsRandomForest(RandomForest):
             inputs["copy_number_variation_gistic"],
             inputs["fingerprints"],
         )
-        self.methylation_features = cell_line_input.meta_info["methylation"]
 
         methylation = self.pca.fit_transform(methylation)
 
