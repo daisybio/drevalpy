@@ -21,7 +21,7 @@ def load_cl_ids_from_csv(path: str, dataset_name: str) -> FeatureDataset:
     return FeatureDataset(features={cl: {CELL_LINE_IDENTIFIER: np.array([cl])} for cl in cl_names.index})
 
 
-def load_and_reduce_gene_features(
+def load_and_select_gene_features(
     feature_type: str,
     gene_list: str | None,
     data_path: str,
@@ -29,6 +29,8 @@ def load_and_reduce_gene_features(
 ) -> FeatureDataset:
     """
     Load and reduce features of a single feature type, ensuring selection and ordering based on the gene list.
+
+    Attention: if gene_list is None, all features are loaded, which can be problematic for cross study prediction.
 
     :param feature_type: type of feature, e.g., gene_expression, methylation, etc.
     :param gene_list: list of genes to include, e.g., landmark_genes
@@ -169,7 +171,7 @@ def get_multiomics_feature_dataset(
     feature_dataset = None
     for omic in omics:
         if feature_dataset is None:
-            feature_dataset = load_and_reduce_gene_features(
+            feature_dataset = load_and_select_gene_features(
                 feature_type=omic,
                 gene_list=gene_lists[omic],
                 data_path=data_path,
@@ -177,7 +179,7 @@ def get_multiomics_feature_dataset(
             )
         else:
             feature_dataset.add_features(
-                load_and_reduce_gene_features(
+                load_and_select_gene_features(
                     feature_type=omic,
                     gene_list=gene_lists[omic],
                     data_path=data_path,

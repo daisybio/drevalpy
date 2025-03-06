@@ -44,7 +44,7 @@ MultiOmicsRandomForest:
   criterion:
     - squared_error
   n_components:
-    - 100
+    - 80
 SVR:
   kernel:
     - rbf
