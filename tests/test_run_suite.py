@@ -15,7 +15,7 @@ from drevalpy.visualization.utils import parse_results, prep_results
     [
         {
             "run_id": "test_run",
-            "dataset_name": "Toy_Data",
+            "dataset_name": "TOYv1",
             "models": ["NaiveCellLineMeanPredictor"],
             "baselines": ["NaiveDrugMeanPredictor"],
             "test_mode": ["LPO"],
@@ -53,7 +53,7 @@ def test_run_suite(args):
         evaluation_results_per_drug,
         evaluation_results_per_cell_line,
         true_vs_pred,
-    ) = parse_results(path_to_results=os.path.join(temp_dir.name, args.run_id), dataset="Toy_Data")
+    ) = parse_results(path_to_results=os.path.join(temp_dir.name, args.run_id), dataset="TOYv1")
 
     (
         evaluation_results,

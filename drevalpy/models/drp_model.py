@@ -148,7 +148,7 @@ class DRPModel(ABC):
         Load the cell line features before the train/predict method is called.
 
         Required to implement for all models. Could, e.g., call get_multiomics_feature_dataset() or
-        load_and_reduce_gene_features() from models/utils.py.
+        load_and_select_gene_features() from models/utils.py.
 
         :param data_path: path to the data, e.g., data/
         :param dataset_name: name of the dataset, e.g., "GDSC2"
