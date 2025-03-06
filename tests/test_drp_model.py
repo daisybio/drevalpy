@@ -150,7 +150,8 @@ def test_load_and_select_gene_features(gene_list: Optional[str]) -> None:
 
 def test_order_load_and_select_gene_features() -> None:
     """Test the order of the features after loading and reducing gene features. it should be maintained."""
-    path_data = "../data"
+    path_data = os.path.join("..", "data")
+
     load_toyv1(path_data)
     load_toyv2(path_data)
     gene_list = "gene_expression_intersection"
