@@ -57,7 +57,7 @@ class MultiOmicsRandomForest(RandomForest):
         """
         gene_lists = {
             "gene_expression": "drug_target_genes_all_drugs",
-            "methylation": None,
+            "methylation": "methylation_intersection",
             "mutations": "drug_target_genes_all_drugs",
             "copy_number_variation_gistic": "drug_target_genes_all_drugs",
             "proteomics": "drug_target_genes_all_drugs_proteomics",
@@ -100,6 +100,7 @@ class MultiOmicsRandomForest(RandomForest):
             inputs["copy_number_variation_gistic"],
             inputs["fingerprints"],
         )
+
         methylation = self.pca.fit_transform(methylation)
 
         x = np.concatenate(
@@ -149,6 +150,7 @@ class MultiOmicsRandomForest(RandomForest):
             inputs["copy_number_variation_gistic"],
             inputs["fingerprints"],
         )
+
         methylation = self.pca.transform(methylation)
         x = np.concatenate(
             (
