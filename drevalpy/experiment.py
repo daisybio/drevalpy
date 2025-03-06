@@ -282,7 +282,7 @@ def drug_response_experiment(
         models=models,
         n_cv_splits=n_cv_splits,
         results_path=result_path,
-        cross_study_datasets=cross_study_datasets,
+        cross_study_datasets=[cs.dataset_name for cs in cross_study_datasets],
         randomization_mode=randomization_mode,
         n_trials_robustness=n_trials_robustness,
         out_path=result_path,
@@ -295,7 +295,7 @@ def consolidate_single_drug_model_predictions(
     models: list[type[DRPModel]],
     n_cv_splits: int,
     results_path: str,
-    cross_study_datasets: list[DrugResponseDataset],
+    cross_study_datasets: list[str],
     randomization_mode: list[str] | None = None,
     n_trials_robustness: int = 0,
     out_path: str = "",
@@ -357,10 +357,10 @@ def consolidate_single_drug_model_predictions(
                     # Cross study predictions
                     for cross_study_dataset in cross_study_datasets:
                         cross_study_prediction_path = os.path.join(single_drug_prediction_path, "cross_study")
-                        f = f"cross_study_{cross_study_dataset.dataset_name}_split_{split}.csv"
-                        if cross_study_dataset.dataset_name not in predictions["cross_study"]:
-                            predictions["cross_study"][cross_study_dataset.dataset_name] = []
-                        predictions["cross_study"][cross_study_dataset.dataset_name].append(
+                        f = f"cross_study_{cross_study_dataset}_split_{split}.csv"
+                        if cross_study_dataset not in predictions["cross_study"]:
+                            predictions["cross_study"][cross_study_dataset] = []
+                        predictions["cross_study"][cross_study_dataset].append(
                             pd.read_csv(
                                 os.path.join(cross_study_prediction_path, f),
                                 index_col=0,
