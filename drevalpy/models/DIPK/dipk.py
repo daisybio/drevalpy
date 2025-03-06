@@ -20,7 +20,7 @@ from torch.utils.data import DataLoader
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models.drp_model import DRPModel
-from drevalpy.models.utils import load_and_reduce_gene_features
+from drevalpy.models.utils import load_and_select_gene_features
 
 from .data_utils import CollateFn, DIPKDataset, get_data, load_bionic_features
 from .gene_expression_encoder import GeneExpressionEncoder, encode_gene_expression, train_gene_expession_autoencoder
@@ -327,7 +327,7 @@ class DIPKModel(DRPModel):
         """
         # we use the interception of all genes that are present
         # in the gene expression features of all datasets
-        gene_expression = load_and_reduce_gene_features(
+        gene_expression = load_and_select_gene_features(
             feature_type="gene_expression",
             gene_list="gene_expression_intersection",
             data_path=data_path,

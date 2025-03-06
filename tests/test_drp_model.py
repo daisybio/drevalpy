@@ -13,7 +13,7 @@ from drevalpy.models import MODEL_FACTORY
 from drevalpy.models.utils import (
     get_multiomics_feature_dataset,
     iterate_features,
-    load_and_reduce_gene_features,
+    load_and_select_gene_features,
     load_cl_ids_from_csv,
     load_drug_fingerprint_features,
     load_drug_ids_from_csv,
@@ -93,7 +93,7 @@ def _write_gene_list(temp_dir: tempfile.TemporaryDirectory, gene_list: Optional[
         "gene_list_paccmann_network_prop",
     ],
 )
-def test_load_and_reduce_gene_features(gene_list: Optional[str]) -> None:
+def test_load_and_select_gene_features(gene_list: Optional[str]) -> None:
     """
     Test the loading and reduction of gene features.
 
@@ -121,9 +121,9 @@ def test_load_and_reduce_gene_features(gene_list: Optional[str]) -> None:
 
     if gene_list == "gene_list_paccmann_network_prop":
         with pytest.raises(ValueError) as valerr:
-            gene_features_gdsc1 = load_and_reduce_gene_features("gene_expression", gene_list, temp.name, "GDSC1_small")
+            gene_features_gdsc1 = load_and_select_gene_features("gene_expression", gene_list, temp.name, "GDSC1_small")
     else:
-        gene_features_gdsc1 = load_and_reduce_gene_features("gene_expression", gene_list, temp.name, "GDSC1_small")
+        gene_features_gdsc1 = load_and_select_gene_features("gene_expression", gene_list, temp.name, "GDSC1_small")
     if gene_list is None:
         assert len(gene_features_gdsc1.features) == 5
         assert gene_features_gdsc1.meta_info is not None
@@ -148,14 +148,14 @@ def test_load_and_reduce_gene_features(gene_list: Optional[str]) -> None:
         assert "The following genes are missing from the dataset GDSC1_small" in str(valerr.value)
 
 
-def test_order_load_and_reduce_gene_features() -> None:
+def test_order_load_and_select_gene_features() -> None:
     """Test the order of the features after loading and reducing gene features. it should be maintained."""
     path_data = "../data"
     load_toyv1(path_data)
     load_toyv2(path_data)
     gene_list = "gene_expression_intersection"
-    a = load_and_reduce_gene_features("gene_expression", gene_list, path_data, "TOYv1")
-    b = load_and_reduce_gene_features("gene_expression", gene_list, path_data, "TOYv2")
+    a = load_and_select_gene_features("gene_expression", gene_list, path_data, "TOYv1")
+    b = load_and_select_gene_features("gene_expression", gene_list, path_data, "TOYv2")
     # assert the meta info (=gene names) are the same
     assert np.all(a.meta_info["gene_expression"] == b.meta_info["gene_expression"])
     # assert the shape of the features for a random cell line is actually the same
