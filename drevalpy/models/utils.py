@@ -139,7 +139,7 @@ def load_drug_fingerprint_features(data_path: str, dataset_name: str, default_ra
 def get_multiomics_feature_dataset(
     data_path: str,
     dataset_name: str,
-    gene_list: str | None = "drug_target_genes_all_drugs",
+    gene_lists: dict | None = None,
     omics: list[str] | None = None,
 ) -> FeatureDataset:
     """
@@ -147,19 +147,27 @@ def get_multiomics_feature_dataset(
 
     :param data_path: path to the data, e.g., data/
     :param dataset_name: name of the dataset, e.g., GDSC2
-    :param gene_list: list of genes to include, e.g., landmark_genes
+    :param gene_lists: dictionary of names of lists of genes to include, for each omics type,
+                e.g., {"gene_expression": "landmark_genes"}, if None, all features are not reduced
     :param omics: list of omics to include, e.g., ["gene_expression", "methylation"]
     :returns: FeatureDataset with the multiomics features
     :raises ValueError: if no omics features are found
     """
     if omics is None:
         omics = ["gene_expression", "methylation", "mutations", "copy_number_variation_gistic", "proteomics"]
+
+    if gene_lists is None:
+        gene_lists = {o: None for o in omics}
+
+    if not np.all([k in omics for k in gene_lists.keys()]):
+        raise ValueError("Gene lists must be provided for all omics types.")
+
     feature_dataset = None
     for omic in omics:
         if feature_dataset is None:
             feature_dataset = load_and_reduce_gene_features(
                 feature_type=omic,
-                gene_list=None if omic == "methylation" else gene_list,
+                gene_list=gene_lists[omic],
                 data_path=data_path,
                 dataset_name=dataset_name,
             )
@@ -167,7 +175,7 @@ def get_multiomics_feature_dataset(
             feature_dataset.add_features(
                 load_and_reduce_gene_features(
                     feature_type=omic,
-                    gene_list=None if omic == "methylation" else gene_list,
+                    gene_list=gene_lists[omic],
                     data_path=data_path,
                     dataset_name=dataset_name,
                 )

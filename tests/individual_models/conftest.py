@@ -22,7 +22,7 @@ def sample_dataset() -> tuple[DrugResponseDataset, FeatureDataset, FeatureDatase
     path_data = "../data"
     drug_response = load_toy(path_data)
     drug_response.remove_nan_responses()
-    cell_line_input = get_multiomics_feature_dataset(data_path=path_data, dataset_name="Toy_Data", gene_list=None)
+    cell_line_input = get_multiomics_feature_dataset(data_path=path_data, dataset_name="Toy_Data", gene_lists=None)
     cell_line_ids = load_cl_ids_from_csv(path=path_data, dataset_name="Toy_Data")
     cell_line_input.add_features(cell_line_ids)
     # Load the drug features

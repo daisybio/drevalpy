@@ -165,11 +165,11 @@ class MOLIR(DRPModel):
         feature_dataset = get_multiomics_feature_dataset(
             data_path=data_path,
             dataset_name=dataset_name,
-            gene_list=None,
+            gene_lists=None,
             omics=self.cell_line_views,
         )
-        # log transformation
-        feature_dataset.apply(function=np.log, view="gene_expression")
+        # log transformation replaced with arcsinh transformation since log(0) is undefined
+        feature_dataset.apply(function=np.arcsinh, view="gene_expression")
         return feature_dataset
 
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset | None:
