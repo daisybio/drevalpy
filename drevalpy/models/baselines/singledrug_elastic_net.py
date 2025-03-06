@@ -4,7 +4,7 @@ import numpy as np
 from sklearn.linear_model import ElasticNet
 
 from ...datasets.dataset import DrugResponseDataset, FeatureDataset
-from ..utils import load_and_reduce_gene_features
+from ..utils import load_and_select_gene_features
 from .sklearn_models import SklearnModel
 
 
@@ -131,7 +131,7 @@ class SingleDrugProteomicsElasticNet(SingleDrugElasticNet):
         :param dataset_name: name of the dataset
         :returns: proteomics data
         """
-        return load_and_reduce_gene_features(
+        return load_and_select_gene_features(
             feature_type="proteomics",
             gene_list=None,
             data_path=data_path,

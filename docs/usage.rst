@@ -156,14 +156,21 @@ We provide commonly used datasets to evaluate your model on (GDSC1, GDSC2, CCLE,
 +-------------------+-----------------+---------------------+-----------------------------------------------------------------------------------------------------------------------+
 | Dataset Name      | Number of Drugs | Number of Cell Lines| Description                                                                                                           |
 +===================+=================+=====================+=======================================================================================================================+
-| GDSC1             | 345             | 987                 | The Genomics of Drug Sensitivity in Cancer (GDSC) dataset version 1.                                                  |
+| GDSC1             | 378             | 970                 | The Genomics of Drug Sensitivity in Cancer (GDSC) dataset version 1.                                                  |
 +-------------------+-----------------+---------------------+-----------------------------------------------------------------------------------------------------------------------+
-| GDSC2             | 192             | 809                 | The Genomics of Drug Sensitivity in Cancer (GDSC) dataset version 2.                                                  |
+| GDSC2             | 287             | 969                 | The Genomics of Drug Sensitivity in Cancer (GDSC) dataset version 2.                                                  |
 +-------------------+-----------------+---------------------+-----------------------------------------------------------------------------------------------------------------------+
-| CCLE              | 18              | 471                 | The Cancer Cell Line Encyclopedia (CCLE) dataset. The response data will soon be replaced with the data from CTRPv2.  |
+| CCLE              | 24              | 503                 | The Cancer Cell Line Encyclopedia (CCLE) dataset.                                                                     |
 +-------------------+-----------------+---------------------+-----------------------------------------------------------------------------------------------------------------------+
-| Toy_Data          | 40              | 98                  | A toy dataset for testing purposes.                                                                                   |
+| CTRPv1            | 354             | 243                 | The Cancer Therapeutics Response Portal (CTRP) dataset version 1.                                                     |
 +-------------------+-----------------+---------------------+-----------------------------------------------------------------------------------------------------------------------+
+| CTRPv2            | 546             | 886                 | The Cancer Therapeutics Response Portal (CTRP) dataset version 2.                                                     |
++-------------------+-----------------+---------------------+-----------------------------------------------------------------------------------------------------------------------+
+| TOYv1             | 36              | 90                  | A toy dataset for testing purposes subsetted from CTRPv2.                                                             |
++-------------------+-----------------+---------------------+-----------------------------------------------------------------------------------------------------------------------+
+| TOYv2             | 36              | 90                  | A second toy dataset for cross study testing purposes. 80 cell lines and 32 drugs overlap TOYv2.                      |
++-------------------+-----------------+---------------------+-----------------------------------------------------------------------------------------------------------------------+
+
 
 If using the ``--curve_curator`` option with these datasets, the desired measure provided with the ``--measure`` option is appended with "_curvecurator", e.g. "IC50_curvecurator".
 In the provided datasets, these are the measures calculated with the same fitting procedure using CurveCurator. To use the measures reported from the original publications of the

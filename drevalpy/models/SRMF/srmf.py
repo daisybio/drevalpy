@@ -13,7 +13,7 @@ from scipy.spatial.distance import jaccard
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models.drp_model import DRPModel
-from drevalpy.models.utils import load_and_reduce_gene_features, load_drug_fingerprint_features
+from drevalpy.models.utils import load_and_select_gene_features, load_drug_fingerprint_features
 
 
 class SRMF(DRPModel):
@@ -271,7 +271,7 @@ class SRMF(DRPModel):
         :returns: FeatureDataset containing the cell line gene expression features, filtered
             through the landmark genes
         """
-        return load_and_reduce_gene_features(
+        return load_and_select_gene_features(
             feature_type="gene_expression",
             gene_list=None,
             data_path=data_path,
@@ -286,4 +286,4 @@ class SRMF(DRPModel):
         :param dataset_name: Name of the dataset, e.g., GDSC2
         :returns: FeatureDataset containing the drug fingerprint features
         """
-        return load_drug_fingerprint_features(data_path, dataset_name)
+        return load_drug_fingerprint_features(data_path, dataset_name, fill_na=True)
