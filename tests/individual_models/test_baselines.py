@@ -163,22 +163,21 @@ def test_single_drug_baselines(
     split = sample_dataset.cv_splits[0]
     model = MODEL_FACTORY[model_name]()
 
-    all_unique_drugs = set(sample_dataset.drug_ids)
     # test what happens if a drug is only in the original dataset, not in the cross-study dataset
-    exclusive_drugs = list(all_unique_drugs.difference(set(cross_study_dataset.drug_ids)))
-    all_unique_drugs = list(all_unique_drugs.intersection(set(cross_study_dataset.drug_ids)))
+    exclusive_drugs = list(set(sample_dataset.drug_ids).difference(set(cross_study_dataset.drug_ids)))
+    all_unique_drugs = list(set(sample_dataset.drug_ids).intersection(set(cross_study_dataset.drug_ids)))
     all_unique_drugs.sort()
     exclusive_drugs.sort()
-    all_unique_drugs = np.array(all_unique_drugs)
-    exclusive_drugs = np.array(exclusive_drugs)
+    all_unique_drugs_arr = np.array(all_unique_drugs)
+    exclusive_drugs_arr = np.array(exclusive_drugs)
     # randomly sample a drug to speed up testing
     np.random.seed(123)
-    np.random.shuffle(all_unique_drugs)
-    np.random.shuffle(exclusive_drugs)
-    random_drugs = all_unique_drugs[:1]
-    random_drugs = np.concatenate([random_drugs, exclusive_drugs[:1]])
+    np.random.shuffle(all_unique_drugs_arr)
+    np.random.shuffle(exclusive_drugs_arr)
+    random_drugs = all_unique_drugs_arr[:1]
+    random_drugs = np.concatenate([random_drugs, exclusive_drugs_arr[:1]])
     # test what happens if the training and validation dataset is empty for a drug but the test set is not
-    drug_to_remove = all_unique_drugs[2]
+    drug_to_remove = all_unique_drugs_arr[2]
     random_drugs = np.concatenate([random_drugs, [drug_to_remove]])
 
     hpam_combi = model.get_hyperparameter_set()[0]
