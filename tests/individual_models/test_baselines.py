@@ -1,15 +1,23 @@
 """Tests for the baselines in the models module."""
 
+import pathlib
 import tempfile
 from typing import cast
 
 import numpy as np
+import pandas as pd
 import pytest
 from sklearn.linear_model import ElasticNet, Ridge
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
-from drevalpy.evaluation import evaluate, pearson
-from drevalpy.experiment import cross_study_prediction
+from drevalpy.evaluation import evaluate
+from drevalpy.experiment import (
+    consolidate_single_drug_model_predictions,
+    cross_study_prediction,
+    generate_data_saving_path,
+    get_datasets_from_cv_split,
+    train_and_predict,
+)
 from drevalpy.models import (
     MODEL_FACTORY,
     NaiveCellLineMeanPredictor,
@@ -19,6 +27,7 @@ from drevalpy.models import (
 )
 from drevalpy.models.baselines.sklearn_models import SklearnModel
 from drevalpy.models.drp_model import DRPModel
+from drevalpy.visualization.utils import evaluate_file
 
 
 @pytest.mark.parametrize(
@@ -146,61 +155,67 @@ def test_single_drug_baselines(
     :param test_mode: either LPO or LCO
     :param cross_study_dataset: dataset
     """
-    drug_response = sample_dataset
-    drug_response.split_dataset(
+    sample_dataset.split_dataset(
         n_cv_splits=5,
         mode=test_mode,
     )
-    assert drug_response.cv_splits is not None
-    split = drug_response.cv_splits[0]
-    train_dataset = split["train"]
-    val_dataset = split["validation"]
-
+    assert sample_dataset.cv_splits is not None
+    split = sample_dataset.cv_splits[0]
     model = MODEL_FACTORY[model_name]()
-    cell_line_input = model.load_cell_line_features(data_path="../data", dataset_name="TOYv1")
-    cell_lines_to_keep = cell_line_input.identifiers
 
-    len_train_before = len(train_dataset)
-    len_pred_before = len(val_dataset)
-    train_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=None)
-    val_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=None)
-    print(f"Reduced training dataset from {len_train_before} to {len(train_dataset)}")
-    print(f"Reduced val dataset from {len_pred_before} to {len(val_dataset)}")
-
-    all_unique_drugs = np.unique(train_dataset.drug_ids)
+    all_unique_drugs = set(sample_dataset.drug_ids)
+    # test what happens if a drug is only in the original dataset, not in the cross-study dataset
+    exclusive_drugs = list(all_unique_drugs.difference(set(cross_study_dataset.drug_ids)))
+    all_unique_drugs = list(all_unique_drugs.intersection(set(cross_study_dataset.drug_ids)))
+    all_unique_drugs.sort()
+    exclusive_drugs.sort()
+    all_unique_drugs = np.array(all_unique_drugs)
+    exclusive_drugs = np.array(exclusive_drugs)
     # randomly sample a drug to speed up testing
     np.random.seed(123)
     np.random.shuffle(all_unique_drugs)
-    random_drug = all_unique_drugs[:1]
-
-    all_predictions = np.zeros_like(val_dataset.drug_ids, dtype=float)
+    np.random.shuffle(exclusive_drugs)
+    random_drugs = all_unique_drugs[:1]
+    random_drugs = np.concatenate([random_drugs, exclusive_drugs[:1]])
+    # test what happens if the training and validation dataset is empty for a drug but the test set is not
+    drug_to_remove = all_unique_drugs[2]
+    random_drugs = np.concatenate([random_drugs, [drug_to_remove]])
 
     hpam_combi = model.get_hyperparameter_set()[0]
+    result_path = tempfile.TemporaryDirectory()
     if model_name == "SingleDrugRandomForest":
         hpam_combi["n_estimators"] = 2  # reduce test time
         hpam_combi["max_depth"] = 2  # reduce test time
-
-    model.build_model(hpam_combi)
-    output_mask = train_dataset.drug_ids == random_drug
-    drug_train = train_dataset.copy()
-    drug_train.mask(output_mask)
-    model.train(output=drug_train, cell_line_input=cell_line_input, drug_input=None)
-
-    val_mask = val_dataset.drug_ids == random_drug
-    all_predictions[val_mask] = model.predict(
-        drug_ids=random_drug,
-        cell_line_ids=val_dataset.cell_line_ids[val_mask],
-        cell_line_input=cell_line_input,
-    )
-    # check whether predictions are constant
-    if np.all(all_predictions[val_mask] == all_predictions[val_mask][0]):
-        print("Predictions are constant")
-    else:
-        pcc_drug = pearson(val_dataset.response[val_mask], all_predictions[val_mask])
-        print(f"{test_mode}: Performance of {model_name} for drug {random_drug}: PCC = {pcc_drug}")
-        assert pcc_drug >= -1.0
-    with tempfile.TemporaryDirectory() as temp_dir:
-        print(f"Running cross-study prediction for {model_name}")
+    for random_drug in random_drugs:
+        predictions_path = generate_data_saving_path(
+            model_name=model_name,
+            drug_id=str(random_drug),
+            result_path=result_path.name,
+            suffix="predictions",
+        )
+        prediction_file = pathlib.Path(predictions_path, "predictions_split_0.csv")
+        (
+            train_dataset,
+            validation_dataset,
+            early_stopping_dataset,
+            test_dataset,
+        ) = get_datasets_from_cv_split(split, MODEL_FACTORY[model_name], model_name, random_drug)
+        train_dataset.add_rows(validation_dataset)
+        if random_drug == drug_to_remove:
+            train_dataset.reduce_to(cell_line_ids=None, drug_ids=list(set(train_dataset.drug_ids) - {random_drug}))
+        train_dataset.shuffle(random_state=42)
+        test_dataset = train_and_predict(
+            model=model,
+            hpams=hpam_combi,
+            path_data="../data",
+            train_dataset=train_dataset,
+            prediction_dataset=test_dataset,
+            early_stopping_dataset=None,
+            response_transformation=None,
+            model_checkpoint_dir="TEMPORARY",
+        )
+        cross_study_dataset.remove_nan_responses()
+        parent_dir = str(pathlib.Path(predictions_path).parent)
         cross_study_prediction(
             dataset=cross_study_dataset,
             model=model,
@@ -209,10 +224,38 @@ def test_single_drug_baselines(
             path_data="../data",
             early_stopping_dataset=None,
             response_transformation=None,
-            path_out=temp_dir,
+            path_out=parent_dir,
             split_index=0,
-            single_drug_id=str(random_drug[0]),
+            single_drug_id=str(random_drug),
         )
+        test_dataset.to_csv(prediction_file)
+    consolidate_single_drug_model_predictions(
+        models=[model],
+        n_cv_splits=1,
+        results_path=result_path.name,
+        cross_study_datasets=[cross_study_dataset.dataset_name],
+        randomization_mode=None,
+        n_trials_robustness=0,
+        out_path=result_path.name,
+    )
+    # get cross-study predictions and assert that each drug-cell line combination only occurs once
+    cross_study_predictions = pd.read_csv(
+        pathlib.Path(result_path.name, model_name, "cross_study", "cross_study_TOYv2_split_0.csv")
+    )
+    assert len(cross_study_predictions) == len(cross_study_predictions.drop_duplicates(["drug_id", "cell_line_id"]))
+    predictions_file = pathlib.Path(result_path.name, model_name, "predictions", "predictions_split_0.csv")
+    cross_study_file = pathlib.Path(result_path.name, model_name, "cross_study", "cross_study_TOYv2_split_0.csv")
+    for file in [predictions_file, cross_study_file]:
+        (
+            overall_eval,
+            eval_results_per_drug,
+            eval_results_per_cl,
+            t_vs_p,
+            model_name,
+        ) = evaluate_file(pred_file=file, test_mode=test_mode, model_name=model_name)
+        assert len(overall_eval) == 1
+        print(f"Performance of {model_name}: PCC = {overall_eval['Pearson'][0]}")
+        assert overall_eval["Pearson"][0] >= -1.0
 
 
 def _call_naive_predictor(
