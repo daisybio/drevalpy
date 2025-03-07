@@ -201,7 +201,8 @@ def test_single_drug_baselines(
         ) = get_datasets_from_cv_split(split, MODEL_FACTORY[model_name], model_name, random_drug)
         train_dataset.add_rows(validation_dataset)
         if random_drug == drug_to_remove:
-            train_dataset.reduce_to(cell_line_ids=None, drug_ids=list(set(train_dataset.drug_ids) - {random_drug}))
+            reduce_to_drugs = np.array(list(set(train_dataset.drug_ids) - {random_drug}))
+            train_dataset.reduce_to(cell_line_ids=None, drug_ids=reduce_to_drugs)
         train_dataset.shuffle(random_state=42)
         test_dataset = train_and_predict(
             model=model,
