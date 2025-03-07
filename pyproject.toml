@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "drevalpy"
-version = "1.2.4"
+version = "1.2.5"
 description = "Drug response evaluation of cancer cell line drug response models in a fair setting"
 authors = ["DrEvalPy development team"]
 license = "GPL-3.0"
