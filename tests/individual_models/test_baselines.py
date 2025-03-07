@@ -229,7 +229,7 @@ def test_single_drug_baselines(
         )
         test_dataset.to_csv(prediction_file)
     consolidate_single_drug_model_predictions(
-        models=[model],
+        models=[MODEL_FACTORY[model_name]],
         n_cv_splits=1,
         results_path=result_path.name,
         cross_study_datasets=[cross_study_dataset.dataset_name],
