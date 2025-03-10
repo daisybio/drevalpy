@@ -18,6 +18,7 @@ from torch import nn
 from torch.utils.data import DataLoader, Dataset
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.models.drp_model import DRPModel
 
 
 class RegressionDataset(Dataset):
@@ -203,6 +204,51 @@ def get_dimensions_of_omics_data(cell_line_input: FeatureDataset) -> tuple[int, 
     dim_mut = first_item["mutations"].shape[0]
     dim_cnv = first_item["copy_number_variation_gistic"].shape[0]
     return dim_gex, dim_mut, dim_cnv
+
+
+def filter_and_sort_omics(
+    model: DRPModel,  # MOLIR or SuperFELTR
+    gene_expression: np.ndarray,
+    mutations: np.ndarray,
+    cnvs: np.ndarray,
+    cell_line_input: FeatureDataset,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Filters out features that were not present during training and imputes missing features with zeros.
+
+    This is necessary because the feature order might have changed or more features are available (cross-study setting).
+
+    :param model: either MOLIR or SuperFELTR self
+    :param gene_expression: new gene expression data from which to predict
+    :param mutations: new mutation data from which to predict
+    :param cnvs: new copy number variation data from which to predict
+    :param cell_line_input: needed for meta information (feature names)
+    :return: filtered and sorted gene expression, mutations, and copy number variation data
+    """
+    for key, features in {
+        "gene_expression": model.gene_expression_features,  # type: ignore
+        "mutations": model.mutations_features,  # type: ignore
+        "copy_number_variation_gistic": model.copy_number_variation_features,  # type: ignore
+    }.items():
+        if key == "gene_expression":
+            values = gene_expression
+        elif key == "mutations":
+            values = mutations
+        else:
+            values = cnvs
+        if values.shape[1] != len(features):
+            new_value = np.zeros((values.shape[0], len(features)))
+            lookup_table = {feature: i for i, feature in enumerate(cell_line_input.meta_info[key])}
+            for i, feature in enumerate(features):
+                if feature in lookup_table:
+                    new_value[:, i] = values[:, lookup_table[feature]]
+            if key == "gene_expression":
+                gene_expression = new_value
+            elif key == "mutations":
+                mutations = new_value
+            else:
+                cnvs = new_value
+    return gene_expression, mutations, cnvs
 
 
 class MOLIEncoder(nn.Module):

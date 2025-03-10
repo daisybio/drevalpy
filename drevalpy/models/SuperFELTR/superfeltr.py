@@ -23,7 +23,7 @@ from sklearn.feature_selection import VarianceThreshold
 
 from ...datasets.dataset import DrugResponseDataset, FeatureDataset
 from ..drp_model import DRPModel
-from ..MOLIR.utils import get_dimensions_of_omics_data, make_ranges
+from ..MOLIR.utils import filter_and_sort_omics, get_dimensions_of_omics_data, make_ranges
 from ..utils import get_multiomics_feature_dataset
 from .utils import SuperFELTEncoder, SuperFELTRegressor, train_superfeltr_model
 
@@ -201,6 +201,9 @@ class SuperFELTR(DRPModel):
         :returns: predicted drug response
         :raises ValueError: if drug_input is not None
         """
+        if self.expr_encoder is None or self.mut_encoder is None or self.cnv_encoder is None or self.regressor is None:
+            print("No training data was available, predicting NA")
+            return np.array([np.nan] * len(cell_line_ids))
         if (
             self.gene_expression_features is None
             or self.mutations_features is None
@@ -223,35 +226,10 @@ class SuperFELTR(DRPModel):
             input_data["copy_number_variation_gistic"],
         )
 
-        # make cross study prediction possible by selecting only the features that were used during training
-        # missing features are imputed with zeros
-        for key, features in {
-            "gene_expression": self.gene_expression_features,
-            "mutations": self.mutations_features,
-            "copy_number_variation_gistic": self.copy_number_variation_features,
-        }.items():
-            if key == "gene_expression":
-                values = gene_expression
-            elif key == "mutations":
-                values = mutations
-            else:
-                values = cnvs
-            if values.shape[1] != len(features):
-                new_value = np.zeros((values.shape[0], len(features)))
-                lookup_table = {feature: i for i, feature in enumerate(cell_line_input.meta_info[key])}
-                for i, feature in enumerate(features):
-                    if feature in lookup_table:
-                        new_value[:, i] = values[:, lookup_table[feature]]
-                if key == "gene_expression":
-                    gene_expression = new_value
-                elif key == "mutations":
-                    mutations = new_value
-                else:
-                    cnvs = new_value
+        (gene_expression, mutations, cnvs) = filter_and_sort_omics(
+            model=self, gene_expression=gene_expression, mutations=mutations, cnvs=cnvs, cell_line_input=cell_line_input
+        )
 
-        if self.expr_encoder is None or self.mut_encoder is None or self.cnv_encoder is None or self.regressor is None:
-            print("No training data was available, predicting NA")
-            return np.array([np.nan] * len(cell_line_ids))
         if self.best_checkpoint is None:
             print("Not enough training data provided for SuperFELTR Regressor. Predicting with random initialization.")
             return self.regressor.predict(gene_expression, mutations, cnvs)
