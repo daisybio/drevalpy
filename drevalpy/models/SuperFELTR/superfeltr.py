@@ -19,11 +19,10 @@ from typing import Any
 
 import numpy as np
 import pytorch_lightning as pl
-from sklearn.feature_selection import VarianceThreshold
 
 from ...datasets.dataset import DrugResponseDataset, FeatureDataset
 from ..drp_model import DRPModel
-from ..MOLIR.utils import filter_and_sort_omics, get_dimensions_of_omics_data, make_ranges
+from ..MOLIR.utils import filter_and_sort_omics, get_dimensions_of_omics_data, make_ranges, select_features_for_view
 from ..utils import get_multiomics_feature_dataset
 from .utils import SuperFELTEncoder, SuperFELTRegressor, train_superfeltr_model
 
@@ -238,21 +237,20 @@ class SuperFELTR(DRPModel):
 
     def _feature_selection(self, output: DrugResponseDataset, cell_line_input: FeatureDataset) -> FeatureDataset:
         """
-        Feature selection for all omics data using the predefined variance thresholds.
+        Feature selection for all omics data.
+
+        Originally, this was done with VarianceThreshold but as data can vary and hence the thresholds are not
+        universally applicable, we now changed it to select the top 1000 variable features for each omics data.
 
         :param output: training data associated with the response output
         :param cell_line_input: cell line omics features
         :returns: cell line omics features with selected features
         """
-        thresholds = {
-            "gene_expression": self.hyperparameters["expression_var_threshold"][output.dataset_name],
-            "mutations": self.hyperparameters["mutation_var_threshold"][output.dataset_name],
-            "copy_number_variation_gistic": self.hyperparameters["cnv_var_threshold"][output.dataset_name],
-        }
         for view in self.cell_line_views:
-            selector = VarianceThreshold(thresholds[view])
-            cell_line_input.fit_transform_features(
-                train_ids=np.unique(output.cell_line_ids), transformer=selector, view=view
+            cell_line_input = select_features_for_view(
+                view=view,
+                cell_line_input=cell_line_input,
+                output=output,
             )
         self.gene_expression_features = cell_line_input.meta_info["gene_expression"]
         self.mutations_features = cell_line_input.meta_info["mutations"]

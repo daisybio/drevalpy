@@ -251,6 +251,31 @@ def filter_and_sort_omics(
     return gene_expression, mutations, cnvs
 
 
+def select_features_for_view(
+    view: str,  # "gene_expression", "mutations", or "copy_number_variation_gistic"
+    cell_line_input: FeatureDataset,
+    output: DrugResponseDataset,
+):
+    """
+    Selects the top 1000 features with the highest variance for the omics data.
+
+    :param view: either "gene_expression", "mutations", or "copy_number_variation_gistic"
+    :param cell_line_input: the omics data of the cell lines
+    :param output: the training dataset containing the response output
+    :return: the modified cell line input with the top 1000 features with the highest variance
+    """
+    train_features = np.vstack(
+        [cell_line_input.features[identifier][view] for identifier in np.unique(output.cell_line_ids)]
+    )
+    variances = np.var(train_features, axis=0)
+    mask = np.zeros(len(variances), dtype=bool)
+    mask[np.argsort(variances)[::-1][:1000]] = True
+    cell_line_input.meta_info[view] = cell_line_input.meta_info[view][mask]
+    for identifier in cell_line_input.features:
+        cell_line_input.features[identifier][view] = cell_line_input.features[identifier][view][mask]
+    return cell_line_input
+
+
 class MOLIEncoder(nn.Module):
     """
     Encoders of the MOLIR model, which is identical to the encoders of the original MOLI model.
