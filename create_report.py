@@ -305,14 +305,16 @@ if __name__ == "__main__":
         t_vs_p=true_vs_pred,
     )
     """
-    For debugging:
+    #For debugging:
     evaluation_results = pd.read_csv(
         f'results/{run_id}/evaluation_results.csv', index_col=0
     )
     evaluation_results_per_drug = pd.read_csv(
         f'results/{run_id}/evaluation_results_per_drug.csv', index_col=0
     )
-    evaluation_results_per_cell_line = None
+    evaluation_results_per_cell_line = pd.read_csv(
+        f'results/{run_id}/evaluation_results_per_cl.csv', index_col=0
+    )
     true_vs_pred = pd.read_csv(
         f'results/{run_id}/true_vs_pred.csv', index_col=0
     )

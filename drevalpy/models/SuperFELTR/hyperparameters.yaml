@@ -8,29 +8,5 @@ SuperFELTR:
   out_dim_mutation_encoder: 32
   out_dim_cnv_encoder: 64
   epochs: 30
-  expression_var_threshold:
-    GDSC1: 0.1
-    GDSC2: 0.1
-    TOYv1: 0.03
-    TOYv2: 0.03
-    CCLE: 0.1
-    CTRPv1: 0.1
-    CTRPv2: 0.1
-  mutation_var_threshold:
-    GDSC1: 0.1
-    GDSC2: 0.1
-    TOYv1: 0.05
-    TOYv2: 0.05
-    CCLE: 0.1
-    CTRPv1: 0.1
-    CTRPv2: 0.1
-  cnv_var_threshold:
-    GDSC1: 0.7
-    GDSC2: 0.7
-    TOYv1: 0.6
-    TOYv2: 0.6
-    CCLE: 0.7
-    CTRPv1: 0.7
-    CTRPv2: 0.7
   margin: 1.0
   learning_rate: 0.01
