@@ -26,8 +26,10 @@ importlib-resources = "*"
 curve-curator = "*"
 ray = {version = "*", optional = true}
 toml = {version = "^0.10.2"}
-poetry-plugin-export = "*"
 poetry = "^2.0.1"
+
+[tool.poetry.requires-plugins]
+poetry-plugin-export = ">=1.8"
 
 [tool.poetry.extras]
 multiprocessing = ["ray"]

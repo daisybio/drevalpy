@@ -39,8 +39,7 @@ jobs:
 
       - name: Install Poetry
         run: |
-          pipx install poetry
-          pipx inject poetry poetry-plugin-export
+          curl -sSL https://install.python-poetry.org | python3 -
           poetry --version
 
       - name: Install nox nox-poetry rich
