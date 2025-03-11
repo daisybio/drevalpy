@@ -34,7 +34,6 @@ class MultiOmicsNeuralNetwork(DRPModel):
         self.model = None
         self.hyperparameters = None
         self.pca = None
-        self.methylation_features = None
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -83,7 +82,6 @@ class MultiOmicsNeuralNetwork(DRPModel):
             [cell_line_input.features[id_]["methylation"] for id_ in np.unique(output.cell_line_ids)],
             axis=0,
         )
-        self.methylation_features = cell_line_input.meta_info["methylation"]
 
         self.pca.n_components = min(self.pca.n_components, len(unique_methylation))
         self.pca = self.pca.fit(unique_methylation)

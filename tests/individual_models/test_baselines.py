@@ -1,4 +1,4 @@
-"""Tests for the baselines in the models module."""
+"""Tests for the baselines in the models module that are not single drug models."""
 
 import tempfile
 from typing import cast
@@ -8,7 +8,7 @@ import pytest
 from sklearn.linear_model import ElasticNet, Ridge
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
-from drevalpy.evaluation import evaluate, pearson
+from drevalpy.evaluation import evaluate
 from drevalpy.experiment import cross_study_prediction
 from drevalpy.models import (
     MODEL_FACTORY,
@@ -123,95 +123,6 @@ def test_baselines(
             path_out=temp_dir,
             split_index=0,
             single_drug_id=None,
-        )
-
-
-@pytest.mark.parametrize(
-    "model_name",
-    [
-        "SingleDrugRandomForest",
-        "SingleDrugElasticNet",
-        "SingleDrugProteomicsElasticNet",
-    ],
-)
-@pytest.mark.parametrize("test_mode", ["LPO", "LCO"])
-def test_single_drug_baselines(
-    sample_dataset: DrugResponseDataset, model_name: str, test_mode: str, cross_study_dataset: DrugResponseDataset
-) -> None:
-    """
-    Test the SingleDrugRandomForest model, can also test other baseline single drug models.
-
-    :param sample_dataset: from conftest.py
-    :param model_name: model name
-    :param test_mode: either LPO or LCO
-    :param cross_study_dataset: dataset
-    """
-    drug_response = sample_dataset
-    drug_response.split_dataset(
-        n_cv_splits=5,
-        mode=test_mode,
-    )
-    assert drug_response.cv_splits is not None
-    split = drug_response.cv_splits[0]
-    train_dataset = split["train"]
-    val_dataset = split["validation"]
-
-    model = MODEL_FACTORY[model_name]()
-    cell_line_input = model.load_cell_line_features(data_path="../data", dataset_name="TOYv1")
-    cell_lines_to_keep = cell_line_input.identifiers
-
-    len_train_before = len(train_dataset)
-    len_pred_before = len(val_dataset)
-    train_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=None)
-    val_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=None)
-    print(f"Reduced training dataset from {len_train_before} to {len(train_dataset)}")
-    print(f"Reduced val dataset from {len_pred_before} to {len(val_dataset)}")
-
-    all_unique_drugs = np.unique(train_dataset.drug_ids)
-    # randomly sample a drug to speed up testing
-    np.random.seed(123)
-    np.random.shuffle(all_unique_drugs)
-    random_drug = all_unique_drugs[:1]
-
-    all_predictions = np.zeros_like(val_dataset.drug_ids, dtype=float)
-
-    hpam_combi = model.get_hyperparameter_set()[0]
-    if model_name == "SingleDrugRandomForest":
-        hpam_combi["n_estimators"] = 2  # reduce test time
-        hpam_combi["max_depth"] = 2  # reduce test time
-
-    model.build_model(hpam_combi)
-    output_mask = train_dataset.drug_ids == random_drug
-    drug_train = train_dataset.copy()
-    drug_train.mask(output_mask)
-    model.train(output=drug_train, cell_line_input=cell_line_input, drug_input=None)
-
-    val_mask = val_dataset.drug_ids == random_drug
-    all_predictions[val_mask] = model.predict(
-        drug_ids=random_drug,
-        cell_line_ids=val_dataset.cell_line_ids[val_mask],
-        cell_line_input=cell_line_input,
-    )
-    # check whether predictions are constant
-    if np.all(all_predictions[val_mask] == all_predictions[val_mask][0]):
-        print("Predictions are constant")
-    else:
-        pcc_drug = pearson(val_dataset.response[val_mask], all_predictions[val_mask])
-        print(f"{test_mode}: Performance of {model_name} for drug {random_drug}: PCC = {pcc_drug}")
-        assert pcc_drug >= -1.0
-    with tempfile.TemporaryDirectory() as temp_dir:
-        print(f"Running cross-study prediction for {model_name}")
-        cross_study_prediction(
-            dataset=cross_study_dataset,
-            model=model,
-            test_mode=test_mode,
-            train_dataset=train_dataset,
-            path_data="../data",
-            early_stopping_dataset=None,
-            response_transformation=None,
-            path_out=temp_dir,
-            split_index=0,
-            single_drug_id=str(random_drug[0]),
         )
 
 
