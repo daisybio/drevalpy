@@ -2621,22 +2621,6 @@ test = ["hypothesis (>=6.46.1)", "pytest (>=7.3.2)", "pytest-xdist (>=2.2.0)"]
 xml = ["lxml (>=4.9.2)"]
 
 [[package]]
-name = "pandas-flavor"
-version = "0.6.0"
-description = "The easy way to write your own Pandas flavor."
-optional = false
-python-versions = "*"
-groups = ["main"]
-files = [
-    {file = "pandas_flavor-0.6.0-py3-none-any.whl", hash = "sha256:a32c9e2e0da702579320cf2bd0078cee91807713bc9c65ff522f6b0289899893"},
-    {file = "pandas_flavor-0.6.0.tar.gz", hash = "sha256:9fb8735102dcb65dae7ee5cda12b393ca134a909ebcfc0262c5cdc1d79ba007f"},
-]
-
-[package.dependencies]
-pandas = ">=0.23"
-xarray = "*"
-
-[[package]]
 name = "pathspec"
 version = "0.12.1"
 description = "Utility library for gitignore style pattern matching of file paths."
@@ -2805,33 +2789,6 @@ mic = ["olefile"]
 tests = ["check-manifest", "coverage (>=7.4.2)", "defusedxml", "markdown2", "olefile", "packaging", "pyroma", "pytest", "pytest-cov", "pytest-timeout", "trove-classifiers (>=2024.10.12)"]
 typing = ["typing-extensions ; python_version < \"3.10\""]
 xmp = ["defusedxml"]
-
-[[package]]
-name = "pingouin"
-version = "0.5.5"
-description = "Pingouin: statistical package for Python"
-optional = false
-python-versions = ">=3.8"
-groups = ["main"]
-files = [
-    {file = "pingouin-0.5.5-py3-none-any.whl", hash = "sha256:3156afe44ee5541131200848ee905937930757b615aca8eed8438ad4d4e20ef1"},
-    {file = "pingouin-0.5.5.tar.gz", hash = "sha256:2aac834128e99a4df8cffd8151c21adc7c42fe493e389c6fc2581b84e436ddd9"},
-]
-
-[package.dependencies]
-matplotlib = "*"
-numpy = "*"
-pandas = ">=1.5"
-pandas-flavor = "*"
-scikit-learn = ">=1.2"
-scipy = "*"
-seaborn = "*"
-statsmodels = "*"
-tabulate = "*"
-
-[package.extras]
-docs = ["numpydoc", "pydata-sphinx-theme", "sphinx (>7.0.0)", "sphinx-copybutton", "sphinx-design", "sphinx-notfound-page"]
-test = ["codecov", "coverage[toml] (>=5.3)", "mpmath", "openpyxl", "pytest (>=6)", "pytest-cov"]
 
 [[package]]
 name = "pkginfo"
@@ -4441,21 +4398,6 @@ mpmath = ">=1.1.0,<1.4"
 dev = ["hypothesis (>=6.70.0)", "pytest (>=7.1.0)"]
 
 [[package]]
-name = "tabulate"
-version = "0.9.0"
-description = "Pretty-print tabular data"
-optional = false
-python-versions = ">=3.7"
-groups = ["main"]
-files = [
-    {file = "tabulate-0.9.0-py3-none-any.whl", hash = "sha256:024ca478df22e9340661486f85298cff5f6dcdba14f3813e8830015b9ed1948f"},
-    {file = "tabulate-0.9.0.tar.gz", hash = "sha256:0095b12bf5966de529c0feb1fa08671671b3368eec77d7ef7ab114be2c068b3c"},
-]
-
-[package.extras]
-widechars = ["wcwidth"]
-
-[[package]]
 name = "threadpoolctl"
 version = "3.5.0"
 description = "threadpoolctl"
@@ -4941,32 +4883,6 @@ files = [
 ]
 
 [[package]]
-name = "xarray"
-version = "2025.1.2"
-description = "N-D labeled arrays and datasets in Python"
-optional = false
-python-versions = ">=3.10"
-groups = ["main"]
-files = [
-    {file = "xarray-2025.1.2-py3-none-any.whl", hash = "sha256:a7ad6a36c6e0becd67f8aff6a7808d20e4bdcd344debb5205f0a34b1a4a7f8d6"},
-    {file = "xarray-2025.1.2.tar.gz", hash = "sha256:e7675c79ac69d274dd3b3c5450ce57176928d2792947576251ed1c7df1783224"},
-]
-
-[package.dependencies]
-numpy = ">=1.24"
-packaging = ">=23.2"
-pandas = ">=2.1"
-
-[package.extras]
-accel = ["bottleneck", "flox", "numba (>=0.54)", "numbagg", "opt_einsum", "scipy"]
-complete = ["xarray[accel,etc,io,parallel,viz]"]
-dev = ["hypothesis", "jinja2", "mypy", "pre-commit", "pytest", "pytest-cov", "pytest-env", "pytest-timeout", "pytest-xdist", "ruff (>=0.8.0)", "sphinx", "sphinx_autosummary_accessors", "xarray[complete]"]
-etc = ["sparse"]
-io = ["cftime", "fsspec", "h5netcdf", "netCDF4", "pooch", "pydap ; python_version < \"3.10\"", "scipy", "zarr"]
-parallel = ["dask[complete]"]
-viz = ["cartopy", "matplotlib", "nc-time-axis", "seaborn"]
-
-[[package]]
 name = "xattr"
 version = "1.1.4"
 description = "Python wrapper for extended filesystem attributes"
@@ -5302,4 +5218,4 @@ multiprocessing = ["ray"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11,<3.13"
-content-hash = "94b225fa78d786a23978c30f1ba18f8ec4e38a1c4aee5efd80151ba3815006c8"
+content-hash = "4247489653bb37587c0af0823f0ebfe059265fac0c01a65a2024dfd1ea04d273"
