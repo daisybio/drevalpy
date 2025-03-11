@@ -27,7 +27,6 @@ class MultiOmicsRandomForest(RandomForest):
         """
         super().__init__()
         self.pca = None
-        self.methylation_features = None
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -58,7 +57,7 @@ class MultiOmicsRandomForest(RandomForest):
         """
         gene_lists = {
             "gene_expression": "drug_target_genes_all_drugs",
-            "methylation": None,
+            "methylation": "methylation_intersection",
             "mutations": "drug_target_genes_all_drugs",
             "copy_number_variation_gistic": "drug_target_genes_all_drugs",
             "proteomics": "drug_target_genes_all_drugs_proteomics",
@@ -101,7 +100,6 @@ class MultiOmicsRandomForest(RandomForest):
             inputs["copy_number_variation_gistic"],
             inputs["fingerprints"],
         )
-        self.methylation_features = cell_line_input.meta_info["methylation"]
 
         methylation = self.pca.fit_transform(methylation)
 
@@ -152,15 +150,6 @@ class MultiOmicsRandomForest(RandomForest):
             inputs["copy_number_variation_gistic"],
             inputs["fingerprints"],
         )
-        if methylation.shape[1] != len(self.methylation_features):
-            # subset, for missing features set to 0
-            new_methylation = np.zeros((methylation.shape[0], len(self.methylation_features)))
-            feature_lookup = {feature: i for i, feature in enumerate(cell_line_input.meta_info["methylation"])}
-            for i, feature in enumerate(self.methylation_features):
-                idx = feature_lookup.get(feature, None)
-                if idx is not None:
-                    new_methylation[:, i] = methylation[:, idx]
-            methylation = new_methylation
 
         methylation = self.pca.transform(methylation)
         x = np.concatenate(

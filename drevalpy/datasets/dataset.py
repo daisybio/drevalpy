@@ -22,7 +22,6 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 from sklearn.base import TransformerMixin
-from sklearn.feature_selection import VarianceThreshold
 from sklearn.model_selection import GroupKFold, train_test_split
 
 from ..pipeline_function import pipeline_function
@@ -1003,9 +1002,6 @@ class FeatureDataset:
         # Collect all features of the view for fitting the scaler
         train_features = np.vstack([self.features[identifier][view] for identifier in train_ids])
         transformer.fit(train_features)
-        if isinstance(transformer, VarianceThreshold):
-            mask = transformer.get_support()
-            self.meta_info[view] = self.meta_info[view][mask]
 
         # Apply transformation and scaling to each feature vector
         for identifier in self.features:

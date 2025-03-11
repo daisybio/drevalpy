@@ -8,7 +8,7 @@ from sklearn.svm import SVR
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models.drp_model import DRPModel
 
-from ..utils import load_and_reduce_gene_features, load_drug_fingerprint_features
+from ..utils import load_and_select_gene_features, load_drug_fingerprint_features
 
 
 class SklearnModel(DRPModel):
@@ -114,7 +114,7 @@ class SklearnModel(DRPModel):
         :param dataset_name: Name of the dataset
         :returns: FeatureDataset containing the cell line gene expression features, filtered through the landmark genes
         """
-        return load_and_reduce_gene_features(
+        return load_and_select_gene_features(
             feature_type="gene_expression",
             gene_list="landmark_genes",
             data_path=data_path,

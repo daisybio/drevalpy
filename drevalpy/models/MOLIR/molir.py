@@ -9,13 +9,12 @@ and Hauptmann et al. (2023, 10.1186/s12859-023-05166-7) https://github.com/krame
 from typing import Any
 
 import numpy as np
-from sklearn.feature_selection import VarianceThreshold
 from sklearn.preprocessing import StandardScaler
 
 from ...datasets.dataset import DrugResponseDataset, FeatureDataset
 from ..drp_model import DRPModel
 from ..utils import get_multiomics_feature_dataset
-from .utils import MOLIModel, get_dimensions_of_omics_data
+from .utils import MOLIModel, filter_and_sort_omics, get_dimensions_of_omics_data, select_features_for_view
 
 
 class MOLIR(DRPModel):
@@ -76,8 +75,9 @@ class MOLIR(DRPModel):
         """
         Initializes and trains the model.
 
-        First, the gene expression data is reduced using a variance threshold (0.05) and standardized. Then,
-        the model is initialized with the hyperparameters and the dimensions of the gene expression, mutation and
+        First, the gene expression data was reduced using a variance threshold (0.05) and standardized. We chose to use
+        the most variable 1000 genes instead to avoid issues with the variance threshold.
+        Then, the model is initialized with the hyperparameters and the dimensions of the gene expression, mutation and
         copy number variation data. If there is no training data, the model is set to None (and predictions will be
         skipped as well). If there is not enough training data, the predictions will be made on the randomly
         initialized model.
@@ -89,11 +89,10 @@ class MOLIR(DRPModel):
         :param model_checkpoint_dir: directory to save the model checkpoints
         """
         if len(output) > 0:
-            selector_gex = VarianceThreshold(0.05)
-            cell_line_input.fit_transform_features(
-                train_ids=np.unique(output.cell_line_ids),
-                transformer=selector_gex,
+            cell_line_input = select_features_for_view(
                 view="gene_expression",
+                cell_line_input=cell_line_input,
+                output=output,
             )
             self.gene_expression_features = cell_line_input.meta_info["gene_expression"]
             self.mutations_features = cell_line_input.meta_info["mutations"]
@@ -145,6 +144,9 @@ class MOLIR(DRPModel):
         :returns: Predicted drug response
         :raises ValueError: If the model was not trained
         """
+        if self.model is None:
+            print("No model trained, will predict NA.")
+            return np.array([np.nan] * len(cell_line_ids))
         if (
             (self.gene_expression_features is None)
             or (self.mutations_features is None)
@@ -164,37 +166,10 @@ class MOLIR(DRPModel):
             input_data["copy_number_variation_gistic"],
         )
 
-        # Filter out features that were not present during training
-        # This is necessary because the feature order might have changed
-        # or more features are available
-        # impute missing features with zeros
-        for key, features in {
-            "gene_expression": self.gene_expression_features,
-            "mutations": self.mutations_features,
-            "copy_number_variation_gistic": self.copy_number_variation_features,
-        }.items():
-            if key == "gene_expression":
-                values = gene_expression
-            elif key == "mutations":
-                values = mutations
-            else:
-                values = cnvs
-            if values.shape[1] != len(features):
-                new_value = np.zeros((values.shape[0], len(features)))
-                lookup_table = {feature: i for i, feature in enumerate(cell_line_input.meta_info[key])}
-                for i, feature in enumerate(features):
-                    if feature in lookup_table:
-                        new_value[:, i] = values[:, lookup_table[feature]]
-                if key == "gene_expression":
-                    gene_expression = new_value
-                elif key == "mutations":
-                    mutations = new_value
-                else:
-                    cnvs = new_value
+        (gene_expression, mutations, cnv) = filter_and_sort_omics(
+            model=self, gene_expression=gene_expression, mutations=mutations, cnvs=cnvs, cell_line_input=cell_line_input
+        )
 
-        if self.model is None:
-            print("No model trained, will predict NA.")
-            return np.array([np.nan] * len(cell_line_ids))
         return self.model.predict(gene_expression, mutations, cnvs)
 
     def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:

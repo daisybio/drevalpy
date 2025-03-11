@@ -153,6 +153,16 @@ def evaluate(dataset: DrugResponseDataset, metric: list[str] | str):
         if len(response) < 2 or np.all(np.isnan(response)) or np.all(np.isnan(predictions)):
             results[m] = float(np.nan)
         else:
-            results[m] = float(AVAILABLE_METRICS[m](y_pred=predictions, y_true=response))
+            # check whether the predictions contain NaNs
+            if np.any(np.isnan(predictions)):
+                # if there are only NaNs in the predictions, the metric is NaN
+                if np.all(np.isnan(predictions)):
+                    results[m] = float(np.nan)
+                else:
+                    # remove the rows with NaNs in the predictions and response
+                    mask = ~np.isnan(predictions)
+                    results[m] = float(AVAILABLE_METRICS[m](y_pred=predictions[mask], y_true=response[mask]))
+            else:
+                results[m] = float(AVAILABLE_METRICS[m](y_pred=predictions, y_true=response))
 
     return results

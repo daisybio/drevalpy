@@ -111,7 +111,7 @@ def parse_results(path_to_results: str, dataset: str) -> tuple[pd.DataFrame, pd.
 @pipeline_function
 def evaluate_file(
     pred_file: pathlib.Path, test_mode: str, model_name: str
-) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, str]:
+) -> tuple[pd.DataFrame, pd.DataFrame | None, pd.DataFrame | None, pd.DataFrame, str]:
     """
     Evaluate the predictions from the final models.
 
