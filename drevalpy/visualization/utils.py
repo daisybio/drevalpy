@@ -19,12 +19,13 @@ from .regression_slider_plot import RegressionSliderPlot
 from .vioheat import VioHeat
 
 
-def _parse_layout(f: TextIO, path_to_layout: str) -> None:
+def _parse_layout(f: TextIO, path_to_layout: str, test_mode: str) -> None:
     """
     Parse the layout file and write it to the output file.
 
     :param f: file to write to
     :param path_to_layout: path to the layout file
+    :param test_mode: test mode, e.g., LPO
     """
     with open(path_to_layout, encoding="utf-8") as layout_f:
         layout = layout_f.readlines()
@@ -34,6 +35,8 @@ def _parse_layout(f: TextIO, path_to_layout: str) -> None:
     else:
         # remove the last 3 lines (</div>, </body>, </html>)
         layout = layout[:-3]
+        # replace LPOLCOLDO with the test mode
+        layout = [line.replace("LPOLCOLDO", test_mode) for line in layout]
     f.write("".join(layout))
 
 
@@ -200,6 +203,7 @@ def prep_results(
     """
     # add variables
     # split the index by "_" into: algorithm, randomization, setting, split, CV_split
+    print("Reformatting the evaluation results ...")
     new_columns = eval_results.index.str.split("_", expand=True).to_frame()
     new_columns.columns = [
         "algorithm",
@@ -211,49 +215,49 @@ def prep_results(
     new_columns.index = eval_results.index
     eval_results = pd.concat([new_columns.drop("split", axis=1), eval_results], axis=1)
     if eval_results_per_drug is not None:
+        print("Reformatting the evaluation results per drug ...")
         eval_results_per_drug[["algorithm", "rand_setting", "LPO_LCO_LDO", "split", "CV_split"]] = (
             eval_results_per_drug["model"].str.split("_", expand=True)
         )
     if eval_results_per_cell_line is not None:
+        print("Reformatting the evaluation results per cell line ...")
         eval_results_per_cell_line[["algorithm", "rand_setting", "LPO_LCO_LDO", "split", "CV_split"]] = (
             eval_results_per_cell_line["model"].str.split("_", expand=True)
         )
+    print("Reformatting the true vs. predicted values ...")
     t_vs_p[["algorithm", "rand_setting", "LPO_LCO_LDO", "split", "CV_split"]] = t_vs_p["model"].str.split(
         "_", expand=True
     )
     t_vs_p = t_vs_p.drop("split", axis=1)
 
     eval_results_mod = {}
-    # eval_results_per_cl_mod = {}
-    # eval_results_per_drug_mod = {}
 
-    # TODO: calculate normalized metrics if NaiveMeanEffectsPredictor was used
     if "NaiveMeanEffectsPredictor" in eval_results["algorithm"].unique():
-        # TODO: subtract the prediction of the NaiveMeanEffectsPredictor from the true and predicted values,
-        #  then calculate the metrics
         # do this: per algorithm, per rand setting, per LPO_LCO_LDO, per CV_split
-        for algorithm in t_vs_p["algorithm"].unique():
-            for rand_setting in t_vs_p["rand_setting"].unique():
-                for lpo_lco_ldo in t_vs_p["LPO_LCO_LDO"].unique():
-                    for cv_split in t_vs_p["CV_split"].unique():
+        for algorithm in eval_results["algorithm"].unique():
+            for rand_setting in eval_results["rand_setting"].unique():
+                for lpo_lco_ldo in eval_results["LPO_LCO_LDO"].unique():
+                    for cv_split in eval_results["CV_split"].unique():
                         print(
                             f"Calculating normalized metrics for {algorithm}, {rand_setting}, "
                             f"{lpo_lco_ldo}, {cv_split} ..."
                         )
-                        naive_mean_effects = t_vs_p[
-                            (t_vs_p["algorithm"] == "NaiveMeanEffectsPredictor")
-                            & (t_vs_p["rand_setting"] == rand_setting)
-                            & (t_vs_p["LPO_LCO_LDO"] == lpo_lco_ldo)
-                            & (t_vs_p["CV_split"] == cv_split)
-                        ]
-                        naive_mean_effects = naive_mean_effects[["drug", "cell_line", "y_pred"]]
-                        naive_mean_effects.columns = ["drug", "cell_line", "y_pred_naive"]
                         setting_subset = t_vs_p[
                             (t_vs_p["algorithm"] == algorithm)
                             & (t_vs_p["rand_setting"] == rand_setting)
                             & (t_vs_p["LPO_LCO_LDO"] == lpo_lco_ldo)
                             & (t_vs_p["CV_split"] == cv_split)
                         ]
+                        if setting_subset.empty:
+                            continue
+                        naive_mean_effects = t_vs_p[
+                            (t_vs_p["algorithm"] == "NaiveMeanEffectsPredictor")
+                            & (t_vs_p["rand_setting"] == "predictions")
+                            & (t_vs_p["LPO_LCO_LDO"] == lpo_lco_ldo)
+                            & (t_vs_p["CV_split"] == cv_split)
+                        ]
+                        naive_mean_effects = naive_mean_effects[["drug", "cell_line", "y_pred"]]
+                        naive_mean_effects.columns = ["drug", "cell_line", "y_pred_naive"]
                         setting_subset = setting_subset[["drug", "cell_line", "y_true", "y_pred"]]
                         setting_subset = setting_subset.merge(naive_mean_effects, on=["drug", "cell_line"])
                         setting_subset["y_true"] = setting_subset["y_true"] - setting_subset["y_pred_naive"]
@@ -268,11 +272,10 @@ def prep_results(
                             dataset=dt,
                             metric=list(AVAILABLE_METRICS.keys() - {"MAE", "MSE", "RMSE"}),
                         )
-                        eval_results_mod[f"{algorithm}_{rand_setting}_{lpo_lco_ldo}_{cv_split}"] = res
-    mod_table = pd.DataFrame.from_dict(eval_results_mod, orient="index")
-    mod_table.columns = [f"{col}: normalized" for col in mod_table.columns]
-    # TODO: wrong
-    eval_results = pd.concat([eval_results, mod_table], axis=0, ignore_index=True)
+                        eval_results_mod[f"{algorithm}_{rand_setting}_{lpo_lco_ldo}_split_{cv_split}"] = res
+        mod_table = pd.DataFrame.from_dict(eval_results_mod, orient="index")
+        mod_table.columns = [f"{col}: normalized" for col in mod_table.columns]
+        eval_results = eval_results.merge(mod_table, left_index=True, right_index=True)
 
     return (
         eval_results,
@@ -418,7 +421,7 @@ def create_index_html(custom_id: str, test_modes: list[str], prefix_results: str
     )
     idx_html_path = os.path.join(prefix_results, "index.html")
     with open(idx_html_path, "w", encoding="utf-8") as f:
-        _parse_layout(f=f, path_to_layout=layout_path)
+        _parse_layout(f=f, path_to_layout=layout_path, test_mode="")
         f.write('<div class="main">\n')
         f.write('<img src="nf-core-drugresponseeval_logo_light.png" ' 'width="364px" height="100px" alt="Logo">\n')
         f.write(f"<h1>Results for {custom_id}</h1>\n")
@@ -446,7 +449,7 @@ def create_index_html(custom_id: str, test_modes: list[str], prefix_results: str
 
 
 @pipeline_function
-def create_html(run_id: str, lpo_lco_ldo: str, files: list, prefix_results: str) -> None:
+def create_html(run_id: str, lpo_lco_ldo: str, files: list, prefix_results: str, test_mode: str) -> None:
     """
     Create the html file for the given test mode, e.g., LPO.html.
 
@@ -454,6 +457,7 @@ def create_html(run_id: str, lpo_lco_ldo: str, files: list, prefix_results: str)
     :param lpo_lco_ldo: test mode, e.g., LPO
     :param files: list of files in the results directory
     :param prefix_results: path to the results directory, e.g., results/my_run
+    :param test_mode: test mode, e.g., LPO
     """
     page_layout = os.path.join(
         str(importlib_resources.files("drevalpy")),
@@ -462,7 +466,7 @@ def create_html(run_id: str, lpo_lco_ldo: str, files: list, prefix_results: str)
     html_path = os.path.join(prefix_results, f"{lpo_lco_ldo}.html")
 
     with open(html_path, "w", encoding="utf-8") as f:
-        _parse_layout(f=f, path_to_layout=page_layout)
+        _parse_layout(f=f, path_to_layout=page_layout, test_mode=test_mode)
         f.write(f"<h1>Results for {run_id}: {lpo_lco_ldo}</h1>\n")
 
         # Critical difference plot
