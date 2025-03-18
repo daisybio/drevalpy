@@ -25,6 +25,7 @@ class Heatmap(VioHeat):
         """
         super().__init__(df, true_vs_pred, normalized_metrics, whole_name)
         self.df = self.df[[col for col in self.df.columns if col in self.all_metrics]]
+
         if self.normalized_metrics:
             titles = [
                 "Standard Errors over CV folds",
@@ -33,32 +34,29 @@ class Heatmap(VioHeat):
             ]
             nr_subplots = 3
             self.plot_settings = ["standard_errors", "r2", "correlations"]
-            self.fig = make_subplots(
-                rows=nr_subplots,
-                cols=1,
-                subplot_titles=tuple(titles),
-                vertical_spacing=0.25,
-            )
         else:
             titles = [
                 "Standard Errors over CV folds",
                 "Mean R^2",
                 "Mean Correlations",
                 "Mean Errors",
+                "SSMD Effect Size Heatmap for R^2",
             ]
-            nr_subplots = 4
+            nr_subplots = 5
             self.plot_settings = [
                 "standard_errors",
                 "r2",
                 "correlations",
                 "errors",
+                "ssmd_R^2",
             ]
-            self.fig = make_subplots(
-                rows=nr_subplots,
-                cols=1,
-                subplot_titles=tuple(titles),
-                vertical_spacing=0.1,
-            )
+
+        self.fig = make_subplots(
+            rows=nr_subplots,
+            cols=1,
+            subplot_titles=tuple(titles),
+            vertical_spacing=0.1,
+        )
 
     @pipeline_function
     def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
@@ -78,7 +76,7 @@ class Heatmap(VioHeat):
         for plot_setting in self.plot_settings:
             self._draw_subplots(plot_setting)
         self.fig.update_layout(
-            height=1000,
+            height=1200,
             width=1100,
             title_text="Heatmap of the evaluation metrics",
         )
@@ -88,43 +86,57 @@ class Heatmap(VioHeat):
         """
         Draw the subplots of the heatmap.
 
-        :param plot_setting: Either "standard_errors", "r2", "correlations", or "errors"
+        :param plot_setting: Either "standard_errors", "r2", "correlations", "errors", or "ssmd"
         :raises ValueError: If an unknown plot setting is given
         """
         idx_split = self.df.index.to_series().str.split("_")
         setting = idx_split.str[0:3].str.join("_")
+
         if plot_setting == "standard_errors":
-            dt = self.df.groupby(setting).apply(lambda x: self._calc_summary_metric(x=x, std_error=True))
+            dt = self.df.groupby(setting).apply(lambda x: self._calc_summary_metric(x, std_error=True))
             row_idx = 1
             colorscale = "Pinkyl"
         elif plot_setting == "r2":
             r2_columns = [col for col in self.df.columns if "R^2" in col]
-            dt = self.df[r2_columns]
-            dt = dt.groupby(setting).apply(lambda x: self._calc_summary_metric(x=x, std_error=False))
+            dt = self.df[r2_columns].groupby(setting).apply(lambda x: self._calc_summary_metric(x))
             dt = dt.sort_values(by=r2_columns[0], ascending=True)
             row_idx = 2
             colorscale = "Blues"
         elif plot_setting == "correlations":
             corr_columns = [col for col in self.df.columns if "Pearson" in col or "Spearman" in col or "Kendall" in col]
-            corr_columns.sort()
-            dt = self.df[corr_columns]
-            dt = dt.groupby(setting).apply(lambda x: self._calc_summary_metric(x=x, std_error=False))
+            dt = self.df[corr_columns].groupby(setting).apply(lambda x: self._calc_summary_metric(x))
             dt = dt.sort_values(by=corr_columns[0], ascending=True)
             row_idx = 3
             colorscale = "Viridis"
         elif plot_setting == "errors":
-            dt = self.df[["MSE", "RMSE", "MAE"]]
-            dt = dt.groupby(setting).apply(lambda x: self._calc_summary_metric(x=x, std_error=False))
-            dt = dt.sort_values(by="MSE", ascending=False)
+            error_columns = [col for col in self.df.columns if col in ["MSE", "RMSE", "MAE"]]
+            if not error_columns:
+                print("Warning: No error metric columns found. Skipping error heatmap.")
+                return
+            dt = self.df[error_columns].groupby(setting).apply(lambda x: self._calc_summary_metric(x))
+            dt = dt.sort_values(by=error_columns[0], ascending=False)
             row_idx = 4
             colorscale = "hot"
+        elif plot_setting.startswith("ssmd_"):
+            metric_name = plot_setting.split("_")[1]  # Extract metric name (e.g., "ssmd_r2" → "r2")
+            dt = self._compute_ssmd(metric_name)
+
+            if dt.empty:
+                print(f"Warning: SSMD heatmap for {metric_name} is empty. Skipping.")
+                return
+
+            row_idx = 5  # Adjust row index if needed
+            colorscale = "RdBu"
+
+            row_idx = self.plot_settings.index(plot_setting) + 1
+            colorscale = "RdBu"
+
         else:
-            raise ValueError("Unknown plot setting")
-        if self.whole_name:
-            labels = [i.replace("_", " ") for i in list(dt.index)]
-        else:
-            labels = [i.split("_")[0] for i in list(dt.index)]
-        self.fig = self.fig.add_trace(
+            raise ValueError(f"Unknown plot setting: {plot_setting}")
+
+        labels = [i.replace("_", " ") if self.whole_name else i.split("_")[0] for i in dt.index]
+
+        self.fig.add_trace(
             go.Heatmap(
                 z=dt.values,
                 x=dt.columns,
@@ -136,6 +148,64 @@ class Heatmap(VioHeat):
             col=1,
         )
 
+        # **Force all y-ticks to be displayed**
+        self.fig.update_yaxes(
+            row=row_idx,
+            col=1,
+            tickmode="array",
+            tickvals=list(range(len(dt.index))),  # Force showing all ticks
+            ticktext=dt.index.tolist(),  # Ensure full model names appear
+            automargin=True,  # Prevent cutoff
+            tickfont=dict(size=15),  # Adjust text size
+        )
+        # Dynamically adjust figure height based on number of models
+        num_models = len(dt.index)
+        height_per_model = 35  # Increase spacing for each model
+        max_height = 3000  # Increase max height if needed
+        new_height = min(500 + num_models * height_per_model, max_height)
+
+        # **Increase margins to avoid cutting off labels**
+        self.fig.update_layout(
+            height=new_height,
+            margin=dict(l=250, r=20, t=50, b=50),  # Large left margin for labels
+        )
+
+    def _compute_ssmd(self, metric: str) -> pd.DataFrame:
+        """
+        Compute Strictly Standardized Mean Difference (SSMD) for a given metric across splits.
+
+        :param metric: The evaluation metric to compute SSMD for (e.g., "R^2", "RMSE", "MAE", "Pearson").
+        :return: SSMD heatmap matrix (models × models) as a DataFrame.
+        """
+        if metric not in self.df.columns:
+            print(f"Warning: '{metric}' metric not found in DataFrame. Skipping SSMD heatmap.")
+            return pd.DataFrame()
+
+        # Extract only the base model name (remove _predictions_testmode_split_X)
+        self.df["model_name"] = self.df.index.to_series().apply(lambda x: x.split("_predictions")[0])
+
+        models = self.df["model_name"].unique()
+        ssmd_matrix = pd.DataFrame(index=models, columns=models)
+
+        for m1 in models:
+            for m2 in models:
+                if m1 == m2:
+                    ssmd_matrix.loc[m1, m2] = np.nan  # No self-comparison
+                    continue
+
+                # Get metric values across splits for both models
+                values_m1 = self.df[self.df["model_name"] == m1][metric]
+                values_m2 = self.df[self.df["model_name"] == m2][metric]
+
+                # Compute SSMD
+                mu1, mu2 = values_m1.mean(), values_m2.mean()
+                sigma1_sq, sigma2_sq = values_m1.var(ddof=1), values_m2.var(ddof=1)
+                ssmd = (mu1 - mu2) / np.sqrt(sigma1_sq + sigma2_sq) if sigma1_sq + sigma2_sq > 0 else np.nan
+
+                ssmd_matrix.loc[m1, m2] = ssmd
+
+        return ssmd_matrix.astype(float)
+
     @staticmethod
     def _calc_summary_metric(x: pd.DataFrame, std_error: bool = False):
         """
@@ -145,16 +215,12 @@ class Heatmap(VioHeat):
         :param std_error: whether to calculate the standard error or the mean
         :returns: Series containing the mean or standard error of the metrics
         """
-        # make empty results series
         results = pd.Series(index=x.columns)
-        # iterate over columns
         for col in x.columns:
             if np.count_nonzero(np.isnan(x[col])) == len(x[col]):
                 results[col] = np.nan
             elif std_error:
-                # calculate standard error
                 results[col] = np.nanstd(x[col]) / np.sqrt(x.shape[0])
             else:
-                # calculate mean
                 results[col] = np.nanmean(x[col])
         return results
