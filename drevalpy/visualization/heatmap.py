@@ -40,14 +40,16 @@ class Heatmap(VioHeat):
                 "Mean Correlations",
                 "Mean Errors",
                 "Strictly Standardized Mean Difference for R^2",
+                "Strictly Standardized Mean Difference for MSE",
             ]
-            nr_subplots = 4
             self.plot_settings = [
                 "r2",
                 "correlations",
                 "errors",
                 "ssmd_R^2",
+                "ssmd_MSE",
             ]
+            nr_subplots = len(self.plot_settings)
 
         self.fig = make_subplots(
             rows=nr_subplots,
@@ -134,12 +136,15 @@ class Heatmap(VioHeat):
         elif plot_setting.startswith("ssmd_"):
             metric_name = plot_setting.split("_")[1]  # Extract metric name (e.g., "ssmd_r2" → "r2")
             dt = self._compute_ssmd(metric_name)
+            dt["sort_key"] = dt.max(axis=1)
+            dt = dt.sort_values(by="sort_key", ascending=True).drop(columns=["sort_key"])
+            dt = dt[dt.index]  # Ensure columns match sorted rows
 
             if dt.empty:
                 print(f"Warning: SSMD heatmap for {metric_name} is empty. Skipping.")
                 return
+            row_idx = self.plot_settings.index(plot_setting) + 1
 
-            row_idx = 4
             colorscale = "RdBu"
 
         else:
@@ -195,7 +200,7 @@ class Heatmap(VioHeat):
         for m1 in models:
             for m2 in models:
                 if m1 == m2:
-                    ssmd_matrix.loc[m1, m2] = np.nan  # No self-comparison
+                    ssmd_matrix.loc[m1, m2] = 0  # No self-comparison
                     continue
 
                 # Get metric values across splits for both models
