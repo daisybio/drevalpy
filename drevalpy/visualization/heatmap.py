@@ -25,6 +25,7 @@ class Heatmap(VioHeat):
         """
         super().__init__(df, true_vs_pred, normalized_metrics, whole_name)
         self.df = self.df[[col for col in self.df.columns if col in self.all_metrics]]
+        self.n_models = len(self.df.index)
 
         if self.normalized_metrics:
             titles = [
@@ -40,7 +41,7 @@ class Heatmap(VioHeat):
                 "Mean R^2",
                 "Mean Correlations",
                 "Mean Errors",
-                "SSMD Effect Size Heatmap for R^2",
+                "Strictly Standardized Mean Difference for R^2",
             ]
             nr_subplots = 5
             self.plot_settings = [
@@ -75,9 +76,15 @@ class Heatmap(VioHeat):
         print("Drawing heatmaps ...")
         for plot_setting in self.plot_settings:
             self._draw_subplots(plot_setting)
+
+        # Dynamically adjust figure height based on number of models
+        num_models = self.n_models
+        height_per_model = 35  # Increase spacing for each model
+        max_height = 5000  # Increase max height if needed
+        new_height = min(500 + num_models * height_per_model, max_height)
         self.fig.update_layout(
-            height=1200,
-            width=1100,
+            height=new_height,
+            width=1300,
             title_text="Heatmap of the evaluation metrics",
         )
         self.fig.update_traces(showscale=False)
@@ -125,9 +132,6 @@ class Heatmap(VioHeat):
                 print(f"Warning: SSMD heatmap for {metric_name} is empty. Skipping.")
                 return
 
-            row_idx = 5  # Adjust row index if needed
-            colorscale = "RdBu"
-
             row_idx = self.plot_settings.index(plot_setting) + 1
             colorscale = "RdBu"
 
@@ -143,31 +147,21 @@ class Heatmap(VioHeat):
                 y=labels,
                 colorscale=colorscale,
                 texttemplate="%{z:.2f}",
+                textfont={"size": 16},  # size of labels of pixels of the heatmap
             ),
             row=row_idx,
             col=1,
         )
 
-        # **Force all y-ticks to be displayed**
+        # Force all y-ticks to be displayed
         self.fig.update_yaxes(
             row=row_idx,
             col=1,
             tickmode="array",
             tickvals=list(range(len(dt.index))),  # Force showing all ticks
-            ticktext=dt.index.tolist(),  # Ensure full model names appear
+            ticktext=labels,
             automargin=True,  # Prevent cutoff
             tickfont=dict(size=15),  # Adjust text size
-        )
-        # Dynamically adjust figure height based on number of models
-        num_models = len(dt.index)
-        height_per_model = 35  # Increase spacing for each model
-        max_height = 3000  # Increase max height if needed
-        new_height = min(500 + num_models * height_per_model, max_height)
-
-        # **Increase margins to avoid cutting off labels**
-        self.fig.update_layout(
-            height=new_height,
-            margin=dict(l=250, r=20, t=50, b=50),  # Large left margin for labels
         )
 
     def _compute_ssmd(self, metric: str) -> pd.DataFrame:
