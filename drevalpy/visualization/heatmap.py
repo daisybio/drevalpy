@@ -29,23 +29,20 @@ class Heatmap(VioHeat):
 
         if self.normalized_metrics:
             titles = [
-                "Standard Errors over CV folds",
                 "Mean R^2: normalized",
                 "Mean Correlations: normalized",
             ]
             nr_subplots = 3
-            self.plot_settings = ["standard_errors", "r2", "correlations"]
+            self.plot_settings = ["r2", "correlations"]
         else:
             titles = [
-                "Standard Errors over CV folds",
                 "Mean R^2",
                 "Mean Correlations",
                 "Mean Errors",
                 "Strictly Standardized Mean Difference for R^2",
             ]
-            nr_subplots = 5
+            nr_subplots = 4
             self.plot_settings = [
-                "standard_errors",
                 "r2",
                 "correlations",
                 "errors",
@@ -75,6 +72,7 @@ class Heatmap(VioHeat):
         """Draw the heatmap."""
         print("Drawing heatmaps ...")
         for plot_setting in self.plot_settings:
+
             self._draw_subplots(plot_setting)
 
         # Dynamically adjust figure height based on number of models
@@ -93,27 +91,33 @@ class Heatmap(VioHeat):
         """
         Draw the subplots of the heatmap.
 
-        :param plot_setting: Either "standard_errors", "r2", "correlations", "errors", or "ssmd"
+        :param plot_setting: Either  "r2", "correlations", "errors", or "ssmd"
         :raises ValueError: If an unknown plot setting is given
         """
         idx_split = self.df.index.to_series().str.split("_")
         setting = idx_split.str[0:3].str.join("_")
+        if plot_setting.startswith("ssmd_"):
+            dt_std_errs = None
+        else:
+            dt_std_errs = self.df.groupby(setting).apply(lambda x: self._calc_summary_metric(x, std_error=True))
 
-        if plot_setting == "standard_errors":
-            dt = self.df.groupby(setting).apply(lambda x: self._calc_summary_metric(x, std_error=True))
-            row_idx = 1
-            colorscale = "Pinkyl"
-        elif plot_setting == "r2":
+        if plot_setting == "r2":
             r2_columns = [col for col in self.df.columns if "R^2" in col]
             dt = self.df[r2_columns].groupby(setting).apply(lambda x: self._calc_summary_metric(x))
             dt = dt.sort_values(by=r2_columns[0], ascending=True)
-            row_idx = 2
+            dt_std_errs = dt_std_errs[r2_columns]
+            dt_std_errs = dt_std_errs.loc[dt.index]
+
+            row_idx = 1
             colorscale = "Blues"
         elif plot_setting == "correlations":
             corr_columns = [col for col in self.df.columns if "Pearson" in col or "Spearman" in col or "Kendall" in col]
             dt = self.df[corr_columns].groupby(setting).apply(lambda x: self._calc_summary_metric(x))
             dt = dt.sort_values(by=corr_columns[0], ascending=True)
-            row_idx = 3
+            dt_std_errs = dt_std_errs[corr_columns]
+            dt_std_errs = dt_std_errs.loc[dt.index]
+
+            row_idx = 2
             colorscale = "Viridis"
         elif plot_setting == "errors":
             error_columns = [col for col in self.df.columns if col in ["MSE", "RMSE", "MAE"]]
@@ -122,7 +126,10 @@ class Heatmap(VioHeat):
                 return
             dt = self.df[error_columns].groupby(setting).apply(lambda x: self._calc_summary_metric(x))
             dt = dt.sort_values(by=error_columns[0], ascending=False)
-            row_idx = 4
+            dt_std_errs = dt_std_errs[error_columns]
+            dt_std_errs = dt_std_errs.loc[dt.index]
+
+            row_idx = 3
             colorscale = "hot"
         elif plot_setting.startswith("ssmd_"):
             metric_name = plot_setting.split("_")[1]  # Extract metric name (e.g., "ssmd_r2" → "r2")
@@ -132,21 +139,25 @@ class Heatmap(VioHeat):
                 print(f"Warning: SSMD heatmap for {metric_name} is empty. Skipping.")
                 return
 
-            row_idx = self.plot_settings.index(plot_setting) + 1
+            row_idx = 4
             colorscale = "RdBu"
 
         else:
             raise ValueError(f"Unknown plot setting: {plot_setting}")
 
         labels = [i.replace("_", " ") if self.whole_name else i.split("_")[0] for i in dt.index]
-
+        if dt_std_errs is not None:
+            text_labels = dt.round(3).astype(str) + " ± " + dt_std_errs.round(3).astype(str)
+        else:
+            text_labels = dt.round(3).astype(str)  # Only mean if SE is missing
         self.fig.add_trace(
             go.Heatmap(
                 z=dt.values,
                 x=dt.columns,
                 y=labels,
                 colorscale=colorscale,
-                texttemplate="%{z:.2f}",
+                texttemplate="%{text}",
+                text=text_labels,
                 textfont={"size": 16},  # size of labels of pixels of the heatmap
             ),
             row=row_idx,
