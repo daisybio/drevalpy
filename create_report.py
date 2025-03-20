@@ -14,7 +14,7 @@ from drevalpy.visualization import (
     RegressionSliderPlot,
     Violin,
 )
-from drevalpy.visualization.utils import create_html, create_index_html
+from drevalpy.visualization.utils import create_html, create_index_html, parse_results, prep_results, write_results
 
 
 def create_output_directories(custom_id: str) -> None:
@@ -87,7 +87,9 @@ def draw_setting_plots(
                     normalized_metrics=normalized,
                     whole_name=False,
                 )
+
             else:
+
                 out_plot = Heatmap(
                     df=eval_results_preds,
                     true_vs_pred=true_vs_pred,
@@ -197,6 +199,7 @@ def draw_algorithm_plots(
             )
         else:
             out_dir = "heatmaps"
+
             out_plot = Heatmap(
                 df=eval_results_algorithm,
                 true_vs_pred=t_vs_p,
@@ -346,7 +349,6 @@ if __name__ == "__main__":
     evaluation_results_per_drug = pd.read_csv(f"results/{run_id}/evaluation_results_per_drug.csv", index_col=0)
     evaluation_results_per_cell_line = pd.read_csv(f"results/{run_id}/evaluation_results_per_cl.csv", index_col=0)
     true_vs_pred = pd.read_csv(f"results/{run_id}/true_vs_pred.csv", index_col=0)
-
     create_output_directories(run_id)
     # Start loop over all settings
     settings = evaluation_results["LPO_LCO_LDO"].unique()

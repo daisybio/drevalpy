@@ -24,7 +24,9 @@ class Heatmap(VioHeat):
         :param whole_name: whether the whole name should be displayed
         """
         super().__init__(df, true_vs_pred, normalized_metrics, whole_name)
+
         self.df = self.df[[col for col in self.df.columns if col in self.all_metrics]]
+
         self.n_models = len(self.df.index)
 
         if self.normalized_metrics:
@@ -105,6 +107,7 @@ class Heatmap(VioHeat):
 
         if plot_setting == "r2":
             r2_columns = [col for col in self.df.columns if "R^2" in col]
+
             dt = self.df[r2_columns].groupby(setting).apply(lambda x: self._calc_summary_metric(x))
             dt = dt.sort_values(by=r2_columns[0], ascending=True)
             dt_std_errs = dt_std_errs[r2_columns]
