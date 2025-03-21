@@ -1,114 +1,89 @@
-"""Test the MOLIR and SuperFELTR models."""
+"""Test the neural networks that are not single drug models."""
 
 import os
-import random
 import tempfile
 from typing import cast
 
 import numpy as np
 import pytest
-import torch
 
 from drevalpy.datasets.dataset import DrugResponseDataset
-from drevalpy.evaluation import evaluate, pearson
+from drevalpy.evaluation import evaluate
 from drevalpy.experiment import cross_study_prediction
 from drevalpy.models import MODEL_FACTORY
+from drevalpy.models.DIPK.dipk import DIPKModel
 from drevalpy.models.drp_model import DRPModel
 
 
-@pytest.mark.parametrize("test_mode", ["LCO"])
-@pytest.mark.parametrize("model_name", ["SuperFELTR", "MOLIR"])
-def test_molir_superfeltr(
+@pytest.mark.parametrize("test_mode", ["LPO"])
+@pytest.mark.parametrize("model_name", ["SimpleNeuralNetwork", "MultiOmicsNeuralNetwork"])
+def test_simple_neural_network(
     sample_dataset: DrugResponseDataset,
     model_name: str,
     test_mode: str,
     cross_study_dataset: DrugResponseDataset,
 ) -> None:
     """
-    Test the MOLIR, SuperFELTR.
+    Test the SimpleNeuralNetwork model.
 
     :param sample_dataset: from conftest.py
-    :param model_name: model name
-    :param test_mode: LCO
+    :param model_name: either SRMF, SimpleNeuralNetwork, or MultiOmicsNeuralNetwork
+    :param test_mode: LPO
     :param cross_study_dataset: from conftest.py
+    :raises ValueError: if drug input is None
     """
-    np.random.seed(42)
-    random.seed(42)
-    torch.manual_seed(42)
-    torch.cuda.manual_seed(42)
     drug_response = sample_dataset
-    drug_response.split_dataset(n_cv_splits=6, mode=test_mode, random_state=42)
+    drug_response.split_dataset(
+        n_cv_splits=5,
+        mode=test_mode,
+    )
     assert drug_response.cv_splits is not None
     split = drug_response.cv_splits[0]
     train_dataset = split["train"]
-    all_unique_drugs = np.unique(train_dataset.drug_ids)
-    all_unique_drugs_cs = np.unique(cross_study_dataset.drug_ids)
-    all_unique_drugs = np.array(sorted(set(all_unique_drugs).intersection(all_unique_drugs_cs)))
-
-    # randomly sample drugs to speed up testing
-    np.random.shuffle(all_unique_drugs)
-    random_drug = all_unique_drugs[:1]
+    # smaller dataset for faster testing
+    train_dataset.remove_rows(indices=np.array([list(range(len(train_dataset) - 1000))]))
 
     val_es_dataset = split["validation_es"]
     es_dataset = split["early_stopping"]
 
     model = MODEL_FACTORY[model_name]()
     cell_line_input = model.load_cell_line_features(data_path="../data", dataset_name="TOYv1")
+    drug_input = model.load_drug_features(data_path="../data", dataset_name="TOYv1")
+    if drug_input is None:
+        raise ValueError("Drug input is None")
     cell_lines_to_keep = cell_line_input.identifiers
+    drugs_to_keep = drug_input.identifiers
 
-    len_train_before = len(train_dataset)
-    len_pred_before = len(val_es_dataset)
-    len_es_before = len(es_dataset)
-    train_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=None)
-    val_es_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=None)
-    es_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=None)
-    print(f"Reduced training dataset from {len_train_before} to {len(train_dataset)}")
-    print(f"Reduced val_es dataset from {len_pred_before} to {len(val_es_dataset)}")
-    print(f"Reduced es dataset from {len_es_before} to {len(es_dataset)}")
+    train_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
+    val_es_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
+    es_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
 
-    all_predictions = np.zeros_like(val_es_dataset.drug_ids, dtype=float)
     model_class = cast(type[DRPModel], MODEL_FACTORY[model_name])
     model = model_class()
-    hpam_combi = model.get_hyperparameter_set()[0]
-    hpam_combi["epochs"] = 1
-    model.build_model(hpam_combi)
-
-    output_mask = train_dataset.drug_ids == random_drug
-    drug_train = train_dataset.copy()
-    drug_train.mask(output_mask)
-    es_mask = es_dataset.drug_ids == random_drug
-    es_dataset_drug = es_dataset.copy()
-    es_dataset_drug.mask(es_mask)
-    # smaller dataset for faster testing
-    drug_train.remove_rows(indices=np.array([list(range(len(drug_train) - 100))]))
+    hpams = model.get_hyperparameter_set()
+    hpam_combi = hpams[0]
+    hpam_combi["units_per_layer"] = [2, 2]
+    hpam_combi["max_epochs"] = 1
+    model.build_model(hyperparameters=hpam_combi)
 
     with tempfile.TemporaryDirectory() as tmpdirname:
         model.train(
-            output=drug_train,
+            output=train_dataset,
             cell_line_input=cell_line_input,
-            drug_input=None,
-            output_earlystopping=es_dataset_drug,
+            drug_input=drug_input,
+            output_earlystopping=es_dataset,
             model_checkpoint_dir=tmpdirname,
         )
 
-    val_mask = val_es_dataset.drug_ids == random_drug
-    all_predictions[val_mask] = model.predict(
-        drug_ids=random_drug,
-        cell_line_ids=val_es_dataset.cell_line_ids[val_mask],
+    val_es_dataset._predictions = model.predict(
+        drug_ids=val_es_dataset.drug_ids,
+        cell_line_ids=val_es_dataset.cell_line_ids,
+        drug_input=drug_input,
         cell_line_input=cell_line_input,
     )
-    pcc_drug = pearson(val_es_dataset.response[val_mask], all_predictions[val_mask])
-    assert pcc_drug >= -1
 
-    # subset the dataset to only the drugs that were used
-    val_es_mask = np.isin(val_es_dataset.drug_ids, random_drug)
-    val_es_dataset._cell_line_ids = val_es_dataset.cell_line_ids[val_es_mask]
-    val_es_dataset._drug_ids = val_es_dataset.drug_ids[val_es_mask]
-    val_es_dataset._response = val_es_dataset.response[val_es_mask]
-    val_es_dataset._predictions = all_predictions[val_es_mask]
     metrics = evaluate(val_es_dataset, metric=["Pearson"])
-    print(f"{test_mode}: Collapsed performance of {model_name}: PCC = {metrics['Pearson']}")
-    assert metrics["Pearson"] >= -1.0
+    assert metrics["Pearson"] >= -1
 
     with tempfile.TemporaryDirectory() as temp_dir:
         print(f"Running cross-study prediction for {model_name}")
@@ -122,7 +97,7 @@ def test_molir_superfeltr(
             response_transformation=None,
             path_out=temp_dir,
             split_index=0,
-            single_drug_id=str(random_drug[0]),
+            single_drug_id=None,
         )
 
 
@@ -151,7 +126,7 @@ def test_dipk(
     split = drug_response.cv_splits[0]
     train_dataset = split["train"]
     val_es_dataset = split["validation_es"]
-    model = MODEL_FACTORY[model_name]()
+    model = DIPKModel()
     hpam_combi = model.get_hyperparameter_set()[0]
     hpam_combi["epochs"] = 1
     hpam_combi["epochs_autoencoder"] = 1
@@ -176,6 +151,8 @@ def test_dipk(
             output_earlystopping=val_es_dataset,
             model_checkpoint_dir=tmpdirname,
         )
+    # test batch size = 1
+    model.batch_size = 1
     out = model.predict(
         cell_line_ids=val_es_dataset.cell_line_ids,
         drug_ids=val_es_dataset.drug_ids,

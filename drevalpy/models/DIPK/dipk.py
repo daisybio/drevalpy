@@ -313,8 +313,10 @@ class DIPKModel(DRPModel):
                     bionic=bionic_features,
                     molgnet_mask=molgnet_mask,
                 )
-                predictions += torch.squeeze(prediction).cpu().tolist()
-
+                if prediction.numel() > 1:
+                    predictions += torch.squeeze(prediction).cpu().tolist()
+                else:
+                    predictions += [prediction.item()]
         return np.array(predictions)
 
     def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
