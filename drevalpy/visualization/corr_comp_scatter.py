@@ -180,10 +180,10 @@ class CorrelationComparisonScatter(OutPlot):
             if f"corr_comp_scatter_{group_by}_{lpo_lco_ldo}.html" in plot_list:
                 f.write(f'<h3 id="corr_comp_drug">{group_by.capitalize()}-wise comparison</h3>\n')
                 f.write("<h4>Overall comparison between models</h4>\n")
-                f.write(
-                    f'<iframe src="corr_comp_scatter/corr_comp_scatter_overall_{group_by}_{lpo_lco_ldo}.html" '
-                    f'width="100%" height="100%" frameBorder="0"></iframe>\n'
-                )
+                # f.write(
+                #     f'<iframe src="corr_comp_scatter/corr_comp_scatter_overall_{group_by}_{lpo_lco_ldo}.html" '
+                #     f'width="100%" height="100%" frameBorder="0"></iframe>\n'
+                # ) # commented out since this plot is too large
                 f.write("<h4>Comparison between all models, dropdown menu</h4>\n")
                 f.write(
                     f'<iframe src="corr_comp_scatter/corr_comp_scatter_{group_by}_{lpo_lco_ldo}.html" '

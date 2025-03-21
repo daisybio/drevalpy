@@ -279,11 +279,12 @@ def check_arguments(args) -> None:
         )
 
 
-def main(args) -> None:
+def main(args, debug_mode=False) -> None:
     """
     Main function to run the drug response evaluation pipeline.
 
     :param args: passed from command line
+    :param debug_mode: whether to run the pipeline in debug mode
     """
     check_arguments(args)
     # PIPELINE: LOAD_RESPONSE
@@ -327,6 +328,7 @@ def main(args) -> None:
             overwrite=args.overwrite,
             path_data=args.path_data,
             model_checkpoint_dir=args.model_checkpoint_dir,
+            debug_mode=debug_mode,
         )
 
 

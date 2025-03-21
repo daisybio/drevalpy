@@ -2,18 +2,20 @@
 
 import argparse
 import os
+import pathlib
 
 import pandas as pd
 
 from drevalpy.visualization import (
     CorrelationComparisonScatter,
     CriticalDifferencePlot,
+    CrossStudyTables,
     Heatmap,
     HTMLTable,
     RegressionSliderPlot,
     Violin,
 )
-from drevalpy.visualization.utils import create_html, create_index_html, parse_results, prep_results, write_results
+from drevalpy.visualization.utils import create_html, create_index_html  # parse_results, prep_results, write_results
 
 
 def create_output_directories(custom_id: str) -> None:
@@ -35,7 +37,10 @@ def draw_setting_plots(
     ev_res: pd.DataFrame,
     ev_res_per_drug: pd.DataFrame,
     ev_res_per_cell_line: pd.DataFrame,
+    true_vs_pred: pd.DataFrame,
     custom_id: str,
+    dataset: str,
+    path_data: pathlib.Path,
 ) -> list[str]:
     """
     Draw all plots for a specific setting (LPO, LCO, LDO).
@@ -44,22 +49,22 @@ def draw_setting_plots(
     :param ev_res: overall evaluation results
     :param ev_res_per_drug: evaluation results per drug
     :param ev_res_per_cell_line: evaluation results per cell line
+    :param true_vs_pred: true vs. predicted response values
     :param custom_id: run id passed via command line
+    :param dataset: dataset name
+    :param path_data: path to the data
     :returns: list of unique algorithms
     """
     ev_res_subset = ev_res[ev_res["LPO_LCO_LDO"] == lpo_lco_ldo]
     # PIPELINE: SAVE_TABLES
-    html_table = HTMLTable(
-        df=ev_res_subset,
-        group_by="all",
-    )
+    html_table = HTMLTable(df=ev_res_subset, group_by="all", dataset=dataset, path_data=path_data)
     html_table.draw_and_save(out_prefix=f"results/{custom_id}/html_tables/", out_suffix=lpo_lco_ldo)
 
     # only draw figures for 'real' predictions comparing all models
     eval_results_preds = ev_res_subset[ev_res_subset["rand_setting"] == "predictions"]
 
     # PIPELINE: DRAW_CRITICAL_DIFFERENCE
-    cd_plot = CriticalDifferencePlot(eval_results_preds=eval_results_preds, metric="MSE")
+    cd_plot = CriticalDifferencePlot(eval_results_preds=eval_results_preds, metric="RMSE")
     cd_plot.draw_and_save(
         out_prefix=f"results/{custom_id}/critical_difference_plots/",
         out_suffix=lpo_lco_ldo,
@@ -79,12 +84,16 @@ def draw_setting_plots(
             if plt_type == "violinplot":
                 out_plot = Violin(
                     df=eval_results_preds,
+                    true_vs_pred=true_vs_pred,
                     normalized_metrics=normalized,
                     whole_name=False,
                 )
+
             else:
+
                 out_plot = Heatmap(
                     df=eval_results_preds,
+                    true_vs_pred=true_vs_pred,
                     normalized_metrics=normalized,
                     whole_name=False,
                 )
@@ -100,6 +109,8 @@ def draw_setting_plots(
             ev_res_per_group=ev_res_per_drug,
             lpo_lco_ldo=lpo_lco_ldo,
             custom_id=custom_id,
+            dataset=dataset,
+            path_data=path_data,
         )
     if lpo_lco_ldo in ("LPO", "LDO"):
         draw_per_grouping_setting_plots(
@@ -107,13 +118,27 @@ def draw_setting_plots(
             ev_res_per_group=ev_res_per_cell_line,
             lpo_lco_ldo=lpo_lco_ldo,
             custom_id=custom_id,
+            dataset=dataset,
+            path_data=path_data,
         )
+
+    # Cross-study evaluation tables
+    cross_study_tables = CrossStudyTables(evaluation_metrics=ev_res_subset, path_data=path_data)
+    cross_study_tables.draw_and_save(
+        out_prefix=f"results/{custom_id}/html_tables/",
+        out_suffix=lpo_lco_ldo,
+    )
 
     return eval_results_preds["algorithm"].unique()
 
 
 def draw_per_grouping_setting_plots(
-    grouping: str, ev_res_per_group: pd.DataFrame, lpo_lco_ldo: str, custom_id: str
+    grouping: str,
+    ev_res_per_group: pd.DataFrame,
+    lpo_lco_ldo: str,
+    custom_id: str,
+    dataset: str,
+    path_data: pathlib.Path,
 ) -> None:
     """
     Draw plots for a specific grouping (drug or cell line) for a specific setting (LPO, LCO, LDO).
@@ -122,6 +147,8 @@ def draw_per_grouping_setting_plots(
     :param ev_res_per_group: evaluation results per drug or per cell line
     :param lpo_lco_ldo: setting
     :param custom_id: run id passed over command line
+    :param dataset: dataset name
+    :param path_data: path to the data
     """
     # PIPELINE: DRAW_CORR_COMP
     corr_comp = CorrelationComparisonScatter(
@@ -139,8 +166,7 @@ def draw_per_grouping_setting_plots(
     evaluation_results_per_group_subs = ev_res_per_group[ev_res_per_group["LPO_LCO_LDO"] == lpo_lco_ldo]
     # PIPELINE: SAVE_TABLES
     html_table = HTMLTable(
-        df=evaluation_results_per_group_subs,
-        group_by=grouping,
+        df=evaluation_results_per_group_subs, group_by=grouping, dataset=dataset, path_data=path_data
     )
     html_table.draw_and_save(
         out_prefix=f"results/{custom_id}/html_tables/",
@@ -168,6 +194,7 @@ def draw_algorithm_plots(
     :param lpo_lco_ldo: setting
     :param custom_id: run id passed via command line
     """
+    """
     eval_results_algorithm = ev_res[(ev_res["LPO_LCO_LDO"] == lpo_lco_ldo) & (ev_res["algorithm"] == model)]
     # PIPELINE: DRAW_VIOLIN_AND_HEATMAP
     for plt_type in ["violinplot", "heatmap"]:
@@ -175,13 +202,16 @@ def draw_algorithm_plots(
             out_dir = "violin_plots"
             out_plot = Violin(
                 df=eval_results_algorithm,
+                true_vs_pred=t_vs_p,
                 normalized_metrics=False,
                 whole_name=True,
             )
         else:
             out_dir = "heatmaps"
+
             out_plot = Heatmap(
                 df=eval_results_algorithm,
+                true_vs_pred=t_vs_p,
                 normalized_metrics=False,
                 whole_name=True,
             )
@@ -189,7 +219,7 @@ def draw_algorithm_plots(
             out_prefix=f"results/{custom_id}/{out_dir}/",
             out_suffix=f"{model}_{lpo_lco_ldo}",
         )
-
+    """
     if lpo_lco_ldo in ("LPO", "LCO"):
         draw_per_grouping_algorithm_plots(
             grouping_slider="cell_line",
@@ -234,6 +264,7 @@ def draw_per_grouping_algorithm_plots(
     :param custom_id: run id passed via command line
     """
     # PIPELINE: DRAW_CORR_COMP
+    """
     corr_comp = CorrelationComparisonScatter(
         df=ev_res_per_group,
         color_by=grouping_scatter_table,
@@ -245,7 +276,7 @@ def draw_per_grouping_algorithm_plots(
             out_prefix=f"results/{custom_id}/corr_comp_scatter/",
             out_suffix=corr_comp.name,
         )
-
+    """
     # PIPELINE: DRAW_REGRESSION
     for normalize in [False, True]:
         name_suffix = "_normalized" if normalize else ""
@@ -268,14 +299,15 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate reports from evaluation results")
     parser.add_argument("--run_id", required=True, help="Run ID for the current execution")
     parser.add_argument("--dataset", required=True, help="Dataset name for which to render the result file")
+    parser.add_argument("--path_data", required=True, help="Path to the data")
     args = parser.parse_args()
     run_id = args.run_id
     dataset = args.dataset
-
+    path_data = pathlib.Path(args.path_data).resolve()
     # assert that the run_id folder exists
     if not os.path.exists(f"results/{run_id}"):
         raise AssertionError(f"Folder results/{run_id} does not exist. The pipeline has to be run first.")
-
+    """
     # not part of pipeline
     (
         evaluation_results,
@@ -283,6 +315,23 @@ if __name__ == "__main__":
         evaluation_results_per_cell_line,
         true_vs_pred,
     ) = parse_results(path_to_results=f"results/{run_id}", dataset=dataset)
+
+    # for debugging
+    evaluation_results.to_csv(f"results/{run_id}/evaluation_results_parsed.csv")
+    evaluation_results_per_drug.to_csv(f"results/{run_id}/evaluation_results_per_drug_parsed.csv")
+    evaluation_results_per_cell_line.to_csv(f"results/{run_id}/evaluation_results_per_cl_parsed.csv")
+    true_vs_pred.to_csv(f"results/{run_id}/true_vs_pred_parsed.csv")
+
+    print("Reading evaluation results ...")
+    evaluation_results = pd.read_csv(f"results/{run_id}/evaluation_results_parsed.csv", index_col=0)
+    print("Reading evaluation results per drug ...")
+    evaluation_results_per_drug = pd.read_csv(f"results/{run_id}/evaluation_results_per_drug_parsed.csv", index_col=0)
+    print("Reading evaluation results per cell line ...")
+    evaluation_results_per_cell_line = pd.read_csv(
+        f"results/{run_id}/evaluation_results_per_cl_parsed.csv", index_col=0
+    )
+    print("Reading true vs pred ...")
+    true_vs_pred = pd.read_csv(f"results/{run_id}/true_vs_pred_parsed.csv", index_col=0)
 
     # part of pipeline: EVALUATE_FINAL, COLLECT_RESULTS
     (
@@ -305,21 +354,11 @@ if __name__ == "__main__":
         t_vs_p=true_vs_pred,
     )
     """
-    #For debugging:
-    evaluation_results = pd.read_csv(
-        f'results/{run_id}/evaluation_results.csv', index_col=0
-    )
-    evaluation_results_per_drug = pd.read_csv(
-        f'results/{run_id}/evaluation_results_per_drug.csv', index_col=0
-    )
-    evaluation_results_per_cell_line = pd.read_csv(
-        f'results/{run_id}/evaluation_results_per_cl.csv', index_col=0
-    )
-    true_vs_pred = pd.read_csv(
-        f'results/{run_id}/true_vs_pred.csv', index_col=0
-    )
-    """
-
+    # For debugging:
+    evaluation_results = pd.read_csv(f"results/{run_id}/evaluation_results.csv", index_col=0)
+    evaluation_results_per_drug = pd.read_csv(f"results/{run_id}/evaluation_results_per_drug.csv", index_col=0)
+    evaluation_results_per_cell_line = pd.read_csv(f"results/{run_id}/evaluation_results_per_cl.csv", index_col=0)
+    true_vs_pred = pd.read_csv(f"results/{run_id}/true_vs_pred.csv", index_col=0)
     create_output_directories(run_id)
     # Start loop over all settings
     settings = evaluation_results["LPO_LCO_LDO"].unique()
@@ -331,7 +370,10 @@ if __name__ == "__main__":
             ev_res=evaluation_results,
             ev_res_per_drug=evaluation_results_per_drug,
             ev_res_per_cell_line=evaluation_results_per_cell_line,
+            true_vs_pred=true_vs_pred,
             custom_id=run_id,
+            dataset=dataset,
+            path_data=path_data,
         )
         # draw figures for each algorithm with all randomizations etc
         for algorithm in unique_algos:
@@ -348,7 +390,9 @@ if __name__ == "__main__":
         all_files: list[str] = []
         for _, _, files in os.walk(f"results/{run_id}"):  # type: ignore[assignment]
             for file in files:
-                if file.endswith(".html") and file not in ["index.html", "LPO.html", "LCO.html", "LDO.html"]:
+                if file.endswith("json") or (
+                    file.endswith(".html") and file not in ["index.html", "LPO.html", "LCO.html", "LDO.html"]
+                ):
                     all_files.append(file)
         # PIPELINE: WRITE_HTML
         create_html(
@@ -356,6 +400,7 @@ if __name__ == "__main__":
             lpo_lco_ldo=setting,
             files=all_files,
             prefix_results=f"results/{run_id}",
+            test_mode=setting,
         )
     # PIPELINE: WRITE_INDEX
     create_index_html(
