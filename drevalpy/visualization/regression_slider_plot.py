@@ -42,10 +42,13 @@ class RegressionSliderPlot(OutPlot):
         self.model = model
 
         if self.normalize:
-            mean_effects_df = self.df[self.df["algorithm"] == "NaiveMeanEffectsPredictor"]
-            # TODO why is this longer than before
+            mean_effects_df = df[
+                (df["algorithm"] == "NaiveMeanEffectsPredictor")
+                & (df["LPO_LCO_LDO"] == lpo_lco_ldo)
+                & (df["rand_setting"] == "predictions")
+            ]
             merged_df = model_df.merge(
-                mean_effects_df, on=["drug", "cell_line", "CV_split", "rand_setting", "LPO_LCO_LDO"], how="left"
+                mean_effects_df, on=["drug", "cell_line", "rand_setting", "LPO_LCO_LDO"], how="left"
             )
             merged_df.loc[:, "y_true"] = merged_df["y_true_x"] - merged_df["y_pred_y"]
             merged_df.loc[:, "y_pred"] = merged_df["y_pred_x"] - merged_df["y_pred_y"]
@@ -59,10 +62,12 @@ class RegressionSliderPlot(OutPlot):
                     "algorithm_x",
                     "rand_setting",
                     "LPO_LCO_LDO",
-                    "CV_split",
+                    "CV_split_x",
                 ]
             ]
-            self.df = merged_df.rename(columns={"model_x": "model", "algorithm_x": "algorithm"})
+            self.df = merged_df.rename(
+                columns={"model_x": "model", "algorithm_x": "algorithm", "CV_split_x": "CV_split"}
+            )
 
     @pipeline_function
     def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
@@ -77,7 +82,7 @@ class RegressionSliderPlot(OutPlot):
 
     def _draw(self):
         """Draw the regression plot."""
-        print(f"Generating regression plots for {self.group_by}, normalize={self.normalize}...")
+        print(f"Generating regression plots for {self.group_by}, normalize={self.normalize}, algorithm={self.model}...")
         self.df = self.df.groupby(self.group_by).filter(lambda x: len(x) > 1)
         pccs = self.df.groupby(self.group_by).apply(lambda x: pearsonr(x["y_true"], x["y_pred"])[0])
         pccs = pccs.reset_index()
