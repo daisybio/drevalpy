@@ -9,12 +9,13 @@ import pandas as pd
 from drevalpy.visualization import (
     CorrelationComparisonScatter,
     CriticalDifferencePlot,
+    CrossStudyTables,
     Heatmap,
     HTMLTable,
     RegressionSliderPlot,
     Violin,
 )
-from drevalpy.visualization.utils import create_html, create_index_html, parse_results, prep_results, write_results
+from drevalpy.visualization.utils import create_html, create_index_html  # parse_results, prep_results, write_results
 
 
 def create_output_directories(custom_id: str) -> None:
@@ -120,6 +121,14 @@ def draw_setting_plots(
             dataset=dataset,
             path_data=path_data,
         )
+
+    # Cross-study evaluation tables
+    cross_study_tables = CrossStudyTables(true_vs_pred=true_vs_pred, path_data=path_data)
+    cross_study_tables.compute_metrics()
+    cross_study_tables.draw_and_save(
+        out_prefix=f"results/{custom_id}/html_tables/",
+        out_suffix=lpo_lco_ldo,
+    )
 
     return eval_results_preds["algorithm"].unique()
 

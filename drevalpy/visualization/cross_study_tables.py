@@ -1,4 +1,5 @@
-import json
+"""Module for generating evaluation tables for cross-study drug response prediction."""
+
 import os
 import pathlib
 
@@ -8,16 +9,18 @@ import plotly.graph_objects as go
 from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.evaluation import evaluate
 
+from ..pipeline_function import pipeline_function
+
 
 class CrossStudyTables:
-    """Generates evaluation tables for cross-study drug response prediction."""
+    """Generate evaluation tables for cross-study drug response prediction."""
 
     def __init__(self, true_vs_pred: pd.DataFrame, path_data: pathlib.Path):
         """
-        Initialize the evaluation class.
+        Initialize the CrossStudyTables object.
 
-        :param true_vs_pred: DataFrame containing true vs. predicted values.
-        :param path_data: Path to the data directory.
+        :param true_vs_pred: DataFrame with [drug, cell_line, y_true, y_pred, algorithm, rand_setting, CV_split].
+        :param path_data: Path to data directory (used for context or extensions).
         """
         self.true_vs_pred = true_vs_pred
         self.path_data = path_data
@@ -28,9 +31,10 @@ class CrossStudyTables:
         self.models = true_vs_pred.algorithm.unique()
         self.mean_resulting_dataframes = []
         self.std_resulting_dataframes = []
+        self.figures = {}
 
     def compute_metrics(self):
-        """Compute evaluation metrics (mean and std over splits)."""
+        """Compute mean and standard deviation of evaluation metrics across CV splits."""
         for dataset in self.cross_study_datasets:
             results = {}
             cs_data = self.true_vs_pred[self.true_vs_pred.rand_setting == f"cross-study-{dataset}"]
@@ -59,10 +63,8 @@ class CrossStudyTables:
             self.mean_resulting_dataframes.append(mean_df)
             self.std_resulting_dataframes.append(std_df)
 
-    def plot_results(self):
-        """Generate Plotly tables displaying evaluation metrics sorted by MSE."""
-        plotly_tables = []
-
+    def draw(self):
+        """Create and store Plotly table figures sorted by MSE."""
         for dataset_name, mean_df, std_df in zip(
             self.cross_study_datasets, self.mean_resulting_dataframes, self.std_resulting_dataframes
         ):
@@ -85,36 +87,41 @@ class CrossStudyTables:
                     )
                 ]
             )
-            fig.update_layout(title_text=f"Evaluation Metrics for Cross-Study {dataset_name} (Sorted by MSE)")
-            plotly_tables.append(fig)
+            fig.update_layout(title_text=f"Evaluation Metrics for Cross-Study {dataset_name}")
+            self.figures[dataset_name] = fig
 
-        for fig in plotly_tables:
-            fig.show()
+    @pipeline_function
+    def draw_and_save(self, out_prefix: str, out_suffix: str):
+        """
+        Generate and save HTML tables for each cross-study dataset.
 
-    def save_to_json(self, out_prefix: str, out_suffix: str):
-        """Save the evaluation metrics as JSON files."""
-        for dataset_name, mean_df, std_df in zip(
-            self.cross_study_datasets, self.mean_resulting_dataframes, self.std_resulting_dataframes
-        ):
-            path_out = f"{out_prefix}table_{dataset_name}_{out_suffix}.json"
-            output_json = {
-                "data": mean_df.fillna("").to_dict(orient="records"),
-                "std": std_df.fillna("").to_dict(orient="records"),
-            }
-            with open(path_out, "w") as f:
-                json.dump(output_json, f, indent=4)
+        :param out_prefix: Directory to save output files.
+        :param out_suffix: Suffix to append to each output filename.
+        """
+        os.makedirs(out_prefix, exist_ok=True)
+        self.draw()
+        for dataset_name, fig in self.figures.items():
+            filename = f"{out_prefix}/table_cross_study_{dataset_name}_{out_suffix}.html"
+            fig.write_html(filename, include_plotlyjs="embed", full_html=True)
 
     @staticmethod
-    def write_to_html(f, prefix: str, files: list[str], dataset_name: str):
-        """Write evaluation results into an HTML file."""
+    def write_to_html(lpo_lco_ldo: str, f, files: list[str], prefix: str):
+        """
+        Embed HTML table files into an open HTML file handle.
+
+        :param lpo_lco_ldo: Substring to match filenames (e.g., 'lpo', 'lco').
+        :param f: Open writable file handle to insert HTML blocks.
+        :param files: List of filenames in the target directory.
+        :param prefix: Path prefix to locate HTML table files.
+
+        :return: Updated file handle with HTML blocks written in.
+        """
         if prefix:
             prefix = os.path.join(prefix, "html_tables")
-        f.write(f'<h2 id="tables"> Evaluation Results for {dataset_name}</h2>\n')
-        table_file = f"table_{dataset_name}.json"
-        if table_file in files:
-            json_file = pd.read_json(pathlib.Path(prefix, table_file))
-            f.write('<table id="summaryTable" class="display" style="width:100%">\n')
-            f.write("<thead>\n<tr>\n")
-            for col in json_file.columns:
-                f.write(f"<th>{col}</th>\n")
-            f.write("</tr>\n</thead>\n<tbody></tbody>\n</table>\n")
+        os.makedirs(prefix, exist_ok=True)
+
+        for file in files:
+            if file.startswith("table_cross_study_") and file.endswith(".html") and lpo_lco_ldo in file:
+                f.write(f'<h2 id="tables">Evaluation Results: {file}</h2>\n')
+                f.write(f'<iframe src="html_tables/{file}" width="100%" height="600" frameborder="0"></iframe>\n')
+        return f
