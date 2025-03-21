@@ -373,7 +373,6 @@ if __name__ == "__main__":
             dataset=dataset,
             path_data=path_data,
         )
-        """
         # draw figures for each algorithm with all randomizations etc
         for algorithm in unique_algos:
             draw_algorithm_plots(
@@ -385,7 +384,6 @@ if __name__ == "__main__":
                 lpo_lco_ldo=setting,
                 custom_id=run_id,
             )
-        """
         # get all html files from results/{run_id}
         all_files: list[str] = []
         for _, _, files in os.walk(f"results/{run_id}"):  # type: ignore[assignment]
