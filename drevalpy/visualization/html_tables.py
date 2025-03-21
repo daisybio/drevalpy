@@ -92,6 +92,11 @@ class HTMLTable(OutPlot):
             "cell_line",
         ]
         categorical_columns = [col for col in categorical_columns if col in self.df.columns]
+
+        # cast numerical columns to float
+        numerical_columns = [col for col in self.df.columns if col not in categorical_columns]
+        self.df.loc[:, numerical_columns] = self.df[numerical_columns].apply(pd.to_numeric)
+
         self.df = self.df.groupby(categorical_columns).mean().reset_index()
         self.df = self.df.drop(columns=["CV_split"])
         if self.group_by == "drug":

@@ -134,7 +134,7 @@ def evaluate(dataset: DrugResponseDataset, metric: list[str] | str):
     Evaluates the model on the given dataset.
 
     :param dataset: dataset to evaluate on
-    :param metric: evaluation metric(s) (one or a list of "MSE", "RMSE", "MAE", "r2", "Pearson",
+    :param metric: evaluation metric(s) (one or a list of "MSE", "RMSE", "MAE", "R^2", "Pearson",
         "spearman", "kendall")
     :return: evaluation metric
     :raises AssertionError: if metric is not in AVAILABLE
