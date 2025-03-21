@@ -123,8 +123,7 @@ def draw_setting_plots(
         )
 
     # Cross-study evaluation tables
-    cross_study_tables = CrossStudyTables(true_vs_pred=true_vs_pred, path_data=path_data)
-    cross_study_tables.compute_metrics()
+    cross_study_tables = CrossStudyTables(evaluation_metrics=ev_res_subset, path_data=path_data)
     cross_study_tables.draw_and_save(
         out_prefix=f"results/{custom_id}/html_tables/",
         out_suffix=lpo_lco_ldo,
