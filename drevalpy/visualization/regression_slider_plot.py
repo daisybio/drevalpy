@@ -117,7 +117,6 @@ class RegressionSliderPlot(OutPlot):
                 "pcc",
                 "cell_line",
                 "drug",
-                "mean_effect",
                 "algorithm",
             ]
 
