@@ -87,7 +87,7 @@ class CrossStudyTables:
                     )
                 ]
             )
-            fig.update_layout(title_text=f"Evaluation Metrics for Cross-Study {dataset_name}")
+            fig.update_layout(title_text=f"Evaluation Metrics for Cross-Study Predictions to {dataset_name}")
             self.figures[dataset_name] = fig
 
     @pipeline_function
@@ -103,6 +103,15 @@ class CrossStudyTables:
         for dataset_name, fig in self.figures.items():
             filename = f"{out_prefix}/table_cross_study_{dataset_name}_{out_suffix}.html"
             fig.write_html(filename, include_plotlyjs="embed", full_html=True)
+
+        # save the data as csvs
+        for dataset_name, mean_df, std_df in zip(
+            self.cross_study_datasets, self.mean_resulting_dataframes, self.std_resulting_dataframes
+        ):
+            mean_df_sorted = mean_df.sort_values(by="MSE")
+            std_df_sorted = std_df.loc[mean_df_sorted.index]
+            mean_df_sorted.to_csv(f"{out_prefix}/table_cross_study_{dataset_name}_{out_suffix}_mean.csv")
+            std_df_sorted.to_csv(f"{out_prefix}/table_cross_study_{dataset_name}_{out_suffix}_std.csv")
 
     @staticmethod
     def write_to_html(lpo_lco_ldo: str, f, files: list[str], prefix: str):
@@ -122,6 +131,5 @@ class CrossStudyTables:
 
         for file in files:
             if file.startswith("table_cross_study_") and file.endswith(".html") and lpo_lco_ldo in file:
-                f.write(f'<h2 id="tables">Evaluation Results: {file}</h2>\n')
                 f.write(f'<iframe src="html_tables/{file}" width="100%" height="600" frameborder="0"></iframe>\n')
         return f
