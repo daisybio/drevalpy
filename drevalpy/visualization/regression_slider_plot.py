@@ -34,15 +34,35 @@ class RegressionSliderPlot(OutPlot):
         :param normalize: whether to normalize the true and predicted values by the mean of the group
         """
         self.df = df[(df["LPO_LCO_LDO"] == lpo_lco_ldo) & (df["rand_setting"] == "predictions")]
-        self.df = self.df[(self.df["algorithm"] == model)]
+        model_df = self.df[(self.df["algorithm"] == model)]
+        self.df = model_df
         self.group_by = group_by
         self.normalize = normalize
         self.fig = go.Figure()
         self.model = model
 
         if self.normalize:
-            self.df.loc[:, "y_true"] = self.df["y_true"] - self.df["mean_effect"]
-            self.df.loc[:, "y_pred"] = self.df["y_pred"] - self.df["mean_effect"]
+            mean_effects_df = self.df[self.df["algorithm"] == "NaiveMeanEffectsPredictor"]
+            # TODO why is this longer than before
+            merged_df = model_df.merge(
+                mean_effects_df, on=["drug", "cell_line", "CV_split", "rand_setting", "LPO_LCO_LDO"], how="left"
+            )
+            merged_df.loc[:, "y_true"] = merged_df["y_true_x"] - merged_df["y_pred_y"]
+            merged_df.loc[:, "y_pred"] = merged_df["y_pred_x"] - merged_df["y_pred_y"]
+            merged_df = merged_df[
+                [
+                    "model_x",
+                    "drug",
+                    "cell_line",
+                    "y_true",
+                    "y_pred",
+                    "algorithm_x",
+                    "rand_setting",
+                    "LPO_LCO_LDO",
+                    "CV_split",
+                ]
+            ]
+            self.df = merged_df.rename(columns={"model_x": "model", "algorithm_x": "algorithm"})
 
     @pipeline_function
     def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:

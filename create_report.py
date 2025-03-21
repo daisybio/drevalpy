@@ -194,6 +194,7 @@ def draw_algorithm_plots(
     :param lpo_lco_ldo: setting
     :param custom_id: run id passed via command line
     """
+    """
     eval_results_algorithm = ev_res[(ev_res["LPO_LCO_LDO"] == lpo_lco_ldo) & (ev_res["algorithm"] == model)]
     # PIPELINE: DRAW_VIOLIN_AND_HEATMAP
     for plt_type in ["violinplot", "heatmap"]:
@@ -218,7 +219,7 @@ def draw_algorithm_plots(
             out_prefix=f"results/{custom_id}/{out_dir}/",
             out_suffix=f"{model}_{lpo_lco_ldo}",
         )
-
+    """
     if lpo_lco_ldo in ("LPO", "LCO"):
         draw_per_grouping_algorithm_plots(
             grouping_slider="cell_line",
@@ -263,6 +264,7 @@ def draw_per_grouping_algorithm_plots(
     :param custom_id: run id passed via command line
     """
     # PIPELINE: DRAW_CORR_COMP
+    """
     corr_comp = CorrelationComparisonScatter(
         df=ev_res_per_group,
         color_by=grouping_scatter_table,
@@ -274,7 +276,7 @@ def draw_per_grouping_algorithm_plots(
             out_prefix=f"results/{custom_id}/corr_comp_scatter/",
             out_suffix=corr_comp.name,
         )
-
+    """
     # PIPELINE: DRAW_REGRESSION
     for normalize in [False, True]:
         name_suffix = "_normalized" if normalize else ""
