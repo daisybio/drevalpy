@@ -15,7 +15,7 @@ from drevalpy.visualization import (
     RegressionSliderPlot,
     Violin,
 )
-from drevalpy.visualization.utils import create_html, create_index_html  # parse_results, prep_results, write_results
+from drevalpy.visualization.utils import parse_results, prep_results, write_results  # , create_html, create_index_html
 
 
 def create_output_directories(custom_id: str) -> None:
@@ -307,7 +307,7 @@ if __name__ == "__main__":
     # assert that the run_id folder exists
     if not os.path.exists(f"results/{run_id}"):
         raise AssertionError(f"Folder results/{run_id} does not exist. The pipeline has to be run first.")
-    """
+
     # not part of pipeline
     (
         evaluation_results,
@@ -315,23 +315,6 @@ if __name__ == "__main__":
         evaluation_results_per_cell_line,
         true_vs_pred,
     ) = parse_results(path_to_results=f"results/{run_id}", dataset=dataset)
-
-    # for debugging
-    evaluation_results.to_csv(f"results/{run_id}/evaluation_results_parsed.csv")
-    evaluation_results_per_drug.to_csv(f"results/{run_id}/evaluation_results_per_drug_parsed.csv")
-    evaluation_results_per_cell_line.to_csv(f"results/{run_id}/evaluation_results_per_cl_parsed.csv")
-    true_vs_pred.to_csv(f"results/{run_id}/true_vs_pred_parsed.csv")
-
-    print("Reading evaluation results ...")
-    evaluation_results = pd.read_csv(f"results/{run_id}/evaluation_results_parsed.csv", index_col=0)
-    print("Reading evaluation results per drug ...")
-    evaluation_results_per_drug = pd.read_csv(f"results/{run_id}/evaluation_results_per_drug_parsed.csv", index_col=0)
-    print("Reading evaluation results per cell line ...")
-    evaluation_results_per_cell_line = pd.read_csv(
-        f"results/{run_id}/evaluation_results_per_cl_parsed.csv", index_col=0
-    )
-    print("Reading true vs pred ...")
-    true_vs_pred = pd.read_csv(f"results/{run_id}/true_vs_pred_parsed.csv", index_col=0)
 
     # part of pipeline: EVALUATE_FINAL, COLLECT_RESULTS
     (
@@ -408,3 +391,4 @@ if __name__ == "__main__":
         test_modes=settings,
         prefix_results=f"results/{run_id}",
     )
+    """

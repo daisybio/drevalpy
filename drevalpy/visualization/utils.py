@@ -230,44 +230,47 @@ def prep_results(
         "_", expand=True
     )
     t_vs_p = t_vs_p.drop("split", axis=1)
+    t_vs_p["drug"] = t_vs_p["drug"].astype(str)
 
     eval_results_mod = {}
+    naive_mean_effects_dict = {}
+    for rand_setting in eval_results["rand_setting"].unique():
+        for lpo_lco_ldo in eval_results["LPO_LCO_LDO"].unique():
+            naive_mean_effects_dict[f"{lpo_lco_ldo}_{rand_setting}"] = t_vs_p[
+                (t_vs_p["algorithm"] == "NaiveMeanEffectsPredictor")
+                & (t_vs_p["rand_setting"] == rand_setting)
+                & (t_vs_p["LPO_LCO_LDO"] == lpo_lco_ldo)
+            ]
 
     if "NaiveMeanEffectsPredictor" in eval_results["algorithm"].unique():
-        # do this: per algorithm, per rand setting, per LPO_LCO_LDO, per CV_split
+        # do this: per algorithm, per rand setting, per LPO_LCO_LDO, per CV split
         for algorithm in eval_results["algorithm"].unique():
             for rand_setting in eval_results["rand_setting"].unique():
                 for lpo_lco_ldo in eval_results["LPO_LCO_LDO"].unique():
-                    for cv_split in eval_results["CV_split"].unique():
-                        print(
-                            f"Calculating normalized metrics for {algorithm}, {rand_setting}, "
-                            f"{lpo_lco_ldo}, {cv_split} ..."
-                        )
-                        setting_subset = t_vs_p[
-                            (t_vs_p["algorithm"] == algorithm)
-                            & (t_vs_p["rand_setting"] == rand_setting)
-                            & (t_vs_p["LPO_LCO_LDO"] == lpo_lco_ldo)
-                            & (t_vs_p["CV_split"] == cv_split)
-                        ]
-                        if setting_subset.empty:
-                            continue
-                        naive_mean_effects = t_vs_p[
-                            (t_vs_p["algorithm"] == "NaiveMeanEffectsPredictor")
-                            & (t_vs_p["rand_setting"] == "predictions")
-                            & (t_vs_p["LPO_LCO_LDO"] == lpo_lco_ldo)
-                            & (t_vs_p["CV_split"] == cv_split)
-                        ]
-                        naive_mean_effects = naive_mean_effects[["drug", "cell_line", "y_pred"]]
-                        naive_mean_effects.columns = ["drug", "cell_line", "y_pred_naive"]
-                        setting_subset = setting_subset[["drug", "cell_line", "y_true", "y_pred"]]
-                        setting_subset = setting_subset.merge(naive_mean_effects, on=["drug", "cell_line"])
-                        setting_subset["y_true"] = setting_subset["y_true"] - setting_subset["y_pred_naive"]
-                        setting_subset["y_pred"] = setting_subset["y_pred"] - setting_subset["y_pred_naive"]
+                    print(f"Calculating normalized metrics for {algorithm}, {rand_setting}, " f"{lpo_lco_ldo} ...")
+                    setting_subset = t_vs_p[
+                        (t_vs_p["algorithm"] == algorithm)
+                        & (t_vs_p["rand_setting"] == rand_setting)
+                        & (t_vs_p["LPO_LCO_LDO"] == lpo_lco_ldo)
+                    ]
+                    if setting_subset.empty:
+                        continue
+                    naive_mean_effects = naive_mean_effects_dict[f"{lpo_lco_ldo}_{rand_setting}"]
+                    naive_mean_effects = naive_mean_effects[["drug", "cell_line", "CV_split", "y_pred"]]
+                    naive_mean_effects = naive_mean_effects.rename(columns={"y_pred": "y_pred_naive"})
+                    setting_subset = setting_subset[["drug", "cell_line", "CV_split", "y_true", "y_pred"]]
+                    setting_subset = setting_subset.merge(
+                        naive_mean_effects, on=["drug", "cell_line", "CV_split"], how="left"
+                    )
+                    setting_subset["y_true"] = setting_subset["y_true"] - setting_subset["y_pred_naive"]
+                    setting_subset["y_pred"] = setting_subset["y_pred"] - setting_subset["y_pred_naive"]
+                    for cv_split in setting_subset["CV_split"].unique():
+                        setting_subset_cv = setting_subset[setting_subset["CV_split"] == cv_split]
                         dt = DrugResponseDataset(
-                            response=setting_subset["y_true"].to_numpy(),
-                            cell_line_ids=setting_subset["cell_line"].to_numpy(),
-                            drug_ids=setting_subset["drug"].to_numpy(),
-                            predictions=setting_subset["y_pred"].to_numpy(),
+                            response=setting_subset_cv["y_true"].to_numpy(),
+                            cell_line_ids=setting_subset_cv["cell_line"].to_numpy(),
+                            drug_ids=setting_subset_cv["drug"].to_numpy(),
+                            predictions=setting_subset_cv["y_pred"].to_numpy(),
                         )
                         res = evaluate(
                             dataset=dt,
