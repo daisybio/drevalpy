@@ -16,13 +16,13 @@ from drevalpy.visualization.utils import parse_results, prep_results
         {
             "run_id": "test_run",
             "dataset_name": "TOYv1",
-            "models": ["NaiveCellLineMeanPredictor"],
-            "baselines": ["NaiveDrugMeanPredictor"],
+            "models": ["ElasticNet"],
+            "baselines": ["NaiveMeanEffectsPredictor"],
             "test_mode": ["LPO"],
             "randomization_mode": ["SVRC"],
             "randomization_type": "permutation",
             "n_trials_robustness": 2,
-            "cross_study_datasets": ["GDSC1"],
+            "cross_study_datasets": ["TOYv2"],
             "curve_curator": False,
             "curve_curator_cores": 1,
             "measure": "LN_IC50",
@@ -45,7 +45,7 @@ def test_run_suite(args):
     temp_dir = tempfile.TemporaryDirectory()
     args["path_out"] = temp_dir.name
     args = Namespace(**args)
-    main(args)
+    main(args, debug_mode=True)
     assert os.listdir(temp_dir.name) == ["test_run"]
 
     (
@@ -66,10 +66,10 @@ def test_run_suite(args):
         evaluation_results_per_cell_line,
         true_vs_pred,
     )
-    assert len(evaluation_results.columns) == 22
-    assert len(evaluation_results_per_drug.columns) == 15
-    assert len(evaluation_results_per_cell_line.columns) == 15
-    assert len(true_vs_pred.columns) == 12
+    assert len(evaluation_results.columns) == 15
+    assert len(evaluation_results_per_drug.columns) == 14
+    assert len(evaluation_results_per_cell_line.columns) == 14
+    assert len(true_vs_pred.columns) == 9
 
     assert all(model in evaluation_results.algorithm.unique() for model in args.models)
     assert all(baseline in evaluation_results.algorithm.unique() for baseline in args.baselines)

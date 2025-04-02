@@ -34,19 +34,40 @@ class RegressionSliderPlot(OutPlot):
         :param normalize: whether to normalize the true and predicted values by the mean of the group
         """
         self.df = df[(df["LPO_LCO_LDO"] == lpo_lco_ldo) & (df["rand_setting"] == "predictions")]
-        self.df = self.df[(self.df["algorithm"] == model)]
+        model_df = self.df[(self.df["algorithm"] == model)]
+        self.df = model_df
         self.group_by = group_by
         self.normalize = normalize
         self.fig = go.Figure()
         self.model = model
 
         if self.normalize:
-            if self.group_by == "cell_line":
-                self.df.loc[:, "y_true"] = self.df["y_true"] - self.df["mean_y_true_per_drug"]
-                self.df.loc[:, "y_pred"] = self.df["y_pred"] - self.df["mean_y_true_per_drug"]
-            else:
-                self.df.loc[:, "y_true"] = self.df["y_true"] - self.df["mean_y_true_per_cell_line"]
-                self.df.loc[:, "y_pred"] = self.df["y_pred"] - self.df["mean_y_true_per_cell_line"]
+            mean_effects_df = df[
+                (df["algorithm"] == "NaiveMeanEffectsPredictor")
+                & (df["LPO_LCO_LDO"] == lpo_lco_ldo)
+                & (df["rand_setting"] == "predictions")
+            ]
+            merged_df = model_df.merge(
+                mean_effects_df, on=["drug", "cell_line", "rand_setting", "LPO_LCO_LDO"], how="left"
+            )
+            merged_df.loc[:, "y_true"] = merged_df["y_true_x"] - merged_df["y_pred_y"]
+            merged_df.loc[:, "y_pred"] = merged_df["y_pred_x"] - merged_df["y_pred_y"]
+            merged_df = merged_df[
+                [
+                    "model_x",
+                    "drug",
+                    "cell_line",
+                    "y_true",
+                    "y_pred",
+                    "algorithm_x",
+                    "rand_setting",
+                    "LPO_LCO_LDO",
+                    "CV_split_x",
+                ]
+            ]
+            self.df = merged_df.rename(
+                columns={"model_x": "model", "algorithm_x": "algorithm", "CV_split_x": "CV_split"}
+            )
 
     @pipeline_function
     def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
@@ -61,7 +82,7 @@ class RegressionSliderPlot(OutPlot):
 
     def _draw(self):
         """Draw the regression plot."""
-        print(f"Generating regression plots for {self.group_by}, normalize={self.normalize}...")
+        print(f"Generating regression plots for {self.group_by}, normalize={self.normalize}, algorithm={self.model}...")
         self.df = self.df.groupby(self.group_by).filter(lambda x: len(x) > 1)
         pccs = self.df.groupby(self.group_by).apply(lambda x: pearsonr(x["y_true"], x["y_pred"])[0])
         pccs = pccs.reset_index()
@@ -96,24 +117,13 @@ class RegressionSliderPlot(OutPlot):
         df = self.df.sort_values(self.group_by)
         setting_title = self.model + " " + df["LPO_LCO_LDO"].unique()[0]
         if self.normalize:
-            if self.group_by == "cell_line":
-                setting_title += ", normalized by drug mean"
-                hover_data = [
-                    "pcc",
-                    "cell_line",
-                    "drug",
-                    "mean_y_true_per_drug",
-                    "algorithm",
-                ]
-            else:
-                setting_title += ", normalized by cell line mean"
-                hover_data = [
-                    "pcc",
-                    "cell_line",
-                    "drug",
-                    "mean_y_true_per_cell_line",
-                    "algorithm",
-                ]
+            setting_title += ", normalized by mean effects"
+            hover_data = [
+                "pcc",
+                "cell_line",
+                "drug",
+                "algorithm",
+            ]
 
         else:
             hover_data = ["pcc", "cell_line", "drug", "algorithm"]
