@@ -33,6 +33,7 @@ from drevalpy.models.drp_model import DRPModel
         "SVR",
         "MultiOmicsRandomForest",
         "GradientBoosting",
+        "ProteomicsRandomForest",
     ],
 )
 @pytest.mark.parametrize("test_mode", ["LPO", "LCO", "LDO"])
@@ -286,6 +287,7 @@ def _call_other_baselines(
         )
         assert val_dataset.predictions is not None
         metrics = evaluate(val_dataset, metric=["Pearson"])
+        print(metrics)
         assert metrics["Pearson"] >= -1
     return model_instance
 

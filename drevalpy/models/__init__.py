@@ -1,6 +1,9 @@
 """Module containing all drug response prediction models."""
 
 __all__ = [
+    "MULTI_DRUG_MODEL_FACTORY",
+    "SINGLE_DRUG_MODEL_FACTORY",
+    "MODEL_FACTORY",
     "NaivePredictor",
     "NaiveDrugMeanPredictor",
     "NaiveCellLineMeanPredictor",
@@ -18,10 +21,8 @@ __all__ = [
     "GradientBoosting",
     "MOLIR",
     "SuperFELTR",
-    "MULTI_DRUG_MODEL_FACTORY",
-    "SINGLE_DRUG_MODEL_FACTORY",
-    "MODEL_FACTORY",
     "DIPKModel",
+    "ProteomicsRandomForest",
 ]
 
 from .baselines.multi_omics_random_forest import MultiOmicsRandomForest
@@ -33,7 +34,13 @@ from .baselines.naive_pred import (
 )
 from .baselines.singledrug_elastic_net import SingleDrugElasticNet, SingleDrugProteomicsElasticNet
 from .baselines.singledrug_random_forest import SingleDrugRandomForest
-from .baselines.sklearn_models import ElasticNetModel, GradientBoosting, RandomForest, SVMRegressor
+from .baselines.sklearn_models import (
+    ElasticNetModel,
+    GradientBoosting,
+    ProteomicsRandomForest,
+    RandomForest,
+    SVMRegressor,
+)
 from .DIPK.dipk import DIPKModel
 from .drp_model import DRPModel
 from .MOLIR.molir import MOLIR
@@ -66,6 +73,7 @@ MULTI_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]] = {
     "GradientBoosting": GradientBoosting,
     "SRMF": SRMF,
     "DIPK": DIPKModel,
+    "ProteomicsRandomForest": ProteomicsRandomForest,
 }
 
 # MODEL_FACTORY is used in the pipeline!
