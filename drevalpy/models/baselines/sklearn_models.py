@@ -67,8 +67,8 @@ class SklearnModel(DRPModel):
             raise ValueError("drug_input (fingerprints) is required for the sklearn models.")
 
         x = self.get_concatenated_features(
-            cell_line_view="gene_expression",
-            drug_view="fingerprints",
+            cell_line_view=self.cell_line_views[0],
+            drug_view=self.drug_views[0],
             cell_line_ids_output=output.cell_line_ids,
             drug_ids_output=output.drug_ids,
             cell_line_input=cell_line_input,
@@ -97,8 +97,8 @@ class SklearnModel(DRPModel):
             raise ValueError("drug_input (fingerprints) is required.")
 
         x = self.get_concatenated_features(
-            cell_line_view="gene_expression",
-            drug_view="fingerprints",
+            cell_line_view=self.cell_line_views[0],
+            drug_view=self.drug_views[0],
             cell_line_ids_output=cell_line_ids,
             drug_ids_output=drug_ids,
             cell_line_input=cell_line_input,
@@ -241,4 +241,34 @@ class GradientBoosting(SklearnModel):
             max_iter=hyperparameters.get("max_iter", 100),
             learning_rate=hyperparameters.get("learning_rate", 0.1),
             max_depth=hyperparameters.get("max_depth", 3),
+        )
+
+
+class ProteomicsRandomForest(RandomForest):
+    """RandomForest model for drug response prediction using proteomics data."""
+
+    cell_line_views = ["proteomics"]
+
+    @classmethod
+    def get_model_name(cls) -> str:
+        """
+        Returns the model name.
+
+        :returns: ProteomicsRandomForest
+        """
+        return "ProteomicsRandomForest"
+
+    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+        """
+        Loads the cell line features.
+
+        :param data_path: Path to the gene expression and landmark genes
+        :param dataset_name: Name of the dataset
+        :returns: FeatureDataset containing the cell line proteomics features, filtered through the landmark genes
+        """
+        return load_and_select_gene_features(
+            feature_type="proteomics",
+            gene_list=None,
+            data_path=data_path,
+            dataset_name=dataset_name,
         )
