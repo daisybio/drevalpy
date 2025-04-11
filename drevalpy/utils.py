@@ -9,6 +9,7 @@ from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
 from .datasets import AVAILABLE_DATASETS
 from .datasets.dataset import DrugResponseDataset
 from .datasets.loader import load_dataset
+from .datasets.utils import ALLOWED_MEASURES
 from .evaluation import AVAILABLE_METRICS
 from .experiment import drug_response_experiment, pipeline_function
 from .models import MODEL_FACTORY
@@ -263,9 +264,7 @@ def check_arguments(args) -> None:
     if args.n_trials_robustness < 0:
         raise ValueError("Number of trials for robustness test must be greater than or equal to 0")
 
-    allowed_measures = ["LN_IC50", "EC50", "IC50", "pEC50", "AUC", "response"]
-    allowed_measures.extend([f"{m}_curvecurator" for m in allowed_measures])
-    if args.measure not in allowed_measures:
+    if args.measure not in ALLOWED_MEASURES:
         raise ValueError(
             "Only 'LN_IC50', 'EC50', 'IC50', 'pEC50', 'AUC', 'response' or their equivalents including "
             "the '_curvecurator' suffix are allowed drug response measures."
