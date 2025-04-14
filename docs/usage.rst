@@ -179,6 +179,29 @@ dataset, do not set the ``--curve_curator`` option.
 This however makes it hard to do cross-study comparisons, since the measures may not be directly comparable due to differences in the fitting procedures used by the original authors.
 It is therefore recommended to always use DrEvalPy with the ``--curve_curator`` option, even when providing your own custom datasets (see next section).
 
+Corresponding feature data
+---------------------------
+The datasets have corresponding cell-line and drug feature data. The sources are as follows:
+
+* GDSC1 & 2:
+    * Gene expression: RMA-normalized microarray expression data from the `GDSC Data Portal <https://www.cancerrxgene.org/downloads/bulk_download>`_ (raw data).
+    * Methylation: `GDSC Data Portal <https://www.cancerrxgene.org/gdsc1000/GDSC1000_WebResources/Home.html>`_.
+* CCLE, CTRPv1, CTRPv2:
+    * Gene expression: reprocessed RNA-seq data PRJNA523380
+    * Methylation: DepMap ``CCLE_RRBS_TSS_CpG_clusters_20180614.txt``
+* Used by all:
+    * Mutation & CNV data: `Sanger Cell Model Passports <https://cellmodelpassports.sanger.ac.uk/downloads>`_.
+    * Proteomics: Raw data at PRIDE: PXD030304
+    * Morgan Fingerprints were generated with RDKit from SMILES either downloaded from PubChem or provided by GDSC.
+    * `DIPK associated drive <https://drive.google.com/drive/folders/16hP48-noHi3-c_LP9TcZxkwAzqxgR0VB>`_
+        * MolGNet features were generated from SMILES
+        * BIONIC features were generated from top expressed genes
+    * The 978 landmark genes are from the L1000 assay
+    * The drug target genes are the genes targeted by the drugs used in GDSC, extractable from the `GDSC Data Portal <https://www.cancerrxgene.org/downloads/bulk_download>`_ (compounds annotation).
+    * The intersection lists are features occurring in all datasets for the respective OMICs to ensure that cross-study predictions can easily be done because the features are shared.
+
+For more information on the preprocessing, please refer to `the corresponding GitHub Repo <https://github.com/daisybio/preprocess_drp_data>`_.
+
 Custom Datasets
 ---------------
 You can also provide your own custom dataset via the ``--dataset_name`` parameter by specifying a name that is not in the list of the available datasets.
