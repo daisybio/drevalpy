@@ -12,7 +12,7 @@ from .dataset import DrugResponseDataset
 from .utils import ALLOWED_MEASURES, CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, download_dataset
 
 
-def check_measure(measure_queried: str, measures_data: str, dataset_name: str) -> None:
+def check_measure(measure_queried: str, measures_data: list[str], dataset_name: str) -> None:
     """
     Check if the queried measure is in the dataset.
 
@@ -51,7 +51,7 @@ def load_gdsc1(
 
     response_data = pd.read_csv(path, dtype={"pubchem_id": str})
     response_data[DRUG_IDENTIFIER] = response_data[DRUG_IDENTIFIER].str.replace(",", "")
-    check_measure(measure, response_data.columns, dataset_name)
+    check_measure(measure, list(response_data.columns), dataset_name)
     return DrugResponseDataset(
         response=response_data[measure].values,
         cell_line_ids=response_data[CELL_LINE_IDENTIFIER].values,
@@ -92,7 +92,7 @@ def load_ccle(
 
     response_data = pd.read_csv(path, dtype={"pubchem_id": str})
     response_data[DRUG_IDENTIFIER] = response_data[DRUG_IDENTIFIER].str.replace(",", "")
-    check_measure(measure, response_data.columns, dataset_name)
+    check_measure(measure, list(response_data.columns), dataset_name)
     return DrugResponseDataset(
         response=response_data[measure].values,
         cell_line_ids=response_data[CELL_LINE_IDENTIFIER].values,
@@ -117,7 +117,7 @@ def _load_toy(
     if not os.path.exists(path):
         download_dataset(dataset_name, path_data, redownload=True)
     response_data = pd.read_csv(path, dtype={"pubchem_id": str})
-    check_measure(measure, response_data.columns, dataset_name)
+    check_measure(measure, list(response_data.columns), dataset_name)
     return DrugResponseDataset(
         response=response_data[measure].values,
         cell_line_ids=response_data[CELL_LINE_IDENTIFIER].values,
@@ -165,7 +165,7 @@ def _load_ctrpv(version: str, path_data: str = "data", measure: str = "LN_IC50_c
     if not os.path.exists(path):
         download_dataset(dataset_name, path_data, redownload=True)
     response_data = pd.read_csv(path, dtype={"pubchem_id": str})
-    check_measure(measure, response_data.columns, dataset_name)
+    check_measure(measure, list(response_data.columns), dataset_name)
 
     return DrugResponseDataset(
         response=response_data[measure].values,
