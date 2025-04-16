@@ -1,6 +1,6 @@
 """Parent class for Violin and Heatmap plots of performance measures over CV runs."""
 
-from io import TextIOWrapper
+from typing import TextIO
 
 import pandas as pd
 
@@ -10,12 +10,11 @@ from drevalpy.visualization.outplot import OutPlot
 class VioHeat(OutPlot):
     """Parent class for Violin and Heatmap plots of performance measures over CV runs."""
 
-    def __init__(self, df: pd.DataFrame, true_vs_pred: pd.DataFrame, normalized_metrics=False, whole_name=False):
+    def __init__(self, df: pd.DataFrame, normalized_metrics=False, whole_name=False):
         """
         Initialize the VioHeat class.
 
         :param df: evaluation results, either overall or per algorithm
-        :param true_vs_pred: true vs. predicted values
         :param normalized_metrics: whether the metrics are normalized
         :param whole_name: whether the whole name should be displayed
         """
@@ -53,7 +52,7 @@ class VioHeat(OutPlot):
         pass
 
     @staticmethod
-    def write_to_html(lpo_lco_ldo: str, f: TextIOWrapper, *args, **kwargs) -> TextIOWrapper:
+    def write_to_html(lpo_lco_ldo: str, f: TextIO, *args, **kwargs) -> TextIO:
         """
         Write the Violin and Heatmap plots into the result HTML file.
 
@@ -80,20 +79,35 @@ class VioHeat(OutPlot):
             if (
                 lpo_lco_ldo in f
                 and f.startswith(prefix)
-                and f != f"{prefix}_{lpo_lco_ldo}.html"
-                and f != f"{prefix}_{lpo_lco_ldo}_normalized.html"
+                and f != f"{prefix}_algorithms_{lpo_lco_ldo}.html"
+                and f != f"{prefix}_algorithms_{lpo_lco_ldo}_normalized.html"
             )
         ]
         f.write(f"<h2 id={nav_id!r}>{plot} Plots of Performance Measures over CV runs</h2>\n")
         f.write(f"<h3>{plot} plots comparing all models</h3>\n")
+        if plot == "Violin":
+            f.write(
+                "To focus on a specific metric, choose it in the dropdown menu in the top right corner."
+                "You can investigate the distribution of the performance measures by hovering over the plot.\n"
+                "To select/exclude specific algorithms, (double-)click them in the legend."
+            )
+        elif plot == "Heatmap":
+            f.write(
+                "Unnormalized metrics collapsed over all CV runs with mean and standard deviation.\n"
+                "The strictly standardized mean difference is a measure of effect size which is calculated "
+                "pairwise. For two models, it is calculated as [mean1 - mean2] / [sqrt(var1 + var2)] for a "
+                "specific measure. The larger the absolute SSMD, the stronger the effect (a strong effect could, "
+                "is e.g., a |SSMD| > 2 ).\n"
+            )
         f.write(
             f'<iframe src="{dir_name}/{prefix}_algorithms_{lpo_lco_ldo}.html" width="100%" height="100%" '
             f'frameBorder="0"></iframe>\n'
         )
         f.write(f"<h3>{plot} plots comparing all models with normalized metrics</h3>\n")
         f.write(
-            "Before calculating the evaluation metrics, all values were normalized by the mean of the drug or cell "
-            "line. Since this only influences the R^2 and the correlation metrics, the error metrics are not shown. \n"
+            "Before calculating the evaluation metrics, all values were normalized by the predictions of the "
+            "NaiveMeanEffectsPredictor. Since this only influences the R^2 and the correlation metrics, the error "
+            "metrics are not shown. \n"
         )
         f.write(
             f'<iframe src="{dir_name}/{prefix}_algorithms_{lpo_lco_ldo}_normalized.html" width="100%" height="100%" '

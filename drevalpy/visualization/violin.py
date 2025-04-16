@@ -11,17 +11,16 @@ class Violin(VioHeat):
     """Plots a violin plot of the evaluation metrics."""
 
     @pipeline_function
-    def __init__(self, df: pd.DataFrame, true_vs_pred: pd.DataFrame, normalized_metrics=False, whole_name=False):
+    def __init__(self, df: pd.DataFrame, normalized_metrics=False, whole_name=False):
         """
         Initialize the Violin class.
 
         :param df: either containing all predictions for all algorithms or all tests for one algorithm (including
-            robustness, randomization, … tests then)
-        :param true_vs_pred: true vs. predicted values
+            robustness, randomization, … tests then)git
         :param normalized_metrics: whether the metrics are normalized
         :param whole_name: whether the whole name should be displayed
         """
-        super().__init__(df, true_vs_pred, normalized_metrics, whole_name)
+        super().__init__(df, normalized_metrics, whole_name)
         self.df["box"] = self.df["algorithm"] + "_" + self.df["rand_setting"] + "_" + self.df["LPO_LCO_LDO"]
         # remove columns with only NaN values
         self.df = self.df.dropna(axis=1, how="all")
@@ -53,6 +52,14 @@ class Violin(VioHeat):
         )
         buttons_update = list(
             [
+                dict(
+                    label="All Metrics",
+                    method="update",
+                    args=[
+                        {"visible": [True] * count_sum},
+                        {"title": "All Metrics"},
+                    ],
+                ),
                 dict(
                     label="R^2",
                     method="update",

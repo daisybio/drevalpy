@@ -1,7 +1,7 @@
 """Abstract wrapper class for all visualizations."""
 
 from abc import ABC, abstractmethod
-from io import TextIOWrapper
+from typing import TextIO
 
 
 class OutPlot(ABC):
@@ -24,7 +24,7 @@ class OutPlot(ABC):
 
     @staticmethod
     @abstractmethod
-    def write_to_html(lpo_lco_ldo: str, f: TextIOWrapper, *args, **kwargs) -> TextIOWrapper:
+    def write_to_html(lpo_lco_ldo: str, f: TextIO, *args, **kwargs) -> TextIO:
         """
         Write the plot to the final report file.
 

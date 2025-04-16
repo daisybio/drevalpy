@@ -1,6 +1,6 @@
 """Module for generating regression plots with a slider for Pearson correlation coefficient."""
 
-from io import TextIOWrapper
+from typing import TextIO
 
 import numpy as np
 import pandas as pd
@@ -91,7 +91,7 @@ class RegressionSliderPlot(OutPlot):
         self._render_plot()
 
     @staticmethod
-    def write_to_html(lpo_lco_ldo: str, f: TextIOWrapper, *args, **kwargs) -> TextIOWrapper:
+    def write_to_html(lpo_lco_ldo: str, f: TextIO, *args, **kwargs) -> TextIO:
         """
         Write the plot to the final report file.
 

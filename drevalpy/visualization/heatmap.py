@@ -13,17 +13,16 @@ class Heatmap(VioHeat):
     """Plots a heatmap of the evaluation metrics."""
 
     @pipeline_function
-    def __init__(self, df: pd.DataFrame, true_vs_pred: pd.DataFrame, normalized_metrics=False, whole_name=False):
+    def __init__(self, df: pd.DataFrame, normalized_metrics=False, whole_name=False):
         """
         Initialize the Heatmap class.
 
         :param df: either containing all predictions for all algorithms or all tests for one algorithm (including
             robustness, randomization, … tests then)
-        :param true_vs_pred: DataFrame containing the true and predicted values
         :param normalized_metrics: whether the metrics are normalized
         :param whole_name: whether the whole name should be displayed
         """
-        super().__init__(df, true_vs_pred, normalized_metrics, whole_name)
+        super().__init__(df, normalized_metrics, whole_name)
 
         self.df = self.df[[col for col in self.df.columns if col in self.all_metrics]]
 

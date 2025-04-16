@@ -12,10 +12,9 @@ import pandas as pd
 from ..datasets.dataset import DrugResponseDataset
 from ..evaluation import AVAILABLE_METRICS, evaluate
 from ..pipeline_function import pipeline_function
-from .corr_comp_scatter import CorrelationComparisonScatter
+from .comp_scatter import ComparisonScatter
 from .critical_difference_plot import CriticalDifferencePlot
 from .cross_study_tables import CrossStudyTables
-from .html_tables import HTMLTable
 from .regression_slider_plot import RegressionSliderPlot
 from .vioheat import VioHeat
 
@@ -486,10 +485,7 @@ def create_html(run_id: str, lpo_lco_ldo: str, files: list, prefix_results: str,
         f = RegressionSliderPlot.write_to_html(lpo_lco_ldo=lpo_lco_ldo, f=f, files=files)
 
         # Correlation comparison: Drug
-        f = CorrelationComparisonScatter.write_to_html(lpo_lco_ldo=lpo_lco_ldo, f=f, files=files)
-
-        # Evaluation results tables
-        f = HTMLTable.write_to_html(lpo_lco_ldo=lpo_lco_ldo, f=f, files=files, prefix=prefix_results)
+        f = ComparisonScatter.write_to_html(lpo_lco_ldo=lpo_lco_ldo, f=f, files=files)
 
         # Cross-study evaluation tables
         f = CrossStudyTables.write_to_html(lpo_lco_ldo=lpo_lco_ldo, f=f, files=files, prefix=prefix_results)

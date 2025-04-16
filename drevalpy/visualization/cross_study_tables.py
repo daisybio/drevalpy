@@ -2,6 +2,7 @@
 
 import os
 import pathlib
+from typing import TextIO
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -101,7 +102,7 @@ class CrossStudyTables:
             fig.write_html(filename, include_plotlyjs="embed", full_html=True)
 
     @staticmethod
-    def write_to_html(lpo_lco_ldo: str, f, files: list[str], prefix: str):
+    def write_to_html(lpo_lco_ldo: str, f: TextIO, files: list[str], prefix: str) -> TextIO:
         """
         Embed HTML table files into an open HTML file handle.
 

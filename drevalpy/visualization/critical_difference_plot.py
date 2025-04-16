@@ -24,8 +24,7 @@ This method performs the following steps:
 
 import pathlib
 import warnings
-from io import TextIOWrapper
-from typing import Optional, Union
+from typing import Optional, TextIO, Union
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -45,7 +44,7 @@ from .outplot import OutPlot
 
 matplotlib.use("agg")
 matplotlib.rcParams["font.family"] = "sans-serif"
-matplotlib.rcParams["font.sans-serif"] = "Avenir"
+matplotlib.rcParams["font.sans-serif"] = "Helvetica Neue"
 warnings.filterwarnings("ignore", category=FutureWarning, message=".*swapaxes.*")
 
 
@@ -116,7 +115,8 @@ class CriticalDifferencePlot(OutPlot):
         average_ranks = input_conover_friedman.rank(ascending=False, axis=1).mean(axis=0)
         plt.title(
             f"Critical Difference Diagram: Metric: {self.metric}.\n"
-            f"Overall Friedman-Chi2 p-value: {friedman_p_value:.2e}"
+            f"Overall Friedman-Chi2 p-value: {friedman_p_value:.2e}",
+            fontsize=20,
         )
         color_palette = dict()
         generated_colors = _generate_discrete_palette(len(input_conover_friedman.columns))
@@ -128,7 +128,7 @@ class CriticalDifferencePlot(OutPlot):
         self.fig = plt.gcf()
 
     @staticmethod
-    def write_to_html(lpo_lco_ldo: str, f: TextIOWrapper, *args, **kwargs) -> TextIOWrapper:
+    def write_to_html(lpo_lco_ldo: str, f: TextIO, *args, **kwargs) -> TextIO:
         """
         Inserts the critical difference plot into the HTML report file.
 
@@ -140,6 +140,16 @@ class CriticalDifferencePlot(OutPlot):
         """
         path_out_cd = f"critical_difference_plots/critical_difference_algorithms_{lpo_lco_ldo}.svg"
         f.write(f"<object data={path_out_cd}> </object>")
+        f.write(
+            "<br><br>"
+            "This diagram displays the mean rank of each model over all cross-validation splits: Within each CV "
+            "split, the models are ranked according to their MSE. We calculate whether a model is significantly "
+            "better than another one using the Friedman test and the post-hoc Conover test. "
+            "The Friedman test shows whether there are overall differences between the models. After a significant"
+            "Friedman test, the pairwise Conover test is performed to identify which models are significantly "
+            "outperforming others. One line indicates which models are not significantly different from each "
+            "other. The p-values are shown below."
+        )
         f.write("<br><br>")
         f.write("<h2>Results of Post-Hoc Conover Test</h2>")
         f.write("<br>")
@@ -237,11 +247,11 @@ def _critical_difference_diagram(
 
     elbow_props = elbow_props or {}
     marker_props = {"zorder": 3, **(marker_props or {})}
-    label_props = {"va": "center", **(label_props or {})}
+    label_props = {"va": "center", "fontsize": 16, "weight": "heavy", **(label_props or {})}
     crossbar_props = {
         "color": "k",
         "zorder": 3,
-        "linewidth": 2,
+        "linewidth": 4,
         **(crossbar_props or {}),
     }
 
@@ -285,12 +295,12 @@ def _critical_difference_diagram(
 
     # Create stacking of crossbars: make a crossbar of the fitting color for each algorithm
     crossbar_levels: list[list[set]] = []
+    ypos = -0.5
     for alg in ranks.index:
         bar = crossbar_sets[alg]
         not_different = crossbar_sets[alg]
         if len(not_different) == 1:
             continue
-        ypos = -len(crossbar_levels) - 1
         crossbar_levels.append([bar])
 
         crossbar_props["color"] = color_palette[alg]
@@ -303,8 +313,9 @@ def _critical_difference_diagram(
                 **crossbar_props,
             )
         )
+        ypos -= 0.5
 
-    lowest_crossbar_ypos = -len(crossbar_levels)
+    lowest_crossbar_ypos = ypos
 
     def plot_items(points, xpos, label_fmt, color_palette, label_props):
         """
@@ -316,7 +327,7 @@ def _critical_difference_diagram(
         :param color_palette: the color palette to use
         :param label_props: the label properties
         """
-        ypos = lowest_crossbar_ypos - 1
+        ypos = lowest_crossbar_ypos - 0.5
         for idx, (label, rank) in enumerate(points.items()):
             if not color_palette or len(color_palette) == 0:
                 elbow, *_ = ax.plot(
@@ -344,7 +355,7 @@ def _critical_difference_diagram(
                     **label_props,
                 )
             )
-            ypos -= 1
+            ypos -= 0.5
 
     plot_items(
         points_left,
