@@ -2,7 +2,7 @@
 
 import os
 import pathlib
-from typing import TextIO
+from io import TextIOWrapper
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -23,7 +23,7 @@ class CrossStudyTables:
         self.evaluation_metrics = evaluation_metrics
         self.path_data = path_data
 
-        self.figures = {}
+        self.figures: dict[str, go.Figure] = {}
         cross_study_settings = evaluation_metrics[
             evaluation_metrics.rand_setting.str.contains("cross-study-")
         ].rand_setting.unique()
@@ -102,7 +102,7 @@ class CrossStudyTables:
             fig.write_html(filename, include_plotlyjs="embed", full_html=True)
 
     @staticmethod
-    def write_to_html(lpo_lco_ldo: str, f: TextIO, files: list[str], prefix: str) -> TextIO:
+    def write_to_html(lpo_lco_ldo: str, f: TextIOWrapper, files: list[str], prefix: str) -> TextIOWrapper:
         """
         Embed HTML table files into an open HTML file handle.
 

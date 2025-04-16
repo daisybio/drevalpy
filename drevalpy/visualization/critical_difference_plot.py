@@ -24,7 +24,8 @@ This method performs the following steps:
 
 import pathlib
 import warnings
-from typing import Optional, TextIO, Union
+from io import TextIOWrapper
+from typing import Optional, Union
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -74,6 +75,8 @@ class CriticalDifferencePlot(OutPlot):
 
         self.eval_results_preds = eval_results_preds
         self.metric = metric
+        self.fig: Optional[plt.Figure] = None
+        self.test_results: Optional[pd.DataFrame] = None
 
     @pipeline_function
     def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
@@ -82,13 +85,17 @@ class CriticalDifferencePlot(OutPlot):
 
         :param out_prefix: e.g., results/my_run/critical_difference_plots/
         :param out_suffix: e.g., LPO
+        :raises ValueError: if the figure is None or the test results are None
         """
         try:
             self._draw()
             path_out = f"{out_prefix}critical_difference_algorithms_{out_suffix}.svg"
-            self.fig.savefig(path_out, bbox_inches="tight")
-            self.test_results = self.test_results.round(4)
-            self.test_results.to_html(f"{out_prefix}critical_difference_algorithms_{out_suffix}.html")
+            if self.fig is None or self.test_results is None:
+                raise ValueError("Figure is None. Cannot save the plot.")
+            else:
+                self.fig.savefig(path_out, bbox_inches="tight")
+                self.test_results = self.test_results.round(4)
+                self.test_results.to_html(f"{out_prefix}critical_difference_algorithms_{out_suffix}.html")
         except Exception as e:
             print(f"Error in drawing critical difference plot: {e}")
 
@@ -128,7 +135,7 @@ class CriticalDifferencePlot(OutPlot):
         self.fig = plt.gcf()
 
     @staticmethod
-    def write_to_html(lpo_lco_ldo: str, f: TextIO, *args, **kwargs) -> TextIO:
+    def write_to_html(lpo_lco_ldo: str, f: TextIOWrapper, *args, **kwargs) -> TextIOWrapper:
         """
         Inserts the critical difference plot into the HTML report file.
 
@@ -148,7 +155,7 @@ class CriticalDifferencePlot(OutPlot):
             "The Friedman test shows whether there are overall differences between the models. After a significant"
             "Friedman test, the pairwise Conover test is performed to identify which models are significantly "
             "outperforming others. One line indicates which models are not significantly different from each "
-            "other. The p-values are shown below."
+            "other. The p-values are shown below. This can only be rendered if at least 3 models were run."
         )
         f.write("<br><br>")
         f.write("<h2>Results of Post-Hoc Conover Test</h2>")
@@ -156,6 +163,8 @@ class CriticalDifferencePlot(OutPlot):
         path_to_table = pathlib.Path(
             pathlib.Path(f.name).parent, f"critical_difference_plots/critical_difference_algorithms_{lpo_lco_ldo}.html"
         )
+        if not path_to_table.exists():
+            return f
         with open(path_to_table) as conover_results_f:
             conover_results = conover_results_f.readlines()
             conover_results[0] = conover_results[0].replace(
@@ -171,6 +180,7 @@ def _critical_difference_diagram(
     ranks: Union[dict, Series],
     sig_matrix: DataFrame,
     *,
+    color_palette: dict,
     ax: Optional[Axes] = None,
     label_fmt_left: str = "{label} ({rank:.2g})",
     label_fmt_right: str = "({rank:.2g}) {label}",
@@ -178,7 +188,6 @@ def _critical_difference_diagram(
     marker_props: Optional[dict] = None,
     elbow_props: Optional[dict] = None,
     crossbar_props: Optional[dict] = None,
-    color_palette: dict[str, str] = None,
     text_h_margin: float = 0.01,
     left_only: bool = False,
 ) -> dict[str, list]:
@@ -222,7 +231,7 @@ def _critical_difference_diagram(
         that indicate lack of statistically significant difference. By default
         None.
 
-    :param color_palette: dict, optional
+    :param color_palette: dict
         Parameters to be passed when you need specific colors for each category
 
     :param text_h_margin : float, optional
@@ -236,9 +245,7 @@ def _critical_difference_diagram(
     :returns: dict
     """
     # check color_palette consistency
-    if not color_palette or len(color_palette) == 0:
-        pass
-    elif isinstance(color_palette, dict) and ((len(set(ranks.keys()) & set(color_palette.keys()))) == len(ranks)):
+    if isinstance(color_palette, dict) and ((len(set(ranks.keys()) & set(color_palette.keys()))) == len(ranks)):
         pass
     elif isinstance(color_palette, list) and (len(ranks) <= len(color_palette)):
         pass

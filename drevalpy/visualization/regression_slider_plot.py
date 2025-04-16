@@ -1,6 +1,6 @@
 """Module for generating regression plots with a slider for Pearson correlation coefficient."""
 
-from typing import TextIO
+from io import TextIOWrapper
 
 import numpy as np
 import pandas as pd
@@ -84,14 +84,16 @@ class RegressionSliderPlot(OutPlot):
         """Draw the regression plot."""
         print(f"Generating regression plots for {self.group_by}, normalize={self.normalize}, algorithm={self.model}...")
         self.df = self.df.groupby(self.group_by).filter(lambda x: len(x) > 1)
-        pccs = self.df.groupby(self.group_by).apply(lambda x: pearsonr(x["y_true"], x["y_pred"])[0])
+        pccs = self.df.groupby(self.group_by).apply(
+            lambda x: pearsonr(x["y_true"], x["y_pred"])[0], include_groups=False
+        )
         pccs = pccs.reset_index()
         pccs.columns = [self.group_by, "pcc"]
         self.df = self.df.merge(pccs, on=self.group_by)
         self._render_plot()
 
     @staticmethod
-    def write_to_html(lpo_lco_ldo: str, f: TextIO, *args, **kwargs) -> TextIO:
+    def write_to_html(lpo_lco_ldo: str, f: TextIOWrapper, *args, **kwargs) -> TextIOWrapper:
         """
         Write the plot to the final report file.
 

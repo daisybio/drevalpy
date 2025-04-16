@@ -1,11 +1,19 @@
 """Tests whether the main function of the package runs without errors and produces the expected output."""
 
 import os
+import pathlib
 import tempfile
 from argparse import Namespace
 
 import pytest
 
+from create_report import (
+    create_html,
+    create_index_html,
+    create_output_directories,
+    draw_algorithm_plots,
+    draw_setting_plots,
+)
 from drevalpy.utils import main
 from drevalpy.visualization.utils import parse_results, prep_results
 
@@ -47,13 +55,15 @@ def test_run_suite(args):
     args = Namespace(**args)
     main(args, debug_mode=True)
     assert os.listdir(temp_dir.name) == ["test_run"]
+    result_path = pathlib.Path(temp_dir.name).resolve()
+    path_data = pathlib.Path(args.path_data).resolve()
 
     (
         evaluation_results,
         evaluation_results_per_drug,
         evaluation_results_per_cell_line,
         true_vs_pred,
-    ) = parse_results(path_to_results=os.path.join(temp_dir.name, args.run_id), dataset="TOYv1")
+    ) = parse_results(path_to_results=f"{result_path}/{args.run_id}", dataset="TOYv1")
 
     (
         evaluation_results,
@@ -87,3 +97,55 @@ def test_run_suite(args):
     assert all(test_mode in evaluation_results.LPO_LCO_LDO.unique() for test_mode in args.test_mode)
     assert evaluation_results.CV_split.astype(int).max() == (args.n_cv_splits - 1)
     assert evaluation_results.Pearson.astype(float).max() > 0.5
+
+    create_output_directories(result_path, args.run_id)
+    setting = args.test_mode[0]
+    unique_algos = draw_setting_plots(
+        lpo_lco_ldo=setting,
+        ev_res=evaluation_results,
+        ev_res_per_drug=evaluation_results_per_drug,
+        ev_res_per_cell_line=evaluation_results_per_cell_line,
+        custom_id=args.run_id,
+        path_data=path_data,
+        result_path=result_path,
+    )
+    # draw figures for each algorithm with all randomizations etc
+    unique_algos = set(unique_algos) - {
+        "NaiveMeanEffectsPredictor",
+        "NaivePredictor",
+        "NaiveCellLineMeansPredictor",
+        "NaiveDrugMeanPredictor",
+    }
+    for algorithm in unique_algos:
+        draw_algorithm_plots(
+            model=algorithm,
+            ev_res=evaluation_results,
+            ev_res_per_drug=evaluation_results_per_drug,
+            ev_res_per_cell_line=evaluation_results_per_cell_line,
+            t_vs_p=true_vs_pred,
+            lpo_lco_ldo=setting,
+            custom_id=args.run_id,
+            result_path=result_path,
+        )
+    # get all html files from {result_path}/{run_id}
+    all_files: list[str] = []
+    for _, _, files in os.walk(f"{result_path}/{args.run_id}"):  # type: ignore[assignment]
+        for file in files:
+            if file.endswith("json") or (
+                file.endswith(".html") and file not in ["index.html", "LPO.html", "LCO.html", "LDO.html"]
+            ):
+                all_files.append(file)
+    # PIPELINE: WRITE_HTML
+    create_html(
+        run_id=args.run_id,
+        lpo_lco_ldo=setting,
+        files=all_files,
+        prefix_results=f"{result_path}/{args.run_id}",
+        test_mode=setting,
+    )
+    # PIPELINE: WRITE_INDEX
+    create_index_html(
+        custom_id=args.run_id,
+        test_modes=args.test_mode,
+        prefix_results=f"{result_path}/{args.run_id}",
+    )

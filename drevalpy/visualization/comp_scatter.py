@@ -1,6 +1,6 @@
 """Contains the code needed to draw the correlation comparison scatter plot."""
 
-from typing import TextIO
+from io import TextIOWrapper
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -131,7 +131,7 @@ class ComparisonScatter(OutPlot):
         self.dropdown_fig.update_yaxes(range=[-1, 1])
 
     @staticmethod
-    def write_to_html(lpo_lco_ldo: str, f: TextIO, *args, **kwargs) -> TextIO:
+    def write_to_html(lpo_lco_ldo: str, f: TextIOWrapper, *args, **kwargs) -> TextIOWrapper:
         """
         Inserts the generated files into the result HTML file.
 

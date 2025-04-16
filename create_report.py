@@ -41,7 +41,6 @@ def draw_setting_plots(
     ev_res_per_drug: pd.DataFrame | None,
     ev_res_per_cell_line: pd.DataFrame | None,
     custom_id: str,
-    dataset: str,
     path_data: pathlib.Path,
     result_path: pathlib.Path,
 ) -> list[str]:
@@ -53,7 +52,6 @@ def draw_setting_plots(
     :param ev_res_per_drug: evaluation results per drug
     :param ev_res_per_cell_line: evaluation results per cell line
     :param custom_id: run id passed via command line
-    :param dataset: dataset name
     :param path_data: path to the data
     :param result_path: path to the results
     :returns: list of unique algorithms
@@ -105,8 +103,7 @@ def draw_setting_plots(
             ev_res_per_group=ev_res_per_drug,
             lpo_lco_ldo=lpo_lco_ldo,
             custom_id=custom_id,
-            dataset=dataset,
-            path_data=path_data,
+            result_path=result_path,
         )
     if lpo_lco_ldo in ("LPO", "LDO"):
         draw_per_grouping_setting_plots(
@@ -114,8 +111,7 @@ def draw_setting_plots(
             ev_res_per_group=ev_res_per_cell_line,
             lpo_lco_ldo=lpo_lco_ldo,
             custom_id=custom_id,
-            dataset=dataset,
-            path_data=path_data,
+            result_path=result_path,
         )
 
     # Cross-study evaluation tables
@@ -129,12 +125,7 @@ def draw_setting_plots(
 
 
 def draw_per_grouping_setting_plots(
-    grouping: str,
-    ev_res_per_group: pd.DataFrame,
-    lpo_lco_ldo: str,
-    custom_id: str,
-    dataset: str,
-    path_data: pathlib.Path,
+    grouping: str, ev_res_per_group: pd.DataFrame, lpo_lco_ldo: str, custom_id: str, result_path: pathlib.Path
 ) -> None:
     """
     Draw plots for a specific grouping (drug or cell line) for a specific setting (LPO, LCO, LDO).
@@ -143,8 +134,7 @@ def draw_per_grouping_setting_plots(
     :param ev_res_per_group: evaluation results per drug or per cell line
     :param lpo_lco_ldo: setting
     :param custom_id: run id passed over command line
-    :param dataset: dataset name
-    :param path_data: path to the data
+    :param result_path: path to the results
     """
     # PIPELINE: DRAW_CORR_COMP
     corr_comp = ComparisonScatter(
@@ -215,6 +205,7 @@ def draw_algorithm_plots(
             t_v_p=t_vs_p,
             lpo_lco_ldo=lpo_lco_ldo,
             custom_id=custom_id,
+            result_path=result_path,
         )
     if lpo_lco_ldo in ("LPO", "LDO"):
         draw_per_grouping_algorithm_plots(
@@ -225,6 +216,7 @@ def draw_algorithm_plots(
             t_v_p=t_vs_p,
             lpo_lco_ldo=lpo_lco_ldo,
             custom_id=custom_id,
+            result_path=result_path,
         )
 
 
@@ -236,6 +228,7 @@ def draw_per_grouping_algorithm_plots(
     t_v_p: pd.DataFrame,
     lpo_lco_ldo: str,
     custom_id: str,
+    result_path: pathlib.Path,
 ):
     """
     Draw plots for a specific grouping (drug or cell line) for a specific algorithm.
@@ -248,6 +241,7 @@ def draw_per_grouping_algorithm_plots(
     :param t_v_p: true response values vs. predicted response values
     :param lpo_lco_ldo: setting
     :param custom_id: run id passed via command line
+    :param result_path: path to the results
     """
     if len(ev_res_per_group["rand_setting"].unique()) > 1:
         # only draw plots if there are predictions and another setting (randomization/robustness)
@@ -343,7 +337,6 @@ if __name__ == "__main__":
             ev_res_per_drug=evaluation_results_per_drug,
             ev_res_per_cell_line=evaluation_results_per_cell_line,
             custom_id=run_id,
-            dataset=dataset,
             path_data=path_data,
             result_path=result_path,
         )

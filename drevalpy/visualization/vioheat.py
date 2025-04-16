@@ -1,6 +1,6 @@
 """Parent class for Violin and Heatmap plots of performance measures over CV runs."""
 
-from typing import TextIO
+from io import TextIOWrapper
 
 import pandas as pd
 
@@ -52,7 +52,7 @@ class VioHeat(OutPlot):
         pass
 
     @staticmethod
-    def write_to_html(lpo_lco_ldo: str, f: TextIO, *args, **kwargs) -> TextIO:
+    def write_to_html(lpo_lco_ldo: str, f: TextIOWrapper, *args, **kwargs) -> TextIOWrapper:
         """
         Write the Violin and Heatmap plots into the result HTML file.
 
