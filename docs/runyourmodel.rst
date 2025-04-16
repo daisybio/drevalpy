@@ -23,8 +23,12 @@ Additionally, you must define a unique model name to identify your model during 
         early_stopping = True / False # TODO: set to true if you want to use a part of the validation set for early stopping
         cell_line_views = ["gene_expression", "methylation"]
         drug_views = ["fingerprints"]
-        model_name = "YourModel"
 
+        def get_model_name(cls) -> str:
+            """
+            Returns the name of the model.
+            """
+            return "YourModel"
 
 Next let's implement the feature loading. You have to return a DrEvalPy FeatureDataset object which contains the features for the cell lines and drugs.
 If the features are different depending on the dataset, use the ``dataset_name`` parameter.
@@ -152,4 +156,139 @@ Update the ``MULTI_DRUG_MODEL_FACTORY`` if your model is a global model for mult
     MULTI_DRUG_MODEL_FACTORY.update("YourModel": YourModel)
 
 
-Next, please also write appropriate tests in ``tests/individual_models``.
+Next, please also write appropriate tests in ``tests/individual_models`` and documentation in ``docs/``.
+
+Example: Proteomics Random Forest
+---------------------------------
+Instead of gene expression data, we want to use proteomics data in our Random Forest.
+The Random Forest is already implemented in ``models/baselines/sklearn_models.py``.
+We just need to adapt some methods.
+
+1. We make a new class ProteomicsRandomForest which inherits from the RandomForest class.
+We overwrite ``cell_line_views`` to ``["proteomics"]`` and ``get_model_name`` to ``"ProteomicsRandomForest"``.
+
+.. code-block:: Python
+
+    class ProteomicsRandomForest(RandomForest):
+        """RandomForest model for drug response prediction using proteomics data."""
+
+        cell_line_views = ["proteomics"]
+
+        @classmethod
+        def get_model_name(cls) -> str:
+            """
+            Returns the model name.
+
+            :returns: ProteomicsRandomForest
+            """
+            return "ProteomicsRandomForest"
+
+
+2. Next, we need to implement the ``load_cell_line_features`` method to load the proteomics features.
+We already supply proteomics features in the Zenodo as proteomics.csv. Hence, we can already use our
+pre-implemented method ``load_cell_line_features``.
+
+.. code-block:: Python
+
+    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+        """
+        Loads the cell line features.
+
+        :param data_path: Path to the gene expression and landmark genes
+        :param dataset_name: Name of the dataset
+        :returns: FeatureDataset containing the cell line proteomics features, filtered through the landmark genes
+        """
+        return load_and_select_gene_features(
+            feature_type="proteomics",
+            gene_list=None,
+            data_path=data_path,
+            dataset_name=dataset_name,
+        )
+
+
+3. We use the same build_model method as the RandomForest class, so we don't need to implement it.
+However, we need to write the hyperparameters needed into the ``models/baselines/hyperparameters.yaml`` file:
+
+.. code-block:: YAML
+
+    ProteomicsRandomForest:
+      n_estimators:
+        - 100
+      max_depth:
+        - 5
+        - 10
+        - 30
+      max_samples:
+        - 0.2
+      n_jobs:
+        - -1
+      criterion:
+        - squared_error
+
+We also use the same train and predict method as the RandomForest class, so we don't need to implement them.
+
+4. Finally, we need to register the model in the ``__init__.py`` file in the ``models/baselines`` directory.
+
+.. code-block:: Python
+
+    __all__ = [
+        "MULTI_DRUG_MODEL_FACTORY",
+        "SINGLE_DRUG_MODEL_FACTORY",
+        "MODEL_FACTORY",
+        "NaivePredictor",
+        #[...]
+        "DIPKModel",
+        "ProteomicsRandomForest"
+    ]
+    #[...]
+    from .baselines.sklearn_models import (
+        ElasticNetModel, GradientBoosting, RandomForest, SVMRegressor, ProteomicsRandomForest
+    )
+
+    # SINGLE_DRUG_MODEL_FACTORY is used in the pipeline!
+    SINGLE_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]] = {
+        #[...]
+    }
+
+    # MULTI_DRUG_MODEL_FACTORY is used in the pipeline!
+    MULTI_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]] = {
+        "NaivePredictor": NaivePredictor,
+        #[...]
+        "DIPK": DIPKModel,
+        "ProteomicsRandomForest": ProteomicsRandomForest,
+    }
+
+
+5. Add your model to the tests, in this case in ``tests/individual_models/test_baselines.py``.
+
+.. code-block:: Python
+
+    @pytest.mark.parametrize(
+        "model_name",
+        [
+            "NaivePredictor",
+            "NaiveDrugMeanPredictor",
+            "NaiveCellLineMeanPredictor",
+            "NaiveMeanEffectsPredictor",
+            "ElasticNet",
+            "RandomForest",
+            "SVR",
+            "MultiOmicsRandomForest",
+            "GradientBoosting",
+            "ProteomicsRandomForest",
+        ],
+    )
+    @pytest.mark.parametrize("test_mode", ["LPO", "LCO", "LDO"])
+    def test_baselines(
+        sample_dataset: DrugResponseDataset,
+        model_name: str,
+        test_mode: str,
+        cross_study_dataset: DrugResponseDataset,
+    ) -> None:
+    # [...]
+
+6. Now, we add the appropriate documentation.
+In our case, the class methods etc. under API are rendered automatically because it is a subclass of Sklearn Models.
+If you implement a new model, please orient yourself on the documentation of, e.g., DIPK.
+
+Add your model in ``usage.rst`` under the section "Available models".

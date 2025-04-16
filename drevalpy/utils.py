@@ -45,7 +45,8 @@ def get_parser() -> argparse.ArgumentParser:
         "--baselines",
         nargs="+",
         help="baseline or list of baselines. The baselines are also hpam-tuned and compared to the "
-        "models, but no randomization or robustness tests are run.",
+        "models, but no randomization or robustness tests are run. NaiveMeanEffectsPredictor is always run"
+        "as it is required for evaluation",
     )
     parser.add_argument(
         "--test_mode",
@@ -303,6 +304,11 @@ def main(args, debug_mode=False) -> None:
         baselines = [MODEL_FACTORY[baseline] for baseline in args.baselines]
     else:
         baselines = []
+
+    # NaiveMeanEffectsPredictor is always run as it is needed for evaluation
+    if "NaiveMeanEffectsPredictor" not in baselines:
+        baselines.append(MODEL_FACTORY["NaiveMeanEffectsPredictor"])
+
     # TODO Allow for custom randomization tests maybe via config file
 
     if args.randomization_mode[0] == "None":

@@ -806,12 +806,12 @@ def randomize_train_predict(
         return
 
     cl_features_rand: FeatureDataset | None = None
-    if cl_features is not None:
+    if cl_features is not None and view in cl_features.view_names:
         cl_features_rand = cl_features.copy()
         cl_features_rand.randomize_features(view, randomization_type=randomization_type)  # type: ignore[union-attr]
 
     drug_features_rand: FeatureDataset | None = None
-    if drug_features is not None:
+    if drug_features is not None and view in drug_features.view_names:
         drug_features_rand = drug_features.copy()
         drug_features_rand.randomize_features(view, randomization_type=randomization_type)  # type: ignore[union-attr]
 
