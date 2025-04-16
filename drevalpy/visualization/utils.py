@@ -7,6 +7,7 @@ import shutil
 from typing import TextIO
 
 import importlib_resources
+import numpy as np
 import pandas as pd
 
 from ..datasets.dataset import DrugResponseDataset
@@ -525,7 +526,7 @@ def draw_setting_plots(
     custom_id: str,
     path_data: pathlib.Path,
     result_path: pathlib.Path,
-) -> list[str]:
+) -> np.ndarray:
     """
     Draw all plots for a specific setting (LPO, LCO, LDO).
 
