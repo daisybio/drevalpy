@@ -7,15 +7,16 @@ from argparse import Namespace
 
 import pytest
 
-from create_report import (
+from drevalpy.utils import main
+from drevalpy.visualization.utils import (
     create_html,
     create_index_html,
     create_output_directories,
     draw_algorithm_plots,
     draw_setting_plots,
+    parse_results,
+    prep_results,
 )
-from drevalpy.utils import main
-from drevalpy.visualization.utils import parse_results, prep_results
 
 
 @pytest.mark.parametrize(

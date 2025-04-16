@@ -12,11 +12,33 @@ import pandas as pd
 from ..datasets.dataset import DrugResponseDataset
 from ..evaluation import AVAILABLE_METRICS, evaluate
 from ..pipeline_function import pipeline_function
-from .comp_scatter import ComparisonScatter
-from .critical_difference_plot import CriticalDifferencePlot
-from .cross_study_tables import CrossStudyTables
-from .regression_slider_plot import RegressionSliderPlot
-from .vioheat import VioHeat
+from . import (
+    ComparisonScatter,
+    CriticalDifferencePlot,
+    CrossStudyTables,
+    Heatmap,
+    RegressionSliderPlot,
+    VioHeat,
+    Violin,
+)
+
+
+def create_output_directories(result_path: pathlib.Path, custom_id: str) -> None:
+    """
+    If they do not exist yet, make directories for the visualization files.
+
+    :param result_path: path to the results
+    :param custom_id: run id passed via command line
+    """
+    for dir in [
+        "violin_plots",
+        "heatmaps",
+        "regression_plots",
+        "comp_scatter",
+        "html_tables",
+        "critical_difference_plots",
+    ]:
+        os.makedirs(pathlib.Path(result_path / custom_id / dir), exist_ok=True)
 
 
 def _parse_layout(f: TextIO, path_to_layout: str, test_mode: str) -> None:
@@ -493,3 +515,242 @@ def create_html(run_id: str, lpo_lco_ldo: str, files: list, prefix_results: str,
         f.write("</div>\n")
         f.write("</body>\n")
         f.write("</html>\n")
+
+
+def draw_setting_plots(
+    lpo_lco_ldo: str,
+    ev_res: pd.DataFrame,
+    ev_res_per_drug: pd.DataFrame | None,
+    ev_res_per_cell_line: pd.DataFrame | None,
+    custom_id: str,
+    path_data: pathlib.Path,
+    result_path: pathlib.Path,
+) -> list[str]:
+    """
+    Draw all plots for a specific setting (LPO, LCO, LDO).
+
+    :param lpo_lco_ldo: setting
+    :param ev_res: overall evaluation results
+    :param ev_res_per_drug: evaluation results per drug
+    :param ev_res_per_cell_line: evaluation results per cell line
+    :param custom_id: run id passed via command line
+    :param path_data: path to the data
+    :param result_path: path to the results
+    :returns: list of unique algorithms
+    """
+    ev_res_subset = ev_res[ev_res["LPO_LCO_LDO"] == lpo_lco_ldo]
+
+    # only draw figures for 'real' predictions comparing all models
+    eval_results_preds = ev_res_subset[ev_res_subset["rand_setting"] == "predictions"]
+
+    # PIPELINE: DRAW_CRITICAL_DIFFERENCE
+    cd_plot = CriticalDifferencePlot(eval_results_preds=eval_results_preds, metric="MSE")
+    cd_plot.draw_and_save(
+        out_prefix=f"{result_path}/{custom_id}/critical_difference_plots/",
+        out_suffix=lpo_lco_ldo,
+    )
+    # PIPELINE: DRAW_VIOLIN_AND_HEATMAP
+    for plt_type in ["violinplot", "heatmap"]:
+        if plt_type == "violinplot":
+            out_dir = "violin_plots"
+        else:
+            out_dir = "heatmaps"
+        for normalized in [False, True]:
+            if normalized:
+                out_suffix = f"algorithms_{lpo_lco_ldo}_normalized"
+            else:
+                out_suffix = f"algorithms_{lpo_lco_ldo}"
+            if plt_type == "violinplot":
+                out_plot = Violin(
+                    df=eval_results_preds,
+                    normalized_metrics=normalized,
+                    whole_name=False,
+                )
+
+            else:
+                out_plot = Heatmap(
+                    df=eval_results_preds,
+                    normalized_metrics=normalized,
+                    whole_name=False,
+                )
+            out_plot.draw_and_save(
+                out_prefix=f"{result_path}/{custom_id}/{out_dir}/",
+                out_suffix=out_suffix,
+            )
+
+    # per group plots
+    if lpo_lco_ldo in ("LPO", "LCO"):
+        _draw_per_grouping_setting_plots(
+            grouping="drug",
+            ev_res_per_group=ev_res_per_drug,
+            lpo_lco_ldo=lpo_lco_ldo,
+            custom_id=custom_id,
+            result_path=result_path,
+        )
+    if lpo_lco_ldo in ("LPO", "LDO"):
+        _draw_per_grouping_setting_plots(
+            grouping="cell_line",
+            ev_res_per_group=ev_res_per_cell_line,
+            lpo_lco_ldo=lpo_lco_ldo,
+            custom_id=custom_id,
+            result_path=result_path,
+        )
+
+    # Cross-study evaluation tables
+    cross_study_tables = CrossStudyTables(evaluation_metrics=ev_res_subset, path_data=path_data)
+    cross_study_tables.draw_and_save(
+        out_prefix=f"{result_path}/{custom_id}/html_tables/",
+        out_suffix=lpo_lco_ldo,
+    )
+
+    return eval_results_preds["algorithm"].unique()
+
+
+def _draw_per_grouping_setting_plots(
+    grouping: str, ev_res_per_group: pd.DataFrame, lpo_lco_ldo: str, custom_id: str, result_path: pathlib.Path
+) -> None:
+    """
+    Draw plots for a specific grouping (drug or cell line) for a specific setting (LPO, LCO, LDO).
+
+    :param grouping: drug or cell_line
+    :param ev_res_per_group: evaluation results per drug or per cell line
+    :param lpo_lco_ldo: setting
+    :param custom_id: run id passed over command line
+    :param result_path: path to the results
+    """
+    # PIPELINE: DRAW_CORR_COMP
+    corr_comp = ComparisonScatter(
+        df=ev_res_per_group,
+        color_by=grouping,
+        lpo_lco_ldo=lpo_lco_ldo,
+        algorithm="all",
+    )
+    if corr_comp.name is not None:
+        corr_comp.draw_and_save(
+            out_prefix=f"{result_path}/{custom_id}/comp_scatter/",
+            out_suffix=corr_comp.name,
+        )
+
+
+def draw_algorithm_plots(
+    model: str,
+    ev_res: pd.DataFrame,
+    ev_res_per_drug: pd.DataFrame | None,
+    ev_res_per_cell_line: pd.DataFrame | None,
+    t_vs_p: pd.DataFrame,
+    lpo_lco_ldo: str,
+    custom_id: str,
+    result_path: pathlib.Path,
+) -> None:
+    """
+    Draw all plots for a specific algorithm.
+
+    :param model: name of the model/algorithm
+    :param ev_res: overall evaluation results
+    :param ev_res_per_drug: evaluation results per drug
+    :param ev_res_per_cell_line: evaluation results per cell line
+    :param t_vs_p: true response values vs. predicted response values
+    :param lpo_lco_ldo: setting
+    :param custom_id: run id passed via command line
+    :param result_path: path to the results
+    """
+    eval_results_algorithm = ev_res[(ev_res["LPO_LCO_LDO"] == lpo_lco_ldo) & (ev_res["algorithm"] == model)]
+    # PIPELINE: DRAW_VIOLIN_AND_HEATMAP
+    for plt_type in ["violinplot", "heatmap"]:
+        if len(eval_results_algorithm["rand_setting"].unique()) < 2:
+            # only draw plots if there are predictions and another setting (randomization/robustness)
+            continue
+        if plt_type == "violinplot":
+            out_dir = "violin_plots"
+            out_plot = Violin(
+                df=eval_results_algorithm,
+                normalized_metrics=False,
+                whole_name=True,
+            )
+        else:
+            out_dir = "heatmaps"
+            out_plot = Heatmap(
+                df=eval_results_algorithm,
+                normalized_metrics=False,
+                whole_name=True,
+            )
+        out_plot.draw_and_save(
+            out_prefix=f"{result_path}/{custom_id}/{out_dir}/",
+            out_suffix=f"{model}_{lpo_lco_ldo}",
+        )
+    if lpo_lco_ldo in ("LPO", "LCO"):
+        _draw_per_grouping_algorithm_plots(
+            grouping_slider="cell_line",
+            grouping_scatter_table="drug",
+            model=model,
+            ev_res_per_group=ev_res_per_drug,
+            t_v_p=t_vs_p,
+            lpo_lco_ldo=lpo_lco_ldo,
+            custom_id=custom_id,
+            result_path=result_path,
+        )
+    if lpo_lco_ldo in ("LPO", "LDO"):
+        _draw_per_grouping_algorithm_plots(
+            grouping_slider="drug",
+            grouping_scatter_table="cell_line",
+            model=model,
+            ev_res_per_group=ev_res_per_cell_line,
+            t_v_p=t_vs_p,
+            lpo_lco_ldo=lpo_lco_ldo,
+            custom_id=custom_id,
+            result_path=result_path,
+        )
+
+
+def _draw_per_grouping_algorithm_plots(
+    grouping_slider: str,
+    grouping_scatter_table: str,
+    model: str,
+    ev_res_per_group: pd.DataFrame,
+    t_v_p: pd.DataFrame,
+    lpo_lco_ldo: str,
+    custom_id: str,
+    result_path: pathlib.Path,
+):
+    """
+    Draw plots for a specific grouping (drug or cell line) for a specific algorithm.
+
+    :param grouping_slider: the grouping variable for the regression plots
+    :param grouping_scatter_table: the grouping variable for the scatter plots.
+            If grouping_slider is drug, this should be cell_line and vice versa
+    :param model: name of the model/algorithm
+    :param ev_res_per_group: evaluation results per drug or per cell line
+    :param t_v_p: true response values vs. predicted response values
+    :param lpo_lco_ldo: setting
+    :param custom_id: run id passed via command line
+    :param result_path: path to the results
+    """
+    if len(ev_res_per_group["rand_setting"].unique()) > 1:
+        # only draw plots if there are predictions and another setting (randomization/robustness)
+        # PIPELINE: DRAW_CORR_COMP
+        comp_scatter = ComparisonScatter(
+            df=ev_res_per_group,
+            color_by=grouping_scatter_table,
+            lpo_lco_ldo=lpo_lco_ldo,
+            algorithm=model,
+        )
+        if comp_scatter.name is not None:
+            comp_scatter.draw_and_save(
+                out_prefix=f"{result_path}/{custom_id}/comp_scatter/",
+                out_suffix=comp_scatter.name,
+            )
+    # PIPELINE: DRAW_REGRESSION
+    for normalize in [False, True]:
+        name_suffix = "_normalized" if normalize else ""
+        name = f"{lpo_lco_ldo}_{grouping_slider}{name_suffix}"
+        regr_slider = RegressionSliderPlot(
+            df=t_v_p,
+            lpo_lco_ldo=lpo_lco_ldo,
+            model=model,
+            group_by=grouping_slider,
+            normalize=normalize,
+        )
+        regr_slider.draw_and_save(
+            out_prefix=f"{result_path}/{custom_id}/regression_plots/",
+            out_suffix=f"{name}_{model}{name_suffix}",
+        )
