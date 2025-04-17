@@ -126,7 +126,7 @@ class DrugResponseDataset:
 
         :returns: numpy array containing tissue types or None.
         """
-        return self._tissue
+        return self._tissues
 
     @property
     def cv_splits(self) -> list[dict[str, "DrugResponseDataset"]]:
