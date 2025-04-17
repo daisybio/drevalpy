@@ -75,17 +75,24 @@ def test_global_models(
     with tempfile.TemporaryDirectory() as tmpdirname:
         if model_name == "SRMF":
             # no early stopping
-            es_dataset = None
-        model.train(
-            output=train_dataset,
-            cell_line_input=cell_line_input,
-            drug_input=drug_input,
-            output_earlystopping=es_dataset,
-            model_checkpoint_dir=tmpdirname,
-        )
+            model.train(
+                output=train_dataset,
+                cell_line_input=cell_line_input,
+                drug_input=drug_input,
+                output_earlystopping=None,
+                model_checkpoint_dir=tmpdirname,
+            )
+        else:
+            model.train(
+                output=train_dataset,
+                cell_line_input=cell_line_input,
+                drug_input=drug_input,
+                output_earlystopping=es_dataset,
+                model_checkpoint_dir=tmpdirname,
+            )
     if model_name == "DIPK":
         # test batch size = 1
-        model.batch_size = 1
+        model.batch_size = 1  # type: ignore
     if model_name == "SRMF":
         # no early stopping
         prediction_dataset = val_dataset
