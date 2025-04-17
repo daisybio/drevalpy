@@ -21,7 +21,7 @@ class RegressionSliderPlot(OutPlot):
         df: pd.DataFrame,
         lpo_lco_ldo: str,
         model: str,
-        group_by: str = "drug",
+        group_by: str = "drug_name",
         normalize=False,
     ):
         """
@@ -30,7 +30,7 @@ class RegressionSliderPlot(OutPlot):
         :param df: true vs. predicted values
         :param lpo_lco_ldo: setting, e.g., LPO
         :param model: model name
-        :param group_by: either "drug" or "cell_line"
+        :param group_by: either "drug_name" or "cell_line_name"
         :param normalize: whether to normalize the true and predicted values by the mean of the group
         """
         self.df = df[(df["LPO_LCO_LDO"] == lpo_lco_ldo) & (df["rand_setting"] == "predictions")]
@@ -48,15 +48,19 @@ class RegressionSliderPlot(OutPlot):
                 & (df["rand_setting"] == "predictions")
             ]
             merged_df = model_df.merge(
-                mean_effects_df, on=["drug", "cell_line", "rand_setting", "LPO_LCO_LDO"], how="left"
+                mean_effects_df,
+                on=["pubchem_id", "drug_name", "cellosaurus_id", "cell_line_name", "rand_setting", "LPO_LCO_LDO"],
+                how="left",
             )
             merged_df.loc[:, "y_true"] = merged_df["y_true_x"] - merged_df["y_pred_y"]
             merged_df.loc[:, "y_pred"] = merged_df["y_pred_x"] - merged_df["y_pred_y"]
             merged_df = merged_df[
                 [
                     "model_x",
-                    "drug",
-                    "cell_line",
+                    "pubchem_id",
+                    "drug_name",
+                    "cellosaurus_id",
+                    "cell_line_name",
                     "y_true",
                     "y_pred",
                     "algorithm_x",
@@ -122,13 +126,15 @@ class RegressionSliderPlot(OutPlot):
             setting_title += ", normalized by mean effects"
             hover_data = [
                 "pcc",
-                "cell_line",
-                "drug",
+                "cell_line_name",
+                "cellosaurus_id",
+                "drug_name",
+                "pubchem_id",
                 "algorithm",
             ]
 
         else:
-            hover_data = ["pcc", "cell_line", "drug", "algorithm"]
+            hover_data = ["pcc", "cell_line_name", "cellosaurus_id", "drug_name", "pubchem_id", "algorithm"]
         self.fig = px.scatter(
             df,
             x="y_true",

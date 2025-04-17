@@ -199,6 +199,7 @@ def prep_results(
     eval_results_per_drug: pd.DataFrame,
     eval_results_per_cell_line: pd.DataFrame,
     t_vs_p: pd.DataFrame,
+    path_data: pathlib.Path,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
     Prepare the results by introducing new columns for algorithm, randomization, setting, split, CV_split.
@@ -207,8 +208,24 @@ def prep_results(
     :param eval_results_per_drug: evaluation results per drug
     :param eval_results_per_cell_line: evaluation results per cell line
     :param t_vs_p: true vs. predicted values
+    :param path_data: path to the data
     :returns: the same dataframes with new columns
     """
+    # get metadata
+    print("Getting information about drugs and cell lines ...")
+    drug_metadata = dict()
+    cell_line_metadata = dict()
+    for root, _, files in os.walk(path_data):
+        for file in files:
+            if file == "drug_names.csv":
+                drug_names = pd.read_csv(os.path.join(root, file), index_col=0)
+                # index: pubchem_id, column: drug_name
+                drug_metadata.update(zip(drug_names.index, drug_names["drug_name"]))
+            elif file == "cell_line_names.csv":
+                cell_line_names = pd.read_csv(os.path.join(root, file), index_col=0)
+                # index: cellosaurus_id, column: cell_line_name
+                cell_line_metadata.update(zip(cell_line_names["cell_line_name"], cell_line_names.index))
+
     # add variables
     # split the index by "_" into: algorithm, randomization, setting, split, CV_split
     print("Reformatting the evaluation results ...")
@@ -227,66 +244,36 @@ def prep_results(
         eval_results_per_drug[["algorithm", "rand_setting", "LPO_LCO_LDO", "split", "CV_split"]] = (
             eval_results_per_drug["model"].str.split("_", expand=True)
         )
+        all_drugs = [drug_metadata[drug] for drug in eval_results_per_drug["drug"]]
+        eval_results_per_drug["drug_name"] = all_drugs
+        # rename drug to pubchem_id
+        eval_results_per_drug = eval_results_per_drug.rename(columns={"drug": "pubchem_id"})
     if eval_results_per_cell_line is not None:
         print("Reformatting the evaluation results per cell line ...")
         eval_results_per_cell_line[["algorithm", "rand_setting", "LPO_LCO_LDO", "split", "CV_split"]] = (
             eval_results_per_cell_line["model"].str.split("_", expand=True)
         )
+        all_cello_ids = [cell_line_metadata[cell_line] for cell_line in eval_results_per_cell_line["cell_line"]]
+        eval_results_per_cell_line["cellosaurus_id"] = all_cello_ids
+        eval_results_per_cell_line = eval_results_per_cell_line.rename(columns={"cell_line": "cell_line_name"})
+
     print("Reformatting the true vs. predicted values ...")
     t_vs_p[["algorithm", "rand_setting", "LPO_LCO_LDO", "split", "CV_split"]] = t_vs_p["model"].str.split(
         "_", expand=True
     )
     t_vs_p = t_vs_p.drop("split", axis=1)
-    t_vs_p["drug"] = t_vs_p["drug"].astype(str)
-
-    eval_results_mod = {}
-    naive_mean_effects_dict = {}
-    for rand_setting in eval_results["rand_setting"].unique():
-        for lpo_lco_ldo in eval_results["LPO_LCO_LDO"].unique():
-            naive_mean_effects_dict[f"{lpo_lco_ldo}_{rand_setting}"] = t_vs_p[
-                (t_vs_p["algorithm"] == "NaiveMeanEffectsPredictor")
-                & (t_vs_p["rand_setting"] == rand_setting)
-                & (t_vs_p["LPO_LCO_LDO"] == lpo_lco_ldo)
-            ]
+    all_drugs = [drug_metadata[drug] for drug in t_vs_p["drug"]]
+    t_vs_p["drug_name"] = all_drugs
+    all_cello_ids = [cell_line_metadata[cell_line] for cell_line in t_vs_p["cell_line"]]
+    t_vs_p["cellosaurus_id"] = all_cello_ids
+    t_vs_p = t_vs_p.rename(columns={"cell_line": "cell_line_name", "drug": "pubchem_id"})
+    t_vs_p["pubchem_id"] = t_vs_p["pubchem_id"].astype(str)
 
     if "NaiveMeanEffectsPredictor" in eval_results["algorithm"].unique():
-        # do this: per algorithm, per rand setting, per LPO_LCO_LDO, per CV split
-        for algorithm in eval_results["algorithm"].unique():
-            for rand_setting in eval_results["rand_setting"].unique():
-                for lpo_lco_ldo in eval_results["LPO_LCO_LDO"].unique():
-                    print(f"Calculating normalized metrics for {algorithm}, {rand_setting}, " f"{lpo_lco_ldo} ...")
-                    setting_subset = t_vs_p[
-                        (t_vs_p["algorithm"] == algorithm)
-                        & (t_vs_p["rand_setting"] == rand_setting)
-                        & (t_vs_p["LPO_LCO_LDO"] == lpo_lco_ldo)
-                    ]
-                    if setting_subset.empty:
-                        continue
-                    naive_mean_effects = naive_mean_effects_dict[f"{lpo_lco_ldo}_{rand_setting}"]
-                    naive_mean_effects = naive_mean_effects[["drug", "cell_line", "CV_split", "y_pred"]]
-                    naive_mean_effects = naive_mean_effects.rename(columns={"y_pred": "y_pred_naive"})
-                    setting_subset = setting_subset[["drug", "cell_line", "CV_split", "y_true", "y_pred"]]
-                    setting_subset = setting_subset.merge(
-                        naive_mean_effects, on=["drug", "cell_line", "CV_split"], how="left"
-                    )
-                    setting_subset["y_true"] = setting_subset["y_true"] - setting_subset["y_pred_naive"]
-                    setting_subset["y_pred"] = setting_subset["y_pred"] - setting_subset["y_pred_naive"]
-                    for cv_split in setting_subset["CV_split"].unique():
-                        setting_subset_cv = setting_subset[setting_subset["CV_split"] == cv_split]
-                        dt = DrugResponseDataset(
-                            response=setting_subset_cv["y_true"].to_numpy(),
-                            cell_line_ids=setting_subset_cv["cell_line"].to_numpy(),
-                            drug_ids=setting_subset_cv["drug"].to_numpy(),
-                            predictions=setting_subset_cv["y_pred"].to_numpy(),
-                        )
-                        res = evaluate(
-                            dataset=dt,
-                            metric=list(AVAILABLE_METRICS.keys() - {"MAE", "MSE", "RMSE"}),
-                        )
-                        eval_results_mod[f"{algorithm}_{rand_setting}_{lpo_lco_ldo}_split_{cv_split}"] = res
-        mod_table = pd.DataFrame.from_dict(eval_results_mod, orient="index")
-        mod_table.columns = [f"{col}: normalized" for col in mod_table.columns]
-        eval_results = eval_results.merge(mod_table, left_index=True, right_index=True)
+        eval_results = _normalize_metrics_by_mean_effects(
+            evaluation_results=eval_results,
+            true_vs_pred=t_vs_p,
+        )
 
     return (
         eval_results,
@@ -294,6 +281,67 @@ def prep_results(
         eval_results_per_cell_line,
         t_vs_p,
     )
+
+
+def _normalize_metrics_by_mean_effects(
+    evaluation_results: pd.DataFrame,
+    true_vs_pred: pd.DataFrame,
+) -> pd.DataFrame:
+    """
+    Normalize the y_true and y_pred values by the predictions of the NaiveMeanEffectsPredictor.
+
+    Then recalculate the metrics.
+    :param evaluation_results: results of the evaluation
+    :param true_vs_pred: all true vs. predicted values
+    :return: modified evaluation results
+    """
+    eval_results_mod = {}
+    naive_mean_effects_dict = {}
+    for rand_setting in evaluation_results["rand_setting"].unique():
+        for lpo_lco_ldo in evaluation_results["LPO_LCO_LDO"].unique():
+            naive_mean_effects_dict[f"{lpo_lco_ldo}_{rand_setting}"] = true_vs_pred[
+                (true_vs_pred["algorithm"] == "NaiveMeanEffectsPredictor")
+                & (true_vs_pred["rand_setting"] == rand_setting)
+                & (true_vs_pred["LPO_LCO_LDO"] == lpo_lco_ldo)
+            ]
+    # do this: per algorithm, per rand setting, per LPO_LCO_LDO, per CV split
+    for algorithm in evaluation_results["algorithm"].unique():
+        for rand_setting in evaluation_results["rand_setting"].unique():
+            for lpo_lco_ldo in evaluation_results["LPO_LCO_LDO"].unique():
+                print(f"Calculating normalized metrics for {algorithm}, {rand_setting}, " f"{lpo_lco_ldo} ...")
+                setting_subset = true_vs_pred[
+                    (true_vs_pred["algorithm"] == algorithm)
+                    & (true_vs_pred["rand_setting"] == rand_setting)
+                    & (true_vs_pred["LPO_LCO_LDO"] == lpo_lco_ldo)
+                ]
+                if setting_subset.empty:
+                    continue
+                naive_mean_effects = naive_mean_effects_dict[f"{lpo_lco_ldo}_{rand_setting}"]
+                naive_mean_effects = naive_mean_effects[["drug_name", "cell_line_name", "CV_split", "y_pred"]]
+                naive_mean_effects = naive_mean_effects.rename(columns={"y_pred": "y_pred_naive"})
+                setting_subset = setting_subset[["drug_name", "cell_line_name", "CV_split", "y_true", "y_pred"]]
+                setting_subset = setting_subset.merge(
+                    naive_mean_effects, on=["drug_name", "cell_line_name", "CV_split"], how="left"
+                )
+                setting_subset["y_true"] = setting_subset["y_true"] - setting_subset["y_pred_naive"]
+                setting_subset["y_pred"] = setting_subset["y_pred"] - setting_subset["y_pred_naive"]
+                for cv_split in setting_subset["CV_split"].unique():
+                    setting_subset_cv = setting_subset[setting_subset["CV_split"] == cv_split]
+                    dt = DrugResponseDataset(
+                        response=setting_subset_cv["y_true"].to_numpy(),
+                        cell_line_ids=setting_subset_cv["cell_line_name"].to_numpy(),
+                        drug_ids=setting_subset_cv["drug_name"].to_numpy(),
+                        predictions=setting_subset_cv["y_pred"].to_numpy(),
+                    )
+                    res = evaluate(
+                        dataset=dt,
+                        metric=list(AVAILABLE_METRICS.keys() - {"MAE", "MSE", "RMSE"}),
+                    )
+                    eval_results_mod[f"{algorithm}_{rand_setting}_{lpo_lco_ldo}_split_{cv_split}"] = res
+    mod_table = pd.DataFrame.from_dict(eval_results_mod, orient="index")
+    mod_table.columns = [f"{col}: normalized" for col in mod_table.columns]
+    evaluation_results = evaluation_results.merge(mod_table, left_index=True, right_index=True)
+    return evaluation_results
 
 
 def _generate_model_names(test_mode: str, model_name: str, pred_file: pathlib.Path) -> str:
@@ -567,7 +615,7 @@ def draw_setting_plots(
     # per group plots
     if lpo_lco_ldo in ("LPO", "LCO"):
         _draw_per_grouping_setting_plots(
-            grouping="drug",
+            grouping="drug_name",
             ev_res_per_group=ev_res_per_drug,
             lpo_lco_ldo=lpo_lco_ldo,
             custom_id=custom_id,
@@ -575,7 +623,7 @@ def draw_setting_plots(
         )
     if lpo_lco_ldo in ("LPO", "LDO"):
         _draw_per_grouping_setting_plots(
-            grouping="cell_line",
+            grouping="cell_line_name",
             ev_res_per_group=ev_res_per_cell_line,
             lpo_lco_ldo=lpo_lco_ldo,
             custom_id=custom_id,
@@ -666,8 +714,8 @@ def draw_algorithm_plots(
         )
     if lpo_lco_ldo in ("LPO", "LCO"):
         _draw_per_grouping_algorithm_plots(
-            grouping_slider="cell_line",
-            grouping_scatter_table="drug",
+            grouping_slider="cell_line_name",
+            grouping_scatter_table="drug_name",
             model=model,
             ev_res_per_group=ev_res_per_drug,
             t_v_p=t_vs_p,
@@ -677,8 +725,8 @@ def draw_algorithm_plots(
         )
     if lpo_lco_ldo in ("LPO", "LDO"):
         _draw_per_grouping_algorithm_plots(
-            grouping_slider="drug",
-            grouping_scatter_table="cell_line",
+            grouping_slider="drug_name",
+            grouping_scatter_table="cell_line_name",
             model=model,
             ev_res_per_group=ev_res_per_cell_line,
             t_v_p=t_vs_p,

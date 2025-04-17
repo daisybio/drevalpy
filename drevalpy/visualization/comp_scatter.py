@@ -180,12 +180,22 @@ class ComparisonScatter(OutPlot):
         """Generates the scatter plots."""
         # render first scatterplot that is shown in the dropdown plot
         first_df = self._subset_df(run_id=self.models[0])
+        if self.color_by == "drug_name":
+            hover_variables = ["drug_name", "pubchem_id"]
+        else:
+            hover_variables = ["cell_line_name", "cellosaurus_id"]
         scatterplot = go.Scatter(
             x=first_df[self.metric],
             y=first_df[self.metric],
             mode="markers",
             marker=dict(size=6, showscale=False),
-            text=first_df.index,
+            customdata=first_df[hover_variables],
+            hovertemplate="<br>".join(
+                [
+                    f"{self.color_by.capitalize()}: %{{customdata[0]}}",
+                    f"{hover_variables[1]}: %{{customdata[1]}}",
+                ]
+            ),
             showlegend=True,
             visible=True,
         )
@@ -228,8 +238,13 @@ class ComparisonScatter(OutPlot):
         :param run_id: user-defined ID of the whole run
         :returns: subsetted dataframe
         """
-        s_df = self.df[self.df["setting"] == run_id][[self.metric, self.color_by, "model"]]
-        s_df.set_index(self.color_by, inplace=True)
-        s_df.sort_index(inplace=True)
+        subset_cols = [self.metric, self.color_by, "model"]
+        if self.color_by == "drug_name":
+            subset_cols.append("pubchem_id")
+        else:
+            subset_cols.append("cellosaurus_id")
+        s_df = self.df[self.df["setting"] == run_id][subset_cols]
+        # sort by color_by variable
+        s_df = s_df.sort_values(self.color_by)
         s_df[self.metric] = s_df[self.metric].fillna(0)
         return s_df
