@@ -193,21 +193,6 @@ def evaluate_file(
     )
 
 
-def _concat_results(norm_group_res: dict[str, dict[str, float]], eval_res: pd.DataFrame) -> pd.DataFrame:
-    """
-    Concatenate the normalized group results to the evaluation results.
-
-    :param norm_group_res: dictionary with the normalized group results, key: model name, value: evaluation results
-    :param eval_res: overall dataframe
-    :returns: overall dataframe extended by the normalized group results
-    """
-    norm_group_df = pd.DataFrame.from_dict(norm_group_res, orient="index")
-    # append 'group normalized ' to the column names
-    norm_group_df.columns = [f"{col}: normalized" for col in norm_group_df.columns]
-    eval_res = pd.concat([eval_res, norm_group_df], axis=1)
-    return eval_res
-
-
 @pipeline_function
 def prep_results(
     eval_results: pd.DataFrame,

@@ -7,7 +7,7 @@ from argparse import Namespace
 
 import pytest
 
-from drevalpy.utils import main
+from drevalpy.utils import check_arguments, get_parser, main
 from drevalpy.visualization.utils import (
     create_html,
     create_index_html,
@@ -26,7 +26,7 @@ from drevalpy.visualization.utils import (
             "run_id": "test_run",
             "dataset_name": "TOYv1",
             "models": ["ElasticNet"],
-            "baselines": ["NaiveMeanEffectsPredictor"],
+            "baselines": ["NaiveMeanEffectsPredictor", "NaivePredictor"],
             "test_mode": ["LPO"],
             "randomization_mode": ["SVRC"],
             "randomization_type": "permutation",
@@ -54,6 +54,8 @@ def test_run_suite(args):
     temp_dir = tempfile.TemporaryDirectory()
     args["path_out"] = temp_dir.name
     args = Namespace(**args)
+    get_parser()
+    check_arguments(args)
     main(args, debug_mode=True)
     assert os.listdir(temp_dir.name) == ["test_run"]
     result_path = pathlib.Path(temp_dir.name).resolve()
