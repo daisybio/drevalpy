@@ -24,7 +24,6 @@ matplotlib = "*"
 importlib-resources = "*"
 scikit-posthocs = "*"
 curve-curator = "*"
-ray = {version = "*", optional = true}
 toml = {version = "^0.10.2"}
 poetry = "^2.0.1"
 
