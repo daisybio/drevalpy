@@ -85,7 +85,8 @@ def drug_response_experiment(
         models are retrained multiple times with varying seeds. Default is 0, which means no robustness test is run.
     :param path_out: path to the output directory
     :param run_id: identifier to save the results
-    :param test_mode: test mode one of "LPO", "LCO", "LDO" (leave-pair-out, leave-cell-line-out, leave-drug-out)
+    :param test_mode: test mode one of "LPO", "LCO", "LTO", "LDO"
+        (leave-pair-out, leave-cell-line-out, leave-tissue-out, leave-drug-out)
     :param overwrite: whether to overwrite existing results
     :param path_data: path to the data directory, usually data/
     :param model_checkpoint_dir: directory to save model checkpoints. If "TEMPORARY", a temporary directory is created.
