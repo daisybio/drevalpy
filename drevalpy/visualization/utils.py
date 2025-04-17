@@ -168,14 +168,14 @@ def evaluate_file(
     evaluation_results_per_drug = None
     evaluation_results_per_cl = None
 
-    if "LPO" in model or "LCO" in model:
+    if "LPO" in model or "LDO" in model:
         evaluation_results_per_drug = _evaluate_per_group(
             df=true_vs_pred,
             group_by="drug",
             eval_results_per_group=evaluation_results_per_drug,
             model=model,
         )
-    if "LPO" in model or "LDO" in model:
+    if "LPO" in model or "LCO" in model:
         evaluation_results_per_cl = _evaluate_per_group(
             df=true_vs_pred,
             group_by="cell_line",
@@ -613,7 +613,7 @@ def draw_setting_plots(
             )
 
     # per group plots
-    if lpo_lco_ldo in ("LPO", "LCO"):
+    if lpo_lco_ldo in ("LPO", "LDO"):
         _draw_per_grouping_setting_plots(
             grouping="drug_name",
             ev_res_per_group=ev_res_per_drug,
@@ -621,7 +621,7 @@ def draw_setting_plots(
             custom_id=custom_id,
             result_path=result_path,
         )
-    if lpo_lco_ldo in ("LPO", "LDO"):
+    if lpo_lco_ldo in ("LPO", "LCO"):
         _draw_per_grouping_setting_plots(
             grouping="cell_line_name",
             ev_res_per_group=ev_res_per_cell_line,
@@ -712,7 +712,7 @@ def draw_algorithm_plots(
             out_prefix=f"{result_path}/{custom_id}/{out_dir}/",
             out_suffix=f"{model}_{lpo_lco_ldo}",
         )
-    if lpo_lco_ldo in ("LPO", "LCO"):
+    if lpo_lco_ldo in ("LPO", "LDO"):
         _draw_per_grouping_algorithm_plots(
             grouping_slider="cell_line_name",
             grouping_scatter_table="drug_name",
@@ -723,7 +723,7 @@ def draw_algorithm_plots(
             custom_id=custom_id,
             result_path=result_path,
         )
-    if lpo_lco_ldo in ("LPO", "LDO"):
+    if lpo_lco_ldo in ("LPO", "LCO"):
         _draw_per_grouping_algorithm_plots(
             grouping_slider="drug_name",
             grouping_scatter_table="cell_line_name",

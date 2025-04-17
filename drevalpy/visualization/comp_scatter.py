@@ -149,7 +149,7 @@ class ComparisonScatter(OutPlot):
             "identify cell lines/drugs for which models agree or disagree.\n"
             "The x-axis is the first dropdown menu, the y-axis is the second dropdown menu.\n"
         )
-        for group_by in ["drug", "cell_line"]:
+        for group_by in ["drug_name", "cell_line_name"]:
             plot_list = [f for f in files if f.startswith("comp_scatter") and f.endswith(f"{lpo_lco_ldo}.html")]
             if f"comp_scatter_{group_by}_{lpo_lco_ldo}.html" in plot_list:
                 f.write(f'<h3 id="corr_comp_drug">{group_by.capitalize()}-wise comparison</h3>\n')
@@ -194,6 +194,8 @@ class ComparisonScatter(OutPlot):
                 [
                     f"{self.color_by.capitalize()}: %{{customdata[0]}}",
                     f"{hover_variables[1]}: %{{customdata[1]}}",
+                    "x: %{{x:.2f}}",
+                    "y: %{{y:.2f}}",
                 ]
             ),
             showlegend=True,
