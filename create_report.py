@@ -45,10 +45,7 @@ if __name__ == "__main__":
         evaluation_results_per_cell_line,
         true_vs_pred,
     ) = prep_results(
-        evaluation_results,
-        evaluation_results_per_drug,
-        evaluation_results_per_cell_line,
-        true_vs_pred,
+        evaluation_results, evaluation_results_per_drug, evaluation_results_per_cell_line, true_vs_pred, path_data
     )
 
     write_results(
@@ -59,6 +56,7 @@ if __name__ == "__main__":
         t_vs_p=true_vs_pred,
     )
     """
+    import pandas as pd
     # For debugging:
     evaluation_results = pd.read_csv(f"{result_path}/{run_id}/evaluation_results.csv", index_col=0)
     # evaluation_results_per_drug = pd.read_csv(f"{result_path}/{run_id}/evaluation_results_per_drug.csv", index_col=0)
