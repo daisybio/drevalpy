@@ -16,12 +16,12 @@ class Violin(VioHeat):
         Initialize the Violin class.
 
         :param df: either containing all predictions for all algorithms or all tests for one algorithm (including
-            robustness, randomization, … tests then)git
+            robustness, randomization, … tests then)
         :param normalized_metrics: whether the metrics are normalized
         :param whole_name: whether the whole name should be displayed
         """
         super().__init__(df, normalized_metrics, whole_name)
-        self.df["box"] = self.df["algorithm"] + "_" + self.df["rand_setting"] + "_" + self.df["LPO_LCO_LDO"]
+        self.df["box"] = self.df["algorithm"] + "_" + self.df["rand_setting"] + "_" + self.df["test_mode"]
         # remove columns with only NaN values
         self.df = self.df.dropna(axis=1, how="all")
         self.fig = go.Figure()

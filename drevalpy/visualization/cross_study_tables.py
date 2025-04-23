@@ -102,11 +102,11 @@ class CrossStudyTables:
             fig.write_html(filename, include_plotlyjs="embed", full_html=True)
 
     @staticmethod
-    def write_to_html(lpo_lco_ldo: str, f: TextIOWrapper, files: list[str], prefix: str) -> TextIOWrapper:
+    def write_to_html(test_mode: str, f: TextIOWrapper, files: list[str], prefix: str) -> TextIOWrapper:
         """
         Embed HTML table files into an open HTML file handle.
 
-        :param lpo_lco_ldo: Substring to match filenames (e.g., 'lpo', 'lco').
+        :param test_mode: Substring to match filenames (e.g., 'lpo', 'lco').
         :param f: Open writable file handle to insert HTML blocks.
         :param files: List of filenames in the target directory.
         :param prefix: Path prefix to locate HTML table files.
@@ -118,6 +118,6 @@ class CrossStudyTables:
         os.makedirs(prefix, exist_ok=True)
 
         for file in files:
-            if file.startswith("table_cross_study_") and file.endswith(".html") and lpo_lco_ldo in file:
+            if file.startswith("table_cross_study_") and file.endswith(".html") and test_mode in file:
                 f.write(f'<iframe src="html_tables/{file}" width="100%" height="600" frameborder="0"></iframe>\n')
         return f

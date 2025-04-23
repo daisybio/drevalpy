@@ -184,7 +184,7 @@ def test_split_response_dataset(mode: str, split_validation: bool) -> None:
     """
     Test if the split_dataset method works correctly.
 
-    :param mode: setting, either LPO, LCO, or LDO
+    :param mode: test_mode, either LPO, LCO, or LDO
     :param split_validation: whether to split the dataset into validation and early stopping sets
     """
     # Create a dataset with known values

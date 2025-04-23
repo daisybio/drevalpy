@@ -97,7 +97,7 @@ def parse_results(path_to_results: str, dataset: str) -> tuple[pd.DataFrame, pd.
         print(f'Evaluating file: "{rel_file}" ...')
         file_parts = rel_file.split("/")
         dataset = file_parts[0]
-        lpo_lco_ldo = file_parts[1]
+        test_mode = file_parts[1]
         algorithm = file_parts[2]
         (
             overall_eval,
@@ -105,7 +105,7 @@ def parse_results(path_to_results: str, dataset: str) -> tuple[pd.DataFrame, pd.
             eval_results_per_cl,
             t_vs_p,
             model_name,
-        ) = evaluate_file(pred_file=file, test_mode=lpo_lco_ldo, model_name=algorithm)
+        ) = evaluate_file(pred_file=file, test_mode=test_mode, model_name=algorithm)
 
         evaluation_results = (
             overall_eval if evaluation_results is None else pd.concat([evaluation_results, overall_eval])
@@ -202,7 +202,7 @@ def prep_results(
     path_data: pathlib.Path,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
-    Prepare the results by introducing new columns for algorithm, randomization, setting, split, CV_split.
+    Prepare the results by introducing new columns for algorithm, randomization, test_mode, split, CV_split.
 
     :param eval_results: evaluation results
     :param eval_results_per_drug: evaluation results per drug
@@ -227,13 +227,13 @@ def prep_results(
                 cell_line_metadata.update(zip(cell_line_names["cell_line_name"], cell_line_names.index))
 
     # add variables
-    # split the index by "_" into: algorithm, randomization, setting, split, CV_split
+    # split the index by "_" into: algorithm, randomization, test_mode, split, CV_split
     print("Reformatting the evaluation results ...")
     new_columns = eval_results.index.str.split("_", expand=True).to_frame()
     new_columns.columns = [
         "algorithm",
         "rand_setting",
-        "LPO_LCO_LDO",
+        "test_mode",
         "split",
         "CV_split",
     ]
@@ -241,16 +241,16 @@ def prep_results(
     eval_results = pd.concat([new_columns.drop("split", axis=1), eval_results], axis=1)
     if eval_results_per_drug is not None:
         print("Reformatting the evaluation results per drug ...")
-        eval_results_per_drug[["algorithm", "rand_setting", "LPO_LCO_LDO", "split", "CV_split"]] = (
-            eval_results_per_drug["model"].str.split("_", expand=True)
-        )
+        eval_results_per_drug[["algorithm", "rand_setting", "test_mode", "split", "CV_split"]] = eval_results_per_drug[
+            "model"
+        ].str.split("_", expand=True)
         all_drugs = [drug_metadata[drug] for drug in eval_results_per_drug["drug"]]
         eval_results_per_drug["drug_name"] = all_drugs
         # rename drug to pubchem_id
         eval_results_per_drug = eval_results_per_drug.rename(columns={"drug": "pubchem_id"})
     if eval_results_per_cell_line is not None:
         print("Reformatting the evaluation results per cell line ...")
-        eval_results_per_cell_line[["algorithm", "rand_setting", "LPO_LCO_LDO", "split", "CV_split"]] = (
+        eval_results_per_cell_line[["algorithm", "rand_setting", "test_mode", "split", "CV_split"]] = (
             eval_results_per_cell_line["model"].str.split("_", expand=True)
         )
         all_cello_ids = [cell_line_metadata[cell_line] for cell_line in eval_results_per_cell_line["cell_line"]]
@@ -258,7 +258,7 @@ def prep_results(
         eval_results_per_cell_line = eval_results_per_cell_line.rename(columns={"cell_line": "cell_line_name"})
 
     print("Reformatting the true vs. predicted values ...")
-    t_vs_p[["algorithm", "rand_setting", "LPO_LCO_LDO", "split", "CV_split"]] = t_vs_p["model"].str.split(
+    t_vs_p[["algorithm", "rand_setting", "test_mode", "split", "CV_split"]] = t_vs_p["model"].str.split(
         "_", expand=True
     )
     t_vs_p = t_vs_p.drop("split", axis=1)
@@ -298,25 +298,25 @@ def _normalize_metrics_by_mean_effects(
     eval_results_mod = {}
     naive_mean_effects_dict = {}
     for rand_setting in evaluation_results["rand_setting"].unique():
-        for lpo_lco_ldo in evaluation_results["LPO_LCO_LDO"].unique():
-            naive_mean_effects_dict[f"{lpo_lco_ldo}_{rand_setting}"] = true_vs_pred[
+        for test_mode in evaluation_results["test_mode"].unique():
+            naive_mean_effects_dict[f"{test_mode}_{rand_setting}"] = true_vs_pred[
                 (true_vs_pred["algorithm"] == "NaiveMeanEffectsPredictor")
                 & (true_vs_pred["rand_setting"] == rand_setting)
-                & (true_vs_pred["LPO_LCO_LDO"] == lpo_lco_ldo)
+                & (true_vs_pred["test_mode"] == test_mode)
             ]
-    # do this: per algorithm, per rand setting, per LPO_LCO_LDO, per CV split
+    # do this: per algorithm, per rand test_mode, per test_mode, per CV split
     for algorithm in evaluation_results["algorithm"].unique():
         for rand_setting in evaluation_results["rand_setting"].unique():
-            for lpo_lco_ldo in evaluation_results["LPO_LCO_LDO"].unique():
-                print(f"Calculating normalized metrics for {algorithm}, {rand_setting}, " f"{lpo_lco_ldo} ...")
+            for test_mode in evaluation_results["test_mode"].unique():
+                print(f"Calculating normalized metrics for {algorithm}, {rand_setting}, " f"{test_mode} ...")
                 setting_subset = true_vs_pred[
                     (true_vs_pred["algorithm"] == algorithm)
                     & (true_vs_pred["rand_setting"] == rand_setting)
-                    & (true_vs_pred["LPO_LCO_LDO"] == lpo_lco_ldo)
+                    & (true_vs_pred["test_mode"] == test_mode)
                 ]
                 if setting_subset.empty:
                     continue
-                naive_mean_effects = naive_mean_effects_dict[f"{lpo_lco_ldo}_{rand_setting}"]
+                naive_mean_effects = naive_mean_effects_dict[f"{test_mode}_{rand_setting}"]
                 naive_mean_effects = naive_mean_effects[["drug_name", "cell_line_name", "CV_split", "y_pred"]]
                 naive_mean_effects = naive_mean_effects.rename(columns={"y_pred": "y_pred_naive"})
                 setting_subset = setting_subset[["drug_name", "cell_line_name", "CV_split", "y_true", "y_pred"]]
@@ -337,7 +337,7 @@ def _normalize_metrics_by_mean_effects(
                         dataset=dt,
                         metric=list(AVAILABLE_METRICS.keys() - {"MAE", "MSE", "RMSE"}),
                     )
-                    eval_results_mod[f"{algorithm}_{rand_setting}_{lpo_lco_ldo}_split_{cv_split}"] = res
+                    eval_results_mod[f"{algorithm}_{rand_setting}_{test_mode}_split_{cv_split}"] = res
     mod_table = pd.DataFrame.from_dict(eval_results_mod, orient="index")
     mod_table.columns = [f"{col}: normalized" for col in mod_table.columns]
     evaluation_results = evaluation_results.merge(mod_table, left_index=True, right_index=True)
@@ -352,7 +352,7 @@ def _generate_model_names(test_mode: str, model_name: str, pred_file: pathlib.Pa
     :param model_name: model name, e.g., SimpleNeuralNetwork
     :param pred_file: file containing the predictions
     :returns: unique name of run = {model_name}_{pred_setting}_{test_mode}_{split}
-    :raises ValueError: if the prediction setting is unknown
+    :raises ValueError: if the prediction test_mode is unknown
     """
     file_parts = os.path.basename(pred_file).split("_")
     pred_rand_rob = file_parts[0]
@@ -365,7 +365,7 @@ def _generate_model_names(test_mode: str, model_name: str, pred_file: pathlib.Pa
     elif pred_rand_rob == "cross":
         pred_setting = "cross-study-" + file_parts[2]
     else:
-        raise ValueError(f"Unknown prediction setting: {pred_rand_rob}")
+        raise ValueError(f"Unknown prediction test_mode: {pred_rand_rob}")
     split = "_".join(os.path.basename(pred_file).split(".")[0].split("_")[-2:])
     return f"{model_name}_{pred_setting}_{test_mode}_{split}"
 
@@ -489,16 +489,16 @@ def create_index_html(custom_id: str, test_modes: list[str], prefix_results: str
         f.write("<p>Click on the images to open the respective report in a new tab.</p>\n")
 
         test_modes.sort()
-        for lpo_lco_ldo in test_modes:
+        for test_mode in test_modes:
             img_path = os.path.join(
                 str(importlib_resources.files("drevalpy")),
                 "visualization",
                 "style_utils",
-                f"{lpo_lco_ldo}.png",
+                f"{test_mode}.png",
             )
-            shutil.copyfile(img_path, os.path.join(prefix_results, f"{lpo_lco_ldo}.png"))
+            shutil.copyfile(img_path, os.path.join(prefix_results, f"{test_mode}.png"))
             f.write(
-                f'<a href="{lpo_lco_ldo}.html" target="_blank"><img src="{lpo_lco_ldo}.png" '
+                f'<a href="{test_mode}.html" target="_blank"><img src="{test_mode}.png" '
                 f'style="width:300px;height:300px;"></a>\n'
             )
         f.write("</div>\n")
@@ -508,51 +508,50 @@ def create_index_html(custom_id: str, test_modes: list[str], prefix_results: str
 
 
 @pipeline_function
-def create_html(run_id: str, lpo_lco_ldo: str, files: list, prefix_results: str, test_mode: str) -> None:
+def create_html(run_id: str, test_mode: str, files: list, prefix_results: str) -> None:
     """
     Create the html file for the given test mode, e.g., LPO.html.
 
     :param run_id: custom id for the results, e.g., my_run
-    :param lpo_lco_ldo: test mode, e.g., LPO
+    :param test_mode: test mode, e.g., LPO
     :param files: list of files in the results directory
     :param prefix_results: path to the results directory, e.g., results/my_run
-    :param test_mode: test mode, e.g., LPO
     """
     page_layout = os.path.join(
         str(importlib_resources.files("drevalpy")),
         "visualization/style_utils/page_layout.html",
     )
-    html_path = os.path.join(prefix_results, f"{lpo_lco_ldo}.html")
+    html_path = os.path.join(prefix_results, f"{test_mode}.html")
 
     with open(html_path, "w", encoding="utf-8") as f:
         _parse_layout(f=f, path_to_layout=page_layout, test_mode=test_mode)
-        f.write(f"<h1>Results for {run_id}: {lpo_lco_ldo}</h1>\n")
+        f.write(f"<h1>Results for {run_id}: {test_mode}</h1>\n")
 
         # Critical difference plot
-        f = CriticalDifferencePlot.write_to_html(lpo_lco_ldo=lpo_lco_ldo, f=f)
+        f = CriticalDifferencePlot.write_to_html(test_mode=test_mode, f=f)
 
         # Violin plots
-        f = VioHeat.write_to_html(lpo_lco_ldo=lpo_lco_ldo, f=f, files=files, plot="Violin")
+        f = VioHeat.write_to_html(test_mode=test_mode, f=f, files=files, plot="Violin")
 
         # Heatmaps
-        f = VioHeat.write_to_html(lpo_lco_ldo=lpo_lco_ldo, f=f, files=files, plot="Heatmap")
+        f = VioHeat.write_to_html(test_mode=test_mode, f=f, files=files, plot="Heatmap")
 
         # Regression plots
-        f = RegressionSliderPlot.write_to_html(lpo_lco_ldo=lpo_lco_ldo, f=f, files=files)
+        f = RegressionSliderPlot.write_to_html(test_mode=test_mode, f=f, files=files)
 
         # Correlation comparison: Drug
-        f = ComparisonScatter.write_to_html(lpo_lco_ldo=lpo_lco_ldo, f=f, files=files)
+        f = ComparisonScatter.write_to_html(test_mode=test_mode, f=f, files=files)
 
         # Cross-study evaluation tables
-        f = CrossStudyTables.write_to_html(lpo_lco_ldo=lpo_lco_ldo, f=f, files=files, prefix=prefix_results)
+        f = CrossStudyTables.write_to_html(test_mode=test_mode, f=f, files=files, prefix=prefix_results)
 
         f.write("</div>\n")
         f.write("</body>\n")
         f.write("</html>\n")
 
 
-def draw_setting_plots(
-    lpo_lco_ldo: str,
+def draw_test_mode_plots(
+    test_mode: str,
     ev_res: pd.DataFrame,
     ev_res_per_drug: pd.DataFrame | None,
     ev_res_per_cell_line: pd.DataFrame | None,
@@ -561,9 +560,9 @@ def draw_setting_plots(
     result_path: pathlib.Path,
 ) -> np.ndarray:
     """
-    Draw all plots for a specific setting (LPO, LCO, LDO).
+    Draw all plots for a specific test_mode (LPO, LCO, LDO).
 
-    :param lpo_lco_ldo: setting
+    :param test_mode: test_mode
     :param ev_res: overall evaluation results
     :param ev_res_per_drug: evaluation results per drug
     :param ev_res_per_cell_line: evaluation results per cell line
@@ -572,7 +571,7 @@ def draw_setting_plots(
     :param result_path: path to the results
     :returns: list of unique algorithms
     """
-    ev_res_subset = ev_res[ev_res["LPO_LCO_LDO"] == lpo_lco_ldo]
+    ev_res_subset = ev_res[ev_res["test_mode"] == test_mode]
 
     # only draw figures for 'real' predictions comparing all models
     eval_results_preds = ev_res_subset[ev_res_subset["rand_setting"] == "predictions"]
@@ -581,7 +580,7 @@ def draw_setting_plots(
     cd_plot = CriticalDifferencePlot(eval_results_preds=eval_results_preds, metric="MSE")
     cd_plot.draw_and_save(
         out_prefix=f"{result_path}/{custom_id}/critical_difference_plots/",
-        out_suffix=lpo_lco_ldo,
+        out_suffix=test_mode,
     )
     # PIPELINE: DRAW_VIOLIN_AND_HEATMAP
     for plt_type in ["violinplot", "heatmap"]:
@@ -591,9 +590,9 @@ def draw_setting_plots(
             out_dir = "heatmaps"
         for normalized in [False, True]:
             if normalized:
-                out_suffix = f"algorithms_{lpo_lco_ldo}_normalized"
+                out_suffix = f"algorithms_{test_mode}_normalized"
             else:
-                out_suffix = f"algorithms_{lpo_lco_ldo}"
+                out_suffix = f"algorithms_{test_mode}"
             if plt_type == "violinplot":
                 out_plot = Violin(
                     df=eval_results_preds,
@@ -613,19 +612,19 @@ def draw_setting_plots(
             )
 
     # per group plots
-    if lpo_lco_ldo in ("LPO", "LDO"):
+    if test_mode in ("LPO", "LDO"):
         _draw_per_grouping_setting_plots(
             grouping="drug_name",
             ev_res_per_group=ev_res_per_drug,
-            lpo_lco_ldo=lpo_lco_ldo,
+            test_mode=test_mode,
             custom_id=custom_id,
             result_path=result_path,
         )
-    if lpo_lco_ldo in ("LPO", "LCO"):
+    if test_mode in ("LPO", "LCO"):
         _draw_per_grouping_setting_plots(
             grouping="cell_line_name",
             ev_res_per_group=ev_res_per_cell_line,
-            lpo_lco_ldo=lpo_lco_ldo,
+            test_mode=test_mode,
             custom_id=custom_id,
             result_path=result_path,
         )
@@ -634,21 +633,21 @@ def draw_setting_plots(
     cross_study_tables = CrossStudyTables(evaluation_metrics=ev_res_subset, path_data=path_data)
     cross_study_tables.draw_and_save(
         out_prefix=f"{result_path}/{custom_id}/html_tables/",
-        out_suffix=lpo_lco_ldo,
+        out_suffix=test_mode,
     )
 
     return eval_results_preds["algorithm"].unique()
 
 
 def _draw_per_grouping_setting_plots(
-    grouping: str, ev_res_per_group: pd.DataFrame, lpo_lco_ldo: str, custom_id: str, result_path: pathlib.Path
+    grouping: str, ev_res_per_group: pd.DataFrame, test_mode: str, custom_id: str, result_path: pathlib.Path
 ) -> None:
     """
-    Draw plots for a specific grouping (drug or cell line) for a specific setting (LPO, LCO, LDO).
+    Draw plots for a specific grouping (drug or cell line) for a specific test_mode (LPO, LCO, LDO).
 
     :param grouping: drug or cell_line
     :param ev_res_per_group: evaluation results per drug or per cell line
-    :param lpo_lco_ldo: setting
+    :param test_mode: test_mode
     :param custom_id: run id passed over command line
     :param result_path: path to the results
     """
@@ -656,7 +655,7 @@ def _draw_per_grouping_setting_plots(
     corr_comp = ComparisonScatter(
         df=ev_res_per_group,
         color_by=grouping,
-        lpo_lco_ldo=lpo_lco_ldo,
+        test_mode=test_mode,
         algorithm="all",
     )
     if corr_comp.name is not None:
@@ -672,7 +671,7 @@ def draw_algorithm_plots(
     ev_res_per_drug: pd.DataFrame | None,
     ev_res_per_cell_line: pd.DataFrame | None,
     t_vs_p: pd.DataFrame,
-    lpo_lco_ldo: str,
+    test_mode: str,
     custom_id: str,
     result_path: pathlib.Path,
 ) -> None:
@@ -684,15 +683,15 @@ def draw_algorithm_plots(
     :param ev_res_per_drug: evaluation results per drug
     :param ev_res_per_cell_line: evaluation results per cell line
     :param t_vs_p: true response values vs. predicted response values
-    :param lpo_lco_ldo: setting
+    :param test_mode: test_mode
     :param custom_id: run id passed via command line
     :param result_path: path to the results
     """
-    eval_results_algorithm = ev_res[(ev_res["LPO_LCO_LDO"] == lpo_lco_ldo) & (ev_res["algorithm"] == model)]
+    eval_results_algorithm = ev_res[(ev_res["test_mode"] == test_mode) & (ev_res["algorithm"] == model)]
     # PIPELINE: DRAW_VIOLIN_AND_HEATMAP
     for plt_type in ["violinplot", "heatmap"]:
         if len(eval_results_algorithm["rand_setting"].unique()) < 2:
-            # only draw plots if there are predictions and another setting (randomization/robustness)
+            # only draw plots if there are predictions and another test_mode (randomization/robustness)
             continue
         if plt_type == "violinplot":
             out_dir = "violin_plots"
@@ -710,27 +709,27 @@ def draw_algorithm_plots(
             )
         out_plot.draw_and_save(
             out_prefix=f"{result_path}/{custom_id}/{out_dir}/",
-            out_suffix=f"{model}_{lpo_lco_ldo}",
+            out_suffix=f"{model}_{test_mode}",
         )
-    if lpo_lco_ldo in ("LPO", "LDO"):
+    if test_mode in ("LPO", "LDO"):
         _draw_per_grouping_algorithm_plots(
             grouping_slider="cell_line_name",
             grouping_scatter_table="drug_name",
             model=model,
             ev_res_per_group=ev_res_per_drug,
             t_v_p=t_vs_p,
-            lpo_lco_ldo=lpo_lco_ldo,
+            test_mode=test_mode,
             custom_id=custom_id,
             result_path=result_path,
         )
-    if lpo_lco_ldo in ("LPO", "LCO"):
+    if test_mode in ("LPO", "LCO"):
         _draw_per_grouping_algorithm_plots(
             grouping_slider="drug_name",
             grouping_scatter_table="cell_line_name",
             model=model,
             ev_res_per_group=ev_res_per_cell_line,
             t_v_p=t_vs_p,
-            lpo_lco_ldo=lpo_lco_ldo,
+            test_mode=test_mode,
             custom_id=custom_id,
             result_path=result_path,
         )
@@ -742,7 +741,7 @@ def _draw_per_grouping_algorithm_plots(
     model: str,
     ev_res_per_group: pd.DataFrame,
     t_v_p: pd.DataFrame,
-    lpo_lco_ldo: str,
+    test_mode: str,
     custom_id: str,
     result_path: pathlib.Path,
 ):
@@ -755,17 +754,17 @@ def _draw_per_grouping_algorithm_plots(
     :param model: name of the model/algorithm
     :param ev_res_per_group: evaluation results per drug or per cell line
     :param t_v_p: true response values vs. predicted response values
-    :param lpo_lco_ldo: setting
+    :param test_mode: test_mode
     :param custom_id: run id passed via command line
     :param result_path: path to the results
     """
     if len(ev_res_per_group["rand_setting"].unique()) > 1:
-        # only draw plots if there are predictions and another setting (randomization/robustness)
+        # only draw plots if there are predictions and another test_mode (randomization/robustness)
         # PIPELINE: DRAW_CORR_COMP
         comp_scatter = ComparisonScatter(
             df=ev_res_per_group,
             color_by=grouping_scatter_table,
-            lpo_lco_ldo=lpo_lco_ldo,
+            test_mode=test_mode,
             algorithm=model,
         )
         if comp_scatter.name is not None:
@@ -776,10 +775,10 @@ def _draw_per_grouping_algorithm_plots(
     # PIPELINE: DRAW_REGRESSION
     for normalize in [False, True]:
         name_suffix = "_normalized" if normalize else ""
-        name = f"{lpo_lco_ldo}_{grouping_slider}{name_suffix}"
+        name = f"{test_mode}_{grouping_slider}{name_suffix}"
         regr_slider = RegressionSliderPlot(
             df=t_v_p,
-            lpo_lco_ldo=lpo_lco_ldo,
+            test_mode=test_mode,
             model=model,
             group_by=grouping_slider,
             normalize=normalize,

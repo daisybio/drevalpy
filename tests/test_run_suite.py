@@ -13,7 +13,7 @@ from drevalpy.visualization.utils import (
     create_index_html,
     create_output_directories,
     draw_algorithm_plots,
-    draw_setting_plots,
+    draw_test_mode_plots,
     parse_results,
     prep_results,
 )
@@ -56,7 +56,7 @@ def test_run_suite(args):
     args = Namespace(**args)
     get_parser()
     check_arguments(args)
-    main(args, debug_mode=True)
+    main(args, hyperparameter_tuning=True)
     assert os.listdir(temp_dir.name) == ["test_run"]
     result_path = pathlib.Path(temp_dir.name).resolve()
     path_data = pathlib.Path(args.path_data).resolve()
@@ -98,14 +98,14 @@ def test_run_suite(args):
             setting.startswith(f"robustness-{args.n_trials_robustness}")
             for setting in evaluation_results.rand_setting.unique()
         )
-    assert all(test_mode in evaluation_results.LPO_LCO_LDO.unique() for test_mode in args.test_mode)
+    assert all(test_mode in evaluation_results.test_mode.unique() for test_mode in args.test_mode)
     assert evaluation_results.CV_split.astype(int).max() == (args.n_cv_splits - 1)
     assert evaluation_results.Pearson.astype(float).max() > 0.5
 
     create_output_directories(result_path, args.run_id)
     setting = args.test_mode[0]
-    unique_algos = draw_setting_plots(
-        lpo_lco_ldo=setting,
+    unique_algos = draw_test_mode_plots(
+        test_mode=setting,
         ev_res=evaluation_results,
         ev_res_per_drug=evaluation_results_per_drug,
         ev_res_per_cell_line=evaluation_results_per_cell_line,
@@ -127,7 +127,7 @@ def test_run_suite(args):
             ev_res_per_drug=evaluation_results_per_drug,
             ev_res_per_cell_line=evaluation_results_per_cell_line,
             t_vs_p=true_vs_pred,
-            lpo_lco_ldo=setting,
+            test_mode=setting,
             custom_id=args.run_id,
             result_path=result_path,
         )
@@ -142,10 +142,9 @@ def test_run_suite(args):
     # PIPELINE: WRITE_HTML
     create_html(
         run_id=args.run_id,
-        lpo_lco_ldo=setting,
+        test_mode=setting,
         files=all_files,
         prefix_results=f"{result_path}/{args.run_id}",
-        test_mode=setting,
     )
     # PIPELINE: WRITE_INDEX
     create_index_html(

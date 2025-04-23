@@ -52,11 +52,11 @@ class VioHeat(OutPlot):
         pass
 
     @staticmethod
-    def write_to_html(lpo_lco_ldo: str, f: TextIOWrapper, *args, **kwargs) -> TextIOWrapper:
+    def write_to_html(test_mode: str, f: TextIOWrapper, *args, **kwargs) -> TextIOWrapper:
         """
         Write the Violin and Heatmap plots into the result HTML file.
 
-        :param lpo_lco_ldo: setting, e.g., LPO
+        :param test_mode: test_mode, e.g., LPO
         :param f: result HTML file
         :param args: additional arguments
         :param kwargs: additional keyword arguments, in this case, the plot type and the files
@@ -77,10 +77,10 @@ class VioHeat(OutPlot):
             f
             for f in files
             if (
-                lpo_lco_ldo in f
+                test_mode in f
                 and f.startswith(prefix)
-                and f != f"{prefix}_algorithms_{lpo_lco_ldo}.html"
-                and f != f"{prefix}_algorithms_{lpo_lco_ldo}_normalized.html"
+                and f != f"{prefix}_algorithms_{test_mode}.html"
+                and f != f"{prefix}_algorithms_{test_mode}_normalized.html"
             )
         ]
         f.write(f"<h2 id={nav_id!r}>{plot} Plots of Performance Measures over CV runs</h2>\n")
@@ -100,7 +100,7 @@ class VioHeat(OutPlot):
                 "is e.g., a |SSMD| > 2 ).\n"
             )
         f.write(
-            f'<iframe src="{dir_name}/{prefix}_algorithms_{lpo_lco_ldo}.html" width="100%" height="100%" '
+            f'<iframe src="{dir_name}/{prefix}_algorithms_{test_mode}.html" width="100%" height="100%" '
             f'frameBorder="0"></iframe>\n'
         )
         f.write(f"<h3>{plot} plots comparing all models with normalized metrics</h3>\n")
@@ -110,7 +110,7 @@ class VioHeat(OutPlot):
             "metrics are not shown. \n"
         )
         f.write(
-            f'<iframe src="{dir_name}/{prefix}_algorithms_{lpo_lco_ldo}_normalized.html" width="100%" height="100%" '
+            f'<iframe src="{dir_name}/{prefix}_algorithms_{test_mode}_normalized.html" width="100%" height="100%" '
             f'frameBorder="0"></iframe>\n'
         )
         f.write(f"<h3>{plot} plots comparing performance measures for tests within each model</h3>\n")

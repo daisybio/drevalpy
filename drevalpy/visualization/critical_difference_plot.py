@@ -135,17 +135,17 @@ class CriticalDifferencePlot(OutPlot):
         self.fig = plt.gcf()
 
     @staticmethod
-    def write_to_html(lpo_lco_ldo: str, f: TextIOWrapper, *args, **kwargs) -> TextIOWrapper:
+    def write_to_html(test_mode: str, f: TextIOWrapper, *args, **kwargs) -> TextIOWrapper:
         """
         Inserts the critical difference plot into the HTML report file.
 
-        :param lpo_lco_ldo: setting, e.g., LPO
+        :param test_mode: test_mode, e.g., LPO
         :param f: HTML report file
         :param args: not needed
         :param kwargs: not needed
         :returns: HTML report file
         """
-        path_out_cd = f"critical_difference_plots/critical_difference_algorithms_{lpo_lco_ldo}.svg"
+        path_out_cd = f"critical_difference_plots/critical_difference_algorithms_{test_mode}.svg"
         f.write(f"<object data={path_out_cd}> </object>")
         f.write(
             "<br><br>"
@@ -161,7 +161,7 @@ class CriticalDifferencePlot(OutPlot):
         f.write("<h2>Results of Post-Hoc Conover Test</h2>")
         f.write("<br>")
         path_to_table = pathlib.Path(
-            pathlib.Path(f.name).parent, f"critical_difference_plots/critical_difference_algorithms_{lpo_lco_ldo}.html"
+            pathlib.Path(f.name).parent, f"critical_difference_plots/critical_difference_algorithms_{test_mode}.html"
         )
         if not path_to_table.exists():
             return f

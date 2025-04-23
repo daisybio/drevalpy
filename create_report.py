@@ -9,7 +9,7 @@ from drevalpy.visualization.utils import (
     create_index_html,
     create_output_directories,
     draw_algorithm_plots,
-    draw_setting_plots,
+    draw_test_mode_plots,
     parse_results,
     prep_results,
     write_results,
@@ -30,6 +30,7 @@ if __name__ == "__main__":
     # assert that the run_id folder exists
     if not os.path.exists(f"{result_path}/{run_id}"):
         raise AssertionError(f"Folder {result_path}/{run_id} does not exist. The pipeline has to be run first.")
+
     # not part of pipeline
     (
         evaluation_results,
@@ -55,23 +56,15 @@ if __name__ == "__main__":
         eval_results_per_cl=evaluation_results_per_cell_line,
         t_vs_p=true_vs_pred,
     )
-    """
-    import pandas as pd
-    # For debugging:
-    evaluation_results = pd.read_csv(f"{result_path}/{run_id}/evaluation_results.csv", index_col=0)
-    # evaluation_results_per_drug = pd.read_csv(f"{result_path}/{run_id}/evaluation_results_per_drug.csv", index_col=0)
-    evaluation_results_per_drug = None
-    evaluation_results_per_cell_line = pd.read_csv(f"{result_path}/{run_id}/evaluation_results_per_cl.csv", index_col=0)
-    true_vs_pred = pd.read_csv(f"{result_path}/{run_id}/true_vs_pred.csv", index_col=0)
-    """
-    create_output_directories(result_path, run_id)
-    # Start loop over all settings
-    settings = evaluation_results["LPO_LCO_LDO"].unique()
 
-    for setting in settings:
-        print(f"Generating report for {setting} ...")
-        unique_algos = draw_setting_plots(
-            lpo_lco_ldo=setting,
+    create_output_directories(result_path, run_id)
+    # Start loop over all test_modes
+    test_modes = evaluation_results["test_mode"].unique()
+
+    for test_mode in test_modes:
+        print(f"Generating report for {test_mode} ...")
+        unique_algos = draw_test_mode_plots(
+            test_mode=test_mode,
             ev_res=evaluation_results,
             ev_res_per_drug=evaluation_results_per_drug,
             ev_res_per_cell_line=evaluation_results_per_cell_line,
@@ -93,7 +86,7 @@ if __name__ == "__main__":
                 ev_res_per_drug=evaluation_results_per_drug,
                 ev_res_per_cell_line=evaluation_results_per_cell_line,
                 t_vs_p=true_vs_pred,
-                lpo_lco_ldo=setting,
+                test_mode=test_mode,
                 custom_id=run_id,
                 result_path=result_path,
             )
@@ -108,14 +101,13 @@ if __name__ == "__main__":
         # PIPELINE: WRITE_HTML
         create_html(
             run_id=run_id,
-            lpo_lco_ldo=setting,
+            test_mode=test_mode,
             files=all_files,
             prefix_results=f"{result_path}/{run_id}",
-            test_mode=setting,
         )
     # PIPELINE: WRITE_INDEX
     create_index_html(
         custom_id=run_id,
-        test_modes=settings,
+        test_modes=test_modes,
         prefix_results=f"{result_path}/{run_id}",
     )
