@@ -213,8 +213,8 @@ def prep_results(
     """
     # get metadata
     print("Getting information about drugs and cell lines ...")
-    drug_metadata = dict()
-    cell_line_metadata = dict()
+    drug_metadata: dict[str, str] = dict()
+    cell_line_metadata: dict[str, str] = dict()
     for root, _, files in os.walk(path_data):
         for file in files:
             if file == "drug_names.csv":

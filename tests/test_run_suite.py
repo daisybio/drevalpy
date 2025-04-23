@@ -74,15 +74,16 @@ def test_run_suite(args):
         evaluation_results_per_cell_line,
         true_vs_pred,
     ) = prep_results(
-        evaluation_results,
-        evaluation_results_per_drug,
-        evaluation_results_per_cell_line,
-        true_vs_pred,
+        eval_results=evaluation_results,
+        eval_results_per_drug=evaluation_results_per_drug,
+        eval_results_per_cell_line=evaluation_results_per_cell_line,
+        t_vs_p=true_vs_pred,
+        path_data=path_data,
     )
     assert len(evaluation_results.columns) == 15
-    assert len(evaluation_results_per_drug.columns) == 14
-    assert len(evaluation_results_per_cell_line.columns) == 14
-    assert len(true_vs_pred.columns) == 9
+    assert len(evaluation_results_per_drug.columns) == 15
+    assert len(evaluation_results_per_cell_line.columns) == 15
+    assert len(true_vs_pred.columns) == 11
 
     assert all(model in evaluation_results.algorithm.unique() for model in args.models)
     assert all(baseline in evaluation_results.algorithm.unique() for baseline in args.baselines)
