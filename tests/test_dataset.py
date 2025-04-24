@@ -178,7 +178,7 @@ def test_response_dataset_reduce_to():
     assert len(dataset.drug_ids) == 2
 
 
-@pytest.mark.parametrize("mode", ["LPO", "LCO", "LDO"])
+@pytest.mark.parametrize("mode", ["LPO", "LCO", "LDO", "LTO"])
 @pytest.mark.parametrize("split_validation", [True, False])
 def test_split_response_dataset(mode: str, split_validation: bool) -> None:
     """
@@ -192,6 +192,8 @@ def test_split_response_dataset(mode: str, split_validation: bool) -> None:
         response=np.random.random(100),
         cell_line_ids=np.repeat([f"CL-{i}" for i in range(1, 11)], 10),
         drug_ids=np.tile([f"Drug-{i}" for i in range(1, 11)], 10),
+        tissues=["Breast", "Breast", "Breast", "Kidney", "Kidney", "Brain", "Heart", "Pancreas", "Prostate", "Colon"]
+        * 10,
     )
     # 100 datapoints, 10 cell lines, 10 drugs
     # LPO: With 10% validation, 5 folds -> in 1 fold: 20 samples in test,

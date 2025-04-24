@@ -221,6 +221,7 @@ class DrugResponseDataset:
             data["predictions"] = self.predictions
         if self.tissue is not None:
             data["tissue"] = self.tissue
+
         return pd.DataFrame(data)
 
     def to_csv(self, path: str | Path):
@@ -242,6 +243,9 @@ class DrugResponseDataset:
         self._cell_line_ids = np.concatenate([self._cell_line_ids, other.cell_line_ids])
         self._drug_ids = np.concatenate([self._drug_ids, other.drug_ids])
 
+        if self.tissue is not None and other.tissue is not None:
+            self._tissues = np.concatenate([self.tissue, other.tissue])
+
         if self.predictions is not None and other.predictions is not None:
             self._predictions = np.concatenate([self._predictions, other.predictions])
 
@@ -254,6 +258,8 @@ class DrugResponseDataset:
         self._drug_ids = self.drug_ids[~mask]
         if self.predictions is not None:
             self._predictions = self.predictions[~mask]
+        if self.tissue is not None:
+            self._tissues = self.tissue[~mask]
 
     @pipeline_function
     def shuffle(self, random_state: int = 42) -> None:
@@ -270,6 +276,8 @@ class DrugResponseDataset:
         self._drug_ids = self.drug_ids[indices]
         if self.predictions is not None:
             self._predictions = self.predictions[indices]
+        if self.tissue is not None:
+            self._tissues = self.tissue[indices]
 
     def _remove_drugs(self, drugs_to_remove: str | list[str | int]) -> None:
         """
@@ -284,6 +292,10 @@ class DrugResponseDataset:
         self._drug_ids = self.drug_ids[mask]
         self._cell_line_ids = self.cell_line_ids[mask]
         self._response = self.response[mask]
+        if self.predictions is not None:
+            self._predictions = self.predictions[mask]
+        if self.tissue is not None:
+            self._tissues = self.tissue[mask]
 
     def _remove_cell_lines(self, cell_lines_to_remove: str | list[str | int]) -> None:
         """
@@ -298,6 +310,10 @@ class DrugResponseDataset:
         self._drug_ids = self.drug_ids[mask]
         self._cell_line_ids = self.cell_line_ids[mask]
         self._response = self.response[mask]
+        if self.predictions is not None:
+            self._predictions = self.predictions[mask]
+        if self.tissue is not None:
+            self._tissues = self.tissue[mask]
 
     def remove_rows(self, indices: np.ndarray) -> None:
         """
@@ -311,6 +327,8 @@ class DrugResponseDataset:
         self._response = np.delete(self.response, indices)
         if self.predictions is not None:
             self._predictions = np.delete(self.predictions, indices)
+        if self.tissue is not None:
+            self._tissues = np.delete(self.tissue, indices)
 
     def reduce_to(self, cell_line_ids: np.ndarray | None = None, drug_ids: np.ndarray | None = None) -> None:
         """
@@ -477,6 +495,7 @@ class DrugResponseDataset:
             cell_line_ids=copy.deepcopy(self.cell_line_ids),
             drug_ids=copy.deepcopy(self.drug_ids),
             predictions=copy.deepcopy(self.predictions),
+            tissues=copy.deepcopy(self.tissue),
             dataset_name=self.dataset_name,
         )
 
@@ -492,6 +511,7 @@ class DrugResponseDataset:
                 tuple(self.drug_ids),
                 tuple(self.response),
                 (tuple(self.predictions) if self.predictions is not None else None),
+                (tuple(self.tissue) if self.tissue is not None else None),
             )
         )
 
@@ -506,6 +526,8 @@ class DrugResponseDataset:
         self._drug_ids = self.drug_ids[mask]
         if self.predictions is not None:
             self._predictions = self.predictions[mask]
+        if self.tissue is not None:
+            self._tissues = self.tissue[mask]
 
     def transform(self, response_transformation: TransformerMixin) -> None:
         """
