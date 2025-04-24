@@ -514,7 +514,7 @@ def cross_study_prediction(
     if early_stopping_dataset is not None:
         train_dataset.add_rows(early_stopping_dataset)
     # remove rows which overlap in the training. depends on the test mode
-    if test_mode == "LPO":
+    if test_mode in ["LPO", "LTO"]:
         train_pairs = {
             f"{cl}_{drug}" for cl, drug in zip(train_dataset.cell_line_ids, train_dataset.drug_ids, strict=True)
         }

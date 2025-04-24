@@ -36,7 +36,7 @@ from drevalpy.models.drp_model import DRPModel
         "ProteomicsRandomForest",
     ],
 )
-@pytest.mark.parametrize("test_mode", ["LPO", "LCO", "LDO"])
+@pytest.mark.parametrize("test_mode", ["LPO", "LCO", "LDO", "LTO"])
 def test_baselines(
     sample_dataset: DrugResponseDataset,
     model_name: str,
@@ -272,8 +272,6 @@ def _call_other_baselines(
             else:
                 assert issubclass(type(model_instance.model), ElasticNet)
 
-        # smaller dataset for faster testing
-        train_dataset.remove_rows(indices=np.array([list(range(len(train_dataset) - 1000))]))
         model_instance.train(
             output=train_dataset,
             cell_line_input=cell_line_input,

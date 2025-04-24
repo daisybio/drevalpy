@@ -180,7 +180,10 @@ class DrugResponseDataset:
         self._drug_ids = drug_ids
         self._predictions = predictions
         self._name = dataset_name
-        self._tissues = np.array(tissues)
+        if tissues is not None:
+            self._tissues = np.array(tissues)
+        else:
+            self._tissues = None
 
     def __len__(self) -> int:
         """
