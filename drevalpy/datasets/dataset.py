@@ -382,6 +382,7 @@ class DrugResponseDataset:
                 response=response,
                 cell_line_ids=cell_line_ids,
                 drug_ids=drug_ids,
+                tissues=self.tissue,
                 split_validation=split_validation,
                 validation_ratio=validation_ratio,
                 random_state=random_state,
@@ -649,6 +650,7 @@ def _leave_group_out_cv(
     response: np.ndarray,
     cell_line_ids: np.ndarray,
     drug_ids: np.ndarray,
+    tissues: np.ndarray | None = None,
     split_validation: bool = True,
     validation_ratio: float = 0.1,
     random_state: int = 42,
@@ -662,20 +664,26 @@ def _leave_group_out_cv(
     :param response: response (e.g. ic50 values)
     :param cell_line_ids: cell line IDs
     :param drug_ids: drug IDs
+    :param tissues: tissue types of the cell line, if available (required for LTO)
     :param split_validation: whether to split the training set into training and validation set
     :param validation_ratio: ratio of validation set (of the training set)
     :param random_state: random state
     :param dataset_name: name of the dataset
     :returns: list of dicts of the cross validation sets
-    :raises AssertionError: if group is not 'cell_line' or 'drug'
+    :raises AssertionError: if group is not 'cell_line' or 'drug' or 'tissue'
+    :raises AssertionError: Tissue information is required for LTO cross-validation
     """
-    if group not in {"cell_line", "drug"}:
+    if group not in {"cell_line", "drug", "tissue"}:
         raise AssertionError(f"group must be 'cell_line' or 'drug', but is {group}")
 
     if group == "cell_line":
         group_ids = cell_line_ids
-    else:
+    elif group == "drug":
         group_ids = drug_ids
+    elif group == "tissue":
+        if tissues is None:
+            raise AssertionError("Tissue information is required for LTO cross-validation.")
+        group_ids = tissues
 
     # shuffle, since GroupKFold does not implement this
     indices = np.arange(len(response))
@@ -694,12 +702,14 @@ def _leave_group_out_cv(
                 cell_line_ids=cell_line_ids[train_indices],
                 drug_ids=drug_ids[train_indices],
                 response=response[train_indices],
+                tissues=tissues[train_indices] if tissues is not None else None,
                 dataset_name=dataset_name,
             ),
             "test": DrugResponseDataset(
                 cell_line_ids=cell_line_ids[test_indices],
                 drug_ids=drug_ids[test_indices],
                 response=response[test_indices],
+                tissues=tissues[test_indices] if tissues is not None else None,
                 dataset_name=dataset_name,
             ),
         }
@@ -720,12 +730,14 @@ def _leave_group_out_cv(
                 cell_line_ids=cell_line_ids[train_indices],
                 drug_ids=drug_ids[train_indices],
                 response=response[train_indices],
+                tissues=tissues[train_indices] if tissues is not None else None,
                 dataset_name=dataset_name,
             )
             cv_fold["validation"] = DrugResponseDataset(
                 cell_line_ids=cell_line_ids[validation_indices],
                 drug_ids=drug_ids[validation_indices],
                 response=response[validation_indices],
+                tissues=tissues[validation_indices] if tissues is not None else None,
                 dataset_name=dataset_name,
             )
 
