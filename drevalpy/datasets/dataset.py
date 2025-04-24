@@ -180,7 +180,7 @@ class DrugResponseDataset:
         self._drug_ids = drug_ids
         self._predictions = predictions
         self._name = dataset_name
-        self._tissues = tissues
+        self._tissues = np.array(tissues)
 
     def __len__(self) -> int:
         """
