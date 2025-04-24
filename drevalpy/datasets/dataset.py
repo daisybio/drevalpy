@@ -252,7 +252,7 @@ class DrugResponseDataset:
     @pipeline_function
     def remove_nan_responses(self) -> None:
         """Removes rows with NaN values in the response."""
-        mask = np.isnan(self.response)
+        mask = ~np.isnan(self.response)
         self.mask(mask)
 
     @pipeline_function
