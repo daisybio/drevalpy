@@ -43,6 +43,7 @@ def drug_response_experiment(
     overwrite: bool = False,
     path_data: str = "data",
     model_checkpoint_dir: str = "TEMPORARY",
+    hyperparameter_tuning=True,
 ) -> None:
     """
     Run the drug response prediction experiment. Save results to disc.
@@ -89,6 +90,7 @@ def drug_response_experiment(
     :param overwrite: whether to overwrite existing results
     :param path_data: path to the data directory, usually data/
     :param model_checkpoint_dir: directory to save model checkpoints. If "TEMPORARY", a temporary directory is created.
+    :param hyperparameter_tuning: whether to run in debug mode - if False, only select first hyperparameter set
     :raises ValueError: if no cv splits are found
     """
     if baselines is None:
@@ -152,6 +154,8 @@ def drug_response_experiment(
         parent_dir = os.path.dirname(predictions_path)
 
         model_hpam_set = model_class.get_hyperparameter_set()
+        if not hyperparameter_tuning:
+            model_hpam_set = [model_hpam_set[0]]
 
         if response_data.cv_splits is None:
             raise ValueError("No cv splits found.")

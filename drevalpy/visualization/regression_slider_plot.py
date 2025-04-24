@@ -19,34 +19,59 @@ class RegressionSliderPlot(OutPlot):
     def __init__(
         self,
         df: pd.DataFrame,
-        lpo_lco_ldo: str,
+        test_mode: str,
         model: str,
-        group_by: str = "drug",
+        group_by: str = "drug_name",
         normalize=False,
     ):
         """
         Initialize the RegressionSliderPlot class.
 
         :param df: true vs. predicted values
-        :param lpo_lco_ldo: setting, e.g., LPO
+        :param test_mode: test_mode, e.g., LPO
         :param model: model name
-        :param group_by: either "drug" or "cell_line"
+        :param group_by: either "drug_name" or "cell_line_name"
         :param normalize: whether to normalize the true and predicted values by the mean of the group
         """
-        self.df = df[(df["LPO_LCO_LDO"] == lpo_lco_ldo) & (df["rand_setting"] == "predictions")]
-        self.df = self.df[(self.df["algorithm"] == model)]
+        self.df = df[(df["test_mode"] == test_mode) & (df["rand_setting"] == "predictions")]
+        model_df = self.df[(self.df["algorithm"] == model)]
+        self.df = model_df
         self.group_by = group_by
         self.normalize = normalize
         self.fig = go.Figure()
         self.model = model
 
         if self.normalize:
-            if self.group_by == "cell_line":
-                self.df.loc[:, "y_true"] = self.df["y_true"] - self.df["mean_y_true_per_drug"]
-                self.df.loc[:, "y_pred"] = self.df["y_pred"] - self.df["mean_y_true_per_drug"]
-            else:
-                self.df.loc[:, "y_true"] = self.df["y_true"] - self.df["mean_y_true_per_cell_line"]
-                self.df.loc[:, "y_pred"] = self.df["y_pred"] - self.df["mean_y_true_per_cell_line"]
+            mean_effects_df = df[
+                (df["algorithm"] == "NaiveMeanEffectsPredictor")
+                & (df["test_mode"] == test_mode)
+                & (df["rand_setting"] == "predictions")
+            ]
+            merged_df = model_df.merge(
+                mean_effects_df,
+                on=["pubchem_id", "drug_name", "cellosaurus_id", "cell_line_name", "rand_setting", "test_mode"],
+                how="left",
+            )
+            merged_df.loc[:, "y_true"] = merged_df["y_true_x"] - merged_df["y_pred_y"]
+            merged_df.loc[:, "y_pred"] = merged_df["y_pred_x"] - merged_df["y_pred_y"]
+            merged_df = merged_df[
+                [
+                    "model_x",
+                    "pubchem_id",
+                    "drug_name",
+                    "cellosaurus_id",
+                    "cell_line_name",
+                    "y_true",
+                    "y_pred",
+                    "algorithm_x",
+                    "rand_setting",
+                    "test_mode",
+                    "CV_split_x",
+                ]
+            ]
+            self.df = merged_df.rename(
+                columns={"model_x": "model", "algorithm_x": "algorithm", "CV_split_x": "CV_split"}
+            )
 
     @pipeline_function
     def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
@@ -61,20 +86,22 @@ class RegressionSliderPlot(OutPlot):
 
     def _draw(self):
         """Draw the regression plot."""
-        print(f"Generating regression plots for {self.group_by}, normalize={self.normalize}...")
+        print(f"Generating regression plots for {self.group_by}, normalize={self.normalize}, algorithm={self.model}...")
         self.df = self.df.groupby(self.group_by).filter(lambda x: len(x) > 1)
-        pccs = self.df.groupby(self.group_by).apply(lambda x: pearsonr(x["y_true"], x["y_pred"])[0])
+        pccs = self.df.groupby(self.group_by).apply(
+            lambda x: pearsonr(x["y_true"], x["y_pred"])[0], include_groups=False
+        )
         pccs = pccs.reset_index()
         pccs.columns = [self.group_by, "pcc"]
         self.df = self.df.merge(pccs, on=self.group_by)
         self._render_plot()
 
     @staticmethod
-    def write_to_html(lpo_lco_ldo: str, f: TextIOWrapper, *args, **kwargs) -> TextIOWrapper:
+    def write_to_html(test_mode: str, f: TextIOWrapper, *args, **kwargs) -> TextIOWrapper:
         """
         Write the plot to the final report file.
 
-        :param lpo_lco_ldo: setting, e.g., LPO
+        :param test_mode: test_mode, e.g., LPO
         :param f: final report file
         :param args: additional arguments
         :param kwargs: additional keyword arguments, in this case all files
@@ -83,7 +110,7 @@ class RegressionSliderPlot(OutPlot):
         files: list[str] = kwargs.get("files", [])
         f.write('<h2 id="regression_plots">Regression plots</h2>\n')
         f.write("<ul>\n")
-        regr_files = [f for f in files if lpo_lco_ldo in f and f.startswith("regression_lines")]
+        regr_files = [f for f in files if test_mode in f and f.startswith("regression_lines")]
         regr_files.sort()
         for regr_file in regr_files:
             f.write(f'<li><a href="regression_plots/{regr_file}" target="_blank">{regr_file}</a></li>\n')
@@ -94,29 +121,20 @@ class RegressionSliderPlot(OutPlot):
         """Render the regression plot."""
         # sort df by group name
         df = self.df.sort_values(self.group_by)
-        setting_title = self.model + " " + df["LPO_LCO_LDO"].unique()[0]
+        setting_title = self.model + " " + df["test_mode"].unique()[0]
         if self.normalize:
-            if self.group_by == "cell_line":
-                setting_title += ", normalized by drug mean"
-                hover_data = [
-                    "pcc",
-                    "cell_line",
-                    "drug",
-                    "mean_y_true_per_drug",
-                    "algorithm",
-                ]
-            else:
-                setting_title += ", normalized by cell line mean"
-                hover_data = [
-                    "pcc",
-                    "cell_line",
-                    "drug",
-                    "mean_y_true_per_cell_line",
-                    "algorithm",
-                ]
+            setting_title += ", normalized by mean effects"
+            hover_data = [
+                "pcc",
+                "cell_line_name",
+                "cellosaurus_id",
+                "drug_name",
+                "pubchem_id",
+                "algorithm",
+            ]
 
         else:
-            hover_data = ["pcc", "cell_line", "drug", "algorithm"]
+            hover_data = ["pcc", "cell_line_name", "cellosaurus_id", "drug_name", "pubchem_id", "algorithm"]
         self.fig = px.scatter(
             df,
             x="y_true",
