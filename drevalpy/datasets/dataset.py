@@ -219,6 +219,8 @@ class DrugResponseDataset:
         }
         if self.predictions is not None:
             data["predictions"] = self.predictions
+        if self.tissue is not None:
+            data["tissue"] = self.tissue
         return pd.DataFrame(data)
 
     def to_csv(self, path: str | Path):
