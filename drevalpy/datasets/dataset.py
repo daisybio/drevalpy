@@ -349,20 +349,17 @@ class DrugResponseDataset:
         :raises ValueError: if mode is not 'LPO', 'LCO', or 'LDO'
         :raises ValueError: if LTO cross-validation but tissue information not provided
         """
-        cell_line_ids = self.cell_line_ids
-        drug_ids = self.drug_ids
-        response = self.response
-
         if mode == "LPO":
             cv_splits = _leave_pair_out_cv(
-                n_cv_splits,
-                response,
-                cell_line_ids,
-                drug_ids,
-                split_validation,
-                validation_ratio,
-                random_state,
-                self.dataset_name,
+                n_cv_splits=n_cv_splits,
+                response=self.response,
+                cell_line_ids=self.cell_line_ids,
+                drug_ids=self.drug_ids,
+                tissues=self.tissue,
+                split_validation=split_validation,
+                validation_ratio=validation_ratio,
+                random_state=random_state,
+                dataset_name=self.dataset_name,
             )
 
         elif mode in ["LCO", "LTO", "LDO"]:
@@ -381,9 +378,9 @@ class DrugResponseDataset:
             cv_splits = _leave_group_out_cv(
                 group=group,
                 n_cv_splits=n_cv_splits,
-                response=response,
-                cell_line_ids=cell_line_ids,
-                drug_ids=drug_ids,
+                response=self.response,
+                cell_line_ids=self.cell_line_ids,
+                drug_ids=self.drug_ids,
                 tissues=self.tissue,
                 split_validation=split_validation,
                 validation_ratio=validation_ratio,
