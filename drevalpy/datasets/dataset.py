@@ -282,7 +282,7 @@ class DrugResponseDataset:
         if isinstance(drugs_to_remove, str):
             drugs_to_remove = [drugs_to_remove]
 
-        mask = [drug not in drugs_to_remove for drug in self.drug_ids]
+        mask = np.array([drug not in drugs_to_remove for drug in self.drug_ids])
         self.mask(mask)
 
     def _remove_cell_lines(self, cell_lines_to_remove: str | list[str | int]) -> None:
@@ -294,7 +294,7 @@ class DrugResponseDataset:
         if isinstance(cell_lines_to_remove, str):
             cell_lines_to_remove = [cell_lines_to_remove]
 
-        mask = [cell_line not in cell_lines_to_remove for cell_line in self.cell_line_ids]
+        mask = np.array([cell_line not in cell_lines_to_remove for cell_line in self.cell_line_ids])
         self.mask(mask)
 
     def remove_rows(self, indices: np.ndarray) -> None:

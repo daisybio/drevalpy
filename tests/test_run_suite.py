@@ -132,7 +132,7 @@ def test_run_suite(args):
             result_path=result_path,
         )
     # get all html files from {result_path}/{run_id}
-    all_files: list[str] = []
+    all_files = []
     for _, _, files in os.walk(f"{result_path}/{args.run_id}"):  # type: ignore[assignment]
         for file in files:
             if file.endswith("json") or (
