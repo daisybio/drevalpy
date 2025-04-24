@@ -1,11 +1,9 @@
 """Utility functions for datasets."""
 
 import os
-import urllib.request
 import zipfile
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
 
 import networkx as nx
 import numpy as np
@@ -26,7 +24,7 @@ def download_dataset(
     """
     Download the latets dataset from Zenodo.
 
-    :param dataset_name: dataset name, from "GDSC1", "GDSC2", "CCLE", "CTRPv1", "CTRPv2", "TOYv1", "TOYv2"
+    :param dataset_name: dataset name, from "GDSC1", "GDSC2", "CCLE", "CTRPv1", "CTRPv2", "TOYv1", "TOYv2", "meta"
     :param data_path: where to save the data
     :param redownload: whether to redownload the data
     :raises HTTPError: if the download fails
@@ -132,34 +130,3 @@ def permute_features(
         }
         for entity, other_entity in zip(identifiers, np.random.permutation(identifiers), strict=True)
     }
-
-
-def load_cellosaurus_tissue_mapping(txt_path: str = "data/meta/cellosaurus.txt") -> dict[str, str]:
-    """
-    Load the Cellosaurus tissue mapping from the provided text file.
-
-    :param txt_path: Path to the Cellosaurus text file
-    :return: Dictionary mapping Cellosaurus IDs to tissue types
-    :raises ValueError: If the URL scheme is unsupported
-    """
-    os.makedirs(os.path.dirname(txt_path), exist_ok=True)
-    if not os.path.exists(txt_path):
-        url = "https://ftp.expasy.org/databases/cellosaurus/cellosaurus.txt"
-        parsed_url = urlparse(url)
-        if parsed_url.scheme not in ("http", "https"):
-            raise ValueError(f"Unsupported URL scheme: {parsed_url.scheme}")
-        print(f"Downloading Cellosaurus data from {url}...")
-        urllib.request.urlretrieve(url, txt_path)  # noqa: S310
-
-    mapping = {}
-    with open(txt_path, encoding="utf-8") as f:
-        current_id = None
-        for line in f:
-            if line.startswith("AC   "):
-                current_id = line.strip().split()[1]
-            elif line.startswith("CC   Derived from site:") and current_id:
-                parts = line.strip().split(":")[1].split(";")
-                if len(parts) >= 2:
-                    tissue = parts[1].strip()
-                    mapping[current_id] = tissue
-    return mapping
