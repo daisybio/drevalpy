@@ -253,13 +253,7 @@ class DrugResponseDataset:
     def remove_nan_responses(self) -> None:
         """Removes rows with NaN values in the response."""
         mask = np.isnan(self.response)
-        self._response = self.response[~mask]
-        self._cell_line_ids = self.cell_line_ids[~mask]
-        self._drug_ids = self.drug_ids[~mask]
-        if self.predictions is not None:
-            self._predictions = self.predictions[~mask]
-        if self.tissue is not None:
-            self._tissues = self.tissue[~mask]
+        self.mask(mask)
 
     @pipeline_function
     def shuffle(self, random_state: int = 42) -> None:
@@ -289,13 +283,7 @@ class DrugResponseDataset:
             drugs_to_remove = [drugs_to_remove]
 
         mask = [drug not in drugs_to_remove for drug in self.drug_ids]
-        self._drug_ids = self.drug_ids[mask]
-        self._cell_line_ids = self.cell_line_ids[mask]
-        self._response = self.response[mask]
-        if self.predictions is not None:
-            self._predictions = self.predictions[mask]
-        if self.tissue is not None:
-            self._tissues = self.tissue[mask]
+        self.mask(mask)
 
     def _remove_cell_lines(self, cell_lines_to_remove: str | list[str | int]) -> None:
         """
@@ -307,13 +295,7 @@ class DrugResponseDataset:
             cell_lines_to_remove = [cell_lines_to_remove]
 
         mask = [cell_line not in cell_lines_to_remove for cell_line in self.cell_line_ids]
-        self._drug_ids = self.drug_ids[mask]
-        self._cell_line_ids = self.cell_line_ids[mask]
-        self._response = self.response[mask]
-        if self.predictions is not None:
-            self._predictions = self.predictions[mask]
-        if self.tissue is not None:
-            self._tissues = self.tissue[mask]
+        self.mask(mask)
 
     def remove_rows(self, indices: np.ndarray) -> None:
         """
@@ -321,14 +303,9 @@ class DrugResponseDataset:
 
         :param indices: indices of rows to remove
         """
-        indices = np.array(indices, dtype=int)
-        self._drug_ids = np.delete(self.drug_ids, indices)
-        self._cell_line_ids = np.delete(self.cell_line_ids, indices)
-        self._response = np.delete(self.response, indices)
-        if self.predictions is not None:
-            self._predictions = np.delete(self.predictions, indices)
-        if self.tissue is not None:
-            self._tissues = np.delete(self.tissue, indices)
+        mask = np.ones(len(self), dtype=bool)
+        mask[indices] = False
+        self.mask(mask)
 
     def reduce_to(self, cell_line_ids: np.ndarray | None = None, drug_ids: np.ndarray | None = None) -> None:
         """
