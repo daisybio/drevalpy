@@ -18,7 +18,6 @@ jobs:
         include:
           - { python-version: "3.12", os: ubuntu-latest, session: "pre-commit" }
           - { python-version: "3.12", os: ubuntu-latest, session: "mypy" }
-          - { python-version: "3.12", os: ubuntu-latest, session: "tests" }
           - { python-version: "3.12", os: windows-latest, session: "tests" }
           - { python-version: "3.12", os: ubuntu-latest, session: "typeguard" }
           - { python-version: "3.12", os: ubuntu-latest, session: "xdoctest" }
