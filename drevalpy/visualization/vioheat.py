@@ -21,20 +21,13 @@ class VioHeat(OutPlot):
         self.df = df.sort_index()
         self.all_metrics = [
             "R^2",
-            "R^2: drug normalized",
-            "R^2: cell_line normalized",
+            "R^2: normalized",
             "Pearson",
-            "Pearson: drug normalized",
-            "Pearson: cell_line normalized",
+            "Pearson: normalized",
             "Spearman",
-            "Spearman: drug normalized",
-            "Spearman: cell_line normalized",
+            "Spearman: normalized",
             "Kendall",
-            "Kendall: drug normalized",
-            "Kendall: cell_line normalized",
-            "Partial_Correlation",
-            "Partial_Correlation: drug normalized",
-            "Partial_Correlation: cell_line normalized",
+            "Kendall: normalized",
             "MSE",
             "RMSE",
             "MAE",
@@ -59,11 +52,11 @@ class VioHeat(OutPlot):
         pass
 
     @staticmethod
-    def write_to_html(lpo_lco_ldo: str, f: TextIOWrapper, *args, **kwargs) -> TextIOWrapper:
+    def write_to_html(test_mode: str, f: TextIOWrapper, *args, **kwargs) -> TextIOWrapper:
         """
         Write the Violin and Heatmap plots into the result HTML file.
 
-        :param lpo_lco_ldo: setting, e.g., LPO
+        :param test_mode: test_mode, e.g., LPO
         :param f: result HTML file
         :param args: additional arguments
         :param kwargs: additional keyword arguments, in this case, the plot type and the files
@@ -84,25 +77,40 @@ class VioHeat(OutPlot):
             f
             for f in files
             if (
-                lpo_lco_ldo in f
+                test_mode in f
                 and f.startswith(prefix)
-                and f != f"{prefix}_{lpo_lco_ldo}.html"
-                and f != f"{prefix}_{lpo_lco_ldo}_normalized.html"
+                and f != f"{prefix}_algorithms_{test_mode}.html"
+                and f != f"{prefix}_algorithms_{test_mode}_normalized.html"
             )
         ]
         f.write(f"<h2 id={nav_id!r}>{plot} Plots of Performance Measures over CV runs</h2>\n")
         f.write(f"<h3>{plot} plots comparing all models</h3>\n")
+        if plot == "Violin":
+            f.write(
+                "To focus on a specific metric, choose it in the dropdown menu in the top right corner."
+                "You can investigate the distribution of the performance measures by hovering over the plot.\n"
+                "To select/exclude specific algorithms, (double-)click them in the legend."
+            )
+        elif plot == "Heatmap":
+            f.write(
+                "Unnormalized metrics collapsed over all CV runs with mean and standard deviation.\n"
+                "The strictly standardized mean difference is a measure of effect size which is calculated "
+                "pairwise. For two models, it is calculated as [mean1 - mean2] / [sqrt(var1 + var2)] for a "
+                "specific measure. The larger the absolute SSMD, the stronger the effect (a strong effect could, "
+                "is e.g., a |SSMD| > 2 ).\n"
+            )
         f.write(
-            f'<iframe src="{dir_name}/{prefix}_algorithms_{lpo_lco_ldo}.html" width="100%" height="100%" '
+            f'<iframe src="{dir_name}/{prefix}_algorithms_{test_mode}.html" width="100%" height="100%" '
             f'frameBorder="0"></iframe>\n'
         )
         f.write(f"<h3>{plot} plots comparing all models with normalized metrics</h3>\n")
         f.write(
-            "Before calculating the evaluation metrics, all values were normalized by the mean of the drug or cell "
-            "line. Since this only influences the R^2 and the correlation metrics, the error metrics are not shown. \n"
+            "Before calculating the evaluation metrics, all values were normalized by the predictions of the "
+            "NaiveMeanEffectsPredictor. Since this only influences the R^2 and the correlation metrics, the error "
+            "metrics are not shown. \n"
         )
         f.write(
-            f'<iframe src="{dir_name}/{prefix}_algorithms_{lpo_lco_ldo}_normalized.html" width="100%" height="100%" '
+            f'<iframe src="{dir_name}/{prefix}_algorithms_{test_mode}_normalized.html" width="100%" height="100%" '
             f'frameBorder="0"></iframe>\n'
         )
         f.write(f"<h3>{plot} plots comparing performance measures for tests within each model</h3>\n")

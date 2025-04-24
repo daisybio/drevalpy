@@ -82,7 +82,7 @@ results/my_first_run/LCO
 You can visualize them using
 
 ```bash
-python create_report.py --run_id my_first_run
+python create_report.py --run_id my_first_run --dataset GDSC2
 ```
 
 This will create an index.html file which you can open in your webbrowser.
@@ -91,7 +91,7 @@ You can also run a drug response experiment using Python:
 
 ```python
 
-from drevalpy import drug_response_experiment
+from drevalpy.experiment import drug_response_experiment
 
 drug_response_experiment(
             models=["MultiOmicsNeuralNetwork"],

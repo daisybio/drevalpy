@@ -16,14 +16,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { python-version: "3.11", os: ubuntu-latest, session: "pre-commit" }
-          - { python-version: "3.11", os: ubuntu-latest, session: "safety" }
-          - { python-version: "3.11", os: ubuntu-latest, session: "mypy" }
-          - { python-version: "3.11", os: ubuntu-latest, session: "tests" }
-          - { python-version: "3.11", os: windows-latest, session: "tests" }
-          - { python-version: "3.11", os: ubuntu-latest, session: "typeguard" }
-          - { python-version: "3.11", os: ubuntu-latest, session: "xdoctest" }
-          - { python-version: "3.11", os: ubuntu-latest, session: "docs-build" }
+          - { python-version: "3.12", os: ubuntu-latest, session: "pre-commit" }
+          - { python-version: "3.12", os: ubuntu-latest, session: "mypy" }
+          - { python-version: "3.12", os: ubuntu-latest, session: "tests" }
+          - { python-version: "3.12", os: windows-latest, session: "tests" }
+          - { python-version: "3.12", os: ubuntu-latest, session: "typeguard" }
+          - { python-version: "3.12", os: ubuntu-latest, session: "xdoctest" }
+          - { python-version: "3.12", os: ubuntu-latest, session: "docs-build" }
 
     env:
       NOXSESSION: ${{ matrix.session }}
@@ -129,6 +128,6 @@ jobs:
         run: nox --force-color --session=coverage -- xml -i
 
       - name: Upload coverage report
-        uses: codecov/codecov-action@v5.4.0
+        uses: codecov/codecov-action@v5.4.2
         with:
           token: ${{ secrets.CODECOV_TOKEN }}

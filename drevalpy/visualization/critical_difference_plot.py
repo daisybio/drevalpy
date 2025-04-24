@@ -1,24 +1,43 @@
-"""
-Draw critical difference plot which shows whether a model is significantly better than another model.
+"""Draws the critical difference plot.
 
-Most code is a modified version of the code available at https://github.com/hfawaz/cd-diagram
-Author: Hassan Ismail Fawaz <hassan.ismail-fawaz@uha.fr>, Germain Forestier <germain.forestier@uha.fr>,
-Jonathan Weber <jonathan.weber@uha.fr>, Lhassane Idoumghar <lhassane.idoumghar@uha.fr>, Pierre-Alain Muller
-<pierre-alain.muller@uha.fr>
-License: GPL3
+This method performs the following steps:
+
+1. **Friedman Test**: First, it performs the Friedman test, which is a non-parametric statistical test used to detect
+   differences in treatments across multiple test attempts. It compares the ranks of multiple groups and is
+   suitable when there are repeated measurements for each group (as is the case here with cross-validation splits).
+   The p-value of this test is used to assess whether there are any significant differences in the performance of the
+   models.
+
+2. **Post-hoc Conover Test**: If the Friedman test returns a significant result (p-value < 0.05), the post-hoc Conover
+   test can be used to identify pairs of algorithms that perform significantly different. This test is necessary
+   because the Friedman test only tells if there is a difference somewhere among the models, but not which ones are
+   different. The `scikit_posthocs` library is used for this step.
+
+3. **Rank Calculation**: Next, the average ranks of each classifier across all cross-validation splits are computed.
+   The models are ranked based on their performance (lower ranks indicate better performance) and the average rank
+   across all splits is calculated for each model.
+
+4. **Critical Difference Diagram**: Finally, the method draws the critical difference diagram. This diagram visually
+   displays the significant differences between the algorithms. A horizontal line groups a set of models that are
+   not significantly different. The critical difference is determined based on the post-hoc test results.
 """
 
-import math
-import operator
+import pathlib
+import warnings
 from io import TextIOWrapper
-from typing import Any
+from typing import Optional, Union
 
 import matplotlib
 import matplotlib.pyplot as plt
-import networkx
 import numpy as np
 import pandas as pd
-from scipy.stats import friedmanchisquare, wilcoxon
+import plotly.colors as pc
+import scikit_posthocs as sp
+from matplotlib import pyplot
+from matplotlib.axes import Axes
+from pandas import DataFrame, Series
+from scikit_posthocs import sign_array
+from scipy import stats
 
 from ..evaluation import MINIMIZATION_METRICS
 from ..pipeline_function import pipeline_function
@@ -26,7 +45,8 @@ from .outplot import OutPlot
 
 matplotlib.use("agg")
 matplotlib.rcParams["font.family"] = "sans-serif"
-matplotlib.rcParams["font.sans-serif"] = "Avenir"
+matplotlib.rcParams["font.sans-serif"] = "Helvetica Neue"
+warnings.filterwarnings("ignore", category=FutureWarning, message=".*swapaxes.*")
 
 
 class CriticalDifferencePlot(OutPlot):
@@ -49,18 +69,14 @@ class CriticalDifferencePlot(OutPlot):
         :param eval_results_preds: evaluation results subsetted to predictions only (no randomizations etc)
         :param metric: to be used to assess the critical difference
         """
-        eval_results_preds = eval_results_preds[["algorithm", "CV_split", metric]].rename(
-            columns={
-                "algorithm": "classifier_name",
-                "CV_split": "dataset_name",
-                metric: "accuracy",
-            }
-        )
+        eval_results_preds = eval_results_preds[["algorithm", "CV_split", metric]]
         if metric in MINIMIZATION_METRICS:
-            eval_results_preds["accuracy"] = -eval_results_preds["accuracy"]
+            eval_results_preds.loc[:, metric] = -eval_results_preds.loc[:, metric]
 
         self.eval_results_preds = eval_results_preds
         self.metric = metric
+        self.fig: Optional[plt.Figure] = None
+        self.test_results: Optional[pd.DataFrame] = None
 
     @pipeline_function
     def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
@@ -69,483 +85,333 @@ class CriticalDifferencePlot(OutPlot):
 
         :param out_prefix: e.g., results/my_run/critical_difference_plots/
         :param out_suffix: e.g., LPO
+        :raises ValueError: if the figure is None or the test results are None
         """
         try:
             self._draw()
             path_out = f"{out_prefix}critical_difference_algorithms_{out_suffix}.svg"
-            self.fig.savefig(path_out, bbox_inches="tight")
+            if self.fig is None or self.test_results is None:
+                raise ValueError("Figure is None. Cannot save the plot.")
+            else:
+                self.fig.savefig(path_out, bbox_inches="tight")
+                self.test_results = self.test_results.round(4)
+                self.test_results.to_html(f"{out_prefix}critical_difference_algorithms_{out_suffix}.html")
         except Exception as e:
             print(f"Error in drawing critical difference plot: {e}")
 
     def _draw(self) -> None:
         """Draws the critical difference plot."""
-        self.fig = self._draw_cd_diagram(
-            alpha=0.05,
-            title=f"Critical Difference: {self.metric}",
-            labels=True,
+        input_friedman = self.eval_results_preds.groupby("algorithm")[self.metric].apply(list)
+        # check that all algorithms have the same number of CV splits, if not filter them out
+        # table lengths of arrays:
+        table_lengths = input_friedman.apply(len)
+        # get the most common length
+        most_common_length = table_lengths.mode().values[0]
+        # filter out algorithms that do not have the most common length
+        input_friedman = input_friedman[table_lengths == most_common_length]
+        algorithms_included = set(input_friedman.index)
+        friedman_p_value = stats.friedmanchisquare(*input_friedman).pvalue
+        self.eval_results_preds = self.eval_results_preds[
+            self.eval_results_preds["algorithm"].isin(algorithms_included)
+        ]
+        # transform: rows = CV_split, columns = algorithms, values = metric
+        input_conover_friedman = self.eval_results_preds.pivot_table(
+            index="CV_split", columns="algorithm", values=self.metric
         )
+        self.test_results = pd.DataFrame(sp.posthoc_conover_friedman(input_conover_friedman))
+        average_ranks = input_conover_friedman.rank(ascending=False, axis=1).mean(axis=0)
+        plt.title(
+            f"Critical Difference Diagram: Metric: {self.metric}.\n"
+            f"Overall Friedman-Chi2 p-value: {friedman_p_value:.2e}",
+            fontsize=20,
+        )
+        color_palette = dict()
+        generated_colors = _generate_discrete_palette(len(input_conover_friedman.columns))
+        for alg in input_conover_friedman.columns:
+            color_palette[alg] = generated_colors.pop()
+
+        _critical_difference_diagram(ranks=average_ranks, sig_matrix=self.test_results, color_palette=color_palette)
+
+        self.fig = plt.gcf()
 
     @staticmethod
-    def write_to_html(lpo_lco_ldo: str, f: TextIOWrapper, *args, **kwargs) -> TextIOWrapper:
+    def write_to_html(test_mode: str, f: TextIOWrapper, *args, **kwargs) -> TextIOWrapper:
         """
         Inserts the critical difference plot into the HTML report file.
 
-        :param lpo_lco_ldo: setting, e.g., LPO
+        :param test_mode: test_mode, e.g., LPO
         :param f: HTML report file
         :param args: not needed
         :param kwargs: not needed
         :returns: HTML report file
         """
-        path_out_cd = f"critical_difference_plots/critical_difference_algorithms_{lpo_lco_ldo}.svg"
+        path_out_cd = f"critical_difference_plots/critical_difference_algorithms_{test_mode}.svg"
         f.write(f"<object data={path_out_cd}> </object>")
+        f.write(
+            "<br><br>"
+            "This diagram displays the mean rank of each model over all cross-validation splits: Within each CV "
+            "split, the models are ranked according to their MSE. We calculate whether a model is significantly "
+            "better than another one using the Friedman test and the post-hoc Conover test. "
+            "The Friedman test shows whether there are overall differences between the models. After a significant"
+            "Friedman test, the pairwise Conover test is performed to identify which models are significantly "
+            "outperforming others. One line indicates which models are not significantly different from each "
+            "other. The p-values are shown below. This can only be rendered if at least 3 models were run."
+        )
+        f.write("<br><br>")
+        f.write("<h2>Results of Post-Hoc Conover Test</h2>")
+        f.write("<br>")
+        path_to_table = pathlib.Path(
+            pathlib.Path(f.name).parent, f"critical_difference_plots/critical_difference_algorithms_{test_mode}.html"
+        )
+        if not path_to_table.exists():
+            return f
+        with open(path_to_table) as conover_results_f:
+            conover_results = conover_results_f.readlines()
+            conover_results[0] = conover_results[0].replace(
+                '<table border="1" class="dataframe">',
+                '<table class="display customDataTable" style="width:100%">',
+            )
+            for line in conover_results:
+                f.write(line)
         return f
 
-    def _draw_cd_diagram(self, alpha=0.05, title=None, labels=False) -> plt.Figure:
-        """
-        Draws the critical difference diagram given the list of pairwise classifiers.
 
-        :param alpha: significance level
-        :param title: title of the plot
-        :param labels: whether to display the average ranks
-        :returns: the figure
-        """
-        # Standard Plotly colors
-        plotly_colors = [
-            "#1f77b4",
-            "#ff7f0e",
-            "#2ca02c",
-            "#d62728",
-            "#9467bd",
-            "#8c564b",
-            "#e377c2",
-            "#7f7f7f",
-            "#bcbd22",
-            "#17becf",
-        ]
-
-        p_values, average_ranks, _ = _wilcoxon_holm(df_perf=self.eval_results_preds, alpha=alpha)
-
-        _graph_ranks(
-            avranks=average_ranks.values.tolist(),
-            names=list(average_ranks.keys()),
-            p_values=p_values,
-            colors=plotly_colors,
-            reverse=True,
-            width=9.0,
-            textspace=1.5,
-            labels=labels,
-        )
-
-        font = {
-            "family": "sans-serif",
-            "color": "black",
-            "weight": "normal",
-            "size": 22,
-        }
-        if title:
-            plt.title(title, fontdict=font, y=0.9, x=0.5)
-        return plt.gcf()
-
-
-# inspired from orange3 https://docs.orange.biolab.si/3/data-mining-library/reference/evaluation.cd.html
-def _graph_ranks(
-    avranks: list[float],
-    names: list[str],
-    p_values: list[tuple[str, str, float, bool]],
-    colors: list[str],
-    lowv: int | None = None,
-    highv: int | None = None,
-    width: float = 9.0,
-    textspace: float = 1.0,
-    reverse: bool = False,
-    labels: bool = False,
-) -> None:
+def _critical_difference_diagram(
+    ranks: Union[dict, Series],
+    sig_matrix: DataFrame,
+    *,
+    color_palette: dict,
+    ax: Optional[Axes] = None,
+    label_fmt_left: str = "{label} ({rank:.2g})",
+    label_fmt_right: str = "({rank:.2g}) {label}",
+    label_props: Optional[dict] = None,
+    marker_props: Optional[dict] = None,
+    elbow_props: Optional[dict] = None,
+    crossbar_props: Optional[dict] = None,
+    text_h_margin: float = 0.01,
+    left_only: bool = False,
+) -> dict[str, list]:
     """
-    Draws a CD graph, which is used to display  the differences in methods' performance.
+    Plot a Critical Difference diagram from ranks and post-hoc results.
 
-    See Janez Demsar, Statistical Comparisons of Classifiers over Multiple Data Sets, 7(Jan):1--30, 2006.
+    :param ranks : dict or Series
+        Indicates the rank value for each sample or estimator (as keys or index).
 
-    Needs matplotlib to work. The image is ploted on `plt` imported using
-    `import matplotlib.pyplot as plt`.
+    :param sig_matrix : DataFrame
+        The corresponding p-value matrix outputted by post-hoc tests, with
+        indices matching the labels in the ranks argument.
 
-    :param avranks: list of float, average ranks of methods.
-    :param names: list of str, names of methods.
-    :param p_values: list of tuples, p-values of the methods.
-    :param lowv: int, optional the lowest shown rank
-    :param highv: int, optional, the highest shown rank
-    :param width: int, optional, default width in inches (default: 6)
-    :param textspace: int, optional, space on figure sides (in inches) for the method names (default: 1)
-    :param reverse: bool, optional, if set to `True`, the lowest rank is on the right (default: `False`)
-    :param labels: bool, optional, if set to `True`, the calculated avg rank values will be displayed
-    :param colors: list of str, optional, list of colors for the methods
+    :param ax : matplotlib.SubplotBase, optional
+        The object in which the plot will be built. Gets the current Axes
+        by default (if None is passed).
+
+    :param label_fmt_left : str, optional
+        The format string to apply to the labels on the left side. The keywords
+        label and rank can be used to specify the sample/estimator name and
+        rank value, respectively, by default '{label} ({rank:.2g})'.
+
+    :param label_fmt_right : str, optional
+        The same, but for the labels on the right side of the plot.
+        By default '({rank:.2g}) {label}'.
+
+    :param label_props : dict, optional
+        Parameters to be passed to pyplot.text() when creating the labels,
+        by default None.
+
+    :param marker_props : dict, optional
+        Parameters to be passed to pyplot.scatter() when plotting the rank
+        markers on the axis, by default None.
+
+    :param elbow_props : dict, optional
+        Parameters to be passed to pyplot.plot() when creating the elbow lines,
+        by default None.
+
+    :param crossbar_props : dict, optional
+        Parameters to be passed to pyplot.plot() when creating the crossbars
+        that indicate lack of statistically significant difference. By default
+        None.
+
+    :param color_palette: dict
+        Parameters to be passed when you need specific colors for each category
+
+    :param text_h_margin : float, optional
+        Space between the text labels and the nearest vertical line of an
+        elbow, by default 0.01.
+
+    :param left_only: boolean, optional
+        Set all labels in a single left-sided block instead of splitting them
+        into two block, one for the left and one for the right.
+    :raises ValueError: If the color_palette keys are not consistent with the ranks.
+    :returns: dict
     """
+    # check color_palette consistency
+    if isinstance(color_palette, dict) and ((len(set(ranks.keys()) & set(color_palette.keys()))) == len(ranks)):
+        pass
+    elif isinstance(color_palette, list) and (len(ranks) <= len(color_palette)):
+        pass
+    else:
+        raise ValueError("color_palette keys are not consistent, or list size too small")
 
-    def nth(data: list[tuple[float, float]], position: int) -> list[float]:
-        """
-        Returns only nth element in a list.
+    elbow_props = elbow_props or {}
+    marker_props = {"zorder": 3, **(marker_props or {})}
+    label_props = {"va": "center", "fontsize": 16, "weight": "heavy", **(label_props or {})}
+    crossbar_props = {
+        "color": "k",
+        "zorder": 3,
+        "linewidth": 4,
+        **(crossbar_props or {}),
+    }
 
-        :param data: list (text_space, cline), (width - text_space, cline)
-        :param position: position to return
-        :returns: nth element in the list
-        """
-        position = lloc(data, position)
-        return [a[position] for a in data]
+    ax = ax or pyplot.gca()
+    ax.yaxis.set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["left"].set_visible(False)
+    ax.spines["bottom"].set_visible(False)
+    ax.xaxis.set_ticks_position("top")
+    ax.spines["top"].set_position("zero")
 
-    def lloc(data: list[tuple[float, float]], position: int) -> int:
-        """
-        List location in list of list structure.
+    # lists of artists to be returned
+    markers = []
+    elbows = []
+    labels = []
+    crossbars = []
 
-        Enable the use of negative locations:
-        -1 is the last element, -2 second last...
-
-        :param data: list (text_space, cline), (width - text_space, cline)
-        :param position: position to return
-        :returns: location in the list
-        """
-        if position < 0:
-            return len(data[0]) + position
-        else:
-            return position
-
-    sums = avranks
-
-    nnames = names
-    ssums = sums
-
-    if lowv is None:
-        lowv = min(1, int(math.floor(min(ssums))))
-    if highv is None:
-        highv = max(len(avranks), int(math.ceil(max(ssums))))
-
-    cline = 0.4
-
-    k = len(sums)
-
-    linesblank = 0
-    scalewidth = width - 2 * textspace
-
-    def rankpos(rank: float) -> float:
-        """
-        Calculate the position of the rank.
-
-        :param rank: rank of the method
-        :returns: textspace + scalewidth / (highv - lowv) * a
-        """
-        if not reverse:
-            a = rank - lowv
-        else:
-            a = highv - rank
-        return textspace + scalewidth / (highv - lowv) * a
-
-    distanceh = 0.25
-
-    cline += distanceh
-
-    # calculate height needed height of an image
-    minnotsignificant = max(2 * 0.2, linesblank)
-    height = cline + ((k + 1) / 2) * 0.2 + minnotsignificant
-
-    fig = plt.figure(figsize=(width, height))
-    fig.set_facecolor("white")
-    ax = fig.add_axes(rect=(0.0, 0.0, 1.0, 1.0))  # reverse y axis
-    ax.set_axis_off()
-
-    hf = 1.0 / height  # height factor
-    wf = 1.0 / width
-
-    def hfl(list_input):
-        """
-        List input multiplied by height factor.
-
-        :param list_input: list of floats (cline)
-        :returns: list of floats
-        """
-        return [a * hf for a in list_input]
-
-    def wfl(list_input: list[float]) -> list[float]:
-        """
-        List input multiplied by width factor.
-
-        :param list_input: list of floats (text_space)
-        :returns: list of floats
-        """
-        return [a * wf for a in list_input]
-
-    # Upper left corner is (0,0).
-    ax.plot([0, 1], [0, 1], c="w")
-    ax.set_xlim(0, 1)
-    ax.set_ylim(1, 0)
-
-    def line(list_input: list[tuple[float, float]], color: str = "k", **kwargs) -> None:
-        """
-        Input is a list of pairs of points.
-
-        :param list_input: (text_space, cline), (width - text_space, cline)
-        :param color: color of the line
-        :param kwargs: additional arguments for plotting
-        """
-        ax.plot(wfl(nth(list_input, 0)), hfl(nth(list_input, 1)), color=color, **kwargs)
-
-    def text(x: float, y: float, s: str, *args, **kwargs):
-        """
-        Add text to the plot.
-
-        :param x: x position
-        :param y: y position
-        :param s: text to display
-        :param args: additional arguments
-        :param kwargs: additional keyword arguments
-        """
-        ax.text(wf * x, hf * y, s, *args, **kwargs)
-
-    line(
-        [(textspace, cline), (width - textspace, cline)],
-        linewidth=2,
-        color="black",
+    # True if pairwise comparison is NOT significant
+    adj_matrix = DataFrame(
+        1 - sign_array(sig_matrix),
+        index=sig_matrix.index,
+        columns=sig_matrix.columns,
+        dtype=bool,
     )
 
-    bigtick = 0.3
-    smalltick = 0.15
-    linewidth = 2.0
-    linewidth_sign = 4.0
-
-    for a in list(np.arange(lowv, highv, 0.5)) + [highv]:
-        tick = smalltick
-        if a == int(a):
-            tick = bigtick
-        line(
-            [(rankpos(a), cline - tick / 2), (rankpos(a), cline)],
-            linewidth=2,
-            color="black",
+    ranks = Series(ranks).sort_values()  # Standardize if ranks is dict
+    if left_only:
+        points_left = ranks
+    else:
+        left_points = len(ranks) // 2
+        points_left, points_right = (
+            ranks.iloc[:left_points],
+            ranks.iloc[left_points:],
         )
 
-    for a in range(lowv, highv + 1):
-        text(
-            rankpos(a),
-            cline - bigtick / 2 - 0.05,
-            str(a),
-            ha="center",
-            va="bottom",
-            size=16,
-        )
+    # for each algorithm: get the set of algorithms that are not significantly different
+    crossbar_sets = dict()
+    for alg, row in adj_matrix.iterrows():
+        not_different = adj_matrix.columns[row].tolist()
+        crossbar_sets[alg] = set(not_different).union({alg})
 
-    k = len(ssums)
-
-    def filter_names(name: str) -> str:
-        """
-        Filter the names.
-
-        :param name: name of the method
-        :returns: name of the method
-        """
-        return name
-
-    space_between_names = 0.24
-
-    for i in range(math.ceil(k / 2)):
-        chei = cline + minnotsignificant + i * space_between_names
-        line(
-            [
-                (rankpos(ssums[i]), cline),
-                (rankpos(ssums[i]), chei),
-                (textspace - 0.1, chei),
-            ],
-            linewidth=linewidth,
-            color=colors[0],
-        )
-        if labels:
-            text(
-                textspace + 0.3,
-                chei - 0.075,
-                format(ssums[i], ".4f"),
-                ha="right",
-                va="center",
-                size=10,
-            )
-        text(
-            textspace - 0.2,
-            chei,
-            filter_names(nnames[i]),
-            ha="right",
-            va="center",
-            size=16,
-        )
-
-    for i in range(math.ceil(k / 2), k):
-        chei = cline + minnotsignificant + (k - i - 1) * space_between_names
-        line(
-            [
-                (rankpos(ssums[i]), cline),
-                (rankpos(ssums[i]), chei),
-                (textspace + scalewidth + 0.1, chei),
-            ],
-            linewidth=linewidth,
-            color=colors[0],
-        )
-        if labels:
-            text(
-                textspace + scalewidth - 0.3,
-                chei - 0.075,
-                format(ssums[i], ".4f"),
-                ha="left",
-                va="center",
-                size=10,
-            )
-        text(
-            textspace + scalewidth + 0.2,
-            chei,
-            filter_names(nnames[i]),
-            ha="left",
-            va="center",
-            size=16,
-        )
-
-    start = cline + 0.2
-    side = -0.02
-    height = 0.1
-
-    # draw no significant lines
-    # get the cliques
-    cliques = _form_cliques(p_values, nnames)
-    i = 1
-    achieved_half = False
-    print(nnames)
-    for clq in cliques:
-        if len(clq) == 1:
+    # Create stacking of crossbars: make a crossbar of the fitting color for each algorithm
+    crossbar_levels: list[list[set]] = []
+    ypos = -0.5
+    for alg in ranks.index:
+        bar = crossbar_sets[alg]
+        not_different = crossbar_sets[alg]
+        if len(not_different) == 1:
             continue
-        print(clq)
-        min_idx = np.array(clq).min()
-        max_idx = np.array(clq).max()
-        if min_idx >= len(nnames) / 2 and (not achieved_half):
-            start = cline + 0.25
-            achieved_half = True
-        line(
-            [
-                (rankpos(ssums[min_idx]) - side, start),
-                (rankpos(ssums[max_idx]) + side, start),
-            ],
-            linewidth=linewidth_sign,
-            color=colors[2],
-        )
-        start += height
+        crossbar_levels.append([bar])
 
-
-def _form_cliques(p_values: list[tuple[str, str, float, bool]], nnames: list[str]) -> Any:
-    """
-    This method forms the cliques.
-
-    :param p_values: list of tuples, p-values of the methods strucutred as (Method1, Method2, p-value, is_significant)
-    :param nnames: list of str, names of the methods
-    :returns: cliques
-    """
-    # first form the numpy matrix data
-    m = len(nnames)
-    g_data = np.zeros((m, m), dtype=np.int64)
-    for p in p_values:
-        if p[3] is False:
-            i = int(np.where(np.array(nnames) == p[0])[0][0])
-            j = int(np.where(np.array(nnames) == p[1])[0][0])
-            min_i = min(i, j)
-            max_j = max(i, j)
-            g_data[min_i, max_j] = 1
-
-    g = networkx.Graph(g_data)
-    return networkx.find_cliques(g)
-
-
-def _wilcoxon_holm(
-    df_perf: pd.DataFrame, alpha: float = 0.05
-) -> tuple[list[tuple[str, str, float, bool]], pd.Series, int]:
-    """
-    Applies the Wilcoxon signed rank test between algorithm pair and then use Holm to reject the null hypothesis.
-
-    Returns the p-values in a format of (Method1, Method2, p-value, is_significant), the average ranks in a format of
-    pd.Series(Method: avg_rank), and the maximum number of datasets tested (=n_cv_folds).
-
-    :param alpha: significance level
-    :param df_perf: the dataframe containing the performance of the algorithms
-    :returns: the p-values, the average ranks, and the maximum number of datasets tested
-    """
-    print(pd.unique(df_perf["classifier_name"]))
-    # count the number of tested datasets per classifier
-    df_counts = pd.DataFrame({"count": df_perf.groupby(["classifier_name"]).size()}).reset_index()
-    # get the maximum number of tested datasets
-    max_nb_datasets = df_counts["count"].max()
-    # get the list of classifiers who have been tested on nb_max_datasets
-    classifiers = list(df_counts.loc[df_counts["count"] == max_nb_datasets]["classifier_name"])
-    # test the null hypothesis using friedman before doing a post-hoc analysis
-    friedman_p_value = friedmanchisquare(
-        *(np.array(df_perf.loc[df_perf["classifier_name"] == c]["accuracy"]) for c in classifiers)
-    )[1]
-    if friedman_p_value >= alpha:
-        # then the null hypothesis over the entire classifiers cannot be rejected
-        print("the null hypothesis over the entire classifiers cannot be rejected")
-        exit()
-    # get the number of classifiers
-    m = len(classifiers)
-    # init array that contains the p-values calculated by the Wilcoxon signed rank test
-    p_values = []
-    # loop through the algorithms to compare pairwise
-    for i in range(m - 1):
-        # get the name of classifier one
-        classifier_1 = classifiers[i]
-        # get the performance of classifier one
-        perf_1 = np.array(
-            df_perf.loc[df_perf["classifier_name"] == classifier_1]["accuracy"],
-            dtype=np.float64,
-        )
-        for j in range(i + 1, m):
-            # get the name of the second classifier
-            classifier_2 = classifiers[j]
-            # get the performance of classifier one
-            perf_2 = np.array(
-                df_perf.loc[df_perf["classifier_name"] == classifier_2]["accuracy"],
-                dtype=np.float64,
+        crossbar_props["color"] = color_palette[alg]
+        crossbars.append(
+            ax.plot(
+                # Adding a separate line between each pair enables showing a
+                # marker over each elbow with crossbar_props={'marker': 'o'}.
+                [ranks[i] for i in bar],
+                [ypos] * len(bar),
+                **crossbar_props,
             )
-            # calculate the p_value
-            p_value = wilcoxon(perf_1, perf_2, zero_method="pratt")[1]
-            # append to the list
-            p_values.append((classifier_1, classifier_2, p_value, False))
-    # get the number of hypothesis
-    k = len(p_values)
-    # sort the list in acsending manner of p-value
-    p_values.sort(key=operator.itemgetter(2))
+        )
+        ypos -= 0.5
 
-    # loop through the hypothesis
-    for i in range(k):
-        # correct alpha with holm
-        new_alpha = float(alpha / (k - i))
-        # test if significant after holm's correction of alpha
-        if p_values[i][2] <= new_alpha:
-            p_values[i] = (
-                p_values[i][0],
-                p_values[i][1],
-                p_values[i][2],
-                True,
+    lowest_crossbar_ypos = ypos
+
+    def plot_items(points, xpos, label_fmt, color_palette, label_props):
+        """
+        Plot each marker + elbow + label.
+
+        :param points: the points to plot
+        :param xpos: the x position of the points
+        :param label_fmt: the format of the label
+        :param color_palette: the color palette to use
+        :param label_props: the label properties
+        """
+        ypos = lowest_crossbar_ypos - 0.5
+        for idx, (label, rank) in enumerate(points.items()):
+            if not color_palette or len(color_palette) == 0:
+                elbow, *_ = ax.plot(
+                    [xpos, rank, rank],
+                    [ypos, ypos, 0],
+                    **elbow_props,
+                )
+            else:
+                elbow, *_ = ax.plot(
+                    [xpos, rank, rank],
+                    [ypos, ypos, 0],
+                    c=color_palette[label] if isinstance(color_palette, dict) else color_palette[idx],
+                    **elbow_props,
+                )
+
+            elbows.append(elbow)
+            curr_color = elbow.get_color()
+            markers.append(ax.scatter(rank, 0, **{"color": curr_color, **marker_props}))
+            labels.append(
+                ax.text(
+                    xpos,
+                    ypos,
+                    label_fmt.format(label=label, rank=rank),
+                    color=curr_color,
+                    **label_props,
+                )
             )
-        else:
-            # stop
-            break
-    # compute the average ranks to be returned (useful for drawing the cd diagram)
-    # sort the dataframe of performances
-    sorted_df_perf = df_perf.loc[df_perf["classifier_name"].isin(classifiers)].sort_values(
-        ["classifier_name", "dataset_name"]
-    )
-    # get the rank data
-    rank_data = np.array(sorted_df_perf["accuracy"]).reshape(m, max_nb_datasets)
+            ypos -= 0.5
 
-    # create the data frame containg the accuracies
-    df_ranks = pd.DataFrame(
-        data=rank_data,
-        index=np.sort(classifiers),
-        columns=np.unique(sorted_df_perf["dataset_name"]),
+    plot_items(
+        points_left,
+        xpos=points_left.iloc[0] - text_h_margin,
+        label_fmt=label_fmt_left,
+        color_palette=color_palette,
+        label_props={
+            "ha": "right",
+            **label_props,
+        },
     )
 
-    # number of wins
-    dfff = df_ranks.rank(ascending=False)
-    print(dfff[dfff == 1.0].sum(axis=1))
+    if not left_only:
+        plot_items(
+            points_right[::-1],
+            xpos=points_right.iloc[-1] + text_h_margin,
+            label_fmt=label_fmt_right,
+            color_palette=color_palette,
+            label_props={"ha": "left", **label_props},
+        )
 
-    # average the ranks
-    average_ranks = df_ranks.rank(ascending=False).mean(axis=1).sort_values(ascending=False)
-    # return the p-values and the average ranks
-    return p_values, average_ranks, max_nb_datasets
+    return {
+        "markers": markers,
+        "elbows": elbows,
+        "labels": labels,
+        "crossbars": crossbars,
+    }
+
+
+def _generate_discrete_palette(n_colors):
+    # Get the base D3 categorical palette
+    base_palette = pc.qualitative.D3
+    base_n = len(base_palette)  # Number of available discrete colors
+
+    if n_colors <= base_n:
+        return base_palette[:n_colors]  # Use available colors directly
+
+    # Convert HEX to RGB (0-1 range)
+    base_rgb = np.array([matplotlib.colors.to_rgb(c) for c in base_palette])
+
+    # Generate target indices in the interpolated space
+    target_indices = np.linspace(0, base_n - 1, n_colors)
+
+    # Interpolate in RGB space
+    interpolated_rgb = np.array(
+        [np.interp(target_indices, np.arange(base_n), base_rgb[:, i]) for i in range(3)]
+    ).T  # Transpose to get (n_colors, 3)
+
+    # Convert back to HEX
+    interpolated_hex = [matplotlib.colors.to_hex(c) for c in interpolated_rgb]
+
+    return interpolated_hex
