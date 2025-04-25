@@ -2,6 +2,7 @@ NaivePredictor:
 NaiveDrugMeanPredictor:
 NaiveCellLineMeanPredictor:
 NaiveMeanEffectsPredictor:
+NaiveTissueMeanPredictor:
 ElasticNet:
   l1_ratio:
     - 0
