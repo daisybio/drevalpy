@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 
 from drevalpy.datasets.dataset import FeatureDataset
-from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
+from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, TISSUE_IDENTIFIER
 
 
 def load_cl_ids_from_csv(path: str, dataset_name: str) -> FeatureDataset:
@@ -19,6 +19,20 @@ def load_cl_ids_from_csv(path: str, dataset_name: str) -> FeatureDataset:
     """
     cl_names = pd.read_csv(f"{path}/{dataset_name}/cell_line_names.csv", index_col=1)
     return FeatureDataset(features={cl: {CELL_LINE_IDENTIFIER: np.array([cl])} for cl in cl_names.index})
+
+
+def load_tissues_from_csv(path: str, dataset_name: str) -> FeatureDataset:
+    """
+    Load tissues from csv file.
+
+    :param path: path to the data, e.g., data/
+    :param dataset_name: name of the dataset, e.g., GDSC2
+    :returns: FeatureDataset with the tissues
+    """
+    tissues = pd.read_csv(f"{path}/{dataset_name}/cell_line_names.csv", index_col=1).drop_duplicates()
+    return FeatureDataset(
+        features={cl: {TISSUE_IDENTIFIER: np.array([tissues.loc[cl, "tissue"]])} for cl in tissues.index}
+    )
 
 
 def load_and_select_gene_features(
