@@ -14,7 +14,7 @@ import numpy as np
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, TISSUE_IDENTIFIER
 from drevalpy.models.drp_model import DRPModel
-from drevalpy.models.utils import load_cl_ids_from_csv, load_drug_ids_from_csv, unique
+from drevalpy.models.utils import load_cl_ids_from_csv, load_drug_ids_from_csv, load_tissues_from_csv, unique
 
 
 class NaivePredictor(DRPModel):
@@ -382,25 +382,22 @@ class NaiveTissueMeanPredictor(DRPModel):
         model_checkpoint_dir: str = "None",
     ) -> None:
         """
-        Computes the mean per tissue.
+        Computes the mean per tissue. Falls back to the overall mean for unknown tissues.
 
-        if unseen tissue during prediction, the overall mean is used.
-
-        :param output: training dataset containing the response output
-        :param cell_line_input: tissue input features
+        :param output: training dataset with `.response` and `.tissue`
+        :param cell_line_input: not needed
         :param drug_input: not needed
         :param output_earlystopping: not needed
         :param model_checkpoint_dir: not needed
         """
-        tissues = cell_line_input.get_feature_matrix(view=TISSUE_IDENTIFIER, identifiers=output.cell_line_ids)
         self.dataset_mean = np.mean(output.response)
         self.tissue_means = {}
 
-        for tissue_response, tissue_feature in zip(unique(output.cell_line_ids), unique(tissues), strict=True):
-            responses_tissue = output.response[tissue_feature == tissues]
-            if len(responses_tissue) > 0:
-                # prevent nan response
-                self.tissue_means[tissue_response] = np.mean(responses_tissue)
+        for tissue in np.unique(output.tissue):
+            mask = output.tissue == tissue
+            responses = output.response[mask]
+            if len(responses) > 0:
+                self.tissue_means[tissue] = np.mean(responses)
 
     def predict(
         self,
@@ -431,7 +428,7 @@ class NaiveTissueMeanPredictor(DRPModel):
         :param dataset_name: name of the dataset
         :returns: FeatureDataset containing the tissue ids
         """
-        return load_cl_ids_from_csv(data_path, dataset_name)
+        return load_tissues_from_csv(data_path, dataset_name)
 
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         """
