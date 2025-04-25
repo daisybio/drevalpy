@@ -690,6 +690,8 @@ def _leave_group_out_cv(
         if tissues is None:
             raise AssertionError("Tissue information is required for LTO cross-validation.")
         group_ids = tissues
+    else:
+        raise AssertionError(f"Unknown group {group}")
 
     # shuffle, since GroupKFold does not implement this
     indices = np.arange(len(response))
@@ -698,6 +700,7 @@ def _leave_group_out_cv(
     response = response[shuffled_indices].copy()
     cell_line_ids = cell_line_ids[shuffled_indices].copy()
     drug_ids = drug_ids[shuffled_indices].copy()
+    tissues = tissues[shuffled_indices].copy() if tissues is not None else None
     group_ids = group_ids[shuffled_indices].copy()
     gkf = GroupKFold(n_splits=n_cv_splits)
     cv_sets = []
