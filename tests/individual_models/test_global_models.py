@@ -4,7 +4,6 @@ import os
 import tempfile
 from typing import cast
 
-import numpy as np
 import pytest
 
 from drevalpy.datasets.dataset import DrugResponseDataset
@@ -14,7 +13,7 @@ from drevalpy.models import MODEL_FACTORY
 from drevalpy.models.drp_model import DRPModel
 
 
-@pytest.mark.parametrize("test_mode", ["LPO"])
+@pytest.mark.parametrize("test_mode", ["LTO"])
 @pytest.mark.parametrize("model_name", ["SRMF", "DIPK", "SimpleNeuralNetwork", "MultiOmicsNeuralNetwork"])
 def test_global_models(
     sample_dataset: DrugResponseDataset,
@@ -32,16 +31,10 @@ def test_global_models(
     :raises ValueError: if drug input is None
     """
     drug_response = sample_dataset
-    drug_response.split_dataset(
-        n_cv_splits=5,
-        mode=test_mode,
-    )
+    drug_response.split_dataset(n_cv_splits=2, mode=test_mode, validation_ratio=0.4)
     assert drug_response.cv_splits is not None
     split = drug_response.cv_splits[0]
     train_dataset = split["train"]
-    # smaller dataset for faster testing
-    train_dataset.remove_rows(indices=np.array([list(range(len(train_dataset) - 1000))]))
-
     val_es_dataset = split["validation_es"]
     es_dataset = split["early_stopping"]
     val_dataset = split["validation"]
@@ -106,6 +99,7 @@ def test_global_models(
     )
 
     metrics = evaluate(prediction_dataset, metric=["Pearson"])
+    print(f"Model: {model_name}, Pearson: {metrics['Pearson']}")
     assert metrics["Pearson"] >= -1.0
 
     with tempfile.TemporaryDirectory() as temp_dir:

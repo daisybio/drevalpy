@@ -219,6 +219,8 @@ def prep_results(
         for file in files:
             if file == "drug_names.csv":
                 drug_names = pd.read_csv(os.path.join(root, file), index_col=0)
+                # make index to str
+                drug_names.index = drug_names.index.astype(str)
                 # index: pubchem_id, column: drug_name
                 drug_metadata.update(zip(drug_names.index, drug_names["drug_name"]))
             elif file == "cell_line_names.csv":

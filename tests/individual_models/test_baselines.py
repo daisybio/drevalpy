@@ -16,6 +16,7 @@ from drevalpy.models import (
     NaiveDrugMeanPredictor,
     NaiveMeanEffectsPredictor,
     NaivePredictor,
+    NaiveTissueMeanPredictor,
 )
 from drevalpy.models.baselines.sklearn_models import SklearnModel
 from drevalpy.models.drp_model import DRPModel
@@ -36,7 +37,7 @@ from drevalpy.models.drp_model import DRPModel
         "ProteomicsRandomForest",
     ],
 )
-@pytest.mark.parametrize("test_mode", ["LPO", "LCO", "LDO"])
+@pytest.mark.parametrize("test_mode", ["LTO", "LPO", "LCO", "LDO"])
 def test_baselines(
     sample_dataset: DrugResponseDataset,
     model_name: str,
@@ -48,7 +49,7 @@ def test_baselines(
 
     :param sample_dataset: from conftest.py
     :param model_name: name of the model
-    :param test_mode: either LPO, LCO, or LDO
+    :param test_mode: either LPO, LCO, LDO, or LTO
     :param cross_study_dataset: dataset
     :raises ValueError: if drug input is None
     """
@@ -56,7 +57,7 @@ def test_baselines(
     drug_response.split_dataset(
         n_cv_splits=2,
         mode=test_mode,
-        validation_ratio=0.2,
+        validation_ratio=0.4,
     )
     assert drug_response.cv_splits is not None
     split = drug_response.cv_splits[0]
@@ -102,6 +103,15 @@ def test_baselines(
         )
     elif model_name == "NaiveMeanEffectsPredictor":
         model = _call_naive_mean_effects_predictor(train_dataset, val_dataset, cell_line_input, drug_input, test_mode)
+    elif model_name == "NaiveTissueMeanPredictor":
+        model = _call_naive_group_predictor(
+            "tissue",
+            train_dataset,
+            val_dataset,
+            cell_line_input,
+            drug_input,
+            test_mode,
+        )
     else:
         model = _call_other_baselines(
             model_name,
@@ -172,6 +182,11 @@ def _assert_group_mean(
     :param naive_means: means
     """
     common_ids = np.intersect1d(group_ids["train"], group_ids["val"])
+    assert len(common_ids) > 0, (
+        f"No common group identifiers found between training and validation. "
+        f"Train IDs: {np.unique(group_ids['train'])}, "
+        f"Val IDs: {np.unique(group_ids['val'])}"
+    )
     random_id = np.random.choice(common_ids)
     group_mean = train_dataset.response[group_ids["train"] == random_id].mean()
     assert group_mean == naive_means[random_id]
@@ -187,11 +202,15 @@ def _call_naive_group_predictor(
     drug_input: FeatureDataset,
     test_mode: str,
 ) -> DRPModel:
-    naive: NaiveDrugMeanPredictor | NaiveCellLineMeanPredictor
+    naive: NaiveDrugMeanPredictor | NaiveCellLineMeanPredictor | NaiveTissueMeanPredictor
     if group == "drug":
         naive = NaiveDrugMeanPredictor()
-    else:
+    elif group == "cell_line":
         naive = NaiveCellLineMeanPredictor()
+    elif group == "tissue":
+        naive = NaiveTissueMeanPredictor()
+    else:
+        raise ValueError(f"Unknown group: {group}")
     naive.train(
         output=train_dataset,
         cell_line_input=cell_line_input,
@@ -203,7 +222,11 @@ def _call_naive_group_predictor(
     assert val_dataset.predictions is not None
     train_mean = train_dataset.response.mean()
     assert train_mean == naive.dataset_mean
-    if (group == "drug" and test_mode == "LDO") or (group == "cell_line" and test_mode == "LCO"):
+    if (
+        (group == "drug" and test_mode == "LDO")
+        or (group == "cell_line" and test_mode in ["LCO", "LTO"])
+        or (group == "tissue" and test_mode == "LTO")
+    ):
         assert np.all(val_dataset.predictions == train_mean)
     elif group == "drug":
         assert isinstance(naive, NaiveDrugMeanPredictor)
@@ -216,7 +239,7 @@ def _call_naive_group_predictor(
             },
             naive_means=naive.drug_means,
         )
-    else:  # group == "cell_line"
+    elif group == "cell_line":
         assert isinstance(naive, NaiveCellLineMeanPredictor)
         _assert_group_mean(
             train_dataset,
@@ -227,6 +250,21 @@ def _call_naive_group_predictor(
             },
             naive_means=naive.cell_line_means,
         )
+    elif group == "tissue":
+        assert isinstance(naive, NaiveTissueMeanPredictor)
+        if train_dataset.tissue is None or val_dataset.tissue is None:
+            raise ValueError("Tissue information is missing in the dataset.")
+        _assert_group_mean(
+            train_dataset,
+            val_dataset,
+            group_ids={
+                "train": train_dataset.tissue,
+                "val": val_dataset.tissue,
+            },
+            naive_means=naive.tissue_means,
+        )
+    else:
+        raise ValueError(f"Unknown group: {group}")
     metrics = evaluate(val_dataset, metric=["Pearson"])
     print(f"{test_mode}: Performance of {naive.get_model_name()}: PCC = {metrics['Pearson']}")
     if (group == "drug" and test_mode == "LDO") or (group == "cell_line" and test_mode == "LCO"):
@@ -272,8 +310,6 @@ def _call_other_baselines(
             else:
                 assert issubclass(type(model_instance.model), ElasticNet)
 
-        # smaller dataset for faster testing
-        train_dataset.remove_rows(indices=np.array([list(range(len(train_dataset) - 1000))]))
         model_instance.train(
             output=train_dataset,
             cell_line_input=cell_line_input,

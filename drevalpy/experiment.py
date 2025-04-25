@@ -86,7 +86,8 @@ def drug_response_experiment(
         models are retrained multiple times with varying seeds. Default is 0, which means no robustness test is run.
     :param path_out: path to the output directory
     :param run_id: identifier to save the results
-    :param test_mode: test mode one of "LPO", "LCO", "LDO" (leave-pair-out, leave-cell-line-out, leave-drug-out)
+    :param test_mode: test mode one of "LPO", "LCO", "LTO", "LDO"
+        (leave-pair-out, leave-cell-line-out, leave-tissue-out, leave-drug-out)
     :param overwrite: whether to overwrite existing results
     :param path_data: path to the data directory, usually data/
     :param model_checkpoint_dir: directory to save model checkpoints. If "TEMPORARY", a temporary directory is created.
@@ -479,7 +480,7 @@ def cross_study_prediction(
     :param path_out: path to the output directory, e.g., results/
     :param split_index: index of the split
     :param single_drug_id: drug id to use for single drug models None for global models
-    :raises ValueError: if feature loading fails or if the test mode is invalid
+    :raises ValueError: if feature loading fails, if the test mode is invalid, or if LTO and no tissues are supplied.
     """
     dataset = dataset.copy()
     os.makedirs(os.path.join(path_out, "cross_study"), exist_ok=True)
@@ -532,8 +533,23 @@ def cross_study_prediction(
             cell_line_ids=None,
             drug_ids=np.setdiff1d(dataset.drug_ids, train_drugs),
         )
+    elif test_mode == "LTO":
+        if train_dataset.tissue is None or dataset.tissue is None:
+            raise ValueError("Tissue information not available.")
+        # get tissues occurring in train
+        train_tissues = set(train_dataset.tissue)
+        # get indices of tissues in dataset not occurring in train_tissues
+        indices = np.array([i for i, t in enumerate(dataset.tissue) if t not in train_tissues])
+        if len(indices) > 0:
+            cell_lines_to_keep = np.unique(dataset.cell_line_ids[indices])
+        else:
+            cell_lines_to_keep = np.array([])
+        dataset.reduce_to(
+            cell_line_ids=cell_lines_to_keep,
+            drug_ids=None,
+        )
     else:
-        raise ValueError(f"Invalid test mode: {test_mode}. Choose from LPO, LCO, LDO")
+        raise ValueError(f"Invalid test mode: {test_mode}. Choose from LPO, LCO, LDO, LTO")
     if len(dataset) > 0:
         dataset.shuffle(random_state=42)
         dataset._predictions = model.predict(

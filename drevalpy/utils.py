@@ -203,8 +203,8 @@ def check_arguments(args) -> None:
             f"use your own model, you need to implement a new model class and add it to the "
             f"MODEL_FACTORY in the models init"
         )
-    if not all(test in ["LPO", "LCO", "LDO"] for test in args.test_mode):
-        raise AssertionError("Invalid test mode. Available test modes are LPO, LCO, LDO")
+    if not all(test in ["LPO", "LCO", "LDO", "LTO"] for test in args.test_mode):
+        raise AssertionError("Invalid test mode. Available test modes are LPO, LCO, LDO, LTO")
 
     if args.baselines is not None:
         if not all(baseline in MODEL_FACTORY for baseline in args.baselines):

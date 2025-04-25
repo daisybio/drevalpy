@@ -9,7 +9,7 @@ import pandas as pd
 from ..pipeline_function import pipeline_function
 from .curvecurator import fit_curves
 from .dataset import DrugResponseDataset
-from .utils import ALLOWED_MEASURES, CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, download_dataset
+from .utils import ALLOWED_MEASURES, CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, TISSUE_IDENTIFIER, download_dataset
 
 
 def check_measure(measure_queried: str, measures_data: list[str], dataset_name: str) -> None:
@@ -56,6 +56,7 @@ def load_gdsc1(
         response=response_data[measure].values,
         cell_line_ids=response_data[CELL_LINE_IDENTIFIER].values,
         drug_ids=response_data[DRUG_IDENTIFIER].values,
+        tissues=response_data[TISSUE_IDENTIFIER].values,
         dataset_name=dataset_name,
     )
 
@@ -97,6 +98,7 @@ def load_ccle(
         response=response_data[measure].values,
         cell_line_ids=response_data[CELL_LINE_IDENTIFIER].values,
         drug_ids=response_data[DRUG_IDENTIFIER].values,
+        tissues=response_data[TISSUE_IDENTIFIER].values,
         dataset_name=dataset_name,
     )
 
@@ -122,6 +124,7 @@ def _load_toy(
         response=response_data[measure].values,
         cell_line_ids=response_data[CELL_LINE_IDENTIFIER].values,
         drug_ids=response_data[DRUG_IDENTIFIER].values,
+        tissues=response_data[TISSUE_IDENTIFIER].values,
         dataset_name=dataset_name,
     )
 
@@ -171,6 +174,7 @@ def _load_ctrpv(version: str, path_data: str = "data", measure: str = "LN_IC50_c
         response=response_data[measure].values,
         cell_line_ids=response_data[CELL_LINE_IDENTIFIER].values,
         drug_ids=response_data[DRUG_IDENTIFIER].values,
+        tissues=response_data[TISSUE_IDENTIFIER].values,
         dataset_name=dataset_name,
     )
 
@@ -199,16 +203,19 @@ def load_ctrpv2(path_data: str = "data", measure: str = "LN_IC50_curvecurator") 
     return _load_ctrpv("2", path_data, measure)
 
 
-def load_custom(path_data: str | Path, measure: str = "response") -> DrugResponseDataset:
+def load_custom(
+    path_data: str | Path, measure: str = "response", tissue_column: str | None = None
+) -> DrugResponseDataset:
     """
     Load custom dataset.
 
     :param path_data: Path to location of custom dataset
     :param measure: The name of the column containing the measure to predict, default = "response"
+    :param tissue_column: The name of the column containing the tissue type. If None, no tissue information is loaded.
 
     :return: DrugResponseDataset containing response, cell line IDs, and drug IDs
     """
-    return DrugResponseDataset.from_csv(path_data, measure=measure)
+    return DrugResponseDataset.from_csv(path_data, measure=measure, tissue_column=tissue_column)
 
 
 AVAILABLE_DATASETS: dict[str, Callable] = {
@@ -224,7 +231,12 @@ AVAILABLE_DATASETS: dict[str, Callable] = {
 
 @pipeline_function
 def load_dataset(
-    dataset_name: str, path_data: str = "data", measure: str = "response", curve_curator: bool = False, cores: int = 1
+    dataset_name: str,
+    path_data: str = "data",
+    measure: str = "response",
+    curve_curator: bool = False,
+    cores: int = 1,
+    tissue_column: str | None = None,
 ) -> DrugResponseDataset:
     """
     Load a dataset based on the dataset name.
@@ -243,6 +255,8 @@ def load_dataset(
         which is expected to exist at <path_data>/<dataset_name>/<dataset_name>_raw.csv. The fitted dataset will
         be stored in the same folder, in a file called <dataset_name>.csv
     :param cores: Number of cores to use for CurveCurator fitting. Only used when curve_curator is True, default = 1
+    :param tissue_column: The name of the column containing the tissue type. If None, no tissue information is loaded.
+        This is only used when loading a custom dataset. Default = None.
     :return: A DrugResponseDataset containing response, cell line IDs, drug IDs, and dataset name.
     :raises FileNotFoundError: If the custom dataset or raw viability data could not be found at the given path.
     """
@@ -263,5 +277,7 @@ def load_dataset(
                 dataset_name=dataset_name,
                 cores=cores,
             )
-        return load_custom(Path(path_data) / dataset_name / f"{dataset_name}.csv", measure=measure)
+        return load_custom(
+            Path(path_data) / dataset_name / f"{dataset_name}.csv", measure=measure, tissue_column=tissue_column
+        )
     raise FileNotFoundError(f"Custom dataset does not exist at given path: {input_file}")
