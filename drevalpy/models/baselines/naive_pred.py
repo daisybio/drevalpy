@@ -384,7 +384,7 @@ class NaiveTissueMeanPredictor(DRPModel):
         """
         Computes the mean per tissue.
 
-        If - later on - the tissue is not in the training set, the overall mean is used.
+        if unseen tissue during prediction, the overall mean is used.
 
         :param output: training dataset containing the response output
         :param cell_line_input: tissue input features
