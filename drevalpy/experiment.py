@@ -540,7 +540,10 @@ def cross_study_prediction(
         train_tissues = set(train_dataset.tissue)
         # get indices of tissues in dataset not occurring in train_tissues
         indices = np.array([i for i, t in enumerate(dataset.tissue) if t not in train_tissues])
-        cell_lines_to_keep = np.unique(dataset.cell_line_ids[indices])
+        if len(indices) > 0:
+            cell_lines_to_keep = np.unique(dataset.cell_line_ids[indices])
+        else:
+            cell_lines_to_keep = np.array([])
         dataset.reduce_to(
             cell_line_ids=cell_lines_to_keep,
             drug_ids=None,

@@ -234,7 +234,8 @@ def test_split_response_dataset(mode: str, split_validation: bool) -> None:
         cell_line_ids=np.repeat([f"CL-{i}" for i in range(1, 11)], 10),
         drug_ids=np.tile([f"Drug-{i}" for i in range(1, 11)], 10),
         tissues=np.array(
-            ["Breast", "Breast", "Breast", "Kidney", "Kidney", "Brain", "Heart", "Pancreas", "Prostate", "Colon"] * 10
+            ["Breast", "Breast", "Lung", "Kidney", "Small intestine", "Brain", "Heart", "Pancreas", "Prostate", "Colon"]
+            * 10
         ),
     )
     # 100 datapoints, 10 cell lines, 10 drugs
