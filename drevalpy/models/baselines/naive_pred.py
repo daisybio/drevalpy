@@ -382,25 +382,22 @@ class NaiveTissueMeanPredictor(DRPModel):
         model_checkpoint_dir: str = "None",
     ) -> None:
         """
-        Computes the mean per tissue.
+        Computes the mean per tissue. Falls back to the overall mean for unknown tissues.
 
-        if unseen tissue during prediction, the overall mean is used.
-
-        :param output: training dataset containing the response output
-        :param cell_line_input: tissue input features
+        :param output: training dataset with `.response` and `.tissue`
+        :param cell_line_input: not needed
         :param drug_input: not needed
         :param output_earlystopping: not needed
         :param model_checkpoint_dir: not needed
         """
-        tissues = cell_line_input.get_feature_matrix(view=TISSUE_IDENTIFIER, identifiers=output.cell_line_ids)
         self.dataset_mean = np.mean(output.response)
         self.tissue_means = {}
 
-        for tissue_response, tissue_feature in zip(unique(output.cell_line_ids), unique(tissues), strict=True):
-            responses_tissue = output.response[tissue_feature == tissues]
-            if len(responses_tissue) > 0:
-                # prevent nan response
-                self.tissue_means[tissue_response] = np.mean(responses_tissue)
+        for tissue in np.unique(output.tissue):
+            mask = output.tissue == tissue
+            responses = output.response[mask]
+            if len(responses) > 0:
+                self.tissue_means[tissue] = np.mean(responses)
 
     def predict(
         self,
