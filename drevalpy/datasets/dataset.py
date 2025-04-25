@@ -554,14 +554,24 @@ def _split_early_stopping_data(
     :returns: the resulting validation and early stopping datasets
     """
     validation_dataset.shuffle(random_state=42)
+    n_groups = len(
+        np.unique(
+            validation_dataset.cell_line_ids
+            if test_mode == "LCO"
+            else validation_dataset.drug_ids if test_mode == "LDO" else validation_dataset.tissue
+        )
+    )
+    n_splits = min(4, n_groups)
+
     cv_v = validation_dataset.split_dataset(
-        n_cv_splits=4,
+        n_cv_splits=n_splits,
         mode=test_mode,
         split_validation=False,
         split_early_stopping=False,
         random_state=42,
     )
     # take the first fold of a 4 cv as the split i.e. 3/4 for validation and 1/4 for early stopping
+    # when n_groups is less than 4, we splits the validation dataset into 2/3 and 1/3 or 1/2 and 1/2
     validation_dataset = cv_v[0]["train"]
     early_stopping_dataset = cv_v[0]["test"]
     return validation_dataset, early_stopping_dataset
