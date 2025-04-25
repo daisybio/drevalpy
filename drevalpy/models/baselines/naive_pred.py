@@ -418,7 +418,11 @@ class NaiveTissueMeanPredictor(DRPModel):
         :return: array of the same length as the input cell_line_id containing the tissue mean
         """
         tissues = cell_line_input.get_feature_matrix(view=TISSUE_IDENTIFIER, identifiers=cell_line_ids)
-        return np.array([self.tissue_means.get(tissue, self.dataset_mean) for tissue in tissues])
+        preds = []
+        for tissue in tissues:
+            key = tissue.item() if isinstance(tissue, np.ndarray) else tissue
+            preds.append(self.tissue_means.get(key, self.dataset_mean))
+        return np.array(preds)
 
     def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         """
