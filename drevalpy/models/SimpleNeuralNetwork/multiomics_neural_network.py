@@ -143,31 +143,18 @@ class MultiOmicsNeuralNetwork(DRPModel):
             cell_line_input=cell_line_input,
             drug_input=drug_input,
         )
-        (
-            gene_expression,
-            methylation,
-            mutations,
-            copy_number_variation_gistic,
-            fingerprints,
-        ) = (
-            inputs["gene_expression"],
-            inputs["methylation"],
-            inputs["mutations"],
-            inputs["copy_number_variation_gistic"],
-            inputs["fingerprints"],
-        )
-
-        methylation = self.pca.transform(methylation)
-        x = np.concatenate(
-            (
-                gene_expression,
-                methylation,
-                mutations,
-                copy_number_variation_gistic,
-                fingerprints,
-            ),
-            axis=1,
-        )
+        x = None
+        for cl_view in self.cell_line_views:
+            feature_mat = inputs[cl_view]
+            if cl_view == "methylation":
+                feature_mat = self.pca.transform(feature_mat)
+            if x is None:
+                x = feature_mat
+            else:
+                x = np.concatenate((x, feature_mat), axis=1)
+        for d_view in self.drug_views:
+            feature_mat = inputs[d_view]
+            x = np.concatenate((x, feature_mat), axis=1)
         return self.model.predict(x)
 
     def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
