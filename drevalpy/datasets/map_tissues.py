@@ -377,12 +377,16 @@ def main():
 
     # Add tissue column to each dataset
     for ds in datasets:
-        path = f"/Users/piversen/Projects/munich/drevalpy/data/{ds}/{ds}.csv"
+        path = os.path.join(data_path, ds, f"{ds}.csv")
+        if not os.path.exists(path):
+            print(f"Dataset {path} not found, skipping.")
+            continue
+
         df = pd.read_csv(path, low_memory=False)
 
         df["tissue"] = df["cellosaurus_id"].map(tissue_map)
 
-        df.to_csv(f"/Users/piversen/Projects/munich/drevalpy/data/{ds}/{ds}.csv", index=False)
+        df.to_csv(path, index=False)
 
 
 if __name__ == "__main__":
