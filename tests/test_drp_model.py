@@ -61,19 +61,19 @@ def test_load_cl_ids_from_csv() -> None:
 
 def test_load_tissues_from_csv() -> None:
     """Test the loading of tissues from a CSV file."""
-    temp = tempfile.TemporaryDirectory()
-    os.mkdir(os.path.join(temp.name, "GDSC1_small"))
-    temp_file = os.path.join(temp.name, "GDSC1_small", "cell_line_names.csv")
-    with open(temp_file, "w") as f:
-        f.write(
-            "cellosaurus_id,CELL_LINE_NAME,tissue\n"
-            "CVCL_X481,201T,lung\n"
-            "CVCL_1045,22Rv1,breast\n"
-            "CVCL_1046,23132/87,liver\n"
-            "CVCL_1798,42-MG-BA,kidney\n"
-        )
+    with tempfile.TemporaryDirectory() as temp_dir:
+        os.mkdir(os.path.join(temp_dir, "GDSC1_small"))
+        temp_file = os.path.join(temp_dir, "GDSC1_small", "cell_line_names.csv")
+        with open(temp_file, "w") as f:
+            f.write(
+                "cellosaurus_id,CELL_LINE_NAME,tissue\n"
+                "CVCL_X481,201T,lung\n"
+                "CVCL_1045,22Rv1,breast\n"
+                "CVCL_1046,23132/87,liver\n"
+                "CVCL_1798,42-MG-BA,kidney\n"
+            )
 
-        tissues_gdsc1 = load_tissues_from_csv(temp.name, "GDSC1_small")
+        tissues_gdsc1 = load_tissues_from_csv(temp_dir, "GDSC1_small")
         assert len(tissues_gdsc1.features) == 4
 
         expected = {
@@ -88,8 +88,6 @@ def test_load_tissues_from_csv() -> None:
             assert isinstance(tissue_value, np.ndarray)
             assert tissue_value.shape == (1,)
             assert tissue_value[0] == expected_tissue
-
-    temp.cleanup()
 
 
 def _write_gene_list(temp_dir: tempfile.TemporaryDirectory, gene_list: Optional[str] = None) -> None:
