@@ -621,14 +621,14 @@ def _leave_pair_out_cv(
                 cell_line_ids=cell_line_ids[train_indices],
                 drug_ids=drug_ids[train_indices],
                 response=response[train_indices],
-                tissues=tissues[train_indices],
+                tissues=tissues[train_indices] if tissues is not None else None,
                 dataset_name=dataset_name,
             ),
             "test": DrugResponseDataset(
                 cell_line_ids=cell_line_ids[test_indices],
                 drug_ids=drug_ids[test_indices],
                 response=response[test_indices],
-                tissues=tissues[test_indices],
+                tissues=tissues[test_indices] if tissues is not None else None,
                 dataset_name=dataset_name,
             ),
         }
@@ -638,7 +638,7 @@ def _leave_pair_out_cv(
                 cell_line_ids=cell_line_ids[validation_indices],
                 drug_ids=drug_ids[validation_indices],
                 response=response[validation_indices],
-                tissues=tissues[validation_indices],
+                tissues=tissues[validation_indices] if tissues is not None else None,
                 dataset_name=dataset_name,
             )
 
