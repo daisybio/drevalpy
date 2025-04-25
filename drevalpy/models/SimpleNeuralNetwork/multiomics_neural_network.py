@@ -136,6 +136,7 @@ class MultiOmicsNeuralNetwork(DRPModel):
         :param drug_input: drug omics features
         :param cell_line_input: cell line omics features
         :returns: predicted response
+        :raises ValueError: if no cell line information was added
         """
         inputs = self.get_feature_matrices(
             cell_line_ids=cell_line_ids,
@@ -143,7 +144,7 @@ class MultiOmicsNeuralNetwork(DRPModel):
             cell_line_input=cell_line_input,
             drug_input=drug_input,
         )
-        x = None
+        x: np.ndarray | None = None
         for cl_view in self.cell_line_views:
             feature_mat = inputs[cl_view]
             if cl_view == "methylation":
@@ -154,6 +155,8 @@ class MultiOmicsNeuralNetwork(DRPModel):
                 x = np.concatenate((x, feature_mat), axis=1)
         for d_view in self.drug_views:
             feature_mat = inputs[d_view]
+            if x is None:
+                raise ValueError("There should be cell line features!")
             x = np.concatenate((x, feature_mat), axis=1)
         return self.model.predict(x)
 
