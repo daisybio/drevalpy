@@ -389,10 +389,13 @@ class NaiveTissueMeanPredictor(DRPModel):
         :param drug_input: not needed
         :param output_earlystopping: not needed
         :param model_checkpoint_dir: not needed
+        :raises ValueError: If tissue information is missing in the output dataset.
         """
         self.dataset_mean = np.mean(output.response)
         self.tissue_means = {}
 
+        if output.tissue is None:
+            raise ValueError("Tissue information is missing in the output dataset.")
         for tissue in np.unique(output.tissue):
             mask = output.tissue == tissue
             responses = output.response[mask]
