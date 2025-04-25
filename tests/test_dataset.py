@@ -171,8 +171,8 @@ def test_remove_rows():
 
 
 def test_response_dataset_reduce_to():
-    """Test if the reduce_to method works correctly."""
-    # Create a dataset with known values
+    """Test if the reduce_to method works correctly and handles edge cases."""
+    # Case 1: Standard reduction
     dataset = DrugResponseDataset(
         response=np.array([1, 2, 3, 4, 5]),
         cell_line_ids=np.array([101, 102, 103, 104, 105]),
@@ -180,18 +180,43 @@ def test_response_dataset_reduce_to():
         tissues=np.array(["Tissue1", "Tissue2", "Tissue3", "Tissue4", "Tissue5"]),
     )
 
-    # Reduce the dataset to a subset of cell line IDs and drug IDs
     dataset.reduce_to(cell_line_ids=np.array([102, 104]), drug_ids=np.array(["B", "D"]))
 
-    # Check if only the rows corresponding to the specified cell line IDs and drug IDs remain
     assert all(cell_line_id in [102, 104] for cell_line_id in dataset.cell_line_ids)
     assert all(drug_id in ["B", "D"] for drug_id in dataset.drug_ids)
-
-    # Check if the length of response, cell_line_ids, and drug_ids arrays is reduced accordingly
     assert len(dataset.response) == 2
     assert len(dataset.cell_line_ids) == 2
     assert len(dataset.drug_ids) == 2
     assert len(dataset.tissue) == 2
+
+    # Case 2: reduce_to(None, None) does nothing
+    dataset = DrugResponseDataset(
+        response=np.array([1, 2]),
+        cell_line_ids=np.array([201, 202]),
+        drug_ids=np.array(["X", "Y"]),
+        tissues=np.array(["T1", "T2"]),
+    )
+
+    dataset.reduce_to(cell_line_ids=None, drug_ids=None)
+
+    assert len(dataset.response) == 2
+    assert set(dataset.cell_line_ids) == {201, 202}
+    assert set(dataset.drug_ids) == {"X", "Y"}
+
+    # Case 3: reduce_to with empty lists removes all
+    dataset = DrugResponseDataset(
+        response=np.array([1, 2]),
+        cell_line_ids=np.array([301, 302]),
+        drug_ids=np.array(["M", "N"]),
+        tissues=np.array(["T1", "T2"]),
+    )
+
+    dataset.reduce_to(cell_line_ids=[], drug_ids=[])
+
+    assert len(dataset.response) == 0
+    assert len(dataset.cell_line_ids) == 0
+    assert len(dataset.drug_ids) == 0
+    assert len(dataset.tissue) == 0
 
 
 @pytest.mark.parametrize("mode", ["LPO", "LCO", "LDO", "LTO"])

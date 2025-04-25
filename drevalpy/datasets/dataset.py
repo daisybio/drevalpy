@@ -285,7 +285,7 @@ class DrugResponseDataset:
         if isinstance(drugs_to_remove, str):
             drugs_to_remove = [drugs_to_remove]
 
-        mask = np.array([drug not in drugs_to_remove for drug in self.drug_ids])
+        mask = np.array([drug not in drugs_to_remove for drug in self.drug_ids], dtype=bool)
         self.mask(mask)
 
     def _remove_cell_lines(self, cell_lines_to_remove: str | list[str | int]) -> None:
@@ -297,7 +297,7 @@ class DrugResponseDataset:
         if isinstance(cell_lines_to_remove, str):
             cell_lines_to_remove = [cell_lines_to_remove]
 
-        mask = np.array([cell_line not in cell_lines_to_remove for cell_line in self.cell_line_ids])
+        mask = np.array([cell_line not in cell_lines_to_remove for cell_line in self.cell_line_ids], dtype=bool)
         self.mask(mask)
 
     def remove_rows(self, indices: np.ndarray) -> None:
@@ -500,7 +500,11 @@ class DrugResponseDataset:
         Removes rows from the dataset based on a boolean mask.
 
         :param mask: boolean mask
+        :raises ValueError: if mask is not boolean or integer
         """
+        if mask.dtype != bool and not np.issubdtype(mask.dtype, np.integer):
+            raise ValueError("Mask must be of boolean or integer dtype.")
+
         self._response = self.response[mask]
         self._cell_line_ids = self.cell_line_ids[mask]
         self._drug_ids = self.drug_ids[mask]
@@ -621,14 +625,14 @@ def _leave_pair_out_cv(
                 cell_line_ids=cell_line_ids[train_indices],
                 drug_ids=drug_ids[train_indices],
                 response=response[train_indices],
-                tissues=tissues[train_indices],
+                tissues=tissues[train_indices] if tissues is not None else None,
                 dataset_name=dataset_name,
             ),
             "test": DrugResponseDataset(
                 cell_line_ids=cell_line_ids[test_indices],
                 drug_ids=drug_ids[test_indices],
                 response=response[test_indices],
-                tissues=tissues[test_indices],
+                tissues=tissues[test_indices] if tissues is not None else None,
                 dataset_name=dataset_name,
             ),
         }
@@ -638,7 +642,7 @@ def _leave_pair_out_cv(
                 cell_line_ids=cell_line_ids[validation_indices],
                 drug_ids=drug_ids[validation_indices],
                 response=response[validation_indices],
-                tissues=tissues[validation_indices],
+                tissues=tissues[validation_indices] if tissues is not None else None,
                 dataset_name=dataset_name,
             )
 

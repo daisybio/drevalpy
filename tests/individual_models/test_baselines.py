@@ -172,6 +172,11 @@ def _assert_group_mean(
     :param naive_means: means
     """
     common_ids = np.intersect1d(group_ids["train"], group_ids["val"])
+    assert len(common_ids) > 0, (
+        f"No common group identifiers found between training and validation. "
+        f"Train IDs: {np.unique(group_ids['train'])}, "
+        f"Val IDs: {np.unique(group_ids['val'])}"
+    )
     random_id = np.random.choice(common_ids)
     group_mean = train_dataset.response[group_ids["train"] == random_id].mean()
     assert group_mean == naive_means[random_id]

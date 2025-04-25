@@ -20,6 +20,7 @@ based on verified external sources (e.g., ATCC, NCI).
 Arguments:
 - `data_path` (str): Path to the directory containing all datasets and metadata files.
 - `dataset` (str): One of {"CCLE", "GDSC1", "GDSC2", "CTRPv1", "CTRPv2", "all"}
+- save_tissue_mapping (bool): If True, saves the tissue mapping to a CSV file.
 or a custom dataset name. When "all" is specified, the tissue mapping is applied across all non-custom datasets
 
 Notes:
@@ -41,42 +42,163 @@ import pandas as pd
 from . import AVAILABLE_DATASETS
 from .loader import download_dataset
 
+_tissue_synonyms = {
+    "Lung": [
+        "lung",
+        "small cell lung cancer",
+        "lung adenocarcinoma",
+        "minimally invasive lung adenocarcinoma",
+        "lung squamous cell carcinoma",
+        "lung carcinoid tumor",
+        "lung mucoepidermoid carcinoma",
+        "lung giant cell carcinoma",
+        "lung adenosquamous carcinoma",
+        "mesothelioma",
+        "pleural mesothelioma",
+    ],
+    "Colon": [
+        "colorectal",
+        "colon adenocarcinoma",
+        "cecum adenocarcinoma",
+        "gardner syndrome",
+        "intestine",
+        "rectal adenocarcinoma",
+    ],
+    "Small Intestine": [
+        "small_intestine",
+        "small intestine adenocarcinoma",
+        "small intestine carcinoid tumor",
+        "small intestine neuroendocrine tumor",
+        "small intestine neuroendocrine carcinoma",
+    ],
+    "Stomach": [
+        "gastric",
+        "gastric adenocarcinoma",
+        "gastric tubular adenocarcinoma",
+        "gastric signet ring cell adenocarcinoma",
+        "gastric choriocarcinoma",
+    ],
+    "Esophagus": ["esophagus", "squamous cell carcinoma of the esophagus", "adenocarcinoma of the esophagus"],
+    "Head and neck": [
+        "upper_aerodigestive",
+        "head and neck squamous cell carcinoma",
+        "squamous cell carcinoma of the larynx",
+        "squamous cell carcinoma of the hypopharynx",
+        "squamous cell carcinoma of the oral cavity",
+        "squamous cell carcinoma of the oral tongue",
+        "oral epithelial dysplasia",
+        "parotid gland mucoepidermoid carcinoma",
+    ],
+    "Skin": [
+        "skin",
+        "melanoma",
+        "cutaneous melanoma",
+        "amelanotic melanoma",
+        "skin squamous cell carcinoma",
+        "vulvar melanoma",
+    ],
+    "Blood": [
+        "leukemia",
+        "acute myeloid leukemia",
+        "chronic myeloid leukemia",
+        "precursor b-cell acute lymphoblastic leukemia",
+        "precursor t-cell acute lymphoblastic leukemia",
+        "classic hairy cell leukemia",
+        "mixed phenotype acute leukemia",
+        "acute erythroid leukemia",
+        "acute myelomonocytic leukemia",
+        "acute monoblastic/monocytic leukemia",
+        "hereditary spherocytosis",
+        "multiple myeloma",
+        "multiple_myeloma",
+        "bone marrow",
+        "natural killer cell lymphoblastic leukemia/lymphoma",
+        "b-lymphoblastic leukemia/lymphoma with t(v",
+        "b-lymphoblastic leukemia/lymphoma with t(17",
+    ],
+    "Lymph": [
+        "lymphoma",
+        "hodgkin lymphoma",
+        "diffuse large b-cell lymphoma",
+        "burkitt lymphoma",
+        "primary mediastinal large b-cell lymphoma",
+        "b-cell non-hodgkin lymphoma",
+        "sezary syndrome",
+        "follicular lymphoma",
+        "alk-positive anaplastic large cell lymphoma",
+        "primary effusion lymphoma",
+        "splenic marginal zone lymphoma",
+        "primary cutaneous t-cell lymphoma",
+    ],
+    "Bone": ["bone", "osteosarcoma", "ewing sarcoma", "chondrosarcoma"],
+    "Muscle": ["rhabdomyosarcoma", "rhabdoid", "embryonal rhabdomyosarcoma", "rhabdoid tumor"],
+    "Soft Tissue": [
+        "soft_tissue",
+        "fibrosarcoma",
+        "undifferentiated pleomorphic sarcoma",
+        "liposarcoma",
+        "fibroblast",
+        "synovial sarcoma",
+    ],
+    "Thyroid": ["thyroid", "anaplastic thyroid carcinoma", "differentiated thyroid carcinoma"],
+    "Brain": [
+        "central_nervous_system",
+        "glioblastoma",
+        "gliosarcoma",
+        "astrocytoma",
+        "anaplastic astrocytoma",
+        "diffuse astrocytoma",
+    ],
+    "Nervous system": [
+        "neuroblastoma",
+        "peripheral primitive neuroectodermal tumor",
+        "peripheral_nervous_system",
+        "nervous system",
+    ],
+    "Breast": [
+        "breast",
+        "breast carcinoma",
+        "breast ductal carcinoma",
+        "invasive breast carcinoma of no special type",
+    ],
+    "Ovary": [
+        "ovary",
+        "high grade ovarian serous adenocarcinoma",
+        "ovarian serous adenocarcinoma",
+        "maligant granulosa cell tumor of the ovary",
+    ],
+    "Uterus": ["uterus", "high-grade neuroendocrine carcinoma of the cervix uteri"],
+    "Cervix": [
+        "cervix",
+        "vagina",
+        "vulvar carcinoma",
+        "vulvar squamous cell carcinoma",
+        "squamous cell carcinoma of the cervix uteri",
+    ],
+    "Prostate": ["prostate"],
+    "Kidney": ["kidney", "renal cell carcinoma", "clear cell renal carcinoma"],
+    "Bladder": ["urinary_tract", "bladder carcinoma"],
+    "Liver": [
+        "liver",
+        "cholangiocarcinoma",
+        "bile_duct",
+        "hepatoblastoma",
+        "carcinoma of gallbladder and extrahepatic biliary tract",
+    ],
+    "Pancreas": ["pancreas", "pancreatic ductal adenocarcinoma"],
+    "Adrenal Gland": ["adrenal_cortex"],
+    "Embryonic": ["embryo", "non-central nervous system-localized embryonal carcinoma", "embryonal carcinoma"],
+    "Unknown": ["unknown", "other", "carcinoid syndrome"],
+}
 
-def main():
-    """Main function to add tissue mapping to datasets."""
-    parser = argparse.ArgumentParser(description="Add tissue mapping to datasets")
-    parser.add_argument("data_path", help="Path to dataset root directory", default="data")
-    parser.add_argument("dataset", help="Dataset name (e.g., CCLE) or 'all'", default="all")
-    args = parser.parse_args()
-    data_path = args.data_path
-    dataset = args.dataset
-    if dataset != "all":
-        datasets = [dataset]
-    else:
-        datasets = AVAILABLE_DATASETS.keys()
 
-    cell_lines = []
+def _parse_cellosaurus(cellosaurus_path: str) -> tuple[dict, dict, dict]:
+    """
+    Parse Cellosaurus file and return mappings from cellosaurus ID to name, site, and disease.
 
-    # Step 1: Load all unique Cellosaurus IDs from available datasets
-    for ds in datasets:
-        csv_path = os.path.join(data_path, ds, f"{ds}.csv")
-        try:
-            df = pd.read_csv(csv_path, dtype=str, low_memory=False)
-            cell_lines.extend(df["cellosaurus_id"].dropna().unique())
-        except FileNotFoundError:
-            continue
-
-    cellosaurus_ids = pd.Series(cell_lines).drop_duplicates().reset_index(drop=True)
-
-    # Step 2: Download Cellosaurus if needed
-    cellosaurus_path = os.path.join(data_path, "meta", "cellosaurus.txt")
-    cellosaurus_path.parent.mkdir(parents=True, exist_ok=True)
-
-    if not cellosaurus_path.exists():
-        url = "https://ftp.expasy.org/databases/cellosaurus/cellosaurus.txt"
-        urllib.request.urlretrieve(url, cellosaurus_path)  # noqa-S310
-
-    # Step 3: Parse Cellosaurus
+    :param cellosaurus_path: Path to the Cellosaurus text file
+    :return: Tuple of dictionaries (id_to_name, id_to_site, id_to_disease)
+    """
     id_to_name, id_to_site, id_to_disease = {}, {}, {}
 
     with open(cellosaurus_path, encoding="utf-8") as f:
@@ -104,34 +226,76 @@ def main():
                         id_to_disease[cid] = disease
                 current_ids, current_name, site, disease = [], None, None, None
 
-    # Step 4: Build Cellosaurus DataFrame
-    df_cellosaurus = pd.DataFrame(
-        {
-            "cellosaurus_id": cellosaurus_ids,
-            "cell_line_name": cellosaurus_ids.map(id_to_name),
-            "cellosaurus_derived_from_site": cellosaurus_ids.map(id_to_site),
-            "cellosaurus_disease": cellosaurus_ids.map(id_to_disease),
-        }
-    ).dropna(subset=["cell_line_name"])
+    return id_to_name, id_to_site, id_to_disease
 
-    # Step 5: Load DepMap sample_info
-    depmap_path = os.path.join(data_path, "meta", "DepMap_sample_info.csv")
-    if not os.path.exists(depmap_path):
-        download_dataset(dataset_name="meta", data_path=data_path, redownload=True)
 
-    sample_info = pd.read_csv(depmap_path, dtype=str, low_memory=False)
+def _apply_manual_cell_line_corrections(tissue_map: pd.Series) -> pd.Series:
+    """Apply manual tissue corrections for misclassified or ambiguous cell lines with documented sources.
 
-    # Step 6: Normalize names for matching
+    :param tissue_map: Series mapping Cellosaurus IDs to tissues
+    :return: Updated tissue mapping Series
+    """
+    manual_entries = [
+        # CVCL_0977: Hs 888.Lu
+        # Source: Cell Model Passports - SIDM01745
+        # https://cellmodelpassports.sanger.ac.uk/passports/SIDM01745
+        ("CVCL_0977", "Lung"),
+        # CVCL_1072: ARH-77
+        # Source: Culture Collections - ARH-77
+        # https://www.culturecollections.org.uk/products/celllines/detail.jsp?refId=88121201
+        ("CVCL_1072", "Blood"),
+        # CVCL_1305: IM-9
+        # Source: ATCC - CCL-159
+        # https://www.atcc.org/products/ccl-159
+        ("CVCL_1305", "Blood"),
+        # CVCL_1665: RPMI-6666
+        # Source: https://scicrunch.org/resolver/RRID:CVCL_1665?q=&i=rrid:cvcl_1665-kclb-10113
+        # Derived from leukemic cells of a myeloma patient, EBV-transformed B lymphoblastoid line
+        ("CVCL_1665", "Blood"),
+        # CVCL_0807: Hs 578Bst
+        # Source: https://scicrunch.org/resolver/CVCL_0807/
+        ("CVCL_0807", "Breast"),
+        # CVCL_L296: H-STS
+        # Source: https://www.nature.com/articles/s41588-019-0490-z
+        ("CVCL_L296", "Blood"),
+        # CVCL_ZA06: WT2-iPS
+        # Source: https://discover.nci.nih.gov/rsconnect/cellminercdb/cell_lines/wt2ips_cellminercdb.html
+        # NOTE: Excluded on purpose — cl doesn't exist, was wrong mapping before
+        # ("CVCL_ZA06", "Skin"),
+        # CVCL_L298: P-STS
+        # Source: Pfragner R, Behmel A, Höger H, Beham A,
+        # Ingolic E, Stelzer I, Svejda B, Moser VA, Obenauf AC, Siegl V, et al. (2009).
+        # Establishment and characterization of three novel cell lines
+        # – P-STS, L-STS, H-STS – derived from a human metastatic midgut carcinoid.
+        # Anticancer Research, 29(6), 1951–1961.
+        ("CVCL_L298", "Small Intestine"),
+        # CVCL_3386 was misclassified.
+        # source: https://www.cellosaurus.org/CVCL_3386
+        ("CVCL_3386", "Blood"),
+    ]
+
+    for cellosaurus_id, tissue in manual_entries:
+        tissue_map[cellosaurus_id] = tissue
+
+    return tissue_map
+
+
+def _harmonize_disease_annotations(df_cellosaurus: pd.DataFrame, sample_info: pd.DataFrame) -> pd.DataFrame:
+    """Merge Cellosaurus and DepMap data, normalize names, and harmonize disease annotations.
+
+    :param df_cellosaurus: DataFrame containing Cellosaurus data
+    :param sample_info: DataFrame containing DepMap sample information
+    :return: Merged DataFrame with harmonized disease annotations
+
+    """
     df_cellosaurus["name_norm"] = df_cellosaurus["cell_line_name"].str.lower().str.replace(r"[^a-z0-9]", "", regex=True)
     sample_info["name_norm"] = (
         sample_info["stripped_cell_line_name"].str.lower().str.replace(r"[^a-z0-9]", "", regex=True)
     )
 
-    # Step 7: Merge
     merged = pd.merge(df_cellosaurus, sample_info, on="name_norm", how="left")
     merged["disease"] = merged["disease"].replace(r"^\s*$", "unknown", regex=True)
 
-    # Step 8: Combine disease info
     merged["disease_combined"] = (
         merged.apply(
             lambda row: (
@@ -146,162 +310,79 @@ def main():
         .str.lower()
     )
 
-    # Step 9: Synonym mapping
-    tissue_synonyms = {
-        "Lung": [
-            "lung",
-            "small cell lung cancer",
-            "lung adenocarcinoma",
-            "minimally invasive lung adenocarcinoma",
-            "lung squamous cell carcinoma",
-            "lung carcinoid tumor",
-            "lung mucoepidermoid carcinoma",
-            "lung giant cell carcinoma",
-            "lung adenosquamous carcinoma",
-            "mesothelioma",
-            "pleural mesothelioma",
-        ],
-        "Colon": [
-            "colorectal",
-            "colon adenocarcinoma",
-            "cecum adenocarcinoma",
-            "gardner syndrome",
-            "intestine",
-            "rectal adenocarcinoma",
-        ],
-        "Small Intestine": [
-            "small_intestine",
-            "small intestine adenocarcinoma",
-            "small intestine carcinoid tumor",
-            "small intestine neuroendocrine tumor",
-            "small intestine neuroendocrine carcinoma",
-        ],
-        "Stomach": [
-            "gastric",
-            "gastric adenocarcinoma",
-            "gastric tubular adenocarcinoma",
-            "gastric signet ring cell adenocarcinoma",
-            "gastric choriocarcinoma",
-        ],
-        "Esophagus": ["esophagus", "squamous cell carcinoma of the esophagus", "adenocarcinoma of the esophagus"],
-        "Head and neck": [
-            "upper_aerodigestive",
-            "head and neck squamous cell carcinoma",
-            "squamous cell carcinoma of the larynx",
-            "squamous cell carcinoma of the hypopharynx",
-            "squamous cell carcinoma of the oral cavity",
-            "squamous cell carcinoma of the oral tongue",
-            "oral epithelial dysplasia",
-            "parotid gland mucoepidermoid carcinoma",
-        ],
-        "Skin": [
-            "skin",
-            "melanoma",
-            "cutaneous melanoma",
-            "amelanotic melanoma",
-            "skin squamous cell carcinoma",
-            "vulvar melanoma",
-        ],
-        "Blood": [
-            "leukemia",
-            "acute myeloid leukemia",
-            "chronic myeloid leukemia",
-            "precursor b-cell acute lymphoblastic leukemia",
-            "precursor t-cell acute lymphoblastic leukemia",
-            "classic hairy cell leukemia",
-            "mixed phenotype acute leukemia",
-            "acute erythroid leukemia",
-            "acute myelomonocytic leukemia",
-            "acute monoblastic/monocytic leukemia",
-            "hereditary spherocytosis",
-            "multiple myeloma",
-            "multiple_myeloma",
-            "bone marrow",
-            "natural killer cell lymphoblastic leukemia/lymphoma",
-            "b-lymphoblastic leukemia/lymphoma with t(v",
-            "b-lymphoblastic leukemia/lymphoma with t(17",
-        ],
-        "Lymph": [
-            "lymphoma",
-            "hodgkin lymphoma",
-            "diffuse large b-cell lymphoma",
-            "burkitt lymphoma",
-            "primary mediastinal large b-cell lymphoma",
-            "b-cell non-hodgkin lymphoma",
-            "sezary syndrome",
-            "follicular lymphoma",
-            "alk-positive anaplastic large cell lymphoma",
-            "primary effusion lymphoma",
-            "splenic marginal zone lymphoma",
-            "primary cutaneous t-cell lymphoma",
-        ],
-        "Bone": ["bone", "osteosarcoma", "ewing sarcoma", "chondrosarcoma"],
-        "Muscle": ["rhabdomyosarcoma", "rhabdoid", "embryonal rhabdomyosarcoma", "rhabdoid tumor"],
-        "Soft Tissue": [
-            "soft_tissue",
-            "fibrosarcoma",
-            "undifferentiated pleomorphic sarcoma",
-            "liposarcoma",
-            "fibroblast",
-            "synovial sarcoma",
-        ],
-        "Thyroid": ["thyroid", "anaplastic thyroid carcinoma", "differentiated thyroid carcinoma"],
-        "Brain": [
-            "central_nervous_system",
-            "glioblastoma",
-            "gliosarcoma",
-            "astrocytoma",
-            "anaplastic astrocytoma",
-            "diffuse astrocytoma",
-        ],
-        "Nervous system": [
-            "neuroblastoma",
-            "peripheral primitive neuroectodermal tumor",
-            "peripheral_nervous_system",
-            "nervous system",
-        ],
-        "Breast": [
-            "breast",
-            "breast carcinoma",
-            "breast ductal carcinoma",
-            "invasive breast carcinoma of no special type",
-        ],
-        "Ovary": [
-            "ovary",
-            "high grade ovarian serous adenocarcinoma",
-            "ovarian serous adenocarcinoma",
-            "maligant granulosa cell tumor of the ovary",
-        ],
-        "Uterus": ["uterus", "high-grade neuroendocrine carcinoma of the cervix uteri"],
-        "Cervix": [
-            "cervix",
-            "vagina",
-            "vulvar carcinoma",
-            "vulvar squamous cell carcinoma",
-            "squamous cell carcinoma of the cervix uteri",
-        ],
-        "Prostate": ["prostate"],
-        "Kidney": ["kidney", "renal cell carcinoma", "clear cell renal carcinoma"],
-        "Bladder": ["urinary_tract", "bladder carcinoma"],
-        "Liver": [
-            "liver",
-            "cholangiocarcinoma",
-            "bile_duct",
-            "hepatoblastoma",
-            "carcinoma of gallbladder and extrahepatic biliary tract",
-        ],
-        "Pancreas": ["pancreas", "pancreatic ductal adenocarcinoma"],
-        "Adrenal Gland": ["adrenal_cortex"],
-        "Embryonic": ["embryo", "non-central nervous system-localized embryonal carcinoma", "embryonal carcinoma"],
-        "Unknown": ["unknown", "other", "carcinoid syndrome"],
-    }
+    return merged
 
-    tissue_lookup = {syn.lower(): tissue for tissue, syns in tissue_synonyms.items() for syn in syns}
 
-    # Step 10: Map tissue
+def main():
+    """Main function to add tissue mapping to datasets."""
+    parser = argparse.ArgumentParser(description="Add tissue mapping to datasets")
+    parser.add_argument("data_path", help="Path to dataset root directory", default="data")
+    parser.add_argument("dataset", help="Dataset name (e.g., CCLE) or 'all'", default="all")
+    parser.add_argument(
+        "--save_tissue_mapping",
+        action="store_true",
+        help="Save the tissue mapping to a CSV file",
+    )
+    args = parser.parse_args()
+    data_path = args.data_path
+    dataset = args.dataset
+    save_tissue_mapping = args.save_tissue_mapping
+    if dataset != "all":
+        datasets = [dataset]
+    else:
+        datasets = AVAILABLE_DATASETS.keys()
+
+    cell_lines = []
+
+    # Load all unique Cellosaurus IDs from available datasets
+    for ds in datasets:
+        csv_path = os.path.join(data_path, ds, f"{ds}.csv")
+        try:
+            df = pd.read_csv(csv_path, dtype=str, low_memory=False)
+            cell_lines.extend(df["cellosaurus_id"].dropna().unique())
+        except FileNotFoundError:
+            continue
+
+    cellosaurus_ids = pd.Series(cell_lines).drop_duplicates().reset_index(drop=True)
+
+    #  Download Cellosaurus if needed
+    cellosaurus_path = os.path.join(data_path, "meta", "cellosaurus.txt")
+    cellosaurus_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if not cellosaurus_path.exists():
+        url = "https://ftp.expasy.org/databases/cellosaurus/cellosaurus.txt"
+        urllib.request.urlretrieve(url, cellosaurus_path)  # noqa-S310
+
+    # Parse Cellosaurus
+    id_to_name, id_to_site, id_to_disease = _parse_cellosaurus(cellosaurus_path)
+
+    # Build Cellosaurus DataFrame
+    df_cellosaurus = pd.DataFrame(
+        {
+            "cellosaurus_id": cellosaurus_ids,
+            "cell_line_name": cellosaurus_ids.map(id_to_name),
+            "cellosaurus_derived_from_site": cellosaurus_ids.map(id_to_site),
+            "cellosaurus_disease": cellosaurus_ids.map(id_to_disease),
+        }
+    ).dropna(subset=["cell_line_name"])
+
+    # Load DepMap sample_info
+    depmap_path = os.path.join(data_path, "meta", "DepMap_sample_info.csv")
+    if not os.path.exists(depmap_path):
+        download_dataset(dataset_name="meta", data_path=data_path, redownload=True)
+
+    sample_info = pd.read_csv(depmap_path, dtype=str, low_memory=False)
+
+    merged = _harmonize_disease_annotations(df_cellosaurus, sample_info)
+
+    # Synonym mapping
+
+    tissue_lookup = {syn.lower(): tissue for tissue, syns in _tissue_synonyms.items() for syn in syns}
+
+    # Map tissues
     merged["disease_cleaned"] = merged["disease_combined"].map(tissue_lookup).fillna("Unknown").str.title()
 
-    # Final output
+    # Final tissue map
     final = merged[
         [
             "cellosaurus_id",
@@ -324,65 +405,27 @@ def main():
     # Make sure the mapping has unique index entries
     tissue_map = final.drop_duplicates(subset="cellosaurus_id").set_index("cellosaurus_id")["disease_cleaned"]
 
-    # CVCL_0977: Hs 888.Lu
-    # Source: Cell Model Passports - SIDM01745
-    # https://cellmodelpassports.sanger.ac.uk/passports/SIDM01745
-    tissue_map["CVCL_0977"] = "Lung"
-
-    # CVCL_1072: ARH-77
-    # Source: Culture Collections - ARH-77
-    # https://www.culturecollections.org.uk/products/celllines/detail.jsp?refId=88121201
-    tissue_map["CVCL_1072"] = "Blood"
-
-    # CVCL_1305: IM-9
-    # Source: ATCC - CCL-159
-    # https://www.atcc.org/products/ccl-159
-    tissue_map["CVCL_1305"] = "Blood"
-
-    # CVCL_1665: RPMI-6666
-    # Source: https://scicrunch.org/resolver/RRID:CVCL_1665?q=&i=rrid:cvcl_1665-kclb-10113
-    # Derived from leukemic cells of a myeloma patient, EBV-transformed B lymphoblastoid line
-    tissue_map["CVCL_1665"] = "Blood"
-
-    # CVCL_0807: Hs 578Bst
-    # Source: https://scicrunch.org/resolver/CVCL_0807/
-    tissue_map["CVCL_0807"] = "Breast"
-
-    # CVCL_L296: H-STS
-    # source: https://www.nature.com/articles/s41588-019-0490-z
-    tissue_map["CVCL_L296"] = "Blood"
-
-    # CVCL_ZA06: WT2-iPS
-    # Source:
-    # https://discover.nci.nih.gov/rsconnect/cellminercdb/cell_lines/wt2ips_cellminercdb.html
-    # tissue_map["CVCL_ZA06"] = "Skin" # wrong mapping, cl doesnt exist!
-
-    # CVCL_L298: P-STS
-    # Source: Pfragner R, Behmel A, Höger H, Beham A,
-    # Ingolic E, Stelzer I, Svejda B, Moser VA, Obenauf AC, Siegl V, et al. (2009).
-    # Establishment and characterization of three novel cell lines
-    # – P-STS, L-STS, H-STS – derived from a human metastatic midgut carcinoid.
-    # Anticancer Research, 29(6), 1951–1961.
-    tissue_map["CVCL_L298"] = "Small Intestine"
-
-    # CVCL_3386 was misclassified.
-    # source: https://www.cellosaurus.org/CVCL_3386
-    tissue_map["CVCL_3386"] = "Blood"
+    tissue_map = _apply_manual_cell_line_corrections(tissue_map)
 
     final.loc[:, "tissue"] = final.loc[:, "cellosaurus_id"].map(tissue_map)
     final = final.copy()
-    final.drop_duplicates(subset="cellosaurus_id", inplace=True)
-    tissue_mapping_path = os.path.join(data_path, "meta", "tissue_mapping.csv")
-    final.to_csv(tissue_mapping_path, index=False)
+    if save_tissue_mapping:
+        final.drop_duplicates(subset="cellosaurus_id", inplace=True)
+        tissue_mapping_path = os.path.join(data_path, "meta", "tissue_mapping.csv")
+        final.to_csv(tissue_mapping_path, index=False)
 
     # Add tissue column to each dataset
     for ds in datasets:
-        path = f"/Users/piversen/Projects/munich/drevalpy/data/{ds}/{ds}.csv"
+        path = os.path.join(data_path, ds, f"{ds}.csv")
+        if not os.path.exists(path):
+            print(f"Dataset {path} not found, skipping.")
+            continue
+
         df = pd.read_csv(path, low_memory=False)
 
         df["tissue"] = df["cellosaurus_id"].map(tissue_map)
 
-        df.to_csv(f"/Users/piversen/Projects/munich/drevalpy/data/{ds}/{ds}.csv", index=False)
+        df.to_csv(path, index=False)
 
 
 if __name__ == "__main__":
