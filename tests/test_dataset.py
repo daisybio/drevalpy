@@ -211,7 +211,7 @@ def test_response_dataset_reduce_to():
         tissues=np.array(["T1", "T2"]),
     )
 
-    dataset.reduce_to(cell_line_ids=[], drug_ids=[])
+    dataset.reduce_to(cell_line_ids=np.array([]), drug_ids=np.array([]))
 
     assert len(dataset.response) == 0
     assert len(dataset.cell_line_ids) == 0
