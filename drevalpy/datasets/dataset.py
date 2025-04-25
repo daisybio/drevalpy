@@ -551,17 +551,24 @@ def _split_early_stopping_data(
 
     :param validation_dataset: input validation dataset
     :param test_mode: LPO, LCO, LTO, LDO
+    :raises ValueError: if test_mode is not one of the expected values
     :returns: the resulting validation and early stopping datasets
     """
     validation_dataset.shuffle(random_state=42)
-    n_groups = len(
-        np.unique(
-            validation_dataset.cell_line_ids
-            if test_mode == "LCO"
-            else validation_dataset.drug_ids if test_mode == "LDO" else validation_dataset.tissue
-        )
-    )
-    n_splits = min(4, n_groups)
+
+    # Determine the number of splits b (default 4,
+    # but can be less if there are not enough groups)
+    if test_mode == "LTO":
+        tissues = validation_dataset.tissue
+        if tissues is None:
+            raise ValueError("Tissue information is required for LTO.")
+        n_splits = min(4, len(np.unique(tissues)))
+    elif test_mode == "LCO":
+        n_splits = min(4, len(np.unique(validation_dataset.cell_line_ids)))
+    elif test_mode == "LDO":
+        n_splits = min(4, len(np.unique(validation_dataset.drug_ids)))
+    else:
+        n_splits = 4
 
     cv_v = validation_dataset.split_dataset(
         n_cv_splits=n_splits,
