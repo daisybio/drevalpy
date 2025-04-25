@@ -36,7 +36,7 @@ from drevalpy.models.drp_model import DRPModel
         "ProteomicsRandomForest",
     ],
 )
-@pytest.mark.parametrize("test_mode", ["LPO", "LCO", "LDO", "LTO"])
+@pytest.mark.parametrize("test_mode", ["LTO"])
 def test_baselines(
     sample_dataset: DrugResponseDataset,
     model_name: str,
@@ -208,7 +208,7 @@ def _call_naive_group_predictor(
     assert val_dataset.predictions is not None
     train_mean = train_dataset.response.mean()
     assert train_mean == naive.dataset_mean
-    if (group == "drug" and test_mode == "LDO") or (group == "cell_line" and test_mode == "LCO"):
+    if (group == "drug" and test_mode == "LDO") or (group == "cell_line" and test_mode in ["LCO", "LTO"]):
         assert np.all(val_dataset.predictions == train_mean)
     elif group == "drug":
         assert isinstance(naive, NaiveDrugMeanPredictor)

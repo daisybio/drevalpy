@@ -514,7 +514,7 @@ def cross_study_prediction(
     if early_stopping_dataset is not None:
         train_dataset.add_rows(early_stopping_dataset)
     # remove rows which overlap in the training. depends on the test mode
-    if test_mode in ["LPO", "LTO"]:
+    if test_mode == "LPO":
         train_pairs = {
             f"{cl}_{drug}" for cl, drug in zip(train_dataset.cell_line_ids, train_dataset.drug_ids, strict=True)
         }
@@ -533,8 +533,18 @@ def cross_study_prediction(
             cell_line_ids=None,
             drug_ids=np.setdiff1d(dataset.drug_ids, train_drugs),
         )
+    elif test_mode == "LTO":
+        # get tissues occurring in train
+        train_tissues = set(train_dataset.tissue)
+        # get indices of tissues in dataset not occurring in train_tissues
+        indices = np.array([i for i, t in enumerate(dataset.tissue) if t not in train_tissues])
+        cell_lines_to_keep = np.unique(dataset.cell_line_ids[indices])
+        dataset.reduce_to(
+            cell_line_ids=cell_lines_to_keep,
+            drug_ids=None,
+        )
     else:
-        raise ValueError(f"Invalid test mode: {test_mode}. Choose from LPO, LCO, LDO")
+        raise ValueError(f"Invalid test mode: {test_mode}. Choose from LPO, LCO, LDO, LTO")
     if len(dataset) > 0:
         dataset.shuffle(random_state=42)
         dataset._predictions = model.predict(
