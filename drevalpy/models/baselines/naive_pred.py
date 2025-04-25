@@ -14,7 +14,7 @@ import numpy as np
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, TISSUE_IDENTIFIER
 from drevalpy.models.drp_model import DRPModel
-from drevalpy.models.utils import load_cl_ids_from_csv, load_drug_ids_from_csv, unique
+from drevalpy.models.utils import load_cl_ids_from_csv, load_drug_ids_from_csv, load_tissues_from_csv, unique
 
 
 class NaivePredictor(DRPModel):
@@ -431,7 +431,7 @@ class NaiveTissueMeanPredictor(DRPModel):
         :param dataset_name: name of the dataset
         :returns: FeatureDataset containing the tissue ids
         """
-        return load_cl_ids_from_csv(data_path, dataset_name)
+        return load_tissues_from_csv(data_path, dataset_name)
 
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         """
