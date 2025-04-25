@@ -480,7 +480,7 @@ def cross_study_prediction(
     :param path_out: path to the output directory, e.g., results/
     :param split_index: index of the split
     :param single_drug_id: drug id to use for single drug models None for global models
-    :raises ValueError: if feature loading fails or if the test mode is invalid
+    :raises ValueError: if feature loading fails, if the test mode is invalid, or if LTO and no tissues are supplied.
     """
     dataset = dataset.copy()
     os.makedirs(os.path.join(path_out, "cross_study"), exist_ok=True)
@@ -534,6 +534,8 @@ def cross_study_prediction(
             drug_ids=np.setdiff1d(dataset.drug_ids, train_drugs),
         )
     elif test_mode == "LTO":
+        if train_dataset.tissue is None or dataset.tissue is None:
+            raise ValueError("Tissue information not available.")
         # get tissues occurring in train
         train_tissues = set(train_dataset.tissue)
         # get indices of tissues in dataset not occurring in train_tissues
