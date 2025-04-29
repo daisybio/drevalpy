@@ -187,10 +187,10 @@ The datasets have corresponding cell-line and drug feature data. The sources are
 
 * GDSC1 & 2:
     * Gene expression: RMA-normalized microarray expression data from the `GDSC Data Portal <https://www.cancerrxgene.org/downloads/bulk_download>`_ (raw data).
-    * Methylation: `GDSC Data Portal <https://www.cancerrxgene.org/gdsc1000/GDSC1000_WebResources/Home.html>`_.
+    * Methylation: Preprocessed Beta Values for all CpG islands, IlluminaHumanMethylation450 BeadChip `GDSC Data Portal <https://www.cancerrxgene.org/gdsc1000/GDSC1000_WebResources/Home.html>`_.
 * CCLE, CTRPv1, CTRPv2:
     * Gene expression: reprocessed RNA-seq data PRJNA523380
-    * Methylation: DepMap ``CCLE_RRBS_TSS_CpG_clusters_20180614.txt``
+    * Methylation: DepMap Beta Values for RRBS clusters ``CCLE_RRBS_TSS_CpG_clusters_20180614.txt``
 * Used by all:
     * Mutation & CNV data: `Sanger Cell Model Passports <https://cellmodelpassports.sanger.ac.uk/downloads>`_.
     * Proteomics: Raw data at PRIDE: PXD030304
@@ -272,7 +272,7 @@ the ``--optim_metric`` parameter. The following metrics are available:
 * **Pearson**: The Pearson correlation coefficient. The higher the better.
 * **Spearman**: The Spearman correlation coefficient. The higher the better.
 * **Kendall**: The Kendall correlation coefficient. The higher the better.
-* **Partial_Correlation**: The partial correlation coefficient which corrects for the drug and cell line effects. The higher the better.
+* **Normalized [R^2, Pearson, Spearman, Kendall]**: A version of the metric where the true and predicted response values are normalized by the predictions of the NaiveMeanEffectsPredictor.
 
 Available Response Transformations
 ----------------------------------
