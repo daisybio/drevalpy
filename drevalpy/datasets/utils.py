@@ -11,6 +11,9 @@ import requests
 
 DRUG_IDENTIFIER = "pubchem_id"
 CELL_LINE_IDENTIFIER = "cell_line_name"
+TISSUE_IDENTIFIER = "tissue"
+ALLOWED_MEASURES = ["LN_IC50", "EC50", "IC50", "pEC50", "AUC", "response"]
+ALLOWED_MEASURES.extend([f"{m}_curvecurator" for m in ALLOWED_MEASURES])
 
 
 def download_dataset(
@@ -21,7 +24,7 @@ def download_dataset(
     """
     Download the latets dataset from Zenodo.
 
-    :param dataset_name: dataset name, from "GDSC1", "GDSC2", "CCLE", "CTRPv1", "CTRPv2", "TOYv1", "TOYv2"
+    :param dataset_name: dataset name, from "GDSC1", "GDSC2", "CCLE", "CTRPv1", "CTRPv2", "TOYv1", "TOYv2", "meta"
     :param data_path: where to save the data
     :param redownload: whether to redownload the data
     :raises HTTPError: if the download fails

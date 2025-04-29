@@ -25,7 +25,7 @@ from drevalpy.visualization.utils import evaluate_file
     "model_name",
     ["SingleDrugRandomForest", "SingleDrugElasticNet", "SingleDrugProteomicsElasticNet", "MOLIR", "SuperFELTR"],
 )
-@pytest.mark.parametrize("test_mode", ["LCO"])
+@pytest.mark.parametrize("test_mode", ["LTO"])
 def test_single_drug_models(
     sample_dataset: DrugResponseDataset, model_name: str, test_mode: str, cross_study_dataset: DrugResponseDataset
 ) -> None:
@@ -42,11 +42,7 @@ def test_single_drug_models(
     torch.manual_seed(42)
     torch.cuda.manual_seed(42)
 
-    sample_dataset.split_dataset(
-        n_cv_splits=6,
-        mode=test_mode,
-        random_state=42,
-    )
+    sample_dataset.split_dataset(n_cv_splits=2, mode=test_mode, random_state=42, validation_ratio=0.4)
     assert sample_dataset.cv_splits is not None
     split = sample_dataset.cv_splits[0]
     model = MODEL_FACTORY[model_name]()
