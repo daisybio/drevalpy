@@ -70,15 +70,19 @@ DrEval is designed to ensure that drug response prediction models are evaluated 
 reproducible manner. We offer three settings via the ``--test_mode`` parameter:
 
 .. image:: ../drevalpy/visualization/style_utils/LPO.png
-    :width: 25%
+    :width: 24%
     :alt: Image visualizing the Leave-Pair-Out setting
 
 .. image:: ../drevalpy/visualization/style_utils/LCO.png
-    :width: 25%
+    :width: 24%
     :alt: Image visualizing the Leave-Cell-Line-Out setting
 
+.. image:: ../drevalpy/visualization/style_utils/LTO.png
+    :width: 24%
+    :alt: Image visualizing the Leave-Tissue-Out setting
+
 .. image:: ../drevalpy/visualization/style_utils/LDO.png
-    :width: 25%
+    :width: 24%
     :alt: Image visualizing the Leave-Drug-Out setting
 
 * **Leave-Pair-Out (LPO)**: Random pairs of cell lines and drugs are left out for validation/testing but both the drug and the

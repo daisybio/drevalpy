@@ -81,7 +81,8 @@ def parse_results(path_to_results: str, dataset: str) -> tuple[pd.DataFrame, pd.
     # Convert the path to a forward-slash version for the regex (for Windows)
     result_dir_str = str(result_dir).replace("\\", "/")
     pattern = re.compile(
-        rf"{result_dir_str}/{dataset}/(LPO|LCO|LDO)/[^/]+/(predictions|cross_study|randomization|robustness)/.*\.csv$"
+        rf"{result_dir_str}/{dataset}/"
+        r"(LPO|LCO|LDO|LTO)/[^/]+/(predictions|cross_study|randomization|robustness)/.*\.csv$"
     )
     result_files = [file for file in result_files if pattern.match(str(file).replace("\\", "/"))]
 
