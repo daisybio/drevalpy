@@ -16,7 +16,7 @@ Focus on Innovating Your Models — DrEval Handles the Rest!
 
 By contributing your model to the DrEval catalog, you can increase your work's exposure, reusability, and transferability.
 
-![DrEval](assets/dreval.png)
+![DrEval](docs/_static/img/overview.png)
 
 Use DrEval to Build Drug Response Models That Have an Impact
 

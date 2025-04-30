@@ -1,7 +1,4 @@
-
 .. include:: readme.rst
-
-.. include:: _key_contributors.rst
 
 .. role:: small
 
@@ -10,6 +7,8 @@
 .. include:: quickstart.rst
 
 .. include:: news.rst
+
+.. include:: _key_contributors.rst
 
 .. toctree::
    :hidden:
