@@ -176,7 +176,7 @@ def evaluate_file(
             eval_results_per_group=evaluation_results_per_drug,
             model=model,
         )
-    if "LPO" in model or "LCO" in model:
+    if "LPO" in model or "LCO" in model or "LTO" in model:
         evaluation_results_per_cl = _evaluate_per_group(
             df=true_vs_pred,
             group_by="cell_line",
@@ -563,7 +563,7 @@ def draw_test_mode_plots(
     result_path: pathlib.Path,
 ) -> np.ndarray:
     """
-    Draw all plots for a specific test_mode (LPO, LCO, LDO).
+    Draw all plots for a specific test_mode (LPO, LCO, LDO, LTO).
 
     :param test_mode: test_mode
     :param ev_res: overall evaluation results
@@ -623,7 +623,7 @@ def draw_test_mode_plots(
             custom_id=custom_id,
             result_path=result_path,
         )
-    if test_mode in ("LPO", "LCO"):
+    if test_mode in ("LPO", "LCO", "LTO"):
         _draw_per_grouping_setting_plots(
             grouping="cell_line_name",
             ev_res_per_group=ev_res_per_cell_line,
@@ -716,8 +716,7 @@ def draw_algorithm_plots(
         )
     if test_mode in ("LPO", "LDO"):
         _draw_per_grouping_algorithm_plots(
-            grouping_slider="cell_line_name",
-            grouping_scatter_table="drug_name",
+            grouping="drug_name",
             model=model,
             ev_res_per_group=ev_res_per_drug,
             t_v_p=t_vs_p,
@@ -725,10 +724,9 @@ def draw_algorithm_plots(
             custom_id=custom_id,
             result_path=result_path,
         )
-    if test_mode in ("LPO", "LCO"):
+    if test_mode in ("LPO", "LCO", "LTO"):
         _draw_per_grouping_algorithm_plots(
-            grouping_slider="drug_name",
-            grouping_scatter_table="cell_line_name",
+            grouping="cell_line_name",
             model=model,
             ev_res_per_group=ev_res_per_cell_line,
             t_v_p=t_vs_p,
@@ -739,8 +737,7 @@ def draw_algorithm_plots(
 
 
 def _draw_per_grouping_algorithm_plots(
-    grouping_slider: str,
-    grouping_scatter_table: str,
+    grouping: str,
     model: str,
     ev_res_per_group: pd.DataFrame,
     t_v_p: pd.DataFrame,
@@ -751,9 +748,7 @@ def _draw_per_grouping_algorithm_plots(
     """
     Draw plots for a specific grouping (drug or cell line) for a specific algorithm.
 
-    :param grouping_slider: the grouping variable for the regression plots
-    :param grouping_scatter_table: the grouping variable for the scatter plots.
-            If grouping_slider is drug, this should be cell_line and vice versa
+    :param grouping: drug or cell_line
     :param model: name of the model/algorithm
     :param ev_res_per_group: evaluation results per drug or per cell line
     :param t_v_p: true response values vs. predicted response values
@@ -766,7 +761,7 @@ def _draw_per_grouping_algorithm_plots(
         # PIPELINE: DRAW_CORR_COMP
         comp_scatter = ComparisonScatter(
             df=ev_res_per_group,
-            color_by=grouping_scatter_table,
+            color_by=grouping,
             test_mode=test_mode,
             algorithm=model,
         )
@@ -778,12 +773,12 @@ def _draw_per_grouping_algorithm_plots(
     # PIPELINE: DRAW_REGRESSION
     for normalize in [False, True]:
         name_suffix = "_normalized" if normalize else ""
-        name = f"{test_mode}_{grouping_slider}{name_suffix}"
+        name = f"{test_mode}_{grouping}{name_suffix}"
         regr_slider = RegressionSliderPlot(
             df=t_v_p,
             test_mode=test_mode,
             model=model,
-            group_by=grouping_slider,
+            group_by=grouping,
             normalize=normalize,
         )
         regr_slider.draw_and_save(
