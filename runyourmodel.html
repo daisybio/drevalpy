@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Run your own model &mdash; DrEvalPy 1.2.7 documentation</title>
+  <title>Run your own model &mdash; DrEvalPy 1.3.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
       <link rel="stylesheet" type="text/css" href="_static/custom_cookietemple.css?v=a7e27724" />
@@ -14,7 +14,7 @@
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=a5753347"></script>
+      <script src="_static/documentation_options.js?v=1f29e9d3"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
@@ -48,7 +48,10 @@
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="usage.html">How to use DrEvalPy</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Run your own model</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Run your own model</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#example-proteomics-random-forest">Example: Proteomics Random Forest</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributor Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="reference.html">How to cite</a></li>
 <li class="toctree-l1"><a class="reference internal" href="API.html">API</a></li>
@@ -99,7 +102,12 @@ Additionally, you must define a unique model name to identify your model during 
     <span class="n">early_stopping</span> <span class="o">=</span> <span class="kc">True</span> <span class="o">/</span> <span class="kc">False</span> <span class="c1"># TODO: set to true if you want to use a part of the validation set for early stopping</span>
     <span class="n">cell_line_views</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;gene_expression&quot;</span><span class="p">,</span> <span class="s2">&quot;methylation&quot;</span><span class="p">]</span>
     <span class="n">drug_views</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fingerprints&quot;</span><span class="p">]</span>
-    <span class="n">model_name</span> <span class="o">=</span> <span class="s2">&quot;YourModel&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_model_name</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns the name of the model.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="s2">&quot;YourModel&quot;</span>
 </pre></div>
 </div>
 <p>Next let’s implement the feature loading. You have to return a DrEvalPy FeatureDataset object which contains the features for the cell lines and drugs.
@@ -213,7 +221,130 @@ Update the <code class="docutils literal notranslate"><span class="pre">MULTI_DR
 <span class="n">MULTI_DRUG_MODEL_FACTORY</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="s2">&quot;YourModel&quot;</span><span class="p">:</span> <span class="n">YourModel</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>Next, please also write appropriate tests in <code class="docutils literal notranslate"><span class="pre">tests/individual_models</span></code>.</p>
+<p>Next, please also write appropriate tests in <code class="docutils literal notranslate"><span class="pre">tests/individual_models</span></code> and documentation in <code class="docutils literal notranslate"><span class="pre">docs/</span></code>.</p>
+<section id="example-proteomics-random-forest">
+<h2>Example: Proteomics Random Forest<a class="headerlink" href="#example-proteomics-random-forest" title="Link to this heading"></a></h2>
+<p>Instead of gene expression data, we want to use proteomics data in our Random Forest.
+The Random Forest is already implemented in <code class="docutils literal notranslate"><span class="pre">models/baselines/sklearn_models.py</span></code>.
+We just need to adapt some methods.</p>
+<p>1. We make a new class ProteomicsRandomForest which inherits from the RandomForest class.
+We overwrite <code class="docutils literal notranslate"><span class="pre">cell_line_views</span></code> to <code class="docutils literal notranslate"><span class="pre">[&quot;proteomics&quot;]</span></code> and <code class="docutils literal notranslate"><span class="pre">get_model_name</span></code> to <code class="docutils literal notranslate"><span class="pre">&quot;ProteomicsRandomForest&quot;</span></code>.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">ProteomicsRandomForest</span><span class="p">(</span><span class="n">RandomForest</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;RandomForest model for drug response prediction using proteomics data.&quot;&quot;&quot;</span>
+
+    <span class="n">cell_line_views</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;proteomics&quot;</span><span class="p">]</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_model_name</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns the model name.</span>
+
+<span class="sd">        :returns: ProteomicsRandomForest</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="s2">&quot;ProteomicsRandomForest&quot;</span>
+</pre></div>
+</div>
+<p>2. Next, we need to implement the <code class="docutils literal notranslate"><span class="pre">load_cell_line_features</span></code> method to load the proteomics features.
+We already supply proteomics features in the Zenodo as proteomics.csv. Hence, we can already use our
+pre-implemented method <code class="docutils literal notranslate"><span class="pre">load_cell_line_features</span></code>.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">load_cell_line_features</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">dataset_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FeatureDataset</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Loads the cell line features.</span>
+
+<span class="sd">    :param data_path: Path to the gene expression and landmark genes</span>
+<span class="sd">    :param dataset_name: Name of the dataset</span>
+<span class="sd">    :returns: FeatureDataset containing the cell line proteomics features, filtered through the landmark genes</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">load_and_select_gene_features</span><span class="p">(</span>
+        <span class="n">feature_type</span><span class="o">=</span><span class="s2">&quot;proteomics&quot;</span><span class="p">,</span>
+        <span class="n">gene_list</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">data_path</span><span class="o">=</span><span class="n">data_path</span><span class="p">,</span>
+        <span class="n">dataset_name</span><span class="o">=</span><span class="n">dataset_name</span><span class="p">,</span>
+    <span class="p">)</span>
+</pre></div>
+</div>
+<p>3. We use the same build_model method as the RandomForest class, so we don’t need to implement it.
+However, we need to write the hyperparameters needed into the <code class="docutils literal notranslate"><span class="pre">models/baselines/hyperparameters.yaml</span></code> file:</p>
+<div class="highlight-YAML notranslate"><div class="highlight"><pre><span></span><span class="nt">ProteomicsRandomForest</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">n_estimators</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span>
+<span class="w">  </span><span class="nt">max_depth</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">30</span>
+<span class="w">  </span><span class="nt">max_samples</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.2</span>
+<span class="w">  </span><span class="nt">n_jobs</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-1</span>
+<span class="w">  </span><span class="nt">criterion</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">squared_error</span>
+</pre></div>
+</div>
+<p>We also use the same train and predict method as the RandomForest class, so we don’t need to implement them.</p>
+<ol class="arabic simple" start="4">
+<li><p>Finally, we need to register the model in the <code class="docutils literal notranslate"><span class="pre">__init__.py</span></code> file in the <code class="docutils literal notranslate"><span class="pre">models/baselines</span></code> directory.</p></li>
+</ol>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s2">&quot;MULTI_DRUG_MODEL_FACTORY&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;SINGLE_DRUG_MODEL_FACTORY&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;MODEL_FACTORY&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;NaivePredictor&quot;</span><span class="p">,</span>
+    <span class="c1">#[...]</span>
+    <span class="s2">&quot;DIPKModel&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;ProteomicsRandomForest&quot;</span>
+<span class="p">]</span>
+<span class="c1">#[...]</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.baselines.sklearn_models</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">ElasticNetModel</span><span class="p">,</span> <span class="n">GradientBoosting</span><span class="p">,</span> <span class="n">RandomForest</span><span class="p">,</span> <span class="n">SVMRegressor</span><span class="p">,</span> <span class="n">ProteomicsRandomForest</span>
+<span class="p">)</span>
+
+<span class="c1"># SINGLE_DRUG_MODEL_FACTORY is used in the pipeline!</span>
+<span class="n">SINGLE_DRUG_MODEL_FACTORY</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">type</span><span class="p">[</span><span class="n">DRPModel</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="c1">#[...]</span>
+<span class="p">}</span>
+
+<span class="c1"># MULTI_DRUG_MODEL_FACTORY is used in the pipeline!</span>
+<span class="n">MULTI_DRUG_MODEL_FACTORY</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">type</span><span class="p">[</span><span class="n">DRPModel</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;NaivePredictor&quot;</span><span class="p">:</span> <span class="n">NaivePredictor</span><span class="p">,</span>
+    <span class="c1">#[...]</span>
+    <span class="s2">&quot;DIPK&quot;</span><span class="p">:</span> <span class="n">DIPKModel</span><span class="p">,</span>
+    <span class="s2">&quot;ProteomicsRandomForest&quot;</span><span class="p">:</span> <span class="n">ProteomicsRandomForest</span><span class="p">,</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<ol class="arabic simple" start="5">
+<li><p>Add your model to the tests, in this case in <code class="docutils literal notranslate"><span class="pre">tests/individual_models/test_baselines.py</span></code>.</p></li>
+</ol>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="nd">@pytest</span><span class="o">.</span><span class="n">mark</span><span class="o">.</span><span class="n">parametrize</span><span class="p">(</span>
+    <span class="s2">&quot;model_name&quot;</span><span class="p">,</span>
+    <span class="p">[</span>
+        <span class="s2">&quot;NaivePredictor&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;NaiveDrugMeanPredictor&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;NaiveCellLineMeanPredictor&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;NaiveMeanEffectsPredictor&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;ElasticNet&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;RandomForest&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;SVR&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;MultiOmicsRandomForest&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;GradientBoosting&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;ProteomicsRandomForest&quot;</span><span class="p">,</span>
+    <span class="p">],</span>
+<span class="p">)</span>
+<span class="nd">@pytest</span><span class="o">.</span><span class="n">mark</span><span class="o">.</span><span class="n">parametrize</span><span class="p">(</span><span class="s2">&quot;test_mode&quot;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;LPO&quot;</span><span class="p">,</span> <span class="s2">&quot;LCO&quot;</span><span class="p">,</span> <span class="s2">&quot;LDO&quot;</span><span class="p">])</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">test_baselines</span><span class="p">(</span>
+    <span class="n">sample_dataset</span><span class="p">:</span> <span class="n">DrugResponseDataset</span><span class="p">,</span>
+    <span class="n">model_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">test_mode</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">cross_study_dataset</span><span class="p">:</span> <span class="n">DrugResponseDataset</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="c1"># [...]</span>
+</pre></div>
+</div>
+<p>6. Now, we add the appropriate documentation.
+In our case, the class methods etc. under API are rendered automatically because it is a subclass of Sklearn Models.
+If you implement a new model, please orient yourself on the documentation of, e.g., DIPK.</p>
+<p>Add your model in <code class="docutils literal notranslate"><span class="pre">usage.rst</span></code> under the section “Available models”.</p>
+</section>
 </section>
 
 

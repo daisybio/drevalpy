@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>How to use DrEvalPy &mdash; DrEvalPy 1.2.7 documentation</title>
+  <title>How to use DrEvalPy &mdash; DrEvalPy 1.3.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
       <link rel="stylesheet" type="text/css" href="_static/custom_cookietemple.css?v=a7e27724" />
@@ -14,7 +14,7 @@
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=a5753347"></script>
+      <script src="_static/documentation_options.js?v=1f29e9d3"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
@@ -53,6 +53,7 @@
 <li class="toctree-l2"><a class="reference internal" href="#available-settings">Available Settings</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#available-models">Available Models</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#available-datasets">Available Datasets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#corresponding-feature-data">Corresponding feature data</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#custom-datasets">Custom Datasets</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#available-randomization-tests">Available Randomization Tests</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#robustness-test">Robustness Test</a></li>
@@ -150,11 +151,13 @@ You can open the <code class="docutils literal notranslate"><span class="pre">in
 <h2>Available Settings<a class="headerlink" href="#available-settings" title="Link to this heading"></a></h2>
 <p>DrEval is designed to ensure that drug response prediction models are evaluated in a consistent and
 reproducible manner. We offer three settings via the <code class="docutils literal notranslate"><span class="pre">--test_mode</span></code> parameter:</p>
-<a class="reference internal image-reference" href="_images/LPO.png"><img alt="Image visualizing the Leave-Pair-Out setting" src="_images/LPO.png" style="width: 25%;" />
+<a class="reference internal image-reference" href="_images/LPO.png"><img alt="Image visualizing the Leave-Pair-Out setting" src="_images/LPO.png" style="width: 24%;" />
 </a>
-<a class="reference internal image-reference" href="_images/LCO.png"><img alt="Image visualizing the Leave-Cell-Line-Out setting" src="_images/LCO.png" style="width: 25%;" />
+<a class="reference internal image-reference" href="_images/LCO.png"><img alt="Image visualizing the Leave-Cell-Line-Out setting" src="_images/LCO.png" style="width: 24%;" />
 </a>
-<a class="reference internal image-reference" href="_images/LDO.png"><img alt="Image visualizing the Leave-Drug-Out setting" src="_images/LDO.png" style="width: 25%;" />
+<a class="reference internal image-reference" href="_images/LTO.png"><img alt="Image visualizing the Leave-Tissue-Out setting" src="_images/LTO.png" style="width: 24%;" />
+</a>
+<a class="reference internal image-reference" href="_images/LDO.png"><img alt="Image visualizing the Leave-Drug-Out setting" src="_images/LDO.png" style="width: 24%;" />
 </a>
 <ul class="simple">
 <li><p><strong>Leave-Pair-Out (LPO)</strong>: Random pairs of cell lines and drugs are left out for validation/testing but both the drug and the
@@ -205,42 +208,52 @@ For <code class="docutils literal notranslate"><span class="pre">--models</span>
 <tr class="row-odd"><td><p>NaiveCellLineMeanPredictor</p></td>
 <td><p>Baseline Method</p></td>
 <td><p>Multi-Drug Model</p></td>
-<td><p>Predicts the mean response of a cell line in the training set.</p></td>
+<td><p>Predicts the mean response of the cell line in the training set.</p></td>
 </tr>
 <tr class="row-even"><td><p>NaiveDrugMeanPredictor</p></td>
 <td><p>Baseline Method</p></td>
 <td><p>Multi-Drug Model</p></td>
-<td><p>Predicts the mean response of a drug in the training set.</p></td>
+<td><p>Predicts the mean response of the drug in the training set.</p></td>
 </tr>
-<tr class="row-odd"><td><p>NaiveMeanEffectPredictor</p></td>
+<tr class="row-odd"><td><p>NaiveTissueMeanPredictor</p></td>
+<td><p>Baseline Method</p></td>
+<td><p>Multi-Drug Model</p></td>
+<td><p>Predicts the mean response of the tissue in the training set.</p></td>
+</tr>
+<tr class="row-even"><td><p>NaiveMeanEffectsPredictor</p></td>
 <td><p>Baseline Method</p></td>
 <td><p>Multi-Drug Model</p></td>
 <td><p>Predicts using ANOVA-like mean effect model of cell lines and drugs</p></td>
 </tr>
-<tr class="row-even"><td><p>ElasticNet</p></td>
+<tr class="row-odd"><td><p>ElasticNet</p></td>
 <td><p>Baseline Method</p></td>
 <td><p>Multi-Drug Model</p></td>
 <td><p>Fits an <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.ElasticNet.html">Sklearn Elastic Net</a>, <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html">Lasso</a>, or <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Ridge.html">Ridge</a> model on gene expression data and drug fingerprints (concatenated input matrix).</p></td>
 </tr>
-<tr class="row-odd"><td><p>GradientBoosting</p></td>
+<tr class="row-even"><td><p>GradientBoosting</p></td>
 <td><p>Baseline Method</p></td>
 <td><p>Multi-Drug Model</p></td>
-<td><p>Fits an <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.GradientBoostingRegressor.html">Sklearn Gradient Boosting Regressor</a> gene expression data and drug fingerprints.</p></td>
+<td><p>Fits an <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.HistGradientBoostingRegressor.html">Sklearn Histogram-based Gradient Boosting Regression Tree</a> gene expression data and drug fingerprints.</p></td>
 </tr>
-<tr class="row-even"><td><p>RandomForest</p></td>
+<tr class="row-odd"><td><p>RandomForest</p></td>
 <td><p>Baseline Method</p></td>
 <td><p>Multi-Drug Model</p></td>
 <td><p>Fits an <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestRegressor.html">Sklearn Random Forest Regressor</a> on gene expression data and drug fingerprints.</p></td>
 </tr>
-<tr class="row-odd"><td><p>MultiOmicsRandomForest</p></td>
+<tr class="row-even"><td><p>MultiOmicsRandomForest</p></td>
 <td><p>Baseline Method</p></td>
 <td><p>Multi-Drug Model</p></td>
 <td><p>Fits an <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestRegressor.html">Sklearn Random Forest Regressor</a> on gene expression, methylation, mutation, copy number variation data, and drug fingerprints (concatenated matrix). The dimensionality of the methylation data is reduced with a PCA to the first 100 components before it is fed to the model.</p></td>
 </tr>
-<tr class="row-even"><td><p>SingleDrugRandomForest</p></td>
+<tr class="row-odd"><td><p>SingleDrugRandomForest</p></td>
 <td><p>Baseline Method</p></td>
 <td><p>Single-Drug Model</p></td>
 <td><p>Fits an <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestRegressor.html">Sklearn Random Forest Regressor</a> on gene expression data for each drug separately.</p></td>
+</tr>
+<tr class="row-even"><td><p>ProteomicsRandomForest</p></td>
+<td><p>Baseline Method</p></td>
+<td><p>Multi-Drug Model</p></td>
+<td><p>Fits an <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestRegressor.html">Sklearn Random Forest Regressor</a> on proteomics data and drug fingerprints.</p></td>
 </tr>
 <tr class="row-odd"><td><p>SVR</p></td>
 <td><p>Baseline Method</p></td>
@@ -260,7 +273,7 @@ For <code class="docutils literal notranslate"><span class="pre">--models</span>
 <tr class="row-even"><td><p>SRMF</p></td>
 <td><p>Published Model</p></td>
 <td><p>Multi-Drug Model</p></td>
-<td><p><a class="reference external" href="https://doi.org/10.1186/s12885-017-3500-5">Similarity Regularization Matrix Factorization</a> model by Wang et al. on gene expression data and drug fingerprints. Re-implemented Matlab code into Python. The basic idea is represent each drug and each cell line by their respective similarities to all other drugs/cell lines. Those similarities are mapped into a shared latent low-dimensional space from which responses are predicted.</p></td>
+<td><p><a class="reference external" href="https://doi.org/10.1186/s12885-017-3500-5">Similarity Regularization Matrix Factorization</a> model by Wang et al. on gene expression data and drug fingerprints. Re-implemented Matlab code into Python. The basic idea is to represent each drug and each cell line by their respective similarities to all other drugs/cell lines. Those similarities are mapped into a shared latent low-dimensional space from which responses are predicted.</p></td>
 </tr>
 <tr class="row-odd"><td><p>MOLIR</p></td>
 <td><p>Published Model</p></td>
@@ -286,6 +299,7 @@ For <code class="docutils literal notranslate"><span class="pre">--models</span>
 <table class="docutils align-default">
 <thead>
 <tr class="row-odd"><th class="head"><p>Dataset Name</p></th>
+<th class="head"><p>Number of DRP Curves</p></th>
 <th class="head"><p>Number of Drugs</p></th>
 <th class="head"><p>Number of Cell Lines</p></th>
 <th class="head"><p>Description</p></th>
@@ -293,36 +307,43 @@ For <code class="docutils literal notranslate"><span class="pre">--models</span>
 </thead>
 <tbody>
 <tr class="row-even"><td><p>GDSC1</p></td>
+<td><p>316,506</p></td>
 <td><p>378</p></td>
 <td><p>970</p></td>
 <td><p>The Genomics of Drug Sensitivity in Cancer (GDSC) dataset version 1.</p></td>
 </tr>
 <tr class="row-odd"><td><p>GDSC2</p></td>
+<td><p>234,437</p></td>
 <td><p>287</p></td>
 <td><p>969</p></td>
 <td><p>The Genomics of Drug Sensitivity in Cancer (GDSC) dataset version 2.</p></td>
 </tr>
 <tr class="row-even"><td><p>CCLE</p></td>
+<td><p>11,670</p></td>
 <td><p>24</p></td>
 <td><p>503</p></td>
 <td><p>The Cancer Cell Line Encyclopedia (CCLE) dataset.</p></td>
 </tr>
 <tr class="row-odd"><td><p>CTRPv1</p></td>
+<td><p>60,758</p></td>
 <td><p>354</p></td>
 <td><p>243</p></td>
 <td><p>The Cancer Therapeutics Response Portal (CTRP) dataset version 1.</p></td>
 </tr>
 <tr class="row-even"><td><p>CTRPv2</p></td>
+<td><p>395,025</p></td>
 <td><p>546</p></td>
 <td><p>886</p></td>
 <td><p>The Cancer Therapeutics Response Portal (CTRP) dataset version 2.</p></td>
 </tr>
 <tr class="row-odd"><td><p>TOYv1</p></td>
+<td><p>2,711</p></td>
 <td><p>36</p></td>
 <td><p>90</p></td>
 <td><p>A toy dataset for testing purposes subsetted from CTRPv2.</p></td>
 </tr>
 <tr class="row-even"><td><p>TOYv2</p></td>
+<td><p>2,784</p></td>
 <td><p>36</p></td>
 <td><p>90</p></td>
 <td><p>A second toy dataset for cross study testing purposes. 80 cell lines and 32 drugs overlap TOYv2.</p></td>
@@ -334,6 +355,49 @@ In the provided datasets, these are the measures calculated with the same fittin
 dataset, do not set the <code class="docutils literal notranslate"><span class="pre">--curve_curator</span></code> option.</p>
 <p>This however makes it hard to do cross-study comparisons, since the measures may not be directly comparable due to differences in the fitting procedures used by the original authors.
 It is therefore recommended to always use DrEvalPy with the <code class="docutils literal notranslate"><span class="pre">--curve_curator</span></code> option, even when providing your own custom datasets (see next section).</p>
+</section>
+<section id="corresponding-feature-data">
+<h2>Corresponding feature data<a class="headerlink" href="#corresponding-feature-data" title="Link to this heading"></a></h2>
+<p>The datasets have corresponding cell-line and drug feature data. The sources are as follows:</p>
+<ul class="simple">
+<li><dl class="simple">
+<dt>GDSC1 &amp; 2:</dt><dd><ul>
+<li><p>Gene expression: RMA-normalized microarray expression data from the <a class="reference external" href="https://www.cancerrxgene.org/downloads/bulk_download">GDSC Data Portal</a> (raw data).</p></li>
+<li><p>Methylation: Preprocessed Beta Values for all CpG islands, IlluminaHumanMethylation450 BeadChip <a class="reference external" href="https://www.cancerrxgene.org/gdsc1000/GDSC1000_WebResources/Home.html">GDSC Data Portal</a>.</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>CCLE, CTRPv1, CTRPv2:</dt><dd><ul>
+<li><p>Gene expression: reprocessed RNA-seq data PRJNA523380</p></li>
+<li><p>Methylation: DepMap Beta Values for RRBS clusters <code class="docutils literal notranslate"><span class="pre">CCLE_RRBS_TSS_CpG_clusters_20180614.txt</span></code></p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Used by all:</dt><dd><ul>
+<li><p>Mutation &amp; CNV data: <a class="reference external" href="https://cellmodelpassports.sanger.ac.uk/downloads">Sanger Cell Model Passports</a>.</p></li>
+<li><p>Proteomics: Raw data at PRIDE: PXD030304</p></li>
+<li><p>Morgan Fingerprints were generated with RDKit from SMILES either downloaded from PubChem or provided by GDSC.</p></li>
+<li><dl class="simple">
+<dt><a class="reference external" href="https://drive.google.com/drive/folders/16hP48-noHi3-c_LP9TcZxkwAzqxgR0VB">DIPK associated drive</a></dt><dd><ul>
+<li><p>MolGNet features were generated from SMILES</p></li>
+<li><p>BIONIC features were generated from top expressed genes</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p>The 978 landmark genes are from the L1000 assay</p></li>
+<li><p>The drug target genes are the genes targeted by the drugs used in GDSC, extractable from the <a class="reference external" href="https://www.cancerrxgene.org/downloads/bulk_download">GDSC Data Portal</a> (compounds annotation).</p></li>
+<li><p>The intersection lists are features occurring in all datasets for the respective OMICs to ensure that cross-study predictions can easily be done because the features are shared.</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+<p>For more information on the preprocessing, please refer to <a class="reference external" href="https://github.com/daisybio/preprocess_drp_data">the corresponding GitHub Repo</a>.</p>
 </section>
 <section id="custom-datasets">
 <h2>Custom Datasets<a class="headerlink" href="#custom-datasets" title="Link to this heading"></a></h2>
@@ -399,7 +463,7 @@ the <code class="docutils literal notranslate"><span class="pre">--optim_metric<
 <li><p><strong>Pearson</strong>: The Pearson correlation coefficient. The higher the better.</p></li>
 <li><p><strong>Spearman</strong>: The Spearman correlation coefficient. The higher the better.</p></li>
 <li><p><strong>Kendall</strong>: The Kendall correlation coefficient. The higher the better.</p></li>
-<li><p><strong>Partial_Correlation</strong>: The partial correlation coefficient which corrects for the drug and cell line effects. The higher the better.</p></li>
+<li><p><strong>Normalized [R^2, Pearson, Spearman, Kendall]</strong>: A version of the metric where the true and predicted response values are normalized by the predictions of the NaiveMeanEffectsPredictor.</p></li>
 </ul>
 </section>
 <section id="available-response-transformations">

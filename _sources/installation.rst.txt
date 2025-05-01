@@ -9,7 +9,7 @@ If something goes wrong, feel free to open an issue on `GitHub <https://github.c
 With Conda
 ----------
 
-DrEvalPy requires python >=3.9 and <=3.13. Best practice is to use a clean
+DrEvalPy requires python >=3.11 and <3.13. Best practice is to use a clean
 (`mamba <https://mamba.readthedocs.io/en/latest/installation/mamba-installation.html>`_) or
 conda environment (`Miniconda <https://docs.conda.io/en/latest/miniconda.html>`_). Mamba is automatically installed
 when downloading (`Miniforge <https://github.com/conda-forge/miniforge>`_) and is generally faster and better at
@@ -18,7 +18,7 @@ Follow the installation guide for your operating system, then create a new envir
 
 .. code-block:: bash
 
-   mamba create -y -n drevalpy python==3.10
+   mamba create -y -n drevalpy python==3.12
 
 DrEvalPy is listed on the Python Package Index (PyPI) and can be installed with pip.
 Activate your conda environment (or skip this if you use a system wide python installation)
@@ -67,13 +67,13 @@ From Source
 -----------
 
 To install DrEvalPy from source, clone the repository and install the package using Poetry
-(ensure that Poetry is  >=1.2.0 because otherwise, the group dependencies will not work, e.g., 1.8.4 works):
+(ensure that Poetry is  >=1.2.0 because otherwise, the group dependencies will not work, e.g., 2.0.1 works):
 
 .. code-block:: bash
 
     git clone https://github.com/daisybio/drevalpy.git
     cd drevalpy
-    mamba create -y -n drevalpy python==3.10 poetry==1.8.4
+    mamba create -y -n drevalpy python==3.12 poetry==2.0.1
     poetry --version
     poetry install
 
