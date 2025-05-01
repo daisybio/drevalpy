@@ -1,13 +1,12 @@
 """Tests for evaluation.py."""
 
 import numpy as np
-import pandas as pd
 import pytest
 from flaky import flaky
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 from drevalpy.datasets.dataset import DrugResponseDataset
-from drevalpy.evaluation import evaluate, kendall, partial_correlation, pearson, spearman
+from drevalpy.evaluation import evaluate, kendall, pearson, spearman
 
 
 def test_evaluate() -> None:
@@ -105,34 +104,6 @@ def generate_mock_correlated_data() -> tuple[np.ndarray, np.ndarray]:
     response = np.arange(2e6)
     y_pred = response
     return y_pred, response
-
-
-def test_partial_correlation(generate_mock_data_drug_mean: tuple[np.ndarray, np.ndarray, np.ndarray]) -> None:
-    """
-    Test the partial correlation function.
-
-    :param generate_mock_data_drug_mean: mock data generator
-    """
-    response, cell_line_ids, drug_ids = generate_mock_data_drug_mean
-
-    df = pd.DataFrame(
-        {
-            "response": response,
-            "cell_line_id": cell_line_ids,
-            "drug_id": drug_ids,
-        }
-    )
-
-    df["mean"] = df["response"].mean()
-    df["mean_per_drug"] = df.groupby("drug_id")["response"].transform("mean")
-
-    for col in ["mean", "mean_per_drug"]:
-        y_pred = np.array(df[col])
-        # add gaussian noise to y_pred
-        y_pred += np.random.normal(0, 0.1, size=len(y_pred))
-
-        pc = partial_correlation(y_pred, response, cell_line_ids, drug_ids)
-        assert np.isclose(pc, 0.0, atol=0.1)
 
 
 def test_pearson_correlated(generate_mock_correlated_data: tuple[np.ndarray, np.ndarray]) -> None:

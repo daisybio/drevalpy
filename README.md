@@ -16,7 +16,7 @@ Focus on Innovating Your Models — DrEval Handles the Rest!
 
 By contributing your model to the DrEval catalog, you can increase your work's exposure, reusability, and transferability.
 
-![DrEval](assets/dreval.png)
+![DrEval](docs/_static/img/overview.png)
 
 Use DrEval to Build Drug Response Models That Have an Impact
 
@@ -82,7 +82,7 @@ results/my_first_run/LCO
 You can visualize them using
 
 ```bash
-python create_report.py --run_id my_first_run
+python create_report.py --run_id my_first_run --dataset GDSC2
 ```
 
 This will create an index.html file which you can open in your webbrowser.
@@ -91,7 +91,7 @@ You can also run a drug response experiment using Python:
 
 ```python
 
-from drevalpy import drug_response_experiment
+from drevalpy.experiment import drug_response_experiment
 
 drug_response_experiment(
             models=["MultiOmicsNeuralNetwork"],
@@ -106,9 +106,13 @@ drug_response_experiment(
 
 We recommend the use of our nextflow pipeline for computational demanding runs and for improved reproducibility. No knowledge of nextflow is required to run it. The nextflow pipeline is available here: [nf-core-drugresponseeval](https://github.com/JudithBernett/nf-core-drugresponseeval).
 
+## Example Report
+
+[Browse our benchmark results here.](https://dilis-lab.github.io/drevalpy-report/)
+
 ## Contact
 
 Main developers:
 
 - [Judith Bernett](mailto:judith.bernett@tum.de), [Data Science in Systems Biology](https://www.mls.ls.tum.de/daisybio/startseite/), TUM
-- [Pascal Iversen](mailto:Pascal.Iversen@hpi.de), [Data Integration in the Life Sciences](https://www.mi.fu-berlin.de/inf/groups/ag-dilis/index.html), FU Berlin, Hasso Plattner Institute
+- [Pascal Iversen](mailto:Pascal.Iversen@hpi.de), [Data Integration in the Life Sciences](https://www.mi.fu-berlin.de/w/DILIS/WebHome), FU Berlin, Hasso Plattner Institute

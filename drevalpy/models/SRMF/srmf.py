@@ -117,6 +117,8 @@ class SRMF(DRPModel):
 
         # Prepare response and weight matrices
         drug_response_matrix = output.to_dataframe()
+        if "tissue" in drug_response_matrix.columns:
+            drug_response_matrix = drug_response_matrix.drop(columns=["tissue"])
         drug_response_matrix = drug_response_matrix.groupby(["cell_line_id", "drug_id"]).mean().reset_index()
         drug_response_matrix = drug_response_matrix.pivot(index="cell_line_id", columns="drug_id", values="response")
 

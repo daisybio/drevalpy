@@ -35,6 +35,7 @@ class DrugResponseDataset:
 
     _response: np.ndarray
     _cell_line_ids: np.ndarray
+    _tissues: np.ndarray | None = None
     _drug_ids: np.ndarray
     _predictions: np.ndarray | None = None
     _cv_splits: list[dict[str, "DrugResponseDataset"]] = []
@@ -46,6 +47,7 @@ class DrugResponseDataset:
         input_file: str | Path,
         dataset_name: str = "unknown",
         measure: str = "response",
+        tissue_column: str | None = None,
     ) -> "DrugResponseDataset":
         """
         Load a dataset from a csv file.
@@ -56,10 +58,12 @@ class DrugResponseDataset:
         - cell_line_ids:    a string identifier for cell lines
         - drug_ids:         a string identifier for drugs
         - predictions:      an optional column containing drug response predictions
+        - measure:         the name of the column containing the measure to predict
 
         :param input_file: Path to the csv file containing the data to be loaded
         :param dataset_name: Optional name to associate the dataset with, default = "unknown"
         :param measure: The name of the column containing the measure to predict, default = "response"
+        :param tissue_column: Optional column name of column containing tissue types
 
         :returns: DrugResponseDataset object containing data from provided csv file.
         """
@@ -76,6 +80,7 @@ class DrugResponseDataset:
             drug_ids=data["drug_id"].values,
             predictions=predictions,
             dataset_name=dataset_name,
+            tissues=data[tissue_column].values if tissue_column in data.columns else None,
         )
 
     @property
@@ -115,6 +120,15 @@ class DrugResponseDataset:
         return self._predictions
 
     @property
+    def tissue(self) -> np.ndarray | None:
+        """
+        Returns the tissue types if they exist.
+
+        :returns: numpy array containing tissue types or None.
+        """
+        return self._tissues
+
+    @property
     def cv_splits(self) -> list[dict[str, "DrugResponseDataset"]]:
         """
         Returns the cv_splits.
@@ -138,6 +152,7 @@ class DrugResponseDataset:
         response: np.ndarray,
         cell_line_ids: np.ndarray,
         drug_ids: np.ndarray,
+        tissues: np.ndarray | None = None,
         predictions: np.ndarray | None = None,
         dataset_name: str = "unnamed",
     ) -> None:
@@ -147,6 +162,7 @@ class DrugResponseDataset:
         :param response: drug response values per cell line and drug
         :param cell_line_ids: cell line IDs
         :param drug_ids: drug IDs
+        :param tissues: Optionally, tissue types of the cell lines for leave-tissue-out cv
         :param predictions: optional. Predicted drug response values per cell line and drug
         :param dataset_name: optional. Name of the dataset, default: "unnamed"
         :raises AssertionError: If response, cell_line_ids, drug_ids, (and the optional predictions) do not all have
@@ -164,6 +180,10 @@ class DrugResponseDataset:
         self._drug_ids = drug_ids
         self._predictions = predictions
         self._name = dataset_name
+        if tissues is not None:
+            self._tissues = np.array(tissues)
+        else:
+            self._tissues = None
 
     def __len__(self) -> int:
         """
@@ -202,6 +222,9 @@ class DrugResponseDataset:
         }
         if self.predictions is not None:
             data["predictions"] = self.predictions
+        if self.tissue is not None:
+            data["tissue"] = self.tissue
+
         return pd.DataFrame(data)
 
     def to_csv(self, path: str | Path):
@@ -223,18 +246,17 @@ class DrugResponseDataset:
         self._cell_line_ids = np.concatenate([self._cell_line_ids, other.cell_line_ids])
         self._drug_ids = np.concatenate([self._drug_ids, other.drug_ids])
 
+        if self.tissue is not None and other.tissue is not None:
+            self._tissues = np.concatenate([self.tissue, other.tissue])
+
         if self.predictions is not None and other.predictions is not None:
             self._predictions = np.concatenate([self._predictions, other.predictions])
 
     @pipeline_function
     def remove_nan_responses(self) -> None:
         """Removes rows with NaN values in the response."""
-        mask = np.isnan(self.response)
-        self._response = self.response[~mask]
-        self._cell_line_ids = self.cell_line_ids[~mask]
-        self._drug_ids = self.drug_ids[~mask]
-        if self.predictions is not None:
-            self._predictions = self.predictions[~mask]
+        mask = ~np.isnan(self.response)
+        self.mask(mask)
 
     @pipeline_function
     def shuffle(self, random_state: int = 42) -> None:
@@ -251,6 +273,8 @@ class DrugResponseDataset:
         self._drug_ids = self.drug_ids[indices]
         if self.predictions is not None:
             self._predictions = self.predictions[indices]
+        if self.tissue is not None:
+            self._tissues = self.tissue[indices]
 
     def _remove_drugs(self, drugs_to_remove: str | list[str | int]) -> None:
         """
@@ -261,10 +285,8 @@ class DrugResponseDataset:
         if isinstance(drugs_to_remove, str):
             drugs_to_remove = [drugs_to_remove]
 
-        mask = [drug not in drugs_to_remove for drug in self.drug_ids]
-        self._drug_ids = self.drug_ids[mask]
-        self._cell_line_ids = self.cell_line_ids[mask]
-        self._response = self.response[mask]
+        mask = np.array([drug not in drugs_to_remove for drug in self.drug_ids], dtype=bool)
+        self.mask(mask)
 
     def _remove_cell_lines(self, cell_lines_to_remove: str | list[str | int]) -> None:
         """
@@ -275,10 +297,8 @@ class DrugResponseDataset:
         if isinstance(cell_lines_to_remove, str):
             cell_lines_to_remove = [cell_lines_to_remove]
 
-        mask = [cell_line not in cell_lines_to_remove for cell_line in self.cell_line_ids]
-        self._drug_ids = self.drug_ids[mask]
-        self._cell_line_ids = self.cell_line_ids[mask]
-        self._response = self.response[mask]
+        mask = np.array([cell_line not in cell_lines_to_remove for cell_line in self.cell_line_ids], dtype=bool)
+        self.mask(mask)
 
     def remove_rows(self, indices: np.ndarray) -> None:
         """
@@ -286,12 +306,9 @@ class DrugResponseDataset:
 
         :param indices: indices of rows to remove
         """
-        indices = np.array(indices, dtype=int)
-        self._drug_ids = np.delete(self.drug_ids, indices)
-        self._cell_line_ids = np.delete(self.cell_line_ids, indices)
-        self._response = np.delete(self.response, indices)
-        if self.predictions is not None:
-            self._predictions = np.delete(self.predictions, indices)
+        mask = np.ones(len(self), dtype=bool)
+        mask[indices] = False
+        self.mask(mask)
 
     def reduce_to(self, cell_line_ids: np.ndarray | None = None, drug_ids: np.ndarray | None = None) -> None:
         """
@@ -328,38 +345,48 @@ class DrugResponseDataset:
         :returns: list of dictionaries containing the cross-validation datasets.
             Each fold is a dictionary with keys 'train', 'validation', 'test', 'validation_es', 'early_stopping'.
         :raises ValueError: if mode is not 'LPO', 'LCO', or 'LDO'
+        :raises ValueError: if LTO cross-validation but tissue information not provided
         """
-        cell_line_ids = self.cell_line_ids
-        drug_ids = self.drug_ids
-        response = self.response
-
         if mode == "LPO":
             cv_splits = _leave_pair_out_cv(
-                n_cv_splits,
-                response,
-                cell_line_ids,
-                drug_ids,
-                split_validation,
-                validation_ratio,
-                random_state,
-                self.dataset_name,
+                n_cv_splits=n_cv_splits,
+                response=self.response,
+                cell_line_ids=self.cell_line_ids,
+                drug_ids=self.drug_ids,
+                tissues=self.tissue,
+                split_validation=split_validation,
+                validation_ratio=validation_ratio,
+                random_state=random_state,
+                dataset_name=self.dataset_name,
             )
 
-        elif mode in ["LCO", "LDO"]:
-            group = "cell_line" if mode == "LCO" else "drug"
+        elif mode in ["LCO", "LTO", "LDO"]:
+            if mode == "LTO":
+                # Leave-tissue-out cross-validation
+                group = "tissue"
+                if self.tissue is None:
+                    raise ValueError("Tissue information is required for LTO cross-validation.")
+            elif mode == "LCO":
+                # Leave-cell-line-out cross-validation
+                group = "cell_line"
+            else:
+                # Leave-drug-out cross-validation
+                group = "drug"
+
             cv_splits = _leave_group_out_cv(
                 group=group,
                 n_cv_splits=n_cv_splits,
-                response=response,
-                cell_line_ids=cell_line_ids,
-                drug_ids=drug_ids,
+                response=self.response,
+                cell_line_ids=self.cell_line_ids,
+                drug_ids=self.drug_ids,
+                tissues=self.tissue,
                 split_validation=split_validation,
                 validation_ratio=validation_ratio,
                 random_state=random_state,
                 dataset_name=self.dataset_name,
             )
         else:
-            raise ValueError(f"Unknown split mode {mode!r}. Choose from 'LPO', 'LCO', 'LDO'.")
+            raise ValueError(f"Unknown split mode {mode!r}. Choose from 'LPO', 'LCO', 'LTO', 'LDO'.")
 
         if split_validation and split_early_stopping:
             for split in cv_splits:
@@ -448,6 +475,7 @@ class DrugResponseDataset:
             cell_line_ids=copy.deepcopy(self.cell_line_ids),
             drug_ids=copy.deepcopy(self.drug_ids),
             predictions=copy.deepcopy(self.predictions),
+            tissues=copy.deepcopy(self.tissue),
             dataset_name=self.dataset_name,
         )
 
@@ -463,6 +491,7 @@ class DrugResponseDataset:
                 tuple(self.drug_ids),
                 tuple(self.response),
                 (tuple(self.predictions) if self.predictions is not None else None),
+                (tuple(self.tissue) if self.tissue is not None else None),
             )
         )
 
@@ -471,12 +500,18 @@ class DrugResponseDataset:
         Removes rows from the dataset based on a boolean mask.
 
         :param mask: boolean mask
+        :raises ValueError: if mask is not boolean or integer
         """
+        if mask.dtype != bool and not np.issubdtype(mask.dtype, np.integer):
+            raise ValueError("Mask must be of boolean or integer dtype.")
+
         self._response = self.response[mask]
         self._cell_line_ids = self.cell_line_ids[mask]
         self._drug_ids = self.drug_ids[mask]
         if self.predictions is not None:
             self._predictions = self.predictions[mask]
+        if self.tissue is not None:
+            self._tissues = self.tissue[mask]
 
     def transform(self, response_transformation: TransformerMixin) -> None:
         """
@@ -515,18 +550,35 @@ def _split_early_stopping_data(
     Splits the validation dataset into a validation and an early stopping dataset.
 
     :param validation_dataset: input validation dataset
-    :param test_mode: LCO, LDO, LPO
+    :param test_mode: LPO, LCO, LTO, LDO
+    :raises ValueError: if test_mode is not one of the expected values
     :returns: the resulting validation and early stopping datasets
     """
     validation_dataset.shuffle(random_state=42)
+
+    # Determine the number of splits b (default 4,
+    # but can be less if there are not enough groups)
+    if test_mode == "LTO":
+        tissues = validation_dataset.tissue
+        if tissues is None:
+            raise ValueError("Tissue information is required for LTO.")
+        n_splits = min(4, len(np.unique(tissues)))
+    elif test_mode == "LCO":
+        n_splits = min(4, len(np.unique(validation_dataset.cell_line_ids)))
+    elif test_mode == "LDO":
+        n_splits = min(4, len(np.unique(validation_dataset.drug_ids)))
+    else:
+        n_splits = 4
+
     cv_v = validation_dataset.split_dataset(
-        n_cv_splits=4,
+        n_cv_splits=n_splits,
         mode=test_mode,
         split_validation=False,
         split_early_stopping=False,
         random_state=42,
     )
     # take the first fold of a 4 cv as the split i.e. 3/4 for validation and 1/4 for early stopping
+    # when n_groups is less than 4, we splits the validation dataset into 2/3 and 1/3 or 1/2 and 1/2
     validation_dataset = cv_v[0]["train"]
     early_stopping_dataset = cv_v[0]["test"]
     return validation_dataset, early_stopping_dataset
@@ -537,6 +589,7 @@ def _leave_pair_out_cv(
     response: np.ndarray,
     cell_line_ids: np.ndarray,
     drug_ids: np.ndarray,
+    tissues: np.ndarray | None = None,
     split_validation: bool = True,
     validation_ratio: float = 0.1,
     random_state: int = 42,
@@ -549,6 +602,7 @@ def _leave_pair_out_cv(
     :param response: response (e.g. ic50 values)
     :param cell_line_ids: cell line IDs
     :param drug_ids: drug IDs
+    :param tissues: tissue types of the cell line, if available
     :param split_validation: whether to split the training set into training and validation set
     :param validation_ratio: ratio of validation set (of the training set)
     :param random_state: random state
@@ -564,6 +618,8 @@ def _leave_pair_out_cv(
     response = response[shuffled_indices].copy()
     cell_line_ids = cell_line_ids[shuffled_indices].copy()
     drug_ids = drug_ids[shuffled_indices].copy()
+    if tissues is not None:
+        tissues = tissues[shuffled_indices].copy()
 
     # We use GroupKFold to ensure that each pair is only in one fold (prevent data leakage due to
     # experimental replicates).
@@ -586,12 +642,14 @@ def _leave_pair_out_cv(
                 cell_line_ids=cell_line_ids[train_indices],
                 drug_ids=drug_ids[train_indices],
                 response=response[train_indices],
+                tissues=tissues[train_indices] if tissues is not None else None,
                 dataset_name=dataset_name,
             ),
             "test": DrugResponseDataset(
                 cell_line_ids=cell_line_ids[test_indices],
                 drug_ids=drug_ids[test_indices],
                 response=response[test_indices],
+                tissues=tissues[test_indices] if tissues is not None else None,
                 dataset_name=dataset_name,
             ),
         }
@@ -601,6 +659,7 @@ def _leave_pair_out_cv(
                 cell_line_ids=cell_line_ids[validation_indices],
                 drug_ids=drug_ids[validation_indices],
                 response=response[validation_indices],
+                tissues=tissues[validation_indices] if tissues is not None else None,
                 dataset_name=dataset_name,
             )
 
@@ -614,6 +673,7 @@ def _leave_group_out_cv(
     response: np.ndarray,
     cell_line_ids: np.ndarray,
     drug_ids: np.ndarray,
+    tissues: np.ndarray | None = None,
     split_validation: bool = True,
     validation_ratio: float = 0.1,
     random_state: int = 42,
@@ -627,20 +687,28 @@ def _leave_group_out_cv(
     :param response: response (e.g. ic50 values)
     :param cell_line_ids: cell line IDs
     :param drug_ids: drug IDs
+    :param tissues: tissue types of the cell line, if available (required for LTO)
     :param split_validation: whether to split the training set into training and validation set
     :param validation_ratio: ratio of validation set (of the training set)
     :param random_state: random state
     :param dataset_name: name of the dataset
     :returns: list of dicts of the cross validation sets
-    :raises AssertionError: if group is not 'cell_line' or 'drug'
+    :raises AssertionError: if group is not 'cell_line' or 'drug' or 'tissue'
+    :raises AssertionError: Tissue information is required for LTO cross-validation
     """
-    if group not in {"cell_line", "drug"}:
+    if group not in {"cell_line", "drug", "tissue"}:
         raise AssertionError(f"group must be 'cell_line' or 'drug', but is {group}")
 
     if group == "cell_line":
         group_ids = cell_line_ids
-    else:
+    elif group == "drug":
         group_ids = drug_ids
+    elif group == "tissue":
+        if tissues is None:
+            raise AssertionError("Tissue information is required for LTO cross-validation.")
+        group_ids = tissues
+    else:
+        raise AssertionError(f"Unknown group {group}")
 
     # shuffle, since GroupKFold does not implement this
     indices = np.arange(len(response))
@@ -649,6 +717,7 @@ def _leave_group_out_cv(
     response = response[shuffled_indices].copy()
     cell_line_ids = cell_line_ids[shuffled_indices].copy()
     drug_ids = drug_ids[shuffled_indices].copy()
+    tissues = tissues[shuffled_indices].copy() if tissues is not None else None
     group_ids = group_ids[shuffled_indices].copy()
     gkf = GroupKFold(n_splits=n_cv_splits)
     cv_sets = []
@@ -659,12 +728,14 @@ def _leave_group_out_cv(
                 cell_line_ids=cell_line_ids[train_indices],
                 drug_ids=drug_ids[train_indices],
                 response=response[train_indices],
+                tissues=tissues[train_indices] if tissues is not None else None,
                 dataset_name=dataset_name,
             ),
             "test": DrugResponseDataset(
                 cell_line_ids=cell_line_ids[test_indices],
                 drug_ids=drug_ids[test_indices],
                 response=response[test_indices],
+                tissues=tissues[test_indices] if tissues is not None else None,
                 dataset_name=dataset_name,
             ),
         }
@@ -685,12 +756,14 @@ def _leave_group_out_cv(
                 cell_line_ids=cell_line_ids[train_indices],
                 drug_ids=drug_ids[train_indices],
                 response=response[train_indices],
+                tissues=tissues[train_indices] if tissues is not None else None,
                 dataset_name=dataset_name,
             )
             cv_fold["validation"] = DrugResponseDataset(
                 cell_line_ids=cell_line_ids[validation_indices],
                 drug_ids=drug_ids[validation_indices],
                 response=response[validation_indices],
+                tissues=tissues[validation_indices] if tissues is not None else None,
                 dataset_name=dataset_name,
             )
 
