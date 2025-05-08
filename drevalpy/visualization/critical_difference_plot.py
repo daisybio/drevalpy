@@ -94,6 +94,7 @@ class CriticalDifferencePlot(OutPlot):
                 raise ValueError("Figure is None. Cannot save the plot.")
             else:
                 self.fig.savefig(path_out, bbox_inches="tight")
+                plt.clf()
                 self.test_results = self.test_results.round(4)
                 self.test_results.to_html(f"{out_prefix}critical_difference_algorithms_{out_suffix}.html")
         except Exception as e:
