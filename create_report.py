@@ -19,12 +19,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate reports from evaluation results")
     parser.add_argument("--run_id", required=True, help="Run ID for the current execution")
     parser.add_argument("--dataset", required=True, help="Dataset name for which to render the result file")
-    parser.add_argument("--path_data", required=True, help="Path to the data")
+    parser.add_argument("--path_data", required=False, help="Path to the data, default is ./data")
     parser.add_argument("--result_path", required=False, help="Path to the results, default is ./results")
     args = parser.parse_args()
     run_id = args.run_id
     dataset = args.dataset
-    path_data = pathlib.Path(args.path_data).resolve()
+    path_to_data = args.path_data if args.path_data is not None else "data"
+    path_data = pathlib.Path(path_to_data).resolve()
     result_path = args.result_path if args.result_path is not None else "results"
     result_path = pathlib.Path(result_path).resolve()
     # assert that the run_id folder exists

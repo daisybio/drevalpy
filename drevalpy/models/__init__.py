@@ -7,6 +7,7 @@ __all__ = [
     "NaivePredictor",
     "NaiveDrugMeanPredictor",
     "NaiveCellLineMeanPredictor",
+    "NaiveTissueMeanPredictor",
     "NaiveMeanEffectsPredictor",
     "ElasticNetModel",
     "RandomForest",

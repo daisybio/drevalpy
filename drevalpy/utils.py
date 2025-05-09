@@ -124,7 +124,7 @@ def get_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--curve_curator",
         action="store_true",
-        default=False,
+        default=True,
         help="Whether to run " "CurveCurator " "to sort out " "non-reactive " "curves",
     )
 
