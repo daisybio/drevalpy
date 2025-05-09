@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>How to use DrEvalPy &mdash; DrEvalPy 1.3.0 documentation</title>
+  <title>How to use DrEvalPy &mdash; DrEvalPy 1.3.1 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
       <link rel="stylesheet" type="text/css" href="_static/custom_cookietemple.css?v=a7e27724" />
@@ -14,7 +14,7 @@
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=1f29e9d3"></script>
+      <script src="_static/documentation_options.js?v=bb516dca"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
@@ -111,39 +111,50 @@ No knowledge of nextflow is required to run it. The nextflow pipeline is availab
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">-h,</span> <span class="pre">--help</span></code>: Show help message and exit.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">--run_id</span> <span class="pre">RUN_ID</span></code>: Identifier for the run. Will be used as a prefix for all output files.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">--path_data</span> <span class="pre">PATH_DATA</span></code>: Path to the data directory. All data files should be stored in this directory and will be downloaded into this directory. The location of the datasets are resolved by <code class="docutils literal notranslate"><span class="pre">&lt;path_data&gt;/&lt;dataset_name&gt;/&lt;dataset_name&gt;.csv</span></code>. If providing raw viability data, the file needs to be named <code class="docutils literal notranslate"><span class="pre">&lt;dataset_name&gt;_raw.csv</span></code> instead and <code class="docutils literal notranslate"><span class="pre">--curve_curator</span></code> needs to be specified for automated curve fitting (see <code class="docutils literal notranslate"><span class="pre">--curve_curator</span></code> for details and also check the <a class="reference internal" href="#custom-datasets"><span class="std std-ref">Custom Datasets</span></a> section).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--path_data</span> <span class="pre">PATH_DATA</span></code>: Path to the data directory, default: data. All data files should be stored in this directory and will be downloaded into this directory. The location of the datasets are resolved by <code class="docutils literal notranslate"><span class="pre">&lt;path_data&gt;/&lt;dataset_name&gt;/&lt;dataset_name&gt;.csv</span></code>. If providing raw viability data, the file needs to be named <code class="docutils literal notranslate"><span class="pre">&lt;dataset_name&gt;_raw.csv</span></code> instead and <code class="docutils literal notranslate"><span class="pre">--curve_curator</span></code> needs to be specified for automated curve fitting (see <code class="docutils literal notranslate"><span class="pre">--curve_curator</span></code> for details and also check the <a class="reference internal" href="#custom-datasets"><span class="std std-ref">Custom Datasets</span></a> section).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">--models</span> <span class="pre">MODELS</span> <span class="pre">[MODELS</span> <span class="pre">...]</span></code>: List of models to evaluate. For a list of available models, see the <a class="reference internal" href="#available-models"><span class="std std-ref">Available Models</span></a> section.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">--baselines</span> <span class="pre">BASELINES</span> <span class="pre">[BASELINES</span> <span class="pre">...]</span></code>: List of baselines to evaluate. For a list of available baselines, see the <a class="reference internal" href="#available-models"><span class="std std-ref">Available Models</span></a> section.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">--test_mode</span> <span class="pre">TEST_MODE</span> <span class="pre">[TEST_MODE</span> <span class="pre">...]</span></code>: Which tests to run (LPO=Leave-random-Pairs-Out, LCO=Leave-Cell-line-Out, LDO=Leave-Drug-Out). Can be a list of test runs e.g. ‘LPO LCO LDO’ to run all tests. Default is LPO. For more information, see the <a class="reference internal" href="#available-settings"><span class="std std-ref">Available Settings</span></a> section.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--baselines</span> <span class="pre">BASELINES</span> <span class="pre">[BASELINES</span> <span class="pre">...]</span></code>: List of baselines to evaluate. If NaiveMeanEffectsPredictor is not part of them, we will add it. For a list of available baselines, see the <a class="reference internal" href="#available-models"><span class="std std-ref">Available Models</span></a> section.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--test_mode</span> <span class="pre">TEST_MODE</span> <span class="pre">[TEST_MODE</span> <span class="pre">...]</span></code>: Which tests to run (LPO=Leave-random-Pairs-Out, LCO=Leave-Cell-line-Out, LTO=Leave-Tissue-Out, LDO=Leave-Drug-Out). Can be a list of test runs e.g. ‘LPO LCO LTO LDO’ to run all tests. Default is LPO. For more information, see the <a class="reference internal" href="#available-settings"><span class="std std-ref">Available Settings</span></a> section.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">--randomization_mode</span> <span class="pre">RANDOMIZATION_MODE</span> <span class="pre">[RANDOMIZATION_MODE</span> <span class="pre">...]</span></code>: Which randomization mode to use. Can be a list of randomization modes e.g. ‘SVCC SVCD SVRC SVRD’ to run all randomization modes. Default is None. For more information, see the <a class="reference internal" href="#available-randomization-tests"><span class="std std-ref">Available Randomization Tests</span></a> section.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">--randomization_type</span> <span class="pre">RANDOMIZATION_TYPE</span></code>: Which randomization type to use. Default is ‘permutation’. For more information, see the <a class="reference internal" href="#available-randomization-tests"><span class="std std-ref">Available Randomization Tests</span></a> section.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">--n_trials_robustness</span> <span class="pre">N_TRIALS_ROBUSTNESS</span></code>: Number of trials for robustness testing. Default is 0, which means no robustness testing. For more information, see the <a class="reference internal" href="#robustness-test"><span class="std std-ref">Robustness Test</span></a> section.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">--dataset_name</span> <span class="pre">DATASET_NAME</span></code>: Name of the dataset to use. For a list of available datasets, see the <a class="reference internal" href="#available-datasets"><span class="std std-ref">Available Datasets</span></a> section. For information on how to use custom datasets, see the <a class="reference internal" href="#custom-datasets"><span class="std std-ref">Custom Datasets</span></a> section.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">--cross_study_datasets</span> <span class="pre">CROSS_STUDY_DATASETS</span> <span class="pre">[CROSS_STUDY_DATASETS</span> <span class="pre">...]</span></code>: List of datasets to use for cross-study validation. For a list of available datasets, see the <a class="reference internal" href="#available-datasets"><span class="std std-ref">Available Datasets</span></a> section.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">--path_out</span> <span class="pre">PATH_OUT</span></code>: Path to the output directory. All output files will be stored in this directory.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--path_out</span> <span class="pre">PATH_OUT</span></code>: Path to the output directory, default: results. All output files will be stored in this directory.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">--measure</span> <span class="pre">MEASURE</span></code>: The name of the measure to use, default ‘LN_IC50’. If using one of the available datasets (see <code class="docutils literal notranslate"><span class="pre">--dataset_name</span></code>), this is restricted to one of [‘LN_IC50’, ‘EC50’, ‘IC50’, ‘pEC50’, ‘AUC’, ‘response’]. This corresponds to the names of the columns that contain theses measures in the provided input dataset. If providing a custom dataset, this may differ. If the option <code class="docutils literal notranslate"><span class="pre">--curve_curator</span></code> is set, the prefix ‘_curvecurator’ is automatically appended, e.g. ‘LN_IC50_curvecurator’, to allow using the refit measures instead of the ones originally published for the available datasets, allowing for better dataset comparability (refit measures are already provided in the available datasets or computed as part of the fitting procedure when providing custom raw viability datasets, see <code class="docutils literal notranslate"><span class="pre">--curve_curator</span></code> for details).</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">--curve_curator</span></code>: If set, the measure is appended with ‘_curvecurator’. If a custom dataset_name was provided, this will invoke the fitting procedure of raw viability data, which is expected to exist at <code class="docutils literal notranslate"><span class="pre">&lt;path_data&gt;/&lt;dataset_name&gt;/&lt;dataset_name&gt;_raw.csv</span></code>. The fitted dataset will be stored in the same folder, in a file called <code class="docutils literal notranslate"><span class="pre">&lt;dataset_name&gt;.csv</span></code>. Also check the <a class="reference internal" href="#custom-datasets"><span class="std std-ref">Custom Datasets</span></a> section.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--curve_curator</span></code>: Default true. If set, the measure is appended with ‘_curvecurator’. If a custom dataset_name was provided, this will invoke the fitting procedure of raw viability data, which is expected to exist at <code class="docutils literal notranslate"><span class="pre">&lt;path_data&gt;/&lt;dataset_name&gt;/&lt;dataset_name&gt;_raw.csv</span></code>. The fitted dataset will be stored in the same folder, in a file called <code class="docutils literal notranslate"><span class="pre">&lt;dataset_name&gt;.csv</span></code>. Also check the <a class="reference internal" href="#custom-datasets"><span class="std std-ref">Custom Datasets</span></a> section.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">--curve_curator_cores</span> <span class="pre">CORES</span></code>: Number of cores to use for CurveCurator fitting. Only used when <code class="docutils literal notranslate"><span class="pre">--curve_curator</span></code> is set.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">--overwrite</span></code>: If set, existing files will be overwritten.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">--optim_metric</span> <span class="pre">OPTIM_METRIC</span></code>: The metric to optimize for during hyperparameter tuning. Default is ‘R^2’. For more information, see the <a class="reference internal" href="#available-metrics"><span class="std std-ref">Available Metrics</span></a> section.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--optim_metric</span> <span class="pre">OPTIM_METRIC</span></code>: The metric to optimize for during hyperparameter tuning. Default is ‘RMSE’. For more information, see the <a class="reference internal" href="#available-metrics"><span class="std std-ref">Available Metrics</span></a> section.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">--n_cv_splits</span> <span class="pre">N_CV_SPLITS</span></code>: Number of cross-validation splits. Default is 7.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">--response_transformation</span> <span class="pre">RESPONSE_TRANSFORMATION</span></code>: Transformation to apply to the response data. Default is None. For more information, see the <a class="reference internal" href="#available-response-transformations"><span class="std std-ref">Available Response Transformations</span></a> section.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">--multiprocessing</span></code>: If set, multiprocessing will be used. Default is False.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--multiprocessing</span></code>: If set, we will use raytune for fitting. Default is False.</p></li>
 </ul>
+<p>Example:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>run_suite.py<span class="w"> </span>--run_id<span class="w"> </span>my_first_run<span class="w"> </span>--models<span class="w"> </span>NaiveDrugMeanPredictor<span class="w"> </span>ElasticNet<span class="w"> </span>--dataset<span class="w"> </span>TOYv1<span class="w"> </span>--test_mode<span class="w"> </span>LCO
+</pre></div>
+</div>
 </section>
 <section id="visualize-results-with-create-report-py">
 <h2>Visualize results with <code class="docutils literal notranslate"><span class="pre">create_report.py</span></code><a class="headerlink" href="#visualize-results-with-create-report-py" title="Link to this heading"></a></h2>
 <p>Executing the <code class="docutils literal notranslate"><span class="pre">run_suite.py</span></code> script will generate a folder with the results which includes the predictions of all models
 in all specified settings. The <code class="docutils literal notranslate"><span class="pre">create_report.py</span></code> will evaluate the results with all available metrics and create an
 HTML report with many visualizations. You can run it with the following command:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>create_report.py<span class="w"> </span><span class="o">[</span>-h<span class="o">]</span><span class="w"> </span>--run_id<span class="w"> </span>RUN_ID
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>create_report.py<span class="w"> </span><span class="o">[</span>-h<span class="o">]</span><span class="w"> </span>--run_id<span class="w"> </span>RUN_ID<span class="w"> </span>--dataset<span class="w"> </span>DATASET<span class="w"> </span><span class="o">[</span>--path_data<span class="w"> </span>PATH_DATA<span class="o">]</span><span class="w"> </span><span class="o">[</span>--result_path<span class="w"> </span>RESULT_PATH<span class="o">]</span>
 </pre></div>
 </div>
 <p>Options:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">-h,</span> <span class="pre">--help</span></code>: Show help message and exit.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">--run_id</span> <span class="pre">RUN_ID</span></code>: Identifier for the run which was used when executing the <code class="docutils literal notranslate"><span class="pre">run_suite.py</span></code> script.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--dataset</span> <span class="pre">DATASET</span></code>: Name of the dataset which was used when executing the <code class="docutils literal notranslate"><span class="pre">run_suite.py</span></code> script.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--path_data</span> <span class="pre">PATH_DATA</span></code>: Path to the data directory, default: data.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--result_path</span> <span class="pre">RESULT_PATH</span></code>: Path to the results directory, default: results.</p></li>
 </ul>
+<p>Example:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>create_report.py<span class="w"> </span>--run_id<span class="w"> </span>my_first_run<span class="w"> </span>--dataset<span class="w"> </span>TOYv1
+</pre></div>
+</div>
 <p>The report will be stored in the <code class="docutils literal notranslate"><span class="pre">results/RUN_ID</span></code> folder.
 You can open the <code class="docutils literal notranslate"><span class="pre">index.html</span></code> file in your browser to view the report.</p>
 </section>
@@ -229,6 +240,16 @@ For <code class="docutils literal notranslate"><span class="pre">--models</span>
 <td><p>Baseline Method</p></td>
 <td><p>Multi-Drug Model</p></td>
 <td><p>Fits an <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.ElasticNet.html">Sklearn Elastic Net</a>, <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html">Lasso</a>, or <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Ridge.html">Ridge</a> model on gene expression data and drug fingerprints (concatenated input matrix).</p></td>
+</tr>
+<tr class="row-even"><td><p>SingleDrugElasticNet</p></td>
+<td><p>Baseline Method</p></td>
+<td><p>Single-Drug Model</p></td>
+<td><p>Fits an Elastic Net model on gene expression data for each drug separately.</p></td>
+</tr>
+<tr class="row-odd"><td><p>SingleDrugProteomicsElasticNet</p></td>
+<td><p>Baseline Method</p></td>
+<td><p>Single-Drug Model</p></td>
+<td><p>Fits an Elastic Net model on proteomics data for each drug separately.</p></td>
 </tr>
 <tr class="row-even"><td><p>GradientBoosting</p></td>
 <td><p>Baseline Method</p></td>
@@ -350,7 +371,7 @@ For <code class="docutils literal notranslate"><span class="pre">--models</span>
 </tr>
 </tbody>
 </table>
-<p>If using the <code class="docutils literal notranslate"><span class="pre">--curve_curator</span></code> option with these datasets, the desired measure provided with the <code class="docutils literal notranslate"><span class="pre">--measure</span></code> option is appended with “_curvecurator”, e.g. “IC50_curvecurator”.
+<p>If using the <code class="docutils literal notranslate"><span class="pre">--curve_curator</span></code> option with these datasets (default: true), the desired measure provided with the <code class="docutils literal notranslate"><span class="pre">--measure</span></code> option is appended with “_curvecurator”, e.g. “IC50_curvecurator”.
 In the provided datasets, these are the measures calculated with the same fitting procedure using CurveCurator. To use the measures reported from the original publications of the
 dataset, do not set the <code class="docutils literal notranslate"><span class="pre">--curve_curator</span></code> option.</p>
 <p>This however makes it hard to do cross-study comparisons, since the measures may not be directly comparable due to differences in the fitting procedures used by the original authors.

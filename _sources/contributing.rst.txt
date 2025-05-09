@@ -31,65 +31,29 @@ Request features on the `Issue Tracker`_.
 How to set up your development environment
 ------------------------------------------
 
-You need Python 3.10+ and Poetry_ to set up your development environment.
+1. Fork the repository on GitHub.
+2. Make a new conda environment with Python 3.11 or 3.12.
+3. ``pip install poetry`` : we use poetry to manage dependencies
+4. ``poetry install`` : this will install all dependencies
+5. Test whether the installation was successful by running the following command:
 
-.. _Poetry: https://python-poetry.org/
+   .. code:: console
 
+      $ python run_suite.py --run_id my_first_run --models NaiveDrugMeanPredictor ElasticNet --dataset TOYv1 --test_mode LCO
+
+6. Visualize the results by running the following command:
+
+   .. code:: console
+
+      $ python create_report.py --run_id my_first_run --dataset TOYv1
 
 How to test the project
 -----------------------
-
-For this, you need to install nox and nox-poetry:
-
-.. code:: console
-
-   $ pip install nox nox-poetry
-
-Run the full test suite:
-
-.. code:: console
-
-   $ nox
-
-List the available Nox sessions:
-
-.. code:: console
-
-   $ nox --list-sessions
-
-You can also run a specific Nox session.
-For example, invoke the unit test suite like this:
-
-.. code:: console
-
-   $ nox --session=tests
 
 Unit tests are located in the ``tests`` directory,
 and are written using the pytest_ testing framework.
 
 .. _pytest: https://pytest.readthedocs.io/
-
-How to build and view the documentation
----------------------------------------
-
-This project uses Sphinx_ together with several extensions to build the documentation.
-
-To install all required dependencies for the documentation run:
-
-.. code:: console
-
-    $ pip install -r docs/requirements.txt
-
-Please note that drevalpy itself must also be installed. To build the documentation run:
-
-.. code:: console
-
-    $ make html
-
-from inside the docs folder. The generated static HTML files can be found in the `_build/html` folder.
-Simply open them with your favorite browser.
-
-.. _sphinx: https://www.sphinx-doc.org/en/master/
 
 How to submit changes
 ---------------------
@@ -98,17 +62,32 @@ Open a `pull request`_ to submit changes to this project against the ``developme
 
 Your pull request needs to meet the following guidelines for acceptance:
 
-- The Nox test suite must pass without errors and warnings.
+- The code must pass all tests.
 - Include unit tests. This project maintains a high code coverage.
 - If your changes add functionality, update the documentation accordingly.
 
-To run linting and code formatting checks before committing your change, you can install pre-commit as a Git hook by running the following command:
+To run linting and code formatting checks before committing your change, you can install pre-commit as a
+Git hook by running the following command:
 
 .. code:: console
 
    $ nox --session=pre-commit -- install
 
 It is recommended to open an issue before starting work on anything.
-This will allow a chance to talk it over with the owners and validate your approach.
 
 .. _pull request: https://github.com/daisybio/drevalpy/pulls
+
+How to build and view the documentation
+---------------------------------------
+
+This project uses Sphinx_ together with several extensions to build the documentation.
+To build the documentation, change into the docs/ directory and run:
+
+.. code:: console
+
+    $ make html
+
+The generated static HTML files can be found in the `_build/html` folder.
+Simply open them with your favorite browser.
+
+.. _sphinx: https://www.sphinx-doc.org/en/master/
