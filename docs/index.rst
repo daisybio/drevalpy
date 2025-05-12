@@ -20,6 +20,7 @@
    runyourmodel
    contributing
    reference
+   memes
    API
 
 .. _github: https://github.com/daisybio/drevalpy
