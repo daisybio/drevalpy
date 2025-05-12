@@ -17,6 +17,11 @@ News
 |    3.1. 🎊If you significantly outperform the RandomForest baseline model in the LCO setting or the GradientBoosting model in the LDO setting, we will personally send you chocolate or another snack of your choosing 🍫.
 |    3.2. 🥺If you perform significantly worse than the NaiveDrugMeanPredictor, you will have to send us chocolate.
 
+.. image:: ../assets/drevil.jpeg
+   :alt: WhatVarianceAreYouExplaining
+   :width: 300px
+   :align: center
+
 📜 Origin Story 💊 :date:`2023-11-20`
 --------------------------------------------------------------
 
@@ -27,6 +32,9 @@ News
     And when the field needed it most—drevalpy was born.
     A framework designed to test drug response prediction models with fairness and transparency, cutting through bias and restoring the integrity of scientific evaluation.
     Though the fight against bad practices is long, with drevalpy, balance may yet be restored.*
+
+
+
 
 ..
    <!-- DrEvalPy is on PyPI :date:`2024-05-29` -->
