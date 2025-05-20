@@ -249,6 +249,32 @@ class ProteomicsRandomForest(RandomForest):
 
     cell_line_views = ["proteomics"]
 
+    def __init__(self):
+        """
+        Initializes the model.
+
+        Sets the model to None, which is initialized in the build_model method to the respective sklearn model.
+        """
+        super().__init__()
+        self.proteins: np.ndarray = np.array([])
+        self.correction_per_cl: dict[str, float] = dict()
+        self.mean_median: float = 0.0
+        self.downshifted_means_per_cl: dict[str, float] = dict()
+        self.shrinked_sds_per_cl: dict[str, float] = dict()
+        self.normalize_width = 0.3
+        self.normalize_downshift = 1.8
+
+    def build_model(self, hyperparameters: dict):
+        """
+        Builds the model from hyperparameters.
+
+        :param hyperparameters: Hyperparameters for the model. Contains n_estimators, criterion, max_samples,
+            and n_jobs.
+        """
+        super().build_model(hyperparameters)
+        self.normalize_width = hyperparameters.get("normalize_width", 0.3)
+        self.normalize_downshift = hyperparameters.get("normalize_downshift", 1.8)
+
     @classmethod
     def get_model_name(cls) -> str:
         """
@@ -272,3 +298,118 @@ class ProteomicsRandomForest(RandomForest):
             data_path=data_path,
             dataset_name=dataset_name,
         )
+
+    def train(
+        self,
+        output: DrugResponseDataset,
+        cell_line_input: FeatureDataset,
+        drug_input: FeatureDataset | None = None,
+        output_earlystopping: DrugResponseDataset | None = None,
+        model_checkpoint_dir: str = "checkpoints",
+    ) -> None:
+        """
+        Trains the model.
+
+        The number of features is the number of genes + the number of fingerprints.
+        :param output: training dataset containing the response output
+        :param cell_line_input: training dataset containing gene expression data
+        :param drug_input: training dataset containing fingerprints data
+        :param output_earlystopping: not needed
+        :param model_checkpoint_dir: not needed
+        :raises ValueError: If drug_input is None.
+        """
+        if drug_input is None:
+            raise ValueError("drug_input (fingerprints) is required for the sklearn models.")
+
+        proteomics = cell_line_input.get_feature_matrix(view="proteomics", identifiers=output.cell_line_ids)
+        # log transform
+        proteomics = np.log10(proteomics)
+        proteomics[np.isinf(proteomics)] = np.nan
+        # identify the top 1000 complete columns
+        completeness = np.sum(~np.isnan(proteomics), axis=0)
+        # sort by completeness
+        sorted_indices = np.argsort(completeness)[::-1]
+        # select the top 1000
+        proteomics = proteomics[:, sorted_indices[:1000]]
+        self.proteins = cell_line_input.meta_info["proteomics"][sorted_indices[:1000]]
+        # median center
+        medians = np.nanmedian(proteomics, axis=1)
+        self.mean_median = np.nanmean(medians)
+        correction_factor = self.mean_median / medians
+        proteomics = proteomics * correction_factor[:, np.newaxis]
+        self.correction_per_cl = dict(zip(output.cell_line_ids, correction_factor))
+        # impute down-shifted mean
+        np.random.seed(seed=100)
+        # calculate means per cl
+        self.downshifted_means_per_cl = {
+            cl: np.nanmean(proteomics[i, :]) - (self.normalize_downshift * np.nanstd(proteomics[i, :]))
+            for i, cl in enumerate(output.cell_line_ids)
+        }
+        self.shrinked_sds_per_cl = {
+            cl: self.normalize_width * np.nanstd(proteomics[i, :]) for i, cl in enumerate(output.cell_line_ids)
+        }
+        # impute normal distribution per cell line
+        for i, cl in enumerate(output.cell_line_ids):
+            n_missing = np.count_nonzero(np.isnan(proteomics[i, :]))
+            proteomics[i, np.isnan(proteomics[i, :])] = np.random.normal(
+                loc=self.downshifted_means_per_cl[cl],
+                scale=self.shrinked_sds_per_cl[cl],
+                size=n_missing,
+            )
+
+        drugs = drug_input.get_feature_matrix(view="fingerprints", identifiers=output.drug_ids)
+        x = np.concatenate((proteomics, drugs), axis=1)
+        self.model.fit(x, output.response)
+
+    def predict(
+        self,
+        cell_line_ids: np.ndarray,
+        drug_ids: np.ndarray,
+        cell_line_input: FeatureDataset,
+        drug_input: FeatureDataset | None = None,
+    ) -> np.ndarray:
+        """
+        Predicts the response for the given input.
+
+        :param drug_ids: drug ids
+        :param cell_line_ids: cell line ids
+        :param drug_input: drug input
+        :param cell_line_input: cell line input
+        :returns: predicted drug response
+        :raises ValueError: If drug_input is not None.
+        """
+        if drug_input is None:
+            raise ValueError("drug_input (fingerprints) is required.")
+
+        proteomics = cell_line_input.get_feature_matrix(view="proteomics", identifiers=cell_line_ids)
+        # subset to the train proteins
+        mask = np.isin(cell_line_input.meta_info["proteomics"], self.proteins)
+        proteomics = proteomics[:, mask]
+        # log transform
+        proteomics = np.log10(proteomics)
+        proteomics[np.isinf(proteomics)] = np.nan
+        test_median = np.nanmedian(proteomics)
+        # median center and correct for missing values
+        for i, cl in enumerate(cell_line_ids):
+            n_missing = np.count_nonzero(np.isnan(proteomics[i, :]))
+            if cl in self.correction_per_cl:
+                # use info from training
+                correction_factor = self.correction_per_cl[cl]
+                downshifted_mean = self.downshifted_means_per_cl[cl]
+                shrinked_sd = self.shrinked_sds_per_cl[cl]
+            else:
+                # recompute
+                correction_factor = test_median / np.nanmedian(proteomics[i, :])
+                downshifted_mean = np.nanmean(proteomics[i, :]) - (
+                    self.normalize_downshift * np.nanstd(proteomics[i, :])
+                )
+                shrinked_sd = self.normalize_width * np.nanstd(proteomics[i, :])
+            proteomics[i, :] = proteomics[i, :] * correction_factor
+            proteomics[i, np.isnan(proteomics[i, :])] = np.random.normal(
+                loc=downshifted_mean,
+                scale=shrinked_sd,
+                size=n_missing,
+            )
+        drugs = drug_input.get_feature_matrix(view="fingerprints", identifiers=drug_ids)
+        x = np.concatenate((proteomics, drugs), axis=1)
+        return self.model.predict(x)

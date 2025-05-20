@@ -78,6 +78,7 @@ if __name__ == "__main__":
             "NaiveMeanEffectsPredictor",
             "NaivePredictor",
             "NaiveCellLineMeansPredictor",
+            "NaiveTissueMeansPredictor",
             "NaiveDrugMeanPredictor",
         }
         for algorithm in unique_algos:
