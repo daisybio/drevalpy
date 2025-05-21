@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
 
-from drevalpy.datasets.dataset import FeatureDataset
+from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, TISSUE_IDENTIFIER
 
 
@@ -232,14 +232,18 @@ def log10_and_set_na(x):
 class ProteomicsMedianCenterAndImputeTransformer(BaseEstimator, TransformerMixin):
     """Performs median centering and imputation of proteomics data."""
 
-    def __init__(self, n_features=1000, normalization_downshift=1.8, normalization_width=0.3):
+    def __init__(self, feature_threshold=0.7, n_features=1000, normalization_downshift=1.8, normalization_width=0.3):
         """
         Hyperparameters for the normalization.
 
-        :param n_features: number of features to select
+        :param feature_threshold: Require that, e.g., 70% of the proteins are measured without NAs
+            over all cell lines -> n_complete_features = number of proteins with at least 70% of the cell lines
+        :param n_features: fallback for feature selection. Take top n complete features.
+            Select max(n_complete_features, n_features) features.
         :param normalization_downshift: downshift factor for the mean
         :param normalization_width: width factor for the standard deviation
         """
+        self.feature_threshold = feature_threshold
         self.n_features = n_features
         self.normalization_downshift = normalization_downshift
         self.normalization_width = normalization_width
@@ -254,11 +258,18 @@ class ProteomicsMedianCenterAndImputeTransformer(BaseEstimator, TransformerMixin
         :param y: not used
         :returns: self
         """
-        # identify the top 1000 complete columns
+        required_proteins = int(X.shape[0] * self.feature_threshold)
+        # identify the complete columns
         completeness = np.sum(~np.isnan(X), axis=0)
-        # sort by completeness
-        sorted_indices = np.argsort(completeness)[::-1]
-        self.protein_indices = sorted_indices[: self.n_features]
+        n_complete_features = np.count_nonzero(completeness >= required_proteins)
+        if n_complete_features < self.n_features:
+            # select top 1000 complete features
+            # sort by completeness
+            sorted_indices = np.argsort(completeness)[::-1]
+            self.protein_indices = sorted_indices[: self.n_features]
+        else:
+            # select the features meeting the required threshold
+            self.protein_indices = np.where(completeness >= required_proteins)[0]
         X = X[:, self.protein_indices]
         # calculate mean of sample medians
         medians = np.nanmedian(X, axis=1)
@@ -285,3 +296,39 @@ class ProteomicsMedianCenterAndImputeTransformer(BaseEstimator, TransformerMixin
         n_missing = np.count_nonzero(np.isnan(X))
         X[np.isnan(X)] = np.random.normal(loc=downshifted_mean, scale=shrinked_sd, size=n_missing)
         return [X]
+
+
+def preprocess_proteomics(
+    output: DrugResponseDataset,
+    cell_line_input: FeatureDataset,
+    feature_threshold: float = 0.7,
+    n_features: int = 1000,
+    normalization_downshift: float = 1.8,
+    normalization_width: float = 0.3,
+) -> None:
+    """
+    Preprocess proteomics data by log transforming, median centering, and imputing missing values.
+
+    :param output: drug response dataset
+    :param cell_line_input: feature dataset with proteomics data
+    :param feature_threshold: feature threshold for selecting complete proteins
+    :param n_features: fallback for feature selection
+    :param normalization_downshift: parameter for downshifting the median
+    :param normalization_width: parameter for the width of the Gaussian kernel
+    """
+    # log transform
+    cell_line_input.apply(log10_and_set_na, view="proteomics")
+    # select the complete proteins as features, median center
+    # and impute missing values with down-shifted median
+    # the feature selection and median computation is only done on the train set
+    proteomics_transformer = ProteomicsMedianCenterAndImputeTransformer(
+        feature_threshold=feature_threshold,
+        n_features=n_features,
+        normalization_downshift=normalization_downshift,
+        normalization_width=normalization_width,
+    )
+    cell_line_input.fit_transform_features(
+        train_ids=np.unique(output.cell_line_ids),
+        transformer=proteomics_transformer,
+        view="proteomics",
+    )

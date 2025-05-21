@@ -4,7 +4,7 @@ import numpy as np
 from sklearn.linear_model import ElasticNet
 
 from ...datasets.dataset import DrugResponseDataset, FeatureDataset
-from ..utils import load_and_select_gene_features
+from ..utils import ProteomicsMedianCenterAndImputeTransformer, load_and_select_gene_features, log10_and_set_na
 from .sklearn_models import SklearnModel
 
 
@@ -112,7 +112,36 @@ class SingleDrugProteomicsElasticNet(SingleDrugElasticNet):
     """SingleDrugProteomicsElasticNet class."""
 
     cell_line_views = ["proteomics"]
-    is_single_drug_model = True
+
+    def __init__(self):
+        """
+        Initializes the model with specific hyperparameters.
+
+        feature_threshold: for feature selection. Require that, e.g., 70% of the proteins are measured without NAs
+        over all cell lines -> n_complete_features = number of proteins with at least 70% of the cell lines
+        n_features: fallback for feature selection. Take top n complete features.
+        Select max(n_complete_features, n_features) features.
+        normalization_width: width of the Gaussian kernel for the median centering
+        normalization_downshift: downshift of the median for the imputation of missing values
+        """
+        super().__init__()
+        self.feature_threshold = 0.7
+        self.n_features = 1000
+        self.normalization_width = 0.3
+        self.normalization_downshift = 1.8
+
+    def build_model(self, hyperparameters: dict):
+        """
+        Builds the model from hyperparameters.
+
+        :param hyperparameters: Hyperparameters for the model. Contains n_estimators, criterion, max_samples,
+            and n_jobs.
+        """
+        super().build_model(hyperparameters)
+        self.feature_threshold = hyperparameters.get("feature_threshold", 0.7)
+        self.n_features = hyperparameters.get("n_features", 1000)
+        self.normalization_width = hyperparameters.get("normalization_width", 0.3)
+        self.normalization_downshift = hyperparameters.get("normalization_downshift", 1.8)
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -138,16 +167,6 @@ class SingleDrugProteomicsElasticNet(SingleDrugElasticNet):
             dataset_name=dataset_name,
         )
 
-    def load_drug_features(self, data_path, dataset_name):
-        """
-        Load drug features. Not needed for SingleDrugProteomicsElasticNet.
-
-        :param data_path: path to the data
-        :param dataset_name: name of the dataset
-        :returns: None
-        """
-        return None
-
     def train(
         self,
         output: DrugResponseDataset,
@@ -166,6 +185,22 @@ class SingleDrugProteomicsElasticNet(SingleDrugElasticNet):
         :param model_checkpoint_dir: not needed as checkpoints are not saved
         """
         if len(output) > 0:
+            # log transform
+            cell_line_input.apply(log10_and_set_na, view="proteomics")
+            # select the complete proteins as features, median center
+            # and impute missing values with down-shifted median
+            # the feature selection and median computation is only done on the train set
+            proteomics_transformer = ProteomicsMedianCenterAndImputeTransformer(
+                feature_threshold=self.feature_threshold,
+                n_features=self.n_features,
+                normalization_downshift=self.normalization_downshift,
+                normalization_width=self.normalization_width,
+            )
+            cell_line_input.fit_transform_features(
+                train_ids=np.unique(output.cell_line_ids),
+                transformer=proteomics_transformer,
+                view="proteomics",
+            )
             x = self.get_concatenated_features(
                 cell_line_view="proteomics",
                 drug_view=None,
