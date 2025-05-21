@@ -35,7 +35,7 @@ repos:
         types: [python]
         require_serial: true
         args:
-          - --ignore=D212,W503,C901
+          - --ignore=D212,W503,C901,N803,N806
       - id: pyupgrade
         name: pyupgrade
         description: Automatically upgrade syntax for newer versions.
