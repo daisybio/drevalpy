@@ -18,7 +18,7 @@ ElasticNet:
     - 5
     - 10
     - 100
-ProteomicsElasticNetModel:
+ProteomicsElasticNet:
   feature_threshold:
     - 0.7
   n_features:

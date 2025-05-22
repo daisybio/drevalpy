@@ -385,9 +385,9 @@ class ProteomicsElasticNetModel(ElasticNetModel):
         """
         Returns the model name.
 
-        :returns: ProteomicsElasticNetModel
+        :returns: ProteomicsElasticNet
         """
-        return "ProteomicsElasticNetModel"
+        return "ProteomicsElasticNet"
 
     def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         """

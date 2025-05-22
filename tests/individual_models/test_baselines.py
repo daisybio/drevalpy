@@ -35,7 +35,7 @@ from drevalpy.models.drp_model import DRPModel
         "MultiOmicsRandomForest",
         "GradientBoosting",
         "ProteomicsRandomForest",
-        "ProteomicsElasticNetModel",
+        "ProteomicsElasticNet",
     ],
 )
 @pytest.mark.parametrize("test_mode", ["LTO", "LPO", "LCO", "LDO"])
