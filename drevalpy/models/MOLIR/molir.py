@@ -13,8 +13,8 @@ from sklearn.preprocessing import StandardScaler
 
 from ...datasets.dataset import DrugResponseDataset, FeatureDataset
 from ..drp_model import DRPModel
-from ..utils import get_multiomics_feature_dataset, scale_gene_expression
-from .utils import MOLIModel, filter_and_sort_omics, get_dimensions_of_omics_data, select_features_for_view
+from ..utils import VarianceFeatureSelector, get_multiomics_feature_dataset, scale_gene_expression
+from .utils import MOLIModel, filter_and_sort_omics, get_dimensions_of_omics_data
 
 
 class MOLIR(DRPModel):
@@ -46,6 +46,7 @@ class MOLIR(DRPModel):
         self.mutations_features = None
         self.copy_number_variation_features = None
         self.gene_expression_scaler = StandardScaler()
+        self.selector: VarianceFeatureSelector | None = None
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -64,6 +65,7 @@ class MOLIR(DRPModel):
             h_dim2, h_dim3), learning_rate, dropout_rate, weight_decay, gamma, epochs, and margin.
         """
         self.hyperparameters = hyperparameters
+        self.selector = VarianceFeatureSelector(view="gene_expression", k=1000)
 
     def train(
         self,
@@ -97,11 +99,9 @@ class MOLIR(DRPModel):
                 gene_expression_scaler=self.gene_expression_scaler,
             )
 
-            cell_line_input = select_features_for_view(
-                view="gene_expression",
-                cell_line_input=cell_line_input,
-                output=output,
-            )
+            self.selector.fit(cell_line_input, output)
+            cell_line_input = self.selector.transform(cell_line_input)
+
             self.gene_expression_features = cell_line_input.meta_info["gene_expression"]
             self.mutations_features = cell_line_input.meta_info["mutations"]
             self.copy_number_variation_features = cell_line_input.meta_info["copy_number_variation_gistic"]
@@ -163,6 +163,11 @@ class MOLIR(DRPModel):
             training=False,
             gene_expression_scaler=self.gene_expression_scaler,
         )
+        # Apply variance threshold to gene expression features
+
+        if self.selector is None:
+            raise ValueError("Feature selector not initialized. Train the model first.")
+        cell_line_input = self.selector.transform(cell_line_input)
 
         input_data = self.get_feature_matrices(
             cell_line_ids=cell_line_ids,
@@ -176,7 +181,7 @@ class MOLIR(DRPModel):
             input_data["copy_number_variation_gistic"],
         )
 
-        (gene_expression, mutations, cnv) = filter_and_sort_omics(
+        (gene_expression, mutations, cnvs) = filter_and_sort_omics(
             model=self, gene_expression=gene_expression, mutations=mutations, cnvs=cnvs, cell_line_input=cell_line_input
         )
 

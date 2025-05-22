@@ -7,7 +7,7 @@ import pandas as pd
 from sklearn.base import TransformerMixin
 from sklearn.decomposition import PCA
 
-from drevalpy.datasets.dataset import FeatureDataset
+from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, TISSUE_IDENTIFIER
 
 
@@ -301,3 +301,55 @@ def scale_gene_expression(
         training=training,
         gene_expression_scaler=gene_expression_scaler,
     )
+
+
+class VarianceFeatureSelector:
+    """
+    Selects the top-k features with highest variance for a specific omics view.
+
+    Stores a boolean mask after fitting on training data and applies it
+    consistently to other datasets.
+    """
+
+    def __init__(self, view: str, k: int = 1000):
+        """
+        Initialize the selector.
+
+        :param view: omics view to select from, e.g., "gene_expression"
+        :param k: number of top-variance features to retain
+        """
+        self.view = view
+        self.k = k
+        self.mask: np.ndarray = np.array([])
+        self.selected_meta_info: list[str] = []
+
+    def fit(self, cell_line_input: FeatureDataset, output: DrugResponseDataset) -> None:
+        """
+        Fit the selector to the training data by computing a variance-based mask.
+
+        :param cell_line_input: FeatureDataset containing omics features
+        :param output: DrugResponseDataset with the training cell line IDs
+        """
+        train_features = np.vstack(
+            [cell_line_input.features[identifier][self.view] for identifier in np.unique(output.cell_line_ids)]
+        )
+        variances = np.var(train_features, axis=0)
+        self.mask = np.zeros(len(variances), dtype=bool)
+        self.mask[np.argsort(variances)[::-1][: self.k]] = True
+        self.selected_meta_info = list(np.array(cell_line_input.meta_info[self.view])[self.mask])
+
+    def transform(self, cell_line_input: FeatureDataset) -> FeatureDataset:
+        """
+        Apply the feature mask to reduce the dataset to selected features.
+
+        :param cell_line_input: FeatureDataset to transform
+        :returns: reduced FeatureDataset
+        :raises RuntimeError: if selector was not fitted
+        """
+        if self.mask.size == 0:
+            raise RuntimeError("VarianceFeatureSelector must be fitted before transform()")
+
+        for identifier in cell_line_input.features:
+            cell_line_input.features[identifier][self.view] = cell_line_input.features[identifier][self.view][self.mask]
+        cell_line_input.meta_info[self.view] = self.selected_meta_info
+        return cell_line_input
