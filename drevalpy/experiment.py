@@ -555,8 +555,8 @@ def cross_study_prediction(
         dataset._predictions = model.predict(
             cell_line_ids=dataset.cell_line_ids,
             drug_ids=dataset.drug_ids,
-            cell_line_input=cl_features,
-            drug_input=drug_features,
+            cell_line_input=cl_features.copy(),
+            drug_input=drug_features.copy(),
         )
         if response_transformation:
             dataset._response = response_transformation.inverse_transform(dataset.response)
@@ -947,8 +947,8 @@ def train_and_predict(
             model.train(
                 output=train_dataset,
                 output_earlystopping=early_stopping_dataset,
-                cell_line_input=cl_features,
-                drug_input=drug_features,
+                cell_line_input=cl_features.copy(),
+                drug_input=drug_features.copy(),
                 model_checkpoint_dir=temp_dir,
             )
     else:
@@ -958,8 +958,8 @@ def train_and_predict(
         model.train(
             output=train_dataset,
             output_earlystopping=early_stopping_dataset,
-            cell_line_input=cl_features,
-            drug_input=drug_features,
+            cell_line_input=cl_features.copy(),
+            drug_input=drug_features.copy(),
             model_checkpoint_dir=model_checkpoint_dir,
         )
 
@@ -967,8 +967,8 @@ def train_and_predict(
         prediction_dataset._predictions = model.predict(
             cell_line_ids=prediction_dataset.cell_line_ids,
             drug_ids=prediction_dataset.drug_ids,
-            cell_line_input=cl_features,
-            drug_input=drug_features,
+            cell_line_input=cl_features.copy(),
+            drug_input=drug_features.copy(),
         )
 
         if response_transformation:

@@ -131,6 +131,14 @@ class SimpleNeuralNetwork(DRPModel):
         :param drug_input: fingerprints of the test data
         :returns: the predicted drug responses
         """
+        # Apply arcsinh transformation and scaling to gene expression features
+        if "gene_expression" in self.cell_line_views:
+            cell_line_input.apply(function=np.arcsinh, view="gene_expression")
+            cell_line_input.transform_features(
+                transformer=self.gene_expression_scaler,
+                view="gene_expression",
+            )
+
         x = self.get_concatenated_features(
             cell_line_view="gene_expression",
             drug_view="fingerprints",
