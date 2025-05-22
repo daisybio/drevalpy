@@ -45,6 +45,7 @@ class MOLIR(DRPModel):
         self.gene_expression_features = None
         self.mutations_features = None
         self.copy_number_variation_features = None
+        self.gene_expression_scaler = StandardScaler()
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -89,6 +90,8 @@ class MOLIR(DRPModel):
         :param model_checkpoint_dir: directory to save the model checkpoints
         """
         if len(output) > 0:
+            self._prepare_gene_expression(cell_line_input, np.unique(output.cell_line_ids), training=True)
+
             cell_line_input = select_features_for_view(
                 view="gene_expression",
                 cell_line_input=cell_line_input,
@@ -97,12 +100,7 @@ class MOLIR(DRPModel):
             self.gene_expression_features = cell_line_input.meta_info["gene_expression"]
             self.mutations_features = cell_line_input.meta_info["mutations"]
             self.copy_number_variation_features = cell_line_input.meta_info["copy_number_variation_gistic"]
-            scaler_gex = StandardScaler()
-            cell_line_input.fit_transform_features(
-                train_ids=np.unique(output.cell_line_ids),
-                transformer=scaler_gex,
-                view="gene_expression",
-            )
+
             if output_earlystopping is not None and self.early_stopping and len(output_earlystopping) < 2:
                 output_earlystopping = None
             dim_gex, dim_mut, dim_cnv = get_dimensions_of_omics_data(cell_line_input)
@@ -154,6 +152,8 @@ class MOLIR(DRPModel):
         ):
             raise ValueError("MOLIR Model not trained, please train the model first.")
 
+        self._prepare_gene_expression(cell_line_input, cell_line_ids, training=False)
+
         input_data = self.get_feature_matrices(
             cell_line_ids=cell_line_ids,
             drug_ids=drug_ids,
@@ -190,8 +190,7 @@ class MOLIR(DRPModel):
             },
             omics=self.cell_line_views,
         )
-        # log transformation replaced with arcsinh transformation since log(0) is undefined
-        feature_dataset.apply(function=np.arcsinh, view="gene_expression")
+
         return feature_dataset
 
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset | None:
@@ -203,3 +202,10 @@ class MOLIR(DRPModel):
         :returns: None
         """
         return None
+
+    def _prepare_gene_expression(self, cell_line_input: FeatureDataset, cell_line_ids: np.ndarray, training: bool):
+        cell_line_input.apply(function=np.arcsinh, view="gene_expression")
+        if training:
+            cell_line_input.fit_transform_features(cell_line_ids, self.gene_expression_scaler, view="gene_expression")
+        else:
+            cell_line_input.transform_features(self.gene_expression_scaler, view="gene_expression")
