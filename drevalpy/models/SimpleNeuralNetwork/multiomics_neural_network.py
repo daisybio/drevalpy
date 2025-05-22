@@ -9,7 +9,7 @@ from sklearn.preprocessing import StandardScaler
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 
 from ..drp_model import DRPModel
-from ..utils import get_multiomics_feature_dataset, load_drug_fingerprint_features
+from ..utils import get_multiomics_feature_dataset, load_drug_fingerprint_features, prepare_expression_and_methylation
 from .utils import FeedForwardNetwork
 
 
@@ -81,11 +81,13 @@ class MultiOmicsNeuralNetwork(DRPModel):
         if drug_input is None:
             raise ValueError("Drug input (fingerprints) is needed for the MultiOmicsNeuralNetwork model.")
 
-        # Scale the gene expression data
-        self._prepare_cell_line_features(
+        prepare_expression_and_methylation(
             cell_line_input=cell_line_input,
             cell_line_ids=np.unique(output.cell_line_ids),
             training=True,
+            gene_expression_scaler=self.gene_expression_scaler,
+            methylation_scaler=self.methylation_scaler,
+            methylation_pca=self.methylation_pca,
         )
 
         first_feature = next(iter(cell_line_input.features.values()))
@@ -138,10 +140,13 @@ class MultiOmicsNeuralNetwork(DRPModel):
         :param cell_line_input: cell line omics features
         :returns: predicted response
         """
-        self._prepare_cell_line_features(
+        prepare_expression_and_methylation(
             cell_line_input=cell_line_input,
             cell_line_ids=cell_line_ids,
             training=False,
+            gene_expression_scaler=self.gene_expression_scaler,
+            methylation_scaler=self.methylation_scaler,
+            methylation_pca=self.methylation_pca,
         )
 
         inputs = self.get_feature_matrices(
@@ -190,26 +195,3 @@ class MultiOmicsNeuralNetwork(DRPModel):
         :returns: FeatureDataset containing the drug fingerprint features
         """
         return load_drug_fingerprint_features(data_path, dataset_name, fill_na=True)
-
-    def _prepare_cell_line_features(self, cell_line_input: FeatureDataset, cell_line_ids: np.ndarray, training: bool):
-        """
-        Applies preprocessing to gene expression and methylation views.
-
-        - arcsinh + scaling for gene expression
-        - scaling + PCA for methylation
-
-        :param cell_line_input: FeatureDataset to transform
-        :param cell_line_ids: cell line IDs used to select training samples (if training=True)
-        :param training: whether to fit scalers/PCA (True) or just transform (False)
-        """
-        cell_line_input.apply(function=np.arcsinh, view="gene_expression")
-
-        if training:
-            cell_line_input.fit_transform_features(cell_line_ids, self.gene_expression_scaler, view="gene_expression")
-            cell_line_input.fit_transform_features(cell_line_ids, self.methylation_scaler, view="methylation")
-            self.methylation_pca.n_components = min(self.methylation_pca.n_components, len(np.unique(cell_line_ids)))
-            cell_line_input.fit_transform_features(cell_line_ids, self.methylation_pca, view="methylation")
-        else:
-            cell_line_input.transform_features(self.gene_expression_scaler, view="gene_expression")
-            cell_line_input.transform_features(self.methylation_scaler, view="methylation")
-            cell_line_input.transform_features(self.methylation_pca, view="methylation")

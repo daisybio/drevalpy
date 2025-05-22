@@ -9,7 +9,7 @@ from sklearn.preprocessing import StandardScaler
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 
 from ..drp_model import DRPModel
-from ..utils import load_and_select_gene_features, load_drug_fingerprint_features
+from ..utils import load_and_select_gene_features, load_drug_fingerprint_features, scale_gene_expression
 from .utils import FeedForwardNetwork
 
 
@@ -74,11 +74,11 @@ class SimpleNeuralNetwork(DRPModel):
 
         # Apply arcsinh transformation and scaling to gene expression features
         if "gene_expression" in self.cell_line_views:
-            cell_line_input.apply(function=np.arcsinh, view="gene_expression")
-            cell_line_input.fit_transform_features(
-                train_ids=np.unique(output.cell_line_ids),
-                transformer=self.gene_expression_scaler,
-                view="gene_expression",
+            scale_gene_expression(
+                cell_line_input=cell_line_input,
+                cell_line_ids=np.unique(output.cell_line_ids),
+                training=True,
+                gene_expression_scaler=self.gene_expression_scaler,
             )
 
         dim_gex = next(iter(cell_line_input.features.values()))["gene_expression"].shape[0]
@@ -133,10 +133,11 @@ class SimpleNeuralNetwork(DRPModel):
         """
         # Apply arcsinh transformation and scaling to gene expression features
         if "gene_expression" in self.cell_line_views:
-            cell_line_input.apply(function=np.arcsinh, view="gene_expression")
-            cell_line_input.transform_features(
-                transformer=self.gene_expression_scaler,
-                view="gene_expression",
+            scale_gene_expression(
+                cell_line_input=cell_line_input,
+                cell_line_ids=cell_line_ids,
+                training=False,
+                gene_expression_scaler=self.gene_expression_scaler,
             )
 
         x = self.get_concatenated_features(

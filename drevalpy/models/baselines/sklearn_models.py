@@ -9,7 +9,7 @@ from sklearn.svm import SVR
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models.drp_model import DRPModel
 
-from ..utils import load_and_select_gene_features, load_drug_fingerprint_features
+from ..utils import load_and_select_gene_features, load_drug_fingerprint_features, scale_gene_expression
 
 
 class SklearnModel(DRPModel):
@@ -67,7 +67,12 @@ class SklearnModel(DRPModel):
         """
         if drug_input is None:
             raise ValueError("drug_input (fingerprints) is required for the sklearn models.")
-        self._scale_expression(cell_line_input, output.cell_line_ids, training=True)
+        scale_gene_expression(
+            cell_line_input=cell_line_input,
+            cell_line_ids=output.cell_line_ids,
+            training=True,
+            gene_expression_scaler=self.gene_expression_scaler,
+        )
 
         x = self.get_concatenated_features(
             cell_line_view=self.cell_line_views[0],
@@ -99,7 +104,12 @@ class SklearnModel(DRPModel):
         if drug_input is None:
             raise ValueError("drug_input (fingerprints) is required.")
 
-        self._scale_expression(cell_line_input, cell_line_ids, training=False)
+        scale_gene_expression(
+            cell_line_input=cell_line_input,
+            cell_line_ids=cell_line_ids,
+            training=False,
+            gene_expression_scaler=self.gene_expression_scaler,
+        )
 
         x = self.get_concatenated_features(
             cell_line_view=self.cell_line_views[0],
@@ -135,20 +145,6 @@ class SklearnModel(DRPModel):
         :returns: FeatureDataset containing the drug fingerprints
         """
         return load_drug_fingerprint_features(data_path, dataset_name, fill_na=True)
-
-    def _scale_expression(self, cell_line_input: FeatureDataset, cell_line_ids: np.ndarray, training: bool):
-        """
-        Applies arcsinh + scaling to gene expression using FeatureDataset.
-
-        :param cell_line_input: FeatureDataset object
-        :param cell_line_ids: IDs of cell lines used for training or prediction
-        :param training: Whether to fit (True) or transform (False)
-        """
-        cell_line_input.apply(function=np.arcsinh, view="gene_expression")
-        if training:
-            cell_line_input.fit_transform_features(cell_line_ids, self.gene_expression_scaler, view="gene_expression")
-        else:
-            cell_line_input.transform_features(self.gene_expression_scaler, view="gene_expression")
 
 
 class ElasticNetModel(SklearnModel):

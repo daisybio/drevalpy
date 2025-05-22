@@ -13,7 +13,7 @@ from sklearn.preprocessing import StandardScaler
 
 from ...datasets.dataset import DrugResponseDataset, FeatureDataset
 from ..drp_model import DRPModel
-from ..utils import get_multiomics_feature_dataset
+from ..utils import get_multiomics_feature_dataset, scale_gene_expression
 from .utils import MOLIModel, filter_and_sort_omics, get_dimensions_of_omics_data, select_features_for_view
 
 
@@ -90,7 +90,12 @@ class MOLIR(DRPModel):
         :param model_checkpoint_dir: directory to save the model checkpoints
         """
         if len(output) > 0:
-            self._prepare_gene_expression(cell_line_input, np.unique(output.cell_line_ids), training=True)
+            scale_gene_expression(
+                cell_line_input=cell_line_input,
+                cell_line_ids=np.unique(output.cell_line_ids),
+                training=True,
+                gene_expression_scaler=self.gene_expression_scaler,
+            )
 
             cell_line_input = select_features_for_view(
                 view="gene_expression",
@@ -152,7 +157,12 @@ class MOLIR(DRPModel):
         ):
             raise ValueError("MOLIR Model not trained, please train the model first.")
 
-        self._prepare_gene_expression(cell_line_input, cell_line_ids, training=False)
+        scale_gene_expression(
+            cell_line_input=cell_line_input,
+            cell_line_ids=cell_line_ids,
+            training=False,
+            gene_expression_scaler=self.gene_expression_scaler,
+        )
 
         input_data = self.get_feature_matrices(
             cell_line_ids=cell_line_ids,
@@ -202,10 +212,3 @@ class MOLIR(DRPModel):
         :returns: None
         """
         return None
-
-    def _prepare_gene_expression(self, cell_line_input: FeatureDataset, cell_line_ids: np.ndarray, training: bool):
-        cell_line_input.apply(function=np.arcsinh, view="gene_expression")
-        if training:
-            cell_line_input.fit_transform_features(cell_line_ids, self.gene_expression_scaler, view="gene_expression")
-        else:
-            cell_line_input.transform_features(self.gene_expression_scaler, view="gene_expression")

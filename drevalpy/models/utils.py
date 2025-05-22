@@ -4,6 +4,8 @@ import os.path
 
 import numpy as np
 import pandas as pd
+from sklearn.base import TransformerMixin
+from sklearn.decomposition import PCA
 
 from drevalpy.datasets.dataset import FeatureDataset
 from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, TISSUE_IDENTIFIER
@@ -214,3 +216,88 @@ def unique(array):
     """
     uniq, index = np.unique(array, return_index=True)
     return uniq[index.argsort()]
+
+
+def prepare_expression_and_methylation(
+    cell_line_input: FeatureDataset,
+    cell_line_ids: np.ndarray,
+    training: bool,
+    gene_expression_scaler: TransformerMixin | None = None,
+    methylation_scaler: TransformerMixin | None = None,
+    methylation_pca: PCA | None = None,
+):
+    """
+    Applies preprocessing to gene expression and optionally methylation views.
+
+    - Applies arcsinh + scaling to gene expression if a scaler is provided.
+    - Applies scaling + PCA to methylation if both a scaler and PCA are provided.
+    - Applies to all cell lines in `cell_line_input`, using fitting only on the given IDs if training=True.
+
+    :param cell_line_input: FeatureDataset with the cell line features
+    :param cell_line_ids: IDs of the cell lines used for training or transformation
+    :param training: Whether to fit the scalers/PCA (True) or just apply transformation (False)
+    :param gene_expression_scaler: Optional fitted or to-be-fitted scaler for gene expression
+    :param methylation_scaler: Optional fitted or to-be-fitted scaler for methylation
+    :param methylation_pca: Optional PCA transformer for methylation
+    """
+    if gene_expression_scaler is not None:
+        cell_line_input.apply(function=np.arcsinh, view="gene_expression")
+        if training:
+            cell_line_input.fit_transform_features(
+                train_ids=cell_line_ids,
+                transformer=gene_expression_scaler,
+                view="gene_expression",
+            )
+        else:
+            cell_line_input.transform_features(
+                ids=cell_line_ids,
+                transformer=gene_expression_scaler,
+                view="gene_expression",
+            )
+
+    if methylation_scaler is not None and methylation_pca is not None:
+        if training:
+            cell_line_input.fit_transform_features(
+                train_ids=cell_line_ids,
+                transformer=methylation_scaler,
+                view="methylation",
+            )
+            methylation_pca.n_components = min(methylation_pca.n_components, len(np.unique(cell_line_ids)))
+            cell_line_input.fit_transform_features(
+                train_ids=cell_line_ids,
+                transformer=methylation_pca,
+                view="methylation",
+            )
+        else:
+            cell_line_input.transform_features(
+                ids=cell_line_ids,
+                transformer=methylation_scaler,
+                view="methylation",
+            )
+            cell_line_input.transform_features(
+                ids=cell_line_ids,
+                transformer=methylation_pca,
+                view="methylation",
+            )
+
+
+def scale_gene_expression(
+    cell_line_input: FeatureDataset,
+    cell_line_ids: np.ndarray,
+    training: bool,
+    gene_expression_scaler: TransformerMixin,
+):
+    """
+    Scales gene expression using arcsinh transformation and a provided scaler.
+
+    :param cell_line_input: FeatureDataset with the cell line features
+    :param cell_line_ids: IDs of cell lines to use for fitting or transformation
+    :param training: whether to fit or transform
+    :param gene_expression_scaler: sklearn transformer for gene expression
+    """
+    prepare_expression_and_methylation(
+        cell_line_input=cell_line_input,
+        cell_line_ids=cell_line_ids,
+        training=training,
+        gene_expression_scaler=gene_expression_scaler,
+    )
