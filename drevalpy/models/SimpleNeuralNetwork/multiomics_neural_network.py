@@ -82,20 +82,10 @@ class MultiOmicsNeuralNetwork(DRPModel):
             raise ValueError("Drug input (fingerprints) is needed for the MultiOmicsNeuralNetwork model.")
 
         # Scale the gene expression data
-        cell_line_input.apply(function=np.arcsinh, view="gene_expression")
-        cell_line_input.fit_transform_features(
-            train_ids=np.unique(output.cell_line_ids),
-            transformer=self.gene_expression_scaler,
-            view="gene_expression",
-        )
-        cell_line_input.fit_transform_features(
-            train_ids=np.unique(output.cell_line_ids), transformer=self.methylation_scaler, view="methylation"
-        )
-
-        self.methylation_pca.n_components = min(self.methylation_pca.n_components, len(np.unique(output.cell_line_ids)))
-
-        self.methylation_pca = cell_line_input.fit_transform_features(
-            train_ids=np.unique(output.cell_line_ids), transformer=self.methylation_pca, view="methylation"
+        self._prepare_cell_line_features(
+            cell_line_input=cell_line_input,
+            cell_line_ids=np.unique(output.cell_line_ids),
+            training=True,
         )
 
         first_feature = next(iter(cell_line_input.features.values()))
@@ -148,12 +138,10 @@ class MultiOmicsNeuralNetwork(DRPModel):
         :param cell_line_input: cell line omics features
         :returns: predicted response
         """
-        cell_line_input.apply(function=np.arcsinh, view="gene_expression")
-        cell_line_input.transform_features(transformer=self.gene_expression_scaler, view="gene_expression")
-        cell_line_input.transform_features(transformer=self.methylation_scaler, view="methylation")
-        cell_line_input.transform_features(
-            transformer=self.methylation_pca,
-            view="methylation",
+        self._prepare_cell_line_features(
+            cell_line_input=cell_line_input,
+            cell_line_ids=cell_line_ids,
+            training=False,
         )
 
         inputs = self.get_feature_matrices(
@@ -202,3 +190,26 @@ class MultiOmicsNeuralNetwork(DRPModel):
         :returns: FeatureDataset containing the drug fingerprint features
         """
         return load_drug_fingerprint_features(data_path, dataset_name, fill_na=True)
+
+    def _prepare_cell_line_features(self, cell_line_input: FeatureDataset, cell_line_ids: np.ndarray, training: bool):
+        """
+        Applies preprocessing to gene expression and methylation views.
+
+        - arcsinh + scaling for gene expression
+        - scaling + PCA for methylation
+
+        :param cell_line_input: FeatureDataset to transform
+        :param cell_line_ids: cell line IDs used to select training samples (if training=True)
+        :param training: whether to fit scalers/PCA (True) or just transform (False)
+        """
+        cell_line_input.apply(function=np.arcsinh, view="gene_expression")
+
+        if training:
+            cell_line_input.fit_transform_features(cell_line_ids, self.gene_expression_scaler, view="gene_expression")
+            cell_line_input.fit_transform_features(cell_line_ids, self.methylation_scaler, view="methylation")
+            self.methylation_pca.n_components = min(self.methylation_pca.n_components, len(np.unique(cell_line_ids)))
+            cell_line_input.fit_transform_features(cell_line_ids, self.methylation_pca, view="methylation")
+        else:
+            cell_line_input.transform_features(self.gene_expression_scaler, view="gene_expression")
+            cell_line_input.transform_features(self.methylation_scaler, view="methylation")
+            cell_line_input.transform_features(self.methylation_pca, view="methylation")
