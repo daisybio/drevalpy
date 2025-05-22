@@ -262,6 +262,7 @@ def prepare_expression_and_methylation(
                 transformer=methylation_scaler,
                 view="methylation",
             )
+            # Ensure the number of PCA components does not exceed the number of unique cell lines.
             methylation_pca.n_components = min(methylation_pca.n_components, len(np.unique(cell_line_ids)))
             cell_line_input.fit_transform_features(
                 train_ids=cell_line_ids,
