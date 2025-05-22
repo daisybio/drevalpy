@@ -3,6 +3,7 @@
 import numpy as np
 from sklearn.ensemble import HistGradientBoostingRegressor, RandomForestRegressor
 from sklearn.linear_model import ElasticNet, Lasso, Ridge
+from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVR
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
@@ -25,6 +26,7 @@ class SklearnModel(DRPModel):
         """
         super().__init__()
         self.model = None
+        self.gene_expression_scaler = StandardScaler()
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -65,6 +67,7 @@ class SklearnModel(DRPModel):
         """
         if drug_input is None:
             raise ValueError("drug_input (fingerprints) is required for the sklearn models.")
+        self._scale_expression(cell_line_input, output.cell_line_ids, training=True)
 
         x = self.get_concatenated_features(
             cell_line_view=self.cell_line_views[0],
@@ -91,10 +94,12 @@ class SklearnModel(DRPModel):
         :param drug_input: drug input
         :param cell_line_input: cell line input
         :returns: predicted drug response
-        :raises ValueError: If drug_input is not None.
+        :raises ValueError: If drug_input is None.
         """
         if drug_input is None:
             raise ValueError("drug_input (fingerprints) is required.")
+
+        self._scale_expression(cell_line_input, cell_line_ids, training=False)
 
         x = self.get_concatenated_features(
             cell_line_view=self.cell_line_views[0],
@@ -130,6 +135,20 @@ class SklearnModel(DRPModel):
         :returns: FeatureDataset containing the drug fingerprints
         """
         return load_drug_fingerprint_features(data_path, dataset_name, fill_na=True)
+
+    def _scale_expression(self, cell_line_input: FeatureDataset, cell_line_ids: np.ndarray, training: bool):
+        """
+        Applies arcsinh + scaling to gene expression using FeatureDataset.
+
+        :param cell_line_input: FeatureDataset object
+        :param cell_line_ids: IDs of cell lines used for training or prediction
+        :param training: Whether to fit (True) or transform (False)
+        """
+        cell_line_input.apply(function=np.arcsinh, view="gene_expression")
+        if training:
+            cell_line_input.fit_transform_features(cell_line_ids, self.gene_expression_scaler, view="gene_expression")
+        else:
+            cell_line_input.transform_features(self.gene_expression_scaler, view="gene_expression")
 
 
 class ElasticNetModel(SklearnModel):
