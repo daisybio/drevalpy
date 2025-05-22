@@ -4,6 +4,7 @@ import warnings
 
 import numpy as np
 from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 
@@ -28,12 +29,14 @@ class MultiOmicsNeuralNetwork(DRPModel):
         """
         Initalization method for MultiOmicsNeuralNetwork Model.
 
-        The model and the PCA are initialized to None because they are built later in the build_model method.
+        The PCA is initialized to None because it depends on hyperparameter, therefore built in build_model.
         """
         super().__init__()
         self.model = None
         self.hyperparameters = None
-        self.methylation_pca = PCA()
+        self.methylation_scaler = StandardScaler()
+        self.methylation_pca = None
+        self.gene_expression_scaler = StandardScaler()
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -77,6 +80,17 @@ class MultiOmicsNeuralNetwork(DRPModel):
         """
         if drug_input is None:
             raise ValueError("Drug input (fingerprints) is needed for the MultiOmicsNeuralNetwork model.")
+
+        # Scale the gene expression data
+        cell_line_input.apply(function=np.arcsinh, view="gene_expression")
+        cell_line_input.fit_transform_features(
+            train_ids=np.unique(output.cell_line_ids),
+            transformer=self.gene_expression_scaler,
+            view="gene_expression",
+        )
+        cell_line_input.fit_transform_features(
+            train_ids=np.unique(output.cell_line_ids), transformer=self.methylation_scaler, view="methylation"
+        )
 
         self.methylation_pca.n_components = min(self.methylation_pca.n_components, len(np.unique(output.cell_line_ids)))
 
@@ -126,7 +140,7 @@ class MultiOmicsNeuralNetwork(DRPModel):
         drug_input: FeatureDataset | None = None,
     ) -> np.ndarray:
         """
-        Transforms the methylation data using the fitted PCA and then predicts the response for the given input.
+        Applies arcsinh + scaling to gene expression and scaling + PCA to methylation, then predicts.
 
         :param drug_ids: drug identifiers
         :param cell_line_ids: cell line identifiers
@@ -134,6 +148,9 @@ class MultiOmicsNeuralNetwork(DRPModel):
         :param cell_line_input: cell line omics features
         :returns: predicted response
         """
+        cell_line_input.apply(function=np.arcsinh, view="gene_expression")
+        cell_line_input.transform_features(transformer=self.gene_expression_scaler, view="gene_expression")
+        cell_line_input.transform_features(transformer=self.methylation_scaler, view="methylation")
         cell_line_input.transform_features(
             transformer=self.methylation_pca,
             view="methylation",
