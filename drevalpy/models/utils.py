@@ -428,7 +428,9 @@ class ProteomicsMedianCenterAndImputeTransformer(BaseEstimator, TransformerMixin
         :returns: transformed proteomics data
         """
         X = X[0]
+
         X = X[self.protein_indices]
+
         correction_factor = self.mean_median / np.nanmedian(X)
         X = X * correction_factor
         # downshifted mean

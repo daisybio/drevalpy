@@ -156,17 +156,18 @@ class SingleDrugProteomicsElasticNet(SingleDrugElasticNet):
         :param hyperparameters: Hyperparameters for the model. Contains n_estimators, criterion, max_samples,
             and n_jobs.
         """
-        super().build_model(hyperparameters)
-        self.feature_threshold = hyperparameters.get("feature_threshold", 0.7)
-        self.n_features = hyperparameters.get("n_features", 1000)
-        self.normalization_width = hyperparameters.get("normalization_width", 0.3)
-        self.normalization_downshift = hyperparameters.get("normalization_downshift", 1.8)
+        hyperparameters = hyperparameters.copy()
+        self.feature_threshold = hyperparameters.pop("feature_threshold", 0.7)
+        self.n_features = hyperparameters.pop("n_features", 1000)
+        self.normalization_width = hyperparameters.pop("normalization_width", 0.3)
+        self.normalization_downshift = hyperparameters.pop("normalization_downshift", 1.8)
         self.proteomics_transformer = ProteomicsMedianCenterAndImputeTransformer(
             feature_threshold=self.feature_threshold,
             n_features=self.n_features,
             normalization_downshift=self.normalization_downshift,
             normalization_width=self.normalization_width,
         )
+        super().build_model(hyperparameters)
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -250,15 +251,17 @@ class SingleDrugProteomicsElasticNet(SingleDrugElasticNet):
         if drug_input is not None:
             raise ValueError("drug_input is not needed.")
 
+        if self.model is None:
+            print("No training data was available, predicting NA.")
+            return np.array([np.nan] * len(cell_line_ids))
+
         cell_line_input = prepare_proteomics(
             cell_line_input=cell_line_input,
             cell_line_ids=np.unique(cell_line_ids),
             training=False,
             transformer=self.proteomics_transformer,
         )
-        if self.model is None:
-            print("No training data was available, predicting NA.")
-            return np.array([np.nan] * len(cell_line_ids))
+
         x = self.get_concatenated_features(
             cell_line_view="proteomics",
             drug_view=None,
