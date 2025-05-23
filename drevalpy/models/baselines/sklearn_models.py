@@ -67,12 +67,13 @@ class SklearnModel(DRPModel):
         """
         if drug_input is None:
             raise ValueError("drug_input (fingerprints) is required for the sklearn models.")
-        scale_gene_expression(
-            cell_line_input=cell_line_input,
-            cell_line_ids=np.unique(output.cell_line_ids),
-            training=True,
-            gene_expression_scaler=self.gene_expression_scaler,
-        )
+        if "gene_expression" in self.cell_line_views:
+            scale_gene_expression(
+                cell_line_input=cell_line_input,
+                cell_line_ids=np.unique(output.cell_line_ids),
+                training=True,
+                gene_expression_scaler=self.gene_expression_scaler,
+            )
 
         x = self.get_concatenated_features(
             cell_line_view=self.cell_line_views[0],
@@ -103,13 +104,13 @@ class SklearnModel(DRPModel):
         """
         if drug_input is None:
             raise ValueError("drug_input (fingerprints) is required.")
-
-        scale_gene_expression(
-            cell_line_input=cell_line_input,
-            cell_line_ids=np.unique(cell_line_ids),
-            training=False,
-            gene_expression_scaler=self.gene_expression_scaler,
-        )
+        if "gene_expression" in self.cell_line_views:
+            scale_gene_expression(
+                cell_line_input=cell_line_input,
+                cell_line_ids=np.unique(cell_line_ids),
+                training=False,
+                gene_expression_scaler=self.gene_expression_scaler,
+            )
 
         x = self.get_concatenated_features(
             cell_line_view=self.cell_line_views[0],
