@@ -363,7 +363,7 @@ class DIPKModel(DRPModel):
             if file.endswith(".csv") and file.startswith("MolGNet")
         ]
 
-        return FeatureDataset(
+        f = FeatureDataset(
             features={
                 drug: {
                     "molgnet_features": load_feature(os.path.join(drug_path, f"MolGNet_{drug}.csv")),
@@ -371,3 +371,5 @@ class DIPKModel(DRPModel):
                 for drug in drug_list
             }
         )
+
+        return f

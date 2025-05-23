@@ -781,8 +781,8 @@ def _leave_group_out_cv(
 class FeatureDataset:
     """Class for feature datasets."""
 
-    _meta_info: dict[str, Any] = {}
-    _features: dict[str, dict[str, Any]] = {}
+    _features: dict[str, dict[str, Any]]
+    _meta_info: dict[str, Any]
 
     @classmethod
     def from_csv(
@@ -895,6 +895,7 @@ class FeatureDataset:
         """
         super().__init__()
         self._features = features
+        self._meta_info = meta_info if meta_info is not None else {}
         if meta_info is not None:
             # assert that str of meta Dict[str, Any] is in view_names
             if not all(meta_key in self.view_names for meta_key in meta_info.keys()):
