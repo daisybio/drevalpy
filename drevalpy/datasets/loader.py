@@ -204,7 +204,7 @@ def load_ctrpv2(path_data: str = "data", measure: str = "LN_IC50_curvecurator") 
 
 
 def load_custom(
-    path_data: str | Path, dataset_name: str, measure: str = "response", tissue_column: str | None = None
+    path_data: str | Path, dataset_name: str = "custom", measure: str = "response", tissue_column: str | None = None
 ) -> DrugResponseDataset:
     """
     Load custom dataset.
