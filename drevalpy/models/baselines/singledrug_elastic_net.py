@@ -8,7 +8,7 @@ from ...datasets.dataset import DrugResponseDataset, FeatureDataset
 from ..utils import (
     ProteomicsMedianCenterAndImputeTransformer,
     load_and_select_gene_features,
-    log10_and_set_na,
+    prepare_proteomics,
     scale_gene_expression,
 )
 from .sklearn_models import SklearnModel
@@ -211,15 +211,11 @@ class SingleDrugProteomicsElasticNet(SingleDrugElasticNet):
         """
         if len(output) > 0:
             # log transform
-            cell_line_input.apply(log10_and_set_na, view="proteomics")
-            # select the complete proteins as features, median center
-            # and impute missing values with down-shifted median
-            # the feature selection and median computation is only done on the train set
-
-            cell_line_input.fit_transform_features(
-                train_ids=np.unique(output.cell_line_ids),
+            cell_line_input = prepare_proteomics(
+                cell_line_input=cell_line_input,
+                cell_line_ids=np.unique(output.cell_line_ids),
+                training=True,
                 transformer=self.proteomics_transformer,
-                view="proteomics",
             )
             x = self.get_concatenated_features(
                 cell_line_view="proteomics",
@@ -254,11 +250,11 @@ class SingleDrugProteomicsElasticNet(SingleDrugElasticNet):
         if drug_input is not None:
             raise ValueError("drug_input is not needed.")
 
-        cell_line_input.apply(log10_and_set_na, view="proteomics")
-
-        cell_line_input.transform_features(
+        cell_line_input = prepare_proteomics(
+            cell_line_input=cell_line_input,
+            cell_line_ids=np.unique(cell_line_ids),
+            training=False,
             transformer=self.proteomics_transformer,
-            view="proteomics",
         )
         if self.model is None:
             print("No training data was available, predicting NA.")
