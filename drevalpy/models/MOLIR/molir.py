@@ -95,7 +95,7 @@ class MOLIR(DRPModel):
         :raises ValueError: If drug_input is None.
         """
         if len(output) > 0:
-            scale_gene_expression(
+            cell_line_input = scale_gene_expression(
                 cell_line_input=cell_line_input,
                 cell_line_ids=np.unique(output.cell_line_ids),
                 training=True,
@@ -161,7 +161,7 @@ class MOLIR(DRPModel):
         ):
             raise ValueError("MOLIR Model not trained, please train the model first.")
 
-        scale_gene_expression(
+        cell_line_input = scale_gene_expression(
             cell_line_input=cell_line_input,
             cell_line_ids=np.unique(cell_line_ids),
             training=False,

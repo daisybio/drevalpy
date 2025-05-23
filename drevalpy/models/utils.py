@@ -225,7 +225,7 @@ def prepare_expression_and_methylation(
     gene_expression_scaler: TransformerMixin | None = None,
     methylation_scaler: TransformerMixin | None = None,
     methylation_pca: PCA | None = None,
-):
+) -> FeatureDataset:
     """
     Applies preprocessing to gene expression and optionally methylation views.
 
@@ -239,7 +239,9 @@ def prepare_expression_and_methylation(
     :param gene_expression_scaler: Optional fitted or to-be-fitted scaler for gene expression
     :param methylation_scaler: Optional fitted or to-be-fitted scaler for methylation
     :param methylation_pca: Optional PCA transformer for methylation
+    :returns: FeatureDataset with the transformed features
     """
+    cell_line_input = cell_line_input.copy()
     if gene_expression_scaler is not None:
         cell_line_input.apply(function=np.arcsinh, view="gene_expression")
         if training:
@@ -280,6 +282,7 @@ def prepare_expression_and_methylation(
                 transformer=methylation_pca,
                 view="methylation",
             )
+    return cell_line_input
 
 
 def scale_gene_expression(
@@ -287,7 +290,7 @@ def scale_gene_expression(
     cell_line_ids: np.ndarray,
     training: bool,
     gene_expression_scaler: TransformerMixin,
-):
+) -> FeatureDataset:
     """
     Scales gene expression inplace using arcsinh transformation and a provided scaler.
 
@@ -295,13 +298,15 @@ def scale_gene_expression(
     :param cell_line_ids: IDs of cell lines to use for fitting or transformation
     :param training: whether to fit or transform
     :param gene_expression_scaler: sklearn transformer for gene expression
+    :returns: FeatureDataset with the transformed features
     """
-    prepare_expression_and_methylation(
+    cell_line_input = prepare_expression_and_methylation(
         cell_line_input=cell_line_input,
         cell_line_ids=cell_line_ids,
         training=training,
         gene_expression_scaler=gene_expression_scaler,
     )
+    return cell_line_input
 
 
 class VarianceFeatureSelector:

@@ -216,8 +216,8 @@ class DrugResponseDataset:
         :returns: pandas DataFrame of the dataset with columns 'cell_line_id', 'drug_id', 'response'(, 'predictions')
         """
         data = {
-            "cell_line_id": self.cell_line_ids,
-            "drug_id": self.drug_ids,
+            CELL_LINE_IDENTIFIER: self.cell_line_ids,
+            DRUG_IDENTIFIER: self.drug_ids,
             "response": self.response,
         }
         if self.predictions is not None:

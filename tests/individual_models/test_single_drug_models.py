@@ -10,6 +10,7 @@ import pytest
 import torch
 
 from drevalpy.datasets.dataset import DrugResponseDataset
+from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
 from drevalpy.experiment import (
     consolidate_single_drug_model_predictions,
     cross_study_prediction,
@@ -129,7 +130,9 @@ def test_single_drug_models(
     cross_study_predictions = pd.read_csv(
         pathlib.Path(result_path.name, model_name, "cross_study", "cross_study_TOYv2_split_0.csv")
     )
-    assert len(cross_study_predictions) == len(cross_study_predictions.drop_duplicates(["drug_id", "cell_line_id"]))
+    assert len(cross_study_predictions) == len(
+        cross_study_predictions.drop_duplicates([DRUG_IDENTIFIER, CELL_LINE_IDENTIFIER])
+    )
     predictions_file = pathlib.Path(result_path.name, model_name, "predictions", "predictions_split_0.csv")
     cross_study_file = pathlib.Path(result_path.name, model_name, "cross_study", "cross_study_TOYv2_split_0.csv")
     for file in [predictions_file, cross_study_file]:

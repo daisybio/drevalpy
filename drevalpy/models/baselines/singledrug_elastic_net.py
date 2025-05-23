@@ -53,7 +53,7 @@ class SingleDrugElasticNet(SklearnModel):
         :param model_checkpoint_dir: not needed as checkpoints are not saved
         """
         if len(output) > 0:
-            scale_gene_expression(
+            cell_line_input = scale_gene_expression(
                 cell_line_input=cell_line_input,
                 cell_line_ids=np.unique(output.cell_line_ids),
                 training=True,
@@ -95,7 +95,7 @@ class SingleDrugElasticNet(SklearnModel):
         if self.model is None:
             print("No training data was available, predicting NA.")
             return np.array([np.nan] * len(cell_line_ids))
-        scale_gene_expression(
+        cell_line_input = scale_gene_expression(
             cell_line_input=cell_line_input,
             cell_line_ids=np.unique(cell_line_ids),
             training=False,

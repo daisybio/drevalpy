@@ -80,8 +80,7 @@ class MultiOmicsNeuralNetwork(DRPModel):
         """
         if drug_input is None:
             raise ValueError("Drug input (fingerprints) is needed for the MultiOmicsNeuralNetwork model.")
-
-        prepare_expression_and_methylation(
+        cell_line_input = prepare_expression_and_methylation(
             cell_line_input=cell_line_input,
             cell_line_ids=np.unique(output.cell_line_ids),
             training=True,
@@ -140,7 +139,7 @@ class MultiOmicsNeuralNetwork(DRPModel):
         :param cell_line_input: cell line omics features
         :returns: predicted response
         """
-        prepare_expression_and_methylation(
+        cell_line_input = prepare_expression_and_methylation(
             cell_line_input=cell_line_input,
             cell_line_ids=np.unique(cell_line_ids),
             training=False,

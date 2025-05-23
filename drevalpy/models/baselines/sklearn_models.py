@@ -67,8 +67,9 @@ class SklearnModel(DRPModel):
         """
         if drug_input is None:
             raise ValueError("drug_input (fingerprints) is required for the sklearn models.")
+
         if "gene_expression" in self.cell_line_views:
-            scale_gene_expression(
+            cell_line_input = scale_gene_expression(
                 cell_line_input=cell_line_input,
                 cell_line_ids=np.unique(output.cell_line_ids),
                 training=True,
@@ -105,7 +106,7 @@ class SklearnModel(DRPModel):
         if drug_input is None:
             raise ValueError("drug_input (fingerprints) is required.")
         if "gene_expression" in self.cell_line_views:
-            scale_gene_expression(
+            cell_line_input = scale_gene_expression(
                 cell_line_input=cell_line_input,
                 cell_line_ids=np.unique(cell_line_ids),
                 training=False,
