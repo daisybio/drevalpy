@@ -161,6 +161,12 @@ class SingleDrugProteomicsElasticNet(SingleDrugElasticNet):
         self.n_features = hyperparameters.get("n_features", 1000)
         self.normalization_width = hyperparameters.get("normalization_width", 0.3)
         self.normalization_downshift = hyperparameters.get("normalization_downshift", 1.8)
+        self.proteomics_transformer = ProteomicsMedianCenterAndImputeTransformer(
+            feature_threshold=self.feature_threshold,
+            n_features=self.n_features,
+            normalization_downshift=self.normalization_downshift,
+            normalization_width=self.normalization_width,
+        )
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -209,15 +215,10 @@ class SingleDrugProteomicsElasticNet(SingleDrugElasticNet):
             # select the complete proteins as features, median center
             # and impute missing values with down-shifted median
             # the feature selection and median computation is only done on the train set
-            proteomics_transformer = ProteomicsMedianCenterAndImputeTransformer(
-                feature_threshold=self.feature_threshold,
-                n_features=self.n_features,
-                normalization_downshift=self.normalization_downshift,
-                normalization_width=self.normalization_width,
-            )
+
             cell_line_input.fit_transform_features(
                 train_ids=np.unique(output.cell_line_ids),
-                transformer=proteomics_transformer,
+                transformer=self.proteomics_transformer,
                 view="proteomics",
             )
             x = self.get_concatenated_features(
@@ -253,6 +254,12 @@ class SingleDrugProteomicsElasticNet(SingleDrugElasticNet):
         if drug_input is not None:
             raise ValueError("drug_input is not needed.")
 
+        cell_line_input.apply(log10_and_set_na, view="proteomics")
+
+        cell_line_input.transform_features(
+            transformer=self.proteomics_transformer,
+            view="proteomics",
+        )
         if self.model is None:
             print("No training data was available, predicting NA.")
             return np.array([np.nan] * len(cell_line_ids))

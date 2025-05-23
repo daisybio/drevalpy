@@ -442,37 +442,33 @@ class ProteomicsMedianCenterAndImputeTransformer(BaseEstimator, TransformerMixin
         return [X]
 
 
-def preprocess_proteomics(
-    output: DrugResponseDataset,
+def prepare_proteomics(
     cell_line_input: FeatureDataset,
-    feature_threshold: float = 0.7,
-    n_features: int = 1000,
-    normalization_downshift: float = 1.8,
-    normalization_width: float = 0.3,
-) -> None:
+    cell_line_ids: np.ndarray,
+    training: bool,
+    transformer: ProteomicsMedianCenterAndImputeTransformer,
+) -> FeatureDataset:
     """
-    Preprocess proteomics data by log transforming, median centering, and imputing missing values.
+    Applies log10 transform and proteomics normalization (centering + imputation) to proteomics view.
 
-    :param output: drug response dataset
-    :param cell_line_input: feature dataset with proteomics data
-    :param feature_threshold: feature threshold for selecting complete proteins
-    :param n_features: fallback for feature selection
-    :param normalization_downshift: parameter for downshifting the median
-    :param normalization_width: parameter for the width of the Gaussian kernel
+    :param cell_line_input: FeatureDataset with proteomics features
+    :param cell_line_ids: cell line IDs for training or transformation
+    :param training: whether to fit or only transform
+    :param transformer: Proteomics transformer
+    :returns: transformed FeatureDataset
     """
-    # log transform
+    cell_line_input = cell_line_input.copy()
     cell_line_input.apply(log10_and_set_na, view="proteomics")
-    # select the complete proteins as features, median center
-    # and impute missing values with down-shifted median
-    # the feature selection and median computation is only done on the train set
-    proteomics_transformer = ProteomicsMedianCenterAndImputeTransformer(
-        feature_threshold=feature_threshold,
-        n_features=n_features,
-        normalization_downshift=normalization_downshift,
-        normalization_width=normalization_width,
-    )
-    cell_line_input.fit_transform_features(
-        train_ids=np.unique(output.cell_line_ids),
-        transformer=proteomics_transformer,
-        view="proteomics",
-    )
+    if training:
+        cell_line_input.fit_transform_features(
+            train_ids=cell_line_ids,
+            transformer=transformer,
+            view="proteomics",
+        )
+    else:
+        cell_line_input.transform_features(
+            ids=cell_line_ids,
+            transformer=transformer,
+            view="proteomics",
+        )
+    return cell_line_input

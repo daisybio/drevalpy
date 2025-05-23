@@ -8,7 +8,7 @@ per drug.
 import numpy as np
 
 from ...datasets.dataset import DrugResponseDataset, FeatureDataset
-from ..utils import load_and_select_gene_features, preprocess_proteomics
+from ..utils import ProteomicsMedianCenterAndImputeTransformer, load_and_select_gene_features, prepare_proteomics
 from .sklearn_models import RandomForest
 
 
@@ -141,6 +141,12 @@ class SingleDrugProteomicsRandomForest(SingleDrugRandomForest):
         self.n_features = hyperparameters.get("n_features", 1000)
         self.normalization_width = hyperparameters.get("normalization_width", 0.3)
         self.normalization_downshift = hyperparameters.get("normalization_downshift", 1.8)
+        self.proteomics_transformer = ProteomicsMedianCenterAndImputeTransformer(
+            feature_threshold=self.feature_threshold,
+            n_features=self.n_features,
+            normalization_downshift=self.normalization_downshift,
+            normalization_width=self.normalization_width,
+        )
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -184,13 +190,11 @@ class SingleDrugProteomicsRandomForest(SingleDrugRandomForest):
         :param model_checkpoint_dir: not needed as checkpoints are not saved
         """
         if len(output) > 0:
-            preprocess_proteomics(
-                output=output,
+            cell_line_input = prepare_proteomics(
                 cell_line_input=cell_line_input,
-                feature_threshold=self.feature_threshold,
-                n_features=self.n_features,
-                normalization_downshift=self.normalization_downshift,
-                normalization_width=self.normalization_width,
+                cell_line_ids=np.unique(output.cell_line_ids),
+                training=True,
+                transformer=self.proteomics_transformer,
             )
             x = self.get_concatenated_features(
                 cell_line_view="proteomics",
@@ -228,6 +232,12 @@ class SingleDrugProteomicsRandomForest(SingleDrugRandomForest):
         if self.model is None:
             print("No training data was available, predicting NA.")
             return np.array([np.nan] * len(cell_line_ids))
+        cell_line_input = prepare_proteomics(
+            cell_line_input=cell_line_input,
+            cell_line_ids=np.unique(cell_line_ids),
+            training=False,
+            transformer=self.proteomics_transformer,
+        )
         x = self.get_concatenated_features(
             cell_line_view="proteomics",
             drug_view=None,

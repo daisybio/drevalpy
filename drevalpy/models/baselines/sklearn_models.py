@@ -10,9 +10,10 @@ from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models.drp_model import DRPModel
 
 from ..utils import (
+    ProteomicsMedianCenterAndImputeTransformer,
     load_and_select_gene_features,
     load_drug_fingerprint_features,
-    preprocess_proteomics,
+    prepare_proteomics,
     scale_gene_expression,
 )
 
@@ -300,6 +301,12 @@ class ProteomicsRandomForest(RandomForest):
         self.n_features = hyperparameters.get("n_features", 1000)
         self.normalization_width = hyperparameters.get("normalization_width", 0.3)
         self.normalization_downshift = hyperparameters.get("normalization_downshift", 1.8)
+        self.proteomics_transformer = ProteomicsMedianCenterAndImputeTransformer(
+            feature_threshold=self.feature_threshold,
+            n_features=self.n_features,
+            normalization_downshift=self.normalization_downshift,
+            normalization_width=self.normalization_width,
+        )
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -347,13 +354,11 @@ class ProteomicsRandomForest(RandomForest):
         if drug_input is None:
             raise ValueError("drug_input (fingerprints) is required for the sklearn models.")
 
-        preprocess_proteomics(
-            output=output,
+        cell_line_input = prepare_proteomics(
             cell_line_input=cell_line_input,
-            feature_threshold=self.feature_threshold,
-            n_features=self.n_features,
-            normalization_downshift=self.normalization_downshift,
-            normalization_width=self.normalization_width,
+            cell_line_ids=np.unique(output.cell_line_ids),
+            training=True,
+            transformer=self.proteomics_transformer,
         )
 
         x = self.get_concatenated_features(
@@ -365,6 +370,44 @@ class ProteomicsRandomForest(RandomForest):
             drug_input=drug_input,
         )
         self.model.fit(x, output.response)
+
+    def predict(
+        self,
+        cell_line_ids: np.ndarray,
+        drug_ids: np.ndarray,
+        cell_line_input: FeatureDataset,
+        drug_input: FeatureDataset | None = None,
+    ) -> np.ndarray:
+        """
+        Predicts the response for the given input.
+
+        :param drug_ids: drug ids
+        :param cell_line_ids: cell line ids
+        :param drug_input: drug input
+        :param cell_line_input: cell line input
+        :returns: predicted drug response
+        :raises ValueError: If drug_input is None.
+        """
+        if drug_input is None:
+            raise ValueError("drug_input (fingerprints) is required.")
+        cell_line_input = prepare_proteomics(
+            cell_line_input=cell_line_input,
+            cell_line_ids=np.unique(cell_line_ids),
+            training=False,
+            transformer=self.proteomics_transformer,
+        )
+        if self.model is None:
+            print("No training data was available, or model not trained predicting NA.")
+            return np.array([np.nan] * len(cell_line_ids))
+        x = self.get_concatenated_features(
+            cell_line_view=self.cell_line_views[0],
+            drug_view=self.drug_views[0],
+            cell_line_ids_output=cell_line_ids,
+            drug_ids_output=drug_ids,
+            cell_line_input=cell_line_input,
+            drug_input=drug_input,
+        )
+        return self.model.predict(x)
 
 
 class ProteomicsElasticNetModel(ElasticNetModel):
@@ -401,6 +444,12 @@ class ProteomicsElasticNetModel(ElasticNetModel):
         self.n_features = hyperparameters.get("n_features", 1000)
         self.normalization_width = hyperparameters.get("normalization_width", 0.3)
         self.normalization_downshift = hyperparameters.get("normalization_downshift", 1.8)
+        self.proteomics_transformer = ProteomicsMedianCenterAndImputeTransformer(
+            feature_threshold=self.feature_threshold,
+            n_features=self.n_features,
+            normalization_downshift=self.normalization_downshift,
+            normalization_width=self.normalization_width,
+        )
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -448,13 +497,11 @@ class ProteomicsElasticNetModel(ElasticNetModel):
         if drug_input is None:
             raise ValueError("drug_input (fingerprints) is required for the sklearn models.")
 
-        preprocess_proteomics(
-            output=output,
+        cell_line_input = prepare_proteomics(
             cell_line_input=cell_line_input,
-            feature_threshold=self.feature_threshold,
-            n_features=self.n_features,
-            normalization_downshift=self.normalization_downshift,
-            normalization_width=self.normalization_width,
+            cell_line_ids=np.unique(output.cell_line_ids),
+            training=True,
+            transformer=self.proteomics_transformer,
         )
         x = self.get_concatenated_features(
             cell_line_view=self.cell_line_views[0],
@@ -465,3 +512,41 @@ class ProteomicsElasticNetModel(ElasticNetModel):
             drug_input=drug_input,
         )
         self.model.fit(x, output.response)
+
+    def predict(
+        self,
+        cell_line_ids: np.ndarray,
+        drug_ids: np.ndarray,
+        cell_line_input: FeatureDataset,
+        drug_input: FeatureDataset | None = None,
+    ) -> np.ndarray:
+        """
+        Predicts the response for the given input.
+
+        :param drug_ids: drug ids
+        :param cell_line_ids: cell line ids
+        :param drug_input: drug input
+        :param cell_line_input: cell line input
+        :returns: predicted drug response
+        :raises ValueError: If drug_input is None.
+        """
+        if drug_input is None:
+            raise ValueError("drug_input (fingerprints) is required.")
+        cell_line_input = prepare_proteomics(
+            cell_line_input=cell_line_input,
+            cell_line_ids=np.unique(cell_line_ids),
+            training=False,
+            transformer=self.proteomics_transformer,
+        )
+        if self.model is None:
+            print("No training data was available, or model not trained predicting NA.")
+            return np.array([np.nan] * len(cell_line_ids))
+        x = self.get_concatenated_features(
+            cell_line_view=self.cell_line_views[0],
+            drug_view=self.drug_views[0],
+            cell_line_ids_output=cell_line_ids,
+            drug_ids_output=drug_ids,
+            cell_line_input=cell_line_input,
+            drug_input=drug_input,
+        )
+        return self.model.predict(x)
