@@ -46,7 +46,7 @@ class DrugResponseDataset:
         cls: type["DrugResponseDataset"],
         input_file: str | Path,
         dataset_name: str = "unknown",
-        measure: str = "LN_IC50_curvecurator",
+        measure: str = "response",
         tissue_column: str | None = None,
     ) -> "DrugResponseDataset":
         """
@@ -64,12 +64,19 @@ class DrugResponseDataset:
         :param dataset_name: Optional name to associate the dataset with, default = "unknown"
         :param measure: The name of the column containing the measure to predict, default = "response"
         :param tissue_column: Optional column name of column containing tissue types
-
+        :raises ValueError: If the required columns are not found in the input file
         :returns: DrugResponseDataset object containing data from provided csv file.
         """
         data = pd.read_csv(input_file)
-        data[DRUG_IDENTIFIER] = data[DRUG_IDENTIFIER].astype(str)
 
+        if measure not in data.columns:
+            raise ValueError(f"Column {measure} not found in the input file.")
+        elif CELL_LINE_IDENTIFIER not in data.columns:
+            raise ValueError(f"Column {CELL_LINE_IDENTIFIER} not found in the input file.")
+        elif DRUG_IDENTIFIER not in data.columns:
+            raise ValueError(f"Column {DRUG_IDENTIFIER} not found in the input file.")
+
+        data[DRUG_IDENTIFIER] = data[DRUG_IDENTIFIER].astype(str)
         if "predictions" in data.columns:
             predictions = data["predictions"].values
         else:
@@ -213,7 +220,7 @@ class DrugResponseDataset:
         """
         Convert the dataset into a pandas DataFrame.
 
-        :returns: pandas DataFrame of the dataset with columns 'cell_line_id', 'drug_id', 'response'(, 'predictions')
+        :returns: pandas DataFrame of the dataset)
         """
         data = {
             CELL_LINE_IDENTIFIER: self.cell_line_ids,
@@ -992,7 +999,7 @@ class FeatureDataset:
 
         :returns: copy of the dataset
         """
-        return FeatureDataset(features=copy.deepcopy(self.features))
+        return FeatureDataset(features=copy.deepcopy(self.features), meta_info=copy.deepcopy(self.meta_info))
 
     def add_features(self, other: "FeatureDataset") -> None:
         """
