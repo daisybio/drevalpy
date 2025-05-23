@@ -65,7 +65,9 @@ class MOLIR(DRPModel):
             h_dim2, h_dim3), learning_rate, dropout_rate, weight_decay, gamma, epochs, and margin.
         """
         self.hyperparameters = hyperparameters
-        self.selector = VarianceFeatureSelector(view="gene_expression", k=1000)
+        self.selector = VarianceFeatureSelector(
+            view="gene_expression", k=hyperparameters.get("n_gene_expression_features", 1000)
+        )
 
     def train(
         self,
@@ -90,6 +92,7 @@ class MOLIR(DRPModel):
         :param drug_input: drug features, not needed
         :param output_earlystopping: early stopping data, not used when there is not enough data
         :param model_checkpoint_dir: directory to save the model checkpoints
+        :raises ValueError: If drug_input is None.
         """
         if len(output) > 0:
             scale_gene_expression(
@@ -98,7 +101,8 @@ class MOLIR(DRPModel):
                 training=True,
                 gene_expression_scaler=self.gene_expression_scaler,
             )
-
+            if self.selector is None:
+                raise ValueError("Feature selector not initialized. Build the model first.")
             self.selector.fit(cell_line_input, output)
             cell_line_input = self.selector.transform(cell_line_input)
 
