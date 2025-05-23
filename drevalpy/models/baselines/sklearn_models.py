@@ -69,7 +69,7 @@ class SklearnModel(DRPModel):
             raise ValueError("drug_input (fingerprints) is required for the sklearn models.")
         scale_gene_expression(
             cell_line_input=cell_line_input,
-            cell_line_ids=output.cell_line_ids,
+            cell_line_ids=np.unique(output.cell_line_ids),
             training=True,
             gene_expression_scaler=self.gene_expression_scaler,
         )
@@ -106,7 +106,7 @@ class SklearnModel(DRPModel):
 
         scale_gene_expression(
             cell_line_input=cell_line_input,
-            cell_line_ids=cell_line_ids,
+            cell_line_ids=np.unique(cell_line_ids),
             training=False,
             gene_expression_scaler=self.gene_expression_scaler,
         )

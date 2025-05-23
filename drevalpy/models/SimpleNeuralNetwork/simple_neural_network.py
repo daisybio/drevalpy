@@ -135,7 +135,7 @@ class SimpleNeuralNetwork(DRPModel):
         if "gene_expression" in self.cell_line_views:
             scale_gene_expression(
                 cell_line_input=cell_line_input,
-                cell_line_ids=cell_line_ids,
+                cell_line_ids=np.unique(cell_line_ids),
                 training=False,
                 gene_expression_scaler=self.gene_expression_scaler,
             )

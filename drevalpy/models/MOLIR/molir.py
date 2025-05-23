@@ -163,7 +163,7 @@ class MOLIR(DRPModel):
 
         scale_gene_expression(
             cell_line_input=cell_line_input,
-            cell_line_ids=cell_line_ids,
+            cell_line_ids=np.unique(cell_line_ids),
             training=False,
             gene_expression_scaler=self.gene_expression_scaler,
         )

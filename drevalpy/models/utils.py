@@ -289,7 +289,7 @@ def scale_gene_expression(
     gene_expression_scaler: TransformerMixin,
 ):
     """
-    Scales gene expression using arcsinh transformation and a provided scaler.
+    Scales gene expression inplace using arcsinh transformation and a provided scaler.
 
     :param cell_line_input: FeatureDataset with the cell line features
     :param cell_line_ids: IDs of cell lines to use for fitting or transformation

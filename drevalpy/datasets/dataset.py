@@ -25,7 +25,7 @@ from sklearn.base import TransformerMixin
 from sklearn.model_selection import GroupKFold, train_test_split
 
 from ..pipeline_function import pipeline_function
-from .utils import permute_features, randomize_graph
+from .utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, permute_features, randomize_graph
 
 np.set_printoptions(threshold=6)
 
@@ -46,7 +46,7 @@ class DrugResponseDataset:
         cls: type["DrugResponseDataset"],
         input_file: str | Path,
         dataset_name: str = "unknown",
-        measure: str = "response",
+        measure: str = "LN_IC50_curvecurator",
         tissue_column: str | None = None,
     ) -> "DrugResponseDataset":
         """
@@ -55,10 +55,10 @@ class DrugResponseDataset:
         This function creates a DrugResponseDataset from a provided input file in csv format.
         The following columns are required:
         - response:         the drug response values as floating point values
-        - cell_line_ids:    a string identifier for cell lines
-        - drug_ids:         a string identifier for drugs
+        - cell_line_name:    a string identifier for cell lines
+        - pubchem_id:         a string identifier for drugs
         - predictions:      an optional column containing drug response predictions
-        - measure:         the name of the column containing the measure to predict
+        - LN_IC50_curvecurator:         the name of the column containing the measure to predict
 
         :param input_file: Path to the csv file containing the data to be loaded
         :param dataset_name: Optional name to associate the dataset with, default = "unknown"
@@ -68,7 +68,7 @@ class DrugResponseDataset:
         :returns: DrugResponseDataset object containing data from provided csv file.
         """
         data = pd.read_csv(input_file)
-        data["drug_id"] = data["drug_id"].astype(str)
+        data[DRUG_IDENTIFIER] = data[DRUG_IDENTIFIER].astype(str)
 
         if "predictions" in data.columns:
             predictions = data["predictions"].values
@@ -76,8 +76,8 @@ class DrugResponseDataset:
             predictions = None
         return cls(
             response=data[measure].values,
-            cell_line_ids=data["cell_line_id"].values,
-            drug_ids=data["drug_id"].values,
+            cell_line_ids=data[CELL_LINE_IDENTIFIER].values,
+            drug_ids=data[DRUG_IDENTIFIER].values,
             predictions=predictions,
             dataset_name=dataset_name,
             tissues=data[tissue_column].values if tissue_column in data.columns else None,
@@ -1070,6 +1070,8 @@ class FeatureDataset:
             raise AssertionError(f"Transform view {view!r} not in in the FeatureDataset.")
 
         if len(np.unique(train_ids)) != len(train_ids):
+            print(f"Train IDs: {train_ids}")
+
             raise AssertionError("Train IDs should be unique.")
 
         # Collect all features of the view for fitting the scaler

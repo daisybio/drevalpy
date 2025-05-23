@@ -142,7 +142,7 @@ class MultiOmicsNeuralNetwork(DRPModel):
         """
         prepare_expression_and_methylation(
             cell_line_input=cell_line_input,
-            cell_line_ids=cell_line_ids,
+            cell_line_ids=np.unique(cell_line_ids),
             training=False,
             gene_expression_scaler=self.gene_expression_scaler,
             methylation_scaler=self.methylation_scaler,

@@ -2,9 +2,10 @@
 
 import numpy as np
 from sklearn.linear_model import ElasticNet
+from sklearn.preprocessing import StandardScaler
 
 from ...datasets.dataset import DrugResponseDataset, FeatureDataset
-from ..utils import load_and_select_gene_features
+from ..utils import load_and_select_gene_features, scale_gene_expression
 from .sklearn_models import SklearnModel
 
 
@@ -23,6 +24,7 @@ class SingleDrugElasticNet(SklearnModel):
         :param hyperparameters: Elastic net hyperparameters
         """
         self.model = ElasticNet(**hyperparameters)
+        self.gene_expression_scaler = StandardScaler()
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -51,6 +53,12 @@ class SingleDrugElasticNet(SklearnModel):
         :param model_checkpoint_dir: not needed as checkpoints are not saved
         """
         if len(output) > 0:
+            scale_gene_expression(
+                cell_line_input=cell_line_input,
+                cell_line_ids=np.unique(output.cell_line_ids),
+                training=True,
+                gene_expression_scaler=self.gene_expression_scaler,
+            )
             x = self.get_concatenated_features(
                 cell_line_view="gene_expression",
                 drug_view=None,
@@ -82,11 +90,17 @@ class SingleDrugElasticNet(SklearnModel):
         :raises ValueError: if drug_input is not None
         """
         if drug_input is not None:
-            raise ValueError("drug_input is not needed.")
+            raise ValueError("drug_input is not needed for SingleDrugModel.")
 
         if self.model is None:
             print("No training data was available, predicting NA.")
             return np.array([np.nan] * len(cell_line_ids))
+        scale_gene_expression(
+            cell_line_input=cell_line_input,
+            cell_line_ids=np.unique(cell_line_ids),
+            training=False,
+            gene_expression_scaler=self.gene_expression_scaler,
+        )
         x = self.get_concatenated_features(
             cell_line_view="gene_expression",
             drug_view=None,
