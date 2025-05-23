@@ -18,6 +18,29 @@ ElasticNet:
     - 5
     - 10
     - 100
+ProteomicsElasticNet:
+  feature_threshold:
+    - 0.7
+  n_features:
+    - 1000
+  normalization_width:
+    - 0.3
+  normalization_downshift:
+    - 1.8
+  l1_ratio:
+    - 0
+    - 0.5
+    - 1
+  alpha:
+    - 1
+    - 0.8
+    - 0.6
+    - 0.4
+    - 0.2
+    - 0.1
+    - 5
+    - 10
+    - 100
 RandomForest:
   n_estimators:
     - 100
@@ -103,6 +126,14 @@ SingleDrugElasticNet:
     - 10
     - 100
 SingleDrugProteomicsElasticNet:
+  feature_threshold:
+    - 0.7
+  n_features:
+    - 1000
+  normalization_width:
+    - 0.3
+  normalization_downshift:
+    - 1.8
   l1_ratio:
     - 0.2
     - 0.5
@@ -118,6 +149,14 @@ SingleDrugProteomicsElasticNet:
     - 10
     - 100
 ProteomicsRandomForest:
+  feature_threshold:
+    - 0.7
+  n_features:
+    - 1000
+  normalization_width:
+    - 0.3
+  normalization_downshift:
+    - 1.8
   n_estimators:
     - 100
   max_depth:

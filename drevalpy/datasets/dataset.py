@@ -1089,8 +1089,8 @@ class FeatureDataset:
         # Apply transformation and scaling to each feature vector
         for identifier in self.features:
             feature_vector = self.features[identifier][view]
-            scaled_gene_expression = transformer.transform([feature_vector])[0]
-            self.features[identifier][view] = scaled_gene_expression
+            transformed_vector = transformer.transform([feature_vector])[0]
+            self.features[identifier][view] = transformed_vector
         return transformer
 
     def apply(self, function: Callable, view: str):

@@ -24,7 +24,14 @@ from drevalpy.visualization.utils import evaluate_file
 
 @pytest.mark.parametrize(
     "model_name",
-    ["SingleDrugRandomForest", "SingleDrugElasticNet", "SingleDrugProteomicsElasticNet", "MOLIR", "SuperFELTR"],
+    [
+        "SingleDrugRandomForest",
+        "SingleDrugElasticNet",
+        "SingleDrugProteomicsElasticNet",
+        "MOLIR",
+        "SuperFELTR",
+        "SingleDrugProteomicsRandomForest",
+    ],
 )
 @pytest.mark.parametrize("test_mode", ["LTO"])
 def test_single_drug_models(
