@@ -551,12 +551,13 @@ def cross_study_prediction(
     else:
         raise ValueError(f"Invalid test mode: {test_mode}. Choose from LPO, LCO, LDO, LTO")
     if len(dataset) > 0:
+        drug_input = drug_features.copy() if drug_features is not None else None
         dataset.shuffle(random_state=42)
         dataset._predictions = model.predict(
             cell_line_ids=dataset.cell_line_ids,
             drug_ids=dataset.drug_ids,
-            cell_line_input=cl_features,
-            drug_input=drug_features,
+            cell_line_input=cl_features.copy(),
+            drug_input=drug_input,
         )
         if response_transformation:
             dataset._response = response_transformation.inverse_transform(dataset.response)
@@ -940,15 +941,18 @@ def train_and_predict(
             early_stopping_dataset.transform(response_transformation)
         prediction_dataset.transform(response_transformation)
 
+    drug_input = drug_features.copy() if drug_features is not None else None
     print("Training model ...")
+
     if model_checkpoint_dir == "TEMPORARY":
         with tempfile.TemporaryDirectory() as temp_dir:
             print(f"Using temporary directory: {temp_dir} for model checkpoints")
+
             model.train(
                 output=train_dataset,
                 output_earlystopping=early_stopping_dataset,
-                cell_line_input=cl_features,
-                drug_input=drug_features,
+                cell_line_input=cl_features.copy(),
+                drug_input=drug_input,
                 model_checkpoint_dir=temp_dir,
             )
     else:
@@ -958,8 +962,8 @@ def train_and_predict(
         model.train(
             output=train_dataset,
             output_earlystopping=early_stopping_dataset,
-            cell_line_input=cl_features,
-            drug_input=drug_features,
+            cell_line_input=cl_features.copy(),
+            drug_input=drug_input,
             model_checkpoint_dir=model_checkpoint_dir,
         )
 
@@ -967,8 +971,8 @@ def train_and_predict(
         prediction_dataset._predictions = model.predict(
             cell_line_ids=prediction_dataset.cell_line_ids,
             drug_ids=prediction_dataset.drug_ids,
-            cell_line_input=cl_features,
-            drug_input=drug_features,
+            cell_line_input=cl_features.copy(),
+            drug_input=drug_input,
         )
 
         if response_transformation:
