@@ -181,6 +181,12 @@ def get_parser() -> argparse.ArgumentParser:
         default="TEMPORARY",
         help="Directory to save model checkpoints",
     )
+    parser.add_argument(
+        "--final_model_on_full_data",
+        action="store_true",
+        default=False,
+        help="If True, saves a final model, trained/tuned on the union of all folds after CV",
+    )
 
     return parser
 
