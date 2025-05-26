@@ -7,6 +7,7 @@ Pengyong Li, Zhengxiang Jiang, Tianxiao Liu, Xinyu Liu, Hui Qiao, Xiaojun Yao
 Briefings in Bioinformatics, Volume 25, Issue 3, May 2024, bbae153, https://doi.org/10.1093/bib/bbae153
 """
 
+import json
 import os
 import secrets
 from typing import Any
@@ -113,11 +114,19 @@ class DIPKModel(DRPModel):
         params = [{"params": self.model.parameters()}]
         optimizer = optim.Adam(params, lr=self.lr)
 
+        train_gene_expression = cell_line_input.get_feature_matrix(
+            view="gene_expression", identifiers=output.cell_line_ids
+        )
+        val_gene_expression = cell_line_input.get_feature_matrix(
+            view="gene_expression", identifiers=output_earlystopping.cell_line_ids
+        )
+
         self.gene_expression_encoder = train_gene_expession_autoencoder(
-            cell_line_input.get_feature_matrix(view="gene_expression", identifiers=output.cell_line_ids),
-            cell_line_input.get_feature_matrix(view="gene_expression", identifiers=output_earlystopping.cell_line_ids),
+            train_gene_expression,
+            val_gene_expression,
             epochs_autoencoder=self.epochs_autoencoder,
         )
+        self.hyperparameters["gene_encoder_input_dim"] = train_gene_expression.shape[1]
 
         cell_line_input.apply(
             lambda x: encode_gene_expression(x, self.gene_expression_encoder),  # type: ignore[arg-type]
@@ -373,3 +382,49 @@ class DIPKModel(DRPModel):
         )
 
         return f
+
+    def save_model(self, directory: str) -> None:
+        """
+        Save the DIPK model and gene expression encoder using PyTorch conventions.
+
+        This method stores:
+        - "dipk_model.pt": PyTorch state_dict of the DIPK predictor model
+        - "gene_encoder.pt": PyTorch state_dict of the trained gene expression encoder
+        - "hyperparameters.json": All hyperparameters including encoder input_dim
+
+        :param directory: Target directory where the model files will be saved
+        :type directory: str
+        """
+        os.makedirs(directory, exist_ok=True)
+        torch.save(self.model.state_dict(), os.path.join(directory, "dipk_model.pt"))  # noqa: S614
+        torch.save(self.gene_expression_encoder.state_dict(), os.path.join(directory, "gene_encoder.pt"))  # noqa: S614
+        with open(os.path.join(directory, "hyperparameters.json"), "w") as f:
+            json.dump(self.hyperparameters, f)
+
+    def load_model(self, directory: str) -> None:
+        """
+        Load the DIPK model and gene expression encoder using PyTorch conventions.
+
+        This method expects the following files in the given directory:
+        - "dipk_model.pt": PyTorch state_dict of the DIPK predictor model
+        - "gene_encoder.pt": PyTorch state_dict of the gene expression encoder
+        - "hyperparameters.json": Dictionary of hyperparameters, must include "gene_encoder_input_dim"
+
+        :param directory: Path to the directory containing the model files
+        """
+        with open(os.path.join(directory, "hyperparameters.json")) as f:
+            self.hyperparameters = json.load(f)
+
+        self.build_model(self.hyperparameters)
+
+        self.model.load_state_dict(
+            torch.load(os.path.join(directory, "dipk_model.pt"), map_location=self.DEVICE)  # noqa: S614
+        )
+        self.model.eval()
+
+        input_dim = self.hyperparameters["gene_encoder_input_dim"]
+        self.gene_expression_encoder = GeneExpressionEncoder(input_dim=input_dim)
+        self.gene_expression_encoder.load_state_dict(
+            torch.load(os.path.join(directory, "gene_encoder.pt"), map_location=self.DEVICE)  # noqa: S614
+        )
+        self.gene_expression_encoder.eval()
