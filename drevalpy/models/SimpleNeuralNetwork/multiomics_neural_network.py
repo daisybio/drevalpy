@@ -4,11 +4,12 @@ import warnings
 
 import numpy as np
 from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 
 from ..drp_model import DRPModel
-from ..utils import get_multiomics_feature_dataset, load_drug_fingerprint_features
+from ..utils import get_multiomics_feature_dataset, load_drug_fingerprint_features, prepare_expression_and_methylation
 from .utils import FeedForwardNetwork
 
 
@@ -28,12 +29,14 @@ class MultiOmicsNeuralNetwork(DRPModel):
         """
         Initalization method for MultiOmicsNeuralNetwork Model.
 
-        The model and the PCA are initialized to None because they are built later in the build_model method.
+        The PCA is initialized to None because it depends on hyperparameter, therefore built in build_model.
         """
         super().__init__()
         self.model = None
         self.hyperparameters = None
-        self.pca = None
+        self.methylation_scaler = StandardScaler()
+        self.methylation_pca = None
+        self.gene_expression_scaler = StandardScaler()
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -55,7 +58,7 @@ class MultiOmicsNeuralNetwork(DRPModel):
             methylation_pca_components.
         """
         self.hyperparameters = hyperparameters
-        self.pca = PCA(n_components=hyperparameters["methylation_pca_components"])
+        self.methylation_pca = PCA(n_components=hyperparameters["methylation_pca_components"])
 
     def train(
         self,
@@ -77,18 +80,18 @@ class MultiOmicsNeuralNetwork(DRPModel):
         """
         if drug_input is None:
             raise ValueError("Drug input (fingerprints) is needed for the MultiOmicsNeuralNetwork model.")
-
-        unique_methylation = np.stack(
-            [cell_line_input.features[id_]["methylation"] for id_ in np.unique(output.cell_line_ids)],
-            axis=0,
+        cell_line_input = prepare_expression_and_methylation(
+            cell_line_input=cell_line_input,
+            cell_line_ids=np.unique(output.cell_line_ids),
+            training=True,
+            gene_expression_scaler=self.gene_expression_scaler,
+            methylation_scaler=self.methylation_scaler,
+            methylation_pca=self.methylation_pca,
         )
-
-        self.pca.n_components = min(self.pca.n_components, len(unique_methylation))
-        self.pca = self.pca.fit(unique_methylation)
 
         first_feature = next(iter(cell_line_input.features.values()))
         dim_gex = first_feature["gene_expression"].shape[0]
-        dim_met = self.pca.n_components
+        dim_met = self.methylation_pca.n_components
         dim_mut = first_feature["mutations"].shape[0]
         dim_cnv = first_feature["copy_number_variation_gistic"].shape[0]
         dim_fingerprint = next(iter(drug_input.features.values()))["fingerprints"].shape[0]
@@ -117,7 +120,6 @@ class MultiOmicsNeuralNetwork(DRPModel):
                 batch_size=16,
                 patience=5,
                 num_workers=1,
-                met_transform=self.pca,
                 model_checkpoint_dir=model_checkpoint_dir,
             )
 
@@ -129,35 +131,40 @@ class MultiOmicsNeuralNetwork(DRPModel):
         drug_input: FeatureDataset | None = None,
     ) -> np.ndarray:
         """
-        Transforms the methylation data using the fitted PCA and then predicts the response for the given input.
+        Applies arcsinh + scaling to gene expression and scaling + PCA to methylation, then predicts.
 
         :param drug_ids: drug identifiers
         :param cell_line_ids: cell line identifiers
         :param drug_input: drug omics features
         :param cell_line_input: cell line omics features
         :returns: predicted response
-        :raises ValueError: if no cell line information was added
         """
+        cell_line_input = prepare_expression_and_methylation(
+            cell_line_input=cell_line_input,
+            cell_line_ids=np.unique(cell_line_ids),
+            training=False,
+            gene_expression_scaler=self.gene_expression_scaler,
+            methylation_scaler=self.methylation_scaler,
+            methylation_pca=self.methylation_pca,
+        )
+
         inputs = self.get_feature_matrices(
             cell_line_ids=cell_line_ids,
             drug_ids=drug_ids,
             cell_line_input=cell_line_input,
             drug_input=drug_input,
         )
-        x: np.ndarray | None = None
-        for cl_view in self.cell_line_views:
-            feature_mat = inputs[cl_view]
-            if cl_view == "methylation":
-                feature_mat = self.pca.transform(feature_mat)
-            if x is None:
-                x = feature_mat
-            else:
-                x = np.concatenate((x, feature_mat), axis=1)
-        for d_view in self.drug_views:
-            feature_mat = inputs[d_view]
-            if x is None:
-                raise ValueError("There should be cell line features!")
-            x = np.concatenate((x, feature_mat), axis=1)
+
+        x = np.concatenate(
+            (
+                inputs["gene_expression"],
+                inputs["methylation"],
+                inputs["mutations"],
+                inputs["copy_number_variation_gistic"],
+                inputs["fingerprints"],
+            ),
+            axis=1,
+        )
         return self.model.predict(x)
 
     def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:

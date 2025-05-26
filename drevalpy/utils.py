@@ -224,7 +224,7 @@ def check_arguments(args) -> None:
                     "input file is located at <path_data>/<dataset_name>/<dataset_name>_raw.csv."
                 )
         else:
-            expected_custom_input = Path(args.path_data).absolute() / args.dataset_name / f"{args.dataset_name}_raw.csv"
+            expected_custom_input = Path(args.path_data).absolute() / args.dataset_name / f"{args.dataset_name}.csv"
             if not expected_custom_input.is_file():
                 raise FileNotFoundError(
                     "You specified a custom dataset name which requires prefit curve data to be located at "

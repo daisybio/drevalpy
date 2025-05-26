@@ -36,6 +36,7 @@ Example usage:
 import argparse
 import os
 import urllib.request
+from pathlib import Path
 
 import pandas as pd
 
@@ -345,8 +346,7 @@ def main():
 
     cellosaurus_ids = pd.Series(cell_lines).drop_duplicates().reset_index(drop=True)
 
-    #  Download Cellosaurus if needed
-    cellosaurus_path = os.path.join(data_path, "meta", "cellosaurus.txt")
+    cellosaurus_path = Path(data_path) / "meta" / "cellosaurus.txt"
     cellosaurus_path.parent.mkdir(parents=True, exist_ok=True)
 
     if not cellosaurus_path.exists():
