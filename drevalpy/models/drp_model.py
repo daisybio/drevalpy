@@ -173,9 +173,17 @@ class DRPModel(ABC):
     @abstractmethod
     def save_model(self, directory) -> None:
         """
-        Saves the model to path.
+        Saves the model to path. (Must include scalers, etc.).
 
         :param directory: directory to save the model
+        """
+
+    @abstractmethod
+    def load_model(self, directory) -> None:
+        """
+        Loads the model from path.
+
+        :param directory: directory to load the model from
         """
 
     def get_concatenated_features(
