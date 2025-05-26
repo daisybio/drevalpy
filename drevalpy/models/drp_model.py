@@ -170,6 +170,14 @@ class DRPModel(ABC):
         :returns: FeatureDataset or None
         """
 
+    @abstractmethod
+    def save_model(self, directory) -> None:
+        """
+        Saves the model to path.
+
+        :param directory: directory to save the model
+        """
+
     def get_concatenated_features(
         self,
         cell_line_view: str | None,

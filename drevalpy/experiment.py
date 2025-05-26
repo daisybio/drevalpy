@@ -1290,8 +1290,11 @@ def train_final_model(
     hyperparameter_tuning: bool = True,
 ) -> None:
     """
-    Train a final model on the full training set using a validation split that reflects intended generalization.
+    Final Production Model Training.
 
+    Tune a final model on the full data set using a validation split that reflects intended generalization.
+    No test set is used here. The performance during the nested CV is a
+    pessimistic estimate of the final model performance.
     The validation split strategy is determined by `test_mode`:
     - LCO: generalization to unseen cell lines (e.g., personalized medicine)
     - LDO: generalization to new drugs (e.g., drug repurposing)
@@ -1302,14 +1305,15 @@ def train_final_model(
     :param full_dataset: full training dataset (union of outer folds)
     :param response_transformation: sklearn scaler used for response normalization
     :param path_data: path to data directory
-    :param model_checkpoint_dir: where to save the model
+    :param model_checkpoint_dir: checkpoint dir for intermediate tuning models
     :param metric: metric for tuning, e.g., "RMSE"
-    :param result_path: where to save final model and hyperparameters
+    :param result_path: path to results
     :param test_mode: split logic for validation (LCO, LDO, LTO, LPO)
     :param val_ratio: validation size ratio
     :param hyperparameter_tuning: whether to perform hyperparameter tuning
     """
     print("Training final model with application-specific validation strategy ...")
+
     train_dataset, validation_dataset = make_train_val_split(full_dataset, test_mode=test_mode, val_ratio=val_ratio)
 
     if model_class.early_stopping:
@@ -1350,9 +1354,10 @@ def train_final_model(
         model_checkpoint_dir=model_checkpoint_dir,
     )
 
-    os.makedirs(result_path, exist_ok=True)
-    model.save(os.path.join(result_path, "final_model.pkl"))
-    with open(os.path.join(result_path, "final_hpams.json"), "w", encoding="utf-8") as f:
+    final_model_path = os.path.join(result_path, "final_model")
+    os.makedirs(final_model_path, exist_ok=True)
+    model.save(final_model_path)
+    with open(os.path.join(final_model_path, "final_hpams.json"), "w", encoding="utf-8") as f:
         json.dump(best_hpams, f)
     print("Final model and hyperparameters saved.")
 
