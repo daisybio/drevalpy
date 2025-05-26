@@ -170,21 +170,23 @@ class DRPModel(ABC):
         :returns: FeatureDataset or None
         """
 
-    @abstractmethod
-    def save_model(self, directory) -> None:
+    def save_model(self, directory: str) -> None:
         """
-        Saves the model to path. (Must include scalers, etc.).
+        Save model is not implemented for MOLIR.
 
-        :param directory: directory to save the model
+        :param directory: Target directory
+        :raises NotImplementedError: always
         """
+        raise NotImplementedError(f"{self.get_model_name()} does not implement model saving.")
 
-    @abstractmethod
-    def load_model(self, directory) -> None:
+    def load_model(self, directory: str) -> None:
         """
-        Loads the model from path.
+        Load model is not implemented for MOLIR.
 
-        :param directory: directory to load the model from
+        :param directory: Source directory
+        :raises NotImplementedError: always
         """
+        raise NotImplementedError(f"{self.get_model_name()} does not implement model loading.")
 
     def get_concatenated_features(
         self,
