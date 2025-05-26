@@ -10,7 +10,7 @@ Briefings in Bioinformatics, Volume 25, Issue 3, May 2024, bbae153, https://doi.
 import json
 import os
 import secrets
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
@@ -393,10 +393,14 @@ class DIPKModel(DRPModel):
         - "hyperparameters.json": All hyperparameters including encoder input_dim
 
         :param directory: Target directory where the model files will be saved
-        :type directory: str
+        :raises ValueError: If model or encoder is not built
         """
         os.makedirs(directory, exist_ok=True)
-        torch.save(self.model.state_dict(), os.path.join(directory, "dipk_model.pt"))  # noqa: S614
+        if self.model is None or self.gene_expression_encoder is None:
+            raise ValueError("Cannot save model: model is not built.")
+        model = cast(Predictor, self.model)
+
+        torch.save(model.state_dict(), os.path.join(directory, "dipk_model.pt"))  # noqa: S614
         torch.save(self.gene_expression_encoder.state_dict(), os.path.join(directory, "gene_encoder.pt"))  # noqa: S614
         with open(os.path.join(directory, "hyperparameters.json"), "w") as f:
             json.dump(self.hyperparameters, f)
@@ -416,6 +420,7 @@ class DIPKModel(DRPModel):
             self.hyperparameters = json.load(f)
 
         self.build_model(self.hyperparameters)
+        self.model = cast(Predictor, self.model)
 
         self.model.load_state_dict(
             torch.load(os.path.join(directory, "dipk_model.pt"), map_location=self.DEVICE)  # noqa: S614
