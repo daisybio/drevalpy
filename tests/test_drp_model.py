@@ -9,6 +9,7 @@ import pandas as pd
 import pytest
 
 from drevalpy.datasets.loader import load_toyv1, load_toyv2
+from drevalpy.datasets.utils import TISSUE_IDENTIFIER
 from drevalpy.models import MODEL_FACTORY
 from drevalpy.models.utils import (
     get_multiomics_feature_dataset,
@@ -17,6 +18,7 @@ from drevalpy.models.utils import (
     load_cl_ids_from_csv,
     load_drug_fingerprint_features,
     load_drug_ids_from_csv,
+    load_tissues_from_csv,
     unique,
 )
 
@@ -55,6 +57,37 @@ def test_load_cl_ids_from_csv() -> None:
     cl_ids_gdsc1 = load_cl_ids_from_csv(temp.name, "GDSC1_small")
     assert len(cl_ids_gdsc1.features) == 4
     assert cl_ids_gdsc1.identifiers[0] == "201T"
+
+
+def test_load_tissues_from_csv() -> None:
+    """Test the loading of tissues from a CSV file."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        os.mkdir(os.path.join(temp_dir, "GDSC1_small"))
+        temp_file = os.path.join(temp_dir, "GDSC1_small", "cell_line_names.csv")
+        with open(temp_file, "w") as f:
+            f.write(
+                "cellosaurus_id,CELL_LINE_NAME,tissue\n"
+                "CVCL_X481,201T,lung\n"
+                "CVCL_1045,22Rv1,breast\n"
+                "CVCL_1046,23132/87,liver\n"
+                "CVCL_1798,42-MG-BA,kidney\n"
+            )
+
+        tissues_gdsc1 = load_tissues_from_csv(temp_dir, "GDSC1_small")
+        assert len(tissues_gdsc1.features) == 4
+
+        expected = {
+            "201T": "lung",
+            "22Rv1": "breast",
+            "23132/87": "liver",
+            "42-MG-BA": "kidney",
+        }
+
+        for cl_name, expected_tissue in expected.items():
+            tissue_value = tissues_gdsc1.features[cl_name][TISSUE_IDENTIFIER]
+            assert isinstance(tissue_value, np.ndarray)
+            assert tissue_value.shape == (1,)
+            assert tissue_value[0] == expected_tissue
 
 
 def _write_gene_list(temp_dir: tempfile.TemporaryDirectory, gene_list: Optional[str] = None) -> None:

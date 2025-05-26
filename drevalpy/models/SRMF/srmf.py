@@ -12,6 +12,7 @@ import pandas as pd
 from scipy.spatial.distance import jaccard
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.models.utils import load_and_select_gene_features, load_drug_fingerprint_features
 
@@ -117,8 +118,14 @@ class SRMF(DRPModel):
 
         # Prepare response and weight matrices
         drug_response_matrix = output.to_dataframe()
-        drug_response_matrix = drug_response_matrix.groupby(["cell_line_id", "drug_id"]).mean().reset_index()
-        drug_response_matrix = drug_response_matrix.pivot(index="cell_line_id", columns="drug_id", values="response")
+        if "tissue" in drug_response_matrix.columns:
+            drug_response_matrix = drug_response_matrix.drop(columns=["tissue"])
+        drug_response_matrix = (
+            drug_response_matrix.groupby([CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER]).mean().reset_index()
+        )
+        drug_response_matrix = drug_response_matrix.pivot(
+            index=CELL_LINE_IDENTIFIER, columns=DRUG_IDENTIFIER, values="response"
+        )
 
         drug_response_matrix = drug_response_matrix.reindex(
             index=cell_lines, columns=drugs

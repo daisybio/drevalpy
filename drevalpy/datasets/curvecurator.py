@@ -19,6 +19,8 @@ import numpy as np
 import pandas as pd
 import toml
 
+from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
+
 from ..pipeline_function import pipeline_function
 
 
@@ -266,7 +268,9 @@ def postprocess(output_folder: str | Path, dataset_name: str):
             fitted_curve_data = pd.read_csv(output_file, sep="\t", usecols=required_columns).rename(
                 columns=required_columns
             )
-            fitted_curve_data[["cell_line_id", "drug_id"]] = fitted_curve_data.Name.str.split("|", expand=True)
+            fitted_curve_data[[CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER]] = fitted_curve_data.Name.str.split(
+                "|", expand=True
+            )
             fitted_curve_data["EC50_curvecurator"] = np.power(
                 10, -fitted_curve_data["pEC50_curvecurator"].values
             )  # in CurveCurator 10^-pEC50 = EC50

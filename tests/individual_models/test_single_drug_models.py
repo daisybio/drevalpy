@@ -10,6 +10,7 @@ import pytest
 import torch
 
 from drevalpy.datasets.dataset import DrugResponseDataset
+from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
 from drevalpy.experiment import (
     consolidate_single_drug_model_predictions,
     cross_study_prediction,
@@ -23,9 +24,16 @@ from drevalpy.visualization.utils import evaluate_file
 
 @pytest.mark.parametrize(
     "model_name",
-    ["SingleDrugRandomForest", "SingleDrugElasticNet", "SingleDrugProteomicsElasticNet", "MOLIR", "SuperFELTR"],
+    [
+        "SingleDrugRandomForest",
+        "SingleDrugElasticNet",
+        "SingleDrugProteomicsElasticNet",
+        "MOLIR",
+        "SuperFELTR",
+        "SingleDrugProteomicsRandomForest",
+    ],
 )
-@pytest.mark.parametrize("test_mode", ["LCO"])
+@pytest.mark.parametrize("test_mode", ["LTO"])
 def test_single_drug_models(
     sample_dataset: DrugResponseDataset, model_name: str, test_mode: str, cross_study_dataset: DrugResponseDataset
 ) -> None:
@@ -42,11 +50,7 @@ def test_single_drug_models(
     torch.manual_seed(42)
     torch.cuda.manual_seed(42)
 
-    sample_dataset.split_dataset(
-        n_cv_splits=6,
-        mode=test_mode,
-        random_state=42,
-    )
+    sample_dataset.split_dataset(n_cv_splits=2, mode=test_mode, random_state=42, validation_ratio=0.4)
     assert sample_dataset.cv_splits is not None
     split = sample_dataset.cv_splits[0]
     model = MODEL_FACTORY[model_name]()
@@ -133,7 +137,9 @@ def test_single_drug_models(
     cross_study_predictions = pd.read_csv(
         pathlib.Path(result_path.name, model_name, "cross_study", "cross_study_TOYv2_split_0.csv")
     )
-    assert len(cross_study_predictions) == len(cross_study_predictions.drop_duplicates(["drug_id", "cell_line_id"]))
+    assert len(cross_study_predictions) == len(
+        cross_study_predictions.drop_duplicates([DRUG_IDENTIFIER, CELL_LINE_IDENTIFIER])
+    )
     predictions_file = pathlib.Path(result_path.name, model_name, "predictions", "predictions_split_0.csv")
     cross_study_file = pathlib.Path(result_path.name, model_name, "cross_study", "cross_study_TOYv2_split_0.csv")
     for file in [predictions_file, cross_study_file]:

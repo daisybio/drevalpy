@@ -59,7 +59,7 @@ class DIPKModel(DRPModel):
         """
         Builds the DIPK model with the specified hyperparameters.
 
-        :param hyperparameters: embedding_dim, heads, fc_layer_num, fc_layer_dim, dropout_rate, EPOCHS, batch_size, lr
+        :param hyperparameters: embedding_dim, heads, fc_layer_num, fc_layer_dim, dropout_rate, epochs, batch_size, lr
 
         Details of hyperparameters:
 
@@ -68,7 +68,7 @@ class DIPKModel(DRPModel):
         - fc_layer_num: int, number of fully connected layers for the dense layers
         - fc_layer_dim: list[int], number of neurons for each fully connected layer
         - dropout_rate: float, dropout rate for all fully connected layers
-        - EPOCHS: int, number of epochs to train the model
+        - epochs: int, number of epochs to train the model
         - batch_size: int, batch size for training
         - lr: float, learning rate for training
         """
@@ -363,7 +363,7 @@ class DIPKModel(DRPModel):
             if file.endswith(".csv") and file.startswith("MolGNet")
         ]
 
-        return FeatureDataset(
+        f = FeatureDataset(
             features={
                 drug: {
                     "molgnet_features": load_feature(os.path.join(drug_path, f"MolGNet_{drug}.csv")),
@@ -371,3 +371,5 @@ class DIPKModel(DRPModel):
                 for drug in drug_list
             }
         )
+
+        return f
