@@ -287,7 +287,7 @@ def drug_response_experiment(
                         split_index=split_index,
                         response_transformation=response_transformation,
                     )
-        if final_model_on_full_data:
+        if final_model_on_full_data and (model_class not in baselines):
             train_final_model(
                 model_class=model_class,
                 full_dataset=response_data,
