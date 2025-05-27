@@ -109,6 +109,30 @@ def test_single_drug_models(
             response_transformation=None,
             model_checkpoint_dir="TEMPORARY",
         )
+        # Save and load test (should either succeed or raise NotImplementedError)
+        with tempfile.TemporaryDirectory() as model_dir:
+            try:
+                model.save(model_dir)
+                loaded_model = MODEL_FACTORY[model_name].load(model_dir)
+
+                # Re-run prediction with loaded model
+                preds_original = model.predict(
+                    drug_ids=test_dataset.drug_ids,
+                    cell_line_ids=test_dataset.cell_line_ids,
+                    drug_input=model.load_drug_features("../data", "TOYv1"),
+                    cell_line_input=model.load_cell_line_features("../data", "TOYv1"),
+                )
+                preds_loaded = loaded_model.predict(
+                    drug_ids=test_dataset.drug_ids,
+                    cell_line_ids=test_dataset.cell_line_ids,
+                    drug_input=model.load_drug_features("../data", "TOYv1"),
+                    cell_line_input=model.load_cell_line_features("../data", "TOYv1"),
+                )
+                assert isinstance(preds_loaded, np.ndarray)
+                assert preds_loaded.shape == preds_original.shape
+            except NotImplementedError:
+                print(f"{model_name} does not implement save/load")
+
         cross_study_dataset.remove_nan_responses()
         parent_dir = str(pathlib.Path(predictions_path).parent)
         cross_study_prediction(
