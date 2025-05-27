@@ -1376,9 +1376,14 @@ def make_train_val_split(
     :param val_ratio: approximate fraction of data to use for validation
     :param random_state: random seed
     :returns: (train_dataset, validation_dataset)
+    :raises ValueError: if no tissue information is provided for the DrugResponseDataset
     """
     if test_mode == "LTO":
-        n_groups = len(np.unique(dataset.tissue))
+        if dataset.tissue is not None:
+            n_groups = len(np.unique(dataset.tissue))
+        else:
+            raise ValueError("Tissue information is missing but required for LTO mode.")
+
     elif test_mode == "LCO":
         n_groups = len(np.unique(dataset.cell_line_ids))
     elif test_mode == "LDO":

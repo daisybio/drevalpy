@@ -29,10 +29,18 @@ def test_data(tmp_path):
     # Create dummy depmap metadata
     depmap = pd.DataFrame(
         {
+            "DepMap_ID": ["ACH-000001", "ACH-000002"],
             "stripped_cell_line_name": ["testcl1", "testcl2"],
-            "disease": ["lung", "blood"],
+            "disease": ["lung", ""],
+            "disease_sutype": ["lung cancer", "leukemia"],
+            "disease_sub_subtype": ["adenocarcinoma", "AML"],
+            "culture_type": ["Adherent", "Suspension"],
+            "culture_medium": ["RPMI", "DMEM"],
+            "gender": ["Male", "Female"],
+            "source": ["Broad", "Broad"],
         }
     )
+
     depmap.to_csv(meta / "DepMap_sample_info.csv", index=False)
 
     # Create dummy Cellosaurus file
@@ -61,7 +69,7 @@ def test_map_tissues(monkeypatch, test_data):
     """
     root, ds_name = test_data
 
-    monkeypatch.setattr("sys.argv", ["script.py", str(root), ds_name])
+    monkeypatch.setattr("sys.argv", ["script.py", str(root), ds_name, "--save_tissue_mapping"])
     main()
 
     # Check output file exists
@@ -70,11 +78,23 @@ def test_map_tissues(monkeypatch, test_data):
 
     # Load and check contents
     df_out = pd.read_csv(output_path)
+    print("\n=== tissue_mapping.csv ===")
+    print(df_out)
+
     assert "tissue" in df_out.columns
+    print("\n=== tissue for CVCL_TEST1 ===")
+    print(df_out.loc[df_out["cellosaurus_id"] == "CVCL_TEST1", "tissue"])
+
+    print("\n=== tissue for CVCL_TEST2 ===")
+    print(df_out.loc[df_out["cellosaurus_id"] == "CVCL_TEST2", "tissue"])
+
     assert df_out.loc[df_out["cellosaurus_id"] == "CVCL_TEST1", "tissue"].values[0] == "Lung"
     assert df_out.loc[df_out["cellosaurus_id"] == "CVCL_TEST2", "tissue"].values[0] == "Blood"
 
     # Check the updated dataset has a tissue column
     updated = pd.read_csv(root / ds_name / f"{ds_name}.csv")
+    print("\n=== Updated dataset ===")
+    print(updated)
+
     assert "tissue" in updated.columns
     assert set(updated["tissue"]) == {"Lung", "Blood"}
