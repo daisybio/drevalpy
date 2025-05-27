@@ -1313,53 +1313,108 @@ def train_final_model(
     :param hyperparameter_tuning: whether to perform hyperparameter tuning
     """
     print("Training final model with application-specific validation strategy ...")
+    if model_class.is_single_drug_model:
+        unique_drugs = np.unique(full_dataset.drug_ids)
+        for drug_id in unique_drugs:
+            # Filter full_dataset to only this drug
+            drug_mask = full_dataset.drug_ids == drug_id
+            drug_dataset = full_dataset.copy()
+            drug_dataset.mask(drug_mask)
 
-    train_dataset, validation_dataset = make_train_val_split(full_dataset, test_mode=test_mode, val_ratio=val_ratio)
+            # Make train/val split on drug_dataset
+            train_dataset, validation_dataset = make_train_val_split(
+                drug_dataset, test_mode=test_mode, val_ratio=val_ratio
+            )
 
-    if model_class.early_stopping:
-        validation_dataset, early_stopping_dataset = _split_early_stopping_data(validation_dataset, test_mode)
+            if model_class.early_stopping:
+                validation_dataset, early_stopping_dataset = _split_early_stopping_data(validation_dataset, test_mode)
+            else:
+                early_stopping_dataset = None
+
+            model = model_class()
+            hpam_set = model.get_hyperparameter_set()
+            if hyperparameter_tuning:
+                best_hpams = hpam_tune(
+                    model=model,
+                    train_dataset=train_dataset,
+                    validation_dataset=validation_dataset,
+                    early_stopping_dataset=early_stopping_dataset,
+                    hpam_set=hpam_set,
+                    response_transformation=response_transformation,
+                    metric=metric,
+                    path_data=path_data,
+                    model_checkpoint_dir=model_checkpoint_dir,
+                )
+            else:
+                best_hpams = hpam_set[0]
+
+            train_dataset.add_rows(validation_dataset)
+            train_dataset.shuffle(random_state=42)
+
+            cl_features = model.load_cell_line_features(data_path=path_data, dataset_name=drug_dataset.dataset_name)
+            drug_features = model.load_drug_features(data_path=path_data, dataset_name=drug_dataset.dataset_name)
+
+            model.build_model(hyperparameters=best_hpams)
+            model.train(
+                output=train_dataset,
+                output_earlystopping=early_stopping_dataset,
+                cell_line_input=cl_features,
+                drug_input=drug_features,
+                model_checkpoint_dir=model_checkpoint_dir,
+            )
+
+            final_model_path = os.path.join(result_path, "drugs", drug_id, "final_model")
+            os.makedirs(final_model_path, exist_ok=True)
+            model.save(final_model_path)
+            with open(os.path.join(final_model_path, "final_hpams.json"), "w", encoding="utf-8") as f:
+                json.dump(best_hpams, f)
     else:
-        early_stopping_dataset = None
+        train_dataset, validation_dataset = make_train_val_split(full_dataset, test_mode=test_mode, val_ratio=val_ratio)
 
-    model = model_class()
-    hpam_set = model.get_hyperparameter_set()
-    if hyperparameter_tuning:
-        best_hpams = hpam_tune(
-            model=model,
-            train_dataset=train_dataset,
-            validation_dataset=validation_dataset,
-            early_stopping_dataset=early_stopping_dataset,
-            hpam_set=hpam_set,
-            response_transformation=response_transformation,
-            metric=metric,
-            path_data=path_data,
+        if model_class.early_stopping:
+            validation_dataset, early_stopping_dataset = _split_early_stopping_data(validation_dataset, test_mode)
+        else:
+            early_stopping_dataset = None
+
+        model = model_class()
+        hpam_set = model.get_hyperparameter_set()
+        if hyperparameter_tuning:
+            best_hpams = hpam_tune(
+                model=model,
+                train_dataset=train_dataset,
+                validation_dataset=validation_dataset,
+                early_stopping_dataset=early_stopping_dataset,
+                hpam_set=hpam_set,
+                response_transformation=response_transformation,
+                metric=metric,
+                path_data=path_data,
+                model_checkpoint_dir=model_checkpoint_dir,
+            )
+        else:
+            best_hpams = hpam_set[0]
+
+        print(f"Best hyperparameters for final model: {best_hpams}")
+        train_dataset.add_rows(validation_dataset)
+        train_dataset.shuffle(random_state=42)
+
+        cl_features = model.load_cell_line_features(data_path=path_data, dataset_name=full_dataset.dataset_name)
+        drug_features = model.load_drug_features(data_path=path_data, dataset_name=full_dataset.dataset_name)
+
+        model.build_model(hyperparameters=best_hpams)
+        model.train(
+            output=train_dataset,
+            output_earlystopping=early_stopping_dataset,
+            cell_line_input=cl_features,
+            drug_input=drug_features,
             model_checkpoint_dir=model_checkpoint_dir,
         )
-    else:
-        best_hpams = hpam_set[0]
 
-    print(f"Best hyperparameters for final model: {best_hpams}")
-    train_dataset.add_rows(validation_dataset)
-    train_dataset.shuffle(random_state=42)
-
-    cl_features = model.load_cell_line_features(data_path=path_data, dataset_name=full_dataset.dataset_name)
-    drug_features = model.load_drug_features(data_path=path_data, dataset_name=full_dataset.dataset_name)
-
-    model.build_model(hyperparameters=best_hpams)
-    model.train(
-        output=train_dataset,
-        output_earlystopping=early_stopping_dataset,
-        cell_line_input=cl_features,
-        drug_input=drug_features,
-        model_checkpoint_dir=model_checkpoint_dir,
-    )
-
-    final_model_path = os.path.join(result_path, "final_model")
-    os.makedirs(final_model_path, exist_ok=True)
-    model.save(final_model_path)
-    with open(os.path.join(final_model_path, "final_hpams.json"), "w", encoding="utf-8") as f:
-        json.dump(best_hpams, f)
-    print("Final model and hyperparameters saved.")
+        final_model_path = os.path.join(result_path, "final_model")
+        os.makedirs(final_model_path, exist_ok=True)
+        model.save(final_model_path)
+        with open(os.path.join(final_model_path, "final_hpams.json"), "w", encoding="utf-8") as f:
+            json.dump(best_hpams, f)
+        print("Final model and hyperparameters saved.")
 
 
 def make_train_val_split(
