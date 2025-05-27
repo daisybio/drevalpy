@@ -46,6 +46,7 @@ class DIPKModel(DRPModel):
         self.lr: float = 0.0
         self.gene_expression_encoder: GeneExpressionEncoder | None = None
         self.epochs_autoencoder: int = 100
+        self.hyperparameters: dict[str, Any] = {}
 
     @classmethod
     def get_model_name(cls) -> str:
