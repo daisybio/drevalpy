@@ -1,8 +1,10 @@
 """Utility functions for the evaluation pipeline."""
 
 import argparse
+from collections.abc import Sequence
 from pathlib import Path
 
+import numpy as np
 from sklearn.base import TransformerMixin
 from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
 
@@ -397,7 +399,95 @@ def get_response_transformation(response_transformation: str) -> TransformerMixi
         return MinMaxScaler()
     if response_transformation == "robust":
         return RobustScaler()
+    if response_transformation == "mean_effects":
+        return NaiveMeanEffectsNormalizer()
     raise ValueError(
         f"Unknown response transformation {response_transformation}. Choose from 'None', "
         f"'standard', 'minmax', 'robust'"
     )
+
+
+class NaiveMeanEffectsNormalizer(TransformerMixin):
+    """
+    Normalizer that removes additive effects of overall mean, cell line, and drug from drug response data.
+
+    This transformer implements an ANOVA-like normalization:
+    response_normalized = response_raw - (overall_mean + cell_line_effect + drug_effect)
+
+    where:
+        - overall_mean is the mean of all response values
+        - cell_line_effect is the deviation of the mean response for each cell line from overall_mean
+        - drug_effect is the deviation of the mean response for each drug from overall_mean
+
+    The inverse transform reconstructs the original response values by adding these effects back.
+
+    :param X: array-like of shape (n_samples,)
+        The response values.
+    :param cell_line_ids: array-like of shape (n_samples,)
+        Cell line identifiers corresponding to each response.
+    :param drug_ids: array-like of shape (n_samples,)
+        Drug identifiers corresponding to each response.
+
+    :returns: self for fit; numpy array for transform/inverse_transform
+    """
+
+    def __init__(self) -> None:
+        """Initializes the mean effects transformer."""
+        self.dataset_mean: float | None = None
+        self.cell_line_effects: dict[str, float] = {}
+        self.drug_effects: dict[str, float] = {}
+
+    def fit(
+        self, X: Sequence[float], *, cell_line_ids: Sequence[str], drug_ids: Sequence[str]
+    ) -> "NaiveMeanEffectsNormalizer":
+        """
+        Calculate the overall mean, cell line effects, and drug effects from the response data.
+
+        :param X: response values
+        :param cell_line_ids: cell line IDs
+        :param drug_ids: drug IDs
+        :returns: self
+        """
+        self.dataset_mean = np.mean(X)
+        self.cell_line_effects = {
+            cl: np.mean(np.array(X)[np.array(cell_line_ids) == cl]) - self.dataset_mean
+            for cl in np.unique(cell_line_ids)
+        }
+        self.drug_effects = {
+            d: np.mean(np.array(X)[np.array(drug_ids) == d]) - self.dataset_mean for d in np.unique(drug_ids)
+        }
+        return self
+
+    def transform(self, X: Sequence[float], *, cell_line_ids: Sequence[str], drug_ids: Sequence[str]) -> np.ndarray:
+        """
+        Normalize the response values by removing the calculated effects.
+
+        :param X: response values
+        :param cell_line_ids: cell line IDs
+        :param drug_ids: drug IDs
+        :returns: normalized response values
+        """
+        return np.array(
+            [
+                X[i] - (self.dataset_mean + self.cell_line_effects.get(cl, 0) + self.drug_effects.get(d, 0))
+                for i, (cl, d) in enumerate(zip(cell_line_ids, drug_ids))
+            ]
+        )
+
+    def inverse_transform(
+        self, X_norm: Sequence[float], *, cell_line_ids: Sequence[str], drug_ids: Sequence[str]
+    ) -> np.ndarray:
+        """
+        Reconstruct the original response values by adding the effects back.
+
+        :param X_norm: normalized response values
+        :param cell_line_ids: cell line IDs
+        :param drug_ids: drug IDs
+        :returns: reconstructed original response values
+        """
+        return np.array(
+            [
+                X_norm[i] + self.dataset_mean + self.cell_line_effects.get(cl, 0) + self.drug_effects.get(d, 0)
+                for i, (cl, d) in enumerate(zip(cell_line_ids, drug_ids))
+            ]
+        )
