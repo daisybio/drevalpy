@@ -61,6 +61,7 @@ def test_global_models(
     if model_name == "DIPK":
         hpam_combi["epochs"] = 1
         hpam_combi["epochs_autoencoder"] = 1
+        hpam_combi["heads"] = 1
     elif model_name in ["SimpleNeuralNetwork", "MultiOmicsNeuralNetwork"]:
         hpam_combi["units_per_layer"] = [2, 2]
         hpam_combi["max_epochs"] = 1
