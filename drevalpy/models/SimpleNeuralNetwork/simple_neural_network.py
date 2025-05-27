@@ -184,51 +184,61 @@ class SimpleNeuralNetwork(DRPModel):
         """
         return load_drug_fingerprint_features(data_path, dataset_name, fill_na=True)
 
-    def save_model(self, directory: str) -> None:
+    def save(self, directory: str) -> None:
         """
-        Save the model, hyperparameters, and gene expression scaler to the given directory.
+        Save the trained model, hyperparameters, and gene expression scaler to the given directory.
+
+        This enables full reconstruction of the model using `load`.
 
         Files saved:
-        - model.pt: the trained model weights
-        - hyperparameters.json: the model hyperparameters including input dimensions
-        - scaler.pkl: the fitted gene expression StandardScaler
+        - model.pt: PyTorch state_dict of the trained model
+        - hyperparameters.json: Dictionary containing all relevant model hyperparameters
+        - scaler.pkl: Fitted StandardScaler for gene expression features
 
-        :param directory: target directory to store model artifacts
+        :param directory: Target directory to store all model artifacts
         """
         os.makedirs(directory, exist_ok=True)
+
         torch.save(self.model.state_dict(), os.path.join(directory, "model.pt"))  # noqa: S614
+
         with open(os.path.join(directory, "hyperparameters.json"), "w") as f:
             json.dump(self.hyperparameters, f)
+
         joblib.dump(self.gene_expression_scaler, os.path.join(directory, "scaler.pkl"))
 
-    def load_model(self, directory: str) -> None:
+    @classmethod
+    def load(cls, directory: str) -> "SimpleNeuralNetwork":
         """
-        Load the model, hyperparameters, and gene expression scaler from the given directory.
+        Load a trained SimpleNeuralNetwork instance from disk.
 
-        Requires that the directory contains:
-        - model.pt
-        - hyperparameters.json
-        - scaler.pkl
+        This includes:
+        - model.pt: PyTorch state_dict of the trained model
+        - hyperparameters.json: Dictionary with model hyperparameters
+        - scaler.pkl: Fitted StandardScaler for gene expression features
 
-        :param directory: directory containing the saved model artifacts
-        :raises FileNotFoundError: if any of the required files are missing
+        :param directory: Directory containing the saved model files
+        :return: An instance of SimpleNeuralNetwork with restored state
+        :raises FileNotFoundError: if any required file is missing
         """
         hyperparam_file = os.path.join(directory, "hyperparameters.json")
         scaler_file = os.path.join(directory, "scaler.pkl")
         model_file = os.path.join(directory, "model.pt")
 
         if not all(os.path.exists(f) for f in [hyperparam_file, scaler_file, model_file]):
-            raise FileNotFoundError(
-                "Model files missing from directory. Expected: model.pt, hyperparameters.json, scaler.pkl"
-            )
+            raise FileNotFoundError("Missing model files. Required: model.pt, hyperparameters.json, scaler.pkl")
+
+        instance = cls()
 
         with open(hyperparam_file) as f:
-            self.hyperparameters = json.load(f)
+            instance.hyperparameters = json.load(f)
 
-        self.gene_expression_scaler = joblib.load(scaler_file)
+        instance.gene_expression_scaler = joblib.load(scaler_file)
 
-        dim_gex = self.hyperparameters["input_dim_gex"]
-        dim_fp = self.hyperparameters["input_dim_fp"]
-        self.model = FeedForwardNetwork(self.hyperparameters, input_dim=dim_gex + dim_fp)
-        self.model.load_state_dict(torch.load(model_file))  # noqa: S614
-        self.model.eval()
+        dim_gex = instance.hyperparameters["input_dim_gex"]
+        dim_fp = instance.hyperparameters["input_dim_fp"]
+
+        instance.model = FeedForwardNetwork(instance.hyperparameters, input_dim=dim_gex + dim_fp)
+        instance.model.load_state_dict(torch.load(model_file))  # noqa: S614
+        instance.model.eval()
+
+        return instance

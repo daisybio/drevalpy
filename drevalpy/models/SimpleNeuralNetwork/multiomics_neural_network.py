@@ -1,8 +1,12 @@
 """Contains the baseline MultiOmicsNeuralNetwork model."""
 
+import json
+import os
 import warnings
 
+import joblib
 import numpy as np
+import torch
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 
@@ -95,6 +99,12 @@ class MultiOmicsNeuralNetwork(DRPModel):
         dim_mut = first_feature["mutations"].shape[0]
         dim_cnv = first_feature["copy_number_variation_gistic"].shape[0]
         dim_fingerprint = next(iter(drug_input.features.values()))["fingerprints"].shape[0]
+
+        self.dim_gex = dim_gex
+        self.dim_met = dim_met
+        self.dim_mut = dim_mut
+        self.dim_cnv = dim_cnv
+        self.dim_fp = dim_fingerprint
 
         self.model = FeedForwardNetwork(
             hyperparameters=self.hyperparameters,
@@ -194,3 +204,96 @@ class MultiOmicsNeuralNetwork(DRPModel):
         :returns: FeatureDataset containing the drug fingerprint features
         """
         return load_drug_fingerprint_features(data_path, dataset_name, fill_na=True)
+
+    def save(self, directory: str) -> None:
+        """
+        Save the trained model, hyperparameters, scalers, PCA object, and feature dimensions to disk.
+
+        Files saved:
+        - model.pt
+        - hyperparameters.json
+        - gene_scaler.pkl
+        - methylation_scaler.pkl
+        - methylation_pca.pkl
+        - metadata.json
+
+        :param directory: Target directory
+        """
+        os.makedirs(directory, exist_ok=True)
+
+        torch.save(self.model.state_dict(), os.path.join(directory, "model.pt"))  # noqa: S614
+
+        with open(os.path.join(directory, "hyperparameters.json"), "w") as f:
+            json.dump(self.hyperparameters, f)
+
+        joblib.dump(self.gene_expression_scaler, os.path.join(directory, "gene_scaler.pkl"))
+        joblib.dump(self.methylation_scaler, os.path.join(directory, "methylation_scaler.pkl"))
+        joblib.dump(self.methylation_pca, os.path.join(directory, "methylation_pca.pkl"))
+
+        metadata = {
+            "dim_gex": self.dim_gex,
+            "dim_met": self.dim_met,
+            "dim_mut": self.dim_mut,
+            "dim_cnv": self.dim_cnv,
+            "dim_fp": self.dim_fp,
+        }
+        with open(os.path.join(directory, "metadata.json"), "w") as f:
+            json.dump(metadata, f)
+
+    @classmethod
+    def load(cls, directory: str) -> "MultiOmicsNeuralNetwork":
+        """
+        Load a trained MultiOmicsNeuralNetwork instance from disk.
+
+        Required files:
+        - model.pt
+        - hyperparameters.json
+        - gene_scaler.pkl
+        - methylation_scaler.pkl
+        - methylation_pca.pkl
+        - metadata.json
+
+        :param directory: Directory containing the saved model files
+        :return: Fully restored MultiOmicsNeuralNetwork instance
+        :raises FileNotFoundError: if any required file is missing
+        """
+        required_files = [
+            "model.pt",
+            "hyperparameters.json",
+            "gene_scaler.pkl",
+            "methylation_scaler.pkl",
+            "methylation_pca.pkl",
+            "metadata.json",
+        ]
+        missing = [f for f in required_files if not os.path.exists(os.path.join(directory, f))]
+        if missing:
+            raise FileNotFoundError(f"Missing model files: {', '.join(missing)}")
+
+        instance = cls()
+
+        with open(os.path.join(directory, "hyperparameters.json")) as f:
+            instance.hyperparameters = json.load(f)
+
+        instance.gene_expression_scaler = joblib.load(os.path.join(directory, "gene_scaler.pkl"))
+        instance.methylation_scaler = joblib.load(os.path.join(directory, "methylation_scaler.pkl"))
+        instance.methylation_pca = joblib.load(os.path.join(directory, "methylation_pca.pkl"))
+
+        with open(os.path.join(directory, "metadata.json")) as f:
+            metadata = json.load(f)
+
+        instance.dim_gex = metadata["dim_gex"]
+        instance.dim_met = metadata["dim_met"]
+        instance.dim_mut = metadata["dim_mut"]
+        instance.dim_cnv = metadata["dim_cnv"]
+        instance.dim_fp = metadata["dim_fp"]
+
+        input_dim = instance.dim_gex + instance.dim_met + instance.dim_mut + instance.dim_cnv + instance.dim_fp
+
+        instance.model = FeedForwardNetwork(
+            hyperparameters=instance.hyperparameters,
+            input_dim=input_dim,
+        )
+        instance.model.load_state_dict(torch.load(os.path.join(directory, "model.pt")))  # noqa: S614
+        instance.model.eval()
+
+        return instance

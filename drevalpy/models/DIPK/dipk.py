@@ -383,7 +383,7 @@ class DIPKModel(DRPModel):
 
         return f
 
-    def save_model(self, directory: str) -> None:
+    def save(self, directory: str) -> None:
         """
         Save the DIPK model and gene expression encoder using PyTorch conventions.
 
@@ -405,7 +405,8 @@ class DIPKModel(DRPModel):
         with open(os.path.join(directory, "hyperparameters.json"), "w") as f:
             json.dump(self.hyperparameters, f)
 
-    def load_model(self, directory: str) -> None:
+    @classmethod
+    def load(cls, directory: str) -> "DIPKModel":
         """
         Load the DIPK model and gene expression encoder using PyTorch conventions.
 
@@ -415,21 +416,26 @@ class DIPKModel(DRPModel):
         - "hyperparameters.json": Dictionary of hyperparameters, must include "gene_encoder_input_dim"
 
         :param directory: Path to the directory containing the model files
+        :return: An instance of DIPK with loaded model and encoder
         """
+        instance = cls()
+
         with open(os.path.join(directory, "hyperparameters.json")) as f:
-            self.hyperparameters = json.load(f)
+            instance.hyperparameters = json.load(f)
 
-        self.build_model(self.hyperparameters)
-        self.model = cast(Predictor, self.model)
+        instance.build_model(instance.hyperparameters)
+        instance.model = cast(Predictor, instance.model)
 
-        self.model.load_state_dict(
-            torch.load(os.path.join(directory, "dipk_model.pt"), map_location=self.DEVICE)  # noqa: S614
+        instance.model.load_state_dict(
+            torch.load(os.path.join(directory, "dipk_model.pt"), map_location=instance.DEVICE)  # noqa: S614
         )
-        self.model.eval()
+        instance.model.eval()
 
-        input_dim = self.hyperparameters["gene_encoder_input_dim"]
-        self.gene_expression_encoder = GeneExpressionEncoder(input_dim=input_dim)
-        self.gene_expression_encoder.load_state_dict(
-            torch.load(os.path.join(directory, "gene_encoder.pt"), map_location=self.DEVICE)  # noqa: S614
+        input_dim = instance.hyperparameters["gene_encoder_input_dim"]
+        instance.gene_expression_encoder = GeneExpressionEncoder(input_dim=input_dim)
+        instance.gene_expression_encoder.load_state_dict(
+            torch.load(os.path.join(directory, "gene_encoder.pt"), map_location=instance.DEVICE)  # noqa: S614
         )
-        self.gene_expression_encoder.eval()
+        instance.gene_expression_encoder.eval()
+
+        return instance
