@@ -54,9 +54,10 @@ def test_run_suite(args):
     temp_dir = tempfile.TemporaryDirectory()
     args["path_out"] = temp_dir.name
     args = Namespace(**args)
+    args.hyperparameter_tuning = False
     get_parser()
     check_arguments(args)
-    main(args, hyperparameter_tuning=False)
+    main(args)
     assert os.listdir(temp_dir.name) == ["test_run"]
     result_path = pathlib.Path(temp_dir.name).resolve()
     path_data = pathlib.Path(args.path_data).resolve()

@@ -187,6 +187,12 @@ def get_parser() -> argparse.ArgumentParser:
         default=False,
         help="If True, saves a final model, trained/tuned on the union of all folds after CV",
     )
+    parser.add_argument(
+        "--no_hyperparameter_tuning",
+        action="store_true",
+        default=False,
+        help="Disable hyperparameter tuning and use first hyperparameter set.",
+    )
 
     return parser
 
@@ -285,12 +291,11 @@ def check_arguments(args) -> None:
         )
 
 
-def main(args, hyperparameter_tuning=True) -> None:
+def main(args) -> None:
     """
     Main function to run the drug response evaluation pipeline.
 
     :param args: passed from command line
-    :param hyperparameter_tuning: whether to run the pipeline in debug mode
     """
     check_arguments(args)
     # PIPELINE: LOAD_RESPONSE
@@ -311,7 +316,7 @@ def main(args, hyperparameter_tuning=True) -> None:
         baselines = []
 
     # NaiveMeanEffectsPredictor is always run as it is needed for evaluation
-    if "NaiveMeanEffectsPredictor" not in baselines:
+    if MODEL_FACTORY["NaiveMeanEffectsPredictor"] not in baselines:
         baselines.append(MODEL_FACTORY["NaiveMeanEffectsPredictor"])
 
     # TODO Allow for custom randomization tests maybe via config file
@@ -339,7 +344,8 @@ def main(args, hyperparameter_tuning=True) -> None:
             overwrite=args.overwrite,
             path_data=args.path_data,
             model_checkpoint_dir=args.model_checkpoint_dir,
-            hyperparameter_tuning=hyperparameter_tuning,
+            hyperparameter_tuning=not args.no_hyperparameter_tuning,
+            final_model_on_full_data=args.final_model_on_full_data,
         )
 
 

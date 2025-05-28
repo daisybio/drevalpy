@@ -1,4 +1,4 @@
-"""SingleDrugElasticNet and SingleDrugProteomicsElasticNet classes. Fit an Elastic net for each drug seperately."""
+"""SingleDrugElasticNet and SingleDrugProteomicsElasticNet classes. Fit an Elastic net for each drug separately."""
 
 import json
 import os
