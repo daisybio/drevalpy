@@ -27,7 +27,7 @@ def get_parser() -> argparse.ArgumentParser:
         "--run_id",
         type=str,
         default="my_run",
-        help="identifier to save the results",
+        help="Name of the run. The results directory subfolder will be named like this.",
     )
 
     parser.add_argument(
@@ -52,10 +52,10 @@ def get_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--test_mode",
         nargs="+",
-        default=["LPO"],
+        default=["LCO"],
         help="Which tests to run (LPO=Leave-random-Pairs-Out, "
         "LCO=Leave-Cell-line-Out, LDO=Leave-Drug-Out). Can be a list of test runs e.g. "
-        "'LPO LCO LDO' to run all tests. Default is LPO",
+        "'LPO LCO LTO LDO' to run all tests. Default is LPO",
     )
     parser.add_argument(
         "--randomization_mode",
@@ -102,8 +102,10 @@ def get_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--dataset_name",
         type=str,
-        default="GDSC1",
-        help="Name of the drug response dataset",
+        default="CTRPv2",
+        help="Name of the drug response dataset. "
+        "Pre-supplied datasets are CTRPv2, CTRPv1, CCLE, GDSC1, GDSC2, TOYv1, TOYv2. If it is a custom dataset, "
+        "this is the name of the folder in which the dataset is located: <path_data>/<dataset_name>/.",
     )
 
     parser.add_argument(
@@ -122,10 +124,13 @@ def get_parser() -> argparse.ArgumentParser:
     )
 
     parser.add_argument(
-        "--curve_curator",
+        "--no_refitting",
         action="store_true",
-        default=True,
-        help="Whether to run " "CurveCurator " "to sort out " "non-reactive " "curves",
+        default=False,
+        help="By default, response values are fitted with CurveCurator. If a custom dataset is used, CurveCurator is"
+        "run by on the raw viability data by default. If this flag is set, the pipeline will not run CurveCurator"
+        "to refit the curves. In the case of the pre-supplied datasets, "
+        "the original response measures will be used.",
     )
 
     parser.add_argument(
@@ -139,7 +144,8 @@ def get_parser() -> argparse.ArgumentParser:
         "--measure",
         type=str,
         default="LN_IC50",
-        help="The drug response measure used as prediction target. Can be one of ['LN_IC50', 'response']",
+        help="The drug response measure used as prediction target. Can be one of "
+        "['LN_IC50', 'pEC50', 'AUC', 'EC50', 'IC50' 'response']",
     )
 
     parser.add_argument(
@@ -214,26 +220,29 @@ def check_arguments(args) -> None:
                 f"the MODEL_FACTORY in the models init"
             )
     if args.dataset_name not in AVAILABLE_DATASETS:
-        if args.curve_curator:
-            expected_custom_input = Path(args.path_data).absolute() / args.dataset_name / f"{args.dataset_name}_raw.csv"
-            if not expected_custom_input.is_file():
-                raise FileNotFoundError(
-                    "You specified the curve_curator option with a custom dataset name which requires raw "
-                    f"viability data to be located at {expected_custom_input} but the file does not exist. "
-                    "Please check the 'path_data' and 'dataset_name' arguments and ensure the raw viability "
-                    "input file is located at <path_data>/<dataset_name>/<dataset_name>_raw.csv."
-                )
-        else:
+        if args.no_refitting:
             expected_custom_input = Path(args.path_data).absolute() / args.dataset_name / f"{args.dataset_name}.csv"
             if not expected_custom_input.is_file():
                 raise FileNotFoundError(
-                    "You specified a custom dataset name which requires prefit curve data to be located at "
+                    "You specified a custom dataset name which requires pre-fit curve data to be located at "
                     f"{expected_custom_input} but the file does not exist. Please check the 'path_data' and "
-                    "'dataset_name' arguments and ensure the prefit curve data is located at input file is "
+                    "'dataset_name' arguments and ensure the pre-fit curve data is located at input file is "
                     "located at <path_data>/<dataset_name>/<dataset_name>.csv."
+                    "If you have raw data which you want to fit with CurveCurator, unset the --no_refitting flag."
+                )
+        else:
+            # re-fit custom dataset with CurveCurator
+            expected_custom_input = Path(args.path_data).absolute() / args.dataset_name / f"{args.dataset_name}_raw.csv"
+            if not expected_custom_input.is_file():
+                raise FileNotFoundError(
+                    "You want to refit a custom dataset with CurveCurator which requires raw "
+                    f"viability data to be located at {expected_custom_input} but the file does not exist. "
+                    "Please check the 'path_data' and 'dataset_name' arguments and ensure the raw viability "
+                    "input file is located at <path_data>/<dataset_name>/<dataset_name>_raw.csv."
+                    "If you don't want that, set the --no_refitting flag."
                 )
 
-    if args.curve_curator and args.curve_curator_cores < 1:
+    if (not args.no_refitting) and (args.curve_curator_cores < 1):
         raise ValueError("Number of cores for CurveCurator must be greater than 0.")
 
     for dataset in args.cross_study_datasets:
@@ -288,12 +297,13 @@ def main(args, hyperparameter_tuning=True) -> None:
     """
     check_arguments(args)
     # PIPELINE: LOAD_RESPONSE
+    run_curve_curator = not args.no_refitting
     response_data, cross_study_datasets = get_datasets(
         dataset_name=args.dataset_name,
         cross_study_datasets=args.cross_study_datasets,
         path_data=args.path_data,
         measure=args.measure,
-        curve_curator=args.curve_curator,
+        curve_curator=run_curve_curator,
         cores=args.curve_curator_cores,
     )
 
@@ -355,7 +365,7 @@ def get_datasets(
         to provide custom cross_study_datasets, you have to invoke curve fitting manually using
         drevalpy.datasets.curvecurator.fit_curves
     :param path_data: The parent path in which custom or downloaded datasets should be located, or in which raw
-        viability data is to be found for fitting with CurveCurator (see param curve_curator for details).
+        viability data is to be found for fitting with CurveCurator (see param no_refitting for details).
         The location of the datasets are resolved by <path_data>/<dataset_name>/<dataset_name>.csv.
     :param measure: The name of the column containing the measure to predict, default = "response".
         If curve_curator is True, this measure is appended with "_curvecurator", e.g. "response_curvecurator" to

@@ -67,7 +67,7 @@ class DrugResponseDataset:
         :raises ValueError: If the required columns are not found in the input file
         :returns: DrugResponseDataset object containing data from provided csv file.
         """
-        data = pd.read_csv(input_file)
+        data = pd.read_csv(input_file, dtype={CELL_LINE_IDENTIFIER: str, DRUG_IDENTIFIER: str})
 
         if measure not in data.columns:
             raise ValueError(f"Column {measure} not found in the input file.")
@@ -76,7 +76,6 @@ class DrugResponseDataset:
         elif DRUG_IDENTIFIER not in data.columns:
             raise ValueError(f"Column {DRUG_IDENTIFIER} not found in the input file.")
 
-        data[DRUG_IDENTIFIER] = data[DRUG_IDENTIFIER].astype(str)
         if "predictions" in data.columns:
             predictions = data["predictions"].values
         else:
@@ -805,7 +804,7 @@ class FeatureDataset:
         :param drop_columns: list of columns to drop (e.g. other identifier columns)
         :returns: FeatureDataset object containing data from provided csv file.
         """
-        data = pd.read_csv(path_to_csv)
+        data = pd.read_csv(path_to_csv, dtype={id_column: str})
         ids = data[id_column].values
         data_features = data.drop(columns=(drop_columns or []))
         data_features = data_features.set_index(id_column)

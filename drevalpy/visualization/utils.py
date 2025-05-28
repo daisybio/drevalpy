@@ -248,6 +248,7 @@ def prep_results(
         eval_results_per_drug[["algorithm", "rand_setting", "test_mode", "split", "CV_split"]] = eval_results_per_drug[
             "model"
         ].str.split("_", expand=True)
+        eval_results_per_drug["drug"] = eval_results_per_drug["drug"].astype(str)
         all_drugs = [drug_metadata[drug] for drug in eval_results_per_drug["drug"]]
         eval_results_per_drug["drug_name"] = all_drugs
         # rename drug to pubchem_id
@@ -266,6 +267,7 @@ def prep_results(
         "_", expand=True
     )
     t_vs_p = t_vs_p.drop("split", axis=1)
+    t_vs_p["drug"] = t_vs_p["drug"].astype(str)
     all_drugs = [drug_metadata[drug] for drug in t_vs_p["drug"]]
     t_vs_p["drug_name"] = all_drugs
     all_cello_ids = [cell_line_metadata[cell_line] for cell_line in t_vs_p["cell_line"]]

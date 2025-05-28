@@ -237,7 +237,7 @@ def load_dataset(
     dataset_name: str,
     path_data: str = "data",
     measure: str = "response",
-    curve_curator: bool = False,
+    curve_curator: bool = True,
     cores: int = 1,
     tissue_column: str | None = None,
 ) -> DrugResponseDataset:
@@ -247,13 +247,13 @@ def load_dataset(
     :param dataset_name: The name of the dataset to load. Can be one of ('GDSC1', 'GDSC2', 'CCLE', 'TOYv1', or 'TOYv2')
         to download provided datasets, or any other name to allow for custom datasets.
     :param path_data: The parent path in which custom or downloaded datasets should be located, or in which raw
-        viability data is to be found for fitting with CurveCurator (see param curve_curator for details).
+        viability data is to be found for fitting with CurveCurator.
         The location of the datasets are resolved by <path_data>/<dataset_name>/<dataset_name>.csv.
     :param measure: The name of the column containing the measure to predict, default = "response".
-        If curve_curator is True, this measure is appended with "_curvecurator", e.g. "response_curvecurator" to
+        By default, this measure is appended with "_curvecurator", e.g. "response_curvecurator" to
         distinguish between measures provided by the original source of a dataset, or the measures fit by
-        CurveCurator.
-    :param curve_curator: If True, the measure is appended with "_curvecurator".
+        CurveCurator (to disable this, set --no_refitting).
+    :param curve_curator: If True, the measure is appended with "_curvecurator" (default).
         If a custom dataset_name was provided, this will invoke the fitting procedure of raw viability data,
         which is expected to exist at <path_data>/<dataset_name>/<dataset_name>_raw.csv. The fitted dataset will
         be stored in the same folder, in a file called <dataset_name>.csv
