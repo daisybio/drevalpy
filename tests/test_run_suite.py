@@ -42,6 +42,7 @@ from drevalpy.visualization.utils import (
             "multiprocessing": False,
             "path_data": "../data",
             "model_checkpoint_dir": "TEMPORARY",
+            "final_model_on_full_data": False,
         }
     ],
 )
