@@ -54,7 +54,7 @@ def test_run_suite(args):
     temp_dir = tempfile.TemporaryDirectory()
     args["path_out"] = temp_dir.name
     args = Namespace(**args)
-    args.hyperparameter_tuning = False
+    args.no_hyperparameter_tuning = True
     get_parser()
     check_arguments(args)
     main(args)
