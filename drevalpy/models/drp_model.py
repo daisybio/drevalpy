@@ -2,14 +2,14 @@
 Contains the DRPModel class.
 
 The DRPModel class is an abstract wrapper class for drug response prediction models.
-
-
 """
+
+from __future__ import annotations
 
 import inspect
 import os
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Optional
 
 import numpy as np
 import yaml
@@ -17,6 +17,7 @@ from sklearn.model_selection import ParameterGrid
 
 from ..datasets.dataset import DrugResponseDataset, FeatureDataset
 from ..pipeline_function import pipeline_function
+from ..types import HyperparameterDict, HyperparameterGrid, ModelName, ViewName
 
 
 class DRPModel(ABC):
@@ -36,7 +37,7 @@ class DRPModel(ABC):
     @classmethod
     @abstractmethod
     @pipeline_function
-    def get_model_name(cls) -> str:
+    def get_model_name(cls) -> ModelName:
         """
         Returns the name of the model.
 
@@ -45,7 +46,7 @@ class DRPModel(ABC):
 
     @classmethod
     @pipeline_function
-    def get_hyperparameter_set(cls) -> list[dict[str, Any]]:
+    def get_hyperparameter_set(cls) -> HyperparameterGrid:
         """
         Loads the hyperparameters from a yaml file which is located in the same directory as the model.
 
@@ -74,7 +75,7 @@ class DRPModel(ABC):
 
     @property
     @abstractmethod
-    def cell_line_views(self) -> list[str]:
+    def cell_line_views(self) -> list[ViewName]:
         """
         Returns the sources the model needs as input for describing the cell line.
 
@@ -84,7 +85,7 @@ class DRPModel(ABC):
 
     @property
     @abstractmethod
-    def drug_views(self) -> list[str]:
+    def drug_views(self) -> list[ViewName]:
         """
         Returns the sources the model needs as input for describing the drug.
 
@@ -93,7 +94,7 @@ class DRPModel(ABC):
         """
 
     @abstractmethod
-    def build_model(self, hyperparameters: dict[str, Any]) -> None:
+    def build_model(self, hyperparameters: HyperparameterDict) -> None:
         """
         Builds the model, for models that use hyperparameters.
 
@@ -109,8 +110,8 @@ class DRPModel(ABC):
         self,
         output: DrugResponseDataset,
         cell_line_input: FeatureDataset,
-        drug_input: FeatureDataset | None = None,
-        output_earlystopping: DrugResponseDataset | None = None,
+        drug_input: Optional[FeatureDataset] = None,
+        output_earlystopping: Optional[DrugResponseDataset] = None,
         model_checkpoint_dir: str = "checkpoints",
     ) -> None:
         """
@@ -129,7 +130,7 @@ class DRPModel(ABC):
         cell_line_ids: np.ndarray,
         drug_ids: np.ndarray,
         cell_line_input: FeatureDataset,
-        drug_input: FeatureDataset | None = None,
+        drug_input: Optional[FeatureDataset] = None,
     ) -> np.ndarray:
         """
         Predicts the response for the given input.

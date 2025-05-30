@@ -1,17 +1,28 @@
 """Utility functions for loading and processing data."""
 
+from __future__ import annotations
+
 import os.path
+from typing import Optional
 
 import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.decomposition import PCA
 
+# Common utilities available for future use
+# from drevalpy.common_utils import (
+#     create_feature_dict,
+#     load_csv_with_validation,
+#     log_with_nan_handling,
+#     validate_file_exists,
+# )
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, TISSUE_IDENTIFIER
+from drevalpy.types import DataPath, DatasetName, ViewName
 
 
-def load_cl_ids_from_csv(path: str, dataset_name: str) -> FeatureDataset:
+def load_cl_ids_from_csv(path: DataPath, dataset_name: DatasetName) -> FeatureDataset:
     """
     Load cell line ids from csv file.
 
@@ -23,7 +34,7 @@ def load_cl_ids_from_csv(path: str, dataset_name: str) -> FeatureDataset:
     return FeatureDataset(features={cl: {CELL_LINE_IDENTIFIER: np.array([cl])} for cl in cl_names.index})
 
 
-def load_tissues_from_csv(path: str, dataset_name: str) -> FeatureDataset:
+def load_tissues_from_csv(path: DataPath, dataset_name: DatasetName) -> FeatureDataset:
     """
     Load tissues from csv file.
 
@@ -38,10 +49,10 @@ def load_tissues_from_csv(path: str, dataset_name: str) -> FeatureDataset:
 
 
 def load_and_select_gene_features(
-    feature_type: str,
-    gene_list: str | None,
-    data_path: str,
-    dataset_name: str,
+    feature_type: ViewName,
+    gene_list: Optional[str],
+    data_path: DataPath,
+    dataset_name: DatasetName,
 ) -> FeatureDataset:
     """
     Load and reduce features of a single feature type, ensuring selection and ordering based on the gene list.

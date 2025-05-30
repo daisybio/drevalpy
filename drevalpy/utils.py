@@ -1,11 +1,16 @@
 """Utility functions for the evaluation pipeline."""
 
+from __future__ import annotations
+
 import argparse
 from pathlib import Path
+from typing import Optional
 
 from sklearn.base import TransformerMixin
 from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
 
+# Common utilities available for future use
+# from .common_utils import ValidationError, validate_array_lengths_match, validate_file_exists
 from .datasets import AVAILABLE_DATASETS
 from .datasets.dataset import DrugResponseDataset
 from .datasets.loader import load_dataset
@@ -13,6 +18,7 @@ from .datasets.utils import ALLOWED_MEASURES
 from .evaluation import AVAILABLE_METRICS
 from .experiment import drug_response_experiment, pipeline_function
 from .models import MODEL_FACTORY
+from .types import DatasetName
 
 
 @pipeline_function
@@ -186,7 +192,7 @@ def get_parser() -> argparse.ArgumentParser:
 
 
 @pipeline_function
-def check_arguments(args) -> None:
+def check_arguments(args: argparse.Namespace) -> None:
     """
     Check the validity of the arguments for the evaluation pipeline.
 
@@ -279,7 +285,7 @@ def check_arguments(args) -> None:
         )
 
 
-def main(args, hyperparameter_tuning=True) -> None:
+def main(args: argparse.Namespace, hyperparameter_tuning: bool = True) -> None:
     """
     Main function to run the drug response evaluation pipeline.
 
@@ -338,13 +344,13 @@ def main(args, hyperparameter_tuning=True) -> None:
 
 
 def get_datasets(
-    dataset_name: str,
-    cross_study_datasets: list,
+    dataset_name: DatasetName,
+    cross_study_datasets: list[DatasetName],
     path_data: str = "data",
     measure: str = "response",
     curve_curator: bool = False,
     cores: int = 1,
-) -> tuple[DrugResponseDataset, list[DrugResponseDataset] | None]:
+) -> tuple[DrugResponseDataset, Optional[list[DrugResponseDataset]]]:
     """
     Load the response data and cross-study datasets.
 
@@ -380,7 +386,7 @@ def get_datasets(
 
 
 @pipeline_function
-def get_response_transformation(response_transformation: str) -> TransformerMixin | None:
+def get_response_transformation(response_transformation: str) -> Optional[TransformerMixin]:
     """
     Get the skelarn response transformation object of choice.
 
