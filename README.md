@@ -10,7 +10,7 @@
 
 **News:** Our preprint is out on [biorxiv](https://www.biorxiv.org/content/10.1101/2025.05.26.655288v1)!
 
-Documentation at [ReadTheDocs](https://drevalpy.readthedocs.io/en/latest/index.html#). 
+Documentation at [ReadTheDocs](https://drevalpy.readthedocs.io/en/latest/index.html#).
 
 **Focus on Innovating Your Models — DrEval Handles the Rest!**
 
