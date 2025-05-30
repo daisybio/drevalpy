@@ -448,7 +448,7 @@ class NaiveMeanEffectsNormalizer(TransformerMixin):
         :param drug_ids: drug IDs
         :returns: self
         """
-        self.dataset_mean = np.mean(X)
+        self.dataset_mean = float(np.mean(X))
         self.cell_line_effects = {
             cl: np.mean(np.array(X)[np.array(cell_line_ids) == cl]) - self.dataset_mean
             for cl in np.unique(cell_line_ids)
@@ -466,7 +466,11 @@ class NaiveMeanEffectsNormalizer(TransformerMixin):
         :param cell_line_ids: cell line IDs
         :param drug_ids: drug IDs
         :returns: normalized response values
+        :raises ValueError: if the normalizer has not been fitted yet
         """
+        if self.dataset_mean is None:
+            raise ValueError("Normalizer has not been fitted yet.")
+
         return np.array(
             [
                 X[i] - (self.dataset_mean + self.cell_line_effects.get(cl, 0) + self.drug_effects.get(d, 0))
@@ -484,7 +488,11 @@ class NaiveMeanEffectsNormalizer(TransformerMixin):
         :param cell_line_ids: cell line IDs
         :param drug_ids: drug IDs
         :returns: reconstructed original response values
+        :raises ValueError: if the normalizer has not been fitted yet
         """
+        if self.dataset_mean is None:
+            raise ValueError("Normalizer has not been fitted yet.")
+
         return np.array(
             [
                 X_norm[i] + self.dataset_mean + self.cell_line_effects.get(cl, 0) + self.drug_effects.get(d, 0)
