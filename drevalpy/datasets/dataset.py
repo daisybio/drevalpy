@@ -877,7 +877,10 @@ class FeatureDataset:
 
         :returns: view_names of this FeatureDataset
         """
-        return list(self.features[list(self.features.keys())[0]].keys())  # TODO whut?!
+        if not self._features:
+            return []
+        first_identifier_features = next(iter(self._features.values()))
+        return list(first_identifier_features.keys())
 
     def __init__(
         self,
