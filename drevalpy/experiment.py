@@ -18,6 +18,7 @@ from .evaluation import evaluate, get_mode
 from .models import MODEL_FACTORY, MULTI_DRUG_MODEL_FACTORY, SINGLE_DRUG_MODEL_FACTORY
 from .models.drp_model import DRPModel
 from .pipeline_function import pipeline_function
+from .response_transformation import TransformerWrapper
 
 if importlib.util.find_spec("ray"):
     import ray
@@ -126,6 +127,8 @@ def drug_response_experiment(
             random_state=42,
         )
         response_data.save_splits(path=split_path)
+
+    response_transformation = TransformerWrapper(response_transformation) if response_transformation else None
 
     model_list = make_model_list(models + baselines, response_data)
     for model_name in model_list.keys():
@@ -936,10 +939,20 @@ def train_and_predict(
         print(f"Reduced early stopping dataset from {len_es_before} to {len(early_stopping_dataset)}")
 
     if response_transformation:
-        train_dataset.fit_transform(response_transformation)
+        train_dataset.fit_transform(
+            response_transformation, cell_line_ids=train_dataset.cell_line_ids, drug_ids=train_dataset.drug_ids
+        )
         if early_stopping_dataset is not None:
-            early_stopping_dataset.transform(response_transformation)
-        prediction_dataset.transform(response_transformation)
+            early_stopping_dataset.transform(
+                response_transformation,
+                cell_line_ids=early_stopping_dataset.cell_line_ids,
+                drug_ids=early_stopping_dataset.drug_ids,
+            )
+        prediction_dataset.transform(
+            response_transformation,
+            cell_line_ids=prediction_dataset.cell_line_ids,
+            drug_ids=prediction_dataset.drug_ids,
+        )
 
     drug_input = drug_features.copy() if drug_features is not None else None
     print("Training model ...")
@@ -976,7 +989,11 @@ def train_and_predict(
         )
 
         if response_transformation:
-            prediction_dataset.inverse_transform(response_transformation)
+            prediction_dataset.inverse_transform(
+                response_transformation,
+                cell_line_ids=prediction_dataset.cell_line_ids,
+                drug_ids=prediction_dataset.drug_ids,
+            )
     else:
         prediction_dataset._predictions = np.array([])
 

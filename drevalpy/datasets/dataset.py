@@ -520,34 +520,48 @@ class DrugResponseDataset:
         if self.tissue is not None:
             self._tissues = self.tissue[mask]
 
-    def transform(self, response_transformation: TransformerMixin) -> None:
+    def transform(self, response_transformation: TransformerMixin, cell_line_ids, drug_ids) -> None:
         """
         Apply transformation to the response data and prediction data of the dataset.
 
         :param response_transformation: e.g., StandardScaler, MinMaxScaler, RobustScaler
+        :param cell_line_ids: Cell line identifiers.
+        :param drug_ids: Drug identifiers.
         """
-        self._response = response_transformation.transform(self.response.reshape(-1, 1)).squeeze()
+        self._response = response_transformation.transform(
+            self.response.reshape(-1, 1), cell_line_ids=cell_line_ids, drug_ids=drug_ids
+        ).squeeze()
         if self.predictions is not None:
-            self._predictions = response_transformation.transform(self.predictions.reshape(-1, 1)).squeeze()
+            self._predictions = response_transformation.transform(
+                self.predictions.reshape(-1, 1), cell_line_ids=cell_line_ids, drug_ids=drug_ids
+            ).squeeze()
 
-    def fit_transform(self, response_transformation: TransformerMixin) -> None:
+    def fit_transform(self, response_transformation: TransformerMixin, cell_line_ids, drug_ids) -> None:
         """
         Fit and transform the response data and prediction data of the dataset.
 
         :param response_transformation: e.g., StandardScaler, MinMaxScaler, RobustScaler
+        :param cell_line_ids: Cell line identifiers.
+        :param drug_ids: Drug identifiers.
         """
-        response_transformation.fit(self.response.reshape(-1, 1))
-        self.transform(response_transformation)
+        response_transformation.fit(self.response.reshape(-1, 1), cell_line_ids=cell_line_ids, drug_ids=drug_ids)
+        self.transform(response_transformation, cell_line_ids=cell_line_ids, drug_ids=drug_ids)
 
-    def inverse_transform(self, response_transformation: TransformerMixin) -> None:
+    def inverse_transform(self, response_transformation: TransformerMixin, cell_line_ids, drug_ids) -> None:
         """
         Inverse transform the response data and prediction data of the dataset.
 
         :param response_transformation: e.g., StandardScaler, MinMaxScaler, RobustScaler
+        :param cell_line_ids: Cell line identifiers.
+        :param drug_ids: Drug identifiers.
         """
-        self._response = response_transformation.inverse_transform(self.response.reshape(-1, 1)).squeeze()
+        self._response = response_transformation.inverse_transform(
+            self.response.reshape(-1, 1), cell_line_ids=cell_line_ids, drug_ids=drug_ids
+        ).squeeze()
         if self.predictions is not None:
-            self._predictions = response_transformation.inverse_transform(self.predictions.reshape(-1, 1)).squeeze()
+            self._predictions = response_transformation.inverse_transform(
+                self.predictions.reshape(-1, 1), cell_line_ids=cell_line_ids, drug_ids=drug_ids
+            ).squeeze()
 
 
 def _split_early_stopping_data(
