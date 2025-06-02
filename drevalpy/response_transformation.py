@@ -13,7 +13,7 @@ import numpy as np
 from sklearn.base import TransformerMixin
 from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
 
-from drevalpy.utils import pipeline_function
+from .pipeline_function import pipeline_function
 
 
 class TransformerWrapper(TransformerMixin):

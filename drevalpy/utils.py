@@ -8,8 +8,9 @@ from .datasets.dataset import DrugResponseDataset
 from .datasets.loader import load_dataset
 from .datasets.utils import ALLOWED_MEASURES
 from .evaluation import AVAILABLE_METRICS
-from .experiment import drug_response_experiment, pipeline_function
+from .experiment import drug_response_experiment
 from .models import MODEL_FACTORY
+from .pipeline_function import pipeline_function
 from .response_transformation import get_response_transformation
 
 

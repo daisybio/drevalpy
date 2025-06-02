@@ -939,20 +939,10 @@ def train_and_predict(
         print(f"Reduced early stopping dataset from {len_es_before} to {len(early_stopping_dataset)}")
 
     if response_transformation:
-        train_dataset.fit_transform(
-            response_transformation, cell_line_ids=train_dataset.cell_line_ids, drug_ids=train_dataset.drug_ids
-        )
+        train_dataset.fit_transform(response_transformation)
         if early_stopping_dataset is not None:
-            early_stopping_dataset.transform(
-                response_transformation,
-                cell_line_ids=early_stopping_dataset.cell_line_ids,
-                drug_ids=early_stopping_dataset.drug_ids,
-            )
-        prediction_dataset.transform(
-            response_transformation,
-            cell_line_ids=prediction_dataset.cell_line_ids,
-            drug_ids=prediction_dataset.drug_ids,
-        )
+            early_stopping_dataset.transform(response_transformation)
+        prediction_dataset.transform(response_transformation)
 
     drug_input = drug_features.copy() if drug_features is not None else None
     print("Training model ...")
@@ -989,11 +979,7 @@ def train_and_predict(
         )
 
         if response_transformation:
-            prediction_dataset.inverse_transform(
-                response_transformation,
-                cell_line_ids=prediction_dataset.cell_line_ids,
-                drug_ids=prediction_dataset.drug_ids,
-            )
+            prediction_dataset.inverse_transform(response_transformation)
     else:
         prediction_dataset._predictions = np.array([])
 

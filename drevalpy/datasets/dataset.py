@@ -21,8 +21,9 @@ from typing import Any, Callable
 import networkx as nx
 import numpy as np
 import pandas as pd
-from sklearn.base import TransformerMixin
 from sklearn.model_selection import GroupKFold, train_test_split
+
+from drevalpy.response_transformation import TransformerWrapper
 
 from ..pipeline_function import pipeline_function
 from .utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, permute_features, randomize_graph
@@ -520,47 +521,44 @@ class DrugResponseDataset:
         if self.tissue is not None:
             self._tissues = self.tissue[mask]
 
-    def transform(self, response_transformation: TransformerMixin, cell_line_ids, drug_ids) -> None:
+    def transform(self, response_transformation: TransformerWrapper) -> None:
         """
         Apply transformation to the response data and prediction data of the dataset.
 
         :param response_transformation: e.g., StandardScaler, MinMaxScaler, RobustScaler
-        :param cell_line_ids: Cell line identifiers.
-        :param drug_ids: Drug identifiers.
         """
         self._response = response_transformation.transform(
-            self.response.reshape(-1, 1), cell_line_ids=cell_line_ids, drug_ids=drug_ids
+            self.response.reshape(-1, 1), cell_line_ids=self.cell_line_ids, drug_ids=self.drug_ids
         ).squeeze()
         if self.predictions is not None:
             self._predictions = response_transformation.transform(
-                self.predictions.reshape(-1, 1), cell_line_ids=cell_line_ids, drug_ids=drug_ids
+                self.predictions.reshape(-1, 1), cell_line_ids=self.cell_line_ids, drug_ids=self.drug_ids
             ).squeeze()
 
-    def fit_transform(self, response_transformation: TransformerMixin, cell_line_ids, drug_ids) -> None:
+    def fit_transform(self, response_transformation: TransformerWrapper) -> None:
         """
         Fit and transform the response data and prediction data of the dataset.
 
         :param response_transformation: e.g., StandardScaler, MinMaxScaler, RobustScaler
-        :param cell_line_ids: Cell line identifiers.
-        :param drug_ids: Drug identifiers.
-        """
-        response_transformation.fit(self.response.reshape(-1, 1), cell_line_ids=cell_line_ids, drug_ids=drug_ids)
-        self.transform(response_transformation, cell_line_ids=cell_line_ids, drug_ids=drug_ids)
 
-    def inverse_transform(self, response_transformation: TransformerMixin, cell_line_ids, drug_ids) -> None:
+        """
+        response_transformation.fit(
+            self.response.reshape(-1, 1), cell_line_ids=self.cell_line_ids, drug_ids=self.drug_ids
+        )
+        self.transform(response_transformation)
+
+    def inverse_transform(self, response_transformation: TransformerWrapper) -> None:
         """
         Inverse transform the response data and prediction data of the dataset.
 
         :param response_transformation: e.g., StandardScaler, MinMaxScaler, RobustScaler
-        :param cell_line_ids: Cell line identifiers.
-        :param drug_ids: Drug identifiers.
         """
         self._response = response_transformation.inverse_transform(
-            self.response.reshape(-1, 1), cell_line_ids=cell_line_ids, drug_ids=drug_ids
+            self.response.reshape(-1, 1), cell_line_ids=self.cell_line_ids, drug_ids=self.drug_ids
         ).squeeze()
         if self.predictions is not None:
             self._predictions = response_transformation.inverse_transform(
-                self.predictions.reshape(-1, 1), cell_line_ids=cell_line_ids, drug_ids=drug_ids
+                self.predictions.reshape(-1, 1), cell_line_ids=self.cell_line_ids, drug_ids=self.drug_ids
             ).squeeze()
 
 
@@ -1056,7 +1054,7 @@ class FeatureDataset:
             if other_meta is not None:
                 self.meta_info.update(other_meta)
 
-    def transform_features(self, ids: np.ndarray, transformer: TransformerMixin, view: str):
+    def transform_features(self, ids: np.ndarray, transformer: TransformerWrapper, view: str):
         """
         Applies a transformation like standard scaling to features.
 
@@ -1080,7 +1078,7 @@ class FeatureDataset:
             scaled_feature_vector = transformer.transform([feature_vector])[0]
             self.features[identifier][view] = scaled_feature_vector
 
-    def fit_transform_features(self, train_ids: np.ndarray, transformer: TransformerMixin, view: str):
+    def fit_transform_features(self, train_ids: np.ndarray, transformer: TransformerWrapper, view: str):
         """
         Fits and applies a transformation. Fitting is done only on the train_ids.
 

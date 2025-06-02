@@ -12,6 +12,7 @@ from flaky import flaky
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.datasets.loader import load_dataset
+from drevalpy.response_transformation import TransformerWrapper
 from drevalpy.utils import get_response_transformation
 
 # Tests for the DrugResponseDataset class
@@ -320,7 +321,7 @@ def test_split_response_dataset(mode: str, split_validation: bool) -> None:
     dataset.load_splits(path=tempdir.name)
 
 
-@pytest.mark.parametrize("resp_transform", ["standard", "minmax", "robust"])
+@pytest.mark.parametrize("resp_transform", ["standard", "minmax", "robust", "mean_effects"])
 def test_transform(resp_transform: str):
     """
     Test if the fit_transform and inverse_transform methods work correctly.
@@ -337,6 +338,7 @@ def test_transform(resp_transform: str):
         tissues=np.array(["Tissue1", "Tissue2", "Tissue3", "Tissue4", "Tissue5"]),
     )
     transform = get_response_transformation(resp_transform)
+    transform = TransformerWrapper(transform)
     dataset.fit_transform(transform)
     if resp_transform == "standard":
         scaler = StandardScaler()
@@ -344,6 +346,8 @@ def test_transform(resp_transform: str):
         scaler = MinMaxScaler()
     elif resp_transform == "robust":
         scaler = RobustScaler()
+    elif resp_transform == "mean_effects":
+        return
     else:
         raise ValueError("Invalid response transformation method.")
     vals = scaler.fit_transform(np.array([1, 2, 3, 4, 5]).reshape(-1, 1))
