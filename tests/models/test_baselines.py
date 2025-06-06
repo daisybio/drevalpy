@@ -121,7 +121,7 @@ def test_baselines(
             cell_line_input,
             drug_input,
         )
-    # Save and load test (should either succeed or raise NotImplementedError)
+    # Save and load test
     with tempfile.TemporaryDirectory() as model_dir:
         model.save(model_dir)
         loaded_model = MODEL_FACTORY[model_name].load(model_dir)
