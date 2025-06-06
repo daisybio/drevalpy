@@ -1,5 +1,9 @@
 """Contains sklearn baseline models: ElasticNet, RandomForest, SVM."""
 
+import json
+import os
+
+import joblib
 import numpy as np
 from sklearn.ensemble import HistGradientBoostingRegressor, RandomForestRegressor
 from sklearn.linear_model import ElasticNet, Lasso, Ridge
@@ -153,6 +157,64 @@ class SklearnModel(DRPModel):
         :returns: FeatureDataset containing the drug fingerprints
         """
         return load_drug_fingerprint_features(data_path, dataset_name, fill_na=True)
+
+    def save(self, directory: str) -> None:
+        """
+        Save the trained model and any associated preprocessing components to the given directory.
+
+        Saves:
+        - model.pkl: the trained sklearn model
+        - hyperparameters.json: dictionary of model hyperparameters (if present)
+        - scaler.pkl: fitted gene expression scaler (if present)
+        - proteomics_transformer.pkl: fitted proteomics transformer (if present)
+
+        :param directory: path to the directory where model files will be stored
+        """
+        os.makedirs(directory, exist_ok=True)
+        joblib.dump(self.model, os.path.join(directory, "model.pkl"))
+        with open(os.path.join(directory, "hyperparameters.json"), "w") as f:
+            json.dump(getattr(self, "hyperparameters", {}), f)
+        if hasattr(self, "gene_expression_scaler"):
+            joblib.dump(self.gene_expression_scaler, os.path.join(directory, "scaler.pkl"))
+        if hasattr(self, "proteomics_transformer"):
+            joblib.dump(self.proteomics_transformer, os.path.join(directory, "proteomics_transformer.pkl"))
+
+    @classmethod
+    def load(cls, directory: str) -> "SklearnModel":
+        """
+        Load a trained sklearn-based model and its preprocessing components from disk.
+
+        Loads:
+        - model.pkl: the trained model
+        - hyperparameters.json: model hyperparameters (optional)
+        - scaler.pkl: gene expression scaler (optional)
+        - proteomics_transformer.pkl: proteomics transformer (optional)
+
+        :param directory: path to the directory where model files are stored
+        :return: an instance of the model with restored state
+        :raises FileNotFoundError: if model.pkl is not found
+        """
+        model_path = os.path.join(directory, "model.pkl")
+        if not os.path.exists(model_path):
+            raise FileNotFoundError(f"{model_path} not found")
+
+        instance = cls()
+        instance.model = joblib.load(model_path)
+
+        hyperparams_path = os.path.join(directory, "hyperparameters.json")
+        if os.path.exists(hyperparams_path):
+            with open(hyperparams_path) as f:
+                instance.hyperparameters = json.load(f)
+
+        scaler_path = os.path.join(directory, "scaler.pkl")
+        if os.path.exists(scaler_path):
+            instance.gene_expression_scaler = joblib.load(scaler_path)
+
+        transformer_path = os.path.join(directory, "proteomics_transformer.pkl")
+        if os.path.exists(transformer_path):
+            instance.proteomics_transformer = joblib.load(transformer_path)
+
+        return instance
 
 
 class ElasticNetModel(SklearnModel):

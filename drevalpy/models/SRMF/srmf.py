@@ -299,7 +299,7 @@ class SRMF(DRPModel):
         """
         return load_drug_fingerprint_features(data_path, dataset_name, fill_na=True)
 
-    def save_model(self, directory: str) -> None:
+    def save(self, directory: str) -> None:
         """
         Save the SRMF model's parameters and latent matrices to the specified directory.
 
@@ -329,28 +329,40 @@ class SRMF(DRPModel):
                 f,
             )
 
-    def load_model(self, directory: str) -> None:
+    @classmethod
+    def load(cls, directory: str) -> "SRMF":
         """
-        Load the SRMF model's parameters and latent matrices from the specified directory.
+        Load a trained SRMF model from the specified directory.
 
-        Expects:
-        - best_u.pkl
-        - best_v.pkl
-        - w_mask.pkl
-        - config.json
+        Expects the following files:
+        - best_u.pkl: latent factors for drugs
+        - best_v.pkl: latent factors for cell lines
+        - w_mask.pkl: response presence mask
+        - config.json: model configuration (hyperparameters and training mean)
 
         :param directory: Directory containing the saved model artifacts
+        :return: An instance of SRMF with restored parameters
+        :raises FileNotFoundError: if any required file is missing
         """
-        self.best_u = joblib.load(os.path.join(directory, "best_u.pkl"))
-        self.best_v = joblib.load(os.path.join(directory, "best_v.pkl"))
-        self.w = joblib.load(os.path.join(directory, "w_mask.pkl"))
+        required_files = ["best_u.pkl", "best_v.pkl", "w_mask.pkl", "config.json"]
+        for file in required_files:
+            if not os.path.exists(os.path.join(directory, file)):
+                raise FileNotFoundError(f"Missing file: {file}")
+
+        instance = cls()
+        instance.best_u = joblib.load(os.path.join(directory, "best_u.pkl"))
+        instance.best_v = joblib.load(os.path.join(directory, "best_v.pkl"))
+        instance.w = joblib.load(os.path.join(directory, "w_mask.pkl"))
+
         with open(os.path.join(directory, "config.json")) as f:
             config = json.load(f)
 
-        self.k = config["k"]
-        self.lambda_l = config["lambda_l"]
-        self.lambda_d = config["lambda_d"]
-        self.lambda_c = config["lambda_c"]
-        self.max_iter = config["max_iter"]
-        self.seed = config["seed"]
-        self.training_mean = config["training_mean"]
+        instance.k = config["k"]
+        instance.lambda_l = config["lambda_l"]
+        instance.lambda_d = config["lambda_d"]
+        instance.lambda_c = config["lambda_c"]
+        instance.max_iter = config["max_iter"]
+        instance.seed = config["seed"]
+        instance.training_mean = config["training_mean"]
+
+        return instance
