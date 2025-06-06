@@ -357,12 +357,7 @@ class SRMF(DRPModel):
         with open(os.path.join(directory, "config.json")) as f:
             config = json.load(f)
 
-        instance.k = config["k"]
-        instance.lambda_l = config["lambda_l"]
-        instance.lambda_d = config["lambda_d"]
-        instance.lambda_c = config["lambda_c"]
-        instance.max_iter = config["max_iter"]
-        instance.seed = config["seed"]
+        instance.build_model(config)
         instance.training_mean = config["training_mean"]
 
         return instance

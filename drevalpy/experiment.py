@@ -22,7 +22,7 @@ from .pipeline_function import pipeline_function
 if importlib.util.find_spec("ray"):
     import ray
 else:
-    ray = None
+    ray = None  # type: ignore[assignment]
 
 
 def drug_response_experiment(

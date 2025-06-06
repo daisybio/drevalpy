@@ -123,26 +123,23 @@ def test_baselines(
         )
     # Save and load test (should either succeed or raise NotImplementedError)
     with tempfile.TemporaryDirectory() as model_dir:
-        try:
-            model.save(model_dir)
-            loaded_model = MODEL_FACTORY[model_name].load(model_dir)
+        model.save(model_dir)
+        loaded_model = MODEL_FACTORY[model_name].load(model_dir)
 
-            preds_before = model.predict(
-                drug_ids=val_dataset.drug_ids,
-                cell_line_ids=val_dataset.cell_line_ids,
-                drug_input=drug_input,
-                cell_line_input=cell_line_input,
-            )
-            preds_after = loaded_model.predict(
-                drug_ids=val_dataset.drug_ids,
-                cell_line_ids=val_dataset.cell_line_ids,
-                drug_input=drug_input,
-                cell_line_input=cell_line_input,
-            )
-            assert isinstance(preds_after, np.ndarray)
-            assert preds_after.shape == preds_before.shape
-        except NotImplementedError:
-            print(f"{model_name} does not implement save/load")
+        preds_before = model.predict(
+            drug_ids=val_dataset.drug_ids,
+            cell_line_ids=val_dataset.cell_line_ids,
+            drug_input=drug_input,
+            cell_line_input=cell_line_input,
+        )
+        preds_after = loaded_model.predict(
+            drug_ids=val_dataset.drug_ids,
+            cell_line_ids=val_dataset.cell_line_ids,
+            drug_input=drug_input,
+            cell_line_input=cell_line_input,
+        )
+        assert isinstance(preds_after, np.ndarray)
+        assert preds_after.shape == preds_before.shape
 
     # make temporary directory
     with tempfile.TemporaryDirectory() as temp_dir:

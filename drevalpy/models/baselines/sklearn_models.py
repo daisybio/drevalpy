@@ -37,6 +37,7 @@ class SklearnModel(DRPModel):
         super().__init__()
         self.model = None
         self.gene_expression_scaler = StandardScaler()
+        self.proteomics_transformer = None
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -174,9 +175,9 @@ class SklearnModel(DRPModel):
         joblib.dump(self.model, os.path.join(directory, "model.pkl"))
         with open(os.path.join(directory, "hyperparameters.json"), "w") as f:
             json.dump(getattr(self, "hyperparameters", {}), f)
-        if hasattr(self, "gene_expression_scaler"):
+        if self.gene_expression_scaler is not None:
             joblib.dump(self.gene_expression_scaler, os.path.join(directory, "scaler.pkl"))
-        if hasattr(self, "proteomics_transformer"):
+        if self.proteomics_transformer is not None:
             joblib.dump(self.proteomics_transformer, os.path.join(directory, "proteomics_transformer.pkl"))
 
     @classmethod
@@ -185,14 +186,14 @@ class SklearnModel(DRPModel):
         Load a trained sklearn-based model and its preprocessing components from disk.
 
         Loads:
-        - model.pkl: the trained model
+        - model.pkl: the trained sklearn model
         - hyperparameters.json: model hyperparameters (optional)
         - scaler.pkl: gene expression scaler (optional)
         - proteomics_transformer.pkl: proteomics transformer (optional)
 
         :param directory: path to the directory where model files are stored
         :return: an instance of the model with restored state
-        :raises FileNotFoundError: if model.pkl is not found
+        :raises FileNotFoundError: if model.pkl is missing
         """
         model_path = os.path.join(directory, "model.pkl")
         if not os.path.exists(model_path):
@@ -202,10 +203,9 @@ class SklearnModel(DRPModel):
         instance.model = joblib.load(model_path)
 
         hyperparams_path = os.path.join(directory, "hyperparameters.json")
-        if os.path.exists(hyperparams_path):
-            with open(hyperparams_path) as f:
-                instance.hyperparameters = json.load(f)
-
+        with open(hyperparams_path) as f:
+            hyperparameters = json.load(f)
+        instance.build_model(hyperparameters)
         scaler_path = os.path.join(directory, "scaler.pkl")
         if os.path.exists(scaler_path):
             instance.gene_expression_scaler = joblib.load(scaler_path)
