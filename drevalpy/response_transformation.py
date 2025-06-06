@@ -188,3 +188,89 @@ class NaiveMeanEffectsNormalizer(TransformerMixin):
                 for i, (cl, d) in enumerate(zip(cell_line_ids, drug_ids))
             ]
         )
+
+
+class NaiveEffectThenStandardScaler(TransformerMixin):
+    """
+    Applies NaiveMeanEffectsNormalizer to remove cell line and drug effects + stdandard scaling.
+
+    The inverse transform re-applies both transformations in reverse order.
+    """
+
+    def __init__(self) -> None:
+        """Initialize the internal normalizer and scaler."""
+        self.effect_normalizer = NaiveMeanEffectsNormalizer()
+        self.standard_scaler = StandardScaler()
+
+    def fit(
+        self,
+        X: Sequence[float],
+        y: Optional[Sequence[float]] = None,
+        **kwargs: Any,
+    ) -> "NaiveEffectThenStandardScaler":
+        """
+        Fit both the effect normalizer and standard scaler.
+
+        :param X: response values
+        :param y: optional (unused)
+        :param kwargs: must include 'cell_line_ids' and 'drug_ids'
+        :returns: self
+        :raises ValueError: if required identifiers are missing
+        """
+        X = np.asarray(X)
+        cell_line_ids = kwargs.get("cell_line_ids")
+        drug_ids = kwargs.get("drug_ids")
+
+        if cell_line_ids is None or drug_ids is None:
+            raise ValueError("NaiveEffectThenStandardScaler requires cell_line_ids and drug_ids")
+
+        self.effect_normalizer.fit(X, y, cell_line_ids=cell_line_ids, drug_ids=drug_ids)
+        X_effect_removed = self.effect_normalizer.transform(X, cell_line_ids=cell_line_ids, drug_ids=drug_ids)
+        self.standard_scaler.fit(X_effect_removed.reshape(-1, 1))
+        return self
+
+    def transform(
+        self,
+        X: Sequence[float],
+        **kwargs: Any,
+    ) -> np.ndarray:
+        """
+        Apply the full transformation: mean effect removal + standard scaling.
+
+        :param X: response values
+        :param kwargs: must include 'cell_line_ids' and 'drug_ids'
+        :returns: transformed values
+        :raises ValueError: if required identifiers are missing
+        """
+        X = np.asarray(X)
+        cell_line_ids = kwargs.get("cell_line_ids")
+        drug_ids = kwargs.get("drug_ids")
+
+        if cell_line_ids is None or drug_ids is None:
+            raise ValueError("NaiveEffectThenStandardScaler requires cell_line_ids and drug_ids")
+
+        X_effect_removed = self.effect_normalizer.transform(X, cell_line_ids=cell_line_ids, drug_ids=drug_ids)
+        return self.standard_scaler.transform(X_effect_removed.reshape(-1, 1)).squeeze()
+
+    def inverse_transform(
+        self,
+        X_scaled: Sequence[float],
+        **kwargs: Any,
+    ) -> np.ndarray:
+        """
+        Reverse the transformation: unscale + reapply mean effects.
+
+        :param X_scaled: transformed values
+        :param kwargs: must include 'cell_line_ids' and 'drug_ids'
+        :returns: original response values
+        :raises ValueError: if required identifiers are missing
+        """
+        X_scaled = np.asarray(X_scaled)
+        cell_line_ids = kwargs.get("cell_line_ids")
+        drug_ids = kwargs.get("drug_ids")
+
+        if cell_line_ids is None or drug_ids is None:
+            raise ValueError("NaiveEffectThenStandardScaler requires cell_line_ids and drug_ids")
+
+        X_unscaled = self.standard_scaler.inverse_transform(X_scaled.reshape(-1, 1)).squeeze()
+        return self.effect_normalizer.inverse_transform(X_unscaled, cell_line_ids=cell_line_ids, drug_ids=drug_ids)
