@@ -53,9 +53,8 @@ class SklearnModel(DRPModel):
         Builds the model from hyperparameters.
 
         :param hyperparameters: Custom hyperparameters for the model, have to be defined in the child class.
-        :raises NotImplementedError: If the method is not implemented in the child class.
         """
-        raise NotImplementedError("build_model method has to be implemented in the child class.")
+        self.hyperparameters = hyperparameters
 
     def train(
         self,
@@ -200,12 +199,13 @@ class SklearnModel(DRPModel):
             raise FileNotFoundError(f"{model_path} not found")
 
         instance = cls()
-        instance.model = joblib.load(model_path)
 
         hyperparams_path = os.path.join(directory, "hyperparameters.json")
         with open(hyperparams_path) as f:
             hyperparameters = json.load(f)
         instance.build_model(hyperparameters)
+        instance.model = joblib.load(model_path)
+
         scaler_path = os.path.join(directory, "scaler.pkl")
         if os.path.exists(scaler_path):
             instance.gene_expression_scaler = joblib.load(scaler_path)
@@ -244,6 +244,7 @@ class ElasticNetModel(SklearnModel):
                 alpha=hyperparameters["alpha"],
                 l1_ratio=hyperparameters["l1_ratio"],
             )
+        self.hyperparameters = hyperparameters
 
 
 class RandomForest(SklearnModel):
@@ -273,6 +274,7 @@ class RandomForest(SklearnModel):
             max_samples=hyperparameters["max_samples"],
             n_jobs=hyperparameters["n_jobs"],
         )
+        self.hyperparameters = hyperparameters
 
 
 class SVMRegressor(SklearnModel):
@@ -299,6 +301,7 @@ class SVMRegressor(SklearnModel):
             epsilon=hyperparameters["epsilon"],
             max_iter=hyperparameters["max_iter"],
         )
+        self.hyperparameters = hyperparameters
 
 
 class GradientBoosting(SklearnModel):
@@ -327,6 +330,7 @@ class GradientBoosting(SklearnModel):
             learning_rate=hyperparameters.get("learning_rate", 0.1),
             max_depth=hyperparameters.get("max_depth", 3),
         )
+        self.hyperparameters = hyperparameters
 
 
 class ProteomicsRandomForest(RandomForest):
@@ -498,8 +502,7 @@ class ProteomicsElasticNetModel(ElasticNetModel):
         """
         Builds the model from hyperparameters.
 
-        :param hyperparameters: Hyperparameters for the model. Contains n_estimators, criterion, max_samples,
-            and n_jobs.
+        :param hyperparameters: Hyperparameters for the model.
         """
         super().build_model(hyperparameters)
         self.feature_threshold = hyperparameters.get("feature_threshold", 0.7)

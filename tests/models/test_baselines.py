@@ -312,6 +312,7 @@ def _call_other_baselines(
     """
     model_class = cast(type[DRPModel], MODEL_FACTORY[model])
     hpams = model_class.get_hyperparameter_set()
+
     if len(hpams) > 2:
         hpams = hpams[:2]
     model_instance = model_class()
