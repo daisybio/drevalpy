@@ -267,7 +267,7 @@ def check_arguments(args) -> None:
     if args.randomization_mode[0] != "None":
         if not all(randomization in ["SVCC", "SVRC", "SVCD", "SVRD"] for randomization in args.randomization_mode):
             raise AssertionError(
-                "At least one invalid randomization mode. Available randomization modes are SVCC, " "SVRC, SVSC, SVRD"
+                "At least one invalid randomization mode. Available randomization modes are SVCC, SVRC, SVCD, SVRD."
             )
 
     if args.randomization_type not in ["permutation", "invariant"]:
