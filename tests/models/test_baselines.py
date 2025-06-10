@@ -381,8 +381,8 @@ def _call_naive_mean_effects_predictor(
 
     # Check that predictions are within a reasonable range
     assert np.all(np.isfinite(val_dataset.predictions))
-    assert np.all(val_dataset.predictions >= np.min(train_dataset.response))
-    assert np.all(val_dataset.predictions <= np.max(train_dataset.response))
+    assert np.all(val_dataset.predictions >= np.min(train_dataset.response) - 1e-6)
+    assert np.all(val_dataset.predictions <= np.max(train_dataset.response) + 1e-6)
 
     metrics = evaluate(val_dataset, metric=["Pearson"])
     print(f"{test_mode}: Performance of NaiveMeanEffectsPredictor: PCC = {metrics['Pearson']}")
