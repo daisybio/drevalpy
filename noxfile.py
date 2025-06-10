@@ -115,7 +115,7 @@ def precommit(session: Session) -> None:
         "flake8-rst-docstrings",
         "isort",
         "pep8-naming",
-        "pre-commit",
+        "pre-commit==4.2.0",
         "pre-commit-hooks",
         "pyupgrade",
     )
