@@ -8,9 +8,11 @@
 [![Precommit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-Documentation at [ReadTheDocs](https://drevalpy.readthedocs.io/en/latest/index.html#)!
+**News:** Our preprint is out on [biorxiv](https://www.biorxiv.org/content/10.1101/2025.05.26.655288v1)!
 
-Focus on Innovating Your Models — DrEval Handles the Rest!
+Documentation at [ReadTheDocs](https://drevalpy.readthedocs.io/en/latest/index.html#).
+
+**Focus on Innovating Your Models — DrEval Handles the Rest!**
 
 - DrEval is a toolkit that ensures drug response prediction evaluations are statistically sound, biologically meaningful, and reproducible.
 - Focus on model innovation while using our automated standardized evaluation protocols and preprocessing workflows.
