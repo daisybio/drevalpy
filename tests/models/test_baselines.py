@@ -378,6 +378,10 @@ def _call_naive_mean_effects_predictor(
     assert val_dataset.predictions is not None
     train_mean = train_dataset.response.mean()
     assert train_mean == naive.dataset_mean
+    print("max response:", train_dataset.response.max())
+    print("max prediction:", val_dataset.predictions.max())
+    print("mean:", naive.dataset_mean)
+    print("predictions[:5]:", val_dataset.predictions[:5])
 
     # Check that predictions are within a reasonable range
     assert np.all(np.isfinite(val_dataset.predictions))
