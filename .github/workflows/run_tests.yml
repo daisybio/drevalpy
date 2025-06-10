@@ -29,6 +29,8 @@ jobs:
     steps:
       - name: Check out the repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Needed to get the full git history for diffing
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
@@ -72,8 +74,24 @@ jobs:
           restore-keys: |
             ${{ steps.pre-commit-cache.outputs.result }}-
 
+      - name: Stash changes before pre-commit
+        if: matrix.session == 'pre-commit'
+        id: pre-stash
+        run: |
+          git stash push --keep-index --include-untracked --message "Pre-commit stash"
+          echo "stash_hash=$(git rev-parse refs/stash)" >> $GITHUB_OUTPUT
+
       - name: Run Nox
         run: nox --force-color --python=${{ matrix.python-version }}
+
+      - name: Show changes made by pre-commit hooks
+        if: matrix.session == 'pre-commit' && steps.pre-stash.outputs.stash_hash
+        run: |
+          git stash pop
+          git diff --color=always | tee git_diff.txt
+          echo "::group::Changes made by pre-commit hooks"
+          cat git_diff.txt
+          echo "::endgroup::"
 
       - name: Upload coverage data
         if: always() && matrix.session == 'tests' && matrix.os == 'ubuntu-latest'
