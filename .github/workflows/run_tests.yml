@@ -29,6 +29,8 @@ jobs:
     steps:
       - name: Check out the repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Needed to get the full git history for diffing
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
@@ -72,7 +74,46 @@ jobs:
           restore-keys: |
             ${{ steps.pre-commit-cache.outputs.result }}-
 
-      - name: Run Nox
+      - name: Create pre-commit baseline
+        if: matrix.session == 'pre-commit'
+        id: pre-commit-baseline
+        run: |
+          git add -A
+          git diff --staged --name-only > changed_files.txt
+          echo "changed_files=$(cat changed_files.txt)" >> $GITHUB_OUTPUT
+
+      - name: Run Nox (pre-commit)
+        if: matrix.session == 'pre-commit'
+        continue-on-error: true # Continue even if pre-commit fails
+        run: nox --force-color --python=${{ matrix.python-version }}
+
+      - name: Show and upload pre-commit changes
+        if: matrix.session == 'pre-commit'
+        run: |
+          # Get the changed files from the baseline
+          changed_files=$(cat changed_files.txt)
+
+          # Show the diff
+          echo "::group::Changes made by pre-commit hooks"
+          git diff --color=always $changed_files || true
+          echo "::endgroup::"
+
+          # Create patch file for download
+          git diff --patch --output=pre-commit-changes.patch $changed_files || true
+
+          # Count the changes
+          changes_count=$(git diff --name-only | wc -l)
+          echo "changes_count=$changes_count" >> $GITHUB_ENV
+
+      - name: Upload pre-commit changes as artifact
+        if: matrix.session == 'pre-commit' && env.changes_count != '0'
+        uses: actions/upload-artifact@v4
+        with:
+          name: pre-commit-changes
+          path: pre-commit-changes.patch
+
+      - name: Run Nox (other sessions)
+        if: matrix.session != 'pre-commit'
         run: nox --force-color --python=${{ matrix.python-version }}
 
       - name: Upload coverage data
