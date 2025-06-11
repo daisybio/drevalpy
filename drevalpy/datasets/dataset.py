@@ -1082,7 +1082,6 @@ class FeatureDataset:
 
             raise AssertionError("Train IDs should be unique.")
 
-        # Collect all features of the view for fitting the scaler
         train_features = np.vstack([self.features[identifier][view] for identifier in train_ids])
         transformer.fit(train_features)
 

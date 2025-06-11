@@ -1,5 +1,9 @@
-"""SingleDrugElasticNet and SingleDrugProteomicsElasticNet classes. Fit an Elastic net for each drug seperately."""
+"""SingleDrugElasticNet and SingleDrugProteomicsElasticNet classes. Fit an Elastic net for each drug separately."""
 
+import json
+import os
+
+import joblib
 import numpy as np
 from sklearn.linear_model import ElasticNet
 from sklearn.preprocessing import StandardScaler
@@ -271,3 +275,56 @@ class SingleDrugProteomicsElasticNet(SingleDrugElasticNet):
             drug_input=None,
         )
         return self.model.predict(x)
+
+    def save(self, directory: str) -> None:
+        """
+        Save the trained model and proteomics transformer.
+
+        Saves:
+        - model.pkl: the fitted ElasticNet model
+        - transformer.pkl: the fitted ProteomicsMedianCenterAndImputeTransformer
+
+        :param directory: Target directory for saving model files
+        :raises ValueError: If model or transformer is not initialized
+        """
+        os.makedirs(directory, exist_ok=True)
+
+        if self.model is None:
+            raise ValueError("Cannot save: model is not trained.")
+
+        joblib.dump(self.model, os.path.join(directory, "elasticnet_model.pkl"))
+        joblib.dump(self.proteomics_transformer, os.path.join(directory, "proteomics_transformer.pkl"))
+
+        with open(os.path.join(directory, "hyperparameters.json"), "w") as f:
+            json.dump(
+                {
+                    "feature_threshold": self.feature_threshold,
+                    "n_features": self.n_features,
+                    "normalization_width": self.normalization_width,
+                    "normalization_downshift": self.normalization_downshift,
+                },
+                f,
+            )
+
+    @classmethod
+    def load(cls, directory: str) -> "SingleDrugProteomicsElasticNet":
+        """
+        Load a trained SingleDrugProteomicsElasticNet model and transformer.
+
+        Loads:
+        - model.pkl: trained ElasticNet model
+        - transformer.pkl: fitted ProteomicsMedianCenterAndImputeTransformer
+
+        :param directory: Directory where the model files are stored
+        :return: Loaded instance of SingleDrugProteomicsElasticNet
+        """
+        instance = cls()
+
+        with open(os.path.join(directory, "hyperparameters.json")) as f:
+            hyperparameters = json.load(f)
+        instance.build_model(hyperparameters)
+
+        instance.model = joblib.load(os.path.join(directory, "elasticnet_model.pkl"))
+        instance.proteomics_transformer = joblib.load(os.path.join(directory, "proteomics_transformer.pkl"))
+
+        return instance

@@ -8,9 +8,11 @@
 [![Precommit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
+**News:** Our preprint is out on [biorxiv](https://www.biorxiv.org/content/10.1101/2025.05.26.655288v1)!
+
 Documentation at [ReadTheDocs](https://drevalpy.readthedocs.io/en/latest/index.html#).
 
-Focus on Innovating Your Models — DrEval Handles the Rest!
+**Focus on Innovating Your Models — DrEval Handles the Rest!**
 
 - DrEval is a toolkit that ensures drug response prediction evaluations are statistically sound, biologically meaningful, and reproducible.
 - Focus on model innovation while using our automated standardized evaluation protocols and preprocessing workflows.
@@ -117,4 +119,4 @@ We recommend the use of our nextflow pipeline for computational demanding runs a
 Main developers:
 
 - [Judith Bernett](mailto:judith.bernett@tum.de), [Data Science in Systems Biology](https://www.mls.ls.tum.de/daisybio/startseite/), TUM
-- [Pascal Iversen](mailto:Pascal.Iversen@hpi.de), [Data Integration in the Life Sciences](https://www.mi.fu-berlin.de/w/DILIS/WebHome), FU Berlin, Hasso Plattner Institute
+- [Pascal Iversen](mailto:Pascal.Iversen@hpi.de), [Data Integration in the Life Sciences](https://www.mi.fu-berlin.de/w/DILIS/WebHome), FU Berlin, Hasso-Plattner-Institut
