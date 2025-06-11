@@ -267,7 +267,7 @@ Gene expression features are standardized using a ``StandardScaler``, while fing
         def build_model(self, hyperparameters: dict[str, Any]) -> None:
             self.hyperparameters = hyperparameters
 
-1. In the train method we scale gene expression and train the model.
+5. In the train method we scale gene expression and train the model.
 
 .. code-block:: Python
 
@@ -315,58 +315,128 @@ Gene expression features are standardized using a ``StandardScaler``, while fing
     MULTI_DRUG_MODEL_FACTORY.update({"TinyNN": TinyNN})
 
 
-Example: Proteomics Random Forest
----------------------------------
+
+Second Example: ProteomicsRandomForest
+--------------------------------------
+
 Instead of gene expression data, we want to use proteomics data in our Random Forest.
-The Random Forest is already implemented in ``models/baselines/sklearn_models.py``.
-We just need to adapt some methods.
+The Random Forest model is already implemented in ``models/baselines/sklearn_models.py``.
+We now adapt it to work with proteomics features, and apply preprocessing steps including missing value imputation, feature selection, and normalization.
 
-1. We make a new class ProteomicsRandomForest which inherits from the RandomForest class.
-We overwrite ``cell_line_views`` to ``["proteomics"]`` and ``get_model_name`` to ``"ProteomicsRandomForest"``.
+1. We create a new class ``ProteomicsRandomForest`` which inherits from ``RandomForest``.
+We overwrite ``cell_line_views`` to ``["proteomics"]`` and define the model name.
 
-.. code-block:: Python
+.. code-block:: python
 
     class ProteomicsRandomForest(RandomForest):
         """RandomForest model for drug response prediction using proteomics data."""
 
         cell_line_views = ["proteomics"]
 
+        def __init__(self):
+            super().__init__()
+            self.feature_threshold = 0.7
+            self.n_features = 1000
+            self.normalization_width = 0.3
+            self.normalization_downshift = 1.8
+
         @classmethod
         def get_model_name(cls) -> str:
-            """
-            Returns the model name.
-
-            :returns: ProteomicsRandomForest
-            """
             return "ProteomicsRandomForest"
 
+2. We implement the ``build_model`` method to configure the preprocessing transformer from hyperparameters.
 
-2. Next, we need to implement the ``load_cell_line_features`` method to load the proteomics features.
-We already supply proteomics features in the Zenodo as proteomics.csv. Hence, we can already use our
-pre-implemented method ``load_cell_line_features``.
+.. code-block:: python
 
-.. code-block:: Python
+        def build_model(self, hyperparameters: dict) -> None:
+            super().build_model(hyperparameters)
+            self.feature_threshold = hyperparameters.get("feature_threshold", 0.7)
+            self.n_features = hyperparameters.get("n_features", 1000)
+            self.normalization_width = hyperparameters.get("normalization_width", 0.3)
+            self.normalization_downshift = hyperparameters.get("normalization_downshift", 1.8)
+            self.proteomics_transformer = ProteomicsMedianCenterAndImputeTransformer(
+                feature_threshold=self.feature_threshold,
+                n_features=self.n_features,
+                normalization_downshift=self.normalization_downshift,
+                normalization_width=self.normalization_width,
+            )
 
-    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
-        """
-        Loads the cell line features.
+3. We implement the ``load_cell_line_features`` method to load the proteomics features.
 
-        :param data_path: Path to the gene expression and landmark genes
-        :param dataset_name: Name of the dataset
-        :returns: FeatureDataset containing the cell line proteomics features, filtered through the landmark genes
-        """
-        return load_and_select_gene_features(
-            feature_type="proteomics",
-            gene_list=None,
-            data_path=data_path,
-            dataset_name=dataset_name,
-        )
+.. code-block:: python
 
+        def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+            return load_and_select_gene_features(
+                feature_type="proteomics",
+                gene_list=None,
+                data_path=data_path,
+                dataset_name=dataset_name,
+            )
 
-3. We use the same build_model method as the RandomForest class, so we don't need to implement it.
-However, we need to write the hyperparameters needed into the ``models/baselines/hyperparameters.yaml`` file:
+4. We implement the ``train`` method and preprocess the features before training.
 
-.. code-block:: YAML
+.. code-block:: python
+
+        def train(
+            self,
+            output: DrugResponseDataset,
+            cell_line_input: FeatureDataset,
+            drug_input: FeatureDataset | None = None,
+            output_earlystopping: DrugResponseDataset | None = None,
+            model_checkpoint_dir: str = "checkpoints",
+        ) -> None:
+            if drug_input is None:
+                raise ValueError("drug_input (fingerprints) is required.")
+            cell_line_input = prepare_proteomics(
+                cell_line_input=cell_line_input,
+                cell_line_ids=np.unique(output.cell_line_ids),
+                training=True,
+                transformer=self.proteomics_transformer,
+            )
+            x = self.get_concatenated_features(
+                cell_line_view=self.cell_line_views[0],
+                drug_view=self.drug_views[0],
+                cell_line_ids_output=output.cell_line_ids,
+                drug_ids_output=output.drug_ids,
+                cell_line_input=cell_line_input,
+                drug_input=drug_input,
+            )
+            self.model.fit(x, output.response)
+
+5. We implement the ``predict`` method and apply the same preprocessing.
+
+.. code-block:: python
+
+        def predict(
+            self,
+            cell_line_ids: np.ndarray,
+            drug_ids: np.ndarray,
+            cell_line_input: FeatureDataset,
+            drug_input: FeatureDataset | None = None,
+        ) -> np.ndarray:
+            if drug_input is None:
+                raise ValueError("drug_input (fingerprints) is required.")
+            cell_line_input = prepare_proteomics(
+                cell_line_input=cell_line_input,
+                cell_line_ids=np.unique(cell_line_ids),
+                training=False,
+                transformer=self.proteomics_transformer,
+            )
+            if self.model is None:
+                return np.full(len(cell_line_ids), np.nan)
+            x = self.get_concatenated_features(
+                cell_line_view=self.cell_line_views[0],
+                drug_view=self.drug_views[0],
+                cell_line_ids_output=cell_line_ids,
+                drug_ids_output=drug_ids,
+                cell_line_input=cell_line_input,
+                drug_input=drug_input,
+            )
+            return self.model.predict(x)
+
+6. We define the hyperparameters in ``models/baselines/hyperparameters.yaml``.
+
+.. code-block:: yaml
 
     ProteomicsRandomForest:
       n_estimators:
@@ -381,71 +451,28 @@ However, we need to write the hyperparameters needed into the ``models/baselines
         - -1
       criterion:
         - squared_error
+      feature_threshold:
+        - 0.7
+      n_features:
+        - 1000
+      normalization_width:
+        - 0.3
+      normalization_downshift:
+        - 1.8
 
-We also use the same train and predict method as the RandomForest class, so we don't need to implement them.
+7. We register the model in ``models/__init__.py``.
 
-4. Finally, we need to register the model in the ``__init__.py`` file in the ``models/baselines`` directory.
+.. code-block:: python
 
-.. code-block:: Python
+    from .baselines.sklearn_models import ProteomicsRandomForest
 
-    __all__ = [
-        "MULTI_DRUG_MODEL_FACTORY",
-        "SINGLE_DRUG_MODEL_FACTORY",
-        "MODEL_FACTORY",
-        "NaivePredictor",
-        #[...]
-        "DIPKModel",
-        "ProteomicsRandomForest"
-    ]
-    #[...]
-    from .baselines.sklearn_models import (
-        ElasticNetModel, GradientBoosting, RandomForest, SVMRegressor, ProteomicsRandomForest
-    )
-
-    # SINGLE_DRUG_MODEL_FACTORY is used in the pipeline!
-    SINGLE_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]] = {
-        #[...]
-    }
-
-    # MULTI_DRUG_MODEL_FACTORY is used in the pipeline!
-    MULTI_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]] = {
-        "NaivePredictor": NaivePredictor,
-        #[...]
-        "DIPK": DIPKModel,
+    MULTI_DRUG_MODEL_FACTORY.update({
         "ProteomicsRandomForest": ProteomicsRandomForest,
-    }
+    })
 
 
-5. Add your model to the tests, in this case in ``tests/individual_models/test_baselines.py``.
+Now you can run the model using the DrEvalPy pipeline.
+To run the model, navigate to the DrEvalPy root directory and execute the following command:
+.. code-block:: shell
 
-.. code-block:: Python
-
-    @pytest.mark.parametrize(
-        "model_name",
-        [
-            "NaivePredictor",
-            "NaiveDrugMeanPredictor",
-            "NaiveCellLineMeanPredictor",
-            "NaiveMeanEffectsPredictor",
-            "ElasticNet",
-            "RandomForest",
-            "SVR",
-            "MultiOmicsRandomForest",
-            "GradientBoosting",
-            "ProteomicsRandomForest",
-        ],
-    )
-    @pytest.mark.parametrize("test_mode", ["LPO", "LCO", "LDO"])
-    def test_baselines(
-        sample_dataset: DrugResponseDataset,
-        model_name: str,
-        test_mode: str,
-        cross_study_dataset: DrugResponseDataset,
-    ) -> None:
-    # [...]
-
-6. Now, we add the appropriate documentation.
-In our case, the class methods etc. under API are rendered automatically because it is a subclass of Sklearn Models.
-If you implement a new model, please orient yourself on the documentation of, e.g., DIPK.
-
-Add your model in ``usage.rst`` under the section "Available models".
+    python -m run_suite.py --model ProteomicsRandomForest --dataset CTRPv2 --data_path data
