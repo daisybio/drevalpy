@@ -42,6 +42,7 @@ from drevalpy.visualization.utils import (
             "multiprocessing": False,
             "path_data": "../data",
             "model_checkpoint_dir": "TEMPORARY",
+            "final_model_on_full_data": False,
         }
     ],
 )
@@ -54,9 +55,10 @@ def test_run_suite(args):
     temp_dir = tempfile.TemporaryDirectory()
     args["path_out"] = temp_dir.name
     args = Namespace(**args)
+    args.no_hyperparameter_tuning = True
     get_parser()
     check_arguments(args)
-    main(args, hyperparameter_tuning=False)
+    main(args)
     assert os.listdir(temp_dir.name) == ["test_run"]
     result_path = pathlib.Path(temp_dir.name).resolve()
     path_data = pathlib.Path(args.path_data).resolve()

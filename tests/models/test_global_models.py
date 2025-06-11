@@ -4,6 +4,7 @@ import os
 import tempfile
 from typing import cast
 
+import numpy as np
 import pytest
 
 from drevalpy.datasets.dataset import DrugResponseDataset
@@ -60,6 +61,7 @@ def test_global_models(
     if model_name == "DIPK":
         hpam_combi["epochs"] = 1
         hpam_combi["epochs_autoencoder"] = 1
+        hpam_combi["heads"] = 1
     elif model_name in ["SimpleNeuralNetwork", "MultiOmicsNeuralNetwork"]:
         hpam_combi["units_per_layer"] = [2, 2]
         hpam_combi["max_epochs"] = 1
@@ -97,6 +99,30 @@ def test_global_models(
         drug_input=drug_input,
         cell_line_input=cell_line_input,
     )
+    # Save and load test (should either succeed or raise NotImplementedError)
+    with tempfile.TemporaryDirectory() as model_dir:
+        try:
+            model.save(model_dir)
+            loaded_model = model_class.load(model_dir)
+            assert isinstance(loaded_model, DRPModel)
+
+            preds_before = model.predict(
+                drug_ids=prediction_dataset.drug_ids,
+                cell_line_ids=prediction_dataset.cell_line_ids,
+                drug_input=drug_input,
+                cell_line_input=cell_line_input,
+            )
+            preds_after = loaded_model.predict(
+                drug_ids=prediction_dataset.drug_ids,
+                cell_line_ids=prediction_dataset.cell_line_ids,
+                drug_input=drug_input,
+                cell_line_input=cell_line_input,
+            )
+
+            assert preds_before.shape == preds_after.shape
+            assert isinstance(preds_after, np.ndarray)
+        except NotImplementedError:
+            print(f"{model_name}: save/load not implemented")
 
     metrics = evaluate(prediction_dataset, metric=["Pearson"])
     print(f"Model: {model_name}, Pearson: {metrics['Pearson']}")

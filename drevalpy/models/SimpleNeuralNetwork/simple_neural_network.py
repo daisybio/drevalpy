@@ -1,9 +1,13 @@
 """Contains the SimpleNeuralNetwork model."""
 
+import json
+import os
 import platform
 import warnings
 
+import joblib
 import numpy as np
+import torch
 from sklearn.preprocessing import StandardScaler
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
@@ -23,7 +27,7 @@ class SimpleNeuralNetwork(DRPModel):
     def __init__(self):
         """Initializes the SimpleNeuralNetwork.
 
-        The model is build in train(). The gene_expression_scalar is set to the StandardScaler() and later fitted
+        The model is built in train(). The gene_expression_scalar is set to the StandardScaler() and later fitted
         using the training data only.
         """
         super().__init__()
@@ -47,6 +51,8 @@ class SimpleNeuralNetwork(DRPModel):
         :param hyperparameters: includes units_per_layer and dropout_prob.
         """
         self.hyperparameters = hyperparameters
+        self.hyperparameters.setdefault("input_dim_gex", None)
+        self.hyperparameters.setdefault("input_dim_fp", None)
 
     def train(
         self,
@@ -83,6 +89,8 @@ class SimpleNeuralNetwork(DRPModel):
 
         dim_gex = next(iter(cell_line_input.features.values()))["gene_expression"].shape[0]
         dim_fingerprint = next(iter(drug_input.features.values()))["fingerprints"].shape[0]
+        self.hyperparameters["input_dim_gex"] = dim_gex
+        self.hyperparameters["input_dim_fp"] = dim_fingerprint
 
         self.model = FeedForwardNetwork(
             hyperparameters=self.hyperparameters,
@@ -175,3 +183,62 @@ class SimpleNeuralNetwork(DRPModel):
         :returns: FeatureDataset containing the fingerprints
         """
         return load_drug_fingerprint_features(data_path, dataset_name, fill_na=True)
+
+    def save(self, directory: str) -> None:
+        """
+        Save the trained model, hyperparameters, and gene expression scaler to the given directory.
+
+        This enables full reconstruction of the model using `load`.
+
+        Files saved:
+        - model.pt: PyTorch state_dict of the trained model
+        - hyperparameters.json: Dictionary containing all relevant model hyperparameters
+        - scaler.pkl: Fitted StandardScaler for gene expression features
+
+        :param directory: Target directory to store all model artifacts
+        """
+        os.makedirs(directory, exist_ok=True)
+
+        torch.save(self.model.state_dict(), os.path.join(directory, "model.pt"))  # noqa: S614
+
+        with open(os.path.join(directory, "hyperparameters.json"), "w") as f:
+            json.dump(self.hyperparameters, f)
+
+        joblib.dump(self.gene_expression_scaler, os.path.join(directory, "scaler.pkl"))
+
+    @classmethod
+    def load(cls, directory: str) -> "SimpleNeuralNetwork":
+        """
+        Load a trained SimpleNeuralNetwork instance from disk.
+
+        This includes:
+        - model.pt: PyTorch state_dict of the trained model
+        - hyperparameters.json: Dictionary with model hyperparameters
+        - scaler.pkl: Fitted StandardScaler for gene expression features
+
+        :param directory: Directory containing the saved model files
+        :return: An instance of SimpleNeuralNetwork with restored state
+        :raises FileNotFoundError: if any required file is missing
+        """
+        hyperparam_file = os.path.join(directory, "hyperparameters.json")
+        scaler_file = os.path.join(directory, "scaler.pkl")
+        model_file = os.path.join(directory, "model.pt")
+
+        if not all(os.path.exists(f) for f in [hyperparam_file, scaler_file, model_file]):
+            raise FileNotFoundError("Missing model files. Required: model.pt, hyperparameters.json, scaler.pkl")
+
+        instance = cls()
+
+        with open(hyperparam_file) as f:
+            instance.hyperparameters = json.load(f)
+
+        instance.gene_expression_scaler = joblib.load(scaler_file)
+
+        dim_gex = instance.hyperparameters["input_dim_gex"]
+        dim_fp = instance.hyperparameters["input_dim_fp"]
+
+        instance.model = FeedForwardNetwork(instance.hyperparameters, input_dim=dim_gex + dim_fp)
+        instance.model.load_state_dict(torch.load(model_file))  # noqa: S614
+        instance.model.eval()
+
+        return instance

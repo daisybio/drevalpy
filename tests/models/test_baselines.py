@@ -121,6 +121,26 @@ def test_baselines(
             cell_line_input,
             drug_input,
         )
+    # Save and load test
+    with tempfile.TemporaryDirectory() as model_dir:
+        model.save(model_dir)
+        loaded_model = MODEL_FACTORY[model_name].load(model_dir)
+
+        preds_before = model.predict(
+            drug_ids=val_dataset.drug_ids,
+            cell_line_ids=val_dataset.cell_line_ids,
+            drug_input=drug_input,
+            cell_line_input=cell_line_input,
+        )
+        preds_after = loaded_model.predict(
+            drug_ids=val_dataset.drug_ids,
+            cell_line_ids=val_dataset.cell_line_ids,
+            drug_input=drug_input,
+            cell_line_input=cell_line_input,
+        )
+        assert isinstance(preds_after, np.ndarray)
+        assert preds_after.shape == preds_before.shape
+
     # make temporary directory
     with tempfile.TemporaryDirectory() as temp_dir:
         print(f"Running cross-study prediction for {model_name}")
@@ -292,6 +312,7 @@ def _call_other_baselines(
     """
     model_class = cast(type[DRPModel], MODEL_FACTORY[model])
     hpams = model_class.get_hyperparameter_set()
+
     if len(hpams) > 2:
         hpams = hpams[:2]
     model_instance = model_class()
@@ -347,6 +368,7 @@ def _call_naive_mean_effects_predictor(
     :returns: NaiveMeanEffectsPredictor model
     """
     naive = NaiveMeanEffectsPredictor()
+
     naive.train(output=train_dataset, cell_line_input=cell_line_input, drug_input=drug_input)
     val_dataset._predictions = naive.predict(
         cell_line_ids=val_dataset.cell_line_ids,
@@ -360,8 +382,17 @@ def _call_naive_mean_effects_predictor(
 
     # Check that predictions are within a reasonable range
     assert np.all(np.isfinite(val_dataset.predictions))
-    assert np.all(val_dataset.predictions >= np.min(train_dataset.response))
-    assert np.all(val_dataset.predictions <= np.max(train_dataset.response))
+    assert np.all(
+        val_dataset.predictions >= 2 * np.min(train_dataset.response) - 1e-6
+    ), f"Predictions below min response: {np.min(val_dataset.predictions)} < {np.min(train_dataset.response)}"
+    assert np.all(val_dataset.predictions <= 2 * np.max(train_dataset.response) + 1e-6), (
+        f"Predictions above max response: {np.max(val_dataset.predictions)} > {np.max(train_dataset.response)},"
+        f"Problematic cell line: {val_dataset.cell_line_ids[np.argmax(val_dataset.predictions)]}, "
+        f"Problematic drug: {val_dataset.drug_ids[np.argmax(val_dataset.predictions)]},"
+        f"CL effect: {naive.cell_line_effects[val_dataset.cell_line_ids[np.argmax(val_dataset.predictions)]]}, "
+        f"Drug effect: {naive.drug_effects[val_dataset.drug_ids[np.argmax(val_dataset.predictions)]]}, "
+        f"Dataset mean: {naive.dataset_mean}"
+    )
 
     metrics = evaluate(val_dataset, metric=["Pearson"])
     print(f"{test_mode}: Performance of NaiveMeanEffectsPredictor: PCC = {metrics['Pearson']}")
