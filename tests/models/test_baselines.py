@@ -368,13 +368,26 @@ def _call_naive_mean_effects_predictor(
     :returns: NaiveMeanEffectsPredictor model
     """
     naive = NaiveMeanEffectsPredictor()
+    print("train_dataset.response min:", np.min(train_dataset.response))
+    print("train_dataset.response max:", np.max(train_dataset.response))
+    print("train_dataset.response mean:", np.mean(train_dataset.response))
+    print("train_dataset.shape:", train_dataset.response.shape)
+
     naive.train(output=train_dataset, cell_line_input=cell_line_input, drug_input=drug_input)
     val_dataset._predictions = naive.predict(
         cell_line_ids=val_dataset.cell_line_ids,
         drug_ids=val_dataset.drug_ids,
         cell_line_input=cell_line_input,
     )
-
+    print("train_dataset.response min:", np.min(train_dataset.response))
+    print("train_dataset.response max:", np.max(train_dataset.response))
+    print("train_dataset.response mean:", np.mean(train_dataset.response))
+    print("train_dataset.shape:", train_dataset.response.shape)
+    print()
+    print(naive.cell_line_effects)
+    print(naive.drug_effects)
+    print(naive.dataset_mean)
+    print()
     assert val_dataset.predictions is not None
     train_mean = train_dataset.response.mean()
     assert train_mean == naive.dataset_mean
