@@ -5,7 +5,7 @@ DrEvalPy provides a standardized interface for running your own model.
 First make a new folder for your model at ``drevalpy/models/your_model_name``.
 Create ``drevalpy/models/your_model_name/your_model.py`` in which you need to define the Python class for your model.
 This class should inherit from the :ref:`DRPModel <DRP-label>` base class.
-DrEvalPy is agnostic to the specific modeling strategy you use. However, you need to define the input views, which represent different types of features that your model requires.
+DrEvalPy is agnostic to the specific modeling strategy you use. However, you need to define the input views(a.k.a modalities), which represent different types of features that your model requires.
 In this example, the model uses "gene_expression" and "methylation" features as cell line views, and "fingerprints" as drug views.
 Additionally, you must define a unique model name to identify your model during evaluation.
 
@@ -19,7 +19,7 @@ Additionally, you must define a unique model name to identify your model during 
     class YourModel(DRPModel):
         """A revolutionary new modeling strategy."""
 
-        is_single_drug_model = True / False # TODO: set to true if your model is a single drug model
+        is_single_drug_model = True / False # TODO: set to true if your model is a single drug model (i.e. it needs to be trained for each drug separately)
         early_stopping = True / False # TODO: set to true if you want to use a part of the validation set for early stopping
         cell_line_views = ["gene_expression", "methylation"]
         drug_views = ["fingerprints"]
@@ -91,6 +91,7 @@ Sometimes, the model design is dependent on your training data input. In this ca
         self.hyperparameters = hyperparameters
 
 and then set the model design later in the train method when you have access to the training data.
+(i.e. when you can access the feature dimensionalities)
 The train method should handle model training, and saving any necessary information (e.g., learned parameters).
 Here we use a simple predictor that just uses the concatenated features to predict the response.
 
@@ -155,8 +156,16 @@ Update the ``MULTI_DRUG_MODEL_FACTORY`` if your model is a global model for mult
     from .your_model_name.your_model import YourModel
     MULTI_DRUG_MODEL_FACTORY.update("YourModel": YourModel)
 
+Now you can run your model using the DrEvalPy pipeline. cd to the drevalpy root directory and run the following command:
 
-Next, please also write appropriate tests in ``tests/individual_models`` and documentation in ``docs/``.
+.. code-block:: shell
+    python -m run_suite.py --model YourModel --dataset CTRPv2 --data_path data
+
+
+To contribute the model, so that the community can build on it, please also write appropriate tests in ``tests/individual_models`` and documentation in ``docs/``
+We are happy to help you with that, contact us via GitHub!
+
+Let's look at an example of how to implement a model using the DrEvalPy framework:
 
 Example: Proteomics Random Forest
 ---------------------------------
