@@ -18,7 +18,7 @@ Follow the installation guide for your operating system, then create a new envir
 
 .. code-block:: bash
 
-   mamba create -y -n drevalpy python==3.13
+   mamba create -y -n drevalpy python=3.13
 
 DrEvalPy is listed on the Python Package Index (PyPI) and can be installed with pip.
 Activate your conda environment (or skip this if you use a system wide python installation)
@@ -26,7 +26,7 @@ and install the package using
 
 .. code-block:: bash
 
-   conda activate drevalpy
+   mamba activate drevalpy
    pip install drevalpy
 
 With venv
@@ -75,6 +75,7 @@ To install DrEvalPy from source, clone the repository and install the package us
     cd drevalpy
     mamba create -y -n drevalpy python==3.12 poetry==2.0.1
     poetry --version
+    pip install poetry-plugin-export
     poetry install
 
 Now, you can test the functionality by referring to the `Quickstart <./quickstart.html>`_ documentation.

@@ -18,3 +18,8 @@ Some people have pointed out the phonetic similarity between DrEval and DrEvil.
    :width: 400 px
    :align: center
 
+CI magic
+-------------------
+.. image:: _static/memes/ci_prettier.png
+   :width: 400 px
+   :align: center

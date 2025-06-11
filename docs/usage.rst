@@ -49,6 +49,8 @@ Example:
 
     python run_suite.py --run_id my_first_run --models NaiveDrugMeanPredictor ElasticNet --dataset TOYv1 --test_mode LCO
 
+*Note*: You need at least 7 CV splits to get a meaningful critical difference diagram and the corresponding p-values.
+
 Visualize results with ``create_report.py``
 -------------------------------------------
 
@@ -284,8 +286,6 @@ Robustness Test
 
 The robustness test is a test where the model is trained with varying seeds. This is done multiple times to see how
 stable the model is. Via ``--n_trials_robustness``, you can specify the number of trials for the robustness tests.
-
-*Note*: You need at least 7 trials to get a meaningful critical difference diagram and the corresponding p-values.
 
 Available Metrics
 -----------------
