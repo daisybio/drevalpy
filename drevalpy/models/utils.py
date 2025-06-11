@@ -124,7 +124,9 @@ def load_drug_ids_from_csv(data_path: str, dataset_name: str) -> FeatureDataset:
     :param dataset_name: name of the dataset, e.g., GDSC2
     :returns: FeatureDataset with the drug ids
     """
-    drug_names = pd.read_csv(f"{data_path}/{dataset_name}/drug_names.csv", index_col=0)
+    drug_names = pd.read_csv(
+        f"{data_path}/{dataset_name}/drug_names.csv", index_col=0, dtype={"pubchem_id": str}, low_memory=False
+    )
     drug_names.index = drug_names.index.astype(str)
     return FeatureDataset(features={drug: {DRUG_IDENTIFIER: np.array([drug])} for drug in drug_names.index})
 

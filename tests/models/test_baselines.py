@@ -368,21 +368,42 @@ def _call_naive_mean_effects_predictor(
     :returns: NaiveMeanEffectsPredictor model
     """
     naive = NaiveMeanEffectsPredictor()
+    print("train_dataset.response min:", np.min(train_dataset.response))
+    print("train_dataset.response max:", np.max(train_dataset.response))
+    print("train_dataset.response mean:", np.mean(train_dataset.response))
+    print("train_dataset.shape:", train_dataset.response.shape)
+
     naive.train(output=train_dataset, cell_line_input=cell_line_input, drug_input=drug_input)
     val_dataset._predictions = naive.predict(
         cell_line_ids=val_dataset.cell_line_ids,
         drug_ids=val_dataset.drug_ids,
         cell_line_input=cell_line_input,
     )
-
+    print("train_dataset.response min:", np.min(train_dataset.response))
+    print("train_dataset.response max:", np.max(train_dataset.response))
+    print("train_dataset.response mean:", np.mean(train_dataset.response))
+    print("train_dataset.shape:", train_dataset.response.shape)
+    print()
+    print(naive.cell_line_effects)
+    print(naive.drug_effects)
+    print(naive.dataset_mean)
+    print()
     assert val_dataset.predictions is not None
     train_mean = train_dataset.response.mean()
     assert train_mean == naive.dataset_mean
+    print("max response:", train_dataset.response.max())
+    print("max prediction:", val_dataset.predictions.max())
+    print("mean:", naive.dataset_mean)
+    print("predictions[:5]:", val_dataset.predictions[:5])
 
     # Check that predictions are within a reasonable range
     assert np.all(np.isfinite(val_dataset.predictions))
-    assert np.all(val_dataset.predictions >= np.min(train_dataset.response) - 1e-6)
-    assert np.all(val_dataset.predictions <= np.max(train_dataset.response) + 1e-6)
+    assert np.all(
+        val_dataset.predictions >= np.min(train_dataset.response) - 1e-6
+    ), f"Predictions below min response: {np.min(val_dataset.predictions)} < {np.min(train_dataset.response)}"
+    assert np.all(
+        val_dataset.predictions <= np.max(train_dataset.response) + 1e-6
+    ), f"Predictions above max response: {np.max(val_dataset.predictions)} > {np.max(train_dataset.response)}"
 
     metrics = evaluate(val_dataset, metric=["Pearson"])
     print(f"{test_mode}: Performance of NaiveMeanEffectsPredictor: PCC = {metrics['Pearson']}")
