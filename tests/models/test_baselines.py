@@ -401,9 +401,14 @@ def _call_naive_mean_effects_predictor(
     assert np.all(
         val_dataset.predictions >= np.min(train_dataset.response) - 1e-6
     ), f"Predictions below min response: {np.min(val_dataset.predictions)} < {np.min(train_dataset.response)}"
-    assert np.all(
-        val_dataset.predictions <= np.max(train_dataset.response) + 1e-6
-    ), f"Predictions above max response: {np.max(val_dataset.predictions)} > {np.max(train_dataset.response)}"
+    assert np.all(val_dataset.predictions <= np.max(train_dataset.response) + 1e-6), (
+        f"Predictions above max response: {np.max(val_dataset.predictions)} > {np.max(train_dataset.response)},"
+        f"Problematic cell line: {val_dataset.cell_line_ids[np.argmax(val_dataset.predictions)]}, "
+        f"Problematic drug: {val_dataset.drug_ids[np.argmax(val_dataset.predictions)]},"
+        f"CL effect: {naive.cell_line_effects[val_dataset.cell_line_ids[np.argmax(val_dataset.predictions)]]}, "
+        f"Drug effect: {naive.drug_effects[val_dataset.drug_ids[np.argmax(val_dataset.predictions)]]}, "
+        f"Dataset mean: {naive.dataset_mean}"
+    )
 
     metrics = evaluate(val_dataset, metric=["Pearson"])
     print(f"{test_mode}: Performance of NaiveMeanEffectsPredictor: PCC = {metrics['Pearson']}")
