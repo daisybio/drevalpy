@@ -173,6 +173,7 @@ Example: TinyNN (Neural Network with PyTorch)
 ---------------------------------------------
 
 In this example, we implement a simple feedforward neural network for drug response prediction using gene expression and drug fingerprint features.
+We use and reccomend PyTorch, but you can use any other framework like TensorFlow, JAX, etc.
 Gene expression features are standardized using a ``StandardScaler``, while fingerprint features are used as-is.
 
 1. We define a minimal PyTorch model with CPU/GPU support.
