@@ -12,12 +12,14 @@ Additionally, you must define a unique model name to identify your model during 
 .. code-block:: Python
 
     from drevalpy.models.drp_model import DRPModel
-    from drevalpy.datasets.dataset import FeatureDataset
+    from drevalpy.datasets.dataset import FeatureDataset, DrugResponseDataset
     from models.utils import (
         load_and_select_gene_features,
         load_drug_fingerprint_features,
         scale_gene_expression,
     )
+    from typing import Any
+    import numpy as np
 
     class YourModel(DRPModel):
         """A revolutionary new modeling strategy."""
@@ -27,6 +29,7 @@ Additionally, you must define a unique model name to identify your model during 
         cell_line_views = ["gene_expression", "methylation"]
         drug_views = ["fingerprints"]
 
+        @classmethod
         def get_model_name(cls) -> str:
             """
             Returns the name of the model.
@@ -65,7 +68,7 @@ If the features are different depending on the dataset, use the ``dataset_name``
                                                  ) # make sure to adjust the path to your data
         methylation = FeatureDataset.from_csv(f"{data_path}/{dataset_name}_methylation.csv",
                                                 id_column="cell_line_ids",
-                                                view_name="gene_expression"
+                                                view_name="methylation"
                                              ) # make sure to adjust the path to your data
         feature_dataset.add_features(methylation)
 
@@ -84,7 +87,7 @@ The hyperparameters which get tested are defined in the ``drevalpy/models/your_m
         Example:
             self.model = ElasticNet(alpha=hyperparameters["alpha"], l1_ratio=hyperparameters["l1_ratio"])
         """
-        predictor = YourPredictor(hyperparameters) # Initialize your Predictor, this could be a sklearn model, a neural network, etc.
+        self.predictor = YourPredictor(hyperparameters) # Initialize your Predictor, this could be a sklearn model, a neural network, etc.
 
 Sometimes, the model design is dependent on your training data input. In this case, you can also consider implementing build_model like:
 
@@ -103,8 +106,8 @@ Here we use a simple predictor that just uses the concatenated features to predi
     def train(self, output: DrugResponseDataset, cell_line_input: FeatureDataset, drug_input: FeatureDataset | None = None, output_earlystopping: DrugResponseDataset | None = None) -> None:
 
         inputs = self.get_feature_matrices(
-            cell_line_ids=cell_line_ids,
-            drug_ids=drug_ids,
+            cell_line_ids=output.cell_line_ids,
+            drug_ids=output.drug_ids,
             cell_line_input=cell_line_input,
             drug_input=drug_input,
         )
@@ -140,7 +143,23 @@ The predict method should handle model prediction, and return the predicted resp
 
 .. code-block:: Python
 
-    def predict(self, cell_line_input: FeatureDataset, drug_input: FeatureDataset | None = None) -> np.ndarray:
+    def predict(
+        self,
+        cell_line_ids: np.ndarray,
+        drug_ids: np.ndarray,
+        cell_line_input: FeatureDataset,
+        drug_input: FeatureDataset | None = None,
+    ) -> np.ndarray:
+        """
+        Predicts the response for the given input.
+
+        :param drug_ids: list of drug ids, also used for single drug models, there it is just an array containing the
+            same drug id
+        :param cell_line_ids: list of cell line ids
+        :param cell_line_input: input associated with the cell line, required for all models
+        :param drug_input: input associated with the drug, optional because single drug models do not use drug features
+        :returns: predicted response
+        """
 
         inputs = self.get_feature_matrices(
             cell_line_ids=cell_line_ids,
@@ -150,6 +169,7 @@ The predict method should handle model prediction, and return the predicted resp
         )
 
         return self.predictor.predict(**inputs, output.response)
+
 
 Finally, you need to register your model with the framework. This can be done by adding the following line to the ``__init__.py`` file in the ``drevalpy/models/__init__.py`` directory.
 Update the ``MULTI_DRUG_MODEL_FACTORY`` if your model is a global model for multiple cancer drugs or to the ``SINGLE_DRUG_MODEL_FACTORY`` if your model is specific to a single drug and needs to be trained for each drug separately.
