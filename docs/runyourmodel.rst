@@ -101,7 +101,7 @@ Sometimes, the model design is dependent on your training data input. In this ca
         self.hyperparameters = hyperparameters
 
 and then set the model design later in the train method when you have access to the training data.
-(i.e. when you can access the feature dimensionalities)
+(e.g. when you can access the feature dimensionalities)
 The train method should handle model training, and saving any necessary information (e.g., learned parameters).
 Here we use a simple predictor that just uses the concatenated features to predict the response.
 
@@ -116,9 +116,7 @@ Here we use a simple predictor that just uses the concatenated features to predi
             drug_input=drug_input,
         )
 
-        predictor.fit(**inputs, output.response)
-
-        self.predictor = predictor # save your predictor for the prediction step
+        self.predictor.fit(**inputs, output.response)
 
 In case you want to set some parameters dependent on the training data, your train function might look like this:
 
