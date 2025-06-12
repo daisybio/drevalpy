@@ -13,8 +13,11 @@ Additionally, you must define a unique model name to identify your model during 
 
     from drevalpy.models.drp_model import DRPModel
     from drevalpy.datasets.dataset import FeatureDataset
-
-    import pandas as pd
+    from models.utils import (
+        load_and_select_gene_features,
+        load_drug_fingerprint_features,
+        scale_gene_expression,
+    )
 
     class YourModel(DRPModel):
         """A revolutionary new modeling strategy."""
@@ -261,7 +264,7 @@ Gene expression features are standardized using a ``StandardScaler``, while fing
                 view_name="fingerprints"
             )
 
-4. We store hyperparameters in ``build_model``.
+1. In the ``build_model`` we just store the hyperparameters.
 
 .. code-block:: Python
 
@@ -299,7 +302,7 @@ Gene expression features are standardized using a ``StandardScaler``, while fing
 
             return self.model.predict(x)
 
-7. Add hyperparameters to your ``hyperparameters.yaml``.
+7. Add hyperparameters to your ``hyperparameters.yaml``. We add two values for the hidden layer size. DrEval will tune over this hyperparameter space.
 
 .. code-block:: YAML
 
@@ -328,6 +331,15 @@ We now adapt it to work with proteomics features, and apply preprocessing steps 
 We overwrite ``cell_line_views`` to ``["proteomics"]`` and define the model name.
 
 .. code-block:: python
+    from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+    from drevalpy.models import RandomForest
+    from models.utils import (
+        ProteomicsMedianCenterAndImputeTransformer,
+        load_and_select_gene_features,
+        load_drug_fingerprint_features,
+        prepare_proteomics,
+        scale_gene_expression,
+    )
 
     class ProteomicsRandomForest(RandomForest):
         """RandomForest model for drug response prediction using proteomics data."""
@@ -345,7 +357,7 @@ We overwrite ``cell_line_views`` to ``["proteomics"]`` and define the model name
         def get_model_name(cls) -> str:
             return "ProteomicsRandomForest"
 
-2. We implement the ``build_model`` method to configure the preprocessing transformer from hyperparameters.
+1. We implement the ``build_model`` method to configure the preprocessing transformer from hyperparameters.
 
 .. code-block:: python
 
