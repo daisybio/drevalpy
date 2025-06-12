@@ -2,6 +2,10 @@ Run your own model
 ===================
 
 DrEvalPy provides a standardized interface for running your own model.
+
+There are a few steps to follow so we can make sure the model evaluation is consistent and reproducible.
+Feel free to contact us via GitHub if you experience any difficulties :-)
+
 First make a new folder for your model at ``drevalpy/models/your_model_name``.
 Create ``drevalpy/models/your_model_name/your_model.py`` in which you need to define the Python class for your model.
 This class should inherit from the :ref:`DRPModel <DRP-label>` base class.
@@ -185,10 +189,10 @@ Now you can run your model using the DrEvalPy pipeline. cd to the drevalpy root 
     python -m run_suite.py --model YourModel --dataset CTRPv2 --data_path data
 
 
-To contribute the model, so that the community can build on it, please also write appropriate tests in ``tests/individual_models`` and documentation in ``docs/``
+To contribute the model, so that the community can build on it, please also write appropriate tests in ``tests/models`` and documentation in ``docs/``
 We are happy to help you with that, contact us via GitHub!
 
-Let's look at an example of how to implement a model using the DrEvalPy framework:
+Let's look at an example an example implementation of a model using the DrEvalPy framework:
 
 
 
@@ -196,7 +200,7 @@ Example: TinyNN (Neural Network with PyTorch)
 ---------------------------------------------
 
 In this example, we implement a simple feedforward neural network for drug response prediction using gene expression and drug fingerprint features.
-We use and reccomend PyTorch, but you can use any other framework like TensorFlow, JAX, etc.
+We use and recommend PyTorch, but you can use any other framework like TensorFlow, JAX, etc.
 Gene expression features are standardized using a ``StandardScaler``, while fingerprint features are used as-is.
 
 1. We define a minimal PyTorch model with CPU/GPU support.
