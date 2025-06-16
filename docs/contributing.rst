@@ -32,10 +32,11 @@ How to set up your development environment
 ------------------------------------------
 
 1. Fork the repository on GitHub.
-2. Make a new conda environment with Python 3.11 or 3.12.
+2. Make a new conda environment with Python 3.11, 3.12, or 3.13.
 3. ``pip install poetry`` : we use poetry to manage dependencies
-4. ``poetry install`` : this will install all dependencies
-5. Test whether the installation was successful by running the following command:
+4. ``pip install poetry-plugin-export``
+5. ``poetry install`` : this will install all dependencies
+6. Test whether the installation was successful by running the following command:
 
    .. code:: console
 

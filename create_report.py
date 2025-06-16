@@ -74,13 +74,14 @@ if __name__ == "__main__":
             result_path=result_path,
         )
         # draw figures for each algorithm with all randomizations etc
-        unique_algos = set(unique_algos) - {
+        unique_algos_set = set(unique_algos) - {
             "NaiveMeanEffectsPredictor",
             "NaivePredictor",
             "NaiveCellLineMeansPredictor",
+            "NaiveTissueMeansPredictor",
             "NaiveDrugMeanPredictor",
         }
-        for algorithm in unique_algos:
+        for algorithm in unique_algos_set:
             draw_algorithm_plots(
                 model=algorithm,
                 ev_res=evaluation_results,

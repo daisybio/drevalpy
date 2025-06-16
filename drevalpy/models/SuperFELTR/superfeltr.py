@@ -22,8 +22,8 @@ import pytorch_lightning as pl
 
 from ...datasets.dataset import DrugResponseDataset, FeatureDataset
 from ..drp_model import DRPModel
-from ..MOLIR.utils import filter_and_sort_omics, get_dimensions_of_omics_data, make_ranges, select_features_for_view
-from ..utils import get_multiomics_feature_dataset
+from ..MOLIR.utils import filter_and_sort_omics, get_dimensions_of_omics_data, make_ranges
+from ..utils import VarianceFeatureSelector, get_multiomics_feature_dataset
 from .utils import SuperFELTEncoder, SuperFELTRegressor, train_superfeltr_model
 
 
@@ -50,7 +50,6 @@ class SuperFELTR(DRPModel):
         self.mut_encoder: SuperFELTEncoder | None = None
         self.cnv_encoder: SuperFELTEncoder | None = None
         self.regressor: SuperFELTRegressor | None = None
-        # hyperparameters are initialized to None because they are initialized in build_model
         self.hyperparameters: dict[str, Any] = dict()
         # ranges are initialized later because they are initialized using the standard variation of the train
         # response data which is only available when entering the training
@@ -60,6 +59,7 @@ class SuperFELTR(DRPModel):
         self.gene_expression_features = None
         self.mutations_features = None
         self.copy_number_variation_features = None
+        self.selectors: dict[str, VarianceFeatureSelector] = {}
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -79,6 +79,10 @@ class SuperFELTR(DRPModel):
             variance thresholds for gene expression, mutation, and copy number variation, margin, and learning rate.
         """
         self.hyperparameters = hyperparameters
+
+        n_features = hyperparameters.get("n_features_per_view", 1000)
+        for view in self.cell_line_views:
+            self.selectors[view] = VarianceFeatureSelector(view=view, k=n_features)
 
     def train(
         self,
@@ -105,7 +109,7 @@ class SuperFELTR(DRPModel):
             raise ValueError("SuperFELTR is a single drug model and does not require drug input.")
 
         if len(output) > 0:
-            cell_line_input = self._feature_selection(output, cell_line_input)
+            cell_line_input = self._fit_feature_selection(output=output, cell_line_input=cell_line_input)
             if output_earlystopping is not None and self.early_stopping and len(output_earlystopping) < 2:
                 output_earlystopping = None
             dim_gex, dim_mut, dim_cnv = get_dimensions_of_omics_data(cell_line_input)
@@ -213,17 +217,20 @@ class SuperFELTR(DRPModel):
         if drug_input is not None:
             raise ValueError("SuperFELTR is a single drug model and does not require drug input.")
 
+        for view in self.cell_line_views:
+            selector = self.selectors[view]
+            cell_line_input = selector.transform(cell_line_input)
+
         input_data = self.get_feature_matrices(
             cell_line_ids=cell_line_ids,
             drug_ids=drug_ids,
             cell_line_input=cell_line_input,
             drug_input=drug_input,
         )
-        gene_expression, mutations, cnvs = (
-            input_data["gene_expression"],
-            input_data["mutations"],
-            input_data["copy_number_variation_gistic"],
-        )
+
+        gene_expression = input_data["gene_expression"]
+        mutations = input_data["mutations"]
+        cnvs = input_data["copy_number_variation_gistic"]
 
         (gene_expression, mutations, cnvs) = filter_and_sort_omics(
             model=self, gene_expression=gene_expression, mutations=mutations, cnvs=cnvs, cell_line_input=cell_line_input
@@ -234,28 +241,6 @@ class SuperFELTR(DRPModel):
             return self.regressor.predict(gene_expression, mutations, cnvs)
 
         return self.regressor.predict(gene_expression, mutations, cnvs)
-
-    def _feature_selection(self, output: DrugResponseDataset, cell_line_input: FeatureDataset) -> FeatureDataset:
-        """
-        Feature selection for all omics data.
-
-        Originally, this was done with VarianceThreshold but as data can vary and hence the thresholds are not
-        universally applicable, we now changed it to select the top 1000 variable features for each omics data.
-
-        :param output: training data associated with the response output
-        :param cell_line_input: cell line omics features
-        :returns: cell line omics features with selected features
-        """
-        for view in self.cell_line_views:
-            cell_line_input = select_features_for_view(
-                view=view,
-                cell_line_input=cell_line_input,
-                output=output,
-            )
-        self.gene_expression_features = cell_line_input.meta_info["gene_expression"]
-        self.mutations_features = cell_line_input.meta_info["mutations"]
-        self.copy_number_variation_features = cell_line_input.meta_info["copy_number_variation_gistic"]
-        return cell_line_input
 
     def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         """
@@ -281,3 +266,14 @@ class SuperFELTR(DRPModel):
         :returns: None
         """
         return None
+
+    def _fit_feature_selection(self, output: DrugResponseDataset, cell_line_input: FeatureDataset) -> FeatureDataset:
+        for view in self.cell_line_views:
+            selector = self.selectors[view]
+            selector.fit(cell_line_input, output)
+            cell_line_input = selector.transform(cell_line_input)
+
+        self.gene_expression_features = cell_line_input.meta_info["gene_expression"]
+        self.mutations_features = cell_line_input.meta_info["mutations"]
+        self.copy_number_variation_features = cell_line_input.meta_info["copy_number_variation_gistic"]
+        return cell_line_input

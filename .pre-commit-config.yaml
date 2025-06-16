@@ -35,7 +35,7 @@ repos:
         types: [python]
         require_serial: true
         args:
-          - --ignore=D212,W503,C901
+          - --ignore=D212,W503,C901,N803,N806
       - id: pyupgrade
         name: pyupgrade
         description: Automatically upgrade syntax for newer versions.
@@ -43,18 +43,12 @@ repos:
         language: system
         types: [python]
         args: [--py39-plus, --keep-runtime-typing]
-      - id: trailing-whitespace
-        name: Trim Trailing Whitespace
-        entry: trailing-whitespace-fixer
-        language: system
-        types: [text]
-        stages: [pre-commit, pre-push, manual]
   - repo: https://github.com/pre-commit/mirrors-prettier
     rev: v2.5.1
     hooks:
       - id: prettier
   - repo: https://github.com/pycqa/isort
-    rev: 5.12.0
+    rev: 6.0.1
     hooks:
       - id: isort
         name: isort (python)
@@ -64,3 +58,7 @@ repos:
       - id: isort
         name: isort (pyi)
         types: [pyi]
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace

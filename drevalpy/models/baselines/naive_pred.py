@@ -9,6 +9,9 @@ plus the drug effect and should be the strongest naive baseline.
 
 """
 
+import json
+import os
+
 import numpy as np
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
@@ -17,7 +20,66 @@ from drevalpy.models.drp_model import DRPModel
 from drevalpy.models.utils import load_cl_ids_from_csv, load_drug_ids_from_csv, load_tissues_from_csv, unique
 
 
-class NaivePredictor(DRPModel):
+class NaiveModel(DRPModel):
+    """
+    Base class for all naive predictor models which are based on simple dataset stats.
+
+    This class provides a shared interface and save/load mechanism for simple statistical models that
+    predict drug response based on dataset means, stratified by drug, cell line, or tissue.
+    """
+
+    def __init__(self):
+        """Initializes the NaiveModel base class."""
+        super().__init__()
+        self.dataset_mean = None
+
+    def build_model(self, hyperparameters: dict):
+        """
+        Builds the model.
+
+        Naive model do not require any hyperparameter tuning.
+
+        :param hyperparameters: Dictionary of hyperparameters (not used).
+        """
+        pass
+
+    def save(self, directory: str) -> None:
+        """
+        Saves the model parameters to the given directory.
+
+        Serializes dataset_mean and any available subclass-specific attributes to a JSON file
+        named 'naive_model.json'. Creates the directory if it doesn't exist.
+
+        :param directory: Path to the directory where the model will be saved.
+        """
+        os.makedirs(directory, exist_ok=True)
+        config = {"dataset_mean": self.dataset_mean}
+        for attr in ["drug_means", "cell_line_means", "tissue_means", "cell_line_effects", "drug_effects"]:
+            if hasattr(self, attr):
+                config[attr] = getattr(self, attr)
+        with open(os.path.join(directory, "naive_model.json"), "w") as f:
+            json.dump(config, f)
+
+    @classmethod
+    def load(cls, directory: str) -> "NaiveModel":
+        """
+        Loads the model parameters from the given directory.
+
+        Reads the 'naive_model.json' file and initializes a NaiveModel instance with the loaded parameters.
+        :param directory: Path to the directory where the model is saved.
+        :return: An instance of NaiveModel with the loaded parameters.
+        """
+        with open(os.path.join(directory, "naive_model.json")) as f:
+            config = json.load(f)
+        instance = cls()
+        instance.dataset_mean = config["dataset_mean"]
+        for attr in ["drug_means", "cell_line_means", "tissue_means", "cell_line_effects", "drug_effects"]:
+            if attr in config:
+                setattr(instance, attr, config[attr])
+        return instance
+
+
+class NaivePredictor(NaiveModel):
     """Naive predictor model that predicts the overall mean of the response."""
 
     cell_line_views = [CELL_LINE_IDENTIFIER]
@@ -30,7 +92,6 @@ class NaivePredictor(DRPModel):
         Sets the dataset mean to None, which is initialized in the train method.
         """
         super().__init__()
-        self.dataset_mean = None
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -40,14 +101,6 @@ class NaivePredictor(DRPModel):
         :returns: NaivePredictor
         """
         return "NaivePredictor"
-
-    def build_model(self, hyperparameters: dict):
-        """
-        Builds the model from hyperparameters. Not needed for the NaivePredictor.
-
-        :param hyperparameters: Hyperparameters for the model, not needed
-        """
-        pass
 
     def train(
         self,
@@ -107,7 +160,7 @@ class NaivePredictor(DRPModel):
         return load_drug_ids_from_csv(data_path, dataset_name)
 
 
-class NaiveDrugMeanPredictor(DRPModel):
+class NaiveDrugMeanPredictor(NaiveModel):
     """Naive predictor model that predicts the mean of the response per drug."""
 
     cell_line_views = [CELL_LINE_IDENTIFIER]
@@ -121,7 +174,6 @@ class NaiveDrugMeanPredictor(DRPModel):
         """
         super().__init__()
         self.drug_means = None
-        self.dataset_mean = None
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -131,14 +183,6 @@ class NaiveDrugMeanPredictor(DRPModel):
         :returns: NaiveDrugMeanPredictor
         """
         return "NaiveDrugMeanPredictor"
-
-    def build_model(self, hyperparameters: dict):
-        """
-        Builds the model from hyperparameters. Not needed for the NaiveDrugMeanPredictor.
-
-        :param hyperparameters: Hyperparameters for the model, not needed
-        """
-        pass
 
     def train(
         self,
@@ -224,7 +268,7 @@ class NaiveDrugMeanPredictor(DRPModel):
         return load_drug_ids_from_csv(data_path, dataset_name)
 
 
-class NaiveCellLineMeanPredictor(DRPModel):
+class NaiveCellLineMeanPredictor(NaiveModel):
     """Naive predictor model that predicts the mean of the response per cell line."""
 
     cell_line_views = [CELL_LINE_IDENTIFIER]
@@ -238,7 +282,6 @@ class NaiveCellLineMeanPredictor(DRPModel):
         """
         super().__init__()
         self.cell_line_means = None
-        self.dataset_mean = None
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -248,14 +291,6 @@ class NaiveCellLineMeanPredictor(DRPModel):
         :returns: NaiveCellLineMeanPredictor
         """
         return "NaiveCellLineMeanPredictor"
-
-    def build_model(self, hyperparameters: dict):
-        """
-        Builds the model from hyperparameters. Not needed for the NaiveCellLineMeanPredictor.
-
-        :param hyperparameters: not needed
-        """
-        pass
 
     def train(
         self,
@@ -340,7 +375,7 @@ class NaiveCellLineMeanPredictor(DRPModel):
         return load_drug_ids_from_csv(data_path, dataset_name)
 
 
-class NaiveTissueMeanPredictor(DRPModel):
+class NaiveTissueMeanPredictor(NaiveModel):
     """Naive predictor model that predicts the mean of the response per tissue."""
 
     cell_line_views = [TISSUE_IDENTIFIER]
@@ -354,7 +389,6 @@ class NaiveTissueMeanPredictor(DRPModel):
         """
         super().__init__()
         self.tissue_means = None
-        self.dataset_mean = None
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -364,14 +398,6 @@ class NaiveTissueMeanPredictor(DRPModel):
         :returns: NaiveTissueMeanPredictor
         """
         return "NaiveTissueMeanPredictor"
-
-    def build_model(self, hyperparameters: dict):
-        """
-        Builds the model from hyperparameters. Not needed for the NaiveTissueMeanPredictor.
-
-        :param hyperparameters: Hyperparameters for the model, not needed
-        """
-        pass
 
     def train(
         self,
@@ -448,7 +474,7 @@ class NaiveTissueMeanPredictor(DRPModel):
         return load_drug_ids_from_csv(data_path, dataset_name)
 
 
-class NaiveMeanEffectsPredictor(DRPModel):
+class NaiveMeanEffectsPredictor(NaiveModel):
     """
     ANOVA-like predictor model.
 
@@ -473,7 +499,6 @@ class NaiveMeanEffectsPredictor(DRPModel):
         and empty dictionaries, respectively.
         """
         super().__init__()
-        self.dataset_mean = None
         self.cell_line_effects = {}
         self.drug_effects = {}
 
@@ -485,16 +510,6 @@ class NaiveMeanEffectsPredictor(DRPModel):
         :return: The name of the model as a string.
         """
         return "NaiveMeanEffectsPredictor"
-
-    def build_model(self, hyperparameters: dict):
-        """
-        Builds the model.
-
-        This model does not require any hyperparameter tuning.
-
-        :param hyperparameters: Dictionary of hyperparameters (not used).
-        """
-        pass
 
     def train(
         self,

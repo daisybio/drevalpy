@@ -24,6 +24,8 @@ __all__ = [
     "SuperFELTR",
     "DIPKModel",
     "ProteomicsRandomForest",
+    "ProteomicsElasticNetModel",
+    "SingleDrugProteomicsRandomForest",
 ]
 
 from .baselines.multi_omics_random_forest import MultiOmicsRandomForest
@@ -35,10 +37,11 @@ from .baselines.naive_pred import (
     NaiveTissueMeanPredictor,
 )
 from .baselines.singledrug_elastic_net import SingleDrugElasticNet, SingleDrugProteomicsElasticNet
-from .baselines.singledrug_random_forest import SingleDrugRandomForest
+from .baselines.singledrug_random_forest import SingleDrugProteomicsRandomForest, SingleDrugRandomForest
 from .baselines.sklearn_models import (
     ElasticNetModel,
     GradientBoosting,
+    ProteomicsElasticNetModel,
     ProteomicsRandomForest,
     RandomForest,
     SVMRegressor,
@@ -58,6 +61,7 @@ SINGLE_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]] = {
     "SuperFELTR": SuperFELTR,
     "SingleDrugElasticNet": SingleDrugElasticNet,
     "SingleDrugProteomicsElasticNet": SingleDrugProteomicsElasticNet,
+    "SingleDrugProteomicsRandomForest": SingleDrugProteomicsRandomForest,
 }
 
 # MULTI_DRUG_MODEL_FACTORY is used in the pipeline!
@@ -77,6 +81,7 @@ MULTI_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]] = {
     "SRMF": SRMF,
     "DIPK": DIPKModel,
     "ProteomicsRandomForest": ProteomicsRandomForest,
+    "ProteomicsElasticNet": ProteomicsElasticNetModel,
 }
 
 # MODEL_FACTORY is used in the pipeline!

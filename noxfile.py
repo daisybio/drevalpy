@@ -18,7 +18,7 @@ except ImportError:
     sys.exit(1)
 
 package = "drevalpy"
-python_versions = ["3.11", "3.12"]
+python_versions = ["3.12", "3.13"]
 nox.options.sessions = (
     "pre-commit",
     "mypy",

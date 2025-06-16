@@ -7,11 +7,16 @@ https://doi.org/10.1186/s12885-017-3500-5.
 Matlab code adapted from https://github.com/linwang1982/SRMF.
 """
 
+import json
+import os
+
+import joblib
 import numpy as np
 import pandas as pd
 from scipy.spatial.distance import jaccard
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.models.utils import load_and_select_gene_features, load_drug_fingerprint_features
 
@@ -119,8 +124,12 @@ class SRMF(DRPModel):
         drug_response_matrix = output.to_dataframe()
         if "tissue" in drug_response_matrix.columns:
             drug_response_matrix = drug_response_matrix.drop(columns=["tissue"])
-        drug_response_matrix = drug_response_matrix.groupby(["cell_line_id", "drug_id"]).mean().reset_index()
-        drug_response_matrix = drug_response_matrix.pivot(index="cell_line_id", columns="drug_id", values="response")
+        drug_response_matrix = (
+            drug_response_matrix.groupby([CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER]).mean().reset_index()
+        )
+        drug_response_matrix = drug_response_matrix.pivot(
+            index=CELL_LINE_IDENTIFIER, columns=DRUG_IDENTIFIER, values="response"
+        )
 
         drug_response_matrix = drug_response_matrix.reindex(
             index=cell_lines, columns=drugs
@@ -289,3 +298,66 @@ class SRMF(DRPModel):
         :returns: FeatureDataset containing the drug fingerprint features
         """
         return load_drug_fingerprint_features(data_path, dataset_name, fill_na=True)
+
+    def save(self, directory: str) -> None:
+        """
+        Save the SRMF model's parameters and latent matrices to the specified directory.
+
+        Files saved:
+        - best_u.pkl: latent factors for drugs
+        - best_v.pkl: latent factors for cell lines
+        - w_mask.pkl: response presence mask
+        - config.json: model configuration (hyperparameters and training mean)
+
+        :param directory: Target directory to store model artifacts
+        """
+        os.makedirs(directory, exist_ok=True)
+        joblib.dump(self.best_u, os.path.join(directory, "best_u.pkl"))
+        joblib.dump(self.best_v, os.path.join(directory, "best_v.pkl"))
+        joblib.dump(self.w, os.path.join(directory, "w_mask.pkl"))
+        with open(os.path.join(directory, "config.json"), "w") as f:
+            json.dump(
+                {
+                    "k": self.k,
+                    "lambda_l": self.lambda_l,
+                    "lambda_d": self.lambda_d,
+                    "lambda_c": self.lambda_c,
+                    "max_iter": self.max_iter,
+                    "seed": self.seed,
+                    "training_mean": self.training_mean,
+                },
+                f,
+            )
+
+    @classmethod
+    def load(cls, directory: str) -> "SRMF":
+        """
+        Load a trained SRMF model from the specified directory.
+
+        Expects the following files:
+        - best_u.pkl: latent factors for drugs
+        - best_v.pkl: latent factors for cell lines
+        - w_mask.pkl: response presence mask
+        - config.json: model configuration (hyperparameters and training mean)
+
+        :param directory: Directory containing the saved model artifacts
+        :return: An instance of SRMF with restored parameters
+        :raises FileNotFoundError: if any required file is missing
+        """
+        required_files = ["best_u.pkl", "best_v.pkl", "w_mask.pkl", "config.json"]
+        for file in required_files:
+            if not os.path.exists(os.path.join(directory, file)):
+                raise FileNotFoundError(f"Missing file: {file}")
+
+        instance = cls()
+        instance.best_u = joblib.load(os.path.join(directory, "best_u.pkl"))
+        instance.best_v = joblib.load(os.path.join(directory, "best_v.pkl"))
+        instance.w = joblib.load(os.path.join(directory, "w_mask.pkl"))
+
+        with open(os.path.join(directory, "config.json")) as f:
+            config = json.load(f)
+
+        instance.build_model(config)
+        instance.training_mean = config["training_mean"]
+
+        return instance
