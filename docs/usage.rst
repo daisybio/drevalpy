@@ -2,9 +2,9 @@ How to use DrEvalPy
 ===================
 
 Here, we document how to run DrEval with our implemented models and datasets. You can either do this with the standalone
-supplied here or with the associated Nextflow pipeline. We recommend the use of our nextflow pipeline for computational
+supplied here or with the associated Nextflow pipeline ``drugresponseeval``. We recommend the use of our Nextflow pipeline for computational
 demanding runs and for improved reproducibility.
-No knowledge of nextflow is required to run it. The nextflow pipeline is available on the `nf-core GitHub
+No knowledge of Nextflow is required to run it. The Nextflow pipeline is available on the `nf-core GitHub
 <https://github.com/nf-core/drugresponseeval.git>`_, the corresponding documentation can be found
 `here <https://nf-co.re/drugresponseeval/dev/>`_. Documentation of the standalone is provided below.
 

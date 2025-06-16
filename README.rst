@@ -46,9 +46,9 @@ Check out our preprint on `bioRxiv <https://www.biorxiv.org/content/10.1101/2025
 
 -  DrEval is a toolkit that ensures drug response prediction evaluations are statistically sound, biologically meaningful, and reproducible.
 -  Focus on model innovation while using our automated standardized evaluation protocols and preprocessing workflows.
--  A flexible model interface supports all model types (e.g. Machine Learning, Stats, Network-based analyses)
+-  A flexible model interface supports all model types (e.g. machine learning, statistical models, network-based analyses).
 
-Use DrEval to Build Drug Response Models That Have an Impact
+Use DrEval to build drug response models that have an impact
 
     1. Maintained, up-to-date baseline catalog, no need to re-implement literature models
 

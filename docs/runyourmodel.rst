@@ -2,10 +2,10 @@ Run your own model
 ===================
 
 DrEvalPy provides a standardized interface for running your own model.
-First make a new folder for your model at ``drevalpy/models/your_model_name``.
-Create ``drevalpy/models/your_model_name/your_model.py`` in which you need to define the Python class for your model.
+First, make a new folder for your model at ``drevalpy/models/your_model_name``.
+Create ``drevalpy/models/your_model_name/your_model.py``, in which you need to define the Python class for your model.
 This class should inherit from the :ref:`DRPModel <DRP-label>` base class.
-DrEvalPy is agnostic to the specific modeling strategy you use. However, you need to define the input views(a.k.a modalities), which represent different types of features that your model requires.
+DrEvalPy is agnostic to the specific modeling strategy you use. However, you need to define the input views (a.k.a modalities), which represent different types of features that your model requires.
 In this example, the model uses "gene_expression" and "methylation" features as cell line views, and "fingerprints" as drug views.
 Additionally, you must define a unique model name to identify your model during evaluation.
 
@@ -13,13 +13,14 @@ Additionally, you must define a unique model name to identify your model during 
 
     from drevalpy.models.drp_model import DRPModel
     from drevalpy.datasets.dataset import FeatureDataset
+    from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, TISSUE_IDENTIFIER
 
     import pandas as pd
 
     class YourModel(DRPModel):
         """A revolutionary new modeling strategy."""
 
-        is_single_drug_model = True / False # TODO: set to true if your model is a single drug model (i.e. it needs to be trained for each drug separately)
+        is_single_drug_model = True / False # TODO: set to true if your model is a single drug model (i.e., it needs to be trained for each drug separately)
         early_stopping = True / False # TODO: set to true if you want to use a part of the validation set for early stopping
         cell_line_views = ["gene_expression", "methylation"]
         drug_views = ["fingerprints"]
@@ -32,7 +33,11 @@ Additionally, you must define a unique model name to identify your model during 
 
 Next let's implement the feature loading. You have to return a DrEvalPy FeatureDataset object which contains the features for the cell lines and drugs.
 If the features are different depending on the dataset, use the ``dataset_name`` parameter.
-
+In this example, we load the drug fingerprints and cell line gene expression and methylation features from CSV files.
+The cell line ids of your gene expression and methylation csvs should match the ``CELL_LINE_IDENTIFIER`` ("cell_line_name"),
+and the drug ids of your fingerprints csv should match the ``DRUG_IDENTIFIER`` ("pubchem_id").
+The model will use these identifiers to match the features with the drug response data.
+Example
 .. code-block:: Python
 
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
