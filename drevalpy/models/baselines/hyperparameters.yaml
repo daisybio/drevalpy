@@ -5,19 +5,9 @@ NaiveMeanEffectsPredictor:
 NaiveTissueMeanPredictor:
 ElasticNet:
   l1_ratio:
-    - 0
     - 0.5
-    - 1
   alpha:
-    - 1
-    - 0.8
-    - 0.6
-    - 0.4
     - 0.2
-    - 0.1
-    - 5
-    - 10
-    - 100
 ProteomicsElasticNet:
   feature_threshold:
     - 0.7

@@ -26,6 +26,7 @@ __all__ = [
     "ProteomicsRandomForest",
     "ProteomicsElasticNetModel",
     "SingleDrugProteomicsRandomForest",
+    "GCMC"
 ]
 
 from .baselines.multi_omics_random_forest import MultiOmicsRandomForest
@@ -53,7 +54,7 @@ from .SimpleNeuralNetwork.multiomics_neural_network import MultiOmicsNeuralNetwo
 from .SimpleNeuralNetwork.simple_neural_network import SimpleNeuralNetwork
 from .SRMF.srmf import SRMF
 from .SuperFELTR.superfeltr import SuperFELTR
-
+from .GCMC.gcmc import GCMC
 # SINGLE_DRUG_MODEL_FACTORY is used in the pipeline!
 SINGLE_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]] = {
     "SingleDrugRandomForest": SingleDrugRandomForest,
@@ -82,6 +83,7 @@ MULTI_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]] = {
     "DIPK": DIPKModel,
     "ProteomicsRandomForest": ProteomicsRandomForest,
     "ProteomicsElasticNet": ProteomicsElasticNetModel,
+    "GCMC": GCMC,
 }
 
 # MODEL_FACTORY is used in the pipeline!

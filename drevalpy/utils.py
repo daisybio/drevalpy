@@ -3,16 +3,15 @@
 import argparse
 from pathlib import Path
 
-from sklearn.base import TransformerMixin
-from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
-
 from .datasets import AVAILABLE_DATASETS
 from .datasets.dataset import DrugResponseDataset
 from .datasets.loader import load_dataset
 from .datasets.utils import ALLOWED_MEASURES
 from .evaluation import AVAILABLE_METRICS
-from .experiment import drug_response_experiment, pipeline_function
+from .experiment import drug_response_experiment
 from .models import MODEL_FACTORY
+from .pipeline_function import pipeline_function
+from .response_transformation import get_response_transformation
 
 
 @pipeline_function
@@ -282,8 +281,10 @@ def check_arguments(args) -> None:
             "the '_curvecurator' suffix are allowed drug response measures."
         )
 
-    if args.response_transformation not in ["None", "standard", "minmax", "robust"]:
-        raise AssertionError("Invalid response_transformation. Choose from None, standard, minmax, robust")
+    if args.response_transformation not in ["None", "standard", "minmax", "robust", "mean_effects"]:
+        raise AssertionError(
+            "Invalid response_transformation. Choose from None, standard, minmax, robust, mean_effects"
+        )
 
     if args.optim_metric not in AVAILABLE_METRICS:
         raise AssertionError(
@@ -389,27 +390,3 @@ def get_datasets(
         load_dataset(dataset_name=dn, path_data=path_data, measure=measure) for dn in cross_study_datasets
     ]
     return response_data, cross_study_datasets
-
-
-@pipeline_function
-def get_response_transformation(response_transformation: str) -> TransformerMixin | None:
-    """
-    Get the skelarn response transformation object of choice.
-
-    Users can choose from "None", "standard", "minmax", "robust".
-    :param response_transformation: response transformation to apply
-    :returns: response transformation object
-    :raises ValueError: if the response transformation is not recognized
-    """
-    if response_transformation == "None":
-        return None
-    if response_transformation == "standard":
-        return StandardScaler()
-    if response_transformation == "minmax":
-        return MinMaxScaler()
-    if response_transformation == "robust":
-        return RobustScaler()
-    raise ValueError(
-        f"Unknown response transformation {response_transformation}. Choose from 'None', "
-        f"'standard', 'minmax', 'robust'"
-    )
