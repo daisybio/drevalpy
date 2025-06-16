@@ -8,14 +8,17 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from drevalpy.datasets.loader import load_toyv1, load_toyv2
+from drevalpy.datasets.utils import TISSUE_IDENTIFIER
 from drevalpy.models import MODEL_FACTORY
 from drevalpy.models.utils import (
     get_multiomics_feature_dataset,
     iterate_features,
-    load_and_reduce_gene_features,
+    load_and_select_gene_features,
     load_cl_ids_from_csv,
     load_drug_fingerprint_features,
     load_drug_ids_from_csv,
+    load_tissues_from_csv,
     unique,
 )
 
@@ -25,6 +28,7 @@ def test_factory() -> None:
     assert "NaivePredictor" in MODEL_FACTORY
     assert "NaiveDrugMeanPredictor" in MODEL_FACTORY
     assert "NaiveCellLineMeanPredictor" in MODEL_FACTORY
+    assert "NaiveMeanEffectsPredictor" in MODEL_FACTORY
     assert "ElasticNet" in MODEL_FACTORY
     assert "RandomForest" in MODEL_FACTORY
     assert "SVR" in MODEL_FACTORY
@@ -37,7 +41,6 @@ def test_factory() -> None:
     assert "MOLIR" in MODEL_FACTORY
     assert "SuperFELTR" in MODEL_FACTORY
     assert "DIPK" in MODEL_FACTORY
-    assert len(MODEL_FACTORY) == 15
 
 
 def test_load_cl_ids_from_csv() -> None:
@@ -54,6 +57,37 @@ def test_load_cl_ids_from_csv() -> None:
     cl_ids_gdsc1 = load_cl_ids_from_csv(temp.name, "GDSC1_small")
     assert len(cl_ids_gdsc1.features) == 4
     assert cl_ids_gdsc1.identifiers[0] == "201T"
+
+
+def test_load_tissues_from_csv() -> None:
+    """Test the loading of tissues from a CSV file."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        os.mkdir(os.path.join(temp_dir, "GDSC1_small"))
+        temp_file = os.path.join(temp_dir, "GDSC1_small", "cell_line_names.csv")
+        with open(temp_file, "w") as f:
+            f.write(
+                "cellosaurus_id,CELL_LINE_NAME,tissue\n"
+                "CVCL_X481,201T,lung\n"
+                "CVCL_1045,22Rv1,breast\n"
+                "CVCL_1046,23132/87,liver\n"
+                "CVCL_1798,42-MG-BA,kidney\n"
+            )
+
+        tissues_gdsc1 = load_tissues_from_csv(temp_dir, "GDSC1_small")
+        assert len(tissues_gdsc1.features) == 4
+
+        expected = {
+            "201T": "lung",
+            "22Rv1": "breast",
+            "23132/87": "liver",
+            "42-MG-BA": "kidney",
+        }
+
+        for cl_name, expected_tissue in expected.items():
+            tissue_value = tissues_gdsc1.features[cl_name][TISSUE_IDENTIFIER]
+            assert isinstance(tissue_value, np.ndarray)
+            assert tissue_value.shape == (1,)
+            assert tissue_value[0] == expected_tissue
 
 
 def _write_gene_list(temp_dir: tempfile.TemporaryDirectory, gene_list: Optional[str] = None) -> None:
@@ -92,7 +126,7 @@ def _write_gene_list(temp_dir: tempfile.TemporaryDirectory, gene_list: Optional[
         "gene_list_paccmann_network_prop",
     ],
 )
-def test_load_and_reduce_gene_features(gene_list: Optional[str]) -> None:
+def test_load_and_select_gene_features(gene_list: Optional[str]) -> None:
     """
     Test the loading and reduction of gene features.
 
@@ -120,9 +154,9 @@ def test_load_and_reduce_gene_features(gene_list: Optional[str]) -> None:
 
     if gene_list == "gene_list_paccmann_network_prop":
         with pytest.raises(ValueError) as valerr:
-            gene_features_gdsc1 = load_and_reduce_gene_features("gene_expression", gene_list, temp.name, "GDSC1_small")
+            gene_features_gdsc1 = load_and_select_gene_features("gene_expression", gene_list, temp.name, "GDSC1_small")
     else:
-        gene_features_gdsc1 = load_and_reduce_gene_features("gene_expression", gene_list, temp.name, "GDSC1_small")
+        gene_features_gdsc1 = load_and_select_gene_features("gene_expression", gene_list, temp.name, "GDSC1_small")
     if gene_list is None:
         assert len(gene_features_gdsc1.features) == 5
         assert gene_features_gdsc1.meta_info is not None
@@ -147,14 +181,33 @@ def test_load_and_reduce_gene_features(gene_list: Optional[str]) -> None:
         assert "The following genes are missing from the dataset GDSC1_small" in str(valerr.value)
 
 
+def test_order_load_and_select_gene_features() -> None:
+    """Test the order of the features after loading and reducing gene features. it should be maintained."""
+    path_data = os.path.join("..", "data")
+
+    load_toyv1(path_data)
+    load_toyv2(path_data)
+    gene_list = "gene_expression_intersection"
+    a = load_and_select_gene_features("gene_expression", gene_list, path_data, "TOYv1")
+    b = load_and_select_gene_features("gene_expression", gene_list, path_data, "TOYv2")
+    # assert the meta info (=gene names) are the same
+    assert np.all(a.meta_info["gene_expression"] == b.meta_info["gene_expression"])
+    # assert the shape of the features for a random cell line is actually the same
+    random_cell_line_a = np.random.choice(a.identifiers)
+    random_cell_line_b = np.random.choice(b.identifiers)
+    assert (
+        a.features[random_cell_line_a]["gene_expression"].shape
+        == b.features[random_cell_line_b]["gene_expression"].shape
+    )
+
+
 def test_iterate_features() -> None:
     """Test the iteration over features."""
     df = pd.DataFrame({"GeneA": [1, 2, 3, 2], "GeneB": [4, 5, 6, 2], "GeneC": [7, 8, 9, 2]})
     df.index = ["CellLine1", "CellLine2", "CellLine3", "CellLine1"]
-    with pytest.warns(UserWarning):
-        features = iterate_features(df, "gene_expression")
+    features = iterate_features(df, "gene_expression")
     assert len(features) == 3
-    assert np.all(features["CellLine1"]["gene_expression"] == [1, 4, 7])
+    assert np.all(features["CellLine1"]["gene_expression"] == [1.5, 3, 4.5])
 
 
 def test_load_drug_ids_from_csv() -> None:
@@ -178,27 +231,27 @@ def test_load_drugs_from_fingerprints() -> None:
         temp.name,
         "GDSC1_small",
         "drug_fingerprints",
-        "drug_name_to_demorgan_128_map.csv",
+        "pubchem_id_to_demorgan_128_map.csv",
     )
     with open(temp_file, "w") as f:
         f.write(
-            ",Zibotentan,AZD1208,CI-1040,A-83-01,GSK269962A\n"
-            "0,1,1,1,1,1\n"
-            "1,1,1,0,0,1\n"
-            "2,0,1,1,0,1\n"
-            "3,1,0,1,1,1\n"
-            "4,1,1,0,1,1\n"
+            "3827738,5311510,46883536,73707530,16720766\n"
+            "1,1,1,1,1\n"
+            "1,1,0,0,1\n"
+            "0,1,1,0,1\n"
+            "1,0,1,1,1\n"
+            "1,1,0,1,1\n"
         )
     drug_features_gdsc1 = load_drug_fingerprint_features(temp.name, "GDSC1_small")
     assert len(drug_features_gdsc1.features) == 5
     assert drug_features_gdsc1.features.keys() == {
-        "Zibotentan",
-        "AZD1208",
-        "CI-1040",
-        "A-83-01",
-        "GSK269962A",
+        "3827738",
+        "5311510",
+        "46883536",
+        "73707530",
+        "16720766",
     }
-    assert np.all(drug_features_gdsc1.features["Zibotentan"]["fingerprints"] == [1, 1, 0, 1, 1])
+    assert np.all(drug_features_gdsc1.features["3827738"]["fingerprints"] == [1, 1, 0, 1, 1])
 
 
 @pytest.mark.parametrize(
@@ -271,18 +324,23 @@ def test_get_multiomics_feature_dataset(gene_list: Optional[str]) -> None:
         )
     if gene_list is not None:
         _write_gene_list(temp, gene_list)
+    omics = ["gene_expression", "methylation", "mutations", "copy_number_variation_gistic"]
+    gene_lists = {o: gene_list for o in omics}
+    gene_lists["methylation"] = None
     if gene_list == "gene_list_paccmann_network_prop":
         with pytest.raises(ValueError) as valerr:
             dataset = get_multiomics_feature_dataset(
                 data_path=temp.name,
                 dataset_name="GDSC1_small",
-                gene_list=gene_list,
+                gene_lists=gene_lists,
+                omics=omics,
             )
     else:
         dataset = get_multiomics_feature_dataset(
             data_path=temp.name,
             dataset_name="GDSC1_small",
-            gene_list=gene_list,
+            gene_lists=gene_lists,
+            omics=omics,
         )
         assert len(dataset.features) == 2
         common_cls = dataset.identifiers

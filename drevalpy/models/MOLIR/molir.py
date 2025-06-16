@@ -9,13 +9,12 @@ and Hauptmann et al. (2023, 10.1186/s12859-023-05166-7) https://github.com/krame
 from typing import Any
 
 import numpy as np
-from sklearn.feature_selection import VarianceThreshold
 from sklearn.preprocessing import StandardScaler
 
 from ...datasets.dataset import DrugResponseDataset, FeatureDataset
 from ..drp_model import DRPModel
-from ..utils import get_multiomics_feature_dataset
-from .utils import MOLIModel, get_dimensions_of_omics_data
+from ..utils import VarianceFeatureSelector, get_multiomics_feature_dataset, scale_gene_expression
+from .utils import MOLIModel, filter_and_sort_omics, get_dimensions_of_omics_data
 
 
 class MOLIR(DRPModel):
@@ -43,6 +42,11 @@ class MOLIR(DRPModel):
         super().__init__()
         self.model: MOLIModel | None = None
         self.hyperparameters: dict[str, Any] = dict()
+        self.gene_expression_features = None
+        self.mutations_features = None
+        self.copy_number_variation_features = None
+        self.gene_expression_scaler = StandardScaler()
+        self.selector: VarianceFeatureSelector | None = None
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -61,6 +65,9 @@ class MOLIR(DRPModel):
             h_dim2, h_dim3), learning_rate, dropout_rate, weight_decay, gamma, epochs, and margin.
         """
         self.hyperparameters = hyperparameters
+        self.selector = VarianceFeatureSelector(
+            view="gene_expression", k=hyperparameters.get("n_gene_expression_features", 1000)
+        )
 
     def train(
         self,
@@ -73,8 +80,9 @@ class MOLIR(DRPModel):
         """
         Initializes and trains the model.
 
-        First, the gene expression data is reduced using a variance threshold (0.05) and standardized. Then,
-        the model is initialized with the hyperparameters and the dimensions of the gene expression, mutation and
+        First, the gene expression data was reduced using a variance threshold (0.05) and standardized. We chose to use
+        the most variable 1000 genes instead to avoid issues with the variance threshold.
+        Then, the model is initialized with the hyperparameters and the dimensions of the gene expression, mutation and
         copy number variation data. If there is no training data, the model is set to None (and predictions will be
         skipped as well). If there is not enough training data, the predictions will be made on the randomly
         initialized model.
@@ -84,20 +92,24 @@ class MOLIR(DRPModel):
         :param drug_input: drug features, not needed
         :param output_earlystopping: early stopping data, not used when there is not enough data
         :param model_checkpoint_dir: directory to save the model checkpoints
+        :raises ValueError: If drug_input is None.
         """
         if len(output) > 0:
-            selector_gex = VarianceThreshold(0.05)
-            cell_line_input.fit_transform_features(
-                train_ids=np.unique(output.cell_line_ids),
-                transformer=selector_gex,
-                view="gene_expression",
+            cell_line_input = scale_gene_expression(
+                cell_line_input=cell_line_input,
+                cell_line_ids=np.unique(output.cell_line_ids),
+                training=True,
+                gene_expression_scaler=self.gene_expression_scaler,
             )
-            scaler_gex = StandardScaler()
-            cell_line_input.fit_transform_features(
-                train_ids=np.unique(output.cell_line_ids),
-                transformer=scaler_gex,
-                view="gene_expression",
-            )
+            if self.selector is None:
+                raise ValueError("Feature selector not initialized. Build the model first.")
+            self.selector.fit(cell_line_input, output)
+            cell_line_input = self.selector.transform(cell_line_input)
+
+            self.gene_expression_features = cell_line_input.meta_info["gene_expression"]
+            self.mutations_features = cell_line_input.meta_info["mutations"]
+            self.copy_number_variation_features = cell_line_input.meta_info["copy_number_variation_gistic"]
+
             if output_earlystopping is not None and self.early_stopping and len(output_earlystopping) < 2:
                 output_earlystopping = None
             dim_gex, dim_mut, dim_cnv = get_dimensions_of_omics_data(cell_line_input)
@@ -137,7 +149,30 @@ class MOLIR(DRPModel):
         :param cell_line_input: cell line omics features
         :param drug_input: drug features, not needed
         :returns: Predicted drug response
+        :raises ValueError: If the model was not trained
         """
+        if self.model is None:
+            print("No model trained, will predict NA.")
+            return np.array([np.nan] * len(cell_line_ids))
+        if (
+            (self.gene_expression_features is None)
+            or (self.mutations_features is None)
+            or (self.copy_number_variation_features is None)
+        ):
+            raise ValueError("MOLIR Model not trained, please train the model first.")
+
+        cell_line_input = scale_gene_expression(
+            cell_line_input=cell_line_input,
+            cell_line_ids=np.unique(cell_line_ids),
+            training=False,
+            gene_expression_scaler=self.gene_expression_scaler,
+        )
+        # Apply variance threshold to gene expression features
+
+        if self.selector is None:
+            raise ValueError("Feature selector not initialized. Train the model first.")
+        cell_line_input = self.selector.transform(cell_line_input)
+
         input_data = self.get_feature_matrices(
             cell_line_ids=cell_line_ids,
             drug_ids=drug_ids,
@@ -149,9 +184,11 @@ class MOLIR(DRPModel):
             input_data["mutations"],
             input_data["copy_number_variation_gistic"],
         )
-        if self.model is None:
-            print("No model trained, will predict NA.")
-            return np.array([np.nan] * len(cell_line_ids))
+
+        (gene_expression, mutations, cnvs) = filter_and_sort_omics(
+            model=self, gene_expression=gene_expression, mutations=mutations, cnvs=cnvs, cell_line_input=cell_line_input
+        )
+
         return self.model.predict(gene_expression, mutations, cnvs)
 
     def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
@@ -165,11 +202,14 @@ class MOLIR(DRPModel):
         feature_dataset = get_multiomics_feature_dataset(
             data_path=data_path,
             dataset_name=dataset_name,
-            gene_list=None,
+            gene_lists={
+                "gene_expression": "gene_expression_intersection",
+                "mutations": "mutations_intersection",
+                "copy_number_variation_gistic": "copy_number_variation_gistic_intersection",
+            },
             omics=self.cell_line_views,
         )
-        # log transformation
-        feature_dataset.apply(function=np.log, view="gene_expression")
+
         return feature_dataset
 
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset | None:

@@ -19,12 +19,11 @@ from typing import Any
 
 import numpy as np
 import pytorch_lightning as pl
-from sklearn.feature_selection import VarianceThreshold
 
 from ...datasets.dataset import DrugResponseDataset, FeatureDataset
 from ..drp_model import DRPModel
-from ..MOLIR.utils import get_dimensions_of_omics_data, make_ranges
-from ..utils import get_multiomics_feature_dataset
+from ..MOLIR.utils import filter_and_sort_omics, get_dimensions_of_omics_data, make_ranges
+from ..utils import VarianceFeatureSelector, get_multiomics_feature_dataset
 from .utils import SuperFELTEncoder, SuperFELTRegressor, train_superfeltr_model
 
 
@@ -51,13 +50,16 @@ class SuperFELTR(DRPModel):
         self.mut_encoder: SuperFELTEncoder | None = None
         self.cnv_encoder: SuperFELTEncoder | None = None
         self.regressor: SuperFELTRegressor | None = None
-        # hyperparameters are initialized to None because they are initialized in build_model
         self.hyperparameters: dict[str, Any] = dict()
         # ranges are initialized later because they are initialized using the standard variation of the train
         # response data which is only available when entering the training
         self.ranges: tuple[float, float] = (0.0, 1.0)
         # best checkpoint is determined after training
         self.best_checkpoint: pl.callbacks.ModelCheckpoint | None = None
+        self.gene_expression_features = None
+        self.mutations_features = None
+        self.copy_number_variation_features = None
+        self.selectors: dict[str, VarianceFeatureSelector] = {}
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -77,6 +79,10 @@ class SuperFELTR(DRPModel):
             variance thresholds for gene expression, mutation, and copy number variation, margin, and learning rate.
         """
         self.hyperparameters = hyperparameters
+
+        n_features = hyperparameters.get("n_features_per_view", 1000)
+        for view in self.cell_line_views:
+            self.selectors[view] = VarianceFeatureSelector(view=view, k=n_features)
 
     def train(
         self,
@@ -103,7 +109,7 @@ class SuperFELTR(DRPModel):
             raise ValueError("SuperFELTR is a single drug model and does not require drug input.")
 
         if len(output) > 0:
-            cell_line_input = self._feature_selection(output, cell_line_input)
+            cell_line_input = self._fit_feature_selection(output=output, cell_line_input=cell_line_input)
             if output_earlystopping is not None and self.early_stopping and len(output_earlystopping) < 2:
                 output_earlystopping = None
             dim_gex, dim_mut, dim_cnv = get_dimensions_of_omics_data(cell_line_input)
@@ -198,8 +204,22 @@ class SuperFELTR(DRPModel):
         :returns: predicted drug response
         :raises ValueError: if drug_input is not None
         """
+        if self.expr_encoder is None or self.mut_encoder is None or self.cnv_encoder is None or self.regressor is None:
+            print("No training data was available, predicting NA")
+            return np.array([np.nan] * len(cell_line_ids))
+        if (
+            self.gene_expression_features is None
+            or self.mutations_features is None
+            or self.copy_number_variation_features is None
+        ):
+            raise ValueError("Model was not trained, no features available.")
+
         if drug_input is not None:
             raise ValueError("SuperFELTR is a single drug model and does not require drug input.")
+
+        for view in self.cell_line_views:
+            selector = self.selectors[view]
+            cell_line_input = selector.transform(cell_line_input)
 
         input_data = self.get_feature_matrices(
             cell_line_ids=cell_line_ids,
@@ -207,39 +227,20 @@ class SuperFELTR(DRPModel):
             cell_line_input=cell_line_input,
             drug_input=drug_input,
         )
-        gene_expression, mutations, cnvs = (
-            input_data["gene_expression"],
-            input_data["mutations"],
-            input_data["copy_number_variation_gistic"],
+
+        gene_expression = input_data["gene_expression"]
+        mutations = input_data["mutations"]
+        cnvs = input_data["copy_number_variation_gistic"]
+
+        (gene_expression, mutations, cnvs) = filter_and_sort_omics(
+            model=self, gene_expression=gene_expression, mutations=mutations, cnvs=cnvs, cell_line_input=cell_line_input
         )
-        if self.expr_encoder is None or self.mut_encoder is None or self.cnv_encoder is None or self.regressor is None:
-            print("No training data was available, predicting NA")
-            return np.array([np.nan] * len(cell_line_ids))
+
         if self.best_checkpoint is None:
             print("Not enough training data provided for SuperFELTR Regressor. Predicting with random initialization.")
             return self.regressor.predict(gene_expression, mutations, cnvs)
 
         return self.regressor.predict(gene_expression, mutations, cnvs)
-
-    def _feature_selection(self, output: DrugResponseDataset, cell_line_input: FeatureDataset) -> FeatureDataset:
-        """
-        Feature selection for all omics data using the predefined variance thresholds.
-
-        :param output: training data associated with the response output
-        :param cell_line_input: cell line omics features
-        :returns: cell line omics features with selected features
-        """
-        thresholds = {
-            "gene_expression": self.hyperparameters["expression_var_threshold"][output.dataset_name],
-            "mutations": self.hyperparameters["mutation_var_threshold"][output.dataset_name],
-            "copy_number_variation_gistic": self.hyperparameters["cnv_var_threshold"][output.dataset_name],
-        }
-        for view in self.cell_line_views:
-            selector = VarianceThreshold(thresholds[view])
-            cell_line_input.fit_transform_features(
-                train_ids=np.unique(output.cell_line_ids), transformer=selector, view=view
-            )
-        return cell_line_input
 
     def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         """
@@ -250,10 +251,10 @@ class SuperFELTR(DRPModel):
         :returns: FeatureDataset containing the cell line gene expression features, mutations, and copy number variation
         """
         feature_dataset = get_multiomics_feature_dataset(
-            data_path=data_path, dataset_name=dataset_name, gene_list=None, omics=self.cell_line_views
+            data_path=data_path, dataset_name=dataset_name, gene_lists=None, omics=self.cell_line_views
         )
         # log transformation
-        feature_dataset.apply(function=np.log, view="gene_expression")
+        feature_dataset.apply(function=np.arcsinh, view="gene_expression")
         return feature_dataset
 
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset | None:
@@ -265,3 +266,14 @@ class SuperFELTR(DRPModel):
         :returns: None
         """
         return None
+
+    def _fit_feature_selection(self, output: DrugResponseDataset, cell_line_input: FeatureDataset) -> FeatureDataset:
+        for view in self.cell_line_views:
+            selector = self.selectors[view]
+            selector.fit(cell_line_input, output)
+            cell_line_input = selector.transform(cell_line_input)
+
+        self.gene_expression_features = cell_line_input.meta_info["gene_expression"]
+        self.mutations_features = cell_line_input.meta_info["mutations"]
+        self.copy_number_variation_features = cell_line_input.meta_info["copy_number_variation_gistic"]
+        return cell_line_input

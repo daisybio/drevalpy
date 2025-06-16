@@ -31,12 +31,24 @@ DrEvalPy: Python Cancer Cell Line Drug Response Prediction Suite
    :target: https://github.com/psf/black
    :alt: Black
 
-Focus on Innovating Your Models — DrEval Handles the Rest!
+.. image:: _static/img/overview.png
+   :align: center
+   :width: 80%
+   :alt: Overview of the DrEval framework. Via input options, implemented state-of-the-art models can be compared against baselines of varying complexity. We address obstacles to progress in the field at each point in our pipeline: Our framework is available on PyPI and nf-core and we follow FAIReR standards for optimal reproducibility. DrEval is easily extendable as demonstrated here with an implementation of a proteomics-based random forest. Custom viability data can be preprocessed with CurveCurator, leading to more consistent data and metrics. DrEval supports five widely used datasets with application-aware train/test splits that enable detecting weak generalization. Models are free to use provided cell line- and drug features or custom ones. The pipeline supports randomization-based ablation studies and performs robust hyperparameter tuning for all models. Evaluation is conducted using meaningful, bias-resistant metrics to avoid inflated results from artifacts such as Simpson’s paradox. All results are compiled into an interactive HTML report.
+
+
+Overview
+=======
+
+Check out our preprint on `bioRxiv <https://www.biorxiv.org/content/10.1101/2025.05.26.655288v1>`_!
+
+**Focus on Innovating Your Models — DrEval Handles the Rest!**
+
 -  DrEval is a toolkit that ensures drug response prediction evaluations are statistically sound, biologically meaningful, and reproducible.
 -  Focus on model innovation while using our automated standardized evaluation protocols and preprocessing workflows.
--  A flexible model interface supports all model types (e.g. Machine Learning, Stats, Network-based analyses)
+-  A flexible model interface supports all model types (e.g. machine learning, statistical models, network-based analyses).
 
-Use DrEval to Build Drug Response Models That Have an Impact
+Use DrEval to build drug response models that have an impact
 
     1. Maintained, up-to-date baseline catalog, no need to re-implement literature models
 

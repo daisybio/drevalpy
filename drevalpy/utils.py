@@ -9,6 +9,7 @@ from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
 from .datasets import AVAILABLE_DATASETS
 from .datasets.dataset import DrugResponseDataset
 from .datasets.loader import load_dataset
+from .datasets.utils import ALLOWED_MEASURES
 from .evaluation import AVAILABLE_METRICS
 from .experiment import drug_response_experiment, pipeline_function
 from .models import MODEL_FACTORY
@@ -45,7 +46,8 @@ def get_parser() -> argparse.ArgumentParser:
         "--baselines",
         nargs="+",
         help="baseline or list of baselines. The baselines are also hpam-tuned and compared to the "
-        "models, but no randomization or robustness tests are run.",
+        "models, but no randomization or robustness tests are run. NaiveMeanEffectsPredictor is always run"
+        "as it is required for evaluation",
     )
     parser.add_argument(
         "--test_mode",
@@ -122,7 +124,7 @@ def get_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--curve_curator",
         action="store_true",
-        default=False,
+        default=True,
         help="Whether to run " "CurveCurator " "to sort out " "non-reactive " "curves",
     )
 
@@ -179,6 +181,18 @@ def get_parser() -> argparse.ArgumentParser:
         default="TEMPORARY",
         help="Directory to save model checkpoints",
     )
+    parser.add_argument(
+        "--final_model_on_full_data",
+        action="store_true",
+        default=False,
+        help="If True, saves a final model, trained/tuned on the union of all folds after CV",
+    )
+    parser.add_argument(
+        "--no_hyperparameter_tuning",
+        action="store_true",
+        default=False,
+        help="Disable hyperparameter tuning and use first hyperparameter set.",
+    )
 
     return parser
 
@@ -201,8 +215,8 @@ def check_arguments(args) -> None:
             f"use your own model, you need to implement a new model class and add it to the "
             f"MODEL_FACTORY in the models init"
         )
-    if not all(test in ["LPO", "LCO", "LDO"] for test in args.test_mode):
-        raise AssertionError("Invalid test mode. Available test modes are LPO, LCO, LDO")
+    if not all(test in ["LPO", "LCO", "LDO", "LTO"] for test in args.test_mode):
+        raise AssertionError("Invalid test mode. Available test modes are LPO, LCO, LDO, LTO")
 
     if args.baselines is not None:
         if not all(baseline in MODEL_FACTORY for baseline in args.baselines):
@@ -222,7 +236,7 @@ def check_arguments(args) -> None:
                     "input file is located at <path_data>/<dataset_name>/<dataset_name>_raw.csv."
                 )
         else:
-            expected_custom_input = Path(args.path_data).absolute() / args.dataset_name / f"{args.dataset_name}_raw.csv"
+            expected_custom_input = Path(args.path_data).absolute() / args.dataset_name / f"{args.dataset_name}.csv"
             if not expected_custom_input.is_file():
                 raise FileNotFoundError(
                     "You specified a custom dataset name which requires prefit curve data to be located at "
@@ -253,7 +267,7 @@ def check_arguments(args) -> None:
     if args.randomization_mode[0] != "None":
         if not all(randomization in ["SVCC", "SVRC", "SVCD", "SVRD"] for randomization in args.randomization_mode):
             raise AssertionError(
-                "At least one invalid randomization mode. Available randomization modes are SVCC, " "SVRC, SVSC, SVRD"
+                "At least one invalid randomization mode. Available randomization modes are SVCC, SVRC, SVCD, SVRD."
             )
 
     if args.randomization_type not in ["permutation", "invariant"]:
@@ -262,9 +276,7 @@ def check_arguments(args) -> None:
     if args.n_trials_robustness < 0:
         raise ValueError("Number of trials for robustness test must be greater than or equal to 0")
 
-    allowed_measures = ["LN_IC50", "EC50", "IC50", "pEC50", "AUC", "response"]
-    allowed_measures.extend([f"{m}_curvecurator" for m in allowed_measures])
-    if args.measure not in allowed_measures:
+    if args.measure not in ALLOWED_MEASURES:
         raise ValueError(
             "Only 'LN_IC50', 'EC50', 'IC50', 'pEC50', 'AUC', 'response' or their equivalents including "
             "the '_curvecurator' suffix are allowed drug response measures."
@@ -302,6 +314,11 @@ def main(args) -> None:
         baselines = [MODEL_FACTORY[baseline] for baseline in args.baselines]
     else:
         baselines = []
+
+    # NaiveMeanEffectsPredictor is always run as it is needed for evaluation
+    if MODEL_FACTORY["NaiveMeanEffectsPredictor"] not in baselines:
+        baselines.append(MODEL_FACTORY["NaiveMeanEffectsPredictor"])
+
     # TODO Allow for custom randomization tests maybe via config file
 
     if args.randomization_mode[0] == "None":
@@ -327,6 +344,8 @@ def main(args) -> None:
             overwrite=args.overwrite,
             path_data=args.path_data,
             model_checkpoint_dir=args.model_checkpoint_dir,
+            hyperparameter_tuning=not args.no_hyperparameter_tuning,
+            final_model_on_full_data=args.final_model_on_full_data,
         )
 
 
@@ -341,8 +360,9 @@ def get_datasets(
     """
     Load the response data and cross-study datasets.
 
-    :param dataset_name: The name of the dataset to load. Can be one of ('GDSC1', 'GDSC2', 'CCLE', or 'Toy_Data')
-        to download provided datasets, or any other name to allow for custom datasets.
+    :param dataset_name: The name of the dataset to load. Can be one of ('GDSC1', 'GDSC2', 'CCLE', CTRPv1',
+        'CTRPv2', 'TOYv1', 'TOYv2')
+        to download provided datasets, or any other name to use a custom datasets.
     :param cross_study_datasets: list of cross-study datasets. CurveCurator is not applicable to these. If you wish
         to provide custom cross_study_datasets, you have to invoke curve fitting manually using
         drevalpy.datasets.curvecurator.fit_curves

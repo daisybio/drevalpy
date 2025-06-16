@@ -21,7 +21,7 @@ class Violin(VioHeat):
         :param whole_name: whether the whole name should be displayed
         """
         super().__init__(df, normalized_metrics, whole_name)
-        self.df["box"] = self.df["algorithm"] + "_" + self.df["rand_setting"] + "_" + self.df["LPO_LCO_LDO"]
+        self.df["box"] = self.df["algorithm"] + "_" + self.df["rand_setting"] + "_" + self.df["test_mode"]
         # remove columns with only NaN values
         self.df = self.df.dropna(axis=1, how="all")
         self.fig = go.Figure()
@@ -46,7 +46,6 @@ class Violin(VioHeat):
             + self.count_pearson
             + self.count_spearman
             + self.count_kendall
-            + self.count_partial_correlation
             + self.count_mse
             + self.count_rmse
             + self.count_mae
@@ -67,24 +66,6 @@ class Violin(VioHeat):
                     args=[
                         {"visible": [True] * self.count_r2 + [False] * (count_sum - self.count_r2)},
                         {"title": "R^2"},
-                    ],
-                ),
-                dict(
-                    label="Correlations",
-                    method="update",
-                    args=[
-                        {
-                            "visible": [False] * self.count_r2
-                            + [True]
-                            * (
-                                self.count_pearson
-                                + self.count_spearman
-                                + self.count_kendall
-                                + self.count_partial_correlation
-                            )
-                            + [False] * (self.count_mse + self.count_rmse + self.count_mae)
-                        },
-                        {"title": "All Correlations"},
                     ],
                 ),
                 dict(
@@ -130,41 +111,11 @@ class Violin(VioHeat):
                         {"title": "Kendall"},
                     ],
                 ),
-                dict(
-                    label="Partial Correlation",
-                    method="update",
-                    args=[
-                        {
-                            "visible": [False]
-                            * (
-                                count_sum
-                                - self.count_partial_correlation
-                                - self.count_mse
-                                - self.count_rmse
-                                - self.count_mae
-                            )
-                            + [True] * self.count_partial_correlation
-                            + [False] * (self.count_mse + self.count_rmse + self.count_mae)
-                        },
-                        {"title": "Partial Correlation"},
-                    ],
-                ),
             ]
         )
         if not self.normalized_metrics:
             buttons_update += list(
                 [
-                    dict(
-                        label="Errors",
-                        method="update",
-                        args=[
-                            {
-                                "visible": [False] * (count_sum - self.count_mse - self.count_rmse - self.count_mae)
-                                + [True] * (self.count_mse + self.count_rmse + self.count_mae)
-                            },
-                            {"title": "All Errors"},
-                        ],
-                    ),
                     dict(
                         label="MSE",
                         method="update",
@@ -215,7 +166,6 @@ class Violin(VioHeat):
         self.count_pearson = 0
         self.count_spearman = 0
         self.count_kendall = 0
-        self.count_partial_correlation = 0
         self.count_mse = 0
         self.count_rmse = 0
         self.count_mae = 0
@@ -228,8 +178,6 @@ class Violin(VioHeat):
                 self.count_spearman += 1 * len(self.df["box"].unique())
             elif "Kendall" in metric:
                 self.count_kendall += 1 * len(self.df["box"].unique())
-            elif "Partial_Correlation" in metric:
-                self.count_partial_correlation += 1 * len(self.df["box"].unique())
             elif "RMSE" in metric:
                 self.count_rmse += 1 * len(self.df["box"].unique())
             elif "MSE" in metric:

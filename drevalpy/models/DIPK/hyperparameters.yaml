@@ -3,7 +3,7 @@ DIPK:
   batch_size:
     - 64
   lr:
-    - 0.00001
+    - 0.0001
   heads:
     - 2
   fc_layer_num:

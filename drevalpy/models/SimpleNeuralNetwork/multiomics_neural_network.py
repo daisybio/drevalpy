@@ -1,14 +1,19 @@
 """Contains the baseline MultiOmicsNeuralNetwork model."""
 
+import json
+import os
 import warnings
 
+import joblib
 import numpy as np
+import torch
 from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 
 from ..drp_model import DRPModel
-from ..utils import get_multiomics_feature_dataset, load_drug_fingerprint_features
+from ..utils import get_multiomics_feature_dataset, load_drug_fingerprint_features, prepare_expression_and_methylation
 from .utils import FeedForwardNetwork
 
 
@@ -28,12 +33,14 @@ class MultiOmicsNeuralNetwork(DRPModel):
         """
         Initalization method for MultiOmicsNeuralNetwork Model.
 
-        The model and the PCA are initialized to None because they are built later in the build_model method.
+        The PCA is initialized to None because it depends on hyperparameter, therefore built in build_model.
         """
         super().__init__()
         self.model = None
         self.hyperparameters = None
-        self.pca = None
+        self.methylation_scaler = StandardScaler()
+        self.methylation_pca = None
+        self.gene_expression_scaler = StandardScaler()
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -55,7 +62,7 @@ class MultiOmicsNeuralNetwork(DRPModel):
             methylation_pca_components.
         """
         self.hyperparameters = hyperparameters
-        self.pca = PCA(n_components=hyperparameters["methylation_pca_components"])
+        self.methylation_pca = PCA(n_components=hyperparameters["methylation_pca_components"])
 
     def train(
         self,
@@ -77,21 +84,27 @@ class MultiOmicsNeuralNetwork(DRPModel):
         """
         if drug_input is None:
             raise ValueError("Drug input (fingerprints) is needed for the MultiOmicsNeuralNetwork model.")
-
-        unique_methylation = np.stack(
-            [cell_line_input.features[id_]["methylation"] for id_ in np.unique(output.cell_line_ids)],
-            axis=0,
+        cell_line_input = prepare_expression_and_methylation(
+            cell_line_input=cell_line_input,
+            cell_line_ids=np.unique(output.cell_line_ids),
+            training=True,
+            gene_expression_scaler=self.gene_expression_scaler,
+            methylation_scaler=self.methylation_scaler,
+            methylation_pca=self.methylation_pca,
         )
-
-        self.pca.n_components = min(self.pca.n_components, len(unique_methylation))
-        self.pca = self.pca.fit(unique_methylation)
 
         first_feature = next(iter(cell_line_input.features.values()))
         dim_gex = first_feature["gene_expression"].shape[0]
-        dim_met = self.pca.n_components
+        dim_met = self.methylation_pca.n_components
         dim_mut = first_feature["mutations"].shape[0]
         dim_cnv = first_feature["copy_number_variation_gistic"].shape[0]
         dim_fingerprint = next(iter(drug_input.features.values()))["fingerprints"].shape[0]
+
+        self.dim_gex = dim_gex
+        self.dim_met = dim_met
+        self.dim_mut = dim_mut
+        self.dim_cnv = dim_cnv
+        self.dim_fp = dim_fingerprint
 
         self.model = FeedForwardNetwork(
             hyperparameters=self.hyperparameters,
@@ -110,10 +123,13 @@ class MultiOmicsNeuralNetwork(DRPModel):
                 cell_line_views=self.cell_line_views,
                 drug_views=self.drug_views,
                 output_earlystopping=output_earlystopping,
+                trainer_params={
+                    "max_epochs": self.hyperparameters.get("max_epochs", 100),
+                    "progress_bar_refresh_rate": 500,
+                },
                 batch_size=16,
                 patience=5,
                 num_workers=1,
-                met_transform=self.pca,
                 model_checkpoint_dir=model_checkpoint_dir,
             )
 
@@ -125,7 +141,7 @@ class MultiOmicsNeuralNetwork(DRPModel):
         drug_input: FeatureDataset | None = None,
     ) -> np.ndarray:
         """
-        Transforms the methylation data using the fitted PCA and then predicts the response for the given input.
+        Applies arcsinh + scaling to gene expression and scaling + PCA to methylation, then predicts.
 
         :param drug_ids: drug identifiers
         :param cell_line_ids: cell line identifiers
@@ -133,33 +149,29 @@ class MultiOmicsNeuralNetwork(DRPModel):
         :param cell_line_input: cell line omics features
         :returns: predicted response
         """
+        cell_line_input = prepare_expression_and_methylation(
+            cell_line_input=cell_line_input,
+            cell_line_ids=np.unique(cell_line_ids),
+            training=False,
+            gene_expression_scaler=self.gene_expression_scaler,
+            methylation_scaler=self.methylation_scaler,
+            methylation_pca=self.methylation_pca,
+        )
+
         inputs = self.get_feature_matrices(
             cell_line_ids=cell_line_ids,
             drug_ids=drug_ids,
             cell_line_input=cell_line_input,
             drug_input=drug_input,
         )
-        (
-            gene_expression,
-            methylation,
-            mutations,
-            copy_number_variation_gistic,
-            fingerprints,
-        ) = (
-            inputs["gene_expression"],
-            inputs["methylation"],
-            inputs["mutations"],
-            inputs["copy_number_variation_gistic"],
-            inputs["fingerprints"],
-        )
-        methylation = self.pca.transform(methylation)
+
         x = np.concatenate(
             (
-                gene_expression,
-                methylation,
-                mutations,
-                copy_number_variation_gistic,
-                fingerprints,
+                inputs["gene_expression"],
+                inputs["methylation"],
+                inputs["mutations"],
+                inputs["copy_number_variation_gistic"],
+                inputs["fingerprints"],
             ),
             axis=1,
         )
@@ -174,7 +186,14 @@ class MultiOmicsNeuralNetwork(DRPModel):
         :return: FeatureDataset containing the cell line omics features, filtered through the
             drug target genes
         """
-        return get_multiomics_feature_dataset(data_path=data_path, dataset_name=dataset_name)
+        gene_lists = {
+            "gene_expression": "drug_target_genes_all_drugs",
+            "methylation": "methylation_intersection",
+            "mutations": "drug_target_genes_all_drugs",
+            "copy_number_variation_gistic": "drug_target_genes_all_drugs",
+            "proteomics": "drug_target_genes_all_drugs_proteomics",
+        }
+        return get_multiomics_feature_dataset(data_path=data_path, gene_lists=gene_lists, dataset_name=dataset_name)
 
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         """
@@ -184,4 +203,97 @@ class MultiOmicsNeuralNetwork(DRPModel):
         :param dataset_name: name of the dataset, e.g., GDSC1
         :returns: FeatureDataset containing the drug fingerprint features
         """
-        return load_drug_fingerprint_features(data_path, dataset_name)
+        return load_drug_fingerprint_features(data_path, dataset_name, fill_na=True)
+
+    def save(self, directory: str) -> None:
+        """
+        Save the trained model, hyperparameters, scalers, PCA object, and feature dimensions to disk.
+
+        Files saved:
+        - model.pt
+        - hyperparameters.json
+        - gene_scaler.pkl
+        - methylation_scaler.pkl
+        - methylation_pca.pkl
+        - metadata.json
+
+        :param directory: Target directory
+        """
+        os.makedirs(directory, exist_ok=True)
+
+        torch.save(self.model.state_dict(), os.path.join(directory, "model.pt"))  # noqa: S614
+
+        with open(os.path.join(directory, "hyperparameters.json"), "w") as f:
+            json.dump(self.hyperparameters, f)
+
+        joblib.dump(self.gene_expression_scaler, os.path.join(directory, "gene_scaler.pkl"))
+        joblib.dump(self.methylation_scaler, os.path.join(directory, "methylation_scaler.pkl"))
+        joblib.dump(self.methylation_pca, os.path.join(directory, "methylation_pca.pkl"))
+
+        metadata = {
+            "dim_gex": self.dim_gex,
+            "dim_met": self.dim_met,
+            "dim_mut": self.dim_mut,
+            "dim_cnv": self.dim_cnv,
+            "dim_fp": self.dim_fp,
+        }
+        with open(os.path.join(directory, "metadata.json"), "w") as f:
+            json.dump(metadata, f)
+
+    @classmethod
+    def load(cls, directory: str) -> "MultiOmicsNeuralNetwork":
+        """
+        Load a trained MultiOmicsNeuralNetwork instance from disk.
+
+        Required files:
+        - model.pt
+        - hyperparameters.json
+        - gene_scaler.pkl
+        - methylation_scaler.pkl
+        - methylation_pca.pkl
+        - metadata.json
+
+        :param directory: Directory containing the saved model files
+        :return: Fully restored MultiOmicsNeuralNetwork instance
+        :raises FileNotFoundError: if any required file is missing
+        """
+        required_files = [
+            "model.pt",
+            "hyperparameters.json",
+            "gene_scaler.pkl",
+            "methylation_scaler.pkl",
+            "methylation_pca.pkl",
+            "metadata.json",
+        ]
+        missing = [f for f in required_files if not os.path.exists(os.path.join(directory, f))]
+        if missing:
+            raise FileNotFoundError(f"Missing model files: {', '.join(missing)}")
+
+        instance = cls()
+
+        with open(os.path.join(directory, "hyperparameters.json")) as f:
+            instance.hyperparameters = json.load(f)
+
+        instance.gene_expression_scaler = joblib.load(os.path.join(directory, "gene_scaler.pkl"))
+        instance.methylation_scaler = joblib.load(os.path.join(directory, "methylation_scaler.pkl"))
+        instance.methylation_pca = joblib.load(os.path.join(directory, "methylation_pca.pkl"))
+
+        with open(os.path.join(directory, "metadata.json")) as f:
+            metadata = json.load(f)
+
+        instance.dim_gex = metadata["dim_gex"]
+        instance.dim_met = metadata["dim_met"]
+        instance.dim_mut = metadata["dim_mut"]
+        instance.dim_cnv = metadata["dim_cnv"]
+        instance.dim_fp = metadata["dim_fp"]
+
+        input_dim = instance.dim_gex + instance.dim_met + instance.dim_mut + instance.dim_cnv + instance.dim_fp
+
+        instance.model = FeedForwardNetwork(
+            hyperparameters=instance.hyperparameters,
+            input_dim=input_dim,
+        )
+        instance.model.load_state_dict(torch.load(os.path.join(directory, "model.pt")))  # noqa: S614
+        instance.model.eval()
+
+        return instance

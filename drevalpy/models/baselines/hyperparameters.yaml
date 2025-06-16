@@ -1,7 +1,32 @@
 NaivePredictor:
 NaiveDrugMeanPredictor:
 NaiveCellLineMeanPredictor:
+NaiveMeanEffectsPredictor:
+NaiveTissueMeanPredictor:
 ElasticNet:
+  l1_ratio:
+    - 0
+    - 0.5
+    - 1
+  alpha:
+    - 1
+    - 0.8
+    - 0.6
+    - 0.4
+    - 0.2
+    - 0.1
+    - 5
+    - 10
+    - 100
+ProteomicsElasticNet:
+  feature_threshold:
+    - 0.7
+  n_features:
+    - 1000
+  normalization_width:
+    - 0.3
+  normalization_downshift:
+    - 1.8
   l1_ratio:
     - 0
     - 0.5
@@ -20,34 +45,28 @@ RandomForest:
   n_estimators:
     - 100
   max_depth:
-    - None
     - 5
     - 10
     - 30
-    - 50
   max_samples:
-    - 0.5
+    - 0.2
   n_jobs:
     - -1
   criterion:
     - squared_error
-    - absolute_error
 MultiOmicsRandomForest:
   n_estimators:
     - 100
   max_depth:
-    - None
     - 5
     - 10
     - 30
-    - 50
   max_samples:
-    - 0.5
+    - 0.2
   n_jobs:
     - -1
   criterion:
     - squared_error
-    - absolute_error
   n_components:
     - 100
 SVR:
@@ -72,31 +91,102 @@ SingleDrugRandomForest:
   n_estimators:
     - 100
   max_depth:
-    - None
     - 5
     - 10
     - 30
-    - 50
   max_samples:
-    - 0.5
+    - 0.2
   n_jobs:
     - -1
   criterion:
     - squared_error
-    - absolute_error
 GradientBoosting:
-  n_estimators:
+  max_iter:
     - 100
   learning_rate:
     - 0.1
     - 0.01
   max_depth:
-    - None
     - 5
     - 10
     - 30
-    - 50
-  subsample:
-    - 1.0
-    - 0.8
+SingleDrugElasticNet:
+  l1_ratio:
+    - 0.2
     - 0.5
+    - 0.9
+  alpha:
+    - 1
+    - 0.8
+    - 0.6
+    - 0.4
+    - 0.2
+    - 0.1
+    - 5
+    - 10
+    - 100
+SingleDrugProteomicsElasticNet:
+  feature_threshold:
+    - 0.7
+  n_features:
+    - 1000
+  normalization_width:
+    - 0.3
+  normalization_downshift:
+    - 1.8
+  l1_ratio:
+    - 0.2
+    - 0.5
+    - 0.9
+  alpha:
+    - 1
+    - 0.8
+    - 0.6
+    - 0.4
+    - 0.2
+    - 0.1
+    - 5
+    - 10
+    - 100
+ProteomicsRandomForest:
+  feature_threshold:
+    - 0.7
+  n_features:
+    - 1000
+  normalization_width:
+    - 0.3
+  normalization_downshift:
+    - 1.8
+  n_estimators:
+    - 100
+  max_depth:
+    - 5
+    - 10
+    - 30
+  max_samples:
+    - 0.2
+  n_jobs:
+    - -1
+  criterion:
+    - squared_error
+SingleDrugProteomicsRandomForest:
+  feature_threshold:
+    - 0.7
+  n_features:
+    - 1000
+  normalization_width:
+    - 0.3
+  normalization_downshift:
+    - 1.8
+  n_estimators:
+    - 100
+  max_depth:
+    - 5
+    - 10
+    - 30
+  max_samples:
+    - 0.2
+  n_jobs:
+    - -1
+  criterion:
+    - squared_error

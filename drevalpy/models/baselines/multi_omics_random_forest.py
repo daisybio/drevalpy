@@ -1,5 +1,8 @@
 """Contains the Multi-OMICS Random Forest model."""
 
+import os
+
+import joblib
 import numpy as np
 from sklearn.decomposition import PCA
 
@@ -55,7 +58,14 @@ class MultiOmicsRandomForest(RandomForest):
         :returns: FeatureDataset containing the cell line omics features, filtered through the
             drug target genes
         """
-        return get_multiomics_feature_dataset(data_path=data_path, dataset_name=dataset_name)
+        gene_lists = {
+            "gene_expression": "drug_target_genes_all_drugs",
+            "methylation": "methylation_intersection",
+            "mutations": "drug_target_genes_all_drugs",
+            "copy_number_variation_gistic": "drug_target_genes_all_drugs",
+            "proteomics": "drug_target_genes_all_drugs_proteomics",
+        }
+        return get_multiomics_feature_dataset(data_path=data_path, gene_lists=gene_lists, dataset_name=dataset_name)
 
     def train(
         self,
@@ -93,6 +103,7 @@ class MultiOmicsRandomForest(RandomForest):
             inputs["copy_number_variation_gistic"],
             inputs["fingerprints"],
         )
+
         methylation = self.pca.fit_transform(methylation)
 
         x = np.concatenate(
@@ -122,7 +133,11 @@ class MultiOmicsRandomForest(RandomForest):
         :param cell_line_input: cell line input
         :param drug_input: drug input
         :returns: predicted response
+        :raises RuntimeError: if PCA has not been fit
         """
+        if not hasattr(self.pca, "components_"):
+            raise RuntimeError("PCA has not been fit. Call train() before predict().")
+
         inputs = self.get_feature_matrices(
             cell_line_ids=cell_line_ids,
             drug_ids=drug_ids,
@@ -142,6 +157,7 @@ class MultiOmicsRandomForest(RandomForest):
             inputs["copy_number_variation_gistic"],
             inputs["fingerprints"],
         )
+
         methylation = self.pca.transform(methylation)
         x = np.concatenate(
             (
@@ -154,3 +170,27 @@ class MultiOmicsRandomForest(RandomForest):
             axis=1,
         )
         return self.model.predict(x)
+
+    def save(self, directory: str) -> None:
+        """
+        Saves the trained model, hyperparameters, scaler, and PCA transformer to the specified directory.
+
+        :param directory: Path to the directory where model components will be saved.
+        """
+        super().save(directory)
+        if self.pca is not None:
+            joblib.dump(self.pca, os.path.join(directory, "pca.pkl"))
+
+    @classmethod
+    def load(cls, directory: str) -> "MultiOmicsRandomForest":
+        """
+        Loads the trained model, hyperparameters, scaler, and PCA transformer from the specified directory.
+
+        :param directory: Path to the directory where model components are stored.
+        :returns: An instance of MultiOmicsRandomForest with restored state.
+        """
+        instance: MultiOmicsRandomForest = super().load(directory)  # type: ignore[assignment]
+        pca_path = os.path.join(directory, "pca.pkl")
+        if os.path.exists(pca_path):
+            instance.pca = joblib.load(pca_path)
+        return instance

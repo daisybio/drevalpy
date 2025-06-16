@@ -18,10 +18,9 @@ except ImportError:
     sys.exit(1)
 
 package = "drevalpy"
-python_versions = ["3.11", "3.12"]
+python_versions = ["3.12", "3.13"]
 nox.options.sessions = (
     "pre-commit",
-    "safety",
     "mypy",
     "tests",
     "xdoctest",
@@ -123,19 +122,6 @@ def precommit(session: Session) -> None:
     session.run("pre-commit", *args)
     if args and args[0] == "install":
         activate_virtualenv_in_precommit_hooks(session)
-
-
-@session(python=python_versions)
-def safety(session: Session) -> None:
-    """
-    Scan dependencies for insecure packages.
-
-    :param session: The Session object.
-    """
-    to_ignore = "--ignore=70612,65189"
-    requirements = session.poetry.export_requirements()
-    session.install("safety")
-    session.run("safety", "check", "--full-report", f"--file={requirements}", to_ignore)
 
 
 @session(python=python_versions)

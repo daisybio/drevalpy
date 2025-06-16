@@ -1,7 +1,7 @@
 """Utility functions for the simple neural network models."""
 
+import os
 import secrets
-from typing import Any
 
 import numpy as np
 import pytorch_lightning as pl
@@ -23,7 +23,6 @@ class RegressionDataset(Dataset):
         drug_input: FeatureDataset,
         cell_line_views: list[str],
         drug_views: list[str],
-        met_transform=None,
     ):
         """
         Initializes the regression dataset.
@@ -34,7 +33,6 @@ class RegressionDataset(Dataset):
         :param cell_line_views: either gene expression for the SimpleNeuralNetwork or all omics data for the
             MultiOMICSNeuralNetwork
         :param drug_views: fingerprints
-        :param met_transform: How to transform the methylation data for the MultiOMICSNeuralNetwork (the fitted PCA)
         :raises AssertionError: if the views are not found in the input data
         """
         self.cell_line_views = cell_line_views
@@ -48,14 +46,12 @@ class RegressionDataset(Dataset):
         for d_view in self.drug_views:
             if d_view not in drug_input.view_names:
                 raise AssertionError(f"Drug view {d_view} not found in drug input")
-        self.met_transform = met_transform
 
     def __getitem__(self, idx):
         """
         Overwrites the getitem method from the Dataset class.
 
-        Retrieves the cell line and drug features and the response for the given index. If methylation data is
-        present, the data is transformed using the fitted PCA.
+        Retrieves the cell line and drug features and the response for the given index.
         :param idx: index of the sample of interest
         :returns: the cell line feature(s) and the response
         :raises TypeError: if the features are not numpy arrays
@@ -67,12 +63,7 @@ class RegressionDataset(Dataset):
         drug_features = None
         for cl_view in self.cell_line_views:
             feature_mat = self.cell_line_input.features[cell_line_id][cl_view]
-            if cl_view == "methylation" and self.met_transform is not None:
-                # reshape because it contains a single sample
-                feature_mat = feature_mat.reshape(1, -1)
-                feature_mat = self.met_transform.transform(feature_mat)
-                # reshape back to original shape
-                feature_mat = feature_mat.reshape(-1)
+
             if cell_line_features is None:
                 cell_line_features = feature_mat
             else:
@@ -158,7 +149,6 @@ class FeedForwardNetwork(pl.LightningModule):
         batch_size=32,
         patience=5,
         num_workers: int = 2,
-        met_transform: Any = None,
         model_checkpoint_dir: str = "checkpoints",
     ) -> None:
         """
@@ -175,20 +165,18 @@ class FeedForwardNetwork(pl.LightningModule):
         :param batch_size: batch size for the DataLoader, default is 32
         :param patience: patience for early stopping, default is 5
         :param num_workers: number of workers for the DataLoader, default is 2
-        :param met_transform: transformation for methylation data, default is None, PCA is used for the MultiOMICSNN.
         :param model_checkpoint_dir: directory to save the model checkpoints
         :raises ValueError: if drug_input is missing
         """
+        if trainer_params is None:
+            trainer_params = {
+                "max_epochs": 100,
+                "progress_bar_refresh_rate": 500,
+            }
         if drug_input is None:
             raise ValueError(
                 "Drug input (fingerprints) are required for SimpleNeuralNetwork and " "MultiOMICsNeuralNetwork."
             )
-
-        if trainer_params is None:
-            trainer_params = {
-                "progress_bar_refresh_rate": 500,
-                "max_epochs": 70,
-            }
 
         train_dataset = RegressionDataset(
             output=output_train,
@@ -196,7 +184,6 @@ class FeedForwardNetwork(pl.LightningModule):
             drug_input=drug_input,
             cell_line_views=cell_line_views,
             drug_views=drug_views,
-            met_transform=met_transform,
         )
         train_loader = DataLoader(
             train_dataset,
@@ -215,7 +202,6 @@ class FeedForwardNetwork(pl.LightningModule):
                 drug_input=drug_input,
                 cell_line_views=cell_line_views,
                 drug_views=drug_views,
-                met_transform=met_transform,
             )
             val_loader = DataLoader(
                 val_dataset,
@@ -229,11 +215,14 @@ class FeedForwardNetwork(pl.LightningModule):
         monitor = "train_loss" if (val_loader is None) else "val_loss"
 
         early_stop_callback = EarlyStopping(monitor=monitor, mode="min", patience=patience)
-        name = "version-" + "".join(
-            [secrets.choice("0123456789abcdef") for i in range(20)]
-        )  # preventing conflicts of filenames
+
+        unique_subfolder = os.path.join(model_checkpoint_dir, "run_" + secrets.token_hex(8))
+        os.makedirs(unique_subfolder, exist_ok=True)
+
+        # prevent conflicts
+        name = "version-" + "".join([secrets.choice("0123456789abcdef") for _ in range(10)])
         self.checkpoint_callback = pl.callbacks.ModelCheckpoint(
-            dirpath=model_checkpoint_dir,
+            dirpath=unique_subfolder,
             monitor=monitor,
             mode="min",
             save_top_k=1,
@@ -262,7 +251,7 @@ class FeedForwardNetwork(pl.LightningModule):
 
         # load best model
         if self.checkpoint_callback.best_model_path is not None:
-            checkpoint = torch.load(self.checkpoint_callback.best_model_path)  # noqa: S614
+            checkpoint = torch.load(self.checkpoint_callback.best_model_path, weights_only=True)  # noqa: S614
             self.load_state_dict(checkpoint["state_dict"])
         else:
             print("checkpoint_callback: No best model found, using the last model.")

@@ -24,11 +24,11 @@ class OutPlot(ABC):
 
     @staticmethod
     @abstractmethod
-    def write_to_html(lpo_lco_ldo: str, f: TextIOWrapper, *args, **kwargs) -> TextIOWrapper:
+    def write_to_html(test_mode: str, f: TextIOWrapper, *args, **kwargs) -> TextIOWrapper:
         """
         Write the plot to the final report file.
 
-        :param lpo_lco_ldo: LPO, LCO, LDO
+        :param test_mode: LPO, LCO, LDO
         :param f: the file to write to
         :param args: additional arguments
         :param kwargs: additional keyword arguments

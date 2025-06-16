@@ -148,7 +148,7 @@ class DRPModel(ABC):
         Load the cell line features before the train/predict method is called.
 
         Required to implement for all models. Could, e.g., call get_multiomics_feature_dataset() or
-        load_and_reduce_gene_features() from models/utils.py.
+        load_and_select_gene_features() from models/utils.py.
 
         :param data_path: path to the data, e.g., data/
         :param dataset_name: name of the dataset, e.g., "GDSC2"
@@ -169,6 +169,36 @@ class DRPModel(ABC):
         :param dataset_name: name of the dataset, e.g., "GDSC2"
         :returns: FeatureDataset or None
         """
+
+    def save(self, directory: str) -> None:
+        """
+        Save the model, including trainable parameters, hyperparameters, scalars, encoders.
+
+        This method should serialize all necessary components to allow
+        full reconstruction of the model later via the `load` method.
+
+        Only needs to be implemented for the DrEval evaluation framework, if a final production model should be saved.
+
+        :param directory: Target directory where the model and metadata should be saved
+        :raises NotImplementedError: if the method is not implemented by the subclass
+        """
+        raise NotImplementedError(f"{self.get_model_name()} does not implement model saving.")
+
+    @classmethod
+    def load(cls, directory: str) -> "DRPModel":
+        """
+        Load a model, including trainable parameters, hyperparameters, scalars, encoders.
+
+        This method should fully reconstruct an instance of the model using
+        the files in the specified directory.
+
+        Only needs to be implemented for the DrEval evaluation framework, if a final production model should be saved.
+
+
+        :param directory: Source directory containing the saved model files
+        :raises NotImplementedError: if the method is not implemented by the subclass
+        """
+        raise NotImplementedError(f"{cls.get_model_name()} does not implement model loading.")
 
     def get_concatenated_features(
         self,
@@ -213,6 +243,15 @@ class DRPModel(ABC):
             cell_line_input=cell_line_input,
             drug_input=drug_input,
         )
+        if drug_view is not None:
+            if drug_view not in inputs:
+                raise ValueError(f"Expected drug_view '{drug_view}' to be in inputs, but it was not. Inputs: {inputs}")
+        if cell_line_view is not None:
+            if cell_line_view not in inputs:
+                raise ValueError(
+                    f"Expected cell_line_view '{cell_line_view}' to be in inputs, but it was not. Inputs: {inputs}"
+                )
+
         cell_line_features = None if cell_line_view is None else inputs.get(cell_line_view)
         drug_features = None if drug_view is None else inputs.get(drug_view)
 
