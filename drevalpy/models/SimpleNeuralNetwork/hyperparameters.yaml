@@ -1,10 +1,9 @@
 ---
 SimpleNeuralNetwork:
   dropout_prob:
-    - 0.3
+    - 0.35
   units_per_layer:
-    - - 2048
-      - 1024
+    - - 1024
       - 512
       - 256
   max_epochs:
