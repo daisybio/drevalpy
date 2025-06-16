@@ -73,7 +73,7 @@ To install DrEvalPy from source, clone the repository and install the package us
 
     git clone https://github.com/daisybio/drevalpy.git
     cd drevalpy
-    mamba create -y -n drevalpy python==3.12 poetry==2.0.1
+    mamba create -y -n drevalpy python==3.13 poetry==2.1.3
     poetry --version
     pip install poetry-plugin-export
     poetry install

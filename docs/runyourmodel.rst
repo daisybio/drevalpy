@@ -6,10 +6,10 @@ DrEvalPy provides a standardized interface for running your own model.
 There are a few steps to follow so we can make sure the model evaluation is consistent and reproducible.
 Feel free to contact us via GitHub if you experience any difficulties :-)
 
-First make a new folder for your model at ``drevalpy/models/your_model_name``.
-Create ``drevalpy/models/your_model_name/your_model.py`` in which you need to define the Python class for your model.
+First, make a new folder for your model at ``drevalpy/models/your_model_name``.
+Create ``drevalpy/models/your_model_name/your_model.py``, in which you need to define the Python class for your model.
 This class should inherit from the :ref:`DRPModel <DRP-label>` base class.
-DrEvalPy is agnostic to the specific modeling strategy you use. However, you need to define the input views(a.k.a modalities), which represent different types of features that your model requires.
+DrEvalPy is agnostic to the specific modeling strategy you use. However, you need to define the input views (a.k.a modalities), which represent different types of features that your model requires.
 In this example, the model uses "gene_expression" and "methylation" features as cell line views, and "fingerprints" as drug views.
 Additionally, you must define a unique model name to identify your model during evaluation.
 
@@ -17,7 +17,8 @@ Additionally, you must define a unique model name to identify your model during 
 
     from drevalpy.models.drp_model import DRPModel
     from drevalpy.datasets.dataset import FeatureDataset, DrugResponseDataset
-    from models.utils import (
+    from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, TISSUE_IDENTIFIER
+    from drevalpy.models.utils import (
         load_and_select_gene_features,
         load_drug_fingerprint_features,
         scale_gene_expression,
@@ -28,7 +29,7 @@ Additionally, you must define a unique model name to identify your model during 
     class YourModel(DRPModel):
         """A revolutionary new modeling strategy."""
 
-        is_single_drug_model = True / False # TODO: set to true if your model is a single drug model (i.e. it needs to be trained for each drug separately)
+        is_single_drug_model = True / False # TODO: set to true if your model is a single drug model (i.e., it needs to be trained for each drug separately)
         early_stopping = True / False # TODO: set to true if you want to use a part of the validation set for early stopping
         cell_line_views = ["gene_expression", "methylation"]
         drug_views = ["fingerprints"]
@@ -42,6 +43,12 @@ Additionally, you must define a unique model name to identify your model during 
 
 Next let's implement the feature loading. You have to return a DrEvalPy FeatureDataset object which contains the features for the cell lines and drugs.
 If the features are different depending on the dataset, use the ``dataset_name`` parameter.
+In this example, we load the drug fingerprints and cell line gene expression and methylation features from CSV files.
+The cell line ids of your gene expression and methylation csvs should match the ``CELL_LINE_IDENTIFIER`` ("cell_line_name"),
+and the drug ids of your fingerprints csv should match the ``DRUG_IDENTIFIER`` ("pubchem_id").
+The model will use these identifiers to match the features with the drug response data.
+
+:download:`Example fingerprint file <_static/example_data/fingerprints_example.csv>`, :download:`Example gene expression file <_static/example_data/gex_example.csv>`.
 
 .. code-block:: Python
 
@@ -53,7 +60,12 @@ If the features are different depending on the dataset, use the ``dataset_name``
         :param dataset_name: name of the dataset
         :returns: FeatureDataset containing the drug ids
         """
-        feature_dataset = FeatureDataset.from_csv(f"{data_path}/{dataset_name}/fingerprints.csv") # make sure to adjust the path to your data
+        feature_dataset = FeatureDataset.from_csv(
+            path_to_csv=f"{data_path}/{dataset_name}/fingerprints.csv",
+            id_column=DRUG_IDENTIFIER,
+            view_name="fingerprints",
+            drop_columns=None
+        ) # make sure to adjust the path to your data. If you want to drop columns, specify them in a list.
 
         return feature_dataset
 
@@ -67,12 +79,14 @@ If the features are different depending on the dataset, use the ``dataset_name``
         :returns: FeatureDataset containing the cell line ids
         """
         feature_dataset = FeatureDataset.from_csv(f"{data_path}/{dataset_name}_gene_expression.csv",
-                                                    id_column="cell_line_ids",
-                                                    view_name="gene_expression"
+                                                    id_column=CELL_LINE_IDENTIFIER,
+                                                    view_name="gene_expression",
+                                                    drop_columns=['cellosaurus_id']
                                                  ) # make sure to adjust the path to your data
         methylation = FeatureDataset.from_csv(f"{data_path}/{dataset_name}_methylation.csv",
-                                                id_column="cell_line_ids",
-                                                view_name="methylation"
+                                                id_column=CELL_LINE_IDENTIFIER,
+                                                view_name="methylation",
+                                                drop_columns=['cellosaurus_id']
                                              ) # make sure to adjust the path to your data
         feature_dataset.add_features(methylation)
 
@@ -101,7 +115,7 @@ Sometimes, the model design is dependent on your training data input. In this ca
         self.hyperparameters = hyperparameters
 
 and then set the model design later in the train method when you have access to the training data.
-(e.g. when you can access the feature dimensionalities)
+(e.g., when you can access the feature dimensionalities)
 The train method should handle model training, and saving any necessary information (e.g., learned parameters).
 Here we use a simple predictor that just uses the concatenated features to predict the response.
 
