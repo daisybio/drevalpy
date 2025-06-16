@@ -20,7 +20,7 @@ Loaders
 CurveCurator
 ------------
 
-.. automodule:: drevalpy.datasets.curvecurator
+.. automodule:: drevalpy.datasets.curvec
    :members:
    :undoc-members:
    :show-inheritance:

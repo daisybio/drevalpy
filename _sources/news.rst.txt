@@ -4,6 +4,17 @@ News
 .. role:: date
     :class: date
 
+📄 Our preprint is out! :date:`2025-05-29`
+--------------------------------------------------------------
+Check out our preprint on `bioRxiv <https://www.biorxiv.org/content/10.1101/2025.05.26.655288v1>`_!
+
+.. note::
+
+    **From Hype to Health Check: Critical Evaluation of Drug Response Prediction Models with DrEval.**
+    Judith Bernett,  Pascal Iversen,  Mario Picciani,  Mathias Wilhelm,  Katharina Baum,  Markus List.
+    *bioRxiv* 2025.05.26.655288; doi: https://doi.org/10.1101/2025.05.26.655288
+
+
 🚀 We have launched the DrEval Challenge 🚀 :date:`2024-11-26`
 --------------------------------------------------------------
 

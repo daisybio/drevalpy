@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>How to use DrEvalPy &mdash; DrEvalPy 1.3.1 documentation</title>
+  <title>How to use DrEvalPy &mdash; DrEvalPy 1.3.2 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
       <link rel="stylesheet" type="text/css" href="_static/custom_cookietemple.css?v=a7e27724" />
@@ -14,7 +14,7 @@
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=bb516dca"></script>
+      <script src="_static/documentation_options.js?v=8ca9e7a0"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
@@ -64,6 +64,7 @@
 <li class="toctree-l1"><a class="reference internal" href="runyourmodel.html">Run your own model</a></li>
 <li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributor Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="reference.html">How to cite</a></li>
+<li class="toctree-l1"><a class="reference internal" href="memes.html">Memes and fun stuff</a></li>
 <li class="toctree-l1"><a class="reference internal" href="API.html">API</a></li>
 </ul>
 
@@ -94,9 +95,9 @@
   <section id="how-to-use-drevalpy">
 <h1>How to use DrEvalPy<a class="headerlink" href="#how-to-use-drevalpy" title="Link to this heading"></a></h1>
 <p>Here, we document how to run DrEval with our implemented models and datasets. You can either do this with the standalone
-supplied here or with the associated Nextflow pipeline. We recommend the use of our nextflow pipeline for computational
+supplied here or with the associated Nextflow pipeline <code class="docutils literal notranslate"><span class="pre">drugresponseeval</span></code>. We recommend the use of our Nextflow pipeline for computational
 demanding runs and for improved reproducibility.
-No knowledge of nextflow is required to run it. The nextflow pipeline is available on the <a class="reference external" href="https://github.com/nf-core/drugresponseeval.git">nf-core GitHub</a>, the corresponding documentation can be found
+No knowledge of Nextflow is required to run it. The Nextflow pipeline is available on the <a class="reference external" href="https://github.com/nf-core/drugresponseeval.git">nf-core GitHub</a>, the corresponding documentation can be found
 <a class="reference external" href="https://nf-co.re/drugresponseeval/dev/">here</a>. Documentation of the standalone is provided below.</p>
 <section id="generate-results-with-run-suite-py">
 <h2>Generate results with <code class="docutils literal notranslate"><span class="pre">run_suite.py</span></code><a class="headerlink" href="#generate-results-with-run-suite-py" title="Link to this heading"></a></h2>
@@ -134,6 +135,7 @@ No knowledge of nextflow is required to run it. The nextflow pipeline is availab
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>run_suite.py<span class="w"> </span>--run_id<span class="w"> </span>my_first_run<span class="w"> </span>--models<span class="w"> </span>NaiveDrugMeanPredictor<span class="w"> </span>ElasticNet<span class="w"> </span>--dataset<span class="w"> </span>TOYv1<span class="w"> </span>--test_mode<span class="w"> </span>LCO
 </pre></div>
 </div>
+<p><em>Note</em>: You need at least 7 CV splits to get a meaningful critical difference diagram and the corresponding p-values.</p>
 </section>
 <section id="visualize-results-with-create-report-py">
 <h2>Visualize results with <code class="docutils literal notranslate"><span class="pre">create_report.py</span></code><a class="headerlink" href="#visualize-results-with-create-report-py" title="Link to this heading"></a></h2>
@@ -241,25 +243,35 @@ For <code class="docutils literal notranslate"><span class="pre">--models</span>
 <td><p>Multi-Drug Model</p></td>
 <td><p>Fits an <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.ElasticNet.html">Sklearn Elastic Net</a>, <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html">Lasso</a>, or <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Ridge.html">Ridge</a> model on gene expression data and drug fingerprints (concatenated input matrix).</p></td>
 </tr>
-<tr class="row-even"><td><p>SingleDrugElasticNet</p></td>
+<tr class="row-even"><td><p>ProteomicsElasticNet</p></td>
+<td><p>Baseline Method</p></td>
+<td><p>Multi-Drug Model</p></td>
+<td><p>Fits an <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.ElasticNet.html">Sklearn Elastic Net</a>, <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html">Lasso</a>, or <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Ridge.html">Ridge</a> model on protein expression data and drug fingerprints (concatenated input matrix).</p></td>
+</tr>
+<tr class="row-odd"><td><p>SingleDrugElasticNet</p></td>
 <td><p>Baseline Method</p></td>
 <td><p>Single-Drug Model</p></td>
 <td><p>Fits an Elastic Net model on gene expression data for each drug separately.</p></td>
 </tr>
-<tr class="row-odd"><td><p>SingleDrugProteomicsElasticNet</p></td>
+<tr class="row-even"><td><p>SingleDrugProteomicsElasticNet</p></td>
 <td><p>Baseline Method</p></td>
 <td><p>Single-Drug Model</p></td>
 <td><p>Fits an Elastic Net model on proteomics data for each drug separately.</p></td>
 </tr>
-<tr class="row-even"><td><p>GradientBoosting</p></td>
+<tr class="row-odd"><td><p>GradientBoosting</p></td>
 <td><p>Baseline Method</p></td>
 <td><p>Multi-Drug Model</p></td>
 <td><p>Fits an <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.HistGradientBoostingRegressor.html">Sklearn Histogram-based Gradient Boosting Regression Tree</a> gene expression data and drug fingerprints.</p></td>
 </tr>
-<tr class="row-odd"><td><p>RandomForest</p></td>
+<tr class="row-even"><td><p>RandomForest</p></td>
 <td><p>Baseline Method</p></td>
 <td><p>Multi-Drug Model</p></td>
 <td><p>Fits an <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestRegressor.html">Sklearn Random Forest Regressor</a> on gene expression data and drug fingerprints.</p></td>
+</tr>
+<tr class="row-odd"><td><p>ProteomicsRandomForest</p></td>
+<td><p>Baseline Method</p></td>
+<td><p>Multi-Drug Model</p></td>
+<td><p>Fits an <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestRegressor.html">Sklearn Random Forest Regressor</a> on proteomics data and drug fingerprints.</p></td>
 </tr>
 <tr class="row-even"><td><p>MultiOmicsRandomForest</p></td>
 <td><p>Baseline Method</p></td>
@@ -271,10 +283,10 @@ For <code class="docutils literal notranslate"><span class="pre">--models</span>
 <td><p>Single-Drug Model</p></td>
 <td><p>Fits an <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestRegressor.html">Sklearn Random Forest Regressor</a> on gene expression data for each drug separately.</p></td>
 </tr>
-<tr class="row-even"><td><p>ProteomicsRandomForest</p></td>
+<tr class="row-even"><td><p>SingleDrugProteomicsRandomForest</p></td>
 <td><p>Baseline Method</p></td>
-<td><p>Multi-Drug Model</p></td>
-<td><p>Fits an <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestRegressor.html">Sklearn Random Forest Regressor</a> on proteomics data and drug fingerprints.</p></td>
+<td><p>Single-Drug Model</p></td>
+<td><p>Fits an <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestRegressor.html">Sklearn Random Forest Regressor</a> on protein expression data for each drug separately.</p></td>
 </tr>
 <tr class="row-odd"><td><p>SVR</p></td>
 <td><p>Baseline Method</p></td>
@@ -437,9 +449,11 @@ If replicates are provided, the procedure will fit one curve per sample / drug p
 <p><strong>Prefit viability data</strong></p>
 <ul class="simple">
 <li><p>DrEvalPy expects a csv-formatted file in the location <code class="docutils literal notranslate"><span class="pre">&lt;path_data&gt;/&lt;dataset&gt;/&lt;dataset_name&gt;.csv</span></code> (corresponding to the <code class="docutils literal notranslate"><span class="pre">--path_data</span></code> and <code class="docutils literal notranslate"><span class="pre">--dataset_name</span></code> options),
-with at least the columns [“cell_line_id”, “drug_id”, &lt;measure&gt;”] where &lt;measure&gt; is replaced with the name of the measure you provide</p></li>
+with at least the columns [“cell_line_id”, “drug_id”, &lt;measure&gt;”] where &lt;measure&gt; is replaced with the name of the measure you provide.</p></li>
+<li><p>For LTO, you must also provide a “tissue” column with tissue information</p></li>
 <li><p>Available measures depend on the column names and can be provided using the <cite>–measure</cite> option.</p></li>
 <li><p>It is required that you use measure names that are also working with the available datasets if you use the <code class="docutils literal notranslate"><span class="pre">--cross_study_datasets</span></code> option</p></li>
+<li><p>Your dataset will be read in with the DrugResponseDataset.from_csv method (drevalpy.datasets.dataset); <a class="reference download internal" download="" href="_downloads/5279763bf4143d4a4919d03efa9445cb/response_example.csv"><code class="xref download docutils literal notranslate"><span class="pre">Example</span> <span class="pre">response</span> <span class="pre">file</span></code></a> would support the measure AUC.</p></li>
 </ul>
 </section>
 <section id="available-randomization-tests">
@@ -470,7 +484,6 @@ degree distribution.</p></li>
 <h2>Robustness Test<a class="headerlink" href="#robustness-test" title="Link to this heading"></a></h2>
 <p>The robustness test is a test where the model is trained with varying seeds. This is done multiple times to see how
 stable the model is. Via <code class="docutils literal notranslate"><span class="pre">--n_trials_robustness</span></code>, you can specify the number of trials for the robustness tests.</p>
-<p><em>Note</em>: You need at least 7 trials to get a meaningful critical difference diagram and the corresponding p-values.</p>
 </section>
 <section id="available-metrics">
 <h2>Available Metrics<a class="headerlink" href="#available-metrics" title="Link to this heading"></a></h2>

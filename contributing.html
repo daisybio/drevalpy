@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Contributor Guide &mdash; DrEvalPy 1.3.1 documentation</title>
+  <title>Contributor Guide &mdash; DrEvalPy 1.3.2 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
       <link rel="stylesheet" type="text/css" href="_static/custom_cookietemple.css?v=a7e27724" />
@@ -14,7 +14,7 @@
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=bb516dca"></script>
+      <script src="_static/documentation_options.js?v=8ca9e7a0"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
@@ -59,6 +59,7 @@
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="reference.html">How to cite</a></li>
+<li class="toctree-l1"><a class="reference internal" href="memes.html">Memes and fun stuff</a></li>
 <li class="toctree-l1"><a class="reference internal" href="API.html">API</a></li>
 </ul>
 
@@ -109,14 +110,17 @@ highly welcomes contributions in the form of bug reports, feature requests, and 
 <h2>How to set up your development environment<a class="headerlink" href="#how-to-set-up-your-development-environment" title="Link to this heading"></a></h2>
 <ol class="arabic">
 <li><p>Fork the repository on GitHub.</p></li>
-<li><p>Make a new conda environment with Python 3.11 or 3.12.</p></li>
+<li><p>Make a new conda environment with Python 3.11, 3.12, or 3.13.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">poetry</span></code> : we use poetry to manage dependencies</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">poetry-plugin-export</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">poetry</span> <span class="pre">install</span></code> : this will install all dependencies</p></li>
 <li><p>Test whether the installation was successful by running the following command:</p>
 <div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>python<span class="w"> </span>run_suite.py<span class="w"> </span>--run_id<span class="w"> </span>my_first_run<span class="w"> </span>--models<span class="w"> </span>NaiveDrugMeanPredictor<span class="w"> </span>ElasticNet<span class="w"> </span>--dataset<span class="w"> </span>TOYv1<span class="w"> </span>--test_mode<span class="w"> </span>LCO
 </pre></div>
 </div>
 </li>
+</ol>
+<ol class="arabic" start="6">
 <li><p>Visualize the results by running the following command:</p>
 <div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>python<span class="w"> </span>create_report.py<span class="w"> </span>--run_id<span class="w"> </span>my_first_run<span class="w"> </span>--dataset<span class="w"> </span>TOYv1
 </pre></div>
