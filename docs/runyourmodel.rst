@@ -18,7 +18,7 @@ Additionally, you must define a unique model name to identify your model during 
     from drevalpy.models.drp_model import DRPModel
     from drevalpy.datasets.dataset import FeatureDataset, DrugResponseDataset
     from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, TISSUE_IDENTIFIER
-    from models.utils import (
+    from drevalpy.models.utils import (
         load_and_select_gene_features,
         load_drug_fingerprint_features,
         scale_gene_expression,
@@ -47,7 +47,9 @@ In this example, we load the drug fingerprints and cell line gene expression and
 The cell line ids of your gene expression and methylation csvs should match the ``CELL_LINE_IDENTIFIER`` ("cell_line_name"),
 and the drug ids of your fingerprints csv should match the ``DRUG_IDENTIFIER`` ("pubchem_id").
 The model will use these identifiers to match the features with the drug response data.
-Example
+
+:download:`Example fingerprint file <_static/example_data/fingerprints_example.csv>`, :download:`Example gene expression file <_static/example_data/gex_example.csv>`.
+
 .. code-block:: Python
 
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
@@ -58,7 +60,12 @@ Example
         :param dataset_name: name of the dataset
         :returns: FeatureDataset containing the drug ids
         """
-        feature_dataset = FeatureDataset.from_csv(f"{data_path}/{dataset_name}/fingerprints.csv") # make sure to adjust the path to your data
+        feature_dataset = FeatureDataset.from_csv(
+            path_to_csv=f"{data_path}/{dataset_name}/fingerprints.csv",
+            id_column=DRUG_IDENTIFIER,
+            view_name="fingerprints",
+            drop_columns=None
+        ) # make sure to adjust the path to your data. If you want to drop columns, specify them in a list.
 
         return feature_dataset
 
@@ -72,12 +79,14 @@ Example
         :returns: FeatureDataset containing the cell line ids
         """
         feature_dataset = FeatureDataset.from_csv(f"{data_path}/{dataset_name}_gene_expression.csv",
-                                                    id_column="cell_line_ids",
-                                                    view_name="gene_expression"
+                                                    id_column=CELL_LINE_IDENTIFIER,
+                                                    view_name="gene_expression",
+                                                    drop_columns=['cellosaurus_id']
                                                  ) # make sure to adjust the path to your data
         methylation = FeatureDataset.from_csv(f"{data_path}/{dataset_name}_methylation.csv",
-                                                id_column="cell_line_ids",
-                                                view_name="methylation"
+                                                id_column=CELL_LINE_IDENTIFIER,
+                                                view_name="methylation",
+                                                drop_columns=['cellosaurus_id']
                                              ) # make sure to adjust the path to your data
         feature_dataset.add_features(methylation)
 
