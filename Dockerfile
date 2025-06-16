@@ -2,7 +2,7 @@
 # https://medium.com/@albertazzir/blazing-fast-python-docker-builds-with-poetry-a78a66f5aed0
 
 # The builder image, used to build the virtual environment
-FROM python:3.13-buster AS builder
+FROM python:3.13-bookworm AS builder
 
 RUN pip install poetry==2.1.3
 
@@ -25,7 +25,7 @@ RUN touch README.md
 RUN poetry install --without development --no-root && rm -rf $POETRY_CACHE_DIR
 
 # The runtime image, used to run the code
-FROM python:3.13-slim-buster AS runtime
+FROM python:3.13-slim-bookworm AS runtime
 
 LABEL image.author.name="Judith Bernett"
 LABEL image.author.email="judith.bernett@tum.de"
@@ -47,4 +47,4 @@ COPY poetry.lock ./
 RUN pip install .
 
 # Nextflow needs the command ps to be available
-RUN apt-get update && apt-get install -y procps && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y procps unzip && rm -rf /var/lib/apt/lists/*
