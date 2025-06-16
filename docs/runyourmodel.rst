@@ -107,7 +107,7 @@ Here we use a simple predictor that just uses the concatenated features to predi
 
 .. code-block:: Python
 
-    def train(self, output: DrugResponseDataset, cell_line_input: FeatureDataset, drug_input: FeatureDataset | None = None, output_earlystopping: DrugResponseDataset | None = None) -> None:
+    def train(self, output: DrugResponseDataset, cell_line_input: FeatureDataset, drug_input: FeatureDataset | None = None, output_earlystopping: DrugResponseDataset | None = None, model_checkpoint_dir: str | None = None) -> None:
 
         inputs = self.get_feature_matrices(
             cell_line_ids=output.cell_line_ids,
@@ -252,6 +252,8 @@ Gene expression features are standardized using a ``StandardScaler``, while fing
     from drevalpy.models.drp_model import DRPModel
     from drevalpy.datasets.dataset import FeatureDataset
     from sklearn.preprocessing import StandardScaler
+    from drevalpy.models.utils import load_and_select_gene_features, load_drug_fingerprint_features
+
 
     class TinyNN(DRPModel):
         cell_line_views = ["gene_expression"]
@@ -268,23 +270,21 @@ Gene expression features are standardized using a ``StandardScaler``, while fing
         def get_model_name(cls) -> str:
             return "TinyNN"
 
-3. We define how the features are loaded.
+3. We define how the features are loaded. This can be customized (Have a look at the FeatureDataset class for more details e.g. on how to load features from a CSV).
 
 .. code-block:: Python
 
         def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
-            return FeatureDataset.from_csv(
-                f"{data_path}/{dataset_name}/gene_expression.csv",
-                id_column="cell_line_ids",
-                view_name="gene_expression"
-            )
+
+            return load_and_select_gene_features(feature_type="gene_expression",
+                                                data_path=data_path,
+                                                dataset_name=dataset_name,
+                                                gene_list="landmark_genes")
+
 
         def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
-            return FeatureDataset.from_csv(
-                f"{data_path}/{dataset_name}/fingerprints.csv",
-                id_column="drug_ids",
-                view_name="fingerprints"
-            )
+
+            return load_drug_fingerprint_features(data_path, dataset_name, fill_na=True)
 
 1. In the ``build_model`` we just store the hyperparameters.
 
@@ -297,7 +297,7 @@ Gene expression features are standardized using a ``StandardScaler``, while fing
 
 .. code-block:: Python
 
-        def train(self, output, cell_line_input, drug_input, output_earlystopping=None):
+        def train(self, output, cell_line_input, drug_input, output_earlystopping=None, model_checkpoint_dir=None):
             gex = cell_line_input.get_feature_matrix("gene_expression", output.cell_line_ids)
             fp = drug_input.get_feature_matrix("fingerprints", output.drug_ids)
 
