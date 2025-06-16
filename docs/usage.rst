@@ -252,9 +252,11 @@ the available datasets in the previous section.
 **Prefit viability data**
 
 * DrEvalPy expects a csv-formatted file in the location ``<path_data>/<dataset>/<dataset_name>.csv`` (corresponding to the ``--path_data`` and ``--dataset_name`` options),
-  with at least the columns ["cell_line_id", "drug_id", <measure>"] where <measure> is replaced with the name of the measure you provide
+  with at least the columns ["cell_line_id", "drug_id", <measure>"] where <measure> is replaced with the name of the measure you provide.
+* For LTO, you must also provide a "tissue" column with tissue information
 * Available measures depend on the column names and can be provided using the `--measure` option.
 * It is required that you use measure names that are also working with the available datasets if you use the ``--cross_study_datasets`` option
+* Your dataset will be read in with the DrugResponseDataset.from_csv method (drevalpy.datasets.dataset); :download:`Example response file <_static/example_data/response_example.csv>` would support the measure AUC.
 
 Available Randomization Tests
 -----------------------------

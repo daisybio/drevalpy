@@ -833,6 +833,7 @@ class FeatureDataset:
         :returns: FeatureDataset object containing data from provided csv file.
         """
         data = pd.read_csv(path_to_csv).T if transpose else pd.read_csv(path_to_csv)
+        data[id_column] = data[id_column].astype(str)
         ids = data[id_column].values
         data_features = data.drop(columns=(drop_columns or []))
         data_features = data_features.set_index(id_column)

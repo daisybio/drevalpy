@@ -17,7 +17,7 @@ Additionally, you must define a unique model name to identify your model during 
 
     from drevalpy.models.drp_model import DRPModel
     from drevalpy.datasets.dataset import FeatureDataset, DrugResponseDataset
-    from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, TISSUE_IDENTIFIER
+    from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
     from drevalpy.models.utils import (
         load_and_select_gene_features,
         load_drug_fingerprint_features,
@@ -43,12 +43,21 @@ Additionally, you must define a unique model name to identify your model during 
 
 Next let's implement the feature loading. You have to return a DrEvalPy FeatureDataset object which contains the features for the cell lines and drugs.
 If the features are different depending on the dataset, use the ``dataset_name`` parameter.
-In this example, we load the drug fingerprints and cell line gene expression and methylation features from CSV files.
+In this example, we load custom drug fingerprints and cell line gene expression and methylation features from CSV files.
 The cell line ids of your gene expression and methylation csvs should match the ``CELL_LINE_IDENTIFIER`` ("cell_line_name"),
 and the drug ids of your fingerprints csv should match the ``DRUG_IDENTIFIER`` ("pubchem_id").
 The model will use these identifiers to match the features with the drug response data.
 
 :download:`Example fingerprint file <_static/example_data/fingerprints_example.csv>`, :download:`Example gene expression file <_static/example_data/gex_example.csv>`.
+
+For our provided datasets, we have other loading methods implemented in the `drevalpy/models/utils.py` file, which you can also use:
+
+* ``def load_and_select_gene_features``: Loads a specified omic; enables selecting a specific gene list (e.g., landmark genes).
+* ``def get_multiomics_feature_dataset``: Loads the specified omics (iteratively calls previous method).
+* ``def load_drug_fingerprint_features``: Loads the provided drug fingerprints.
+* ``def load_cl_ids_from_csv``
+* ``def load_drug_ids_from_csv``
+* ``load_tissues_from_csv``
 
 .. code-block:: Python
 
@@ -154,6 +163,16 @@ In case you want to set some parameters dependent on the training data, your tra
             cell_line_input=cell_line_input,
             drug_input=drug_input,
         )
+
+
+We also provide utility functions (drevalpy/models/utils.py) for data transformations that have to be computed on the training data only (e.g., scaling, feature selection) to avoid data leakage:
+
+* ``def scale_gene_expression``
+* ``class VarianceFeatureSelector``
+* ``def prepare_expression_and_methylation``
+* ``class ProteomicsMedianCenterAndImputeTransformer``
+* ``def prepare_proteomics``
+
 
 The predict method should handle model prediction, and return the predicted response values.
 
@@ -284,7 +303,7 @@ Gene expression features are standardized using a ``StandardScaler``, while fing
         def get_model_name(cls) -> str:
             return "TinyNN"
 
-3. We define how the features are loaded. This can be customized (Have a look at the FeatureDataset class for more details e.g. on how to load features from a CSV).
+3. We define how the features are loaded. Here, we use our presupplied datasets and the preimplemented functions. Loading features can be customized (Have a look at the FeatureDataset class for more details e.g. on how to load features from a CSV).
 
 .. code-block:: Python
 
@@ -410,7 +429,7 @@ We overwrite ``cell_line_views`` to ``["proteomics"]`` and define the model name
                 normalization_width=self.normalization_width,
             )
 
-3. We implement the ``load_cell_line_features`` method to load the proteomics features.
+3. We implement the ``load_cell_line_features`` method to load the presupplied proteomics features.
 
 .. code-block:: python
 

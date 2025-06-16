@@ -281,6 +281,9 @@ def load_dataset(
                 cores=cores,
             )
         return load_custom(
-            Path(path_data) / dataset_name / f"{dataset_name}.csv", measure=measure, tissue_column=tissue_column
+            path_data=Path(path_data) / dataset_name / f"{dataset_name}.csv",
+            dataset_name=dataset_name,
+            measure=measure,
+            tissue_column=tissue_column,
         )
     raise FileNotFoundError(f"Custom dataset does not exist at given path: {input_file}")
