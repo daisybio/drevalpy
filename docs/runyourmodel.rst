@@ -2,6 +2,10 @@ Run your own model
 ===================
 
 DrEvalPy provides a standardized interface for running your own model.
+
+There are a few steps to follow so we can make sure the model evaluation is consistent and reproducible.
+Feel free to contact us via GitHub if you experience any difficulties :-)
+
 First, make a new folder for your model at ``drevalpy/models/your_model_name``.
 Create ``drevalpy/models/your_model_name/your_model.py``, in which you need to define the Python class for your model.
 This class should inherit from the :ref:`DRPModel <DRP-label>` base class.
@@ -12,10 +16,15 @@ Additionally, you must define a unique model name to identify your model during 
 .. code-block:: Python
 
     from drevalpy.models.drp_model import DRPModel
-    from drevalpy.datasets.dataset import FeatureDataset
+    from drevalpy.datasets.dataset import FeatureDataset, DrugResponseDataset
     from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, TISSUE_IDENTIFIER
-
-    import pandas as pd
+    from models.utils import (
+        load_and_select_gene_features,
+        load_drug_fingerprint_features,
+        scale_gene_expression,
+    )
+    from typing import Any
+    import numpy as np
 
     class YourModel(DRPModel):
         """A revolutionary new modeling strategy."""
@@ -25,6 +34,7 @@ Additionally, you must define a unique model name to identify your model during 
         cell_line_views = ["gene_expression", "methylation"]
         drug_views = ["fingerprints"]
 
+        @classmethod
         def get_model_name(cls) -> str:
             """
             Returns the name of the model.
@@ -67,7 +77,7 @@ Example
                                                  ) # make sure to adjust the path to your data
         methylation = FeatureDataset.from_csv(f"{data_path}/{dataset_name}_methylation.csv",
                                                 id_column="cell_line_ids",
-                                                view_name="gene_expression"
+                                                view_name="methylation"
                                              ) # make sure to adjust the path to your data
         feature_dataset.add_features(methylation)
 
@@ -86,7 +96,7 @@ The hyperparameters which get tested are defined in the ``drevalpy/models/your_m
         Example:
             self.model = ElasticNet(alpha=hyperparameters["alpha"], l1_ratio=hyperparameters["l1_ratio"])
         """
-        predictor = YourPredictor(hyperparameters) # Initialize your Predictor, this could be a sklearn model, a neural network, etc.
+        self.predictor = YourPredictor(hyperparameters) # Initialize your Predictor, this could be a sklearn model, a neural network, etc.
 
 Sometimes, the model design is dependent on your training data input. In this case, you can also consider implementing build_model like:
 
@@ -96,7 +106,7 @@ Sometimes, the model design is dependent on your training data input. In this ca
         self.hyperparameters = hyperparameters
 
 and then set the model design later in the train method when you have access to the training data.
-(i.e. when you can access the feature dimensionalities)
+(e.g., when you can access the feature dimensionalities)
 The train method should handle model training, and saving any necessary information (e.g., learned parameters).
 Here we use a simple predictor that just uses the concatenated features to predict the response.
 
@@ -105,15 +115,13 @@ Here we use a simple predictor that just uses the concatenated features to predi
     def train(self, output: DrugResponseDataset, cell_line_input: FeatureDataset, drug_input: FeatureDataset | None = None, output_earlystopping: DrugResponseDataset | None = None) -> None:
 
         inputs = self.get_feature_matrices(
-            cell_line_ids=cell_line_ids,
-            drug_ids=drug_ids,
+            cell_line_ids=output.cell_line_ids,
+            drug_ids=output.drug_ids,
             cell_line_input=cell_line_input,
             drug_input=drug_input,
         )
 
-        predictor.fit(**inputs, output.response)
-
-        self.predictor = predictor # save your predictor for the prediction step
+        self.predictor.fit(**inputs, output.response)
 
 In case you want to set some parameters dependent on the training data, your train function might look like this:
 
@@ -142,7 +150,23 @@ The predict method should handle model prediction, and return the predicted resp
 
 .. code-block:: Python
 
-    def predict(self, cell_line_input: FeatureDataset, drug_input: FeatureDataset | None = None) -> np.ndarray:
+    def predict(
+        self,
+        cell_line_ids: np.ndarray,
+        drug_ids: np.ndarray,
+        cell_line_input: FeatureDataset,
+        drug_input: FeatureDataset | None = None,
+    ) -> np.ndarray:
+        """
+        Predicts the response for the given input.
+
+        :param drug_ids: list of drug ids, also used for single drug models, there it is just an array containing the
+            same drug id
+        :param cell_line_ids: list of cell line ids
+        :param cell_line_input: input associated with the cell line, required for all models
+        :param drug_input: input associated with the drug, optional because single drug models do not use drug features
+        :returns: predicted response
+        """
 
         inputs = self.get_feature_matrices(
             cell_line_ids=cell_line_ids,
@@ -152,6 +176,7 @@ The predict method should handle model prediction, and return the predicted resp
         )
 
         return self.predictor.predict(**inputs, output.response)
+
 
 Finally, you need to register your model with the framework. This can be done by adding the following line to the ``__init__.py`` file in the ``drevalpy/models/__init__.py`` directory.
 Update the ``MULTI_DRUG_MODEL_FACTORY`` if your model is a global model for multiple cancer drugs or to the ``SINGLE_DRUG_MODEL_FACTORY`` if your model is specific to a single drug and needs to be trained for each drug separately.
@@ -167,10 +192,10 @@ Now you can run your model using the DrEvalPy pipeline. cd to the drevalpy root 
     python -m run_suite.py --model YourModel --dataset CTRPv2 --data_path data
 
 
-To contribute the model, so that the community can build on it, please also write appropriate tests in ``tests/individual_models`` and documentation in ``docs/``
+To contribute the model, so that the community can build on it, please also write appropriate tests in ``tests/models`` and documentation in ``docs/``
 We are happy to help you with that, contact us via GitHub!
 
-Let's look at an example of how to implement a model using the DrEvalPy framework:
+Let's look at an example an example implementation of a model using the DrEvalPy framework:
 
 
 
@@ -178,6 +203,7 @@ Example: TinyNN (Neural Network with PyTorch)
 ---------------------------------------------
 
 In this example, we implement a simple feedforward neural network for drug response prediction using gene expression and drug fingerprint features.
+We use and recommend PyTorch, but you can use any other framework like TensorFlow, JAX, etc.
 Gene expression features are standardized using a ``StandardScaler``, while fingerprint features are used as-is.
 
 1. We define a minimal PyTorch model with CPU/GPU support.
@@ -265,7 +291,7 @@ Gene expression features are standardized using a ``StandardScaler``, while fing
                 view_name="fingerprints"
             )
 
-4. We store hyperparameters in ``build_model``.
+1. In the ``build_model`` we just store the hyperparameters.
 
 .. code-block:: Python
 
@@ -303,7 +329,7 @@ Gene expression features are standardized using a ``StandardScaler``, while fing
 
             return self.model.predict(x)
 
-7. Add hyperparameters to your ``hyperparameters.yaml``.
+7. Add hyperparameters to your ``hyperparameters.yaml``. We add two values for the hidden layer size. DrEval will tune over this hyperparameter space.
 
 .. code-block:: YAML
 
@@ -332,6 +358,15 @@ We now adapt it to work with proteomics features, and apply preprocessing steps 
 We overwrite ``cell_line_views`` to ``["proteomics"]`` and define the model name.
 
 .. code-block:: python
+    from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+    from drevalpy.models import RandomForest
+    from models.utils import (
+        ProteomicsMedianCenterAndImputeTransformer,
+        load_and_select_gene_features,
+        load_drug_fingerprint_features,
+        prepare_proteomics,
+        scale_gene_expression,
+    )
 
     class ProteomicsRandomForest(RandomForest):
         """RandomForest model for drug response prediction using proteomics data."""
@@ -349,7 +384,7 @@ We overwrite ``cell_line_views`` to ``["proteomics"]`` and define the model name
         def get_model_name(cls) -> str:
             return "ProteomicsRandomForest"
 
-2. We implement the ``build_model`` method to configure the preprocessing transformer from hyperparameters.
+1. We implement the ``build_model`` method to configure the preprocessing transformer from hyperparameters.
 
 .. code-block:: python
 
