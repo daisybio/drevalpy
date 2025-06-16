@@ -1,3 +1,5 @@
+# flake8: noqa: RST201, RST203, RST301, RST401
+
 """
 Defines the different dataset classes.
 
@@ -779,7 +781,30 @@ def _leave_group_out_cv(
 
 
 class FeatureDataset:
-    """Class for feature datasets."""
+    """
+    Class for feature datasets.
+
+    This class represents datasets with one or more views of features associated with a set of entities,
+    such as drugs or cell lines. The feature data is stored in a nested dictionary structure:
+
+    {
+        identifier_1: {
+            view_name_1: feature_vector,
+            view_name_2: feature_vector,
+            ...
+        },
+        identifier_2: {
+            view_name_1: feature_vector,
+            view_name_2: feature_vector,
+            ...
+        },
+        ...
+    }
+
+    - Each outer key is a string identifier (e.g. a cell line ID or drug ID)
+    - Each inner key is the name of a view (e.g. 'gene_expression', 'fingerprints')
+    - Each inner value is a feature vector or object representing that view for the identifier
+    """
 
     _features: dict[str, dict[str, Any]]
     _meta_info: dict[str, Any]
@@ -791,6 +816,7 @@ class FeatureDataset:
         id_column: str,
         view_name: str,
         drop_columns: list[str] | None = None,
+        transpose: bool = False,
     ):
         """Load a one-view feature dataset from a csv file.
 
@@ -803,9 +829,10 @@ class FeatureDataset:
         :param view_name: name of the view (e.g. gene_expression)
         :param id_column: name of the column containing the identifiers
         :param drop_columns: list of columns to drop (e.g. other identifier columns)
+        :param transpose: if True, the csv is transposed, i.e. the rows become columns and vice versa
         :returns: FeatureDataset object containing data from provided csv file.
         """
-        data = pd.read_csv(path_to_csv)
+        data = pd.read_csv(path_to_csv).T if transpose else pd.read_csv(path_to_csv)
         ids = data[id_column].values
         data_features = data.drop(columns=(drop_columns or []))
         data_features = data_features.set_index(id_column)
