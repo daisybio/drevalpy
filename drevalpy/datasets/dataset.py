@@ -846,7 +846,7 @@ class FeatureDataset:
             features_for_instance = data_features.loc[identifier].values
             features[identifier] = {view_name: features_for_instance}
 
-        meta_info = None
+        meta_info = {}
         if extract_meta_info:
             meta_info = {view_name: list(data_features.columns)}
 
