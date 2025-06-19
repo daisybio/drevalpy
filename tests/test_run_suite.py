@@ -38,7 +38,7 @@ from drevalpy.visualization.utils import (
             "overwrite": False,
             "optim_metric": "RMSE",
             "n_cv_splits": 2,
-            "response_transformation": "None",
+            "response_transformation": "standard",
             "multiprocessing": False,
             "path_data": "../data",
             "model_checkpoint_dir": "TEMPORARY",
