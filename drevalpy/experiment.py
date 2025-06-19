@@ -302,7 +302,7 @@ def drug_response_experiment(
                 path_data=path_data,
                 model_checkpoint_dir=model_checkpoint_dir,
                 metric=metric,
-                result_path=final_model_path,
+                final_model_path=final_model_path,
                 test_mode=test_mode,
                 val_ratio=0.1,
                 hyperparameter_tuning=hyperparameter_tuning,
@@ -1291,7 +1291,7 @@ def train_final_model(
     path_data: str,
     model_checkpoint_dir: str,
     metric: str,
-    result_path: str,
+    final_model_path: str,
     test_mode: str = "LCO",
     val_ratio: float = 0.1,
     hyperparameter_tuning: bool = True,
@@ -1314,7 +1314,7 @@ def train_final_model(
     :param path_data: path to data directory
     :param model_checkpoint_dir: checkpoint dir for intermediate tuning models
     :param metric: metric for tuning, e.g., "RMSE"
-    :param result_path: path to results
+    :param final_model_path: path to final_model save directory
     :param test_mode: split logic for validation (LCO, LDO, LTO, LPO)
     :param val_ratio: validation size ratio
     :param hyperparameter_tuning: whether to perform hyperparameter tuning
@@ -1367,7 +1367,6 @@ def train_final_model(
         model_checkpoint_dir=model_checkpoint_dir,
     )
 
-    final_model_path = os.path.join(result_path, "final_model")
     os.makedirs(final_model_path, exist_ok=True)
     model.save(final_model_path)
 
