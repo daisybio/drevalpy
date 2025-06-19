@@ -1358,10 +1358,11 @@ def train_final_model(
     train_dataset.shuffle(random_state=42)
 
     model.build_model(hyperparameters=best_hpams)
+    drug_features = drug_features.copy() if drug_features is not None else None
     model.train(
         output=train_dataset,
         output_earlystopping=early_stopping_dataset,
-        cell_line_input=cl_features,
+        cell_line_input=cl_features.copy(),
         drug_input=drug_features,
         model_checkpoint_dir=model_checkpoint_dir,
     )
