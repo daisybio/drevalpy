@@ -392,7 +392,7 @@ def get_datasets(
 
 
 @pipeline_function
-def get_response_transformation(response_transformation: str) -> TransformerMixin | None:
+def get_response_transformation(response_transformation: str | None) -> TransformerMixin | None:
     """
     Get the skelarn response transformation object of choice.
 
@@ -401,7 +401,7 @@ def get_response_transformation(response_transformation: str) -> TransformerMixi
     :returns: response transformation object
     :raises ValueError: if the response transformation is not recognized
     """
-    if response_transformation == "None":
+    if (response_transformation == "None") or (response_transformation is None):
         return None
     if response_transformation == "standard":
         return StandardScaler()

@@ -12,6 +12,7 @@ import pandas as pd
 
 from ..datasets.dataset import DrugResponseDataset
 from ..evaluation import AVAILABLE_METRICS, evaluate
+from ..models.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
 from ..pipeline_function import pipeline_function
 from . import (
     ComparisonScatter,
@@ -228,7 +229,7 @@ def prep_results(
             elif file == "cell_line_names.csv":
                 cell_line_names = pd.read_csv(os.path.join(root, file), index_col=0)
                 # index: cellosaurus_id, column: cell_line_name
-                cell_line_metadata.update(zip(cell_line_names["cell_line_name"], cell_line_names.index))
+                cell_line_metadata.update(zip(cell_line_names[CELL_LINE_IDENTIFIER], cell_line_names.index))
 
     # add variables
     # split the index by "_" into: algorithm, randomization, test_mode, split, CV_split
@@ -251,7 +252,7 @@ def prep_results(
         all_drugs = [drug_metadata[drug] for drug in eval_results_per_drug["drug"]]
         eval_results_per_drug["drug_name"] = all_drugs
         # rename drug to pubchem_id
-        eval_results_per_drug = eval_results_per_drug.rename(columns={"drug": "pubchem_id"})
+        eval_results_per_drug = eval_results_per_drug.rename(columns={"drug": DRUG_IDENTIFIER})
     if eval_results_per_cell_line is not None:
         print("Reformatting the evaluation results per cell line ...")
         eval_results_per_cell_line[["algorithm", "rand_setting", "test_mode", "split", "CV_split"]] = (
@@ -259,7 +260,7 @@ def prep_results(
         )
         all_cello_ids = [cell_line_metadata[cell_line] for cell_line in eval_results_per_cell_line["cell_line"]]
         eval_results_per_cell_line["cellosaurus_id"] = all_cello_ids
-        eval_results_per_cell_line = eval_results_per_cell_line.rename(columns={"cell_line": "cell_line_name"})
+        eval_results_per_cell_line = eval_results_per_cell_line.rename(columns={"cell_line": CELL_LINE_IDENTIFIER})
 
     print("Reformatting the true vs. predicted values ...")
     t_vs_p[["algorithm", "rand_setting", "test_mode", "split", "CV_split"]] = t_vs_p["model"].str.split(
@@ -270,8 +271,8 @@ def prep_results(
     t_vs_p["drug_name"] = all_drugs
     all_cello_ids = [cell_line_metadata[cell_line] for cell_line in t_vs_p["cell_line"]]
     t_vs_p["cellosaurus_id"] = all_cello_ids
-    t_vs_p = t_vs_p.rename(columns={"cell_line": "cell_line_name", "drug": "pubchem_id"})
-    t_vs_p["pubchem_id"] = t_vs_p["pubchem_id"].astype(str)
+    t_vs_p = t_vs_p.rename(columns={"cell_line": CELL_LINE_IDENTIFIER, "drug": DRUG_IDENTIFIER})
+    t_vs_p[DRUG_IDENTIFIER] = t_vs_p[DRUG_IDENTIFIER].astype(str)
 
     if "NaiveMeanEffectsPredictor" in eval_results["algorithm"].unique():
         eval_results = _normalize_metrics_by_mean_effects(
