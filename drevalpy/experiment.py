@@ -585,7 +585,7 @@ def cross_study_prediction(
             drug_input=drug_input,
         )
         if response_transformation:
-            dataset._response = response_transformation.inverse_transform(dataset.response)
+            dataset.inverse_transform(response_transformation)
     else:
         dataset._predictions = np.array([])
     dataset.to_csv(
@@ -1000,10 +1000,14 @@ def train_and_predict(
             drug_input=drug_input,
         )
 
-        if response_transformation:
-            prediction_dataset.inverse_transform(response_transformation)
     else:
         prediction_dataset._predictions = np.array([])
+
+    if response_transformation:
+        train_dataset.inverse_transform(response_transformation)
+        prediction_dataset.inverse_transform(response_transformation)
+        if early_stopping_dataset is not None:
+            early_stopping_dataset.inverse_transform(response_transformation)
 
     return prediction_dataset
 
@@ -1016,7 +1020,7 @@ def train_and_evaluate(
     validation_dataset: DrugResponseDataset,
     early_stopping_dataset: DrugResponseDataset | None = None,
     response_transformation: TransformerMixin | None = None,
-    metric: str = "rmse",
+    metric: str = "RMSE",
     model_checkpoint_dir: str = "TEMPORARY",
 ) -> dict[str, float]:
     """
@@ -1283,7 +1287,6 @@ def generate_data_saving_path(model_name, drug_id, result_path, suffix) -> str:
     return model_path
 
 
-@pipeline_function
 def train_final_model(
     model_class: type[DRPModel],
     full_dataset: DrugResponseDataset,
@@ -1356,6 +1359,10 @@ def train_final_model(
     print(f"Best hyperparameters for final model: {best_hpams}")
     train_dataset.add_rows(validation_dataset)
     train_dataset.shuffle(random_state=42)
+    if response_transformation:
+        train_dataset.fit_transform(response_transformation)
+        if early_stopping_dataset is not None:
+            early_stopping_dataset.transform(response_transformation)
 
     model.build_model(hyperparameters=best_hpams)
     drug_features = drug_features.copy() if drug_features is not None else None
@@ -1366,6 +1373,10 @@ def train_final_model(
         drug_input=drug_features,
         model_checkpoint_dir=model_checkpoint_dir,
     )
+    if response_transformation:
+        train_dataset.inverse_transform(response_transformation)
+        if early_stopping_dataset is not None:
+            early_stopping_dataset.inverse_transform(response_transformation)
 
     os.makedirs(final_model_path, exist_ok=True)
     model.save(final_model_path)
