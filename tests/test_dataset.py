@@ -591,59 +591,76 @@ def test_add_features(sample_dataset: FeatureDataset, graph_dataset: FeatureData
     assert "molecular_graph" in sample_dataset.view_names
 
 
-def test_feature_dataset_csv_methods():
-    """Test the `from_csv` and `to_csv` methods of the FeatureDataset class."""
-    # Create temporary directory for testing
+def test_feature_dataset_csv_meta_handling():
+    """Test `from_csv` and `to_csv` methods with and without meta_info handling."""
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_dir = Path(temp_dir)
 
-        # Create test data
-        test_csv_path = temp_dir / "test_features.csv"
-        data = {
-            "id": ["A", "B", "C"],
-            "feature_1": [1.0, 2.0, 3.0],
-            "feature_2": [4.0, 5.0, 6.0],
-        }
-        df = pd.DataFrame(data)
-        df.to_csv(test_csv_path, index=False)
+        # ------------------------------------
+        # 0. Create initial test DataFrame/CSV
+        # ------------------------------------
+        df_with_named_cols = pd.DataFrame(
+            {
+                "id": ["A", "B", "C"],
+                "feature_1": [1.0, 2.0, 3.0],
+                "feature_2": [4.0, 5.0, 6.0],
+            }
+        )
+        csv_with_meta = temp_dir / "input_with_meta.csv"
+        df_with_named_cols.to_csv(csv_with_meta, index=False)
 
-        # Test `from_csv` method
         view_name = "example_view"
-        feature_dataset = FeatureDataset.from_csv(
-            path_to_csv=test_csv_path, id_column="id", view_name=view_name, drop_columns=None
+
+        # ------------------------------------
+        # 1. Load from CSV → should extract meta_info
+        # ------------------------------------
+        dataset = FeatureDataset.from_csv(
+            path_to_csv=csv_with_meta,
+            id_column="id",
+            view_name=view_name,
         )
 
-        # Validate loaded data
-        assert set(feature_dataset.identifiers) == {"A", "B", "C"}, "Identifiers mismatch."
-        assert feature_dataset.view_names == [view_name], "View names mismatch."
-        expected_features = {
-            "A": {"example_view": np.array([1.0, 4.0])},
-            "B": {"example_view": np.array([2.0, 5.0])},
-            "C": {"example_view": np.array([3.0, 6.0])},
-        }
-        for identifier in expected_features:
-            np.testing.assert_array_equal(
-                feature_dataset.features[identifier][view_name],
-                expected_features[identifier][view_name],
-                f"Feature mismatch for identifier {identifier}.",
-            )
+        assert dataset.meta_info == {view_name: ["feature_1", "feature_2"]}
+        assert set(dataset.identifiers) == {"A", "B", "C"}
+        assert dataset.view_names == [view_name]
 
-        # Test `to_csv` method
-        output_csv_path = temp_dir / "output_features.csv"
-        feature_dataset.to_csv(path=output_csv_path, id_column="id", view_name=view_name)
+        # ------------------------------------
+        # 2. Save with meta_info → column names should be preserved
+        # ------------------------------------
+        csv_out_with_meta = temp_dir / "saved_with_meta.csv"
+        dataset.to_csv(csv_out_with_meta, id_column="id", view_name=view_name)
 
-        # Validate saved data
-        saved_df = pd.read_csv(output_csv_path)
-        expected_saved_df = pd.DataFrame(
+        saved_df = pd.read_csv(csv_out_with_meta)
+        pd.testing.assert_frame_equal(saved_df, df_with_named_cols, check_dtype=False)
+
+        # ------------------------------------
+        # 3. Save without meta_info → fallback to generic feature_0, feature_1
+        # ------------------------------------
+        dataset._meta_info = {}  # simulate no meta info
+        csv_out_no_meta = temp_dir / "saved_no_meta.csv"
+        dataset.to_csv(csv_out_no_meta, id_column="id", view_name=view_name)
+
+        df_fallback = pd.DataFrame(
             {
                 "id": ["A", "B", "C"],
                 "feature_0": [1.0, 2.0, 3.0],
                 "feature_1": [4.0, 5.0, 6.0],
             }
         )
-        pd.testing.assert_frame_equal(
-            saved_df,
-            expected_saved_df,
-            check_dtype=False,  # Relax dtype check for cross-platform compatibility
-            obj="Saved CSV data",
+        saved_fallback_df = pd.read_csv(csv_out_no_meta)
+        pd.testing.assert_frame_equal(saved_fallback_df, df_fallback, check_dtype=False)
+
+        # ------------------------------------
+        # 4. Load fallback CSV → should reconstruct generic meta_info
+        # ------------------------------------
+        dataset_fallback = FeatureDataset.from_csv(
+            path_to_csv=csv_out_no_meta,
+            id_column="id",
+            view_name=view_name,
+        )
+
+        assert dataset_fallback.meta_info == {view_name: ["feature_0", "feature_1"]}
+        np.testing.assert_array_equal(
+            dataset_fallback.features["B"][view_name],
+            np.array([2.0, 5.0]),
         )

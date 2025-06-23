@@ -123,13 +123,22 @@ def _exec_curvecurator(output_dir: Path, batched: bool = True):
         of configs spefified in <output_dir>/configlist.txt and consecutively executing each
         CurveCurator run. If False, run a single CurveCurator run (this can be used for
         parallelisation).
+    :raises RuntimeError: If CurveCurator fails to execute, the error message is printed to stdout and stderr.
     """
     if batched:
         command = ["CurveCurator", str(output_dir / "configlist.txt"), "--mad", "--batch"]
     else:
         command = ["CurveCurator", str(output_dir / "config.toml"), "--mad"]
-    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    process.communicate()
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    stdout, stderr = process.communicate()
+
+    if process.returncode != 0:
+        print("CurveCurator stdout:")
+        print(stdout)
+        print("CurveCurator stderr:")
+        print(stderr)
+
+        raise RuntimeError(f"CurveCurator failed with exit code {process.returncode}")
 
 
 def _calc_ic50(model_params_df: pd.DataFrame):

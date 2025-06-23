@@ -17,6 +17,14 @@ Sklearn Models
    :undoc-members:
    :show-inheritance:
 
+Single-Drug Elastic Net
+-----------------------------------------------------------
+
+.. automodule:: drevalpy.models.baselines.singledrug_elastic_net
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Single-Drug Random Forest
 -----------------------------------------------------------
 
