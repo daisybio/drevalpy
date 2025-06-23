@@ -9,7 +9,7 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = ">=3.11,<3.14"
 numpy = ">=1.20"
-scipy = "*"
+scipy = "<1.16"
 scikit-learn = ">=1.4"
 pandas = "*"
 networkx = "*"
