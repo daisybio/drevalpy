@@ -817,6 +817,7 @@ class FeatureDataset:
         view_name: str,
         drop_columns: list[str] | None = None,
         transpose: bool = False,
+        extract_meta_info: bool = True,
     ):
         """Load a one-view feature dataset from a csv file.
 
@@ -830,6 +831,7 @@ class FeatureDataset:
         :param id_column: name of the column containing the identifiers
         :param drop_columns: list of columns to drop (e.g. other identifier columns)
         :param transpose: if True, the csv is transposed, i.e. the rows become columns and vice versa
+        :param extract_meta_info: if True, extracts meta information from the dataset, e.g. gene names for gene expression
         :returns: FeatureDataset object containing data from provided csv file.
         """
         data = pd.read_csv(path_to_csv).T if transpose else pd.read_csv(path_to_csv)
@@ -837,7 +839,6 @@ class FeatureDataset:
         ids = data[id_column].values
         data_features = data.drop(columns=(drop_columns or []))
         data_features = data_features.set_index(id_column)
-        # remove duplicate feature rows (rows with the same index)
         data_features = data_features[~data_features.index.duplicated(keep="first")]
         features = {}
 
@@ -845,29 +846,40 @@ class FeatureDataset:
             features_for_instance = data_features.loc[identifier].values
             features[identifier] = {view_name: features_for_instance}
 
-        return cls(features=features)
+        meta_info = {}
+        if extract_meta_info:
+            meta_info = {view_name: list(data_features.columns)}
+
+        return cls(features=features, meta_info=meta_info)
 
     def to_csv(self, path: str | Path, id_column: str, view_name: str):
         """
-        Save the feature dataset to a CSV file.
+        Save the feature dataset to a CSV file. If meta_info is available for the view and valid,
+        it will be written as column names.
 
         :param path: Path to the CSV file.
         :param id_column: Name of the column containing the identifiers.
-        :param view_name: Name of the view (e.g., gene_expression).
-
-        :raises ValueError: If the view is not found for an identifier.
+        :param view_name: Name of the view.
         """
         data = []
+        feature_names = None
+
         for identifier, feature_dict in self.features.items():
-            # Get the feature vector for the specified view
-            if view_name in feature_dict:
-                row = {id_column: identifier}
-                row.update({f"feature_{i}": value for i, value in enumerate(feature_dict[view_name])})
-                data.append(row)
-            else:
+            vector = feature_dict.get(view_name)
+            if vector is None:
                 raise ValueError(f"View {view_name!r} not found for identifier {identifier!r}.")
 
-        # Convert to DataFrame and save to CSV
+            if feature_names is None:
+                meta_names = self.meta_info.get(view_name)
+                if isinstance(meta_names, list) and len(meta_names) == len(vector):
+                    feature_names = meta_names
+                else:
+                    feature_names = [f"feature_{i}" for i in range(len(vector))]
+
+            row = {id_column: identifier}
+            row.update({name: value for name, value in zip(feature_names, vector)})
+            data.append(row)
+
         df = pd.DataFrame(data)
         df.to_csv(path, index=False)
 
