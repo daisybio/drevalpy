@@ -9,10 +9,10 @@ Outplot
    :undoc-members:
    :show-inheritance:
 
-Correlation comparison scatter plot
+Comparison scatter plot
 -------------------------------------------------
 
-.. automodule:: drevalpy.visualization.corr_comp_scatter
+.. automodule:: drevalpy.visualization.comp_scatter
    :members:
    :undoc-members:
    :show-inheritance:
@@ -25,10 +25,10 @@ Critical difference plot
    :undoc-members:
    :show-inheritance:
 
-HTML tables
+Cross study tables
 ------------------------------------------
 
-.. automodule:: drevalpy.visualization.html_tables
+.. automodule:: drevalpy.visualization.cross_study_tables
    :members:
    :undoc-members:
    :show-inheritance:
