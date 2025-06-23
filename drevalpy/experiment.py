@@ -993,6 +993,7 @@ def train_and_predict(
         )
 
     if len(prediction_dataset) > 0:
+        drug_input = drug_features.copy() if drug_features is not None else None
         prediction_dataset._predictions = model.predict(
             cell_line_ids=prediction_dataset.cell_line_ids,
             drug_ids=prediction_dataset.drug_ids,
