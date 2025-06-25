@@ -43,7 +43,7 @@ Use DrEval to Build Drug Response Models That Have an Impact
 This project is a collaboration of the Technical University of Munich (TUM, Germany)
 and the Freie Universität Berlin (FU, Germany).
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/daisybio/drevalpy/blob/development/demo.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/daisybio/drevalpy/blob/development/dreval_demo.ipynb)
 
 ## Installation
 
@@ -52,6 +52,7 @@ Using pip:
 ```bash
 pip install drevalpy
 ```
+
 On a regular machine, the installation should take about a minute.
 
 Using docker:
