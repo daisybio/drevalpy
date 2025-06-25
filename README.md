@@ -50,6 +50,7 @@ Using pip:
 ```bash
 pip install drevalpy
 ```
+On a regular machine, the installation should take about a minute.
 
 Using docker:
 
