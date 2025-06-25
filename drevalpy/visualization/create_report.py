@@ -6,6 +6,7 @@ import pathlib
 from collections.abc import Iterable
 from typing import Union
 
+import numpy as np
 import pandas as pd
 
 from drevalpy.visualization.utils import (
@@ -42,8 +43,11 @@ def generate_reports_for_test_mode(
     :param path_data: Path to the dataset directory.
     :param result_path: Path to the results directory.
     """
+    path_data = pathlib.Path(path_data)
+    result_path = pathlib.Path(result_path)
+
     print(f"Generating report for {test_mode} ...")
-    unique_algos: list[str] = draw_test_mode_plots(
+    unique_algos_ndarray = draw_test_mode_plots(
         test_mode=test_mode,
         ev_res=evaluation_results,
         ev_res_per_drug=evaluation_results_per_drug,
@@ -52,6 +56,10 @@ def generate_reports_for_test_mode(
         path_data=path_data,
         result_path=result_path,
     )
+    unique_algos: Iterable[str] = (
+        list(unique_algos_ndarray) if isinstance(unique_algos_ndarray, (np.ndarray, tuple)) else unique_algos_ndarray
+    )
+
     unique_algos_set = set(unique_algos) - {
         "NaiveMeanEffectsPredictor",
         "NaivePredictor",
@@ -71,7 +79,7 @@ def generate_reports_for_test_mode(
             result_path=result_path,
         )
 
-    all_files: list[str] = []
+    all_files = []
     for _, _, files in os.walk(f"{result_path}/{run_id}"):
         for file in files:
             if file.endswith("json") or (
@@ -122,7 +130,7 @@ def generate_reports_for_all_test_modes(
         )
 
 
-def render_report(
+def create_report(
     run_id: str,
     dataset: str,
     path_data: Union[str, pathlib.Path] = "data",
@@ -201,7 +209,7 @@ def main() -> None:
     parser.add_argument("--path_data", default="data", help="Path to the data")
     parser.add_argument("--result_path", default="results", help="Path to the results")
     args = parser.parse_args()
-    render_report(args.run_id, args.dataset, args.path_data, args.result_path)
+    create_report(args.run_id, args.dataset, args.path_data, args.result_path)
 
 
 if __name__ == "__main__":
