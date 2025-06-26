@@ -99,8 +99,12 @@ def drug_response_experiment(
     :raises ValueError: if no cv splits are found
     """
     # Default baseline model, needed for normalization
-    if (baselines is None) or len(baselines) == 0:
-        baselines = [MODEL_FACTORY["NaiveMeanEffectsPredictor"]]
+    nme = MODEL_FACTORY["NaiveMeanEffectsPredictor"]
+    if baselines is None:
+        baselines = [nme]
+    elif nme not in baselines:
+        baselines.append(nme)
+
     cross_study_datasets = cross_study_datasets or []
     result_path = os.path.join(path_out, run_id, response_data._name, test_mode)
     split_path = os.path.join(result_path, "splits")
