@@ -19,11 +19,20 @@ class Heatmap(VioHeat):
             robustness, randomization, … tests then)
         :param normalized_metrics: whether the metrics are normalized
         :param whole_name: whether the whole name should be displayed
+        :raises ValueError: If the DataFrame is empty or does not contain the required metrics.
         """
         super().__init__(df, normalized_metrics, whole_name)
+        if normalized_metrics and not any(["normalized" in col for col in self.df.columns]):
+            raise ValueError(
+                "The DataFrame does not contain normalized metrics. Please provide a DataFrame with normalized metrics."
+            )
+        if self.df.empty:
+            raise ValueError("The DataFrame is empty. Please provide a valid DataFrame with metrics.")
 
         self.df = self.df[[col for col in self.df.columns if col in self.all_metrics]]
+        if self.df.empty:
 
+            raise ValueError("The DataFrame does not contain any valid metrics. Please check the columns.")
         self.n_models = len(self.df.index)
 
         if self.normalized_metrics:

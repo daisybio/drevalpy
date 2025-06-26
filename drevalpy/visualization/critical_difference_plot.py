@@ -64,8 +64,13 @@ class CriticalDifferencePlot(OutPlot):
 
         :param eval_results_preds: evaluation results subsetted to predictions only (no randomizations etc)
         :param metric: to be used to assess the critical difference
+        :raises ValueError: if eval_results_preds is empty or does not contain the metric
         """
         eval_results_preds = eval_results_preds[["algorithm", "CV_split", metric]]
+        if eval_results_preds.empty:
+            raise ValueError(
+                "Critical Difference Plot: The DataFrame is empty. Please provide a valid DataFrame with predictions."
+            )
         if metric in MINIMIZATION_METRICS:
             eval_results_preds.loc[:, metric] = -eval_results_preds.loc[:, metric]
 

@@ -213,6 +213,7 @@ def prep_results(
     :param t_vs_p: true vs. predicted values
     :param path_data: path to the data
     :returns: the same dataframes with new columns
+    :raises ValueError: if NaiveMeanEffectsPredictor is not found in the evaluation results
     """
     # get metadata
     print("Getting information about drugs and cell lines ...")
@@ -279,6 +280,11 @@ def prep_results(
             evaluation_results=eval_results,
             true_vs_pred=t_vs_p,
         )
+    else:
+        raise ValueError(
+            "NaiveMeanEffectsPredictor not found in evaluation results. "
+            "Please check if the evaluation was run correctly."
+        )
 
     return (
         eval_results,
@@ -313,7 +319,7 @@ def _normalize_metrics_by_mean_effects(
     for algorithm in evaluation_results["algorithm"].unique():
         for rand_setting in evaluation_results["rand_setting"].unique():
             for test_mode in evaluation_results["test_mode"].unique():
-                print(f"Calculating normalized metrics for {algorithm}, {rand_setting}, " f"{test_mode} ...")
+
                 setting_subset = true_vs_pred[
                     (true_vs_pred["algorithm"] == algorithm)
                     & (true_vs_pred["rand_setting"] == rand_setting)
@@ -574,11 +580,22 @@ def draw_test_mode_plots(
     :param path_data: path to the data
     :param result_path: path to the results
     :returns: list of unique algorithms
+    :raises ValueError: if no evaluation results are found for the given test_mode
     """
+    if ev_res.empty:
+        raise ValueError(
+            f"No evaluation results found for test_mode {test_mode}. "
+            "Please check if the evaluation was run correctly."
+        )
     ev_res_subset = ev_res[ev_res["test_mode"] == test_mode]
 
     # only draw figures for 'real' predictions comparing all models
     eval_results_preds = ev_res_subset[ev_res_subset["rand_setting"] == "predictions"]
+    if eval_results_preds.empty:
+        raise ValueError(
+            f"No evaluation results found for test_mode {test_mode} with predictions. "
+            "Please check if the evaluation was run correctly."
+        )
 
     cd_plot = CriticalDifferencePlot(eval_results_preds=eval_results_preds, metric="MSE")
     cd_plot.draw_and_save(
@@ -597,6 +614,7 @@ def draw_test_mode_plots(
                 out_suffix = f"algorithms_{test_mode}"
             out_plot: Violin | Heatmap
             if plt_type == "violinplot":
+
                 out_plot = Violin(
                     df=eval_results_preds,
                     normalized_metrics=normalized,

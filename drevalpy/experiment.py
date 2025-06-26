@@ -98,8 +98,9 @@ def drug_response_experiment(
         which was evaluated in the nested cross validation.
     :raises ValueError: if no cv splits are found
     """
-    if baselines is None:
-        baselines = []
+    # Default baseline model, needed for normalization
+    if (baselines is None) or len(baselines) == 0:
+        baselines = [MODEL_FACTORY["NaiveMeanEffectsPredictor"]]
     cross_study_datasets = cross_study_datasets or []
     result_path = os.path.join(path_out, run_id, response_data._name, test_mode)
     split_path = os.path.join(result_path, "splits")
