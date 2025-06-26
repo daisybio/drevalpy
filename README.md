@@ -43,6 +43,9 @@ Use DrEval to Build Drug Response Models That Have an Impact
 This project is a collaboration of the Technical University of Munich (TUM, Germany)
 and the Freie Universität Berlin (FU, Germany).
 
+Check out our demo notebook in Colab:
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/daisybio/drevalpy/blob/development/dreval_colab_demo.ipynb)
+
 ## Installation
 
 Using pip:
@@ -146,6 +149,56 @@ No knowledge of Nextflow is required to run it. The nextflow pipeline is availab
 ## Example Report
 
 [Browse our benchmark results here.](https://dilis-lab.github.io/drevalpy-report/)
+You can reproduce the whole analysis by running the following commands:
+
+```bash
+# Main run
+nextflow run nf-core/drugresponseeval \
+    -profile docker \
+    --run_id main_results \
+    --dataset_name CTRPv2 \
+    --cross_study_datasets CTRPv1,CCLE,GDSC1,GDSC2 \
+    --models DIPK,MultiOmicsRandomForest \
+    --baselines SimpleNeuralNetwork,RandomForest,MultiOmicsNeuralNetwork,NaiveMeanEffectsPredictor,GradientBoosting,SRMF,ElasticNet,NaiveTissueMeanPredictor,NaivePredictor,SuperFELTR,NaiveCellLineMeanPredictor,NaiveDrugMeanPredictor,ProteomicsRandomForest \
+    --test_mode LPO,LCO,LTO,LDO \
+    --randomization_mode SVRC,SVRD \
+    --randomization_type permutation \
+    --measure LN_IC50
+
+# EC50 run
+nextflow run nf-core/drugresponseeval \
+    -profile docker \
+    --run_id ec50_run \
+    --dataset_name CTRPv2 \
+    --cross_study_datasets CTRPv1,CCLE,GDSC1,GDSC2 \
+    --models RandomForest \
+    --baselines NaiveMeanEffectsPredictor \
+    --test_mode LPO,LCO,LTO,LDO \
+    --measure pEC50
+
+# AUC run
+nextflow run nf-core/drugresponseeval \
+    -profile docker \
+    --run_id auc_run \
+    --dataset_name CTRPv2 \
+    --cross_study_datasets CTRPv1,CCLE,GDSC1,GDSC2 \
+    --models RandomForest \
+    --baselines NaiveMeanEffectsPredictor \
+    --test_mode LPO,LCO,LTO,LDO \
+    --measure AUC
+
+# Invariant ablation run
+nextflow run nf-core/drugresponseeval \
+    -profile docker \
+    --run_id invariant_ablation \
+    --dataset_name CTRPv2 \
+    --models MultiOmicsRandomForest,DIPK \
+    --baselines NaiveMeanEffectsPredictor \
+    --test_mode LPO,LCO,LDO \
+    --randomization_mode SVRC,SVRD \
+    --randomization_type invariant \
+    --measure LN_IC50
+```
 
 ## Contact
 
