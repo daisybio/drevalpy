@@ -595,6 +595,7 @@ def draw_test_mode_plots(
                 out_suffix = f"algorithms_{test_mode}_normalized"
             else:
                 out_suffix = f"algorithms_{test_mode}"
+            out_plot: Violin | Heatmap
             if plt_type == "violinplot":
                 out_plot = Violin(
                     df=eval_results_preds,
@@ -693,6 +694,7 @@ def draw_algorithm_plots(
         if len(eval_results_algorithm["rand_setting"].unique()) < 2:
             # only draw plots if there are predictions and another test_mode (randomization/robustness)
             continue
+        out_plot: Violin | Heatmap
         if plt_type == "violinplot":
             out_dir = "violin_plots"
             out_plot = Violin(

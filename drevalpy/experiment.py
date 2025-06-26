@@ -941,7 +941,8 @@ def train_and_predict(
     # making sure there are no missing features:
     len_train_before = len(train_dataset)
     len_pred_before = len(prediction_dataset)
-    print(f"Number of cell lines in features: {len(cell_lines_to_keep)}")
+    if cell_lines_to_keep is not None:
+        print(f"Number of cell lines in features: {len(cell_lines_to_keep)}")
     if drugs_to_keep is not None:
         print(f"Number of drugs in features: {len(drugs_to_keep)}")
     print(f"Number of cell lines in train dataset: {len(np.unique(train_dataset.cell_line_ids))}")
