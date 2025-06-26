@@ -5,14 +5,12 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-from ..pipeline_function import pipeline_function
 from .vioheat import VioHeat
 
 
 class Heatmap(VioHeat):
     """Plots a heatmap of the evaluation metrics."""
 
-    @pipeline_function
     def __init__(self, df: pd.DataFrame, normalized_metrics=False, whole_name=False):
         """
         Initialize the Heatmap class.
@@ -59,7 +57,6 @@ class Heatmap(VioHeat):
             vertical_spacing=0.1,
         )
 
-    @pipeline_function
     def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
         """
         Draw the heatmap and save it to a file.

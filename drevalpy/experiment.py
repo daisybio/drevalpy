@@ -13,7 +13,7 @@ import pandas as pd
 import torch
 from sklearn.base import TransformerMixin
 
-from .datasets.dataset import DrugResponseDataset, FeatureDataset, _split_early_stopping_data
+from .datasets.dataset import DrugResponseDataset, FeatureDataset, split_early_stopping_data
 from .evaluation import evaluate, get_mode
 from .models import MODEL_FACTORY, MULTI_DRUG_MODEL_FACTORY, SINGLE_DRUG_MODEL_FACTORY
 from .models.drp_model import DRPModel
@@ -1337,7 +1337,7 @@ def train_final_model(
     train_dataset, validation_dataset = make_train_val_split(full_dataset, test_mode=test_mode, val_ratio=val_ratio)
 
     if model_class.early_stopping:
-        validation_dataset, early_stopping_dataset = _split_early_stopping_data(validation_dataset, test_mode)
+        validation_dataset, early_stopping_dataset = split_early_stopping_data(validation_dataset, test_mode)
     else:
         early_stopping_dataset = None
 
@@ -1383,6 +1383,7 @@ def train_final_model(
     model.save(final_model_path)
 
 
+@pipeline_function
 def make_train_val_split(
     dataset: DrugResponseDataset,
     test_mode: str,

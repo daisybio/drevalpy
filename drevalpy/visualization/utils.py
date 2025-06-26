@@ -512,7 +512,6 @@ def create_index_html(custom_id: str, test_modes: list[str], prefix_results: str
         f.write("</html>\n")
 
 
-@pipeline_function
 def create_html(run_id: str, test_mode: str, files: list, prefix_results: str) -> None:
     """
     Create the html file for the given test mode, e.g., LPO.html.
@@ -581,13 +580,11 @@ def draw_test_mode_plots(
     # only draw figures for 'real' predictions comparing all models
     eval_results_preds = ev_res_subset[ev_res_subset["rand_setting"] == "predictions"]
 
-    # PIPELINE: DRAW_CRITICAL_DIFFERENCE
     cd_plot = CriticalDifferencePlot(eval_results_preds=eval_results_preds, metric="MSE")
     cd_plot.draw_and_save(
         out_prefix=f"{result_path}/{custom_id}/critical_difference_plots/",
         out_suffix=test_mode,
     )
-    # PIPELINE: DRAW_VIOLIN_AND_HEATMAP
     for plt_type in ["violinplot", "heatmap"]:
         if plt_type == "violinplot":
             out_dir = "violin_plots"
@@ -656,7 +653,6 @@ def _draw_per_grouping_setting_plots(
     :param custom_id: run id passed over command line
     :param result_path: path to the results
     """
-    # PIPELINE: DRAW_CORR_COMP
     corr_comp = ComparisonScatter(
         df=ev_res_per_group,
         color_by=grouping,
@@ -693,7 +689,6 @@ def draw_algorithm_plots(
     :param result_path: path to the results
     """
     eval_results_algorithm = ev_res[(ev_res["test_mode"] == test_mode) & (ev_res["algorithm"] == model)]
-    # PIPELINE: DRAW_VIOLIN_AND_HEATMAP
     for plt_type in ["violinplot", "heatmap"]:
         if len(eval_results_algorithm["rand_setting"].unique()) < 2:
             # only draw plots if there are predictions and another test_mode (randomization/robustness)
@@ -760,7 +755,6 @@ def _draw_per_grouping_algorithm_plots(
     """
     if len(ev_res_per_group["rand_setting"].unique()) > 1:
         # only draw plots if there are predictions and another test_mode (randomization/robustness)
-        # PIPELINE: DRAW_CORR_COMP
         comp_scatter = ComparisonScatter(
             df=ev_res_per_group,
             color_by=grouping,
@@ -772,7 +766,6 @@ def _draw_per_grouping_algorithm_plots(
                 out_prefix=f"{result_path}/{custom_id}/comp_scatter/",
                 out_suffix=comp_scatter.name,
             )
-    # PIPELINE: DRAW_REGRESSION
     for normalize in [False, True]:
         name_suffix = "_normalized" if normalize else ""
         name = f"{test_mode}_{grouping}{name_suffix}"

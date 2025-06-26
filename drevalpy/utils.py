@@ -15,7 +15,6 @@ from .experiment import drug_response_experiment, pipeline_function
 from .models import MODEL_FACTORY
 
 
-@pipeline_function
 def get_parser() -> argparse.ArgumentParser:
     """
     Get the parser for the evaluation pipeline.
@@ -197,7 +196,6 @@ def get_parser() -> argparse.ArgumentParser:
     return parser
 
 
-@pipeline_function
 def check_arguments(args) -> None:
     """
     Check the validity of the arguments for the evaluation pipeline.
@@ -298,7 +296,6 @@ def main(args) -> None:
     :param args: passed from command line
     """
     check_arguments(args)
-    # PIPELINE: LOAD_RESPONSE
     response_data, cross_study_datasets = get_datasets(
         dataset_name=args.dataset_name,
         cross_study_datasets=args.cross_study_datasets,
@@ -380,7 +377,6 @@ def get_datasets(
     :param cores: Number of cores to use for CurveCurator fitting. Only used when curve_curator is True, default = 1
     :returns: response data and, potentially, cross-study datasets
     """
-    # PIPELINE: LOAD_RESPONSE
     response_data = load_dataset(
         dataset_name=dataset_name, path_data=path_data, measure=measure, curve_curator=curve_curator, cores=cores
     )

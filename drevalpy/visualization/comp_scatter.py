@@ -6,7 +6,6 @@ import pandas as pd
 import plotly.graph_objects as go
 
 from ..models import SINGLE_DRUG_MODEL_FACTORY
-from ..pipeline_function import pipeline_function
 from .outplot import OutPlot
 
 
@@ -21,7 +20,6 @@ class ComparisonScatter(OutPlot):
     The overall plot facets all models and visualizes the density of the points.
     """
 
-    @pipeline_function
     def __init__(
         self,
         df: pd.DataFrame,
@@ -77,7 +75,6 @@ class ComparisonScatter(OutPlot):
         self.dropdown_buttons_x: list[dict] = list()
         self.dropdown_buttons_y: list[dict] = list()
 
-    @pipeline_function
     def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
         """
         Draws and saves the scatter plots.
