@@ -96,7 +96,7 @@ def generate_reports_for_test_mode(
 
 
 def generate_reports_for_all_test_modes(
-    test_modes: Iterable[str],
+    test_modes: list[str],
     evaluation_results: pd.DataFrame,
     evaluation_results_per_drug: pd.DataFrame,
     evaluation_results_per_cell_line: pd.DataFrame,
@@ -108,7 +108,7 @@ def generate_reports_for_all_test_modes(
     """
     Generate reports for all test modes.
 
-    :param test_modes: Iterable of test modes to process.
+    :param test_modes: list of test modes to process.
     :param evaluation_results: Aggregated evaluation results.
     :param evaluation_results_per_drug: Evaluation results per drug.
     :param evaluation_results_per_cell_line: Evaluation results per cell line.
@@ -177,7 +177,7 @@ def create_report(
     )
 
     create_output_directories(result_path, run_id)
-    test_modes = evaluation_results["test_mode"].unique()
+    test_modes = list(evaluation_results["test_mode"].unique())
 
     generate_reports_for_all_test_modes(
         test_modes=test_modes,
