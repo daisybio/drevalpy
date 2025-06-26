@@ -312,12 +312,6 @@ def main(args) -> None:
     else:
         baselines = []
 
-    # NaiveMeanEffectsPredictor is always run as it is needed for evaluation
-    if MODEL_FACTORY["NaiveMeanEffectsPredictor"] not in baselines:
-        baselines.append(MODEL_FACTORY["NaiveMeanEffectsPredictor"])
-
-    # TODO Allow for custom randomization tests maybe via config file
-
     if args.randomization_mode[0] == "None":
         args.randomization_mode = None
     response_transformation = get_response_transformation(args.response_transformation)
