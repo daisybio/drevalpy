@@ -8,17 +8,17 @@ No knowledge of Nextflow is required to run it. The Nextflow pipeline is availab
 <https://github.com/nf-core/drugresponseeval.git>`_, the corresponding documentation can be found
 `here <https://nf-co.re/drugresponseeval/dev/>`_. Documentation of the standalone is provided below.
 
-Generate results with ``run_suite.py``
+Run a drug response experiment results with ``drevalpy``
 --------------------------------------
 
-The main script to run the standalone is ``run_suite.py``. You can run it with the following command:
+You can run it the drug response pipeline, which can test drug response models via:
 
 .. code-block:: bash
 
-    python run_suite.py [-h] [--run_id RUN_ID] [--path_data PATH_DATA] [--models MODELS [MODELS ...]] [--baselines BASELINES [BASELINES ...]] [--test_mode TEST_MODE [TEST_MODE ...]]
+    drevalpy [-h] [--run_id RUN_ID] [--path_data PATH_DATA] [--models MODELS [MODELS ...]] [--baselines BASELINES [BASELINES ...]] [--test_mode TEST_MODE [TEST_MODE ...]]
                     [--randomization_mode RANDOMIZATION_MODE [RANDOMIZATION_MODE ...]] [--randomization_type RANDOMIZATION_TYPE] [--n_trials_robustness N_TRIALS_ROBUSTNESS] [--dataset_name DATASET_NAME]
                     [--cross_study_datasets CROSS_STUDY_DATASETS [CROSS_STUDY_DATASETS ...]] [--path_out PATH_OUT] [--measure MEASURE] [--curve_curator] [--curve_curator_cores CORES] [--overwrite] [--optim_metric OPTIM_METRIC] [--n_cv_splits N_CV_SPLITS]
-                    [--response_transformation RESPONSE_TRANSFORMATION] [--multiprocessing]
+                    [--response_transformation RESPONSE_TRANSFORMATION] [--multiprocessing] [--model_checkpoint_dir MODEL_CHECKPOINT_DIR] [--final_model_on_full_data] [--no_hyperparameter_tuning]
 
 Options:
 
@@ -35,13 +35,17 @@ Options:
 * ``--cross_study_datasets CROSS_STUDY_DATASETS [CROSS_STUDY_DATASETS ...]``: List of datasets to use for cross-study validation. For a list of available datasets, see the :ref:`usage:Available Datasets` section.
 * ``--path_out PATH_OUT``: Path to the output directory, default: results. All output files will be stored in this directory.
 * ``--measure MEASURE``: The name of the measure to use, default 'LN_IC50'. If using one of the available datasets (see ``--dataset_name``), this is restricted to one of ['LN_IC50', 'EC50', 'IC50', 'pEC50', 'AUC', 'response']. This corresponds to the names of the columns that contain theses measures in the provided input dataset. If providing a custom dataset, this may differ. If the option ``--curve_curator`` is set, the prefix '_curvecurator' is automatically appended, e.g. 'LN_IC50_curvecurator', to allow using the refit measures instead of the ones originally published for the available datasets, allowing for better dataset comparability (refit measures are already provided in the available datasets or computed as part of the fitting procedure when providing custom raw viability datasets, see ``--curve_curator`` for details).
-* ``--curve_curator``: Default true. If set, the measure is appended with '_curvecurator'. If a custom dataset_name was provided, this will invoke the fitting procedure of raw viability data, which is expected to exist at ``<path_data>/<dataset_name>/<dataset_name>_raw.csv``. The fitted dataset will be stored in the same folder, in a file called ``<dataset_name>.csv``. Also check the :ref:`usage:Custom Datasets` section.
-* ``--curve_curator_cores CORES``: Number of cores to use for CurveCurator fitting. Only used when ``--curve_curator`` is set.
+* ``--curve_curator``: If set, the measure is appended with '_curvecurator'. If a custom dataset_name was provided, this will invoke the fitting procedure of raw viability data, which is expected to exist at ``<path_data>/<dataset_name>/<dataset_name>_raw.csv``. The fitted dataset will be stored in the same folder, in a file called ``<dataset_name>.csv``. Also check the :ref:`usage:Custom Datasets` section. Default is False.
+* ``--curve_curator_cores CURVE_CURATOR_CORES``: Number of cores to use for CurveCurator fitting. Only used when ``--curve_curator`` is set. Default is 1.
 * ``--overwrite``: If set, existing files will be overwritten.
 * ``--optim_metric OPTIM_METRIC``: The metric to optimize for during hyperparameter tuning. Default is 'RMSE'. For more information, see the :ref:`usage:Available Metrics` section.
 * ``--n_cv_splits N_CV_SPLITS``: Number of cross-validation splits. Default is 7.
 * ``--response_transformation RESPONSE_TRANSFORMATION``: Transformation to apply to the response data. Default is None. For more information, see the :ref:`usage:Available Response Transformations` section.
 * ``--multiprocessing``: If set, we will use raytune for fitting. Default is False.
+* ``--model_checkpoint_dir MODEL_CHECKPOINT_DIR``: Directory to save model checkpoints. Default is 'TEMPORARY'.
+* ``--final_model_on_full_data``: If set, saves a final model trained/tuned on the union of all folds after CV. Default is False.
+* ``--no_hyperparameter_tuning``: If set, disables hyperparameter tuning and uses the first hyperparameter set. Default is False.
+
 
 Example:
 
