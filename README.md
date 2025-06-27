@@ -72,7 +72,7 @@ pip install poetry-plugin-export
 poetry install
 ```
 
-Check if your installation by running in your console:
+Check your installation by running in your console:
 
 ```bash
 drevalpy --help
