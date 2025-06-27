@@ -6,6 +6,10 @@ authors = ["DrEvalPy development team"]
 license = "GPL-3.0"
 readme = "README.md"
 
+[tool.poetry.scripts]
+drevalpy = "drevalpy.cli:cli_main"
+drevalpy-report = "drevalpy.visualization.create_report:main"
+
 [tool.poetry.dependencies]
 python = ">=3.11,<3.14"
 numpy = ">=1.20"

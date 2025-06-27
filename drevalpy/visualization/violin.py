@@ -3,14 +3,12 @@
 import pandas as pd
 import plotly.graph_objects as go
 
-from ..pipeline_function import pipeline_function
 from .vioheat import VioHeat
 
 
 class Violin(VioHeat):
     """Plots a violin plot of the evaluation metrics."""
 
-    @pipeline_function
     def __init__(self, df: pd.DataFrame, normalized_metrics=False, whole_name=False):
         """
         Initialize the Violin class.
@@ -27,7 +25,6 @@ class Violin(VioHeat):
         self.fig = go.Figure()
         self.occurring_metrics = [metric for metric in self.all_metrics if metric in self.df.columns]
 
-    @pipeline_function
     def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
         """
         Draw the violin and save it to a file.

@@ -106,6 +106,12 @@ class SimpleNeuralNetwork(DRPModel):
                 "ignore",
                 message="Starting from v1\\.9\\.0, `tensorboardX` has been removed.*",
             )
+            if (output_earlystopping is not None) and len(output_earlystopping) == 0:
+                output_earlystopping = output
+                print("SimpleNeuralNetwork: Early stopping dataset empty. Using training data for early stopping")
+
+                print("Probably, your training dataset is small.")
+
             self.model.fit(
                 output_train=output,
                 cell_line_input=cell_line_input,

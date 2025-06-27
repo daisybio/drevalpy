@@ -43,6 +43,46 @@ class DrugResponseDataset:
     _cv_splits: list[dict[str, "DrugResponseDataset"]] = []
     _name: str
 
+    @pipeline_function
+    def __init__(
+        self,
+        response: np.ndarray,
+        cell_line_ids: np.ndarray,
+        drug_ids: np.ndarray,
+        tissues: np.ndarray | None = None,
+        predictions: np.ndarray | None = None,
+        dataset_name: str = "unnamed",
+    ) -> None:
+        """
+        Initializes the drug response dataset.
+
+        :param response: drug response values per cell line and drug
+        :param cell_line_ids: cell line IDs
+        :param drug_ids: drug IDs
+        :param tissues: Optionally, tissue types of the cell lines for leave-tissue-out cv
+        :param predictions: optional. Predicted drug response values per cell line and drug
+        :param dataset_name: optional. Name of the dataset, default: "unnamed"
+        :raises AssertionError: If response, cell_line_ids, drug_ids, (and the optional predictions) do not all have
+            the same length.
+        """
+        super().__init__()
+        if len(response) != len(cell_line_ids):
+            raise AssertionError("Response and cell line identifiers have different lengths.")
+        if len(response) != len(drug_ids):
+            raise AssertionError("Response and drug identifiers have different lengths.")
+        if predictions is not None and len(response) != len(predictions):
+            raise AssertionError("Response and predictions have different lengths.")
+        self._response = response
+        self._cell_line_ids = cell_line_ids
+        self._drug_ids = drug_ids
+        self._predictions = predictions
+        self._name = dataset_name
+        if tissues is not None:
+            self._tissues = np.array(tissues)
+        else:
+            self._tissues = None
+
+    @pipeline_function
     @classmethod
     def from_csv(
         cls: type["DrugResponseDataset"],
@@ -151,48 +191,11 @@ class DrugResponseDataset:
         """
         Returns the name of this DrugResponseDataset.
 
+        Used in the pipeline.
+
         :returns: dataset name.
         """
         return self._name
-
-    @pipeline_function
-    def __init__(
-        self,
-        response: np.ndarray,
-        cell_line_ids: np.ndarray,
-        drug_ids: np.ndarray,
-        tissues: np.ndarray | None = None,
-        predictions: np.ndarray | None = None,
-        dataset_name: str = "unnamed",
-    ) -> None:
-        """
-        Initializes the drug response dataset.
-
-        :param response: drug response values per cell line and drug
-        :param cell_line_ids: cell line IDs
-        :param drug_ids: drug IDs
-        :param tissues: Optionally, tissue types of the cell lines for leave-tissue-out cv
-        :param predictions: optional. Predicted drug response values per cell line and drug
-        :param dataset_name: optional. Name of the dataset, default: "unnamed"
-        :raises AssertionError: If response, cell_line_ids, drug_ids, (and the optional predictions) do not all have
-            the same length.
-        """
-        super().__init__()
-        if len(response) != len(cell_line_ids):
-            raise AssertionError("Response and cell line identifiers have different lengths.")
-        if len(response) != len(drug_ids):
-            raise AssertionError("Response and drug identifiers have different lengths.")
-        if predictions is not None and len(response) != len(predictions):
-            raise AssertionError("Response and predictions have different lengths.")
-        self._response = response
-        self._cell_line_ids = cell_line_ids
-        self._drug_ids = drug_ids
-        self._predictions = predictions
-        self._name = dataset_name
-        if tissues is not None:
-            self._tissues = np.array(tissues)
-        else:
-            self._tissues = None
 
     def __len__(self) -> int:
         """
@@ -399,7 +402,7 @@ class DrugResponseDataset:
 
         if split_validation and split_early_stopping:
             for split in cv_splits:
-                validation_es, early_stopping = _split_early_stopping_data(split["validation"], test_mode=mode)
+                validation_es, early_stopping = split_early_stopping_data(split["validation"], test_mode=mode)
                 split["validation_es"] = validation_es
                 split["early_stopping"] = early_stopping
         self._cv_splits = cv_splits
@@ -522,6 +525,7 @@ class DrugResponseDataset:
         if self.tissue is not None:
             self._tissues = self.tissue[mask]
 
+    @pipeline_function
     def transform(self, response_transformation: TransformerMixin) -> None:
         """
         Apply transformation to the response data and prediction data of the dataset.
@@ -532,6 +536,7 @@ class DrugResponseDataset:
         if self.predictions is not None:
             self._predictions = response_transformation.transform(self.predictions.reshape(-1, 1)).squeeze()
 
+    @pipeline_function
     def fit_transform(self, response_transformation: TransformerMixin) -> None:
         """
         Fit and transform the response data and prediction data of the dataset.
@@ -552,7 +557,8 @@ class DrugResponseDataset:
             self._predictions = response_transformation.inverse_transform(self.predictions.reshape(-1, 1)).squeeze()
 
 
-def _split_early_stopping_data(
+@pipeline_function
+def split_early_stopping_data(
     validation_dataset: DrugResponseDataset, test_mode: str
 ) -> tuple[DrugResponseDataset, DrugResponseDataset]:
     """
@@ -905,6 +911,8 @@ class FeatureDataset:
     def identifiers(self) -> np.ndarray:
         """
         Returns the identifiers of the features.
+
+        Used in the pipeline.
 
         :returns: feature identifiers of this FeatureDataset
         """
