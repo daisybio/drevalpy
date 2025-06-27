@@ -17,14 +17,14 @@ You can run it the drug response pipeline, which can test drug response models v
 
     drevalpy [-h] [--run_id RUN_ID] [--path_data PATH_DATA] [--models MODELS [MODELS ...]] [--baselines BASELINES [BASELINES ...]] [--test_mode TEST_MODE [TEST_MODE ...]]
                     [--randomization_mode RANDOMIZATION_MODE [RANDOMIZATION_MODE ...]] [--randomization_type RANDOMIZATION_TYPE] [--n_trials_robustness N_TRIALS_ROBUSTNESS] [--dataset_name DATASET_NAME]
-                    [--cross_study_datasets CROSS_STUDY_DATASETS [CROSS_STUDY_DATASETS ...]] [--path_out PATH_OUT] [--measure MEASURE] [--curve_curator] [--curve_curator_cores CORES] [--overwrite] [--optim_metric OPTIM_METRIC] [--n_cv_splits N_CV_SPLITS]
+                    [--cross_study_datasets CROSS_STUDY_DATASETS [CROSS_STUDY_DATASETS ...]] [--path_out PATH_OUT] [--measure MEASURE] [--no_refitting] [--curve_curator_cores CORES] [--overwrite] [--optim_metric OPTIM_METRIC] [--n_cv_splits N_CV_SPLITS]
                     [--response_transformation RESPONSE_TRANSFORMATION] [--multiprocessing] [--model_checkpoint_dir MODEL_CHECKPOINT_DIR] [--final_model_on_full_data] [--no_hyperparameter_tuning]
 
 Options:
 
 * ``-h, --help``: Show help message and exit.
 * ``--run_id RUN_ID``: Identifier for the run. Will be used as a prefix for all output files.
-* ``--path_data PATH_DATA``: Path to the data directory, default: data. All data files should be stored in this directory and will be downloaded into this directory. The location of the datasets are resolved by ``<path_data>/<dataset_name>/<dataset_name>.csv``. If providing raw viability data, the file needs to be named ``<dataset_name>_raw.csv`` instead and ``--curve_curator`` needs to be specified for automated curve fitting (see ``--curve_curator`` for details and also check the :ref:`usage:Custom Datasets` section).
+* ``--path_data PATH_DATA``: Path to the data directory, default: data. All data files should be stored in this directory and will be downloaded into this directory. The location of the datasets are resolved by ``<path_data>/<dataset_name>/<dataset_name>.csv``. If providing raw viability data, the file needs to be named ``<dataset_name>_raw.csv`` instead and ``--no_refitting`` needs to be unspecified for automated curve fitting (thats the default) (see ``--no_refitting`` for details and also check the :ref:`usage:Custom Datasets` section).
 * ``--models MODELS [MODELS ...]``: List of models to evaluate. For a list of available models, see the :ref:`usage:Available Models` section.
 * ``--baselines BASELINES [BASELINES ...]``: List of baselines to evaluate. If NaiveMeanEffectsPredictor is not part of them, we will add it. For a list of available baselines, see the :ref:`usage:Available Models` section.
 * ``--test_mode TEST_MODE [TEST_MODE ...]``: Which tests to run (LPO=Leave-random-Pairs-Out, LCO=Leave-Cell-line-Out, LTO=Leave-Tissue-Out, LDO=Leave-Drug-Out). Can be a list of test runs e.g. 'LPO LCO LTO LDO' to run all tests. Default is LPO. For more information, see the :ref:`usage:Available Settings` section.
@@ -34,9 +34,9 @@ Options:
 * ``--dataset_name DATASET_NAME``: Name of the dataset to use. For a list of available datasets, see the :ref:`usage:Available Datasets` section. For information on how to use custom datasets, see the :ref:`usage:Custom Datasets` section.
 * ``--cross_study_datasets CROSS_STUDY_DATASETS [CROSS_STUDY_DATASETS ...]``: List of datasets to use for cross-study validation. For a list of available datasets, see the :ref:`usage:Available Datasets` section.
 * ``--path_out PATH_OUT``: Path to the output directory, default: results. All output files will be stored in this directory.
-* ``--measure MEASURE``: The name of the measure to use, default 'LN_IC50'. If using one of the available datasets (see ``--dataset_name``), this is restricted to one of ['LN_IC50', 'EC50', 'IC50', 'pEC50', 'AUC', 'response']. This corresponds to the names of the columns that contain theses measures in the provided input dataset. If providing a custom dataset, this may differ. If the option ``--curve_curator`` is set, the prefix '_curvecurator' is automatically appended, e.g. 'LN_IC50_curvecurator', to allow using the refit measures instead of the ones originally published for the available datasets, allowing for better dataset comparability (refit measures are already provided in the available datasets or computed as part of the fitting procedure when providing custom raw viability datasets, see ``--curve_curator`` for details).
+* ``--measure MEASURE``: The name of the measure to use, default 'LN_IC50'. If using one of the available datasets (see ``--dataset_name``), this is restricted to one of ['LN_IC50', 'EC50', 'IC50', 'pEC50', 'AUC', 'response']. This corresponds to the names of the columns that contain theses measures in the provided input dataset. If providing a custom dataset, this may differ. If the option ``--no_refitting`` is not set, the prefix '_curvecurator' is automatically appended, e.g. 'LN_IC50_curvecurator', to allow using the refit measures instead of the ones originally published for the available datasets, allowing for better dataset comparability (refit measures are already provided in the available datasets or computed as part of the fitting procedure when providing custom raw viability datasets, see ``--no_refitting`` for details).
 * ``--no_refitting``: If not set, the measure is appended with '_curvecurator'. If a custom dataset_name was provided, this will invoke the fitting procedure of raw viability data, which is expected to exist at ``<path_data>/<dataset_name>/<dataset_name>_raw.csv``. The fitted dataset will be stored in the same folder, in a file called ``<dataset_name>.csv``. Also check the :ref:`usage:Custom Datasets` section. Default is False i.e. curvecurated drug response measures are utilzed.
-* ``--curve_curator_cores CURVE_CURATOR_CORES``: Number of cores to use for CurveCurator fitting. Only used when ``--curve_curator`` is set. Default is 1.
+* ``--curve_curator_cores CURVE_CURATOR_CORES``: Number of cores to use for CurveCurator fitting. Only used when ``--no_refitting`` is not set. Default is 1.
 * ``--overwrite``: If set, existing files will be overwritten.
 * ``--optim_metric OPTIM_METRIC``: The metric to optimize for during hyperparameter tuning. Default is 'RMSE'. For more information, see the :ref:`usage:Available Metrics` section.
 * ``--n_cv_splits N_CV_SPLITS``: Number of cross-validation splits. Default is 7.
@@ -209,12 +209,12 @@ We provide commonly used datasets to evaluate your model on (GDSC1, GDSC2, CCLE,
 +-------------------+----------------------+-----------------+---------------------+--------------------------------------------------------------------------------------------------+
 
 
-If using the ``--curve_curator`` option with these datasets (default: true), the desired measure provided with the ``--measure`` option is appended with "_curvecurator", e.g. "IC50_curvecurator".
+If not specifying ``--no_refitting`` option with these datasets (default: false), the desired measure provided with the ``--measure`` option is appended with "_curvecurator", e.g. "IC50_curvecurator".
 In the provided datasets, these are the measures calculated with the same fitting procedure using CurveCurator. To use the measures reported from the original publications of the
-dataset, do not set the ``--curve_curator`` option.
+dataset, use the ``--no_refitting`` option, which will use the original measures as provided in the datasets.
 
 This however makes it hard to do cross-study comparisons, since the measures may not be directly comparable due to differences in the fitting procedures used by the original authors.
-It is therefore recommended to always use DrEvalPy with the ``--curve_curator`` option, even when providing your own custom datasets (see next section).
+It is therefore recommended to always use DrEvalPy without the ``--no_refitting`` option, which will lead to the use of the refitted measures that are calculated with the same procedure for all datasets.
 
 Corresponding feature data
 ---------------------------
@@ -250,7 +250,7 @@ the available datasets in the previous section.
 * DrEvalPy expects a csv-formatted file in the location ``<path_data>/<dataset>/<dataset_name>_raw.csv`` (corresponding to the ``--path_data`` and ``--dataset_name`` options),
   which contains the raw viability data in long format with the columns ["dose", "response", "sample", "drug"] and an optional "replicate" column.
   If replicates are provided, the procedure will fit one curve per sample / drug pair using all replicates.
-* The options ``--curve_curator`` and ``--curve_curator_cores`` must be set.
+* The option ``--curve_curator_cores`` must be set. ``--no_refitting`` must not be set.
 * Available measures are ["AUC", "pEC50", "EC50", "IC50"].
 * DrEvalPy provides all results of the fitting in the same folder including the fitted curves in a file folder ``<path_data>/<dataset>/<dataset_name>.csv``
 
