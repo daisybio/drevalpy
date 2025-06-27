@@ -124,7 +124,10 @@ def get_parser() -> argparse.ArgumentParser:
         "--no_refitting",
         action="store_true",
         default=False,
-        help="Whether to run " "CurveCurator " "to sort out " "non-reactive " "curves",
+        help=(
+            "Whether to run CurveCurator to sort out non-reactive curves. "
+            "By default, curve curator is applied and curve-curated metrics are used."
+        ),
     )
 
     parser.add_argument(
