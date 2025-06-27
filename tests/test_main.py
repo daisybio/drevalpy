@@ -29,7 +29,7 @@ from drevalpy.visualization.utils import (
             "randomization_type": "permutation",
             "n_trials_robustness": 2,
             "cross_study_datasets": ["TOYv2"],
-            "curve_curator": True,
+            "no_refitting": False,
             "curve_curator_cores": 1,
             "measure": "LN_IC50",
             "overwrite": False,
