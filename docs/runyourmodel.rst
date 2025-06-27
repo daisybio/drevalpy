@@ -217,7 +217,7 @@ Update the ``MULTI_DRUG_MODEL_FACTORY`` if your model is a global model for mult
 Now you can run your model using the DrEvalPy pipeline. cd to the drevalpy root directory and run the following command:
 
 .. code-block:: shell
-    python -m run_suite.py --model YourModel --dataset CTRPv2 --data_path data
+    drevalpy --model YourModel --dataset CTRPv2 --data_path data
 
 
 To contribute the model, so that the community can build on it, please also write appropriate tests in ``tests/models`` and documentation in ``docs/``
@@ -543,4 +543,4 @@ Now you can run the model using the DrEvalPy pipeline.
 To run the model, navigate to the DrEvalPy root directory and execute the following command:
 .. code-block:: shell
 
-    python -m run_suite.py --model ProteomicsRandomForest --dataset CTRPv2 --data_path data
+    drevalpy --model ProteomicsRandomForest --dataset CTRPv2 --data_path data

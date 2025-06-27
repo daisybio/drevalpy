@@ -7,8 +7,6 @@ from io import TextIOWrapper
 import pandas as pd
 import plotly.graph_objects as go
 
-from ..pipeline_function import pipeline_function
-
 
 class CrossStudyTables:
     """Generate evaluation tables for cross-study drug response prediction."""
@@ -87,7 +85,6 @@ class CrossStudyTables:
             fig.update_layout(title_text=f"Evaluation Metrics for Cross-Study Predictions to {dataset_name}")
             self.figures[dataset_name] = fig
 
-    @pipeline_function
     def draw_and_save(self, out_prefix: str, out_suffix: str):
         """
         Generate and save HTML tables for each cross-study dataset.
