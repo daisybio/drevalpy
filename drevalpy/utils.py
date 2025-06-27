@@ -121,9 +121,9 @@ def get_parser() -> argparse.ArgumentParser:
     )
 
     parser.add_argument(
-        "--curve_curator",
+        "--no_refitting",
         action="store_true",
-        default=True,
+        default=False,
         help="Whether to run " "CurveCurator " "to sort out " "non-reactive " "curves",
     )
 
@@ -224,7 +224,7 @@ def check_arguments(args) -> None:
                 f"the MODEL_FACTORY in the models init"
             )
     if args.dataset_name not in AVAILABLE_DATASETS:
-        if args.curve_curator:
+        if not args.no_refitting:
             expected_custom_input = Path(args.path_data).absolute() / args.dataset_name / f"{args.dataset_name}_raw.csv"
             if not expected_custom_input.is_file():
                 raise FileNotFoundError(
@@ -243,7 +243,7 @@ def check_arguments(args) -> None:
                     "located at <path_data>/<dataset_name>/<dataset_name>.csv."
                 )
 
-    if args.curve_curator and args.curve_curator_cores < 1:
+    if (not args.no_refitting) and args.curve_curator_cores < 1:
         raise ValueError("Number of cores for CurveCurator must be greater than 0.")
 
     for dataset in args.cross_study_datasets:
@@ -301,7 +301,7 @@ def main(args) -> None:
         cross_study_datasets=args.cross_study_datasets,
         path_data=args.path_data,
         measure=args.measure,
-        curve_curator=args.curve_curator,
+        curve_curator=(not args.no_refitting),
         cores=args.curve_curator_cores,
     )
 
