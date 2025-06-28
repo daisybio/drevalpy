@@ -104,6 +104,7 @@ class DRPModel(ABC):
             self.model = ElasticNet(alpha=hyperparameters["alpha"], l1_ratio=hyperparameters["l1_ratio"])
         """
 
+    @pipeline_function
     @abstractmethod
     def train(
         self,
@@ -142,6 +143,7 @@ class DRPModel(ABC):
         :returns: predicted response
         """
 
+    @pipeline_function
     @abstractmethod
     def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         """
@@ -155,6 +157,7 @@ class DRPModel(ABC):
         :returns: FeatureDataset with the cell line features
         """
 
+    @pipeline_function
     @abstractmethod
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset | None:
         """
@@ -170,6 +173,7 @@ class DRPModel(ABC):
         :returns: FeatureDataset or None
         """
 
+    @pipeline_function
     def save(self, directory: str) -> None:
         """
         Save the model, including trainable parameters, hyperparameters, scalars, encoders.

@@ -1,6 +1,6 @@
 <!-- Many thanks for contributing to this project! -->
 
-**PR Checklist**
+# PR Checklist for all PRs
 
 <!-- Please fill in the appropriate checklist below (delete whatever is not relevant). These are the most common things requested on pull requests (PRs). -->
 
@@ -11,7 +11,15 @@
 
 <!-- Only applies to PRs for a new version release, delete the lines that don't apply -->
 
-**Version release checklist**
+### Changes
+
+### Bug fixes
+
+### New features
+
+### Maintenance
+
+## Version release checklist
 
 - [ ] Update the version in pyproject.toml
 - [ ] Update version/release in docs/conf.py
@@ -30,15 +38,3 @@ Then,
 1. Open a PR from development to main with these changes.
 2. Wait for a review and merge.
 3. Create a new release on GitHub with the version number. Update the release notes with the changes made in this version.
-
-**Description of changes**
-
-<!-- Please state what you've changed and how it might affect the user. -->
-
-**Technical details**
-
-<!-- Please state any technical details such as limitations, reasons for additional dependencies, benchmarks etc. here. -->
-
-**Additional context**
-
-<!-- Add any other context or screenshots here. -->

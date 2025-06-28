@@ -8,14 +8,12 @@ import plotly.express as px
 import plotly.graph_objects as go
 from scipy.stats import pearsonr
 
-from ..pipeline_function import pipeline_function
 from .outplot import OutPlot
 
 
 class RegressionSliderPlot(OutPlot):
     """Generates regression plots with a slider for the Pearson correlation coefficient."""
 
-    @pipeline_function
     def __init__(
         self,
         df: pd.DataFrame,
@@ -73,7 +71,6 @@ class RegressionSliderPlot(OutPlot):
                 columns={"model_x": "model", "algorithm_x": "algorithm", "CV_split_x": "CV_split"}
             )
 
-    @pipeline_function
     def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
         """
         Draw the regression plot and save it to a file.

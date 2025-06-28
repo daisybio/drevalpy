@@ -6,7 +6,6 @@ from typing import Callable
 
 import pandas as pd
 
-from ..pipeline_function import pipeline_function
 from .curvecurator import fit_curves
 from .dataset import DrugResponseDataset
 from .utils import ALLOWED_MEASURES, CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, TISSUE_IDENTIFIER, download_dataset
@@ -221,6 +220,7 @@ def load_custom(
     )
 
 
+# Used in pipeline
 AVAILABLE_DATASETS: dict[str, Callable] = {
     "GDSC1": load_gdsc1,
     "GDSC2": load_gdsc2,
@@ -232,7 +232,6 @@ AVAILABLE_DATASETS: dict[str, Callable] = {
 }
 
 
-@pipeline_function
 def load_dataset(
     dataset_name: str,
     path_data: str = "data",

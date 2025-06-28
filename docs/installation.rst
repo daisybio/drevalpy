@@ -78,4 +78,4 @@ To install DrEvalPy from source, clone the repository and install the package us
     pip install poetry-plugin-export
     poetry install
 
-Now, you can test the functionality by referring to the `Quickstart <./quickstart.html>`_ documentation.
+Now, you can test the functionality quickly via `drevalpy --help`. Or take a look at the `Quickstart <./quickstart.html>`_ documentation.

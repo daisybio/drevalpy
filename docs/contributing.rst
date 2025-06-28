@@ -40,13 +40,13 @@ How to set up your development environment
 
    .. code:: console
 
-      $ python run_suite.py --run_id my_first_run --models NaiveDrugMeanPredictor ElasticNet --dataset TOYv1 --test_mode LCO
+      $ drevalpy --run_id my_first_run --models NaiveDrugMeanPredictor ElasticNet --dataset TOYv1 --test_mode LCO
 
 6. Visualize the results by running the following command:
 
    .. code:: console
 
-      $ python create_report.py --run_id my_first_run --dataset TOYv1
+      $ drevalpy-report --run_id my_first_run --dataset TOYv1
 
 How to test the project
 -----------------------

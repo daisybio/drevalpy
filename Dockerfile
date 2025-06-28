@@ -37,9 +37,7 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 # Copy all relevant code
 
 COPY drevalpy ./drevalpy
-COPY create_report.py ./
 COPY README.md ./
-COPY run_suite.py ./
 COPY pyproject.toml ./
 COPY poetry.lock ./
 
