@@ -5,14 +5,12 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-from ..pipeline_function import pipeline_function
 from .vioheat import VioHeat
 
 
 class Heatmap(VioHeat):
     """Plots a heatmap of the evaluation metrics."""
 
-    @pipeline_function
     def __init__(self, df: pd.DataFrame, normalized_metrics=False, whole_name=False):
         """
         Initialize the Heatmap class.
@@ -21,11 +19,20 @@ class Heatmap(VioHeat):
             robustness, randomization, … tests then)
         :param normalized_metrics: whether the metrics are normalized
         :param whole_name: whether the whole name should be displayed
+        :raises ValueError: If the DataFrame is empty or does not contain the required metrics.
         """
         super().__init__(df, normalized_metrics, whole_name)
+        if normalized_metrics and not any(["normalized" in col for col in self.df.columns]):
+            raise ValueError(
+                "The DataFrame does not contain normalized metrics. Please provide a DataFrame with normalized metrics."
+            )
+        if self.df.empty:
+            raise ValueError("The DataFrame is empty. Please provide a valid DataFrame with metrics.")
 
         self.df = self.df[[col for col in self.df.columns if col in self.all_metrics]]
+        if self.df.empty:
 
+            raise ValueError("The DataFrame does not contain any valid metrics. Please check the columns.")
         self.n_models = len(self.df.index)
 
         if self.normalized_metrics:
@@ -59,7 +66,6 @@ class Heatmap(VioHeat):
             vertical_spacing=0.1,
         )
 
-    @pipeline_function
     def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
         """
         Draw the heatmap and save it to a file.

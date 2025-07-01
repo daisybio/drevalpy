@@ -9,6 +9,7 @@ import networkx as nx
 import numpy as np
 import requests
 
+# DRUG_IDENTIFIER, CELL_LINE_IDENTIFIER, and TISSUE_IDENTIFIER are used in pipeline
 DRUG_IDENTIFIER = "pubchem_id"
 CELL_LINE_IDENTIFIER = "cell_line_name"
 TISSUE_IDENTIFIER = "tissue"

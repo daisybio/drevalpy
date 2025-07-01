@@ -40,7 +40,6 @@ from scikit_posthocs import sign_array
 from scipy import stats
 
 from ..evaluation import MINIMIZATION_METRICS
-from ..pipeline_function import pipeline_function
 from .outplot import OutPlot
 
 matplotlib.use("agg")
@@ -53,23 +52,25 @@ class CriticalDifferencePlot(OutPlot):
     """
     Draws the critical difference diagram.
 
-    Used by the pipeline!
-
     The critical difference diagram is used to compare the performance of multiple classifiers and show whether a
     model is significantly better than another model. This is calculated over the average ranks of the classifiers
     which is why there need to be at least 3 classifiers to draw the diagram. Because the ranks are calculated over
     the cross-validation splits and the significance threshold is set to 0.05, e.g., 10 CV folds are advisable.
     """
 
-    @pipeline_function
     def __init__(self, eval_results_preds: pd.DataFrame, metric="MSE"):
         """
         Initializes the critical difference plot.
 
         :param eval_results_preds: evaluation results subsetted to predictions only (no randomizations etc)
         :param metric: to be used to assess the critical difference
+        :raises ValueError: if eval_results_preds is empty or does not contain the metric
         """
         eval_results_preds = eval_results_preds[["algorithm", "CV_split", metric]]
+        if eval_results_preds.empty:
+            raise ValueError(
+                "Critical Difference Plot: The DataFrame is empty. Please provide a valid DataFrame with predictions."
+            )
         if metric in MINIMIZATION_METRICS:
             eval_results_preds.loc[:, metric] = -eval_results_preds.loc[:, metric]
 
@@ -78,7 +79,6 @@ class CriticalDifferencePlot(OutPlot):
         self.fig: Optional[plt.Figure] = None
         self.test_results: Optional[pd.DataFrame] = None
 
-    @pipeline_function
     def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
         """
         Draws the critical difference plot and saves it to a file.

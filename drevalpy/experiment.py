@@ -13,7 +13,7 @@ import pandas as pd
 import torch
 from sklearn.base import TransformerMixin
 
-from .datasets.dataset import DrugResponseDataset, FeatureDataset, _split_early_stopping_data
+from .datasets.dataset import DrugResponseDataset, FeatureDataset, split_early_stopping_data
 from .evaluation import evaluate, get_mode
 from .models import MODEL_FACTORY, MULTI_DRUG_MODEL_FACTORY, SINGLE_DRUG_MODEL_FACTORY
 from .models.drp_model import DRPModel
@@ -98,8 +98,13 @@ def drug_response_experiment(
         which was evaluated in the nested cross validation.
     :raises ValueError: if no cv splits are found
     """
+    # Default baseline model, needed for normalization
+    nme = MODEL_FACTORY["NaiveMeanEffectsPredictor"]
     if baselines is None:
-        baselines = []
+        baselines = [nme]
+    elif nme not in baselines:
+        baselines.append(nme)
+
     cross_study_datasets = cross_study_datasets or []
     result_path = os.path.join(path_out, run_id, response_data._name, test_mode)
     split_path = os.path.join(result_path, "splits")
@@ -941,7 +946,8 @@ def train_and_predict(
     # making sure there are no missing features:
     len_train_before = len(train_dataset)
     len_pred_before = len(prediction_dataset)
-    print(f"Number of cell lines in features: {len(cell_lines_to_keep)}")
+    if cell_lines_to_keep is not None:
+        print(f"Number of cell lines in features: {len(cell_lines_to_keep)}")
     if drugs_to_keep is not None:
         print(f"Number of drugs in features: {len(drugs_to_keep)}")
     print(f"Number of cell lines in train dataset: {len(np.unique(train_dataset.cell_line_ids))}")
@@ -1337,7 +1343,7 @@ def train_final_model(
     train_dataset, validation_dataset = make_train_val_split(full_dataset, test_mode=test_mode, val_ratio=val_ratio)
 
     if model_class.early_stopping:
-        validation_dataset, early_stopping_dataset = _split_early_stopping_data(validation_dataset, test_mode)
+        validation_dataset, early_stopping_dataset = split_early_stopping_data(validation_dataset, test_mode)
     else:
         early_stopping_dataset = None
 
@@ -1383,6 +1389,7 @@ def train_final_model(
     model.save(final_model_path)
 
 
+@pipeline_function
 def make_train_val_split(
     dataset: DrugResponseDataset,
     test_mode: str,

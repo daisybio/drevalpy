@@ -15,7 +15,6 @@ from .experiment import drug_response_experiment, pipeline_function
 from .models import MODEL_FACTORY
 
 
-@pipeline_function
 def get_parser() -> argparse.ArgumentParser:
     """
     Get the parser for the evaluation pipeline.
@@ -122,10 +121,13 @@ def get_parser() -> argparse.ArgumentParser:
     )
 
     parser.add_argument(
-        "--curve_curator",
+        "--no_refitting",
         action="store_true",
-        default=True,
-        help="Whether to run " "CurveCurator " "to sort out " "non-reactive " "curves",
+        default=False,
+        help=(
+            "Whether to run CurveCurator to sort out non-reactive curves. "
+            "By default, curve curator is applied and curve-curated metrics are used."
+        ),
     )
 
     parser.add_argument(
@@ -197,7 +199,6 @@ def get_parser() -> argparse.ArgumentParser:
     return parser
 
 
-@pipeline_function
 def check_arguments(args) -> None:
     """
     Check the validity of the arguments for the evaluation pipeline.
@@ -226,7 +227,7 @@ def check_arguments(args) -> None:
                 f"the MODEL_FACTORY in the models init"
             )
     if args.dataset_name not in AVAILABLE_DATASETS:
-        if args.curve_curator:
+        if not args.no_refitting:
             expected_custom_input = Path(args.path_data).absolute() / args.dataset_name / f"{args.dataset_name}_raw.csv"
             if not expected_custom_input.is_file():
                 raise FileNotFoundError(
@@ -245,7 +246,7 @@ def check_arguments(args) -> None:
                     "located at <path_data>/<dataset_name>/<dataset_name>.csv."
                 )
 
-    if args.curve_curator and args.curve_curator_cores < 1:
+    if (not args.no_refitting) and args.curve_curator_cores < 1:
         raise ValueError("Number of cores for CurveCurator must be greater than 0.")
 
     for dataset in args.cross_study_datasets:
@@ -298,13 +299,12 @@ def main(args) -> None:
     :param args: passed from command line
     """
     check_arguments(args)
-    # PIPELINE: LOAD_RESPONSE
     response_data, cross_study_datasets = get_datasets(
         dataset_name=args.dataset_name,
         cross_study_datasets=args.cross_study_datasets,
         path_data=args.path_data,
         measure=args.measure,
-        curve_curator=args.curve_curator,
+        curve_curator=(not args.no_refitting),
         cores=args.curve_curator_cores,
     )
 
@@ -314,12 +314,6 @@ def main(args) -> None:
         baselines = [MODEL_FACTORY[baseline] for baseline in args.baselines]
     else:
         baselines = []
-
-    # NaiveMeanEffectsPredictor is always run as it is needed for evaluation
-    if MODEL_FACTORY["NaiveMeanEffectsPredictor"] not in baselines:
-        baselines.append(MODEL_FACTORY["NaiveMeanEffectsPredictor"])
-
-    # TODO Allow for custom randomization tests maybe via config file
 
     if args.randomization_mode[0] == "None":
         args.randomization_mode = None
@@ -380,7 +374,6 @@ def get_datasets(
     :param cores: Number of cores to use for CurveCurator fitting. Only used when curve_curator is True, default = 1
     :returns: response data and, potentially, cross-study datasets
     """
-    # PIPELINE: LOAD_RESPONSE
     response_data = load_dataset(
         dataset_name=dataset_name, path_data=path_data, measure=measure, curve_curator=curve_curator, cores=cores
     )
