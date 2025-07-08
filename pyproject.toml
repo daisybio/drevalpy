@@ -13,7 +13,7 @@ drevalpy-report = "drevalpy.visualization.create_report:main"
 [tool.poetry.dependencies]
 python = ">=3.11,<3.14"
 numpy = ">=1.20"
-scipy = "<1.16"
+scipy = "*"
 scikit-learn = ">=1.4"
 pandas = "*"
 networkx = "*"
