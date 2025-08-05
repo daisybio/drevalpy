@@ -18,7 +18,7 @@ cryptography==45.0.5 ; python_version >= "3.11" and python_version < "3.14" and 
 curve-curator==0.6.0 ; python_version >= "3.11" and python_version < "3.14"
 cycler==0.12.1 ; python_version >= "3.11" and python_version < "3.14"
 distlib==0.3.9 ; python_version >= "3.11" and python_version < "3.14"
-dulwich==0.22.8 ; python_version >= "3.11" and python_version < "3.14"
+dulwich==0.24.1 ; python_version >= "3.11" and python_version < "3.14"
 fastjsonschema==2.21.1 ; python_version >= "3.11" and python_version < "3.14"
 filelock==3.18.0 ; python_version >= "3.11" and python_version < "3.14"
 findpython==0.6.3 ; python_version >= "3.11" and python_version < "3.14"
