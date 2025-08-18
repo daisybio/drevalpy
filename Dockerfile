@@ -4,7 +4,7 @@
 # The builder image, used to build the virtual environment
 FROM python:3.13-bookworm AS builder
 
-RUN pip install poetry==2.1.3
+RUN pip install poetry==2.1.4
 
 # POETRY_CACHE_DIR: When removing the cache folder, make sure this is done in the same RUN command. If it’s done in a
 # separate RUN command, the cache will still be part of the previous Docker layer (the one containing poetry install )
