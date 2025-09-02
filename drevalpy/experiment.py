@@ -171,7 +171,9 @@ def drug_response_experiment(
             raise ValueError("No cv splits found.")
 
         for split_index, split in enumerate(response_data.cv_splits):
+            print()
             print(f"################# FOLD {split_index + 1}/{len(response_data.cv_splits)} " f"#################")
+            print()
 
             prediction_file = os.path.join(predictions_path, f"predictions_split_{split_index}.csv")
 
