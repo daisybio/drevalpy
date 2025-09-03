@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "drevalpy"
-version = "1.3.5"
+version = "1.3.6"
 description = "Drug response evaluation of cancer cell line drug response models in a fair setting"
 authors = ["DrEvalPy development team"]
 license = "GPL-3.0"
@@ -13,7 +13,7 @@ drevalpy-report = "drevalpy.visualization.create_report:main"
 [tool.poetry.dependencies]
 python = ">=3.11,<3.14"
 numpy = ">=1.20"
-scipy = "<1.16"
+scipy = "*"
 scikit-learn = ">=1.4"
 pandas = "*"
 networkx = "*"
