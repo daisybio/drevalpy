@@ -119,7 +119,7 @@ class CriticalDifferencePlot(OutPlot):
         input_conover_friedman = self.eval_results_preds.pivot_table(
             index="CV_split", columns="algorithm", values=self.metric
         )
-        self.test_results = pd.DataFrame(sp.posthoc_conover_friedman(input_conover_friedman))
+        self.test_results = pd.DataFrame(sp.posthoc_conover_friedman(input_conover_friedman, p_adjust="holm"))
         average_ranks = input_conover_friedman.rank(ascending=False, axis=1).mean(axis=0)
         plt.title(
             f"Critical Difference Diagram: Metric: {self.metric}.\n"
