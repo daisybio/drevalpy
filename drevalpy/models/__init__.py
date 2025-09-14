@@ -26,6 +26,7 @@ __all__ = [
     "ProteomicsRandomForest",
     "ProteomicsElasticNetModel",
     "SingleDrugProteomicsRandomForest",
+    "PaccMann",
 ]
 
 from .baselines.multi_omics_random_forest import MultiOmicsRandomForest
@@ -36,8 +37,14 @@ from .baselines.naive_pred import (
     NaivePredictor,
     NaiveTissueMeanPredictor,
 )
-from .baselines.singledrug_elastic_net import SingleDrugElasticNet, SingleDrugProteomicsElasticNet
-from .baselines.singledrug_random_forest import SingleDrugProteomicsRandomForest, SingleDrugRandomForest
+from .baselines.singledrug_elastic_net import (
+    SingleDrugElasticNet,
+    SingleDrugProteomicsElasticNet,
+)
+from .baselines.singledrug_random_forest import (
+    SingleDrugProteomicsRandomForest,
+    SingleDrugRandomForest,
+)
 from .baselines.sklearn_models import (
     ElasticNetModel,
     GradientBoosting,
@@ -49,6 +56,7 @@ from .baselines.sklearn_models import (
 from .DIPK.dipk import DIPKModel
 from .drp_model import DRPModel
 from .MOLIR.molir import MOLIR
+from .paccmann.paccmann import PaccMann
 from .SimpleNeuralNetwork.multiomics_neural_network import MultiOmicsNeuralNetwork
 from .SimpleNeuralNetwork.simple_neural_network import SimpleNeuralNetwork
 from .SRMF.srmf import SRMF
@@ -82,6 +90,7 @@ MULTI_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]] = {
     "DIPK": DIPKModel,
     "ProteomicsRandomForest": ProteomicsRandomForest,
     "ProteomicsElasticNet": ProteomicsElasticNetModel,
+    "PaccMann": PaccMann,
 }
 
 # MODEL_FACTORY is used in the pipeline!

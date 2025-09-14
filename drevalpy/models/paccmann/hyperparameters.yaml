@@ -1,0 +1,12 @@
+PaccMann_DRP:
+  lr: [0.0001]
+  optimizer: ["adam"]
+  epochs: [10]
+  batch_size: [64]
+  smiles_embedding_size: [32]
+  smiles_attention_size: [32]
+  filters: [[64, 64, 64]]
+  kernel_sizes: [[[3, 32], [5, 32], [11, 32]]]
+  multiheads: [[4, 4, 4, 4]]
+  stacked_dense_hidden_sizes: [[1024, 512]]
+  # smiles_vocabulary_size is set dynamically from the dataset

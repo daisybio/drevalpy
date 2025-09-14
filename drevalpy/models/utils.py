@@ -160,6 +160,21 @@ def load_drug_fingerprint_features(data_path: str, dataset_name: str, fill_na=Tr
     )
 
 
+def load_drug_smiles_from_csv(data_path: str, dataset_name: str) -> FeatureDataset:
+    """Load drug SMILES from csv file.
+
+    :param data_path: path to the data, e.g., data/
+    :param dataset_name: name of the dataset, e.g., GDSC2
+    :returns: FeatureDataset with the drug SMILES
+    """
+    smiles = pd.read_csv(
+        os.path.join(data_path, dataset_name, "drug_smiles.csv"),
+        index_col=0,
+    )
+    smiles.index = smiles.index.astype(str)
+    return FeatureDataset(features={drug: {"smiles": smiles.loc[drug, "smiles"]} for drug in smiles.index})
+
+
 def get_multiomics_feature_dataset(
     data_path: str,
     dataset_name: str,
