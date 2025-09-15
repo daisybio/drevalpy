@@ -6,7 +6,7 @@ This method performs the following steps:
    differences in treatments across multiple test attempts. It compares the ranks of multiple groups and is
    suitable when there are repeated measurements for each group (as is the case here with cross-validation splits).
    The p-value of this test is used to assess whether there are any significant differences in the performance of the
-   models.
+   models. We use Benjamini/Hochberg correction for multiple testing.
 
 2. **Post-hoc Conover Test**: If the Friedman test returns a significant result (p-value < 0.05), the post-hoc Conover
    test can be used to identify pairs of algorithms that perform significantly different. This test is necessary
@@ -119,7 +119,7 @@ class CriticalDifferencePlot(OutPlot):
         input_conover_friedman = self.eval_results_preds.pivot_table(
             index="CV_split", columns="algorithm", values=self.metric
         )
-        self.test_results = pd.DataFrame(sp.posthoc_conover_friedman(input_conover_friedman, p_adjust="holm"))
+        self.test_results = pd.DataFrame(sp.posthoc_conover_friedman(input_conover_friedman, p_adjust="fdr_bh"))
         average_ranks = input_conover_friedman.rank(ascending=False, axis=1).mean(axis=0)
         plt.title(
             f"Critical Difference Diagram: Metric: {self.metric}.\n"
