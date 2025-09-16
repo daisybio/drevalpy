@@ -258,6 +258,7 @@ AVAILABLE_DATASETS: dict[str, Callable] = {
     "TOYv2": load_toyv2,
     "CTRPv1": load_ctrpv1,
     "CTRPv2": load_ctrpv2,
+    "BeatAML2": load_beataml2,
 }
 
 
