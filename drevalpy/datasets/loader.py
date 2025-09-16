@@ -73,6 +73,35 @@ def load_gdsc2(path_data: str = "data", measure: str = "LN_IC50_curvecurator", f
     return load_gdsc1(path_data=path_data, measure=measure, file_name=file_name, dataset_name="GDSC2")
 
 
+def load_beataml2(
+    path_data: str = "data", measure: str = "LN_IC50_curvecurator", file_name: str = "BeatAML2.csv"
+) -> DrugResponseDataset:
+    """
+    Loads the BeatAML2 dataset.
+
+    :param path_data: Path to the dataset.
+    :param file_name: File name of the dataset.
+    :param measure: The name of the column containing the measure to predict, default = "AUC"
+
+    :return: DrugResponseDataset containing response, cell line IDs, and drug IDs.
+    """
+    dataset_name = "BeatAML2"
+    path = os.path.join(path_data, dataset_name, file_name)
+    if not os.path.exists(path):
+        download_dataset(dataset_name, path_data, redownload=True)
+
+    response_data = pd.read_csv(path, dtype={"pubchem_id": str})
+    response_data[DRUG_IDENTIFIER] = response_data[DRUG_IDENTIFIER].str.replace(",", "")
+    check_measure(measure, list(response_data.columns), dataset_name)
+    return DrugResponseDataset(
+        response=response_data[measure].values,
+        cell_line_ids=response_data[CELL_LINE_IDENTIFIER].values,
+        drug_ids=response_data[DRUG_IDENTIFIER].values,
+        tissues=response_data[TISSUE_IDENTIFIER].values,
+        dataset_name=dataset_name,
+    )
+
+
 def load_ccle(
     path_data: str = "data", measure: str = "LN_IC50_curvecurator", file_name: str = "CCLE.csv"
 ) -> DrugResponseDataset:
