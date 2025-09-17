@@ -288,28 +288,28 @@ class DrugResponseDataset:
         if self.tissue is not None:
             self._tissues = self.tissue[indices]
 
-    def _remove_drugs(self, drugs_to_remove: str | list[str | int]) -> None:
+    def _remove_drugs(self, drugs_to_remove: str | int | list[str | int]) -> None:
         """
-        Removes drugs from the dataset.
+        Removes one or more drugs from the dataset.
 
-        :param drugs_to_remove: name of drug or list of names of multiple drugs to remove
+        :param drugs_to_remove: A single drug ID (str or int) or a list of IDs to remove.
         """
-        if isinstance(drugs_to_remove, str):
+        if isinstance(drugs_to_remove, (str, int)):
             drugs_to_remove = [drugs_to_remove]
 
-        mask = np.array([drug not in drugs_to_remove for drug in self.drug_ids], dtype=bool)
+        mask: np.ndarray = ~np.isin(self.drug_ids, drugs_to_remove)
         self.mask(mask)
 
-    def _remove_cell_lines(self, cell_lines_to_remove: str | list[str | int]) -> None:
+    def _remove_cell_lines(self, cell_lines_to_remove: str | int | list[str | int]) -> None:
         """
-        Removes cell lines from the dataset.
+        Removes one or more cell lines from the dataset.
 
-        :param cell_lines_to_remove: name of cell line or list of names of multiple cell lines to remove
+        :param cell_lines_to_remove: A single cell line ID (str or int) or a list of IDs to remove.
         """
-        if isinstance(cell_lines_to_remove, str):
+        if isinstance(cell_lines_to_remove, (str, int)):
             cell_lines_to_remove = [cell_lines_to_remove]
 
-        mask = np.array([cell_line not in cell_lines_to_remove for cell_line in self.cell_line_ids], dtype=bool)
+        mask: np.ndarray = ~np.isin(self.cell_line_ids, cell_lines_to_remove)
         self.mask(mask)
 
     def remove_rows(self, indices: np.ndarray) -> None:

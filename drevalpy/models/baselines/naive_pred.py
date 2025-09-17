@@ -536,6 +536,7 @@ class NaiveMeanEffectsPredictor(NaiveModel):
         self.dataset_mean = np.mean(output.response)
 
         # Obtain cell line features.
+
         cell_line_ids = cell_line_input.get_feature_matrix(view=CELL_LINE_IDENTIFIER, identifiers=output.cell_line_ids)
         cell_line_means = {}
         for cl_output, cl_feature in zip(unique(output.cell_line_ids), unique(cell_line_ids), strict=True):

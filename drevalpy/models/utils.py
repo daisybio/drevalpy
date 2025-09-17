@@ -21,7 +21,9 @@ def load_cl_ids_from_csv(path: str, dataset_name: str) -> FeatureDataset:
     """
     cl_names = pd.read_csv(f"{path}/{dataset_name}/cell_line_names.csv", index_col=CELL_LINE_IDENTIFIER)
     cl_names.index = cl_names.index.astype(str)
-    return FeatureDataset(features={cl: {CELL_LINE_IDENTIFIER: np.array([cl])} for cl in cl_names.index})
+    f = FeatureDataset(features={cl: {CELL_LINE_IDENTIFIER: np.array([cl])} for cl in cl_names.index})
+    print(f.features)
+    return f
 
 
 def load_tissues_from_csv(path: str, dataset_name: str) -> FeatureDataset:
