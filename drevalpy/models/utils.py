@@ -21,9 +21,7 @@ def load_cl_ids_from_csv(path: str, dataset_name: str) -> FeatureDataset:
     """
     cl_names = pd.read_csv(f"{path}/{dataset_name}/cell_line_names.csv", index_col=CELL_LINE_IDENTIFIER)
     cl_names.index = cl_names.index.astype(str)
-    f = FeatureDataset(features={cl: {CELL_LINE_IDENTIFIER: np.array([cl])} for cl in cl_names.index})
-    print(f.features)
-    return f
+    return FeatureDataset(features={cl: {CELL_LINE_IDENTIFIER: np.array([cl])} for cl in cl_names.index})
 
 
 def load_tissues_from_csv(path: str, dataset_name: str) -> FeatureDataset:
@@ -131,7 +129,10 @@ def load_drug_ids_from_csv(data_path: str, dataset_name: str) -> FeatureDataset:
     :returns: FeatureDataset with the drug ids
     """
     drug_names = pd.read_csv(
-        f"{data_path}/{dataset_name}/drug_names.csv", index_col=0, dtype={"pubchem_id": str}, low_memory=False
+        f"{data_path}/{dataset_name}/drug_names.csv",
+        index_col=DRUG_IDENTIFIER,
+        dtype={"pubchem_id": str},
+        low_memory=False,
     )
     drug_names.index = drug_names.index.astype(str)
     return FeatureDataset(features={drug: {DRUG_IDENTIFIER: np.array([drug])} for drug in drug_names.index})
