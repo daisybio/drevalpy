@@ -317,7 +317,15 @@ class DrugResponseDataset:
         Removes rows from the dataset.
 
         :param indices: indices of rows to remove
+        :raises ValueError: if indices are out of bounds or not 1-dimensional
         """
+        if indices.ndim != 1:
+            raise ValueError("Indices must be a 1-dimensional array.")
+        if np.any(indices >= len(self)) or np.any(indices < 0):
+            raise ValueError("Indices are out of bounds.")
+        if len(indices) == 0:
+            return
+
         mask = np.ones(len(self), dtype=bool)
         mask[indices] = False
         self.mask(mask)
