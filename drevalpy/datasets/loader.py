@@ -30,7 +30,7 @@ def check_measure(measure_queried: str, measures_data: list[str], dataset_name: 
 
 def load_gdsc1(
     path_data: str = "data",
-    measure: str = "LN_IC50_curvecurator",
+    measure: str = "LN_IC50_curve_curator",
     file_name: str = "GDSC1.csv",
     dataset_name: str = "GDSC1",
 ) -> DrugResponseDataset:
@@ -74,7 +74,7 @@ def load_gdsc2(path_data: str = "data", measure: str = "LN_IC50_curvecurator", f
 
 
 def load_beataml2(
-    path_data: str = "data", measure: str = "LN_IC50_curvecurator", file_name: str = "BeatAML2.csv"
+    path_data: str = "data", measure: str = "LN_IC50", file_name: str = "BeatAML2.csv"
 ) -> DrugResponseDataset:
     """
     Loads the BeatAML2 dataset.
@@ -90,7 +90,7 @@ def load_beataml2(
     if not os.path.exists(path):
         download_dataset(dataset_name, path_data, redownload=True)
 
-    response_data = pd.read_csv(path, dtype={"pubchem_id": str})
+    response_data = pd.read_csv(path, dtype={"pubchem_id": str, "cell_line_name": str})
     response_data[DRUG_IDENTIFIER] = response_data[DRUG_IDENTIFIER].str.replace(",", "")
     check_measure(measure, list(response_data.columns), dataset_name)
     return DrugResponseDataset(

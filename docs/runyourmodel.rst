@@ -312,7 +312,7 @@ Gene expression features are standardized using a ``StandardScaler``, while fing
             return load_and_select_gene_features(feature_type="gene_expression",
                                                 data_path=data_path,
                                                 dataset_name=dataset_name,
-                                                gene_list="landmark_genes")
+                                                gene_list="landmark_genes_reduced")
 
 
         def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:

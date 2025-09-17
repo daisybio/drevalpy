@@ -99,7 +99,7 @@ def _write_gene_list(temp_dir: tempfile.TemporaryDirectory, gene_list: Optional[
     """
     os.mkdir(os.path.join(temp_dir.name, "GDSC1_small", "gene_lists"))
     temp_file = os.path.join(temp_dir.name, "GDSC1_small", "gene_lists", f"{gene_list}.csv")
-    if gene_list == "landmark_genes":
+    if gene_list == "landmark_genes_reduced":
         with open(temp_file, "w") as f:
             f.write(
                 "Entrez ID,Symbol,Name,Gene Family,Type,RNA-Seq Correlation,RNA-Seq Correlation Self-Rank\n"
@@ -121,7 +121,7 @@ def _write_gene_list(temp_dir: tempfile.TemporaryDirectory, gene_list: Optional[
     "gene_list",
     [
         None,
-        "landmark_genes",
+        "landmark_genes_reduced",
         "drug_target_genes_all_drugs",
         "gene_list_paccmann_network_prop",
     ],
@@ -163,7 +163,7 @@ def test_load_and_select_gene_features(gene_list: Optional[str]) -> None:
         assert len(gene_features_gdsc1.meta_info["gene_expression"]) == 7
         gene_names = ["TSPAN6", "TNMD", "BRCA1", "SCYL3", "HDAC1", "INSIG1", "FOXO3"]
         assert np.all(gene_features_gdsc1.meta_info["gene_expression"] == gene_names)
-    elif gene_list == "landmark_genes":
+    elif gene_list == "landmark_genes_reduced":
         assert len(gene_features_gdsc1.features) == 5
         assert gene_features_gdsc1.meta_info is not None
         assert len(gene_features_gdsc1.meta_info["gene_expression"]) == 4
@@ -258,7 +258,7 @@ def test_load_drugs_from_fingerprints() -> None:
     "gene_list",
     [
         None,
-        "landmark_genes",
+        "landmark_genes_reduced",
         "drug_target_genes_all_drugs",
         "gene_list_paccmann_network_prop",
     ],
@@ -357,7 +357,7 @@ def test_get_multiomics_feature_dataset(gene_list: Optional[str]) -> None:
             assert len(dataset.meta_info[key]) == 7
     else:
         feature_names: list[str] = []
-        if gene_list == "landmark_genes":
+        if gene_list == "landmark_genes_reduced":
             assert dataset.meta_info is not None
             for key in dataset.meta_info:
                 if key == "methylation":

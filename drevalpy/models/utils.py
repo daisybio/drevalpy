@@ -19,7 +19,7 @@ def load_cl_ids_from_csv(path: str, dataset_name: str) -> FeatureDataset:
     :param dataset_name: name of the dataset, e.g., GDSC2
     :returns: FeatureDataset with the cell line ids
     """
-    cl_names = pd.read_csv(f"{path}/{dataset_name}/cell_line_names.csv", index_col=1)
+    cl_names = pd.read_csv(f"{path}/{dataset_name}/cell_line_names.csv", index_col=CELL_LINE_IDENTIFIER)
     return FeatureDataset(features={cl: {CELL_LINE_IDENTIFIER: np.array([cl])} for cl in cl_names.index})
 
 
@@ -31,9 +31,11 @@ def load_tissues_from_csv(path: str, dataset_name: str) -> FeatureDataset:
     :param dataset_name: name of the dataset, e.g., GDSC2
     :returns: FeatureDataset with the tissues
     """
-    tissues = pd.read_csv(f"{path}/{dataset_name}/cell_line_names.csv", index_col=1).drop_duplicates()
+    tissues = pd.read_csv(
+        f"{path}/{dataset_name}/cell_line_names.csv", index_col=CELL_LINE_IDENTIFIER
+    ).drop_duplicates()
     return FeatureDataset(
-        features={cl: {TISSUE_IDENTIFIER: np.array([tissues.loc[cl, "tissue"]])} for cl in tissues.index}
+        features={cl: {TISSUE_IDENTIFIER: np.array([tissues.loc[cl, TISSUE_IDENTIFIER]])} for cl in tissues.index}
     )
 
 
@@ -55,14 +57,15 @@ def load_and_select_gene_features(
     :returns: FeatureDataset with the reduced features
     :raises ValueError: if genes from gene_list are missing in the dataset
     """
-    ge = pd.read_csv(f"{data_path}/{dataset_name}/{feature_type}.csv", index_col=1)
-    ge = ge.drop(columns=["cellosaurus_id"])
+    ge = pd.read_csv(f"{data_path}/{dataset_name}/{feature_type}.csv", index_col=CELL_LINE_IDENTIFIER)
+    ge.index = ge.index.astype(str)
+    if "cellosaurus_id" in ge.columns:
+        ge = ge.drop(columns=["cellosaurus_id"])
 
     cl_features = FeatureDataset(
         features=iterate_features(df=ge, feature_type=feature_type),
         meta_info={feature_type: ge.columns.values},
     )
-
     if gene_list is None:
         return cl_features
 
@@ -172,7 +175,7 @@ def get_multiomics_feature_dataset(
     :param data_path: path to the data, e.g., data/
     :param dataset_name: name of the dataset, e.g., GDSC2
     :param gene_lists: dictionary of names of lists of genes to include, for each omics type,
-                e.g., {"gene_expression": "landmark_genes"}, if None, all features are not reduced
+                e.g., {"gene_expression": "landmark_genes_reduced"}, if None, all features are not reduced
     :param omics: list of omics to include, e.g., ["gene_expression", "methylation"]
     :returns: FeatureDataset with the multiomics features
     :raises ValueError: if no omics features are found
