@@ -109,10 +109,10 @@ class DrugGNNModule(pl.LightningModule):
         super().__init__()
         self.save_hyperparameters()
         self.model = DrugGraphNet(
-            num_node_features=self.hparams.num_node_features,
-            num_cell_features=self.hparams.num_cell_features,
-            hidden_dim=self.hparams.hidden_dim,
-            dropout=self.hparams.dropout,
+            num_node_features=self.hparams["num_node_features"],
+            num_cell_features=self.hparams["num_cell_features"],
+            hidden_dim=self.hparams["hidden_dim"],
+            dropout=self.hparams["dropout"],
         )
         self.criterion = nn.MSELoss()
 
@@ -347,10 +347,18 @@ class DrugGNN(DRPModel):
         trainer = pl.Trainer(accelerator="auto", devices="auto")
         predictions_list = trainer.predict(self.model, dataloaders=predict_loader)
 
-        if predictions_list is None:
+        if not predictions_list:
             return np.array([])
 
-        predictions = torch.cat(predictions_list).cpu().numpy()
+        # The output of predict can be a list of lists of tensors, flatten it
+        predictions_flat = [
+            item for sublist in predictions_list for item in (sublist if isinstance(sublist, list) else [sublist])
+        ]
+
+        if not predictions_flat:
+            return np.array([])
+
+        predictions = torch.cat(predictions_flat).cpu().numpy()
         return predictions
 
     def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:

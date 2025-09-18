@@ -97,10 +97,10 @@ class DrugGNNModule(pl.LightningModule):
         super().__init__()
         self.save_hyperparameters()
         self.model = DrugGraphNet(
-            num_node_features=self.hparams.num_node_features,
-            num_cell_features=self.hparams.num_cell_features,
-            hidden_dim=self.hparams.hidden_dim,
-            dropout=self.hparams.dropout,
+            num_node_features=self.hparams["num_node_features"],
+            num_cell_features=self.hparams["num_cell_features"],
+            hidden_dim=self.hparams["hidden_dim"],
+            dropout=self.hparams["dropout"],
         )
         self.criterion = nn.MSELoss()
 
