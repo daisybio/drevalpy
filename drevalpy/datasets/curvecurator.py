@@ -158,6 +158,7 @@ def _calc_ic50(model_params_df: pd.DataFrame):
     This function expects a dataframe that was processed in the postprocess function, containing
     the columns "Front", "Back", "Slope", "pEC50". It calculates the IC50 for all the models in the
     dataframe in closed form and adds the column IC50_curvecurator to the input dataframe.
+    Also adds the natural logarithm of the IC50 as LN_IC50_curvecurator.
 
     :param model_params_df: a dataframe containing the fitted parameters
     """
@@ -172,6 +173,7 @@ def _calc_ic50(model_params_df: pd.DataFrame):
     pec50 = model_params_df["pEC50_curvecurator"].values
 
     model_params_df["IC50_curvecurator"] = ic50(front, back, slope, pec50)
+    model_params_df["LN_IC50_curvecurator"] = np.log(model_params_df["IC50_curvecurator"].values)
 
 
 @pipeline_function
