@@ -13,6 +13,7 @@ measurements of low quality.
 """
 
 import subprocess
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -31,6 +32,15 @@ def _prepare_raw_data(curve_df: pd.DataFrame, output_dir: Path, prefix: str = ""
     else:
         n_replicates = 1
         pivot_columns = ["dose"]
+
+    if curve_df.duplicated(subset=["sample", "drug", "dose", "replicate"]).any():
+        warnings.warn(
+            "CurveCurator Raw Data Processing: Duplicate entries found for some (sample, drug, dose, replicate)"
+            " combinations. Aggregating using mean of the 'response'.",
+            UserWarning,
+            stacklevel=1,
+        )
+        curve_df = curve_df.groupby(["sample", "drug", "dose", "replicate"], as_index=False)["response"].mean()
 
     df = curve_df.pivot(index=["sample", "drug"], columns=pivot_columns, values="response")
 

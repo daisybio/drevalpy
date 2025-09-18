@@ -109,7 +109,7 @@ class DrugResponseDataset:
         :raises ValueError: If the required columns are not found in the input file
         :returns: DrugResponseDataset object containing data from provided csv file.
         """
-        data = pd.read_csv(input_file)
+        data = pd.read_csv(input_file, dtype={DRUG_IDENTIFIER: str, CELL_LINE_IDENTIFIER: str}, low_memory=False)
 
         if measure not in data.columns:
             raise ValueError(f"Column {measure} not found in the input file.")
