@@ -209,7 +209,7 @@ def preprocess(input_file: str | Path, output_dir: str | Path, dataset_name: str
         del converters["replicate"]
         curve_df = pd.read_csv(input_file, usecols=required_columns, converters=converters)
     # Convert doses from µM to M
-    curve_df["dose"] = curve_df["dose"] * 1e-6
+    curve_df["dose"] = curve_df["dose"] * 1e6
     if not all([col in curve_df.columns for col in required_columns]):
         raise ValueError(f"Missing columns in viability data. Required columns are {required_columns}.")
     groupby = []
