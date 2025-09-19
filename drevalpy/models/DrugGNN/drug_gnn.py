@@ -307,7 +307,7 @@ class DrugGNN(DRPModel):
             val_loader = DataLoader(val_dataset, batch_size=self.hyperparameters.get("batch_size", 32))
 
         trainer = pl.Trainer(
-            max_epochs=2,
+            max_epochs=self.hyperparameters.get("epochs", 100),
             accelerator="auto",
             devices="auto",
             callbacks=[pl.callbacks.EarlyStopping(monitor="val_loss", mode="min", patience=5)] if val_loader else None,
