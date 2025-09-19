@@ -397,7 +397,7 @@ class DrugGNN(DRPModel):
             drug_id = p_file.stem
             try:
                 # Use torch.load with weights_only=False if it contains pickled data
-                drug_graphs[drug_id] = torch.load(p_file, weights_only=True)
+                drug_graphs[drug_id] = torch.load(p_file, weights_only=False)  # noqa: S614
             except Exception as e:
                 print(f"Could not load or process file {p_file}: {e}")
                 continue

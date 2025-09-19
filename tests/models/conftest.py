@@ -18,6 +18,7 @@ def sample_dataset() -> DrugResponseDataset:
     path_data = os.path.join("..", "data")
     drug_response = load_toyv1(path_data)
     drug_response.remove_nan_responses()
+    print(drug_response)
     return drug_response
 
 
