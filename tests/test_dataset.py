@@ -140,13 +140,13 @@ def test_response_data_remove_drugs_and_cell_lines():
 
     # Remove specific drugs and cell lines
     dataset._remove_drugs(["A", "C"])
-    dataset._remove_cell_lines([101, 103])
+    dataset._remove_cell_lines(["101", "103"])
 
     # Check if the removed drugs and cell lines are not present in the dataset
     assert "A" not in dataset.drug_ids
     assert "C" not in dataset.drug_ids
-    assert 101 not in dataset.cell_line_ids
-    assert 103 not in dataset.cell_line_ids
+    assert "101" not in dataset.cell_line_ids
+    assert "103" not in dataset.cell_line_ids
 
     # Check if the length of response, cell_line_ids, and drug_ids arrays is reduced accordingly
     assert len(dataset.response) == 3
