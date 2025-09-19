@@ -30,7 +30,7 @@ def check_measure(measure_queried: str, measures_data: list[str], dataset_name: 
 
 def load_gdsc1(
     path_data: str = "data",
-    measure: str = "LN_IC50_curve_curator",
+    measure: str = "LN_IC50_curvecurator",
     file_name: str = "GDSC1.csv",
     dataset_name: str = "GDSC1",
 ) -> DrugResponseDataset:
