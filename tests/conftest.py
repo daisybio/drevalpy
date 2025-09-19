@@ -15,4 +15,5 @@ def pytest_configure(config) -> None:
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
     # Reduce flaky plugin verbosity
-    config.option.flaky_report = "minimal"
+    config.option.flaky_report = "none"
+    config.option.tbstyle = "short"
