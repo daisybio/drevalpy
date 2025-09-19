@@ -73,8 +73,8 @@ class DrugResponseDataset:
         if predictions is not None and len(response) != len(predictions):
             raise AssertionError("Response and predictions have different lengths.")
         self._response = response
-        self._cell_line_ids = cell_line_ids
-        self._drug_ids = drug_ids
+        self._cell_line_ids = cell_line_ids.astype(str)
+        self._drug_ids = drug_ids.astype(str)
         self._predictions = predictions
         self._name = dataset_name
         if tissues is not None:

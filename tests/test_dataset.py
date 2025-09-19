@@ -21,7 +21,7 @@ def test_response_dataset_load() -> None:
     """Test if the dataset loads correctly from CSV files."""
     # Create a temporary CSV file with mock data
     data = {
-        "cell_line_id": np.array([1, 2, 3]),
+        "cell_line_id": np.array(["1", "2", "3"]),
         "drug_id": np.array(["A", "B", "C"]),
         "response": np.array([0.1, 0.2, 0.3]),
     }
