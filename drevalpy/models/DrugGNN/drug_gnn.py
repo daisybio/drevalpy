@@ -331,6 +331,9 @@ class DrugGNN(DRPModel):
         :raises ValueError: If drug input is not provided.
         :return: The predicted drug response.
         """
+        if len(drug_ids) == 0 or len(cell_line_ids) == 0:
+            print("DrugGNN predict: No  drug or cell line IDs provided; returning empty array.")
+            return np.array([])
         if self.model is None:
             raise RuntimeError("Model has not been trained yet.")
         if drug_input is None:
@@ -349,6 +352,10 @@ class DrugGNN(DRPModel):
 
         trainer = pl.Trainer(accelerator="auto", devices="auto")
         predictions_list = trainer.predict(self.model, dataloaders=predict_loader)
+
+        if not predictions_list:
+            print("DrugGNN predict: No predictions were made; returning empty array.")
+            return np.array([])
 
         # The output of predict can be a list of lists of tensors, flatten it
         predictions_flat = [
