@@ -78,7 +78,7 @@ class DrugResponseDataset:
         self._predictions = predictions
         self._name = dataset_name
         if tissues is not None:
-            self._tissues = np.array(tissues)
+            self._tissues = np.array(tissues).astype(str)
         else:
             self._tissues = None
 
@@ -129,7 +129,7 @@ class DrugResponseDataset:
             drug_ids=data[DRUG_IDENTIFIER].values,
             predictions=predictions,
             dataset_name=dataset_name,
-            tissues=data[tissue_column].values if tissue_column in data.columns else None,
+            tissues=data[tissue_column].values.astype(str) if tissue_column in data.columns else None,
         )
 
     @property
@@ -288,25 +288,25 @@ class DrugResponseDataset:
         if self.tissue is not None:
             self._tissues = self.tissue[indices]
 
-    def _remove_drugs(self, drugs_to_remove: str | int | list[str | int]) -> None:
+    def _remove_drugs(self, drugs_to_remove: str | list[str]) -> None:
         """
         Removes one or more drugs from the dataset.
 
-        :param drugs_to_remove: A single drug ID (str or int) or a list of IDs to remove.
+        :param drugs_to_remove: A single drug ID (str) or a list of IDs to remove.
         """
-        if isinstance(drugs_to_remove, (str, int)):
+        if isinstance(drugs_to_remove, str):
             drugs_to_remove = [drugs_to_remove]
 
         mask: np.ndarray = ~np.isin(self.drug_ids, drugs_to_remove)
         self.mask(mask)
 
-    def _remove_cell_lines(self, cell_lines_to_remove: str | int | list[str | int]) -> None:
+    def _remove_cell_lines(self, cell_lines_to_remove: str | list[str]) -> None:
         """
         Removes one or more cell lines from the dataset.
 
-        :param cell_lines_to_remove: A single cell line ID (str or int) or a list of IDs to remove.
+        :param cell_lines_to_remove: A single cell line ID (str) or a list of IDs to remove.
         """
-        if isinstance(cell_lines_to_remove, (str, int)):
+        if isinstance(cell_lines_to_remove, str):
             cell_lines_to_remove = [cell_lines_to_remove]
 
         mask: np.ndarray = ~np.isin(self.cell_line_ids, cell_lines_to_remove)
@@ -338,10 +338,10 @@ class DrugResponseDataset:
         :param drug_ids: drug IDs or None to keep all cell lines
         """
         if drug_ids is not None:
-            self._remove_drugs(list(set(self.drug_ids) - set(drug_ids)))
+            self._remove_drugs(list(set(self.drug_ids) - set(drug_ids.astype(str))))
 
         if cell_line_ids is not None:
-            self._remove_cell_lines(list(set(self.cell_line_ids) - set(cell_line_ids)))
+            self._remove_cell_lines(list(set(self.cell_line_ids) - set(cell_line_ids.astype(str))))
 
     @pipeline_function
     def split_dataset(
