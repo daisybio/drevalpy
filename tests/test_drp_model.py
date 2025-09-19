@@ -9,7 +9,7 @@ import pandas as pd
 import pytest
 
 from drevalpy.datasets.loader import load_toyv1, load_toyv2
-from drevalpy.datasets.utils import TISSUE_IDENTIFIER
+from drevalpy.datasets.utils import DRUG_IDENTIFIER, TISSUE_IDENTIFIER
 from drevalpy.models import MODEL_FACTORY
 from drevalpy.models.utils import (
     get_multiomics_feature_dataset,
@@ -216,7 +216,7 @@ def test_load_drug_ids_from_csv() -> None:
     os.mkdir(os.path.join(temp.name, "GDSC1_small"))
     temp_file = os.path.join(temp.name, "GDSC1_small", "drug_names.csv")
     with open(temp_file, "w") as f:
-        f.write("DRUG_NAME\n(5Z)-7-Oxozeaenol\n5-Fluorouracil\nA-443654\nA-770041\n")
+        f.write(f"{DRUG_IDENTIFIER}\n(5Z)-7-Oxozeaenol\n5-Fluorouracil\nA-443654\nA-770041\n")
     drug_ids_gdsc1 = load_drug_ids_from_csv(temp.name, "GDSC1_small")
     assert len(drug_ids_gdsc1.features) == 4
     assert drug_ids_gdsc1.identifiers[0] == "(5Z)-7-Oxozeaenol"
