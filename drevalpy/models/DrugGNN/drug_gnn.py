@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-import pandas as pd
 import pytorch_lightning as pl
 import torch
 import torch.nn as nn
@@ -172,19 +171,23 @@ class _DrugResponsePytorchDataset(PytorchDataset):
 
     def __init__(
         self,
-        drp_dataset: DrugResponseDataset,
+        response: np.ndarray,
+        cell_line_ids: np.ndarray,
+        drug_ids: np.ndarray,
         cell_line_features: FeatureDataset,
         drug_features: FeatureDataset,
     ):
         """Initialize the dataset.
 
-        :param drp_dataset: A DrugResponseDataset object from drevalpy.
+        :param response: The drug response values.
+        :param cell_line_ids: The cell line IDs.
+        :param drug_ids: The drug IDs.
         :param cell_line_features: A FeatureDataset object with cell line features.
         :param drug_features: A FeatureDataset object with drug features.
         """
-        self.responses = drp_dataset.response
-        self.cell_line_ids = drp_dataset.cell_line_ids
-        self.drug_ids = drp_dataset.drug_ids
+        self.response = response
+        self.cell_line_ids = cell_line_ids
+        self.drug_ids = drug_ids
 
         self.cell_features = {
             cl_id: features["gene_expression"] for cl_id, features in cell_line_features.features.items()
@@ -193,20 +196,8 @@ class _DrugResponsePytorchDataset(PytorchDataset):
             drug_id: feature_views["drug_graph"] for drug_id, feature_views in drug_features.features.items()
         }
 
-        available_cell_lines = set(self.cell_features.keys())
-        available_drugs = set(self.drug_graphs.keys())
-
-        cell_line_ids_series = pd.Series(self.cell_line_ids)
-        drug_ids_series = pd.Series(self.drug_ids)
-
-        mask = cell_line_ids_series.isin(available_cell_lines) & drug_ids_series.isin(available_drugs)
-
-        self.responses = self.responses[mask]
-        self.cell_line_ids = self.cell_line_ids[mask]
-        self.drug_ids = self.drug_ids[mask]
-
     def __len__(self):
-        return len(self.responses)
+        return len(self.response)
 
     def __getitem__(self, idx):
         cell_line_id = self.cell_line_ids[idx]
@@ -214,7 +205,7 @@ class _DrugResponsePytorchDataset(PytorchDataset):
 
         drug_graph = self.drug_graphs[drug_id]
         cell_feat = torch.tensor(self.cell_features[cell_line_id], dtype=torch.float32)
-        response = torch.tensor(self.responses[idx], dtype=torch.float32)
+        response = torch.tensor(self.response[idx], dtype=torch.float32)
 
         return drug_graph, cell_feat, response
 
@@ -291,7 +282,13 @@ class DrugGNN(DRPModel):
             learning_rate=self.hyperparameters.get("learning_rate", 0.001),
         )
 
-        train_dataset = _DrugResponsePytorchDataset(output, cell_line_input, drug_input)
+        train_dataset = _DrugResponsePytorchDataset(
+            response=output.response,
+            cell_line_ids=output.cell_line_ids,
+            drug_ids=output.drug_ids,
+            cell_line_features=cell_line_input,
+            drug_features=drug_input,
+        )
         train_loader = DataLoader(
             train_dataset,
             batch_size=self.hyperparameters.get("batch_size", 32),
@@ -300,7 +297,13 @@ class DrugGNN(DRPModel):
 
         val_loader = None
         if output_earlystopping is not None and len(output_earlystopping) > 0:
-            val_dataset = _DrugResponsePytorchDataset(output_earlystopping, cell_line_input, drug_input)
+            val_dataset = _DrugResponsePytorchDataset(
+                response=output_earlystopping.response,
+                cell_line_ids=output_earlystopping.cell_line_ids,
+                drug_ids=output_earlystopping.drug_ids,
+                cell_line_features=cell_line_input,
+                drug_features=drug_input,
+            )
             val_loader = DataLoader(val_dataset, batch_size=self.hyperparameters.get("batch_size", 32))
 
         trainer = pl.Trainer(
@@ -335,28 +338,22 @@ class DrugGNN(DRPModel):
 
         self.model.eval()
 
-        predict_drp = DrugResponseDataset(
-            response=pd.Series(np.zeros(len(cell_line_ids))),
-            cell_line_ids=pd.Series(cell_line_ids),
-            drug_ids=pd.Series(drug_ids),
+        predict_dataset = _DrugResponsePytorchDataset(
+            response=np.zeros(len(cell_line_ids)),
+            cell_line_ids=cell_line_ids,
+            drug_ids=drug_ids,
+            cell_line_features=cell_line_input,
+            drug_features=drug_input,
         )
-
-        predict_dataset = _DrugResponsePytorchDataset(predict_drp, cell_line_input, drug_input)
         predict_loader = DataLoader(predict_dataset, batch_size=self.hyperparameters.get("batch_size", 32))
 
         trainer = pl.Trainer(accelerator="auto", devices="auto")
         predictions_list = trainer.predict(self.model, dataloaders=predict_loader)
 
-        if not predictions_list:
-            return np.array([])
-
         # The output of predict can be a list of lists of tensors, flatten it
         predictions_flat = [
             item for sublist in predictions_list for item in (sublist if isinstance(sublist, list) else [sublist])
         ]
-
-        if not predictions_flat:
-            return np.array([])
 
         predictions = torch.cat(predictions_flat).cpu().numpy()
         return predictions
@@ -395,12 +392,7 @@ class DrugGNN(DRPModel):
         # Assuming drug IDs are pubchem_ids and are the names of the .pt files
         for p_file in graph_path.glob("*.pt"):
             drug_id = p_file.stem
-            try:
-                # Use torch.load with weights_only=False if it contains pickled data
-                drug_graphs[drug_id] = torch.load(p_file, weights_only=False)  # noqa: S614
-            except Exception as e:
-                print(f"Could not load or process file {p_file}: {e}")
-                continue
+            drug_graphs[drug_id] = torch.load(p_file, weights_only=False)  # noqa: S614
 
         if not drug_graphs:
             raise ValueError(f"No drug graphs loaded from {graph_path}. Check the directory and file contents.")
