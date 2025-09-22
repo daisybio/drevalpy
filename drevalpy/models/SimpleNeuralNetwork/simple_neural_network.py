@@ -77,7 +77,7 @@ class SimpleNeuralNetwork(DRPModel):
 
         """
         if drug_input is None:
-            raise ValueError("drug_input (fingerprints) are required for SimpleNeuralNetwork.")
+            raise ValueError(f"drug_input ({self.drug_views[0]}) are required for SimpleNeuralNetwork.")
 
         # Apply arcsinh transformation and scaling to gene expression features
         if "gene_expression" in self.cell_line_views:
@@ -89,7 +89,7 @@ class SimpleNeuralNetwork(DRPModel):
             )
 
         dim_gex = next(iter(cell_line_input.features.values()))["gene_expression"].shape[0]
-        dim_fingerprint = next(iter(drug_input.features.values()))["fingerprints"].shape[0]
+        dim_fingerprint = next(iter(drug_input.features.values()))[self.drug_views[0]].shape[0]
         self.hyperparameters["input_dim_gex"] = dim_gex
         self.hyperparameters["input_dim_fp"] = dim_fingerprint
 
@@ -157,7 +157,7 @@ class SimpleNeuralNetwork(DRPModel):
 
         x = self.get_concatenated_features(
             cell_line_view="gene_expression",
-            drug_view="fingerprints",
+            drug_view=self.drug_views[0],
             cell_line_ids_output=cell_line_ids,
             drug_ids_output=drug_ids,
             cell_line_input=cell_line_input,
