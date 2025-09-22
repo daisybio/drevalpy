@@ -34,15 +34,13 @@ def main():
     parser = argparse.ArgumentParser(description="Preprocess drug SMILES to ChemBERTa embeddings.")
     parser.add_argument("dataset_name", type=str, help="The name of the dataset to process.")
     parser.add_argument("--device", type=str, default="cpu", help="Torch device (cpu or cuda)")
+    parser.add_argument("--data_path", type=str, default="data", help="Path to the data folder")
     args = parser.parse_args()
 
     dataset_name = args.dataset_name
     device = args.device
+    data_dir = Path(args.data_path).resolve()
 
-    script_dir = Path(__file__).resolve().parent
-    project_root = script_dir.parent
-
-    data_dir = project_root / "data"
     smiles_file = data_dir / dataset_name / "drug_smiles.csv"
     output_file = data_dir / dataset_name / "drug_chemberta_embeddings.csv"
 
@@ -72,7 +70,7 @@ def main():
             raise e
 
     embeddings_array = pd.DataFrame(embeddings_list)
-    embeddings_array.insert(0, "drug_id", drug_ids)
+    embeddings_array.insert(0, "pubchem_id", drug_ids)
     embeddings_array.to_csv(output_file, index=False)
 
     print(f"Finished processing. Embeddings saved to {output_file}")

@@ -4,7 +4,7 @@ Preprocesses drug SMILES strings into graph representations.
 This script takes a dataset name as input, reads the corresponding
 drug_smiles.csv file, and converts each SMILES string into a
 torch_geometric.data.Data object. The resulting graph objects are saved
-to data/{dataset_name}/drug_graphs/{drug_name}.pt.
+to {data_path}/{dataset_name}/drug_graphs/{drug_name}.pt.
 """
 
 import argparse
@@ -107,15 +107,11 @@ def main():
     """Main function to run the preprocessing."""
     parser = argparse.ArgumentParser(description="Preprocess drug SMILES to graphs.")
     parser.add_argument("dataset_name", type=str, help="The name of the dataset to process.")
+    parser.add_argument("--data_path", type=str, default="data", help="Path to the data folder")
     args = parser.parse_args()
 
     dataset_name = args.dataset_name
-
-    # Get the absolute path to the project root directory
-    script_dir = Path(__file__).resolve().parent
-    project_root = script_dir.parent
-
-    data_dir = project_root / "data"
+    data_dir = Path(args.data_path).resolve()
     smiles_file = data_dir / dataset_name / "drug_smiles.csv"
     output_dir = data_dir / dataset_name / "drug_graphs"
 
