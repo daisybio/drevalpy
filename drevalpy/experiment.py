@@ -32,7 +32,7 @@ def drug_response_experiment(
     response_transformation: TransformerMixin | None = None,
     run_id: str = "",
     test_mode: str = "LPO",
-    metric: str = "RMSE",
+    hpam_optimization_metric: str = "RMSE",
     n_cv_splits: int = 5,
     multiprocessing: bool = False,
     randomization_mode: list[str] | None = None,
@@ -53,7 +53,8 @@ def drug_response_experiment(
     :param baselines: list of baseline models. No randomization or robustness tests are run for the baseline models.
     :param response_data: drug response dataset
     :param response_transformation: normalizer to use for the response data
-    :param metric: metric to use for hyperparameter optimization
+    :param hpam_optimization_metric: metric to use for hyperparameter optimization
+        (i.e., for selecting the best model on the validation set)
     :param n_cv_splits: number of cross-validation splits
     :param multiprocessing: whether to use multiprocessing. This requires Ray to be installed.
     :param randomization_mode: list of randomization modes to do. Modes: SVCC, SVRC, SVCD, SVRD Can be a list of
@@ -171,7 +172,9 @@ def drug_response_experiment(
             raise ValueError("No cv splits found.")
 
         for split_index, split in enumerate(response_data.cv_splits):
+            print()
             print(f"################# FOLD {split_index + 1}/{len(response_data.cv_splits)} " f"#################")
+            print()
 
             prediction_file = os.path.join(predictions_path, f"predictions_split_{split_index}.csv")
 
@@ -197,7 +200,7 @@ def drug_response_experiment(
                     "early_stopping_dataset": early_stopping_dataset,
                     "hpam_set": model_hpam_set,
                     "response_transformation": response_transformation,
-                    "metric": metric,
+                    "metric": hpam_optimization_metric,
                     "path_data": path_data,
                     "model_checkpoint_dir": model_checkpoint_dir,
                 }
@@ -306,7 +309,7 @@ def drug_response_experiment(
                 response_transformation=response_transformation,
                 path_data=path_data,
                 model_checkpoint_dir=model_checkpoint_dir,
-                metric=metric,
+                metric=hpam_optimization_metric,
                 final_model_path=final_model_path,
                 test_mode=test_mode,
                 val_ratio=0.1,
