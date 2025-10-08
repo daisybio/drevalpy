@@ -325,7 +325,7 @@ def main(args) -> None:
             baselines=baselines,
             response_data=response_data,
             response_transformation=response_transformation,
-            metric=args.optim_metric,
+            hpam_optimization_metric=args.optim_metric,
             n_cv_splits=args.n_cv_splits,
             multiprocessing=args.multiprocessing,
             test_mode=test_mode,
