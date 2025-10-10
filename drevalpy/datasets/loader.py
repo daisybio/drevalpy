@@ -269,6 +269,7 @@ def load_dataset(
     curve_curator: bool = False,
     cores: int = 1,
     tissue_column: str | None = None,
+    normalize: bool = False,
 ) -> DrugResponseDataset:
     """
     Load a dataset based on the dataset name.
@@ -289,6 +290,8 @@ def load_dataset(
     :param cores: Number of cores to use for CurveCurator fitting. Only used when curve_curator is True, default = 1
     :param tissue_column: The name of the column containing the tissue type. If None, no tissue information is loaded.
         This is only used when loading a custom dataset. Default = None.
+    :param normalize: Whether to normalize the response values to [0, 1] for curvecurator. Default = False.
+        Only used for custom datasets when curve_curator is True.
     :return: A DrugResponseDataset containing response, cell line IDs, drug IDs, and dataset name.
     :raises FileNotFoundError: If the custom dataset or raw viability data could not be found at the given path.
     """
@@ -308,6 +311,7 @@ def load_dataset(
                 output_dir=input_file.parent,
                 dataset_name=dataset_name,
                 cores=cores,
+                normalize=normalize,
             )
         return load_custom(
             path_data=Path(path_data) / dataset_name / f"{dataset_name}.csv",
