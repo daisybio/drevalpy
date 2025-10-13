@@ -115,7 +115,7 @@ trove-classifiers==2025.9.11.17 ; python_version >= "3.11" and python_version < 
 typing-extensions==4.15.0 ; python_version >= "3.11" and python_version < "3.14"
 tzdata==2025.2 ; python_version >= "3.11" and python_version < "3.14"
 urllib3==2.5.0 ; python_version >= "3.11" and python_version < "3.14"
-virtualenv==20.34.0 ; python_version >= "3.11" and python_version < "3.14"
+virtualenv==20.35.3 ; python_version >= "3.11" and python_version < "3.14"
 xattr==1.2.0 ; python_version >= "3.11" and python_version < "3.14" and sys_platform == "darwin"
 xyzservices==2025.4.0 ; python_version >= "3.11" and python_version < "3.14"
 yarl==1.22.0 ; python_version >= "3.11" and python_version < "3.14"
