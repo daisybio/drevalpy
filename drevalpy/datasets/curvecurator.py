@@ -88,8 +88,8 @@ def _prepare_toml(
         "Experiment": {
             "experiments": range(n_exp),
             "doses": doses,
-            "dose_scale": "1e-06",
-            "dose_unit": "M",
+            "dose_scale": "1",
+            "dose_unit": "uM",
             "control_experiment": [i for i in range(n_replicates)],
             "measurement_type": "OTHER",
             "data_type": "OTHER",
@@ -216,8 +216,7 @@ def preprocess(input_file: str | Path, output_dir: str | Path, dataset_name: str
         required_columns.pop()
         del converters["replicate"]
         curve_df = pd.read_csv(input_file, usecols=required_columns, converters=converters)
-    # Convert doses from µM to M
-    curve_df["dose"] = curve_df["dose"] * 1e6
+
     if not all([col in curve_df.columns for col in required_columns]):
         raise ValueError(f"Missing columns in viability data. Required columns are {required_columns}.")
     groupby = []
