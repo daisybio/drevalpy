@@ -138,6 +138,13 @@ def get_parser() -> argparse.ArgumentParser:
     )
 
     parser.add_argument(
+        "--curve_curator_normalize",
+        action="store_true",
+        default=False,
+        help="Whether to normalize the response values to [0, 1] for CurveCurator. Default is False.",
+    )
+
+    parser.add_argument(
         "--measure",
         type=str,
         default="LN_IC50",
@@ -306,6 +313,7 @@ def main(args) -> None:
         measure=args.measure,
         curve_curator=(not args.no_refitting),
         cores=args.curve_curator_cores,
+        normalize=getattr(args, "curve_curator_normalize", False),
     )
 
     models = [MODEL_FACTORY[model] for model in args.models]
@@ -350,6 +358,7 @@ def get_datasets(
     measure: str = "response",
     curve_curator: bool = False,
     cores: int = 1,
+    normalize: bool = False,
 ) -> tuple[DrugResponseDataset, list[DrugResponseDataset] | None]:
     """
     Load the response data and cross-study datasets.
@@ -372,10 +381,17 @@ def get_datasets(
         which is expected to exist at <path_data>/<dataset_name>/<dataset_name>_raw.csv. The fitted dataset will
         be stored in the same folder, in a file called <dataset_name>.csv
     :param cores: Number of cores to use for CurveCurator fitting. Only used when curve_curator is True, default = 1
+    :param normalize: Whether to normalize the response values to [0, 1] for curvecurator. Default = False.
+        Only used for custom datasets when curve_curator is True.
     :returns: response data and, potentially, cross-study datasets
     """
     response_data = load_dataset(
-        dataset_name=dataset_name, path_data=path_data, measure=measure, curve_curator=curve_curator, cores=cores
+        dataset_name=dataset_name,
+        path_data=path_data,
+        measure=measure,
+        curve_curator=curve_curator,
+        cores=cores,
+        normalize=normalize,
     )
 
     cross_study_datasets = [

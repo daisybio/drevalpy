@@ -79,6 +79,7 @@ class SklearnModel(DRPModel):
             raise ValueError("drug_input (fingerprints) is required for the sklearn models.")
 
         if "gene_expression" in self.cell_line_views:
+
             cell_line_input = scale_gene_expression(
                 cell_line_input=cell_line_input,
                 cell_line_ids=np.unique(output.cell_line_ids),
@@ -143,7 +144,7 @@ class SklearnModel(DRPModel):
         """
         return load_and_select_gene_features(
             feature_type="gene_expression",
-            gene_list="landmark_genes",
+            gene_list="landmark_genes_reduced",
             data_path=data_path,
             dataset_name=dataset_name,
         )

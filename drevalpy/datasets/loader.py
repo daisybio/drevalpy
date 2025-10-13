@@ -73,6 +73,35 @@ def load_gdsc2(path_data: str = "data", measure: str = "LN_IC50_curvecurator", f
     return load_gdsc1(path_data=path_data, measure=measure, file_name=file_name, dataset_name="GDSC2")
 
 
+def load_beataml2(
+    path_data: str = "data", measure: str = "LN_IC50", file_name: str = "BeatAML2.csv"
+) -> DrugResponseDataset:
+    """
+    Loads the BeatAML2 dataset.
+
+    :param path_data: Path to the dataset.
+    :param file_name: File name of the dataset.
+    :param measure: The name of the column containing the measure to predict, default = "AUC"
+
+    :return: DrugResponseDataset containing response, cell line IDs, and drug IDs.
+    """
+    dataset_name = "BeatAML2"
+    path = os.path.join(path_data, dataset_name, file_name)
+    if not os.path.exists(path):
+        download_dataset(dataset_name, path_data, redownload=True)
+
+    response_data = pd.read_csv(path, dtype={"pubchem_id": str, "cell_line_name": str})
+    response_data[DRUG_IDENTIFIER] = response_data[DRUG_IDENTIFIER].str.replace(",", "")
+    check_measure(measure, list(response_data.columns), dataset_name)
+    return DrugResponseDataset(
+        response=response_data[measure].values,
+        cell_line_ids=response_data[CELL_LINE_IDENTIFIER].values,
+        drug_ids=response_data[DRUG_IDENTIFIER].values,
+        tissues=response_data[TISSUE_IDENTIFIER].values,
+        dataset_name=dataset_name,
+    )
+
+
 def load_ccle(
     path_data: str = "data", measure: str = "LN_IC50_curvecurator", file_name: str = "CCLE.csv"
 ) -> DrugResponseDataset:
@@ -229,6 +258,7 @@ AVAILABLE_DATASETS: dict[str, Callable] = {
     "TOYv2": load_toyv2,
     "CTRPv1": load_ctrpv1,
     "CTRPv2": load_ctrpv2,
+    "BeatAML2": load_beataml2,
 }
 
 
@@ -239,6 +269,7 @@ def load_dataset(
     curve_curator: bool = False,
     cores: int = 1,
     tissue_column: str | None = None,
+    normalize: bool = False,
 ) -> DrugResponseDataset:
     """
     Load a dataset based on the dataset name.
@@ -259,6 +290,8 @@ def load_dataset(
     :param cores: Number of cores to use for CurveCurator fitting. Only used when curve_curator is True, default = 1
     :param tissue_column: The name of the column containing the tissue type. If None, no tissue information is loaded.
         This is only used when loading a custom dataset. Default = None.
+    :param normalize: Whether to normalize the response values to [0, 1] for curvecurator. Default = False.
+        Only used for custom datasets when curve_curator is True.
     :return: A DrugResponseDataset containing response, cell line IDs, drug IDs, and dataset name.
     :raises FileNotFoundError: If the custom dataset or raw viability data could not be found at the given path.
     """
@@ -278,6 +311,7 @@ def load_dataset(
                 output_dir=input_file.parent,
                 dataset_name=dataset_name,
                 cores=cores,
+                normalize=normalize,
             )
         return load_custom(
             path_data=Path(path_data) / dataset_name / f"{dataset_name}.csv",

@@ -17,7 +17,8 @@ def test_factory() -> None:
     assert "TOYv2" in AVAILABLE_DATASETS
     assert "CTRPv1" in AVAILABLE_DATASETS
     assert "CTRPv2" in AVAILABLE_DATASETS
-    assert len(AVAILABLE_DATASETS) == 7
+    assert "BeatAML2" in AVAILABLE_DATASETS
+    assert len(AVAILABLE_DATASETS) == 8
 
 
 @pytest.mark.parametrize(
