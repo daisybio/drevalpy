@@ -222,15 +222,26 @@ def prep_results(
     for root, _, files in os.walk(path_data):
         for file in files:
             if file == "drug_names.csv":
-                drug_names = pd.read_csv(os.path.join(root, file), index_col=0)
-                # make index to str
-                drug_names.index = drug_names.index.astype(str)
+                drug_names = pd.read_csv(os.path.join(root, file))
+                drug_names["pubchem_id"] = drug_names["pubchem_id"].astype(str)
                 # index: pubchem_id, column: drug_name
-                drug_metadata.update(zip(drug_names.index, drug_names["drug_name"]))
+                drug_metadata.update(zip(drug_names["pubchem_id"], drug_names["drug_name"]))
             elif file == "cell_line_names.csv":
-                cell_line_names = pd.read_csv(os.path.join(root, file), index_col=0)
+                cell_line_names = pd.read_csv(os.path.join(root, file))
                 # index: cellosaurus_id, column: cell_line_name
-                cell_line_metadata.update(zip(cell_line_names[CELL_LINE_IDENTIFIER], cell_line_names.index))
+                try:
+                    cellosaurus_ids = cell_line_names["cellosaurus_id"].astype(str)
+                    # replace nan with unknown_id_{i} (patient derived cell lines might not have a cellosaurus id)
+                    n_missing = cellosaurus_ids.isna().sum()
+                    fill_values = [f"unknown_id_{i}" for i in range(n_missing)]
+                    cellosaurus_ids = cellosaurus_ids.where(
+                        cellosaurus_ids.notna(),
+                        pd.Series(fill_values, index=cellosaurus_ids[cellosaurus_ids.isna()].index),
+                    )
+
+                except KeyError:
+                    cellosaurus_ids = pd.Series([f"unknown_id_{i}" for i in range(len(cell_line_names))])
+                cell_line_metadata.update(zip(cell_line_names[CELL_LINE_IDENTIFIER], cellosaurus_ids))
 
     # add variables
     # split the index by "_" into: algorithm, randomization, test_mode, split, CV_split
