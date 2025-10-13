@@ -313,7 +313,7 @@ def main(args) -> None:
         measure=args.measure,
         curve_curator=(not args.no_refitting),
         cores=args.curve_curator_cores,
-        normalize=args.curve_curator_normalize,
+        normalize=getattr(args, "curve_curator_normalize", False),
     )
 
     models = [MODEL_FACTORY[model] for model in args.models]
