@@ -26,6 +26,7 @@ __all__ = [
     "ProteomicsRandomForest",
     "ProteomicsElasticNetModel",
     "SingleDrugProteomicsRandomForest",
+    "DrugGNN",
     "ChemBERTaNeuralNetwork",
 ]
 
@@ -49,6 +50,7 @@ from .baselines.sklearn_models import (
 )
 from .DIPK.dipk import DIPKModel
 from .drp_model import DRPModel
+from .DrugGNN import DrugGNN
 from .MOLIR.molir import MOLIR
 from .SimpleNeuralNetwork.multiomics_neural_network import MultiOmicsNeuralNetwork
 from .SimpleNeuralNetwork.simple_neural_network import ChemBERTaNeuralNetwork, SimpleNeuralNetwork
@@ -83,6 +85,7 @@ MULTI_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]] = {
     "DIPK": DIPKModel,
     "ProteomicsRandomForest": ProteomicsRandomForest,
     "ProteomicsElasticNet": ProteomicsElasticNetModel,
+    "DrugGNN": DrugGNN,
     "ChemBERTaNeuralNetwork": ChemBERTaNeuralNetwork,
 }
 

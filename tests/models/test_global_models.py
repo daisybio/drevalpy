@@ -16,7 +16,8 @@ from drevalpy.models.drp_model import DRPModel
 
 @pytest.mark.parametrize("test_mode", ["LTO"])
 @pytest.mark.parametrize(
-    "model_name", ["ChemBERTaNeuralNetwork", "SRMF", "DIPK", "SimpleNeuralNetwork", "MultiOmicsNeuralNetwork"]
+    "model_name",
+    ["DrugGNN", "ChemBERTaNeuralNetwork", "SRMF", "DIPK", "SimpleNeuralNetwork", "MultiOmicsNeuralNetwork"],
 )
 def test_global_models(
     sample_dataset: DrugResponseDataset,
