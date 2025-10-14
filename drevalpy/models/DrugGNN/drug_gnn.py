@@ -134,7 +134,7 @@ class DrugGNNModule(pl.LightningModule):
         drug_graph, cell_features, responses = batch
         outputs = self.model(drug_graph, cell_features)
         loss = self.criterion(outputs, responses)
-        self.log("train_loss", loss)
+        self.log("train_loss", loss, on_step=False, on_epoch=True, batch_size=responses.size(0))
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -146,7 +146,7 @@ class DrugGNNModule(pl.LightningModule):
         drug_graph, cell_features, responses = batch
         outputs = self.model(drug_graph, cell_features)
         loss = self.criterion(outputs, responses)
-        self.log("val_loss", loss)
+        self.log("val_loss", loss, on_step=False, on_epoch=True, batch_size=responses.size(0))
 
     def predict_step(self, batch, batch_idx, dataloader_idx=0):
         """A single prediction step.
@@ -189,9 +189,13 @@ class _DrugResponsePytorchDataset(PytorchDataset):
         self.cell_line_ids = cell_line_ids
         self.drug_ids = drug_ids
 
+        # preconvert to tensors to avoid per item tensor creation
         self.cell_features = {
-            cl_id: features["gene_expression"] for cl_id, features in cell_line_features.features.items()
+            cl_id: torch.tensor(features["gene_expression"], dtype=torch.float32)
+            for cl_id, features in cell_line_features.features.items()
         }
+        self.response_tensor = torch.tensor(self.response, dtype=torch.float32)
+
         self.drug_graphs = {
             drug_id: feature_views["drug_graph"] for drug_id, feature_views in drug_features.features.items()
         }
@@ -204,8 +208,8 @@ class _DrugResponsePytorchDataset(PytorchDataset):
         drug_id = self.drug_ids[idx]
 
         drug_graph = self.drug_graphs[drug_id]
-        cell_feat = torch.tensor(self.cell_features[cell_line_id], dtype=torch.float32)
-        response = torch.tensor(self.response[idx], dtype=torch.float32)
+        cell_feat = self.cell_features[cell_line_id]
+        response = self.response_tensor[idx]
 
         return drug_graph, cell_feat, response
 
@@ -250,6 +254,17 @@ class DrugGNN(DRPModel):
         """
         self.hyperparameters = hyperparameters
 
+    def _loader_kwargs(self) -> dict[str, Any]:
+        num_workers = int(self.hyperparameters.get("num_workers", 4))
+        kw = {
+            "num_workers": num_workers,
+            "pin_memory": True,
+        }
+        if num_workers > 0:
+            kw["persistent_workers"] = True
+            kw["prefetch_factor"] = int(self.hyperparameters.get("prefetch_factor", 2))
+        return kw
+
     def train(
         self,
         output: DrugResponseDataset,
@@ -291,8 +306,9 @@ class DrugGNN(DRPModel):
         )
         train_loader = DataLoader(
             train_dataset,
-            batch_size=self.hyperparameters.get("batch_size", 32),
+            batch_size=self.hyperparameters.get("batch_size", 1024),
             shuffle=True,
+            **self._loader_kwargs(),
         )
 
         val_loader = None
@@ -304,13 +320,20 @@ class DrugGNN(DRPModel):
                 cell_line_features=cell_line_input,
                 drug_features=drug_input,
             )
-            val_loader = DataLoader(val_dataset, batch_size=self.hyperparameters.get("batch_size", 32))
+            val_loader = DataLoader(
+                val_dataset,
+                batch_size=self.hyperparameters.get("batch_size", 32),
+                **self._loader_kwargs(),
+            )
 
         trainer = pl.Trainer(
             max_epochs=self.hyperparameters.get("epochs", 100),
             accelerator="auto",
             devices="auto",
             callbacks=[pl.callbacks.EarlyStopping(monitor="val_loss", mode="min", patience=5)] if val_loader else None,
+            enable_progress_bar=True,
+            log_every_n_steps=int(self.hyperparameters.get("log_every_n_steps", 50)),
+            precision=self.hyperparameters.get("precision", 32),
         )
         trainer.fit(self.model, train_dataloaders=train_loader, val_dataloaders=val_loader)
 
@@ -348,16 +371,19 @@ class DrugGNN(DRPModel):
             cell_line_features=cell_line_input,
             drug_features=drug_input,
         )
-        predict_loader = DataLoader(predict_dataset, batch_size=self.hyperparameters.get("batch_size", 32))
+        predict_loader = DataLoader(
+            predict_dataset,
+            batch_size=self.hyperparameters.get("batch_size", 32),
+            **self._loader_kwargs(),
+        )
 
-        trainer = pl.Trainer(accelerator="auto", devices="auto")
+        trainer = pl.Trainer(accelerator="auto", devices="auto", enable_progress_bar=False)
         predictions_list = trainer.predict(self.model, dataloaders=predict_loader)
 
         if not predictions_list:
             print("DrugGNN predict: No predictions were made; returning empty array.")
             return np.array([])
 
-        # The output of predict can be a list of lists of tensors, flatten it
         predictions_flat = [
             item for sublist in predictions_list for item in (sublist if isinstance(sublist, list) else [sublist])
         ]
@@ -396,7 +422,6 @@ class DrugGNN(DRPModel):
             )
 
         drug_graphs = {}
-        # Assuming drug IDs are pubchem_ids and are the names of the .pt files
         for p_file in graph_path.glob("*.pt"):
             drug_id = p_file.stem
             drug_graphs[drug_id] = torch.load(p_file, weights_only=False)  # noqa: S614
@@ -404,7 +429,6 @@ class DrugGNN(DRPModel):
         if not drug_graphs:
             raise ValueError(f"No drug graphs loaded from {graph_path}. Check the directory and file contents.")
 
-        # The features are nested under a 'drug_graph' view
         feature_dict = {drug_id: {"drug_graph": graph} for drug_id, graph in drug_graphs.items()}
 
         return FeatureDataset(features=feature_dict)
@@ -421,11 +445,9 @@ class DrugGNN(DRPModel):
         path = Path(path)
         path.mkdir(parents=True, exist_ok=True)
 
-        # Pytorch Lightning saves checkpoints which include model weights, optimizer states, etc.
         trainer = pl.Trainer()
         trainer.save_checkpoint(path / "model.ckpt", weights_only=True)
 
-        # Save hyperparameters separately for clarity and easy access
         with open(path / "config.json", "w") as f:
             json.dump(self.hyperparameters, f, indent=4)
 
@@ -441,10 +463,8 @@ class DrugGNN(DRPModel):
         with open(config_path) as f:
             self.hyperparameters = json.load(f)
 
-        # Load the model from the checkpoint
         self.model = DrugGNNModule.load_from_checkpoint(
             path / "model.ckpt",
-            # The hparams needed by the module are derived from the saved hyperparameters
             num_node_features=self.hyperparameters["num_node_features"],
             num_cell_features=self.hyperparameters["num_cell_features"],
             hidden_dim=self.hyperparameters.get("hidden_dim", 64),
