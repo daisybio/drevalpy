@@ -176,7 +176,7 @@ class SimpleNeuralNetwork(DRPModel):
         """
         return load_and_select_gene_features(
             feature_type="gene_expression",
-            gene_list="landmark_genes",
+            gene_list="landmark_genes_reduced",
             data_path=data_path,
             dataset_name=dataset_name,
         )

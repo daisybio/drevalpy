@@ -73,12 +73,12 @@ class DrugResponseDataset:
         if predictions is not None and len(response) != len(predictions):
             raise AssertionError("Response and predictions have different lengths.")
         self._response = response
-        self._cell_line_ids = cell_line_ids
-        self._drug_ids = drug_ids
+        self._cell_line_ids = cell_line_ids.astype(str)
+        self._drug_ids = drug_ids.astype(str)
         self._predictions = predictions
         self._name = dataset_name
         if tissues is not None:
-            self._tissues = np.array(tissues)
+            self._tissues = np.array(tissues).astype(str)
         else:
             self._tissues = None
 
@@ -109,7 +109,7 @@ class DrugResponseDataset:
         :raises ValueError: If the required columns are not found in the input file
         :returns: DrugResponseDataset object containing data from provided csv file.
         """
-        data = pd.read_csv(input_file)
+        data = pd.read_csv(input_file, dtype={DRUG_IDENTIFIER: str, CELL_LINE_IDENTIFIER: str}, low_memory=False)
 
         if measure not in data.columns:
             raise ValueError(f"Column {measure} not found in the input file.")
@@ -129,7 +129,7 @@ class DrugResponseDataset:
             drug_ids=data[DRUG_IDENTIFIER].values,
             predictions=predictions,
             dataset_name=dataset_name,
-            tissues=data[tissue_column].values if tissue_column in data.columns else None,
+            tissues=data[tissue_column].values.astype(str) if tissue_column in data.columns else None,
         )
 
     @property
@@ -288,28 +288,28 @@ class DrugResponseDataset:
         if self.tissue is not None:
             self._tissues = self.tissue[indices]
 
-    def _remove_drugs(self, drugs_to_remove: str | list[str | int]) -> None:
+    def _remove_drugs(self, drugs_to_remove: str | list[str]) -> None:
         """
-        Removes drugs from the dataset.
+        Removes one or more drugs from the dataset.
 
-        :param drugs_to_remove: name of drug or list of names of multiple drugs to remove
+        :param drugs_to_remove: A single drug ID (str) or a list of IDs to remove.
         """
         if isinstance(drugs_to_remove, str):
             drugs_to_remove = [drugs_to_remove]
 
-        mask = np.array([drug not in drugs_to_remove for drug in self.drug_ids], dtype=bool)
+        mask: np.ndarray = ~np.isin(self.drug_ids, drugs_to_remove)
         self.mask(mask)
 
-    def _remove_cell_lines(self, cell_lines_to_remove: str | list[str | int]) -> None:
+    def _remove_cell_lines(self, cell_lines_to_remove: str | list[str]) -> None:
         """
-        Removes cell lines from the dataset.
+        Removes one or more cell lines from the dataset.
 
-        :param cell_lines_to_remove: name of cell line or list of names of multiple cell lines to remove
+        :param cell_lines_to_remove: A single cell line ID (str) or a list of IDs to remove.
         """
         if isinstance(cell_lines_to_remove, str):
             cell_lines_to_remove = [cell_lines_to_remove]
 
-        mask = np.array([cell_line not in cell_lines_to_remove for cell_line in self.cell_line_ids], dtype=bool)
+        mask: np.ndarray = ~np.isin(self.cell_line_ids, cell_lines_to_remove)
         self.mask(mask)
 
     def remove_rows(self, indices: np.ndarray) -> None:
@@ -317,7 +317,15 @@ class DrugResponseDataset:
         Removes rows from the dataset.
 
         :param indices: indices of rows to remove
+        :raises ValueError: if indices are out of bounds or not 1-dimensional
         """
+        if indices.ndim != 1:
+            raise ValueError("Indices must be a 1-dimensional array.")
+        if np.any(indices >= len(self)) or np.any(indices < 0):
+            raise ValueError("Indices are out of bounds.")
+        if len(indices) == 0:
+            return
+
         mask = np.ones(len(self), dtype=bool)
         mask[indices] = False
         self.mask(mask)
@@ -330,10 +338,10 @@ class DrugResponseDataset:
         :param drug_ids: drug IDs or None to keep all cell lines
         """
         if drug_ids is not None:
-            self._remove_drugs(list(set(self.drug_ids) - set(drug_ids)))
+            self._remove_drugs(list(set(self.drug_ids) - set(drug_ids.astype(str))))
 
         if cell_line_ids is not None:
-            self._remove_cell_lines(list(set(self.cell_line_ids) - set(cell_line_ids)))
+            self._remove_cell_lines(list(set(self.cell_line_ids) - set(cell_line_ids.astype(str))))
 
     @pipeline_function
     def split_dataset(
