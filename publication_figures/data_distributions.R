@@ -34,6 +34,8 @@ gdsc1 <- subset_df(gdsc1, "GDSC1")
 gdsc2 <- subset_df(gdsc2, "GDSC2")
 
 joined_dataset <- rbind(ctrpv2, ctrpv1, ccle, gdsc1, gdsc2)
+# there are some extreme pEC50 values
+joined_dataset <- joined_dataset[value > -10 & value < 10, ]
 
 ggplot(joined_dataset,
        aes(x=value, fill=dataset, color=dataset)) +
@@ -58,16 +60,50 @@ print(num_drugs_cell_lines)
 # CTRPv2
 path_to_raw_datasets <- '/Users/judithbernett/Downloads/raw_responses/'
 ctrpv2_raw <- fread(paste0(path_to_raw_datasets, 'CTRPv2.0_2015_ctd2_ExpandedDataset', '/' , 'v20.data.per_cpd_well.txt'))
+ctrpv2_exp_anno <- fread(paste0(path_to_raw_datasets, 'CTRPv2.0_2015_ctd2_ExpandedDataset', '/' , 'v20.meta.per_experiment.txt'))
+orig_measures <- fread(paste0(path_to_raw_datasets, 'CTRPv2.0_2015_ctd2_ExpandedDataset', '/' , 'v20.data.curves_post_qc.txt'))
+ctrpv2_cl_anno <- fread(paste0(path_to_raw_datasets, 'CTRPv2.0_2015_ctd2_ExpandedDataset', '/' , 'v20.meta.per_cell_line.txt'))
+ctrpv2_drug_anno <- fread(paste0(path_to_raw_datasets, 'CTRPv2.0_2015_ctd2_ExpandedDataset', '/' , 'v20.meta.per_compound.txt'))
+ctrpv2_exp_anno <- unique(ctrpv2_exp_anno[, c("experiment_id", "master_ccl_id")])
+ctrpv2_raw <- merge(ctrpv2_raw, ctrpv2_exp_anno, by = "experiment_id")
 # number of unique drugs
 length(unique(ctrpv2_raw$master_cpd_id))
 # number of unique cell lines
-length(unique(ctrpv2_raw$experiment_id))
+length(unique(ctrpv2_raw$master_ccl_id))
 # number of experiments
 nrow(ctrpv2_raw)
 # per drug: get the distinct cpd_conc_umol values
 n_conc <- ctrpv2_raw[, .(n_concentrations = uniqueN(cpd_conc_umol)), by = master_cpd_id]
 n_conc$dataset <- 'CTRPv2'
 colnames(n_conc) <- c("drug", "n_concentrations", "dataset")
+
+# make a replicate column that counts +1 for every replicate of the same master_cpd_id-master_ccl_id-cpd_conc_umol combination
+ctrpv2_raw <- ctrpv2_raw[order(master_cpd_id, master_ccl_id, cpd_conc_umol)]
+ctrpv2_raw[, replicate := seq_len(.N), by = .(master_cpd_id, master_ccl_id, cpd_conc_umol)]
+# make column with max. replicate number per master_cpd_id-master_ccl_id combination
+ctrpv2_raw[, max_replicate_per_conc := max(replicate), by = .(master_cpd_id, master_ccl_id, cpd_conc_umol)]
+ctrpv2_raw[, max_replicate := max(replicate), by = .(master_cpd_id, master_ccl_id)]
+nr_reps <- unique(ctrpv2_raw[, .(master_cpd_id, master_ccl_id, cpd_conc_umol, max_replicate_per_conc, max_replicate)])
+orig_measures <- merge(orig_measures, ctrpv2_exp_anno, by = "experiment_id")
+orig_measures <- merge(orig_measures, unique(nr_reps[, .(master_cpd_id, master_ccl_id, max_replicate)]), by = c("master_cpd_id", "master_ccl_id"))
+orig_measures[, AUC := area_under_curve / (1 * conc_pts_fit)]
+orig_measures <- merge(orig_measures, ctrpv2_drug_anno[, .(master_cpd_id, cpd_name)], by = "master_cpd_id")
+orig_measures <- merge(orig_measures, ctrpv2_cl_anno[, .(master_ccl_id, ccl_name)], by = "master_ccl_id")
+
+ggplot(orig_measures, aes(x=AUC))+
+  geom_density()+
+  xlab("AUC (normalized by conc_pts_fit)") +
+  ylab("Density") +
+  ggtitle("Distribution of AUC values in CTRPv2 raw data") +
+  theme_minimal()
+
+ggplot(ctrpv2_raw, aes(x=max_replicate)) +
+  geom_histogram(binwidth=1) +
+  xlab("Max. nr. of replicates per drug-cell line-concentration combination") +
+  ylab("Count") +
+  scale_x_sqrt()+
+  ggtitle("Distribution of replicates in CTRPv2 raw data") +
+  theme_minimal()
 
 # CTRPv1
 ctrpv1_raw <- fread(paste0(path_to_raw_datasets, 'CTRPv1.0_2013_pub_Cell_154_1151', '/' , 'v10.D2.avg_pct_viability_data.txt'))
