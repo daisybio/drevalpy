@@ -1,5 +1,9 @@
 """Contains sklearn baseline models: ElasticNet, RandomForest, SVM."""
 
+import json
+import os
+
+import joblib
 import numpy as np
 from sklearn.ensemble import HistGradientBoostingRegressor, RandomForestRegressor
 from sklearn.linear_model import ElasticNet, Lasso, Ridge
@@ -33,6 +37,7 @@ class SklearnModel(DRPModel):
         super().__init__()
         self.model = None
         self.gene_expression_scaler = StandardScaler()
+        self.proteomics_transformer = None
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -48,9 +53,8 @@ class SklearnModel(DRPModel):
         Builds the model from hyperparameters.
 
         :param hyperparameters: Custom hyperparameters for the model, have to be defined in the child class.
-        :raises NotImplementedError: If the method is not implemented in the child class.
         """
-        raise NotImplementedError("build_model method has to be implemented in the child class.")
+        self.hyperparameters = hyperparameters
 
     def train(
         self,
@@ -75,6 +79,7 @@ class SklearnModel(DRPModel):
             raise ValueError("drug_input (fingerprints) is required for the sklearn models.")
 
         if "gene_expression" in self.cell_line_views:
+
             cell_line_input = scale_gene_expression(
                 cell_line_input=cell_line_input,
                 cell_line_ids=np.unique(output.cell_line_ids),
@@ -139,7 +144,7 @@ class SklearnModel(DRPModel):
         """
         return load_and_select_gene_features(
             feature_type="gene_expression",
-            gene_list="landmark_genes",
+            gene_list="landmark_genes_reduced",
             data_path=data_path,
             dataset_name=dataset_name,
         )
@@ -153,6 +158,64 @@ class SklearnModel(DRPModel):
         :returns: FeatureDataset containing the drug fingerprints
         """
         return load_drug_fingerprint_features(data_path, dataset_name, fill_na=True)
+
+    def save(self, directory: str) -> None:
+        """
+        Save the trained model and any associated preprocessing components to the given directory.
+
+        Saves:
+        - model.pkl: the trained sklearn model
+        - hyperparameters.json: dictionary of model hyperparameters (if present)
+        - scaler.pkl: fitted gene expression scaler (if present)
+        - proteomics_transformer.pkl: fitted proteomics transformer (if present)
+
+        :param directory: path to the directory where model files will be stored
+        """
+        os.makedirs(directory, exist_ok=True)
+        joblib.dump(self.model, os.path.join(directory, "model.pkl"))
+        with open(os.path.join(directory, "hyperparameters.json"), "w") as f:
+            json.dump(getattr(self, "hyperparameters", {}), f)
+        if self.gene_expression_scaler is not None:
+            joblib.dump(self.gene_expression_scaler, os.path.join(directory, "scaler.pkl"))
+        if self.proteomics_transformer is not None:
+            joblib.dump(self.proteomics_transformer, os.path.join(directory, "proteomics_transformer.pkl"))
+
+    @classmethod
+    def load(cls, directory: str) -> "SklearnModel":
+        """
+        Load a trained sklearn-based model and its preprocessing components from disk.
+
+        Loads:
+        - model.pkl: the trained sklearn model
+        - hyperparameters.json: model hyperparameters (optional)
+        - scaler.pkl: gene expression scaler (optional)
+        - proteomics_transformer.pkl: proteomics transformer (optional)
+
+        :param directory: path to the directory where model files are stored
+        :return: an instance of the model with restored state
+        :raises FileNotFoundError: if model.pkl is missing
+        """
+        model_path = os.path.join(directory, "model.pkl")
+        if not os.path.exists(model_path):
+            raise FileNotFoundError(f"{model_path} not found")
+
+        instance = cls()
+
+        hyperparams_path = os.path.join(directory, "hyperparameters.json")
+        with open(hyperparams_path) as f:
+            hyperparameters = json.load(f)
+        instance.build_model(hyperparameters)
+        instance.model = joblib.load(model_path)
+
+        scaler_path = os.path.join(directory, "scaler.pkl")
+        if os.path.exists(scaler_path):
+            instance.gene_expression_scaler = joblib.load(scaler_path)
+
+        transformer_path = os.path.join(directory, "proteomics_transformer.pkl")
+        if os.path.exists(transformer_path):
+            instance.proteomics_transformer = joblib.load(transformer_path)
+
+        return instance
 
 
 class ElasticNetModel(SklearnModel):
@@ -182,6 +245,7 @@ class ElasticNetModel(SklearnModel):
                 alpha=hyperparameters["alpha"],
                 l1_ratio=hyperparameters["l1_ratio"],
             )
+        self.hyperparameters = hyperparameters
 
 
 class RandomForest(SklearnModel):
@@ -211,6 +275,7 @@ class RandomForest(SklearnModel):
             max_samples=hyperparameters["max_samples"],
             n_jobs=hyperparameters["n_jobs"],
         )
+        self.hyperparameters = hyperparameters
 
 
 class SVMRegressor(SklearnModel):
@@ -237,6 +302,7 @@ class SVMRegressor(SklearnModel):
             epsilon=hyperparameters["epsilon"],
             max_iter=hyperparameters["max_iter"],
         )
+        self.hyperparameters = hyperparameters
 
 
 class GradientBoosting(SklearnModel):
@@ -265,6 +331,7 @@ class GradientBoosting(SklearnModel):
             learning_rate=hyperparameters.get("learning_rate", 0.1),
             max_depth=hyperparameters.get("max_depth", 3),
         )
+        self.hyperparameters = hyperparameters
 
 
 class ProteomicsRandomForest(RandomForest):
@@ -436,8 +503,7 @@ class ProteomicsElasticNetModel(ElasticNetModel):
         """
         Builds the model from hyperparameters.
 
-        :param hyperparameters: Hyperparameters for the model. Contains n_estimators, criterion, max_samples,
-            and n_jobs.
+        :param hyperparameters: Hyperparameters for the model.
         """
         super().build_model(hyperparameters)
         self.feature_threshold = hyperparameters.get("feature_threshold", 0.7)

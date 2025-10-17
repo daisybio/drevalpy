@@ -41,3 +41,24 @@ MultiOmicsNeuralNetwork:
     - 100
   max_epochs:
     - 100
+
+ChemBERTaNeuralNetwork:
+  dropout_prob:
+    - 0.3
+  units_per_layer:
+    - - 32
+      - 16
+      - 8
+      - 4
+    - - 128
+      - 64
+      - 32
+    - - 64
+      - 64
+      - 32
+    - - 1024
+      - 128
+      - 64
+      - 16
+  max_epochs:
+    - 100

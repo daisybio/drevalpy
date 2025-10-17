@@ -193,7 +193,7 @@ _tissue_synonyms = {
 }
 
 
-def _parse_cellosaurus(cellosaurus_path: str) -> tuple[dict, dict, dict]:
+def _parse_cellosaurus(cellosaurus_path: str | Path) -> tuple[dict, dict, dict]:
     """
     Parse Cellosaurus file and return mappings from cellosaurus ID to name, site, and disease.
 
@@ -201,7 +201,7 @@ def _parse_cellosaurus(cellosaurus_path: str) -> tuple[dict, dict, dict]:
     :return: Tuple of dictionaries (id_to_name, id_to_site, id_to_disease)
     """
     id_to_name, id_to_site, id_to_disease = {}, {}, {}
-
+    cellosaurus_path = str(cellosaurus_path)
     with open(cellosaurus_path, encoding="utf-8") as f:
         current_ids, current_name, site, disease = [], None, None, None
         for line in f:

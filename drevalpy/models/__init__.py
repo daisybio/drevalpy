@@ -26,6 +26,8 @@ __all__ = [
     "ProteomicsRandomForest",
     "ProteomicsElasticNetModel",
     "SingleDrugProteomicsRandomForest",
+    "DrugGNN",
+    "ChemBERTaNeuralNetwork",
 ]
 
 from .baselines.multi_omics_random_forest import MultiOmicsRandomForest
@@ -48,9 +50,10 @@ from .baselines.sklearn_models import (
 )
 from .DIPK.dipk import DIPKModel
 from .drp_model import DRPModel
+from .DrugGNN import DrugGNN
 from .MOLIR.molir import MOLIR
 from .SimpleNeuralNetwork.multiomics_neural_network import MultiOmicsNeuralNetwork
-from .SimpleNeuralNetwork.simple_neural_network import SimpleNeuralNetwork
+from .SimpleNeuralNetwork.simple_neural_network import ChemBERTaNeuralNetwork, SimpleNeuralNetwork
 from .SRMF.srmf import SRMF
 from .SuperFELTR.superfeltr import SuperFELTR
 
@@ -82,6 +85,8 @@ MULTI_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]] = {
     "DIPK": DIPKModel,
     "ProteomicsRandomForest": ProteomicsRandomForest,
     "ProteomicsElasticNet": ProteomicsElasticNetModel,
+    "DrugGNN": DrugGNN,
+    "ChemBERTaNeuralNetwork": ChemBERTaNeuralNetwork,
 }
 
 # MODEL_FACTORY is used in the pipeline!

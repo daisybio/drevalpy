@@ -6,7 +6,7 @@ This method performs the following steps:
    differences in treatments across multiple test attempts. It compares the ranks of multiple groups and is
    suitable when there are repeated measurements for each group (as is the case here with cross-validation splits).
    The p-value of this test is used to assess whether there are any significant differences in the performance of the
-   models.
+   models. We use Benjamini/Hochberg correction for multiple testing.
 
 2. **Post-hoc Conover Test**: If the Friedman test returns a significant result (p-value < 0.05), the post-hoc Conover
    test can be used to identify pairs of algorithms that perform significantly different. This test is necessary
@@ -40,7 +40,6 @@ from scikit_posthocs import sign_array
 from scipy import stats
 
 from ..evaluation import MINIMIZATION_METRICS
-from ..pipeline_function import pipeline_function
 from .outplot import OutPlot
 
 matplotlib.use("agg")
@@ -53,23 +52,25 @@ class CriticalDifferencePlot(OutPlot):
     """
     Draws the critical difference diagram.
 
-    Used by the pipeline!
-
     The critical difference diagram is used to compare the performance of multiple classifiers and show whether a
     model is significantly better than another model. This is calculated over the average ranks of the classifiers
     which is why there need to be at least 3 classifiers to draw the diagram. Because the ranks are calculated over
     the cross-validation splits and the significance threshold is set to 0.05, e.g., 10 CV folds are advisable.
     """
 
-    @pipeline_function
     def __init__(self, eval_results_preds: pd.DataFrame, metric="MSE"):
         """
         Initializes the critical difference plot.
 
         :param eval_results_preds: evaluation results subsetted to predictions only (no randomizations etc)
         :param metric: to be used to assess the critical difference
+        :raises ValueError: if eval_results_preds is empty or does not contain the metric
         """
         eval_results_preds = eval_results_preds[["algorithm", "CV_split", metric]]
+        if eval_results_preds.empty:
+            raise ValueError(
+                "Critical Difference Plot: The DataFrame is empty. Please provide a valid DataFrame with predictions."
+            )
         if metric in MINIMIZATION_METRICS:
             eval_results_preds.loc[:, metric] = -eval_results_preds.loc[:, metric]
 
@@ -78,7 +79,6 @@ class CriticalDifferencePlot(OutPlot):
         self.fig: Optional[plt.Figure] = None
         self.test_results: Optional[pd.DataFrame] = None
 
-    @pipeline_function
     def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
         """
         Draws the critical difference plot and saves it to a file.
@@ -119,7 +119,7 @@ class CriticalDifferencePlot(OutPlot):
         input_conover_friedman = self.eval_results_preds.pivot_table(
             index="CV_split", columns="algorithm", values=self.metric
         )
-        self.test_results = pd.DataFrame(sp.posthoc_conover_friedman(input_conover_friedman))
+        self.test_results = pd.DataFrame(sp.posthoc_conover_friedman(input_conover_friedman, p_adjust="fdr_bh"))
         average_ranks = input_conover_friedman.rank(ascending=False, axis=1).mean(axis=0)
         plt.title(
             f"Critical Difference Diagram: Metric: {self.metric}.\n"

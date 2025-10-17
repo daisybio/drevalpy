@@ -1,9 +1,14 @@
 """Contains the SimpleNeuralNetwork model."""
 
+import json
+import os
 import platform
 import warnings
 
+import joblib
 import numpy as np
+import pandas as pd
+import torch
 from sklearn.preprocessing import StandardScaler
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
@@ -23,7 +28,7 @@ class SimpleNeuralNetwork(DRPModel):
     def __init__(self):
         """Initializes the SimpleNeuralNetwork.
 
-        The model is build in train(). The gene_expression_scalar is set to the StandardScaler() and later fitted
+        The model is built in train(). The gene_expression_scalar is set to the StandardScaler() and later fitted
         using the training data only.
         """
         super().__init__()
@@ -47,6 +52,8 @@ class SimpleNeuralNetwork(DRPModel):
         :param hyperparameters: includes units_per_layer and dropout_prob.
         """
         self.hyperparameters = hyperparameters
+        self.hyperparameters.setdefault("input_dim_gex", None)
+        self.hyperparameters.setdefault("input_dim_fp", None)
 
     def train(
         self,
@@ -70,7 +77,7 @@ class SimpleNeuralNetwork(DRPModel):
 
         """
         if drug_input is None:
-            raise ValueError("drug_input (fingerprints) are required for SimpleNeuralNetwork.")
+            raise ValueError(f"drug_input ({self.drug_views[0]}) are required for SimpleNeuralNetwork.")
 
         # Apply arcsinh transformation and scaling to gene expression features
         if "gene_expression" in self.cell_line_views:
@@ -82,7 +89,9 @@ class SimpleNeuralNetwork(DRPModel):
             )
 
         dim_gex = next(iter(cell_line_input.features.values()))["gene_expression"].shape[0]
-        dim_fingerprint = next(iter(drug_input.features.values()))["fingerprints"].shape[0]
+        dim_fingerprint = next(iter(drug_input.features.values()))[self.drug_views[0]].shape[0]
+        self.hyperparameters["input_dim_gex"] = dim_gex
+        self.hyperparameters["input_dim_fp"] = dim_fingerprint
 
         self.model = FeedForwardNetwork(
             hyperparameters=self.hyperparameters,
@@ -98,6 +107,12 @@ class SimpleNeuralNetwork(DRPModel):
                 "ignore",
                 message="Starting from v1\\.9\\.0, `tensorboardX` has been removed.*",
             )
+            if (output_earlystopping is not None) and len(output_earlystopping) == 0:
+                output_earlystopping = output
+                print("SimpleNeuralNetwork: Early stopping dataset empty. Using training data for early stopping")
+
+                print("Probably, your training dataset is small.")
+
             self.model.fit(
                 output_train=output,
                 cell_line_input=cell_line_input,
@@ -142,7 +157,7 @@ class SimpleNeuralNetwork(DRPModel):
 
         x = self.get_concatenated_features(
             cell_line_view="gene_expression",
-            drug_view="fingerprints",
+            drug_view=self.drug_views[0],
             cell_line_ids_output=cell_line_ids,
             drug_ids_output=drug_ids,
             cell_line_input=cell_line_input,
@@ -161,7 +176,7 @@ class SimpleNeuralNetwork(DRPModel):
         """
         return load_and_select_gene_features(
             feature_type="gene_expression",
-            gene_list="landmark_genes",
+            gene_list="landmark_genes_reduced",
             data_path=data_path,
             dataset_name=dataset_name,
         )
@@ -175,3 +190,102 @@ class SimpleNeuralNetwork(DRPModel):
         :returns: FeatureDataset containing the fingerprints
         """
         return load_drug_fingerprint_features(data_path, dataset_name, fill_na=True)
+
+    def save(self, directory: str) -> None:
+        """
+        Save the trained model, hyperparameters, and gene expression scaler to the given directory.
+
+        This enables full reconstruction of the model using `load`.
+
+        Files saved:
+        - model.pt: PyTorch state_dict of the trained model
+        - hyperparameters.json: Dictionary containing all relevant model hyperparameters
+        - scaler.pkl: Fitted StandardScaler for gene expression features
+
+        :param directory: Target directory to store all model artifacts
+        """
+        os.makedirs(directory, exist_ok=True)
+
+        torch.save(self.model.state_dict(), os.path.join(directory, "model.pt"))  # noqa: S614
+
+        with open(os.path.join(directory, "hyperparameters.json"), "w") as f:
+            json.dump(self.hyperparameters, f)
+
+        joblib.dump(self.gene_expression_scaler, os.path.join(directory, "scaler.pkl"))
+
+    @classmethod
+    def load(cls, directory: str) -> "SimpleNeuralNetwork":
+        """
+        Load a trained SimpleNeuralNetwork instance from disk.
+
+        This includes:
+        - model.pt: PyTorch state_dict of the trained model
+        - hyperparameters.json: Dictionary with model hyperparameters
+        - scaler.pkl: Fitted StandardScaler for gene expression features
+
+        :param directory: Directory containing the saved model files
+        :return: An instance of SimpleNeuralNetwork with restored state
+        :raises FileNotFoundError: if any required file is missing
+        """
+        hyperparam_file = os.path.join(directory, "hyperparameters.json")
+        scaler_file = os.path.join(directory, "scaler.pkl")
+        model_file = os.path.join(directory, "model.pt")
+
+        if not all(os.path.exists(f) for f in [hyperparam_file, scaler_file, model_file]):
+            raise FileNotFoundError("Missing model files. Required: model.pt, hyperparameters.json, scaler.pkl")
+
+        instance = cls()
+
+        with open(hyperparam_file) as f:
+            instance.hyperparameters = json.load(f)
+
+        instance.gene_expression_scaler = joblib.load(scaler_file)
+
+        dim_gex = instance.hyperparameters["input_dim_gex"]
+        dim_fp = instance.hyperparameters["input_dim_fp"]
+
+        instance.model = FeedForwardNetwork(instance.hyperparameters, input_dim=dim_gex + dim_fp)
+        instance.model.load_state_dict(torch.load(model_file))  # noqa: S614
+        instance.model.eval()
+
+        return instance
+
+
+class ChemBERTaNeuralNetwork(SimpleNeuralNetwork):
+    """ChemBERTa Neural Network model using gene expression and ChemBERTa drug embeddings."""
+
+    drug_views = ["chemberta_embeddings"]
+
+    @classmethod
+    def get_model_name(cls) -> str:
+        """
+        Returns the model name.
+
+        :returns: ChemBERTaNeuralNetwork
+        """
+        return "ChemBERTaNeuralNetwork"
+
+    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+        """
+        Loads the ChemBERTa embeddings.
+
+        :param data_path: Path to the ChemBERTa embeddings, e.g., data/
+        :param dataset_name: name of the dataset, e.g., GDSC1
+        :returns: FeatureDataset containing the ChemBERTa embeddings
+        :raises FileNotFoundError: if the ChemBERTa embeddings file is not found
+        """
+        chemberta_file = os.path.join(data_path, dataset_name, "drug_chemberta_embeddings.csv")
+        if not os.path.exists(chemberta_file):
+            raise FileNotFoundError(
+                f"ChemBERTa embeddings file not found: {chemberta_file}. "
+                "Please create it first with the respective drug_featurizer."
+            )
+
+        chemberta_df = pd.read_csv(chemberta_file, dtype={"pubchem_id": str})
+        features = {}
+        for _, row in chemberta_df.iterrows():
+            drug_id = row["pubchem_id"]
+            embedding = row.drop("pubchem_id").to_numpy(dtype=np.float32)
+            features[drug_id] = {"chemberta_embeddings": embedding}
+
+        return FeatureDataset(features)

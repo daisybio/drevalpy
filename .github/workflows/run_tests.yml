@@ -16,22 +16,22 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { python-version: "3.12", os: ubuntu-latest, session: "pre-commit" }
-          - { python-version: "3.12", os: ubuntu-latest, session: "mypy" }
-          - { python-version: "3.12", os: ubuntu-latest, session: "tests" }
-          - { python-version: "3.12", os: windows-latest, session: "typeguard" }
-          - { python-version: "3.12", os: ubuntu-latest, session: "xdoctest" }
-          - { python-version: "3.12", os: ubuntu-latest, session: "docs-build" }
+          - { python-version: "3.13", os: ubuntu-latest, session: "pre-commit" }
+          - { python-version: "3.13", os: ubuntu-latest, session: "mypy" }
+          - { python-version: "3.13", os: ubuntu-latest, session: "tests" }
+          - { python-version: "3.13", os: windows-latest, session: "typeguard" }
+          - { python-version: "3.13", os: ubuntu-latest, session: "xdoctest" }
+          - { python-version: "3.13", os: ubuntu-latest, session: "docs-build" }
 
     env:
       NOXSESSION: ${{ matrix.session }}
 
     steps:
       - name: Check out the repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -64,7 +64,7 @@ jobs:
           print("::set-output name=result::{}".format(result))
 
       - name: Restore pre-commit cache
-        uses: actions/cache@v4.2.3
+        uses: actions/cache@v4.3.0
         if: matrix.session == 'pre-commit'
         with:
           path: ~/.cache/pre-commit
@@ -95,10 +95,10 @@ jobs:
     needs: tests
     steps:
       - name: Check out the repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: 3.12
 
@@ -116,7 +116,7 @@ jobs:
           nox --version
 
       - name: Download coverage data
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: coverage-data
 
@@ -127,6 +127,6 @@ jobs:
         run: nox --force-color --session=coverage -- xml -i
 
       - name: Upload coverage report
-        uses: codecov/codecov-action@v5.4.3
+        uses: codecov/codecov-action@v5.5.1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}

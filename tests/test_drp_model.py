@@ -9,7 +9,7 @@ import pandas as pd
 import pytest
 
 from drevalpy.datasets.loader import load_toyv1, load_toyv2
-from drevalpy.datasets.utils import TISSUE_IDENTIFIER
+from drevalpy.datasets.utils import DRUG_IDENTIFIER, TISSUE_IDENTIFIER
 from drevalpy.models import MODEL_FACTORY
 from drevalpy.models.utils import (
     get_multiomics_feature_dataset,
@@ -50,7 +50,7 @@ def test_load_cl_ids_from_csv() -> None:
     temp_file = os.path.join(temp.name, "GDSC1_small", "cell_line_names.csv")
     with open(temp_file, "w") as f:
         f.write(
-            "cellosaurus_id,CELL_LINE_NAME\nCVCL_X481,201T\nCVCL_1045,22Rv1\n"
+            "cellosaurus_id,cell_line_name\nCVCL_X481,201T\nCVCL_1045,22Rv1\n"
             "CVCL_1046,23132/87\nCVCL_1798,42-MG-BA\n"
         )
 
@@ -66,7 +66,7 @@ def test_load_tissues_from_csv() -> None:
         temp_file = os.path.join(temp_dir, "GDSC1_small", "cell_line_names.csv")
         with open(temp_file, "w") as f:
             f.write(
-                "cellosaurus_id,CELL_LINE_NAME,tissue\n"
+                "cellosaurus_id,cell_line_name,tissue\n"
                 "CVCL_X481,201T,lung\n"
                 "CVCL_1045,22Rv1,breast\n"
                 "CVCL_1046,23132/87,liver\n"
@@ -99,7 +99,7 @@ def _write_gene_list(temp_dir: tempfile.TemporaryDirectory, gene_list: Optional[
     """
     os.mkdir(os.path.join(temp_dir.name, "GDSC1_small", "gene_lists"))
     temp_file = os.path.join(temp_dir.name, "GDSC1_small", "gene_lists", f"{gene_list}.csv")
-    if gene_list == "landmark_genes":
+    if gene_list == "landmark_genes_reduced":
         with open(temp_file, "w") as f:
             f.write(
                 "Entrez ID,Symbol,Name,Gene Family,Type,RNA-Seq Correlation,RNA-Seq Correlation Self-Rank\n"
@@ -121,7 +121,7 @@ def _write_gene_list(temp_dir: tempfile.TemporaryDirectory, gene_list: Optional[
     "gene_list",
     [
         None,
-        "landmark_genes",
+        "landmark_genes_reduced",
         "drug_target_genes_all_drugs",
         "gene_list_paccmann_network_prop",
     ],
@@ -137,7 +137,7 @@ def test_load_and_select_gene_features(gene_list: Optional[str]) -> None:
     temp_file = os.path.join(temp.name, "GDSC1_small", "gene_expression.csv")
     with open(temp_file, "w") as f:
         f.write(
-            "cellosaurus_id,CELL_LINE_NAME,TSPAN6,TNMD,BRCA1,SCYL3,HDAC1,INSIG1,FOXO3\n"
+            "cellosaurus_id,cell_line_name,TSPAN6,TNMD,BRCA1,SCYL3,HDAC1,INSIG1,FOXO3\n"
             "CVCL_1104,CAL-120,7.632023171463389,2.9645851205892404,10.3795526353077,3.61479404843988,"
             "3.38068143582194,7.09344749430946,3.0222634357817597\n"
             "CVCL_1174,DMS 114,7.54867116637172,2.77771614989839,11.807341248845802,4.066886747621,"
@@ -163,7 +163,7 @@ def test_load_and_select_gene_features(gene_list: Optional[str]) -> None:
         assert len(gene_features_gdsc1.meta_info["gene_expression"]) == 7
         gene_names = ["TSPAN6", "TNMD", "BRCA1", "SCYL3", "HDAC1", "INSIG1", "FOXO3"]
         assert np.all(gene_features_gdsc1.meta_info["gene_expression"] == gene_names)
-    elif gene_list == "landmark_genes":
+    elif gene_list == "landmark_genes_reduced":
         assert len(gene_features_gdsc1.features) == 5
         assert gene_features_gdsc1.meta_info is not None
         assert len(gene_features_gdsc1.meta_info["gene_expression"]) == 4
@@ -216,7 +216,7 @@ def test_load_drug_ids_from_csv() -> None:
     os.mkdir(os.path.join(temp.name, "GDSC1_small"))
     temp_file = os.path.join(temp.name, "GDSC1_small", "drug_names.csv")
     with open(temp_file, "w") as f:
-        f.write("DRUG_NAME\n(5Z)-7-Oxozeaenol\n5-Fluorouracil\nA-443654\nA-770041\n")
+        f.write(f"{DRUG_IDENTIFIER}\n(5Z)-7-Oxozeaenol\n5-Fluorouracil\nA-443654\nA-770041\n")
     drug_ids_gdsc1 = load_drug_ids_from_csv(temp.name, "GDSC1_small")
     assert len(drug_ids_gdsc1.features) == 4
     assert drug_ids_gdsc1.identifiers[0] == "(5Z)-7-Oxozeaenol"
@@ -258,7 +258,7 @@ def test_load_drugs_from_fingerprints() -> None:
     "gene_list",
     [
         None,
-        "landmark_genes",
+        "landmark_genes_reduced",
         "drug_target_genes_all_drugs",
         "gene_list_paccmann_network_prop",
     ],
@@ -275,7 +275,7 @@ def test_get_multiomics_feature_dataset(gene_list: Optional[str]) -> None:
     temp_file = os.path.join(temp.name, "GDSC1_small", "gene_expression.csv")
     with open(temp_file, "w") as f:
         f.write(
-            "cellosaurus_id,CELL_LINE_NAME,TSPAN6,TNMD,BRCA1,SCYL3,HDAC1,INSIG1,FOXO3\n"
+            "cellosaurus_id,cell_line_name,TSPAN6,TNMD,BRCA1,SCYL3,HDAC1,INSIG1,FOXO3\n"
             "CVCL_1104,CAL-120,7.632023171463389,2.9645851205892404,10.3795526353077,3.61479404843988,"
             "3.38068143582194,7.09344749430946,3.0222634357817597\n"
             "CVCL_1174,DMS 114,7.54867116637172,2.77771614989839,11.807341248845802,4.066886747621,"
@@ -292,7 +292,7 @@ def test_get_multiomics_feature_dataset(gene_list: Optional[str]) -> None:
     temp_file = os.path.join(temp.name, "GDSC1_small", "methylation.csv")
     with open(temp_file, "w") as f:
         f.write(
-            "cellosaurus_id,CELL_LINE_NAME,chr1:10003165-10003585,chr1:100315420-100316009,"
+            "cellosaurus_id,cell_line_name,chr1:10003165-10003585,chr1:100315420-100316009,"
             "chr1:100435297-100436070,chr1:100503482-100504404,chr1:10057121-10058108,"
             "chr11:107728949-107729586,chr11:107798958-107799980\n"
             "CVCL_1045,22Rv1,0.192212286,0.20381998,0.277913619,0.1909300789999999,0.544058696\n"
@@ -304,7 +304,7 @@ def test_get_multiomics_feature_dataset(gene_list: Optional[str]) -> None:
     temp_file = os.path.join(temp.name, "GDSC1_small", "mutations.csv")
     with open(temp_file, "w") as f:
         f.write(
-            "cellosaurus_id,CELL_LINE_NAME,TSPAN6,TNMD,BRCA1,SCYL3,HDAC1,INSIG1,FOXO3\n"
+            "cellosaurus_id,cell_line_name,TSPAN6,TNMD,BRCA1,SCYL3,HDAC1,INSIG1,FOXO3\n"
             "CVCL_X481,201T,False,False,False,False,False,True,True\n"
             "CVCL_1045,22Rv1,False,True,False,True,False,False,True\n"
             "CVCL_1046,23132/87,False,False,True,True,False,False,False\n"
@@ -315,7 +315,7 @@ def test_get_multiomics_feature_dataset(gene_list: Optional[str]) -> None:
     temp_file = os.path.join(temp.name, "GDSC1_small", "copy_number_variation_gistic.csv")
     with open(temp_file, "w") as f:
         f.write(
-            "cellosaurus_id,CELL_LINE_NAME,TSPAN6,TNMD,BRCA1,SCYL3,HDAC1,INSIG1,FOXO3\n"
+            "cellosaurus_id,cell_line_name,TSPAN6,TNMD,BRCA1,SCYL3,HDAC1,INSIG1,FOXO3\n"
             "CVCL_X481,201T,0.0,0.0,-1.0,0.0,0.0,1.0,-1.0\n"
             "CVCL_1762,TE-12,-1.0,-1.0,0.0,1.0,1.0,0.0,0.0\n"
             "CVCL_1104,CAL-120,0.0,0.0,0.0,-1.0,-1.0,1.0,0.0\n"
@@ -357,7 +357,7 @@ def test_get_multiomics_feature_dataset(gene_list: Optional[str]) -> None:
             assert len(dataset.meta_info[key]) == 7
     else:
         feature_names: list[str] = []
-        if gene_list == "landmark_genes":
+        if gene_list == "landmark_genes_reduced":
             assert dataset.meta_info is not None
             for key in dataset.meta_info:
                 if key == "methylation":

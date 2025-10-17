@@ -104,6 +104,7 @@ class DRPModel(ABC):
             self.model = ElasticNet(alpha=hyperparameters["alpha"], l1_ratio=hyperparameters["l1_ratio"])
         """
 
+    @pipeline_function
     @abstractmethod
     def train(
         self,
@@ -142,6 +143,7 @@ class DRPModel(ABC):
         :returns: predicted response
         """
 
+    @pipeline_function
     @abstractmethod
     def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         """
@@ -155,6 +157,7 @@ class DRPModel(ABC):
         :returns: FeatureDataset with the cell line features
         """
 
+    @pipeline_function
     @abstractmethod
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset | None:
         """
@@ -169,6 +172,37 @@ class DRPModel(ABC):
         :param dataset_name: name of the dataset, e.g., "GDSC2"
         :returns: FeatureDataset or None
         """
+
+    @pipeline_function
+    def save(self, directory: str) -> None:
+        """
+        Save the model, including trainable parameters, hyperparameters, scalars, encoders.
+
+        This method should serialize all necessary components to allow
+        full reconstruction of the model later via the `load` method.
+
+        Only needs to be implemented for the DrEval evaluation framework, if a final production model should be saved.
+
+        :param directory: Target directory where the model and metadata should be saved
+        :raises NotImplementedError: if the method is not implemented by the subclass
+        """
+        raise NotImplementedError(f"{self.get_model_name()} does not implement model saving.")
+
+    @classmethod
+    def load(cls, directory: str) -> "DRPModel":
+        """
+        Load a model, including trainable parameters, hyperparameters, scalars, encoders.
+
+        This method should fully reconstruct an instance of the model using
+        the files in the specified directory.
+
+        Only needs to be implemented for the DrEval evaluation framework, if a final production model should be saved.
+
+
+        :param directory: Source directory containing the saved model files
+        :raises NotImplementedError: if the method is not implemented by the subclass
+        """
+        raise NotImplementedError(f"{cls.get_model_name()} does not implement model loading.")
 
     def get_concatenated_features(
         self,

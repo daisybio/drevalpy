@@ -13,7 +13,7 @@ import pandas as pd
 import torch
 from sklearn.base import TransformerMixin
 
-from .datasets.dataset import DrugResponseDataset, FeatureDataset
+from .datasets.dataset import DrugResponseDataset, FeatureDataset, split_early_stopping_data
 from .evaluation import evaluate, get_mode
 from .models import MODEL_FACTORY, MULTI_DRUG_MODEL_FACTORY, SINGLE_DRUG_MODEL_FACTORY
 from .models.drp_model import DRPModel
@@ -22,7 +22,7 @@ from .pipeline_function import pipeline_function
 if importlib.util.find_spec("ray"):
     import ray
 else:
-    ray = None
+    ray = None  # type: ignore[assignment]
 
 
 def drug_response_experiment(
@@ -32,7 +32,7 @@ def drug_response_experiment(
     response_transformation: TransformerMixin | None = None,
     run_id: str = "",
     test_mode: str = "LPO",
-    metric: str = "RMSE",
+    hpam_optimization_metric: str = "RMSE",
     n_cv_splits: int = 5,
     multiprocessing: bool = False,
     randomization_mode: list[str] | None = None,
@@ -44,6 +44,7 @@ def drug_response_experiment(
     path_data: str = "data",
     model_checkpoint_dir: str = "TEMPORARY",
     hyperparameter_tuning=True,
+    final_model_on_full_data: bool = False,
 ) -> None:
     """
     Run the drug response prediction experiment. Save results to disc.
@@ -52,7 +53,8 @@ def drug_response_experiment(
     :param baselines: list of baseline models. No randomization or robustness tests are run for the baseline models.
     :param response_data: drug response dataset
     :param response_transformation: normalizer to use for the response data
-    :param metric: metric to use for hyperparameter optimization
+    :param hpam_optimization_metric: metric to use for hyperparameter optimization
+        (i.e., for selecting the best model on the validation set)
     :param n_cv_splits: number of cross-validation splits
     :param multiprocessing: whether to use multiprocessing. This requires Ray to be installed.
     :param randomization_mode: list of randomization modes to do. Modes: SVCC, SVRC, SVCD, SVRD Can be a list of
@@ -92,10 +94,18 @@ def drug_response_experiment(
     :param path_data: path to the data directory, usually data/
     :param model_checkpoint_dir: directory to save model checkpoints. If "TEMPORARY", a temporary directory is created.
     :param hyperparameter_tuning: whether to run in debug mode - if False, only select first hyperparameter set
+    :param final_model_on_full_data: if True, a final/production model is saved in the results directory.
+        If hyperparameter_tuning is true, the final model is produced according to the hyperparameter tuning procedure
+        which was evaluated in the nested cross validation.
     :raises ValueError: if no cv splits are found
     """
+    # Default baseline model, needed for normalization
+    nme = MODEL_FACTORY["NaiveMeanEffectsPredictor"]
     if baselines is None:
-        baselines = []
+        baselines = [nme]
+    elif nme not in baselines:
+        baselines.append(nme)
+
     cross_study_datasets = cross_study_datasets or []
     result_path = os.path.join(path_out, run_id, response_data._name, test_mode)
     split_path = os.path.join(result_path, "splits")
@@ -162,7 +172,9 @@ def drug_response_experiment(
             raise ValueError("No cv splits found.")
 
         for split_index, split in enumerate(response_data.cv_splits):
+            print()
             print(f"################# FOLD {split_index + 1}/{len(response_data.cv_splits)} " f"#################")
+            print()
 
             prediction_file = os.path.join(predictions_path, f"predictions_split_{split_index}.csv")
 
@@ -188,7 +200,7 @@ def drug_response_experiment(
                     "early_stopping_dataset": early_stopping_dataset,
                     "hpam_set": model_hpam_set,
                     "response_transformation": response_transformation,
-                    "metric": metric,
+                    "metric": hpam_optimization_metric,
                     "path_data": path_data,
                     "model_checkpoint_dir": model_checkpoint_dir,
                 }
@@ -283,6 +295,27 @@ def drug_response_experiment(
                         split_index=split_index,
                         response_transformation=response_transformation,
                     )
+
+        if final_model_on_full_data and (model_class not in baselines):
+            final_model_path = generate_data_saving_path(
+                model_name=model_name,
+                drug_id=drug_id,
+                result_path=result_path,
+                suffix="final_model",
+            )
+            train_final_model(
+                model_class=model_class,
+                full_dataset=response_data.copy(),
+                response_transformation=response_transformation,
+                path_data=path_data,
+                model_checkpoint_dir=model_checkpoint_dir,
+                metric=hpam_optimization_metric,
+                final_model_path=final_model_path,
+                test_mode=test_mode,
+                val_ratio=0.1,
+                hyperparameter_tuning=hyperparameter_tuning,
+            )
+
     consolidate_single_drug_model_predictions(
         models=models,
         n_cv_splits=n_cv_splits,
@@ -560,7 +593,7 @@ def cross_study_prediction(
             drug_input=drug_input,
         )
         if response_transformation:
-            dataset._response = response_transformation.inverse_transform(dataset.response)
+            dataset.inverse_transform(response_transformation)
     else:
         dataset._predictions = np.array([])
     dataset.to_csv(
@@ -714,7 +747,7 @@ def randomization_test(
     path_out: str,
     split_index: int,
     randomization_type: str = "permutation",
-    response_transformation=TransformerMixin | None,
+    response_transformation: TransformerMixin | None = None,
     model_checkpoint_dir: str = "TEMPORARY",
 ) -> None:
     """
@@ -916,7 +949,8 @@ def train_and_predict(
     # making sure there are no missing features:
     len_train_before = len(train_dataset)
     len_pred_before = len(prediction_dataset)
-    print(f"Number of cell lines in features: {len(cell_lines_to_keep)}")
+    if cell_lines_to_keep is not None:
+        print(f"Number of cell lines in features: {len(cell_lines_to_keep)}")
     if drugs_to_keep is not None:
         print(f"Number of drugs in features: {len(drugs_to_keep)}")
     print(f"Number of cell lines in train dataset: {len(np.unique(train_dataset.cell_line_ids))}")
@@ -968,6 +1002,7 @@ def train_and_predict(
         )
 
     if len(prediction_dataset) > 0:
+        drug_input = drug_features.copy() if drug_features is not None else None
         prediction_dataset._predictions = model.predict(
             cell_line_ids=prediction_dataset.cell_line_ids,
             drug_ids=prediction_dataset.drug_ids,
@@ -975,10 +1010,14 @@ def train_and_predict(
             drug_input=drug_input,
         )
 
-        if response_transformation:
-            prediction_dataset.inverse_transform(response_transformation)
     else:
         prediction_dataset._predictions = np.array([])
+
+    if response_transformation:
+        train_dataset.inverse_transform(response_transformation)
+        prediction_dataset.inverse_transform(response_transformation)
+        if early_stopping_dataset is not None:
+            early_stopping_dataset.inverse_transform(response_transformation)
 
     return prediction_dataset
 
@@ -991,7 +1030,7 @@ def train_and_evaluate(
     validation_dataset: DrugResponseDataset,
     early_stopping_dataset: DrugResponseDataset | None = None,
     response_transformation: TransformerMixin | None = None,
-    metric: str = "rmse",
+    metric: str = "RMSE",
     model_checkpoint_dir: str = "TEMPORARY",
 ) -> dict[str, float]:
     """
@@ -1256,3 +1295,141 @@ def generate_data_saving_path(model_name, drug_id, result_path, suffix) -> str:
         model_path = os.path.join(result_path, model_name, suffix)
     os.makedirs(model_path, exist_ok=True)
     return model_path
+
+
+def train_final_model(
+    model_class: type[DRPModel],
+    full_dataset: DrugResponseDataset,
+    response_transformation: TransformerMixin,
+    path_data: str,
+    model_checkpoint_dir: str,
+    metric: str,
+    final_model_path: str,
+    test_mode: str = "LCO",
+    val_ratio: float = 0.1,
+    hyperparameter_tuning: bool = True,
+) -> None:
+    """
+    Final Production Model Training.
+
+    Tune a final model on the full data set using a validation split that reflects intended generalization.
+    No test set is used here. The performance during the nested CV is a
+    pessimistic estimate of the final model performance.
+    The validation split strategy is determined by `test_mode`:
+    - LCO: generalization to unseen cell lines (e.g., personalized medicine)
+    - LDO: generalization to new drugs (e.g., drug repurposing)
+    - LTO: generalization to new tissues
+    - LPO: general (pair-level) prediction
+
+    :param model_class: model to use
+    :param full_dataset: full training dataset (union of outer folds)
+    :param response_transformation: sklearn scaler used for response normalization
+    :param path_data: path to data directory
+    :param model_checkpoint_dir: checkpoint dir for intermediate tuning models
+    :param metric: metric for tuning, e.g., "RMSE"
+    :param final_model_path: path to final_model save directory
+    :param test_mode: split logic for validation (LCO, LDO, LTO, LPO)
+    :param val_ratio: validation size ratio
+    :param hyperparameter_tuning: whether to perform hyperparameter tuning
+    """
+    print("Training final model with application-specific validation strategy ...")
+
+    full_dataset.remove_nan_responses()
+
+    model = model_class()
+    cl_features = model.load_cell_line_features(data_path=path_data, dataset_name=full_dataset.dataset_name)
+    drug_features = model.load_drug_features(data_path=path_data, dataset_name=full_dataset.dataset_name)
+    cell_lines_to_keep = cl_features.identifiers
+    drugs_to_keep = drug_features.identifiers if drug_features is not None else None
+    full_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
+
+    train_dataset, validation_dataset = make_train_val_split(full_dataset, test_mode=test_mode, val_ratio=val_ratio)
+
+    if model_class.early_stopping:
+        validation_dataset, early_stopping_dataset = split_early_stopping_data(validation_dataset, test_mode)
+    else:
+        early_stopping_dataset = None
+
+    hpam_set = model.get_hyperparameter_set()
+    if hyperparameter_tuning:
+        best_hpams = hpam_tune(
+            model=model,
+            train_dataset=train_dataset,
+            validation_dataset=validation_dataset,
+            early_stopping_dataset=early_stopping_dataset,
+            hpam_set=hpam_set,
+            response_transformation=response_transformation,
+            metric=metric,
+            path_data=path_data,
+            model_checkpoint_dir=model_checkpoint_dir,
+        )
+    else:
+        best_hpams = hpam_set[0]
+
+    print(f"Best hyperparameters for final model: {best_hpams}")
+    train_dataset.add_rows(validation_dataset)
+    train_dataset.shuffle(random_state=42)
+    if response_transformation:
+        train_dataset.fit_transform(response_transformation)
+        if early_stopping_dataset is not None:
+            early_stopping_dataset.transform(response_transformation)
+
+    model.build_model(hyperparameters=best_hpams)
+    drug_features = drug_features.copy() if drug_features is not None else None
+    model.train(
+        output=train_dataset,
+        output_earlystopping=early_stopping_dataset,
+        cell_line_input=cl_features.copy(),
+        drug_input=drug_features,
+        model_checkpoint_dir=model_checkpoint_dir,
+    )
+    if response_transformation:
+        train_dataset.inverse_transform(response_transformation)
+        if early_stopping_dataset is not None:
+            early_stopping_dataset.inverse_transform(response_transformation)
+
+    os.makedirs(final_model_path, exist_ok=True)
+    model.save(final_model_path)
+
+
+@pipeline_function
+def make_train_val_split(
+    dataset: DrugResponseDataset,
+    test_mode: str,
+    val_ratio: float = 0.1,
+    random_state: int = 42,
+) -> tuple[DrugResponseDataset, DrugResponseDataset]:
+    """
+    Split a dataset into train and validation sets according to the test mode and desired ratio.
+
+    :param dataset: full dataset to split
+    :param test_mode: one of "LPO", "LCO", "LDO", "LTO"
+    :param val_ratio: approximate fraction of data to use for validation
+    :param random_state: random seed
+    :returns: (train_dataset, validation_dataset)
+    :raises ValueError: if no tissue information is provided for the DrugResponseDataset
+    """
+    if test_mode == "LTO":
+        if dataset.tissue is not None:
+            n_groups = len(np.unique(dataset.tissue))
+        else:
+            raise ValueError("Tissue information is missing but required for LTO mode.")
+
+    elif test_mode == "LCO":
+        n_groups = len(np.unique(dataset.cell_line_ids))
+    elif test_mode == "LDO":
+        n_groups = len(np.unique(dataset.drug_ids))
+    else:
+        n_groups = len(dataset)
+
+    n_splits = int(1 / val_ratio)
+    n_splits = min(n_splits, n_groups)
+
+    split = dataset.split_dataset(
+        n_cv_splits=n_splits,
+        mode=test_mode,
+        split_validation=False,
+        random_state=random_state,
+    )[0]
+
+    return split["train"], split["test"]

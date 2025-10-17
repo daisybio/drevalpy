@@ -1,3 +1,5 @@
+# flake8: noqa: RST201, RST203, RST301, RST401
+
 """
 Defines the different dataset classes.
 
@@ -41,6 +43,46 @@ class DrugResponseDataset:
     _cv_splits: list[dict[str, "DrugResponseDataset"]] = []
     _name: str
 
+    @pipeline_function
+    def __init__(
+        self,
+        response: np.ndarray,
+        cell_line_ids: np.ndarray,
+        drug_ids: np.ndarray,
+        tissues: np.ndarray | None = None,
+        predictions: np.ndarray | None = None,
+        dataset_name: str = "unnamed",
+    ) -> None:
+        """
+        Initializes the drug response dataset.
+
+        :param response: drug response values per cell line and drug
+        :param cell_line_ids: cell line IDs
+        :param drug_ids: drug IDs
+        :param tissues: Optionally, tissue types of the cell lines for leave-tissue-out cv
+        :param predictions: optional. Predicted drug response values per cell line and drug
+        :param dataset_name: optional. Name of the dataset, default: "unnamed"
+        :raises AssertionError: If response, cell_line_ids, drug_ids, (and the optional predictions) do not all have
+            the same length.
+        """
+        super().__init__()
+        if len(response) != len(cell_line_ids):
+            raise AssertionError("Response and cell line identifiers have different lengths.")
+        if len(response) != len(drug_ids):
+            raise AssertionError("Response and drug identifiers have different lengths.")
+        if predictions is not None and len(response) != len(predictions):
+            raise AssertionError("Response and predictions have different lengths.")
+        self._response = response
+        self._cell_line_ids = cell_line_ids.astype(str)
+        self._drug_ids = drug_ids.astype(str)
+        self._predictions = predictions
+        self._name = dataset_name
+        if tissues is not None:
+            self._tissues = np.array(tissues).astype(str)
+        else:
+            self._tissues = None
+
+    @pipeline_function
     @classmethod
     def from_csv(
         cls: type["DrugResponseDataset"],
@@ -67,7 +109,7 @@ class DrugResponseDataset:
         :raises ValueError: If the required columns are not found in the input file
         :returns: DrugResponseDataset object containing data from provided csv file.
         """
-        data = pd.read_csv(input_file)
+        data = pd.read_csv(input_file, dtype={DRUG_IDENTIFIER: str, CELL_LINE_IDENTIFIER: str}, low_memory=False)
 
         if measure not in data.columns:
             raise ValueError(f"Column {measure} not found in the input file.")
@@ -87,7 +129,7 @@ class DrugResponseDataset:
             drug_ids=data[DRUG_IDENTIFIER].values,
             predictions=predictions,
             dataset_name=dataset_name,
-            tissues=data[tissue_column].values if tissue_column in data.columns else None,
+            tissues=data[tissue_column].values.astype(str) if tissue_column in data.columns else None,
         )
 
     @property
@@ -149,48 +191,11 @@ class DrugResponseDataset:
         """
         Returns the name of this DrugResponseDataset.
 
+        Used in the pipeline.
+
         :returns: dataset name.
         """
         return self._name
-
-    @pipeline_function
-    def __init__(
-        self,
-        response: np.ndarray,
-        cell_line_ids: np.ndarray,
-        drug_ids: np.ndarray,
-        tissues: np.ndarray | None = None,
-        predictions: np.ndarray | None = None,
-        dataset_name: str = "unnamed",
-    ) -> None:
-        """
-        Initializes the drug response dataset.
-
-        :param response: drug response values per cell line and drug
-        :param cell_line_ids: cell line IDs
-        :param drug_ids: drug IDs
-        :param tissues: Optionally, tissue types of the cell lines for leave-tissue-out cv
-        :param predictions: optional. Predicted drug response values per cell line and drug
-        :param dataset_name: optional. Name of the dataset, default: "unnamed"
-        :raises AssertionError: If response, cell_line_ids, drug_ids, (and the optional predictions) do not all have
-            the same length.
-        """
-        super().__init__()
-        if len(response) != len(cell_line_ids):
-            raise AssertionError("Response and cell line identifiers have different lengths.")
-        if len(response) != len(drug_ids):
-            raise AssertionError("Response and drug identifiers have different lengths.")
-        if predictions is not None and len(response) != len(predictions):
-            raise AssertionError("Response and predictions have different lengths.")
-        self._response = response
-        self._cell_line_ids = cell_line_ids
-        self._drug_ids = drug_ids
-        self._predictions = predictions
-        self._name = dataset_name
-        if tissues is not None:
-            self._tissues = np.array(tissues)
-        else:
-            self._tissues = None
 
     def __len__(self) -> int:
         """
@@ -283,28 +288,28 @@ class DrugResponseDataset:
         if self.tissue is not None:
             self._tissues = self.tissue[indices]
 
-    def _remove_drugs(self, drugs_to_remove: str | list[str | int]) -> None:
+    def _remove_drugs(self, drugs_to_remove: str | list[str]) -> None:
         """
-        Removes drugs from the dataset.
+        Removes one or more drugs from the dataset.
 
-        :param drugs_to_remove: name of drug or list of names of multiple drugs to remove
+        :param drugs_to_remove: A single drug ID (str) or a list of IDs to remove.
         """
         if isinstance(drugs_to_remove, str):
             drugs_to_remove = [drugs_to_remove]
 
-        mask = np.array([drug not in drugs_to_remove for drug in self.drug_ids], dtype=bool)
+        mask: np.ndarray = ~np.isin(self.drug_ids, drugs_to_remove)
         self.mask(mask)
 
-    def _remove_cell_lines(self, cell_lines_to_remove: str | list[str | int]) -> None:
+    def _remove_cell_lines(self, cell_lines_to_remove: str | list[str]) -> None:
         """
-        Removes cell lines from the dataset.
+        Removes one or more cell lines from the dataset.
 
-        :param cell_lines_to_remove: name of cell line or list of names of multiple cell lines to remove
+        :param cell_lines_to_remove: A single cell line ID (str) or a list of IDs to remove.
         """
         if isinstance(cell_lines_to_remove, str):
             cell_lines_to_remove = [cell_lines_to_remove]
 
-        mask = np.array([cell_line not in cell_lines_to_remove for cell_line in self.cell_line_ids], dtype=bool)
+        mask: np.ndarray = ~np.isin(self.cell_line_ids, cell_lines_to_remove)
         self.mask(mask)
 
     def remove_rows(self, indices: np.ndarray) -> None:
@@ -312,7 +317,15 @@ class DrugResponseDataset:
         Removes rows from the dataset.
 
         :param indices: indices of rows to remove
+        :raises ValueError: if indices are out of bounds or not 1-dimensional
         """
+        if indices.ndim != 1:
+            raise ValueError("Indices must be a 1-dimensional array.")
+        if np.any(indices >= len(self)) or np.any(indices < 0):
+            raise ValueError("Indices are out of bounds.")
+        if len(indices) == 0:
+            return
+
         mask = np.ones(len(self), dtype=bool)
         mask[indices] = False
         self.mask(mask)
@@ -325,10 +338,10 @@ class DrugResponseDataset:
         :param drug_ids: drug IDs or None to keep all cell lines
         """
         if drug_ids is not None:
-            self._remove_drugs(list(set(self.drug_ids) - set(drug_ids)))
+            self._remove_drugs(list(set(self.drug_ids) - set(drug_ids.astype(str))))
 
         if cell_line_ids is not None:
-            self._remove_cell_lines(list(set(self.cell_line_ids) - set(cell_line_ids)))
+            self._remove_cell_lines(list(set(self.cell_line_ids) - set(cell_line_ids.astype(str))))
 
     @pipeline_function
     def split_dataset(
@@ -397,7 +410,7 @@ class DrugResponseDataset:
 
         if split_validation and split_early_stopping:
             for split in cv_splits:
-                validation_es, early_stopping = _split_early_stopping_data(split["validation"], test_mode=mode)
+                validation_es, early_stopping = split_early_stopping_data(split["validation"], test_mode=mode)
                 split["validation_es"] = validation_es
                 split["early_stopping"] = early_stopping
         self._cv_splits = cv_splits
@@ -520,6 +533,7 @@ class DrugResponseDataset:
         if self.tissue is not None:
             self._tissues = self.tissue[mask]
 
+    @pipeline_function
     def transform(self, response_transformation: TransformerMixin) -> None:
         """
         Apply transformation to the response data and prediction data of the dataset.
@@ -530,6 +544,7 @@ class DrugResponseDataset:
         if self.predictions is not None:
             self._predictions = response_transformation.transform(self.predictions.reshape(-1, 1)).squeeze()
 
+    @pipeline_function
     def fit_transform(self, response_transformation: TransformerMixin) -> None:
         """
         Fit and transform the response data and prediction data of the dataset.
@@ -550,7 +565,8 @@ class DrugResponseDataset:
             self._predictions = response_transformation.inverse_transform(self.predictions.reshape(-1, 1)).squeeze()
 
 
-def _split_early_stopping_data(
+@pipeline_function
+def split_early_stopping_data(
     validation_dataset: DrugResponseDataset, test_mode: str
 ) -> tuple[DrugResponseDataset, DrugResponseDataset]:
     """
@@ -779,7 +795,30 @@ def _leave_group_out_cv(
 
 
 class FeatureDataset:
-    """Class for feature datasets."""
+    """
+    Class for feature datasets.
+
+    This class represents datasets with one or more views of features associated with a set of entities,
+    such as drugs or cell lines. The feature data is stored in a nested dictionary structure:
+
+    {
+        identifier_1: {
+            view_name_1: feature_vector,
+            view_name_2: feature_vector,
+            ...
+        },
+        identifier_2: {
+            view_name_1: feature_vector,
+            view_name_2: feature_vector,
+            ...
+        },
+        ...
+    }
+
+    - Each outer key is a string identifier (e.g. a cell line ID or drug ID)
+    - Each inner key is the name of a view (e.g. 'gene_expression', 'fingerprints')
+    - Each inner value is a feature vector or object representing that view for the identifier
+    """
 
     _features: dict[str, dict[str, Any]]
     _meta_info: dict[str, Any]
@@ -791,6 +830,8 @@ class FeatureDataset:
         id_column: str,
         view_name: str,
         drop_columns: list[str] | None = None,
+        transpose: bool = False,
+        extract_meta_info: bool = True,
     ):
         """Load a one-view feature dataset from a csv file.
 
@@ -803,13 +844,15 @@ class FeatureDataset:
         :param view_name: name of the view (e.g. gene_expression)
         :param id_column: name of the column containing the identifiers
         :param drop_columns: list of columns to drop (e.g. other identifier columns)
+        :param transpose: if True, the csv is transposed, i.e. the rows become columns and vice versa
+        :param extract_meta_info: if True, extracts meta information from the dataset, e.g. gene names for gene expression
         :returns: FeatureDataset object containing data from provided csv file.
         """
-        data = pd.read_csv(path_to_csv)
+        data = pd.read_csv(path_to_csv).T if transpose else pd.read_csv(path_to_csv)
+        data[id_column] = data[id_column].astype(str)
         ids = data[id_column].values
         data_features = data.drop(columns=(drop_columns or []))
         data_features = data_features.set_index(id_column)
-        # remove duplicate feature rows (rows with the same index)
         data_features = data_features[~data_features.index.duplicated(keep="first")]
         features = {}
 
@@ -817,29 +860,40 @@ class FeatureDataset:
             features_for_instance = data_features.loc[identifier].values
             features[identifier] = {view_name: features_for_instance}
 
-        return cls(features=features)
+        meta_info = {}
+        if extract_meta_info:
+            meta_info = {view_name: list(data_features.columns)}
+
+        return cls(features=features, meta_info=meta_info)
 
     def to_csv(self, path: str | Path, id_column: str, view_name: str):
         """
-        Save the feature dataset to a CSV file.
+        Save the feature dataset to a CSV file. If meta_info is available for the view and valid,
+        it will be written as column names.
 
         :param path: Path to the CSV file.
         :param id_column: Name of the column containing the identifiers.
-        :param view_name: Name of the view (e.g., gene_expression).
-
-        :raises ValueError: If the view is not found for an identifier.
+        :param view_name: Name of the view.
         """
         data = []
+        feature_names = None
+
         for identifier, feature_dict in self.features.items():
-            # Get the feature vector for the specified view
-            if view_name in feature_dict:
-                row = {id_column: identifier}
-                row.update({f"feature_{i}": value for i, value in enumerate(feature_dict[view_name])})
-                data.append(row)
-            else:
+            vector = feature_dict.get(view_name)
+            if vector is None:
                 raise ValueError(f"View {view_name!r} not found for identifier {identifier!r}.")
 
-        # Convert to DataFrame and save to CSV
+            if feature_names is None:
+                meta_names = self.meta_info.get(view_name)
+                if isinstance(meta_names, list) and len(meta_names) == len(vector):
+                    feature_names = meta_names
+                else:
+                    feature_names = [f"feature_{i}" for i in range(len(vector))]
+
+            row = {id_column: identifier}
+            row.update({name: value for name, value in zip(feature_names, vector)})
+            data.append(row)
+
         df = pd.DataFrame(data)
         df.to_csv(path, index=False)
 
@@ -865,6 +919,8 @@ class FeatureDataset:
     def identifiers(self) -> np.ndarray:
         """
         Returns the identifiers of the features.
+
+        Used in the pipeline.
 
         :returns: feature identifiers of this FeatureDataset
         """
@@ -1082,7 +1138,6 @@ class FeatureDataset:
 
             raise AssertionError("Train IDs should be unique.")
 
-        # Collect all features of the view for fitting the scaler
         train_features = np.vstack([self.features[identifier][view] for identifier in train_ids])
         transformer.fit(train_features)
 

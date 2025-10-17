@@ -7,9 +7,10 @@ Pengyong Li, Zhengxiang Jiang, Tianxiao Liu, Xinyu Liu, Hui Qiao, Xiaojun Yao
 Briefings in Bioinformatics, Volume 25, Issue 3, May 2024, bbae153, https://doi.org/10.1093/bib/bbae153
 """
 
+import json
 import os
 import secrets
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
@@ -40,11 +41,8 @@ class DIPKModel(DRPModel):
         self.DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         # all of this gets initialized in build_model
         self.model: Predictor | None = None
-        self.epochs: int = 0
-        self.batch_size: int = 0
-        self.lr: float = 0.0
         self.gene_expression_encoder: GeneExpressionEncoder | None = None
-        self.epochs_autoencoder: int = 100
+        self.hyperparameters: dict[str, Any] = {}
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -78,11 +76,7 @@ class DIPKModel(DRPModel):
             hyperparameters["fc_layer_dim"],
             hyperparameters["dropout_rate"],
         ).to(self.DEVICE)
-        self.epochs = hyperparameters["epochs"]
-        self.batch_size = hyperparameters["batch_size"]
-        self.lr = hyperparameters["lr"]
-        self.epochs_autoencoder = hyperparameters["epochs_autoencoder"]
-        self.patience = hyperparameters["patience"]
+        self.hyperparameters = hyperparameters
 
     def train(
         self,
@@ -111,13 +105,21 @@ class DIPKModel(DRPModel):
 
         loss_func = nn.MSELoss()
         params = [{"params": self.model.parameters()}]
-        optimizer = optim.Adam(params, lr=self.lr)
+        optimizer = optim.Adam(params, lr=self.hyperparameters["lr"])
+
+        train_gene_expression = cell_line_input.get_feature_matrix(
+            view="gene_expression", identifiers=output.cell_line_ids
+        )
+        val_gene_expression = cell_line_input.get_feature_matrix(
+            view="gene_expression", identifiers=output_earlystopping.cell_line_ids
+        )
 
         self.gene_expression_encoder = train_gene_expession_autoencoder(
-            cell_line_input.get_feature_matrix(view="gene_expression", identifiers=output.cell_line_ids),
-            cell_line_input.get_feature_matrix(view="gene_expression", identifiers=output_earlystopping.cell_line_ids),
-            epochs_autoencoder=self.epochs_autoencoder,
+            train_gene_expression,
+            val_gene_expression,
+            epochs_autoencoder=self.hyperparameters["epochs_autoencoder"],
         )
+        self.hyperparameters["gene_encoder_input_dim"] = train_gene_expression.shape[1]
 
         cell_line_input.apply(
             lambda x: encode_gene_expression(x, self.gene_expression_encoder),  # type: ignore[arg-type]
@@ -142,10 +144,13 @@ class DIPKModel(DRPModel):
         )
 
         train_loader: DataLoader = DataLoader(
-            DIPKDataset(train_samples), batch_size=self.batch_size, shuffle=True, collate_fn=collate
+            DIPKDataset(train_samples), batch_size=self.hyperparameters["batch_size"], shuffle=True, collate_fn=collate
         )
         early_stopping_loader: DataLoader = DataLoader(
-            DIPKDataset(early_stopping_samples), batch_size=self.batch_size, shuffle=True, collate_fn=collate
+            DIPKDataset(early_stopping_samples),
+            batch_size=self.hyperparameters["batch_size"],
+            shuffle=True,
+            collate_fn=collate,
         )
 
         # Early stopping parameters
@@ -162,7 +167,7 @@ class DIPKModel(DRPModel):
 
         # Train model
         print("Training DIPK model")
-        for epoch in range(self.epochs):
+        for epoch in range(self.hyperparameters["epochs"]):
             self.model.train()
             epoch_loss = 0.0
             batch_count = 0
@@ -237,7 +242,7 @@ class DIPKModel(DRPModel):
                 print(f"DIPK: Saved best model at epoch {epoch + 1}")
             else:
                 epochs_without_improvement += 1
-                if epochs_without_improvement >= self.patience:
+                if epochs_without_improvement >= self.hyperparameters["patience"]:
                     print(f"DIPK: Early stopping triggered at epoch {epoch + 1}")
                     break
 
@@ -294,7 +299,7 @@ class DIPKModel(DRPModel):
             drug_features=drug_input,
         )
         test_loader: DataLoader = DataLoader(
-            DIPKDataset(test_samples), batch_size=self.batch_size, shuffle=False, collate_fn=collate
+            DIPKDataset(test_samples), batch_size=self.hyperparameters["batch_size"], shuffle=False, collate_fn=collate
         )
 
         # Run prediction
@@ -373,3 +378,60 @@ class DIPKModel(DRPModel):
         )
 
         return f
+
+    def save(self, directory: str) -> None:
+        """
+        Save the DIPK model and gene expression encoder using PyTorch conventions.
+
+        This method stores:
+        - "dipk_model.pt": PyTorch state_dict of the DIPK predictor model
+        - "gene_encoder.pt": PyTorch state_dict of the trained gene expression encoder
+        - "hyperparameters.json": All hyperparameters including encoder input_dim
+
+        :param directory: Target directory where the model files will be saved
+        :raises ValueError: If model or encoder is not built
+        """
+        os.makedirs(directory, exist_ok=True)
+        if self.model is None or self.gene_expression_encoder is None:
+            raise ValueError("Cannot save model: model is not built.")
+        model = cast(Predictor, self.model)
+
+        torch.save(model.state_dict(), os.path.join(directory, "dipk_model.pt"))  # noqa: S614
+        torch.save(self.gene_expression_encoder.state_dict(), os.path.join(directory, "gene_encoder.pt"))  # noqa: S614
+        with open(os.path.join(directory, "hyperparameters.json"), "w") as f:
+            json.dump(self.hyperparameters, f)
+
+    @classmethod
+    def load(cls, directory: str) -> "DIPKModel":
+        """
+        Load the DIPK model and gene expression encoder using PyTorch conventions.
+
+        This method expects the following files in the given directory:
+        - "dipk_model.pt": PyTorch state_dict of the DIPK predictor model
+        - "gene_encoder.pt": PyTorch state_dict of the gene expression encoder
+        - "hyperparameters.json": Dictionary of hyperparameters, must include "gene_encoder_input_dim"
+
+        :param directory: Path to the directory containing the model files
+        :return: An instance of DIPK with loaded model and encoder
+        """
+        instance = cls()
+
+        with open(os.path.join(directory, "hyperparameters.json")) as f:
+            instance.hyperparameters = json.load(f)
+
+        instance.build_model(instance.hyperparameters)
+        instance.model = cast(Predictor, instance.model)
+
+        instance.model.load_state_dict(
+            torch.load(os.path.join(directory, "dipk_model.pt"), map_location=instance.DEVICE)  # noqa: S614
+        )
+        instance.model.eval()
+
+        input_dim = instance.hyperparameters["gene_encoder_input_dim"]
+        instance.gene_expression_encoder = GeneExpressionEncoder(input_dim=input_dim)
+        instance.gene_expression_encoder.load_state_dict(
+            torch.load(os.path.join(directory, "gene_encoder.pt"), map_location=instance.DEVICE)  # noqa: S614
+        )
+        instance.gene_expression_encoder.eval()
+
+        return instance

@@ -21,7 +21,7 @@ def test_response_dataset_load() -> None:
     """Test if the dataset loads correctly from CSV files."""
     # Create a temporary CSV file with mock data
     data = {
-        "cell_line_id": np.array([1, 2, 3]),
+        "cell_line_id": np.array(["1", "2", "3"]),
         "drug_id": np.array(["A", "B", "C"]),
         "response": np.array([0.1, 0.2, 0.3]),
     }
@@ -67,20 +67,20 @@ def test_response_dataset_add_rows() -> None:
     """Test if the add_rows method works correctly."""
     dataset1 = DrugResponseDataset(
         response=np.array([1, 2, 3]),
-        cell_line_ids=np.array([101, 102, 103]),
+        cell_line_ids=np.array(["101", "102", "103"]),
         drug_ids=np.array(["A", "B", "C"]),
         tissues=np.array(["Tissue1", "Tissue2", "Tissue3"]),
     )
     dataset2 = DrugResponseDataset(
         response=np.array([4, 5, 6]),
-        cell_line_ids=np.array([104, 105, 106]),
+        cell_line_ids=np.array(["104", "105", "106"]),
         drug_ids=np.array(["D", "E", "F"]),
         tissues=np.array(["Tissue4", "Tissue5", "Tissue6"]),
     )
     dataset1.add_rows(dataset2)
 
     assert np.array_equal(dataset1.response, np.array([1, 2, 3, 4, 5, 6]))
-    assert np.array_equal(dataset1.cell_line_ids, np.array([101, 102, 103, 104, 105, 106]))
+    assert np.array_equal(dataset1.cell_line_ids, np.array(["101", "102", "103", "104", "105", "106"]))
     assert np.array_equal(dataset1.drug_ids, np.array(["A", "B", "C", "D", "E", "F"]))
     assert np.array_equal(dataset1.tissue, np.array(["Tissue1", "Tissue2", "Tissue3", "Tissue4", "Tissue5", "Tissue6"]))
 
@@ -89,13 +89,13 @@ def test_remove_nan_responses() -> None:
     """Test if the remove_nan_responses method works correctly."""
     dataset = DrugResponseDataset(
         response=np.array([1, 2, 3, np.nan, 5, 6]),
-        cell_line_ids=np.array([101, 102, 103, 104, 105, 106]),
+        cell_line_ids=np.array(["101", "102", "103", "104", "105", "106"]),
         drug_ids=np.array(["A", "B", "C", "D", "E", "F"]),
         tissues=np.array(["Tissue1", "Tissue2", "Tissue3", "Tissue4", "Tissue5", "Tissue6"]),
     )
     dataset.remove_nan_responses()
     assert np.array_equal(dataset.response, np.array([1, 2, 3, 5, 6]))
-    assert np.array_equal(dataset.cell_line_ids, np.array([101, 102, 103, 105, 106]))
+    assert np.array_equal(dataset.cell_line_ids, np.array(["101", "102", "103", "105", "106"]))
     assert np.array_equal(dataset.drug_ids, np.array(["A", "B", "C", "E", "F"]))
     assert np.array_equal(dataset.tissue, np.array(["Tissue1", "Tissue2", "Tissue3", "Tissue5", "Tissue6"]))
 
@@ -105,7 +105,7 @@ def test_response_dataset_shuffle():
     # Create a dataset with known values
     dataset = DrugResponseDataset(
         response=np.array([1, 2, 3, 4, 5, 6]),
-        cell_line_ids=np.array([101, 102, 103, 104, 105, 106]),
+        cell_line_ids=np.array(["101", "102", "103", "104", "105", "106"]),
         drug_ids=np.array(["A", "B", "C", "D", "E", "F"]),
         tissues=np.array(["Tissue1", "Tissue2", "Tissue3", "Tissue4", "Tissue5", "Tissue6"]),
     )
@@ -121,7 +121,7 @@ def test_response_dataset_shuffle():
 
     # Check if the response, cell_line_ids, and drug_ids arrays are shuffled
     assert not np.array_equal(dataset.response, np.array([1, 2, 3, 4, 5, 6]))
-    assert not np.array_equal(dataset.cell_line_ids, np.array([101, 102, 103, 104, 105, 106]))
+    assert not np.array_equal(dataset.cell_line_ids, np.array(["101", "102", "103", "104", "105", "106"]))
     assert not np.array_equal(dataset.drug_ids, np.array(["A", "B", "C", "D", "E", "F"]))
     assert not np.array_equal(
         dataset.tissue, np.array(["Tissue1", "Tissue2", "Tissue3", "Tissue4", "Tissue5", "Tissue6"])
@@ -133,20 +133,20 @@ def test_response_data_remove_drugs_and_cell_lines():
     # Create a dataset with known values
     dataset = DrugResponseDataset(
         response=np.array([1, 2, 3, 4, 5]),
-        cell_line_ids=np.array([101, 102, 103, 104, 105]),
+        cell_line_ids=np.array(["101", "102", "103", "104", "105"]),
         drug_ids=np.array(["A", "B", "C", "D", "E"]),
         tissues=np.array(["Tissue1", "Tissue2", "Tissue3", "Tissue4", "Tissue5"]),
     )
 
     # Remove specific drugs and cell lines
     dataset._remove_drugs(["A", "C"])
-    dataset._remove_cell_lines([101, 103])
+    dataset._remove_cell_lines(["101", "103"])
 
     # Check if the removed drugs and cell lines are not present in the dataset
     assert "A" not in dataset.drug_ids
     assert "C" not in dataset.drug_ids
-    assert 101 not in dataset.cell_line_ids
-    assert 103 not in dataset.cell_line_ids
+    assert "101" not in dataset.cell_line_ids
+    assert "103" not in dataset.cell_line_ids
 
     # Check if the length of response, cell_line_ids, and drug_ids arrays is reduced accordingly
     assert len(dataset.response) == 3
@@ -159,13 +159,13 @@ def test_remove_rows():
     """Test if the remove_rows method works correctly."""
     dataset = DrugResponseDataset(
         response=np.array([1, 2, 3, 4, 5]),
-        cell_line_ids=np.array([101, 102, 103, 104, 105]),
+        cell_line_ids=np.array(["101", "102", "103", "104", "105"]),
         drug_ids=np.array(["A", "B", "C", "D", "E"]),
         tissues=np.array(["Tissue1", "Tissue2", "Tissue3", "Tissue4", "Tissue5"]),
     )
     dataset.remove_rows(np.array([0, 2, 4]))
     assert np.array_equal(dataset.response, np.array([2, 4]))
-    assert np.array_equal(dataset.cell_line_ids, np.array([102, 104]))
+    assert np.array_equal(dataset.cell_line_ids, np.array(["102", "104"]))
     assert np.array_equal(dataset.drug_ids, np.array(["B", "D"]))
     assert np.array_equal(dataset.tissue, np.array(["Tissue2", "Tissue4"]))
 
@@ -182,7 +182,7 @@ def test_response_dataset_reduce_to():
 
     dataset.reduce_to(cell_line_ids=np.array([102, 104]), drug_ids=np.array(["B", "D"]))
 
-    assert all(cell_line_id in [102, 104] for cell_line_id in dataset.cell_line_ids)
+    assert all(cell_line_id in ["102", "104"] for cell_line_id in dataset.cell_line_ids)
     assert all(drug_id in ["B", "D"] for drug_id in dataset.drug_ids)
     assert len(dataset.response) == 2
     assert len(dataset.cell_line_ids) == 2
@@ -192,7 +192,7 @@ def test_response_dataset_reduce_to():
     # Case 2: reduce_to(None, None) does nothing
     dataset = DrugResponseDataset(
         response=np.array([1, 2]),
-        cell_line_ids=np.array([201, 202]),
+        cell_line_ids=np.array(["201", "202"]),
         drug_ids=np.array(["X", "Y"]),
         tissues=np.array(["T1", "T2"]),
     )
@@ -200,13 +200,13 @@ def test_response_dataset_reduce_to():
     dataset.reduce_to(cell_line_ids=None, drug_ids=None)
 
     assert len(dataset.response) == 2
-    assert set(dataset.cell_line_ids) == {201, 202}
+    assert set(dataset.cell_line_ids) == {"201", "202"}
     assert set(dataset.drug_ids) == {"X", "Y"}
 
     # Case 3: reduce_to with empty lists removes all
     dataset = DrugResponseDataset(
         response=np.array([1, 2]),
-        cell_line_ids=np.array([301, 302]),
+        cell_line_ids=np.array(["301", "302"]),
         drug_ids=np.array(["M", "N"]),
         tissues=np.array(["T1", "T2"]),
     )
@@ -332,7 +332,7 @@ def test_transform(resp_transform: str):
 
     dataset = DrugResponseDataset(
         response=np.array([1, 2, 3, 4, 5]),
-        cell_line_ids=np.array([101, 102, 103, 104, 105]),
+        cell_line_ids=np.array(["101", "102", "103", "104", "105"]),
         drug_ids=np.array(["A", "B", "C", "D", "E"]),
         tissues=np.array(["Tissue1", "Tissue2", "Tissue3", "Tissue4", "Tissue5"]),
     )
@@ -591,59 +591,76 @@ def test_add_features(sample_dataset: FeatureDataset, graph_dataset: FeatureData
     assert "molecular_graph" in sample_dataset.view_names
 
 
-def test_feature_dataset_csv_methods():
-    """Test the `from_csv` and `to_csv` methods of the FeatureDataset class."""
-    # Create temporary directory for testing
+def test_feature_dataset_csv_meta_handling():
+    """Test `from_csv` and `to_csv` methods with and without meta_info handling."""
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_dir = Path(temp_dir)
 
-        # Create test data
-        test_csv_path = temp_dir / "test_features.csv"
-        data = {
-            "id": ["A", "B", "C"],
-            "feature_1": [1.0, 2.0, 3.0],
-            "feature_2": [4.0, 5.0, 6.0],
-        }
-        df = pd.DataFrame(data)
-        df.to_csv(test_csv_path, index=False)
+        # ------------------------------------
+        # 0. Create initial test DataFrame/CSV
+        # ------------------------------------
+        df_with_named_cols = pd.DataFrame(
+            {
+                "id": ["A", "B", "C"],
+                "feature_1": [1.0, 2.0, 3.0],
+                "feature_2": [4.0, 5.0, 6.0],
+            }
+        )
+        csv_with_meta = temp_dir / "input_with_meta.csv"
+        df_with_named_cols.to_csv(csv_with_meta, index=False)
 
-        # Test `from_csv` method
         view_name = "example_view"
-        feature_dataset = FeatureDataset.from_csv(
-            path_to_csv=test_csv_path, id_column="id", view_name=view_name, drop_columns=None
+
+        # ------------------------------------
+        # 1. Load from CSV → should extract meta_info
+        # ------------------------------------
+        dataset = FeatureDataset.from_csv(
+            path_to_csv=csv_with_meta,
+            id_column="id",
+            view_name=view_name,
         )
 
-        # Validate loaded data
-        assert set(feature_dataset.identifiers) == {"A", "B", "C"}, "Identifiers mismatch."
-        assert feature_dataset.view_names == [view_name], "View names mismatch."
-        expected_features = {
-            "A": {"example_view": np.array([1.0, 4.0])},
-            "B": {"example_view": np.array([2.0, 5.0])},
-            "C": {"example_view": np.array([3.0, 6.0])},
-        }
-        for identifier in expected_features:
-            np.testing.assert_array_equal(
-                feature_dataset.features[identifier][view_name],
-                expected_features[identifier][view_name],
-                f"Feature mismatch for identifier {identifier}.",
-            )
+        assert dataset.meta_info == {view_name: ["feature_1", "feature_2"]}
+        assert set(dataset.identifiers) == {"A", "B", "C"}
+        assert dataset.view_names == [view_name]
 
-        # Test `to_csv` method
-        output_csv_path = temp_dir / "output_features.csv"
-        feature_dataset.to_csv(path=output_csv_path, id_column="id", view_name=view_name)
+        # ------------------------------------
+        # 2. Save with meta_info → column names should be preserved
+        # ------------------------------------
+        csv_out_with_meta = temp_dir / "saved_with_meta.csv"
+        dataset.to_csv(csv_out_with_meta, id_column="id", view_name=view_name)
 
-        # Validate saved data
-        saved_df = pd.read_csv(output_csv_path)
-        expected_saved_df = pd.DataFrame(
+        saved_df = pd.read_csv(csv_out_with_meta)
+        pd.testing.assert_frame_equal(saved_df, df_with_named_cols, check_dtype=False)
+
+        # ------------------------------------
+        # 3. Save without meta_info → fallback to generic feature_0, feature_1
+        # ------------------------------------
+        dataset._meta_info = {}  # simulate no meta info
+        csv_out_no_meta = temp_dir / "saved_no_meta.csv"
+        dataset.to_csv(csv_out_no_meta, id_column="id", view_name=view_name)
+
+        df_fallback = pd.DataFrame(
             {
                 "id": ["A", "B", "C"],
                 "feature_0": [1.0, 2.0, 3.0],
                 "feature_1": [4.0, 5.0, 6.0],
             }
         )
-        pd.testing.assert_frame_equal(
-            saved_df,
-            expected_saved_df,
-            check_dtype=False,  # Relax dtype check for cross-platform compatibility
-            obj="Saved CSV data",
+        saved_fallback_df = pd.read_csv(csv_out_no_meta)
+        pd.testing.assert_frame_equal(saved_fallback_df, df_fallback, check_dtype=False)
+
+        # ------------------------------------
+        # 4. Load fallback CSV → should reconstruct generic meta_info
+        # ------------------------------------
+        dataset_fallback = FeatureDataset.from_csv(
+            path_to_csv=csv_out_no_meta,
+            id_column="id",
+            view_name=view_name,
+        )
+
+        assert dataset_fallback.meta_info == {view_name: ["feature_0", "feature_1"]}
+        np.testing.assert_array_equal(
+            dataset_fallback.features["B"][view_name],
+            np.array([2.0, 5.0]),
         )

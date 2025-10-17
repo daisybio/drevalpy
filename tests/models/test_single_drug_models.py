@@ -79,6 +79,7 @@ def test_single_drug_models(
         hpam_combi["max_depth"] = 2  # reduce test time
     elif model_name in ["MOLIR", "SuperFELTR"]:
         hpam_combi["epochs"] = 1
+
     for random_drug in random_drugs:
         model = MODEL_FACTORY[model_name]()
         predictions_path = generate_data_saving_path(
@@ -99,6 +100,7 @@ def test_single_drug_models(
             reduce_to_drugs = np.array(list(set(train_dataset.drug_ids) - {random_drug}))
             train_dataset.reduce_to(cell_line_ids=None, drug_ids=reduce_to_drugs)
         train_dataset.shuffle(random_state=42)
+
         test_dataset = train_and_predict(
             model=model,
             hpams=hpam_combi,
@@ -109,6 +111,35 @@ def test_single_drug_models(
             response_transformation=None,
             model_checkpoint_dir="TEMPORARY",
         )
+
+        # Save and load test (should either succeed or raise NotImplementedError)
+        if len(train_dataset) == 0:
+            print(f"Training dataset empty for drug {random_drug}, continuing with train_and_predict anyway")
+        else:
+            with tempfile.TemporaryDirectory() as model_dir:
+                try:
+
+                    model.save(model_dir)
+                    loaded_model = MODEL_FACTORY[model_name].load(model_dir)
+
+                    # Re-run prediction with loaded model
+                    preds_original = model.predict(
+                        drug_ids=test_dataset.drug_ids,
+                        cell_line_ids=test_dataset.cell_line_ids,
+                        drug_input=model.load_drug_features("../data", "TOYv1"),
+                        cell_line_input=model.load_cell_line_features("../data", "TOYv1"),
+                    )
+                    preds_loaded = loaded_model.predict(
+                        drug_ids=test_dataset.drug_ids,
+                        cell_line_ids=test_dataset.cell_line_ids,
+                        drug_input=model.load_drug_features("../data", "TOYv1"),
+                        cell_line_input=model.load_cell_line_features("../data", "TOYv1"),
+                    )
+                    assert isinstance(preds_loaded, np.ndarray)
+                    assert preds_loaded.shape == preds_original.shape
+                except NotImplementedError:
+                    print(f"{model_name} does not implement save/load")
+
         cross_study_dataset.remove_nan_responses()
         parent_dir = str(pathlib.Path(predictions_path).parent)
         cross_study_prediction(
@@ -152,4 +183,4 @@ def test_single_drug_models(
         ) = evaluate_file(pred_file=file, test_mode=test_mode, model_name=model_name)
         assert len(overall_eval) == 1
         print(f"Performance of {model_name}: PCC = {overall_eval['Pearson'][0]}")
-        assert overall_eval["Pearson"][0] >= -1.0
+        assert overall_eval["Pearson"].iloc[0] >= -1.0
