@@ -1136,7 +1136,7 @@ def hpam_tune_raytune(
     model_checkpoint_dir: str = "TEMPORARY",
 ) -> dict:
     """
-    Tune the hyperparameters for the given model using Ray Tune.
+    Tune the hyperparameters for the given model using Ray Tune. Ray[tune] must be installed.
 
     :param model: model to use
     :param train_dataset: training dataset
