@@ -1161,7 +1161,8 @@ def hpam_tune_raytune(
     from ray import tune
 
     path_data = os.path.abspath(path_data)
-    ray.init(_temp_dir=os.path.join(os.path.expanduser("~"), "raytmp"))
+    if not ray.is_initialized():
+        ray.init(_temp_dir=os.path.join(os.path.expanduser("~"), "raytmp"))
     resources_per_trial = {"gpu": 1} if torch.cuda.is_available() else {"cpu": 1}
 
     def trainable(hpams):
