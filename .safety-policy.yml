@@ -1,0 +1,2 @@
+ignore:
+  - CVE-2023-48022 # Ray job submission API – not applicable for drevalpy
