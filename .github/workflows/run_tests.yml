@@ -72,8 +72,10 @@ jobs:
           restore-keys: |
             ${{ steps.pre-commit-cache.outputs.result }}-
 
-      - name: Run Nox
-        run: nox --force-color --python=${{ matrix.python-version }}
+      - name: Run Nox (with ray extras)
+        run: |
+          poetry install --with development --extras "multiprocessing"
+          nox --force-color --python=${{ matrix.python-version }}
 
       - name: Upload coverage data
         if: always() && matrix.session == 'tests' && matrix.os == 'ubuntu-latest'

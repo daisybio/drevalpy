@@ -14,9 +14,7 @@ def test_hpam_tune(tmp_path):
     :param tmp_path: pytest temporary path fixture
     """
     hpam_set = [
-        {"alpha": 1.0, "l1_ratio": 0.0},
-        {"alpha": 2.5, "l1_ratio": 0.5},
-        {"alpha": 5.0, "l1_ratio": 1.0},
+        {"alpha": [1.0, 2.0], "l1_ratio": [0.2, 0.8]},
     ]
 
     model = MODEL_FACTORY["ElasticNet"]()
