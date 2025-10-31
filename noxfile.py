@@ -144,7 +144,7 @@ def tests(session: Session) -> None:
 
     :param session: The Session object.
     """
-    session.install(".[fit]")
+    session.install(".[multiprocessing]")
     session.install("coverage[toml]", "pytest", "pygments")
     try:
         session.run("coverage", "run", "--parallel", "-m", "pytest", *session.posargs)
