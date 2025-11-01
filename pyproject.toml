@@ -64,6 +64,10 @@ pre-commit-hooks = "*"
 pyupgrade = "*"
 pep8-naming = "*"
 
+[tool.poetry.group.torch-cuda]
+optional = true
+dependencies = { torch = ">=2.1", torch-geometric = "*" }
+
 [tool.black]
 line-length = 120
 
