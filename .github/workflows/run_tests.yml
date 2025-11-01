@@ -74,7 +74,7 @@ jobs:
 
       - name: Run Nox (with ray extras)
         run: |
-          poetry install --with development --extras "multiprocessing"
+          poetry install --with development --extras "multiprocessing" --without torch-cuda
           nox --force-color --python=${{ matrix.python-version }}
 
       - name: Upload coverage data
