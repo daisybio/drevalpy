@@ -72,9 +72,8 @@ jobs:
           restore-keys: |
             ${{ steps.pre-commit-cache.outputs.result }}-
 
-      - name: Run Nox (with ray extras)
+      - name: Run Nox
         run: |
-          poetry install --with development
           nox --force-color --python=${{ matrix.python-version }}
 
       - name: Upload coverage data
