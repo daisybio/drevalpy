@@ -75,7 +75,8 @@ jobs:
       - name: Run Nox (with ray extras)
         run: |
           poetry install --with development --extras "multiprocessing" --without torch-cuda
-          pip install torch==2.8.0+cpu torch-geometric -f https://download.pytorch.org/whl/torch_stable.html
+          pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cpu
+          pip install torch-geometric
           nox --force-color --python=${{ matrix.python-version }}
 
       - name: Upload coverage data
