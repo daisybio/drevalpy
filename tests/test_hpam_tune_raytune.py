@@ -13,6 +13,11 @@ def test_hpam_tune_raytune(tmp_path):
 
     :param tmp_path: pytest temporary path fixture
     """
+    try:
+        import ray  # noqa: F401
+    except ImportError:
+        print("Ray is not installed, skipping test_hpam_tune_raytune.")
+        return
     hpam_set = [
         {"alpha": 1.0, "l1_ratio": 0.0},
         {"alpha": 2.5, "l1_ratio": 0.5},
