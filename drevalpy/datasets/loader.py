@@ -53,6 +53,12 @@ def _load_zenodo_dataset(
     response_data = pd.read_csv(path, dtype={"pubchem_id": str, "cell_line_name": str})
     response_data[DRUG_IDENTIFIER] = response_data[DRUG_IDENTIFIER].str.replace(",", "")
     check_measure(measure, list(response_data.columns), dataset_name)
+    if dataset_name == "BeatAML2":
+        # only has AML patients = blood
+        response_data[TISSUE_IDENTIFIER] = "Blood"
+    elif dataset_name == "PDX_Bruna":
+        # only has breast cancer patients
+        response_data[TISSUE_IDENTIFIER] = "Breast"
     return DrugResponseDataset(
         response=response_data[measure].values,
         cell_line_ids=response_data[CELL_LINE_IDENTIFIER].values,
