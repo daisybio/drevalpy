@@ -788,14 +788,22 @@ def run(args: argparse.Namespace) -> None:
 
     # Build graphs
     graph_dict: dict[Any, Data] = {}
+    failed_conversions = []
     for idx, smi in tqdm(smiles_map.items(), desc="building graphs"):
         mol = Chem.MolFromSmiles(smi)
         if mol is None:
+            failed_conversions.append((idx, smi, "MolFromSmiles returned None"))
             continue
         try:
             graph_dict[idx] = mol_to_graph_data_obj_complex(mol)
         except Exception as e:
-            print(f"Failed to convert {idx}: {e}")
+            failed_conversions.append((idx, smi, str(e)))
+    if failed_conversions:
+        print(f"\n{len(failed_conversions)} molecules failed to convert to graphs.")
+        for idx, smi, err in failed_conversions:
+            print(f"Failed to convert {idx} (SMILES: {smi}): {err}")
+    else:
+        print("\nAll molecules converted to graphs successfully.")
     # save graphs to dataset folder
     with open(out_graphs, "wb") as f:
         pickle.dump(graph_dict, f)
