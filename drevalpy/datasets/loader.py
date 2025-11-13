@@ -46,6 +46,9 @@ def _load_zenodo_dataset(
     path = os.path.join(path_data, dataset_name, file_name)
     if not os.path.exists(path):
         download_dataset(dataset_name, path_data, redownload=True)
+    meta_path = os.path.join(path_data, "meta")
+    if not os.path.exists(meta_path):
+        download_dataset("meta", path_data, redownload=True)
 
     response_data = pd.read_csv(path, dtype={"pubchem_id": str, "cell_line_name": str})
     response_data[DRUG_IDENTIFIER] = response_data[DRUG_IDENTIFIER].str.replace(",", "")

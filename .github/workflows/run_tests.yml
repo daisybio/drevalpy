@@ -13,7 +13,7 @@ jobs:
     name: ${{ matrix.session }} ${{ matrix.python-version }} / ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         include:
           - { python-version: "3.13", os: ubuntu-latest, session: "pre-commit" }
