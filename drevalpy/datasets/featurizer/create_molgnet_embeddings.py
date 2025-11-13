@@ -92,6 +92,9 @@ bond_dic = [
 atom_cumsum = np.cumsum(atom_dic)
 bond_cumsum = np.cumsum(bond_dic)
 
+# Constants
+SQRT_2 = math.sqrt(2)  # Square root of 2, used in GELU activation
+
 
 def mol_to_graph_data_obj_complex(mol: RDMol) -> Data:
     """Convert an RDKit Mol into a torch_geometric ``Data`` object.
@@ -263,7 +266,7 @@ def gelu(x: torch.Tensor) -> torch.Tensor:
     :param x: Input tensor.
     :return: Activated tensor.
     """
-    return x * 0.5 * (1.0 + torch.erf(x / 1.41421))
+    return x * 0.5 * (1.0 + torch.erf(x / SQRT_2))
 
 
 def bias_gelu(bias: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
@@ -274,7 +277,7 @@ def bias_gelu(bias: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
     :return: GELU applied to ``bias + y``.
     """
     x = bias + y
-    return x * 0.5 * (1.0 + torch.erf(x / 1.41421))
+    return x * 0.5 * (1.0 + torch.erf(x / SQRT_2))
 
 
 class LinearActivation(nn.Module):
