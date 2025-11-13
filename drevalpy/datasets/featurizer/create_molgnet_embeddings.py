@@ -24,7 +24,7 @@ from torch_geometric.utils import add_self_loops, softmax
 from tqdm import tqdm
 
 # building graphs
-allowable_features = {
+allowable_features: dict[str, list[Any]] = {
     "atomic_num": list(range(1, 122)),
     "formal_charge": ["unk", -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5],
     "chirality": [
@@ -103,8 +103,10 @@ def mol_to_graph_data_obj_complex(mol: RDMol) -> Data:
 
     :param mol: RDKit ``Mol`` instance. Must not be ``None``.
     :return: A ``torch_geometric.data.Data`` object with node and edge fields.
+    :raises ValueError: If ``mol`` is ``None``.
     """
-    assert mol is not None  # noqa: S101
+    if mol is None:
+        raise ValueError("mol must not be None")
     atom_features_list: list = []
     # Shortcuts for feature lists
     fc_list = allowable_features["formal_charge"]
@@ -443,13 +445,19 @@ class MessagePassing(nn.Module):
         :param edge_index: Edge indices tensor of shape [2, E].
         :param size: Optional pair describing (num_nodes_source, num_nodes_target).
         :param kwargs: Additional data (e.g., node features) needed for message computation.
+        :raises ValueError: If required inputs (e.g., 'x') are missing or indexing fails.
         :return: Updated node tensor after aggregation.
         """
         i = 1 if self.flow == "source_to_target" else 0
         j = 0 if i == 1 else 1
         x = kwargs.get("x")
-        x_i = x[edge_index[i]]
-        x_j = x[edge_index[j]]
+        if x is None:
+            raise ValueError("propagate requires node features passed as keyword 'x'")
+        try:
+            x_i = x[edge_index[i]]
+            x_j = x[edge_index[j]]
+        except Exception as exc:  # defensive
+            raise ValueError("failed to index node features with edge_index") from exc
         msg = self.message(
             edge_index_i=edge_index[i],
             edge_index_j=edge_index[j],
@@ -457,17 +465,29 @@ class MessagePassing(nn.Module):
             x_j=x_j,
             **kwargs,
         )
-        out = self.aggregate(msg, index=edge_index[i], dim_size=x.size(0))
+        # determine number of destination nodes for aggregation
+        if hasattr(x, "size"):
+            dim_size = x.size(0)
+        else:
+            dim_size = len(x)
+        out = self.aggregate(msg, index=edge_index[i], dim_size=dim_size)
         out = self.update(out)
         return out
 
-    def message(self, x_j: torch.Tensor, **kwargs) -> torch.Tensor:
+    def message(self, *args: Any, **kwargs: Any) -> torch.Tensor:
         """Default message function returning neighbor features.
 
-        :param x_j: Neighbor node features indexed by target edges.
-        :param kwargs: Additional keyword arguments (ignored).
-        :return: Message tensor (by default, x_j).
+        Subclasses may provide richer signatures; this generic form allows
+        subclass overrides while keeping the base class typed.
+
+        :param args: Positional arguments forwarded by propagate.
+        :param kwargs: Keyword arguments forwarded by propagate.
+        :raises ValueError: If required node features are not present.
+        :return: Message tensor.
         """
+        x_j = kwargs.get("x_j") if "x_j" in kwargs else (args[1] if len(args) > 1 else None)
+        if x_j is None:
+            raise ValueError("message requires node features 'x_j'")
         return x_j
 
     def aggregate(self, inputs: torch.Tensor, index: torch.Tensor, dim_size: Optional[int] = None) -> torch.Tensor:
