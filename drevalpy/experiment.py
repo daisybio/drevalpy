@@ -1136,51 +1136,77 @@ def hpam_tune_raytune(
     model_checkpoint_dir: str = "TEMPORARY",
 ) -> dict:
     """
-    Tune the hyperparameters for the given model using raytune. This requires ray to be installed.
+    Tune the hyperparameters for the given model using Ray Tune. Ray[tune] must be installed.
 
     :param model: model to use
     :param train_dataset: training dataset
     :param validation_dataset: validation dataset
     :param early_stopping_dataset: early stopping dataset
     :param hpam_set: hyperparameters to tune
-    :param response_transformation: normalizer to use for the response data
-    :param metric: metric to evaluate which model is the best
+    :param response_transformation: normalizer for response data
+    :param metric: evaluation metric
     :param ray_path: path to the raytune directory
-    :param path_data: path to the data directory, e.g., data/
-    :param model_checkpoint_dir: directory to save model checkpoints
+    :param path_data: path to data directory, e.g., data/
+    :param model_checkpoint_dir: directory for model checkpoints
     :returns: best hyperparameters
     """
+    print("Starting hyperparameter tuning with Ray Tune ...")
+    print(f"Hyperparameter combinations to evaluate: {len(hpam_set)}")
+    print()
+
     if len(hpam_set) == 1:
         return hpam_set[0]
-    ray.init(_temp_dir=os.path.join(os.path.expanduser("~"), "raytmp"))
-    if torch.cuda.is_available():
-        resources_per_trial = {"gpu": 1}  # TODO make this user defined
-    else:
-        resources_per_trial = {"cpu": 1}  # TODO make this user defined
-    analysis = ray.tune.run(
-        lambda hpams: train_and_evaluate(
-            model=model,
-            hpams=hpams,
-            path_data=path_data,
-            train_dataset=train_dataset,
-            validation_dataset=validation_dataset,
-            early_stopping_dataset=early_stopping_dataset,
-            metric=metric,
-            response_transformation=response_transformation,
-            model_checkpoint_dir=model_checkpoint_dir,
+
+    import ray
+    from ray import tune
+
+    path_data = os.path.abspath(path_data)
+    if not ray.is_initialized():
+        ray.init(_temp_dir=os.path.join(os.path.expanduser("~"), "raytmp"))
+    resources_per_trial = {"gpu": 1} if torch.cuda.is_available() else {"cpu": 1}
+
+    def trainable(hpams):
+        try:
+            inner = hpams["hpams"]
+            result = train_and_evaluate(
+                model=model,
+                hpams=inner,
+                path_data=path_data,
+                train_dataset=train_dataset,
+                validation_dataset=validation_dataset,
+                early_stopping_dataset=early_stopping_dataset,
+                metric=metric,
+                response_transformation=response_transformation,
+                model_checkpoint_dir=model_checkpoint_dir,
+            )
+            tune.report(metrics={metric: result[metric]})
+        except Exception as e:
+            import traceback
+
+            print("Trial failed:", e)
+            traceback.print_exc()
+
+    trainable = tune.with_resources(trainable, resources_per_trial)
+    param_space = {"hpams": tune.grid_search(hpam_set)}
+
+    tuner = tune.Tuner(
+        trainable,
+        param_space=param_space,
+        run_config=tune.RunConfig(
+            storage_path=ray_path,
+            name="hpam_tuning",
         ),
-        config=ray.tune.grid_search(hpam_set),
-        mode="min",
-        num_samples=5,
-        resources_per_trial=resources_per_trial,
-        chdir_to_trial_dir=False,
-        verbose=0,
-        storage_path=ray_path,
+        tune_config=tune.TuneConfig(
+            metric=metric,
+            mode=get_mode(metric),
+        ),
     )
 
-    mode = get_mode(metric)
-    best_config = analysis.get_best_config(metric=metric, mode=mode)
-    return best_config
+    results = tuner.fit()
+    best_result = results.get_best_result(metric=metric, mode=get_mode(metric))
+    ray.shutdown()
+
+    return best_result.config["hpams"]
 
 
 @pipeline_function

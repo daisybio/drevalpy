@@ -73,11 +73,12 @@ jobs:
             ${{ steps.pre-commit-cache.outputs.result }}-
 
       - name: Run Nox
-        run: nox --force-color --python=${{ matrix.python-version }}
+        run: |
+          nox --force-color --python=${{ matrix.python-version }}
 
       - name: Upload coverage data
         if: always() && matrix.session == 'tests' && matrix.os == 'ubuntu-latest'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: coverage-data
           path: ".coverage.*"
@@ -85,7 +86,7 @@ jobs:
 
       - name: Upload documentation
         if: matrix.session == 'docs-build'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: docs
           path: docs/_build
@@ -97,10 +98,10 @@ jobs:
       - name: Check out the repository
         uses: actions/checkout@v5
 
-      - name: Set up Python 3.12
+      - name: Set up Python 3.13
         uses: actions/setup-python@v6
         with:
-          python-version: 3.12
+          python-version: 3.13
 
       - name: Install Poetry
         run: |
