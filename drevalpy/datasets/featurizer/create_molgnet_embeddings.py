@@ -181,10 +181,6 @@ class SelfLoop:
     every node.
     """
 
-    def __init__(self) -> None:
-        """Create a new Self_loop callable (no parameters)."""
-        pass
-
     def __call__(self, data: Data) -> Data:
         """Modify ``data`` in-place by adding self-loop indices and corresponding edge attributes.
 
@@ -265,7 +261,7 @@ def gelu(x: torch.Tensor) -> torch.Tensor:
     :param x: Input tensor.
     :return: Activated tensor.
     """
-    return x * 0.5 * (1.0 + torch.erf(x / 1.41421))
+    return x * 0.5 * (1.0 + torch.erf(x / math.sqrt(2)))
 
 
 def bias_gelu(bias: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
@@ -276,7 +272,7 @@ def bias_gelu(bias: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
     :return: GELU applied to ``bias + y``.
     """
     x = bias + y
-    return x * 0.5 * (1.0 + torch.erf(x / 1.41421))
+    return x * 0.5 * (1.0 + torch.erf(x / math.sqrt(2)))
 
 
 class LinearActivation(nn.Module):
