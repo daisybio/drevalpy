@@ -189,24 +189,29 @@ For ``--models``, you can also perform randomization and robustness tests. The `
 Available Datasets
 ------------------
 We provide commonly used datasets to evaluate your model on (GDSC1, GDSC2, CCLE, CTRPv2) via the ``--dataset_name`` parameter.
+Further, we provide 2 datasets with more clinical relevance: BeatAML2 and PDX\_Bruna.
 
-+-------------------+----------------------+-----------------+---------------------+--------------------------------------------------------------------------------------------------+
-| Dataset Name      | Number of DRP Curves | Number of Drugs | Number of Cell Lines| Description                                                                                      |
-+===================+======================+=================+=====================+==================================================================================================+
-| GDSC1             | 316,506              | 378             | 970                 | The Genomics of Drug Sensitivity in Cancer (GDSC) dataset version 1.                             |
-+-------------------+----------------------+-----------------+---------------------+--------------------------------------------------------------------------------------------------+
-| GDSC2             | 234,437              | 287             | 969                 | The Genomics of Drug Sensitivity in Cancer (GDSC) dataset version 2.                             |
-+-------------------+----------------------+-----------------+---------------------+--------------------------------------------------------------------------------------------------+
-| CCLE              | 11,670               | 24              | 503                 | The Cancer Cell Line Encyclopedia (CCLE) dataset.                                                |
-+-------------------+----------------------+-----------------+---------------------+--------------------------------------------------------------------------------------------------+
-| CTRPv1            | 60,758               | 354             | 243                 | The Cancer Therapeutics Response Portal (CTRP) dataset version 1.                                |
-+-------------------+----------------------+-----------------+---------------------+--------------------------------------------------------------------------------------------------+
-| CTRPv2            | 395,025              | 546             | 886                 | The Cancer Therapeutics Response Portal (CTRP) dataset version 2.                                |
-+-------------------+----------------------+-----------------+---------------------+--------------------------------------------------------------------------------------------------+
-| TOYv1             | 2,711                | 36              | 90                  | A toy dataset for testing purposes subsetted from CTRPv2.                                        |
-+-------------------+----------------------+-----------------+---------------------+--------------------------------------------------------------------------------------------------+
-| TOYv2             | 2,784                | 36              | 90                  | A second toy dataset for cross study testing purposes. 80 cell lines and 32 drugs overlap TOYv2. |
-+-------------------+----------------------+-----------------+---------------------+--------------------------------------------------------------------------------------------------+
++-------------------+----------------------+-----------------+---------------------+--------------------------------------------------------------------------------------------------------------------+
+| Dataset Name      | Number of DRP Curves | Number of Drugs | Number of Cell Lines| Description                                                                                                        |
++===================+======================+=================+=====================+====================================================================================================================+
+| GDSC1             | 316,506              | 378             | 970                 | The Genomics of Drug Sensitivity in Cancer (GDSC) dataset version 1.                                               |
++-------------------+----------------------+-----------------+---------------------+--------------------------------------------------------------------------------------------------------------------+
+| GDSC2             | 234,437              | 287             | 969                 | The Genomics of Drug Sensitivity in Cancer (GDSC) dataset version 2.                                               |
++-------------------+----------------------+-----------------+---------------------+--------------------------------------------------------------------------------------------------------------------+
+| CCLE              | 11,670               | 24              | 503                 | The Cancer Cell Line Encyclopedia (CCLE) dataset.                                                                  |
++-------------------+----------------------+-----------------+---------------------+--------------------------------------------------------------------------------------------------------------------+
+| CTRPv1            | 60,758               | 354             | 243                 | The Cancer Therapeutics Response Portal (CTRP) dataset version 1.                                                  |
++-------------------+----------------------+-----------------+---------------------+--------------------------------------------------------------------------------------------------------------------+
+| CTRPv2            | 395,025              | 546             | 886                 | The Cancer Therapeutics Response Portal (CTRP) dataset version 2.                                                  |
++-------------------+----------------------+-----------------+---------------------+--------------------------------------------------------------------------------------------------------------------+
+| TOYv1             | 2,711                | 36              | 90                  | A toy dataset for testing purposes subsetted from CTRPv2.                                                          |
++-------------------+----------------------+-----------------+---------------------+--------------------------------------------------------------------------------------------------------------------+
+| TOYv2             | 2,784                | 36              | 90                  | A second toy dataset for cross study testing purposes. 80 cell lines and 32 drugs overlap TOYv2.                   |
++-------------------+----------------------+-----------------+---------------------+--------------------------------------------------------------------------------------------------------------------+
+| BeatAML2          | 62,487               | 166             | 569 (patients)      | Ex vivo drug sensitivity screening for a cohort of acute myeloid leukemia (AML) patients.                          |
++-------------------+----------------------+-----------------+---------------------+--------------------------------------------------------------------------------------------------------------------+
+| PDX\_Bruna        | 2,559                | 104             | 37 (mouse passages) | Ex vivo drug sensitivity screening for short-term cultures of PDTX-derived tumor cells from breast cancer patients |
++-------------------+----------------------+-----------------+---------------------+--------------------------------------------------------------------------------------------------------------------+
 
 
 If not specifying ``--no_refitting`` option with these datasets (default: false), the desired measure provided with the ``--measure`` option is appended with "_curvecurator", e.g. "IC50_curvecurator".
@@ -226,16 +231,28 @@ The datasets have corresponding cell-line and drug feature data. The sources are
 * CCLE, CTRPv1, CTRPv2:
     * Gene expression: reprocessed RNA-seq data PRJNA523380
     * Methylation: DepMap Beta Values for RRBS clusters ``CCLE_RRBS_TSS_CpG_clusters_20180614.txt``
-* Used by all:
+* Used by GDSC1, 2, CCLE, CTRPv1 and v2:
     * Mutation & CNV data: `Sanger Cell Model Passports <https://cellmodelpassports.sanger.ac.uk/downloads>`_.
     * Proteomics: Raw data at PRIDE: PXD030304
+* BeatAML2:
+    * Gene expression: RNA-seq but not re-processed because of missing FASTQ files. Taken from `the corresponding website <https://biodev.github.io/BeatAML2/>`_
+    * Mutation data would have been available but is measured too shallow, so we chose not to include it
+* PDX\_Bruna:
+    * Retrieved from `the corresponding figshare <https://figshare.com/s/4a3f6bc543e5ba85834c>`_
+    * Gene expression: Microarray expression data
+    * Copy number variation: Reprocessed with GISTIC2.0
+    * Mutation data would have been available but is measured too shallow, so we chose not to include it
+    * Methylation data would have been available but only Promoter methylation data which is incompatible with the CpG methylation data we have for the other screens.
+* Drug features
     * Morgan Fingerprints were generated with RDKit from SMILES either downloaded from PubChem or provided by GDSC.
     * `DIPK associated drive <https://drive.google.com/drive/folders/16hP48-noHi3-c_LP9TcZxkwAzqxgR0VB>`_
         * MolGNet features were generated from SMILES
         * BIONIC features were generated from top expressed genes
+* Gene lists
     * The 978 landmark genes are from the L1000 assay
     * The drug target genes are the genes targeted by the drugs used in GDSC, extractable from the `GDSC Data Portal <https://www.cancerrxgene.org/downloads/bulk_download>`_ (compounds annotation).
     * The intersection lists are features occurring in all datasets for the respective OMICs to ensure that cross-study predictions can easily be done because the features are shared.
+    * Reduced versions of the lists only containing genes occurring in all datasets
 
 For more information on the preprocessing, please refer to `the corresponding GitHub Repo <https://github.com/daisybio/preprocess_drp_data>`_.
 
