@@ -97,8 +97,8 @@ def _write_gene_list(temp_dir: tempfile.TemporaryDirectory, gene_list: Optional[
     :param temp_dir: temporary directory
     :param gene_list: either None, landmark_genes, drug_target_genes_all_drugs, or gene_list_paccmann_network_prop
     """
-    os.mkdir(os.path.join(temp_dir.name, "GDSC1_small", "gene_lists"))
-    temp_file = os.path.join(temp_dir.name, "GDSC1_small", "gene_lists", f"{gene_list}.csv")
+    os.makedirs(os.path.join(temp_dir.name, "meta", "gene_lists"))
+    temp_file = os.path.join(temp_dir.name, "meta", "gene_lists", f"{gene_list}.csv")
     if gene_list == "landmark_genes_reduced":
         with open(temp_file, "w") as f:
             f.write(
