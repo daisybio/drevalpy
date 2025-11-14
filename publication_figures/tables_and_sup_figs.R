@@ -3,17 +3,19 @@ library(ggplot2)
 library(RColorBrewer)
 library(patchwork)
 library(xtable)
+library(readxl)
 
 
 # Load data
 path_to_data <- '../results/all_results/'
-zenodo_data <- 'data/'
+zenodo_data <- 'path/to/data/'
+path_to_preprocess <- 'path/to/preprocess_drp_data/'
 
 # Load evaluation results
 evaluation_results <- fread(paste0(path_to_data, 'evaluation_results.csv'))
 true_vs_pred <- fread(paste0(path_to_data, 'true_vs_pred.csv'))
 
-####### Code for Table 1 / S7: All results #######
+####### Code for Table 1 / S6+S7: All results #######
 all_results <- evaluation_results[rand_setting == "predictions"]
 all_results <- melt(all_results,
                     id.vars = c("algorithm", "test_mode", "CV_split"),
@@ -62,7 +64,7 @@ all_results[Model == "NaiveMeanEffectsPredictor",
 print(xtable(all_results), include.rownames=FALSE, sanitize.text.function = function(x){x})
 
 
-####### Code for Table 2 / S4 / S5: Cross-study results #######
+####### Code for Table 2 / S9+S10: Cross-study results #######
 all_results <- evaluation_results
 metric_for_visualization <- "MSE"
 all_results <- melt(all_results,
@@ -83,7 +85,7 @@ all_results <- all_results[, c("algorithm", "test_mode", "predictions", "cross-s
 colnames(all_results) <- c("Model", "test_mode", "CTRPv2", "Cross-study: CTRPv1", "Cross-study: CCLE", "Cross-study: GDSC1", "Cross-study: GDSC2")
 print(xtable(all_results), include.rownames=FALSE, sanitize.text.function = function(x){x})
 
-####### Code for Table 3 / S6: Ablation study results #######
+####### Code for Table 3 / S11: Ablation study results #######
 # TODO: UPDATE
 invariant <- fread(paste0(path_to_invariant_results, 'evaluation_results.csv'))
 invariant$rand_mode <- "invariant"
@@ -120,9 +122,9 @@ prediction_values[, c("CV_split", "mean", "se", "rand_mode") := NULL]
 prediction_values <- unique(prediction_values)
 print(xtable(dcast(prediction_values, algorithm + test_mode ~ metric, value.var = "value")), include.rownames=FALSE, sanitize.text.function = function(x){x})
 
-####### Code for Figure S1: comparison curvecurator #######
+####### Code for Figure S4: comparison curvecurator #######
 
-ccle <- fread(paste0(zenodo_data, '/CCLE/CCLE.csv'))
+ccle <- fread(paste0(zenodo_data, 'CCLE/CCLE.csv'))
 ccle$dataset <- "CCLE"
 ccle[, group := paste(cellosaurus_id, pubchem_id, sep = "_")]
 ctrpv1 <- fread(paste0(zenodo_data, 'CTRPv1/CTRPv1.csv'))
@@ -174,7 +176,7 @@ ggplot(all_data, aes(x = dataset, y = value, color=Processing)) +
   theme_minimal()+
   theme(text=element_text(size=18))+
   labs(x="Dataset", y="Value")
-ggsave("~/Downloads/Comparison_Curvecurator.pdf", width = 9, height = 6)
+ggsave("figures/supplementary/Comparison_Curvecurator.pdf", width = 12, height = 8)
 
 all_data <- dcast(all_data, dataset + group + metric ~ Processing, value.var = "value", fun.aggregate = mean)
 # remove rows with NA values
@@ -193,53 +195,12 @@ ggplot(sds, aes(x = `Standard Deviation`, color = Processing)) +
   facet_wrap(~metric, scales = "free") +
   theme_minimal() +
   labs(x="Standard Deviation", y="Empirical Cumulative Distribution Function")
-ggsave("~/Downloads/Comparison_Curvecurator_SD.pdf", width = 9, height = 4)
+ggsave("figures/supplementary/Comparison_Curvecurator_SD.pdf", width = 9, height = 4)
 
-####### Code for Figure S2: prediction metrics normalized vs unnormalized #######
-
-all_results <- evaluation_results
-all_results <- all_results[rand_setting == "predictions"]
-all_results <- melt(all_results,
-                    id.vars = c("algorithm", "test_mode", "CV_split"),
-                    measure.vars = c('R^2', 'R^2: normalized', 'Pearson', 'Pearson: normalized'),
-                    variable.name = "metric")
-all_results[, c("CV_split") := NULL]
-all_results <- unique(all_results)
-# all_results <- all_results[!algorithm %in% c("SingleDrugProteomicsElasticNet", "MultiOmicsRandomForest")]
-all_results[, algorithm := factor(algorithm,
-                                  levels = c("DIPK", "SimpleNeuralNetwork", "RandomForest",
-                                             "NaiveMeanEffectsPredictor", "GradientBoosting",
-                                             "NaiveDrugMeanPredictor", "SRMF", "MultiOmicsNeuralNetwork",
-                                             "ElasticNet", "NaiveCellLineMeanPredictor", "NaivePredictor",
-                                             "SuperFELTR"))]
-all_results[metric == "Pearson: normalized" & test_mode == "LPO", test_mode := "LPO: normalized"]
-all_results[metric == "Pearson: normalized" & test_mode == "LCO", test_mode := "LCO: normalized"]
-all_results[metric == "Pearson: normalized" & test_mode == "LDO", test_mode := "LDO: normalized"]
-all_results[metric == "Pearson: normalized", metric := "Pearson"]
-all_results[metric == "R^2: normalized" & test_mode == "LPO", test_mode := "LPO: normalized"]
-all_results[metric == "R^2: normalized" & test_mode == "LCO", test_mode := "LCO: normalized"]
-all_results[metric == "R^2: normalized" & test_mode == "LDO", test_mode := "LDO: normalized"]
-all_results[metric == "R^2: normalized", metric := "R^2"]
-colnames(all_results) <- c("Model", "Setting", "Metric", "Value")
-all_results[, Setting := factor(Setting,
-                                levels = c("LPO", "LPO: normalized",
-                                           "LCO", "LCO: normalized",
-                                           "LDO", "LDO: normalized"))]
-
-ggplot(all_results, aes(x = Model, y = Value, color=Setting))+
-  geom_boxplot() +
-  facet_wrap(~ Metric, ncol = 3, scales="free_y") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 330, hjust = 0, size=10), text = element_text(size=15)) +
-  scale_color_manual(values = brewer.pal(8, "Paired")[c(1,2,5,6,7,8)])+
-  # remove x, y labs
-  labs(x = "", y = "")
-ggsave("~/Downloads/overview_metrics.pdf", device=pdf, width=9, height=4)
-
-####### Code for Figure S5: expression TPMs vs microarray #######
-gex_ccle <- fread(paste0(zenodo_data, '/CCLE/gene_expression.csv'))
+####### Code for Figure S7: expression TPMs vs microarray #######
+gex_ccle <- fread(paste0(zenodo_data, 'CCLE/gene_expression.csv'))
 gex_gdsc <- fread(paste0(zenodo_data, 'GDSC1/gene_expression.csv'))
-landmark_genes <- fread(paste0(zenodo_data, 'CCLE/gene_lists/landmark_genes.csv'))
+landmark_genes <- fread(paste0(zenodo_data, 'meta/gene_lists/landmark_genes.csv'))
 subset_cols <- c("cellosaurus_id", "cell_line_name", landmark_genes$Symbol)
 gex_ccle <- gex_ccle[, ..subset_cols]
 gex_gdsc <- gex_gdsc[, ..subset_cols]
@@ -255,79 +216,171 @@ ggplot(big_df, aes(x=expression, y = dataset, fill = dataset))+
   scale_x_log10()+
   labs(x="Expression (log10)", y="Dataset")+
   theme_minimal()
-ggsave("~/Downloads/boxplot_expression.pdf", device=pdf, width=8, height=3)
+ggsave("figures/supplementary/boxplot_expression.pdf", device=pdf, width=8, height=3)
 
-####### Code for Figure S6: genes with highest_tpm_values #######
-big_df <- melt(gex_ccle, id.vars = c("cellosaurus_id", "cell_line_name"),
-               variable.name = "gene", value.name = "expression")
-highly_expressed_genes <- big_df[, mean(expression), by = gene][order(-V1)][1:10, gene]
-highly_expressed <- big_df[gene %in% highly_expressed_genes]
-highly_expressed$gene <- factor(highly_expressed$gene, levels = highly_expressed_genes)
 
-ggplot(highly_expressed, aes(x = gene, y = expression)) +
-  geom_boxplot()+
-  theme_minimal() +
-  labs(x="Gene", y="Expression (TPM)", title="Top 10 most highly expressed genes") +
-  theme(axis.text.x = element_text(angle=45, hjust=1))
-ggsave("~/Downloads/boxplot_expression_top10.pdf", device=pdf, width=8, height=3)
+####### Code for Figure S8: doses per drugs, Table S3 #######
 
-## supp
-tp <- true_vs_pred[rand_setting == "predictions" & CV_split == 0 & test_mode == "LDO" & algorithm %in% c("MultiOmicsNeuralNetwork", "NaiveMeanEffectsPredictor")]
-tp_drugs <- tp
-tp_drugs <- unique(tp_drugs[, c("drug_name", "cell_line_name", "algorithm", "y_true", "y_pred")])
-tp_drugs_long <- tp_drugs
-tp_drugs <- dcast(tp_drugs, drug_name + cell_line_name ~ algorithm, value.var = c("y_true", "y_pred"))
-tp_drugs <- tp_drugs[!is.na(y_pred_MultiOmicsNeuralNetwork)]
-tp_drugs[, y_true_corrected := y_true_MultiOmicsNeuralNetwork - y_pred_NaiveMeanEffectsPredictor]
-tp_drugs[, y_pred_corrected := y_pred_MultiOmicsNeuralNetwork - y_pred_NaiveMeanEffectsPredictor]
-tp_drugs <- tp_drugs[, c("drug_name", "cell_line_name", "y_true_corrected", "y_pred_corrected")]
+make_doses_per_drug <- function(df, colname_drug, colname_dose) {
+  df <- unique(df[!is.na(get(colname_dose))])
+  dpd <- df[, .N, by=get(colname_drug)]
+  colnames(dpd) <- c('drug', 'nconcs')
+  return(dpd)
+}
 
-drug_pearsons_norm <- tp_drugs[, .(pearson = cor(y_true_corrected, y_pred_corrected)), by = drug_name]
-best_drugs_norm <- drug_pearsons_norm[order(-pearson)][1:16, ]
-print(best_drugs_norm)
-tp_best_norm <- tp[drug_name %in% best_drugs_norm$drug_name]
-best_drugs_norm[, label := paste0(drug_name, "\nNorm. Pearson MultiOmicsNN: ", round(pearson, 2))]
-tp_best_norm <- merge(tp_best_norm, best_drugs_norm[, c("drug_name", "label")], by="drug_name")
-tp_best_norm[, label := factor(label, levels = best_drugs_norm$label)]
+raw_ccle <- as.data.table(read_excel(paste0(path_to_preprocess, 'CCLE/response/NIHMS361223-supplement-4.xlsx'), sheet=12, skip=2))
+# every row contains 8 measurements
+print(paste0('Nr of experiments CCLE: ', nrow(raw_ccle)*8))
+raw_ccle <- raw_ccle[, c('Compound', 'Doses (uM)')]
+raw_ccle <- raw_ccle[, c('dose_1', 'dose_2', 'dose_3', 'dose_4', 'dose_5', 'dose_6', 'dose_7', 'dose_8') := tstrsplit(`Doses (uM)`, split = ",")]
+raw_ccle[, `Doses (uM)` := NULL]
+raw_ccle <- melt(raw_ccle, id.vars = c('Compound'), variable.name = 'dose_number', value.name = 'dose_uM')
+raw_ccle[, dose_number := NULL]
+doses_per_drug <- make_doses_per_drug(raw_ccle, 'Compound', 'dose_uM')
+doses_per_drug$dataset <- "CCLE"
 
-drug_pearsons <- tp_drugs_long[, .(pearson = cor(y_true, y_pred)), by = .(drug_name, algorithm)]
-drug_pearsons <- dcast(drug_pearsons, drug_name ~ algorithm, value.var = "pearson")
-drug_pearsons[, label := paste0(drug_name, "\nPearson MultiOmicsNN: ", round(MultiOmicsNeuralNetwork, 2), "\nPearson NaiveMeanEffects: ", round(NaiveMeanEffectsPredictor, 2))]
-best_drugs <- drug_pearsons[order(-MultiOmicsNeuralNetwork)][1:16, ]
-tp_best <- tp[drug_name %in% best_drugs$drug_name]
-tp_best <- merge(tp_best, best_drugs[, c("drug_name", "label")], by="drug_name")
-tp_best[, label := factor(label, levels = best_drugs$label)]
+raw_ctrpv1 <- fread(paste0(path_to_preprocess, 'CTRP/response/CTRPv1.0_2013_pub_Cell_154_1151/v10.D1.raw_viability_data.txt'), sep='\t')
+print(paste0('Nr of experiments CTRPv1: ', nrow(raw_ctrpv1)))
+raw_ctrpv1 <- raw_ctrpv1[, c('cpd_name', 'cpd_conc_umol')]
+doses_per_drug2 <- make_doses_per_drug(raw_ctrpv1, 'cpd_name', 'cpd_conc_umol')
+doses_per_drug2$dataset <- "CTRPv1"
+doses_per_drug <- rbind(doses_per_drug, doses_per_drug2)
 
-ggplot(tp_best_norm, aes(x=y_true, y=y_pred, color=algorithm))+
-  geom_point(size=1, alpha=0.2)+
-  geom_smooth(method='lm', alpha=0.2)+
-  facet_wrap(~label)+
-  xlim(-5, 5)+
-  ylim(-5, 5)+
-  geom_abline(slope=1, intercept=0, linetype="dashed")+
-  theme_bw()
+raw_ctrpv2 <- fread(paste0(path_to_preprocess, 'CTRP/response/CTRPv2.0_2015_ctd2_ExpandedDataset/v20.data.per_cpd_well.txt'), sep='\t')
+print(paste0('Nr of experiments CTRPv2: ', nrow(raw_ctrpv2)))
+raw_ctrpv2 <- raw_ctrpv2[, c('master_cpd_id', 'cpd_conc_umol')]
+doses_per_drug2 <- make_doses_per_drug(raw_ctrpv2, 'master_cpd_id', 'cpd_conc_umol')
+doses_per_drug2$dataset <- "CTRPv2"
+doses_per_drug <- rbind(doses_per_drug, doses_per_drug2)
 
-ggplot(tp_best, aes(x=y_true, y=y_pred, color=algorithm))+
-  geom_point(size=1, alpha=0.2)+
-  geom_smooth(method='lm', alpha=0.2)+
-  facet_wrap(~label)+
-  xlim(-5, 5)+
-  ylim(-5, 5)+
-  geom_abline(slope=1, intercept=0, linetype="dashed")+
-  theme_bw()
+raw_gdsc1 <- fread(paste0(path_to_preprocess, 'GDSC/response/GDSC1_public_raw_data_27Oct23.csv'))
+print(paste0('Nr of experiments GDSC1: ', nrow(raw_gdsc1)))
+raw_gdsc1 <- raw_gdsc1[, c('DRUG_ID', 'CONC')]
+doses_per_drug2 <- make_doses_per_drug(raw_gdsc1, 'DRUG_ID', 'CONC')
+doses_per_drug2$dataset <- "GDSC1"
+doses_per_drug <- rbind(doses_per_drug, doses_per_drug2)
 
-tp_subs <- true_vs_pred[rand_setting == "predictions" & test_mode == "LDO" & algorithm %in% c("NaiveMeanEffectsPredictor")]
-var_per_drug <- tp_subs[, .(std = sd(y_true)), by = drug_name]
-mean(var_per_drug$std)
+raw_gdsc2 <- fread(paste0(path_to_preprocess, 'GDSC/response/GDSC2_public_raw_data_27Oct23.csv'))
+print(paste0('Nr of experiments GDSC2: ', nrow(raw_gdsc2)))
+raw_gdsc2 <- raw_gdsc2[, c('DRUG_ID', 'CONC')]
+doses_per_drug2 <- make_doses_per_drug(raw_gdsc2, 'DRUG_ID', 'CONC')
+doses_per_drug2$dataset <- "GDSC2"
+doses_per_drug <- rbind(doses_per_drug, doses_per_drug2)
 
-# drug group means
-drug_means <- tp_subs[, .(mean_response = mean(y_true)), by = drug_name]
-drug_means[, sample_size := tp_subs[, .N, by=drug_name]$N]
-drug_means[, overall_mean := mean(tp_subs$y_true)]
-drug_means[, between_drug_variance := sample_size * (mean_response - overall_mean)^2]
-between_var <- sum(drug_means$between_drug_variance)
+raw_beataml2 <- fread(paste0(path_to_preprocess, 'BeatAML2/response/beataml_wv1to4_raw_inhibitor_v4_dbgap.txt'), sep='\t')
+print(paste0('Nr of experiments BeatAML2: ', nrow(raw_beataml2)))
+raw_beataml2 <- raw_beataml2[, c('inhibitor', 'well_concentration')]
+doses_per_drug2 <- make_doses_per_drug(raw_beataml2, 'inhibitor', 'well_concentration')
+doses_per_drug2$dataset <- "BeatAML2"
+doses_per_drug <- rbind(doses_per_drug, doses_per_drug2)
 
-tp_subs <- merge(tp_subs, drug_means, by="drug_name")
-tp_subs[, within_drug_variance := (y_true - mean_response)^2]
-within_var <- sum(tp_subs$within_drug_variance)
-between_var/within_var
+raw_pdxbruna <- fread(paste0(path_to_preprocess, 'PDX_Bruna/response/RawDataDrugsSingleAgents.txt'), sep='\t')
+# every row contains 5 measurements
+print(paste0('Nr of experiments PDX_Bruna: ', nrow(raw_pdxbruna)*5))
+raw_pdxbruna <- raw_pdxbruna[, c('DRUG_ID', 'D1_CONC', 'D2_CONC', 'D3_CONC', 'D4_CONC', 'D5_CONC')]
+raw_pdxbruna <- melt(raw_pdxbruna, id.vars = c('DRUG_ID'), variable.name = 'dose_number', value.name = 'dose_uM')
+raw_pdxbruna[, dose_number := NULL]
+doses_per_drug2 <- make_doses_per_drug(raw_pdxbruna, 'DRUG_ID', 'dose_uM')
+doses_per_drug2$dataset <- "PDX_Bruna"
+doses_per_drug <- rbind(doses_per_drug, doses_per_drug2)
+
+most_common_dosis_per_screen <- doses_per_drug[, .N, by=.(nconcs, dataset)][order(dataset, -N), .SD[1], by=dataset]
+most_common_dosis_per_screen[, label := paste0(dataset, ': most common nr. of conc=', nconcs)]
+label_lookup <- most_common_dosis_per_screen$label
+names(label_lookup) <- most_common_dosis_per_screen$dataset
+doses_per_drug[, label := label_lookup[dataset]]
+
+print("Minimum and maximum number of tested concentrations per drug per dataset:")
+print(doses_per_drug[, .(min_nconcs=min(nconcs), max_nconcs=max(nconcs)), by=dataset])
+
+ggplot(doses_per_drug, aes(x=nconcs, fill=dataset))+
+  geom_histogram(binwidth=1)+
+  facet_wrap(~label, scales='free')+
+  scale_fill_manual(values = c('CTRPv1'='#A6CEE3',
+                               'CTRPv2'='#1F78B4',
+                               'CCLE'='#B2DF8A',
+                               'GDSC1'='#FB9A99',
+                               'GDSC2'='#E31A1C',
+                               'BeatAML2'='#FDBF6F',
+                               'PDX_Bruna'='#CAB2D6')
+                    )+
+  theme_minimal()+
+  labs(x='Number of tested concentrations per drug', y='Number of drugs')+
+  theme(legend.position='none')
+ggsave("figures/supplementary/n_conc_per_dataset.png", width=8, height=6)
+
+
+####### Code for Figure S9: distribution of response value #######
+ccle <- fread(paste0(zenodo_data, 'CCLE/CCLE.csv'))
+ccle[, LN_IC50 := log(`IC50 (µM)`)]
+ccle[, pEC50 := -log10(`EC50 (µM)`)]
+ccle$dataset <- "CCLE"
+ctrpv1 <- fread(paste0(zenodo_data, 'CTRPv1/CTRPv1.csv'))
+ctrpv1$LN_IC50 <- NA
+ctrpv1$pEC50 <- NA
+ctrpv1$dataset <- "CTRPv1"
+ctrpv2 <- fread(paste0(zenodo_data, 'CTRPv2/CTRPv2.csv'))
+ctrpv2$LN_IC50 <- NA
+ctrpv2[, pEC50 := -log10(EC50)]
+ctrpv2$dataset <- "CTRPv2"
+gdsc1 <- fread(paste0(zenodo_data, 'GDSC1/GDSC1.csv'))
+gdsc1$pEC50 <- NA
+gdsc1$dataset <- "GDSC1"
+gdsc2 <- fread(paste0(zenodo_data, 'GDSC2/GDSC2.csv'))
+gdsc2$pEC50 <- NA
+gdsc2$dataset <- "GDSC2"
+beataml2 <- fread(paste0(zenodo_data, 'BeatAML2/BeatAML2.csv'))
+beataml2[, LN_IC50 := log(IC50)]
+#beataml2[, pEC50_curvecurator := pEC50_curvecurator + 6]
+beataml2$pEC50 <- NA
+beataml2$dataset <- "BeatAML2"
+pdxbruna <- fread(paste0(zenodo_data, 'PDX_Bruna/PDX_Bruna.csv'))
+pdxbruna[, IC50 := as.numeric(IC50)]
+pdxbruna[, LN_IC50 := log(IC50)]
+#pdxbruna[, pEC50_curvecurator := pEC50_curvecurator + 6]
+pdxbruna$pEC50 <- NA
+pdxbruna$dataset <- "PDX_Bruna"
+
+cols_to_keep <- c("cell_line_name", "drug_name", "LN_IC50", "LN_IC50_curvecurator", "AUC", "AUC_curvecurator", "pEC50", "pEC50_curvecurator", "dataset")
+all_data <- rbind(
+  ccle[, ..cols_to_keep],
+  ctrpv1[, ..cols_to_keep],
+  ctrpv2[, ..cols_to_keep],
+  gdsc1[, ..cols_to_keep],
+  gdsc2[, ..cols_to_keep],
+  beataml2[, ..cols_to_keep],
+  pdxbruna[, ..cols_to_keep]
+)
+
+# limit LN_IC50 between -10 and 10
+#all_data[LN_IC50 < -10 | LN_IC50 > 10, LN_IC50 := NA]
+#all_data[LN_IC50_curvecurator < -10 | LN_IC50_curvecurator > 10, LN_IC50_curvecurator := NA]
+# limit AUC between 0 and 3
+#all_data[AUC < 0 | AUC > 3, AUC := NA]
+#all_data[AUC_curvecurator < 0 | AUC_curvecurator > 3, AUC_curvecurator := NA]
+# limit pEC50 between -10 and 10
+#all_data[pEC50 < -10 | pEC50 > 10, pEC50 := NA]
+#all_data[pEC50_curvecurator < -10 | pEC50_curvecurator > 10, pEC50_curvecurator := NA]
+
+all_data <- melt(all_data, id.vars = c("cell_line_name", "drug_name", "dataset"),
+                 variable.name = 'response_type', value.name = 'response_value')
+
+ggplot(all_data, aes(x=response_value, color=dataset))+
+  geom_density()+
+  facet_wrap(~response_type, scales='free', ncol=2)+
+  scale_color_manual(values = c('CTRPv1'='#A6CEE3',
+                               'CTRPv2'='#1F78B4',
+                               'CCLE'='#B2DF8A',
+                               'GDSC1'='#FB9A99',
+                               'GDSC2'='#E31A1C',
+                               'BeatAML2'='#FDBF6F',
+                               'PDX_Bruna'='#CAB2D6')
+                    )+
+  theme_minimal()+
+  labs(x='Distribution of response values', y='Density')
+ggsave("figures/supplementary/dataset_distributions.png", width=8, height=4)
+
+########## Basic Statistics of the final datasets: Table S3 ################
+
+num_drugs_cell_lines <- all_data[, .(num_drugs = uniqueN(drug_name), num_cell_lines = uniqueN(cell_line_name)), by = dataset]
+print(num_drugs_cell_lines)
