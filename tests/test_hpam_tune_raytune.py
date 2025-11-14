@@ -13,7 +13,6 @@ def test_hpam_tune_raytune(tmp_path):
 
     :param tmp_path: pytest temporary path fixture
     """
-    pass
     try:
         import ray  # noqa: F401
     except ImportError:
