@@ -896,8 +896,8 @@ def parse_args() -> argparse.Namespace:
     )
     p.add_argument(
         "--checkpoint",
-        default="meta/MolGNet.pt",
-        help="MolGNet checkpoint (state_dict)",
+        default="MolGNet.pt",
+        help="MolGNet checkpoint (state_dict), can be obtained from Zenodo: https://doi.org/10.5281/zenodo.12633909",
     )
     p.add_argument(
         "--device",
