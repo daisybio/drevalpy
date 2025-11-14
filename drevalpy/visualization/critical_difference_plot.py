@@ -159,7 +159,8 @@ class CriticalDifferencePlot(OutPlot):
             "other. The p-values are shown below. This can only be rendered if at least 3 models were run."
         )
         f.write("<br><br>")
-        f.write("<h2>Results of Post-Hoc Conover Test</h2>")
+        f.write("<h2>Results of the pairwise Post-Hoc Conover Test</h2>")
+        f.write("<p>All p-values are adjusted with Benjamini-Hochberg correction.</p>")
         f.write("<br>")
         path_to_table = pathlib.Path(
             pathlib.Path(f.name).parent, f"critical_difference_plots/critical_difference_algorithms_{test_mode}.html"

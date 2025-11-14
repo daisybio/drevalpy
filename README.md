@@ -54,6 +54,12 @@ Using pip:
 pip install drevalpy
 ```
 
+Optional Ray Tune support (for parallel hyperparameter tuning):
+
+```bash
+pip install drevalpy[multiprocessing]
+```
+
 On a regular machine, the installation should take about a minute.
 
 Using docker:
