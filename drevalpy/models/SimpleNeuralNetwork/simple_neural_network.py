@@ -1,4 +1,4 @@
-"""Contains the SimpleNeuralNetwork model."""
+"""Contains the SimpleNeuralNetwork and the ChemBERTaNeuralNetwork model."""
 
 import json
 import os
