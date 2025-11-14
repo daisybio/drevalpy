@@ -71,7 +71,7 @@ def load_and_select_gene_features(
         return cl_features
 
     gene_info = pd.read_csv(
-        f"{data_path}/{dataset_name}/gene_lists/{gene_list}.csv",
+        f"{data_path}/meta/gene_lists/{gene_list}.csv",
         sep=",",
     )
     ordered_genes = gene_info["Symbol"].tolist()

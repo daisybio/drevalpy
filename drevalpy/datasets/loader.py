@@ -28,133 +28,88 @@ def check_measure(measure_queried: str, measures_data: list[str], dataset_name: 
         )
 
 
+def _load_zenodo_dataset(
+    path_data: str = "data",
+    measure: str = "LN_IC50_curvecurator",
+    file_name: str = "dataset_name.csv",
+    dataset_name: str = "dataset_name",
+) -> DrugResponseDataset:
+    """
+    Parent function to load_gdsc1, load_gdsc2, ...
+
+    :param path_data: Path to the dataset.
+    :param file_name: File name of the dataset, e.g., GDSC1.csv
+    :param measure: File name of the dataset, default = "LN_IC50_curvecurator".
+    :param dataset_name: Name of the dataset, e.g., GDSC1.
+    :return: DrugResponseDataset containing response, cell line IDs, and drug IDs.
+    """
+    path = os.path.join(path_data, dataset_name, file_name)
+    if not os.path.exists(path):
+        download_dataset(dataset_name, path_data, redownload=True)
+    meta_path = os.path.join(path_data, "meta")
+    if not os.path.exists(meta_path):
+        download_dataset("meta", path_data, redownload=True)
+
+    response_data = pd.read_csv(path, dtype={"pubchem_id": str, "cell_line_name": str})
+    response_data[DRUG_IDENTIFIER] = response_data[DRUG_IDENTIFIER].str.replace(",", "")
+    check_measure(measure, list(response_data.columns), dataset_name)
+    if dataset_name == "BeatAML2":
+        # only has AML patients = blood
+        response_data[TISSUE_IDENTIFIER] = "Blood"
+    elif dataset_name == "PDX_Bruna":
+        # only has breast cancer patients
+        response_data[TISSUE_IDENTIFIER] = "Breast"
+    return DrugResponseDataset(
+        response=response_data[measure].values,
+        cell_line_ids=response_data[CELL_LINE_IDENTIFIER].values,
+        drug_ids=response_data[DRUG_IDENTIFIER].values,
+        tissues=response_data[TISSUE_IDENTIFIER].values,
+        dataset_name=dataset_name,
+    )
+
+
 def load_gdsc1(
     path_data: str = "data",
     measure: str = "LN_IC50_curvecurator",
-    file_name: str = "GDSC1.csv",
-    dataset_name: str = "GDSC1",
 ) -> DrugResponseDataset:
     """
     Loads the GDSC1 dataset.
 
     :param path_data: Path to the dataset.
-    :param file_name: File name of the dataset.
     :param measure: The name of the column containing the measure to predict, default = "LN_IC50_curvecurator"
-
-    :param dataset_name: Name of the dataset.
     :return: DrugResponseDataset containing response, cell line IDs, and drug IDs.
     """
-    path = os.path.join(path_data, dataset_name, file_name)
-    if not os.path.exists(path):
-        download_dataset(dataset_name, path_data, redownload=True)
-
-    response_data = pd.read_csv(path, dtype={"pubchem_id": str})
-    response_data[DRUG_IDENTIFIER] = response_data[DRUG_IDENTIFIER].str.replace(",", "")
-    check_measure(measure, list(response_data.columns), dataset_name)
-    return DrugResponseDataset(
-        response=response_data[measure].values,
-        cell_line_ids=response_data[CELL_LINE_IDENTIFIER].values,
-        drug_ids=response_data[DRUG_IDENTIFIER].values,
-        tissues=response_data[TISSUE_IDENTIFIER].values,
-        dataset_name=dataset_name,
-    )
+    return _load_zenodo_dataset(path_data=path_data, measure=measure, file_name="GDSC1.csv", dataset_name="GDSC1")
 
 
-def load_gdsc2(path_data: str = "data", measure: str = "LN_IC50_curvecurator", file_name: str = "GDSC2.csv"):
+def load_gdsc2(
+    path_data: str = "data",
+    measure: str = "LN_IC50_curvecurator",
+):
     """
     Loads the GDSC2 dataset.
 
     :param path_data: Path to the dataset.
-    :param file_name: File name of the dataset.
     :param measure: The name of the column containing the measure to predict, default = "LN_IC50_curvecurator"
 
     :return: DrugResponseDataset containing response, cell line IDs, and drug IDs.
     """
-    return load_gdsc1(path_data=path_data, measure=measure, file_name=file_name, dataset_name="GDSC2")
-
-
-def load_beataml2(
-    path_data: str = "data", measure: str = "LN_IC50", file_name: str = "BeatAML2.csv"
-) -> DrugResponseDataset:
-    """
-    Loads the BeatAML2 dataset.
-
-    :param path_data: Path to the dataset.
-    :param file_name: File name of the dataset.
-    :param measure: The name of the column containing the measure to predict, default = "AUC"
-
-    :return: DrugResponseDataset containing response, cell line IDs, and drug IDs.
-    """
-    dataset_name = "BeatAML2"
-    path = os.path.join(path_data, dataset_name, file_name)
-    if not os.path.exists(path):
-        download_dataset(dataset_name, path_data, redownload=True)
-
-    response_data = pd.read_csv(path, dtype={"pubchem_id": str, "cell_line_name": str})
-    response_data[DRUG_IDENTIFIER] = response_data[DRUG_IDENTIFIER].str.replace(",", "")
-    check_measure(measure, list(response_data.columns), dataset_name)
-    return DrugResponseDataset(
-        response=response_data[measure].values,
-        cell_line_ids=response_data[CELL_LINE_IDENTIFIER].values,
-        drug_ids=response_data[DRUG_IDENTIFIER].values,
-        tissues=response_data[TISSUE_IDENTIFIER].values,
-        dataset_name=dataset_name,
-    )
+    return _load_zenodo_dataset(path_data=path_data, measure=measure, file_name="GDSC2.csv", dataset_name="GDSC2")
 
 
 def load_ccle(
-    path_data: str = "data", measure: str = "LN_IC50_curvecurator", file_name: str = "CCLE.csv"
+    path_data: str = "data",
+    measure: str = "LN_IC50_curvecurator",
 ) -> DrugResponseDataset:
     """
     Loads the CCLE dataset.
 
     :param path_data: Path to the dataset.
-    :param file_name: File name of the dataset.
     :param measure: The name of the column containing the measure to predict, default = "LN_IC50_curvecurator"
 
     :return: DrugResponseDataset containing response, cell line IDs, and drug IDs.
     """
-    dataset_name = "CCLE"
-    path = os.path.join(path_data, dataset_name, file_name)
-    if not os.path.exists(path):
-        download_dataset(dataset_name, path_data, redownload=True)
-
-    response_data = pd.read_csv(path, dtype={"pubchem_id": str})
-    response_data[DRUG_IDENTIFIER] = response_data[DRUG_IDENTIFIER].str.replace(",", "")
-    check_measure(measure, list(response_data.columns), dataset_name)
-    return DrugResponseDataset(
-        response=response_data[measure].values,
-        cell_line_ids=response_data[CELL_LINE_IDENTIFIER].values,
-        drug_ids=response_data[DRUG_IDENTIFIER].values,
-        tissues=response_data[TISSUE_IDENTIFIER].values,
-        dataset_name=dataset_name,
-    )
-
-
-def _load_toy(
-    path_data: str = "data", measure: str = "LN_IC50_curvecurator", dataset_name="TOYv1"
-) -> DrugResponseDataset:
-    """
-    Loads small Toy dataset, subsampled from CTRPv2 or GDSC2.
-
-    :param path_data: Path to the dataset.
-    :param measure: The name of the column containing the measure to predict, default = "LN_IC50_curvecurator"
-    :param dataset_name: Name of the dataset. Either "TOYv1" or "TOYv2".
-
-    :return: DrugResponseDataset containing response, cell line IDs, and drug IDs.
-    """
-    path = os.path.join(path_data, dataset_name, f"{dataset_name}.csv")
-    if not os.path.exists(path):
-        download_dataset(dataset_name, path_data, redownload=True)
-    response_data = pd.read_csv(path, dtype={"pubchem_id": str})
-    check_measure(measure, list(response_data.columns), dataset_name)
-    return DrugResponseDataset(
-        response=response_data[measure].values,
-        cell_line_ids=response_data[CELL_LINE_IDENTIFIER].values,
-        drug_ids=response_data[DRUG_IDENTIFIER].values,
-        tissues=response_data[TISSUE_IDENTIFIER].values,
-        dataset_name=dataset_name,
-    )
+    return _load_zenodo_dataset(path_data=path_data, measure=measure, file_name="CCLE.csv", dataset_name="CCLE")
 
 
 def load_toyv1(path_data: str = "data", measure: str = "LN_IC50_curvecurator") -> DrugResponseDataset:
@@ -166,7 +121,7 @@ def load_toyv1(path_data: str = "data", measure: str = "LN_IC50_curvecurator") -
 
     :return: DrugResponseDataset containing response, cell line IDs, and drug IDs.
     """
-    return _load_toy(path_data, measure, "TOYv1")
+    return _load_zenodo_dataset(path_data=path_data, measure=measure, file_name="TOYv1.csv", dataset_name="TOYv1")
 
 
 def load_toyv2(path_data: str = "data", measure: str = "LN_IC50_curvecurator") -> DrugResponseDataset:
@@ -178,57 +133,63 @@ def load_toyv2(path_data: str = "data", measure: str = "LN_IC50_curvecurator") -
 
     :return: DrugResponseDataset containing response, cell line IDs, and drug IDs.
     """
-    return _load_toy(path_data, measure, "TOYv2")
-
-
-def _load_ctrpv(version: str, path_data: str = "data", measure: str = "LN_IC50_curvecurator") -> DrugResponseDataset:
-    """
-    Load CTRPv1 dataset.
-
-    :param version: The version of the CTRP dataset to load.
-    :param path_data: Path to location of CTRPv1 dataset
-    :param measure: The name of the column containing the measure to predict, default = "LN_IC50_curvecurator"
-
-    :return: DrugResponseDataset containing response, cell line IDs, and drug IDs
-    """
-    dataset_name = "CTRPv" + version
-    path = os.path.join(path_data, dataset_name, f"{dataset_name}.csv")
-    if not os.path.exists(path):
-        download_dataset(dataset_name, path_data, redownload=True)
-    response_data = pd.read_csv(path, dtype={"pubchem_id": str})
-    check_measure(measure, list(response_data.columns), dataset_name)
-
-    return DrugResponseDataset(
-        response=response_data[measure].values,
-        cell_line_ids=response_data[CELL_LINE_IDENTIFIER].values,
-        drug_ids=response_data[DRUG_IDENTIFIER].values,
-        tissues=response_data[TISSUE_IDENTIFIER].values,
-        dataset_name=dataset_name,
-    )
+    return _load_zenodo_dataset(path_data=path_data, measure=measure, file_name="TOYv2.csv", dataset_name="TOYv2")
 
 
 def load_ctrpv1(path_data: str = "data", measure: str = "LN_IC50_curvecurator") -> DrugResponseDataset:
     """
-    Load CTRPv2 dataset.
+    Load CTRPv1 dataset.
 
-    :param path_data: Path to location of CTRPv2 dataset
+    :param path_data: Path to the location of CTRPv1 dataset
     :param measure: The name of the column containing the measure to predict, default = "LN_IC50_curvecurator"
 
     :return: DrugResponseDataset containing response, cell line IDs, and drug IDs
     """
-    return _load_ctrpv("1", path_data, measure)
+    return _load_zenodo_dataset(path_data=path_data, measure=measure, file_name="CTRPv1.csv", dataset_name="CTRPv1")
 
 
 def load_ctrpv2(path_data: str = "data", measure: str = "LN_IC50_curvecurator") -> DrugResponseDataset:
     """
     Load CTRPv2 dataset.
 
-    :param path_data: Path to location of CTRPv2 dataset
+    :param path_data: Path to the location of CTRPv2 dataset
     :param measure: The name of the column containing the measure to predict, default: LN_IC50_curvecurator
 
     :return: DrugResponseDataset containing response, cell line IDs, and drug IDs
     """
-    return _load_ctrpv("2", path_data, measure)
+    return _load_zenodo_dataset(path_data=path_data, measure=measure, file_name="CTRPv2.csv", dataset_name="CTRPv2")
+
+
+def load_beataml2(
+    path_data: str = "data",
+    measure: str = "LN_IC50_curvecurator",
+) -> DrugResponseDataset:
+    """
+    Loads the BeatAML2 dataset.
+
+    :param path_data: Path to the dataset.
+    :param measure: The name of the column containing the measure to predict, default: LN_IC50_curvecurator
+
+    :return: DrugResponseDataset containing response, cell line IDs, and drug IDs.
+    """
+    return _load_zenodo_dataset(path_data=path_data, measure=measure, file_name="BeatAML2.csv", dataset_name="BeatAML2")
+
+
+def load_pdx_bruna(
+    path_data: str = "data",
+    measure: str = "LN_IC50_curvecurator",
+) -> DrugResponseDataset:
+    """
+    Loads the PDX_Bruna dataset.
+
+    :param path_data: Path to the dataset.
+    :param measure: The name of the column containing the measure to predict, default: LN_IC50_curvecurator
+
+    :return: DrugResponseDataset containing response, cell line IDs, and drug IDs.
+    """
+    return _load_zenodo_dataset(
+        path_data=path_data, measure=measure, file_name="PDX_Bruna.csv", dataset_name="PDX_Bruna"
+    )
 
 
 def load_custom(
@@ -259,6 +220,7 @@ AVAILABLE_DATASETS: dict[str, Callable] = {
     "CTRPv1": load_ctrpv1,
     "CTRPv2": load_ctrpv2,
     "BeatAML2": load_beataml2,
+    "PDX_Bruna": load_pdx_bruna,
 }
 
 
