@@ -16,6 +16,7 @@ import torch
 from torch.utils.data import Dataset
 
 from drevalpy.datasets.dataset import FeatureDataset
+from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER
 
 
 def load_bionic_features(data_path: str, dataset_name: str, gene_add_num: int = 512) -> FeatureDataset:
@@ -29,11 +30,12 @@ def load_bionic_features(data_path: str, dataset_name: str, gene_add_num: int = 
     """
     # Load gene expression dataset
     gene_expression_path = os.path.join(data_path, dataset_name, "gene_expression.csv")
-    gene_expression = pd.read_csv(gene_expression_path)
+    gene_expression = pd.read_csv(gene_expression_path, index_col=CELL_LINE_IDENTIFIER)
+    gene_expression.index = gene_expression.index.astype(str)
     # cellosaurus_id is not mandatory
     if "cellosaurus_id" in gene_expression.columns:
         gene_expression = gene_expression.drop(columns="cellosaurus_id")
-    expression_dict = gene_expression.set_index("cell_line_name").T.to_dict()
+    expression_dict = gene_expression.T.to_dict()
 
     # Load gene list and PPI features
     gene_list_path = os.path.join(data_path, dataset_name, "DIPK_features", "gene_list_sel.txt")
