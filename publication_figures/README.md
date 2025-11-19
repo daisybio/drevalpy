@@ -13,6 +13,8 @@
 
 Figures
 
+- Figure S1 (Simpson's paradox example): [simpsons_paradox_simple.ipynb](simpsons_paradox_simple.ipynb)
+- Figure S3 (UMAP drug embeddings): Code for UMAP generation in [make_umap_embedding.py](make_umap_embedding.py). To just render the plot, run [make_umap_embedding_plot_highlight.py](make_umap_embedding_plot_highlight.py)
 - Figure S4 (comparison response measures original vs. CurveCurator ): [curvecurator_comparison.R](curvecurator_comparison.R)
 - Figure S5 (critical difference diagrams LPO, LCO, LTO): [cd_diagrams.ipynb](cd_diagrams.ipynb)
 - Figure S6 (Simpson's paradox DIPK): [simpsons.ipynb](simpsons.ipynb); simply add LDO
@@ -22,7 +24,7 @@ Figures
 
 Tables
 
-- Table S2 (LDO input ablation):
+- Table S2 (LDO input ablation): [sup_tables_performance_results.R](sup_tables_performance_results.R)
 - Table S3 (basic statistics drug screens): [distribution_plots.R](distribution_plots.R)
 - Table S4 (coverage omic screens):
 - Table S6, S7 (lnIC50 prediction results LPO, LCO, LTO, LDO; all models): [sup_tables_performance_results.R](sup_tables_performance_results.R)

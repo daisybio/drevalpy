@@ -18,6 +18,8 @@ from rdkit import Chem
 from rdkit.Chem import rdFingerprintGenerator
 from transformers import AutoModel, AutoTokenizer
 
+path_to_source_data_dir = "../results/SourceData"
+
 os.environ["NUMBA_DISABLE_JIT"] = "1"
 os.environ["UMAP_DISABLE_NUMBA"] = "1"
 os.environ["OMP_NUM_THREADS"] = "1"
@@ -28,9 +30,9 @@ chemberta_pooling = "mean"  # "mean" or "cls"
 batch_size = 64
 max_length = 256
 
-focus_csv = "../data/CTRPv2/drug_names.csv"
-smiles_csv = "../drugs/all_smiles_final.csv"
-zinc_csv = "../data/250k_rndm_zinc_drugs_clean_3.csv"
+focus_csv = f"{path_to_source_data_dir}/drug_names_CTRPv2.csv"
+smiles_csv = f"{path_to_source_data_dir}/all_smiles_final.csv"
+zinc_csv = f"{path_to_source_data_dir}/250k_rndm_zinc_drugs_clean_3.csv"
 smiles_col = "canonical_smiles"
 
 n_bg_fit = 200000
@@ -140,7 +142,7 @@ def chemberta_embed(smiles_list, model_name, pooling="mean", batch_size=128, max
 
 
 log("loading result tables")
-res = pd.read_csv("all_results/true_vs_pred.csv")
+res = pd.read_csv(f"{path_to_source_data_dir}/main_results/true_vs_pred.csv")
 res = res[(res["test_mode"] == "LDO") & (res["algorithm"] == "MultiOmicsNeuralNetwork")]
 res = res[["drug_name", "CV_split"]]
 res["is_train"] = res["CV_split"] != 0

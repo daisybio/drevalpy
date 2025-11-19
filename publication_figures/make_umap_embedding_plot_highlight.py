@@ -8,6 +8,8 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 
+path_to_source_data_dir = "../results/SourceData"
+
 highlight_drugs = []  # ["LRRK2-IN-1", "Vorinostat", "avicin D", "birinapant"]
 pearson_values = {
     "birinapant": 0.023,
@@ -36,7 +38,7 @@ plt.rcParams.update(
     }
 )
 
-data = np.load("LDO_embedding_data.npz", allow_pickle=True)
+data = np.load(f"{path_to_source_data_dir}/LDO_embedding_data.npz", allow_pickle=True)
 X_focus_2d = data["X_focus_2d"]
 X_bg_2d = data["X_bg_2d"]
 focus_is_train = data["focus_is_train"]
@@ -139,7 +141,7 @@ ax.set_xlabel("UMAP 1")
 ax.set_ylabel("UMAP 2")
 ax.legend(scatterpoints=1, markerscale=4)
 fig.tight_layout()
-out_path = "LDO_embedding_umap_with_list_labels_r2.pdf"
+out_path = "figures/supplementary/LDO_embedding_umap_with_list_labels_r2.pdf"
 fig.savefig(out_path, dpi=400, bbox_inches="tight")
 plt.close(fig)
 print(f"saved {out_path}")
