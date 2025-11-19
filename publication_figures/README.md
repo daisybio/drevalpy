@@ -26,9 +26,9 @@ Tables
 
 - Table S2 (LDO input ablation): [sup_tables_performance_results.R](sup_tables_performance_results.R)
 - Table S3 (basic statistics drug screens): [distribution_plots.R](distribution_plots.R)
-- Table S4 (coverage omic screens):
+- Table S4 (coverage omic screens): [omic_overlaps.R](omic_overlaps.R)
 - Table S6, S7 (lnIC50 prediction results LPO, LCO, LTO, LDO; all models): [sup_tables_performance_results.R](sup_tables_performance_results.R)
-- Table S8 (model runtime):
+- Table S8 (model runtime): can be inferred from the nextflow execution reports
 - Table S9 (MSEs all cross-study predictions): [sup_tables_performance_results.R](sup_tables_performance_results.R)
 - Table S10 (cross-study predictions with other metrics): [sup_tables_performance_results.R](sup_tables_performance_results.R)
 - Table S11 (ablation study results): [sup_tables_performance_results.R](sup_tables_performance_results.R)
