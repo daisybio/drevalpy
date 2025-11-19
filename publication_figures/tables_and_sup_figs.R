@@ -7,15 +7,15 @@ library(readxl)
 
 
 # Load data
-path_to_data <- '../results/all_results/'
-zenodo_data <- 'path/to/data/'
-path_to_preprocess <- 'path/to/preprocess_drp_data/'
+path_to_data <- '../results/all_runs/'
+zenodo_data <- '../data/'
+path_to_preprocess <- '../../preprocess_drp_data/'
 
 # Load evaluation results
 evaluation_results <- fread(paste0(path_to_data, 'evaluation_results.csv'))
 true_vs_pred <- fread(paste0(path_to_data, 'true_vs_pred.csv'))
 
-####### Code for Table 1 / S6+S7: All results #######
+####### Code for Tables S6+S7: All results #######
 all_results <- evaluation_results[rand_setting == "predictions"]
 all_results <- melt(all_results,
                     id.vars = c("algorithm", "test_mode", "CV_split"),
@@ -64,8 +64,14 @@ all_results[Model == "NaiveMeanEffectsPredictor",
 print(xtable(all_results), include.rownames=FALSE, sanitize.text.function = function(x){x})
 
 
-####### Code for Table 2 / S9+S10: Cross-study results #######
+####### Code for Table S9: Cross-study results #######
 all_results <- evaluation_results
+external_cs_results <- fread("~/Downloads/test_inference/evaluation_results.csv")
+external_cs_results <- external_cs_results[rand_setting != "predictions"]
+external_dipk_results <- fread("~/Downloads/dipk_cross/evaluation_results.csv")
+external_dipk_results <- external_dipk_results[rand_setting != "predictions"]
+all_results <- rbind(all_results, external_cs_results)
+all_results <- rbind(all_results, external_dipk_results)
 metric_for_visualization <- "MSE"
 all_results <- melt(all_results,
                     id.vars = c("algorithm", "test_mode", "CV_split", "rand_setting"),
@@ -81,11 +87,56 @@ all_results <- all_results[metric == metric_for_visualization]
 all_results <- dcast(all_results, algorithm + test_mode ~ rand_setting, value.var = "value")
 all_results[, test_mode := factor(test_mode, levels = c("LPO", "LCO", "LTO", "LDO"))]
 all_results <- all_results[order(test_mode, algorithm)]
-all_results <- all_results[, c("algorithm", "test_mode", "predictions", "cross-study-CTRPv1", "cross-study-CCLE", "cross-study-GDSC1", "cross-study-GDSC2")]
-colnames(all_results) <- c("Model", "test_mode", "CTRPv2", "Cross-study: CTRPv1", "Cross-study: CCLE", "Cross-study: GDSC1", "Cross-study: GDSC2")
+all_results <- all_results[, c("algorithm", "test_mode", "predictions",
+                               "cross-study-CTRPv1", "cross-study-CCLE",
+                               "cross-study-GDSC1", "cross-study-GDSC2",
+                               "cross-study-BeatAML2", "cross-study-PDX")]
+colnames(all_results) <- c("Model", "test_mode", "CTRPv2", "CS: CTRPv1",
+                           "CS: CCLE", "CS: GDSC1", "CS: GDSC2",
+                           "CS: BeatAML2", "CS: PDX_Bruna")
 print(xtable(all_results), include.rownames=FALSE, sanitize.text.function = function(x){x})
 
-####### Code for Table 3 / S11: Ablation study results #######
+# Table S10: Cross-study results other measures
+# LN IC50 data tables
+all_results <- evaluation_results
+external_cs_results <- fread("~/Downloads/test_inference/evaluation_results.csv")
+external_cs_results <- external_cs_results[rand_setting != "predictions"]
+all_results <- all_results[algorithm %in% c("RandomForest", "NaiveMeanEffectsPredictor")]
+external_cs_results <- external_cs_results[algorithm %in% c("RandomForest", "NaiveMeanEffectsPredictor")]
+external_cs_results <- external_cs_results[rand_setting != "predictions"]
+all_results <- rbind(all_results, external_cs_results)
+# AUC data table
+all_results <- fread("~/Downloads/redo_auc/evaluation_results.csv")
+# pEC50 data table
+all_results <- fread("~/Downloads/redo_ec50/evaluation_results.csv")
+
+all_results <- all_results[test_mode == 'LCO']
+all_results <- melt(all_results,
+                    id.vars = c("algorithm", "test_mode", "CV_split", "rand_setting"),
+                    measure.vars = c("MSE", "R^2", "Pearson"),
+                    variable.name = "metric")
+all_results[, mean := round(mean(value), 2), by = c("algorithm", "test_mode", "rand_setting", "metric")]
+all_results[, se := round(sd(value)/sqrt(.N), 2), by = c("algorithm", "test_mode", "rand_setting", "metric")]
+all_results[, value := paste0(mean, "±", se)]
+all_results[, c("CV_split", "mean", "se") := NULL]
+all_results <- unique(all_results)
+for(metric_for_visualization in c("MSE", "Pearson", "R^2")){
+  print(metric_for_visualization)
+  metric_results <- all_results[metric == metric_for_visualization]
+  metric_results <- dcast(metric_results, algorithm + test_mode ~ rand_setting, value.var = "value")
+  metric_results <- metric_results[order(test_mode, -algorithm)]
+  metric_results <- metric_results[, c("algorithm", "test_mode", "predictions",
+                                       "cross-study-CTRPv1", "cross-study-CCLE",
+                                       "cross-study-GDSC1", "cross-study-GDSC2",
+                                       "cross-study-BeatAML2", "cross-study-PDX")]
+  colnames(metric_results) <- c("Model", "test_mode", "CTRPv2", "CS: CTRPv1",
+                                "CS: CCLE", "CS: GDSC1", "CS: GDSC2",
+                                "CS: BeatAML2", "CS: PDX_Bruna")
+  print(xtable(metric_results), include.rownames=FALSE, sanitize.text.function = function(x){x})
+}
+
+
+####### Code for Table S11: Ablation study results #######
 # TODO: UPDATE
 invariant <- fread(paste0(path_to_invariant_results, 'evaluation_results.csv'))
 invariant$rand_mode <- "invariant"
@@ -200,23 +251,34 @@ ggsave("figures/supplementary/Comparison_Curvecurator_SD.pdf", width = 9, height
 ####### Code for Figure S7: expression TPMs vs microarray #######
 gex_ccle <- fread(paste0(zenodo_data, 'CCLE/gene_expression.csv'))
 gex_gdsc <- fread(paste0(zenodo_data, 'GDSC1/gene_expression.csv'))
-landmark_genes <- fread(paste0(zenodo_data, 'meta/gene_lists/landmark_genes.csv'))
-subset_cols <- c("cellosaurus_id", "cell_line_name", landmark_genes$Symbol)
+gex_beat <- fread(paste0(zenodo_data, 'BeatAML2/gene_expression.csv'))
+gex_bruna <- fread(paste0(zenodo_data, 'PDX_Bruna/gene_expression.csv'))
+landmark_genes <- fread(paste0(zenodo_data, 'meta/gene_lists/landmark_genes_reduced.csv'))
+subset_cols <- c("cell_line_name", landmark_genes$Symbol)
 gex_ccle <- gex_ccle[, ..subset_cols]
 gex_gdsc <- gex_gdsc[, ..subset_cols]
+gex_beat <- gex_beat[, ..subset_cols]
+gex_bruna <- gex_bruna[, ..subset_cols]
 
-big_df <- melt(gex_ccle, id.vars = c("cellosaurus_id", "cell_line_name"), variable.name = "gene", value.name = "expression")
+big_df <- melt(gex_ccle, id.vars = c("cell_line_name"), variable.name = "gene", value.name = "expression")
 big_df$dataset <- "TPM values\n(CTRPv1, CTRPv2, CCLE)"
-big_df2 <- melt(gex_gdsc, id.vars = c("cellosaurus_id", "cell_line_name"), variable.name = "gene", value.name = "expression")
+big_df2 <- melt(gex_gdsc, id.vars = c("cell_line_name"), variable.name = "gene", value.name = "expression")
 big_df2$dataset <- "Microarray RMA-norm.\n(GDSC1, GDSC2)"
 big_df <- rbind(big_df, big_df2)
+big_df3 <- melt(gex_beat, id.vars = c("cell_line_name"), variable.name = "gene", value.name = "expression")
+big_df3$dataset <- "Norm. RNAseq values\n(BeatAML2)"
+big_df <- rbind(big_df, big_df3)
+big_df4 <- melt(gex_bruna, id.vars = c("cell_line_name"), variable.name = "gene", value.name = "expression")
+big_df4$dataset <- "Microarray values\n(PDX_Bruna)"
+big_df <- rbind(big_df, big_df4)
 
 ggplot(big_df, aes(x=expression, y = dataset, fill = dataset))+
   geom_boxplot()+
   scale_x_log10()+
   labs(x="Expression (log10)", y="Dataset")+
-  theme_minimal()
-ggsave("figures/supplementary/boxplot_expression.pdf", device=pdf, width=8, height=3)
+  theme_minimal()+
+  theme(legend.position="none")
+ggsave("figures/supplementary/boxplot_expression.pdf", device=pdf, width=9, height=5)
 
 
 ####### Code for Figure S8: doses per drugs, Table S3 #######
