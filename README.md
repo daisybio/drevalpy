@@ -22,29 +22,33 @@ By contributing your model to the DrEval catalog, you can increase your work's e
 
 ![DrEval](docs/_static/img/overview.png)
 
-Use DrEval to Build Drug Response Models That Have an Impact
+---
 
-    1. Maintained, up-to-date baseline catalog, no need to re-implement literature models
+Use DrEval to build drug response models that have an impact
 
-    2. Gold standard datasets for benchmarking
+1. Maintained, up-to-date baseline catalog, no need to re-implement literature models
+2. Gold standard datasets for benchmarking
+3. Consistent application-driven evaluation
+4. Ablation studies with permutation tests
+5. Cross-study evaluation for generalization analysis
+6. Optimized nextflow pipeline for fast experiments
+7. Easy-to-use hyperparameter tuning
+8. Paper-ready visualizations to display performance
 
-    3. Consistent application-driven evaluation
-
-    4. Ablation studies with permutation tests
-
-    5. Cross-study evaluation for generalization analysis
-
-    6. Optimized nextflow pipeline for fast experiments
-
-    7. Easy-to-use hyperparameter tuning
-
-    8. Paper-ready visualizations to display performance
+---
 
 This project is a collaboration of the Technical University of Munich (TUM, Germany)
 and the Freie Universität Berlin (FU, Germany).
 
+## Demo
+
 Check out our demo notebook in Colab:
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/daisybio/drevalpy/blob/development/dreval_colab_demo.ipynb)
+
+Expected runtime on a normal machine:
+
+- Standalone demo: 38 minutes
+- Nextflow demo: 5 minutes
 
 ## Installation
 
@@ -52,6 +56,12 @@ Using pip:
 
 ```bash
 pip install drevalpy
+```
+
+Optional Ray Tune support (for parallel hyperparameter tuning):
+
+```bash
+pip install drevalpy[multiprocessing]
 ```
 
 On a regular machine, the installation should take about a minute.
@@ -170,10 +180,10 @@ nextflow run nf-core/drugresponseeval \
     -profile docker \
     --run_id ec50_run \
     --dataset_name CTRPv2 \
-    --cross_study_datasets CTRPv1,CCLE,GDSC1,GDSC2 \
+    --cross_study_datasets CTRPv1,CCLE,GDSC1,GDSC2,PDX_Bruna,BeatAML2 \
     --models RandomForest \
     --baselines NaiveMeanEffectsPredictor \
-    --test_mode LPO,LCO,LTO,LDO \
+    --test_mode LCO \
     --measure pEC50
 
 # AUC run
@@ -181,22 +191,58 @@ nextflow run nf-core/drugresponseeval \
     -profile docker \
     --run_id auc_run \
     --dataset_name CTRPv2 \
-    --cross_study_datasets CTRPv1,CCLE,GDSC1,GDSC2 \
+    --cross_study_datasets CTRPv1,CCLE,GDSC1,GDSC2,PDX_Bruna,BeatAML2 \
     --models RandomForest \
     --baselines NaiveMeanEffectsPredictor \
-    --test_mode LPO,LCO,LTO,LDO \
+    --test_mode LCO \
     --measure AUC
 
 # Invariant ablation run
+# Run this on CPU
 nextflow run nf-core/drugresponseeval \
     -profile docker \
-    --run_id invariant_ablation \
+    --run_id invariant-rf \
     --dataset_name CTRPv2 \
-    --models MultiOmicsRandomForest,DIPK \
+    --models MultiOmicsRandomForest \
     --baselines NaiveMeanEffectsPredictor \
     --test_mode LPO,LCO,LDO \
     --randomization_mode SVRC,SVRD \
     --randomization_type invariant \
+    --measure LN_IC50
+
+# modify the profile to run this on GPU, if possible
+nextflow run nf-core/drugresponseeval \
+    -profile docker \
+    --run_id invariant-dipk \
+    --dataset_name CTRPv2 \
+    --models DIPK \
+    --baselines NaiveMeanEffectsPredictor \
+    --test_mode LPO,LCO,LDO \
+    --randomization_mode SVRC,SVRD \
+    --randomization_type invariant \
+    --measure LN_IC50
+
+## Inference on BeatAMl2, PDX_Bruna
+# run this on CPU
+nextflow run nf-core/drugresponseeval \
+    -profile docker \
+    --run_id infer_pdx_beat \
+    --dataset_name CTRPv2 \
+    --cross_study_datasets PDX_Bruna,BeatAML2 \
+    --models RandomForest,SimpleNeuralNetwork,GradientBoosting,SRMF,ElasticNet,NaivePredictor,NaiveDrugMeanPredictor,NaiveCellLineMeanPredictor \
+    --baselines NaiveMeanEffectsPredictor \
+    --test_mode LPO,LCO,LDO \
+    --measure LN_IC50
+
+# modify profile to run this on GPU, if possible
+nextflow run nf-core/drugresponseeval \
+    -profile docker \
+    --run_id dipk_pdx_beat \
+    --dataset_name CTRPv2 \
+    --cross_study_datasets PDX_Bruna,BeatAML2 \
+    --models DIPK \
+    --baselines NaiveMeanEffectsPredictor \
+    --test_mode LPO,LCO,LDO \
     --measure LN_IC50
 ```
 

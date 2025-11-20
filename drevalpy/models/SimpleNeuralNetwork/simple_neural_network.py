@@ -1,4 +1,4 @@
-"""Contains the SimpleNeuralNetwork model."""
+"""Contains the SimpleNeuralNetwork and the ChemBERTaNeuralNetwork model."""
 
 import json
 import os
@@ -7,6 +7,7 @@ import warnings
 
 import joblib
 import numpy as np
+import pandas as pd
 import torch
 from sklearn.preprocessing import StandardScaler
 
@@ -76,7 +77,7 @@ class SimpleNeuralNetwork(DRPModel):
 
         """
         if drug_input is None:
-            raise ValueError("drug_input (fingerprints) are required for SimpleNeuralNetwork.")
+            raise ValueError(f"drug_input ({self.drug_views[0]}) are required for SimpleNeuralNetwork.")
 
         # Apply arcsinh transformation and scaling to gene expression features
         if "gene_expression" in self.cell_line_views:
@@ -88,7 +89,7 @@ class SimpleNeuralNetwork(DRPModel):
             )
 
         dim_gex = next(iter(cell_line_input.features.values()))["gene_expression"].shape[0]
-        dim_fingerprint = next(iter(drug_input.features.values()))["fingerprints"].shape[0]
+        dim_fingerprint = next(iter(drug_input.features.values()))[self.drug_views[0]].shape[0]
         self.hyperparameters["input_dim_gex"] = dim_gex
         self.hyperparameters["input_dim_fp"] = dim_fingerprint
 
@@ -156,7 +157,7 @@ class SimpleNeuralNetwork(DRPModel):
 
         x = self.get_concatenated_features(
             cell_line_view="gene_expression",
-            drug_view="fingerprints",
+            drug_view=self.drug_views[0],
             cell_line_ids_output=cell_line_ids,
             drug_ids_output=drug_ids,
             cell_line_input=cell_line_input,
@@ -175,7 +176,7 @@ class SimpleNeuralNetwork(DRPModel):
         """
         return load_and_select_gene_features(
             feature_type="gene_expression",
-            gene_list="landmark_genes",
+            gene_list="landmark_genes_reduced",
             data_path=data_path,
             dataset_name=dataset_name,
         )
@@ -248,3 +249,43 @@ class SimpleNeuralNetwork(DRPModel):
         instance.model.eval()
 
         return instance
+
+
+class ChemBERTaNeuralNetwork(SimpleNeuralNetwork):
+    """ChemBERTa Neural Network model using gene expression and ChemBERTa drug embeddings."""
+
+    drug_views = ["chemberta_embeddings"]
+
+    @classmethod
+    def get_model_name(cls) -> str:
+        """
+        Returns the model name.
+
+        :returns: ChemBERTaNeuralNetwork
+        """
+        return "ChemBERTaNeuralNetwork"
+
+    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+        """
+        Loads the ChemBERTa embeddings.
+
+        :param data_path: Path to the ChemBERTa embeddings, e.g., data/
+        :param dataset_name: name of the dataset, e.g., GDSC1
+        :returns: FeatureDataset containing the ChemBERTa embeddings
+        :raises FileNotFoundError: if the ChemBERTa embeddings file is not found
+        """
+        chemberta_file = os.path.join(data_path, dataset_name, "drug_chemberta_embeddings.csv")
+        if not os.path.exists(chemberta_file):
+            raise FileNotFoundError(
+                f"ChemBERTa embeddings file not found: {chemberta_file}. "
+                "Please create it first with the respective drug_featurizer."
+            )
+
+        chemberta_df = pd.read_csv(chemberta_file, dtype={"pubchem_id": str})
+        features = {}
+        for _, row in chemberta_df.iterrows():
+            drug_id = row["pubchem_id"]
+            embedding = row.drop("pubchem_id").to_numpy(dtype=np.float32)
+            features[drug_id] = {"chemberta_embeddings": embedding}
+
+        return FeatureDataset(features)

@@ -17,7 +17,9 @@ def test_factory() -> None:
     assert "TOYv2" in AVAILABLE_DATASETS
     assert "CTRPv1" in AVAILABLE_DATASETS
     assert "CTRPv2" in AVAILABLE_DATASETS
-    assert len(AVAILABLE_DATASETS) == 7
+    assert "BeatAML2" in AVAILABLE_DATASETS
+    assert "PDX_Bruna" in AVAILABLE_DATASETS
+    assert len(AVAILABLE_DATASETS) == 9
 
 
 @pytest.mark.parametrize(
@@ -30,6 +32,8 @@ def test_factory() -> None:
         ("CTRPv2", 395024),
         ("TOYv1", 2711),
         ("TOYv2", 2784),
+        ("BeatAML2", 62487),
+        ("PDX_Bruna", 2559),
     ],
 )
 @flaky(max_runs=3, min_passes=1)

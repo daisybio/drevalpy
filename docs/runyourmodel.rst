@@ -214,7 +214,7 @@ Update the ``MULTI_DRUG_MODEL_FACTORY`` if your model is a global model for mult
     from .your_model_name.your_model import YourModel
     MULTI_DRUG_MODEL_FACTORY.update("YourModel": YourModel)
 
-Now you can run your model using the DrEvalPy pipeline. cd to the drevalpy root directory and run the following command:
+Now you can run your model using the DrEvalPy pipeline. Run the following command (after installing your cloned and edited DrEvalPy repository e.g. with ``pip install -e .``):
 
 .. code-block:: shell
     drevalpy --model YourModel --dataset CTRPv2 --data_path data
@@ -312,7 +312,7 @@ Gene expression features are standardized using a ``StandardScaler``, while fing
             return load_and_select_gene_features(feature_type="gene_expression",
                                                 data_path=data_path,
                                                 dataset_name=dataset_name,
-                                                gene_list="landmark_genes")
+                                                gene_list="landmark_genes_reduced")
 
 
         def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
@@ -540,7 +540,7 @@ We overwrite ``cell_line_views`` to ``["proteomics"]`` and define the model name
 
 
 Now you can run the model using the DrEvalPy pipeline.
-To run the model, navigate to the DrEvalPy root directory and execute the following command:
+To run the model and execute the following command:
 .. code-block:: shell
 
     drevalpy --model ProteomicsRandomForest --dataset CTRPv2 --data_path data

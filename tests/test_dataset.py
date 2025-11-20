@@ -21,7 +21,7 @@ def test_response_dataset_load() -> None:
     """Test if the dataset loads correctly from CSV files."""
     # Create a temporary CSV file with mock data
     data = {
-        "cell_line_id": np.array([1, 2, 3]),
+        "cell_line_id": np.array(["1", "2", "3"]),
         "drug_id": np.array(["A", "B", "C"]),
         "response": np.array([0.1, 0.2, 0.3]),
     }
@@ -67,20 +67,20 @@ def test_response_dataset_add_rows() -> None:
     """Test if the add_rows method works correctly."""
     dataset1 = DrugResponseDataset(
         response=np.array([1, 2, 3]),
-        cell_line_ids=np.array([101, 102, 103]),
+        cell_line_ids=np.array(["101", "102", "103"]),
         drug_ids=np.array(["A", "B", "C"]),
         tissues=np.array(["Tissue1", "Tissue2", "Tissue3"]),
     )
     dataset2 = DrugResponseDataset(
         response=np.array([4, 5, 6]),
-        cell_line_ids=np.array([104, 105, 106]),
+        cell_line_ids=np.array(["104", "105", "106"]),
         drug_ids=np.array(["D", "E", "F"]),
         tissues=np.array(["Tissue4", "Tissue5", "Tissue6"]),
     )
     dataset1.add_rows(dataset2)
 
     assert np.array_equal(dataset1.response, np.array([1, 2, 3, 4, 5, 6]))
-    assert np.array_equal(dataset1.cell_line_ids, np.array([101, 102, 103, 104, 105, 106]))
+    assert np.array_equal(dataset1.cell_line_ids, np.array(["101", "102", "103", "104", "105", "106"]))
     assert np.array_equal(dataset1.drug_ids, np.array(["A", "B", "C", "D", "E", "F"]))
     assert np.array_equal(dataset1.tissue, np.array(["Tissue1", "Tissue2", "Tissue3", "Tissue4", "Tissue5", "Tissue6"]))
 
@@ -89,13 +89,13 @@ def test_remove_nan_responses() -> None:
     """Test if the remove_nan_responses method works correctly."""
     dataset = DrugResponseDataset(
         response=np.array([1, 2, 3, np.nan, 5, 6]),
-        cell_line_ids=np.array([101, 102, 103, 104, 105, 106]),
+        cell_line_ids=np.array(["101", "102", "103", "104", "105", "106"]),
         drug_ids=np.array(["A", "B", "C", "D", "E", "F"]),
         tissues=np.array(["Tissue1", "Tissue2", "Tissue3", "Tissue4", "Tissue5", "Tissue6"]),
     )
     dataset.remove_nan_responses()
     assert np.array_equal(dataset.response, np.array([1, 2, 3, 5, 6]))
-    assert np.array_equal(dataset.cell_line_ids, np.array([101, 102, 103, 105, 106]))
+    assert np.array_equal(dataset.cell_line_ids, np.array(["101", "102", "103", "105", "106"]))
     assert np.array_equal(dataset.drug_ids, np.array(["A", "B", "C", "E", "F"]))
     assert np.array_equal(dataset.tissue, np.array(["Tissue1", "Tissue2", "Tissue3", "Tissue5", "Tissue6"]))
 
@@ -105,7 +105,7 @@ def test_response_dataset_shuffle():
     # Create a dataset with known values
     dataset = DrugResponseDataset(
         response=np.array([1, 2, 3, 4, 5, 6]),
-        cell_line_ids=np.array([101, 102, 103, 104, 105, 106]),
+        cell_line_ids=np.array(["101", "102", "103", "104", "105", "106"]),
         drug_ids=np.array(["A", "B", "C", "D", "E", "F"]),
         tissues=np.array(["Tissue1", "Tissue2", "Tissue3", "Tissue4", "Tissue5", "Tissue6"]),
     )
@@ -121,7 +121,7 @@ def test_response_dataset_shuffle():
 
     # Check if the response, cell_line_ids, and drug_ids arrays are shuffled
     assert not np.array_equal(dataset.response, np.array([1, 2, 3, 4, 5, 6]))
-    assert not np.array_equal(dataset.cell_line_ids, np.array([101, 102, 103, 104, 105, 106]))
+    assert not np.array_equal(dataset.cell_line_ids, np.array(["101", "102", "103", "104", "105", "106"]))
     assert not np.array_equal(dataset.drug_ids, np.array(["A", "B", "C", "D", "E", "F"]))
     assert not np.array_equal(
         dataset.tissue, np.array(["Tissue1", "Tissue2", "Tissue3", "Tissue4", "Tissue5", "Tissue6"])
@@ -133,20 +133,20 @@ def test_response_data_remove_drugs_and_cell_lines():
     # Create a dataset with known values
     dataset = DrugResponseDataset(
         response=np.array([1, 2, 3, 4, 5]),
-        cell_line_ids=np.array([101, 102, 103, 104, 105]),
+        cell_line_ids=np.array(["101", "102", "103", "104", "105"]),
         drug_ids=np.array(["A", "B", "C", "D", "E"]),
         tissues=np.array(["Tissue1", "Tissue2", "Tissue3", "Tissue4", "Tissue5"]),
     )
 
     # Remove specific drugs and cell lines
     dataset._remove_drugs(["A", "C"])
-    dataset._remove_cell_lines([101, 103])
+    dataset._remove_cell_lines(["101", "103"])
 
     # Check if the removed drugs and cell lines are not present in the dataset
     assert "A" not in dataset.drug_ids
     assert "C" not in dataset.drug_ids
-    assert 101 not in dataset.cell_line_ids
-    assert 103 not in dataset.cell_line_ids
+    assert "101" not in dataset.cell_line_ids
+    assert "103" not in dataset.cell_line_ids
 
     # Check if the length of response, cell_line_ids, and drug_ids arrays is reduced accordingly
     assert len(dataset.response) == 3
@@ -159,13 +159,13 @@ def test_remove_rows():
     """Test if the remove_rows method works correctly."""
     dataset = DrugResponseDataset(
         response=np.array([1, 2, 3, 4, 5]),
-        cell_line_ids=np.array([101, 102, 103, 104, 105]),
+        cell_line_ids=np.array(["101", "102", "103", "104", "105"]),
         drug_ids=np.array(["A", "B", "C", "D", "E"]),
         tissues=np.array(["Tissue1", "Tissue2", "Tissue3", "Tissue4", "Tissue5"]),
     )
     dataset.remove_rows(np.array([0, 2, 4]))
     assert np.array_equal(dataset.response, np.array([2, 4]))
-    assert np.array_equal(dataset.cell_line_ids, np.array([102, 104]))
+    assert np.array_equal(dataset.cell_line_ids, np.array(["102", "104"]))
     assert np.array_equal(dataset.drug_ids, np.array(["B", "D"]))
     assert np.array_equal(dataset.tissue, np.array(["Tissue2", "Tissue4"]))
 
@@ -182,7 +182,7 @@ def test_response_dataset_reduce_to():
 
     dataset.reduce_to(cell_line_ids=np.array([102, 104]), drug_ids=np.array(["B", "D"]))
 
-    assert all(cell_line_id in [102, 104] for cell_line_id in dataset.cell_line_ids)
+    assert all(cell_line_id in ["102", "104"] for cell_line_id in dataset.cell_line_ids)
     assert all(drug_id in ["B", "D"] for drug_id in dataset.drug_ids)
     assert len(dataset.response) == 2
     assert len(dataset.cell_line_ids) == 2
@@ -192,7 +192,7 @@ def test_response_dataset_reduce_to():
     # Case 2: reduce_to(None, None) does nothing
     dataset = DrugResponseDataset(
         response=np.array([1, 2]),
-        cell_line_ids=np.array([201, 202]),
+        cell_line_ids=np.array(["201", "202"]),
         drug_ids=np.array(["X", "Y"]),
         tissues=np.array(["T1", "T2"]),
     )
@@ -200,13 +200,13 @@ def test_response_dataset_reduce_to():
     dataset.reduce_to(cell_line_ids=None, drug_ids=None)
 
     assert len(dataset.response) == 2
-    assert set(dataset.cell_line_ids) == {201, 202}
+    assert set(dataset.cell_line_ids) == {"201", "202"}
     assert set(dataset.drug_ids) == {"X", "Y"}
 
     # Case 3: reduce_to with empty lists removes all
     dataset = DrugResponseDataset(
         response=np.array([1, 2]),
-        cell_line_ids=np.array([301, 302]),
+        cell_line_ids=np.array(["301", "302"]),
         drug_ids=np.array(["M", "N"]),
         tissues=np.array(["T1", "T2"]),
     )
@@ -332,7 +332,7 @@ def test_transform(resp_transform: str):
 
     dataset = DrugResponseDataset(
         response=np.array([1, 2, 3, 4, 5]),
-        cell_line_ids=np.array([101, 102, 103, 104, 105]),
+        cell_line_ids=np.array(["101", "102", "103", "104", "105"]),
         drug_ids=np.array(["A", "B", "C", "D", "E"]),
         tissues=np.array(["Tissue1", "Tissue2", "Tissue3", "Tissue4", "Tissue5"]),
     )
