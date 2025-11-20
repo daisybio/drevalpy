@@ -6,9 +6,6 @@ from unittest.mock import patch
 import pandas as pd
 import torch
 
-import drevalpy.datasets.featurizer.create_drug_graphs as graphs
-import drevalpy.datasets.featurizer.create_molgnet_embeddings as molg
-
 
 def test_chemberta_featurizer(tmp_path):
     """
@@ -51,6 +48,11 @@ def test_graph_featurizer(tmp_path):
 
     :param tmp_path: Temporary path provided by pytest.
     """
+    try:
+        import drevalpy.datasets.featurizer.create_drug_graphs as graphs
+    except ImportError:
+        print("rdkit package not installed; skipping graph featurizer test.")
+        return
     dataset = "testset"
     data_dir = tmp_path / dataset
     data_dir.mkdir(parents=True)
@@ -74,6 +76,11 @@ def test_molgnet_featurizer(tmp_path):
 
     :param tmp_path: Temporary path provided by pytest.
     """
+    try:
+        import drevalpy.datasets.featurizer.create_molgnet_embeddings as molg
+    except ImportError:
+        print("rdkit package not installed; skipping molgnet featurizer test.")
+        return
     ds = "testset"
     ds_dir = tmp_path / ds
     ds_dir.mkdir(parents=True)

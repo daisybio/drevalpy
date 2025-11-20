@@ -15,13 +15,17 @@ import numpy as np
 import pandas as pd
 import torch
 import torch.nn.functional as torch_nn_f
-from rdkit import Chem
-from rdkit.Chem.rdchem import Mol as RDMol
 from torch import nn
 from torch.nn import Parameter
 from torch_geometric.data import Data
 from torch_geometric.utils import add_self_loops, softmax
 from tqdm import tqdm
+
+try:
+    from rdkit import Chem
+    from rdkit.Chem.rdchem import Mol as RDMol
+except ImportError:
+    raise ImportError("Please install rdkit package for MolGNet featurizer: pip install rdkit")
 
 # building graphs
 allowable_features: dict[str, list[Any]] = {

@@ -13,9 +13,13 @@ from pathlib import Path
 
 import pandas as pd
 import torch
-from rdkit import Chem
 from torch_geometric.data import Data
 from tqdm import tqdm
+
+try:
+    from rdkit import Chem
+except ImportError:
+    raise ImportError("Please install rdkit package for drug graphs featurizer: pip install rdkit")
 
 # Atom feature configuration
 ATOM_FEATURES = {
