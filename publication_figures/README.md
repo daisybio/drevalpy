@@ -33,3 +33,5 @@ Tables
 - Table S10 (cross-study predictions with other metrics): [sup_tables_performance_results.R](sup_tables_performance_results.R)
 - Table S11 (ablation study results): [sup_tables_performance_results.R](sup_tables_performance_results.R)
 - Table S12 (proteomics random forest): [sup_tables_performance_results.R](sup_tables_performance_results.R); lines are part of the output of the big latex table (S6, S7)
+- Table S14 (statistical details Friedman-Chi2 test): [cd_diagrams.ipynb](cd_diagrams.ipynb)
+- Table S15-S18 (statistical details pairwise post-hoc conover tests): [cd_diagrams.ipynb](cd_diagrams.ipynb)
