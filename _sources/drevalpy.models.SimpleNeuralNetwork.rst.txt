@@ -1,7 +1,7 @@
 Simple Neural Network
 ===========================================
 
-Simple Neural Network Model
+Simple Neural Network Model and ChemBERTaNeuralNetwork
 ------------------------------------------------------------------
 
 .. automodule:: drevalpy.models.SimpleNeuralNetwork.simple_neural_network

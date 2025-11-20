@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>How to use DrEvalPy &mdash; DrEvalPy 1.3.5 documentation</title>
+  <title>How to use DrEvalPy &mdash; DrEvalPy 1.4.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
       <link rel="stylesheet" type="text/css" href="_static/custom_cookietemple.css?v=a7e27724" />
@@ -14,7 +14,7 @@
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=4720776d"></script>
+      <script src="_static/documentation_options.js?v=9172181d"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
@@ -307,6 +307,16 @@ For <code class="docutils literal notranslate"><span class="pre">--models</span>
 <td><p>Multi-Drug Model</p></td>
 <td><p>Fits a simple feedforward neural network (implemented with <a class="reference external" href="https://lightning.ai/docs/pytorch/stable/">Pytorch Lightning</a>) on gene expression, methylation, mutation, copy number variation data, and drug fingerprints (concatenated input) with 3 layers of varying dimensions and Dropout layers. The dimensionality of the methylation data is reduced with a PCA to the first 100 components before it is fed to the model.</p></td>
 </tr>
+<tr class="row-even"><td><p>ChemBERTaNeuralNetwork</p></td>
+<td><p>Baseline Method</p></td>
+<td><p>Multi-Drug Model</p></td>
+<td><p>Same architecture as the SimpleNeuralNetwork but uses pre-computed ChemBERTa embeddings as input instead of drug fingerprints.</p></td>
+</tr>
+<tr class="row-odd"><td><p>DrugGNN</p></td>
+<td><p>Baseline Method</p></td>
+<td><p>Multi-Drug Model</p></td>
+<td><p>Represents drugs as graph, encodes their structure with a 3-layer GNN. Uses a 2-layer MLP for encoding gene expression. Concatenates the representations and feeds them through 2 more MLP layers.</p></td>
+</tr>
 <tr class="row-even"><td><p>SRMF</p></td>
 <td><p>Published Model</p></td>
 <td><p>Multi-Drug Model</p></td>
@@ -332,7 +342,8 @@ For <code class="docutils literal notranslate"><span class="pre">--models</span>
 </section>
 <section id="available-datasets">
 <h2>Available Datasets<a class="headerlink" href="#available-datasets" title="Link to this heading"></a></h2>
-<p>We provide commonly used datasets to evaluate your model on (GDSC1, GDSC2, CCLE, CTRPv2) via the <code class="docutils literal notranslate"><span class="pre">--dataset_name</span></code> parameter.</p>
+<p>We provide commonly used datasets to evaluate your model on (GDSC1, GDSC2, CCLE, CTRPv2) via the <code class="docutils literal notranslate"><span class="pre">--dataset_name</span></code> parameter.
+Further, we provide 2 datasets with more clinical relevance: BeatAML2 and PDX_Bruna.</p>
 <table class="docutils align-default">
 <thead>
 <tr class="row-odd"><th class="head"><p>Dataset Name</p></th>
@@ -385,6 +396,18 @@ For <code class="docutils literal notranslate"><span class="pre">--models</span>
 <td><p>90</p></td>
 <td><p>A second toy dataset for cross study testing purposes. 80 cell lines and 32 drugs overlap TOYv2.</p></td>
 </tr>
+<tr class="row-odd"><td><p>BeatAML2</p></td>
+<td><p>62,487</p></td>
+<td><p>166</p></td>
+<td><p>569 (patients)</p></td>
+<td><p>Ex vivo drug sensitivity screening for a cohort of acute myeloid leukemia (AML) patients.</p></td>
+</tr>
+<tr class="row-even"><td><p>PDX_Bruna</p></td>
+<td><p>2,559</p></td>
+<td><p>104</p></td>
+<td><p>37 (mouse passages)</p></td>
+<td><p>Ex vivo drug sensitivity screening for short-term cultures of PDTX-derived tumor cells from breast cancer patients</p></td>
+</tr>
 </tbody>
 </table>
 <p>If not specifying <code class="docutils literal notranslate"><span class="pre">--no_refitting</span></code> option with these datasets (default: false), the desired measure provided with the <code class="docutils literal notranslate"><span class="pre">--measure</span></code> option is appended with “_curvecurator”, e.g. “IC50_curvecurator”.
@@ -414,9 +437,34 @@ It is therefore recommended to always use DrEvalPy without the <code class="docu
 </dl>
 </li>
 <li><dl class="simple">
-<dt>Used by all:</dt><dd><ul>
+<dt>Used by GDSC1, 2, CCLE, CTRPv1 and v2:</dt><dd><ul>
 <li><p>Mutation &amp; CNV data: <a class="reference external" href="https://cellmodelpassports.sanger.ac.uk/downloads">Sanger Cell Model Passports</a>.</p></li>
 <li><p>Proteomics: Raw data at PRIDE: PXD030304</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>BeatAML2:</dt><dd><ul>
+<li><p>Gene expression: RNA-seq but not re-processed because of missing FASTQ files. Taken from <a class="reference external" href="https://biodev.github.io/BeatAML2/">the corresponding website</a></p></li>
+<li><p>Mutation data would have been available but is measured too shallow, so we chose not to include it</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>PDX_Bruna:</dt><dd><ul>
+<li><p>Retrieved from <a class="reference external" href="https://figshare.com/s/4a3f6bc543e5ba85834c">the corresponding figshare</a></p></li>
+<li><p>Gene expression: Microarray expression data</p></li>
+<li><p>Copy number variation: Reprocessed with GISTIC2.0</p></li>
+<li><p>Mutation data would have been available but is measured too shallow, so we chose not to include it</p></li>
+<li><p>Methylation data would have been available but only Promoter methylation data which is incompatible with the CpG methylation data we have for the other screens.</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Drug features</dt><dd><ul>
 <li><p>Morgan Fingerprints were generated with RDKit from SMILES either downloaded from PubChem or provided by GDSC.</p></li>
 <li><dl class="simple">
 <dt><a class="reference external" href="https://drive.google.com/drive/folders/16hP48-noHi3-c_LP9TcZxkwAzqxgR0VB">DIPK associated drive</a></dt><dd><ul>
@@ -426,9 +474,16 @@ It is therefore recommended to always use DrEvalPy without the <code class="docu
 </dd>
 </dl>
 </li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Gene lists</dt><dd><ul>
 <li><p>The 978 landmark genes are from the L1000 assay</p></li>
 <li><p>The drug target genes are the genes targeted by the drugs used in GDSC, extractable from the <a class="reference external" href="https://www.cancerrxgene.org/downloads/bulk_download">GDSC Data Portal</a> (compounds annotation).</p></li>
 <li><p>The intersection lists are features occurring in all datasets for the respective OMICs to ensure that cross-study predictions can easily be done because the features are shared.</p></li>
+<li><p>Reduced versions of the lists only containing genes occurring in all datasets</p></li>
 </ul>
 </dd>
 </dl>
