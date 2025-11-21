@@ -22,26 +22,33 @@ By contributing your model to the DrEval catalog, you can increase your work's e
 
 ![DrEval](docs/_static/img/overview.png)
 
-Use DrEval to Build Drug Response Models That Have an Impact
+---
 
-    1. Maintained, up-to-date baseline catalog, no need to re-implement literature models
+Use DrEval to build drug response models that have an impact
 
-    2. Gold standard datasets for benchmarking
+1. Maintained, up-to-date baseline catalog, no need to re-implement literature models
+2. Gold standard datasets for benchmarking
+3. Consistent application-driven evaluation
+4. Ablation studies with permutation tests
+5. Cross-study evaluation for generalization analysis
+6. Optimized nextflow pipeline for fast experiments
+7. Easy-to-use hyperparameter tuning
+8. Paper-ready visualizations to display performance
 
-    3. Consistent application-driven evaluation
-
-    4. Ablation studies with permutation tests
-
-    5. Cross-study evaluation for generalization analysis
-
-    6. Optimized nextflow pipeline for fast experiments
-
-    7. Easy-to-use hyperparameter tuning
-
-    8. Paper-ready visualizations to display performance
+---
 
 This project is a collaboration of the Technical University of Munich (TUM, Germany)
 and the Freie Universität Berlin (FU, Germany).
+
+## Demo
+
+Check out our demo notebook in Colab:
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/daisybio/drevalpy/blob/development/dreval_colab_demo.ipynb)
+
+Expected runtime on a normal machine:
+
+- Standalone demo: 38 minutes
+- Nextflow demo: 5 minutes
 
 ## Installation
 
@@ -50,6 +57,14 @@ Using pip:
 ```bash
 pip install drevalpy
 ```
+
+Optional Ray Tune support (for parallel hyperparameter tuning):
+
+```bash
+pip install drevalpy[multiprocessing]
+```
+
+On a regular machine, the installation should take about a minute.
 
 Using docker:
 
@@ -67,15 +82,21 @@ pip install poetry-plugin-export
 poetry install
 ```
 
+Check your installation by running in your console:
+
+```bash
+drevalpy --help
+```
+
 ## Quickstart
 
 To run models from the catalog, you can run:
 
 ```bash
-python run_suite.py --run_id my_first_run --models NaiveTissueMeanPredictor NaiveDrugMeanPredictor --baselines NaiveMeanEffectsPredictor --dataset TOYv1 --test_mode LCO
+drevalpy --run_id my_first_run --models NaiveTissueMeanPredictor NaiveDrugMeanPredictor --dataset TOYv1 --test_mode LCO
 ```
 
-This will train our baseline models which just predict the drug or tissue means or the mean drug and cell line effects.
+This will download a small toy drug response dataset, train our baseline models which just predict the drug or tissue means or the mean drug and cell line effects.
 It will evaluate in "LCO" which is the leave-cell-line-out splitting strategy using 7 fold cross validation.
 The results will be stored in
 
@@ -86,10 +107,10 @@ results/my_first_run/TOYv1/LCO
 You can visualize them using
 
 ```bash
-python create_report.py --run_id my_first_run --dataset TOYv1
+drevalpy-report --run_id my_first_run --dataset TOYv1
 ```
 
-This will create an index.html file which you can open in your web browser.
+This will create an index.html file in the results directory which you can open in your web browser.
 
 You can also run a drug response experiment using Python:
 
@@ -98,56 +119,38 @@ from drevalpy.experiment import drug_response_experiment
 from drevalpy.models import MODEL_FACTORY
 from drevalpy.datasets import AVAILABLE_DATASETS
 
-naive_mean = MODEL_FACTORY["NaiveMeanEffectsPredictor"]
-rf = MODEL_FACTORY["RandomForest"]
-simple_nn = MODEL_FACTORY["SimpleNeuralNetwork"]
+from drevalpy.experiment import drug_response_experiment
 
-toyv2 = AVAILABLE_DATASETS["TOYv2"](path_data="data", measure="LN_IC50_curvecurator")
+naive_mean = MODEL_FACTORY["NaivePredictor"] # a naive model that just predicts the training mean
+enet = MODEL_FACTORY["ElasticNet"] # An Elastic Net based on drug fingerprints and gene expression of 1000 landmark genes
+simple_nn = MODEL_FACTORY["SimpleNeuralNetwork"] # A neural network based on drug fingerprints and gene expression of 1000 landmark genes
+
+toyv1 = AVAILABLE_DATASETS["TOYv1"](path_data="data")
 
 drug_response_experiment(
-            models=[rf, simple_nn],
-            baselines=[naive_mean],
-            response_data=toyv2,
-            metric="RMSE",
-            n_cv_splits=7,
-            test_mode="LCO",
-            run_id="my_second_run",
-            path_data="data",
-            hyperparameter_tuning=False,
-        )
+            models=[enet, simple_nn],
+            baselines=[naive_mean], # Ablation studies and robustness tests are not run for baselines.
+            response_data=toyv1,
+            n_cv_splits=2, # the number of cross validation splits. Should be higher in practice :)
+            test_mode="LCO", # LCO means Leave-Cell-Line out. This means that the test and validation splits only contain unseed cell lines.
+            run_id="my_first_run",
+            path_data="data", # where the downloaded drug response and feature data is stored
+            path_out="results", # results are stored here :)
+            hyperparameter_tuning=False) # if True (default), hyperparameters of the models and baselines are tuned.
 ```
 
 This will run the Random Forest and Simple Neural Network models on the CTRPv2 dataset, using the Naive Mean Effects Predictor as a baseline. The results will be stored in `results/my_second_run/CTRPv2/LCO`.
 To obtain evaluation metrics, you can use:
 
 ```python
-from drevalpy.visualization.utils import parse_results, prep_results, write_results
-import pathlib
+from drevalpy.visualization.create_report import create_report
 
-# load data, evaluate per CV run
-(
-        evaluation_results,
-        evaluation_results_per_drug,
-        evaluation_results_per_cell_line,
-        true_vs_pred,
-    ) = parse_results(path_to_results="results/my_second_run", dataset='TOYv2')
-# reformat, calculate normalized metrics
-(
-        evaluation_results,
-        evaluation_results_per_drug,
-        evaluation_results_per_cell_line,
-        true_vs_pred,
-    ) = prep_results(
-        evaluation_results, evaluation_results_per_drug, evaluation_results_per_cell_line, true_vs_pred, pathlib.Path("data")
-    )
-
-write_results(
-        path_out="results/my_second_run",
-        eval_results=evaluation_results,
-        eval_results_per_drug=evaluation_results_per_drug,
-        eval_results_per_cl=evaluation_results_per_cell_line,
-        t_vs_p=true_vs_pred,
-    )
+create_report(
+    run_id="my_first_run",
+    dataset=toyv1.dataset_name,
+    path_data= "data",
+    result_path="results",
+)
 ```
 
 We recommend the use of our Nextflow pipeline for computational demanding runs and for improved reproducibility.
@@ -156,6 +159,92 @@ No knowledge of Nextflow is required to run it. The nextflow pipeline is availab
 ## Example Report
 
 [Browse our benchmark results here.](https://dilis-lab.github.io/drevalpy-report/)
+You can reproduce the whole analysis by running the following commands:
+
+```bash
+# Main run
+nextflow run nf-core/drugresponseeval \
+    -profile docker \
+    --run_id main_results \
+    --dataset_name CTRPv2 \
+    --cross_study_datasets CTRPv1,CCLE,GDSC1,GDSC2 \
+    --models DIPK,MultiOmicsRandomForest \
+    --baselines SimpleNeuralNetwork,RandomForest,MultiOmicsNeuralNetwork,NaiveMeanEffectsPredictor,GradientBoosting,SRMF,ElasticNet,NaiveTissueMeanPredictor,NaivePredictor,SuperFELTR,NaiveCellLineMeanPredictor,NaiveDrugMeanPredictor,ProteomicsRandomForest \
+    --test_mode LPO,LCO,LTO,LDO \
+    --randomization_mode SVRC,SVRD \
+    --randomization_type permutation \
+    --measure LN_IC50
+
+# EC50 run
+nextflow run nf-core/drugresponseeval \
+    -profile docker \
+    --run_id ec50_run \
+    --dataset_name CTRPv2 \
+    --cross_study_datasets CTRPv1,CCLE,GDSC1,GDSC2,PDX_Bruna,BeatAML2 \
+    --models RandomForest \
+    --baselines NaiveMeanEffectsPredictor \
+    --test_mode LCO \
+    --measure pEC50
+
+# AUC run
+nextflow run nf-core/drugresponseeval \
+    -profile docker \
+    --run_id auc_run \
+    --dataset_name CTRPv2 \
+    --cross_study_datasets CTRPv1,CCLE,GDSC1,GDSC2,PDX_Bruna,BeatAML2 \
+    --models RandomForest \
+    --baselines NaiveMeanEffectsPredictor \
+    --test_mode LCO \
+    --measure AUC
+
+# Invariant ablation run
+# Run this on CPU
+nextflow run nf-core/drugresponseeval \
+    -profile docker \
+    --run_id invariant-rf \
+    --dataset_name CTRPv2 \
+    --models MultiOmicsRandomForest \
+    --baselines NaiveMeanEffectsPredictor \
+    --test_mode LPO,LCO,LDO \
+    --randomization_mode SVRC,SVRD \
+    --randomization_type invariant \
+    --measure LN_IC50
+
+# modify the profile to run this on GPU, if possible
+nextflow run nf-core/drugresponseeval \
+    -profile docker \
+    --run_id invariant-dipk \
+    --dataset_name CTRPv2 \
+    --models DIPK \
+    --baselines NaiveMeanEffectsPredictor \
+    --test_mode LPO,LCO,LDO \
+    --randomization_mode SVRC,SVRD \
+    --randomization_type invariant \
+    --measure LN_IC50
+
+## Inference on BeatAMl2, PDX_Bruna
+# run this on CPU
+nextflow run nf-core/drugresponseeval \
+    -profile docker \
+    --run_id infer_pdx_beat \
+    --dataset_name CTRPv2 \
+    --cross_study_datasets PDX_Bruna,BeatAML2 \
+    --models RandomForest,SimpleNeuralNetwork,GradientBoosting,SRMF,ElasticNet,NaivePredictor,NaiveDrugMeanPredictor,NaiveCellLineMeanPredictor \
+    --baselines NaiveMeanEffectsPredictor \
+    --test_mode LPO,LCO,LDO \
+    --measure LN_IC50
+
+# modify profile to run this on GPU, if possible
+nextflow run nf-core/drugresponseeval \
+    -profile docker \
+    --run_id dipk_pdx_beat \
+    --dataset_name CTRPv2 \
+    --cross_study_datasets PDX_Bruna,BeatAML2 \
+    --models DIPK \
+    --baselines NaiveMeanEffectsPredictor \
+    --test_mode LPO,LCO,LDO \
+    --measure LN_IC50
+```
 
 ## Contact
 

@@ -73,9 +73,9 @@ To install DrEvalPy from source, clone the repository and install the package us
 
     git clone https://github.com/daisybio/drevalpy.git
     cd drevalpy
-    mamba create -y -n drevalpy python==3.13 poetry==2.1.3
+    mamba create -y -n drevalpy python==3.13 poetry==2.2.1
     poetry --version
     pip install poetry-plugin-export
     poetry install
 
-Now, you can test the functionality by referring to the `Quickstart <./quickstart.html>`_ documentation.
+Now, you can test the functionality quickly via `drevalpy --help`. Or take a look at the `Quickstart <./quickstart.html>`_ documentation.

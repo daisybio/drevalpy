@@ -183,4 +183,4 @@ def test_single_drug_models(
         ) = evaluate_file(pred_file=file, test_mode=test_mode, model_name=model_name)
         assert len(overall_eval) == 1
         print(f"Performance of {model_name}: PCC = {overall_eval['Pearson'][0]}")
-        assert overall_eval["Pearson"][0] >= -1.0
+        assert overall_eval["Pearson"].iloc[0] >= -1.0

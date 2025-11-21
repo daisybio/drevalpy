@@ -13,6 +13,7 @@ measurements of low quality.
 """
 
 import subprocess
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -31,6 +32,15 @@ def _prepare_raw_data(curve_df: pd.DataFrame, output_dir: Path, prefix: str = ""
     else:
         n_replicates = 1
         pivot_columns = ["dose"]
+
+    if curve_df.duplicated(subset=["sample", "drug", "dose", "replicate"]).any():
+        warnings.warn(
+            "CurveCurator Raw Data Processing: Duplicate entries found for some (sample, drug, dose, replicate)"
+            " combinations. Aggregating using mean of the 'response'.",
+            UserWarning,
+            stacklevel=1,
+        )
+        curve_df = curve_df.groupby(["sample", "drug", "dose", "replicate"], as_index=False)["response"].mean()
 
     df = curve_df.pivot(index=["sample", "drug"], columns=pivot_columns, values="response")
 
@@ -59,7 +69,14 @@ def _prepare_raw_data(curve_df: pd.DataFrame, output_dir: Path, prefix: str = ""
 
 
 def _prepare_toml(
-    filename: str, n_exp: int, n_replicates: int, doses: list[float], dataset_name: str, cores: int, condition: str = ""
+    filename: str,
+    n_exp: int,
+    n_replicates: int,
+    doses: list[float],
+    dataset_name: str,
+    cores: int,
+    condition: str = "",
+    normalize: bool = False,
 ):
     config = {
         "Meta": {
@@ -71,8 +88,8 @@ def _prepare_toml(
         "Experiment": {
             "experiments": range(n_exp),
             "doses": doses,
-            "dose_scale": "1e-06",
-            "dose_unit": "M",
+            "dose_scale": "1",
+            "dose_unit": "uM",
             "control_experiment": [i for i in range(n_replicates)],
             "measurement_type": "OTHER",
             "data_type": "OTHER",
@@ -90,7 +107,7 @@ def _prepare_toml(
             "available_cores": cores,
             "max_missing": max(len(doses) - 5, 0),
             "imputation": False,
-            "normalization": False,
+            "normalization": normalize,
         },
         "Curve Fit": {
             "type": "OLS",
@@ -123,13 +140,22 @@ def _exec_curvecurator(output_dir: Path, batched: bool = True):
         of configs spefified in <output_dir>/configlist.txt and consecutively executing each
         CurveCurator run. If False, run a single CurveCurator run (this can be used for
         parallelisation).
+    :raises RuntimeError: If CurveCurator fails to execute, the error message is printed to stdout and stderr.
     """
     if batched:
         command = ["CurveCurator", str(output_dir / "configlist.txt"), "--mad", "--batch"]
     else:
         command = ["CurveCurator", str(output_dir / "config.toml"), "--mad"]
-    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    process.communicate()
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    stdout, stderr = process.communicate()
+
+    if process.returncode != 0:
+        print("CurveCurator stdout:")
+        print(stdout)
+        print("CurveCurator stderr:")
+        print(stderr)
+
+        raise RuntimeError(f"CurveCurator failed with exit code {process.returncode}")
 
 
 def _calc_ic50(model_params_df: pd.DataFrame):
@@ -139,6 +165,7 @@ def _calc_ic50(model_params_df: pd.DataFrame):
     This function expects a dataframe that was processed in the postprocess function, containing
     the columns "Front", "Back", "Slope", "pEC50". It calculates the IC50 for all the models in the
     dataframe in closed form and adds the column IC50_curvecurator to the input dataframe.
+    Also adds the natural logarithm of the IC50 as LN_IC50_curvecurator.
 
     :param model_params_df: a dataframe containing the fitted parameters
     """
@@ -153,10 +180,11 @@ def _calc_ic50(model_params_df: pd.DataFrame):
     pec50 = model_params_df["pEC50_curvecurator"].values
 
     model_params_df["IC50_curvecurator"] = ic50(front, back, slope, pec50)
+    model_params_df["LN_IC50_curvecurator"] = np.log(model_params_df["IC50_curvecurator"].values)
 
 
 @pipeline_function
-def preprocess(input_file: str | Path, output_dir: str | Path, dataset_name: str, cores: int):
+def preprocess(input_file: str | Path, output_dir: str | Path, dataset_name: str, cores: int, normalize: bool = False):
     """
     Preprocess raw viability data and create required input files for CurveCurator.
 
@@ -175,6 +203,7 @@ def preprocess(input_file: str | Path, output_dir: str | Path, dataset_name: str
     :param cores: The number of cores to be used for fitting the curves using CurveCurator.
         This parameter is written into the config.toml, but it is min of the number of curves to fit
         and the number given (min(n_curves, cores))
+    :param normalize: Whether to normalize the response values to [0, 1] for curvecurator. Default = False.
     :raises ValueError: If required columns are not found in the provided input file.
     """
     input_file = Path(input_file)
@@ -217,7 +246,14 @@ def preprocess(input_file: str | Path, output_dir: str | Path, dataset_name: str
             curve_df=df, output_dir=output_dir, prefix=prefix
         )
         config = _prepare_toml(
-            input_file.name, n_exp, n_replicates, doses, dataset_name, min(n_curves_to_fit, cores), prefix
+            filename=input_file.name,
+            n_exp=n_exp,
+            n_replicates=n_replicates,
+            doses=doses,
+            dataset_name=dataset_name,
+            cores=min(n_curves_to_fit, cores),
+            condition=prefix,
+            normalize=normalize,
         )
         config_path = output_dir / prefix / "config.toml"
         with open(config_path, "w") as f:
@@ -280,7 +316,7 @@ def postprocess(output_folder: str | Path, dataset_name: str):
         f.close()
 
 
-def fit_curves(input_file: str | Path, output_dir: str | Path, dataset_name: str, cores: int):
+def fit_curves(input_file: str | Path, output_dir: str | Path, dataset_name: str, cores: int, normalize: bool = False):
     """
     Fit curves for provided raw viability data.
 
@@ -295,7 +331,10 @@ def fit_curves(input_file: str | Path, output_dir: str | Path, dataset_name: str
     :param cores: The number of cores to be used for fitting the curves using CurveCurator.
         This parameter is written into the config.toml, but it is min of the number of curves to fit
         and the number given (min(n_curves, cores))
+    :param normalize: Whether to normalize the response values to [0, 1] for curvecurator. Default = False.
     """
-    preprocess(input_file, output_dir, dataset_name, cores)
-    _exec_curvecurator(Path(output_dir))
-    postprocess(output_dir, dataset_name)
+    preprocess(
+        input_file=input_file, output_dir=output_dir, dataset_name=dataset_name, cores=cores, normalize=normalize
+    )
+    _exec_curvecurator(output_dir=Path(output_dir))
+    postprocess(output_folder=output_dir, dataset_name=dataset_name)

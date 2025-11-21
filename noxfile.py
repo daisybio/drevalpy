@@ -144,10 +144,18 @@ def tests(session: Session) -> None:
 
     :param session: The Session object.
     """
-    session.install(".[fit]")
+    session.install(".[multiprocessing]")
     session.install("coverage[toml]", "pytest", "pygments")
     try:
-        session.run("coverage", "run", "--parallel", "-m", "pytest", *session.posargs)
+        session.run(
+            "coverage",
+            "run",
+            "--parallel",
+            "-m",
+            "pytest",
+            "--ignore=tests/test_hpam_tune_raytune.py",  # skip ray, not enough disk space on the runner for ray
+            *session.posargs,
+        )
     finally:
         if session.interactive:
             session.notify("coverage")
@@ -182,7 +190,12 @@ def typeguard(session: Session) -> None:
     """
     session.install(".[fit]")
     session.install("pytest", "typeguard", "pygments")
-    session.run("pytest", f"--typeguard-packages={package}", *session.posargs)
+    session.run(
+        "pytest",
+        f"--typeguard-packages={package}",
+        "--ignore=tests/test_hpam_tune_raytune.py",
+        *session.posargs,
+    )
 
 
 @session(python=python_versions)

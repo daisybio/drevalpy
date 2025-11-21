@@ -67,3 +67,6 @@
 - name: skip-changelog
   description: Changes that should be omitted from the release notes
   color: "#ededed"
+- name: DEPENDABOT
+  description: Pull requests created by Dependabot
+  color: "#ff00b3"

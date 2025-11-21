@@ -13,7 +13,7 @@ import pandas as pd
 import torch
 from sklearn.base import TransformerMixin
 
-from .datasets.dataset import DrugResponseDataset, FeatureDataset, _split_early_stopping_data
+from .datasets.dataset import DrugResponseDataset, FeatureDataset, split_early_stopping_data
 from .evaluation import evaluate, get_mode
 from .models import MODEL_FACTORY, MULTI_DRUG_MODEL_FACTORY, SINGLE_DRUG_MODEL_FACTORY
 from .models.drp_model import DRPModel
@@ -32,7 +32,7 @@ def drug_response_experiment(
     response_transformation: TransformerMixin | None = None,
     run_id: str = "",
     test_mode: str = "LPO",
-    metric: str = "RMSE",
+    hpam_optimization_metric: str = "RMSE",
     n_cv_splits: int = 5,
     multiprocessing: bool = False,
     randomization_mode: list[str] | None = None,
@@ -53,7 +53,8 @@ def drug_response_experiment(
     :param baselines: list of baseline models. No randomization or robustness tests are run for the baseline models.
     :param response_data: drug response dataset
     :param response_transformation: normalizer to use for the response data
-    :param metric: metric to use for hyperparameter optimization
+    :param hpam_optimization_metric: metric to use for hyperparameter optimization
+        (i.e., for selecting the best model on the validation set)
     :param n_cv_splits: number of cross-validation splits
     :param multiprocessing: whether to use multiprocessing. This requires Ray to be installed.
     :param randomization_mode: list of randomization modes to do. Modes: SVCC, SVRC, SVCD, SVRD Can be a list of
@@ -98,8 +99,13 @@ def drug_response_experiment(
         which was evaluated in the nested cross validation.
     :raises ValueError: if no cv splits are found
     """
+    # Default baseline model, needed for normalization
+    nme = MODEL_FACTORY["NaiveMeanEffectsPredictor"]
     if baselines is None:
-        baselines = []
+        baselines = [nme]
+    elif nme not in baselines:
+        baselines.append(nme)
+
     cross_study_datasets = cross_study_datasets or []
     result_path = os.path.join(path_out, run_id, response_data._name, test_mode)
     split_path = os.path.join(result_path, "splits")
@@ -166,7 +172,9 @@ def drug_response_experiment(
             raise ValueError("No cv splits found.")
 
         for split_index, split in enumerate(response_data.cv_splits):
+            print()
             print(f"################# FOLD {split_index + 1}/{len(response_data.cv_splits)} " f"#################")
+            print()
 
             prediction_file = os.path.join(predictions_path, f"predictions_split_{split_index}.csv")
 
@@ -192,7 +200,7 @@ def drug_response_experiment(
                     "early_stopping_dataset": early_stopping_dataset,
                     "hpam_set": model_hpam_set,
                     "response_transformation": response_transformation,
-                    "metric": metric,
+                    "metric": hpam_optimization_metric,
                     "path_data": path_data,
                     "model_checkpoint_dir": model_checkpoint_dir,
                 }
@@ -301,8 +309,8 @@ def drug_response_experiment(
                 response_transformation=response_transformation,
                 path_data=path_data,
                 model_checkpoint_dir=model_checkpoint_dir,
-                metric=metric,
-                result_path=final_model_path,
+                metric=hpam_optimization_metric,
+                final_model_path=final_model_path,
                 test_mode=test_mode,
                 val_ratio=0.1,
                 hyperparameter_tuning=hyperparameter_tuning,
@@ -585,7 +593,7 @@ def cross_study_prediction(
             drug_input=drug_input,
         )
         if response_transformation:
-            dataset._response = response_transformation.inverse_transform(dataset.response)
+            dataset.inverse_transform(response_transformation)
     else:
         dataset._predictions = np.array([])
     dataset.to_csv(
@@ -941,7 +949,8 @@ def train_and_predict(
     # making sure there are no missing features:
     len_train_before = len(train_dataset)
     len_pred_before = len(prediction_dataset)
-    print(f"Number of cell lines in features: {len(cell_lines_to_keep)}")
+    if cell_lines_to_keep is not None:
+        print(f"Number of cell lines in features: {len(cell_lines_to_keep)}")
     if drugs_to_keep is not None:
         print(f"Number of drugs in features: {len(drugs_to_keep)}")
     print(f"Number of cell lines in train dataset: {len(np.unique(train_dataset.cell_line_ids))}")
@@ -993,6 +1002,7 @@ def train_and_predict(
         )
 
     if len(prediction_dataset) > 0:
+        drug_input = drug_features.copy() if drug_features is not None else None
         prediction_dataset._predictions = model.predict(
             cell_line_ids=prediction_dataset.cell_line_ids,
             drug_ids=prediction_dataset.drug_ids,
@@ -1000,10 +1010,14 @@ def train_and_predict(
             drug_input=drug_input,
         )
 
-        if response_transformation:
-            prediction_dataset.inverse_transform(response_transformation)
     else:
         prediction_dataset._predictions = np.array([])
+
+    if response_transformation:
+        train_dataset.inverse_transform(response_transformation)
+        prediction_dataset.inverse_transform(response_transformation)
+        if early_stopping_dataset is not None:
+            early_stopping_dataset.inverse_transform(response_transformation)
 
     return prediction_dataset
 
@@ -1016,7 +1030,7 @@ def train_and_evaluate(
     validation_dataset: DrugResponseDataset,
     early_stopping_dataset: DrugResponseDataset | None = None,
     response_transformation: TransformerMixin | None = None,
-    metric: str = "rmse",
+    metric: str = "RMSE",
     model_checkpoint_dir: str = "TEMPORARY",
 ) -> dict[str, float]:
     """
@@ -1122,51 +1136,77 @@ def hpam_tune_raytune(
     model_checkpoint_dir: str = "TEMPORARY",
 ) -> dict:
     """
-    Tune the hyperparameters for the given model using raytune. This requires ray to be installed.
+    Tune the hyperparameters for the given model using Ray Tune. Ray[tune] must be installed.
 
     :param model: model to use
     :param train_dataset: training dataset
     :param validation_dataset: validation dataset
     :param early_stopping_dataset: early stopping dataset
     :param hpam_set: hyperparameters to tune
-    :param response_transformation: normalizer to use for the response data
-    :param metric: metric to evaluate which model is the best
+    :param response_transformation: normalizer for response data
+    :param metric: evaluation metric
     :param ray_path: path to the raytune directory
-    :param path_data: path to the data directory, e.g., data/
-    :param model_checkpoint_dir: directory to save model checkpoints
+    :param path_data: path to data directory, e.g., data/
+    :param model_checkpoint_dir: directory for model checkpoints
     :returns: best hyperparameters
     """
+    print("Starting hyperparameter tuning with Ray Tune ...")
+    print(f"Hyperparameter combinations to evaluate: {len(hpam_set)}")
+    print()
+
     if len(hpam_set) == 1:
         return hpam_set[0]
-    ray.init(_temp_dir=os.path.join(os.path.expanduser("~"), "raytmp"))
-    if torch.cuda.is_available():
-        resources_per_trial = {"gpu": 1}  # TODO make this user defined
-    else:
-        resources_per_trial = {"cpu": 1}  # TODO make this user defined
-    analysis = ray.tune.run(
-        lambda hpams: train_and_evaluate(
-            model=model,
-            hpams=hpams,
-            path_data=path_data,
-            train_dataset=train_dataset,
-            validation_dataset=validation_dataset,
-            early_stopping_dataset=early_stopping_dataset,
-            metric=metric,
-            response_transformation=response_transformation,
-            model_checkpoint_dir=model_checkpoint_dir,
+
+    import ray
+    from ray import tune
+
+    path_data = os.path.abspath(path_data)
+    if not ray.is_initialized():
+        ray.init(_temp_dir=os.path.join(os.path.expanduser("~"), "raytmp"))
+    resources_per_trial = {"gpu": 1} if torch.cuda.is_available() else {"cpu": 1}
+
+    def trainable(hpams):
+        try:
+            inner = hpams["hpams"]
+            result = train_and_evaluate(
+                model=model,
+                hpams=inner,
+                path_data=path_data,
+                train_dataset=train_dataset,
+                validation_dataset=validation_dataset,
+                early_stopping_dataset=early_stopping_dataset,
+                metric=metric,
+                response_transformation=response_transformation,
+                model_checkpoint_dir=model_checkpoint_dir,
+            )
+            tune.report(metrics={metric: result[metric]})
+        except Exception as e:
+            import traceback
+
+            print("Trial failed:", e)
+            traceback.print_exc()
+
+    trainable = tune.with_resources(trainable, resources_per_trial)
+    param_space = {"hpams": tune.grid_search(hpam_set)}
+
+    tuner = tune.Tuner(
+        trainable,
+        param_space=param_space,
+        run_config=tune.RunConfig(
+            storage_path=ray_path,
+            name="hpam_tuning",
         ),
-        config=ray.tune.grid_search(hpam_set),
-        mode="min",
-        num_samples=5,
-        resources_per_trial=resources_per_trial,
-        chdir_to_trial_dir=False,
-        verbose=0,
-        storage_path=ray_path,
+        tune_config=tune.TuneConfig(
+            metric=metric,
+            mode=get_mode(metric),
+        ),
     )
 
-    mode = get_mode(metric)
-    best_config = analysis.get_best_config(metric=metric, mode=mode)
-    return best_config
+    results = tuner.fit()
+    best_result = results.get_best_result(metric=metric, mode=get_mode(metric))
+    ray.shutdown()
+
+    return best_result.config["hpams"]
 
 
 @pipeline_function
@@ -1283,7 +1323,6 @@ def generate_data_saving_path(model_name, drug_id, result_path, suffix) -> str:
     return model_path
 
 
-@pipeline_function
 def train_final_model(
     model_class: type[DRPModel],
     full_dataset: DrugResponseDataset,
@@ -1291,7 +1330,7 @@ def train_final_model(
     path_data: str,
     model_checkpoint_dir: str,
     metric: str,
-    result_path: str,
+    final_model_path: str,
     test_mode: str = "LCO",
     val_ratio: float = 0.1,
     hyperparameter_tuning: bool = True,
@@ -1314,7 +1353,7 @@ def train_final_model(
     :param path_data: path to data directory
     :param model_checkpoint_dir: checkpoint dir for intermediate tuning models
     :param metric: metric for tuning, e.g., "RMSE"
-    :param result_path: path to results
+    :param final_model_path: path to final_model save directory
     :param test_mode: split logic for validation (LCO, LDO, LTO, LPO)
     :param val_ratio: validation size ratio
     :param hyperparameter_tuning: whether to perform hyperparameter tuning
@@ -1333,7 +1372,7 @@ def train_final_model(
     train_dataset, validation_dataset = make_train_val_split(full_dataset, test_mode=test_mode, val_ratio=val_ratio)
 
     if model_class.early_stopping:
-        validation_dataset, early_stopping_dataset = _split_early_stopping_data(validation_dataset, test_mode)
+        validation_dataset, early_stopping_dataset = split_early_stopping_data(validation_dataset, test_mode)
     else:
         early_stopping_dataset = None
 
@@ -1356,21 +1395,30 @@ def train_final_model(
     print(f"Best hyperparameters for final model: {best_hpams}")
     train_dataset.add_rows(validation_dataset)
     train_dataset.shuffle(random_state=42)
+    if response_transformation:
+        train_dataset.fit_transform(response_transformation)
+        if early_stopping_dataset is not None:
+            early_stopping_dataset.transform(response_transformation)
 
     model.build_model(hyperparameters=best_hpams)
+    drug_features = drug_features.copy() if drug_features is not None else None
     model.train(
         output=train_dataset,
         output_earlystopping=early_stopping_dataset,
-        cell_line_input=cl_features,
+        cell_line_input=cl_features.copy(),
         drug_input=drug_features,
         model_checkpoint_dir=model_checkpoint_dir,
     )
+    if response_transformation:
+        train_dataset.inverse_transform(response_transformation)
+        if early_stopping_dataset is not None:
+            early_stopping_dataset.inverse_transform(response_transformation)
 
-    final_model_path = os.path.join(result_path, "final_model")
     os.makedirs(final_model_path, exist_ok=True)
     model.save(final_model_path)
 
 
+@pipeline_function
 def make_train_val_split(
     dataset: DrugResponseDataset,
     test_mode: str,

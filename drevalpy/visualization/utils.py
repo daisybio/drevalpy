@@ -12,6 +12,7 @@ import pandas as pd
 
 from ..datasets.dataset import DrugResponseDataset
 from ..evaluation import AVAILABLE_METRICS, evaluate
+from ..models.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
 from ..pipeline_function import pipeline_function
 from . import (
     ComparisonScatter,
@@ -212,6 +213,7 @@ def prep_results(
     :param t_vs_p: true vs. predicted values
     :param path_data: path to the data
     :returns: the same dataframes with new columns
+    :raises ValueError: if NaiveMeanEffectsPredictor is not found in the evaluation results
     """
     # get metadata
     print("Getting information about drugs and cell lines ...")
@@ -220,15 +222,26 @@ def prep_results(
     for root, _, files in os.walk(path_data):
         for file in files:
             if file == "drug_names.csv":
-                drug_names = pd.read_csv(os.path.join(root, file), index_col=0)
-                # make index to str
-                drug_names.index = drug_names.index.astype(str)
+                drug_names = pd.read_csv(os.path.join(root, file))
+                drug_names["pubchem_id"] = drug_names["pubchem_id"].astype(str)
                 # index: pubchem_id, column: drug_name
-                drug_metadata.update(zip(drug_names.index, drug_names["drug_name"]))
+                drug_metadata.update(zip(drug_names["pubchem_id"], drug_names["drug_name"]))
             elif file == "cell_line_names.csv":
-                cell_line_names = pd.read_csv(os.path.join(root, file), index_col=0)
+                cell_line_names = pd.read_csv(os.path.join(root, file))
                 # index: cellosaurus_id, column: cell_line_name
-                cell_line_metadata.update(zip(cell_line_names["cell_line_name"], cell_line_names.index))
+                try:
+                    cellosaurus_ids = cell_line_names["cellosaurus_id"].astype(str)
+                    # replace nan with unknown_id_{i} (patient derived cell lines might not have a cellosaurus id)
+                    n_missing = cellosaurus_ids.isna().sum()
+                    fill_values = [f"unknown_id_{i}" for i in range(n_missing)]
+                    cellosaurus_ids = cellosaurus_ids.where(
+                        cellosaurus_ids.notna(),
+                        pd.Series(fill_values, index=cellosaurus_ids[cellosaurus_ids.isna()].index),
+                    )
+
+                except KeyError:
+                    cellosaurus_ids = pd.Series([f"unknown_id_{i}" for i in range(len(cell_line_names))])
+                cell_line_metadata.update(zip(cell_line_names[CELL_LINE_IDENTIFIER], cellosaurus_ids))
 
     # add variables
     # split the index by "_" into: algorithm, randomization, test_mode, split, CV_split
@@ -251,7 +264,7 @@ def prep_results(
         all_drugs = [drug_metadata[drug] for drug in eval_results_per_drug["drug"]]
         eval_results_per_drug["drug_name"] = all_drugs
         # rename drug to pubchem_id
-        eval_results_per_drug = eval_results_per_drug.rename(columns={"drug": "pubchem_id"})
+        eval_results_per_drug = eval_results_per_drug.rename(columns={"drug": DRUG_IDENTIFIER})
     if eval_results_per_cell_line is not None:
         print("Reformatting the evaluation results per cell line ...")
         eval_results_per_cell_line[["algorithm", "rand_setting", "test_mode", "split", "CV_split"]] = (
@@ -259,7 +272,7 @@ def prep_results(
         )
         all_cello_ids = [cell_line_metadata[cell_line] for cell_line in eval_results_per_cell_line["cell_line"]]
         eval_results_per_cell_line["cellosaurus_id"] = all_cello_ids
-        eval_results_per_cell_line = eval_results_per_cell_line.rename(columns={"cell_line": "cell_line_name"})
+        eval_results_per_cell_line = eval_results_per_cell_line.rename(columns={"cell_line": CELL_LINE_IDENTIFIER})
 
     print("Reformatting the true vs. predicted values ...")
     t_vs_p[["algorithm", "rand_setting", "test_mode", "split", "CV_split"]] = t_vs_p["model"].str.split(
@@ -270,13 +283,18 @@ def prep_results(
     t_vs_p["drug_name"] = all_drugs
     all_cello_ids = [cell_line_metadata[cell_line] for cell_line in t_vs_p["cell_line"]]
     t_vs_p["cellosaurus_id"] = all_cello_ids
-    t_vs_p = t_vs_p.rename(columns={"cell_line": "cell_line_name", "drug": "pubchem_id"})
-    t_vs_p["pubchem_id"] = t_vs_p["pubchem_id"].astype(str)
+    t_vs_p = t_vs_p.rename(columns={"cell_line": CELL_LINE_IDENTIFIER, "drug": DRUG_IDENTIFIER})
+    t_vs_p[DRUG_IDENTIFIER] = t_vs_p[DRUG_IDENTIFIER].astype(str)
 
     if "NaiveMeanEffectsPredictor" in eval_results["algorithm"].unique():
         eval_results = _normalize_metrics_by_mean_effects(
             evaluation_results=eval_results,
             true_vs_pred=t_vs_p,
+        )
+    else:
+        raise ValueError(
+            "NaiveMeanEffectsPredictor not found in evaluation results. "
+            "Please check if the evaluation was run correctly."
         )
 
     return (
@@ -312,7 +330,7 @@ def _normalize_metrics_by_mean_effects(
     for algorithm in evaluation_results["algorithm"].unique():
         for rand_setting in evaluation_results["rand_setting"].unique():
             for test_mode in evaluation_results["test_mode"].unique():
-                print(f"Calculating normalized metrics for {algorithm}, {rand_setting}, " f"{test_mode} ...")
+
                 setting_subset = true_vs_pred[
                     (true_vs_pred["algorithm"] == algorithm)
                     & (true_vs_pred["rand_setting"] == rand_setting)
@@ -511,7 +529,6 @@ def create_index_html(custom_id: str, test_modes: list[str], prefix_results: str
         f.write("</html>\n")
 
 
-@pipeline_function
 def create_html(run_id: str, test_mode: str, files: list, prefix_results: str) -> None:
     """
     Create the html file for the given test mode, e.g., LPO.html.
@@ -574,19 +591,28 @@ def draw_test_mode_plots(
     :param path_data: path to the data
     :param result_path: path to the results
     :returns: list of unique algorithms
+    :raises ValueError: if no evaluation results are found for the given test_mode
     """
+    if ev_res.empty:
+        raise ValueError(
+            f"No evaluation results found for test_mode {test_mode}. "
+            "Please check if the evaluation was run correctly."
+        )
     ev_res_subset = ev_res[ev_res["test_mode"] == test_mode]
 
     # only draw figures for 'real' predictions comparing all models
     eval_results_preds = ev_res_subset[ev_res_subset["rand_setting"] == "predictions"]
+    if eval_results_preds.empty:
+        raise ValueError(
+            f"No evaluation results found for test_mode {test_mode} with predictions. "
+            "Please check if the evaluation was run correctly."
+        )
 
-    # PIPELINE: DRAW_CRITICAL_DIFFERENCE
     cd_plot = CriticalDifferencePlot(eval_results_preds=eval_results_preds, metric="MSE")
     cd_plot.draw_and_save(
         out_prefix=f"{result_path}/{custom_id}/critical_difference_plots/",
         out_suffix=test_mode,
     )
-    # PIPELINE: DRAW_VIOLIN_AND_HEATMAP
     for plt_type in ["violinplot", "heatmap"]:
         if plt_type == "violinplot":
             out_dir = "violin_plots"
@@ -597,7 +623,9 @@ def draw_test_mode_plots(
                 out_suffix = f"algorithms_{test_mode}_normalized"
             else:
                 out_suffix = f"algorithms_{test_mode}"
+            out_plot: Violin | Heatmap
             if plt_type == "violinplot":
+
                 out_plot = Violin(
                     df=eval_results_preds,
                     normalized_metrics=normalized,
@@ -655,7 +683,6 @@ def _draw_per_grouping_setting_plots(
     :param custom_id: run id passed over command line
     :param result_path: path to the results
     """
-    # PIPELINE: DRAW_CORR_COMP
     corr_comp = ComparisonScatter(
         df=ev_res_per_group,
         color_by=grouping,
@@ -692,11 +719,11 @@ def draw_algorithm_plots(
     :param result_path: path to the results
     """
     eval_results_algorithm = ev_res[(ev_res["test_mode"] == test_mode) & (ev_res["algorithm"] == model)]
-    # PIPELINE: DRAW_VIOLIN_AND_HEATMAP
     for plt_type in ["violinplot", "heatmap"]:
         if len(eval_results_algorithm["rand_setting"].unique()) < 2:
             # only draw plots if there are predictions and another test_mode (randomization/robustness)
             continue
+        out_plot: Violin | Heatmap
         if plt_type == "violinplot":
             out_dir = "violin_plots"
             out_plot = Violin(
@@ -759,7 +786,6 @@ def _draw_per_grouping_algorithm_plots(
     """
     if len(ev_res_per_group["rand_setting"].unique()) > 1:
         # only draw plots if there are predictions and another test_mode (randomization/robustness)
-        # PIPELINE: DRAW_CORR_COMP
         comp_scatter = ComparisonScatter(
             df=ev_res_per_group,
             color_by=grouping,
@@ -771,7 +797,6 @@ def _draw_per_grouping_algorithm_plots(
                 out_prefix=f"{result_path}/{custom_id}/comp_scatter/",
                 out_suffix=comp_scatter.name,
             )
-    # PIPELINE: DRAW_REGRESSION
     for normalize in [False, True]:
         name_suffix = "_normalized" if normalize else ""
         name = f"{test_mode}_{grouping}{name_suffix}"

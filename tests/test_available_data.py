@@ -2,6 +2,9 @@
 
 import tempfile
 
+import pytest
+from flaky import flaky
+
 from drevalpy.datasets import AVAILABLE_DATASETS
 
 
@@ -14,53 +17,32 @@ def test_factory() -> None:
     assert "TOYv2" in AVAILABLE_DATASETS
     assert "CTRPv1" in AVAILABLE_DATASETS
     assert "CTRPv2" in AVAILABLE_DATASETS
-    assert len(AVAILABLE_DATASETS) == 7
+    assert "BeatAML2" in AVAILABLE_DATASETS
+    assert "PDX_Bruna" in AVAILABLE_DATASETS
+    assert len(AVAILABLE_DATASETS) == 9
 
 
-def test_gdsc1() -> None:
-    """Test the GDSC1 dataset."""
-    tempdir = tempfile.TemporaryDirectory()
-    gdsc1 = AVAILABLE_DATASETS["GDSC1"](path_data=tempdir.name)
-    assert len(gdsc1) == 316506
+@pytest.mark.parametrize(
+    "name,expected_len",
+    [
+        ("GDSC1", 316506),
+        ("GDSC2", 234436),
+        ("CCLE", 11670),
+        ("CTRPv1", 60757),
+        ("CTRPv2", 395024),
+        ("TOYv1", 2711),
+        ("TOYv2", 2784),
+        ("BeatAML2", 62487),
+        ("PDX_Bruna", 2559),
+    ],
+)
+@flaky(max_runs=3, min_passes=1)
+def test_datasets(name, expected_len):
+    """Test the datasets.
 
-
-def test_gdsc2():
-    """Test the GDSC2 dataset."""
-    tempdir = tempfile.TemporaryDirectory()
-    gdsc2 = AVAILABLE_DATASETS["GDSC2"](path_data=tempdir.name)
-    assert len(gdsc2) == 234436
-
-
-def test_ccle():
-    """Test the CCLE dataset."""
-    tempdir = tempfile.TemporaryDirectory()
-    ccle = AVAILABLE_DATASETS["CCLE"](path_data=tempdir.name)
-    assert len(ccle) == 11670
-
-
-def test_ctrpv1():
-    """Test the CTRPv1 dataset."""
-    tempdir = tempfile.TemporaryDirectory()
-    ctrpv1 = AVAILABLE_DATASETS["CTRPv1"](path_data=tempdir.name)
-    assert len(ctrpv1) == 60757
-
-
-def test_ctrpv2():
-    """Test the CTRPv2 dataset."""
-    tempdir = tempfile.TemporaryDirectory()
-    ctrpv2 = AVAILABLE_DATASETS["CTRPv2"](path_data=tempdir.name)
-    assert len(ctrpv2) == 395024
-
-
-def test_toyv1():
-    """Test the TOYv1 dataset."""
-    tempdir = tempfile.TemporaryDirectory()
-    toyv1 = AVAILABLE_DATASETS["TOYv1"](path_data=tempdir.name)
-    assert len(toyv1) == 2711
-
-
-def test_toyv2():
-    """Test the TOYv2 dataset."""
-    tempdir = tempfile.TemporaryDirectory()
-    toyv2 = AVAILABLE_DATASETS["TOYv2"](path_data=tempdir.name)
-    assert len(toyv2) == 2784
+    :param name: Name of the dataset to test.
+    :param expected_len: Expected length of the dataset.
+    """
+    with tempfile.TemporaryDirectory() as tempdir:
+        ds = AVAILABLE_DATASETS[name](path_data=tempdir)
+        assert len(ds) == expected_len
