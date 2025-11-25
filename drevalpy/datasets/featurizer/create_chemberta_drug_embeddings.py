@@ -6,8 +6,13 @@ from pathlib import Path
 import pandas as pd
 import torch
 from tqdm import tqdm
-from transformers import AutoModel, AutoTokenizer
 
+try:
+    from transformers import AutoModel, AutoTokenizer
+except ImportError:
+    raise ImportError(
+        "Please install transformers package for ChemBERTa embedding featurizer: pip install transformers"
+    )
 # Load ChemBERTa
 tokenizer = AutoTokenizer.from_pretrained("seyonec/ChemBERTa-zinc-base-v1")
 model = AutoModel.from_pretrained("seyonec/ChemBERTa-zinc-base-v1")
