@@ -114,6 +114,7 @@ most_common_dosis_per_screen[, label := paste0(dataset, ': most common nr. of co
 label_lookup <- most_common_dosis_per_screen$label
 names(label_lookup) <- most_common_dosis_per_screen$dataset
 doses_per_drug[, label := label_lookup[dataset]]
+doses_per_drug[, nconcs := as.integer(nconcs)]
 
 ggplot(doses_per_drug, aes(x=nconcs, fill=dataset))+
   geom_histogram(binwidth=1)+
@@ -126,6 +127,12 @@ ggplot(doses_per_drug, aes(x=nconcs, fill=dataset))+
                                'BeatAML2'='#FDBF6F',
                                'PDX_Bruna'='#CAB2D6')
   )+
+  scale_x_continuous(
+    breaks = function(x) {
+      br <- scales::pretty_breaks()(x)
+      br[br %% 1 == 0]  # keep only integer labels
+    }
+  ) +
   theme_minimal()+
   labs(x='Number of tested concentrations per drug', y='Number of drugs')+
   theme(legend.position='none')
