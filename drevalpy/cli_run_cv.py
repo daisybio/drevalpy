@@ -256,7 +256,8 @@ def evaluate_and_find_max():
     best_hpam_combi = None
     best_result = None
     for i in range(0, len(pred_datas)):
-        pred_data = pickle.load(open(pred_datas[i], "rb"))
+        with open(pred_datas[i], "rb") as pred_file:
+            pred_data = pickle.load(pred_file)
         with open(hpam_yamls[i]) as yaml_file:
             hpam_combi = yaml.safe_load(yaml_file)
         results = evaluate(pred_data, args.optim_metric)

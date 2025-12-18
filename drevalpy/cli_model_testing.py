@@ -26,7 +26,8 @@ def _prep_data_for_final_prediction(arguments):
     model_class = MODEL_FACTORY[model_name]
     model = model_class()
     # load the data
-    split = pickle.load(open(arguments.split_dataset_path, "rb"))
+    with open(arguments.split_dataset_path, "rb") as split_file:
+        split = pickle.load(split_file)
     train_dataset, validation_dataset, es_dataset, test_dataset = get_datasets_from_cv_split(
         split, model_class, model_name, drug_id
     )
@@ -158,7 +159,8 @@ def train_and_predict_final():
                 continue
             split_index = args.split_id.split("split_")[1]
             # load cross-study dataset
-            cross_study_dataset = pickle.load(open(cs_ds, "rb"))
+            with open(cs_ds, "rb") as cs_file:
+                cross_study_dataset = pickle.load(cs_file)
             cross_study_dataset.remove_nan_responses()
             cross_study_prediction(
                 dataset=cross_study_dataset,
@@ -269,7 +271,8 @@ def final_split():
     args = parser.parse_args()
 
     # load data
-    response_data = pickle.load(open(args.response, "rb"))
+    with open(args.response, "rb") as response_file:
+        response_data = pickle.load(response_file)
     response_data.remove_nan_responses()
     # get model features to reduce dataset
     model_class = MODEL_FACTORY[args.model_name]
@@ -335,15 +338,19 @@ def tune_final_model():
     args = parser.parse_args()
 
     # load data
-    train_dataset = pickle.load(open(args.train_data, "rb"))
-    validation_dataset = pickle.load(open(args.val_data, "rb"))
-    early_stopping_dataset = pickle.load(open(args.early_stopping_data, "rb"))
+    with open(args.train_data, "rb") as train_file:
+        train_dataset = pickle.load(train_file)
+    with open(args.val_data, "rb") as val_file:
+        validation_dataset = pickle.load(val_file)
+    with open(args.early_stopping_data, "rb") as es_file:
+        early_stopping_dataset = pickle.load(es_file)
     response_transform = get_response_transformation(args.response_transformation)
 
     # instantiate and train model
     model_name, drug_id = get_model_name_and_drug_id(args.model_name)
     model_class = MODEL_FACTORY[model_name]
-    hpams = yaml.safe_load(open(args.hpam_combi))
+    with open(args.hpam_combi) as f:
+        hpams = yaml.safe_load(f)
     model = model_class()
 
     validation_dataset = train_and_predict(
@@ -400,9 +407,12 @@ def train_final_model():
         model_name=model_name, drug_id=drug_id, result_path="", suffix="final_model"
     )
     response_transform = get_response_transformation(args.response_transformation)
-    train_dataset = pickle.load(open(args.train_data, "rb"))
-    validation_dataset = pickle.load(open(args.val_data, "rb"))
-    es_dataset = pickle.load(open(args.early_stop_data, "rb"))
+    with open(args.train_data, "rb") as train_file:
+        train_dataset = pickle.load(train_file)
+    with open(args.val_data, "rb") as val_file:
+        validation_dataset = pickle.load(val_file)
+    with open(args.early_stop_data, "rb") as es_file:
+        es_dataset = pickle.load(es_file)
     # create dataset
     train_dataset.add_rows(validation_dataset)
     train_dataset.shuffle(random_state=42)
@@ -411,7 +421,8 @@ def train_final_model():
         if es_dataset is not None:
             es_dataset.transform(response_transform)
     # instantiate model
-    best_hpam_combi = yaml.safe_load(open(args.best_hpam_combi))[f"{model_name}_final"]["best_hpam_combi"]
+    with open(args.best_hpam_combi) as f:
+        best_hpam_combi = yaml.safe_load(f)[f"{model_name}_final"]["best_hpam_combi"]
     model = MODEL_FACTORY[model_name]()
     cl_features = model.load_cell_line_features(data_path=args.path_data, dataset_name=train_dataset.dataset_name)
     drug_features = model.load_drug_features(data_path=args.path_data, dataset_name=train_dataset.dataset_name)
