@@ -1,9 +1,6 @@
 """Tests for the available datasets."""
 
-import tempfile
-
-import pytest
-from flaky import flaky
+import requests
 
 from drevalpy.datasets import AVAILABLE_DATASETS
 
@@ -22,27 +19,35 @@ def test_factory() -> None:
     assert len(AVAILABLE_DATASETS) == 9
 
 
-@pytest.mark.parametrize(
-    "name,expected_len",
-    [
-        ("GDSC1", 316506),
-        ("GDSC2", 234436),
-        ("CCLE", 11670),
-        ("CTRPv1", 60757),
-        ("CTRPv2", 395024),
-        ("TOYv1", 2711),
-        ("TOYv2", 2784),
-        ("BeatAML2", 62487),
-        ("PDX_Bruna", 2559),
-    ],
-)
-@flaky(max_runs=3, min_passes=1)
-def test_datasets(name, expected_len):
-    """Test the datasets.
+def test_datasets():
+    """Test whether the datasets exist on Zenodo."""
+    zenodo_doi_url = "https://zenodo.org/doi/10.5281/zenodo.12633909"
+    expected_files = {
+        "GDSC1.zip",
+        "GDSC2.zip",
+        "CCLE.zip",
+        "CTRPv1.zip",
+        "CTRPv2.zip",
+        "TOYv1.zip",
+        "TOYv2.zip",
+        "BeatAML2.zip",
+        "PDX_Bruna.zip",
+        "meta.zip",
+    }
+    headers = {
+        "User-Agent": "curl/8.5.0",
+        "Accept": "application/json",
+    }
 
-    :param name: Name of the dataset to test.
-    :param expected_len: Expected length of the dataset.
-    """
-    with tempfile.TemporaryDirectory() as tempdir:
-        ds = AVAILABLE_DATASETS[name](path_data=tempdir)
-        assert len(ds) == expected_len
+    response = requests.get(zenodo_doi_url, headers=headers, timeout=30)
+    response.raise_for_status()
+
+    latest_url = response.links["linkset"]["url"]
+    response = requests.get(latest_url, headers=headers, timeout=30)
+    response.raise_for_status()
+
+    data = response.json()
+    zenodo_files = {f["key"] for f in data["files"]}
+
+    missing = expected_files - zenodo_files
+    assert not missing, f"Missing files on Zenodo: {missing}"

@@ -40,11 +40,15 @@ def download_dataset(
     else:
         url = "https://zenodo.org/doi/10.5281/zenodo.12633909"
         # Fetch the latest record
-        response = requests.get(url, timeout=timeout)
+        headers = {
+            "User-Agent": "curl/8.5.0",
+            "Accept": "application/json",
+        }
+        response = requests.get(url, timeout=timeout, headers=headers)
         if response.status_code != 200:
             raise requests.exceptions.HTTPError(f"Error fetching record: {response.status_code}")
         latest_url = response.links["linkset"]["url"]
-        response = requests.get(latest_url, timeout=timeout)
+        response = requests.get(latest_url, timeout=timeout, headers=headers)
         if response.status_code != 200:
             raise requests.exceptions.HTTPError(f"Error fetching record: {response.status_code}")
         data = response.json()
