@@ -57,7 +57,6 @@ def _prepare_raw_data(curve_df: pd.DataFrame, output_dir: Path, prefix: str = ""
 
     experiments = np.arange(df.shape[1])
     df.insert(0, "Name", ["|".join(map(str, i)) for i in df.index.tolist()])
-    df.reset_index(drop=True)
 
     df.columns = ["Name"] + [f"Raw {i}" for i in experiments]
 
