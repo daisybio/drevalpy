@@ -181,14 +181,16 @@ def train_and_predict_cv():
     model_name, drug_id = get_model_name_and_drug_id(args.model_name)
 
     model_class = MODEL_FACTORY[model_name]
-    split = pickle.load(open(args.cv_data, "rb"))
+    with open(args.cv_data, "rb") as f:
+        split = pickle.load(f)
 
     train_dataset, validation_dataset, es_dataset, test_dataset = get_datasets_from_cv_split(
         split, model_class, model_name, drug_id
     )
 
     response_transform = get_response_transformation(args.response_transformation)
-    hpams = yaml.safe_load(open(args.hyperparameters))
+    with open(args.hyperparameters) as f:
+        hpams = yaml.safe_load(f)
     model = model_class()
 
     # train and predict on validation dataset
