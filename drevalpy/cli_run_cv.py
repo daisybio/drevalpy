@@ -78,7 +78,8 @@ def cv_split():
     args = parser.parse_args()
 
     # load the response data and split it into CV splits
-    response_data = pickle.load(open(args.response, "rb"))
+    with open(args.response, "rb") as f:
+        response_data = pickle.load(f)
     response_data.remove_nan_responses()
     response_data.split_dataset(
         n_cv_splits=args.n_cv_splits,
