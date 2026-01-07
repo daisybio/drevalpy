@@ -1,6 +1,7 @@
 """Tests for the DRPModel."""
 
 import os
+import pathlib
 import tempfile
 from typing import Optional
 
@@ -190,7 +191,7 @@ def test_order_load_and_select_gene_features(
     :param sample_dataset: TOYv1 dataset
     :param cross_study_dataset: TOYv2 dataset
     """
-    path_data = os.path.join("..", "data")
+    path_data = str((pathlib.Path("..") / "data").resolve())
     assert sample_dataset.dataset_name == "TOYv1"
     assert cross_study_dataset.dataset_name == "TOYv2"
     gene_list = "gene_expression_intersection"

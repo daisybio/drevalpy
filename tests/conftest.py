@@ -1,6 +1,7 @@
 """Pytest configuration file for the tests directory."""
 
 import os
+import pathlib
 
 import pytest
 
@@ -29,7 +30,7 @@ def sample_dataset() -> DrugResponseDataset:
 
     :returns: drug_response, cell_line_input, drug_input
     """
-    path_data = os.path.join("..", "data")
+    path_data = str((pathlib.Path("..") / "data").resolve())
     drug_response = load_toyv1(path_data)
     drug_response.remove_nan_responses()
     return drug_response
@@ -42,7 +43,7 @@ def cross_study_dataset() -> DrugResponseDataset:
 
     :returns: drug_response, cell_line_input, drug_input
     """
-    path_data = os.path.join("..", "data")
+    path_data = str((pathlib.Path("..") / "data").resolve())
     drug_response = load_toyv2(path_data)
     drug_response.remove_nan_responses()
     return drug_response
