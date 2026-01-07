@@ -124,6 +124,8 @@ def load_ccle(
 def _load_test_data(
     path_data: str = "data", measure: str = "LN_IC50_curvecurator", dataset_name: str = "TOYv1"
 ) -> DrugResponseDataset:
+    # ensure that path_data exists
+    Path(path_data).mkdir(parents=True, exist_ok=True)
     test_data_path = "https://github.com/JudithBernett/test-datasets/raw/drugresponseeval/test_data"
     # first get meta
     meta_path = os.path.join(path_data, "meta")
