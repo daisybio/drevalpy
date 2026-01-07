@@ -171,7 +171,7 @@ def load_toyv2(path_data: str = "data", measure: str = "LN_IC50_curvecurator") -
 
     :return: DrugResponseDataset containing response, cell line IDs, and drug IDs.
     """
-    return _load_zenodo_dataset(path_data=path_data, measure=measure, file_name="TOYv2.csv", dataset_name="TOYv2")
+    return _load_test_data(path_data=path_data, measure=measure, dataset_name="TOYv2")
 
 
 def load_ctrpv1(path_data: str = "data", measure: str = "LN_IC50_curvecurator") -> DrugResponseDataset:
