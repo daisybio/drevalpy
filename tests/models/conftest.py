@@ -28,7 +28,7 @@ def cross_study_dataset() -> DrugResponseDataset:
 
     :returns: drug_response, cell_line_input, drug_input
     """
-    path_data = "../data"
+    path_data = os.path.join("..", "data")
     drug_response = load_toyv2(path_data)
     drug_response.remove_nan_responses()
     return drug_response

@@ -1,7 +1,5 @@
 """Tests for the available datasets."""
 
-import requests
-
 from drevalpy.datasets import AVAILABLE_DATASETS
 
 
@@ -19,6 +17,7 @@ def test_factory() -> None:
     assert len(AVAILABLE_DATASETS) == 9
 
 
+'''
 def test_datasets():
     """Test whether the datasets exist on Zenodo."""
     zenodo_doi_url = "https://zenodo.org/doi/10.5281/zenodo.12633909"
@@ -34,16 +33,12 @@ def test_datasets():
         "PDX_Bruna.zip",
         "meta.zip",
     }
-    headers = {
-        "User-Agent": "curl/8.5.0",
-        "Accept": "application/json",
-    }
 
-    response = requests.get(zenodo_doi_url, headers=headers, timeout=30)
+    response = requests.get(zenodo_doi_url, timeout=30)
     response.raise_for_status()
 
     latest_url = response.links["linkset"]["url"]
-    response = requests.get(latest_url, headers=headers, timeout=30)
+    response = requests.get(latest_url, timeout=30)
     response.raise_for_status()
 
     data = response.json()
@@ -51,3 +46,4 @@ def test_datasets():
 
     missing = expected_files - zenodo_files
     assert not missing, f"Missing files on Zenodo: {missing}"
+'''

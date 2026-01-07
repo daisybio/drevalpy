@@ -8,6 +8,7 @@ from typing import Any
 import networkx as nx
 import numpy as np
 import requests
+from requests import Response
 
 # DRUG_IDENTIFIER, CELL_LINE_IDENTIFIER, and TISSUE_IDENTIFIER are used in pipeline
 DRUG_IDENTIFIER = "pubchem_id"
@@ -15,6 +16,40 @@ CELL_LINE_IDENTIFIER = "cell_line_name"
 TISSUE_IDENTIFIER = "tissue"
 ALLOWED_MEASURES = ["LN_IC50", "EC50", "IC50", "pEC50", "AUC", "response"]
 ALLOWED_MEASURES.extend([f"{m}_curvecurator" for m in ALLOWED_MEASURES])
+
+
+def unzip_data(path_to_zip: Path, response: Response, data_path: str):
+    """
+    Unzips the downloaded data.
+
+    :param path_to_zip: Path to the zip file to be unzipped.
+    :param response: HTML response containing response.content
+    :param data_path: Where the unzipped directory should be stored
+    """
+    with open(path_to_zip, "wb") as f:
+        f.write(response.content)
+
+    with zipfile.ZipFile(path_to_zip, "r") as z:
+        for member in z.infolist():
+            if not member.filename.startswith("__MACOSX/"):
+                z.extract(member, os.path.join(data_path))
+    path_to_zip.unlink()  # Remove zip file after extraction
+
+
+def download_from_url(dataset_name: str, file_url: str) -> Response:
+    """
+    Download a file from a given URL.
+
+    :param dataset_name: how the dataset is called
+    :param file_url: exact URL to the zip file
+    :return: HTML response containing response.content
+    :raises HTTPError: if the download fails
+    """
+    print(f"Downloading {dataset_name} from {file_url}...")
+    response = requests.get(file_url, timeout=120)
+    if response.status_code != 200:
+        raise requests.exceptions.HTTPError(f"Error downloading file: " f"{response.status_code}")
+    return response
 
 
 def download_dataset(
@@ -40,15 +75,11 @@ def download_dataset(
     else:
         url = "https://zenodo.org/doi/10.5281/zenodo.12633909"
         # Fetch the latest record
-        headers = {
-            "User-Agent": "curl/8.5.0",
-            "Accept": "application/json",
-        }
-        response = requests.get(url, timeout=timeout, headers=headers)
+        response = requests.get(url, timeout=timeout)
         if response.status_code != 200:
             raise requests.exceptions.HTTPError(f"Error fetching record: {response.status_code}")
         latest_url = response.links["linkset"]["url"]
-        response = requests.get(latest_url, timeout=timeout, headers=headers)
+        response = requests.get(latest_url, timeout=timeout)
         if response.status_code != 200:
             raise requests.exceptions.HTTPError(f"Error fetching record: {response.status_code}")
         data = response.json()
@@ -59,21 +90,9 @@ def download_dataset(
         # Download each file
         name_to_url = {file["key"]: file["links"]["self"] for file in data["files"]}
         file_url = name_to_url[file_name]
-        # Download the file
-        print(f"Downloading {dataset_name} from {file_url}...")
-        response = requests.get(file_url, timeout=timeout)
-        if response.status_code != 200:
-            raise requests.exceptions.HTTPError(f"Error downloading file {dataset_name}: " f"{response.status_code}")
 
-        # Save the file
-        with open(file_path, "wb") as f:
-            f.write(response.content)
-
-        with zipfile.ZipFile(file_path, "r") as z:
-            for member in z.infolist():
-                if not member.filename.startswith("__MACOSX/"):
-                    z.extract(member, os.path.join(data_path))
-        file_path.unlink()  # Remove zip file after extraction
+        response = download_from_url(dataset_name=dataset_name, file_url=file_url)
+        unzip_data(path_to_zip=file_path, response=response, data_path=data_path)
 
         print(f"{dataset_name} data downloaded and extracted to {data_path}")
 
