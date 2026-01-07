@@ -54,7 +54,7 @@ def download_from_url(dataset_name: str, file_url: str) -> Response:
 
 def download_dataset(
     dataset_name: str,
-    data_path: str | Path = "data",
+    data_path: str = "data",
     redownload: bool = False,
 ):
     """
