@@ -130,8 +130,8 @@ and the **NaiveTissueDrugMeanPredictor** predicts the mean IC50 per tissue-drug 
 The **NaiveMeanEffectPredictor** combines the effects of cell lines and drugs.
 It is equivalent to the **NaiveCellLineMeanPredictor** and **NaiveDrugMeanPredictor** for the LDO and LCO settings, respectively,
 as test cell line effects and drug effects are unknown in these settings.
-Finally, we expect the strongest naive baseline for LPO to be the **NaiveMeanEffectPredictor**.
-In LCO, however, where we do not have cell line identity information, the **NaiveTissueDrugMeanPredictor** is the strongest baseline.
+
+In LCO, **NaiveTissueDrugMeanPredictor** is the strongest baseline, while in all other settings, **NaiveMeanEffectPredictor** is the strongest.
 
 Available Models
 ------------------
