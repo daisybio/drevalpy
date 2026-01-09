@@ -148,7 +148,7 @@ class PCAFeaturizer(CellLineFeaturizer):
         :param data_path: Path to the data directory
         :param dataset_name: Name of the dataset
         :returns: FeatureDataset containing the embeddings
-        :raises FileNotFoundError: If the embeddings or model file is not found
+        :raises FileNotFoundError: If the embeddings file is not found
         """
         embeddings_file = Path(data_path) / dataset_name / self.get_output_filename()
         model_file = Path(data_path) / dataset_name / self._get_model_filename()
@@ -159,17 +159,13 @@ class PCAFeaturizer(CellLineFeaturizer):
                 f"Use load_or_generate() to automatically generate embeddings."
             )
 
-        # Load fitted models if available
+        # Load fitted models if available (optional - only needed for transforming new data)
         if model_file.exists():
             with open(model_file, "rb") as f:
                 models = pickle.load(f)  # noqa: S301
                 self._scaler = models["scaler"]
                 self._pca = models["pca"]
                 self._fitted = True
-        else:
-            raise FileNotFoundError(
-                f"Fitted model file not found: {model_file}. " f"Use generate_embeddings() to fit and save model."
-            )
 
         # Load embeddings
         embeddings_df = pd.read_csv(embeddings_file, dtype={CELL_LINE_IDENTIFIER: str})
