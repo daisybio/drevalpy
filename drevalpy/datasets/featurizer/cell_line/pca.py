@@ -47,7 +47,7 @@ class PCAFeaturizer(CellLineFeaturizer):
         :raises RuntimeError: If the PCA model is not fitted
         :raises ValueError: If gene_expression data is not provided
         """
-        if not self._fitted:
+        if not self._fitted or self._scaler is None or self._pca is None:
             raise RuntimeError("PCA model is not fitted. Call generate_embeddings() or fit() first.")
 
         if "gene_expression" not in omics_data:
@@ -102,6 +102,7 @@ class PCAFeaturizer(CellLineFeaturizer):
         :param dataset_name: Name of the dataset
         :returns: FeatureDataset containing the PCA embeddings
         :raises FileNotFoundError: If the gene expression file is not found
+        :raises RuntimeError: If fitting fails
         """
         data_dir = Path(data_path).resolve()
         output_file = data_dir / dataset_name / self.get_output_filename()
@@ -121,7 +122,9 @@ class PCAFeaturizer(CellLineFeaturizer):
         # Fit the model
         self.fit(ge_df)
 
-        # Transform all cell lines
+        # Transform all cell lines (scaler and pca are guaranteed to be set after fit())
+        if self._scaler is None or self._pca is None:
+            raise RuntimeError("Fitting failed: scaler or PCA model is None")
         scaled_data = self._scaler.transform(ge_df.values)
         embeddings = self._pca.transform(scaled_data)
 

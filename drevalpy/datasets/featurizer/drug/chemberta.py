@@ -54,8 +54,12 @@ class ChemBERTaFeaturizer(DrugFeaturizer):
 
         :param smiles: SMILES string representing the drug
         :returns: ChemBERTa embedding as numpy array
+        :raises RuntimeError: If model is not loaded
         """
         self._load_model()
+
+        if self._tokenizer is None or self._model is None:
+            raise RuntimeError("Model not loaded. Call _load_model() first.")
 
         inputs = self._tokenizer(smiles, return_tensors="pt", truncation=True)
         inputs = {k: v.to(self.device) for k, v in inputs.items()}
