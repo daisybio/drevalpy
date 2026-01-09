@@ -418,7 +418,7 @@ class DrugGNN(DRPModel):
         if not graph_path.exists():
             raise FileNotFoundError(
                 f"Drug graph directory not found at {graph_path}. "
-                f"Please run 'create_drug_graphs.py' for the {dataset_name} dataset."
+                f"Please use DrugGraphFeaturizer to generate graphs for the {dataset_name} dataset."
             )
 
         drug_graphs = {}

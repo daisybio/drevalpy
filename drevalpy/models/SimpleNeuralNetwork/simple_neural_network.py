@@ -7,12 +7,11 @@ import warnings
 
 import joblib
 import numpy as np
-import pandas as pd
 import torch
 from sklearn.preprocessing import StandardScaler
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
-from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER
+from drevalpy.datasets.featurizer import ChemBERTaFeaturizer, PCAFeaturizer
 
 from ..drp_model import DRPModel
 from ..utils import load_and_select_gene_features, load_drug_fingerprint_features, scale_gene_expression
@@ -270,26 +269,15 @@ class ChemBERTaNeuralNetwork(SimpleNeuralNetwork):
         """
         Loads the ChemBERTa embeddings.
 
+        Uses the ChemBERTaFeaturizer to load pre-generated embeddings or generate
+        them automatically if they don't exist.
+
         :param data_path: Path to the ChemBERTa embeddings, e.g., data/
         :param dataset_name: name of the dataset, e.g., GDSC1
         :returns: FeatureDataset containing the ChemBERTa embeddings
-        :raises FileNotFoundError: if the ChemBERTa embeddings file is not found
         """
-        chemberta_file = os.path.join(data_path, dataset_name, "drug_chemberta_embeddings.csv")
-        if not os.path.exists(chemberta_file):
-            raise FileNotFoundError(
-                f"ChemBERTa embeddings file not found: {chemberta_file}. "
-                "Please create it first with the respective drug_featurizer."
-            )
-
-        chemberta_df = pd.read_csv(chemberta_file, dtype={"pubchem_id": str})
-        features = {}
-        for _, row in chemberta_df.iterrows():
-            drug_id = row["pubchem_id"]
-            embedding = row.drop("pubchem_id").to_numpy(dtype=np.float32)
-            features[drug_id] = {"chemberta_embeddings": embedding}
-
-        return FeatureDataset(features)
+        featurizer = ChemBERTaFeaturizer(device="cuda" if torch.cuda.is_available() else "cpu")
+        return featurizer.load_or_generate(data_path, dataset_name)
 
 
 class PCANeuralNetwork(SimpleNeuralNetwork):
@@ -310,24 +298,13 @@ class PCANeuralNetwork(SimpleNeuralNetwork):
         """
         Loads the PCA-transformed gene expression features.
 
+        Uses the PCAFeaturizer to load pre-generated embeddings or generate
+        them automatically if they don't exist.
+
         :param data_path: Path to the data, e.g., data/
         :param dataset_name: name of the dataset, e.g., GDSC1
         :returns: FeatureDataset containing the PCA features
-        :raises FileNotFoundError: if the PCA features file is not found
         """
         n_components = self.hyperparameters.get("n_components", 100)
-        pca_file = os.path.join(data_path, dataset_name, f"cell_line_gene_expression_pca_{n_components}.csv")
-        if not os.path.exists(pca_file):
-            raise FileNotFoundError(
-                f"PCA features file not found: {pca_file}. "
-                f"Please create it first with create_transcriptome_pca.py using --n_components {n_components}."
-            )
-
-        pca_df = pd.read_csv(pca_file, dtype={CELL_LINE_IDENTIFIER: str})
-        features = {}
-        for _, row in pca_df.iterrows():
-            cell_line_id = row[CELL_LINE_IDENTIFIER]
-            embedding = row.drop(CELL_LINE_IDENTIFIER).to_numpy(dtype=np.float32)
-            features[cell_line_id] = {"gene_expression_pca": embedding}
-
-        return FeatureDataset(features)
+        featurizer = PCAFeaturizer(n_components=n_components, omics_types="gene_expression")
+        return featurizer.load_or_generate(data_path, dataset_name)
