@@ -127,10 +127,11 @@ The **NaiveCellLineMeanPredictor** predicts the mean IC50 of a cell line in the 
 the **NaiveDrugMeanPredictor** predicts the mean IC50 of a drug in the training set,
 the **NaiveTissueMeanPredictor** predicts the mean IC50 of a tissue in the training set,
 and the **NaiveTissueDrugMeanPredictor** predicts the mean IC50 per tissue-drug combination (aggregated across all cell lines with that tissue-drug pair).
-Finally, the strongest naive baseline is the **NaiveMeanEffectPredictor**
-which combines the effects of cell lines and drugs.
-It is equivalent to the **NaiveCellLineMeanPredictor** and **NaiveDrugMeanPredictor** for the LDO and LPO settings, respectively,
+The **NaiveMeanEffectPredictor** combines the effects of cell lines and drugs.
+It is equivalent to the **NaiveCellLineMeanPredictor** and **NaiveDrugMeanPredictor** for the LDO and LCO settings, respectively,
 as test cell line effects and drug effects are unknown in these settings.
+Finally, we expect the strongest naive baseline for LPO to be the **NaiveMeanEffectPredictor**.
+In LCO, however, where we do not have cell line identity information, the **NaiveTissueDrugMeanPredictor** is the strongest baseline.
 
 Available Models
 ------------------
