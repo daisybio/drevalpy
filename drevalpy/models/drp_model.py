@@ -34,14 +34,14 @@ class DRPModel(ABC):
     is_single_drug_model = False
 
     @classmethod
-    @abstractmethod
     @pipeline_function
     def get_model_name(cls) -> str:
         """
         Returns the name of the model.
 
-        :return: model name
+        :return: model name (the class name)
         """
+        return cls.__name__
 
     @classmethod
     @pipeline_function

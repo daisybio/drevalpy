@@ -61,15 +61,6 @@ class SuperFELTR(DRPModel):
         self.copy_number_variation_features = None
         self.selectors: dict[str, VarianceFeatureSelector] = {}
 
-    @classmethod
-    def get_model_name(cls) -> str:
-        """
-        Returns the model name.
-
-        :returns: SuperFELTR
-        """
-        return "SuperFELTR"
-
     def build_model(self, hyperparameters) -> None:
         """
         Builds the model from hyperparameters.

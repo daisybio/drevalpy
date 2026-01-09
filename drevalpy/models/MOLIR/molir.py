@@ -48,15 +48,6 @@ class MOLIR(DRPModel):
         self.gene_expression_scaler = StandardScaler()
         self.selector: VarianceFeatureSelector | None = None
 
-    @classmethod
-    def get_model_name(cls) -> str:
-        """
-        Returns the model name.
-
-        :returns: MOLIR
-        """
-        return "MOLIR"
-
     def build_model(self, hyperparameters: dict[str, Any]) -> None:
         """
         Builds the model from hyperparameters.

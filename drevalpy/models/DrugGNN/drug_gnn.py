@@ -223,14 +223,6 @@ class DrugGNN(DRPModel):
         self.model: DrugGNNModule | None = None
         self.hyperparameters = {}
 
-    @classmethod
-    def get_model_name(cls) -> str:
-        """Return the name of the model.
-
-        :return: The name of the model.
-        """
-        return "DrugGNN"
-
     @property
     def cell_line_views(self) -> list[str]:
         """Return the sources the model needs as input for describing the cell line.

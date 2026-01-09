@@ -43,15 +43,6 @@ class MultiOmicsNeuralNetwork(DRPModel):
         self.pca_ncomp = 100
         self.gene_expression_scaler = StandardScaler()
 
-    @classmethod
-    def get_model_name(cls) -> str:
-        """
-        Returns the model name.
-
-        :returns: MultiOmicsNeuralNetwork
-        """
-        return "MultiOmicsNeuralNetwork"
-
     def build_model(self, hyperparameters: dict):
         """
         Builds the model from hyperparameters.
