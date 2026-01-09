@@ -205,16 +205,16 @@ def preprocess(input_file: str, output_dir: str, dataset_name: str, cores: int, 
     :param normalize: Whether to normalize the response values to [0, 1] for curvecurator. Default = False.
     :raises ValueError: If required columns are not found in the provided input file.
     """
-    input_file = Path(input_file)
-    output_dir = Path(output_dir)
+    input_path = Path(input_file)
+    output_path = Path(output_dir)
     required_columns = ["dose", "response", "sample", "drug", "replicate"]
     converters = {"dose": float, "response": float, "sample": str, "drug": str, "replicate": int}
     try:
-        curve_df = pd.read_csv(input_file, usecols=required_columns, converters=converters)
+        curve_df = pd.read_csv(input_path, usecols=required_columns, converters=converters)
     except ValueError:
         required_columns.pop()
         del converters["replicate"]
-        curve_df = pd.read_csv(input_file, usecols=required_columns, converters=converters)
+        curve_df = pd.read_csv(input_path, usecols=required_columns, converters=converters)
 
     if not all([col in curve_df.columns for col in required_columns]):
         raise ValueError(f"Missing columns in viability data. Required columns are {required_columns}.")
@@ -242,10 +242,10 @@ def preprocess(input_file: str, output_dir: str, dataset_name: str, cores: int, 
     for index, df in drug_df_groups:
         prefix = "_".join([f"{s}" for s in index])
         n_exp, doses, n_replicates, n_curves_to_fit = _prepare_raw_data(
-            curve_df=df, output_dir=output_dir, prefix=prefix
+            curve_df=df, output_dir=output_path, prefix=prefix
         )
         config = _prepare_toml(
-            filename=input_file.name,
+            filename=input_path.name,
             n_exp=n_exp,
             n_replicates=n_replicates,
             doses=doses,
@@ -254,12 +254,12 @@ def preprocess(input_file: str, output_dir: str, dataset_name: str, cores: int, 
             condition=prefix,
             normalize=normalize,
         )
-        config_path = output_dir / prefix / "config.toml"
+        config_path = output_path / prefix / "config.toml"
         with open(config_path, "w") as f:
             toml.dump(config, f)
         configs.append(f"{config_path}\n")
 
-    with open(output_dir / "configlist.txt", "w") as f:
+    with open(output_path / "configlist.txt", "w") as f:
         f.writelines(configs)
 
 
@@ -275,8 +275,8 @@ def postprocess(output_folder: str, dataset_name: str):
     :param output_folder: Path to the output folder of CurveCurator containing the curves.txt file.
     :param dataset_name: The name of the dataset, will be used to prepend the postprocessed <dataset_name>.csv file
     """
-    output_folder = Path(output_folder)
-    curvecurator_output_files = output_folder.rglob("curves.tsv")
+    output_path = Path(output_folder)
+    curvecurator_output_files = output_path.rglob("curves.tsv")
     required_columns = {
         "Name": "Name",
         "pEC50": "pEC50_curvecurator",
@@ -297,7 +297,7 @@ def postprocess(output_folder: str, dataset_name: str):
         "Curve Regulation": "Regulation",
     }
 
-    with open(output_folder / f"{dataset_name}.csv", "w") as f:
+    with open(output_path / f"{dataset_name}.csv", "w") as f:
         first_file = True
         for output_file in curvecurator_output_files:
             fitted_curve_data = pd.read_csv(output_file, sep="\t", usecols=required_columns).rename(
