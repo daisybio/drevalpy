@@ -116,6 +116,9 @@ class PCAFeaturizer(CellLineFeaturizer):
         ge_df = pd.read_csv(ge_file, dtype={CELL_LINE_IDENTIFIER: str})
         ge_df = ge_df.set_index(CELL_LINE_IDENTIFIER)
 
+        # Drop non-numeric columns (e.g., cellosaurus_id)
+        ge_df = ge_df.select_dtypes(include=[np.number])
+
         cell_line_ids = list(ge_df.index)
         print(f"Processing {len(cell_line_ids)} cell lines for dataset {dataset_name}...")
 
