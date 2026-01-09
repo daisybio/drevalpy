@@ -44,17 +44,23 @@ def test_response_dataset_load() -> None:
     assert np.allclose(dataset.response, data["response"])
 
 
-def test_fitting_and_loading_custom_dataset():
-    """Test CurveCurator fitting of raw viability dataset and loading it."""
+def test_fitting_and_loading_custom_dataset(sample_dataset: DrugResponseDataset):
+    """
+    Test CurveCurator fitting of raw viability dataset and loading it.
+
+    :param sample_dataset: sample viability dataset
+    """
+    assert sample_dataset.dataset_name == "TOYv1"
     dataset_name = "CTRPv2_sample_test"
+    path_data = str((Path("..") / "data").resolve())
     load_dataset(
         dataset_name=dataset_name,
-        path_data=str(Path(__file__).parent),
+        path_data=path_data,
         measure="IC50",
         curve_curator=True,
         cores=200,
     )
-    for item in (Path(__file__).parent / dataset_name).iterdir():
+    for item in ((Path("..") / "data").resolve() / dataset_name).iterdir():
         if item.name == f"{dataset_name}_raw.csv":
             continue
         if item.is_dir():
@@ -357,7 +363,7 @@ def test_transform(resp_transform: str):
 
 
 @pytest.fixture
-def sample_dataset() -> FeatureDataset:
+def sample_feature_dataset() -> FeatureDataset:
     """
     Create a sample FeatureDataset for testing.
 
@@ -449,78 +455,80 @@ def graph_dataset() -> FeatureDataset:
     return FeatureDataset(features=features, meta_info=meta_info)
 
 
-def test_feature_dataset_get_ids(sample_dataset: FeatureDataset) -> None:
+def test_feature_dataset_get_ids(sample_feature_dataset: FeatureDataset) -> None:
     """
     Test if the get_ids method works correctly.
 
-    :param sample_dataset: sample FeatureDataset
+    :param sample_feature_dataset: sample FeatureDataset
     """
-    assert np.all(sample_dataset.identifiers == ["drug1", "drug2", "drug3", "drug4", "drug5"])
+    assert np.all(sample_feature_dataset.identifiers == ["drug1", "drug2", "drug3", "drug4", "drug5"])
 
 
-def test_feature_dataset_get_view_names(sample_dataset: FeatureDataset) -> None:
+def test_feature_dataset_get_view_names(sample_feature_dataset: FeatureDataset) -> None:
     """
     Test if the get_view_names method works correctly.
 
-    :param sample_dataset: sample FeatureDataset
+    :param sample_feature_dataset: sample FeatureDataset
     """
-    assert sample_dataset.view_names == [
+    assert sample_feature_dataset.view_names == [
         "fingerprints",
         "chemical_features",
     ]
 
 
-def test_feature_dataset_get_feature_matrix(sample_dataset: FeatureDataset) -> None:
+def test_feature_dataset_get_feature_matrix(sample_feature_dataset: FeatureDataset) -> None:
     """
     Test if the get_feature_matrix method works correctly.
 
-    :param sample_dataset: sample FeatureDataset
+    :param sample_feature_dataset: sample FeatureDataset
     """
-    feature_matrix = sample_dataset.get_feature_matrix("fingerprints", np.array(["drug1", "drug2"]))
+    feature_matrix = sample_feature_dataset.get_feature_matrix("fingerprints", np.array(["drug1", "drug2"]))
     assert feature_matrix.shape == (2, 5)
     assert np.allclose(
         feature_matrix,
         np.array(
             [
-                sample_dataset.features["drug1"]["fingerprints"],
-                sample_dataset.features["drug2"]["fingerprints"],
+                sample_feature_dataset.features["drug1"]["fingerprints"],
+                sample_feature_dataset.features["drug2"]["fingerprints"],
             ]
         ),
     )
     assert isinstance(feature_matrix, np.ndarray)
 
 
-def test_feature_dataset_copy(sample_dataset: FeatureDataset) -> None:
+def test_feature_dataset_copy(sample_feature_dataset: FeatureDataset) -> None:
     """
     Test if the copy method works correctly.
 
-    :param sample_dataset: sample FeatureDataset
+    :param sample_feature_dataset: sample FeatureDataset
     """
-    copied_dataset = sample_dataset.copy()
-    assert copied_dataset.features["drug1"]["fingerprints"] is not sample_dataset.features["drug1"]["fingerprints"]
+    copied_dataset = sample_feature_dataset.copy()
+    assert (
+        copied_dataset.features["drug1"]["fingerprints"] is not sample_feature_dataset.features["drug1"]["fingerprints"]
+    )
     assert np.allclose(
         copied_dataset.features["drug1"]["fingerprints"],
-        sample_dataset.features["drug1"]["fingerprints"],
+        sample_feature_dataset.features["drug1"]["fingerprints"],
     )
-    assert copied_dataset.features is not sample_dataset.features
+    assert copied_dataset.features is not sample_feature_dataset.features
     copied_dataset.features["drug1"]["fingerprints"] = np.zeros(5)
     assert not np.allclose(
         copied_dataset.features["drug1"]["fingerprints"],
-        sample_dataset.features["drug1"]["fingerprints"],
+        sample_feature_dataset.features["drug1"]["fingerprints"],
     )
 
 
 @flaky(max_runs=25)  # permutation randomization might map to the same feature vector for some tries
-def test_permutation_randomization(sample_dataset: FeatureDataset) -> None:
+def test_permutation_randomization(sample_feature_dataset: FeatureDataset) -> None:
     """
     Test if the permutation randomization works correctly.
 
-    :param sample_dataset: sample FeatureDataset
+    :param sample_feature_dataset: sample FeatureDataset
     """
     views_to_randomize, randomization_type = "fingerprints", "permutation"
-    start_sample_dataset = sample_dataset.copy()
-    sample_dataset.randomize_features(views_to_randomize, randomization_type)
-    for drug, features in sample_dataset.features.items():
+    start_sample_dataset = sample_feature_dataset.copy()
+    sample_feature_dataset.randomize_features(views_to_randomize, randomization_type)
+    for drug, features in sample_feature_dataset.features.items():
         assert not np.allclose(
             features[views_to_randomize],
             start_sample_dataset.features[drug][views_to_randomize],
@@ -545,16 +553,16 @@ def test_permutation_randomization_graph(graph_dataset: FeatureDataset) -> None:
         )
 
 
-def test_invariant_randomization_array(sample_dataset: FeatureDataset) -> None:
+def test_invariant_randomization_array(sample_feature_dataset: FeatureDataset) -> None:
     """
     Test if the invariant randomization works correctly.
 
-    :param sample_dataset: sample FeatureDataset
+    :param sample_feature_dataset: sample FeatureDataset
     """
     views_to_randomize, randomization_type = "chemical_features", "invariant"
-    start_sample_dataset = sample_dataset.copy()
-    sample_dataset.randomize_features(views_to_randomize, randomization_type)
-    for drug, features in sample_dataset.features.items():
+    start_sample_dataset = sample_feature_dataset.copy()
+    sample_feature_dataset.randomize_features(views_to_randomize, randomization_type)
+    for drug, features in sample_feature_dataset.features.items():
         assert not np.allclose(
             features[views_to_randomize],
             start_sample_dataset.features[drug][views_to_randomize],
@@ -578,17 +586,17 @@ def test_invariant_randomization_graph(graph_dataset: FeatureDataset) -> None:
         )
 
 
-def test_add_features(sample_dataset: FeatureDataset, graph_dataset: FeatureDataset) -> None:
+def test_add_features(sample_feature_dataset: FeatureDataset, graph_dataset: FeatureDataset) -> None:
     """
     Test if the add_features method works correctly.
 
-    :param sample_dataset: sample FeatureDataset
+    :param sample_feature_dataset: sample FeatureDataset
     :param graph_dataset: sample FeatureDataset with molecular graphs
     """
-    sample_dataset.add_features(graph_dataset)
-    assert sample_dataset.meta_info is not None
-    assert "molecular_graph" in sample_dataset.meta_info
-    assert "molecular_graph" in sample_dataset.view_names
+    sample_feature_dataset.add_features(graph_dataset)
+    assert sample_feature_dataset.meta_info is not None
+    assert "molecular_graph" in sample_feature_dataset.meta_info
+    assert "molecular_graph" in sample_feature_dataset.view_names
 
 
 def test_feature_dataset_csv_meta_handling():

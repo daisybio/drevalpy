@@ -30,6 +30,7 @@ class MultiOmicsRandomForest(RandomForest):
         """
         super().__init__()
         self.pca = None
+        self.pca_ncomp = 100
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -47,7 +48,7 @@ class MultiOmicsRandomForest(RandomForest):
         :param hyperparameters: Hyperparameters for the model.
         """
         super().build_model(hyperparameters)
-        self.pca = PCA(n_components=hyperparameters["n_components"])
+        self.pca_ncomp = hyperparameters["n_components"]
 
     def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         """
@@ -104,6 +105,10 @@ class MultiOmicsRandomForest(RandomForest):
             inputs["fingerprints"],
         )
 
+        if methylation.shape[1] > self.pca_ncomp:
+            self.pca = PCA(n_components=self.pca_ncomp)
+        else:
+            self.pca = PCA(n_components=methylation.shape[1])
         methylation = self.pca.fit_transform(methylation)
 
         x = np.concatenate(
