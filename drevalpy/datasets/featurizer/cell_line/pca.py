@@ -180,6 +180,47 @@ class PCAFeaturizer(CellLineFeaturizer):
         return FeatureDataset(features)
 
 
+class PCAMixin:
+    """Mixin that provides PCA-transformed gene expression loading for DRP models.
+
+    This mixin implements load_cell_line_features using the PCAFeaturizer.
+    It automatically generates embeddings if they don't exist.
+
+    The number of PCA components can be configured via:
+        - hyperparameters['n_components'] (if the model has hyperparameters)
+        - pca_n_components class attribute (default: 100)
+
+    Example usage::
+
+        from drevalpy.models.drp_model import DRPModel
+        from drevalpy.datasets.featurizer.cell_line.pca import PCAMixin
+
+        class MyModel(PCAMixin, DRPModel):
+            cell_line_views = ["gene_expression_pca"]
+            ...
+    """
+
+    pca_n_components: int = 100
+
+    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+        """Load PCA-transformed gene expression features.
+
+        Uses the PCAFeaturizer to load pre-generated embeddings or generate
+        them automatically if they don't exist.
+
+        :param data_path: Path to the data directory, e.g., 'data/'
+        :param dataset_name: Name of the dataset, e.g., 'GDSC1'
+        :returns: FeatureDataset containing the PCA-transformed gene expression
+        """
+        # Try to get n_components from hyperparameters if available
+        n_components = self.pca_n_components
+        if hasattr(self, "hyperparameters") and self.hyperparameters is not None:
+            n_components = self.hyperparameters.get("n_components", n_components)
+
+        featurizer = PCAFeaturizer(n_components=n_components)
+        return featurizer.load_or_generate(data_path, dataset_name)
+
+
 def main():
     """Generate PCA embeddings for cell line gene expression from command line."""
     parser = argparse.ArgumentParser(description="Generate PCA embeddings for cell line gene expression.")

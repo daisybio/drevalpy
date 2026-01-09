@@ -795,6 +795,47 @@ class MolGNetFeaturizer(DrugFeaturizer):
         return FeatureDataset(features)
 
 
+class MolGNetMixin:
+    """Mixin that provides MolGNet drug embeddings loading for DRP models.
+
+    This mixin implements load_drug_features using the MolGNetFeaturizer.
+    It automatically generates embeddings if they don't exist.
+
+    Class attributes that can be overridden:
+        - molgnet_checkpoint_path: Path to MolGNet checkpoint (default: 'data/MolGNet.pt')
+        - molgnet_device: Device for MolGNet model ('cpu', 'cuda', or 'auto')
+
+    Example usage::
+
+        from drevalpy.models.drp_model import DRPModel
+        from drevalpy.datasets.featurizer.drug.molgnet import MolGNetMixin
+
+        class MyModel(MolGNetMixin, DRPModel):
+            drug_views = ["molgnet_embeddings"]
+            ...
+    """
+
+    molgnet_checkpoint_path: str = "data/MolGNet.pt"
+    molgnet_device: str = "auto"
+
+    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+        """Load MolGNet drug embeddings.
+
+        Uses the MolGNetFeaturizer to load pre-generated embeddings or generate
+        them automatically if they don't exist.
+
+        :param data_path: Path to the data directory, e.g., 'data/'
+        :param dataset_name: Name of the dataset, e.g., 'GDSC1'
+        :returns: FeatureDataset containing the MolGNet embeddings
+        """
+        device = self.molgnet_device
+        if device == "auto":
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+
+        featurizer = MolGNetFeaturizer(checkpoint_path=self.molgnet_checkpoint_path, device=device)
+        return featurizer.load_or_generate(data_path, dataset_name)
+
+
 def main():
     """Process drug SMILES and save MolGNet embeddings from command line."""
     parser = argparse.ArgumentParser(description="Generate MolGNet embeddings for drugs.")

@@ -3,6 +3,9 @@
 import argparse
 
 import numpy as np
+import torch
+
+from drevalpy.datasets.dataset import FeatureDataset
 
 from .base import DrugFeaturizer
 
@@ -35,7 +38,6 @@ class ChemBERTaFeaturizer(DrugFeaturizer):
         """
         if self._model is None:
             try:
-                import torch  # noqa: F401
                 from transformers import AutoModel, AutoTokenizer
             except ImportError:
                 raise ImportError(
@@ -53,8 +55,6 @@ class ChemBERTaFeaturizer(DrugFeaturizer):
         :param smiles: SMILES string representing the drug
         :returns: ChemBERTa embedding as numpy array
         """
-        import torch
-
         self._load_model()
 
         inputs = self._tokenizer(smiles, return_tensors="pt", truncation=True)
@@ -83,6 +83,45 @@ class ChemBERTaFeaturizer(DrugFeaturizer):
         :returns: 'drug_chemberta_embeddings.csv'
         """
         return "drug_chemberta_embeddings.csv"
+
+
+class ChemBERTaMixin:
+    """Mixin that provides ChemBERTa drug embeddings loading for DRP models.
+
+    This mixin implements load_drug_features using the ChemBERTaFeaturizer.
+    It automatically generates embeddings if they don't exist.
+
+    Class attributes that can be overridden:
+        - chemberta_device: Device for ChemBERTa model ('cpu', 'cuda', or 'auto')
+
+    Example usage::
+
+        from drevalpy.models.drp_model import DRPModel
+        from drevalpy.datasets.featurizer.drug.chemberta import ChemBERTaMixin
+
+        class MyModel(ChemBERTaMixin, DRPModel):
+            drug_views = ["chemberta_embeddings"]
+            ...
+    """
+
+    chemberta_device: str = "auto"
+
+    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+        """Load ChemBERTa drug embeddings.
+
+        Uses the ChemBERTaFeaturizer to load pre-generated embeddings or generate
+        them automatically if they don't exist.
+
+        :param data_path: Path to the data directory, e.g., 'data/'
+        :param dataset_name: Name of the dataset, e.g., 'GDSC1'
+        :returns: FeatureDataset containing the ChemBERTa embeddings
+        """
+        device = self.chemberta_device
+        if device == "auto":
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+
+        featurizer = ChemBERTaFeaturizer(device=device)
+        return featurizer.load_or_generate(data_path, dataset_name)
 
 
 def main():

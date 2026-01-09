@@ -205,6 +205,36 @@ class DrugGraphFeaturizer(DrugFeaturizer):
             return self.generate_embeddings(data_path, dataset_name)
 
 
+class DrugGraphMixin:
+    """Mixin that provides drug graph loading for DRP models.
+
+    This mixin implements load_drug_features using the DrugGraphFeaturizer.
+    It automatically generates graphs if they don't exist.
+
+    Example usage::
+
+        from drevalpy.models.drp_model import DRPModel
+        from drevalpy.datasets.featurizer.drug.drug_graph import DrugGraphMixin
+
+        class MyModel(DrugGraphMixin, DRPModel):
+            drug_views = ["drug_graphs"]
+            ...
+    """
+
+    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+        """Load drug graph features.
+
+        Uses the DrugGraphFeaturizer to load pre-generated graphs or generate
+        them automatically if they don't exist.
+
+        :param data_path: Path to the data directory, e.g., 'data/'
+        :param dataset_name: Name of the dataset, e.g., 'GDSC1'
+        :returns: FeatureDataset containing the drug graphs
+        """
+        featurizer = DrugGraphFeaturizer()
+        return featurizer.load_or_generate(data_path, dataset_name)
+
+
 def main():
     """Process drug SMILES and save molecular graphs from command line."""
     parser = argparse.ArgumentParser(description="Generate molecular graphs for drugs.")
