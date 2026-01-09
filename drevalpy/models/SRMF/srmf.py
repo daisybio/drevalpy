@@ -52,15 +52,6 @@ class SRMF(DRPModel):
         self.max_iter: int = 50
         self.seed: int = 1
 
-    @classmethod
-    def get_model_name(cls) -> str:
-        """
-        Returns the model name.
-
-        :returns: SRMF
-        """
-        return "SRMF"
-
     def build_model(self, hyperparameters: dict) -> None:
         """
         Initializes hyperparameters for SRMF model.

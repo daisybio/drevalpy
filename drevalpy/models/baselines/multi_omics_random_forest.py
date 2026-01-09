@@ -32,15 +32,6 @@ class MultiOmicsRandomForest(RandomForest):
         self.pca = None
         self.pca_ncomp = 100
 
-    @classmethod
-    def get_model_name(cls) -> str:
-        """
-        Returns the model name.
-
-        :returns: MultiOmicsRandomForest
-        """
-        return "MultiOmicsRandomForest"
-
     def build_model(self, hyperparameters: dict):
         """
         Builds the model from hyperparameters.

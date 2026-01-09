@@ -35,15 +35,6 @@ class SingleDrugElasticNet(SklearnModel):
         self.model = ElasticNet(**hyperparameters)
         self.gene_expression_scaler = StandardScaler()
 
-    @classmethod
-    def get_model_name(cls) -> str:
-        """
-        Returns the model name.
-
-        :returns: SingleDrugElasticNet
-        """
-        return "SingleDrugElasticNet"
-
     def train(
         self,
         output: DrugResponseDataset,
@@ -172,15 +163,6 @@ class SingleDrugProteomicsElasticNet(SingleDrugElasticNet):
             normalization_width=self.normalization_width,
         )
         super().build_model(hyperparameters)
-
-    @classmethod
-    def get_model_name(cls) -> str:
-        """
-        Returns the model name.
-
-        :returns: SingleDrugProteomicsElasticNet
-        """
-        return "SingleDrugProteomicsElasticNet"
 
     def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         """

@@ -35,15 +35,6 @@ class SimpleNeuralNetwork(DRPModel):
         self.model = None
         self.gene_expression_scaler = StandardScaler()
 
-    @classmethod
-    def get_model_name(cls) -> str:
-        """
-        Returns the model name.
-
-        :returns: SimpleNeuralNetwork
-        """
-        return "SimpleNeuralNetwork"
-
     def build_model(self, hyperparameters: dict):
         """
         Builds the model from hyperparameters.
@@ -259,26 +250,8 @@ class ChemBERTaNeuralNetwork(ChemBERTaMixin, SimpleNeuralNetwork):
 
     drug_views = ["chemberta_embeddings"]
 
-    @classmethod
-    def get_model_name(cls) -> str:
-        """
-        Returns the model name.
-
-        :returns: ChemBERTaNeuralNetwork
-        """
-        return "ChemBERTaNeuralNetwork"
-
 
 class PCANeuralNetwork(PCAMixin, SimpleNeuralNetwork):
     """Neural Network model using PCA-transformed gene expression and fingerprints."""
 
     cell_line_views = ["gene_expression_pca"]
-
-    @classmethod
-    def get_model_name(cls) -> str:
-        """
-        Returns the model name.
-
-        :returns: PCANeuralNetwork
-        """
-        return "PCANeuralNetwork"

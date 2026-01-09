@@ -39,15 +39,6 @@ class SklearnModel(DRPModel):
         self.gene_expression_scaler = StandardScaler()
         self.proteomics_transformer = None
 
-    @classmethod
-    def get_model_name(cls) -> str:
-        """
-        Returns the model name.
-
-        :raises NotImplementedError: If the method is not implemented in the child class.
-        """
-        raise NotImplementedError("get_model_name method has to be implemented in the child class.")
-
     def build_model(self, hyperparameters: dict):
         """
         Builds the model from hyperparameters.
@@ -251,15 +242,6 @@ class ElasticNetModel(SklearnModel):
 class RandomForest(SklearnModel):
     """RandomForest model for drug response prediction."""
 
-    @classmethod
-    def get_model_name(cls) -> str:
-        """
-        Returns the model name.
-
-        :returns: RandomForest
-        """
-        return "RandomForest"
-
     def build_model(self, hyperparameters: dict):
         """
         Builds the model from hyperparameters.
@@ -307,15 +289,6 @@ class SVMRegressor(SklearnModel):
 
 class GradientBoosting(SklearnModel):
     """Gradient Boosting model for drug response prediction."""
-
-    @classmethod
-    def get_model_name(cls) -> str:
-        """
-        Returns the model name.
-
-        :returns: GradientBoosting
-        """
-        return "GradientBoosting"
 
     def build_model(self, hyperparameters: dict):
         """
@@ -374,15 +347,6 @@ class ProteomicsRandomForest(RandomForest):
             normalization_downshift=self.normalization_downshift,
             normalization_width=self.normalization_width,
         )
-
-    @classmethod
-    def get_model_name(cls) -> str:
-        """
-        Returns the model name.
-
-        :returns: ProteomicsRandomForest
-        """
-        return "ProteomicsRandomForest"
 
     def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         """
