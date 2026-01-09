@@ -426,20 +426,20 @@ class NaiveTissueMeanPredictor(NaiveModel):
         """
         Computes the mean per tissue. Falls back to the overall mean for unknown tissues.
 
-        :param output: training dataset with `.response` and `.tissue`
-        :param cell_line_input: not needed
+        :param output: training dataset with `.response`
+        :param cell_line_input: tissue features for cell lines
         :param drug_input: not needed
         :param output_earlystopping: not needed
         :param model_checkpoint_dir: not needed
-        :raises ValueError: If tissue information is missing in the output dataset.
         """
         self.dataset_mean = np.mean(output.response)
         self.tissue_means = {}
 
-        if output.tissue is None:
-            raise ValueError("Tissue information is missing in the output dataset.")
-        for tissue in np.unique(output.tissue):
-            mask = output.tissue == tissue
+        # Get tissue information from cell_line_input FeatureDataset
+        tissues = cell_line_input.get_feature_matrix(view=TISSUE_IDENTIFIER, identifiers=output.cell_line_ids)
+        tissues = np.asarray(tissues).flatten()
+        for tissue in np.unique(tissues):
+            mask = tissues == tissue
             responses = output.response[mask]
             if len(responses) > 0:
                 self.tissue_means[tissue] = np.mean(responses)
@@ -699,28 +699,30 @@ class NaiveTissueDrugMeanPredictor(NaiveModel):
         """
         Computes the mean per tissue-drug combination. Falls back to the overall mean for unknown combinations.
 
-        :param output: training dataset with `.response`, `.tissue`, and `.drug_ids`
-        :param cell_line_input: not needed
+        :param output: training dataset with `.response` and `.drug_ids`
+        :param cell_line_input: tissue features for cell lines
         :param drug_input: drug id features
         :param output_earlystopping: not needed
         :param model_checkpoint_dir: not needed
-        :raises ValueError: If drug_input is None or tissue information is missing in the output dataset.
+        :raises ValueError: If drug_input is None.
         """
         if drug_input is None:
             raise ValueError("drug_input (drug_id) is required for the NaiveTissueDrugMeanPredictor.")
-        if output.tissue is None:
-            raise ValueError("Tissue information is missing in the output dataset.")
 
         # Get drug features for each drug in the output (following NaiveDrugMeanPredictor pattern)
         drug_ids = drug_input.get_feature_matrix(view=DRUG_IDENTIFIER, identifiers=output.drug_ids)
 
+        # Get tissue information from cell_line_input FeatureDataset
+        tissues = cell_line_input.get_feature_matrix(view=TISSUE_IDENTIFIER, identifiers=output.cell_line_ids)
+        tissues = np.asarray(tissues).flatten()
+
         self.dataset_mean = np.mean(output.response)
         self.tissue_drug_means = {}
 
-        # Use output.tissue directly (following NaiveTissueMeanPredictor pattern)
-        # and drug_ids from FeatureDataset (following NaiveDrugMeanPredictor pattern)
-        for tissue in np.unique(output.tissue):
-            tissue_mask = output.tissue == tissue
+        # Use tissues from cell_line_input FeatureDataset
+        # and drug_ids from drug_input FeatureDataset (following NaiveDrugMeanPredictor pattern)
+        for tissue in np.unique(tissues):
+            tissue_mask = tissues == tissue
             for drug_response, drug_feature in zip(unique(output.drug_ids), unique(drug_ids), strict=True):
                 drug_mask = drug_feature == output.drug_ids
                 combo_mask = tissue_mask & drug_mask
