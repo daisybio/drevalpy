@@ -1,4 +1,4 @@
-"""Contains the SimpleNeuralNetwork and the ChemBERTaNeuralNetwork model."""
+"""Contains the SimpleNeuralNetwork, ChemBERTaNeuralNetwork, and PCANeuralNetwork models."""
 
 import json
 import os
@@ -12,6 +12,7 @@ import torch
 from sklearn.preprocessing import StandardScaler
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER
 
 from ..drp_model import DRPModel
 from ..utils import load_and_select_gene_features, load_drug_fingerprint_features, scale_gene_expression
@@ -88,7 +89,7 @@ class SimpleNeuralNetwork(DRPModel):
                 gene_expression_scaler=self.gene_expression_scaler,
             )
 
-        dim_gex = next(iter(cell_line_input.features.values()))["gene_expression"].shape[0]
+        dim_gex = next(iter(cell_line_input.features.values()))[self.cell_line_views[0]].shape[0]
         dim_fingerprint = next(iter(drug_input.features.values()))[self.drug_views[0]].shape[0]
         self.hyperparameters["input_dim_gex"] = dim_gex
         self.hyperparameters["input_dim_fp"] = dim_fingerprint
@@ -156,7 +157,7 @@ class SimpleNeuralNetwork(DRPModel):
             )
 
         x = self.get_concatenated_features(
-            cell_line_view="gene_expression",
+            cell_line_view=self.cell_line_views[0],
             drug_view=self.drug_views[0],
             cell_line_ids_output=cell_line_ids,
             drug_ids_output=drug_ids,
@@ -287,5 +288,46 @@ class ChemBERTaNeuralNetwork(SimpleNeuralNetwork):
             drug_id = row["pubchem_id"]
             embedding = row.drop("pubchem_id").to_numpy(dtype=np.float32)
             features[drug_id] = {"chemberta_embeddings": embedding}
+
+        return FeatureDataset(features)
+
+
+class PCANeuralNetwork(SimpleNeuralNetwork):
+    """Neural Network model using PCA-transformed gene expression and fingerprints."""
+
+    cell_line_views = ["gene_expression_pca"]
+
+    @classmethod
+    def get_model_name(cls) -> str:
+        """
+        Returns the model name.
+
+        :returns: PCANeuralNetwork
+        """
+        return "PCANeuralNetwork"
+
+    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+        """
+        Loads the PCA-transformed gene expression features.
+
+        :param data_path: Path to the data, e.g., data/
+        :param dataset_name: name of the dataset, e.g., GDSC1
+        :returns: FeatureDataset containing the PCA features
+        :raises FileNotFoundError: if the PCA features file is not found
+        """
+        n_components = self.hyperparameters.get("n_components", 100)
+        pca_file = os.path.join(data_path, dataset_name, f"cell_line_gene_expression_pca_{n_components}.csv")
+        if not os.path.exists(pca_file):
+            raise FileNotFoundError(
+                f"PCA features file not found: {pca_file}. "
+                f"Please create it first with create_transcriptome_pca.py using --n_components {n_components}."
+            )
+
+        pca_df = pd.read_csv(pca_file, dtype={CELL_LINE_IDENTIFIER: str})
+        features = {}
+        for _, row in pca_df.iterrows():
+            cell_line_id = row[CELL_LINE_IDENTIFIER]
+            embedding = row.drop(CELL_LINE_IDENTIFIER).to_numpy(dtype=np.float32)
+            features[cell_line_id] = {"gene_expression_pca": embedding}
 
         return FeatureDataset(features)
