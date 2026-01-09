@@ -183,7 +183,7 @@ def _calc_ic50(model_params_df: pd.DataFrame):
 
 
 @pipeline_function
-def preprocess(input_file: str | Path, output_dir: str | Path, dataset_name: str, cores: int, normalize: bool = False):
+def preprocess(input_file: str, output_dir: str, dataset_name: str, cores: int, normalize: bool = False):
     """
     Preprocess raw viability data and create required input files for CurveCurator.
 
@@ -264,7 +264,7 @@ def preprocess(input_file: str | Path, output_dir: str | Path, dataset_name: str
 
 
 @pipeline_function
-def postprocess(output_folder: str | Path, dataset_name: str):
+def postprocess(output_folder: str, dataset_name: str):
     """
     Postprocess CurveCurator output files.
 
@@ -315,7 +315,7 @@ def postprocess(output_folder: str | Path, dataset_name: str):
         f.close()
 
 
-def fit_curves(input_file: str | Path, output_dir: str | Path, dataset_name: str, cores: int, normalize: bool = False):
+def fit_curves(input_file: str, output_dir: str, dataset_name: str, cores: int, normalize: bool = False):
     """
     Fit curves for provided raw viability data.
 

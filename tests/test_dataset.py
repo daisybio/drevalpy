@@ -47,14 +47,15 @@ def test_response_dataset_load() -> None:
 def test_fitting_and_loading_custom_dataset():
     """Test CurveCurator fitting of raw viability dataset and loading it."""
     dataset_name = "CTRPv2_sample_test"
+    path_data = str((Path("..") / "data").resolve())
     load_dataset(
         dataset_name=dataset_name,
-        path_data=str(Path(__file__).parent),
+        path_data=path_data,
         measure="IC50",
         curve_curator=True,
         cores=200,
     )
-    for item in (Path(__file__).parent / dataset_name).iterdir():
+    for item in ((Path("..") / "data").resolve() / dataset_name).iterdir():
         if item.name == f"{dataset_name}_raw.csv":
             continue
         if item.is_dir():

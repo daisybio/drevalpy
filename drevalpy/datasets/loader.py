@@ -126,7 +126,7 @@ def _load_test_data(
 ) -> DrugResponseDataset:
     # ensure that path_data exists
     Path(path_data).mkdir(parents=True, exist_ok=True)
-    test_data_path = "https://github.com/JudithBernett/test-datasets/raw/drugresponseeval/test_data"
+    test_data_path = "https://github.com/nf-core/test-datasets/raw/refs/heads/drugresponseeval/test_data"
     # first get meta
     meta_path = os.path.join(path_data, "meta")
     if not os.path.exists(meta_path):
@@ -134,6 +134,13 @@ def _load_test_data(
         file_path = Path(path_data) / "meta.zip"
         response_meta = download_from_url(dataset_name="meta", file_url=file_url)
         unzip_data(path_to_zip=file_path, response=response_meta, data_path=path_data)
+    # get raw test data
+    raw_data_path = os.path.join(path_data, "CTRPv2_sample_test")
+    if not os.path.exists(raw_data_path):
+        file_url = f"{test_data_path}/CTRPv2_sample_test.zip"
+        file_path = Path(path_data) / "CTRPv2_sample_test.zip"
+        response_raw = download_from_url(dataset_name="CTRPv2_sample_test", file_url=file_url)
+        unzip_data(path_to_zip=file_path, response=response_raw, data_path=path_data)
     file_url = f"{test_data_path}/{dataset_name}.zip"
     file_path = Path(path_data) / f"{dataset_name}.zip"
     response = download_from_url(dataset_name=dataset_name, file_url=file_url)
@@ -299,9 +306,9 @@ def load_dataset(
     """
     if curve_curator:
         measure += "_curvecurator"
-        input_file = Path(path_data) / dataset_name / f"{dataset_name}_raw.csv"
+        input_file = Path(path_data).resolve() / dataset_name / f"{dataset_name}_raw.csv"
     else:
-        input_file = Path(path_data) / dataset_name / f"{dataset_name}.csv"
+        input_file = Path(path_data).resolve() / dataset_name / f"{dataset_name}.csv"
 
     if dataset_name in AVAILABLE_DATASETS:
         return AVAILABLE_DATASETS[dataset_name](path_data, measure=measure)
@@ -309,8 +316,8 @@ def load_dataset(
     if input_file.is_file():
         if curve_curator:
             fit_curves(
-                input_file=input_file,
-                output_dir=input_file.parent,
+                input_file=str(input_file),
+                output_dir=str(input_file.parent),
                 dataset_name=dataset_name,
                 cores=cores,
                 normalize=normalize,

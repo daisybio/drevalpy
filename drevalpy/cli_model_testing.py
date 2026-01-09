@@ -380,7 +380,7 @@ def train_final_model():
     )
     parser.add_argument("--train_data", type=str, required=True, help="Train data, pickled.")
     parser.add_argument("--val_data", type=str, required=True, help="Validation data, pickled.")
-    parser.add_argument("--early_stop_data", type=str, required=True, help="Early stopping data, pickled.")
+    parser.add_argument("--early_stopping_data", type=str, required=True, help="Early stopping data, pickled.")
     parser.add_argument("--response_transformation", type=str, default="None", help="Response transformation.")
     parser.add_argument(
         "--model_name",
@@ -411,7 +411,7 @@ def train_final_model():
         train_dataset = pickle.load(train_file)
     with open(args.val_data, "rb") as val_file:
         validation_dataset = pickle.load(val_file)
-    with open(args.early_stop_data, "rb") as es_file:
+    with open(args.early_stopping_data, "rb") as es_file:
         es_dataset = pickle.load(es_file)
     # create dataset
     train_dataset.add_rows(validation_dataset)
@@ -450,13 +450,15 @@ def consolidate_results():
     # define parser
     parser = argparse.ArgumentParser(description="Consolidate results for SingleDrugModels")
     parser.add_argument("--run_id", type=str, required=True, help="Run ID")
-    parser.add_argument("--test_mode", type=str, required=True, help="Test mode (LPO, LCO, LTO, LDO)")
+    parser.add_argument("--test_mode", type=str, required=False, default="LPO", help="Test mode (LPO, LCO, LTO, LDO)")
     parser.add_argument("--model_name", type=str, required=True, help="All Model " "names")
     parser.add_argument("--outdir_path", type=str, required=True, help="Output directory path")
     parser.add_argument("--n_cv_splits", type=int, required=True, help="Number of CV splits")
     parser.add_argument("--cross_study_datasets", type=str, nargs="+", help="All " "cross-study " "datasets")
-    parser.add_argument("--randomization_modes", type=str, required=True, help="All " "randomizations")
-    parser.add_argument("--n_trials_robustness", type=int, required=True, help="Number of trials")
+    parser.add_argument(
+        "--randomization_modes", type=str, default="[None]", required=False, help="All " "randomizations"
+    )
+    parser.add_argument("--n_trials_robustness", type=int, default=0, required=False, help="Number of trials")
     args = parser.parse_args()
 
     # load relevant objects from args

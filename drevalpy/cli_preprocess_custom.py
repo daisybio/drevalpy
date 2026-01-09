@@ -22,10 +22,10 @@ def preprocess_raw_viability():
         "--cores", type=int, default=4, help="The number of cores used for CurveCurator fitting, default: 4."
     )
     args = parser.parse_args()
-
     # get the raw data and preprocess
-    input_file = Path(args.path_data) / args.dataset_name / f"{args.dataset_name}_raw.csv"
-    preprocess(input_file=input_file, output_dir=args.dataset_name, dataset_name=args.dataset_name, cores=args.cores)
+    input_file = Path(args.path_data).resolve() / args.dataset_name / f"{args.dataset_name}_raw.csv"
+    output_dir = input_file.parent
+    preprocess(input_file=str(input_file), output_dir=str(output_dir), dataset_name=args.dataset_name, cores=args.cores)
 
 
 def postprocess_viability():
@@ -38,12 +38,12 @@ def postprocess_viability():
     )
     parser.add_argument("--dataset_name", type=str, required=True, help="Dataset name, e.g., MyCustomDataset.")
     parser.add_argument(
-        "--output_folder",
+        "--path_data",
         type=str,
         default="./",
         help="Path to output folder of CurveCurator containing the curves.txt file, default: './'.",
     )
     args = parser.parse_args()
-
+    output_folder = Path(args.path_data).resolve() / args.dataset_name
     # postprocess the curves.txt files and saves to the dataset_name.csv file
-    postprocess(output_folder=args.output_folder, dataset_name=args.dataset_name)
+    postprocess(output_folder=str(output_folder), dataset_name=args.dataset_name)
