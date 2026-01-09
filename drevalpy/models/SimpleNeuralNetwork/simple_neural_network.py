@@ -306,5 +306,5 @@ class PCANeuralNetwork(SimpleNeuralNetwork):
         :returns: FeatureDataset containing the PCA features
         """
         n_components = self.hyperparameters.get("n_components", 100)
-        featurizer = PCAFeaturizer(n_components=n_components, omics_types="gene_expression")
+        featurizer = PCAFeaturizer(n_components=n_components)
         return featurizer.load_or_generate(data_path, dataset_name)
