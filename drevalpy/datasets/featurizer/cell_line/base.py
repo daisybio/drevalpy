@@ -145,21 +145,18 @@ class CellLineFeaturizer(ABC):
         omics_data = self._load_omics_data(data_path, dataset_name)
 
         # Get common cell line IDs across all omics types
-        cell_line_ids = None
+        cell_line_ids_set: set[str] = set()
         for _omics_type, df in omics_data.items():
-            if cell_line_ids is None:
-                cell_line_ids = set(df.index)
-            else:
-                cell_line_ids = cell_line_ids.intersection(set(df.index))
+            cell_line_ids_set = cell_line_ids_set.intersection(set(df.index))
 
-        cell_line_ids = sorted(list(cell_line_ids))
-        print(f"Processing {len(cell_line_ids)} cell lines for dataset {dataset_name}...")
+        cell_line_ids_list = sorted(list(cell_line_ids_set))
+        print(f"Processing {len(cell_line_ids_list)} cell lines for dataset {dataset_name}...")
 
         # Generate embeddings
         embeddings_list = []
         valid_cell_line_ids = []
 
-        for cell_line_id in cell_line_ids:
+        for cell_line_id in cell_line_ids_list:
             try:
                 # Prepare omics data for this cell line
                 cell_omics = {}

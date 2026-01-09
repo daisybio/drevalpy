@@ -707,6 +707,7 @@ class MolGNetFeaturizer(DrugFeaturizer):
 
         :param smiles: SMILES string representing the drug
         :returns: Node embeddings tensor or None if conversion fails
+        :raises RuntimeError: If model is not loaded
         """
         _init_rdkit_features()
         self._load_model()
@@ -719,6 +720,9 @@ class MolGNetFeaturizer(DrugFeaturizer):
         graph = self._self_loop(graph)
         graph = self._add_seg(graph)
         graph = graph.to(self.device)
+
+        if self._model is None:
+            raise RuntimeError("Model not loaded. Call _load_model() first.")
 
         with torch.no_grad():
             embeddings = self._model(graph)

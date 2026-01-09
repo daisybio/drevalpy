@@ -27,7 +27,7 @@ ATOM_FEATURES = {
 }
 
 # Bond feature configuration
-BOND_FEATURES = {
+BOND_FEATURES: dict[str, list] = {
     "bond_type": [],  # Will be populated after rdkit import check
 }
 
