@@ -11,7 +11,7 @@ import torch
 from sklearn.preprocessing import StandardScaler
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
-from drevalpy.datasets.featurizer import ChemBERTaFeaturizer, PCAFeaturizer
+from drevalpy.datasets.featurizer import ChemBERTaMixin, PCAMixin
 
 from ..drp_model import DRPModel
 from ..utils import load_and_select_gene_features, load_drug_fingerprint_features, scale_gene_expression
@@ -251,7 +251,7 @@ class SimpleNeuralNetwork(DRPModel):
         return instance
 
 
-class ChemBERTaNeuralNetwork(SimpleNeuralNetwork):
+class ChemBERTaNeuralNetwork(ChemBERTaMixin, SimpleNeuralNetwork):
     """ChemBERTa Neural Network model using gene expression and ChemBERTa drug embeddings."""
 
     drug_views = ["chemberta_embeddings"]
@@ -265,22 +265,8 @@ class ChemBERTaNeuralNetwork(SimpleNeuralNetwork):
         """
         return "ChemBERTaNeuralNetwork"
 
-    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
-        """
-        Loads the ChemBERTa embeddings.
 
-        Uses the ChemBERTaFeaturizer to load pre-generated embeddings or generate
-        them automatically if they don't exist.
-
-        :param data_path: Path to the ChemBERTa embeddings, e.g., data/
-        :param dataset_name: name of the dataset, e.g., GDSC1
-        :returns: FeatureDataset containing the ChemBERTa embeddings
-        """
-        featurizer = ChemBERTaFeaturizer(device="cuda" if torch.cuda.is_available() else "cpu")
-        return featurizer.load_or_generate(data_path, dataset_name)
-
-
-class PCANeuralNetwork(SimpleNeuralNetwork):
+class PCANeuralNetwork(PCAMixin, SimpleNeuralNetwork):
     """Neural Network model using PCA-transformed gene expression and fingerprints."""
 
     cell_line_views = ["gene_expression_pca"]
@@ -293,18 +279,3 @@ class PCANeuralNetwork(SimpleNeuralNetwork):
         :returns: PCANeuralNetwork
         """
         return "PCANeuralNetwork"
-
-    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
-        """
-        Loads the PCA-transformed gene expression features.
-
-        Uses the PCAFeaturizer to load pre-generated embeddings or generate
-        them automatically if they don't exist.
-
-        :param data_path: Path to the data, e.g., data/
-        :param dataset_name: name of the dataset, e.g., GDSC1
-        :returns: FeatureDataset containing the PCA features
-        """
-        n_components = self.hyperparameters.get("n_components", 100)
-        featurizer = PCAFeaturizer(n_components=n_components)
-        return featurizer.load_or_generate(data_path, dataset_name)

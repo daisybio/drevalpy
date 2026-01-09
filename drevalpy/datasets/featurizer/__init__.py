@@ -13,6 +13,12 @@ Cell Line Featurizers:
     - CellLineFeaturizer: Abstract base class for cell line featurizers
     - PCAFeaturizer: PCA dimensionality reduction for omics data
 
+Mixins for DRP Models:
+    - ChemBERTaMixin: Provides load_drug_features using ChemBERTa
+    - DrugGraphMixin: Provides load_drug_features using DrugGraphFeaturizer
+    - MolGNetMixin: Provides load_drug_features using MolGNet
+    - PCAMixin: Provides load_cell_line_features using PCA
+
 Example usage::
 
     from drevalpy.datasets.featurizer import ChemBERTaFeaturizer, PCAFeaturizer
@@ -24,20 +30,34 @@ Example usage::
     # Cell line features
     cell_featurizer = PCAFeaturizer(n_components=100)
     cell_features = cell_featurizer.load_or_generate("data", "GDSC1")
+
+Example using mixins in a model::
+
+    from drevalpy.models.drp_model import DRPModel
+    from drevalpy.datasets.featurizer import ChemBERTaMixin, PCAMixin
+
+    class MyModel(ChemBERTaMixin, PCAMixin, DRPModel):
+        # ChemBERTaMixin provides load_drug_features
+        # PCAMixin provides load_cell_line_features
+        ...
 """
 
 # Cell line featurizers
 from .cell_line import (
     CellLineFeaturizer,
     PCAFeaturizer,
+    PCAMixin,
 )
 
 # Drug featurizers
 from .drug import (
     ChemBERTaFeaturizer,
+    ChemBERTaMixin,
     DrugFeaturizer,
     DrugGraphFeaturizer,
+    DrugGraphMixin,
     MolGNetFeaturizer,
+    MolGNetMixin,
 )
 
 __all__ = [
@@ -49,4 +69,9 @@ __all__ = [
     # Cell line featurizers
     "CellLineFeaturizer",
     "PCAFeaturizer",
+    # Mixins
+    "ChemBERTaMixin",
+    "DrugGraphMixin",
+    "MolGNetMixin",
+    "PCAMixin",
 ]
