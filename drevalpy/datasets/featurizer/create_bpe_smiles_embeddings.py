@@ -66,7 +66,7 @@ def create_bpe_smiles_embeddings(
     # Learn BPE codes from SMILES corpus
     try:
         with codecs.open(tmp_smiles_file, encoding="utf-8") as f_in:
-            with codecs.open(bpe_codes_path, "w", encoding="utf-8") as f_out:
+            with codecs.open(str(bpe_codes_path), "w", encoding="utf-8") as f_out:
                 learn_bpe(f_in, f_out, num_symbols=num_symbols)
     finally:
         # Clean up temporary file
@@ -76,7 +76,7 @@ def create_bpe_smiles_embeddings(
     print(f"BPE codes saved to {bpe_codes_path}")
 
     # Load BPE encoder
-    with codecs.open(bpe_codes_path, encoding="utf-8") as f_in:
+    with codecs.open(str(bpe_codes_path), encoding="utf-8") as f_in:
         bpe = BPE(f_in)
 
     # Encode each SMILES string
