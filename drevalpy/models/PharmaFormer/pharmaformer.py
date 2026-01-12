@@ -340,7 +340,7 @@ class PharmaFormerModel(DRPModel):
         """
         return load_and_select_gene_features(
             feature_type="gene_expression",
-            gene_list="landmark_genes_reduced",
+            gene_list=None,
             data_path=data_path,
             dataset_name=dataset_name,
         )
