@@ -57,7 +57,9 @@ def ensure_bpe_features() -> None:
     This fixture runs automatically before any tests to ensure that PharmaFormer
     and other models requiring BPE features have the necessary data available.
     """
-    path_data = str((pathlib.Path("..") / "data").resolve())
+    # Ensure we're in the tests directory (pytest_configure should have done this)
+    tests_dir = pathlib.Path(__file__).parent.resolve()
+    path_data = str((tests_dir.parent / "data").resolve())
 
     try:
         from drevalpy.datasets.featurizer.create_bpe_smiles_embeddings import (
@@ -68,12 +70,27 @@ def ensure_bpe_features() -> None:
         # Tests that require BPE features will fail with a clear error message
         return
 
+    # Ensure datasets are loaded first (this will download them if needed)
+    try:
+        load_toyv1(path_data)
+        load_toyv2(path_data)
+    except Exception as e:
+        # If dataset loading fails, skip BPE creation
+        print(f"Warning: Could not load datasets for BPE feature creation: {e}")
+        return
+
     # Create BPE features for both TOYv1 and TOYv2
     for dataset_name in ["TOYv1", "TOYv2"]:
-        bpe_smiles_file = pathlib.Path(path_data) / dataset_name / "drug_bpe_smiles.csv"
+        dataset_dir = pathlib.Path(path_data) / dataset_name
+        bpe_smiles_file = dataset_dir / "drug_bpe_smiles.csv"
+        smiles_file = dataset_dir / "drug_smiles.csv"
 
-        # Only create if it doesn't exist
+        # Only create if it doesn't exist and if drug_smiles.csv exists
         if not bpe_smiles_file.exists():
+            if not smiles_file.exists():
+                print(f"Warning: drug_smiles.csv not found for {dataset_name}, skipping BPE creation")
+                continue
+
             try:
                 print(f"Creating BPE SMILES features for {dataset_name}...")
                 create_bpe_smiles_embeddings(
@@ -86,3 +103,6 @@ def ensure_bpe_features() -> None:
             except Exception as e:
                 # Log but don't fail - let individual tests handle missing features
                 print(f"Warning: Could not create BPE features for {dataset_name}: {e}")
+                import traceback
+
+                traceback.print_exc()
