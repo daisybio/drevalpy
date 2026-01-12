@@ -1,4 +1,12 @@
-"""PharmaFormer model for drug response prediction."""
+"""
+Contains PharmaFormer, a transformer-based deep learning model for drug response prediction.
+
+A Transformer-based deep learning model designed to predict clinical drug responses
+by integrating gene expression profiles and drug molecular structures.
+
+Original authors: Zhou et al. (2025, 10.1038/s41698-025-01082-6)
+Code adapted from their Github: https://github.com/zhouyuru1205/PharmaFormer
+"""
 
 import json
 import os
