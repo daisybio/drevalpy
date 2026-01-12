@@ -4,6 +4,8 @@ Implements the naive predictor models.
 The naive predictor models are simple models that predict the mean of the response values. The NaivePredictor
 predicts the overall mean of the response, the NaiveCellLineMeanPredictor predicts the mean of the response per cell
 line, and the NaiveDrugMeanPredictor predicts the mean of the response per drug.
+The NaiveTissueMeanPredictor predicts the mean of the response per tissue.
+The NaiveTissueDrugMeanPredictor predicts the mean of the response per tissue-drug combination.
 The NaiveMeanEffectsPredictor predicts the response as the overall mean plus the cell line effect
 plus the drug effect and should be the strongest naive baseline.
 
@@ -54,7 +56,14 @@ class NaiveModel(DRPModel):
         """
         os.makedirs(directory, exist_ok=True)
         config = {"dataset_mean": self.dataset_mean}
-        for attr in ["drug_means", "cell_line_means", "tissue_means", "cell_line_effects", "drug_effects"]:
+        for attr in [
+            "drug_means",
+            "cell_line_means",
+            "tissue_means",
+            "tissue_drug_means",
+            "cell_line_effects",
+            "drug_effects",
+        ]:
             if hasattr(self, attr):
                 config[attr] = getattr(self, attr)
         with open(os.path.join(directory, "naive_model.json"), "w") as f:
@@ -73,7 +82,14 @@ class NaiveModel(DRPModel):
             config = json.load(f)
         instance = cls()
         instance.dataset_mean = config["dataset_mean"]
-        for attr in ["drug_means", "cell_line_means", "tissue_means", "cell_line_effects", "drug_effects"]:
+        for attr in [
+            "drug_means",
+            "cell_line_means",
+            "tissue_means",
+            "tissue_drug_means",
+            "cell_line_effects",
+            "drug_effects",
+        ]:
             if attr in config:
                 setattr(instance, attr, config[attr])
         return instance
@@ -410,20 +426,20 @@ class NaiveTissueMeanPredictor(NaiveModel):
         """
         Computes the mean per tissue. Falls back to the overall mean for unknown tissues.
 
-        :param output: training dataset with `.response` and `.tissue`
-        :param cell_line_input: not needed
+        :param output: training dataset with `.response`
+        :param cell_line_input: tissue features for cell lines
         :param drug_input: not needed
         :param output_earlystopping: not needed
         :param model_checkpoint_dir: not needed
-        :raises ValueError: If tissue information is missing in the output dataset.
         """
         self.dataset_mean = np.mean(output.response)
         self.tissue_means = {}
 
-        if output.tissue is None:
-            raise ValueError("Tissue information is missing in the output dataset.")
-        for tissue in np.unique(output.tissue):
-            mask = output.tissue == tissue
+        # Get tissue information from cell_line_input FeatureDataset
+        tissues = cell_line_input.get_feature_matrix(view=TISSUE_IDENTIFIER, identifiers=output.cell_line_ids)
+        tissues = np.asarray(tissues).flatten()
+        for tissue in np.unique(tissues):
+            mask = tissues == tissue
             responses = output.response[mask]
             if len(responses) > 0:
                 self.tissue_means[tissue] = np.mean(responses)
@@ -602,5 +618,165 @@ class NaiveMeanEffectsPredictor(NaiveModel):
         :param data_path: Path to the data.
         :param dataset_name: Name of the dataset.
         :return: FeatureDataset containing the drug IDs.
+        """
+        return load_drug_ids_from_csv(data_path, dataset_name)
+
+
+class NaiveTissueDrugMeanPredictor(NaiveModel):
+    """
+    Naive predictor model that predicts the mean of the response per tissue-drug combination.
+
+    This model combines tissue and drug information to predict the mean response aggregated across
+    all cell lines from the same tissue tested on the same drug. If a (tissue, drug) combination
+    was not seen during training, it falls back to the overall dataset mean.
+    """
+
+    cell_line_views = [TISSUE_IDENTIFIER]
+    drug_views = [DRUG_IDENTIFIER]
+
+    def __init__(self):
+        """
+        Initializes the model.
+
+        Tissue-drug means and dataset mean are set to None, which are initialized in the train method.
+        """
+        super().__init__()
+        self.tissue_drug_means = None
+
+    @classmethod
+    def get_model_name(cls) -> str:
+        """
+        Returns the model name.
+
+        :returns: NaiveTissueDrugMeanPredictor
+        """
+        return "NaiveTissueDrugMeanPredictor"
+
+    def save(self, directory: str) -> None:
+        """
+        Saves the model parameters to the given directory.
+
+        Overrides the base class save method to handle tuple keys in tissue_drug_means
+        by converting them to JSON-serializable string keys.
+
+        :param directory: Path to the directory where the model will be saved.
+        """
+        os.makedirs(directory, exist_ok=True)
+        config = {"dataset_mean": self.dataset_mean}
+        # Convert tuple keys to string keys for JSON serialization
+        if self.tissue_drug_means is not None:
+            config["tissue_drug_means"] = {f"{k[0]}|{k[1]}": v for k, v in self.tissue_drug_means.items()}
+        with open(os.path.join(directory, "naive_model.json"), "w") as f:
+            json.dump(config, f)
+
+    @classmethod
+    def load(cls, directory: str) -> "NaiveTissueDrugMeanPredictor":
+        """
+        Loads the model parameters from the given directory.
+
+        Overrides the base class load method to convert string keys back to tuple keys.
+
+        :param directory: Path to the directory where the model is saved.
+        :return: An instance of NaiveTissueDrugMeanPredictor with the loaded parameters.
+        """
+        with open(os.path.join(directory, "naive_model.json")) as f:
+            config = json.load(f)
+        instance = cls()
+        instance.dataset_mean = config["dataset_mean"]
+        # Convert string keys back to tuple keys
+        if "tissue_drug_means" in config:
+            instance.tissue_drug_means = {tuple(k.split("|")): v for k, v in config["tissue_drug_means"].items()}
+        return instance
+
+    def train(
+        self,
+        output: DrugResponseDataset,
+        cell_line_input: FeatureDataset,
+        drug_input: FeatureDataset | None = None,
+        output_earlystopping: DrugResponseDataset | None = None,
+        model_checkpoint_dir: str = "None",
+    ) -> None:
+        """
+        Computes the mean per tissue-drug combination. Falls back to the overall mean for unknown combinations.
+
+        :param output: training dataset with `.response` and `.drug_ids`
+        :param cell_line_input: tissue features for cell lines
+        :param drug_input: drug id features
+        :param output_earlystopping: not needed
+        :param model_checkpoint_dir: not needed
+        :raises ValueError: If drug_input is None.
+        """
+        if drug_input is None:
+            raise ValueError("drug_input (drug_id) is required for the NaiveTissueDrugMeanPredictor.")
+
+        # Get drug features for each drug in the output (following NaiveDrugMeanPredictor pattern)
+        drug_ids = drug_input.get_feature_matrix(view=DRUG_IDENTIFIER, identifiers=output.drug_ids)
+
+        # Get tissue information from cell_line_input FeatureDataset
+        tissues = cell_line_input.get_feature_matrix(view=TISSUE_IDENTIFIER, identifiers=output.cell_line_ids)
+        tissues = np.asarray(tissues).flatten()
+
+        self.dataset_mean = np.mean(output.response)
+        self.tissue_drug_means = {}
+
+        # Use tissues from cell_line_input FeatureDataset
+        # and drug_ids from drug_input FeatureDataset (following NaiveDrugMeanPredictor pattern)
+        for tissue in np.unique(tissues):
+            tissue_mask = tissues == tissue
+            for drug_response, drug_feature in zip(unique(output.drug_ids), unique(drug_ids), strict=True):
+                drug_mask = drug_feature == output.drug_ids
+                combo_mask = tissue_mask & drug_mask
+                responses = output.response[combo_mask]
+                if len(responses) > 0:
+                    combo_key = (str(tissue), str(drug_response))
+                    self.tissue_drug_means[combo_key] = np.mean(responses)
+
+    def predict(
+        self,
+        cell_line_ids: np.ndarray,
+        drug_ids: np.ndarray,
+        cell_line_input: FeatureDataset,
+        drug_input: FeatureDataset | None = None,
+    ) -> np.ndarray:
+        """
+        Predicts the tissue-drug mean for each drug-cell line combination.
+
+        If the (tissue, drug) combination is not in the training set, the dataset mean is used.
+
+        :param cell_line_ids: cell line ids
+        :param drug_ids: drug ids (used directly, following NaiveDrugMeanPredictor pattern)
+        :param cell_line_input: tissue features
+        :param drug_input: not needed
+        :return: array of the same length as the input containing the tissue-drug mean or dataset mean
+        """
+        # Get tissues from FeatureDataset (following NaiveTissueMeanPredictor pattern)
+        tissues = cell_line_input.get_feature_matrix(view=TISSUE_IDENTIFIER, identifiers=cell_line_ids)
+
+        # Use drug_ids parameter directly (following NaiveDrugMeanPredictor pattern)
+        preds = []
+        for tissue, drug_id in zip(tissues, drug_ids, strict=True):
+            tissue_key = tissue.item() if isinstance(tissue, np.ndarray) else tissue
+            combo_key = (str(tissue_key), str(drug_id))
+            preds.append(self.tissue_drug_means.get(combo_key, self.dataset_mean))
+
+        return np.array(preds)
+
+    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+        """
+        Loads the cell line features, in this case the tissue annotations.
+
+        :param data_path: path to the data
+        :param dataset_name: name of the dataset
+        :returns: FeatureDataset containing the tissue ids
+        """
+        return load_tissues_from_csv(data_path, dataset_name)
+
+    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+        """
+        Loads the drug features, in this case the drug ids.
+
+        :param data_path: path to the data
+        :param dataset_name: name of the dataset
+        :returns: FeatureDataset containing the drug ids
         """
         return load_drug_ids_from_csv(data_path, dataset_name)
