@@ -120,7 +120,7 @@ def main():
     """Process drug SMILES and save BPE-encoded embeddings."""
     parser = argparse.ArgumentParser(description="Preprocess drug SMILES to BPE-encoded embeddings.")
     parser.add_argument("dataset_name", type=str, help="The name of the dataset to process.")
-    parser.add_argument("--data-path", type=str, default="data", help="Path to the data folder")
+    parser.add_argument("--data_path", type=str, default="data", help="Path to the data folder")
     parser.add_argument("--num-symbols", type=int, default=10000, help="Number of BPE symbols to learn")
     parser.add_argument("--max-length", type=int, default=128, help="Maximum length of encoded SMILES")
     args = parser.parse_args()

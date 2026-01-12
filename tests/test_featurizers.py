@@ -127,8 +127,13 @@ def test_bpe_smiles_featurizer(tmp_path):
     data_dir = tmp_path / dataset
     data_dir.mkdir(parents=True)
 
-    # write minimal SMILES CSV
-    df = pd.DataFrame({"pubchem_id": ["D1"], "canonical_smiles": ["CCO"]})
+    # write minimal SMILES CSV with multiple SMILES for BPE learning
+    df = pd.DataFrame(
+        {
+            "pubchem_id": ["D1", "D2", "D3", "D4", "D5"],
+            "canonical_smiles": ["CCO", "CC(=O)O", "c1ccccc1", "CCN(CC)CC", "C1CCC(CC1)O"],
+        }
+    )
     (data_dir / "drug_smiles.csv").write_text(df.to_csv(index=False))
 
     # run main exactly as the script would
@@ -144,7 +149,7 @@ def test_bpe_smiles_featurizer(tmp_path):
     # verify output format
     df_out = pd.read_csv(out_file)
     assert "pubchem_id" in df_out.columns
-    assert df_out.pubchem_id.tolist() == ["D1"]
+    assert df_out.pubchem_id.tolist() == ["D1", "D2", "D3", "D4", "D5"]
     # Should have 128 feature columns
     feature_cols = [col for col in df_out.columns if col.startswith("feature_")]
     assert len(feature_cols) == 128
