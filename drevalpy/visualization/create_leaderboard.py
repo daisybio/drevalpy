@@ -411,7 +411,7 @@ def create_leaderboard(
         mpatches.Patch(facecolor="#F4D03F", label="#1 Champion", edgecolor="none"),
         mpatches.Patch(facecolor="#BDC3C7", label="#2 Runner-up", edgecolor="none"),
         mpatches.Patch(facecolor="#E67E22", label="#3 Third Place", edgecolor="none"),
-        mpatches.Patch(facecolor=COMPETITOR_COLOR, label="Competitor", edgecolor="none"),
+        mpatches.Patch(facecolor=COMPETITOR_COLOR, alpha=0.85, label="Competitor", edgecolor="none"),
         mpatches.Patch(facecolor="#5a5a5a", alpha=0.5, label="Baseline", edgecolor="none"),
     ]
 
