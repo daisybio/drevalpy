@@ -5,7 +5,7 @@ DrEvalPy Leaderboard Visualization.
 This script generates a leaderboard visualization (normalized PCC and RMSE) from
 the evaluation results CSV file produced by the DrEvalPy evaluation pipeline.
 Usage:
-python create_leaderboard.py --results_path /path/to/results.csv --output out.png
+python create_leaderboard.py --results_path /path/to/results.csv
 """
 
 import argparse
@@ -19,30 +19,32 @@ import pandas as pd
 from matplotlib.legend_handler import HandlerBase
 from matplotlib.patches import FancyBboxPatch, Rectangle
 
-COLORS = {
+# --- Theme Definitions ---
+DARK_THEME = {
     "background": "#0d1117",
     "surface": "#2d2d2d",
     "text": "#ece7e4",
     "text_secondary": "#a0a0a0",
-    "grid": "#404040",
-    "blue": "#29ABCA",
-    "teal": "#14b8a6",
-    "pink": "#FF6B9D",
-    "purple": "#9D4EDD",
-    # Medal colors
-    "medal_gold": "#F4D03F",
-    "medal_silver": "#BDC3C7",
-    "medal_bronze": "#E67E22",
-    # Baseline
-    "baseline": "#5a5a5a",
+    "grid": "#30363d",
 }
+
+LIGHT_THEME = {
+    "background": "#ffffff",
+    "surface": "#f6f8fa",
+    "text": "#1f2328",
+    "text_secondary": "#57606a",
+    "grid": "#d0d7de",
+}
+
+# This will be updated dynamically during the dual-generation loop
+COLORS = DARK_THEME
 
 # Gradient colors for competitors
 GRADIENT_COLORS = [
-    COLORS["teal"],
-    COLORS["blue"],
+    "#14b8a6",  # teal
+    "#29ABCA",  # blue
     "#5B8DEE",
-    COLORS["purple"],
+    "#9D4EDD",  # purple
     "#7B68EE",
     "#6A5ACD",
     "#8470FF",
@@ -93,7 +95,7 @@ class GradientHandler(HandlerBase):
 
 def configure_matplotlib(font_adder: int = 0):
     """
-    Configure matplotlib for dark mode aesthetic.
+    Configure matplotlib for chosen mode aesthetic.
 
     :param font_adder: Increment to add to the base font size.
     """
@@ -168,14 +170,18 @@ def get_bar_color(rank: int, is_baseline: bool) -> dict:
     :return: Dictionary containing 'color' and 'alpha' keys.
     """
     if is_baseline:
-        return {"color": COLORS["baseline"], "alpha": 0.5}
+        return {"color": "#5a5a5a", "alpha": 0.5}
+
+    medal_gold = "#F4D03F"
+    medal_silver = "#BDC3C7"
+    medal_bronze = "#E67E22"
 
     if rank == 0:
-        return {"color": COLORS["medal_gold"], "alpha": 1.0}
+        return {"color": medal_gold, "alpha": 1.0}
     elif rank == 1:
-        return {"color": COLORS["medal_silver"], "alpha": 1.0}
+        return {"color": medal_silver, "alpha": 1.0}
     elif rank == 2:
-        return {"color": COLORS["medal_bronze"], "alpha": 1.0}
+        return {"color": medal_bronze, "alpha": 1.0}
 
     idx = min(rank - 3, len(GRADIENT_COLORS) - 1)
     return {"color": GRADIENT_COLORS[idx], "alpha": 0.85}
@@ -210,7 +216,7 @@ def draw_bar(ax, x: float, y: float, width: float, height: float, color: str, al
 
 def create_leaderboard(
     df: pd.DataFrame,
-    output_path: str = "docs/_static/img/leaderboard.png",
+    output_path: str,
     test_mode: str = "LCO",
     dataset: str = "CTRPv2",
     measure: str = "LN_IC50",
@@ -252,7 +258,6 @@ def create_leaderboard(
         style = get_bar_color(i, row["is_baseline"])
         draw_bar(ax1, 0, y_positions[i], row["PCC"], bar_height, style["color"], style["alpha"])
 
-        # Value label
         label_color = style["color"] if not row["is_baseline"] else COLORS["text_secondary"]
         label_x = row["PCC"] + max_pcc * 0.02
         ax1.text(
@@ -267,7 +272,6 @@ def create_leaderboard(
             zorder=5,
         )
 
-        # Rank indicator for top 3
         if i < 3 and not row["is_baseline"]:
             medals = ["①", "②", "③"]
             ax1.text(
@@ -305,11 +309,11 @@ def create_leaderboard(
         "normalized Pearson  ↑  higher is better",
         fontsize=14 + font_adder,
         fontweight="bold",
-        color=COLORS["blue"],
+        color="#29ABCA",
         pad=15,
     )
 
-    #  RIGHT PLOT: RMSE
+    # RIGHT PLOT: RMSE
     ax2.set_facecolor(COLORS["background"])
     df_rmse = df.sort_values("RMSE", ascending=True).reset_index(drop=True)
     max_rmse = (df_rmse["RMSE"] + df_rmse["RMSE_std"]).max() * 1.18
@@ -365,16 +369,14 @@ def create_leaderboard(
     ax2.xaxis.grid(True, linestyle="--", alpha=0.3, color=COLORS["grid"])
     ax2.set_axisbelow(True)
     ax2.tick_params(axis="x", colors=COLORS["text_secondary"])
-    ax2.set_title("RMSE  ↓  lower is better", fontsize=14 + font_adder, fontweight="bold", color=COLORS["pink"], pad=15)
+    ax2.set_title("RMSE  ↓  lower is better", fontsize=14 + font_adder, fontweight="bold", color="#FF6B9D", pad=15)
 
     # Rainbow title
     title_text = "DrEval Challenge Leaderboard"
-
-    # Generate smooth gradient from green/teal to blue
     n_chars = len(title_text)
     gradient_colors = []
     for j in range(n_chars):
-        t = j / max(n_chars - 1, 1)  # 0 to 1
+        t = j / max(n_chars - 1, 1)
         if t < 0.5:
             t2 = t * 2
             r = int(0x14 + (0x29 - 0x14) * t2)
@@ -386,6 +388,7 @@ def create_leaderboard(
             g = int(0xAB + (0x4E - 0xAB) * t2)
             b = int(0xCA + (0xDD - 0xCA) * t2)
         gradient_colors.append(f"#{r:02x}{g:02x}{b:02x}")
+
     title_x_start = 0.5 - len(title_text) * 0.012
     for j, char in enumerate(title_text):
         fig.text(
@@ -407,7 +410,6 @@ def create_leaderboard(
     )
 
     logo_path = Path("docs/_static/img/DrugResponseEvalLogo.svg")
-
     if logo_path.exists():
         try:
             from io import BytesIO
@@ -415,33 +417,25 @@ def create_leaderboard(
             import cairosvg
             from PIL import Image
 
-            # Convert SVG to PNG
             png_data = cairosvg.svg2png(url=str(logo_path))
             logo_img = Image.open(BytesIO(png_data))
-
-            # Add to plot
             logo_ax = fig.add_axes((0.8, 0.94, 0.15, 0.06))
             logo_ax.imshow(logo_img)
             logo_ax.axis("off")
         except Exception as e:
             print(e)
-            print("Could not load or render logo image.")
             pass
 
-    # Legend with gradient for competitors
-    gradient_patch = mpatches.Patch(facecolor=COLORS["teal"], label="Competitor", edgecolor="none")
-
+    # Legend
+    gradient_patch = mpatches.Patch(facecolor="#14b8a6", label="Competitor", edgecolor="none")
     legend_elements = [
-        mpatches.Patch(facecolor=COLORS["medal_gold"], label="#1 Champion", edgecolor="none"),
-        mpatches.Patch(facecolor=COLORS["medal_silver"], label="#2 Runner-up", edgecolor="none"),
-        mpatches.Patch(facecolor=COLORS["medal_bronze"], label="#3 Third Place", edgecolor="none"),
+        mpatches.Patch(facecolor="#F4D03F", label="#1 Champion", edgecolor="none"),
+        mpatches.Patch(facecolor="#BDC3C7", label="#2 Runner-up", edgecolor="none"),
+        mpatches.Patch(facecolor="#E67E22", label="#3 Third Place", edgecolor="none"),
         gradient_patch,
-        mpatches.Patch(facecolor=COLORS["baseline"], alpha=0.5, label="Baseline", edgecolor="none"),
+        mpatches.Patch(facecolor="#5a5a5a", alpha=0.5, label="Baseline", edgecolor="none"),
     ]
-
-    handler_map = {
-        gradient_patch: GradientHandler(GRADIENT_COLORS),
-    }
+    handler_map = {gradient_patch: GradientHandler(GRADIENT_COLORS)}
 
     legend = fig.legend(
         handles=legend_elements,
@@ -477,7 +471,8 @@ def create_leaderboard(
     )
 
     plt.tight_layout(rect=(0, 0.06, 1, 0.90))
-    fig.savefig(output_path, dpi=150, bbox_inches="tight", facecolor="#0d1117", transparent=False)
+    fig.savefig(output_path, dpi=150, bbox_inches="tight", facecolor=COLORS["background"], transparent=False)
+    plt.close(fig)  # Close to prevent memory accumulation in loop
     print(f"Saved leaderboard to: {output_path}")
 
     return fig, (ax1, ax2)
@@ -487,8 +482,8 @@ def _get_test_mode_name(test_mode: str) -> str:
     """
     Get full name for test mode.
 
-    :param test_mode: The short code for the test mode (e.g., LCO).
-    :return: The human-readable description of the test mode.
+    :param test_mode: The short code for the test mode.
+    :return: The human-readable description.
     """
     names = {
         "LCO": "10-Fold Leave-Cell-Out Cross Validation",
@@ -502,66 +497,46 @@ def _get_test_mode_name(test_mode: str) -> str:
 def main():
     """Main entry point for CLI."""
     parser = argparse.ArgumentParser(
-        description="Generate DrEvalPy leaderboard visualization",
+        description="Generate DrEvalPy leaderboard visualization (Dark & Light modes)",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="Examples:\n  python create_leaderboard.py --results_path evaluation_results.csv",
     )
-    parser.add_argument(
-        "--results_path",
-        "-r",
-        type=str,
-        required=True,
-        help="Path to evaluation_results.csv file",
-    )
-    parser.add_argument(
-        "--output",
-        "-o",
-        type=str,
-        default="docs/_static/img/leaderboard.png",
-        help="Output file path (default: docs/_static/img/leaderboard.png)",
-    )
-    parser.add_argument(
-        "--test_mode",
-        "-t",
-        type=str,
-        default="LCO",
-        choices=["LCO", "LDO", "LPO", "LTO"],
-        help="Test mode (default: LCO)",
-    )
-    parser.add_argument(
-        "--dataset",
-        "-d",
-        type=str,
-        default="CTRPv2",
-        help="Dataset name for title (default: CTRPv2)",
-    )
-    parser.add_argument(
-        "--measure",
-        "-m",
-        type=str,
-        default="LN_IC50",
-        help="Response measure for title (default: LN_IC50)",
-    )
-    parser.add_argument(
-        "--top_n",
-        "-n",
-        type=int,
-        default=None,
-        help="Only show top N models",
-    )
-    parser.add_argument(
-        "--font_adder",
-        type=int,
-        default=6,
-        help="Global font size increment (default: 6)",
-    )
+    parser.add_argument("--results_path", "-r", type=str, required=True, help="Path to evaluation_results.csv")
+    parser.add_argument("--output_dir", "-o", type=str, default="docs/_static/img", help="Directory to save images")
+    parser.add_argument("--test_mode", "-t", type=str, default="LCO", choices=["LCO", "LDO", "LPO", "LTO"])
+    parser.add_argument("--dataset", "-d", type=str, default="CTRPv2", help="Dataset name")
+    parser.add_argument("--measure", "-m", type=str, default="LN_IC50", help="Response measure")
+    parser.add_argument("--top_n", "-n", type=int, default=None, help="Top N models")
+    parser.add_argument("--font_adder", type=int, default=6, help="Font size increment")
 
     args = parser.parse_args()
 
+    # Load data once
     df = load_results(args.results_path, test_mode=args.test_mode)
+
+    # Setup output paths
+    out_dir = Path(args.output_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    # Generate both
+    global COLORS
+
+    # DARK MODE
+    COLORS = DARK_THEME
     create_leaderboard(
         df=df,
-        output_path=args.output,
+        output_path=str(out_dir / "leaderboard_dark.png"),
+        test_mode=args.test_mode,
+        dataset=args.dataset,
+        measure=args.measure,
+        show_top_n=args.top_n,
+        font_adder=args.font_adder,
+    )
+
+    # LIGHT MODE
+    COLORS = LIGHT_THEME
+    create_leaderboard(
+        df=df,
+        output_path=str(out_dir / "leaderboard_light.png"),
         test_mode=args.test_mode,
         dataset=args.dataset,
         measure=args.measure,
