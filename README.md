@@ -24,10 +24,6 @@ By contributing your model to the DrEval catalog, you can increase your work's e
 
 ---
 
-![DrEvalPy Leaderboard](docs/_static/img/leaderboard.png)
-
----
-
 Use DrEval to build drug response models that have an impact
 
 1. Maintained, up-to-date baseline catalog, no need to re-implement literature models
@@ -38,6 +34,10 @@ Use DrEval to build drug response models that have an impact
 6. Optimized nextflow pipeline for fast experiments
 7. Easy-to-use hyperparameter tuning
 8. Paper-ready visualizations to display performance
+
+---
+
+![DrEvalPy Leaderboard](docs/_static/img/leaderboard.png)
 
 ---
 
