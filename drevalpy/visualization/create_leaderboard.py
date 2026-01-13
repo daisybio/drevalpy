@@ -18,6 +18,9 @@ import pandas as pd
 from matplotlib.legend_handler import HandlerBase
 from matplotlib.patches import FancyBboxPatch, Rectangle
 
+# Global font scaler
+FONT_ADDER = 8
+
 COLORS = {
     "background": "#1c1c1c",
     "surface": "#2d2d2d",
@@ -103,7 +106,7 @@ def configure_matplotlib():
             "ytick.color": COLORS["text"],
             "grid.color": COLORS["grid"],
             "font.family": "sans-serif",
-            "font.size": 11,
+            "font.size": 11 + FONT_ADDER,
             "axes.spines.top": False,
             "axes.spines.right": False,
         }
@@ -267,7 +270,7 @@ def create_leaderboard(
             f"{row['PCC']:.3f}±{row['PCC_std']:.3f}",
             va="center",
             ha="left",
-            fontsize=9,
+            fontsize=9 + FONT_ADDER,
             fontweight="bold",
             color=label_color,
             zorder=5,
@@ -282,7 +285,7 @@ def create_leaderboard(
                 medals[i],
                 va="center",
                 ha="center",
-                fontsize=14,
+                fontsize=14 + FONT_ADDER,
                 fontweight="bold",
                 color=style["color"],
                 zorder=5,
@@ -291,7 +294,7 @@ def create_leaderboard(
     ax1.set_xlim(-max_pcc * 0.06, max_pcc)
     ax1.set_ylim(-0.8, n_models - 0.2)
     ax1.set_yticks(y_positions)
-    ax1.set_yticklabels(df_pcc["algorithm"].values, fontsize=10)
+    ax1.set_yticklabels(df_pcc["algorithm"].values, fontsize=10 + FONT_ADDER)
 
     for i, label in enumerate(ax1.get_yticklabels()):
         if i < 3 and not df_pcc.iloc[i]["is_baseline"]:
@@ -303,12 +306,16 @@ def create_leaderboard(
         else:
             label.set_color(COLORS["text"])
 
-    ax1.set_xlabel("Pearson Correlation Coefficient", fontsize=12, fontweight="bold", labelpad=10)
+    ax1.set_xlabel("Pearson Correlation Coefficient", fontsize=12 + FONT_ADDER, fontweight="bold", labelpad=10)
     ax1.xaxis.grid(True, linestyle="--", alpha=0.3, color=COLORS["grid"])
     ax1.set_axisbelow(True)
     ax1.tick_params(axis="x", colors=COLORS["text_secondary"])
     ax1.set_title(
-        "normalized Pearson  ↑  higher is better", fontsize=14, fontweight="bold", color=COLORS["blue"], pad=15
+        "normalized Pearson  ↑  higher is better",
+        fontsize=14 + FONT_ADDER,
+        fontweight="bold",
+        color=COLORS["blue"],
+        pad=15,
     )
 
     #  RIGHT PLOT: RMSE
@@ -341,7 +348,7 @@ def create_leaderboard(
             f"{row['RMSE']:.3f}±{row['RMSE_std']:.3f}",
             va="center",
             ha="left",
-            fontsize=9,
+            fontsize=9 + FONT_ADDER,
             fontweight="bold",
             color=label_color,
             zorder=5,
@@ -355,7 +362,7 @@ def create_leaderboard(
                 medals[i],
                 va="center",
                 ha="center",
-                fontsize=14,
+                fontsize=14 + FONT_ADDER,
                 fontweight="bold",
                 color=style["color"],
                 zorder=5,
@@ -364,8 +371,8 @@ def create_leaderboard(
     ax2.set_xlim(-max_rmse * 0.06, max_rmse)
     ax2.set_ylim(-0.8, n_models - 0.2)
     ax2.set_yticks(y_positions)
-    ax2.set_yticklabels(df_rmse["algorithm"].values, fontsize=10)
-    ax2.set_xlabel("Root Mean Square Error", fontsize=12, fontweight="bold", labelpad=10)
+    ax2.set_yticklabels(df_rmse["algorithm"].values, fontsize=10 + FONT_ADDER)
+    ax2.set_xlabel("Root Mean Square Error", fontsize=12 + FONT_ADDER, fontweight="bold", labelpad=10)
 
     for i, label in enumerate(ax2.get_yticklabels()):
         if i < 3 and not df_rmse.iloc[i]["is_baseline"]:
@@ -380,7 +387,7 @@ def create_leaderboard(
     ax2.xaxis.grid(True, linestyle="--", alpha=0.3, color=COLORS["grid"])
     ax2.set_axisbelow(True)
     ax2.tick_params(axis="x", colors=COLORS["text_secondary"])
-    ax2.set_title("RMSE  ↓  lower is better", fontsize=14, fontweight="bold", color=COLORS["pink"], pad=15)
+    ax2.set_title("RMSE  ↓  lower is better", fontsize=14 + FONT_ADDER, fontweight="bold", color=COLORS["pink"], pad=15)
 
     # Rainbow title
     title_text = "DrEval Challenge Leaderboard"
@@ -407,7 +414,7 @@ def create_leaderboard(
             title_x_start + j * 0.024,
             0.97,
             char,
-            fontsize=24,
+            fontsize=24 + FONT_ADDER,
             fontweight="bold",
             color=gradient_colors[j],
             ha="center",
@@ -417,7 +424,7 @@ def create_leaderboard(
         0.92,
         f"{dataset} Dataset  •  {measure}  •  {_get_test_mode_name(test_mode)}",
         ha="center",
-        fontsize=12,
+        fontsize=12 + FONT_ADDER,
         color=COLORS["text_secondary"],
     )
 
@@ -465,7 +472,7 @@ def create_leaderboard(
         frameon=True,
         facecolor=COLORS["surface"],
         edgecolor=COLORS["grid"],
-        fontsize=10,
+        fontsize=10 + FONT_ADDER,
         bbox_to_anchor=(0.5, 0.02),
         handler_map=handler_map,
     )
@@ -482,7 +489,7 @@ def create_leaderboard(
         -0.01,
         footer_text,
         ha="center",
-        fontsize=14,
+        fontsize=14 + FONT_ADDER,
         color=COLORS["text_secondary"],
         style="italic",
     )
@@ -560,8 +567,18 @@ def main():
         default=None,
         help="Only show top N models",
     )
+    parser.add_argument(
+        "--font_adder",
+        type=int,
+        default=0,
+        help="Global font size increment (default: 0)",
+    )
 
     args = parser.parse_args()
+
+    # Set global font adder from CLI
+    global FONT_ADDER
+    FONT_ADDER = args.font_adder
 
     df = load_results(args.results_path, test_mode=args.test_mode)
     create_leaderboard(
