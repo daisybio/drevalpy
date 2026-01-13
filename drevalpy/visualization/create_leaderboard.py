@@ -246,7 +246,7 @@ def create_leaderboard(
     ax1.set_axisbelow(True)
     ax1.tick_params(axis="x", colors=COLORS["text_secondary"])
     ax1.set_title(
-        "normalized Pearson  ↑  higher is better",
+        "Normalized Pearson  ↑  higher is better",
         fontsize=14 + font_adder,
         fontweight="bold",
         color="#29ABCA",
