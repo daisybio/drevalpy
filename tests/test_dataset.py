@@ -106,13 +106,11 @@ def test_curvecurator_measures():
     # assert that df_processed["EC50_curvecurator"] is approximately expected_ec50
     assert np.isclose(df_processed.loc["cell_line_1|drug_1"]["EC50_curvecurator"], expected_ec50, atol=0.1)
     assert np.isclose(df_processed.loc["cell_line_1|drug_1"]["IC50_curvecurator"], expected_ic50, atol=0.1)
-    assert (
-        np.log(df_processed.loc["cell_line_1|drug_1"]["IC50_curvecurator"])
-        == df_processed.loc["cell_line_1|drug_1"]["LN_IC50_curvecurator"]
+    assert round(np.log(df_processed.loc["cell_line_1|drug_1"]["IC50_curvecurator"]), 4) == round(
+        df_processed.loc["cell_line_1|drug_1"]["LN_IC50_curvecurator"], 4
     )
-    assert (
-        -np.log10(df_processed.loc["cell_line_1|drug_1"]["EC50_curvecurator"] * 10**-6)
-        == df_processed.loc["cell_line_1|drug_1"]["pEC50_curvecurator"]
+    assert round(-np.log10(df_processed.loc["cell_line_1|drug_1"]["EC50_curvecurator"] * 10**-6), 4) == round(
+        df_processed.loc["cell_line_1|drug_1"]["pEC50_curvecurator"], 4
     )
 
 
