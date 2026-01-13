@@ -87,7 +87,7 @@ def _prepare_toml(
         "Experiment": {
             "experiments": range(n_exp),
             "doses": doses,
-            "dose_scale": "1",
+            "dose_scale": "1e-06",
             "dose_unit": "uM",
             "control_experiment": [i for i in range(n_replicates)],
             "measurement_type": "OTHER",
@@ -176,7 +176,8 @@ def _calc_ic50(model_params_df: pd.DataFrame):
     front = model_params_df["Front"].values
     back = model_params_df["Back"].values
     slope = model_params_df["Slope"].values
-    pec50 = model_params_df["pEC50_curvecurator"].values
+    # we need the pEC50 in uM; now it is in M: -log10(EC50[M] * 10^6) = -log10(EC50[M])-6 = pEC50 -6
+    pec50 = model_params_df["pEC50_curvecurator"].values - 6
 
     model_params_df["IC50_curvecurator"] = ic50(front, back, slope, pec50)
     model_params_df["LN_IC50_curvecurator"] = np.log(model_params_df["IC50_curvecurator"].values)
@@ -306,8 +307,8 @@ def postprocess(output_folder: str, dataset_name: str):
             fitted_curve_data[[CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER]] = fitted_curve_data.Name.str.split(
                 "|", expand=True
             )
-            fitted_curve_data["EC50_curvecurator"] = np.power(
-                10, -fitted_curve_data["pEC50_curvecurator"].values
+            fitted_curve_data["EC50_curvecurator"] = (
+                np.power(10, -fitted_curve_data["pEC50_curvecurator"].values) * 10**6
             )  # in CurveCurator 10^-pEC50 = EC50
             _calc_ic50(fitted_curve_data)
             fitted_curve_data.to_csv(f, index=None, header=first_file, mode="a")
