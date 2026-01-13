@@ -100,7 +100,7 @@ secretstorage==3.5.0 ; python_version >= "3.11" and python_version < "3.14" and 
 setuptools==80.9.0 ; python_version >= "3.11" and python_version < "3.14"
 shellingham==1.5.4 ; python_version >= "3.11" and python_version < "3.14"
 six==1.17.0 ; python_version >= "3.11" and python_version < "3.14"
-starlette==0.50.0 ; python_version >= "3.11" and python_version < "3.14"
+starlette==0.51.0 ; python_version >= "3.11" and python_version < "3.14"
 statsmodels==0.14.6 ; python_version >= "3.11" and python_version < "3.14"
 sympy==1.14.0 ; python_version >= "3.11" and python_version < "3.14"
 threadpoolctl==3.6.0 ; python_version >= "3.11" and python_version < "3.14"
