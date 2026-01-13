@@ -16,8 +16,7 @@ import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from matplotlib.legend_handler import HandlerBase
-from matplotlib.patches import FancyBboxPatch, Rectangle
+from matplotlib.patches import FancyBboxPatch
 
 # --- Theme Definitions ---
 DARK_THEME = {
@@ -39,48 +38,6 @@ LIGHT_THEME = {
 COLORS = DARK_THEME
 
 COMPETITOR_COLOR = "#6A5ACD"
-
-
-class GradientHandler(HandlerBase):
-    """Custom legend handler for gradient patches."""
-
-    def __init__(self, colors: list):
-        """
-        Initialize the gradient handler.
-
-        :param colors: List of hex colors for the gradient.
-        """
-        self.colors = colors
-        super().__init__()
-
-    def create_artists(self, legend, orig_handle, xdescent, ydescent, width, height, fontsize, trans):
-        """
-        Create the visual artists for the legend handle.
-
-        :param legend: The legend object.
-        :param orig_handle: The original handle.
-        :param xdescent: The x-descent.
-        :param ydescent: The y-descent.
-        :param width: Width of the handle.
-        :param height: Height of the handle.
-        :param fontsize: Font size in pixels.
-        :param trans: The transform applied to the artist.
-        :return: List of matplotlib Rectangle objects.
-        """
-        patches = []
-        n = len(self.colors)
-        patch_width = width / n
-        for i, color in enumerate(self.colors):
-            patch = Rectangle(
-                (xdescent + i * patch_width, ydescent),
-                patch_width,
-                height,
-                facecolor=color,
-                edgecolor="none",
-                transform=trans,
-            )
-            patches.append(patch)
-        return patches
 
 
 def configure_matplotlib(font_adder: int = 0):
