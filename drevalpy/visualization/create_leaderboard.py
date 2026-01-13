@@ -203,7 +203,7 @@ def create_leaderboard(
     output_path: str,
     test_mode: str = "LCO",
     dataset: str = "CTRPv2",
-    measure: str = "LN_IC50",
+    measure: str = "LN_IC50_curvecurator",
     figsize: tuple = (16, 12),
     show_top_n: Optional[int] = None,
     font_adder: int = 6,
