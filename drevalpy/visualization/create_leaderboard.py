@@ -19,7 +19,7 @@ from matplotlib.legend_handler import HandlerBase
 from matplotlib.patches import FancyBboxPatch, Rectangle
 
 COLORS = {
-    "background": "#1c1c1c",
+    "background": "#000000",
     "surface": "#2d2d2d",
     "text": "#ece7e4",
     "text_secondary": "#a0a0a0",
