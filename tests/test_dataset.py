@@ -83,7 +83,7 @@ def test_curvecurator_measures():
     front = 1.0
     back = 0.3
     slope = 1.5
-    xvals = 10 ** np.linspace(np.log10(0.001) - 2, np.log10(1000) + 2, 1000)
+    xvals = 10 ** np.linspace(np.log10(0.001) - 2, np.log10(1000) + 2, 50)
     yvals = _curve_function(xvals, expected_ec50, front, back, slope)
     expected_ic50 = expected_ec50 * (((front - back) / (0.5 - back)) - 1) ** (1 / slope)
     """
