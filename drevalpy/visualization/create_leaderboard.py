@@ -502,7 +502,7 @@ def create_leaderboard(
     )
 
     plt.tight_layout(rect=[0, 0.06, 1, 0.90])
-    fig.savefig(output_path, dpi=150, bbox_inches="tight", facecolor=COLORS["background"], edgecolor="none")
+    fig.savefig(output_path, dpi=150, bbox_inches="tight", facecolor="#000000", transparent=False)
     print(f"Saved leaderboard to: {output_path}")
 
     return fig, (ax1, ax2)
