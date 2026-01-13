@@ -19,7 +19,7 @@ from matplotlib.legend_handler import HandlerBase
 from matplotlib.patches import FancyBboxPatch, Rectangle
 
 COLORS = {
-    "background": "#000000",
+    "background": "#0d1117",
     "surface": "#2d2d2d",
     "text": "#ece7e4",
     "text_secondary": "#a0a0a0",
@@ -502,7 +502,7 @@ def create_leaderboard(
     )
 
     plt.tight_layout(rect=[0, 0.06, 1, 0.90])
-    fig.savefig(output_path, dpi=150, bbox_inches="tight", facecolor="#000000", transparent=False)
+    fig.savefig(output_path, dpi=150, bbox_inches="tight", facecolor="#0d1117", transparent=False)
     print(f"Saved leaderboard to: {output_path}")
 
     return fig, (ax1, ax2)
