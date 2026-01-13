@@ -284,7 +284,7 @@ def create_leaderboard(
         else:
             label.set_color(COLORS["text"])
 
-    ax1.set_xlabel("Pearson Correlation Coefficient", fontsize=12 + font_adder, fontweight="bold", labelpad=10)
+    ax1.set_xlabel("Normalized PCC", fontsize=12 + font_adder, fontweight="bold", labelpad=10)
     ax1.xaxis.grid(True, linestyle="--", alpha=0.3, color=COLORS["grid"])
     ax1.set_axisbelow(True)
     ax1.tick_params(axis="x", colors=COLORS["text_secondary"])
