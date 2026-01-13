@@ -10,6 +10,7 @@ python create_leaderboard.py --results_path /path/to/results.csv --output out.pn
 
 import argparse
 from pathlib import Path
+from typing import Optional
 
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
@@ -213,9 +214,9 @@ def create_leaderboard(
     test_mode: str = "LCO",
     dataset: str = "CTRPv2",
     measure: str = "LN_IC50",
-    figsize: tuple = (16, 12),
-    show_top_n: int = None,
-    font_adder: int = 0,
+    figsize: tuple[int, int] = (16, 12),
+    show_top_n: Optional[int] = None,
+    font_adder: int = 6,
 ) -> tuple:
     """
     Create a dual leaderboard visualization (PCC and RMSE).
@@ -251,22 +252,9 @@ def create_leaderboard(
         style = get_bar_color(i, row["is_baseline"])
         draw_bar(ax1, 0, y_positions[i], row["PCC"], bar_height, style["color"], style["alpha"])
 
-        # Error bar for std
-        ax1.errorbar(
-            row["PCC"],
-            y_positions[i],
-            xerr=row["PCC_std"],
-            fmt="none",
-            ecolor=COLORS["text_secondary"],
-            elinewidth=1.5,
-            capsize=3,
-            capthick=1.5,
-            zorder=4,
-        )
-
-        # Value label with std
+        # Value label
         label_color = style["color"] if not row["is_baseline"] else COLORS["text_secondary"]
-        label_x = row["PCC"] + row["PCC_std"] + max_pcc * 0.02
+        label_x = row["PCC"] + max_pcc * 0.02
         ax1.text(
             label_x,
             y_positions[i],
@@ -330,21 +318,8 @@ def create_leaderboard(
         style = get_bar_color(i, row["is_baseline"])
         draw_bar(ax2, 0, y_positions[i], row["RMSE"], bar_height, style["color"], style["alpha"])
 
-        # Error bar for std
-        ax2.errorbar(
-            row["RMSE"],
-            y_positions[i],
-            xerr=row["RMSE_std"],
-            fmt="none",
-            ecolor=COLORS["text_secondary"],
-            elinewidth=1.5,
-            capsize=3,
-            capthick=1.5,
-            zorder=4,
-        )
-
         label_color = style["color"] if not row["is_baseline"] else COLORS["text_secondary"]
-        label_x = row["RMSE"] + row["RMSE_std"] + max_rmse * 0.02
+        label_x = row["RMSE"] + max_rmse * 0.02
         ax2.text(
             label_x,
             y_positions[i],
@@ -445,7 +420,7 @@ def create_leaderboard(
             logo_img = Image.open(BytesIO(png_data))
 
             # Add to plot
-            logo_ax = fig.add_axes([0.8, 0.94, 0.15, 0.06])
+            logo_ax = fig.add_axes((0.8, 0.94, 0.15, 0.06))
             logo_ax.imshow(logo_img)
             logo_ax.axis("off")
         except Exception as e:
@@ -501,7 +476,7 @@ def create_leaderboard(
         linespacing=1.0,
     )
 
-    plt.tight_layout(rect=[0, 0.06, 1, 0.90])
+    plt.tight_layout(rect=(0, 0.06, 1, 0.90))
     fig.savefig(output_path, dpi=150, bbox_inches="tight", facecolor="#0d1117", transparent=False)
     print(f"Saved leaderboard to: {output_path}")
 
@@ -578,7 +553,7 @@ def main():
         "--font_adder",
         type=int,
         default=6,
-        help="Global font size increment (default: 0)",
+        help="Global font size increment (default: 6)",
     )
 
     args = parser.parse_args()
