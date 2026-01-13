@@ -274,11 +274,14 @@ the available datasets in the previous section.
 
 **Raw viability data**
 
-* DrEvalPy expects a csv-formatted file in the location ``<path_data>/<dataset>/<dataset_name>_raw.csv`` (corresponding to the ``--path_data`` and ``--dataset_name`` options),
-  which contains the raw viability data in long format with the columns ["dose", "response", "sample", "drug"] and an optional "replicate" column.
-  If replicates are provided, the procedure will fit one curve per sample / drug pair using all replicates.
+*   DrEvalPy expects a csv-formatted file in the location ``<path_data>/<dataset>/<dataset_name>_raw.csv`` (corresponding to the ``--path_data`` and ``--dataset_name`` options), which contains the raw viability data in long format with the columns ["dose", "response", "sample", "drug"] and an optional "replicate" column. If replicates are provided, the procedure will fit one curve per sample / drug pair using all replicates.
+* **All dosages have to be provided in µM!** Drevalpy will compute the following response measures:
+    * pEC50_curvecurator: computed internally by CurveCurator. Is computed as -log10(EC50_curvecurator[M]).
+    * EC50_curvecurator: given in µM
+    * IC50_curvecurator: given in µM
+    * LN_IC50_curvecurator: computed from IC50_curvecurator
+    * AUC_curvecurator
 * The option ``--curve_curator_cores`` must be set. ``--no_refitting`` must not be set.
-* Available measures are ["AUC", "pEC50", "EC50", "IC50"].
 * DrEvalPy provides all results of the fitting in the same folder including the fitted curves in a file folder ``<path_data>/<dataset>/<dataset_name>.csv``
 
 **Prefit viability data**
