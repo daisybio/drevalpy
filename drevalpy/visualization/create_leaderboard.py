@@ -481,7 +481,7 @@ def main():
     parser.add_argument("--output_dir", "-o", type=str, default="docs/_static/img", help="Directory to save images")
     parser.add_argument("--test_mode", "-t", type=str, default="LCO", choices=["LCO", "LDO", "LPO", "LTO"])
     parser.add_argument("--dataset", "-d", type=str, default="CTRPv2", help="Dataset name")
-    parser.add_argument("--measure", "-m", type=str, default="LN_IC50", help="Response measure")
+    parser.add_argument("--measure", "-m", type=str, default="LN_IC50_curvecurator", help="Response measure")
     parser.add_argument("--top_n", "-n", type=int, default=None, help="Top N models")
     parser.add_argument("--font_adder", type=int, default=6, help="Font size increment")
 
