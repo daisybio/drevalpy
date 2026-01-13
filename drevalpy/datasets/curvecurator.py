@@ -176,7 +176,7 @@ def _calc_ic50(model_params_df: pd.DataFrame):
     front = model_params_df["Front"].values
     back = model_params_df["Back"].values
     slope = model_params_df["Slope"].values
-    # we need the pEC50 in M; now it is in uM
+    # we need the pEC50 in uM; now it is in M: -log10(EC50[M] * 10^6) = -log10(EC50[M])-6 = pEC50 -6
     pec50 = model_params_df["pEC50_curvecurator"].values - 6
 
     model_params_df["IC50_curvecurator"] = ic50(front, back, slope, pec50)
