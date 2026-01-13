@@ -155,7 +155,7 @@ def get_bar_color(rank: int, is_baseline: bool) -> dict:
     :return: Styling dictionary.
     """
     if is_baseline:
-        return {"color": "#5a5a5a", "alpha": 0.5}
+        return {"color": "#5a5a5a", "alpha": 1.0}
 
     medal_gold = "#F4D03F"
     medal_silver = "#BDC3C7"
