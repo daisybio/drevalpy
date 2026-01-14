@@ -49,7 +49,7 @@ class DRPModel(ABC):
         config: dict[str, Any] | None = None,
         name: str | None = None,
         tags: list[str] | None = None,
-        reinit: bool = True,
+        finish_previous: bool = True,
     ) -> None:
         """
         Initialize wandb logging for this model instance.
@@ -58,7 +58,7 @@ class DRPModel(ABC):
         :param config: dictionary of configuration to log (e.g., hyperparameters, dataset info)
         :param name: run name (defaults to model name)
         :param tags: list of tags for the run
-        :param reinit: whether to reinitialize wandb if already initialized
+        :param finish_previous: whether to finish any existing wandb run before starting a new one
         """
         self.wandb_project = project
         self.wandb_config = config or {}
@@ -69,7 +69,7 @@ class DRPModel(ABC):
             config=self.wandb_config,
             name=run_name,
             tags=tags,
-            reinit=reinit,
+            finish_previous=finish_previous,
         )
         self.wandb_run = wandb.run
 
