@@ -62,8 +62,8 @@ def ensure_bpe_features() -> None:
     path_data = str((tests_dir.parent / "data").resolve())
 
     try:
-        from drevalpy.datasets.featurizer.create_bpe_smiles_embeddings import (
-            create_bpe_smiles_embeddings,
+        from drevalpy.datasets.featurizer.create_pharmaformer_drug_embeddings import (
+            create_pharmaformer_drug_embeddings,
         )
     except ImportError:
         # If subword-nmt is not installed, skip BPE feature creation
@@ -93,7 +93,7 @@ def ensure_bpe_features() -> None:
 
             try:
                 print(f"Creating BPE SMILES features for {dataset_name}...")
-                create_bpe_smiles_embeddings(
+                create_pharmaformer_drug_embeddings(
                     data_path=path_data,
                     dataset_name=dataset_name,
                     num_symbols=10000,

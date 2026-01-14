@@ -119,7 +119,7 @@ def test_bpe_smiles_featurizer(tmp_path):
     :param tmp_path: Temporary path provided by pytest.
     """
     try:
-        import drevalpy.datasets.featurizer.create_bpe_smiles_embeddings as bpe_feat
+        import drevalpy.datasets.featurizer.create_pharmaformer_drug_embeddings as bpe_feat
     except ImportError:
         print("subword-nmt package not installed; skipping BPE SMILES featurizer test.")
         return

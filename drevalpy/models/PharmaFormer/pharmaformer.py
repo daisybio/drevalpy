@@ -367,7 +367,7 @@ class PharmaFormerModel(DRPModel):
             raise FileNotFoundError(
                 f"BPE SMILES file not found: {bpe_smiles_file}. "
                 "Please run the BPE featurizer first: "
-                "python -m drevalpy.datasets.featurizer.create_bpe_smiles_embeddings <dataset_name>"
+                "python -m drevalpy.datasets.featurizer.create_pharmaformer_drug_embeddings <dataset_name>"
             )
 
         bpe_df = pd.read_csv(bpe_smiles_file, dtype={"pubchem_id": str})
