@@ -78,6 +78,9 @@ class SuperFELTR(DRPModel):
             dropout_rate, weight_decay, out_dim_expr_encoder, out_dim_mutation_encoder, out_dim_cnv_encoder, epochs,
             variance thresholds for gene expression, mutation, and copy number variation, margin, and learning rate.
         """
+        # Log hyperparameters to wandb if enabled
+        self.log_hyperparameters(hyperparameters)
+
         self.hyperparameters = hyperparameters
 
         n_features = hyperparameters.get("n_features_per_view", 1000)
@@ -133,6 +136,7 @@ class SuperFELTR(DRPModel):
                         output_earlystopping=output_earlystopping,
                         patience=5,
                         model_checkpoint_dir=model_checkpoint_dir,
+                        wandb_project=getattr(self, "wandb_project", None),
                     )
                     encoders[omic_type] = SuperFELTEncoder.load_from_checkpoint(best_checkpoint.best_model_path)
                 else:
@@ -165,6 +169,7 @@ class SuperFELTR(DRPModel):
                     output_earlystopping=output_earlystopping,
                     patience=5,
                     model_checkpoint_dir=model_checkpoint_dir,
+                    wandb_project=getattr(self, "wandb_project", None),
                 )
             else:
                 print("Not enough training data provided for SuperFELTR Regressor. Using random initialization.")

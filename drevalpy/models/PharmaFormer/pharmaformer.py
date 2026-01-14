@@ -112,6 +112,9 @@ class PharmaFormerModel(DRPModel):
         :param hyperparameters: Model hyperparameters including gene_hidden_size, drug_hidden_size,
             feature_dim, nhead, num_layers, dim_feedforward, dropout, batch_size, lr, epochs, patience
         """
+        # Log hyperparameters to wandb if enabled
+        self.log_hyperparameters(hyperparameters)
+
         self.hyperparameters = hyperparameters
         # Model will be built in train() when we know the input dimensions
 
@@ -239,6 +242,10 @@ class PharmaFormerModel(DRPModel):
             epoch_loss /= batch_count
             print(f"PharmaFormer: Epoch [{epoch + 1}/{self.hyperparameters['epochs']}] Training Loss: {epoch_loss:.4f}")
 
+            # Log training loss to wandb if enabled
+            if hasattr(self, "wandb_run") and self.wandb_run is not None:
+                self.log_metrics({"train_loss": epoch_loss}, step=epoch)
+
             # Validation phase for early stopping
             self.model.eval()
             val_loss = 0.0
@@ -257,6 +264,10 @@ class PharmaFormerModel(DRPModel):
 
             val_loss /= val_batch_count
             print(f"PharmaFormer: Epoch [{epoch + 1}/{self.hyperparameters['epochs']}] Validation Loss: {val_loss:.4f}")
+
+            # Log validation loss to wandb if enabled
+            if hasattr(self, "wandb_run") and self.wandb_run is not None:
+                self.log_metrics({"val_loss": val_loss}, step=epoch)
 
             # Checkpointing: Save the best model
             if val_loss < best_val_loss:

@@ -15,6 +15,8 @@ import numpy as np
 import yaml
 from sklearn.model_selection import ParameterGrid
 
+import wandb
+
 from ..datasets.dataset import DrugResponseDataset, FeatureDataset
 from ..pipeline_function import pipeline_function
 
@@ -32,6 +34,90 @@ class DRPModel(ABC):
     early_stopping = False
     # Then, the model is trained per drug
     is_single_drug_model = False
+
+    def __init__(self):
+        """Initialize the DRPModel instance."""
+        self.wandb_project: str | None = None
+        self.wandb_run: Any = None
+        self.wandb_config: dict[str, Any] | None = None
+        self.hyperparameters: dict[str, Any] | None = None
+        self._in_hyperparameter_tuning: bool = False  # Flag to track if we're in hyperparameter tuning
+
+    def init_wandb(
+        self,
+        project: str,
+        config: dict[str, Any] | None = None,
+        name: str | None = None,
+        tags: list[str] | None = None,
+        reinit: bool = True,
+    ) -> None:
+        """
+        Initialize wandb logging for this model instance.
+
+        :param project: wandb project name
+        :param config: dictionary of configuration to log (e.g., hyperparameters, dataset info)
+        :param name: run name (defaults to model name)
+        :param tags: list of tags for the run
+        :param reinit: whether to reinitialize wandb if already initialized
+        """
+        self.wandb_project = project
+        self.wandb_config = config or {}
+
+        run_name = name or self.get_model_name()
+        wandb.init(
+            project=project,
+            config=self.wandb_config,
+            name=run_name,
+            tags=tags,
+            reinit=reinit,
+        )
+        self.wandb_run = wandb.run
+
+    def log_hyperparameters(self, hyperparameters: dict[str, Any]) -> None:
+        """
+        Log hyperparameters to wandb.
+
+        This method is called automatically by build_model when wandb is enabled.
+        Subclasses can override this to add additional hyperparameter logging.
+
+        During hyperparameter tuning, config updates are skipped to avoid overwriting.
+        Only the final best hyperparameters are logged to wandb.config.
+
+        :param hyperparameters: dictionary of hyperparameters to log
+        """
+        if self.wandb_run is None:
+            return
+
+        self.hyperparameters = hyperparameters
+        # Only update wandb.config if we're not in hyperparameter tuning phase
+        # During tuning, trial hyperparameters are logged as metrics instead
+        if not getattr(self, "_in_hyperparameter_tuning", False):
+            wandb.config.update(hyperparameters)
+
+    def log_metrics(self, metrics: dict[str, float], step: int | None = None) -> None:
+        """
+        Log metrics to wandb.
+
+        Subclasses can call this method to log custom metrics during training.
+
+        :param metrics: dictionary of metric names to values
+        :param step: optional step number for the metrics
+        """
+        if self.wandb_run is None:
+            return
+
+        if step is not None:
+            wandb.log(metrics, step=step)
+        else:
+            wandb.log(metrics)
+
+    def finish_wandb(self) -> None:
+        """Finish the wandb run. Call this when training is complete."""
+        if self.wandb_run is None:
+            return
+
+        wandb.finish()
+        self.wandb_run = None
 
     @classmethod
     @abstractmethod
@@ -97,11 +183,16 @@ class DRPModel(ABC):
         """
         Builds the model, for models that use hyperparameters.
 
+        Subclasses should call self.log_hyperparameters(hyperparameters) at the beginning
+        of this method to ensure hyperparameters are logged to wandb if enabled.
+
         :param hyperparameters: hyperparameters for the model
 
         Example::
 
-            self.model = ElasticNet(alpha=hyperparameters["alpha"], l1_ratio=hyperparameters["l1_ratio"])
+            def build_model(self, hyperparameters: dict[str, Any]) -> None:
+                self.log_hyperparameters(hyperparameters)  # Log to wandb
+                self.model = ElasticNet(alpha=hyperparameters["alpha"], l1_ratio=hyperparameters["l1_ratio"])
         """
 
     @pipeline_function

@@ -51,6 +51,9 @@ class SimpleNeuralNetwork(DRPModel):
 
         :param hyperparameters: includes units_per_layer and dropout_prob.
         """
+        # Log hyperparameters to wandb if enabled
+        self.log_hyperparameters(hyperparameters)
+
         self.hyperparameters = hyperparameters
         self.hyperparameters.setdefault("input_dim_gex", None)
         self.hyperparameters.setdefault("input_dim_fp", None)
@@ -113,6 +116,9 @@ class SimpleNeuralNetwork(DRPModel):
 
                 print("Probably, your training dataset is small.")
 
+            # Get wandb project from parent model if available
+            wandb_project = getattr(self, "wandb_project", None)
+
             self.model.fit(
                 output_train=output,
                 cell_line_input=cell_line_input,
@@ -128,6 +134,7 @@ class SimpleNeuralNetwork(DRPModel):
                 patience=5,
                 num_workers=1 if platform.system() == "Windows" else 8,
                 model_checkpoint_dir=model_checkpoint_dir,
+                wandb_project=wandb_project,
             )
 
     def predict(

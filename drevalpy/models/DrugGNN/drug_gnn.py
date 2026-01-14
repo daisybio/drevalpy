@@ -252,6 +252,9 @@ class DrugGNN(DRPModel):
 
         :param hyperparameters: The hyperparameters.
         """
+        # Log hyperparameters to wandb if enabled
+        self.log_hyperparameters(hyperparameters)
+
         self.hyperparameters = hyperparameters
 
     def _loader_kwargs(self) -> dict[str, Any]:
@@ -326,11 +329,29 @@ class DrugGNN(DRPModel):
                 **self._loader_kwargs(),
             )
 
+        # Set up wandb logger if project is provided
+        loggers = []
+        wandb_project = getattr(self, "wandb_project", None)
+        if wandb_project is not None:
+            from pytorch_lightning.loggers import WandbLogger
+
+            import wandb
+
+            if wandb.run is not None:
+                # Use existing wandb run
+                logger = WandbLogger(project=wandb_project, log_model=False)
+                loggers.append(logger)
+            else:
+                # If wandb is not initialized, create a new logger
+                logger = WandbLogger(project=wandb_project, log_model=False)
+                loggers.append(logger)
+
         trainer = pl.Trainer(
             max_epochs=self.hyperparameters.get("epochs", 100),
             accelerator="auto",
             devices="auto",
             callbacks=[pl.callbacks.EarlyStopping(monitor="val_loss", mode="min", patience=5)] if val_loader else None,
+            logger=loggers if loggers else True,  # Use default logger if no wandb
             enable_progress_bar=True,
             log_every_n_steps=int(self.hyperparameters.get("log_every_n_steps", 50)),
             precision=self.hyperparameters.get("precision", 32),
