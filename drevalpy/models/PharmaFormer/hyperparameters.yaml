@@ -1,0 +1,33 @@
+---
+PharmaFormer:
+  gene_hidden_size:
+    - 2048
+    - 4096
+  drug_hidden_size:
+    - 128
+    - 256
+  feature_dim:
+    - 64
+    - 128
+  nhead:
+    - 4
+    - 8
+  num_layers:
+    - 2
+    - 3
+  dim_feedforward:
+    - 1024
+    - 2048
+  dropout:
+    - 0.1
+    - 0.2
+  batch_size:
+    - 64
+    - 128
+  lr:
+    - 0.00001
+    - 0.0001
+  epochs:
+    - 100
+  patience:
+    - 10
