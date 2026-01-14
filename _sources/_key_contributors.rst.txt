@@ -6,3 +6,4 @@
    * `Markus List <https://github.com/mlist>`_: Advisor and PI of Data Science in Systems Biology, TUM
    * `Katharina Baum <https://github.com/kathbaum>`_: Advisor and PI of Data Integration in the Life Sciences, FU Berlin
    * `Mathias Wilhelm <https://github.com/mwilhelm42>`_: Advisor and PI of Computational Mass Spectrometry, TUM
+   * `Nico Trummer <https://github.com/nictru>`_: Contributor, `Orakl Oncology <https://www.orakl-oncology.com/>`_

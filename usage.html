@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>How to use DrEvalPy &mdash; DrEvalPy 1.4.0 documentation</title>
+  <title>How to use DrEvalPy &mdash; DrEvalPy 1.4.1 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
       <link rel="stylesheet" type="text/css" href="_static/custom_cookietemple.css?v=a7e27724" />
@@ -14,7 +14,7 @@
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=9172181d"></script>
+      <script src="_static/documentation_options.js?v=350a9c04"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
@@ -192,13 +192,16 @@ development</strong>.</p></li>
 <p>An underlying issue is that drugs have a rather unique IC50 range. That means that by just predicting the mean IC50
 that a drug has in the training set (aggregated over all cell lines), you can already achieve a seemingly good
 prediction (as evaluated by naive R^2 or correlation metrics). This is why we also offer the possibility to compare your model to a <strong>NaivePredictor</strong> that predicts
-the mean IC50 of all drugs in the training set. We also offer two less naive predictors:
-<strong>NaiveCellLineMeanPredictor</strong> and <strong>NaiveDrugMeanPredictor</strong>. The former predicts the mean IC50 of a cell line in
-the training set and the latter predicts the mean IC50 of a drug in the training set.
-Finally, the strongest naive baseline is the <strong>NaiveMeanEffectPredictor</strong>
-which combines the effects of cell lines and drugs.
-It is equivalent to the <strong>NaiveCellLineMeanPredictor</strong> and <strong>NaiveDrugMeanPredictor</strong> for the LDO and LPO settings, respectively,
+the mean IC50 of all drugs in the training set. We also offer several less naive predictors:
+<strong>NaiveCellLineMeanPredictor</strong>, <strong>NaiveDrugMeanPredictor</strong>, <strong>NaiveTissueMeanPredictor</strong>, and <strong>NaiveTissueDrugMeanPredictor</strong>.
+The <strong>NaiveCellLineMeanPredictor</strong> predicts the mean IC50 of a cell line in the training set,
+the <strong>NaiveDrugMeanPredictor</strong> predicts the mean IC50 of a drug in the training set,
+the <strong>NaiveTissueMeanPredictor</strong> predicts the mean IC50 of a tissue in the training set,
+and the <strong>NaiveTissueDrugMeanPredictor</strong> predicts the mean IC50 per tissue-drug combination (aggregated across all cell lines with that tissue-drug pair).
+The <strong>NaiveMeanEffectPredictor</strong> combines the effects of cell lines and drugs.
+It is equivalent to the <strong>NaiveCellLineMeanPredictor</strong> and <strong>NaiveDrugMeanPredictor</strong> for the LDO and LCO settings, respectively,
 as test cell line effects and drug effects are unknown in these settings.</p>
+<p>In LCO, <strong>NaiveTissueDrugMeanPredictor</strong> is the strongest baseline, while in all other settings, <strong>NaiveMeanEffectPredictor</strong> is the strongest.</p>
 </section>
 <section id="available-models">
 <h2>Available Models<a class="headerlink" href="#available-models" title="Link to this heading"></a></h2>
@@ -208,137 +211,6 @@ some <strong>state-of-the-art models</strong> to compare your model against. You
 We first identify the best hyperparameters for all models and baselines in a cross-validation setting. Then, we
 train the models on the whole training set and evaluate them on the test set.
 For <code class="docutils literal notranslate"><span class="pre">--models</span></code>, you can also perform randomization and robustness tests. The <code class="docutils literal notranslate"><span class="pre">--baselines</span></code> are skipped for these tests.</p>
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Model Name</p></th>
-<th class="head"><p>Baseline / Published Model</p></th>
-<th class="head"><p>Multi-Drug Model / Single-Drug Model</p></th>
-<th class="head"><p>Description</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>NaivePredictor</p></td>
-<td><p>Baseline Method</p></td>
-<td><p>Multi-Drug Model</p></td>
-<td><p>Most simple method. Predicts the mean response of all drugs in the training set.</p></td>
-</tr>
-<tr class="row-odd"><td><p>NaiveCellLineMeanPredictor</p></td>
-<td><p>Baseline Method</p></td>
-<td><p>Multi-Drug Model</p></td>
-<td><p>Predicts the mean response of the cell line in the training set.</p></td>
-</tr>
-<tr class="row-even"><td><p>NaiveDrugMeanPredictor</p></td>
-<td><p>Baseline Method</p></td>
-<td><p>Multi-Drug Model</p></td>
-<td><p>Predicts the mean response of the drug in the training set.</p></td>
-</tr>
-<tr class="row-odd"><td><p>NaiveTissueMeanPredictor</p></td>
-<td><p>Baseline Method</p></td>
-<td><p>Multi-Drug Model</p></td>
-<td><p>Predicts the mean response of the tissue in the training set.</p></td>
-</tr>
-<tr class="row-even"><td><p>NaiveMeanEffectsPredictor</p></td>
-<td><p>Baseline Method</p></td>
-<td><p>Multi-Drug Model</p></td>
-<td><p>Predicts using ANOVA-like mean effect model of cell lines and drugs</p></td>
-</tr>
-<tr class="row-odd"><td><p>ElasticNet</p></td>
-<td><p>Baseline Method</p></td>
-<td><p>Multi-Drug Model</p></td>
-<td><p>Fits an <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.ElasticNet.html">Sklearn Elastic Net</a>, <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html">Lasso</a>, or <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Ridge.html">Ridge</a> model on gene expression data and drug fingerprints (concatenated input matrix).</p></td>
-</tr>
-<tr class="row-even"><td><p>ProteomicsElasticNet</p></td>
-<td><p>Baseline Method</p></td>
-<td><p>Multi-Drug Model</p></td>
-<td><p>Fits an <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.ElasticNet.html">Sklearn Elastic Net</a>, <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html">Lasso</a>, or <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Ridge.html">Ridge</a> model on protein expression data and drug fingerprints (concatenated input matrix).</p></td>
-</tr>
-<tr class="row-odd"><td><p>SingleDrugElasticNet</p></td>
-<td><p>Baseline Method</p></td>
-<td><p>Single-Drug Model</p></td>
-<td><p>Fits an Elastic Net model on gene expression data for each drug separately.</p></td>
-</tr>
-<tr class="row-even"><td><p>SingleDrugProteomicsElasticNet</p></td>
-<td><p>Baseline Method</p></td>
-<td><p>Single-Drug Model</p></td>
-<td><p>Fits an Elastic Net model on proteomics data for each drug separately.</p></td>
-</tr>
-<tr class="row-odd"><td><p>GradientBoosting</p></td>
-<td><p>Baseline Method</p></td>
-<td><p>Multi-Drug Model</p></td>
-<td><p>Fits an <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.HistGradientBoostingRegressor.html">Sklearn Histogram-based Gradient Boosting Regression Tree</a> gene expression data and drug fingerprints.</p></td>
-</tr>
-<tr class="row-even"><td><p>RandomForest</p></td>
-<td><p>Baseline Method</p></td>
-<td><p>Multi-Drug Model</p></td>
-<td><p>Fits an <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestRegressor.html">Sklearn Random Forest Regressor</a> on gene expression data and drug fingerprints.</p></td>
-</tr>
-<tr class="row-odd"><td><p>ProteomicsRandomForest</p></td>
-<td><p>Baseline Method</p></td>
-<td><p>Multi-Drug Model</p></td>
-<td><p>Fits an <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestRegressor.html">Sklearn Random Forest Regressor</a> on proteomics data and drug fingerprints.</p></td>
-</tr>
-<tr class="row-even"><td><p>MultiOmicsRandomForest</p></td>
-<td><p>Baseline Method</p></td>
-<td><p>Multi-Drug Model</p></td>
-<td><p>Fits an <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestRegressor.html">Sklearn Random Forest Regressor</a> on gene expression, methylation, mutation, copy number variation data, and drug fingerprints (concatenated matrix). The dimensionality of the methylation data is reduced with a PCA to the first 100 components before it is fed to the model.</p></td>
-</tr>
-<tr class="row-odd"><td><p>SingleDrugRandomForest</p></td>
-<td><p>Baseline Method</p></td>
-<td><p>Single-Drug Model</p></td>
-<td><p>Fits an <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestRegressor.html">Sklearn Random Forest Regressor</a> on gene expression data for each drug separately.</p></td>
-</tr>
-<tr class="row-even"><td><p>SingleDrugProteomicsRandomForest</p></td>
-<td><p>Baseline Method</p></td>
-<td><p>Single-Drug Model</p></td>
-<td><p>Fits an <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestRegressor.html">Sklearn Random Forest Regressor</a> on protein expression data for each drug separately.</p></td>
-</tr>
-<tr class="row-odd"><td><p>SVR</p></td>
-<td><p>Baseline Method</p></td>
-<td><p>Multi-Drug Model</p></td>
-<td><p>Fits an <a class="reference external" href="https://scikit-learn.org/1.5/modules/generated/sklearn.svm.SVR.html">Sklearn Support Vector Regressor</a> gene expression data and drug fingerprints.</p></td>
-</tr>
-<tr class="row-even"><td><p>SimpleNeuralNetwork</p></td>
-<td><p>Baseline Method</p></td>
-<td><p>Multi-Drug Model</p></td>
-<td><p>Fits a simple feedforward neural network (implemented with <a class="reference external" href="https://lightning.ai/docs/pytorch/stable/">Pytorch Lightning</a>) on gene expression and drug fingerprints (concatenated input) with 3 layers of varying dimensions and Dropout layers.</p></td>
-</tr>
-<tr class="row-odd"><td><p>MultiOmicsNeuralNetwork</p></td>
-<td><p>Baseline Method</p></td>
-<td><p>Multi-Drug Model</p></td>
-<td><p>Fits a simple feedforward neural network (implemented with <a class="reference external" href="https://lightning.ai/docs/pytorch/stable/">Pytorch Lightning</a>) on gene expression, methylation, mutation, copy number variation data, and drug fingerprints (concatenated input) with 3 layers of varying dimensions and Dropout layers. The dimensionality of the methylation data is reduced with a PCA to the first 100 components before it is fed to the model.</p></td>
-</tr>
-<tr class="row-even"><td><p>ChemBERTaNeuralNetwork</p></td>
-<td><p>Baseline Method</p></td>
-<td><p>Multi-Drug Model</p></td>
-<td><p>Same architecture as the SimpleNeuralNetwork but uses pre-computed ChemBERTa embeddings as input instead of drug fingerprints.</p></td>
-</tr>
-<tr class="row-odd"><td><p>DrugGNN</p></td>
-<td><p>Baseline Method</p></td>
-<td><p>Multi-Drug Model</p></td>
-<td><p>Represents drugs as graph, encodes their structure with a 3-layer GNN. Uses a 2-layer MLP for encoding gene expression. Concatenates the representations and feeds them through 2 more MLP layers.</p></td>
-</tr>
-<tr class="row-even"><td><p>SRMF</p></td>
-<td><p>Published Model</p></td>
-<td><p>Multi-Drug Model</p></td>
-<td><p><a class="reference external" href="https://doi.org/10.1186/s12885-017-3500-5">Similarity Regularization Matrix Factorization</a> model by Wang et al. on gene expression data and drug fingerprints. Re-implemented Matlab code into Python. The basic idea is to represent each drug and each cell line by their respective similarities to all other drugs/cell lines. Those similarities are mapped into a shared latent low-dimensional space from which responses are predicted.</p></td>
-</tr>
-<tr class="row-odd"><td><p>MOLIR</p></td>
-<td><p>Published Model</p></td>
-<td><p>Single-Drug Model</p></td>
-<td><p>Regression extension of <a class="reference external" href="https://doi.org/10.1093/bioinformatics/btz318">MOLI: multi-omics late integration deep neural network.</a> by Sharifi-Noghabi et al. Takes somatic mutation, copy number variation and gene expression data as input. MOLI reduces the dimensionality of each omics type with a hidden layer, concatenates them into one representation and optimizes this representation via a combined cost function consisting of a triplet loss and a binary cross-entropy loss. We implemented a regression adaption with MSE loss and an adapted triplet loss for regression.</p></td>
-</tr>
-<tr class="row-even"><td><p>SuperFELTR</p></td>
-<td><p>Published Model</p></td>
-<td><p>Single-Drug Model</p></td>
-<td><p>Regression extension of <a class="reference external" href="https://doi.org/10.1186/s12859-021-04146-z">SuperFELT: supervised feature extraction learning using triplet loss for drug response</a> by Park et al. Very similar to MOLI(R). In MOLI(R), encoders and the classifier were trained jointly. Super.FELT(R) trains them independently. MOLI(R) was trained without feature selection (except for the Variance Threshold on the gene expression). Super.FELT(R) uses feature selection for all omics data.</p></td>
-</tr>
-<tr class="row-odd"><td><p>DIPK</p></td>
-<td><p>Published Model</p></td>
-<td><p>Multi-Drug Model</p></td>
-<td><p><a class="reference external" href="https://doi.org/10.1093/bib/bbae153">Deep neural network Integrating Prior Knowledge</a> from Li et al. Uses gene interaction relationships (encoded by a graph auto-encoder), gene expression profiles (encoded by a denoising auto-encoder), and molecular topologies (encoded by MolGNet). Those features are integrated using multi-head attention layers.</p></td>
-</tr>
-</tbody>
-</table>
 </section>
 <section id="available-datasets">
 <h2>Available Datasets<a class="headerlink" href="#available-datasets" title="Link to this heading"></a></h2>
@@ -498,11 +370,19 @@ This can be prefit data (not recommended for comparability reasons) or raw viabi
 the available datasets in the previous section.</p>
 <p><strong>Raw viability data</strong></p>
 <ul class="simple">
-<li><p>DrEvalPy expects a csv-formatted file in the location <code class="docutils literal notranslate"><span class="pre">&lt;path_data&gt;/&lt;dataset&gt;/&lt;dataset_name&gt;_raw.csv</span></code> (corresponding to the <code class="docutils literal notranslate"><span class="pre">--path_data</span></code> and <code class="docutils literal notranslate"><span class="pre">--dataset_name</span></code> options),
-which contains the raw viability data in long format with the columns [“dose”, “response”, “sample”, “drug”] and an optional “replicate” column.
-If replicates are provided, the procedure will fit one curve per sample / drug pair using all replicates.</p></li>
+<li><p>DrEvalPy expects a csv-formatted file in the location <code class="docutils literal notranslate"><span class="pre">&lt;path_data&gt;/&lt;dataset&gt;/&lt;dataset_name&gt;_raw.csv</span></code> (corresponding to the <code class="docutils literal notranslate"><span class="pre">--path_data</span></code> and <code class="docutils literal notranslate"><span class="pre">--dataset_name</span></code> options), which contains the raw viability data in long format with the columns [“dose”, “response”, “sample”, “drug”] and an optional “replicate” column. If replicates are provided, the procedure will fit one curve per sample / drug pair using all replicates.</p></li>
+<li><dl class="simple">
+<dt><strong>All dosages have to be provided in µM!</strong> Drevalpy will compute the following response measures:</dt><dd><ul>
+<li><p>pEC50_curvecurator: computed internally by CurveCurator. Is computed as -log10(EC50_curvecurator[M]).</p></li>
+<li><p>EC50_curvecurator: given in µM</p></li>
+<li><p>IC50_curvecurator: given in µM</p></li>
+<li><p>LN_IC50_curvecurator: computed from IC50_curvecurator</p></li>
+<li><p>AUC_curvecurator</p></li>
+</ul>
+</dd>
+</dl>
+</li>
 <li><p>The option <code class="docutils literal notranslate"><span class="pre">--curve_curator_cores</span></code> must be set. <code class="docutils literal notranslate"><span class="pre">--no_refitting</span></code> must not be set.</p></li>
-<li><p>Available measures are [“AUC”, “pEC50”, “EC50”, “IC50”].</p></li>
 <li><p>DrEvalPy provides all results of the fitting in the same folder including the fitted curves in a file folder <code class="docutils literal notranslate"><span class="pre">&lt;path_data&gt;/&lt;dataset&gt;/&lt;dataset_name&gt;.csv</span></code></p></li>
 </ul>
 <p><strong>Prefit viability data</strong></p>
@@ -583,7 +463,7 @@ the <code class="docutils literal notranslate"><span class="pre">--optim_metric<
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2025, DaiSyBio at Technical University of Munich.</p>
+    <p>&#169; Copyright 2026, DaiSyBio at Technical University of Munich.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
