@@ -8,6 +8,7 @@ __all__ = [
     "NaiveDrugMeanPredictor",
     "NaiveCellLineMeanPredictor",
     "NaiveTissueMeanPredictor",
+    "NaiveTissueDrugMeanPredictor",
     "NaiveMeanEffectsPredictor",
     "ElasticNetModel",
     "RandomForest",
@@ -36,6 +37,7 @@ from .baselines.naive_pred import (
     NaiveDrugMeanPredictor,
     NaiveMeanEffectsPredictor,
     NaivePredictor,
+    NaiveTissueDrugMeanPredictor,
     NaiveTissueMeanPredictor,
 )
 from .baselines.singledrug_elastic_net import SingleDrugElasticNet, SingleDrugProteomicsElasticNet
@@ -74,6 +76,7 @@ MULTI_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]] = {
     "NaiveCellLineMeanPredictor": NaiveCellLineMeanPredictor,
     "NaiveMeanEffectsPredictor": NaiveMeanEffectsPredictor,
     "NaiveTissueMeanPredictor": NaiveTissueMeanPredictor,
+    "NaiveTissueDrugMeanPredictor": NaiveTissueDrugMeanPredictor,
     "ElasticNet": ElasticNetModel,
     "RandomForest": RandomForest,
     "SVR": SVMRegressor,

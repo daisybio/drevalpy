@@ -38,3 +38,12 @@ Then,
 1. Open a PR from development to main with these changes.
 2. Wait for a review and merge.
 3. Create a new release on GitHub with the version number. Update the release notes with the changes made in this version.
+4. If the Docker github action fails (e.g., no space left on device), you can do it manually:
+   - Enable Docker buildx locally. If you don't have a builder that supports multi-arch, create one:
+   ```{bash}
+   docker buildx ls
+   docker buildx create --use --name multiarch-builder
+   docker buildx inspect --bootstrap
+   ```
+   - Login to ghcr `docker login --username <GitHub-Username> --password <personal-access-token> ghcr.io`
+   - Build the multi-platform image, insert the correct version `docker buildx build --platform linux/amd64,linux/arm64 -t ghcr.io/daisybio/drevalpy:v<INSERT-VERSION> -t ghcr.io/daisybio/drevalpy:latest --push .`

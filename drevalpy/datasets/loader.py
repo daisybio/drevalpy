@@ -8,7 +8,15 @@ import pandas as pd
 
 from .curvecurator import fit_curves
 from .dataset import DrugResponseDataset
-from .utils import ALLOWED_MEASURES, CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, TISSUE_IDENTIFIER, download_dataset
+from .utils import (
+    ALLOWED_MEASURES,
+    CELL_LINE_IDENTIFIER,
+    DRUG_IDENTIFIER,
+    TISSUE_IDENTIFIER,
+    download_dataset,
+    download_from_url,
+    unzip_data,
+)
 
 
 def check_measure(measure_queried: str, measures_data: list[str], dataset_name: str) -> None:
@@ -46,7 +54,8 @@ def _load_zenodo_dataset(
     path = os.path.join(path_data, dataset_name, file_name)
     if not os.path.exists(path):
         download_dataset(dataset_name, path_data, redownload=True)
-    meta_path = os.path.join(path_data, "meta")
+    # tissue mapping is not in TOY play dataset
+    meta_path = os.path.join(path_data, "meta", "tissue_mapping.csv")
     if not os.path.exists(meta_path):
         download_dataset("meta", path_data, redownload=True)
 
@@ -112,6 +121,44 @@ def load_ccle(
     return _load_zenodo_dataset(path_data=path_data, measure=measure, file_name="CCLE.csv", dataset_name="CCLE")
 
 
+def _load_test_data(
+    path_data: str = "data", measure: str = "LN_IC50_curvecurator", dataset_name: str = "TOYv1"
+) -> DrugResponseDataset:
+    # ensure that path_data exists
+    Path(path_data).mkdir(parents=True, exist_ok=True)
+    test_data_path = "https://github.com/nf-core/test-datasets/raw/refs/heads/drugresponseeval/test_data"
+    # first get meta
+    meta_path = os.path.join(path_data, "meta")
+    if not os.path.exists(meta_path):
+        file_url = f"{test_data_path}/meta.zip"
+        file_path = Path(path_data) / "meta.zip"
+        response_meta = download_from_url(dataset_name="meta", file_url=file_url)
+        unzip_data(path_to_zip=file_path, response=response_meta, data_path=path_data)
+    # get raw test data
+    raw_data_path = os.path.join(path_data, "CTRPv2_sample_test")
+    if not os.path.exists(raw_data_path):
+        file_url = f"{test_data_path}/CTRPv2_sample_test.zip"
+        file_path = Path(path_data) / "CTRPv2_sample_test.zip"
+        response_raw = download_from_url(dataset_name="CTRPv2_sample_test", file_url=file_url)
+        unzip_data(path_to_zip=file_path, response=response_raw, data_path=path_data)
+    file_url = f"{test_data_path}/{dataset_name}.zip"
+    file_path = Path(path_data) / f"{dataset_name}.zip"
+    response = download_from_url(dataset_name=dataset_name, file_url=file_url)
+    unzip_data(path_to_zip=file_path, response=response, data_path=path_data)
+
+    file_name = Path(path_data) / dataset_name / f"{dataset_name}.csv"
+    response_data = pd.read_csv(file_name, dtype={"pubchem_id": str, "cell_line_name": str})
+    response_data[DRUG_IDENTIFIER] = response_data[DRUG_IDENTIFIER].str.replace(",", "")
+    check_measure(measure, list(response_data.columns), dataset_name)
+    return DrugResponseDataset(
+        response=response_data[measure].values,
+        cell_line_ids=response_data[CELL_LINE_IDENTIFIER].values,
+        drug_ids=response_data[DRUG_IDENTIFIER].values,
+        tissues=response_data[TISSUE_IDENTIFIER].values,
+        dataset_name=dataset_name,
+    )
+
+
 def load_toyv1(path_data: str = "data", measure: str = "LN_IC50_curvecurator") -> DrugResponseDataset:
     """
     Loads small Toy dataset, subsampled from CTRPv2.
@@ -121,7 +168,7 @@ def load_toyv1(path_data: str = "data", measure: str = "LN_IC50_curvecurator") -
 
     :return: DrugResponseDataset containing response, cell line IDs, and drug IDs.
     """
-    return _load_zenodo_dataset(path_data=path_data, measure=measure, file_name="TOYv1.csv", dataset_name="TOYv1")
+    return _load_test_data(path_data=path_data, measure=measure, dataset_name="TOYv1")
 
 
 def load_toyv2(path_data: str = "data", measure: str = "LN_IC50_curvecurator") -> DrugResponseDataset:
@@ -133,7 +180,7 @@ def load_toyv2(path_data: str = "data", measure: str = "LN_IC50_curvecurator") -
 
     :return: DrugResponseDataset containing response, cell line IDs, and drug IDs.
     """
-    return _load_zenodo_dataset(path_data=path_data, measure=measure, file_name="TOYv2.csv", dataset_name="TOYv2")
+    return _load_test_data(path_data=path_data, measure=measure, dataset_name="TOYv2")
 
 
 def load_ctrpv1(path_data: str = "data", measure: str = "LN_IC50_curvecurator") -> DrugResponseDataset:
@@ -259,9 +306,9 @@ def load_dataset(
     """
     if curve_curator:
         measure += "_curvecurator"
-        input_file = Path(path_data) / dataset_name / f"{dataset_name}_raw.csv"
+        input_file = Path(path_data).resolve() / dataset_name / f"{dataset_name}_raw.csv"
     else:
-        input_file = Path(path_data) / dataset_name / f"{dataset_name}.csv"
+        input_file = Path(path_data).resolve() / dataset_name / f"{dataset_name}.csv"
 
     if dataset_name in AVAILABLE_DATASETS:
         return AVAILABLE_DATASETS[dataset_name](path_data, measure=measure)
@@ -269,8 +316,8 @@ def load_dataset(
     if input_file.is_file():
         if curve_curator:
             fit_curves(
-                input_file=input_file,
-                output_dir=input_file.parent,
+                input_file=str(input_file),
+                output_dir=str(input_file.parent),
                 dataset_name=dataset_name,
                 cores=cores,
                 normalize=normalize,

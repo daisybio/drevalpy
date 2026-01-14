@@ -1,14 +1,30 @@
 [tool.poetry]
 name = "drevalpy"
-version = "1.4.0"
+version = "1.4.1"
 description = "Drug response evaluation of cancer cell line drug response models in a fair setting"
 authors = ["DrEvalPy development team"]
 license = "GPL-3.0"
 readme = "README.md"
 
 [tool.poetry.scripts]
-drevalpy = "drevalpy.cli:cli_main"
-drevalpy-report = "drevalpy.visualization.create_report:main"
+drevalpy                            = "drevalpy.cli:cli_main"
+drevalpy-report                     = "drevalpy.visualization.create_report:main"
+drevalpy-viability-preprocess       = "drevalpy.cli_preprocess_custom:preprocess_raw_viability"
+drevalpy-viability-postprocess      = "drevalpy.cli_preprocess_custom:postprocess_viability"
+drevalpy-load-response              = "drevalpy.cli_run_cv:load_response"
+drevalpy-make-cv-pkls               = "drevalpy.cli_run_cv:cv_split"
+drevalpy-make-hpam-yamls            = "drevalpy.cli_run_cv:hpam_split"
+drevalpy-train-cv                   = "drevalpy.cli_run_cv:train_and_predict_cv"
+drevalpy-evaluate-hpams             = "drevalpy.cli_run_cv:evaluate_and_find_max"
+drevalpy-test-cv                    = "drevalpy.cli_model_testing:train_and_predict_final"
+drevalpy-make-randomization-yamls   = "drevalpy.cli_model_testing:randomization_split"
+drevalpy-make-final-split-pkls      = "drevalpy.cli_model_testing:final_split"
+drevalpy-tune-final-model           = "drevalpy.cli_model_testing:tune_final_model"
+drevalpy-train-final-model          = "drevalpy.cli_model_testing:train_final_model"
+drevalpy-consolidate-single-drug    = "drevalpy.cli_model_testing:consolidate_results"
+drevalpy-evaluate-test              = "drevalpy.cli_model_testing:evaluate_test_results"
+drevalpy-collect-results            = "drevalpy.cli_model_testing:collect_results"
+drevalpy-make-pipeline-report       = "drevalpy.visualization.create_report:pipeline_report"
 
 [tool.poetry.dependencies]
 python = ">=3.11,<3.14"
