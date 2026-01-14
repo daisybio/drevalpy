@@ -128,7 +128,7 @@ class MOLIR(DRPModel):
                     cell_line_input=cell_line_input,
                     output_earlystopping=output_earlystopping,
                     model_checkpoint_dir=model_checkpoint_dir,
-                    wandb_project=getattr(self, "wandb_project", None),
+                    wandb_project=self.wandb_project,
                 )
             else:
                 print(f"Not enough training data provided ({len(output)}), will predict on randomly initialized model.")

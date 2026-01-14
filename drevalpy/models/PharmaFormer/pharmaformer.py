@@ -243,7 +243,7 @@ class PharmaFormerModel(DRPModel):
             print(f"PharmaFormer: Epoch [{epoch + 1}/{self.hyperparameters['epochs']}] Training Loss: {epoch_loss:.4f}")
 
             # Log training loss to wandb if enabled
-            if hasattr(self, "wandb_run") and self.wandb_run is not None:
+            if self.is_wandb_enabled():
                 self.log_metrics({"train_loss": epoch_loss}, step=epoch)
 
             # Validation phase for early stopping
@@ -266,7 +266,7 @@ class PharmaFormerModel(DRPModel):
             print(f"PharmaFormer: Epoch [{epoch + 1}/{self.hyperparameters['epochs']}] Validation Loss: {val_loss:.4f}")
 
             # Log validation loss to wandb if enabled
-            if hasattr(self, "wandb_run") and self.wandb_run is not None:
+            if self.is_wandb_enabled():
                 self.log_metrics({"val_loss": val_loss}, step=epoch)
 
             # Checkpointing: Save the best model

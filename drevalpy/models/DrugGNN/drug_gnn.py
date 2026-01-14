@@ -331,20 +331,11 @@ class DrugGNN(DRPModel):
 
         # Set up wandb logger if project is provided
         loggers = []
-        wandb_project = getattr(self, "wandb_project", None)
-        if wandb_project is not None:
+        if self.wandb_project is not None:
             from pytorch_lightning.loggers import WandbLogger
 
-            import wandb
-
-            if wandb.run is not None:
-                # Use existing wandb run
-                logger = WandbLogger(project=wandb_project, log_model=False)
-                loggers.append(logger)
-            else:
-                # If wandb is not initialized, create a new logger
-                logger = WandbLogger(project=wandb_project, log_model=False)
-                loggers.append(logger)
+            logger = WandbLogger(project=self.wandb_project, log_model=False)
+            loggers.append(logger)
 
         trainer = pl.Trainer(
             max_epochs=self.hyperparameters.get("epochs", 100),

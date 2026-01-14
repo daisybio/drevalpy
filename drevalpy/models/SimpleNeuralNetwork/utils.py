@@ -239,20 +239,12 @@ class FeedForwardNetwork(pl.LightningModule):
         del trainer_params_copy["progress_bar_refresh_rate"]
 
         # Set up wandb logger if project is provided
+        # Note: This method receives wandb_project as parameter, but the model instance
+        # should have wandb already initialized via DRPModel.init_wandb()
         loggers = []
         if wandb_project is not None:
-            # Use existing wandb run if available, otherwise create new logger
-            # The wandb run should already be initialized by DRPModel.init_wandb()
-            import wandb
-
-            if wandb.run is not None:
-                # Use existing wandb run
-                logger = WandbLogger(project=wandb_project, log_model=False)
-                loggers.append(logger)
-            else:
-                # If wandb is not initialized, create a new logger
-                logger = WandbLogger(project=wandb_project, log_model=False)
-                loggers.append(logger)
+            logger = WandbLogger(project=wandb_project, log_model=False)
+            loggers.append(logger)
 
         # Initialize the Lightning trainer
         trainer = pl.Trainer(

@@ -416,16 +416,8 @@ class MOLIModel(pl.LightningModule):
         if wandb_project is not None:
             from pytorch_lightning.loggers import WandbLogger
 
-            import wandb
-
-            if wandb.run is not None:
-                # Use existing wandb run
-                logger = WandbLogger(project=wandb_project, log_model=False)
-                loggers.append(logger)
-            else:
-                # If wandb is not initialized, create a new logger
-                logger = WandbLogger(project=wandb_project, log_model=False)
-                loggers.append(logger)
+            logger = WandbLogger(project=wandb_project, log_model=False)
+            loggers.append(logger)
 
         # Initialize the Lightning trainer
         trainer = pl.Trainer(

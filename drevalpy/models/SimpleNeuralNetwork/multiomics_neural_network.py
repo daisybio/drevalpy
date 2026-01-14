@@ -128,7 +128,7 @@ class MultiOmicsNeuralNetwork(DRPModel):
                 message=".*does not have many workers which may be a bottleneck.*",
             )
             # Get wandb project from parent model if available
-            wandb_project = getattr(self, "wandb_project", None)
+            wandb_project = self.wandb_project
 
             self.model.fit(
                 output_train=output,

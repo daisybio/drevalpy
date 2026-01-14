@@ -1093,7 +1093,7 @@ def train_and_evaluate(
     results = evaluate(validation_dataset, metric=[metric])
 
     # Log validation metrics to wandb if enabled
-    if hasattr(model, "wandb_run") and model.wandb_run is not None:
+    if model.is_wandb_enabled():
         # Prefix metrics with "val_" to distinguish from training metrics
         wandb_metrics = {f"val_{k}": v for k, v in results.items()}
         model.log_metrics(wandb_metrics)
@@ -1160,7 +1160,7 @@ def hpam_tune(
             continue
 
         # Log trial hyperparameters and result to wandb if enabled
-        if hasattr(model, "wandb_run") and model.wandb_run is not None:
+        if model.is_wandb_enabled():
             trial_metrics = {f"trial_{trial_idx}_{k}": v for k, v in hyperparameter.items()}
             trial_metrics[f"trial_{trial_idx}_{metric}"] = score
             model.log_metrics(trial_metrics)
@@ -1171,7 +1171,7 @@ def hpam_tune(
             best_hyperparameters = hyperparameter
 
             # Log best score so far to wandb if enabled
-            if hasattr(model, "wandb_run") and model.wandb_run is not None:
+            if model.is_wandb_enabled():
                 model.log_metrics({f"best_{metric}": best_score})
 
     if best_hyperparameters is None:

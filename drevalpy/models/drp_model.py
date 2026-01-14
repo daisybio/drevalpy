@@ -85,14 +85,38 @@ class DRPModel(ABC):
 
         :param hyperparameters: dictionary of hyperparameters to log
         """
-        if self.wandb_run is None:
+        if not self.is_wandb_enabled():
             return
 
         self.hyperparameters = hyperparameters
         # Only update wandb.config if we're not in hyperparameter tuning phase
         # During tuning, trial hyperparameters are logged as metrics instead
-        if not getattr(self, "_in_hyperparameter_tuning", False):
+        if not self._in_hyperparameter_tuning:
             wandb.config.update(hyperparameters)
+
+    def is_wandb_enabled(self) -> bool:
+        """
+        Check if wandb logging is enabled for this model instance.
+
+        :returns: True if wandb is initialized and active, False otherwise
+        """
+        return self.wandb_run is not None
+
+    def get_wandb_logger(self) -> Any | None:
+        """
+        Get a WandbLogger for PyTorch Lightning integration.
+
+        This method creates a WandbLogger that uses the existing wandb run.
+        Returns None if wandb is not enabled.
+
+        :returns: WandbLogger instance or None
+        """
+        if not self.is_wandb_enabled() or self.wandb_project is None:
+            return None
+
+        from pytorch_lightning.loggers import WandbLogger
+
+        return WandbLogger(project=self.wandb_project, log_model=False)
 
     def log_metrics(self, metrics: dict[str, float], step: int | None = None) -> None:
         """
@@ -103,7 +127,7 @@ class DRPModel(ABC):
         :param metrics: dictionary of metric names to values
         :param step: optional step number for the metrics
         """
-        if self.wandb_run is None:
+        if not self.is_wandb_enabled():
             return
 
         if step is not None:
@@ -113,7 +137,7 @@ class DRPModel(ABC):
 
     def finish_wandb(self) -> None:
         """Finish the wandb run. Call this when training is complete."""
-        if self.wandb_run is None:
+        if not self.is_wandb_enabled():
             return
 
         wandb.finish()

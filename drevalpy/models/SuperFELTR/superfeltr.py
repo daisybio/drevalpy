@@ -136,7 +136,7 @@ class SuperFELTR(DRPModel):
                         output_earlystopping=output_earlystopping,
                         patience=5,
                         model_checkpoint_dir=model_checkpoint_dir,
-                        wandb_project=getattr(self, "wandb_project", None),
+                        wandb_project=self.wandb_project,
                     )
                     encoders[omic_type] = SuperFELTEncoder.load_from_checkpoint(best_checkpoint.best_model_path)
                 else:
@@ -169,7 +169,7 @@ class SuperFELTR(DRPModel):
                     output_earlystopping=output_earlystopping,
                     patience=5,
                     model_checkpoint_dir=model_checkpoint_dir,
-                    wandb_project=getattr(self, "wandb_project", None),
+                    wandb_project=self.wandb_project,
                 )
             else:
                 print("Not enough training data provided for SuperFELTR Regressor. Using random initialization.")
