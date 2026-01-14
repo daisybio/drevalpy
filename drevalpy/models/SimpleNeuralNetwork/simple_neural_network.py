@@ -116,9 +116,6 @@ class SimpleNeuralNetwork(DRPModel):
 
                 print("Probably, your training dataset is small.")
 
-            # Get wandb project from parent model if available
-            wandb_project = self.wandb_project
-
             self.model.fit(
                 output_train=output,
                 cell_line_input=cell_line_input,
@@ -134,7 +131,7 @@ class SimpleNeuralNetwork(DRPModel):
                 patience=5,
                 num_workers=1 if platform.system() == "Windows" else 8,
                 model_checkpoint_dir=model_checkpoint_dir,
-                wandb_project=wandb_project,
+                wandb_project=self.wandb_project,
             )
 
     def predict(

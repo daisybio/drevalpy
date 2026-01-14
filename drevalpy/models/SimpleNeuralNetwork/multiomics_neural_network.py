@@ -127,9 +127,6 @@ class MultiOmicsNeuralNetwork(DRPModel):
                 "ignore",
                 message=".*does not have many workers which may be a bottleneck.*",
             )
-            # Get wandb project from parent model if available
-            wandb_project = self.wandb_project
-
             self.model.fit(
                 output_train=output,
                 cell_line_input=cell_line_input,
@@ -145,7 +142,7 @@ class MultiOmicsNeuralNetwork(DRPModel):
                 patience=5,
                 num_workers=1,
                 model_checkpoint_dir=model_checkpoint_dir,
-                wandb_project=wandb_project,
+                wandb_project=self.wandb_project,
             )
 
     def predict(
