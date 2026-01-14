@@ -121,13 +121,17 @@ reproducible manner. We offer three settings via the ``--test_mode`` parameter:
 An underlying issue is that drugs have a rather unique IC50 range. That means that by just predicting the mean IC50
 that a drug has in the training set (aggregated over all cell lines), you can already achieve a seemingly good
 prediction (as evaluated by naive R^2 or correlation metrics). This is why we also offer the possibility to compare your model to a **NaivePredictor** that predicts
-the mean IC50 of all drugs in the training set. We also offer two less naive predictors:
-**NaiveCellLineMeanPredictor** and **NaiveDrugMeanPredictor**. The former predicts the mean IC50 of a cell line in
-the training set and the latter predicts the mean IC50 of a drug in the training set.
-Finally, the strongest naive baseline is the **NaiveMeanEffectPredictor**
-which combines the effects of cell lines and drugs.
-It is equivalent to the **NaiveCellLineMeanPredictor** and **NaiveDrugMeanPredictor** for the LDO and LPO settings, respectively,
+the mean IC50 of all drugs in the training set. We also offer several less naive predictors:
+**NaiveCellLineMeanPredictor**, **NaiveDrugMeanPredictor**, **NaiveTissueMeanPredictor**, and **NaiveTissueDrugMeanPredictor**.
+The **NaiveCellLineMeanPredictor** predicts the mean IC50 of a cell line in the training set,
+the **NaiveDrugMeanPredictor** predicts the mean IC50 of a drug in the training set,
+the **NaiveTissueMeanPredictor** predicts the mean IC50 of a tissue in the training set,
+and the **NaiveTissueDrugMeanPredictor** predicts the mean IC50 per tissue-drug combination (aggregated across all cell lines with that tissue-drug pair).
+The **NaiveMeanEffectPredictor** combines the effects of cell lines and drugs.
+It is equivalent to the **NaiveCellLineMeanPredictor** and **NaiveDrugMeanPredictor** for the LDO and LCO settings, respectively,
 as test cell line effects and drug effects are unknown in these settings.
+
+In LCO, **NaiveTissueDrugMeanPredictor** is the strongest baseline, while in all other settings, **NaiveMeanEffectPredictor** is the strongest.
 
 Available Models
 ------------------
@@ -148,6 +152,8 @@ For ``--models``, you can also perform randomization and robustness tests. The `
 | NaiveDrugMeanPredictor          | Baseline Method            | Multi-Drug Model                     | Predicts the mean response of the drug in the training set.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 +---------------------------------+----------------------------+--------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | NaiveTissueMeanPredictor        | Baseline Method            | Multi-Drug Model                     | Predicts the mean response of the tissue in the training set.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
++---------------------------------+----------------------------+--------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| NaiveTissueDrugMeanPredictor    | Baseline Method            | Multi-Drug Model                     | Predicts the mean response per tissue-drug combination in the training set (aggregated across all cell lines with that tissue-drug pair). Falls back to the overall dataset mean for unseen combinations.                                                                                                                                                                                                                                                                                                                                                                                   |
 +---------------------------------+----------------------------+--------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | NaiveMeanEffectsPredictor       | Baseline Method            | Multi-Drug Model                     | Predicts using ANOVA-like mean effect model of cell lines and drugs                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 +---------------------------------+----------------------------+--------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -268,11 +274,14 @@ the available datasets in the previous section.
 
 **Raw viability data**
 
-* DrEvalPy expects a csv-formatted file in the location ``<path_data>/<dataset>/<dataset_name>_raw.csv`` (corresponding to the ``--path_data`` and ``--dataset_name`` options),
-  which contains the raw viability data in long format with the columns ["dose", "response", "sample", "drug"] and an optional "replicate" column.
-  If replicates are provided, the procedure will fit one curve per sample / drug pair using all replicates.
+*   DrEvalPy expects a csv-formatted file in the location ``<path_data>/<dataset>/<dataset_name>_raw.csv`` (corresponding to the ``--path_data`` and ``--dataset_name`` options), which contains the raw viability data in long format with the columns ["dose", "response", "sample", "drug"] and an optional "replicate" column. If replicates are provided, the procedure will fit one curve per sample / drug pair using all replicates.
+* **All dosages have to be provided in µM!** Drevalpy will compute the following response measures:
+    * pEC50_curvecurator: computed internally by CurveCurator. Is computed as -log10(EC50_curvecurator[M]).
+    * EC50_curvecurator: given in µM
+    * IC50_curvecurator: given in µM
+    * LN_IC50_curvecurator: computed from IC50_curvecurator
+    * AUC_curvecurator
 * The option ``--curve_curator_cores`` must be set. ``--no_refitting`` must not be set.
-* Available measures are ["AUC", "pEC50", "EC50", "IC50"].
 * DrEvalPy provides all results of the fitting in the same folder including the fitted curves in a file folder ``<path_data>/<dataset>/<dataset_name>.csv``
 
 **Prefit viability data**

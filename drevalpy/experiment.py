@@ -1149,6 +1149,7 @@ def hpam_tune_raytune(
     :param path_data: path to data directory, e.g., data/
     :param model_checkpoint_dir: directory for model checkpoints
     :returns: best hyperparameters
+    :raises ValueError: if best_result is None
     """
     print("Starting hyperparameter tuning with Ray Tune ...")
     print(f"Hyperparameter combinations to evaluate: {len(hpam_set)}")
@@ -1205,7 +1206,8 @@ def hpam_tune_raytune(
     results = tuner.fit()
     best_result = results.get_best_result(metric=metric, mode=get_mode(metric))
     ray.shutdown()
-
+    if best_result.config is None:
+        raise ValueError("Ray failed; no best result.")
     return best_result.config["hpams"]
 
 
