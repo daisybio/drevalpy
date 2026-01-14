@@ -260,3 +260,48 @@ def test_chemberta_featurizer_load_or_generate(tmp_path):
             result1.features[drug_id]["chemberta_embeddings"],
             result2.features[drug_id]["chemberta_embeddings"],
         )
+
+
+def test_bpe_smiles_featurizer(tmp_path):
+    """
+    Test BPE SMILES featurizer end-to-end.
+
+    :param tmp_path: Temporary path provided by pytest.
+    """
+    try:
+        import drevalpy.datasets.featurizer.create_pharmaformer_drug_embeddings as bpe_feat
+    except ImportError:
+        pytest.skip("subword-nmt package not installed; skipping BPE SMILES featurizer test.")
+
+    dataset = "testset"
+    data_dir = tmp_path / dataset
+    data_dir.mkdir(parents=True)
+
+    # write minimal SMILES CSV with multiple SMILES for BPE learning
+    df = pd.DataFrame(
+        {
+            "pubchem_id": ["D1", "D2", "D3", "D4", "D5"],
+            "canonical_smiles": ["CCO", "CC(=O)O", "c1ccccc1", "CCN(CC)CC", "C1CCC(CC1)O"],
+        }
+    )
+    (data_dir / "drug_smiles.csv").write_text(df.to_csv(index=False))
+
+    # run main exactly as the script would
+    sys.argv = ["prog", dataset, "--data_path", str(tmp_path), "--num-symbols", "100", "--max-length", "128"]
+    bpe_feat.main()
+
+    # expected output files
+    out_file = data_dir / "drug_bpe_smiles.csv"
+    bpe_codes_file = data_dir / "bpe.codes"
+    assert out_file.exists()
+    assert bpe_codes_file.exists()
+
+    # verify output format
+    df_out = pd.read_csv(out_file)
+    assert "pubchem_id" in df_out.columns
+    assert df_out.pubchem_id.tolist() == ["D1", "D2", "D3", "D4", "D5"]
+    # Should have 128 feature columns
+    feature_cols = [col for col in df_out.columns if col.startswith("feature_")]
+    assert len(feature_cols) == 128
+    # Values should be numeric (character ordinals, may be stored as float in CSV)
+    assert pd.api.types.is_numeric_dtype(df_out[feature_cols[0]])

@@ -44,10 +44,12 @@ matplotlib = "*"
 importlib-resources = "*"
 scikit-posthocs = "*"
 curve-curator = "*"
+subword-nmt = ">=0.3.8"
 toml = {version = "^0.10.2"}
 poetry = "^2.0.1"
 starlette = ">=0.49.1"
 pydantic = { version = ">=2.5", optional = true }
+wandb = "^0.24.0"
 
 [tool.poetry.requires-plugins]
 poetry-plugin-export = ">=1.8"

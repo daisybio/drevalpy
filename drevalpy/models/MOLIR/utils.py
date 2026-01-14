@@ -370,6 +370,7 @@ class MOLIModel(pl.LightningModule):
         output_earlystopping: DrugResponseDataset | None = None,
         patience: int = 5,
         model_checkpoint_dir: str = "checkpoints",
+        wandb_project: str | None = None,
     ) -> None:
         """
         Trains the MOLIR model.
@@ -377,11 +378,14 @@ class MOLIModel(pl.LightningModule):
         First, the ranges for the triplet loss are determined using the standard deviation of the training responses.
         Then, the training and validation data loaders are created. The model is trained using the Lightning Trainer
         with an early stopping callback and patience of 5.
+
         :param output_train: training dataset containing the response output
         :param cell_line_input: feature dataset containing the omics data of the cell lines
         :param output_earlystopping: early stopping dataset
         :param patience: for early stopping
         :param model_checkpoint_dir: directory to save the model checkpoints
+        :param wandb_project: optional wandb project name for logging. If provided, uses WandbLogger
+            for PyTorch Lightning training.
         """
         self.positive_range, self.negative_range = make_ranges(output_train)
 
@@ -407,9 +411,18 @@ class MOLIModel(pl.LightningModule):
             save_weights_only=True,
         )
 
+        # Set up wandb logger if project is provided
+        loggers = []
+        if wandb_project is not None:
+            from pytorch_lightning.loggers import WandbLogger
+
+            logger = WandbLogger(project=wandb_project, log_model=False)
+            loggers.append(logger)
+
         # Initialize the Lightning trainer
         trainer = pl.Trainer(
             max_epochs=self.epochs,
+            logger=loggers if loggers else True,  # Use default logger if no wandb
             callbacks=[
                 early_stop_callback,
                 self.checkpoint_callback,

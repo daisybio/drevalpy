@@ -21,7 +21,15 @@ from drevalpy.models.drp_model import DRPModel
 @pytest.mark.parametrize("test_mode", ["LTO"])
 @pytest.mark.parametrize(
     "model_name",
-    ["DrugGNN", "ChemBERTaNeuralNetwork", "SRMF", "DIPK", "SimpleNeuralNetwork", "MultiOmicsNeuralNetwork"],
+    [
+        "DrugGNN",
+        "ChemBERTaNeuralNetwork",
+        "SRMF",
+        "DIPK",
+        "SimpleNeuralNetwork",
+        "MultiOmicsNeuralNetwork",
+        "PharmaFormer",
+    ],
 )
 def test_global_models(
     sample_dataset: DrugResponseDataset,
@@ -72,6 +80,9 @@ def test_global_models(
     elif model_name in ["SimpleNeuralNetwork", "MultiOmicsNeuralNetwork"]:
         hpam_combi["units_per_layer"] = [2, 2]
         hpam_combi["max_epochs"] = 1
+    elif model_name == "PharmaFormer":
+        hpam_combi["epochs"] = 1
+        hpam_combi["patience"] = 2
     model.build_model(hyperparameters=hpam_combi)
 
     with tempfile.TemporaryDirectory() as tmpdirname:
