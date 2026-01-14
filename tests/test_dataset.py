@@ -69,6 +69,51 @@ def test_fitting_and_loading_custom_dataset(sample_dataset: DrugResponseDataset)
             item.unlink()
 
 
+def _curve_function(x, wanted_ec50, front, back, slope):
+    return (front - back) / (1 + (x / wanted_ec50) ** slope) + back
+
+
+def test_curvecurator_measures():
+    """Tests if CurveCurator computes the response measures correctly."""
+    temp_dir = tempfile.TemporaryDirectory()
+    path_to_temp_dir = Path(temp_dir.name)
+    Path.mkdir(path_to_temp_dir / "toy_curves", exist_ok=True)
+
+    expected_ec50 = 6
+    front = 1.0
+    back = 0.3
+    slope = 1.5
+    xvals = 10 ** np.linspace(np.log10(0.001) - 2, np.log10(1000) + 2, 50)
+    yvals = _curve_function(xvals, expected_ec50, front, back, slope)
+    expected_ic50 = expected_ec50 * (((front - back) / (0.5 - back)) - 1) ** (1 / slope)
+    """
+    import matplotlib.pyplot as plt
+    plt.scatter(xvals, yvals, s=1)
+    plt.xscale('log')
+    plt.show()
+    """
+    df = pd.DataFrame({"dose": xvals, "response": yvals, "sample": "cell_line_1", "drug": "drug_1", "replicate": "1"})
+    df.to_csv(path_to_temp_dir / "toy_curves" / "toy_curves_raw.csv", index=False)
+    load_dataset(
+        dataset_name="toy_curves",
+        path_data=str(path_to_temp_dir),
+        measure="IC50",
+        curve_curator=True,
+        cores=200,
+    )
+    assert Path(path_to_temp_dir / "toy_curves" / "toy_curves.csv").exists()
+    df_processed = pd.read_csv(path_to_temp_dir / "toy_curves" / "toy_curves.csv", index_col=0)
+    # assert that df_processed["EC50_curvecurator"] is approximately expected_ec50
+    assert np.isclose(df_processed.loc["cell_line_1|drug_1"]["EC50_curvecurator"], expected_ec50, atol=0.1)
+    assert np.isclose(df_processed.loc["cell_line_1|drug_1"]["IC50_curvecurator"], expected_ic50, atol=0.1)
+    assert round(np.log(df_processed.loc["cell_line_1|drug_1"]["IC50_curvecurator"]), 4) == round(
+        df_processed.loc["cell_line_1|drug_1"]["LN_IC50_curvecurator"], 4
+    )
+    assert round(-np.log10(df_processed.loc["cell_line_1|drug_1"]["EC50_curvecurator"] * 10**-6), 4) == round(
+        df_processed.loc["cell_line_1|drug_1"]["pEC50_curvecurator"], 4
+    )
+
+
 def test_response_dataset_add_rows() -> None:
     """Test if the add_rows method works correctly."""
     dataset1 = DrugResponseDataset(
