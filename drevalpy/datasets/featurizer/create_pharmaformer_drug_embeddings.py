@@ -1,4 +1,13 @@
-"""Preprocesses drug SMILES strings into BPE-encoded embeddings."""
+"""Preprocesses drug SMILES strings into BPE-encoded embeddings.
+
+WARNING: This featurizer produces problematic embeddings and should ONLY be used
+with the PharmaFormer model. It replicates the original PharmaFormer implementation
+for compatibility, but the embeddings have known issues and should not be used
+for any other models.
+
+Details about the issues are explained in:
+https://github.com/daisybio/drevalpy/pull/336#discussion_r2682718948
+"""
 
 import argparse
 import codecs
@@ -17,7 +26,7 @@ except ImportError:
     raise ImportError("Please install subword-nmt package for BPE SMILES featurizer: pip install subword-nmt")
 
 
-def create_bpe_smiles_embeddings(
+def create_pharmaformer_drug_embeddings(
     data_path: str,
     dataset_name: str,
     num_symbols: int = 10000,
@@ -26,6 +35,15 @@ def create_bpe_smiles_embeddings(
     """
     Create BPE-encoded SMILES embeddings for drugs.
 
+    WARNING: This featurizer produces problematic embeddings and should ONLY be used
+    with the PharmaFormer model. It replicates the original PharmaFormer implementation
+    for compatibility purposes, but the embeddings have known issues and should NOT
+    be used for any other models.
+
+    Details about the issues are explained in:
+    https://github.com/daisybio/drevalpy/pull/336#discussion_r2682718948
+
+    Process:
     1. Read drug_smiles.csv
     2. Learn BPE codes from all SMILES strings
     3. Apply BPE to each SMILES
@@ -117,7 +135,16 @@ def create_bpe_smiles_embeddings(
 
 
 def main():
-    """Process drug SMILES and save BPE-encoded embeddings."""
+    """Process drug SMILES and save BPE-encoded embeddings.
+
+    WARNING: This featurizer produces problematic embeddings and should ONLY be used
+    with the PharmaFormer model. It replicates the original PharmaFormer implementation
+    for compatibility purposes, but the embeddings have known issues and should NOT
+    be used for any other models.
+
+    Details about the issues are explained in:
+    https://github.com/daisybio/drevalpy/pull/336#discussion_r2682718948
+    """
     parser = argparse.ArgumentParser(description="Preprocess drug SMILES to BPE-encoded embeddings.")
     parser.add_argument("dataset_name", type=str, help="The name of the dataset to process.")
     parser.add_argument("--data_path", type=str, default="data", help="Path to the data folder")
@@ -125,7 +152,7 @@ def main():
     parser.add_argument("--max-length", type=int, default=128, help="Maximum length of encoded SMILES")
     args = parser.parse_args()
 
-    create_bpe_smiles_embeddings(
+    create_pharmaformer_drug_embeddings(
         data_path=args.data_path,
         dataset_name=args.dataset_name,
         num_symbols=args.num_symbols,
