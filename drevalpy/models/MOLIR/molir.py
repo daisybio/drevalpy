@@ -48,15 +48,6 @@ class MOLIR(DRPModel):
         self.gene_expression_scaler = StandardScaler()
         self.selector: VarianceFeatureSelector | None = None
 
-    @classmethod
-    def get_model_name(cls) -> str:
-        """
-        Returns the model name.
-
-        :returns: MOLIR
-        """
-        return "MOLIR"
-
     def build_model(self, hyperparameters: dict[str, Any]) -> None:
         """
         Builds the model from hyperparameters.
@@ -64,6 +55,9 @@ class MOLIR(DRPModel):
         :param hyperparameters: Custom hyperparameters for the model, includes mini_batch, layer dimensions (h_dim1,
             h_dim2, h_dim3), learning_rate, dropout_rate, weight_decay, gamma, epochs, and margin.
         """
+        # Log hyperparameters to wandb if enabled
+        self.log_hyperparameters(hyperparameters)
+
         self.hyperparameters = hyperparameters
         self.selector = VarianceFeatureSelector(
             view="gene_expression", k=hyperparameters.get("n_gene_expression_features", 1000)
@@ -125,6 +119,7 @@ class MOLIR(DRPModel):
                     cell_line_input=cell_line_input,
                     output_earlystopping=output_earlystopping,
                     model_checkpoint_dir=model_checkpoint_dir,
+                    wandb_project=self.wandb_project,
                 )
             else:
                 print(f"Not enough training data provided ({len(output)}), will predict on randomly initialized model.")

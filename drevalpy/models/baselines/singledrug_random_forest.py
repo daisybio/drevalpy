@@ -19,15 +19,6 @@ class SingleDrugRandomForest(RandomForest):
     drug_views = []
     early_stopping = False
 
-    @classmethod
-    def get_model_name(cls) -> str:
-        """
-        Returns the model name.
-
-        :returns: SingleDrugRandomForest
-        """
-        return "SingleDrugRandomForest"
-
     def train(
         self,
         output: DrugResponseDataset,
@@ -147,15 +138,6 @@ class SingleDrugProteomicsRandomForest(SingleDrugRandomForest):
             normalization_downshift=self.normalization_downshift,
             normalization_width=self.normalization_width,
         )
-
-    @classmethod
-    def get_model_name(cls) -> str:
-        """
-        Returns the model name.
-
-        :returns: SingleDrugProteomicsRandomForest
-        """
-        return "SingleDrugProteomicsRandomForest"
 
     def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         """

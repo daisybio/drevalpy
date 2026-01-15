@@ -45,6 +45,7 @@ def drug_response_experiment(
     model_checkpoint_dir: str = "TEMPORARY",
     hyperparameter_tuning=True,
     final_model_on_full_data: bool = False,
+    wandb_project: str | None = None,
 ) -> None:
     """
     Run the drug response prediction experiment. Save results to disc.
@@ -97,6 +98,8 @@ def drug_response_experiment(
     :param final_model_on_full_data: if True, a final/production model is saved in the results directory.
         If hyperparameter_tuning is true, the final model is produced according to the hyperparameter tuning procedure
         which was evaluated in the nested cross validation.
+    :param wandb_project: if provided, enables wandb logging for all DRPModel instances throughout training.
+        All hyperparameters and metrics will be logged to the specified wandb project.
     :raises ValueError: if no cv splits are found
     """
     # Default baseline model, needed for normalization
@@ -190,6 +193,29 @@ def drug_response_experiment(
 
             model = model_class()
 
+            # Initialize wandb if project is provided (before hyperparameter tuning)
+            if wandb_project is not None:
+                run_name = f"{model_name}"
+                if drug_id is not None:
+                    run_name += f"_{drug_id}"
+                run_name += f"_split_{split_index}"
+
+                config = {
+                    "model_name": model_name,
+                    "drug_id": drug_id,
+                    "split_index": split_index,
+                    "test_mode": test_mode,
+                    "dataset": response_data.dataset_name,
+                    "n_cv_splits": n_cv_splits,
+                    "hyperparameter_tuning": hyperparameter_tuning,
+                }
+                model.init_wandb(
+                    project=wandb_project,
+                    config=config,
+                    name=run_name,
+                    tags=[model_name, test_mode, response_data.dataset_name or "unknown"],
+                )
+
             if not os.path.isfile(
                 prediction_file
             ):  # if this split has not been run yet (or for a single drug model, this drug_id)
@@ -213,6 +239,9 @@ def drug_response_experiment(
 
                 print(f"Best hyperparameters: {best_hpams}")
                 print("Training model on full train and validation set to predict test set")
+
+                # Log best hyperparameters to wandb (they will be logged when build_model is called)
+                # The best hyperparameters will be logged via build_model -> log_hyperparameters
                 # save best hyperparameters as json
                 with open(
                     hpam_save_path,
@@ -259,6 +288,10 @@ def drug_response_experiment(
                     encoding="utf-8",
                 ) as f:
                     best_hpams = json.load(f)
+
+            # Finish wandb run for this split
+            if wandb_project is not None:
+                model.finish_wandb()
             if not is_baseline:
                 if randomization_mode is not None:
                     print(f"Randomization tests for {model_class.get_model_name()}")
@@ -1057,7 +1090,15 @@ def train_and_evaluate(
         response_transformation=response_transformation,
         model_checkpoint_dir=model_checkpoint_dir,
     )
-    return evaluate(validation_dataset, metric=[metric])
+    results = evaluate(validation_dataset, metric=[metric])
+
+    # Log validation metrics to wandb if enabled
+    if model.is_wandb_enabled():
+        # Prefix metrics with "val_" to distinguish from training metrics
+        wandb_metrics = {f"val_{k}": v for k, v in results.items()}
+        model.log_metrics(wandb_metrics)
+
+    return results
 
 
 def hpam_tune(
@@ -1091,11 +1132,18 @@ def hpam_tune(
     if len(hpam_set) == 1:
         return hpam_set[0]
 
+    # Mark that we're in hyperparameter tuning phase
+    # This prevents updating wandb.config during tuning - we'll only log final best hyperparameters
+    model._in_hyperparameter_tuning = True
+
     best_hyperparameters = None
     mode = get_mode(metric)
     best_score = float("inf") if mode == "min" else float("-inf")
-    for hyperparameter in hpam_set:
+    for trial_idx, hyperparameter in enumerate(hpam_set):
         print(f"Training model with hyperparameters: {hyperparameter}")
+
+        # During hyperparameter tuning, don't update wandb config for each trial
+        # Instead, we'll log trial hyperparameters as metrics
         score = train_and_evaluate(
             model=model,
             hpams=hyperparameter,
@@ -1111,10 +1159,20 @@ def hpam_tune(
         if np.isnan(score):
             continue
 
+        # Log trial hyperparameters and result to wandb if enabled
+        if model.is_wandb_enabled():
+            trial_metrics = {f"trial_{trial_idx}_{k}": v for k, v in hyperparameter.items()}
+            trial_metrics[f"trial_{trial_idx}_{metric}"] = score
+            model.log_metrics(trial_metrics)
+
         if (mode == "min" and score < best_score) or (mode == "max" and score > best_score):
             print(f"current best {metric} score: {np.round(score, 3)}")
             best_score = score
             best_hyperparameters = hyperparameter
+
+            # Log best score so far to wandb if enabled
+            if model.is_wandb_enabled():
+                model.log_metrics({f"best_{metric}": best_score})
 
     if best_hyperparameters is None:
         warnings.warn("all hpams lead to NaN respone. using last hpam combination.", stacklevel=2)

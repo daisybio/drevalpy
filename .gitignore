@@ -1,20 +1,11 @@
 # Data
-data/cell_line_input
-data/response_output
-data/mapping
-data/GDSC1
-data/GDSC2
-data/CCLE
-data/TOYv1
-data/TOYv2
-data/CTRPv1
-data/CTRPv2
-data/meta
-data/BeatAML2
-data/PDX_Bruna
+data/
 
 # Results directory is created when running the demo notebook
 results/
+
+# Wandb directory is created when running the benchmark with wandb
+wandb/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -68,6 +59,7 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 cover/
+tests/lightning_logs/
 
 # Translations
 *.mo

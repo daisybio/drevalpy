@@ -37,20 +37,10 @@ class MultiOmicsNeuralNetwork(DRPModel):
         """
         super().__init__()
         self.model = None
-        self.hyperparameters = None
         self.methylation_scaler = StandardScaler()
         self.methylation_pca = None
         self.pca_ncomp = 100
         self.gene_expression_scaler = StandardScaler()
-
-    @classmethod
-    def get_model_name(cls) -> str:
-        """
-        Returns the model name.
-
-        :returns: MultiOmicsNeuralNetwork
-        """
-        return "MultiOmicsNeuralNetwork"
 
     def build_model(self, hyperparameters: dict):
         """
@@ -62,6 +52,9 @@ class MultiOmicsNeuralNetwork(DRPModel):
         :param hyperparameters: dictionary containing the hyperparameters units_per_layer, dropout_prob, and
             methylation_pca_components.
         """
+        # Log hyperparameters to wandb if enabled
+        self.log_hyperparameters(hyperparameters)
+
         self.hyperparameters = hyperparameters
         self.pca_ncomp = hyperparameters["methylation_pca_components"]
 
@@ -139,6 +132,7 @@ class MultiOmicsNeuralNetwork(DRPModel):
                 patience=5,
                 num_workers=1,
                 model_checkpoint_dir=model_checkpoint_dir,
+                wandb_project=self.wandb_project,
             )
 
     def predict(

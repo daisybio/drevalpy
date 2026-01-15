@@ -109,15 +109,6 @@ class NaivePredictor(NaiveModel):
         """
         super().__init__()
 
-    @classmethod
-    def get_model_name(cls) -> str:
-        """
-        Returns the model name.
-
-        :returns: NaivePredictor
-        """
-        return "NaivePredictor"
-
     def train(
         self,
         output: DrugResponseDataset,
@@ -190,15 +181,6 @@ class NaiveDrugMeanPredictor(NaiveModel):
         """
         super().__init__()
         self.drug_means = None
-
-    @classmethod
-    def get_model_name(cls) -> str:
-        """
-        Returns the model name.
-
-        :returns: NaiveDrugMeanPredictor
-        """
-        return "NaiveDrugMeanPredictor"
 
     def train(
         self,
@@ -299,15 +281,6 @@ class NaiveCellLineMeanPredictor(NaiveModel):
         super().__init__()
         self.cell_line_means = None
 
-    @classmethod
-    def get_model_name(cls) -> str:
-        """
-        Returns the model name.
-
-        :returns: NaiveCellLineMeanPredictor
-        """
-        return "NaiveCellLineMeanPredictor"
-
     def train(
         self,
         output: DrugResponseDataset,
@@ -405,15 +378,6 @@ class NaiveTissueMeanPredictor(NaiveModel):
         """
         super().__init__()
         self.tissue_means = None
-
-    @classmethod
-    def get_model_name(cls) -> str:
-        """
-        Returns the model name.
-
-        :returns: NaiveTissueMeanPredictor
-        """
-        return "NaiveTissueMeanPredictor"
 
     def train(
         self,
@@ -517,15 +481,6 @@ class NaiveMeanEffectsPredictor(NaiveModel):
         super().__init__()
         self.cell_line_effects = {}
         self.drug_effects = {}
-
-    @classmethod
-    def get_model_name(cls) -> str:
-        """
-        Returns the name of the model.
-
-        :return: The name of the model as a string.
-        """
-        return "NaiveMeanEffectsPredictor"
 
     def train(
         self,
@@ -642,15 +597,6 @@ class NaiveTissueDrugMeanPredictor(NaiveModel):
         """
         super().__init__()
         self.tissue_drug_means = None
-
-    @classmethod
-    def get_model_name(cls) -> str:
-        """
-        Returns the model name.
-
-        :returns: NaiveTissueDrugMeanPredictor
-        """
-        return "NaiveTissueDrugMeanPredictor"
 
     def save(self, directory: str) -> None:
         """

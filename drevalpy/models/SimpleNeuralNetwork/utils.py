@@ -7,6 +7,7 @@ import numpy as np
 import pytorch_lightning as pl
 import torch
 from pytorch_lightning.callbacks import EarlyStopping, TQDMProgressBar
+from pytorch_lightning.loggers import WandbLogger
 from torch import nn
 from torch.utils.data import DataLoader, Dataset
 
@@ -150,11 +151,13 @@ class FeedForwardNetwork(pl.LightningModule):
         patience=5,
         num_workers: int = 2,
         model_checkpoint_dir: str = "checkpoints",
+        wandb_project: str | None = None,
     ) -> None:
         """
         Fits the model.
 
         First, the data is loaded using a DataLoader. Then, the model is trained using the Lightning Trainer.
+
         :param output_train: Response values for training
         :param cell_line_input: Cell line features
         :param drug_input: Drug features
@@ -166,6 +169,8 @@ class FeedForwardNetwork(pl.LightningModule):
         :param patience: patience for early stopping, default is 5
         :param num_workers: number of workers for the DataLoader, default is 2
         :param model_checkpoint_dir: directory to save the model checkpoints
+        :param wandb_project: optional wandb project name for logging. If provided, uses WandbLogger
+            for PyTorch Lightning training.
         :raises ValueError: if drug_input is missing
         """
         if trainer_params is None:
@@ -233,6 +238,14 @@ class FeedForwardNetwork(pl.LightningModule):
         trainer_params_copy = trainer_params.copy()
         del trainer_params_copy["progress_bar_refresh_rate"]
 
+        # Set up wandb logger if project is provided
+        # Note: This method receives wandb_project as parameter, but the model instance
+        # should have wandb already initialized via DRPModel.init_wandb()
+        loggers = []
+        if wandb_project is not None:
+            logger = WandbLogger(project=wandb_project, log_model=False)
+            loggers.append(logger)
+
         # Initialize the Lightning trainer
         trainer = pl.Trainer(
             callbacks=[
@@ -240,6 +253,7 @@ class FeedForwardNetwork(pl.LightningModule):
                 self.checkpoint_callback,
                 progress_bar,
             ],
+            logger=loggers if loggers else True,  # Use default logger if no wandb
             default_root_dir=model_checkpoint_dir,
             devices=1,
             **trainer_params_copy,
