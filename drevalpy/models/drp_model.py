@@ -12,10 +12,9 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 import numpy as np
+import wandb
 import yaml
 from sklearn.model_selection import ParameterGrid
-
-import wandb
 
 from ..datasets.dataset import DrugResponseDataset, FeatureDataset
 from ..pipeline_function import pipeline_function
@@ -40,7 +39,7 @@ class DRPModel(ABC):
         self.wandb_project: str | None = None
         self.wandb_run: Any = None
         self.wandb_config: dict[str, Any] | None = None
-        self.hyperparameters: dict[str, Any] | None = None
+        self.hyperparameters: dict[str, Any] = {}
         self._in_hyperparameter_tuning: bool = False  # Flag to track if we're in hyperparameter tuning
 
     def init_wandb(
@@ -63,13 +62,15 @@ class DRPModel(ABC):
         self.wandb_project = project
         self.wandb_config = config or {}
 
+        if finish_previous:
+            wandb.finish()
+
         run_name = name or self.get_model_name()
         wandb.init(
             project=project,
             config=self.wandb_config,
             name=run_name,
             tags=tags,
-            finish_previous=finish_previous,
         )
         self.wandb_run = wandb.run
 

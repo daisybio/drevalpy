@@ -37,7 +37,6 @@ class MultiOmicsNeuralNetwork(DRPModel):
         """
         super().__init__()
         self.model = None
-        self.hyperparameters = None
         self.methylation_scaler = StandardScaler()
         self.methylation_pca = None
         self.pca_ncomp = 100

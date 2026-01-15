@@ -33,7 +33,6 @@ class SimpleNeuralNetwork(DRPModel):
         """
         super().__init__()
         self.model = None
-        self.hyperparameters = None
         self.gene_expression_scaler = StandardScaler()
 
     def build_model(self, hyperparameters: dict):
