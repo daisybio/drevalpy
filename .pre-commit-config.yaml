@@ -53,6 +53,7 @@ repos:
     hooks:
       - id: isort
         name: isort (python)
+        args: ["--diff"]
       - id: isort
         name: isort (cython)
         types: [cython]
