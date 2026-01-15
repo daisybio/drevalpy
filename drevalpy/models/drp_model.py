@@ -62,13 +62,15 @@ class DRPModel(ABC):
         self.wandb_project = project
         self.wandb_config = config or {}
 
+        if finish_previous:
+            wandb.finish()
+
         run_name = name or self.get_model_name()
         wandb.init(
             project=project,
             config=self.wandb_config,
             name=run_name,
             tags=tags,
-            finish_previous=finish_previous,
         )
         self.wandb_run = wandb.run
 

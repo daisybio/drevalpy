@@ -117,6 +117,7 @@ class MultiOmicsNeuralNetwork(DRPModel):
         self.dim_cnv = dim_cnv
         self.dim_fp = dim_fingerprint
 
+        assert self.hyperparameters is not None, "hyperparameters must be set via build_model() before calling train()"
         self.model = FeedForwardNetwork(
             hyperparameters=self.hyperparameters,
             input_dim=dim_gex + dim_met + dim_mut + dim_cnv + dim_fingerprint,

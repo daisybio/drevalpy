@@ -91,6 +91,7 @@ class SimpleNeuralNetwork(DRPModel):
                 gene_expression_scaler=self.gene_expression_scaler,
             )
 
+        assert self.hyperparameters is not None, "hyperparameters must be set via build_model() before calling train()"
         dim_gex = next(iter(cell_line_input.features.values()))["gene_expression"].shape[0]
         dim_fingerprint = next(iter(drug_input.features.values()))[self.drug_views[0]].shape[0]
         self.hyperparameters["input_dim_gex"] = dim_gex
@@ -116,6 +117,9 @@ class SimpleNeuralNetwork(DRPModel):
 
                 print("Probably, your training dataset is small.")
 
+            assert (
+                self.hyperparameters is not None
+            ), "hyperparameters must be set via build_model() before calling train()"
             self.model.fit(
                 output_train=output,
                 cell_line_input=cell_line_input,
