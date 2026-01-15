@@ -258,9 +258,6 @@ class DrugGNN(DRPModel):
         self.hyperparameters = hyperparameters
 
     def _loader_kwargs(self) -> dict[str, Any]:
-        assert (
-            self.hyperparameters is not None
-        ), "hyperparameters must be set via build_model() before calling this method"
         num_workers = int(self.hyperparameters.get("num_workers", 4))
         kw = {
             "num_workers": num_workers,
@@ -292,7 +289,6 @@ class DrugGNN(DRPModel):
             raise ValueError("Drug input is required for DrugGNN")
 
         # Determine feature sizes
-        assert self.hyperparameters is not None, "hyperparameters must be set via build_model() before calling train()"
         num_node_features = next(iter(drug_input.features.values()))["drug_graph"].num_node_features
         num_cell_features = next(iter(cell_line_input.features.values()))["gene_expression"].shape[0]
 
@@ -341,7 +337,6 @@ class DrugGNN(DRPModel):
             logger = WandbLogger(project=self.wandb_project, log_model=False)
             loggers.append(logger)
 
-        assert self.hyperparameters is not None, "hyperparameters must be set via build_model() before calling train()"
         trainer = pl.Trainer(
             max_epochs=self.hyperparameters.get("epochs", 100),
             accelerator="auto",
@@ -388,9 +383,6 @@ class DrugGNN(DRPModel):
             cell_line_features=cell_line_input,
             drug_features=drug_input,
         )
-        assert (
-            self.hyperparameters is not None
-        ), "hyperparameters must be set via build_model() before calling predict()"
         predict_loader = DataLoader(
             predict_dataset,
             batch_size=self.hyperparameters.get("batch_size", 32),

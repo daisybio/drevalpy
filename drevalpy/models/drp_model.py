@@ -39,7 +39,7 @@ class DRPModel(ABC):
         self.wandb_project: str | None = None
         self.wandb_run: Any = None
         self.wandb_config: dict[str, Any] | None = None
-        self.hyperparameters: dict[str, Any] | None = None
+        self.hyperparameters: dict[str, Any] = {}
         self._in_hyperparameter_tuning: bool = False  # Flag to track if we're in hyperparameter tuning
 
     def init_wandb(
