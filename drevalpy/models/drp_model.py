@@ -12,10 +12,9 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 import numpy as np
+import wandb
 import yaml
 from sklearn.model_selection import ParameterGrid
-
-import wandb
 
 from ..datasets.dataset import DrugResponseDataset, FeatureDataset
 from ..pipeline_function import pipeline_function
