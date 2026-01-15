@@ -49,19 +49,17 @@ repos:
     hooks:
       - id: prettier
   - repo: https://github.com/pycqa/isort
-    rev: 7.0.0
+    rev: 6.0.1
     hooks:
       - id: isort
         name: isort (python)
-        args: ["--settings-path=pyproject.toml", "--diff"]
+        args: ["--diff"]
       - id: isort
         name: isort (cython)
         types: [cython]
-        args: ["--settings-path=pyproject.toml"]
       - id: isort
         name: isort (pyi)
         types: [pyi]
-        args: ["--settings-path=pyproject.toml"]
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
