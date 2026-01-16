@@ -1262,38 +1262,35 @@ def get_datasets_from_cv_split(
     """
     Get train, validation, (early stopping), and test datasets from the CV split.
 
+    Returns copies of the datasets to prevent in-place modifications (e.g., add_rows, reduce_to)
+    from affecting the original split data used by subsequent models.
+
     :param split: dictionary of the CV split
     :param model_class: model class
     :param model_name: model name
     :param drug_id: drug id for single drug models
-    :returns: tuple of train, validation, (early stopping), and test datasets
+    :returns: tuple of train, validation, (early stopping), and test datasets (as copies)
     """
-    train_dataset = split["train"]
-    validation_dataset = split["validation"]
-    test_dataset = split["test"]
+    train_dataset = split["train"].copy()
+    validation_dataset = split["validation"].copy()
+    test_dataset = split["test"].copy()
 
     if model_class.early_stopping:
-        validation_dataset = split["validation_es"]
-        early_stopping_dataset = split["early_stopping"]
+        validation_dataset = split["validation_es"].copy()
+        early_stopping_dataset = split["early_stopping"].copy()
     else:
         early_stopping_dataset = None
 
     if model_name in SINGLE_DRUG_MODEL_FACTORY.keys():
         output_mask = train_dataset.drug_ids == drug_id
-        train_cp = train_dataset.copy()
-        train_cp.mask(output_mask)
+        train_dataset.mask(output_mask)
         validation_mask = validation_dataset.drug_ids == drug_id
-        val_cp = validation_dataset.copy()
-        val_cp.mask(validation_mask)
+        validation_dataset.mask(validation_mask)
         test_mask = test_dataset.drug_ids == drug_id
-        test_cp = test_dataset.copy()
-        test_cp.mask(test_mask)
+        test_dataset.mask(test_mask)
         if early_stopping_dataset is not None:
             es_mask = early_stopping_dataset.drug_ids == drug_id
-            es_cp = early_stopping_dataset.copy()
-            es_cp.mask(es_mask)
-            return train_cp, val_cp, es_cp, test_cp
-        return train_cp, val_cp, None, test_cp
+            early_stopping_dataset.mask(es_mask)
 
     return (
         train_dataset,
