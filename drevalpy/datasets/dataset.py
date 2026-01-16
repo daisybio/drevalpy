@@ -474,15 +474,17 @@ class DrugResponseDataset:
         }
         self._cv_splits.clear()  # TODO do we need this?
 
+        load_kwargs = {"dataset_name": self.dataset_name, "tissue_column": "tissue"}
+
         for split_train, split_test in zip(train_splits, test_splits, strict=True):
-            tr_split = DrugResponseDataset.from_csv(os.path.join(path, split_train), dataset_name=self.dataset_name)
-            te_split = DrugResponseDataset.from_csv(os.path.join(path, split_test), dataset_name=self.dataset_name)
+            tr_split = DrugResponseDataset.from_csv(os.path.join(path, split_train), **load_kwargs)
+            te_split = DrugResponseDataset.from_csv(os.path.join(path, split_test), **load_kwargs)
             self._cv_splits.append({"train": tr_split, "test": te_split})
 
         for mode in ["validation", "validation_es", "early_stopping"]:
             if len(optional_splits[mode]) > 0:
                 for i, v_split in enumerate(optional_splits[mode]):
-                    split = DrugResponseDataset.from_csv(os.path.join(path, v_split), dataset_name=self.dataset_name)
+                    split = DrugResponseDataset.from_csv(os.path.join(path, v_split), **load_kwargs)
                     self._cv_splits[i][mode] = split
 
     def copy(self):
