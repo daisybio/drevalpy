@@ -1,9 +1,10 @@
 """Tests for CV split integrity - ensuring no data leakage and proper tissue column handling.
 
 These tests verify the fixes for:
-1. GitHub Issue #349: Validation data accumulation bug - where validation data was
-   inadvertently accumulated into training data across sequential model runs.
-2. Tissue column preservation when loading splits from CSV files.
+
+- GitHub Issue #349: Validation data accumulation bug - where validation data was
+  inadvertently accumulated into training data across sequential model runs.
+- Tissue column preservation when loading splits from CSV files.
 """
 
 import tempfile
@@ -76,12 +77,12 @@ class TestTissueColumnPreservation:
             for i, split in enumerate(new_dataset.cv_splits):
                 for split_name in ["train", "test", "validation", "validation_es", "early_stopping"]:
                     if split_name in split:
-                        assert split[split_name].tissue is not None, (
-                            f"Tissue column should be loaded for split {i} {split_name}"
-                        )
-                        assert len(split[split_name].tissue) == len(split[split_name].response), (
-                            f"Tissue array length should match response length for split {i} {split_name}"
-                        )
+                        assert (
+                            split[split_name].tissue is not None
+                        ), f"Tissue column should be loaded for split {i} {split_name}"
+                        assert len(split[split_name].tissue) == len(
+                            split[split_name].response
+                        ), f"Tissue array length should match response length for split {i} {split_name}"
 
     def test_from_csv_default_tissue_column(self):
         """Test that from_csv defaults to loading tissue column when present."""
@@ -124,7 +125,10 @@ class TestCVSplitDataLeakage:
 
     @pytest.fixture
     def sample_cv_split(self):
-        """Create a sample CV split with all dataset types."""
+        """Create a sample CV split with all dataset types.
+
+        :returns: dictionary with train, validation, validation_es, early_stopping, and test datasets
+        """
         np.random.seed(42)
         n_samples = 100
 
@@ -172,7 +176,10 @@ class TestCVSplitDataLeakage:
         }
 
     def test_get_datasets_returns_copies(self, sample_cv_split):
-        """Test that get_datasets_from_cv_split returns copies, not references."""
+        """Test that get_datasets_from_cv_split returns copies, not references.
+
+        :param sample_cv_split: pytest fixture providing sample CV split data
+        """
         model_class = MODEL_FACTORY["ElasticNet"]
 
         train, val, es, test = get_datasets_from_cv_split(
@@ -188,12 +195,15 @@ class TestCVSplitDataLeakage:
         original_train_len = len(sample_cv_split["train"].response)
         train.add_rows(val)
 
-        assert len(sample_cv_split["train"].response) == original_train_len, (
-            "Original train dataset should not be modified when adding rows to the copy"
-        )
+        assert (
+            len(sample_cv_split["train"].response) == original_train_len
+        ), "Original train dataset should not be modified when adding rows to the copy"
 
     def test_get_datasets_returns_copies_with_early_stopping(self, sample_cv_split):
-        """Test that early stopping datasets are also copies."""
+        """Test that early stopping datasets are also copies.
+
+        :param sample_cv_split: pytest fixture providing sample CV split data
+        """
         model_class = MODEL_FACTORY["SimpleNeuralNetwork"]  # Uses early stopping
 
         train, val, es, test = get_datasets_from_cv_split(
@@ -208,14 +218,16 @@ class TestCVSplitDataLeakage:
         original_es_len = len(sample_cv_split["early_stopping"].response)
         es.remove_rows(np.array([0, 1, 2]))
 
-        assert len(sample_cv_split["early_stopping"].response) == original_es_len, (
-            "Original early_stopping dataset should not be modified"
-        )
+        assert (
+            len(sample_cv_split["early_stopping"].response) == original_es_len
+        ), "Original early_stopping dataset should not be modified"
 
     def test_no_validation_accumulation_across_models(self, sample_cv_split):
         """Test that validation data is not accumulated into training data across models.
 
         This is the core test for the bug fix in GitHub Issue #349.
+
+        :param sample_cv_split: pytest fixture providing sample CV split data
         """
         original_train_len = len(sample_cv_split["train"].response)
         original_val_len = len(sample_cv_split["validation"].response)
@@ -244,9 +256,11 @@ class TestCVSplitDataLeakage:
             )
 
     def test_no_test_data_leakage(self, sample_cv_split):
-        """Test that test data is never added to training data."""
+        """Test that test data is never added to training data.
+
+        :param sample_cv_split: pytest fixture providing sample CV split data
+        """
         original_test_cell_lines = set(sample_cv_split["test"].cell_line_ids)
-        original_test_drug_ids = set(sample_cv_split["test"].drug_ids)
 
         for model_name in ["ElasticNet", "SimpleNeuralNetwork"]:
             model_class = MODEL_FACTORY[model_name]
@@ -258,16 +272,18 @@ class TestCVSplitDataLeakage:
             # Simulate adding validation to train (as done in experiment.py)
             train.add_rows(val)
 
-            # Verify no test cell lines or drugs leaked into training
+            # Verify no test cell lines leaked into training
             train_cell_lines = set(train.cell_line_ids)
-            train_drug_ids = set(train.drug_ids)
 
             # Check for intersection (should be empty for our test data setup)
             leaked_cell_lines = train_cell_lines & original_test_cell_lines
             assert len(leaked_cell_lines) == 0, f"Test cell lines leaked into training: {leaked_cell_lines}"
 
     def test_datasets_have_correct_sizes(self, sample_cv_split):
-        """Test that returned datasets have the expected sizes."""
+        """Test that returned datasets have the expected sizes.
+
+        :param sample_cv_split: pytest fixture providing sample CV split data
+        """
         model_class = MODEL_FACTORY["ElasticNet"]
 
         train, val, es, test = get_datasets_from_cv_split(
@@ -281,7 +297,10 @@ class TestCVSplitDataLeakage:
         assert es is None  # ElasticNet doesn't use early stopping
 
     def test_datasets_have_correct_sizes_early_stopping(self, sample_cv_split):
-        """Test that early stopping models get correct dataset sizes."""
+        """Test that early stopping models get correct dataset sizes.
+
+        :param sample_cv_split: pytest fixture providing sample CV split data
+        """
         model_class = MODEL_FACTORY["SimpleNeuralNetwork"]
 
         train, val, es, test = get_datasets_from_cv_split(
@@ -295,7 +314,10 @@ class TestCVSplitDataLeakage:
         assert len(test.response) == len(sample_cv_split["test"].response)
 
     def test_tissue_preserved_in_get_datasets(self, sample_cv_split):
-        """Test that tissue information is preserved when getting datasets from split."""
+        """Test that tissue information is preserved when getting datasets from split.
+
+        :param sample_cv_split: pytest fixture providing sample CV split data
+        """
         model_class = MODEL_FACTORY["ElasticNet"]
 
         train, val, es, test = get_datasets_from_cv_split(
@@ -318,7 +340,10 @@ class TestSingleDrugModelSplits:
 
     @pytest.fixture
     def sample_cv_split_multi_drug(self):
-        """Create a sample CV split with multiple drugs for single-drug model testing."""
+        """Create a sample CV split with multiple drugs for single-drug model testing.
+
+        :returns: dictionary with train, validation, and test datasets containing multiple drugs
+        """
         np.random.seed(42)
 
         # Create data with multiple drugs
@@ -353,7 +378,10 @@ class TestSingleDrugModelSplits:
         }
 
     def test_single_drug_model_masks_correctly(self, sample_cv_split_multi_drug):
-        """Test that single-drug models only get data for their specific drug."""
+        """Test that single-drug models only get data for their specific drug.
+
+        :param sample_cv_split_multi_drug: pytest fixture providing sample CV split with multiple drugs
+        """
         from drevalpy.models import SINGLE_DRUG_MODEL_FACTORY
 
         if len(SINGLE_DRUG_MODEL_FACTORY) == 0:
@@ -375,7 +403,10 @@ class TestSingleDrugModelSplits:
         assert all(drug == target_drug for drug in test.drug_ids)
 
     def test_single_drug_model_doesnt_modify_original(self, sample_cv_split_multi_drug):
-        """Test that single-drug model masking doesn't modify original split."""
+        """Test that single-drug model masking doesn't modify original split.
+
+        :param sample_cv_split_multi_drug: pytest fixture providing sample CV split with multiple drugs
+        """
         from drevalpy.models import SINGLE_DRUG_MODEL_FACTORY
 
         if len(SINGLE_DRUG_MODEL_FACTORY) == 0:
