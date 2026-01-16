@@ -89,7 +89,7 @@ class DrugResponseDataset:
         input_file: str | Path,
         dataset_name: str = "unknown",
         measure: str = "response",
-        tissue_column: str | None = None,
+        tissue_column: str | None = 'tissue',
     ) -> "DrugResponseDataset":
         """
         Load a dataset from a csv file.
