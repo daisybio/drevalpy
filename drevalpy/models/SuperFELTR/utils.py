@@ -294,11 +294,13 @@ def train_superfeltr_model(
     output_earlystopping: DrugResponseDataset | None = None,
     patience: int = 5,
     model_checkpoint_dir: str = "superfeltr_checkpoints",
+    wandb_project: str | None = None,
 ) -> pl.callbacks.ModelCheckpoint:
     """
     Trains one encoder or the regressor.
 
     First, the dataset and loaders are created. Then, the model is trained with the Lightning trainer.
+
     :param model: either one of the encoders or the regressor
     :param hpams: hyperparameters for the model
     :param output_train: response data for training
@@ -306,6 +308,8 @@ def train_superfeltr_model(
     :param output_earlystopping: response data for early stopping
     :param patience: for early stopping, defaults to 5
     :param model_checkpoint_dir: directory to save the model checkpoints
+    :param wandb_project: optional wandb project name for logging. If provided, uses WandbLogger
+        for PyTorch Lightning training.
     :returns: checkpoint callback with the best model
     :raises ValueError: if the epochs and mini_batch are not integers
     """
@@ -329,9 +333,18 @@ def train_superfeltr_model(
         mode="min",
         save_top_k=1,
     )
+    # Set up wandb logger if project is provided
+    loggers = []
+    if wandb_project is not None:
+        from pytorch_lightning.loggers import WandbLogger
+
+        logger = WandbLogger(project=wandb_project, log_model=False)
+        loggers.append(logger)
+
     # Initialize the Lightning trainer
     trainer = pl.Trainer(
         max_epochs=hpams["epochs"],
+        logger=loggers if loggers else True,  # Use default logger if no wandb
         callbacks=[
             early_stop_callback,
             checkpoint_callback,
