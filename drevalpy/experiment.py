@@ -933,6 +933,12 @@ def train_and_predict(
     :returns: prediction dataset with predictions
     :raises ValueError: if train_dataset does not have a dataset_name
     """
+    # Make copies to avoid that models ever mutate the data
+    train_dataset = train_dataset.copy()
+    prediction_dataset = prediction_dataset.copy()
+    if early_stopping_dataset is not None:
+        early_stopping_dataset = early_stopping_dataset.copy()
+
     model.build_model(hyperparameters=hpams)
     if train_dataset.dataset_name is None:
         raise ValueError("train_dataset must have a dataset_name")
