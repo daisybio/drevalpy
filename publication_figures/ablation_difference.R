@@ -32,26 +32,29 @@ all_results[, rand_setting := gsub("SVRD-", "", rand_setting)]
 all_results[, rand_setting := gsub("SVRC-", "", rand_setting)]
 all_results[, rand_setting := gsub("-", " ", rand_setting)]
 all_results[, rand_setting := gsub("copy number variation gistic", "CNV", rand_setting)]
-
-all_results[, mean := mean(delta), by = c("algorithm", "test_mode", "rand_setting", "metric")]
-all_results[, se := sd(delta)/sqrt(.N), by = c("algorithm", "test_mode", "rand_setting", "metric")]
-all_results <- all_results[, c("algorithm", "test_mode", "rand_setting", "metric", "mean", "se")]
-all_results <- all_results[test_mode != "LTO"]
-all_results <- unique(all_results)
-all_results[, test_mode := factor(test_mode, levels = c("LPO", "LCO", "LDO"))]
 # capitalize rand_setting
 all_results[, rand_setting := tools::toTitleCase(rand_setting)]
 all_results[, rand_setting := gsub("Molgnet Features", "MoLGNet Features", rand_setting)]
 all_results[, rand_setting := factor(rand_setting,
                                      levels = c("MoLGNet Features", "Fingerprints", "Gene Expression", "Methylation", "CNV", "Mutations", "Bionic Features"))]
+all_results <- all_results[test_mode != "LTO"]
+all_results[, test_mode := factor(test_mode, levels = c("LPO", "LCO", "LDO"))]
 
-ggplot(all_results, aes(y=rand_setting, x=mean, fill=test_mode)) +
-  geom_col(position='dodge') +
+all_results[, mean := mean(delta), by = c("algorithm", "test_mode", "rand_setting", "metric")]
+all_results[, se := sd(delta)/sqrt(.N), by = c("algorithm", "test_mode", "rand_setting", "metric")]
+all_results_points <- all_results
+all_results <- all_results[, c("algorithm", "test_mode", "rand_setting", "metric", "mean", "se")]
+all_results <- unique(all_results)
+
+ggplot() +
+  geom_col(data=all_results, mapping=aes(y=rand_setting, x=mean, fill=test_mode), position=position_dodge(.9)) +
   # add standard errors
-  geom_errorbar(aes(xmin=mean-1.96*se, xmax=mean+1.96*se), width=.2, position=position_dodge(.9)) +
+  geom_point(data=all_results_points, mapping=aes(y=rand_setting, x=delta, group=test_mode), color="grey50", position=position_dodge(.9), size=1) +
+  geom_errorbar(data=all_results, mapping=aes(y=rand_setting, x=mean, group=test_mode, xmin=mean-1.96*se, xmax=mean+1.96*se), color="black", width=.3, position=position_dodge(.9)) +
   geom_vline(xintercept=0, linetype="dotted", color = "black") +
   facet_wrap(~ algorithm, scales='free_y') +
   scale_fill_manual(values = colors)+
+  scale_color_manual(values = colors)+
   theme_minimal() +
   theme(
     axis.title.y = element_blank(),
