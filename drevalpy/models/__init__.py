@@ -8,6 +8,7 @@ __all__ = [
     "NaiveDrugMeanPredictor",
     "NaiveCellLineMeanPredictor",
     "NaiveTissueMeanPredictor",
+    "NaiveTissueDrugMeanPredictor",
     "NaiveMeanEffectsPredictor",
     "ElasticNetModel",
     "RandomForest",
@@ -28,6 +29,7 @@ __all__ = [
     "SingleDrugProteomicsRandomForest",
     "DrugGNN",
     "ChemBERTaNeuralNetwork",
+    "PharmaFormerModel",
 ]
 
 from .baselines.multi_omics_random_forest import MultiOmicsRandomForest
@@ -36,6 +38,7 @@ from .baselines.naive_pred import (
     NaiveDrugMeanPredictor,
     NaiveMeanEffectsPredictor,
     NaivePredictor,
+    NaiveTissueDrugMeanPredictor,
     NaiveTissueMeanPredictor,
 )
 from .baselines.singledrug_elastic_net import SingleDrugElasticNet, SingleDrugProteomicsElasticNet
@@ -52,6 +55,7 @@ from .DIPK.dipk import DIPKModel
 from .drp_model import DRPModel
 from .DrugGNN import DrugGNN
 from .MOLIR.molir import MOLIR
+from .PharmaFormer.pharmaformer import PharmaFormerModel
 from .SimpleNeuralNetwork.multiomics_neural_network import MultiOmicsNeuralNetwork
 from .SimpleNeuralNetwork.simple_neural_network import ChemBERTaNeuralNetwork, SimpleNeuralNetwork
 from .SRMF.srmf import SRMF
@@ -74,6 +78,7 @@ MULTI_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]] = {
     "NaiveCellLineMeanPredictor": NaiveCellLineMeanPredictor,
     "NaiveMeanEffectsPredictor": NaiveMeanEffectsPredictor,
     "NaiveTissueMeanPredictor": NaiveTissueMeanPredictor,
+    "NaiveTissueDrugMeanPredictor": NaiveTissueDrugMeanPredictor,
     "ElasticNet": ElasticNetModel,
     "RandomForest": RandomForest,
     "SVR": SVMRegressor,
@@ -87,6 +92,7 @@ MULTI_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]] = {
     "ProteomicsElasticNet": ProteomicsElasticNetModel,
     "DrugGNN": DrugGNN,
     "ChemBERTaNeuralNetwork": ChemBERTaNeuralNetwork,
+    "PharmaFormer": PharmaFormerModel,
 }
 
 # MODEL_FACTORY is used in the pipeline!

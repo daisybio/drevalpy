@@ -1,6 +1,7 @@
 """Tests for the DRPModel."""
 
 import os
+import pathlib
 import tempfile
 from typing import Optional
 
@@ -8,7 +9,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from drevalpy.datasets.loader import load_toyv1, load_toyv2
+from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.datasets.utils import DRUG_IDENTIFIER, TISSUE_IDENTIFIER
 from drevalpy.models import MODEL_FACTORY
 from drevalpy.models.utils import (
@@ -29,6 +30,7 @@ def test_factory() -> None:
     assert "NaiveDrugMeanPredictor" in MODEL_FACTORY
     assert "NaiveCellLineMeanPredictor" in MODEL_FACTORY
     assert "NaiveMeanEffectsPredictor" in MODEL_FACTORY
+    assert "NaiveTissueDrugMeanPredictor" in MODEL_FACTORY
     assert "ElasticNet" in MODEL_FACTORY
     assert "RandomForest" in MODEL_FACTORY
     assert "SVR" in MODEL_FACTORY
@@ -181,12 +183,18 @@ def test_load_and_select_gene_features(gene_list: Optional[str]) -> None:
         assert "The following genes are missing from the dataset GDSC1_small" in str(valerr.value)
 
 
-def test_order_load_and_select_gene_features() -> None:
-    """Test the order of the features after loading and reducing gene features. it should be maintained."""
-    path_data = os.path.join("..", "data")
+def test_order_load_and_select_gene_features(
+    sample_dataset: DrugResponseDataset, cross_study_dataset: DrugResponseDataset
+) -> None:
+    """
+    Test the order of the features after loading and reducing gene features. it should be maintained.
 
-    load_toyv1(path_data)
-    load_toyv2(path_data)
+    :param sample_dataset: TOYv1 dataset
+    :param cross_study_dataset: TOYv2 dataset
+    """
+    path_data = str((pathlib.Path("..") / "data").resolve())
+    assert sample_dataset.dataset_name == "TOYv1"
+    assert cross_study_dataset.dataset_name == "TOYv2"
     gene_list = "gene_expression_intersection"
     a = load_and_select_gene_features("gene_expression", gene_list, path_data, "TOYv1")
     b = load_and_select_gene_features("gene_expression", gene_list, path_data, "TOYv2")

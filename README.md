@@ -37,6 +37,14 @@ Use DrEval to build drug response models that have an impact
 
 ---
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/_static/img/leaderboard_dark.png?v=4">
+  <source media="(prefers-color-scheme: light)" srcset="docs/_static/img/leaderboard_light.png?v=4">
+  <img alt="DrEvalPy Leaderboard" src="docs/_static/img/leaderboard_dark.png?v=4">
+</picture>
+
+---
+
 This project is a collaboration of the Technical University of Munich (TUM, Germany)
 and the Freie Universität Berlin (FU, Germany).
 

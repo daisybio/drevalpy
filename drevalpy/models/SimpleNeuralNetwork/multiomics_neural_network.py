@@ -40,6 +40,7 @@ class MultiOmicsNeuralNetwork(DRPModel):
         self.hyperparameters = None
         self.methylation_scaler = StandardScaler()
         self.methylation_pca = None
+        self.pca_ncomp = 100
         self.gene_expression_scaler = StandardScaler()
 
     @classmethod
@@ -62,7 +63,7 @@ class MultiOmicsNeuralNetwork(DRPModel):
             methylation_pca_components.
         """
         self.hyperparameters = hyperparameters
-        self.methylation_pca = PCA(n_components=hyperparameters["methylation_pca_components"])
+        self.pca_ncomp = hyperparameters["methylation_pca_components"]
 
     def train(
         self,
@@ -84,6 +85,13 @@ class MultiOmicsNeuralNetwork(DRPModel):
         """
         if drug_input is None:
             raise ValueError("Drug input (fingerprints) is needed for the MultiOmicsNeuralNetwork model.")
+        first_feature = next(iter(cell_line_input.features.values()))
+        n_met_features = first_feature["methylation"].shape[0]
+        if n_met_features > self.pca_ncomp:
+            self.methylation_pca = PCA(n_components=self.pca_ncomp)
+        else:
+            self.methylation_pca = PCA(n_components=n_met_features)
+
         cell_line_input = prepare_expression_and_methylation(
             cell_line_input=cell_line_input,
             cell_line_ids=np.unique(output.cell_line_ids),

@@ -8,6 +8,7 @@ import pytest
 from sklearn.linear_model import ElasticNet, Ridge
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.datasets.utils import TISSUE_IDENTIFIER
 from drevalpy.evaluation import evaluate
 from drevalpy.experiment import cross_study_prediction
 from drevalpy.models import (
@@ -16,6 +17,7 @@ from drevalpy.models import (
     NaiveDrugMeanPredictor,
     NaiveMeanEffectsPredictor,
     NaivePredictor,
+    NaiveTissueDrugMeanPredictor,
     NaiveTissueMeanPredictor,
 )
 from drevalpy.models.baselines.sklearn_models import SklearnModel
@@ -29,6 +31,7 @@ from drevalpy.models.drp_model import DRPModel
         "NaiveDrugMeanPredictor",
         "NaiveCellLineMeanPredictor",
         "NaiveMeanEffectsPredictor",
+        "NaiveTissueDrugMeanPredictor",
         "ElasticNet",
         "RandomForest",
         "SVR",
@@ -107,6 +110,14 @@ def test_baselines(
     elif model_name == "NaiveTissueMeanPredictor":
         model = _call_naive_group_predictor(
             "tissue",
+            train_dataset,
+            val_dataset,
+            cell_line_input,
+            drug_input,
+            test_mode,
+        )
+    elif model_name == "NaiveTissueDrugMeanPredictor":
+        model = _call_naive_tissue_drug_predictor(
             train_dataset,
             val_dataset,
             cell_line_input,
@@ -396,5 +407,70 @@ def _call_naive_mean_effects_predictor(
 
     metrics = evaluate(val_dataset, metric=["Pearson"])
     print(f"{test_mode}: Performance of NaiveMeanEffectsPredictor: PCC = {metrics['Pearson']}")
+    assert metrics["Pearson"] >= -1  # Should be within valid Pearson range
+    return naive
+
+
+def _call_naive_tissue_drug_predictor(
+    train_dataset: DrugResponseDataset,
+    val_dataset: DrugResponseDataset,
+    cell_line_input: FeatureDataset,
+    drug_input: FeatureDataset,
+    test_mode: str,
+) -> DRPModel:
+    """
+    Test the NaiveTissueDrugMeanPredictor model.
+
+    :param train_dataset: training dataset
+    :param val_dataset: validation dataset
+    :param cell_line_input: tissue features
+    :param drug_input: drug id features
+    :param test_mode: either LPO, LCO, LDO, or LTO
+    :returns: NaiveTissueDrugMeanPredictor model
+    """
+    naive = NaiveTissueDrugMeanPredictor()
+
+    naive.train(output=train_dataset, cell_line_input=cell_line_input, drug_input=drug_input)
+    val_dataset._predictions = naive.predict(
+        cell_line_ids=val_dataset.cell_line_ids,
+        drug_ids=val_dataset.drug_ids,
+        cell_line_input=cell_line_input,
+        drug_input=drug_input,
+    )
+
+    assert val_dataset.predictions is not None
+    train_mean = train_dataset.response.mean()
+    assert train_mean == naive.dataset_mean
+
+    # Check that predictions are within a reasonable range
+    assert np.all(np.isfinite(val_dataset.predictions))
+    assert np.all(val_dataset.predictions >= np.min(train_dataset.response) - 1e-6)
+    assert np.all(val_dataset.predictions <= np.max(train_dataset.response) + 1e-6)
+
+    # If all (tissue, drug) combinations in validation are unseen, predictions should be dataset mean
+    if val_dataset.tissue is not None:
+        tissues_val = cell_line_input.get_feature_matrix(view=TISSUE_IDENTIFIER, identifiers=val_dataset.cell_line_ids)
+        tissues_val_flat = np.array([t.item() if isinstance(t, np.ndarray) else t for t in tissues_val]).flatten()
+        drugs_val_flat = val_dataset.drug_ids
+
+        # Check if any (tissue, drug) combination from validation was seen in training
+        seen_combos = set(naive.tissue_drug_means.keys())
+        val_combos = {(str(tissue), str(drug)) for tissue, drug in zip(tissues_val_flat, drugs_val_flat, strict=True)}
+        common_combos = seen_combos & val_combos
+
+        if len(common_combos) == 0:
+            # All combinations are unseen, should predict dataset mean
+            assert np.allclose(val_dataset.predictions, train_mean, atol=1e-6)
+        else:
+            # At least some combinations were seen, verify they use the correct mean
+            for combo_key in common_combos:
+                tissue, drug = combo_key
+                mask = (tissues_val_flat == tissue) & (drugs_val_flat == drug)
+                if np.any(mask):
+                    expected_mean = naive.tissue_drug_means[combo_key]
+                    assert np.allclose(val_dataset.predictions[mask], expected_mean, atol=1e-6)
+
+    metrics = evaluate(val_dataset, metric=["Pearson"])
+    print(f"{test_mode}: Performance of NaiveTissueDrugMeanPredictor: PCC = {metrics['Pearson']}")
     assert metrics["Pearson"] >= -1  # Should be within valid Pearson range
     return naive

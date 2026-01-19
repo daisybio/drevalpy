@@ -26,6 +26,7 @@ Implemented models
 
    drevalpy.models.DIPK
    drevalpy.models.MOLIR
+   drevalpy.models.PharmaFormer
    drevalpy.models.SRMF
    drevalpy.models.SimpleNeuralNetwork
    drevalpy.models.SuperFELTR

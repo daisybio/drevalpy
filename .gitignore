@@ -10,6 +10,11 @@ data/TOYv2
 data/CTRPv1
 data/CTRPv2
 data/meta
+data/BeatAML2
+data/PDX_Bruna
+
+# Results directory is created when running the demo notebook
+results/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

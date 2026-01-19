@@ -407,8 +407,7 @@ def main():
 
     tissue_map = _apply_manual_cell_line_corrections(tissue_map)
 
-    final.loc[:, "tissue"] = final.loc[:, "cellosaurus_id"].map(tissue_map)
-    final = final.copy()
+    final = final.assign(tissue=final["cellosaurus_id"].map(tissue_map))
     if save_tissue_mapping:
         final.drop_duplicates(subset="cellosaurus_id", inplace=True)
         tissue_mapping_path = os.path.join(data_path, "meta", "tissue_mapping.csv")
