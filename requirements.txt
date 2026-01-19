@@ -77,7 +77,7 @@ platformdirs==4.5.1 ; python_version >= "3.11" and python_version < "3.14"
 plotly==6.5.1 ; python_version >= "3.11" and python_version < "3.14"
 pluggy==1.6.0 ; python_version >= "3.11" and python_version < "3.14"
 poetry-core==2.2.1 ; python_version >= "3.11" and python_version < "3.14"
-poetry==2.2.1 ; python_version >= "3.11" and python_version < "3.14"
+poetry==2.3.0 ; python_version >= "3.11" and python_version < "3.14"
 propcache==0.4.1 ; python_version >= "3.11" and python_version < "3.14"
 psutil==7.2.1 ; python_version >= "3.11" and python_version < "3.14"
 pycparser==2.23 ; python_version >= "3.11" and python_version < "3.14" and implementation_name != "PyPy" and (platform_python_implementation != "PyPy" or sys_platform == "darwin") and (sys_platform == "linux" or sys_platform == "darwin")
