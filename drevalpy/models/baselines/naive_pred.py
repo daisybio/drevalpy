@@ -546,7 +546,7 @@ class NaiveMeanEffectsPredictor(NaiveModel):
         :raises ValueError: If drug_input is None.
         """
         if drug_input is None:
-            raise ValueError("drug_input (drug_id) is required for ANOVAPredictor.")
+            raise ValueError("drug_input (drug_id) is required for NaiveMeanEffectsPredictor.")
 
         # Compute the overall mean response.
         self.dataset_mean = np.mean(output.response)

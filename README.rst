@@ -1,7 +1,7 @@
 DrEvalPy: Python Cancer Cell Line Drug Response Prediction Suite
 ================================================================
 
-|PyPI| |Python Version| |License| |Read the Docs| |Build| |Tests| |Codecov| |pre-commit| |Black|
+|PyPI| |Python Version| |License| |Read the Docs| |Build| |Tests| |Codecov| |pre-commit| |Black| |Zenodo|
 
 .. |PyPI| image:: https://img.shields.io/pypi/v/drevalpy.svg
    :target: https://pypi.org/project/drevalpy/
@@ -30,6 +30,9 @@ DrEvalPy: Python Cancer Cell Line Drug Response Prediction Suite
 .. |Black| image:: https://img.shields.io/badge/code%20style-black-000000.svg
    :target: https://github.com/psf/black
    :alt: Black
+.. |Zenodo| image:: https://zenodo.org/badge/727156477.svg
+   :target: https://doi.org/10.5281/zenodo.18302237
+   :alt: DOI
 
 .. image:: _static/img/overview.png
    :align: center
