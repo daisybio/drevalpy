@@ -1296,9 +1296,7 @@ def hpam_tune(
 
     # Check if there's anything to tune
     tunable_params = [
-        k
-        for k, v in search_space.items()
-        if isinstance(v, (list, dict)) and (not isinstance(v, list) or len(v) > 1)
+        k for k, v in search_space.items() if isinstance(v, (list, dict)) and (not isinstance(v, list) or len(v) > 1)
     ]
     if not tunable_params:
         # No tuning needed, return fixed values
@@ -1473,9 +1471,7 @@ def hpam_tune_raytune(
 
     # Check if there's anything to tune
     tunable_params = [
-        k
-        for k, v in search_space.items()
-        if isinstance(v, (list, dict)) and (not isinstance(v, list) or len(v) > 1)
+        k for k, v in search_space.items() if isinstance(v, (list, dict)) and (not isinstance(v, list) or len(v) > 1)
     ]
     if not tunable_params:
         return {k: (v[0] if isinstance(v, list) else v) for k, v in search_space.items()}
