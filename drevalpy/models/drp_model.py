@@ -282,11 +282,50 @@ class DRPModel(ABC):
 
         if hpams is None:
             return [{}]
-        # each param should be a list
+        # Convert continuous ranges to default values for grid expansion
+        # This handles the case when hyperparameter_tuning=False
+        processed_hpams: dict[str, Any] = {}
         for hp in hpams:
-            if not isinstance(hpams[hp], list):
-                hpams[hp] = [hpams[hp]]
-        grid = list(ParameterGrid(hpams))
+            value = hpams[hp]
+            # If it's a continuous range definition, require and use the default value
+            if isinstance(value, dict) and "type" in value:
+                if "default" not in value:
+                    raise ValueError(
+                        f"Hyperparameter '{hp}' has continuous range definition but missing required 'default' field. "
+                        f"Please add a 'default' value to use when hyperparameter_tuning=False."
+                    )
+                # Validate default is within range
+                low = value["low"]
+                high = value["high"]
+                default = value["default"]
+                param_type = value["type"]
+
+                if param_type == "int":
+                    if not isinstance(default, int):
+                        raise ValueError(
+                            f"Hyperparameter '{hp}': default must be an integer, got {type(default).__name__}"
+                        )
+                    if default < low or default > high:
+                        raise ValueError(
+                            f"Hyperparameter '{hp}': default value {default} is outside range [{low}, {high}]"
+                        )
+                elif param_type == "float":
+                    if not isinstance(default, (int, float)):
+                        raise ValueError(
+                            f"Hyperparameter '{hp}': default must be a float, got {type(default).__name__}"
+                        )
+                    if default < low or default > high:
+                        raise ValueError(
+                            f"Hyperparameter '{hp}': default value {default} is outside range [{low}, {high}]"
+                        )
+
+                processed_hpams[hp] = [default]
+            elif isinstance(value, list):
+                processed_hpams[hp] = value
+            else:
+                # Single value
+                processed_hpams[hp] = [value]
+        grid = list(ParameterGrid(processed_hpams))
         return grid
 
     @classmethod

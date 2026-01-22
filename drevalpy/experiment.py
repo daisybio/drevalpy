@@ -1186,6 +1186,12 @@ def _sample_hyperparameters_from_search_space(trial, search_space: dict[str, Any
     for param_name, param_def in search_space.items():
         if isinstance(param_def, dict) and "type" in param_def:
             # Structured search space definition for continuous ranges
+            if "default" not in param_def:
+                raise ValueError(
+                    f"Hyperparameter '{param_name}' has continuous range definition "
+                    f"but missing required 'default' field. "
+                    f"Please add a 'default' value to use when hyperparameter_tuning=False."
+                )
             param_type = param_def["type"]
             low = param_def["low"]
             high = param_def["high"]
@@ -1481,6 +1487,12 @@ def hpam_tune_raytune(
     fixed_params = {}
     for param_name, param_def in search_space.items():
         if isinstance(param_def, dict) and "type" in param_def:
+            if "default" not in param_def:
+                raise ValueError(
+                    f"Hyperparameter '{param_name}' has continuous range definition "
+                    f"but missing required 'default' field. "
+                    f"Please add a 'default' value to use when hyperparameter_tuning=False."
+                )
             param_type = param_def["type"]
             low = param_def["low"]
             high = param_def["high"]
