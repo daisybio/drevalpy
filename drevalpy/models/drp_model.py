@@ -289,6 +289,35 @@ class DRPModel(ABC):
         grid = list(ParameterGrid(hpams))
         return grid
 
+    @classmethod
+    @pipeline_function
+    def get_hyperparameter_search_space(cls) -> dict[str, Any]:
+        """
+        Load the raw hyperparameter search space from a YAML file.
+
+        This method returns the search space definition without expanding it into
+        all combinations. Useful for Bayesian optimization where we sample from
+        the space rather than enumerating all combinations.
+
+        :returns: dictionary mapping parameter names to their search space definitions
+        :raises ValueError: if the hyperparameters are not in the correct format
+        :raises KeyError: if the model is not found in the hyperparameters file
+        """
+        hyperparameter_file = os.path.join(os.path.dirname(inspect.getfile(cls)), "hyperparameters.yaml")
+
+        with open(hyperparameter_file, encoding="utf-8") as f:
+            try:
+                hpams = yaml.safe_load(f)[cls.get_model_name()]
+            except yaml.YAMLError as exc:
+                raise ValueError(f"Error in hyperparameters.yaml: {exc}") from exc
+            except KeyError as key_exc:
+                raise KeyError(f"Model {cls.get_model_name()} not found in hyperparameters.yaml") from key_exc
+
+        if hpams is None:
+            return {}
+
+        return hpams
+
     @property
     @abstractmethod
     def cell_line_views(self) -> list[str]:

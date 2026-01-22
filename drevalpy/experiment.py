@@ -49,6 +49,7 @@ def drug_response_experiment(
     path_data: str = "data",
     model_checkpoint_dir: str = "TEMPORARY",
     hyperparameter_tuning=True,
+    n_trials: int = 20,
     final_model_on_full_data: bool = False,
     wandb_project: str | None = None,
 ) -> None:
@@ -99,7 +100,9 @@ def drug_response_experiment(
     :param overwrite: whether to overwrite existing results
     :param path_data: path to the data directory, usually data/
     :param model_checkpoint_dir: directory to save model checkpoints. If "TEMPORARY", a temporary directory is created.
-    :param hyperparameter_tuning: whether to run in debug mode - if False, only select first hyperparameter set
+    :param hyperparameter_tuning: whether to perform hyperparameter tuning. If False, uses the first hyperparameter
+        configuration from the search space.
+    :param n_trials: number of Bayesian optimization trials for hyperparameter tuning. Default is 20.
     :param final_model_on_full_data: if True, a final/production model is saved in the results directory.
         If hyperparameter_tuning is true, the final model is produced according to the hyperparameter tuning procedure
         which was evaluated in the nested cross validation.
@@ -222,6 +225,7 @@ def drug_response_experiment(
                     "metric": hpam_optimization_metric,
                     "path_data": path_data,
                     "model_checkpoint_dir": model_checkpoint_dir,
+                    "n_trials": n_trials,
                 }
 
                 # During hyperparameter tuning, create separate wandb runs per trial if enabled
@@ -383,6 +387,7 @@ def drug_response_experiment(
                 test_mode=test_mode,
                 val_ratio=0.1,
                 hyperparameter_tuning=hyperparameter_tuning,
+                n_trials=n_trials,
             )
 
     consolidate_single_drug_model_predictions(
@@ -1148,53 +1153,168 @@ def train_and_evaluate(
     return results
 
 
+def _deep_equal(a: Any, b: Any) -> bool:
+    """
+    Compare two values for equality, handling nested structures.
+
+    :param a: first value
+    :param b: second value
+    :returns: True if values are equal (including nested structures)
+    """
+    if isinstance(a, list) and isinstance(b, list):
+        if len(a) != len(b):
+            return False
+        return all(_deep_equal(ai, bi) for ai, bi in zip(a, b, strict=True))
+    elif isinstance(a, dict) and isinstance(b, dict):
+        if set(a.keys()) != set(b.keys()):
+            return False
+        return all(_deep_equal(a[k], b[k]) for k in a.keys())
+    else:
+        return a == b
+
+
+def _sample_hyperparameters_from_search_space(trial, search_space: dict[str, Any]) -> dict[str, Any]:
+    """
+    Sample hyperparameters from a search space definition using Optuna.
+
+    :param trial: Optuna trial object
+    :param search_space: dictionary mapping parameter names to their search space definitions
+    :returns: dictionary of sampled hyperparameters
+    """
+    sampled = {}
+    for param_name, param_def in search_space.items():
+        if isinstance(param_def, dict) and "type" in param_def:
+            # Structured search space definition for continuous ranges
+            param_type = param_def["type"]
+            low = param_def["low"]
+            high = param_def["high"]
+            log_scale = param_def.get("log", False)
+
+            if param_type == "int":
+                sampled[param_name] = trial.suggest_int(param_name, low, high, log=log_scale)
+            elif param_type == "float":
+                if log_scale:
+                    sampled[param_name] = trial.suggest_float(param_name, low, high, log=True)
+                else:
+                    sampled[param_name] = trial.suggest_float(param_name, low, high)
+            else:
+                raise ValueError(f"Unknown parameter type: {param_type}")
+        elif isinstance(param_def, list):
+            # Categorical choices
+            if len(param_def) == 1:
+                # Single value, no tuning needed
+                sampled[param_name] = param_def[0]
+            else:
+                sampled[param_name] = trial.suggest_categorical(param_name, param_def)
+        else:
+            # Single fixed value (not a list or dict)
+            sampled[param_name] = param_def
+
+    return sampled
+
+
 def hpam_tune(
     model: DRPModel,
     train_dataset: DrugResponseDataset,
     validation_dataset: DrugResponseDataset,
-    hpam_set: list[dict],
+    hpam_set: list[dict] | dict[str, Any],
     early_stopping_dataset: DrugResponseDataset | None = None,
     response_transformation: TransformerMixin | None = None,
     metric: str = "RMSE",
     path_data: str = "data",
     model_checkpoint_dir: str = "TEMPORARY",
+    n_trials: int = 20,
     *,
     split_index: int | None = None,
     wandb_project: str | None = None,
     wandb_base_config: dict[str, Any] | None = None,
 ) -> dict:
     """
-    Tune the hyperparameters for the given model in an iterative manner.
+    Tune hyperparameters using Bayesian optimization with Optuna.
+
+    This function uses Optuna's TPE (Tree-structured Parzen Estimator) sampler
+    for efficient hyperparameter search. Trials are run sequentially.
 
     :param model: model to use
     :param train_dataset: training dataset
     :param validation_dataset: validation dataset
-    :param hpam_set: hyperparameters to tune
+    :param hpam_set: either a search space dictionary (for Bayesian optimization) or
+        a list of hyperparameter configurations (legacy grid search format)
     :param early_stopping_dataset: early stopping dataset
     :param response_transformation: normalizer to use for the response data
     :param metric: metric to evaluate which model is the best
     :param path_data: path to the data directory, e.g., data/
     :param model_checkpoint_dir: directory to save model checkpoints
+    :param n_trials: number of Bayesian optimization trials to run
     :param split_index: optional CV split index, used for naming wandb runs
     :param wandb_project: optional wandb project name; if provided, enables per-trial wandb runs
     :param wandb_base_config: optional base config dict to include in each wandb run
     :returns: best hyperparameters
     :raises AssertionError: if hpam_set is empty
     """
-    if len(hpam_set) == 0:
-        raise AssertionError("hpam_set must contain at least one hyperparameter configuration")
-    if len(hpam_set) == 1:
-        return hpam_set[0]
+    import optuna
+    from optuna.samplers import TPESampler
+
+    # Handle legacy list format (grid search) - convert to search space
+    if isinstance(hpam_set, list):
+        if len(hpam_set) == 0:
+            raise AssertionError("hpam_set must contain at least one hyperparameter configuration")
+        if len(hpam_set) == 1:
+            return hpam_set[0]
+
+        # Convert list of dicts to search space by extracting unique values per parameter
+        # Handle nested structures (like lists of lists) by using a list-based approach
+        search_space: dict[str, Any] = {}
+        all_keys = set()
+        for config in hpam_set:
+            all_keys.update(config.keys())
+
+        for key in all_keys:
+            # Collect all values for this key, preserving order and handling unhashable types
+            values = []
+            seen = []
+            for config in hpam_set:
+                if key in config:
+                    value = config.get(key)
+                    # For unhashable types (lists, dicts), use deep comparison
+                    if isinstance(value, (list, dict)):
+                        # Check if we've seen an equivalent value
+                        if not any(_deep_equal(value, v) for v in seen):
+                            values.append(value)
+                            seen.append(value)
+                    else:
+                        # For hashable types, use set for deduplication
+                        if value not in values:
+                            values.append(value)
+            if len(values) == 1:
+                search_space[key] = values[0]
+            else:
+                search_space[key] = values
+    else:
+        search_space = hpam_set
+
+    # Check if there's anything to tune
+    tunable_params = [
+        k
+        for k, v in search_space.items()
+        if isinstance(v, (list, dict)) and (not isinstance(v, list) or len(v) > 1)
+    ]
+    if not tunable_params:
+        # No tuning needed, return fixed values
+        return {k: (v[0] if isinstance(v, list) else v) for k, v in search_space.items()}
 
     # Mark that we're in hyperparameter tuning phase
-    # This prevents updating wandb.config during tuning - we'll only log final best hyperparameters
     model._in_hyperparameter_tuning = True
 
-    best_hyperparameters = None
     mode = get_mode(metric)
-    best_score = float("inf") if mode == "min" else float("-inf")
-    for trial_idx, hyperparameter in enumerate(hpam_set):
-        print(f"Training model with hyperparameters: {hyperparameter}")
+    direction = "minimize" if mode == "min" else "maximize"
+
+    def objective(trial):
+        # Sample hyperparameters
+        hyperparameter = _sample_hyperparameters_from_search_space(trial, search_space)
+        trial_idx = trial.number
+
+        print(f"Trial {trial_idx}: Training model with hyperparameters: {hyperparameter}")
 
         # Create a separate wandb run for each hyperparameter trial if enabled
         if wandb_project is not None:
@@ -1222,40 +1342,52 @@ def hpam_tune(
                 finish_previous=True,
             )
 
-        # During hyperparameter tuning, don't update wandb config via log_hyperparameters
-        # Trial hyperparameters are stored in wandb.config for each run
-        score = train_and_evaluate(
-            model=model,
-            hpams=hyperparameter,
-            path_data=path_data,
-            train_dataset=train_dataset,
-            validation_dataset=validation_dataset,
-            early_stopping_dataset=early_stopping_dataset,
-            metric=metric,
-            response_transformation=response_transformation,
-            model_checkpoint_dir=model_checkpoint_dir,
-        )[metric]
+        try:
+            score = train_and_evaluate(
+                model=model,
+                hpams=hyperparameter,
+                path_data=path_data,
+                train_dataset=train_dataset,
+                validation_dataset=validation_dataset,
+                early_stopping_dataset=early_stopping_dataset,
+                metric=metric,
+                response_transformation=response_transformation,
+                model_checkpoint_dir=model_checkpoint_dir,
+            )[metric]
 
-        # Note: train_and_evaluate() already logs val_* metrics once via
-        # DRPModel.compute_and_log_final_metrics(..., prefix="val_").
-        # Avoid logging val_{metric} again here (it would create duplicate points).
-        if np.isnan(score):
+            if np.isnan(score):
+                # Return a bad score for NaN results
+                score = float("inf") if mode == "min" else float("-inf")
+            else:
+                print(f"Trial {trial_idx}: {metric} = {np.round(score, 4)}")
+
+        except Exception as e:
+            print(f"Trial {trial_idx} failed: {e}")
+            score = float("inf") if mode == "min" else float("-inf")
+
+        finally:
             if model.is_wandb_enabled():
                 model.finish_wandb()
-            continue
 
-        if (mode == "min" and score < best_score) or (mode == "max" and score > best_score):
-            print(f"current best {metric} score: {np.round(score, 3)}")
-            best_score = score
-            best_hyperparameters = hyperparameter
+        return score
 
-        # Close this trial's run after all logging is done
-        if model.is_wandb_enabled():
-            model.finish_wandb()
+    # Create and run the Optuna study
+    study = optuna.create_study(direction=direction, sampler=TPESampler(seed=42))
+    study.optimize(objective, n_trials=n_trials, show_progress_bar=True)
 
-    if best_hyperparameters is None:
-        warnings.warn("all hpams lead to NaN respone. using last hpam combination.", stacklevel=2)
-        best_hyperparameters = hyperparameter
+    # Get best hyperparameters
+    best_hyperparameters = study.best_params
+
+    # Fill in fixed parameters that weren't tuned
+    for key, value in search_space.items():
+        if key not in best_hyperparameters:
+            if isinstance(value, list) and len(value) == 1:
+                best_hyperparameters[key] = value[0]
+            elif not isinstance(value, (list, dict)):
+                best_hyperparameters[key] = value
+
+    print(f"\nBest trial: {study.best_trial.number}")
+    print(f"Best {metric}: {np.round(study.best_value, 4)}")
 
     return best_hyperparameters
 
@@ -1265,50 +1397,132 @@ def hpam_tune_raytune(
     train_dataset: DrugResponseDataset,
     validation_dataset: DrugResponseDataset,
     early_stopping_dataset: DrugResponseDataset | None,
-    hpam_set: list[dict],
+    hpam_set: list[dict] | dict[str, Any],
     response_transformation: TransformerMixin | None = None,
     metric: str = "RMSE",
     ray_path: str = "raytune",
     path_data: str = "data",
     model_checkpoint_dir: str = "TEMPORARY",
+    n_trials: int = 20,
 ) -> dict:
     """
-    Tune the hyperparameters for the given model using Ray Tune. Ray[tune] must be installed.
+    Tune hyperparameters using Bayesian optimization with Ray Tune and Optuna.
+
+    This function uses Ray Tune with OptunaSearch for parallel Bayesian optimization.
+    Ray[tune] and optuna must be installed.
 
     :param model: model to use
     :param train_dataset: training dataset
     :param validation_dataset: validation dataset
     :param early_stopping_dataset: early stopping dataset
-    :param hpam_set: hyperparameters to tune
+    :param hpam_set: either a search space dictionary (for Bayesian optimization) or
+        a list of hyperparameter configurations (legacy grid search format)
     :param response_transformation: normalizer for response data
     :param metric: evaluation metric
     :param ray_path: path to the raytune directory
     :param path_data: path to data directory, e.g., data/
     :param model_checkpoint_dir: directory for model checkpoints
+    :param n_trials: number of Bayesian optimization trials to run
     :returns: best hyperparameters
     :raises ValueError: if best_result is None
     """
-    print("Starting hyperparameter tuning with Ray Tune ...")
-    print(f"Hyperparameter combinations to evaluate: {len(hpam_set)}")
-    print()
-
-    if len(hpam_set) == 1:
-        return hpam_set[0]
-
     import ray
     from ray import tune
+    from ray.tune.search.optuna import OptunaSearch
+
+    print("Starting hyperparameter tuning with Ray Tune (Bayesian optimization) ...")
+
+    # Handle legacy list format (grid search) - convert to search space
+    if isinstance(hpam_set, list):
+        if len(hpam_set) == 0:
+            raise AssertionError("hpam_set must contain at least one hyperparameter configuration")
+        if len(hpam_set) == 1:
+            return hpam_set[0]
+
+        # Convert list of dicts to search space
+        search_space: dict[str, Any] = {}
+        all_keys = set()
+        for config in hpam_set:
+            all_keys.update(config.keys())
+
+        for key in all_keys:
+            # Collect all values for this key, preserving order and handling unhashable types
+            values = []
+            seen = []
+            for config in hpam_set:
+                if key in config:
+                    value = config.get(key)
+                    # For unhashable types (lists, dicts), use deep comparison
+                    if isinstance(value, (list, dict)):
+                        # Check if we've seen an equivalent value
+                        if not any(_deep_equal(value, v) for v in seen):
+                            values.append(value)
+                            seen.append(value)
+                    else:
+                        # For hashable types, use set for deduplication
+                        if value not in values:
+                            values.append(value)
+            if len(values) == 1:
+                search_space[key] = values[0]
+            else:
+                search_space[key] = values
+    else:
+        search_space = hpam_set
+
+    # Check if there's anything to tune
+    tunable_params = [
+        k
+        for k, v in search_space.items()
+        if isinstance(v, (list, dict)) and (not isinstance(v, list) or len(v) > 1)
+    ]
+    if not tunable_params:
+        return {k: (v[0] if isinstance(v, list) else v) for k, v in search_space.items()}
+
+    # Convert search space to Ray Tune format
+    ray_search_space = {}
+    fixed_params = {}
+    for param_name, param_def in search_space.items():
+        if isinstance(param_def, dict) and "type" in param_def:
+            param_type = param_def["type"]
+            low = param_def["low"]
+            high = param_def["high"]
+            log_scale = param_def.get("log", False)
+
+            if param_type == "int":
+                if log_scale:
+                    ray_search_space[param_name] = tune.lograndint(low, high)
+                else:
+                    ray_search_space[param_name] = tune.randint(low, high + 1)
+            elif param_type == "float":
+                if log_scale:
+                    ray_search_space[param_name] = tune.loguniform(low, high)
+                else:
+                    ray_search_space[param_name] = tune.uniform(low, high)
+        elif isinstance(param_def, list):
+            if len(param_def) == 1:
+                fixed_params[param_name] = param_def[0]
+            else:
+                ray_search_space[param_name] = tune.choice(param_def)
+        else:
+            fixed_params[param_name] = param_def
+
+    print(f"Tunable parameters: {list(ray_search_space.keys())}")
+    print(f"Fixed parameters: {list(fixed_params.keys())}")
+    print(f"Number of trials: {n_trials}")
+    print()
 
     path_data = os.path.abspath(path_data)
     if not ray.is_initialized():
         ray.init(_temp_dir=os.path.join(os.path.expanduser("~"), "raytmp"))
     resources_per_trial = {"gpu": 1} if torch.cuda.is_available() else {"cpu": 1}
 
-    def trainable(hpams):
+    def trainable(config):
         try:
-            inner = hpams["hpams"]
+            # Merge sampled params with fixed params
+            hyperparameter = {**fixed_params, **config}
             result = train_and_evaluate(
                 model=model,
-                hpams=inner,
+                hpams=hyperparameter,
                 path_data=path_data,
                 train_dataset=train_dataset,
                 validation_dataset=validation_dataset,
@@ -1317,35 +1531,50 @@ def hpam_tune_raytune(
                 response_transformation=response_transformation,
                 model_checkpoint_dir=model_checkpoint_dir,
             )
-            tune.report(metrics={metric: result[metric]})
+            return {metric: result[metric]}
         except Exception as e:
             import traceback
 
             print("Trial failed:", e)
             traceback.print_exc()
+            # Return bad score on failure
+            mode = get_mode(metric)
+            return {metric: float("inf") if mode == "min" else float("-inf")}
 
     trainable = tune.with_resources(trainable, resources_per_trial)
-    param_space = {"hpams": tune.grid_search(hpam_set)}
+
+    mode = get_mode(metric)
+    optuna_search = OptunaSearch(metric=metric, mode=mode, seed=42)
 
     tuner = tune.Tuner(
         trainable,
-        param_space=param_space,
+        param_space=ray_search_space,
         run_config=tune.RunConfig(
             storage_path=ray_path,
             name="hpam_tuning",
         ),
         tune_config=tune.TuneConfig(
             metric=metric,
-            mode=get_mode(metric),
+            mode=mode,
+            search_alg=optuna_search,
+            num_samples=n_trials,
+            max_concurrent_trials=1,  # Run one at a time for Bayesian optimization
         ),
     )
 
     results = tuner.fit()
-    best_result = results.get_best_result(metric=metric, mode=get_mode(metric))
+    best_result = results.get_best_result(metric=metric, mode=mode)
     ray.shutdown()
+
     if best_result.config is None:
         raise ValueError("Ray failed; no best result.")
-    return best_result.config["hpams"]
+
+    # Merge best config with fixed params
+    best_hyperparameters = {**fixed_params, **best_result.config}
+
+    print(f"\nBest {metric}: {np.round(best_result.metrics[metric], 4)}")
+
+    return best_hyperparameters
 
 
 @pipeline_function
@@ -1470,6 +1699,7 @@ def train_final_model(
     test_mode: str = "LCO",
     val_ratio: float = 0.1,
     hyperparameter_tuning: bool = True,
+    n_trials: int = 20,
 ) -> None:
     """
     Final Production Model Training.
@@ -1493,6 +1723,7 @@ def train_final_model(
     :param test_mode: split logic for validation (LCO, LDO, LTO, LPO)
     :param val_ratio: validation size ratio
     :param hyperparameter_tuning: whether to perform hyperparameter tuning
+    :param n_trials: number of Bayesian optimization trials for hyperparameter tuning
     """
     print("Training final model with application-specific validation strategy ...")
 
@@ -1524,6 +1755,7 @@ def train_final_model(
             metric=metric,
             path_data=path_data,
             model_checkpoint_dir=model_checkpoint_dir,
+            n_trials=n_trials,
         )
     else:
         best_hpams = hpam_set[0]
