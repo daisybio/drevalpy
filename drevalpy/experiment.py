@@ -176,8 +176,12 @@ def drug_response_experiment(
         )
         parent_dir = os.path.dirname(predictions_path)
 
-        model_hpam_set = model_class.get_hyperparameter_set()
-        if not hyperparameter_tuning:
+        if hyperparameter_tuning:
+            # Use raw search space for Bayesian optimization
+            model_hpam_set = model_class.get_hyperparameter_search_space()
+        else:
+            # Use expanded grid and take first (default) configuration
+            model_hpam_set = model_class.get_hyperparameter_set()
             model_hpam_set = [model_hpam_set[0]]
 
         if response_data.cv_splits is None:
@@ -1753,8 +1757,9 @@ def train_final_model(
     else:
         early_stopping_dataset = None
 
-    hpam_set = model.get_hyperparameter_set()
     if hyperparameter_tuning:
+        # Use raw search space for Bayesian optimization
+        hpam_set = model.get_hyperparameter_search_space()
         best_hpams = hpam_tune(
             model=model,
             train_dataset=train_dataset,
@@ -1768,6 +1773,8 @@ def train_final_model(
             n_trials=n_trials,
         )
     else:
+        # Use expanded grid and take first (default) configuration
+        hpam_set = model.get_hyperparameter_set()
         best_hpams = hpam_set[0]
 
     print(f"Best hyperparameters for final model: {best_hpams}")
