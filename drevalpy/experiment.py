@@ -1266,17 +1266,17 @@ def hpam_tune(
         # Convert list of dicts to search space by extracting unique values per parameter
         # Handle nested structures (like lists of lists) by using a list-based approach
         search_space: dict[str, Any] = {}
-        all_keys = set()
+        all_keys: set[str] = set()
         for config in hpam_set:
             all_keys.update(config.keys())
 
         for key in all_keys:
             # Collect all values for this key, preserving order and handling unhashable types
-            values = []
-            seen = []
+            values: list[Any] = []
+            seen: list[Any] = []
             for config in hpam_set:
                 if key in config:
-                    value = config.get(key)
+                    value = config[key]  # Use direct access since we know key exists
                     # For unhashable types (lists, dicts), use deep comparison
                     if isinstance(value, (list, dict)):
                         # Check if we've seen an equivalent value
@@ -1441,17 +1441,17 @@ def hpam_tune_raytune(
 
         # Convert list of dicts to search space
         search_space: dict[str, Any] = {}
-        all_keys = set()
+        all_keys: set[str] = set()
         for config in hpam_set:
             all_keys.update(config.keys())
 
         for key in all_keys:
             # Collect all values for this key, preserving order and handling unhashable types
-            values = []
-            seen = []
+            values: list[Any] = []
+            seen: list[Any] = []
             for config in hpam_set:
                 if key in config:
-                    value = config.get(key)
+                    value = config[key]  # Use direct access since we know key exists
                     # For unhashable types (lists, dicts), use deep comparison
                     if isinstance(value, (list, dict)):
                         # Check if we've seen an equivalent value
