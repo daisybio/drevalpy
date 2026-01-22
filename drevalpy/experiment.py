@@ -1180,6 +1180,7 @@ def _sample_hyperparameters_from_search_space(trial, search_space: dict[str, Any
     :param trial: Optuna trial object
     :param search_space: dictionary mapping parameter names to their search space definitions
     :returns: dictionary of sampled hyperparameters
+    :raises ValueError: if an unknown parameter type is encountered in the search space
     """
     sampled = {}
     for param_name, param_def in search_space.items():
@@ -1424,6 +1425,7 @@ def hpam_tune_raytune(
     :param model_checkpoint_dir: directory for model checkpoints
     :param n_trials: number of Bayesian optimization trials to run
     :returns: best hyperparameters
+    :raises AssertionError: if hpam_set is empty
     :raises ValueError: if best_result is None
     """
     import ray
