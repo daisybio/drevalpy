@@ -9,7 +9,6 @@ The PPI CSV should have columns: gene_id_1, gene_id_2, and optionally interactio
 import argparse
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 import torch
 from torch_geometric.data import Data
@@ -24,6 +23,7 @@ def _load_ppi_network(ppi_file: Path, gene_list_file: Path) -> Data:
 
     :param ppi_file: Path to the PPI network CSV file with columns [gene_id_1, gene_id_2, (optional) interaction_score]
     :param gene_list_file: Path to the gene list CSV (e.g., landmark_genes_reduced.csv) that defines gene order
+    :raises ValueError: If the PPI CSV does not contain the required columns or if the gene list file is not found
     :return: A Data object representing the PPI network graph
     """
     # Load the gene list to get the ordered list of genes (same as will be used for gene expression)
@@ -46,9 +46,7 @@ def _load_ppi_network(ppi_file: Path, gene_list_file: Path) -> Data:
     # Validate columns
     required_cols = {"gene_id_1", "gene_id_2"}
     if not required_cols.issubset(ppi_df.columns):
-        raise ValueError(
-            f"PPI CSV must contain columns 'gene_id_1' and 'gene_id_2'. Found: {ppi_df.columns.tolist()}"
-        )
+        raise ValueError(f"PPI CSV must contain columns 'gene_id_1' and 'gene_id_2'. Found: {ppi_df.columns.tolist()}")
 
     # Build edge list (only include genes that exist in gene expression)
     edge_list = []
@@ -147,7 +145,7 @@ def main():
         print(f"  Nodes (genes): {graph.num_nodes}")
         print(f"  Edges (interactions): {graph.num_edges}")
         if graph.edge_attr is not None:
-            print(f"  Edge attributes: Yes")
+            print("  Edge attributes: Yes")
         print(f"\nGene order matches: {args.gene_list}")
         print(f"First 5 genes: {graph.gene_names[:5]}")
     except Exception as e:

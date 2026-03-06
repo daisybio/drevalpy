@@ -25,7 +25,12 @@ class PPIGraphNet(nn.Module):
     """Graph Neural Network for processing PPI networks with gene expression and drug features."""
 
     def __init__(
-        self, num_genes: int, num_drug_features: int, hidden_dim: int = 64, num_gnn_layers: int = 3, dropout: float = 0.2
+        self,
+        num_genes: int,
+        num_drug_features: int,
+        hidden_dim: int = 64,
+        num_gnn_layers: int = 3,
+        dropout: float = 0.2,
     ):
         """Initialize the network.
 
@@ -294,6 +299,7 @@ class PPIGraphGNN(DRPModel):
 
         :param cell_line_input: FeatureDataset with gene expression features
         :raises ValueError: If gene order doesn't match or validation fails
+        :raises RuntimeError: If PPI graph template is not loaded
         """
         if self.ppi_graph_template is None:
             raise RuntimeError("PPI graph template not loaded")
@@ -372,7 +378,6 @@ class PPIGraphGNN(DRPModel):
         self._validate_gene_order(cell_line_input)
 
         # Determine feature sizes
-        num_genes = next(iter(cell_line_input.features.values()))["gene_expression"].shape[0]
         num_drug_features = next(iter(drug_input.features.values()))["fingerprints"].shape[0]
 
         self.model = PPIGraphGNNModule(
@@ -588,6 +593,7 @@ class PPIGraphGNN(DRPModel):
 
         :param data_path: Path to the gene expression
         :param dataset_name: name of the dataset
+        :raises FileNotFoundError: If PPI graph is not found at the specified path.
         :return: FeatureDataset containing the cell line gene expression features.
         """
         # Load PPI graph first
@@ -618,7 +624,6 @@ class PPIGraphGNN(DRPModel):
         :param dataset_name: Name of the dataset.
         :return: FeatureDataset containing drug fingerprints.
         """
-
         # Load drug fingerprints
         return load_drug_fingerprint_features(data_path, dataset_name, fill_na=True)
 
@@ -666,8 +671,7 @@ class PPIGraphGNN(DRPModel):
         ppi_graph_path = path / "ppi_graph.pt"
         if not hpam_path.exists() or not model_file.exists() or not ppi_graph_path.exists():
             raise FileNotFoundError(
-                f"Missing required files in {directory}. "
-                f"Please make sure all files are present and try again."
+                f"Missing required files in {directory}. " f"Please make sure all files are present and try again."
             )
 
         instance = cls()

@@ -8,5 +8,6 @@ def cli_main():
     args = get_parser().parse_args()
     main(args)
 
+
 if __name__ == "__main__":
     cli_main()

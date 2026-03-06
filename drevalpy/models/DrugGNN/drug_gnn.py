@@ -456,7 +456,7 @@ class DrugGNN(DRPModel):
 
         return FeatureDataset(features=feature_dict)
 
-    def save(self,  directory: str) -> None:
+    def save(self, directory: str) -> None:
         """
         Save the trained model, hyperparameters, and gene expression scaler to the given directory.
 
