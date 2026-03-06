@@ -13,7 +13,7 @@ path_to_source_data_dir <- '../results/SourceData'
 evaluation_results <- fread(paste0(path_to_source_data_dir, '/main_results/evaluation_results.csv'))
 true_vs_pred <- fread(paste0(path_to_source_data_dir, '/main_results/true_vs_pred.csv'))
 
-# function for S2, S6, S7, S12
+# function for S1, S5, S6, S11
 overview_table <- function(eval_results, t_vs_p) {
   eval_results <- eval_results[rand_setting == "predictions"]
   eval_results <- melt(eval_results,
@@ -63,17 +63,17 @@ overview_table <- function(eval_results, t_vs_p) {
   return(all_results)
 }
 
-####### Code for Table S2: LDO input ablation study ######
+####### Code for Table S1: LDO input ablation study ######
 drug_results <- fread(paste0(path_to_source_data_dir, '/drug_embeddings/evaluation_results.csv'))
 drug_true_vs_pred <- fread(paste0(path_to_source_data_dir, '/drug_embeddings/true_vs_pred.csv'))
 drug_results <- overview_table(drug_results, drug_true_vs_pred)
 print(xtable(drug_results), include.rownames=FALSE, sanitize.text.function = function(x){x})
 
-####### Code for Tables S6+S7+S12: All results #######
+####### Code for Tables S5+S6+S11: All results #######
 all_results <- overview_table(evaluation_results, true_vs_pred)
 print(xtable(all_results), include.rownames=FALSE, sanitize.text.function = function(x){x})
 
-####### Code for Table S9: Cross-study results #######
+####### Code for Table S8: Cross-study results #######
 all_results <- evaluation_results
 external_cs_results <- fread(paste0(path_to_source_data_dir, '/infer_pdx_beat/evaluation_results.csv'))
 external_cs_results <- external_cs_results[rand_setting != "predictions"]
@@ -105,7 +105,7 @@ colnames(all_results) <- c("Model", "test_mode", "CTRPv2", "CS: CTRPv1",
                            "CS: BeatAML2", "CS: PDX_Bruna")
 print(xtable(all_results), include.rownames=FALSE, sanitize.text.function = function(x){x})
 
-# Table S10: Cross-study results other measures
+# Table S9: Cross-study results other measures
 # LN IC50 data tables
 all_results <- evaluation_results
 external_cs_results <- fread(paste0(path_to_source_data_dir, '/infer_pdx_beat/evaluation_results.csv'))
