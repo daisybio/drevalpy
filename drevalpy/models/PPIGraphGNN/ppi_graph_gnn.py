@@ -389,20 +389,6 @@ class PPIGraphGNN(DRPModel):
             learning_rate=self.hyperparameters.get("learning_rate", 0.001),
         )
 
-        # Initialize GNNExplainer
-        self.explainer = Explainer(
-            model=self.model.model,
-            algorithm=GNNExplainer(epochs=200),
-            explanation_type="model",
-            node_mask_type="attributes",
-            edge_mask_type="object",
-            model_config=dict(
-                mode="regression",
-                task_level="graph",
-                return_type="raw",
-            ),
-        )
-
         train_dataset = _PPIGraphDataset(
             response=output.response,
             cell_line_ids=output.cell_line_ids,
@@ -533,8 +519,6 @@ class PPIGraphGNN(DRPModel):
         """
         if self.model is None:
             raise RuntimeError("Model has not been trained yet.")
-        if self.explainer is None:
-            raise RuntimeError("Explainer not initialized. Train the model first.")
         if self.ppi_graph_template is None:
             raise RuntimeError("PPI graph template not loaded.")
 
@@ -549,15 +533,27 @@ class PPIGraphGNN(DRPModel):
 
         # Get drug features
         drug_features = torch.tensor(drug_input.features[drug_id]["fingerprints"], dtype=torch.float32).unsqueeze(0)
+        # Initialize GNNExplainer
+        self.explainer = Explainer(
+            model=self.model.model,
+            algorithm=GNNExplainer(epochs=200),
+            explanation_type="model",
+            node_mask_type="attributes",
+            edge_mask_type="object",
+            model_config=dict(
+                mode="regression",
+                task_level="graph",
+                return_type="raw",
+            ),
+        )
 
         # Get explanation
-        with torch.no_grad():
-            explanation = self.explainer(
-                x=graph.x,
-                edge_index=graph.edge_index,
-                batch=torch.zeros(graph.num_nodes, dtype=torch.long),
-                drug_features=drug_features,
-            )
+        explanation = self.explainer(
+            x=graph.x,
+            edge_index=graph.edge_index,
+            batch=torch.zeros(graph.num_nodes, dtype=torch.long),
+            drug_features=drug_features,
+        )
 
         # Extract important edges
         edge_mask = explanation.edge_mask.cpu().numpy()
@@ -646,7 +642,7 @@ class PPIGraphGNN(DRPModel):
         torch.save(self.model.state_dict(), path / "model.pt")  # noqa: S614
 
         with open(path / "hyperparameters.json", "w") as f:
-            json.dump(self.hyperparameters, f)
+            json.dump(self.model.hparams, f)
 
         torch.save(self.ppi_graph_template, path / "ppi_graph.pt")
 
@@ -692,17 +688,4 @@ class PPIGraphGNN(DRPModel):
         instance.model.load_state_dict(torch.load(model_file, weights_only=True))
         instance.model.eval()
 
-        # Reinitialize explainer
-        instance.explainer = Explainer(
-            model=instance.model.model,
-            algorithm=GNNExplainer(epochs=200),
-            explanation_type="model",
-            node_mask_type="attributes",
-            edge_mask_type="object",
-            model_config=dict(
-                mode="regression",
-                task_level="graph",
-                return_type="raw",
-            ),
-        )
         return instance
