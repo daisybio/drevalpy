@@ -1,0 +1,14 @@
+PPIGraphGNN:
+  learning_rate:
+    - 0.001
+  epochs:
+    - 10
+  hidden_dim:
+    - 64
+  num_gnn_layers:
+    - 2
+    - 3
+  dropout:
+    - 0.3
+  batch_size:
+    - 32

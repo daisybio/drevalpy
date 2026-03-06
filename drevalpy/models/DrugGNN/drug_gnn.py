@@ -456,41 +456,58 @@ class DrugGNN(DRPModel):
 
         return FeatureDataset(features=feature_dict)
 
-    def save_model(self, path: str | Path, drug_name=None):
-        """Save the model.
-
-        :param path: The path to save the model to.
-        :param drug_name: The name of the drug.
-        :raises RuntimeError: If there is no model to save.
+    def save(self,  directory: str) -> None:
         """
-        if self.model is None:
-            raise RuntimeError("No model to save.")
-        path = Path(path)
+        Save the trained model, hyperparameters, and gene expression scaler to the given directory.
+
+        This enables full reconstruction of the model using `load`.
+
+        Files saved:
+        - model.pt: PyTorch state_dict of the trained model
+        - hyperparameters.json: Dictionary containing all relevant model hyperparameters
+
+        :param directory: Target directory to store all model artifacts
+        """
+        path = Path(directory)
         path.mkdir(parents=True, exist_ok=True)
 
-        trainer = pl.Trainer()
-        trainer.save_checkpoint(path / "model.ckpt", weights_only=True)
+        torch.save(self.model.state_dict(), path / "model.pt")  # noqa: S614
 
-        with open(path / "config.json", "w") as f:
-            json.dump(self.hyperparameters, f, indent=4)
+        with open(path / "hyperparameters.json", "w") as f:
+            json.dump(self.hyperparameters, f)
 
-    def load_model(self, path: str | Path, drug_name=None):
-        """Load the model.
-
-        :param path: The path to load the model from.
-        :param drug_name: The name of the drug.
+    @classmethod
+    def load(cls, directory: str) -> "DrugGNN":
         """
-        path = Path(path)
+        Load a trained DrugGNN model from the given directory.
 
-        config_path = path / "config.json"
-        with open(config_path) as f:
-            self.hyperparameters = json.load(f)
+        This includes:
+        - model.pt: PyTorch state_dict of the trained model
+        - hyperparameters.json: Dictionary containing all relevant model hyperparameters
 
-        self.model = DrugGNNModule.load_from_checkpoint(
-            path / "model.ckpt",
-            num_node_features=self.hyperparameters["num_node_features"],
-            num_cell_features=self.hyperparameters["num_cell_features"],
-            hidden_dim=self.hyperparameters.get("hidden_dim", 64),
-            dropout=self.hyperparameters.get("dropout", 0.2),
-            learning_rate=self.hyperparameters.get("learning_rate", 0.001),
+        :param directory: The path to load the model from.
+        :return: The loaded DrugGNN model.
+        :raises FileNotFoundError: If any of the required files are not found.
+        """
+        path = Path(directory)
+
+        hpam_path = path / "hyperparameters.json"
+        model_path = path / "model.pt"
+        if not hpam_path.exists() or not model_path.exists():
+            raise FileNotFoundError(f"Required files not found in {directory}.")
+
+        instance = cls()
+
+        with open(hpam_path) as f:
+            instance.hyperparameters = json.load(f)
+
+        instance.model = DrugGNNModule(
+            num_node_features=instance.hyperparameters["num_node_features"],
+            num_cell_features=instance.hyperparameters["num_cell_features"],
+            hidden_dim=instance.hyperparameters.get("hidden_dim", 64),
+            dropout=instance.hyperparameters.get("dropout", 0.2),
+            learning_rate=instance.hyperparameters.get("learning_rate", 0.001),
         )
+        instance.model.load_state_dict(torch.load(model_path, weights_only=True))
+        instance.model.eval()
+        return instance
