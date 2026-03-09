@@ -4,6 +4,7 @@
 Creates MolGNet embeddings for molecules given their SMILES strings. This module needs torch_scatter.
     python create_molgnet_embeddings.py dataset_name --checkpoint meta/MolGNet.pt --data_path data
 """
+
 import argparse
 import math
 import os

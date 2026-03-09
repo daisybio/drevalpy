@@ -26,7 +26,7 @@
 - [ ] Run ‚poetry update‘ to get the latest package versions. This will update the poetry.lock file
 - [ ] Run ‚poetry export --without-hashes --without development -f requirements.txt -o requirements.txt‘ to update the requirements.txt file
 - [ ] (If one of the sphinx packages has been updated, you also need to update docs/requirements.txt)
-- [ ] (If poetry itself was updated, update that in the Dockerfile)
+- [ ] (If poetry itself was updated, update that in the Dockerfile and installation.rst)
 - [ ] If you updated the python version:
   - [ ] Update the Dockerfile so that it always runs on the latest python version. Watch out: the ‚builder‘ is the full python, the ‚runtime‘ is a slim python build.
   - [ ] Update the python version in .github/workflows/: run_tests.yml, build_package.yml, publish_docs.yml, python-package.yml

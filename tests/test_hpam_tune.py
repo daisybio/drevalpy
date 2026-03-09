@@ -63,6 +63,9 @@ def test_hpam_tune(tmp_path):
         metric="RMSE",
         path_data="../data",
         model_checkpoint_dir="TEMPORARY",
+        split_index=None,
+        wandb_project=None,
+        wandb_base_config=None,
     )
 
     assert best in hpam_set

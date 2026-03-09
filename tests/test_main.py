@@ -41,6 +41,7 @@ from drevalpy.visualization.utils import (
             "model_checkpoint_dir": "TEMPORARY",
             "no_hyperparameter_tuning": True,
             "final_model_on_full_data": True,
+            "wandb_project": None,
         }
     ],
 )

@@ -112,6 +112,9 @@ class PharmaFormerModel(DRPModel):
         :param hyperparameters: Model hyperparameters including gene_hidden_size, drug_hidden_size,
             feature_dim, nhead, num_layers, dim_feedforward, dropout, batch_size, lr, epochs, patience
         """
+        # Log hyperparameters to wandb if enabled
+        self.log_hyperparameters(hyperparameters)
+
         self.hyperparameters = hyperparameters
         # Model will be built in train() when we know the input dimensions
 
@@ -217,6 +220,8 @@ class PharmaFormerModel(DRPModel):
             self.model.train()
             epoch_loss = 0.0
             batch_count = 0
+            train_predictions = []
+            train_targets = []
 
             # Training phase
             for gene_inputs, smiles_inputs, targets in train_loader:
@@ -236,13 +241,31 @@ class PharmaFormerModel(DRPModel):
                 epoch_loss += loss.detach().item()
                 batch_count += 1
 
+                # Store predictions and targets for R^2 and PCC computation
+                train_predictions.append(outputs.squeeze().detach().cpu().numpy())
+                train_targets.append(targets.detach().cpu().numpy())
+
             epoch_loss /= batch_count
             print(f"PharmaFormer: Epoch [{epoch + 1}/{self.hyperparameters['epochs']}] Training Loss: {epoch_loss:.4f}")
+
+            # Compute and log training R^2 and PCC using DRPModel helper
+            train_metrics = {"train_loss": epoch_loss}
+            if len(train_predictions) > 0:
+                all_train_preds = np.concatenate(train_predictions)
+                all_train_targets = np.concatenate(train_targets)
+                perf_metrics = self.compute_performance_metrics(all_train_preds, all_train_targets, prefix="train_")
+                train_metrics.update(perf_metrics)
+
+            # Log training metrics to wandb if enabled
+            if self.is_wandb_enabled():
+                self.log_metrics(train_metrics, step=epoch)
 
             # Validation phase for early stopping
             self.model.eval()
             val_loss = 0.0
             val_batch_count = 0
+            val_predictions = []
+            val_targets = []
             with torch.no_grad():
                 for gene_inputs, smiles_inputs, targets in early_stopping_loader:
                     gene_inputs = gene_inputs.to(self.DEVICE)
@@ -255,8 +278,24 @@ class PharmaFormerModel(DRPModel):
                     val_loss += loss.item()
                     val_batch_count += 1
 
+                    # Store predictions and targets for R^2 and PCC computation
+                    val_predictions.append(outputs.squeeze().detach().cpu().numpy())
+                    val_targets.append(targets.detach().cpu().numpy())
+
             val_loss /= val_batch_count
             print(f"PharmaFormer: Epoch [{epoch + 1}/{self.hyperparameters['epochs']}] Validation Loss: {val_loss:.4f}")
+
+            # Compute and log validation R^2 and PCC using DRPModel helper
+            val_metrics = {"val_loss": val_loss}
+            if len(val_predictions) > 0:
+                all_val_preds = np.concatenate(val_predictions)
+                all_val_targets = np.concatenate(val_targets)
+                perf_metrics = self.compute_performance_metrics(all_val_preds, all_val_targets, prefix="val_")
+                val_metrics.update(perf_metrics)
+
+            # Log validation metrics to wandb if enabled
+            if self.is_wandb_enabled():
+                self.log_metrics(val_metrics, step=epoch)
 
             # Checkpointing: Save the best model
             if val_loss < best_val_loss:

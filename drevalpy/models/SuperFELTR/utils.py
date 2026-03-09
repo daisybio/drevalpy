@@ -10,6 +10,7 @@ from pytorch_lightning.callbacks import EarlyStopping, TQDMProgressBar
 from torch import nn
 
 from ...datasets.dataset import DrugResponseDataset, FeatureDataset
+from ..lightning_metrics_mixin import RegressionMetricsMixin
 from ..MOLIR.utils import create_dataset_and_loaders, generate_triplets_indices
 
 
@@ -164,7 +165,7 @@ class SuperFELTEncoder(pl.LightningModule):
         return triplet_loss
 
 
-class SuperFELTRegressor(pl.LightningModule):
+class SuperFELTRegressor(RegressionMetricsMixin, pl.LightningModule):
     """
     SuperFELT regressor definition.
 
@@ -203,6 +204,9 @@ class SuperFELTRegressor(pl.LightningModule):
         for encoder in self.encoders:
             encoder.eval()
         self.regression_loss = nn.MSELoss()
+
+        # Initialize metrics storage for epoch-end R^2 and PCC computation
+        self._init_metrics_storage()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -268,6 +272,10 @@ class SuperFELTRegressor(pl.LightningModule):
         pred = self.regressor(encoded)
         loss = self.regression_loss(pred.squeeze(), response)
         self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
+
+        # Store predictions and targets for epoch-end metrics via mixin
+        self._store_predictions(pred.squeeze(), response, is_training=True)
+
         return loss
 
     def validation_step(self, batch: list[torch.Tensor], batch_idx: int) -> torch.Tensor:
@@ -283,6 +291,10 @@ class SuperFELTRegressor(pl.LightningModule):
         pred = self.regressor(encoded)
         loss = self.regression_loss(pred.squeeze(), response)
         self.log("val_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
+
+        # Store predictions and targets for epoch-end metrics via mixin
+        self._store_predictions(pred.squeeze(), response, is_training=False)
+
         return loss
 
 
@@ -294,11 +306,13 @@ def train_superfeltr_model(
     output_earlystopping: DrugResponseDataset | None = None,
     patience: int = 5,
     model_checkpoint_dir: str = "superfeltr_checkpoints",
+    wandb_project: str | None = None,
 ) -> pl.callbacks.ModelCheckpoint:
     """
     Trains one encoder or the regressor.
 
     First, the dataset and loaders are created. Then, the model is trained with the Lightning trainer.
+
     :param model: either one of the encoders or the regressor
     :param hpams: hyperparameters for the model
     :param output_train: response data for training
@@ -306,6 +320,8 @@ def train_superfeltr_model(
     :param output_earlystopping: response data for early stopping
     :param patience: for early stopping, defaults to 5
     :param model_checkpoint_dir: directory to save the model checkpoints
+    :param wandb_project: optional wandb project name for logging. If provided, uses WandbLogger
+        for PyTorch Lightning training.
     :returns: checkpoint callback with the best model
     :raises ValueError: if the epochs and mini_batch are not integers
     """
@@ -329,9 +345,18 @@ def train_superfeltr_model(
         mode="min",
         save_top_k=1,
     )
+    # Set up wandb logger if project is provided
+    loggers = []
+    if wandb_project is not None:
+        from pytorch_lightning.loggers import WandbLogger
+
+        logger = WandbLogger(project=wandb_project, log_model=False)
+        loggers.append(logger)
+
     # Initialize the Lightning trainer
     trainer = pl.Trainer(
         max_epochs=hpams["epochs"],
+        logger=loggers if loggers else True,  # Use default logger if no wandb
         callbacks=[
             early_stop_callback,
             checkpoint_callback,

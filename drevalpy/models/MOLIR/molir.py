@@ -64,6 +64,9 @@ class MOLIR(DRPModel):
         :param hyperparameters: Custom hyperparameters for the model, includes mini_batch, layer dimensions (h_dim1,
             h_dim2, h_dim3), learning_rate, dropout_rate, weight_decay, gamma, epochs, and margin.
         """
+        # Log hyperparameters to wandb if enabled
+        self.log_hyperparameters(hyperparameters)
+
         self.hyperparameters = hyperparameters
         self.selector = VarianceFeatureSelector(
             view="gene_expression", k=hyperparameters.get("n_gene_expression_features", 1000)
@@ -125,6 +128,7 @@ class MOLIR(DRPModel):
                     cell_line_input=cell_line_input,
                     output_earlystopping=output_earlystopping,
                     model_checkpoint_dir=model_checkpoint_dir,
+                    wandb_project=self.wandb_project,
                 )
             else:
                 print(f"Not enough training data provided ({len(output)}), will predict on randomly initialized model.")
@@ -179,13 +183,13 @@ class MOLIR(DRPModel):
             cell_line_input=cell_line_input,
             drug_input=drug_input,
         )
-        (gene_expression, mutations, cnvs) = (
+        gene_expression, mutations, cnvs = (
             input_data["gene_expression"],
             input_data["mutations"],
             input_data["copy_number_variation_gistic"],
         )
 
-        (gene_expression, mutations, cnvs) = filter_and_sort_omics(
+        gene_expression, mutations, cnvs = filter_and_sort_omics(
             model=self, gene_expression=gene_expression, mutations=mutations, cnvs=cnvs, cell_line_input=cell_line_input
         )
 

@@ -9,13 +9,16 @@ The DRPModel class is an abstract wrapper class for drug response prediction mod
 import inspect
 import os
 from abc import ABC, abstractmethod
+from contextlib import suppress
 from typing import Any
 
 import numpy as np
+import wandb
 import yaml
 from sklearn.model_selection import ParameterGrid
 
 from ..datasets.dataset import DrugResponseDataset, FeatureDataset
+from ..evaluation import AVAILABLE_METRICS, evaluate
 from ..pipeline_function import pipeline_function
 
 
@@ -32,6 +35,220 @@ class DRPModel(ABC):
     early_stopping = False
     # Then, the model is trained per drug
     is_single_drug_model = False
+
+    def __init__(self):
+        """Initialize the DRPModel instance."""
+        self.wandb_project: str | None = None
+        self.wandb_run: Any = None
+        self.wandb_config: dict[str, Any] | None = None
+        self.hyperparameters: dict[str, Any] = {}
+        self._in_hyperparameter_tuning: bool = False  # Flag to track if we're in hyperparameter tuning
+
+    def init_wandb(
+        self,
+        project: str,
+        config: dict[str, Any] | None = None,
+        name: str | None = None,
+        tags: list[str] | None = None,
+        finish_previous: bool = True,
+    ) -> None:
+        """
+        Initialize wandb logging for this model instance.
+
+        :param project: wandb project name
+        :param config: dictionary of configuration to log (e.g., hyperparameters, dataset info)
+        :param name: run name (defaults to model name)
+        :param tags: list of tags for the run
+        :param finish_previous: whether to finish any existing wandb run before starting a new one
+        """
+        self.wandb_project = project
+        self.wandb_config = config or {}
+
+        if finish_previous:
+            wandb.finish()
+
+        run_name = name or self.get_model_name()
+        wandb.init(
+            project=project,
+            config=self.wandb_config,
+            name=run_name,
+            tags=tags,
+        )
+        self.wandb_run = wandb.run
+
+        # Define common metric summaries so final/best values are tracked automatically
+        with suppress(Exception):  # pragma: no cover - wandb may not support define_metric in all contexts
+            wandb.define_metric("epoch", summary="max")
+            wandb.define_metric("train_loss", summary="min")
+            wandb.define_metric("val_loss", summary="min")
+            wandb.define_metric("train_R^2", summary="max")
+            wandb.define_metric("val_R^2", summary="max")
+            wandb.define_metric("train_Pearson", summary="max")
+            wandb.define_metric("val_Pearson", summary="max")
+
+    def log_hyperparameters(self, hyperparameters: dict[str, Any]) -> None:
+        """
+        Log hyperparameters to wandb.
+
+        This method is called automatically by build_model when wandb is enabled.
+        Subclasses can override this to add additional hyperparameter logging.
+
+        During hyperparameter tuning, config updates are skipped to avoid overwriting.
+        Only the final best hyperparameters are logged to wandb.config.
+
+        :param hyperparameters: dictionary of hyperparameters to log
+        """
+        if not self.is_wandb_enabled():
+            return
+
+        self.hyperparameters = hyperparameters
+        # Only update wandb.config if we're not in hyperparameter tuning phase
+        # During tuning, trial hyperparameters are stored in config.hyperparameters
+        # Nest hyperparameters under a single key to prevent them from appearing as separate table columns
+        if not self._in_hyperparameter_tuning:
+            wandb.config.update({"hyperparameters": hyperparameters})
+
+    def is_wandb_enabled(self) -> bool:
+        """
+        Check if wandb logging is enabled for this model instance.
+
+        :returns: True if wandb is initialized and active, False otherwise
+        """
+        # Check both self.wandb_run and wandb.run to handle cases where
+        # PyTorch Lightning's WandbLogger might have affected the run state
+        return self.wandb_project is not None and (self.wandb_run is not None or wandb.run is not None)
+
+    def get_wandb_logger(self) -> Any | None:
+        """
+        Get a WandbLogger for PyTorch Lightning integration.
+
+        This method creates a WandbLogger that uses the existing wandb run.
+        Returns None if wandb is not enabled.
+
+        :returns: WandbLogger instance or None
+        """
+        if not self.is_wandb_enabled() or self.wandb_project is None:
+            return None
+
+        from pytorch_lightning.loggers import WandbLogger
+
+        return WandbLogger(project=self.wandb_project, log_model=False)
+
+    def log_metrics(self, metrics: dict[str, float], step: int | None = None) -> None:
+        """
+        Log metrics to wandb.
+
+        Subclasses can call this method to log custom metrics during training.
+
+        :param metrics: dictionary of metric names to values
+        :param step: optional step number for the metrics
+        """
+        if not self.is_wandb_enabled():
+            return
+
+        if step is not None:
+            wandb.log(metrics, step=step)
+        else:
+            wandb.log(metrics)
+
+    def compute_performance_metrics(
+        self, predictions: np.ndarray, targets: np.ndarray, prefix: str = ""
+    ) -> dict[str, float]:
+        """
+        Compute R^2 and PCC metrics from predictions and targets.
+
+        This is a convenience method for computing performance metrics consistently
+        across all models. It always computes R^2 and PCC in addition to any other
+        metrics that may be needed.
+
+        :param predictions: model predictions array
+        :param targets: ground truth targets array
+        :param prefix: optional prefix for metric keys (e.g., ``val_``, ``train_``)
+        :returns: dictionary of computed metrics with optional prefix
+        """
+        try:
+            # Always compute R^2 and PCC
+            metrics = {
+                "R^2": AVAILABLE_METRICS["R^2"](y_pred=predictions, y_true=targets),
+                "Pearson": AVAILABLE_METRICS["Pearson"](y_pred=predictions, y_true=targets),
+            }
+
+            # Add prefix if provided
+            if prefix:
+                metrics = {f"{prefix}{k}": v for k, v in metrics.items()}
+
+            return metrics
+        except Exception:
+            # Return empty dict if computation fails
+            return {}
+
+    def compute_and_log_final_metrics(
+        self,
+        dataset: DrugResponseDataset,
+        additional_metrics: list[str] | None = None,
+        prefix: str = "val_",
+    ) -> dict[str, float]:
+        r"""
+        Compute final performance metrics from a dataset and log them to wandb.
+
+        This method computes R^2 and PCC (always), plus any additional metrics specified.
+        The metrics are both logged to wandb history and stored in the run summary.
+
+        :param dataset: DrugResponseDataset with predictions and response
+        :param additional_metrics: optional list of additional metrics to compute (e.g., ["RMSE", "MAE"])
+        :param prefix: metric name prefix indicating which split the metrics belong to
+            (for example, use ``"val"`` for validation and ``"test"`` for test metrics)
+        :returns: dictionary of computed metrics
+        """
+        if dataset.predictions is None:
+            return {}
+
+        # Always compute R^2 and PCC
+        metrics_to_compute = ["R^2", "Pearson"]
+        if additional_metrics:
+            metrics_to_compute.extend(additional_metrics)
+
+        results = evaluate(dataset, metric=metrics_to_compute)
+
+        # Log to wandb if enabled
+        # Check both is_wandb_enabled() and wandb.run to ensure the run is active
+        if self.is_wandb_enabled() and wandb.run is not None:
+            # Prefix indicates which split the metrics belong to (e.g. \"val\" or \"test\")
+            wandb_metrics = {f"{prefix}{k}": v for k, v in results.items()}
+            # Log to summary only (not history) since these are final metrics logged once
+            self.log_final_metrics(wandb_metrics)
+
+        return results
+
+    def log_final_metrics(self, metrics: dict[str, float]) -> None:
+        """
+        Store final metrics in the wandb run summary.
+
+        This method is used to record final metrics (e.g., after validation
+        or after a hyperparameter trial). Metrics are stored with their original
+        names (e.g., val_RMSE, test_RMSE) without additional prefixes.
+
+        :param metrics: dictionary of metric names to values
+        """
+        if not self.is_wandb_enabled():
+            return
+
+        # Ensure wandb.run is active before logging
+        if wandb.run is None:
+            return
+
+        for key, value in metrics.items():
+            # Store metrics directly without adding "final_" prefix
+            # The prefix (val_ or test_) already indicates the split
+            wandb.run.summary[key] = value
+
+    def finish_wandb(self) -> None:
+        """Finish the wandb run. Call this when training is complete."""
+        if not self.is_wandb_enabled():
+            return
+
+        wandb.finish()
+        self.wandb_run = None
 
     @classmethod
     @abstractmethod
@@ -97,11 +314,16 @@ class DRPModel(ABC):
         """
         Builds the model, for models that use hyperparameters.
 
+        Subclasses should call self.log_hyperparameters(hyperparameters) at the beginning
+        of this method to ensure hyperparameters are logged to wandb if enabled.
+
         :param hyperparameters: hyperparameters for the model
 
         Example::
 
-            self.model = ElasticNet(alpha=hyperparameters["alpha"], l1_ratio=hyperparameters["l1_ratio"])
+            def build_model(self, hyperparameters: dict[str, Any]) -> None:
+                self.log_hyperparameters(hyperparameters)  # Log to wandb
+                self.model = ElasticNet(alpha=hyperparameters["alpha"], l1_ratio=hyperparameters["l1_ratio"])
         """
 
     @pipeline_function

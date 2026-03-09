@@ -7,6 +7,7 @@
 [![Test status](https://github.com/daisybio/drevalpy/actions/workflows/run_tests.yml/badge.svg)](https://github.com/daisybio/drevalpy/actions?workflow=Tests)
 [![Precommit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![DOI](https://zenodo.org/badge/727156477.svg)](https://doi.org/10.5281/zenodo.18302237)
 
 **News:** Our preprint is out on [biorxiv](https://www.biorxiv.org/content/10.1101/2025.05.26.655288v1)!
 

@@ -18,7 +18,9 @@ from torch import nn
 from torch.utils.data import DataLoader, Dataset
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
-from drevalpy.models.drp_model import DRPModel
+
+from ..drp_model import DRPModel
+from ..lightning_metrics_mixin import RegressionMetricsMixin
 
 
 class RegressionDataset(Dataset):
@@ -313,7 +315,7 @@ class MOLIRegressor(nn.Module):
         return self.regressor(x)
 
 
-class MOLIModel(pl.LightningModule):
+class MOLIModel(RegressionMetricsMixin, pl.LightningModule):
     """
     PyTorch Lightning module for the MOLIR model.
 
@@ -363,6 +365,9 @@ class MOLIModel(pl.LightningModule):
         self.cna_encoder = MOLIEncoder(input_dim_cnv, self.h_dim3, self.dropout_rate)
         self.regressor = MOLIRegressor(self.h_dim1 + self.h_dim2 + self.h_dim3, self.dropout_rate)
 
+        # Initialize metrics storage for epoch-end R^2 and PCC computation
+        self._init_metrics_storage()
+
     def fit(
         self,
         output_train: DrugResponseDataset,
@@ -370,6 +375,7 @@ class MOLIModel(pl.LightningModule):
         output_earlystopping: DrugResponseDataset | None = None,
         patience: int = 5,
         model_checkpoint_dir: str = "checkpoints",
+        wandb_project: str | None = None,
     ) -> None:
         """
         Trains the MOLIR model.
@@ -377,11 +383,14 @@ class MOLIModel(pl.LightningModule):
         First, the ranges for the triplet loss are determined using the standard deviation of the training responses.
         Then, the training and validation data loaders are created. The model is trained using the Lightning Trainer
         with an early stopping callback and patience of 5.
+
         :param output_train: training dataset containing the response output
         :param cell_line_input: feature dataset containing the omics data of the cell lines
         :param output_earlystopping: early stopping dataset
         :param patience: for early stopping
         :param model_checkpoint_dir: directory to save the model checkpoints
+        :param wandb_project: optional wandb project name for logging. If provided, uses WandbLogger
+            for PyTorch Lightning training.
         """
         self.positive_range, self.negative_range = make_ranges(output_train)
 
@@ -407,9 +416,18 @@ class MOLIModel(pl.LightningModule):
             save_weights_only=True,
         )
 
+        # Set up wandb logger if project is provided
+        loggers = []
+        if wandb_project is not None:
+            from pytorch_lightning.loggers import WandbLogger
+
+            logger = WandbLogger(project=wandb_project, log_model=False)
+            loggers.append(logger)
+
         # Initialize the Lightning trainer
         trainer = pl.Trainer(
             max_epochs=self.epochs,
+            logger=loggers if loggers else True,  # Use default logger if no wandb
             callbacks=[
                 early_stop_callback,
                 self.checkpoint_callback,
@@ -521,6 +539,10 @@ class MOLIModel(pl.LightningModule):
         # Compute loss
         loss = self._compute_loss(z, preds, response)
         self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
+
+        # Store predictions and targets for epoch-end metrics via mixin
+        self._store_predictions(preds, response, is_training=True)
+
         return loss
 
     def validation_step(self, batch: list[torch.Tensor], batch_idx: int) -> torch.Tensor:
@@ -542,6 +564,10 @@ class MOLIModel(pl.LightningModule):
         # Compute loss
         val_loss = self._compute_loss(z, preds, response)
         self.log("val_loss", val_loss, on_step=False, on_epoch=True, prog_bar=True)
+
+        # Store predictions and targets for epoch-end metrics via mixin
+        self._store_predictions(preds, response, is_training=False)
+
         return val_loss
 
     def configure_optimizers(self) -> torch.optim.Optimizer:

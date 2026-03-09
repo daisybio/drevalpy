@@ -15,6 +15,7 @@ from torch_geometric.nn import GCNConv, global_mean_pool
 
 from ...datasets.dataset import DrugResponseDataset, FeatureDataset
 from ..drp_model import DRPModel
+from ..lightning_metrics_mixin import RegressionMetricsMixin
 from ..utils import load_and_select_gene_features
 
 
@@ -86,7 +87,7 @@ class DrugGraphNet(nn.Module):
         return out.view(-1)
 
 
-class DrugGNNModule(pl.LightningModule):
+class DrugGNNModule(RegressionMetricsMixin, pl.LightningModule):
     """The LightningModule for the DrugGNN model."""
 
     def __init__(
@@ -115,6 +116,9 @@ class DrugGNNModule(pl.LightningModule):
         )
         self.criterion = nn.MSELoss()
 
+        # Initialize metrics storage for epoch-end R^2 and PCC computation
+        self._init_metrics_storage()
+
     def forward(self, batch):
         """Forward pass of the module.
 
@@ -135,6 +139,10 @@ class DrugGNNModule(pl.LightningModule):
         outputs = self.model(drug_graph, cell_features)
         loss = self.criterion(outputs, responses)
         self.log("train_loss", loss, on_step=False, on_epoch=True, batch_size=responses.size(0))
+
+        # Store predictions and targets for epoch-end metrics via mixin
+        self._store_predictions(outputs, responses, is_training=True)
+
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -147,6 +155,9 @@ class DrugGNNModule(pl.LightningModule):
         outputs = self.model(drug_graph, cell_features)
         loss = self.criterion(outputs, responses)
         self.log("val_loss", loss, on_step=False, on_epoch=True, batch_size=responses.size(0))
+
+        # Store predictions and targets for epoch-end metrics via mixin
+        self._store_predictions(outputs, responses, is_training=False)
 
     def predict_step(self, batch, batch_idx, dataloader_idx=0):
         """A single prediction step.
@@ -252,6 +263,9 @@ class DrugGNN(DRPModel):
 
         :param hyperparameters: The hyperparameters.
         """
+        # Log hyperparameters to wandb if enabled
+        self.log_hyperparameters(hyperparameters)
+
         self.hyperparameters = hyperparameters
 
     def _loader_kwargs(self) -> dict[str, Any]:
@@ -326,11 +340,20 @@ class DrugGNN(DRPModel):
                 **self._loader_kwargs(),
             )
 
+        # Set up wandb logger if project is provided
+        loggers = []
+        if self.wandb_project is not None:
+            from pytorch_lightning.loggers import WandbLogger
+
+            logger = WandbLogger(project=self.wandb_project, log_model=False)
+            loggers.append(logger)
+
         trainer = pl.Trainer(
             max_epochs=self.hyperparameters.get("epochs", 100),
             accelerator="auto",
             devices="auto",
             callbacks=[pl.callbacks.EarlyStopping(monitor="val_loss", mode="min", patience=5)] if val_loader else None,
+            logger=loggers if loggers else True,  # Use default logger if no wandb
             enable_progress_bar=True,
             log_every_n_steps=int(self.hyperparameters.get("log_every_n_steps", 50)),
             precision=self.hyperparameters.get("precision", 32),

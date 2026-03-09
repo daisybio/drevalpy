@@ -164,6 +164,14 @@ def get_parser() -> argparse.ArgumentParser:
         help=f"Metric for hyperparameter tuning choose from {list(AVAILABLE_METRICS.keys())} " f"Default is RMSE.",
     )
     parser.add_argument(
+        "--wandb_project",
+        type=str,
+        default=None,
+        help=(
+            "Optional Weights & Biases project name. " "If provided, enables wandb logging for all DRPModel instances."
+        ),
+    )
+    parser.add_argument(
         "--n_cv_splits",
         type=int,
         default=7,
@@ -348,6 +356,7 @@ def main(args) -> None:
             model_checkpoint_dir=args.model_checkpoint_dir,
             hyperparameter_tuning=not args.no_hyperparameter_tuning,
             final_model_on_full_data=args.final_model_on_full_data,
+            wandb_project=args.wandb_project,
         )
 
 
