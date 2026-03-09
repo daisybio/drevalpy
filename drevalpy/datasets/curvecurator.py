@@ -15,10 +15,12 @@ measurements of low quality.
 import subprocess
 import warnings
 from pathlib import Path
+from typing import Union
 
 import numpy as np
 import pandas as pd
 import toml
+from pandas.core.groupby import DataFrameGroupBy
 
 from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
 
@@ -40,7 +42,7 @@ def _prepare_raw_data(curve_df: pd.DataFrame, output_dir: Path, prefix: str = ""
             UserWarning,
             stacklevel=1,
         )
-        curve_df = curve_df.groupby(["sample", "drug", "dose", "replicate"], as_index=False)["response"].mean()
+        curve_df = curve_df.groupby(["sample", "drug", "dose", "replicate"], as_index=False)[["response"]].mean()
 
     df = curve_df.pivot(index=["sample", "drug"], columns=pivot_columns, values="response")
 
@@ -177,7 +179,7 @@ def _calc_ic50(model_params_df: pd.DataFrame):
     back = model_params_df["Back"].values
     slope = model_params_df["Slope"].values
     # we need the pEC50 in uM; now it is in M: -log10(EC50[M] * 10^6) = -log10(EC50[M])-6 = pEC50 -6
-    pec50 = model_params_df["pEC50_curvecurator"].values - 6
+    pec50 = model_params_df["pEC50_curvecurator"].to_numpy(dtype=float) - 6
 
     model_params_df["IC50_curvecurator"] = ic50(front, back, slope, pec50)
     model_params_df["LN_IC50_curvecurator"] = np.log(model_params_df["IC50_curvecurator"].values)
@@ -233,6 +235,7 @@ def preprocess(input_file: str, output_dir: str, dataset_name: str, cores: int, 
         if curve_df["nreplicates"].nunique() > 1:
             groupby.append("nreplicates")
 
+    drug_df_groups: Union[DataFrameGroupBy, list[tuple[str, pd.DataFrame]]]
     if len(groupby) > 0:
         drug_df_groups = curve_df.groupby(groupby)
     else:
@@ -301,17 +304,17 @@ def postprocess(output_folder: str, dataset_name: str):
     with open(output_path / f"{dataset_name}.csv", "w") as f:
         first_file = True
         for output_file in curvecurator_output_files:
-            fitted_curve_data = pd.read_csv(output_file, sep="\t", usecols=required_columns).rename(
+            fitted_curve_data = pd.read_csv(output_file, sep="\t", usecols=list(required_columns.values())).rename(
                 columns=required_columns
             )
-            fitted_curve_data[[CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER]] = fitted_curve_data.Name.str.split(
+            fitted_curve_data[[CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER]] = fitted_curve_data["Name"].str.split(
                 "|", expand=True
             )
             fitted_curve_data["EC50_curvecurator"] = (
-                np.power(10, -fitted_curve_data["pEC50_curvecurator"].values) * 10**6
+                np.power(10, -fitted_curve_data["pEC50_curvecurator"].to_numpy(dtype=float)) * 10**6
             )  # in CurveCurator 10^-pEC50 = EC50
             _calc_ic50(fitted_curve_data)
-            fitted_curve_data.to_csv(f, index=None, header=first_file, mode="a")
+            fitted_curve_data.to_csv(f, index=False, header=first_file, mode="a")
             first_file = False
         f.close()
 

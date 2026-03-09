@@ -64,7 +64,9 @@ def _parse_layout(f: TextIO, path_to_layout: str, test_mode: str) -> None:
     f.write("".join(layout))
 
 
-def parse_results(path_to_results: str, dataset: str) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+def parse_results(
+    path_to_results: str, dataset: str
+) -> tuple[pd.DataFrame, pd.DataFrame | None, pd.DataFrame | None, pd.DataFrame]:
     """
     Parse the results from the given directory.
 
@@ -88,10 +90,10 @@ def parse_results(path_to_results: str, dataset: str) -> tuple[pd.DataFrame, pd.
     result_files = [file for file in result_files if pattern.match(str(file).replace("\\", "/"))]
 
     # inititalize dictionaries to store the evaluation results
-    evaluation_results = None
-    evaluation_results_per_drug = None
-    evaluation_results_per_cell_line = None
-    true_vs_pred = None
+    evaluation_results_list: list[pd.DataFrame] = []
+    evaluation_results_per_drug_list: list[pd.DataFrame] = []
+    evaluation_results_per_cell_line_list: list[pd.DataFrame] = []
+    true_vs_pred_list: list[pd.DataFrame] = []
 
     # read every result file and compute the evaluation metrics
     for file in result_files:
@@ -109,24 +111,23 @@ def parse_results(path_to_results: str, dataset: str) -> tuple[pd.DataFrame, pd.
             model_name,
         ) = evaluate_file(pred_file=file, test_mode=test_mode, model_name=algorithm)
 
-        evaluation_results = (
-            overall_eval if evaluation_results is None else pd.concat([evaluation_results, overall_eval])
-        )
-        true_vs_pred = t_vs_p if true_vs_pred is None else pd.concat([true_vs_pred, t_vs_p])
+        evaluation_results_list.append(overall_eval)
+        true_vs_pred_list.append(t_vs_p)
 
         if eval_results_per_drug is not None:
-            evaluation_results_per_drug = (
-                eval_results_per_drug
-                if evaluation_results_per_drug is None
-                else pd.concat([evaluation_results_per_drug, eval_results_per_drug])
-            )
+            evaluation_results_per_drug_list.append(eval_results_per_drug)
 
         if eval_results_per_cl is not None:
-            evaluation_results_per_cell_line = (
-                eval_results_per_cl
-                if evaluation_results_per_cell_line is None
-                else pd.concat([evaluation_results_per_cell_line, eval_results_per_cl])
-            )
+            evaluation_results_per_cell_line_list.append(eval_results_per_cl)
+
+    evaluation_results = pd.concat(evaluation_results_list)
+    evaluation_results_per_drug = (
+        pd.concat(evaluation_results_per_drug_list) if evaluation_results_per_drug_list else None
+    )
+    evaluation_results_per_cell_line = (
+        pd.concat(evaluation_results_per_cell_line_list) if evaluation_results_per_cell_line_list else None
+    )
+    true_vs_pred = pd.concat(true_vs_pred_list)
 
     return (
         evaluation_results,
@@ -185,10 +186,10 @@ def evaluate_file(
             eval_results_per_group=evaluation_results_per_cl,
             model=model,
         )
-    overall_eval = pd.DataFrame.from_dict(overall_eval, orient="index")
+    overall_eval_df = pd.DataFrame.from_dict(overall_eval, orient="index")
 
     return (
-        overall_eval,
+        overall_eval_df,
         evaluation_results_per_drug,
         evaluation_results_per_cl,
         true_vs_pred,
@@ -199,11 +200,11 @@ def evaluate_file(
 @pipeline_function
 def prep_results(
     eval_results: pd.DataFrame,
-    eval_results_per_drug: pd.DataFrame,
-    eval_results_per_cell_line: pd.DataFrame,
+    eval_results_per_drug: pd.DataFrame | None,
+    eval_results_per_cell_line: pd.DataFrame | None,
     t_vs_p: pd.DataFrame,
     path_data: pathlib.Path,
-) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+) -> tuple[pd.DataFrame, pd.DataFrame | None, pd.DataFrame | None, pd.DataFrame]:
     """
     Prepare the results by introducing new columns for algorithm, randomization, test_mode, split, CV_split.
 
@@ -450,8 +451,8 @@ def compute_evaluation(df: pd.DataFrame, return_df: pd.DataFrame | None, group_b
 def write_results(
     path_out: str,
     eval_results: pd.DataFrame,
-    eval_results_per_drug: pd.DataFrame,
-    eval_results_per_cl: pd.DataFrame,
+    eval_results_per_drug: pd.DataFrame | None,
+    eval_results_per_cl: pd.DataFrame | None,
     t_vs_p: pd.DataFrame,
 ) -> None:
     """
@@ -645,6 +646,11 @@ def draw_test_mode_plots(
 
     # per group plots
     if test_mode in ("LPO", "LDO"):
+        if ev_res_per_drug is None:
+            raise ValueError(
+                f"No evaluation results found for test_mode {test_mode} with drug information. "
+                "Please check if the evaluation was run correctly."
+            )
         _draw_per_grouping_setting_plots(
             grouping="drug_name",
             ev_res_per_group=ev_res_per_drug,
@@ -653,6 +659,11 @@ def draw_test_mode_plots(
             result_path=result_path,
         )
     if test_mode in ("LPO", "LCO", "LTO"):
+        if ev_res_per_cell_line is None:
+            raise ValueError(
+                f"No evaluation results found for test_mode {test_mode} with cell line information. "
+                "Please check if the evaluation was run correctly."
+            )
         _draw_per_grouping_setting_plots(
             grouping="cell_line_name",
             ev_res_per_group=ev_res_per_cell_line,
@@ -717,6 +728,7 @@ def draw_algorithm_plots(
     :param test_mode: test_mode
     :param custom_id: run id passed via command line
     :param result_path: path to the results
+    :raises ValueError: if no group-wise evaluation results are found for the given test_mode and model
     """
     eval_results_algorithm = ev_res[(ev_res["test_mode"] == test_mode) & (ev_res["algorithm"] == model)]
     for plt_type in ["violinplot", "heatmap"]:
@@ -743,6 +755,11 @@ def draw_algorithm_plots(
             out_suffix=f"{model}_{test_mode}",
         )
     if test_mode in ("LPO", "LDO"):
+        if ev_res_per_drug is None:
+            raise ValueError(
+                f"No drug evaluation results found for test_mode {test_mode} and model {model}. "
+                "Please check if the evaluation was run correctly."
+            )
         _draw_per_grouping_algorithm_plots(
             grouping="drug_name",
             model=model,
@@ -753,6 +770,11 @@ def draw_algorithm_plots(
             result_path=result_path,
         )
     if test_mode in ("LPO", "LCO", "LTO"):
+        if ev_res_per_cell_line is None:
+            raise ValueError(
+                f"No cell line evaluation results found for test_mode {test_mode} and model {model}. "
+                "Please check if the evaluation was run correctly."
+            )
         _draw_per_grouping_algorithm_plots(
             grouping="cell_line_name",
             model=model,

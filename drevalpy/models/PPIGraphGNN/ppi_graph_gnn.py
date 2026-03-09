@@ -254,10 +254,10 @@ class PPIGraphGNN(DRPModel):
     def __init__(self):
         """Initialize the PPIGraphGNN model."""
         super().__init__()
-        self.model: PPIGraphGNNModule | None = None
+        self.model = None
         self.hyperparameters = {}
-        self.ppi_graph_template: Data | None = None
-        self.explainer: Explainer | None = None
+        self.ppi_graph_template = None
+        self.explainer = None
 
     @classmethod
     def get_model_name(cls) -> str:

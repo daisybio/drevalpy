@@ -53,14 +53,16 @@ def load_bionic_features(data_path: str, dataset_name: str, gene_add_num: int = 
         # Aggregate BIONIC features for selected genes
         selected_features = [bionic_gene_dict[gene] for gene in top_genes if gene in bionic_gene_dict]
         if selected_features:
-            aggregated_feature = np.mean(selected_features, axis=0)
+            aggregated_feature = np.mean(np.array(selected_features), axis=0)
         else:
             # Handle case where no features are found (padding with zeros)
             aggregated_feature = np.zeros(next(iter(bionic_gene_dict.values())).shape)
 
         bionic_feature_dict[cell_line] = aggregated_feature
 
-    feature_data = {cell_line: {"bionic_features": features} for cell_line, features in bionic_feature_dict.items()}
+    feature_data = {
+        str(cell_line): {"bionic_features": features} for cell_line, features in bionic_feature_dict.items()
+    }
     return FeatureDataset(features=feature_data)
 
 

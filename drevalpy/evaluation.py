@@ -52,7 +52,7 @@ def pearson(y_pred: np.ndarray, y_true: np.ndarray) -> float:
     if _check_constant_target_or_small_sample(y_true):
         return np.nan
 
-    return pearsonr(y_pred, y_true)[0]
+    return pearsonr(y_pred, y_true).statistic
 
 
 def spearman(y_pred: np.ndarray, y_true: np.ndarray) -> float:
@@ -72,7 +72,7 @@ def spearman(y_pred: np.ndarray, y_true: np.ndarray) -> float:
     if _check_constant_target_or_small_sample(y_true):
         return np.nan
 
-    return spearmanr(y_pred, y_true)[0]
+    return spearmanr(y_pred, y_true).statistic
 
 
 def kendall(y_pred: np.ndarray, y_true: np.ndarray) -> float:

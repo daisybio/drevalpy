@@ -34,7 +34,7 @@ def _load_ppi_network(ppi_file: Path, gene_list_file: Path) -> Data:
         genes = gene_list_df["gene"].tolist()
     else:
         # Gene expression file -> columns are genes
-        genes = gene_list_df.columns
+        genes = list(gene_list_df.columns)
         genes = [g for g in genes if g not in ["cellosaurus_id", "cell_line_name"]]
 
     # Create a mapping from gene name to index

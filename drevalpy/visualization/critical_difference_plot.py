@@ -297,7 +297,7 @@ def _critical_difference_diagram(
         )
 
     # for each algorithm: get the set of algorithms that are not significantly different
-    crossbar_sets = dict()
+    crossbar_sets: dict[str, set[str]] = {}
     for alg, row in adj_matrix.iterrows():
         not_different = adj_matrix.columns[row].tolist()
         crossbar_sets[alg] = set(not_different).union({alg})
@@ -307,7 +307,7 @@ def _critical_difference_diagram(
     ypos = -0.5
     for alg in ranks.index:
         bar = crossbar_sets[alg]
-        not_different = crossbar_sets[alg]
+        not_different = list(crossbar_sets[alg])
         if len(not_different) == 1:
             continue
         crossbar_levels.append([bar])

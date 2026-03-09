@@ -231,7 +231,7 @@ class DrugGNN(DRPModel):
     def __init__(self):
         """Initialize the DrugGNN model."""
         super().__init__()
-        self.model: DrugGNNModule | None = None
+        self.model = None
         self.hyperparameters = {}
 
     @classmethod

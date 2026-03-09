@@ -135,7 +135,7 @@ class SRMF(DRPModel):
             index=cell_lines, columns=drugs
         )  # missing rows and columns are filled with NaN
 
-        self.w = ~np.isnan(drug_response_matrix)
+        self.w = pd.DataFrame(~np.isnan(drug_response_matrix))
         drug_response_matrix = drug_response_matrix.copy()
         drug_response_matrix[np.isnan(drug_response_matrix)] = 0
 
