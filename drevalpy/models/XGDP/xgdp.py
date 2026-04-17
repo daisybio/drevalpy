@@ -1,16 +1,28 @@
-"""XGDP model."""
+"""Contains XGDP, a GNN and CNN based drug response prediction model.
+
+Drug discovery and mechanism prediction with explainable graph neural networks.
+
+Original authors: Wang, C., Kumar, G.A. & Rajapakse, J.C. (2025, 10.1038/s41598-024-83090-3)
+Code adapted from their Github: https://github.com/SCSE-Biomedical-Computing-Group/XGDP/blob/main/utils_tcnn.py
+"""
 
 import json
 import os
 import secrets
+import sys
+import time
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
+import models
 import numpy as np
-import pytorch_lightning as pl
 import pandas as pd
+import pytorch_lightning as pl
 import torch
 import torch.nn as nn
+import tqdm
+import utils as u
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from torch.optim import Adam
 from torch.utils.data import Dataset as PytorchDataset
 from torch_geometric.loader import DataLoader
@@ -20,25 +32,14 @@ from ...datasets.dataset import DrugResponseDataset, FeatureDataset
 from ..drp_model import DRPModel
 from ..lightning_metrics_mixin import RegressionMetricsMixin
 from ..utils import load_and_select_gene_features
+from .utils import XGDPPredictor, predict_model, train_epoch
 
-from .model_utils import XGDPPredictor
 
-import pandas as pd
-import numpy as np
-import sys 
-import torch.nn as nn
-import tqdm
-import time
-
-import models
-import utils as u
-
-class XGDP(DRPModel):
+class XGDP(DRPModel, RegressionMetricsMixin):
     """XGDP model for ..."""
 
     cell_line_views = ["gene_expression"]
     drug_views = ["drug_graph"]
-    early_stopping = True
 
     def __init__(self) -> None:
         """Initialize the XGDP model."""
@@ -57,7 +58,7 @@ class XGDP(DRPModel):
         :returns: XGDP
         """
         return "XGDP"
-    
+
     def build_model(self, hyperparameters: dict[str, Any]) -> None:
         """
         Builds the XGDP model with the specified hyperparameters.
@@ -66,17 +67,16 @@ class XGDP(DRPModel):
         """
 
         self.hyperparameters = hyperparameters
+        model_name = hyperparameters.get("model_type", "GATNet")
 
-        self.model = XGDPPredictor(
-            name_hyperparameter = hyperparameter["name_hyperparameter"]
-        )
-        '''
+        self.model = XGDPPredictor(name_hyperparameter=hyperparameter["name_hyperparameter"])
+        """
          # Log hyperparameters to wandb if enabled
         self.log_hyperparameters(hyperparameters)
 
         self.hyperparameters = hyperparameters
         # init model in train
-        '''
+        """
 
     def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         """Loads the cell line features.
@@ -91,7 +91,7 @@ class XGDP(DRPModel):
             data_path=data_path,
             dataset_name=dataset_name,
         )
-    
+
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         """Loads the pre-computed drug graph data.
 
@@ -119,7 +119,7 @@ class XGDP(DRPModel):
         feature_dict = {drug_id: {"drug_graph": graph} for drug_id, graph in drug_graphs.items()}
 
         return FeatureDataset(features=feature_dict)
-    
+
     def train(
         self,
         output: DrugResponseDataset,
@@ -139,19 +139,20 @@ class XGDP(DRPModel):
         """
         if drug_input is None:
             raise ValueError("Drug input is required for XGDP")
-        
-        #step1 load data
 
-        #step 2: preprocess data
+        # step1 load data
+        train_loader = self._prepare_dataloader(output, cell_line_input, drug_input, is_train=True)
 
-        #step 4: init model + train parameters
-            #to do: get feature size from data? -> 
+        # step 2: preprocess data
+
+        # step 4: init model + train parameters
+        # to do: get feature size from data? ->
         with_attention = []
         model_name = self.hyperparameters["model"]
-        model_class = getattr(models,model_name )
-        #is done after cv split
-        #self.model = model_class() #check hyper parameter for each model
-        if 'GAT' in model_name:
+        model_class = getattr(models, model_name)
+        # is done after cv split
+        # self.model = model_class() #check hyper parameter for each model
+        if "GAT" in model_name:
             return_attention_weights = True
         else:
             return_attention_weights = False
@@ -161,24 +162,24 @@ class XGDP(DRPModel):
         test_batch_size = self.hyperparameters["test_batch_size"]
         val_batch_size = self.hyperparameters["val_batch_size"]
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        #step 3: build data loaders + split data
+        # step 3: build data loaders + split data
         test_loader = DataLoader(test_data, batch_size=test_batch_size, shuffle=False)
-        
-        #step 5: train loop
+
+        # step 5: train loop
         best_model_id = 0
         best_model = None
         best_pearson_cv = 0
         ret_cv = []
-        kf = KFold(n_splits=3) #creates splits indices for cross validation
-        #does the cv split
+        kf = KFold(n_splits=3)  # creates splits indices for cross validation
+        # does the cv split
         for i, (train_index, val_index) in enumerate(kf.split(cv_data)):
-            #splits data into val and train according to index form kf
-            train_data = Subset(data,train_index)
-            train_data = Subset(data,val_index)
+            # splits data into val and train according to index form kf
+            train_data = Subset(data, train_index)
+            train_data = Subset(data, val_index)
             train_loader = DataLoader(train_data, batch_size=train_batch_size, shuffle=False)
             val_loader = DataLoader(test_data, batch_size=val_batch_size, shuffle=False)
 
-            #creates model for each cv split
+            # creates model for each cv split
             model = model_class().to(device)
             optimizer = torch.optim.Adam(model.parameters(), lr=lr)
             best_mse = 1000
@@ -192,19 +193,19 @@ class XGDP(DRPModel):
             best_ret = []
             for epoch in tqdm(range(n_epochs)):
                 start_time = time.time()
-                train_loss = train(model, device, train_loader, optimizer, epoch+1, log_interval)
-                G,P = predicting(model, device, val_loader)
-                ret = [u.rmse(G,P),u.mse(G,P),u.pearson(G,P),u.spearman(G,P),coeffi_determ(G,P)]
+                train_loss = train(model, device, train_loader, optimizer, epoch + 1, log_interval)
+                G, P = predicting(model, device, val_loader)
+                ret = [u.rmse(G, P), u.mse(G, P), u.pearson(G, P), u.spearman(G, P), coeffi_determ(G, P)]
                 train_losses.append(train_loss)
                 val_losses.append(ret[1])
                 val_pearsons.append(ret[2])
 
         self.model = best_model
-        #step 6: save mdoel (maybe not neccecary beacuse class)
+        # step 6: save mdoel (maybe not neccecary beacuse class)
 
 
 class XGDP(DRPModel):
-    #to do
+    # to do
     def __init__(self):
         """Initialize the DrugGNN model."""
         pass
@@ -224,8 +225,8 @@ class XGDP(DRPModel):
         :return: The sources the model needs as input for describing the cell line.
         """
         return ["gene_expression"]
-    
-    #to do
+
+    # to do
     @property
     def drug_views(self) -> list[str]:
         """Return the sources the model needs as input for describing the drug.
@@ -264,19 +265,19 @@ class XGDP(DRPModel):
         """
         if drug_input is None:
             raise ValueError("Drug input is required for XGDP")
-        
-        #step1 load data
 
-        #step 2: preprocess data
+        # step1 load data
 
-        #step 4: init model + train parameters
-            #to do: get feature size from data? -> 
+        # step 2: preprocess data
+
+        # step 4: init model + train parameters
+        # to do: get feature size from data? ->
         with_attention = []
         model_name = self.hyperparameters["model"]
-        model_class = getattr(models,model_name )
-        #is done after cv split
-        #self.model = model_class() #check hyper parameter for each model
-        if 'GAT' in model_name:
+        model_class = getattr(models, model_name)
+        # is done after cv split
+        # self.model = model_class() #check hyper parameter for each model
+        if "GAT" in model_name:
             return_attention_weights = True
         else:
             return_attention_weights = False
@@ -286,24 +287,24 @@ class XGDP(DRPModel):
         test_batch_size = self.hyperparameters["test_batch_size"]
         val_batch_size = self.hyperparameters["val_batch_size"]
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        #step 3: build data loaders + split data
+        # step 3: build data loaders + split data
         test_loader = DataLoader(test_data, batch_size=test_batch_size, shuffle=False)
-        
-        #step 5: train loop
+
+        # step 5: train loop
         best_model_id = 0
         best_model = None
         best_pearson_cv = 0
         ret_cv = []
-        kf = KFold(n_splits=3) #creates splits indices for cross validation
-        #does the cv split
+        kf = KFold(n_splits=3)  # creates splits indices for cross validation
+        # does the cv split
         for i, (train_index, val_index) in enumerate(kf.split(cv_data)):
-            #splits data into val and train according to index form kf
-            train_data = Subset(data,train_index)
-            train_data = Subset(data,val_index)
+            # splits data into val and train according to index form kf
+            train_data = Subset(data, train_index)
+            train_data = Subset(data, val_index)
             train_loader = DataLoader(train_data, batch_size=train_batch_size, shuffle=False)
             val_loader = DataLoader(test_data, batch_size=val_batch_size, shuffle=False)
 
-            #creates model for each cv split
+            # creates model for each cv split
             model = model_class().to(device)
             optimizer = torch.optim.Adam(model.parameters(), lr=lr)
             best_mse = 1000
@@ -317,16 +318,12 @@ class XGDP(DRPModel):
             best_ret = []
             for epoch in tqdm(range(n_epochs)):
                 start_time = time.time()
-                train_loss = train(model, device, train_loader, optimizer, epoch+1, log_interval)
-                G,P = predicting(model, device, val_loader)
-                ret = [u.rmse(G,P),u.mse(G,P),u.pearson(G,P),u.spearman(G,P),coeffi_determ(G,P)]
+                train_loss = train(model, device, train_loader, optimizer, epoch + 1, log_interval)
+                G, P = predicting(model, device, val_loader)
+                ret = [u.rmse(G, P), u.mse(G, P), u.pearson(G, P), u.spearman(G, P), coeffi_determ(G, P)]
                 train_losses.append(train_loss)
                 val_losses.append(ret[1])
                 val_pearsons.append(ret[2])
 
         self.model = best_model
-        #step 6: save mdoel (maybe not neccecary beacuse class)
-
-
-
-        
+        # step 6: save mdoel (maybe not neccecary beacuse class)

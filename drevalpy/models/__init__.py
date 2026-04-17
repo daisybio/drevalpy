@@ -30,6 +30,7 @@ __all__ = [
     "DrugGNN",
     "ChemBERTaNeuralNetwork",
     "PharmaFormerModel",
+    "XGDP",
 ]
 
 from .baselines.multi_omics_random_forest import MultiOmicsRandomForest
@@ -60,6 +61,7 @@ from .SimpleNeuralNetwork.multiomics_neural_network import MultiOmicsNeuralNetwo
 from .SimpleNeuralNetwork.simple_neural_network import ChemBERTaNeuralNetwork, SimpleNeuralNetwork
 from .SRMF.srmf import SRMF
 from .SuperFELTR.superfeltr import SuperFELTR
+from .XGDP.xgdp import XGDP
 
 # SINGLE_DRUG_MODEL_FACTORY is used in the pipeline!
 SINGLE_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]] = {
@@ -93,6 +95,7 @@ MULTI_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]] = {
     "DrugGNN": DrugGNN,
     "ChemBERTaNeuralNetwork": ChemBERTaNeuralNetwork,
     "PharmaFormer": PharmaFormerModel,
+    "XGDP": XGDP,
 }
 
 # MODEL_FACTORY is used in the pipeline!
