@@ -11,6 +11,7 @@ import pytorch_lightning as pl
 import pandas as pd
 import torch
 import torch.nn as nn
+import torch_geometric
 from torch.optim import Adam
 from torch.utils.data import Dataset as PytorchDataset
 from torch_geometric.loader import DataLoader
@@ -163,41 +164,27 @@ class XGDP(DRPModel):
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         #step 3: build data loaders + split data
         test_loader = DataLoader(test_data, batch_size=test_batch_size, shuffle=False)
-        
+        train_data = Subset(data,train_index)
+        train_data = Subset(data,val_index)
+        train_loader = DataLoader(train_data, batch_size=train_batch_size, shuffle=False)
+        val_loader = DataLoader(test_data, batch_size=val_batch_size, shuffle=False)
         #step 5: train loop
-        best_model_id = 0
-        best_model = None
-        best_pearson_cv = 0
-        ret_cv = []
-        kf = KFold(n_splits=3) #creates splits indices for cross validation
-        #does the cv split
-        for i, (train_index, val_index) in enumerate(kf.split(cv_data)):
-            #splits data into val and train according to index form kf
-            train_data = Subset(data,train_index)
-            train_data = Subset(data,val_index)
-            train_loader = DataLoader(train_data, batch_size=train_batch_size, shuffle=False)
-            val_loader = DataLoader(test_data, batch_size=val_batch_size, shuffle=False)
 
-            #creates model for each cv split
-            model = model_class().to(device)
-            optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-            best_mse = 1000
-            best_pearson = 0
-            best_epoch = -1
-            total_time = 0
-            early_stop_tolerance = 30
-            train_losses = []
-            val_losses = []
-            val_pearsons = []
-            best_ret = []
-            for epoch in tqdm(range(n_epochs)):
-                start_time = time.time()
-                train_loss = train(model, device, train_loader, optimizer, epoch+1, log_interval)
-                G,P = predicting(model, device, val_loader)
-                ret = [u.rmse(G,P),u.mse(G,P),u.pearson(G,P),u.spearman(G,P),coeffi_determ(G,P)]
-                train_losses.append(train_loss)
-                val_losses.append(ret[1])
-                val_pearsons.append(ret[2])
+        #creates model for each cv split
+        self.model = model_class().to(device)
+        optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+        train_losses = []
+        val_losses = []
+        val_pearsons = []
+        best_ret = []
+        for epoch in tqdm(range(n_epochs)):
+            start_time = time.time()
+            train_loss = train(model, device, train_loader, optimizer, epoch+1, log_interval)
+            G,P = predicting(model, device, val_loader)
+            ret = [u.rmse(G,P),u.mse(G,P),u.pearson(G,P),u.spearman(G,P),coeffi_determ(G,P)]
+            train_losses.append(train_loss)
+            val_losses.append(ret[1])
+            val_pearsons.append(ret[2])
 
         self.model = best_model
         #step 6: save mdoel (maybe not neccecary beacuse class)
@@ -268,14 +255,18 @@ class XGDP(DRPModel):
         #step1 load data
 
         #step 2: preprocess data
+        #to do 
+        train_data = None
+        test_data = None
+        val_data = None
 
         #step 4: init model + train parameters
             #to do: get feature size from data? -> 
         with_attention = []
         model_name = self.hyperparameters["model"]
         model_class = getattr(models,model_name )
-        #is done after cv split
-        #self.model = model_class() #check hyper parameter for each model
+        self.model = model_class().to(device)
+        
         if 'GAT' in model_name:
             return_attention_weights = True
         else:
@@ -288,43 +279,42 @@ class XGDP(DRPModel):
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         #step 3: build data loaders + split data
         test_loader = DataLoader(test_data, batch_size=test_batch_size, shuffle=False)
+        train_loader = DataLoader(train_data, batch_size=train_batch_size, shuffle=False)
+        val_loader = DataLoader(val_data, batch_size=val_batch_size, shuffle=False)
         
         #step 5: train loop
-        best_model_id = 0
-        best_model = None
-        best_pearson_cv = 0
-        ret_cv = []
-        kf = KFold(n_splits=3) #creates splits indices for cross validation
-        #does the cv split
-        for i, (train_index, val_index) in enumerate(kf.split(cv_data)):
-            #splits data into val and train according to index form kf
-            train_data = Subset(data,train_index)
-            train_data = Subset(data,val_index)
-            train_loader = DataLoader(train_data, batch_size=train_batch_size, shuffle=False)
-            val_loader = DataLoader(test_data, batch_size=val_batch_size, shuffle=False)
-
-            #creates model for each cv split
-            model = model_class().to(device)
-            optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-            best_mse = 1000
-            best_pearson = 0
-            best_epoch = -1
-            total_time = 0
-            early_stop_tolerance = 30
-            train_losses = []
-            val_losses = []
-            val_pearsons = []
-            best_ret = []
-            for epoch in tqdm(range(n_epochs)):
-                start_time = time.time()
-                train_loss = train(model, device, train_loader, optimizer, epoch+1, log_interval)
-                G,P = predicting(model, device, val_loader)
-                ret = [u.rmse(G,P),u.mse(G,P),u.pearson(G,P),u.spearman(G,P),coeffi_determ(G,P)]
-                train_losses.append(train_loss)
-                val_losses.append(ret[1])
-                val_pearsons.append(ret[2])
-
-        self.model = best_model
+        self.model.train() #set model to train
+        loss_fn = nn.MSELoss()
+        optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
+        #metrics for checking how training is going
+        best_mse = 1000
+        best_pearson = 0
+        best_epoch = -1
+        total_time = 0
+        early_stop_tolerance = 30
+        train_losses = []
+        val_losses = []
+        val_pearsons = []
+        best_ret = []
+        
+        for epoch in n_epochs:
+            #print what epoch is trained
+            start_time = time.time()
+            print(f"epoch : {epoch+1}/{n_epochs} ")
+            #
+            avg_loss = []
+            for data in tqdm(train_loader):
+                data = data.to(device)
+                optimizer.zero_grad()
+                # output, _ = model(data)
+                x, x_cell_mut, edge_index, batch_drug, edge_feat = data.x, data.target, data.edge_index.long(), data.batch, data.edge_features
+                # output, _ = model(x, edge_index, x_cell_mut, batch_drug, edge_feat)
+                output = self.model(x, edge_index, batch_drug, x_cell_mut, edge_feat)
+                loss = loss_fn(output, data.y.view(-1, 1).float().to(device))
+                loss.backward()
+                optimizer.step()
+                avg_loss.append(loss.item())
+            train_loss = sum(avg_loss)/len(avg_loss)
         #step 6: save mdoel (maybe not neccecary beacuse class)
 
 
