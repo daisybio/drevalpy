@@ -1,4 +1,4 @@
-"""A GNN based drug response prediction model."""
+"""A GNN and CNN based drug response prediction model."""
 
 from .xgdp import XGDP
 

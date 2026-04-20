@@ -25,6 +25,7 @@ from drevalpy.models.drp_model import DRPModel
         "SimpleNeuralNetwork",
         "MultiOmicsNeuralNetwork",
         "PharmaFormer",
+        "XGDP",
     ],
 )
 def test_global_models(
