@@ -6,36 +6,176 @@ Original authors: Wang, C., Kumar, G.A. & Rajapakse, J.C. (2025, 10.1038/s41598-
 Code adapted from their Github: https://github.com/SCSE-Biomedical-Computing-Group/XGDP/blob/main/utils_tcnn.py
 """
 
-import json
-import os
-import secrets
-import sys
-import time
 from pathlib import Path
 from typing import Any
 
-import models
 import numpy as np
-import pandas as pd
 import pytorch_lightning as pl
 import torch
 import torch.nn as nn
-import tqdm
-import utils as u
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
-from sklearn.model_selection import KFold
-from sklearn.model_selection import train_test_split
-from torch.utils.data.dataset import Subset
 from torch.optim import Adam
 from torch.utils.data import Dataset as PytorchDataset
 from torch_geometric.loader import DataLoader
-from torch_geometric.nn import GCNConv, global_mean_pool
 
 from ...datasets.dataset import DrugResponseDataset, FeatureDataset
 from ..drp_model import DRPModel
 from ..lightning_metrics_mixin import RegressionMetricsMixin
 from ..utils import load_and_select_gene_features
-from .utils import XGDPPredictor, predict_model, train_epoch
+from .utils import XGDPPredictor
+
+
+class _XGDPDataset(PytorchDataset):
+    """A PyTorch Dataset for XGDP."""
+
+    def __init__(
+        self,
+        response: np.ndarray,
+        cell_line_ids: np.ndarray,
+        drug_ids: np.ndarray,
+        cell_line_features: FeatureDataset,
+        drug_features: FeatureDataset,
+    ):
+        """Initialize the dataset.
+
+        :param response: The drug response values.
+        :param cell_line_ids: The cell line IDs.
+        :param drug_ids: The drug IDs.
+        :param cell_line_features: A FeatureDataset object with cell line features.
+        :param drug_features: A FeatureDataset object with drug features.
+        """
+        self.response = response
+        self.cell_line_ids = cell_line_ids
+        self.drug_ids = drug_ids
+
+        # preconvert to tensors to avoid per item tensor creation
+        self.cell_features = {
+            cl_id: torch.tensor(features["gene_expression"], dtype=torch.float32).unsqueeze(0)
+            for cl_id, features in cell_line_features.features.items()
+        }
+        self.response_tensor = torch.tensor(self.response, dtype=torch.float32)
+
+        self.drug_graphs = {
+            drug_id: feature_views["drug_graph"] for drug_id, feature_views in drug_features.features.items()
+        }
+
+    def __len__(self):
+        return len(self.response)
+
+    def __getitem__(self, idx):
+        cell_line_id = self.cell_line_ids[idx]
+        drug_id = self.drug_ids[idx]
+
+        drug_graph = self.drug_graphs[drug_id]
+        cell_feat = self.cell_features[cell_line_id]
+        response = self.response_tensor[idx]
+
+        return drug_graph, cell_feat, response
+
+
+class XGDPModule(pl.LightningModule):
+    """The LightningModule for the XGDP model."""
+
+    def __init__(
+        self,
+        num_node_features: int,
+        num_cell_features: int,
+        hidden_dim: int = 64,
+        dropout: float = 0.2,
+        learning_rate: float = 0.001,
+    ):
+        """Initialize the LightningModule.
+
+        :param num_node_features: Number of features for each node in the drug graph.
+        :param num_cell_features: Number of features for the cell line.
+        :param hidden_dim: The hidden dimension size.
+        :param dropout: The dropout rate.
+        :param learning_rate: The learning rate.
+        """
+        super().__init__()
+        self.save_hyperparameters()
+        self.model = XGDPPredictor(
+            num_node_features=self.hparams["num_node_features"],
+            num_cell_features=self.hparams["num_cell_features"],
+            hidden_dim=self.hparams["hidden_dim"],
+            dropout=self.hparams["dropout"],
+            model_type=self.hparams.get("model_type", "GATNet"),
+        )
+        self.criterion = nn.MSELoss()
+
+        # Initialize metrics storage for epoch-end R^2 and PCC computation
+        self._init_metrics_storage()
+
+    def forward(self, batch):
+        """Forward pass of the module.
+
+        :param batch: The batch.
+        :return: The output of the model.
+        """
+        drug_graph, cell_features, _ = batch
+        return self.model(
+            x=drug_graph.x,
+            edge_index=drug_graph.edge_index,
+            batch=drug_graph.batch,
+            x_cell_mut=cell_features,
+            edge_feat=getattr(drug_graph, "edge_attr", None),
+        )
+
+    def training_step(self, batch, batch_idx):
+        """A single training step.
+
+        :param batch: The batch.
+        :param batch_idx: The batch index.
+        :return: The loss.
+        """
+        drug_graph, cell_features, responses = batch
+        outputs = self.forward(batch)
+        loss = self.criterion(outputs, responses)
+        self.log("train_loss", loss, on_step=False, on_epoch=True, batch_size=responses.size(0))
+
+        # Store predictions and targets for epoch-end metrics via mixin
+        self._store_predictions(outputs, responses, is_training=True)
+
+        return loss
+
+    def validation_step(self, batch, batch_idx):
+        """A single validation step.
+
+        :param batch: The batch.
+        :param batch_idx: The batch index.
+        """
+        drug_graph, cell_features, responses = batch
+        outputs = self.model(drug_graph, cell_features)
+        loss = self.criterion(outputs, responses)
+        self.log("val_loss", loss, on_step=False, on_epoch=True, batch_size=responses.size(0))
+
+        # Store predictions and targets for epoch-end metrics via mixin
+        self._store_predictions(outputs, responses, is_training=False)
+
+    def predict_step(self, batch, batch_idx, dataloader_idx=0):
+        """A single prediction step.
+
+        :param batch: The batch.
+        :param batch_idx: The batch index.
+        :param dataloader_idx: The dataloader index.
+        :return: The output of the model.
+        """
+        drug_graph, cell_features, _ = batch
+        outputs = self.model(
+            x=drug_graph.x,
+            edge_index=drug_graph.edge_index,
+            batch=drug_graph.batch,
+            x_cell_mut=cell_features,
+            edge_feat=getattr(drug_graph, "edge_attr", None),
+        )
+        return outputs
+
+    def configure_optimizers(self):
+        """Configure the optimizer.
+
+        :return: The optimizer.
+        """
+        return Adam(self.parameters(), lr=self.hparams.learning_rate)
 
 
 class XGDP(DRPModel, RegressionMetricsMixin):
@@ -68,11 +208,10 @@ class XGDP(DRPModel, RegressionMetricsMixin):
 
         :param hyperparameters: TODO: ADD HYPERPARAMETERS
         """
-
         self.hyperparameters = hyperparameters
         model_name = hyperparameters.get("model_type", "GATNet")
-        #init in train
-        #self.model = XGDPPredictor(name_hyperparameter=hyperparameter["name_hyperparameter"])
+        # init in train
+        # self.model = XGDPPredictor(name_hyperparameter=hyperparameter["name_hyperparameter"])
         """
          # Log hyperparameters to wandb if enabled
         self.log_hyperparameters(hyperparameters)
@@ -123,6 +262,17 @@ class XGDP(DRPModel, RegressionMetricsMixin):
 
         return FeatureDataset(features=feature_dict)
 
+    def _loader_kwargs(self) -> dict[str, Any]:
+        num_workers = int(self.hyperparameters.get("num_workers", 4))
+        kw = {
+            "num_workers": num_workers,
+            "pin_memory": True,
+        }
+        if num_workers > 0:
+            kw["persistent_workers"] = True
+            kw["prefetch_factor"] = int(self.hyperparameters.get("prefetch_factor", 2))
+        return kw
+
     def train(
         self,
         output: DrugResponseDataset,
@@ -143,121 +293,115 @@ class XGDP(DRPModel, RegressionMetricsMixin):
         if drug_input is None:
             raise ValueError("Drug input is required for XGDP")
 
-        # step1 load data
-        train_loader = self._prepare_dataloader(output, cell_line_input, drug_input, is_train=True)
+        # Determine feature sizes
+        num_node_features = next(iter(drug_input.features.values()))["drug_graph"].num_node_features
+        num_cell_features = next(iter(cell_line_input.features.values()))["gene_expression"].shape[0]
 
-        # step 2: preprocess data
+        self.model = XGDPModule(
+            num_node_features=num_node_features,
+            num_cell_features=num_cell_features,
+            hidden_dim=self.hyperparameters.get("hidden_dim", 64),
+            dropout=self.hyperparameters.get("dropout", 0.2),
+            learning_rate=self.hyperparameters.get("learning_rate", 0.001),
+        )
 
-        # step 3: build data loaders + split data
-        #to do create split indices
-        test_data = Subset(data, test_index)
-        train_data = Subset(data, train_index)
-        val_data = Subset(data, val_index)
-        test_loader = DataLoader(test_data, batch_size=test_batch_size, shuffle=False)
-        train_loader = DataLoader(train_data, batch_size=train_batch_size, shuffle=False)
-        val_loader = DataLoader(val_data, batch_size=val_batch_size, shuffle=False)
+        train_dataset = _XGDPDataset(
+            response=output.response,
+            cell_line_ids=output.cell_line_ids,
+            drug_ids=output.drug_ids,
+            cell_line_features=cell_line_input,
+            drug_features=drug_input,
+        )
+        train_loader = DataLoader(
+            train_dataset,
+            batch_size=self.hyperparameters.get("batch_size", 64),
+            shuffle=True,
+            **self._loader_kwargs(),
+        )
 
-        # step 4: init model + train parameters
-        # to do: get feature size from data? ->
+        val_loader = None
+        if output_earlystopping is not None and len(output_earlystopping) > 0:
+            val_dataset = _XGDPDataset(
+                response=output_earlystopping.response,
+                cell_line_ids=output.cell_line_ids,
+                drug_ids=output.drug_ids,
+                cell_line_features=cell_line_input,
+                drug_features=drug_input,
+            )
+            val_loader = DataLoader(
+                val_dataset,
+                batch_size=self.hyperparameters.get("batch_size", 32),
+                **self._loader_kwargs(),
+            )
 
-        #get model + init
-        with_attention = []
-        model_name = self.hyperparameters["model"]
-        model_class = getattr(models, model_name)
-        self.model = model_class().to(device) #add feature size
-        if "GAT" in model_name:
-            self.return_attention_weights = True
-        else:
-            self.return_attention_weights = False
+        # Set up wandb logger if project is provided
+        loggers = []
+        if self.wandb_project is not None:
+            from pytorch_lightning.loggers import WandbLogger
 
-        #get model hyperparameters
-        n_epochs = self.hyperparameters["n_epochs"]
-        lr = self.hyperparameters["lr"]
-        train_batch_size = self.hyperparameters["train_batch_size"]
-        test_batch_size = self.hyperparameters["test_batch_size"]
-        val_batch_size = self.hyperparameters["val_batch_size"]
-        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
-        do_save = self.hyperparameters["do_save"]
-        
-        #performance 
-        log_interval = 20
-        best_mse = 1000
-        best_pearson = 0
-        best_epoch = -1
-        total_time = 0
-        early_stop_tolerance = 30
-        train_losses = []
-        val_losses = []
-        val_pearsons = []
-        best_ret = []
+            logger = WandbLogger(project=self.wandb_project, log_model=False)
+            loggers.append(logger)
 
-        
-        # step 5: train loop
-        for epoch in tqdm(range(n_epochs)):
-            start_time = time.time()
-            train_loss = u.train(self.model, device, train_loader, optimizer, epoch+1, log_interval)
-            G,P = u.predicting(self.model, device, val_loader)
-            ret = [u.rmse(G,P),u.mse(G,P),u.pearson(G,P),u.spearman(G,P),u.coeffi_determ(G,P)]
+        trainer = pl.Trainer(
+            max_epochs=self.hyperparameters.get("epochs", 100),
+            accelerator="auto",
+            devices="auto",
+            callbacks=[pl.callbacks.EarlyStopping(monitor="val_loss", mode="min", patience=5)] if val_loader else None,
+            logger=loggers if loggers else True,  # Use default logger if no wandb
+            enable_progress_bar=True,
+            log_every_n_steps=int(self.hyperparameters.get("log_every_n_steps", 50)),
+            precision=self.hyperparameters.get("precision", 32),
+        )
+        trainer.fit(self.model, train_dataloaders=train_loader, val_dataloaders=val_loader)
 
-            train_losses.append(train_loss)
-            val_losses.append(ret[1])
-            val_pearsons.append(ret[2])
-
-            if ret[1]<best_mse:
-                #rework to / check which folder is best?
-                #if (do_save): #if enabeled saves best state of the model when model is better than previous versions
-                #    torch.save(self.model.state_dict(), model_folder + model_file_name)
-                    
-                best_epoch = epoch+1
-                best_mse = ret[1]
-                best_pearson = ret[2]
-                best_ret = ret
-
-            total_time += time.time() - start_time
-            if (epoch - best_epoch) > early_stop_tolerance:
-                print('early stop at epoch ', epoch)
-                break
-        # test with the model with best validation performance
-        if self.return_attention_weights:
-            G_test, P_test, attn_weights = u.predicting(self.model, device, test_loader, self.return_attention_weights)
-        else:
-            G_test, P_test = u.predicting(self.model, device, test_loader)
-        #rework 
-        #result_file_name = 'result_' + save_name + '_' + dataset + '_' +  '.csv'
-        #ret_test = [rmse(G_test,P_test),mse(G_test,P_test),pearson(G_test,P_test),spearman(G_test,P_test),coeffi_determ(G_test,P_test)]
-        #if do_save:
-        #    best_model_file_name = 'model_' + save_name + '_' + dataset + '_best' + str(best_model_id) +  '.model'
-        #    torch.save(best_model.state_dict(), model_folder + best_model_file_name)
-        #    if return_attention_weights:
-        #        np.save(br_fol + '/Saliency/AttnWeight/' + model_st + '.npy', attn_weights)
-        # step 6: save mdoel (maybe not neccecary beacuse class)
-
-def predict(
+    def predict(
         self,
         cell_line_ids: np.ndarray,
         drug_ids: np.ndarray,
         cell_line_input: FeatureDataset,
         drug_input: FeatureDataset | None = None,
     ) -> np.ndarray:
-        """
-        Predicts the response for the given input.
+        """Predict drug response.
 
-        :param drug_ids: list of drug ids, also used for single drug models, there it is just an array containing the
-            same drug id
-        :param cell_line_ids: list of cell line ids
-        :param cell_line_input: input associated with the cell line, required for all models
-        :param drug_input: input associated with the drug, optional because single drug models do not use drug features
-        :returns: predicted response
+        :param cell_line_ids: The cell line IDs.
+        :param drug_ids: The drug IDs.
+        :param cell_line_input: The cell line input dataset.
+        :param drug_input: The drug input dataset.
+        :raises RuntimeError: If the model has not been trained yet.
+        :raises ValueError: If drug input is not provided.
+        :return: The predicted drug response.
         """
-        #step 1 load data
-        data = None
-        #(step 2 preprocess)
+        if len(drug_ids) == 0 or len(cell_line_ids) == 0:
+            print("XGDP predict: No  drug or cell line IDs provided; returning empty array.")
+            return np.array([])
+        if self.model is None:
+            raise RuntimeError("Model has not been trained yet.")
+        if drug_input is None:
+            raise ValueError("Drug input is required for XGDP")
 
-        #step 3 dataloaders + 
-        loader = DataLoader(data, batch_size=1, shuffle=False)
-        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        #step 4 predict
-        ret_att = self.return_attention_weights
-        pred = u.predicting(model = self.model,device = device,loader = loader, return_attention_weights= ret_att)
-        #step 5 convert to dreval datatype + return
+        predict_dataset = _XGDPDataset(
+            response=np.zeros(len(cell_line_ids)),
+            cell_line_ids=cell_line_ids,
+            drug_ids=drug_ids,
+            cell_line_features=cell_line_input,
+            drug_features=drug_input,
+        )
+        predict_loader = DataLoader(
+            predict_dataset,
+            batch_size=self.hyperparameters.get("batch_size", 32),
+            **self._loader_kwargs(),
+        )
+
+        trainer = pl.Trainer(accelerator="auto", devices="auto", enable_progress_bar=False)
+        predictions_list = trainer.predict(self.model, dataloaders=predict_loader)
+
+        if not predictions_list:
+            print("XGDP predict: No predictions were made; returning empty array.")
+            return np.array([])
+
+        predictions_flat = [
+            item for sublist in predictions_list for item in (sublist if isinstance(sublist, list) else [sublist])
+        ]
+
+        predictions = torch.cat(predictions_flat).cpu().numpy()
+        return predictions
