@@ -26,6 +26,7 @@ from drevalpy.models.drp_model import DRPModel
         "MultiOmicsNeuralNetwork",
         "PharmaFormer",
         "AdaBoostDecisionTree",
+        "PaccMann",
     ],
 )
 def test_global_models(

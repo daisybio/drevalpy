@@ -32,6 +32,7 @@ __all__ = [
     "PharmaFormerModel",
     "AdaBoostDecisionTree",
     "Lasso",
+    "PaccMann",
 ]
 
 from .baselines.multi_omics_random_forest import MultiOmicsRandomForest
@@ -59,6 +60,7 @@ from .DIPK.dipk import DIPKModel
 from .drp_model import DRPModel
 from .DrugGNN import DrugGNN
 from .MOLIR.molir import MOLIR
+from .PaccMann.paccmann import PaccMann
 from .PharmaFormer.pharmaformer import PharmaFormerModel
 from .SimpleNeuralNetwork.multiomics_neural_network import MultiOmicsNeuralNetwork
 from .SimpleNeuralNetwork.simple_neural_network import ChemBERTaNeuralNetwork, SimpleNeuralNetwork
@@ -99,6 +101,7 @@ MULTI_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]] = {
     "PharmaFormer": PharmaFormerModel,
     "AdaBoostDecisionTree": AdaBoostDecisionTree,
     "Lasso": LassoModel,
+    "PaccMann": PaccMann,
 }
 
 # MODEL_FACTORY is used in the pipeline!

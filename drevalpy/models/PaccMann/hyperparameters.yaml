@@ -1,0 +1,51 @@
+PaccMann:
+  epochs:
+    - 3
+  batch_size:
+    - 64
+  learning_rate:
+    - 0.001
+  weight_decay:
+    - 0.0
+
+  smiles_embedding_size:
+    - 8
+
+  filters:
+    - [16, 16, 16]
+
+  molecule_heads:
+    - [2, 2, 2, 2]
+
+  gene_heads:
+    - [2, 2, 2, 2]
+
+  smiles_padding_length:
+    - 128
+
+  dropout:
+    - 0.5
+
+  batch_norm:
+    - true
+
+  activation_fn:
+    - relu
+
+  loss_fn:
+    - mse
+
+  smiles_attention_size:
+    - 64
+
+  gene_attention_size:
+    - 1
+
+  molecule_temperature:
+    - 1.0
+
+  gene_temperature:
+    - 1.0
+
+  stacked_dense_hidden_sizes:
+    - [512, 256]
