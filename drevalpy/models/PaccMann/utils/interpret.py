@@ -202,7 +202,7 @@ def test_time_augmentation(  # noqa: C901
             # Perform augmentation on all designated functions
             augmented_inputs = [
                 (aug_fns[tensors_to_augment.index(ind)](tensor) if ind in tensors_to_augment else tensor)
-                for ind, tensor in enumerate(input)
+                for ind, tensor in enumerate(inputs)
             ]
             outs = model(*map_to_device(augmented_inputs))
             return outs[0] if isinstance(outs, tuple) else outs
