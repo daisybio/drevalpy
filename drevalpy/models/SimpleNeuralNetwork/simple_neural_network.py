@@ -1,4 +1,4 @@
-"""Contains the SimpleNeuralNetwork and the ChemBERTaNeuralNetwork model."""
+"""Contains the SimpleNeuralNetwork model."""
 
 import json
 import os
@@ -7,22 +7,26 @@ import warnings
 
 import joblib
 import numpy as np
-import pandas as pd
 import torch
 from sklearn.preprocessing import StandardScaler
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 
 from ..drp_model import DRPModel
-from ..utils import load_and_select_gene_features, load_drug_fingerprint_features, scale_gene_expression
+from ..utils import (
+    _get_view_as_list,
+    load_single_cell_line_view,
+    load_single_drug_view,
+    scale_gene_expression,
+)
 from .utils import FeedForwardNetwork
 
 
 class SimpleNeuralNetwork(DRPModel):
     """Simple Feedforward Neural Network model with dropout using only gene expression data."""
 
-    cell_line_views = ["gene_expression"]
-    drug_views = ["fingerprints"]
+    cell_line_views = []
+    drug_views = []
     early_stopping = True
 
     def __init__(self):
@@ -54,8 +58,30 @@ class SimpleNeuralNetwork(DRPModel):
         self.log_hyperparameters(hyperparameters)
 
         self.hyperparameters = hyperparameters
-        self.hyperparameters.setdefault("input_dim_gex", None)
+        self.cell_line_views = _get_view_as_list(hyperparameters.get("cell_line_views", ["gene_expression"]))
+        self.drug_views = _get_view_as_list(hyperparameters.get("drug_views", ["fingerprints"]))
+        self.hyperparameters.setdefault("input_dim_omic", None)
         self.hyperparameters.setdefault("input_dim_fp", None)
+
+    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+        """
+        Loads the cell line features for a single-view neural network.
+
+        :param data_path: Path to the data
+        :param dataset_name: name of the dataset
+        :returns: FeatureDataset containing the cell line features
+        """
+        return load_single_cell_line_view(self.cell_line_views, data_path, dataset_name, self.get_model_name())
+
+    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset | None:
+        """
+        Loads the drug features for a single-view neural network.
+
+        :param data_path: Path to the data
+        :param dataset_name: name of the dataset
+        :returns: FeatureDataset containing the drug features
+        """
+        return load_single_drug_view(self.drug_views, data_path, dataset_name, self.get_model_name())
 
     def train(
         self,
@@ -91,14 +117,14 @@ class SimpleNeuralNetwork(DRPModel):
                 gene_expression_scaler=self.gene_expression_scaler,
             )
 
-        dim_gex = next(iter(cell_line_input.features.values()))["gene_expression"].shape[0]
+        dim_omic = next(iter(cell_line_input.features.values()))[self.cell_line_views[0]].shape[0]
         dim_fingerprint = next(iter(drug_input.features.values()))[self.drug_views[0]].shape[0]
-        self.hyperparameters["input_dim_gex"] = dim_gex
+        self.hyperparameters["input_dim_omic"] = dim_omic
         self.hyperparameters["input_dim_fp"] = dim_fingerprint
 
         self.model = FeedForwardNetwork(
             hyperparameters=self.hyperparameters,
-            input_dim=dim_gex + dim_fingerprint,
+            input_dim=dim_omic + dim_fingerprint,
         )
 
         with warnings.catch_warnings():
@@ -160,7 +186,7 @@ class SimpleNeuralNetwork(DRPModel):
             )
 
         x = self.get_concatenated_features(
-            cell_line_view="gene_expression",
+            cell_line_view=self.cell_line_views[0],
             drug_view=self.drug_views[0],
             cell_line_ids_output=cell_line_ids,
             drug_ids_output=drug_ids,
@@ -169,31 +195,6 @@ class SimpleNeuralNetwork(DRPModel):
         )
 
         return self.model.predict(x)
-
-    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
-        """
-        Loads the cell line features.
-
-        :param data_path: Path to the gene expression and landmark genes
-        :param dataset_name: name of the dataset
-        :return: FeatureDataset containing the cell line gene expression features, filtered through the landmark genes
-        """
-        return load_and_select_gene_features(
-            feature_type="gene_expression",
-            gene_list="landmark_genes_reduced",
-            data_path=data_path,
-            dataset_name=dataset_name,
-        )
-
-    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
-        """
-        Loads the fingerprint data.
-
-        :param data_path: Path to the fingerprints, e.g., data/
-        :param dataset_name: name of the dataset, e.g., GDSC1
-        :returns: FeatureDataset containing the fingerprints
-        """
-        return load_drug_fingerprint_features(data_path, dataset_name, fill_na=True)
 
     def save(self, directory: str) -> None:
         """
@@ -243,55 +244,16 @@ class SimpleNeuralNetwork(DRPModel):
         instance = cls()
 
         with open(hyperparam_file) as f:
-            instance.hyperparameters = json.load(f)
+            hyperparameters = json.load(f)
 
+        instance.build_model(hyperparameters)
         instance.gene_expression_scaler = joblib.load(scaler_file)
 
-        dim_gex = instance.hyperparameters["input_dim_gex"]
+        dim_omic = instance.hyperparameters["input_dim_omic"]
         dim_fp = instance.hyperparameters["input_dim_fp"]
 
-        instance.model = FeedForwardNetwork(instance.hyperparameters, input_dim=dim_gex + dim_fp)
+        instance.model = FeedForwardNetwork(instance.hyperparameters, input_dim=dim_omic + dim_fp)
         instance.model.load_state_dict(torch.load(model_file))  # noqa: S614
         instance.model.eval()
 
         return instance
-
-
-class ChemBERTaNeuralNetwork(SimpleNeuralNetwork):
-    """ChemBERTa Neural Network model using gene expression and ChemBERTa drug embeddings."""
-
-    drug_views = ["chemberta_embeddings"]
-
-    @classmethod
-    def get_model_name(cls) -> str:
-        """
-        Returns the model name.
-
-        :returns: ChemBERTaNeuralNetwork
-        """
-        return "ChemBERTaNeuralNetwork"
-
-    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
-        """
-        Loads the ChemBERTa embeddings.
-
-        :param data_path: Path to the ChemBERTa embeddings, e.g., data/
-        :param dataset_name: name of the dataset, e.g., GDSC1
-        :returns: FeatureDataset containing the ChemBERTa embeddings
-        :raises FileNotFoundError: if the ChemBERTa embeddings file is not found
-        """
-        chemberta_file = os.path.join(data_path, dataset_name, "drug_chemberta_embeddings.csv")
-        if not os.path.exists(chemberta_file):
-            raise FileNotFoundError(
-                f"ChemBERTa embeddings file not found: {chemberta_file}. "
-                "Please create it first with the respective drug_featurizer."
-            )
-
-        chemberta_df = pd.read_csv(chemberta_file, dtype={"pubchem_id": str})
-        features = {}
-        for _, row in chemberta_df.iterrows():
-            drug_id = row["pubchem_id"]
-            embedding = row.drop("pubchem_id").to_numpy(dtype=np.float32)
-            features[drug_id] = {"chemberta_embeddings": embedding}
-
-        return FeatureDataset(features)

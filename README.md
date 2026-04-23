@@ -177,8 +177,8 @@ nextflow run nf-core/drugresponseeval \
     --run_id main_results \
     --dataset_name CTRPv2 \
     --cross_study_datasets CTRPv1,CCLE,GDSC1,GDSC2 \
-    --models DIPK,MultiOmicsRandomForest \
-    --baselines SimpleNeuralNetwork,RandomForest,MultiOmicsNeuralNetwork,NaiveMeanEffectsPredictor,GradientBoosting,SRMF,ElasticNet,NaiveTissueMeanPredictor,NaivePredictor,SuperFELTR,NaiveCellLineMeanPredictor,NaiveDrugMeanPredictor,ProteomicsRandomForest \
+    --models DIPK,MultiViewRandomForest \
+    --baselines SimpleNeuralNetwork,RandomForest,MultiViewNeuralNetwork,NaiveMeanEffectsPredictor,GradientBoosting,SRMF,ElasticNet,NaiveTissueMeanPredictor,NaivePredictor,SuperFELTR,NaiveCellLineMeanPredictor,NaiveDrugMeanPredictor \
     --test_mode LPO,LCO,LTO,LDO \
     --randomization_mode SVRC,SVRD \
     --randomization_type permutation \
@@ -212,7 +212,7 @@ nextflow run nf-core/drugresponseeval \
     -profile docker \
     --run_id invariant-rf \
     --dataset_name CTRPv2 \
-    --models MultiOmicsRandomForest \
+    --models MultiViewRandomForest \
     --baselines NaiveMeanEffectsPredictor \
     --test_mode LPO,LCO,LDO \
     --randomization_mode SVRC,SVRD \

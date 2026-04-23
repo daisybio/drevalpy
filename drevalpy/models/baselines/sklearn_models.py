@@ -7,6 +7,7 @@ import joblib
 import numpy as np
 from sklearn.ensemble import AdaBoostRegressor, HistGradientBoostingRegressor, RandomForestRegressor
 from sklearn.linear_model import ElasticNet, Lasso, Ridge
+from sklearn.neighbors import KNeighborsRegressor
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVR
 from sklearn.tree import DecisionTreeRegressor
@@ -16,8 +17,9 @@ from drevalpy.models.drp_model import DRPModel
 
 from ..utils import (
     ProteomicsMedianCenterAndImputeTransformer,
-    load_and_select_gene_features,
-    load_drug_fingerprint_features,
+    _get_view_as_list,
+    load_single_cell_line_view,
+    load_single_drug_view,
     prepare_proteomics,
     scale_gene_expression,
 )
@@ -26,19 +28,32 @@ from ..utils import (
 class SklearnModel(DRPModel):
     """Parent class that contains the common methods for the sklearn models."""
 
-    cell_line_views = ["gene_expression"]
-    drug_views = ["fingerprints"]
+    cell_line_views = []
+    drug_views = []
 
     def __init__(self):
         """
         Initializes the model.
 
         Sets the model to None, which is initialized in the build_model method to the respective sklearn model.
+
+        Initializes omic-specific defaults:
+        *  For gene expression, a StandardScaler is initialized which will standardize the gene expression data.
+        *  For proteomics, default parameters for the ProteomicsMedianCenterAndImputeTransformer are initialized
+        (feature_threshold=0.7, n_features=1000, normalization_width=0.3, normalization_downshift=1.8).
         """
         super().__init__()
         self.model = None
         self.gene_expression_scaler = StandardScaler()
+        # proteomics-specific defaults
         self.proteomics_transformer = None
+        self.proteomics_feature_threshold = 0.7
+        self.proteomics_n_features = 1000
+        self.proteomics_normalization_width = 0.3
+        self.proteomics_normalization_downshift = 1.8
+        # methylation-specific defaults
+        self.methylation_pca = None
+        self.methylation_n_components = 100
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -53,9 +68,59 @@ class SklearnModel(DRPModel):
         """
         Builds the model from hyperparameters.
 
+        Flexible input support: Initializes the cell_line_views and drug_views to the values specified in the
+        hyperparameters.yaml file. If nothing is specified, gene_expression and fingerprints are used.
+
+        If proteomics is specified in the hyperparameters, the ProteomicsMedianCenterAndImputeTransformer
+        is initialized.
+
         :param hyperparameters: Custom hyperparameters for the model, have to be defined in the child class.
         """
+        # Log hyperparameters to wandb if enabled
+        self.log_hyperparameters(hyperparameters)
         self.hyperparameters = hyperparameters
+        self.cell_line_views = _get_view_as_list(hyperparameters.get("cell_line_views", ["gene_expression"]))
+        self.drug_views = _get_view_as_list(hyperparameters.get("drug_views", ["fingerprints"]))
+
+        # proteomics features are not supported for all models
+        if "proteomics" in self.cell_line_views:
+            self._init_proteomics_features(hyperparameters)
+
+        # methylation features are not supported for all models
+        if "methylation" in self.cell_line_views:
+            self.methylation_n_components = hyperparameters.get("methylation_n_components", 100)
+
+    def _init_proteomics_features(self, hyperparameters: dict):
+        self.proteomics_feature_threshold = hyperparameters.get("proteomics_feature_threshold", 0.7)
+        self.proteomics_n_features = hyperparameters.get("proteomics_n_features", 1000)
+        self.proteomics_normalization_width = hyperparameters.get("proteomics_normalization_width", 0.3)
+        self.proteomics_normalization_downshift = hyperparameters.get("proteomics_normalization_downshift", 1.8)
+        self.proteomics_transformer = ProteomicsMedianCenterAndImputeTransformer(
+            feature_threshold=self.proteomics_feature_threshold,
+            n_features=self.proteomics_n_features,
+            normalization_downshift=self.proteomics_normalization_downshift,
+            normalization_width=self.proteomics_normalization_width,
+        )
+
+    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+        """
+        Loads the cell line features for a single-view sklearn model.
+
+        :param data_path: Path to the data
+        :param dataset_name: Name of the dataset
+        :returns: FeatureDataset containing the cell line features
+        """
+        return load_single_cell_line_view(self.cell_line_views, data_path, dataset_name, self.get_model_name())
+
+    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset | None:
+        """
+        Load the drug features for a single-view sklearn model.
+
+        :param data_path: Path to the data
+        :param dataset_name: Name of the dataset
+        :returns: FeatureDataset containing the drug features
+        """
+        return load_single_drug_view(self.drug_views, data_path, dataset_name, self.get_model_name())
 
     def train(
         self,
@@ -74,29 +139,40 @@ class SklearnModel(DRPModel):
         :param drug_input: training dataset containing fingerprints data
         :param output_earlystopping: not needed
         :param model_checkpoint_dir: not needed
-        :raises ValueError: If drug_input is None.
         """
-        if drug_input is None:
-            raise ValueError("drug_input (fingerprints) is required for the sklearn models.")
+        if len(output) > 0:
+            if "gene_expression" in self.cell_line_views:
+                cell_line_input = scale_gene_expression(
+                    cell_line_input=cell_line_input,
+                    cell_line_ids=np.unique(output.cell_line_ids),
+                    training=True,
+                    gene_expression_scaler=self.gene_expression_scaler,
+                )
+            elif "proteomics" in self.cell_line_views:
+                cell_line_input = prepare_proteomics(
+                    cell_line_input=cell_line_input,
+                    cell_line_ids=np.unique(output.cell_line_ids),
+                    training=True,
+                    transformer=self.proteomics_transformer,
+                )
+            if len(self.drug_views) == 0:
+                # support for single-drug models
+                drug_view = None
+            else:
+                drug_view = self.drug_views[0]
 
-        if "gene_expression" in self.cell_line_views:
-
-            cell_line_input = scale_gene_expression(
+            x = self.get_concatenated_features(
+                cell_line_view=self.cell_line_views[0],
+                drug_view=drug_view,
+                cell_line_ids_output=output.cell_line_ids,
+                drug_ids_output=output.drug_ids,
                 cell_line_input=cell_line_input,
-                cell_line_ids=np.unique(output.cell_line_ids),
-                training=True,
-                gene_expression_scaler=self.gene_expression_scaler,
+                drug_input=drug_input,
             )
-
-        x = self.get_concatenated_features(
-            cell_line_view=self.cell_line_views[0],
-            drug_view=self.drug_views[0],
-            cell_line_ids_output=output.cell_line_ids,
-            drug_ids_output=output.drug_ids,
-            cell_line_input=cell_line_input,
-            drug_input=drug_input,
-        )
-        self.model.fit(x, output.response)
+            self.model.fit(x, output.response)
+        else:
+            print("No training data provided, will predict NA.")
+            self.model = None
 
     def predict(
         self,
@@ -113,10 +189,11 @@ class SklearnModel(DRPModel):
         :param drug_input: drug input
         :param cell_line_input: cell line input
         :returns: predicted drug response
-        :raises ValueError: If drug_input is None.
         """
-        if drug_input is None:
-            raise ValueError("drug_input (fingerprints) is required.")
+        if self.model is None:
+            print("No training data was available, predicting NA.")
+            return np.array([np.nan] * len(cell_line_ids))
+
         if "gene_expression" in self.cell_line_views:
             cell_line_input = scale_gene_expression(
                 cell_line_input=cell_line_input,
@@ -124,41 +201,29 @@ class SklearnModel(DRPModel):
                 training=False,
                 gene_expression_scaler=self.gene_expression_scaler,
             )
+        elif "proteomics" in self.cell_line_views:
+            cell_line_input = prepare_proteomics(
+                cell_line_input=cell_line_input,
+                cell_line_ids=np.unique(cell_line_ids),
+                training=False,
+                transformer=self.proteomics_transformer,
+            )
+
+        if len(self.drug_views) == 0:
+            # support for single-drug models
+            drug_view = None
+        else:
+            drug_view = self.drug_views[0]
 
         x = self.get_concatenated_features(
             cell_line_view=self.cell_line_views[0],
-            drug_view=self.drug_views[0],
+            drug_view=drug_view,
             cell_line_ids_output=cell_line_ids,
             drug_ids_output=drug_ids,
             cell_line_input=cell_line_input,
             drug_input=drug_input,
         )
         return self.model.predict(x)
-
-    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
-        """
-        Loads the cell line features.
-
-        :param data_path: Path to the gene expression and landmark genes
-        :param dataset_name: Name of the dataset
-        :returns: FeatureDataset containing the cell line gene expression features, filtered through the landmark genes
-        """
-        return load_and_select_gene_features(
-            feature_type="gene_expression",
-            gene_list="landmark_genes_reduced",
-            data_path=data_path,
-            dataset_name=dataset_name,
-        )
-
-    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset | None:
-        """
-        Load the drug features, in this case the fingerprints.
-
-        :param data_path: Path to the data
-        :param dataset_name: Name of the dataset
-        :returns: FeatureDataset containing the drug fingerprints
-        """
-        return load_drug_fingerprint_features(data_path, dataset_name, fill_na=True)
 
     def save(self, directory: str) -> None:
         """
@@ -171,8 +236,12 @@ class SklearnModel(DRPModel):
         - proteomics_transformer.pkl: fitted proteomics transformer (if present)
 
         :param directory: path to the directory where model files will be stored
+        :raises ValueError: if the model is not trained
         """
         os.makedirs(directory, exist_ok=True)
+        if self.model is None:
+            raise ValueError("Cannot save: model is not trained.")
+
         joblib.dump(self.model, os.path.join(directory, "model.pkl"))
         with open(os.path.join(directory, "hyperparameters.json"), "w") as f:
             json.dump(getattr(self, "hyperparameters", {}), f)
@@ -237,16 +306,16 @@ class ElasticNetModel(SklearnModel):
 
         :param hyperparameters: Contains L1 ratio and alpha.
         """
-        if hyperparameters["l1_ratio"] == 0.0:
-            self.model = Ridge(alpha=hyperparameters["alpha"])
-        elif hyperparameters["l1_ratio"] == 1.0:
-            self.model = Lasso(alpha=hyperparameters["alpha"])
+        super().build_model(hyperparameters)
+        if self.hyperparameters["l1_ratio"] == 0.0:
+            self.model = Ridge(alpha=self.hyperparameters["alpha"])
+        elif self.hyperparameters["l1_ratio"] == 1.0:
+            self.model = Lasso(alpha=self.hyperparameters["alpha"])
         else:
             self.model = ElasticNet(
-                alpha=hyperparameters["alpha"],
-                l1_ratio=hyperparameters["l1_ratio"],
+                alpha=self.hyperparameters["alpha"],
+                l1_ratio=self.hyperparameters["l1_ratio"],
             )
-        self.hyperparameters = hyperparameters
 
 
 class RandomForest(SklearnModel):
@@ -268,15 +337,15 @@ class RandomForest(SklearnModel):
         :param hyperparameters: Hyperparameters for the model. Contains n_estimators, criterion, max_samples,
             and n_jobs.
         """
-        if hyperparameters["max_depth"] == "None":
-            hyperparameters["max_depth"] = None
+        super().build_model(hyperparameters)
+        if self.hyperparameters["max_depth"] == "None":
+            self.hyperparameters["max_depth"] = None
         self.model = RandomForestRegressor(
-            n_estimators=hyperparameters["n_estimators"],
-            criterion=hyperparameters["criterion"],
-            max_samples=hyperparameters["max_samples"],
-            n_jobs=hyperparameters["n_jobs"],
+            n_estimators=self.hyperparameters["n_estimators"],
+            criterion=self.hyperparameters["criterion"],
+            max_samples=self.hyperparameters["max_samples"],
+            n_jobs=self.hyperparameters["n_jobs"],
         )
-        self.hyperparameters = hyperparameters
 
 
 class SVMRegressor(SklearnModel):
@@ -297,13 +366,13 @@ class SVMRegressor(SklearnModel):
 
         :param hyperparameters: Hyperparameters for the model. Contains kernel, C, epsilon, and max_iter.
         """
+        super().build_model(hyperparameters)
         self.model = SVR(
-            kernel=hyperparameters["kernel"],
-            C=hyperparameters["C"],
-            epsilon=hyperparameters["epsilon"],
-            max_iter=hyperparameters["max_iter"],
+            kernel=self.hyperparameters["kernel"],
+            C=self.hyperparameters["C"],
+            epsilon=self.hyperparameters["epsilon"],
+            max_iter=self.hyperparameters["max_iter"],
         )
-        self.hyperparameters = hyperparameters
 
 
 class GradientBoosting(SklearnModel):
@@ -325,298 +394,14 @@ class GradientBoosting(SklearnModel):
         :param hyperparameters: Hyperparameters for the model. Contains n_estimators, learning_rate, max_depth,
             and subsample
         """
-        if hyperparameters["max_depth"] == "None":
-            hyperparameters["max_depth"] = None
+        super().build_model(hyperparameters)
+        if self.hyperparameters["max_depth"] == "None":
+            self.hyperparameters["max_depth"] = None
         self.model = HistGradientBoostingRegressor(
-            max_iter=hyperparameters.get("max_iter", 100),
-            learning_rate=hyperparameters.get("learning_rate", 0.1),
-            max_depth=hyperparameters.get("max_depth", 3),
+            max_iter=self.hyperparameters.get("max_iter", 100),
+            learning_rate=self.hyperparameters.get("learning_rate", 0.1),
+            max_depth=self.hyperparameters.get("max_depth", 3),
         )
-        self.hyperparameters = hyperparameters
-
-
-class ProteomicsRandomForest(RandomForest):
-    """RandomForest model for drug response prediction using proteomics data."""
-
-    cell_line_views = ["proteomics"]
-
-    def __init__(self):
-        """
-        Initializes the model with specific hyperparameters.
-
-        feature_threshold: for feature selection. Require that, e.g., 70% of the proteins are measured without NAs
-        over all cell lines -> n_complete_features = number of proteins with at least 70% of the cell lines
-        n_features: fallback for feature selection. Take top n complete features.
-        Select max(n_complete_features, n_features) features.
-        normalization_width: width of the Gaussian kernel for the median centering
-        normalization_downshift: downshift of the median for the imputation of missing values
-        """
-        super().__init__()
-        self.feature_threshold = 0.7
-        self.n_features = 1000
-        self.normalization_width = 0.3
-        self.normalization_downshift = 1.8
-
-    def build_model(self, hyperparameters: dict):
-        """
-        Builds the model from hyperparameters.
-
-        :param hyperparameters: Hyperparameters for the model. Contains n_estimators, criterion, max_samples,
-            and n_jobs.
-        """
-        super().build_model(hyperparameters)
-        self.feature_threshold = hyperparameters.get("feature_threshold", 0.7)
-        self.n_features = hyperparameters.get("n_features", 1000)
-        self.normalization_width = hyperparameters.get("normalization_width", 0.3)
-        self.normalization_downshift = hyperparameters.get("normalization_downshift", 1.8)
-        self.proteomics_transformer = ProteomicsMedianCenterAndImputeTransformer(
-            feature_threshold=self.feature_threshold,
-            n_features=self.n_features,
-            normalization_downshift=self.normalization_downshift,
-            normalization_width=self.normalization_width,
-        )
-
-    @classmethod
-    def get_model_name(cls) -> str:
-        """
-        Returns the model name.
-
-        :returns: ProteomicsRandomForest
-        """
-        return "ProteomicsRandomForest"
-
-    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
-        """
-        Loads the cell line features.
-
-        :param data_path: Path to the gene expression and landmark genes
-        :param dataset_name: Name of the dataset
-        :returns: FeatureDataset containing the cell line proteomics features, filtered through the landmark genes
-        """
-        return load_and_select_gene_features(
-            feature_type="proteomics",
-            gene_list=None,
-            data_path=data_path,
-            dataset_name=dataset_name,
-        )
-
-    def train(
-        self,
-        output: DrugResponseDataset,
-        cell_line_input: FeatureDataset,
-        drug_input: FeatureDataset | None = None,
-        output_earlystopping: DrugResponseDataset | None = None,
-        model_checkpoint_dir: str = "checkpoints",
-    ) -> None:
-        """
-        Trains the model.
-
-        The number of features is the number of genes + the number of fingerprints.
-        :param output: training dataset containing the response output
-        :param cell_line_input: training dataset containing gene expression data
-        :param drug_input: training dataset containing fingerprints data
-        :param output_earlystopping: not needed
-        :param model_checkpoint_dir: not needed
-        :raises ValueError: If drug_input is None.
-        """
-        if drug_input is None:
-            raise ValueError("drug_input (fingerprints) is required for the sklearn models.")
-
-        cell_line_input = prepare_proteomics(
-            cell_line_input=cell_line_input,
-            cell_line_ids=np.unique(output.cell_line_ids),
-            training=True,
-            transformer=self.proteomics_transformer,
-        )
-
-        x = self.get_concatenated_features(
-            cell_line_view=self.cell_line_views[0],
-            drug_view=self.drug_views[0],
-            cell_line_ids_output=output.cell_line_ids,
-            drug_ids_output=output.drug_ids,
-            cell_line_input=cell_line_input,
-            drug_input=drug_input,
-        )
-        self.model.fit(x, output.response)
-
-    def predict(
-        self,
-        cell_line_ids: np.ndarray,
-        drug_ids: np.ndarray,
-        cell_line_input: FeatureDataset,
-        drug_input: FeatureDataset | None = None,
-    ) -> np.ndarray:
-        """
-        Predicts the response for the given input.
-
-        :param drug_ids: drug ids
-        :param cell_line_ids: cell line ids
-        :param drug_input: drug input
-        :param cell_line_input: cell line input
-        :returns: predicted drug response
-        :raises ValueError: If drug_input is None.
-        """
-        if drug_input is None:
-            raise ValueError("drug_input (fingerprints) is required.")
-        cell_line_input = prepare_proteomics(
-            cell_line_input=cell_line_input,
-            cell_line_ids=np.unique(cell_line_ids),
-            training=False,
-            transformer=self.proteomics_transformer,
-        )
-        if self.model is None:
-            print("No training data was available, or model not trained predicting NA.")
-            return np.array([np.nan] * len(cell_line_ids))
-        x = self.get_concatenated_features(
-            cell_line_view=self.cell_line_views[0],
-            drug_view=self.drug_views[0],
-            cell_line_ids_output=cell_line_ids,
-            drug_ids_output=drug_ids,
-            cell_line_input=cell_line_input,
-            drug_input=drug_input,
-        )
-        return self.model.predict(x)
-
-
-class ProteomicsElasticNetModel(ElasticNetModel):
-    """ElasticNet model for drug response prediction using proteomics data."""
-
-    cell_line_views = ["proteomics"]
-
-    def __init__(self):
-        """
-        Initializes the model with specific hyperparameters.
-
-        feature_threshold: for feature selection. Require that, e.g., 70% of the proteins are measured without NAs
-        over all cell lines -> n_complete_features = number of proteins with at least 70% of the cell lines
-        n_features: fallback for feature selection. Take top n complete features.
-        Select max(n_complete_features, n_features) features.
-        normalization_width: width of the Gaussian kernel for the median centering
-        normalization_downshift: downshift of the median for the imputation of missing values
-        """
-        super().__init__()
-        self.feature_threshold = 0.7
-        self.n_features = 1000
-        self.normalization_width = 0.3
-        self.normalization_downshift = 1.8
-
-    def build_model(self, hyperparameters: dict):
-        """
-        Builds the model from hyperparameters.
-
-        :param hyperparameters: Hyperparameters for the model.
-        """
-        super().build_model(hyperparameters)
-        self.feature_threshold = hyperparameters.get("feature_threshold", 0.7)
-        self.n_features = hyperparameters.get("n_features", 1000)
-        self.normalization_width = hyperparameters.get("normalization_width", 0.3)
-        self.normalization_downshift = hyperparameters.get("normalization_downshift", 1.8)
-        self.proteomics_transformer = ProteomicsMedianCenterAndImputeTransformer(
-            feature_threshold=self.feature_threshold,
-            n_features=self.n_features,
-            normalization_downshift=self.normalization_downshift,
-            normalization_width=self.normalization_width,
-        )
-
-    @classmethod
-    def get_model_name(cls) -> str:
-        """
-        Returns the model name.
-
-        :returns: ProteomicsElasticNet
-        """
-        return "ProteomicsElasticNet"
-
-    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
-        """
-        Loads the cell line features.
-
-        :param data_path: Path to the gene expression and landmark genes
-        :param dataset_name: Name of the dataset
-        :returns: FeatureDataset containing the cell line proteomics features, filtered through the landmark genes
-        """
-        return load_and_select_gene_features(
-            feature_type="proteomics",
-            gene_list=None,
-            data_path=data_path,
-            dataset_name=dataset_name,
-        )
-
-    def train(
-        self,
-        output: DrugResponseDataset,
-        cell_line_input: FeatureDataset,
-        drug_input: FeatureDataset | None = None,
-        output_earlystopping: DrugResponseDataset | None = None,
-        model_checkpoint_dir: str = "checkpoints",
-    ) -> None:
-        """
-        Trains the model.
-
-        The number of features is the number of genes + the number of fingerprints.
-        :param output: training dataset containing the response output
-        :param cell_line_input: training dataset containing gene expression data
-        :param drug_input: training dataset containing fingerprints data
-        :param output_earlystopping: not needed
-        :param model_checkpoint_dir: not needed
-        :raises ValueError: If drug_input is None.
-        """
-        if drug_input is None:
-            raise ValueError("drug_input (fingerprints) is required for the sklearn models.")
-
-        cell_line_input = prepare_proteomics(
-            cell_line_input=cell_line_input,
-            cell_line_ids=np.unique(output.cell_line_ids),
-            training=True,
-            transformer=self.proteomics_transformer,
-        )
-        x = self.get_concatenated_features(
-            cell_line_view=self.cell_line_views[0],
-            drug_view=self.drug_views[0],
-            cell_line_ids_output=output.cell_line_ids,
-            drug_ids_output=output.drug_ids,
-            cell_line_input=cell_line_input,
-            drug_input=drug_input,
-        )
-        self.model.fit(x, output.response)
-
-    def predict(
-        self,
-        cell_line_ids: np.ndarray,
-        drug_ids: np.ndarray,
-        cell_line_input: FeatureDataset,
-        drug_input: FeatureDataset | None = None,
-    ) -> np.ndarray:
-        """
-        Predicts the response for the given input.
-
-        :param drug_ids: drug ids
-        :param cell_line_ids: cell line ids
-        :param drug_input: drug input
-        :param cell_line_input: cell line input
-        :returns: predicted drug response
-        :raises ValueError: If drug_input is None.
-        """
-        if drug_input is None:
-            raise ValueError("drug_input (fingerprints) is required.")
-        cell_line_input = prepare_proteomics(
-            cell_line_input=cell_line_input,
-            cell_line_ids=np.unique(cell_line_ids),
-            training=False,
-            transformer=self.proteomics_transformer,
-        )
-        if self.model is None:
-            print("No training data was available, or model not trained predicting NA.")
-            return np.array([np.nan] * len(cell_line_ids))
-        x = self.get_concatenated_features(
-            cell_line_view=self.cell_line_views[0],
-            drug_view=self.drug_views[0],
-            cell_line_ids_output=cell_line_ids,
-            drug_ids_output=drug_ids,
-            cell_line_input=cell_line_input,
-            drug_input=drug_input,
-        )
-        return self.model.predict(x)
 
 
 class AdaBoostDecisionTree(SklearnModel):
@@ -638,41 +423,19 @@ class AdaBoostDecisionTree(SklearnModel):
         :param hyperparameters: Hyperparameters for the model. Contains n_estimators, max_depth,
             min_samples_split and min_samples_leaf.
         """
+        super().build_model(hyperparameters)
         self.model = AdaBoostRegressor(
             estimator=DecisionTreeRegressor(
-                max_depth=hyperparameters["max_depth"],
-                min_samples_split=hyperparameters["min_samples_split"],
-                min_samples_leaf=hyperparameters["min_samples_leaf"],
+                max_depth=self.hyperparameters["max_depth"],
+                min_samples_split=self.hyperparameters["min_samples_split"],
+                min_samples_leaf=self.hyperparameters["min_samples_leaf"],
             ),
-            n_estimators=hyperparameters["n_estimators"],
+            n_estimators=self.hyperparameters["n_estimators"],
         )
-        self.hyperparameters = hyperparameters
 
 
 class LassoModel(SklearnModel):
-    """
-    Lasso regression model for drug response prediction.
-
-    This model combines cell line gene expression features and drug fingerprint
-    features into a single input matrix and uses a sklearn Lasso model to predict
-    drug response values.
-
-    Lasso applies L1 regularization, which shrinks coefficients to zero.
-    Some coefficients can become zero, enabling feature selection and reducing model complexity.
-    """
-
-    def __init__(self):
-        """
-        Initializes the Lasso model.
-
-        self.model: stores the sklearn Lasso model
-        self.input_scaler: scales the combined input matrix
-        self.hyperparameters: stores the passed hyperparameters
-        """
-        super().__init__()
-        self.model = None
-        self.input_scaler = StandardScaler()
-        self.hyperparameters = None
+    """Lasso regression model for drug response prediction."""
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -683,19 +446,40 @@ class LassoModel(SklearnModel):
         """
         return "Lasso"
 
-    def build_model(self, hyperparameters: dict) -> None:
+    def build_model(self, hyperparameters: dict):
         """
-        Build the sklearn Lasso model using hyperparameters.
+        Builds the Lasso model from hyperparameters.
 
-        The hyperparameters are stored in the model instance and then passed to "sklearn.linear_model.Lasso".
-
-        :param hyperparameters: dictionary containing model hyperparameters
+        :param hyperparameters: Contains alpha.
         """
+        super().build_model(hyperparameters)
         self.model = Lasso(
-            alpha=hyperparameters["alpha"],
+            alpha=self.hyperparameters["alpha"],
             max_iter=10000,
             tol=1e-3,
             selection="random",
         )
 
-        self.hyperparameters = hyperparameters
+
+class KNNRegressor(SklearnModel):
+    """KNNRegressor model for using k-nearest neighbors for drug response prediction."""
+
+    @classmethod
+    def get_model_name(cls) -> str:
+        """
+        Returns the model name.
+
+        :returns: KNNRegressor
+        """
+        return "KNNRegressor"
+
+    def build_model(self, hyperparameters: dict):
+        """
+        Builds the model from hyperparameters.
+
+        :param hyperparameters: Hyperparameters for the model. Contains neighbors, weights.
+        """
+        super().build_model(hyperparameters)
+        self.model = KNeighborsRegressor(
+            n_neighbors=self.hyperparameters["n_neighbors"], weights=self.hyperparameters.get("weights", "distance")
+        )

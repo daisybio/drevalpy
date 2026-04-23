@@ -71,6 +71,7 @@ class SRMF(DRPModel):
 
         :param hyperparameters: dictionary containing the hyperparameters
         """
+        self.log_hyperparameters(hyperparameters)
         self.k = hyperparameters.get("K", 45)
         self.lambda_l = hyperparameters.get("lambda_l", 0.01)
         self.lambda_d = hyperparameters.get("lambda_d", 0)

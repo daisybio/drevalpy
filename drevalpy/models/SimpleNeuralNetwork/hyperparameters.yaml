@@ -1,5 +1,10 @@
 ---
 SimpleNeuralNetwork:
+  cell_line_views:
+    - gene_expression
+  drug_views:
+    - fingerprints
+    - drug_chemberta_embeddings
   dropout_prob:
     - 0.3
   units_per_layer:
@@ -20,7 +25,14 @@ SimpleNeuralNetwork:
   max_epochs:
     - 100
 
-MultiOmicsNeuralNetwork:
+MultiViewNeuralNetwork:
+  cell_line_views:
+    - - gene_expression
+      - methylation
+      - mutations
+      - copy_number_variation_gistic
+  drug_views:
+    - fingerprints
   dropout_prob:
     - 0.3
   units_per_layer:
@@ -39,26 +51,5 @@ MultiOmicsNeuralNetwork:
       - 32
   methylation_pca_components:
     - 100
-  max_epochs:
-    - 100
-
-ChemBERTaNeuralNetwork:
-  dropout_prob:
-    - 0.3
-  units_per_layer:
-    - - 32
-      - 16
-      - 8
-      - 4
-    - - 128
-      - 64
-      - 32
-    - - 64
-      - 64
-      - 32
-    - - 1024
-      - 128
-      - 64
-      - 16
   max_epochs:
     - 100

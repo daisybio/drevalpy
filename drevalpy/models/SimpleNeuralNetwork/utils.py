@@ -34,7 +34,7 @@ class RegressionDataset(Dataset):
         :param cell_line_input: input omics data
         :param drug_input: input fingerprint data
         :param cell_line_views: either gene expression for the SimpleNeuralNetwork or all omics data for the
-            MultiOMICSNeuralNetwork
+            MultiViewNeuralNetwork
         :param drug_views: fingerprints
         :raises AssertionError: if the views are not found in the input data
         """
@@ -98,7 +98,7 @@ class RegressionDataset(Dataset):
 class FeedForwardNetwork(RegressionMetricsMixin, pl.LightningModule):
     """Feed forward neural network for regression tasks with basic architecture."""
 
-    def __init__(self, hyperparameters: dict[str, int | float | list[int]], input_dim: int) -> None:
+    def __init__(self, hyperparameters: dict[str, int | float | list[int] | str | list[str]], input_dim: int) -> None:
         """
         Initializes the feed forward network.
 
@@ -107,7 +107,7 @@ class FeedForwardNetwork(RegressionMetricsMixin, pl.LightningModule):
 
         :param hyperparameters: hyperparameters
         :param input_dim: input dimension, for SimpleNeuralNetwork it is the sum of the gene expression and
-            fingerprint, for MultiOMICSNeuralNetwork it is the sum of all omics data and fingerprints
+            fingerprint, for MultiViewNeuralNetwork it is the sum of all omics data and fingerprints
         :raises TypeError: if the hyperparameters are not of the correct type
         """
         super().__init__()
@@ -115,10 +115,12 @@ class FeedForwardNetwork(RegressionMetricsMixin, pl.LightningModule):
 
         if not isinstance(hyperparameters["units_per_layer"], list):
             raise TypeError("units_per_layer must be a list of integers")
+        if not all(isinstance(x, int) for x in hyperparameters["units_per_layer"]):
+            raise TypeError("units_per_layer must be a list of integers")
         if not isinstance(hyperparameters["dropout_prob"], float):
             raise TypeError("dropout_prob must be a float")
 
-        n_units_per_layer: list[int] = hyperparameters["units_per_layer"]
+        n_units_per_layer: list[int] = hyperparameters["units_per_layer"]  # type: ignore[assignment]
         dropout_prob: float = hyperparameters["dropout_prob"]
         self.n_units_per_layer = n_units_per_layer
         self.dropout_prob = dropout_prob
@@ -185,7 +187,7 @@ class FeedForwardNetwork(RegressionMetricsMixin, pl.LightningModule):
             }
         if drug_input is None:
             raise ValueError(
-                "Drug input (fingerprints) are required for SimpleNeuralNetwork and " "MultiOMICsNeuralNetwork."
+                "Drug input (fingerprints) are required for SimpleNeuralNetwork and " "MultiViewNeuralNetwork."
             )
 
         train_dataset = RegressionDataset(

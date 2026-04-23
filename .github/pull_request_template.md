@@ -24,7 +24,7 @@
 - [ ] Update the version in pyproject.toml
 - [ ] Update version/release in docs/conf.py
 - [ ] Run ‚poetry update‘ to get the latest package versions. This will update the poetry.lock file
-- [ ] Run ‚poetry export --without-hashes --without development -f requirements.txt -o requirements.txt‘ to update the requirements.txt file
+- [ ] Run ‚poetry export --without-hashes --without development -f requirements.txt -o requirements.txt‘ to update the requirements.txt file (requires `poetry self add poetry-plugin-export`)
 - [ ] (If one of the sphinx packages has been updated, you also need to update docs/requirements.txt)
 - [ ] (If poetry itself was updated, update that in the Dockerfile and installation.rst)
 - [ ] If you updated the python version:

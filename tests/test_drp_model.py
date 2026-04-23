@@ -35,8 +35,8 @@ def test_factory() -> None:
     assert "RandomForest" in MODEL_FACTORY
     assert "SVR" in MODEL_FACTORY
     assert "SimpleNeuralNetwork" in MODEL_FACTORY
-    assert "MultiOmicsNeuralNetwork" in MODEL_FACTORY
-    assert "MultiOmicsRandomForest" in MODEL_FACTORY
+    assert "MultiViewNeuralNetwork" in MODEL_FACTORY
+    assert "MultiViewRandomForest" in MODEL_FACTORY
     assert "SingleDrugRandomForest" in MODEL_FACTORY
     assert "SRMF" in MODEL_FACTORY
     assert "GradientBoosting" in MODEL_FACTORY

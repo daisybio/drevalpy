@@ -76,6 +76,7 @@ class DIPKModel(DRPModel):
             hyperparameters["fc_layer_dim"],
             hyperparameters["dropout_rate"],
         ).to(self.DEVICE)
+        self.log_hyperparameters(hyperparameters)
         self.hyperparameters = hyperparameters
 
     def train(

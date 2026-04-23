@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "drevalpy"
-version = "1.4.2"
+version = "1.5.0"
 description = "Drug response evaluation of cancer cell line drug response models in a fair setting"
 authors = ["DrEvalPy development team"]
 license = "GPL-3.0"
@@ -45,11 +45,11 @@ importlib-resources = "*"
 scikit-posthocs = "*"
 curve-curator = "*"
 subword-nmt = ">=0.3.8"
-toml = {version = "^0.10.2"}
-poetry = "^2.0.1"
+toml = {version = ">=0.10.2"}
+poetry = ">=2.0.1"
 starlette = ">=0.49.1"
 pydantic = { version = ">=2.5", optional = true }
-wandb = "^0.24.0"
+wandb = ">=0.24.0"
 
 [tool.poetry.requires-plugins]
 poetry-plugin-export = ">=1.8"
@@ -87,6 +87,10 @@ pep8-naming = "*"
 optional = true
 dependencies = { torch = ">=2.1", torch-geometric = "*" }
 
+[tool.poetry.group.dev.dependencies]
+mypy = "^1.19.1"
+ruff = "^0.15.8"
+
 [tool.black]
 line-length = 120
 
@@ -104,6 +108,8 @@ include_trailing_comma=true
 balanced_wrapping=true
 line_length=120
 profile = "black"
+known_first_party = ["drevalpy"]
+known_third_party = ["wandb"]
 
 [build-system]
 requires = ["poetry-core"]

@@ -19,12 +19,13 @@ def test_hpam_tune_raytune(tmp_path):
         print("Ray is not installed, skipping test_hpam_tune_raytune.")
         return
     hpam_set = [
-        {"alpha": 1.0, "l1_ratio": 0.0},
-        {"alpha": 2.5, "l1_ratio": 0.5},
-        {"alpha": 5.0, "l1_ratio": 1.0},
+        {"alpha": 1.0, "l1_ratio": 0.0, "cell_line_views": "gene_expression", "drug_views": "fingerprints"},
+        {"alpha": 2.5, "l1_ratio": 0.5, "cell_line_views": "gene_expression", "drug_views": "fingerprints"},
+        {"alpha": 5.0, "l1_ratio": 1.0, "cell_line_views": "gene_expression", "drug_views": "fingerprints"},
     ]
 
     model = MODEL_FACTORY["ElasticNet"]()
+    model.build_model(hyperparameters=hpam_set[0])
     cell_line_input = model.load_cell_line_features(data_path="../data", dataset_name="TOYv1")
     drug_input = model.load_drug_features(data_path="../data", dataset_name="TOYv1")
 
