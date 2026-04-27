@@ -5,7 +5,7 @@ Drug discovery and mechanism prediction with explainable graph neural networks.
 Original authors: Wang, C., Kumar, G.A. & Rajapakse, J.C. (2025, 10.1038/s41598-024-83090-3)
 Code adapted from their Github: https://github.com/SCSE-Biomedical-Computing-Group/XGDP/blob/main/utils_tcnn.py
 """
-
+import drevalpy.models.XGDP._models as m
 from pathlib import Path
 from typing import Any
 
@@ -22,7 +22,9 @@ from ...datasets.dataset import DrugResponseDataset, FeatureDataset
 from ..drp_model import DRPModel
 from ..lightning_metrics_mixin import RegressionMetricsMixin
 from ..utils import load_and_select_gene_features
-from .utils import XGDPPredictor
+
+
+
 
 
 class _XGDPDataset(PytorchDataset):
@@ -78,10 +80,12 @@ class XGDPModule(pl.LightningModule):
 
     def __init__(
         self,
+        model: str,
         num_node_features: int,
         num_cell_features: int,
-        hidden_dim: int = 64,
-        dropout: float = 0.2,
+        do_att: bool,
+        hidden_dim: int = 128,
+        dropout: float = 0.5, #changed to 0.5 as per there default settings for there models
         learning_rate: float = 0.001,
     ):
         """Initialize the LightningModule.
@@ -94,17 +98,37 @@ class XGDPModule(pl.LightningModule):
         """
         super().__init__()
         self.save_hyperparameters()
-        self.model = XGDPPredictor(
-            num_node_features=self.hparams["num_node_features"],
-            num_cell_features=self.hparams["num_cell_features"],
-            hidden_dim=self.hparams["hidden_dim"],
-            dropout=self.hparams["dropout"],
-            model_type=self.hparams.get("model_type", "GATNet"),
+        self
+        #model_name = model
+        model_name = "GATNet"
+        try:
+            model_class = getattr(m, model_name)
+            print(type(model_class))
+        except AttributeError:
+            # Specifically catch the error if the string name doesn't exist in 'models'
+            raise ValueError(f"Model '{model_name}' not found in the list of available models.")
+        
+        if "GAT" in model_name:
+            self.return_attention_weights = False # because no need to return attention weight because no models explanation through XAI
+        else:
+            self.return_attention_weights = False
+        #print("----dimensions-------")
+        #print(hidden_dim)
+        self.model = model_class(
+            n_output = 1,
+            num_features_xd = num_node_features, #gnn number of node features (ECFP& + DeepChem: 334)
+            num_features_xt=25, #only used in GINNet in embedding, mutation/protein data???
+            n_filters=32, #number of filters for cnn for gene expression
+            embed_dim=128, #only used in GINNet in embedding
+            output_dim=hidden_dim, #size of latend sapce as output of gnn and cnn -> determines size of shared feature size after combination
+            dropout= dropout, 
+            use_attn=do_att #not in GINNet, SAGENet, add to models to have same input
+            
         )
         self.criterion = nn.MSELoss()
 
         # Initialize metrics storage for epoch-end R^2 and PCC computation
-        self._init_metrics_storage()
+        #self._init_metrics_storage()
 
     def forward(self, batch):
         """Forward pass of the module.
@@ -113,13 +137,27 @@ class XGDPModule(pl.LightningModule):
         :return: The output of the model.
         """
         drug_graph, cell_features, _ = batch
-        return self.model(
+        if self.return_attention_weights:
+            #print("x", drug_graph.x.shape, type(drug_graph.x))
+            #print("edge_index", drug_graph.edge.shape,type(drug_graph.edge))
+            #print("edge_index", drug_graph.edge.shape,type(drug_graph.edge))
+
+            return self.model.forward(
+                x=drug_graph.x,
+                edge_index=drug_graph.edge_index,
+                batch=drug_graph.batch,
+                x_cell_mut=cell_features,
+                edge_feat=getattr(drug_graph, "edge_attr", None),
+                return_attention_weights = True,
+            )
+        else:
+            return self.model.forward(
             x=drug_graph.x,
             edge_index=drug_graph.edge_index,
             batch=drug_graph.batch,
             x_cell_mut=cell_features,
             edge_feat=getattr(drug_graph, "edge_attr", None),
-        )
+            )
 
     def training_step(self, batch, batch_idx):
         """A single training step.
@@ -134,7 +172,7 @@ class XGDPModule(pl.LightningModule):
         self.log("train_loss", loss, on_step=False, on_epoch=True, batch_size=responses.size(0))
 
         # Store predictions and targets for epoch-end metrics via mixin
-        self._store_predictions(outputs, responses, is_training=True)
+        #self._store_predictions(outputs, responses, is_training=True)
 
         return loss
 
@@ -145,7 +183,7 @@ class XGDPModule(pl.LightningModule):
         :param batch_idx: The batch index.
         """
         drug_graph, cell_features, responses = batch
-        outputs = self.model(drug_graph, cell_features)
+        outputs = self.forward(batch)
         loss = self.criterion(outputs, responses)
         self.log("val_loss", loss, on_step=False, on_epoch=True, batch_size=responses.size(0))
 
@@ -161,13 +199,7 @@ class XGDPModule(pl.LightningModule):
         :return: The output of the model.
         """
         drug_graph, cell_features, _ = batch
-        outputs = self.model(
-            x=drug_graph.x,
-            edge_index=drug_graph.edge_index,
-            batch=drug_graph.batch,
-            x_cell_mut=cell_features,
-            edge_feat=getattr(drug_graph, "edge_attr", None),
-        )
+        outputs = self.forward(batch)
         return outputs
 
     def configure_optimizers(self):
@@ -188,7 +220,7 @@ class XGDP(DRPModel, RegressionMetricsMixin):
         """Initialize the XGDP model."""
         super().__init__()
         self.DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.model: XGDPPredictor | None = None
+        self.model: XGDPModule | None = None
         self.hyperparameters: dict[str, Any] = {}
         self.gene_expression_scaler: StandardScaler | None = None
         self.gene_expression_normalizer: MinMaxScaler | None = None
@@ -300,9 +332,11 @@ class XGDP(DRPModel, RegressionMetricsMixin):
         self.model = XGDPModule(
             num_node_features=num_node_features,
             num_cell_features=num_cell_features,
-            hidden_dim=self.hyperparameters.get("hidden_dim", 64),
-            dropout=self.hyperparameters.get("dropout", 0.2),
+            hidden_dim=self.hyperparameters.get("hidden_dim", 128),
+            dropout=self.hyperparameters.get("dropout", 0.5),
             learning_rate=self.hyperparameters.get("learning_rate", 0.001),
+            model = self.hyperparameters.get("model", "GATv2Net"),
+            do_att= self.hyperparameters.get("do_att", True),
         )
 
         train_dataset = _XGDPDataset(
@@ -343,7 +377,8 @@ class XGDP(DRPModel, RegressionMetricsMixin):
             loggers.append(logger)
 
         trainer = pl.Trainer(
-            max_epochs=self.hyperparameters.get("epochs", 100),
+            #max_epochs=self.hyperparameters.get("epochs", 100), #changed to 10 fro testing
+            max_epochs=10, #changed to 10 fro testing
             accelerator="auto",
             devices="auto",
             callbacks=[pl.callbacks.EarlyStopping(monitor="val_loss", mode="min", patience=5)] if val_loader else None,

@@ -216,7 +216,8 @@ class GATNet(torch.nn.Module):
         # self.fc1_xt = nn.Linear(2944, output_dim)
         # self.fc1_xt = nn.Linear(4224, output_dim)
         # self.fc1_xt = nn.Linear(61824, output_dim)
-        self.fc1_xt = nn.Linear(4096, output_dim)
+        #self.fc1_xt = nn.Linear(4096, output_dim)
+        self.fc1_xt = nn.Linear(3584, output_dim)
 
         # combined layers
         if self.use_attn:
@@ -266,6 +267,7 @@ class GATNet(torch.nn.Module):
         # target = data.target
         # x_cell_mut = x_cell_mut[:,None,:]
         # 1d conv layers
+       
         conv_xt = self.conv_xt_1(x_cell_mut)
         conv_xt = f.relu(conv_xt)
         conv_xt = self.pool_xt_1(conv_xt)
@@ -277,6 +279,7 @@ class GATNet(torch.nn.Module):
         conv_xt = self.pool_xt_3(conv_xt)
 
         # flatten
+       
         xt = conv_xt.view(-1, conv_xt.shape[1] * conv_xt.shape[2])
         xt = self.fc1_xt(xt)
 
