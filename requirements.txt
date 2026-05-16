@@ -75,7 +75,7 @@ nvidia-nccl-cu13==2.28.9 ; python_version >= "3.11" and python_version < "3.14" 
 nvidia-nvjitlink==13.0.88 ; python_version >= "3.11" and python_version < "3.14" and platform_system == "Linux" and (sys_platform == "linux" or sys_platform == "win32")
 nvidia-nvshmem-cu13==3.4.5 ; python_version >= "3.11" and python_version < "3.14" and platform_system == "Linux"
 nvidia-nvtx==13.0.85 ; python_version >= "3.11" and python_version < "3.14" and platform_system == "Linux" and (sys_platform == "linux" or sys_platform == "win32")
-packaging==26.0 ; python_version >= "3.11" and python_version < "3.14"
+packaging==26.2 ; python_version >= "3.11" and python_version < "3.14"
 pandas==2.3.3 ; python_version >= "3.11" and python_version < "3.14"
 patsy==1.0.2 ; python_version >= "3.11" and python_version < "3.14"
 pbs-installer==2026.4.7 ; python_version >= "3.11" and python_version < "3.14"
