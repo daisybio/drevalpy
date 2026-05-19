@@ -117,6 +117,7 @@ class GCNNet(torch.nn.Module):
         :param x_cell_mut: Cell line omics features
         :param edge_feat: Edge features (unused for GCN)
         :param edge_weight: Optional edge weights
+        :param return_attention_weights: Whether to return attention weights
         :returns: Predicted drug response
         """
         # get graph input
@@ -729,6 +730,7 @@ class SAGENet(torch.nn.Module):
         :param num_features_xt: Number of cell line features
         :param output_dim: Dimensionality of the latent representation
         :param dropout: Dropout probability
+        :param use_attn: Whether to enable cross-attention layers
         """
         super().__init__()
         self.use_attn = use_attn
@@ -785,6 +787,7 @@ class SAGENet(torch.nn.Module):
         :param batch: Batch vector assigning nodes to graphs
         :param x_cell_mut: Cell line omics features
         :param edge_feat: Edge features (unused for SAGEConv)
+        :param return_attention_weights: Whether to return attention weights
         :returns: Predicted drug response
         """
         # get graph input
@@ -869,6 +872,7 @@ class GINNet(torch.nn.Module):
         :param embed_dim: Embedding dimension (unused but kept for API consistency)
         :param output_dim: Dimensionality of the latent representation
         :param dropout: Dropout probability
+        :param use_attn: Whether to enable cross-attention layers
         """
         super().__init__()
         self.use_attn = use_attn
@@ -945,6 +949,7 @@ class GINNet(torch.nn.Module):
         :param batch: Batch vector assigning nodes to graphs
         :param x_cell_mut: Cell line omics features
         :param edge_feat: Edge features (unused for GINConv)
+        :param return_attention_weights: Whether to return attention weights
         :returns: Predicted drug response
         """
         if edge_feat is not None:
@@ -1033,6 +1038,7 @@ class GINENet(torch.nn.Module):
         :param embed_dim: Embedding dimension (unused but kept for API consistency)
         :param output_dim: Dimensionality of the latent representation
         :param dropout: Dropout probability
+        :param use_attn: Whether to enable cross-attention layers
         """
         super().__init__()
         self.use_attn = use_attn
@@ -1110,6 +1116,7 @@ class GINENet(torch.nn.Module):
         :param batch: Batch vector assigning nodes to graphs
         :param x_cell_mut: Cell line omics features
         :param edge_feat: Edge features of the molecular graph
+        :param return_attention_weights: Whether to return attention weights
         :returns: Predicted drug response
         """
         if edge_feat is not None:
@@ -1259,6 +1266,7 @@ class RGCNNet(torch.nn.Module):
         :param x_cell_mut: Cell line omics features
         :param edge_feat: Edge type indices for relational graph convolution
         :param edge_weight: Optional edge weights
+        :param return_attention_weights: Whether to return attention weights
         :returns: Predicted drug response
         """
         # get graph input

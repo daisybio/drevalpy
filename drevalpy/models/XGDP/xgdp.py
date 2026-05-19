@@ -113,8 +113,7 @@ class XGDPModule(pl.LightningModule):
         self.return_attention_weights = (
             do_att if "GAT" in model_name else False
         )  # because no need to return attention weight because no models explanation through XAI
-        # print("----dimensions-------")
-        # print(hidden_dim)
+
         self.model = model_class(
             n_output=1,
             num_features_xd=num_node_features,  # gnn number of node features (ECFP& + DeepChem: 334)
@@ -169,7 +168,7 @@ class XGDPModule(pl.LightningModule):
         :return: The loss.
         """
         drug_graph, cell_features, responses = batch
-        outputs = self.forward(batch)
+        outputs = self(batch)
         loss = self.criterion(outputs, responses)
         self.log("train_loss", loss, on_step=False, on_epoch=True, batch_size=responses.size(0))
 
@@ -203,6 +202,7 @@ class XGDPModule(pl.LightningModule):
         """
         drug_graph, cell_features, _ = batch
         outputs = self.forward(batch)
+        outputs = outputs.squeeze(-1)  # to flatten torch tensor so that it can be handeled by pandas
         return outputs
 
     def configure_optimizers(self):
@@ -380,7 +380,7 @@ class XGDP(DRPModel, RegressionMetricsMixin):
 
         trainer = pl.Trainer(
             # max_epochs=self.hyperparameters.get("epochs", 100), #changed to 10 fro testing
-            max_epochs=10,  # changed to 10 fro testing
+            max_epochs=1,
             accelerator="auto",
             devices="auto",
             callbacks=[pl.callbacks.EarlyStopping(monitor="val_loss", mode="min", patience=5)] if val_loader else None,
