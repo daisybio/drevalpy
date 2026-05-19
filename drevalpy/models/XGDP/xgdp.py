@@ -5,7 +5,7 @@ Drug discovery and mechanism prediction with explainable graph neural networks.
 Original authors: Wang, C., Kumar, G.A. & Rajapakse, J.C. (2025, 10.1038/s41598-024-83090-3)
 Code adapted from their Github: https://github.com/SCSE-Biomedical-Computing-Group/XGDP/blob/main/utils_tcnn.py
 """
-import drevalpy.models.XGDP._models as m
+
 from pathlib import Path
 from typing import Any
 
@@ -18,13 +18,12 @@ from torch.optim import Adam
 from torch.utils.data import Dataset as PytorchDataset
 from torch_geometric.loader import DataLoader
 
+import drevalpy.models.XGDP._models as Models
+
 from ...datasets.dataset import DrugResponseDataset, FeatureDataset
 from ..drp_model import DRPModel
 from ..lightning_metrics_mixin import RegressionMetricsMixin
 from ..utils import load_and_select_gene_features
-
-
-
 
 
 class _XGDPDataset(PytorchDataset):
@@ -85,50 +84,51 @@ class XGDPModule(pl.LightningModule):
         num_cell_features: int,
         do_att: bool,
         hidden_dim: int = 128,
-        dropout: float = 0.5, #changed to 0.5 as per there default settings for there models
+        dropout: float = 0.5,  # changed to 0.5 as per there default settings for there models
         learning_rate: float = 0.001,
     ):
         """Initialize the LightningModule.
 
+        :param model: Name of the XGDP backbone to use (e.g., 'gat', 'gcn', 'gatv2').
+        :param do_att: Whether to enable cross-attention between drug and cell features.
         :param num_node_features: Number of features for each node in the drug graph.
         :param num_cell_features: Number of features for the cell line.
         :param hidden_dim: The hidden dimension size.
         :param dropout: The dropout rate.
         :param learning_rate: The learning rate.
+        :raises ValueError: If drug_input is not provided.
         """
         super().__init__()
         self.save_hyperparameters()
         self
-        #model_name = model
-        model_name = "GATNet"
+        # model_name = model
+        model_name = model
         try:
-            model_class = getattr(m, model_name)
+            model_class = getattr(Models, model_name)
             print(type(model_class))
         except AttributeError:
             # Specifically catch the error if the string name doesn't exist in 'models'
             raise ValueError(f"Model '{model_name}' not found in the list of available models.")
-        
-        if "GAT" in model_name:
-            self.return_attention_weights = False # because no need to return attention weight because no models explanation through XAI
-        else:
-            self.return_attention_weights = False
-        #print("----dimensions-------")
-        #print(hidden_dim)
+
+        self.return_attention_weights = (
+            do_att if "GAT" in model_name else False
+        )  # because no need to return attention weight because no models explanation through XAI
+        # print("----dimensions-------")
+        # print(hidden_dim)
         self.model = model_class(
-            n_output = 1,
-            num_features_xd = num_node_features, #gnn number of node features (ECFP& + DeepChem: 334)
-            num_features_xt=25, #only used in GINNet in embedding, mutation/protein data???
-            n_filters=32, #number of filters for cnn for gene expression
-            embed_dim=128, #only used in GINNet in embedding
-            output_dim=hidden_dim, #size of latend sapce as output of gnn and cnn -> determines size of shared feature size after combination
-            dropout= dropout, 
-            use_attn=do_att #not in GINNet, SAGENet, add to models to have same input
-            
+            n_output=1,
+            num_features_xd=num_node_features,  # gnn number of node features (ECFP& + DeepChem: 334)
+            num_features_xt=25,  # only used in GINNet in embedding, mutation/protein data???
+            n_filters=32,  # number of filters for cnn for gene expression
+            embed_dim=128,  # only used in GINNet in embedding
+            output_dim=hidden_dim,  # size latend sapce as output of gnn + cnn -> size of shared size after combination
+            dropout=dropout,
+            use_attn=do_att,  # not in GINNet, SAGENet, add to models to have same input
         )
         self.criterion = nn.MSELoss()
 
         # Initialize metrics storage for epoch-end R^2 and PCC computation
-        #self._init_metrics_storage()
+        # self._init_metrics_storage()
 
     def forward(self, batch):
         """Forward pass of the module.
@@ -138,26 +138,28 @@ class XGDPModule(pl.LightningModule):
         """
         drug_graph, cell_features, _ = batch
         if self.return_attention_weights:
-            #print("x", drug_graph.x.shape, type(drug_graph.x))
-            #print("edge_index", drug_graph.edge.shape,type(drug_graph.edge))
-            #print("edge_index", drug_graph.edge.shape,type(drug_graph.edge))
+            # print("x", drug_graph.x.shape, type(drug_graph.x))
+            # print("edge_index", drug_graph.edge.shape,type(drug_graph.edge))
+            # print("edge_index", drug_graph.edge.shape,type(drug_graph.edge))
 
-            return self.model.forward(
+            out, _ = self.model.forward(
                 x=drug_graph.x,
                 edge_index=drug_graph.edge_index,
                 batch=drug_graph.batch,
                 x_cell_mut=cell_features,
                 edge_feat=getattr(drug_graph, "edge_attr", None),
-                return_attention_weights = True,
+                return_attention_weights=True,
             )
+            return out
         else:
-            return self.model.forward(
-            x=drug_graph.x,
-            edge_index=drug_graph.edge_index,
-            batch=drug_graph.batch,
-            x_cell_mut=cell_features,
-            edge_feat=getattr(drug_graph, "edge_attr", None),
+            out = self.model.forward(
+                x=drug_graph.x,
+                edge_index=drug_graph.edge_index,
+                batch=drug_graph.batch,
+                x_cell_mut=cell_features,
+                edge_feat=getattr(drug_graph, "edge_attr", None),
             )
+            return out
 
     def training_step(self, batch, batch_idx):
         """A single training step.
@@ -172,7 +174,7 @@ class XGDPModule(pl.LightningModule):
         self.log("train_loss", loss, on_step=False, on_epoch=True, batch_size=responses.size(0))
 
         # Store predictions and targets for epoch-end metrics via mixin
-        #self._store_predictions(outputs, responses, is_training=True)
+        # self._store_predictions(outputs, responses, is_training=True)
 
         return loss
 
@@ -188,7 +190,8 @@ class XGDPModule(pl.LightningModule):
         self.log("val_loss", loss, on_step=False, on_epoch=True, batch_size=responses.size(0))
 
         # Store predictions and targets for epoch-end metrics via mixin
-        self._store_predictions(outputs, responses, is_training=False)
+        # self._store_predictions(outputs, responses, is_training=False)
+        pass
 
     def predict_step(self, batch, batch_idx, dataloader_idx=0):
         """A single prediction step.
@@ -241,7 +244,6 @@ class XGDP(DRPModel, RegressionMetricsMixin):
         :param hyperparameters: TODO: ADD HYPERPARAMETERS
         """
         self.hyperparameters = hyperparameters
-        model_name = hyperparameters.get("model_type", "GATNet")
         # init in train
         # self.model = XGDPPredictor(name_hyperparameter=hyperparameter["name_hyperparameter"])
         """
@@ -261,7 +263,7 @@ class XGDP(DRPModel, RegressionMetricsMixin):
         """
         return load_and_select_gene_features(
             feature_type="gene_expression",
-            gene_list="landmark_genes",
+            gene_list=None,
             data_path=data_path,
             dataset_name=dataset_name,
         )
@@ -330,13 +332,13 @@ class XGDP(DRPModel, RegressionMetricsMixin):
         num_cell_features = next(iter(cell_line_input.features.values()))["gene_expression"].shape[0]
 
         self.model = XGDPModule(
+            model=self.hyperparameters.get("model_type", "GATv2Net"),
             num_node_features=num_node_features,
             num_cell_features=num_cell_features,
             hidden_dim=self.hyperparameters.get("hidden_dim", 128),
             dropout=self.hyperparameters.get("dropout", 0.5),
             learning_rate=self.hyperparameters.get("learning_rate", 0.001),
-            model = self.hyperparameters.get("model", "GATv2Net"),
-            do_att= self.hyperparameters.get("do_att", True),
+            do_att=self.hyperparameters.get("do_att", True),
         )
 
         train_dataset = _XGDPDataset(
@@ -357,8 +359,8 @@ class XGDP(DRPModel, RegressionMetricsMixin):
         if output_earlystopping is not None and len(output_earlystopping) > 0:
             val_dataset = _XGDPDataset(
                 response=output_earlystopping.response,
-                cell_line_ids=output.cell_line_ids,
-                drug_ids=output.drug_ids,
+                cell_line_ids=output_earlystopping.cell_line_ids,
+                drug_ids=output_earlystopping.drug_ids,
                 cell_line_features=cell_line_input,
                 drug_features=drug_input,
             )
@@ -377,8 +379,8 @@ class XGDP(DRPModel, RegressionMetricsMixin):
             loggers.append(logger)
 
         trainer = pl.Trainer(
-            #max_epochs=self.hyperparameters.get("epochs", 100), #changed to 10 fro testing
-            max_epochs=10, #changed to 10 fro testing
+            # max_epochs=self.hyperparameters.get("epochs", 100), #changed to 10 fro testing
+            max_epochs=10,  # changed to 10 fro testing
             accelerator="auto",
             devices="auto",
             callbacks=[pl.callbacks.EarlyStopping(monitor="val_loss", mode="min", patience=5)] if val_loader else None,
@@ -438,5 +440,5 @@ class XGDP(DRPModel, RegressionMetricsMixin):
             item for sublist in predictions_list for item in (sublist if isinstance(sublist, list) else [sublist])
         ]
 
-        predictions = torch.cat(predictions_flat).cpu().numpy()
+        predictions = torch.cat(predictions_flat).view(-1).cpu().numpy()
         return predictions

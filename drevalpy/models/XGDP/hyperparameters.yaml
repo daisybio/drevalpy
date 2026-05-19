@@ -3,7 +3,7 @@ XGDP:
     - "GATNet"
     - "GCNNet"
     - "GATv2Net"
-    - "GATNet_E"
+    - "GATNetE"
     - "SAGENet"
     - "GINNet"
     - "GINENet"
