@@ -96,6 +96,7 @@ class DrugResponseDataset:
 
         This function creates a DrugResponseDataset from a provided input file in csv format.
         The following columns are required:
+
         - response:         the drug response values as floating point values
         - cell_line_name:    a string identifier for cell lines
         - pubchem_id:         a string identifier for drugs
@@ -1022,6 +1023,7 @@ class FeatureDataset:
         Returns the feature matrix for the given view.
 
         The feature view must be a vector or matrix.
+
         :param view: view name
         :param identifiers: list of identifiers (cell lines oder drugs)
         :returns: feature matrix

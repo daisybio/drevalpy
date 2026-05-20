@@ -14,10 +14,12 @@ def test_hpam_tune(tmp_path):
     :param tmp_path: pytest temporary path fixture
     """
     hpam_set = [
-        {"alpha": [1.0, 2.0], "l1_ratio": [0.2, 0.8]},
+        {"alpha": 1.0, "l1_ratio": 0.2, "cell_line_views": "gene_expression", "drug_views": "fingerprints"},
+        {"alpha": 2.0, "l1_ratio": 0.8, "cell_line_views": "gene_expression", "drug_views": "fingerprints"},
     ]
 
     model = MODEL_FACTORY["ElasticNet"]()
+    model.build_model(hyperparameters=hpam_set[0])
     cell_line_input = model.load_cell_line_features(data_path="../data", dataset_name="TOYv1")
     drug_input = model.load_drug_features(data_path="../data", dataset_name="TOYv1")
 
@@ -40,6 +42,7 @@ def test_hpam_tune(tmp_path):
     )
 
     model = MODEL_FACTORY["ElasticNet"]()
+    model.build_model(hyperparameters=hpam_set[0])
     cell_line_input = model.load_cell_line_features(data_path="../data", dataset_name="TOYv1")
     drug_input = model.load_drug_features(data_path="../data", dataset_name="TOYv1")
 

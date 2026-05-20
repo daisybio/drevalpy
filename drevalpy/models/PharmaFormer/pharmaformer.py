@@ -424,6 +424,7 @@ class PharmaFormerModel(DRPModel):
         Save the PharmaFormer model using PyTorch conventions.
 
         This method stores:
+
         - "pharmaformer_model.pt": PyTorch state_dict of the model
         - "hyperparameters.json": All hyperparameters
         - "gene_scaler.pkl": Fitted StandardScaler for gene expression
@@ -462,6 +463,7 @@ class PharmaFormerModel(DRPModel):
         Load the PharmaFormer model using PyTorch conventions.
 
         This method expects the following files in the given directory:
+
         - "pharmaformer_model.pt": PyTorch state_dict of the model
         - "hyperparameters.json": Dictionary of hyperparameters
         - "gene_scaler.pkl": Fitted StandardScaler (optional)

@@ -415,6 +415,7 @@ def get_response_transformation(response_transformation: str | None) -> Transfor
     Get the skelarn response transformation object of choice.
 
     Users can choose from "None", "standard", "minmax", "robust".
+
     :param response_transformation: response transformation to apply
     :returns: response transformation object
     :raises ValueError: if the response transformation is not recognized

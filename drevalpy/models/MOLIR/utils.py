@@ -80,6 +80,7 @@ def generate_triplets_indices(
     considered positive if its response value is within the positive range of the label. The positive range is ±10%
     of the standard deviation of all response values. A sample is considered negative if its response value is at
     least one standard deviation away from the response value of the sample.
+
     :param y: response values
     :param positive_range: positive range for the triplet loss
     :param negative_range: negative range for the triplet loss
@@ -456,6 +457,7 @@ class MOLIModel(RegressionMetricsMixin, pl.LightningModule):
 
         If there was enough training data to train the model, the model from the best epoch was saved in the checkpoint
         callback and is loaded now. If there was not enough training data, the model is only randomly initialized.
+
         :param gene_expression: gene expression data
         :param mutations: mutation data
         :param copy_number: copy number variation data

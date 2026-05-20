@@ -11,6 +11,44 @@ from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, TISSUE_IDENTIFIER
 
 
+def load_generic_csv(path: str, dataset_name: str, feature_name: str, index_col=CELL_LINE_IDENTIFIER) -> FeatureDataset:
+    """
+    Loads a generic CSV file with cell line IDs as index and features as columns.
+
+    :param path: path to the data, e.g., data/
+    :param dataset_name: name of the dataset, e.g., GDSC2
+    :param feature_name: name of the feature, e.g., gene_expression
+    :param index_col: name of the index column, e.g., cell_line_id
+    :returns: FeatureDataset with the features
+    """
+    feature_csv = pd.read_csv(f"{path}/{dataset_name}/{feature_name}.csv", index_col=index_col)
+    feature_csv.index = feature_csv.index.astype(str)
+    if "cellosaurus_id" in feature_csv.columns:
+        feature_csv = feature_csv.drop(columns=["cellosaurus_id"])
+    return FeatureDataset(features=iterate_features(df=feature_csv, feature_type=feature_name))
+
+
+def iterate_features(df: pd.DataFrame, feature_type: str) -> dict[str, dict[str, np.ndarray]]:
+    """
+    Iterate over features.
+
+    :param df: DataFrame with the features
+    :param feature_type: type of feature, e.g., gene_expression, methylation, etc.
+    :returns: dictionary with the features
+    """
+    features: dict[str, dict[str, np.ndarray]] = {}
+    for cl in df.index:
+        if cl in features.keys():
+            continue
+        rows = df.loc[cl]
+        rows = rows.astype(float).to_numpy()
+        if (len(rows.shape) > 1) and (rows.shape[0] > 1):  # multiple rows returned
+            # take mean
+            rows = np.mean(rows, axis=0)
+        features[cl] = {feature_type: rows}
+    return features
+
+
 def load_cl_ids_from_csv(path: str, dataset_name: str) -> FeatureDataset:
     """
     Load cell line ids from csv file.
@@ -97,27 +135,6 @@ def load_and_select_gene_features(
         cl_features.features[cell_line][feature_type] = cl_features.features[cell_line][feature_type][indices_to_keep]
 
     return cl_features
-
-
-def iterate_features(df: pd.DataFrame, feature_type: str) -> dict[str, dict[str, np.ndarray]]:
-    """
-    Iterate over features.
-
-    :param df: DataFrame with the features
-    :param feature_type: type of feature, e.g., gene_expression, methylation, etc.
-    :returns: dictionary with the features
-    """
-    features: dict[str, dict[str, np.ndarray]] = {}
-    for cl in df.index:
-        if cl in features.keys():
-            continue
-        rows = df.loc[cl]
-        rows = rows.astype(float).to_numpy()
-        if (len(rows.shape) > 1) and (rows.shape[0] > 1):  # multiple rows returned
-            # take mean
-            rows = np.mean(rows, axis=0)
-        features[cl] = {feature_type: rows}
-    return features
 
 
 def load_drug_ids_from_csv(data_path: str, dataset_name: str) -> FeatureDataset:
@@ -251,7 +268,8 @@ def prepare_expression_and_methylation(
     :returns: FeatureDataset with the transformed features
     """
     cell_line_input = cell_line_input.copy()
-    if gene_expression_scaler is not None:
+    first_feature = next(iter(cell_line_input.features.values()))
+    if ("gene_expression" in first_feature.keys()) and (gene_expression_scaler is not None):
         cell_line_input.apply(function=np.arcsinh, view="gene_expression")
         if training:
             cell_line_input.fit_transform_features(
@@ -266,7 +284,7 @@ def prepare_expression_and_methylation(
                 view="gene_expression",
             )
 
-    if methylation_scaler is not None and methylation_pca is not None:
+    if ("methylation" in first_feature.keys()) and (methylation_scaler is not None) and (methylation_pca is not None):
         if training:
             cell_line_input.fit_transform_features(
                 train_ids=cell_line_ids,
@@ -483,3 +501,123 @@ def prepare_proteomics(
             view="proteomics",
         )
     return cell_line_input
+
+
+def _get_view_as_list(value):
+    return [value] if isinstance(value, str) else value
+
+
+def load_single_cell_line_view(
+    cell_line_views: list[str],
+    data_path: str,
+    dataset_name: str,
+    model_name: str,
+) -> FeatureDataset:
+    """
+    Load cell line features for a single-view model.
+
+    If the view is "gene_expression", the landmark_genes_reduced list is used for subsetting.
+    Otherwise, the whole CSV is loaded.
+
+    :param cell_line_views: list of cell line views (must have exactly one element)
+    :param data_path: path to the data, e.g., data/
+    :param dataset_name: name of the dataset, e.g., GDSC1
+    :param model_name: name of the model, used for error messages
+    :returns: FeatureDataset containing the cell line features
+    :raises ValueError: if cell_line_views is empty or has more than one element
+    """
+    if len(cell_line_views) == 0:
+        raise ValueError(
+            "cell_line_views is empty. Call build_model() before load_cell_line_features() "
+            "so the model knows which omics to load."
+        )
+    if len(cell_line_views) > 1:
+        raise ValueError(f"Only one cell line view is supported for {model_name}.")
+    print(f"Loading a {model_name} with the following cell line views: {cell_line_views}")
+
+    if "gene_expression" in cell_line_views:
+        return load_and_select_gene_features(
+            feature_type="gene_expression",
+            gene_list="landmark_genes_reduced",
+            data_path=data_path,
+            dataset_name=dataset_name,
+        )
+    else:
+        return load_generic_csv(
+            path=data_path,
+            dataset_name=dataset_name,
+            feature_name=cell_line_views[0],
+            index_col=CELL_LINE_IDENTIFIER,
+        )
+
+
+def load_multi_cell_line_view(
+    cell_line_views: list[str],
+    data_path: str,
+    dataset_name: str,
+    model_name: str,
+) -> FeatureDataset:
+    """
+    Load cell line features for a multi-view model.
+
+    Known omics types use specific gene lists for subsetting. Unknown types are loaded in full.
+
+    :param cell_line_views: list of cell line views
+    :param data_path: path to the data, e.g., data/
+    :param dataset_name: name of the dataset, e.g., GDSC1
+    :param model_name: name of the model, used for error messages
+    :returns: FeatureDataset containing the cell line features
+    :raises ValueError: if cell_line_views is empty
+    """
+    if len(cell_line_views) == 0:
+        raise ValueError(
+            "cell_line_views is empty. Call build_model() before load_cell_line_features() "
+            "so the model knows which omics to load."
+        )
+    print(f"Loading a {model_name} with the following cell line views: {cell_line_views}")
+
+    gene_list_defaults = {
+        "gene_expression": "drug_target_genes_all_drugs",
+        "methylation": "methylation_intersection",
+        "mutations": "drug_target_genes_all_drugs",
+        "copy_number_variation_gistic": "drug_target_genes_all_drugs",
+        "proteomics": "drug_target_genes_all_drugs_proteomics",
+    }
+    gene_lists = {feature_name: gene_list_defaults.get(feature_name, None) for feature_name in cell_line_views}
+
+    return get_multiomics_feature_dataset(
+        data_path=data_path, gene_lists=gene_lists, dataset_name=dataset_name, omics=cell_line_views
+    )
+
+
+def load_single_drug_view(
+    drug_views: list[str],
+    data_path: str,
+    dataset_name: str,
+    model_name: str,
+) -> FeatureDataset | None:
+    """
+    Load drug features for a single-view model.
+
+    If drug_views is empty, drug IDs are loaded. If "fingerprints", fingerprints are loaded.
+    Otherwise, the CSV is loaded generically.
+
+    :param drug_views: list of drug views (at most one element)
+    :param data_path: path to the data, e.g., data/
+    :param dataset_name: name of the dataset, e.g., GDSC1
+    :param model_name: name of the model, used for error messages
+    :returns: FeatureDataset containing the drug features
+    :raises ValueError: if more than one drug view is specified
+    """
+    if len(drug_views) > 1:
+        raise ValueError(f"Only one drug view is supported for {model_name}.")
+    print(f"Loading a {model_name} with the following drug views: {drug_views}")
+
+    if len(drug_views) == 0:
+        return load_drug_ids_from_csv(data_path, dataset_name)
+    elif drug_views[0] == "fingerprints":
+        return load_drug_fingerprint_features(data_path, dataset_name, fill_na=True)
+    else:
+        return load_generic_csv(
+            path=data_path, dataset_name=dataset_name, feature_name=drug_views[0], index_col=DRUG_IDENTIFIER
+        )

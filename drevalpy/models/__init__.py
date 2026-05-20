@@ -14,26 +14,26 @@ __all__ = [
     "RandomForest",
     "SVMRegressor",
     "SimpleNeuralNetwork",
-    "MultiOmicsNeuralNetwork",
-    "MultiOmicsRandomForest",
+    "MultiViewNeuralNetwork",
+    "MultiViewRandomForest",
     "SingleDrugRandomForest",
     "SingleDrugElasticNet",
-    "SingleDrugProteomicsElasticNet",
     "SRMF",
     "GradientBoosting",
     "MOLIR",
     "SuperFELTR",
     "DIPKModel",
-    "ProteomicsRandomForest",
-    "ProteomicsElasticNetModel",
-    "SingleDrugProteomicsRandomForest",
     "DrugGNN",
-    "ChemBERTaNeuralNetwork",
     "PharmaFormerModel",
     "XGDP",
+    "KNNRegressor",
+    "AdaBoostDecisionTree",
+    "Lasso",
+    "MultiViewXGBoost",
 ]
 
-from .baselines.multi_omics_random_forest import MultiOmicsRandomForest
+from .baselines.multi_view_random_forest import MultiViewRandomForest
+from .baselines.multi_view_xgboost import MultiViewXGBoost
 from .baselines.naive_pred import (
     NaiveCellLineMeanPredictor,
     NaiveDrugMeanPredictor,
@@ -42,13 +42,13 @@ from .baselines.naive_pred import (
     NaiveTissueDrugMeanPredictor,
     NaiveTissueMeanPredictor,
 )
-from .baselines.singledrug_elastic_net import SingleDrugElasticNet, SingleDrugProteomicsElasticNet
-from .baselines.singledrug_random_forest import SingleDrugProteomicsRandomForest, SingleDrugRandomForest
+from .baselines.singledrug_baselines import SingleDrugElasticNet, SingleDrugRandomForest
 from .baselines.sklearn_models import (
+    AdaBoostDecisionTree,
     ElasticNetModel,
     GradientBoosting,
-    ProteomicsElasticNetModel,
-    ProteomicsRandomForest,
+    KNNRegressor,
+    LassoModel,
     RandomForest,
     SVMRegressor,
 )
@@ -57,20 +57,18 @@ from .drp_model import DRPModel
 from .DrugGNN import DrugGNN
 from .MOLIR.molir import MOLIR
 from .PharmaFormer.pharmaformer import PharmaFormerModel
-from .SimpleNeuralNetwork.multiomics_neural_network import MultiOmicsNeuralNetwork
-from .SimpleNeuralNetwork.simple_neural_network import ChemBERTaNeuralNetwork, SimpleNeuralNetwork
+from .SimpleNeuralNetwork.multi_view_neural_network import MultiViewNeuralNetwork
+from .SimpleNeuralNetwork.simple_neural_network import SimpleNeuralNetwork
 from .SRMF.srmf import SRMF
 from .SuperFELTR.superfeltr import SuperFELTR
 from .XGDP.xgdp import XGDP
 
 # SINGLE_DRUG_MODEL_FACTORY is used in the pipeline!
 SINGLE_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]] = {
+    "SingleDrugElasticNet": SingleDrugElasticNet,
     "SingleDrugRandomForest": SingleDrugRandomForest,
     "MOLIR": MOLIR,
     "SuperFELTR": SuperFELTR,
-    "SingleDrugElasticNet": SingleDrugElasticNet,
-    "SingleDrugProteomicsElasticNet": SingleDrugProteomicsElasticNet,
-    "SingleDrugProteomicsRandomForest": SingleDrugProteomicsRandomForest,
 }
 
 # MULTI_DRUG_MODEL_FACTORY is used in the pipeline!
@@ -85,17 +83,18 @@ MULTI_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]] = {
     "RandomForest": RandomForest,
     "SVR": SVMRegressor,
     "SimpleNeuralNetwork": SimpleNeuralNetwork,
-    "MultiOmicsNeuralNetwork": MultiOmicsNeuralNetwork,
-    "MultiOmicsRandomForest": MultiOmicsRandomForest,
+    "MultiViewNeuralNetwork": MultiViewNeuralNetwork,
+    "MultiViewRandomForest": MultiViewRandomForest,
     "GradientBoosting": GradientBoosting,
     "SRMF": SRMF,
     "DIPK": DIPKModel,
-    "ProteomicsRandomForest": ProteomicsRandomForest,
-    "ProteomicsElasticNet": ProteomicsElasticNetModel,
     "DrugGNN": DrugGNN,
-    "ChemBERTaNeuralNetwork": ChemBERTaNeuralNetwork,
     "PharmaFormer": PharmaFormerModel,
     "XGDP": XGDP,
+    "KNNRegressor": KNNRegressor,
+    "AdaBoostDecisionTree": AdaBoostDecisionTree,
+    "Lasso": LassoModel,
+    "MultiViewXGBoost": MultiViewXGBoost,
 }
 
 # MODEL_FACTORY is used in the pipeline!

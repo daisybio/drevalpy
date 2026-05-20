@@ -1,1 +1,1 @@
-"""Module for the baseline models SimpleNeuralNetwork, ChemBERTaNeuralNetwork and MultiOmicsNeuralNetwork."""
+"""Module for the baseline models SimpleNeuralNetwork and MultiViewNeuralNetwork."""

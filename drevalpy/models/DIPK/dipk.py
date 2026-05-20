@@ -76,6 +76,7 @@ class DIPKModel(DRPModel):
             hyperparameters["fc_layer_dim"],
             hyperparameters["dropout_rate"],
         ).to(self.DEVICE)
+        self.log_hyperparameters(hyperparameters)
         self.hyperparameters = hyperparameters
 
     def train(
@@ -384,6 +385,7 @@ class DIPKModel(DRPModel):
         Save the DIPK model and gene expression encoder using PyTorch conventions.
 
         This method stores:
+
         - "dipk_model.pt": PyTorch state_dict of the DIPK predictor model
         - "gene_encoder.pt": PyTorch state_dict of the trained gene expression encoder
         - "hyperparameters.json": All hyperparameters including encoder input_dim
@@ -407,6 +409,7 @@ class DIPKModel(DRPModel):
         Load the DIPK model and gene expression encoder using PyTorch conventions.
 
         This method expects the following files in the given directory:
+
         - "dipk_model.pt": PyTorch state_dict of the DIPK predictor model
         - "gene_encoder.pt": PyTorch state_dict of the gene expression encoder
         - "hyperparameters.json": Dictionary of hyperparameters, must include "gene_encoder_input_dim"

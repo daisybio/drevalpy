@@ -22,14 +22,15 @@ from drevalpy.models.utils import load_and_select_gene_features, load_drug_finge
 
 
 class SRMF(DRPModel):
-    """
+    r"""
     SRMF model: Similarity Regularization Matrix Factorization.
 
     The primary idea is to map m drugs and n cell lines into a shared latent space, with a low dimensionality K,
     where :math:`K << min (m, n)`. The properties of a drug :math:`d_i` and a cell line :math:`c_j` are described by
     two latent coordinates :math:`u_i` and :math:`v_j` (K dimensional row vectors), respectively. The drug response
-    matrix Y is approximated by: :math:`min_{U,V} || W * (Y - U * V^T) ||^2_F + lambda_l * (||U||^2_F + ||V||^2_F) +
-    lambda_d * ||S_d - U * U^T||^2_F + lambda_c * ||S_c - V * V^T||^2_F`
+    matrix Y is approximated by: :math:`min_{U,V} || W \cdot (Y - U \cdot V^T) ||^2_F + lambda_l \cdot
+    (||U||^2_F + ||V||^2_F) + lambda_d cdot ||S_d - U \cdot U^T||^2_F +
+    lambda_c \cdot ||S_c - V \cdot V^T||^2_F`
     where W is a weight matrix (:math:`W_{ij} = 1 if Y_{ij}` is a known response value, else 0). U, V contain
     :math:`u_i`, :math:`v_j` as row vectors, respectively, :math:`||.||_F` is the Frobenius norm. To avoid overfitting,
     L2 regularization is used. :math:`S_d, S_c` are drug/cell line similarity matrices. Differences between two
@@ -70,6 +71,7 @@ class SRMF(DRPModel):
 
         :param hyperparameters: dictionary containing the hyperparameters
         """
+        self.log_hyperparameters(hyperparameters)
         self.k = hyperparameters.get("K", 45)
         self.lambda_l = hyperparameters.get("lambda_l", 0.01)
         self.lambda_d = hyperparameters.get("lambda_d", 0)
@@ -304,6 +306,7 @@ class SRMF(DRPModel):
         Save the SRMF model's parameters and latent matrices to the specified directory.
 
         Files saved:
+
         - best_u.pkl: latent factors for drugs
         - best_v.pkl: latent factors for cell lines
         - w_mask.pkl: response presence mask
@@ -335,6 +338,7 @@ class SRMF(DRPModel):
         Load a trained SRMF model from the specified directory.
 
         Expects the following files:
+
         - best_u.pkl: latent factors for drugs
         - best_v.pkl: latent factors for cell lines
         - w_mask.pkl: response presence mask

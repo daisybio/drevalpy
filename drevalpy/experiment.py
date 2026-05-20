@@ -1099,7 +1099,7 @@ def train_and_predict(
 
 def train_and_evaluate(
     model: DRPModel,
-    hpams: dict[str, list],
+    hpams: dict[str, Any],
     path_data: str,
     train_dataset: DrugResponseDataset,
     validation_dataset: DrugResponseDataset,
@@ -1444,6 +1444,7 @@ def generate_data_saving_path(model_name, drug_id, result_path, suffix) -> str:
 
     For single drug models, the path is result_path/model_name/drugs/drug_id/suffix.
     For all others, it is result_path/model_name/suffix.
+
     :param model_name: model name
     :param drug_id: drug id
     :param result_path: path to the results directory
@@ -1497,14 +1498,7 @@ def train_final_model(
     print("Training final model with application-specific validation strategy ...")
 
     full_dataset.remove_nan_responses()
-
     model = model_class()
-    cl_features = model.load_cell_line_features(data_path=path_data, dataset_name=full_dataset.dataset_name)
-    drug_features = model.load_drug_features(data_path=path_data, dataset_name=full_dataset.dataset_name)
-    cell_lines_to_keep = cl_features.identifiers
-    drugs_to_keep = drug_features.identifiers if drug_features is not None else None
-    full_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
-
     train_dataset, validation_dataset = make_train_val_split(full_dataset, test_mode=test_mode, val_ratio=val_ratio)
 
     if model_class.early_stopping:
@@ -1529,14 +1523,32 @@ def train_final_model(
         best_hpams = hpam_set[0]
 
     print(f"Best hyperparameters for final model: {best_hpams}")
+    model.build_model(hyperparameters=best_hpams)
+
+    cl_features = model.load_cell_line_features(data_path=path_data, dataset_name=full_dataset.dataset_name)
+    drug_features = model.load_drug_features(data_path=path_data, dataset_name=full_dataset.dataset_name)
+    cell_lines_to_keep = cl_features.identifiers
+    drugs_to_keep = drug_features.identifiers if drug_features is not None else None
+
     train_dataset.add_rows(validation_dataset)
     train_dataset.shuffle(random_state=42)
+    len_train_before = len(train_dataset)
+    train_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
+    if len(train_dataset) < len_train_before:
+        print(f"Reduced training dataset from {len_train_before} to {len(train_dataset)}, due to missing features")
+
     if response_transformation:
         train_dataset.fit_transform(response_transformation)
         if early_stopping_dataset is not None:
+            len_early_stopping_before = len(early_stopping_dataset)
+            early_stopping_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
+            if len(early_stopping_dataset) < len_early_stopping_before:
+                print(
+                    f"Reduced early stopping dataset from {len_early_stopping_before} to "
+                    f"{len(early_stopping_dataset)}, due to missing features"
+                )
             early_stopping_dataset.transform(response_transformation)
 
-    model.build_model(hyperparameters=best_hpams)
     drug_features = drug_features.copy() if drug_features is not None else None
     model.train(
         output=train_dataset,

@@ -1,9 +1,9 @@
 """
 Includes functions to load and process the DIPK dataset.
 
-get_data: Creates a list of dictionaries with drug and cell line features.
-CollateFn: Class to collate the DataLoader batches.
-DIPKDataset: Dataset class for the DIPK model.
+- get_data: Creates a list of dictionaries with drug and cell line features.
+- CollateFn: Class to collate the DataLoader batches.
+- DIPKDataset: Dataset class for the DIPK model.
 
 """
 
@@ -75,6 +75,7 @@ def get_data(
     Prepare data samples for training or prediction.
 
     Each sample includes:
+
     - Drug features (e.g., molecular embeddings).
     - Cell line features (gene expression and bionic_features).
     - Optional IC50 response values for supervised tasks.

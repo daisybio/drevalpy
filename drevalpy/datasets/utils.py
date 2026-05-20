@@ -141,6 +141,7 @@ def permute_features(
 
     E.g. each cell line gets the feature vector/graph/image... of another cell line.
     Drawn without replacement.
+
     :param features: dictionary of features
     :param identifiers: array of identifiers
     :param views_to_permute: list of views to permute

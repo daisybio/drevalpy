@@ -25,12 +25,12 @@ from drevalpy.visualization.utils import evaluate_file
 @pytest.mark.parametrize(
     "model_name",
     [
-        "SingleDrugRandomForest",
-        "SingleDrugElasticNet",
-        "SingleDrugProteomicsElasticNet",
+        "SingleDrugRandomForest[gex]",
+        "SingleDrugRandomForest[proteomics]",
+        "SingleDrugElasticNet[gex]",
+        "SingleDrugElasticNet[proteomics]",
         "MOLIR",
         "SuperFELTR",
-        "SingleDrugProteomicsRandomForest",
     ],
 )
 @pytest.mark.parametrize("test_mode", ["LTO"])
@@ -49,6 +49,12 @@ def test_single_drug_models(
     random.seed(42)
     torch.manual_seed(42)
     torch.cuda.manual_seed(42)
+
+    whole_name = model_name
+    if model_name.startswith("SingleDrugRandomForest"):
+        model_name = "SingleDrugRandomForest"
+    elif model_name.startswith("SingleDrugElasticNet"):
+        model_name = "SingleDrugElasticNet"
 
     sample_dataset.split_dataset(n_cv_splits=2, mode=test_mode, random_state=42, validation_ratio=0.4)
     assert sample_dataset.cv_splits is not None
@@ -74,9 +80,18 @@ def test_single_drug_models(
 
     hpam_combi = model.get_hyperparameter_set()[0]
     result_path = tempfile.TemporaryDirectory()
+
     if model_name == "SingleDrugRandomForest":
         hpam_combi["n_estimators"] = 2  # reduce test time
         hpam_combi["max_depth"] = 2  # reduce test time
+        if whole_name == "SingleDrugRandomForest[gex]":
+            hpam_combi["cell_line_views"] = "gene_expression"
+        elif whole_name == "SingleDrugRandomForest[proteomics]":
+            hpam_combi["cell_line_views"] = "proteomics"
+    elif whole_name == "SingleDrugElasticNet[gex]":
+        hpam_combi["cell_line_views"] = "gene_expression"
+    elif whole_name == "SingleDrugElasticNet[proteomics]":
+        hpam_combi["cell_line_views"] = "proteomics"
     elif model_name in ["MOLIR", "SuperFELTR"]:
         hpam_combi["epochs"] = 1
 
