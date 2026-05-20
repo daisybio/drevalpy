@@ -4,6 +4,17 @@ News
 .. role:: date
     :class: date
 
+📄 Our paper is finally published! :date:`2026-05-12`
+--------------------------------------------------------------
+After a long, long journey, our paper is finally published at `Nature Communications <https://doi.org/10.1038/s41467-026-72903-w>`_!
+You can now officially cite us with:
+
+.. note::
+
+    **Critical evaluation of drug response prediction models with DrEval.**
+    Judith Bernett,  Pascal Iversen,  Mario Picciani,  Mathias Wilhelm,  Katharina Baum,  Markus List.
+    *Nat Commun* **17**, 4238 (2026); doi: https://doi.org/10.1038/s41467-026-72903-w
+
 📄 Our preprint is out! :date:`2025-05-29`
 --------------------------------------------------------------
 Check out our preprint on `bioRxiv <https://www.biorxiv.org/content/10.1101/2025.05.26.655288v1>`_!

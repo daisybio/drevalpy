@@ -1,5 +1,6 @@
 # DrEvalPy: Python Cancer Cell Line Drug Response Prediction Suite
 
+[![DOI](https://img.shields.io/badge/paper-10.1038%2Fs41467--026--72903--w-be2635?logo=Paper&link=https%3A%2F%2Fdoi.org%2F10.1038%2Fs41467-026-72903-w)](https://doi.org/10.1038/s41467-026-72903-w)
 [![PyPI version](https://img.shields.io/pypi/v/drevalpy.svg)](https://pypi.org/project/drevalpy/)
 ![Python versions](https://img.shields.io/pypi/pyversions/drevalpy)
 [![License](https://img.shields.io/github/license/daisybio/drevalpy)](https://opensource.org/licenses/GPL3)
@@ -7,9 +8,9 @@
 [![Test status](https://github.com/daisybio/drevalpy/actions/workflows/run_tests.yml/badge.svg)](https://github.com/daisybio/drevalpy/actions?workflow=Tests)
 [![Precommit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-[![DOI](https://zenodo.org/badge/727156477.svg)](https://doi.org/10.5281/zenodo.18302237)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18302238.svg)](https://doi.org/10.5281/zenodo.18302237)
 
-**News:** Our preprint is out on [biorxiv](https://www.biorxiv.org/content/10.1101/2025.05.26.655288v1)!
+**News:** Our paper is out on [Nature Communications](https://www.nature.com/articles/s41467-026-72903-w)!
 
 Documentation at [ReadTheDocs](https://drevalpy.readthedocs.io/en/latest/index.html#).
 
