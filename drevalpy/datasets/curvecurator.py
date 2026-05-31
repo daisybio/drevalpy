@@ -12,14 +12,20 @@ quality measures, such as p-value, R2, or relevance score can be used to filter 
 measurements of low quality.
 """
 
-import subprocess
+from __future__ import annotations
+
 import warnings
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import toml
 
+from drevalpy.datasets.curvecurator_device import effective_device
+from drevalpy.datasets.curvecurator_runner import (
+    CurveCuratorWorkItem,
+    run_curvecurator_work_items,
+    split_group_into_chunks,
+)
 from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
 
 from ..pipeline_function import pipeline_function
@@ -27,20 +33,24 @@ from ..pipeline_function import pipeline_function
 
 def _prepare_raw_data(curve_df: pd.DataFrame, output_dir: Path, prefix: str = ""):
     if "replicate" in curve_df.columns:
+        # Replicates are pooled into one CurveCurator row per (sample, drug);
+        # they become additional Raw columns, not separate per-replicate fits.
         n_replicates = curve_df["replicate"].nunique()
         pivot_columns = ["dose", "replicate"]
+        duplicate_columns = ["sample", "drug", "dose", "replicate"]
     else:
         n_replicates = 1
         pivot_columns = ["dose"]
+        duplicate_columns = ["sample", "drug", "dose"]
 
-    if curve_df.duplicated(subset=["sample", "drug", "dose", "replicate"]).any():
+    if curve_df.duplicated(subset=duplicate_columns).any():
         warnings.warn(
-            "CurveCurator Raw Data Processing: Duplicate entries found for some (sample, drug, dose, replicate)"
+            "CurveCurator Raw Data Processing: Duplicate entries found for some sample/drug/dose"
             " combinations. Aggregating using mean of the 'response'.",
             UserWarning,
             stacklevel=1,
         )
-        curve_df = curve_df.groupby(["sample", "drug", "dose", "replicate"], as_index=False)["response"].mean()
+        curve_df = curve_df.groupby(duplicate_columns, as_index=False)["response"].mean()
 
     df = curve_df.pivot(index=["sample", "drug"], columns=pivot_columns, values="response")
 
@@ -67,7 +77,7 @@ def _prepare_raw_data(curve_df: pd.DataFrame, output_dir: Path, prefix: str = ""
     return len(experiments), doses, n_replicates, len(df)
 
 
-def _prepare_toml(
+def _build_config(
     filename: str,
     n_exp: int,
     n_replicates: int,
@@ -76,7 +86,8 @@ def _prepare_toml(
     cores: int,
     condition: str = "",
     normalize: bool = False,
-):
+    n_curves: int | None = None,
+) -> dict:
     config = {
         "Meta": {
             "id": filename,
@@ -85,7 +96,7 @@ def _prepare_toml(
             "treatment_time": "72 h",
         },
         "Experiment": {
-            "experiments": range(n_exp),
+            "experiments": list(range(n_exp)),
             "doses": doses,
             "dose_scale": "1e-06",
             "dose_unit": "uM",
@@ -121,40 +132,135 @@ def _prepare_toml(
             "fc_lim": 0.45,
         },
     }
+    if n_curves is not None:
+        config["Routing"] = {"n_curves": n_curves}
     return config
 
 
-def _exec_curvecurator(output_dir: Path, batched: bool = True):
-    """
-    Execute CurveCurator in batch mode.
+def _load_raw_curve_df(input_path: Path) -> pd.DataFrame:
+    required_columns = {"dose", "response", "sample", "drug"}
+    optional_columns = {"replicate"}
+    allowed_columns = required_columns | optional_columns
+    converters = {"dose": float, "response": float, "sample": str, "drug": str, "replicate": int}
+    curve_df = pd.read_csv(
+        input_path,
+        usecols=lambda column: column in allowed_columns,
+        converters=converters,
+    )
 
-    This function spawns a subprocess that runs CurveCurator for all config.toml files that
-    are listed in a file "configlist.txt" in the provided output directory.
+    missing_columns = sorted(required_columns - set(curve_df.columns))
+    if missing_columns:
+        raise ValueError(f"Missing columns in viability data. Required columns are {sorted(required_columns)}.")
+    return curve_df
 
-    :param output_dir: The directory containing einter configlist.txt as well as subfolders for
-        all the paths listed in configlist.txt that function as input and output directories for
-        batched CurveCurator execution, or the directory containig a single config.toml and
-        corresponding viability input.
-    :param batched: If True, run CurveCurator in batched mode (default), iterating over a list
-        of configs spefified in <output_dir>/configlist.txt and consecutively executing each
-        CurveCurator run. If False, run a single CurveCurator run (this can be used for
-        parallelisation).
-    :raises RuntimeError: If CurveCurator fails to execute, the error message is printed to stdout and stderr.
-    """
-    if batched:
-        command = ["CurveCurator", str(output_dir / "configlist.txt"), "--mad", "--batch"]
+
+def _iter_curve_groups(curve_df: pd.DataFrame):
+    groupby: list[str] = []
+
+    curve_df = curve_df.copy()
+    curve_df["mindose"] = curve_df.groupby(["sample", "drug"], as_index=False)["dose"].transform("min")
+    curve_df["maxdose"] = curve_df.groupby(["sample", "drug"], as_index=False)["dose"].transform("max")
+
+    if curve_df["maxdose"].nunique() > 1:
+        groupby.append("maxdose")
+    if curve_df["mindose"].nunique() > 1:
+        groupby.append("mindose")
+    if "replicate" in curve_df.columns:
+        curve_df["nreplicates"] = curve_df.groupby(["sample", "drug"])["replicate"].transform("nunique")
+        if curve_df["nreplicates"].nunique() > 1:
+            groupby.append("nreplicates")
+
+    if groupby:
+        yield from curve_df.groupby(groupby)
     else:
-        command = ["CurveCurator", str(output_dir / "config.toml"), "--mad"]
-    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    stdout, stderr = process.communicate()
+        yield ("drug_treatment", curve_df)
 
-    if process.returncode != 0:
-        print("CurveCurator stdout:")
-        print(stdout)
-        print("CurveCurator stderr:")
-        print(stderr)
 
-        raise RuntimeError(f"CurveCurator failed with exit code {process.returncode}")
+def _group_prefix(index) -> str:
+    if isinstance(index, tuple):
+        return "_".join(str(part) for part in index)
+    return str(index)
+
+
+def _work_items_for_group(
+    df: pd.DataFrame,
+    output_path: Path,
+    prefix: str,
+    *,
+    input_filename: str,
+    dataset_name: str,
+    cores: int,
+    normalize: bool,
+    device: str,
+    chunk_size: int,
+    gpu_min_curves: int,
+    gpu_chunk_size: int,
+) -> list[CurveCuratorWorkItem]:
+    n_curves = df[["sample", "drug"]].drop_duplicates().shape[0]
+    eff_device = effective_device(device, n_curves, gpu_min_curves)
+    effective_chunk = gpu_chunk_size if eff_device != "cpu" else chunk_size
+    group_dir = output_path / prefix
+    items: list[CurveCuratorWorkItem] = []
+
+    for chunk_df, chunk_dir in split_group_into_chunks(
+        df,
+        group_dir,
+        effective_chunk=effective_chunk,
+    ):
+        chunk_n = chunk_df[["sample", "drug"]].drop_duplicates().shape[0]
+        n_exp, doses, n_replicates, _ = _prepare_raw_data(
+            curve_df=chunk_df,
+            output_dir=chunk_dir.parent,
+            prefix=chunk_dir.name if chunk_dir != group_dir else prefix,
+        )
+        config = _build_config(
+            filename=input_filename,
+            n_exp=n_exp,
+            n_replicates=n_replicates,
+            doses=doses,
+            dataset_name=dataset_name,
+            cores=min(chunk_n, cores),
+            condition=prefix,
+            normalize=normalize,
+            n_curves=chunk_n,
+        )
+        items.append(CurveCuratorWorkItem(chunk_dir=chunk_dir, config=config, n_curves=chunk_n))
+    return items
+
+
+def _prepare_work_items(
+    input_path: Path,
+    output_path: Path,
+    dataset_name: str,
+    cores: int,
+    *,
+    normalize: bool = False,
+    device: str = "auto",
+    chunk_size: int = 1_000,
+    gpu_min_curves: int = 1_000,
+    gpu_chunk_size: int = 50_000,
+) -> list[CurveCuratorWorkItem]:
+    curve_df = _load_raw_curve_df(input_path)
+    work_items: list[CurveCuratorWorkItem] = []
+
+    for index, df in _iter_curve_groups(curve_df):
+        prefix = _group_prefix(index)
+        work_items.extend(
+            _work_items_for_group(
+                df,
+                output_path,
+                prefix,
+                input_filename=input_path.name,
+                dataset_name=dataset_name,
+                cores=cores,
+                normalize=normalize,
+                device=device,
+                chunk_size=chunk_size,
+                gpu_min_curves=gpu_min_curves,
+                gpu_chunk_size=gpu_chunk_size,
+            )
+        )
+    return work_items
 
 
 def _calc_ic50(model_params_df: pd.DataFrame):
@@ -181,87 +287,6 @@ def _calc_ic50(model_params_df: pd.DataFrame):
 
     model_params_df["IC50_curvecurator"] = ic50(front, back, slope, pec50)
     model_params_df["LN_IC50_curvecurator"] = np.log(model_params_df["IC50_curvecurator"].values)
-
-
-@pipeline_function
-def preprocess(input_file: str, output_dir: str, dataset_name: str, cores: int, normalize: bool = False):
-    """
-    Preprocess raw viability data and create required input files for CurveCurator.
-
-    This function takes an input file containing raw viability in long format. The required columns
-    are "dose", "response", "sample", and "drug", with an optional "replicate" column.
-    If there are multiple dose ranges or numbers of replicates, groups in the form
-    (maxdose, mindose, n_replicates) are created to keep the number of parameters for fitting low
-    and the input dataframes for curvecurator as dense as possible.
-    All dosages must be provided in µM!
-    All responses must be normalized against the control already without the response for the control.
-
-    :param input_file: Path to csv file containing the raw viability data
-    :param output_dir: Path to store all the files to, including the preprocessed data, the config.toml
-        for CurveCurator, CurveCurator's output files, and the postprocessed data
-    :param dataset_name: Name of the dataset
-    :param cores: The number of cores to be used for fitting the curves using CurveCurator.
-        This parameter is written into the config.toml, but it is min of the number of curves to fit
-        and the number given (min(n_curves, cores))
-    :param normalize: Whether to normalize the response values to [0, 1] for curvecurator. Default = False.
-    :raises ValueError: If required columns are not found in the provided input file.
-    """
-    input_path = Path(input_file)
-    output_path = Path(output_dir)
-    required_columns = ["dose", "response", "sample", "drug", "replicate"]
-    converters = {"dose": float, "response": float, "sample": str, "drug": str, "replicate": int}
-    try:
-        curve_df = pd.read_csv(input_path, usecols=required_columns, converters=converters)
-    except ValueError:
-        required_columns.pop()
-        del converters["replicate"]
-        curve_df = pd.read_csv(input_path, usecols=required_columns, converters=converters)
-
-    if not all([col in curve_df.columns for col in required_columns]):
-        raise ValueError(f"Missing columns in viability data. Required columns are {required_columns}.")
-    groupby = []
-
-    curve_df["mindose"] = curve_df.groupby(["sample", "drug"], as_index=False)["dose"].transform("min")
-    curve_df["maxdose"] = curve_df.groupby(["sample", "drug"], as_index=False)["dose"].transform("max")
-
-    if curve_df["maxdose"].nunique() > 1:
-        groupby.append("maxdose")
-    if curve_df["mindose"].nunique() > 1:
-        groupby.append("mindose")
-    if "replicate" in curve_df.columns:
-        curve_df["nreplicates"] = curve_df.groupby(["sample", "drug"])["replicate"].transform("nunique")
-        if curve_df["nreplicates"].nunique() > 1:
-            groupby.append("nreplicates")
-
-    if len(groupby) > 0:
-        drug_df_groups = curve_df.groupby(groupby)
-    else:
-        drug_df_groups = [("drug_treatment", curve_df)]
-
-    configs = []
-
-    for index, df in drug_df_groups:
-        prefix = "_".join([f"{s}" for s in index])
-        n_exp, doses, n_replicates, n_curves_to_fit = _prepare_raw_data(
-            curve_df=df, output_dir=output_path, prefix=prefix
-        )
-        config = _prepare_toml(
-            filename=input_path.name,
-            n_exp=n_exp,
-            n_replicates=n_replicates,
-            doses=doses,
-            dataset_name=dataset_name,
-            cores=min(n_curves_to_fit, cores),
-            condition=prefix,
-            normalize=normalize,
-        )
-        config_path = output_path / prefix / "config.toml"
-        with open(config_path, "w") as f:
-            toml.dump(config, f)
-        configs.append(f"{config_path}\n")
-
-    with open(output_path / "configlist.txt", "w") as f:
-        f.writelines(configs)
 
 
 @pipeline_function
@@ -316,25 +341,53 @@ def postprocess(output_folder: str, dataset_name: str):
         f.close()
 
 
-def fit_curves(input_file: str, output_dir: str, dataset_name: str, cores: int, normalize: bool = False):
+def fit_curves(
+    input_file: str,
+    output_dir: str,
+    dataset_name: str,
+    cores: int,
+    normalize: bool = False,
+    *,
+    device: str = "auto",
+    chunk_size: int = 1_000,
+    gpu_min_curves: int = 1_000,
+    gpu_chunk_size: int = 50_000,
+):
     """
     Fit curves for provided raw viability data.
 
     This functions reads viability data in a predefined input format, preprocesses the data
-    to be readable by CurveCurator, fits curves to the data using CurveCurator, and postprocesses
+    to be readable by CurveCurator, fits curves using the fork's Python API, and postprocesses
     the fitted data to a format required by drevalpy.
 
     :param input_file: Path to the file containing the raw viability data
-    :param output_dir: Path to store all the files to, including the preprocessed data, the config.toml
-        for CurveCurator, CurveCurator's output files, and the postprocessed data
+    :param output_dir: Path to store CurveCurator input, output files, and postprocessed data.
     :param dataset_name: The name of the dataset, will be used to prepend the postprocessed <dataset_name>.csv file
-    :param cores: The number of cores to be used for fitting the curves using CurveCurator.
-        This parameter is written into the config.toml, but it is min of the number of curves to fit
-        and the number given (min(n_curves, cores))
+    :param cores: The number of cores to use for CPU chunk concurrency during fitting.
     :param normalize: Whether to normalize the response values to [0, 1] for curvecurator. Default = False.
+    :param device: PyTorch device for fitting: ``auto``, ``cpu``, ``cuda``, ``cuda:0``, or ``mps``.
+    :param chunk_size: Maximum curves per CPU chunk.
+    :param gpu_min_curves: Minimum curves before ``auto`` may select an accelerator.
+    :param gpu_chunk_size: Maximum curves per accelerator chunk.
     """
-    preprocess(
-        input_file=input_file, output_dir=output_dir, dataset_name=dataset_name, cores=cores, normalize=normalize
+    input_path = Path(input_file)
+    output_path = Path(output_dir)
+    work_items = _prepare_work_items(
+        input_path,
+        output_path,
+        dataset_name,
+        cores,
+        normalize=normalize,
+        device=device,
+        chunk_size=chunk_size,
+        gpu_min_curves=gpu_min_curves,
+        gpu_chunk_size=gpu_chunk_size,
     )
-    _exec_curvecurator(output_dir=Path(output_dir))
+    run_curvecurator_work_items(
+        work_items,
+        cores=cores,
+        device=device,
+        gpu_min_curves=gpu_min_curves,
+        gpu_chunk_size=gpu_chunk_size,
+    )
     postprocess(output_folder=output_dir, dataset_name=dataset_name)

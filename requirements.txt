@@ -1,3 +1,4 @@
+-e file:///Users/nico/Software/dreval/curve_curator_gpu ; python_version >= "3.11" and python_version < "3.14"
 aiohappyeyeballs==2.6.2 ; python_version >= "3.11" and python_version < "3.14"
 aiohttp==3.13.5 ; python_version >= "3.11" and python_version < "3.14"
 aiosignal==1.4.0 ; python_version >= "3.11" and python_version < "3.14"
@@ -21,7 +22,6 @@ cryptography==48.0.0 ; python_version >= "3.11" and python_version < "3.14" and 
 cuda-bindings==13.3.0 ; python_version >= "3.11" and python_version < "3.14" and platform_system == "Linux"
 cuda-pathfinder==1.5.5 ; python_version >= "3.11" and python_version < "3.14" and platform_system == "Linux"
 cuda-toolkit==13.0.2 ; python_version >= "3.11" and python_version < "3.14" and platform_system == "Linux"
-curve-curator==0.6.0 ; python_version >= "3.11" and python_version < "3.14"
 cycler==0.12.1 ; python_version >= "3.11" and python_version < "3.14"
 distlib==0.4.0 ; python_version >= "3.11" and python_version < "3.14"
 dulwich==1.2.4 ; python_version >= "3.11" and python_version < "3.14"

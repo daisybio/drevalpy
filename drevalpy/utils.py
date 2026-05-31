@@ -145,6 +145,37 @@ def get_parser() -> argparse.ArgumentParser:
     )
 
     parser.add_argument(
+        "--curve_curator_device",
+        type=str,
+        default="auto",
+        help=(
+            'PyTorch device for CurveCurator fitting: "auto" (CUDA, then MPS, then CPU when enough curves), '
+            '"cpu", "cuda", "cuda:0", or "mps".'
+        ),
+    )
+
+    parser.add_argument(
+        "--curve_curator_chunk_size",
+        type=int,
+        default=1_000,
+        help="Maximum number of curves per CPU chunk during CurveCurator fitting.",
+    )
+
+    parser.add_argument(
+        "--curve_curator_gpu_min_curves",
+        type=int,
+        default=1_000,
+        help="Minimum curves in a chunk before auto device selection may use an accelerator.",
+    )
+
+    parser.add_argument(
+        "--curve_curator_gpu_chunk_size",
+        type=int,
+        default=50_000,
+        help="Maximum number of curves per accelerator chunk during CurveCurator fitting.",
+    )
+
+    parser.add_argument(
         "--measure",
         type=str,
         default="LN_IC50",
@@ -263,6 +294,12 @@ def check_arguments(args) -> None:
 
     if (not args.no_refitting) and args.curve_curator_cores < 1:
         raise ValueError("Number of cores for CurveCurator must be greater than 0.")
+    if (not args.no_refitting) and getattr(args, "curve_curator_chunk_size", 1) < 1:
+        raise ValueError("CurveCurator CPU chunk size must be greater than 0.")
+    if (not args.no_refitting) and getattr(args, "curve_curator_gpu_min_curves", 0) < 0:
+        raise ValueError("CurveCurator GPU minimum curves must be greater than or equal to 0.")
+    if (not args.no_refitting) and getattr(args, "curve_curator_gpu_chunk_size", 1) < 1:
+        raise ValueError("CurveCurator GPU chunk size must be greater than 0.")
 
     for dataset in args.cross_study_datasets:
         if dataset not in AVAILABLE_DATASETS:
@@ -322,6 +359,10 @@ def main(args) -> None:
         curve_curator=(not args.no_refitting),
         cores=args.curve_curator_cores,
         normalize=getattr(args, "curve_curator_normalize", False),
+        device=getattr(args, "curve_curator_device", "auto"),
+        chunk_size=getattr(args, "curve_curator_chunk_size", 1_000),
+        gpu_min_curves=getattr(args, "curve_curator_gpu_min_curves", 1_000),
+        gpu_chunk_size=getattr(args, "curve_curator_gpu_chunk_size", 50_000),
     )
 
     models = [MODEL_FACTORY[model] for model in args.models]
@@ -368,6 +409,10 @@ def get_datasets(
     curve_curator: bool = False,
     cores: int = 1,
     normalize: bool = False,
+    device: str = "auto",
+    chunk_size: int = 1_000,
+    gpu_min_curves: int = 1_000,
+    gpu_chunk_size: int = 50_000,
 ) -> tuple[DrugResponseDataset, list[DrugResponseDataset] | None]:
     """
     Load the response data and cross-study datasets.
@@ -392,6 +437,10 @@ def get_datasets(
     :param cores: Number of cores to use for CurveCurator fitting. Only used when curve_curator is True, default = 1
     :param normalize: Whether to normalize the response values to [0, 1] for curvecurator. Default = False.
         Only used for custom datasets when curve_curator is True.
+    :param device: PyTorch device for CurveCurator fitting when curve_curator is True.
+    :param chunk_size: Maximum curves per CPU chunk when curve_curator is True.
+    :param gpu_min_curves: Minimum curves before auto device selection may use an accelerator.
+    :param gpu_chunk_size: Maximum curves per accelerator chunk when curve_curator is True.
     :returns: response data and, potentially, cross-study datasets
     """
     response_data = load_dataset(
@@ -401,6 +450,10 @@ def get_datasets(
         curve_curator=curve_curator,
         cores=cores,
         normalize=normalize,
+        device=device,
+        chunk_size=chunk_size,
+        gpu_min_curves=gpu_min_curves,
+        gpu_chunk_size=gpu_chunk_size,
     )
 
     cross_study_datasets = [

@@ -1109,21 +1109,24 @@ name = "curve-curator"
 version = "0.6.0"
 description = "CurveCurator is an open-source analysis platform for any dose-dependent data. It fits a classical 4-parameter equation to estimate effect potency, effect size, and the statistical significance of the observed response. 2D-thresholding efficiently reduces false positives in high-throughput experiments and separates relevant from irrelevant or insignificant hits in an automated and unbiased manner. An interactive dashboard allows users to quickly explore data locally."
 optional = false
-python-versions = "<3.14,>=3.11"
+python-versions = ">=3.11,<3.15"
 groups = ["main"]
-files = [
-    {file = "curve_curator-0.6.0-py3-none-any.whl", hash = "sha256:c4345ff856e6de68826fd80536731989e88d9910ba81b00a8ffb5665e318f7e2"},
-    {file = "curve_curator-0.6.0.tar.gz", hash = "sha256:d323dbf900a2c390de7e4ee744a74268d328f917decb277216043ffabccd1a92"},
-]
+files = []
+develop = true
 
 [package.dependencies]
 bokeh = ">=3.4.0,<3.8.0"
 numpy = ">=1.25.0,<3.0"
-pandas = ">=2.1.0,<3.0.0"
-pytest = ">=7.4.3,<8.0.0"
-scipy = ">=1.10.1,<2.0.0"
-statsmodels = ">=0.14.0,<0.15.0"
-tqdm = ">=4.66.1,<5.0.0"
+pandas = ">=2.1.1,<3.0"
+pytest = ">=7.4.3,<9.0"
+scipy = ">=1.10.1,<2.0"
+statsmodels = ">=0.14.6,<0.15.0"
+torch = ">=2.10.0,<3.0"
+tqdm = ">=4.66.1"
+
+[package.source]
+type = "directory"
+url = "../curve_curator_gpu"
 
 [[package]]
 name = "cycler"
@@ -6731,4 +6734,4 @@ xgboost = ["xgboost"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11,<3.14"
-content-hash = "95d0eb003fb7900b0728560445dd0e131a39d87fad83a16df961e1298cff6125"
+content-hash = "7cf9210b8530a5f2d0bcc447be00b1ac98f9c88da0fa843a56a9665f6202c586"

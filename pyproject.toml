@@ -9,8 +9,7 @@ readme = "README.md"
 [tool.poetry.scripts]
 drevalpy                            = "drevalpy.cli:cli_main"
 drevalpy-report                     = "drevalpy.visualization.create_report:main"
-drevalpy-viability-preprocess       = "drevalpy.cli_preprocess_custom:preprocess_raw_viability"
-drevalpy-viability-postprocess      = "drevalpy.cli_preprocess_custom:postprocess_viability"
+drevalpy-fit-curves                = "drevalpy.cli_fit_curves:fit_curves_cmd"
 drevalpy-load-response              = "drevalpy.cli_run_cv:load_response"
 drevalpy-make-cv-pkls               = "drevalpy.cli_run_cv:cv_split"
 drevalpy-make-hpam-yamls            = "drevalpy.cli_run_cv:hpam_split"
@@ -43,7 +42,7 @@ plotly = "*"
 matplotlib = "*"
 importlib-resources = "*"
 scikit-posthocs = "*"
-curve-curator = "*"
+curve-curator = { path = "../curve_curator_gpu", develop = true }
 subword-nmt = ">=0.3.8"
 toml = {version = ">=0.10.2"}
 poetry = ">=2.0.1"

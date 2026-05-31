@@ -17,7 +17,7 @@ You can run it the drug response pipeline, which can test drug response models v
 
     drevalpy [-h] [--run_id RUN_ID] [--path_data PATH_DATA] [--models MODELS [MODELS ...]] [--baselines BASELINES [BASELINES ...]] [--test_mode TEST_MODE [TEST_MODE ...]]
                     [--randomization_mode RANDOMIZATION_MODE [RANDOMIZATION_MODE ...]] [--randomization_type RANDOMIZATION_TYPE] [--n_trials_robustness N_TRIALS_ROBUSTNESS] [--dataset_name DATASET_NAME]
-                    [--cross_study_datasets CROSS_STUDY_DATASETS [CROSS_STUDY_DATASETS ...]] [--path_out PATH_OUT] [--measure MEASURE] [--no_refitting] [--curve_curator_cores CORES] [--overwrite] [--optim_metric OPTIM_METRIC] [--n_cv_splits N_CV_SPLITS]
+                    [--cross_study_datasets CROSS_STUDY_DATASETS [CROSS_STUDY_DATASETS ...]] [--path_out PATH_OUT] [--measure MEASURE] [--no_refitting] [--curve_curator_cores CORES] [--curve_curator_device DEVICE] [--curve_curator_chunk_size CHUNK_SIZE] [--curve_curator_gpu_min_curves GPU_MIN_CURVES] [--curve_curator_gpu_chunk_size GPU_CHUNK_SIZE] [--overwrite] [--optim_metric OPTIM_METRIC] [--n_cv_splits N_CV_SPLITS]
                     [--response_transformation RESPONSE_TRANSFORMATION] [--multiprocessing] [--model_checkpoint_dir MODEL_CHECKPOINT_DIR] [--final_model_on_full_data] [--no_hyperparameter_tuning]
 
 Options:
@@ -36,7 +36,11 @@ Options:
 * ``--path_out PATH_OUT``: Path to the output directory, default: results. All output files will be stored in this directory.
 * ``--measure MEASURE``: The name of the measure to use, default 'LN_IC50'. If using one of the available datasets (see ``--dataset_name``), this is restricted to one of ['LN_IC50', 'EC50', 'IC50', 'pEC50', 'AUC', 'response']. This corresponds to the names of the columns that contain theses measures in the provided input dataset. If providing a custom dataset, this may differ. If the option ``--no_refitting`` is not set, the prefix '_curvecurator' is automatically appended, e.g. 'LN_IC50_curvecurator', to allow using the refit measures instead of the ones originally published for the available datasets, allowing for better dataset comparability (refit measures are already provided in the available datasets or computed as part of the fitting procedure when providing custom raw viability datasets, see ``--no_refitting`` for details).
 * ``--no_refitting``: If not set, the measure is appended with '_curvecurator'. If a custom dataset_name was provided, this will invoke the fitting procedure of raw viability data, which is expected to exist at ``<path_data>/<dataset_name>/<dataset_name>_raw.csv``. The fitted dataset will be stored in the same folder, in a file called ``<dataset_name>.csv``. Also check the :ref:`usage:Custom Datasets` section. Default is False i.e. curvecurated drug response measures are utilzed.
-* ``--curve_curator_cores CURVE_CURATOR_CORES``: Number of cores to use for CurveCurator fitting. Only used when ``--no_refitting`` is not set. Default is 1.
+* ``--curve_curator_cores CURVE_CURATOR_CORES``: Number of CPU worker threads for CurveCurator fitting. Only used when ``--no_refitting`` is not set. Default is 1.
+* ``--curve_curator_device DEVICE``: PyTorch device for CurveCurator fitting when using custom raw viability data: ``auto`` (default), ``cpu``, ``cuda``, ``cuda:0``, or ``mps``. With ``auto``, chunks below ``--curve_curator_gpu_min_curves`` stay on CPU; larger chunks use CUDA, then Apple MPS, then CPU. Accelerator jobs retry on CPU after out-of-memory errors.
+* ``--curve_curator_chunk_size CHUNK_SIZE``: Maximum curves per CPU chunk. Default is 1000.
+* ``--curve_curator_gpu_min_curves GPU_MIN_CURVES``: Minimum curves in a chunk before ``auto`` may select an accelerator. Default is 1000.
+* ``--curve_curator_gpu_chunk_size GPU_CHUNK_SIZE``: Maximum curves per accelerator chunk. Default is 50000.
 * ``--overwrite``: If set, existing files will be overwritten.
 * ``--optim_metric OPTIM_METRIC``: The metric to optimize for during hyperparameter tuning. Default is 'RMSE'. For more information, see the :ref:`usage:Available Metrics` section.
 * ``--n_cv_splits N_CV_SPLITS``: Number of cross-validation splits. Default is 7.
@@ -283,8 +287,16 @@ the available datasets in the previous section.
     * IC50_curvecurator: given in µM
     * LN_IC50_curvecurator: computed from IC50_curvecurator
     * AUC_curvecurator
-* The option ``--curve_curator_cores`` must be set. ``--no_refitting`` must not be set.
+* The option ``--curve_curator_cores`` must be set. ``--no_refitting`` must not be set. Curve fitting uses the forked CurveCurator Python API in-process; optional GPU acceleration is controlled by ``--curve_curator_device`` and related chunk options.
 * DrEvalPy provides all results of the fitting in the same folder including the fitted curves in a file folder ``<path_data>/<dataset>/<dataset_name>.csv``
+
+Raw viability files can also be fit directly without running a full DrEvalPy model evaluation:
+
+.. code-block:: bash
+
+    drevalpy-fit-curves ./data/MyDataset/MyDataset_raw.csv --cores 4 --device auto
+
+This command groups compatible dose ranges internally, runs CurveCurator in-process, and writes ``./data/MyDataset/MyDataset.csv`` by default. Use ``--output_dir`` and ``--dataset_name`` to override the output location or dataset label.
 
 **Prefit viability data**
 

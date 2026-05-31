@@ -279,6 +279,10 @@ def load_dataset(
     cores: int = 1,
     tissue_column: str | None = None,
     normalize: bool = False,
+    device: str = "auto",
+    chunk_size: int = 1_000,
+    gpu_min_curves: int = 1_000,
+    gpu_chunk_size: int = 50_000,
 ) -> DrugResponseDataset:
     """
     Load a dataset based on the dataset name.
@@ -301,6 +305,10 @@ def load_dataset(
         This is only used when loading a custom dataset. Default = None.
     :param normalize: Whether to normalize the response values to [0, 1] for curvecurator. Default = False.
         Only used for custom datasets when curve_curator is True.
+    :param device: PyTorch device for CurveCurator fitting when curve_curator is True.
+    :param chunk_size: Maximum curves per CPU chunk when curve_curator is True.
+    :param gpu_min_curves: Minimum curves before auto device selection may use an accelerator.
+    :param gpu_chunk_size: Maximum curves per accelerator chunk when curve_curator is True.
     :return: A DrugResponseDataset containing response, cell line IDs, drug IDs, and dataset name.
     :raises FileNotFoundError: If the custom dataset or raw viability data could not be found at the given path.
     """
@@ -321,6 +329,10 @@ def load_dataset(
                 dataset_name=dataset_name,
                 cores=cores,
                 normalize=normalize,
+                device=device,
+                chunk_size=chunk_size,
+                gpu_min_curves=gpu_min_curves,
+                gpu_chunk_size=gpu_chunk_size,
             )
         return load_custom(
             path_data=Path(path_data) / dataset_name / f"{dataset_name}.csv",
