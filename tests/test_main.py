@@ -7,7 +7,7 @@ from argparse import Namespace
 
 import pytest
 
-from drevalpy.utils import check_arguments, get_parser, main
+from drevalpy.utils import check_arguments, main
 from drevalpy.visualization.create_report import create_report
 from drevalpy.visualization.utils import (
     create_output_directories,
@@ -59,7 +59,6 @@ def test_drevalpy_main(args, data_dir):
         args["path_out"] = temp_dir
         args["path_data"] = str(data_dir)
         args = Namespace(**args)
-        get_parser()
         check_arguments(args)
 
         try:
