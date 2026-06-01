@@ -1112,7 +1112,7 @@ optional = false
 python-versions = ">=3.11,<3.15"
 groups = ["main"]
 files = []
-develop = true
+develop = false
 
 [package.dependencies]
 bokeh = ">=3.4.0,<3.8.0"
@@ -1125,8 +1125,10 @@ torch = ">=2.10.0,<3.0"
 tqdm = ">=4.66.1"
 
 [package.source]
-type = "directory"
-url = "../curve_curator_gpu"
+type = "git"
+url = "https://github.com/Orakl-Oncology-Dev/curve_curator_gpu.git"
+reference = "main"
+resolved_reference = "879cbf016a47eb7e8c41c491e35d41c8bcb78086"
 
 [[package]]
 name = "cycler"
@@ -6751,4 +6753,4 @@ xgboost = ["xgboost"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11,<3.14"
-content-hash = "17e2255e94ba23127ce0df4e8cedd0f9accc6246a705f4003a35e12b70ec2db8"
+content-hash = "5b0164370846c3d635ff9a630423694deedb493995a350b8ae7bb5abaf29c8ee"

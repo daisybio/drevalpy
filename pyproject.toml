@@ -44,7 +44,7 @@ plotly = "*"
 matplotlib = "*"
 importlib-resources = "*"
 scikit-posthocs = "*"
-curve-curator = { path = "../curve_curator_gpu", develop = true }
+curve-curator = { git = "https://github.com/Orakl-Oncology-Dev/curve_curator_gpu.git", branch = "main" }
 subword-nmt = ">=0.3.8"
 toml = {version = ">=0.10.2"}
 poetry = ">=2.0.1"
