@@ -25,6 +25,7 @@ SUBCOMMAND_LIST_OPTIONS: dict[str, frozenset[str]] = {
 
 KNOWN_SUBCOMMANDS = frozenset(SUBCOMMAND_LIST_OPTIONS) | frozenset(
     {
+        "curation",
         "viability-preprocess",
         "viability-postprocess",
         "load-response",

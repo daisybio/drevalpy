@@ -29,6 +29,7 @@ def _plain_stdout(text: str) -> str:
 def test_drevalpy_help_lists_subcommands() -> None:
     result = runner.invoke(app, ["--help"])
     assert result.exit_code == 0
+    assert "curation" in result.stdout
     assert "viability-preprocess" in result.stdout
     assert "train-cv" in result.stdout
     assert "make-pipeline-report" in result.stdout

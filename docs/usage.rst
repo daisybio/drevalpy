@@ -290,13 +290,23 @@ the available datasets in the previous section.
 * The option ``--curve_curator_cores`` must be set. ``--no_refitting`` must not be set. Curve fitting uses the forked CurveCurator Python API in-process; optional GPU acceleration is controlled by ``--curve_curator_device`` and related chunk options.
 * DrEvalPy provides all results of the fitting in the same folder including the fitted curves in a file folder ``<path_data>/<dataset>/<dataset_name>.csv``
 
-Raw viability files can also be fit directly without running a full DrEvalPy model evaluation:
+Raw viability files can also be fit directly without running a full DrEvalPy model evaluation using the curation workflow:
 
 .. code-block:: bash
 
-    drevalpy-fit-curves ./data/MyDataset/MyDataset_raw.csv --cores 4 --device auto
+    drevalpy curation --input-file ./data/MyDataset/MyDataset_raw.csv --output-dir ./data/MyDataset --cores 4 --device auto
 
-This command groups compatible dose ranges internally, runs CurveCurator in-process, and writes ``./data/MyDataset/MyDataset.csv`` by default. Use ``--output_dir`` and ``--dataset_name`` to override the output location or dataset label.
+This runs split, CurveCurator, and combine in one command and writes ``./data/MyDataset/MyDataset.csv`` by default. For distributed execution (for example in Nextflow), use the stepwise commands:
+
+.. code-block:: bash
+
+    drevalpy curation split ./data/MyDataset/MyDataset_raw.csv --output-dir ./data/MyDataset --gpu-available
+    drevalpy curation curvecurator ./data/MyDataset/<job_id>_config.json ./data/MyDataset/<job_id>_input.parquet ./data/MyDataset/<job_id>_curves.parquet --device auto
+    drevalpy curation combine ./data/MyDataset/curation_manifest.json
+
+Split writes a flat directory with ``<job_id>_config.json`` (CurveCurator config including ``Routing.n_curves`` and ``Routing.device``) and ``<job_id>_input.parquet`` per job. The curvecurator step reads those two files explicitly and writes fitted curves to the output parquet path you provide. Use ``--gpu-available`` during split only when GPU resources are available for accelerator chunking; otherwise split defaults to CPU-sized chunks.
+
+The legacy ``drevalpy-fit-curves`` command remains available as a compatibility alias for the top-level ``drevalpy curation`` workflow.
 
 **Prefit viability data**
 

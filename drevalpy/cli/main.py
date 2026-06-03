@@ -9,6 +9,7 @@ import typer
 from drevalpy.cli import (
     collect_results,
     consolidate_single_drug,
+    curation,
     evaluate_hpams,
     evaluate_test,
     load_response,
@@ -35,6 +36,7 @@ app = typer.Typer(
 )
 
 pipeline.register_pipeline_callback(app)
+curation.register(app)
 viability_preprocess.register(app)
 viability_postprocess.register(app)
 load_response.register(app)

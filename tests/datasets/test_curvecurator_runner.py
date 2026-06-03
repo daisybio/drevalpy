@@ -29,26 +29,33 @@ def _minimal_config() -> dict:
     }
 
 
-def test_finalize_config_absolutizes_paths(tmp_path: Path) -> None:
-    (tmp_path / "curvecurator_input.tsv").write_text("Name\tRaw 0\n", encoding="utf-8")
-    config = finalize_config(_minimal_config(), tmp_path)
-    assert Path(config["Paths"]["input_file"]).is_absolute()
-    assert config["__file__"]["Path"].endswith("config.toml")
+def test_finalize_config_records_config_path(tmp_path: Path) -> None:
+    config_path = tmp_path / "job_config.json"
+    config = finalize_config(_minimal_config(), config_path=config_path)
+    assert config["__file__"]["Path"] == str(config_path.resolve())
 
 
 def test_fit_with_fallback_retries_on_oom() -> None:
     fitted = pd.DataFrame({"Name": ["A|D"], "pEC50": [6.0]})
+    input_table = pd.DataFrame({"Name": ["A|D"], "Raw 0": [1.0]})
     calls: list[str] = []
 
-    def _fake_run(config, *, mad, device, gpu_chunk_size):
-        _ = (config, mad, gpu_chunk_size)
+    def _fake_run(config, *, input_table, mad, device, gpu_chunk_size):
+        _ = (config, input_table, mad, gpu_chunk_size)
         calls.append(device)
         if device == "cuda":
             raise RuntimeError("CUDA out of memory")
         return fitted
 
-    with patch("drevalpy.datasets.curvecurator_runner._run_pipeline_api", side_effect=_fake_run):
-        result = _fit_with_fallback(_minimal_config(), "cuda", 50_000, "chunk_0", mad=False)
+    with patch("drevalpy.curation._curvecurator.curvecurator._run_pipeline_api", side_effect=_fake_run):
+        result = _fit_with_fallback(
+            _minimal_config(),
+            input_table,
+            "cuda",
+            50_000,
+            "chunk_0",
+            mad=False,
+        )
 
     assert calls == ["cuda", "cpu"]
     assert len(result) == 1
@@ -69,7 +76,7 @@ def test_run_curvecurator_work_items_writes_curves_tsv(tmp_path: Path) -> None:
     )
     item = CurveCuratorWorkItem(chunk_dir=chunk_dir, config=_minimal_config(), n_curves=1)
 
-    with patch("drevalpy.datasets.curvecurator_runner._run_pipeline_api", return_value=fitted) as mock_api:
+    with patch("drevalpy.curation._curvecurator.curvecurator._run_pipeline_api", return_value=fitted) as mock_api:
         run_curvecurator_work_items(
             [item],
             cores=1,
@@ -93,8 +100,8 @@ def test_run_curvecurator_work_items_passes_gpu_chunk_size(tmp_path: Path) -> No
     item = CurveCuratorWorkItem(chunk_dir=chunk_dir, config=_minimal_config(), n_curves=5000)
     fitted = pd.DataFrame({"Name": ["A|D"], "pEC50": [6.0]})
 
-    with patch("drevalpy.datasets.curvecurator_device.resolve_device", return_value="cuda"):
-        with patch("drevalpy.datasets.curvecurator_runner._run_pipeline_api", return_value=fitted) as mock_api:
+    with patch("drevalpy.curation._curvecurator.device.resolve_device", return_value="cuda"):
+        with patch("drevalpy.curation._curvecurator.curvecurator._run_pipeline_api", return_value=fitted) as mock_api:
             run_curvecurator_work_items(
                 [item],
                 cores=1,

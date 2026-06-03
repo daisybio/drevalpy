@@ -39,3 +39,12 @@ evaluate_test_results = _legacy_alias("drevalpy-evaluate-test", "evaluate-test")
 collect_results = _legacy_alias("drevalpy-collect-results", "collect-results")
 main = _legacy_alias("drevalpy-report", "report")
 pipeline_report = _legacy_alias("drevalpy-make-pipeline-report", "make-pipeline-report")
+
+
+def fit_curves_cmd() -> None:
+    """Legacy alias for ``drevalpy curation`` with positional input file support."""
+    warn_deprecated(legacy_script="drevalpy-fit-curves", replacement="drevalpy curation")
+    from drevalpy.cli._fit_curves_legacy import forward_fit_curves_argv
+    from drevalpy.cli.main import app
+
+    app(normalize_list_argv(forward_fit_curves_argv(sys.argv[1:])), prog_name="drevalpy-fit-curves")
