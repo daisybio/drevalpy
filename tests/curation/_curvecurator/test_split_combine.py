@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from drevalpy.curation import combine, split
+from drevalpy.curation import combine, load_raw_curve_df, split
 from drevalpy.curation._curvecurator.split import prepare_input_table
 from drevalpy.curation._curvecurator.types import CurationFitResult, CurationWorkItem
 
@@ -17,8 +17,9 @@ def test_split_returns_in_memory_work_items(tmp_path: Path) -> None:
         "dose,response,sample,drug\n1.0,0.9,A,D\n10.0,0.1,A,D\n",
         encoding="utf-8",
     )
+    raw_df = load_raw_curve_df(input_file)
 
-    split_result = split(input_file=input_file, dataset_name="Toy", cores=1)
+    split_result = split(raw_df, dataset_name="Toy", input_filename=input_file.name, cores=1)
 
     assert split_result.dataset_name == "Toy"
     assert len(split_result.work_items) == 1
@@ -29,8 +30,7 @@ def test_split_returns_in_memory_work_items(tmp_path: Path) -> None:
     assert work_item.config["Routing"] == {"n_curves": 1, "device": "cpu"}
 
 
-def test_split_records_auto_routing_for_accelerator_sized_chunks(tmp_path: Path) -> None:
-    input_file = tmp_path / "Toy_raw.csv"
+def test_split_records_auto_routing_for_accelerator_sized_chunks() -> None:
     curve_df = pd.DataFrame(
         {
             "dose": [1.0, 10.0, 1.0, 10.0, 1.0, 10.0],
@@ -41,20 +41,19 @@ def test_split_records_auto_routing_for_accelerator_sized_chunks(tmp_path: Path)
     )
 
     split_result = split(
-        input_file=input_file,
+        curve_df,
         dataset_name="Toy",
+        input_filename="Toy_raw.csv",
         device="auto",
         gpu_min_curves=2,
         gpu_available=True,
-        curve_df=curve_df,
     )
 
     assert len(split_result.work_items) == 1
     assert split_result.work_items[0].config["Routing"] == {"n_curves": 3, "device": "auto"}
 
 
-def test_split_defaults_to_cpu_chunking_without_gpu_available(tmp_path: Path) -> None:
-    input_file = tmp_path / "Toy_raw.csv"
+def test_split_defaults_to_cpu_chunking_without_gpu_available() -> None:
     curve_df = pd.DataFrame(
         {
             "dose": [1.0, 10.0, 1.0, 10.0, 1.0, 10.0],
@@ -65,12 +64,12 @@ def test_split_defaults_to_cpu_chunking_without_gpu_available(tmp_path: Path) ->
     )
 
     split_result = split(
-        input_file=input_file,
+        curve_df,
         dataset_name="Toy",
+        input_filename="Toy_raw.csv",
         device="auto",
         gpu_min_curves=2,
         gpu_available=False,
-        curve_df=curve_df,
     )
 
     assert len(split_result.work_items) == 1
@@ -83,10 +82,12 @@ def test_split_keeps_small_chunks_on_cpu_when_gpu_available(tmp_path: Path) -> N
         "dose,response,sample,drug\n1.0,0.9,A,D\n10.0,0.1,A,D\n",
         encoding="utf-8",
     )
+    raw_df = load_raw_curve_df(input_file)
 
     split_result = split(
-        input_file=input_file,
+        raw_df,
         dataset_name="Toy",
+        input_filename=input_file.name,
         device="auto",
         gpu_min_curves=2,
         gpu_available=True,

@@ -5,7 +5,9 @@ New code should import from ``drevalpy.curation`` instead.
 
 from __future__ import annotations
 
-from drevalpy.curation._curvecurator.workflow import curate_to_csv
+from pathlib import Path
+
+from drevalpy.curation import curate, load_raw_curve_df, write_dataset_csv
 
 
 def fit_curves(
@@ -32,10 +34,12 @@ def fit_curves(
     :param gpu_min_curves: Minimum curves before using an accelerator.
     :param gpu_chunk_size: Maximum curves per accelerator chunk.
     """
-    curate_to_csv(
-        input_file=input_file,
-        output_dir=output_dir,
+    input_path = Path(input_file)
+    raw_df = load_raw_curve_df(input_path)
+    dataset = curate(
+        raw_df,
         dataset_name=dataset_name,
+        input_filename=input_path.name,
         cores=cores,
         normalize=normalize,
         device=device,
@@ -43,3 +47,4 @@ def fit_curves(
         gpu_min_curves=gpu_min_curves,
         gpu_chunk_size=gpu_chunk_size,
     )
+    write_dataset_csv(dataset, Path(output_dir) / f"{dataset_name}.csv")

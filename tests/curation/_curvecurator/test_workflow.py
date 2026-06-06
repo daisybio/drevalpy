@@ -7,14 +7,16 @@ from pathlib import Path
 
 import pandas as pd
 
-from drevalpy.curation import curate_to_csv
+from drevalpy.curation import curate, load_raw_curve_df, split, write_dataset_csv
+from drevalpy.curation._curvecurator.combine import combine
+from drevalpy.curation._curvecurator.curvecurator import curvecurator
 from drevalpy.curation._curvecurator.io import (
-    combine_manifest_to_csv,
-    curvecurator_to_disk,
     job_config_path,
     job_curves_path,
     job_input_path,
-    split_to_disk,
+    read_fit_results_from_manifest,
+    write_fit_curves,
+    write_split_artifacts,
 )
 
 
@@ -67,49 +69,48 @@ def _fake_run_pipeline_api(config, *, input_table, mad, device, gpu_chunk_size):
     return _synthetic_curves(input_table["Name"])
 
 
-def test_curate_to_csv_runs_synthetic_in_process_workflow(tmp_path: Path, monkeypatch) -> None:
+def test_curate_runs_synthetic_in_process_workflow(tmp_path: Path, monkeypatch) -> None:
     input_file = tmp_path / "Toy_raw.csv"
     output_dir = tmp_path / "out"
     _write_synthetic_raw(input_file)
     monkeypatch.setattr("drevalpy.curation._curvecurator.curvecurator._run_pipeline_api", _fake_run_pipeline_api)
 
-    output_path = curate_to_csv(
-        input_file=input_file,
-        output_dir=output_dir,
-        dataset_name="Toy",
-        cores=1,
-        device="cpu",
-    )
+    raw_df = load_raw_curve_df(input_file)
+    dataset = curate(raw_df, dataset_name="Toy", input_filename=input_file.name, cores=1, device="cpu")
+    output_path = write_dataset_csv(dataset, output_dir / "Toy.csv")
 
-    dataset = pd.read_csv(output_path)
+    dataset_from_disk = pd.read_csv(output_path)
     assert output_path == output_dir / "Toy.csv"
-    assert set(dataset["cell_line_name"]) == {"A", "B"}
-    assert set(dataset["pubchem_id"]) == {"D1"}
-    assert {"EC50_curvecurator", "IC50_curvecurator", "LN_IC50_curvecurator"}.issubset(dataset.columns)
+    assert set(dataset_from_disk["cell_line_name"]) == {"A", "B"}
+    assert set(dataset_from_disk["pubchem_id"]) == {"D1"}
+    assert {"EC50_curvecurator", "IC50_curvecurator", "LN_IC50_curvecurator"}.issubset(dataset_from_disk.columns)
 
 
-def test_stepwise_disk_workflow_runs_synthetic_jobs(tmp_path: Path, monkeypatch) -> None:
+def test_stepwise_transport_workflow_runs_synthetic_jobs(tmp_path: Path, monkeypatch) -> None:
     input_file = tmp_path / "Toy_raw.csv"
     work_dir = tmp_path / "work"
     output_file = tmp_path / "Toy.csv"
     _write_synthetic_raw(input_file)
     monkeypatch.setattr("drevalpy.curation._curvecurator.curvecurator._run_pipeline_api", _fake_run_pipeline_api)
 
-    manifest_path = split_to_disk(input_file=input_file, output_dir=work_dir, dataset_name="Toy", cores=1)
+    raw_df = load_raw_curve_df(input_file)
+    split_result = split(raw_df, dataset_name="Toy", input_filename=input_file.name, cores=1)
+    manifest_path = write_split_artifacts(split_result, work_dir)
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
 
     for entry in manifest["work_items"]:
         job_id = entry["job_id"]
-        written_curves = curvecurator_to_disk(
-            job_config_path(work_dir, job_id),
-            job_input_path(work_dir, job_id),
-            job_curves_path(work_dir, job_id),
-            device="cpu",
-        )
-        assert written_curves.is_file()
+        work_item = next(item for item in split_result.work_items if item.work_id == job_id)
+        fit_result = curvecurator(work_item, device="cpu")
+        written_curves = write_fit_curves(fit_result.curves, job_curves_path(work_dir, job_id))
+        assert written_curves == job_curves_path(work_dir, job_id)
+        assert job_config_path(work_dir, job_id).is_file()
+        assert job_input_path(work_dir, job_id).is_file()
 
-    combined_path = combine_manifest_to_csv(manifest_path, output_file=output_file)
-    dataset = pd.read_csv(combined_path)
+    fit_results = read_fit_results_from_manifest(manifest_path)
+    dataset = combine(fit_results, dataset_name=manifest["dataset_name"])
+    combined_path = write_dataset_csv(dataset, output_file)
 
+    dataset_from_disk = pd.read_csv(combined_path)
     assert combined_path == output_file
-    assert set(dataset["cell_line_name"]) == {"A", "B"}
+    assert set(dataset_from_disk["cell_line_name"]) == {"A", "B"}

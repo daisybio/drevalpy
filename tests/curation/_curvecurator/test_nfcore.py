@@ -51,21 +51,32 @@ def _legacy_curves_tsv(path: Path) -> None:
     ).to_csv(path, sep="\t", index=False)
 
 
-def test_run_preprocess_raw_viability_calls_split_to_disk(tmp_path: Path) -> None:
+def test_run_preprocess_raw_viability_runs_split_and_writes_artifacts(tmp_path: Path) -> None:
     dataset_name = "Toy"
     dataset_dir = tmp_path / "data" / dataset_name
     dataset_dir.mkdir(parents=True)
     _write_synthetic_raw(dataset_dir / f"{dataset_name}_raw.csv")
 
-    with patch("drevalpy.curation._curvecurator.nfcore.split_to_disk") as mock_split:
+    with (
+        patch("drevalpy.curation._curvecurator.nfcore.load_raw_curve_df") as mock_load,
+        patch("drevalpy.curation._curvecurator.nfcore.split") as mock_split,
+        patch("drevalpy.curation._curvecurator.nfcore.write_split_artifacts") as mock_write,
+    ):
+        raw_df = pd.DataFrame({"dose": [1.0], "response": [0.5], "sample": ["A"], "drug": ["D"]})
+        split_result = object()
+        mock_load.return_value = raw_df
+        mock_split.return_value = split_result
+
         run_preprocess_raw_viability(path_data=str(tmp_path / "data"), dataset_name=dataset_name, cores=2)
 
+    mock_load.assert_called_once_with(dataset_dir / f"{dataset_name}_raw.csv")
     mock_split.assert_called_once_with(
-        input_file=dataset_dir / f"{dataset_name}_raw.csv",
-        output_dir=dataset_dir,
+        raw_df,
         dataset_name=dataset_name,
+        input_filename=f"{dataset_name}_raw.csv",
         cores=2,
     )
+    mock_write.assert_called_once_with(split_result, dataset_dir)
 
 
 def test_run_postprocess_viability_uses_manifest_when_present(tmp_path: Path) -> None:
@@ -78,10 +89,23 @@ def test_run_postprocess_viability_uses_manifest_when_present(tmp_path: Path) ->
         encoding="utf-8",
     )
 
-    with patch("drevalpy.curation._curvecurator.nfcore.combine_manifest_to_csv") as mock_combine:
+    with (
+        patch("drevalpy.curation._curvecurator.nfcore.read_manifest") as mock_read_manifest,
+        patch("drevalpy.curation._curvecurator.nfcore.read_fit_results_from_manifest") as mock_read_fit,
+        patch("drevalpy.curation._curvecurator.nfcore.combine") as mock_combine,
+        patch("drevalpy.curation._curvecurator.nfcore.write_dataset_csv") as mock_write,
+    ):
+        dataset = pd.DataFrame({"cell_line_name": ["A"]})
+        mock_read_manifest.return_value = {"dataset_name": dataset_name}
+        mock_read_fit.return_value = []
+        mock_combine.return_value = dataset
+
         run_postprocess_viability(dataset_name=dataset_name, path_data=str(tmp_path))
 
-    mock_combine.assert_called_once_with(manifest)
+    mock_read_manifest.assert_called_once_with(manifest)
+    mock_read_fit.assert_called_once_with(manifest)
+    mock_combine.assert_called_once_with([], dataset_name=dataset_name)
+    mock_write.assert_called_once_with(dataset, dataset_dir / f"{dataset_name}.csv")
 
 
 def test_run_postprocess_viability_falls_back_to_legacy_curves_tsv(tmp_path: Path) -> None:

@@ -271,9 +271,10 @@ def _work_items_for_group(
 
 
 def split(
-    input_file: str | Path,
-    dataset_name: str,
+    raw_df: pd.DataFrame,
     *,
+    dataset_name: str,
+    input_filename: str,
     cores: int = 1,
     normalize: bool = False,
     device: str = "auto",
@@ -281,12 +282,12 @@ def split(
     gpu_min_curves: int = 1_000,
     gpu_chunk_size: int = 50_000,
     gpu_available: bool = False,
-    curve_df: pd.DataFrame | None = None,
 ) -> CurationSplitResult:
     """Split raw viability data into in-memory CurveCurator work items.
 
-    :param input_file: Path to the raw viability CSV.
+    :param raw_df: Raw viability table with dose, response, sample, and drug columns.
     :param dataset_name: Dataset name used in metadata and combine output.
+    :param input_filename: Source filename recorded in work-item metadata.
     :param cores: Maximum CPU worker threads for CurveCurator processing config.
     :param normalize: Whether CurveCurator should normalize responses.
     :param device: Requested PyTorch device string for chunk sizing.
@@ -294,11 +295,8 @@ def split(
     :param gpu_min_curves: Minimum curves before ``auto`` may select an accelerator.
     :param gpu_chunk_size: Maximum curves per accelerator chunk.
     :param gpu_available: Whether GPU resources are available for accelerator chunking.
-    :param curve_df: Optional preloaded raw dataframe.
     :returns: Prepared in-memory work items.
     """
-    input_path = Path(input_file)
-    raw_df = curve_df if curve_df is not None else load_raw_curve_df(input_path)
     work_items: list[CurationWorkItem] = []
 
     for index, group_df in _iter_curve_groups(raw_df):
@@ -307,7 +305,7 @@ def split(
             _work_items_for_group(
                 group_df,
                 group_key=group_key,
-                input_filename=input_path.name,
+                input_filename=input_filename,
                 dataset_name=dataset_name,
                 cores=cores,
                 normalize=normalize,
@@ -322,6 +320,6 @@ def split(
 
     return CurationSplitResult(
         dataset_name=dataset_name,
-        input_filename=input_path.name,
+        input_filename=input_filename,
         work_items=tuple(work_items),
     )

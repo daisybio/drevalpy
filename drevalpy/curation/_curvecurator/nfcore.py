@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from drevalpy.curation._curvecurator.combine import combine_from_disk, write_dataset_csv
-from drevalpy.curation._curvecurator.io import combine_manifest_to_csv, split_to_disk
+from drevalpy.curation import combine, load_raw_curve_df, split, write_dataset_csv
+from drevalpy.curation._curvecurator.combine import combine_from_disk
+from drevalpy.curation._curvecurator.io import read_fit_results_from_manifest, read_manifest, write_split_artifacts
 
 
 def run_preprocess_raw_viability(
@@ -22,12 +23,14 @@ def run_preprocess_raw_viability(
     """
     input_file = Path(path_data).resolve() / dataset_name / f"{dataset_name}_raw.csv"
     output_dir = input_file.parent
-    split_to_disk(
-        input_file=input_file,
-        output_dir=output_dir,
+    raw_df = load_raw_curve_df(input_file)
+    split_result = split(
+        raw_df,
         dataset_name=dataset_name,
+        input_filename=input_file.name,
         cores=cores,
     )
+    write_split_artifacts(split_result, output_dir)
 
 
 def run_postprocess_viability(
@@ -46,7 +49,10 @@ def run_postprocess_viability(
     output_folder = Path(path_data).resolve() / dataset_name
     manifest = output_folder / "curation_manifest.json"
     if manifest.is_file():
-        combine_manifest_to_csv(manifest)
+        manifest_data = read_manifest(manifest)
+        fit_results = read_fit_results_from_manifest(manifest)
+        dataset = combine(fit_results, dataset_name=manifest_data["dataset_name"])
+        write_dataset_csv(dataset, output_folder / f"{dataset_name}.csv")
         return
 
     dataset = combine_from_disk(output_folder, dataset_name)

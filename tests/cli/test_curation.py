@@ -22,16 +22,22 @@ def test_curation_help_lists_subcommands() -> None:
     assert "combine" in result.stdout
 
 
-def test_curation_root_calls_curate_to_csv(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_curation_root_reads_input_writes_output(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     calls: list[dict[str, Any]] = []
     input_file = tmp_path / "Toy_raw.csv"
     input_file.write_text("dose,response,sample,drug\n1,0.5,S,D\n", encoding="utf-8")
+    raw_df = pd.DataFrame({"dose": [1.0], "response": [0.5], "sample": ["S"], "drug": ["D"]})
+    dataset = pd.DataFrame({"cell_line_name": ["S"]})
 
-    def _fake_curate_to_csv(**kwargs: Any) -> Path:
-        calls.append(kwargs)
-        return tmp_path / "Toy.csv"
-
-    monkeypatch.setattr("drevalpy.cli.curation.curate_to_csv", _fake_curate_to_csv)
+    monkeypatch.setattr("drevalpy.cli.curation.load_raw_curve_df", lambda path: raw_df)
+    monkeypatch.setattr(
+        "drevalpy.cli.curation.curate",
+        lambda *args, **kwargs: calls.append({"args": args, "kwargs": kwargs}) or dataset,
+    )
+    monkeypatch.setattr(
+        "drevalpy.cli.curation.write_dataset_csv",
+        lambda table, path: calls.append({"output": path}) or path,
+    )
 
     result = runner.invoke(
         app,
@@ -44,7 +50,9 @@ def test_curation_root_calls_curate_to_csv(monkeypatch: pytest.MonkeyPatch, tmp_
         ],
     )
     assert result.exit_code == 0
-    assert calls[0]["dataset_name"] == "Toy"
+    assert calls[0]["kwargs"]["dataset_name"] == "Toy"
+    assert calls[0]["kwargs"]["input_filename"] == "Toy_raw.csv"
+    assert calls[1]["output"] == tmp_path / "Toy.csv"
 
 
 def test_curation_root_runs_synthetic_workflow(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -88,17 +96,19 @@ def test_curation_root_runs_synthetic_workflow(monkeypatch: pytest.MonkeyPatch, 
     assert pd.read_csv(output_file)["cell_line_name"].iloc[0] == "A"
 
 
-def test_curation_split_calls_split_to_disk(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_curation_split_reads_input_writes_manifest(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     calls: list[dict[str, Any]] = []
     input_file = tmp_path / "Toy_raw.csv"
     input_file.write_text("dose,response,sample,drug\n1,0.5,S,D\n", encoding="utf-8")
+    raw_df = pd.DataFrame({"dose": [1.0], "response": [0.5], "sample": ["S"], "drug": ["D"]})
     manifest = tmp_path / "curation_manifest.json"
 
-    def _fake_split_to_disk(**kwargs: Any) -> Path:
-        calls.append(kwargs)
-        return manifest
-
-    monkeypatch.setattr("drevalpy.cli.curation.split_to_disk", _fake_split_to_disk)
+    monkeypatch.setattr("drevalpy.cli.curation.load_raw_curve_df", lambda path: raw_df)
+    monkeypatch.setattr(
+        "drevalpy.cli.curation.split",
+        lambda *args, **kwargs: calls.append(kwargs) or object(),
+    )
+    monkeypatch.setattr("drevalpy.cli.curation.write_split_artifacts", lambda result, output_dir: manifest)
 
     result = runner.invoke(
         app,
@@ -116,6 +126,7 @@ def test_curation_split_calls_split_to_disk(monkeypatch: pytest.MonkeyPatch, tmp
     )
     assert result.exit_code == 0
     assert calls[0]["dataset_name"] == "Toy"
+    assert calls[0]["input_filename"] == "Toy_raw.csv"
     assert calls[0]["gpu_min_curves"] == 25
     assert calls[0]["gpu_chunk_size"] == 500
     assert calls[0]["gpu_available"] is False
@@ -126,12 +137,17 @@ def test_curation_split_forwards_gpu_available(monkeypatch: pytest.MonkeyPatch, 
     calls: list[dict[str, Any]] = []
     input_file = tmp_path / "Toy_raw.csv"
     input_file.write_text("dose,response,sample,drug\n1,0.5,S,D\n", encoding="utf-8")
+    raw_df = pd.DataFrame({"dose": [1.0], "response": [0.5], "sample": ["S"], "drug": ["D"]})
 
-    def _fake_split_to_disk(**kwargs: Any) -> Path:
-        calls.append(kwargs)
-        return tmp_path / "curation_manifest.json"
-
-    monkeypatch.setattr("drevalpy.cli.curation.split_to_disk", _fake_split_to_disk)
+    monkeypatch.setattr("drevalpy.cli.curation.load_raw_curve_df", lambda path: raw_df)
+    monkeypatch.setattr(
+        "drevalpy.cli.curation.split",
+        lambda *args, **kwargs: calls.append(kwargs) or object(),
+    )
+    monkeypatch.setattr(
+        "drevalpy.cli.curation.write_split_artifacts",
+        lambda result, output_dir: tmp_path / "curation_manifest.json",
+    )
 
     result = runner.invoke(
         app,
@@ -148,20 +164,24 @@ def test_curation_split_forwards_gpu_available(monkeypatch: pytest.MonkeyPatch, 
     assert calls[0]["gpu_available"] is True
 
 
-def test_curation_curvecurator_calls_curvecurator_to_disk(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_curation_curvecurator_reads_input_writes_curves(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     config_file = tmp_path / "Toy_drug_treatment_config.json"
     config_file.write_text("{}", encoding="utf-8")
     input_file = tmp_path / "Toy_drug_treatment_input.parquet"
     input_file.write_text("", encoding="utf-8")
     output_file = tmp_path / "Toy_drug_treatment_curves.parquet"
-    calls: list[tuple[Path, Path, Path]] = []
+    work_item = object()
+    calls: list[tuple[object, Path]] = []
 
-    def _fake_curvecurator_to_disk(config_path: Path, input_path: Path, output_path: Path, **kwargs: Any) -> Path:
-        _ = kwargs
-        calls.append((config_path, input_path, output_path))
-        return output_path
-
-    monkeypatch.setattr("drevalpy.cli.curation.curvecurator_to_disk", _fake_curvecurator_to_disk)
+    monkeypatch.setattr("drevalpy.cli.curation.read_work_item", lambda config_path, **kwargs: work_item)
+    monkeypatch.setattr(
+        "drevalpy.cli.curation.curvecurator",
+        lambda item, **kwargs: type("FitResult", (), {"curves": pd.DataFrame({"pEC50": [1.0]})})(),
+    )
+    monkeypatch.setattr(
+        "drevalpy.cli.curation.write_fit_curves",
+        lambda curves, output_path: calls.append((curves, output_path)) or output_path,
+    )
 
     result = runner.invoke(
         app,
@@ -174,20 +194,25 @@ def test_curation_curvecurator_calls_curvecurator_to_disk(monkeypatch: pytest.Mo
         ],
     )
     assert result.exit_code == 0
-    assert calls[0] == (config_file.resolve(), input_file.resolve(), output_file.resolve())
+    assert calls[0][1] == output_file.resolve()
     assert result.stdout.strip() == str(output_file.resolve())
 
 
-def test_curation_combine_calls_combine_manifest_to_csv(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_curation_combine_reads_manifest_writes_csv(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     manifest = tmp_path / "curation_manifest.json"
     manifest.write_text('{"dataset_name":"Toy","input_filename":"Toy_raw.csv","work_items":[]}', encoding="utf-8")
     output = tmp_path / "Toy.csv"
+    calls: list[dict[str, Any]] = []
 
+    monkeypatch.setattr("drevalpy.cli.curation.read_manifest", lambda path: {"dataset_name": "Toy"})
+    monkeypatch.setattr("drevalpy.cli.curation.read_fit_results_from_manifest", lambda path: [])
     monkeypatch.setattr(
-        "drevalpy.cli.curation.combine_manifest_to_csv",
-        lambda manifest_path, output_file=None: output,
+        "drevalpy.cli.curation.combine",
+        lambda fit_results, dataset_name: calls.append({"dataset_name": dataset_name}) or pd.DataFrame(),
     )
+    monkeypatch.setattr("drevalpy.cli.curation.write_dataset_csv", lambda table, path: output)
 
     result = runner.invoke(app, ["curation", "combine", str(manifest)])
     assert result.exit_code == 0
+    assert calls[0]["dataset_name"] == "Toy"
     assert result.stdout.strip() == str(output)

@@ -60,16 +60,22 @@ def test_forward_fit_curves_argv_forwards_gpu_available_flag() -> None:
     assert "--gpu-available" in forwarded
 
 
-def test_fit_curves_command_calls_curate_to_csv_with_defaults(monkeypatch, tmp_path: Path, capsys) -> None:
+def test_fit_curves_command_runs_in_memory_curation_with_defaults(monkeypatch, tmp_path: Path, capsys) -> None:
     calls: list[dict[str, Any]] = []
     input_file = tmp_path / "Toy_raw.csv"
     input_file.write_text("dose,response,sample,drug\n1,0.5,S,D\n", encoding="utf-8")
+    raw_df = object()
+    dataset = object()
 
-    def _fake_curate_to_csv(**kwargs: Any) -> Path:
-        calls.append(kwargs)
-        return Path(kwargs["output_dir"]) / f"{kwargs['dataset_name']}.csv"
-
-    monkeypatch.setattr("drevalpy.cli.curation.curate_to_csv", _fake_curate_to_csv)
+    monkeypatch.setattr("drevalpy.cli.curation.load_raw_curve_df", lambda path: raw_df)
+    monkeypatch.setattr(
+        "drevalpy.cli.curation.curate",
+        lambda *args, **kwargs: calls.append({"args": args, "kwargs": kwargs}) or dataset,
+    )
+    monkeypatch.setattr(
+        "drevalpy.cli.curation.write_dataset_csv",
+        lambda table, path: calls.append({"output": path}) or path,
+    )
     monkeypatch.setattr(sys, "argv", ["drevalpy-fit-curves", str(input_file)])
 
     with warnings.catch_warnings():
@@ -78,27 +84,27 @@ def test_fit_curves_command_calls_curate_to_csv_with_defaults(monkeypatch, tmp_p
             fit_curves_cmd()
     assert exc_info.value.code == 0
 
-    assert calls == [
-        {
-            "input_file": input_file.resolve(),
-            "output_dir": tmp_path.resolve(),
-            "dataset_name": "Toy",
-            "cores": 1,
-            "normalize": False,
-            "device": "auto",
-            "chunk_size": 1_000,
-            "gpu_min_curves": 1_000,
-            "gpu_chunk_size": 50_000,
-            "gpu_available": False,
-        }
-    ]
+    assert calls[0]["kwargs"] == {
+        "dataset_name": "Toy",
+        "input_filename": "Toy_raw.csv",
+        "cores": 1,
+        "normalize": False,
+        "device": "auto",
+        "chunk_size": 1_000,
+        "gpu_min_curves": 1_000,
+        "gpu_chunk_size": 50_000,
+        "gpu_available": False,
+    }
+    assert calls[1]["output"] == tmp_path.resolve() / "Toy.csv"
     assert capsys.readouterr().out.strip() == str(tmp_path.resolve() / "Toy.csv")
 
 
 def test_fit_curves_command_emits_deprecation_warning(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     input_file = tmp_path / "Toy_raw.csv"
     input_file.write_text("dose,response,sample,drug\n1,0.5,S,D\n", encoding="utf-8")
-    monkeypatch.setattr("drevalpy.cli.curation.curate_to_csv", lambda **kwargs: tmp_path / "Toy.csv")
+    monkeypatch.setattr("drevalpy.cli.curation.load_raw_curve_df", lambda path: object())
+    monkeypatch.setattr("drevalpy.cli.curation.curate", lambda *args, **kwargs: object())
+    monkeypatch.setattr("drevalpy.cli.curation.write_dataset_csv", lambda table, path: tmp_path / "Toy.csv")
     monkeypatch.setattr(sys, "argv", ["drevalpy-fit-curves", str(input_file)])
 
     with warnings.catch_warnings(record=True) as caught:

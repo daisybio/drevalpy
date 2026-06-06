@@ -8,9 +8,6 @@ from typing import Any
 
 import pandas as pd
 
-from drevalpy.curation._curvecurator.combine import combine, write_dataset_csv
-from drevalpy.curation._curvecurator.curvecurator import _fit_work_item
-from drevalpy.curation._curvecurator.split import split
 from drevalpy.curation._curvecurator.types import CurationFitResult, CurationSplitResult, CurationWorkItem
 
 MANIFEST_FILENAME = "curation_manifest.json"
@@ -155,10 +152,16 @@ def write_fit_artifact(
 ) -> Path:
     """Serialize one fitted result to a flat directory."""
     directory = Path(output_dir)
-    directory.mkdir(parents=True, exist_ok=True)
     curves_path = job_curves_path(directory, fit_result.work_id)
-    fit_result.curves.to_parquet(curves_path, index=False)
-    return curves_path
+    return write_fit_curves(fit_result.curves, curves_path)
+
+
+def write_fit_curves(curves: pd.DataFrame, output_path: str | Path) -> Path:
+    """Serialize fitted CurveCurator curves to parquet."""
+    destination = Path(output_path)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    curves.to_parquet(destination, index=False)
+    return destination
 
 
 def read_fit_results_from_manifest(manifest_path: str | Path) -> list[CurationFitResult]:
@@ -183,55 +186,3 @@ def read_fit_results_from_manifest(manifest_path: str | Path) -> list[CurationFi
         )
 
     return fit_results
-
-
-def split_to_disk(
-    input_file: str | Path,
-    output_dir: str | Path,
-    dataset_name: str,
-    **kwargs: Any,
-) -> Path:
-    """Run split in memory and serialize work items for Nextflow."""
-    split_result = split(input_file=input_file, dataset_name=dataset_name, **kwargs)
-    return write_split_artifacts(split_result, output_dir)
-
-
-def curvecurator_to_disk(
-    config_path: str | Path,
-    input_path: str | Path,
-    output_path: str | Path,
-    *,
-    device: str = "auto",
-    gpu_min_curves: int = 1_000,
-    gpu_chunk_size: int = 50_000,
-    mad: bool = True,
-) -> Path:
-    """Deserialize one work item, run CurveCurator, and write fitted curves parquet."""
-    config_file = Path(config_path).expanduser().resolve()
-    output_file = Path(output_path).expanduser().resolve()
-    work_item = read_work_item(config_file, input_path=input_path)
-    curves = _fit_work_item(
-        work_item,
-        device=device,
-        gpu_min_curves=gpu_min_curves,
-        gpu_chunk_size=gpu_chunk_size,
-        mad=mad,
-        config_path=config_file,
-    )
-    output_file.parent.mkdir(parents=True, exist_ok=True)
-    curves.to_parquet(output_file, index=False)
-    return output_file
-
-
-def combine_manifest_to_csv(
-    manifest_path: str | Path,
-    output_file: str | Path | None = None,
-) -> Path:
-    """Deserialize fitted results from a manifest and write the dataset CSV."""
-    manifest = read_manifest(manifest_path)
-    fit_results = read_fit_results_from_manifest(manifest_path)
-    dataset = combine(fit_results, dataset_name=manifest["dataset_name"])
-    destination = (
-        Path(output_file) if output_file is not None else Path(manifest_path).parent / f"{manifest['dataset_name']}.csv"
-    )
-    return write_dataset_csv(dataset, destination)

@@ -8,11 +8,13 @@ from typing import Annotated
 import typer
 from typer import _click
 
-from drevalpy.curation import curate_to_csv
+from drevalpy.curation import combine, curate, curvecurator, load_raw_curve_df, split, write_dataset_csv
 from drevalpy.curation._curvecurator.io import (
-    combine_manifest_to_csv,
-    curvecurator_to_disk,
-    split_to_disk,
+    read_fit_results_from_manifest,
+    read_manifest,
+    read_work_item,
+    write_fit_curves,
+    write_split_artifacts,
 )
 
 CURATOR_DEVICE_HELP = (
@@ -90,10 +92,11 @@ def register(app: typer.Typer) -> None:
         resolved_input = input_file.expanduser().resolve()
         resolved_output = output_dir.expanduser().resolve()
         resolved_dataset = dataset_name or _dataset_name_from_input(resolved_input)
-        output_path = curate_to_csv(
-            input_file=resolved_input,
-            output_dir=resolved_output,
+        raw_df = load_raw_curve_df(resolved_input)
+        dataset = curate(
+            raw_df,
             dataset_name=resolved_dataset,
+            input_filename=resolved_input.name,
             cores=cores,
             normalize=normalize,
             device=device,
@@ -102,6 +105,7 @@ def register(app: typer.Typer) -> None:
             gpu_chunk_size=gpu_chunk_size,
             gpu_available=gpu_available,
         )
+        output_path = write_dataset_csv(dataset, resolved_output / f"{resolved_dataset}.csv")
         typer.echo(output_path)
 
     @curation_app.command("split")
@@ -143,10 +147,11 @@ def register(app: typer.Typer) -> None:
         resolved_input = input_file.expanduser().resolve()
         resolved_output = output_dir.expanduser().resolve()
         resolved_dataset = dataset_name or _dataset_name_from_input(resolved_input)
-        manifest_path = split_to_disk(
-            input_file=resolved_input,
-            output_dir=resolved_output,
+        raw_df = load_raw_curve_df(resolved_input)
+        split_result = split(
+            raw_df,
             dataset_name=resolved_dataset,
+            input_filename=resolved_input.name,
             cores=cores,
             normalize=normalize,
             device=device,
@@ -155,6 +160,7 @@ def register(app: typer.Typer) -> None:
             gpu_chunk_size=gpu_chunk_size,
             gpu_available=gpu_available,
         )
+        manifest_path = write_split_artifacts(split_result, resolved_output)
         typer.echo(manifest_path)
 
     @curation_app.command("curvecurator")
@@ -182,14 +188,17 @@ def register(app: typer.Typer) -> None:
         ] = 50_000,
     ) -> None:
         """Run CurveCurator for one prepared curation job."""
-        curves_path = curvecurator_to_disk(
+        work_item = read_work_item(
             config_file.expanduser().resolve(),
-            input_file.expanduser().resolve(),
-            output_file.expanduser().resolve(),
+            input_path=input_file.expanduser().resolve(),
+        )
+        fit_result = curvecurator(
+            work_item,
             device=device,
             gpu_min_curves=gpu_min_curves,
             gpu_chunk_size=gpu_chunk_size,
         )
+        curves_path = write_fit_curves(fit_result.curves, output_file.expanduser().resolve())
         typer.echo(curves_path)
 
     @curation_app.command("combine")
@@ -205,10 +214,16 @@ def register(app: typer.Typer) -> None:
         ] = None,
     ) -> None:
         """Combine fitted CurveCurator results into one dataset CSV."""
-        output_path = combine_manifest_to_csv(
-            manifest.expanduser().resolve(),
-            output_file=output_file.expanduser().resolve() if output_file is not None else None,
+        manifest_path = manifest.expanduser().resolve()
+        manifest_data = read_manifest(manifest_path)
+        fit_results = read_fit_results_from_manifest(manifest_path)
+        dataset = combine(fit_results, dataset_name=manifest_data["dataset_name"])
+        destination = (
+            output_file.expanduser().resolve()
+            if output_file is not None
+            else manifest_path.parent / f"{manifest_data['dataset_name']}.csv"
         )
+        output_path = write_dataset_csv(dataset, destination)
         typer.echo(output_path)
 
 
