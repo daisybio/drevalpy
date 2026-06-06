@@ -58,7 +58,7 @@ def test_run_preprocess_raw_viability_calls_split_to_disk(tmp_path: Path) -> Non
     _write_synthetic_raw(dataset_dir / f"{dataset_name}_raw.csv")
 
     with patch("drevalpy.curation._curvecurator.nfcore.split_to_disk") as mock_split:
-        run_preprocess_raw_viability(path_data=tmp_path / "data", dataset_name=dataset_name, cores=2)
+        run_preprocess_raw_viability(path_data=str(tmp_path / "data"), dataset_name=dataset_name, cores=2)
 
     mock_split.assert_called_once_with(
         input_file=dataset_dir / f"{dataset_name}_raw.csv",
@@ -79,7 +79,7 @@ def test_run_postprocess_viability_uses_manifest_when_present(tmp_path: Path) ->
     )
 
     with patch("drevalpy.curation._curvecurator.nfcore.combine_manifest_to_csv") as mock_combine:
-        run_postprocess_viability(dataset_name=dataset_name, path_data=tmp_path)
+        run_postprocess_viability(dataset_name=dataset_name, path_data=str(tmp_path))
 
     mock_combine.assert_called_once_with(manifest)
 
@@ -90,7 +90,7 @@ def test_run_postprocess_viability_falls_back_to_legacy_curves_tsv(tmp_path: Pat
     dataset_dir.mkdir(parents=True)
     _legacy_curves_tsv(dataset_dir / "curves.tsv")
 
-    run_postprocess_viability(dataset_name=dataset_name, path_data=tmp_path)
+    run_postprocess_viability(dataset_name=dataset_name, path_data=str(tmp_path))
 
     output_csv = tmp_path / dataset_name / f"{dataset_name}.csv"
     assert output_csv.is_file()

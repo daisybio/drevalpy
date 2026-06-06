@@ -127,10 +127,11 @@ def test_curation_split_forwards_gpu_available(monkeypatch: pytest.MonkeyPatch, 
     input_file = tmp_path / "Toy_raw.csv"
     input_file.write_text("dose,response,sample,drug\n1,0.5,S,D\n", encoding="utf-8")
 
-    monkeypatch.setattr(
-        "drevalpy.cli.curation.split_to_disk",
-        lambda **kwargs: calls.append(kwargs) or tmp_path / "curation_manifest.json",
-    )
+    def _fake_split_to_disk(**kwargs: Any) -> Path:
+        calls.append(kwargs)
+        return tmp_path / "curation_manifest.json"
+
+    monkeypatch.setattr("drevalpy.cli.curation.split_to_disk", _fake_split_to_disk)
 
     result = runner.invoke(
         app,
