@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
+from typer import _click
 
 from drevalpy.curation import curate_to_csv
 from drevalpy.curation._curvecurator.io import (
@@ -31,7 +32,7 @@ def register(app: typer.Typer) -> None:
 
     @curation_app.callback(invoke_without_command=True)
     def curation_root(
-        ctx: typer.Context,
+        ctx: _click.Context,
         input_file: Annotated[
             Path | None,
             typer.Option(
