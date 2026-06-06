@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import importlib
 import tempfile
 import warnings
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pandas as pd
+from curve_curator import run_pipeline_api
 
 from drevalpy.curation._curvecurator.device import effective_device
 from drevalpy.curation._curvecurator.types import CurationFitResult, CurationWorkItem
@@ -16,6 +16,10 @@ from drevalpy.curation._curvecurator.types import CurationFitResult, CurationWor
 
 def finalize_config(config: dict, *, config_path: Path | None = None) -> dict:
     """Prepare a CurveCurator config dict for ``run_pipeline_api``.
+
+    Resolves output paths to absolute locations under the config parent directory
+    and injects ``__file__``. ``Paths["input_file"]`` is left unchanged; the
+    in-memory API receives data directly and does not read it from disk.
 
     :param config: CurveCurator configuration dictionary.
     :param config_path: Optional serialized config path recorded in ``__file__``.
@@ -25,8 +29,10 @@ def finalize_config(config: dict, *, config_path: Path | None = None) -> dict:
     resolved_config_path = (config_path or Path("config.json")).expanduser().resolve()
     finalized["__file__"] = {"Path": str(resolved_config_path)}
     for key, value in list(finalized["Paths"].items()):
+        if key == "input_file":
+            continue
         path = Path(value)
-        if key == "input_file" or not path.is_absolute():
+        if not path.is_absolute():
             finalized["Paths"][key] = str((resolved_config_path.parent / path.name).resolve())
     return finalized
 
@@ -39,7 +45,6 @@ def _run_pipeline_api(
     device: str,
     gpu_chunk_size: int,
 ) -> pd.DataFrame:
-    run_pipeline_api = importlib.import_module("curve_curator").run_pipeline_api
     return run_pipeline_api(
         config,
         input_table,
@@ -176,28 +181,6 @@ def _fit_work_item(
         gpu_chunk_size,
         work_item.work_id,
         mad=mad,
-    )
-
-
-def _fit_work_item_on_disk(
-    work_item: CurationWorkItem,
-    chunk_dir: Path,
-    *,
-    device: str,
-    gpu_min_curves: int,
-    gpu_chunk_size: int,
-    mad: bool,
-    config_path: Path | None = None,
-) -> pd.DataFrame:
-    """Compatibility alias that ignores *chunk_dir* and fits in memory."""
-    _ = chunk_dir
-    return _fit_work_item(
-        work_item,
-        device=device,
-        gpu_min_curves=gpu_min_curves,
-        gpu_chunk_size=gpu_chunk_size,
-        mad=mad,
-        config_path=config_path,
     )
 
 

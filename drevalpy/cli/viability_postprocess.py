@@ -6,7 +6,7 @@ from typing import Annotated
 
 import typer
 
-from drevalpy.cli_preprocess_custom import run_postprocess_viability
+from drevalpy.curation._curvecurator.nfcore import run_postprocess_viability
 
 
 def register(app: typer.Typer) -> None:

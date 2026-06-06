@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 import pandas as pd
 
-from drevalpy.curation._curvecurator.curvecurator import _fit_with_fallback, _fit_work_item
+from drevalpy.curation._curvecurator.curvecurator import _fit_with_fallback, _fit_work_item, finalize_config
 from drevalpy.curation._curvecurator.types import CurationWorkItem
 
 
@@ -106,8 +106,7 @@ def test_run_pipeline_api_passes_in_memory_table_to_fork() -> None:
         captured["kwargs"] = {"mad": mad, "device": device, "gpu_chunk_size": gpu_chunk_size}
         return pd.DataFrame({"Name": data["Name"], "pEC50": [6.0]})
 
-    with patch("drevalpy.curation._curvecurator.curvecurator.importlib.import_module") as mock_import_module:
-        mock_import_module.return_value.run_pipeline_api = _fake_fork_api
+    with patch("drevalpy.curation._curvecurator.curvecurator.run_pipeline_api", side_effect=_fake_fork_api):
         from drevalpy.curation._curvecurator.curvecurator import _run_pipeline_api
 
         result = _run_pipeline_api(
@@ -121,3 +120,21 @@ def test_run_pipeline_api_passes_in_memory_table_to_fork() -> None:
     pd.testing.assert_frame_equal(captured["data"], input_table)
     assert captured["kwargs"] == {"mad": False, "device": "cpu", "gpu_chunk_size": 50_000}
     assert len(result) == 1
+
+
+def test_finalize_config_preserves_input_file_and_resolves_output_paths(tmp_path: Path) -> None:
+    config_path = tmp_path / "job_config.json"
+    config = {
+        "Paths": {
+            "input_file": "curvecurator_input.tsv",
+            "curves_file": "curves.tsv",
+            "mad_file": "mad.txt",
+        }
+    }
+
+    finalized = finalize_config(config, config_path=config_path)
+
+    assert finalized["Paths"]["input_file"] == "curvecurator_input.tsv"
+    assert finalized["Paths"]["curves_file"] == str((tmp_path / "curves.tsv").resolve())
+    assert finalized["Paths"]["mad_file"] == str((tmp_path / "mad.txt").resolve())
+    assert finalized["__file__"] == {"Path": str(config_path.resolve())}
