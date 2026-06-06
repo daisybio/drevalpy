@@ -67,15 +67,18 @@ def test_fit_curves_command_runs_in_memory_curation_with_defaults(monkeypatch, t
     raw_df = object()
     dataset = object()
 
+    def _fake_curate(*args: Any, **kwargs: Any) -> object:
+        calls.append({"args": args, "kwargs": kwargs})
+        return dataset
+
+    def _fake_write_dataset_csv(table: object, path: Path) -> Path:
+        _ = table
+        calls.append({"output": path})
+        return path
+
     monkeypatch.setattr("drevalpy.cli.curation.load_raw_curve_df", lambda path: raw_df)
-    monkeypatch.setattr(
-        "drevalpy.cli.curation.curate",
-        lambda *args, **kwargs: calls.append({"args": args, "kwargs": kwargs}) or dataset,
-    )
-    monkeypatch.setattr(
-        "drevalpy.cli.curation.write_dataset_csv",
-        lambda table, path: calls.append({"output": path}) or path,
-    )
+    monkeypatch.setattr("drevalpy.cli.curation.curate", _fake_curate)
+    monkeypatch.setattr("drevalpy.cli.curation.write_dataset_csv", _fake_write_dataset_csv)
     monkeypatch.setattr(sys, "argv", ["drevalpy-fit-curves", str(input_file)])
 
     with warnings.catch_warnings():

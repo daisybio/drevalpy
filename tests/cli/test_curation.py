@@ -29,15 +29,18 @@ def test_curation_root_reads_input_writes_output(monkeypatch: pytest.MonkeyPatch
     raw_df = pd.DataFrame({"dose": [1.0], "response": [0.5], "sample": ["S"], "drug": ["D"]})
     dataset = pd.DataFrame({"cell_line_name": ["S"]})
 
+    def _fake_curate(*args: Any, **kwargs: Any) -> pd.DataFrame:
+        calls.append({"args": args, "kwargs": kwargs})
+        return dataset
+
+    def _fake_write_dataset_csv(table: pd.DataFrame, path: Path) -> Path:
+        _ = table
+        calls.append({"output": path})
+        return path
+
     monkeypatch.setattr("drevalpy.cli.curation.load_raw_curve_df", lambda path: raw_df)
-    monkeypatch.setattr(
-        "drevalpy.cli.curation.curate",
-        lambda *args, **kwargs: calls.append({"args": args, "kwargs": kwargs}) or dataset,
-    )
-    monkeypatch.setattr(
-        "drevalpy.cli.curation.write_dataset_csv",
-        lambda table, path: calls.append({"output": path}) or path,
-    )
+    monkeypatch.setattr("drevalpy.cli.curation.curate", _fake_curate)
+    monkeypatch.setattr("drevalpy.cli.curation.write_dataset_csv", _fake_write_dataset_csv)
 
     result = runner.invoke(
         app,
@@ -103,11 +106,12 @@ def test_curation_split_reads_input_writes_manifest(monkeypatch: pytest.MonkeyPa
     raw_df = pd.DataFrame({"dose": [1.0], "response": [0.5], "sample": ["S"], "drug": ["D"]})
     manifest = tmp_path / "curation_manifest.json"
 
+    def _fake_split(*args: Any, **kwargs: Any) -> object:
+        calls.append(kwargs)
+        return object()
+
     monkeypatch.setattr("drevalpy.cli.curation.load_raw_curve_df", lambda path: raw_df)
-    monkeypatch.setattr(
-        "drevalpy.cli.curation.split",
-        lambda *args, **kwargs: calls.append(kwargs) or object(),
-    )
+    monkeypatch.setattr("drevalpy.cli.curation.split", _fake_split)
     monkeypatch.setattr("drevalpy.cli.curation.write_split_artifacts", lambda result, output_dir: manifest)
 
     result = runner.invoke(
@@ -139,11 +143,12 @@ def test_curation_split_forwards_gpu_available(monkeypatch: pytest.MonkeyPatch, 
     input_file.write_text("dose,response,sample,drug\n1,0.5,S,D\n", encoding="utf-8")
     raw_df = pd.DataFrame({"dose": [1.0], "response": [0.5], "sample": ["S"], "drug": ["D"]})
 
+    def _fake_split(*args: Any, **kwargs: Any) -> object:
+        calls.append(kwargs)
+        return object()
+
     monkeypatch.setattr("drevalpy.cli.curation.load_raw_curve_df", lambda path: raw_df)
-    monkeypatch.setattr(
-        "drevalpy.cli.curation.split",
-        lambda *args, **kwargs: calls.append(kwargs) or object(),
-    )
+    monkeypatch.setattr("drevalpy.cli.curation.split", _fake_split)
     monkeypatch.setattr(
         "drevalpy.cli.curation.write_split_artifacts",
         lambda result, output_dir: tmp_path / "curation_manifest.json",
@@ -173,15 +178,16 @@ def test_curation_curvecurator_reads_input_writes_curves(monkeypatch: pytest.Mon
     work_item = object()
     calls: list[tuple[object, Path]] = []
 
+    def _fake_write_fit_curves(curves: pd.DataFrame, output_path: Path) -> Path:
+        calls.append((curves, output_path))
+        return output_path
+
     monkeypatch.setattr("drevalpy.cli.curation.read_work_item", lambda config_path, **kwargs: work_item)
     monkeypatch.setattr(
         "drevalpy.cli.curation.curvecurator",
         lambda item, **kwargs: type("FitResult", (), {"curves": pd.DataFrame({"pEC50": [1.0]})})(),
     )
-    monkeypatch.setattr(
-        "drevalpy.cli.curation.write_fit_curves",
-        lambda curves, output_path: calls.append((curves, output_path)) or output_path,
-    )
+    monkeypatch.setattr("drevalpy.cli.curation.write_fit_curves", _fake_write_fit_curves)
 
     result = runner.invoke(
         app,
@@ -204,12 +210,14 @@ def test_curation_combine_reads_manifest_writes_csv(monkeypatch: pytest.MonkeyPa
     output = tmp_path / "Toy.csv"
     calls: list[dict[str, Any]] = []
 
+    def _fake_combine(fit_results: list[Any], dataset_name: str) -> pd.DataFrame:
+        _ = fit_results
+        calls.append({"dataset_name": dataset_name})
+        return pd.DataFrame()
+
     monkeypatch.setattr("drevalpy.cli.curation.read_manifest", lambda path: {"dataset_name": "Toy"})
     monkeypatch.setattr("drevalpy.cli.curation.read_fit_results_from_manifest", lambda path: [])
-    monkeypatch.setattr(
-        "drevalpy.cli.curation.combine",
-        lambda fit_results, dataset_name: calls.append({"dataset_name": dataset_name}) or pd.DataFrame(),
-    )
+    monkeypatch.setattr("drevalpy.cli.curation.combine", _fake_combine)
     monkeypatch.setattr("drevalpy.cli.curation.write_dataset_csv", lambda table, path: output)
 
     result = runner.invoke(app, ["curation", "combine", str(manifest)])
