@@ -17,16 +17,6 @@ Loaders
    :undoc-members:
    :show-inheritance:
 
-CurveCurator
-------------
-
-Legacy compatibility entry points. Prefer :mod:`drevalpy.curation` for new code.
-
-.. automodule:: drevalpy.datasets.curvecurator
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 Utility functions
 -----------------
 

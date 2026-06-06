@@ -322,12 +322,13 @@ def load_dataset(
 
     if input_file.is_file():
         if curve_curator:
-            from .curvecurator import fit_curves
+            from drevalpy.curation import curate, load_raw_curve_df, write_dataset_csv
 
-            fit_curves(
-                input_file=str(input_file),
-                output_dir=str(input_file.parent),
+            raw_df = load_raw_curve_df(input_file)
+            dataset = curate(
+                raw_df,
                 dataset_name=dataset_name,
+                input_filename=input_file.name,
                 cores=cores,
                 normalize=normalize,
                 device=device,
@@ -335,6 +336,7 @@ def load_dataset(
                 gpu_min_curves=gpu_min_curves,
                 gpu_chunk_size=gpu_chunk_size,
             )
+            write_dataset_csv(dataset, input_file.parent / f"{dataset_name}.csv")
         return load_custom(
             path_data=Path(path_data) / dataset_name / f"{dataset_name}.csv",
             dataset_name=dataset_name,

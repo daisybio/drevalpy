@@ -191,7 +191,7 @@ def get_datasets(
         to download provided datasets, or any other name to use a custom datasets.
     :param cross_study_datasets: list of cross-study datasets. CurveCurator is not applicable to these. If you wish
         to provide custom cross_study_datasets, you have to invoke curve fitting manually using
-        drevalpy.datasets.curvecurator.fit_curves
+        drevalpy.curation.curate
     :param path_data: The parent path in which custom or downloaded datasets should be located, or in which raw
         viability data is to be found for fitting with CurveCurator (see param curve_curator for details).
         The location of the datasets are resolved by <path_data>/<dataset_name>/<dataset_name>.csv.
