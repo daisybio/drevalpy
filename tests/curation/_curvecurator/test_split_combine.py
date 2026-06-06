@@ -7,6 +7,7 @@ from pathlib import Path
 import pandas as pd
 
 from drevalpy.curation import combine, split
+from drevalpy.curation._curvecurator.split import prepare_input_table
 from drevalpy.curation._curvecurator.types import CurationFitResult, CurationWorkItem
 
 
@@ -92,6 +93,26 @@ def test_split_keeps_small_chunks_on_cpu_when_gpu_available(tmp_path: Path) -> N
     )
 
     assert split_result.work_items[0].config["Routing"] == {"n_curves": 1, "device": "cpu"}
+
+
+def test_prepare_input_table_pools_replicates_into_one_curve() -> None:
+    curve_df = pd.DataFrame(
+        {
+            "sample": ["A", "A", "A", "A"],
+            "drug": ["D", "D", "D", "D"],
+            "dose": [1.0, 10.0, 1.0, 10.0],
+            "response": [0.9, 0.1, 0.8, 0.2],
+            "replicate": [0, 0, 1, 1],
+        }
+    )
+
+    input_table, n_exp, doses, n_replicates, n_curves = prepare_input_table(curve_df)
+
+    assert list(input_table["Name"]) == ["A|D"]
+    assert n_exp == 6
+    assert doses == [0.0, 0.0, 1.0, 1.0, 10.0, 10.0]
+    assert n_replicates == 2
+    assert n_curves == 1
 
 
 def test_combine_builds_dataset_table() -> None:

@@ -1128,7 +1128,7 @@ tqdm = ">=4.66.1"
 type = "git"
 url = "https://github.com/Orakl-Oncology-Dev/curve_curator_gpu.git"
 reference = "main"
-resolved_reference = "879cbf016a47eb7e8c41c491e35d41c8bcb78086"
+resolved_reference = "345e17e1c4ceac1b46d8932865f17f75d00fdef4"
 
 [[package]]
 name = "cycler"

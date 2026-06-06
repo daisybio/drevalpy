@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import pandas as pd
 import pytest
 from typer.testing import CliRunner
 
@@ -44,6 +45,47 @@ def test_curation_root_calls_curate_to_csv(monkeypatch: pytest.MonkeyPatch, tmp_
     )
     assert result.exit_code == 0
     assert calls[0]["dataset_name"] == "Toy"
+
+
+def test_curation_root_runs_synthetic_workflow(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    input_file = tmp_path / "Toy_raw.csv"
+    output_dir = tmp_path / "out"
+    input_file.write_text(
+        "dose,response,sample,drug\n" "1.0,0.95,A,D\n" "10.0,0.25,A,D\n",
+        encoding="utf-8",
+    )
+
+    def _fake_run_pipeline_api(config, *, input_table, mad, device, gpu_chunk_size):
+        _ = (config, mad, device, gpu_chunk_size)
+        return pd.DataFrame(
+            {
+                "Name": input_table["Name"],
+                "pEC50": [6.0],
+                "Curve Slope": [1.0],
+                "Curve Front": [1.0],
+                "Curve Back": [0.1],
+            }
+        )
+
+    monkeypatch.setattr("drevalpy.curation._curvecurator.curvecurator._run_pipeline_api", _fake_run_pipeline_api)
+
+    result = runner.invoke(
+        app,
+        [
+            "curation",
+            "--input-file",
+            str(input_file),
+            "--output-dir",
+            str(output_dir),
+            "--device",
+            "cpu",
+        ],
+    )
+
+    output_file = output_dir / "Toy.csv"
+    assert result.exit_code == 0
+    assert result.stdout.strip() == str(output_file)
+    assert pd.read_csv(output_file)["cell_line_name"].iloc[0] == "A"
 
 
 def test_curation_split_calls_split_to_disk(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

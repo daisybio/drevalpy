@@ -8,8 +8,20 @@ from unittest.mock import patch
 
 import pandas as pd
 
-from drevalpy.curation._curvecurator.curvecurator import _fit_work_item
+from drevalpy.curation._curvecurator.curvecurator import _fit_with_fallback, _fit_work_item
 from drevalpy.curation._curvecurator.types import CurationWorkItem
+
+
+def _minimal_config() -> dict:
+    return {
+        "Meta": {"id": "Toy_raw.csv", "description": "Toy", "condition": "drug_treatment"},
+        "Experiment": {"experiments": [0, 1], "doses": [0.0, 1.0], "dose_scale": "1e-06"},
+        "Paths": {
+            "input_file": "curvecurator_input.tsv",
+            "curves_file": "curves.tsv",
+        },
+        "F Statistic": {"alpha": 0.05, "fc_lim": 0.45},
+    }
 
 
 def _gpu_routed_work_item() -> CurationWorkItem:
@@ -55,3 +67,57 @@ def test_fit_work_item_warns_when_gpu_routed_job_resolves_to_cpu(tmp_path: Path)
         and "GPU-routed job gpu_job resolved to CPU on this node" in str(w.message)
         for w in caught
     )
+
+
+def test_fit_with_fallback_retries_on_oom() -> None:
+    fitted = pd.DataFrame({"Name": ["A|D"], "pEC50": [6.0]})
+    input_table = pd.DataFrame({"Name": ["A|D"], "Raw 0": [1.0]})
+    calls: list[str] = []
+
+    def _fake_run(config, *, input_table, mad, device, gpu_chunk_size):
+        _ = (config, input_table, mad, gpu_chunk_size)
+        calls.append(device)
+        if device == "cuda":
+            raise RuntimeError("CUDA out of memory")
+        return fitted
+
+    with patch("drevalpy.curation._curvecurator.curvecurator._run_pipeline_api", side_effect=_fake_run):
+        result = _fit_with_fallback(
+            _minimal_config(),
+            input_table,
+            "cuda",
+            50_000,
+            "chunk_0",
+            mad=False,
+        )
+
+    assert calls == ["cuda", "cpu"]
+    assert len(result) == 1
+
+
+def test_run_pipeline_api_passes_in_memory_table_to_fork() -> None:
+    input_table = pd.DataFrame({"Name": ["A|D"], "Raw 0": [1.0], "Raw 1": [0.5]})
+    config = _minimal_config()
+    captured: dict[str, object] = {}
+
+    def _fake_fork_api(cfg, data, *, mad, device, gpu_chunk_size):
+        captured["config"] = cfg
+        captured["data"] = data
+        captured["kwargs"] = {"mad": mad, "device": device, "gpu_chunk_size": gpu_chunk_size}
+        return pd.DataFrame({"Name": data["Name"], "pEC50": [6.0]})
+
+    with patch("drevalpy.curation._curvecurator.curvecurator.importlib.import_module") as mock_import_module:
+        mock_import_module.return_value.run_pipeline_api = _fake_fork_api
+        from drevalpy.curation._curvecurator.curvecurator import _run_pipeline_api
+
+        result = _run_pipeline_api(
+            config,
+            input_table=input_table,
+            mad=False,
+            device="cpu",
+            gpu_chunk_size=50_000,
+        )
+
+    pd.testing.assert_frame_equal(captured["data"], input_table)
+    assert captured["kwargs"] == {"mad": False, "device": "cpu", "gpu_chunk_size": 50_000}
+    assert len(result) == 1

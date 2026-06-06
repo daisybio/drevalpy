@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+import tempfile
 import warnings
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -41,7 +42,7 @@ def _run_pipeline_api(
     run_pipeline_api = importlib.import_module("curve_curator").run_pipeline_api
     return run_pipeline_api(
         config,
-        data=input_table,
+        input_table,
         mad=mad,
         device=device,
         gpu_chunk_size=gpu_chunk_size,
@@ -154,6 +155,19 @@ def _fit_work_item(
             RuntimeWarning,
             stacklevel=2,
         )
+    if config_path is None:
+        with tempfile.TemporaryDirectory(prefix="drevalpy_curvecurator_") as tmp_dir:
+            tmp_config_path = Path(tmp_dir) / f"{work_item.work_id}_config.toml"
+            config = finalize_config(work_item.config, config_path=tmp_config_path)
+            return _fit_with_fallback(
+                config,
+                work_item.input_table,
+                eff,
+                gpu_chunk_size,
+                work_item.work_id,
+                mad=mad,
+            )
+
     config = finalize_config(work_item.config, config_path=config_path)
     return _fit_with_fallback(
         config,

@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from unittest.mock import patch
 
-from drevalpy.datasets.curvecurator_device import effective_device, resolve_device
+from drevalpy.curation._curvecurator.device import effective_device, resolve_device
 
 
 def test_effective_device_uses_cpu_for_small_batches() -> None:

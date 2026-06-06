@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Annotated
 
-import click
 import typer
 
 from drevalpy.cli._helpers import as_list, pipeline_namespace
@@ -54,7 +53,7 @@ def register_pipeline_callback(app: typer.Typer) -> None:
 
     @app.callback(invoke_without_command=True)
     def pipeline_root(
-        ctx: click.Context,
+        ctx: typer.Context,
         run_id: Annotated[str, typer.Option("--run_id", help="Identifier to save the results.")] = "my_run",
         path_data: Annotated[str, typer.Option("--path_data", help="Path to the data directory.")] = "data",
         models: Annotated[
