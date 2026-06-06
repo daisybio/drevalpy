@@ -7,6 +7,9 @@ results/
 # Wandb directory is created when running the benchmark with wandb
 wandb/
 
+# PyTorch Lightning default log directory
+lightning_logs/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
