@@ -1,4 +1,4 @@
-"""Serialize curation objects for CLI and Nextflow transport."""
+"""Serialize curation objects for stepwise CLI disk transport."""
 
 from __future__ import annotations
 

@@ -83,40 +83,6 @@ def combine(
     return combined
 
 
-def combine_from_disk(output_folder: str | Path, dataset_name: str) -> pd.DataFrame:
-    """Compatibility helper that combines fitted CurveCurator outputs from disk.
-
-    :param output_folder: Root directory containing fitted CurveCurator outputs.
-    :param dataset_name: Dataset name used for validation only.
-    :returns: Combined curated dataset table.
-    """
-    output_path = Path(output_folder)
-    fit_results: list[CurationFitResult] = []
-
-    for curves_path in sorted(output_path.glob("*_curves.parquet")):
-        job_id = curves_path.name[: -len("_curves.parquet")]
-        fit_results.append(
-            CurationFitResult(
-                work_id=job_id,
-                curves=pd.read_parquet(curves_path),
-                work_item=_placeholder_work_item(job_id, dataset_name),
-            )
-        )
-
-    if fit_results:
-        return combine(fit_results, dataset_name=dataset_name)
-
-    for curves_path in sorted(output_path.rglob("curves.tsv")):
-        fit_results.append(
-            CurationFitResult(
-                work_id=curves_path.parent.name,
-                curves=pd.read_csv(curves_path, sep="\t"),
-                work_item=_placeholder_work_item(curves_path.parent.name, dataset_name),
-            )
-        )
-    return combine(fit_results, dataset_name=dataset_name)
-
-
 def write_dataset_csv(dataset: pd.DataFrame, output_file: str | Path) -> Path:
     """Write a combined dataset table to CSV.
 
@@ -128,18 +94,3 @@ def write_dataset_csv(dataset: pd.DataFrame, output_file: str | Path) -> Path:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     dataset.to_csv(output_path, index=True)
     return output_path
-
-
-def _placeholder_work_item(work_id: str, dataset_name: str):
-    from drevalpy.curation._curvecurator.types import CurationWorkItem
-
-    return CurationWorkItem(
-        work_id=work_id,
-        dataset_name=dataset_name,
-        group_key=work_id,
-        chunk_index=None,
-        input_table=pd.DataFrame(),
-        config={},
-        n_curves=0,
-        input_filename=f"{dataset_name}_raw.csv",
-    )

@@ -22,8 +22,6 @@ def _legacy_alias(legacy_script: str, subcommand: str) -> Callable[[], None]:
     return entrypoint
 
 
-preprocess_raw_viability = _legacy_alias("drevalpy-viability-preprocess", "viability-preprocess")
-postprocess_viability = _legacy_alias("drevalpy-viability-postprocess", "viability-postprocess")
 load_response = _legacy_alias("drevalpy-load-response", "load-response")
 cv_split = _legacy_alias("drevalpy-make-cv-pkls", "make-cv-pkls")
 hpam_split = _legacy_alias("drevalpy-make-hpam-yamls", "make-hpam-yamls")

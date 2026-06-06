@@ -30,22 +30,8 @@ def test_drevalpy_help_lists_subcommands() -> None:
     result = runner.invoke(app, ["--help"])
     assert result.exit_code == 0
     assert "curation" in result.stdout
-    assert "viability-preprocess" in result.stdout
     assert "train-cv" in result.stdout
     assert "make-pipeline-report" in result.stdout
-
-
-def test_viability_preprocess_help() -> None:
-    result = runner.invoke(
-        app,
-        ["viability-preprocess", "--help"],
-        env={"FORCE_COLOR": "1", "CI": "true"},
-    )
-    assert result.exit_code == 0
-    help_text = _plain_stdout(result.stdout)
-    assert "--dataset_name" in help_text
-    assert "--path_data" in help_text
-    assert "--cores" in help_text
 
 
 def test_load_response_requires_response_dataset() -> None:

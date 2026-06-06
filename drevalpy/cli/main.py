@@ -24,8 +24,6 @@ from drevalpy.cli import (
     train_cv,
     train_final_model_cmd,
     tune_final_model,
-    viability_postprocess,
-    viability_preprocess,
 )
 from drevalpy.cli._helpers import normalize_list_argv
 
@@ -38,8 +36,6 @@ app = typer.Typer(
 
 pipeline.register_pipeline_callback(app)
 curation.register(app)
-viability_preprocess.register(app)
-viability_postprocess.register(app)
 load_response.register(app)
 make_cv_pkls.register(app)
 make_hpam_yamls.register(app)
