@@ -6,7 +6,6 @@ from typing import Callable
 
 import pandas as pd
 
-from .curvecurator import fit_curves
 from .dataset import DrugResponseDataset
 from .utils import (
     ALLOWED_MEASURES,
@@ -323,6 +322,8 @@ def load_dataset(
 
     if input_file.is_file():
         if curve_curator:
+            from .curvecurator import fit_curves
+
             fit_curves(
                 input_file=str(input_file),
                 output_dir=str(input_file.parent),
