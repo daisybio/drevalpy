@@ -1,0 +1,15 @@
+Precily:
+  learning_rate:
+    - 1.0e-3
+    - 1.0e-4
+    - 1.0e-5
+  dropout:
+    - 0.1
+    - 0.2
+    - 0.3
+  epochs:
+    - 50
+  batch_size:
+    - 128
+  seed:
+    - 42

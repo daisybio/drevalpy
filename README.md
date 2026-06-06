@@ -103,7 +103,7 @@ drevalpy --help
 To run models from the catalog, you can run:
 
 ```bash
-drevalpy --run_id my_first_run --models NaiveTissueMeanPredictor NaiveDrugMeanPredictor --dataset TOYv1 --test_mode LCO
+drevalpy --run_id my_first_run --models NaiveTissueMeanPredictor NaiveDrugMeanPredictor --dataset_name TOYv1 --test_mode LCO
 ```
 
 This will download a small toy drug response dataset, train our baseline models which just predict the drug or tissue means or the mean drug and cell line effects.
@@ -117,7 +117,7 @@ results/my_first_run/TOYv1/LCO
 You can visualize them using
 
 ```bash
-drevalpy-report --run_id my_first_run --dataset TOYv1
+drevalpy-report --run_id my_first_run --dataset_name TOYv1
 ```
 
 This will create an index.html file in the results directory which you can open in your web browser.

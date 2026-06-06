@@ -9,72 +9,163 @@ No knowledge of Nextflow is required to run it. The Nextflow pipeline is availab
 `here <https://nf-co.re/drugresponseeval/dev/>`_. Documentation of the standalone is provided below.
 
 Run a drug response experiment results with ``drevalpy``
---------------------------------------
+----------------------------------------------------------
 
 You can run it the drug response pipeline, which can test drug response models via:
 
 .. code-block:: bash
 
-    drevalpy [-h] [--run_id RUN_ID] [--path_data PATH_DATA] [--models MODELS [MODELS ...]] [--baselines BASELINES [BASELINES ...]] [--test_mode TEST_MODE [TEST_MODE ...]]
-                    [--randomization_mode RANDOMIZATION_MODE [RANDOMIZATION_MODE ...]] [--randomization_type RANDOMIZATION_TYPE] [--n_trials_robustness N_TRIALS_ROBUSTNESS] [--dataset_name DATASET_NAME]
-                    [--cross_study_datasets CROSS_STUDY_DATASETS [CROSS_STUDY_DATASETS ...]] [--path_out PATH_OUT] [--measure MEASURE] [--no_refitting] [--curve_curator_cores CORES] [--curve_curator_device DEVICE] [--curve_curator_chunk_size CHUNK_SIZE] [--curve_curator_gpu_min_curves GPU_MIN_CURVES] [--curve_curator_gpu_chunk_size GPU_CHUNK_SIZE] [--overwrite] [--optim_metric OPTIM_METRIC] [--n_cv_splits N_CV_SPLITS]
-                    [--response_transformation RESPONSE_TRANSFORMATION] [--multiprocessing] [--model_checkpoint_dir MODEL_CHECKPOINT_DIR] [--final_model_on_full_data] [--no_hyperparameter_tuning]
-
-Options:
-
-* ``-h, --help``: Show help message and exit.
-* ``--run_id RUN_ID``: Identifier for the run. Will be used as a prefix for all output files.
-* ``--path_data PATH_DATA``: Path to the data directory, default: data. All data files should be stored in this directory and will be downloaded into this directory. The location of the datasets are resolved by ``<path_data>/<dataset_name>/<dataset_name>.csv``. If providing raw viability data, the file needs to be named ``<dataset_name>_raw.csv`` instead and ``--no_refitting`` needs to be unspecified for automated curve fitting (thats the default) (see ``--no_refitting`` for details and also check the :ref:`usage:Custom Datasets` section).
-* ``--models MODELS [MODELS ...]``: List of models to evaluate. For a list of available models, see the :ref:`usage:Available Models` section.
-* ``--baselines BASELINES [BASELINES ...]``: List of baselines to evaluate. If NaiveMeanEffectsPredictor is not part of them, we will add it. For a list of available baselines, see the :ref:`usage:Available Models` section.
-* ``--test_mode TEST_MODE [TEST_MODE ...]``: Which tests to run (LPO=Leave-random-Pairs-Out, LCO=Leave-Cell-line-Out, LTO=Leave-Tissue-Out, LDO=Leave-Drug-Out). Can be a list of test runs e.g. 'LPO LCO LTO LDO' to run all tests. Default is LPO. For more information, see the :ref:`usage:Available Settings` section.
-* ``--randomization_mode RANDOMIZATION_MODE [RANDOMIZATION_MODE ...]``: Which randomization mode to use. Can be a list of randomization modes e.g. 'SVCC SVCD SVRC SVRD' to run all randomization modes. Default is None. For more information, see the :ref:`usage:Available Randomization Tests` section.
-* ``--randomization_type RANDOMIZATION_TYPE``: Which randomization type to use. Default is 'permutation'. For more information, see the :ref:`usage:Available Randomization Tests` section.
-* ``--n_trials_robustness N_TRIALS_ROBUSTNESS``: Number of trials for robustness testing. Default is 0, which means no robustness testing. For more information, see the :ref:`usage:Robustness Test` section.
-* ``--dataset_name DATASET_NAME``: Name of the dataset to use. For a list of available datasets, see the :ref:`usage:Available Datasets` section. For information on how to use custom datasets, see the :ref:`usage:Custom Datasets` section.
-* ``--cross_study_datasets CROSS_STUDY_DATASETS [CROSS_STUDY_DATASETS ...]``: List of datasets to use for cross-study validation. For a list of available datasets, see the :ref:`usage:Available Datasets` section.
-* ``--path_out PATH_OUT``: Path to the output directory, default: results. All output files will be stored in this directory.
-* ``--measure MEASURE``: The name of the measure to use, default 'LN_IC50'. If using one of the available datasets (see ``--dataset_name``), this is restricted to one of ['LN_IC50', 'EC50', 'IC50', 'pEC50', 'AUC', 'response']. This corresponds to the names of the columns that contain theses measures in the provided input dataset. If providing a custom dataset, this may differ. If the option ``--no_refitting`` is not set, the prefix '_curvecurator' is automatically appended, e.g. 'LN_IC50_curvecurator', to allow using the refit measures instead of the ones originally published for the available datasets, allowing for better dataset comparability (refit measures are already provided in the available datasets or computed as part of the fitting procedure when providing custom raw viability datasets, see ``--no_refitting`` for details).
-* ``--no_refitting``: If not set, the measure is appended with '_curvecurator'. If a custom dataset_name was provided, this will invoke the fitting procedure of raw viability data, which is expected to exist at ``<path_data>/<dataset_name>/<dataset_name>_raw.csv``. The fitted dataset will be stored in the same folder, in a file called ``<dataset_name>.csv``. Also check the :ref:`usage:Custom Datasets` section. Default is False i.e. curvecurated drug response measures are utilzed.
-* ``--curve_curator_cores CURVE_CURATOR_CORES``: Number of CPU worker threads for CurveCurator fitting. Only used when ``--no_refitting`` is not set. Default is 1.
-* ``--curve_curator_device DEVICE``: PyTorch device for CurveCurator fitting when using custom raw viability data: ``auto`` (default), ``cpu``, ``cuda``, ``cuda:0``, or ``mps``. With ``auto``, chunks below ``--curve_curator_gpu_min_curves`` stay on CPU; larger chunks use CUDA, then Apple MPS, then CPU. Accelerator jobs retry on CPU after out-of-memory errors.
-* ``--curve_curator_chunk_size CHUNK_SIZE``: Maximum curves per CPU chunk. Default is 1000.
-* ``--curve_curator_gpu_min_curves GPU_MIN_CURVES``: Minimum curves in a chunk before ``auto`` may select an accelerator. Default is 1000.
-* ``--curve_curator_gpu_chunk_size GPU_CHUNK_SIZE``: Maximum curves per accelerator chunk. Default is 50000.
-* ``--overwrite``: If set, existing files will be overwritten.
-* ``--optim_metric OPTIM_METRIC``: The metric to optimize for during hyperparameter tuning. Default is 'RMSE'. For more information, see the :ref:`usage:Available Metrics` section.
-* ``--n_cv_splits N_CV_SPLITS``: Number of cross-validation splits. Default is 7.
-* ``--response_transformation RESPONSE_TRANSFORMATION``: Transformation to apply to the response data. Default is None. For more information, see the :ref:`usage:Available Response Transformations` section.
-* ``--multiprocessing``: If set, we will use raytune for fitting. Default is False.
-* ``--model_checkpoint_dir MODEL_CHECKPOINT_DIR``: Directory to save model checkpoints. Default is 'TEMPORARY'.
-* ``--final_model_on_full_data``: If set, saves a final model trained/tuned on the union of all folds after CV. Default is False.
-* ``--no_hyperparameter_tuning``: If set, disables hyperparameter tuning and uses the first hyperparameter set. Default is False.
-
+    drevalpy --help
 
 Example:
 
 .. code-block:: bash
 
-    drevalpy --run_id my_first_run --models NaiveDrugMeanPredictor ElasticNet --dataset TOYv1 --test_mode LCO
+    drevalpy --run_id my_first_run --models NaiveDrugMeanPredictor ElasticNet --dataset_name TOYv1 --test_mode LCO
 
 *Note*: You need at least 7 CV splits to get a meaningful critical difference diagram and the corresponding p-values.
 
+.. option:: --run_id TEXT
+
+   Identifier to save the results. [default: ``my_run``]
+
+.. option:: --path_data TEXT
+
+   Path to the data directory. [default: ``data``] All data files should be stored in this directory and will be downloaded into this directory. The location of the datasets are resolved by ``<path_data>/<dataset_name>/<dataset_name>.csv``. If providing raw viability data, the file needs to be named ``<dataset_name>_raw.csv`` instead and ``--no_refitting`` needs to be unspecified for automated curve fitting (thats the default) (see ``--no_refitting`` for details and also check the :ref:`usage:Custom Datasets` section).
+
+.. option:: --models TEXT
+
+   Model to evaluate or list of models to compare. For a list of available models, see the :ref:`usage:Available Models` section.
+
+.. option:: --baselines TEXT
+
+   List of baselines to evaluate. If NaiveMeanEffectsPredictor is not part of them, we will add it. For a list of available baselines, see the :ref:`usage:Available Models` section. The baselines are also hyperparameter-tuned and compared to
+   the models, but no randomization or robustness tests are run.
+   ``NaiveMeanEffectsPredictor`` is always run as it is required for evaluation.
+
+.. option:: --test_mode TEXT
+
+   Which tests to run:
+
+   - ``LPO`` — Leave-random-Pairs-Out
+   - ``LCO`` — Leave-Cell-line-Out
+   - ``LTO`` — Leave-Tissue-Out
+   - ``LDO`` — Leave-Drug-Out
+
+   Can be a list, e.g. ``'LPO LCO LTO LDO'`` to run all tests. [default: ``LPO``]. For more information, see the :ref:`usage:Available Settings` section.
+
+.. option:: --randomization_mode TEXT
+
+   Which randomization tests to run in addition to the normal run.
+   ``None`` disables randomization tests. For more information, see the :ref:`usage:Available Randomization Tests` section. Available modes:
+
+   - ``SVCC`` — Single View Constant (while others are perturbed) for Cell Lines
+   - ``SVRC`` — Single View Random (while others are held constant) for Cell Lines
+   - ``SVCD`` — Single View Constant (while others are perturbed) for Drugs
+   - ``SVRD`` — Single View Random (while others are held constant) for Drugs
+
+   Can be a list, e.g. ``'SVCC SVCD'``.
+
+.. option:: --randomization_type TEXT
+
+   Type of randomization to use:
+
+   - ``permutation`` — shuffles features over instances while preserving feature distributions
+   - ``invariant`` — preserves a key characteristic such as matrix mean/standard deviation or network degree
+
+   [default: ``permutation``]
+
+.. option:: --n_trials_robustness INTEGER
+
+   Number of trials for the robustness test. The robustness test trains the model with varying
+   seeds multiple times to check stability. ``0`` disables the robustness test. [default: ``0``]. For more information, see the :ref:`usage:Robustness Test` section.
+
+.. option:: --dataset_name TEXT
+
+   Name of the dataset to use. For a list of available datasets, see the :ref:`usage:Available Datasets` section. For information on how to use custom datasets, see the :ref:`usage:Custom Datasets` section. [default: ``GDSC1``]
+
+.. option:: --cross_study_datasets TEXT
+
+   List of datasets to use for cross-study prediction evaluation. [default: ``[]``]
+
+.. option:: --path_out TEXT
+
+   Path to the output directory. [default: ``results/``]
+
+.. option:: --no_refitting
+
+   If not set, the measure is appended with '_curvecurator'. If a custom dataset_name was provided, this will invoke the fitting procedure of raw viability data, which is expected to exist at ``<path_data>/<dataset_name>/<dataset_name>_raw.csv``. The fitted dataset will be stored in the same folder, in a file called ``<dataset_name>.csv``. Also check the :ref:`usage:Custom Datasets` section. Default is False, i.e., curvecurated drug response measures are utilized.
+
+.. option:: --curve_curator_cores INTEGER
+
+   Maximum number of cores used to fit curves with CurveCurator, capped at the number of
+   curves to fit. Only used when ``--no_refitting`` is not set. [default: ``1``]
+
+.. option:: --curve_curator_normalize
+
+   Normalize response values to ``[0, 1]`` for CurveCurator. [default: ``False``]
+
+.. option:: --measure TEXT
+
+   Drug response measure used as prediction target. If using one of the available datasets (see ``--dataset_name``), this is restricted to one of ['LN_IC50', 'EC50', 'IC50', 'pEC50', 'AUC', 'response']. This corresponds to the names of the columns that contain theses measures in the provided input dataset. If providing a custom dataset, this may differ. If the option ``--no_refitting`` is not set, the prefix '_curvecurator' is automatically appended, e.g. 'LN_IC50_curvecurator', to allow using the refit measures instead of the ones originally published for the available datasets, allowing for better dataset comparability (refit measures are already provided in the available datasets or computed as part of the fitting procedure when providing custom raw viability datasets, see ``--no_refitting`` for details).
+   [default: ``LN_IC50``]
+
+.. option:: --overwrite
+
+   Overwrite existing results with the same ``--path_out`` and ``--run_id``.
+
+.. option:: --optim_metric TEXT
+
+   Metric for hyperparameter tuning. For more information, see the :ref:`usage:Available Metrics` section. One of ``MSE``, ``RMSE``, ``MAE``, ``R^2``,
+   ``Pearson``, ``Spearman``, ``Kendall``. [default: ``RMSE``]
+
+.. option:: --wandb_project TEXT
+
+   Optional Weights & Biases project name. If provided, enables wandb logging for all
+   ``DRPModel`` instances.
+
+.. option:: --n_cv_splits INTEGER
+
+   Number of cross-validation splits. [default: ``7``]
+
+.. option:: --response_transformation TEXT
+
+   Transformation applied to the response variable during training and prediction;
+   retransformed after final predictions. For more information, see the :ref:`usage:Available Response Transformations` section. One of ``standard``, ``minmax``, ``robust``.
+
+.. option:: --multiprocessing
+
+   If set, we will use raytune for fitting. Default is False. [default: ``False``]
+
+.. option:: --model_checkpoint_dir TEXT
+
+   Directory to save model checkpoints. [default: ``TEMPORARY``]
+
+.. option:: --final_model_on_full_data
+
+   Save a final model trained and tuned on the union of all folds after cross-validation.
+
+.. option:: --no_hyperparameter_tuning
+
+   Disable hyperparameter tuning and use the first hyperparameter set.
+
+
 Visualize and evaluate results with ``drevalpy-report``
--------------------------------------------
+------------------------------------------------------------
 
 Executing the main script ``drevalpy`` will generate a folder with the results which includes the predictions of all models
-in all specified settings. The ``drevalpy-report`` CLI will evaluate the results with all available metrics and create an
+in all specified settings. The ``drevalpy report`` CLI will evaluate the results with all available metrics and create an
 HTML report with many visualizations. You can run it with the following command:
 
 .. code-block:: bash
 
-    drevalpy-report [-h] --run_id RUN_ID --dataset DATASET [--path_data PATH_DATA] [--result_path RESULT_PATH]
+    drevalpy report [-h] --run_id RUN_ID --dataset_name DATASET [--path_data PATH_DATA] [--result_path RESULT_PATH]
 
 Options:
 
 * ``-h, --help``: Show help message and exit.
 * ``--run_id RUN_ID``: Identifier for the run which was used when executing the ``drevalpy`` command.
-* ``--dataset DATASET``: Name of the dataset which was used when executing the ``drevalpy`` command.
+* ``--dataset_name DATASET``: Name of the dataset which was used when executing the ``drevalpy`` command.
 * ``--path_data PATH_DATA``: Path to the data directory, default: data.
 * ``--result_path RESULT_PATH``: Path to the results directory, default: results.
 
@@ -82,7 +173,7 @@ Example:
 
 .. code-block:: bash
 
-    drevalpy-report --run_id my_first_run --dataset TOYv1
+    drevalpy report --run_id my_first_run --dataset_name TOYv1
 
 The report will be stored in the ``results/RUN_ID`` folder.
 You can open the ``index.html`` file in your browser to view the report.
@@ -91,7 +182,7 @@ Available Settings
 ------------------
 
 DrEval is designed to ensure that drug response prediction models are evaluated in a consistent and
-reproducible manner. We offer three settings via the ``--test_mode`` parameter:
+reproducible manner. We offer four settings via the ``--test_mode`` parameter:
 
 .. image:: ../drevalpy/visualization/style_utils/LPO.png
     :width: 24%
@@ -116,7 +207,11 @@ reproducible manner. We offer three settings via the ``--test_mode`` parameter:
 * **Leave-Cell-Line-Out (LCO)**: Random cell lines are left out for validation/testing but the drugs might already be present in
   the training set. This setting is **more challenging** than LPO but still relatively easy. The application scenario
   for this setting is when you want to test whether your model can **predict the response of a new cell line**. This
-  is very relevant for **personalized medicine or drug repurposing**.
+  is very relevant for **personalized medicine**.
+* **Leave-Tissue-Out (LTO)**: Random tissues are left out for validation/testing but the drugs might already be present in
+  the training set. This setting is **more challenging** than LCO. The application scenario
+  for this setting is when you want to test whether your model can **predict the response of a new tissue**. This
+  is very relevant for **drug repurposing**.
 * **Leave-Drug-Out (LDO)**: Random drugs are left out for validation/testing but the cell lines might already be present in the
   training set. This setting is the **most challenging** one. The application scenario for this setting is when you
   want to test whether your model can **predict the response of a new drug**. This is very relevant for **drug
@@ -146,8 +241,8 @@ We first identify the best hyperparameters for all models and baselines in a cro
 train the models on the whole training set and evaluate them on the test set.
 For ``--models``, you can also perform randomization and robustness tests. The ``--baselines`` are skipped for these tests.
 
-The sklearn baseline models (ElasticNet, Lasso, RandomForest, GradientBoosting, SVR, AdaBoostDecisionTree, SingleDrugRandomForest, SingleDrugElasticNet)
-and the machine learning baselines (SimpleNeuralNetwork, MultiViewNeuralNetwork) support
+The sklearn baseline models (AdaBoostDecisionTree, ElasticNet, GradientBoosting, KNNRegressor, Lasso, RandomForest, SVR, SingleDrugRandomForest, SingleDrugElasticNet),
+MultiViewXGBoost, and the machine learning baselines (SimpleNeuralNetwork, MultiViewNeuralNetwork) support
 **flexible inputs**: the input types can be configured via ``cell_line_views`` and ``drug_views`` in ``hyperparameters.yaml`` without
 needing separate model classes. By default they use gene expression and fingerprints.
 See the sklearn model :ref:`flexible-inputs` or the SimpleNeuralNetwork :ref:`flexible-inputs-simplenn` for details.
@@ -161,11 +256,13 @@ See the sklearn model :ref:`flexible-inputs` or the SimpleNeuralNetwork :ref:`fl
 +---------------------------------+----------------------------+--------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | NaiveDrugMeanPredictor          | Baseline Method            | Multi-Drug Model                     | Predicts the mean response of the drug in the training set.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 +---------------------------------+----------------------------+--------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| NaiveMeanEffectsPredictor       | Baseline Method            | Multi-Drug Model                     | Predicts using ANOVA-like mean effect model of cell lines and drugs                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
++---------------------------------+----------------------------+--------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | NaiveTissueMeanPredictor        | Baseline Method            | Multi-Drug Model                     | Predicts the mean response of the tissue in the training set.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 +---------------------------------+----------------------------+--------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | NaiveTissueDrugMeanPredictor    | Baseline Method            | Multi-Drug Model                     | Predicts the mean response per tissue-drug combination in the training set (aggregated across all cell lines with that tissue-drug pair). Falls back to the overall dataset mean for unseen combinations.                                                                                                                                                                                                                                                                                                                                                                                  |
 +---------------------------------+----------------------------+--------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-| NaiveMeanEffectsPredictor       | Baseline Method            | Multi-Drug Model                     | Predicts using ANOVA-like mean effect model of cell lines and drugs                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| AdaBoostDecisionTree            | Baseline Method            | Multi-Drug Model                     | Fits an `Sklearn AdaBoost Regressor <https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.AdaBoostRegressor.html>`_ with Decision Tree base estimators. Supports flexible inputs (default: gene expression or proteomics + fingerprints).                                                                                                                                                                                                                                                                                                                                    |
 +---------------------------------+----------------------------+--------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | ElasticNet                      | Baseline Method            | Multi-Drug Model                     | Fits an `Sklearn Elastic Net <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.ElasticNet.html>`_, `Lasso <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html>`_, or `Ridge <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Ridge.html>`_ model. Supports flexible inputs (default: gene expression or proteomics + fingerprints).                                                                                                                                                                            |
 +---------------------------------+----------------------------+--------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -175,11 +272,13 @@ See the sklearn model :ref:`flexible-inputs` or the SimpleNeuralNetwork :ref:`fl
 +---------------------------------+----------------------------+--------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | GradientBoosting                | Baseline Method            | Multi-Drug Model                     | Fits an `Sklearn Histogram-based Gradient Boosting Regression Tree <https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.HistGradientBoostingRegressor.html>`_. Supports flexible inputs (default: gene expression or proteomics + fingerprints).                                                                                                                                                                                                                                                                                                                            |
 +---------------------------------+----------------------------+--------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-| AdaBoostDecisionTree            | Baseline Method            | Multi-Drug Model                     | Fits an `Sklearn AdaBoost Regressor <https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.AdaBoostRegressor.html>`_ with Decision Tree base estimators. Supports flexible inputs (default: gene expression or proteomics + fingerprints).                                                                                                                                                                                                                                                                                                                                    |
+| MultiViewXGBoost                | Baseline Method            | Multi-Drug Model                     | Fits an `XGBoost XGBRegressor <https://xgboost.readthedocs.io/en/latest/python/python_api.html#xgboost.XGBRegressor>`_ on a single or multiple cell line views. Supports flexible inputs (default: gene expression or proteomics or [gene expression + methylation + mutations + copy number variation] + fingerprints).                                                                                                                                                                                                                                                                   |
++---------------------------------+----------------------------+--------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| KNNRegressor                    | Baseline Method            | Multi-Drug Model                     | Fits an `Sklearn KNNRegressor <https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KNeighborsRegressor.html>`_. Supports flexible inputs (default: gene expression or proteomics + fingerprints).                                                                                                                                                                                                                                                                                                                                                                          |
 +---------------------------------+----------------------------+--------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | RandomForest                    | Baseline Method            | Multi-Drug Model                     | Fits an `Sklearn Random Forest Regressor <https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestRegressor.html>`_. Supports flexible inputs (default: gene expression or proteomics + fingerprints).                                                                                                                                                                                                                                                                                                                                                              |
 +---------------------------------+----------------------------+--------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-| MultiViewRandomForest        | Baseline Method            | Multi-Drug Model                     | Fits an `Sklearn Random Forest Regressor <https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestRegressor.html>`_ on multiple cell line views (default: gene expression, methylation, mutations, copy number variation) and drug fingerprints. Methylation dimensionality is reduced with PCA.                                                                                                                                                                                                                                                                       |
+| MultiViewRandomForest           | Baseline Method            | Multi-Drug Model                     | Fits an `Sklearn Random Forest Regressor <https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestRegressor.html>`_ on multiple cell line views (default: gene expression, methylation, mutations, copy number variation) and drug fingerprints. Methylation dimensionality is reduced with PCA.                                                                                                                                                                                                                                                                    |
 +---------------------------------+----------------------------+--------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | SingleDrugRandomForest          | Baseline Method            | Single-Drug Model                    | Fits an `Sklearn Random Forest Regressor <https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestRegressor.html>`_ for each drug separately. Supports flexible inputs (default: gene expression).                                                                                                                                                                                                                                                                                                                                                                  |
 +---------------------------------+----------------------------+--------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -187,7 +286,7 @@ See the sklearn model :ref:`flexible-inputs` or the SimpleNeuralNetwork :ref:`fl
 +---------------------------------+----------------------------+--------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | SimpleNeuralNetwork             | Baseline Method            | Multi-Drug Model                     | Fits a simple feedforward neural network (implemented with `Pytorch Lightning <https://lightning.ai/docs/pytorch/stable/>`_) on flexible cell line and drug input (concatenated input) with 3 layers of varying dimensions and Dropout layers. Default: gene expression + fingerprints or drug_chemberta_embeddings.                                                                                                                                                                                                                                                                       |
 +---------------------------------+----------------------------+--------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-| MultiViewNeuralNetwork       | Baseline Method            | Multi-Drug Model                     | Fits a simple feedforward neural network (implemented with `Pytorch Lightning <https://lightning.ai/docs/pytorch/stable/>`_) on flexible omic inputs (default: gene expression, methylation, mutation, copy number variation data), and drug fingerprints (concatenated input) with 3 layers of varying dimensions and Dropout layers. The dimensionality of the methylation data, if supplied, is reduced with a PCA to the first 100 components before it is fed to the model.                                                                                                              |
+| MultiViewNeuralNetwork          | Baseline Method            | Multi-Drug Model                     | Fits a simple feedforward neural network (implemented with `Pytorch Lightning <https://lightning.ai/docs/pytorch/stable/>`_) on flexible omic inputs (default: gene expression, methylation, mutation, copy number variation data), and drug fingerprints (concatenated input) with 3 layers of varying dimensions and Dropout layers. The dimensionality of the methylation data, if supplied, is reduced with a PCA to the first 100 components before it is fed to the model.                                                                                                           |
 +---------------------------------+----------------------------+--------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | DrugGNN                         | Baseline Method            | Multi-Drug Model                     | Represents drugs as graph, encodes their structure with a 3-layer GNN. Uses a 2-layer MLP for encoding gene expression. Concatenates the representations and feeds them through 2 more MLP layers.                                                                                                                                                                                                                                                                                                                                                                                         |
 +---------------------------------+----------------------------+--------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -201,6 +300,9 @@ See the sklearn model :ref:`flexible-inputs` or the SimpleNeuralNetwork :ref:`fl
 +---------------------------------+----------------------------+--------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | DIPK                            | Published Model            | Multi-Drug Model                     | `Deep neural network Integrating Prior Knowledge <https://doi.org/10.1093/bib/bbae153>`_ from Li et al. Uses gene interaction relationships (encoded by a graph auto-encoder), gene expression profiles (encoded by a denoising auto-encoder), and molecular topologies (encoded by MolGNet). Those features are integrated using multi-head attention layers.                                                                                                                                                                                                                             |
 +---------------------------------+----------------------------+--------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Precily                         | Published Model            | Multi-Drug Model                     | `Precily <https://doi.org/10.1038/s41467-022-33291-z>`_ from Chawla et al. Uses GSVA pathway-activity scores with SMILESVec drug embeddings. Features are concatenated and passed through multiple linear layers with ReLU and Dropout.                                                                                                                                                                                                                                                                                                                                                    |
++---------------------------------+----------------------------+--------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+
 
 Available Datasets
 ------------------

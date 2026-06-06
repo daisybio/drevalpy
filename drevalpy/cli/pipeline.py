@@ -2,28 +2,38 @@
 
 from __future__ import annotations
 
+from importlib.metadata import version as pkg_version
 from typing import Annotated
 
 import typer
+from typer import _click
 
 from drevalpy.cli._helpers import as_list, pipeline_namespace
 from drevalpy.evaluation import AVAILABLE_METRICS
 from drevalpy.utils import check_arguments, main
 
+
+def _version_callback(value: bool) -> None:
+    if value:
+        typer.echo(f"drevalpy {pkg_version('drevalpy')}")
+        raise typer.Exit()
+
+
 BASELINES_HELP = (
-    "Baseline or list of baselines. The baselines are also hpam-tuned and compared to the models, "
-    "but no randomization or robustness tests are run. NaiveMeanEffectsPredictor is always run as it is "
-    "required for evaluation."
+    "List of baselines to evaluate. If NaiveMeanEffectsPredictor is not part of them, we will add it."
+    "The baselines are also hyperparameter-tuned and compared to the models, but no randomization or robustness tests "
+    "are run. NaiveMeanEffectsPredictor is always run as it is required for evaluation."
 )
 TEST_MODE_HELP = (
-    "Which tests to run (LPO=Leave-random-Pairs-Out, LCO=Leave-Cell-line-Out, LDO=Leave-Drug-Out). "
-    "Can be a list of test runs, e.g. 'LPO LCO LDO' to run all tests. Default is LPO."
+    "Which tests to run (LPO=Leave-random-Pairs-Out, LCO=Leave-Cell-line-Out, LTO=Leave-Tissue-Out, LDO=Leave-Drug-Out)"
+    ". Can be a list, e.g. 'LPO LCO LTO LDO' to run all tests. Default is LPO."
 )
 RANDOMIZATION_MODE_HELP = (
-    "Which randomization tests to run, additionally to the normal run. Default is None, which means no "
-    "randomization tests are run. Modes: SVCC, SVRC, SVCD, SVRD. Can be a list of randomization tests, "
-    "e.g. 'SVCC SVCD' to run two tests. SVCC/SVRC randomize or hold constant cell line views; SVCD/SVRD "
-    "randomize or hold constant drug views."
+    "Which randomization tests to run, additionally to the normal run. None disables randomization tests. "
+    "Available modes: SVCC, SVRC, SVCD, SVRD. Can be a list of randomization tests, "
+    "e.g. 'SVCC SVCD'. SVCC - Single View Constant (while others are perturbed) for Cell Lines, "
+    "SVRC - Single View Random (while others are held constant) for Cell Lines, "
+    "SVCD - Single View Constant for Drugs, SVRD - Single View Random for Drugs."
 )
 RANDOMIZATION_TYPE_HELP = (
     'Type of randomization to use. Choose from "permutation" or "invariant". Default is "permutation". '
@@ -35,9 +45,23 @@ ROBUSTNESS_HELP = (
     "The robustness test trains the model with varying seeds multiple times to check stability."
 )
 NO_REFITTING_HELP = (
-    "Whether to run CurveCurator to sort out non-reactive curves. By default, CurveCurator is applied and "
-    "curve-curated metrics are used."
+    "If not set, the measure is appended with '_curvecurator'. If a custom dataset_name was provided, this will invoke "
+    "the fitting procedure of raw viability data, which is expected to exist at "
+    "``<path_data>/<dataset_name>/<dataset_name>_raw.csv``. The fitted dataset will be stored in the same folder, "
+    "in a file called ``<dataset_name>.csv``. Default is False, i.e., curvecurated drug response measures are utilized."
 )
+
+MEASURE_HELP = (
+    "Drug response measure used as prediction target. If using one of the available datasets, this is restricted to "
+    "one of ['LN_IC50', 'EC50', 'IC50', 'pEC50', 'AUC', 'response']. This corresponds to the names of the columns that "
+    "contain theses measures in the provided input dataset. If providing a custom dataset, this may differ. "
+    "If the option ``--no_refitting`` is not set, the prefix '_curvecurator' is automatically appended, "
+    "e.g., 'LN_IC50_curvecurator', to allow using the refit measures instead of the ones originally published for the "
+    "available datasets, allowing for better dataset comparability (refit measures are already provided in the "
+    "available datasets or computed as part of the fitting procedure when providing custom raw viability datasets, "
+    "see ``--no_refitting`` for details). Default: ``LN_IC50``"
+)
+
 RESPONSE_TRANSFORMATION_HELP = (
     "Transformation to apply to the response variable during training and prediction. Will be retransformed "
     "after the final predictions. Possible values: standard, minmax, robust."
@@ -53,7 +77,18 @@ def register_pipeline_callback(app: typer.Typer) -> None:
 
     @app.callback(invoke_without_command=True)
     def pipeline_root(
-        ctx: typer.Context,
+        ctx: _click.Context,
+        show_version: Annotated[
+            bool,
+            typer.Option(
+                "--version",
+                "-v",
+                callback=_version_callback,
+                is_eager=True,
+                help="Show version and exit.",
+                expose_value=False,
+            ),
+        ] = False,
         run_id: Annotated[str, typer.Option("--run_id", help="Identifier to save the results.")] = "my_run",
         path_data: Annotated[str, typer.Option("--path_data", help="Path to the data directory.")] = "data",
         models: Annotated[
@@ -68,14 +103,12 @@ def register_pipeline_callback(app: typer.Typer) -> None:
             "permutation"
         ),
         n_trials_robustness: Annotated[int, typer.Option("--n_trials_robustness", help=ROBUSTNESS_HELP)] = 0,
-        dataset_name: Annotated[str, typer.Option("--dataset_name", help="Name of the drug response dataset.")] = (
-            "GDSC1"
-        ),
+        dataset_name: Annotated[str, typer.Option("--dataset_name", help="Name of the dataset to use.")] = ("GDSC1"),
         cross_study_datasets: Annotated[
             list[str] | None,
             typer.Option(
                 "--cross_study_datasets",
-                help="List of datasets to use to evaluate predictions across studies. Default is empty list.",
+                help="List of datasets to use for cross-study prediction evaluation. Default is empty list.",
             ),
         ] = None,
         path_out: Annotated[str, typer.Option("--path_out", help="Path to the output directory.")] = "results/",
@@ -118,7 +151,7 @@ def register_pipeline_callback(app: typer.Typer) -> None:
             str,
             typer.Option(
                 "--measure",
-                help="The drug response measure used as prediction target. Can be one of ['LN_IC50', 'response'].",
+                help=MEASURE_HELP,
             ),
         ] = "LN_IC50",
         overwrite: Annotated[
@@ -149,9 +182,7 @@ def register_pipeline_callback(app: typer.Typer) -> None:
         ] = "None",
         multiprocessing: Annotated[
             bool,
-            typer.Option(
-                "--multiprocessing", help="Whether to use multiprocessing for the evaluation. Default is False."
-            ),
+            typer.Option("--multiprocessing", help="If set, we will use raytune for fitting. Default is False."),
         ] = False,
         model_checkpoint_dir: Annotated[
             str, typer.Option("--model_checkpoint_dir", help="Directory to save model checkpoints.")
@@ -160,7 +191,7 @@ def register_pipeline_callback(app: typer.Typer) -> None:
             bool,
             typer.Option(
                 "--final_model_on_full_data",
-                help="If True, saves a final model, trained/tuned on the union of all folds after CV.",
+                help="Save a final model trained and tuned on the union of all folds after cross-validation.",
             ),
         ] = False,
         no_hyperparameter_tuning: Annotated[

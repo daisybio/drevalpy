@@ -25,6 +25,7 @@ from drevalpy.models.drp_model import DRPModel
         "SimpleNeuralNetwork[chemberta]",
         "MultiViewNeuralNetwork",
         "PharmaFormer",
+        "Precily",
     ],
 )
 def test_global_models(
@@ -75,6 +76,9 @@ def test_global_models(
     elif model_name == "PharmaFormer":
         hpam_combi["epochs"] = 1
         hpam_combi["patience"] = 2
+    elif model_name == "Precily":
+        hpam_combi["epochs"] = 1
+        hpam_combi["batch_size"] = 32
     elif model_name == "AdaBoostDecisionTree":
         hpam_combi["max_depth"] = 2
         hpam_combi["min_samples_split"] = 2
