@@ -6,15 +6,15 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DrEvalPy: Python Cancer Cell Line Drug Response Prediction Suite &mdash; DrEvalPy 1.4.1 documentation</title>
+  <title>DrEvalPy: Python Cancer Cell Line Drug Response Prediction Suite &mdash; DrEvalPy 1.5.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
-      <link rel="stylesheet" type="text/css" href="_static/custom_cookietemple.css?v=a7e27724" />
+      <link rel="stylesheet" type="text/css" href="_static/custom_cookietemple.css?v=8d02248d" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=350a9c04"></script>
+      <script src="_static/documentation_options.js?v=e0a75244"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
@@ -47,6 +47,8 @@
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="usage.html">How to use DrEvalPy</a></li>
 <li class="toctree-l1"><a class="reference internal" href="runyourmodel.html">Run your own model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="example_flexible_inputs.html">Custom input with drevalpy’s baselines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="example_wandb.html">DrEvalPy and Weights &amp; Biases</a></li>
 <li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributor Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="reference.html">How to cite</a></li>
 <li class="toctree-l1"><a class="reference internal" href="memes.html">Memes and fun stuff</a></li>
@@ -79,13 +81,13 @@
              
   <section id="drevalpy-python-cancer-cell-line-drug-response-prediction-suite">
 <h1>DrEvalPy: Python Cancer Cell Line Drug Response Prediction Suite<a class="headerlink" href="#drevalpy-python-cancer-cell-line-drug-response-prediction-suite" title="Link to this heading"></a></h1>
-<p><a class="reference external" href="https://pypi.org/project/drevalpy/"><img alt="PyPI" src="https://img.shields.io/pypi/v/drevalpy.svg" /></a> <a class="reference external" href="https://pypi.org/project/drevalpy"><img alt="Python Version" src="https://img.shields.io/pypi/pyversions/drevalpy" /></a> <a class="reference external" href="https://opensource.org/licenses/GPL3"><img alt="License" src="https://img.shields.io/github/license/daisybio/drevalpy" /></a> <a class="reference external" href="https://drevalpy.readthedocs.io/"><img alt="Read the documentation at https://drevalpy.readthedocs.io/" src="https://img.shields.io/readthedocs/drevalpy/latest.svg?label=Read%20the%20Docs" /></a> <a class="reference external" href="https://github.com/daisybio/drevalpy/actions?workflow=Package"><img alt="Build Package Status" src="https://github.com/daisybio/drevalpy/actions/workflows/build_package.yml/badge.svg" /></a> <a class="reference external" href="https://github.com/daisybio/drevalpy/actions?workflow=Tests"><img alt="Run Tests Status" src="https://github.com/daisybio/drevalpy/actions/workflows/run_tests.yml/badge.svg" /></a> <a class="reference external" href="https://codecov.io/gh/daisybio/drevalpy"><img alt="Codecov" src="https://codecov.io/gh/daisybio/drevalpy/branch/main/graph/badge.svg" /></a> <a class="reference external" href="https://github.com/pre-commit/pre-commit"><img alt="pre-commit" src="https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&amp;logoColor=white" /></a> <a class="reference external" href="https://github.com/psf/black"><img alt="Black" src="https://img.shields.io/badge/code%20style-black-000000.svg" /></a></p>
+<p><a class="reference external" href="https://pypi.org/project/drevalpy/"><img alt="PyPI" src="https://img.shields.io/pypi/v/drevalpy.svg" /></a> <a class="reference external" href="https://pypi.org/project/drevalpy"><img alt="Python Version" src="https://img.shields.io/pypi/pyversions/drevalpy" /></a> <a class="reference external" href="https://opensource.org/licenses/GPL3"><img alt="License" src="https://img.shields.io/github/license/daisybio/drevalpy" /></a> <a class="reference external" href="https://drevalpy.readthedocs.io/"><img alt="Read the documentation at https://drevalpy.readthedocs.io/" src="https://img.shields.io/readthedocs/drevalpy/latest.svg?label=Read%20the%20Docs" /></a> <a class="reference external" href="https://github.com/daisybio/drevalpy/actions?workflow=Package"><img alt="Build Package Status" src="https://github.com/daisybio/drevalpy/actions/workflows/build_package.yml/badge.svg" /></a> <a class="reference external" href="https://github.com/daisybio/drevalpy/actions?workflow=Tests"><img alt="Run Tests Status" src="https://github.com/daisybio/drevalpy/actions/workflows/run_tests.yml/badge.svg" /></a> <a class="reference external" href="https://codecov.io/gh/daisybio/drevalpy"><img alt="Codecov" src="https://codecov.io/gh/daisybio/drevalpy/branch/main/graph/badge.svg" /></a> <a class="reference external" href="https://github.com/pre-commit/pre-commit"><img alt="pre-commit" src="https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&amp;logoColor=white" /></a> <a class="reference external" href="https://github.com/psf/black"><img alt="Black" src="https://img.shields.io/badge/code%20style-black-000000.svg" /></a> <a class="reference external" href="https://doi.org/10.5281/zenodo.18302237"><img alt="DOI" src="https://zenodo.org/badge/727156477.svg" /></a></p>
 <a class="reference internal image-reference" href="_images/overview.png"><img alt="Overview of the DrEval framework. Via input options, implemented state-of-the-art models can be compared against baselines of varying complexity. We address obstacles to progress in the field at each point in our pipeline: Our framework is available on PyPI and nf-core and we follow FAIReR standards for optimal reproducibility. DrEval is easily extendable as demonstrated here with an implementation of a proteomics-based random forest. Custom viability data can be preprocessed with CurveCurator, leading to more consistent data and metrics. DrEval supports five widely used datasets with application-aware train/test splits that enable detecting weak generalization. Models are free to use provided cell line- and drug features or custom ones. The pipeline supports randomization-based ablation studies and performs robust hyperparameter tuning for all models. Evaluation is conducted using meaningful, bias-resistant metrics to avoid inflated results from artifacts such as Simpson’s paradox. All results are compiled into an interactive HTML report." class="align-center" src="_images/overview.png" style="width: 80%;" />
 </a>
 </section>
 <section id="overview">
 <h1>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h1>
-<p>Check out our preprint on <a class="reference external" href="https://www.biorxiv.org/content/10.1101/2025.05.26.655288v1">bioRxiv</a>!</p>
+<p>Check out our paper on <a class="reference external" href="https://www.nature.com/articles/s41467-026-72903-w">Nature Communications</a>!</p>
 <p><strong>Focus on Innovating Your Models — DrEval Handles the Rest!</strong></p>
 <ul class="simple">
 <li><p>DrEval is a toolkit that ensures drug response prediction evaluations are statistically sound, biologically meaningful, and reproducible.</p></li>
@@ -109,7 +111,8 @@
 and the Freie Universität Berlin (FU, Germany).</p>
 <section id="leaderboard">
 <h2>Leaderboard<a class="headerlink" href="#leaderboard" title="Link to this heading"></a></h2>
-<img alt="DrEvalPy Leaderboard" class="align-center" src="docs/_static/img/leaderboard.png" />
+<a class="reference internal image-reference" href="_images/leaderboard_light.png"><img alt="DrEvalPy Leaderboard" class="align-center" src="_images/leaderboard_light.png" style="width: 70%;" />
+</a>
 </section>
 </section>
 

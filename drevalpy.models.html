@@ -6,15 +6,15 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Models &mdash; DrEvalPy 1.4.1 documentation</title>
+  <title>Models &mdash; DrEvalPy 1.5.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
-      <link rel="stylesheet" type="text/css" href="_static/custom_cookietemple.css?v=a7e27724" />
+      <link rel="stylesheet" type="text/css" href="_static/custom_cookietemple.css?v=8d02248d" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=350a9c04"></script>
+      <script src="_static/documentation_options.js?v=e0a75244"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
@@ -49,6 +49,8 @@
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="usage.html">How to use DrEvalPy</a></li>
 <li class="toctree-l1"><a class="reference internal" href="runyourmodel.html">Run your own model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="example_flexible_inputs.html">Custom input with drevalpy’s baselines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="example_wandb.html">DrEvalPy and Weights &amp; Biases</a></li>
 <li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributor Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="reference.html">How to cite</a></li>
 <li class="toctree-l1"><a class="reference internal" href="memes.html">Memes and fun stuff</a></li>
@@ -60,7 +62,10 @@
 <li class="toctree-l4"><a class="reference internal" href="#utility-functions">Utility functions</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#implemented-models">Implemented models</a><ul>
 <li class="toctree-l5"><a class="reference internal" href="drevalpy.models.DIPK.html">DIPK</a></li>
+<li class="toctree-l5"><a class="reference internal" href="drevalpy.models.DrugGNN.html">DrugGNN</a></li>
 <li class="toctree-l5"><a class="reference internal" href="drevalpy.models.MOLIR.html">MOLIR</a></li>
+<li class="toctree-l5"><a class="reference internal" href="drevalpy.models.PharmaFormer.html">PharmaFormer</a></li>
+<li class="toctree-l5"><a class="reference internal" href="drevalpy.models.Precily.html">Precily</a></li>
 <li class="toctree-l5"><a class="reference internal" href="drevalpy.models.SRMF.html">SRMF</a></li>
 <li class="toctree-l5"><a class="reference internal" href="drevalpy.models.SimpleNeuralNetwork.html">Simple Neural Network</a></li>
 <li class="toctree-l5"><a class="reference internal" href="drevalpy.models.SuperFELTR.html">SuperFELTR</a></li>
@@ -122,9 +127,23 @@
 <li class="toctree-l2"><a class="reference internal" href="drevalpy.models.DIPK.html#model-utils">Model utils</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="drevalpy.models.DrugGNN.html">DrugGNN</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="drevalpy.models.DrugGNN.html#druggnn-model">DrugGNN Model</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="drevalpy.models.MOLIR.html">MOLIR</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="drevalpy.models.MOLIR.html#molir-model">MOLIR Model</a></li>
 <li class="toctree-l2"><a class="reference internal" href="drevalpy.models.MOLIR.html#model-utils">Model utils</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="drevalpy.models.PharmaFormer.html">PharmaFormer</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="drevalpy.models.PharmaFormer.html#pharmaformer-model">PharmaFormer Model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="drevalpy.models.PharmaFormer.html#model-utils">Model utils</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="drevalpy.models.Precily.html">Precily</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="drevalpy.models.Precily.html#precily-model">Precily Model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="drevalpy.models.Precily.html#model-utils">Model utils</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="drevalpy.models.SRMF.html">SRMF</a><ul>
@@ -132,7 +151,8 @@
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="drevalpy.models.SimpleNeuralNetwork.html">Simple Neural Network</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="drevalpy.models.SimpleNeuralNetwork.html#simple-neural-network-model-and-chembertaneuralnetwork">Simple Neural Network Model and ChemBERTaNeuralNetwork</a></li>
+<li class="toctree-l2"><a class="reference internal" href="drevalpy.models.SimpleNeuralNetwork.html#flexible-input-system">Flexible Input System</a></li>
+<li class="toctree-l2"><a class="reference internal" href="drevalpy.models.SimpleNeuralNetwork.html#simple-neural-network-model">Simple Neural Network Model</a></li>
 <li class="toctree-l2"><a class="reference internal" href="drevalpy.models.SimpleNeuralNetwork.html#multi-omics-neural-network">Multi-OMICS Neural Network</a></li>
 <li class="toctree-l2"><a class="reference internal" href="drevalpy.models.SimpleNeuralNetwork.html#model-utils">Model utils</a></li>
 </ul>
@@ -143,11 +163,11 @@
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="drevalpy.models.baselines.html">Implemented baselines</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="drevalpy.models.baselines.html#flexible-input-system">Flexible Input System</a></li>
 <li class="toctree-l2"><a class="reference internal" href="drevalpy.models.baselines.html#naive-predictors">Naive Predictors</a></li>
 <li class="toctree-l2"><a class="reference internal" href="drevalpy.models.baselines.html#sklearn-models">Sklearn Models</a></li>
-<li class="toctree-l2"><a class="reference internal" href="drevalpy.models.baselines.html#single-drug-elastic-net">Single-Drug Elastic Net</a></li>
-<li class="toctree-l2"><a class="reference internal" href="drevalpy.models.baselines.html#single-drug-random-forest">Single-Drug Random Forest</a></li>
-<li class="toctree-l2"><a class="reference internal" href="drevalpy.models.baselines.html#multi-omics-random-forest">Multi-OMICS Random Forest</a></li>
+<li class="toctree-l2"><a class="reference internal" href="drevalpy.models.baselines.html#single-drug-baselines">Single-Drug Baselines</a></li>
+<li class="toctree-l2"><a class="reference internal" href="drevalpy.models.baselines.html#multi-view-random-forest">Multi-View Random Forest</a></li>
 </ul>
 </li>
 </ul>

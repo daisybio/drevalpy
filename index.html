@@ -6,15 +6,15 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DrEvalPy: Python Cancer Cell Line Drug Response Prediction Suite &mdash; DrEvalPy 1.4.1 documentation</title>
+  <title>DrEvalPy: Python Cancer Cell Line Drug Response Prediction Suite &mdash; DrEvalPy 1.5.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
-      <link rel="stylesheet" type="text/css" href="_static/custom_cookietemple.css?v=a7e27724" />
+      <link rel="stylesheet" type="text/css" href="_static/custom_cookietemple.css?v=8d02248d" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=350a9c04"></script>
+      <script src="_static/documentation_options.js?v=e0a75244"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
@@ -48,6 +48,8 @@
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="usage.html">How to use DrEvalPy</a></li>
 <li class="toctree-l1"><a class="reference internal" href="runyourmodel.html">Run your own model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="example_flexible_inputs.html">Custom input with drevalpy’s baselines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="example_wandb.html">DrEvalPy and Weights &amp; Biases</a></li>
 <li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributor Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="reference.html">How to cite</a></li>
 <li class="toctree-l1"><a class="reference internal" href="memes.html">Memes and fun stuff</a></li>
@@ -80,13 +82,13 @@
              
   <section id="drevalpy-python-cancer-cell-line-drug-response-prediction-suite">
 <h1>DrEvalPy: Python Cancer Cell Line Drug Response Prediction Suite<a class="headerlink" href="#drevalpy-python-cancer-cell-line-drug-response-prediction-suite" title="Link to this heading"></a></h1>
-<p><a class="reference external" href="https://pypi.org/project/drevalpy/"><img alt="PyPI" src="https://img.shields.io/pypi/v/drevalpy.svg" /></a> <a class="reference external" href="https://pypi.org/project/drevalpy"><img alt="Python Version" src="https://img.shields.io/pypi/pyversions/drevalpy" /></a> <a class="reference external" href="https://opensource.org/licenses/GPL3"><img alt="License" src="https://img.shields.io/github/license/daisybio/drevalpy" /></a> <a class="reference external" href="https://drevalpy.readthedocs.io/"><img alt="Read the documentation at https://drevalpy.readthedocs.io/" src="https://img.shields.io/readthedocs/drevalpy/latest.svg?label=Read%20the%20Docs" /></a> <a class="reference external" href="https://github.com/daisybio/drevalpy/actions?workflow=Package"><img alt="Build Package Status" src="https://github.com/daisybio/drevalpy/actions/workflows/build_package.yml/badge.svg" /></a> <a class="reference external" href="https://github.com/daisybio/drevalpy/actions?workflow=Tests"><img alt="Run Tests Status" src="https://github.com/daisybio/drevalpy/actions/workflows/run_tests.yml/badge.svg" /></a> <a class="reference external" href="https://codecov.io/gh/daisybio/drevalpy"><img alt="Codecov" src="https://codecov.io/gh/daisybio/drevalpy/branch/main/graph/badge.svg" /></a> <a class="reference external" href="https://github.com/pre-commit/pre-commit"><img alt="pre-commit" src="https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&amp;logoColor=white" /></a> <a class="reference external" href="https://github.com/psf/black"><img alt="Black" src="https://img.shields.io/badge/code%20style-black-000000.svg" /></a></p>
+<p><a class="reference external" href="https://pypi.org/project/drevalpy/"><img alt="PyPI" src="https://img.shields.io/pypi/v/drevalpy.svg" /></a> <a class="reference external" href="https://pypi.org/project/drevalpy"><img alt="Python Version" src="https://img.shields.io/pypi/pyversions/drevalpy" /></a> <a class="reference external" href="https://opensource.org/licenses/GPL3"><img alt="License" src="https://img.shields.io/github/license/daisybio/drevalpy" /></a> <a class="reference external" href="https://drevalpy.readthedocs.io/"><img alt="Read the documentation at https://drevalpy.readthedocs.io/" src="https://img.shields.io/readthedocs/drevalpy/latest.svg?label=Read%20the%20Docs" /></a> <a class="reference external" href="https://github.com/daisybio/drevalpy/actions?workflow=Package"><img alt="Build Package Status" src="https://github.com/daisybio/drevalpy/actions/workflows/build_package.yml/badge.svg" /></a> <a class="reference external" href="https://github.com/daisybio/drevalpy/actions?workflow=Tests"><img alt="Run Tests Status" src="https://github.com/daisybio/drevalpy/actions/workflows/run_tests.yml/badge.svg" /></a> <a class="reference external" href="https://codecov.io/gh/daisybio/drevalpy"><img alt="Codecov" src="https://codecov.io/gh/daisybio/drevalpy/branch/main/graph/badge.svg" /></a> <a class="reference external" href="https://github.com/pre-commit/pre-commit"><img alt="pre-commit" src="https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&amp;logoColor=white" /></a> <a class="reference external" href="https://github.com/psf/black"><img alt="Black" src="https://img.shields.io/badge/code%20style-black-000000.svg" /></a> <a class="reference external" href="https://doi.org/10.5281/zenodo.18302237"><img alt="DOI" src="https://zenodo.org/badge/727156477.svg" /></a></p>
 <a class="reference internal image-reference" href="_images/overview.png"><img alt="Overview of the DrEval framework. Via input options, implemented state-of-the-art models can be compared against baselines of varying complexity. We address obstacles to progress in the field at each point in our pipeline: Our framework is available on PyPI and nf-core and we follow FAIReR standards for optimal reproducibility. DrEval is easily extendable as demonstrated here with an implementation of a proteomics-based random forest. Custom viability data can be preprocessed with CurveCurator, leading to more consistent data and metrics. DrEval supports five widely used datasets with application-aware train/test splits that enable detecting weak generalization. Models are free to use provided cell line- and drug features or custom ones. The pipeline supports randomization-based ablation studies and performs robust hyperparameter tuning for all models. Evaluation is conducted using meaningful, bias-resistant metrics to avoid inflated results from artifacts such as Simpson’s paradox. All results are compiled into an interactive HTML report." class="align-center" src="_images/overview.png" style="width: 80%;" />
 </a>
 </section>
 <section id="overview">
 <h1>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h1>
-<p>Check out our preprint on <a class="reference external" href="https://www.biorxiv.org/content/10.1101/2025.05.26.655288v1">bioRxiv</a>!</p>
+<p>Check out our paper on <a class="reference external" href="https://www.nature.com/articles/s41467-026-72903-w">Nature Communications</a>!</p>
 <p><strong>Focus on Innovating Your Models — DrEval Handles the Rest!</strong></p>
 <ul class="simple">
 <li><p>DrEval is a toolkit that ensures drug response prediction evaluations are statistically sound, biologically meaningful, and reproducible.</p></li>
@@ -110,7 +112,8 @@
 and the Freie Universität Berlin (FU, Germany).</p>
 <section id="leaderboard">
 <h2>Leaderboard<a class="headerlink" href="#leaderboard" title="Link to this heading"></a></h2>
-<img alt="DrEvalPy Leaderboard" class="align-center" src="docs/_static/img/leaderboard.png" />
+<a class="reference internal image-reference" href="_images/leaderboard_light.png"><img alt="DrEvalPy Leaderboard" class="align-center" src="_images/leaderboard_light.png" style="width: 70%;" />
+</a>
 </section>
 <section id="quickstart">
 <h2>Quickstart<a class="headerlink" href="#quickstart" title="Link to this heading"></a></h2>
@@ -128,7 +131,7 @@ The results will be stored in</p>
 </pre></div>
 </div>
 <p>You can visualize them using</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>drevalpy-report<span class="w"> </span>--run_id<span class="w"> </span>my_first_run<span class="w"> </span>--dataset<span class="w"> </span>TOYv1
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>drevalpy<span class="w"> </span>report<span class="w"> </span>--run_id<span class="w"> </span>my_first_run<span class="w"> </span>--dataset<span class="w"> </span>TOYv1
 </pre></div>
 </div>
 <p>This creates an index.html file which you can open in your browser to see the results of your run.</p>
@@ -144,6 +147,17 @@ knowledge of nextflow is required to run it. The nextflow pipeline is available 
 </section>
 <section id="news">
 <h1>News<a class="headerlink" href="#news" title="Link to this heading"></a></h1>
+<section id="our-paper-is-finally-published-2026-05-12">
+<h2>📄 Our paper is finally published! <span class="date">2026-05-12</span><a class="headerlink" href="#our-paper-is-finally-published-2026-05-12" title="Link to this heading"></a></h2>
+<p>After a long, long journey, our paper is finally published at <a class="reference external" href="https://doi.org/10.1038/s41467-026-72903-w">Nature Communications</a>!
+You can now officially cite us with:</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>Critical evaluation of drug response prediction models with DrEval.</strong>
+Judith Bernett,  Pascal Iversen,  Mario Picciani,  Mathias Wilhelm,  Katharina Baum,  Markus List.
+<em>Nat Commun</em> <strong>17</strong>, 4238 (2026); doi: <a class="reference external" href="https://doi.org/10.1038/s41467-026-72903-w">https://doi.org/10.1038/s41467-026-72903-w</a></p>
+</div>
+</section>
 <section id="our-preprint-is-out-2025-05-29">
 <h2>📄 Our preprint is out! <span class="date">2025-05-29</span><a class="headerlink" href="#our-preprint-is-out-2025-05-29" title="Link to this heading"></a></h2>
 <p>Check out our preprint on <a class="reference external" href="https://www.biorxiv.org/content/10.1101/2025.05.26.655288v1">bioRxiv</a>!</p>
@@ -181,18 +195,29 @@ And when the field needed it most—drevalpy was born.
 A framework designed to test drug response prediction models with fairness and transparency, cutting through bias and restoring the integrity of scientific evaluation.
 Though the fight against bad practices is long, with drevalpy, balance may yet be restored.</em></p>
 </div></blockquote>
-<aside class="sidebar">
-<p class="sidebar-title">Key Contributors</p>
+<div class="contributors docutils container">
+<p><strong>Maintainers and Lead Contributors</strong></p>
 <ul class="simple">
-<li><p><a class="reference external" href="https://github.com/JudithBernett">Judith Bernett</a>: Developer, Maintainer</p></li>
-<li><p><a class="reference external" href="https://github.com/PascalIversen">Pascal Iversen</a>: Developer, Maintainer</p></li>
-<li><p><a class="reference external" href="https://github.com/picciama">Mario Picciani</a>: Developer</p></li>
+<li><p><a class="reference external" href="https://github.com/JudithBernett">Judith Bernett</a>: TUM / FAU Erlangen-Nürnberg</p></li>
+<li><p><a class="reference external" href="https://github.com/PascalIversen">Pascal Iversen</a>: FU Berlin / Hasso-Plattner-Institut</p></li>
+</ul>
+<p><strong>Contributors</strong></p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://github.com/picciama">Mario Picciani</a>: TUM, contributed to the curve fitting procedure and CI/CD.</p></li>
+<li><p><a class="reference external" href="https://github.com/nictru">Nico Trummer</a>: <a class="reference external" href="https://www.orakl-oncology.com/">Orakl Oncology</a>/ TUM, contributed the NaiveTissueDrugMeanPredictor, integrated the PharmaFormer model, the wandb support, and the typer CLI.</p></li>
+<li><p><a class="reference external" href="https://github.com/reinej03">Jonah Reiner</a>: FU Berlin, supported the integration of the DIPK model.</p></li>
+<li><p><a class="reference external" href="https://github.com/tereshchuk1">Vera Tereshchuk</a>: FU Berlin, integrated XGBoost and Precily.</p></li>
+<li><p><a class="reference external" href="https://github.com/eleded">Elena Sophie Dederer &amp; Gregor Chojetzki</a>: FU Berlin, integrated the KNNRegressor.</p></li>
+<li><p><a class="reference external" href="https://github.com/gretag04">Greta Agnes Gulden &amp; Larissa Susanka Koß</a>: FU Berlin, integrated Lasso.</p></li>
+<li><p><a class="reference external" href="https://github.com/matvee04">Matvej Elkonin</a>: FU Berlin, integrated the AdaBoostDecisionTree.</p></li>
+</ul>
+<p><strong>Advisors and Principal Investigators</strong></p>
+<ul class="simple">
 <li><p><a class="reference external" href="https://github.com/mlist">Markus List</a>: Advisor and PI of Data Science in Systems Biology, TUM</p></li>
 <li><p><a class="reference external" href="https://github.com/kathbaum">Katharina Baum</a>: Advisor and PI of Data Integration in the Life Sciences, FU Berlin</p></li>
 <li><p><a class="reference external" href="https://github.com/mwilhelm42">Mathias Wilhelm</a>: Advisor and PI of Computational Mass Spectrometry, TUM</p></li>
-<li><p><a class="reference external" href="https://github.com/nictru">Nico Trummer</a>: Contributor, <a class="reference external" href="https://www.orakl-oncology.com/">Orakl Oncology</a></p></li>
 </ul>
-</aside>
+</div>
 <div class="toctree-wrapper compound">
 </div>
 </section>

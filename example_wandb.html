@@ -1,0 +1,161 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DrEvalPy and Weights &amp; Biases &mdash; DrEvalPy 1.5.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="_static/custom_cookietemple.css?v=8d02248d" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=e0a75244"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Contributor Guide" href="contributing.html" />
+    <link rel="prev" title="Custom input with drevalpy’s baselines" href="example_flexible_inputs.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html">
+            
+              <img src="_static/drevalpy.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">How to use DrEvalPy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runyourmodel.html">Run your own model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="example_flexible_inputs.html">Custom input with drevalpy’s baselines</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">DrEvalPy and Weights &amp; Biases</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#example-compare-flexible-inputs-for-drevalpy-s-baselines">Example: Compare Flexible Inputs for DrEvalPy’s Baselines</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributor Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="reference.html">How to cite</a></li>
+<li class="toctree-l1"><a class="reference internal" href="memes.html">Memes and fun stuff</a></li>
+<li class="toctree-l1"><a class="reference internal" href="API.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">DrEvalPy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">DrEvalPy and Weights &amp; Biases</li>
+      <li class="wy-breadcrumbs-aside">
+              <a href="https://github.com/daisybio/drevalpy/blob/development/docs/example_wandb.rst" class="fa fa-github"> Edit on GitHub</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="drevalpy-and-weights-biases">
+<h1>DrEvalPy and Weights &amp; Biases<a class="headerlink" href="#drevalpy-and-weights-biases" title="Link to this heading"></a></h1>
+<p>We have a weights and biases integration for all our models. You can use this functionality very easily
+by just supplying an extra parameter <code class="docutils literal notranslate"><span class="pre">--wandb_project</span></code>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>drevalpy<span class="w"> </span>--run_id<span class="w"> </span>my_wandb_run<span class="w"> </span>--models<span class="w"> </span>model1<span class="w"> </span>model2<span class="w"> </span>--baselines<span class="w"> </span>baseline1<span class="w"> </span>baseline2<span class="w"> </span>--dataset<span class="w"> </span>CTRPv2<span class="w"> </span>--wandb_project<span class="w"> </span>my_new_project_name
+</pre></div>
+</div>
+<p>You will be asked to generate an API key in the console. After inputting it, your project is connected to your
+wandb account and you can look at your models online.</p>
+<section id="example-compare-flexible-inputs-for-drevalpy-s-baselines">
+<h2>Example: Compare Flexible Inputs for DrEvalPy’s Baselines<a class="headerlink" href="#example-compare-flexible-inputs-for-drevalpy-s-baselines" title="Link to this heading"></a></h2>
+<p>Through the <a class="reference internal" href="drevalpy.models.baselines.html#flexible-inputs"><span class="std std-ref">Flexible Input System</span></a>, we now treat omic input as hyperparameter for our sklearn baselines.
+With wandb, we can compare model performances:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="p p-Indicator">[</span><span class="nv">All sklearn models</span><span class="p p-Indicator">]:</span>
+<span class="w">  </span><span class="nt">cell_line_views</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gene_expression</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">proteomics</span>
+<span class="w">  </span><span class="nt">drug_views</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">fingerprints</span>
+<span class="w">  </span><span class="l l-Scalar l-Scalar-Plain">..</span>
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>drevalpy<span class="w"> </span>--run_id<span class="w"> </span>compare_baselines<span class="w"> </span><span class="se">\</span>
+<span class="w">         </span>--models<span class="w"> </span>RandomForest<span class="w"> </span><span class="se">\</span>
+<span class="w">         </span>--baselines<span class="w"> </span>ElasticNet<span class="w"> </span>NaiveMeanEffectsPredictor<span class="w"> </span>GradientBoosting<span class="w"> </span>AdaBoostDecisionTree<span class="w"> </span><span class="se">\</span>
+<span class="w">         </span>--dataset<span class="w"> </span>TOYv1<span class="w"> </span><span class="se">\</span>
+<span class="w">         </span>--wandb_project<span class="w"> </span>compare_baselines
+</pre></div>
+</div>
+<p>With <code class="docutils literal notranslate"><span class="pre">+</span> <span class="pre">Add</span> <span class="pre">Panels</span></code>, you can add interesting visualization. Add <code class="docutils literal notranslate"><span class="pre">Parameter</span> <span class="pre">Importance</span></code> (with respect to
+val_R^2) and select your hyperparameters of interest to be visible:</p>
+<a class="reference internal image-reference" href="_images/wandb_parameter_importance.png"><img alt="Parameter importance displayed by wandb" class="align-center" src="_images/wandb_parameter_importance.png" style="width: 100%;" />
+</a>
+<p>Add a <code class="docutils literal notranslate"><span class="pre">Parallel</span> <span class="pre">Coordinates</span> <span class="pre">Plot</span></code>, too:</p>
+<a class="reference internal image-reference" href="_images/wandb_parallel_coords.png"><img alt="Parallel coordinates plot" class="align-center" src="_images/wandb_parallel_coords.png" style="width: 100%;" />
+</a>
+<p>By filtering, you can investigate in a more detailed manner: Here, we filter to <code class="docutils literal notranslate"><span class="pre">split_index=4</span></code> and
+<code class="docutils literal notranslate"><span class="pre">model_name=&quot;Elastic</span> <span class="pre">Net&quot;</span></code> and extend the parallel coordinates plot.</p>
+<a class="reference internal image-reference" href="_images/wandb_parallel_coords2.png"><img alt="Parallel coordinates plot Elastic Net" class="align-center" src="_images/wandb_parallel_coords2.png" style="width: 100%;" />
+</a>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="example_flexible_inputs.html" class="btn btn-neutral float-left" title="Custom input with drevalpy’s baselines" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="contributing.html" class="btn btn-neutral float-right" title="Contributor Guide" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, DaiSyBio at Technical University of Munich.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

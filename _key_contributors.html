@@ -6,15 +6,15 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>&lt;no title&gt; &mdash; DrEvalPy 1.4.1 documentation</title>
+  <title>&lt;no title&gt; &mdash; DrEvalPy 1.5.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
-      <link rel="stylesheet" type="text/css" href="_static/custom_cookietemple.css?v=a7e27724" />
+      <link rel="stylesheet" type="text/css" href="_static/custom_cookietemple.css?v=8d02248d" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=350a9c04"></script>
+      <script src="_static/documentation_options.js?v=e0a75244"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
@@ -47,6 +47,8 @@
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="usage.html">How to use DrEvalPy</a></li>
 <li class="toctree-l1"><a class="reference internal" href="runyourmodel.html">Run your own model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="example_flexible_inputs.html">Custom input with drevalpy’s baselines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="example_wandb.html">DrEvalPy and Weights &amp; Biases</a></li>
 <li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributor Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="reference.html">How to cite</a></li>
 <li class="toctree-l1"><a class="reference internal" href="memes.html">Memes and fun stuff</a></li>
@@ -77,18 +79,29 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <aside class="sidebar">
-<p class="sidebar-title">Key Contributors</p>
+  <div class="contributors docutils container">
+<p><strong>Maintainers and Lead Contributors</strong></p>
 <ul class="simple">
-<li><p><a class="reference external" href="https://github.com/JudithBernett">Judith Bernett</a>: Developer, Maintainer</p></li>
-<li><p><a class="reference external" href="https://github.com/PascalIversen">Pascal Iversen</a>: Developer, Maintainer</p></li>
-<li><p><a class="reference external" href="https://github.com/picciama">Mario Picciani</a>: Developer</p></li>
+<li><p><a class="reference external" href="https://github.com/JudithBernett">Judith Bernett</a>: TUM / FAU Erlangen-Nürnberg</p></li>
+<li><p><a class="reference external" href="https://github.com/PascalIversen">Pascal Iversen</a>: FU Berlin / Hasso-Plattner-Institut</p></li>
+</ul>
+<p><strong>Contributors</strong></p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://github.com/picciama">Mario Picciani</a>: TUM, contributed to the curve fitting procedure and CI/CD.</p></li>
+<li><p><a class="reference external" href="https://github.com/nictru">Nico Trummer</a>: <a class="reference external" href="https://www.orakl-oncology.com/">Orakl Oncology</a>/ TUM, contributed the NaiveTissueDrugMeanPredictor, integrated the PharmaFormer model, the wandb support, and the typer CLI.</p></li>
+<li><p><a class="reference external" href="https://github.com/reinej03">Jonah Reiner</a>: FU Berlin, supported the integration of the DIPK model.</p></li>
+<li><p><a class="reference external" href="https://github.com/tereshchuk1">Vera Tereshchuk</a>: FU Berlin, integrated XGBoost and Precily.</p></li>
+<li><p><a class="reference external" href="https://github.com/eleded">Elena Sophie Dederer &amp; Gregor Chojetzki</a>: FU Berlin, integrated the KNNRegressor.</p></li>
+<li><p><a class="reference external" href="https://github.com/gretag04">Greta Agnes Gulden &amp; Larissa Susanka Koß</a>: FU Berlin, integrated Lasso.</p></li>
+<li><p><a class="reference external" href="https://github.com/matvee04">Matvej Elkonin</a>: FU Berlin, integrated the AdaBoostDecisionTree.</p></li>
+</ul>
+<p><strong>Advisors and Principal Investigators</strong></p>
+<ul class="simple">
 <li><p><a class="reference external" href="https://github.com/mlist">Markus List</a>: Advisor and PI of Data Science in Systems Biology, TUM</p></li>
 <li><p><a class="reference external" href="https://github.com/kathbaum">Katharina Baum</a>: Advisor and PI of Data Integration in the Life Sciences, FU Berlin</p></li>
 <li><p><a class="reference external" href="https://github.com/mwilhelm42">Mathias Wilhelm</a>: Advisor and PI of Computational Mass Spectrometry, TUM</p></li>
-<li><p><a class="reference external" href="https://github.com/nictru">Nico Trummer</a>: Contributor, <a class="reference external" href="https://www.orakl-oncology.com/">Orakl Oncology</a></p></li>
 </ul>
-</aside>
+</div>
 
 
            </div>

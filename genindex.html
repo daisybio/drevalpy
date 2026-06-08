@@ -5,15 +5,15 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Index &mdash; DrEvalPy 1.4.1 documentation</title>
+  <title>Index &mdash; DrEvalPy 1.5.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
-      <link rel="stylesheet" type="text/css" href="_static/custom_cookietemple.css?v=a7e27724" />
+      <link rel="stylesheet" type="text/css" href="_static/custom_cookietemple.css?v=8d02248d" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=350a9c04"></script>
+      <script src="_static/documentation_options.js?v=e0a75244"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
@@ -46,6 +46,8 @@
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="usage.html">How to use DrEvalPy</a></li>
 <li class="toctree-l1"><a class="reference internal" href="runyourmodel.html">Run your own model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="example_flexible_inputs.html">Custom input with drevalpy’s baselines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="example_wandb.html">DrEvalPy and Weights &amp; Biases</a></li>
 <li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributor Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="reference.html">How to cite</a></li>
 <li class="toctree-l1"><a class="reference internal" href="memes.html">Memes and fun stuff</a></li>
@@ -80,8 +82,245 @@
 <h1 id="index">Index</h1>
 
 <div class="genindex-jumpbox">
+ <a href="#Symbols"><strong>Symbols</strong></a>
+ | <a href="#C"><strong>C</strong></a>
  
 </div>
+<h2 id="Symbols">Symbols</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li>
+    --baselines
+
+      <ul>
+        <li><a href="usage.html#cmdoption-baselines">command line option</a>
+</li>
+      </ul></li>
+      <li>
+    --cross_study_datasets
+
+      <ul>
+        <li><a href="usage.html#cmdoption-cross_study_datasets">command line option</a>
+</li>
+      </ul></li>
+      <li>
+    --curve_curator_cores
+
+      <ul>
+        <li><a href="usage.html#cmdoption-curve_curator_cores">command line option</a>
+</li>
+      </ul></li>
+      <li>
+    --curve_curator_normalize
+
+      <ul>
+        <li><a href="usage.html#cmdoption-curve_curator_normalize">command line option</a>
+</li>
+      </ul></li>
+      <li>
+    --dataset_name
+
+      <ul>
+        <li><a href="usage.html#cmdoption-dataset_name">command line option</a>
+</li>
+      </ul></li>
+      <li>
+    --final_model_on_full_data
+
+      <ul>
+        <li><a href="usage.html#cmdoption-final_model_on_full_data">command line option</a>
+</li>
+      </ul></li>
+      <li>
+    --measure
+
+      <ul>
+        <li><a href="usage.html#cmdoption-measure">command line option</a>
+</li>
+      </ul></li>
+      <li>
+    --model_checkpoint_dir
+
+      <ul>
+        <li><a href="usage.html#cmdoption-model_checkpoint_dir">command line option</a>
+</li>
+      </ul></li>
+      <li>
+    --models
+
+      <ul>
+        <li><a href="usage.html#cmdoption-models">command line option</a>
+</li>
+      </ul></li>
+      <li>
+    --multiprocessing
+
+      <ul>
+        <li><a href="usage.html#cmdoption-multiprocessing">command line option</a>
+</li>
+      </ul></li>
+      <li>
+    --n_cv_splits
+
+      <ul>
+        <li><a href="usage.html#cmdoption-n_cv_splits">command line option</a>
+</li>
+      </ul></li>
+      <li>
+    --n_trials_robustness
+
+      <ul>
+        <li><a href="usage.html#cmdoption-n_trials_robustness">command line option</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li>
+    --no_hyperparameter_tuning
+
+      <ul>
+        <li><a href="usage.html#cmdoption-no_hyperparameter_tuning">command line option</a>
+</li>
+      </ul></li>
+      <li>
+    --no_refitting
+
+      <ul>
+        <li><a href="usage.html#cmdoption-no_refitting">command line option</a>
+</li>
+      </ul></li>
+      <li>
+    --optim_metric
+
+      <ul>
+        <li><a href="usage.html#cmdoption-optim_metric">command line option</a>
+</li>
+      </ul></li>
+      <li>
+    --overwrite
+
+      <ul>
+        <li><a href="usage.html#cmdoption-overwrite">command line option</a>
+</li>
+      </ul></li>
+      <li>
+    --path_data
+
+      <ul>
+        <li><a href="usage.html#cmdoption-path_data">command line option</a>
+</li>
+      </ul></li>
+      <li>
+    --path_out
+
+      <ul>
+        <li><a href="usage.html#cmdoption-path_out">command line option</a>
+</li>
+      </ul></li>
+      <li>
+    --randomization_mode
+
+      <ul>
+        <li><a href="usage.html#cmdoption-randomization_mode">command line option</a>
+</li>
+      </ul></li>
+      <li>
+    --randomization_type
+
+      <ul>
+        <li><a href="usage.html#cmdoption-randomization_type">command line option</a>
+</li>
+      </ul></li>
+      <li>
+    --response_transformation
+
+      <ul>
+        <li><a href="usage.html#cmdoption-response_transformation">command line option</a>
+</li>
+      </ul></li>
+      <li>
+    --run_id
+
+      <ul>
+        <li><a href="usage.html#cmdoption-run_id">command line option</a>
+</li>
+      </ul></li>
+      <li>
+    --test_mode
+
+      <ul>
+        <li><a href="usage.html#cmdoption-test_mode">command line option</a>
+</li>
+      </ul></li>
+      <li>
+    --wandb_project
+
+      <ul>
+        <li><a href="usage.html#cmdoption-wandb_project">command line option</a>
+</li>
+      </ul></li>
+  </ul></td>
+</tr></table>
+
+<h2 id="C">C</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li>
+    command line option
+
+      <ul>
+        <li><a href="usage.html#cmdoption-baselines">--baselines</a>
+</li>
+        <li><a href="usage.html#cmdoption-cross_study_datasets">--cross_study_datasets</a>
+</li>
+        <li><a href="usage.html#cmdoption-curve_curator_cores">--curve_curator_cores</a>
+</li>
+        <li><a href="usage.html#cmdoption-curve_curator_normalize">--curve_curator_normalize</a>
+</li>
+        <li><a href="usage.html#cmdoption-dataset_name">--dataset_name</a>
+</li>
+        <li><a href="usage.html#cmdoption-final_model_on_full_data">--final_model_on_full_data</a>
+</li>
+        <li><a href="usage.html#cmdoption-measure">--measure</a>
+</li>
+        <li><a href="usage.html#cmdoption-model_checkpoint_dir">--model_checkpoint_dir</a>
+</li>
+        <li><a href="usage.html#cmdoption-models">--models</a>
+</li>
+        <li><a href="usage.html#cmdoption-multiprocessing">--multiprocessing</a>
+</li>
+        <li><a href="usage.html#cmdoption-n_cv_splits">--n_cv_splits</a>
+</li>
+        <li><a href="usage.html#cmdoption-n_trials_robustness">--n_trials_robustness</a>
+</li>
+        <li><a href="usage.html#cmdoption-no_hyperparameter_tuning">--no_hyperparameter_tuning</a>
+</li>
+        <li><a href="usage.html#cmdoption-no_refitting">--no_refitting</a>
+</li>
+        <li><a href="usage.html#cmdoption-optim_metric">--optim_metric</a>
+</li>
+        <li><a href="usage.html#cmdoption-overwrite">--overwrite</a>
+</li>
+        <li><a href="usage.html#cmdoption-path_data">--path_data</a>
+</li>
+        <li><a href="usage.html#cmdoption-path_out">--path_out</a>
+</li>
+        <li><a href="usage.html#cmdoption-randomization_mode">--randomization_mode</a>
+</li>
+        <li><a href="usage.html#cmdoption-randomization_type">--randomization_type</a>
+</li>
+        <li><a href="usage.html#cmdoption-response_transformation">--response_transformation</a>
+</li>
+        <li><a href="usage.html#cmdoption-run_id">--run_id</a>
+</li>
+        <li><a href="usage.html#cmdoption-test_mode">--test_mode</a>
+</li>
+        <li><a href="usage.html#cmdoption-wandb_project">--wandb_project</a>
+</li>
+      </ul></li>
+  </ul></td>
+</tr></table>
+
 
 
            </div>

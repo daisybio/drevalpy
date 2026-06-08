@@ -23,7 +23,7 @@ You can visualize them using
 
 .. code-block:: bash
 
-    drevalpy-report --run_id my_first_run --dataset TOYv1
+    drevalpy report --run_id my_first_run --dataset TOYv1
 
 This creates an index.html file which you can open in your browser to see the results of your run.
 

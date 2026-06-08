@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SRMF &mdash; DrEvalPy 1.5.0 documentation</title>
+  <title>Precily &mdash; DrEvalPy 1.5.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
       <link rel="stylesheet" type="text/css" href="_static/custom_cookietemple.css?v=8d02248d" />
@@ -20,8 +20,8 @@
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Simple Neural Network" href="drevalpy.models.SimpleNeuralNetwork.html" />
-    <link rel="prev" title="Precily" href="drevalpy.models.Precily.html" /> 
+    <link rel="next" title="SRMF" href="drevalpy.models.SRMF.html" />
+    <link rel="prev" title="PharmaFormer" href="drevalpy.models.PharmaFormer.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -65,11 +65,12 @@
 <li class="toctree-l5"><a class="reference internal" href="drevalpy.models.DrugGNN.html">DrugGNN</a></li>
 <li class="toctree-l5"><a class="reference internal" href="drevalpy.models.MOLIR.html">MOLIR</a></li>
 <li class="toctree-l5"><a class="reference internal" href="drevalpy.models.PharmaFormer.html">PharmaFormer</a></li>
-<li class="toctree-l5"><a class="reference internal" href="drevalpy.models.Precily.html">Precily</a></li>
-<li class="toctree-l5 current"><a class="current reference internal" href="#">SRMF</a><ul>
-<li class="toctree-l6"><a class="reference internal" href="#srmf-model">SRMF Model</a></li>
+<li class="toctree-l5 current"><a class="current reference internal" href="#">Precily</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="#precily-model">Precily Model</a></li>
+<li class="toctree-l6"><a class="reference internal" href="#model-utils">Model utils</a></li>
 </ul>
 </li>
+<li class="toctree-l5"><a class="reference internal" href="drevalpy.models.SRMF.html">SRMF</a></li>
 <li class="toctree-l5"><a class="reference internal" href="drevalpy.models.SimpleNeuralNetwork.html">Simple Neural Network</a></li>
 <li class="toctree-l5"><a class="reference internal" href="drevalpy.models.SuperFELTR.html">SuperFELTR</a></li>
 <li class="toctree-l5"><a class="reference internal" href="drevalpy.models.baselines.html">Implemented baselines</a></li>
@@ -101,9 +102,9 @@
       <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="API.html">API</a></li>
           <li class="breadcrumb-item"><a href="drevalpy.models.html">Models</a></li>
-      <li class="breadcrumb-item active">SRMF</li>
+      <li class="breadcrumb-item active">Precily</li>
       <li class="wy-breadcrumbs-aside">
-              <a href="https://github.com/daisybio/drevalpy/blob/development/docs/drevalpy.models.SRMF.rst" class="fa fa-github"> Edit on GitHub</a>
+              <a href="https://github.com/daisybio/drevalpy/blob/development/docs/drevalpy.models.Precily.rst" class="fa fa-github"> Edit on GitHub</a>
       </li>
   </ul>
   <hr/>
@@ -111,10 +112,13 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="srmf">
-<h1>SRMF<a class="headerlink" href="#srmf" title="Link to this heading"></a></h1>
-<section id="srmf-model">
-<h2>SRMF Model<a class="headerlink" href="#srmf-model" title="Link to this heading"></a></h2>
+  <section id="precily">
+<h1>Precily<a class="headerlink" href="#precily" title="Link to this heading"></a></h1>
+<section id="precily-model">
+<h2>Precily Model<a class="headerlink" href="#precily-model" title="Link to this heading"></a></h2>
+</section>
+<section id="model-utils">
+<h2>Model utils<a class="headerlink" href="#model-utils" title="Link to this heading"></a></h2>
 </section>
 </section>
 
@@ -122,8 +126,8 @@
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="drevalpy.models.Precily.html" class="btn btn-neutral float-left" title="Precily" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="drevalpy.models.SimpleNeuralNetwork.html" class="btn btn-neutral float-right" title="Simple Neural Network" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="drevalpy.models.PharmaFormer.html" class="btn btn-neutral float-left" title="PharmaFormer" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="drevalpy.models.SRMF.html" class="btn btn-neutral float-right" title="SRMF" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

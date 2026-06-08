@@ -6,15 +6,15 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Implemented baselines &mdash; DrEvalPy 1.4.1 documentation</title>
+  <title>Implemented baselines &mdash; DrEvalPy 1.5.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
-      <link rel="stylesheet" type="text/css" href="_static/custom_cookietemple.css?v=a7e27724" />
+      <link rel="stylesheet" type="text/css" href="_static/custom_cookietemple.css?v=8d02248d" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=350a9c04"></script>
+      <script src="_static/documentation_options.js?v=e0a75244"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
@@ -49,6 +49,8 @@
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="usage.html">How to use DrEvalPy</a></li>
 <li class="toctree-l1"><a class="reference internal" href="runyourmodel.html">Run your own model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="example_flexible_inputs.html">Custom input with drevalpy’s baselines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="example_wandb.html">DrEvalPy and Weights &amp; Biases</a></li>
 <li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributor Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="reference.html">How to cite</a></li>
 <li class="toctree-l1"><a class="reference internal" href="memes.html">Memes and fun stuff</a></li>
@@ -60,16 +62,19 @@
 <li class="toctree-l4"><a class="reference internal" href="drevalpy.models.html#utility-functions">Utility functions</a></li>
 <li class="toctree-l4 current"><a class="reference internal" href="drevalpy.models.html#implemented-models">Implemented models</a><ul class="current">
 <li class="toctree-l5"><a class="reference internal" href="drevalpy.models.DIPK.html">DIPK</a></li>
+<li class="toctree-l5"><a class="reference internal" href="drevalpy.models.DrugGNN.html">DrugGNN</a></li>
 <li class="toctree-l5"><a class="reference internal" href="drevalpy.models.MOLIR.html">MOLIR</a></li>
+<li class="toctree-l5"><a class="reference internal" href="drevalpy.models.PharmaFormer.html">PharmaFormer</a></li>
+<li class="toctree-l5"><a class="reference internal" href="drevalpy.models.Precily.html">Precily</a></li>
 <li class="toctree-l5"><a class="reference internal" href="drevalpy.models.SRMF.html">SRMF</a></li>
 <li class="toctree-l5"><a class="reference internal" href="drevalpy.models.SimpleNeuralNetwork.html">Simple Neural Network</a></li>
 <li class="toctree-l5"><a class="reference internal" href="drevalpy.models.SuperFELTR.html">SuperFELTR</a></li>
 <li class="toctree-l5 current"><a class="current reference internal" href="#">Implemented baselines</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="#flexible-input-system">Flexible Input System</a></li>
 <li class="toctree-l6"><a class="reference internal" href="#naive-predictors">Naive Predictors</a></li>
 <li class="toctree-l6"><a class="reference internal" href="#sklearn-models">Sklearn Models</a></li>
-<li class="toctree-l6"><a class="reference internal" href="#single-drug-elastic-net">Single-Drug Elastic Net</a></li>
-<li class="toctree-l6"><a class="reference internal" href="#single-drug-random-forest">Single-Drug Random Forest</a></li>
-<li class="toctree-l6"><a class="reference internal" href="#multi-omics-random-forest">Multi-OMICS Random Forest</a></li>
+<li class="toctree-l6"><a class="reference internal" href="#single-drug-baselines">Single-Drug Baselines</a></li>
+<li class="toctree-l6"><a class="reference internal" href="#multi-view-random-forest">Multi-View Random Forest</a></li>
 </ul>
 </li>
 </ul>
@@ -112,20 +117,111 @@
              
   <section id="implemented-baselines">
 <h1>Implemented baselines<a class="headerlink" href="#implemented-baselines" title="Link to this heading"></a></h1>
+<section id="flexible-input-system">
+<span id="flexible-inputs"></span><h2>Flexible Input System<a class="headerlink" href="#flexible-input-system" title="Link to this heading"></a></h2>
+<p>The sklearn baseline models support <strong>flexible inputs</strong>. Rather than hardcoding which omic data type a model uses,
+you configure <code class="docutils literal notranslate"><span class="pre">cell_line_views</span></code> and <code class="docutils literal notranslate"><span class="pre">drug_views</span></code> directly in the <code class="docutils literal notranslate"><span class="pre">hyperparameters.yaml</span></code> file.
+A single model class (e.g., <code class="docutils literal notranslate"><span class="pre">ElasticNet</span></code>, <code class="docutils literal notranslate"><span class="pre">RandomForest</span></code>, <code class="docutils literal notranslate"><span class="pre">KNNRegressor</span></code>) can therefore be trained on gene expression,
+proteomics, or any other available omic without needing a separate Python class for each combination.</p>
+<p>This replaces the previously separate model classes (<code class="docutils literal notranslate"><span class="pre">ProteomicsRandomForest</span></code>, <code class="docutils literal notranslate"><span class="pre">ProteomicsElasticNet</span></code>,
+<code class="docutils literal notranslate"><span class="pre">SingleDrugProteomicsRandomForest</span></code>, <code class="docutils literal notranslate"><span class="pre">SingleDrugProteomicsElasticNet</span></code>), which have been removed in favor
+of this unified approach.</p>
+<section id="configuring-the-input-views">
+<h3>Configuring the input views<a class="headerlink" href="#configuring-the-input-views" title="Link to this heading"></a></h3>
+<p>The default <code class="docutils literal notranslate"><span class="pre">RandomForest</span></code> configuration uses gene expression and fingerprints:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">RandomForest</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">cell_line_views</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gene_expression</span>
+<span class="w">  </span><span class="nt">drug_views</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">fingerprints</span>
+<span class="w">  </span><span class="nt">n_estimators</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span>
+<span class="w">  </span><span class="nt">max_depth</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">30</span>
+<span class="w">  </span><span class="l l-Scalar l-Scalar-Plain">...</span>
+</pre></div>
+</div>
+<p>To train the same Random Forest on <strong>proteomics</strong> data instead, change <code class="docutils literal notranslate"><span class="pre">cell_line_views</span></code>:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">RandomForest</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">cell_line_views</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">proteomics</span>
+<span class="w">  </span><span class="nt">drug_views</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">fingerprints</span>
+<span class="w">  </span><span class="nt">n_estimators</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span>
+<span class="w">  </span><span class="l l-Scalar l-Scalar-Plain">...</span>
+</pre></div>
+</div>
+<p>For the <code class="docutils literal notranslate"><span class="pre">MultiViewRandomForest</span></code>, multiple cell line views can be specified as a nested list:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">MultiViewRandomForest</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">cell_line_views</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gene_expression</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">methylation</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mutations</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">copy_number_variation_gistic</span>
+<span class="w">  </span><span class="nt">drug_views</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">fingerprints</span>
+<span class="w">  </span><span class="l l-Scalar l-Scalar-Plain">...</span>
+</pre></div>
+</div>
+</section>
+<section id="how-features-are-loaded">
+<h3>How features are loaded<a class="headerlink" href="#how-features-are-loaded" title="Link to this heading"></a></h3>
+<p>The feature loading depends on which view is specified in the configuration:</p>
+<ul class="simple">
+<li><p><strong>gene_expression</strong>: Loaded with the <code class="docutils literal notranslate"><span class="pre">landmark_genes_reduced</span></code> gene list for feature selection.</p></li>
+<li><p><strong>fingerprints</strong>: Loaded using the precomputed Morgan fingerprints provided with each dataset.</p></li>
+<li><p><strong>proteomics</strong>: Loaded as a generic CSV. The <code class="docutils literal notranslate"><span class="pre">ProteomicsMedianCenterAndImputeTransformer</span></code> is
+automatically initialized for preprocessing.</p></li>
+<li><p><strong>Any other feature name</strong> (e.g., <code class="docutils literal notranslate"><span class="pre">methylation</span></code>, <code class="docutils literal notranslate"><span class="pre">mutations</span></code>, <code class="docutils literal notranslate"><span class="pre">copy_number_variation_gistic</span></code>,
+or a custom name): The model calls <code class="docutils literal notranslate"><span class="pre">load_generic_csv</span></code>, which looks for a CSV file at
+<code class="docutils literal notranslate"><span class="pre">&lt;data_path&gt;/&lt;dataset_name&gt;/&lt;feature_name&gt;.csv</span></code>. The CSV must have <code class="docutils literal notranslate"><span class="pre">cell_line_name</span></code> as the index column.
+All columns (except <code class="docutils literal notranslate"><span class="pre">cellosaurus_id</span></code>, which is dropped if present) are used as features.</p></li>
+</ul>
+<p>This means you can use <strong>any custom omic</strong> by placing a correctly formatted CSV in the dataset directory
+and setting <code class="docutils literal notranslate"><span class="pre">cell_line_views</span></code> to the file’s name (without the <code class="docutils literal notranslate"><span class="pre">.csv</span></code> extension).</p>
+<p>For drug features the same logic applies: <code class="docutils literal notranslate"><span class="pre">fingerprints</span></code> loads the precomputed fingerprints, an empty
+<code class="docutils literal notranslate"><span class="pre">drug_views</span></code> list loads only the drug IDs, and any other name loads the CSV at
+<code class="docutils literal notranslate"><span class="pre">&lt;data_path&gt;/&lt;dataset_name&gt;/&lt;feature_name&gt;.csv</span></code>.</p>
+</section>
+<section id="proteomics-specific-hyperparameters">
+<h3>Proteomics-specific hyperparameters<a class="headerlink" href="#proteomics-specific-hyperparameters" title="Link to this heading"></a></h3>
+<p>When <code class="docutils literal notranslate"><span class="pre">proteomics</span></code> is specified as a cell line view, the following hyperparameters control the
+preprocessing transformer:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">proteomics_feature_threshold</span></code> (default: 0.7): minimum fraction of non-NA values required per protein</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">proteomics_n_features</span></code> (default: 1000): number of top-variance features to select</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">proteomics_normalization_width</span></code> (default: 0.3): width parameter for median-center normalization</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">proteomics_normalization_downshift</span></code> (default: 1.8): downshift parameter for median-center normalization</p></li>
+</ul>
+</section>
+</section>
 <section id="naive-predictors">
 <h2>Naive Predictors<a class="headerlink" href="#naive-predictors" title="Link to this heading"></a></h2>
+<p>Simple mean-based predictors that serve as lower-bound baselines. These models do not use any cell line
+or drug features. They predict the mean response value computed from the training set, aggregated at
+different levels (global, per drug, per cell line, per tissue, or per tissue-drug combination).</p>
 </section>
 <section id="sklearn-models">
 <h2>Sklearn Models<a class="headerlink" href="#sklearn-models" title="Link to this heading"></a></h2>
+<p>Scikit-learn-based models for drug response prediction. All models in this module support flexible inputs
+(see <a class="reference internal" href="#flexible-inputs"><span class="std std-ref">Flexible Input System</span></a> above). By default they concatenate cell line features and drug features into
+a single input matrix. Available models: <code class="docutils literal notranslate"><span class="pre">ElasticNetModel</span></code>, <code class="docutils literal notranslate"><span class="pre">RandomForest</span></code>, <code class="docutils literal notranslate"><span class="pre">SVMRegressor</span></code>,
+<code class="docutils literal notranslate"><span class="pre">GradientBoosting</span></code>, and <code class="docutils literal notranslate"><span class="pre">AdaBoostDecisionTree</span></code>.</p>
 </section>
-<section id="single-drug-elastic-net">
-<h2>Single-Drug Elastic Net<a class="headerlink" href="#single-drug-elastic-net" title="Link to this heading"></a></h2>
+<section id="single-drug-baselines">
+<h2>Single-Drug Baselines<a class="headerlink" href="#single-drug-baselines" title="Link to this heading"></a></h2>
+<p>Single-drug variants of the sklearn models. These models are trained separately for each drug, using only
+cell line features (no drug features). Available models: <code class="docutils literal notranslate"><span class="pre">SingleDrugRandomForest</span></code> and
+<code class="docutils literal notranslate"><span class="pre">SingleDrugElasticNet</span></code>. Both support flexible inputs for the cell line view.</p>
 </section>
-<section id="single-drug-random-forest">
-<h2>Single-Drug Random Forest<a class="headerlink" href="#single-drug-random-forest" title="Link to this heading"></a></h2>
-</section>
-<section id="multi-omics-random-forest">
-<h2>Multi-OMICS Random Forest<a class="headerlink" href="#multi-omics-random-forest" title="Link to this heading"></a></h2>
+<section id="multi-view-random-forest">
+<h2>Multi-View Random Forest<a class="headerlink" href="#multi-view-random-forest" title="Link to this heading"></a></h2>
+<p>A Random Forest that accepts multiple cell line views simultaneously (e.g., gene expression, methylation,
+mutations, and copy number variation). Each view is loaded and preprocessed independently, then all feature
+matrices are concatenated before training. Methylation data is reduced with PCA before concatenation.</p>
 </section>
 </section>
 

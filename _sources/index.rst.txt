@@ -18,6 +18,8 @@
    installation
    usage
    runyourmodel
+   example_flexible_inputs
+   example_wandb
    contributing
    reference
    memes

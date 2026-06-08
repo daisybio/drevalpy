@@ -2,7 +2,7 @@ Contributor Guide
 =================
 
 Thank you for your interest in improving this project.
-This project is open-source under the `GPL-3 license`_ and
+This project is open-source under the `MIT license`_ and
 highly welcomes contributions in the form of bug reports, feature requests, and pull requests.
 
 Here is a list of important resources for contributors:
@@ -11,7 +11,7 @@ Here is a list of important resources for contributors:
 - `Documentation`_
 - `Issue Tracker`_
 
-.. _GPL-3 license: https://opensource.org/license/gpl-3-0
+.. _MIT license: https://opensource.org/license/mit
 .. _Source Code: https://github.com/daisybio/drevalpy
 .. _Documentation: https://drevalpy.readthedocs.io/
 .. _Issue Tracker: https://github.com/daisybio/drevalpy/issues
@@ -46,7 +46,7 @@ How to set up your development environment
 
    .. code:: console
 
-      $ drevalpy-report --run_id my_first_run --dataset TOYv1
+      $ drevalpy report --run_id my_first_run --dataset TOYv1
 
 How to test the project
 -----------------------

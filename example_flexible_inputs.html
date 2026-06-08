@@ -1,0 +1,387 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Custom input with drevalpy’s baselines &mdash; DrEvalPy 1.5.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="_static/custom_cookietemple.css?v=8d02248d" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=e0a75244"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="DrEvalPy and Weights &amp; Biases" href="example_wandb.html" />
+    <link rel="prev" title="Run your own model" href="runyourmodel.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html">
+            
+              <img src="_static/drevalpy.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">How to use DrEvalPy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runyourmodel.html">Run your own model</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Custom input with drevalpy’s baselines</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#example-flexible-inputs-with-drevalpy-s-baselines">Example: Flexible Inputs with DrEvalPy’s Baselines</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#example-using-flexible-inputs-with-sklearn-baselines-with-custom-preprocessing">Example: Using Flexible Inputs with Sklearn Baselines With Custom Preprocessing</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="example_wandb.html">DrEvalPy and Weights &amp; Biases</a></li>
+<li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributor Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="reference.html">How to cite</a></li>
+<li class="toctree-l1"><a class="reference internal" href="memes.html">Memes and fun stuff</a></li>
+<li class="toctree-l1"><a class="reference internal" href="API.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">DrEvalPy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Custom input with drevalpy’s baselines</li>
+      <li class="wy-breadcrumbs-aside">
+              <a href="https://github.com/daisybio/drevalpy/blob/development/docs/example_flexible_inputs.rst" class="fa fa-github"> Edit on GitHub</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="custom-input-with-drevalpy-s-baselines">
+<h1>Custom input with drevalpy’s baselines<a class="headerlink" href="#custom-input-with-drevalpy-s-baselines" title="Link to this heading"></a></h1>
+<p>These example use cases are about how to use your own custom input for baseline models implemented in drevalpy.</p>
+<section id="example-flexible-inputs-with-drevalpy-s-baselines">
+<h2>Example: Flexible Inputs with DrEvalPy’s Baselines<a class="headerlink" href="#example-flexible-inputs-with-drevalpy-s-baselines" title="Link to this heading"></a></h2>
+<p>The sklearn baseline models (<code class="docutils literal notranslate"><span class="pre">ElasticNet</span></code>, <code class="docutils literal notranslate"><span class="pre">Lasso</span></code>, <code class="docutils literal notranslate"><span class="pre">RandomForest</span></code>, <code class="docutils literal notranslate"><span class="pre">GradientBoosting</span></code>, <code class="docutils literal notranslate"><span class="pre">SVR</span></code>, <code class="docutils literal notranslate"><span class="pre">AdaBoostDecisionTree</span></code>, <code class="docutils literal notranslate"><span class="pre">KNNRegressor</span></code>,
+<code class="docutils literal notranslate"><span class="pre">SingleDrugRandomForest</span></code>, <code class="docutils literal notranslate"><span class="pre">SingleDrugElasticNet</span></code>, <code class="docutils literal notranslate"><span class="pre">MultiViewRandomForest</span></code>, <code class="docutils literal notranslate"><span class="pre">MultiViewXGBoost</span></code>) and the neural network baselines (<code class="docutils literal notranslate"><span class="pre">SimpleNeuralNetwork</span></code>, <code class="docutils literal notranslate"><span class="pre">MultiViewNeuralNetwork</span></code>)
+support <strong>flexible inputs</strong>. Instead of writing a new Python class for each omic data type, you can simply change which omic the model uses by editing <code class="docutils literal notranslate"><span class="pre">hyperparameters.yaml</span></code>.</p>
+<p>For example, to run a Random Forest on <strong>mynewdatamodality</strong> data instead of gene expression, change the
+<code class="docutils literal notranslate"><span class="pre">cell_line_views</span></code> in <code class="docutils literal notranslate"><span class="pre">models/baselines/hyperparameters.yaml</span></code>:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">RandomForest</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">cell_line_views</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mynewdatamodality</span>
+<span class="w">  </span><span class="nt">drug_views</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">fingerprints</span>
+<span class="w">  </span><span class="l l-Scalar l-Scalar-Plain">..</span>
+</pre></div>
+</div>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>If you do not want to write a custom loading function, this requires that there exists a csv file with that name in
+<code class="docutils literal notranslate"><span class="pre">{path_to_data}/{dataset_name}/</span></code>. I.e., if you specify <code class="docutils literal notranslate"><span class="pre">mynewdatamodality</span></code>, you need to have a <code class="docutils literal notranslate"><span class="pre">mynewdatamodality.csv</span></code> file.</p>
+</div>
+<p>The data is then loaded by the <code class="docutils literal notranslate"><span class="pre">load_generic_csv</span></code> function:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">load_generic_csv</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">dataset_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">feature_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">index_col</span><span class="o">=</span><span class="n">CELL_LINE_IDENTIFIER</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FeatureDataset</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Loads a generic CSV file with cell line IDs as index and features as columns.</span>
+
+<span class="sd">    :param path: path to the data, e.g., data/</span>
+<span class="sd">    :param dataset_name: name of the dataset, e.g., GDSC2</span>
+<span class="sd">    :param feature_name: name of the feature, e.g., gene_expression</span>
+<span class="sd">    :param index_col: name of the index column, e.g., cell_line_id</span>
+<span class="sd">    :returns: FeatureDataset with the features</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">feature_csv</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">dataset_name</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">feature_name</span><span class="si">}</span><span class="s2">.csv&quot;</span><span class="p">,</span> <span class="n">index_col</span><span class="o">=</span><span class="n">index_col</span><span class="p">)</span>
+    <span class="n">feature_csv</span><span class="o">.</span><span class="n">index</span> <span class="o">=</span> <span class="n">feature_csv</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
+    <span class="k">if</span> <span class="s2">&quot;cellosaurus_id&quot;</span> <span class="ow">in</span> <span class="n">feature_csv</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+        <span class="n">feature_csv</span> <span class="o">=</span> <span class="n">feature_csv</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;cellosaurus_id&quot;</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">FeatureDataset</span><span class="p">(</span><span class="n">features</span><span class="o">=</span><span class="n">iterate_features</span><span class="p">(</span><span class="n">df</span><span class="o">=</span><span class="n">feature_csv</span><span class="p">,</span> <span class="n">feature_type</span><span class="o">=</span><span class="n">feature_name</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>Depending on whether you define it in <code class="docutils literal notranslate"><span class="pre">cell_line_views</span></code> or <code class="docutils literal notranslate"><span class="pre">drug_views</span></code>, the index column will have to be the
+<code class="docutils literal notranslate"><span class="pre">CELL_LINE_IDENTIFIER</span></code> (“cell_line_name”) or the <code class="docutils literal notranslate"><span class="pre">DRUG_IDENTIFIER</span></code> (“pubchem_id”).</p>
+<p>You can then run it the same way as before:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>drevalpy<span class="w"> </span>--models<span class="w"> </span>RandomForest<span class="w"> </span>--dataset<span class="w"> </span>CTRPv2<span class="w"> </span>--data_path<span class="w"> </span>data
+</pre></div>
+</div>
+<p>For more details on the flexible input system, see the sklearn <a class="reference internal" href="drevalpy.models.baselines.html#flexible-inputs"><span class="std std-ref">Flexible Input System</span></a> documentation
+and the SimpleNeuralNetwork <a class="reference internal" href="drevalpy.models.SimpleNeuralNetwork.html#flexible-inputs-simplenn"><span class="std std-ref">Flexible Input System</span></a> documentation.</p>
+</section>
+<section id="example-using-flexible-inputs-with-sklearn-baselines-with-custom-preprocessing">
+<h2>Example: Using Flexible Inputs with Sklearn Baselines With Custom Preprocessing<a class="headerlink" href="#example-using-flexible-inputs-with-sklearn-baselines-with-custom-preprocessing" title="Link to this heading"></a></h2>
+<p>For the <code class="docutils literal notranslate"><span class="pre">proteomics</span></code> input, we implemented custom preprocessing in the <code class="docutils literal notranslate"><span class="pre">SklearnModel</span></code> parent class and for that,
+we define custom hyperparameters in <code class="docutils literal notranslate"><span class="pre">hyperparameters.yaml</span></code>:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">RandomForest</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">cell_line_views</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">proteomics</span>
+<span class="w">  </span><span class="nt">drug_views</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">fingerprints</span>
+<span class="w">  </span><span class="l l-Scalar l-Scalar-Plain">...</span>
+<span class="w">  </span><span class="nt">proteomics_feature_threshold</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.7</span>
+<span class="w">  </span><span class="nt">proteomics_n_features</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1000</span>
+<span class="w">  </span><span class="nt">proteomics_normalization_width</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.3</span>
+<span class="w">  </span><span class="nt">proteomics_normalization_downshift</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.8</span>
+</pre></div>
+</div>
+<p>We add these parameters to the <code class="docutils literal notranslate"><span class="pre">SklearnModel</span></code> init method:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="c1"># ... existing init method</span>
+    <span class="c1"># proteomics-specific defaults</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">proteomics_transformer</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">proteomics_feature_threshold</span> <span class="o">=</span> <span class="mf">0.7</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">proteomics_n_features</span> <span class="o">=</span> <span class="mi">1000</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">proteomics_normalization_width</span> <span class="o">=</span> <span class="mf">0.3</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">proteomics_normalization_downshift</span> <span class="o">=</span> <span class="mf">1.8</span>
+</pre></div>
+</div>
+<p>These parameters are filled with the parameters from the hyperparameter file in the <code class="docutils literal notranslate"><span class="pre">build_model</span></code> method:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">build_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">hyperparameters</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
+    <span class="c1"># ... existing build_model method</span>
+    <span class="c1"># proteomics features are not supported for all models</span>
+    <span class="k">if</span> <span class="s2">&quot;proteomics&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">cell_line_views</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_init_proteomics_features</span><span class="p">(</span><span class="n">hyperparameters</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_init_proteomics_features</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">hyperparameters</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">proteomics_feature_threshold</span> <span class="o">=</span> <span class="n">hyperparameters</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;proteomics_feature_threshold&quot;</span><span class="p">,</span> <span class="mf">0.7</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">proteomics_n_features</span> <span class="o">=</span> <span class="n">hyperparameters</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;proteomics_n_features&quot;</span><span class="p">,</span> <span class="mi">1000</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">proteomics_normalization_width</span> <span class="o">=</span> <span class="n">hyperparameters</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;proteomics_normalization_width&quot;</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">proteomics_normalization_downshift</span> <span class="o">=</span> <span class="n">hyperparameters</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;proteomics_normalization_downshift&quot;</span><span class="p">,</span> <span class="mf">1.8</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">proteomics_transformer</span> <span class="o">=</span> <span class="n">ProteomicsMedianCenterAndImputeTransformer</span><span class="p">(</span>
+            <span class="n">feature_threshold</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">proteomics_feature_threshold</span><span class="p">,</span>
+            <span class="n">n_features</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">proteomics_n_features</span><span class="p">,</span>
+            <span class="n">normalization_downshift</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">proteomics_normalization_downshift</span><span class="p">,</span>
+            <span class="n">normalization_width</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">proteomics_normalization_width</span><span class="p">,</span>
+        <span class="p">)</span>
+</pre></div>
+</div>
+<p>We want to normalize the proteomics data with a custom method which we implement in <code class="docutils literal notranslate"><span class="pre">ProteomicsMedianCenterAndImputeTransformer</span></code> (code see below).</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>This can’t be done before training because it will compute medians. If the medians are computed on the whole dataset,
+the test set’s medians are <strong>leaked</strong> into the training set. The correct way to handle this is to compute the median
+on the training set only (fit_transform function) and then only apply the median to the validation and test set (transform function).</p>
+</div>
+<p>In the training function, we call our custom preprocessing function:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">train</span><span class="p">(</span>
+    <span class="bp">self</span><span class="p">,</span>
+    <span class="n">output</span><span class="p">:</span> <span class="n">DrugResponseDataset</span><span class="p">,</span>
+    <span class="n">cell_line_input</span><span class="p">:</span> <span class="n">FeatureDataset</span><span class="p">,</span>
+    <span class="n">drug_input</span><span class="p">:</span> <span class="n">FeatureDataset</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">output_earlystopping</span><span class="p">:</span> <span class="n">DrugResponseDataset</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">model_checkpoint_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;checkpoints&quot;</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="c1"># [...]</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">output</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">if</span> <span class="s2">&quot;gene_expression&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">cell_line_views</span><span class="p">:</span>
+            <span class="n">cell_line_input</span> <span class="o">=</span> <span class="n">scale_gene_expression</span><span class="p">(</span>
+                <span class="n">cell_line_input</span><span class="o">=</span><span class="n">cell_line_input</span><span class="p">,</span>
+                <span class="n">cell_line_ids</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">output</span><span class="o">.</span><span class="n">cell_line_ids</span><span class="p">),</span>
+                <span class="n">training</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">gene_expression_scaler</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">gene_expression_scaler</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="s2">&quot;proteomics&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">cell_line_views</span><span class="p">:</span>
+            <span class="n">cell_line_input</span> <span class="o">=</span> <span class="n">prepare_proteomics</span><span class="p">(</span>
+                <span class="n">cell_line_input</span><span class="o">=</span><span class="n">cell_line_input</span><span class="p">,</span>
+                <span class="n">cell_line_ids</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">output</span><span class="o">.</span><span class="n">cell_line_ids</span><span class="p">),</span>
+                <span class="n">training</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">transformer</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">proteomics_transformer</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="c1"># [...]</span>
+</pre></div>
+</div>
+<p>In the predict function, too:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">predict</span><span class="p">(</span>
+    <span class="bp">self</span><span class="p">,</span>
+    <span class="n">cell_line_ids</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">drug_ids</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">cell_line_input</span><span class="p">:</span> <span class="n">FeatureDataset</span><span class="p">,</span>
+    <span class="n">drug_input</span><span class="p">:</span> <span class="n">FeatureDataset</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="c1"># [...]</span>
+    <span class="k">if</span> <span class="s2">&quot;gene_expression&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">cell_line_views</span><span class="p">:</span>
+        <span class="n">cell_line_input</span> <span class="o">=</span> <span class="n">scale_gene_expression</span><span class="p">(</span>
+            <span class="n">cell_line_input</span><span class="o">=</span><span class="n">cell_line_input</span><span class="p">,</span>
+            <span class="n">cell_line_ids</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">cell_line_ids</span><span class="p">),</span>
+            <span class="n">training</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">gene_expression_scaler</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">gene_expression_scaler</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">elif</span> <span class="s2">&quot;proteomics&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">cell_line_views</span><span class="p">:</span>
+        <span class="n">cell_line_input</span> <span class="o">=</span> <span class="n">prepare_proteomics</span><span class="p">(</span>
+            <span class="n">cell_line_input</span><span class="o">=</span><span class="n">cell_line_input</span><span class="p">,</span>
+            <span class="n">cell_line_ids</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">cell_line_ids</span><span class="p">),</span>
+            <span class="n">training</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">transformer</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">proteomics_transformer</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="c1"># [...]</span>
+</pre></div>
+</div>
+<p>Utility functions:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">ProteomicsMedianCenterAndImputeTransformer</span><span class="p">(</span><span class="n">BaseEstimator</span><span class="p">,</span> <span class="n">TransformerMixin</span><span class="p">):</span>
+<span class="sd">&quot;&quot;&quot;Performs median centering and imputation of proteomics data.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">feature_threshold</span><span class="o">=</span><span class="mf">0.7</span><span class="p">,</span> <span class="n">n_features</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">normalization_downshift</span><span class="o">=</span><span class="mf">1.8</span><span class="p">,</span> <span class="n">normalization_width</span><span class="o">=</span><span class="mf">0.3</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Hyperparameters for the normalization.</span>
+
+<span class="sd">        :param feature_threshold: Require that, e.g., 70% of the proteins are measured without NAs</span>
+<span class="sd">            over all cell lines -&gt; n_complete_features = number of proteins with at least 70% of the cell lines</span>
+<span class="sd">        :param n_features: fallback for feature selection. Take top n complete features.</span>
+<span class="sd">            Select max(n_complete_features, n_features) features.</span>
+<span class="sd">        :param normalization_downshift: downshift factor for the mean</span>
+<span class="sd">        :param normalization_width: width factor for the standard deviation</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">feature_threshold</span> <span class="o">=</span> <span class="n">feature_threshold</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_features</span> <span class="o">=</span> <span class="n">n_features</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">normalization_downshift</span> <span class="o">=</span> <span class="n">normalization_downshift</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">normalization_width</span> <span class="o">=</span> <span class="n">normalization_width</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">protein_indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mean_median</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">fit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Learns the top n_feature complete proteins and calculates the mean median of the train cell lines.</span>
+
+<span class="sd">        :param X: input proteomics data</span>
+<span class="sd">        :param y: not used</span>
+<span class="sd">        :returns: self</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">required_proteins</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">feature_threshold</span><span class="p">)</span>
+        <span class="c1"># identify the complete columns</span>
+        <span class="n">completeness</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">X</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">n_complete_features</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">count_nonzero</span><span class="p">(</span><span class="n">completeness</span> <span class="o">&gt;=</span> <span class="n">required_proteins</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">n_complete_features</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_features</span><span class="p">:</span>
+            <span class="c1"># select top 1000 complete features</span>
+            <span class="c1"># sort by completeness</span>
+            <span class="n">sorted_indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">completeness</span><span class="p">)[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">protein_indices</span> <span class="o">=</span> <span class="n">sorted_indices</span><span class="p">[:</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_features</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># select the features meeting the required threshold</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">protein_indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">completeness</span> <span class="o">&gt;=</span> <span class="n">required_proteins</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">X</span> <span class="o">=</span> <span class="n">X</span><span class="p">[:,</span> <span class="bp">self</span><span class="o">.</span><span class="n">protein_indices</span><span class="p">]</span>
+        <span class="c1"># calculate mean of sample medians</span>
+        <span class="n">medians</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmedian</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mean_median</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">medians</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">transform</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Median center the data and impute missing values with downshifted normal distribution.</span>
+
+<span class="sd">        :param X: input proteomics data</span>
+<span class="sd">        :returns: transformed proteomics data</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">X</span> <span class="o">=</span> <span class="n">X</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="n">X</span> <span class="o">=</span> <span class="n">X</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">protein_indices</span><span class="p">]</span>
+
+        <span class="n">correction_factor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mean_median</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmedian</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+        <span class="n">X</span> <span class="o">=</span> <span class="n">X</span> <span class="o">*</span> <span class="n">correction_factor</span>
+        <span class="c1"># downshifted mean</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="n">seed</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+        <span class="n">cell_line_mean</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+        <span class="n">cell_line_sd</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanstd</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+        <span class="n">downshifted_mean</span> <span class="o">=</span> <span class="n">cell_line_mean</span> <span class="o">-</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">normalization_downshift</span> <span class="o">*</span> <span class="n">cell_line_sd</span><span class="p">)</span>
+        <span class="n">shrinked_sd</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalization_width</span> <span class="o">*</span> <span class="n">cell_line_sd</span>
+        <span class="n">n_missing</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">count_nonzero</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">X</span><span class="p">))</span>
+        <span class="n">X</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">X</span><span class="p">)]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">loc</span><span class="o">=</span><span class="n">downshifted_mean</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="n">shrinked_sd</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">n_missing</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">X</span><span class="p">]</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">prepare_proteomics</span><span class="p">(</span>
+    <span class="n">cell_line_input</span><span class="p">:</span> <span class="n">FeatureDataset</span><span class="p">,</span>
+    <span class="n">cell_line_ids</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">training</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+    <span class="n">transformer</span><span class="p">:</span> <span class="n">ProteomicsMedianCenterAndImputeTransformer</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FeatureDataset</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Applies log10 transform and proteomics normalization (centering + imputation) to proteomics view.</span>
+
+<span class="sd">    :param cell_line_input: FeatureDataset with proteomics features</span>
+<span class="sd">    :param cell_line_ids: cell line IDs for training or transformation</span>
+<span class="sd">    :param training: whether to fit or only transform</span>
+<span class="sd">    :param transformer: Proteomics transformer</span>
+<span class="sd">    :returns: transformed FeatureDataset</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">cell_line_input</span> <span class="o">=</span> <span class="n">cell_line_input</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">cell_line_input</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">log10_and_set_na</span><span class="p">,</span> <span class="n">view</span><span class="o">=</span><span class="s2">&quot;proteomics&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">training</span><span class="p">:</span>
+        <span class="n">cell_line_input</span><span class="o">.</span><span class="n">fit_transform_features</span><span class="p">(</span>
+            <span class="n">train_ids</span><span class="o">=</span><span class="n">cell_line_ids</span><span class="p">,</span>
+            <span class="n">transformer</span><span class="o">=</span><span class="n">transformer</span><span class="p">,</span>
+            <span class="n">view</span><span class="o">=</span><span class="s2">&quot;proteomics&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">cell_line_input</span><span class="o">.</span><span class="n">transform_features</span><span class="p">(</span>
+            <span class="n">ids</span><span class="o">=</span><span class="n">cell_line_ids</span><span class="p">,</span>
+            <span class="n">transformer</span><span class="o">=</span><span class="n">transformer</span><span class="p">,</span>
+            <span class="n">view</span><span class="o">=</span><span class="s2">&quot;proteomics&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">cell_line_input</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="runyourmodel.html" class="btn btn-neutral float-left" title="Run your own model" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="example_wandb.html" class="btn btn-neutral float-right" title="DrEvalPy and Weights &amp; Biases" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, DaiSyBio at Technical University of Munich.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
