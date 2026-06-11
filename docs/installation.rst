@@ -46,6 +46,46 @@ Then, install the package using pip:
    pip install drevalpy
 
 
+Optional Features (Extras)
+--------------------------
+
+Some models and features require additional dependencies that are **not** installed by the
+default ``pip install drevalpy``. They are provided as optional `extras`:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 25 55
+
+   * - Extra
+     - Enables
+     - Extra dependencies
+   * - ``precily``
+     - The ``Precily`` model (GSVA pathway features)
+     - ``gseapy``
+   * - ``xgboost``
+     - The ``MultiViewXGBoost`` baseline model
+     - ``xgboost``
+   * - ``multiprocessing``
+     - Parallelized cross-validation / tuning via Ray
+     - ``ray`` (and ``pydantic``, usually already present)
+
+Install one or more extras by listing them in square brackets, for example:
+
+.. code-block:: bash
+
+   pip install "drevalpy[precily]"
+   pip install "drevalpy[precily,xgboost,multiprocessing]"
+
+If you install from source with Poetry, install the extras with ``-E`` (or use
+``--all-extras`` to install all of them):
+
+.. code-block:: bash
+
+   poetry install -E precily -E xgboost -E multiprocessing
+   # or, equivalently
+   poetry install --all-extras
+
+
 With Docker
 -----------
 
