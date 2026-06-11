@@ -130,6 +130,18 @@ def drug_response_experiment(
     :raises ValueError: if no cv splits are found
     """
     seed_everything(42)
+    if test_mode == "LDO" and response_data.dataset_name in {
+        "CTRPv2_clean",
+        "CTRPv2_cleaner",
+        "CTRPv2_cleanest",
+    }:
+        warnings.warn(
+            f"{response_data.dataset_name} removes inactive drugs, so leave-drug-out (LDO) "
+            "evaluation on it is optimistic: real screens contain inactive compounds that a "
+            "model would still have to handle. For drug generalization, evaluate on the "
+            "unfiltered CTRPv2, or read these LDO metrics as an upper bound.",
+            stacklevel=2,
+        )
     # Default baseline model, needed for normalization
     nme = MODEL_FACTORY["NaiveMeanEffectsPredictor"]
     if baselines is None:
