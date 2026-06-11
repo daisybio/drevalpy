@@ -207,6 +207,129 @@ def load_ctrpv2(path_data: str = "data", measure: str = "LN_IC50_curvecurator") 
     return _load_zenodo_dataset(path_data=path_data, measure=measure, file_name="CTRPv2.csv", dataset_name="CTRPv2")
 
 
+# CTRPv2 drug-cleaning tiers: minimum number of reproducible (CurveCurator F-test
+# significant) dose-response curves a drug must have to be kept. We use the absolute
+# count of significant curves, not the insignificant fraction: a fraction-based cut
+# conflates truly-dead drugs (prodrugs/non-cytotoxics with ~0 responders anywhere)
+# with selective/biomarker-driven drugs (e.g. Venetoclax, Quizartinib) that are flat
+# in most lines but have a real cluster of high-quality responders we want to keep.
+CTRPV2_CLEAN_MIN_RESPONDERS = {
+    "CTRPv2_clean": 15,
+    "CTRPv2_cleaner": 30,
+    "CTRPv2_cleanest": 50,
+}
+
+
+def _build_ctrpv2_clean_variant(path_data: str, dataset_name: str) -> None:
+    """
+    Materialise a drug-cleaned CTRPv2 folder from the original (downloaded) CTRPv2.
+
+    Downloads the original CTRPv2 if absent, then writes <dataset_name>/<dataset_name>.csv
+    containing only drugs with at least CTRPV2_CLEAN_MIN_RESPONDERS[dataset_name] reproducible
+    (Regulation in {"down","up"}) dose-response curves. Entire drugs are removed, never
+    individual (cell, drug) experiments, which would condition the sample on the response
+    (selection-on-outcome leakage). CTRPv2's feature files (omics, drug graphs, etc.) are
+    symlinked so they are shared rather than duplicated; model caches are not linked. No new
+    data is uploaded anywhere: the cleaned folder is derived locally from the CTRPv2 download.
+
+    Idempotent: if the cleaned csv already exists, nothing is rebuilt (delete the folder to
+    regenerate after changing thresholds).
+
+    :param path_data: Parent data directory, e.g. "data".
+    :param dataset_name: One of CTRPv2_clean, CTRPv2_cleaner, CTRPv2_cleanest.
+    """
+    src_dir = os.path.join(path_data, "CTRPv2")
+    src_csv = os.path.join(src_dir, "CTRPv2.csv")
+    if not os.path.exists(src_csv):
+        download_dataset("CTRPv2", path_data, redownload=True)
+
+    dst_dir = os.path.join(path_data, dataset_name)
+    dst_csv = os.path.join(dst_dir, f"{dataset_name}.csv")
+    if os.path.exists(dst_csv):
+        return
+
+    os.makedirs(dst_dir, exist_ok=True)
+    min_responders = CTRPV2_CLEAN_MIN_RESPONDERS[dataset_name]
+    full = pd.read_csv(src_csv, dtype={"pubchem_id": str, "cell_line_name": str}, low_memory=False)
+    n_sig = full["Regulation"].isin(["down", "up"]).groupby(full["pubchem_id"]).sum()
+    keep_ids = set(n_sig.index[n_sig >= min_responders])
+    full[full["pubchem_id"].isin(keep_ids)].to_csv(dst_csv, index=False)
+
+    # share CTRPv2's feature files via symlinks (skip the response csv and model caches)
+    for entry in os.listdir(src_dir):
+        low = entry.lower()
+        if entry == "CTRPv2.csv" or "cache" in low or low == ".ds_store":
+            continue
+        link = os.path.join(dst_dir, entry)
+        if not os.path.islink(link) and not os.path.exists(link):
+            os.symlink(os.path.abspath(os.path.join(src_dir, entry)), link)
+
+
+def _load_ctrpv2_clean_variant(path_data: str, measure: str, dataset_name: str) -> DrugResponseDataset:
+    """
+    Load a drug-cleaned CTRPv2 variant, building it from the original CTRPv2 on first use.
+
+    :param path_data: Path to the dataset.
+    :param measure: The name of the column containing the measure to predict.
+    :param dataset_name: One of CTRPv2_clean, CTRPv2_cleaner, CTRPv2_cleanest.
+    :return: DrugResponseDataset containing response, cell line IDs, drug IDs, and tissues.
+    """
+    _build_ctrpv2_clean_variant(path_data, dataset_name)
+    meta_path = os.path.join(path_data, "meta", "tissue_mapping.csv")
+    if not os.path.exists(meta_path):
+        download_dataset("meta", path_data, redownload=True)
+    path = os.path.join(path_data, dataset_name, f"{dataset_name}.csv")
+    response_data = pd.read_csv(path, dtype={"pubchem_id": str, "cell_line_name": str})
+    response_data[DRUG_IDENTIFIER] = response_data[DRUG_IDENTIFIER].str.replace(",", "")
+    check_measure(measure, list(response_data.columns), dataset_name)
+    return DrugResponseDataset(
+        response=response_data[measure].values,
+        cell_line_ids=response_data[CELL_LINE_IDENTIFIER].values,
+        drug_ids=response_data[DRUG_IDENTIFIER].values,
+        tissues=response_data[TISSUE_IDENTIFIER].values,
+        dataset_name=dataset_name,
+    )
+
+
+def load_ctrpv2_clean(path_data: str = "data", measure: str = "LN_IC50_curvecurator") -> DrugResponseDataset:
+    """
+    Load CTRPv2_clean: CTRPv2 with only clearly-dead drugs removed (>=15 responders kept).
+
+    Built automatically from the original CTRPv2 download on first use; no new dataset is hosted.
+
+    :param path_data: Path to the location of the CTRPv2 dataset
+    :param measure: The name of the column containing the measure to predict, default: LN_IC50_curvecurator
+    :return: DrugResponseDataset containing response, cell line IDs, and drug IDs
+    """
+    return _load_ctrpv2_clean_variant(path_data, measure, "CTRPv2_clean")
+
+
+def load_ctrpv2_cleaner(path_data: str = "data", measure: str = "LN_IC50_curvecurator") -> DrugResponseDataset:
+    """
+    Load CTRPv2_cleaner: CTRPv2 with low-activity drugs removed (>=30 responders kept).
+
+    Built automatically from the original CTRPv2 download on first use; no new dataset is hosted.
+
+    :param path_data: Path to the location of the CTRPv2 dataset
+    :param measure: The name of the column containing the measure to predict, default: LN_IC50_curvecurator
+    :return: DrugResponseDataset containing response, cell line IDs, and drug IDs
+    """
+    return _load_ctrpv2_clean_variant(path_data, measure, "CTRPv2_cleaner")
+
+
+def load_ctrpv2_cleanest(path_data: str = "data", measure: str = "LN_IC50_curvecurator") -> DrugResponseDataset:
+    """
+    Load CTRPv2_cleanest: CTRPv2 with low-activity drugs removed (>=50 responders kept).
+
+    Built automatically from the original CTRPv2 download on first use; no new dataset is hosted.
+
+    :param path_data: Path to the location of the CTRPv2 dataset
+    :param measure: The name of the column containing the measure to predict, default: LN_IC50_curvecurator
+    :return: DrugResponseDataset containing response, cell line IDs, and drug IDs
+    """
+    return _load_ctrpv2_clean_variant(path_data, measure, "CTRPv2_cleanest")
+
+
 def load_beataml2(
     path_data: str = "data",
     measure: str = "LN_IC50_curvecurator",
@@ -266,6 +389,9 @@ AVAILABLE_DATASETS: dict[str, Callable] = {
     "TOYv2": load_toyv2,
     "CTRPv1": load_ctrpv1,
     "CTRPv2": load_ctrpv2,
+    "CTRPv2_clean": load_ctrpv2_clean,
+    "CTRPv2_cleaner": load_ctrpv2_cleaner,
+    "CTRPv2_cleanest": load_ctrpv2_cleanest,
     "BeatAML2": load_beataml2,
     "PDX_Bruna": load_pdx_bruna,
 }
