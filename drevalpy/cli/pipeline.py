@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from importlib.metadata import version as pkg_version
 from typing import Annotated
 
 import typer
@@ -10,6 +11,13 @@ from typer import _click
 from drevalpy.cli._helpers import as_list, pipeline_namespace
 from drevalpy.evaluation import AVAILABLE_METRICS
 from drevalpy.utils import check_arguments, main
+
+
+def _version_callback(value: bool) -> None:
+    if value:
+        typer.echo(f"drevalpy {pkg_version('drevalpy')}")
+        raise typer.Exit()
+
 
 BASELINES_HELP = (
     "List of baselines to evaluate. If NaiveMeanEffectsPredictor is not part of them, we will add it."
@@ -66,6 +74,17 @@ def register_pipeline_callback(app: typer.Typer) -> None:
     @app.callback(invoke_without_command=True)
     def pipeline_root(
         ctx: _click.Context,
+        show_version: Annotated[
+            bool,
+            typer.Option(
+                "--version",
+                "-v",
+                callback=_version_callback,
+                is_eager=True,
+                help="Show version and exit.",
+                expose_value=False,
+            ),
+        ] = False,
         run_id: Annotated[str, typer.Option("--run_id", help="Identifier to save the results.")] = "my_run",
         path_data: Annotated[str, typer.Option("--path_data", help="Path to the data directory.")] = "data",
         models: Annotated[
