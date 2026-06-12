@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Installation &mdash; DrEvalPy 1.5.0 documentation</title>
+  <title>Installation &mdash; DrEvalPy 1.5.1 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
       <link rel="stylesheet" type="text/css" href="_static/custom_cookietemple.css?v=8d02248d" />
@@ -14,7 +14,7 @@
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=e0a75244"></script>
+      <script src="_static/documentation_options.js?v=44dfd65d"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
@@ -49,6 +49,7 @@
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Installation</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#with-conda">With Conda</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#with-venv">With venv</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#optional-features-extras">Optional Features (Extras)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#with-docker">With Docker</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#from-source">From Source</a></li>
 </ul>
@@ -119,6 +120,50 @@ pip<span class="w"> </span>install<span class="w"> </span>drevalpy
 </div>
 <p>Then, install the package using pip:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>drevalpy
+</pre></div>
+</div>
+</section>
+<section id="optional-features-extras">
+<h2>Optional Features (Extras)<a class="headerlink" href="#optional-features-extras" title="Link to this heading"></a></h2>
+<p>Some models and features require additional dependencies that are <strong>not</strong> installed by the
+default <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">drevalpy</span></code>. They are provided as optional <cite>extras</cite>:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 20.0%" />
+<col style="width: 25.0%" />
+<col style="width: 55.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Extra</p></th>
+<th class="head"><p>Enables</p></th>
+<th class="head"><p>Extra dependencies</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">precily</span></code></p></td>
+<td><p>The <code class="docutils literal notranslate"><span class="pre">Precily</span></code> model (GSVA pathway features)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">gseapy</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">xgboost</span></code></p></td>
+<td><p>The <code class="docutils literal notranslate"><span class="pre">MultiViewXGBoost</span></code> baseline model</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">xgboost</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">multiprocessing</span></code></p></td>
+<td><p>Parallelized cross-validation / tuning via Ray</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ray</span></code> (and <code class="docutils literal notranslate"><span class="pre">pydantic</span></code>, usually already present)</p></td>
+</tr>
+</tbody>
+</table>
+<p>Install one or more extras by listing them in square brackets, for example:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;drevalpy[precily]&quot;</span>
+pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;drevalpy[precily,xgboost,multiprocessing]&quot;</span>
+</pre></div>
+</div>
+<p>If you install from source with Poetry, install the extras with <code class="docutils literal notranslate"><span class="pre">-E</span></code> (or use
+<code class="docutils literal notranslate"><span class="pre">--all-extras</span></code> to install all of them):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>poetry<span class="w"> </span>install<span class="w"> </span>-E<span class="w"> </span>precily<span class="w"> </span>-E<span class="w"> </span>xgboost<span class="w"> </span>-E<span class="w"> </span>multiprocessing
+<span class="c1"># or, equivalently</span>
+poetry<span class="w"> </span>install<span class="w"> </span>--all-extras
 </pre></div>
 </div>
 </section>
