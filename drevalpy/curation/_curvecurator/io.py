@@ -9,9 +9,9 @@ import pandas as pd
 
 from drevalpy.curation._curvecurator.types import CurationFitResult, CurationSplitResult, CurationWorkItem
 
-CONFIG_SUFFIX = "_config.json"
+CONFIG_SUFFIX = ".json"
 INPUT_SUFFIX = "_input.parquet"
-CURVES_SUFFIX = "_curves.parquet"
+CURVES_SUFFIX = ".parquet"
 
 
 def job_config_path(output_dir: Path, job_id: str) -> Path:
@@ -32,6 +32,10 @@ def job_curves_path(output_dir: Path, job_id: str) -> Path:
 def job_id_from_curves_path(curves_path: Path) -> str:
     """Extract the job id from a fitted-curves filename."""
     name = curves_path.name
+    if name.endswith(INPUT_SUFFIX):
+        raise ValueError(
+            f"Expected a fitted curves file ending with {CURVES_SUFFIX!r}, got prepared input {curves_path}."
+        )
     if not name.endswith(CURVES_SUFFIX):
         raise ValueError(f"Expected a fitted curves file ending with {CURVES_SUFFIX!r}, got {curves_path}.")
     return name[: -len(CURVES_SUFFIX)]
@@ -39,7 +43,7 @@ def job_id_from_curves_path(curves_path: Path) -> str:
 
 def list_curve_files(output_dir: Path) -> list[Path]:
     """List fitted curve parquet files in a split output directory."""
-    return sorted(output_dir.glob(f"*{CURVES_SUFFIX}"))
+    return sorted(path for path in output_dir.glob(f"*{CURVES_SUFFIX}") if not path.name.endswith(INPUT_SUFFIX))
 
 
 def read_work_item(

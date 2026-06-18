@@ -153,7 +153,7 @@ def register(app: typer.Typer) -> None:
     def curation_curvecurator(
         config_file: Annotated[
             Path,
-            typer.Argument(help="Job config JSON from ``curation split`` (``<job_id>_config.json``)."),
+            typer.Argument(help="Job config JSON from ``curation split`` (``<job_id>.json``)."),
         ],
         input_file: Annotated[
             Path,
@@ -161,7 +161,7 @@ def register(app: typer.Typer) -> None:
         ],
         output_file: Annotated[
             Path,
-            typer.Argument(help="Destination parquet for fitted CurveCurator curves."),
+            typer.Argument(help="Destination parquet for fitted CurveCurator curves (``<job_id>.parquet``)."),
         ],
         device: Annotated[str, typer.Option("--device", help=CURATOR_DEVICE_HELP)] = "auto",
         gpu_min_curves: Annotated[

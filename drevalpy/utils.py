@@ -132,6 +132,7 @@ def main(args) -> None:
         chunk_size=getattr(args, "curve_curator_chunk_size", 1_000),
         gpu_min_curves=getattr(args, "curve_curator_gpu_min_curves", 1_000),
         gpu_chunk_size=getattr(args, "curve_curator_gpu_chunk_size", 50_000),
+        gpu_available=getattr(args, "curve_curator_gpu_available", False),
     )
 
     models = [MODEL_FACTORY[model] for model in args.models]
@@ -182,6 +183,7 @@ def get_datasets(
     chunk_size: int = 1_000,
     gpu_min_curves: int = 1_000,
     gpu_chunk_size: int = 50_000,
+    gpu_available: bool = False,
 ) -> tuple[DrugResponseDataset, list[DrugResponseDataset] | None]:
     """
     Load the response data and cross-study datasets.
@@ -210,6 +212,7 @@ def get_datasets(
     :param chunk_size: Maximum curves per CPU chunk when curve_curator is True.
     :param gpu_min_curves: Minimum curves before auto device selection may use an accelerator.
     :param gpu_chunk_size: Maximum curves per accelerator chunk when curve_curator is True.
+    :param gpu_available: Whether GPU resources are available for accelerator chunking during custom refits.
     :returns: response data and, potentially, cross-study datasets
     """
     response_data = load_dataset(
@@ -223,6 +226,7 @@ def get_datasets(
         chunk_size=chunk_size,
         gpu_min_curves=gpu_min_curves,
         gpu_chunk_size=gpu_chunk_size,
+        gpu_available=gpu_available,
     )
 
     cross_study_datasets = [

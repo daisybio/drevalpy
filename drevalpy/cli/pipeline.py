@@ -147,6 +147,13 @@ def register_pipeline_callback(app: typer.Typer) -> None:
                 help="Maximum number of curves per accelerator chunk.",
             ),
         ] = 50_000,
+        curve_curator_gpu_available: Annotated[
+            bool,
+            typer.Option(
+                "--curve_curator_gpu_available/--no_curve_curator_gpu_available",
+                help="Whether GPU resources are available for accelerator chunking during custom raw refits.",
+            ),
+        ] = False,
         measure: Annotated[
             str,
             typer.Option(
@@ -223,6 +230,7 @@ def register_pipeline_callback(app: typer.Typer) -> None:
             curve_curator_chunk_size=curve_curator_chunk_size,
             curve_curator_gpu_min_curves=curve_curator_gpu_min_curves,
             curve_curator_gpu_chunk_size=curve_curator_gpu_chunk_size,
+            curve_curator_gpu_available=curve_curator_gpu_available,
             measure=measure,
             overwrite=overwrite,
             optim_metric=optim_metric,

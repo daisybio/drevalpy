@@ -86,5 +86,5 @@ def write_dataset_csv(dataset: pd.DataFrame, output_file: str | Path) -> Path:
     """
     output_path = Path(output_file)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    dataset.to_csv(output_path, index=True)
+    dataset.to_csv(output_path, index=False)
     return output_path

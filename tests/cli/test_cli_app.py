@@ -162,6 +162,34 @@ def test_report_forwards_dataset_name(monkeypatch: pytest.MonkeyPatch) -> None:
     assert captured["dataset"] == "TOYv1"
 
 
+def test_pipeline_forwards_curve_curator_gpu_available(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_check(args: object) -> None:
+        return None
+
+    def fake_main(args: object) -> None:
+        captured["gpu_available"] = args.curve_curator_gpu_available  # type: ignore[attr-defined]
+
+    monkeypatch.setattr("drevalpy.cli.pipeline.check_arguments", fake_check)
+    monkeypatch.setattr("drevalpy.cli.pipeline.main", fake_main)
+
+    result = runner.invoke(
+        app,
+        normalize_list_argv(
+            [
+                "--models",
+                "ElasticNet",
+                "--dataset_name",
+                "GDSC1",
+                "--curve_curator_gpu_available",
+            ]
+        ),
+    )
+    assert result.exit_code == 0
+    assert captured["gpu_available"] is True
+
+
 def test_pipeline_help_uses_valid_randomization_example() -> None:
     result = runner.invoke(
         app,

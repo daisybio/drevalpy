@@ -35,6 +35,7 @@ from drevalpy.visualization.utils import (
             "curve_curator_chunk_size": 1_000,
             "curve_curator_gpu_min_curves": 1_000,
             "curve_curator_gpu_chunk_size": 50_000,
+            "curve_curator_gpu_available": False,
             "measure": "LN_IC50",
             "overwrite": False,
             "optim_metric": "RMSE",

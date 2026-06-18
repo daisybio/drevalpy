@@ -46,8 +46,8 @@ def test_write_and_read_split_artifacts_flat_layout(tmp_path: Path) -> None:
     assert work_item.config["Meta"]["id"] == "Toy_raw.csv"
 
     payload = job_config_path(output_dir, job_id).read_text(encoding="utf-8")
-    assert CONFIG_SUFFIX in job_config_path(output_dir, job_id).name
-    assert INPUT_SUFFIX in job_input_path(output_dir, job_id).name
+    assert job_config_path(output_dir, job_id).name == f"{job_id}{CONFIG_SUFFIX}"
+    assert job_input_path(output_dir, job_id).name == f"{job_id}{INPUT_SUFFIX}"
     assert '"Routing"' in payload
     assert '"n_curves"' in payload
     assert '"device"' in payload
@@ -74,7 +74,23 @@ def test_read_fit_results_from_paths_requires_curves(tmp_path: Path) -> None:
     fit_results = read_fit_results_from_paths([curves_path])
     assert len(fit_results) == 1
     assert fit_results[0].work_id == job_id
-    assert CURVES_SUFFIX in curves_path.name
+    assert curves_path.name == f"{job_id}{CURVES_SUFFIX}"
+
+
+def test_list_curve_files_ignores_prepared_input_parquet(tmp_path: Path) -> None:
+    input_file = tmp_path / "Toy_raw.csv"
+    input_file.write_text(
+        "dose,response,sample,drug\n1.0,0.9,A,D\n10.0,0.1,A,D\n",
+        encoding="utf-8",
+    )
+    output_dir = tmp_path / "work"
+    raw_df = load_raw_curve_df(input_file)
+    split_result = split(raw_df, input_filename=input_file.name, cores=1)
+    write_split_artifacts(split_result, output_dir)
+
+    job_id = split_result.work_items[0].work_id
+    assert job_input_path(output_dir, job_id).is_file()
+    assert list_curve_files(output_dir) == []
 
 
 def test_list_curve_files_finds_written_curves(tmp_path: Path) -> None:

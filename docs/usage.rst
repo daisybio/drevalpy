@@ -105,6 +105,11 @@ Example:
 
    Normalize response values to ``[0, 1]`` for CurveCurator. [default: ``False``]
 
+.. option:: --curve_curator_gpu_available
+
+   Enable accelerator-sized CurveCurator chunking for custom raw dataset refits. Only used when
+   ``--no_refitting`` is not set. [default: ``False``]
+
 .. option:: --measure TEXT
 
    Drug response measure used as prediction target. If using one of the available datasets (see ``--dataset_name``), this is restricted to one of ['LN_IC50', 'EC50', 'IC50', 'pEC50', 'AUC', 'response']. This corresponds to the names of the columns that contain theses measures in the provided input dataset. If providing a custom dataset, this may differ. If the option ``--no_refitting`` is not set, the prefix '_curvecurator' is automatically appended, e.g. 'LN_IC50_curvecurator', to allow using the refit measures instead of the ones originally published for the available datasets, allowing for better dataset comparability (refit measures are already provided in the available datasets or computed as part of the fitting procedure when providing custom raw viability datasets, see ``--no_refitting`` for details).
@@ -389,7 +394,7 @@ the available datasets in the previous section.
     * IC50_curvecurator: given in µM
     * LN_IC50_curvecurator: computed from IC50_curvecurator
     * AUC_curvecurator
-* The option ``--curve_curator_cores`` must be set. ``--no_refitting`` must not be set. Curve fitting uses the forked CurveCurator Python API in-process; optional GPU acceleration is controlled by ``--curve_curator_device`` and related chunk options.
+* The option ``--curve_curator_cores`` must be set. ``--no_refitting`` must not be set. Curve fitting uses the forked CurveCurator Python API in-process; optional GPU acceleration is controlled by ``--curve_curator_device``, ``--curve_curator_gpu_available``, and related chunk options.
 * DrEvalPy provides all results of the fitting in the same folder including the fitted curves in a file folder ``<path_data>/<dataset>/<dataset_name>.csv``
 
 Raw viability files can also be fit directly without running a full DrEvalPy model evaluation using the curation workflow:
@@ -403,10 +408,10 @@ This runs split, CurveCurator, and combine in one command. For distributed execu
 .. code-block:: bash
 
     drevalpy curation split ./data/MyDataset/MyDataset_raw.csv --output-dir ./work/curation --gpu-available
-    drevalpy curation curvecurator ./work/curation/<job_id>_config.json ./work/curation/<job_id>_input.parquet ./work/curation/<job_id>_curves.parquet --device auto
-    drevalpy curation combine ./work/curation/*_curves.parquet --output-file ./data/MyDataset/MyDataset.csv
+    drevalpy curation curvecurator ./work/curation/<job_id>.json ./work/curation/<job_id>_input.parquet ./work/curation/<job_id>.parquet --device auto
+    drevalpy curation combine ./work/curation --output-file ./data/MyDataset/MyDataset.csv
 
-Split writes a flat directory with ``<job_id>_config.json`` (CurveCurator config including ``Routing.n_curves`` and ``Routing.device``) and ``<job_id>_input.parquet`` per job. The curvecurator step reads those two files explicitly and writes fitted curves to the output parquet path you provide. Use ``--gpu-available`` during split only when GPU resources are available for accelerator chunking; otherwise split defaults to CPU-sized chunks.
+Split writes a flat directory with ``<job_id>.json`` (CurveCurator config including ``Routing.n_curves`` and ``Routing.device``) and ``<job_id>_input.parquet`` per job. The curvecurator step reads those two files explicitly and writes fitted curves to ``<job_id>.parquet``. Prepared input tables keep the ``_input`` suffix because they share the same flat directory as fitted curve parquet files. Use ``--gpu-available`` during split only when GPU resources are available for accelerator chunking; otherwise split defaults to CPU-sized chunks.
 
 **Prefit viability data**
 

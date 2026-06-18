@@ -168,11 +168,11 @@ def test_curation_split_forwards_gpu_available(monkeypatch: pytest.MonkeyPatch, 
 
 
 def test_curation_curvecurator_reads_input_writes_curves(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    config_file = tmp_path / "drug_treatment_config.json"
+    config_file = tmp_path / "drug_treatment.json"
     config_file.write_text("{}", encoding="utf-8")
     input_file = tmp_path / "drug_treatment_input.parquet"
     input_file.write_text("", encoding="utf-8")
-    output_file = tmp_path / "drug_treatment_curves.parquet"
+    output_file = tmp_path / "drug_treatment.parquet"
     work_item = object()
     calls: list[tuple[object, Path]] = []
 
@@ -203,7 +203,7 @@ def test_curation_curvecurator_reads_input_writes_curves(monkeypatch: pytest.Mon
 
 
 def test_curation_combine_reads_curve_files_writes_csv(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    curves_file = tmp_path / "drug_treatment_curves.parquet"
+    curves_file = tmp_path / "drug_treatment.parquet"
     output = tmp_path / "Toy.csv"
     calls: list[dict[str, Any]] = []
 

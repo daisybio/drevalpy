@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from drevalpy.curation import combine, load_raw_curve_df, split
+from drevalpy.curation import combine, load_raw_curve_df, split, write_dataset_csv
 from drevalpy.curation._curvecurator.split import prepare_input_table
 from drevalpy.curation._curvecurator.types import CurationFitResult, CurationWorkItem
 
@@ -154,3 +154,47 @@ def test_combine_builds_dataset_table() -> None:
     assert "EC50_curvecurator" in dataset.columns
     assert "IC50_curvecurator" in dataset.columns
     assert dataset.loc["A|D", "cell_line_name"] == "A"
+
+
+def test_write_dataset_csv_does_not_write_index_column(tmp_path: Path) -> None:
+    curves = pd.DataFrame(
+        {
+            "Name": ["A|D"],
+            "pEC50": [6.0],
+            "pEC50 Error": [0.1],
+            "Curve Slope": [1.0],
+            "Curve Front": [1.0],
+            "Curve Back": [0.1],
+            "Curve Fold Change": [10.0],
+            "Curve AUC": [0.5],
+            "Curve R2": [0.9],
+            "Curve P_Value": [0.01],
+            "Curve Relevance Score": [1.0],
+            "Curve F_Value": [10.0],
+            "Curve Log P_Value": [2.0],
+            "Signal Quality": [1.0],
+            "Curve RMSE": [0.01],
+            "Curve F_Value SAM Corrected": [9.0],
+            "Curve Regulation": ["down"],
+        }
+    )
+    fit_result = CurationFitResult(
+        work_id="work",
+        curves=curves,
+        work_item=CurationWorkItem(
+            work_id="work",
+            group_key="group",
+            chunk_index=None,
+            input_table=pd.DataFrame(),
+            config={},
+            n_curves=1,
+            input_filename="Toy_raw.csv",
+        ),
+    )
+    dataset = combine([fit_result])
+    output_file = tmp_path / "Toy.csv"
+    write_dataset_csv(dataset, output_file)
+
+    written = pd.read_csv(output_file)
+    assert list(written.columns).count("Name") == 1
+    assert written.columns[0] != "Unnamed: 0"

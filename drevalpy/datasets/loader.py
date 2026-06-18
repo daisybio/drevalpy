@@ -282,6 +282,7 @@ def load_dataset(
     chunk_size: int = 1_000,
     gpu_min_curves: int = 1_000,
     gpu_chunk_size: int = 50_000,
+    gpu_available: bool = False,
 ) -> DrugResponseDataset:
     """
     Load a dataset based on the dataset name.
@@ -308,6 +309,7 @@ def load_dataset(
     :param chunk_size: Maximum curves per CPU chunk when curve_curator is True.
     :param gpu_min_curves: Minimum curves before routing to the requested accelerator.
     :param gpu_chunk_size: Maximum curves per accelerator chunk when curve_curator is True.
+    :param gpu_available: Whether GPU resources are available for accelerator chunking during custom refits.
     :return: A DrugResponseDataset containing response, cell line IDs, drug IDs, and dataset name.
     :raises FileNotFoundError: If the custom dataset or raw viability data could not be found at the given path.
     """
@@ -334,6 +336,7 @@ def load_dataset(
                 chunk_size=chunk_size,
                 gpu_min_curves=gpu_min_curves,
                 gpu_chunk_size=gpu_chunk_size,
+                gpu_available=gpu_available,
             )
             write_dataset_csv(dataset, input_file.parent / f"{dataset_name}.csv")
         return load_custom(
