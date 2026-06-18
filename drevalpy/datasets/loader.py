@@ -1,6 +1,7 @@
 """Contains functions to load the GDSC1, GDSC2, CCLE, and Toy datasets."""
 
 import os
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
@@ -36,6 +37,58 @@ def check_measure(measure_queried: str, measures_data: list[str], dataset_name: 
         )
 
 
+def _read_response_frame(path_data: str, file_name: str, dataset_name: str) -> pd.DataFrame:
+    """
+    Download (if needed) and read a dataset's response csv into a cleaned DataFrame.
+
+    Handles the shared loading steps: download of the dataset and tissue-mapping meta,
+    reading the csv with string ids, stripping commas from drug ids, and the per-dataset
+    tissue overrides. The returned frame keeps every column (e.g. ``Regulation``), so callers
+    that filter on curve-curator output can do so before building the dataset.
+
+    :param path_data: Path to the dataset.
+    :param file_name: File name of the dataset, e.g., GDSC1.csv
+    :param dataset_name: Name of the dataset, e.g., GDSC1.
+    :return: the response DataFrame.
+    """
+    path = os.path.join(path_data, dataset_name, file_name)
+    if not os.path.exists(path):
+        download_dataset(dataset_name, path_data, redownload=True)
+    # tissue mapping is not in TOY play dataset
+    meta_path = os.path.join(path_data, "meta", "tissue_mapping.csv")
+    if not os.path.exists(meta_path):
+        download_dataset("meta", path_data, redownload=True)
+
+    response_data = pd.read_csv(path, dtype={"pubchem_id": str, "cell_line_name": str})
+    response_data[DRUG_IDENTIFIER] = response_data[DRUG_IDENTIFIER].str.replace(",", "")
+    if dataset_name == "BeatAML2":
+        # only has AML patients = blood
+        response_data[TISSUE_IDENTIFIER] = "Blood"
+    elif dataset_name == "PDX_Bruna":
+        # only has breast cancer patients
+        response_data[TISSUE_IDENTIFIER] = "Breast"
+    return response_data
+
+
+def _frame_to_dataset(response_data: pd.DataFrame, measure: str, dataset_name: str) -> DrugResponseDataset:
+    """
+    Build a :class:`DrugResponseDataset` from an already-read response frame.
+
+    :param response_data: response DataFrame, e.g. from :func:`_read_response_frame`.
+    :param measure: The name of the column containing the measure to predict.
+    :param dataset_name: Name of the dataset, e.g., GDSC1.
+    :return: DrugResponseDataset containing response, cell line IDs, drug IDs, and tissues.
+    """
+    check_measure(measure, list(response_data.columns), dataset_name)
+    return DrugResponseDataset(
+        response=response_data[measure].values,
+        cell_line_ids=response_data[CELL_LINE_IDENTIFIER].values,
+        drug_ids=response_data[DRUG_IDENTIFIER].values,
+        tissues=response_data[TISSUE_IDENTIFIER].values,
+        dataset_name=dataset_name,
+    )
+
+
 def _load_zenodo_dataset(
     path_data: str = "data",
     measure: str = "LN_IC50_curvecurator",
@@ -51,30 +104,8 @@ def _load_zenodo_dataset(
     :param dataset_name: Name of the dataset, e.g., GDSC1.
     :return: DrugResponseDataset containing response, cell line IDs, and drug IDs.
     """
-    path = os.path.join(path_data, dataset_name, file_name)
-    if not os.path.exists(path):
-        download_dataset(dataset_name, path_data, redownload=True)
-    # tissue mapping is not in TOY play dataset
-    meta_path = os.path.join(path_data, "meta", "tissue_mapping.csv")
-    if not os.path.exists(meta_path):
-        download_dataset("meta", path_data, redownload=True)
-
-    response_data = pd.read_csv(path, dtype={"pubchem_id": str, "cell_line_name": str})
-    response_data[DRUG_IDENTIFIER] = response_data[DRUG_IDENTIFIER].str.replace(",", "")
-    check_measure(measure, list(response_data.columns), dataset_name)
-    if dataset_name == "BeatAML2":
-        # only has AML patients = blood
-        response_data[TISSUE_IDENTIFIER] = "Blood"
-    elif dataset_name == "PDX_Bruna":
-        # only has breast cancer patients
-        response_data[TISSUE_IDENTIFIER] = "Breast"
-    return DrugResponseDataset(
-        response=response_data[measure].values,
-        cell_line_ids=response_data[CELL_LINE_IDENTIFIER].values,
-        drug_ids=response_data[DRUG_IDENTIFIER].values,
-        tissues=response_data[TISSUE_IDENTIFIER].values,
-        dataset_name=dataset_name,
-    )
+    response_data = _read_response_frame(path_data, file_name, dataset_name)
+    return _frame_to_dataset(response_data, measure, dataset_name)
 
 
 def load_gdsc1(
@@ -207,88 +238,138 @@ def load_ctrpv2(path_data: str = "data", measure: str = "LN_IC50_curvecurator") 
     return _load_zenodo_dataset(path_data=path_data, measure=measure, file_name="CTRPv2.csv", dataset_name="CTRPv2")
 
 
-# CTRPv2 drug-cleaning tiers: minimum number of reproducible (CurveCurator F-test
-# significant) dose-response curves a drug must have to be kept. We use the absolute
-# count of significant curves, not the insignificant fraction: a fraction-based cut
-# conflates truly-dead drugs (prodrugs/non-cytotoxics with ~0 responders anywhere)
-# with selective/biomarker-driven drugs (e.g. Venetoclax, Quizartinib) that are flat
-# in most lines but have a real cluster of high-quality responders we want to keep.
-CTRPV2_CLEAN_MIN_RESPONDERS = {
-    "CTRPv2_clean": 15,
-    "CTRPv2_cleaner": 30,
-    "CTRPv2_cleanest": 50,
-}
-
-
-def _build_ctrpv2_clean_variant(path_data: str, dataset_name: str) -> None:
+@dataclass(frozen=True)
+class DrugCurveFilter:
     """
-    Materialise a drug-cleaned CTRPv2 folder from the original (downloaded) CTRPv2.
+    Keep only drugs with enough reproducible (curve-curated) dose-response curves.
 
-    Downloads the original CTRPv2 if absent, then writes <dataset_name>/<dataset_name>.csv
-    containing only drugs with at least CTRPV2_CLEAN_MIN_RESPONDERS[dataset_name] reproducible
-    (Regulation in {"down","up"}) dose-response curves. Entire drugs are removed, never
-    individual (cell, drug) experiments, which would condition the sample on the response
-    (selection-on-outcome leakage). CTRPv2's feature files (omics, drug graphs, etc.) are
-    symlinked so they are shared rather than duplicated; model caches are not linked. No new
-    data is uploaded anywhere: the cleaned folder is derived locally from the CTRPv2 download.
+    A drug is kept if its number of *significant* curves (``Regulation`` in
+    :attr:`significant_labels`) meets the active threshold. By default the threshold is an
+    absolute count (:attr:`min_responders`); set :attr:`min_responder_frac` instead for a
+    fraction-of-screened-lines criterion. Exactly one of the two must be set.
 
-    Idempotent: if the cleaned csv already exists, nothing is rebuilt (delete the folder to
-    regenerate after changing thresholds).
+    We default to the absolute count rather than a fraction on purpose: a fraction conflates
+    truly-dead compounds (prodrugs/non-cytotoxics with ~0 responders anywhere) with
+    selective/biomarker-driven drugs (e.g. Venetoclax, Quizartinib) that are flat in most
+    lines but have a real cluster of high-quality responders worth keeping. The absolute
+    count is a statistical-power floor (how many curves there are to learn a drug's response
+    surface from), which is what matters for modelling and is independent of screen size.
+
+    Whole drugs are dropped, never individual (cell, drug) experiments: removing single
+    measurements would condition the sample on the outcome (selection-on-outcome leakage).
+    """
+
+    min_responders: int | None = None
+    min_responder_frac: float | None = None
+    significant_labels: tuple[str, ...] = ("down", "up")
+
+    def __post_init__(self) -> None:
+        """:raises ValueError: unless exactly one of min_responders / min_responder_frac is set."""
+        if (self.min_responders is None) == (self.min_responder_frac is None):
+            raise ValueError("Set exactly one of min_responders or min_responder_frac.")
+
+    def apply(self, frame: pd.DataFrame) -> pd.DataFrame:
+        """
+        Return ``frame`` with whole drugs failing the responder criterion removed.
+
+        :param frame: response frame; must carry the CurveCurator ``Regulation`` column.
+        :return: the frame restricted to drugs that pass the threshold.
+        :raises ValueError: if ``frame`` is not curve-curated (no ``Regulation`` column).
+        """
+        if "Regulation" not in frame.columns:
+            raise ValueError(
+                "Drug cleaning needs curve-curated data (a 'Regulation' column), which this "
+                "dataset does not have. Load it with a curve-curated measure / dataset first."
+            )
+        n_sig = frame["Regulation"].isin(self.significant_labels).groupby(frame[DRUG_IDENTIFIER]).sum()
+        if self.min_responders is not None:
+            keep = n_sig.index[n_sig >= self.min_responders]
+        else:
+            n_total = frame.groupby(DRUG_IDENTIFIER).size()
+            keep = n_sig.index[(n_sig / n_total) >= self.min_responder_frac]
+        return frame[frame[DRUG_IDENTIFIER].isin(set(keep))]
+
+
+def _materialize_variant(path_data: str, base: str, dataset_name: str, frame: pd.DataFrame) -> None:
+    """
+    Write a derived dataset's filtered response csv and symlink the base dataset's features.
+
+    The filtered ``<dataset_name>/<dataset_name>.csv`` is written from ``frame``; every other
+    entry in the base dataset folder (omics, fingerprints, drug graphs, ...) is symlinked so
+    feature files are shared rather than duplicated. The base response csv and model caches are
+    not linked. No data is uploaded anywhere; the variant is derived locally from the base.
+
+    Idempotent: if the variant csv already exists nothing is rebuilt (delete
+    ``<path_data>/<dataset_name>/`` to regenerate after changing a filter).
 
     :param path_data: Parent data directory, e.g. "data".
-    :param dataset_name: One of CTRPv2_clean, CTRPv2_cleaner, CTRPv2_cleanest.
+    :param base: Name of the base dataset to derive from, e.g. "CTRPv2".
+    :param dataset_name: Name of the derived dataset, e.g. "CTRPv2_clean".
+    :param frame: the already-filtered response frame to write.
     """
-    src_dir = os.path.join(path_data, "CTRPv2")
-    src_csv = os.path.join(src_dir, "CTRPv2.csv")
-    if not os.path.exists(src_csv):
-        download_dataset("CTRPv2", path_data, redownload=True)
-
+    src_dir = os.path.join(path_data, base)
     dst_dir = os.path.join(path_data, dataset_name)
     dst_csv = os.path.join(dst_dir, f"{dataset_name}.csv")
     if os.path.exists(dst_csv):
         return
-
     os.makedirs(dst_dir, exist_ok=True)
-    min_responders = CTRPV2_CLEAN_MIN_RESPONDERS[dataset_name]
-    full = pd.read_csv(src_csv, dtype={"pubchem_id": str, "cell_line_name": str}, low_memory=False)
-    n_sig = full["Regulation"].isin(["down", "up"]).groupby(full["pubchem_id"]).sum()
-    keep_ids = set(n_sig.index[n_sig >= min_responders])
-    full[full["pubchem_id"].isin(keep_ids)].to_csv(dst_csv, index=False)
-
-    # share CTRPv2's feature files via symlinks (skip the response csv and model caches)
+    frame.to_csv(dst_csv, index=False)
+    # share the base dataset's feature files via symlinks (skip its response csv and caches)
     for entry in os.listdir(src_dir):
         low = entry.lower()
-        if entry == "CTRPv2.csv" or "cache" in low or low == ".ds_store":
+        if entry == f"{base}.csv" or "cache" in low or low == ".ds_store":
             continue
         link = os.path.join(dst_dir, entry)
         if not os.path.islink(link) and not os.path.exists(link):
             os.symlink(os.path.abspath(os.path.join(src_dir, entry)), link)
 
 
-def _load_ctrpv2_clean_variant(path_data: str, measure: str, dataset_name: str) -> DrugResponseDataset:
+def _load_filtered_dataset(path_data: str, measure: str, dataset_name: str) -> DrugResponseDataset:
     """
-    Load a drug-cleaned CTRPv2 variant, building it from the original CTRPv2 on first use.
+    Load a derived (drug-filtered) dataset, building it from its base on first use.
 
-    :param path_data: Path to the dataset.
+    ``dataset_name`` must be registered in :data:`DERIVED_DATASETS` as (base, filter). The base
+    response frame is read with :func:`_read_response_frame` (reusing the shared download/parse
+    logic), the filter drops whole drugs, the variant folder is materialised with shared feature
+    symlinks, and the dataset is built with :func:`_frame_to_dataset`.
+
+    :param path_data: Parent data directory, e.g. "data".
     :param measure: The name of the column containing the measure to predict.
-    :param dataset_name: One of CTRPv2_clean, CTRPv2_cleaner, CTRPv2_cleanest.
+    :param dataset_name: A name registered in :data:`DERIVED_DATASETS`.
     :return: DrugResponseDataset containing response, cell line IDs, drug IDs, and tissues.
     """
-    _build_ctrpv2_clean_variant(path_data, dataset_name)
-    meta_path = os.path.join(path_data, "meta", "tissue_mapping.csv")
-    if not os.path.exists(meta_path):
-        download_dataset("meta", path_data, redownload=True)
-    path = os.path.join(path_data, dataset_name, f"{dataset_name}.csv")
-    response_data = pd.read_csv(path, dtype={"pubchem_id": str, "cell_line_name": str})
-    response_data[DRUG_IDENTIFIER] = response_data[DRUG_IDENTIFIER].str.replace(",", "")
-    check_measure(measure, list(response_data.columns), dataset_name)
-    return DrugResponseDataset(
-        response=response_data[measure].values,
-        cell_line_ids=response_data[CELL_LINE_IDENTIFIER].values,
-        drug_ids=response_data[DRUG_IDENTIFIER].values,
-        tissues=response_data[TISSUE_IDENTIFIER].values,
-        dataset_name=dataset_name,
-    )
+    base, drug_filter = DERIVED_DATASETS[dataset_name]
+    dst_csv = os.path.join(path_data, dataset_name, f"{dataset_name}.csv")
+    if os.path.exists(dst_csv):
+        frame = _read_response_frame(path_data, f"{dataset_name}.csv", dataset_name)
+    else:
+        frame = drug_filter.apply(_read_response_frame(path_data, f"{base}.csv", base))
+        _materialize_variant(path_data, base, dataset_name, frame)
+    return _frame_to_dataset(frame, measure, dataset_name)
+
+
+# Derived (drug-filtered) datasets: name -> (base dataset, filter). The clean tiers keep drugs
+# with at least N reproducible curves; thresholds are deliberately absolute (see DrugCurveFilter).
+# The mechanism is dataset-agnostic: register_clean_tiers works for any curve-curated base. A
+# percentage-based tier is one line, e.g. DrugCurveFilter(min_responder_frac=0.1).
+CTRPV2_CLEAN_MIN_RESPONDERS = {"CTRPv2_clean": 15, "CTRPv2_cleaner": 30, "CTRPv2_cleanest": 50}
+
+
+def register_clean_tiers(base: str, tiers: dict[str, int]) -> dict[str, "DrugCurveFilter"]:
+    """
+    Register absolute-threshold clean tiers for a curve-curated base dataset.
+
+    :param base: base dataset name, e.g. "CTRPv2".
+    :param tiers: mapping of derived dataset name -> minimum number of reproducible curves.
+    :return: the {name: DrugCurveFilter} entries that were added to :data:`DERIVED_DATASETS`.
+    """
+    added = {name: DrugCurveFilter(min_responders=n) for name, n in tiers.items()}
+    DERIVED_DATASETS.update({name: (base, filt) for name, filt in added.items()})
+    return added
+
+
+DERIVED_DATASETS: dict[str, tuple[str, "DrugCurveFilter"]] = {}
+register_clean_tiers("CTRPv2", CTRPV2_CLEAN_MIN_RESPONDERS)
 
 
 def load_ctrpv2_clean(path_data: str = "data", measure: str = "LN_IC50_curvecurator") -> DrugResponseDataset:
@@ -301,7 +382,7 @@ def load_ctrpv2_clean(path_data: str = "data", measure: str = "LN_IC50_curvecura
     :param measure: The name of the column containing the measure to predict, default: LN_IC50_curvecurator
     :return: DrugResponseDataset containing response, cell line IDs, and drug IDs
     """
-    return _load_ctrpv2_clean_variant(path_data, measure, "CTRPv2_clean")
+    return _load_filtered_dataset(path_data, measure, "CTRPv2_clean")
 
 
 def load_ctrpv2_cleaner(path_data: str = "data", measure: str = "LN_IC50_curvecurator") -> DrugResponseDataset:
@@ -314,7 +395,7 @@ def load_ctrpv2_cleaner(path_data: str = "data", measure: str = "LN_IC50_curvecu
     :param measure: The name of the column containing the measure to predict, default: LN_IC50_curvecurator
     :return: DrugResponseDataset containing response, cell line IDs, and drug IDs
     """
-    return _load_ctrpv2_clean_variant(path_data, measure, "CTRPv2_cleaner")
+    return _load_filtered_dataset(path_data, measure, "CTRPv2_cleaner")
 
 
 def load_ctrpv2_cleanest(path_data: str = "data", measure: str = "LN_IC50_curvecurator") -> DrugResponseDataset:
@@ -327,7 +408,7 @@ def load_ctrpv2_cleanest(path_data: str = "data", measure: str = "LN_IC50_curvec
     :param measure: The name of the column containing the measure to predict, default: LN_IC50_curvecurator
     :return: DrugResponseDataset containing response, cell line IDs, and drug IDs
     """
-    return _load_ctrpv2_clean_variant(path_data, measure, "CTRPv2_cleanest")
+    return _load_filtered_dataset(path_data, measure, "CTRPv2_cleanest")
 
 
 def load_beataml2(
