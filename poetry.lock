@@ -6828,4 +6828,4 @@ xgboost = ["xgboost"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11,<3.14"
-content-hash = "acf951602b19284828d120e9a14999ba14616b735b103aeb7dd5baf244379a2f"
+content-hash = "ec60e9a6941eb87f3743ce6687576c76c023af4dc338e49862d5aeb333db93d8"
