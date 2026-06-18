@@ -78,7 +78,7 @@ def test_curation_root_runs_synthetic_workflow(monkeypatch: pytest.MonkeyPatch, 
             }
         )
 
-    monkeypatch.setattr("drevalpy.curation._curvecurator.curvecurator._run_pipeline_api", _fake_run_pipeline_api)
+    monkeypatch.setattr("drevalpy.curation.fit._run_pipeline_api", _fake_run_pipeline_api)
 
     result = runner.invoke(
         app,

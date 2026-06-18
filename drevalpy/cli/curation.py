@@ -9,7 +9,7 @@ import typer
 from typer import _click
 
 from drevalpy.curation import combine, curate, curvecurator, load_raw_curve_df, split, write_dataset_csv
-from drevalpy.curation._curvecurator.io import (
+from drevalpy.curation.io import (
     read_fit_results_from_paths,
     read_work_item,
     resolve_curve_paths,

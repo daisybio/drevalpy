@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from drevalpy.curation._curvecurator.types import CurationFitResult
+from drevalpy.curation.types import CurationFitResult
 from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
 
 CURVECURATOR_OUTPUT_COLUMNS = {

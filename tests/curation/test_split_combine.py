@@ -7,8 +7,8 @@ from pathlib import Path
 import pandas as pd
 
 from drevalpy.curation import combine, load_raw_curve_df, split, write_dataset_csv
-from drevalpy.curation._curvecurator.split import prepare_input_table
-from drevalpy.curation._curvecurator.types import CurationFitResult, CurationWorkItem
+from drevalpy.curation.split import prepare_input_table
+from drevalpy.curation.types import CurationFitResult, CurationWorkItem
 
 
 def test_split_returns_in_memory_work_items(tmp_path: Path) -> None:

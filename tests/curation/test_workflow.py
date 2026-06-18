@@ -7,9 +7,9 @@ from pathlib import Path
 import pandas as pd
 
 from drevalpy.curation import curate, load_raw_curve_df, split, write_dataset_csv
-from drevalpy.curation._curvecurator.combine import combine
-from drevalpy.curation._curvecurator.curvecurator import curvecurator
-from drevalpy.curation._curvecurator.io import (
+from drevalpy.curation.combine import combine
+from drevalpy.curation.fit import curvecurator
+from drevalpy.curation.io import (
     job_config_path,
     job_curves_path,
     job_input_path,
@@ -72,7 +72,7 @@ def test_curate_runs_synthetic_in_process_workflow(tmp_path: Path, monkeypatch) 
     input_file = tmp_path / "Toy_raw.csv"
     output_dir = tmp_path / "out"
     _write_synthetic_raw(input_file)
-    monkeypatch.setattr("drevalpy.curation._curvecurator.curvecurator._run_pipeline_api", _fake_run_pipeline_api)
+    monkeypatch.setattr("drevalpy.curation.fit._run_pipeline_api", _fake_run_pipeline_api)
 
     raw_df = load_raw_curve_df(input_file)
     dataset = curate(raw_df, input_filename=input_file.name, cores=1, device="cpu")
@@ -90,7 +90,7 @@ def test_stepwise_transport_workflow_runs_synthetic_jobs(tmp_path: Path, monkeyp
     work_dir = tmp_path / "work"
     output_file = tmp_path / "Toy.csv"
     _write_synthetic_raw(input_file)
-    monkeypatch.setattr("drevalpy.curation._curvecurator.curvecurator._run_pipeline_api", _fake_run_pipeline_api)
+    monkeypatch.setattr("drevalpy.curation.fit._run_pipeline_api", _fake_run_pipeline_api)
 
     raw_df = load_raw_curve_df(input_file)
     split_result = split(raw_df, input_filename=input_file.name, cores=1)

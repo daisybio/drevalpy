@@ -8,7 +8,7 @@ import pandas as pd
 import pytest
 
 from drevalpy.curation import curvecurator, load_raw_curve_df, split
-from drevalpy.curation._curvecurator.io import (
+from drevalpy.curation.io import (
     CONFIG_SUFFIX,
     CURVES_SUFFIX,
     INPUT_SUFFIX,
@@ -145,7 +145,7 @@ def test_write_fit_curves_writes_explicit_output(tmp_path: Path, monkeypatch: py
     fitted = pd.DataFrame({"Name": ["A|D"], "pEC50": [6.0]})
 
     monkeypatch.setattr(
-        "drevalpy.curation._curvecurator.curvecurator._run_pipeline_api",
+        "drevalpy.curation.fit._run_pipeline_api",
         lambda *args, **kwargs: fitted,
     )
 

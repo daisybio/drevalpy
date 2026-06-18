@@ -9,7 +9,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from drevalpy.curation._curvecurator.types import CurationSplitResult, CurationWorkItem
+from drevalpy.curation.types import CurationSplitResult, CurationWorkItem
 
 
 def load_raw_curve_df(input_path: Path | str) -> pd.DataFrame:

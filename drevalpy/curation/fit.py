@@ -10,8 +10,8 @@ from pathlib import Path
 import pandas as pd
 from curve_curator import run_pipeline_api
 
-from drevalpy.curation._curvecurator.device import effective_device
-from drevalpy.curation._curvecurator.types import CurationFitResult, CurationWorkItem
+from drevalpy.curation.device import effective_device
+from drevalpy.curation.types import CurationFitResult, CurationWorkItem
 
 
 def finalize_config(config: dict, *, config_path: Path | None = None) -> dict:

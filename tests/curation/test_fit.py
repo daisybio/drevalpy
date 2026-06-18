@@ -8,8 +8,8 @@ from unittest.mock import patch
 
 import pandas as pd
 
-from drevalpy.curation._curvecurator.curvecurator import _fit_with_fallback, _fit_work_item, finalize_config
-from drevalpy.curation._curvecurator.types import CurationWorkItem
+from drevalpy.curation.fit import _fit_with_fallback, _fit_work_item, finalize_config
+from drevalpy.curation.types import CurationWorkItem
 
 
 def _minimal_config() -> dict:
@@ -43,9 +43,9 @@ def _gpu_routed_work_item() -> CurationWorkItem:
 def test_fit_work_item_warns_when_gpu_routed_job_resolves_to_cpu(tmp_path: Path) -> None:
     fitted = pd.DataFrame({"Name": ["A|D"], "pEC50": [6.0]})
 
-    with patch("drevalpy.curation._curvecurator.curvecurator.effective_device", return_value="cpu"):
+    with patch("drevalpy.curation.fit.effective_device", return_value="cpu"):
         with patch(
-            "drevalpy.curation._curvecurator.curvecurator._fit_with_fallback",
+            "drevalpy.curation.fit._fit_with_fallback",
             return_value=fitted,
         ) as mock_fit:
             with warnings.catch_warnings(record=True) as caught:
@@ -80,7 +80,7 @@ def test_fit_with_fallback_retries_on_oom() -> None:
             raise RuntimeError("CUDA out of memory")
         return fitted
 
-    with patch("drevalpy.curation._curvecurator.curvecurator._run_pipeline_api", side_effect=_fake_run):
+    with patch("drevalpy.curation.fit._run_pipeline_api", side_effect=_fake_run):
         result = _fit_with_fallback(
             _minimal_config(),
             input_table,
@@ -105,8 +105,8 @@ def test_run_pipeline_api_passes_in_memory_table_to_fork() -> None:
         captured["kwargs"] = {"mad": mad, "device": device, "gpu_chunk_size": gpu_chunk_size}
         return pd.DataFrame({"Name": data["Name"], "pEC50": [6.0]})
 
-    with patch("drevalpy.curation._curvecurator.curvecurator.run_pipeline_api", side_effect=_fake_fork_api):
-        from drevalpy.curation._curvecurator.curvecurator import _run_pipeline_api
+    with patch("drevalpy.curation.fit.run_pipeline_api", side_effect=_fake_fork_api):
+        from drevalpy.curation.fit import _run_pipeline_api
 
         result = _run_pipeline_api(
             config,

@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from drevalpy.curation._curvecurator.types import CurationFitResult, CurationSplitResult, CurationWorkItem
+from drevalpy.curation.types import CurationFitResult, CurationSplitResult, CurationWorkItem
 
 CONFIG_SUFFIX = ".json"
 INPUT_SUFFIX = "_input.parquet"

@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import pandas as pd
 
-from drevalpy.curation._curvecurator.combine import combine
-from drevalpy.curation._curvecurator.curvecurator import curvecurator_many
-from drevalpy.curation._curvecurator.split import split
-from drevalpy.curation._curvecurator.types import CurationFitResult, CurationSplitResult
+from drevalpy.curation.combine import combine
+from drevalpy.curation.fit import curvecurator_many
+from drevalpy.curation.split import split
+from drevalpy.curation.types import CurationFitResult, CurationSplitResult
 
 
 def curate(
