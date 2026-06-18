@@ -85,7 +85,6 @@ def build_config(
     n_exp: int,
     n_replicates: int,
     doses: list[float],
-    dataset_name: str,
     cores: int,
     n_curves: int,
     routing_device: str,
@@ -98,7 +97,6 @@ def build_config(
     :param n_exp: Number of experiments in the prepared input table.
     :param n_replicates: Number of replicates represented in the input table.
     :param doses: Dose values used by CurveCurator.
-    :param dataset_name: Dataset name for metadata.
     :param cores: CPU worker count for CurveCurator processing config.
     :param routing_device: Device routing decision for this chunk.
     :param condition: Grouping condition label.
@@ -109,7 +107,6 @@ def build_config(
     config = {
         "Meta": {
             "id": filename,
-            "description": dataset_name,
             "condition": condition,
             "treatment_time": "72 h",
         },
@@ -222,7 +219,6 @@ def _work_items_for_group(
     *,
     group_key: str,
     input_filename: str,
-    dataset_name: str,
     cores: int,
     normalize: bool,
     device: str,
@@ -230,7 +226,6 @@ def _work_items_for_group(
     gpu_min_curves: int,
     gpu_chunk_size: int,
     gpu_available: bool,
-    work_id_prefix: str,
 ) -> list[CurationWorkItem]:
     n_curves = df[["sample", "drug"]].drop_duplicates().shape[0]
     group_routing_device = _routing_device(device, n_curves, gpu_min_curves, gpu_available=gpu_available)
@@ -247,18 +242,15 @@ def _work_items_for_group(
             n_exp=n_exp,
             n_replicates=n_replicates,
             doses=doses,
-            dataset_name=dataset_name,
             cores=min(chunk_n, cores),
             n_curves=chunk_n,
             routing_device=chunk_routing_device,
             condition=condition,
             normalize=normalize,
         )
-        work_id = condition if chunk_index is None else f"{work_id_prefix}_{group_key}_chunk_{chunk_index}"
         items.append(
             CurationWorkItem(
-                work_id=work_id,
-                dataset_name=dataset_name,
+                work_id=condition,
                 group_key=group_key,
                 chunk_index=chunk_index,
                 input_table=input_table,
@@ -273,7 +265,6 @@ def _work_items_for_group(
 def split(
     raw_df: pd.DataFrame,
     *,
-    dataset_name: str,
     input_filename: str,
     cores: int = 1,
     normalize: bool = False,
@@ -286,7 +277,6 @@ def split(
     """Split raw viability data into in-memory CurveCurator work items.
 
     :param raw_df: Raw viability table with dose, response, sample, and drug columns.
-    :param dataset_name: Dataset name used in metadata and combine output.
     :param input_filename: Source filename recorded in work-item metadata.
     :param cores: Maximum CPU worker threads for CurveCurator processing config.
     :param normalize: Whether CurveCurator should normalize responses.
@@ -306,7 +296,6 @@ def split(
                 group_df,
                 group_key=group_key,
                 input_filename=input_filename,
-                dataset_name=dataset_name,
                 cores=cores,
                 normalize=normalize,
                 device=device,
@@ -314,12 +303,10 @@ def split(
                 gpu_min_curves=gpu_min_curves,
                 gpu_chunk_size=gpu_chunk_size,
                 gpu_available=gpu_available,
-                work_id_prefix=dataset_name,
             )
         )
 
     return CurationSplitResult(
-        dataset_name=dataset_name,
         input_filename=input_filename,
         work_items=tuple(work_items),
     )

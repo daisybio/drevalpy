@@ -27,12 +27,11 @@ def _minimal_config() -> dict:
 def _gpu_routed_work_item() -> CurationWorkItem:
     return CurationWorkItem(
         work_id="gpu_job",
-        dataset_name="Toy",
         group_key="group",
         chunk_index=None,
         input_table=pd.DataFrame({"Name": ["A|D"], "Raw 0": [1.0], "Raw 1": [0.5]}),
         config={
-            "Meta": {"id": "Toy_raw.csv", "description": "Toy", "condition": "group"},
+            "Meta": {"id": "Toy_raw.csv", "condition": "group"},
             "Paths": {"input_file": "curvecurator_input.tsv", "curves_file": "curves.tsv"},
             "Routing": {"n_curves": 1, "device": "auto"},
         },

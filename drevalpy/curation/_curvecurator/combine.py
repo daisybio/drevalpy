@@ -58,21 +58,15 @@ def _normalize_curves_table(curves: pd.DataFrame) -> pd.DataFrame:
 
 def combine(
     fit_results: tuple[CurationFitResult, ...] | list[CurationFitResult],
-    *,
-    dataset_name: str | None = None,
 ) -> pd.DataFrame:
     """Combine fitted CurveCurator results into one drevalpy dataset table.
 
-    :param fit_results: Fitted CurveCurator results in manifest order.
-    :param dataset_name: Optional dataset name override for validation only.
+    :param fit_results: Fitted CurveCurator results.
     :returns: Combined curated dataset table.
     :raises ValueError: If no fit results are provided.
     """
     if not fit_results:
         raise ValueError("At least one CurveCurator fit result is required.")
-
-    if dataset_name is not None and any(result.work_item.dataset_name != dataset_name for result in fit_results):
-        raise ValueError("All fit results must belong to the same dataset_name.")
 
     tables = [_normalize_curves_table(result.curves) for result in fit_results if not result.curves.empty]
     if not tables:

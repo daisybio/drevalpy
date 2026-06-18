@@ -19,14 +19,14 @@ def test_split_returns_in_memory_work_items(tmp_path: Path) -> None:
     )
     raw_df = load_raw_curve_df(input_file)
 
-    split_result = split(raw_df, dataset_name="Toy", input_filename=input_file.name, cores=1)
+    split_result = split(raw_df, input_filename=input_file.name, cores=1)
 
-    assert split_result.dataset_name == "Toy"
+    assert split_result.input_filename == "Toy_raw.csv"
     assert len(split_result.work_items) == 1
     work_item = split_result.work_items[0]
     assert work_item.n_curves == 1
     assert "Name" in work_item.input_table.columns
-    assert work_item.config["Meta"]["description"] == "Toy"
+    assert work_item.config["Meta"]["id"] == "Toy_raw.csv"
     assert work_item.config["Routing"] == {"n_curves": 1, "device": "cpu"}
 
 
@@ -42,7 +42,6 @@ def test_split_records_auto_routing_for_accelerator_sized_chunks() -> None:
 
     split_result = split(
         curve_df,
-        dataset_name="Toy",
         input_filename="Toy_raw.csv",
         device="auto",
         gpu_min_curves=2,
@@ -65,7 +64,6 @@ def test_split_defaults_to_cpu_chunking_without_gpu_available() -> None:
 
     split_result = split(
         curve_df,
-        dataset_name="Toy",
         input_filename="Toy_raw.csv",
         device="auto",
         gpu_min_curves=2,
@@ -86,7 +84,6 @@ def test_split_keeps_small_chunks_on_cpu_when_gpu_available(tmp_path: Path) -> N
 
     split_result = split(
         raw_df,
-        dataset_name="Toy",
         input_filename=input_file.name,
         device="auto",
         gpu_min_curves=2,
@@ -143,7 +140,6 @@ def test_combine_builds_dataset_table() -> None:
         curves=curves,
         work_item=CurationWorkItem(
             work_id="work",
-            dataset_name="Toy",
             group_key="group",
             chunk_index=None,
             input_table=pd.DataFrame(),
@@ -153,7 +149,7 @@ def test_combine_builds_dataset_table() -> None:
         ),
     )
 
-    dataset = combine([fit_result], dataset_name="Toy")
+    dataset = combine([fit_result])
 
     assert "EC50_curvecurator" in dataset.columns
     assert "IC50_curvecurator" in dataset.columns

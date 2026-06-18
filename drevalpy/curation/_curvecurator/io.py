@@ -1,130 +1,45 @@
-"""Serialize curation objects for stepwise CLI disk transport."""
+"""Disk transport helpers for CurveCurator curation CLI workflows."""
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
 
 import pandas as pd
 
 from drevalpy.curation._curvecurator.types import CurationFitResult, CurationSplitResult, CurationWorkItem
 
-MANIFEST_FILENAME = "curation_manifest.json"
 CONFIG_SUFFIX = "_config.json"
 INPUT_SUFFIX = "_input.parquet"
 CURVES_SUFFIX = "_curves.parquet"
 
 
 def job_config_path(output_dir: Path, job_id: str) -> Path:
-    """Return the config JSON path for one curation job."""
+    """Return the config path for one curation job."""
     return output_dir / f"{job_id}{CONFIG_SUFFIX}"
 
 
 def job_input_path(output_dir: Path, job_id: str) -> Path:
-    """Return the input parquet path for one curation job."""
+    """Return the input-table path for one curation job."""
     return output_dir / f"{job_id}{INPUT_SUFFIX}"
 
 
 def job_curves_path(output_dir: Path, job_id: str) -> Path:
-    """Return the fitted curves parquet path for one curation job."""
+    """Return the fitted-curves path for one curation job."""
     return output_dir / f"{job_id}{CURVES_SUFFIX}"
 
 
-def job_id_from_config_path(config_path: Path) -> str:
-    """Extract a job id from a ``<job_id>_config.json`` path."""
-    stem = config_path.name[: -len(CONFIG_SUFFIX)]
-    if not stem:
-        raise ValueError(f"Invalid curation config path: {config_path}")
-    return stem
+def job_id_from_curves_path(curves_path: Path) -> str:
+    """Extract the job id from a fitted-curves filename."""
+    name = curves_path.name
+    if not name.endswith(CURVES_SUFFIX):
+        raise ValueError(f"Expected a fitted curves file ending with {CURVES_SUFFIX!r}, got {curves_path}.")
+    return name[: -len(CURVES_SUFFIX)]
 
 
-def _serialize_job_config(work_item: CurationWorkItem) -> dict[str, Any]:
-    return work_item.config
-
-
-def _work_item_from_config(
-    config: dict[str, Any],
-    input_table: pd.DataFrame,
-    *,
-    work_id: str,
-) -> CurationWorkItem:
-    meta = config["Meta"]
-    n_curves = config["Routing"]["n_curves"]
-    condition = meta.get("condition", work_id)
-    return CurationWorkItem(
-        work_id=work_id,
-        dataset_name=meta.get("description", ""),
-        group_key=condition,
-        chunk_index=None,
-        input_table=input_table,
-        config=config,
-        n_curves=n_curves,
-        input_filename=meta.get("id", ""),
-    )
-
-
-def _deserialize_job_config(payload: dict[str, Any], input_table: pd.DataFrame, *, work_id: str) -> CurationWorkItem:
-    return _work_item_from_config(payload, input_table, work_id=work_id)
-
-
-def write_split_artifacts(
-    split_result: CurationSplitResult,
-    output_dir: str | Path,
-) -> Path:
-    """Write split work items and manifest to a flat directory.
-
-    :param split_result: Prepared in-memory split result.
-    :param output_dir: Root directory for serialized work items.
-    :returns: Path to the written manifest file.
-    """
-    root = Path(output_dir)
-    root.mkdir(parents=True, exist_ok=True)
-    manifest_entries: list[dict[str, Any]] = []
-
-    for work_item in split_result.work_items:
-        job_id = work_item.work_id
-        config_path = job_config_path(root, job_id)
-        input_path = job_input_path(root, job_id)
-        curves_path = job_curves_path(root, job_id)
-
-        config_path.write_text(
-            json.dumps(_serialize_job_config(work_item), indent=2),
-            encoding="utf-8",
-        )
-        work_item.input_table.to_parquet(input_path, index=False)
-
-        manifest_entries.append(
-            {
-                "job_id": job_id,
-                "config_file": config_path.name,
-                "input_file": input_path.name,
-                "expected_curves_file": curves_path.name,
-                "dataset_name": work_item.dataset_name,
-                "group_key": work_item.group_key,
-                "chunk_index": work_item.chunk_index,
-                "n_curves": work_item.n_curves,
-            }
-        )
-
-    manifest_path = root / MANIFEST_FILENAME
-    manifest_path.write_text(
-        json.dumps(
-            {
-                "dataset_name": split_result.dataset_name,
-                "input_filename": split_result.input_filename,
-                "work_items": manifest_entries,
-            },
-            indent=2,
-        ),
-        encoding="utf-8",
-    )
-    return manifest_path
-
-
-def read_manifest(manifest_path: str | Path) -> dict[str, Any]:
-    """Load a curation manifest from disk."""
-    return json.loads(Path(manifest_path).read_text(encoding="utf-8"))
+def list_curve_files(output_dir: Path) -> list[Path]:
+    """List fitted curve parquet files in a split output directory."""
+    return sorted(output_dir.glob(f"*{CURVES_SUFFIX}"))
 
 
 def read_work_item(
@@ -133,50 +48,64 @@ def read_work_item(
     input_path: str | Path | None = None,
     job_id: str | None = None,
 ) -> CurationWorkItem:
-    """Deserialize one prepared work item from config JSON and input parquet."""
+    """Load one CurveCurator work item from serialized config and input files."""
     config_file = Path(config_path).expanduser().resolve()
     config = json.loads(config_file.read_text(encoding="utf-8"))
-    resolved_job_id = job_id or job_id_from_config_path(config_file)
+    meta = config.get("Meta", {})
+    routing = config.get("Routing", {})
+    resolved_job_id = job_id or config_file.name[: -len(CONFIG_SUFFIX)]
     resolved_input = (
         Path(input_path).expanduser().resolve()
         if input_path is not None
-        else job_input_path(config_file.parent, resolved_job_id)
+        else config_file.parent / f"{resolved_job_id}{INPUT_SUFFIX}"
     )
-    input_table = pd.read_parquet(resolved_input)
-    return _deserialize_job_config(config, input_table, work_id=resolved_job_id)
+    return CurationWorkItem(
+        work_id=resolved_job_id,
+        group_key=str(meta.get("condition", "")),
+        chunk_index=None,
+        input_table=pd.read_parquet(resolved_input),
+        config=config,
+        n_curves=int(routing.get("n_curves", 0)),
+        input_filename=str(meta.get("id", "")),
+    )
 
 
-def write_fit_artifact(
-    fit_result: CurationFitResult,
-    output_dir: str | Path,
-) -> Path:
-    """Serialize one fitted result to a flat directory."""
-    directory = Path(output_dir)
-    curves_path = job_curves_path(directory, fit_result.work_id)
-    return write_fit_curves(fit_result.curves, curves_path)
+def write_split_artifacts(split_result: CurationSplitResult, output_dir: str | Path) -> Path:
+    """Write split work items to a flat directory.
+
+    :param split_result: Prepared in-memory split result.
+    :param output_dir: Directory for serialized work items.
+    :returns: Resolved output directory path.
+    """
+    root = Path(output_dir).expanduser().resolve()
+    root.mkdir(parents=True, exist_ok=True)
+
+    for work_item in split_result.work_items:
+        job_id = work_item.work_id
+        config_path = job_config_path(root, job_id)
+        input_path = job_input_path(root, job_id)
+        config_path.write_text(json.dumps(work_item.config, indent=2), encoding="utf-8")
+        work_item.input_table.to_parquet(input_path, index=False)
+
+    return root
 
 
 def write_fit_curves(curves: pd.DataFrame, output_path: str | Path) -> Path:
-    """Serialize fitted CurveCurator curves to parquet."""
-    destination = Path(output_path)
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    curves.to_parquet(destination, index=False)
-    return destination
+    """Write fitted CurveCurator curves to disk."""
+    resolved = Path(output_path).expanduser().resolve()
+    resolved.parent.mkdir(parents=True, exist_ok=True)
+    curves.to_parquet(resolved, index=False)
+    return resolved
 
 
-def read_fit_results_from_manifest(manifest_path: str | Path) -> list[CurationFitResult]:
-    """Load fitted results listed in a curation manifest."""
-    manifest_file = Path(manifest_path).expanduser().resolve()
-    manifest = read_manifest(manifest_file)
-    output_dir = manifest_file.parent
+def read_fit_results_from_paths(curve_paths: list[Path] | tuple[Path, ...]) -> list[CurationFitResult]:
+    """Load fitted results from explicit curve parquet paths."""
     fit_results: list[CurationFitResult] = []
-
-    for entry in manifest["work_items"]:
-        job_id = entry["job_id"]
-        curves_path = output_dir / entry["expected_curves_file"]
+    for curves_path in sorted(Path(path).expanduser().resolve() for path in curve_paths):
         if not curves_path.is_file():
-            raise FileNotFoundError(f"Missing fitted curves file: {curves_path}")
-        config_path = output_dir / entry["config_file"]
+            raise FileNotFoundError(f"Missing fitted curves file: {curves_path}.")
+        job_id = job_id_from_curves_path(curves_path)
+        config_path = job_config_path(curves_path.parent, job_id)
         fit_results.append(
             CurationFitResult(
                 work_id=job_id,
@@ -184,5 +113,23 @@ def read_fit_results_from_manifest(manifest_path: str | Path) -> list[CurationFi
                 work_item=read_work_item(config_path, job_id=job_id),
             )
         )
-
     return fit_results
+
+
+def resolve_curve_paths(paths: list[Path]) -> list[Path]:
+    """Expand curve file arguments, accepting directories of fitted curve files."""
+    resolved: list[Path] = []
+    for path in paths:
+        resolved_path = path.expanduser().resolve()
+        if resolved_path.is_dir():
+            curve_files = list_curve_files(resolved_path)
+            if not curve_files:
+                raise FileNotFoundError(f"No fitted curve files found in {resolved_path}.")
+            resolved.extend(curve_files)
+            continue
+        if not resolved_path.is_file():
+            raise FileNotFoundError(f"Missing fitted curves file: {resolved_path}.")
+        resolved.append(resolved_path)
+    if not resolved:
+        raise ValueError("At least one fitted curve file is required.")
+    return resolved

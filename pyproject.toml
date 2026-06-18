@@ -9,7 +9,6 @@ readme = "README.md"
 [tool.poetry.scripts]
 drevalpy                            = "drevalpy.cli.main:cli_main"
 drevalpy-report                     = "drevalpy.cli.legacy:main"
-drevalpy-fit-curves                = "drevalpy.cli.legacy:fit_curves_cmd"
 drevalpy-load-response              = "drevalpy.cli.legacy:load_response"
 drevalpy-make-cv-pkls               = "drevalpy.cli.legacy:cv_split"
 drevalpy-make-hpam-yamls            = "drevalpy.cli.legacy:hpam_split"

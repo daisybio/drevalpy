@@ -327,7 +327,6 @@ def load_dataset(
             raw_df = load_raw_curve_df(input_file)
             dataset = curate(
                 raw_df,
-                dataset_name=dataset_name,
                 input_filename=input_file.name,
                 cores=cores,
                 normalize=normalize,

@@ -10,9 +10,9 @@ from typer import _click
 
 from drevalpy.curation import combine, curate, curvecurator, load_raw_curve_df, split, write_dataset_csv
 from drevalpy.curation._curvecurator.io import (
-    read_fit_results_from_manifest,
-    read_manifest,
+    read_fit_results_from_paths,
     read_work_item,
+    resolve_curve_paths,
     write_fit_curves,
     write_split_artifacts,
 )
@@ -43,16 +43,12 @@ def register(app: typer.Typer) -> None:
                 help="Raw viability CSV with dose, response, sample, and drug columns.",
             ),
         ] = None,
-        output_dir: Annotated[
+        output_file: Annotated[
             Path | None,
-            typer.Option("--output-dir", "--output_dir", help="Directory for the combined dataset CSV."),
-        ] = None,
-        dataset_name: Annotated[
-            str | None,
             typer.Option(
-                "--dataset-name",
-                "--dataset_name",
-                help="Dataset name for output CSV. Defaults to input stem without '_raw'.",
+                "--output-file",
+                "--output_file",
+                help="Destination CSV for the curated dataset.",
             ),
         ] = None,
         cores: Annotated[int, typer.Option("--cores", help="CPU worker threads for CurveCurator chunks.")] = 1,
@@ -87,15 +83,13 @@ def register(app: typer.Typer) -> None:
         """Run split, CurveCurator, and combine in one command."""
         if ctx.invoked_subcommand is not None:
             return
-        if input_file is None or output_dir is None:
-            raise typer.BadParameter("Top-level curation requires --input-file and --output-dir.")
+        if input_file is None or output_file is None:
+            raise typer.BadParameter("Top-level curation requires --input-file and --output-file.")
         resolved_input = input_file.expanduser().resolve()
-        resolved_output = output_dir.expanduser().resolve()
-        resolved_dataset = dataset_name or _dataset_name_from_input(resolved_input)
+        resolved_output = output_file.expanduser().resolve()
         raw_df = load_raw_curve_df(resolved_input)
         dataset = curate(
             raw_df,
-            dataset_name=resolved_dataset,
             input_filename=resolved_input.name,
             cores=cores,
             normalize=normalize,
@@ -105,7 +99,7 @@ def register(app: typer.Typer) -> None:
             gpu_chunk_size=gpu_chunk_size,
             gpu_available=gpu_available,
         )
-        output_path = write_dataset_csv(dataset, resolved_output / f"{resolved_dataset}.csv")
+        output_path = write_dataset_csv(dataset, resolved_output)
         typer.echo(output_path)
 
     @curation_app.command("split")
@@ -115,12 +109,6 @@ def register(app: typer.Typer) -> None:
             Path,
             typer.Option("--output-dir", "--output_dir", help="Directory for serialized work items."),
         ],
-        dataset_name: Annotated[
-            str | None,
-            typer.Option(
-                "--dataset-name", "--dataset_name", help="Dataset name. Defaults to input stem without '_raw'."
-            ),
-        ] = None,
         cores: Annotated[int, typer.Option("--cores", help="CPU worker threads for chunk sizing.")] = 1,
         normalize: Annotated[bool, typer.Option("--normalize", help="Normalize responses for CurveCurator.")] = False,
         device: Annotated[str, typer.Option("--device", help=CURATOR_DEVICE_HELP)] = "auto",
@@ -143,14 +131,12 @@ def register(app: typer.Typer) -> None:
             ),
         ] = False,
     ) -> None:
-        """Prepare CurveCurator work items and write a curation manifest."""
+        """Prepare CurveCurator work items and write serialized artifacts."""
         resolved_input = input_file.expanduser().resolve()
         resolved_output = output_dir.expanduser().resolve()
-        resolved_dataset = dataset_name or _dataset_name_from_input(resolved_input)
         raw_df = load_raw_curve_df(resolved_input)
         split_result = split(
             raw_df,
-            dataset_name=resolved_dataset,
             input_filename=resolved_input.name,
             cores=cores,
             normalize=normalize,
@@ -160,8 +146,8 @@ def register(app: typer.Typer) -> None:
             gpu_chunk_size=gpu_chunk_size,
             gpu_available=gpu_available,
         )
-        manifest_path = write_split_artifacts(split_result, resolved_output)
-        typer.echo(manifest_path)
+        artifact_dir = write_split_artifacts(split_result, resolved_output)
+        typer.echo(artifact_dir)
 
     @curation_app.command("curvecurator")
     def curation_curvecurator(
@@ -203,29 +189,23 @@ def register(app: typer.Typer) -> None:
 
     @curation_app.command("combine")
     def curation_combine(
-        manifest: Annotated[Path, typer.Argument(help="Curation manifest written by ``curation split``.")],
+        curve_files: Annotated[
+            list[Path],
+            typer.Argument(help="Fitted curve parquet file(s) or a directory containing them."),
+        ],
         output_file: Annotated[
-            Path | None,
+            Path,
             typer.Option(
                 "--output-file",
                 "--output_file",
-                help="Destination CSV. Defaults to manifest directory/<dataset_name>.csv.",
+                help="Destination CSV for the curated dataset.",
             ),
-        ] = None,
+        ],
     ) -> None:
         """Combine fitted CurveCurator results into one dataset CSV."""
-        manifest_path = manifest.expanduser().resolve()
-        manifest_data = read_manifest(manifest_path)
-        fit_results = read_fit_results_from_manifest(manifest_path)
-        dataset = combine(fit_results, dataset_name=manifest_data["dataset_name"])
-        destination = (
-            output_file.expanduser().resolve()
-            if output_file is not None
-            else manifest_path.parent / f"{manifest_data['dataset_name']}.csv"
-        )
-        output_path = write_dataset_csv(dataset, destination)
+        resolved_output = output_file.expanduser().resolve()
+        curve_paths = resolve_curve_paths(curve_files)
+        fit_results = read_fit_results_from_paths(curve_paths)
+        dataset = combine(fit_results)
+        output_path = write_dataset_csv(dataset, resolved_output)
         typer.echo(output_path)
-
-
-def _dataset_name_from_input(input_file: Path) -> str:
-    return input_file.stem.removesuffix("_raw")

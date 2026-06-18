@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pandas as pd
@@ -14,7 +13,7 @@ from drevalpy.curation._curvecurator.io import (
     job_config_path,
     job_curves_path,
     job_input_path,
-    read_fit_results_from_manifest,
+    read_fit_results_from_paths,
     write_fit_curves,
     write_split_artifacts,
 )
@@ -76,7 +75,7 @@ def test_curate_runs_synthetic_in_process_workflow(tmp_path: Path, monkeypatch) 
     monkeypatch.setattr("drevalpy.curation._curvecurator.curvecurator._run_pipeline_api", _fake_run_pipeline_api)
 
     raw_df = load_raw_curve_df(input_file)
-    dataset = curate(raw_df, dataset_name="Toy", input_filename=input_file.name, cores=1, device="cpu")
+    dataset = curate(raw_df, input_filename=input_file.name, cores=1, device="cpu")
     output_path = write_dataset_csv(dataset, output_dir / "Toy.csv")
 
     dataset_from_disk = pd.read_csv(output_path)
@@ -94,21 +93,21 @@ def test_stepwise_transport_workflow_runs_synthetic_jobs(tmp_path: Path, monkeyp
     monkeypatch.setattr("drevalpy.curation._curvecurator.curvecurator._run_pipeline_api", _fake_run_pipeline_api)
 
     raw_df = load_raw_curve_df(input_file)
-    split_result = split(raw_df, dataset_name="Toy", input_filename=input_file.name, cores=1)
-    manifest_path = write_split_artifacts(split_result, work_dir)
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    split_result = split(raw_df, input_filename=input_file.name, cores=1)
+    write_split_artifacts(split_result, work_dir)
 
-    for entry in manifest["work_items"]:
-        job_id = entry["job_id"]
-        work_item = next(item for item in split_result.work_items if item.work_id == job_id)
+    curve_paths = []
+    for work_item in split_result.work_items:
+        job_id = work_item.work_id
         fit_result = curvecurator(work_item, device="cpu")
         written_curves = write_fit_curves(fit_result.curves, job_curves_path(work_dir, job_id))
         assert written_curves == job_curves_path(work_dir, job_id)
         assert job_config_path(work_dir, job_id).is_file()
         assert job_input_path(work_dir, job_id).is_file()
+        curve_paths.append(written_curves)
 
-    fit_results = read_fit_results_from_manifest(manifest_path)
-    dataset = combine(fit_results, dataset_name=manifest["dataset_name"])
+    fit_results = read_fit_results_from_paths(curve_paths)
+    dataset = combine(fit_results)
     combined_path = write_dataset_csv(dataset, output_file)
 
     dataset_from_disk = pd.read_csv(combined_path)

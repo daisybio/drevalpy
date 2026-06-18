@@ -12,11 +12,11 @@ from drevalpy.curation._curvecurator.io import (
     CONFIG_SUFFIX,
     CURVES_SUFFIX,
     INPUT_SUFFIX,
-    MANIFEST_FILENAME,
     job_config_path,
     job_curves_path,
     job_input_path,
-    read_fit_results_from_manifest,
+    list_curve_files,
+    read_fit_results_from_paths,
     read_work_item,
     write_fit_curves,
     write_split_artifacts,
@@ -31,10 +31,10 @@ def test_write_and_read_split_artifacts_flat_layout(tmp_path: Path) -> None:
     )
     output_dir = tmp_path / "work"
     raw_df = load_raw_curve_df(input_file)
-    split_result = split(raw_df, dataset_name="Toy", input_filename=input_file.name, cores=1)
-    manifest_path = write_split_artifacts(split_result, output_dir)
+    split_result = split(raw_df, input_filename=input_file.name, cores=1)
+    artifact_dir = write_split_artifacts(split_result, output_dir)
 
-    assert manifest_path.name == MANIFEST_FILENAME
+    assert artifact_dir == output_dir.resolve()
     job_id = split_result.work_items[0].work_id
     assert job_config_path(output_dir, job_id).is_file()
     assert job_input_path(output_dir, job_id).is_file()
@@ -43,7 +43,7 @@ def test_write_and_read_split_artifacts_flat_layout(tmp_path: Path) -> None:
     work_item = read_work_item(job_config_path(output_dir, job_id))
     assert work_item.work_id == job_id
     assert list(work_item.input_table.columns)[0] == "Name"
-    assert work_item.config["Meta"]["description"] == "Toy"
+    assert work_item.config["Meta"]["id"] == "Toy_raw.csv"
 
     payload = job_config_path(output_dir, job_id).read_text(encoding="utf-8")
     assert CONFIG_SUFFIX in job_config_path(output_dir, job_id).name
@@ -54,7 +54,7 @@ def test_write_and_read_split_artifacts_flat_layout(tmp_path: Path) -> None:
     assert '"Meta"' in payload
 
 
-def test_read_fit_results_from_manifest_requires_curves(tmp_path: Path) -> None:
+def test_read_fit_results_from_paths_requires_curves(tmp_path: Path) -> None:
     input_file = tmp_path / "Toy_raw.csv"
     input_file.write_text(
         "dose,response,sample,drug\n1.0,0.9,A,D\n10.0,0.1,A,D\n",
@@ -62,18 +62,37 @@ def test_read_fit_results_from_manifest_requires_curves(tmp_path: Path) -> None:
     )
     output_dir = tmp_path / "work"
     raw_df = load_raw_curve_df(input_file)
-    split_result = split(raw_df, dataset_name="Toy", input_filename=input_file.name, cores=1)
-    manifest_path = write_split_artifacts(split_result, output_dir)
-
-    with pytest.raises(FileNotFoundError, match="Missing fitted curves file"):
-        read_fit_results_from_manifest(manifest_path)
+    split_result = split(raw_df, input_filename=input_file.name, cores=1)
+    write_split_artifacts(split_result, output_dir)
 
     job_id = split_result.work_items[0].work_id
-    pd.DataFrame({"Name": ["A|D"], "pEC50": [6.0]}).to_parquet(job_curves_path(output_dir, job_id), index=False)
-    fit_results = read_fit_results_from_manifest(manifest_path)
+    curves_path = job_curves_path(output_dir, job_id)
+    with pytest.raises(FileNotFoundError, match="Missing fitted curves file"):
+        read_fit_results_from_paths([curves_path])
+
+    pd.DataFrame({"Name": ["A|D"], "pEC50": [6.0]}).to_parquet(curves_path, index=False)
+    fit_results = read_fit_results_from_paths([curves_path])
     assert len(fit_results) == 1
     assert fit_results[0].work_id == job_id
-    assert CURVES_SUFFIX in job_curves_path(output_dir, job_id).name
+    assert CURVES_SUFFIX in curves_path.name
+
+
+def test_list_curve_files_finds_written_curves(tmp_path: Path) -> None:
+    input_file = tmp_path / "Toy_raw.csv"
+    input_file.write_text(
+        "dose,response,sample,drug\n1.0,0.9,A,D\n10.0,0.1,A,D\n",
+        encoding="utf-8",
+    )
+    output_dir = tmp_path / "work"
+    raw_df = load_raw_curve_df(input_file)
+    split_result = split(raw_df, input_filename=input_file.name, cores=1)
+    write_split_artifacts(split_result, output_dir)
+
+    job_id = split_result.work_items[0].work_id
+    curves_path = job_curves_path(output_dir, job_id)
+    pd.DataFrame({"Name": ["A|D"], "pEC50": [6.0]}).to_parquet(curves_path, index=False)
+
+    assert list_curve_files(output_dir) == [curves_path]
 
 
 def test_read_work_item_accepts_explicit_input_path(tmp_path: Path) -> None:
@@ -84,7 +103,7 @@ def test_read_work_item_accepts_explicit_input_path(tmp_path: Path) -> None:
     )
     output_dir = tmp_path / "work"
     raw_df = load_raw_curve_df(input_file)
-    split_result = split(raw_df, dataset_name="Toy", input_filename=input_file.name, cores=1)
+    split_result = split(raw_df, input_filename=input_file.name, cores=1)
     write_split_artifacts(split_result, output_dir)
 
     job_id = split_result.work_items[0].work_id
@@ -104,7 +123,7 @@ def test_write_fit_curves_writes_explicit_output(tmp_path: Path, monkeypatch: py
         encoding="utf-8",
     )
     raw_df = load_raw_curve_df(input_file)
-    split_result = split(raw_df, dataset_name="Toy", input_filename=input_file.name, cores=1)
+    split_result = split(raw_df, input_filename=input_file.name, cores=1)
     work_item = split_result.work_items[0]
     output_path = tmp_path / "fitted" / "custom_curves.parquet"
     fitted = pd.DataFrame({"Name": ["A|D"], "pEC50": [6.0]})

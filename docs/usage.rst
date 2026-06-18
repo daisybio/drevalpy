@@ -396,19 +396,17 @@ Raw viability files can also be fit directly without running a full DrEvalPy mod
 
 .. code-block:: bash
 
-    drevalpy curation --input-file ./data/MyDataset/MyDataset_raw.csv --output-dir ./data/MyDataset --cores 4 --device auto
+    drevalpy curation --input-file ./data/MyDataset/MyDataset_raw.csv --output-file ./data/MyDataset/MyDataset.csv --cores 4 --device auto
 
-This runs split, CurveCurator, and combine in one command and writes ``./data/MyDataset/MyDataset.csv`` by default. For distributed execution (for example in Nextflow), use the stepwise commands:
+This runs split, CurveCurator, and combine in one command. For distributed execution (for example in Nextflow), use the stepwise commands:
 
 .. code-block:: bash
 
-    drevalpy curation split ./data/MyDataset/MyDataset_raw.csv --output-dir ./data/MyDataset --gpu-available
-    drevalpy curation curvecurator ./data/MyDataset/<job_id>_config.json ./data/MyDataset/<job_id>_input.parquet ./data/MyDataset/<job_id>_curves.parquet --device auto
-    drevalpy curation combine ./data/MyDataset/curation_manifest.json
+    drevalpy curation split ./data/MyDataset/MyDataset_raw.csv --output-dir ./work/curation --gpu-available
+    drevalpy curation curvecurator ./work/curation/<job_id>_config.json ./work/curation/<job_id>_input.parquet ./work/curation/<job_id>_curves.parquet --device auto
+    drevalpy curation combine ./work/curation/*_curves.parquet --output-file ./data/MyDataset/MyDataset.csv
 
 Split writes a flat directory with ``<job_id>_config.json`` (CurveCurator config including ``Routing.n_curves`` and ``Routing.device``) and ``<job_id>_input.parquet`` per job. The curvecurator step reads those two files explicitly and writes fitted curves to the output parquet path you provide. Use ``--gpu-available`` during split only when GPU resources are available for accelerator chunking; otherwise split defaults to CPU-sized chunks.
-
-The legacy ``drevalpy-fit-curves`` command remains available as a compatibility alias for the top-level ``drevalpy curation`` workflow.
 
 **Prefit viability data**
 

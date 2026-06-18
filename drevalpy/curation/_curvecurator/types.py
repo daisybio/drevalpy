@@ -12,7 +12,6 @@ class CurationWorkItem:
     """One CurveCurator fit job prepared from raw viability data."""
 
     work_id: str
-    dataset_name: str
     group_key: str
     chunk_index: int | None
     input_table: pd.DataFrame
@@ -25,7 +24,6 @@ class CurationWorkItem:
 class CurationSplitResult:
     """Prepared CurveCurator work items for one raw viability dataset."""
 
-    dataset_name: str
     input_filename: str
     work_items: tuple[CurationWorkItem, ...]
 

@@ -13,7 +13,6 @@ from drevalpy.curation._curvecurator.types import CurationFitResult, CurationSpl
 def curate(
     raw_df: pd.DataFrame,
     *,
-    dataset_name: str,
     input_filename: str,
     cores: int = 1,
     normalize: bool = False,
@@ -26,7 +25,6 @@ def curate(
     """Run split, CurveCurator, and combine in one in-memory workflow.
 
     :param raw_df: Raw viability table with dose, response, sample, and drug columns.
-    :param dataset_name: Dataset name used in metadata and combine output.
     :param input_filename: Source filename recorded in work-item metadata.
     :param cores: Maximum CPU worker threads for CurveCurator execution.
     :param normalize: Whether CurveCurator should normalize responses.
@@ -39,7 +37,6 @@ def curate(
     """
     split_result = split(
         raw_df,
-        dataset_name=dataset_name,
         input_filename=input_filename,
         cores=cores,
         normalize=normalize,
@@ -56,7 +53,7 @@ def curate(
         gpu_min_curves=gpu_min_curves,
         gpu_chunk_size=gpu_chunk_size,
     )
-    return combine(fit_results, dataset_name=dataset_name)
+    return combine(fit_results)
 
 
 __all__ = ["CurationFitResult", "CurationSplitResult", "curate"]
