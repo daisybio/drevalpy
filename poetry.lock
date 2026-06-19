@@ -406,6 +406,28 @@ toml = ["tomli (>=1.1.0) ; python_version < \"3.11\""]
 yaml = ["PyYAML"]
 
 [[package]]
+name = "biothings-client"
+version = "0.5.0"
+description = "Python Client for BioThings API services."
+optional = true
+python-versions = ">=3.7"
+groups = ["main"]
+markers = "extra == \"sparsego\""
+files = [
+    {file = "biothings_client-0.5.0-py3-none-any.whl", hash = "sha256:733488a5133bb6833a43cc895ad122654d8c72446926301d8607df0a9888c004"},
+    {file = "biothings_client-0.5.0.tar.gz", hash = "sha256:f9fddc7436d59bcde4f9a2501431fc744d142062ac4796585470adca29c59ed4"},
+]
+
+[package.dependencies]
+httpx = {version = ">=0.25.0", markers = "python_version >= \"3.8\""}
+
+[package.extras]
+caching = ["anysqlite ; python_version >= \"3.8\"", "hishel[httpx] (==1.1.8) ; python_version == \"3.9\"", "hishel[httpx] (>=1.1.9) ; python_version > \"3.9\""]
+dataframe = ["pandas (>=1.2.0)"]
+jsonld = ["PyLD (>=0.7.2)"]
+tests = ["pytest (>=7.4.4) ; python_version == \"3.7\"", "pytest (>=8.3.3) ; python_version >= \"3.8\"", "pytest-asyncio (>=0.21.2) ; python_version == \"3.7\"", "pytest-asyncio (>=0.23.8) ; python_version >= \"3.8\""]
+
+[[package]]
 name = "black"
 version = "26.5.1"
 description = "The uncompromising code formatter."
@@ -2927,6 +2949,22 @@ files = [
 ]
 
 [[package]]
+name = "mygene"
+version = "3.2.2"
+description = "Python Client for MyGene.Info services."
+optional = true
+python-versions = "*"
+groups = ["main"]
+markers = "extra == \"sparsego\""
+files = [
+    {file = "mygene-3.2.2-py2.py3-none-any.whl", hash = "sha256:18d85d1b28ecee2be31d844607fb0c5f7d7c58573278432df819ee2a5e88fe46"},
+    {file = "mygene-3.2.2.tar.gz", hash = "sha256:e729cabbc28cf5afb221bca1ab637883b375cb1a3e2f067587ec79f71affdaea"},
+]
+
+[package.dependencies]
+biothings-client = ">=0.2.6"
+
+[[package]]
 name = "mypy"
 version = "1.20.2"
 description = "Optional static typing for Python"
@@ -3429,6 +3467,25 @@ files = [
     {file = "nvidia_nvtx-13.0.85-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:cb7780edb6b14107373c835bf8b72e7a178bac7367e23da7acb108f973f157a6"},
     {file = "nvidia_nvtx-13.0.85-py3-none-win_amd64.whl", hash = "sha256:d66ea44254dd3c6eacc300047af6e1288d2269dd072b417e0adffbf479e18519"},
 ]
+
+[[package]]
+name = "obonet"
+version = "1.3.0"
+description = "Parse OBO formatted ontologies into networkx"
+optional = true
+python-versions = ">=3.10"
+groups = ["main"]
+markers = "extra == \"sparsego\""
+files = [
+    {file = "obonet-1.3.0-py3-none-any.whl", hash = "sha256:77d981082aa95cf0d6c78568a8079f43c781c8dd5df30a9b2f7c665b87e4f0fc"},
+    {file = "obonet-1.3.0.tar.gz", hash = "sha256:7c128bfe455bd7a134a3e6122e89338b896b4dea116511a850cec1a2e2a98294"},
+]
+
+[package.dependencies]
+networkx = ">=2"
+
+[package.extras]
+dev = ["mypy (==2.1.0)", "prek", "pytest"]
 
 [[package]]
 name = "packaging"
@@ -5941,6 +5998,24 @@ rag = ["accelerate", "datasets", "pandas", "pcst_fast", "sentencepiece", "torchm
 test = ["onnx", "onnxruntime", "onnxscript", "pytest", "pytest-cov"]
 
 [[package]]
+name = "torch-sparse"
+version = "0.6.18"
+description = "PyTorch Extension Library of Optimized Autograd Sparse Matrix Operations"
+optional = true
+python-versions = ">=3.8"
+groups = ["main"]
+markers = "extra == \"sparsego\""
+files = [
+    {file = "torch_sparse-0.6.18.tar.gz", hash = "sha256:2f14c510a6e93f404c6ea357210615b3c15a71731f9dbd86f25434e34fb5a741"},
+]
+
+[package.dependencies]
+scipy = "*"
+
+[package.extras]
+test = ["pytest", "pytest-cov"]
+
+[[package]]
 name = "torchmetrics"
 version = "1.9.0"
 description = "PyTorch native Metrics"
@@ -6854,9 +6929,10 @@ type = ["pytest-mypy (>=1.0.1) ; platform_python_implementation != \"PyPy\""]
 lightgbm = ["lightgbm"]
 multiprocessing = ["pydantic", "ray"]
 precily = ["gseapy"]
+sparsego = ["mygene", "obonet", "torch-sparse"]
 xgboost = ["xgboost"]
 
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11,<3.14"
-content-hash = "5ea0d65a35030e7f01831e034c6011c5719854714308b980611e21887883334a"
+content-hash = "e6f6a90f1b5dc331e9c0e0c3a7be39bc2ee2608e7622e3dabdf0eb7eaf3f9598"
