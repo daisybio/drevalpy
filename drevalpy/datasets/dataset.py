@@ -1092,11 +1092,9 @@ class FeatureDataset:
         :param other: other dataset
         """
         other_meta = other.meta_info
-        if self.meta_info is None:
-            self.meta_info = other_meta
-        else:
-            if other_meta is not None:
-                self.meta_info.update(other_meta)
+        if other_meta is not None:
+            # meta_info is a read-only property initialized to at least {}, so update in place
+            self.meta_info.update(other_meta)
 
     def transform_features(self, ids: np.ndarray, transformer: TransformerMixin, view: str):
         """
