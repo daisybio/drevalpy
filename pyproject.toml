@@ -57,7 +57,6 @@ rich = "^15.0.0"
 gseapy = { version = ">=1.1.0", optional = true }
 mygene = { version = "*", optional = true }
 obonet = { version = "*", optional = true }
-torch-sparse = { version = "*", optional = true }
 
 [tool.poetry.requires-plugins]
 poetry-plugin-export = ">=1.8"
@@ -67,7 +66,7 @@ multiprocessing = ["ray", "pydantic"]
 xgboost = ["xgboost"]
 lightgbm = ["lightgbm"]
 precily = ["gseapy"]
-sparsego = ["mygene", "obonet", "torch-sparse"]
+sparsego = ["mygene", "obonet"]
 
 [tool.poetry.dependencies.ray]
 extras = ["tune"]

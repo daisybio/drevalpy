@@ -5998,24 +5998,6 @@ rag = ["accelerate", "datasets", "pandas", "pcst_fast", "sentencepiece", "torchm
 test = ["onnx", "onnxruntime", "onnxscript", "pytest", "pytest-cov"]
 
 [[package]]
-name = "torch-sparse"
-version = "0.6.18"
-description = "PyTorch Extension Library of Optimized Autograd Sparse Matrix Operations"
-optional = true
-python-versions = ">=3.8"
-groups = ["main"]
-markers = "extra == \"sparsego\""
-files = [
-    {file = "torch_sparse-0.6.18.tar.gz", hash = "sha256:2f14c510a6e93f404c6ea357210615b3c15a71731f9dbd86f25434e34fb5a741"},
-]
-
-[package.dependencies]
-scipy = "*"
-
-[package.extras]
-test = ["pytest", "pytest-cov"]
-
-[[package]]
 name = "torchmetrics"
 version = "1.9.0"
 description = "PyTorch native Metrics"
@@ -6929,10 +6911,10 @@ type = ["pytest-mypy (>=1.0.1) ; platform_python_implementation != \"PyPy\""]
 lightgbm = ["lightgbm"]
 multiprocessing = ["pydantic", "ray"]
 precily = ["gseapy"]
-sparsego = ["mygene", "obonet", "torch-sparse"]
+sparsego = ["mygene", "obonet"]
 xgboost = ["xgboost"]
 
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11,<3.14"
-content-hash = "e6f6a90f1b5dc331e9c0e0c3a7be39bc2ee2608e7622e3dabdf0eb7eaf3f9598"
+content-hash = "9f2ff9df934c5b485bca18be1660efd3833b62f46f5a31609e61df75dfc0d821"
