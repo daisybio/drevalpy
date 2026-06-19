@@ -15,7 +15,6 @@ from typing import Any
 import numpy as np
 import torch
 import torch.nn as nn
-import torch_sparse
 from scipy import sparse
 from torch.utils.data import DataLoader, TensorDataset
 
@@ -60,6 +59,7 @@ class SparseLinearNew(nn.Module):
         :param sparsity: Sparsity of weight matrix if connectivity is None. Default: 0.9.
         :param connectivity: LongTensor of shape (2, nnz) specifying non-zero weight positions.
         :raises ValueError: if connectivity has wrong shape or nnz exceeds matrix size.
+        :raises ImportError: if torch_sparse is not installed.
         """
         if not (in_features < 2**31 and out_features < 2**31 and sparsity < 1.0):
             raise ValueError("in_features and out_features must be < 2^31, sparsity must be < 1.0")
@@ -101,6 +101,12 @@ class SparseLinearNew(nn.Module):
             indices = connectivity.to(device=coalesce_device)
 
         values = torch.empty(nnz, device=coalesce_device)
+        try:
+            import torch_sparse
+        except ImportError as exc:
+            raise ImportError(
+                "torch_sparse is required for SparseGO. " "Install it manually: pip install torch-sparse"
+            ) from exc
         indices, values = torch_sparse.coalesce(indices, values, out_features, in_features)
 
         self.register_buffer("indices", indices.cpu())
