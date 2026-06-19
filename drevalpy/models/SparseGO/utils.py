@@ -24,8 +24,8 @@ def load_mapping(mapping_file: str) -> dict:
     mapping = {}
     with open(mapping_file) as file_handle:
         for line in file_handle:
-            line = line.rstrip().split()
-            mapping[line[1]] = int(line[0])
+            line_parts = line.rstrip().split()
+            mapping[line_parts[1]] = int(line_parts[0])
     return mapping
 
 
@@ -42,35 +42,35 @@ def load_ontology(ontology_file: str, gene2id_mapping: dict) -> tuple:
     :return: Tuple of (directed graph, term-term pairs array, gene-term pairs array).
     """
     dG = nx.DiGraph()
-    terms_pairs = []
-    genes_terms_pairs = []
-    gene_set = set()
-    term_direct_gene_map = {}
-    term_size_map = {}
+    terms_pairs: list[list[str]] = []
+    genes_terms_pairs: list[list[str]] = []
+    gene_set: set[str] = set()
+    term_direct_gene_map: dict[str, set[int]] = {}
+    term_size_map: dict[str, int] = {}
 
     with open(ontology_file) as file_handle:
         for line in file_handle:
-            line = line.rstrip().split()
+            line_parts = line.rstrip().split()
 
-            if line[2] == "default":
-                dG.add_edge(line[0], line[1])
-                terms_pairs.append([line[0], line[1]])
+            if line_parts[2] == "default":
+                dG.add_edge(line_parts[0], line_parts[1])
+                terms_pairs.append([line_parts[0], line_parts[1]])
             else:
-                if line[1] not in gene2id_mapping:
+                if line_parts[1] not in gene2id_mapping:
                     continue
-                genes_terms_pairs.append([line[0], line[1]])
-                if line[0] not in term_direct_gene_map:
-                    term_direct_gene_map[line[0]] = set()
-                term_direct_gene_map[line[0]].add(gene2id_mapping[line[1]])
-                gene_set.add(line[1])
+                genes_terms_pairs.append([line_parts[0], line_parts[1]])
+                if line_parts[0] not in term_direct_gene_map:
+                    term_direct_gene_map[line_parts[0]] = set()
+                term_direct_gene_map[line_parts[0]].add(gene2id_mapping[line_parts[1]])
+                gene_set.add(line_parts[1])
 
-    terms_pairs = np.array(terms_pairs)
-    genes_terms_pairs = np.array(genes_terms_pairs)
+    terms_pairs_arr: np.ndarray = np.array(terms_pairs)
+    genes_terms_pairs_arr: np.ndarray = np.array(genes_terms_pairs)
 
     print(f"There are {len(gene_set)} genes")
 
     for term in dG.nodes():
-        term_gene_set = set()
+        term_gene_set: set[int] = set()
         if term in term_direct_gene_map:
             term_gene_set = term_direct_gene_map[term]
         deslist = nxadag.descendants(dG, term)
@@ -98,7 +98,7 @@ def load_ontology(ontology_file: str, gene2id_mapping: dict) -> tuple:
         print("There are more than connected components. Please connect them.")
         sys.exit(1)
 
-    return dG, terms_pairs, genes_terms_pairs
+    return dG, terms_pairs_arr, genes_terms_pairs_arr
 
 
 def sort_pairs(genes_terms_pairs: np.ndarray, terms_pairs: np.ndarray, dG: nx.DiGraph, gene2id_mapping: dict) -> tuple:
@@ -123,7 +123,7 @@ def sort_pairs(genes_terms_pairs: np.ndarray, terms_pairs: np.ndarray, dG: nx.Di
         level_list.append(leaves)
         graph.remove_nodes_from(leaves)
 
-    level_number = {}
+    level_number: dict[str, int] = {}
     for i, layer in enumerate(level_list):
         for item in layer:
             level_number[item] = i
@@ -152,7 +152,7 @@ def pairs_in_layers(sorted_pairs: np.ndarray, level_list: list, level_number: di
     :return: List of numpy arrays, one per layer, each containing (parent, child) pairs.
     """
     total_layers = len(level_list) - 1
-    layer_connections = [[] for _ in range(total_layers)]
+    layer_connections: list[list | np.ndarray] = [[] for _ in range(total_layers)]
 
     for pair in sorted_pairs:
         parent = level_number[pair[0]]

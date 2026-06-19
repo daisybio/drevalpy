@@ -49,7 +49,7 @@ class SparseLinearNew(nn.Module):
         out_features: int,
         bias: bool = True,
         sparsity: float = 0.9,
-        connectivity: torch.LongTensor | None = None,
+        connectivity: torch.Tensor | None = None,
     ):
         """Initialize SparseLinearNew layer.
 
@@ -64,12 +64,17 @@ class SparseLinearNew(nn.Module):
         if not (in_features < 2**31 and out_features < 2**31 and sparsity < 1.0):
             raise ValueError("in_features and out_features must be < 2^31, sparsity must be < 1.0")
         if connectivity is not None:
-            if not isinstance(connectivity, (torch.LongTensor, torch.cuda.LongTensor)):
-                raise ValueError("Connectivity must be a Long Tensor")
-            if not (connectivity.shape[0] == 2 and connectivity.shape[1] > 0):
+            if connectivity.shape[0] != 2 or connectivity.shape[1] <= 0:
                 raise ValueError("Input shape for connectivity should be (2, nnz)")
             if connectivity.shape[1] > in_features * out_features:
                 raise ValueError("Nnz can't be bigger than the weight matrix")
+
+        try:
+            import torch_sparse
+        except ImportError as exc:
+            raise ImportError(
+                "torch_sparse is required for SparseGO. Install it manually: pip install torch-sparse"
+            ) from exc
 
         super().__init__()
         self.in_features = in_features
@@ -82,8 +87,8 @@ class SparseLinearNew(nn.Module):
             self.sparsity = sparsity
             nnz = round((1.0 - sparsity) * in_features * out_features)
             if in_features * out_features <= 10**8:
-                indices = np.random.choice(in_features * out_features, nnz, replace=False)
-                indices = torch.as_tensor(indices, device=coalesce_device)
+                idx = np.random.choice(in_features * out_features, nnz, replace=False)
+                indices: torch.Tensor = torch.as_tensor(idx, device=coalesce_device)
                 row_ind = indices.floor_divide(in_features)
                 col_ind = indices.fmod(in_features)
             else:
@@ -101,12 +106,6 @@ class SparseLinearNew(nn.Module):
             indices = connectivity.to(device=coalesce_device)
 
         values = torch.empty(nnz, device=coalesce_device)
-        try:
-            import torch_sparse
-        except ImportError as exc:
-            raise ImportError(
-                "torch_sparse is required for SparseGO. " "Install it manually: pip install torch-sparse"
-            ) from exc
         indices, values = torch_sparse.coalesce(indices, values, out_features, in_features)
 
         self.register_buffer("indices", indices.cpu())
@@ -139,7 +138,7 @@ class SparseLinearNew(nn.Module):
             inputs = inputs.view(1, -1)
         inputs = inputs.flatten(end_dim=-2)
 
-        sparse_matrix = torch.sparse.FloatTensor(
+        sparse_matrix = torch.sparse_coo_tensor(  # type: ignore[attr-defined]
             self.indices,
             self.weights,
             torch.Size([self.out_features, self.in_features]),
@@ -326,7 +325,8 @@ class SparseGONetwork(nn.Module):
         output_terms = neurons_per_GO * len(output_id)
 
         self.add_module(
-            f"GO_terms_sparse_linear_{number}", SparseLinearNew(input_terms, output_terms, connectivity=connections)
+            f"GO_terms_sparse_linear_{number}",
+            SparseLinearNew(input_terms, output_terms, connectivity=connections),
         )
         self.add_module(f"drop_{number}", nn.Dropout(p_drop_terms))
         self.add_module(f"GO_terms_tanh_{number}", nn.Tanh())
@@ -359,33 +359,37 @@ class SparseGONetwork(nn.Module):
         drug_input = x.narrow(1, self.gene_dim, self.drug_dim)
 
         # VNN branch: batch -> dropout -> sparse linear -> activation
-        gene_output = self._modules["genes_terms_batchnorm"](gene_input)
-        gene_output = self._modules["drop_0"](gene_output)
-        terms_output = self._modules["genes_terms_tanh"](self._modules["genes_terms_sparse_linear_1"](gene_output))
+        gene_output = self._modules["genes_terms_batchnorm"](gene_input)  # type: ignore[misc]
+        gene_output = self._modules["drop_0"](gene_output)  # type: ignore[misc]
+        terms_output = self._modules["genes_terms_tanh"](  # type: ignore[misc]
+            self._modules["genes_terms_sparse_linear_1"](gene_output)  # type: ignore[misc]
+        )
 
         for i in range(1, len(self.layer_connections)):
-            terms_output = self._modules["GO_terms_batchnorm_" + str(i)](terms_output)
-            terms_output = self._modules["drop_" + str(i)](terms_output)
-            terms_output = self._modules["GO_terms_tanh_" + str(i)](
-                self._modules["GO_terms_sparse_linear_" + str(i)](terms_output)
+            terms_output = self._modules["GO_terms_batchnorm_" + str(i)](terms_output)  # type: ignore[misc]
+            terms_output = self._modules["drop_" + str(i)](terms_output)  # type: ignore[misc]
+            terms_output = self._modules["GO_terms_tanh_" + str(i)](  # type: ignore[misc]
+                self._modules["GO_terms_sparse_linear_" + str(i)](terms_output)  # type: ignore[misc]
             )
 
         # ANN branch: batch -> dropout -> dense -> activation
         drug_out = drug_input
         for i in range(1, len(self.num_neurons_drug) + 1):
-            drug_out = self._modules["drug_batchnorm_layer_" + str(i)](drug_out)
-            drug_out = self._modules["drug_drop_" + str(i)](drug_out)
-            drug_out = self._modules["drug_tanh_" + str(i)](self._modules["drug_linear_layer_" + str(i)](drug_out))
+            drug_out = self._modules["drug_batchnorm_layer_" + str(i)](drug_out)  # type: ignore[misc]
+            drug_out = self._modules["drug_drop_" + str(i)](drug_out)  # type: ignore[misc]
+            drug_out = self._modules["drug_tanh_" + str(i)](  # type: ignore[misc]
+                self._modules["drug_linear_layer_" + str(i)](drug_out)  # type: ignore[misc]
+            )
 
         # Concatenate and predict
         final_input = torch.cat((terms_output, drug_out), 1)
-        output = self._modules["final_batchnorm_layer"](final_input)
-        output = self._modules["drop_final"](output)
-        output = self._modules["final_tanh"](self._modules["final_linear_layer"](output))
-        output = self._modules["final_aux_batchnorm_layer"](output)
-        output = self._modules["drop_aux_final"](output)
-        output = self._modules["final_aux_tanh"](self._modules["final_aux_linear_layer"](output))
-        return self._modules["final_linear_layer_output"](output)
+        output = self._modules["final_batchnorm_layer"](final_input)  # type: ignore[misc]
+        output = self._modules["drop_final"](output)  # type: ignore[misc]
+        output = self._modules["final_tanh"](self._modules["final_linear_layer"](output))  # type: ignore[misc]
+        output = self._modules["final_aux_batchnorm_layer"](output)  # type: ignore[misc]
+        output = self._modules["drop_aux_final"](output)  # type: ignore[misc]
+        output = self._modules["final_aux_tanh"](self._modules["final_aux_linear_layer"](output))  # type: ignore[misc]
+        return self._modules["final_linear_layer_output"](output)  # type: ignore[misc]
 
 
 class SparseGOModel(DRPModel):
@@ -415,6 +419,7 @@ class SparseGOModel(DRPModel):
         self.hyperparameters: dict[str, Any] = {}
         self.layer_connections: list | None = None
         self.gene2id_mapping_ont: dict | None = None
+        self._checkpoint_path: str | None = None
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -439,7 +444,12 @@ class SparseGOModel(DRPModel):
             self._build_network()
 
     def _build_network(self) -> None:
-        """Build SparseGONetwork once layer_connections and hyperparameters are both available."""
+        """Build SparseGONetwork once layer_connections and hyperparameters are both available.
+
+        :raises ValueError: if layer_connections or gene2id_mapping_ont are not set.
+        """
+        if self.layer_connections is None or self.gene2id_mapping_ont is None:
+            raise ValueError("Call load_cell_line_features() before building the network.")
         self.model = SparseGONetwork(
             layer_connections=self.layer_connections,
             num_neurons_per_GO=self.hyperparameters.get("num_neurons_per_GO", 6),
@@ -477,6 +487,8 @@ class SparseGOModel(DRPModel):
             if self.layer_connections is None or self.gene2id_mapping_ont is None:
                 raise ValueError("Call load_cell_line_features() before train().")
             self._build_network()
+        if self.model is None:
+            raise ValueError("Model could not be built.")
 
         input_type = self.hyperparameters.get("input_type", "expression")
         feature_key = "gene_expression" if input_type == "expression" else "mutations"
@@ -544,6 +556,8 @@ class SparseGOModel(DRPModel):
             if self.layer_connections is None or self.gene2id_mapping_ont is None:
                 raise ValueError("Call load_cell_line_features() before predict().")
             self._build_network()
+        if self.model is None:
+            raise ValueError("Model could not be built.")
 
         input_type = self.hyperparameters.get("input_type", "expression")
         feature_key = "gene_expression" if input_type == "expression" else "mutations"
@@ -672,9 +686,9 @@ class SparseGOModel(DRPModel):
 
         Called internally after build_model() when loading a saved model.
         """
-        if hasattr(self, "_checkpoint_path") and self.model is not None:
+        if self._checkpoint_path is not None and self.model is not None:
             self.model.load_state_dict(
                 torch.load(self._checkpoint_path, map_location=self.DEVICE, weights_only=True)  # noqa: S614
             )
             self.model.eval()
-            del self._checkpoint_path
+            self._checkpoint_path = None
