@@ -50,10 +50,15 @@ def _is_option_token(token: str) -> bool:
 
 
 def _active_list_options(argv: list[str]) -> frozenset[str]:
-    """Return list-option names valid for the command invoked by *argv*."""
-    for token in argv:
-        if not _is_option_token(token) and token in KNOWN_SUBCOMMANDS:
-            return SUBCOMMAND_LIST_OPTIONS.get(token, frozenset())
+    """Return list-option names valid for the command invoked by *argv*.
+
+    The pipeline is an ``invoke_without_command`` group callback, so a subcommand (when present) is
+    always the first token; otherwise the first token is an option of the root pipeline. Only the
+    first token is inspected, so an *option value* that happens to equal a subcommand name
+    (e.g. ``--run_id report``) no longer suppresses root list-option expansion.
+    """
+    if argv and not _is_option_token(argv[0]) and argv[0] in KNOWN_SUBCOMMANDS:
+        return SUBCOMMAND_LIST_OPTIONS.get(argv[0], frozenset())
     return ROOT_LIST_OPTIONS
 
 

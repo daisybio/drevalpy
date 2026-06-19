@@ -271,7 +271,7 @@ class FeedForwardNetwork(RegressionMetricsMixin, pl.LightningModule):
             trainer.fit(self, train_loader, val_loader)
 
         # load best model
-        if self.checkpoint_callback.best_model_path is not None:
+        if self.checkpoint_callback.best_model_path:
             checkpoint = torch.load(self.checkpoint_callback.best_model_path, weights_only=True)  # noqa: S614
             self.load_state_dict(checkpoint["state_dict"])
         else:
