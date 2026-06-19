@@ -8,7 +8,10 @@ from drevalpy.datasets.loader import DERIVED_DATASETS, DrugCurveFilter, register
 
 
 def _toy_frame() -> pd.DataFrame:
-    """Synthetic curve-curated response frame: drug A has 3 significant curves, B has 1, C has 2."""
+    """Synthetic curve-curated response frame: drug A has 3 significant curves, B has 1, C has 2.
+
+    :returns: a small curve-curated response frame for the cleaning tests.
+    """
     return pd.DataFrame(
         {
             "pubchem_id": ["A", "A", "A", "A", "B", "B", "B", "B", "C", "C"],
