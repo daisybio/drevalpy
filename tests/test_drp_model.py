@@ -182,6 +182,36 @@ def test_load_and_select_gene_features(gene_list: Optional[str]) -> None:
         assert "The following genes are missing from the dataset GDSC1_small" in str(valerr.value)
 
 
+def test_load_and_select_gene_features_reorders_values_to_gene_list() -> None:
+    """
+    Regression test: feature values must be reordered to the gene-list order, not the source-CSV order.
+
+    The ``drug_target_genes_all_drugs`` list is ordered ``[TSPAN6, SCYL3, BRCA1]`` while the source CSV
+    lists these genes as ``..., TSPAN6, ..., BRCA1, SCYL3, ...``. A prior bug selected values in CSV
+    order while relabeling meta_info to the gene-list order, silently misaligning every value with its
+    gene name (which corrupted cross-study prediction across datasets with different CSV orders).
+    """
+    temp = tempfile.TemporaryDirectory()
+    os.mkdir(os.path.join(temp.name, "GDSC1_small"))
+    with open(os.path.join(temp.name, "GDSC1_small", "gene_expression.csv"), "w") as f:
+        f.write(
+            "cellosaurus_id,cell_line_name,TSPAN6,TNMD,BRCA1,SCYL3,HDAC1,INSIG1,FOXO3\n"
+            "CVCL_1104,CAL-120,7.632023171463389,2.9645851205892404,10.3795526353077,3.61479404843988,"
+            "3.38068143582194,7.09344749430946,3.0222634357817597\n"
+        )
+    _write_gene_list(temp, "drug_target_genes_all_drugs")
+
+    features = load_and_select_gene_features("gene_expression", "drug_target_genes_all_drugs", temp.name, "GDSC1_small")
+
+    # meta_info must preserve the gene-list order (not be sorted / not be CSV order)
+    assert list(features.meta_info["gene_expression"]) == ["TSPAN6", "SCYL3", "BRCA1"]
+    # values must follow the same order: TSPAN6, SCYL3, BRCA1 (NOT the CSV order TSPAN6, BRCA1, SCYL3)
+    np.testing.assert_allclose(
+        features.features["CAL-120"]["gene_expression"],
+        [7.632023171463389, 3.61479404843988, 10.3795526353077],
+    )
+
+
 def test_order_load_and_select_gene_features(
     sample_dataset: DrugResponseDataset, cross_study_dataset: DrugResponseDataset, data_dir
 ) -> None:
