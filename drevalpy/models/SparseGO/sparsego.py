@@ -138,7 +138,9 @@ class SparseLinearNew(nn.Module):
             inputs = inputs.view(1, -1)
         inputs = inputs.flatten(end_dim=-2)
 
+        indices: torch.Tensor = self.indices  # type: ignore[assignment]
         sparse_matrix = torch.sparse_coo_tensor(  # type: ignore[attr-defined]
+            indices,
             self.indices,
             self.weights,
             torch.Size([self.out_features, self.in_features]),
