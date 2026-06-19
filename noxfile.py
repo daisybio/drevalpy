@@ -144,7 +144,7 @@ def tests(session: Session) -> None:
 
     :param session: The Session object.
     """
-    session.install(".[xgboost,precily,lightgbm]")
+    session.install(".[xgboost,precily,lightgbm,sparsego]")
     session.install("coverage[toml]", "pytest", "pygments")
     try:
         session.run(
@@ -188,7 +188,8 @@ def typeguard(session: Session) -> None:
 
     :param session: The Session object.
     """
-    session.install(".[xgboost,precily,lightgbm]")
+    session.install(".[xgboost,precily,lightgbm,sparsego]")
+
     session.install("pytest", "typeguard", "pygments")
     session.run(
         "pytest",
