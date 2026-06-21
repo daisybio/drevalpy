@@ -1,4 +1,11 @@
-"""Composable model components: featurizers, predictors, registries, and configs."""
+"""Composable model components: featurizers, predictors, registries, and configs.
+
+This package is the modular implementation core. It defines ``ModelConfig``,
+registries, featurizers, predictors, and the built-in zoo. Legacy experiment
+workflows still instantiate :class:`~drevalpy.models.drp_model.DRPModel`
+subclasses from :mod:`drevalpy.models`; those adapters call into this package
+via :mod:`drevalpy.models._component_bridge`.
+"""
 
 from drevalpy.components.composed_model import ComposedModel
 from drevalpy.components.config import (
@@ -11,15 +18,6 @@ from drevalpy.components.config_io import (
     model_config_from_dict,
     model_config_from_spec,
     model_config_from_yaml,
-)
-from drevalpy.components.drp_bridge import (
-    ComponentDRPBridge,
-    ensure_components_registered,
-    preview_sklearn_estimator,
-    restore_naive_to_components,
-    restore_sklearn_to_components,
-    sync_naive_from_components,
-    sync_sklearn_from_components,
 )
 from drevalpy.components.extensions import (
     load_extension_dir,
@@ -38,7 +36,7 @@ from drevalpy.components.factory import (
     sklearn_model_config_from_zoo,
 )
 from drevalpy.components.model_id import format_model_id, parse_model_id
-from drevalpy.components.register_builtins import register_builtin_components
+from drevalpy.components.register_builtins import ensure_components_registered, register_builtin_components
 from drevalpy.components.registry import (
     get_cell_line_featurizer,
     get_drug_featurizer,
@@ -104,3 +102,23 @@ __all__ = [
     "sync_sklearn_from_components",
     "zoo_model_config",
 ]
+
+_BRIDGE_LAZY_EXPORTS = frozenset(
+    {
+        "ComponentDRPBridge",
+        "preview_sklearn_estimator",
+        "restore_naive_to_components",
+        "restore_sklearn_to_components",
+        "sync_naive_from_components",
+        "sync_sklearn_from_components",
+    }
+)
+
+
+def __getattr__(name: str):
+    if name in _BRIDGE_LAZY_EXPORTS:
+        from drevalpy.models import _component_bridge
+
+        return getattr(_component_bridge, name)
+    msg = f"module {__name__!r} has no attribute {name!r}"
+    raise AttributeError(msg)

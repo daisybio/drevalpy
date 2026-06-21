@@ -1,4 +1,10 @@
-"""Module containing all drug response prediction models."""
+"""Public drug response prediction models and legacy experiment adapters.
+
+This package exposes :class:`~drevalpy.models.drp_model.DRPModel` subclasses,
+``MODEL_FACTORY``, and literature model implementations used by the CLI and
+experiment runner. Baseline classes delegate to the modular stack in
+:mod:`drevalpy.components` through :mod:`drevalpy.models._component_bridge`.
+"""
 
 __all__ = [
     "MULTI_DRUG_MODEL_FACTORY",

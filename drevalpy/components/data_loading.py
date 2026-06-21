@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from drevalpy.datasets.dataset import FeatureDataset
-from drevalpy.models.utils import (
+from drevalpy.data.features import (
     load_cl_ids_from_csv,
     load_multi_cell_line_view,
     load_single_cell_line_view,

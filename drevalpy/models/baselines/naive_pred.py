@@ -16,12 +16,12 @@ import os
 
 import numpy as np
 
-from drevalpy.components.drp_bridge import (
+from drevalpy.models._component_bridge import (
     ComponentDRPBridge,
-    ensure_components_registered,
     restore_naive_to_components,
     sync_naive_from_components,
 )
+from drevalpy.components.register_builtins import ensure_components_registered
 from drevalpy.components.factory import NAIVE_PREDICTOR_BY_MODEL_NAME, naive_model_config
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, TISSUE_IDENTIFIER

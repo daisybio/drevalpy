@@ -11,7 +11,7 @@ from sklearn.preprocessing import StandardScaler
 from drevalpy.components.featurizers._matrix import stack_view_matrix
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.registry import register_cell_line_featurizer
-from drevalpy.models.utils import (
+from drevalpy.data.preprocessing import (
     ProteomicsMedianCenterAndImputeTransformer,
     prepare_expression_and_methylation,
     prepare_proteomics,

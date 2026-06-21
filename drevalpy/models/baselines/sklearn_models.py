@@ -7,13 +7,13 @@ import joblib
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 
-from drevalpy.components.drp_bridge import (
+from drevalpy.models._component_bridge import (
     ComponentDRPBridge,
-    ensure_components_registered,
     preview_sklearn_estimator,
     restore_sklearn_to_components,
     sync_sklearn_from_components,
 )
+from drevalpy.components.register_builtins import ensure_components_registered
 from drevalpy.components.factory import SKLEARN_PREDICTOR_BY_MODEL_NAME, sklearn_model_config
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models.drp_model import DRPModel

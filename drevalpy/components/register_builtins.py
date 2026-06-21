@@ -5,23 +5,12 @@ from __future__ import annotations
 import importlib
 import inspect
 from types import ModuleType
-from typing import Any
 
-from drevalpy.components.predictors.literature import register_legacy_predictor
 from drevalpy.components.registry.core import (
     cell_line_featurizer_registry,
     drug_featurizer_registry,
     predictor_registry,
 )
-from drevalpy.models.DIPK.dipk import DIPKModel
-from drevalpy.models.DrugGNN.drug_gnn import DrugGNN
-from drevalpy.models.MOLIR.molir import MOLIR
-from drevalpy.models.PharmaFormer.pharmaformer import PharmaFormerModel
-from drevalpy.models.Precily.precily import PrecilyModel
-from drevalpy.models.SRMF.srmf import SRMF
-from drevalpy.models.SimpleNeuralNetwork.multi_view_neural_network import MultiViewNeuralNetwork
-from drevalpy.models.SimpleNeuralNetwork.simple_neural_network import SimpleNeuralNetwork
-from drevalpy.models.SuperFELTR.superfeltr import SuperFELTR
 
 
 def _restore_registry_from_module(registry, module: ModuleType) -> None:
@@ -38,8 +27,8 @@ def _restore_module_registrations(module_path: str, registry) -> None:
     _restore_registry_from_module(registry, module)
 
 
-def register_builtin_components() -> None:
-    """Register built-in featurizers, predictors, and literature stacks."""
+def register_native_components() -> None:
+    """Register native cell-line featurizers, drug featurizers, and tabular predictors."""
     for module_path, registry in (
         ("drevalpy.components.featurizers.cell_line.view", cell_line_featurizer_registry),
         ("drevalpy.components.featurizers.cell_line.multi_concat", cell_line_featurizer_registry),
@@ -50,25 +39,16 @@ def register_builtin_components() -> None:
     ):
         _restore_module_registrations(module_path, registry)
 
-    legacy_predictors = {
-        "dipk": (DIPKModel, "DIPK literature model stack."),
-        "drugGNN": (DrugGNN, "DrugGNN literature model stack."),
-        "molir": (MOLIR, "MOLIR single-drug literature model stack."),
-        "superfeltr": (SuperFELTR, "SuperFELTR single-drug literature model stack."),
-        "pharmaFormer": (PharmaFormerModel, "PharmaFormer literature model stack."),
-        "precily": (PrecilyModel, "Precily literature model stack."),
-        "srmf": (SRMF, "SRMF matrix-factorization model stack."),
-        "simpleNeuralNetwork": (SimpleNeuralNetwork, "Simple neural network baseline stack."),
-        "multiViewNeuralNetwork": (
-            MultiViewNeuralNetwork,
-            "Multi-view neural network baseline stack.",
-        ),
-    }
-    for name, (model_cls, description) in legacy_predictors.items():
-        if name not in predictor_registry.list_names():
-            register_legacy_predictor(name, model_cls, description=description)
+
+def register_builtin_components(*, include_legacy: bool = True) -> None:
+    """Register native components and optionally legacy DRPModel predictor wrappers."""
+    register_native_components()
+    if include_legacy:
+        from drevalpy.models.component_registration import register_legacy_component_predictors
+
+        register_legacy_component_predictors()
 
 
-def ensure_components_registered() -> None:
+def ensure_components_registered(*, include_legacy: bool = True) -> None:
     """Ensure built-in component registries are populated."""
-    register_builtin_components()
+    register_builtin_components(include_legacy=include_legacy)
