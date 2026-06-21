@@ -27,6 +27,7 @@ class SingleDrugElasticNet(ElasticNetModel):
         """
         super().build_model(hyperparameters)
         self.drug_views = []
+        self._init_component_model()
 
     def load_drug_features(self, data_path, dataset_name):
         """
@@ -63,6 +64,7 @@ class SingleDrugRandomForest(RandomForest):
         """
         super().build_model(hyperparameters)
         self.drug_views = []
+        self._init_component_model()
 
     def load_drug_features(self, data_path, dataset_name):
         """

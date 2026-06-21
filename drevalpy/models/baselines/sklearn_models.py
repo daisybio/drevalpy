@@ -5,13 +5,16 @@ import os
 
 import joblib
 import numpy as np
-from sklearn.ensemble import AdaBoostRegressor, HistGradientBoostingRegressor, RandomForestRegressor
-from sklearn.linear_model import ElasticNet, Lasso, Ridge
-from sklearn.neighbors import KNeighborsRegressor
 from sklearn.preprocessing import StandardScaler
-from sklearn.svm import SVR
-from sklearn.tree import DecisionTreeRegressor
 
+from drevalpy.components.drp_bridge import (
+    ComponentDRPBridge,
+    ensure_components_registered,
+    preview_sklearn_estimator,
+    restore_sklearn_to_components,
+    sync_sklearn_from_components,
+)
+from drevalpy.components.factory import SKLEARN_PREDICTOR_BY_MODEL_NAME, sklearn_model_config
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models.drp_model import DRPModel
 
@@ -20,8 +23,6 @@ from ..utils import (
     _get_view_as_list,
     load_single_cell_line_view,
     load_single_drug_view,
-    prepare_proteomics,
-    scale_gene_expression,
 )
 
 
@@ -43,6 +44,7 @@ class SklearnModel(DRPModel):
         (feature_threshold=0.7, n_features=1000, normalization_width=0.3, normalization_downshift=1.8).
         """
         super().__init__()
+        self._component_bridge = ComponentDRPBridge()
         self.model = None
         self.gene_expression_scaler = StandardScaler()
         # proteomics-specific defaults
@@ -52,6 +54,7 @@ class SklearnModel(DRPModel):
         self.proteomics_normalization_width = 0.3
         self.proteomics_normalization_downshift = 1.8
         # methylation-specific defaults
+        self.methylation_scaler = StandardScaler()
         self.methylation_pca = None
         self.methylation_n_components = 100
 
@@ -89,6 +92,23 @@ class SklearnModel(DRPModel):
         # methylation features are not supported for all models
         if "methylation" in self.cell_line_views:
             self.methylation_n_components = hyperparameters.get("methylation_n_components", 100)
+        self._init_component_model()
+
+    def _normalize_hyperparameters(self, hyperparameters: dict) -> dict:
+        normalized = dict(hyperparameters)
+        if normalized.get("max_depth") == "None":
+            normalized["max_depth"] = None
+        return normalized
+
+    def _init_component_model(self) -> None:
+        ensure_components_registered()
+        predictor_type = SKLEARN_PREDICTOR_BY_MODEL_NAME[self.get_model_name()]
+        hp = self._normalize_hyperparameters(self.hyperparameters)
+        hp["cell_line_views"] = self.cell_line_views
+        hp["drug_views"] = self.drug_views
+        config = sklearn_model_config(predictor_type, hp)
+        self._component_bridge.set_composed_config(config)
+        self.model = preview_sklearn_estimator(self._component_bridge, hp)
 
     def _init_proteomics_features(self, hyperparameters: dict):
         self.proteomics_feature_threshold = hyperparameters.get("proteomics_feature_threshold", 0.7)
@@ -140,39 +160,12 @@ class SklearnModel(DRPModel):
         :param output_earlystopping: not needed
         :param model_checkpoint_dir: not needed
         """
-        if len(output) > 0:
-            if "gene_expression" in self.cell_line_views:
-                cell_line_input = scale_gene_expression(
-                    cell_line_input=cell_line_input,
-                    cell_line_ids=np.unique(output.cell_line_ids),
-                    training=True,
-                    gene_expression_scaler=self.gene_expression_scaler,
-                )
-            elif "proteomics" in self.cell_line_views:
-                cell_line_input = prepare_proteomics(
-                    cell_line_input=cell_line_input,
-                    cell_line_ids=np.unique(output.cell_line_ids),
-                    training=True,
-                    transformer=self.proteomics_transformer,
-                )
-            if len(self.drug_views) == 0:
-                # support for single-drug models
-                drug_view = None
-            else:
-                drug_view = self.drug_views[0]
-
-            x = self.get_concatenated_features(
-                cell_line_view=self.cell_line_views[0],
-                drug_view=drug_view,
-                cell_line_ids_output=output.cell_line_ids,
-                drug_ids_output=output.drug_ids,
-                cell_line_input=cell_line_input,
-                drug_input=drug_input,
-            )
-            self.model.fit(x, output.response)
-        else:
+        if len(output) == 0:
             print("No training data provided, will predict NA.")
             self.model = None
+            return
+        self._component_bridge.train(output, cell_line_input, drug_input)
+        sync_sklearn_from_components(self)
 
     def predict(
         self,
@@ -190,40 +183,10 @@ class SklearnModel(DRPModel):
         :param cell_line_input: cell line input
         :returns: predicted drug response
         """
-        if self.model is None:
+        if not self._component_bridge.is_trained():
             print("No training data was available, predicting NA.")
             return np.array([np.nan] * len(cell_line_ids))
-
-        if "gene_expression" in self.cell_line_views:
-            cell_line_input = scale_gene_expression(
-                cell_line_input=cell_line_input,
-                cell_line_ids=np.unique(cell_line_ids),
-                training=False,
-                gene_expression_scaler=self.gene_expression_scaler,
-            )
-        elif "proteomics" in self.cell_line_views:
-            cell_line_input = prepare_proteomics(
-                cell_line_input=cell_line_input,
-                cell_line_ids=np.unique(cell_line_ids),
-                training=False,
-                transformer=self.proteomics_transformer,
-            )
-
-        if len(self.drug_views) == 0:
-            # support for single-drug models
-            drug_view = None
-        else:
-            drug_view = self.drug_views[0]
-
-        x = self.get_concatenated_features(
-            cell_line_view=self.cell_line_views[0],
-            drug_view=drug_view,
-            cell_line_ids_output=cell_line_ids,
-            drug_ids_output=drug_ids,
-            cell_line_input=cell_line_input,
-            drug_input=drug_input,
-        )
-        return self.model.predict(x)
+        return self._component_bridge.predict(cell_line_ids, drug_ids, cell_line_input, drug_input)
 
     def save(self, directory: str) -> None:
         """
@@ -242,11 +205,20 @@ class SklearnModel(DRPModel):
         if self.model is None:
             raise ValueError("Cannot save: model is not trained.")
 
+        sync_sklearn_from_components(self)
         joblib.dump(self.model, os.path.join(directory, "model.pkl"))
         with open(os.path.join(directory, "hyperparameters.json"), "w") as f:
             json.dump(getattr(self, "hyperparameters", {}), f)
         if self.gene_expression_scaler is not None:
             joblib.dump(self.gene_expression_scaler, os.path.join(directory, "scaler.pkl"))
+        if getattr(self, "methylation_scaler", None) is not None and hasattr(
+            self.methylation_scaler, "mean_"
+        ):
+            joblib.dump(self.methylation_scaler, os.path.join(directory, "methylation_scaler.pkl"))
+        if getattr(self, "methylation_pca", None) is not None and hasattr(
+            self.methylation_pca, "components_"
+        ):
+            joblib.dump(self.methylation_pca, os.path.join(directory, "methylation_pca.pkl"))
         if self.proteomics_transformer is not None:
             joblib.dump(self.proteomics_transformer, os.path.join(directory, "proteomics_transformer.pkl"))
 
@@ -276,15 +248,25 @@ class SklearnModel(DRPModel):
             hyperparameters = json.load(f)
         instance.build_model(hyperparameters)
         instance.model = joblib.load(model_path)
+        restore_sklearn_to_components(instance)
 
         scaler_path = os.path.join(directory, "scaler.pkl")
         if os.path.exists(scaler_path):
             instance.gene_expression_scaler = joblib.load(scaler_path)
 
+        methylation_scaler_path = os.path.join(directory, "methylation_scaler.pkl")
+        if os.path.exists(methylation_scaler_path):
+            instance.methylation_scaler = joblib.load(methylation_scaler_path)
+
+        methylation_pca_path = os.path.join(directory, "methylation_pca.pkl")
+        if os.path.exists(methylation_pca_path):
+            instance.methylation_pca = joblib.load(methylation_pca_path)
+
         transformer_path = os.path.join(directory, "proteomics_transformer.pkl")
         if os.path.exists(transformer_path):
             instance.proteomics_transformer = joblib.load(transformer_path)
 
+        restore_sklearn_to_components(instance)
         return instance
 
 
@@ -307,15 +289,6 @@ class ElasticNetModel(SklearnModel):
         :param hyperparameters: Contains L1 ratio and alpha.
         """
         super().build_model(hyperparameters)
-        if self.hyperparameters["l1_ratio"] == 0.0:
-            self.model = Ridge(alpha=self.hyperparameters["alpha"])
-        elif self.hyperparameters["l1_ratio"] == 1.0:
-            self.model = Lasso(alpha=self.hyperparameters["alpha"])
-        else:
-            self.model = ElasticNet(
-                alpha=self.hyperparameters["alpha"],
-                l1_ratio=self.hyperparameters["l1_ratio"],
-            )
 
 
 class RandomForest(SklearnModel):
@@ -338,15 +311,6 @@ class RandomForest(SklearnModel):
             max_depth and n_jobs.
         """
         super().build_model(hyperparameters)
-        if self.hyperparameters["max_depth"] == "None":
-            self.hyperparameters["max_depth"] = None
-        self.model = RandomForestRegressor(
-            n_estimators=self.hyperparameters["n_estimators"],
-            criterion=self.hyperparameters["criterion"],
-            max_samples=self.hyperparameters["max_samples"],
-            max_depth=self.hyperparameters["max_depth"],
-            n_jobs=self.hyperparameters["n_jobs"],
-        )
 
 
 class SVMRegressor(SklearnModel):
@@ -368,12 +332,6 @@ class SVMRegressor(SklearnModel):
         :param hyperparameters: Hyperparameters for the model. Contains kernel, C, epsilon, and max_iter.
         """
         super().build_model(hyperparameters)
-        self.model = SVR(
-            kernel=self.hyperparameters["kernel"],
-            C=self.hyperparameters["C"],
-            epsilon=self.hyperparameters["epsilon"],
-            max_iter=self.hyperparameters["max_iter"],
-        )
 
 
 class GradientBoosting(SklearnModel):
@@ -396,13 +354,6 @@ class GradientBoosting(SklearnModel):
             and subsample
         """
         super().build_model(hyperparameters)
-        if self.hyperparameters["max_depth"] == "None":
-            self.hyperparameters["max_depth"] = None
-        self.model = HistGradientBoostingRegressor(
-            max_iter=self.hyperparameters.get("max_iter", 100),
-            learning_rate=self.hyperparameters.get("learning_rate", 0.1),
-            max_depth=self.hyperparameters.get("max_depth", 3),
-        )
 
 
 class AdaBoostDecisionTree(SklearnModel):
@@ -425,14 +376,6 @@ class AdaBoostDecisionTree(SklearnModel):
             min_samples_split and min_samples_leaf.
         """
         super().build_model(hyperparameters)
-        self.model = AdaBoostRegressor(
-            estimator=DecisionTreeRegressor(
-                max_depth=self.hyperparameters["max_depth"],
-                min_samples_split=self.hyperparameters["min_samples_split"],
-                min_samples_leaf=self.hyperparameters["min_samples_leaf"],
-            ),
-            n_estimators=self.hyperparameters["n_estimators"],
-        )
 
 
 class LassoModel(SklearnModel):
@@ -454,12 +397,6 @@ class LassoModel(SklearnModel):
         :param hyperparameters: Contains alpha.
         """
         super().build_model(hyperparameters)
-        self.model = Lasso(
-            alpha=self.hyperparameters["alpha"],
-            max_iter=10000,
-            tol=1e-3,
-            selection="random",
-        )
 
 
 class KNNRegressor(SklearnModel):
@@ -481,6 +418,3 @@ class KNNRegressor(SklearnModel):
         :param hyperparameters: Hyperparameters for the model. Contains neighbors, weights.
         """
         super().build_model(hyperparameters)
-        self.model = KNeighborsRegressor(
-            n_neighbors=self.hyperparameters["n_neighbors"], weights=self.hyperparameters.get("weights", "distance")
-        )
