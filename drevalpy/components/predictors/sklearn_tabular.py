@@ -58,3 +58,19 @@ class SklearnTabularPredictor(Predictor):
         if self._estimator is None:
             return np.full(len(x), np.nan, dtype=np.float64)
         return np.asarray(self._estimator.predict(x), dtype=np.float64)
+
+    def get_state(self) -> dict[str, object]:
+        return {
+            "estimator": self._estimator,
+            "hyperparameters": dict(self._h),
+            "mode": self._mode.value,
+        }
+
+    def set_state(self, state: dict[str, object]) -> None:
+        self._estimator = state.get("estimator")
+        self._h = dict(state.get("hyperparameters", {}))
+        mode = state.get("mode", PredictionMode.REGRESSION)
+        self._mode = PredictionMode(mode) if isinstance(mode, str) else mode
+
+    def is_fitted(self) -> bool:
+        return self._estimator is not None

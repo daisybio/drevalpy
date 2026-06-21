@@ -60,3 +60,15 @@ class Predictor(ABC):
         pair_context: PairContext | None = None,
     ) -> np.ndarray:
         """Predict response for feature rows."""
+
+    def get_state(self) -> dict[str, object]:
+        """Return serializable fitted state for legacy save/load bridges."""
+        return {}
+
+    def set_state(self, state: dict[str, object]) -> None:
+        """Restore fitted state produced by :meth:`get_state`."""
+        _ = state
+
+    def is_fitted(self) -> bool:
+        """Return whether the predictor has been fit."""
+        return bool(self.get_state())

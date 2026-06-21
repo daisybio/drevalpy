@@ -134,3 +134,33 @@ LEGACY_PREDICTOR_BY_MODEL_NAME = {
     "SimpleNeuralNetwork": "simpleNeuralNetwork",
     "MultiViewNeuralNetwork": "multiViewNeuralNetwork",
 }
+
+
+def model_config_for_name(model_name: str, hyperparameters: dict[str, Any] | None = None) -> ModelConfig:
+    """Resolve a legacy model name to a modular config, preferring zoo entries."""
+    from drevalpy.components.zoo import get_zoo_config, list_zoo_names, zoo_model_config
+
+    hp = hyperparameters or {}
+    if model_name in list_zoo_names(include_external=True):
+        return zoo_model_config(model_name, hp)
+    if model_name in SKLEARN_PREDICTOR_BY_MODEL_NAME:
+        return sklearn_model_config(SKLEARN_PREDICTOR_BY_MODEL_NAME[model_name], hp)
+    if model_name in NAIVE_PREDICTOR_BY_MODEL_NAME:
+        return naive_model_config(NAIVE_PREDICTOR_BY_MODEL_NAME[model_name])
+    if model_name in LEGACY_PREDICTOR_BY_MODEL_NAME:
+        return legacy_model_config(LEGACY_PREDICTOR_BY_MODEL_NAME[model_name], hp)
+    msg = f"Unknown model name: {model_name}"
+    raise KeyError(msg)
+
+
+def sklearn_model_config_from_zoo(model_name: str, hyperparameters: dict[str, Any]) -> ModelConfig:
+    """Compatibility helper that resolves sklearn baselines through the zoo when available."""
+    from drevalpy.components.zoo import list_zoo_names, zoo_model_config
+
+    if model_name in list_zoo_names(include_external=True):
+        return zoo_model_config(model_name, hyperparameters)
+    predictor_type = SKLEARN_PREDICTOR_BY_MODEL_NAME.get(model_name)
+    if predictor_type is None:
+        msg = f"Not a sklearn baseline model name: {model_name}"
+        raise KeyError(msg)
+    return sklearn_model_config(predictor_type, hyperparameters)

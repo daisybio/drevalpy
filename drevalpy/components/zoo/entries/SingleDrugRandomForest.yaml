@@ -1,0 +1,6 @@
+cell_line_featurizer:
+  type: scaledGeneExpression
+  hyperparameters:
+    view: gene_expression
+predictor:
+  type: randomForest

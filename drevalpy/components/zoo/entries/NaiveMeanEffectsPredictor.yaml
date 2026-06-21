@@ -1,0 +1,2 @@
+predictor:
+  type: naiveMeanEffects

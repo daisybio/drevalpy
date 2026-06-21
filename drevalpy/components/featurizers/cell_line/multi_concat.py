@@ -111,3 +111,37 @@ class MultiConcatCellLineFeaturizer(CellLineFeaturizer):
         return {
             "methylation_n_components": {"type": "int", "low": 20, "high": 200, "default": 100},
         }
+
+    def get_state(self) -> dict[str, object]:
+        return {
+            "views": list(self._views),
+            "gene_expression_scaler": self._gene_expression_scaler,
+            "methylation_scaler": self._methylation_scaler,
+            "methylation_pca": self._methylation_pca,
+            "proteomics_transformer": self._proteomics_transformer,
+            "output_dim": self._output_dim,
+            "train_ids": self._train_ids,
+        }
+
+    def set_state(self, state: dict[str, object]) -> None:
+        views = state.get("views")
+        if views is not None:
+            self._views = list(views)
+        gene_expression_scaler = state.get("gene_expression_scaler")
+        if gene_expression_scaler is not None:
+            self._gene_expression_scaler = gene_expression_scaler
+        methylation_scaler = state.get("methylation_scaler")
+        if methylation_scaler is not None:
+            self._methylation_scaler = methylation_scaler
+        methylation_pca = state.get("methylation_pca")
+        if methylation_pca is not None:
+            self._methylation_pca = methylation_pca
+        proteomics_transformer = state.get("proteomics_transformer")
+        if proteomics_transformer is not None:
+            self._proteomics_transformer = proteomics_transformer
+        output_dim = state.get("output_dim")
+        if output_dim is not None:
+            self._output_dim = int(output_dim)
+        train_ids = state.get("train_ids")
+        if train_ids is not None:
+            self._train_ids = np.asarray(train_ids)

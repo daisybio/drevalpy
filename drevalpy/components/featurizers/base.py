@@ -51,3 +51,11 @@ class Featurizer(ABC):
             for key, spec in cls.get_hyperparameter_space().items()
             if isinstance(spec, dict) and "default" in spec
         }
+
+    def get_state(self) -> dict[str, object]:
+        """Return serializable fitted state for legacy save/load bridges."""
+        return {}
+
+    def set_state(self, state: dict[str, object]) -> None:
+        """Restore fitted state produced by :meth:`get_state`."""
+        _ = state

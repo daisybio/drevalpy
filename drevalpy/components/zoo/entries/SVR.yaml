@@ -1,0 +1,9 @@
+cell_line_featurizer:
+  type: scaledGeneExpression
+  hyperparameters:
+    view: gene_expression
+drug_featurizer:
+  type: fingerprints
+  registry: drug
+predictor:
+  type: svr

@@ -96,6 +96,19 @@ class ScaledGeneExpressionFeaturizer(CellLineFeaturizer):
     def output_dim(self) -> int:
         return self._output_dim
 
+    def get_state(self) -> dict[str, object]:
+        return {
+            "gene_expression_scaler": self._scaler,
+            "fitted": self._fitted_features is not None,
+        }
+
+    def set_state(self, state: dict[str, object]) -> None:
+        scaler = state.get("gene_expression_scaler")
+        if scaler is not None:
+            self._scaler = scaler
+        if state.get("fitted"):
+            self._fitted_features = object()
+
 
 @register_cell_line_featurizer(
     "pca",
@@ -197,3 +210,11 @@ class ProteomicsCellLineFeaturizer(CellLineFeaturizer):
     @property
     def output_dim(self) -> int:
         return self._output_dim
+
+    def get_state(self) -> dict[str, object]:
+        return {"proteomics_transformer": self._transformer}
+
+    def set_state(self, state: dict[str, object]) -> None:
+        transformer = state.get("proteomics_transformer")
+        if transformer is not None:
+            self._transformer = transformer

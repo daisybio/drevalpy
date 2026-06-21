@@ -51,6 +51,19 @@ class NaiveMeanPredictor(BaselinePredictor):
         n = len(pair_context.cell_line_ids) if pair_context is not None else len(x)
         return np.full(n, self._dataset_mean, dtype=np.float64)
 
+    def get_state(self) -> dict[str, object]:
+        if self._dataset_mean is None:
+            return {}
+        return {"dataset_mean": self._dataset_mean}
+
+    def set_state(self, state: dict[str, object]) -> None:
+        mean = state.get("dataset_mean")
+        if mean is not None:
+            self._dataset_mean = float(mean)
+
+    def is_fitted(self) -> bool:
+        return self._dataset_mean is not None
+
 
 class _SingleEntityNaivePredictor(BaselinePredictor):
     def __init__(self) -> None:
@@ -93,6 +106,28 @@ class _SingleEntityNaivePredictor(BaselinePredictor):
             dtype=np.float64,
         )
 
+    def _legacy_entity_means_key(self) -> str:
+        raise NotImplementedError
+
+    def get_state(self) -> dict[str, object]:
+        if self._dataset_mean is None:
+            return {}
+        return {
+            "dataset_mean": self._dataset_mean,
+            self._legacy_entity_means_key(): dict(self._entity_means),
+        }
+
+    def set_state(self, state: dict[str, object]) -> None:
+        mean = state.get("dataset_mean")
+        if mean is not None:
+            self._dataset_mean = float(mean)
+        entity_means = state.get(self._legacy_entity_means_key(), {})
+        if entity_means:
+            self._entity_means = {str(key): float(value) for key, value in entity_means.items()}
+
+    def is_fitted(self) -> bool:
+        return self._dataset_mean is not None
+
 
 @register_predictor(
     "naiveDrugMean",
@@ -103,6 +138,9 @@ class NaiveDrugMeanPredictor(_SingleEntityNaivePredictor):
     def _entity_keys(self, pair_context: PairContext) -> np.ndarray:
         return pair_context.drug_ids
 
+    def _legacy_entity_means_key(self) -> str:
+        return "drug_means"
+
 
 @register_predictor(
     "naiveCellLineMean",
@@ -112,6 +150,9 @@ class NaiveDrugMeanPredictor(_SingleEntityNaivePredictor):
 class NaiveCellLineMeanPredictor(_SingleEntityNaivePredictor):
     def _entity_keys(self, pair_context: PairContext) -> np.ndarray:
         return pair_context.cell_line_ids
+
+    def _legacy_entity_means_key(self) -> str:
+        return "cell_line_means"
 
 
 @register_predictor(
@@ -125,6 +166,9 @@ class NaiveTissueMeanPredictor(_SingleEntityNaivePredictor):
             msg = "NaiveTissueMeanPredictor requires tissue_ids in pair_context"
             raise ValueError(msg)
         return pair_context.tissue_ids
+
+    def _legacy_entity_means_key(self) -> str:
+        return "tissue_means"
 
 
 @register_predictor(
@@ -184,6 +228,30 @@ class NaiveTissueDrugMeanPredictor(BaselinePredictor):
             dtype=np.float64,
         )
 
+    def get_state(self) -> dict[str, object]:
+        if self._dataset_mean is None:
+            return {}
+        return {
+            "dataset_mean": self._dataset_mean,
+            "tissue_drug_means": {
+                tuple(key.split("|", maxsplit=1)): mean for key, mean in self._combo_means.items()
+            },
+        }
+
+    def set_state(self, state: dict[str, object]) -> None:
+        mean = state.get("dataset_mean")
+        if mean is not None:
+            self._dataset_mean = float(mean)
+        combo_means = state.get("tissue_drug_means", {})
+        if combo_means:
+            self._combo_means = {
+                f"{tissue}|{drug}": float(value)
+                for (tissue, drug), value in combo_means.items()
+            }
+
+    def is_fitted(self) -> bool:
+        return self._dataset_mean is not None
+
 
 @register_predictor(
     "naiveMeanEffects",
@@ -238,3 +306,26 @@ class NaiveMeanEffectsPredictor(BaselinePredictor):
             ],
             dtype=np.float64,
         )
+
+    def get_state(self) -> dict[str, object]:
+        if self._dataset_mean is None:
+            return {}
+        return {
+            "dataset_mean": self._dataset_mean,
+            "cell_line_effects": dict(self._cell_line_effects),
+            "drug_effects": dict(self._drug_effects),
+        }
+
+    def set_state(self, state: dict[str, object]) -> None:
+        mean = state.get("dataset_mean")
+        if mean is not None:
+            self._dataset_mean = float(mean)
+        cell_line_effects = state.get("cell_line_effects")
+        if cell_line_effects:
+            self._cell_line_effects = {str(k): float(v) for k, v in cell_line_effects.items()}
+        drug_effects = state.get("drug_effects")
+        if drug_effects:
+            self._drug_effects = {str(k): float(v) for k, v in drug_effects.items()}
+
+    def is_fitted(self) -> bool:
+        return self._dataset_mean is not None
