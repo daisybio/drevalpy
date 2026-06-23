@@ -42,6 +42,10 @@ def test_factory() -> None:
     assert "MOLIR" in MODEL_FACTORY
     assert "SuperFELTR" in MODEL_FACTORY
     assert "DIPK" in MODEL_FACTORY
+    assert "GCMF" in MODEL_FACTORY
+    assert "PGCMF" in MODEL_FACTORY
+    assert "RGCMF" in MODEL_FACTORY
+    assert "PRGCMF" in MODEL_FACTORY
 
 
 def test_load_cl_ids_from_csv() -> None:

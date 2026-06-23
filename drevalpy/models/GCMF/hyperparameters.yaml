@@ -1,0 +1,240 @@
+---
+GCMF:
+  cell_line_views:
+    - - gene_expression
+  drug_views:
+    - - fingerprints
+  gene_list:
+    - landmark_genes
+  n_bits:
+    - 256
+  hidden_dim:
+    - 320
+  emb_dim:
+    - 160
+  n_gnn_layers:
+    - 2
+  dropout:
+    - 0.3
+  use_mlp_head:
+    - true
+  mlp_hidden:
+    - 256
+  n_mlp_layers:
+    - 1
+  head_raw_features:
+    - false
+  use_drug_id_embedding:
+    - true
+  k_cell:
+    - 12
+  k_drug:
+    - 15
+  use_edge_weights:
+    - true
+  learning_rate:
+    - 0.001
+  weight_decay:
+    - 0.00001
+  emb_l2:
+    - 0.0
+  within_drug_weight:
+    - 1.0
+  batch_size:
+    - 8192
+  max_epochs:
+    - 300
+  patience:
+    - 25
+  n_ensemble:
+    - 5
+  seed:
+    - 0
+
+PGCMF:
+  cell_line_views:
+    - - gene_expression
+  drug_views:
+    - - fingerprints
+  gene_list:
+    - landmark_genes
+  n_bits:
+    - 256
+  hidden_dim:
+    - 320
+  emb_dim:
+    - 160
+  n_gnn_layers:
+    - 2
+  dropout:
+    - 0.3
+  use_mlp_head:
+    - true
+  mlp_hidden:
+    - 256
+  n_mlp_layers:
+    - 1
+  head_raw_features:
+    - false
+  use_drug_id_embedding:
+    - true
+  probabilistic:
+    - true
+  k_cell:
+    - 12
+  k_drug:
+    - 15
+  use_edge_weights:
+    - true
+  learning_rate:
+    - 0.001
+  weight_decay:
+    - 0.00001
+  emb_l2:
+    - 0.0
+  within_drug_weight:
+    - 0.0
+  batch_size:
+    - 8192
+  max_epochs:
+    - 300
+  patience:
+    - 25
+  n_ensemble:
+    - 5
+  seed:
+    - 0
+
+RGCMF:
+  cell_line_views:
+    - - gene_expression
+  drug_views:
+    - - fingerprints
+  cell_relation_views:
+    - - gene_expression
+      - methylation
+      - mutations
+      - copy_number_variation_gistic
+  drug_relation_views:
+    - - drug_pathways
+      - drug_bioassay
+  gene_list:
+    - gene_expression_intersection
+  feature_transform:
+    - rank
+  relation_attention:
+    - true
+  gnn_root:
+    - true
+  n_bits:
+    - 256
+  hidden_dim:
+    - 256
+  emb_dim:
+    - 128
+  n_gnn_layers:
+    - 2
+  dropout:
+    - 0.2
+  use_mlp_head:
+    - true
+  mlp_hidden:
+    - 256
+  n_mlp_layers:
+    - 1
+  head_raw_features:
+    - false
+  use_drug_id_embedding:
+    - true
+  k_cell:
+    - 8
+  k_drug:
+    - 15
+  use_edge_weights:
+    - true
+  learning_rate:
+    - 0.001
+  weight_decay:
+    - 0.00001
+  emb_l2:
+    - 0.0001
+  within_drug_weight:
+    - 1.0
+  batch_size:
+    - 8192
+  max_epochs:
+    - 300
+  patience:
+    - 25
+  n_ensemble:
+    - 5
+  seed:
+    - 0
+
+PRGCMF:
+  cell_line_views:
+    - - gene_expression
+  drug_views:
+    - - fingerprints
+  cell_relation_views:
+    - - gene_expression
+      - methylation
+      - mutations
+      - copy_number_variation_gistic
+  drug_relation_views:
+    - - drug_pathways
+      - drug_bioassay
+  gene_list:
+    - gene_expression_intersection
+  feature_transform:
+    - rank
+  relation_attention:
+    - true
+  gnn_root:
+    - true
+  probabilistic:
+    - true
+  n_bits:
+    - 256
+  hidden_dim:
+    - 256
+  emb_dim:
+    - 128
+  n_gnn_layers:
+    - 2
+  dropout:
+    - 0.2
+  use_mlp_head:
+    - true
+  mlp_hidden:
+    - 256
+  n_mlp_layers:
+    - 1
+  head_raw_features:
+    - false
+  use_drug_id_embedding:
+    - true
+  k_cell:
+    - 8
+  k_drug:
+    - 15
+  use_edge_weights:
+    - true
+  learning_rate:
+    - 0.001
+  weight_decay:
+    - 0.00001
+  emb_l2:
+    - 0.0001
+  within_drug_weight:
+    - 1.0
+  batch_size:
+    - 8192
+  max_epochs:
+    - 300
+  patience:
+    - 25
+  n_ensemble:
+    - 5
+  seed:
+    - 0
