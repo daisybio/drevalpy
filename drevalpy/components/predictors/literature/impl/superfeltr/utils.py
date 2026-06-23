@@ -9,9 +9,9 @@ import torch
 from pytorch_lightning.callbacks import EarlyStopping, TQDMProgressBar
 from torch import nn
 
-from ...datasets.dataset import DrugResponseDataset, FeatureDataset
-from ..lightning_metrics_mixin import RegressionMetricsMixin
-from ..MOLIR.utils import create_dataset_and_loaders, generate_triplets_indices
+from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.models.lightning_metrics_mixin import RegressionMetricsMixin
+from drevalpy.components.predictors.literature.impl.molir.utils import create_dataset_and_loaders, generate_triplets_indices
 
 
 class SuperFELTEncoder(pl.LightningModule):

@@ -1,0 +1,10 @@
+cell_line_featurizer:
+  type: multiViewStructured
+  hyperparameters:
+    views:
+      - gene_expression
+      - bionic_features
+drug_featurizer:
+  type: molgnet
+predictor:
+  type: dipk

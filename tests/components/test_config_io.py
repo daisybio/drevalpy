@@ -30,6 +30,14 @@ def test_model_config_from_triple_spec() -> None:
     assert config.predictor.type == "elasticNet"
 
 
+def test_model_config_from_legacy_name() -> None:
+    from drevalpy.components.register_builtins import register_builtin_components
+
+    register_builtin_components()
+    config = model_config_from_spec("ElasticNet")
+    assert config.predictor.type == "elasticNet"
+
+
 def test_model_config_from_dict_with_sections() -> None:
     config = model_config_from_dict(
         {

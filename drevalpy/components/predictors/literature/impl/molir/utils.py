@@ -18,8 +18,8 @@ from torch.utils.data import DataLoader, Dataset
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 
-from ..drp_model import DRPModel
-from ..lightning_metrics_mixin import RegressionMetricsMixin
+from drevalpy.models.drp_model import DRPModel
+from drevalpy.models.lightning_metrics_mixin import RegressionMetricsMixin
 
 
 class RegressionDataset(Dataset):

@@ -32,23 +32,38 @@ def register_native_components() -> None:
     for module_path, registry in (
         ("drevalpy.components.featurizers.cell_line.view", cell_line_featurizer_registry),
         ("drevalpy.components.featurizers.cell_line.multi_concat", cell_line_featurizer_registry),
+        ("drevalpy.components.featurizers.cell_line.landmark", cell_line_featurizer_registry),
+        ("drevalpy.components.featurizers.cell_line.multi_view", cell_line_featurizer_registry),
+        ("drevalpy.components.featurizers.cell_line.pathways", cell_line_featurizer_registry),
+        ("drevalpy.components.featurizers.cell_line.bionic", cell_line_featurizer_registry),
         ("drevalpy.components.featurizers.drug.view", drug_featurizer_registry),
+        ("drevalpy.components.featurizers.drug.molgnet", drug_featurizer_registry),
+        ("drevalpy.components.featurizers.drug.bpe_pharmaformer", drug_featurizer_registry),
+        ("drevalpy.components.featurizers.drug.smilesvec", drug_featurizer_registry),
         ("drevalpy.components.predictors.naive", predictor_registry),
         ("drevalpy.components.predictors.sklearn_models", predictor_registry),
         ("drevalpy.components.predictors.xgboost_pred", predictor_registry),
+        ("drevalpy.components.predictors.literature.neural_network", predictor_registry),
     ):
         _restore_module_registrations(module_path, registry)
 
 
-def register_builtin_components(*, include_legacy: bool = True) -> None:
-    """Register native components and optionally legacy DRPModel predictor wrappers."""
+def register_literature_components() -> None:
+    """Register literature predictors that depend on drevalpy.models DRPModel stacks."""
+    for module_path in (
+        "drevalpy.components.predictors.literature.druggnn",
+        "drevalpy.components.predictors.literature.structured_predictors",
+    ):
+        _restore_module_registrations(module_path, predictor_registry)
+
+
+def register_builtin_components(*, include_legacy: bool = False) -> None:
+    """Register native components and optional legacy DRPModel predictor wrappers."""
     register_native_components()
-    if include_legacy:
-        from drevalpy.models.component_registration import register_legacy_component_predictors
-
-        register_legacy_component_predictors()
+    register_literature_components()
 
 
-def ensure_components_registered(*, include_legacy: bool = True) -> None:
+def ensure_components_registered(*, include_legacy: bool = False) -> None:
     """Ensure built-in component registries are populated."""
-    register_builtin_components(include_legacy=include_legacy)
+    _ = include_legacy
+    register_builtin_components()

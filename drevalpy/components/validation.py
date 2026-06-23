@@ -54,6 +54,12 @@ def validate_model_config(config: ModelConfig) -> None:
     """Check registry slots, feature compatibility, and prediction mode."""
     if config.cell_line_featurizer is None and config.drug_featurizer is None:
         pred_cls = _registry_lookup.get_predictor(config.predictor.type)
+        if getattr(pred_cls, "uses_structured_features", False):
+            msg = (
+                f"Predictor {config.predictor.type!r} requires a cell_line_featurizer; "
+                "literature models must declare their input representations explicitly."
+            )
+            raise ValueError(msg)
         if getattr(pred_cls, "uses_features", True):
             msg = (
                 f"Predictor {config.predictor.type!r} uses feature matrices; "
@@ -71,8 +77,24 @@ def validate_model_config(config: ModelConfig) -> None:
             raise ValueError(msg)
         return
 
-    if config.cell_line_featurizer is None and config.drug_featurizer is None:
-        msg = "At least one featurizer must be set when using a feature-based predictor"
+    pred_cls = _registry_lookup.get_predictor(config.predictor.type)
+    uses_features = getattr(pred_cls, "uses_features", True)
+    uses_structured = getattr(pred_cls, "uses_structured_features", False)
+    requires_drug = getattr(pred_cls, "requires_drug_featurizer", True)
+
+    if uses_structured and config.cell_line_featurizer is None:
+        msg = (
+            f"Predictor {config.predictor.type!r} requires a cell_line_featurizer; "
+            "literature models must declare their input representations explicitly."
+        )
+        raise ValueError(msg)
+
+    if uses_structured and requires_drug and config.drug_featurizer is None:
+        msg = f"Predictor {config.predictor.type!r} requires a drug_featurizer"
+        raise ValueError(msg)
+
+    if uses_features and not uses_structured and config.cell_line_featurizer is None:
+        msg = "cell_line_featurizer must be set for feature-based predictors"
         raise ValueError(msg)
 
     if config.cell_line_featurizer is not None and config.cell_line_featurizer.registry != "cell_line":
@@ -89,8 +111,6 @@ def validate_model_config(config: ModelConfig) -> None:
         _validate_view_fields(config.cell_line_featurizer, label="cell_line_featurizer")
     if config.drug_featurizer is not None:
         _validate_view_fields(config.drug_featurizer, label="drug_featurizer")
-
-    pred_cls = _registry_lookup.get_predictor(config.predictor.type)
 
     supported = getattr(pred_cls, "supported_modes", None)
     if supported is not None and config.prediction_mode not in supported:

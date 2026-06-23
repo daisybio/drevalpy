@@ -53,6 +53,7 @@ class MultiConcatCellLineFeaturizer(CellLineFeaturizer):
             normalization_downshift=proteomics_normalization_downshift,
         )
         self._output_dim = 0
+        self._view_dims: dict[str, int] = {}
         self._train_ids: np.ndarray | None = None
 
     def _preprocess(self, features, entity_ids: np.ndarray, *, training: bool):
@@ -86,10 +87,9 @@ class MultiConcatCellLineFeaturizer(CellLineFeaturizer):
         ids = entity_ids if entity_ids is not None else np.array(list(features.features.keys()))
         self._train_ids = np.unique(ids)
         processed = self._preprocess(features, ids, training=True)
-        rows = [
-            stack_view_matrix(processed, view, np.array(list(processed.features.keys())))
-            for view in self._views
-        ]
+        entity_matrix_ids = np.array(list(processed.features.keys()))
+        rows = [stack_view_matrix(processed, view, entity_matrix_ids) for view in self._views]
+        self._view_dims = {view: int(rows[index].shape[1]) for index, view in enumerate(self._views)}
         matrix = np.concatenate(rows, axis=1)
         self._output_dim = int(matrix.shape[1])
         return self
@@ -106,6 +106,10 @@ class MultiConcatCellLineFeaturizer(CellLineFeaturizer):
     def output_dim(self) -> int:
         return self._output_dim
 
+    @property
+    def view_dims(self) -> dict[str, int]:
+        return dict(self._view_dims)
+
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
         return {
@@ -115,6 +119,7 @@ class MultiConcatCellLineFeaturizer(CellLineFeaturizer):
     def get_state(self) -> dict[str, object]:
         return {
             "views": list(self._views),
+            "view_dims": dict(self._view_dims),
             "gene_expression_scaler": self._gene_expression_scaler,
             "methylation_scaler": self._methylation_scaler,
             "methylation_pca": self._methylation_pca,
@@ -127,6 +132,9 @@ class MultiConcatCellLineFeaturizer(CellLineFeaturizer):
         views = state.get("views")
         if views is not None:
             self._views = list(views)
+        view_dims = state.get("view_dims")
+        if view_dims is not None:
+            self._view_dims = dict(view_dims)
         gene_expression_scaler = state.get("gene_expression_scaler")
         if gene_expression_scaler is not None:
             self._gene_expression_scaler = gene_expression_scaler

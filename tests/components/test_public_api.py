@@ -12,6 +12,7 @@ def test_public_exports_are_importable() -> None:
         "PredictorConfig",
         "PredictionMode",
         "ComposedModel",
+        "build_model_config_from_spec",
         "ensure_components_registered",
         "register_builtin_components",
         "register_cell_line_featurizer",
@@ -23,6 +24,7 @@ def test_public_exports_are_importable() -> None:
         "load_extensions",
         "list_zoo_names",
         "get_zoo_config",
+        "list_predictor_metadata",
     }
     for name in expected:
         assert hasattr(components, name), name

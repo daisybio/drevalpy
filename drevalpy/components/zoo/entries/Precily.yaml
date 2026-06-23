@@ -1,0 +1,6 @@
+cell_line_featurizer:
+  type: pathways
+drug_featurizer:
+  type: smilesvec
+predictor:
+  type: precily

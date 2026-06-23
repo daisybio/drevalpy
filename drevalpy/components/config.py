@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import StrEnum
+from pathlib import Path
 from typing import Any, Literal
 
 
@@ -100,3 +101,34 @@ class ModelConfig:
             predictor_hyperparameters=self.predictor.hyperparameters,
             prediction_mode=self.prediction_mode,
         )
+
+    @classmethod
+    def from_spec(
+        cls,
+        spec: str,
+        *,
+        hyperparameters: dict[str, Any] | None = None,
+        prediction_mode: PredictionMode = PredictionMode.REGRESSION,
+    ) -> ModelConfig:
+        """Build a config from a recipe, zoo, legacy, or baseline spec string."""
+        from drevalpy.components.model_config_spec import build_model_config_from_spec
+
+        return build_model_config_from_spec(
+            spec,
+            hyperparameters=hyperparameters,
+            prediction_mode=prediction_mode,
+        )
+
+    @classmethod
+    def from_yaml(cls, path: Path | str) -> ModelConfig:
+        """Load a config from a YAML file."""
+        from drevalpy.components.config_io import model_config_from_yaml
+
+        return model_config_from_yaml(path)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> ModelConfig:
+        """Build a config from a plain dictionary."""
+        from drevalpy.components.config_io import model_config_from_dict
+
+        return model_config_from_dict(data)

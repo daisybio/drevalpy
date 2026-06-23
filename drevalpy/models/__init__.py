@@ -1,9 +1,11 @@
 """Public drug response prediction models and legacy experiment adapters.
 
 This package exposes :class:`~drevalpy.models.drp_model.DRPModel` subclasses,
-``MODEL_FACTORY``, and literature model implementations used by the CLI and
-experiment runner. Baseline classes delegate to the modular stack in
-:mod:`drevalpy.components` through :mod:`drevalpy.models._component_bridge`.
+``MODEL_FACTORY``, and literature model compatibility classes. Baseline classes
+delegate to the modular stack in :mod:`drevalpy.components` through
+:mod:`drevalpy.models._component_bridge`. Literature models are implemented under
+:mod:`drevalpy.components.predictors.literature` and exposed here for backward
+compatibility.
 """
 
 __all__ = [
@@ -61,17 +63,19 @@ from .baselines.sklearn_models import (
     RandomForest,
     SVMRegressor,
 )
-from .DIPK.dipk import DIPKModel
+from drevalpy.components.predictors.literature.public_models import (
+    DIPKModel,
+    DrugGNN,
+    MOLIR,
+    MultiViewNeuralNetwork,
+    PharmaFormerModel,
+    PrecilyModel,
+    SRMF,
+    SimpleNeuralNetwork,
+    SuperFELTR,
+)
 from .drp_model import DRPModel
-from .DrugGNN import DrugGNN
-from .MOLIR.molir import MOLIR
-from .PharmaFormer.pharmaformer import PharmaFormerModel
-from .Precily import PrecilyModel
-from .SimpleNeuralNetwork.multi_view_neural_network import MultiViewNeuralNetwork
-from .SimpleNeuralNetwork.simple_neural_network import SimpleNeuralNetwork
 from .SparseGO.sparsego import SparseGOModel
-from .SRMF.srmf import SRMF
-from .SuperFELTR.superfeltr import SuperFELTR
 
 # SINGLE_DRUG_MODEL_FACTORY is used in the pipeline!
 SINGLE_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]] = {

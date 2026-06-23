@@ -144,9 +144,18 @@ class DrugGraphFeaturizer(DrugFeaturizer):
         return self
 
     def transform(self, features, entity_ids: np.ndarray) -> np.ndarray:
-        # Graph predictors consume the cached graph objects directly.
-        _ = features
-        return np.array([self._graphs[str(drug_id)] for drug_id in entity_ids], dtype=object)
+        graphs: list[object] = []
+        for drug_id in entity_ids:
+            drug_key = str(drug_id)
+            if drug_key in self._graphs:
+                graphs.append(self._graphs[drug_key])
+                continue
+            views = features.features.get(drug_key)
+            if views is None or self._view not in views:
+                msg = f"View {self._view!r} missing for drug {drug_key!r}"
+                raise KeyError(msg)
+            graphs.append(views[self._view])
+        return np.array(graphs, dtype=object)
 
     @property
     def output_dim(self) -> int:

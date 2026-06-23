@@ -8,7 +8,6 @@ from typing import Any
 import yaml
 
 from drevalpy.components.config import FeaturizerConfig, ModelConfig, PredictorConfig, PredictionMode
-from drevalpy.components.model_id import parse_model_id
 
 
 def _featurizer_from_dict(data: dict[str, Any], *, registry: str) -> FeaturizerConfig:
@@ -72,20 +71,15 @@ def model_config_from_dict(data: dict[str, Any]) -> ModelConfig:
     )
 
 
-def model_config_from_spec(spec: str) -> ModelConfig:
-    """Build a :class:`ModelConfig` from a triple or predictor-only string."""
-    cell_line_type, drug_type, predictor_type = parse_model_id(spec.strip())
-    if cell_line_type is None:
-        return ModelConfig(
-            cell_line_featurizer=None,
-            drug_featurizer=None,
-            predictor=PredictorConfig(type=predictor_type),
-        )
-    return ModelConfig(
-        cell_line_featurizer=FeaturizerConfig(type=cell_line_type, registry="cell_line"),
-        drug_featurizer=FeaturizerConfig(type=drug_type, registry="drug"),
-        predictor=PredictorConfig(type=predictor_type),
-    )
+def model_config_from_spec(
+    spec: str,
+    *,
+    hyperparameters: dict[str, Any] | None = None,
+) -> ModelConfig:
+    """Build a :class:`ModelConfig` from a recipe, zoo, legacy, or baseline spec."""
+    from drevalpy.components.model_config_spec import build_model_config_from_spec
+
+    return build_model_config_from_spec(spec, hyperparameters=hyperparameters)
 
 
 def model_config_from_yaml(path: Path | str) -> ModelConfig:

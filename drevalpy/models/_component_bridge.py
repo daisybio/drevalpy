@@ -58,6 +58,7 @@ class ComponentDRPBridge:
                 cell_line_input,
                 drug_input,
                 tissue_input=tissue_input,
+                output_earlystopping=output_earlystopping,
             )
 
     def predict(
@@ -156,6 +157,52 @@ def restore_sklearn_to_components(model: SklearnModel) -> None:
             if isinstance(cell_line_featurizer, MultiConcatCellLineFeaturizer):
                 featurizer_state.setdefault("train_ids", np.array([], dtype=str))
             cell_line_featurizer.set_state(featurizer_state)
+
+
+def restore_literature_to_components(model: Any) -> None:
+    """Inject serialized literature model state into the composed stack."""
+    from drevalpy.components.featurizers.cell_line.multi_concat import MultiConcatCellLineFeaturizer
+    from drevalpy.components.predictors.literature.public_models import LiteratureComponentDRPModel
+
+    if not isinstance(model, LiteratureComponentDRPModel):
+        return
+    composed = model._bridge.composed
+    if composed is None:
+        return
+    predictor = composed._predictor
+    component_model = getattr(model, "model", None)
+    if component_model is not None and hasattr(predictor, "_model"):
+        predictor._model = component_model
+    engine = getattr(predictor, "_engine", None)
+    if engine is not None and component_model is None:
+        for name, value in vars(model).items():
+            if name.startswith("_") or name in {"hyperparameters", "wandb_project"}:
+                continue
+            if hasattr(engine, name):
+                setattr(engine, name, value)
+
+    cell_line_featurizer = composed._cell_line_featurizer
+    if cell_line_featurizer is not None:
+        featurizer_state: dict[str, object] = {"fitted": True}
+        if hasattr(model, "gene_expression_scaler") and model.gene_expression_scaler is not None:
+            featurizer_state["gene_expression_scaler"] = model.gene_expression_scaler
+        if hasattr(model, "methylation_scaler") and model.methylation_scaler is not None:
+            featurizer_state["methylation_scaler"] = model.methylation_scaler
+        if hasattr(model, "methylation_pca") and model.methylation_pca is not None:
+            featurizer_state["methylation_pca"] = model.methylation_pca
+        if hasattr(model, "cell_line_views"):
+            featurizer_state["views"] = list(model.cell_line_views)
+        if hasattr(model, "input_dims") and isinstance(model.input_dims, dict):
+            view_dims = {
+                key: value
+                for key, value in model.input_dims.items()
+                if key not in getattr(model, "drug_views", [])
+            }
+            if view_dims:
+                featurizer_state["view_dims"] = view_dims
+        if isinstance(cell_line_featurizer, MultiConcatCellLineFeaturizer):
+            featurizer_state.setdefault("train_ids", np.array([], dtype=str))
+        cell_line_featurizer.set_state(featurizer_state)
 
 
 def sync_naive_from_components(model: NaiveModel, predictor_type: str) -> None:

@@ -79,16 +79,25 @@ def load_external_zoo_file(path: Path | str) -> list[str]:
 
 
 def zoo_model_config(name: str, hyperparameters: dict[str, Any] | None = None) -> ModelConfig:
-    """Return a zoo config with optional predictor hyperparameter overrides."""
+    """Return a zoo config with optional predictor and view hyperparameter overrides."""
     from dataclasses import replace
+
+    from drevalpy.components.factory import featurizer_configs_from_view_hyperparameters
 
     config = get_zoo_config(name)
     if not hyperparameters:
         return config
     merged_hp = {**config.predictor.hyperparameters, **hyperparameters}
+    cell_line_featurizer = config.cell_line_featurizer
+    drug_featurizer = config.drug_featurizer
+    cell_line_override, drug_override = featurizer_configs_from_view_hyperparameters(hyperparameters)
+    if cell_line_override is not None:
+        cell_line_featurizer = cell_line_override
+    if drug_override is not None:
+        drug_featurizer = drug_override
     return ModelConfig(
-        cell_line_featurizer=config.cell_line_featurizer,
-        drug_featurizer=config.drug_featurizer,
+        cell_line_featurizer=cell_line_featurizer,
+        drug_featurizer=drug_featurizer,
         predictor=replace(config.predictor, hyperparameters=merged_hp),
         prediction_mode=config.prediction_mode,
     )

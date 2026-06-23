@@ -22,6 +22,8 @@ class Predictor(ABC):
         kind=FeatureKind.DENSE
     )
     uses_features: ClassVar[bool] = True
+    uses_structured_features: ClassVar[bool] = False
+    requires_drug_featurizer: ClassVar[bool] = True
     supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset(PredictionMode)
 
     @classmethod

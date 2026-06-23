@@ -63,3 +63,16 @@ def test_config_is_serializable() -> None:
     payload = asdict(config)
     assert payload["cell_line_featurizer"]["view"] == "gene_expression"
     assert payload["predictor"]["hyperparameters"]["alpha"] == 1.0
+
+
+def test_model_config_from_spec_classmethod() -> None:
+    from drevalpy.components.register_builtins import register_builtin_components
+
+    register_builtin_components()
+    config = ModelConfig.from_spec("NaivePredictor")
+    assert config.predictor.type == "naiveMean"
+
+
+def test_model_config_from_dict_classmethod() -> None:
+    config = ModelConfig.from_dict({"predictor": {"type": "naiveMean"}})
+    assert config.predictor.type == "naiveMean"

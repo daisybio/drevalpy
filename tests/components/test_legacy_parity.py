@@ -59,6 +59,72 @@ def test_elastic_net_legacy_matches_model_config() -> None:
     assert np.allclose(legacy_preds, composed_preds, rtol=1e-6, atol=1e-6)
 
 
+def test_naive_predictor_legacy_matches_model_config() -> None:
+    register_builtin_components()
+    response, cell_line_input, drug_input = _synthetic_data()
+
+    legacy = MODEL_FACTORY["NaivePredictor"]()
+    legacy.build_model(hyperparameters={})
+    legacy.train(response, cell_line_input, drug_input)
+    legacy_preds = legacy.predict(
+        response.cell_line_ids,
+        response.drug_ids,
+        cell_line_input,
+        drug_input,
+    )
+
+    from drevalpy.components.config import ModelConfig
+
+    config = ModelConfig.from_spec("NaivePredictor")
+    composed = config.create_model()
+    composed.train(response, cell_line_input, drug_input)
+    composed_preds = composed.predict(
+        response.cell_line_ids,
+        response.drug_ids,
+        cell_line_input,
+        drug_input,
+    )
+
+    assert np.allclose(legacy_preds, composed_preds, rtol=1e-6, atol=1e-6)
+
+
+def test_naive_drug_mean_legacy_matches_model_config() -> None:
+    register_builtin_components()
+    response, cell_line_input, drug_input = _synthetic_data()
+
+    legacy = MODEL_FACTORY["NaiveDrugMeanPredictor"]()
+    legacy.build_model(hyperparameters={})
+    legacy.train(response, cell_line_input, drug_input)
+    legacy_preds = legacy.predict(
+        response.cell_line_ids,
+        response.drug_ids,
+        cell_line_input,
+        drug_input,
+    )
+
+    from drevalpy.components.config import ModelConfig
+
+    config = ModelConfig.from_spec("NaiveDrugMeanPredictor")
+    composed = config.create_model()
+    composed.train(response, cell_line_input, drug_input)
+    composed_preds = composed.predict(
+        response.cell_line_ids,
+        response.drug_ids,
+        cell_line_input,
+        drug_input,
+    )
+
+    assert np.allclose(legacy_preds, composed_preds, rtol=1e-6, atol=1e-6)
+
+
+def test_model_factory_names_still_instantiate_public_models() -> None:
+    for name in ("ElasticNet", "NaivePredictor", "RandomForest", "DIPK"):
+        model = MODEL_FACTORY[name]()
+        assert model.get_model_name() == name
+        if name == "DIPK":
+            assert model.__class__.__module__.startswith("drevalpy.components.predictors.literature")
+
+
 def test_factory_and_zoo_elastic_net_configs_align() -> None:
     factory_config = sklearn_model_config("elasticNet", {"alpha": 0.1})
     zoo_config = model_config_for_name("ElasticNet", {"alpha": 0.1})

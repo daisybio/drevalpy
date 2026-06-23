@@ -13,10 +13,10 @@ from torch.utils.data import Dataset as PytorchDataset
 from torch_geometric.loader import DataLoader
 from torch_geometric.nn import GCNConv, global_mean_pool
 
-from ...datasets.dataset import DrugResponseDataset, FeatureDataset
-from ..drp_model import DRPModel
-from ..lightning_metrics_mixin import RegressionMetricsMixin
-from ..utils import load_and_select_gene_features
+from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.models.drp_model import DRPModel
+from drevalpy.models.lightning_metrics_mixin import RegressionMetricsMixin
+from drevalpy.models.utils import load_and_select_gene_features
 
 
 class DrugGraphNet(nn.Module):

@@ -1,0 +1,9 @@
+cell_line_featurizer:
+  type: multiViewStructured
+  hyperparameters:
+    views:
+      - gene_expression
+      - mutations
+      - copy_number_variation_gistic
+predictor:
+  type: superfeltr

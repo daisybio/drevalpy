@@ -33,6 +33,14 @@ class Featurizer(ABC):
     def transform(self, features: FeatureDataset, entity_ids: np.ndarray) -> np.ndarray:
         """Return a 2D feature matrix with one row per entity id in *entity_ids*."""
 
+    def transform_blocks(
+        self,
+        features: FeatureDataset,
+        entity_ids: np.ndarray,
+    ) -> dict[str, np.ndarray]:
+        """Return named feature blocks; default is a single ``default`` dense matrix."""
+        return {"default": self.transform(features, entity_ids)}
+
     @property
     @abstractmethod
     def output_dim(self) -> int:

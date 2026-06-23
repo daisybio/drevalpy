@@ -1,4 +1,16 @@
-"""Load external featurizers, predictors, and zoo entries."""
+"""Load external featurizers, predictors, and zoo entries.
+
+Example::
+
+    from drevalpy.components import load_extensions, ModelConfig
+
+    load_extensions(
+        directories=["./my_components"],
+        zoo_files=["./my_zoo.yaml"],
+    )
+    config = ModelConfig.from_spec("myZooEntry")
+    model = config.create_model()
+"""
 
 from __future__ import annotations
 

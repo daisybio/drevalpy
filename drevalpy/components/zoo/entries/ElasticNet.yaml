@@ -4,6 +4,5 @@ cell_line_featurizer:
     view: gene_expression
 drug_featurizer:
   type: fingerprints
-  registry: drug
 predictor:
   type: elasticNet

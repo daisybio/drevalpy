@@ -14,6 +14,8 @@ def test_builtin_zoo_lists_passing_models() -> None:
     names = list_zoo_names(include_external=False)
     assert "ElasticNet" in names
     assert "NaivePredictor" in names
+    assert "DIPK" in names
+    assert "PharmaFormer" in names
     assert "SingleDrugElasticNet" in names
 
 

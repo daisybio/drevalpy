@@ -11,9 +11,9 @@ from typing import Any
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 
-from ...datasets.dataset import DrugResponseDataset, FeatureDataset
-from ..drp_model import DRPModel
-from ..utils import VarianceFeatureSelector, get_multiomics_feature_dataset, scale_gene_expression
+from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.models.drp_model import DRPModel
+from drevalpy.models.utils import VarianceFeatureSelector, get_multiomics_feature_dataset, scale_gene_expression
 from .utils import MOLIModel, filter_and_sort_omics, get_dimensions_of_omics_data
 
 

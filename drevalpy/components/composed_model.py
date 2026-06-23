@@ -10,10 +10,28 @@ from drevalpy.components.config import PredictionMode
 from drevalpy.components.featurizers._matrix import unique_entity_ids
 from drevalpy.components.featurizers.base import Featurizer
 from drevalpy.components.pair_context import PairContext
+from drevalpy.components.pair_batch_build import build_pair_batch
 from drevalpy.components.pair_features import build_pair_matrix
 from drevalpy.components.predictors.base import Predictor
 from drevalpy.components.validation import validate_model_config
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+
+
+def _matrix_feature_width(matrix: np.ndarray | None) -> int:
+    """Return the feature width of a featurizer matrix, including object arrays."""
+    if matrix is None or matrix.size == 0:
+        return 0
+    if matrix.dtype == object:
+        first = matrix.reshape(-1)[0]
+        if hasattr(first, "num_node_features"):
+            return int(first.num_node_features)
+        first_array = np.asarray(first)
+        if first_array.ndim == 0:
+            return int(first_array.size)
+        return int(first_array.shape[-1])
+    if matrix.ndim == 1:
+        return int(matrix.shape[0])
+    return int(matrix.shape[1])
 
 
 class ComposedModel:
@@ -46,6 +64,7 @@ class ComposedModel:
         drug_input: FeatureDataset | None = None,
         *,
         tissue_input: FeatureDataset | None = None,
+        output_earlystopping: DrugResponseDataset | None = None,
     ) -> ComposedModel:
         if len(output) == 0:
             return self
@@ -82,7 +101,47 @@ class ComposedModel:
                 if "tissue" in tissue_input.features[str(cell_id)]
             }
 
-        if self._predictor.uses_features:
+        if getattr(self._predictor, "uses_structured_features", False):
+            cell_line_blocks = (
+                self._cell_line_featurizer.transform_blocks(cell_line_input, self._cell_line_entity_ids)
+                if self._cell_line_featurizer is not None
+                else {}
+            )
+            drug_blocks: dict[str, np.ndarray] = {}
+            if self._drug_featurizer is not None and drug_input is not None:
+                drug_blocks = self._drug_featurizer.transform_blocks(
+                    drug_input,
+                    self._drug_entity_ids,
+                )
+            batch = build_pair_batch(
+                output,
+                cell_line_entity_ids=self._cell_line_entity_ids,
+                drug_entity_ids=self._drug_entity_ids if self._drug_featurizer is not None else None,
+                cell_line_features=self._cell_line_matrix,
+                drug_features=self._drug_matrix if self._drug_featurizer is not None else None,
+                cell_line_blocks=cell_line_blocks,
+                drug_blocks=drug_blocks,
+                pair_context=self._pair_context(output.cell_line_ids, output.drug_ids),
+            )
+            merged_hp = {
+                **self._predictor.get_default_hyperparameters(),
+                **self._predictor_hp,
+                "prediction_mode": self._prediction_mode,
+            }
+            input_dims = {
+                "cell_line": _matrix_feature_width(self._cell_line_matrix),
+                "drug": _matrix_feature_width(self._drug_matrix),
+                "n_classes": 1,
+            }
+            self._predictor.build(merged_hp, input_dims)
+            self._predictor.fit_structured(
+                batch,
+                output=output,
+                cell_line_input=cell_line_input,
+                drug_input=drug_input,
+                output_earlystopping=output_earlystopping,
+            )
+        elif self._predictor.uses_features:
             x = build_pair_matrix(
                 output,
                 self._cell_line_matrix,
@@ -142,6 +201,50 @@ class ComposedModel:
     ) -> np.ndarray:
         if len(cell_line_ids) == 0:
             return np.array([])
+
+        if getattr(self._predictor, "uses_structured_features", False):
+            cell_line_entity_ids = np.array([], dtype=str)
+            cell_line_matrix = np.empty((0, 0), dtype=np.float32)
+            cell_line_blocks: dict[str, np.ndarray] = {}
+            if self._cell_line_featurizer is not None:
+                cell_line_entity_ids = unique_entity_ids(cell_line_ids)
+                cell_line_matrix = self._cell_line_featurizer.transform(cell_line_input, cell_line_entity_ids)
+                cell_line_blocks = self._cell_line_featurizer.transform_blocks(
+                    cell_line_input,
+                    cell_line_entity_ids,
+                )
+
+            drug_entity_ids = None
+            drug_matrix = None
+            drug_blocks: dict[str, np.ndarray] = {}
+            if self._drug_featurizer is not None:
+                if drug_input is None:
+                    msg = "drug_input is required when a drug featurizer is configured"
+                    raise ValueError(msg)
+                drug_entity_ids = unique_entity_ids(drug_ids)
+                drug_matrix = self._drug_featurizer.transform(drug_input, drug_entity_ids)
+                drug_blocks = self._drug_featurizer.transform_blocks(drug_input, drug_entity_ids)
+
+            response = DrugResponseDataset(
+                response=np.zeros(len(cell_line_ids)),
+                cell_line_ids=cell_line_ids,
+                drug_ids=drug_ids,
+            )
+            batch = build_pair_batch(
+                response,
+                cell_line_entity_ids=cell_line_entity_ids,
+                drug_entity_ids=drug_entity_ids,
+                cell_line_features=cell_line_matrix,
+                drug_features=drug_matrix,
+                cell_line_blocks=cell_line_blocks,
+                drug_blocks=drug_blocks,
+                pair_context=self._pair_context(cell_line_ids, drug_ids, cell_line_input=cell_line_input),
+            )
+            return self._predictor.predict_structured(
+                batch,
+                cell_line_input=cell_line_input,
+                drug_input=drug_input,
+            )
 
         if not self._predictor.uses_features:
             if getattr(self._predictor, "uses_raw_features", False):
