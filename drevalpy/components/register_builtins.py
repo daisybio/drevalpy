@@ -30,13 +30,13 @@ def _restore_module_registrations(module_path: str, registry) -> None:
 def register_native_components() -> None:
     """Register native cell-line featurizers, drug featurizers, and tabular predictors."""
     for module_path, registry in (
-        ("drevalpy.components.featurizers.cell_line.gene_expression", cell_line_featurizer_registry),
-        ("drevalpy.components.featurizers.cell_line.scaled_gene_expression", cell_line_featurizer_registry),
-        ("drevalpy.components.featurizers.cell_line.methylation", cell_line_featurizer_registry),
-        ("drevalpy.components.featurizers.cell_line.mutations", cell_line_featurizer_registry),
-        ("drevalpy.components.featurizers.cell_line.copy_number_variation", cell_line_featurizer_registry),
+        ("drevalpy.components.featurizers.cell_line.omics.gene_expression", cell_line_featurizer_registry),
+        ("drevalpy.components.featurizers.cell_line.omics.scaled_gene_expression", cell_line_featurizer_registry),
+        ("drevalpy.components.featurizers.cell_line.omics.methylation", cell_line_featurizer_registry),
+        ("drevalpy.components.featurizers.cell_line.omics.mutations", cell_line_featurizer_registry),
+        ("drevalpy.components.featurizers.cell_line.omics.copy_number_variation", cell_line_featurizer_registry),
         ("drevalpy.components.featurizers.cell_line.pca", cell_line_featurizer_registry),
-        ("drevalpy.components.featurizers.cell_line.proteomics", cell_line_featurizer_registry),
+        ("drevalpy.components.featurizers.cell_line.omics.proteomics", cell_line_featurizer_registry),
         ("drevalpy.components.featurizers.cell_line.concat", cell_line_featurizer_registry),
         ("drevalpy.components.featurizers.cell_line.landmark", cell_line_featurizer_registry),
         ("drevalpy.components.featurizers.cell_line.pathways", cell_line_featurizer_registry),

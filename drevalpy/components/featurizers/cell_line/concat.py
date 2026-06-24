@@ -119,9 +119,9 @@ class ConcatFeaturizersCellLineFeaturizer(CellLineFeaturizer):
         state: dict[str, object],
     ) -> None:
         """Map legacy flat preprocessing state onto child featurizers when possible."""
-        from drevalpy.components.featurizers.cell_line.methylation import MethylationPCACellLineFeaturizer
-        from drevalpy.components.featurizers.cell_line.proteomics import ProteomicsCellLineFeaturizer
-        from drevalpy.components.featurizers.cell_line.scaled_gene_expression import (
+        from drevalpy.components.featurizers.cell_line.omics.methylation import MethylationPCACellLineFeaturizer
+        from drevalpy.components.featurizers.cell_line.omics.proteomics import ProteomicsCellLineFeaturizer
+        from drevalpy.components.featurizers.cell_line.omics.scaled_gene_expression import (
             ScaledGeneExpressionFeaturizer,
         )
 
