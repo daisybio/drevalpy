@@ -2,10 +2,32 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from drevalpy.components.predictors.sklearn_tabular import SklearnTabularPredictor
 from drevalpy.components.registry import register_predictor
+
+_XGBOOST_THREAD_ENV_DEFAULTS = {
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1",
+    "VECLIB_MAXIMUM_THREADS": "1",
+}
+
+
+def _set_xgboost_thread_defaults() -> None:
+    """Set conservative native-thread defaults before importing XGBoost.
+
+    XGBoost 3.2 can segfault on macOS when PyTorch/OpenMP has already been
+    loaded in the same process; in tests this happened during fit and model
+    pickle load. These defaults are applied before importing XGBoost so its
+    native runtime initializes single-threaded unless the user has explicitly
+    configured thread limits in the environment. See the upstream discussion:
+    https://github.com/dmlc/xgboost/issues/11500
+    """
+    for name, value in _XGBOOST_THREAD_ENV_DEFAULTS.items():
+        os.environ.setdefault(name, value)
 
 
 @register_predictor(
@@ -16,6 +38,7 @@ from drevalpy.components.registry import register_predictor
 class XGBoostPredictor(SklearnTabularPredictor):
     def _make_estimator(self):
         try:
+            _set_xgboost_thread_defaults()
             from xgboost import XGBRegressor
         except ImportError as exc:
             msg = "xgboost extra is required for XGBoostPredictor"
