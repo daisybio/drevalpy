@@ -6,7 +6,7 @@ from typing import Any, ClassVar
 
 import numpy as np
 
-from drevalpy.components.factory import model_config_for_name
+from drevalpy.models.factory import model_config_for_name
 from drevalpy.components.register_builtins import ensure_components_registered
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models._component_bridge import ComponentDRPBridge, restore_literature_to_components
@@ -103,7 +103,7 @@ class LiteratureComponentDRPModel(DRPModel):
             if hasattr(self, "hyperparameters") and self.hyperparameters.get("input_dim_omic") is None:
                 self.hyperparameters["input_dim_omic"] = cell_dim
         if composed._drug_matrix is not None and composed._drug_matrix.size:
-            from drevalpy.components.composed_model import _matrix_feature_width
+            from drevalpy.models.composed_model import _matrix_feature_width
 
             drug_dim = _matrix_feature_width(composed._drug_matrix)
             if hasattr(self, "hyperparameters") and self.hyperparameters.get("input_dim_fp") is None:
@@ -114,14 +114,14 @@ class LiteratureComponentDRPModel(DRPModel):
             if view_dims:
                 self.input_dims = dict(view_dims)
                 if drug_featurizer is not None and composed._drug_matrix is not None and composed._drug_matrix.size:
-                    from drevalpy.components.composed_model import _matrix_feature_width
+                    from drevalpy.models.composed_model import _matrix_feature_width
 
                     drug_view = self.drug_views[0] if getattr(self, "drug_views", None) else "fingerprints"
                     self.input_dims[drug_view] = _matrix_feature_width(composed._drug_matrix)
             elif cell_featurizer is not None and hasattr(cell_featurizer, "_view"):
                 self.input_dims = {cell_featurizer._view: int(cell_featurizer.output_dim)}
                 if drug_featurizer is not None and composed._drug_matrix is not None and composed._drug_matrix.size:
-                    from drevalpy.components.composed_model import _matrix_feature_width
+                    from drevalpy.models.composed_model import _matrix_feature_width
 
                     drug_view = self.drug_views[0] if getattr(self, "drug_views", None) else "fingerprints"
                     self.input_dims[drug_view] = _matrix_feature_width(composed._drug_matrix)

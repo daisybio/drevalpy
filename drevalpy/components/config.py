@@ -87,8 +87,8 @@ class ModelConfig:
         validate_model_config(self)
 
     def create_model(self):
-        """Build a runnable :class:`~drevalpy.components.composed_model.ComposedModel`."""
-        from drevalpy.components.composed_model import ComposedModel
+        """Build a runnable :class:`~drevalpy.models.composed_model.ComposedModel`."""
+        from drevalpy.models.composed_model import ComposedModel
 
         self.validate()
         cell_line = self.cell_line_featurizer.create_instance() if self.cell_line_featurizer else None
@@ -111,7 +111,7 @@ class ModelConfig:
         prediction_mode: PredictionMode = PredictionMode.REGRESSION,
     ) -> ModelConfig:
         """Build a config from a recipe, zoo, legacy, or baseline spec string."""
-        from drevalpy.components.model_config_spec import build_model_config_from_spec
+        from drevalpy.models.model_config_spec import build_model_config_from_spec
 
         return build_model_config_from_spec(
             spec,
@@ -122,13 +122,13 @@ class ModelConfig:
     @classmethod
     def from_yaml(cls, path: Path | str) -> ModelConfig:
         """Load a config from a YAML file."""
-        from drevalpy.components.config_io import model_config_from_yaml
+        from drevalpy.models.config_io import model_config_from_yaml
 
         return model_config_from_yaml(path)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ModelConfig:
         """Build a config from a plain dictionary."""
-        from drevalpy.components.config_io import model_config_from_dict
+        from drevalpy.models.config_io import model_config_from_dict
 
         return model_config_from_dict(data)

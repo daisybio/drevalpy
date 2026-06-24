@@ -10,7 +10,7 @@ from drevalpy.components.config import ModelConfig, PredictionMode
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 
 if TYPE_CHECKING:
-    from drevalpy.components.composed_model import ComposedModel
+    from drevalpy.models.composed_model import ComposedModel
     from drevalpy.components.predictors.baselines.naive_pred import NaiveModel
     from drevalpy.components.predictors.baselines.sklearn_models import SklearnModel
 

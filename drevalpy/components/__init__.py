@@ -1,10 +1,10 @@
 """Composable model components: featurizers, predictors, registries, and configs.
 
-This package is the modular implementation core. It defines ``ModelConfig``,
-registries, featurizers, predictors, and the built-in zoo. Legacy experiment
-workflows still instantiate :class:`~drevalpy.models.drp_model.DRPModel`
-subclasses from :mod:`drevalpy.models`; those adapters call into this package
-via :mod:`drevalpy.models._component_bridge`.
+This package holds featurizers, predictors, and component registries. Model
+orchestration (factory, config IO/spec, zoo, composed training) lives under
+:mod:`drevalpy.models`; this package re-exports those APIs for compatibility.
+Legacy experiment workflows instantiate :class:`~drevalpy.models.drp_model.DRPModel`
+subclasses from :mod:`drevalpy.models`.
 """
 
 from drevalpy.components.composed_model import ComposedModel

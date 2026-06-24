@@ -1,9 +1,11 @@
 """Public drug response prediction models and legacy experiment adapters.
 
 This package exposes :class:`~drevalpy.models.drp_model.DRPModel` subclasses,
-``MODEL_FACTORY``, and public model compatibility classes. Baseline and literature
-implementations live under :mod:`drevalpy.components.predictors` and are exposed
-here for backward compatibility via :mod:`drevalpy.models._component_bridge`.
+``MODEL_FACTORY``, model orchestration (factory, config IO/spec, zoo,
+:class:`~drevalpy.models.composed_model.ComposedModel`), and public model
+compatibility classes. Baseline and literature predictor implementations live
+under :mod:`drevalpy.components.predictors` and are exposed here for backward
+compatibility via :mod:`drevalpy.models._component_bridge`.
 
 Factory tables and concrete model classes are loaded lazily so importing
 ``drevalpy.models.drp_model`` from component implementations does not pull in
