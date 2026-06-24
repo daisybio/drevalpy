@@ -42,6 +42,20 @@ def test_build_model_config_from_recipe_triple() -> None:
     assert config.model_id == "scaledGeneExpression:fingerprints:elasticNet"
 
 
+def test_build_model_config_from_recipe_triple_with_plus_concat() -> None:
+    config = build_model_config_from_spec("geneExpression+mutations:fingerprints+oneHot:randomForest")
+    assert config.cell_line_featurizer is not None
+    assert config.cell_line_featurizer.name == "concatFeaturizers"
+    assert config.drug_featurizer is not None
+    assert config.drug_featurizer.name == "concatFeaturizers"
+    assert config.predictor.type == "randomForest"
+    cell_children = config.cell_line_featurizer.hyperparameters["featurizers"]
+    drug_children = config.drug_featurizer.hyperparameters["featurizers"]
+    assert [child["name"] for child in cell_children] == ["geneExpression", "mutations"]
+    assert [child["name"] for child in drug_children] == ["fingerprints", "oneHot"]
+    assert config.model_id == "concatFeaturizers:concatFeaturizers:randomForest"
+
+
 def test_build_model_config_from_literature_zoo_name() -> None:
     config = build_model_config_from_spec("DIPK")
     assert config.predictor.type == "dipk"

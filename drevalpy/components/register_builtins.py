@@ -41,6 +41,7 @@ def register_native_components() -> None:
         ("drevalpy.components.featurizers.cell_line.landmark", cell_line_featurizer_registry),
         ("drevalpy.components.featurizers.cell_line.pathways", cell_line_featurizer_registry),
         ("drevalpy.components.featurizers.cell_line.bionic", cell_line_featurizer_registry),
+        ("drevalpy.components.featurizers.drug.concat", drug_featurizer_registry),
         ("drevalpy.components.featurizers.drug.view", drug_featurizer_registry),
         ("drevalpy.components.featurizers.drug.fingerprints", drug_featurizer_registry),
         ("drevalpy.components.featurizers.drug.one_hot", drug_featurizer_registry),

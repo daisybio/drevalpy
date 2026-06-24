@@ -7,12 +7,40 @@ from typing import Any
 _RESERVED_FEATURIZER_KEYS = frozenset(
     {"name", "hyperparameters", "registry", "view", "views", "hyperparameter_space"}
 )
+_CONCAT_FEATURIZER_NAME = "concatFeaturizers"
+
+
+def _parse_featurizer_token(token: str, *, default_registry: str) -> dict[str, Any]:
+    """Normalize a bare featurizer token, including ``+`` concat recipes."""
+    trimmed = token.strip()
+    if not trimmed:
+        msg = "Featurizer token must be a non-empty string"
+        raise ValueError(msg)
+    if "+" not in trimmed:
+        return {"name": trimmed, "hyperparameters": {}, "registry": default_registry}
+
+    parts = [part.strip() for part in trimmed.split("+")]
+    if any(not part for part in parts):
+        msg = "Featurizer recipe segments joined by '+' must be non-empty"
+        raise ValueError(msg)
+    if len(parts) == 1:
+        return {"name": parts[0], "hyperparameters": {}, "registry": default_registry}
+
+    return {
+        "name": _CONCAT_FEATURIZER_NAME,
+        "hyperparameters": {
+            "featurizers": [
+                normalize_featurizer_config(part, default_registry=default_registry) for part in parts
+            ],
+        },
+        "registry": default_registry,
+    }
 
 
 def normalize_featurizer_config(data: Any, *, default_registry: str = "cell_line") -> dict[str, Any]:
     """Normalize string or one-key mapping featurizer configs."""
     if isinstance(data, str):
-        return {"name": data, "hyperparameters": {}, "registry": default_registry}
+        return _parse_featurizer_token(data, default_registry=default_registry)
 
     if not isinstance(data, dict):
         msg = f"Featurizer config must be a string or mapping, got {type(data)!r}"

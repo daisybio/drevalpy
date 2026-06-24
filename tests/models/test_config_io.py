@@ -31,6 +31,15 @@ def test_model_config_from_triple_spec() -> None:
     assert config.predictor.type == "elasticNet"
 
 
+def test_model_config_from_triple_spec_with_plus_concat() -> None:
+    config = model_config_from_spec("geneExpression+mutations:fingerprints+oneHot:randomForest")
+    assert config.cell_line_featurizer is not None
+    assert config.cell_line_featurizer.name == "concatFeaturizers"
+    assert config.drug_featurizer is not None
+    assert config.drug_featurizer.name == "concatFeaturizers"
+    assert config.predictor.type == "randomForest"
+
+
 def test_model_config_from_legacy_name() -> None:
     from drevalpy.components.register_builtins import register_builtin_components
 

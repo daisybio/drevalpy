@@ -12,6 +12,32 @@ def test_normalize_string_shorthand() -> None:
     assert payload == {"name": "fingerprints", "hyperparameters": {}, "registry": "drug"}
 
 
+def test_normalize_plus_recipe_string() -> None:
+    payload = normalize_featurizer_config(
+        "scaledGeneExpression+mutations",
+        default_registry="cell_line",
+    )
+    assert payload["name"] == "concatFeaturizers"
+    assert payload["registry"] == "cell_line"
+    children = payload["hyperparameters"]["featurizers"]
+    assert [child["name"] for child in children] == ["scaledGeneExpression", "mutations"]
+    assert all(child["registry"] == "cell_line" for child in children)
+
+
+def test_normalize_plus_recipe_string_for_drug_registry() -> None:
+    payload = normalize_featurizer_config("fingerprints+oneHot", default_registry="drug")
+    children = payload["hyperparameters"]["featurizers"]
+    assert [child["name"] for child in children] == ["fingerprints", "oneHot"]
+    assert all(child["registry"] == "drug" for child in children)
+
+
+def test_normalize_rejects_empty_plus_recipe_piece() -> None:
+    with pytest.raises(ValueError, match="non-empty"):
+        normalize_featurizer_config("scaledGeneExpression+", default_registry="cell_line")
+    with pytest.raises(ValueError, match="non-empty"):
+        normalize_featurizer_config("scaledGeneExpression++mutations", default_registry="cell_line")
+
+
 def test_normalize_one_key_mapping() -> None:
     payload = normalize_featurizer_config(
         {"concatFeaturizers": {"featurizers": ["scaledGeneExpression", "mutations"]}},
