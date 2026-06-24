@@ -10,6 +10,7 @@ from drevalpy.components.config import PredictionMode
 from drevalpy.components.pair_context import PairContext
 from drevalpy.components.predictors.baseline import BaselinePredictor
 from drevalpy.components.registry import register_predictor
+from drevalpy.components.state_helpers import state_float, state_str_dict
 
 
 def _mode_value(y: np.ndarray) -> float:
@@ -23,6 +24,8 @@ def _mode_value(y: np.ndarray) -> float:
     category="baseline",
 )
 class NaiveMeanPredictor(BaselinePredictor):
+    """Naive mean predictor component."""
+
     supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset({PredictionMode.REGRESSION})
 
     def __init__(self) -> None:
@@ -57,9 +60,9 @@ class NaiveMeanPredictor(BaselinePredictor):
         return {"dataset_mean": self._dataset_mean}
 
     def set_state(self, state: dict[str, object]) -> None:
-        mean = state.get("dataset_mean")
+        mean = state_float(state, "dataset_mean")
         if mean is not None:
-            self._dataset_mean = float(mean)
+            self._dataset_mean = mean
 
     def is_fitted(self) -> bool:
         return self._dataset_mean is not None
@@ -118,12 +121,12 @@ class _SingleEntityNaivePredictor(BaselinePredictor):
         }
 
     def set_state(self, state: dict[str, object]) -> None:
-        mean = state.get("dataset_mean")
+        mean = state_float(state, "dataset_mean")
         if mean is not None:
-            self._dataset_mean = float(mean)
-        entity_means = state.get(self._legacy_entity_means_key(), {})
+            self._dataset_mean = mean
+        entity_means = state_str_dict(state, self._legacy_entity_means_key())
         if entity_means:
-            self._entity_means = {str(key): float(value) for key, value in entity_means.items()}
+            self._entity_means = entity_means
 
     def is_fitted(self) -> bool:
         return self._dataset_mean is not None
@@ -135,6 +138,8 @@ class _SingleEntityNaivePredictor(BaselinePredictor):
     category="baseline",
 )
 class NaiveDrugMeanPredictor(_SingleEntityNaivePredictor):
+    """Naive drug mean predictor component."""
+
     def _entity_keys(self, pair_context: PairContext) -> np.ndarray:
         return pair_context.drug_ids
 
@@ -148,6 +153,8 @@ class NaiveDrugMeanPredictor(_SingleEntityNaivePredictor):
     category="baseline",
 )
 class NaiveCellLineMeanPredictor(_SingleEntityNaivePredictor):
+    """Naive cell line mean predictor component."""
+
     def _entity_keys(self, pair_context: PairContext) -> np.ndarray:
         return pair_context.cell_line_ids
 
@@ -161,6 +168,8 @@ class NaiveCellLineMeanPredictor(_SingleEntityNaivePredictor):
     category="baseline",
 )
 class NaiveTissueMeanPredictor(_SingleEntityNaivePredictor):
+    """Naive tissue mean predictor component."""
+
     def _entity_keys(self, pair_context: PairContext) -> np.ndarray:
         if pair_context.tissue_ids is None:
             msg = "NaiveTissueMeanPredictor requires tissue_ids in pair_context"
@@ -177,6 +186,8 @@ class NaiveTissueMeanPredictor(_SingleEntityNaivePredictor):
     category="baseline",
 )
 class NaiveTissueDrugMeanPredictor(BaselinePredictor):
+    """Naive tissue drug mean predictor component."""
+
     def __init__(self) -> None:
         self._dataset_mean: float | None = None
         self._combo_means: dict[str, float] = {}
@@ -237,12 +248,16 @@ class NaiveTissueDrugMeanPredictor(BaselinePredictor):
         }
 
     def set_state(self, state: dict[str, object]) -> None:
-        mean = state.get("dataset_mean")
+        mean = state_float(state, "dataset_mean")
         if mean is not None:
-            self._dataset_mean = float(mean)
-        combo_means = state.get("tissue_drug_means", {})
-        if combo_means:
-            self._combo_means = {f"{tissue}|{drug}": float(value) for (tissue, drug), value in combo_means.items()}
+            self._dataset_mean = mean
+        combo_means = state.get("tissue_drug_means")
+        if isinstance(combo_means, dict):
+            self._combo_means = {
+                f"{tissue}|{drug}": float(value)
+                for (tissue, drug), value in combo_means.items()
+                if isinstance(tissue, str) and isinstance(drug, str)
+            }
 
     def is_fitted(self) -> bool:
         return self._dataset_mean is not None
@@ -254,6 +269,8 @@ class NaiveTissueDrugMeanPredictor(BaselinePredictor):
     category="baseline",
 )
 class NaiveMeanEffectsPredictor(BaselinePredictor):
+    """Naive mean effects predictor component."""
+
     def __init__(self) -> None:
         self._dataset_mean: float | None = None
         self._cell_line_effects: dict[str, float] = {}
@@ -312,15 +329,15 @@ class NaiveMeanEffectsPredictor(BaselinePredictor):
         }
 
     def set_state(self, state: dict[str, object]) -> None:
-        mean = state.get("dataset_mean")
+        mean = state_float(state, "dataset_mean")
         if mean is not None:
-            self._dataset_mean = float(mean)
-        cell_line_effects = state.get("cell_line_effects")
+            self._dataset_mean = mean
+        cell_line_effects = state_str_dict(state, "cell_line_effects")
         if cell_line_effects:
-            self._cell_line_effects = {str(k): float(v) for k, v in cell_line_effects.items()}
-        drug_effects = state.get("drug_effects")
+            self._cell_line_effects = cell_line_effects
+        drug_effects = state_str_dict(state, "drug_effects")
         if drug_effects:
-            self._drug_effects = {str(k): float(v) for k, v in drug_effects.items()}
+            self._drug_effects = drug_effects
 
     def is_fitted(self) -> bool:
         return self._dataset_mean is not None

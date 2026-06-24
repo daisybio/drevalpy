@@ -2,9 +2,9 @@
 
 This package holds featurizers, predictors, and component registries. Model
 orchestration (factory, config IO/spec, zoo, composed training) lives under
-:mod:`drevalpy.models`; this package re-exports those APIs for compatibility.
-Legacy experiment workflows instantiate :class:`~drevalpy.models.drp_model.DRPModel`
-subclasses from :mod:`drevalpy.models`.
+`drevalpy.models`; this package re-exports those APIs for compatibility.
+Legacy experiment workflows instantiate `~drevalpy.models.drp_model.DRPModel`
+subclasses from `drevalpy.models`.
 """
 
 from drevalpy.components.composed_model import ComposedModel

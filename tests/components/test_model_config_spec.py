@@ -55,6 +55,8 @@ def test_model_config_from_spec_classmethod_matches_helper() -> None:
     helper_config = build_model_config_from_spec("RandomForest")
     class_config = ModelConfig.from_spec("RandomForest")
     assert helper_config.predictor.type == class_config.predictor.type
+    assert helper_config.cell_line_featurizer is not None
+    assert class_config.cell_line_featurizer is not None
     assert helper_config.cell_line_featurizer.type == class_config.cell_line_featurizer.type
 
 

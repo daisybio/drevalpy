@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+
 import pytest
 
 from drevalpy.components.contracts import FeatureContract, FeatureKind
@@ -20,7 +22,7 @@ from drevalpy.components.registry.core import Registry
 
 
 @pytest.fixture(autouse=True)
-def _clear_registries() -> None:
+def _clear_registries() -> Iterator[None]:
     clear_cell_line_featurizer_registry()
     clear_drug_featurizer_registry()
     clear_predictor_registry()
@@ -90,7 +92,7 @@ def test_decorator_returns_original_class() -> None:
         required_cell_line_contract = FeatureContract(kind=FeatureKind.DENSE)
         required_drug_contract = FeatureContract(kind=FeatureKind.DENSE)
 
-    assert DummyPred.registry_name == "dummyPred"
+    assert getattr(DummyPred, "registry_name") == "dummyPred"
 
 
 def test_registry_clear() -> None:

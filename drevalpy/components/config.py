@@ -83,7 +83,7 @@ class ModelConfig:
         validate_model_config(self)
 
     def create_model(self):
-        """Build a runnable :class:`~drevalpy.models.composed_model.ComposedModel`."""
+        """Build a runnable `~drevalpy.models.composed_model.ComposedModel`."""
         from drevalpy.models.composed_model import ComposedModel
 
         self.validate()

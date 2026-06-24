@@ -1,4 +1,4 @@
-"""Build :class:`~drevalpy.components.config.ModelConfig` objects for existing models."""
+"""Build `~drevalpy.components.config.ModelConfig` objects for existing models."""
 
 from __future__ import annotations
 

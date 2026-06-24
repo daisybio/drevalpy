@@ -26,6 +26,8 @@ from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
     **DRUGGNN_METADATA,
 )
 class DrugGNNPredictor(StructuredPredictor):
+    """Drug gnnpredictor component."""
+
     required_cell_line_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
     required_drug_contract: ClassVar[FeatureContract] = FeatureContract(
         kind=FeatureKind.GRAPH,
@@ -142,6 +144,8 @@ class DrugGNNPredictor(StructuredPredictor):
         loader = DataLoader(dataset, batch_size=int(self._hyperparameters.get("batch_size", 8)))
         trainer = pl.Trainer(accelerator="cpu", devices=1, enable_progress_bar=False, logger=False)
         predictions = trainer.predict(self._model, dataloaders=loader)
+        if predictions is None:
+            return np.array([], dtype=np.float64)
         flat = [item for sublist in predictions for item in (sublist if isinstance(sublist, list) else [sublist])]
         import torch
 

@@ -1,4 +1,4 @@
-"""Build :class:`~drevalpy.components.config.ModelConfig` from recipe, zoo, or legacy names."""
+"""Build `~drevalpy.components.config.ModelConfig` from recipe, zoo, or legacy names."""
 
 from __future__ import annotations
 
@@ -33,6 +33,9 @@ def _config_from_recipe_triple(
             drug_featurizer=None,
             predictor=predictor,
         )
+    if drug_type is None:
+        msg = "recipe triple requires a drug featurizer when a cell-line featurizer is set"
+        raise ValueError(msg)
     return ModelConfig(
         cell_line_featurizer=FeaturizerConfig(type=cell_line_type, registry="cell_line"),
         drug_featurizer=FeaturizerConfig(type=drug_type, registry="drug"),

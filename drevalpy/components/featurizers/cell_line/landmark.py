@@ -65,6 +65,8 @@ def _subset_matrix(
     category="general_purpose",
 )
 class LandmarkGenesFeaturizer(CellLineFeaturizer):
+    """Landmark genes featurizer component."""
+
     output_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE, view="gene_expression")
 
     def __init__(
@@ -126,6 +128,8 @@ class LandmarkGenesFeaturizer(CellLineFeaturizer):
     category="general_purpose",
 )
 class LandmarkGenesReducedFeaturizer(LandmarkGenesFeaturizer):
+    """Landmark genes reduced featurizer component."""
+
     def __init__(
         self,
         *,

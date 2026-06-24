@@ -10,6 +10,7 @@ import numpy as np
 from drevalpy.components.config import PredictionMode
 from drevalpy.components.pair_context import PairContext
 from drevalpy.components.predictors.base import Predictor
+from drevalpy.components.state_helpers import state_mapping
 
 
 class SklearnTabularPredictor(Predictor):
@@ -66,9 +67,12 @@ class SklearnTabularPredictor(Predictor):
 
     def set_state(self, state: dict[str, object]) -> None:
         self._estimator = state.get("estimator")
-        self._h = dict(state.get("hyperparameters", {}))
+        self._h = {str(key): value for key, value in state_mapping(state, "hyperparameters").items()}
         mode = state.get("mode", PredictionMode.REGRESSION)
-        self._mode = PredictionMode(mode) if isinstance(mode, str) else mode
+        if isinstance(mode, str):
+            self._mode = PredictionMode(mode)
+        elif isinstance(mode, PredictionMode):
+            self._mode = mode
 
     def is_fitted(self) -> bool:
         return self._estimator is not None

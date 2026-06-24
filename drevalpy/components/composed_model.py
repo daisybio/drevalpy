@@ -1,4 +1,4 @@
-"""Compatibility re-export — implementation lives in :mod:`drevalpy.models.composed_model`."""
+"""Compatibility re-export — implementation lives in `drevalpy.models.composed_model`."""
 
 from drevalpy.models.composed_model import ComposedModel, _matrix_feature_width
 

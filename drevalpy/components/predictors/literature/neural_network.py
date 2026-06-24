@@ -24,6 +24,8 @@ from drevalpy.components.registry import register_predictor
     category="general_purpose",
 )
 class NeuralNetworkPredictor(Predictor):
+    """Neural network predictor component."""
+
     required_cell_line_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
     required_drug_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
     supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset({PredictionMode.REGRESSION})

@@ -40,6 +40,8 @@ def test_component_featurizers_import_from_data_not_models_utils() -> None:
     view_module = sys.modules.get("drevalpy.components.featurizers.cell_line.view")
     if view_module is None:
         import drevalpy.components.featurizers.cell_line.view as view_module
+    assert view_module is not None
+    assert view_module.__file__ is not None
     source_path = view_module.__file__
     assert source_path is not None
     text = open(source_path, encoding="utf-8").read()

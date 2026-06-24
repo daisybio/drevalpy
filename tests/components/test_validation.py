@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+
 import pytest
 
 from drevalpy.components.config import (
@@ -23,7 +25,7 @@ from drevalpy.components.validation import validate_model_config
 
 
 @pytest.fixture(autouse=True)
-def _clear_registries() -> None:
+def _clear_registries() -> Iterator[None]:
     clear_cell_line_featurizer_registry()
     clear_drug_featurizer_registry()
     clear_predictor_registry()

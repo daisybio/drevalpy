@@ -1,6 +1,6 @@
 """Compatibility re-exports for DRPModel bridge helpers.
 
-Prefer :mod:`drevalpy.models._component_bridge` for new model-side adapter code.
+Prefer `drevalpy.models._component_bridge` for new model-side adapter code.
 """
 
 from __future__ import annotations
@@ -30,6 +30,7 @@ __all__ = [  # noqa: F822
 
 
 def ensure_components_registered(*args: Any, **kwargs: Any) -> None:
+    """Register built-in featurizers and predictors if not already loaded."""
     from drevalpy.components.register_builtins import ensure_components_registered as _ensure
 
     _ensure(*args, **kwargs)

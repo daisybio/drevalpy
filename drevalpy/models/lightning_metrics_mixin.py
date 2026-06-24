@@ -1,4 +1,4 @@
-"""Compatibility re-export for :class:`RegressionMetricsMixin`."""
+"""Compatibility re-export for `RegressionMetricsMixin`."""
 
 from drevalpy.components.lightning_metrics_mixin import RegressionMetricsMixin
 

@@ -71,6 +71,8 @@ def test_simple_and_multiview_neural_network_share_predictor() -> None:
     multi = get_zoo_config("MultiViewNeuralNetwork")
     assert simple.predictor.type == "neuralNetwork"
     assert multi.predictor.type == "neuralNetwork"
+    assert simple.cell_line_featurizer is not None
+    assert multi.cell_line_featurizer is not None
     assert simple.cell_line_featurizer.type == "scaledGeneExpression"
     assert multi.cell_line_featurizer.type == "multiConcat"
 

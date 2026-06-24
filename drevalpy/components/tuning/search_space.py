@@ -13,7 +13,7 @@ def merge_search_spaces(
     """Merge component spaces into a single dict with dot-notation prefixed keys.
 
     Keys are prefixed as ``featurizer.cell_line.*``, ``featurizer.drug.*``,
-    and ``predictor.*`` so :func:`split_hyperparameters` can invert the merge.
+    and ``predictor.*`` so `split_hyperparameters` can invert the merge.
     """
     merged: dict[str, Any] = {}
     if cell_line_featurizer_space:
@@ -31,7 +31,7 @@ def merge_search_spaces(
 def split_hyperparameters(
     merged_config: dict[str, Any],
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
-    """Invert :func:`merge_search_spaces`.
+    """Invert `merge_search_spaces`.
 
     Returns ``(cell_line_hp, drug_hp, predictor_hp)``.
     Keys without a recognised prefix are put into ``predictor_hp``.

@@ -1,4 +1,4 @@
-"""Compatibility re-export — implementation lives in :mod:`drevalpy.models.model_config_spec`."""
+"""Compatibility re-export — implementation lives in `drevalpy.models.model_config_spec`."""
 
 from drevalpy.models.model_config_spec import build_model_config_from_spec
 

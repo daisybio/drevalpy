@@ -91,7 +91,7 @@ class Registry:
             self._store.clear()
 
     def register_existing(self, name: str, cls: type[Any]) -> None:
-        """Register a class that was previously decorated but removed via :meth:`clear`."""
+        """Register a class that was previously decorated but removed via `clear`."""
         with self._lock:
             if name in self._store:
                 return

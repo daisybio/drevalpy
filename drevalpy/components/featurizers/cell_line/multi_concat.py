@@ -11,6 +11,7 @@ from sklearn.preprocessing import StandardScaler
 from drevalpy.components.featurizers._matrix import stack_view_matrix
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.registry import register_cell_line_featurizer
+from drevalpy.components.state_helpers import state_int, state_mapping, state_str_list
 from drevalpy.data.preprocessing import (
     ProteomicsMedianCenterAndImputeTransformer,
     prepare_expression_and_methylation,
@@ -127,27 +128,27 @@ class MultiConcatCellLineFeaturizer(CellLineFeaturizer):
         }
 
     def set_state(self, state: dict[str, object]) -> None:
-        views = state.get("views")
+        views = state_str_list(state, "views")
         if views is not None:
-            self._views = list(views)
-        view_dims = state.get("view_dims")
-        if view_dims is not None:
-            self._view_dims = dict(view_dims)
+            self._views = views
+        view_dims = state_mapping(state, "view_dims")
+        if view_dims:
+            self._view_dims = {str(key): int(value) for key, value in view_dims.items()}
         gene_expression_scaler = state.get("gene_expression_scaler")
-        if gene_expression_scaler is not None:
+        if isinstance(gene_expression_scaler, StandardScaler):
             self._gene_expression_scaler = gene_expression_scaler
         methylation_scaler = state.get("methylation_scaler")
-        if methylation_scaler is not None:
+        if isinstance(methylation_scaler, StandardScaler):
             self._methylation_scaler = methylation_scaler
         methylation_pca = state.get("methylation_pca")
-        if methylation_pca is not None:
+        if isinstance(methylation_pca, PCA):
             self._methylation_pca = methylation_pca
         proteomics_transformer = state.get("proteomics_transformer")
-        if proteomics_transformer is not None:
+        if isinstance(proteomics_transformer, ProteomicsMedianCenterAndImputeTransformer):
             self._proteomics_transformer = proteomics_transformer
-        output_dim = state.get("output_dim")
+        output_dim = state_int(state, "output_dim")
         if output_dim is not None:
-            self._output_dim = int(output_dim)
+            self._output_dim = output_dim
         train_ids = state.get("train_ids")
         if train_ids is not None:
             self._train_ids = np.asarray(train_ids)

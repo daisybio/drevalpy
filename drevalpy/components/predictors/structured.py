@@ -13,7 +13,7 @@ from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 
 
 class StructuredPredictor(Predictor):
-    """Predictor that consumes featurizer outputs via :class:`~drevalpy.components.pair_batch.PairBatch`."""
+    """Predictor that consumes featurizer outputs via `~drevalpy.components.pair_batch.PairBatch`."""
 
     uses_features: ClassVar[bool] = False
     uses_structured_features: ClassVar[bool] = True

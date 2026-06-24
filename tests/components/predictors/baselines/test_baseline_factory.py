@@ -46,7 +46,7 @@ def test_model_factory_imports_component_baselines(name: str) -> None:
 def test_model_config_and_factory_share_name(name: str) -> None:
     config = ModelConfig.from_spec(name)
     model_cls = MODEL_FACTORY[name]
-    assert config.validate() is None
+    config.validate()
     assert model_cls.get_model_name() == name
 
 

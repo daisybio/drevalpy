@@ -1,4 +1,4 @@
-"""Helpers for building dense matrices from :class:`~drevalpy.datasets.dataset.FeatureDataset`."""
+"""Helpers for building dense matrices from `~drevalpy.datasets.dataset.FeatureDataset`."""
 
 from __future__ import annotations
 

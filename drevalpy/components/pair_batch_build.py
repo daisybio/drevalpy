@@ -1,4 +1,4 @@
-"""Build :class:`~drevalpy.components.pair_batch.PairBatch` from featurizer outputs."""
+"""Build `~drevalpy.components.pair_batch.PairBatch` from featurizer outputs."""
 
 from __future__ import annotations
 

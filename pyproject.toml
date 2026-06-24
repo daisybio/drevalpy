@@ -99,6 +99,8 @@ dependencies = { torch = ">=2.1", torch-geometric = "*" }
 [tool.poetry.group.dev.dependencies]
 mypy = "^1.19.1"
 ruff = "^0.15.8"
+types-PyYAML = "*"
+types-toml = "*"
 
 [tool.black]
 line-length = 120
@@ -113,33 +115,6 @@ show_column_numbers = true
 show_error_codes = true
 show_error_context = true
 ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = [
-    "drevalpy.components.*",
-    "drevalpy.models._component_bridge",
-    "drevalpy.models.composed_model",
-    "drevalpy.models.config_io",
-    "drevalpy.models.factory",
-    "drevalpy.models.model_config_spec",
-    "drevalpy.models.zoo.*",
-    "tests.components.*",
-    "tests.models.test_composed_model",
-    "tests.models.test_config_io",
-    "tests.models.test_import_compat",
-    "tests.models.test_model_config_spec",
-    "tests.models.test_zoo",
-    "test_baseline_factory",
-    "test_boundary",
-    "test_core",
-    "test_legacy_parity",
-    "test_literature_factory",
-    "test_literature_zoo",
-    "test_model_config_spec",
-    "test_validation",
-    "test_zoo",
-]
-ignore_errors = true
 
 [tool.isort]
 multi_line_output=3

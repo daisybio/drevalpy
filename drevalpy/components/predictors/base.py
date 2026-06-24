@@ -11,7 +11,9 @@ from drevalpy.components.config import PredictionMode
 from drevalpy.components.contracts import FeatureContract, FeatureKind
 
 if TYPE_CHECKING:
+    from drevalpy.components.pair_batch import PairBatch
     from drevalpy.components.pair_context import PairContext
+    from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 
 
 class Predictor(ABC):
@@ -66,9 +68,56 @@ class Predictor(ABC):
         return {}
 
     def set_state(self, state: dict[str, object]) -> None:
-        """Restore fitted state produced by :meth:`get_state`."""
+        """Restore fitted state produced by `get_state`."""
         _ = state
 
     def is_fitted(self) -> bool:
         """Return whether the predictor has been fit."""
         return bool(self.get_state())
+
+    def fit_structured(
+        self,
+        batch: PairBatch,
+        *,
+        output: DrugResponseDataset | None = None,
+        cell_line_input: FeatureDataset | None = None,
+        drug_input: FeatureDataset | None = None,
+        output_earlystopping: DrugResponseDataset | None = None,
+    ) -> None:
+        """Fit on a structured featurized batch."""
+        msg = f"{type(self).__name__} does not support structured features"
+        raise RuntimeError(msg)
+
+    def predict_structured(
+        self,
+        batch: PairBatch,
+        *,
+        cell_line_input: FeatureDataset | None = None,
+        drug_input: FeatureDataset | None = None,
+    ) -> np.ndarray:
+        """Predict on a structured featurized batch."""
+        msg = f"{type(self).__name__} does not support structured features"
+        raise RuntimeError(msg)
+
+    def fit_raw(
+        self,
+        output: DrugResponseDataset,
+        cell_line_input: FeatureDataset,
+        drug_input: FeatureDataset | None = None,
+        *,
+        output_earlystopping: DrugResponseDataset | None = None,
+    ) -> None:
+        """Fit directly from raw feature datasets without featurizer blocks."""
+        msg = f"{type(self).__name__} does not support raw feature datasets"
+        raise RuntimeError(msg)
+
+    def predict_raw(
+        self,
+        cell_line_ids: np.ndarray,
+        drug_ids: np.ndarray,
+        cell_line_input: FeatureDataset,
+        drug_input: FeatureDataset | None = None,
+    ) -> np.ndarray:
+        """Predict directly from raw feature datasets without featurizer blocks."""
+        msg = f"{type(self).__name__} does not support raw feature datasets"
+        raise RuntimeError(msg)

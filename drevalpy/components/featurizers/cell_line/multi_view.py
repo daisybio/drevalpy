@@ -18,6 +18,8 @@ from drevalpy.components.registry import register_cell_line_featurizer
     category="native",
 )
 class MultiViewStructuredCellLineFeaturizer(CellLineFeaturizer):
+    """Multi view structured cell line featurizer component."""
+
     output_contract: ClassVar[FeatureContract] = FeatureContract(
         kind=FeatureKind.DENSE,
         scope="multi_view",

@@ -20,6 +20,8 @@ from drevalpy.components.registry import register_predictor
     category="general_purpose",
 )
 class ElasticNetPredictor(SklearnTabularPredictor):
+    """Elastic net predictor component."""
+
     def _make_estimator(self):
         l1_ratio = float(self._h.get("l1_ratio", 0.5))
         alpha = float(self._h.get("alpha", 1.0))
@@ -39,6 +41,8 @@ class ElasticNetPredictor(SklearnTabularPredictor):
 
 @register_predictor("lasso", description="Lasso regression on dense features.", category="general_purpose")
 class LassoPredictor(SklearnTabularPredictor):
+    """Lasso predictor component."""
+
     def _make_estimator(self):
         return Lasso(
             alpha=float(self._h.get("alpha", 1.0)),
@@ -50,6 +54,8 @@ class LassoPredictor(SklearnTabularPredictor):
 
 @register_predictor("ridge", description="Ridge regression on dense features.", category="general_purpose")
 class RidgePredictor(SklearnTabularPredictor):
+    """Ridge predictor component."""
+
     def _make_estimator(self):
         return Ridge(alpha=float(self._h.get("alpha", 1.0)))
 
@@ -60,6 +66,8 @@ class RidgePredictor(SklearnTabularPredictor):
     category="general_purpose",
 )
 class RandomForestPredictor(SklearnTabularPredictor):
+    """Random forest predictor component."""
+
     def _make_estimator(self):
         max_depth_raw = self._h.get("max_depth", 20)
         max_depth = None if max_depth_raw is None else int(max_depth_raw)
@@ -87,6 +95,8 @@ class RandomForestPredictor(SklearnTabularPredictor):
 
 @register_predictor("svr", description="Support vector regression on dense features.", category="general_purpose")
 class SVRPredictor(SklearnTabularPredictor):
+    """Svrpredictor component."""
+
     def _make_estimator(self):
         return SVR(
             C=float(self._h.get("C", 1.0)),
@@ -102,6 +112,8 @@ class SVRPredictor(SklearnTabularPredictor):
     category="general_purpose",
 )
 class GradientBoostingPredictor(SklearnTabularPredictor):
+    """Gradient boosting predictor component."""
+
     def _make_estimator(self):
         return HistGradientBoostingRegressor(
             max_depth=int(self._h.get("max_depth", 6)),
@@ -116,6 +128,8 @@ class GradientBoostingPredictor(SklearnTabularPredictor):
     category="general_purpose",
 )
 class AdaBoostPredictor(SklearnTabularPredictor):
+    """Ada boost predictor component."""
+
     def _make_estimator(self):
         return AdaBoostRegressor(
             estimator=DecisionTreeRegressor(
@@ -130,6 +144,8 @@ class AdaBoostPredictor(SklearnTabularPredictor):
 
 @register_predictor("knn", description="K-nearest neighbors on dense features.", category="general_purpose")
 class KNNPredictor(SklearnTabularPredictor):
+    """Knnpredictor component."""
+
     def _make_estimator(self):
         return KNeighborsRegressor(
             n_neighbors=int(self._h.get("n_neighbors", 5)),

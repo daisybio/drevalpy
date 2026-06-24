@@ -2,9 +2,9 @@
 Contains the DRPModel class.
 
 The DRPModel class is an abstract wrapper class for drug response prediction models.
-Concrete subclasses live under :mod:`drevalpy.models` and are the public experiment
+Concrete subclasses live under `drevalpy.models` and are the public experiment
 surface. Modular featurizer/predictor composition is implemented in
-:mod:`drevalpy.components`; baseline adapters bridge the two layers.
+`drevalpy.components`; baseline adapters bridge the two layers.
 """
 
 import inspect

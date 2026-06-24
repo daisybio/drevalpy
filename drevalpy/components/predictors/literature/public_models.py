@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, ClassVar
+from typing import Any, ClassVar, cast
 
 import numpy as np
 
@@ -22,6 +22,7 @@ from drevalpy.components.predictors.literature.impl.simple_neural_network.simple
 from drevalpy.components.predictors.literature.impl.srmf.srmf import SRMF as _SRMFImpl  # noqa: N811
 from drevalpy.components.predictors.literature.impl.superfeltr.superfeltr import SuperFELTR as _SuperFELTR
 from drevalpy.components.register_builtins import ensure_components_registered
+from drevalpy.components.state_helpers import state_str_list
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models._component_bridge import ComponentDRPBridge, restore_literature_to_components
 from drevalpy.models.drp_model import DRPModel
@@ -29,14 +30,43 @@ from drevalpy.models.factory import model_config_for_name
 
 
 class LiteratureComponentDRPModel(DRPModel):
-    """Route legacy experiment APIs through zoo-backed :class:`ComposedModel` stacks."""
+    """Route legacy experiment APIs through zoo-backed ComposedModel stacks."""
 
     _zoo_name: ClassVar[str]
+    _impl_cls: ClassVar[type[DRPModel] | None] = None
+
+    def __init_subclass__(cls, **kwargs: object) -> None:
+        super().__init_subclass__(**kwargs)
+        impl_cls = cls.__dict__.get("_impl_cls")
+        if impl_cls is not None:
+            if "early_stopping" not in cls.__dict__:
+                cls.early_stopping = getattr(impl_cls, "early_stopping", False)
+            if "is_single_drug_model" not in cls.__dict__:
+                cls.is_single_drug_model = getattr(impl_cls, "is_single_drug_model", False)
 
     def __init__(self) -> None:
         super().__init__()
         self._bridge = ComponentDRPBridge()
-        self.hyperparameters: dict[str, Any] = {}
+        impl_cls = type(self)._impl_cls
+        if impl_cls is not None:
+            temp = impl_cls()
+            for key, value in temp.__dict__.items():
+                if key != "_bridge":
+                    setattr(self, key, value)
+        if not hasattr(self, "hyperparameters"):
+            self.hyperparameters = {}
+        if impl_cls is not None:
+            class_cell_line_views = getattr(impl_cls, "cell_line_views", [])
+            if isinstance(class_cell_line_views, list) and class_cell_line_views:
+                self._cell_line_views_list = list(class_cell_line_views)
+            class_drug_views = getattr(impl_cls, "drug_views", [])
+            if isinstance(class_drug_views, list) and class_drug_views:
+                self._drug_views_list = list(class_drug_views)
+            else:
+                self._drug_views_list = []
+        else:
+            self._cell_line_views_list = []
+            self._drug_views_list = []
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -44,12 +74,25 @@ class LiteratureComponentDRPModel(DRPModel):
 
     @classmethod
     def get_hyperparameter_set(cls) -> list[dict[str, Any]]:
-        for base in cls.__bases__:
-            if base is LiteratureComponentDRPModel:
-                continue
-            if issubclass(base, DRPModel):
-                return base.get_hyperparameter_set()
+        if cls._impl_cls is not None:
+            return cls._impl_cls.get_hyperparameter_set()
         return super().get_hyperparameter_set()
+
+    @property
+    def cell_line_views(self) -> list[str]:
+        return list(self._cell_line_views_list)
+
+    @cell_line_views.setter
+    def cell_line_views(self, views: list[str]) -> None:
+        self._cell_line_views_list = list(views)
+
+    @property
+    def drug_views(self) -> list[str]:
+        return list(self._drug_views_list)
+
+    @drug_views.setter
+    def drug_views(self, views: list[str]) -> None:
+        self._drug_views_list = list(views)
 
     def build_model(self, hyperparameters: dict[str, Any]) -> None:
         self.log_hyperparameters(hyperparameters)
@@ -57,12 +100,23 @@ class LiteratureComponentDRPModel(DRPModel):
         ensure_components_registered()
         config = model_config_for_name(self._zoo_name, hyperparameters)
         self._bridge.set_composed_config(config)
-        for base in self.__class__.__bases__:
-            if base is LiteratureComponentDRPModel:
-                continue
-            if issubclass(base, DRPModel):
-                base.build_model(self, hyperparameters)
-                break
+        impl_cls = type(self)._impl_cls
+        if impl_cls is not None:
+            impl_cls.build_model(self, hyperparameters)
+
+    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+        impl_cls = type(self)._impl_cls
+        if impl_cls is None:
+            msg = f"{type(self).__name__} does not implement load_cell_line_features"
+            raise NotImplementedError(msg)
+        return impl_cls.load_cell_line_features(self, data_path, dataset_name)
+
+    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset | None:
+        impl_cls = type(self)._impl_cls
+        if impl_cls is None:
+            msg = f"{type(self).__name__} does not implement load_drug_features"
+            raise NotImplementedError(msg)
+        return impl_cls.load_drug_features(self, data_path, dataset_name)
 
     def _sync_impl_state_from_bridge(self) -> None:
         composed = self._bridge.composed
@@ -90,11 +144,12 @@ class LiteratureComponentDRPModel(DRPModel):
                 self.methylation_scaler = state["methylation_scaler"]
             if "methylation_pca" in state:
                 self.methylation_pca = state["methylation_pca"]
-            if "views" in state:
-                self.cell_line_views = list(state["views"])
+            views = state_str_list(state, "views")
+            if views is not None:
+                self.cell_line_views = views
 
         drug_featurizer = composed._drug_featurizer
-        if drug_featurizer is not None and hasattr(drug_featurizer, "_view") and "drug_views" in vars(self):
+        if drug_featurizer is not None and hasattr(drug_featurizer, "_view") and hasattr(self, "drug_views"):
             self.drug_views = [drug_featurizer._view]
 
         if composed._cell_line_matrix is not None and composed._cell_line_matrix.size:
@@ -115,14 +170,14 @@ class LiteratureComponentDRPModel(DRPModel):
                 if drug_featurizer is not None and composed._drug_matrix is not None and composed._drug_matrix.size:
                     from drevalpy.models.composed_model import _matrix_feature_width
 
-                    drug_view = self.drug_views[0] if getattr(self, "drug_views", None) else "fingerprints"
+                    drug_view = self.drug_views[0] if self.drug_views else "fingerprints"
                     self.input_dims[drug_view] = _matrix_feature_width(composed._drug_matrix)
             elif cell_featurizer is not None and hasattr(cell_featurizer, "_view"):
                 self.input_dims = {cell_featurizer._view: int(cell_featurizer.output_dim)}
                 if drug_featurizer is not None and composed._drug_matrix is not None and composed._drug_matrix.size:
                     from drevalpy.models.composed_model import _matrix_feature_width
 
-                    drug_view = self.drug_views[0] if getattr(self, "drug_views", None) else "fingerprints"
+                    drug_view = self.drug_views[0] if self.drug_views else "fingerprints"
                     self.input_dims[drug_view] = _matrix_feature_width(composed._drug_matrix)
 
     def train(
@@ -142,17 +197,6 @@ class LiteratureComponentDRPModel(DRPModel):
         )
         self._sync_impl_state_from_bridge()
 
-    def _impl_base(self) -> type[DRPModel] | None:
-        for base in self.__class__.__bases__:
-            if base is LiteratureComponentDRPModel:
-                continue
-            if issubclass(base, DRPModel):
-                return base
-        return None
-
-    def _bridge_is_trained(self) -> bool:
-        return self._bridge.is_trained()
-
     def _predict_via_impl(
         self,
         cell_line_ids: np.ndarray,
@@ -160,10 +204,10 @@ class LiteratureComponentDRPModel(DRPModel):
         cell_line_input: FeatureDataset,
         drug_input: FeatureDataset | None = None,
     ) -> np.ndarray:
-        impl_base = self._impl_base()
-        if impl_base is None:
+        impl_cls = type(self)._impl_cls
+        if impl_cls is None:
             return np.full(len(cell_line_ids), np.nan)
-        return impl_base.predict(self, cell_line_ids, drug_ids, cell_line_input, drug_input)
+        return impl_cls.predict(self, cell_line_ids, drug_ids, cell_line_input, drug_input)
 
     def predict(
         self,
@@ -172,7 +216,7 @@ class LiteratureComponentDRPModel(DRPModel):
         cell_line_input: FeatureDataset,
         drug_input: FeatureDataset | None = None,
     ) -> np.ndarray:
-        if self._bridge_is_trained():
+        if self._bridge.is_trained():
             return self._bridge.predict(cell_line_ids, drug_ids, cell_line_input, drug_input)
         if getattr(self, "model", None) is not None:
             return self._predict_via_impl(cell_line_ids, drug_ids, cell_line_input, drug_input)
@@ -180,63 +224,95 @@ class LiteratureComponentDRPModel(DRPModel):
 
     @classmethod
     def load(cls, directory: str) -> LiteratureComponentDRPModel:
-        impl_base = None
-        for base in cls.__bases__:
-            if base is LiteratureComponentDRPModel:
-                continue
-            if issubclass(base, DRPModel):
-                impl_base = base
-                break
-        if impl_base is None:
+        if cls._impl_cls is None:
             msg = f"{cls.__name__}.load is not implemented"
             raise NotImplementedError(msg)
-        loaded = impl_base.load(directory)
+        loaded = cls._impl_cls.load(directory)
         wrapper = cls()
         for name, value in vars(loaded).items():
             if name.startswith("_"):
                 continue
             setattr(wrapper, name, value)
+        wrapper.hyperparameters = dict(getattr(loaded, "hyperparameters", {}))
+        if hasattr(loaded, "cell_line_views"):
+            wrapper.cell_line_views = cast(list[str], loaded.cell_line_views)
+        if hasattr(loaded, "drug_views"):
+            wrapper.drug_views = cast(list[str], loaded.drug_views)
         wrapper.build_model(dict(wrapper.hyperparameters))
         restore_literature_to_components(wrapper)
         return wrapper
 
+    def save(self, directory: str) -> None:
+        impl_cls = type(self)._impl_cls
+        if impl_cls is not None:
+            impl_cls.save(self, directory)
+            return
+        super().save(directory)
 
-class PrecilyModel(LiteratureComponentDRPModel, _PrecilyImpl):
+
+class PrecilyModel(LiteratureComponentDRPModel):
+    """Precily model component."""
+
     _zoo_name = "Precily"
+    _impl_cls = _PrecilyImpl
 
 
-class SRMF(LiteratureComponentDRPModel, _SRMFImpl):
+class SRMF(LiteratureComponentDRPModel):
+    """Srmf component."""
+
     _zoo_name = "SRMF"
+    _impl_cls = _SRMFImpl
 
 
-class DrugGNN(LiteratureComponentDRPModel, _DrugGNN):
+class DrugGNN(LiteratureComponentDRPModel):
+    """Drug gnn component."""
+
     _zoo_name = "DrugGNN"
+    _impl_cls = _DrugGNN
 
 
-class SimpleNeuralNetwork(LiteratureComponentDRPModel, _SimpleNeuralNetwork):
+class SimpleNeuralNetwork(LiteratureComponentDRPModel):
+    """Simple neural network component."""
+
     _zoo_name = "SimpleNeuralNetwork"
+    _impl_cls = _SimpleNeuralNetwork
 
 
-class MultiViewNeuralNetwork(LiteratureComponentDRPModel, _MultiViewNeuralNetwork):
+class MultiViewNeuralNetwork(LiteratureComponentDRPModel):
+    """Multi view neural network component."""
+
     _zoo_name = "MultiViewNeuralNetwork"
+    _impl_cls = _MultiViewNeuralNetwork
 
 
-class MOLIR(LiteratureComponentDRPModel, _MOLIR):
+class MOLIR(LiteratureComponentDRPModel):
+    """Molir component."""
+
     _zoo_name = "MOLIR"
+    _impl_cls = _MOLIR
     is_single_drug_model = True
 
 
-class SuperFELTR(LiteratureComponentDRPModel, _SuperFELTR):
+class SuperFELTR(LiteratureComponentDRPModel):
+    """Super feltr component."""
+
     _zoo_name = "SuperFELTR"
+    _impl_cls = _SuperFELTR
     is_single_drug_model = True
 
 
-class PharmaFormerModel(LiteratureComponentDRPModel, _PharmaFormerModel):
+class PharmaFormerModel(LiteratureComponentDRPModel):
+    """Pharma former model component."""
+
     _zoo_name = "PharmaFormer"
+    _impl_cls = _PharmaFormerModel
 
 
-class DIPKModel(LiteratureComponentDRPModel, _DIPKModel):
+class DIPKModel(LiteratureComponentDRPModel):
+    """Dipkmodel component."""
+
     _zoo_name = "DIPK"
+    _impl_cls = _DIPKModel
 
 
 __all__ = [

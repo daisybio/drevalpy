@@ -42,6 +42,7 @@ class PairBatch:
         drug_blocks: dict[str, np.ndarray] | None = None,
         pair_context: PairContext | None = None,
     ) -> PairBatch:
+        """Build a pair batch from a response dataset and featurizer outputs."""
         return cls(
             cell_line_ids=response.cell_line_ids,
             drug_ids=response.drug_ids,

@@ -42,7 +42,7 @@ def metadata_record(registry_name: str, name: str, cls: type[Any]) -> dict[str, 
 
 
 def featurizer_component_metadata(registry_name: str, name: str, cls: type[Any]) -> dict[str, str]:
-    """Like :func:`metadata_record` plus ``output_contract`` summary."""
+    """Like `metadata_record` plus ``output_contract`` summary."""
     meta = metadata_record(registry_name, name, cls)
     output = getattr(cls, "output_contract", None)
     if output is None:
@@ -52,7 +52,7 @@ def featurizer_component_metadata(registry_name: str, name: str, cls: type[Any])
 
 
 def predictor_component_metadata(registry_name: str, name: str, cls: type[Any]) -> dict[str, str]:
-    """Like :func:`metadata_record` plus required input contract summaries."""
+    """Like `metadata_record` plus required input contract summaries."""
     meta = metadata_record(registry_name, name, cls)
     cell_line = getattr(cls, "required_cell_line_contract", None)
     drug = getattr(cls, "required_drug_contract", None)

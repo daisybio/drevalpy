@@ -1,4 +1,4 @@
-"""Rebuild :class:`FeatureDataset` objects from structured featurizer blocks."""
+"""Rebuild `FeatureDataset` objects from structured featurizer blocks."""
 
 from __future__ import annotations
 

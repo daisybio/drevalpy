@@ -151,6 +151,8 @@ class StructuredLiteratureEnginePredictor(StructuredPredictor):
     **PRECIILY_METADATA,
 )
 class PrecilyPredictor(StructuredLiteratureEnginePredictor):
+    """Precily predictor component."""
+
     required_cell_line_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE, view="pathways")
     required_drug_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE, view="smilesvec")
     _engine_cls = PrecilyModel
@@ -162,6 +164,8 @@ class PrecilyPredictor(StructuredLiteratureEnginePredictor):
     **SRMF_METADATA,
 )
 class SRMFPredictor(StructuredLiteratureEnginePredictor):
+    """Srmfpredictor component."""
+
     required_cell_line_contract: ClassVar[FeatureContract] = FeatureContract(
         kind=FeatureKind.DENSE, view="gene_expression"
     )
@@ -175,6 +179,8 @@ class SRMFPredictor(StructuredLiteratureEnginePredictor):
     **MOLIR_METADATA,
 )
 class MOLIRPredictor(StructuredLiteratureEnginePredictor):
+    """Molirpredictor component."""
+
     required_cell_line_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE, scope="multi_view")
     required_drug_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
     requires_drug_featurizer: ClassVar[bool] = False
@@ -188,6 +194,8 @@ class MOLIRPredictor(StructuredLiteratureEnginePredictor):
     **SUPERFELTR_METADATA,
 )
 class SuperFELTRPredictor(StructuredLiteratureEnginePredictor):
+    """Super feltrpredictor component."""
+
     required_cell_line_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE, scope="multi_view")
     required_drug_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
     requires_drug_featurizer: ClassVar[bool] = False
@@ -201,6 +209,8 @@ class SuperFELTRPredictor(StructuredLiteratureEnginePredictor):
     **PHARMAFORMER_METADATA,
 )
 class PharmaFormerPredictor(StructuredLiteratureEnginePredictor):
+    """Pharma former predictor component."""
+
     required_cell_line_contract: ClassVar[FeatureContract] = FeatureContract(
         kind=FeatureKind.DENSE, view="gene_expression"
     )
@@ -215,6 +225,8 @@ class PharmaFormerPredictor(StructuredLiteratureEnginePredictor):
     **DIPK_METADATA,
 )
 class DIPKPredictor(StructuredLiteratureEnginePredictor):
+    """Dipkpredictor component."""
+
     required_cell_line_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE, scope="multi_view")
     required_drug_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE, view="molgnet_features")
     _use_raw_inputs: ClassVar[bool] = True

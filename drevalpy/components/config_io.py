@@ -1,4 +1,4 @@
-"""Compatibility re-export — implementation lives in :mod:`drevalpy.models.config_io`."""
+"""Compatibility re-export — implementation lives in `drevalpy.models.config_io`."""
 
 from drevalpy.models.config_io import (
     model_config_from_dict,

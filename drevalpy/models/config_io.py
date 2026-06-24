@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, cast
 
 import yaml
 
@@ -16,7 +16,7 @@ def _featurizer_from_dict(data: dict[str, Any], *, registry: str) -> FeaturizerC
         raise ValueError(msg)
     return FeaturizerConfig(
         type=str(data["type"]),
-        registry=registry,
+        registry=cast(Literal["cell_line", "drug"], registry),
         hyperparameters=dict(data.get("hyperparameters", {})),
         view=data.get("view"),
         views=data.get("views"),
@@ -25,7 +25,7 @@ def _featurizer_from_dict(data: dict[str, Any], *, registry: str) -> FeaturizerC
 
 
 def model_config_from_dict(data: dict[str, Any]) -> ModelConfig:
-    """Build a :class:`ModelConfig` from a plain dictionary."""
+    """Build a `ModelConfig` from a plain dictionary."""
     if "predictor" not in data:
         msg = "model config requires a 'predictor' section"
         raise ValueError(msg)
@@ -76,14 +76,14 @@ def model_config_from_spec(
     *,
     hyperparameters: dict[str, Any] | None = None,
 ) -> ModelConfig:
-    """Build a :class:`ModelConfig` from a recipe, zoo, legacy, or baseline spec."""
+    """Build a `ModelConfig` from a recipe, zoo, legacy, or baseline spec."""
     from drevalpy.models.model_config_spec import build_model_config_from_spec
 
     return build_model_config_from_spec(spec, hyperparameters=hyperparameters)
 
 
 def model_config_from_yaml(path: Path | str) -> ModelConfig:
-    """Load a :class:`ModelConfig` from a YAML file."""
+    """Load a `ModelConfig` from a YAML file."""
     yaml_path = Path(path)
     if not yaml_path.is_file():
         msg = f"Model config YAML not found: {yaml_path}"

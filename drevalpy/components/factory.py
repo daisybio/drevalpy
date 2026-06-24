@@ -1,4 +1,4 @@
-"""Compatibility re-export — implementation lives in :mod:`drevalpy.models.factory`."""
+"""Compatibility re-export — implementation lives in `drevalpy.models.factory`."""
 
 from drevalpy.models.factory import (
     LEGACY_PREDICTOR_BY_MODEL_NAME,

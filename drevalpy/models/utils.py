@@ -1,6 +1,6 @@
 """Utility functions for loading and processing data (compatibility re-exports).
 
-Prefer :mod:`drevalpy.data.features` and :mod:`drevalpy.data.preprocessing` for new code.
+Prefer `drevalpy.data.features` and `drevalpy.data.preprocessing` for new code.
 """
 
 from drevalpy.data.features import (

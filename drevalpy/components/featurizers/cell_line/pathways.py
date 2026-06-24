@@ -15,6 +15,8 @@ from drevalpy.components.registry import register_cell_line_featurizer
     category="general_purpose",
 )
 class PathwaysCellLineFeaturizer(ViewCellLineFeaturizer):
+    """Pathways cell line featurizer component."""
+
     output_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE, view="pathways")
 
     def __init__(self, *, view: str = "pathways") -> None:

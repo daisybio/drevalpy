@@ -128,7 +128,11 @@ def test_model_factory_names_still_instantiate_public_models() -> None:
 def test_factory_and_zoo_elastic_net_configs_align() -> None:
     factory_config = sklearn_model_config("elasticNet", {"alpha": 0.1})
     zoo_config = model_config_for_name("ElasticNet", {"alpha": 0.1})
+    assert factory_config.cell_line_featurizer is not None
+    assert zoo_config.cell_line_featurizer is not None
     assert factory_config.cell_line_featurizer.type == zoo_config.cell_line_featurizer.type
+    assert factory_config.drug_featurizer is not None
+    assert zoo_config.drug_featurizer is not None
     assert factory_config.drug_featurizer.type == zoo_config.drug_featurizer.type
     assert factory_config.predictor.type == zoo_config.predictor.type
     assert zoo_config.predictor.hyperparameters["alpha"] == 0.1

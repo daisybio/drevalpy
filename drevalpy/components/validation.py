@@ -1,4 +1,4 @@
-"""Validation logic for :class:`~drevalpy.components.config.ModelConfig`."""
+"""Validation logic for `~drevalpy.components.config.ModelConfig`."""
 
 from __future__ import annotations
 

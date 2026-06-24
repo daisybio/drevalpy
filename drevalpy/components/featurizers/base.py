@@ -15,7 +15,7 @@ class Featurizer(ABC):
     """Transform feature tables into per-entity representation matrices.
 
     Cell-line featurizers consume cell-line features; drug featurizers consume
-    drug features. Both declare :attr:`output_contract` for predictor matching.
+    drug features. Both declare `output_contract` for predictor matching.
     """
 
     output_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
@@ -44,7 +44,7 @@ class Featurizer(ABC):
     @property
     @abstractmethod
     def output_dim(self) -> int:
-        """Feature dimension after :meth:`fit`."""
+        """Feature dimension after `fit`."""
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
@@ -65,5 +65,5 @@ class Featurizer(ABC):
         return {}
 
     def set_state(self, state: dict[str, object]) -> None:
-        """Restore fitted state produced by :meth:`get_state`."""
+        """Restore fitted state produced by `get_state`."""
         _ = state

@@ -1,4 +1,4 @@
-"""Bridge :class:`~drevalpy.models.drp_model.DRPModel` adapters to modular component configs."""
+"""Bridge `~drevalpy.models.drp_model.DRPModel` adapters to modular component configs."""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ _SKLEARN_FEATURIZER_STATE_ATTRS = (
 
 
 class ComponentDRPBridge:
-    """Shared train/predict logic for DRP models backed by :class:`ComposedModel`."""
+    """Shared train/predict logic for DRP models backed by `ComposedModel`."""
 
     def __init__(self) -> None:
         self._composed: ComposedModel | None = None

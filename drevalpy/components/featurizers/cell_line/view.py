@@ -15,6 +15,7 @@ from drevalpy.data.preprocessing import (
     prepare_proteomics,
     scale_gene_expression,
 )
+from drevalpy.datasets.dataset import FeatureDataset
 
 
 @register_cell_line_featurizer(
@@ -60,7 +61,8 @@ class ScaledGeneExpressionFeaturizer(CellLineFeaturizer):
         self._view = view
         self._scaler = StandardScaler()
         self._output_dim = 0
-        self._fitted_features = None
+        self._fitted_features: FeatureDataset | None = None
+        self._is_fitted = False
 
     def fit(
         self,
@@ -78,10 +80,11 @@ class ScaledGeneExpressionFeaturizer(CellLineFeaturizer):
         self._fitted_features = scaled
         matrix = stack_view_matrix(scaled, self._view, np.array(list(scaled.features.keys())))
         self._output_dim = int(matrix.shape[1])
+        self._is_fitted = True
         return self
 
     def transform(self, features, entity_ids: np.ndarray) -> np.ndarray:
-        if self._fitted_features is None:
+        if not self._is_fitted:
             msg = "ScaledGeneExpressionFeaturizer must be fit before transform"
             raise RuntimeError(msg)
         scaled = scale_gene_expression(
@@ -99,15 +102,16 @@ class ScaledGeneExpressionFeaturizer(CellLineFeaturizer):
     def get_state(self) -> dict[str, object]:
         return {
             "gene_expression_scaler": self._scaler,
-            "fitted": self._fitted_features is not None,
+            "fitted": self._is_fitted,
         }
 
     def set_state(self, state: dict[str, object]) -> None:
         scaler = state.get("gene_expression_scaler")
-        if scaler is not None:
+        if isinstance(scaler, StandardScaler):
             self._scaler = scaler
         if state.get("fitted"):
-            self._fitted_features = object()
+            self._is_fitted = True
+            self._fitted_features = None
 
 
 @register_cell_line_featurizer(
@@ -216,5 +220,5 @@ class ProteomicsCellLineFeaturizer(CellLineFeaturizer):
 
     def set_state(self, state: dict[str, object]) -> None:
         transformer = state.get("proteomics_transformer")
-        if transformer is not None:
+        if isinstance(transformer, ProteomicsMedianCenterAndImputeTransformer):
             self._transformer = transformer
