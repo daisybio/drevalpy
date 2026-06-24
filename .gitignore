@@ -12,8 +12,12 @@ wandb/
 checkpoints/
 lightning_logs/
 
-# Ad-hoc pytest output files
-.pytest_*.txt
+# uv lockfile (project uses Poetry; see poetry.lock)
+uv.lock
+
+# Local pytest run captures (not .pytest_cache/)
+.pytest_*
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
