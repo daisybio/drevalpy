@@ -10,6 +10,9 @@ Example::
     )
     config = ModelConfig.from_spec("myZooEntry")
     model = config.create_model()
+
+Orchestration helpers such as ``build_model_config_from_spec`` and zoo loading live
+under ``drevalpy.models``.
 """
 
 from __future__ import annotations
@@ -75,7 +78,7 @@ def load_extensions(
     zoo_files: list[Path | str] | None = None,
 ) -> None:
     """Load extension modules/files/directories and optional external zoo YAML."""
-    from drevalpy.components.drp_bridge import ensure_components_registered
+    from drevalpy.components.register_builtins import ensure_components_registered
 
     ensure_components_registered()
     for module_name in modules or []:

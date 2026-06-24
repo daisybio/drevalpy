@@ -80,7 +80,7 @@ def build_model_config_from_spec(
     3. Legacy ``MODEL_FACTORY`` model name (PascalCase)
     4. Baseline or monolithic predictor token (``uses_features=False``), e.g. ``naiveMean`` or ``dipk``
     """
-    from drevalpy.components.drp_bridge import ensure_components_registered
+    from drevalpy.components.register_builtins import ensure_components_registered
     from drevalpy.models.factory import model_config_for_name
 
     trimmed = spec.strip()

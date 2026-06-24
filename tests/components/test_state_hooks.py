@@ -6,19 +6,19 @@ import numpy as np
 import pytest
 from sklearn.linear_model import ElasticNet
 
-from drevalpy.components.drp_bridge import (
+from drevalpy.components.predictors.naive import NaiveDrugMeanPredictor
+from drevalpy.components.predictors.sklearn_models import ElasticNetPredictor
+from drevalpy.components.register_builtins import register_builtin_components
+from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.models._component_bridge import (
     restore_naive_to_components,
     restore_sklearn_to_components,
     sync_naive_from_components,
     sync_sklearn_from_components,
 )
-from drevalpy.components.factory import naive_model_config
-from drevalpy.components.predictors.naive import NaiveDrugMeanPredictor
-from drevalpy.components.predictors.sklearn_models import ElasticNetPredictor
-from drevalpy.components.register_builtins import register_builtin_components
-from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models.baselines.naive_pred import NaiveDrugMeanPredictor as LegacyNaiveDrugMean
 from drevalpy.models.baselines.sklearn_models import ElasticNetModel
+from drevalpy.models.factory import naive_model_config
 
 
 @pytest.fixture(autouse=True)

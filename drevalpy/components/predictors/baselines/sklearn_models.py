@@ -7,7 +7,6 @@ import joblib
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 
-from drevalpy.components.factory import SKLEARN_PREDICTOR_BY_MODEL_NAME, sklearn_model_config
 from drevalpy.components.register_builtins import ensure_components_registered
 from drevalpy.data.features import _get_view_as_list, load_single_cell_line_view, load_single_drug_view
 from drevalpy.data.preprocessing import ProteomicsMedianCenterAndImputeTransformer
@@ -19,6 +18,7 @@ from drevalpy.models._component_bridge import (
     sync_sklearn_from_components,
 )
 from drevalpy.models.drp_model import DRPModel
+from drevalpy.models.factory import SKLEARN_PREDICTOR_BY_MODEL_NAME, sklearn_model_config
 
 
 class SklearnModel(DRPModel):

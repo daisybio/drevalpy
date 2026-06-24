@@ -71,26 +71,25 @@ def test_models_lightning_metrics_mixin_reexports_component_mixin() -> None:
     assert ComponentMixin is ModelsMixin
 
 
-def test_bridge_lives_in_models_layer() -> None:
-    from drevalpy.components.drp_bridge import ComponentDRPBridge as ShimBridge
-    from drevalpy.models._component_bridge import ComponentDRPBridge
-
-    assert ComponentDRPBridge is ShimBridge
-
-
 def test_orchestration_lives_in_models_layer() -> None:
     import drevalpy.components as components_pkg
-    import drevalpy.components.factory as components_factory
     import drevalpy.models.composed_model as models_composed
     import drevalpy.models.config_io as models_config_io
     import drevalpy.models.factory as models_factory
     import drevalpy.models.model_config_spec as models_spec
     import drevalpy.models.zoo as models_zoo
 
-    assert components_factory.model_config_for_name is models_factory.model_config_for_name
-    assert components_pkg.get_zoo_config is models_zoo.get_zoo_config
-    from drevalpy.components.composed_model import ComposedModel as ComponentsComposed
-
-    assert ComponentsComposed is models_composed.ComposedModel
+    assert not hasattr(components_pkg, "ComposedModel")
+    assert not hasattr(components_pkg, "model_config_for_name")
+    assert not hasattr(components_pkg, "get_zoo_config")
+    assert models_factory.model_config_for_name.__module__ == "drevalpy.models.factory"
+    assert models_composed.ComposedModel.__module__ == "drevalpy.models.composed_model"
     assert models_config_io.model_config_from_yaml.__module__ == "drevalpy.models.config_io"
     assert models_spec.build_model_config_from_spec.__module__ == "drevalpy.models.model_config_spec"
+    assert models_zoo.get_zoo_config.__module__ == "drevalpy.models.zoo"
+
+
+def test_bridge_lives_in_models_layer() -> None:
+    from drevalpy.models._component_bridge import ComponentDRPBridge
+
+    assert ComponentDRPBridge.__module__ == "drevalpy.models._component_bridge"

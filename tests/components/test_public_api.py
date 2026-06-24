@@ -1,4 +1,4 @@
-"""Smoke tests for stable drevalpy.components public exports."""
+"""Tests for stable drevalpy.components public exports."""
 
 from __future__ import annotations
 
@@ -11,8 +11,6 @@ def test_public_exports_are_importable() -> None:
         "FeaturizerConfig",
         "PredictorConfig",
         "PredictionMode",
-        "ComposedModel",
-        "build_model_config_from_spec",
         "ensure_components_registered",
         "register_builtin_components",
         "register_cell_line_featurizer",
@@ -20,11 +18,22 @@ def test_public_exports_are_importable() -> None:
         "register_predictor",
         "format_model_id",
         "parse_model_id",
-        "model_config_from_spec",
         "load_extensions",
-        "list_zoo_names",
-        "get_zoo_config",
         "list_predictor_metadata",
     }
     for name in expected:
         assert hasattr(components, name), name
+
+
+def test_components_do_not_reexport_orchestration() -> None:
+    orchestration_exports = {
+        "ComposedModel",
+        "build_model_config_from_spec",
+        "model_config_from_spec",
+        "model_config_for_name",
+        "get_zoo_config",
+        "list_zoo_names",
+        "ComponentDRPBridge",
+    }
+    for name in orchestration_exports:
+        assert not hasattr(components, name), name

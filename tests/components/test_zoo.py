@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from drevalpy.components.factory import (
+from drevalpy.models.factory import (
     naive_model_config,
     sklearn_model_config,
     sklearn_model_config_from_zoo,

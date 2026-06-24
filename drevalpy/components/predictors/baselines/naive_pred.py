@@ -16,7 +16,6 @@ import os
 
 import numpy as np
 
-from drevalpy.components.factory import NAIVE_PREDICTOR_BY_MODEL_NAME, naive_model_config
 from drevalpy.components.register_builtins import ensure_components_registered
 from drevalpy.data.features import (
     load_cl_ids_and_tissues_from_csv,
@@ -32,6 +31,7 @@ from drevalpy.models._component_bridge import (
     sync_naive_from_components,
 )
 from drevalpy.models.drp_model import DRPModel
+from drevalpy.models.factory import NAIVE_PREDICTOR_BY_MODEL_NAME, naive_model_config
 
 
 class NaiveModel(DRPModel):

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from drevalpy.components.factory import naive_model_config, sklearn_model_config
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.models.factory import naive_model_config, sklearn_model_config
 
 
 def test_sklearn_model_config_builds_composed_model() -> None:

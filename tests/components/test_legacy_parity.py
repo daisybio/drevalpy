@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import numpy as np
 
-from drevalpy.components.factory import model_config_for_name, sklearn_model_config
 from drevalpy.components.register_builtins import register_builtin_components
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models import MODEL_FACTORY
+from drevalpy.models.factory import model_config_for_name, sklearn_model_config
 
 
 def _synthetic_data() -> tuple[DrugResponseDataset, FeatureDataset, FeatureDataset]:
