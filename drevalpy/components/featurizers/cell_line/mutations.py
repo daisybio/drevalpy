@@ -1,4 +1,4 @@
-"""BIONIC featurizer for DIPK."""
+"""Mutation cell-line featurizer."""
 
 from __future__ import annotations
 
@@ -10,16 +10,15 @@ from drevalpy.components.registry import register_cell_line_featurizer
 
 
 @register_cell_line_featurizer(
-    "bionic",
-    description="Precomputed BIONIC cell-line features for DIPK.",
-    category="general_purpose",
+    "mutations",
+    description="Binary mutation features for cell lines.",
+    category="native",
 )
-class BionicCellLineFeaturizer(DenseViewCellLineFeaturizer):
-    """Bionic cell line featurizer component."""
+class MutationsCellLineFeaturizer(DenseViewCellLineFeaturizer):
+    """Featurize raw mutation features."""
 
+    _default_view = "mutations"
     output_contract: ClassVar[FeatureContract] = FeatureContract(
         kind=FeatureKind.DENSE,
-        view="bionic_features",
+        view="mutations",
     )
-
-    _default_view = "bionic_features"

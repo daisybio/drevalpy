@@ -8,6 +8,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
+
 
 class PredictionMode(StrEnum):
     """Whether the model predicts a continuous response or a discrete class."""
@@ -21,22 +23,36 @@ class FeaturizerConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    type: str
+    name: str
     hyperparameters: dict[str, Any] = Field(default_factory=dict)
     registry: Literal["cell_line", "drug"] = "cell_line"
     view: str | None = None
     views: list[str] | None = None
     hyperparameter_space: dict[str, dict[str, Any]] | None = None
 
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_shorthand(cls, data: object) -> object:
+        if isinstance(data, str):
+            return normalize_featurizer_config(data)
+        if isinstance(data, dict):
+            if "name" in data:
+                registry = str(data.get("registry", "cell_line"))
+                return normalize_featurizer_config(data, default_registry=registry)
+            return normalize_featurizer_config(data)
+        return data
+
     def create_instance(self):
         """Instantiate the configured featurizer from the registry."""
         from drevalpy.components.registry import lookup as reg
 
         if self.registry == "cell_line":
-            cls = reg.get_cell_line_featurizer(self.type)
+            cls = reg.get_cell_line_featurizer(self.name)
         else:
-            cls = reg.get_drug_featurizer(self.type)
+            cls = reg.get_drug_featurizer(self.name)
         hp = dict(self.hyperparameters)
+        if self.name == "concatFeaturizers" and "featurizers" in hp:
+            hp["registry"] = self.registry
         if self.view is not None:
             hp.setdefault("view", self.view)
         if self.views is not None:
@@ -90,15 +106,17 @@ class ModelConfig(BaseModel):
             return data
         normalized = dict(data)
         cell_line = normalized.get("cell_line_featurizer")
-        if isinstance(cell_line, dict):
-            cell_line_payload = dict(cell_line)
-            cell_line_payload.setdefault("registry", "cell_line")
-            normalized["cell_line_featurizer"] = cell_line_payload
+        if cell_line is not None and not isinstance(cell_line, FeaturizerConfig):
+            normalized["cell_line_featurizer"] = normalize_featurizer_config(
+                cell_line,
+                default_registry="cell_line",
+            )
         drug = normalized.get("drug_featurizer")
-        if isinstance(drug, dict):
-            drug_payload = dict(drug)
-            drug_payload.setdefault("registry", "drug")
-            normalized["drug_featurizer"] = drug_payload
+        if drug is not None and not isinstance(drug, FeaturizerConfig):
+            normalized["drug_featurizer"] = normalize_featurizer_config(
+                drug,
+                default_registry="drug",
+            )
         return normalized
 
     @property
@@ -108,7 +126,11 @@ class ModelConfig(BaseModel):
             return self.predictor.type
         if self.cell_line_featurizer is None or self.drug_featurizer is None:
             return None
-        return f"{self.cell_line_featurizer.type}:" f"{self.drug_featurizer.type}:" f"{self.predictor.type}"
+        return (
+            f"{self.cell_line_featurizer.name}:"
+            f"{self.drug_featurizer.name}:"
+            f"{self.predictor.type}"
+        )
 
     def validate(self) -> None:  # type: ignore[override]
         """Check registry slots, feature compatibility, and prediction mode."""

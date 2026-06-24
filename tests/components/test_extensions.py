@@ -120,8 +120,7 @@ class ExternalPredictor(BaselinePredictor):
     zoo_file.write_text(
         """
 externalToy:
-  cell_line_featurizer:
-    type: externalCellLine
+  cell_line_featurizer: externalCellLine
   predictor:
     type: externalPredictor
 """,

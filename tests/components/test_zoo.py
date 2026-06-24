@@ -27,10 +27,10 @@ def test_zoo_elastic_net_matches_factory_defaults() -> None:
     factory_config = sklearn_model_config("elasticNet", {})
     assert zoo_config.cell_line_featurizer is not None
     assert factory_config.cell_line_featurizer is not None
-    assert zoo_config.cell_line_featurizer.type == factory_config.cell_line_featurizer.type
+    assert zoo_config.cell_line_featurizer.name == factory_config.cell_line_featurizer.name
     assert zoo_config.drug_featurizer is not None
     assert factory_config.drug_featurizer is not None
-    assert zoo_config.drug_featurizer.type == factory_config.drug_featurizer.type
+    assert zoo_config.drug_featurizer.name == factory_config.drug_featurizer.name
     assert zoo_config.predictor.type == factory_config.predictor.type
 
 

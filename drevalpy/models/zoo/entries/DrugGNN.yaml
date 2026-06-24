@@ -1,6 +1,4 @@
-cell_line_featurizer:
-  type: landmarkGenesReduced
-drug_featurizer:
-  type: drugGraph
+cell_line_featurizer: landmarkGenesReduced
+drug_featurizer: drugGraph
 predictor:
   type: drugGNN

@@ -55,8 +55,8 @@ def _register_dense_pair() -> None:
 def test_valid_dense_config_passes() -> None:
     _register_dense_pair()
     config = ModelConfig(
-        cell_line_featurizer=FeaturizerConfig(type="denseCellLine", registry="cell_line", view="gene_expression"),
-        drug_featurizer=FeaturizerConfig(type="denseDrug", registry="drug", view="fingerprints"),
+        cell_line_featurizer=FeaturizerConfig(name="denseCellLine", registry="cell_line", view="gene_expression"),
+        drug_featurizer=FeaturizerConfig(name="denseDrug", registry="drug", view="fingerprints"),
         predictor=PredictorConfig(type="densePred"),
     )
     validate_model_config(config)
@@ -65,8 +65,8 @@ def test_valid_dense_config_passes() -> None:
 def test_unknown_cell_line_featurizer_fails() -> None:
     _register_dense_pair()
     config = ModelConfig(
-        cell_line_featurizer=FeaturizerConfig(type="missing", registry="cell_line"),
-        drug_featurizer=FeaturizerConfig(type="denseDrug", registry="drug"),
+        cell_line_featurizer=FeaturizerConfig(name="missing", registry="cell_line"),
+        drug_featurizer=FeaturizerConfig(name="denseDrug", registry="drug"),
         predictor=PredictorConfig(type="densePred"),
     )
     with pytest.raises(ValueError, match="Unknown Cell line featurizer"):
@@ -76,8 +76,8 @@ def test_unknown_cell_line_featurizer_fails() -> None:
 def test_wrong_registry_slot_fails() -> None:
     _register_dense_pair()
     config = ModelConfig(
-        cell_line_featurizer=FeaturizerConfig(type="denseCellLine", registry="drug"),
-        drug_featurizer=FeaturizerConfig(type="denseDrug", registry="drug"),
+        cell_line_featurizer=FeaturizerConfig(name="denseCellLine", registry="drug"),
+        drug_featurizer=FeaturizerConfig(name="denseDrug", registry="drug"),
         predictor=PredictorConfig(type="densePred"),
     )
     with pytest.raises(ValueError, match="cell_line_featurizer must use registry='cell_line'"):
@@ -101,8 +101,8 @@ def test_graph_featurizer_with_dense_predictor_fails() -> None:
         required_drug_contract = FeatureContract(kind=FeatureKind.DENSE)
 
     config = ModelConfig(
-        cell_line_featurizer=FeaturizerConfig(type="graphCellLine", registry="cell_line"),
-        drug_featurizer=FeaturizerConfig(type="denseDrug", registry="drug"),
+        cell_line_featurizer=FeaturizerConfig(name="graphCellLine", registry="cell_line"),
+        drug_featurizer=FeaturizerConfig(name="denseDrug", registry="drug"),
         predictor=PredictorConfig(type="densePred"),
     )
     with pytest.raises(ValueError, match="Cell line featurizer output_contract"):
@@ -126,8 +126,8 @@ def test_graph_backend_mismatch_fails() -> None:
         required_drug_contract = FeatureContract(kind=FeatureKind.GRAPH, backend="pyg")
 
     config = ModelConfig(
-        cell_line_featurizer=FeaturizerConfig(type="graphCellLine", registry="cell_line"),
-        drug_featurizer=FeaturizerConfig(type="graphDrug", registry="drug"),
+        cell_line_featurizer=FeaturizerConfig(name="graphCellLine", registry="cell_line"),
+        drug_featurizer=FeaturizerConfig(name="graphDrug", registry="drug"),
         predictor=PredictorConfig(type="graphPred"),
     )
     with pytest.raises(ValueError, match="Cell line featurizer output_contract"):
@@ -162,8 +162,8 @@ def test_feature_using_predictor_without_featurizers_fails() -> None:
 def test_empty_view_string_fails() -> None:
     _register_dense_pair()
     config = ModelConfig(
-        cell_line_featurizer=FeaturizerConfig(type="denseCellLine", registry="cell_line", view="   "),
-        drug_featurizer=FeaturizerConfig(type="denseDrug", registry="drug"),
+        cell_line_featurizer=FeaturizerConfig(name="denseCellLine", registry="cell_line", view="   "),
+        drug_featurizer=FeaturizerConfig(name="denseDrug", registry="drug"),
         predictor=PredictorConfig(type="densePred"),
     )
     with pytest.raises(ValueError, match="cell_line_featurizer view must be a non-empty string"):

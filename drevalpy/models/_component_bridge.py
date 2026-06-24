@@ -150,18 +150,22 @@ def restore_sklearn_to_components(model: SklearnModel) -> None:
         featurizer_state = _sklearn_featurizer_state_from_model(model)
         if featurizer_state:
             featurizer_state["fitted"] = True
-            from drevalpy.components.featurizers.cell_line.multi_concat import (
-                MultiConcatCellLineFeaturizer,
+            from drevalpy.components.featurizers.cell_line.concat import (
+                ConcatFeaturizersCellLineFeaturizer,
             )
 
-            if isinstance(cell_line_featurizer, MultiConcatCellLineFeaturizer):
-                featurizer_state.setdefault("train_ids", np.array([], dtype=str))
-            cell_line_featurizer.set_state(featurizer_state)
+            if isinstance(cell_line_featurizer, ConcatFeaturizersCellLineFeaturizer):
+                ConcatFeaturizersCellLineFeaturizer.distribute_legacy_state(
+                    cell_line_featurizer,
+                    featurizer_state,
+                )
+            else:
+                cell_line_featurizer.set_state(featurizer_state)
 
 
 def restore_literature_to_components(model: Any) -> None:
     """Inject serialized literature model state into the composed stack."""
-    from drevalpy.components.featurizers.cell_line.multi_concat import MultiConcatCellLineFeaturizer
+    from drevalpy.components.featurizers.cell_line.concat import ConcatFeaturizersCellLineFeaturizer
     from drevalpy.components.predictors.literature.public_models import LiteratureComponentDRPModel
 
     if not isinstance(model, LiteratureComponentDRPModel):
@@ -198,9 +202,13 @@ def restore_literature_to_components(model: Any) -> None:
             }
             if view_dims:
                 featurizer_state["view_dims"] = view_dims
-        if isinstance(cell_line_featurizer, MultiConcatCellLineFeaturizer):
-            featurizer_state.setdefault("train_ids", np.array([], dtype=str))
-        cell_line_featurizer.set_state(featurizer_state)
+        if isinstance(cell_line_featurizer, ConcatFeaturizersCellLineFeaturizer):
+            ConcatFeaturizersCellLineFeaturizer.distribute_legacy_state(
+                cell_line_featurizer,
+                featurizer_state,
+            )
+        else:
+            cell_line_featurizer.set_state(featurizer_state)
 
 
 def sync_naive_from_components(model: NaiveModel, predictor_type: str) -> None:

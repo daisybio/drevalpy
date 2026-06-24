@@ -21,7 +21,10 @@ def _register_components() -> None:
         ("landmarkGenesReduced", FeatureKind.DENSE, "gene_expression"),
         ("pathways", FeatureKind.DENSE, "pathways"),
         ("bionic", FeatureKind.DENSE, "bionic_features"),
-        ("multiViewStructured", FeatureKind.DENSE, None),
+        ("concatFeaturizers", FeatureKind.DENSE, None),
+        ("geneExpression", FeatureKind.DENSE, "gene_expression"),
+        ("mutations", FeatureKind.DENSE, "mutations"),
+        ("methylationPCA", FeatureKind.DENSE, "methylation"),
     ],
 )
 def test_cell_line_literature_featurizer_contracts(
@@ -35,7 +38,7 @@ def test_cell_line_literature_featurizer_contracts(
     assert contract.kind == expected_kind
     if expected_view is not None:
         assert contract.view == expected_view
-    if name == "multiViewStructured":
+    if name == "concatFeaturizers":
         assert contract.scope == "multi_view"
 
 

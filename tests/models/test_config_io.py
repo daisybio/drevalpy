@@ -25,9 +25,9 @@ def test_model_config_from_predictor_only_spec() -> None:
 def test_model_config_from_triple_spec() -> None:
     config = model_config_from_spec("scaledGeneExpression:fingerprints:elasticNet")
     assert config.cell_line_featurizer is not None
-    assert config.cell_line_featurizer.type == "scaledGeneExpression"
+    assert config.cell_line_featurizer.name == "scaledGeneExpression"
     assert config.drug_featurizer is not None
-    assert config.drug_featurizer.type == "fingerprints"
+    assert config.drug_featurizer.name == "fingerprints"
     assert config.predictor.type == "elasticNet"
 
 
@@ -42,8 +42,8 @@ def test_model_config_from_legacy_name() -> None:
 def test_model_config_from_dict_with_sections() -> None:
     config = model_config_from_dict(
         {
-            "cell_line_featurizer": {"type": "scaledGeneExpression"},
-            "drug_featurizer": {"type": "fingerprints", "registry": "drug"},
+            "cell_line_featurizer": "scaledGeneExpression",
+            "drug_featurizer": "fingerprints",
             "predictor": {"type": "randomForest", "hyperparameters": {"n_estimators": 10}},
         }
     )

@@ -38,8 +38,8 @@ def test_druggnn_rejects_fingerprint_drug_featurizer() -> None:
     from drevalpy.components.config import FeaturizerConfig, PredictorConfig
 
     config = ModelConfig(
-        cell_line_featurizer=FeaturizerConfig(type="landmarkGenesReduced", registry="cell_line"),
-        drug_featurizer=FeaturizerConfig(type="fingerprints", registry="drug"),
+        cell_line_featurizer=FeaturizerConfig(name="landmarkGenesReduced", registry="cell_line"),
+        drug_featurizer=FeaturizerConfig(name="fingerprints", registry="drug"),
         predictor=PredictorConfig(type="drugGNN"),
     )
     with pytest.raises(ValueError, match="incompatible"):
@@ -73,8 +73,8 @@ def test_simple_and_multiview_neural_network_share_predictor() -> None:
     assert multi.predictor.type == "neuralNetwork"
     assert simple.cell_line_featurizer is not None
     assert multi.cell_line_featurizer is not None
-    assert simple.cell_line_featurizer.type == "scaledGeneExpression"
-    assert multi.cell_line_featurizer.type == "multiConcat"
+    assert simple.cell_line_featurizer.name == "scaledGeneExpression"
+    assert multi.cell_line_featurizer.name == "concatFeaturizers"
 
 
 def test_molir_requires_cell_line_featurizer() -> None:
@@ -93,8 +93,8 @@ def test_pharmaformer_rejects_graph_drug_featurizer() -> None:
     from drevalpy.components.config import FeaturizerConfig, PredictorConfig
 
     config = ModelConfig(
-        cell_line_featurizer=FeaturizerConfig(type="landmarkGenes", registry="cell_line"),
-        drug_featurizer=FeaturizerConfig(type="drugGraph", registry="drug"),
+        cell_line_featurizer=FeaturizerConfig(name="landmarkGenes", registry="cell_line"),
+        drug_featurizer=FeaturizerConfig(name="drugGraph", registry="drug"),
         predictor=PredictorConfig(type="pharmaFormer"),
     )
     with pytest.raises(ValueError, match="incompatible"):

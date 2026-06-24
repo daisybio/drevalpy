@@ -1,4 +1,4 @@
-"""BIONIC featurizer for DIPK."""
+"""GISTIC copy-number variation cell-line featurizer."""
 
 from __future__ import annotations
 
@@ -10,16 +10,15 @@ from drevalpy.components.registry import register_cell_line_featurizer
 
 
 @register_cell_line_featurizer(
-    "bionic",
-    description="Precomputed BIONIC cell-line features for DIPK.",
-    category="general_purpose",
+    "copyNumberVariationGistic",
+    description="GISTIC copy-number variation features for cell lines.",
+    category="native",
 )
-class BionicCellLineFeaturizer(DenseViewCellLineFeaturizer):
-    """Bionic cell line featurizer component."""
+class CopyNumberVariationGisticCellLineFeaturizer(DenseViewCellLineFeaturizer):
+    """Featurize GISTIC copy-number variation."""
 
+    _default_view = "copy_number_variation_gistic"
     output_contract: ClassVar[FeatureContract] = FeatureContract(
         kind=FeatureKind.DENSE,
-        view="bionic_features",
+        view="copy_number_variation_gistic",
     )
-
-    _default_view = "bionic_features"

@@ -1,8 +1,4 @@
-cell_line_featurizer:
-  type: scaledGeneExpression
-  hyperparameters:
-    view: gene_expression
-drug_featurizer:
-  type: fingerprints
+cell_line_featurizer: scaledGeneExpression
+drug_featurizer: fingerprints
 predictor:
   type: adaboost

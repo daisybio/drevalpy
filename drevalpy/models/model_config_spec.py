@@ -36,8 +36,8 @@ def _config_from_recipe_triple(
         msg = "recipe triple requires a drug featurizer when a cell-line featurizer is set"
         raise ValueError(msg)
     return ModelConfig(
-        cell_line_featurizer=FeaturizerConfig(type=cell_line_type, registry="cell_line"),
-        drug_featurizer=FeaturizerConfig(type=drug_type, registry="drug"),
+        cell_line_featurizer=FeaturizerConfig(name=cell_line_type, registry="cell_line"),
+        drug_featurizer=FeaturizerConfig(name=drug_type, registry="drug"),
         predictor=predictor,
     )
 

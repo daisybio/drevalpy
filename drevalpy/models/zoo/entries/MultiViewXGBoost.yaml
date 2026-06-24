@@ -1,12 +1,10 @@
 cell_line_featurizer:
-  type: multiConcat
-  hyperparameters:
-    views:
-      - gene_expression
-      - methylation
+  concatFeaturizers:
+    featurizers:
+      - scaledGeneExpression
+      - methylationPCA
       - mutations
-      - copy_number_variation_gistic
-drug_featurizer:
-  type: fingerprints
+      - copyNumberVariationGistic
+drug_featurizer: fingerprints
 predictor:
   type: xgboost

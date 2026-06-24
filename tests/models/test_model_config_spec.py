@@ -20,7 +20,7 @@ def _register_components() -> None:
 def test_build_model_config_from_legacy_zoo_name() -> None:
     config = build_model_config_from_spec("ElasticNet")
     assert config.cell_line_featurizer is not None
-    assert config.cell_line_featurizer.type == "scaledGeneExpression"
+    assert config.cell_line_featurizer.name == "scaledGeneExpression"
     assert config.drug_featurizer is not None
     assert config.predictor.type == "elasticNet"
 
@@ -46,9 +46,9 @@ def test_build_model_config_from_literature_zoo_name() -> None:
     config = build_model_config_from_spec("DIPK")
     assert config.predictor.type == "dipk"
     assert config.cell_line_featurizer is not None
-    assert config.cell_line_featurizer.type == "multiViewStructured"
+    assert config.cell_line_featurizer.name == "concatFeaturizers"
     assert config.drug_featurizer is not None
-    assert config.drug_featurizer.type == "molgnet"
+    assert config.drug_featurizer.name == "molgnet"
 
 
 def test_model_config_from_spec_classmethod_matches_helper() -> None:
@@ -57,7 +57,7 @@ def test_model_config_from_spec_classmethod_matches_helper() -> None:
     assert helper_config.predictor.type == class_config.predictor.type
     assert helper_config.cell_line_featurizer is not None
     assert class_config.cell_line_featurizer is not None
-    assert helper_config.cell_line_featurizer.type == class_config.cell_line_featurizer.type
+    assert helper_config.cell_line_featurizer.name == class_config.cell_line_featurizer.name
 
 
 def test_unknown_spec_raises_helpful_error() -> None:
@@ -99,8 +99,7 @@ class ResolverPredictor(BaselinePredictor):
     zoo_file.write_text(
         """
 resolverEntry:
-  cell_line_featurizer:
-    type: resolverCellLine
+  cell_line_featurizer: resolverCellLine
   predictor:
     type: resolverPredictor
 """,

@@ -5,6 +5,8 @@ from __future__ import annotations
 from typing import Any
 
 from drevalpy.components.config import FeaturizerConfig, ModelConfig, PredictorConfig
+from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
+from drevalpy.models.featurizer_mapping import cell_line_featurizer_from_views
 
 
 def _get_view_as_list(value: str | list[str]) -> list[str]:
@@ -24,56 +26,14 @@ def featurizer_configs_from_view_hyperparameters(
 
     if "cell_line_views" in hyperparameters:
         cell_line_views = _views(hyperparameters, "cell_line_views", ["gene_expression"])
-        if len(cell_line_views) == 1 and cell_line_views[0] == "gene_expression":
-            cell_line_type = "scaledGeneExpression"
-            cell_line_hp: dict[str, Any] = {"view": "gene_expression"}
-        elif len(cell_line_views) == 1 and cell_line_views[0] == "proteomics":
-            cell_line_type = "proteomics"
-            cell_line_hp = {"view": "proteomics"}
-            if "proteomics_feature_threshold" in hyperparameters:
-                cell_line_hp["proteomics_feature_threshold"] = hyperparameters["proteomics_feature_threshold"]
-            if "proteomics_n_features" in hyperparameters:
-                cell_line_hp["proteomics_n_features"] = hyperparameters["proteomics_n_features"]
-            if "proteomics_normalization_width" in hyperparameters:
-                cell_line_hp["proteomics_normalization_width"] = hyperparameters["proteomics_normalization_width"]
-            if "proteomics_normalization_downshift" in hyperparameters:
-                cell_line_hp["proteomics_normalization_downshift"] = hyperparameters[
-                    "proteomics_normalization_downshift"
-                ]
-        elif len(cell_line_views) == 1:
-            cell_line_type = "view"
-            cell_line_hp = {"view": cell_line_views[0]}
-        else:
-            cell_line_type = "multiConcat"
-            cell_line_hp = {"views": cell_line_views}
-            if "methylation_n_components" in hyperparameters:
-                cell_line_hp["methylation_n_components"] = hyperparameters["methylation_n_components"]
-            if "methylation_pca_components" in hyperparameters:
-                cell_line_hp["methylation_n_components"] = hyperparameters["methylation_pca_components"]
-            if "proteomics_feature_threshold" in hyperparameters:
-                cell_line_hp["proteomics_feature_threshold"] = hyperparameters["proteomics_feature_threshold"]
-            if "proteomics_n_features" in hyperparameters:
-                cell_line_hp["proteomics_n_features"] = hyperparameters["proteomics_n_features"]
-            if "proteomics_normalization_width" in hyperparameters:
-                cell_line_hp["proteomics_normalization_width"] = hyperparameters["proteomics_normalization_width"]
-            if "proteomics_normalization_downshift" in hyperparameters:
-                cell_line_hp["proteomics_normalization_downshift"] = hyperparameters[
-                    "proteomics_normalization_downshift"
-                ]
-        cell_line_featurizer = FeaturizerConfig(
-            type=cell_line_type,
-            registry="cell_line",
-            hyperparameters=cell_line_hp,
-        )
+        cell_line_featurizer = cell_line_featurizer_from_views(cell_line_views, hyperparameters)
 
     if "drug_views" in hyperparameters:
         drug_views = _views(hyperparameters, "drug_views", ["fingerprints"])
         if drug_views:
-            drug_type = "fingerprints" if drug_views[0] == "fingerprints" else "view"
-            drug_featurizer = FeaturizerConfig(
-                type=drug_type,
-                registry="drug",
-                view=drug_views[0],
+            drug_name = "fingerprints" if drug_views[0] == "fingerprints" else drug_views[0]
+            drug_featurizer = FeaturizerConfig.model_validate(
+                normalize_featurizer_config(drug_name, default_registry="drug")
             )
 
     return cell_line_featurizer, drug_featurizer
@@ -83,54 +43,20 @@ def sklearn_model_config(predictor_type: str, hyperparameters: dict[str, Any]) -
     """Map sklearn baseline hyperparameters to a modular config."""
     cell_line_views = _views(hyperparameters, "cell_line_views", ["gene_expression"])
     drug_views = _views(hyperparameters, "drug_views", ["fingerprints"])
-    if len(cell_line_views) == 1 and cell_line_views[0] == "gene_expression":
-        cell_line_type = "scaledGeneExpression"
-        cell_line_hp: dict[str, Any] = {"view": "gene_expression"}
-    elif len(cell_line_views) == 1 and cell_line_views[0] == "proteomics":
-        cell_line_type = "proteomics"
-        cell_line_hp = {"view": "proteomics"}
-        if "proteomics_feature_threshold" in hyperparameters:
-            cell_line_hp["proteomics_feature_threshold"] = hyperparameters["proteomics_feature_threshold"]
-        if "proteomics_n_features" in hyperparameters:
-            cell_line_hp["proteomics_n_features"] = hyperparameters["proteomics_n_features"]
-        if "proteomics_normalization_width" in hyperparameters:
-            cell_line_hp["proteomics_normalization_width"] = hyperparameters["proteomics_normalization_width"]
-        if "proteomics_normalization_downshift" in hyperparameters:
-            cell_line_hp["proteomics_normalization_downshift"] = hyperparameters["proteomics_normalization_downshift"]
-    elif len(cell_line_views) == 1:
-        cell_line_type = "view"
-        cell_line_hp = {"view": cell_line_views[0]}
-    else:
-        cell_line_type = "multiConcat"
-        cell_line_hp = {"views": cell_line_views}
-        if "methylation_n_components" in hyperparameters:
-            cell_line_hp["methylation_n_components"] = hyperparameters["methylation_n_components"]
-        if "proteomics_feature_threshold" in hyperparameters:
-            cell_line_hp["proteomics_feature_threshold"] = hyperparameters["proteomics_feature_threshold"]
-        if "proteomics_n_features" in hyperparameters:
-            cell_line_hp["proteomics_n_features"] = hyperparameters["proteomics_n_features"]
-        if "proteomics_normalization_width" in hyperparameters:
-            cell_line_hp["proteomics_normalization_width"] = hyperparameters["proteomics_normalization_width"]
-        if "proteomics_normalization_downshift" in hyperparameters:
-            cell_line_hp["proteomics_normalization_downshift"] = hyperparameters["proteomics_normalization_downshift"]
+    cell_line_featurizer = cell_line_featurizer_from_views(cell_line_views, hyperparameters)
 
     drug_featurizer = None
     if drug_views:
-        if drug_views[0] == "fingerprints":
-            drug_type = "fingerprints"
-        else:
-            drug_type = "view"
-        drug_featurizer = FeaturizerConfig(
-            type=drug_type,
-            registry="drug",
-            view=drug_views[0],
+        drug_name = "fingerprints" if drug_views[0] == "fingerprints" else drug_views[0]
+        drug_featurizer = FeaturizerConfig.model_validate(
+            normalize_featurizer_config(drug_name, default_registry="drug")
         )
 
     predictor_hp = {
         key: value for key, value in hyperparameters.items() if key not in {"cell_line_views", "drug_views"}
     }
     return ModelConfig(
-        cell_line_featurizer=FeaturizerConfig(type=cell_line_type, registry="cell_line", hyperparameters=cell_line_hp),
+        cell_line_featurizer=cell_line_featurizer,
         drug_featurizer=drug_featurizer,
         predictor=PredictorConfig(type=predictor_type, hyperparameters=predictor_hp),
     )

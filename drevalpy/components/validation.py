@@ -118,7 +118,7 @@ def validate_model_config(config: ModelConfig) -> None:
     required_cell_line, required_drug = _predictor_contracts(pred_cls)
 
     if config.cell_line_featurizer is not None:
-        cell_line_cls = _registry_lookup.get_cell_line_featurizer(config.cell_line_featurizer.type)
+        cell_line_cls = _registry_lookup.get_cell_line_featurizer(config.cell_line_featurizer.name)
         cell_line_contract = _featurizer_contract(cell_line_cls)
         if not contracts_compatible(cell_line_contract, required_cell_line):
             msg = (
@@ -128,7 +128,7 @@ def validate_model_config(config: ModelConfig) -> None:
             raise ValueError(msg)
 
     if config.drug_featurizer is not None:
-        drug_cls = _registry_lookup.get_drug_featurizer(config.drug_featurizer.type)
+        drug_cls = _registry_lookup.get_drug_featurizer(config.drug_featurizer.name)
         drug_contract = _featurizer_contract(drug_cls)
         if not contracts_compatible(drug_contract, required_drug):
             msg = (
