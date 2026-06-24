@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -91,5 +92,5 @@ def test_model_config_from_dict_rejects_invalid_predictor_shape() -> None:
 def test_model_config_from_yaml_reports_path_on_error(tmp_path: Path) -> None:
     path = tmp_path / "bad.yaml"
     path.write_text("predictor: naiveMean\nunknown_key: true\n", encoding="utf-8")
-    with pytest.raises(ValueError, match=str(path)):
+    with pytest.raises(ValueError, match=re.escape(str(path))):
         model_config_from_yaml(path)
