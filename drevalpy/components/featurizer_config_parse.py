@@ -4,9 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-_RESERVED_FEATURIZER_KEYS = frozenset(
-    {"name", "hyperparameters", "registry", "view", "views", "hyperparameter_space"}
-)
+_RESERVED_FEATURIZER_KEYS = frozenset({"name", "hyperparameters", "registry", "view", "views", "hyperparameter_space"})
 _CONCAT_FEATURIZER_NAME = "concatFeaturizers"
 
 
@@ -29,9 +27,7 @@ def _parse_featurizer_token(token: str, *, default_registry: str) -> dict[str, A
     return {
         "name": _CONCAT_FEATURIZER_NAME,
         "hyperparameters": {
-            "featurizers": [
-                normalize_featurizer_config(part, default_registry=default_registry) for part in parts
-            ],
+            "featurizers": [normalize_featurizer_config(part, default_registry=default_registry) for part in parts],
         },
         "registry": default_registry,
     }
@@ -49,9 +45,7 @@ def normalize_featurizer_config(data: Any, *, default_registry: str = "cell_line
         return {
             "name": _CONCAT_FEATURIZER_NAME,
             "hyperparameters": {
-                "featurizers": [
-                    normalize_featurizer_config(item, default_registry=default_registry) for item in data
-                ],
+                "featurizers": [normalize_featurizer_config(item, default_registry=default_registry) for item in data],
             },
             "registry": default_registry,
         }

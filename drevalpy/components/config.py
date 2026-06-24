@@ -135,11 +135,7 @@ class ModelConfig(BaseModel):
             return self.predictor.name
         if self.cell_line_featurizer is None or self.drug_featurizer is None:
             return None
-        return (
-            f"{self.cell_line_featurizer.name}:"
-            f"{self.drug_featurizer.name}:"
-            f"{self.predictor.name}"
-        )
+        return f"{self.cell_line_featurizer.name}:" f"{self.drug_featurizer.name}:" f"{self.predictor.name}"
 
     def validate(self) -> None:  # type: ignore[override]
         """Check registry slots, feature compatibility, and prediction mode."""

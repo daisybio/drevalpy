@@ -137,7 +137,14 @@ class LiteratureComponentDRPModel(DRPModel):
 
         cell_featurizer = composed._cell_line_featurizer
         if cell_featurizer is not None:
-            state = cell_featurizer.get_state()
+            from drevalpy.components.featurizers.cell_line.concat import (
+                ConcatFeaturizersCellLineFeaturizer,
+            )
+
+            if isinstance(cell_featurizer, ConcatFeaturizersCellLineFeaturizer):
+                state = ConcatFeaturizersCellLineFeaturizer.collect_legacy_state(cell_featurizer)
+            else:
+                state = cell_featurizer.get_state()
             if "gene_expression_scaler" in state:
                 self.gene_expression_scaler = state["gene_expression_scaler"]
             if "methylation_scaler" in state:
@@ -164,8 +171,13 @@ class LiteratureComponentDRPModel(DRPModel):
                 self.hyperparameters["input_dim_fp"] = drug_dim
 
         if hasattr(self, "input_dims"):
-            view_dims = getattr(cell_featurizer, "view_dims", None)
-            if view_dims:
+            view_dims = None
+            if cell_featurizer is not None:
+                if isinstance(cell_featurizer, ConcatFeaturizersCellLineFeaturizer):
+                    view_dims = state.get("view_dims")
+                else:
+                    view_dims = getattr(cell_featurizer, "view_dims", None)
+            if isinstance(view_dims, dict) and view_dims:
                 self.input_dims = dict(view_dims)
                 if drug_featurizer is not None and composed._drug_matrix is not None and composed._drug_matrix.size:
                     from drevalpy.models.composed_model import _matrix_feature_width
@@ -220,7 +232,7 @@ class LiteratureComponentDRPModel(DRPModel):
             return self._bridge.predict(cell_line_ids, drug_ids, cell_line_input, drug_input)
         if getattr(self, "model", None) is not None:
             return self._predict_via_impl(cell_line_ids, drug_ids, cell_line_input, drug_input)
-        return self._bridge.predict(cell_line_ids, drug_ids, cell_line_input, drug_input)
+        return np.full(len(cell_line_ids), np.nan, dtype=np.float64)
 
     @classmethod
     def load(cls, directory: str) -> LiteratureComponentDRPModel:

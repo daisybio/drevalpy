@@ -8,7 +8,6 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler
 
 from drevalpy.components.contracts import FeatureContract, FeatureKind
-
 from drevalpy.components.featurizers._matrix import stack_view_matrix
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.registry import register_cell_line_featurizer

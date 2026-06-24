@@ -133,7 +133,17 @@ def sync_sklearn_from_components(model: SklearnModel) -> None:
 
     cell_line_featurizer = composed._cell_line_featurizer
     if cell_line_featurizer is not None:
-        _apply_sklearn_featurizer_state_to_model(model, cell_line_featurizer.get_state())
+        from drevalpy.components.featurizers.cell_line.concat import (
+            ConcatFeaturizersCellLineFeaturizer,
+        )
+
+        if isinstance(cell_line_featurizer, ConcatFeaturizersCellLineFeaturizer):
+            featurizer_state = ConcatFeaturizersCellLineFeaturizer.collect_legacy_state(
+                cell_line_featurizer,
+            )
+        else:
+            featurizer_state = cell_line_featurizer.get_state()
+        _apply_sklearn_featurizer_state_to_model(model, featurizer_state)
 
 
 def restore_sklearn_to_components(model: SklearnModel) -> None:

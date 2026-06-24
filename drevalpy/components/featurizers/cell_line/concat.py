@@ -40,29 +40,22 @@ class ConcatFeaturizersCellLineFeaturizer(ConcatFeaturizersMixin, CellLineFeatur
             ScaledGeneExpressionFeaturizer,
         )
 
+        if not featurizer._children:
+            featurizer._materialize_children()
+
         for name, child in featurizer._children:
             if isinstance(child, ScaledGeneExpressionFeaturizer):
-                child_state = {
-                    key: state[key]
-                    for key in ("gene_expression_scaler", "fitted")
-                    if key in state
-                }
+                child_state = {key: state[key] for key in ("gene_expression_scaler", "fitted") if key in state}
                 if child_state:
                     child.set_state(child_state)
             elif isinstance(child, MethylationPCACellLineFeaturizer):
                 child_state = {
-                    key: state[key]
-                    for key in ("methylation_scaler", "methylation_pca", "fitted")
-                    if key in state
+                    key: state[key] for key in ("methylation_scaler", "methylation_pca", "fitted") if key in state
                 }
                 if child_state:
                     child.set_state(child_state)
             elif isinstance(child, ProteomicsCellLineFeaturizer):
-                child_state = {
-                    key: state[key]
-                    for key in ("proteomics_transformer",)
-                    if key in state
-                }
+                child_state = {key: state[key] for key in ("proteomics_transformer",) if key in state}
                 if child_state:
                     child.set_state(child_state)
             _ = name
@@ -73,7 +66,34 @@ class ConcatFeaturizersCellLineFeaturizer(ConcatFeaturizersMixin, CellLineFeatur
                 CELL_LINE_VIEW_TO_FEATURIZER.get(str(key), str(key)): int(value)
                 for key, value in state["view_dims"].items()
             }
-        if state.get("output_dim"):
-            featurizer._output_dim = int(state["output_dim"])
+        output_dim = state.get("output_dim")
+        if isinstance(output_dim, int):
+            featurizer._output_dim = output_dim
         if state.get("fitted"):
             featurizer._is_fitted = True
+
+    @classmethod
+    def collect_legacy_state(
+        cls,
+        featurizer: ConcatFeaturizersCellLineFeaturizer,
+    ) -> dict[str, object]:
+        """Flatten child featurizer state for legacy sklearn save/load."""
+        if not featurizer._children:
+            featurizer._materialize_children()
+        state: dict[str, object] = {"fitted": featurizer._is_fitted}
+        for _name, child in featurizer._children:
+            child_state = child.get_state()
+            if not isinstance(child_state, dict):
+                continue
+            for key, value in child_state.items():
+                if key != "fitted":
+                    state[key] = value
+        if featurizer._block_dims:
+            from drevalpy.models.featurizer_mapping import CELL_LINE_VIEW_TO_FEATURIZER
+
+            featurizer_to_view = {value: key for key, value in CELL_LINE_VIEW_TO_FEATURIZER.items()}
+            view_dims = {featurizer_to_view.get(name, name): dim for name, dim in featurizer._block_dims.items()}
+            state["view_dims"] = view_dims
+        if featurizer._output_dim:
+            state["output_dim"] = featurizer._output_dim
+        return state

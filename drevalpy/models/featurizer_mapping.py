@@ -25,7 +25,9 @@ PROTEOMICS_HP_KEYS = (
 
 
 def _child_config_for_view(view: str, hyperparameters: dict[str, Any]) -> str | dict[str, Any]:
-    name = CELL_LINE_VIEW_TO_FEATURIZER.get(view, view)
+    if view not in CELL_LINE_VIEW_TO_FEATURIZER:
+        return {"geneExpression": {"view": view}}
+    name = CELL_LINE_VIEW_TO_FEATURIZER[view]
     if name == "methylationPCA":
         n_components = hyperparameters.get("methylation_n_components")
         if n_components is None:
@@ -52,4 +54,30 @@ def cell_line_featurizer_from_views(views: list[str], hyperparameters: dict[str,
             {"concatFeaturizers": {"featurizers": children}},
             default_registry="cell_line",
         )
+    )
+
+
+def drug_featurizer_from_view(view: str) -> FeaturizerConfig:
+    """Build a drug featurizer config from a legacy drug view name."""
+    if view == "fingerprints":
+        return FeaturizerConfig.model_validate(
+            normalize_featurizer_config("fingerprints", default_registry="drug"),
+        )
+    named = {
+        "smilesvec": "smilesvec",
+        "bpe_smiles": "bpePharmaformer",
+        "molgnet_features": "molgnet",
+        "drug_graph": "drugGraph",
+        "one_hot": "oneHot",
+    }
+    if view in named:
+        return FeaturizerConfig.model_validate(
+            normalize_featurizer_config(named[view], default_registry="drug"),
+        )
+    return FeaturizerConfig.model_validate(
+        {
+            "name": "view",
+            "hyperparameters": {"view": view},
+            "registry": "drug",
+        },
     )

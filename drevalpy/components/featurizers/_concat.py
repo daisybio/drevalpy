@@ -32,17 +32,25 @@ class ConcatFeaturizersMixin:
             raise ValueError(msg)
         self._registry = registry
         self._child_configs = [
-            FeaturizerConfig.model_validate(
-                normalize_featurizer_config(item, default_registry=registry),
+            (
+                FeaturizerConfig.model_validate(
+                    normalize_featurizer_config(item, default_registry=registry),
+                )
+                if not isinstance(item, FeaturizerConfig)
+                else item
             )
-            if not isinstance(item, FeaturizerConfig)
-            else item
             for item in featurizers
         ]
         self._children: list[tuple[str, Featurizer]] = []
         self._block_dims: dict[str, int] = {}
         self._output_dim = 0
         self._is_fitted = False
+        self._materialize_children()
+
+    def _materialize_children(self) -> None:
+        if len(self._children) == len(self._child_configs):
+            return
+        self._children = [(config.name, config.create_instance()) for config in self._child_configs]
 
     def fit(
         self,
@@ -50,13 +58,11 @@ class ConcatFeaturizersMixin:
         *,
         entity_ids: np.ndarray | None = None,
     ):
-        self._children = []
+        self._materialize_children()
         self._block_dims = {}
-        for config in self._child_configs:
-            child = config.create_instance()
+        for name, child in self._children:
             child.fit(features, entity_ids=entity_ids)
-            self._children.append((config.name, child))
-            self._block_dims[config.name] = child.output_dim
+            self._block_dims[name] = child.output_dim
         self._output_dim = sum(self._block_dims.values())
         self._is_fitted = True
         return self
@@ -70,9 +76,7 @@ class ConcatFeaturizersMixin:
     def transform_blocks(self, features, entity_ids: np.ndarray) -> dict[str, np.ndarray]:
         if not self._is_fitted:
             raise RuntimeError(self._not_fitted_msg)
-        return {
-            name: child.transform(features, entity_ids).astype(np.float32) for name, child in self._children
-        }
+        return {name: child.transform(features, entity_ids).astype(np.float32) for name, child in self._children}
 
     @property
     def output_dim(self) -> int:
@@ -91,6 +95,7 @@ class ConcatFeaturizersMixin:
         }
 
     def set_state(self, state: dict[str, object]) -> None:
+        self._materialize_children()
         child_states = state.get("child_states")
         if isinstance(child_states, dict):
             for name, child in self._children:

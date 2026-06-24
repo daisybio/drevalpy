@@ -5,8 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from drevalpy.components.config import FeaturizerConfig, ModelConfig, PredictorConfig
-from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
-from drevalpy.models.featurizer_mapping import cell_line_featurizer_from_views
+from drevalpy.models.featurizer_mapping import cell_line_featurizer_from_views, drug_featurizer_from_view
 
 
 def _get_view_as_list(value: str | list[str]) -> list[str]:
@@ -31,10 +30,7 @@ def featurizer_configs_from_view_hyperparameters(
     if "drug_views" in hyperparameters:
         drug_views = _views(hyperparameters, "drug_views", ["fingerprints"])
         if drug_views:
-            drug_name = "fingerprints" if drug_views[0] == "fingerprints" else drug_views[0]
-            drug_featurizer = FeaturizerConfig.model_validate(
-                normalize_featurizer_config(drug_name, default_registry="drug")
-            )
+            drug_featurizer = drug_featurizer_from_view(drug_views[0])
 
     return cell_line_featurizer, drug_featurizer
 
@@ -47,10 +43,7 @@ def sklearn_model_config(predictor_type: str, hyperparameters: dict[str, Any]) -
 
     drug_featurizer = None
     if drug_views:
-        drug_name = "fingerprints" if drug_views[0] == "fingerprints" else drug_views[0]
-        drug_featurizer = FeaturizerConfig.model_validate(
-            normalize_featurizer_config(drug_name, default_registry="drug")
-        )
+        drug_featurizer = drug_featurizer_from_view(drug_views[0])
 
     predictor_hp = {
         key: value for key, value in hyperparameters.items() if key not in {"cell_line_views", "drug_views"}
