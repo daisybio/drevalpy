@@ -273,6 +273,7 @@ class NaiveMeanEffectsPredictor(BaselinePredictor):
 
     def __init__(self) -> None:
         self._dataset_mean: float | None = None
+        self._tissue_effects: dict[str, float] = {}
         self._cell_line_effects: dict[str, float] = {}
         self._drug_effects: dict[str, float] = {}
 
@@ -288,11 +289,42 @@ class NaiveMeanEffectsPredictor(BaselinePredictor):
             msg = "NaiveMeanEffectsPredictor requires pair_context"
             raise ValueError(msg)
         self._dataset_mean = float(np.mean(y))
-        for cell_id in np.unique(pair_context.cell_line_ids.astype(str)):
-            mask = pair_context.cell_line_ids.astype(str) == cell_id
-            self._cell_line_effects[str(cell_id)] = float(np.mean(y[mask]) - self._dataset_mean)
-        for drug_id in np.unique(pair_context.drug_ids.astype(str)):
-            mask = pair_context.drug_ids.astype(str) == drug_id
+        cell_line_ids = pair_context.cell_line_ids.astype(str)
+        drug_ids = pair_context.drug_ids.astype(str)
+
+        cell_line_means: dict[str, float] = {}
+        for cell_id in np.unique(cell_line_ids):
+            mask = cell_line_ids == cell_id
+            cell_line_means[str(cell_id)] = float(np.mean(y[mask]))
+
+        if pair_context.tissue_ids is not None:
+            tissues = np.asarray(pair_context.tissue_ids).reshape(-1)
+            tissue_means: dict[str, float] = {}
+            for tissue in np.unique(tissues):
+                tissue_key = str(tissue.item() if isinstance(tissue, np.ndarray) else tissue)
+                mask = np.array([str(t.item() if isinstance(t, np.ndarray) else t) for t in tissues]) == tissue_key
+                if np.any(mask):
+                    tissue_means[tissue_key] = float(np.mean(y[mask]))
+
+            self._tissue_effects = {tissue: mean - self._dataset_mean for tissue, mean in tissue_means.items()}
+
+            cell_line_to_tissue: dict[str, str] = {}
+            for cell_id in np.unique(cell_line_ids):
+                mask = cell_line_ids == cell_id
+                tissue = tissues[mask][0]
+                tissue_key = str(tissue.item() if isinstance(tissue, np.ndarray) else tissue)
+                cell_line_to_tissue[str(cell_id)] = tissue_key
+
+            self._cell_line_effects = {
+                cell_id: cell_line_means[cell_id] - tissue_means[cell_line_to_tissue[cell_id]]
+                for cell_id in cell_line_means
+            }
+        else:
+            self._tissue_effects = {}
+            self._cell_line_effects = {cell_id: mean - self._dataset_mean for cell_id, mean in cell_line_means.items()}
+
+        for drug_id in np.unique(drug_ids):
+            mask = drug_ids == drug_id
             self._drug_effects[str(drug_id)] = float(np.mean(y[mask]) - self._dataset_mean)
 
     def predict(
@@ -305,6 +337,26 @@ class NaiveMeanEffectsPredictor(BaselinePredictor):
         if pair_context is None or self._dataset_mean is None:
             msg = "Call fit before predict"
             raise RuntimeError(msg)
+        if self._tissue_effects and pair_context.tissue_ids is not None:
+            tissues = np.asarray(pair_context.tissue_ids).reshape(-1)
+            return np.array(
+                [
+                    self._dataset_mean
+                    + self._tissue_effects.get(
+                        str(tissue.item() if isinstance(tissue, np.ndarray) else tissue),
+                        0.0,
+                    )
+                    + self._cell_line_effects.get(str(cell_id), 0.0)
+                    + self._drug_effects.get(str(drug_id), 0.0)
+                    for cell_id, drug_id, tissue in zip(
+                        pair_context.cell_line_ids,
+                        pair_context.drug_ids,
+                        tissues,
+                        strict=True,
+                    )
+                ],
+                dtype=np.float64,
+            )
         return np.array(
             [
                 self._dataset_mean
@@ -324,6 +376,7 @@ class NaiveMeanEffectsPredictor(BaselinePredictor):
             return {}
         return {
             "dataset_mean": self._dataset_mean,
+            "tissue_effects": dict(self._tissue_effects),
             "cell_line_effects": dict(self._cell_line_effects),
             "drug_effects": dict(self._drug_effects),
         }
@@ -332,6 +385,9 @@ class NaiveMeanEffectsPredictor(BaselinePredictor):
         mean = state_float(state, "dataset_mean")
         if mean is not None:
             self._dataset_mean = mean
+        tissue_effects = state_str_dict(state, "tissue_effects")
+        if tissue_effects:
+            self._tissue_effects = tissue_effects
         cell_line_effects = state_str_dict(state, "cell_line_effects")
         if cell_line_effects:
             self._cell_line_effects = cell_line_effects
