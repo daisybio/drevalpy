@@ -13,12 +13,8 @@ from sklearn.preprocessing import StandardScaler
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 
 from drevalpy.models.drp_model import DRPModel
-from drevalpy.models.utils import (
-    _get_view_as_list,
-    load_multi_cell_line_view,
-    load_single_drug_view,
-    prepare_expression_and_methylation,
-)
+from drevalpy.data.features import _get_view_as_list, load_multi_cell_line_view, load_single_drug_view
+from drevalpy.data.preprocessing import prepare_expression_and_methylation
 from .utils import FeedForwardNetwork
 
 

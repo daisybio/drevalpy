@@ -15,8 +15,8 @@ from torch_geometric.nn import GCNConv, global_mean_pool
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models.drp_model import DRPModel
-from drevalpy.models.lightning_metrics_mixin import RegressionMetricsMixin
-from drevalpy.models.utils import load_and_select_gene_features
+from drevalpy.components.lightning_metrics_mixin import RegressionMetricsMixin
+from drevalpy.data.features import load_and_select_gene_features
 
 
 class DrugGraphNet(nn.Module):

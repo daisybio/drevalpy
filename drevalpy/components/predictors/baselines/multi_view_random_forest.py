@@ -1,6 +1,6 @@
 """Contains the Multi-OMICS Random Forest model."""
 
-from drevalpy.models.utils import load_multi_cell_line_view
+from drevalpy.data.features import load_multi_cell_line_view
 
 from .sklearn_models import RandomForest
 

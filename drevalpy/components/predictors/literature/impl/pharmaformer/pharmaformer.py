@@ -23,7 +23,7 @@ from torch.utils.data import DataLoader, Dataset
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models.drp_model import DRPModel
-from drevalpy.models.utils import load_and_select_gene_features
+from drevalpy.data.features import load_and_select_gene_features
 
 from .model_utils import CombinedModel
 

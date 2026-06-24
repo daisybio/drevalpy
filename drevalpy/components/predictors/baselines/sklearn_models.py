@@ -18,12 +18,8 @@ from drevalpy.components.factory import SKLEARN_PREDICTOR_BY_MODEL_NAME, sklearn
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models.drp_model import DRPModel
 
-from drevalpy.models.utils import (
-    ProteomicsMedianCenterAndImputeTransformer,
-    _get_view_as_list,
-    load_single_cell_line_view,
-    load_single_drug_view,
-)
+from drevalpy.data.features import _get_view_as_list, load_single_cell_line_view, load_single_drug_view
+from drevalpy.data.preprocessing import ProteomicsMedianCenterAndImputeTransformer
 
 
 class SklearnModel(DRPModel):

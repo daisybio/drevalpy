@@ -2,7 +2,7 @@
 
 from drevalpy.datasets.dataset import FeatureDataset
 
-from drevalpy.models.utils import load_multi_cell_line_view, load_single_drug_view
+from drevalpy.data.features import load_multi_cell_line_view, load_single_drug_view
 
 from .sklearn_models import SklearnModel
 

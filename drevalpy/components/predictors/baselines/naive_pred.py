@@ -26,7 +26,7 @@ from drevalpy.components.factory import NAIVE_PREDICTOR_BY_MODEL_NAME, naive_mod
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, TISSUE_IDENTIFIER
 from drevalpy.models.drp_model import DRPModel
-from drevalpy.models.utils import (
+from drevalpy.data.features import (
     load_cl_ids_and_tissues_from_csv,
     load_cl_ids_from_csv,
     load_drug_ids_from_csv,
