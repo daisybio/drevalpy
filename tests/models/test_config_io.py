@@ -17,7 +17,7 @@ from drevalpy.models.config_io import (
 
 def test_model_config_from_predictor_only_spec() -> None:
     config = model_config_from_spec("naiveMean")
-    assert config.predictor.type == "naiveMean"
+    assert config.predictor.name == "naiveMean"
     assert config.cell_line_featurizer is None
     assert config.drug_featurizer is None
 
@@ -28,7 +28,7 @@ def test_model_config_from_triple_spec() -> None:
     assert config.cell_line_featurizer.name == "scaledGeneExpression"
     assert config.drug_featurizer is not None
     assert config.drug_featurizer.name == "fingerprints"
-    assert config.predictor.type == "elasticNet"
+    assert config.predictor.name == "elasticNet"
 
 
 def test_model_config_from_triple_spec_with_plus_concat() -> None:
@@ -37,7 +37,7 @@ def test_model_config_from_triple_spec_with_plus_concat() -> None:
     assert config.cell_line_featurizer.name == "concatFeaturizers"
     assert config.drug_featurizer is not None
     assert config.drug_featurizer.name == "concatFeaturizers"
-    assert config.predictor.type == "randomForest"
+    assert config.predictor.name == "randomForest"
 
 
 def test_model_config_from_legacy_name() -> None:
@@ -45,7 +45,7 @@ def test_model_config_from_legacy_name() -> None:
 
     register_builtin_components()
     config = model_config_from_spec("ElasticNet")
-    assert config.predictor.type == "elasticNet"
+    assert config.predictor.name == "elasticNet"
 
 
 def test_model_config_from_dict_with_sections() -> None:
@@ -53,7 +53,7 @@ def test_model_config_from_dict_with_sections() -> None:
         {
             "cell_line_featurizer": "scaledGeneExpression",
             "drug_featurizer": "fingerprints",
-            "predictor": {"type": "randomForest", "hyperparameters": {"n_estimators": 10}},
+            "predictor": {"randomForest": {"n_estimators": 10}},
         }
     )
     assert config.predictor.hyperparameters["n_estimators"] == 10
@@ -64,13 +64,13 @@ def test_model_config_from_yaml(tmp_path: Path) -> None:
     path.write_text(
         yaml.safe_dump(
             {
-                "predictor": {"type": "naiveDrugMean"},
+                "predictor": "naiveDrugMean",
             }
         ),
         encoding="utf-8",
     )
     config = model_config_from_yaml(path)
-    assert config.predictor.type == "naiveDrugMean"
+    assert config.predictor.name == "naiveDrugMean"
 
 
 def test_model_config_from_dict_requires_predictor() -> None:
@@ -80,7 +80,7 @@ def test_model_config_from_dict_requires_predictor() -> None:
 
 def test_model_config_from_dict_predictor_shorthand() -> None:
     config = model_config_from_dict({"predictor": "naiveMean"})
-    assert config.predictor.type == "naiveMean"
+    assert config.predictor.name == "naiveMean"
 
 
 def test_model_config_from_dict_rejects_unknown_keys() -> None:

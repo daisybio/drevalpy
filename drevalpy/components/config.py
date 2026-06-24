@@ -9,6 +9,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
+from drevalpy.components.predictor_config_parse import normalize_predictor_config
 
 
 class PredictionMode(StrEnum):
@@ -33,7 +34,7 @@ class FeaturizerConfig(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def _coerce_shorthand(cls, data: object) -> object:
-        if isinstance(data, str):
+        if isinstance(data, (str, list)):
             return normalize_featurizer_config(data)
         if isinstance(data, dict):
             if "name" in data:
@@ -65,27 +66,29 @@ class PredictorConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    type: str
+    name: str
     hyperparameters: dict[str, Any] = Field(default_factory=dict)
     hyperparameter_space: dict[str, dict[str, Any]] | None = None
 
-    @field_validator("type", mode="before")
+    @field_validator("name", mode="before")
     @classmethod
-    def _coerce_type(cls, value: object) -> object:
+    def _coerce_name(cls, value: object) -> object:
         return str(value) if value is not None else value
 
     @model_validator(mode="before")
     @classmethod
     def _coerce_shorthand(cls, data: object) -> object:
         if isinstance(data, str):
-            return {"type": data}
+            return normalize_predictor_config(data)
+        if isinstance(data, dict) and "name" not in data:
+            return normalize_predictor_config(data)
         return data
 
     def create_instance(self):
         """Instantiate the configured predictor from the registry."""
         from drevalpy.components.registry import lookup as reg
 
-        cls = reg.get_predictor(self.type)
+        cls = reg.get_predictor(self.name)
         return cls()
 
 
@@ -107,29 +110,35 @@ class ModelConfig(BaseModel):
         normalized = dict(data)
         cell_line = normalized.get("cell_line_featurizer")
         if cell_line is not None and not isinstance(cell_line, FeaturizerConfig):
-            normalized["cell_line_featurizer"] = normalize_featurizer_config(
-                cell_line,
-                default_registry="cell_line",
-            )
+            if isinstance(cell_line, (str, list, dict)):
+                normalized["cell_line_featurizer"] = normalize_featurizer_config(
+                    cell_line,
+                    default_registry="cell_line",
+                )
         drug = normalized.get("drug_featurizer")
         if drug is not None and not isinstance(drug, FeaturizerConfig):
-            normalized["drug_featurizer"] = normalize_featurizer_config(
-                drug,
-                default_registry="drug",
-            )
+            if isinstance(drug, (str, list, dict)):
+                normalized["drug_featurizer"] = normalize_featurizer_config(
+                    drug,
+                    default_registry="drug",
+                )
+        predictor = normalized.get("predictor")
+        if predictor is not None and not isinstance(predictor, PredictorConfig):
+            if isinstance(predictor, (str, dict)):
+                normalized["predictor"] = normalize_predictor_config(predictor)
         return normalized
 
     @property
     def model_id(self) -> str | None:
         """Stable identifier for a fully specified combination."""
         if self.cell_line_featurizer is None and self.drug_featurizer is None:
-            return self.predictor.type
+            return self.predictor.name
         if self.cell_line_featurizer is None or self.drug_featurizer is None:
             return None
         return (
             f"{self.cell_line_featurizer.name}:"
             f"{self.drug_featurizer.name}:"
-            f"{self.predictor.type}"
+            f"{self.predictor.name}"
         )
 
     def validate(self) -> None:  # type: ignore[override]

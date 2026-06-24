@@ -1,2 +1,1 @@
-predictor:
-  type: naiveDrugMean
+predictor: naiveDrugMean

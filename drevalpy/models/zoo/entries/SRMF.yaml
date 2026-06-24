@@ -1,4 +1,3 @@
 cell_line_featurizer: geneExpression
 drug_featurizer: fingerprints
-predictor:
-  type: srmf
+predictor: srmf

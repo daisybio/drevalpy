@@ -1,8 +1,5 @@
 cell_line_featurizer:
-  concatFeaturizers:
-    featurizers:
-      - geneExpression
-      - mutations
-      - copyNumberVariationGistic
-predictor:
-  type: molir
+  - geneExpression
+  - mutations
+  - copyNumberVariationGistic
+predictor: molir

@@ -31,13 +31,13 @@ def test_zoo_elastic_net_matches_factory_defaults() -> None:
     assert zoo_config.drug_featurizer is not None
     assert factory_config.drug_featurizer is not None
     assert zoo_config.drug_featurizer.name == factory_config.drug_featurizer.name
-    assert zoo_config.predictor.type == factory_config.predictor.type
+    assert zoo_config.predictor.name == factory_config.predictor.name
 
 
 def test_zoo_naive_matches_factory() -> None:
     zoo_config = get_zoo_config("NaivePredictor")
     factory_config = naive_model_config("naiveMean")
-    assert zoo_config.predictor.type == factory_config.predictor.type
+    assert zoo_config.predictor.name == factory_config.predictor.name
 
 
 def test_zoo_model_config_merges_hyperparameters() -> None:
@@ -47,5 +47,5 @@ def test_zoo_model_config_merges_hyperparameters() -> None:
 
 def test_sklearn_model_config_from_zoo_uses_zoo_entry() -> None:
     config = sklearn_model_config_from_zoo("ElasticNet", {"alpha": 0.5})
-    assert config.predictor.type == "elasticNet"
+    assert config.predictor.name == "elasticNet"
     assert config.predictor.hyperparameters["alpha"] == 0.5

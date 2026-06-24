@@ -58,7 +58,7 @@ def sklearn_model_config(predictor_type: str, hyperparameters: dict[str, Any]) -
     return ModelConfig(
         cell_line_featurizer=cell_line_featurizer,
         drug_featurizer=drug_featurizer,
-        predictor=PredictorConfig(type=predictor_type, hyperparameters=predictor_hp),
+        predictor=PredictorConfig(name=predictor_type, hyperparameters=predictor_hp),
     )
 
 
@@ -67,7 +67,7 @@ def naive_model_config(predictor_type: str) -> ModelConfig:
     return ModelConfig(
         cell_line_featurizer=None,
         drug_featurizer=None,
-        predictor=PredictorConfig(type=predictor_type),
+        predictor=PredictorConfig(name=predictor_type),
     )
 
 
@@ -84,7 +84,7 @@ def legacy_model_config(model_name: str, hyperparameters: dict[str, Any]) -> Mod
     return ModelConfig(
         cell_line_featurizer=None,
         drug_featurizer=None,
-        predictor=PredictorConfig(type=predictor_type, hyperparameters=hyperparameters),
+        predictor=PredictorConfig(name=predictor_type, hyperparameters=hyperparameters),
     )
 
 

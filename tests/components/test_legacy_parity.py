@@ -134,5 +134,5 @@ def test_factory_and_zoo_elastic_net_configs_align() -> None:
     assert factory_config.drug_featurizer is not None
     assert zoo_config.drug_featurizer is not None
     assert factory_config.drug_featurizer.name == zoo_config.drug_featurizer.name
-    assert factory_config.predictor.type == zoo_config.predictor.type
+    assert factory_config.predictor.name == zoo_config.predictor.name
     assert zoo_config.predictor.hyperparameters["alpha"] == 0.1

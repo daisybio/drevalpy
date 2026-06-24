@@ -1,2 +1,1 @@
-predictor:
-  type: naiveTissueDrugMean
+predictor: naiveTissueDrugMean

@@ -121,8 +121,7 @@ class ExternalPredictor(BaselinePredictor):
         """
 externalToy:
   cell_line_featurizer: externalCellLine
-  predictor:
-    type: externalPredictor
+  predictor: externalPredictor
 """,
         encoding="utf-8",
     )
@@ -150,8 +149,7 @@ def test_load_external_zoo_single_entry_file(tmp_path: Path) -> None:
     zoo_file.write_text(
         """
 name: customNaive
-predictor:
-  type: naiveMean
+predictor: naiveMean
 """,
         encoding="utf-8",
     )
@@ -159,7 +157,7 @@ predictor:
     assert names == ["customNaive"]
     config = get_zoo_config("customNaive")
     assert isinstance(config, ModelConfig)
-    assert config.predictor.type == "naiveMean"
+    assert config.predictor.name == "naiveMean"
 
 
 def test_load_external_zoo_invalid_entry_reports_path(tmp_path: Path) -> None:

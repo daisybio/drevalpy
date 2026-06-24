@@ -1,4 +1,3 @@
 cell_line_featurizer: pathways
 drug_featurizer: smilesvec
-predictor:
-  type: precily
+predictor: precily

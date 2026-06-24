@@ -1,8 +1,5 @@
 cell_line_featurizer:
-  concatFeaturizers:
-    featurizers:
-      - geneExpression
-      - bionic
+  - geneExpression
+  - bionic
 drug_featurizer: molgnet
-predictor:
-  type: dipk
+predictor: dipk

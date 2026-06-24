@@ -22,7 +22,7 @@ def test_build_model_config_from_legacy_zoo_name() -> None:
     assert config.cell_line_featurizer is not None
     assert config.cell_line_featurizer.name == "scaledGeneExpression"
     assert config.drug_featurizer is not None
-    assert config.predictor.type == "elasticNet"
+    assert config.predictor.name == "elasticNet"
 
 
 def test_build_model_config_from_legacy_name_with_hyperparameters() -> None:
@@ -32,7 +32,7 @@ def test_build_model_config_from_legacy_name_with_hyperparameters() -> None:
 
 def test_build_model_config_from_baseline_predictor_token() -> None:
     config = build_model_config_from_spec("naiveMean")
-    assert config.predictor.type == "naiveMean"
+    assert config.predictor.name == "naiveMean"
     assert config.cell_line_featurizer is None
     assert config.drug_featurizer is None
 
@@ -48,7 +48,7 @@ def test_build_model_config_from_recipe_triple_with_plus_concat() -> None:
     assert config.cell_line_featurizer.name == "concatFeaturizers"
     assert config.drug_featurizer is not None
     assert config.drug_featurizer.name == "concatFeaturizers"
-    assert config.predictor.type == "randomForest"
+    assert config.predictor.name == "randomForest"
     cell_children = config.cell_line_featurizer.hyperparameters["featurizers"]
     drug_children = config.drug_featurizer.hyperparameters["featurizers"]
     assert [child["name"] for child in cell_children] == ["geneExpression", "mutations"]
@@ -58,7 +58,7 @@ def test_build_model_config_from_recipe_triple_with_plus_concat() -> None:
 
 def test_build_model_config_from_literature_zoo_name() -> None:
     config = build_model_config_from_spec("DIPK")
-    assert config.predictor.type == "dipk"
+    assert config.predictor.name == "dipk"
     assert config.cell_line_featurizer is not None
     assert config.cell_line_featurizer.name == "concatFeaturizers"
     assert config.drug_featurizer is not None
@@ -68,7 +68,7 @@ def test_build_model_config_from_literature_zoo_name() -> None:
 def test_model_config_from_spec_classmethod_matches_helper() -> None:
     helper_config = build_model_config_from_spec("RandomForest")
     class_config = ModelConfig.from_spec("RandomForest")
-    assert helper_config.predictor.type == class_config.predictor.type
+    assert helper_config.predictor.name == class_config.predictor.name
     assert helper_config.cell_line_featurizer is not None
     assert class_config.cell_line_featurizer is not None
     assert helper_config.cell_line_featurizer.name == class_config.cell_line_featurizer.name
@@ -114,13 +114,12 @@ class ResolverPredictor(BaselinePredictor):
         """
 resolverEntry:
   cell_line_featurizer: resolverCellLine
-  predictor:
-    type: resolverPredictor
+  predictor: resolverPredictor
 """,
         encoding="utf-8",
     )
     load_extensions(directories=[ext_dir], zoo_files=[zoo_file])
     config = ModelConfig.from_spec("resolverEntry")
     assert config.cell_line_featurizer is not None
-    assert config.predictor.type == "resolverPredictor"
+    assert config.predictor.name == "resolverPredictor"
     config.validate()

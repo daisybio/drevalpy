@@ -57,7 +57,7 @@ def test_valid_dense_config_passes() -> None:
     config = ModelConfig(
         cell_line_featurizer=FeaturizerConfig(name="denseCellLine", registry="cell_line", view="gene_expression"),
         drug_featurizer=FeaturizerConfig(name="denseDrug", registry="drug", view="fingerprints"),
-        predictor=PredictorConfig(type="densePred"),
+        predictor=PredictorConfig(name="densePred"),
     )
     validate_model_config(config)
 
@@ -67,7 +67,7 @@ def test_unknown_cell_line_featurizer_fails() -> None:
     config = ModelConfig(
         cell_line_featurizer=FeaturizerConfig(name="missing", registry="cell_line"),
         drug_featurizer=FeaturizerConfig(name="denseDrug", registry="drug"),
-        predictor=PredictorConfig(type="densePred"),
+        predictor=PredictorConfig(name="densePred"),
     )
     with pytest.raises(ValueError, match="Unknown Cell line featurizer"):
         validate_model_config(config)
@@ -78,7 +78,7 @@ def test_wrong_registry_slot_fails() -> None:
     config = ModelConfig(
         cell_line_featurizer=FeaturizerConfig(name="denseCellLine", registry="drug"),
         drug_featurizer=FeaturizerConfig(name="denseDrug", registry="drug"),
-        predictor=PredictorConfig(type="densePred"),
+        predictor=PredictorConfig(name="densePred"),
     )
     with pytest.raises(ValueError, match="cell_line_featurizer must use registry='cell_line'"):
         validate_model_config(config)
@@ -103,7 +103,7 @@ def test_graph_featurizer_with_dense_predictor_fails() -> None:
     config = ModelConfig(
         cell_line_featurizer=FeaturizerConfig(name="graphCellLine", registry="cell_line"),
         drug_featurizer=FeaturizerConfig(name="denseDrug", registry="drug"),
-        predictor=PredictorConfig(type="densePred"),
+        predictor=PredictorConfig(name="densePred"),
     )
     with pytest.raises(ValueError, match="Cell line featurizer output_contract"):
         validate_model_config(config)
@@ -128,7 +128,7 @@ def test_graph_backend_mismatch_fails() -> None:
     config = ModelConfig(
         cell_line_featurizer=FeaturizerConfig(name="graphCellLine", registry="cell_line"),
         drug_featurizer=FeaturizerConfig(name="graphDrug", registry="drug"),
-        predictor=PredictorConfig(type="graphPred"),
+        predictor=PredictorConfig(name="graphPred"),
     )
     with pytest.raises(ValueError, match="Cell line featurizer output_contract"):
         validate_model_config(config)
@@ -143,7 +143,7 @@ def test_feature_free_predictor_without_featurizers_passes() -> None:
     config = ModelConfig(
         cell_line_featurizer=None,
         drug_featurizer=None,
-        predictor=PredictorConfig(type="naiveMean"),
+        predictor=PredictorConfig(name="naiveMean"),
     )
     validate_model_config(config)
 
@@ -153,7 +153,7 @@ def test_feature_using_predictor_without_featurizers_fails() -> None:
     config = ModelConfig(
         cell_line_featurizer=None,
         drug_featurizer=None,
-        predictor=PredictorConfig(type="densePred"),
+        predictor=PredictorConfig(name="densePred"),
     )
     with pytest.raises(ValueError, match="uses feature matrices"):
         validate_model_config(config)
@@ -164,7 +164,7 @@ def test_empty_view_string_fails() -> None:
     config = ModelConfig(
         cell_line_featurizer=FeaturizerConfig(name="denseCellLine", registry="cell_line", view="   "),
         drug_featurizer=FeaturizerConfig(name="denseDrug", registry="drug"),
-        predictor=PredictorConfig(type="densePred"),
+        predictor=PredictorConfig(name="densePred"),
     )
     with pytest.raises(ValueError, match="cell_line_featurizer view must be a non-empty string"):
         validate_model_config(config)

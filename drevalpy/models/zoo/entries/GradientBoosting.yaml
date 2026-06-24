@@ -1,4 +1,3 @@
 cell_line_featurizer: scaledGeneExpression
 drug_featurizer: fingerprints
-predictor:
-  type: gradientBoosting
+predictor: gradientBoosting

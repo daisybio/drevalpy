@@ -1,3 +1,2 @@
 cell_line_featurizer: scaledGeneExpression
-predictor:
-  type: elasticNet
+predictor: elasticNet

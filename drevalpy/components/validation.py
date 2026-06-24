@@ -50,16 +50,16 @@ def _predictor_contracts(cls: type[Any]) -> tuple[FeatureContract, FeatureContra
 def validate_model_config(config: ModelConfig) -> None:
     """Check registry slots, feature compatibility, and prediction mode."""
     if config.cell_line_featurizer is None and config.drug_featurizer is None:
-        pred_cls = _registry_lookup.get_predictor(config.predictor.type)
+        pred_cls = _registry_lookup.get_predictor(config.predictor.name)
         if getattr(pred_cls, "uses_structured_features", False):
             msg = (
-                f"Predictor {config.predictor.type!r} requires a cell_line_featurizer; "
+                f"Predictor {config.predictor.name!r} requires a cell_line_featurizer; "
                 "literature models must declare their input representations explicitly."
             )
             raise ValueError(msg)
         if getattr(pred_cls, "uses_features", True):
             msg = (
-                f"Predictor {config.predictor.type!r} uses feature matrices; "
+                f"Predictor {config.predictor.name!r} uses feature matrices; "
                 "set cell_line_featurizer and drug_featurizer, or use a baseline predictor "
                 "(uses_features=False)."
             )
@@ -67,27 +67,27 @@ def validate_model_config(config: ModelConfig) -> None:
         supported = getattr(pred_cls, "supported_modes", None)
         if supported is not None and config.prediction_mode not in supported:
             msg = (
-                f"Predictor {config.predictor.type!r} does not support "
+                f"Predictor {config.predictor.name!r} does not support "
                 f"prediction_mode={config.prediction_mode!r}; "
                 f"supported_modes={sorted(supported)}"
             )
             raise ValueError(msg)
         return
 
-    pred_cls = _registry_lookup.get_predictor(config.predictor.type)
+    pred_cls = _registry_lookup.get_predictor(config.predictor.name)
     uses_features = getattr(pred_cls, "uses_features", True)
     uses_structured = getattr(pred_cls, "uses_structured_features", False)
     requires_drug = getattr(pred_cls, "requires_drug_featurizer", True)
 
     if uses_structured and config.cell_line_featurizer is None:
         msg = (
-            f"Predictor {config.predictor.type!r} requires a cell_line_featurizer; "
+            f"Predictor {config.predictor.name!r} requires a cell_line_featurizer; "
             "literature models must declare their input representations explicitly."
         )
         raise ValueError(msg)
 
     if uses_structured and requires_drug and config.drug_featurizer is None:
-        msg = f"Predictor {config.predictor.type!r} requires a drug_featurizer"
+        msg = f"Predictor {config.predictor.name!r} requires a drug_featurizer"
         raise ValueError(msg)
 
     if uses_features and not uses_structured and config.cell_line_featurizer is None:
@@ -109,7 +109,7 @@ def validate_model_config(config: ModelConfig) -> None:
     supported = getattr(pred_cls, "supported_modes", None)
     if supported is not None and config.prediction_mode not in supported:
         msg = (
-            f"Predictor {config.predictor.type!r} does not support "
+            f"Predictor {config.predictor.name!r} does not support "
             f"prediction_mode={config.prediction_mode!r}; "
             f"supported_modes={sorted(supported)}"
         )

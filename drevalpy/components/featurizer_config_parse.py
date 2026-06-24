@@ -38,12 +38,26 @@ def _parse_featurizer_token(token: str, *, default_registry: str) -> dict[str, A
 
 
 def normalize_featurizer_config(data: Any, *, default_registry: str = "cell_line") -> dict[str, Any]:
-    """Normalize string or one-key mapping featurizer configs."""
+    """Normalize string, list, or one-key mapping featurizer configs."""
     if isinstance(data, str):
         return _parse_featurizer_token(data, default_registry=default_registry)
 
+    if isinstance(data, list):
+        if not data:
+            msg = "Featurizer list must be non-empty"
+            raise ValueError(msg)
+        return {
+            "name": _CONCAT_FEATURIZER_NAME,
+            "hyperparameters": {
+                "featurizers": [
+                    normalize_featurizer_config(item, default_registry=default_registry) for item in data
+                ],
+            },
+            "registry": default_registry,
+        }
+
     if not isinstance(data, dict):
-        msg = f"Featurizer config must be a string or mapping, got {type(data)!r}"
+        msg = f"Featurizer config must be a string, list, or mapping, got {type(data)!r}"
         raise TypeError(msg)
 
     if "name" in data:

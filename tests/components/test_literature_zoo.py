@@ -40,7 +40,7 @@ def test_druggnn_rejects_fingerprint_drug_featurizer() -> None:
     config = ModelConfig(
         cell_line_featurizer=FeaturizerConfig(name="landmarkGenesReduced", registry="cell_line"),
         drug_featurizer=FeaturizerConfig(name="fingerprints", registry="drug"),
-        predictor=PredictorConfig(type="drugGNN"),
+        predictor=PredictorConfig(name="drugGNN"),
     )
     with pytest.raises(ValueError, match="incompatible"):
         config.validate()
@@ -69,8 +69,8 @@ def test_superfeltr_allows_missing_drug_featurizer() -> None:
 def test_simple_and_multiview_neural_network_share_predictor() -> None:
     simple = get_zoo_config("SimpleNeuralNetwork")
     multi = get_zoo_config("MultiViewNeuralNetwork")
-    assert simple.predictor.type == "neuralNetwork"
-    assert multi.predictor.type == "neuralNetwork"
+    assert simple.predictor.name == "neuralNetwork"
+    assert multi.predictor.name == "neuralNetwork"
     assert simple.cell_line_featurizer is not None
     assert multi.cell_line_featurizer is not None
     assert simple.cell_line_featurizer.name == "scaledGeneExpression"
@@ -83,7 +83,7 @@ def test_molir_requires_cell_line_featurizer() -> None:
     config = ModelConfig(
         cell_line_featurizer=None,
         drug_featurizer=None,
-        predictor=PredictorConfig(type="molir"),
+        predictor=PredictorConfig(name="molir"),
     )
     with pytest.raises(ValueError, match="cell_line_featurizer"):
         config.validate()
@@ -95,7 +95,7 @@ def test_pharmaformer_rejects_graph_drug_featurizer() -> None:
     config = ModelConfig(
         cell_line_featurizer=FeaturizerConfig(name="landmarkGenes", registry="cell_line"),
         drug_featurizer=FeaturizerConfig(name="drugGraph", registry="drug"),
-        predictor=PredictorConfig(type="pharmaFormer"),
+        predictor=PredictorConfig(name="pharmaFormer"),
     )
     with pytest.raises(ValueError, match="incompatible"):
         config.validate()
@@ -103,6 +103,6 @@ def test_pharmaformer_rejects_graph_drug_featurizer() -> None:
 
 def test_model_config_from_spec_resolves_literature_zoo() -> None:
     config = ModelConfig.from_spec("DrugGNN")
-    assert config.predictor.type == "drugGNN"
+    assert config.predictor.name == "drugGNN"
     assert config.cell_line_featurizer is not None
     assert config.drug_featurizer is not None

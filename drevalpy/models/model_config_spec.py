@@ -26,7 +26,7 @@ def _config_from_recipe_triple(
     hyperparameters: dict[str, Any] | None = None,
 ) -> ModelConfig:
     cell_line_type, drug_type, predictor_type = parse_model_id(spec.strip())
-    predictor = PredictorConfig(type=predictor_type, hyperparameters=dict(hyperparameters or {}))
+    predictor = PredictorConfig(name=predictor_type, hyperparameters=dict(hyperparameters or {}))
     if cell_line_type is None:
         return ModelConfig(
             cell_line_featurizer=None,
@@ -63,7 +63,7 @@ def _config_from_baseline_predictor_token(
     config = ModelConfig(
         cell_line_featurizer=None,
         drug_featurizer=None,
-        predictor=PredictorConfig(type=token),
+        predictor=PredictorConfig(name=token),
         prediction_mode=_coerce_prediction_mode(prediction_mode),
     )
     config.validate()
