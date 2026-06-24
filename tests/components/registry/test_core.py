@@ -92,7 +92,7 @@ def test_decorator_returns_original_class() -> None:
         required_cell_line_contract = FeatureContract(kind=FeatureKind.DENSE)
         required_drug_contract = FeatureContract(kind=FeatureKind.DENSE)
 
-    assert getattr(DummyPred, "registry_name") == "dummyPred"
+    assert vars(DummyPred)["registry_name"] == "dummyPred"
 
 
 def test_registry_clear() -> None:

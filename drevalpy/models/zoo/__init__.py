@@ -62,8 +62,13 @@ def load_external_zoo_file(path: Path | str) -> list[str]:
 
     loaded: list[str] = []
     if "predictor" in data:
-        entry_name = str(data.get("name", yaml_path.stem))
-        register_external_zoo_entry(entry_name, model_config_from_dict(data))
+        payload = dict(data)
+        entry_name = str(payload.pop("name", yaml_path.stem))
+        try:
+            register_external_zoo_entry(entry_name, model_config_from_dict(payload, source=yaml_path))
+        except ValueError as exc:
+            msg = f"Invalid zoo entry {entry_name!r} in {yaml_path}: {exc}"
+            raise ValueError(msg) from exc
         loaded.append(entry_name)
         return loaded
 
@@ -72,16 +77,18 @@ def load_external_zoo_file(path: Path | str) -> list[str]:
             msg = f"Zoo entry '{entry_name}' must be a mapping in {yaml_path}"
             raise ValueError(msg)
         payload = dict(entry_data)
-        payload.setdefault("name", entry_name)
-        register_external_zoo_entry(str(entry_name), model_config_from_dict(payload))
+        payload.pop("name", None)
+        try:
+            register_external_zoo_entry(str(entry_name), model_config_from_dict(payload, source=yaml_path))
+        except ValueError as exc:
+            msg = f"Invalid zoo entry {entry_name!r} in {yaml_path}: {exc}"
+            raise ValueError(msg) from exc
         loaded.append(str(entry_name))
     return loaded
 
 
 def zoo_model_config(name: str, hyperparameters: dict[str, Any] | None = None) -> ModelConfig:
     """Return a zoo config with optional predictor and view hyperparameter overrides."""
-    from dataclasses import replace
-
     from drevalpy.models.factory import featurizer_configs_from_view_hyperparameters
 
     config = get_zoo_config(name)
@@ -95,23 +102,15 @@ def zoo_model_config(name: str, hyperparameters: dict[str, Any] | None = None) -
         cell_line_featurizer = cell_line_override
     if drug_override is not None:
         drug_featurizer = drug_override
-    return ModelConfig(
-        cell_line_featurizer=cell_line_featurizer,
-        drug_featurizer=drug_featurizer,
-        predictor=replace(config.predictor, hyperparameters=merged_hp),
-        prediction_mode=config.prediction_mode,
+    return config.model_copy(
+        update={
+            "cell_line_featurizer": cell_line_featurizer,
+            "drug_featurizer": drug_featurizer,
+            "predictor": config.predictor.model_copy(update={"hyperparameters": merged_hp}),
+        },
+        deep=True,
     )
 
 
 def _clone_model_config(config: ModelConfig) -> ModelConfig:
-    from dataclasses import replace
-
-    cell_line = config.cell_line_featurizer
-    drug = config.drug_featurizer
-    predictor = config.predictor
-    return ModelConfig(
-        cell_line_featurizer=replace(cell_line) if cell_line is not None else None,
-        drug_featurizer=replace(drug) if drug is not None else None,
-        predictor=replace(predictor),
-        prediction_mode=config.prediction_mode,
-    )
+    return config.model_copy(deep=True)

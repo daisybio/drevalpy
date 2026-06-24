@@ -66,3 +66,30 @@ def test_model_config_from_yaml(tmp_path: Path) -> None:
 def test_model_config_from_dict_requires_predictor() -> None:
     with pytest.raises(ValueError, match="predictor"):
         model_config_from_dict({})
+
+
+def test_model_config_from_dict_predictor_shorthand() -> None:
+    config = model_config_from_dict({"predictor": "naiveMean"})
+    assert config.predictor.type == "naiveMean"
+
+
+def test_model_config_from_dict_rejects_unknown_keys() -> None:
+    with pytest.raises(ValueError, match="unknown_key"):
+        model_config_from_dict({"predictor": "naiveMean", "unknown_key": True})
+
+
+def test_model_config_from_dict_rejects_invalid_prediction_mode() -> None:
+    with pytest.raises(ValueError, match="prediction_mode"):
+        model_config_from_dict({"predictor": "naiveMean", "prediction_mode": "invalid"})
+
+
+def test_model_config_from_dict_rejects_invalid_predictor_shape() -> None:
+    with pytest.raises(ValueError, match="predictor"):
+        model_config_from_dict({"predictor": 123})
+
+
+def test_model_config_from_yaml_reports_path_on_error(tmp_path: Path) -> None:
+    path = tmp_path / "bad.yaml"
+    path.write_text("predictor: naiveMean\nunknown_key: true\n", encoding="utf-8")
+    with pytest.raises(ValueError, match=str(path)):
+        model_config_from_yaml(path)

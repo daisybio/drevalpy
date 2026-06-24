@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from dataclasses import replace
 from typing import Any
 
 from drevalpy.components.config import (
@@ -102,13 +101,13 @@ def build_model_config_from_spec(
     baseline = _config_from_baseline_predictor_token(trimmed, prediction_mode=prediction_mode)
     if baseline is not None:
         if hyperparameters:
-            return ModelConfig(
-                cell_line_featurizer=None,
-                drug_featurizer=None,
-                predictor=replace(
-                    baseline.predictor, hyperparameters={**baseline.predictor.hyperparameters, **hyperparameters}
-                ),
-                prediction_mode=baseline.prediction_mode,
+            return baseline.model_copy(
+                update={
+                    "predictor": baseline.predictor.model_copy(
+                        update={"hyperparameters": {**baseline.predictor.hyperparameters, **hyperparameters}}
+                    )
+                },
+                deep=True,
             )
         return baseline
 

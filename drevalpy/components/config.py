@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, Literal
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class PredictionMode(StrEnum):
@@ -15,12 +16,13 @@ class PredictionMode(StrEnum):
     CLASSIFICATION = "classification"
 
 
-@dataclass
-class FeaturizerConfig:
+class FeaturizerConfig(BaseModel):
     """Declarative specification for a featurizer."""
 
+    model_config = ConfigDict(extra="forbid")
+
     type: str
-    hyperparameters: dict[str, Any] = field(default_factory=dict)
+    hyperparameters: dict[str, Any] = Field(default_factory=dict)
     registry: Literal["cell_line", "drug"] = "cell_line"
     view: str | None = None
     views: list[str] | None = None
@@ -42,13 +44,26 @@ class FeaturizerConfig:
         return cls(**hp)
 
 
-@dataclass
-class PredictorConfig:
+class PredictorConfig(BaseModel):
     """Declarative specification for a predictor."""
 
+    model_config = ConfigDict(extra="forbid")
+
     type: str
-    hyperparameters: dict[str, Any] = field(default_factory=dict)
+    hyperparameters: dict[str, Any] = Field(default_factory=dict)
     hyperparameter_space: dict[str, dict[str, Any]] | None = None
+
+    @field_validator("type", mode="before")
+    @classmethod
+    def _coerce_type(cls, value: object) -> object:
+        return str(value) if value is not None else value
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_shorthand(cls, data: object) -> object:
+        if isinstance(data, str):
+            return {"type": data}
+        return data
 
     def create_instance(self):
         """Instantiate the configured predictor from the registry."""
@@ -58,14 +73,33 @@ class PredictorConfig:
         return cls()
 
 
-@dataclass
-class ModelConfig:
+class ModelConfig(BaseModel):
     """Full declarative specification for a composed model."""
 
-    cell_line_featurizer: FeaturizerConfig | None
-    drug_featurizer: FeaturizerConfig | None
+    model_config = ConfigDict(extra="forbid")
+
+    cell_line_featurizer: FeaturizerConfig | None = None
+    drug_featurizer: FeaturizerConfig | None = None
     predictor: PredictorConfig
     prediction_mode: PredictionMode = PredictionMode.REGRESSION
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_sections(cls, data: object) -> object:
+        if not isinstance(data, dict):
+            return data
+        normalized = dict(data)
+        cell_line = normalized.get("cell_line_featurizer")
+        if isinstance(cell_line, dict):
+            cell_line_payload = dict(cell_line)
+            cell_line_payload.setdefault("registry", "cell_line")
+            normalized["cell_line_featurizer"] = cell_line_payload
+        drug = normalized.get("drug_featurizer")
+        if isinstance(drug, dict):
+            drug_payload = dict(drug)
+            drug_payload.setdefault("registry", "drug")
+            normalized["drug_featurizer"] = drug_payload
+        return normalized
 
     @property
     def model_id(self) -> str | None:
@@ -76,7 +110,7 @@ class ModelConfig:
             return None
         return f"{self.cell_line_featurizer.type}:" f"{self.drug_featurizer.type}:" f"{self.predictor.type}"
 
-    def validate(self) -> None:
+    def validate(self) -> None:  # type: ignore[override]
         """Check registry slots, feature compatibility, and prediction mode."""
         from drevalpy.components.validation import validate_model_config
 

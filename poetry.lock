@@ -7023,7 +7023,7 @@ test = ["big-O", "jaraco.functools", "jaraco.itertools", "jaraco.test", "more_it
 type = ["pytest-mypy (>=1.0.1) ; platform_python_implementation != \"PyPy\""]
 
 [extras]
-multiprocessing = ["pydantic", "ray"]
+multiprocessing = ["ray"]
 precily = ["gseapy"]
 sparsego = ["mygene", "obonet"]
 xgboost = ["xgboost"]
@@ -7031,4 +7031,4 @@ xgboost = ["xgboost"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11,<3.14"
-content-hash = "dbcf6b72661106fbc0e029cce53e03c22ed978293b93d5a0784bdb674aff146e"
+content-hash = "0729d920e6c486f9063f32fedcb2d6ba16f7cc6464f1b58e0e71c32e2332d903"

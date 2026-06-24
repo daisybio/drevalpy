@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 from drevalpy.components.config import ModelConfig
 from drevalpy.components.extensions import load_extension_dir, load_extension_file, load_extensions
@@ -160,3 +161,17 @@ predictor:
     config = get_zoo_config("customNaive")
     assert isinstance(config, ModelConfig)
     assert config.predictor.type == "naiveMean"
+
+
+def test_load_external_zoo_invalid_entry_reports_path(tmp_path: Path) -> None:
+    zoo_file = tmp_path / "bad_zoo.yaml"
+    zoo_file.write_text(
+        """
+brokenEntry:
+  predictor: naiveMean
+  unknown_key: true
+""",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="brokenEntry"):
+        load_external_zoo_file(zoo_file)

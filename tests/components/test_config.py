@@ -1,6 +1,4 @@
-"""Tests for internal ModelConfig dataclasses."""
-
-from dataclasses import asdict
+"""Tests for internal ModelConfig models."""
 
 from drevalpy.components.config import (
     FeaturizerConfig,
@@ -60,7 +58,7 @@ def test_config_is_serializable() -> None:
         predictor=PredictorConfig(type="elasticNet", hyperparameters={"alpha": 1.0}),
         prediction_mode=PredictionMode.REGRESSION,
     )
-    payload = asdict(config)
+    payload = config.model_dump(mode="python")
     assert payload["cell_line_featurizer"]["view"] == "gene_expression"
     assert payload["predictor"]["hyperparameters"]["alpha"] == 1.0
 
