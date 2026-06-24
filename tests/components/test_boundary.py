@@ -77,8 +77,8 @@ def test_bridge_lives_in_models_layer() -> None:
 
 
 def test_orchestration_lives_in_models_layer() -> None:
+    import drevalpy.components as components_pkg
     import drevalpy.components.factory as components_factory
-    import drevalpy.components.zoo as components_zoo
     import drevalpy.models.composed_model as models_composed
     import drevalpy.models.config_io as models_config_io
     import drevalpy.models.factory as models_factory
@@ -86,7 +86,7 @@ def test_orchestration_lives_in_models_layer() -> None:
     import drevalpy.models.zoo as models_zoo
 
     assert components_factory.model_config_for_name is models_factory.model_config_for_name
-    assert components_zoo.get_zoo_config is models_zoo.get_zoo_config
+    assert components_pkg.get_zoo_config is models_zoo.get_zoo_config
     from drevalpy.components.composed_model import ComposedModel as ComponentsComposed
 
     assert ComponentsComposed is models_composed.ComposedModel

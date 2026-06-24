@@ -52,7 +52,7 @@ from drevalpy.components.registry import (
     register_drug_featurizer,
     register_predictor,
 )
-from drevalpy.components.zoo import (
+from drevalpy.models.zoo import (
     get_zoo_config,
     list_zoo_names,
     load_external_zoo_file,

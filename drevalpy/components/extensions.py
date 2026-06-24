@@ -85,7 +85,7 @@ def load_extensions(
     for directory in directories or []:
         load_extension_dir(directory)
     if zoo_files:
-        from drevalpy.components.zoo import load_external_zoo_file
+        from drevalpy.models.zoo import load_external_zoo_file
 
         for zoo_path in zoo_files:
             load_external_zoo_file(zoo_path)

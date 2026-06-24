@@ -7,7 +7,7 @@ from drevalpy.components.factory import (
     sklearn_model_config,
     sklearn_model_config_from_zoo,
 )
-from drevalpy.components.zoo import get_zoo_config, list_zoo_names, zoo_model_config
+from drevalpy.models.zoo import get_zoo_config, list_zoo_names, zoo_model_config
 
 
 def test_builtin_zoo_lists_passing_models() -> None:
