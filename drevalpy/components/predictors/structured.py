@@ -7,6 +7,7 @@ from typing import Any, ClassVar
 import numpy as np
 
 from drevalpy.components.pair_batch import PairBatch
+from drevalpy.components.pair_context import PairContext
 from drevalpy.components.predictors.base import Predictor
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 

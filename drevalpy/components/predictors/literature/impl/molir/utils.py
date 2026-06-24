@@ -16,10 +16,9 @@ from pytorch_lightning.callbacks import EarlyStopping, TQDMProgressBar
 from torch import nn
 from torch.utils.data import DataLoader, Dataset
 
-from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
-
-from drevalpy.models.drp_model import DRPModel
 from drevalpy.components.lightning_metrics_mixin import RegressionMetricsMixin
+from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.models.drp_model import DRPModel
 
 
 class RegressionDataset(Dataset):

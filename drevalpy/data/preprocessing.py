@@ -6,6 +6,7 @@ from sklearn.decomposition import PCA
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 
+
 def prepare_expression_and_methylation(
     cell_line_input: FeatureDataset,
     cell_line_ids: np.ndarray,
@@ -274,4 +275,3 @@ def prepare_proteomics(
             view="proteomics",
         )
     return cell_line_input
-

@@ -8,7 +8,6 @@ import numpy as np
 import pytorch_lightning as pl
 from torch_geometric.loader import DataLoader
 
-from drevalpy.components.config import PredictionMode
 from drevalpy.components.contracts import FeatureContract, FeatureKind
 from drevalpy.components.pair_batch import PairBatch
 from drevalpy.components.predictors.literature._metadata import DRUGGNN_METADATA

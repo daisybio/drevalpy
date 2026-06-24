@@ -32,8 +32,5 @@ def parse_model_id(model_id: str) -> tuple[str | None, str | None, str]:
         return None, None, parts[0]
     if len(parts) == 3 and all(part.strip() for part in parts):
         return parts[0], parts[1], parts[2]
-    msg = (
-        "model_id must be 'predictor' or "
-        "'cellLineFeaturizer:drugFeaturizer:predictor'"
-    )
+    msg = "model_id must be 'predictor' or " "'cellLineFeaturizer:drugFeaturizer:predictor'"
     raise ValueError(msg)

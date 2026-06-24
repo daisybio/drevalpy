@@ -9,8 +9,8 @@ import numpy as np
 from drevalpy.components.config import PredictionMode
 from drevalpy.components.featurizers._matrix import unique_entity_ids
 from drevalpy.components.featurizers.base import Featurizer
-from drevalpy.components.pair_context import PairContext
 from drevalpy.components.pair_batch_build import build_pair_batch
+from drevalpy.components.pair_context import PairContext
 from drevalpy.components.pair_features import build_pair_matrix
 from drevalpy.components.predictors.base import Predictor
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
@@ -150,9 +150,7 @@ class ComposedModel:
             )
             input_dims = {
                 "cell_line": int(self._cell_line_matrix.shape[1]) if self._cell_line_matrix.size else 0,
-                "drug": int(self._drug_matrix.shape[1])
-                if self._drug_matrix.size
-                else 0,
+                "drug": int(self._drug_matrix.shape[1]) if self._drug_matrix.size else 0,
                 "n_classes": 1,
             }
             merged_hp = {
@@ -293,7 +291,9 @@ class ComposedModel:
             cell_line_entity_ids,
             drug_entity_ids,
         )
-        return self._predictor.predict(x, pair_context=self._pair_context(cell_line_ids, drug_ids, cell_line_input=cell_line_input))
+        return self._predictor.predict(
+            x, pair_context=self._pair_context(cell_line_ids, drug_ids, cell_line_input=cell_line_input)
+        )
 
     def _pair_context(
         self,

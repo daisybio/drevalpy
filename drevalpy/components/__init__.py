@@ -11,8 +11,8 @@ from drevalpy.components.composed_model import ComposedModel
 from drevalpy.components.config import (
     FeaturizerConfig,
     ModelConfig,
-    PredictorConfig,
     PredictionMode,
+    PredictorConfig,
 )
 from drevalpy.components.config_io import (
     model_config_from_dict,
@@ -35,8 +35,8 @@ from drevalpy.components.factory import (
     sklearn_model_config,
     sklearn_model_config_from_zoo,
 )
-from drevalpy.components.model_id import format_model_id, parse_model_id
 from drevalpy.components.model_config_spec import build_model_config_from_spec
+from drevalpy.components.model_id import format_model_id, parse_model_id
 from drevalpy.components.register_builtins import ensure_components_registered, register_builtin_components
 from drevalpy.components.registry import (
     get_cell_line_featurizer,

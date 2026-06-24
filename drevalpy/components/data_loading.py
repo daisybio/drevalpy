@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from drevalpy.datasets.dataset import FeatureDataset
 from drevalpy.data.features import (
     load_cl_ids_from_csv,
     load_multi_cell_line_view,
@@ -10,6 +9,7 @@ from drevalpy.data.features import (
     load_single_drug_view,
     load_tissues_from_csv,
 )
+from drevalpy.datasets.dataset import FeatureDataset
 
 
 def load_cell_line_feature_views(

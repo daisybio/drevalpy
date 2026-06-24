@@ -36,7 +36,10 @@ def _set_xgboost_thread_defaults() -> None:
     category="general_purpose",
 )
 class XGBoostPredictor(SklearnTabularPredictor):
+    """XGBoost regressor for dense tabular pair features."""
+
     def _make_estimator(self):
+        """Return an unfitted XGBoost regressor."""
         try:
             _set_xgboost_thread_defaults()
             from xgboost import XGBRegressor
@@ -56,6 +59,7 @@ class XGBoostPredictor(SklearnTabularPredictor):
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
+        """Return the tunable XGBoost hyperparameter space."""
         return {
             "n_estimators": {"type": "int", "low": 50, "high": 500, "default": 100},
             "max_depth": {"type": "int", "low": 3, "high": 12, "default": 6},

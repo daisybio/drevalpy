@@ -35,9 +35,7 @@ def featurizer_configs_from_view_hyperparameters(
             if "proteomics_n_features" in hyperparameters:
                 cell_line_hp["proteomics_n_features"] = hyperparameters["proteomics_n_features"]
             if "proteomics_normalization_width" in hyperparameters:
-                cell_line_hp["proteomics_normalization_width"] = hyperparameters[
-                    "proteomics_normalization_width"
-                ]
+                cell_line_hp["proteomics_normalization_width"] = hyperparameters["proteomics_normalization_width"]
             if "proteomics_normalization_downshift" in hyperparameters:
                 cell_line_hp["proteomics_normalization_downshift"] = hyperparameters[
                     "proteomics_normalization_downshift"
@@ -57,9 +55,7 @@ def featurizer_configs_from_view_hyperparameters(
             if "proteomics_n_features" in hyperparameters:
                 cell_line_hp["proteomics_n_features"] = hyperparameters["proteomics_n_features"]
             if "proteomics_normalization_width" in hyperparameters:
-                cell_line_hp["proteomics_normalization_width"] = hyperparameters[
-                    "proteomics_normalization_width"
-                ]
+                cell_line_hp["proteomics_normalization_width"] = hyperparameters["proteomics_normalization_width"]
             if "proteomics_normalization_downshift" in hyperparameters:
                 cell_line_hp["proteomics_normalization_downshift"] = hyperparameters[
                     "proteomics_normalization_downshift"
@@ -98,13 +94,9 @@ def sklearn_model_config(predictor_type: str, hyperparameters: dict[str, Any]) -
         if "proteomics_n_features" in hyperparameters:
             cell_line_hp["proteomics_n_features"] = hyperparameters["proteomics_n_features"]
         if "proteomics_normalization_width" in hyperparameters:
-            cell_line_hp["proteomics_normalization_width"] = hyperparameters[
-                "proteomics_normalization_width"
-            ]
+            cell_line_hp["proteomics_normalization_width"] = hyperparameters["proteomics_normalization_width"]
         if "proteomics_normalization_downshift" in hyperparameters:
-            cell_line_hp["proteomics_normalization_downshift"] = hyperparameters[
-                "proteomics_normalization_downshift"
-            ]
+            cell_line_hp["proteomics_normalization_downshift"] = hyperparameters["proteomics_normalization_downshift"]
     elif len(cell_line_views) == 1:
         cell_line_type = "view"
         cell_line_hp = {"view": cell_line_views[0]}
@@ -118,13 +110,9 @@ def sklearn_model_config(predictor_type: str, hyperparameters: dict[str, Any]) -
         if "proteomics_n_features" in hyperparameters:
             cell_line_hp["proteomics_n_features"] = hyperparameters["proteomics_n_features"]
         if "proteomics_normalization_width" in hyperparameters:
-            cell_line_hp["proteomics_normalization_width"] = hyperparameters[
-                "proteomics_normalization_width"
-            ]
+            cell_line_hp["proteomics_normalization_width"] = hyperparameters["proteomics_normalization_width"]
         if "proteomics_normalization_downshift" in hyperparameters:
-            cell_line_hp["proteomics_normalization_downshift"] = hyperparameters[
-                "proteomics_normalization_downshift"
-            ]
+            cell_line_hp["proteomics_normalization_downshift"] = hyperparameters["proteomics_normalization_downshift"]
 
     drug_featurizer = None
     if drug_views:
@@ -139,9 +127,7 @@ def sklearn_model_config(predictor_type: str, hyperparameters: dict[str, Any]) -
         )
 
     predictor_hp = {
-        key: value
-        for key, value in hyperparameters.items()
-        if key not in {"cell_line_views", "drug_views"}
+        key: value for key, value in hyperparameters.items() if key not in {"cell_line_views", "drug_views"}
     }
     return ModelConfig(
         cell_line_featurizer=FeaturizerConfig(type=cell_line_type, registry="cell_line", hyperparameters=cell_line_hp),

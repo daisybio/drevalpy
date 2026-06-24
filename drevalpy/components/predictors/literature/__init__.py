@@ -8,13 +8,13 @@ if TYPE_CHECKING:
     from drevalpy.components.predictors.literature.druggnn import DrugGNNPredictor
     from drevalpy.components.predictors.literature.neural_network import NeuralNetworkPredictor
     from drevalpy.components.predictors.literature.public_models import (
+        MOLIR,
+        SRMF,
         DIPKModel,
         DrugGNN,
-        MOLIR,
         MultiViewNeuralNetwork,
         PharmaFormerModel,
         PrecilyModel,
-        SRMF,
         SimpleNeuralNetwork,
         SuperFELTR,
     )

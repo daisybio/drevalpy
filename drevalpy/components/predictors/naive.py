@@ -6,8 +6,8 @@ from typing import ClassVar
 
 import numpy as np
 
-from drevalpy.components.pair_context import PairContext
 from drevalpy.components.config import PredictionMode
+from drevalpy.components.pair_context import PairContext
 from drevalpy.components.predictors.baseline import BaselinePredictor
 from drevalpy.components.registry import register_predictor
 
@@ -233,9 +233,7 @@ class NaiveTissueDrugMeanPredictor(BaselinePredictor):
             return {}
         return {
             "dataset_mean": self._dataset_mean,
-            "tissue_drug_means": {
-                tuple(key.split("|", maxsplit=1)): mean for key, mean in self._combo_means.items()
-            },
+            "tissue_drug_means": {tuple(key.split("|", maxsplit=1)): mean for key, mean in self._combo_means.items()},
         }
 
     def set_state(self, state: dict[str, object]) -> None:
@@ -244,10 +242,7 @@ class NaiveTissueDrugMeanPredictor(BaselinePredictor):
             self._dataset_mean = float(mean)
         combo_means = state.get("tissue_drug_means", {})
         if combo_means:
-            self._combo_means = {
-                f"{tissue}|{drug}": float(value)
-                for (tissue, drug), value in combo_means.items()
-            }
+            self._combo_means = {f"{tissue}|{drug}": float(value) for (tissue, drug), value in combo_means.items()}
 
     def is_fitted(self) -> bool:
         return self._dataset_mean is not None

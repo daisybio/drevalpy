@@ -10,7 +10,6 @@ from drevalpy.components.contracts import FeatureContract, FeatureKind
 from drevalpy.components.featurizers._matrix import stack_view_matrix
 from drevalpy.components.featurizers.drug.base import DrugFeaturizer
 from drevalpy.components.registry import register_drug_featurizer
-from drevalpy.datasets.utils import DRUG_IDENTIFIER
 
 
 @register_drug_featurizer(

@@ -11,9 +11,7 @@ LITERATURE_INTEGRATION_DEVIATIONS = (
 DRUGGNN_METADATA = {
     "category": "literature",
     "template_repo_url": "https://github.com/hauldhut/GraphDRP",
-    "citation_text": (
-        "DrugGNN-style GCN on molecular graphs with dense cell-line features (GraphDRP codebase)."
-    ),
+    "citation_text": ("DrugGNN-style GCN on molecular graphs with dense cell-line features (GraphDRP codebase)."),
     "deviations": LITERATURE_INTEGRATION_DEVIATIONS,
 }
 
@@ -51,9 +49,7 @@ PHARMAFORMER_METADATA = {
     "category": "literature",
     "template_repo_url": "https://github.com/zhouyuru1205/PharmaFormer",
     "citation_doi": "10.1038/s41698-025-01082-6",
-    "citation_text": (
-        "PharmaFormer integrates gene expression and compound views via a transformer encoder."
-    ),
+    "citation_text": ("PharmaFormer integrates gene expression and compound views via a transformer encoder."),
     "deviations": LITERATURE_INTEGRATION_DEVIATIONS,
 }
 

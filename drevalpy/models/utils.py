@@ -3,7 +3,6 @@
 Prefer :mod:`drevalpy.data.features` and :mod:`drevalpy.data.preprocessing` for new code.
 """
 
-from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, TISSUE_IDENTIFIER
 from drevalpy.data.features import (
     _get_view_as_list,
     get_multiomics_feature_dataset,
@@ -28,6 +27,7 @@ from drevalpy.data.preprocessing import (
     prepare_proteomics,
     scale_gene_expression,
 )
+from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, TISSUE_IDENTIFIER
 
 __all__ = [
     "CELL_LINE_IDENTIFIER",

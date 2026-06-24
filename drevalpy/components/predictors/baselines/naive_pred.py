@@ -16,22 +16,22 @@ import os
 
 import numpy as np
 
-from drevalpy.models._component_bridge import (
-    ComponentDRPBridge,
-    restore_naive_to_components,
-    sync_naive_from_components,
-)
-from drevalpy.components.register_builtins import ensure_components_registered
 from drevalpy.components.factory import NAIVE_PREDICTOR_BY_MODEL_NAME, naive_model_config
-from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
-from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, TISSUE_IDENTIFIER
-from drevalpy.models.drp_model import DRPModel
+from drevalpy.components.register_builtins import ensure_components_registered
 from drevalpy.data.features import (
     load_cl_ids_and_tissues_from_csv,
     load_cl_ids_from_csv,
     load_drug_ids_from_csv,
     load_tissues_from_csv,
 )
+from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, TISSUE_IDENTIFIER
+from drevalpy.models._component_bridge import (
+    ComponentDRPBridge,
+    restore_naive_to_components,
+    sync_naive_from_components,
+)
+from drevalpy.models.drp_model import DRPModel
 
 
 class NaiveModel(DRPModel):
@@ -133,9 +133,7 @@ class NaiveModel(DRPModel):
                 if attr == "tissue_drug_means" and value:
                     first_key = next(iter(value))
                     if isinstance(first_key, tuple):
-                        value = {
-                            f"{tissue}|{drug}": mean for (tissue, drug), mean in value.items()
-                        }
+                        value = {f"{tissue}|{drug}": mean for (tissue, drug), mean in value.items()}
                 config[attr] = value
         with open(os.path.join(directory, "naive_model.json"), "w") as f:
             json.dump(config, f)
@@ -240,8 +238,6 @@ class NaiveDrugMeanPredictor(NaiveModel):
         """
         return "NaiveDrugMeanPredictor"
 
-
-
     def predict_drug(self, drug_id: str):
         """
         Predicts the mean of the response for a given drug.
@@ -300,8 +296,6 @@ class NaiveCellLineMeanPredictor(NaiveModel):
         """
         return "NaiveCellLineMeanPredictor"
 
-
-
     def predict_cl(self, cl_id: str) -> float:
         """
         Predicts the mean of the response for a given cell line.
@@ -359,8 +353,6 @@ class NaiveTissueMeanPredictor(NaiveModel):
         :returns: NaiveTissueMeanPredictor
         """
         return "NaiveTissueMeanPredictor"
-
-
 
     def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         """

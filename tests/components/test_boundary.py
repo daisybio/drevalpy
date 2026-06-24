@@ -70,8 +70,8 @@ def test_models_lightning_metrics_mixin_reexports_component_mixin() -> None:
 
 
 def test_bridge_lives_in_models_layer() -> None:
-    from drevalpy.models._component_bridge import ComponentDRPBridge
     from drevalpy.components.drp_bridge import ComponentDRPBridge as ShimBridge
+    from drevalpy.models._component_bridge import ComponentDRPBridge
 
     assert ComponentDRPBridge is ShimBridge
 

@@ -39,10 +39,7 @@ def _predictor_contracts(cls: type[Any]) -> tuple[FeatureContract, FeatureContra
     cell_line = getattr(cls, "required_cell_line_contract", None)
     drug = getattr(cls, "required_drug_contract", None)
     if cell_line is None or drug is None:
-        msg = (
-            f"Predictor {cls.__name__!r} must define required_cell_line_contract "
-            "and required_drug_contract"
-        )
+        msg = f"Predictor {cls.__name__!r} must define required_cell_line_contract " "and required_drug_contract"
         raise ValueError(msg)
     if not isinstance(cell_line, FeatureContract) or not isinstance(drug, FeatureContract):
         msg = f"Predictor {cls.__name__!r} contracts must be FeatureContract instances"
@@ -101,10 +98,7 @@ def validate_model_config(config: ModelConfig) -> None:
         msg = f"cell_line_featurizer must use registry='cell_line', got {config.cell_line_featurizer.registry!r}"
         raise ValueError(msg)
     if config.drug_featurizer is not None and config.drug_featurizer.registry != "drug":
-        msg = (
-            "drug_featurizer must use registry='drug', "
-            f"got {config.drug_featurizer.registry!r}"
-        )
+        msg = "drug_featurizer must use registry='drug', " f"got {config.drug_featurizer.registry!r}"
         raise ValueError(msg)
 
     if config.cell_line_featurizer is not None:

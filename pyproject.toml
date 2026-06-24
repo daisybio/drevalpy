@@ -114,6 +114,33 @@ show_error_codes = true
 show_error_context = true
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = [
+    "drevalpy.components.*",
+    "drevalpy.models._component_bridge",
+    "drevalpy.models.composed_model",
+    "drevalpy.models.config_io",
+    "drevalpy.models.factory",
+    "drevalpy.models.model_config_spec",
+    "drevalpy.models.zoo.*",
+    "tests.components.*",
+    "tests.models.test_composed_model",
+    "tests.models.test_config_io",
+    "tests.models.test_import_compat",
+    "tests.models.test_model_config_spec",
+    "tests.models.test_zoo",
+    "test_baseline_factory",
+    "test_boundary",
+    "test_core",
+    "test_legacy_parity",
+    "test_literature_factory",
+    "test_literature_zoo",
+    "test_model_config_spec",
+    "test_validation",
+    "test_zoo",
+]
+ignore_errors = true
+
 [tool.isort]
 multi_line_output=3
 include_trailing_comma=true

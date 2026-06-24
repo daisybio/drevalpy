@@ -47,10 +47,7 @@ class MultiViewStructuredCellLineFeaturizer(CellLineFeaturizer):
         return np.concatenate([blocks[view] for view in self._views], axis=1).astype(np.float32)
 
     def transform_blocks(self, features, entity_ids: np.ndarray) -> dict[str, np.ndarray]:
-        return {
-            view: stack_view_matrix(features, view, entity_ids).astype(np.float32)
-            for view in self._views
-        }
+        return {view: stack_view_matrix(features, view, entity_ids).astype(np.float32) for view in self._views}
 
     @property
     def output_dim(self) -> int:

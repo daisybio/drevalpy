@@ -18,9 +18,7 @@ class Predictor(ABC):
     """Train and predict drug response from featurized cell-line and drug features."""
 
     required_cell_line_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
-    required_drug_contract: ClassVar[FeatureContract] = FeatureContract(
-        kind=FeatureKind.DENSE
-    )
+    required_drug_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
     uses_features: ClassVar[bool] = True
     uses_structured_features: ClassVar[bool] = False
     requires_drug_featurizer: ClassVar[bool] = True

@@ -11,9 +11,8 @@ from pytorch_lightning.loggers import WandbLogger
 from torch import nn
 from torch.utils.data import DataLoader, Dataset
 
-from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
-
 from drevalpy.components.lightning_metrics_mixin import RegressionMetricsMixin
+from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 
 
 class RegressionDataset(Dataset):

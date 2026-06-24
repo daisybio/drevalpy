@@ -21,9 +21,9 @@ import torch.optim as optim
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from torch.utils.data import DataLoader, Dataset
 
+from drevalpy.data.features import load_and_select_gene_features
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models.drp_model import DRPModel
-from drevalpy.data.features import load_and_select_gene_features
 
 from .model_utils import CombinedModel
 

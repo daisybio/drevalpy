@@ -14,8 +14,8 @@ from drevalpy.components.contracts import FeatureContract, FeatureKind
 from drevalpy.components.pair_context import PairContext
 from drevalpy.components.predictors.base import Predictor
 from drevalpy.components.predictors.literature._batch_dataset import PairMatrixDataset
-from drevalpy.components.registry import register_predictor
 from drevalpy.components.predictors.literature.impl.simple_neural_network.utils import FeedForwardNetwork
+from drevalpy.components.registry import register_predictor
 
 
 @register_predictor(

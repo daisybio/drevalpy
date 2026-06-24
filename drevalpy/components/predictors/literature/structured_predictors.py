@@ -162,7 +162,9 @@ class PrecilyPredictor(StructuredLiteratureEnginePredictor):
     **SRMF_METADATA,
 )
 class SRMFPredictor(StructuredLiteratureEnginePredictor):
-    required_cell_line_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE, view="gene_expression")
+    required_cell_line_contract: ClassVar[FeatureContract] = FeatureContract(
+        kind=FeatureKind.DENSE, view="gene_expression"
+    )
     required_drug_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE, view="fingerprints")
     _engine_cls = SRMF
 
@@ -199,7 +201,9 @@ class SuperFELTRPredictor(StructuredLiteratureEnginePredictor):
     **PHARMAFORMER_METADATA,
 )
 class PharmaFormerPredictor(StructuredLiteratureEnginePredictor):
-    required_cell_line_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE, view="gene_expression")
+    required_cell_line_contract: ClassVar[FeatureContract] = FeatureContract(
+        kind=FeatureKind.DENSE, view="gene_expression"
+    )
     required_drug_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE, view="bpe_smiles")
     _use_raw_inputs: ClassVar[bool] = True
     _engine_cls = PharmaFormerModel

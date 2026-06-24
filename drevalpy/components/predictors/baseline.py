@@ -18,6 +18,4 @@ class BaselinePredictor(Predictor):
     def build(self, hyperparameters: dict[str, Any], input_dims: dict[str, Any]) -> None:
         _ = input_dims
         self._hyperparameters = hyperparameters
-        self._mode = PredictionMode(
-            hyperparameters.get("prediction_mode", PredictionMode.REGRESSION)
-        )
+        self._mode = PredictionMode(hyperparameters.get("prediction_mode", PredictionMode.REGRESSION))

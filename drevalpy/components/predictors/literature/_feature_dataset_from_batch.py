@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import numpy as np
 
-from drevalpy.components.pair_batch import PairBatch
 from drevalpy.datasets.dataset import FeatureDataset
 
 
@@ -23,9 +22,7 @@ def feature_dataset_from_blocks(
     features: dict[str, dict[str, np.ndarray]] = {}
     for row, entity_id in enumerate(entity_ids):
         entity_key = str(entity_id)
-        features[entity_key] = {
-            view: np.asarray(matrix[row], dtype=np.float32) for view, matrix in blocks.items()
-        }
+        features[entity_key] = {view: np.asarray(matrix[row], dtype=np.float32) for view, matrix in blocks.items()}
     return FeatureDataset(features)
 
 

@@ -7,8 +7,8 @@ from typing import Any, ClassVar
 
 import numpy as np
 
-from drevalpy.components.pair_context import PairContext
 from drevalpy.components.config import PredictionMode
+from drevalpy.components.pair_context import PairContext
 from drevalpy.components.predictors.base import Predictor
 
 
@@ -25,9 +25,7 @@ class SklearnTabularPredictor(Predictor):
     def build(self, hyperparameters: dict[str, Any], input_dims: dict[str, Any]) -> None:
         _ = input_dims
         self._h = hyperparameters
-        self._mode = PredictionMode(
-            hyperparameters.get("prediction_mode", PredictionMode.REGRESSION)
-        )
+        self._mode = PredictionMode(hyperparameters.get("prediction_mode", PredictionMode.REGRESSION))
         self._estimator = None
 
     @abstractmethod

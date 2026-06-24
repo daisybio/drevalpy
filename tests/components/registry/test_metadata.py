@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from drevalpy.components.registry.common import apply_registration_metadata
 from drevalpy.components.registry._metadata_validate import validate_registered_class_metadata
+from drevalpy.components.registry.common import apply_registration_metadata
 
 
 def test_literature_metadata_requires_citation_and_repo() -> None:

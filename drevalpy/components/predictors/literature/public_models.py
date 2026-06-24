@@ -6,12 +6,6 @@ from typing import Any, ClassVar
 
 import numpy as np
 
-from drevalpy.models.factory import model_config_for_name
-from drevalpy.components.register_builtins import ensure_components_registered
-from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
-from drevalpy.models._component_bridge import ComponentDRPBridge, restore_literature_to_components
-from drevalpy.models.drp_model import DRPModel
-
 from drevalpy.components.predictors.literature.impl.dipk.dipk import DIPKModel as _DIPKModel
 from drevalpy.components.predictors.literature.impl.druggnn.drug_gnn import DrugGNN as _DrugGNN
 from drevalpy.components.predictors.literature.impl.molir.molir import MOLIR as _MOLIR
@@ -25,8 +19,13 @@ from drevalpy.components.predictors.literature.impl.simple_neural_network.multi_
 from drevalpy.components.predictors.literature.impl.simple_neural_network.simple_neural_network import (
     SimpleNeuralNetwork as _SimpleNeuralNetwork,
 )
-from drevalpy.components.predictors.literature.impl.srmf.srmf import SRMF as _SRMFImpl
+from drevalpy.components.predictors.literature.impl.srmf.srmf import SRMF as _SRMFImpl  # noqa: N811
 from drevalpy.components.predictors.literature.impl.superfeltr.superfeltr import SuperFELTR as _SuperFELTR
+from drevalpy.components.register_builtins import ensure_components_registered
+from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.models._component_bridge import ComponentDRPBridge, restore_literature_to_components
+from drevalpy.models.drp_model import DRPModel
+from drevalpy.models.factory import model_config_for_name
 
 
 class LiteratureComponentDRPModel(DRPModel):

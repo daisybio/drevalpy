@@ -63,9 +63,7 @@ class MultiConcatCellLineFeaturizer(CellLineFeaturizer):
                 cell_line_input=processed,
                 cell_line_ids=np.unique(entity_ids),
                 training=training,
-                gene_expression_scaler=self._gene_expression_scaler
-                if "gene_expression" in self._views
-                else None,
+                gene_expression_scaler=self._gene_expression_scaler if "gene_expression" in self._views else None,
                 methylation_scaler=self._methylation_scaler if "methylation" in self._views else None,
                 methylation_pca=self._methylation_pca if "methylation" in self._views else None,
             )

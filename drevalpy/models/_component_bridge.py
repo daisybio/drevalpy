@@ -10,9 +10,9 @@ from drevalpy.components.config import ModelConfig, PredictionMode
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 
 if TYPE_CHECKING:
-    from drevalpy.models.composed_model import ComposedModel
     from drevalpy.components.predictors.baselines.naive_pred import NaiveModel
     from drevalpy.components.predictors.baselines.sklearn_models import SklearnModel
+    from drevalpy.models.composed_model import ComposedModel
 
 _SKLEARN_FEATURIZER_STATE_ATTRS = (
     "gene_expression_scaler",
@@ -194,9 +194,7 @@ def restore_literature_to_components(model: Any) -> None:
             featurizer_state["views"] = list(model.cell_line_views)
         if hasattr(model, "input_dims") and isinstance(model.input_dims, dict):
             view_dims = {
-                key: value
-                for key, value in model.input_dims.items()
-                if key not in getattr(model, "drug_views", [])
+                key: value for key, value in model.input_dims.items() if key not in getattr(model, "drug_views", [])
             }
             if view_dims:
                 featurizer_state["view_dims"] = view_dims

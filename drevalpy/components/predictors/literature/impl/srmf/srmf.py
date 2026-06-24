@@ -15,10 +15,10 @@ import numpy as np
 import pandas as pd
 from scipy.spatial.distance import jaccard
 
+from drevalpy.data.features import load_and_select_gene_features, load_drug_fingerprint_features
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
 from drevalpy.models.drp_model import DRPModel
-from drevalpy.data.features import load_and_select_gene_features, load_drug_fingerprint_features
 
 
 class SRMF(DRPModel):

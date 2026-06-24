@@ -10,7 +10,6 @@ from drevalpy.components.config import ModelConfig
 from drevalpy.components.register_builtins import register_builtin_components
 from drevalpy.models import MODEL_FACTORY
 
-
 BASELINE_FACTORY_NAMES = [
     "NaivePredictor",
     "NaiveDrugMeanPredictor",

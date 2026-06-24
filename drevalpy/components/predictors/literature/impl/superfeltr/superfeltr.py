@@ -20,11 +20,16 @@ from typing import Any
 import numpy as np
 import pytorch_lightning as pl
 
-from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
-from drevalpy.models.drp_model import DRPModel
-from drevalpy.components.predictors.literature.impl.molir.utils import filter_and_sort_omics, get_dimensions_of_omics_data, make_ranges
+from drevalpy.components.predictors.literature.impl.molir.utils import (
+    filter_and_sort_omics,
+    get_dimensions_of_omics_data,
+    make_ranges,
+)
 from drevalpy.data.features import get_multiomics_feature_dataset
 from drevalpy.data.preprocessing import VarianceFeatureSelector
+from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.models.drp_model import DRPModel
+
 from .utils import SuperFELTEncoder, SuperFELTRegressor, train_superfeltr_model
 
 

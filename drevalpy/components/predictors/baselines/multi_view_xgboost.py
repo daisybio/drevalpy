@@ -1,8 +1,7 @@
 """Contains the baseline MultiViewXGBoost model."""
 
-from drevalpy.datasets.dataset import FeatureDataset
-
 from drevalpy.data.features import load_multi_cell_line_view, load_single_drug_view
+from drevalpy.datasets.dataset import FeatureDataset
 
 from .sklearn_models import SklearnModel
 

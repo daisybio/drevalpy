@@ -76,13 +76,13 @@ if TYPE_CHECKING:
         SVMRegressor,
     )
     from drevalpy.components.predictors.literature.public_models import (
+        MOLIR,
+        SRMF,
         DIPKModel,
         DrugGNN,
-        MOLIR,
         MultiViewNeuralNetwork,
         PharmaFormerModel,
         PrecilyModel,
-        SRMF,
         SimpleNeuralNetwork,
         SuperFELTR,
     )
@@ -119,13 +119,13 @@ def _lazy_load_public_models() -> None:
         SVMRegressor,
     )
     from drevalpy.components.predictors.literature.public_models import (
+        MOLIR,
+        SRMF,
         DIPKModel,
         DrugGNN,
-        MOLIR,
         MultiViewNeuralNetwork,
         PharmaFormerModel,
         PrecilyModel,
-        SRMF,
         SimpleNeuralNetwork,
         SuperFELTR,
     )

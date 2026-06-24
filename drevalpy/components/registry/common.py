@@ -84,7 +84,6 @@ def make_registration_decorator(
     already_registered_label: str | None = None,
 ) -> Callable[[type[Any]], type[Any]]:
     """Build a class decorator that applies metadata, validates, and registers."""
-
     dup = already_registered_label or registry_id
 
     def decorator(cls: type[Any]) -> type[Any]:

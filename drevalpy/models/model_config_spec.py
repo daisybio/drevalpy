@@ -8,8 +8,8 @@ from typing import Any
 from drevalpy.components.config import (
     FeaturizerConfig,
     ModelConfig,
-    PredictorConfig,
     PredictionMode,
+    PredictorConfig,
 )
 from drevalpy.components.model_id import parse_model_id
 
@@ -102,7 +102,9 @@ def build_model_config_from_spec(
             return ModelConfig(
                 cell_line_featurizer=None,
                 drug_featurizer=None,
-                predictor=replace(baseline.predictor, hyperparameters={**baseline.predictor.hyperparameters, **hyperparameters}),
+                predictor=replace(
+                    baseline.predictor, hyperparameters={**baseline.predictor.hyperparameters, **hyperparameters}
+                ),
                 prediction_mode=baseline.prediction_mode,
             )
         return baseline

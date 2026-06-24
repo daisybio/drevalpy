@@ -7,19 +7,18 @@ import joblib
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 
+from drevalpy.components.factory import SKLEARN_PREDICTOR_BY_MODEL_NAME, sklearn_model_config
+from drevalpy.components.register_builtins import ensure_components_registered
+from drevalpy.data.features import _get_view_as_list, load_single_cell_line_view, load_single_drug_view
+from drevalpy.data.preprocessing import ProteomicsMedianCenterAndImputeTransformer
+from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models._component_bridge import (
     ComponentDRPBridge,
     preview_sklearn_estimator,
     restore_sklearn_to_components,
     sync_sklearn_from_components,
 )
-from drevalpy.components.register_builtins import ensure_components_registered
-from drevalpy.components.factory import SKLEARN_PREDICTOR_BY_MODEL_NAME, sklearn_model_config
-from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models.drp_model import DRPModel
-
-from drevalpy.data.features import _get_view_as_list, load_single_cell_line_view, load_single_drug_view
-from drevalpy.data.preprocessing import ProteomicsMedianCenterAndImputeTransformer
 
 
 class SklearnModel(DRPModel):
@@ -207,13 +206,9 @@ class SklearnModel(DRPModel):
             json.dump(getattr(self, "hyperparameters", {}), f)
         if self.gene_expression_scaler is not None:
             joblib.dump(self.gene_expression_scaler, os.path.join(directory, "scaler.pkl"))
-        if getattr(self, "methylation_scaler", None) is not None and hasattr(
-            self.methylation_scaler, "mean_"
-        ):
+        if getattr(self, "methylation_scaler", None) is not None and hasattr(self.methylation_scaler, "mean_"):
             joblib.dump(self.methylation_scaler, os.path.join(directory, "methylation_scaler.pkl"))
-        if getattr(self, "methylation_pca", None) is not None and hasattr(
-            self.methylation_pca, "components_"
-        ):
+        if getattr(self, "methylation_pca", None) is not None and hasattr(self.methylation_pca, "components_"):
             joblib.dump(self.methylation_pca, os.path.join(directory, "methylation_pca.pkl"))
         if self.proteomics_transformer is not None:
             joblib.dump(self.proteomics_transformer, os.path.join(directory, "proteomics_transformer.pkl"))

@@ -7,7 +7,7 @@ from typing import Any
 
 import yaml
 
-from drevalpy.components.config import FeaturizerConfig, ModelConfig, PredictorConfig, PredictionMode
+from drevalpy.components.config import FeaturizerConfig, ModelConfig, PredictionMode, PredictorConfig
 
 
 def _featurizer_from_dict(data: dict[str, Any], *, registry: str) -> FeaturizerConfig:

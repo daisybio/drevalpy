@@ -18,7 +18,7 @@ _BRIDGE_EXPORTS = frozenset(
     }
 )
 
-__all__ = [
+__all__ = [  # noqa: F822
     "ComponentDRPBridge",
     "ensure_components_registered",
     "preview_sklearn_estimator",
