@@ -11,8 +11,8 @@ from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 
 if TYPE_CHECKING:
     from drevalpy.components.composed_model import ComposedModel
-    from drevalpy.models.baselines.naive_pred import NaiveModel
-    from drevalpy.models.baselines.sklearn_models import SklearnModel
+    from drevalpy.components.predictors.baselines.naive_pred import NaiveModel
+    from drevalpy.components.predictors.baselines.sklearn_models import SklearnModel
 
 _SKLEARN_FEATURIZER_STATE_ATTRS = (
     "gene_expression_scaler",

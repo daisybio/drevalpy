@@ -11,7 +11,7 @@ The sklearn baseline models (``ElasticNet``, ``Lasso``, ``RandomForest``, ``Grad
 support **flexible inputs**. Instead of writing a new Python class for each omic data type, you can simply change which omic the model uses by editing ``hyperparameters.yaml``.
 
 For example, to run a Random Forest on **mynewdatamodality** data instead of gene expression, change the
-``cell_line_views`` in ``models/baselines/hyperparameters.yaml``:
+``cell_line_views`` in ``components/predictors/baselines/hyperparameters.yaml``:
 
 .. code-block:: yaml
 

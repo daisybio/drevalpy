@@ -1,11 +1,9 @@
 """Public drug response prediction models and legacy experiment adapters.
 
 This package exposes :class:`~drevalpy.models.drp_model.DRPModel` subclasses,
-``MODEL_FACTORY``, and literature model compatibility classes. Baseline classes
-delegate to the modular stack in :mod:`drevalpy.components` through
-:mod:`drevalpy.models._component_bridge`. Literature models are implemented under
-:mod:`drevalpy.components.predictors.literature` and exposed here for backward
-compatibility.
+``MODEL_FACTORY``, and public model compatibility classes. Baseline and literature
+implementations live under :mod:`drevalpy.components.predictors` and are exposed
+here for backward compatibility via :mod:`drevalpy.models._component_bridge`.
 """
 
 __all__ = [
@@ -42,27 +40,26 @@ __all__ = [
     "SparseGO",
 ]
 
-from .baselines.multi_view_lightgbm import MultiViewLightGBM
-from .baselines.multi_view_random_forest import MultiViewRandomForest
-from .baselines.multi_view_xgboost import MultiViewXGBoost
-from .baselines.naive_pred import (
+from drevalpy.components.predictors.baselines import (
+    AdaBoostDecisionTree,
+    ElasticNetModel,
+    GradientBoosting,
+    KNNRegressor,
+    LassoModel,
+    MultiViewRandomForest,
+    MultiViewXGBoost,
     NaiveCellLineMeanPredictor,
     NaiveDrugMeanPredictor,
     NaiveMeanEffectsPredictor,
     NaivePredictor,
     NaiveTissueDrugMeanPredictor,
     NaiveTissueMeanPredictor,
-)
-from .baselines.singledrug_baselines import SingleDrugElasticNet, SingleDrugRandomForest
-from .baselines.sklearn_models import (
-    AdaBoostDecisionTree,
-    ElasticNetModel,
-    GradientBoosting,
-    KNNRegressor,
-    LassoModel,
     RandomForest,
+    SingleDrugElasticNet,
+    SingleDrugRandomForest,
     SVMRegressor,
 )
+from .baselines.multi_view_lightgbm import MultiViewLightGBM
 from drevalpy.components.predictors.literature.public_models import (
     DIPKModel,
     DrugGNN,
