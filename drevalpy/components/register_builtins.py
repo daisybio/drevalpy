@@ -31,12 +31,18 @@ def register_native_components() -> None:
     """Register native cell-line featurizers, drug featurizers, and tabular predictors."""
     for module_path, registry in (
         ("drevalpy.components.featurizers.cell_line.view", cell_line_featurizer_registry),
+        ("drevalpy.components.featurizers.cell_line.scaled_gene_expression", cell_line_featurizer_registry),
+        ("drevalpy.components.featurizers.cell_line.pca", cell_line_featurizer_registry),
+        ("drevalpy.components.featurizers.cell_line.proteomics", cell_line_featurizer_registry),
         ("drevalpy.components.featurizers.cell_line.multi_concat", cell_line_featurizer_registry),
         ("drevalpy.components.featurizers.cell_line.landmark", cell_line_featurizer_registry),
         ("drevalpy.components.featurizers.cell_line.multi_view", cell_line_featurizer_registry),
         ("drevalpy.components.featurizers.cell_line.pathways", cell_line_featurizer_registry),
         ("drevalpy.components.featurizers.cell_line.bionic", cell_line_featurizer_registry),
         ("drevalpy.components.featurizers.drug.view", drug_featurizer_registry),
+        ("drevalpy.components.featurizers.drug.fingerprints", drug_featurizer_registry),
+        ("drevalpy.components.featurizers.drug.one_hot", drug_featurizer_registry),
+        ("drevalpy.components.featurizers.drug.drug_graph", drug_featurizer_registry),
         ("drevalpy.components.featurizers.drug.molgnet", drug_featurizer_registry),
         ("drevalpy.components.featurizers.drug.bpe_pharmaformer", drug_featurizer_registry),
         ("drevalpy.components.featurizers.drug.smilesvec", drug_featurizer_registry),

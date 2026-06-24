@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import importlib
-import sys
 
 
 def test_models_utils_reexports_shared_data_helpers() -> None:
@@ -37,16 +36,16 @@ def test_native_component_registration_does_not_import_literature_models() -> No
 
 
 def test_component_featurizers_import_from_data_not_models_utils() -> None:
-    view_module = sys.modules.get("drevalpy.components.featurizers.cell_line.view")
-    if view_module is None:
-        import drevalpy.components.featurizers.cell_line.view as view_module
-    assert view_module is not None
-    assert view_module.__file__ is not None
-    source_path = view_module.__file__
-    assert source_path is not None
-    text = open(source_path, encoding="utf-8").read()
-    assert "drevalpy.data.preprocessing" in text
-    assert "drevalpy.models.utils" not in text
+    for module_name in (
+        "drevalpy.components.featurizers.cell_line.scaled_gene_expression",
+        "drevalpy.components.featurizers.cell_line.proteomics",
+    ):
+        module = importlib.import_module(module_name)
+        source_path = module.__file__
+        assert source_path is not None
+        text = open(source_path, encoding="utf-8").read()
+        assert "drevalpy.data.preprocessing" in text
+        assert "drevalpy.models.utils" not in text
 
 
 def test_component_predictors_import_from_data_not_models_utils() -> None:
