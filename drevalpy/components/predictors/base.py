@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 
-from drevalpy.components.config import PredictionMode
 from drevalpy.components.contracts import FeatureContract, FeatureKind
+from drevalpy.models.config import PredictionMode
 
 if TYPE_CHECKING:
     from drevalpy.components.pair_batch import PairBatch

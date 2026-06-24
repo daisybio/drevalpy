@@ -1,10 +1,10 @@
-"""Build `~drevalpy.components.config.ModelConfig` objects for existing models."""
+"""Build `~drevalpy.models.config.ModelConfig` objects for existing models."""
 
 from __future__ import annotations
 
 from typing import Any
 
-from drevalpy.components.config import FeaturizerConfig, ModelConfig, PredictorConfig
+from drevalpy.models.config import FeaturizerConfig, ModelConfig, PredictorConfig
 from drevalpy.models.featurizer_mapping import cell_line_featurizer_from_views, drug_featurizer_from_view
 
 

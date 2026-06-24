@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from drevalpy.components.config import FeaturizerConfig
 from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
+from drevalpy.models.config import FeaturizerConfig
 
 CELL_LINE_VIEW_TO_FEATURIZER = {
     "gene_expression": "scaledGeneExpression",

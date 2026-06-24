@@ -6,7 +6,6 @@ from typing import Any, ClassVar
 
 import numpy as np
 
-from drevalpy.components.config import PredictionMode
 from drevalpy.components.contracts import FeatureContract, FeatureKind
 from drevalpy.components.pair_batch import PairBatch
 from drevalpy.components.predictors.literature._feature_dataset_from_batch import (
@@ -30,6 +29,7 @@ from drevalpy.components.predictors.literature.impl.superfeltr.superfeltr import
 from drevalpy.components.predictors.structured import StructuredPredictor
 from drevalpy.components.registry import register_predictor
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.models.config import PredictionMode
 from drevalpy.models.drp_model import DRPModel
 
 

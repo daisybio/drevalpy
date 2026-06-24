@@ -1,17 +1,17 @@
-"""Build `~drevalpy.components.config.ModelConfig` from recipe, zoo, or legacy names."""
+"""Build `~drevalpy.models.config.ModelConfig` from recipe, zoo, or legacy names."""
 
 from __future__ import annotations
 
 from typing import Any
 
-from drevalpy.components.config import (
+from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
+from drevalpy.components.model_id import parse_model_id
+from drevalpy.models.config import (
     FeaturizerConfig,
     ModelConfig,
     PredictionMode,
     PredictorConfig,
 )
-from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
-from drevalpy.components.model_id import parse_model_id
 
 
 def _coerce_prediction_mode(mode: PredictionMode | str) -> PredictionMode:

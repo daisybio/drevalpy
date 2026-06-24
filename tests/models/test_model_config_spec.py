@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from drevalpy.components.config import ModelConfig
 from drevalpy.components.extensions import load_extensions
 from drevalpy.components.register_builtins import register_builtin_components
+from drevalpy.models.config import ModelConfig
 from drevalpy.models.model_config_spec import build_model_config_from_spec
 
 

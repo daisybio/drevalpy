@@ -7,10 +7,10 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from drevalpy.components.config import ModelConfig
 from drevalpy.components.extensions import load_extension_dir, load_extension_file, load_extensions
 from drevalpy.components.registry import get_cell_line_featurizer, get_predictor, list_cell_line_featurizers
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.models.config import ModelConfig
 from drevalpy.models.zoo import get_zoo_config, list_zoo_names, load_external_zoo_file
 
 

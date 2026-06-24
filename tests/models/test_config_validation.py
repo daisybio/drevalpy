@@ -6,7 +6,7 @@ from collections.abc import Iterator
 
 import pytest
 
-from drevalpy.components.config import (
+from drevalpy.models.config import (
     FeaturizerConfig,
     ModelConfig,
     PredictionMode,
@@ -21,7 +21,7 @@ from drevalpy.components.registry import (
     register_drug_featurizer,
     register_predictor,
 )
-from drevalpy.components.validation import validate_model_config
+from drevalpy.models.config_validation import validate_model_config
 
 
 @pytest.fixture(autouse=True)

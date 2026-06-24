@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from drevalpy.components.config import ModelConfig, PredictionMode
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.models.config import ModelConfig, PredictionMode
 
 if TYPE_CHECKING:
     from drevalpy.components.predictors.baselines.naive_pred import NaiveModel

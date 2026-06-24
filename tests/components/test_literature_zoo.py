@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from drevalpy.components.config import ModelConfig
 from drevalpy.components.register_builtins import register_builtin_components
+from drevalpy.models.config import ModelConfig
 from drevalpy.models.zoo import get_zoo_config, list_zoo_names
 
 LITERATURE_ZOO_NAMES = [
@@ -35,7 +35,7 @@ def test_literature_zoo_entries_require_featurizers(name: str) -> None:
 
 
 def test_druggnn_rejects_fingerprint_drug_featurizer() -> None:
-    from drevalpy.components.config import FeaturizerConfig, PredictorConfig
+    from drevalpy.models.config import FeaturizerConfig, PredictorConfig
 
     config = ModelConfig(
         cell_line_featurizer=FeaturizerConfig(name="landmarkGenesReduced", registry="cell_line"),
@@ -78,7 +78,7 @@ def test_simple_and_multiview_neural_network_share_predictor() -> None:
 
 
 def test_molir_requires_cell_line_featurizer() -> None:
-    from drevalpy.components.config import PredictorConfig
+    from drevalpy.models.config import PredictorConfig
 
     config = ModelConfig(
         cell_line_featurizer=None,
@@ -90,7 +90,7 @@ def test_molir_requires_cell_line_featurizer() -> None:
 
 
 def test_pharmaformer_rejects_graph_drug_featurizer() -> None:
-    from drevalpy.components.config import FeaturizerConfig, PredictorConfig
+    from drevalpy.models.config import FeaturizerConfig, PredictorConfig
 
     config = ModelConfig(
         cell_line_featurizer=FeaturizerConfig(name="landmarkGenes", registry="cell_line"),

@@ -1,4 +1,4 @@
-"""Validation logic for `~drevalpy.components.config.ModelConfig`."""
+"""Validation logic for `~drevalpy.models.config.ModelConfig`."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from drevalpy.components.contracts import FeatureContract, contracts_compatible
 from drevalpy.components.registry import lookup as _registry_lookup
 
 if TYPE_CHECKING:
-    from drevalpy.components.config import FeaturizerConfig, ModelConfig
+    from drevalpy.models.config import FeaturizerConfig, ModelConfig
 
 
 def _validate_view_fields(featurizer: FeaturizerConfig, *, label: str) -> None:

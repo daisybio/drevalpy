@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import numpy as np
 
-from drevalpy.components.config import ModelConfig
 from drevalpy.components.register_builtins import register_builtin_components
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.models.config import ModelConfig
 
 
 def _synthetic_data() -> tuple[DrugResponseDataset, FeatureDataset, FeatureDataset]:

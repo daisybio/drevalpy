@@ -9,7 +9,7 @@ import yaml
 from pydantic import ValidationError
 
 if TYPE_CHECKING:
-    from drevalpy.components.config import ModelConfig
+    from drevalpy.models.config import ModelConfig
 
 
 def _format_validation_error(exc: ValidationError, *, source: Path | str | None = None) -> str:
@@ -22,7 +22,7 @@ def _format_validation_error(exc: ValidationError, *, source: Path | str | None 
 
 def model_config_from_dict(data: dict[str, Any], *, source: Path | str | None = None) -> ModelConfig:
     """Build a `ModelConfig` from a plain dictionary."""
-    from drevalpy.components.config import ModelConfig
+    from drevalpy.models.config import ModelConfig
 
     try:
         return ModelConfig.model_validate(data)

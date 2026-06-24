@@ -73,7 +73,7 @@ def test_naive_predictor_legacy_matches_model_config() -> None:
         drug_input,
     )
 
-    from drevalpy.components.config import ModelConfig
+    from drevalpy.models.config import ModelConfig
 
     config = ModelConfig.from_spec("NaivePredictor")
     composed = config.create_model()
@@ -102,7 +102,7 @@ def test_naive_drug_mean_legacy_matches_model_config() -> None:
         drug_input,
     )
 
-    from drevalpy.components.config import ModelConfig
+    from drevalpy.models.config import ModelConfig
 
     config = ModelConfig.from_spec("NaiveDrugMeanPredictor")
     composed = config.create_model()

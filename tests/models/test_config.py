@@ -1,6 +1,6 @@
 """Tests for internal ModelConfig models."""
 
-from drevalpy.components.config import (
+from drevalpy.models.config import (
     FeaturizerConfig,
     ModelConfig,
     PredictionMode,

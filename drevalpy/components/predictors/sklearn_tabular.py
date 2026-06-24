@@ -7,10 +7,10 @@ from typing import Any, ClassVar
 
 import numpy as np
 
-from drevalpy.components.config import PredictionMode
 from drevalpy.components.pair_context import PairContext
 from drevalpy.components.predictors.base import Predictor
 from drevalpy.components.state_helpers import state_mapping
+from drevalpy.models.config import PredictionMode
 
 
 class SklearnTabularPredictor(Predictor):

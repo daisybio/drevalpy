@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import numpy as np
 
-from drevalpy.components.config import FeaturizerConfig
 from drevalpy.components.featurizers.cell_line.concat import ConcatFeaturizersCellLineFeaturizer
 from drevalpy.components.featurizers.drug.concat import ConcatFeaturizersDrugFeaturizer
 from drevalpy.components.register_builtins import register_builtin_components
 from drevalpy.datasets.dataset import FeatureDataset
+from drevalpy.models.config import FeaturizerConfig
 
 
 def _feature_dataset() -> FeatureDataset:

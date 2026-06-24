@@ -6,7 +6,6 @@ from typing import Any
 
 import numpy as np
 
-from drevalpy.components.config import PredictionMode
 from drevalpy.components.featurizers._matrix import unique_entity_ids
 from drevalpy.components.featurizers.base import Featurizer
 from drevalpy.components.pair_batch_build import build_pair_batch
@@ -14,6 +13,7 @@ from drevalpy.components.pair_context import PairContext
 from drevalpy.components.pair_features import build_pair_matrix
 from drevalpy.components.predictors.base import Predictor
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.models.config import PredictionMode
 
 
 def _matrix_feature_width(matrix: np.ndarray | None) -> int:

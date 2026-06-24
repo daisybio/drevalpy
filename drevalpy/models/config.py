@@ -139,7 +139,7 @@ class ModelConfig(BaseModel):
 
     def validate(self) -> None:  # type: ignore[override]
         """Check registry slots, feature compatibility, and prediction mode."""
-        from drevalpy.components.validation import validate_model_config
+        from drevalpy.models.config_validation import validate_model_config
 
         validate_model_config(self)
 

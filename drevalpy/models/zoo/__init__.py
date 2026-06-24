@@ -7,7 +7,7 @@ from typing import Any
 
 import yaml
 
-from drevalpy.components.config import ModelConfig
+from drevalpy.models.config import ModelConfig
 from drevalpy.models.config_io import model_config_from_dict, model_config_from_yaml
 
 _BUILTIN_ZOO_DIR = Path(__file__).resolve().parent

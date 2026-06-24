@@ -6,11 +6,11 @@ from typing import ClassVar
 
 import numpy as np
 
-from drevalpy.components.config import PredictionMode
 from drevalpy.components.pair_context import PairContext
 from drevalpy.components.predictors.baseline import BaselinePredictor
 from drevalpy.components.registry import register_predictor
 from drevalpy.components.state_helpers import state_float, state_str_dict
+from drevalpy.models.config import PredictionMode
 
 
 def _mode_value(y: np.ndarray) -> float:

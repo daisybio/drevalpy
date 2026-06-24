@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Any, ClassVar
 
-from drevalpy.components.config import PredictionMode
 from drevalpy.components.predictors.base import Predictor
+from drevalpy.models.config import PredictionMode
 
 
 class BaselinePredictor(Predictor):

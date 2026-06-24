@@ -6,10 +6,10 @@ from typing import Any, ClassVar
 
 import numpy as np
 
-from drevalpy.components.config import FeaturizerConfig
 from drevalpy.components.contracts import FeatureContract, FeatureKind
 from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
 from drevalpy.components.featurizers.base import Featurizer
+from drevalpy.models.config import FeaturizerConfig
 
 
 class ConcatFeaturizersMixin:

@@ -2,7 +2,8 @@
 
 Example::
 
-    from drevalpy.components import load_extensions, ModelConfig
+    from drevalpy.components import load_extensions
+    from drevalpy.models.config import ModelConfig
 
     load_extensions(
         directories=["./my_components"],
