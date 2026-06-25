@@ -10,7 +10,7 @@ Code adapted from https://github.com/KatynaSada/SparseGO_lightning
 import json
 import os
 import warnings
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import torch
@@ -23,9 +23,6 @@ from drevalpy.models.drp_model import DRPModel
 from drevalpy.models.utils import load_and_select_gene_features, load_drug_fingerprint_features
 
 from .utils import create_index, load_mapping, load_ontology, pairs_in_layers, sort_pairs
-
-warnings.simplefilter(action="ignore", category=FutureWarning)
-warnings.simplefilter(action="ignore", category=Warning)
 
 
 class SparseLinearNew(nn.Module):
@@ -138,12 +135,12 @@ class SparseLinearNew(nn.Module):
             inputs = inputs.view(1, -1)
         inputs = inputs.flatten(end_dim=-2)
 
-        indices: torch.Tensor = self.indices  # type: ignore[assignment]
+        indices = cast(torch.Tensor, self.indices)
         sparse_matrix = torch.sparse_coo_tensor(
             indices,
             self.weights,
-            torch.Size([self.out_features, self.in_features]),
-        )  # type: ignore[call-overload]
+            [self.out_features, self.in_features],
+        )
         output = torch.sparse.mm(sparse_matrix, inputs.t()).t()
 
         if self.bias is not None:
@@ -246,6 +243,18 @@ class SparseGONetwork(nn.Module):
         self.add_module("final_aux_linear_layer", nn.Linear(num_neurons_final, 1))
         self.add_module("final_aux_tanh", nn.Tanh())
         self.add_module("final_linear_layer_output", nn.Linear(1, 1))
+
+    def _m(self, name: str) -> nn.Module:
+        """Get a registered submodule by name.
+
+        :param name: Module name as registered via add_module.
+        :return: The submodule.
+        :raises ValueError: if the module is not found.
+        """
+        module = self._modules[name]
+        if module is None:
+            raise ValueError(f"Module '{name}' not found")
+        return module
 
     def _genes_layer(self, genes_terms_pairs: np.ndarray, p_drop_genes: float, gene2id: dict) -> dict:
         """Build the first sparse layer connecting genes to GO terms.
@@ -352,45 +361,47 @@ class SparseGONetwork(nn.Module):
         """Forward pass through the full SparseGO network.
 
         :param x: Input tensor of shape (batch_size, gene_dim + drug_dim).
-            Gene features occupy the first gene_dim columns, drug fingerprint
-            occupies the remaining drug_dim columns.
         :return: Predicted drug response of shape (batch_size, 1).
         """
         gene_input = x.narrow(1, 0, self.gene_dim)
         drug_input = x.narrow(1, self.gene_dim, self.drug_dim)
 
-        # VNN branch: batch -> dropout -> sparse linear -> activation
-        gene_output = self._modules["genes_terms_batchnorm"](gene_input)  # type: ignore[misc]
-        gene_output = self._modules["drop_0"](gene_output)  # type: ignore[misc]
-        terms_output = self._modules["genes_terms_tanh"](  # type: ignore[misc]
-            self._modules["genes_terms_sparse_linear_1"](gene_output)  # type: ignore[misc]
+        # VNN branch
+        gene_output = cast(nn.Module, self._modules["genes_terms_batchnorm"])(gene_input)
+        gene_output = cast(nn.Module, self._modules["drop_0"])(gene_output)
+        terms_output = cast(nn.Module, self._modules["genes_terms_tanh"])(
+            cast(nn.Module, self._modules["genes_terms_sparse_linear_1"])(gene_output)
         )
 
         for i in range(1, len(self.layer_connections)):
-            terms_output = self._modules["GO_terms_batchnorm_" + str(i)](terms_output)  # type: ignore[misc]
-            terms_output = self._modules["drop_" + str(i)](terms_output)  # type: ignore[misc]
-            terms_output = self._modules["GO_terms_tanh_" + str(i)](  # type: ignore[misc]
-                self._modules["GO_terms_sparse_linear_" + str(i)](terms_output)  # type: ignore[misc]
+            terms_output = cast(nn.Module, self._modules[f"GO_terms_batchnorm_{i}"])(terms_output)
+            terms_output = cast(nn.Module, self._modules[f"drop_{i}"])(terms_output)
+            terms_output = cast(nn.Module, self._modules[f"GO_terms_tanh_{i}"])(
+                cast(nn.Module, self._modules[f"GO_terms_sparse_linear_{i}"])(terms_output)
             )
 
-        # ANN branch: batch -> dropout -> dense -> activation
+        # ANN branch
         drug_out = drug_input
         for i in range(1, len(self.num_neurons_drug) + 1):
-            drug_out = self._modules["drug_batchnorm_layer_" + str(i)](drug_out)  # type: ignore[misc]
-            drug_out = self._modules["drug_drop_" + str(i)](drug_out)  # type: ignore[misc]
-            drug_out = self._modules["drug_tanh_" + str(i)](  # type: ignore[misc]
-                self._modules["drug_linear_layer_" + str(i)](drug_out)  # type: ignore[misc]
+            drug_out = cast(nn.Module, self._modules[f"drug_batchnorm_layer_{i}"])(drug_out)
+            drug_out = cast(nn.Module, self._modules[f"drug_drop_{i}"])(drug_out)
+            drug_out = cast(nn.Module, self._modules[f"drug_tanh_{i}"])(
+                cast(nn.Module, self._modules[f"drug_linear_layer_{i}"])(drug_out)
             )
 
-        # Concatenate and predict
+        # Final
         final_input = torch.cat((terms_output, drug_out), 1)
-        output = self._modules["final_batchnorm_layer"](final_input)  # type: ignore[misc]
-        output = self._modules["drop_final"](output)  # type: ignore[misc]
-        output = self._modules["final_tanh"](self._modules["final_linear_layer"](output))  # type: ignore[misc]
-        output = self._modules["final_aux_batchnorm_layer"](output)  # type: ignore[misc]
-        output = self._modules["drop_aux_final"](output)  # type: ignore[misc]
-        output = self._modules["final_aux_tanh"](self._modules["final_aux_linear_layer"](output))  # type: ignore[misc]
-        return self._modules["final_linear_layer_output"](output)  # type: ignore[misc]
+        output = cast(nn.Module, self._modules["final_batchnorm_layer"])(final_input)
+        output = cast(nn.Module, self._modules["drop_final"])(output)
+        output = cast(nn.Module, self._modules["final_tanh"])(
+            cast(nn.Module, self._modules["final_linear_layer"])(output)
+        )
+        output = cast(nn.Module, self._modules["final_aux_batchnorm_layer"])(output)
+        output = cast(nn.Module, self._modules["drop_aux_final"])(output)
+        output = cast(nn.Module, self._modules["final_aux_tanh"])(
+            cast(nn.Module, self._modules["final_aux_linear_layer"])(output)
+        )
+        return cast(nn.Module, self._modules["final_linear_layer_output"])(output)
 
 
 class SparseGOModel(DRPModel):
