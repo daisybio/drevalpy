@@ -10,7 +10,6 @@ import torch
 from torch.utils.data import DataLoader
 
 from drevalpy.components.contracts import FeatureContract, FeatureKind
-from drevalpy.components.pair_context import PairContext
 from drevalpy.components.predictors.base import Predictor
 from drevalpy.components.predictors.literature._batch_dataset import PairMatrixDataset
 from drevalpy.components.predictors.literature.impl.simple_neural_network.utils import FeedForwardNetwork
@@ -33,6 +32,7 @@ class NeuralNetworkPredictor(Predictor):
     def __init__(self) -> None:
         self._hyperparameters: dict[str, Any] = {}
         self._model: FeedForwardNetwork | None = None
+        self._input_dim: int | None = None
 
     @classmethod
     def get_default_hyperparameters(cls) -> dict[str, object]:
@@ -47,6 +47,7 @@ class NeuralNetworkPredictor(Predictor):
         merged = {**self.get_default_hyperparameters(), **hyperparameters}
         self._hyperparameters = merged
         input_dim = int(input_dims.get("cell_line", 0)) + int(input_dims.get("drug", 0))
+        self._input_dim = input_dim
         self._model = FeedForwardNetwork(
             hyperparameters={
                 "units_per_layer": merged["units_per_layer"],
@@ -59,10 +60,7 @@ class NeuralNetworkPredictor(Predictor):
         self,
         x: np.ndarray,
         y: np.ndarray,
-        *,
-        pair_context: PairContext | None = None,
     ) -> None:
-        _ = pair_context
         if self._model is None or len(x) == 0:
             return
         dataset = PairMatrixDataset(x, y)
@@ -85,10 +83,7 @@ class NeuralNetworkPredictor(Predictor):
     def predict(
         self,
         x: np.ndarray,
-        *,
-        pair_context: PairContext | None = None,
     ) -> np.ndarray:
-        _ = pair_context
         if self._model is None or len(x) == 0:
             return np.full(len(x), np.nan, dtype=np.float64)
         self._model.eval()
@@ -98,3 +93,46 @@ class NeuralNetworkPredictor(Predictor):
 
     def is_fitted(self) -> bool:
         return self._model is not None
+
+    def get_state(self) -> dict[str, object]:
+        if self._model is None:
+            return {}
+        import io
+
+        buffer = io.BytesIO()
+        torch.save(
+            {
+                "hyperparameters": dict(self._hyperparameters),
+                "state_dict": self._model.state_dict(),
+                "input_dim": self._input_dim,
+            },
+            buffer,
+        )
+        return {"checkpoint": buffer.getvalue()}
+
+    def set_state(self, state: dict[str, object]) -> None:
+        checkpoint = state.get("checkpoint")
+        if not isinstance(checkpoint, (bytes, bytearray)):
+            return
+        import io
+
+        data = torch.load(io.BytesIO(checkpoint), weights_only=False)  # noqa: S614
+        if not isinstance(data, dict):
+            return
+        hyperparameters = data.get("hyperparameters")
+        if isinstance(hyperparameters, dict):
+            self._hyperparameters = dict(hyperparameters)
+        input_dim = data.get("input_dim")
+        if input_dim is None:
+            return
+        merged = self._hyperparameters
+        self._model = FeedForwardNetwork(
+            hyperparameters={
+                "units_per_layer": merged.get("units_per_layer", [512, 256, 128]),
+                "dropout_prob": merged.get("dropout_prob", 0.2),
+            },
+            input_dim=int(input_dim),
+        )
+        state_dict = data.get("state_dict")
+        if state_dict is not None:
+            self._model.load_state_dict(state_dict)

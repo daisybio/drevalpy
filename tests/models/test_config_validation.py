@@ -6,12 +6,6 @@ from collections.abc import Iterator
 
 import pytest
 
-from drevalpy.models.config import (
-    FeaturizerConfig,
-    ModelConfig,
-    PredictionMode,
-    PredictorConfig,
-)
 from drevalpy.components.contracts import FeatureContract, FeatureKind
 from drevalpy.components.registry import (
     clear_cell_line_featurizer_registry,
@@ -20,6 +14,12 @@ from drevalpy.components.registry import (
     register_cell_line_featurizer,
     register_drug_featurizer,
     register_predictor,
+)
+from drevalpy.models.config import (
+    FeaturizerConfig,
+    ModelConfig,
+    PredictionMode,
+    PredictorConfig,
 )
 from drevalpy.models.config_validation import validate_model_config
 

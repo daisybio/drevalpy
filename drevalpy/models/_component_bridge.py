@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import json
+import os
 from typing import TYPE_CHECKING, Any
 
+import joblib
 import numpy as np
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
@@ -21,16 +24,83 @@ _SKLEARN_FEATURIZER_STATE_ATTRS = (
     "methylation_pca",
 )
 
+_COMPONENT_STACK_FILE = "component_stack.joblib"
+_HYPERPARAMETERS_FILE = "hyperparameters.json"
+
+
+def _featurizer_state(featurizer: Any) -> dict[str, object]:
+    if featurizer is None:
+        return {}
+    from drevalpy.components.featurizers.cell_line.concat import ConcatFeaturizersCellLineFeaturizer
+
+    if isinstance(featurizer, ConcatFeaturizersCellLineFeaturizer):
+        return ConcatFeaturizersCellLineFeaturizer.collect_legacy_state(featurizer)
+    return featurizer.get_state()
+
+
+def _restore_featurizer_state(featurizer: Any, state: dict[str, object]) -> None:
+    if featurizer is None or not state:
+        return
+    from drevalpy.components.featurizers.cell_line.concat import ConcatFeaturizersCellLineFeaturizer
+
+    if isinstance(featurizer, ConcatFeaturizersCellLineFeaturizer):
+        ConcatFeaturizersCellLineFeaturizer.distribute_legacy_state(featurizer, state)
+    else:
+        featurizer.set_state(state)
+
+
+def save_component_stack(
+    bridge: ComponentDRPBridge,
+    directory: str,
+    *,
+    hyperparameters: dict[str, Any] | None = None,
+) -> None:
+    """Persist composed featurizer and predictor state."""
+    composed = bridge.composed
+    if composed is None or not bridge.is_trained():
+        msg = "Cannot save: component stack is not trained"
+        raise RuntimeError(msg)
+    os.makedirs(directory, exist_ok=True)
+    stack = {
+        "predictor": composed._predictor.get_state(),
+        "cell_line_featurizer": _featurizer_state(composed._cell_line_featurizer),
+        "drug_featurizer": _featurizer_state(composed._drug_featurizer),
+    }
+    joblib.dump(stack, os.path.join(directory, _COMPONENT_STACK_FILE))
+    if hyperparameters is not None:
+        with open(os.path.join(directory, _HYPERPARAMETERS_FILE), "w") as handle:
+            json.dump(hyperparameters, handle)
+
+
+def load_component_stack(bridge: ComponentDRPBridge, directory: str) -> dict[str, Any]:
+    """Restore composed featurizer and predictor state."""
+    composed = bridge.composed
+    if composed is None:
+        msg = "Cannot load: component stack has not been built"
+        raise RuntimeError(msg)
+    stack_path = os.path.join(directory, _COMPONENT_STACK_FILE)
+    if not os.path.exists(stack_path):
+        msg = f"Missing component stack file: {stack_path}"
+        raise FileNotFoundError(msg)
+    stack = joblib.load(stack_path)
+    composed._predictor.set_state(stack.get("predictor", {}))
+    _restore_featurizer_state(composed._cell_line_featurizer, stack.get("cell_line_featurizer", {}))
+    _restore_featurizer_state(composed._drug_featurizer, stack.get("drug_featurizer", {}))
+    hyperparameters: dict[str, Any] = {}
+    hyperparameters_path = os.path.join(directory, _HYPERPARAMETERS_FILE)
+    if os.path.exists(hyperparameters_path):
+        with open(hyperparameters_path) as handle:
+            hyperparameters = json.load(handle)
+    return hyperparameters
+
 
 class ComponentDRPBridge:
     """Shared train/predict logic for DRP models backed by `ComposedModel`."""
 
     def __init__(self) -> None:
         self._composed: ComposedModel | None = None
-        self._needs_tissue: bool = False
 
-    def set_composed_config(self, config: ModelConfig, *, needs_tissue: bool = False) -> None:
-        self._needs_tissue = needs_tissue
+    def set_composed_config(self, config: ModelConfig) -> None:
         self._composed = config.create_model()
 
     def train(
@@ -44,7 +114,6 @@ class ComponentDRPBridge:
         if self._composed is None:
             msg = "Component config has not been built"
             raise RuntimeError(msg)
-        tissue_input = cell_line_input if self._needs_tissue else None
         if getattr(self._composed._predictor, "uses_raw_features", False):
             self._composed._predictor.fit_raw(
                 output,
@@ -57,7 +126,6 @@ class ComponentDRPBridge:
                 output,
                 cell_line_input,
                 drug_input,
-                tissue_input=tissue_input,
                 output_earlystopping=output_earlystopping,
             )
 
@@ -171,6 +239,12 @@ def restore_sklearn_to_components(model: SklearnModel) -> None:
                 )
             else:
                 cell_line_featurizer.set_state(featurizer_state)
+
+
+def sync_literature_from_components(model: Any) -> None:
+    """Copy fitted component state onto a literature DRPModel wrapper."""
+    if hasattr(model, "_sync_impl_state_from_bridge"):
+        model._sync_impl_state_from_bridge()
 
 
 def restore_literature_to_components(model: Any) -> None:

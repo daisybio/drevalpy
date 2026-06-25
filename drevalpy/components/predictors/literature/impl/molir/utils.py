@@ -17,8 +17,8 @@ from torch import nn
 from torch.utils.data import DataLoader, Dataset
 
 from drevalpy.components.lightning_metrics_mixin import RegressionMetricsMixin
+from drevalpy.components.predictors.literature._engine_base import LiteratureEngineBase
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
-from drevalpy.models.drp_model import DRPModel
 
 
 class RegressionDataset(Dataset):
@@ -206,7 +206,7 @@ def get_dimensions_of_omics_data(cell_line_input: FeatureDataset) -> tuple[int, 
 
 
 def filter_and_sort_omics(
-    model: DRPModel,  # MOLIR or SuperFELTR
+    model: LiteratureEngineBase,  # MOLIR or SuperFELTR
     gene_expression: np.ndarray,
     mutations: np.ndarray,
     cnvs: np.ndarray,

@@ -12,9 +12,13 @@ from drevalpy.data.features import _get_view_as_list, load_single_cell_line_view
 from drevalpy.data.preprocessing import ProteomicsMedianCenterAndImputeTransformer
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models._component_bridge import (
+    _COMPONENT_STACK_FILE,
+    _HYPERPARAMETERS_FILE,
     ComponentDRPBridge,
+    load_component_stack,
     preview_sklearn_estimator,
     restore_sklearn_to_components,
+    save_component_stack,
     sync_sklearn_from_components,
 )
 from drevalpy.models.drp_model import DRPModel
@@ -187,19 +191,23 @@ class SklearnModel(DRPModel):
         """
         Save the trained model and any associated preprocessing components to the given directory.
 
-        Saves:
-        - model.pkl: the trained sklearn model
-        - hyperparameters.json: dictionary of model hyperparameters (if present)
-        - scaler.pkl: fitted gene expression scaler (if present)
-        - proteomics_transformer.pkl: fitted proteomics transformer (if present)
+        Persists the composed component stack when trained; otherwise raises if no model exists.
 
         :param directory: path to the directory where model files will be stored
         :raises ValueError: if the model is not trained
         """
-        os.makedirs(directory, exist_ok=True)
+        if self._component_bridge.is_trained():
+            save_component_stack(
+                self._component_bridge,
+                directory,
+                hyperparameters=getattr(self, "hyperparameters", {}),
+            )
+            sync_sklearn_from_components(self)
+            return
         if self.model is None:
             raise ValueError("Cannot save: model is not trained.")
 
+        os.makedirs(directory, exist_ok=True)
         sync_sklearn_from_components(self)
         joblib.dump(self.model, os.path.join(directory, "model.pkl"))
         with open(os.path.join(directory, "hyperparameters.json"), "w") as f:
@@ -218,16 +226,23 @@ class SklearnModel(DRPModel):
         """
         Load a trained sklearn-based model and its preprocessing components from disk.
 
-        Loads:
-        - model.pkl: the trained sklearn model
-        - hyperparameters.json: model hyperparameters (optional)
-        - scaler.pkl: gene expression scaler (optional)
-        - proteomics_transformer.pkl: proteomics transformer (optional)
-
         :param directory: path to the directory where model files are stored
         :return: an instance of the model with restored state
-        :raises FileNotFoundError: if model.pkl is missing
+        :raises FileNotFoundError: if no recognized model artifacts are present
         """
+        stack_path = os.path.join(directory, _COMPONENT_STACK_FILE)
+        if os.path.exists(stack_path):
+            hyperparams_path = os.path.join(directory, _HYPERPARAMETERS_FILE)
+            hyperparameters: dict = {}
+            if os.path.exists(hyperparams_path):
+                with open(hyperparams_path) as f:
+                    hyperparameters = json.load(f)
+            instance = cls()
+            instance.build_model(hyperparameters)
+            load_component_stack(instance._component_bridge, directory)
+            sync_sklearn_from_components(instance)
+            return instance
+
         model_path = os.path.join(directory, "model.pkl")
         if not os.path.exists(model_path):
             raise FileNotFoundError(f"{model_path} not found")

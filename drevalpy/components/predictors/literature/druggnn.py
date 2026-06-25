@@ -38,6 +38,8 @@ class DrugGNNPredictor(StructuredPredictor):
     def __init__(self) -> None:
         self._hyperparameters: dict[str, Any] = {}
         self._model: DrugGNNModule | None = None
+        self._num_node_features: int | None = None
+        self._num_cell_features: int | None = None
 
     @classmethod
     def get_default_hyperparameters(cls) -> dict[str, object]:
@@ -94,6 +96,8 @@ class DrugGNNPredictor(StructuredPredictor):
             raise RuntimeError(msg)
         num_node_features = next(iter(drug_input.features.values()))["drug_graph"].num_node_features
         num_cell_features = next(iter(cell_line_input.features.values()))["gene_expression"].shape[0]
+        self._num_node_features = int(num_node_features)
+        self._num_cell_features = int(num_cell_features)
         merged = self._hyperparameters
         self._model = DrugGNNModule(
             num_node_features=num_node_features,
@@ -153,3 +157,54 @@ class DrugGNNPredictor(StructuredPredictor):
 
     def is_fitted(self) -> bool:
         return self._model is not None
+
+    def get_state(self) -> dict[str, object]:
+        if self._model is None:
+            return {}
+        import io
+
+        import torch
+
+        buffer = io.BytesIO()
+        torch.save(
+            {
+                "hyperparameters": dict(self._hyperparameters),
+                "state_dict": self._model.state_dict(),
+                "num_node_features": self._num_node_features,
+                "num_cell_features": self._num_cell_features,
+            },
+            buffer,
+        )
+        return {"checkpoint": buffer.getvalue()}
+
+    def set_state(self, state: dict[str, object]) -> None:
+        checkpoint = state.get("checkpoint")
+        if not isinstance(checkpoint, (bytes, bytearray)):
+            return
+        import io
+
+        import torch
+
+        data = torch.load(io.BytesIO(checkpoint), weights_only=False)  # noqa: S614
+        if not isinstance(data, dict):
+            return
+        hyperparameters = data.get("hyperparameters")
+        if isinstance(hyperparameters, dict):
+            self._hyperparameters = dict(hyperparameters)
+        num_node = data.get("num_node_features")
+        num_cell = data.get("num_cell_features")
+        if num_node is None or num_cell is None:
+            return
+        self._num_node_features = int(num_node)
+        self._num_cell_features = int(num_cell)
+        merged = self._hyperparameters
+        self._model = DrugGNNModule(
+            num_node_features=self._num_node_features,
+            num_cell_features=self._num_cell_features,
+            hidden_dim=int(merged.get("hidden_dim", 64)),
+            dropout=float(merged.get("dropout", 0.2)),
+            learning_rate=float(merged.get("learning_rate", 0.001)),
+        )
+        state_dict = data.get("state_dict")
+        if state_dict is not None:
+            self._model.load_state_dict(state_dict)

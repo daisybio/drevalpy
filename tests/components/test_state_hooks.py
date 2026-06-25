@@ -18,7 +18,7 @@ from drevalpy.models._component_bridge import (
 )
 from drevalpy.models.baselines.naive_pred import NaiveDrugMeanPredictor as LegacyNaiveDrugMean
 from drevalpy.models.baselines.sklearn_models import ElasticNetModel
-from drevalpy.models.factory import naive_model_config
+from drevalpy.models.factory import model_config_for_name
 
 
 @pytest.fixture(autouse=True)
@@ -43,8 +43,8 @@ def test_naive_predictor_state_round_trip() -> None:
         cell_line_ids=np.array(["cl1", "cl2"]),
         drug_ids=np.array(["d1", "d2"]),
     )
-    composed = naive_model_config("naiveDrugMean").create_model()
-    composed.train(response, FeatureDataset(features={}), None)
+    composed = model_config_for_name("NaiveDrugMeanPredictor").create_model()
+    composed.train(response, FeatureDataset(features={}), FeatureDataset(features={}))
     predictor = composed._predictor
     state = predictor.get_state()
     restored = NaiveDrugMeanPredictor()

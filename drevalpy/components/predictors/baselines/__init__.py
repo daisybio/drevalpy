@@ -1,7 +1,5 @@
 """Public DRPModel baseline adapters backed by the component stack."""
 
-from drevalpy.components.predictors.baselines.multi_view_random_forest import MultiViewRandomForest
-from drevalpy.components.predictors.baselines.multi_view_xgboost import MultiViewXGBoost
 from drevalpy.components.predictors.baselines.naive_pred import (
     NaiveCellLineMeanPredictor,
     NaiveDrugMeanPredictor,
@@ -25,6 +23,7 @@ from drevalpy.components.predictors.baselines.sklearn_models import (
     SklearnModel,
     SVMRegressor,
 )
+from drevalpy.components.predictors.baselines.zoo_preset import MultiViewRandomForest, MultiViewXGBoost
 
 __all__ = [
     "AdaBoostDecisionTree",

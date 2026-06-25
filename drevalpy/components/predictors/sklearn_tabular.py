@@ -7,7 +7,6 @@ from typing import Any, ClassVar
 
 import numpy as np
 
-from drevalpy.components.pair_context import PairContext
 from drevalpy.components.predictors.base import Predictor
 from drevalpy.components.state_helpers import state_mapping
 from drevalpy.models.config import PredictionMode
@@ -37,10 +36,7 @@ class SklearnTabularPredictor(Predictor):
         self,
         x: np.ndarray,
         y: np.ndarray,
-        *,
-        pair_context: PairContext | None = None,
     ) -> None:
-        _ = pair_context
         if len(x) == 0:
             self._estimator = None
             return
@@ -50,10 +46,7 @@ class SklearnTabularPredictor(Predictor):
     def predict(
         self,
         x: np.ndarray,
-        *,
-        pair_context: PairContext | None = None,
     ) -> np.ndarray:
-        _ = pair_context
         if self._estimator is None:
             return np.full(len(x), np.nan, dtype=np.float64)
         return np.asarray(self._estimator.predict(x), dtype=np.float64)

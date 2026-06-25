@@ -19,16 +19,16 @@ import torch.optim as optim
 from torch import nn
 from torch.utils.data import DataLoader
 
+from drevalpy.components.predictors.literature._engine_base import LiteratureEngineBase
 from drevalpy.data.features import load_and_select_gene_features
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
-from drevalpy.models.drp_model import DRPModel
 
 from .data_utils import CollateFn, DIPKDataset, get_data, load_bionic_features
 from .gene_expression_encoder import GeneExpressionEncoder, encode_gene_expression, train_gene_expession_autoencoder
 from .model_utils import Predictor
 
 
-class DIPKModel(DRPModel):
+class DIPKModel(LiteratureEngineBase):
     """DIPK model. Adapted from https://github.com/user15632/DIPK."""
 
     cell_line_views = ["gene_expression", "bionic_features"]

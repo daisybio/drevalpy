@@ -21,8 +21,8 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, Dataset
 
+from drevalpy.components.predictors.literature._engine_base import LiteratureEngineBase
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
-from drevalpy.models.drp_model import DRPModel
 
 from .model_utils import PrecilyNetwork
 
@@ -78,7 +78,7 @@ class _PrecilyDataset(Dataset):
         return pathway, drug, response
 
 
-class PrecilyModel(DRPModel):
+class PrecilyModel(LiteratureEngineBase):
     """Precily model for drug response prediction."""
 
     cell_line_views = ["pathways"]

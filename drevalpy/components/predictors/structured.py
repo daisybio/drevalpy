@@ -7,7 +7,6 @@ from typing import Any, ClassVar
 import numpy as np
 
 from drevalpy.components.pair_batch import PairBatch
-from drevalpy.components.pair_context import PairContext
 from drevalpy.components.predictors.base import Predictor
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 
@@ -22,8 +21,6 @@ class StructuredPredictor(Predictor):
         self,
         x: np.ndarray,
         y: np.ndarray,
-        *,
-        pair_context: PairContext | None = None,
     ) -> None:
         msg = f"{type(self).__name__} requires fit_structured()"
         raise RuntimeError(msg)
@@ -31,8 +28,6 @@ class StructuredPredictor(Predictor):
     def predict(
         self,
         x: np.ndarray,
-        *,
-        pair_context: PairContext | None = None,
     ) -> np.ndarray:
         msg = f"{type(self).__name__} requires predict_structured()"
         raise RuntimeError(msg)

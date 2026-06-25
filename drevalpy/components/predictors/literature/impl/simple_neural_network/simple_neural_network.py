@@ -10,15 +10,15 @@ import numpy as np
 import torch
 from sklearn.preprocessing import StandardScaler
 
+from drevalpy.components.predictors.literature._engine_base import LiteratureEngineBase
 from drevalpy.data.features import _get_view_as_list, load_single_cell_line_view, load_single_drug_view
 from drevalpy.data.preprocessing import scale_gene_expression
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
-from drevalpy.models.drp_model import DRPModel
 
 from .utils import FeedForwardNetwork
 
 
-class SimpleNeuralNetwork(DRPModel):
+class SimpleNeuralNetwork(LiteratureEngineBase):
     """Simple Feedforward Neural Network model with dropout using only gene expression data."""
 
     cell_line_views = []

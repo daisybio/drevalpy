@@ -1,1 +1,3 @@
+cell_line_featurizer: tissue
+drug_featurizer: identity
 predictor: naiveTissueMean

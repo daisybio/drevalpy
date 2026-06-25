@@ -21,9 +21,9 @@ import torch.optim as optim
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from torch.utils.data import DataLoader, Dataset
 
+from drevalpy.components.predictors.literature._engine_base import LiteratureEngineBase
 from drevalpy.data.features import load_and_select_gene_features
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
-from drevalpy.models.drp_model import DRPModel
 
 from .model_utils import CombinedModel
 
@@ -80,7 +80,7 @@ class _PharmaFormerDataset(Dataset):
         return gene_features, drug_features, response
 
 
-class PharmaFormerModel(DRPModel):
+class PharmaFormerModel(LiteratureEngineBase):
     """PharmaFormer model for drug response prediction."""
 
     cell_line_views = ["gene_expression"]

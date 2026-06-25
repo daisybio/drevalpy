@@ -12,7 +12,6 @@ from drevalpy.models.config import PredictionMode
 
 if TYPE_CHECKING:
     from drevalpy.components.pair_batch import PairBatch
-    from drevalpy.components.pair_context import PairContext
     from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 
 
@@ -49,8 +48,6 @@ class Predictor(ABC):
         self,
         x: np.ndarray,
         y: np.ndarray,
-        *,
-        pair_context: PairContext | None = None,
     ) -> None:
         """Fit on feature rows (or empty rows for feature-free baselines)."""
 
@@ -58,8 +55,6 @@ class Predictor(ABC):
     def predict(
         self,
         x: np.ndarray,
-        *,
-        pair_context: PairContext | None = None,
     ) -> np.ndarray:
         """Predict response for feature rows."""
 

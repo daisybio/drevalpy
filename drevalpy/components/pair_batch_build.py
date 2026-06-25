@@ -5,7 +5,6 @@ from __future__ import annotations
 import numpy as np
 
 from drevalpy.components.pair_batch import PairBatch
-from drevalpy.components.pair_context import PairContext
 from drevalpy.components.pair_features import pair_cell_line_indices, pair_drug_indices
 from drevalpy.datasets.dataset import DrugResponseDataset
 
@@ -19,7 +18,6 @@ def build_pair_batch(
     drug_features: np.ndarray | None,
     cell_line_blocks: dict[str, np.ndarray] | None = None,
     drug_blocks: dict[str, np.ndarray] | None = None,
-    pair_context: PairContext | None = None,
 ) -> PairBatch:
     """Index entity-level featurizer outputs for each response pair."""
     cell_line_map = {str(entity_id): row for row, entity_id in enumerate(cell_line_entity_ids)}
@@ -38,5 +36,4 @@ def build_pair_batch(
         drug_pair_idx=drug_pair_idx,
         cell_line_blocks=cell_line_blocks,
         drug_blocks=drug_blocks,
-        pair_context=pair_context,
     )

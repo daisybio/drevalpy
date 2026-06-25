@@ -14,9 +14,9 @@ from torch_geometric.loader import DataLoader
 from torch_geometric.nn import GCNConv, global_mean_pool
 
 from drevalpy.components.lightning_metrics_mixin import RegressionMetricsMixin
+from drevalpy.components.predictors.literature._engine_base import LiteratureEngineBase
 from drevalpy.data.features import load_and_select_gene_features
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
-from drevalpy.models.drp_model import DRPModel
 
 
 class DrugGraphNet(nn.Module):
@@ -225,8 +225,11 @@ class _DrugResponsePytorchDataset(PytorchDataset):
         return drug_graph, cell_feat, response
 
 
-class DrugGNN(DRPModel):
+class DrugGNN(LiteratureEngineBase):
     """DrugGNN model."""
+
+    cell_line_views = ["gene_expression"]
+    drug_views = ["drug_graph"]
 
     def __init__(self):
         """Initialize the DrugGNN model."""
@@ -241,22 +244,6 @@ class DrugGNN(DRPModel):
         :return: The name of the model.
         """
         return "DrugGNN"
-
-    @property
-    def cell_line_views(self) -> list[str]:
-        """Return the sources the model needs as input for describing the cell line.
-
-        :return: The sources the model needs as input for describing the cell line.
-        """
-        return ["gene_expression"]
-
-    @property
-    def drug_views(self) -> list[str]:
-        """Return the sources the model needs as input for describing the drug.
-
-        :return: The sources the model needs as input for describing the drug.
-        """
-        return ["drug_graph"]
 
     def build_model(self, hyperparameters: dict[str, Any]) -> None:
         """Build the model.
@@ -285,8 +272,10 @@ class DrugGNN(DRPModel):
         cell_line_input: FeatureDataset,
         drug_input: FeatureDataset | None = None,
         output_earlystopping: DrugResponseDataset | None = None,
-        **kwargs,
-    ):
+        model_checkpoint_dir: str = "checkpoints",
+        **kwargs: Any,
+    ) -> None:
+        _ = model_checkpoint_dir, kwargs
         """Train the model.
 
         :param output: The output dataset.
@@ -455,6 +444,17 @@ class DrugGNN(DRPModel):
         feature_dict = {drug_id: {"drug_graph": graph} for drug_id, graph in drug_graphs.items()}
 
         return FeatureDataset(features=feature_dict)
+
+    def save(self, directory: str) -> None:
+        """Save DrugGNN checkpoint and hyperparameters for DrEval round-trips."""
+        self.save_model(directory)
+
+    @classmethod
+    def load(cls, directory: str) -> "DrugGNN":
+        """Load a DrugGNN model saved with `save`."""
+        instance = cls()
+        instance.load_model(directory)
+        return instance
 
     def save_model(self, path: str | Path, drug_name=None):
         """Save the model.

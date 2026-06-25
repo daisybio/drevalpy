@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from typing import Any, ClassVar
 
+import joblib
 import numpy as np
 
 from drevalpy.components.contracts import FeatureContract, FeatureKind
 from drevalpy.components.pair_batch import PairBatch
+from drevalpy.components.predictors.literature._engine_base import LiteratureEngineBase
 from drevalpy.components.predictors.literature._feature_dataset_from_batch import (
     feature_dataset_from_blocks,
     merge_feature_dataset,
@@ -30,20 +32,19 @@ from drevalpy.components.predictors.structured import StructuredPredictor
 from drevalpy.components.registry import register_predictor
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models.config import PredictionMode
-from drevalpy.models.drp_model import DRPModel
 
 
 class StructuredLiteratureEnginePredictor(StructuredPredictor):
     """Train a component-owned literature engine on featurizer-produced blocks."""
 
-    _engine_cls: ClassVar[type[DRPModel]]
+    _engine_cls: ClassVar[type[LiteratureEngineBase]]
     _use_raw_inputs: ClassVar[bool] = False
     requires_drug_featurizer: ClassVar[bool] = True
     supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset({PredictionMode.REGRESSION})
 
     def __init__(self) -> None:
         self._hyperparameters: dict[str, Any] = {}
-        self._engine: DRPModel | None = None
+        self._engine: LiteratureEngineBase | None = None
 
     def build(self, hyperparameters: dict[str, Any], input_dims: dict[str, Any]) -> None:
         _ = input_dims
@@ -143,6 +144,30 @@ class StructuredLiteratureEnginePredictor(StructuredPredictor):
 
     def is_fitted(self) -> bool:
         return self._engine is not None
+
+    def get_state(self) -> dict[str, object]:
+        if self._engine is None:
+            return {}
+        import io
+
+        buffer = io.BytesIO()
+        joblib.dump(self._engine, buffer)
+        return {
+            "hyperparameters": dict(self._hyperparameters),
+            "engine": buffer.getvalue(),
+        }
+
+    def set_state(self, state: dict[str, object]) -> None:
+        import io
+
+        engine_blob = state.get("engine")
+        if isinstance(engine_blob, (bytes, bytearray)):
+            loaded = joblib.load(io.BytesIO(engine_blob))
+            if isinstance(loaded, LiteratureEngineBase):
+                self._engine = loaded
+        hyperparameters = state.get("hyperparameters")
+        if isinstance(hyperparameters, dict):
+            self._hyperparameters = dict(hyperparameters)
 
 
 @register_predictor(

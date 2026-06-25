@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import os
 from typing import Any, ClassVar, cast
 
 import numpy as np
@@ -24,7 +26,15 @@ from drevalpy.components.predictors.literature.impl.superfeltr.superfeltr import
 from drevalpy.components.register_builtins import ensure_components_registered
 from drevalpy.components.state_helpers import state_str_list
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
-from drevalpy.models._component_bridge import ComponentDRPBridge, restore_literature_to_components
+from drevalpy.models._component_bridge import (
+    _COMPONENT_STACK_FILE,
+    _HYPERPARAMETERS_FILE,
+    ComponentDRPBridge,
+    load_component_stack,
+    restore_literature_to_components,
+    save_component_stack,
+    sync_literature_from_components,
+)
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.models.factory import model_config_for_name
 
@@ -33,7 +43,7 @@ class LiteratureComponentDRPModel(DRPModel):
     """Route legacy experiment APIs through zoo-backed ComposedModel stacks."""
 
     _zoo_name: ClassVar[str]
-    _impl_cls: ClassVar[type[DRPModel] | None] = None
+    _impl_cls: ClassVar[type[Any] | None] = None
 
     def __init_subclass__(cls, **kwargs: object) -> None:
         super().__init_subclass__(**kwargs)
@@ -234,8 +244,31 @@ class LiteratureComponentDRPModel(DRPModel):
             return self._predict_via_impl(cell_line_ids, drug_ids, cell_line_input, drug_input)
         return np.full(len(cell_line_ids), np.nan, dtype=np.float64)
 
+    def save(self, directory: str) -> None:
+        if self._bridge.is_trained():
+            save_component_stack(self._bridge, directory, hyperparameters=self.hyperparameters)
+            return
+        impl_cls = type(self)._impl_cls
+        if impl_cls is not None and "save" in impl_cls.__dict__:
+            impl_cls.save(self, directory)
+            return
+        super().save(directory)
+
     @classmethod
     def load(cls, directory: str) -> LiteratureComponentDRPModel:
+        hyperparameters_path = os.path.join(directory, _HYPERPARAMETERS_FILE)
+        hyperparameters: dict[str, Any] = {}
+        if os.path.exists(hyperparameters_path):
+            with open(hyperparameters_path) as handle:
+                hyperparameters = json.load(handle)
+        stack_path = os.path.join(directory, _COMPONENT_STACK_FILE)
+        if os.path.exists(stack_path):
+            wrapper = cls()
+            wrapper.build_model(hyperparameters)
+            loaded_hp = load_component_stack(wrapper._bridge, directory)
+            wrapper.hyperparameters = loaded_hp or hyperparameters
+            sync_literature_from_components(wrapper)
+            return wrapper
         if cls._impl_cls is None:
             msg = f"{cls.__name__}.load is not implemented"
             raise NotImplementedError(msg)
@@ -253,13 +286,6 @@ class LiteratureComponentDRPModel(DRPModel):
         wrapper.build_model(dict(wrapper.hyperparameters))
         restore_literature_to_components(wrapper)
         return wrapper
-
-    def save(self, directory: str) -> None:
-        impl_cls = type(self)._impl_cls
-        if impl_cls is not None:
-            impl_cls.save(self, directory)
-            return
-        super().save(directory)
 
 
 class PrecilyModel(LiteratureComponentDRPModel):

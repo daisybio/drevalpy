@@ -1,5 +1,5 @@
 """Compatibility re-export for MultiViewRandomForest."""
 
-from drevalpy.components.predictors.baselines.multi_view_random_forest import MultiViewRandomForest
+from drevalpy.components.predictors.baselines.zoo_preset import MultiViewRandomForest
 
 __all__ = ["MultiViewRandomForest"]

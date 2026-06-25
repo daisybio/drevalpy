@@ -33,10 +33,15 @@ def contracts_compatible(produced: FeatureContract, required: FeatureContract) -
     """Return whether *produced* satisfies *required*.
 
     For ``DENSE`` and ``SEQUENCE``, matching ``kind`` is sufficient.
+    When *required* sets ``scope``, *produced* must match it when present.
     For ``GRAPH``, any non-``None`` field on *required* must match *produced*.
     """
     if produced.kind != required.kind:
         return False
+    if produced.kind in {FeatureKind.DENSE, FeatureKind.SEQUENCE}:
+        if required.scope is not None and produced.scope is not None and produced.scope != required.scope:
+            return False
+        return True
     if produced.kind != FeatureKind.GRAPH:
         return True
     for field_name in _GRAPH_FIELDS:

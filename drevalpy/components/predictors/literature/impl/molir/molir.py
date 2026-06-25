@@ -11,15 +11,15 @@ from typing import Any
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 
+from drevalpy.components.predictors.literature._engine_base import LiteratureEngineBase
 from drevalpy.data.features import get_multiomics_feature_dataset
 from drevalpy.data.preprocessing import VarianceFeatureSelector, scale_gene_expression
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
-from drevalpy.models.drp_model import DRPModel
 
 from .utils import MOLIModel, filter_and_sort_omics, get_dimensions_of_omics_data
 
 
-class MOLIR(DRPModel):
+class MOLIR(LiteratureEngineBase):
     """
     Regression extension of MOLI: multi-omics late integration deep neural network.
 

@@ -26,12 +26,15 @@ from drevalpy.data.features import (
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, TISSUE_IDENTIFIER
 from drevalpy.models._component_bridge import (
+    _COMPONENT_STACK_FILE,
     ComponentDRPBridge,
+    load_component_stack,
     restore_naive_to_components,
+    save_component_stack,
     sync_naive_from_components,
 )
 from drevalpy.models.drp_model import DRPModel
-from drevalpy.models.factory import NAIVE_PREDICTOR_BY_MODEL_NAME, naive_model_config
+from drevalpy.models.factory import NAIVE_PREDICTOR_BY_MODEL_NAME, model_config_for_name
 
 
 class NaiveModel(DRPModel):
@@ -55,12 +58,6 @@ class NaiveModel(DRPModel):
             raise ValueError(msg)
         return predictor_type
 
-    def _needs_tissue_context(self) -> bool:
-        return self.get_model_name() in {
-            "NaiveTissueMeanPredictor",
-            "NaiveTissueDrugMeanPredictor",
-        }
-
     def build_model(self, hyperparameters: dict):
         """
         Builds the model.
@@ -70,11 +67,8 @@ class NaiveModel(DRPModel):
         :param hyperparameters: Dictionary of hyperparameters (not used).
         """
         ensure_components_registered()
-        config = naive_model_config(self._predictor_type())
-        self._component_bridge.set_composed_config(
-            config,
-            needs_tissue=self._needs_tissue_context(),
-        )
+        config = model_config_for_name(self.get_model_name())
+        self._component_bridge.set_composed_config(config)
 
     def _ensure_built(self) -> None:
         if self._component_bridge.composed is None:
@@ -113,11 +107,15 @@ class NaiveModel(DRPModel):
         """
         Saves the model parameters to the given directory.
 
-        Serializes dataset_mean and any available subclass-specific attributes to a JSON file
-        named 'naive_model.json'. Creates the directory if it doesn't exist.
+        Persists the composed component stack when trained.
 
         :param directory: Path to the directory where the model will be saved.
         """
+        self._ensure_built()
+        if self._component_bridge.is_trained():
+            save_component_stack(self._component_bridge, directory, hyperparameters={})
+            sync_naive_from_components(self, self._predictor_type())
+            return
         os.makedirs(directory, exist_ok=True)
         config = {"dataset_mean": self.dataset_mean}
         for attr in [
@@ -143,11 +141,17 @@ class NaiveModel(DRPModel):
         """
         Loads the model parameters from the given directory.
 
-        Reads the 'naive_model.json' file and initializes a NaiveModel instance with the loaded parameters.
-
         :param directory: Path to the directory where the model is saved.
         :return: An instance of NaiveModel with the loaded parameters.
         """
+        stack_path = os.path.join(directory, _COMPONENT_STACK_FILE)
+        if os.path.exists(stack_path):
+            instance = cls()
+            instance.build_model({})
+            load_component_stack(instance._component_bridge, directory)
+            sync_naive_from_components(instance, instance._predictor_type())
+            return instance
+
         with open(os.path.join(directory, "naive_model.json")) as f:
             config = json.load(f)
         instance = cls()

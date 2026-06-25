@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
-from drevalpy.models.config import FeaturizerConfig
+from drevalpy.models.config import FeaturizerConfig, ModelConfig
 
 CELL_LINE_VIEW_TO_FEATURIZER = {
     "gene_expression": "scaledGeneExpression",
@@ -81,3 +81,63 @@ def drug_featurizer_from_view(view: str) -> FeaturizerConfig:
             "registry": "drug",
         },
     )
+
+
+FEATURIZER_NAME_TO_CELL_LINE_VIEW = {value: key for key, value in CELL_LINE_VIEW_TO_FEATURIZER.items()}
+FEATURIZER_NAME_TO_CELL_LINE_VIEW.update(
+    {
+        "geneExpression": "gene_expression",
+        "landmarkGeneExpression": "gene_expression",
+        "pathways": "pathways",
+        "bionic": "bionic_features",
+    }
+)
+
+DRUG_FEATURIZER_TO_VIEW = {
+    "fingerprints": "fingerprints",
+    "smilesvec": "smilesvec",
+    "bpePharmaformer": "bpe_smiles",
+    "molgnet": "molgnet_features",
+    "drugGraph": "drug_graph",
+    "oneHot": "one_hot",
+    "view": "fingerprints",
+}
+
+
+def _views_from_featurizer_config(config: FeaturizerConfig, *, registry: str) -> list[str]:
+    if config.name == "concatFeaturizers":
+        views: list[str] = []
+        for child in config.hyperparameters.get("featurizers", []):
+            child_cfg = FeaturizerConfig.model_validate(normalize_featurizer_config(child, default_registry=registry))
+            views.extend(_views_from_featurizer_config(child_cfg, registry=registry))
+        return views
+    if config.name == "geneExpression":
+        return [str(config.view or config.hyperparameters.get("view", "gene_expression"))]
+    if config.name == "view":
+        return [str(config.hyperparameters.get("view", "fingerprints"))]
+    mapped = FEATURIZER_NAME_TO_CELL_LINE_VIEW.get(config.name) if registry == "cell_line" else None
+    if mapped:
+        return [mapped]
+    if registry == "drug":
+        drug_view = DRUG_FEATURIZER_TO_VIEW.get(config.name)
+        if drug_view:
+            return [drug_view]
+    if config.view:
+        return [str(config.view)]
+    return []
+
+
+def cell_line_views_from_model_config(config: ModelConfig) -> list[str]:
+    """Resolve legacy cell-line view names from a zoo-backed model config."""
+    if config.cell_line_featurizer is None:
+        return ["gene_expression"]
+    views = _views_from_featurizer_config(config.cell_line_featurizer, registry="cell_line")
+    return views or ["gene_expression"]
+
+
+def drug_views_from_model_config(config: ModelConfig) -> list[str]:
+    """Resolve legacy drug view names from a zoo-backed model config."""
+    if config.drug_featurizer is None:
+        return []
+    views = _views_from_featurizer_config(config.drug_featurizer, registry="drug")
+    return views or ["fingerprints"]
