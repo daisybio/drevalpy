@@ -16,10 +16,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from .construct_model import construct_model
 from .drp_model import DRPModel
 
 __all__ = [
     "DRPModel",
+    "construct_model",
     "MULTI_DRUG_MODEL_FACTORY",
     "SINGLE_DRUG_MODEL_FACTORY",
     "MODEL_FACTORY",
