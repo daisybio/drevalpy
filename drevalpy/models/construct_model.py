@@ -6,10 +6,13 @@ import json
 import os
 from typing import Any
 
-from drevalpy.components.data_loading import load_cell_line_feature_views, load_drug_feature_views
-from drevalpy.components.register_builtins import ensure_components_registered
 import numpy as np
 
+from drevalpy.components.data_loading import (
+    load_cell_line_features_for_model_config,
+    load_drug_features_for_model_config,
+)
+from drevalpy.components.register_builtins import ensure_components_registered
 from drevalpy.components.tuning.drp_hyperparameters import (
     config_from_build_hyperparameters,
     default_hyperparameters_for_drp_model,
@@ -91,9 +94,8 @@ def construct_model(name: str, spec: str) -> type[DRPModel]:
 
         def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
             config = self._resolved_config(self.hyperparameters or None)
-            views = cell_line_views_from_model_config(config)
-            return load_cell_line_feature_views(
-                views,
+            return load_cell_line_features_for_model_config(
+                config,
                 data_path,
                 dataset_name,
                 model_name=self.get_model_name(),
@@ -101,9 +103,8 @@ def construct_model(name: str, spec: str) -> type[DRPModel]:
 
         def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset | None:
             config = self._resolved_config(self.hyperparameters or None)
-            views = drug_views_from_model_config(config)
-            return load_drug_feature_views(
-                views,
+            return load_drug_features_for_model_config(
+                config,
                 data_path,
                 dataset_name,
                 model_name=self.get_model_name(),

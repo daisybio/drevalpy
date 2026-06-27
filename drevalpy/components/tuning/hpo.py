@@ -127,12 +127,14 @@ def hpam_tune_ray_optuna(
             num_samples=cfg.n_trials,
             search_alg=search_alg,
         ),
-        run_config=tune.RunConfig(
-            storage_path=cfg.storage_path,
-            name="hpam_tuning",
-        )
-        if cfg.storage_path is not None
-        else None,
+        run_config=(
+            tune.RunConfig(
+                storage_path=cfg.storage_path,
+                name="hpam_tuning",
+            )
+            if cfg.storage_path is not None
+            else None
+        ),
     )
     results = tuner.fit()
     best_result = results.get_best_result(metric=cfg.metric, mode=cfg.mode)

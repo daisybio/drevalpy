@@ -4,8 +4,11 @@ from __future__ import annotations
 
 from typing import ClassVar
 
+from drevalpy.components.data_loading import (
+    load_cell_line_features_for_model_config,
+    load_drug_features_for_model_config,
+)
 from drevalpy.components.register_builtins import ensure_components_registered
-from drevalpy.data.features import load_multi_cell_line_view, load_single_cell_line_view, load_single_drug_view
 from drevalpy.datasets.dataset import FeatureDataset
 from drevalpy.models._component_bridge import preview_sklearn_estimator
 from drevalpy.models.config import ModelConfig
@@ -52,17 +55,21 @@ class ZooPresetSklearnModel(SklearnModel):
 
     def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         config = self._zoo_config()
-        views = cell_line_views_from_model_config(config)
-        if len(views) == 1:
-            return load_single_cell_line_view(views, data_path, dataset_name, self.get_model_name())
-        return load_multi_cell_line_view(views, data_path, dataset_name, self.get_model_name())
+        return load_cell_line_features_for_model_config(
+            config,
+            data_path,
+            dataset_name,
+            model_name=self.get_model_name(),
+        )
 
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset | None:
         config = self._zoo_config()
-        views = drug_views_from_model_config(config)
-        if not views:
-            return None
-        return load_single_drug_view(views, data_path, dataset_name, self.get_model_name())
+        return load_drug_features_for_model_config(
+            config,
+            data_path,
+            dataset_name,
+            model_name=self.get_model_name(),
+        )
 
 
 class MultiViewRandomForest(ZooPresetSklearnModel):

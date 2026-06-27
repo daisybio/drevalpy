@@ -4,12 +4,20 @@ from __future__ import annotations
 
 from drevalpy.data.features import (
     load_cl_ids_from_csv,
+    load_drug_ids_from_csv,
     load_multi_cell_line_view,
     load_single_cell_line_view,
     load_single_drug_view,
     load_tissues_from_csv,
 )
 from drevalpy.datasets.dataset import FeatureDataset
+from drevalpy.models.config import ModelConfig
+from drevalpy.models.featurizer_mapping import (
+    cell_line_entity_id_only_from_model_config,
+    cell_line_views_from_model_config,
+    drug_entity_id_only_from_model_config,
+    drug_views_from_model_config,
+)
 
 
 def load_cell_line_feature_views(
@@ -46,3 +54,33 @@ def load_tissue_features(data_path: str, dataset_name: str) -> FeatureDataset:
 def load_cell_line_id_features(data_path: str, dataset_name: str) -> FeatureDataset:
     """Load cell-line identifier features."""
     return load_cl_ids_from_csv(data_path, dataset_name)
+
+
+def load_cell_line_features_for_model_config(
+    config: ModelConfig,
+    data_path: str,
+    dataset_name: str,
+    *,
+    model_name: str = "ComposedModel",
+) -> FeatureDataset:
+    """Load cell-line features implied by *config*, including identity-only featurizers."""
+    if cell_line_entity_id_only_from_model_config(config):
+        return load_cl_ids_from_csv(data_path, dataset_name)
+    views = cell_line_views_from_model_config(config)
+    return load_cell_line_feature_views(views, data_path, dataset_name, model_name=model_name)
+
+
+def load_drug_features_for_model_config(
+    config: ModelConfig,
+    data_path: str,
+    dataset_name: str,
+    *,
+    model_name: str = "ComposedModel",
+) -> FeatureDataset | None:
+    """Load drug features implied by *config*, including identity-only featurizers."""
+    if config.drug_featurizer is None:
+        return None
+    if drug_entity_id_only_from_model_config(config):
+        return load_drug_ids_from_csv(data_path, dataset_name)
+    views = drug_views_from_model_config(config)
+    return load_drug_feature_views(views, data_path, dataset_name, model_name=model_name)

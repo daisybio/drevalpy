@@ -104,6 +104,44 @@ DRUG_FEATURIZER_TO_VIEW = {
 }
 
 
+def _featurizer_cls(config: FeaturizerConfig, *, registry: str) -> type[Any]:
+    from drevalpy.components.registry import get_cell_line_featurizer, get_drug_featurizer
+
+    if registry == "cell_line":
+        return get_cell_line_featurizer(config.name)
+    return get_drug_featurizer(config.name)
+
+
+def entity_id_only_from_featurizer_config(config: FeaturizerConfig, *, registry: str) -> bool:
+    """Return True when the featurizer only needs entity identifiers, not omics or drug views."""
+    if config.name == "concatFeaturizers":
+        children = config.hyperparameters.get("featurizers", [])
+        if not children:
+            return False
+        return all(
+            entity_id_only_from_featurizer_config(
+                FeaturizerConfig.model_validate(normalize_featurizer_config(child, default_registry=registry)),
+                registry=registry,
+            )
+            for child in children
+        )
+    return bool(getattr(_featurizer_cls(config, registry=registry), "entity_id_only", False))
+
+
+def cell_line_entity_id_only_from_model_config(config: ModelConfig) -> bool:
+    """Return True when the configured cell-line featurizer only needs entity ids."""
+    if config.cell_line_featurizer is None:
+        return False
+    return entity_id_only_from_featurizer_config(config.cell_line_featurizer, registry="cell_line")
+
+
+def drug_entity_id_only_from_model_config(config: ModelConfig) -> bool:
+    """Return True when the configured drug featurizer only needs entity ids."""
+    if config.drug_featurizer is None:
+        return False
+    return entity_id_only_from_featurizer_config(config.drug_featurizer, registry="drug")
+
+
 def _views_from_featurizer_config(config: FeaturizerConfig, *, registry: str) -> list[str]:
     if config.name == "concatFeaturizers":
         views: list[str] = []
@@ -131,6 +169,8 @@ def cell_line_views_from_model_config(config: ModelConfig) -> list[str]:
     """Resolve legacy cell-line view names from a zoo-backed model config."""
     if config.cell_line_featurizer is None:
         return ["gene_expression"]
+    if cell_line_entity_id_only_from_model_config(config):
+        return []
     views = _views_from_featurizer_config(config.cell_line_featurizer, registry="cell_line")
     return views or ["gene_expression"]
 
@@ -138,6 +178,8 @@ def cell_line_views_from_model_config(config: ModelConfig) -> list[str]:
 def drug_views_from_model_config(config: ModelConfig) -> list[str]:
     """Resolve legacy drug view names from a zoo-backed model config."""
     if config.drug_featurizer is None:
+        return []
+    if drug_entity_id_only_from_model_config(config):
         return []
     views = _views_from_featurizer_config(config.drug_featurizer, registry="drug")
     return views or ["fingerprints"]

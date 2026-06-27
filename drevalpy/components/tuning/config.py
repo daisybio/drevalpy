@@ -20,6 +20,7 @@ class HPOConfig:
 
     @classmethod
     def from_metric(cls, metric: str, *, n_trials: int = 16, **kwargs: Any) -> HPOConfig:
+        """Build an HPO config with ``mode`` inferred from the evaluation metric."""
         from drevalpy.evaluation import get_mode
 
         return cls(n_trials=n_trials, metric=metric, mode=get_mode(metric), **kwargs)
