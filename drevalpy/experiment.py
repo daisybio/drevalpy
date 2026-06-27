@@ -136,6 +136,9 @@ def drug_response_experiment(
     wandb_project: str | None = None,
     custom_splitter: ExternalSplitCreator | str | Path | None = None,
     custom_split_name: str | None = None,
+    hpo_num_samples: int = 16,
+    hpo_random_state: int = 42,
+    hpo_resources_per_trial: dict[str, float] | None = None,
 ) -> None:
     """
     Run the drug response prediction experiment. Save results to disc.
@@ -194,6 +197,9 @@ def drug_response_experiment(
         When provided, built-in ``split_dataset`` is skipped and ``test_mode`` selects validation checks.
     :param custom_split_name: optional result-directory label when using a custom splitter.
         Defaults to ``test_mode`` when omitted.
+    :param hpo_num_samples: number of Ray/Optuna trials when ``hyperparameter_tuning`` is enabled
+    :param hpo_random_state: random seed for the Optuna search algorithm
+    :param hpo_resources_per_trial: Ray resources per HPO trial, e.g. ``{"cpu": 1}`` or ``{"gpu": 1}``
     :raises ValueError: if no cv splits are found
     """
     seed_everything(42)
@@ -249,9 +255,12 @@ def drug_response_experiment(
         )
         parent_dir = os.path.dirname(predictions_path)
 
-        model_hpam_set = model_class.get_hyperparameter_set()
-        if not hyperparameter_tuning:
-            model_hpam_set = [model_hpam_set[0]]
+        if multiprocessing:
+            warnings.warn(
+                "multiprocessing=True now routes through Ray Tune with OptunaSearch; "
+                "use hyperparameter_tuning and hpo_num_samples instead.",
+                stacklevel=2,
+            )
 
         if response_data.cv_splits is None:
             raise ValueError("No cv splits found.")
@@ -290,14 +299,15 @@ def drug_response_experiment(
             ):  # if this split has not been run yet (or for a single drug model, this drug_id)
                 tuning_inputs = {
                     "model": model,
+                    "model_class": model_class,
                     "train_dataset": train_dataset,
                     "validation_dataset": validation_dataset,
                     "early_stopping_dataset": early_stopping_dataset,
-                    "hpam_set": model_hpam_set,
                     "response_transformation": response_transformation,
                     "metric": hpam_optimization_metric,
                     "path_data": path_data,
                     "model_checkpoint_dir": model_checkpoint_dir,
+                    "hpo_config": None,
                 }
 
                 # During hyperparameter tuning, create separate wandb runs per trial if enabled
@@ -306,11 +316,24 @@ def drug_response_experiment(
                     tuning_inputs["split_index"] = split_index
                     tuning_inputs["wandb_base_config"] = base_wandb_config
 
-                if multiprocessing:
-                    tuning_inputs["ray_path"] = os.path.abspath(os.path.join(result_path, "raytune"))
-                    best_hpams = hpam_tune_raytune(**tuning_inputs)
+                from drevalpy.components.tuning.config import HPOConfig
+                from drevalpy.components.tuning.drp_hyperparameters import has_tunable_hyperparameters
+                from drevalpy.components.tuning.hpo import hpam_tune_ray_optuna
+
+                resources = hpo_resources_per_trial or ({"gpu": 1} if torch.cuda.is_available() else {"cpu": 1})
+                hpo_cfg = HPOConfig.from_metric(
+                    hpam_optimization_metric,
+                    n_trials=hpo_num_samples,
+                    random_state=hpo_random_state,
+                    resources_per_trial=resources,
+                    storage_path=os.path.abspath(os.path.join(result_path, "raytune")),
+                )
+                tuning_inputs["hpo_config"] = hpo_cfg
+
+                if hyperparameter_tuning and has_tunable_hyperparameters(model_class):
+                    best_hpams = hpam_tune_ray_optuna(**tuning_inputs)
                 else:
-                    best_hpams = hpam_tune(**tuning_inputs)
+                    best_hpams = model_class.get_default_hyperparameters()
 
                 print(f"Best hyperparameters: {best_hpams}")
                 print("Training model on full train and validation set to predict test set")
@@ -1344,87 +1367,63 @@ def hpam_tune_raytune(
     train_dataset: DrugResponseDataset,
     validation_dataset: DrugResponseDataset,
     early_stopping_dataset: DrugResponseDataset | None,
-    hpam_set: list[dict],
+    hpam_set: list[dict] | None = None,
     response_transformation: TransformerMixin | None = None,
     metric: str = "RMSE",
     ray_path: str = "raytune",
     path_data: str = "data",
     model_checkpoint_dir: str = "TEMPORARY",
+    *,
+    model_class: type[DRPModel] | None = None,
+    hpo_config: Any | None = None,
+    split_index: int | None = None,
+    wandb_project: str | None = None,
+    wandb_base_config: dict[str, Any] | None = None,
 ) -> dict:
     """
-    Tune the hyperparameters for the given model using Ray Tune. Ray[tune] must be installed.
+    Tune hyperparameters with Ray Tune and OptunaSearch over structured spaces.
 
-    :param model: model to use
+    The legacy ``hpam_set`` grid argument is ignored; tuning uses each model's
+    structured hyperparameter space instead.
+
+    :param model: model instance used for naming and wandb context
     :param train_dataset: training dataset
     :param validation_dataset: validation dataset
-    :param early_stopping_dataset: early stopping dataset
-    :param hpam_set: hyperparameters to tune
+    :param early_stopping_dataset: optional early stopping dataset
+    :param hpam_set: deprecated grid argument, ignored
     :param response_transformation: normalizer for response data
     :param metric: evaluation metric
-    :param ray_path: path to the raytune directory
+    :param ray_path: path to the Ray Tune storage directory
     :param path_data: path to data directory, e.g., data/
     :param model_checkpoint_dir: directory for model checkpoints
-    :returns: best hyperparameters
-    :raises ValueError: if best_result is None
+    :param model_class: model class to instantiate for each trial
+    :param hpo_config: optional Ray/Optuna search configuration
+    :param split_index: optional CV split index for wandb run naming
+    :param wandb_project: optional wandb project name
+    :param wandb_base_config: optional base config dict for wandb runs
+    :returns: best hyperparameters for ``build_model``
     """
-    print("Starting hyperparameter tuning with Ray Tune ...")
-    print(f"Hyperparameter combinations to evaluate: {len(hpam_set)}")
-    print()
+    _ = hpam_set
+    from drevalpy.components.tuning.config import HPOConfig
+    from drevalpy.components.tuning.hpo import hpam_tune_ray_optuna
 
-    if len(hpam_set) == 1:
-        return hpam_set[0]
-
-    import ray
-    from ray import tune
-
-    path_data = os.path.abspath(path_data)
-    if not ray.is_initialized():
-        ray.init(_temp_dir=os.path.join(os.path.expanduser("~"), "raytmp"))
-    resources_per_trial = {"gpu": 1} if torch.cuda.is_available() else {"cpu": 1}
-
-    def trainable(hpams):
-        try:
-            inner = hpams["hpams"]
-            result = train_and_evaluate(
-                model=model,
-                hpams=inner,
-                path_data=path_data,
-                train_dataset=train_dataset,
-                validation_dataset=validation_dataset,
-                early_stopping_dataset=early_stopping_dataset,
-                metric=metric,
-                response_transformation=response_transformation,
-                model_checkpoint_dir=model_checkpoint_dir,
-            )
-            tune.report(metrics={metric: result[metric]})
-        except Exception as e:
-            import traceback
-
-            print("Trial failed:", e)
-            traceback.print_exc()
-
-    trainable = tune.with_resources(trainable, resources_per_trial)
-    param_space = {"hpams": tune.grid_search(hpam_set)}
-
-    tuner = tune.Tuner(
-        trainable,
-        param_space=param_space,
-        run_config=tune.RunConfig(
-            storage_path=ray_path,
-            name="hpam_tuning",
-        ),
-        tune_config=tune.TuneConfig(
-            metric=metric,
-            mode=get_mode(metric),
-        ),
+    resolved_class = model_class or type(model)
+    cfg = hpo_config or HPOConfig.from_metric(metric, storage_path=ray_path)
+    return hpam_tune_ray_optuna(
+        model=model,
+        train_dataset=train_dataset,
+        validation_dataset=validation_dataset,
+        early_stopping_dataset=early_stopping_dataset,
+        model_class=resolved_class,
+        response_transformation=response_transformation,
+        metric=metric,
+        path_data=path_data,
+        model_checkpoint_dir=model_checkpoint_dir,
+        hpo_config=cfg,
+        split_index=split_index,
+        wandb_project=wandb_project,
+        wandb_base_config=wandb_base_config,
     )
-
-    results = tuner.fit()
-    best_result = results.get_best_result(metric=metric, mode=get_mode(metric))
-    ray.shutdown()
-    if best_result.config is None:
-        raise ValueError("Ray failed; no best result.")
-    return best_result.config["hpams"]
 
 
 @pipeline_function
@@ -1585,21 +1584,29 @@ def train_final_model(
     else:
         early_stopping_dataset = None
 
-    hpam_set = model.get_hyperparameter_set()
+    default_hpams = model_class.get_default_hyperparameters()
     if hyperparameter_tuning:
-        best_hpams = hpam_tune(
-            model=model,
-            train_dataset=train_dataset,
-            validation_dataset=validation_dataset,
-            early_stopping_dataset=early_stopping_dataset,
-            hpam_set=hpam_set,
-            response_transformation=response_transformation,
-            metric=metric,
-            path_data=path_data,
-            model_checkpoint_dir=model_checkpoint_dir,
-        )
+        from drevalpy.components.tuning.config import HPOConfig
+        from drevalpy.components.tuning.drp_hyperparameters import has_tunable_hyperparameters
+        from drevalpy.components.tuning.hpo import hpam_tune_ray_optuna
+
+        if has_tunable_hyperparameters(model_class):
+            best_hpams = hpam_tune_ray_optuna(
+                model=model,
+                train_dataset=train_dataset,
+                validation_dataset=validation_dataset,
+                early_stopping_dataset=early_stopping_dataset,
+                model_class=model_class,
+                response_transformation=response_transformation,
+                metric=metric,
+                path_data=path_data,
+                model_checkpoint_dir=model_checkpoint_dir,
+                hpo_config=HPOConfig.from_metric(metric),
+            )
+        else:
+            best_hpams = default_hpams
     else:
-        best_hpams = hpam_set[0]
+        best_hpams = default_hpams
 
     print(f"Best hyperparameters for final model: {best_hpams}")
     model.build_model(hyperparameters=best_hpams)

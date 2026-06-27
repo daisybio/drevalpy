@@ -3,6 +3,7 @@
 import numpy as np
 
 from drevalpy import experiment
+from drevalpy.components.tuning.config import HPOConfig
 from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.models import MODEL_FACTORY
 
@@ -53,12 +54,11 @@ def test_hpam_tune_raytune(tmp_path, data_dir):
         train_dataset=train_dataset,
         validation_dataset=val_dataset,
         early_stopping_dataset=None,
-        hpam_set=hpam_set,
-        response_transformation=None,
         metric="RMSE",
         ray_path=str(tmp_path),
         path_data=str(data_dir),
-        model_checkpoint_dir="TEMPORARY",
+        model_class=MODEL_FACTORY["ElasticNet"],
+        hpo_config=HPOConfig.from_metric("RMSE", n_trials=2, storage_path=str(tmp_path)),
     )
-
-    assert best in hpam_set
+    assert isinstance(best, dict)
+    assert "alpha" in best
