@@ -51,6 +51,13 @@ class LassoPredictor(SklearnTabularPredictor):
             selection=str(self._h.get("selection", "random")),
         )
 
+    @classmethod
+    def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
+        return {
+            "alpha": {"type": "float", "low": 1e-4, "high": 10.0, "log": True, "default": 1.0},
+            "max_iter": {"type": "int", "low": 1000, "high": 20000, "default": 10000},
+        }
+
 
 @register_predictor("ridge", description="Ridge regression on dense features.", category="general_purpose")
 class RidgePredictor(SklearnTabularPredictor):
@@ -105,6 +112,14 @@ class SVRPredictor(SklearnTabularPredictor):
             max_iter=int(self._h.get("max_iter", -1)),
         )
 
+    @classmethod
+    def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
+        return {
+            "C": {"type": "float", "low": 1e-3, "high": 100.0, "log": True, "default": 1.0},
+            "epsilon": {"type": "float", "low": 1e-3, "high": 1.0, "log": True, "default": 0.1},
+            "kernel": {"type": "categorical", "choices": ["rbf", "linear"], "default": "rbf"},
+        }
+
 
 @register_predictor(
     "gradientBoosting",
@@ -120,6 +135,14 @@ class GradientBoostingPredictor(SklearnTabularPredictor):
             learning_rate=float(self._h.get("learning_rate", 0.1)),
             max_iter=int(self._h.get("max_iter", 100)),
         )
+
+    @classmethod
+    def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
+        return {
+            "max_depth": {"type": "int", "low": 3, "high": 30, "default": 6},
+            "learning_rate": {"type": "float", "low": 0.01, "high": 0.3, "log": True, "default": 0.1},
+            "max_iter": {"type": "int", "low": 50, "high": 300, "default": 100},
+        }
 
 
 @register_predictor(
@@ -141,6 +164,15 @@ class AdaBoostPredictor(SklearnTabularPredictor):
             learning_rate=float(self._h.get("learning_rate", 1.0)),
         )
 
+    @classmethod
+    def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
+        return {
+            "n_estimators": {"type": "int", "low": 25, "high": 200, "default": 50},
+            "max_depth": {"type": "int", "low": 2, "high": 8, "default": 4},
+            "min_samples_split": {"type": "int", "low": 2, "high": 10, "default": 2},
+            "min_samples_leaf": {"type": "int", "low": 1, "high": 5, "default": 1},
+        }
+
 
 @register_predictor("knn", description="K-nearest neighbors on dense features.", category="general_purpose")
 class KNNPredictor(SklearnTabularPredictor):
@@ -151,3 +183,10 @@ class KNNPredictor(SklearnTabularPredictor):
             n_neighbors=int(self._h.get("n_neighbors", 5)),
             weights=str(self._h.get("weights", "distance")),
         )
+
+    @classmethod
+    def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
+        return {
+            "n_neighbors": {"type": "int", "low": 3, "high": 15, "default": 5},
+            "weights": {"type": "categorical", "choices": ["uniform", "distance"], "default": "distance"},
+        }

@@ -83,10 +83,14 @@ class LiteratureComponentDRPModel(DRPModel):
         return cls._zoo_name
 
     @classmethod
-    def get_hyperparameter_set(cls) -> list[dict[str, Any]]:
+    def get_default_hyperparameters(cls) -> dict[str, Any]:
         if cls._impl_cls is not None:
-            return cls._impl_cls.get_hyperparameter_set()
-        return super().get_hyperparameter_set()
+            return cls._impl_cls.get_default_hyperparameters()
+        return super().get_default_hyperparameters()
+
+    @classmethod
+    def get_hyperparameter_set(cls) -> list[dict[str, Any]]:
+        return [cls.get_default_hyperparameters()]
 
     @property
     def cell_line_views(self) -> list[str]:

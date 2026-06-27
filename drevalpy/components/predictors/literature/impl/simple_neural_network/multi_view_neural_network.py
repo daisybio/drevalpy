@@ -53,6 +53,22 @@ class MultiViewNeuralNetwork(LiteratureEngineBase):
         """
         return "MultiViewNeuralNetwork"
 
+    @classmethod
+    def get_default_hyperparameters(cls) -> dict[str, object]:
+        return {
+            "cell_line_views": [
+                "gene_expression",
+                "methylation",
+                "mutations",
+                "copy_number_variation_gistic",
+            ],
+            "drug_views": ["fingerprints"],
+            "dropout_prob": 0.3,
+            "units_per_layer": [16, 8, 4],
+            "methylation_pca_components": 100,
+            "max_epochs": 100,
+        }
+
     def build_model(self, hyperparameters: dict):
         """
         Builds the model from hyperparameters.

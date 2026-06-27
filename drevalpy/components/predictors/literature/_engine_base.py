@@ -2,15 +2,11 @@
 
 from __future__ import annotations
 
-import inspect
-import os
 from contextlib import suppress
 from typing import Any
 
 import numpy as np
 import wandb
-import yaml
-from sklearn.model_selection import ParameterGrid
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.evaluation import AVAILABLE_METRICS
@@ -68,23 +64,12 @@ class LiteratureEngineBase:
         raise NotImplementedError(msg)
 
     @classmethod
+    def get_default_hyperparameters(cls) -> dict[str, Any]:
+        return {}
+
+    @classmethod
     def get_hyperparameter_set(cls) -> list[dict[str, Any]]:
-        hyperparameter_file = os.path.join(os.path.dirname(inspect.getfile(cls)), "hyperparameters.yaml")
-        with open(hyperparameter_file, encoding="utf-8") as handle:
-            try:
-                hpams = yaml.safe_load(handle)[cls.get_model_name()]
-            except yaml.YAMLError as exc:
-                msg = f"Error in hyperparameters.yaml: {exc}"
-                raise ValueError(msg) from exc
-            except KeyError as exc:
-                msg = f"Model {cls.get_model_name()} not found in hyperparameters.yaml"
-                raise KeyError(msg) from exc
-        if hpams is None:
-            return [{}]
-        for key, value in list(hpams.items()):
-            if not isinstance(value, list):
-                hpams[key] = [value]
-        return list(ParameterGrid(hpams))
+        return [cls.get_default_hyperparameters()]
 
     def log_hyperparameters(self, hyperparameters: dict[str, Any]) -> None:
         if not self.is_wandb_enabled():

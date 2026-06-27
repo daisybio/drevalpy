@@ -1,10 +1,13 @@
 """Tests for internal hyperparameter search-space helpers."""
 
+import drevalpy.components.register_builtins as register_builtins
 from drevalpy.components.tuning.search_space import (
     extract_defaults,
+    merge_model_config_spaces,
     merge_search_spaces,
     split_hyperparameters,
 )
+from drevalpy.models.config import ModelConfig
 
 
 def test_merge_all_three_spaces() -> None:
@@ -36,6 +39,15 @@ def test_split_predictor_only_fallback() -> None:
     merged = {"alpha": 1.0, "l1_ratio": 0.5}
     _, _, predictor_hp = split_hyperparameters(merged)
     assert predictor_hp == {"alpha": 1.0, "l1_ratio": 0.5}
+
+
+def test_merge_concat_child_spaces_use_occurrence_index() -> None:
+    register_builtins.register_builtin_components()
+    config = ModelConfig.from_spec("pca+landmarkGenes:fingerprints:randomForest")
+    merged = merge_model_config_spaces(config)
+    pca_keys = [key for key in merged if key.startswith("featurizer.cell_line.pca.0.")]
+    assert pca_keys
+    assert any("predictor.randomForest." in key for key in merged)
 
 
 def test_extract_defaults() -> None:

@@ -43,6 +43,14 @@ class NeuralNetworkPredictor(Predictor):
             "batch_size": 16,
         }
 
+    @classmethod
+    def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
+        return {
+            "dropout_prob": {"type": "float", "low": 0.0, "high": 0.5, "default": 0.2},
+            "max_epochs": {"type": "int", "low": 10, "high": 100, "default": 50},
+            "batch_size": {"type": "int", "low": 8, "high": 64, "default": 16},
+        }
+
     def build(self, hyperparameters: dict[str, Any], input_dims: dict[str, Any]) -> None:
         merged = {**self.get_default_hyperparameters(), **hyperparameters}
         self._hyperparameters = merged

@@ -53,6 +53,20 @@ class DIPKModel(LiteratureEngineBase):
         """
         return "DIPK"
 
+    @classmethod
+    def get_default_hyperparameters(cls) -> dict[str, Any]:
+        return {
+            "batch_size": 64,
+            "lr": 0.0001,
+            "heads": 2,
+            "fc_layer_num": 3,
+            "fc_layer_dim": [256, 128, 64, 32, 16, 1],
+            "dropout_rate": 0.3,
+            "epochs": 100,
+            "epochs_autoencoder": 100,
+            "patience": 10,
+        }
+
     def build_model(self, hyperparameters: dict[str, Any]) -> None:
         """
         Builds the DIPK model with the specified hyperparameters.

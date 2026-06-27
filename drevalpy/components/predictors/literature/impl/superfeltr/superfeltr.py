@@ -76,6 +76,20 @@ class SuperFELTR(LiteratureEngineBase):
         """
         return "SuperFELTR"
 
+    @classmethod
+    def get_default_hyperparameters(cls) -> dict[str, object]:
+        return {
+            "mini_batch": 55,
+            "dropout_rate": 0.5,
+            "weight_decay": 0.01,
+            "out_dim_expr_encoder": 256,
+            "out_dim_mutation_encoder": 32,
+            "out_dim_cnv_encoder": 64,
+            "epochs": 30,
+            "margin": 1.0,
+            "learning_rate": 0.01,
+        }
+
     def build_model(self, hyperparameters) -> None:
         """
         Builds the model from hyperparameters.

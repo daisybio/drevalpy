@@ -51,6 +51,16 @@ class DrugGNNPredictor(StructuredPredictor):
             "batch_size": 8,
         }
 
+    @classmethod
+    def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
+        return {
+            "hidden_dim": {"type": "int", "low": 16, "high": 128, "default": 64},
+            "dropout": {"type": "float", "low": 0.0, "high": 0.5, "default": 0.2},
+            "learning_rate": {"type": "float", "low": 1e-4, "high": 1e-2, "log": True, "default": 1e-3},
+            "epochs": {"type": "int", "low": 1, "high": 10, "default": 2},
+            "batch_size": {"type": "int", "low": 4, "high": 32, "default": 8},
+        }
+
     def build(self, hyperparameters: dict[str, Any], input_dims: dict[str, Any]) -> None:
         merged = {**self.get_default_hyperparameters(), **hyperparameters}
         self._hyperparameters = merged

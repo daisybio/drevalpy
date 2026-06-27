@@ -105,6 +105,22 @@ class PharmaFormerModel(LiteratureEngineBase):
         """
         return "PharmaFormer"
 
+    @classmethod
+    def get_default_hyperparameters(cls) -> dict[str, Any]:
+        return {
+            "gene_hidden_size": 2048,
+            "drug_hidden_size": 128,
+            "feature_dim": 64,
+            "nhead": 4,
+            "num_layers": 2,
+            "dim_feedforward": 1024,
+            "dropout": 0.1,
+            "batch_size": 64,
+            "lr": 0.00001,
+            "epochs": 100,
+            "patience": 10,
+        }
+
     def build_model(self, hyperparameters: dict[str, Any]) -> None:
         """
         Builds the PharmaFormer model with the specified hyperparameters.

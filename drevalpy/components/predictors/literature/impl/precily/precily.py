@@ -101,6 +101,16 @@ class PrecilyModel(LiteratureEngineBase):
         """
         return "Precily"
 
+    @classmethod
+    def get_default_hyperparameters(cls) -> dict[str, Any]:
+        return {
+            "learning_rate": 1.0e-3,
+            "dropout": 0.1,
+            "epochs": 50,
+            "batch_size": 128,
+            "seed": 42,
+        }
+
     def build_model(self, hyperparameters: dict[str, Any]) -> None:
         """
         Store hyperparameters.

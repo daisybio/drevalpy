@@ -59,6 +59,21 @@ class MOLIR(LiteratureEngineBase):
         """
         return "MOLIR"
 
+    @classmethod
+    def get_default_hyperparameters(cls) -> dict[str, Any]:
+        return {
+            "mini_batch": 32,
+            "h_dim1": 64,
+            "h_dim2": 64,
+            "h_dim3": 64,
+            "learning_rate": 0.01,
+            "dropout_rate": 0.5,
+            "weight_decay": 0.0001,
+            "gamma": 0.5,
+            "epochs": 30,
+            "margin": 1.5,
+        }
+
     def build_model(self, hyperparameters: dict[str, Any]) -> None:
         """
         Builds the model from hyperparameters.

@@ -62,6 +62,18 @@ class SRMF(LiteratureEngineBase):
         """
         return "SRMF"
 
+    @classmethod
+    def get_default_hyperparameters(cls) -> dict[str, object]:
+        return {
+            "K": 45,
+            "lambda_l": 0.01,
+            "lambda_d": 0.0,
+            "lambda_c": 0.01,
+            "max_iter": 50,
+            "seed": 1,
+            "n_features": 1036,
+        }
+
     def build_model(self, hyperparameters: dict) -> None:
         """
         Initializes hyperparameters for SRMF model.

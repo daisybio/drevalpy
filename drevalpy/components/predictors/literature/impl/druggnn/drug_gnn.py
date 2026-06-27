@@ -245,6 +245,15 @@ class DrugGNN(LiteratureEngineBase):
         """
         return "DrugGNN"
 
+    @classmethod
+    def get_default_hyperparameters(cls) -> dict[str, Any]:
+        return {
+            "learning_rate": 0.001,
+            "epochs": 100,
+            "hidden_dim": 64,
+            "dropout": 0.2,
+        }
+
     def build_model(self, hyperparameters: dict[str, Any]) -> None:
         """Build the model.
 
