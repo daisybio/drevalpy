@@ -180,10 +180,9 @@ def _apply_to_featurizer(
         and parsed[3] == 0
         for param in [parsed[4]]
     }
+    legacy_prefix = f"featurizer.{registry}.{featurizer.name}.0."
     legacy_updates = {
-        key.removeprefix(f"{featurizer.name}.0."): value
-        for key, value in merged.items()
-        if key.startswith(f"featurizer.{registry}.{featurizer.name}.0.")
+        key.removeprefix(legacy_prefix): value for key, value in merged.items() if key.startswith(legacy_prefix)
     }
     updates.update(legacy_updates)
     if not updates:

@@ -2,6 +2,8 @@
 
 import drevalpy.components.register_builtins as register_builtins
 from drevalpy.components.tuning.search_space import (
+    apply_merged_to_model_config,
+    defaults_from_merged_space,
     extract_defaults,
     merge_model_config_spaces,
     merge_search_spaces,
@@ -48,6 +50,16 @@ def test_merge_concat_child_spaces_use_occurrence_index() -> None:
     pca_keys = [key for key in merged if key.startswith("featurizer.cell_line.pca.0.")]
     assert pca_keys
     assert any("predictor.randomForest." in key for key in merged)
+
+
+def test_apply_merged_to_model_config_strips_featurizer_prefix() -> None:
+    register_builtins.register_builtin_components()
+    config = ModelConfig.from_spec("pca:identity:randomForest")
+    merged = defaults_from_merged_space(merge_model_config_spaces(config))
+    updated = apply_merged_to_model_config(config, merged)
+    assert updated.cell_line_featurizer is not None
+    assert updated.cell_line_featurizer.hyperparameters == {"n_components": 128}
+    assert not any("." in key for key in updated.cell_line_featurizer.hyperparameters)
 
 
 def test_extract_defaults() -> None:

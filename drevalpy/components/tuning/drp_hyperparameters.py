@@ -111,6 +111,8 @@ def _append_featurizer_flat_keys(
     for key, value in featurizer.hyperparameters.items():
         if key == "featurizers":
             continue
+        if "." in key or key.startswith(("featurizer.", "predictor.")):
+            continue
         if (registry, featurizer.name) not in _LEGACY_FEATURIZER_FLAT_KEYS and key not in flat:
             flat.setdefault(key, value)
 

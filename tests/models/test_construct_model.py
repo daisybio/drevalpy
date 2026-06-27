@@ -20,6 +20,34 @@ def test_construct_model_invalid_spec_raises() -> None:
         construct_model("BadModel", "not-a-valid-spec")
 
 
+def test_default_hyperparameters_for_constructed_pca_model() -> None:
+    import drevalpy.components.register_builtins as register_builtins
+    from drevalpy.components.tuning.drp_hyperparameters import model_config_for_drp_model
+    from drevalpy.components.tuning.search_space import (
+        apply_merged_to_model_config,
+        defaults_from_merged_space,
+        merge_model_config_spaces,
+    )
+
+    register_builtins.register_builtin_components()
+
+    model_cls = construct_model("PcaOneHotRF", "pca:identity:randomForest")
+    hp = model_cls.get_default_hyperparameters()
+
+    assert not any("." in key for key in hp)
+    assert "featurizer.cell_line.pca.0.n_components" not in hp
+    assert hp["n_components"] == 128
+
+    config = model_config_for_drp_model(model_cls)
+    assert config is not None
+    merged = defaults_from_merged_space(merge_model_config_spaces(config))
+    updated = apply_merged_to_model_config(config, merged)
+    assert updated.cell_line_featurizer is not None
+    assert updated.cell_line_featurizer.hyperparameters == {"n_components": 128}
+
+    model_cls().build_model(hp)
+
+
 def test_construct_model_train_predict_smoke() -> None:
     import drevalpy.components.register_builtins as register_builtins
 
