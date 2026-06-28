@@ -180,18 +180,6 @@ def _apply_to_featurizer(
         and parsed[3] == 0
         for param in [parsed[4]]
     }
-    legacy_prefix = f"featurizer.{registry}.{featurizer.name}.0."
-    legacy_updates = {
-        key.removeprefix(legacy_prefix): value for key, value in merged.items() if key.startswith(legacy_prefix)
-    }
-    updates.update(legacy_updates)
-    if not updates:
-        simple = {
-            key.removeprefix(f"featurizer.{registry}."): value
-            for key, value in merged.items()
-            if key.startswith(f"featurizer.{registry}.") and key.count(".") == 2
-        }
-        updates.update(simple)
     if updates:
         return featurizer.model_copy(
             update={"hyperparameters": {**featurizer.hyperparameters, **updates}},
@@ -213,14 +201,6 @@ def apply_merged_to_model_config(config: ModelConfig, merged: dict[str, Any]) ->
         if (parsed := _split_predictor_key(key)) is not None and parsed[0] == result.predictor.name
         for param in [parsed[1]]
     }
-    legacy_predictor = {
-        key.removeprefix("predictor."): value
-        for key, value in merged.items()
-        if key.startswith("predictor.") and key.count(".") == 1
-    }
-    predictor_updates.update(legacy_predictor)
-    flat_predictor = {key: value for key, value in merged.items() if "." not in key}
-    predictor_updates.update(flat_predictor)
     if predictor_updates:
         result.predictor = result.predictor.model_copy(
             update={"hyperparameters": {**result.predictor.hyperparameters, **predictor_updates}},

@@ -16,7 +16,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from .construct_model import construct_model
 from .drp_model import DRPModel
 
 __all__ = [
@@ -209,6 +208,10 @@ def _lazy_load_public_models() -> None:
 
 
 def __getattr__(name: str) -> Any:
+    if name == "construct_model":
+        from ._construct_model_api import construct_model
+
+        return construct_model
     if name in __all__ and name != "DRPModel":
         _lazy_load_public_models()
         return globals()[name]

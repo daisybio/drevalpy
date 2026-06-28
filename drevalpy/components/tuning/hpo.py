@@ -10,9 +10,12 @@ from sklearn.base import TransformerMixin
 
 from drevalpy.components.tuning.config import HPOConfig
 from drevalpy.components.tuning.drp_hyperparameters import (
+    build_drp_model_from_config,
+    default_hyperparameters_for_drp_model,
     has_tunable_hyperparameters,
+    public_hyperparameters_from_config,
     structured_space_for_drp_model,
-    tuned_flat_hyperparameters,
+    tuned_config_for_drp_model,
 )
 from drevalpy.components.tuning.search_space import dict_to_ray_space
 from drevalpy.datasets.dataset import DrugResponseDataset
@@ -60,22 +63,29 @@ def hpam_tune_ray_optuna(
     if not ray.is_initialized():
         ray.init(ignore_reinit_error=True)
 
+    def _evaluate_sample(sampled: dict[str, Any], trial_model: DRPModel) -> float:
+        trial_config = tuned_config_for_drp_model(model_class, sampled)
+        if trial_config is None:
+            trial_model.build_model(sampled)
+        else:
+            build_drp_model_from_config(trial_model, trial_config)
+        result = experiment.train_and_evaluate(
+            model=trial_model,
+            hpams=trial_model.hyperparameters,
+            path_data=path_data,
+            train_dataset=train_dataset,
+            validation_dataset=validation_dataset,
+            early_stopping_dataset=early_stopping_dataset,
+            metric=metric,
+            response_transformation=response_transformation,
+            model_checkpoint_dir=model_checkpoint_dir,
+        )
+        return float(result[metric])
+
     def trainable(sampled: dict[str, Any]) -> None:
         trial_model = model_class()
-        hpams = tuned_flat_hyperparameters(model_class, sampled)
         try:
-            result = experiment.train_and_evaluate(
-                model=trial_model,
-                hpams=hpams,
-                path_data=path_data,
-                train_dataset=train_dataset,
-                validation_dataset=validation_dataset,
-                early_stopping_dataset=early_stopping_dataset,
-                metric=metric,
-                response_transformation=response_transformation,
-                model_checkpoint_dir=model_checkpoint_dir,
-            )
-            score = result[metric]
+            score = _evaluate_sample(sampled, trial_model)
             tune.report({metric: score})
         except Exception as exc:
             print("Trial failed:", exc)
@@ -86,8 +96,9 @@ def hpam_tune_ray_optuna(
             trainable(sampled)
             return
         trial_model = model_class()
-        hpams = tuned_flat_hyperparameters(model_class, sampled)
-        trial_config: dict[str, Any] = {
+        trial_config = tuned_config_for_drp_model(model_class, sampled)
+        hpams = public_hyperparameters_from_config(trial_config) if trial_config is not None else dict(sampled)
+        trial_run_config: dict[str, Any] = {
             "phase": "hyperparameter_tuning",
             "hpo_backend": "ray",
             "search_alg": cfg.search_alg,
@@ -95,20 +106,24 @@ def hpam_tune_ray_optuna(
             "hyperparameters": hpams,
         }
         if wandb_base_config is not None:
-            trial_config = {**wandb_base_config, **trial_config}
+            trial_run_config = {**wandb_base_config, **trial_run_config}
         trial_run_name = model.get_model_name()
         if split_index is not None:
             trial_run_name += f"_split_{split_index}"
         trial_run_name += "_trial"
         trial_model.init_wandb(
             project=wandb_project,
-            config=trial_config,
+            config=trial_run_config,
             name=trial_run_name,
             tags=[model.get_model_name(), "hpam_tuning", "ray", "optuna"],
             finish_previous=True,
         )
         try:
-            trainable(sampled)
+            score = _evaluate_sample(sampled, trial_model)
+            tune.report({metric: score})
+        except Exception as exc:
+            print("Trial failed:", exc)
+            tune.report({metric: float("nan")})
         finally:
             if trial_model.is_wandb_enabled():
                 trial_model.finish_wandb()
@@ -146,5 +161,8 @@ def hpam_tune_ray_optuna(
             "Ray/Optuna tuning did not find a valid configuration; using defaults.",
             stacklevel=2,
         )
-        return model_class.get_default_hyperparameters()
-    return tuned_flat_hyperparameters(model_class, best_config)
+        return default_hyperparameters_for_drp_model(model_class)
+    best_model_config = tuned_config_for_drp_model(model_class, best_config)
+    if best_model_config is None:
+        return dict(best_config)
+    return public_hyperparameters_from_config(best_model_config)

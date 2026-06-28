@@ -14,9 +14,10 @@ from drevalpy.components.data_loading import (
 )
 from drevalpy.components.register_builtins import ensure_components_registered
 from drevalpy.components.tuning.drp_hyperparameters import (
-    config_from_build_hyperparameters,
+    config_from_public_hyperparameters,
+    default_config_for_drp_model,
     default_hyperparameters_for_drp_model,
-    flat_hyperparameters_from_model_config,
+    public_hyperparameters_from_config,
     structured_space_for_drp_model,
 )
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
@@ -49,6 +50,7 @@ def construct_model(name: str, spec: str) -> type[DRPModel]:
             super().__init__()
             self._bridge = ComponentDRPBridge()
             self.hyperparameters: dict[str, Any] = {}
+            self._resolved_model_config: ModelConfig | None = None
             self._cell_line_views_list: list[str] = cell_line_views_from_model_config(base_config)
             self._drug_views_list: list[str] = drug_views_from_model_config(base_config)
 
@@ -63,6 +65,13 @@ def construct_model(name: str, spec: str) -> type[DRPModel]:
         @classmethod
         def get_structured_hyperparameter_space(cls) -> dict[str, Any]:
             return structured_space_for_drp_model(cls)
+
+        @classmethod
+        def default_model_config(cls) -> ModelConfig:
+            config = default_config_for_drp_model(cls)
+            if config is None:
+                return cls._base_config.model_copy(deep=True)
+            return config
 
         @property
         def cell_line_views(self) -> list[str]:
@@ -81,16 +90,31 @@ def construct_model(name: str, spec: str) -> type[DRPModel]:
             self._drug_views_list = list(views)
 
         def _resolved_config(self, hyperparameters: dict[str, Any] | None = None) -> ModelConfig:
-            config = config_from_build_hyperparameters(type(self), hyperparameters)
+            if self._resolved_model_config is not None and hyperparameters is None:
+                return self._resolved_model_config.model_copy(deep=True)
+            config = config_from_public_hyperparameters(type(self), hyperparameters)
             return config or self._base_config.model_copy(deep=True)
 
+        def build_from_model_config(self, config: ModelConfig) -> None:
+            """Build the composed stack directly from a resolved ``ModelConfig``."""
+            self._resolved_model_config = config.model_copy(deep=True)
+            self.hyperparameters = public_hyperparameters_from_config(self._resolved_model_config)
+            self.log_hyperparameters(self.hyperparameters)
+            self._cell_line_views_list = cell_line_views_from_model_config(self._resolved_model_config)
+            self._drug_views_list = drug_views_from_model_config(self._resolved_model_config)
+            self._bridge.set_composed_config(self._resolved_model_config)
+
         def build_model(self, hyperparameters: dict[str, Any]) -> None:
-            self.log_hyperparameters(hyperparameters)
-            self.hyperparameters = dict(hyperparameters)
-            config = self._resolved_config(hyperparameters)
-            self._cell_line_views_list = cell_line_views_from_model_config(config)
-            self._drug_views_list = drug_views_from_model_config(config)
-            self._bridge.set_composed_config(config)
+            config = config_from_public_hyperparameters(type(self), hyperparameters)
+            if config is None:
+                self.log_hyperparameters(hyperparameters)
+                self.hyperparameters = dict(hyperparameters)
+                self._resolved_model_config = self._base_config.model_copy(deep=True)
+                self._cell_line_views_list = cell_line_views_from_model_config(self._resolved_model_config)
+                self._drug_views_list = drug_views_from_model_config(self._resolved_model_config)
+                self._bridge.set_composed_config(self._resolved_model_config)
+                return
+            self.build_from_model_config(config)
 
         def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
             config = self._resolved_config(self.hyperparameters or None)
@@ -120,7 +144,7 @@ def construct_model(name: str, spec: str) -> type[DRPModel]:
         ) -> None:
             _ = model_checkpoint_dir
             if self._bridge.composed is None:
-                self.build_model(self.hyperparameters or self.get_default_hyperparameters())
+                self.build_from_model_config(self.default_model_config())
             self._bridge.train(
                 output,
                 cell_line_input,
@@ -143,12 +167,11 @@ def construct_model(name: str, spec: str) -> type[DRPModel]:
             if not self._bridge.is_trained():
                 msg = "Cannot save: component stack is not trained"
                 raise RuntimeError(msg)
+            config = self._resolved_model_config or self._resolved_config(self.hyperparameters or None)
             save_component_stack(
                 self._bridge,
                 directory,
-                hyperparameters=flat_hyperparameters_from_model_config(
-                    self._resolved_config(self.hyperparameters or None),
-                ),
+                hyperparameters=public_hyperparameters_from_config(config),
             )
 
         @classmethod

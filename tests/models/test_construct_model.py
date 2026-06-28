@@ -22,11 +22,9 @@ def test_construct_model_invalid_spec_raises() -> None:
 
 def test_default_hyperparameters_for_constructed_pca_model() -> None:
     import drevalpy.components.register_builtins as register_builtins
-    from drevalpy.components.tuning.drp_hyperparameters import model_config_for_drp_model
-    from drevalpy.components.tuning.search_space import (
-        apply_merged_to_model_config,
-        defaults_from_merged_space,
-        merge_model_config_spaces,
+    from drevalpy.components.tuning.drp_hyperparameters import (
+        assert_component_local_hyperparameters,
+        default_config_for_drp_model,
     )
 
     register_builtins.register_builtin_components()
@@ -38,14 +36,16 @@ def test_default_hyperparameters_for_constructed_pca_model() -> None:
     assert "featurizer.cell_line.pca.0.n_components" not in hp
     assert hp["n_components"] == 128
 
-    config = model_config_for_drp_model(model_cls)
+    config = default_config_for_drp_model(model_cls)
     assert config is not None
-    merged = defaults_from_merged_space(merge_model_config_spaces(config))
-    updated = apply_merged_to_model_config(config, merged)
-    assert updated.cell_line_featurizer is not None
-    assert updated.cell_line_featurizer.hyperparameters == {"n_components": 128}
+    assert config.cell_line_featurizer is not None
+    assert config.cell_line_featurizer.hyperparameters == {"n_components": 128}
+    assert_component_local_hyperparameters(config)
 
-    model_cls().build_model(hp)
+    model = model_cls()
+    model.build_model(hp)
+    assert model._resolved_model_config is not None
+    assert_component_local_hyperparameters(model._resolved_model_config)
 
 
 def test_construct_model_train_predict_smoke() -> None:
