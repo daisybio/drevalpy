@@ -8,7 +8,7 @@ dataset with the LCO test mode.
 
 .. code-block:: bash
 
-    drevalpy --run_id my_first_run --models NaiveTissueMeanPredictor NaiveDrugMeanPredictor --baselines NaiveMeanEffectsPredictor --dataset TOYv1 --test_mode LCO
+    drevalpy --run_id my_first_run --models NaiveTissueMeanPredictor NaiveDrugMeanPredictor --baselines NaiveMeanEffectsPredictor --dataset_name TOYv1 --test_mode LCO
 
 This will train the three baseline models to predict LN_IC50 values of our Toy dataset which is a subset of CTRPv2.
 It will evaluate in "LCO" which is the leave-cell-line-out splitting strategy
@@ -23,7 +23,7 @@ You can visualize them using
 
 .. code-block:: bash
 
-    drevalpy report --run_id my_first_run --dataset TOYv1
+    drevalpy report --run_id my_first_run --dataset_name TOYv1
 
 This creates an index.html file which you can open in your browser to see the results of your run.
 

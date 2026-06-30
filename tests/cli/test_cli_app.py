@@ -132,6 +132,49 @@ def test_evaluate_hpams_accepts_space_separated_lists(monkeypatch: pytest.Monkey
     assert captured["pred_datas"] == ["p1.pkl", "p2.pkl"]
 
 
+def test_dash_h_shows_root_help() -> None:
+    """``-h`` is accepted as an alias for ``--help`` on the root command."""
+    result = runner.invoke(app, ["-h"])
+    assert result.exit_code == 0
+    assert "Usage" in result.stdout
+
+
+def test_dash_h_shows_subcommand_help() -> None:
+    """``-h`` propagates to subcommands (e.g. ``drevalpy report -h``)."""
+    result = runner.invoke(app, ["report", "-h"])
+    assert result.exit_code == 0
+    help_text = _plain_stdout(result.stdout)
+    assert "--dataset_name" in help_text
+
+
+def test_report_uses_dataset_name_option() -> None:
+    """``report`` exposes ``--dataset_name`` and no longer accepts ``--dataset``."""
+    help_result = runner.invoke(app, ["report", "--help"], env={"FORCE_COLOR": "1", "CI": "true"})
+    assert help_result.exit_code == 0
+    assert "--dataset_name" in _plain_stdout(help_result.stdout)
+
+    rejected = runner.invoke(app, ["report", "--run_id", "x", "--dataset", "TOYv1"])
+    # Click reports unknown options with a usage error (exit code 2); assert on that
+    # specifically so the test cannot pass via an unrelated downstream failure.
+    assert rejected.exit_code == 2
+    assert "No such option" in _plain_stdout(rejected.output)
+
+
+def test_report_forwards_dataset_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``report --dataset_name`` is forwarded to ``run_report`` as ``dataset``."""
+    captured: dict[str, object] = {}
+
+    def fake_run_report(**kwargs: object) -> None:
+        captured.update(kwargs)
+
+    monkeypatch.setattr("drevalpy.cli.report.run_report", fake_run_report)
+
+    result = runner.invoke(app, ["report", "--run_id", "my_run", "--dataset_name", "TOYv1"])
+    assert result.exit_code == 0
+    assert captured["run_id"] == "my_run"
+    assert captured["dataset"] == "TOYv1"
+
+
 def test_pipeline_help_uses_valid_randomization_example() -> None:
     result = runner.invoke(
         app,

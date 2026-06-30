@@ -9,12 +9,13 @@ import pandas as pd
 import pytest
 
 from drevalpy.datasets.dataset import DrugResponseDataset
-from drevalpy.datasets.utils import DRUG_IDENTIFIER, TISSUE_IDENTIFIER
+from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, TISSUE_IDENTIFIER
 from drevalpy.models import MODEL_FACTORY
 from drevalpy.models.utils import (
     get_multiomics_feature_dataset,
     iterate_features,
     load_and_select_gene_features,
+    load_cl_ids_and_tissues_from_csv,
     load_cl_ids_from_csv,
     load_drug_fingerprint_features,
     load_drug_ids_from_csv,
@@ -90,6 +91,34 @@ def test_load_tissues_from_csv() -> None:
             assert isinstance(tissue_value, np.ndarray)
             assert tissue_value.shape == (1,)
             assert tissue_value[0] == expected_tissue
+
+
+def test_load_cl_ids_and_tissues_from_csv() -> None:
+    """Test loading cell line ids and tissues from a CSV file."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        os.mkdir(os.path.join(temp_dir, "GDSC1_small"))
+        temp_file = os.path.join(temp_dir, "GDSC1_small", "cell_line_names.csv")
+        with open(temp_file, "w") as f:
+            f.write("cellosaurus_id,cell_line_name,tissue\n" "CVCL_X481,201T,lung\n" "CVCL_1045,22Rv1,breast\n")
+
+        features = load_cl_ids_and_tissues_from_csv(temp_dir, "GDSC1_small")
+        assert len(features.features) == 2
+        assert features.features["201T"][TISSUE_IDENTIFIER][0] == "lung"
+        assert features.features["22Rv1"][CELL_LINE_IDENTIFIER][0] == "22Rv1"
+
+
+def test_load_cl_ids_and_tissues_from_csv_missing_tissue_column() -> None:
+    """Test that missing tissue column falls back to cell line ids."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        os.mkdir(os.path.join(temp_dir, "GDSC1_small"))
+        temp_file = os.path.join(temp_dir, "GDSC1_small", "cell_line_names.csv")
+        with open(temp_file, "w") as f:
+            f.write("cellosaurus_id,cell_line_name\nCVCL_X481,201T\n")
+
+        features = load_cl_ids_and_tissues_from_csv(temp_dir, "GDSC1_small")
+        assert len(features.features) == 1
+        assert features.features["201T"][CELL_LINE_IDENTIFIER][0] == "201T"
+        assert TISSUE_IDENTIFIER not in features.features["201T"]
 
 
 def _write_gene_list(temp_dir: tempfile.TemporaryDirectory, gene_list: Optional[str] = None) -> None:

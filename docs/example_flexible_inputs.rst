@@ -55,7 +55,7 @@ You can then run it the same way as before:
 
 .. code-block:: shell
 
-    drevalpy --models RandomForest --dataset CTRPv2 --data_path data
+    drevalpy --models RandomForest --dataset_name CTRPv2 --data_path data
 
 For more details on the flexible input system, see the sklearn :ref:`flexible-inputs` documentation
 and the SimpleNeuralNetwork :ref:`flexible-inputs-simplenn` documentation.

@@ -7,8 +7,8 @@ import numpy as np
 import pytest
 from sklearn.linear_model import ElasticNet, Ridge
 
-from drevalpy.datasets.dataset import DrugResponseDataset
-from drevalpy.datasets.utils import TISSUE_IDENTIFIER
+from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, TISSUE_IDENTIFIER
 from drevalpy.evaluation import evaluate
 from drevalpy.experiment import cross_study_prediction
 from drevalpy.models import (
@@ -22,6 +22,124 @@ from drevalpy.models import (
 )
 from drevalpy.models.baselines.sklearn_models import RandomForest, SklearnModel
 from drevalpy.models.drp_model import DRPModel
+
+
+def test_naive_mean_effects_predictor_tissue_decomposition() -> None:
+    """Test tissue-aware decomposition in NaiveMeanEffectsPredictor."""
+    cell_lines = np.array(["CL1", "CL1", "CL2", "CL2", "CL3", "CL3"])
+    drugs = np.array(["D1", "D2", "D1", "D2", "D1", "D2"])
+    response = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0])
+
+    output = DrugResponseDataset(
+        response=response,
+        cell_line_ids=cell_lines,
+        drug_ids=drugs,
+    )
+    cell_line_input = FeatureDataset(
+        features={
+            "CL1": {
+                CELL_LINE_IDENTIFIER: np.array(["CL1"]),
+                TISSUE_IDENTIFIER: np.array(["Lung"]),
+            },
+            "CL2": {
+                CELL_LINE_IDENTIFIER: np.array(["CL2"]),
+                TISSUE_IDENTIFIER: np.array(["Lung"]),
+            },
+            "CL3": {
+                CELL_LINE_IDENTIFIER: np.array(["CL3"]),
+                TISSUE_IDENTIFIER: np.array(["Blood"]),
+            },
+        }
+    )
+    drug_input = FeatureDataset(
+        features={
+            "D1": {DRUG_IDENTIFIER: np.array(["D1"])},
+            "D2": {DRUG_IDENTIFIER: np.array(["D2"])},
+        }
+    )
+
+    model = NaiveMeanEffectsPredictor()
+    model.train(output=output, cell_line_input=cell_line_input, drug_input=drug_input)
+
+    dataset_mean = np.mean(response)
+    assert model.dataset_mean == dataset_mean
+
+    lung_mean = np.mean([1.0, 2.0, 3.0, 4.0])
+    blood_mean = np.mean([5.0, 6.0])
+    assert model.tissue_effects["Lung"] == pytest.approx(lung_mean - dataset_mean)
+    assert model.tissue_effects["Blood"] == pytest.approx(blood_mean - dataset_mean)
+
+    cl1_mean = np.mean([1.0, 2.0])
+    cl2_mean = np.mean([3.0, 4.0])
+    cl3_mean = np.mean([5.0, 6.0])
+    assert model.cell_line_effects["CL1"] == pytest.approx(cl1_mean - lung_mean)
+    assert model.cell_line_effects["CL2"] == pytest.approx(cl2_mean - lung_mean)
+    assert model.cell_line_effects["CL3"] == pytest.approx(cl3_mean - blood_mean)
+
+    preds = model.predict(
+        cell_line_ids=np.array(["CL1", "CL2", "CL3"]),
+        drug_ids=np.array(["D1", "D2", "D1"]),
+        cell_line_input=cell_line_input,
+    )
+    for i, (cl, drug) in enumerate(zip(["CL1", "CL2", "CL3"], ["D1", "D2", "D1"], strict=True)):
+        tissue_arr = cell_line_input.get_feature_matrix(view=TISSUE_IDENTIFIER, identifiers=np.array([cl]))
+        tissue_key = str(tissue_arr[0].item() if isinstance(tissue_arr[0], np.ndarray) else tissue_arr[0])
+        expected = (
+            dataset_mean + model.tissue_effects[tissue_key] + model.cell_line_effects[cl] + model.drug_effects[drug]
+        )
+        assert preds[i] == pytest.approx(expected)
+
+    with tempfile.TemporaryDirectory() as model_dir:
+        model.save(model_dir)
+        loaded = cast(NaiveMeanEffectsPredictor, NaiveMeanEffectsPredictor.load(model_dir))
+        assert loaded.tissue_effects == model.tissue_effects
+        loaded_preds = loaded.predict(
+            cell_line_ids=np.array(["CL1"]),
+            drug_ids=np.array(["D1"]),
+            cell_line_input=cell_line_input,
+        )
+        assert loaded_preds[0] == pytest.approx(preds[0])
+
+
+def test_naive_mean_effects_predictor_without_tissue_matches_previous_decomposition() -> None:
+    """Test NaiveMeanEffectsPredictor falls back to cell-line and drug effects without tissue."""
+    cell_lines = np.array(["CL1", "CL1", "CL2", "CL2"])
+    drugs = np.array(["D1", "D2", "D1", "D2"])
+    response = np.array([1.0, 2.0, 5.0, 8.0])
+    output = DrugResponseDataset(response=response, cell_line_ids=cell_lines, drug_ids=drugs)
+    cell_line_input = FeatureDataset(
+        features={
+            "CL1": {CELL_LINE_IDENTIFIER: np.array(["CL1"])},
+            "CL2": {CELL_LINE_IDENTIFIER: np.array(["CL2"])},
+        }
+    )
+    drug_input = FeatureDataset(
+        features={
+            "D1": {DRUG_IDENTIFIER: np.array(["D1"])},
+            "D2": {DRUG_IDENTIFIER: np.array(["D2"])},
+        }
+    )
+
+    model = NaiveMeanEffectsPredictor()
+    model.train(output=output, cell_line_input=cell_line_input, drug_input=drug_input)
+
+    dataset_mean = np.mean(response)
+    assert model.tissue_effects == {}
+    assert model.cell_line_effects["CL1"] == pytest.approx(np.mean([1.0, 2.0]) - dataset_mean)
+    assert model.cell_line_effects["CL2"] == pytest.approx(np.mean([5.0, 8.0]) - dataset_mean)
+
+    preds = model.predict(
+        cell_line_ids=np.array(["CL1", "CL2"]),
+        drug_ids=np.array(["D1", "D2"]),
+        cell_line_input=cell_line_input,
+    )
+    expected = np.array(
+        [
+            dataset_mean + model.cell_line_effects["CL1"] + model.drug_effects["D1"],
+            dataset_mean + model.cell_line_effects["CL2"] + model.drug_effects["D2"],
+        ]
+    )
+    np.testing.assert_allclose(preds, expected)
 
 
 @pytest.mark.parametrize("max_depth_input, expected", [(5, 5), (10, 10), (30, 30), ("None", None)])

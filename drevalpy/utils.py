@@ -8,6 +8,7 @@ from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
 from .datasets import AVAILABLE_DATASETS
 from .datasets.dataset import DrugResponseDataset
 from .datasets.loader import load_dataset
+from .datasets.splits import validate_split_label
 from .datasets.utils import ALLOWED_MEASURES
 from .evaluation import AVAILABLE_METRICS
 from .experiment import drug_response_experiment, pipeline_function
@@ -76,8 +77,17 @@ def check_arguments(args) -> None:
     # if the path to args.path_data does not exist, create the directory
     Path(args.path_data).mkdir(parents=True, exist_ok=True)
 
-    if args.n_cv_splits <= 1:
+    if args.n_cv_splits <= 1 and not getattr(args, "custom_splitter_path", None):
         raise ValueError("Number of cross-validation splits must be greater than 1.")
+
+    custom_splitter_path = getattr(args, "custom_splitter_path", None)
+    if custom_splitter_path:
+        if not Path(custom_splitter_path).expanduser().is_file():
+            raise FileNotFoundError(f"Custom split script not found: {custom_splitter_path}")
+
+    custom_split_name = getattr(args, "custom_split_name", None)
+    if custom_split_name is not None:
+        validate_split_label(custom_split_name)
 
     # TODO Allow for custom randomization tests maybe via config file
     if args.randomization_mode[0] != "None":
@@ -157,6 +167,8 @@ def main(args) -> None:
             hyperparameter_tuning=not args.no_hyperparameter_tuning,
             final_model_on_full_data=args.final_model_on_full_data,
             wandb_project=args.wandb_project,
+            custom_splitter=getattr(args, "custom_splitter_path", None),
+            custom_split_name=getattr(args, "custom_split_name", None),
         )
 
 
