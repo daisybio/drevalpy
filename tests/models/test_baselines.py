@@ -65,7 +65,6 @@ def test_random_forest_respects_max_depth(max_depth_input, expected) -> None:
         "KNNRegressor",
         "Lasso",
         "MultiViewXGBoost",
-        "MultiViewLightGBM",
     ],
 )
 @pytest.mark.parametrize("test_mode", ["LTO", "LPO", "LCO", "LDO"])
@@ -85,10 +84,6 @@ def test_baselines(
     :param cross_study_dataset: dataset
     :param data_dir: path to the data directory
     """
-    if model_name == "MultiViewXGBoost":
-        pytest.importorskip("xgboost", reason="MultiViewXGBoost requires the optional 'xgboost' extra")
-    if model_name == "MultiViewLightGBM":
-        pytest.importorskip("lightgbm", reason="MultiViewLightGBM requires the optional 'lightgbm' extra")
     drug_response = sample_dataset
     drug_response.split_dataset(
         n_cv_splits=2,
@@ -340,7 +335,6 @@ def _call_other_baselines(model: str, train_dataset: DrugResponseDataset, val_da
             "AdaBoostDecisionTree",
             "SVR",
             "MultiViewXGBoost",
-            "MultiViewLightGBM",
         ]:
             # test a hpam config with cell_line_views == "gene expression" and one with "proteomics
             covered_gex = False
@@ -360,7 +354,7 @@ def _call_other_baselines(model: str, train_dataset: DrugResponseDataset, val_da
         else:
             hpams = hpams[:2]
     model_instance = model_class()
-    if model not in ("MultiViewXGBoost", "MultiViewLightGBM"):
+    if model not in ("MultiViewXGBoost"):
         assert isinstance(model_instance, SklearnModel)
     for hpam_combi in hpams:
         if model == "RandomForest" or model == "GradientBoosting":

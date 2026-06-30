@@ -431,6 +431,7 @@ class SparseGOModel(DRPModel):
         self.hyperparameters: dict[str, Any] = {}
         self.layer_connections: list | None = None
         self.gene2id_mapping_ont: dict | None = None
+        self.ontology_gene_order: list[str] | None = None
         self._checkpoint_path: str | None = None
 
     @classmethod
@@ -599,24 +600,19 @@ class SparseGOModel(DRPModel):
     def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         """Load cell line features and build the GO ontology structure.
 
-        Loads gene expression (or mutation) features via the standard drevalpy
-        mechanism, and additionally reads sparseGO_ont.txt and gene2ind.txt
-        to build the layer_connections required by the VNN.
+        Loads gene expression features via the standard drevalpy
+        mechanism, then restricts and reorders them to match the ontology's
+        gene order (from gene2ind.txt) after loading.
 
         :param data_path: Path to the data directory.
         :param dataset_name: Name of the dataset (e.g. 'CTRPv2').
-        :return: FeatureDataset with gene expression or mutation features.
+        :return: FeatureDataset with gene expression or mutation features,
+            already restricted to and ordered like the ontology genes.
         :raises FileNotFoundError: if sparseGO_ont.txt or gene2ind.txt are missing.
+        :raises ValueError: if ontology genes are missing from the loaded features.
         """
         input_type = self.hyperparameters.get("input_type", "expression")
         feature_type = "gene_expression" if input_type == "expression" else "mutations"
-
-        cell_line_features = load_and_select_gene_features(
-            feature_type=feature_type,
-            gene_list=None,
-            data_path=data_path,
-            dataset_name=dataset_name,
-        )
 
         ont_file = os.path.join(data_path, dataset_name, "sparseGO_ont.txt")
         gene2ind_file = os.path.join(data_path, dataset_name, "gene2ind.txt")
@@ -631,6 +627,32 @@ class SparseGOModel(DRPModel):
             )
 
         self.gene2id_mapping_ont = load_mapping(gene2ind_file)
+        self.ontology_gene_order = sorted(self.gene2id_mapping_ont, key=self.gene2id_mapping_ont.__getitem__)
+
+        cell_line_features = load_and_select_gene_features(
+            feature_type=feature_type,
+            gene_list=None,
+            data_path=data_path,
+            dataset_name=dataset_name,
+        )
+
+        # Restrict + reorder to ontology gene order
+        feature_gene_names = cell_line_features.meta_info[feature_type]
+        gene_to_col = {gene: i for i, gene in enumerate(feature_gene_names)}
+        missing = [g for g in self.ontology_gene_order if g not in gene_to_col]
+        if missing:
+            raise ValueError(
+                f"Genes from gene2ind.txt missing in {feature_type} for dataset {dataset_name}: "
+                f"{missing[:5]}{'...' if len(missing) > 5 else ''}"
+            )
+        col_idx = [gene_to_col[g] for g in self.ontology_gene_order]
+
+        for cell_line in cell_line_features.features:
+            cell_line_features.features[cell_line][feature_type] = cell_line_features.features[cell_line][feature_type][
+                col_idx
+            ]
+        cell_line_features.meta_info[feature_type] = np.array(self.ontology_gene_order)
+
         dG, terms_pairs, genes_terms_pairs = load_ontology(ont_file, self.gene2id_mapping_ont)
         sorted_pairs, level_list, level_number = sort_pairs(
             genes_terms_pairs, terms_pairs, dG, self.gene2id_mapping_ont

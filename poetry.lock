@@ -2400,33 +2400,6 @@ files = [
 ]
 
 [[package]]
-name = "lightgbm"
-version = "4.6.0"
-description = "LightGBM Python-package"
-optional = true
-python-versions = ">=3.7"
-groups = ["main"]
-markers = "extra == \"lightgbm\""
-files = [
-    {file = "lightgbm-4.6.0-py3-none-macosx_10_15_x86_64.whl", hash = "sha256:b7a393de8a334d5c8e490df91270f0763f83f959574d504c7ccb9eee4aef70ed"},
-    {file = "lightgbm-4.6.0-py3-none-macosx_12_0_arm64.whl", hash = "sha256:2dafd98d4e02b844ceb0b61450a660681076b1ea6c7adb8c566dfd66832aafad"},
-    {file = "lightgbm-4.6.0-py3-none-manylinux2014_aarch64.whl", hash = "sha256:4d68712bbd2b57a0b14390cbf9376c1d5ed773fa2e71e099cac588703b590336"},
-    {file = "lightgbm-4.6.0-py3-none-manylinux_2_28_x86_64.whl", hash = "sha256:cb19b5afea55b5b61cbb2131095f50538bd608a00655f23ad5d25ae3e3bf1c8d"},
-    {file = "lightgbm-4.6.0-py3-none-win_amd64.whl", hash = "sha256:37089ee95664b6550a7189d887dbf098e3eadab03537e411f52c63c121e3ba4b"},
-    {file = "lightgbm-4.6.0.tar.gz", hash = "sha256:cb1c59720eb569389c0ba74d14f52351b573af489f230032a1c9f314f8bab7fe"},
-]
-
-[package.dependencies]
-numpy = ">=1.17.0"
-scipy = "*"
-
-[package.extras]
-arrow = ["cffi (>=1.15.1)", "pyarrow (>=6.0.1)"]
-dask = ["dask[array,dataframe,distributed] (>=2.0.0)", "pandas (>=0.24.0)"]
-pandas = ["pandas (>=0.24.0)"]
-scikit-learn = ["scikit-learn (>=0.24.2)"]
-
-[[package]]
 name = "lightning-utilities"
 version = "0.15.3"
 description = "Lightning toolbox for across the our ecosystem."
@@ -6908,7 +6881,6 @@ test = ["big-O", "jaraco.functools", "jaraco.itertools", "jaraco.test", "more_it
 type = ["pytest-mypy (>=1.0.1) ; platform_python_implementation != \"PyPy\""]
 
 [extras]
-lightgbm = ["lightgbm"]
 multiprocessing = ["pydantic", "ray"]
 precily = ["gseapy"]
 sparsego = ["mygene", "obonet"]
@@ -6917,4 +6889,4 @@ xgboost = ["xgboost"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11,<3.14"
-content-hash = "9f2ff9df934c5b485bca18be1660efd3833b62f46f5a31609e61df75dfc0d821"
+content-hash = "1bb72597dcb93216755108d108acd11f487ed601d69c89508f05ab5f3f90ee9e"
