@@ -56,7 +56,6 @@ class SparseLinearNew(nn.Module):
         :param sparsity: Sparsity of weight matrix if connectivity is None. Default: 0.9.
         :param connectivity: LongTensor of shape (2, nnz) specifying non-zero weight positions.
         :raises ValueError: if connectivity has wrong shape or nnz exceeds matrix size.
-        :raises ImportError: if torch_sparse is not installed.
         """
         if not (in_features < 2**31 and out_features < 2**31 and sparsity < 1.0):
             raise ValueError("in_features and out_features must be < 2^31, sparsity must be < 1.0")
@@ -65,13 +64,6 @@ class SparseLinearNew(nn.Module):
                 raise ValueError("Input shape for connectivity should be (2, nnz)")
             if connectivity.shape[1] > in_features * out_features:
                 raise ValueError("Nnz can't be bigger than the weight matrix")
-
-        try:
-            import torch_sparse
-        except ImportError as exc:
-            raise ImportError(
-                "torch_sparse is required for SparseGO. Install it manually: pip install torch-sparse"
-            ) from exc
 
         super().__init__()
         self.in_features = in_features
@@ -103,7 +95,8 @@ class SparseLinearNew(nn.Module):
             indices = connectivity.to(device=coalesce_device)
 
         values = torch.empty(nnz, device=coalesce_device)
-        indices, values = torch_sparse.coalesce(indices, values, out_features, in_features)
+        sparse = torch.sparse_coo_tensor(indices, values, (out_features, in_features)).coalesce()
+        indices, values = sparse.indices(), sparse.values()
 
         self.register_buffer("indices", indices.cpu())
         self.weights = nn.Parameter(values.cpu())
