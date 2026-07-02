@@ -195,10 +195,10 @@ class SRMF(DRPModel):
         :param cell_mat: cell line similarity matrix
         :returns: best drug and cell line latent factors
         """
-        np.random.seed(self.seed)
+        rng = np.random.default_rng(self.seed)
         m, n = w.shape
-        u0 = np.sqrt(1 / self.k) * np.random.randn(m, self.k)
-        v0 = np.sqrt(1 / self.k) * np.random.randn(n, self.k)
+        u0 = np.sqrt(1 / self.k) * rng.standard_normal(size=(m, self.k))
+        v0 = np.sqrt(1 / self.k) * rng.standard_normal(size=(n, self.k))
 
         best_u, best_v = u0, v0
 

@@ -40,7 +40,7 @@ class DrugResponseDataset:
     _tissues: np.ndarray | None = None
     _drug_ids: np.ndarray
     _predictions: np.ndarray | None = None
-    _cv_splits: list[dict[str, "DrugResponseDataset"]] = []
+    _cv_splits: list[dict[str, "DrugResponseDataset"]]
     _name: str
 
     @pipeline_function
@@ -77,6 +77,7 @@ class DrugResponseDataset:
         self._drug_ids = drug_ids.astype(str)
         self._predictions = predictions
         self._name = dataset_name
+        self._cv_splits = []
         if tissues is not None:
             self._tissues = np.array(tissues).astype(str)
         else:
@@ -279,8 +280,8 @@ class DrugResponseDataset:
         :param random_state: random state
         """
         indices = np.arange(len(self))
-        np.random.seed(random_state)
-        np.random.shuffle(indices)
+        rng = np.random.default_rng(random_state)
+        rng.shuffle(indices)
         self._response = self.response[indices]
         self._cell_line_ids = self.cell_line_ids[indices]
         self._drug_ids = self.drug_ids[indices]
@@ -473,7 +474,7 @@ class DrugResponseDataset:
             "validation_es": validation_es_splits,
             "early_stopping": early_stopping_splits,
         }
-        self._cv_splits.clear()  # TODO do we need this?
+        self._cv_splits.clear()
 
         for split_train, split_test in zip(train_splits, test_splits, strict=True):
             tr_split = DrugResponseDataset.from_csv(os.path.join(path, split_train), dataset_name=self.dataset_name)
@@ -637,8 +638,8 @@ def _leave_pair_out_cv(
     if not (len(response) == len(cell_line_ids) == len(drug_ids)):
         raise AssertionError("response, cell_line_ids and drug_ids must have the same length")
     indices = np.arange(len(response))
-    np.random.seed(random_state)
-    shuffled_indices = np.random.permutation(indices)
+    rng = np.random.default_rng(random_state)
+    shuffled_indices = rng.permutation(indices)
     response = response[shuffled_indices].copy()
     cell_line_ids = cell_line_ids[shuffled_indices].copy()
     drug_ids = drug_ids[shuffled_indices].copy()
@@ -736,8 +737,8 @@ def _leave_group_out_cv(
 
     # shuffle, since GroupKFold does not implement this
     indices = np.arange(len(response))
-    np.random.seed(random_state)
-    shuffled_indices = np.random.permutation(indices)
+    rng = np.random.default_rng(random_state)
+    shuffled_indices = rng.permutation(indices)
     response = response[shuffled_indices].copy()
     cell_line_ids = cell_line_ids[shuffled_indices].copy()
     drug_ids = drug_ids[shuffled_indices].copy()

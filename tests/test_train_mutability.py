@@ -7,14 +7,14 @@ from drevalpy.experiment import train_and_predict
 from drevalpy.models import MODEL_FACTORY
 
 
-def test_train_and_predict_does_not_mutate_with_reduce_to():
+def test_train_and_predict_does_not_mutate_with_reduce_to(data_dir):
     """Test that reduce_to etc. doesn't mutate the original datasets.
 
     Before the fix: reduce_to was called directly on input datasets.
     After the fix: train_and_predict copies datasets first.
-    """
-    np.random.seed(42)
 
+    :param data_dir: path to the data directory
+    """
     train = DrugResponseDataset(
         response=np.array([1.0, 2.0, 3.0, 4.0, 5.0]),
         cell_line_ids=np.array(["CL-1", "CL-2", "CL-3", "CL-4", "CL-5"]),
@@ -46,7 +46,7 @@ def test_train_and_predict_does_not_mutate_with_reduce_to():
     train_and_predict(
         model=model,
         hpams={},
-        path_data="data",
+        path_data=str(data_dir),
         train_dataset=train,
         prediction_dataset=test,
         cl_features=cl_features,

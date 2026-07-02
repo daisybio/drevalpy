@@ -287,7 +287,7 @@ class XGDP(DRPModel, RegressionMetricsMixin):
         drug_graphs = {}
         for p_file in graph_path.glob("*.pt"):
             drug_id = p_file.stem
-            drug_graphs[drug_id] = torch.load(p_file, weights_only=False)
+            drug_graphs[drug_id] = torch.load(p_file, weights_only=False)  # noqa: S614
 
         if not drug_graphs:
             raise ValueError(f"No drug graphs loaded from {graph_path}. Check the directory and file contents.")

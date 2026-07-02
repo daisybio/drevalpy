@@ -251,27 +251,46 @@ MultiViewXGBoost:
     - proteomics
   drug_views:
     - fingerprints
-  n_estimators:
-    - 100
-    - 300
-    - 500
   learning_rate:
-    - 0.05
     - 0.1
-    - 0.2
   max_depth:
-    - 3
-    - 6
-    - "None"
+    - 10
   subsample:
-    - 0.7
     - 0.8
-    - 1.0
   colsample_bytree:
-    - 0.7
+    - 0.6
     - 0.8
-    - 1.0
   reg_alpha:
-    - 0.0
+    - 0
+    - 1
+  reg_lambda:
     - 0.1
-    - 1.0
+
+MultiViewLightGBM:
+  cell_line_views:
+    - - gene_expression
+      - methylation
+      - mutations
+      - copy_number_variation_gistic
+    - gene_expression
+    - proteomics
+  drug_views:
+    - fingerprints
+  learning_rate:
+    - 0.1
+  num_leaves:
+    - 31
+    - 63
+    - 127
+  subsample:
+    - 0.8
+  colsample_bytree:
+    - 0.6
+    - 0.8
+  reg_alpha:
+    - 0
+    - 1
+  reg_lambda:
+    - 0
+    - 0.1
+    - 1

@@ -78,6 +78,22 @@ def load_tissues_from_csv(path: str, dataset_name: str) -> FeatureDataset:
     )
 
 
+def load_cl_ids_and_tissues_from_csv(path: str, dataset_name: str) -> FeatureDataset:
+    """
+    Load cell line ids and optional tissue annotations from csv file.
+
+    :param path: path to the data, e.g., data/
+    :param dataset_name: name of the dataset, e.g., GDSC2
+    :returns: FeatureDataset with cell line ids and tissue annotations, if available
+    """
+    cl_ids = load_cl_ids_from_csv(path, dataset_name)
+    try:
+        cl_ids.add_features(load_tissues_from_csv(path, dataset_name))
+    except KeyError:
+        pass
+    return cl_ids
+
+
 def load_and_select_gene_features(
     feature_type: str,
     gene_list: str | None,
@@ -403,7 +419,14 @@ def log10_and_set_na(x):
 class ProteomicsMedianCenterAndImputeTransformer(BaseEstimator, TransformerMixin):
     """Performs median centering and imputation of proteomics data."""
 
-    def __init__(self, feature_threshold=0.7, n_features=1000, normalization_downshift=1.8, normalization_width=0.3):
+    def __init__(
+        self,
+        feature_threshold=0.7,
+        n_features=1000,
+        normalization_downshift=1.8,
+        normalization_width=0.3,
+        imputation_seed=100,
+    ):
         """
         Hyperparameters for the normalization.
 
@@ -413,11 +436,15 @@ class ProteomicsMedianCenterAndImputeTransformer(BaseEstimator, TransformerMixin
             Select max(n_complete_features, n_features) features.
         :param normalization_downshift: downshift factor for the mean
         :param normalization_width: width factor for the standard deviation
+        :param imputation_seed: seed for the per-call RNG used to impute missing values; kept
+            here (rather than mutating np.random globally) so the transformer stays reproducible
+            without touching the global RNG state.
         """
         self.feature_threshold = feature_threshold
         self.n_features = n_features
         self.normalization_downshift = normalization_downshift
         self.normalization_width = normalization_width
+        self.imputation_seed = imputation_seed
         self.protein_indices = np.array([])
         self.mean_median = 0
 
@@ -460,14 +487,14 @@ class ProteomicsMedianCenterAndImputeTransformer(BaseEstimator, TransformerMixin
 
         correction_factor = self.mean_median / np.nanmedian(X)
         X = X * correction_factor
-        # downshifted mean
-        np.random.seed(seed=100)
         cell_line_mean = np.nanmean(X)
         cell_line_sd = np.nanstd(X)
         downshifted_mean = cell_line_mean - (self.normalization_downshift * cell_line_sd)
         shrinked_sd = self.normalization_width * cell_line_sd
         n_missing = np.count_nonzero(np.isnan(X))
-        X[np.isnan(X)] = np.random.normal(loc=downshifted_mean, scale=shrinked_sd, size=n_missing)
+        # local RNG keeps imputation deterministic without poisoning the global np.random state
+        rng = np.random.default_rng(self.imputation_seed)
+        X[np.isnan(X)] = rng.normal(loc=downshifted_mean, scale=shrinked_sd, size=n_missing)
         return [X]
 
 

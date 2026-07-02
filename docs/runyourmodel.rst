@@ -217,7 +217,7 @@ Update the ``MULTI_DRUG_MODEL_FACTORY`` if your model is a global model for mult
 Now you can run your model using the DrEvalPy pipeline. Run the following command (after installing your cloned and edited DrEvalPy repository e.g. with ``pip install -e .``):
 
 .. code-block:: shell
-    drevalpy --model YourModel --dataset CTRPv2 --data_path data
+    drevalpy --model YourModel --dataset_name CTRPv2 --data_path data
 
 
 To contribute the model, so that the community can build on it, please also write appropriate tests in ``tests/models`` and documentation in ``docs/``

@@ -1,13 +1,11 @@
 """Tests for all single drug models."""
 
 import pathlib
-import random
 import tempfile
 
 import numpy as np
 import pandas as pd
 import pytest
-import torch
 
 from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
@@ -35,7 +33,11 @@ from drevalpy.visualization.utils import evaluate_file
 )
 @pytest.mark.parametrize("test_mode", ["LTO"])
 def test_single_drug_models(
-    sample_dataset: DrugResponseDataset, model_name: str, test_mode: str, cross_study_dataset: DrugResponseDataset
+    sample_dataset: DrugResponseDataset,
+    model_name: str,
+    test_mode: str,
+    cross_study_dataset: DrugResponseDataset,
+    data_dir,
 ) -> None:
     """
     Test the SingleDrugRandomForest model, can also test other baseline single drug models.
@@ -44,11 +46,11 @@ def test_single_drug_models(
     :param model_name: model name
     :param test_mode: either LPO or LCO
     :param cross_study_dataset: dataset
+    :param data_dir: path to the data directory
     """
-    np.random.seed(42)
-    random.seed(42)
-    torch.manual_seed(42)
-    torch.cuda.manual_seed(42)
+    from drevalpy.experiment import seed_everything
+
+    seed_everything(42)
 
     whole_name = model_name
     if model_name.startswith("SingleDrugRandomForest"):
@@ -69,9 +71,9 @@ def test_single_drug_models(
     all_unique_drugs_arr = np.array(all_unique_drugs)
     exclusive_drugs_arr = np.array(exclusive_drugs)
     # randomly sample a drug to speed up testing
-    np.random.seed(123)
-    np.random.shuffle(all_unique_drugs_arr)
-    np.random.shuffle(exclusive_drugs_arr)
+    rng = np.random.default_rng(123)
+    rng.shuffle(all_unique_drugs_arr)
+    rng.shuffle(exclusive_drugs_arr)
     random_drugs = all_unique_drugs_arr[:1]
     random_drugs = np.concatenate([random_drugs, exclusive_drugs_arr[:1]])
     # test what happens if the training and validation dataset is empty for a drug but the test set is not
@@ -119,7 +121,7 @@ def test_single_drug_models(
         test_dataset = train_and_predict(
             model=model,
             hpams=hpam_combi,
-            path_data="../data",
+            path_data=str(data_dir),
             train_dataset=train_dataset,
             prediction_dataset=test_dataset,
             early_stopping_dataset=None,
@@ -141,14 +143,14 @@ def test_single_drug_models(
                     preds_original = model.predict(
                         drug_ids=test_dataset.drug_ids,
                         cell_line_ids=test_dataset.cell_line_ids,
-                        drug_input=model.load_drug_features("../data", "TOYv1"),
-                        cell_line_input=model.load_cell_line_features("../data", "TOYv1"),
+                        drug_input=model.load_drug_features(str(data_dir), "TOYv1"),
+                        cell_line_input=model.load_cell_line_features(str(data_dir), "TOYv1"),
                     )
                     preds_loaded = loaded_model.predict(
                         drug_ids=test_dataset.drug_ids,
                         cell_line_ids=test_dataset.cell_line_ids,
-                        drug_input=model.load_drug_features("../data", "TOYv1"),
-                        cell_line_input=model.load_cell_line_features("../data", "TOYv1"),
+                        drug_input=model.load_drug_features(str(data_dir), "TOYv1"),
+                        cell_line_input=model.load_cell_line_features(str(data_dir), "TOYv1"),
                     )
                     assert isinstance(preds_loaded, np.ndarray)
                     assert preds_loaded.shape == preds_original.shape
@@ -162,7 +164,7 @@ def test_single_drug_models(
             model=model,
             test_mode=test_mode,
             train_dataset=train_dataset,
-            path_data="../data",
+            path_data=str(data_dir),
             early_stopping_dataset=None,
             response_transformation=None,
             path_out=parent_dir,

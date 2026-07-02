@@ -1,49 +1,34 @@
 """For the nf-core/drugresponseeval subworkflow preprocess_custom."""
 
-import argparse
 from pathlib import Path
 
 
-def preprocess_raw_viability():
-    """CLI for preprocessing raw viability data."""
+def run_preprocess_raw_viability(
+    *,
+    path_data: str = "./data",
+    dataset_name: str,
+    cores: int = 4,
+) -> None:
+    """Preprocess raw viability data with CurveCurator."""
     from drevalpy.datasets.curvecurator import preprocess
 
-    # define parser
-    parser = argparse.ArgumentParser(description="Preprocess CurveCurator viability data.")
-    parser.add_argument(
-        "--path_data",
-        type=str,
-        default="./data",
-        help="Path to base folder containing datasets, in particular dataset_name/dataset_name_raw.csv, "
-        "default: ./data.",
-    )
-    parser.add_argument("--dataset_name", type=str, required=True, help="Dataset name, e.g., MyCustomDataset.")
-    parser.add_argument(
-        "--cores", type=int, default=4, help="The number of cores used for CurveCurator fitting, default: 4."
-    )
-    args = parser.parse_args()
-    # get the raw data and preprocess
-    input_file = Path(args.path_data).resolve() / args.dataset_name / f"{args.dataset_name}_raw.csv"
+    input_file = Path(path_data).resolve() / dataset_name / f"{dataset_name}_raw.csv"
     output_dir = input_file.parent
-    preprocess(input_file=str(input_file), output_dir=str(output_dir), dataset_name=args.dataset_name, cores=args.cores)
+    preprocess(
+        input_file=str(input_file),
+        output_dir=str(output_dir),
+        dataset_name=dataset_name,
+        cores=cores,
+    )
 
 
-def postprocess_viability():
-    """CLI for postprocessing viability data."""
+def run_postprocess_viability(
+    *,
+    dataset_name: str,
+    path_data: str = "./",
+) -> None:
+    """Postprocess CurveCurator output into a single dataset CSV."""
     from drevalpy.datasets.curvecurator import postprocess
 
-    # define parser
-    parser = argparse.ArgumentParser(
-        description="Postprocess CurveCurator viability data, combines everything in one <dataset_name>.csv file."
-    )
-    parser.add_argument("--dataset_name", type=str, required=True, help="Dataset name, e.g., MyCustomDataset.")
-    parser.add_argument(
-        "--path_data",
-        type=str,
-        default="./",
-        help="Path to output folder of CurveCurator containing the curves.txt file, default: './'.",
-    )
-    args = parser.parse_args()
-    output_folder = Path(args.path_data).resolve() / args.dataset_name
-    # postprocess the curves.txt files and saves to the dataset_name.csv file
-    postprocess(output_folder=str(output_folder), dataset_name=args.dataset_name)
+    output_folder = Path(path_data).resolve() / dataset_name
+    postprocess(output_folder=str(output_folder), dataset_name=dataset_name)

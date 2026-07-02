@@ -6,7 +6,7 @@ News
 
 📄 Our paper is finally published! :date:`2026-05-12`
 --------------------------------------------------------------
-After a long, long journey, our paper is finally published at `Nature Communications <https://doi.org/10.1038/s41467-026-72903-w>`_!
+After a long, long journey, our paper is finally published at `Nature Communications <https://doi.org/10.1038/s41467-026-72903-w>`__!
 You can now officially cite us with:
 
 .. note::

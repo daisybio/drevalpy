@@ -7,7 +7,6 @@ https://github.com/kramerlab/Multi-Omics_analysis
 """
 
 import os
-import random
 import secrets
 
 import numpy as np
@@ -87,17 +86,15 @@ def generate_triplets_indices(
     :param random_seed: random seed for reproducibility
     :returns: positive and negative sample indices for each sample
     """
-    if random_seed is not None:
-        random.seed(random_seed)
-        np.random.seed(random_seed)
+    rng = np.random.default_rng(random_seed)
     positive_sample_indices = []
     negative_sample_indices = []
     # Iterate over each label in the dataset
     for idx_current_label, current_label in enumerate(y):
         positive_class_indices = _get_positive_class_indices(current_label, idx_current_label, y, positive_range)
-        positive_sample_idx = np.random.choice(positive_class_indices, 1)[0]
+        positive_sample_idx = rng.choice(positive_class_indices, 1)[0]
         negative_class_indices = _get_negative_class_indices(current_label, y, negative_range)
-        negative_sample_idx = np.random.choice(negative_class_indices, 1)[0]
+        negative_sample_idx = rng.choice(negative_class_indices, 1)[0]
         positive_sample_indices.append(positive_sample_idx)
         negative_sample_indices.append(negative_sample_idx)
     return np.array(positive_sample_indices), np.array(negative_sample_indices)

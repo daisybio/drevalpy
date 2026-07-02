@@ -335,7 +335,7 @@ class RandomForest(SklearnModel):
         Builds the model from hyperparameters.
 
         :param hyperparameters: Hyperparameters for the model. Contains n_estimators, criterion, max_samples,
-            and n_jobs.
+            max_depth and n_jobs.
         """
         super().build_model(hyperparameters)
         if self.hyperparameters["max_depth"] == "None":
@@ -344,6 +344,7 @@ class RandomForest(SklearnModel):
             n_estimators=self.hyperparameters["n_estimators"],
             criterion=self.hyperparameters["criterion"],
             max_samples=self.hyperparameters["max_samples"],
+            max_depth=self.hyperparameters["max_depth"],
             n_jobs=self.hyperparameters["n_jobs"],
         )
 

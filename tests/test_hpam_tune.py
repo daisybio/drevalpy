@@ -7,11 +7,12 @@ from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.models import MODEL_FACTORY
 
 
-def test_hpam_tune(tmp_path):
+def test_hpam_tune(tmp_path, data_dir):
     """
     Test hpam_tune with a toy dataset and ElasticNet model.
 
     :param tmp_path: pytest temporary path fixture
+    :param data_dir: path to the data directory
     """
     hpam_set = [
         {"alpha": 1.0, "l1_ratio": 0.2, "cell_line_views": "gene_expression", "drug_views": "fingerprints"},
@@ -20,8 +21,8 @@ def test_hpam_tune(tmp_path):
 
     model = MODEL_FACTORY["ElasticNet"]()
     model.build_model(hyperparameters=hpam_set[0])
-    cell_line_input = model.load_cell_line_features(data_path="../data", dataset_name="TOYv1")
-    drug_input = model.load_drug_features(data_path="../data", dataset_name="TOYv1")
+    cell_line_input = model.load_cell_line_features(data_path=str(data_dir), dataset_name="TOYv1")
+    drug_input = model.load_drug_features(data_path=str(data_dir), dataset_name="TOYv1")
 
     valid_cell_lines = list(cell_line_input.identifiers)[:2]
     valid_drugs = list(drug_input.identifiers)[:2]
@@ -43,8 +44,8 @@ def test_hpam_tune(tmp_path):
 
     model = MODEL_FACTORY["ElasticNet"]()
     model.build_model(hyperparameters=hpam_set[0])
-    cell_line_input = model.load_cell_line_features(data_path="../data", dataset_name="TOYv1")
-    drug_input = model.load_drug_features(data_path="../data", dataset_name="TOYv1")
+    cell_line_input = model.load_cell_line_features(data_path=str(data_dir), dataset_name="TOYv1")
+    drug_input = model.load_drug_features(data_path=str(data_dir), dataset_name="TOYv1")
 
     cell_lines_to_keep = cell_line_input.identifiers
     drugs_to_keep = drug_input.identifiers
@@ -64,7 +65,7 @@ def test_hpam_tune(tmp_path):
         hpam_set=hpam_set,
         response_transformation=None,
         metric="RMSE",
-        path_data="../data",
+        path_data=str(data_dir),
         model_checkpoint_dir="TEMPORARY",
         split_index=None,
         wandb_project=None,

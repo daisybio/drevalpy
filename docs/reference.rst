@@ -18,4 +18,6 @@ If you want to cite DrEvalPy or nf-core/drugresponseeval in your work, please us
 
 .. note::
 
-    Bernett, J., Iversen, P., Picciani, M., Wilhelm, M., Baum, K., & List, M. (2026). Critical evaluation of drug response prediction models with DrEval. Nature Communications, 17(1), 4238.
+    Bernett, J., Iversen, P., Picciani, M., Wilhelm, M., Baum, K., & List, M. (2026). Critical evaluation of drug response prediction models with DrEval. Nature Communications, 17(1), 4238. `Link to the paper`_.
+
+.. _Link to the paper: https://www.nature.com/articles/s41467-026-72903-w

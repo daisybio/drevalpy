@@ -25,8 +25,10 @@ Implemented models
    :maxdepth: 2
 
    drevalpy.models.DIPK
+   drevalpy.models.DrugGNN
    drevalpy.models.MOLIR
    drevalpy.models.PharmaFormer
+   drevalpy.models.Precily
    drevalpy.models.SRMF
    drevalpy.models.SimpleNeuralNetwork
    drevalpy.models.SuperFELTR

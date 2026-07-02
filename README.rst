@@ -41,7 +41,7 @@ DrEvalPy: Python Cancer Cell Line Drug Response Prediction Suite
 
 
 Overview
-=======
+=========
 
 Check out our paper on `Nature Communications <https://www.nature.com/articles/s41467-026-72903-w>`_!
 
