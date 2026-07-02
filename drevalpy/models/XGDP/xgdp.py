@@ -169,7 +169,7 @@ class XGDPModule(pl.LightningModule):
         """
         drug_graph, cell_features, responses = batch
         outputs = self(batch)
-        loss = self.criterion(outputs, responses)
+        loss = self.criterion(outputs, responses.unsqueeze(1))
         self.log("train_loss", loss, on_step=False, on_epoch=True, batch_size=responses.size(0))
 
         # Store predictions and targets for epoch-end metrics via mixin
@@ -185,7 +185,7 @@ class XGDPModule(pl.LightningModule):
         """
         drug_graph, cell_features, responses = batch
         outputs = self.forward(batch)
-        loss = self.criterion(outputs, responses)
+        loss = self.criterion(outputs, responses.unsqueeze(1))
         self.log("val_loss", loss, on_step=False, on_epoch=True, batch_size=responses.size(0))
 
         # Store predictions and targets for epoch-end metrics via mixin
