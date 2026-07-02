@@ -258,9 +258,12 @@ def ensure_drug_graphs(data_dir) -> None:
 
     :param data_dir: path to the data directory
     """
-    import sys
+    try:
+        from drevalpy.datasets.featurizer.create_drug_graphs import main as create_graphs
+    except ImportError:
+        return
 
-    from drevalpy.datasets.featurizer.create_drug_graphs import main as create_graphs
+    import sys
 
     try:
         load_toyv1(str(data_dir))
