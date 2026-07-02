@@ -452,6 +452,10 @@ class SparseGOModel(DRPModel):
     def _build_network(self) -> None:
         """Build SparseGONetwork once layer_connections and hyperparameters are both available.
 
+        If the model was restored via load(), the saved weights are loaded into the
+        freshly built network here, since the architecture can only be reconstructed
+        after load_cell_line_features() has read the ontology files.
+
         :raises ValueError: if layer_connections or gene2id_mapping_ont are not set.
         """
         if self.layer_connections is None or self.gene2id_mapping_ont is None:
@@ -469,6 +473,7 @@ class SparseGOModel(DRPModel):
             p_drop_terms=self.hyperparameters.get("p_drop_terms", 0.1),
             p_drop_drugs=self.hyperparameters.get("p_drop_drugs", 0.1),
         ).to(self.DEVICE)
+        self._load_weights_if_needed()
 
     def train(
         self,
@@ -694,7 +699,9 @@ class SparseGOModel(DRPModel):
         """Load a previously saved SparseGOModel.
 
         Note: load_cell_line_features() must be called after loading to
-        rebuild the ontology structure before making predictions.
+        rebuild the ontology structure. The saved weights are then applied
+        automatically once the network is built (in _build_network), i.e. on
+        the first train()/predict() call or an explicit build_model().
 
         :param directory: Directory containing model files.
         :return: Loaded SparseGOModel instance.
@@ -711,7 +718,10 @@ class SparseGOModel(DRPModel):
     def _load_weights_if_needed(self) -> None:
         """Load saved weights into the model if a checkpoint path is set.
 
-        Called internally after build_model() when loading a saved model.
+        Called internally by _build_network() after the network is constructed.
+        No-op unless the instance was created via load() (which sets the
+        checkpoint path). The path is cleared after a successful load so
+        subsequent rebuilds do not reload stale weights.
         """
         if self._checkpoint_path is not None and self.model is not None:
             self.model.load_state_dict(
