@@ -8,6 +8,7 @@ from typing import Any
 
 import joblib
 import numpy as np
+import pandas as pd
 import torch
 from sklearn.preprocessing import StandardScaler
 from torch.utils.data import DataLoader, TensorDataset
@@ -89,22 +90,37 @@ class PaccMann(DRPModel):
             feature_type="gene_expression",
             data_path=data_path,
             dataset_name=dataset_name,
-            gene_list="gene_list_paccmann_network_prop_reduced",
+            gene_list=None,
         )
 
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         """Load raw SMILES features.
 
+        Only the id and SMILES columns are read from the csv. The fingerprint columns
+        (cactvs_fingerprint, fingerprint) are huge decimal bit-strings that are not needed
+        here, and are skipped rather than loaded and dropped, since pandas' numeric type
+        inference on them can raise an OverflowError.
+
         :param data_path: path to the data directory
         :param dataset_name: name of the dataset
         :return: FeatureDataset containing SMILES features
         """
-        return FeatureDataset.from_csv(
-            path_to_csv=f"{data_path}/{dataset_name}/drug_smiles.csv",
-            id_column="pubchem_id",
-            view_name="smiles",
-            drop_columns=["drug_name", "cactvs_fingerprint", "fingerprint"],
+        id_column = "pubchem_id"
+        smiles_column = "canonical_smiles"
+
+        data = pd.read_csv(
+            f"{data_path}/{dataset_name}/drug_smiles.csv",
+            usecols=[id_column, smiles_column],
+            dtype={id_column: str, smiles_column: str},
         )
+        data = data.drop_duplicates(subset=id_column, keep="first")
+
+        features = {
+            str(pubchem_id): {"smiles": np.array([smiles], dtype=object)}
+            for pubchem_id, smiles in zip(data[id_column], data[smiles_column], strict=True)
+        }
+
+        return FeatureDataset(features=features, meta_info={"smiles": [smiles_column]})
 
     def build_model(self, hyperparameters: dict[str, Any]) -> None:
         """Store hyperparameters for later model initialization.

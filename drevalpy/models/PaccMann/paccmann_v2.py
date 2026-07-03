@@ -11,10 +11,8 @@ import logging
 import sys
 from collections import OrderedDict
 
-import pytoda
 import torch
 import torch.nn as nn
-from pytoda.smiles.transforms import AugmentTensor
 
 from .utils.hyperparams import ACTIVATION_FN_FACTORY, LOSS_FN_FACTORY
 from .utils.interpret import monte_carlo_dropout, test_time_augmentation
@@ -315,6 +313,8 @@ class PaccMannV2(nn.Module):
             )  # yapf: disable
 
             if confidence:
+                from .pytoda.smiles.transforms import AugmentTensor  # lazy import
+
                 augmenter = AugmentTensor(self.smiles_language)
                 epi_conf, epi_pred = monte_carlo_dropout(self, regime="tensors", tensors=(smiles, gep), repetitions=5)
                 ale_conf, ale_pred = test_time_augmentation(
@@ -352,17 +352,8 @@ class PaccMannV2(nn.Module):
     def _associate_language(self, smiles_language):
         """Bind a SMILES language object to the model.
 
-        Is only used inside the confidence estimation.
-
         :param smiles_language: pytoda SMILESLanguage object
-        :raises TypeError: if the passed object is not a valid SMILESLanguage
         """
-        if not isinstance(smiles_language, pytoda.smiles.smiles_language.SMILESLanguage):
-            raise TypeError(
-                "Please insert a smiles language (object of type "
-                "pytoda.smiles.smiles_language.SMILESLanguage). Given was "
-                f"{type(smiles_language)}"
-            )
         self.smiles_language = smiles_language
 
     def load(self, path, *args, **kwargs):
