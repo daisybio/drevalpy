@@ -56,7 +56,7 @@ class PaccMann(DRPModel):
         """
         super().__init__()
         self.model: PaccMannV2 | None = None
-        self.hyperparameters: dict[str, Any] | None = None
+        self.hyperparameters = None
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.gene_expression_scaler = StandardScaler()
