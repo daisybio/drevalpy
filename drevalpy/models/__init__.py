@@ -25,13 +25,19 @@ __all__ = [
     "DIPKModel",
     "DrugGNN",
     "PharmaFormerModel",
+    "PrecilyModel",
     "KNNRegressor",
     "AdaBoostDecisionTree",
-    "Lasso",
+    "LassoModel",
+    "MultiViewXGBoost",
+    "MultiViewLightGBM",
+    "SparseGO",
     "PaccMann",
 ]
 
+from .baselines.multi_view_lightgbm import MultiViewLightGBM
 from .baselines.multi_view_random_forest import MultiViewRandomForest
+from .baselines.multi_view_xgboost import MultiViewXGBoost
 from .baselines.naive_pred import (
     NaiveCellLineMeanPredictor,
     NaiveDrugMeanPredictor,
@@ -56,8 +62,10 @@ from .DrugGNN import DrugGNN
 from .MOLIR.molir import MOLIR
 from .PaccMann.paccmann import PaccMann
 from .PharmaFormer.pharmaformer import PharmaFormerModel
+from .Precily import PrecilyModel
 from .SimpleNeuralNetwork.multi_view_neural_network import MultiViewNeuralNetwork
 from .SimpleNeuralNetwork.simple_neural_network import SimpleNeuralNetwork
+from .SparseGO.sparsego import SparseGOModel
 from .SRMF.srmf import SRMF
 from .SuperFELTR.superfeltr import SuperFELTR
 
@@ -71,26 +79,34 @@ SINGLE_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]] = {
 
 # MULTI_DRUG_MODEL_FACTORY is used in the pipeline!
 MULTI_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]] = {
+    # Naive predictors
     "NaivePredictor": NaivePredictor,
-    "NaiveDrugMeanPredictor": NaiveDrugMeanPredictor,
     "NaiveCellLineMeanPredictor": NaiveCellLineMeanPredictor,
+    "NaiveDrugMeanPredictor": NaiveDrugMeanPredictor,
     "NaiveMeanEffectsPredictor": NaiveMeanEffectsPredictor,
     "NaiveTissueMeanPredictor": NaiveTissueMeanPredictor,
     "NaiveTissueDrugMeanPredictor": NaiveTissueDrugMeanPredictor,
+    # Sklearn Baselines
+    "AdaBoostDecisionTree": AdaBoostDecisionTree,
     "ElasticNet": ElasticNetModel,
+    "Lasso": LassoModel,
+    "GradientBoosting": GradientBoosting,
+    "KNNRegressor": KNNRegressor,
     "RandomForest": RandomForest,
+    "MultiViewRandomForest": MultiViewRandomForest,
     "SVR": SVMRegressor,
+    # Other Baselines
+    "DrugGNN": DrugGNN,
     "SimpleNeuralNetwork": SimpleNeuralNetwork,
     "MultiViewNeuralNetwork": MultiViewNeuralNetwork,
-    "MultiViewRandomForest": MultiViewRandomForest,
-    "GradientBoosting": GradientBoosting,
-    "SRMF": SRMF,
+    "MultiViewXGBoost": MultiViewXGBoost,
+    "MultiViewLightGBM": MultiViewLightGBM,
+    # Published models
     "DIPK": DIPKModel,
-    "DrugGNN": DrugGNN,
     "PharmaFormer": PharmaFormerModel,
-    "KNNRegressor": KNNRegressor,
-    "AdaBoostDecisionTree": AdaBoostDecisionTree,
-    "Lasso": LassoModel,
+    "SRMF": SRMF,
+    "Precily": PrecilyModel,
+    "SparseGO": SparseGOModel,
     "PaccMann": PaccMann,
 }
 

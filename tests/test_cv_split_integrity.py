@@ -129,39 +129,39 @@ class TestCVSplitDataLeakage:
 
         :returns: dictionary with train, validation, validation_es, early_stopping, and test datasets
         """
-        np.random.seed(42)
+        rng = np.random.default_rng(42)
         n_samples = 100
 
         train = DrugResponseDataset(
-            response=np.random.random(n_samples),
+            response=rng.random(n_samples),
             cell_line_ids=np.array([f"CL-{i}" for i in range(n_samples)]),
             drug_ids=np.array([f"Drug-{i % 10}" for i in range(n_samples)]),
             tissues=np.array([f"Tissue-{i % 5}" for i in range(n_samples)]),
         )
 
         validation = DrugResponseDataset(
-            response=np.random.random(30),
+            response=rng.random(30),
             cell_line_ids=np.array([f"CL-V{i}" for i in range(30)]),
             drug_ids=np.array([f"Drug-{i % 10}" for i in range(30)]),
             tissues=np.array([f"Tissue-{i % 5}" for i in range(30)]),
         )
 
         validation_es = DrugResponseDataset(
-            response=np.random.random(20),
+            response=rng.random(20),
             cell_line_ids=np.array([f"CL-VE{i}" for i in range(20)]),
             drug_ids=np.array([f"Drug-{i % 10}" for i in range(20)]),
             tissues=np.array([f"Tissue-{i % 5}" for i in range(20)]),
         )
 
         early_stopping = DrugResponseDataset(
-            response=np.random.random(10),
+            response=rng.random(10),
             cell_line_ids=np.array([f"CL-ES{i}" for i in range(10)]),
             drug_ids=np.array([f"Drug-{i % 10}" for i in range(10)]),
             tissues=np.array([f"Tissue-{i % 5}" for i in range(10)]),
         )
 
         test = DrugResponseDataset(
-            response=np.random.random(25),
+            response=rng.random(25),
             cell_line_ids=np.array([f"CL-T{i}" for i in range(25)]),
             drug_ids=np.array([f"Drug-{i % 10}" for i in range(25)]),
             tissues=np.array([f"Tissue-{i % 5}" for i in range(25)]),
@@ -344,28 +344,28 @@ class TestSingleDrugModelSplits:
 
         :returns: dictionary with train, validation, and test datasets containing multiple drugs
         """
-        np.random.seed(42)
+        rng = np.random.default_rng(42)
 
         # Create data with multiple drugs
         drugs = ["DrugA", "DrugB", "DrugC"]
         n_per_drug = 20
 
         train = DrugResponseDataset(
-            response=np.random.random(n_per_drug * len(drugs)),
+            response=rng.random(n_per_drug * len(drugs)),
             cell_line_ids=np.array([f"CL-{i}" for i in range(n_per_drug * len(drugs))]),
             drug_ids=np.array(drugs * n_per_drug),
             tissues=np.array([f"Tissue-{i % 3}" for i in range(n_per_drug * len(drugs))]),
         )
 
         validation = DrugResponseDataset(
-            response=np.random.random(10 * len(drugs)),
+            response=rng.random(10 * len(drugs)),
             cell_line_ids=np.array([f"CL-V{i}" for i in range(10 * len(drugs))]),
             drug_ids=np.array(drugs * 10),
             tissues=np.array([f"Tissue-{i % 3}" for i in range(10 * len(drugs))]),
         )
 
         test = DrugResponseDataset(
-            response=np.random.random(5 * len(drugs)),
+            response=rng.random(5 * len(drugs)),
             cell_line_ids=np.array([f"CL-T{i}" for i in range(5 * len(drugs))]),
             drug_ids=np.array(drugs * 5),
             tissues=np.array([f"Tissue-{i % 3}" for i in range(5 * len(drugs))]),

@@ -44,15 +44,16 @@ def test_response_dataset_load() -> None:
     assert np.allclose(dataset.response, data["response"])
 
 
-def test_fitting_and_loading_custom_dataset(sample_dataset: DrugResponseDataset):
+def test_fitting_and_loading_custom_dataset(sample_dataset: DrugResponseDataset, data_dir):
     """
     Test CurveCurator fitting of raw viability dataset and loading it.
 
     :param sample_dataset: sample viability dataset
+    :param data_dir: path to the data directory
     """
     assert sample_dataset.dataset_name == "TOYv1"
     dataset_name = "CTRPv2_sample_test"
-    path_data = str((Path("..") / "data").resolve())
+    path_data = str(data_dir)
     load_dataset(
         dataset_name=dataset_name,
         path_data=path_data,
@@ -60,7 +61,7 @@ def test_fitting_and_loading_custom_dataset(sample_dataset: DrugResponseDataset)
         curve_curator=True,
         cores=200,
     )
-    for item in ((Path("..") / "data").resolve() / dataset_name).iterdir():
+    for item in (data_dir / dataset_name).iterdir():
         if item.name == f"{dataset_name}_raw.csv":
             continue
         if item.is_dir():

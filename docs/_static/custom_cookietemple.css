@@ -45,5 +45,25 @@ table.align-default {
 }
 
 a:visited {
-  color: #a63a85;
+  color: #f66bc9;
+}
+
+.container.contributors {
+  border: 2px solid #fcd242;
+  border-radius: 8px;
+  background-color: #ffffee;
+  padding: 20px;
+  margin: 20px 0;
+}
+
+.container.contributors strong {
+  color: #000000;
+  display: block;
+  margin-top: 15px;
+  margin-bottom: 10px;
+  font-size: 1.05em;
+}
+
+.container.contributors strong:first-of-type {
+  margin-top: 0;
 }

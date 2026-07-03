@@ -26,6 +26,8 @@ from drevalpy.models.drp_model import DRPModel
         "MultiViewNeuralNetwork",
         "PharmaFormer",
         "PaccMann",
+        "Precily",
+        "SparseGO",
     ],
 )
 def test_global_models(
@@ -33,6 +35,7 @@ def test_global_models(
     model_name: str,
     test_mode: str,
     cross_study_dataset: DrugResponseDataset,
+    data_dir,
 ) -> None:
     """
     Test global drug response models.
@@ -41,6 +44,7 @@ def test_global_models(
     :param model_name: e.g., DIPK, SRMF, SimpleNeuralNetwork, or MultiViewNeuralNetwork
     :param test_mode: LPO
     :param cross_study_dataset: from conftest.py
+    :param data_dir: path to the data directory
     :raises ValueError: if drug input is None
     """
     drug_response = sample_dataset
@@ -74,6 +78,14 @@ def test_global_models(
     elif model_name == "PharmaFormer":
         hpam_combi["epochs"] = 1
         hpam_combi["patience"] = 2
+    elif model_name == "Precily":
+        hpam_combi["epochs"] = 1
+        hpam_combi["batch_size"] = 32
+    elif model_name == "SparseGO":
+        hpam_combi["epochs"] = 1
+        hpam_combi["batch_size"] = 32
+    elif model_name == "PaccMann":
+        hpam_combi["epochs"] = 1
     elif model_name == "AdaBoostDecisionTree":
         hpam_combi["max_depth"] = 2
         hpam_combi["min_samples_split"] = 2
@@ -81,9 +93,8 @@ def test_global_models(
         hpam_combi["n_estimators"] = 2
     model.build_model(hyperparameters=hpam_combi)
 
-    path_data = os.path.join("..", "data")
-    cell_line_input = model.load_cell_line_features(data_path=path_data, dataset_name="TOYv1")
-    drug_input = model.load_drug_features(data_path=path_data, dataset_name="TOYv1")
+    cell_line_input = model.load_cell_line_features(data_path=str(data_dir), dataset_name="TOYv1")
+    drug_input = model.load_drug_features(data_path=str(data_dir), dataset_name="TOYv1")
     if drug_input is None:
         raise ValueError("Drug input is None")
     cell_lines_to_keep = cell_line_input.identifiers
@@ -131,6 +142,8 @@ def test_global_models(
         try:
             model.save(model_dir)
             loaded_model = model_class.load(model_dir)
+            if model_name == "SparseGO":
+                loaded_model.load_cell_line_features(data_path=str(data_dir), dataset_name="TOYv1")
             assert isinstance(loaded_model, DRPModel)
 
             preds_after = loaded_model.predict(
@@ -156,7 +169,7 @@ def test_global_models(
             model=model,
             test_mode=test_mode,
             train_dataset=train_dataset,
-            path_data=path_data,
+            path_data=str(data_dir),
             early_stopping_dataset=None,
             response_transformation=None,
             path_out=temp_dir,
@@ -166,10 +179,7 @@ def test_global_models(
 
 
 @pytest.mark.parametrize("test_mode", ["LTO"])
-def test_multi_view_neural_network_custom_views(
-    sample_dataset: DrugResponseDataset,
-    test_mode: str,
-) -> None:
+def test_multi_view_neural_network_custom_views(sample_dataset: DrugResponseDataset, test_mode: str, data_dir) -> None:
     """
     Test MultiViewNeuralNetwork with a fully custom cell line view (not a built-in omic).
 
@@ -178,15 +188,16 @@ def test_multi_view_neural_network_custom_views(
 
     :param sample_dataset: from conftest.py
     :param test_mode: LTO
+    :param data_dir: path to the data directory
     :raises ValueError: if drug input is None
     """
     import pandas as pd
 
-    path_data = os.path.join("..", "data")
-    toy_dir = os.path.join(path_data, "TOYv1")
+    path_data = data_dir
+    toy_dir = data_dir / "TOYv1"
 
     # Read existing cell line names from gene_expression.csv (cell_line_name is the index used by the loader)
-    gex = pd.read_csv(os.path.join(toy_dir, "gene_expression.csv"))
+    gex = pd.read_csv(toy_dir / "gene_expression.csv")
     cell_line_names = gex["cell_line_name"].values
 
     # Create a fake custom feature CSV with random data, matching the real CSV format
@@ -197,7 +208,7 @@ def test_multi_view_neural_network_custom_views(
         columns=[f"feat_{i}" for i in range(n_features)],
     )
     custom_df.insert(0, "cell_line_name", cell_line_names)
-    custom_csv_path = os.path.join(toy_dir, "custom_test_view.csv")
+    custom_csv_path = toy_dir / "custom_test_view.csv"
     custom_df.to_csv(custom_csv_path, index=False)
 
     try:
@@ -221,8 +232,8 @@ def test_multi_view_neural_network_custom_views(
         }
         model.build_model(hyperparameters=hpam_combi)
 
-        cell_line_input = model.load_cell_line_features(data_path=path_data, dataset_name="TOYv1")
-        drug_input = model.load_drug_features(data_path=path_data, dataset_name="TOYv1")
+        cell_line_input = model.load_cell_line_features(data_path=str(path_data), dataset_name="TOYv1")
+        drug_input = model.load_drug_features(data_path=str(path_data), dataset_name="TOYv1")
         if drug_input is None:
             raise ValueError("Drug input is None")
 

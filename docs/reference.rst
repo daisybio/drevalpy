@@ -5,15 +5,19 @@ If you want to cite DrEvalPy or nf-core/drugresponseeval in your work, please us
 
 .. code-block:: bibtex
 
-    @article{bernettiversen2025dreval,
-      title={From Hype to Health Check: Critical Evaluation of Drug Response Prediction Models with DrEval},
+    @article{bernettiversen2026dreval,
+      title={Critical evaluation of drug response prediction models with DrEval},
       author={Bernett, Judith and Iversen, Pascal and Picciani, Mario and Wilhelm, Mathias and Baum, Katharina and List, Markus},
-      journal={bioRxiv},
-      pages={2025--05},
-      year={2025},
-      publisher={Cold Spring Harbor Laboratory}
+      journal={Nature Communications},
+      volume={17},
+      number={1},
+      pages={4238},
+      year={2026},
+      publisher={Nature Publishing Group UK London}
     }
 
 .. note::
 
-    Bernett, J., Iversen, P., Picciani, M., Wilhelm, M., Baum, K., & List, M. (2025). **From Hype to Health Check: Critical Evaluation of Drug Response Prediction Models with DrEval.** *bioRxiv*, 2025-05.
+    Bernett, J., Iversen, P., Picciani, M., Wilhelm, M., Baum, K., & List, M. (2026). Critical evaluation of drug response prediction models with DrEval. Nature Communications, 17(1), 4238. `Link to the paper`_.
+
+.. _Link to the paper: https://www.nature.com/articles/s41467-026-72903-w
