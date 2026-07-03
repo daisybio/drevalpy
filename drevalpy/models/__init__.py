@@ -31,6 +31,7 @@ __all__ = [
     "LassoModel",
     "MultiViewXGBoost",
     "MultiViewLightGBM",
+    "SparseGO",
 ]
 
 from .baselines.multi_view_lightgbm import MultiViewLightGBM
@@ -62,6 +63,7 @@ from .PharmaFormer.pharmaformer import PharmaFormerModel
 from .Precily import PrecilyModel
 from .SimpleNeuralNetwork.multi_view_neural_network import MultiViewNeuralNetwork
 from .SimpleNeuralNetwork.simple_neural_network import SimpleNeuralNetwork
+from .SparseGO.sparsego import SparseGOModel
 from .SRMF.srmf import SRMF
 from .SuperFELTR.superfeltr import SuperFELTR
 
@@ -102,6 +104,7 @@ MULTI_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]] = {
     "PharmaFormer": PharmaFormerModel,
     "SRMF": SRMF,
     "Precily": PrecilyModel,
+    "SparseGO": SparseGOModel,
 }
 
 # MODEL_FACTORY is used in the pipeline!

@@ -1,0 +1,34 @@
+---
+SparseGO:
+  input_type:
+    - expression
+  num_neurons_per_GO:
+    - 6
+  num_neurons_per_final_GO:
+    - 6
+  num_neurons_drug:
+    - [100, 50, 6]
+    - [200, 100, 50]
+  num_neurons_final:
+    - 12
+    - 6
+  drug_dim:
+    - 2048
+  learning_rate:
+    - 0.1
+  momentum:
+    - 0.9
+  decay_rate:
+    - 0.002
+  p_drop_genes:
+    - 0.15
+  p_drop_terms:
+    - 0.15
+  p_drop_drugs:
+    - 0.15
+  p_drop_final:
+    - 0.0
+  epochs:
+    - 400
+  batch_size:
+    - 20000
