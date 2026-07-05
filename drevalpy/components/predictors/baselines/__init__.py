@@ -23,7 +23,11 @@ from drevalpy.components.predictors.baselines.sklearn_models import (
     SklearnModel,
     SVMRegressor,
 )
-from drevalpy.components.predictors.baselines.zoo_preset import MultiViewLightGBM, MultiViewRandomForest, MultiViewXGBoost
+from drevalpy.components.predictors.baselines.zoo_preset import (
+    MultiViewLightGBM,
+    MultiViewRandomForest,
+    MultiViewXGBoost,
+)
 
 __all__ = [
     "AdaBoostDecisionTree",

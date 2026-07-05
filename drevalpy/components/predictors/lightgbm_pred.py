@@ -21,10 +21,7 @@ class LightGBMPredictor(SklearnTabularPredictor):
         try:
             import lightgbm as lgb
         except ImportError as exc:
-            msg = (
-                "lightgbm extra is required for LightGBMPredictor. "
-                "Install it with: pip install drevalpy[lightgbm]"
-            )
+            msg = "lightgbm extra is required for LightGBMPredictor. " "Install it with: pip install drevalpy[lightgbm]"
             raise ImportError(msg) from exc
         return lgb.LGBMRegressor(
             n_estimators=int(self._h.get("n_estimators", 100)),

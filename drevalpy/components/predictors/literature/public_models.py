@@ -21,8 +21,8 @@ from drevalpy.components.predictors.literature.impl.simple_neural_network.multi_
 from drevalpy.components.predictors.literature.impl.simple_neural_network.simple_neural_network import (
     SimpleNeuralNetwork as _SimpleNeuralNetwork,
 )
-from drevalpy.components.predictors.literature.impl.srmf.srmf import SRMF as _SRMFImpl  # noqa: N811
 from drevalpy.components.predictors.literature.impl.sparsego.sparsego import SparseGOModel as _SparseGOModel
+from drevalpy.components.predictors.literature.impl.srmf.srmf import SRMF as _SRMFImpl  # noqa: N811
 from drevalpy.components.predictors.literature.impl.superfeltr.superfeltr import SuperFELTR as _SuperFELTR
 from drevalpy.components.predictors.literature.structured_predictors import StructuredLiteratureEnginePredictor
 from drevalpy.components.register_builtins import ensure_components_registered

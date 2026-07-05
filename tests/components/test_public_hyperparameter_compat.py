@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import drevalpy.components.register_builtins as register_builtins
 import pytest
 
+import drevalpy.components.register_builtins as register_builtins
 from drevalpy.components.tuning.drp_hyperparameters import (
     assert_component_local_hyperparameters,
     config_from_public_hyperparameters,

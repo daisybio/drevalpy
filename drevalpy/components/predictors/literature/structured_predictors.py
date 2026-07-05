@@ -27,8 +27,8 @@ from drevalpy.components.predictors.literature.impl.dipk.dipk import DIPKModel
 from drevalpy.components.predictors.literature.impl.molir.molir import MOLIR
 from drevalpy.components.predictors.literature.impl.pharmaformer.pharmaformer import PharmaFormerModel
 from drevalpy.components.predictors.literature.impl.precily.precily import PrecilyModel
-from drevalpy.components.predictors.literature.impl.srmf.srmf import SRMF
 from drevalpy.components.predictors.literature.impl.sparsego.sparsego import SparseGOModel
+from drevalpy.components.predictors.literature.impl.srmf.srmf import SRMF
 from drevalpy.components.predictors.literature.impl.superfeltr.superfeltr import SuperFELTR
 from drevalpy.components.predictors.structured import StructuredPredictor
 from drevalpy.components.registry import register_predictor

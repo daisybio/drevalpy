@@ -6,8 +6,6 @@ import json
 import os
 from typing import Any
 
-import numpy as np
-
 from drevalpy.components.data_loading import (
     load_cell_line_features_for_model_config,
     load_drug_features_for_model_config,

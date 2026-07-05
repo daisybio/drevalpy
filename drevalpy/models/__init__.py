@@ -65,7 +65,6 @@ if TYPE_CHECKING:
         LassoModel,
         MultiViewRandomForest,
         MultiViewXGBoost,
-        MultiViewLightGBM,
         NaiveCellLineMeanPredictor,
         NaiveDrugMeanPredictor,
         NaiveMeanEffectsPredictor,
@@ -77,6 +76,7 @@ if TYPE_CHECKING:
         SingleDrugRandomForest,
         SVMRegressor,
     )
+    from drevalpy.components.predictors.baselines.zoo_preset import MultiViewLightGBM
     from drevalpy.components.predictors.literature.public_models import (
         MOLIR,
         SRMF,
@@ -86,10 +86,11 @@ if TYPE_CHECKING:
         PharmaFormerModel,
         PrecilyModel,
         SimpleNeuralNetwork,
-        SparseGOModel,
+    )
+    from drevalpy.components.predictors.literature.public_models import SparseGOModel as SparseGO
+    from drevalpy.components.predictors.literature.public_models import (
         SuperFELTR,
     )
-    from drevalpy.components.predictors.baselines.zoo_preset import MultiViewLightGBM
 
     SINGLE_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]]
     MULTI_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]]
@@ -109,7 +110,6 @@ def _lazy_load_public_models() -> None:
         LassoModel,
         MultiViewRandomForest,
         MultiViewXGBoost,
-        MultiViewLightGBM,
         NaiveCellLineMeanPredictor,
         NaiveDrugMeanPredictor,
         NaiveMeanEffectsPredictor,
@@ -121,6 +121,7 @@ def _lazy_load_public_models() -> None:
         SingleDrugRandomForest,
         SVMRegressor,
     )
+    from drevalpy.components.predictors.baselines.zoo_preset import MultiViewLightGBM
     from drevalpy.components.predictors.literature.public_models import (
         MOLIR,
         SRMF,
@@ -130,10 +131,11 @@ def _lazy_load_public_models() -> None:
         PharmaFormerModel,
         PrecilyModel,
         SimpleNeuralNetwork,
-        SparseGOModel,
+    )
+    from drevalpy.components.predictors.literature.public_models import SparseGOModel as SparseGO
+    from drevalpy.components.predictors.literature.public_models import (
         SuperFELTR,
     )
-    from drevalpy.components.predictors.baselines.zoo_preset import MultiViewLightGBM
 
     single: dict[str, type[DRPModel]] = {
         "SingleDrugElasticNet": SingleDrugElasticNet,
@@ -165,7 +167,7 @@ def _lazy_load_public_models() -> None:
         "PharmaFormer": PharmaFormerModel,
         "SRMF": SRMF,
         "Precily": PrecilyModel,
-        "SparseGO": SparseGOModel,
+        "SparseGO": SparseGO,
     }
     factory = multi.copy()
     factory.update(single)
@@ -199,9 +201,9 @@ def _lazy_load_public_models() -> None:
             "PrecilyModel": PrecilyModel,
             "SRMF": SRMF,
             "SimpleNeuralNetwork": SimpleNeuralNetwork,
-            "SparseGOModel": SparseGOModel,
+            "SparseGOModel": SparseGO,
             "SuperFELTR": SuperFELTR,
-            "SparseGO": SparseGOModel,
+            "SparseGO": SparseGO,
             "SINGLE_DRUG_MODEL_FACTORY": single,
             "MULTI_DRUG_MODEL_FACTORY": multi,
             "MODEL_FACTORY": factory,
