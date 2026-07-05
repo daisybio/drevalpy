@@ -47,6 +47,7 @@ class StructuredLiteratureEnginePredictor(StructuredPredictor):
     def __init__(self) -> None:
         self._hyperparameters: dict[str, Any] = {}
         self._engine: LiteratureEngineBase | None = None
+        self._literature_host: Any | None = None
 
     def build(self, hyperparameters: dict[str, Any], input_dims: dict[str, Any]) -> None:
         _ = input_dims
@@ -80,7 +81,7 @@ class StructuredLiteratureEnginePredictor(StructuredPredictor):
 
     def _engine_from_host(self) -> LiteratureEngineBase:
         engine = self._engine_cls()
-        host = getattr(self, "_literature_host", None)
+        host = self._literature_host
         if host is not None:
             for name, value in vars(host).items():
                 if name.startswith("_"):
@@ -115,7 +116,7 @@ class StructuredLiteratureEnginePredictor(StructuredPredictor):
                 cell_line_input=cell_line_input,
                 drug_input=drug_input,
             )
-        host = getattr(self, "_literature_host", None)
+        host = self._literature_host
         hyperparameters = {**self._hyperparameters, **getattr(host, "hyperparameters", {})}
         engine = self._engine_from_host()
         engine.build_model(hyperparameters)
