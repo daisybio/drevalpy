@@ -176,13 +176,6 @@ def preview_sklearn_estimator(bridge: ComponentDRPBridge, hyperparameters: dict[
     return predictor._make_estimator()
 
 
-def _apply_sklearn_featurizer_state_to_model(model: SklearnModel, state: dict[str, object]) -> None:
-    for attr in _SKLEARN_FEATURIZER_STATE_ATTRS:
-        value = state.get(attr)
-        if value is not None:
-            setattr(model, attr, value)
-
-
 def _sklearn_featurizer_state_from_model(model: SklearnModel) -> dict[str, object]:
     state: dict[str, object] = {}
     for attr in _SKLEARN_FEATURIZER_STATE_ATTRS:
@@ -192,44 +185,31 @@ def _sklearn_featurizer_state_from_model(model: SklearnModel) -> dict[str, objec
     return state
 
 
-def sync_sklearn_from_components(model: SklearnModel) -> None:
-    """Copy fitted sklearn and preprocessing state from the composed model."""
-    composed = model._component_bridge.composed
-    if composed is None:
-        return
-    predictor = composed._predictor
-    predictor_state = predictor.get_state()
-    estimator = predictor_state.get("estimator")
-    if estimator is not None:
-        model.model = estimator
-
-    cell_line_featurizer = composed._cell_line_featurizer
-    if cell_line_featurizer is not None:
-        from drevalpy.components.featurizers.cell_line.concat import (
-            ConcatFeaturizersCellLineFeaturizer,
-        )
-
-        if isinstance(cell_line_featurizer, ConcatFeaturizersCellLineFeaturizer):
-            featurizer_state = ConcatFeaturizersCellLineFeaturizer.collect_legacy_state(
-                cell_line_featurizer,
-            )
-        else:
-            featurizer_state = cell_line_featurizer.get_state()
-        _apply_sklearn_featurizer_state_to_model(model, featurizer_state)
-
-
 def restore_sklearn_to_components(model: SklearnModel) -> None:
     """Inject serialized sklearn and preprocessing state into the composed model."""
     composed = model._component_bridge.composed
     if composed is None:
         return
     predictor = composed._predictor
-    if model.model is not None:
-        predictor.set_state({**predictor.get_state(), "estimator": model.model})
+    legacy_state = getattr(model, "_legacy_sklearn_state", None)
+    estimator = None
+    if isinstance(legacy_state, dict):
+        estimator = legacy_state.get("model")
+    elif model.model is not None:
+        estimator = model.model
+    if estimator is not None:
+        predictor.set_state({**predictor.get_state(), "estimator": estimator})
 
     cell_line_featurizer = composed._cell_line_featurizer
     if cell_line_featurizer is not None:
-        featurizer_state = _sklearn_featurizer_state_from_model(model)
+        if isinstance(legacy_state, dict):
+            featurizer_state = {
+                key: value
+                for key, value in legacy_state.items()
+                if key != "model" and value is not None
+            }
+        else:
+            featurizer_state = _sklearn_featurizer_state_from_model(model)
         if featurizer_state:
             featurizer_state["fitted"] = True
             from drevalpy.components.featurizers.cell_line.concat import (
@@ -243,12 +223,6 @@ def restore_sklearn_to_components(model: SklearnModel) -> None:
                 )
             else:
                 cell_line_featurizer.set_state(featurizer_state)
-
-
-def sync_literature_from_components(model: Any) -> None:
-    """Copy fitted component state onto a literature DRPModel wrapper."""
-    if hasattr(model, "_sync_impl_state_from_bridge"):
-        model._sync_impl_state_from_bridge()
 
 
 def restore_literature_to_components(model: Any) -> None:
@@ -299,16 +273,6 @@ def restore_literature_to_components(model: Any) -> None:
             cell_line_featurizer.set_state(featurizer_state)
 
 
-def sync_naive_from_components(model: NaiveModel, predictor_type: str) -> None:
-    """Copy naive predictor state to legacy DRPModel attributes."""
-    _ = predictor_type
-    composed = model._component_bridge.composed
-    if composed is None:
-        return
-    for key, value in composed._predictor.get_state().items():
-        setattr(model, key, value)
-
-
 def restore_naive_to_components(model: NaiveModel, predictor_type: str) -> None:
     """Inject legacy naive state into the composed predictor."""
     _ = predictor_type
@@ -325,9 +289,15 @@ def restore_naive_to_components(model: NaiveModel, predictor_type: str) -> None:
         "tissue_drug_means",
         "cell_line_effects",
         "drug_effects",
+        "tissue_effects",
     ):
-        if hasattr(model, key):
+        legacy_key = f"_legacy_{key}"
+        if hasattr(model, legacy_key):
+            value = getattr(model, legacy_key)
+        elif hasattr(model, key):
             value = getattr(model, key)
-            if value is not None and value != {}:
-                state[key] = value
+        else:
+            continue
+        if value is not None and value != {}:
+            state[key] = value
     predictor.set_state(state)

@@ -47,7 +47,10 @@ class StructuredLiteratureEnginePredictor(StructuredPredictor):
     def __init__(self) -> None:
         self._hyperparameters: dict[str, Any] = {}
         self._engine: LiteratureEngineBase | None = None
-        self._literature_host: Any | None = None
+        self._build_context: dict[str, Any] = {}
+
+    def set_build_context(self, context: dict[str, Any]) -> None:
+        self._build_context = dict(context)
 
     def build(self, hyperparameters: dict[str, Any], input_dims: dict[str, Any]) -> None:
         _ = input_dims
@@ -79,13 +82,12 @@ class StructuredLiteratureEnginePredictor(StructuredPredictor):
             drugs = drug_input
         return cell_lines, drugs
 
-    def _engine_from_host(self) -> LiteratureEngineBase:
+    def _engine_from_context(self) -> LiteratureEngineBase:
         engine = self._engine_cls()
-        host = self._literature_host
-        if host is not None:
-            for name, value in vars(host).items():
-                if name.startswith("_"):
-                    continue
+        for name, value in self._build_context.items():
+            if name.startswith("_"):
+                continue
+            if hasattr(engine, name):
                 setattr(engine, name, value)
         return engine
 
@@ -116,9 +118,12 @@ class StructuredLiteratureEnginePredictor(StructuredPredictor):
                 cell_line_input=cell_line_input,
                 drug_input=drug_input,
             )
-        host = self._literature_host
-        hyperparameters = {**self._hyperparameters, **getattr(host, "hyperparameters", {})}
-        engine = self._engine_from_host()
+        hyperparameters = dict(self._hyperparameters)
+        if "hyperparameters" in self._build_context:
+            nested = self._build_context.get("hyperparameters")
+            if isinstance(nested, dict):
+                hyperparameters = {**hyperparameters, **nested}
+        engine = self._engine_from_context()
         engine.build_model(hyperparameters)
         engine.train(
             output,

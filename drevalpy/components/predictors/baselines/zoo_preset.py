@@ -51,7 +51,7 @@ class ZooPresetSklearnModel(SklearnModel):
         ensure_components_registered()
         config = self._zoo_config()
         self._component_bridge.set_composed_config(config)
-        self.model = preview_sklearn_estimator(self._component_bridge, self.hyperparameters)
+        self._preview_model = preview_sklearn_estimator(self._component_bridge, self.hyperparameters)
 
     def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         config = self._zoo_config()

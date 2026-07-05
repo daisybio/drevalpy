@@ -26,19 +26,31 @@ from drevalpy.components.predictors.literature.impl.srmf.srmf import SRMF as _SR
 from drevalpy.components.predictors.literature.impl.superfeltr.superfeltr import SuperFELTR as _SuperFELTR
 from drevalpy.components.predictors.literature.structured_predictors import StructuredLiteratureEnginePredictor
 from drevalpy.components.register_builtins import ensure_components_registered
-from drevalpy.components.state_helpers import state_str_list
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models._component_bridge import (
-    _COMPONENT_STACK_FILE,
     _HYPERPARAMETERS_FILE,
     ComponentDRPBridge,
-    load_component_stack,
     restore_literature_to_components,
     save_component_stack,
-    sync_literature_from_components,
+)
+from drevalpy.models._legacy_checkpoint_loaders import has_component_stack, load_native_checkpoint
+from drevalpy.models._legacy_state_accessors import (
+    literature_input_dims_from_bridge,
+    literature_model_from_bridge,
 )
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.models.factory import model_config_for_name
+
+_SKIP_IMPL_STATE_COPY = frozenset(
+    {
+        "model",
+        "gene_expression_scaler",
+        "methylation_scaler",
+        "methylation_pca",
+        "proteomics_transformer",
+        "input_dims",
+    }
+)
 
 
 class LiteratureComponentDRPModel(DRPModel):
@@ -59,11 +71,14 @@ class LiteratureComponentDRPModel(DRPModel):
     def __init__(self) -> None:
         super().__init__()
         self._bridge = ComponentDRPBridge()
+        self._preview_model: Any | None = None
+        self._preview_featurizer: dict[str, Any] = {}
+        self._input_dims: dict[str, int] = {}
         impl_cls = type(self)._impl_cls
         if impl_cls is not None:
             temp = impl_cls()
             for key, value in temp.__dict__.items():
-                if key != "_bridge":
+                if key != "_bridge" and key not in _SKIP_IMPL_STATE_COPY:
                     setattr(self, key, value)
         if not hasattr(self, "hyperparameters"):
             self.hyperparameters = {}
@@ -119,6 +134,82 @@ class LiteratureComponentDRPModel(DRPModel):
         impl_cls = type(self)._impl_cls
         if impl_cls is not None:
             impl_cls.build_model(self, hyperparameters)
+        self._publish_build_context()
+
+    def _publish_build_context(self) -> None:
+        composed = self._bridge.composed
+        if composed is None:
+            return
+        predictor = composed._predictor
+        if isinstance(predictor, StructuredLiteratureEnginePredictor):
+            context = {
+                name: value
+                for name, value in vars(self).items()
+                if not name.startswith("_") and name not in {"hyperparameters", "wandb_project"}
+            }
+            context["hyperparameters"] = dict(self.hyperparameters)
+            predictor.set_build_context(context)
+
+    @property
+    def model(self):
+        fitted = literature_model_from_bridge(self._bridge)
+        if fitted is not None:
+            return fitted
+        return self._preview_model
+
+    @model.setter
+    def model(self, value: Any) -> None:
+        self._preview_model = value
+
+    @property
+    def gene_expression_scaler(self):
+        from drevalpy.models._legacy_state_accessors import sklearn_featurizer_state_from_bridge
+
+        fitted = sklearn_featurizer_state_from_bridge(self._bridge).get("gene_expression_scaler")
+        if fitted is not None:
+            return fitted
+        return self._preview_featurizer.get("gene_expression_scaler")
+
+    @gene_expression_scaler.setter
+    def gene_expression_scaler(self, value: Any) -> None:
+        self._preview_featurizer["gene_expression_scaler"] = value
+
+    @property
+    def methylation_scaler(self):
+        from drevalpy.models._legacy_state_accessors import sklearn_featurizer_state_from_bridge
+
+        fitted = sklearn_featurizer_state_from_bridge(self._bridge).get("methylation_scaler")
+        if fitted is not None:
+            return fitted
+        return self._preview_featurizer.get("methylation_scaler")
+
+    @methylation_scaler.setter
+    def methylation_scaler(self, value: Any) -> None:
+        self._preview_featurizer["methylation_scaler"] = value
+
+    @property
+    def methylation_pca(self):
+        from drevalpy.models._legacy_state_accessors import sklearn_featurizer_state_from_bridge
+
+        fitted = sklearn_featurizer_state_from_bridge(self._bridge).get("methylation_pca")
+        if fitted is not None:
+            return fitted
+        return self._preview_featurizer.get("methylation_pca")
+
+    @methylation_pca.setter
+    def methylation_pca(self, value: Any) -> None:
+        self._preview_featurizer["methylation_pca"] = value
+
+    @property
+    def input_dims(self):
+        dims = literature_input_dims_from_bridge(self._bridge)
+        if dims is not None:
+            return dims
+        return getattr(self, "_input_dims", {})
+
+    @input_dims.setter
+    def input_dims(self, value: dict[str, int]) -> None:
+        self._input_dims = dict(value)
 
     def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         impl_cls = type(self)._impl_cls
@@ -134,80 +225,6 @@ class LiteratureComponentDRPModel(DRPModel):
             raise NotImplementedError(msg)
         return impl_cls.load_drug_features(self, data_path, dataset_name)
 
-    def _sync_impl_state_from_bridge(self) -> None:
-        composed = self._bridge.composed
-        if composed is None:
-            return
-        predictor = composed._predictor
-
-        engine = getattr(predictor, "_engine", None)
-        if engine is not None:
-            for name, value in vars(engine).items():
-                if name.startswith("_"):
-                    continue
-                setattr(self, name, value)
-
-        component_model = getattr(predictor, "_model", None)
-        if component_model is not None:
-            self.model = component_model
-
-        cell_featurizer = composed._cell_line_featurizer
-        if cell_featurizer is not None:
-            from drevalpy.components.featurizers.cell_line.concat import (
-                ConcatFeaturizersCellLineFeaturizer,
-            )
-
-            if isinstance(cell_featurizer, ConcatFeaturizersCellLineFeaturizer):
-                state = ConcatFeaturizersCellLineFeaturizer.collect_legacy_state(cell_featurizer)
-            else:
-                state = cell_featurizer.get_state()
-            if "gene_expression_scaler" in state:
-                self.gene_expression_scaler = state["gene_expression_scaler"]
-            if "methylation_scaler" in state:
-                self.methylation_scaler = state["methylation_scaler"]
-            if "methylation_pca" in state:
-                self.methylation_pca = state["methylation_pca"]
-            views = state_str_list(state, "views")
-            if views is not None:
-                self.cell_line_views = views
-
-        drug_featurizer = composed._drug_featurizer
-        if drug_featurizer is not None and hasattr(drug_featurizer, "_view") and hasattr(self, "drug_views"):
-            self.drug_views = [drug_featurizer._view]
-
-        if composed._cell_line_matrix is not None and composed._cell_line_matrix.size:
-            cell_dim = int(composed._cell_line_matrix.shape[1])
-            if hasattr(self, "hyperparameters") and self.hyperparameters.get("input_dim_omic") is None:
-                self.hyperparameters["input_dim_omic"] = cell_dim
-        if composed._drug_matrix is not None and composed._drug_matrix.size:
-            from drevalpy.models.composed_model import _matrix_feature_width
-
-            drug_dim = _matrix_feature_width(composed._drug_matrix)
-            if hasattr(self, "hyperparameters") and self.hyperparameters.get("input_dim_fp") is None:
-                self.hyperparameters["input_dim_fp"] = drug_dim
-
-        if hasattr(self, "input_dims"):
-            view_dims = None
-            if cell_featurizer is not None:
-                if isinstance(cell_featurizer, ConcatFeaturizersCellLineFeaturizer):
-                    view_dims = state.get("view_dims")
-                else:
-                    view_dims = getattr(cell_featurizer, "view_dims", None)
-            if isinstance(view_dims, dict) and view_dims:
-                self.input_dims = dict(view_dims)
-                if drug_featurizer is not None and composed._drug_matrix is not None and composed._drug_matrix.size:
-                    from drevalpy.models.composed_model import _matrix_feature_width
-
-                    drug_view = self.drug_views[0] if self.drug_views else "fingerprints"
-                    self.input_dims[drug_view] = _matrix_feature_width(composed._drug_matrix)
-            elif cell_featurizer is not None and hasattr(cell_featurizer, "_view"):
-                self.input_dims = {cell_featurizer._view: int(cell_featurizer.output_dim)}
-                if drug_featurizer is not None and composed._drug_matrix is not None and composed._drug_matrix.size:
-                    from drevalpy.models.composed_model import _matrix_feature_width
-
-                    drug_view = self.drug_views[0] if self.drug_views else "fingerprints"
-                    self.input_dims[drug_view] = _matrix_feature_width(composed._drug_matrix)
-
     def train(
         self,
         output: DrugResponseDataset,
@@ -217,21 +234,13 @@ class LiteratureComponentDRPModel(DRPModel):
         model_checkpoint_dir: str = "checkpoints",
     ) -> None:
         _ = model_checkpoint_dir
-        composed = self._bridge.composed
-        predictor = composed._predictor if composed is not None else None
-        if isinstance(predictor, StructuredLiteratureEnginePredictor):
-            predictor._literature_host = self
-        try:
-            self._bridge.train(
-                output,
-                cell_line_input,
-                drug_input,
-                output_earlystopping=output_earlystopping,
-            )
-        finally:
-            if isinstance(predictor, StructuredLiteratureEnginePredictor):
-                predictor._literature_host = None
-        self._sync_impl_state_from_bridge()
+        self._publish_build_context()
+        self._bridge.train(
+            output,
+            cell_line_input,
+            drug_input,
+            output_earlystopping=output_earlystopping,
+        )
 
     def _predict_via_impl(
         self,
@@ -282,13 +291,11 @@ class LiteratureComponentDRPModel(DRPModel):
         if os.path.exists(hyperparameters_path):
             with open(hyperparameters_path) as handle:
                 hyperparameters = json.load(handle)
-        stack_path = os.path.join(directory, _COMPONENT_STACK_FILE)
-        if os.path.exists(stack_path):
+        if has_component_stack(directory):
             wrapper = cls()
             wrapper.build_model(hyperparameters)
-            loaded_hp = load_component_stack(wrapper._bridge, directory)
+            loaded_hp = load_native_checkpoint(wrapper, directory)
             wrapper.hyperparameters = loaded_hp or hyperparameters
-            sync_literature_from_components(wrapper)
             return wrapper
         if cls._impl_cls is None:
             msg = f"{cls.__name__}.load is not implemented"

@@ -44,3 +44,14 @@ Compatibility notes
 - Hyperparameter grids in YAML were replaced by component-owned defaults and
   structured search spaces. See :doc:`hyperparameter_migration`.
 - ``pydantic`` and ``optuna`` are required dependencies for config validation and HPO.
+
+Component-native state
+----------------------
+
+Fitted model state now lives in the component stack (``component_stack.joblib`` plus
+``hyperparameters.json``). Legacy wrapper attributes such as ``model``, ``drug_means``,
+or ``gene_expression_scaler`` are read-only views into that stack for backward
+compatibility. Legacy checkpoint formats (``naive_model.json``, ``model.pkl``/``scaler.pkl``,
+and literature-specific artifacts) can still be loaded during the deprecation window via
+``drevalpy.models._legacy_checkpoint_loaders`` and converted with
+``drevalpy.models.legacy_checkpoint_migration.migrate_checkpoint_to_component_stack``.

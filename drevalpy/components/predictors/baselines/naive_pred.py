@@ -11,8 +11,6 @@ cell line residual effect, and drug effect and should be the strongest naive bas
 
 """
 
-import json
-import os
 
 import numpy as np
 
@@ -26,13 +24,15 @@ from drevalpy.data.features import (
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, TISSUE_IDENTIFIER
 from drevalpy.models._component_bridge import (
-    _COMPONENT_STACK_FILE,
     ComponentDRPBridge,
-    load_component_stack,
-    restore_naive_to_components,
     save_component_stack,
-    sync_naive_from_components,
 )
+from drevalpy.models._legacy_checkpoint_loaders import (
+    has_component_stack,
+    load_legacy_naive_checkpoint,
+    load_native_checkpoint,
+)
+from drevalpy.models._legacy_state_accessors import naive_state_from_bridge
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.models.factory import NAIVE_PREDICTOR_BY_MODEL_NAME, model_config_for_name
 
@@ -49,7 +49,41 @@ class NaiveModel(DRPModel):
         """Initializes the NaiveModel base class."""
         super().__init__()
         self._component_bridge = ComponentDRPBridge()
-        self.dataset_mean = None
+
+    def _naive_state(self) -> dict:
+        return naive_state_from_bridge(self._component_bridge)
+
+    @property
+    def dataset_mean(self):
+        return self._naive_state().get("dataset_mean")
+
+    @property
+    def drug_means(self):
+        return self._naive_state().get("drug_means")
+
+    @property
+    def cell_line_means(self):
+        return self._naive_state().get("cell_line_means")
+
+    @property
+    def tissue_means(self):
+        return self._naive_state().get("tissue_means")
+
+    @property
+    def tissue_drug_means(self):
+        return self._naive_state().get("tissue_drug_means")
+
+    @property
+    def cell_line_effects(self):
+        return self._naive_state().get("cell_line_effects")
+
+    @property
+    def drug_effects(self):
+        return self._naive_state().get("drug_effects")
+
+    @property
+    def tissue_effects(self):
+        return self._naive_state().get("tissue_effects", {})
 
     def _predictor_type(self) -> str:
         predictor_type = NAIVE_PREDICTOR_BY_MODEL_NAME.get(self.get_model_name())
@@ -85,7 +119,6 @@ class NaiveModel(DRPModel):
         """Train the naive baseline via the component stack."""
         self._ensure_built()
         self._component_bridge.train(output, cell_line_input, drug_input)
-        sync_naive_from_components(self, self._predictor_type())
 
     def predict(
         self,
@@ -112,29 +145,10 @@ class NaiveModel(DRPModel):
         :param directory: Path to the directory where the model will be saved.
         """
         self._ensure_built()
-        if self._component_bridge.is_trained():
-            save_component_stack(self._component_bridge, directory, hyperparameters={})
-            sync_naive_from_components(self, self._predictor_type())
-            return
-        os.makedirs(directory, exist_ok=True)
-        config = {"dataset_mean": self.dataset_mean}
-        for attr in [
-            "drug_means",
-            "cell_line_means",
-            "tissue_means",
-            "tissue_drug_means",
-            "cell_line_effects",
-            "drug_effects",
-        ]:
-            if hasattr(self, attr):
-                value = getattr(self, attr)
-                if attr == "tissue_drug_means" and value:
-                    first_key = next(iter(value))
-                    if isinstance(first_key, tuple):
-                        value = {f"{tissue}|{drug}": mean for (tissue, drug), mean in value.items()}
-                config[attr] = value
-        with open(os.path.join(directory, "naive_model.json"), "w") as f:
-            json.dump(config, f)
+        if not self._component_bridge.is_trained():
+            msg = "Cannot save: component stack is not trained"
+            raise RuntimeError(msg)
+        save_component_stack(self._component_bridge, directory, hyperparameters={})
 
     @classmethod
     def load(cls, directory: str) -> "NaiveModel":
@@ -144,33 +158,14 @@ class NaiveModel(DRPModel):
         :param directory: Path to the directory where the model is saved.
         :return: An instance of NaiveModel with the loaded parameters.
         """
-        stack_path = os.path.join(directory, _COMPONENT_STACK_FILE)
-        if os.path.exists(stack_path):
+        if has_component_stack(directory):
             instance = cls()
             instance.build_model({})
-            load_component_stack(instance._component_bridge, directory)
-            sync_naive_from_components(instance, instance._predictor_type())
+            load_native_checkpoint(instance, directory)
             return instance
 
-        with open(os.path.join(directory, "naive_model.json")) as f:
-            config = json.load(f)
         instance = cls()
-        instance.dataset_mean = config["dataset_mean"]
-        for attr in [
-            "drug_means",
-            "cell_line_means",
-            "tissue_means",
-            "tissue_drug_means",
-            "cell_line_effects",
-            "drug_effects",
-        ]:
-            if attr in config:
-                value = config[attr]
-                if attr == "tissue_drug_means":
-                    value = {tuple(key.split("|", maxsplit=1)): mean for key, mean in value.items()}
-                setattr(instance, attr, value)
-        instance.build_model({})
-        restore_naive_to_components(instance, instance._predictor_type())
+        load_legacy_naive_checkpoint(instance, directory)
         return instance
 
 
@@ -231,7 +226,6 @@ class NaiveDrugMeanPredictor(NaiveModel):
         Drug means and dataset mean are set to None, which are initialized in the train method.
         """
         super().__init__()
-        self.drug_means = None
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -289,7 +283,6 @@ class NaiveCellLineMeanPredictor(NaiveModel):
         Cell line means and dataset mean are set to None, which are initialized in the train method.
         """
         super().__init__()
-        self.cell_line_means = None
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -347,7 +340,6 @@ class NaiveTissueMeanPredictor(NaiveModel):
         Tissue means and dataset mean are set to None, which are initialized in the train method.
         """
         super().__init__()
-        self.tissue_means = None
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -408,9 +400,6 @@ class NaiveMeanEffectsPredictor(NaiveModel):
         are initialized to None and empty dictionaries, respectively.
         """
         super().__init__()
-        self.tissue_effects = {}
-        self.cell_line_effects = {}
-        self.drug_effects = {}
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -461,7 +450,6 @@ class NaiveTissueDrugMeanPredictor(NaiveModel):
         Tissue-drug means and dataset mean are set to None, which are initialized in the train method.
         """
         super().__init__()
-        self.tissue_drug_means = None
 
     @classmethod
     def get_model_name(cls) -> str:

@@ -1,25 +1,24 @@
 """Contains sklearn baseline models: ElasticNet, RandomForest, SVM, AdaBoost."""
 
-import json
-import os
 
-import joblib
 import numpy as np
-from sklearn.preprocessing import StandardScaler
 
 from drevalpy.components.register_builtins import ensure_components_registered
 from drevalpy.data.features import _get_view_as_list, load_single_cell_line_view, load_single_drug_view
-from drevalpy.data.preprocessing import ProteomicsMedianCenterAndImputeTransformer
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models._component_bridge import (
-    _COMPONENT_STACK_FILE,
-    _HYPERPARAMETERS_FILE,
     ComponentDRPBridge,
-    load_component_stack,
     preview_sklearn_estimator,
-    restore_sklearn_to_components,
     save_component_stack,
-    sync_sklearn_from_components,
+)
+from drevalpy.models._legacy_checkpoint_loaders import (
+    has_component_stack,
+    load_legacy_sklearn_checkpoint,
+    load_native_checkpoint,
+)
+from drevalpy.models._legacy_state_accessors import (
+    sklearn_estimator_from_bridge,
+    sklearn_featurizer_state_from_bridge,
 )
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.models.factory import SKLEARN_PREDICTOR_BY_MODEL_NAME, sklearn_model_config
@@ -44,18 +43,36 @@ class SklearnModel(DRPModel):
         """
         super().__init__()
         self._component_bridge = ComponentDRPBridge()
-        self.model = None
-        self.gene_expression_scaler = StandardScaler()
+        self._preview_model = None
         # proteomics-specific defaults
-        self.proteomics_transformer = None
         self.proteomics_feature_threshold = 0.7
         self.proteomics_n_features = 1000
         self.proteomics_normalization_width = 0.3
         self.proteomics_normalization_downshift = 1.8
-        # methylation-specific defaults
-        self.methylation_scaler = StandardScaler()
-        self.methylation_pca = None
         self.methylation_n_components = 100
+
+    @property
+    def model(self):
+        fitted = sklearn_estimator_from_bridge(self._component_bridge)
+        if fitted is not None:
+            return fitted
+        return self._preview_model
+
+    @property
+    def gene_expression_scaler(self):
+        return sklearn_featurizer_state_from_bridge(self._component_bridge).get("gene_expression_scaler")
+
+    @property
+    def methylation_scaler(self):
+        return sklearn_featurizer_state_from_bridge(self._component_bridge).get("methylation_scaler")
+
+    @property
+    def methylation_pca(self):
+        return sklearn_featurizer_state_from_bridge(self._component_bridge).get("methylation_pca")
+
+    @property
+    def proteomics_transformer(self):
+        return sklearn_featurizer_state_from_bridge(self._component_bridge).get("proteomics_transformer")
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -108,19 +125,13 @@ class SklearnModel(DRPModel):
         hp["drug_views"] = self.drug_views
         config = sklearn_model_config(predictor_type, hp)
         self._component_bridge.set_composed_config(config)
-        self.model = preview_sklearn_estimator(self._component_bridge, hp)
+        self._preview_model = preview_sklearn_estimator(self._component_bridge, hp)
 
     def _init_proteomics_features(self, hyperparameters: dict):
         self.proteomics_feature_threshold = hyperparameters.get("proteomics_feature_threshold", 0.7)
         self.proteomics_n_features = hyperparameters.get("proteomics_n_features", 1000)
         self.proteomics_normalization_width = hyperparameters.get("proteomics_normalization_width", 0.3)
         self.proteomics_normalization_downshift = hyperparameters.get("proteomics_normalization_downshift", 1.8)
-        self.proteomics_transformer = ProteomicsMedianCenterAndImputeTransformer(
-            feature_threshold=self.proteomics_feature_threshold,
-            n_features=self.proteomics_n_features,
-            normalization_downshift=self.proteomics_normalization_downshift,
-            normalization_width=self.proteomics_normalization_width,
-        )
 
     def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         """
@@ -162,10 +173,9 @@ class SklearnModel(DRPModel):
         """
         if len(output) == 0:
             print("No training data provided, will predict NA.")
-            self.model = None
+            self._preview_model = None
             return
         self._component_bridge.train(output, cell_line_input, drug_input)
-        sync_sklearn_from_components(self)
 
     def predict(
         self,
@@ -197,30 +207,13 @@ class SklearnModel(DRPModel):
         :param directory: path to the directory where model files will be stored
         :raises ValueError: if the model is not trained
         """
-        if self._component_bridge.is_trained():
-            save_component_stack(
-                self._component_bridge,
-                directory,
-                hyperparameters=getattr(self, "hyperparameters", {}),
-            )
-            sync_sklearn_from_components(self)
-            return
-        if self.model is None:
+        if not self._component_bridge.is_trained():
             raise ValueError("Cannot save: model is not trained.")
-
-        os.makedirs(directory, exist_ok=True)
-        sync_sklearn_from_components(self)
-        joblib.dump(self.model, os.path.join(directory, "model.pkl"))
-        with open(os.path.join(directory, "hyperparameters.json"), "w") as f:
-            json.dump(getattr(self, "hyperparameters", {}), f)
-        if self.gene_expression_scaler is not None:
-            joblib.dump(self.gene_expression_scaler, os.path.join(directory, "scaler.pkl"))
-        if getattr(self, "methylation_scaler", None) is not None and hasattr(self.methylation_scaler, "mean_"):
-            joblib.dump(self.methylation_scaler, os.path.join(directory, "methylation_scaler.pkl"))
-        if getattr(self, "methylation_pca", None) is not None and hasattr(self.methylation_pca, "components_"):
-            joblib.dump(self.methylation_pca, os.path.join(directory, "methylation_pca.pkl"))
-        if self.proteomics_transformer is not None:
-            joblib.dump(self.proteomics_transformer, os.path.join(directory, "proteomics_transformer.pkl"))
+        save_component_stack(
+            self._component_bridge,
+            directory,
+            hyperparameters=getattr(self, "hyperparameters", {}),
+        )
 
     @classmethod
     def load(cls, directory: str) -> "SklearnModel":
@@ -231,49 +224,13 @@ class SklearnModel(DRPModel):
         :return: an instance of the model with restored state
         :raises FileNotFoundError: if no recognized model artifacts are present
         """
-        stack_path = os.path.join(directory, _COMPONENT_STACK_FILE)
-        if os.path.exists(stack_path):
-            hyperparams_path = os.path.join(directory, _HYPERPARAMETERS_FILE)
-            hyperparameters: dict = {}
-            if os.path.exists(hyperparams_path):
-                with open(hyperparams_path) as f:
-                    hyperparameters = json.load(f)
+        if has_component_stack(directory):
             instance = cls()
-            instance.build_model(hyperparameters)
-            load_component_stack(instance._component_bridge, directory)
-            sync_sklearn_from_components(instance)
+            load_native_checkpoint(instance, directory)
             return instance
 
-        model_path = os.path.join(directory, "model.pkl")
-        if not os.path.exists(model_path):
-            raise FileNotFoundError(f"{model_path} not found")
-
         instance = cls()
-
-        hyperparams_path = os.path.join(directory, "hyperparameters.json")
-        with open(hyperparams_path) as f:
-            hyperparameters = json.load(f)
-        instance.build_model(hyperparameters)
-        instance.model = joblib.load(model_path)
-        restore_sklearn_to_components(instance)
-
-        scaler_path = os.path.join(directory, "scaler.pkl")
-        if os.path.exists(scaler_path):
-            instance.gene_expression_scaler = joblib.load(scaler_path)
-
-        methylation_scaler_path = os.path.join(directory, "methylation_scaler.pkl")
-        if os.path.exists(methylation_scaler_path):
-            instance.methylation_scaler = joblib.load(methylation_scaler_path)
-
-        methylation_pca_path = os.path.join(directory, "methylation_pca.pkl")
-        if os.path.exists(methylation_pca_path):
-            instance.methylation_pca = joblib.load(methylation_pca_path)
-
-        transformer_path = os.path.join(directory, "proteomics_transformer.pkl")
-        if os.path.exists(transformer_path):
-            instance.proteomics_transformer = joblib.load(transformer_path)
-
-        restore_sklearn_to_components(instance)
+        load_legacy_sklearn_checkpoint(instance, directory)
         return instance
 
 
