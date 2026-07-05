@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import numpy as np
+
 from drevalpy.components.tuning.config import HPOConfig
 from drevalpy.models import MODEL_FACTORY
 
@@ -14,22 +16,33 @@ def test_hpam_tune_ray_optuna_logs_wandb_config(monkeypatch) -> None:
 
     init_calls: list[dict] = []
 
-    class FakeWandb:
-        run = object()
+    def fake_init_wandb(
+        self,
+        project: str,
+        config: dict | None = None,
+        name: str | None = None,
+        tags: list[str] | None = None,
+        finish_previous: bool = True,
+    ) -> None:
+        _ = name, tags, finish_previous
+        init_calls.append({"project": project, "config": config})
+        self.wandb_project = project
+        self.wandb_run = object()
 
-        @staticmethod
-        def init(**kwargs):
-            init_calls.append(kwargs)
+    def fake_is_wandb_enabled(self) -> bool:
+        return self.wandb_project is not None
 
-        @staticmethod
-        def finish():
-            return None
+    def fake_finish_wandb(self) -> None:
+        self.wandb_project = None
+        self.wandb_run = None
 
-        @staticmethod
-        def config_update(*_args, **_kwargs):
-            return None
-
-    monkeypatch.setitem(__import__("sys").modules, "wandb", FakeWandb)
+    monkeypatch.setattr("drevalpy.models.drp_model.DRPModel.init_wandb", fake_init_wandb)
+    monkeypatch.setattr("drevalpy.models.drp_model.DRPModel.is_wandb_enabled", fake_is_wandb_enabled)
+    monkeypatch.setattr("drevalpy.models.drp_model.DRPModel.finish_wandb", fake_finish_wandb)
+    monkeypatch.setattr(
+        "drevalpy.experiment.train_and_evaluate",
+        lambda **_kwargs: {"RMSE": 0.2},
+    )
 
     class FakeTuner:
         def __init__(self, trainable, param_space, tune_config, run_config=None):
@@ -54,6 +67,7 @@ def test_hpam_tune_ray_optuna_logs_wandb_config(monkeypatch) -> None:
 
     monkeypatch.setattr("ray.tune.Tuner", FakeTuner)
     monkeypatch.setattr("ray.init", lambda **kwargs: None)
+    monkeypatch.setattr("ray.is_initialized", lambda: True)
 
     from drevalpy.components.tuning.hpo import hpam_tune_ray_optuna
     from drevalpy.datasets.dataset import DrugResponseDataset
@@ -61,9 +75,9 @@ def test_hpam_tune_ray_optuna_logs_wandb_config(monkeypatch) -> None:
     model_cls = MODEL_FACTORY["ElasticNet"]
     model = model_cls()
     dataset = DrugResponseDataset(
-        response=[1.0, 2.0],
-        cell_line_ids=["cl1", "cl2"],
-        drug_ids=["d1", "d1"],
+        response=np.array([1.0, 2.0]),
+        cell_line_ids=np.array(["cl1", "cl2"]),
+        drug_ids=np.array(["d1", "d1"]),
     )
     hpam_tune_ray_optuna(
         model=model,
@@ -73,7 +87,7 @@ def test_hpam_tune_ray_optuna_logs_wandb_config(monkeypatch) -> None:
         model_class=model_cls,
         metric="RMSE",
         path_data="data",
-        hpo_config=HPOConfig.from_metric("RMSE", n_trials=1),
+        hpo_config=HPOConfig.from_metric("RMSE", n_trials=2),
         wandb_project="test-project",
         wandb_base_config={"dataset": "TOYv1"},
     )

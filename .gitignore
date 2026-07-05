@@ -1,6 +1,7 @@
 # Data (dataset files at repo root; not the drevalpy.data package)
 data/
 !drevalpy/data/
+!tests/data/
 
 # Results directory is created when running the demo notebook
 results/

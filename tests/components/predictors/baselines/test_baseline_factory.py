@@ -26,6 +26,7 @@ BASELINE_FACTORY_NAMES = [
     "KNNRegressor",
     "MultiViewRandomForest",
     "MultiViewXGBoost",
+    "MultiViewLightGBM",
     "SingleDrugElasticNet",
     "SingleDrugRandomForest",
 ]

@@ -7,7 +7,7 @@ Flexible Input System
 --------------------------------------------
 
 The baseline neural network models support **flexible inputs**. Rather than hardcoding which omic data type a model uses,
-you configure ``cell_line_views`` and ``drug_views`` directly in the ``hyperparameters.yaml`` file.
+you configure ``cell_line_views`` and ``drug_views`` through zoo YAML or the public hyperparameter dict passed to ``build_model()``.
 
 By doing this, we have replaced the ``ChemBERTaNeuralNetwork`` whose only difference to the ``SimpleNeuralNetwork`` was
 its usage of ChemBERTa embeddings instead of fingerprints as input.

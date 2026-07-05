@@ -137,7 +137,11 @@ class ComponentDRPBridge:
         drug_input: FeatureDataset | None = None,
     ) -> np.ndarray:
         if self._composed is None:
-            return np.full(len(cell_line_ids), np.nan)
+            msg = "Model has not been built; call build_model() before predict()"
+            raise RuntimeError(msg)
+        if not self.is_trained():
+            msg = "Model has not been trained; call train() or load() before predict()"
+            raise RuntimeError(msg)
         return self._composed.predict(cell_line_ids, drug_ids, cell_line_input, drug_input)
 
     @property

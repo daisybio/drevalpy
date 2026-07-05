@@ -31,6 +31,7 @@ _LEGACY_MODULE_PATHS = (
     "drevalpy.models.baselines.naive_pred",
     "drevalpy.models.baselines.multi_view_random_forest",
     "drevalpy.models.baselines.multi_view_xgboost",
+    "drevalpy.models.baselines.multi_view_lightgbm",
     "drevalpy.models.baselines.singledrug_baselines",
 )
 
@@ -61,6 +62,7 @@ _LEGACY_SYMBOLS = {
     "drevalpy.models.baselines.naive_pred": ("NaivePredictor", "NaiveDrugMeanPredictor"),
     "drevalpy.models.baselines.multi_view_random_forest": ("MultiViewRandomForest",),
     "drevalpy.models.baselines.multi_view_xgboost": ("MultiViewXGBoost",),
+    "drevalpy.models.baselines.multi_view_lightgbm": ("MultiViewLightGBM",),
     "drevalpy.models.baselines.singledrug_baselines": ("SingleDrugElasticNet", "SingleDrugRandomForest"),
 }
 
@@ -88,6 +90,6 @@ def test_model_factory_models_instantiate(model_name: str) -> None:
     try:
         model.build_model(hyperparameters=hyperparameters)
     except ImportError as exc:
-        if model_name == "MultiViewXGBoost":
+        if model_name in {"MultiViewXGBoost", "MultiViewLightGBM"}:
             pytest.skip(str(exc))
         raise

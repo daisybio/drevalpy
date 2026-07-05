@@ -199,7 +199,7 @@ def run_randomization_split(*, model_name: str, randomization_mode: str) -> None
     if not randomization_test_views:
         raise RuntimeError(
             f"No randomization test views were produced for {model_name} with mode {randomization_mode}. "
-            "Check that the model's hyperparameters.yaml declares cell_line_views/drug_views."
+            "Check that the model declares cell_line_views/drug_views in its public hyperparameters."
         )
 
     for test_name, views in randomization_test_views.items():

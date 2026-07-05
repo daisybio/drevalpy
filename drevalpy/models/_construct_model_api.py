@@ -159,8 +159,12 @@ def construct_model(name: str, spec: str) -> type[DRPModel]:
             cell_line_input: FeatureDataset,
             drug_input: FeatureDataset | None = None,
         ):
+            if self._bridge.composed is None:
+                msg = "Model has not been built; call build_model() before predict()"
+                raise RuntimeError(msg)
             if not self._bridge.is_trained():
-                return np.full(len(cell_line_ids), np.nan)
+                msg = "Model has not been trained; call train() or load() before predict()"
+                raise RuntimeError(msg)
             return self._bridge.predict(cell_line_ids, drug_ids, cell_line_input, drug_input)
 
         def save(self, directory: str) -> None:

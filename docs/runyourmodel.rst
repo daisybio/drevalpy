@@ -102,7 +102,8 @@ For our provided datasets, we have other loading methods implemented in the `dre
         return feature_dataset
 
 The build_model functions can be used if you want to use tunable hyperparameters.
-The hyperparameters which get tested are defined in the ``drevalpy/models/your_model_name/hyperparameters.yaml``.
+Implement ``get_default_hyperparameters()`` and ``get_hyperparameter_space()`` on your predictor component.
+See :doc:`hyperparameter_migration` for the current tuning workflow.
 
 .. code-block:: Python
 
@@ -357,7 +358,7 @@ Gene expression features are standardized using a ``StandardScaler``, while fing
 
             return self.model.predict(x)
 
-7. Add hyperparameters to your ``hyperparameters.yaml``. We add two values for the hidden layer size. DrEval will tune over this hyperparameter space.
+7. Add ``get_hyperparameter_space()`` to your predictor component. DrEval will tune over that structured search space when ``hyperparameter_tuning=True``.
 
 .. code-block:: YAML
 

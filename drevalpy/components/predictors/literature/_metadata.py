@@ -59,3 +59,11 @@ DIPK_METADATA = {
     "citation_text": "DIPK deep integration model with BIONIC and MolGNet features.",
     "deviations": LITERATURE_INTEGRATION_DEVIATIONS,
 }
+
+SPARSEGO_METADATA = {
+    "category": "literature",
+    "template_repo_url": "https://github.com/KatynaSada/SparseGO_lightning",
+    "citation_doi": "10.1016/j.ebiom.2023.104767",
+    "citation_text": "SparseGO visible neural network structured by the Gene Ontology hierarchy.",
+    "deviations": LITERATURE_INTEGRATION_DEVIATIONS,
+}

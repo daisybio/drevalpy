@@ -19,3 +19,17 @@ def test_drp_model_does_not_load_yaml_hyperparameters() -> None:
     source = inspect.getsource(drp_model.DRPModel.get_hyperparameter_set)
     assert "yaml" not in source.lower()
     assert "ParameterGrid" not in source
+
+
+def test_legacy_baseline_hyperparameters_yaml_removed() -> None:
+    from pathlib import Path
+
+    path = (
+        Path(__file__).resolve().parents[2]
+        / "drevalpy"
+        / "components"
+        / "predictors"
+        / "baselines"
+        / "hyperparameters.yaml"
+    )
+    assert not path.exists()

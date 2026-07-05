@@ -7,7 +7,7 @@ Flexible Input System
 --------------------------------------------
 
 The sklearn baseline models support **flexible inputs**. Rather than hardcoding which omic data type a model uses,
-you configure ``cell_line_views`` and ``drug_views`` directly in the ``hyperparameters.yaml`` file.
+you configure ``cell_line_views`` and ``drug_views`` through zoo YAML or the public hyperparameter dict passed to ``build_model()``.
 A single model class (e.g., ``ElasticNet``, ``RandomForest``, ``KNNRegressor``) can therefore be trained on gene expression,
 proteomics, or any other available omic without needing a separate Python class for each combination.
 

@@ -86,7 +86,7 @@ def test_no_pair_context_in_production_code() -> None:
 
 
 def test_multiview_baselines_are_zoo_presets() -> None:
-    for name in ("MultiViewRandomForest", "MultiViewXGBoost"):
+    for name in ("MultiViewRandomForest", "MultiViewXGBoost", "MultiViewLightGBM"):
         cls = MODEL_FACTORY[name]
         assert issubclass(cls, ZooPresetSklearnModel)
         config = ModelConfig.from_spec(name)

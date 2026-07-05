@@ -18,6 +18,7 @@ LITERATURE_ZOO_NAMES = [
     "SRMF",
     "SimpleNeuralNetwork",
     "MultiViewNeuralNetwork",
+    "SparseGO",
 ]
 
 

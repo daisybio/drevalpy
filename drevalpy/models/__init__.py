@@ -65,6 +65,7 @@ if TYPE_CHECKING:
         LassoModel,
         MultiViewRandomForest,
         MultiViewXGBoost,
+        MultiViewLightGBM,
         NaiveCellLineMeanPredictor,
         NaiveDrugMeanPredictor,
         NaiveMeanEffectsPredictor,
@@ -85,10 +86,10 @@ if TYPE_CHECKING:
         PharmaFormerModel,
         PrecilyModel,
         SimpleNeuralNetwork,
+        SparseGOModel,
         SuperFELTR,
     )
-    from .baselines.multi_view_lightgbm import MultiViewLightGBM
-    from .SparseGO.sparsego import SparseGOModel
+    from drevalpy.components.predictors.baselines.zoo_preset import MultiViewLightGBM
 
     SINGLE_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]]
     MULTI_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]]
@@ -108,6 +109,7 @@ def _lazy_load_public_models() -> None:
         LassoModel,
         MultiViewRandomForest,
         MultiViewXGBoost,
+        MultiViewLightGBM,
         NaiveCellLineMeanPredictor,
         NaiveDrugMeanPredictor,
         NaiveMeanEffectsPredictor,
@@ -128,10 +130,10 @@ def _lazy_load_public_models() -> None:
         PharmaFormerModel,
         PrecilyModel,
         SimpleNeuralNetwork,
+        SparseGOModel,
         SuperFELTR,
     )
-    from .baselines.multi_view_lightgbm import MultiViewLightGBM
-    from .SparseGO.sparsego import SparseGOModel
+    from drevalpy.components.predictors.baselines.zoo_preset import MultiViewLightGBM
 
     single: dict[str, type[DRPModel]] = {
         "SingleDrugElasticNet": SingleDrugElasticNet,
@@ -197,6 +199,7 @@ def _lazy_load_public_models() -> None:
             "PrecilyModel": PrecilyModel,
             "SRMF": SRMF,
             "SimpleNeuralNetwork": SimpleNeuralNetwork,
+            "SparseGOModel": SparseGOModel,
             "SuperFELTR": SuperFELTR,
             "SparseGO": SparseGOModel,
             "SINGLE_DRUG_MODEL_FACTORY": single,

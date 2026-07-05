@@ -82,3 +82,19 @@ class MultiViewXGBoost(ZooPresetSklearnModel):
     """Multi-view XGBoost resolved from the zoo preset."""
 
     _zoo_name = "MultiViewXGBoost"
+
+
+class MultiViewLightGBM(ZooPresetSklearnModel):
+    """Multi-view LightGBM resolved from the zoo preset."""
+
+    _zoo_name = "MultiViewLightGBM"
+
+    def build_model(self, hyperparameters: dict) -> None:
+        try:
+            import lightgbm  # noqa: F401
+        except ImportError as exc:
+            raise ImportError(
+                "MultiViewLightGBM requires the optional 'lightgbm' extra. "
+                "Install it with: pip install drevalpy[lightgbm] (or `poetry install -E lightgbm`)."
+            ) from exc
+        super().build_model(hyperparameters)

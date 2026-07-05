@@ -1,4 +1,4 @@
-"""Compatibility re-export for SparseGOModel."""
+"""SparseGO literature implementation."""
 
 from drevalpy.components.predictors.literature.impl.sparsego.sparsego import SparseGOModel
 

@@ -22,7 +22,9 @@ from drevalpy.components.predictors.literature.impl.simple_neural_network.simple
     SimpleNeuralNetwork as _SimpleNeuralNetwork,
 )
 from drevalpy.components.predictors.literature.impl.srmf.srmf import SRMF as _SRMFImpl  # noqa: N811
+from drevalpy.components.predictors.literature.impl.sparsego.sparsego import SparseGOModel as _SparseGOModel
 from drevalpy.components.predictors.literature.impl.superfeltr.superfeltr import SuperFELTR as _SuperFELTR
+from drevalpy.components.predictors.literature.structured_predictors import StructuredLiteratureEnginePredictor
 from drevalpy.components.register_builtins import ensure_components_registered
 from drevalpy.components.state_helpers import state_str_list
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
@@ -215,12 +217,20 @@ class LiteratureComponentDRPModel(DRPModel):
         model_checkpoint_dir: str = "checkpoints",
     ) -> None:
         _ = model_checkpoint_dir
-        self._bridge.train(
-            output,
-            cell_line_input,
-            drug_input,
-            output_earlystopping=output_earlystopping,
-        )
+        composed = self._bridge.composed
+        predictor = composed._predictor if composed is not None else None
+        if isinstance(predictor, StructuredLiteratureEnginePredictor):
+            predictor._literature_host = self
+        try:
+            self._bridge.train(
+                output,
+                cell_line_input,
+                drug_input,
+                output_earlystopping=output_earlystopping,
+            )
+        finally:
+            if isinstance(predictor, StructuredLiteratureEnginePredictor):
+                predictor._literature_host = None
         self._sync_impl_state_from_bridge()
 
     def _predict_via_impl(
@@ -246,7 +256,14 @@ class LiteratureComponentDRPModel(DRPModel):
             return self._bridge.predict(cell_line_ids, drug_ids, cell_line_input, drug_input)
         if getattr(self, "model", None) is not None:
             return self._predict_via_impl(cell_line_ids, drug_ids, cell_line_input, drug_input)
-        return np.full(len(cell_line_ids), np.nan, dtype=np.float64)
+        impl_cls = type(self)._impl_cls
+        if impl_cls is not None:
+            return self._predict_via_impl(cell_line_ids, drug_ids, cell_line_input, drug_input)
+        if self._bridge.composed is None:
+            msg = "Model has not been built; call build_model() before predict()"
+            raise RuntimeError(msg)
+        msg = "Model has not been trained; call train() or load() before predict()"
+        raise RuntimeError(msg)
 
     def save(self, directory: str) -> None:
         if self._bridge.is_trained():
@@ -357,6 +374,13 @@ class DIPKModel(LiteratureComponentDRPModel):
     _impl_cls = _DIPKModel
 
 
+class SparseGOModel(LiteratureComponentDRPModel):
+    """SparseGO literature model routed through the component stack."""
+
+    _zoo_name = "SparseGO"
+    _impl_cls = _SparseGOModel
+
+
 __all__ = [
     "DIPKModel",
     "DrugGNN",
@@ -367,5 +391,6 @@ __all__ = [
     "PrecilyModel",
     "SRMF",
     "SimpleNeuralNetwork",
+    "SparseGOModel",
     "SuperFELTR",
 ]

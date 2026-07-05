@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 
+import numpy as np
 import pytest
 
 from drevalpy.components.tuning.config import HPOConfig
@@ -74,9 +75,9 @@ def test_hpam_tune_ray_optuna_uses_optuna(monkeypatch) -> None:
     model_cls = MODEL_FACTORY["ElasticNet"]
     model = model_cls()
     train = DrugResponseDataset(
-        response=[1.0, 2.0],
-        cell_line_ids=["cl1", "cl2"],
-        drug_ids=["d1", "d1"],
+        response=np.array([1.0, 2.0]),
+        cell_line_ids=np.array(["cl1", "cl2"]),
+        drug_ids=np.array(["d1", "d1"]),
     )
     val = train.copy()
     best = hpam_tune_ray_optuna(

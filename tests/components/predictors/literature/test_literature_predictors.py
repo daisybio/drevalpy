@@ -25,6 +25,7 @@ def _register_components() -> None:
         ("superfeltr", True, False),
         ("pharmaFormer", True, True),
         ("dipk", True, True),
+        ("sparsego", True, True),
     ],
 )
 def test_literature_predictor_flags(name: str, structured: bool, requires_drug: bool) -> None:

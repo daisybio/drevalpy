@@ -91,6 +91,7 @@ SKLEARN_PREDICTOR_BY_MODEL_NAME = {
     "KNNRegressor": "knn",
     "MultiViewRandomForest": "randomForest",
     "MultiViewXGBoost": "xgboost",
+    "MultiViewLightGBM": "lightgbm",
     "SingleDrugElasticNet": "elasticNet",
     "SingleDrugRandomForest": "randomForest",
 }
@@ -114,6 +115,7 @@ LEGACY_PREDICTOR_BY_MODEL_NAME = {
     "SRMF": "srmf",
     "SimpleNeuralNetwork": "neuralNetwork",
     "MultiViewNeuralNetwork": "neuralNetwork",
+    "SparseGO": "sparsego",
 }
 
 

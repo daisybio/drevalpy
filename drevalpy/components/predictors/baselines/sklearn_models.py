@@ -70,8 +70,9 @@ class SklearnModel(DRPModel):
         """
         Builds the model from hyperparameters.
 
-        Flexible input support: Initializes the cell_line_views and drug_views to the values specified in the
-        hyperparameters.yaml file. If nothing is specified, gene_expression and fingerprints are used.
+        Flexible input support: Initializes the cell_line_views and drug_views from the
+        public hyperparameter dict passed to build_model(). If nothing is specified,
+        gene_expression and fingerprints are used.
 
         If proteomics is specified in the hyperparameters, the ProteomicsMedianCenterAndImputeTransformer
         is initialized.

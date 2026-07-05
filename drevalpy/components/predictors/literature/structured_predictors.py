@@ -19,6 +19,7 @@ from drevalpy.components.predictors.literature._metadata import (
     MOLIR_METADATA,
     PHARMAFORMER_METADATA,
     PRECIILY_METADATA,
+    SPARSEGO_METADATA,
     SRMF_METADATA,
     SUPERFELTR_METADATA,
 )
@@ -27,6 +28,7 @@ from drevalpy.components.predictors.literature.impl.molir.molir import MOLIR
 from drevalpy.components.predictors.literature.impl.pharmaformer.pharmaformer import PharmaFormerModel
 from drevalpy.components.predictors.literature.impl.precily.precily import PrecilyModel
 from drevalpy.components.predictors.literature.impl.srmf.srmf import SRMF
+from drevalpy.components.predictors.literature.impl.sparsego.sparsego import SparseGOModel
 from drevalpy.components.predictors.literature.impl.superfeltr.superfeltr import SuperFELTR
 from drevalpy.components.predictors.structured import StructuredPredictor
 from drevalpy.components.registry import register_predictor
@@ -76,6 +78,16 @@ class StructuredLiteratureEnginePredictor(StructuredPredictor):
             drugs = drug_input
         return cell_lines, drugs
 
+    def _engine_from_host(self) -> LiteratureEngineBase:
+        engine = self._engine_cls()
+        host = getattr(self, "_literature_host", None)
+        if host is not None:
+            for name, value in vars(host).items():
+                if name.startswith("_"):
+                    continue
+                setattr(engine, name, value)
+        return engine
+
     def fit_structured(
         self,
         batch: PairBatch,
@@ -103,8 +115,10 @@ class StructuredLiteratureEnginePredictor(StructuredPredictor):
                 cell_line_input=cell_line_input,
                 drug_input=drug_input,
             )
-        engine = self._engine_cls()
-        engine.build_model(self._hyperparameters)
+        host = getattr(self, "_literature_host", None)
+        hyperparameters = {**self._hyperparameters, **getattr(host, "hyperparameters", {})}
+        engine = self._engine_from_host()
+        engine.build_model(hyperparameters)
         engine.train(
             output,
             cell_lines,
@@ -256,3 +270,19 @@ class DIPKPredictor(StructuredLiteratureEnginePredictor):
     required_drug_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE, view="molgnet_features")
     _use_raw_inputs: ClassVar[bool] = True
     _engine_cls = DIPKModel
+
+
+@register_predictor(
+    "sparsego",
+    description="SparseGO GO-structured visible neural network.",
+    **SPARSEGO_METADATA,
+)
+class SparseGOPredictor(StructuredLiteratureEnginePredictor):
+    """SparseGO predictor component."""
+
+    required_cell_line_contract: ClassVar[FeatureContract] = FeatureContract(
+        kind=FeatureKind.DENSE, view="gene_expression"
+    )
+    required_drug_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE, view="fingerprints")
+    _use_raw_inputs: ClassVar[bool] = True
+    _engine_cls = SparseGOModel

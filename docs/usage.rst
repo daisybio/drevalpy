@@ -243,7 +243,7 @@ For ``--models``, you can also perform randomization and robustness tests. The `
 
 The sklearn baseline models (AdaBoostDecisionTree, ElasticNet, GradientBoosting, KNNRegressor, Lasso, RandomForest, SVR, SingleDrugRandomForest, SingleDrugElasticNet),
 MultiViewXGBoost, and the machine learning baselines (SimpleNeuralNetwork, MultiViewNeuralNetwork) support
-**flexible inputs**: the input types can be configured via ``cell_line_views`` and ``drug_views`` in ``hyperparameters.yaml`` without
+**flexible inputs**: the input types can be configured via ``cell_line_views`` and ``drug_views`` in public hyperparameters or zoo YAML without
 needing separate model classes. By default they use gene expression and fingerprints.
 See the sklearn model :ref:`flexible-inputs` or the SimpleNeuralNetwork :ref:`flexible-inputs-simplenn` for details.
 
