@@ -3,6 +3,9 @@ data/
 !drevalpy/data/
 !tests/data/
 
+# Downloaded ontology artifacts (e.g. Gene Ontology OBO file)
+go-basic.obo
+
 # Results directory is created when running the demo notebook
 results/
 

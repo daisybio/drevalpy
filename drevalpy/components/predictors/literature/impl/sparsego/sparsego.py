@@ -423,7 +423,7 @@ class SparseGOModel(LiteratureEngineBase):
             "input_type": "expression",
             "num_neurons_per_GO": 6,
             "num_neurons_per_final_GO": 6,
-            "num_neurons_drug": [200, 100, 50],
+            "num_neurons_drug": [100, 50, 6],
             "num_neurons_final": 12,
             "drug_dim": 2048,
             "learning_rate": 0.1,
