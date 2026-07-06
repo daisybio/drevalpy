@@ -49,8 +49,8 @@ def test_concat_featurizers_fit_transform_and_blocks() -> None:
     register_builtin_components()
     featurizer = ConcatFeaturizersCellLineFeaturizer(
         featurizers=[
-            FeaturizerConfig(name="geneExpression", registry="cell_line"),
-            FeaturizerConfig(name="mutations", registry="cell_line"),
+            FeaturizerConfig(name="raw", view="gene_expression", registry="cell_line"),
+            FeaturizerConfig(name="raw", view="mutations", registry="cell_line"),
         ],
     )
     features = _feature_dataset()
@@ -61,10 +61,10 @@ def test_concat_featurizers_fit_transform_and_blocks() -> None:
     blocks = featurizer.transform_blocks(features, ids)
 
     assert matrix.shape == (2, 4)
-    assert set(blocks) == {"geneExpression", "mutations"}
-    assert blocks["geneExpression"].shape == (2, 2)
-    assert blocks["mutations"].shape == (2, 2)
-    assert np.allclose(matrix, np.concatenate([blocks["geneExpression"], blocks["mutations"]], axis=1))
+    assert set(blocks) == {"raw[expression]", "raw[mutations]"}
+    assert blocks["raw[expression]"].shape == (2, 2)
+    assert blocks["raw[mutations]"].shape == (2, 2)
+    assert np.allclose(matrix, np.concatenate([blocks["raw[expression]"], blocks["raw[mutations]"]], axis=1))
 
 
 def test_concat_uses_distinct_block_labels_for_same_name_different_views() -> None:

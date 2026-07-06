@@ -35,7 +35,7 @@ def _synthetic_data() -> tuple[DrugResponseDataset, FeatureDataset, FeatureDatas
 
 def test_native_drp_class_supports_factory_lifecycle() -> None:
     register_builtin_components()
-    NativeElasticNet = create_native_drp_class("ElasticNet", spec="geneExpression:fingerprints:elasticNet")
+    NativeElasticNet = create_native_drp_class("ElasticNet", spec="raw[expression]:fingerprints:elasticNet")
     model = NativeElasticNet()
     assert model.get_model_name() == "ElasticNet"
     model.build_model({"alpha": 0.1, "l1_ratio": 0.5})

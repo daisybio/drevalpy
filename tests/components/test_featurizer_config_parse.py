@@ -14,13 +14,15 @@ def test_normalize_string_shorthand() -> None:
 
 def test_normalize_list_shorthand() -> None:
     payload = normalize_featurizer_config(
-        ["scaledGeneExpression", "mutations"],
+        ["scaledGeneExpression", "raw[mutations]"],
         default_registry="cell_line",
     )
     assert payload["name"] == "concatFeaturizers"
     assert payload["registry"] == "cell_line"
     children = payload["hyperparameters"]["featurizers"]
-    assert [child["name"] for child in children] == ["scaledGeneExpression", "mutations"]
+    assert children[0]["name"] == "scaledGeneExpression"
+    assert children[1]["name"] == "raw"
+    assert children[1]["view"] == "mutations"
     assert all(child["registry"] == "cell_line" for child in children)
 
 
@@ -28,12 +30,13 @@ def test_normalize_list_with_parameterized_child() -> None:
     payload = normalize_featurizer_config(
         [
             "scaledGeneExpression",
-            {"methylationPCA": {"n_components": 64}},
+            {"pca[methylation]": {"n_components": 64}},
         ],
         default_registry="cell_line",
     )
     children = payload["hyperparameters"]["featurizers"]
-    assert children[1]["name"] == "methylationPCA"
+    assert children[1]["name"] == "pca"
+    assert children[1]["view"] == "methylation"
     assert children[1]["hyperparameters"]["n_components"] == 64
 
 
@@ -44,13 +47,15 @@ def test_normalize_rejects_empty_list() -> None:
 
 def test_normalize_plus_recipe_string() -> None:
     payload = normalize_featurizer_config(
-        "scaledGeneExpression+mutations",
+        "scaledGeneExpression+raw[mutations]",
         default_registry="cell_line",
     )
     assert payload["name"] == "concatFeaturizers"
     assert payload["registry"] == "cell_line"
     children = payload["hyperparameters"]["featurizers"]
-    assert [child["name"] for child in children] == ["scaledGeneExpression", "mutations"]
+    assert children[0]["name"] == "scaledGeneExpression"
+    assert children[1]["name"] == "raw"
+    assert children[1]["view"] == "mutations"
     assert all(child["registry"] == "cell_line" for child in children)
 
 
@@ -65,7 +70,7 @@ def test_normalize_rejects_empty_plus_recipe_piece() -> None:
     with pytest.raises(ValueError, match="non-empty"):
         normalize_featurizer_config("scaledGeneExpression+", default_registry="cell_line")
     with pytest.raises(ValueError, match="non-empty"):
-        normalize_featurizer_config("scaledGeneExpression++mutations", default_registry="cell_line")
+        normalize_featurizer_config("scaledGeneExpression++raw[mutations]", default_registry="cell_line")
 
 
 def test_normalize_rejects_invalid_shape() -> None:
