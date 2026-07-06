@@ -30,6 +30,21 @@ def _feature_dataset() -> FeatureDataset:
     )
 
 
+def _multi_view_feature_dataset() -> FeatureDataset:
+    return FeatureDataset(
+        features={
+            "cl1": {
+                "gene_expression": np.array([1.0, 2.0], dtype=np.float32),
+                "proteomics": np.array([10.0, 20.0, 30.0], dtype=np.float32),
+            },
+            "cl2": {
+                "gene_expression": np.array([3.0, 4.0], dtype=np.float32),
+                "proteomics": np.array([40.0, 50.0, 60.0], dtype=np.float32),
+            },
+        }
+    )
+
+
 def test_concat_featurizers_fit_transform_and_blocks() -> None:
     register_builtin_components()
     featurizer = ConcatFeaturizersCellLineFeaturizer(
@@ -50,6 +65,24 @@ def test_concat_featurizers_fit_transform_and_blocks() -> None:
     assert blocks["geneExpression"].shape == (2, 2)
     assert blocks["mutations"].shape == (2, 2)
     assert np.allclose(matrix, np.concatenate([blocks["geneExpression"], blocks["mutations"]], axis=1))
+
+
+def test_concat_uses_distinct_block_labels_for_same_name_different_views() -> None:
+    featurizer = ConcatFeaturizersCellLineFeaturizer(
+        featurizers=[
+            {"name": "pca", "view": "gene_expression", "hyperparameters": {"n_components": 1}},
+            {"name": "pca", "view": "proteomics", "hyperparameters": {"n_components": 1}},
+        ],
+        registry="cell_line",
+    )
+    features = _multi_view_feature_dataset()
+    entity_ids = np.array(["cl1", "cl2"], dtype=str)
+    featurizer.fit(features, entity_ids=entity_ids)
+    blocks = featurizer.transform_blocks(features, entity_ids)
+    assert set(blocks) == {"pca[expression]", "pca[proteomics]"}
+    assert featurizer.block_dims == {"pca[expression]": 1, "pca[proteomics]": 1}
+    matrix = featurizer.transform(features, entity_ids)
+    assert matrix.shape == (2, 2)
 
 
 def _drug_feature_dataset() -> FeatureDataset:

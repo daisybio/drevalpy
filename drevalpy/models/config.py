@@ -9,6 +9,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
+from drevalpy.components.featurizer_label import requires_explicit_view
 from drevalpy.components.predictor_config_parse import normalize_predictor_config
 
 
@@ -42,6 +43,13 @@ class FeaturizerConfig(BaseModel):
                 return normalize_featurizer_config(data, default_registry=registry)
             return normalize_featurizer_config(data)
         return data
+
+    @model_validator(mode="after")
+    def _require_explicit_view_for_parametric_featurizers(self) -> FeaturizerConfig:
+        if requires_explicit_view(self.name) and not self.view:
+            msg = f"Featurizer {self.name!r} requires an explicit view, e.g. {self.name}[expression]"
+            raise ValueError(msg)
+        return self
 
     def create_instance(self):
         """Instantiate the configured featurizer from the registry."""

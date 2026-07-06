@@ -71,3 +71,58 @@ def test_normalize_rejects_empty_plus_recipe_piece() -> None:
 def test_normalize_rejects_invalid_shape() -> None:
     with pytest.raises(TypeError, match="string, list, or mapping"):
         normalize_featurizer_config(123)
+
+
+def test_normalize_bracket_atom_raw() -> None:
+    payload = normalize_featurizer_config("raw[expression]", default_registry="cell_line")
+    assert payload == {
+        "name": "raw",
+        "view": "gene_expression",
+        "hyperparameters": {},
+        "registry": "cell_line",
+    }
+
+
+def test_normalize_bracket_atom_pca() -> None:
+    payload = normalize_featurizer_config("pca[proteomics]", default_registry="cell_line")
+    assert payload["name"] == "pca"
+    assert payload["view"] == "proteomics"
+
+
+def test_normalize_bracket_plus_recipe() -> None:
+    payload = normalize_featurizer_config(
+        "raw[expression]+pca[proteomics]",
+        default_registry="cell_line",
+    )
+    children = payload["hyperparameters"]["featurizers"]
+    assert children[0]["name"] == "raw"
+    assert children[0]["view"] == "gene_expression"
+    assert children[1]["name"] == "pca"
+    assert children[1]["view"] == "proteomics"
+
+
+def test_normalize_one_key_mapping_with_brackets() -> None:
+    payload = normalize_featurizer_config(
+        {"pca[methylation]": {"n_components": 64}},
+        default_registry="cell_line",
+    )
+    assert payload["name"] == "pca"
+    assert payload["view"] == "methylation"
+    assert payload["hyperparameters"]["n_components"] == 64
+
+
+def test_normalize_rejects_bare_raw_or_pca() -> None:
+    with pytest.raises(ValueError, match="requires an explicit view"):
+        normalize_featurizer_config("raw", default_registry="cell_line")
+    with pytest.raises(ValueError, match="requires an explicit view"):
+        normalize_featurizer_config("pca", default_registry="cell_line")
+
+
+def test_normalize_rejects_brackets_on_drug_registry() -> None:
+    with pytest.raises(ValueError, match="cell-line featurizers"):
+        normalize_featurizer_config("raw[expression]", default_registry="drug")
+
+
+def test_normalize_rejects_unknown_view() -> None:
+    with pytest.raises(ValueError, match="Unknown omics view"):
+        normalize_featurizer_config("raw[not_a_view]", default_registry="cell_line")
