@@ -141,12 +141,13 @@ def _load_test_data(
         file_path = Path(path_data) / "CTRPv2_sample_test.zip"
         response_raw = download_from_url(dataset_name="CTRPv2_sample_test", file_url=file_url)
         unzip_data(path_to_zip=file_path, response=response_raw, data_path=path_data)
-    file_url = f"{test_data_path}/{dataset_name}.zip"
-    file_path = Path(path_data) / f"{dataset_name}.zip"
-    response = download_from_url(dataset_name=dataset_name, file_url=file_url)
-    unzip_data(path_to_zip=file_path, response=response, data_path=path_data)
-
     file_name = Path(path_data) / dataset_name / f"{dataset_name}.csv"
+    if not file_name.exists():
+        file_url = f"{test_data_path}/{dataset_name}.zip"
+        file_path = Path(path_data) / f"{dataset_name}.zip"
+        response = download_from_url(dataset_name=dataset_name, file_url=file_url)
+        unzip_data(path_to_zip=file_path, response=response, data_path=path_data)
+
     response_data = pd.read_csv(file_name, dtype={"pubchem_id": str, "cell_line_name": str})
     response_data[DRUG_IDENTIFIER] = response_data[DRUG_IDENTIFIER].str.replace(",", "")
     check_measure(measure, list(response_data.columns), dataset_name)
