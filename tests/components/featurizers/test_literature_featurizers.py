@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from drevalpy.components.contracts import FeatureContract, FeatureKind
+from drevalpy.components.contracts import FeatureContract, FeatureKind, featurizer_contract
 from drevalpy.components.register_builtins import register_builtin_components
 from drevalpy.components.registry import get_cell_line_featurizer, get_drug_featurizer
 
@@ -32,7 +32,7 @@ def test_cell_line_literature_featurizer_contracts(
     expected_kind: FeatureKind,
 ) -> None:
     cls = get_cell_line_featurizer(name)
-    contract = cls.output_contract
+    contract = featurizer_contract(cls)
     assert isinstance(contract, FeatureContract)
     assert contract.kind == expected_kind
 
@@ -51,6 +51,6 @@ def test_drug_literature_featurizer_contracts(
     expected_kind: FeatureKind,
 ) -> None:
     cls = get_drug_featurizer(name)
-    contract = cls.output_contract
+    contract = featurizer_contract(cls)
     assert isinstance(contract, FeatureContract)
     assert contract.kind == expected_kind

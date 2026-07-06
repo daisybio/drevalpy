@@ -36,10 +36,10 @@ def test_literature_predictor_flags(name: str, structured: bool, requires_drug: 
 
 def test_druggnn_requires_graph_drug_contract() -> None:
     cls = get_predictor("drugGNN")
-    assert cls.required_drug_contract.kind == FeatureKind.GRAPH
+    assert cls.drug_contract.kind == FeatureKind.GRAPH
 
 
 def test_neural_network_requires_dense_contracts() -> None:
     cls = get_predictor("neuralNetwork")
-    assert cls.required_cell_line_contract.kind == FeatureKind.DENSE
-    assert cls.required_drug_contract.kind == FeatureKind.DENSE
+    assert cls.cell_line_contract.kind == FeatureKind.DENSE
+    assert cls.drug_contract.kind == FeatureKind.DENSE

@@ -8,7 +8,7 @@ import numpy as np
 import pytorch_lightning as pl
 from torch_geometric.loader import DataLoader
 
-from drevalpy.components.contracts import FeatureContract, FeatureKind
+from drevalpy.components.contracts import FeatureKind
 from drevalpy.components.pair_batch import PairBatch
 from drevalpy.components.predictors.literature._metadata import DRUGGNN_METADATA
 from drevalpy.components.predictors.literature.impl.druggnn.drug_gnn import (
@@ -23,13 +23,13 @@ from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 @register_predictor(
     "drugGNN",
     description="DrugGNN: GCN on molecular graphs with dense cell-line features.",
+    cell_line_contract=FeatureKind.DENSE,
+    drug_contract=FeatureKind.GRAPH,
     **DRUGGNN_METADATA,
 )
 class DrugGNNPredictor(StructuredPredictor):
     """Drug gnnpredictor component."""
 
-    required_cell_line_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
-    required_drug_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.GRAPH)
 
     def __init__(self) -> None:
         self._hyperparameters: dict[str, Any] = {}

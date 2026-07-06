@@ -9,7 +9,7 @@ import pytorch_lightning as pl
 import torch
 from torch.utils.data import DataLoader
 
-from drevalpy.components.contracts import FeatureContract, FeatureKind
+from drevalpy.components.contracts import FeatureKind
 from drevalpy.components.predictors.base import Predictor
 from drevalpy.components.predictors.literature._batch_dataset import PairMatrixDataset
 from drevalpy.components.predictors.literature.impl.simple_neural_network.utils import FeedForwardNetwork
@@ -21,12 +21,12 @@ from drevalpy.models.config import PredictionMode
     "neuralNetwork",
     description="Dense feed-forward network on concatenated cell-line and drug features.",
     category="general_purpose",
+    cell_line_contract=FeatureKind.DENSE,
+    drug_contract=FeatureKind.DENSE,
 )
 class NeuralNetworkPredictor(Predictor):
     """Neural network predictor component."""
 
-    required_cell_line_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
-    required_drug_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
     supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset({PredictionMode.REGRESSION})
 
     def __init__(self) -> None:

@@ -7,7 +7,7 @@ from typing import Any, ClassVar
 import joblib
 import numpy as np
 
-from drevalpy.components.contracts import FeatureContract, FeatureKind
+from drevalpy.components.contracts import FeatureKind
 from drevalpy.components.pair_batch import PairBatch
 from drevalpy.components.predictors.literature._engine_base import LiteratureEngineBase
 from drevalpy.components.predictors.literature._feature_dataset_from_batch import (
@@ -193,39 +193,39 @@ class StructuredLiteratureEnginePredictor(StructuredPredictor):
 @register_predictor(
     "precily",
     description="Precily pathway + SMILESVec model.",
+    cell_line_contract=FeatureKind.DENSE,
+    drug_contract=FeatureKind.DENSE,
     **PRECIILY_METADATA,
 )
 class PrecilyPredictor(StructuredLiteratureEnginePredictor):
     """Precily predictor component."""
 
-    required_cell_line_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
-    required_drug_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
     _engine_cls = PrecilyModel
 
 
 @register_predictor(
     "srmf",
     description="SRMF matrix factorization model.",
+    cell_line_contract=FeatureKind.DENSE,
+    drug_contract=FeatureKind.DENSE,
     **SRMF_METADATA,
 )
 class SRMFPredictor(StructuredLiteratureEnginePredictor):
     """Srmfpredictor component."""
 
-    required_cell_line_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
-    required_drug_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
     _engine_cls = SRMF
 
 
 @register_predictor(
     "molir",
     description="MOLIR single-drug multi-omics model.",
+    cell_line_contract=FeatureKind.DENSE,
+    drug_contract=FeatureKind.DENSE,
     **MOLIR_METADATA,
 )
 class MOLIRPredictor(StructuredLiteratureEnginePredictor):
     """Molirpredictor component."""
 
-    required_cell_line_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
-    required_drug_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
     requires_drug_featurizer: ClassVar[bool] = False
     _use_raw_inputs: ClassVar[bool] = True
     _engine_cls = MOLIR
@@ -234,13 +234,13 @@ class MOLIRPredictor(StructuredLiteratureEnginePredictor):
 @register_predictor(
     "superfeltr",
     description="SuperFELTR single-drug multi-omics model.",
+    cell_line_contract=FeatureKind.DENSE,
+    drug_contract=FeatureKind.DENSE,
     **SUPERFELTR_METADATA,
 )
 class SuperFELTRPredictor(StructuredLiteratureEnginePredictor):
     """Super feltrpredictor component."""
 
-    required_cell_line_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
-    required_drug_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
     requires_drug_featurizer: ClassVar[bool] = False
     _use_raw_inputs: ClassVar[bool] = True
     _engine_cls = SuperFELTR
@@ -249,13 +249,13 @@ class SuperFELTRPredictor(StructuredLiteratureEnginePredictor):
 @register_predictor(
     "pharmaFormer",
     description="PharmaFormer landmark genes + BPE PharmaFormer model.",
+    cell_line_contract=FeatureKind.DENSE,
+    drug_contract=FeatureKind.DENSE,
     **PHARMAFORMER_METADATA,
 )
 class PharmaFormerPredictor(StructuredLiteratureEnginePredictor):
     """Pharma former predictor component."""
 
-    required_cell_line_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
-    required_drug_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
     _use_raw_inputs: ClassVar[bool] = True
     _engine_cls = PharmaFormerModel
 
@@ -263,13 +263,13 @@ class PharmaFormerPredictor(StructuredLiteratureEnginePredictor):
 @register_predictor(
     "dipk",
     description="DIPK BIONIC + MolGNet model.",
+    cell_line_contract=FeatureKind.DENSE,
+    drug_contract=FeatureKind.DENSE,
     **DIPK_METADATA,
 )
 class DIPKPredictor(StructuredLiteratureEnginePredictor):
     """Dipkpredictor component."""
 
-    required_cell_line_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
-    required_drug_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
     _use_raw_inputs: ClassVar[bool] = True
     _engine_cls = DIPKModel
 
@@ -277,12 +277,12 @@ class DIPKPredictor(StructuredLiteratureEnginePredictor):
 @register_predictor(
     "sparsego",
     description="SparseGO GO-structured visible neural network.",
+    cell_line_contract=FeatureKind.DENSE,
+    drug_contract=FeatureKind.DENSE,
     **SPARSEGO_METADATA,
 )
 class SparseGOPredictor(StructuredLiteratureEnginePredictor):
     """SparseGO predictor component."""
 
-    required_cell_line_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
-    required_drug_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
     _use_raw_inputs: ClassVar[bool] = True
     _engine_cls = SparseGOModel
