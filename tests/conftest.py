@@ -15,7 +15,12 @@ _TOY_DATASETS = ("TOYv1", "TOYv2")
 
 
 def _load_toy_datasets(path_data: str) -> bool:
-    """Download TOYv1/TOYv2 once for session fixtures; return False on network errors."""
+    """
+    Download TOYv1/TOYv2 once for session fixtures.
+
+    :param path_data: path to the data directory
+    :returns: False when dataset download fails
+    """
     try:
         load_toyv1(path_data)
         load_toyv2(path_data)
@@ -25,7 +30,9 @@ def _load_toy_datasets(path_data: str) -> bool:
     return True
 
 
-def _write_synthetic_smilesvec(smiles_file: pathlib.Path, output_file: pathlib.Path, *, embedding_dim: int = 100) -> None:
+def _write_synthetic_smilesvec(
+    smiles_file: pathlib.Path, output_file: pathlib.Path, *, embedding_dim: int = 100
+) -> None:
     smiles_df = pd.read_csv(smiles_file, dtype=str)
     pubchem_ids = smiles_df["pubchem_id"].astype(str).tolist()
     rng = np.random.default_rng(seed=42)
@@ -95,7 +102,6 @@ def _ensure_smilesvec_features(path_data: str, dataset_name: str) -> None:
         _write_synthetic_smilesvec(smiles_file, smilesvec_file)
     except Exception as exc:
         print(f"Warning: could not create drug features for {dataset_name}: {exc}")
-
 
 
 @pytest.fixture(scope="session")
