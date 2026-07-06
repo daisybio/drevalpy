@@ -1,7 +1,7 @@
 cell_line_featurizer:
   - scaledGeneExpression
-  - methylationPCA
-  - mutations
-  - copyNumberVariationGistic
+  - pca[methylation]
+  - raw[mutations]
+  - raw[cnv]
 drug_featurizer: fingerprints
 predictor: randomForest

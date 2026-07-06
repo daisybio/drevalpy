@@ -1,5 +1,5 @@
 cell_line_featurizer:
-  - geneExpression
-  - mutations
-  - copyNumberVariationGistic
+  - raw[expression]
+  - raw[mutations]
+  - raw[cnv]
 predictor: molir
