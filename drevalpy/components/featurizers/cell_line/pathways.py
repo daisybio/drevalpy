@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from drevalpy.components.contracts import FeatureKind
-from drevalpy.components.featurizers.cell_line.omics.dense_view import DenseViewCellLineFeaturizer
+from drevalpy.components.featurizers.cell_line.dense_view import DenseViewCellLineFeaturizer
 from drevalpy.components.registry import register_cell_line_featurizer
 
 

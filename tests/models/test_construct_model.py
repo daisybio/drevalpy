@@ -53,7 +53,7 @@ def test_construct_model_train_predict_smoke() -> None:
 
     register_builtins.register_builtin_components()
 
-    model_cls = construct_model("ComboRF", "geneExpression+mutations:fingerprints+oneHot:randomForest")
+    model_cls = construct_model("ComboRF", "raw[expression]+raw[mutations]:fingerprints+oneHot:randomForest")
     model = model_cls()
     model.build_model(model.get_default_hyperparameters())
 

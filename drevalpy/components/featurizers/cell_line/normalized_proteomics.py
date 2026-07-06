@@ -1,9 +1,10 @@
-"""Proteomics cell-line featurizer."""
+"""Normalized proteomics featurizer for cell lines."""
 
 from __future__ import annotations
 
 import numpy as np
 
+from drevalpy.components.contracts import FeatureKind
 from drevalpy.components.featurizers._matrix import stack_view_matrix
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.registry import register_cell_line_featurizer
@@ -14,11 +15,12 @@ from drevalpy.data.preprocessing import (
 
 
 @register_cell_line_featurizer(
-    "proteomics",
-    description="Proteomics view with median centering and imputation.",
+    "normalizedProteomics",
+    description="Proteomics view with log10 transform, median centering, and imputation.",
     category="native",
+    contract=FeatureKind.DENSE,
 )
-class ProteomicsCellLineFeaturizer(CellLineFeaturizer):
+class NormalizedProteomicsCellLineFeaturizer(CellLineFeaturizer):
     """Match sklearn baseline proteomics preprocessing."""
 
     def __init__(
@@ -44,7 +46,7 @@ class ProteomicsCellLineFeaturizer(CellLineFeaturizer):
         features,
         *,
         entity_ids: np.ndarray | None = None,
-    ) -> ProteomicsCellLineFeaturizer:
+    ) -> NormalizedProteomicsCellLineFeaturizer:
         ids = entity_ids if entity_ids is not None else np.array(list(features.features.keys()))
         processed = prepare_proteomics(
             cell_line_input=features.copy(),

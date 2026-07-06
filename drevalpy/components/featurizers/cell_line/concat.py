@@ -36,9 +36,11 @@ class ConcatFeaturizersCellLineFeaturizer(ConcatFeaturizersMixin, CellLineFeatur
         state: dict[str, object],
     ) -> None:
         """Map legacy flat preprocessing state onto child featurizers when possible."""
-        from drevalpy.components.featurizers.cell_line.omics.methylation import MethylationPCACellLineFeaturizer
-        from drevalpy.components.featurizers.cell_line.omics.proteomics import ProteomicsCellLineFeaturizer
-        from drevalpy.components.featurizers.cell_line.omics.scaled_gene_expression import (
+        from drevalpy.components.featurizers.cell_line.normalized_proteomics import (
+            NormalizedProteomicsCellLineFeaturizer,
+        )
+        from drevalpy.components.featurizers.cell_line.pca import PCACellLineFeaturizer
+        from drevalpy.components.featurizers.cell_line.scaled_gene_expression import (
             ScaledGeneExpressionFeaturizer,
         )
         from drevalpy.components.featurizers.cell_line.pca import PCACellLineFeaturizer
@@ -51,21 +53,18 @@ class ConcatFeaturizersCellLineFeaturizer(ConcatFeaturizersMixin, CellLineFeatur
                 child_state = {key: state[key] for key in ("gene_expression_scaler", "fitted") if key in state}
                 if child_state:
                     child.set_state(child_state)
-            elif isinstance(child, MethylationPCACellLineFeaturizer):
-                child_state = {
-                    key: state[key] for key in ("methylation_scaler", "methylation_pca", "fitted") if key in state
+            elif isinstance(child, PCACellLineFeaturizer) and "methylation_pca" in state:
+                methylation_pca = state["methylation_pca"]
+                child_state: dict[str, object] = {
+                    "pca": methylation_pca,
+                    "view": child._view,
+                    "fitted": state.get("fitted"),
                 }
-                if child_state:
-                    child.set_state(child_state)
-            elif isinstance(child, PCACellLineFeaturizer) and child._view == "methylation":
-                child_state: dict[str, object] = {}
-                if "methylation_pca" in state:
-                    child_state["pca"] = state["methylation_pca"]
-                if state.get("fitted"):
-                    child_state["fitted"] = True
-                if child_state:
-                    child.set_state(child_state)
-            elif isinstance(child, ProteomicsCellLineFeaturizer):
+                if hasattr(methylation_pca, "n_components"):
+                    child_state["n_components"] = int(methylation_pca.n_components)
+                    child_state["output_dim"] = int(methylation_pca.n_components)
+                child.set_state(child_state)
+            elif isinstance(child, NormalizedProteomicsCellLineFeaturizer):
                 child_state = {key: state[key] for key in ("proteomics_transformer",) if key in state}
                 if child_state:
                     child.set_state(child_state)
