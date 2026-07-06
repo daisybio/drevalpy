@@ -126,27 +126,28 @@ def _load_test_data(
 ) -> DrugResponseDataset:
     # ensure that path_data exists
     Path(path_data).mkdir(parents=True, exist_ok=True)
-    test_data_path = "https://github.com/nf-core/test-datasets/raw/refs/heads/drugresponseeval/test_data"
-    # first get meta
-    meta_path = os.path.join(path_data, "meta")
-    if not os.path.exists(meta_path):
-        file_url = f"{test_data_path}/meta.zip"
-        file_path = Path(path_data) / "meta.zip"
-        response_meta = download_from_url(dataset_name="meta", file_url=file_url)
-        unzip_data(path_to_zip=file_path, response=response_meta, data_path=path_data)
-    # get raw test data
-    raw_data_path = os.path.join(path_data, "CTRPv2_sample_test")
-    if not os.path.exists(raw_data_path):
-        file_url = f"{test_data_path}/CTRPv2_sample_test.zip"
-        file_path = Path(path_data) / "CTRPv2_sample_test.zip"
-        response_raw = download_from_url(dataset_name="CTRPv2_sample_test", file_url=file_url)
-        unzip_data(path_to_zip=file_path, response=response_raw, data_path=path_data)
-    file_url = f"{test_data_path}/{dataset_name}.zip"
-    file_path = Path(path_data) / f"{dataset_name}.zip"
-    response = download_from_url(dataset_name=dataset_name, file_url=file_url)
-    unzip_data(path_to_zip=file_path, response=response, data_path=path_data)
-
     file_name = Path(path_data) / dataset_name / f"{dataset_name}.csv"
+    if not file_name.exists():
+        test_data_path = "https://github.com/nf-core/test-datasets/raw/refs/heads/drugresponseeval/test_data"
+        # first get meta
+        meta_path = os.path.join(path_data, "meta")
+        if not os.path.exists(meta_path):
+            file_url = f"{test_data_path}/meta.zip"
+            file_path = Path(path_data) / "meta.zip"
+            response_meta = download_from_url(dataset_name="meta", file_url=file_url)
+            unzip_data(path_to_zip=file_path, response=response_meta, data_path=path_data)
+        # get raw test data
+        raw_data_path = os.path.join(path_data, "CTRPv2_sample_test")
+        if not os.path.exists(raw_data_path):
+            file_url = f"{test_data_path}/CTRPv2_sample_test.zip"
+            file_path = Path(path_data) / "CTRPv2_sample_test.zip"
+            response_raw = download_from_url(dataset_name="CTRPv2_sample_test", file_url=file_url)
+            unzip_data(path_to_zip=file_path, response=response_raw, data_path=path_data)
+        file_url = f"{test_data_path}/{dataset_name}.zip"
+        file_path = Path(path_data) / f"{dataset_name}.zip"
+        response = download_from_url(dataset_name=dataset_name, file_url=file_url)
+        unzip_data(path_to_zip=file_path, response=response, data_path=path_data)
+
     response_data = pd.read_csv(file_name, dtype={"pubchem_id": str, "cell_line_name": str})
     response_data[DRUG_IDENTIFIER] = response_data[DRUG_IDENTIFIER].str.replace(",", "")
     check_measure(measure, list(response_data.columns), dataset_name)

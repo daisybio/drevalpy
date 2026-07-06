@@ -8,10 +8,9 @@ Example: Flexible Inputs with DrEvalPy's Baselines
 
 The sklearn baseline models (``ElasticNet``, ``Lasso``, ``RandomForest``, ``GradientBoosting``, ``SVR``, ``AdaBoostDecisionTree``, ``KNNRegressor``,
 ``SingleDrugRandomForest``, ``SingleDrugElasticNet``, ``MultiViewRandomForest``, ``MultiViewXGBoost``) and the neural network baselines (``SimpleNeuralNetwork``, ``MultiViewNeuralNetwork``)
-support **flexible inputs**. Instead of writing a new Python class for each omic data type, you can simply change which omic the model uses by editing ``hyperparameters.yaml``.
+support **flexible inputs**. Instead of writing a new Python class for each omic data type, you can configure inputs through zoo presets, ``ModelConfig``, or public ``cell_line_views`` / ``drug_views`` hyperparameters passed to ``build_model()``.
 
-For example, to run a Random Forest on **mynewdatamodality** data instead of gene expression, change the
-``cell_line_views`` in ``models/baselines/hyperparameters.yaml``:
+For example, to run a Random Forest on **mynewdatamodality** data instead of gene expression, pass ``cell_line_views`` in the public hyperparameter dict or zoo YAML:
 
 .. code-block:: yaml
 
@@ -63,8 +62,7 @@ and the SimpleNeuralNetwork :ref:`flexible-inputs-simplenn` documentation.
 Example: Using Flexible Inputs with Sklearn Baselines With Custom Preprocessing
 ---------------------------------------------------------------------------------
 
-For the ``proteomics`` input, we implemented custom preprocessing in the ``SklearnModel`` parent class and for that,
-we define custom hyperparameters in ``hyperparameters.yaml``:
+For the ``proteomics`` input, we implemented custom preprocessing in the ``SklearnModel`` parent class and expose the related options as public hyperparameters:
 
 .. code-block:: yaml
 

@@ -19,6 +19,8 @@
    usage
    runyourmodel
    example_flexible_inputs
+   hyperparameter_migration
+   model_architecture
    example_wandb
    contributing
    reference
