@@ -29,7 +29,7 @@ def test_default_hyperparameters_for_constructed_pca_model() -> None:
 
     register_builtins.register_builtin_components()
 
-    model_cls = construct_model("PcaOneHotRF", "pca:identity:randomForest")
+    model_cls = construct_model("PcaOneHotRF", "pca[expression]:identity:randomForest")
     hp = model_cls.get_default_hyperparameters()
 
     assert not any("." in key for key in hp)

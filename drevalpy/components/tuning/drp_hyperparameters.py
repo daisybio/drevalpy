@@ -19,7 +19,6 @@ from .search_space import (
 
 # Public compatibility shims: old flat experiment keys -> component-local featurizer keys.
 _LEGACY_FEATURIZER_FLAT_KEYS: dict[tuple[str, str], dict[str, str]] = {
-    ("cell_line", "methylationPCA"): {"n_components": "methylation_n_components"},
     ("cell_line", "proteomics"): {
         "feature_threshold": "proteomics_feature_threshold",
         "n_features": "proteomics_n_features",
@@ -223,8 +222,14 @@ def _append_featurizer_flat_keys(
     for component_key, flat_key in mapping.items():
         if component_key in featurizer.hyperparameters:
             flat[flat_key] = featurizer.hyperparameters[component_key]
-            if flat_key == "methylation_n_components":
-                flat.setdefault("methylation_pca_components", featurizer.hyperparameters[component_key])
+    if (
+        registry == "cell_line"
+        and featurizer.name == "pca"
+        and featurizer.view == "methylation"
+        and "n_components" in featurizer.hyperparameters
+    ):
+        flat["methylation_n_components"] = featurizer.hyperparameters["n_components"]
+        flat.setdefault("methylation_pca_components", featurizer.hyperparameters["n_components"])
     for key, value in featurizer.hyperparameters.items():
         if key == "featurizers":
             continue
@@ -259,6 +264,8 @@ def _apply_flat_featurizer_overrides(config: ModelConfig, flat: dict[str, Any]) 
         for (registry, featurizer_name), mapping in _LEGACY_FEATURIZER_FLAT_KEYS.items()
         for component_key, flat_key in mapping.items()
     }
+    reverse_map["methylation_n_components"] = ("cell_line", "pca", "n_components")
+    reverse_map["methylation_pca_components"] = ("cell_line", "pca", "n_components")
     for flat_key, value in flat.items():
         mapping = reverse_map.get(flat_key)
         if mapping is None:
@@ -278,7 +285,9 @@ def _apply_flat_featurizer_overrides(config: ModelConfig, flat: dict[str, Any]) 
                 child_cfg = FeaturizerConfig.model_validate(
                     normalize_featurizer_config(child, default_registry=registry),
                 )
-                if child_cfg.name == featurizer_name:
+                if child_cfg.name == featurizer_name and (
+                    featurizer_name != "pca" or child_cfg.view == "methylation"
+                ):
                     child_cfg = child_cfg.model_copy(
                         update={"hyperparameters": {**child_cfg.hyperparameters, component_key: value}},
                         deep=True,

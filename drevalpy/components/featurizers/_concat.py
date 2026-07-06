@@ -7,6 +7,7 @@ from typing import Any, ClassVar
 import numpy as np
 
 from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
+from drevalpy.components.featurizer_label import featurizer_config_block_label
 from drevalpy.components.featurizers.base import Featurizer
 from drevalpy.models.config import FeaturizerConfig
 
@@ -45,7 +46,10 @@ class ConcatFeaturizersMixin:
     def _materialize_children(self) -> None:
         if len(self._children) == len(self._child_configs):
             return
-        self._children = [(config.name, config.create_instance()) for config in self._child_configs]
+        self._children = [
+            (featurizer_config_block_label(config.name, config.view), config.create_instance())
+            for config in self._child_configs
+        ]
 
     def fit(
         self,

@@ -34,8 +34,8 @@ def test_construct_model_merged_space_has_indexed_concat_keys() -> None:
     import drevalpy.components.register_builtins as register_builtins
 
     register_builtins.register_builtin_components()
-    model_cls = construct_model("ComboRF", "pca+landmarkGenes:fingerprints:randomForest")
-    config = ModelConfig.from_spec("pca+landmarkGenes:fingerprints:randomForest")
+    model_cls = construct_model("ComboRF", "pca[expression]+landmarkGenes:fingerprints:randomForest")
+    config = ModelConfig.from_spec("pca[expression]+landmarkGenes:fingerprints:randomForest")
     merged = merge_model_config_spaces(config)
     assert any("featurizer.cell_line.pca.0." in key for key in merged)
     assert any("predictor.randomForest." in key for key in merged)

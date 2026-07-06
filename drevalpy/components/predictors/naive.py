@@ -178,7 +178,6 @@ class NaiveCellLineMeanPredictor(_SingleEntityNaivePredictor):
 class NaiveTissueMeanPredictor(StructuredPredictor):
     """Naive tissue mean predictor component."""
 
-
     def __init__(self) -> None:
         self._dataset_mean: float | None = None
         self._entity_means: dict[str, float] = {}
@@ -255,7 +254,6 @@ class NaiveTissueMeanPredictor(StructuredPredictor):
 )
 class NaiveTissueDrugMeanPredictor(StructuredPredictor):
     """Naive tissue drug mean predictor component."""
-
 
     def __init__(self) -> None:
         self._dataset_mean: float | None = None
@@ -343,7 +341,6 @@ class NaiveTissueDrugMeanPredictor(StructuredPredictor):
 )
 class NaiveMeanEffectsPredictor(StructuredPredictor):
     """Naive mean effects predictor component."""
-
 
     def __init__(self) -> None:
         self._dataset_mean: float | None = None
