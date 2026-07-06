@@ -9,9 +9,9 @@ from drevalpy.models.config import FeaturizerConfig, ModelConfig
 
 CELL_LINE_VIEW_TO_FEATURIZER = {
     "gene_expression": "scaledGeneExpression",
-    "methylation": "methylationPCA",
-    "mutations": "mutations",
-    "copy_number_variation_gistic": "copyNumberVariationGistic",
+    "methylation": "pca[methylation]",
+    "mutations": "raw[mutations]",
+    "copy_number_variation_gistic": "raw[cnv]",
     "proteomics": "proteomics",
     "bionic_features": "bionic",
 }
@@ -24,19 +24,24 @@ PROTEOMICS_HP_KEYS = (
 )
 
 
+def view_to_concat_block_label(view: str) -> str:
+    """Map a legacy omics view name to a concat block label."""
+    return CELL_LINE_VIEW_TO_FEATURIZER.get(view, f"raw[{view}]")
+
+
 def _child_config_for_view(view: str, hyperparameters: dict[str, Any]) -> str | dict[str, Any]:
     if view not in CELL_LINE_VIEW_TO_FEATURIZER:
-        return {"geneExpression": {"view": view}}
-    name = CELL_LINE_VIEW_TO_FEATURIZER[view]
-    if name == "methylationPCA":
+        return {"name": "raw", "view": view, "hyperparameters": {}}
+    token = CELL_LINE_VIEW_TO_FEATURIZER[view]
+    if token == "pca[methylation]":
         n_components = hyperparameters.get("methylation_n_components")
         if n_components is None:
             n_components = hyperparameters.get("methylation_pca_components", 100)
-        return {"methylationPCA": {"n_components": int(n_components)}}
-    if name == "proteomics":
+        return {token: {"n_components": int(n_components)}}
+    if token == "proteomics":
         proteomics_hp = {key: hyperparameters[key] for key in PROTEOMICS_HP_KEYS if key in hyperparameters}
         return {"proteomics": proteomics_hp} if proteomics_hp else "proteomics"
-    return name
+    return token
 
 
 def cell_line_featurizer_from_views(views: list[str], hyperparameters: dict[str, Any]) -> FeaturizerConfig:
@@ -149,6 +154,8 @@ def _views_from_featurizer_config(config: FeaturizerConfig, *, registry: str) ->
             child_cfg = FeaturizerConfig.model_validate(normalize_featurizer_config(child, default_registry=registry))
             views.extend(_views_from_featurizer_config(child_cfg, registry=registry))
         return views
+    if config.name in ("raw", "pca"):
+        return [str(config.view or config.hyperparameters.get("view"))]
     if config.name == "geneExpression":
         return [str(config.view or config.hyperparameters.get("view", "gene_expression"))]
     if config.name == "view":
