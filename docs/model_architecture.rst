@@ -33,6 +33,30 @@ Programmatic composition is available through:
 
     model = construct_model("myModel", "scaledGeneExpression:fingerprints:elasticNet")
 
+Explicit omics view grammar
+---------------------------
+
+Cell-line featurizers that operate on a single omics layer use bracket syntax:
+
+.. code-block:: text
+
+    raw[expression]+pca[proteomics]:identity:randomForest
+
+- ``raw[view]`` passes through one dense omics view without preprocessing.
+- ``pca[view]`` applies PCA to one dense omics view. The view is required.
+- ``+`` concatenates featurizers into ``concatFeaturizers``.
+
+Supported view aliases include ``expression`` (gene expression), ``methylation``,
+``mutations``, ``proteomics``, and ``cnv`` (copy-number variation). YAML presets use
+the same atoms:
+
+.. code-block:: yaml
+
+    cell_line_featurizer:
+      - raw[expression]
+      - pca[methylation]:
+          n_components: 100
+
 ``construct_model()`` is currently programmatic-only; the CLI still resolves models
 through ``MODEL_FACTORY``.
 

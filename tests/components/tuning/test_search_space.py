@@ -45,7 +45,7 @@ def test_split_predictor_only_fallback() -> None:
 
 def test_merge_concat_child_spaces_use_occurrence_index() -> None:
     register_builtins.register_builtin_components()
-    config = ModelConfig.from_spec("pca+landmarkGenes:fingerprints:randomForest")
+    config = ModelConfig.from_spec("pca[expression]+landmarkGenes:fingerprints:randomForest")
     merged = merge_model_config_spaces(config)
     pca_keys = [key for key in merged if key.startswith("featurizer.cell_line.pca.0.")]
     assert pca_keys
@@ -54,7 +54,7 @@ def test_merge_concat_child_spaces_use_occurrence_index() -> None:
 
 def test_apply_merged_to_model_config_strips_featurizer_prefix() -> None:
     register_builtins.register_builtin_components()
-    config = ModelConfig.from_spec("pca:identity:randomForest")
+    config = ModelConfig.from_spec("pca[expression]:identity:randomForest")
     merged = defaults_from_merged_space(merge_model_config_spaces(config))
     updated = apply_merged_to_model_config(config, merged)
     assert updated.cell_line_featurizer is not None

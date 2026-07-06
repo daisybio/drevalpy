@@ -38,7 +38,7 @@ def test_model_factory_defaults_build_without_error(model_name: str) -> None:
 
 
 def test_construct_model_defaults_have_no_namespaced_keys() -> None:
-    model_cls = construct_model("PcaOneHotRF", "pca:identity:randomForest")
+    model_cls = construct_model("PcaOneHotRF", "pca[expression]:identity:randomForest")
     defaults = model_cls.get_default_hyperparameters()
     assert not any("." in key for key in defaults)
     assert "featurizer.cell_line.pca.0.n_components" not in defaults
@@ -46,7 +46,7 @@ def test_construct_model_defaults_have_no_namespaced_keys() -> None:
 
 
 def test_default_config_has_component_local_hyperparameters_only() -> None:
-    model_cls = construct_model("PcaOneHotRF", "pca:identity:randomForest")
+    model_cls = construct_model("PcaOneHotRF", "pca[expression]:identity:randomForest")
     config = default_config_for_drp_model(model_cls)
     assert config is not None
     assert config.cell_line_featurizer is not None
@@ -55,7 +55,7 @@ def test_default_config_has_component_local_hyperparameters_only() -> None:
 
 
 def test_public_round_trip_for_constructed_model() -> None:
-    model_cls = construct_model("PcaOneHotRF", "pca:identity:randomForest")
+    model_cls = construct_model("PcaOneHotRF", "pca[expression]:identity:randomForest")
     config = default_config_for_drp_model(model_cls)
     assert config is not None
     public = public_hyperparameters_from_config(config)
@@ -67,7 +67,7 @@ def test_public_round_trip_for_constructed_model() -> None:
 
 
 def test_tuned_config_strips_structured_keys() -> None:
-    model_cls = construct_model("PcaOneHotRF", "pca:identity:randomForest")
+    model_cls = construct_model("PcaOneHotRF", "pca[expression]:identity:randomForest")
     base = default_config_for_drp_model(model_cls)
     assert base is not None
     merged = defaults_from_merged_space(merge_model_config_spaces(base))
@@ -81,10 +81,39 @@ def test_tuned_config_strips_structured_keys() -> None:
 def test_apply_merged_never_leaks_namespaced_keys_into_components() -> None:
     from drevalpy.models.config import ModelConfig
 
-    config = ModelConfig.from_spec("pca:identity:randomForest")
+    config = ModelConfig.from_spec("pca[expression]:identity:randomForest")
     merged = defaults_from_merged_space(merge_model_config_spaces(config))
     updated = apply_merged_to_model_config(config, merged)
     assert_component_local_hyperparameters(updated)
+
+
+def test_pca_methylation_flat_key_round_trip() -> None:
+    from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
+    from drevalpy.models.config import FeaturizerConfig, ModelConfig, PredictorConfig
+
+    config = ModelConfig(
+        cell_line_featurizer=FeaturizerConfig.model_validate(
+            normalize_featurizer_config(
+                [
+                    "scaledGeneExpression",
+                    {"pca[methylation]": {"n_components": 100}},
+                ],
+                default_registry="cell_line",
+            ),
+        ),
+        drug_featurizer=FeaturizerConfig.model_validate(
+            normalize_featurizer_config("fingerprints", default_registry="drug"),
+        ),
+        predictor=PredictorConfig(name="randomForest"),
+    )
+    public = public_hyperparameters_from_config(config)
+    assert public["methylation_n_components"] == 100
+    rebuilt = config_from_public_hyperparameters(MODEL_FACTORY["MultiViewRandomForest"], public)
+    assert rebuilt is not None
+    children = rebuilt.cell_line_featurizer.hyperparameters["featurizers"]
+    pca_child = next(child for child in children if child["name"] == "pca")
+    assert pca_child["view"] == "methylation"
+    assert pca_child["hyperparameters"]["n_components"] == 100
 
 
 def test_cli_resolves_models_through_model_factory() -> None:

@@ -1,7 +1,8 @@
 cell_line_featurizer:
   - scaledGeneExpression
-  - methylationPCA
-  - mutations
-  - copyNumberVariationGistic
+  - pca[methylation]:
+      n_components: 100
+  - raw[mutations]
+  - raw[cnv]
 drug_featurizer: fingerprints
 predictor: xgboost
