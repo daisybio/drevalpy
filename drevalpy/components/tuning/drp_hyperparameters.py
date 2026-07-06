@@ -285,9 +285,7 @@ def _apply_flat_featurizer_overrides(config: ModelConfig, flat: dict[str, Any]) 
                 child_cfg = FeaturizerConfig.model_validate(
                     normalize_featurizer_config(child, default_registry=registry),
                 )
-                if child_cfg.name == featurizer_name and (
-                    featurizer_name != "pca" or child_cfg.view == "methylation"
-                ):
+                if child_cfg.name == featurizer_name and (featurizer_name != "pca" or child_cfg.view == "methylation"):
                     child_cfg = child_cfg.model_copy(
                         update={"hyperparameters": {**child_cfg.hyperparameters, component_key: value}},
                         deep=True,

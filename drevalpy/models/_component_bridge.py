@@ -204,9 +204,7 @@ def restore_sklearn_to_components(model: SklearnModel) -> None:
     if cell_line_featurizer is not None:
         if isinstance(legacy_state, dict):
             featurizer_state = {
-                key: value
-                for key, value in legacy_state.items()
-                if key != "model" and value is not None
+                key: value for key, value in legacy_state.items() if key != "model" and value is not None
             }
         else:
             featurizer_state = _sklearn_featurizer_state_from_model(model)

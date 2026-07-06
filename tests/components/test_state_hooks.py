@@ -15,7 +15,7 @@ from drevalpy.components.predictors.sklearn_models import ElasticNetPredictor
 from drevalpy.components.register_builtins import register_builtin_components
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models._component_bridge import restore_naive_to_components, restore_sklearn_to_components
-from drevalpy.models._legacy_checkpoint_loaders import load_legacy_naive_checkpoint, load_legacy_sklearn_checkpoint
+from drevalpy.models._legacy_checkpoint_loaders import load_legacy_sklearn_checkpoint
 from drevalpy.models.baselines.naive_pred import NaiveDrugMeanPredictor as LegacyNaiveDrugMean
 from drevalpy.models.baselines.sklearn_models import ElasticNetModel
 from drevalpy.models.factory import model_config_for_name

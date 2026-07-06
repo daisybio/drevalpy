@@ -10,7 +10,7 @@ from drevalpy.models import DRPModel, construct_model
 
 
 def test_construct_model_returns_drp_model_subclass() -> None:
-    model_cls = construct_model("PcaOneHotRF", "pca:oneHot:randomForest")
+    model_cls = construct_model("PcaOneHotRF", "pca[expression]:oneHot:randomForest")
     assert issubclass(model_cls, DRPModel)
     assert model_cls.get_model_name() == "PcaOneHotRF"
 

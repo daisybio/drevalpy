@@ -1,6 +1,5 @@
 """Contains sklearn baseline models: ElasticNet, RandomForest, SVM, AdaBoost."""
 
-
 import numpy as np
 
 from drevalpy.components.register_builtins import ensure_components_registered

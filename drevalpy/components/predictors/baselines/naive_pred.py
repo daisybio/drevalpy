@@ -11,7 +11,6 @@ cell line residual effect, and drug effect and should be the strongest naive bas
 
 """
 
-
 import numpy as np
 
 from drevalpy.components.register_builtins import ensure_components_registered
