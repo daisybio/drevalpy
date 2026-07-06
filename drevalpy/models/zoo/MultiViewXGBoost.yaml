@@ -1,0 +1,7 @@
+cell_line_featurizer:
+  - scaledGeneExpression
+  - methylationPCA
+  - mutations
+  - copyNumberVariationGistic
+drug_featurizer: fingerprints
+predictor: xgboost

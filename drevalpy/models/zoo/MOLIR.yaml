@@ -1,0 +1,5 @@
+cell_line_featurizer:
+  - geneExpression
+  - mutations
+  - copyNumberVariationGistic
+predictor: molir

@@ -1,0 +1,3 @@
+cell_line_featurizer: geneExpression
+drug_featurizer: fingerprints
+predictor: sparsego

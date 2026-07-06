@@ -1,0 +1,6 @@
+cell_line_featurizer:
+  landmarkGenes:
+    standardize: true
+    minmax_scale: true
+drug_featurizer: bpePharmaformer
+predictor: pharmaFormer

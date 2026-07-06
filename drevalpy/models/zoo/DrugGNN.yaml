@@ -1,0 +1,3 @@
+cell_line_featurizer: landmarkGenesReduced
+drug_featurizer: drugGraph
+predictor: drugGNN

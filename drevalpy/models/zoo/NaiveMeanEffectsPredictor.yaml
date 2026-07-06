@@ -1,0 +1,3 @@
+cell_line_featurizer: identity
+drug_featurizer: identity
+predictor: naiveMeanEffects

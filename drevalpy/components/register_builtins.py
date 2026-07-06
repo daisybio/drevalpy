@@ -9,6 +9,7 @@ from types import ModuleType
 from drevalpy.components.registry.core import (
     cell_line_featurizer_registry,
     drug_featurizer_registry,
+    predictor_registry,
 )
 
 
@@ -26,8 +27,8 @@ def _restore_module_registrations(module_path: str, registry) -> None:
     _restore_registry_from_module(registry, module)
 
 
-def register_native_featurizers() -> None:
-    """Register native cell-line and drug featurizers."""
+def register_native_components() -> None:
+    """Register native cell-line featurizers, drug featurizers, and tabular predictors."""
     for module_path, registry in (
         ("drevalpy.components.featurizers.cell_line.omics.gene_expression", cell_line_featurizer_registry),
         ("drevalpy.components.featurizers.cell_line.omics.scaled_gene_expression", cell_line_featurizer_registry),
@@ -51,14 +52,18 @@ def register_native_featurizers() -> None:
         ("drevalpy.components.featurizers.drug.bpe_pharmaformer", drug_featurizer_registry),
         ("drevalpy.components.featurizers.drug.smilesvec", drug_featurizer_registry),
         ("drevalpy.components.featurizers.drug.identity", drug_featurizer_registry),
+        ("drevalpy.components.predictors.naive", predictor_registry),
+        ("drevalpy.components.predictors.sklearn_models", predictor_registry),
+        ("drevalpy.components.predictors.xgboost_pred", predictor_registry),
+        ("drevalpy.components.predictors.lightgbm_pred", predictor_registry),
     ):
         _restore_module_registrations(module_path, registry)
 
 
 def register_builtin_components(*, include_legacy: bool = False) -> None:
-    """Register native featurizers."""
+    """Register native components."""
     _ = include_legacy
-    register_native_featurizers()
+    register_native_components()
 
 
 def ensure_components_registered(*, include_legacy: bool = False) -> None:
