@@ -43,7 +43,7 @@ def test_register_and_lookup_cell_line_featurizer() -> None:
         pass
 
     assert get_cell_line_featurizer("dummyCellLine") is DummyCellLine
-    assert DummyCellLine.contract == FeatureContract(kind=FeatureKind.DENSE)
+    assert vars(DummyCellLine)["contract"] == FeatureContract(kind=FeatureKind.DENSE)
     assert "dummyCellLine" in list_cell_line_featurizers()
 
 
@@ -128,8 +128,8 @@ def test_decorator_returns_original_class() -> None:
         supported_modes = {"regression"}
 
     assert vars(DummyPred)["registry_name"] == "dummyPred"
-    assert DummyPred.cell_line_contract == FeatureContract(kind=FeatureKind.DENSE)
-    assert DummyPred.drug_contract == FeatureContract(kind=FeatureKind.DENSE)
+    assert vars(DummyPred)["cell_line_contract"] == FeatureContract(kind=FeatureKind.DENSE)
+    assert vars(DummyPred)["drug_contract"] == FeatureContract(kind=FeatureKind.DENSE)
 
 
 def test_duplicate_class_and_decorator_contract_fails() -> None:

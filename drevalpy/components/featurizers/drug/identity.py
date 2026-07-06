@@ -21,6 +21,7 @@ from drevalpy.datasets.dataset import FeatureDataset
 )
 class DrugIdentityFeaturizer(DrugFeaturizer):
     """Encode drug IDs as dense one-hot vectors."""
+
     entity_id_only: ClassVar[bool] = True
 
     def __init__(self) -> None:

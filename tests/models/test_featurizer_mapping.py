@@ -45,6 +45,18 @@ def test_identity_featurizers_resolve_to_empty_views() -> None:
     assert drug_views_from_model_config(config) == []
 
 
+def test_bracket_featurizers_resolve_canonical_views() -> None:
+    config = _model_config(
+        cell_line_featurizer=FeaturizerConfig.model_validate(
+            normalize_featurizer_config("raw[mutations]+pca[methylation]", default_registry="cell_line"),
+        ),
+    )
+    assert cell_line_views_from_model_config(config) == [
+        "mutations",
+        "methylation",
+    ]
+
+
 def test_fingerprint_featurizer_still_resolves_fingerprints_view() -> None:
     config = _model_config(
         drug_featurizer=FeaturizerConfig.model_validate(
