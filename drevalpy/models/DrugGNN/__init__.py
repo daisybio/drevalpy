@@ -1,5 +1,5 @@
-"""A GNN based drug response prediction model."""
+"""Compatibility package for moved DrugGNN implementation."""
 
-from .drug_gnn import DrugGNN
+from drevalpy.components.predictors.literature.impl.druggnn.drug_gnn import DrugGNN
 
 __all__ = ["DrugGNN"]

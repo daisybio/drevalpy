@@ -2,20 +2,17 @@
 Contains the DRPModel class.
 
 The DRPModel class is an abstract wrapper class for drug response prediction models.
-
-
+Concrete subclasses live under `drevalpy.models` and are the public experiment
+surface. Modular featurizer/predictor composition is implemented in
+`drevalpy.components`; baseline adapters bridge the two layers.
 """
 
-import inspect
-import os
 from abc import ABC, abstractmethod
 from contextlib import suppress
 from typing import Any
 
 import numpy as np
 import wandb
-import yaml
-from sklearn.model_selection import ParameterGrid
 
 from ..datasets.dataset import DrugResponseDataset, FeatureDataset
 from ..evaluation import AVAILABLE_METRICS, evaluate
@@ -262,32 +259,25 @@ class DRPModel(ABC):
 
     @classmethod
     @pipeline_function
+    def get_structured_hyperparameter_space(cls) -> dict[str, Any]:
+        """Return the merged structured hyperparameter space for this model."""
+        from drevalpy.components.tuning.drp_hyperparameters import structured_space_for_drp_model
+
+        return structured_space_for_drp_model(cls)
+
+    @classmethod
+    @pipeline_function
+    def get_default_hyperparameters(cls) -> dict[str, Any]:
+        """Return default hyperparameters for ``build_model``."""
+        from drevalpy.components.tuning.drp_hyperparameters import default_hyperparameters_for_drp_model
+
+        return default_hyperparameters_for_drp_model(cls)
+
+    @classmethod
+    @pipeline_function
     def get_hyperparameter_set(cls) -> list[dict[str, Any]]:
-        """
-        Loads the hyperparameters from a yaml file which is located in the same directory as the model.
-
-        :returns: list of hyperparameter sets
-        :raises ValueError: if the hyperparameters are not in the correct format
-        :raises KeyError: if the model is not found in the hyperparameters file
-        """
-        hyperparameter_file = os.path.join(os.path.dirname(inspect.getfile(cls)), "hyperparameters.yaml")
-
-        with open(hyperparameter_file, encoding="utf-8") as f:
-            try:
-                hpams = yaml.safe_load(f)[cls.get_model_name()]
-            except yaml.YAMLError as exc:
-                raise ValueError(f"Error in hyperparameters.yaml: {exc}") from exc
-            except KeyError as key_exc:
-                raise KeyError(f"Model {cls.get_model_name()} not found in hyperparameters.yaml") from key_exc
-
-        if hpams is None:
-            return [{}]
-        # each param should be a list
-        for hp in hpams:
-            if not isinstance(hpams[hp], list):
-                hpams[hp] = [hpams[hp]]
-        grid = list(ParameterGrid(hpams))
-        return grid
+        """Return the default hyperparameter configuration for this model."""
+        return [cls.get_default_hyperparameters()]
 
     @property
     @abstractmethod

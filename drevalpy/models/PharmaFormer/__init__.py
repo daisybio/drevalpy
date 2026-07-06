@@ -1,5 +1,5 @@
-"""PharmaFormer model."""
+"""Compatibility package for moved PharmaFormer implementation."""
 
-from .pharmaformer import PharmaFormerModel
+from drevalpy.components.predictors.literature.impl.pharmaformer.pharmaformer import PharmaFormerModel
 
 __all__ = ["PharmaFormerModel"]

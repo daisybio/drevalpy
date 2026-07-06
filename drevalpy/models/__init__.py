@@ -1,4 +1,16 @@
-"""Public drug response prediction models and legacy experiment adapters."""
+"""Public drug response prediction models and legacy experiment adapters.
+
+This package exposes `~drevalpy.models.drp_model.DRPModel` subclasses,
+``MODEL_FACTORY``, model orchestration (factory, config IO/spec, zoo,
+`~drevalpy.models.composed_model.ComposedModel`), and public model
+compatibility classes. Baseline and literature predictor implementations live
+under `drevalpy.components.predictors` and are exposed here for backward
+compatibility via `drevalpy.models._component_bridge`.
+
+Factory tables and concrete model classes are loaded lazily so importing
+``drevalpy.models.drp_model`` from component implementations does not pull in
+the full public model graph during package initialization.
+"""
 
 from __future__ import annotations
 
@@ -65,16 +77,20 @@ if TYPE_CHECKING:
         SVMRegressor,
     )
     from drevalpy.components.predictors.baselines.zoo_preset import MultiViewLightGBM
-    from .DIPK.dipk import DIPKModel
-    from .DrugGNN import DrugGNN
-    from .MOLIR.molir import MOLIR
-    from .PharmaFormer.pharmaformer import PharmaFormerModel
-    from .Precily import PrecilyModel
-    from .SimpleNeuralNetwork.multi_view_neural_network import MultiViewNeuralNetwork
-    from .SimpleNeuralNetwork.simple_neural_network import SimpleNeuralNetwork
-    from .SparseGO.sparsego import SparseGOModel as SparseGO
-    from .SRMF.srmf import SRMF
-    from .SuperFELTR.superfeltr import SuperFELTR
+    from drevalpy.components.predictors.literature.public_models import (
+        MOLIR,
+        SRMF,
+        DIPKModel,
+        DrugGNN,
+        MultiViewNeuralNetwork,
+        PharmaFormerModel,
+        PrecilyModel,
+        SimpleNeuralNetwork,
+    )
+    from drevalpy.components.predictors.literature.public_models import SparseGOModel as SparseGO
+    from drevalpy.components.predictors.literature.public_models import (
+        SuperFELTR,
+    )
 
     SINGLE_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]]
     MULTI_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]]
@@ -106,16 +122,20 @@ def _lazy_load_public_models() -> None:
         SVMRegressor,
     )
     from drevalpy.components.predictors.baselines.zoo_preset import MultiViewLightGBM
-    from .DIPK.dipk import DIPKModel
-    from .DrugGNN import DrugGNN
-    from .MOLIR.molir import MOLIR
-    from .PharmaFormer.pharmaformer import PharmaFormerModel
-    from .Precily import PrecilyModel
-    from .SimpleNeuralNetwork.multi_view_neural_network import MultiViewNeuralNetwork
-    from .SimpleNeuralNetwork.simple_neural_network import SimpleNeuralNetwork
-    from .SparseGO.sparsego import SparseGOModel as SparseGO
-    from .SRMF.srmf import SRMF
-    from .SuperFELTR.superfeltr import SuperFELTR
+    from drevalpy.components.predictors.literature.public_models import (
+        MOLIR,
+        SRMF,
+        DIPKModel,
+        DrugGNN,
+        MultiViewNeuralNetwork,
+        PharmaFormerModel,
+        PrecilyModel,
+        SimpleNeuralNetwork,
+    )
+    from drevalpy.components.predictors.literature.public_models import SparseGOModel as SparseGO
+    from drevalpy.components.predictors.literature.public_models import (
+        SuperFELTR,
+    )
 
     single: dict[str, type[DRPModel]] = {
         "SingleDrugElasticNet": SingleDrugElasticNet,

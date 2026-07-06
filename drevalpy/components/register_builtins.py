@@ -56,15 +56,24 @@ def register_native_components() -> None:
         ("drevalpy.components.predictors.sklearn_models", predictor_registry),
         ("drevalpy.components.predictors.xgboost_pred", predictor_registry),
         ("drevalpy.components.predictors.lightgbm_pred", predictor_registry),
-        ("drevalpy.components.predictors.baselines.zoo_preset", predictor_registry),
+        ("drevalpy.components.predictors.literature.neural_network", predictor_registry),
     ):
         _restore_module_registrations(module_path, registry)
 
 
+def register_literature_components() -> None:
+    """Register literature predictors that depend on drevalpy.models DRPModel stacks."""
+    for module_path in (
+        "drevalpy.components.predictors.literature.druggnn",
+        "drevalpy.components.predictors.literature.structured_predictors",
+    ):
+        _restore_module_registrations(module_path, predictor_registry)
+
+
 def register_builtin_components(*, include_legacy: bool = False) -> None:
-    """Register native components."""
-    _ = include_legacy
+    """Register native components and optional legacy DRPModel predictor wrappers."""
     register_native_components()
+    register_literature_components()
 
 
 def ensure_components_registered(*, include_legacy: bool = False) -> None:

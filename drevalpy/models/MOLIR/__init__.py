@@ -1,1 +1,5 @@
-"""Module for the regression adaption of the MOLI model: MOLIR."""
+"""Compatibility package for moved MOLIR implementation."""
+
+from drevalpy.components.predictors.literature.impl.molir.molir import MOLIR
+
+__all__ = ["MOLIR"]

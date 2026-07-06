@@ -1,5 +1,5 @@
-"""Precily model."""
+"""Compatibility package for moved Precily implementation."""
 
-from .precily import PrecilyModel
+from drevalpy.components.predictors.literature.impl.precily.precily import PrecilyModel
 
 __all__ = ["PrecilyModel"]
