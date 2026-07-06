@@ -1,0 +1,73 @@
+"""Tests for internal hyperparameter search-space helpers."""
+
+import drevalpy.components.register_builtins as register_builtins
+from drevalpy.components.tuning.search_space import (
+    apply_merged_to_model_config,
+    defaults_from_merged_space,
+    extract_defaults,
+    merge_model_config_spaces,
+    merge_search_spaces,
+    split_hyperparameters,
+)
+from drevalpy.models.config import ModelConfig
+
+
+def test_merge_all_three_spaces() -> None:
+    merged = merge_search_spaces(
+        cell_line_featurizer_space={"n_components": {"type": "int", "low": 4, "high": 64, "default": 8}},
+        drug_featurizer_space={"n_bits": {"type": "int", "low": 64, "high": 256, "default": 128}},
+        predictor_space={"alpha": {"type": "float", "low": 0.1, "high": 1.0, "default": 0.5}},
+    )
+    assert set(merged) == {
+        "featurizer.cell_line.n_components",
+        "featurizer.drug.n_bits",
+        "predictor.alpha",
+    }
+
+
+def test_split_hyperparameters_inverts_merge() -> None:
+    merged = {
+        "featurizer.cell_line.n_components": 8,
+        "featurizer.drug.n_bits": 128,
+        "predictor.alpha": 0.5,
+    }
+    cell_line_hp, drug_hp, predictor_hp = split_hyperparameters(merged)
+    assert cell_line_hp == {"n_components": 8}
+    assert drug_hp == {"n_bits": 128}
+    assert predictor_hp == {"alpha": 0.5}
+
+
+def test_split_predictor_only_fallback() -> None:
+    merged = {"alpha": 1.0, "l1_ratio": 0.5}
+    _, _, predictor_hp = split_hyperparameters(merged)
+    assert predictor_hp == {"alpha": 1.0, "l1_ratio": 0.5}
+
+
+def test_merge_concat_child_spaces_use_occurrence_index() -> None:
+    register_builtins.register_builtin_components()
+    config = ModelConfig.from_spec("pca+landmarkGenes:fingerprints:randomForest")
+    merged = merge_model_config_spaces(config)
+    pca_keys = [key for key in merged if key.startswith("featurizer.cell_line.pca.0.")]
+    assert pca_keys
+    assert any("predictor.randomForest." in key for key in merged)
+
+
+def test_apply_merged_to_model_config_strips_featurizer_prefix() -> None:
+    register_builtins.register_builtin_components()
+    config = ModelConfig.from_spec("pca:identity:randomForest")
+    merged = defaults_from_merged_space(merge_model_config_spaces(config))
+    updated = apply_merged_to_model_config(config, merged)
+    assert updated.cell_line_featurizer is not None
+    assert updated.cell_line_featurizer.hyperparameters == {"n_components": 128}
+    assert not any("." in key for key in updated.cell_line_featurizer.hyperparameters)
+
+
+def test_extract_defaults() -> None:
+    defaults = extract_defaults(
+        cell_line_featurizer_space={"n_components": {"type": "int", "default": 16}},
+        predictor_space={"alpha": {"type": "float", "default": 0.1}},
+    )
+    assert defaults == {
+        "featurizer.cell_line.n_components": 16,
+        "predictor.alpha": 0.1,
+    }
