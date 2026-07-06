@@ -29,11 +29,7 @@ class DrugGNNPredictor(StructuredPredictor):
     """Drug gnnpredictor component."""
 
     required_cell_line_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
-    required_drug_contract: ClassVar[FeatureContract] = FeatureContract(
-        kind=FeatureKind.GRAPH,
-        view="drug_graph",
-        backend="pyg",
-    )
+    required_drug_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.GRAPH)
 
     def __init__(self) -> None:
         self._hyperparameters: dict[str, Any] = {}

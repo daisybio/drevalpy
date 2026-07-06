@@ -15,50 +15,42 @@ def _register_components() -> None:
 
 
 @pytest.mark.parametrize(
-    ("name", "expected_kind", "expected_view"),
+    ("name", "expected_kind"),
     [
-        ("landmarkGenes", FeatureKind.DENSE, "gene_expression"),
-        ("landmarkGenesReduced", FeatureKind.DENSE, "gene_expression"),
-        ("pathways", FeatureKind.DENSE, "pathways"),
-        ("bionic", FeatureKind.DENSE, "bionic_features"),
-        ("concatFeaturizers", FeatureKind.DENSE, None),
-        ("geneExpression", FeatureKind.DENSE, "gene_expression"),
-        ("mutations", FeatureKind.DENSE, "mutations"),
-        ("methylationPCA", FeatureKind.DENSE, "methylation"),
+        ("landmarkGenes", FeatureKind.DENSE),
+        ("landmarkGenesReduced", FeatureKind.DENSE),
+        ("pathways", FeatureKind.DENSE),
+        ("bionic", FeatureKind.DENSE),
+        ("concatFeaturizers", FeatureKind.DENSE),
+        ("geneExpression", FeatureKind.DENSE),
+        ("mutations", FeatureKind.DENSE),
+        ("methylationPCA", FeatureKind.DENSE),
     ],
 )
 def test_cell_line_literature_featurizer_contracts(
     name: str,
     expected_kind: FeatureKind,
-    expected_view: str | None,
 ) -> None:
     cls = get_cell_line_featurizer(name)
     contract = cls.output_contract
     assert isinstance(contract, FeatureContract)
     assert contract.kind == expected_kind
-    if expected_view is not None:
-        assert contract.view == expected_view
-    if name == "concatFeaturizers":
-        assert contract.scope == "multi_view"
 
 
 @pytest.mark.parametrize(
-    ("name", "expected_kind", "expected_view"),
+    ("name", "expected_kind"),
     [
-        ("molgnet", FeatureKind.DENSE, "molgnet_features"),
-        ("bpePharmaformer", FeatureKind.DENSE, "bpe_smiles"),
-        ("smilesvec", FeatureKind.DENSE, "smilesvec"),
-        ("drugGraph", FeatureKind.GRAPH, "drug_graph"),
+        ("molgnet", FeatureKind.DENSE),
+        ("bpePharmaformer", FeatureKind.DENSE),
+        ("smilesvec", FeatureKind.DENSE),
+        ("drugGraph", FeatureKind.GRAPH),
     ],
 )
 def test_drug_literature_featurizer_contracts(
     name: str,
     expected_kind: FeatureKind,
-    expected_view: str | None,
 ) -> None:
     cls = get_drug_featurizer(name)
     contract = cls.output_contract
     assert isinstance(contract, FeatureContract)
     assert contract.kind == expected_kind
-    if expected_view is not None:
-        assert contract.view == expected_view

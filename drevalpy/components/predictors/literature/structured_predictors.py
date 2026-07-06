@@ -198,8 +198,8 @@ class StructuredLiteratureEnginePredictor(StructuredPredictor):
 class PrecilyPredictor(StructuredLiteratureEnginePredictor):
     """Precily predictor component."""
 
-    required_cell_line_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE, view="pathways")
-    required_drug_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE, view="smilesvec")
+    required_cell_line_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
+    required_drug_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
     _engine_cls = PrecilyModel
 
 
@@ -211,10 +211,8 @@ class PrecilyPredictor(StructuredLiteratureEnginePredictor):
 class SRMFPredictor(StructuredLiteratureEnginePredictor):
     """Srmfpredictor component."""
 
-    required_cell_line_contract: ClassVar[FeatureContract] = FeatureContract(
-        kind=FeatureKind.DENSE, view="gene_expression"
-    )
-    required_drug_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE, view="fingerprints")
+    required_cell_line_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
+    required_drug_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
     _engine_cls = SRMF
 
 
@@ -226,7 +224,7 @@ class SRMFPredictor(StructuredLiteratureEnginePredictor):
 class MOLIRPredictor(StructuredLiteratureEnginePredictor):
     """Molirpredictor component."""
 
-    required_cell_line_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE, scope="multi_view")
+    required_cell_line_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
     required_drug_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
     requires_drug_featurizer: ClassVar[bool] = False
     _use_raw_inputs: ClassVar[bool] = True
@@ -241,7 +239,7 @@ class MOLIRPredictor(StructuredLiteratureEnginePredictor):
 class SuperFELTRPredictor(StructuredLiteratureEnginePredictor):
     """Super feltrpredictor component."""
 
-    required_cell_line_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE, scope="multi_view")
+    required_cell_line_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
     required_drug_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
     requires_drug_featurizer: ClassVar[bool] = False
     _use_raw_inputs: ClassVar[bool] = True
@@ -256,10 +254,8 @@ class SuperFELTRPredictor(StructuredLiteratureEnginePredictor):
 class PharmaFormerPredictor(StructuredLiteratureEnginePredictor):
     """Pharma former predictor component."""
 
-    required_cell_line_contract: ClassVar[FeatureContract] = FeatureContract(
-        kind=FeatureKind.DENSE, view="gene_expression"
-    )
-    required_drug_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE, view="bpe_smiles")
+    required_cell_line_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
+    required_drug_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
     _use_raw_inputs: ClassVar[bool] = True
     _engine_cls = PharmaFormerModel
 
@@ -272,8 +268,8 @@ class PharmaFormerPredictor(StructuredLiteratureEnginePredictor):
 class DIPKPredictor(StructuredLiteratureEnginePredictor):
     """Dipkpredictor component."""
 
-    required_cell_line_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE, scope="multi_view")
-    required_drug_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE, view="molgnet_features")
+    required_cell_line_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
+    required_drug_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
     _use_raw_inputs: ClassVar[bool] = True
     _engine_cls = DIPKModel
 
@@ -286,9 +282,7 @@ class DIPKPredictor(StructuredLiteratureEnginePredictor):
 class SparseGOPredictor(StructuredLiteratureEnginePredictor):
     """SparseGO predictor component."""
 
-    required_cell_line_contract: ClassVar[FeatureContract] = FeatureContract(
-        kind=FeatureKind.DENSE, view="gene_expression"
-    )
-    required_drug_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE, view="fingerprints")
+    required_cell_line_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
+    required_drug_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
     _use_raw_inputs: ClassVar[bool] = True
     _engine_cls = SparseGOModel
