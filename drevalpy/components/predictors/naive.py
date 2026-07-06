@@ -66,8 +66,8 @@ class NaiveMeanPredictor(BaselinePredictor):
 
 
 class _SingleEntityNaivePredictor(StructuredPredictor):
-    required_cell_line_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE, scope="identity")
-    required_drug_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE, scope="identity")
+    required_cell_line_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
+    required_drug_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
 
     def __init__(self) -> None:
         self._dataset_mean: float | None = None
@@ -174,8 +174,8 @@ class NaiveCellLineMeanPredictor(_SingleEntityNaivePredictor):
 class NaiveTissueMeanPredictor(StructuredPredictor):
     """Naive tissue mean predictor component."""
 
-    required_cell_line_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE, scope="tissue")
-    required_drug_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE, scope="identity")
+    required_cell_line_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
+    required_drug_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
 
     def __init__(self) -> None:
         self._dataset_mean: float | None = None
@@ -252,8 +252,8 @@ class NaiveTissueMeanPredictor(StructuredPredictor):
 class NaiveTissueDrugMeanPredictor(StructuredPredictor):
     """Naive tissue drug mean predictor component."""
 
-    required_cell_line_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE, scope="tissue")
-    required_drug_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE, scope="identity")
+    required_cell_line_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
+    required_drug_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
 
     def __init__(self) -> None:
         self._dataset_mean: float | None = None
@@ -340,8 +340,8 @@ class NaiveTissueDrugMeanPredictor(StructuredPredictor):
 class NaiveMeanEffectsPredictor(StructuredPredictor):
     """Naive mean effects predictor component."""
 
-    required_cell_line_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE, scope="identity")
-    required_drug_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE, scope="identity")
+    required_cell_line_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
+    required_drug_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
 
     def __init__(self) -> None:
         self._dataset_mean: float | None = None

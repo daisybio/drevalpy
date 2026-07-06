@@ -87,7 +87,7 @@ def test_wrong_registry_slot_fails() -> None:
 def test_graph_featurizer_with_dense_predictor_fails() -> None:
     @register_cell_line_featurizer("graphCellLine", description="graph", category="native")
     class GraphCellLine:
-        output_contract = FeatureContract(kind=FeatureKind.GRAPH, backend="pyg")
+        output_contract = FeatureContract(kind=FeatureKind.GRAPH)
 
     @register_drug_featurizer("denseDrug", description="dense drug", category="native")
     class DenseDrug:
@@ -109,29 +109,28 @@ def test_graph_featurizer_with_dense_predictor_fails() -> None:
         validate_model_config(config)
 
 
-def test_graph_backend_mismatch_fails() -> None:
+def test_graph_kind_match_passes() -> None:
     @register_cell_line_featurizer("graphCellLine", description="graph", category="native")
     class GraphCellLine:
-        output_contract = FeatureContract(kind=FeatureKind.GRAPH, backend="pyg")
+        output_contract = FeatureContract(kind=FeatureKind.GRAPH)
 
     @register_drug_featurizer("graphDrug", description="graph drug", category="native")
     class GraphDrug:
-        output_contract = FeatureContract(kind=FeatureKind.GRAPH, backend="pyg")
+        output_contract = FeatureContract(kind=FeatureKind.GRAPH)
 
     @register_predictor("graphPred", description="graph pred", category="general_purpose")
     class GraphPred:
         uses_features = True
         supported_modes = {PredictionMode.REGRESSION}
-        required_cell_line_contract = FeatureContract(kind=FeatureKind.GRAPH, backend="dgl")
-        required_drug_contract = FeatureContract(kind=FeatureKind.GRAPH, backend="pyg")
+        required_cell_line_contract = FeatureContract(kind=FeatureKind.GRAPH)
+        required_drug_contract = FeatureContract(kind=FeatureKind.GRAPH)
 
     config = ModelConfig(
         cell_line_featurizer=FeaturizerConfig(name="graphCellLine", registry="cell_line"),
         drug_featurizer=FeaturizerConfig(name="graphDrug", registry="drug"),
         predictor=PredictorConfig(name="graphPred"),
     )
-    with pytest.raises(ValueError, match="Cell line featurizer output_contract"):
-        validate_model_config(config)
+    validate_model_config(config)
 
 
 def test_feature_free_predictor_without_featurizers_passes() -> None:
