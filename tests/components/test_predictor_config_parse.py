@@ -1,0 +1,22 @@
+"""Tests for compact predictor config parsing."""
+
+from __future__ import annotations
+
+import pytest
+
+from drevalpy.components.predictor_config_parse import normalize_predictor_config
+
+
+def test_normalize_string_shorthand() -> None:
+    payload = normalize_predictor_config("randomForest")
+    assert payload == {"name": "randomForest", "hyperparameters": {}}
+
+
+def test_normalize_one_key_mapping() -> None:
+    payload = normalize_predictor_config({"randomForest": {"n_estimators": 10}})
+    assert payload == {"name": "randomForest", "hyperparameters": {"n_estimators": 10}}
+
+
+def test_normalize_rejects_invalid_shape() -> None:
+    with pytest.raises(TypeError, match="string or mapping"):
+        normalize_predictor_config(123)

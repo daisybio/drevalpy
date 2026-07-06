@@ -48,21 +48,24 @@ subword-nmt = ">=0.3.8"
 toml = {version = ">=0.10.2"}
 poetry = ">=2.0.1"
 starlette = ">=0.49.1"
-pydantic = { version = ">=2.5", optional = true }
+pydantic = ">=2.5"
 wandb = ">=0.24.0"
 xgboost = { version = ">=3.2.0", optional = true }
+lightgbm = { version = ">=4.0.0", optional = true }
 typer = ">=0.26,<0.27"
 rich = ">=15.0.0"
 gseapy = { version = ">=1.1.0", optional = true }
 mygene = { version = "*", optional = true }
 obonet = { version = "*", optional = true }
+optuna = "*"
 
 [tool.poetry.requires-plugins]
 poetry-plugin-export = ">=1.8"
 
 [tool.poetry.extras]
-multiprocessing = ["ray", "pydantic"]
+multiprocessing = ["ray"]
 xgboost = ["xgboost"]
+lightgbm = ["lightgbm"]
 precily = ["gseapy"]
 sparsego = ["mygene", "obonet"]
 
@@ -99,6 +102,8 @@ dependencies = { torch = ">=2.1", torch-geometric = "*" }
 [tool.poetry.group.dev.dependencies]
 mypy = "^1.19.1"
 ruff = "^0.15.8"
+types-PyYAML = "*"
+types-toml = "*"
 
 [tool.black]
 line-length = 120
