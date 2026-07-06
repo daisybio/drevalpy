@@ -32,7 +32,7 @@ def test_model_config_from_triple_spec() -> None:
 
 
 def test_model_config_from_triple_spec_with_plus_concat() -> None:
-    config = model_config_from_spec("geneExpression+mutations:fingerprints+oneHot:randomForest")
+    config = model_config_from_spec("raw[expression]+raw[mutations]:fingerprints+oneHot:randomForest")
     assert config.cell_line_featurizer is not None
     assert config.cell_line_featurizer.name == "concatFeaturizers"
     assert config.drug_featurizer is not None

@@ -22,9 +22,8 @@ def _register_components() -> None:
         ("pathways", FeatureKind.DENSE),
         ("bionic", FeatureKind.DENSE),
         ("concatFeaturizers", FeatureKind.DENSE),
-        ("geneExpression", FeatureKind.DENSE),
-        ("mutations", FeatureKind.DENSE),
-        ("methylationPCA", FeatureKind.DENSE),
+        ("raw", FeatureKind.DENSE),
+        ("pca", FeatureKind.DENSE),
     ],
 )
 def test_cell_line_literature_featurizer_contracts(

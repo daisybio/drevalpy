@@ -150,7 +150,7 @@ def test_literature_or_bridge_model_lifecycle(
 def test_untrained_component_model_raises() -> None:
     from drevalpy.models import construct_model
 
-    model_cls = construct_model("elasticNet", "geneExpression:fingerprints:elasticNet")
+    model_cls = construct_model("elasticNet", "raw[expression]:fingerprints:elasticNet")
     model = model_cls()
     model.build_model({})
     response, cell_line_input, drug_input = _synthetic_data()

@@ -12,7 +12,7 @@ CELL_LINE_VIEW_TO_FEATURIZER = {
     "methylation": "pca[methylation]",
     "mutations": "raw[mutations]",
     "copy_number_variation_gistic": "raw[cnv]",
-    "proteomics": "proteomics",
+    "proteomics": "normalizedProteomics",
     "bionic_features": "bionic",
 }
 
@@ -38,9 +38,9 @@ def _child_config_for_view(view: str, hyperparameters: dict[str, Any]) -> str | 
         if n_components is None:
             n_components = hyperparameters.get("methylation_pca_components", 100)
         return {token: {"n_components": int(n_components)}}
-    if token == "proteomics":
+    if token == "normalizedProteomics":
         proteomics_hp = {key: hyperparameters[key] for key in PROTEOMICS_HP_KEYS if key in hyperparameters}
-        return {"proteomics": proteomics_hp} if proteomics_hp else "proteomics"
+        return {"normalizedProteomics": proteomics_hp} if proteomics_hp else "normalizedProteomics"
     return token
 
 
@@ -91,10 +91,10 @@ def drug_featurizer_from_view(view: str) -> FeaturizerConfig:
 FEATURIZER_NAME_TO_CELL_LINE_VIEW = {value: key for key, value in CELL_LINE_VIEW_TO_FEATURIZER.items()}
 FEATURIZER_NAME_TO_CELL_LINE_VIEW.update(
     {
-        "geneExpression": "gene_expression",
         "landmarkGeneExpression": "gene_expression",
         "pathways": "pathways",
         "bionic": "bionic_features",
+        "normalizedProteomics": "proteomics",
     }
 )
 
@@ -156,8 +156,6 @@ def _views_from_featurizer_config(config: FeaturizerConfig, *, registry: str) ->
         return views
     if config.name in ("raw", "pca"):
         return [str(config.view or config.hyperparameters.get("view"))]
-    if config.name == "geneExpression":
-        return [str(config.view or config.hyperparameters.get("view", "gene_expression"))]
     if config.name == "view":
         return [str(config.hyperparameters.get("view", "fingerprints"))]
     mapped = FEATURIZER_NAME_TO_CELL_LINE_VIEW.get(config.name) if registry == "cell_line" else None

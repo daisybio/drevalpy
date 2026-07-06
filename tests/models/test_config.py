@@ -17,10 +17,11 @@ def test_featurizer_config_compact_string_shorthand() -> None:
 def test_featurizer_config_compact_one_key_mapping() -> None:
     config = FeaturizerConfig.model_validate(
         {
-            "methylationPCA": {"n_components": 64},
+            "pca[methylation]": {"n_components": 64},
         }
     )
-    assert config.name == "methylationPCA"
+    assert config.name == "pca"
+    assert config.view == "methylation"
     assert config.hyperparameters["n_components"] == 64
 
 
@@ -66,8 +67,8 @@ def test_model_config_parses_compact_featurizer_sections() -> None:
         {
             "cell_line_featurizer": [
                 "scaledGeneExpression",
-                {"methylationPCA": {"n_components": 100}},
-                "mutations",
+                {"pca[methylation]": {"n_components": 100}},
+                "raw[mutations]",
             ],
             "drug_featurizer": "fingerprints",
             "predictor": "randomForest",
