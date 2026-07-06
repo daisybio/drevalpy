@@ -6,7 +6,7 @@ from typing import ClassVar
 
 import numpy as np
 
-from drevalpy.components.contracts import FeatureContract, FeatureKind
+from drevalpy.components.contracts import FeatureKind
 from drevalpy.components.pair_batch import PairBatch
 from drevalpy.components.predictors._identity_batch import pair_tissue_ids
 from drevalpy.components.predictors.baseline import BaselinePredictor
@@ -66,8 +66,6 @@ class NaiveMeanPredictor(BaselinePredictor):
 
 
 class _SingleEntityNaivePredictor(StructuredPredictor):
-    required_cell_line_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
-    required_drug_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
 
     def __init__(self) -> None:
         self._dataset_mean: float | None = None
@@ -140,6 +138,8 @@ class _SingleEntityNaivePredictor(StructuredPredictor):
     "naiveDrugMean",
     description="Predict per-drug mean response with global fallback.",
     category="baseline",
+    cell_line_contract=FeatureKind.DENSE,
+    drug_contract=FeatureKind.DENSE,
 )
 class NaiveDrugMeanPredictor(_SingleEntityNaivePredictor):
     """Naive drug mean predictor component."""
@@ -155,6 +155,8 @@ class NaiveDrugMeanPredictor(_SingleEntityNaivePredictor):
     "naiveCellLineMean",
     description="Predict per-cell-line mean response with global fallback.",
     category="baseline",
+    cell_line_contract=FeatureKind.DENSE,
+    drug_contract=FeatureKind.DENSE,
 )
 class NaiveCellLineMeanPredictor(_SingleEntityNaivePredictor):
     """Naive cell line mean predictor component."""
@@ -170,12 +172,12 @@ class NaiveCellLineMeanPredictor(_SingleEntityNaivePredictor):
     "naiveTissueMean",
     description="Predict per-tissue mean response with global fallback.",
     category="baseline",
+    cell_line_contract=FeatureKind.DENSE,
+    drug_contract=FeatureKind.DENSE,
 )
 class NaiveTissueMeanPredictor(StructuredPredictor):
     """Naive tissue mean predictor component."""
 
-    required_cell_line_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
-    required_drug_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
 
     def __init__(self) -> None:
         self._dataset_mean: float | None = None
@@ -248,12 +250,12 @@ class NaiveTissueMeanPredictor(StructuredPredictor):
     "naiveTissueDrugMean",
     description="Predict per tissue-drug combination mean response.",
     category="baseline",
+    cell_line_contract=FeatureKind.DENSE,
+    drug_contract=FeatureKind.DENSE,
 )
 class NaiveTissueDrugMeanPredictor(StructuredPredictor):
     """Naive tissue drug mean predictor component."""
 
-    required_cell_line_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
-    required_drug_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
 
     def __init__(self) -> None:
         self._dataset_mean: float | None = None
@@ -336,12 +338,12 @@ class NaiveTissueDrugMeanPredictor(StructuredPredictor):
     "naiveMeanEffects",
     description="Predict mean plus cell-line and drug effects.",
     category="baseline",
+    cell_line_contract=FeatureKind.DENSE,
+    drug_contract=FeatureKind.DENSE,
 )
 class NaiveMeanEffectsPredictor(StructuredPredictor):
     """Naive mean effects predictor component."""
 
-    required_cell_line_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
-    required_drug_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
 
     def __init__(self) -> None:
         self._dataset_mean: float | None = None

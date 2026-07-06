@@ -6,7 +6,7 @@ from collections.abc import Iterator
 
 import pytest
 
-from drevalpy.components.contracts import FeatureContract, FeatureKind
+from drevalpy.components.contracts import FeatureKind
 from drevalpy.components.registry import (
     clear_cell_line_featurizer_registry,
     clear_drug_featurizer_registry,
@@ -36,20 +36,34 @@ def _clear_registries() -> Iterator[None]:
 
 
 def _register_dense_pair() -> None:
-    @register_cell_line_featurizer("denseCellLine", description="dense cell line", category="native")
+    @register_cell_line_featurizer(
+        "denseCellLine",
+        description="dense cell line",
+        category="native",
+        contract=FeatureKind.DENSE,
+    )
     class DenseCellLine:
-        output_contract = FeatureContract(kind=FeatureKind.DENSE)
+        pass
 
-    @register_drug_featurizer("denseDrug", description="dense drug", category="native")
+    @register_drug_featurizer(
+        "denseDrug",
+        description="dense drug",
+        category="native",
+        contract=FeatureKind.DENSE,
+    )
     class DenseDrug:
-        output_contract = FeatureContract(kind=FeatureKind.DENSE)
+        pass
 
-    @register_predictor("densePred", description="dense pred", category="general_purpose")
+    @register_predictor(
+        "densePred",
+        description="dense pred",
+        category="general_purpose",
+        cell_line_contract=FeatureKind.DENSE,
+        drug_contract=FeatureKind.DENSE,
+    )
     class DensePred:
         uses_features = True
         supported_modes = {PredictionMode.REGRESSION}
-        required_cell_line_contract = FeatureContract(kind=FeatureKind.DENSE)
-        required_drug_contract = FeatureContract(kind=FeatureKind.DENSE)
 
 
 def test_valid_dense_config_passes() -> None:
@@ -85,45 +99,73 @@ def test_wrong_registry_slot_fails() -> None:
 
 
 def test_graph_featurizer_with_dense_predictor_fails() -> None:
-    @register_cell_line_featurizer("graphCellLine", description="graph", category="native")
+    @register_cell_line_featurizer(
+        "graphCellLine",
+        description="graph",
+        category="native",
+        contract=FeatureKind.GRAPH,
+    )
     class GraphCellLine:
-        output_contract = FeatureContract(kind=FeatureKind.GRAPH)
+        pass
 
-    @register_drug_featurizer("denseDrug", description="dense drug", category="native")
+    @register_drug_featurizer(
+        "denseDrug",
+        description="dense drug",
+        category="native",
+        contract=FeatureKind.DENSE,
+    )
     class DenseDrug:
-        output_contract = FeatureContract(kind=FeatureKind.DENSE)
+        pass
 
-    @register_predictor("densePred", description="dense pred", category="general_purpose")
+    @register_predictor(
+        "densePred",
+        description="dense pred",
+        category="general_purpose",
+        cell_line_contract=FeatureKind.DENSE,
+        drug_contract=FeatureKind.DENSE,
+    )
     class DensePred:
         uses_features = True
         supported_modes = {PredictionMode.REGRESSION}
-        required_cell_line_contract = FeatureContract(kind=FeatureKind.DENSE)
-        required_drug_contract = FeatureContract(kind=FeatureKind.DENSE)
 
     config = ModelConfig(
         cell_line_featurizer=FeaturizerConfig(name="graphCellLine", registry="cell_line"),
         drug_featurizer=FeaturizerConfig(name="denseDrug", registry="drug"),
         predictor=PredictorConfig(name="densePred"),
     )
-    with pytest.raises(ValueError, match="Cell line featurizer output_contract"):
+    with pytest.raises(ValueError, match="Cell line featurizer contract"):
         validate_model_config(config)
 
 
 def test_graph_kind_match_passes() -> None:
-    @register_cell_line_featurizer("graphCellLine", description="graph", category="native")
+    @register_cell_line_featurizer(
+        "graphCellLine",
+        description="graph",
+        category="native",
+        contract=FeatureKind.GRAPH,
+    )
     class GraphCellLine:
-        output_contract = FeatureContract(kind=FeatureKind.GRAPH)
+        pass
 
-    @register_drug_featurizer("graphDrug", description="graph drug", category="native")
+    @register_drug_featurizer(
+        "graphDrug",
+        description="graph drug",
+        category="native",
+        contract=FeatureKind.GRAPH,
+    )
     class GraphDrug:
-        output_contract = FeatureContract(kind=FeatureKind.GRAPH)
+        pass
 
-    @register_predictor("graphPred", description="graph pred", category="general_purpose")
+    @register_predictor(
+        "graphPred",
+        description="graph pred",
+        category="general_purpose",
+        cell_line_contract=FeatureKind.GRAPH,
+        drug_contract=FeatureKind.GRAPH,
+    )
     class GraphPred:
         uses_features = True
         supported_modes = {PredictionMode.REGRESSION}
-        required_cell_line_contract = FeatureContract(kind=FeatureKind.GRAPH)
-        required_drug_contract = FeatureContract(kind=FeatureKind.GRAPH)
 
     config = ModelConfig(
         cell_line_featurizer=FeaturizerConfig(name="graphCellLine", registry="cell_line"),

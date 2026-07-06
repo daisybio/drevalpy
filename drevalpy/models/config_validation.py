@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from drevalpy.components.contracts import FeatureContract, contracts_compatible
+from drevalpy.components.contracts import (
+    FeatureContract,
+    contracts_compatible,
+    featurizer_contract,
+    predictor_contracts,
+)
 from drevalpy.components.registry import lookup as _registry_lookup
 
 if TYPE_CHECKING:
@@ -25,26 +30,17 @@ def _validate_view_fields(featurizer: FeaturizerConfig, *, label: str) -> None:
 
 
 def _featurizer_contract(cls: type[Any]) -> FeatureContract:
-    contract = getattr(cls, "output_contract", None)
-    if contract is None:
-        msg = f"Featurizer {cls.__name__!r} must define output_contract"
-        raise ValueError(msg)
-    if not isinstance(contract, FeatureContract):
-        msg = f"Featurizer {cls.__name__!r} output_contract must be a FeatureContract"
-        raise ValueError(msg)
-    return contract
+    try:
+        return featurizer_contract(cls)
+    except TypeError as exc:
+        raise ValueError(str(exc)) from exc
 
 
 def _predictor_contracts(cls: type[Any]) -> tuple[FeatureContract, FeatureContract]:
-    cell_line = getattr(cls, "required_cell_line_contract", None)
-    drug = getattr(cls, "required_drug_contract", None)
-    if cell_line is None or drug is None:
-        msg = f"Predictor {cls.__name__!r} must define required_cell_line_contract " "and required_drug_contract"
-        raise ValueError(msg)
-    if not isinstance(cell_line, FeatureContract) or not isinstance(drug, FeatureContract):
-        msg = f"Predictor {cls.__name__!r} contracts must be FeatureContract instances"
-        raise ValueError(msg)
-    return cell_line, drug
+    try:
+        return predictor_contracts(cls)
+    except TypeError as exc:
+        raise ValueError(str(exc)) from exc
 
 
 def validate_model_config(config: ModelConfig) -> None:
@@ -122,8 +118,8 @@ def validate_model_config(config: ModelConfig) -> None:
         cell_line_contract = _featurizer_contract(cell_line_cls)
         if not contracts_compatible(cell_line_contract, required_cell_line):
             msg = (
-                f"Cell line featurizer output_contract {cell_line_contract!r} is incompatible with "
-                f"predictor required_cell_line_contract {required_cell_line!r}"
+                f"Cell line featurizer contract {cell_line_contract!r} is incompatible with "
+                f"predictor cell_line_contract {required_cell_line!r}"
             )
             raise ValueError(msg)
 
@@ -132,7 +128,7 @@ def validate_model_config(config: ModelConfig) -> None:
         drug_contract = _featurizer_contract(drug_cls)
         if not contracts_compatible(drug_contract, required_drug):
             msg = (
-                f"Drug featurizer output_contract {drug_contract!r} is incompatible "
-                f"with predictor required_drug_contract {required_drug!r}"
+                f"Drug featurizer contract {drug_contract!r} is incompatible "
+                f"with predictor drug_contract {required_drug!r}"
             )
             raise ValueError(msg)
