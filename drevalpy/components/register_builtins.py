@@ -36,6 +36,7 @@ def register_native_components() -> None:
         ("drevalpy.components.featurizers.cell_line.omics.mutations", cell_line_featurizer_registry),
         ("drevalpy.components.featurizers.cell_line.omics.copy_number_variation", cell_line_featurizer_registry),
         ("drevalpy.components.featurizers.cell_line.pca", cell_line_featurizer_registry),
+        ("drevalpy.components.featurizers.cell_line.raw", cell_line_featurizer_registry),
         ("drevalpy.components.featurizers.cell_line.omics.proteomics", cell_line_featurizer_registry),
         ("drevalpy.components.featurizers.cell_line.concat", cell_line_featurizer_registry),
         ("drevalpy.components.featurizers.cell_line.landmark", cell_line_featurizer_registry),
