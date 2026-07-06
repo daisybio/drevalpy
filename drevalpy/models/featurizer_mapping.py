@@ -24,9 +24,14 @@ PROTEOMICS_HP_KEYS = (
 )
 
 
+def view_to_concat_block_label(view: str) -> str:
+    """Map a legacy omics view name to a concat block label."""
+    return CELL_LINE_VIEW_TO_FEATURIZER.get(view, f"raw[{view}]")
+
+
 def _child_config_for_view(view: str, hyperparameters: dict[str, Any]) -> str | dict[str, Any]:
     if view not in CELL_LINE_VIEW_TO_FEATURIZER:
-        return f"raw[{view}]"
+        return {"name": "raw", "view": view, "hyperparameters": {}}
     token = CELL_LINE_VIEW_TO_FEATURIZER[view]
     if token == "pca[methylation]":
         n_components = hyperparameters.get("methylation_n_components")

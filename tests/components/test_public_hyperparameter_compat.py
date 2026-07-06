@@ -110,6 +110,7 @@ def test_pca_methylation_flat_key_round_trip() -> None:
     assert public["methylation_n_components"] == 100
     rebuilt = config_from_public_hyperparameters(MODEL_FACTORY["MultiViewRandomForest"], public)
     assert rebuilt is not None
+    assert rebuilt.cell_line_featurizer is not None
     children = rebuilt.cell_line_featurizer.hyperparameters["featurizers"]
     pca_child = next(child for child in children if child["name"] == "pca")
     assert pca_child["view"] == "methylation"

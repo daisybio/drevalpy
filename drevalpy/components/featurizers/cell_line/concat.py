@@ -41,6 +41,7 @@ class ConcatFeaturizersCellLineFeaturizer(ConcatFeaturizersMixin, CellLineFeatur
         from drevalpy.components.featurizers.cell_line.omics.scaled_gene_expression import (
             ScaledGeneExpressionFeaturizer,
         )
+        from drevalpy.components.featurizers.cell_line.pca import PCACellLineFeaturizer
 
         if not featurizer._children:
             featurizer._materialize_children()
@@ -56,17 +57,24 @@ class ConcatFeaturizersCellLineFeaturizer(ConcatFeaturizersMixin, CellLineFeatur
                 }
                 if child_state:
                     child.set_state(child_state)
+            elif isinstance(child, PCACellLineFeaturizer) and child._view == "methylation":
+                child_state: dict[str, object] = {}
+                if "methylation_pca" in state:
+                    child_state["pca"] = state["methylation_pca"]
+                if state.get("fitted"):
+                    child_state["fitted"] = True
+                if child_state:
+                    child.set_state(child_state)
             elif isinstance(child, ProteomicsCellLineFeaturizer):
                 child_state = {key: state[key] for key in ("proteomics_transformer",) if key in state}
                 if child_state:
                     child.set_state(child_state)
             _ = name
-        from drevalpy.models.featurizer_mapping import CELL_LINE_VIEW_TO_FEATURIZER
+        from drevalpy.models.featurizer_mapping import view_to_concat_block_label
 
         if state.get("view_dims") and isinstance(state["view_dims"], dict):
             featurizer._block_dims = {
-                CELL_LINE_VIEW_TO_FEATURIZER.get(str(key), str(key)): int(value)
-                for key, value in state["view_dims"].items()
+                view_to_concat_block_label(str(key)): int(value) for key, value in state["view_dims"].items()
             }
         output_dim = state.get("output_dim")
         if isinstance(output_dim, int):
@@ -80,6 +88,8 @@ class ConcatFeaturizersCellLineFeaturizer(ConcatFeaturizersMixin, CellLineFeatur
         featurizer: ConcatFeaturizersCellLineFeaturizer,
     ) -> dict[str, object]:
         """Flatten child featurizer state for legacy sklearn save/load."""
+        from drevalpy.components.featurizers.cell_line.pca import PCACellLineFeaturizer
+
         if not featurizer._children:
             featurizer._materialize_children()
         state: dict[str, object] = {"fitted": featurizer._is_fitted}
@@ -87,14 +97,18 @@ class ConcatFeaturizersCellLineFeaturizer(ConcatFeaturizersMixin, CellLineFeatur
             child_state = child.get_state()
             if not isinstance(child_state, dict):
                 continue
+            if isinstance(child, PCACellLineFeaturizer) and child._view == "methylation":
+                pca = child_state.get("pca")
+                if pca is not None:
+                    state["methylation_pca"] = pca
             for key, value in child_state.items():
                 if key != "fitted":
-                    state[key] = value
+                    state.setdefault(key, value)
         if featurizer._block_dims:
-            from drevalpy.models.featurizer_mapping import CELL_LINE_VIEW_TO_FEATURIZER
+            from drevalpy.models.featurizer_mapping import CELL_LINE_VIEW_TO_FEATURIZER, view_to_concat_block_label
 
-            featurizer_to_view = {value: key for key, value in CELL_LINE_VIEW_TO_FEATURIZER.items()}
-            view_dims = {featurizer_to_view.get(name, name): dim for name, dim in featurizer._block_dims.items()}
+            block_label_to_view = {view_to_concat_block_label(view): view for view in CELL_LINE_VIEW_TO_FEATURIZER}
+            view_dims = {block_label_to_view.get(name, name): dim for name, dim in featurizer._block_dims.items()}
             state["view_dims"] = view_dims
         if featurizer._output_dim:
             state["output_dim"] = featurizer._output_dim
