@@ -89,5 +89,7 @@ def load_extensions(
     for directory in directories or []:
         load_extension_dir(directory)
     if zoo_files:
-        msg = "External zoo file loading is not available in this release"
-        raise NotImplementedError(msg)
+        from drevalpy.models.zoo import load_external_zoo_file
+
+        for zoo_path in zoo_files:
+            load_external_zoo_file(zoo_path)
