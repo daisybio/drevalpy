@@ -2,6 +2,8 @@
 
 import pathlib
 
+import numpy as np
+import pandas as pd
 import pytest
 
 from drevalpy.datasets.dataset import DrugResponseDataset
@@ -9,6 +11,97 @@ from drevalpy.datasets.loader import load_toyv1, load_toyv2
 
 _TESTS_DIR = pathlib.Path(__file__).parent.resolve()
 _DATA_DIR = (_TESTS_DIR.parent / "data").resolve()
+_TOY_DATASETS = ("TOYv1", "TOYv2")
+
+
+def _load_toy_datasets(path_data: str) -> bool:
+    """
+    Download TOYv1/TOYv2 once for session fixtures.
+
+    :param path_data: path to the data directory
+    :returns: False when dataset download fails
+    """
+    try:
+        load_toyv1(path_data)
+        load_toyv2(path_data)
+    except Exception as exc:
+        print(f"Warning: could not load TOY datasets: {exc}")
+        return False
+    return True
+
+
+def _write_synthetic_smilesvec(
+    smiles_file: pathlib.Path, output_file: pathlib.Path, *, embedding_dim: int = 100
+) -> None:
+    smiles_df = pd.read_csv(smiles_file, dtype=str)
+    pubchem_ids = smiles_df["pubchem_id"].astype(str).tolist()
+    rng = np.random.default_rng(seed=42)
+    embeddings = rng.standard_normal((len(pubchem_ids), embedding_dim)).astype(np.float32)
+    out_df = pd.DataFrame(embeddings, index=pubchem_ids)
+    out_df.index.name = "pubchem_id"
+    out_df.to_csv(output_file)
+
+
+def _write_synthetic_bpe_smiles(smiles_file: pathlib.Path, output_file: pathlib.Path, *, max_length: int = 128) -> None:
+    smiles_df = pd.read_csv(smiles_file, dtype=str)
+    pubchem_ids = smiles_df["pubchem_id"].astype(str).tolist()
+    rng = np.random.default_rng(seed=43)
+    columns = [f"feature_{index}" for index in range(max_length)]
+    data = rng.standard_normal((len(pubchem_ids), max_length)).astype(np.float32)
+    out_df = pd.DataFrame(data, columns=columns)
+    out_df.insert(0, "pubchem_id", pubchem_ids)
+    out_df.to_csv(output_file, index=False)
+
+
+def _ensure_bpe_smiles_features(path_data: str, dataset_name: str) -> None:
+    dataset_dir = pathlib.Path(path_data) / dataset_name
+    bpe_smiles_file = dataset_dir / "drug_bpe_smiles.csv"
+    smiles_file = dataset_dir / "drug_smiles.csv"
+    if bpe_smiles_file.exists():
+        return
+    if not smiles_file.exists():
+        print(f"Warning: drug_smiles.csv not found for {dataset_name}, skipping BPE creation")
+        return
+
+    try:
+        from drevalpy.datasets.featurizer.create_pharmaformer_drug_embeddings import (
+            create_pharmaformer_drug_embeddings,
+        )
+    except ImportError:
+        print(f"Creating synthetic BPE SMILES features for {dataset_name}...")
+        _write_synthetic_bpe_smiles(smiles_file, bpe_smiles_file)
+        return
+
+    try:
+        print(f"Creating BPE SMILES features for {dataset_name}...")
+        create_pharmaformer_drug_embeddings(
+            data_path=path_data,
+            dataset_name=dataset_name,
+            num_symbols=10000,
+            max_length=128,
+        )
+        print(f"BPE SMILES features created for {dataset_name}")
+    except Exception as exc:
+        print(f"Warning: could not create BPE features for {dataset_name}: {exc}")
+        print(f"Creating synthetic BPE SMILES features for {dataset_name}...")
+        _write_synthetic_bpe_smiles(smiles_file, bpe_smiles_file)
+
+
+def _ensure_smilesvec_features(path_data: str, dataset_name: str) -> None:
+    dataset_dir = pathlib.Path(path_data) / dataset_name
+    smilesvec_file = dataset_dir / "drug_smilesvec.csv"
+    smiles_file = dataset_dir / "drug_smiles.csv"
+    if smilesvec_file.exists():
+        return
+    if not smiles_file.exists():
+        print(f"Warning: drug_smiles.csv not found for {dataset_name}, skipping")
+        return
+
+    try:
+        print(f"Creating synthetic SMILESVec drug features for {dataset_name}...")
+        _write_synthetic_smilesvec(smiles_file, smilesvec_file)
+    except Exception as exc:
+        print(f"Warning: could not create drug features for {dataset_name}: {exc}")
 
 
 @pytest.fixture(scope="session")
@@ -70,52 +163,11 @@ def ensure_bpe_features(data_dir) -> None:
     :param data_dir: path to the data directory
     """
     path_data = str(data_dir)
-
-    try:
-        from drevalpy.datasets.featurizer.create_pharmaformer_drug_embeddings import (
-            create_pharmaformer_drug_embeddings,
-        )
-    except ImportError:
-        # If subword-nmt is not installed, skip BPE feature creation
-        # Tests that require BPE features will fail with a clear error message
+    if not _load_toy_datasets(path_data):
         return
 
-    # Ensure datasets are loaded first (this will download them if needed)
-    try:
-        load_toyv1(path_data)
-        load_toyv2(path_data)
-    except Exception as e:
-        # If dataset loading fails, skip BPE creation
-        print(f"Warning: Could not load datasets for BPE feature creation: {e}")
-        return
-
-    # Create BPE features for both TOYv1 and TOYv2
-    for dataset_name in ["TOYv1", "TOYv2"]:
-        dataset_dir = pathlib.Path(path_data) / dataset_name
-        bpe_smiles_file = dataset_dir / "drug_bpe_smiles.csv"
-        smiles_file = dataset_dir / "drug_smiles.csv"
-
-        # Only create if it doesn't exist and if drug_smiles.csv exists
-        if not bpe_smiles_file.exists():
-            if not smiles_file.exists():
-                print(f"Warning: drug_smiles.csv not found for {dataset_name}, skipping BPE creation")
-                continue
-
-            try:
-                print(f"Creating BPE SMILES features for {dataset_name}...")
-                create_pharmaformer_drug_embeddings(
-                    data_path=path_data,
-                    dataset_name=dataset_name,
-                    num_symbols=10000,
-                    max_length=128,
-                )
-                print(f"BPE SMILES features created for {dataset_name}")
-            except Exception as e:
-                # Log but don't fail - let individual tests handle missing features
-                print(f"Warning: Could not create BPE features for {dataset_name}: {e}")
-                import traceback
-
-                traceback.print_exc()
+    for dataset_name in _TOY_DATASETS:
+        _ensure_bpe_smiles_features(path_data, dataset_name)
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -140,16 +192,11 @@ def ensure_precily_pathway_features(data_dir) -> None:
         return
 
     # Ensure datasets are loaded first (this will download them if needed)
-    try:
-        load_toyv1(path_data)
-        load_toyv2(path_data)
-    except Exception as e:
-        # If dataset loading fails, skip Precily creation
-        print(f"Warning: could not load datasets for pathway feature creation: {e}")
+    if not _load_toy_datasets(path_data):
         return
 
     # Create Precily features for both TOYv1 and TOYv2
-    for dataset_name in ["TOYv1", "TOYv2"]:
+    for dataset_name in _TOY_DATASETS:
         dataset_dir = pathlib.Path(path_data) / dataset_name
         pathway_file = dataset_dir / "pathway_features.csv"
         expr_file = dataset_dir / "gene_expression.csv"
@@ -211,45 +258,11 @@ def ensure_precily_drug_features(data_dir) -> None:
     :param data_dir: path to the data directory
     """
     path_data = str(data_dir)
-
-    # Ensure datasets are loaded first (this will download them if needed)
-    try:
-        load_toyv1(path_data)
-        load_toyv2(path_data)
-    except Exception as e:
-        print(f"Warning: could not load datasets for drug feature creation: {e}")
+    if not _load_toy_datasets(path_data):
         return
 
-    embedding_dim = 100  # matches the SMILESVec featurizer default (dim=100)
-
-    for dataset_name in ["TOYv1", "TOYv2"]:
-        dataset_dir = pathlib.Path(path_data) / dataset_name
-        smilesvec_file = dataset_dir / "drug_smilesvec.csv"
-        smiles_file = dataset_dir / "drug_smiles.csv"
-
-        if smilesvec_file.exists():
-            continue
-        if not smiles_file.exists():
-            print(f"Warning: drug_smiles.csv not found for {dataset_name}, skipping")
-            continue
-
-        try:
-            import numpy as np
-            import pandas as pd
-
-            smiles_df = pd.read_csv(smiles_file, dtype=str)
-            pubchem_ids = smiles_df["pubchem_id"].astype(str).tolist()
-
-            # Deterministic synthetic embeddings for reproducible test runs
-            rng = np.random.default_rng(seed=42)
-            embeddings = rng.standard_normal((len(pubchem_ids), embedding_dim)).astype(np.float32)
-
-            out_df = pd.DataFrame(embeddings, index=pubchem_ids)
-            out_df.index.name = "pubchem_id"
-            print(f"Creating synthetic SMILESVec drug features for {dataset_name}...")
-            out_df.to_csv(smilesvec_file)
-        except Exception as e:
-            print(f"Warning: could not create drug features for {dataset_name}: {e}")
+    for dataset_name in _TOY_DATASETS:
+        _ensure_smilesvec_features(path_data, dataset_name)
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -275,14 +288,10 @@ def ensure_sparsego_ontology_features(data_dir) -> None:
         return
 
     # Ensure datasets are loaded first (this will download them if needed)
-    try:
-        load_toyv1(path_data)
-        load_toyv2(path_data)
-    except Exception as e:
-        print(f"Warning: could not load datasets for SparseGO ontology creation: {e}")
+    if not _load_toy_datasets(path_data):
         return
 
-    for dataset_name in ["TOYv1", "TOYv2"]:
+    for dataset_name in _TOY_DATASETS:
         dataset_dir = pathlib.Path(path_data) / dataset_name
         ont_file = dataset_dir / "sparseGO_ont.txt"
         gene2ind_file = dataset_dir / "gene2ind.txt"
@@ -307,3 +316,28 @@ def ensure_sparsego_ontology_features(data_dir) -> None:
             import traceback
 
             traceback.print_exc()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def ensure_model_drug_embeddings(
+    data_dir,
+    sample_dataset,
+    cross_study_dataset,
+    ensure_sparsego_ontology_features,
+) -> None:
+    """
+    Re-ensure PharmaFormer/Precily drug embeddings after TOY datasets are loaded.
+
+    Earlier autouse fixtures may run before the first successful TOY download on CI;
+    this pass creates any still-missing embedding files once ``sample_dataset`` is ready.
+
+    :param data_dir: path to the data directory
+    :param sample_dataset: ensures TOYv1 is present
+    :param cross_study_dataset: ensures TOYv2 is present
+    :param ensure_sparsego_ontology_features: run after other feature fixtures
+    """
+    _ = sample_dataset, cross_study_dataset, ensure_sparsego_ontology_features
+    path_data = str(data_dir)
+    for dataset_name in _TOY_DATASETS:
+        _ensure_bpe_smiles_features(path_data, dataset_name)
+        _ensure_smilesvec_features(path_data, dataset_name)
