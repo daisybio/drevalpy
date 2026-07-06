@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, ClassVar
+from typing import Any
 
 import numpy as np
 import pytorch_lightning as pl
@@ -29,7 +29,6 @@ from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 )
 class DrugGNNPredictor(StructuredPredictor):
     """Drug gnnpredictor component."""
-
 
     def __init__(self) -> None:
         self._hyperparameters: dict[str, Any] = {}
