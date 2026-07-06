@@ -6,7 +6,7 @@ from typing import ClassVar
 
 import numpy as np
 
-from drevalpy.components.contracts import FeatureContract, FeatureKind
+from drevalpy.components.contracts import FeatureKind
 from drevalpy.components.featurizers._one_hot import OneHotCategoryEncoder
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.registry import register_cell_line_featurizer
@@ -17,11 +17,10 @@ from drevalpy.datasets.dataset import FeatureDataset
     "identity",
     description="One-hot encoding of cell-line entity identifiers.",
     category="native",
+    contract=FeatureKind.DENSE,
 )
 class CellLineIdentityFeaturizer(CellLineFeaturizer):
     """Encode cell-line IDs as dense one-hot vectors."""
-
-    output_contract = FeatureContract(kind=FeatureKind.DENSE)
     entity_id_only: ClassVar[bool] = True
 
     def __init__(self) -> None:

@@ -6,6 +6,8 @@ import threading
 from collections.abc import Callable
 from typing import Any
 
+from drevalpy.components.contracts import FeatureContract, FeatureKind
+from drevalpy.components.registry._contracts import apply_registration_contracts
 from drevalpy.components.registry._metadata_validate import (
     _VALID_CATEGORIES,
     validate_registered_class_metadata,
@@ -81,6 +83,9 @@ def make_registration_decorator(
     citation_doi: str = "",
     citation_text: str = "",
     deviations: str = "",
+    contract: FeatureContract | FeatureKind | None = None,
+    cell_line_contract: FeatureContract | FeatureKind | None = None,
+    drug_contract: FeatureContract | FeatureKind | None = None,
     already_registered_label: str | None = None,
 ) -> Callable[[type[Any]], type[Any]]:
     """Build a class decorator that applies metadata, validates, and registers."""
@@ -100,6 +105,12 @@ def make_registration_decorator(
                 citation_doi=citation_doi,
                 citation_text=citation_text,
                 deviations=deviations,
+            )
+            apply_registration_contracts(
+                cls,
+                contract=contract,
+                cell_line_contract=cell_line_contract,
+                drug_contract=drug_contract,
             )
             validate_registered_class_metadata(registry_id, name, cls)
             registry[name] = cls

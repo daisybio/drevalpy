@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from drevalpy.components.contracts import FeatureContract, FeatureKind
+from drevalpy.components.contracts import FeatureKind
 from drevalpy.components.featurizers.drug.base import DrugFeaturizer
 from drevalpy.components.registry import register_drug_featurizer
 
@@ -13,11 +13,10 @@ from drevalpy.components.registry import register_drug_featurizer
     "drugGraph",
     description="Precomputed PyG molecular graphs stored under the drug_graph view.",
     category="general_purpose",
+    contract=FeatureKind.GRAPH,
 )
 class DrugGraphFeaturizer(DrugFeaturizer):
     """Expose precomputed drug graphs for graph predictors."""
-
-    output_contract = FeatureContract(kind=FeatureKind.GRAPH)
 
     def __init__(self, *, view: str = "drug_graph") -> None:
         self._view = view

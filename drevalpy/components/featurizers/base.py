@@ -15,10 +15,10 @@ class Featurizer(ABC):
     """Transform feature tables into per-entity representation matrices.
 
     Cell-line featurizers consume cell-line features; drug featurizers consume
-    drug features. Both declare `output_contract` for predictor matching.
+    drug features. Both declare ``contract`` for predictor matching.
     """
 
-    output_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
+    contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
 
     @abstractmethod
     def fit(

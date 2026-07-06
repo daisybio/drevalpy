@@ -8,7 +8,7 @@ import numpy as np
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 
-from drevalpy.components.contracts import FeatureContract, FeatureKind
+from drevalpy.components.contracts import FeatureKind
 from drevalpy.components.featurizers._matrix import stack_view_matrix
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.registry import register_cell_line_featurizer
@@ -19,11 +19,10 @@ from drevalpy.data.preprocessing import prepare_expression_and_methylation
     "methylationPCA",
     description="Methylation view with scaling and PCA compression.",
     category="native",
+    contract=FeatureKind.DENSE,
 )
 class MethylationPCACellLineFeaturizer(CellLineFeaturizer):
     """Match baseline methylation preprocessing used in multi-view models."""
-
-    output_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
 
     def __init__(self, *, view: str = "methylation", n_components: int = 100) -> None:
         self._view = view

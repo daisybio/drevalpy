@@ -6,7 +6,6 @@ from typing import Any, ClassVar
 
 import numpy as np
 
-from drevalpy.components.contracts import FeatureContract, FeatureKind
 from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
 from drevalpy.components.featurizers.base import Featurizer
 from drevalpy.models.config import FeaturizerConfig
@@ -15,7 +14,6 @@ from drevalpy.models.config import FeaturizerConfig
 class ConcatFeaturizersMixin:
     """Fit child featurizers independently and concatenate their dense outputs."""
 
-    output_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
     _not_fitted_msg: ClassVar[str] = "ConcatFeaturizers must be fit before transform"
 
     def _init_concat(

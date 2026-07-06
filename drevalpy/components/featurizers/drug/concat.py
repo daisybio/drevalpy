@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from drevalpy.components.contracts import FeatureKind
 from drevalpy.components.featurizers._concat import ConcatFeaturizersMixin
 from drevalpy.components.featurizers.drug.base import DrugFeaturizer
 from drevalpy.components.registry import register_drug_featurizer
@@ -13,6 +14,7 @@ from drevalpy.components.registry import register_drug_featurizer
     "concatFeaturizers",
     description="Concatenate dense outputs from multiple drug featurizers.",
     category="native",
+    contract=FeatureKind.DENSE,
 )
 class ConcatFeaturizersDrugFeaturizer(ConcatFeaturizersMixin, DrugFeaturizer):
     """Fit child featurizers independently and concatenate their dense outputs."""

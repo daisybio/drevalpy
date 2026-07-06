@@ -6,7 +6,7 @@ from typing import ClassVar
 
 import numpy as np
 
-from drevalpy.components.contracts import FeatureContract, FeatureKind
+from drevalpy.components.contracts import FeatureKind
 from drevalpy.components.featurizers.drug.base import DrugFeaturizer
 from drevalpy.components.registry import register_drug_featurizer
 
@@ -15,11 +15,10 @@ from drevalpy.components.registry import register_drug_featurizer
     "molgnet",
     description="Precomputed MolGNet drug embeddings for DIPK.",
     category="general_purpose",
+    contract=FeatureKind.DENSE,
 )
 class MolGNetDrugFeaturizer(DrugFeaturizer):
     """Expose variable-size MolGNet tensors without stacking into one dense matrix."""
-
-    output_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
 
     def __init__(self, *, view: str = "molgnet_features") -> None:
         self._view = view

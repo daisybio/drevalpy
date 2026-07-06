@@ -33,24 +33,40 @@ def _clear_registries() -> Iterator[None]:
 
 
 def test_register_and_lookup_cell_line_featurizer() -> None:
-    @register_cell_line_featurizer("dummyCellLine", description="test cell line", category="native")
+    @register_cell_line_featurizer(
+        "dummyCellLine",
+        description="test cell line",
+        category="native",
+        contract=FeatureKind.DENSE,
+    )
     class DummyCellLine:
-        output_contract = FeatureContract(kind=FeatureKind.DENSE)
+        pass
 
     assert get_cell_line_featurizer("dummyCellLine") is DummyCellLine
+    assert DummyCellLine.contract == FeatureContract(kind=FeatureKind.DENSE)
     assert "dummyCellLine" in list_cell_line_featurizers()
 
 
 def test_duplicate_registration_fails() -> None:
-    @register_cell_line_featurizer("dup", description="first", category="native")
+    @register_cell_line_featurizer(
+        "dup",
+        description="first",
+        category="native",
+        contract=FeatureKind.DENSE,
+    )
     class First:
-        output_contract = FeatureContract(kind=FeatureKind.DENSE)
+        pass
 
     with pytest.raises(ValueError, match="already registered"):
 
-        @register_cell_line_featurizer("dup", description="second", category="native")
+        @register_cell_line_featurizer(
+            "dup",
+            description="second",
+            category="native",
+            contract=FeatureKind.DENSE,
+        )
         class Second:
-            output_contract = FeatureContract(kind=FeatureKind.DENSE)
+            pass
 
 
 def test_unknown_component_fails() -> None:
@@ -59,13 +75,23 @@ def test_unknown_component_fails() -> None:
 
 
 def test_metadata_listing_and_category_filter() -> None:
-    @register_cell_line_featurizer("nativeEnc", description="native", category="native")
+    @register_cell_line_featurizer(
+        "nativeEnc",
+        description="native",
+        category="native",
+        contract=FeatureKind.DENSE,
+    )
     class NativeEnc:
-        output_contract = FeatureContract(kind=FeatureKind.DENSE)
+        pass
 
-    @register_cell_line_featurizer("baselineEnc", description="baseline", category="baseline")
+    @register_cell_line_featurizer(
+        "baselineEnc",
+        description="baseline",
+        category="baseline",
+        contract=FeatureKind.DENSE,
+    )
     class BaselineEnc:
-        output_contract = FeatureContract(kind=FeatureKind.DENSE)
+        pass
 
     all_rows = list_cell_line_featurizer_metadata()
     assert len(all_rows) == 2
@@ -75,9 +101,14 @@ def test_metadata_listing_and_category_filter() -> None:
 
 
 def test_get_metadata_includes_output_type() -> None:
-    @register_cell_line_featurizer("graphEnc", description="graph", category="native")
+    @register_cell_line_featurizer(
+        "graphEnc",
+        description="graph",
+        category="native",
+        contract=FeatureKind.GRAPH,
+    )
     class GraphEnc:
-        output_contract = FeatureContract(kind=FeatureKind.GRAPH)
+        pass
 
     meta = get_cell_line_featurizer_metadata("graphEnc")
     assert meta["output_type"] == "graph"
@@ -85,14 +116,33 @@ def test_get_metadata_includes_output_type() -> None:
 
 
 def test_decorator_returns_original_class() -> None:
-    @register_predictor("dummyPred", description="pred", category="baseline")
+    @register_predictor(
+        "dummyPred",
+        description="pred",
+        category="baseline",
+        cell_line_contract=FeatureKind.DENSE,
+        drug_contract=FeatureKind.DENSE,
+    )
     class DummyPred:
         uses_features = False
         supported_modes = {"regression"}
-        required_cell_line_contract = FeatureContract(kind=FeatureKind.DENSE)
-        required_drug_contract = FeatureContract(kind=FeatureKind.DENSE)
 
     assert vars(DummyPred)["registry_name"] == "dummyPred"
+    assert DummyPred.cell_line_contract == FeatureContract(kind=FeatureKind.DENSE)
+    assert DummyPred.drug_contract == FeatureContract(kind=FeatureKind.DENSE)
+
+
+def test_duplicate_class_and_decorator_contract_fails() -> None:
+    with pytest.raises(ValueError, match="already defines a featurizer contract"):
+
+        @register_cell_line_featurizer(
+            "conflict",
+            description="conflict",
+            category="native",
+            contract=FeatureKind.DENSE,
+        )
+        class Conflict:
+            contract = FeatureContract(kind=FeatureKind.DENSE)
 
 
 def test_registry_clear() -> None:

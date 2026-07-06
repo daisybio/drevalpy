@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from drevalpy.components.contracts import FeatureKind
 from drevalpy.components.featurizers._concat import ConcatFeaturizersMixin
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.registry import register_cell_line_featurizer
@@ -13,6 +14,7 @@ from drevalpy.components.registry import register_cell_line_featurizer
     "concatFeaturizers",
     description="Concatenate dense outputs from multiple cell-line featurizers.",
     category="native",
+    contract=FeatureKind.DENSE,
 )
 class ConcatFeaturizersCellLineFeaturizer(ConcatFeaturizersMixin, CellLineFeaturizer):
     """Fit child featurizers independently and concatenate their dense outputs."""

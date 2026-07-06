@@ -6,7 +6,7 @@ from typing import ClassVar
 
 import numpy as np
 
-from drevalpy.components.contracts import FeatureContract, FeatureKind
+from drevalpy.components.contracts import FeatureKind
 from drevalpy.components.featurizers._matrix import stack_view_matrix
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 
@@ -15,7 +15,6 @@ class DenseViewCellLineFeaturizer(CellLineFeaturizer):
     """Pass through one dense cell-line view without additional transformation."""
 
     _default_view: ClassVar[str]
-    output_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
 
     def __init__(self, *, view: str | None = None) -> None:
         self._view = view or self._default_view

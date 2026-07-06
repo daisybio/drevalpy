@@ -12,8 +12,8 @@ class BaselinePredictor(Predictor):
     """Predictors that do not consume encoded feature matrices."""
 
     uses_features: ClassVar[bool] = False
-    required_cell_line_contract = Predictor.required_cell_line_contract
-    required_drug_contract = Predictor.required_drug_contract
+    cell_line_contract = Predictor.cell_line_contract
+    drug_contract = Predictor.drug_contract
 
     def build(self, hyperparameters: dict[str, Any], input_dims: dict[str, Any]) -> None:
         _ = input_dims

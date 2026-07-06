@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
+from drevalpy.components.contracts import FeatureContract, FeatureKind
 from drevalpy.components.registry.core import (
     cell_line_featurizer_registry,
     drug_featurizer_registry,
@@ -22,6 +23,7 @@ def register_cell_line_featurizer(
     citation_doi: str = "",
     citation_text: str = "",
     deviations: str = "",
+    contract: FeatureContract | FeatureKind | None = None,
 ) -> Callable[[type[Any]], type[Any]]:
     """Decorator: register a cell-line featurizer."""
     return cell_line_featurizer_registry.register(
@@ -33,6 +35,7 @@ def register_cell_line_featurizer(
         citation_doi=citation_doi,
         citation_text=citation_text,
         deviations=deviations,
+        contract=contract,
     )
 
 
@@ -71,6 +74,7 @@ def register_drug_featurizer(
     citation_doi: str = "",
     citation_text: str = "",
     deviations: str = "",
+    contract: FeatureContract | FeatureKind | None = None,
 ) -> Callable[[type[Any]], type[Any]]:
     """Decorator: register a drug featurizer."""
     return drug_featurizer_registry.register(
@@ -82,6 +86,7 @@ def register_drug_featurizer(
         citation_doi=citation_doi,
         citation_text=citation_text,
         deviations=deviations,
+        contract=contract,
     )
 
 
@@ -120,6 +125,8 @@ def register_predictor(
     citation_doi: str = "",
     citation_text: str = "",
     deviations: str = "",
+    cell_line_contract: FeatureContract | FeatureKind | None = None,
+    drug_contract: FeatureContract | FeatureKind | None = None,
 ) -> Callable[[type[Any]], type[Any]]:
     """Decorator: register a predictor."""
     return predictor_registry.register(
@@ -131,6 +138,8 @@ def register_predictor(
         citation_doi=citation_doi,
         citation_text=citation_text,
         deviations=deviations,
+        cell_line_contract=cell_line_contract,
+        drug_contract=drug_contract,
     )
 
 

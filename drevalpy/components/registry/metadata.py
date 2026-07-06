@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from drevalpy.components.contracts import FeatureContract, FeatureKind
+from drevalpy.components.contracts import FeatureContract, FeatureKind, featurizer_contract, predictor_contracts
 
 
 def _contract_to_str(contract: FeatureContract | FeatureKind | str | None) -> str:
@@ -42,24 +42,16 @@ def metadata_record(registry_name: str, name: str, cls: type[Any]) -> dict[str, 
 
 
 def featurizer_component_metadata(registry_name: str, name: str, cls: type[Any]) -> dict[str, str]:
-    """Like `metadata_record` plus ``output_contract`` summary."""
+    """Like `metadata_record` plus featurizer contract summary."""
     meta = metadata_record(registry_name, name, cls)
-    output = getattr(cls, "output_contract", None)
-    if output is None:
-        output = FeatureContract(kind=FeatureKind.DENSE)
-    meta["output_type"] = _contract_to_str(output)
+    meta["output_type"] = _contract_to_str(featurizer_contract(cls))
     return meta
 
 
 def predictor_component_metadata(registry_name: str, name: str, cls: type[Any]) -> dict[str, str]:
-    """Like `metadata_record` plus required input contract summaries."""
+    """Like `metadata_record` plus predictor input contract summaries."""
     meta = metadata_record(registry_name, name, cls)
-    cell_line = getattr(cls, "required_cell_line_contract", None)
-    drug = getattr(cls, "required_drug_contract", None)
-    if cell_line is None:
-        cell_line = FeatureContract(kind=FeatureKind.DENSE)
-    if drug is None:
-        drug = FeatureContract(kind=FeatureKind.DENSE)
+    cell_line, drug = predictor_contracts(cls)
     meta["required_cell_line_input"] = _contract_to_str(cell_line)
     meta["required_drug_input"] = _contract_to_str(drug)
     return meta

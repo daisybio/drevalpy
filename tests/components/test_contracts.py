@@ -1,6 +1,13 @@
 """Tests for internal feature contracts."""
 
-from drevalpy.components.contracts import FeatureContract, FeatureKind, contracts_compatible
+from drevalpy.components.contracts import (
+    FeatureContract,
+    FeatureKind,
+    contracts_compatible,
+    featurizer_contract,
+    normalize_feature_contract,
+    predictor_contracts,
+)
 
 
 def test_dense_contracts_compatible() -> None:
@@ -35,3 +42,27 @@ def test_feature_contract_is_frozen() -> None:
     except AttributeError:
         raised = True
     assert raised
+
+
+def test_normalize_feature_contract_accepts_kind_shorthand() -> None:
+    assert normalize_feature_contract(FeatureKind.GRAPH) == FeatureContract(kind=FeatureKind.GRAPH)
+
+
+def test_featurizer_contract_prefers_canonical_attribute() -> None:
+    class WithContract:
+        contract = FeatureContract(kind=FeatureKind.GRAPH)
+        output_contract = FeatureContract(kind=FeatureKind.DENSE)
+
+    assert featurizer_contract(WithContract).kind == FeatureKind.GRAPH
+
+
+def test_predictor_contracts_prefers_canonical_attributes() -> None:
+    class WithContracts:
+        cell_line_contract = FeatureContract(kind=FeatureKind.SEQUENCE)
+        drug_contract = FeatureContract(kind=FeatureKind.GRAPH)
+        required_cell_line_contract = FeatureContract(kind=FeatureKind.DENSE)
+        required_drug_contract = FeatureContract(kind=FeatureKind.DENSE)
+
+    cell_line, drug = predictor_contracts(WithContracts)
+    assert cell_line.kind == FeatureKind.SEQUENCE
+    assert drug.kind == FeatureKind.GRAPH
