@@ -56,6 +56,7 @@ def register_native_components() -> None:
         ("drevalpy.components.predictors.sklearn_models", predictor_registry),
         ("drevalpy.components.predictors.xgboost_pred", predictor_registry),
         ("drevalpy.components.predictors.lightgbm_pred", predictor_registry),
+        ("drevalpy.components.predictors.baselines.zoo_preset", predictor_registry),
     ):
         _restore_module_registrations(module_path, registry)
 
