@@ -36,9 +36,11 @@ class ConcatFeaturizersCellLineFeaturizer(ConcatFeaturizersMixin, CellLineFeatur
         state: dict[str, object],
     ) -> None:
         """Map legacy flat preprocessing state onto child featurizers when possible."""
-        from drevalpy.components.featurizers.cell_line.omics.methylation import MethylationPCACellLineFeaturizer
-        from drevalpy.components.featurizers.cell_line.omics.proteomics import ProteomicsCellLineFeaturizer
-        from drevalpy.components.featurizers.cell_line.omics.scaled_gene_expression import (
+        from drevalpy.components.featurizers.cell_line.normalized_proteomics import (
+            NormalizedProteomicsCellLineFeaturizer,
+        )
+        from drevalpy.components.featurizers.cell_line.pca import PCACellLineFeaturizer
+        from drevalpy.components.featurizers.cell_line.scaled_gene_expression import (
             ScaledGeneExpressionFeaturizer,
         )
 
@@ -50,24 +52,24 @@ class ConcatFeaturizersCellLineFeaturizer(ConcatFeaturizersMixin, CellLineFeatur
                 child_state = {key: state[key] for key in ("gene_expression_scaler", "fitted") if key in state}
                 if child_state:
                     child.set_state(child_state)
-            elif isinstance(child, MethylationPCACellLineFeaturizer):
+            elif isinstance(child, PCACellLineFeaturizer) and "methylation_pca" in state:
+                methylation_pca = state["methylation_pca"]
                 child_state = {
-                    key: state[key] for key in ("methylation_scaler", "methylation_pca", "fitted") if key in state
+                    "pca": methylation_pca,
+                    "view": child._view,
+                    "fitted": state.get("fitted"),
                 }
-                if child_state:
-                    child.set_state(child_state)
-            elif isinstance(child, ProteomicsCellLineFeaturizer):
+                if hasattr(methylation_pca, "n_components"):
+                    child_state["n_components"] = int(methylation_pca.n_components)
+                    child_state["output_dim"] = int(methylation_pca.n_components)
+                child.set_state(child_state)
+            elif isinstance(child, NormalizedProteomicsCellLineFeaturizer):
                 child_state = {key: state[key] for key in ("proteomics_transformer",) if key in state}
                 if child_state:
                     child.set_state(child_state)
             _ = name
-        from drevalpy.models.featurizer_mapping import CELL_LINE_VIEW_TO_FEATURIZER
-
         if state.get("view_dims") and isinstance(state["view_dims"], dict):
-            featurizer._block_dims = {
-                CELL_LINE_VIEW_TO_FEATURIZER.get(str(key), str(key)): int(value)
-                for key, value in state["view_dims"].items()
-            }
+            featurizer._block_dims = {str(key): int(value) for key, value in state["view_dims"].items()}
         output_dim = state.get("output_dim")
         if isinstance(output_dim, int):
             featurizer._output_dim = output_dim
@@ -91,11 +93,7 @@ class ConcatFeaturizersCellLineFeaturizer(ConcatFeaturizersMixin, CellLineFeatur
                 if key != "fitted":
                     state[key] = value
         if featurizer._block_dims:
-            from drevalpy.models.featurizer_mapping import CELL_LINE_VIEW_TO_FEATURIZER
-
-            featurizer_to_view = {value: key for key, value in CELL_LINE_VIEW_TO_FEATURIZER.items()}
-            view_dims = {featurizer_to_view.get(name, name): dim for name, dim in featurizer._block_dims.items()}
-            state["view_dims"] = view_dims
+            state["view_dims"] = dict(featurizer._block_dims)
         if featurizer._output_dim:
             state["output_dim"] = featurizer._output_dim
         return state
