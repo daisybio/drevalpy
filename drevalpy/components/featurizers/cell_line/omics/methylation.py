@@ -23,10 +23,7 @@ from drevalpy.data.preprocessing import prepare_expression_and_methylation
 class MethylationPCACellLineFeaturizer(CellLineFeaturizer):
     """Match baseline methylation preprocessing used in multi-view models."""
 
-    output_contract: ClassVar[FeatureContract] = FeatureContract(
-        kind=FeatureKind.DENSE,
-        view="methylation",
-    )
+    output_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
 
     def __init__(self, *, view: str = "methylation", n_components: int = 100) -> None:
         self._view = view

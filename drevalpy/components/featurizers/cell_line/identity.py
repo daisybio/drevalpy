@@ -21,7 +21,7 @@ from drevalpy.datasets.dataset import FeatureDataset
 class CellLineIdentityFeaturizer(CellLineFeaturizer):
     """Encode cell-line IDs as dense one-hot vectors."""
 
-    output_contract = FeatureContract(kind=FeatureKind.DENSE, scope="identity")
+    output_contract = FeatureContract(kind=FeatureKind.DENSE)
     entity_id_only: ClassVar[bool] = True
 
     def __init__(self) -> None:

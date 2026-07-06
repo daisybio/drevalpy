@@ -77,7 +77,7 @@ def test_metadata_listing_and_category_filter() -> None:
 def test_get_metadata_includes_output_type() -> None:
     @register_cell_line_featurizer("graphEnc", description="graph", category="native")
     class GraphEnc:
-        output_contract = FeatureContract(kind=FeatureKind.GRAPH, backend="pyg")
+        output_contract = FeatureContract(kind=FeatureKind.GRAPH)
 
     meta = get_cell_line_featurizer_metadata("graphEnc")
     assert meta["output_type"] == "graph"

@@ -20,7 +20,7 @@ from drevalpy.datasets.utils import TISSUE_IDENTIFIER
 class TissueFeaturizer(CellLineFeaturizer):
     """Map each cell line to a dense one-hot tissue vector."""
 
-    output_contract = FeatureContract(kind=FeatureKind.DENSE, scope="tissue")
+    output_contract = FeatureContract(kind=FeatureKind.DENSE)
 
     def __init__(self) -> None:
         self._encoder = OneHotCategoryEncoder()

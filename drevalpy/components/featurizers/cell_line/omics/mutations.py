@@ -18,7 +18,4 @@ class MutationsCellLineFeaturizer(DenseViewCellLineFeaturizer):
     """Featurize raw mutation features."""
 
     _default_view = "mutations"
-    output_contract: ClassVar[FeatureContract] = FeatureContract(
-        kind=FeatureKind.DENSE,
-        view="mutations",
-    )
+    output_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)

@@ -17,6 +17,6 @@ from drevalpy.components.registry import register_cell_line_featurizer
 class PathwaysCellLineFeaturizer(DenseViewCellLineFeaturizer):
     """Pathways cell line featurizer component."""
 
-    output_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE, view="pathways")
+    output_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
 
     _default_view = "pathways"

@@ -18,7 +18,4 @@ class CopyNumberVariationGisticCellLineFeaturizer(DenseViewCellLineFeaturizer):
     """Featurize GISTIC copy-number variation."""
 
     _default_view = "copy_number_variation_gistic"
-    output_contract: ClassVar[FeatureContract] = FeatureContract(
-        kind=FeatureKind.DENSE,
-        view="copy_number_variation_gistic",
-    )
+    output_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)

@@ -23,10 +23,7 @@ from drevalpy.datasets.dataset import FeatureDataset
 class ScaledGeneExpressionFeaturizer(CellLineFeaturizer):
     """Match sklearn baseline gene-expression preprocessing."""
 
-    output_contract: ClassVar[FeatureContract] = FeatureContract(
-        kind=FeatureKind.DENSE,
-        view="gene_expression",
-    )
+    output_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
 
     def __init__(self, *, view: str = "gene_expression") -> None:
         self._view = view

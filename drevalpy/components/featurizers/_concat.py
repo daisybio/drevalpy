@@ -15,10 +15,7 @@ from drevalpy.models.config import FeaturizerConfig
 class ConcatFeaturizersMixin:
     """Fit child featurizers independently and concatenate their dense outputs."""
 
-    output_contract: ClassVar[FeatureContract] = FeatureContract(
-        kind=FeatureKind.DENSE,
-        scope="multi_view",
-    )
+    output_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
     _not_fitted_msg: ClassVar[str] = "ConcatFeaturizers must be fit before transform"
 
     def _init_concat(

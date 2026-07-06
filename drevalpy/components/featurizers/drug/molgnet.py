@@ -19,11 +19,7 @@ from drevalpy.components.registry import register_drug_featurizer
 class MolGNetDrugFeaturizer(DrugFeaturizer):
     """Expose variable-size MolGNet tensors without stacking into one dense matrix."""
 
-    output_contract: ClassVar[FeatureContract] = FeatureContract(
-        kind=FeatureKind.DENSE,
-        view="molgnet_features",
-        scope="per_drug",
-    )
+    output_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
 
     def __init__(self, *, view: str = "molgnet_features") -> None:
         self._view = view

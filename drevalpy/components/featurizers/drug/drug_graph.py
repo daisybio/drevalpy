@@ -17,14 +17,7 @@ from drevalpy.components.registry import register_drug_featurizer
 class DrugGraphFeaturizer(DrugFeaturizer):
     """Expose precomputed drug graphs for graph predictors."""
 
-    output_contract = FeatureContract(
-        kind=FeatureKind.GRAPH,
-        view="drug_graph",
-        backend="pyg",
-        scope="per_drug",
-        has_node_features=True,
-        has_edge_features=True,
-    )
+    output_contract = FeatureContract(kind=FeatureKind.GRAPH)
 
     def __init__(self, *, view: str = "drug_graph") -> None:
         self._view = view

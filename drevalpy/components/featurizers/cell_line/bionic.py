@@ -17,9 +17,6 @@ from drevalpy.components.registry import register_cell_line_featurizer
 class BionicCellLineFeaturizer(DenseViewCellLineFeaturizer):
     """Bionic cell line featurizer component."""
 
-    output_contract: ClassVar[FeatureContract] = FeatureContract(
-        kind=FeatureKind.DENSE,
-        view="bionic_features",
-    )
+    output_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
 
     _default_view = "bionic_features"

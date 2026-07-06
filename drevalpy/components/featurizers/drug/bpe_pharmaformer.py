@@ -17,10 +17,7 @@ from drevalpy.components.registry import register_drug_featurizer
 class BpePharmaformerDrugFeaturizer(ViewDrugFeaturizer):
     """Bpe pharmaformer drug featurizer component."""
 
-    output_contract: ClassVar[FeatureContract] = FeatureContract(
-        kind=FeatureKind.DENSE,
-        view="bpe_smiles",
-    )
+    output_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
 
     def __init__(self, *, view: str = "bpe_smiles") -> None:
         super().__init__(view=view)
