@@ -7,10 +7,10 @@ from typing import ClassVar
 import numpy as np
 
 from drevalpy.components.contracts import FeatureKind
-from drevalpy.components.pair_batch import PairBatch
+from drevalpy.components.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors._identity_batch import pair_tissue_ids
 from drevalpy.components.predictors.baseline import BaselinePredictor
-from drevalpy.components.predictors.structured import StructuredPredictor
+from drevalpy.components.predictors.structured import BlockPredictor
 from drevalpy.components.registry import register_predictor
 from drevalpy.components.state_helpers import state_float, state_str_dict
 from drevalpy.models.config import PredictionMode
@@ -34,22 +34,17 @@ class NaiveMeanPredictor(BaselinePredictor):
     def __init__(self) -> None:
         self._dataset_mean: float | None = None
 
-    def fit(
-        self,
-        x: np.ndarray,
-        y: np.ndarray,
-    ) -> None:
-        _ = x
-        self._dataset_mean = float(np.mean(y))
+    def fit(self, batch: ModelInputBatch) -> None:
+        if batch.response is None:
+            msg = "Naive predictors require response values during fit"
+            raise ValueError(msg)
+        self._dataset_mean = float(np.mean(batch.response))
 
-    def predict(
-        self,
-        x: np.ndarray,
-    ) -> np.ndarray:
+    def predict(self, batch: ModelInputBatch) -> np.ndarray:
         if self._dataset_mean is None:
             msg = "Call fit before predict"
             raise RuntimeError(msg)
-        return np.full(len(x), self._dataset_mean, dtype=np.float64)
+        return np.full(batch.n_pairs, self._dataset_mean, dtype=np.float64)
 
     def get_state(self) -> dict[str, object]:
         if self._dataset_mean is None:
@@ -65,25 +60,17 @@ class NaiveMeanPredictor(BaselinePredictor):
         return self._dataset_mean is not None
 
 
-class _SingleEntityNaivePredictor(StructuredPredictor):
+class _SingleEntityNaivePredictor(BlockPredictor):
+    requires_drug_featurizer: ClassVar[bool] = False
 
     def __init__(self) -> None:
         self._dataset_mean: float | None = None
         self._entity_means: dict[str, float] = {}
 
-    def _entity_keys(self, batch: PairBatch) -> np.ndarray:
+    def _entity_keys(self, batch: ModelInputBatch) -> np.ndarray:
         raise NotImplementedError
 
-    def fit_structured(
-        self,
-        batch: PairBatch,
-        *,
-        output=None,
-        cell_line_input=None,
-        drug_input=None,
-        output_earlystopping=None,
-    ) -> None:
-        _ = output, cell_line_input, drug_input, output_earlystopping
+    def fit(self, batch: ModelInputBatch) -> None:
         if batch.response is None:
             msg = "Naive predictors require response values during fit"
             raise ValueError(msg)
@@ -94,14 +81,7 @@ class _SingleEntityNaivePredictor(StructuredPredictor):
             mask = keys.astype(str) == entity
             self._entity_means[str(entity)] = float(np.mean(y[mask]))
 
-    def predict_structured(
-        self,
-        batch: PairBatch,
-        *,
-        cell_line_input=None,
-        drug_input=None,
-    ) -> np.ndarray:
-        _ = cell_line_input, drug_input
+    def predict(self, batch: ModelInputBatch) -> np.ndarray:
         if self._dataset_mean is None:
             msg = "Call fit before predict"
             raise RuntimeError(msg)
@@ -144,7 +124,7 @@ class _SingleEntityNaivePredictor(StructuredPredictor):
 class NaiveDrugMeanPredictor(_SingleEntityNaivePredictor):
     """Naive drug mean predictor component."""
 
-    def _entity_keys(self, batch: PairBatch) -> np.ndarray:
+    def _entity_keys(self, batch: ModelInputBatch) -> np.ndarray:
         return batch.drug_ids
 
     def _legacy_entity_means_key(self) -> str:
@@ -161,7 +141,7 @@ class NaiveDrugMeanPredictor(_SingleEntityNaivePredictor):
 class NaiveCellLineMeanPredictor(_SingleEntityNaivePredictor):
     """Naive cell line mean predictor component."""
 
-    def _entity_keys(self, batch: PairBatch) -> np.ndarray:
+    def _entity_keys(self, batch: ModelInputBatch) -> np.ndarray:
         return batch.cell_line_ids
 
     def _legacy_entity_means_key(self) -> str:
@@ -175,28 +155,20 @@ class NaiveCellLineMeanPredictor(_SingleEntityNaivePredictor):
     cell_line_contract=FeatureKind.DENSE,
     drug_contract=FeatureKind.DENSE,
 )
-class NaiveTissueMeanPredictor(StructuredPredictor):
+class NaiveTissueMeanPredictor(BlockPredictor):
     """Naive tissue mean predictor component."""
 
+    requires_drug_featurizer: ClassVar[bool] = False
 
     def __init__(self) -> None:
         self._dataset_mean: float | None = None
         self._entity_means: dict[str, float] = {}
 
-    def fit_structured(
-        self,
-        batch: PairBatch,
-        *,
-        output=None,
-        cell_line_input=None,
-        drug_input=None,
-        output_earlystopping=None,
-    ) -> None:
-        _ = output, cell_line_input, drug_input, output_earlystopping
+    def fit(self, batch: ModelInputBatch) -> None:
         if batch.response is None:
             msg = "Naive predictors require response values during fit"
             raise ValueError(msg)
-        tissue_ids = pair_tissue_ids(batch, cell_line_input=cell_line_input)
+        tissue_ids = pair_tissue_ids(batch, cell_line_input=batch.cell_line_input)
         if tissue_ids is None:
             msg = "NaiveTissueMeanPredictor requires tissue featurizer output"
             raise ValueError(msg)
@@ -206,18 +178,11 @@ class NaiveTissueMeanPredictor(StructuredPredictor):
             mask = tissue_ids.astype(str) == tissue
             self._entity_means[str(tissue)] = float(np.mean(y[mask]))
 
-    def predict_structured(
-        self,
-        batch: PairBatch,
-        *,
-        cell_line_input=None,
-        drug_input=None,
-    ) -> np.ndarray:
-        _ = cell_line_input, drug_input
+    def predict(self, batch: ModelInputBatch) -> np.ndarray:
         if self._dataset_mean is None:
             msg = "Call fit before predict"
             raise RuntimeError(msg)
-        tissue_ids = pair_tissue_ids(batch, cell_line_input=cell_line_input)
+        tissue_ids = pair_tissue_ids(batch, cell_line_input=batch.cell_line_input)
         if tissue_ids is None:
             msg = "NaiveTissueMeanPredictor requires tissue featurizer output"
             raise ValueError(msg)
@@ -253,28 +218,20 @@ class NaiveTissueMeanPredictor(StructuredPredictor):
     cell_line_contract=FeatureKind.DENSE,
     drug_contract=FeatureKind.DENSE,
 )
-class NaiveTissueDrugMeanPredictor(StructuredPredictor):
+class NaiveTissueDrugMeanPredictor(BlockPredictor):
     """Naive tissue drug mean predictor component."""
 
+    requires_drug_featurizer: ClassVar[bool] = False
 
     def __init__(self) -> None:
         self._dataset_mean: float | None = None
         self._combo_means: dict[str, float] = {}
 
-    def fit_structured(
-        self,
-        batch: PairBatch,
-        *,
-        output=None,
-        cell_line_input=None,
-        drug_input=None,
-        output_earlystopping=None,
-    ) -> None:
-        _ = output, cell_line_input, drug_input, output_earlystopping
+    def fit(self, batch: ModelInputBatch) -> None:
         if batch.response is None:
             msg = "Naive predictors require response values during fit"
             raise ValueError(msg)
-        tissue_ids = pair_tissue_ids(batch, cell_line_input=cell_line_input)
+        tissue_ids = pair_tissue_ids(batch, cell_line_input=batch.cell_line_input)
         if tissue_ids is None:
             msg = "NaiveTissueDrugMeanPredictor requires tissue featurizer output"
             raise ValueError(msg)
@@ -287,18 +244,11 @@ class NaiveTissueDrugMeanPredictor(StructuredPredictor):
             mask = np.array(keys) == combo
             self._combo_means[str(combo)] = float(np.mean(y[mask]))
 
-    def predict_structured(
-        self,
-        batch: PairBatch,
-        *,
-        cell_line_input=None,
-        drug_input=None,
-    ) -> np.ndarray:
-        _ = cell_line_input, drug_input
+    def predict(self, batch: ModelInputBatch) -> np.ndarray:
         if self._dataset_mean is None:
             msg = "Call fit before predict"
             raise RuntimeError(msg)
-        tissue_ids = pair_tissue_ids(batch, cell_line_input=cell_line_input)
+        tissue_ids = pair_tissue_ids(batch, cell_line_input=batch.cell_line_input)
         if tissue_ids is None:
             msg = "NaiveTissueDrugMeanPredictor requires tissue featurizer output"
             raise ValueError(msg)
@@ -341,9 +291,10 @@ class NaiveTissueDrugMeanPredictor(StructuredPredictor):
     cell_line_contract=FeatureKind.DENSE,
     drug_contract=FeatureKind.DENSE,
 )
-class NaiveMeanEffectsPredictor(StructuredPredictor):
+class NaiveMeanEffectsPredictor(BlockPredictor):
     """Naive mean effects predictor component."""
 
+    requires_drug_featurizer: ClassVar[bool] = False
 
     def __init__(self) -> None:
         self._dataset_mean: float | None = None
@@ -351,16 +302,7 @@ class NaiveMeanEffectsPredictor(StructuredPredictor):
         self._cell_line_effects: dict[str, float] = {}
         self._drug_effects: dict[str, float] = {}
 
-    def fit_structured(
-        self,
-        batch: PairBatch,
-        *,
-        output=None,
-        cell_line_input=None,
-        drug_input=None,
-        output_earlystopping=None,
-    ) -> None:
-        _ = output, cell_line_input, drug_input, output_earlystopping
+    def fit(self, batch: ModelInputBatch) -> None:
         if batch.response is None:
             msg = "Naive predictors require response values during fit"
             raise ValueError(msg)
@@ -374,7 +316,7 @@ class NaiveMeanEffectsPredictor(StructuredPredictor):
             mask = cell_line_ids == cell_id
             cell_line_means[str(cell_id)] = float(np.mean(y[mask]))
 
-        tissue_ids = pair_tissue_ids(batch, cell_line_input=cell_line_input)
+        tissue_ids = pair_tissue_ids(batch, cell_line_input=batch.cell_line_input)
         if tissue_ids is not None:
             tissue_means: dict[str, float] = {}
             for tissue in np.unique(tissue_ids.astype(str)):
@@ -401,18 +343,11 @@ class NaiveMeanEffectsPredictor(StructuredPredictor):
             mask = drug_ids == drug_id
             self._drug_effects[str(drug_id)] = float(np.mean(y[mask]) - self._dataset_mean)
 
-    def predict_structured(
-        self,
-        batch: PairBatch,
-        *,
-        cell_line_input=None,
-        drug_input=None,
-    ) -> np.ndarray:
-        _ = cell_line_input, drug_input
+    def predict(self, batch: ModelInputBatch) -> np.ndarray:
         if self._dataset_mean is None:
             msg = "Call fit before predict"
             raise RuntimeError(msg)
-        tissue_ids = pair_tissue_ids(batch, cell_line_input=cell_line_input)
+        tissue_ids = pair_tissue_ids(batch, cell_line_input=batch.cell_line_input)
         if self._tissue_effects and tissue_ids is not None:
             return np.array(
                 [

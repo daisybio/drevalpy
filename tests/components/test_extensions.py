@@ -22,12 +22,19 @@ from __future__ import annotations
 
 import numpy as np
 
+from drevalpy.components.contracts import FeatureKind
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
+from drevalpy.components.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors.baseline import BaselinePredictor
 from drevalpy.components.registry import register_cell_line_featurizer, register_predictor
 
 
-@register_cell_line_featurizer("toyCellLine", description="Toy featurizer", category="general_purpose")
+@register_cell_line_featurizer(
+    "toyCellLine",
+    description="Toy featurizer",
+    category="general_purpose",
+    contract=FeatureKind.DENSE,
+)
 class ToyCellLineFeaturizer(CellLineFeaturizer):
     def fit(self, features, *, entity_ids=None):
         self._output_dim = 1
@@ -44,11 +51,11 @@ class ToyCellLineFeaturizer(CellLineFeaturizer):
 @register_predictor(
     "toyPredictor", description="Toy predictor", category="general_purpose")
 class ToyPredictor(BaselinePredictor):
-    def fit(self, x, y, *, pair_context=None):
+    def fit(self, batch: ModelInputBatch) -> None:
         return None
 
-    def predict(self, x, *, pair_context=None):
-        return np.zeros(len(x), dtype=np.float64)
+    def predict(self, batch: ModelInputBatch) -> np.ndarray:
+        return np.zeros(batch.n_pairs, dtype=np.float64)
 """,
         encoding="utf-8",
     )
@@ -63,22 +70,24 @@ class ToyPredictor(BaselinePredictor):
 def test_load_extension_dir_imports_sorted_files(tmp_path: Path) -> None:
     (tmp_path / "b_ext.py").write_text(
         "from drevalpy.components.registry import register_predictor\n"
+        "from drevalpy.components.model_input_batch import ModelInputBatch\n"
         "from drevalpy.components.predictors.baseline import BaselinePredictor\n"
         "import numpy as np\n"
         "@register_predictor('toyB', description='b', category='general_purpose')\n"
         "class ToyB(BaselinePredictor):\n"
-        "    def fit(self, x, y, *, pair_context=None): return None\n"
-        "    def predict(self, x, *, pair_context=None): return np.zeros(len(x))\n",
+        "    def fit(self, batch: ModelInputBatch): return None\n"
+        "    def predict(self, batch: ModelInputBatch): return np.zeros(batch.n_pairs)\n",
         encoding="utf-8",
     )
     (tmp_path / "a_ext.py").write_text(
         "from drevalpy.components.registry import register_predictor\n"
+        "from drevalpy.components.model_input_batch import ModelInputBatch\n"
         "from drevalpy.components.predictors.baseline import BaselinePredictor\n"
         "import numpy as np\n"
         "@register_predictor('toyA', description='a', category='general_purpose')\n"
         "class ToyA(BaselinePredictor):\n"
-        "    def fit(self, x, y, *, pair_context=None): return None\n"
-        "    def predict(self, x, *, pair_context=None): return np.zeros(len(x))\n",
+        "    def fit(self, batch: ModelInputBatch): return None\n"
+        "    def predict(self, batch: ModelInputBatch): return np.zeros(batch.n_pairs)\n",
         encoding="utf-8",
     )
     load_extension_dir(tmp_path)
@@ -92,11 +101,18 @@ def test_external_zoo_references_extension_components(tmp_path: Path) -> None:
     (ext_dir / "components.py").write_text(
         """
 import numpy as np
+from drevalpy.components.contracts import FeatureKind
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
+from drevalpy.components.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors.baseline import BaselinePredictor
 from drevalpy.components.registry import register_cell_line_featurizer, register_predictor
 
-@register_cell_line_featurizer("externalCellLine", description="ext", category="general_purpose")
+@register_cell_line_featurizer(
+    "externalCellLine",
+    description="ext",
+    category="general_purpose",
+    contract=FeatureKind.DENSE,
+)
 class ExternalCellLineFeaturizer(CellLineFeaturizer):
     def fit(self, features, *, entity_ids=None):
         self._output_dim = 1
@@ -109,10 +125,14 @@ class ExternalCellLineFeaturizer(CellLineFeaturizer):
 
 @register_predictor("externalPredictor", description="ext", category="general_purpose")
 class ExternalPredictor(BaselinePredictor):
-    def fit(self, x, y, *, pair_context=None):
-        self._mean = float(np.mean(y))
-    def predict(self, x, *, pair_context=None):
-        return np.full(len(x), self._mean, dtype=np.float64)
+    def fit(self, batch: ModelInputBatch) -> None:
+        if batch.response is None:
+            msg = "response required"
+            raise ValueError(msg)
+        self._mean = float(np.mean(batch.response))
+
+    def predict(self, batch: ModelInputBatch) -> np.ndarray:
+        return np.full(batch.n_pairs, self._mean, dtype=np.float64)
 """,
         encoding="utf-8",
     )
