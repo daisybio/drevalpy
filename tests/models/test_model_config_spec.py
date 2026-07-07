@@ -101,11 +101,18 @@ def test_external_extension_resolved_through_spec(tmp_path: Path) -> None:
     (ext_dir / "components.py").write_text(
         """
 import numpy as np
+from drevalpy.components.contracts import FeatureKind
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
+from drevalpy.components.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors.baseline import BaselinePredictor
 from drevalpy.components.registry import register_cell_line_featurizer, register_predictor
 
-@register_cell_line_featurizer("resolverCellLine", description="ext", category="general_purpose")
+@register_cell_line_featurizer(
+    "resolverCellLine",
+    description="ext",
+    category="general_purpose",
+    contract=FeatureKind.DENSE,
+)
 class ResolverCellLineFeaturizer(CellLineFeaturizer):
     def fit(self, features, *, entity_ids=None):
         self._output_dim = 1
@@ -118,10 +125,14 @@ class ResolverCellLineFeaturizer(CellLineFeaturizer):
 
 @register_predictor("resolverPredictor", description="ext", category="general_purpose")
 class ResolverPredictor(BaselinePredictor):
-    def fit(self, x, y, *, pair_context=None):
-        self._mean = float(np.mean(y))
-    def predict(self, x, *, pair_context=None):
-        return np.full(len(x), self._mean, dtype=np.float64)
+    def fit(self, batch: ModelInputBatch) -> None:
+        if batch.response is None:
+            msg = "response required"
+            raise ValueError(msg)
+        self._mean = float(np.mean(batch.response))
+
+    def predict(self, batch: ModelInputBatch) -> np.ndarray:
+        return np.full(batch.n_pairs, self._mean, dtype=np.float64)
 """,
         encoding="utf-8",
     )

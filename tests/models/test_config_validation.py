@@ -62,7 +62,6 @@ def _register_dense_pair() -> None:
         drug_contract=FeatureKind.DENSE,
     )
     class DensePred:
-        uses_features = True
         supported_modes = {PredictionMode.REGRESSION}
 
 
@@ -125,7 +124,6 @@ def test_graph_featurizer_with_dense_predictor_fails() -> None:
         drug_contract=FeatureKind.DENSE,
     )
     class DensePred:
-        uses_features = True
         supported_modes = {PredictionMode.REGRESSION}
 
     config = ModelConfig(
@@ -164,7 +162,6 @@ def test_graph_kind_match_passes() -> None:
         drug_contract=FeatureKind.GRAPH,
     )
     class GraphPred:
-        uses_features = True
         supported_modes = {PredictionMode.REGRESSION}
 
     config = ModelConfig(
@@ -178,7 +175,6 @@ def test_graph_kind_match_passes() -> None:
 def test_feature_free_predictor_without_featurizers_passes() -> None:
     @register_predictor("naiveMean", description="naive", category="baseline")
     class NaiveMean:
-        uses_features = False
         supported_modes = {PredictionMode.REGRESSION}
 
     config = ModelConfig(
@@ -196,7 +192,7 @@ def test_feature_using_predictor_without_featurizers_fails() -> None:
         drug_featurizer=None,
         predictor=PredictorConfig(name="densePred"),
     )
-    with pytest.raises(ValueError, match="uses feature matrices"):
+    with pytest.raises(ValueError, match="requires featurizers"):
         validate_model_config(config)
 
 

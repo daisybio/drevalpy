@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from drevalpy.components.featurizers._matrix import stack_pair_features
-from drevalpy.datasets.dataset import DrugResponseDataset
+from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 
 
 @dataclass
@@ -25,6 +25,8 @@ class ModelInputBatch:
     drug_pair_idx: np.ndarray | None
     cell_line_blocks: dict[str, np.ndarray] = field(default_factory=dict)
     drug_blocks: dict[str, np.ndarray] = field(default_factory=dict)
+    cell_line_input: FeatureDataset | None = None
+    drug_input: FeatureDataset | None = None
 
     @property
     def n_pairs(self) -> int:
@@ -43,6 +45,8 @@ class ModelInputBatch:
         drug_pair_idx: np.ndarray | None,
         cell_line_blocks: dict[str, np.ndarray] | None = None,
         drug_blocks: dict[str, np.ndarray] | None = None,
+        cell_line_input: FeatureDataset | None = None,
+        drug_input: FeatureDataset | None = None,
     ) -> ModelInputBatch:
         """Build a predictor input batch from a response dataset and featurizer outputs."""
         return cls(
@@ -57,6 +61,8 @@ class ModelInputBatch:
             drug_pair_idx=drug_pair_idx,
             cell_line_blocks=dict(cell_line_blocks or {}),
             drug_blocks=dict(drug_blocks or {}),
+            cell_line_input=cell_line_input,
+            drug_input=drug_input,
         )
 
     def to_feature_matrix(self) -> np.ndarray:

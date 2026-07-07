@@ -6,6 +6,7 @@ from typing import Any
 
 from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
 from drevalpy.components.model_id import parse_model_id
+from drevalpy.components.predictors.baseline import BaselinePredictor
 from drevalpy.models.config import (
     FeaturizerConfig,
     ModelConfig,
@@ -58,7 +59,7 @@ def _config_from_baseline_predictor_token(
         pred_cls = get_predictor(token)
     except ValueError:
         return None
-    if getattr(pred_cls, "uses_features", True):
+    if not (issubclass(pred_cls, BaselinePredictor) or getattr(pred_cls, "category", "") == "baseline"):
         return None
     config = ModelConfig(
         cell_line_featurizer=None,
@@ -83,7 +84,7 @@ def build_model_config_from_spec(
     1. ``cellLine:drug:predictor`` registry triple
     2. Built-in or external zoo preset name
     3. Legacy ``MODEL_FACTORY`` model name (PascalCase)
-    4. Baseline or monolithic predictor token (``uses_features=False``), e.g. ``naiveMean`` or ``dipk``
+    4. Baseline predictor token (no featurizers required), e.g. ``naiveMean`` or ``dipk``
     """
     from drevalpy.components.register_builtins import ensure_components_registered
     from drevalpy.models.factory import model_config_for_name
