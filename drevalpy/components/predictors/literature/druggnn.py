@@ -9,7 +9,7 @@ import pytorch_lightning as pl
 from torch_geometric.loader import DataLoader
 
 from drevalpy.components.contracts import FeatureKind
-from drevalpy.components.pair_batch import PairBatch
+from drevalpy.components.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors.literature._metadata import DRUGGNN_METADATA
 from drevalpy.components.predictors.literature.impl.druggnn.drug_gnn import (
     DrugGNNModule,
@@ -70,14 +70,7 @@ class DrugGNNPredictor(StructuredPredictor):
             learning_rate=float(merged["learning_rate"]),
         )
 
-    def _response_dataset(
-        self,
-        batch: PairBatch,
-        *,
-        output: DrugResponseDataset | None,
-    ) -> DrugResponseDataset:
-        if output is not None:
-            return output
+    def _response_dataset(self, batch: ModelInputBatch) -> DrugResponseDataset:
         if batch.response is None:
             msg = "DrugGNN requires response data"
             raise RuntimeError(msg)
@@ -87,16 +80,9 @@ class DrugGNNPredictor(StructuredPredictor):
             drug_ids=batch.drug_ids,
         )
 
-    def fit_structured(
-        self,
-        batch: PairBatch,
-        *,
-        output: DrugResponseDataset | None = None,
-        cell_line_input: FeatureDataset | None = None,
-        drug_input: FeatureDataset | None = None,
-        output_earlystopping: DrugResponseDataset | None = None,
-    ) -> None:
-        _ = batch, output_earlystopping
+    def fit(self, batch: ModelInputBatch) -> None:
+        cell_line_input = batch.cell_line_input
+        drug_input = batch.drug_input
         if cell_line_input is None or drug_input is None:
             msg = "DrugGNN requires cell_line_input and drug_input"
             raise RuntimeError(msg)
@@ -112,7 +98,7 @@ class DrugGNNPredictor(StructuredPredictor):
             dropout=float(merged["dropout"]),
             learning_rate=float(merged["learning_rate"]),
         )
-        response = self._response_dataset(batch, output=output)
+        response = self._response_dataset(batch)
         dataset = _DrugResponsePytorchDataset(
             response=response.response,
             cell_line_ids=response.cell_line_ids,
@@ -130,15 +116,11 @@ class DrugGNNPredictor(StructuredPredictor):
         )
         trainer.fit(self._model, train_dataloaders=loader)
 
-    def predict_structured(
-        self,
-        batch: PairBatch,
-        *,
-        cell_line_input: FeatureDataset | None = None,
-        drug_input: FeatureDataset | None = None,
-    ) -> np.ndarray:
+    def predict(self, batch: ModelInputBatch) -> np.ndarray:
+        cell_line_input = batch.cell_line_input
+        drug_input = batch.drug_input
         if self._model is None or cell_line_input is None or drug_input is None:
-            return np.full(len(batch.cell_line_ids), np.nan, dtype=np.float64)
+            return np.full(batch.n_pairs, np.nan, dtype=np.float64)
         response = DrugResponseDataset(
             response=np.zeros(len(batch.cell_line_ids)),
             cell_line_ids=batch.cell_line_ids,
