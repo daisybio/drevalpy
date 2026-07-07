@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from drevalpy.components.contracts import FeatureKind
 from drevalpy.components.featurizers._matrix import stack_view_matrix
 from drevalpy.components.featurizers.drug.base import DrugFeaturizer
 from drevalpy.components.registry import register_drug_featurizer
@@ -13,6 +14,7 @@ from drevalpy.components.registry import register_drug_featurizer
     "view",
     description="Pass through one dense drug view from a FeatureDataset.",
     category="native",
+    contract=FeatureKind.DENSE,
 )
 class ViewDrugFeaturizer(DrugFeaturizer):
     """Featurize one drug view without additional transformation."""

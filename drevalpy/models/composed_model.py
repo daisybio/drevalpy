@@ -8,8 +8,8 @@ import numpy as np
 
 from drevalpy.components.featurizers._matrix import unique_entity_ids
 from drevalpy.components.featurizers.base import Featurizer
-from drevalpy.components.pair_batch_build import build_pair_batch
-from drevalpy.components.pair_features import build_pair_matrix
+from drevalpy.components.model_input_batch import ModelInputBatch
+from drevalpy.components.model_input_build import build_model_input_batch
 from drevalpy.components.predictors.base import Predictor
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models.config import PredictionMode
@@ -62,6 +62,62 @@ class ComposedModel:
         self._cell_line_entity_ids: np.ndarray | None = None
         self._drug_entity_ids: np.ndarray | None = None
 
+    def _merged_hyperparameters(self) -> dict[str, Any]:
+        return {
+            **self._predictor.get_default_hyperparameters(),
+            **self._predictor_hp,
+            "prediction_mode": self._prediction_mode,
+        }
+
+    def _input_dims(
+        self,
+        cell_line_matrix: np.ndarray,
+        drug_matrix: np.ndarray | None,
+    ) -> dict[str, Any]:
+        return {
+            "cell_line": _matrix_feature_width(cell_line_matrix),
+            "drug": _matrix_feature_width(drug_matrix),
+            "n_classes": 1,
+        }
+
+    def _build_batch(
+        self,
+        response: DrugResponseDataset,
+        *,
+        cell_line_input: FeatureDataset,
+        drug_input: FeatureDataset | None,
+        cell_line_entity_ids: np.ndarray,
+        drug_entity_ids: np.ndarray | None,
+        cell_line_matrix: np.ndarray,
+        drug_matrix: np.ndarray | None,
+    ) -> ModelInputBatch:
+        cell_line_blocks: dict[str, np.ndarray] = {}
+        if self._cell_line_featurizer is not None:
+            cell_line_blocks = self._cell_line_featurizer.transform_blocks(
+                cell_line_input,
+                cell_line_entity_ids,
+            )
+
+        drug_blocks: dict[str, np.ndarray] = {}
+        if self._drug_featurizer is not None and drug_entity_ids is not None:
+            drug_source = drug_input if drug_input is not None else _empty_feature_dataset()
+            if drug_input is None and not _entity_id_only_featurizer(self._drug_featurizer):
+                msg = "drug_input is required when a drug featurizer is configured"
+                raise ValueError(msg)
+            drug_blocks = self._drug_featurizer.transform_blocks(drug_source, drug_entity_ids)
+
+        return build_model_input_batch(
+            response,
+            cell_line_entity_ids=cell_line_entity_ids,
+            drug_entity_ids=drug_entity_ids if self._drug_featurizer is not None else None,
+            cell_line_features=cell_line_matrix,
+            drug_features=drug_matrix if self._drug_featurizer is not None else None,
+            cell_line_blocks=cell_line_blocks,
+            drug_blocks=drug_blocks,
+            cell_line_input=cell_line_input,
+            drug_input=drug_input,
+        )
+
     def train(
         self,
         output: DrugResponseDataset,
@@ -70,6 +126,7 @@ class ComposedModel:
         *,
         output_earlystopping: DrugResponseDataset | None = None,
     ) -> ComposedModel:
+        _ = output_earlystopping
         if len(output) == 0:
             return self
 
@@ -108,94 +165,20 @@ class ComposedModel:
             self._drug_entity_ids = np.array([], dtype=str)
             self._drug_matrix = np.empty((0, 0), dtype=np.float32)
 
-        if getattr(self._predictor, "uses_structured_features", False):
-            cell_line_blocks = (
-                self._cell_line_featurizer.transform_blocks(cl_source, self._cell_line_entity_ids)
-                if self._cell_line_featurizer is not None
-                else {}
-            )
-            drug_blocks: dict[str, np.ndarray] = {}
-            if self._drug_featurizer is not None and drug_input is not None:
-                drug_blocks = self._drug_featurizer.transform_blocks(
-                    drug_input,
-                    self._drug_entity_ids,
-                )
-            elif self._drug_featurizer is not None and _entity_id_only_featurizer(self._drug_featurizer):
-                drug_blocks = self._drug_featurizer.transform_blocks(
-                    _empty_feature_dataset(),
-                    self._drug_entity_ids,
-                )
-            batch = build_pair_batch(
-                output,
-                cell_line_entity_ids=self._cell_line_entity_ids,
-                drug_entity_ids=self._drug_entity_ids if self._drug_featurizer is not None else None,
-                cell_line_features=self._cell_line_matrix,
-                drug_features=self._drug_matrix if self._drug_featurizer is not None else None,
-                cell_line_blocks=cell_line_blocks,
-                drug_blocks=drug_blocks,
-            )
-            merged_hp = {
-                **self._predictor.get_default_hyperparameters(),
-                **self._predictor_hp,
-                "prediction_mode": self._prediction_mode,
-            }
-            input_dims = {
-                "cell_line": _matrix_feature_width(self._cell_line_matrix),
-                "drug": _matrix_feature_width(self._drug_matrix),
-                "n_classes": 1,
-            }
-            self._predictor.build(merged_hp, input_dims)
-            self._predictor.fit_structured(
-                batch,
-                output=output,
-                cell_line_input=cell_line_input,
-                drug_input=drug_input,
-                output_earlystopping=output_earlystopping,
-            )
-        elif self._predictor.uses_features:
-            x = build_pair_matrix(
-                output,
-                self._cell_line_matrix,
-                self._drug_matrix,
-                self._cell_line_entity_ids,
-                self._drug_entity_ids,
-            )
-            input_dims = {
-                "cell_line": int(self._cell_line_matrix.shape[1]) if self._cell_line_matrix.size else 0,
-                "drug": int(self._drug_matrix.shape[1]) if self._drug_matrix.size else 0,
-                "n_classes": 1,
-            }
-            merged_hp = {
-                **self._predictor.get_default_hyperparameters(),
-                **self._predictor_hp,
-                "prediction_mode": self._prediction_mode,
-            }
-            self._predictor.build(merged_hp, input_dims)
-            self._predictor.fit(x, output.response)
-        elif getattr(self._predictor, "uses_raw_features", False):
-            merged_hp = {
-                **self._predictor.get_default_hyperparameters(),
-                **self._predictor_hp,
-                "prediction_mode": self._prediction_mode,
-            }
-            self._predictor.build(merged_hp, {})
-            self._predictor.fit_raw(
-                output,
-                cell_line_input,
-                drug_input,
-                output_earlystopping=None,
-            )
-        else:
-            merged_hp = {
-                **self._predictor.get_default_hyperparameters(),
-                **self._predictor_hp,
-                "prediction_mode": self._prediction_mode,
-            }
-            self._predictor.build(merged_hp, {})
-            self._predictor.fit(
-                np.empty((len(output), 0)),
-                output.response,
-            )
+        batch = self._build_batch(
+            output,
+            cell_line_input=cell_line_input,
+            drug_input=drug_input,
+            cell_line_entity_ids=self._cell_line_entity_ids,
+            drug_entity_ids=self._drug_entity_ids,
+            cell_line_matrix=self._cell_line_matrix,
+            drug_matrix=self._drug_matrix,
+        )
+        self._predictor.build(
+            self._merged_hyperparameters(),
+            self._input_dims(self._cell_line_matrix, self._drug_matrix),
+        )
+        self._predictor.fit(batch)
         return self
 
     def predict(
@@ -208,94 +191,34 @@ class ComposedModel:
         if len(cell_line_ids) == 0:
             return np.array([])
 
-        if getattr(self._predictor, "uses_structured_features", False):
-            cell_line_entity_ids = np.array([], dtype=str)
-            cell_line_matrix = np.empty((0, 0), dtype=np.float32)
-            cell_line_blocks: dict[str, np.ndarray] = {}
-            if self._cell_line_featurizer is not None:
-                cell_line_entity_ids = unique_entity_ids(cell_line_ids)
-                cell_line_matrix = self._cell_line_featurizer.transform(cell_line_input, cell_line_entity_ids)
-                cell_line_blocks = self._cell_line_featurizer.transform_blocks(
-                    cell_line_input,
-                    cell_line_entity_ids,
-                )
-
-            drug_entity_ids = None
-            drug_matrix = None
-            drug_blocks: dict[str, np.ndarray] = {}
-            if self._drug_featurizer is not None:
-                drug_entity_ids = unique_entity_ids(drug_ids)
-                drug_source = drug_input if drug_input is not None else _empty_feature_dataset()
-                if drug_input is None and not _entity_id_only_featurizer(self._drug_featurizer):
-                    msg = "drug_input is required when a drug featurizer is configured"
-                    raise ValueError(msg)
-                drug_matrix = self._drug_featurizer.transform(drug_source, drug_entity_ids)
-                drug_blocks = self._drug_featurizer.transform_blocks(drug_source, drug_entity_ids)
-
-            response = DrugResponseDataset(
-                response=np.zeros(len(cell_line_ids)),
-                cell_line_ids=cell_line_ids,
-                drug_ids=drug_ids,
-            )
-            batch = build_pair_batch(
-                response,
-                cell_line_entity_ids=cell_line_entity_ids,
-                drug_entity_ids=drug_entity_ids,
-                cell_line_features=cell_line_matrix,
-                drug_features=drug_matrix,
-                cell_line_blocks=cell_line_blocks,
-                drug_blocks=drug_blocks,
-            )
-            return self._predictor.predict_structured(
-                batch,
-                cell_line_input=cell_line_input,
-                drug_input=drug_input,
-            )
-
-        if not self._predictor.uses_features:
-            if getattr(self._predictor, "uses_raw_features", False):
-                return self._predictor.predict_raw(
-                    cell_line_ids,
-                    drug_ids,
-                    cell_line_input,
-                    drug_input,
-                )
-            return self._predictor.predict(
-                np.empty((len(cell_line_ids), 0)),
-            )
-
-        if self._cell_line_featurizer is None and self._drug_featurizer is None:
-            msg = "Call train() before predict()"
-            raise RuntimeError(msg)
-
         cell_line_entity_ids = np.array([], dtype=str)
         cell_line_matrix = np.empty((0, 0), dtype=np.float32)
         if self._cell_line_featurizer is not None:
             cell_line_entity_ids = unique_entity_ids(cell_line_ids)
             cell_line_matrix = self._cell_line_featurizer.transform(cell_line_input, cell_line_entity_ids)
 
-        drug_entity_ids = np.array([], dtype=str)
-        drug_matrix = np.empty((0, 0), dtype=np.float32)
+        drug_entity_ids: np.ndarray | None = None
+        drug_matrix: np.ndarray | None = None
         if self._drug_featurizer is not None:
-            if drug_input is None:
+            drug_entity_ids = unique_entity_ids(drug_ids)
+            drug_source = drug_input if drug_input is not None else _empty_feature_dataset()
+            if drug_input is None and not _entity_id_only_featurizer(self._drug_featurizer):
                 msg = "drug_input is required when a drug featurizer is configured"
                 raise ValueError(msg)
-            drug_entity_ids = unique_entity_ids(drug_ids)
-            drug_matrix = self._drug_featurizer.transform(
-                drug_input,
-                drug_entity_ids,
-            )
+            drug_matrix = self._drug_featurizer.transform(drug_source, drug_entity_ids)
 
         response = DrugResponseDataset(
             response=np.zeros(len(cell_line_ids)),
             cell_line_ids=cell_line_ids,
             drug_ids=drug_ids,
         )
-        x = build_pair_matrix(
+        batch = self._build_batch(
             response,
-            cell_line_matrix,
-            drug_matrix,
-            cell_line_entity_ids,
-            drug_entity_ids,
+            cell_line_input=cell_line_input,
+            drug_input=drug_input,
+            cell_line_entity_ids=cell_line_entity_ids,
+            drug_entity_ids=drug_entity_ids,
+            cell_line_matrix=cell_line_matrix,
+            drug_matrix=drug_matrix,
         )
-        return self._predictor.predict(x)
+        return self._predictor.predict(batch)

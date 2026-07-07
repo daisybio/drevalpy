@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from drevalpy.components.pair_batch import PairBatch
+from drevalpy.components.model_input_batch import ModelInputBatch
 from drevalpy.datasets.dataset import FeatureDataset
 from drevalpy.datasets.utils import TISSUE_IDENTIFIER
 
@@ -28,7 +28,7 @@ def _labels_from_one_hot(
 
 
 def _tissue_labels_from_input(
-    batch: PairBatch,
+    batch: ModelInputBatch,
     cell_line_input: FeatureDataset,
 ) -> np.ndarray | None:
     if not any(TISSUE_IDENTIFIER in views for views in cell_line_input.features.values()):
@@ -38,7 +38,7 @@ def _tissue_labels_from_input(
 
 
 def pair_tissue_ids(
-    batch: PairBatch,
+    batch: ModelInputBatch,
     *,
     cell_line_input: FeatureDataset | None = None,
 ) -> np.ndarray | None:

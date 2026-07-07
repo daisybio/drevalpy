@@ -10,6 +10,7 @@ from drevalpy.components.contracts import (
     featurizer_contract,
     predictor_contracts,
 )
+from drevalpy.components.predictors.baseline import BaselinePredictor
 from drevalpy.components.registry import lookup as _registry_lookup
 
 if TYPE_CHECKING:
@@ -43,21 +44,21 @@ def _predictor_contracts(cls: type[Any]) -> tuple[FeatureContract, FeatureContra
         raise ValueError(str(exc)) from exc
 
 
+def _allows_no_featurizers(pred_cls: type[Any]) -> bool:
+    if issubclass(pred_cls, BaselinePredictor):
+        return True
+    return getattr(pred_cls, "category", "") == "baseline"
+
+
 def validate_model_config(config: ModelConfig) -> None:
     """Check registry slots, feature compatibility, and prediction mode."""
+    pred_cls = _registry_lookup.get_predictor(config.predictor.name)
+
     if config.cell_line_featurizer is None and config.drug_featurizer is None:
-        pred_cls = _registry_lookup.get_predictor(config.predictor.name)
-        if getattr(pred_cls, "uses_structured_features", False):
+        if not _allows_no_featurizers(pred_cls):
             msg = (
-                f"Predictor {config.predictor.name!r} requires a cell_line_featurizer; "
-                "literature models must declare their input representations explicitly."
-            )
-            raise ValueError(msg)
-        if getattr(pred_cls, "uses_features", True):
-            msg = (
-                f"Predictor {config.predictor.name!r} uses feature matrices; "
-                "set cell_line_featurizer and drug_featurizer, or use a baseline predictor "
-                "(uses_features=False)."
+                f"Predictor {config.predictor.name!r} requires featurizers; "
+                "set cell_line_featurizer and drug_featurizer, or use a baseline predictor."
             )
             raise ValueError(msg)
         supported = getattr(pred_cls, "supported_modes", None)
@@ -70,23 +71,13 @@ def validate_model_config(config: ModelConfig) -> None:
             raise ValueError(msg)
         return
 
-    pred_cls = _registry_lookup.get_predictor(config.predictor.name)
-    uses_features = getattr(pred_cls, "uses_features", True)
-    uses_structured = getattr(pred_cls, "uses_structured_features", False)
     requires_drug = getattr(pred_cls, "requires_drug_featurizer", True)
 
-    if uses_structured and config.cell_line_featurizer is None:
-        msg = (
-            f"Predictor {config.predictor.name!r} requires a cell_line_featurizer; "
-            "literature models must declare their input representations explicitly."
-        )
-        raise ValueError(msg)
-
-    if uses_structured and requires_drug and config.drug_featurizer is None:
+    if requires_drug and config.drug_featurizer is None:
         msg = f"Predictor {config.predictor.name!r} requires a drug_featurizer"
         raise ValueError(msg)
 
-    if uses_features and not uses_structured and config.cell_line_featurizer is None:
+    if config.cell_line_featurizer is None and not _allows_no_featurizers(pred_cls):
         msg = "cell_line_featurizer must be set for feature-based predictors"
         raise ValueError(msg)
 
