@@ -190,7 +190,7 @@ def test_decorator_returns_original_class() -> None:
         drug_contract=FeatureKind.DENSE,
     )
     class DummyPred:
-        uses_features = False
+        requires_drug_featurizer = False
         supported_modes = {"regression"}
 
     assert vars(DummyPred)["registry_name"] == "dummyPred"
