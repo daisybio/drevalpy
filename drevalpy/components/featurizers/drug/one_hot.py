@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from drevalpy.components.contracts import FeatureKind
 from drevalpy.components.featurizers.drug.base import DrugFeaturizer
 from drevalpy.components.registry import register_drug_featurizer
 
@@ -12,6 +13,7 @@ from drevalpy.components.registry import register_drug_featurizer
     "oneHot",
     description="One-hot encoding of drug identifiers.",
     category="native",
+    contract=FeatureKind.DENSE,
 )
 class OneHotDrugFeaturizer(DrugFeaturizer):
     """Fit a one-hot space over all drugs present in the feature dataset."""
