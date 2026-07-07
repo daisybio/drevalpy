@@ -11,17 +11,14 @@ from drevalpy.components.contracts import FeatureContract, FeatureKind
 from drevalpy.models.config import PredictionMode
 
 if TYPE_CHECKING:
-    from drevalpy.components.pair_batch import PairBatch
-    from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+    from drevalpy.components.model_input_batch import ModelInputBatch
 
 
 class Predictor(ABC):
-    """Train and predict drug response from featurized cell-line and drug features."""
+    """Train and predict drug response from a ``ModelInputBatch``."""
 
     cell_line_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
     drug_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
-    uses_features: ClassVar[bool] = True
-    uses_structured_features: ClassVar[bool] = False
     requires_drug_featurizer: ClassVar[bool] = True
     supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset(PredictionMode)
 
@@ -44,19 +41,12 @@ class Predictor(ABC):
         """Allocate the underlying estimator or module."""
 
     @abstractmethod
-    def fit(
-        self,
-        x: np.ndarray,
-        y: np.ndarray,
-    ) -> None:
-        """Fit on feature rows (or empty rows for feature-free baselines)."""
+    def fit(self, batch: ModelInputBatch) -> None:
+        """Fit on a featurized predictor input batch."""
 
     @abstractmethod
-    def predict(
-        self,
-        x: np.ndarray,
-    ) -> np.ndarray:
-        """Predict response for feature rows."""
+    def predict(self, batch: ModelInputBatch) -> np.ndarray:
+        """Predict response for each pair in *batch*."""
 
     def get_state(self) -> dict[str, object]:
         """Return serializable fitted state for legacy save/load bridges."""
@@ -69,50 +59,3 @@ class Predictor(ABC):
     def is_fitted(self) -> bool:
         """Return whether the predictor has been fit."""
         return bool(self.get_state())
-
-    def fit_structured(
-        self,
-        batch: PairBatch,
-        *,
-        output: DrugResponseDataset | None = None,
-        cell_line_input: FeatureDataset | None = None,
-        drug_input: FeatureDataset | None = None,
-        output_earlystopping: DrugResponseDataset | None = None,
-    ) -> None:
-        """Fit on a structured featurized batch."""
-        msg = f"{type(self).__name__} does not support structured features"
-        raise RuntimeError(msg)
-
-    def predict_structured(
-        self,
-        batch: PairBatch,
-        *,
-        cell_line_input: FeatureDataset | None = None,
-        drug_input: FeatureDataset | None = None,
-    ) -> np.ndarray:
-        """Predict on a structured featurized batch."""
-        msg = f"{type(self).__name__} does not support structured features"
-        raise RuntimeError(msg)
-
-    def fit_raw(
-        self,
-        output: DrugResponseDataset,
-        cell_line_input: FeatureDataset,
-        drug_input: FeatureDataset | None = None,
-        *,
-        output_earlystopping: DrugResponseDataset | None = None,
-    ) -> None:
-        """Fit directly from raw feature datasets without featurizer blocks."""
-        msg = f"{type(self).__name__} does not support raw feature datasets"
-        raise RuntimeError(msg)
-
-    def predict_raw(
-        self,
-        cell_line_ids: np.ndarray,
-        drug_ids: np.ndarray,
-        cell_line_input: FeatureDataset,
-        drug_input: FeatureDataset | None = None,
-    ) -> np.ndarray:
-        """Predict directly from raw feature datasets without featurizer blocks."""
-        msg = f"{type(self).__name__} does not support raw feature datasets"
-        raise RuntimeError(msg)

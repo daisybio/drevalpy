@@ -104,7 +104,7 @@ def test_drug_concat_featurizers_fit_transform_and_blocks() -> None:
     featurizer = ConcatFeaturizersDrugFeaturizer(
         featurizers=[
             FeaturizerConfig(name="fingerprints", registry="drug"),
-            FeaturizerConfig(name="oneHot", registry="drug"),
+            FeaturizerConfig(name="identity", registry="drug"),
         ],
     )
     features = _drug_feature_dataset()
@@ -115,7 +115,7 @@ def test_drug_concat_featurizers_fit_transform_and_blocks() -> None:
     blocks = featurizer.transform_blocks(features, ids)
 
     assert matrix.shape == (2, 5)
-    assert set(blocks) == {"fingerprints", "oneHot"}
+    assert set(blocks) == {"fingerprints", "identity"}
     assert blocks["fingerprints"].shape == (2, 3)
-    assert blocks["oneHot"].shape == (2, 2)
-    assert np.allclose(matrix, np.concatenate([blocks["fingerprints"], blocks["oneHot"]], axis=1))
+    assert blocks["identity"].shape == (2, 2)
+    assert np.allclose(matrix, np.concatenate([blocks["fingerprints"], blocks["identity"]], axis=1))

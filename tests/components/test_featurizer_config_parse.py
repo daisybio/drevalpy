@@ -60,9 +60,9 @@ def test_normalize_plus_recipe_string() -> None:
 
 
 def test_normalize_plus_recipe_string_for_drug_registry() -> None:
-    payload = normalize_featurizer_config("fingerprints+oneHot", default_registry="drug")
+    payload = normalize_featurizer_config("fingerprints+identity", default_registry="drug")
     children = payload["hyperparameters"]["featurizers"]
-    assert [child["name"] for child in children] == ["fingerprints", "oneHot"]
+    assert [child["name"] for child in children] == ["fingerprints", "identity"]
     assert all(child["registry"] == "drug" for child in children)
 
 
