@@ -10,7 +10,14 @@ from drevalpy.components.registry import register_drug_featurizer
 @register_drug_featurizer(
     "bpePharmaformer",
     description="Precomputed BPE PharmaFormer token rows from the bpe_smiles view.",
-    category="general_purpose",
+    category="literature",
+    template_repo_url="https://github.com/zhouyuru1205/PharmaFormer",
+    citation_doi="10.1038/s41698-025-01082-6",
+    deviations=(
+        "Consumes precomputed BPE token rows from the bpe_smiles view; "
+        "offline embedding generation is implemented in "
+        "drevalpy.datasets.featurizer.create_pharmaformer_drug_embeddings."
+    ),
     contract=FeatureKind.DENSE,
 )
 class BpePharmaformerDrugFeaturizer(ViewDrugFeaturizer):

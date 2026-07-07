@@ -40,3 +40,17 @@ def test_native_metadata_rejects_citation_fields_on_class() -> None:
 
     with pytest.raises(ValueError, match="metadata validation failed"):
         validate_registered_class_metadata("cell_line_featurizer", "native", Native)
+
+
+def test_featurizer_metadata_requires_explicit_contract() -> None:
+    class Native:
+        description = "native"
+        category = "native"
+
+    apply_registration_metadata(
+        Native,
+        description="native",
+        category="native",
+    )
+    with pytest.raises(ValueError, match="missing=\\['contract'\\]"):
+        validate_registered_class_metadata("drug_featurizer", "native", Native)
