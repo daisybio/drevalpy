@@ -7,7 +7,6 @@ from drevalpy.components.featurizers.drug import (  # noqa: F401
     fingerprints,
     identity,
     molgnet,
-    one_hot,
     smilesvec,
     view,
 )
