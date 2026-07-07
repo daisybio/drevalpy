@@ -5,6 +5,8 @@ from __future__ import annotations
 import pytest
 
 from drevalpy.components.contracts import FeatureKind
+from drevalpy.components.predictors.matrix import MatrixPredictor
+from drevalpy.components.predictors.structured import BlockPredictor
 from drevalpy.components.register_builtins import register_builtin_components
 from drevalpy.components.registry import get_predictor
 
@@ -30,7 +32,9 @@ def _register_components() -> None:
 )
 def test_literature_predictor_flags(name: str, structured: bool, requires_drug: bool) -> None:
     cls = get_predictor(name)
-    assert getattr(cls, "uses_structured_features", False) is structured
+    is_block = issubclass(cls, BlockPredictor)
+    is_matrix = issubclass(cls, MatrixPredictor)
+    assert (is_block and not is_matrix) is structured
     assert getattr(cls, "requires_drug_featurizer", True) is requires_drug
 
 

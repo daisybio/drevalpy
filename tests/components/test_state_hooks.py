@@ -10,6 +10,7 @@ import numpy as np
 import pytest
 from sklearn.linear_model import ElasticNet
 
+from drevalpy.components.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors.naive import NaiveDrugMeanPredictor
 from drevalpy.components.predictors.sklearn_models import ElasticNetPredictor
 from drevalpy.components.register_builtins import register_builtin_components
@@ -30,12 +31,34 @@ def _register_components() -> None:
 def test_sklearn_predictor_state_round_trip() -> None:
     predictor = ElasticNetPredictor()
     predictor.build({"alpha": 0.1}, {"cell_line": 2, "drug": 2, "n_classes": 1})
-    predictor.fit(np.array([[0.0, 1.0], [1.0, 0.0]]), np.array([1.0, 2.0]))
+    fit_batch = ModelInputBatch(
+        cell_line_ids=np.array(["cl1", "cl2"]),
+        drug_ids=np.array(["d1", "d2"]),
+        response=np.array([1.0, 2.0]),
+        cell_line_entity_ids=np.array(["cl1", "cl2"]),
+        drug_entity_ids=np.array(["d1", "d2"]),
+        cell_line_features=np.array([[0.0, 1.0], [1.0, 0.0]], dtype=np.float32),
+        drug_features=np.empty((0, 0), dtype=np.float32),
+        cell_line_pair_idx=np.array([0, 1]),
+        drug_pair_idx=None,
+    )
+    predictor.fit(fit_batch)
     state = predictor.get_state()
     restored = ElasticNetPredictor()
     restored.set_state(state)
     assert restored.is_fitted()
-    assert np.allclose(restored.predict(np.array([[0.5, 0.5]])), predictor.predict(np.array([[0.5, 0.5]])))
+    predict_batch = ModelInputBatch(
+        cell_line_ids=np.array(["cl1"]),
+        drug_ids=np.array(["d1"]),
+        response=None,
+        cell_line_entity_ids=np.array(["cl1"]),
+        drug_entity_ids=None,
+        cell_line_features=np.array([[0.5, 0.5]], dtype=np.float32),
+        drug_features=None,
+        cell_line_pair_idx=np.array([0]),
+        drug_pair_idx=None,
+    )
+    assert np.allclose(restored.predict(predict_batch), predictor.predict(predict_batch))
 
 
 def test_naive_predictor_state_round_trip() -> None:

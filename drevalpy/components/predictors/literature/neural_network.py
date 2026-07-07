@@ -10,9 +10,9 @@ import torch
 from torch.utils.data import DataLoader
 
 from drevalpy.components.contracts import FeatureKind
-from drevalpy.components.predictors.base import Predictor
 from drevalpy.components.predictors.literature._batch_dataset import PairMatrixDataset
 from drevalpy.components.predictors.literature.impl.simple_neural_network.utils import FeedForwardNetwork
+from drevalpy.components.predictors.matrix import MatrixPredictor
 from drevalpy.components.registry import register_predictor
 from drevalpy.models.config import PredictionMode
 
@@ -24,7 +24,7 @@ from drevalpy.models.config import PredictionMode
     cell_line_contract=FeatureKind.DENSE,
     drug_contract=FeatureKind.DENSE,
 )
-class NeuralNetworkPredictor(Predictor):
+class NeuralNetworkPredictor(MatrixPredictor):
     """Neural network predictor component."""
 
     supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset({PredictionMode.REGRESSION})
@@ -52,6 +52,7 @@ class NeuralNetworkPredictor(Predictor):
         }
 
     def build(self, hyperparameters: dict[str, Any], input_dims: dict[str, Any]) -> None:
+        super().build(hyperparameters, input_dims)
         merged = {**self.get_default_hyperparameters(), **hyperparameters}
         self._hyperparameters = merged
         input_dim = int(input_dims.get("cell_line", 0)) + int(input_dims.get("drug", 0))
@@ -64,11 +65,7 @@ class NeuralNetworkPredictor(Predictor):
             input_dim=input_dim,
         )
 
-    def fit(
-        self,
-        x: np.ndarray,
-        y: np.ndarray,
-    ) -> None:
+    def _fit_matrix(self, x: np.ndarray, y: np.ndarray) -> None:
         if self._model is None or len(x) == 0:
             return
         dataset = PairMatrixDataset(x, y)
@@ -88,10 +85,7 @@ class NeuralNetworkPredictor(Predictor):
         )
         trainer.fit(self._model, train_dataloaders=loader)
 
-    def predict(
-        self,
-        x: np.ndarray,
-    ) -> np.ndarray:
+    def _predict_matrix(self, x: np.ndarray) -> np.ndarray:
         if self._model is None or len(x) == 0:
             return np.full(len(x), np.nan, dtype=np.float64)
         self._model.eval()

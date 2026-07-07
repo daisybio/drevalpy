@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 _VALID_CATEGORIES = frozenset({"literature", "baseline", "general_purpose", "native"})
+_FEATURIZER_REGISTRY_IDS = frozenset({"cell_line_featurizer", "drug_featurizer"})
 _FORBIDDEN_ON_BASELINE_NATIVE: frozenset[str] = frozenset(
     (
         "template_repo_url",
@@ -85,6 +86,9 @@ def validate_registered_class_metadata(
         invalid.extend(lit_i)
     elif category in {"baseline", "general_purpose", "native"}:
         invalid.extend(_validate_non_literature_explicit_fields(cls, category=category))
+
+    if registry_id in _FEATURIZER_REGISTRY_IDS and "contract" not in cls.__dict__:
+        missing.append("contract")
 
     if missing or invalid:
         parts: list[str] = []

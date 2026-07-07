@@ -8,7 +8,7 @@ import joblib
 import numpy as np
 
 from drevalpy.components.contracts import FeatureKind
-from drevalpy.components.pair_batch import PairBatch
+from drevalpy.components.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors.literature._engine_base import LiteratureEngineBase
 from drevalpy.components.predictors.literature._feature_dataset_from_batch import (
     feature_dataset_from_blocks,
@@ -58,11 +58,10 @@ class StructuredLiteratureEnginePredictor(StructuredPredictor):
 
     def _materialize_inputs(
         self,
-        batch: PairBatch,
-        *,
-        cell_line_input: FeatureDataset | None,
-        drug_input: FeatureDataset | None,
+        batch: ModelInputBatch,
     ) -> tuple[FeatureDataset, FeatureDataset | None]:
+        cell_line_input = batch.cell_line_input
+        drug_input = batch.drug_input
         if cell_line_input is None:
             msg = "structured literature predictor requires cell_line_input"
             raise RuntimeError(msg)
@@ -91,21 +90,15 @@ class StructuredLiteratureEnginePredictor(StructuredPredictor):
                 setattr(engine, name, value)
         return engine
 
-    def fit_structured(
-        self,
-        batch: PairBatch,
-        *,
-        output: DrugResponseDataset | None = None,
-        cell_line_input: FeatureDataset | None = None,
-        drug_input: FeatureDataset | None = None,
-        output_earlystopping: DrugResponseDataset | None = None,
-    ) -> None:
-        if output is None:
-            msg = "structured literature predictor requires output"
+    def fit(self, batch: ModelInputBatch) -> None:
+        if batch.response is None:
+            msg = "structured literature predictor requires response"
             raise RuntimeError(msg)
-        if batch.cell_line_features.size == 0:
+        if batch.cell_line_features.size == 0 and not self._use_raw_inputs:
             msg = "cell_line featurizer produced no features"
             raise ValueError(msg)
+        cell_line_input = batch.cell_line_input
+        drug_input = batch.drug_input
         if self._use_raw_inputs:
             if cell_line_input is None:
                 msg = "structured literature predictor requires cell_line_input"
@@ -113,11 +106,12 @@ class StructuredLiteratureEnginePredictor(StructuredPredictor):
             cell_lines = cell_line_input
             drugs = None if not self.requires_drug_featurizer else drug_input
         else:
-            cell_lines, drugs = self._materialize_inputs(
-                batch,
-                cell_line_input=cell_line_input,
-                drug_input=drug_input,
-            )
+            cell_lines, drugs = self._materialize_inputs(batch)
+        output = DrugResponseDataset(
+            response=batch.response,
+            cell_line_ids=batch.cell_line_ids,
+            drug_ids=batch.drug_ids,
+        )
         hyperparameters = dict(self._hyperparameters)
         if "hyperparameters" in self._build_context:
             nested = self._build_context.get("hyperparameters")
@@ -129,19 +123,15 @@ class StructuredLiteratureEnginePredictor(StructuredPredictor):
             output,
             cell_lines,
             drugs,
-            output_earlystopping=output_earlystopping,
+            output_earlystopping=None,
         )
         self._engine = engine
 
-    def predict_structured(
-        self,
-        batch: PairBatch,
-        *,
-        cell_line_input: FeatureDataset | None = None,
-        drug_input: FeatureDataset | None = None,
-    ) -> np.ndarray:
+    def predict(self, batch: ModelInputBatch) -> np.ndarray:
+        cell_line_input = batch.cell_line_input
         if self._engine is None or cell_line_input is None:
-            return np.full(len(batch.cell_line_ids), np.nan, dtype=np.float64)
+            return np.full(batch.n_pairs, np.nan, dtype=np.float64)
+        drug_input = batch.drug_input
         if self._use_raw_inputs:
             drugs = None if not self.requires_drug_featurizer else drug_input
             return self._engine.predict(
@@ -150,11 +140,7 @@ class StructuredLiteratureEnginePredictor(StructuredPredictor):
                 cell_line_input,
                 drugs,
             )
-        cell_lines, drugs = self._materialize_inputs(
-            batch,
-            cell_line_input=cell_line_input,
-            drug_input=drug_input,
-        )
+        cell_lines, drugs = self._materialize_inputs(batch)
         return self._engine.predict(
             batch.cell_line_ids,
             batch.drug_ids,

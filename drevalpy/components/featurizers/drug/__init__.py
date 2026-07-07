@@ -1,9 +1,12 @@
 """Drug featurizers."""
 
 from drevalpy.components.featurizers.drug import (  # noqa: F401
+    bpe_pharmaformer,
     concat,
     drug_graph,
     fingerprints,
-    one_hot,
+    identity,
+    molgnet,
+    smilesvec,
     view,
 )
