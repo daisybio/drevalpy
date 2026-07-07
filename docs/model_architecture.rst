@@ -14,6 +14,19 @@ Typical composition:
 
     ModelConfig -> featurizer(s) + predictor -> ComposedModel
 
+Predictor input batch
+---------------------
+
+``ComposedModel`` always builds a single ``ModelInputBatch`` before calling
+``predictor.fit(batch)`` or ``predictor.predict(batch)``. The batch carries pair
+identifiers, optional response values, entity-level feature matrices, named
+featurizer blocks, and optional raw ``FeatureDataset`` inputs for auxiliary
+metadata such as tissue labels.
+
+- Matrix predictors flatten the batch with ``batch.to_feature_matrix()``.
+- Block predictors read ``batch.cell_line_blocks`` and ``batch.drug_blocks``.
+- Baseline predictors use pair identifiers and/or response values only.
+
 Legacy callers can still use:
 
 .. code-block:: python
