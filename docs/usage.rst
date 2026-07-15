@@ -21,7 +21,7 @@ Example:
 
 .. code-block:: bash
 
-    drevalpy --run_id my_first_run --models NaiveDrugMeanPredictor ElasticNet --dataset TOYv1 --test_mode LCO
+    drevalpy --run_id my_first_run --models NaiveDrugMeanPredictor ElasticNet --dataset_name TOYv1 --test_mode LCO
 
 *Note*: You need at least 7 CV splits to get a meaningful critical difference diagram and the corresponding p-values.
 
@@ -159,13 +159,13 @@ HTML report with many visualizations. You can run it with the following command:
 
 .. code-block:: bash
 
-    drevalpy report [-h] --run_id RUN_ID --dataset DATASET [--path_data PATH_DATA] [--result_path RESULT_PATH]
+    drevalpy report [-h] --run_id RUN_ID --dataset_name DATASET [--path_data PATH_DATA] [--result_path RESULT_PATH]
 
 Options:
 
 * ``-h, --help``: Show help message and exit.
 * ``--run_id RUN_ID``: Identifier for the run which was used when executing the ``drevalpy`` command.
-* ``--dataset DATASET``: Name of the dataset which was used when executing the ``drevalpy`` command.
+* ``--dataset_name DATASET``: Name of the dataset which was used when executing the ``drevalpy`` command.
 * ``--path_data PATH_DATA``: Path to the data directory, default: data.
 * ``--result_path RESULT_PATH``: Path to the results directory, default: results.
 
@@ -173,7 +173,7 @@ Example:
 
 .. code-block:: bash
 
-    drevalpy report --run_id my_first_run --dataset TOYv1
+    drevalpy report --run_id my_first_run --dataset_name TOYv1
 
 The report will be stored in the ``results/RUN_ID`` folder.
 You can open the ``index.html`` file in your browser to view the report.

@@ -21,6 +21,13 @@ def register(app: typer.Typer) -> None:
             float, typer.Option("--validation_ratio", help="Ratio of validation data, default: 0.1")
         ] = 0.1,
         seed: Annotated[int, typer.Option("--seed", help="Random seed for splitting the data, default: 42.")] = 42,
+        custom_splitter_path: Annotated[
+            str | None,
+            typer.Option(
+                "--custom_splitter_path",
+                help="Path to a Python script defining create_splits(response_data, params).",
+            ),
+        ] = None,
     ) -> None:
         """Split data into CV splits: split_0.pkl, split_1.pkl, ..."""
         run_cv_split(
@@ -29,4 +36,5 @@ def register(app: typer.Typer) -> None:
             test_mode=test_mode,
             validation_ratio=validation_ratio,
             seed=seed,
+            custom_splitter_path=custom_splitter_path,
         )

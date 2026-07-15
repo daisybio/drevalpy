@@ -32,6 +32,7 @@ app = typer.Typer(
     name="drevalpy",
     help="Drug response evaluation of cancer cell line drug response models in a fair setting.",
     no_args_is_help=False,
+    context_settings={"help_option_names": ["-h", "--help"]},
 )
 
 pipeline.register_pipeline_callback(app)
