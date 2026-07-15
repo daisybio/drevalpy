@@ -65,6 +65,10 @@ def check_arguments(args) -> None:
     if (not args.no_refitting) and args.curve_curator_cores < 1:
         raise ValueError("Number of cores for CurveCurator must be greater than 0.")
 
+    clean_min_responders = getattr(args, "clean_min_responders", None)
+    if clean_min_responders is not None and clean_min_responders < 1:
+        raise ValueError("clean_min_responders must be a positive integer (minimum number of responder curves).")
+
     for dataset in args.cross_study_datasets:
         if dataset not in AVAILABLE_DATASETS:
             raise AssertionError(
@@ -132,6 +136,7 @@ def main(args) -> None:
         curve_curator=(not args.no_refitting),
         cores=args.curve_curator_cores,
         normalize=getattr(args, "curve_curator_normalize", False),
+        clean_min_responders=getattr(args, "clean_min_responders", None),
     )
 
     models = [MODEL_FACTORY[model] for model in args.models]
@@ -180,6 +185,7 @@ def get_datasets(
     curve_curator: bool = False,
     cores: int = 1,
     normalize: bool = False,
+    clean_min_responders: int | None = None,
 ) -> tuple[DrugResponseDataset, list[DrugResponseDataset] | None]:
     """
     Load the response data and cross-study datasets.
@@ -204,6 +210,8 @@ def get_datasets(
     :param cores: Number of cores to use for CurveCurator fitting. Only used when curve_curator is True, default = 1
     :param normalize: Whether to normalize the response values to [0, 1] for curvecurator. Default = False.
         Only used for custom datasets when curve_curator is True.
+    :param clean_min_responders: If set, keep only drugs with at least this many reproducible responder curves
+        in the main dataset (see drevalpy.datasets.loader.load_dataset). Cross-study datasets are left unfiltered.
     :returns: response data and, potentially, cross-study datasets
     """
     response_data = load_dataset(
@@ -213,6 +221,7 @@ def get_datasets(
         curve_curator=curve_curator,
         cores=cores,
         normalize=normalize,
+        clean_min_responders=clean_min_responders,
     )
 
     cross_study_datasets = [

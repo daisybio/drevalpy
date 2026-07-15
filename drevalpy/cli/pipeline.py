@@ -191,6 +191,15 @@ def register_pipeline_callback(app: typer.Typer) -> None:
                 help="Optional result-directory label when using an external split script. Defaults to test_mode.",
             ),
         ] = None,
+        clean_min_responders: Annotated[
+            int | None,
+            typer.Option(
+                "--clean_min_responders",
+                help="If set, clean any curve-curated dataset by keeping only drugs with at least this many "
+                "reproducible responder curves. Runs on a derived '<dataset_name>_clean_min<N>' variant that "
+                "shares the base dataset's feature files. Requires curve-curated data.",
+            ),
+        ] = None,
     ) -> None:
         """Run the drug response prediction model test suite."""
         if ctx.invoked_subcommand is not None:
@@ -222,6 +231,7 @@ def register_pipeline_callback(app: typer.Typer) -> None:
             no_hyperparameter_tuning=no_hyperparameter_tuning,
             custom_splitter_path=custom_splitter_path,
             custom_split_name=custom_split_name,
+            clean_min_responders=clean_min_responders,
         )
         check_arguments(args)
         main(args)

@@ -496,6 +496,7 @@ def load_dataset(
     cores: int = 1,
     tissue_column: str | None = None,
     normalize: bool = False,
+    clean_min_responders: int | None = None,
 ) -> DrugResponseDataset:
     """
     Load a dataset based on the dataset name.
@@ -518,6 +519,10 @@ def load_dataset(
         This is only used when loading a custom dataset. Default = None.
     :param normalize: Whether to normalize the response values to [0, 1] for curvecurator. Default = False.
         Only used for custom datasets when curve_curator is True.
+    :param clean_min_responders: If set, derive a drug-cleaned variant of ``dataset_name`` on the fly, keeping
+        only drugs with at least this many reproducible (curve-curated) responder curves. Works for any
+        curve-curated base (built-in or custom); the variant is materialised as ``<dataset_name>_clean_min<N>``
+        with the base's feature files shared (see :class:`DrugCurveFilter`). Requires curve-curated data.
     :return: A DrugResponseDataset containing response, cell line IDs, drug IDs, and dataset name.
     :raises FileNotFoundError: If the custom dataset or raw viability data could not be found at the given path.
     """
@@ -526,6 +531,12 @@ def load_dataset(
         input_file = Path(path_data).resolve() / dataset_name / f"{dataset_name}_raw.csv"
     else:
         input_file = Path(path_data).resolve() / dataset_name / f"{dataset_name}.csv"
+
+    if clean_min_responders is not None:
+        derived_name = f"{dataset_name}_clean_min{clean_min_responders}"
+        if derived_name not in DERIVED_DATASETS:
+            register_clean_tiers(dataset_name, {derived_name: clean_min_responders})
+        return _load_filtered_dataset(path_data, measure, derived_name)
 
     if dataset_name in AVAILABLE_DATASETS:
         return AVAILABLE_DATASETS[dataset_name](path_data, measure=measure)

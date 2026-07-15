@@ -1,10 +1,12 @@
 """Tests for the generic drug-cleaning mechanism (DrugCurveFilter + derived datasets)."""
 
+import shutil
+
 import pandas as pd
 import pytest
 
 from drevalpy.datasets import AVAILABLE_DATASETS
-from drevalpy.datasets.loader import DERIVED_DATASETS, DrugCurveFilter, register_clean_tiers
+from drevalpy.datasets.loader import DERIVED_DATASETS, DrugCurveFilter, load_dataset, register_clean_tiers
 
 
 def _toy_frame() -> pd.DataFrame:
@@ -68,3 +70,37 @@ def test_register_clean_tiers_is_general() -> None:
         assert added["GDSC2_clean_test"].min_responders == 20
     finally:
         DERIVED_DATASETS.pop("GDSC2_clean_test", None)
+
+
+def test_load_dataset_clean_min_responders(data_dir, tmp_path) -> None:
+    """load_dataset(clean_min_responders=N) derives and drug-filters any curve-curated base on the fly."""
+    base_csv = data_dir / "TOYv1" / "TOYv1.csv"
+    if not base_csv.is_file():
+        pytest.skip("TOYv1 toy data not available")
+
+    # hermetic copy so the derived variant is not written into the shared data dir
+    shutil.copytree(data_dir / "TOYv1", tmp_path / "TOYv1")
+    if (data_dir / "meta").is_dir():
+        shutil.copytree(data_dir / "meta", tmp_path / "meta")
+
+    measure = "LN_IC50_curvecurator"
+    base_drugs = set(pd.read_csv(base_csv, dtype={"pubchem_id": str})["pubchem_id"])
+    try:
+        cleaned = load_dataset(
+            dataset_name="TOYv1", path_data=str(tmp_path), measure=measure, clean_min_responders=5
+        )
+        kept = {str(d) for d in cleaned.drug_ids}
+        looser = {
+            str(d)
+            for d in load_dataset(
+                dataset_name="TOYv1", path_data=str(tmp_path), measure=measure, clean_min_responders=1
+            ).drug_ids
+        }
+
+        assert kept <= base_drugs  # cleaning only drops whole drugs, never adds
+        assert "TOYv1_clean_min5" in DERIVED_DATASETS  # variant registered on the fly
+        assert (tmp_path / "TOYv1_clean_min5").is_dir()  # materialized with shared features
+        assert kept <= looser  # stricter threshold keeps no more drugs than a looser one
+    finally:
+        DERIVED_DATASETS.pop("TOYv1_clean_min5", None)
+        DERIVED_DATASETS.pop("TOYv1_clean_min1", None)
