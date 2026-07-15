@@ -529,7 +529,6 @@ def load_dataset(
         ``<dataset_name>_clean_frac<F>``. Set at most one of the two clean_* arguments.
     :return: A DrugResponseDataset containing response, cell line IDs, drug IDs, and dataset name.
     :raises FileNotFoundError: If the custom dataset or raw viability data could not be found at the given path.
-    :raises ValueError: If both ``clean_min_responders`` and ``clean_min_responder_frac`` are set.
     """
     if curve_curator:
         measure += "_curvecurator"
@@ -538,9 +537,7 @@ def load_dataset(
         input_file = Path(path_data).resolve() / dataset_name / f"{dataset_name}.csv"
 
     if clean_min_responders is not None or clean_min_responder_frac is not None:
-        drug_filter = DrugCurveFilter(
-            min_responders=clean_min_responders, min_responder_frac=clean_min_responder_frac
-        )
+        drug_filter = DrugCurveFilter(min_responders=clean_min_responders, min_responder_frac=clean_min_responder_frac)
         if clean_min_responders is not None:
             derived_name = f"{dataset_name}_clean_min{clean_min_responders}"
         else:

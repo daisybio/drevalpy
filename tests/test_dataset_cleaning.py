@@ -73,7 +73,11 @@ def test_register_clean_tiers_is_general() -> None:
 
 
 def test_load_dataset_clean_min_responders(data_dir, tmp_path) -> None:
-    """load_dataset(clean_min_responders=N) derives and drug-filters any curve-curated base on the fly."""
+    """load_dataset(clean_min_responders=N) derives and drug-filters any curve-curated base on the fly.
+
+    :param data_dir: path to the test data directory
+    :param tmp_path: pytest-provided temporary directory
+    """
     base_csv = data_dir / "TOYv1" / "TOYv1.csv"
     if not base_csv.is_file():
         pytest.skip("TOYv1 toy data not available")
@@ -86,9 +90,7 @@ def test_load_dataset_clean_min_responders(data_dir, tmp_path) -> None:
     measure = "LN_IC50_curvecurator"
     base_drugs = set(pd.read_csv(base_csv, dtype={"pubchem_id": str})["pubchem_id"])
     try:
-        cleaned = load_dataset(
-            dataset_name="TOYv1", path_data=str(tmp_path), measure=measure, clean_min_responders=5
-        )
+        cleaned = load_dataset(dataset_name="TOYv1", path_data=str(tmp_path), measure=measure, clean_min_responders=5)
         kept = {str(d) for d in cleaned.drug_ids}
         looser = {
             str(d)
@@ -107,7 +109,11 @@ def test_load_dataset_clean_min_responders(data_dir, tmp_path) -> None:
 
 
 def test_load_dataset_clean_min_responder_frac(data_dir, tmp_path) -> None:
-    """load_dataset(clean_min_responder_frac=F) drug-filters by responder fraction on any curve-curated base."""
+    """load_dataset(clean_min_responder_frac=F) drug-filters by responder fraction on any curve-curated base.
+
+    :param data_dir: path to the test data directory
+    :param tmp_path: pytest-provided temporary directory
+    """
     base_csv = data_dir / "TOYv1" / "TOYv1.csv"
     if not base_csv.is_file():
         pytest.skip("TOYv1 toy data not available")
