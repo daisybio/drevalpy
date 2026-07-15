@@ -316,6 +316,7 @@ Available Datasets
 ------------------
 We provide commonly used datasets to evaluate your model on (GDSC1, GDSC2, CCLE, CTRPv2) via the ``--dataset_name`` parameter.
 Further, we provide 2 datasets with more clinical relevance: BeatAML2 and PDX\_Bruna.
+The three ``CTRPv2_clean*`` entries are drug-cleaned variants that are derived from CTRPv2 on first use (not separate downloads); see the :ref:`usage:Cleaner Datasets` section for details and for how to clean any dataset yourself.
 
 +-------------------+----------------------+-----------------+---------------------+--------------------------------------------------------------------------------------------------------------------+
 | Dataset Name      | Number of DRP Curves | Number of Drugs | Number of Cell Lines| Description                                                                                                        |
@@ -329,6 +330,12 @@ Further, we provide 2 datasets with more clinical relevance: BeatAML2 and PDX\_B
 | CTRPv1            | 60,758               | 354             | 243                 | The Cancer Therapeutics Response Portal (CTRP) dataset version 1.                                                  |
 +-------------------+----------------------+-----------------+---------------------+--------------------------------------------------------------------------------------------------------------------+
 | CTRPv2            | 395,025              | 546             | 886                 | The Cancer Therapeutics Response Portal (CTRP) dataset version 2.                                                  |
++-------------------+----------------------+-----------------+---------------------+--------------------------------------------------------------------------------------------------------------------+
+| CTRPv2_clean      | 363,810              | 477             | 886                 | CTRPv2 keeping only drugs with at least 15 reproducible responder curves (derived from CTRPv2 on first use).       |
++-------------------+----------------------+-----------------+---------------------+--------------------------------------------------------------------------------------------------------------------+
+| CTRPv2_cleaner    | 353,176              | 458             | 886                 | CTRPv2 keeping only drugs with at least 30 reproducible responder curves (derived from CTRPv2 on first use).       |
++-------------------+----------------------+-----------------+---------------------+--------------------------------------------------------------------------------------------------------------------+
+| CTRPv2_cleanest   | 343,219              | 444             | 886                 | CTRPv2 keeping only drugs with at least 50 reproducible responder curves (derived from CTRPv2 on first use).       |
 +-------------------+----------------------+-----------------+---------------------+--------------------------------------------------------------------------------------------------------------------+
 | TOYv1             | 2,711                | 36              | 90                  | A toy dataset for testing purposes subsetted from CTRPv2.                                                          |
 +-------------------+----------------------+-----------------+---------------------+--------------------------------------------------------------------------------------------------------------------+
