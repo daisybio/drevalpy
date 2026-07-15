@@ -200,6 +200,15 @@ def register_pipeline_callback(app: typer.Typer) -> None:
                 "shares the base dataset's feature files. Requires curve-curated data.",
             ),
         ] = None,
+        clean_min_responder_frac: Annotated[
+            float | None,
+            typer.Option(
+                "--clean_min_responder_frac",
+                help="Fraction-based alternative to --clean_min_responders (in (0, 1]): keep only drugs whose "
+                "share of significant responder curves is at least this fraction. Runs on a derived "
+                "'<dataset_name>_clean_frac<F>' variant. Set at most one of the two clean options.",
+            ),
+        ] = None,
     ) -> None:
         """Run the drug response prediction model test suite."""
         if ctx.invoked_subcommand is not None:
@@ -232,6 +241,7 @@ def register_pipeline_callback(app: typer.Typer) -> None:
             custom_splitter_path=custom_splitter_path,
             custom_split_name=custom_split_name,
             clean_min_responders=clean_min_responders,
+            clean_min_responder_frac=clean_min_responder_frac,
         )
         check_arguments(args)
         main(args)

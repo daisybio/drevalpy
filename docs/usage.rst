@@ -149,6 +149,14 @@ Example:
 
    Disable hyperparameter tuning and use the first hyperparameter set.
 
+.. option:: --clean_min_responders INTEGER
+
+   Clean any curve-curated dataset on the fly by keeping only drugs that have at least this many reproducible (curve-curated) responder curves. The run uses a derived ``<dataset_name>_clean_min<N>`` variant that is materialised once from the base dataset and shares its feature files. Requires curve-curated data (i.e. do not combine with ``--no_refitting`` on non-curated measures). See the :ref:`usage:Cleaner Datasets` section. [default: not set]
+
+.. option:: --clean_min_responder_frac FLOAT
+
+   Fraction-based alternative to ``--clean_min_responders`` (a value in ``(0, 1]``): keep only drugs whose share of significant responder curves is at least this fraction. Uses a derived ``<dataset_name>_clean_frac<F>`` variant. Set at most one of the two clean options. See the :ref:`usage:Cleaner Datasets` section. [default: not set]
+
 
 Visualize and evaluate results with ``drevalpy-report``
 ------------------------------------------------------------
@@ -338,6 +346,45 @@ dataset, use the ``--no_refitting`` option, which will use the original measures
 
 This however makes it hard to do cross-study comparisons, since the measures may not be directly comparable due to differences in the fitting procedures used by the original authors.
 It is therefore recommended to always use DrEvalPy without the ``--no_refitting`` option, which will lead to the use of the refitted measures that are calculated with the same procedure for all datasets.
+
+Cleaner Datasets
+----------------
+Curve-curated screens contain many drugs that are inactive on essentially every cell line (prodrugs, non-cytotoxics, or
+compounds whose dose-response curve could not be fit reliably). These add little signal for modelling and can inflate
+leave-drug-out results. DrEval can therefore evaluate on a *drug-cleaned* variant of a dataset that keeps only drugs with
+enough reproducible responder curves and drops the rest. Whole drugs are removed, never individual (cell line, drug)
+measurements, so no selection-on-outcome bias is introduced.
+
+Three ready-made tiers of CTRPv2 are registered as datasets and can be selected directly via ``--dataset_name``:
+
+* ``CTRPv2_clean`` -- CTRPv2 keeping only drugs with at least 15 reproducible responder curves.
+* ``CTRPv2_cleaner`` -- CTRPv2 keeping only drugs with at least 30 reproducible responder curves.
+* ``CTRPv2_cleanest`` -- CTRPv2 keeping only drugs with at least 50 reproducible responder curves.
+
+.. code-block:: bash
+
+    drevalpy --run_id clean_run --models ElasticNet --dataset_name CTRPv2_clean --test_mode LCO
+
+To clean **any** curve-curated dataset (built-in or custom) with your own threshold, keep ``--dataset_name`` on the base
+dataset and add one of the two cleaning options:
+
+* ``--clean_min_responders N`` keeps drugs with at least ``N`` reproducible responder curves. This absolute count is
+  recommended, as it is a statistical-power floor that is independent of screen size.
+* ``--clean_min_responder_frac F`` keeps drugs whose fraction of significant responder curves is at least ``F`` (a value
+  in ``(0, 1]``).
+
+Set at most one of the two. For example, to clean GDSC2 down to drugs with at least 30 responders:
+
+.. code-block:: bash
+
+    drevalpy --run_id gdsc2_clean --models ElasticNet --dataset_name GDSC2 --clean_min_responders 30
+
+The cleaned variant is materialised once as ``<dataset_name>_clean_min<N>`` (or ``<dataset_name>_clean_frac<F>``) next to
+the base dataset, reusing the base dataset's feature files (via symlinks, or copies where symlinks are unavailable), and
+results are written under that name. Cleaning requires curve-curated data (the CurveCurator ``Regulation`` column), so do
+not combine it with ``--no_refitting`` on non-curated measures. Because a cleaned dataset has removed inactive drugs,
+leave-drug-out (``LDO``) evaluation on it is optimistic; for drug generalization, prefer the unfiltered base dataset or
+read cleaned-dataset ``LDO`` metrics as an upper bound.
 
 Corresponding feature data
 ---------------------------

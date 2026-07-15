@@ -497,6 +497,7 @@ def load_dataset(
     tissue_column: str | None = None,
     normalize: bool = False,
     clean_min_responders: int | None = None,
+    clean_min_responder_frac: float | None = None,
 ) -> DrugResponseDataset:
     """
     Load a dataset based on the dataset name.
@@ -523,8 +524,12 @@ def load_dataset(
         only drugs with at least this many reproducible (curve-curated) responder curves. Works for any
         curve-curated base (built-in or custom); the variant is materialised as ``<dataset_name>_clean_min<N>``
         with the base's feature files shared (see :class:`DrugCurveFilter`). Requires curve-curated data.
+    :param clean_min_responder_frac: Fraction-based alternative to ``clean_min_responders``: keep only drugs
+        whose share of significant responder curves is at least this fraction (in ``(0, 1]``). Materialised as
+        ``<dataset_name>_clean_frac<F>``. Set at most one of the two clean_* arguments.
     :return: A DrugResponseDataset containing response, cell line IDs, drug IDs, and dataset name.
     :raises FileNotFoundError: If the custom dataset or raw viability data could not be found at the given path.
+    :raises ValueError: If both ``clean_min_responders`` and ``clean_min_responder_frac`` are set.
     """
     if curve_curator:
         measure += "_curvecurator"
@@ -532,10 +537,15 @@ def load_dataset(
     else:
         input_file = Path(path_data).resolve() / dataset_name / f"{dataset_name}.csv"
 
-    if clean_min_responders is not None:
-        derived_name = f"{dataset_name}_clean_min{clean_min_responders}"
-        if derived_name not in DERIVED_DATASETS:
-            register_clean_tiers(dataset_name, {derived_name: clean_min_responders})
+    if clean_min_responders is not None or clean_min_responder_frac is not None:
+        drug_filter = DrugCurveFilter(
+            min_responders=clean_min_responders, min_responder_frac=clean_min_responder_frac
+        )
+        if clean_min_responders is not None:
+            derived_name = f"{dataset_name}_clean_min{clean_min_responders}"
+        else:
+            derived_name = f"{dataset_name}_clean_frac{clean_min_responder_frac}"
+        DERIVED_DATASETS.setdefault(derived_name, (dataset_name, drug_filter))
         return _load_filtered_dataset(path_data, measure, derived_name)
 
     if dataset_name in AVAILABLE_DATASETS:

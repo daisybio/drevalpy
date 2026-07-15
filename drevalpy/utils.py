@@ -66,8 +66,13 @@ def check_arguments(args) -> None:
         raise ValueError("Number of cores for CurveCurator must be greater than 0.")
 
     clean_min_responders = getattr(args, "clean_min_responders", None)
+    clean_min_responder_frac = getattr(args, "clean_min_responder_frac", None)
+    if clean_min_responders is not None and clean_min_responder_frac is not None:
+        raise ValueError("Set at most one of clean_min_responders or clean_min_responder_frac, not both.")
     if clean_min_responders is not None and clean_min_responders < 1:
         raise ValueError("clean_min_responders must be a positive integer (minimum number of responder curves).")
+    if clean_min_responder_frac is not None and not (0 < clean_min_responder_frac <= 1):
+        raise ValueError("clean_min_responder_frac must be in the interval (0, 1].")
 
     for dataset in args.cross_study_datasets:
         if dataset not in AVAILABLE_DATASETS:
@@ -137,6 +142,7 @@ def main(args) -> None:
         cores=args.curve_curator_cores,
         normalize=getattr(args, "curve_curator_normalize", False),
         clean_min_responders=getattr(args, "clean_min_responders", None),
+        clean_min_responder_frac=getattr(args, "clean_min_responder_frac", None),
     )
 
     models = [MODEL_FACTORY[model] for model in args.models]
@@ -186,6 +192,7 @@ def get_datasets(
     cores: int = 1,
     normalize: bool = False,
     clean_min_responders: int | None = None,
+    clean_min_responder_frac: float | None = None,
 ) -> tuple[DrugResponseDataset, list[DrugResponseDataset] | None]:
     """
     Load the response data and cross-study datasets.
@@ -212,6 +219,8 @@ def get_datasets(
         Only used for custom datasets when curve_curator is True.
     :param clean_min_responders: If set, keep only drugs with at least this many reproducible responder curves
         in the main dataset (see drevalpy.datasets.loader.load_dataset). Cross-study datasets are left unfiltered.
+    :param clean_min_responder_frac: Fraction-based alternative to clean_min_responders (see
+        drevalpy.datasets.loader.load_dataset). Set at most one of the two.
     :returns: response data and, potentially, cross-study datasets
     """
     response_data = load_dataset(
@@ -222,6 +231,7 @@ def get_datasets(
         cores=cores,
         normalize=normalize,
         clean_min_responders=clean_min_responders,
+        clean_min_responder_frac=clean_min_responder_frac,
     )
 
     cross_study_datasets = [

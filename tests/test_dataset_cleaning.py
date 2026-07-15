@@ -104,3 +104,47 @@ def test_load_dataset_clean_min_responders(data_dir, tmp_path) -> None:
     finally:
         DERIVED_DATASETS.pop("TOYv1_clean_min5", None)
         DERIVED_DATASETS.pop("TOYv1_clean_min1", None)
+
+
+def test_load_dataset_clean_min_responder_frac(data_dir, tmp_path) -> None:
+    """load_dataset(clean_min_responder_frac=F) drug-filters by responder fraction on any curve-curated base."""
+    base_csv = data_dir / "TOYv1" / "TOYv1.csv"
+    if not base_csv.is_file():
+        pytest.skip("TOYv1 toy data not available")
+
+    shutil.copytree(data_dir / "TOYv1", tmp_path / "TOYv1")
+    if (data_dir / "meta").is_dir():
+        shutil.copytree(data_dir / "meta", tmp_path / "meta")
+
+    measure = "LN_IC50_curvecurator"
+    base_drugs = set(pd.read_csv(base_csv, dtype={"pubchem_id": str})["pubchem_id"])
+    try:
+        strict = {
+            str(d)
+            for d in load_dataset(
+                dataset_name="TOYv1", path_data=str(tmp_path), measure=measure, clean_min_responder_frac=0.9
+            ).drug_ids
+        }
+        loose = {
+            str(d)
+            for d in load_dataset(
+                dataset_name="TOYv1", path_data=str(tmp_path), measure=measure, clean_min_responder_frac=0.1
+            ).drug_ids
+        }
+
+        assert strict <= base_drugs
+        assert "TOYv1_clean_frac0.9" in DERIVED_DATASETS
+        assert (tmp_path / "TOYv1_clean_frac0.9").is_dir()
+        assert strict <= loose  # a higher required fraction keeps no more drugs
+
+        with pytest.raises(ValueError):  # only one of the two clean criteria may be set
+            load_dataset(
+                dataset_name="TOYv1",
+                path_data=str(tmp_path),
+                measure=measure,
+                clean_min_responders=5,
+                clean_min_responder_frac=0.5,
+            )
+    finally:
+        DERIVED_DATASETS.pop("TOYv1_clean_frac0.9", None)
+        DERIVED_DATASETS.pop("TOYv1_clean_frac0.1", None)
