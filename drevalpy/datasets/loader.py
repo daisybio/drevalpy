@@ -1,6 +1,7 @@
 """Contains functions to load the GDSC1, GDSC2, CCLE, and Toy datasets."""
 
 import os
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
@@ -320,8 +321,17 @@ def _materialize_variant(path_data: str, base: str, dataset_name: str, frame: pd
         if entry == f"{base}.csv" or "cache" in low or low == ".ds_store":
             continue
         link = os.path.join(dst_dir, entry)
-        if not os.path.islink(link) and not os.path.exists(link):
-            os.symlink(os.path.abspath(os.path.join(src_dir, entry)), link)
+        if os.path.islink(link) or os.path.exists(link):
+            continue
+        src = os.path.abspath(os.path.join(src_dir, entry))
+        try:
+            os.symlink(src, link)
+        except OSError:
+            # symlinks may be unavailable (e.g. Windows without developer mode); copy instead
+            if os.path.isdir(src):
+                shutil.copytree(src, link)
+            else:
+                shutil.copy2(src, link)
 
 
 def _load_filtered_dataset(path_data: str, measure: str, dataset_name: str) -> DrugResponseDataset:
