@@ -1408,7 +1408,7 @@ class RGCMF(GCMF):
             sim = self._align_similarity(sim, ids, cell_ids)
             adjs.append(torch.tensor(_knn_normalize(sim, k, use_weights), device=self.device))
         if not adjs:  # no relation resolved: fall back to the base gene-expression graph
-            adjs = [GCMF._build_cell_adj(self, x_cell, cell_line_input, cell_ids, hp)]
+            adjs = [cast(torch.Tensor, GCMF._build_cell_adj(self, x_cell, cell_line_input, cell_ids, hp))]
         self._n_cell_relations = len(adjs)
         return adjs
 
@@ -1432,7 +1432,7 @@ class RGCMF(GCMF):
             sim = self._align_similarity(sim, ids, drug_ids)
             adjs.append(torch.tensor(_knn_normalize(sim, k, use_weights), device=self.device))
         if not adjs:  # no relation resolved: fall back to the base fingerprint graph
-            adjs = [GCMF._build_drug_adj(self, x_drug, drug_input, drug_ids, hp)]
+            adjs = [cast(torch.Tensor, GCMF._build_drug_adj(self, x_drug, drug_input, drug_ids, hp))]
         self._n_drug_relations = len(adjs)
         return adjs
 
