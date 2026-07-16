@@ -13,7 +13,6 @@ import numpy as np
 import pytorch_lightning as pl
 import torch
 import torch.nn as nn
-from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from torch.optim import Adam
 from torch.utils.data import Dataset as PytorchDataset
 from torch_geometric.loader import DataLoader
@@ -225,8 +224,6 @@ class XGDP(DRPModel, RegressionMetricsMixin):
         self.DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model: XGDPModule | None = None
         self.hyperparameters: dict[str, Any] = {}
-        self.gene_expression_scaler: StandardScaler | None = None
-        self.gene_expression_normalizer: MinMaxScaler | None = None
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -379,8 +376,7 @@ class XGDP(DRPModel, RegressionMetricsMixin):
             loggers.append(logger)
 
         trainer = pl.Trainer(
-            # max_epochs=self.hyperparameters.get("epochs", 100), #changed to 10 fro testing
-            max_epochs=1,
+            max_epochs=self.hyperparameters.get("epochs", 100),
             accelerator="auto",
             devices="auto",
             callbacks=[pl.callbacks.EarlyStopping(monitor="val_loss", mode="min", patience=5)] if val_loader else None,
