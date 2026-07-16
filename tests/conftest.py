@@ -288,6 +288,7 @@ def ensure_drug_graphs(data_dir) -> None:
             print(f"Warning: could not create drug graphs for {dataset_name}: {e}")
 
 
+@pytest.fixture(scope="session", autouse=True)
 def ensure_sparsego_ontology_features(data_dir) -> None:
     """
     Ensure SparseGO ontology features exist for TOYv1 and TOYv2 before tests run.
