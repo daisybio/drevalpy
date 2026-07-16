@@ -10,9 +10,7 @@ repos:
       - id: check-added-large-files
         name: Check for added large files
         entry: check-added-large-files
-        # dreval_demo notebook + the gzipped GCMF drug-relation tables (RGCMF/PRGCMF ship
-        # them so the default config runs out of the box; the largest is ~2 MB).
-        exclude: ^(dreval_demo\.ipynb|drevalpy/models/GCMF/resources/.*\.csv\.gz)$
+        exclude: ^dreval_demo\.ipynb$
         language: system
       - id: check-toml
         name: Check Toml

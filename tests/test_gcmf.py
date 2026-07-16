@@ -38,9 +38,9 @@ def _tiny_hpams(model_cls) -> dict:
         gene_list=None,  # toy data lacks most landmark genes; use all available genes
         n_bits=128,  # toy data ships only 128-bit fingerprints
     )
-    # For the relational models, keep a single (fast) cell relation built from the node features
-    # but the bundled drug relations, so the relational encoder + the gzipped package resources
-    # are both exercised. (The full multi-omics cell relations are validated in the benchmark.)
+    # For the relational models, keep a single (fast) cell relation built from the node features.
+    # The drug-relation resources are not present under the toy data dir, so both default drug
+    # relations are dropped and the relational encoder runs on the base fingerprint-graph fallback.
     if "cell_relation_views" in hp:
         hp["cell_relation_views"] = ["gene_expression"]
     return hp
@@ -82,10 +82,17 @@ def test_gcmf_family_train_predict_save_load(model_name: str, data_dir) -> None:
     assert np.allclose(preds, preds_reloaded, atol=1e-4)
 
 
-def test_rgcmf_loads_bundled_drug_relations() -> None:
-    """The default RGCMF drug relations resolve to the gzipped resources bundled in the package."""
+def test_rgcmf_drug_relation_resource_resolution(tmp_path) -> None:
+    """A drug relation resolves from ``<data_path>/meta/<dir>/`` and is None when absent.
+
+    :param tmp_path: pytest-provided temporary directory
+    """
     from drevalpy.models.GCMF.gcmf import RGCMF
 
-    for view in ["drug_pathways", "drug_bioassay"]:
-        path = RGCMF._drug_resource_path(view, data_path="/nonexistent")
-        assert path is not None and path.endswith(".csv.gz")
+    assert RGCMF._drug_resource_path("drug_pathways", data_path=str(tmp_path)) is None
+
+    meta = tmp_path / "meta" / RGCMF._DRUG_SIM_DIR
+    meta.mkdir(parents=True)
+    (meta / "drug_pathways.csv.gz").write_bytes(b"")  # presence is enough for path resolution
+    resolved = RGCMF._drug_resource_path("drug_pathways", data_path=str(tmp_path))
+    assert resolved is not None and resolved.endswith("drug_pathways.csv.gz")

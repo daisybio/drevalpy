@@ -101,7 +101,7 @@ def _similarity_matrix(features: np.ndarray, metric: str) -> np.ndarray:
     """
     Compute a dense node-by-node similarity matrix with the requested kernel.
 
-    Kernels (matching the GCMF_ND similarity extractors):
+    Kernels:
 
     * ``cosine``   - cosine similarity (continuous features),
     * ``tanimoto`` / ``jaccard`` - Tanimoto/Jaccard over binarized features (``x > 0``);
@@ -142,7 +142,7 @@ def _similarity_matrix(features: np.ndarray, metric: str) -> np.ndarray:
                 tau = kendalltau(x[i], x[j])[0]
                 tau = 0.0 if np.isnan(tau) else tau
                 sim[i, j] = sim[j, i] = tau
-        lo = sim.min()  # rescale tau in [-1, 1] to [0, 1] (as in GCMF_ND)
+        lo = sim.min()  # rescale tau in [-1, 1] to [0, 1]
         return (sim - lo) / (1.0 - lo) if lo < 1.0 else sim
     raise ValueError(f"Unknown similarity metric: {metric!r}")
 
@@ -1070,15 +1070,14 @@ class PGCMF(GCMF):
 
 class RGCMF(GCMF):
     """
-    Relational GCMF: a faithful multi-relation port of the original GCMF_ND.
+    Relational GCMF: each tower convolves over several graphs per side.
 
-    Each tower convolves over *several* similarity graphs joined by a relational graph
-    convolution (one weight per relation, averaged; RGCN-style), reproducing GCMF_ND's
-    multi-network design. Node features are unchanged from ``GCMF`` (gene expression for
-    cells, Morgan fingerprints for drugs) - the relations only add edge structure.
+    Instead of the single cell / single drug graph of ``GCMF``, each tower fuses several
+    similarity or prior-knowledge graphs with a relational graph convolution (one weight per
+    relation, averaged; RGCN-style). Node features are unchanged from ``GCMF`` (gene expression
+    for cells, Morgan fingerprints for drugs) - the relations only add edge structure.
 
-    **Cell-line relations** are recomputed on this dataset's own omics, with the GCMF_ND
-    kernels (``GDSC_cell_line_similarity_extractor.py``):
+    **Cell-line relations** are computed on this dataset's own omics:
 
     * ``gene_expression`` - Pearson correlation,
     * ``methylation`` - Pearson correlation,
@@ -1086,24 +1085,24 @@ class RGCMF(GCMF):
     * ``copy_number_variation_gistic`` - Kendall's tau (rescaled to [0, 1]).
 
     **Drug relations** are biologically-informed graphs mapped onto this dataset's drugs by
-    drug name. The two defaults ship gzip-compressed *inside the package*
-    (``resources/gcmf_nd_drug_similarity/``), so RGCMF runs out of the box:
+    drug name:
 
     * ``drug_pathways`` - Jaccard over the KEGG/Reactome pathways the drug's targets belong to
-      (broad mechanism-of-action similarity; ~265 / 545 CTRPv2 drugs),
+      (broad mechanism-of-action similarity),
     * ``drug_bioassay`` - Jaccard over PubChem BioAssays in which the drug is an active hit
-      (a biological-activity fingerprint independent of 2D structure; ~382 / 545 CTRPv2 drugs).
+      (a biological-activity fingerprint independent of 2D structure).
 
-    Further relations (``drug_targets``, ``string_targets``, ``drug_perturbation``) are
-    optional: drop the CSV under ``<data_path>/meta/gcmf_nd_drug_similarity/`` to enable one
-    (see ``resources/gcmf_nd_drug_similarity/README.md``).
+    Their resources are downloaded with the dataset's meta bundle into
+    ``<data_path>/meta/gcmf_drug_relations/``. Further relations (``drug_targets``,
+    ``string_targets``, ``drug_perturbation``) are optional: add the CSV there to enable one.
 
     Drugs / cell lines absent from a relation simply get a self-loop in that relation (handled
     by ``_knn_normalize``), so partial coverage is fine - they keep their fingerprint /
     gene-expression node features and the free per-drug id embedding, just no graph neighbours
-    in that relation. A relation whose resource is missing logs a warning and is dropped.
+    in that relation. A relation whose resource is missing logs a warning and is dropped; if a
+    side ends up with no relations, it falls back to the base ``GCMF`` graph.
     Relation sets are configurable via the ``cell_relation_views`` / ``drug_relation_views``
-    hyperparameters; dense cell similarities are cached under ``<dataset>/gcmf_nd_cache/``
+    hyperparameters; dense cell similarities are cached under ``<dataset>/gcmf_cache/``
     (the Kendall CNV kernel is slow to recompute).
     """
 
@@ -1111,7 +1110,7 @@ class RGCMF(GCMF):
     drug_views = ["fingerprints"]
     early_stopping = True
 
-    # GCMF_ND similarity kernel per cell-line omics view (built from this dataset's own omics)
+    # similarity kernel per cell-line omics view (built from this dataset's own omics)
     _CELL_KERNELS = {
         "gene_expression": "pearson",
         "methylation": "pearson",
@@ -1125,20 +1124,17 @@ class RGCMF(GCMF):
         "mutations": "drug_target_genes_all_drugs",
         "copy_number_variation_gistic": "drug_target_genes_all_drugs",
     }
-    # drug-relation resources: the default relations ship gzip-compressed in the package
-    # (resources/<_DRUG_SIM_DIR>/), with a fallback to <data_path>/meta/<_DRUG_SIM_DIR>/ for
-    # locally-added relations (see resources/<_DRUG_SIM_DIR>/README.md).
-    _DRUG_SIM_DIR = "gcmf_nd_drug_similarity"
+    # drug-relation resources live under <data_path>/meta/<_DRUG_SIM_DIR>/ (downloaded with the
+    # dataset's meta bundle); a relation whose resource is absent is dropped.
+    _DRUG_SIM_DIR = "gcmf_drug_relations"
     # how each drug relation is built: "matrix" = precomputed name-indexed similarity CSV;
     # "targets" = per-drug (drug_name, feature) long table -> feature-set Jaccard at load time
     _DRUG_RELATION_KIND = {
-        # bundled with the package (the default config works out of the box)
         "drug_pathways": "targets",  # drugs sharing KEGG/Reactome pathways (via their targets)
         "drug_bioassay": "targets",  # drugs co-active in the same PubChem high-throughput screens
-        # optional: drop the CSV under <data_path>/meta/<_DRUG_SIM_DIR>/ to enable
-        "drug_targets": "targets",  # DGIdb + GDSC STRING drug-target Jaccard
-        "string_targets": "matrix",  # original GCMF_ND precomputed STRING similarity (GDSC-only)
-        "drug_perturbation": "matrix",  # original GCMF_ND LINCS perturbation similarity (GDSC-only)
+        "drug_targets": "targets",  # drug-target Jaccard
+        "string_targets": "matrix",  # precomputed STRING drug-target similarity (GDSC drugs only)
+        "drug_perturbation": "matrix",  # precomputed perturbation-signature similarity (GDSC drugs only)
     }
 
     def __init__(self) -> None:
@@ -1185,22 +1181,20 @@ class RGCMF(GCMF):
     @classmethod
     def _drug_resource_path(cls, view: str, data_path: str) -> str | None:
         """
-        Locate a drug-relation resource: bundled package copy first, then data/meta.
+        Locate a drug-relation resource under ``<data_path>/meta/<_DRUG_SIM_DIR>/``.
 
-        Both gzip-compressed (``<view>.csv.gz``, how the bundled defaults ship) and plain
-        (``<view>.csv``) files are accepted; pandas reads either transparently.
+        Both gzip-compressed (``<view>.csv.gz``) and plain (``<view>.csv``) files are accepted;
+        pandas reads either transparently.
 
         :param view: relation view name (resource file is ``<view>.csv[.gz]``)
-        :param data_path: data directory, used for the fallback location
-        :returns: path to the resource, or None if it exists in neither location
+        :param data_path: data directory
+        :returns: path to the resource, or None if it does not exist
         """
-        bundled_dir = os.path.join(os.path.dirname(__file__), "resources", cls._DRUG_SIM_DIR)
-        fallback_dir = os.path.join(data_path, "meta", cls._DRUG_SIM_DIR)
-        for directory in (bundled_dir, fallback_dir):
-            for ext in (".csv.gz", ".csv"):
-                path = os.path.join(directory, f"{view}{ext}")
-                if os.path.exists(path):
-                    return path
+        directory = os.path.join(data_path, "meta", cls._DRUG_SIM_DIR)
+        for ext in (".csv.gz", ".csv"):
+            path = os.path.join(directory, f"{view}{ext}")
+            if os.path.exists(path):
+                return path
         return None
 
     def _relation_similarity(
@@ -1211,7 +1205,7 @@ class RGCMF(GCMF):
 
         The cache is keyed by (view, kernel, gene list, cell-id set), so a hit skips loading the
         (large) omics CSV entirely - important for the 10-fold benchmark. Delete
-        ``<dataset>/gcmf_nd_cache/`` to force recomputation if the underlying omics change.
+        ``<dataset>/gcmf_cache/`` to force recomputation if the underlying omics change.
 
         :param data_path: path to the data directory
         :param dataset_name: dataset name, e.g. CTRPv2
@@ -1221,7 +1215,7 @@ class RGCMF(GCMF):
         :param node_fd: node-feature dataset (source of the gene-expression relation)
         :returns: dense (n_cells, n_cells) similarity matrix
         """
-        cache_dir = os.path.join(data_path, dataset_name, "gcmf_nd_cache")
+        cache_dir = os.path.join(data_path, dataset_name, "gcmf_cache")
         os.makedirs(cache_dir, exist_ok=True)
         # the gene_expression relation is built from the node features (hp gene_list), so its
         # cache key must reflect that list, not the hardcoded default (else gene-set sweeps collide)
@@ -1285,7 +1279,7 @@ class RGCMF(GCMF):
         """
         Load fingerprint node features and build each drug-relation graph for this dataset.
 
-        Each relation resource lives under ``data/meta/gcmf_nd_drug_similarity/`` and is mapped
+        Each relation resource lives under ``data/meta/gcmf_drug_relations/`` and is mapped
         to this dataset's drugs by drug name. ``matrix`` relations are precomputed name-indexed
         similarity matrices; ``targets`` relations are a (drug_name, target_gene) table from
         which a drug-target Jaccard graph is computed over this dataset's drugs. Unmatched drugs
@@ -1400,8 +1394,8 @@ class RGCMF(GCMF):
         """
         Sparsify each precomputed cell-relation similarity to a k-NN adjacency.
 
-        :param x_cell: (n_cells, cell_in_dim) fused cell feature matrix (unused; relations are precomputed)
-        :param cell_line_input: cell-line FeatureDataset (unused; relations are precomputed)
+        :param x_cell: (n_cells, cell_in_dim) fused cell feature matrix (used only for the base-graph fallback)
+        :param cell_line_input: cell-line FeatureDataset (used only for the base-graph fallback)
         :param cell_ids: ordered cell-line ids to align each relation to
         :param hp: hyperparameter dictionary
         :returns: one normalized cell adjacency per cell relation
@@ -1413,6 +1407,8 @@ class RGCMF(GCMF):
             ids, sim = self._cell_sims[view]
             sim = self._align_similarity(sim, ids, cell_ids)
             adjs.append(torch.tensor(_knn_normalize(sim, k, use_weights), device=self.device))
+        if not adjs:  # no relation resolved: fall back to the base gene-expression graph
+            adjs = [GCMF._build_cell_adj(self, x_cell, cell_line_input, cell_ids, hp)]
         self._n_cell_relations = len(adjs)
         return adjs
 
@@ -1422,8 +1418,8 @@ class RGCMF(GCMF):
         """
         Sparsify each mapped drug-relation similarity to a k-NN adjacency.
 
-        :param x_drug: (n_drugs, drug_in_dim) fingerprint feature matrix (unused; relations are precomputed)
-        :param drug_input: drug FeatureDataset (unused; relations are precomputed)
+        :param x_drug: (n_drugs, drug_in_dim) fingerprint feature matrix (used only for the base-graph fallback)
+        :param drug_input: drug FeatureDataset (used only for the base-graph fallback)
         :param drug_ids: ordered drug ids to align each relation to
         :param hp: hyperparameter dictionary
         :returns: one normalized drug adjacency per drug relation
@@ -1435,6 +1431,8 @@ class RGCMF(GCMF):
             ids, sim = self._drug_sims[view]
             sim = self._align_similarity(sim, ids, drug_ids)
             adjs.append(torch.tensor(_knn_normalize(sim, k, use_weights), device=self.device))
+        if not adjs:  # no relation resolved: fall back to the base fingerprint graph
+            adjs = [GCMF._build_drug_adj(self, x_drug, drug_input, drug_ids, hp)]
         self._n_drug_relations = len(adjs)
         return adjs
 
