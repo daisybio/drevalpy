@@ -1,4 +1,7 @@
 PaccMann:
+  gene_list:
+    - gene_list_paccmann_network_prop
+
   epochs:
     - 3
   batch_size:

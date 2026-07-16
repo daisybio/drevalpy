@@ -90,7 +90,7 @@ class PaccMann(DRPModel):
             feature_type="gene_expression",
             data_path=data_path,
             dataset_name=dataset_name,
-            gene_list="gene_list_paccmann_network_prop",
+            gene_list=self.hyperparameters.get("gene_list", "gene_list_paccmann_network_prop"),
         )
 
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
