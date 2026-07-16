@@ -5,9 +5,7 @@ from collections import OrderedDict
 import torch
 import torch.nn as nn
 
-from .utils import Squeeze, Temperature, Unsqueeze, get_device
-
-DEVICE = get_device()
+from .utils import Squeeze, Temperature
 
 
 def dense_layer(
@@ -235,63 +233,3 @@ class ContextAttentionLayer(nn.Module):
         output = torch.sum(output, 1) if average_seq else torch.squeeze(output)
 
         return output, alphas
-
-
-def gene_projection(num_genes, attention_size, ind_nonlin=None):
-    """Build the gene projection layer.
-
-    :param num_genes: number of gene features
-    :param attention_size: size of the attention space
-    :param ind_nonlin: optional activation module
-    :return: sequential projection module
-    """
-    if ind_nonlin is None:
-        ind_nonlin = nn.Sequential()
-
-    return nn.Sequential(
-        OrderedDict(
-            [
-                ("projection", nn.Linear(num_genes, attention_size)),
-                ("act_fn", ind_nonlin),
-                ("expand", Unsqueeze(1)),
-            ]
-        )
-    ).to(DEVICE)
-
-
-def smiles_projection(smiles_hidden_size, attention_size, ind_nonlin=None):
-    """Build the SMILES projection layer.
-
-    :param smiles_hidden_size: size of the SMILES hidden representation
-    :param attention_size: size of the attention space
-    :param ind_nonlin: optional activation module
-    :return: sequential projection module
-    """
-    if ind_nonlin is None:
-        ind_nonlin = nn.Sequential()
-
-    return nn.Sequential(
-        OrderedDict(
-            [
-                ("projection", nn.Linear(smiles_hidden_size, attention_size)),
-                ("act_fn", ind_nonlin),
-            ]
-        )
-    ).to(DEVICE)
-
-
-def alpha_projection(attention_size):
-    """Build the alpha projection layer.
-
-    :param attention_size: size of the attention space
-    :return: sequential alpha projection module
-    """
-    return nn.Sequential(
-        OrderedDict(
-            [
-                ("projection", nn.Linear(attention_size, 1, bias=False)),
-                ("squeeze", Squeeze()),
-                ("softmax", nn.Softmax(dim=1)),
-            ]
-        )
-    ).to(DEVICE)

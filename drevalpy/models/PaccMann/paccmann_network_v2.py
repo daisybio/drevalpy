@@ -7,21 +7,14 @@ Original PaccMann repository:
 https://github.com/PaccMann/paccmann_predictor
 """
 
-import logging
-import sys
 from collections import OrderedDict
 
 import torch
 import torch.nn as nn
 
 from .utils.hyperparams import ACTIVATION_FN_FACTORY, LOSS_FN_FACTORY
-from .utils.interpret import monte_carlo_dropout, test_time_augmentation
 from .utils.layers import ContextAttentionLayer, convolutional_layer, dense_layer
 from .utils.utils import get_device, get_log_molar
-
-# setup logging
-logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
-logger = logging.getLogger(__name__)
 
 
 class PaccMannV2(nn.Module):
@@ -243,15 +236,14 @@ class PaccMannV2(nn.Module):
             )
         )
 
-    def forward(self, smiles, gep, confidence=False):
+    def forward(self, smiles, gep):
         """Forward pass through the PaccMannV2.
 
         :param smiles: tokenized SMILES tensor of shape [bs, smiles_padding_length]
         :param gep: gene expression tensor of shape [bs, number_of_genes]
-        :param confidence: whether confidence estimation should be performed
         :return:
             - predictions: tensor of shape [batch_size, 1]
-            - prediction_dict: dictionary with predictions and optional attention/confidence outputs
+            - prediction_dict: dictionary with predictions and attention outputs
         """
         # reshape gene input
         gep = torch.unsqueeze(gep, dim=-1)
@@ -312,32 +304,6 @@ class PaccMannV2(nn.Module):
                 }
             )  # yapf: disable
 
-            if confidence:
-                from .pytoda.smiles.transforms import AugmentTensor  # lazy import
-
-                augmenter = AugmentTensor(self.smiles_language)
-                epi_conf, epi_pred = monte_carlo_dropout(self, regime="tensors", tensors=(smiles, gep), repetitions=5)
-                ale_conf, ale_pred = test_time_augmentation(
-                    self,
-                    regime="tensors",
-                    tensors=(smiles, gep),
-                    repetitions=5,
-                    augmenter=augmenter,
-                    tensors_to_augment=0,
-                )
-
-                prediction_dict.update(
-                    {
-                        "epistemic_confidence": epi_conf,
-                        "epistemic_predictions": epi_pred,
-                        "aleatoric_confidence": ale_conf,
-                        "aleatoric_predictions": ale_pred,
-                    }
-                )  # yapf: disable
-
-        elif confidence:
-            logger.info("Using confidence in training mode is not supported.")
-
         return predictions, prediction_dict
 
     def loss(self, yhat, y):
@@ -348,13 +314,6 @@ class PaccMannV2(nn.Module):
         :return: loss value
         """
         return self.loss_fn(yhat, y)
-
-    def _associate_language(self, smiles_language):
-        """Bind a SMILES language object to the model.
-
-        :param smiles_language: pytoda SMILESLanguage object
-        """
-        self.smiles_language = smiles_language
 
     def load(self, path, *args, **kwargs):
         """Load model from path.

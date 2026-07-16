@@ -17,7 +17,7 @@ from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.models.utils import load_and_select_gene_features
 
-from .paccmann_v2 import PaccMannV2
+from .paccmann_network_v2 import PaccMannV2
 
 
 class PaccMann(DRPModel):
@@ -34,7 +34,7 @@ class PaccMann(DRPModel):
     - trains a PaccMannV2 PyTorch model
     """
 
-    early_stopping = True
+    early_stopping = False
     is_single_drug_model = False
 
     cell_line_views = ["gene_expression"]
@@ -90,7 +90,7 @@ class PaccMann(DRPModel):
             feature_type="gene_expression",
             data_path=data_path,
             dataset_name=dataset_name,
-            gene_list=None,
+            gene_list="gene_list_paccmann_network_prop",
         )
 
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
@@ -130,6 +130,7 @@ class PaccMann(DRPModel):
 
         :param hyperparameters: dictionary containing model hyperparameters
         """
+        self.log_hyperparameters(hyperparameters)
         self.hyperparameters = hyperparameters
 
     def _normalize_smiles_array(self, smiles_raw: np.ndarray) -> list[str]:
@@ -354,16 +355,29 @@ class PaccMann(DRPModel):
         # Encode and pad SMILES strings using the training vocabulary
         smiles_encoded = self._encode_smiles(smiles)
 
-        # Convert inputs to tensors
-        smiles_tensor = torch.tensor(smiles_encoded, dtype=torch.long, device=self.device)
-        gex_tensor = torch.tensor(gex, dtype=torch.float32, device=self.device)
+        # Convert inputs to CPU tensors; batches are moved to device one at a time below
+        smiles_tensor = torch.tensor(smiles_encoded, dtype=torch.long)
+        gex_tensor = torch.tensor(gex, dtype=torch.float32)
 
-        # Predict drug response values
+        dataset = TensorDataset(smiles_tensor, gex_tensor)
+        predict_loader = DataLoader(
+            dataset,
+            batch_size=self.hyperparameters.get("batch_size", 64),
+            shuffle=False,
+        )
+
+        # Predict drug response values batch-wise
         self.model.eval()
+        predictions_list = []
         with torch.no_grad():
-            predictions, _ = self.model(smiles_tensor, gex_tensor)
+            for batch_smiles, batch_gex in predict_loader:
+                batch_smiles = batch_smiles.to(self.device)
+                batch_gex = batch_gex.to(self.device)
+                batch_predictions, _ = self.model(batch_smiles, batch_gex)
+                predictions_list.append(batch_predictions.cpu())
 
-        return predictions.cpu().numpy().reshape(-1)
+        predictions = torch.cat(predictions_list, dim=0)
+        return predictions.numpy().reshape(-1)
 
     def save(self, path: str) -> None:
         """Save the trained PaccMann wrapper.
