@@ -286,3 +286,59 @@ def ensure_drug_graphs(data_dir) -> None:
             create_graphs()
         except Exception as e:
             print(f"Warning: could not create drug graphs for {dataset_name}: {e}")
+
+
+def ensure_sparsego_ontology_features(data_dir) -> None:
+    """
+    Ensure SparseGO ontology features exist for TOYv1 and TOYv2 before tests run.
+
+    This fixture runs automatically before any tests to ensure that SparseGO
+    has the necessary gene2ind.txt and sparseGO_ont.txt files available. These
+    are generated from go-basic.obo and MyGene.info GO annotations (real
+    network calls), using the same default n/m/p pruning thresholds that were
+    used to originally generate the committed TOYv1/TOYv2 files by hand.
+
+    :param data_dir: path to the data directory
+    """
+    path_data = str(data_dir)
+
+    try:
+        from drevalpy.datasets.featurizer.create_sparsego_features import create_sparsego_files
+    except ImportError:
+        # If obonet/mygene are not installed, skip ontology feature creation
+        # Tests that require SparseGO features will fail with a clear error message
+        return
+
+    # Ensure datasets are loaded first (this will download them if needed)
+    try:
+        load_toyv1(path_data)
+        load_toyv2(path_data)
+    except Exception as e:
+        print(f"Warning: could not load datasets for SparseGO ontology creation: {e}")
+        return
+
+    for dataset_name in ["TOYv1", "TOYv2"]:
+        dataset_dir = pathlib.Path(path_data) / dataset_name
+        ont_file = dataset_dir / "sparseGO_ont.txt"
+        gene2ind_file = dataset_dir / "gene2ind.txt"
+        expr_file = dataset_dir / "gene_expression.csv"
+
+        if ont_file.exists() and gene2ind_file.exists():
+            continue
+        if not expr_file.exists():
+            print(f"Warning: gene_expression.csv not found for {dataset_name}, skipping")
+            continue
+
+        try:
+            print(f"Generating SparseGO ontology features for {dataset_name} (network calls to GO/MyGene.info)...")
+            create_sparsego_files(
+                data_path=path_data,
+                dataset_name=dataset_name,
+            )
+            print(f"SparseGO ontology features created for {dataset_name}")
+        except Exception as e:
+            # Log but don't fail - let individual tests handle missing features
+            print(f"Warning: could not create SparseGO ontology features for {dataset_name}: {e}")
+            import traceback
+
+            traceback.print_exc()

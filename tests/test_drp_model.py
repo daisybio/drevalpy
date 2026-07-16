@@ -44,6 +44,7 @@ def test_factory() -> None:
     assert "SuperFELTR" in MODEL_FACTORY
     assert "DIPK" in MODEL_FACTORY
     assert "XGDP" in MODEL_FACTORY
+    assert "SparseGO" in MODEL_FACTORY
 
 
 def test_load_cl_ids_from_csv() -> None:

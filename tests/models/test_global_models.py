@@ -27,6 +27,7 @@ from drevalpy.models.drp_model import DRPModel
         "PharmaFormer",
         "Precily",
         "XGDP",
+        "SparseGO",
     ],
 )
 def test_global_models(
@@ -82,6 +83,9 @@ def test_global_models(
         hpam_combi["batch_size"] = 32
     elif model_name == "XGDP":
         hpam_combi["epochs"] = 1
+    elif model_name == "SparseGO":
+        hpam_combi["epochs"] = 1
+        hpam_combi["batch_size"] = 32
     elif model_name == "AdaBoostDecisionTree":
         hpam_combi["max_depth"] = 2
         hpam_combi["min_samples_split"] = 2
@@ -138,6 +142,8 @@ def test_global_models(
         try:
             model.save(model_dir)
             loaded_model = model_class.load(model_dir)
+            if model_name == "SparseGO":
+                loaded_model.load_cell_line_features(data_path=str(data_dir), dataset_name="TOYv1")
             assert isinstance(loaded_model, DRPModel)
 
             preds_after = loaded_model.predict(
