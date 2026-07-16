@@ -34,8 +34,11 @@ __all__ = [
     "PGCMF",
     "RGCMF",
     "PRGCMF",
+    "MultiViewLightGBM",
+    "SparseGO",
 ]
 
+from .baselines.multi_view_lightgbm import MultiViewLightGBM
 from .baselines.multi_view_random_forest import MultiViewRandomForest
 from .baselines.multi_view_xgboost import MultiViewXGBoost
 from .baselines.naive_pred import (
@@ -65,6 +68,7 @@ from .PharmaFormer.pharmaformer import PharmaFormerModel
 from .Precily import PrecilyModel
 from .SimpleNeuralNetwork.multi_view_neural_network import MultiViewNeuralNetwork
 from .SimpleNeuralNetwork.simple_neural_network import SimpleNeuralNetwork
+from .SparseGO.sparsego import SparseGOModel
 from .SRMF.srmf import SRMF
 from .SuperFELTR.superfeltr import SuperFELTR
 
@@ -99,6 +103,7 @@ MULTI_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]] = {
     "SimpleNeuralNetwork": SimpleNeuralNetwork,
     "MultiViewNeuralNetwork": MultiViewNeuralNetwork,
     "MultiViewXGBoost": MultiViewXGBoost,
+    "MultiViewLightGBM": MultiViewLightGBM,
     # Published models
     "DIPK": DIPKModel,
     "PharmaFormer": PharmaFormerModel,
@@ -108,6 +113,7 @@ MULTI_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]] = {
     "PGCMF": PGCMF,
     "RGCMF": RGCMF,
     "PRGCMF": PRGCMF,
+    "SparseGO": SparseGOModel,
 }
 
 # MODEL_FACTORY is used in the pipeline!
