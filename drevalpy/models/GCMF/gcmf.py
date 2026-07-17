@@ -1099,8 +1099,8 @@ class RGCMF(GCMF):
     Drugs / cell lines absent from a relation simply get a self-loop in that relation (handled
     by ``_knn_normalize``), so partial coverage is fine - they keep their fingerprint /
     gene-expression node features and the free per-drug id embedding, just no graph neighbours
-    in that relation. A relation whose resource is missing logs a warning and is dropped; if a
-    side ends up with no relations, it falls back to the base ``GCMF`` graph.
+    in that relation. A configured relation whose resource is missing raises an error rather than
+    being silently skipped; use ``GCMF`` if you want the single-graph model.
     Relation sets are configurable via the ``cell_relation_views`` / ``drug_relation_views``
     hyperparameters; dense cell similarities are cached under ``<dataset>/gcmf_cache/``
     (the Kendall CNV kernel is slow to recompute).
@@ -1125,7 +1125,7 @@ class RGCMF(GCMF):
         "copy_number_variation_gistic": "drug_target_genes_all_drugs",
     }
     # drug-relation resources live under <data_path>/meta/<_DRUG_SIM_DIR>/ (downloaded with the
-    # dataset's meta bundle); a relation whose resource is absent is dropped.
+    # dataset's meta bundle); a configured relation whose resource is absent raises an error.
     _DRUG_SIM_DIR = "gcmf_drug_relations"
     # how each drug relation is built: "matrix" = precomputed name-indexed similarity CSV;
     # "targets" = per-drug (drug_name, feature) long table -> feature-set Jaccard at load time
@@ -1283,11 +1283,12 @@ class RGCMF(GCMF):
         to this dataset's drugs by drug name. ``matrix`` relations are precomputed name-indexed
         similarity matrices; ``targets`` relations are a (drug_name, target_gene) table from
         which a drug-target Jaccard graph is computed over this dataset's drugs. Unmatched drugs
-        are left isolated; a missing resource drops the relation.
+        are left isolated; a missing resource raises an error.
 
         :param data_path: path to the data directory
         :param dataset_name: dataset name, e.g. CTRPv2
         :returns: FeatureDataset with the fingerprint node features
+        :raises FileNotFoundError: if a configured drug-relation resource is missing
         """
         node_fd = super().load_drug_features(data_path, dataset_name)
         drug_ids = node_fd.identifiers
@@ -1298,12 +1299,15 @@ class RGCMF(GCMF):
             name_to_pid.setdefault(self._norm_name(name), str(pid))
             pid_to_name[str(pid)] = name
         self._drug_sims = {}
-        for view in list(self.drug_relation_views):
+        for view in self.drug_relation_views:
             csv_path = self._drug_resource_path(view, data_path)
             if csv_path is None:
-                print(f"RGCMF: resource '{view}.csv' not found; dropping drug relation '{view}'.")
-                self.drug_relation_views = [v for v in self.drug_relation_views if v != view]
-                continue
+                expected = os.path.join(data_path, "meta", self._DRUG_SIM_DIR, f"{view}.csv[.gz]")
+                raise FileNotFoundError(
+                    f"RGCMF drug relation '{view}' needs {expected}, which is missing. It is distributed "
+                    f"with the dataset's meta bundle - download the data, or set 'drug_relation_views' to "
+                    f"the relations you have."
+                )
             if self._DRUG_RELATION_KIND.get(view, "matrix") == "targets":
                 sim = self._build_target_jaccard(csv_path, drug_ids, pid_to_name)
             else:
@@ -1394,11 +1398,12 @@ class RGCMF(GCMF):
         """
         Sparsify each precomputed cell-relation similarity to a k-NN adjacency.
 
-        :param x_cell: (n_cells, cell_in_dim) fused cell feature matrix (used only for the base-graph fallback)
-        :param cell_line_input: cell-line FeatureDataset (used only for the base-graph fallback)
+        :param x_cell: (n_cells, cell_in_dim) fused cell feature matrix (unused; relations are precomputed)
+        :param cell_line_input: cell-line FeatureDataset (unused; relations are precomputed)
         :param cell_ids: ordered cell-line ids to align each relation to
         :param hp: hyperparameter dictionary
         :returns: one normalized cell adjacency per cell relation
+        :raises ValueError: if no cell relation resolves
         """
         use_weights = bool(hp.get("use_edge_weights", True))
         k = int(hp.get("k_cell", 15))
@@ -1407,8 +1412,8 @@ class RGCMF(GCMF):
             ids, sim = self._cell_sims[view]
             sim = self._align_similarity(sim, ids, cell_ids)
             adjs.append(torch.tensor(_knn_normalize(sim, k, use_weights), device=self.device))
-        if not adjs:  # no relation resolved: fall back to the base gene-expression graph
-            adjs = [cast(torch.Tensor, GCMF._build_cell_adj(self, x_cell, cell_line_input, cell_ids, hp))]
+        if not adjs:
+            raise ValueError("RGCMF has no cell relations; set 'cell_relation_views' or use GCMF instead.")
         self._n_cell_relations = len(adjs)
         return adjs
 
@@ -1418,11 +1423,12 @@ class RGCMF(GCMF):
         """
         Sparsify each mapped drug-relation similarity to a k-NN adjacency.
 
-        :param x_drug: (n_drugs, drug_in_dim) fingerprint feature matrix (used only for the base-graph fallback)
-        :param drug_input: drug FeatureDataset (used only for the base-graph fallback)
+        :param x_drug: (n_drugs, drug_in_dim) fingerprint feature matrix (unused; relations are precomputed)
+        :param drug_input: drug FeatureDataset (unused; relations are precomputed)
         :param drug_ids: ordered drug ids to align each relation to
         :param hp: hyperparameter dictionary
         :returns: one normalized drug adjacency per drug relation
+        :raises ValueError: if no drug relation resolves
         """
         use_weights = bool(hp.get("use_edge_weights", True))
         k = int(hp.get("k_drug", 15))
@@ -1431,8 +1437,8 @@ class RGCMF(GCMF):
             ids, sim = self._drug_sims[view]
             sim = self._align_similarity(sim, ids, drug_ids)
             adjs.append(torch.tensor(_knn_normalize(sim, k, use_weights), device=self.device))
-        if not adjs:  # no relation resolved: fall back to the base fingerprint graph
-            adjs = [cast(torch.Tensor, GCMF._build_drug_adj(self, x_drug, drug_input, drug_ids, hp))]
+        if not adjs:
+            raise ValueError("RGCMF has no drug relations; set 'drug_relation_views' or use GCMF instead.")
         self._n_drug_relations = len(adjs)
         return adjs
 
