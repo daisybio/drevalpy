@@ -142,8 +142,30 @@ def tests(session: Session) -> None:
     """
     Run the test suite.
 
+    When run without posargs, first executes dependency-light model execution gates
+    (naive/sklearn/single-drug, import isolation, architecture policy) on a core-only
+    install, then runs the full suite with optional extras.
+
     :param session: The Session object.
     """
+    light_model_paths = (
+        "tests/models/test_factory_compat_contract.py",
+        "tests/models/test_direct_component_harness.py",
+        "tests/models/test_facade_parity.py",
+        "tests/models/test_architecture_policy.py",
+        "tests/models/test_import_compat.py",
+    )
+
+    if not session.posargs:
+        session.install(".")
+        session.install("pytest", "pygments")
+        session.run(
+            "pytest",
+            *light_model_paths,
+            "-k",
+            "not builds_flat_hyperparameters_full",
+        )
+
     session.install(".[xgboost,precily,sparsego]")
     session.install("coverage[toml]", "pytest", "pygments")
     try:
@@ -159,32 +181,6 @@ def tests(session: Session) -> None:
     finally:
         if session.interactive:
             session.notify("coverage")
-
-
-@session(name="tests-light-models", python=python_versions)
-def tests_light_models(session: Session) -> None:
-    """
-    Run dependency-light model execution gates without optional extras.
-
-    Covers naive/sklearn/single-drug execution, import isolation, and architecture
-    policy. Full factory ``build_model`` over literature / optional-extra models
-    (Precily, SparseGO, XGBoost, LightGBM, …) stays in the ``tests`` session.
-
-    :param session: The Session object.
-    """
-    session.install(".")
-    session.install("pytest", "pygments")
-    session.run(
-        "pytest",
-        "tests/models/test_factory_compat_contract.py",
-        "tests/models/test_direct_component_harness.py",
-        "tests/models/test_facade_parity.py",
-        "tests/models/test_architecture_policy.py",
-        "tests/models/test_import_compat.py",
-        "-k",
-        "not builds_flat_hyperparameters_full",
-        *session.posargs,
-    )
 
 
 @session

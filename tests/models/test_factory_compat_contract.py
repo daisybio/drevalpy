@@ -36,7 +36,7 @@ _FAST_EXECUTION_MODELS = (
     "SingleDrugElasticNet",
 )
 
-# Dependency-light build coverage for tests-light-models (no optional extras).
+# Dependency-light build coverage (nox tests session, core-only install phase).
 _LIGHT_BUILD_MODELS = frozenset(
     {
         "NaivePredictor",
