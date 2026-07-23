@@ -27,9 +27,11 @@ class ModelInputBatch:
     drug_blocks: dict[str, np.ndarray] = field(default_factory=dict)
     cell_line_input: FeatureDataset | None = None
     drug_input: FeatureDataset | None = None
+    early_stopping_response: DrugResponseDataset | None = None
 
     @property
     def n_pairs(self) -> int:
+        """Return the number of cell-line/drug pairs in the batch."""
         return len(self.cell_line_ids)
 
     @classmethod
@@ -47,6 +49,7 @@ class ModelInputBatch:
         drug_blocks: dict[str, np.ndarray] | None = None,
         cell_line_input: FeatureDataset | None = None,
         drug_input: FeatureDataset | None = None,
+        early_stopping_response: DrugResponseDataset | None = None,
     ) -> ModelInputBatch:
         """Build a predictor input batch from a response dataset and featurizer outputs."""
         return cls(
@@ -63,6 +66,7 @@ class ModelInputBatch:
             drug_blocks=dict(drug_blocks or {}),
             cell_line_input=cell_line_input,
             drug_input=drug_input,
+            early_stopping_response=early_stopping_response,
         )
 
     def to_feature_matrix(self) -> np.ndarray:

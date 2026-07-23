@@ -38,10 +38,10 @@ def test_featurizer_config_preserves_view_fields() -> None:
 def test_model_id_for_full_triple() -> None:
     config = ModelConfig(
         cell_line_featurizer=FeaturizerConfig(name="scaledGeneExpression", registry="cell_line"),
-        drug_featurizer=FeaturizerConfig(name="oneHot", registry="drug"),
+        drug_featurizer=FeaturizerConfig(name="identity", registry="drug"),
         predictor=PredictorConfig(name="randomForest"),
     )
-    assert config.model_id == "scaledGeneExpression:oneHot:randomForest"
+    assert config.model_id == "scaledGeneExpression:identity:randomForest"
 
 
 def test_model_id_for_predictor_only_baseline() -> None:

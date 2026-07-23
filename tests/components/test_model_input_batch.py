@@ -16,16 +16,19 @@ def test_build_model_input_batch_indexes_entities() -> None:
         cell_line_ids=np.array(["cl1", "cl2"]),
         drug_ids=np.array(["d1", "d2"]),
     )
+    early_stopping = response.copy()
     batch = build_model_input_batch(
         response,
         cell_line_entity_ids=np.array(["cl1", "cl2"]),
         drug_entity_ids=np.array(["d1", "d2"]),
         cell_line_features=np.array([[0.1, 0.2], [0.3, 0.4]], dtype=np.float32),
         drug_features=np.array([[1.0, 0.0], [0.0, 1.0]], dtype=np.float32),
+        early_stopping_response=early_stopping,
     )
     assert batch.cell_line_pair_idx.tolist() == [0, 1]
     assert batch.drug_pair_idx is not None
     assert batch.drug_pair_idx.tolist() == [0, 1]
+    assert batch.early_stopping_response is early_stopping
 
 
 def test_to_feature_matrix_combined_cell_line_and_drug() -> None:

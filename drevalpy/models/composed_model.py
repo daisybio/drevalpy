@@ -90,6 +90,7 @@ class ComposedModel:
         drug_entity_ids: np.ndarray | None,
         cell_line_matrix: np.ndarray,
         drug_matrix: np.ndarray | None,
+        output_earlystopping: DrugResponseDataset | None = None,
     ) -> ModelInputBatch:
         cell_line_blocks: dict[str, np.ndarray] = {}
         if self._cell_line_featurizer is not None:
@@ -116,6 +117,7 @@ class ComposedModel:
             drug_blocks=drug_blocks,
             cell_line_input=cell_line_input,
             drug_input=drug_input,
+            early_stopping_response=output_earlystopping,
         )
 
     def train(
@@ -126,7 +128,6 @@ class ComposedModel:
         *,
         output_earlystopping: DrugResponseDataset | None = None,
     ) -> ComposedModel:
-        _ = output_earlystopping
         if len(output) == 0:
             return self
 
@@ -173,6 +174,7 @@ class ComposedModel:
             drug_entity_ids=self._drug_entity_ids,
             cell_line_matrix=self._cell_line_matrix,
             drug_matrix=self._drug_matrix,
+            output_earlystopping=output_earlystopping,
         )
         self._predictor.build(
             self._merged_hyperparameters(),

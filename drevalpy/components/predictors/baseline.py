@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Any, ClassVar
 
-from drevalpy.components.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors.base import Predictor
 from drevalpy.models.config import PredictionMode
 

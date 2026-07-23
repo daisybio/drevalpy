@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+
 import pytest
 
 from drevalpy.components.contracts import FeatureContract
@@ -17,7 +19,7 @@ from drevalpy.components.registry import (
 
 
 @pytest.fixture(autouse=True)
-def _register_components() -> None:
+def _register_components() -> Iterator[None]:
     clear_cell_line_featurizer_registry()
     clear_drug_featurizer_registry()
     register_builtin_components()

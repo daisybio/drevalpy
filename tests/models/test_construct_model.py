@@ -10,9 +10,9 @@ from drevalpy.models import DRPModel, construct_model
 
 
 def test_construct_model_returns_drp_model_subclass() -> None:
-    model_cls = construct_model("PcaOneHotRF", "pca[expression]:oneHot:randomForest")
+    model_cls = construct_model("PcaIdentityRF", "pca[expression]:identity:randomForest")
     assert issubclass(model_cls, DRPModel)
-    assert model_cls.get_model_name() == "PcaOneHotRF"
+    assert model_cls.get_model_name() == "PcaIdentityRF"
 
 
 def test_construct_model_invalid_spec_raises() -> None:
@@ -53,7 +53,7 @@ def test_construct_model_train_predict_smoke() -> None:
 
     register_builtins.register_builtin_components()
 
-    model_cls = construct_model("ComboRF", "raw[expression]+raw[mutations]:fingerprints+oneHot:randomForest")
+    model_cls = construct_model("ComboRF", "raw[expression]+raw[mutations]:fingerprints+identity:randomForest")
     model = model_cls()
     model.build_model(model.get_default_hyperparameters())
 
@@ -76,8 +76,8 @@ def test_construct_model_train_predict_smoke() -> None:
     )
     drug_input = FeatureDataset(
         features={
-            "d1": {"fingerprints": np.array([1.0, 0.0]), "one_hot": np.array([1.0, 0.0, 0.0])},
-            "d2": {"fingerprints": np.array([0.0, 1.0]), "one_hot": np.array([0.0, 1.0, 0.0])},
+            "d1": {"fingerprints": np.array([1.0, 0.0])},
+            "d2": {"fingerprints": np.array([0.0, 1.0])},
         }
     )
     model.train(response, cell_line_input, drug_input)

@@ -320,7 +320,7 @@ Gene expression features are standardized using a ``StandardScaler``, while fing
 
             return load_drug_fingerprint_features(data_path, dataset_name, fill_na=True)
 
-1. In the ``build_model`` we just store the hyperparameters.
+4. In the ``build_model`` we just store the hyperparameters.
 
 .. code-block:: Python
 
@@ -360,14 +360,22 @@ Gene expression features are standardized using a ``StandardScaler``, while fing
 
 7. Add ``get_hyperparameter_space()`` to your predictor component. DrEval will tune over that structured search space when ``hyperparameter_tuning=True``.
 
-.. code-block:: YAML
+.. code-block:: Python
 
-    TinyNN:
-      hidden_dim:
-        - 32
-        - 64
+        @classmethod
+        def get_hyperparameter_space(cls) -> dict[str, dict[str, object]]:
+            return {
+                "hidden_dim": {
+                    "type": "categorical",
+                    "choices": [32, 64],
+                    "default": 32,
+                }
+            }
 
-8. Register the model in ``models/__init__.py``.
+8. This example uses the legacy ``DRPModel`` API, so register the model in
+   ``models/__init__.py``. New component-native models should instead register a
+   predictor and compose it with featurizers through ``ModelConfig`` or
+   ``construct_model()``; see :doc:`model_architecture`.
 
 .. code-block:: Python
 

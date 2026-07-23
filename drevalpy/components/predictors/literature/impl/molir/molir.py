@@ -15,11 +15,12 @@ from drevalpy.components.predictors.literature._engine_base import LiteratureEng
 from drevalpy.data.features import get_multiomics_feature_dataset
 from drevalpy.data.preprocessing import VarianceFeatureSelector, scale_gene_expression
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.models.single_drug import SingleDrugModelMixin
 
 from .utils import MOLIModel, filter_and_sort_omics, get_dimensions_of_omics_data
 
 
-class MOLIR(LiteratureEngineBase):
+class MOLIR(SingleDrugModelMixin, LiteratureEngineBase):
     """
     Regression extension of MOLI: multi-omics late integration deep neural network.
 
@@ -29,9 +30,7 @@ class MOLIR(LiteratureEngineBase):
     We use a regression adaption with MSE loss and a mechanism to find positive and negative samples.
     """
 
-    is_single_drug_model = True
     cell_line_views = ["gene_expression", "mutations", "copy_number_variation_gistic"]
-    drug_views = []
     early_stopping = True
 
     def __init__(self) -> None:

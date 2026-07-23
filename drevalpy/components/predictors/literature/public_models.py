@@ -40,6 +40,7 @@ from drevalpy.models._legacy_state_accessors import (
 )
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.models.factory import model_config_for_name
+from drevalpy.models.single_drug import SingleDrugModelMixin
 
 _SKIP_IMPL_STATE_COPY = frozenset(
     {
@@ -351,20 +352,18 @@ class MultiViewNeuralNetwork(LiteratureComponentDRPModel):
     _impl_cls = _MultiViewNeuralNetwork
 
 
-class MOLIR(LiteratureComponentDRPModel):
+class MOLIR(SingleDrugModelMixin, LiteratureComponentDRPModel):
     """Molir component."""
 
     _zoo_name = "MOLIR"
     _impl_cls = _MOLIR
-    is_single_drug_model = True
 
 
-class SuperFELTR(LiteratureComponentDRPModel):
+class SuperFELTR(SingleDrugModelMixin, LiteratureComponentDRPModel):
     """Super feltr component."""
 
     _zoo_name = "SuperFELTR"
     _impl_cls = _SuperFELTR
-    is_single_drug_model = True
 
 
 class PharmaFormerModel(LiteratureComponentDRPModel):

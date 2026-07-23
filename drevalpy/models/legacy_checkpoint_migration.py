@@ -16,7 +16,7 @@ def migrate_checkpoint_to_component_stack(
 ) -> str:
     """Write a trained model's component stack to disk, optionally in a new directory."""
     target = output_directory or directory
-    bridge: ComponentDRPBridge = getattr(model, "_bridge", None) or getattr(model, "_component_bridge")
+    bridge: ComponentDRPBridge = getattr(model, "_bridge", None) or model._component_bridge
     if not bridge.is_trained():
         msg = "Cannot migrate checkpoint: component stack is not trained"
         raise RuntimeError(msg)

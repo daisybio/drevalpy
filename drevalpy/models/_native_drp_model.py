@@ -193,9 +193,9 @@ def create_native_drp_class(
     factory_name: str,
     *,
     spec: str | None = None,
-    bases: tuple[type, ...] = (NativeDRPModel,),
+    bases: tuple[type[NativeDRPModel], ...] = (NativeDRPModel,),
     class_dict: dict[str, Any] | None = None,
-) -> type[DRPModel]:
+) -> type[NativeDRPModel]:
     """Create a component-native DRPModel subclass for a factory entry."""
     if spec is not None:
         from drevalpy.models.config import ModelConfig

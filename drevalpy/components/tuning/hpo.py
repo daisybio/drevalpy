@@ -154,9 +154,10 @@ def hpam_tune_ray_optuna(
     results = tuner.fit()
     best_result = results.get_best_result(metric=cfg.metric, mode=cfg.mode)
     best_config = best_result.config or {}
+    best_metrics = best_result.metrics or {}
     model._in_hyperparameter_tuning = False
 
-    if not best_config or np.isnan(best_result.metrics.get(cfg.metric, float("nan"))):
+    if not best_config or np.isnan(best_metrics.get(cfg.metric, float("nan"))):
         warnings.warn(
             "Ray/Optuna tuning did not find a valid configuration; using defaults.",
             stacklevel=2,

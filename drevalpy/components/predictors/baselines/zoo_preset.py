@@ -15,7 +15,7 @@ from drevalpy.models.config import ModelConfig
 from drevalpy.models.featurizer_mapping import cell_line_views_from_model_config, drug_views_from_model_config
 from drevalpy.models.zoo import zoo_model_config
 
-from .sklearn_models import SklearnModel
+from .sklearn_base import SklearnModel
 
 
 class ZooPresetSklearnModel(SklearnModel):

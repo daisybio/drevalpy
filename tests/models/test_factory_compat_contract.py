@@ -66,7 +66,7 @@ def test_factory_entry_train_predict_save_load(model_name: str) -> None:
             "cl2": {"gene_expression": np.array([0.4, 0.5, 0.6])},
         }
     )
-    drug_input = FeatureDataset(
+    drug_input: FeatureDataset | None = FeatureDataset(
         features={
             "d1": {"fingerprints": np.array([1.0, 0.0])},
             "d2": {"fingerprints": np.array([0.0, 1.0])},

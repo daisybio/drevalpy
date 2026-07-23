@@ -7,6 +7,7 @@ from drevalpy.components.predictors.baselines.sklearn_models import (
     KNNRegressor,
     LassoModel,
     RandomForest,
+    SingleDrugSklearnModel,
     SklearnModel,
     SVMRegressor,
 )
@@ -18,6 +19,7 @@ __all__ = [
     "KNNRegressor",
     "LassoModel",
     "RandomForest",
+    "SingleDrugSklearnModel",
     "SklearnModel",
     "SVMRegressor",
 ]

@@ -21,7 +21,8 @@ Predictor input batch
 ``predictor.fit(batch)`` or ``predictor.predict(batch)``. The batch carries pair
 identifiers, optional response values, entity-level feature matrices, named
 featurizer blocks, and optional raw ``FeatureDataset`` inputs for auxiliary
-metadata such as tissue labels.
+metadata such as tissue labels. Training batches also retain the optional
+early-stopping response split required by some literature predictors.
 
 - Matrix predictors flatten the batch with ``batch.to_feature_matrix()``.
 - Block predictors read ``batch.cell_line_blocks`` and ``batch.drug_blocks``.
@@ -81,6 +82,18 @@ Compatibility notes
 - Hyperparameter grids in YAML were replaced by component-owned defaults and
   structured search spaces. See :doc:`hyperparameter_migration`.
 - ``pydantic`` and ``optuna`` are required dependencies for config validation and HPO.
+
+Sklearn adapter hierarchy
+-------------------------
+
+Public sklearn ``DRPModel`` adapters share ``SklearnModel`` lifecycle and
+checkpoint behavior. Multi-drug behavior is the default and requires at least
+one drug view. ``SingleDrugModelMixin`` marks the exceptional per-drug scope and
+is shared by ``SingleDrugSklearnModel`` and single-drug literature models such
+as MOLIR and SuperFELTR.
+
+The underlying ``SklearnTabularPredictor`` remains scope-agnostic and consumes
+the feature matrix supplied by its adapter.
 
 Component-native state
 ----------------------

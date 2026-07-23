@@ -123,7 +123,7 @@ class StructuredLiteratureEnginePredictor(StructuredPredictor):
             output,
             cell_lines,
             drugs,
-            output_earlystopping=None,
+            output_earlystopping=batch.early_stopping_response,
         )
         self._engine = engine
 

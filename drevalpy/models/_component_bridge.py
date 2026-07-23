@@ -31,22 +31,13 @@ _HYPERPARAMETERS_FILE = "hyperparameters.json"
 def _featurizer_state(featurizer: Any) -> dict[str, object]:
     if featurizer is None:
         return {}
-    from drevalpy.components.featurizers.cell_line.concat import ConcatFeaturizersCellLineFeaturizer
-
-    if isinstance(featurizer, ConcatFeaturizersCellLineFeaturizer):
-        return ConcatFeaturizersCellLineFeaturizer.collect_legacy_state(featurizer)
     return featurizer.get_state()
 
 
 def _restore_featurizer_state(featurizer: Any, state: dict[str, object]) -> None:
     if featurizer is None or not state:
         return
-    from drevalpy.components.featurizers.cell_line.concat import ConcatFeaturizersCellLineFeaturizer
-
-    if isinstance(featurizer, ConcatFeaturizersCellLineFeaturizer):
-        ConcatFeaturizersCellLineFeaturizer.distribute_legacy_state(featurizer, state)
-    else:
-        featurizer.set_state(state)
+    featurizer.set_state(state)
 
 
 def save_component_stack(
@@ -114,20 +105,12 @@ class ComponentDRPBridge:
         if self._composed is None:
             msg = "Component config has not been built"
             raise RuntimeError(msg)
-        if getattr(self._composed._predictor, "uses_raw_features", False):
-            self._composed._predictor.fit_raw(
-                output,
-                cell_line_input,
-                drug_input,
-                output_earlystopping=output_earlystopping,
-            )
-        else:
-            self._composed.train(
-                output,
-                cell_line_input,
-                drug_input,
-                output_earlystopping=output_earlystopping,
-            )
+        self._composed.train(
+            output,
+            cell_line_input,
+            drug_input,
+            output_earlystopping=output_earlystopping,
+        )
 
     def predict(
         self,
@@ -152,11 +135,7 @@ class ComponentDRPBridge:
         if self._composed is None:
             return False
         predictor = self._composed._predictor
-        if getattr(predictor, "uses_raw_features", False):
-            return getattr(predictor, "_model", None) is not None
-        if hasattr(predictor, "is_fitted"):
-            return predictor.is_fitted()
-        return bool(predictor.get_state())
+        return predictor.is_fitted()
 
 
 def preview_sklearn_estimator(bridge: ComponentDRPBridge, hyperparameters: dict[str, Any]) -> Any:
@@ -213,12 +192,10 @@ def restore_sklearn_to_components(model: SklearnModel) -> None:
             from drevalpy.components.featurizers.cell_line.concat import (
                 ConcatFeaturizersCellLineFeaturizer,
             )
+            from drevalpy.models._legacy_featurizer_state import restore_legacy_concat_state
 
             if isinstance(cell_line_featurizer, ConcatFeaturizersCellLineFeaturizer):
-                ConcatFeaturizersCellLineFeaturizer.distribute_legacy_state(
-                    cell_line_featurizer,
-                    featurizer_state,
-                )
+                restore_legacy_concat_state(cell_line_featurizer, featurizer_state)
             else:
                 cell_line_featurizer.set_state(featurizer_state)
 
@@ -227,6 +204,7 @@ def restore_literature_to_components(model: Any) -> None:
     """Inject serialized literature model state into the composed stack."""
     from drevalpy.components.featurizers.cell_line.concat import ConcatFeaturizersCellLineFeaturizer
     from drevalpy.components.predictors.literature.public_models import LiteratureComponentDRPModel
+    from drevalpy.models._legacy_featurizer_state import restore_legacy_concat_state
 
     if not isinstance(model, LiteratureComponentDRPModel):
         return
@@ -263,10 +241,7 @@ def restore_literature_to_components(model: Any) -> None:
             if view_dims:
                 featurizer_state["view_dims"] = view_dims
         if isinstance(cell_line_featurizer, ConcatFeaturizersCellLineFeaturizer):
-            ConcatFeaturizersCellLineFeaturizer.distribute_legacy_state(
-                cell_line_featurizer,
-                featurizer_state,
-            )
+            restore_legacy_concat_state(cell_line_featurizer, featurizer_state)
         else:
             cell_line_featurizer.set_state(featurizer_state)
 

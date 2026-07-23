@@ -20,6 +20,7 @@ def build_model_input_batch(
     drug_blocks: dict[str, np.ndarray] | None = None,
     cell_line_input: FeatureDataset | None = None,
     drug_input: FeatureDataset | None = None,
+    early_stopping_response: DrugResponseDataset | None = None,
 ) -> ModelInputBatch:
     """Index entity-level featurizer outputs for each response pair."""
     n_pairs = len(response)
@@ -47,4 +48,5 @@ def build_model_input_batch(
         drug_blocks=drug_blocks,
         cell_line_input=cell_line_input,
         drug_input=drug_input,
+        early_stopping_response=early_stopping_response,
     )

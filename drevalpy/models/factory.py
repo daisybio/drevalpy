@@ -92,8 +92,8 @@ SKLEARN_PREDICTOR_BY_MODEL_NAME = {
     "MultiViewRandomForest": "randomForest",
     "MultiViewXGBoost": "xgboost",
     "MultiViewLightGBM": "lightgbm",
-    "SingleDrugElasticNet": "elasticNet",
-    "SingleDrugRandomForest": "randomForest",
+    "SingleDrugElasticNet": "singleDrugElasticNet",
+    "SingleDrugRandomForest": "singleDrugRandomForest",
 }
 
 NAIVE_PREDICTOR_BY_MODEL_NAME = {

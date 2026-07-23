@@ -13,7 +13,7 @@ from drevalpy.models.config import PredictionMode
 
 
 class SklearnTabularPredictor(MatrixPredictor):
-    """Fit a scikit-learn estimator on concatenated cell-line and drug features."""
+    """Fit a scikit-learn estimator on available cell-line and drug features."""
 
     supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset(PredictionMode)
 

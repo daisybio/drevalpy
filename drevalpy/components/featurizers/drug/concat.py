@@ -25,6 +25,5 @@ class ConcatFeaturizersDrugFeaturizer(ConcatFeaturizersMixin, DrugFeaturizer):
         self,
         *,
         featurizers: list[Any] | None = None,
-        registry: str = "drug",
     ) -> None:
-        self._init_concat(featurizers=featurizers, registry=registry)
+        self._init_concat(featurizers=featurizers, registry="drug")

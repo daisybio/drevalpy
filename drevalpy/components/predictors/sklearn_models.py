@@ -12,6 +12,7 @@ from sklearn.tree import DecisionTreeRegressor
 
 from drevalpy.components.predictors.sklearn_tabular import SklearnTabularPredictor
 from drevalpy.components.registry import register_predictor
+from drevalpy.models.single_drug import SingleDrugModelMixin
 
 
 @register_predictor(
@@ -37,6 +38,15 @@ class ElasticNetPredictor(SklearnTabularPredictor):
             "alpha": {"type": "float", "low": 1e-4, "high": 10.0, "log": True, "default": 1.0},
             "l1_ratio": {"type": "float", "low": 0.0, "high": 1.0, "default": 0.5},
         }
+
+
+@register_predictor(
+    "singleDrugElasticNet",
+    description="ElasticNet fitted independently per drug on dense cell-line features.",
+    category="general_purpose",
+)
+class SingleDrugElasticNetPredictor(SingleDrugModelMixin, ElasticNetPredictor):
+    """Single-drug ElasticNet predictor component."""
 
 
 @register_predictor("lasso", description="Lasso regression on dense features.", category="general_purpose")
@@ -98,6 +108,15 @@ class RandomForestPredictor(SklearnTabularPredictor):
             "max_samples": {"type": "float", "low": 0.1, "high": 0.9, "default": 0.2},
             "max_depth": {"type": "int", "low": 3, "high": 50, "default": 20},
         }
+
+
+@register_predictor(
+    "singleDrugRandomForest",
+    description="Random forest fitted independently per drug on dense cell-line features.",
+    category="general_purpose",
+)
+class SingleDrugRandomForestPredictor(SingleDrugModelMixin, RandomForestPredictor):
+    """Single-drug random-forest predictor component."""
 
 
 @register_predictor("svr", description="Support vector regression on dense features.", category="general_purpose")

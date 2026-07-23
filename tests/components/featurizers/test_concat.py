@@ -73,7 +73,6 @@ def test_concat_uses_distinct_block_labels_for_same_name_different_views() -> No
             {"name": "pca", "view": "gene_expression", "hyperparameters": {"n_components": 1}},
             {"name": "pca", "view": "proteomics", "hyperparameters": {"n_components": 1}},
         ],
-        registry="cell_line",
     )
     features = _multi_view_feature_dataset()
     entity_ids = np.array(["cl1", "cl2"], dtype=str)

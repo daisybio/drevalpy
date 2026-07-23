@@ -33,12 +33,12 @@ def _child_config_for_view(view: str, hyperparameters: dict[str, Any]) -> str | 
     if view not in CELL_LINE_VIEW_TO_FEATURIZER:
         return {"name": "raw", "view": view, "hyperparameters": {}}
     token = CELL_LINE_VIEW_TO_FEATURIZER[view]
-    if token == "pca[methylation]":
+    if token == "pca[methylation]":  # noqa: S105
         n_components = hyperparameters.get("methylation_n_components")
         if n_components is None:
             n_components = hyperparameters.get("methylation_pca_components", 100)
         return {token: {"n_components": int(n_components)}}
-    if token == "normalizedProteomics":
+    if token == "normalizedProteomics":  # noqa: S105
         proteomics_hp = {key: hyperparameters[key] for key in PROTEOMICS_HP_KEYS if key in hyperparameters}
         return {"normalizedProteomics": proteomics_hp} if proteomics_hp else "normalizedProteomics"
     return token
@@ -73,7 +73,7 @@ def drug_featurizer_from_view(view: str) -> FeaturizerConfig:
         "bpe_smiles": "bpePharmaformer",
         "molgnet_features": "molgnet",
         "drug_graph": "drugGraph",
-        "one_hot": "oneHot",
+        "one_hot": "identity",
     }
     if view in named:
         return FeaturizerConfig.model_validate(
@@ -104,7 +104,7 @@ DRUG_FEATURIZER_TO_VIEW = {
     "bpePharmaformer": "bpe_smiles",
     "molgnet": "molgnet_features",
     "drugGraph": "drug_graph",
-    "oneHot": "one_hot",
+    "identity": "one_hot",
     "view": "fingerprints",
 }
 

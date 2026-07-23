@@ -60,8 +60,6 @@ class FeaturizerConfig(BaseModel):
         else:
             cls = reg.get_drug_featurizer(self.name)
         hp = dict(self.hyperparameters)
-        if self.name == "concatFeaturizers" and "featurizers" in hp:
-            hp["registry"] = self.registry
         if self.view is not None:
             hp.setdefault("view", self.view)
         if self.views is not None:

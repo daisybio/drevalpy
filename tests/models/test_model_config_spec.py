@@ -43,7 +43,7 @@ def test_build_model_config_from_recipe_triple() -> None:
 
 
 def test_build_model_config_from_recipe_triple_with_plus_concat() -> None:
-    config = build_model_config_from_spec("raw[expression]+raw[mutations]:fingerprints+oneHot:randomForest")
+    config = build_model_config_from_spec("raw[expression]+raw[mutations]:fingerprints+identity:randomForest")
     assert config.cell_line_featurizer is not None
     assert config.cell_line_featurizer.name == "concatFeaturizers"
     assert config.drug_featurizer is not None
@@ -54,7 +54,7 @@ def test_build_model_config_from_recipe_triple_with_plus_concat() -> None:
     assert [child["name"] for child in cell_children] == ["raw", "raw"]
     assert cell_children[0]["view"] == "gene_expression"
     assert cell_children[1]["view"] == "mutations"
-    assert [child["name"] for child in drug_children] == ["fingerprints", "oneHot"]
+    assert [child["name"] for child in drug_children] == ["fingerprints", "identity"]
     assert config.model_id == "concatFeaturizers:concatFeaturizers:randomForest"
 
 

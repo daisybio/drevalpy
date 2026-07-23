@@ -20,10 +20,12 @@ from drevalpy.models.factory import NAIVE_PREDICTOR_BY_MODEL_NAME
 
 
 def has_component_stack(directory: str) -> bool:
+    """Return whether *directory* contains a native component-stack checkpoint."""
     return os.path.exists(os.path.join(directory, _COMPONENT_STACK_FILE))
 
 
 def load_hyperparameters_json(directory: str) -> dict[str, Any]:
+    """Load checkpoint hyperparameters, returning an empty mapping when absent."""
     path = os.path.join(directory, _HYPERPARAMETERS_FILE)
     if not os.path.exists(path):
         return {}
@@ -33,7 +35,7 @@ def load_hyperparameters_json(directory: str) -> dict[str, Any]:
 
 def load_native_checkpoint(model: Any, directory: str) -> dict[str, Any]:
     """Load a component-stack checkpoint into *model*'s bridge."""
-    bridge: ComponentDRPBridge = getattr(model, "_bridge", None) or getattr(model, "_component_bridge")
+    bridge: ComponentDRPBridge = getattr(model, "_bridge", None) or model._component_bridge
     hyperparameters = load_hyperparameters_json(directory)
     if hyperparameters:
         model.build_model(hyperparameters)
@@ -44,6 +46,7 @@ def load_native_checkpoint(model: Any, directory: str) -> dict[str, Any]:
 
 
 def naive_predictor_type_for_model(model: Any) -> str:
+    """Resolve the registered component predictor for a legacy naive model."""
     predictor_type = NAIVE_PREDICTOR_BY_MODEL_NAME.get(model.get_model_name())
     if predictor_type is None:
         msg = f"No component predictor registered for {model.get_model_name()!r}"
@@ -52,6 +55,7 @@ def naive_predictor_type_for_model(model: Any) -> str:
 
 
 def load_legacy_naive_checkpoint(model: Any, directory: str) -> None:
+    """Restore a legacy JSON naive-model checkpoint into the component stack."""
     path = os.path.join(directory, "naive_model.json")
     with open(path) as handle:
         config = json.load(handle)
@@ -75,6 +79,7 @@ def load_legacy_naive_checkpoint(model: Any, directory: str) -> None:
 
 
 def load_legacy_sklearn_checkpoint(model: Any, directory: str) -> None:
+    """Restore legacy sklearn and preprocessing artifacts into the component stack."""
     model_path = os.path.join(directory, "model.pkl")
     if not os.path.exists(model_path):
         msg = f"{model_path} not found"

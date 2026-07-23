@@ -24,6 +24,7 @@ def naive_state_from_bridge(bridge: ComponentDRPBridge) -> dict[str, Any]:
 
 
 def sklearn_estimator_from_bridge(bridge: ComponentDRPBridge) -> Any | None:
+    """Return the fitted sklearn estimator exposed by a legacy wrapper."""
     predictor = _composed_predictor(bridge)
     if predictor is None:
         return None
@@ -32,18 +33,21 @@ def sklearn_estimator_from_bridge(bridge: ComponentDRPBridge) -> Any | None:
 
 
 def sklearn_featurizer_state_from_bridge(bridge: ComponentDRPBridge) -> dict[str, object]:
+    """Return preprocessing state exposed by a legacy sklearn wrapper."""
     composed = bridge.composed
     if composed is None or composed._cell_line_featurizer is None:
         return {}
     from drevalpy.components.featurizers.cell_line.concat import ConcatFeaturizersCellLineFeaturizer
+    from drevalpy.models._legacy_featurizer_state import collect_legacy_concat_state
 
     featurizer = composed._cell_line_featurizer
     if isinstance(featurizer, ConcatFeaturizersCellLineFeaturizer):
-        return ConcatFeaturizersCellLineFeaturizer.collect_legacy_state(featurizer)
+        return collect_legacy_concat_state(featurizer)
     return featurizer.get_state()
 
 
 def literature_engine_from_bridge(bridge: ComponentDRPBridge) -> Any | None:
+    """Return the underlying literature engine or model from the component stack."""
     predictor = _composed_predictor(bridge)
     if predictor is None:
         return None
@@ -51,6 +55,7 @@ def literature_engine_from_bridge(bridge: ComponentDRPBridge) -> Any | None:
 
 
 def literature_model_from_bridge(bridge: ComponentDRPBridge) -> Any | None:
+    """Return the fitted literature model exposed by a legacy wrapper."""
     predictor = _composed_predictor(bridge)
     if predictor is None:
         return None
@@ -58,11 +63,13 @@ def literature_model_from_bridge(bridge: ComponentDRPBridge) -> Any | None:
 
 
 def literature_featurizer_views_from_bridge(bridge: ComponentDRPBridge) -> list[str] | None:
+    """Return legacy cell-line view names stored in featurizer state."""
     state = sklearn_featurizer_state_from_bridge(bridge)
     return state_str_list(state, "views")
 
 
 def literature_input_dims_from_bridge(bridge: ComponentDRPBridge) -> dict[str, int] | None:
+    """Return legacy per-view input dimensions derived from featurizer state."""
     state = sklearn_featurizer_state_from_bridge(bridge)
     view_dims = state.get("view_dims")
     if isinstance(view_dims, dict) and view_dims:

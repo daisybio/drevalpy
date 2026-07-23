@@ -17,7 +17,7 @@ from drevalpy.components.predictors.literature.impl.druggnn.drug_gnn import (
 )
 from drevalpy.components.predictors.structured import StructuredPredictor
 from drevalpy.components.registry import register_predictor
-from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.datasets.dataset import DrugResponseDataset
 
 
 @register_predictor(
