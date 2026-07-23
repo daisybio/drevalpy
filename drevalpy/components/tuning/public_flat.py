@@ -14,15 +14,25 @@ from .compatibility_keys import append_featurizer_flat_keys
 from .search_space import apply_merged_to_model_config
 
 
-def public_hyperparameters_from_config(config: ModelConfig) -> dict[str, Any]:
-    """Flatten a model config into legacy public ``build_model`` hyperparameters."""
+def public_hyperparameters_from_config(
+    config: ModelConfig,
+    *,
+    include_view_keys: bool = False,
+) -> dict[str, Any]:
+    """Flatten a model config into public ``build_model`` hyperparameters.
+
+    By default, deprecated ``cell_line_views`` / ``drug_views`` keys are omitted;
+    featurizer composition already encodes the inputs. Pass
+    ``include_view_keys=True`` only for explicit legacy serialization.
+    """
     flat: dict[str, Any] = {}
-    cell_line_views = cell_line_views_from_model_config(config)
-    drug_views = drug_views_from_model_config(config)
-    if cell_line_views:
-        flat["cell_line_views"] = cell_line_views
-    if drug_views:
-        flat["drug_views"] = drug_views
+    if include_view_keys:
+        cell_line_views = cell_line_views_from_model_config(config)
+        drug_views = drug_views_from_model_config(config)
+        if cell_line_views:
+            flat["cell_line_views"] = cell_line_views
+        if drug_views:
+            flat["drug_views"] = drug_views
     if config.predictor is not None:
         predictor_cls = get_predictor(config.predictor.name)
         engine_cls = getattr(predictor_cls, "_engine_cls", None)

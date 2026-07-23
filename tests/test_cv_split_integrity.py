@@ -15,7 +15,8 @@ import pytest
 
 from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.experiment import get_datasets_from_cv_split
-from drevalpy.models import MODEL_FACTORY
+from drevalpy.models import construct_model
+from drevalpy.models._model_lookup import single_drug_model_names
 
 
 class TestTissueColumnPreservation:
@@ -180,7 +181,7 @@ class TestCVSplitDataLeakage:
 
         :param sample_cv_split: pytest fixture providing sample CV split data
         """
-        model_class = MODEL_FACTORY["ElasticNet"]
+        model_class = construct_model("ElasticNet")
 
         train, val, es, test = get_datasets_from_cv_split(
             split=sample_cv_split, model_class=model_class, model_name="ElasticNet"
@@ -204,7 +205,7 @@ class TestCVSplitDataLeakage:
 
         :param sample_cv_split: pytest fixture providing sample CV split data
         """
-        model_class = MODEL_FACTORY["SimpleNeuralNetwork"]  # Uses early stopping
+        model_class = construct_model("SimpleNeuralNetwork")  # Uses early stopping
 
         train, val, es, test = get_datasets_from_cv_split(
             split=sample_cv_split, model_class=model_class, model_name="SimpleNeuralNetwork"
@@ -236,7 +237,7 @@ class TestCVSplitDataLeakage:
         models_to_test = ["ElasticNet", "RandomForest", "ElasticNet"]
 
         for model_name in models_to_test:
-            model_class = MODEL_FACTORY[model_name]
+            model_class = construct_model(model_name)
 
             train, val, es, test = get_datasets_from_cv_split(
                 split=sample_cv_split, model_class=model_class, model_name=model_name
@@ -263,7 +264,7 @@ class TestCVSplitDataLeakage:
         original_test_cell_lines = set(sample_cv_split["test"].cell_line_ids)
 
         for model_name in ["ElasticNet", "SimpleNeuralNetwork"]:
-            model_class = MODEL_FACTORY[model_name]
+            model_class = construct_model(model_name)
 
             train, val, es, test = get_datasets_from_cv_split(
                 split=sample_cv_split, model_class=model_class, model_name=model_name
@@ -284,7 +285,7 @@ class TestCVSplitDataLeakage:
 
         :param sample_cv_split: pytest fixture providing sample CV split data
         """
-        model_class = MODEL_FACTORY["ElasticNet"]
+        model_class = construct_model("ElasticNet")
 
         train, val, es, test = get_datasets_from_cv_split(
             split=sample_cv_split, model_class=model_class, model_name="ElasticNet"
@@ -301,7 +302,7 @@ class TestCVSplitDataLeakage:
 
         :param sample_cv_split: pytest fixture providing sample CV split data
         """
-        model_class = MODEL_FACTORY["SimpleNeuralNetwork"]
+        model_class = construct_model("SimpleNeuralNetwork")
 
         train, val, es, test = get_datasets_from_cv_split(
             split=sample_cv_split, model_class=model_class, model_name="SimpleNeuralNetwork"
@@ -318,7 +319,7 @@ class TestCVSplitDataLeakage:
 
         :param sample_cv_split: pytest fixture providing sample CV split data
         """
-        model_class = MODEL_FACTORY["ElasticNet"]
+        model_class = construct_model("ElasticNet")
 
         train, val, es, test = get_datasets_from_cv_split(
             split=sample_cv_split, model_class=model_class, model_name="ElasticNet"
@@ -382,16 +383,15 @@ class TestSingleDrugModelSplits:
 
         :param sample_cv_split_multi_drug: pytest fixture providing sample CV split with multiple drugs
         """
-        from drevalpy.models import SINGLE_DRUG_MODEL_FACTORY
-
-        if len(SINGLE_DRUG_MODEL_FACTORY) == 0:
+        single_drug_names = single_drug_model_names()
+        if len(single_drug_names) == 0:
             pytest.skip("No single-drug models available")
 
         # Prefer a non-early-stopping single-drug model; this fixture has no ES splits.
         model_name = "SingleDrugElasticNet"
-        if model_name not in SINGLE_DRUG_MODEL_FACTORY:
-            model_name = next(name for name, cls in SINGLE_DRUG_MODEL_FACTORY.items() if not cls.early_stopping)
-        model_class = SINGLE_DRUG_MODEL_FACTORY[model_name]
+        if model_name not in single_drug_names:
+            model_name = next(name for name in single_drug_names if not construct_model(name).early_stopping)
+        model_class = construct_model(model_name)
 
         target_drug = "DrugA"
 
@@ -409,15 +409,14 @@ class TestSingleDrugModelSplits:
 
         :param sample_cv_split_multi_drug: pytest fixture providing sample CV split with multiple drugs
         """
-        from drevalpy.models import SINGLE_DRUG_MODEL_FACTORY
-
-        if len(SINGLE_DRUG_MODEL_FACTORY) == 0:
+        single_drug_names = single_drug_model_names()
+        if len(single_drug_names) == 0:
             pytest.skip("No single-drug models available")
 
         model_name = "SingleDrugElasticNet"
-        if model_name not in SINGLE_DRUG_MODEL_FACTORY:
-            model_name = next(name for name, cls in SINGLE_DRUG_MODEL_FACTORY.items() if not cls.early_stopping)
-        model_class = SINGLE_DRUG_MODEL_FACTORY[model_name]
+        if model_name not in single_drug_names:
+            model_name = next(name for name in single_drug_names if not construct_model(name).early_stopping)
+        model_class = construct_model(model_name)
 
         original_train_len = len(sample_cv_split_multi_drug["train"].response)
         original_drugs = set(sample_cv_split_multi_drug["train"].drug_ids)

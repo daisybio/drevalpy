@@ -12,7 +12,7 @@ from .datasets.splits import validate_split_label
 from .datasets.utils import ALLOWED_MEASURES
 from .evaluation import AVAILABLE_METRICS
 from .experiment import drug_response_experiment, pipeline_function
-from .models import MODEL_FACTORY
+from .models._model_lookup import get_model_class, known_model_names
 
 
 def check_arguments(args) -> None:
@@ -24,23 +24,24 @@ def check_arguments(args) -> None:
     :raises ValueError: if the number of cross-validation splits or curve_curator_cores is less than 1
     :raises FileNotFoundError: if a custom dataset name was specified and the input file could not be found.
     """
+    available_models = known_model_names(include_external=True)
     if not args.models:
         raise AssertionError("At least one model must be specified")
-    if not all(model in MODEL_FACTORY for model in args.models):
+    if not all(model in available_models for model in args.models):
         raise AssertionError(
-            f"Invalid model name. Available models are {list(MODEL_FACTORY.keys())}. If you want to "
-            f"use your own model, you need to implement a new model class and add it to the "
-            f"MODEL_FACTORY in the models init"
+            f"Invalid model name. Available models are {available_models}. If you want to "
+            f"use your own model, register components and a zoo preset, then resolve it with "
+            f"construct_model / ModelConfig.from_spec."
         )
     if not all(test in ["LPO", "LCO", "LDO", "LTO"] for test in args.test_mode):
         raise AssertionError("Invalid test mode. Available test modes are LPO, LCO, LDO, LTO")
 
     if args.baselines is not None:
-        if not all(baseline in MODEL_FACTORY for baseline in args.baselines):
+        if not all(baseline in available_models for baseline in args.baselines):
             raise AssertionError(
-                f"Invalid baseline name. Available baselines are {list(MODEL_FACTORY.keys())}. If you "
-                f"want to use your own baseline, you need to implement a new model class and add it to "
-                f"the MODEL_FACTORY in the models init"
+                f"Invalid baseline name. Available baselines are {available_models}. If you "
+                f"want to use your own baseline, register components and a zoo preset, then "
+                f"resolve it with construct_model / ModelConfig.from_spec."
             )
     if args.dataset_name not in AVAILABLE_DATASETS:
         if not args.no_refitting:
@@ -138,10 +139,10 @@ def main(args) -> None:
         normalize=getattr(args, "curve_curator_normalize", False),
     )
 
-    models = [MODEL_FACTORY[model] for model in args.models]
+    models = [get_model_class(model) for model in args.models]
 
     if args.baselines is not None:
-        baselines = [MODEL_FACTORY[baseline] for baseline in args.baselines]
+        baselines = [get_model_class(baseline) for baseline in args.baselines]
     else:
         baselines = []
 

@@ -4,7 +4,7 @@ import numpy as np
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.experiment import train_and_predict
-from drevalpy.models import MODEL_FACTORY
+from drevalpy.models import NaivePredictor
 
 
 def test_train_and_predict_does_not_mutate_with_reduce_to(data_dir):
@@ -32,7 +32,7 @@ def test_train_and_predict_does_not_mutate_with_reduce_to(data_dir):
     original_train_len = len(train)
     original_test_len = len(test)
 
-    model = MODEL_FACTORY["NaivePredictor"]()
+    model = NaivePredictor()
 
     # Create FeatureDataset with only some cell lines, forces reduce_to to remove rows
     cl_features = FeatureDataset(

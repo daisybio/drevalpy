@@ -10,7 +10,7 @@ import pytest
 from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.evaluation import evaluate
 from drevalpy.experiment import cross_study_prediction
-from drevalpy.models import MODEL_FACTORY
+from drevalpy.models import construct_model
 from drevalpy.models.drp_model import DRPModel
 
 
@@ -59,7 +59,7 @@ def test_global_models(
     if model_name.startswith("SimpleNeuralNetwork"):
         model_name = "SimpleNeuralNetwork"
 
-    model_class = cast(type[DRPModel], MODEL_FACTORY[model_name])
+    model_class = cast(type[DRPModel], construct_model(model_name))
     model = model_class()
     hpams = model.get_hyperparameter_set()
     hpam_combi = hpams[0]
@@ -217,7 +217,7 @@ def test_multi_view_neural_network_custom_views(sample_dataset: DrugResponseData
         es_dataset = split["early_stopping"]
         val_es_dataset = split["validation_es"]
 
-        model_class = cast(type[DRPModel], MODEL_FACTORY["MultiViewNeuralNetwork"])
+        model_class = cast(type[DRPModel], construct_model("MultiViewNeuralNetwork"))
         model = model_class()
 
         hpam_combi = {

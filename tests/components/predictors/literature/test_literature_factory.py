@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from drevalpy.models import MODEL_FACTORY
+from drevalpy.models import construct_model
 from drevalpy.models._native_drp_model import NativeDRPModel
 from drevalpy.models.config import ModelConfig
 
@@ -27,7 +27,7 @@ LITERATURE_FACTORY_NAMES = [
 
 @pytest.mark.parametrize("name", LITERATURE_FACTORY_NAMES)
 def test_literature_factory_entries_are_native_facades(name: str) -> None:
-    cls = MODEL_FACTORY[name]
+    cls = construct_model(name)
     assert issubclass(cls, NativeDRPModel)
     assert cls.__module__ == "drevalpy.models"
 
@@ -35,7 +35,7 @@ def test_literature_factory_entries_are_native_facades(name: str) -> None:
 @pytest.mark.parametrize("name", LITERATURE_FACTORY_NAMES)
 def test_model_config_and_factory_share_zoo_name(name: str) -> None:
     config = ModelConfig.from_spec(name)
-    model_cls = MODEL_FACTORY[name]
+    model_cls = construct_model(name)
     config.validate()
     assert model_cls.get_model_name() == name
 

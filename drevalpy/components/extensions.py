@@ -149,7 +149,7 @@ def load_extensions(
         modules: Installed module names to import.
         files: Individual ``.py`` extension files.
         directories: Directories scanned for ``*.py`` extension files.
-        zoo_files: External zoo YAML files merged into ``MODEL_FACTORY``.
+        zoo_files: External zoo YAML files resolved via ``ModelConfig`` / ``construct_model``.
     """
     for module_name in modules or []:
         load_extension_module(module_name)

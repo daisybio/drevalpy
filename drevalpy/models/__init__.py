@@ -3,11 +3,18 @@
 Root exports (`MODEL_FACTORY`, named facade classes, `construct_model`) are
 generated from zoo presets and backed by a single `NativeDRPModel` facade.
 Component registration plus `ModelConfig` is the supported extension path.
+
+The factory dictionaries (`MODEL_FACTORY`, `MULTI_DRUG_MODEL_FACTORY`,
+`SINGLE_DRUG_MODEL_FACTORY`) are deprecated compatibility catalogs. Prefer
+``construct_model(name)``, ``ModelConfig.from_spec(name)``, and
+``list_zoo_names(scope=...)``.
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
+
+from drevalpy._deprecations import FACTORY_DICT_NAMES, warn_deprecated
 
 from .drp_model import DRPModel
 
@@ -96,11 +103,30 @@ def _lazy_load_public_models() -> None:
     _LAZY_LOADED = True
 
 
+_FACTORY_PUBLIC_TO_PRIVATE = {
+    "MULTI_DRUG_MODEL_FACTORY": "_FACTORY_MULTI",
+    "SINGLE_DRUG_MODEL_FACTORY": "_FACTORY_SINGLE",
+    "MODEL_FACTORY": "_FACTORY_ALL",
+}
+
+
 def __getattr__(name: str) -> Any:
     if name == "construct_model":
         from ._construct_model_api import construct_model
 
         return construct_model
+    if name in FACTORY_DICT_NAMES:
+        warn_deprecated(
+            what=name,
+            replacement=(
+                'construct_model("ModelName"), ModelConfig.from_spec("ModelName"), or list_zoo_names(scope=...)'
+            ),
+            stacklevel=2,
+        )
+        _lazy_load_public_models()
+        value = globals()[_FACTORY_PUBLIC_TO_PRIVATE[name]]
+        globals()[name] = value
+        return value
     if name in __all__ and name != "DRPModel":
         _lazy_load_public_models()
         return globals()[name]

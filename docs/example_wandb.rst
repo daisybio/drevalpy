@@ -11,21 +11,11 @@ by just supplying an extra parameter ``--wandb_project``:
 You will be asked to generate an API key in the console. After inputting it, your project is connected to your
 wandb account and you can look at your models online.
 
-Example: Compare Flexible Inputs for DrEvalPy's Baselines
--------------------------------------------------------------
+Example: Compare baselines with wandb
+-------------------------------------
 
-Through :ref:`flexible-inputs`, omic input is a hyperparameter for sklearn and neural-network baselines.
-With wandb, we can compare model performances:
-
-.. code-block:: yaml
-
-    [All sklearn models]:
-      cell_line_views:
-        - gene_expression
-        - proteomics
-      drug_views:
-        - fingerprints
-      ..
+Configure inputs with zoo featurizer recipes (:ref:`flexible-inputs`). Then
+compare model performances in wandb:
 
 .. code-block:: bash
 
@@ -34,6 +24,11 @@ With wandb, we can compare model performances:
              --baselines ElasticNet NaiveMeanEffectsPredictor GradientBoosting AdaBoostDecisionTree \
              --dataset_name TOYv1 \
              --wandb_project compare_baselines
+
+To compare modalities, register separate zoo presets (for example
+``scaledGeneExpression:fingerprints:randomForest`` vs
+``normalizedProteomics:fingerprints:randomForest``) rather than using deprecated
+flat ``cell_line_views`` / ``drug_views`` lists.
 
 With ``+ Add Panels``, you can add interesting visualization. Add ``Parameter Importance`` (with respect to
 val_R^2) and select your hyperparameters of interest to be visible:

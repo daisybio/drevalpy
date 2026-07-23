@@ -7,7 +7,7 @@ import tempfile
 import numpy as np
 import pytest
 
-from drevalpy.models import MODEL_FACTORY, construct_model
+from drevalpy.models import construct_model
 from drevalpy.models.config import ModelConfig
 from tests.models.synthetic_fixtures import (
     cell_line_gene_expression,
@@ -46,7 +46,7 @@ def _training_inputs(model_name: str) -> tuple:
 def _model_class(model_name: str, entrypoint: str):
     if entrypoint == "construct_model":
         return construct_model(model_name, "pca[expression]:identity:randomForest")
-    return MODEL_FACTORY[model_name]
+    return construct_model(model_name)
 
 
 @pytest.mark.parametrize(("model_name", "entrypoint"), _PARITY_CASES)

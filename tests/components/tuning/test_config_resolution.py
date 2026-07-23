@@ -9,12 +9,12 @@ from drevalpy.components.tuning.config_resolution import (
     has_tunable_hyperparameters,
     structured_space_for_drp_model,
 )
-from drevalpy.models import MODEL_FACTORY
+from drevalpy.models import construct_model
 
 
 def test_default_config_for_elastic_net_is_component_local() -> None:
     register_builtins.register_builtin_components()
-    config = default_config_for_drp_model(MODEL_FACTORY["ElasticNet"])
+    config = default_config_for_drp_model(construct_model("ElasticNet"))
     assert config is not None
     assert config.predictor.name == "elasticNet"
     assert_component_local_hyperparameters(config)
@@ -22,5 +22,5 @@ def test_default_config_for_elastic_net_is_component_local() -> None:
 
 def test_structured_space_for_naive_is_empty() -> None:
     register_builtins.register_builtin_components()
-    assert structured_space_for_drp_model(MODEL_FACTORY["NaivePredictor"]) == {}
-    assert has_tunable_hyperparameters(MODEL_FACTORY["NaivePredictor"]) is False
+    assert structured_space_for_drp_model(construct_model("NaivePredictor")) == {}
+    assert has_tunable_hyperparameters(construct_model("NaivePredictor")) is False

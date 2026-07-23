@@ -18,8 +18,21 @@ def featurizer_configs_from_view_hyperparameters(
     """Build featurizer configs when view hyperparameters are explicitly set.
 
     Prefer ``drevalpy.models.flat_hyperparameters.apply_public_flat_hyperparameters``
-    for full flat-HP application; this helper remains for view-only construction.
+    for full flat-HP application. This helper remains for view-only construction
+    and is deprecated alongside ``cell_line_views`` / ``drug_views``.
     """
+    if "cell_line_views" in hyperparameters or "drug_views" in hyperparameters:
+        from drevalpy._deprecations import warn_deprecated
+
+        warn_deprecated(
+            what="featurizer_configs_from_view_hyperparameters",
+            replacement=(
+                "ModelConfig featurizer blocks, recipe strings, or "
+                "apply_public_flat_hyperparameters with explicit featurizer configs"
+            ),
+            stacklevel=3,
+        )
+
     cell_line_featurizer = None
     drug_featurizer = None
 

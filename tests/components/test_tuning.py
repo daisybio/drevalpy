@@ -9,7 +9,7 @@ import pytest
 
 from drevalpy.components.tuning.config import HPOConfig
 from drevalpy.components.tuning.search_space import dict_to_ray_space, merge_model_config_spaces
-from drevalpy.models import MODEL_FACTORY, construct_model
+from drevalpy.models import construct_model
 from drevalpy.models.config import ModelConfig
 
 
@@ -72,7 +72,7 @@ def test_hpam_tune_ray_optuna_uses_optuna(monkeypatch) -> None:
 
     from drevalpy.datasets.dataset import DrugResponseDataset
 
-    model_cls = MODEL_FACTORY["ElasticNet"]
+    model_cls = construct_model("ElasticNet")
     model = model_cls()
     train = DrugResponseDataset(
         response=np.array([1.0, 2.0]),
@@ -103,9 +103,8 @@ def test_hpam_tune_ray_optuna_smoke(tmp_path, data_dir) -> None:
 
     from drevalpy import experiment
     from drevalpy.datasets.dataset import DrugResponseDataset
-    from drevalpy.models import MODEL_FACTORY
 
-    model_cls = MODEL_FACTORY["ElasticNet"]
+    model_cls = construct_model("ElasticNet")
     model = model_cls()
     model.build_model(model.get_default_hyperparameters())
     cell_line_input = model.load_cell_line_features(data_path=str(data_dir), dataset_name="TOYv1")

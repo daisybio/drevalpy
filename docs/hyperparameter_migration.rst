@@ -28,12 +28,56 @@ Configuring inputs
 
 Use one of:
 
-- Zoo presets in ``drevalpy/models/zoo/*.yaml``
+- Zoo presets in ``drevalpy/models/zoo/*.yaml`` with explicit
+  ``cell_line_featurizer`` / ``drug_featurizer`` blocks
 - ``ModelConfig.from_spec()`` / ``ModelConfig.from_yaml()``
-- Public hyperparameters ``cell_line_views`` and ``drug_views`` for sklearn baselines
+- Recipe strings such as ``raw[proteomics]:fingerprints:randomForest``
 
 Multi-view models such as ``MultiViewXGBoost`` and ``MultiViewLightGBM`` are expressed
 by composing featurizers in zoo YAML, not by special multi-view predictor classes.
+
+Migrating flat ``build_model`` view keys
+----------------------------------------
+
+Legacy flexible-input keys still work but are deprecated:
+
+.. code-block:: yaml
+
+    # Deprecated hpam / build_model YAML
+    cell_line_views: [proteomics]
+    drug_views: [fingerprints]
+
+Replace with an explicit featurizer recipe or zoo blocks:
+
+.. code-block:: text
+
+    normalizedProteomics:fingerprints:randomForest
+
+.. code-block:: yaml
+
+    # Zoo YAML
+    cell_line_featurizer: normalizedProteomics
+    drug_featurizer: fingerprints
+    predictor: randomForest
+
+.. list-table::
+   :header-rows: 1
+   :widths: 45 55
+
+   * - Legacy flat key
+     - Modern replacement
+   * - ``cell_line_views: [gene_expression]``
+     - ``scaledGeneExpression`` / ``landmarkGeneExpression``
+   * - ``cell_line_views: [proteomics]``
+     - ``normalizedProteomics``
+   * - ``cell_line_views: [methylation]``
+     - ``pca[methylation]`` (+ ``n_components``)
+   * - unknown view name
+     - ``raw[view]``
+   * - ``drug_views: [fingerprints]``
+     - ``fingerprints``
+
+See :doc:`example_flexible_inputs` and :doc:`model_architecture`.
 
 Translating old YAML grids
 --------------------------

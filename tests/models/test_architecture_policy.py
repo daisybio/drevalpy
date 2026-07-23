@@ -6,7 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from drevalpy.models import MODEL_FACTORY
+from drevalpy.models import construct_model
+from drevalpy.models._model_lookup import known_model_names
 from drevalpy.models._native_drp_model import NativeDRPModel
 
 _FORBIDDEN_MODULE_FRAGMENTS = (
@@ -49,9 +50,9 @@ def test_no_forbidden_runtime_imports_in_source() -> None:
     assert not hits, f"Forbidden imports/references remain: {hits}"
 
 
-@pytest.mark.parametrize("model_name", sorted(MODEL_FACTORY))
+@pytest.mark.parametrize("model_name", known_model_names(include_external=False))
 def test_factory_classes_are_canonical_facades(model_name: str) -> None:
-    cls = MODEL_FACTORY[model_name]
+    cls = construct_model(model_name)
     assert issubclass(cls, NativeDRPModel)
     assert cls.__module__ == "drevalpy.models"
     assert getattr(cls, "_model_spec", None) == model_name

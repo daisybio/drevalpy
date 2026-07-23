@@ -91,7 +91,7 @@ def build_model_config_from_spec(
 
     1. ``cellLine:drug:predictor`` registry triple
     2. Built-in or external zoo preset name
-    3. Legacy ``MODEL_FACTORY`` model name (PascalCase)
+    3. Zoo / catalog model name (PascalCase factory name)
     4. Baseline predictor token (no featurizers required), e.g. ``naiveMean`` or ``dipk``
     """
     from drevalpy.models.factory import model_config_for_name
@@ -135,6 +135,6 @@ def build_model_config_from_spec(
 
     msg = (
         f"Unknown model spec {spec!r}. Use a recipe triple "
-        "(cellLine:drug:predictor), zoo name, legacy model name, or baseline predictor token."
+        "(cellLine:drug:predictor), zoo name, or baseline predictor token."
     )
     raise ValueError(msg)

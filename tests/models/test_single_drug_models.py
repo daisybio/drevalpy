@@ -16,7 +16,7 @@ from drevalpy.experiment import (
     get_datasets_from_cv_split,
     train_and_predict,
 )
-from drevalpy.models import MODEL_FACTORY
+from drevalpy.models import construct_model
 from drevalpy.visualization.utils import evaluate_file
 
 
@@ -61,7 +61,7 @@ def test_single_drug_models(
     sample_dataset.split_dataset(n_cv_splits=2, mode=test_mode, random_state=42, validation_ratio=0.4)
     assert sample_dataset.cv_splits is not None
     split = sample_dataset.cv_splits[0]
-    model = MODEL_FACTORY[model_name]()
+    model = construct_model(model_name)()
 
     # test what happens if a drug is only in the original dataset, not in the cross-study dataset
     exclusive_drugs = list(set(sample_dataset.drug_ids).difference(set(cross_study_dataset.drug_ids)))
@@ -98,7 +98,7 @@ def test_single_drug_models(
         hpam_combi["epochs"] = 1
 
     for random_drug in random_drugs:
-        model = MODEL_FACTORY[model_name]()
+        model = construct_model(model_name)()
         predictions_path = generate_data_saving_path(
             model_name=model_name,
             drug_id=str(random_drug),
@@ -111,7 +111,7 @@ def test_single_drug_models(
             validation_dataset,
             early_stopping_dataset,
             test_dataset,
-        ) = get_datasets_from_cv_split(split, MODEL_FACTORY[model_name], model_name, random_drug)
+        ) = get_datasets_from_cv_split(split, construct_model(model_name), model_name, random_drug)
         train_dataset.add_rows(validation_dataset)
         if random_drug == drug_to_remove:
             reduce_to_drugs = np.array(list(set(train_dataset.drug_ids) - {random_drug}))
@@ -137,7 +137,7 @@ def test_single_drug_models(
                 try:
 
                     model.save(model_dir)
-                    loaded_model = MODEL_FACTORY[model_name].load(model_dir)
+                    loaded_model = construct_model(model_name).load(model_dir)
 
                     # Re-run prediction with loaded model
                     preds_original = model.predict(
@@ -173,7 +173,7 @@ def test_single_drug_models(
         )
         test_dataset.to_csv(prediction_file)
     consolidate_single_drug_model_predictions(
-        models=[MODEL_FACTORY[model_name]],
+        models=[construct_model(model_name)],
         n_cv_splits=1,
         results_path=result_path.name,
         cross_study_datasets=[cross_study_dataset.dataset_name],

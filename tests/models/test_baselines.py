@@ -12,7 +12,6 @@ from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, TISSU
 from drevalpy.evaluation import evaluate
 from drevalpy.experiment import cross_study_prediction
 from drevalpy.models import (
-    MODEL_FACTORY,
     NaiveCellLineMeanPredictor,
     NaiveDrugMeanPredictor,
     NaiveMeanEffectsPredictor,
@@ -20,6 +19,7 @@ from drevalpy.models import (
     NaiveTissueDrugMeanPredictor,
     NaiveTissueMeanPredictor,
     RandomForest,
+    construct_model,
 )
 from drevalpy.models.drp_model import DRPModel
 
@@ -194,7 +194,7 @@ def test_baselines(
 
     with tempfile.TemporaryDirectory() as model_dir:
         model.save(model_dir)
-        loaded_model = MODEL_FACTORY[model_name].load(model_dir)
+        loaded_model = construct_model(model_name).load(model_dir)
         train_dataset, val_dataset, cell_line_input, drug_input = _subset_dataset(
             model=loaded_model, train_dataset=train_dataset, val_dataset=val_dataset, data_dir=data_dir
         )
@@ -306,7 +306,7 @@ def _call_naive_group_predictor(
 
 
 def _call_other_baselines(model: str, train_dataset: DrugResponseDataset, val_dataset: DrugResponseDataset, data_dir):
-    model_class = MODEL_FACTORY[model]
+    model_class = construct_model(model)
     hpams = model_class.get_hyperparameter_set()
     if len(hpams) > 2:
         if model in {

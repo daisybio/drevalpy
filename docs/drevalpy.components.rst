@@ -3,7 +3,7 @@ drevalpy.components package
 
 Composable building blocks: featurizers, predictors, registries, and extension loading.
 
-Model orchestration (``ModelConfig``, zoo, ``ComposedModel``, ``MODEL_FACTORY``) lives
+Model orchestration (``ModelConfig``, zoo, ``ComposedModel``, ``construct_model``) lives
 under :doc:`drevalpy.models`. See also :doc:`model_architecture` and :doc:`runyourmodel`.
 
 .. automodule:: drevalpy.components

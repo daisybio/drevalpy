@@ -21,29 +21,30 @@ from drevalpy.data.features import (
 )
 from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, TISSUE_IDENTIFIER
-from drevalpy.models import MODEL_FACTORY
+from drevalpy.models._model_lookup import known_model_names
 
 
 def test_factory() -> None:
-    """Test the model factory."""
-    assert "NaivePredictor" in MODEL_FACTORY
-    assert "NaiveDrugMeanPredictor" in MODEL_FACTORY
-    assert "NaiveCellLineMeanPredictor" in MODEL_FACTORY
-    assert "NaiveMeanEffectsPredictor" in MODEL_FACTORY
-    assert "NaiveTissueDrugMeanPredictor" in MODEL_FACTORY
-    assert "ElasticNet" in MODEL_FACTORY
-    assert "RandomForest" in MODEL_FACTORY
-    assert "SVR" in MODEL_FACTORY
-    assert "SimpleNeuralNetwork" in MODEL_FACTORY
-    assert "MultiViewNeuralNetwork" in MODEL_FACTORY
-    assert "MultiViewRandomForest" in MODEL_FACTORY
-    assert "SingleDrugRandomForest" in MODEL_FACTORY
-    assert "SRMF" in MODEL_FACTORY
-    assert "GradientBoosting" in MODEL_FACTORY
-    assert "MOLIR" in MODEL_FACTORY
-    assert "SuperFELTR" in MODEL_FACTORY
-    assert "DIPK" in MODEL_FACTORY
-    assert "SparseGO" in MODEL_FACTORY
+    """Test that known model names include the built-in zoo presets."""
+    names = set(known_model_names(include_external=False))
+    assert "NaivePredictor" in names
+    assert "NaiveDrugMeanPredictor" in names
+    assert "NaiveCellLineMeanPredictor" in names
+    assert "NaiveMeanEffectsPredictor" in names
+    assert "NaiveTissueDrugMeanPredictor" in names
+    assert "ElasticNet" in names
+    assert "RandomForest" in names
+    assert "SVR" in names
+    assert "SimpleNeuralNetwork" in names
+    assert "MultiViewNeuralNetwork" in names
+    assert "MultiViewRandomForest" in names
+    assert "SingleDrugRandomForest" in names
+    assert "SRMF" in names
+    assert "GradientBoosting" in names
+    assert "MOLIR" in names
+    assert "SuperFELTR" in names
+    assert "DIPK" in names
+    assert "SparseGO" in names
 
 
 def test_load_cl_ids_from_csv() -> None:

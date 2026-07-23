@@ -15,6 +15,13 @@ def test_construct_model_returns_drp_model_subclass() -> None:
     assert model_cls.get_model_name() == "PcaIdentityRF"
 
 
+def test_construct_model_one_arg_zoo_name() -> None:
+    model_cls = construct_model("ElasticNet")
+    assert issubclass(model_cls, DRPModel)
+    assert model_cls.get_model_name() == "ElasticNet"
+    assert construct_model("ElasticNet") is model_cls
+
+
 def test_construct_model_derives_early_stopping_from_predictor() -> None:
     model_cls = construct_model("DipkFacade", "DIPK")
     assert model_cls.early_stopping is True
@@ -23,6 +30,11 @@ def test_construct_model_derives_early_stopping_from_predictor() -> None:
 def test_construct_model_invalid_spec_raises() -> None:
     with pytest.raises(ValueError, match="Unknown model spec"):
         construct_model("BadModel", "not-a-valid-spec")
+
+
+def test_construct_model_one_arg_unknown_raises() -> None:
+    with pytest.raises(ValueError, match="Unknown model name"):
+        construct_model("not-a-valid-spec")
 
 
 def test_default_hyperparameters_for_constructed_pca_model() -> None:

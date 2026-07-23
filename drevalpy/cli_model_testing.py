@@ -13,11 +13,11 @@ import yaml
 def _prep_data_for_final_prediction(arguments: Namespace) -> tuple[Any, Any, Any, Any, Any, Any, Any]:
     """Load data and prepare it for final CV-fold training and prediction."""
     from drevalpy.experiment import get_datasets_from_cv_split, get_model_name_and_drug_id
-    from drevalpy.models import MODEL_FACTORY
+    from drevalpy.models._model_lookup import get_model_class
     from drevalpy.utils import get_response_transformation
 
     model_name, drug_id = get_model_name_and_drug_id(arguments.model_name)
-    model_class = MODEL_FACTORY[model_name]
+    model_class = get_model_class(model_name)
     model = model_class()
     with open(arguments.split_dataset_path, "rb") as split_file:
         split = pickle.load(split_file)
@@ -185,9 +185,9 @@ def run_train_and_predict_final(
 def run_randomization_split(*, model_name: str, randomization_mode: str) -> None:
     """Create randomization test view YAML files for a model."""
     from drevalpy.experiment import get_randomization_test_views
-    from drevalpy.models import MODEL_FACTORY
+    from drevalpy.models._model_lookup import get_model_class
 
-    model_class = MODEL_FACTORY[model_name]
+    model_class = get_model_class(model_name)
     randomization_test_views: dict[str, list[str]] = {}
     for hpam_combi in model_class.get_hyperparameter_set():
         model = model_class()
@@ -220,12 +220,12 @@ def run_final_split(
     """Create train/validation/early-stopping pickles for a final production model."""
     from drevalpy.datasets.dataset import split_early_stopping_data
     from drevalpy.experiment import make_train_val_split
-    from drevalpy.models import MODEL_FACTORY
+    from drevalpy.models._model_lookup import get_model_class
 
     with open(response, "rb") as response_file:
         response_data = pickle.load(response_file)
     response_data.remove_nan_responses()
-    model_class = MODEL_FACTORY[model_name]
+    model_class = get_model_class(model_name)
     model = model_class()
     cl_features = model.load_cell_line_features(data_path=path_data, dataset_name=response_data.dataset_name)
     drug_features = model.load_drug_features(data_path=path_data, dataset_name=response_data.dataset_name)
@@ -261,7 +261,7 @@ def run_tune_final_model(
 ) -> None:
     """Tune hyperparameters for the final model on full data."""
     from drevalpy.experiment import get_model_name_and_drug_id, train_and_predict
-    from drevalpy.models import MODEL_FACTORY
+    from drevalpy.models._model_lookup import get_model_class
     from drevalpy.utils import get_response_transformation
 
     with open(train_data, "rb") as train_file:
@@ -273,7 +273,7 @@ def run_tune_final_model(
     response_transform = get_response_transformation(response_transformation)
 
     resolved_name, _drug_id = get_model_name_and_drug_id(model_name)
-    model_class = MODEL_FACTORY[resolved_name]
+    model_class = get_model_class(resolved_name)
     with open(hpam_combi) as f:
         hpams = yaml.safe_load(f)
     model = model_class()
@@ -305,7 +305,7 @@ def run_train_final_model(
 ) -> None:
     """Train and save the final production model."""
     from drevalpy.experiment import generate_data_saving_path, get_model_name_and_drug_id
-    from drevalpy.models import MODEL_FACTORY
+    from drevalpy.models._model_lookup import get_model_class
     from drevalpy.utils import get_response_transformation
 
     resolved_name, _drug_id = get_model_name_and_drug_id(model_name)
@@ -327,7 +327,7 @@ def run_train_final_model(
             es_dataset.transform(response_transform)
     with open(best_hpam_combi) as f:
         best_hpam = yaml.safe_load(f)[f"{resolved_name}_final"]["best_hpam_combi"]
-    model = MODEL_FACTORY[resolved_name]()
+    model = get_model_class(resolved_name)()
     cl_features = model.load_cell_line_features(data_path=path_data, dataset_name=train_dataset.dataset_name)
     drug_features = model.load_drug_features(data_path=path_data, dataset_name=train_dataset.dataset_name)
     model.build_model(hyperparameters=best_hpam)
@@ -355,14 +355,14 @@ def run_consolidate_results(
 ) -> None:
     """Consolidate single-drug model prediction outputs."""
     from drevalpy.experiment import consolidate_single_drug_model_predictions
-    from drevalpy.models import MODEL_FACTORY
+    from drevalpy.models._model_lookup import get_model_class
 
     results_path = str(pathlib.Path(outdir_path) / run_id / test_mode)
     if randomization_modes == "[None]":
         randomizations = None
     else:
         randomizations = randomization_modes.split("[")[1].split("]")[0].split(", ")
-    model = MODEL_FACTORY[model_name]
+    model = get_model_class(model_name)
     cross_study = cross_study_datasets or []
     consolidate_single_drug_model_predictions(
         models=[model],

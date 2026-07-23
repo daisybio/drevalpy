@@ -9,7 +9,7 @@ import pytest
 
 from drevalpy.components.register_builtins import register_builtin_components
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
-from drevalpy.models import MODEL_FACTORY
+from drevalpy.models import construct_model
 
 
 @pytest.fixture(autouse=True)
@@ -85,7 +85,7 @@ LITERATURE_MODEL_NAMES = (
 
 @pytest.mark.parametrize("model_name", LITERATURE_MODEL_NAMES)
 def test_literature_models_build_with_defaults(model_name: str) -> None:
-    model = MODEL_FACTORY[model_name]()
+    model = construct_model(model_name)()
     hyperparameters = dict(model.get_hyperparameter_set()[0])
     if model_name == "DIPK":
         hyperparameters.update({"epochs": 1, "epochs_autoencoder": 1, "heads": 1})
@@ -123,7 +123,7 @@ def test_literature_model_lifecycle(
     data_factory: str,
 ) -> None:
     response, cell_line_input, drug_input = globals()[data_factory]()
-    model = MODEL_FACTORY[model_name]()
+    model = construct_model(model_name)()
     model.build_model(hyperparameters)
     model.train(response, cell_line_input, drug_input)
     preds = model.predict(

@@ -8,12 +8,12 @@ from drevalpy.components.tuning.public_flat import (
     model_config_for_drp_model,
     public_hyperparameters_from_config,
 )
-from drevalpy.models import MODEL_FACTORY, construct_model
+from drevalpy.models import construct_model
 
 
 def test_public_round_trip_for_factory_model() -> None:
     register_builtins.register_builtin_components()
-    model_cls = MODEL_FACTORY["ElasticNet"]
+    model_cls = construct_model("ElasticNet")
     config = model_config_for_drp_model(model_cls)
     assert config is not None
     public = public_hyperparameters_from_config(config)

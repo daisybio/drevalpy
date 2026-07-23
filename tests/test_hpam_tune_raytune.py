@@ -5,7 +5,7 @@ import numpy as np
 from drevalpy import experiment
 from drevalpy.components.tuning.config import HPOConfig
 from drevalpy.datasets.dataset import DrugResponseDataset
-from drevalpy.models import MODEL_FACTORY
+from drevalpy.models import construct_model
 
 
 def test_hpam_tune_raytune(tmp_path, data_dir):
@@ -26,7 +26,8 @@ def test_hpam_tune_raytune(tmp_path, data_dir):
         {"alpha": 5.0, "l1_ratio": 1.0, "cell_line_views": "gene_expression", "drug_views": "fingerprints"},
     ]
 
-    model = MODEL_FACTORY["ElasticNet"]()
+    model_cls = construct_model("ElasticNet")
+    model = model_cls()
     model.build_model(hyperparameters=hpam_set[0])
     cell_line_input = model.load_cell_line_features(data_path=str(data_dir), dataset_name="TOYv1")
     drug_input = model.load_drug_features(data_path=str(data_dir), dataset_name="TOYv1")
@@ -57,7 +58,7 @@ def test_hpam_tune_raytune(tmp_path, data_dir):
         metric="RMSE",
         ray_path=str(tmp_path),
         path_data=str(data_dir),
-        model_class=MODEL_FACTORY["ElasticNet"],
+        model_class=model_cls,
         hpo_config=HPOConfig.from_metric("RMSE", n_trials=2, storage_path=str(tmp_path)),
     )
     assert isinstance(best, dict)

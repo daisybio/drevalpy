@@ -15,7 +15,6 @@ from torch_geometric.data import Data
 from drevalpy.components.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors.literature.druggnn import DrugGNNPredictor
 from drevalpy.components.predictors.literature.neural_network import NeuralNetworkPredictor
-from drevalpy.components.predictors.literature.structured_engine_adapter import StructuredLiteratureEnginePredictor
 from drevalpy.components.predictors.literature.srmf_predictor import SRMFPredictor
 from drevalpy.components.predictors.sklearn_models import AdaBoostPredictor, RidgePredictor
 from drevalpy.components.predictors.state_errors import PredictorStateError

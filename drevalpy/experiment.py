@@ -22,7 +22,11 @@ except ImportError:
 from .datasets.dataset import DrugResponseDataset, FeatureDataset, split_early_stopping_data
 from .datasets.splits import ExternalSplitCreator, create_and_record_splits
 from .evaluation import get_mode
-from .models import MODEL_FACTORY, MULTI_DRUG_MODEL_FACTORY, SINGLE_DRUG_MODEL_FACTORY
+from .models._model_lookup import (
+    get_model_class,
+    is_multi_drug_model_name,
+    is_single_drug_model_name,
+)
 from .models.drp_model import DRPModel
 from .pipeline_function import pipeline_function
 
@@ -205,10 +209,10 @@ def drug_response_experiment(
     """
     seed_everything(42)
     # Default baseline model, needed for normalization
-    nme = MODEL_FACTORY["NaiveMeanEffectsPredictor"]
+    nme = get_model_class("NaiveMeanEffectsPredictor")
     if baselines is None:
         baselines = [nme]
-    elif nme not in baselines:
+    elif nme not in baselines and nme.get_model_name() not in {b.get_model_name() for b in baselines}:
         baselines.append(nme)
 
     cross_study_datasets = cross_study_datasets or []
@@ -234,8 +238,9 @@ def drug_response_experiment(
         print(f"Running {model_name}")
         model_name, drug_id = get_model_name_and_drug_id(model_name)
 
-        model_class = MODEL_FACTORY[model_name]
-        if model_class in baselines:
+        model_class = get_model_class(model_name)
+        baseline_names = {baseline.get_model_name() for baseline in baselines}
+        if model_name in baseline_names:
             print("- Only Baseline Tests -")
             is_baseline = True
         else:
@@ -412,7 +417,7 @@ def drug_response_experiment(
                         response_transformation=response_transformation,
                         path_out=parent_dir,
                         split_index=split_index,
-                        single_drug_id=(drug_id if model_name in SINGLE_DRUG_MODEL_FACTORY else None),
+                        single_drug_id=(drug_id if is_single_drug_model_name(model_name) else None),
                     )
 
                 test_dataset.to_csv(prediction_file)
@@ -523,8 +528,8 @@ def consolidate_single_drug_model_predictions(
         will be stored in the work directory.
     """
     for model in models:
-        if model.get_model_name() in SINGLE_DRUG_MODEL_FACTORY:
-            model_instance = MODEL_FACTORY[model.get_model_name()]()
+        if is_single_drug_model_name(model.get_model_name()):
+            model_instance = get_model_class(model.get_model_name())()
             model_path = os.path.join(results_path, model.get_model_name())
             out_path = os.path.join(out_path, model.get_model_name())
             os.makedirs(os.path.join(out_path, "predictions"), exist_ok=True)
@@ -1462,15 +1467,15 @@ def get_model_name_and_drug_id(model_name: str) -> tuple[str, str | None]:
     :returns: tuple of model name and, potentially drug id if it is a single drug model
     :raises AssertionError: if the model name is not found in the model factory
     """
-    if model_name in MULTI_DRUG_MODEL_FACTORY:
+    if is_multi_drug_model_name(model_name):
         return model_name, None
     else:
         name_split = model_name.split(".")
         model_name = name_split[0]
-        if model_name not in SINGLE_DRUG_MODEL_FACTORY:
+        if not is_single_drug_model_name(model_name):
             raise AssertionError(
-                f"Model {model_name} not found in MODEL_FACTORY or SINGLE_DRUG_MODEL_FACTORY. "
-                "Please add the model to the factory."
+                f"Model {model_name} not found in the built-in or external zoo. "
+                "Register a zoo preset or pass a known model name."
             )
         drug_id = name_split[1]
 
@@ -1503,7 +1508,7 @@ def get_datasets_from_cv_split(
     else:
         early_stopping_dataset = None
 
-    if model_name in SINGLE_DRUG_MODEL_FACTORY.keys():
+    if is_single_drug_model_name(model_name):
         output_mask = train_dataset.drug_ids == drug_id
         train_dataset.mask(output_mask)
         validation_mask = validation_dataset.drug_ids == drug_id
@@ -1536,7 +1541,7 @@ def generate_data_saving_path(model_name, drug_id, result_path, suffix) -> str:
     :param suffix: suffix to add to the path, e.g., "predictions", "best_hpams", "randomization", "robustness"
     :returns: path to save data to
     """
-    is_single_drug_model = model_name in SINGLE_DRUG_MODEL_FACTORY
+    is_single_drug_model = is_single_drug_model_name(model_name)
     if is_single_drug_model:
         model_path = os.path.join(result_path, model_name, "drugs", drug_id, suffix)
     else:

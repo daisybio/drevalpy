@@ -17,6 +17,16 @@ def test_builtin_zoo_lists_passing_models() -> None:
     assert "SingleDrugElasticNet" in names
 
 
+def test_list_zoo_names_filters_by_scope() -> None:
+    from drevalpy.types.model_scope import ModelScope
+
+    single = list_zoo_names(include_external=False, scope=ModelScope.SINGLE_DRUG)
+    multi = list_zoo_names(include_external=False, scope="multi_drug")
+    assert "SingleDrugElasticNet" in single
+    assert "ElasticNet" in multi
+    assert set(single).isdisjoint(multi)
+
+
 def test_zoo_elastic_net_defaults() -> None:
     zoo_config = get_zoo_config("ElasticNet")
     assert zoo_config.cell_line_featurizer is not None

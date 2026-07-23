@@ -13,13 +13,14 @@ Subpackages
 DrEvalPy consists of four major subpackages:
 
 * Datasets
-* Models (``ModelConfig``, zoo, ``ComposedModel``, ``MODEL_FACTORY``)
+* Models (``ModelConfig``, zoo, ``ComposedModel``, ``construct_model``)
 * Components (featurizers, predictors, registries — first-class building blocks)
 * Visualization
 
 Built-in models are composed from registered components; there is a single
-construction path via ``ModelConfig`` / zoo presets. See
-:doc:`model_architecture` and :doc:`runyourmodel`.
+construction path via ``ModelConfig`` / zoo presets / ``construct_model``.
+The ``MODEL_FACTORY`` dictionaries remain as a deprecated compatibility catalog.
+See :doc:`model_architecture` and :doc:`runyourmodel`.
 
 .. toctree::
    :maxdepth: 3

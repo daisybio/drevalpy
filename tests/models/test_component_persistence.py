@@ -9,10 +9,10 @@ import joblib
 import pytest
 
 from drevalpy.models._component_persistence import (
-    CorruptedCheckpointError,
     FORMAT_NAME,
     FORMAT_VERSION,
     STATE_FILE,
+    CorruptedCheckpointError,
     UnsupportedCheckpointFormatError,
     load_composed_model,
     save_composed_model,
@@ -105,5 +105,7 @@ def test_load_rejects_unfitted_checkpoint_state() -> None:
     }
     with tempfile.TemporaryDirectory() as directory:
         joblib.dump(payload, Path(directory) / STATE_FILE)
-        with pytest.raises(CorruptedCheckpointError, match="missing a fitted estimator|did not restore a fitted predictor"):
+        with pytest.raises(
+            CorruptedCheckpointError, match="missing a fitted estimator|did not restore a fitted predictor"
+        ):
             load_composed_model(directory)

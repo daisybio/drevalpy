@@ -11,7 +11,7 @@ import pytest
 from drevalpy.components.tuning.config import HPOConfig, build_experiment_hpo_config
 from drevalpy.components.tuning.hpo import hpam_tune_ray_optuna
 from drevalpy.datasets.dataset import DrugResponseDataset
-from drevalpy.models import MODEL_FACTORY
+from drevalpy.models import construct_model
 
 
 def _tiny_dataset() -> DrugResponseDataset:
@@ -41,7 +41,7 @@ def _ray_state_fixture(monkeypatch) -> dict[str, int]:
 
 
 def test_hpam_tune_ray_optuna_no_space_returns_defaults(monkeypatch) -> None:
-    model_cls = MODEL_FACTORY["ElasticNet"]
+    model_cls = construct_model("ElasticNet")
     model = model_cls()
     monkeypatch.setattr(
         "drevalpy.components.tuning.hpo.structured_space_for_drp_model",
@@ -72,7 +72,7 @@ def test_hpam_tune_ray_optuna_zero_trials_skips_ray(monkeypatch) -> None:
     monkeypatch.setattr("ray.init", lambda **kwargs: init_calls.append(kwargs))
     monkeypatch.setattr("ray.is_initialized", lambda: False)
 
-    model_cls = MODEL_FACTORY["ElasticNet"]
+    model_cls = construct_model("ElasticNet")
     model = model_cls()
     dataset = _tiny_dataset()
     best = hpam_tune_ray_optuna(
@@ -122,7 +122,7 @@ def test_hpam_tune_ray_optuna_one_trial(monkeypatch) -> None:
         lambda **_kwargs: {"RMSE": 0.1},
     )
 
-    model_cls = MODEL_FACTORY["ElasticNet"]
+    model_cls = construct_model("ElasticNet")
     model = model_cls()
     dataset = _tiny_dataset()
     best = hpam_tune_ray_optuna(
@@ -167,7 +167,7 @@ def test_hpam_tune_ray_optuna_all_nan_returns_defaults(monkeypatch) -> None:
 
     _ray_state_fixture(monkeypatch)
     monkeypatch.setattr("ray.tune.Tuner", FakeTuner)
-    model_cls = MODEL_FACTORY["ElasticNet"]
+    model_cls = construct_model("ElasticNet")
     model = model_cls()
     dataset = _tiny_dataset()
     with pytest.warns(UserWarning, match="did not find a valid configuration"):
@@ -214,7 +214,7 @@ def test_hpam_tune_ray_optuna_trial_exception_reports_nan(monkeypatch) -> None:
         lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("boom")),
     )
 
-    model_cls = MODEL_FACTORY["ElasticNet"]
+    model_cls = construct_model("ElasticNet")
     model = model_cls()
     dataset = _tiny_dataset()
     with pytest.warns(UserWarning, match="did not find a valid configuration"):
@@ -245,7 +245,7 @@ def test_hpam_tune_ray_optuna_tuner_exception_cleans_up(monkeypatch) -> None:
 
     state = _ray_state_fixture(monkeypatch)
     monkeypatch.setattr("ray.tune.Tuner", BrokenTuner)
-    model_cls = MODEL_FACTORY["ElasticNet"]
+    model_cls = construct_model("ElasticNet")
     model = model_cls()
     dataset = _tiny_dataset()
     with pytest.raises(RuntimeError, match="tuner failed"):
@@ -294,7 +294,7 @@ def test_hpam_tune_ray_optuna_does_not_shutdown_preexisting_ray(monkeypatch) -> 
         lambda **_kwargs: {"RMSE": 0.1},
     )
 
-    model_cls = MODEL_FACTORY["ElasticNet"]
+    model_cls = construct_model("ElasticNet")
     model = model_cls()
     dataset = _tiny_dataset()
     hpam_tune_ray_optuna(
@@ -311,7 +311,7 @@ def test_hpam_tune_ray_optuna_does_not_shutdown_preexisting_ray(monkeypatch) -> 
 
 
 def test_hpam_tune_ray_optuna_rejects_metric_mismatch() -> None:
-    model_cls = MODEL_FACTORY["ElasticNet"]
+    model_cls = construct_model("ElasticNet")
     model = model_cls()
     dataset = _tiny_dataset()
     with pytest.raises(ValueError, match="must match metric argument"):
@@ -332,12 +332,12 @@ def test_build_experiment_hpo_config_matches_cv_and_final() -> None:
         n_trials=8,
         random_state=7,
         resources_per_trial={"cpu": 2},
-        storage_path="/tmp/raytune",
+        storage_path="raytune-storage",
     )
     assert cfg.n_trials == 8
     assert cfg.random_state == 7
     assert cfg.resources_per_trial == {"cpu": 2}
-    assert cfg.storage_path == "/tmp/raytune"
+    assert cfg.storage_path == "raytune-storage"
     assert cfg.mode == "min"
 
 
@@ -355,7 +355,7 @@ def test_hpam_tune_ray_optuna_real_one_trial(tmp_path, data_dir) -> None:
     pytest.importorskip("optuna")
     from drevalpy import experiment
 
-    model_cls = MODEL_FACTORY["ElasticNet"]
+    model_cls = construct_model("ElasticNet")
     model = model_cls()
     model.build_model(model.get_default_hyperparameters())
     cell_line_input = model.load_cell_line_features(data_path=str(data_dir), dataset_name="TOYv1")

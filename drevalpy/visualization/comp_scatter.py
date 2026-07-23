@@ -5,7 +5,7 @@ from io import TextIOWrapper
 import pandas as pd
 import plotly.graph_objects as go
 
-from ..models import SINGLE_DRUG_MODEL_FACTORY
+from ..models._model_lookup import single_drug_model_names
 from .outplot import OutPlot
 
 
@@ -38,7 +38,7 @@ class ComparisonScatter(OutPlot):
         :param algorithm: used to distinguish between per-algorithm plots and per-test_mode plots (all models then).
         """
         exclude_models = (
-            {"NaiveDrugMeanPredictor"}.union({model for model in SINGLE_DRUG_MODEL_FACTORY.keys()})
+            {"NaiveDrugMeanPredictor"}.union(set(single_drug_model_names(include_external=False)))
             if color_by == "drug"
             else {"NaiveCellLineMeanPredictor"}
         )

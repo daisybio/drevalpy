@@ -2,7 +2,7 @@
 
 Model orchestration (config, factory, config IO/spec, zoo, composed training) lives under
 `drevalpy.models`. Experiment workflows use the generated `NativeDRPModel` facades from
-`MODEL_FACTORY` / `construct_model`, which compose these components via `ModelConfig`.
+`construct_model` / `ModelConfig`, which compose these components.
 """
 
 from drevalpy.components.extensions import (

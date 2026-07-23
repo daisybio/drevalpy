@@ -10,6 +10,7 @@ import yaml
 from drevalpy.models.config import ModelConfig
 from drevalpy.models.config_io import model_config_from_dict, model_config_from_yaml
 from drevalpy.models.flat_hyperparameters import apply_public_flat_hyperparameters
+from drevalpy.types.model_scope import ModelScope
 
 _BUILTIN_ZOO_DIR = Path(__file__).resolve().parent
 _EXTERNAL_ZOO: dict[str, ModelConfig] = {}
@@ -28,12 +29,33 @@ _BUILTIN_ZOO = _load_builtin_entries()
 _BUILTIN_ZOO_NAMES = frozenset(_BUILTIN_ZOO)
 
 
-def list_zoo_names(*, include_external: bool = True) -> list[str]:
-    """Return sorted built-in (and optional external) zoo entry names."""
+def _coerce_scope(scope: ModelScope | str | None) -> ModelScope | None:
+    if scope is None:
+        return None
+    if isinstance(scope, ModelScope):
+        return scope
+    return ModelScope(scope)
+
+
+def list_zoo_names(
+    *,
+    include_external: bool = True,
+    scope: ModelScope | str | None = None,
+) -> list[str]:
+    """Return sorted built-in (and optional external) zoo entry names.
+
+    :param include_external: Include externally registered zoo entries.
+    :param scope: Optional ``ModelScope`` (or its string value) filter for
+        multi-drug vs single-drug presets.
+    """
     names = set(_BUILTIN_ZOO)
     if include_external:
         names.update(_EXTERNAL_ZOO)
-    return sorted(names)
+    resolved_scope = _coerce_scope(scope)
+    if resolved_scope is None:
+        return sorted(names)
+    filtered = [name for name in names if get_zoo_config(name).scope == resolved_scope]
+    return sorted(filtered)
 
 
 def get_zoo_config(name: str) -> ModelConfig:

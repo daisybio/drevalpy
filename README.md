@@ -122,15 +122,14 @@ This will create an index.html file in the results directory which you can open 
 You can also run a drug response experiment using Python:
 
 ```python
-from drevalpy.experiment import drug_response_experiment
-from drevalpy.models import MODEL_FACTORY
 from drevalpy.datasets import AVAILABLE_DATASETS
-
 from drevalpy.experiment import drug_response_experiment
+from drevalpy.models import construct_model
 
-naive_mean = MODEL_FACTORY["NaivePredictor"] # a naive model that just predicts the training mean
-enet = MODEL_FACTORY["ElasticNet"] # An Elastic Net based on drug fingerprints and gene expression of 1000 landmark genes
-simple_nn = MODEL_FACTORY["SimpleNeuralNetwork"] # A neural network based on drug fingerprints and gene expression of 1000 landmark genes
+# Zoo presets resolve to NativeDRPModel facades
+naive_mean = construct_model("NaivePredictor")  # training-mean baseline
+enet = construct_model("ElasticNet")  # fingerprints + scaled landmark expression
+simple_nn = construct_model("SimpleNeuralNetwork")
 
 toyv1 = AVAILABLE_DATASETS["TOYv1"](path_data="data")
 

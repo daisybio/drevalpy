@@ -44,4 +44,6 @@ def test_executable_module_has_mirrored_test(relative_module: str) -> None:
     module_path = PACKAGE_ROOT / relative_module
     expected = _mirrored_test_path(relative_module)
     assert module_path.is_file(), f"missing source module: {relative_module}"
-    assert expected.is_file(), f"missing mirrored test for {relative_module}: expected {expected.relative_to(REPO_ROOT)}"
+    assert (
+        expected.is_file()
+    ), f"missing mirrored test for {relative_module}: expected {expected.relative_to(REPO_ROOT)}"

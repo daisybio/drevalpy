@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from drevalpy.components.tuning.drp_hyperparameters import config_from_public_hyperparameters
-from drevalpy.models import MODEL_FACTORY
+from drevalpy.models import construct_model
 from drevalpy.models.factory import model_config_for_name
 
 
 def test_model_config_for_name_matches_build_model_path_for_views() -> None:
-    model_cls = MODEL_FACTORY["MultiViewRandomForest"]
+    model_cls = construct_model("MultiViewRandomForest")
     flat = {"cell_line_views": ["gene_expression"], "n_estimators": 8}
     via_factory = model_config_for_name("MultiViewRandomForest", flat)
     via_build = config_from_public_hyperparameters(model_cls, flat)

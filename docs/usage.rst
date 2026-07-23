@@ -260,9 +260,11 @@ For ``--models``, you can also perform randomization and robustness tests. The `
 
 The sklearn baseline models (AdaBoostDecisionTree, ElasticNet, GradientBoosting, KNNRegressor, Lasso, RandomForest, SVR, SingleDrugRandomForest, SingleDrugElasticNet),
 MultiViewXGBoost, and the machine learning baselines (SimpleNeuralNetwork, MultiViewNeuralNetwork) support
-**flexible inputs**: the input types can be configured via ``cell_line_views`` and ``drug_views`` in public hyperparameters or zoo YAML without
-needing separate model classes. By default they use gene expression and fingerprints.
-See :ref:`flexible-inputs` for details.
+**flexible inputs** through zoo featurizer blocks or recipe strings (for example
+``normalizedProteomics:fingerprints:randomForest``) without needing separate model
+classes. By default they use gene expression and fingerprints.
+Flat ``cell_line_views`` / ``drug_views`` remain as a deprecated compatibility path.
+See :ref:`flexible-inputs` and :doc:`hyperparameter_migration`.
 
 +---------------------------------+----------------------------+--------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | Model Name                      | Baseline / Published Model | Multi-Drug Model / Single-Drug Model | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |

@@ -4,14 +4,14 @@ Run your own model
 DrEvalPy models are composed from registered **featurizers** and **predictors**.
 Do not subclass ``DRPModel`` directly for new models. Register components, describe
 the stack with a ``ModelConfig`` or zoo preset, and expose a generated facade through
-``construct_model`` or ``MODEL_FACTORY``.
+``construct_model``.
 
 High-level path
 ---------------
 
 1. Register a featurizer and/or predictor under ``drevalpy.components``.
 2. Describe the stack with a recipe string, YAML zoo entry, or ``ModelConfig`` dict.
-3. Use ``construct_model``, ``ModelConfig.from_spec``, or a zoo YAML so ``MODEL_FACTORY`` picks it up.
+3. Resolve it with ``construct_model`` or ``ModelConfig.from_spec``.
 
 Minimal complete extension example
 ----------------------------------
@@ -115,12 +115,14 @@ Registration decorators attach metadata (name, description, category, and option
     # Recipe string: cellLineFeaturizer:drugFeaturizer:predictor
     ToyMean = construct_model("ToyMean", "toyCellLine:identity:toyPredictor")
 
-    # Or resolve the zoo entry directly
+    # Or resolve the zoo entry by name
+    ToyMeanZoo = construct_model("toyMean")
     config = ModelConfig.from_spec("toyMean")
-    model = config.create_model()
+    composed = config.create_model()
 
-Both paths yield a ``DRPModel`` facade with the usual ``build_model``,
+``construct_model`` yields a ``DRPModel`` facade with the usual ``build_model``,
 ``train``, ``predict``, ``save``, and ``load`` lifecycle.
+``ModelConfig.create_model()`` returns the underlying ``ComposedModel``.
 
 **4. Tuning** (structured dotted keys, Ray + Optuna):
 
@@ -158,16 +160,35 @@ Example zoo entry:
 Flat hyperparameters
 --------------------
 
-Public ``build_model`` still accepts the historical flat hyperparameter dict.
-Overrides are translated onto the resolved ``ModelConfig`` (predictor and
-featurizer local keys, plus ``cell_line_views`` / ``drug_views`` when present).
+Public ``build_model`` accepts a flat hyperparameter dict. Overrides are
+translated onto the resolved ``ModelConfig`` (predictor and featurizer local
+keys). Flat ``cell_line_views`` / ``drug_views`` still work but are
+**deprecated** — prefer zoo featurizer blocks or recipe strings
+(:doc:`example_flexible_inputs`).
+
+Deprecated compatibility catalogs
+---------------------------------
+
+``MODEL_FACTORY``, ``MULTI_DRUG_MODEL_FACTORY``, and
+``SINGLE_DRUG_MODEL_FACTORY`` remain importable for compatibility but emit a
+``FutureWarning``. Prefer:
+
+.. code-block:: python
+
+    from drevalpy.models import construct_model, ElasticNetModel
+    from drevalpy.models.config import ModelConfig
+    from drevalpy.models.zoo import list_zoo_names
+    from drevalpy.types.model_scope import ModelScope
+
+    ElasticNet = construct_model("ElasticNet")  # or ElasticNetModel
+    composed = ModelConfig.from_spec("ElasticNet").create_model()
+    single_drug = list_zoo_names(scope=ModelScope.SINGLE_DRUG)
+
+Named root exports, ``construct_model``, experiment routing, and CLI model
+names continue to work.
 
 Breaking changes (modularity release)
 -------------------------------------
-
-The **root catalog API is unchanged**: ``MODEL_FACTORY``, named root exports
-(``ElasticNetModel``, ``DIPKModel``, …), ``construct_model``, experiment routing,
-and the CLI model names continue to work.
 
 The following **are removed** and require migration:
 
@@ -179,9 +200,9 @@ no longer resolve. Import catalog models from the package root instead:
 
 .. code-block:: python
 
-    from drevalpy.models import DIPKModel, ElasticNetModel, MODEL_FACTORY
+    from drevalpy.models import DIPKModel, ElasticNetModel, construct_model
 
-    model = MODEL_FACTORY["ElasticNet"]()
+    model = construct_model("ElasticNet")()
 
 For component-level work (custom featurizers/predictors), use ``drevalpy.components``
 and the registry helpers documented in :doc:`model_architecture`.

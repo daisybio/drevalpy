@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import importlib
+from pathlib import Path
 
 from drevalpy.components.predictors.literature.structured_engine_adapter import (
     ENGINE_MODULES,
-    StructuredLiteratureEnginePredictor,
     resolve_engine_cls,
 )
 

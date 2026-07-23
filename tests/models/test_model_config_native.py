@@ -11,7 +11,7 @@ import pytest
 
 from drevalpy.components.predictors.literature._engine_base import LiteratureEngineBase
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
-from drevalpy.models import MODEL_FACTORY
+from drevalpy.models import construct_model
 from drevalpy.models._native_drp_model import NativeDRPModel
 from drevalpy.models.config import ModelConfig
 from drevalpy.models.drp_model import DRPModel
@@ -40,7 +40,7 @@ def _synthetic_data() -> tuple[DrugResponseDataset, FeatureDataset, FeatureDatas
     return response, cell_line_input, drug_input
 
 
-@pytest.mark.parametrize("name", sorted(MODEL_FACTORY.keys()))
+@pytest.mark.parametrize("name", list_zoo_names(include_external=False))
 def test_model_factory_names_resolve_to_model_config(name: str) -> None:
     config = model_config_for_name(name)
     config.validate()
@@ -81,7 +81,7 @@ def test_no_pair_context_in_production_code() -> None:
 
 def test_multiview_baselines_are_native_facades() -> None:
     for name in ("MultiViewRandomForest", "MultiViewXGBoost", "MultiViewLightGBM"):
-        cls = MODEL_FACTORY[name]
+        cls = construct_model(name)
         assert issubclass(cls, NativeDRPModel)
         config = ModelConfig.from_spec(name)
         assert config.cell_line_featurizer is not None
@@ -90,7 +90,7 @@ def test_multiview_baselines_are_native_facades() -> None:
 @pytest.mark.parametrize("name", ["ElasticNet", "NaiveDrugMeanPredictor"])
 def test_component_stack_save_load_round_trip(name: str) -> None:
     response, cell_line_input, drug_input = _synthetic_data()
-    model = MODEL_FACTORY[name]()
+    model = construct_model(name)()
     if name == "ElasticNet":
         model.build_model({"alpha": 0.1, "l1_ratio": 0.5, "max_iter": 1000})
     else:

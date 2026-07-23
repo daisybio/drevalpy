@@ -6,15 +6,14 @@ DrEvalPy has two cooperating layers:
 1. **Component stack** under ``drevalpy.components`` with featurizers, predictors,
    registries, and tuning helpers.
 2. **Public orchestration** under ``drevalpy.models`` with ``ModelConfig``, zoo YAML,
-   ``ComposedModel``, and generated ``NativeDRPModel`` facades exposed via
-   ``MODEL_FACTORY``.
+   ``ComposedModel``, and generated ``NativeDRPModel`` facades via ``construct_model``.
 
 Typical composition:
 
 .. code-block:: text
 
     ModelConfig -> featurizer(s) + predictor -> ComposedModel
-    MODEL_FACTORY[name] -> NativeDRPModel facade -> same ComposedModel stack
+    construct_model(name) / named facade -> NativeDRPModel -> same ComposedModel stack
 
 Predictor input batch
 ---------------------
@@ -32,25 +31,37 @@ metadata).
 - Literature predictors that declare ``requires_raw_feature_datasets`` read the
   raw ``FeatureDataset`` inputs carried on the batch.
 
-Using the catalog (``MODEL_FACTORY``)
--------------------------------------
+Resolving built-in models
+-------------------------
 
-Most callers use the generated facades:
+Prefer zoo names with ``construct_model`` or ``ModelConfig``:
 
 .. code-block:: python
 
-    from drevalpy.models import MODEL_FACTORY
+    from drevalpy.models import construct_model
+    from drevalpy.models.config import ModelConfig
+    from drevalpy.models.zoo import list_zoo_names
+    from drevalpy.types.model_scope import ModelScope
 
-    model = MODEL_FACTORY["ElasticNet"]()
-    model.build_model(hyperparameters)
+    ElasticNet = construct_model("ElasticNet")
+    model = ElasticNet()
+    model.build_model(model.get_default_hyperparameters())
     model.train(...)
     model.predict(...)
+
+    # Component-native instance (no DRPModel facade)
+    composed = ModelConfig.from_spec("ElasticNet").create_model()
+
+    # Discover presets by scope
+    single_drug = list_zoo_names(scope=ModelScope.SINGLE_DRUG)
+
+Named root exports (``ElasticNetModel``, ``DIPKModel``, …) remain available and
+are not deprecated.
 
 Programmatic composition
 ------------------------
 
-For custom stacks without adding a zoo file, use ``construct_model`` or resolve
-a built-in preset with ``ModelConfig.from_spec``:
+For custom stacks without adding a zoo file, pass a recipe as the second argument:
 
 .. code-block:: python
 
@@ -64,12 +75,11 @@ a built-in preset with ``ModelConfig.from_spec``:
     model = CustomElasticNet()
     model.build_model({"alpha": 0.1, "l1_ratio": 0.5})
 
-    # Built-in zoo name (same stack as MODEL_FACTORY["ElasticNet"])
-    config = ModelConfig.from_spec("ElasticNet")
+    config = ModelConfig.from_spec("scaledGeneExpression:fingerprints:elasticNet")
     composed = config.create_model()
 
-``construct_model(name, spec)`` returns a **class**; ``ModelConfig.create_model()``
-returns a **trained-ready instance** of the facade.
+``construct_model(name)`` / ``construct_model(name, spec)`` return a **class**;
+``ModelConfig.create_model()`` returns a **trained-ready** ``ComposedModel`` instance.
 
 Explicit omics view grammar
 ---------------------------
@@ -106,9 +116,22 @@ Examples for ``ElasticNet`` (``scaledGeneExpression`` + ``fingerprints`` + ``ela
 For ``concatFeaturizers``, each child featurizer gets a zero-based index per name
 (``featurizer.cell_line.landmarkGenes.0.standardize``, ``...1.minmax_scale``, …).
 
-Flat ``build_model`` dicts remain supported for public keys such as ``alpha``,
-``cell_line_views``, and legacy featurizer aliases (``methylation_n_components``).
-Structured overrides may also use dotted keys directly.
+Flat ``build_model`` dicts remain supported for predictor keys such as ``alpha`` and
+legacy featurizer aliases (``methylation_n_components``). Structured overrides may
+also use dotted keys directly.
+
+Deprecated: ``MODEL_FACTORY`` and flexible view keys
+----------------------------------------------------
+
+The following remain functional for compatibility but emit ``FutureWarning`` and
+should not be used in new code:
+
+- ``MODEL_FACTORY``, ``MULTI_DRUG_MODEL_FACTORY``, ``SINGLE_DRUG_MODEL_FACTORY`` —
+  use ``construct_model``, ``ModelConfig.from_spec``, and
+  ``list_zoo_names(scope=...)`` instead.
+- Flat ``cell_line_views`` / ``drug_views`` in ``build_model`` / hpam YAML —
+  configure ``cell_line_featurizer`` / ``drug_featurizer`` in zoo YAML or a recipe
+  string instead (see :doc:`example_flexible_inputs`).
 
 Feature contracts and validation limits
 ---------------------------------------

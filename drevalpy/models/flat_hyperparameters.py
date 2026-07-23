@@ -41,19 +41,41 @@ def _view_list(value: object) -> list[str]:
     raise ValueError(msg)
 
 
+def _warn_legacy_view_keys(flat: dict[str, Any]) -> None:
+    present = sorted(PUBLIC_VIEW_KEYS & flat.keys())
+    if not present:
+        return
+    from drevalpy._deprecations import warn_deprecated
+
+    warn_deprecated(
+        what="Legacy cell_line_views/drug_views flat hyperparameter API",
+        replacement=(
+            "explicit cell_line_featurizer/drug_featurizer blocks, recipe strings "
+            "(e.g. raw[view]:fingerprints:randomForest), or dotted HPO keys"
+        ),
+        stacklevel=4,
+    )
+
+
 def apply_public_flat_hyperparameters(
     config: ModelConfig,
     flat: dict[str, Any],
     *,
     reject_unknown: bool = True,
+    warn_legacy_view_keys: bool = True,
 ) -> ModelConfig:
     """Apply public flat hyperparameters onto a ModelConfig.
 
     Handles view overrides, legacy featurizer keys, predictor keys, and
     methylation PCA aliases. Does not leak view keys into predictor hyperparameters.
+
+    ``cell_line_views`` / ``drug_views`` remain supported for compatibility but
+    emit a ``FutureWarning`` when ``warn_legacy_view_keys`` is true.
     """
     if not flat:
         return config.model_copy(deep=True)
+    if warn_legacy_view_keys:
+        _warn_legacy_view_keys(flat)
     normalized = dict(flat)
     if "methylation_n_components" not in normalized and "methylation_pca_components" in normalized:
         normalized["methylation_n_components"] = normalized["methylation_pca_components"]

@@ -82,13 +82,17 @@ def build_factory_tables() -> tuple[
 
 
 def populate_public_model_namespace(namespace: dict[str, Any]) -> None:
-    """Install generated factory tables and named classes into a module namespace."""
+    """Install generated named classes and private factory tables.
+
+    Public factory dict names are installed lazily by ``drevalpy.models.__getattr__``
+    so deprecated access can emit a warning even after named facades were imported.
+    """
     multi, single, factory, symbols = build_factory_tables()
     namespace.update(symbols)
     namespace.update(
         {
-            "MULTI_DRUG_MODEL_FACTORY": multi,
-            "SINGLE_DRUG_MODEL_FACTORY": single,
-            "MODEL_FACTORY": factory,
+            "_FACTORY_MULTI": multi,
+            "_FACTORY_SINGLE": single,
+            "_FACTORY_ALL": factory,
         }
     )

@@ -17,7 +17,7 @@ from drevalpy.components.tuning.search_space import (
     defaults_from_merged_space,
     merge_model_config_spaces,
 )
-from drevalpy.models import MODEL_FACTORY, construct_model
+from drevalpy.models import construct_model
 
 
 @pytest.fixture(autouse=True)
@@ -30,7 +30,7 @@ def _register_components() -> None:
     ["ElasticNet", "RandomForest", "NaiveMeanEffectsPredictor"],
 )
 def test_model_factory_defaults_build_without_error(model_name: str) -> None:
-    model_cls = MODEL_FACTORY[model_name]
+    model_cls = construct_model(model_name)
     model = model_cls()
     defaults = model_cls.get_default_hyperparameters()
     model.build_model(defaults)
@@ -89,7 +89,7 @@ def test_apply_merged_never_leaks_namespaced_keys_into_components() -> None:
 
 def test_pca_methylation_pca_components_alias_round_trip() -> None:
     rebuilt = config_from_public_hyperparameters(
-        MODEL_FACTORY["MultiViewRandomForest"],
+        construct_model("MultiViewRandomForest"),
         {"methylation_pca_components": 9},
     )
     assert rebuilt is not None
@@ -101,7 +101,7 @@ def test_pca_methylation_pca_components_alias_round_trip() -> None:
 
 def test_cell_line_views_override_on_build_model_path() -> None:
     rebuilt = config_from_public_hyperparameters(
-        MODEL_FACTORY["MultiViewRandomForest"],
+        construct_model("MultiViewRandomForest"),
         {"cell_line_views": ["gene_expression"]},
     )
     assert rebuilt is not None
@@ -130,7 +130,7 @@ def test_pca_methylation_flat_key_round_trip() -> None:
     )
     public = public_hyperparameters_from_config(config)
     assert public["methylation_n_components"] == 100
-    rebuilt = config_from_public_hyperparameters(MODEL_FACTORY["MultiViewRandomForest"], public)
+    rebuilt = config_from_public_hyperparameters(construct_model("MultiViewRandomForest"), public)
     assert rebuilt is not None
     assert rebuilt.cell_line_featurizer is not None
     children = rebuilt.cell_line_featurizer.hyperparameters["featurizers"]
@@ -139,9 +139,9 @@ def test_pca_methylation_flat_key_round_trip() -> None:
     assert pca_child["hyperparameters"]["n_components"] == 100
 
 
-def test_cli_resolves_models_through_model_factory() -> None:
+def test_cli_resolves_models_through_construct_model() -> None:
     from drevalpy.cli_run_cv import run_hpam_split
 
-    model_class = MODEL_FACTORY["ElasticNet"]
+    model_class = construct_model("ElasticNet")
     assert model_class.get_model_name() == "ElasticNet"
     assert callable(run_hpam_split)

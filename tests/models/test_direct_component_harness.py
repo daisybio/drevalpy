@@ -127,11 +127,12 @@ def test_subprocess_blocks_optional_deps_for_simple_models() -> None:
 
         sys.meta_path.insert(0, BlockFinder())
 
-        from drevalpy.models import MODEL_FACTORY, ElasticNetModel, NaivePredictor
+        from drevalpy.models import ElasticNetModel, NaivePredictor, construct_model
+        from drevalpy.models._model_lookup import known_model_names
         from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
         import numpy as np
 
-        assert "NaivePredictor" in MODEL_FACTORY
+        assert "NaivePredictor" in known_model_names()
         response = DrugResponseDataset(
             response=np.array([1.0, 2.0]),
             cell_line_ids=np.array(["cl1", "cl2"]),
@@ -156,7 +157,7 @@ def test_subprocess_blocks_optional_deps_for_simple_models() -> None:
         elastic.build_model(elastic.get_hyperparameter_set()[0])
         elastic.train(response, cell, drugs)
         try:
-            MODEL_FACTORY["DIPK"]().build_model({"epochs": 1})
+            construct_model("DIPK")().build_model({"epochs": 1})
         except ImportError:
             pass
         else:

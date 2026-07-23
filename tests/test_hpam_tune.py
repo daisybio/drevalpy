@@ -4,7 +4,7 @@ import numpy as np
 
 from drevalpy import experiment
 from drevalpy.datasets.dataset import DrugResponseDataset
-from drevalpy.models import MODEL_FACTORY
+from drevalpy.models import construct_model
 
 
 def test_hpam_tune(tmp_path, data_dir):
@@ -19,7 +19,7 @@ def test_hpam_tune(tmp_path, data_dir):
         {"alpha": 2.0, "l1_ratio": 0.8, "cell_line_views": "gene_expression", "drug_views": "fingerprints"},
     ]
 
-    model = MODEL_FACTORY["ElasticNet"]()
+    model = construct_model("ElasticNet")()
     model.build_model(hyperparameters=hpam_set[0])
     cell_line_input = model.load_cell_line_features(data_path=str(data_dir), dataset_name="TOYv1")
     drug_input = model.load_drug_features(data_path=str(data_dir), dataset_name="TOYv1")
@@ -42,7 +42,7 @@ def test_hpam_tune(tmp_path, data_dir):
         dataset_name="TOYv1",
     )
 
-    model = MODEL_FACTORY["ElasticNet"]()
+    model = construct_model("ElasticNet")()
     model.build_model(hyperparameters=hpam_set[0])
     cell_line_input = model.load_cell_line_features(data_path=str(data_dir), dataset_name="TOYv1")
     drug_input = model.load_drug_features(data_path=str(data_dir), dataset_name="TOYv1")

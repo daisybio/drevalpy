@@ -87,15 +87,19 @@ def run_hpam_split(
     """
     import warnings
 
-    from drevalpy.models import MODEL_FACTORY, MULTI_DRUG_MODEL_FACTORY, SINGLE_DRUG_MODEL_FACTORY
+    from drevalpy.models._model_lookup import (
+        get_model_class,
+        is_multi_drug_model_name,
+        is_single_drug_model_name,
+    )
 
-    if model_name in MULTI_DRUG_MODEL_FACTORY:
+    if is_multi_drug_model_name(model_name):
         resolved_name = model_name
     else:
         resolved_name = str(model_name).split(".")[0]
-        if resolved_name not in SINGLE_DRUG_MODEL_FACTORY:
-            raise ValueError(f"{resolved_name} neither in SINGLE_DRUG_MODEL_FACTORY nor in MULTI_DRUG_MODEL_FACTORY.")
-    model_class = MODEL_FACTORY[resolved_name]
+        if not is_single_drug_model_name(resolved_name):
+            raise ValueError(f"{resolved_name} is neither a multi-drug nor a single-drug zoo model name.")
+    model_class = get_model_class(resolved_name)
     if hyperparameter_tuning:
         warnings.warn(
             "hyperparameter_tuning=True no longer emits a YAML search grid; "
@@ -120,11 +124,11 @@ def run_train_and_predict_cv(
 ) -> None:
     """Train on a CV split and pickle validation predictions."""
     from drevalpy.experiment import get_datasets_from_cv_split, get_model_name_and_drug_id, train_and_predict
-    from drevalpy.models import MODEL_FACTORY
+    from drevalpy.models._model_lookup import get_model_class
     from drevalpy.utils import get_response_transformation
 
     resolved_name, drug_id = get_model_name_and_drug_id(model_name)
-    model_class = MODEL_FACTORY[resolved_name]
+    model_class = get_model_class(resolved_name)
     with open(cv_data, "rb") as f:
         split = pickle.load(f)
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 
 from drevalpy.components.tuning.config import HPOConfig
-from drevalpy.models import MODEL_FACTORY
+from drevalpy.models import construct_model
 
 
 def test_hpam_tune_ray_optuna_logs_wandb_config(monkeypatch) -> None:
@@ -72,7 +72,7 @@ def test_hpam_tune_ray_optuna_logs_wandb_config(monkeypatch) -> None:
     from drevalpy.components.tuning.hpo import hpam_tune_ray_optuna
     from drevalpy.datasets.dataset import DrugResponseDataset
 
-    model_cls = MODEL_FACTORY["ElasticNet"]
+    model_cls = construct_model("ElasticNet")
     model = model_cls()
     dataset = DrugResponseDataset(
         response=np.array([1.0, 2.0]),
