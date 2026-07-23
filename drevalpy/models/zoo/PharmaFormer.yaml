@@ -1,5 +1,5 @@
 cell_line_featurizer:
-  landmarkGenes:
+  landmarkGenesReduced:
     standardize: true
     minmax_scale: true
 drug_featurizer: bpePharmaformer
