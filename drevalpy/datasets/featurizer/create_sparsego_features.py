@@ -106,7 +106,8 @@ def _fetch_gene_go_annotations(genes: list[str]) -> pd.DataFrame:
     The query is split in two halves to avoid Bad Gateway errors on large sets.
 
     :param genes: list of gene symbols
-    :return: DataFrame with columns [0=go_term_id, 1=gene_symbol], no duplicates
+    :returns: DataFrame with columns [0=go_term_id, 1=gene_symbol], no duplicates
+    :raises ImportError: If the optional ``mygene`` dependency is not installed.
     """
     try:
         import mygene
@@ -175,7 +176,8 @@ def _build_pruned_graph(
     :param n: minimum directly-annotated genes per term
     :param m: minimum extra genes a parent must have over each child
     :param p: max levels above the bottom layer to keep
-    :return: pruned directed graph (parent -> child, genes as leaf nodes)
+    :returns: pruned directed graph (parent -> child, genes as leaf nodes)
+    :raises ImportError: If the optional ``obonet`` dependency is not installed.
     """
     try:
         import obonet
