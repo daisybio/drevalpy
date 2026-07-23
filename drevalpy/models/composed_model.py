@@ -11,8 +11,9 @@ from drevalpy.components.featurizers.base import Featurizer
 from drevalpy.components.model_input_batch import ModelInputBatch
 from drevalpy.components.model_input_build import build_model_input_batch
 from drevalpy.components.predictors.base import Predictor
+from drevalpy.components.training_context import TrainingContext
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
-from drevalpy.models.config import PredictionMode
+from drevalpy.models.config import ModelConfig, PredictionMode
 
 
 def _matrix_feature_width(matrix: np.ndarray | None) -> int:
@@ -51,12 +52,14 @@ class ComposedModel:
         *,
         predictor_hyperparameters: dict[str, Any] | None = None,
         prediction_mode: PredictionMode = PredictionMode.REGRESSION,
+        config: ModelConfig | None = None,
     ) -> None:
         self._cell_line_featurizer = cell_line_featurizer
         self._drug_featurizer = drug_featurizer
         self._predictor = predictor
         self._predictor_hp = predictor_hyperparameters or {}
         self._prediction_mode = prediction_mode
+        self._config = config.model_copy(deep=True) if config is not None else None
         self._cell_line_matrix: np.ndarray | None = None
         self._drug_matrix: np.ndarray | None = None
         self._cell_line_entity_ids: np.ndarray | None = None
@@ -91,6 +94,7 @@ class ComposedModel:
         cell_line_matrix: np.ndarray,
         drug_matrix: np.ndarray | None,
         output_earlystopping: DrugResponseDataset | None = None,
+        training_context: TrainingContext | None = None,
     ) -> ModelInputBatch:
         cell_line_blocks: dict[str, np.ndarray] = {}
         if self._cell_line_featurizer is not None:
@@ -118,6 +122,7 @@ class ComposedModel:
             cell_line_input=cell_line_input,
             drug_input=drug_input,
             early_stopping_response=output_earlystopping,
+            training_context=training_context,
         )
 
     def train(
@@ -127,6 +132,7 @@ class ComposedModel:
         drug_input: FeatureDataset | None = None,
         *,
         output_earlystopping: DrugResponseDataset | None = None,
+        training_context: TrainingContext | None = None,
     ) -> ComposedModel:
         if len(output) == 0:
             return self
@@ -175,6 +181,7 @@ class ComposedModel:
             cell_line_matrix=self._cell_line_matrix,
             drug_matrix=self._drug_matrix,
             output_earlystopping=output_earlystopping,
+            training_context=training_context,
         )
         self._predictor.build(
             self._merged_hyperparameters(),
@@ -182,6 +189,54 @@ class ComposedModel:
         )
         self._predictor.fit(batch)
         return self
+
+    @property
+    def config(self) -> ModelConfig | None:
+        """Return a defensive copy of the resolved model config."""
+        return self._config.model_copy(deep=True) if self._config is not None else None
+
+    def is_fitted(self) -> bool:
+        """Return whether the predictor has fitted state."""
+        return self._predictor.is_fitted()
+
+    def component_state(self) -> dict[str, object]:
+        """Return serializable state owned by the component stack."""
+        return {
+            "predictor": self._predictor.get_state(),
+            "cell_line_featurizer": (
+                self._cell_line_featurizer.get_state() if self._cell_line_featurizer is not None else {}
+            ),
+            "drug_featurizer": self._drug_featurizer.get_state() if self._drug_featurizer is not None else {},
+        }
+
+    def restore_component_state(self, state: dict[str, object]) -> None:
+        """Restore state produced by ``component_state``."""
+        predictor_state = state.get("predictor", {})
+        if not isinstance(predictor_state, dict):
+            raise ValueError("predictor state is not a mapping")
+        self._predictor.set_state(predictor_state)
+        for key, featurizer in (
+            ("cell_line_featurizer", self._cell_line_featurizer),
+            ("drug_featurizer", self._drug_featurizer),
+        ):
+            value = state.get(key, {})
+            if featurizer is not None:
+                if not isinstance(value, dict):
+                    raise ValueError(f"{key} state is not a mapping")
+                featurizer.set_state(value)
+
+    def save(self, directory: str) -> None:
+        """Persist config and fitted component state."""
+        from drevalpy.models._component_persistence import save_composed_model
+
+        save_composed_model(self, directory)
+
+    @classmethod
+    def load(cls, directory: str) -> ComposedModel:
+        """Load the canonical native component-stack format."""
+        from drevalpy.models._component_persistence import load_composed_model
+
+        return load_composed_model(directory)
 
     def predict(
         self,

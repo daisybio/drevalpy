@@ -3,3 +3,4 @@ cell_line_featurizer:
   - raw[mutations]
   - raw[cnv]
 predictor: molir
+scope: single_drug

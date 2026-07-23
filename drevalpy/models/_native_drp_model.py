@@ -8,7 +8,8 @@ from drevalpy.components.data_loading import (
     load_cell_line_features_for_model_config,
     load_drug_features_for_model_config,
 )
-from drevalpy.components.register_builtins import ensure_components_registered
+from drevalpy.components.registry import get_predictor
+from drevalpy.components.training_context import TrainingContext
 from drevalpy.components.tuning.drp_hyperparameters import (
     config_from_public_hyperparameters,
     default_config_for_drp_model,
@@ -17,16 +18,8 @@ from drevalpy.components.tuning.drp_hyperparameters import (
     structured_space_for_drp_model,
 )
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
-from drevalpy.models._component_bridge import (
-    ComponentDRPBridge,
-    save_component_stack,
-)
-from drevalpy.models._legacy_checkpoint_loaders import (
-    has_component_stack,
-    load_hyperparameters_json,
-    load_native_checkpoint,
-)
-from drevalpy.models.config import ModelConfig
+from drevalpy.models.composed_model import ComposedModel
+from drevalpy.models.config import ModelConfig, ModelScope
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.models.factory import model_config_for_name
 from drevalpy.models.featurizer_mapping import cell_line_views_from_model_config, drug_views_from_model_config
@@ -40,11 +33,13 @@ class NativeDRPModel(DRPModel):
 
     def __init__(self) -> None:
         super().__init__()
-        self._bridge = ComponentDRPBridge()
+        self._composed: ComposedModel | None = None
+        self._empty_training = False
         self.hyperparameters: dict[str, Any] = {}
         self._resolved_model_config: ModelConfig | None = None
         self._cell_line_views_list: list[str] = []
         self._drug_views_list: list[str] = []
+        self._engine_preload_state: dict[str, Any] = {}
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -94,16 +89,18 @@ class NativeDRPModel(DRPModel):
         return model_config_for_name(self._factory_name, hyperparameters or {})
 
     def build_from_model_config(self, config: ModelConfig) -> None:
-        ensure_components_registered()
         self._resolved_model_config = config.model_copy(deep=True)
         self.hyperparameters = public_hyperparameters_from_config(self._resolved_model_config)
         self.log_hyperparameters(self.hyperparameters)
         self._cell_line_views_list = cell_line_views_from_model_config(self._resolved_model_config)
         self._drug_views_list = drug_views_from_model_config(self._resolved_model_config)
-        self._bridge.set_composed_config(self._resolved_model_config)
+        self.is_single_drug_model = self._resolved_model_config.scope == ModelScope.SINGLE_DRUG
+        predictor_class = get_predictor(self._resolved_model_config.predictor.name)
+        self.early_stopping = bool(getattr(predictor_class, "supports_early_stopping", False))
+        self._composed = self._resolved_model_config.create_model()
+        self._empty_training = False
 
     def build_model(self, hyperparameters: dict[str, Any]) -> None:
-        ensure_components_registered()
         config = config_from_public_hyperparameters(type(self), hyperparameters)
         if config is None:
             self.log_hyperparameters(hyperparameters)
@@ -114,6 +111,22 @@ class NativeDRPModel(DRPModel):
 
     def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         config = self._resolved_config(self.hyperparameters or None)
+        predictor_class = get_predictor(config.predictor.name)
+        loader = getattr(predictor_class, "load_dataset_cell_line_features", None)
+        if callable(loader):
+            loaded = loader(
+                data_path,
+                dataset_name,
+                hyperparameters=self.hyperparameters,
+                model_name=self.get_model_name(),
+            )
+            if isinstance(loaded, tuple):
+                features, preload = loaded
+            else:
+                features, preload = loaded, {}
+            if isinstance(preload, dict):
+                self._engine_preload_state.update(preload)
+            return features
         return load_cell_line_features_for_model_config(
             config,
             data_path,
@@ -123,12 +136,55 @@ class NativeDRPModel(DRPModel):
 
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset | None:
         config = self._resolved_config(self.hyperparameters or None)
+        predictor_class = get_predictor(config.predictor.name)
+        loader = getattr(predictor_class, "load_dataset_drug_features", None)
+        if callable(loader):
+            features = loader(
+                data_path,
+                dataset_name,
+                hyperparameters=self.hyperparameters,
+                model_name=self.get_model_name(),
+            )
+            self._sync_predictor_hyperparameters()
+            return features
         return load_drug_features_for_model_config(
             config,
             data_path,
             dataset_name,
             model_name=self.get_model_name(),
         )
+
+    def _sync_predictor_hyperparameters(self) -> None:
+        """Push facade hyperparameter updates into the resolved config/composed stack."""
+        if not self.hyperparameters:
+            return
+        if self._resolved_model_config is not None:
+            self._resolved_model_config = self._resolved_model_config.model_copy(
+                update={
+                    "predictor": self._resolved_model_config.predictor.model_copy(
+                        update={
+                            "hyperparameters": {
+                                **self._resolved_model_config.predictor.hyperparameters,
+                                **{
+                                    key: value
+                                    for key, value in self.hyperparameters.items()
+                                    if key not in {"cell_line_views", "drug_views"}
+                                },
+                            }
+                        },
+                        deep=True,
+                    )
+                },
+                deep=True,
+            )
+        if self._composed is not None:
+            self._composed._predictor_hp.update(
+                {
+                    key: value
+                    for key, value in self.hyperparameters.items()
+                    if key not in {"cell_line_views", "drug_views"}
+                }
+            )
 
     def train(
         self,
@@ -138,14 +194,27 @@ class NativeDRPModel(DRPModel):
         output_earlystopping: DrugResponseDataset | None = None,
         model_checkpoint_dir: str = "checkpoints",
     ) -> None:
-        _ = model_checkpoint_dir
-        if self._bridge.composed is None:
+        if self._composed is None:
             self.build_from_model_config(self.default_model_config())
-        self._bridge.train(
+        if len(output) == 0:
+            self._empty_training = True
+            return
+        composed = self._composed
+        if composed is None:
+            msg = "Model has not been built; call build_model() before train()"
+            raise RuntimeError(msg)
+        set_preload = getattr(composed._predictor, "set_engine_preload_state", None)
+        if callable(set_preload) and self._engine_preload_state:
+            set_preload(self._engine_preload_state)
+        composed.train(
             output,
             cell_line_input,
             drug_input,
             output_earlystopping=output_earlystopping,
+            training_context=TrainingContext(
+                checkpoint_dir=model_checkpoint_dir,
+                logging_metadata={"model_name": self.get_model_name()},
+            ),
         )
 
     def predict(
@@ -155,49 +224,54 @@ class NativeDRPModel(DRPModel):
         cell_line_input: FeatureDataset,
         drug_input: FeatureDataset | None = None,
     ):
-        if self._bridge.composed is None:
+        if self._empty_training:
+            import numpy as np
+
+            return np.full(len(cell_line_ids), np.nan)
+        if self._composed is None:
             msg = "Model has not been built; call build_model() before predict()"
             raise RuntimeError(msg)
-        if not self._bridge.is_trained():
+        if not self._composed.is_fitted():
             msg = "Model has not been trained; call train() or load() before predict()"
             raise RuntimeError(msg)
-        return self._bridge.predict(cell_line_ids, drug_ids, cell_line_input, drug_input)
+        return self._composed.predict(cell_line_ids, drug_ids, cell_line_input, drug_input)
 
     def save(self, directory: str) -> None:
-        if not self._bridge.is_trained():
+        if self._composed is None or not self._composed.is_fitted():
             msg = "Cannot save: component stack is not trained"
             raise RuntimeError(msg)
-        config = self._resolved_model_config or self._resolved_config(self.hyperparameters or None)
-        save_component_stack(
-            self._bridge,
-            directory,
-            hyperparameters=public_hyperparameters_from_config(config),
-        )
+        self._composed.save(directory)
 
     @classmethod
     def load(cls, directory: str) -> NativeDRPModel:
         instance = cls()
-        if has_component_stack(directory):
-            loaded_hp = load_native_checkpoint(instance, directory)
-            instance.hyperparameters = loaded_hp or load_hyperparameters_json(directory)
-            return instance
-        return cls._load_legacy_checkpoint(directory)
-
-    @classmethod
-    def _load_legacy_checkpoint(cls, directory: str) -> NativeDRPModel:
-        msg = f"{cls.__name__} does not support legacy checkpoint loading"
-        raise NotImplementedError(msg)
+        composed = ComposedModel.load(directory)
+        config = composed.config
+        if config is None:
+            raise RuntimeError("Loaded component stack did not contain a ModelConfig")
+        instance._resolved_model_config = config
+        instance.hyperparameters = public_hyperparameters_from_config(config)
+        instance._cell_line_views_list = cell_line_views_from_model_config(config)
+        instance._drug_views_list = drug_views_from_model_config(config)
+        instance.is_single_drug_model = config.scope == ModelScope.SINGLE_DRUG
+        predictor_class = get_predictor(config.predictor.name)
+        instance.early_stopping = bool(getattr(predictor_class, "supports_early_stopping", False))
+        instance._composed = composed
+        return instance
 
 
 def create_native_drp_class(
     factory_name: str,
     *,
     spec: str | None = None,
+    class_name: str | None = None,
+    scope: ModelScope = ModelScope.MULTI_DRUG,
+    validate_spec: bool = True,
     bases: tuple[type[NativeDRPModel], ...] = (NativeDRPModel,),
     class_dict: dict[str, Any] | None = None,
 ) -> type[NativeDRPModel]:
     """Create a component-native DRPModel subclass for a factory entry."""
-    if spec is not None:
+    if spec is not None and validate_spec:
         from drevalpy.models.config import ModelConfig
 
         base_config = ModelConfig.from_spec(spec)
@@ -205,6 +279,7 @@ def create_native_drp_class(
     attrs: dict[str, Any] = {
         "_factory_name": factory_name,
         "_model_spec": spec,
+        "is_single_drug_model": scope == ModelScope.SINGLE_DRUG,
     }
     if class_dict:
         attrs.update(class_dict)
@@ -213,6 +288,6 @@ def create_native_drp_class(
         return factory_name
 
     attrs["get_model_name"] = classmethod(get_model_name)
-    cls = type(factory_name, bases, attrs)
-    cls.__module__ = bases[0].__module__
+    cls = type(class_name or factory_name, bases, attrs)
+    cls.__module__ = "drevalpy.models"
     return cls

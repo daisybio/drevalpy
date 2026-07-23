@@ -12,7 +12,7 @@ import pandas as pd
 from ..datasets.dataset import DrugResponseDataset
 from ..datasets.splits import MANIFEST_FILENAME, read_split_manifest
 from ..evaluation import AVAILABLE_METRICS, evaluate
-from ..models.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
+from ..datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
 from ..pipeline_function import pipeline_function
 from . import (
     ComparisonScatter,

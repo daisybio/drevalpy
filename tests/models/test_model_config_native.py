@@ -9,20 +9,14 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from drevalpy.components.predictors.baselines.zoo_preset import ZooPresetSklearnModel
 from drevalpy.components.predictors.literature._engine_base import LiteratureEngineBase
-from drevalpy.components.register_builtins import register_builtin_components
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models import MODEL_FACTORY
+from drevalpy.models._native_drp_model import NativeDRPModel
 from drevalpy.models.config import ModelConfig
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.models.factory import model_config_for_name
 from drevalpy.models.zoo import list_zoo_names
-
-
-@pytest.fixture(autouse=True)
-def _register_components() -> None:
-    register_builtin_components()
 
 
 def _synthetic_data() -> tuple[DrugResponseDataset, FeatureDataset, FeatureDataset]:
@@ -85,10 +79,10 @@ def test_no_pair_context_in_production_code() -> None:
     assert not hits, f"pair_context found in production code: {hits}"
 
 
-def test_multiview_baselines_are_zoo_presets() -> None:
+def test_multiview_baselines_are_native_facades() -> None:
     for name in ("MultiViewRandomForest", "MultiViewXGBoost", "MultiViewLightGBM"):
         cls = MODEL_FACTORY[name]
-        assert issubclass(cls, ZooPresetSklearnModel)
+        assert issubclass(cls, NativeDRPModel)
         config = ModelConfig.from_spec(name)
         assert config.cell_line_featurizer is not None
 

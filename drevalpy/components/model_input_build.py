@@ -6,6 +6,7 @@ import numpy as np
 
 from drevalpy.components.model_input_batch import ModelInputBatch
 from drevalpy.components.pair_features import pair_cell_line_indices, pair_drug_indices
+from drevalpy.components.training_context import TrainingContext
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 
 
@@ -21,6 +22,7 @@ def build_model_input_batch(
     cell_line_input: FeatureDataset | None = None,
     drug_input: FeatureDataset | None = None,
     early_stopping_response: DrugResponseDataset | None = None,
+    training_context: TrainingContext | None = None,
 ) -> ModelInputBatch:
     """Index entity-level featurizer outputs for each response pair."""
     n_pairs = len(response)
@@ -49,4 +51,5 @@ def build_model_input_batch(
         cell_line_input=cell_line_input,
         drug_input=drug_input,
         early_stopping_response=early_stopping_response,
+        training_context=training_context,
     )

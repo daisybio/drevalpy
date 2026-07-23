@@ -1,18 +1,20 @@
 Model architecture overview
 ===========================
 
-DrEvalPy now has two cooperating layers:
+DrEvalPy has two cooperating layers:
 
 1. **Component stack** under ``drevalpy.components`` with featurizers, predictors,
    registries, and tuning helpers.
 2. **Public orchestration** under ``drevalpy.models`` with ``ModelConfig``, zoo YAML,
-   ``ComposedModel``, ``MODEL_FACTORY``, and legacy ``DRPModel`` adapters.
+   ``ComposedModel``, and a single generated ``NativeDRPModel`` facade exposed via
+   ``MODEL_FACTORY``.
 
 Typical composition:
 
 .. code-block:: text
 
     ModelConfig -> featurizer(s) + predictor -> ComposedModel
+    MODEL_FACTORY[name] -> NativeDRPModel facade -> same ComposedModel stack
 
 Predictor input batch
 ---------------------
@@ -20,15 +22,17 @@ Predictor input batch
 ``ComposedModel`` always builds a single ``ModelInputBatch`` before calling
 ``predictor.fit(batch)`` or ``predictor.predict(batch)``. The batch carries pair
 identifiers, optional response values, entity-level feature matrices, named
-featurizer blocks, and optional raw ``FeatureDataset`` inputs for auxiliary
-metadata such as tissue labels. Training batches also retain the optional
-early-stopping response split required by some literature predictors.
+featurizer blocks, optional raw ``FeatureDataset`` inputs, early-stopping
+response data, and a small ``TrainingContext`` (checkpoint directory / logging
+metadata).
 
 - Matrix predictors flatten the batch with ``batch.to_feature_matrix()``.
 - Block predictors read ``batch.cell_line_blocks`` and ``batch.drug_blocks``.
 - Baseline predictors use pair identifiers and/or response values only.
+- Literature predictors that declare ``requires_raw_feature_datasets`` read the
+  raw ``FeatureDataset`` inputs carried on the batch.
 
-Legacy callers can still use:
+Public callers continue to use:
 
 .. code-block:: python
 
@@ -39,13 +43,15 @@ Legacy callers can still use:
     model.train(...)
     model.predict(...)
 
-Programmatic composition is available through:
+Programmatic composition:
 
 .. code-block:: python
 
     from drevalpy.models import construct_model
+    from drevalpy.models.config import ModelConfig
 
     model = construct_model("myModel", "scaledGeneExpression:fingerprints:elasticNet")
+    composed = ModelConfig.from_spec("ElasticNet").create_model()
 
 Explicit omics view grammar
 ---------------------------
@@ -62,46 +68,28 @@ Cell-line featurizers that operate on a single omics layer use bracket syntax:
 
 Supported view aliases include ``expression`` (gene expression), ``methylation``,
 ``mutations``, ``proteomics``, and ``cnv`` (copy-number variation). YAML presets use
-the same atoms:
+the same atoms.
 
-.. code-block:: yaml
+Scope and early stopping
+------------------------
 
-    cell_line_featurizer:
-      - raw[expression]
-      - pca[methylation]:
-          n_components: 100
+- Multi-drug is the default model scope and requires a drug featurizer for
+  feature-based predictors.
+- Single-drug models set ``scope: single_drug`` in their zoo YAML; the facade
+  exposes ``is_single_drug_model`` for experiment routing.
+- Early stopping is derived from predictor capability metadata
+  (``supports_early_stopping``), not from adapter mixins.
 
-``construct_model()`` is currently programmatic-only; the CLI still resolves models
-through ``MODEL_FACTORY``.
+Persistence
+-----------
 
-Compatibility notes
--------------------
+Native checkpoints store a versioned payload with the resolved ``ModelConfig``
+and fitted component state (``composed_model.joblib``). Legacy checkpoint formats
+and deep model import paths are unsupported.
 
-- Old import paths under ``drevalpy.models.*`` remain as thin re-exports.
-- Multi-view sklearn models are zoo presets backed by concat featurizers.
-- Hyperparameter grids in YAML were replaced by component-owned defaults and
-  structured search spaces. See :doc:`hyperparameter_migration`.
-- ``pydantic`` and ``optuna`` are required dependencies for config validation and HPO.
+Extension path
+--------------
 
-Sklearn adapter hierarchy
--------------------------
-
-Public sklearn ``DRPModel`` adapters share ``SklearnModel`` lifecycle and
-checkpoint behavior. Multi-drug behavior is the default and requires at least
-one drug view. ``SingleDrugModelMixin`` marks the exceptional per-drug scope and
-is shared by ``SingleDrugSklearnModel`` and single-drug literature models such
-as MOLIR and SuperFELTR.
-
-The underlying ``SklearnTabularPredictor`` remains scope-agnostic and consumes
-the feature matrix supplied by its adapter.
-
-Component-native state
-----------------------
-
-Fitted model state now lives in the component stack (``component_stack.joblib`` plus
-``hyperparameters.json``). Legacy wrapper attributes such as ``model``, ``drug_means``,
-or ``gene_expression_scaler`` are read-only views into that stack for backward
-compatibility. Legacy checkpoint formats (``naive_model.json``, ``model.pkl``/``scaler.pkl``,
-and literature-specific artifacts) can still be loaded during the deprecation window via
-``drevalpy.models._legacy_checkpoint_loaders`` and converted with
-``drevalpy.models.legacy_checkpoint_migration.migrate_checkpoint_to_component_stack``.
+Register featurizers/predictors, compose a ``ModelConfig`` or zoo YAML, and use
+``construct_model`` / ``MODEL_FACTORY``. Direct ``DRPModel`` subclass authoring is
+not the supported extension mechanism.

@@ -2,9 +2,9 @@
 Contains the DRPModel class.
 
 The DRPModel class is an abstract wrapper class for drug response prediction models.
-Concrete subclasses live under `drevalpy.models` and are the public experiment
-surface. Modular featurizer/predictor composition is implemented in
-`drevalpy.components`; baseline adapters bridge the two layers.
+Built-in models are generated facades under `drevalpy.models` backed by
+`ModelConfig` / `ComposedModel`. Custom models are created by registering
+components and composing a config or zoo preset.
 """
 
 from abc import ABC, abstractmethod

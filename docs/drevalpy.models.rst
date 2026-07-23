@@ -1,35 +1,35 @@
-Models
+drevalpy.models package
 =======================
 
-DRP Model
-----------
+Root public surface for drug response models.
 
-.. _DRP-label:
-.. automodule:: drevalpy.models.drp_model
+.. automodule:: drevalpy.models
+   :members: DRPModel, MODEL_FACTORY, MULTI_DRUG_MODEL_FACTORY, SINGLE_DRUG_MODEL_FACTORY, construct_model
+   :undoc-members:
+   :show-inheritance:
+
+Orchestration helpers
+---------------------
+
+.. automodule:: drevalpy.models.config
    :members:
    :undoc-members:
    :show-inheritance:
 
-Utility functions
-----------------------------
-
-.. automodule:: drevalpy.models.utils
+.. automodule:: drevalpy.models.composed_model
    :members:
    :undoc-members:
    :show-inheritance:
 
-Implemented models
-------------------
+.. automodule:: drevalpy.models.zoo
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
-.. toctree::
-   :maxdepth: 2
+Built-in models
+---------------
 
-   drevalpy.models.DIPK
-   drevalpy.models.DrugGNN
-   drevalpy.models.MOLIR
-   drevalpy.models.PharmaFormer
-   drevalpy.models.Precily
-   drevalpy.models.SRMF
-   drevalpy.models.SimpleNeuralNetwork
-   drevalpy.models.SuperFELTR
-   drevalpy.models.baselines
+Every built-in factory name has a zoo YAML under ``drevalpy/models/zoo/``.
+Named root exports (for example ``ElasticNetModel``, ``NaivePredictor``,
+``DIPKModel``) are generated facades backed by those presets. See
+:doc:`runyourmodel` and :doc:`model_architecture`.

@@ -6,7 +6,6 @@ from collections.abc import Iterator
 from typing import Any
 
 from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
-from drevalpy.components.register_builtins import ensure_components_registered
 from drevalpy.components.registry import get_cell_line_featurizer, get_drug_featurizer, get_predictor
 from drevalpy.models.config import FeaturizerConfig, ModelConfig
 from drevalpy.models.featurizer_mapping import cell_line_views_from_model_config, drug_views_from_model_config
@@ -32,7 +31,6 @@ _PUBLIC_VIEW_KEYS = frozenset({"cell_line_views", "drug_views"})
 
 def base_model_config_for_drp_model(model_class: type[Any]) -> ModelConfig | None:
     """Resolve the base modular config for a public DRPModel class without hyperparameters."""
-    ensure_components_registered()
     spec = getattr(model_class, "_model_spec", None)
     if isinstance(spec, str):
         return ModelConfig.from_spec(spec)

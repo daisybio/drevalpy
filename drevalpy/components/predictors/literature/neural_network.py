@@ -27,6 +27,7 @@ from drevalpy.models.config import PredictionMode
 class NeuralNetworkPredictor(MatrixPredictor):
     """Neural network predictor component."""
 
+    supports_early_stopping: ClassVar[bool] = True
     supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset({PredictionMode.REGRESSION})
 
     def __init__(self) -> None:

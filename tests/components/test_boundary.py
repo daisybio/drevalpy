@@ -3,15 +3,7 @@
 from __future__ import annotations
 
 import importlib
-
-
-def test_models_utils_reexports_shared_data_helpers() -> None:
-    from drevalpy import models
-
-    utils = importlib.import_module("drevalpy.models.utils")
-    assert hasattr(utils, "load_and_select_gene_features")
-    assert hasattr(utils, "ProteomicsMedianCenterAndImputeTransformer")
-    assert models.MODEL_FACTORY["ElasticNet"] is not None
+from pathlib import Path
 
 
 def test_native_component_registration_does_not_import_literature_models() -> None:
@@ -43,22 +35,22 @@ def test_component_featurizers_import_from_data_not_models_utils() -> None:
         module = importlib.import_module(module_name)
         source_path = module.__file__
         assert source_path is not None
-        text = open(source_path, encoding="utf-8").read()
+        text = Path(source_path).read_text(encoding="utf-8")
         assert "drevalpy.data.preprocessing" in text
         assert "drevalpy.models.utils" not in text
 
 
-def test_component_predictors_import_from_data_not_models_utils() -> None:
+def test_component_predictors_avoid_models_utils() -> None:
     for module_name in (
-        "drevalpy.components.predictors.baselines.sklearn_models",
-        "drevalpy.components.predictors.baselines.naive_pred",
+        "drevalpy.components.predictors.sklearn_models",
+        "drevalpy.components.predictors.naive",
         "drevalpy.components.predictors.literature.impl.dipk.dipk",
         "drevalpy.components.predictors.literature.impl.simple_neural_network.utils",
     ):
         module = importlib.import_module(module_name)
         source_path = module.__file__
         assert source_path is not None
-        text = open(source_path, encoding="utf-8").read()
+        text = Path(source_path).read_text(encoding="utf-8")
         assert "drevalpy.models.utils" not in text
         assert "drevalpy.models.lightning_metrics_mixin" not in text
 
@@ -86,9 +78,3 @@ def test_orchestration_lives_in_models_layer() -> None:
     assert models_config_io.model_config_from_yaml.__module__ == "drevalpy.models.config_io"
     assert models_spec.build_model_config_from_spec.__module__ == "drevalpy.models.model_config_spec"
     assert models_zoo.get_zoo_config.__module__ == "drevalpy.models.zoo"
-
-
-def test_bridge_lives_in_models_layer() -> None:
-    from drevalpy.models._component_bridge import ComponentDRPBridge
-
-    assert ComponentDRPBridge.__module__ == "drevalpy.models._component_bridge"

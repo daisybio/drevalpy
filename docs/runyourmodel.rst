@@ -1,386 +1,65 @@
 Run your own model
 ===================
 
-DrEvalPy provides a standardized interface for running your own model.
+DrEvalPy models are composed from registered **featurizers** and **predictors**.
+Do not subclass ``DRPModel`` directly for new models. Register components, then
+compose them with a ``ModelConfig`` / zoo preset; the root factory exposes a
+generated facade with the usual train/predict/save/load lifecycle.
 
-There are a few steps to follow so we can make sure the model evaluation is consistent and reproducible.
-Feel free to contact us via GitHub if you experience any difficulties :-)
+High-level path
+---------------
 
-First, make a new folder for your model at ``drevalpy/models/your_model_name``.
-Create ``drevalpy/models/your_model_name/your_model.py``, in which you need to define the Python class for your model.
-This class should inherit from the :ref:`DRPModel <DRP-label>` base class.
-DrEvalPy is agnostic to the specific modeling strategy you use. However, you need to define the input views (a.k.a modalities), which represent different types of features that your model requires.
-In this example, the model uses "gene_expression" and "methylation" features as cell line views, and "fingerprints" as drug views.
-Additionally, you must define a unique model name to identify your model during evaluation.
+1. Register a featurizer and/or predictor under ``drevalpy.components``.
+2. Describe the stack with a recipe string, YAML zoo entry, or ``ModelConfig`` dict.
+3. Use ``construct_model`` or add a zoo YAML so ``MODEL_FACTORY`` picks it up.
 
 .. code-block:: Python
 
-    from drevalpy.models.drp_model import DRPModel
-    from drevalpy.datasets.dataset import FeatureDataset, DrugResponseDataset
-    from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
-    from drevalpy.models.utils import (
-        load_and_select_gene_features,
-        load_drug_fingerprint_features,
-        scale_gene_expression,
+    from drevalpy.models import construct_model
+    from drevalpy.models.config import ModelConfig
+
+    # Recipe: cellLineFeaturizer:drugFeaturizer:predictor
+    MyModel = construct_model(
+        "MyModel",
+        "scaledGeneExpression:fingerprints:elasticNet",
     )
-    from typing import Any
-    import numpy as np
+    model = MyModel()
+    model.build_model({"alpha": 0.1, "l1_ratio": 0.5})
 
-    class YourModel(DRPModel):
-        """A revolutionary new modeling strategy."""
+    # Or load a YAML preset
+    config = ModelConfig.from_yaml("path/to/preset.yaml")
+    composed = config.create_model()
 
-        is_single_drug_model = True / False # TODO: set to true if your model is a single drug model (i.e., it needs to be trained for each drug separately)
-        early_stopping = True / False # TODO: set to true if you want to use a part of the validation set for early stopping
-        cell_line_views = ["gene_expression", "methylation"]
-        drug_views = ["fingerprints"]
+Zoo presets
+-----------
 
-        @classmethod
-        def get_model_name(cls) -> str:
-            """
-            Returns the name of the model.
-            """
-            return "YourModel"
+Built-in models live under ``drevalpy/models/zoo/*.yaml``. Each file is one
+factory name. Single-drug models set ``scope: single_drug``. Early stopping is
+derived from predictor capability metadata.
 
-Next let's implement the feature loading. You have to return a DrEvalPy FeatureDataset object which contains the features for the cell lines and drugs.
-If the features are different depending on the dataset, use the ``dataset_name`` parameter.
-In this example, we load custom drug fingerprints and cell line gene expression and methylation features from CSV files.
-The cell line ids of your gene expression and methylation csvs should match the ``CELL_LINE_IDENTIFIER`` ("cell_line_name"),
-and the drug ids of your fingerprints csv should match the ``DRUG_IDENTIFIER`` ("pubchem_id").
-The model will use these identifiers to match the features with the drug response data.
+Example zoo entry:
 
-:download:`Example fingerprint file <_static/example_data/fingerprints_example.csv>`, :download:`Example gene expression file <_static/example_data/gex_example.csv>`.
+.. code-block:: yaml
 
-For our provided datasets, we have other loading methods implemented in the `drevalpy/models/utils.py` file, which you can also use:
+    cell_line_featurizer: scaledGeneExpression
+    drug_featurizer: fingerprints
+    predictor: elasticNet
 
-* ``def load_and_select_gene_features``: Loads a specified omic; enables selecting a specific gene list (e.g., landmark genes).
-* ``def get_multiomics_feature_dataset``: Loads the specified omics (iteratively calls previous method).
-* ``def load_drug_fingerprint_features``: Loads the provided drug fingerprints.
-* ``def load_cl_ids_from_csv``
-* ``def load_drug_ids_from_csv``
-* ``load_tissues_from_csv``
+Flat hyperparameters
+--------------------
 
-.. code-block:: Python
+Public ``build_model`` still accepts the historical flat hyperparameter dict.
+Overrides are translated onto the resolved ``ModelConfig`` (predictor and
+featurizer local keys, plus ``cell_line_views`` / ``drug_views`` when present).
 
-    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
-        """
-        Loads the drug features, in this case the drug ids.
+Unsupported
+-----------
 
-        :param data_path: path to the data
-        :param dataset_name: name of the dataset
-        :returns: FeatureDataset containing the drug ids
-        """
-        feature_dataset = FeatureDataset.from_csv(
-            path_to_csv=f"{data_path}/{dataset_name}/fingerprints.csv",
-            id_column=DRUG_IDENTIFIER,
-            view_name="fingerprints",
-            drop_columns=None
-        ) # make sure to adjust the path to your data. If you want to drop columns, specify them in a list.
+The following are intentionally removed:
 
-        return feature_dataset
+* Deep imports such as ``drevalpy.models.baselines.*`` or ``drevalpy.models.DIPK.*``
+* Documented ``DRPModel`` subclass authoring as the extension path
+* Legacy checkpoint formats and fitted-state introspection (``.model``, scalers, naive means)
 
-
-    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
-        """
-        Loads the cell line features, in this case the cell line ids.
-
-        :param data_path: path to the data
-        :param dataset_name: name of the dataset
-        :returns: FeatureDataset containing the cell line ids
-        """
-        feature_dataset = FeatureDataset.from_csv(f"{data_path}/{dataset_name}_gene_expression.csv",
-                                                    id_column=CELL_LINE_IDENTIFIER,
-                                                    view_name="gene_expression",
-                                                    drop_columns=['cellosaurus_id']
-                                                 ) # make sure to adjust the path to your data
-        methylation = FeatureDataset.from_csv(f"{data_path}/{dataset_name}_methylation.csv",
-                                                id_column=CELL_LINE_IDENTIFIER,
-                                                view_name="methylation",
-                                                drop_columns=['cellosaurus_id']
-                                             ) # make sure to adjust the path to your data
-        feature_dataset.add_features(methylation)
-
-        return feature_dataset
-
-The build_model functions can be used if you want to use tunable hyperparameters.
-Implement ``get_default_hyperparameters()`` and ``get_hyperparameter_space()`` on your predictor component.
-See :doc:`hyperparameter_migration` for the current tuning workflow.
-
-.. code-block:: Python
-
-    def build_model(self, hyperparameters: dict[str, Any]) -> None:
-        """
-        Builds the model, for models that use hyperparameters.
-
-        :param hyperparameters: hyperparameters for the model
-        Example:
-            self.model = ElasticNet(alpha=hyperparameters["alpha"], l1_ratio=hyperparameters["l1_ratio"])
-        """
-        self.predictor = YourPredictor(hyperparameters) # Initialize your Predictor, this could be a sklearn model, a neural network, etc.
-
-Sometimes, the model design is dependent on your training data input. In this case, you can also consider implementing build_model like:
-
-.. code-block:: Python
-
-    def build_model(self, hyperparameters: dict[str, Any]) -> None:
-        self.hyperparameters = hyperparameters
-
-and then set the model design later in the train method when you have access to the training data.
-(e.g., when you can access the feature dimensionalities)
-The train method should handle model training, and saving any necessary information (e.g., learned parameters).
-Here we use a simple predictor that just uses the concatenated features to predict the response.
-
-.. code-block:: Python
-
-    def train(self, output: DrugResponseDataset, cell_line_input: FeatureDataset, drug_input: FeatureDataset | None = None, output_earlystopping: DrugResponseDataset | None = None, model_checkpoint_dir: str | None = None) -> None:
-
-        inputs = self.get_feature_matrices(
-            cell_line_ids=output.cell_line_ids,
-            drug_ids=output.drug_ids,
-            cell_line_input=cell_line_input,
-            drug_input=drug_input,
-        )
-
-        self.predictor.fit(**inputs, output.response)
-
-In case you want to set some parameters dependent on the training data, your train function might look like this:
-
-.. code-block:: Python
-
-    def train(self, output: DrugResponseDataset, cell_line_input: FeatureDataset, drug_input: FeatureDataset | None = None, output_earlystopping: DrugResponseDataset | None = None) -> None:
-
-        cell_line_input = self._feature_selection(output, cell_line_input)
-        dim_gex, dim_mut, dim_cnv = get_dimensions_of_omics_data(cell_line_input)
-
-        self.nn_model = YourModel(
-                                input_size_gex=dim_gex,
-                                input_size_mut=dim_mut,
-                                input_size_cnv=dim_cnv,
-                                hpams=self.hyperparameters,
-                                ...
-                            )
-        self.nn_model.fit(
-            output_train=output,
-            output_early_stopping=output_earlystopping,
-            cell_line_input=cell_line_input,
-            drug_input=drug_input,
-        )
-
-
-We also provide utility functions (drevalpy/models/utils.py) for data transformations that have to be computed on the training data only (e.g., scaling, feature selection) to avoid data leakage:
-
-* ``def scale_gene_expression``
-* ``class VarianceFeatureSelector``
-* ``def prepare_expression_and_methylation``
-* ``class ProteomicsMedianCenterAndImputeTransformer``
-* ``def prepare_proteomics``
-
-
-The predict method should handle model prediction, and return the predicted response values.
-
-.. code-block:: Python
-
-    def predict(
-        self,
-        cell_line_ids: np.ndarray,
-        drug_ids: np.ndarray,
-        cell_line_input: FeatureDataset,
-        drug_input: FeatureDataset | None = None,
-    ) -> np.ndarray:
-        """
-        Predicts the response for the given input.
-
-        :param drug_ids: list of drug ids, also used for single drug models, there it is just an array containing the
-            same drug id
-        :param cell_line_ids: list of cell line ids
-        :param cell_line_input: input associated with the cell line, required for all models
-        :param drug_input: input associated with the drug, optional because single drug models do not use drug features
-        :returns: predicted response
-        """
-
-        inputs = self.get_feature_matrices(
-            cell_line_ids=cell_line_ids,
-            drug_ids=drug_ids,
-            cell_line_input=cell_line_input,
-            drug_input=drug_input,
-        )
-
-        return self.predictor.predict(**inputs, output.response)
-
-
-Finally, you need to register your model with the framework. This can be done by adding the following line to the ``__init__.py`` file in the ``drevalpy/models/__init__.py`` directory.
-Update the ``MULTI_DRUG_MODEL_FACTORY`` if your model is a global model for multiple cancer drugs or to the ``SINGLE_DRUG_MODEL_FACTORY`` if your model is specific to a single drug and needs to be trained for each drug separately.
-
-.. code-block:: Python
-
-    from .your_model_name.your_model import YourModel
-    MULTI_DRUG_MODEL_FACTORY.update("YourModel": YourModel)
-
-Now you can run your model using the DrEvalPy pipeline. Run the following command (after installing your cloned and edited DrEvalPy repository e.g. with ``pip install -e .``):
-
-.. code-block:: shell
-    drevalpy --model YourModel --dataset_name CTRPv2 --data_path data
-
-
-To contribute the model, so that the community can build on it, please also write appropriate tests in ``tests/models`` and documentation in ``docs/``
-We are happy to help you with that, contact us via GitHub!
-
-Let's look at an example an example implementation of a model using the DrEvalPy framework:
-
-
-
-Example: TinyNN (Neural Network with PyTorch)
----------------------------------------------
-
-In this example, we implement a simple feedforward neural network for drug response prediction using gene expression and drug fingerprint features.
-We use and recommend PyTorch, but you can use any other framework like TensorFlow, JAX, etc.
-Gene expression features are standardized using a ``StandardScaler``, while fingerprint features are used as-is.
-
-1. We define a minimal PyTorch model with CPU/GPU support.
-
-.. code-block:: Python
-
-    import torch
-    import torch.nn as nn
-    import numpy as np
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    class FeedForwardNetwork(nn.Module):
-        def __init__(self, input_dim: int, hidden_dim: int):
-            super().__init__()
-            self.net = nn.Sequential(
-                nn.Linear(input_dim, hidden_dim),
-                nn.ReLU(),
-                nn.Linear(hidden_dim, 1)
-            )
-            self.to(device)
-
-        def fit(self, x: np.ndarray, y: np.ndarray, lr: float = 1e-3, epochs: int = 100):
-            self.train()
-            x_tensor = torch.tensor(x, dtype=torch.float32, device=device)
-            y_tensor = torch.tensor(y, dtype=torch.float32, device=device).unsqueeze(1)
-
-            optimizer = torch.optim.Adam(self.parameters(), lr=lr)
-            loss_fn = nn.MSELoss()
-
-            for _ in range(epochs):
-                optimizer.zero_grad()
-                loss = loss_fn(self(x_tensor), y_tensor)
-                loss.backward()
-                optimizer.step()
-
-        def forward(self, x):
-            return self.net(x)
-
-        def predict(self, x: np.ndarray) -> np.ndarray:
-            self.eval()
-            with torch.no_grad():
-                x_tensor = torch.tensor(x, dtype=torch.float32, device=device)
-                preds = self(x_tensor).squeeze(1)
-                return preds.cpu().numpy()
-
-2. We create the ``TinyNN`` model class that inherits from ``DRPModel``.
-
-.. code-block:: Python
-
-    from drevalpy.models.drp_model import DRPModel
-    from drevalpy.datasets.dataset import FeatureDataset
-    from sklearn.preprocessing import StandardScaler
-    from drevalpy.models.utils import load_and_select_gene_features, load_drug_fingerprint_features
-
-
-    class TinyNN(DRPModel):
-        cell_line_views = ["gene_expression"]
-        drug_views = ["fingerprints"]
-        early_stopping = True
-
-        def __init__(self):
-            super().__init__()
-            self.model = None
-            self.hyperparameters = None
-            self.scaler_gex = StandardScaler()
-
-        @classmethod
-        def get_model_name(cls) -> str:
-            return "TinyNN"
-
-3. We define how the features are loaded. Here, we use our presupplied datasets and the preimplemented functions. Loading features can be customized (Have a look at the FeatureDataset class for more details e.g. on how to load features from a CSV).
-
-.. code-block:: Python
-
-        def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
-
-            return load_and_select_gene_features(feature_type="gene_expression",
-                                                data_path=data_path,
-                                                dataset_name=dataset_name,
-                                                gene_list="landmark_genes_reduced")
-
-
-        def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
-
-            return load_drug_fingerprint_features(data_path, dataset_name, fill_na=True)
-
-4. In the ``build_model`` we just store the hyperparameters.
-
-.. code-block:: Python
-
-        def build_model(self, hyperparameters: dict[str, Any]) -> None:
-            self.hyperparameters = hyperparameters
-
-5. In the train method we scale gene expression and train the model.
-
-.. code-block:: Python
-
-        def train(self, output, cell_line_input, drug_input, output_earlystopping=None, model_checkpoint_dir=None):
-            gex = cell_line_input.get_feature_matrix("gene_expression", output.cell_line_ids)
-            fp = drug_input.get_feature_matrix("fingerprints", output.drug_ids)
-
-            gex = self.scaler_gex.fit_transform(gex)
-            x = np.concatenate([gex, fp], axis=1)
-            y = output.response
-
-            self.model = FeedForwardNetwork(
-                input_dim=x.shape[1],
-                hidden_dim=self.hyperparameters["hidden_dim"]
-            )
-            self.model.fit(x, y)
-
-6. We apply scaling in ``predict`` and return model outputs.
-
-.. code-block:: Python
-
-        def predict(self, cell_line_ids, drug_ids, cell_line_input, drug_input):
-            gex = cell_line_input.get_feature_matrix("gene_expression", cell_line_ids)
-            fp = drug_input.get_feature_matrix("fingerprints", drug_ids)
-
-            gex = self.scaler_gex.transform(gex)
-            x = np.concatenate([gex, fp], axis=1)
-
-            return self.model.predict(x)
-
-7. Add ``get_hyperparameter_space()`` to your predictor component. DrEval will tune over that structured search space when ``hyperparameter_tuning=True``.
-
-.. code-block:: Python
-
-        @classmethod
-        def get_hyperparameter_space(cls) -> dict[str, dict[str, object]]:
-            return {
-                "hidden_dim": {
-                    "type": "categorical",
-                    "choices": [32, 64],
-                    "default": 32,
-                }
-            }
-
-8. This example uses the legacy ``DRPModel`` API, so register the model in
-   ``models/__init__.py``. New component-native models should instead register a
-   predictor and compose it with featurizers through ``ModelConfig`` or
-   ``construct_model()``; see :doc:`model_architecture`.
-
-.. code-block:: Python
-
-    from .your_model_folder.tinynn import TinyNN
-    MULTI_DRUG_MODEL_FACTORY.update({"TinyNN": TinyNN})
-
-
-
+Root usage is unchanged: ``MODEL_FACTORY``, named root exports, experiment
+routing, and the CLI continue to work as before.

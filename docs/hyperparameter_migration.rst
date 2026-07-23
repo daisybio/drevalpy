@@ -1,8 +1,7 @@
 Hyperparameter migration
 ========================
 
-DrEvalPy no longer uses YAML grid files such as
-``components/predictors/baselines/hyperparameters.yaml`` for baseline tuning.
+DrEvalPy no longer uses YAML grid files for baseline tuning.
 
 Instead, each component predictor owns:
 

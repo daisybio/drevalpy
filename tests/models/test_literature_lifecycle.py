@@ -1,4 +1,4 @@
-"""Smoke tests for literature models routed through the component bridge."""
+"""Smoke tests for literature models routed through the native facade."""
 
 from __future__ import annotations
 

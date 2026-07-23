@@ -20,6 +20,7 @@ class Predictor(ABC):
     cell_line_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
     drug_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
     requires_drug_featurizer: ClassVar[bool] = True
+    supports_early_stopping: ClassVar[bool] = False
     supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset(PredictionMode)
 
     @classmethod

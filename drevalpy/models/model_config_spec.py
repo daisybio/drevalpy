@@ -57,7 +57,7 @@ def _config_from_baseline_predictor_token(
 
     try:
         pred_cls = get_predictor(token)
-    except ValueError:
+    except (ValueError, ImportError):
         return None
     if not (issubclass(pred_cls, BaselinePredictor) or getattr(pred_cls, "category", "") == "baseline"):
         return None
@@ -86,15 +86,12 @@ def build_model_config_from_spec(
     3. Legacy ``MODEL_FACTORY`` model name (PascalCase)
     4. Baseline predictor token (no featurizers required), e.g. ``naiveMean`` or ``dipk``
     """
-    from drevalpy.components.register_builtins import ensure_components_registered
     from drevalpy.models.factory import model_config_for_name
 
     trimmed = spec.strip()
     if not trimmed:
         msg = "model spec must be a non-empty string"
         raise ValueError(msg)
-
-    ensure_components_registered()
 
     if ":" in trimmed:
         return _config_from_recipe_triple(trimmed, hyperparameters=hyperparameters)

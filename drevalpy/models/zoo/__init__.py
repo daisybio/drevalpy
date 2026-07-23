@@ -9,6 +9,7 @@ import yaml
 
 from drevalpy.models.config import ModelConfig
 from drevalpy.models.config_io import model_config_from_dict, model_config_from_yaml
+from drevalpy.models.featurizer_mapping import cell_line_featurizer_from_views, drug_featurizer_from_view
 
 _BUILTIN_ZOO_DIR = Path(__file__).resolve().parent
 _EXTERNAL_ZOO: dict[str, ModelConfig] = {}
@@ -89,19 +90,21 @@ def load_external_zoo_file(path: Path | str) -> list[str]:
 
 def zoo_model_config(name: str, hyperparameters: dict[str, Any] | None = None) -> ModelConfig:
     """Return a zoo config with optional predictor and view hyperparameter overrides."""
-    from drevalpy.models.factory import featurizer_configs_from_view_hyperparameters
-
     config = get_zoo_config(name)
     if not hyperparameters:
         return config
     merged_hp = {**config.predictor.hyperparameters, **hyperparameters}
     cell_line_featurizer = config.cell_line_featurizer
     drug_featurizer = config.drug_featurizer
-    cell_line_override, drug_override = featurizer_configs_from_view_hyperparameters(hyperparameters)
+    cell_line_override = None
+    if "cell_line_views" in hyperparameters:
+        views = _view_list(hyperparameters["cell_line_views"])
+        cell_line_override = cell_line_featurizer_from_views(views, hyperparameters)
+    if "drug_views" in hyperparameters:
+        views = _view_list(hyperparameters["drug_views"])
+        drug_featurizer = drug_featurizer_from_view(views[0]) if views else None
     if cell_line_override is not None:
         cell_line_featurizer = cell_line_override
-    if drug_override is not None:
-        drug_featurizer = drug_override
     return config.model_copy(
         update={
             "cell_line_featurizer": cell_line_featurizer,
@@ -114,3 +117,11 @@ def zoo_model_config(name: str, hyperparameters: dict[str, Any] | None = None) -
 
 def _clone_model_config(config: ModelConfig) -> ModelConfig:
     return config.model_copy(deep=True)
+
+
+def _view_list(value: object) -> list[str]:
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, list):
+        return [str(item) for item in value]
+    raise ValueError(f"view override must be a string or list, got {type(value).__name__}")

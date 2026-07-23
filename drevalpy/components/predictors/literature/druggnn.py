@@ -11,13 +11,14 @@ from torch_geometric.loader import DataLoader
 from drevalpy.components.contracts import FeatureKind
 from drevalpy.components.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors.literature._metadata import DRUGGNN_METADATA
+from drevalpy.components.predictors.literature.impl.druggnn.drug_gnn import DrugGNN as DrugGNNEngine
 from drevalpy.components.predictors.literature.impl.druggnn.drug_gnn import (
     DrugGNNModule,
     _DrugResponsePytorchDataset,
 )
 from drevalpy.components.predictors.structured import StructuredPredictor
 from drevalpy.components.registry import register_predictor
-from drevalpy.datasets.dataset import DrugResponseDataset
+from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 
 
 @register_predictor(
@@ -45,6 +46,30 @@ class DrugGNNPredictor(StructuredPredictor):
             "epochs": 2,
             "batch_size": 8,
         }
+
+    @classmethod
+    def load_dataset_cell_line_features(
+        cls,
+        data_path: str,
+        dataset_name: str,
+        *,
+        hyperparameters: dict[str, Any] | None = None,
+        model_name: str | None = None,
+    ) -> tuple[FeatureDataset, dict[str, Any]]:
+        _ = hyperparameters, model_name
+        return DrugGNNEngine().load_cell_line_features(data_path, dataset_name), {}
+
+    @classmethod
+    def load_dataset_drug_features(
+        cls,
+        data_path: str,
+        dataset_name: str,
+        *,
+        hyperparameters: dict[str, Any] | None = None,
+        model_name: str | None = None,
+    ) -> FeatureDataset | None:
+        _ = hyperparameters, model_name
+        return DrugGNNEngine().load_drug_features(data_path, dataset_name)
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:

@@ -11,7 +11,7 @@ import pytest
 from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, TISSUE_IDENTIFIER
 from drevalpy.models import MODEL_FACTORY
-from drevalpy.models.utils import (
+from drevalpy.data.features import (
     get_multiomics_feature_dataset,
     iterate_features,
     load_and_select_gene_features,

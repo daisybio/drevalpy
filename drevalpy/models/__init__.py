@@ -1,15 +1,8 @@
-"""Public drug response prediction models and legacy experiment adapters.
+"""Public drug response prediction models.
 
-This package exposes `~drevalpy.models.drp_model.DRPModel` subclasses,
-``MODEL_FACTORY``, model orchestration (factory, config IO/spec, zoo,
-`~drevalpy.models.composed_model.ComposedModel`), and public model
-compatibility classes. Baseline and literature predictor implementations live
-under `drevalpy.components.predictors` and are exposed here for backward
-compatibility via `drevalpy.models._component_bridge`.
-
-Factory tables and concrete model classes are loaded lazily so importing
-``drevalpy.models.drp_model`` from component implementations does not pull in
-the full public model graph during package initialization.
+Root exports (`MODEL_FACTORY`, named facade classes, `construct_model`) are
+generated from zoo presets and backed by a single `NativeDRPModel` facade.
+Component registration plus `ModelConfig` is the supported extension path.
 """
 
 from __future__ import annotations
@@ -59,40 +52,36 @@ __all__ = [
 _LAZY_LOADED = False
 
 if TYPE_CHECKING:
-    from drevalpy.components.predictors.baselines import (
-        AdaBoostDecisionTree,
-        ElasticNetModel,
-        GradientBoosting,
-        KNNRegressor,
-        LassoModel,
-        MultiViewRandomForest,
-        MultiViewXGBoost,
-        NaiveCellLineMeanPredictor,
-        NaiveDrugMeanPredictor,
-        NaiveMeanEffectsPredictor,
-        NaivePredictor,
-        NaiveTissueDrugMeanPredictor,
-        NaiveTissueMeanPredictor,
-        RandomForest,
-        SingleDrugElasticNet,
-        SingleDrugRandomForest,
-        SVMRegressor,
-    )
-    from drevalpy.components.predictors.baselines.zoo_preset import MultiViewLightGBM
-    from drevalpy.components.predictors.literature.public_models import (
-        MOLIR,
-        SRMF,
-        DIPKModel,
-        DrugGNN,
-        MultiViewNeuralNetwork,
-        PharmaFormerModel,
-        PrecilyModel,
-        SimpleNeuralNetwork,
-    )
-    from drevalpy.components.predictors.literature.public_models import SparseGOModel as SparseGO
-    from drevalpy.components.predictors.literature.public_models import (
-        SuperFELTR,
-    )
+    from drevalpy.models._native_drp_model import NativeDRPModel
+
+    AdaBoostDecisionTree: type[NativeDRPModel]
+    ElasticNetModel: type[NativeDRPModel]
+    GradientBoosting: type[NativeDRPModel]
+    KNNRegressor: type[NativeDRPModel]
+    LassoModel: type[NativeDRPModel]
+    MultiViewRandomForest: type[NativeDRPModel]
+    MultiViewXGBoost: type[NativeDRPModel]
+    MultiViewLightGBM: type[NativeDRPModel]
+    NaiveCellLineMeanPredictor: type[NativeDRPModel]
+    NaiveDrugMeanPredictor: type[NativeDRPModel]
+    NaiveMeanEffectsPredictor: type[NativeDRPModel]
+    NaivePredictor: type[NativeDRPModel]
+    NaiveTissueDrugMeanPredictor: type[NativeDRPModel]
+    NaiveTissueMeanPredictor: type[NativeDRPModel]
+    RandomForest: type[NativeDRPModel]
+    SingleDrugElasticNet: type[NativeDRPModel]
+    SingleDrugRandomForest: type[NativeDRPModel]
+    SVMRegressor: type[NativeDRPModel]
+    DIPKModel: type[NativeDRPModel]
+    DrugGNN: type[NativeDRPModel]
+    MOLIR: type[NativeDRPModel]
+    MultiViewNeuralNetwork: type[NativeDRPModel]
+    PharmaFormerModel: type[NativeDRPModel]
+    PrecilyModel: type[NativeDRPModel]
+    SRMF: type[NativeDRPModel]
+    SimpleNeuralNetwork: type[NativeDRPModel]
+    SparseGO: type[NativeDRPModel]
+    SuperFELTR: type[NativeDRPModel]
 
     SINGLE_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]]
     MULTI_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]]
@@ -103,114 +92,9 @@ def _lazy_load_public_models() -> None:
     global _LAZY_LOADED
     if _LAZY_LOADED:
         return
+    from drevalpy.models._factory_classes import populate_public_model_namespace
 
-    from drevalpy.components.predictors.baselines import (
-        AdaBoostDecisionTree,
-        ElasticNetModel,
-        GradientBoosting,
-        KNNRegressor,
-        LassoModel,
-        MultiViewRandomForest,
-        MultiViewXGBoost,
-        NaiveCellLineMeanPredictor,
-        NaiveDrugMeanPredictor,
-        NaiveMeanEffectsPredictor,
-        NaivePredictor,
-        NaiveTissueDrugMeanPredictor,
-        NaiveTissueMeanPredictor,
-        RandomForest,
-        SingleDrugElasticNet,
-        SingleDrugRandomForest,
-        SVMRegressor,
-    )
-    from drevalpy.components.predictors.baselines.zoo_preset import MultiViewLightGBM
-    from drevalpy.components.predictors.literature.public_models import (
-        MOLIR,
-        SRMF,
-        DIPKModel,
-        DrugGNN,
-        MultiViewNeuralNetwork,
-        PharmaFormerModel,
-        PrecilyModel,
-        SimpleNeuralNetwork,
-    )
-    from drevalpy.components.predictors.literature.public_models import SparseGOModel as SparseGO
-    from drevalpy.components.predictors.literature.public_models import (
-        SuperFELTR,
-    )
-
-    single: dict[str, type[DRPModel]] = {
-        "SingleDrugElasticNet": SingleDrugElasticNet,
-        "SingleDrugRandomForest": SingleDrugRandomForest,
-        "MOLIR": MOLIR,
-        "SuperFELTR": SuperFELTR,
-    }
-    multi: dict[str, type[DRPModel]] = {
-        "NaivePredictor": NaivePredictor,
-        "NaiveCellLineMeanPredictor": NaiveCellLineMeanPredictor,
-        "NaiveDrugMeanPredictor": NaiveDrugMeanPredictor,
-        "NaiveMeanEffectsPredictor": NaiveMeanEffectsPredictor,
-        "NaiveTissueMeanPredictor": NaiveTissueMeanPredictor,
-        "NaiveTissueDrugMeanPredictor": NaiveTissueDrugMeanPredictor,
-        "AdaBoostDecisionTree": AdaBoostDecisionTree,
-        "ElasticNet": ElasticNetModel,
-        "Lasso": LassoModel,
-        "GradientBoosting": GradientBoosting,
-        "KNNRegressor": KNNRegressor,
-        "RandomForest": RandomForest,
-        "MultiViewRandomForest": MultiViewRandomForest,
-        "SVR": SVMRegressor,
-        "DrugGNN": DrugGNN,
-        "SimpleNeuralNetwork": SimpleNeuralNetwork,
-        "MultiViewNeuralNetwork": MultiViewNeuralNetwork,
-        "MultiViewXGBoost": MultiViewXGBoost,
-        "MultiViewLightGBM": MultiViewLightGBM,
-        "DIPK": DIPKModel,
-        "PharmaFormer": PharmaFormerModel,
-        "SRMF": SRMF,
-        "Precily": PrecilyModel,
-        "SparseGO": SparseGO,
-    }
-    factory = multi.copy()
-    factory.update(single)
-
-    g = globals()
-    g.update(
-        {
-            "AdaBoostDecisionTree": AdaBoostDecisionTree,
-            "ElasticNetModel": ElasticNetModel,
-            "GradientBoosting": GradientBoosting,
-            "KNNRegressor": KNNRegressor,
-            "LassoModel": LassoModel,
-            "MultiViewRandomForest": MultiViewRandomForest,
-            "MultiViewXGBoost": MultiViewXGBoost,
-            "MultiViewLightGBM": MultiViewLightGBM,
-            "NaiveCellLineMeanPredictor": NaiveCellLineMeanPredictor,
-            "NaiveDrugMeanPredictor": NaiveDrugMeanPredictor,
-            "NaiveMeanEffectsPredictor": NaiveMeanEffectsPredictor,
-            "NaivePredictor": NaivePredictor,
-            "NaiveTissueDrugMeanPredictor": NaiveTissueDrugMeanPredictor,
-            "NaiveTissueMeanPredictor": NaiveTissueMeanPredictor,
-            "RandomForest": RandomForest,
-            "SingleDrugElasticNet": SingleDrugElasticNet,
-            "SingleDrugRandomForest": SingleDrugRandomForest,
-            "SVMRegressor": SVMRegressor,
-            "DIPKModel": DIPKModel,
-            "DrugGNN": DrugGNN,
-            "MOLIR": MOLIR,
-            "MultiViewNeuralNetwork": MultiViewNeuralNetwork,
-            "PharmaFormerModel": PharmaFormerModel,
-            "PrecilyModel": PrecilyModel,
-            "SRMF": SRMF,
-            "SimpleNeuralNetwork": SimpleNeuralNetwork,
-            "SparseGOModel": SparseGO,
-            "SuperFELTR": SuperFELTR,
-            "SparseGO": SparseGO,
-            "SINGLE_DRUG_MODEL_FACTORY": single,
-            "MULTI_DRUG_MODEL_FACTORY": multi,
-            "MODEL_FACTORY": factory,
-        }
-    )
+    populate_public_model_namespace(globals())
     _LAZY_LOADED = True
 
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from drevalpy.data.features import (
+    load_cl_ids_and_tissues_from_csv,
     load_cl_ids_from_csv,
     load_drug_ids_from_csv,
     load_multi_cell_line_view,
@@ -18,6 +19,8 @@ from drevalpy.models.featurizer_mapping import (
     drug_entity_id_only_from_model_config,
     drug_views_from_model_config,
 )
+
+_TISSUE_AWARE_PREDICTORS = frozenset({"naiveMeanEffects", "naiveTissueMean", "naiveTissueDrugMean"})
 
 
 def load_cell_line_feature_views(
@@ -64,9 +67,23 @@ def load_cell_line_features_for_model_config(
     model_name: str = "ComposedModel",
 ) -> FeatureDataset:
     """Load cell-line features implied by *config*, including identity-only featurizers."""
+    featurizer = config.cell_line_featurizer
+    if featurizer is not None and featurizer.name == "tissue":
+        return load_tissues_from_csv(data_path, dataset_name)
+    if config.predictor.name in _TISSUE_AWARE_PREDICTORS and (
+        featurizer is None or featurizer.name in {"identity", "tissue"}
+    ):
+        if featurizer is not None and featurizer.name == "tissue":
+            return load_tissues_from_csv(data_path, dataset_name)
+        if config.predictor.name == "naiveMeanEffects":
+            return load_cl_ids_and_tissues_from_csv(data_path, dataset_name)
     if cell_line_entity_id_only_from_model_config(config):
         return load_cl_ids_from_csv(data_path, dataset_name)
+    if featurizer is None:
+        return load_cl_ids_from_csv(data_path, dataset_name)
     views = cell_line_views_from_model_config(config)
+    if not views:
+        return load_cl_ids_from_csv(data_path, dataset_name)
     return load_cell_line_feature_views(views, data_path, dataset_name, model_name=model_name)
 
 

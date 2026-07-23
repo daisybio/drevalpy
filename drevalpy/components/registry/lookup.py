@@ -41,6 +41,10 @@ def register_cell_line_featurizer(
 
 def get_cell_line_featurizer(name: str) -> type[Any]:
     """Return the cell-line featurizer class registered under *name*."""
+    if name not in cell_line_featurizer_registry.list_names():
+        from drevalpy.components.register_builtins import ensure_cell_line_featurizer_registered
+
+        ensure_cell_line_featurizer_registered(name)
     return cell_line_featurizer_registry.get(name)
 
 
@@ -92,6 +96,10 @@ def register_drug_featurizer(
 
 def get_drug_featurizer(name: str) -> type[Any]:
     """Return the drug featurizer class registered under *name*."""
+    if name not in drug_featurizer_registry.list_names():
+        from drevalpy.components.register_builtins import ensure_drug_featurizer_registered
+
+        ensure_drug_featurizer_registered(name)
     return drug_featurizer_registry.get(name)
 
 
@@ -145,6 +153,19 @@ def register_predictor(
 
 def get_predictor(name: str) -> type[Any]:
     """Return the predictor class registered under *name*."""
+    from drevalpy.components.register_builtins import _PREDICTOR_MODULES, ensure_predictor_registered
+
+    if name not in predictor_registry.list_names():
+        if name not in _PREDICTOR_MODULES:
+            raise ValueError(f"Unknown Predictor: {name!r}")
+        try:
+            ensure_predictor_registered(name)
+        except ImportError:
+            raise
+        except Exception as exc:
+            raise ImportError(f"Predictor {name!r} could not be imported: {exc}") from exc
+    if name not in predictor_registry.list_names():
+        raise ImportError(f"Predictor {name!r} is unavailable; its optional/literature dependency was not registered.")
     return predictor_registry.get(name)
 
 

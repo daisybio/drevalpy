@@ -40,21 +40,67 @@ class StructuredLiteratureEnginePredictor(StructuredPredictor):
     """Train a component-owned literature engine on featurizer-produced blocks."""
 
     _engine_cls: ClassVar[type[LiteratureEngineBase]]
-    _use_raw_inputs: ClassVar[bool] = False
+    requires_raw_feature_datasets: ClassVar[bool] = False
     requires_drug_featurizer: ClassVar[bool] = True
+    supports_early_stopping: ClassVar[bool] = False
     supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset({PredictionMode.REGRESSION})
+
+    _ENGINE_PRELOAD_ATTRS: ClassVar[tuple[str, ...]] = (
+        "layer_connections",
+        "gene2id_mapping_ont",
+        "ontology_gene_order",
+        "gene_dim_input",
+        "model",
+    )
 
     def __init__(self) -> None:
         self._hyperparameters: dict[str, Any] = {}
         self._engine: LiteratureEngineBase | None = None
-        self._build_context: dict[str, Any] = {}
-
-    def set_build_context(self, context: dict[str, Any]) -> None:
-        self._build_context = dict(context)
+        self._engine_preload_state: dict[str, Any] = {}
 
     def build(self, hyperparameters: dict[str, Any], input_dims: dict[str, Any]) -> None:
         _ = input_dims
         self._hyperparameters = dict(hyperparameters)
+
+    def set_engine_preload_state(self, state: dict[str, Any]) -> None:
+        self._engine_preload_state = dict(state)
+
+    @classmethod
+    def load_dataset_cell_line_features(
+        cls,
+        data_path: str,
+        dataset_name: str,
+        *,
+        hyperparameters: dict[str, Any] | None = None,
+        model_name: str | None = None,
+    ) -> tuple[FeatureDataset, dict[str, Any]]:
+        _ = model_name
+        engine = cls._engine_cls()
+        if hyperparameters:
+            engine.hyperparameters = dict(hyperparameters)
+        features = engine.load_cell_line_features(data_path, dataset_name)
+        preload = {
+            attr: getattr(engine, attr) for attr in cls._ENGINE_PRELOAD_ATTRS if getattr(engine, attr, None) is not None
+        }
+        return features, preload
+
+    @classmethod
+    def load_dataset_drug_features(
+        cls,
+        data_path: str,
+        dataset_name: str,
+        *,
+        hyperparameters: dict[str, Any] | None = None,
+        model_name: str | None = None,
+    ) -> FeatureDataset | None:
+        _ = model_name
+        engine = cls._engine_cls()
+        if hyperparameters:
+            engine.hyperparameters = dict(hyperparameters)
+        features = engine.load_drug_features(data_path, dataset_name)
+        if hyperparameters is not None:
+            hyperparameters.update(dict(engine.hyperparameters))
+        return features
 
     def _materialize_inputs(
         self,
@@ -81,25 +127,16 @@ class StructuredLiteratureEnginePredictor(StructuredPredictor):
             drugs = drug_input
         return cell_lines, drugs
 
-    def _engine_from_context(self) -> LiteratureEngineBase:
-        engine = self._engine_cls()
-        for name, value in self._build_context.items():
-            if name.startswith("_"):
-                continue
-            if hasattr(engine, name):
-                setattr(engine, name, value)
-        return engine
-
     def fit(self, batch: ModelInputBatch) -> None:
         if batch.response is None:
             msg = "structured literature predictor requires response"
             raise RuntimeError(msg)
-        if batch.cell_line_features.size == 0 and not self._use_raw_inputs:
+        if batch.cell_line_features.size == 0 and not self.requires_raw_feature_datasets:
             msg = "cell_line featurizer produced no features"
             raise ValueError(msg)
         cell_line_input = batch.cell_line_input
         drug_input = batch.drug_input
-        if self._use_raw_inputs:
+        if self.requires_raw_feature_datasets:
             if cell_line_input is None:
                 msg = "structured literature predictor requires cell_line_input"
                 raise RuntimeError(msg)
@@ -113,17 +150,16 @@ class StructuredLiteratureEnginePredictor(StructuredPredictor):
             drug_ids=batch.drug_ids,
         )
         hyperparameters = dict(self._hyperparameters)
-        if "hyperparameters" in self._build_context:
-            nested = self._build_context.get("hyperparameters")
-            if isinstance(nested, dict):
-                hyperparameters = {**hyperparameters, **nested}
-        engine = self._engine_from_context()
+        engine = self._engine_cls()
+        for name, value in self._engine_preload_state.items():
+            setattr(engine, name, value)
         engine.build_model(hyperparameters)
         engine.train(
             output,
             cell_lines,
             drugs,
             output_earlystopping=batch.early_stopping_response,
+            model_checkpoint_dir=batch.training_context.checkpoint_dir,
         )
         self._engine = engine
 
@@ -132,7 +168,7 @@ class StructuredLiteratureEnginePredictor(StructuredPredictor):
         if self._engine is None or cell_line_input is None:
             return np.full(batch.n_pairs, np.nan, dtype=np.float64)
         drug_input = batch.drug_input
-        if self._use_raw_inputs:
+        if self.requires_raw_feature_datasets:
             drugs = None if not self.requires_drug_featurizer else drug_input
             return self._engine.predict(
                 batch.cell_line_ids,
@@ -213,7 +249,8 @@ class MOLIRPredictor(StructuredLiteratureEnginePredictor):
     """Molirpredictor component."""
 
     requires_drug_featurizer: ClassVar[bool] = False
-    _use_raw_inputs: ClassVar[bool] = True
+    requires_raw_feature_datasets: ClassVar[bool] = True
+    supports_early_stopping: ClassVar[bool] = True
     _engine_cls = MOLIR
 
 
@@ -228,7 +265,8 @@ class SuperFELTRPredictor(StructuredLiteratureEnginePredictor):
     """Super feltrpredictor component."""
 
     requires_drug_featurizer: ClassVar[bool] = False
-    _use_raw_inputs: ClassVar[bool] = True
+    requires_raw_feature_datasets: ClassVar[bool] = True
+    supports_early_stopping: ClassVar[bool] = True
     _engine_cls = SuperFELTR
 
 
@@ -242,7 +280,8 @@ class SuperFELTRPredictor(StructuredLiteratureEnginePredictor):
 class PharmaFormerPredictor(StructuredLiteratureEnginePredictor):
     """Pharma former predictor component."""
 
-    _use_raw_inputs: ClassVar[bool] = True
+    requires_raw_feature_datasets: ClassVar[bool] = True
+    supports_early_stopping: ClassVar[bool] = True
     _engine_cls = PharmaFormerModel
 
 
@@ -256,7 +295,8 @@ class PharmaFormerPredictor(StructuredLiteratureEnginePredictor):
 class DIPKPredictor(StructuredLiteratureEnginePredictor):
     """Dipkpredictor component."""
 
-    _use_raw_inputs: ClassVar[bool] = True
+    requires_raw_feature_datasets: ClassVar[bool] = True
+    supports_early_stopping: ClassVar[bool] = True
     _engine_cls = DIPKModel
 
 
@@ -270,5 +310,5 @@ class DIPKPredictor(StructuredLiteratureEnginePredictor):
 class SparseGOPredictor(StructuredLiteratureEnginePredictor):
     """SparseGO predictor component."""
 
-    _use_raw_inputs: ClassVar[bool] = True
+    requires_raw_feature_datasets: ClassVar[bool] = True
     _engine_cls = SparseGOModel

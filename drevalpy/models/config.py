@@ -20,6 +20,13 @@ class PredictionMode(StrEnum):
     CLASSIFICATION = "classification"
 
 
+class ModelScope(StrEnum):
+    """Whether one model is fitted globally or independently per drug."""
+
+    MULTI_DRUG = "multi_drug"
+    SINGLE_DRUG = "single_drug"
+
+
 class FeaturizerConfig(BaseModel):
     """Declarative specification for a featurizer."""
 
@@ -107,6 +114,7 @@ class ModelConfig(BaseModel):
     drug_featurizer: FeaturizerConfig | None = None
     predictor: PredictorConfig
     prediction_mode: PredictionMode = PredictionMode.REGRESSION
+    scope: ModelScope = ModelScope.MULTI_DRUG
 
     @model_validator(mode="before")
     @classmethod
@@ -163,6 +171,7 @@ class ModelConfig(BaseModel):
             pred,
             predictor_hyperparameters=self.predictor.hyperparameters,
             prediction_mode=self.prediction_mode,
+            config=self,
         )
 
     @classmethod

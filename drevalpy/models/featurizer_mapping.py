@@ -173,8 +173,10 @@ def _views_from_featurizer_config(config: FeaturizerConfig, *, registry: str) ->
 def cell_line_views_from_model_config(config: ModelConfig) -> list[str]:
     """Resolve legacy cell-line view names from a zoo-backed model config."""
     if config.cell_line_featurizer is None:
-        return ["gene_expression"]
+        return []
     if cell_line_entity_id_only_from_model_config(config):
+        return []
+    if config.cell_line_featurizer.name == "tissue":
         return []
     views = _views_from_featurizer_config(config.cell_line_featurizer, registry="cell_line")
     return views or ["gene_expression"]

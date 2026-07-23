@@ -161,6 +161,26 @@ def tests(session: Session) -> None:
             session.notify("coverage")
 
 
+@session(name="tests-light-models", python=python_versions)
+def tests_light_models(session: Session) -> None:
+    """
+    Run dependency-light model execution gates without optional extras.
+
+    :param session: The Session object.
+    """
+    session.install(".")
+    session.install("pytest", "pygments")
+    session.run(
+        "pytest",
+        "tests/models/test_factory_compat_contract.py",
+        "tests/models/test_direct_component_harness.py",
+        "tests/models/test_facade_parity.py",
+        "tests/models/test_architecture_policy.py",
+        "tests/models/test_import_compat.py",
+        *session.posargs,
+    )
+
+
 @session
 def coverage(session: Session) -> None:
     """

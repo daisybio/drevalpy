@@ -29,16 +29,16 @@ from drevalpy.components.predictors.literature.impl.molir.utils import (
 from drevalpy.data.features import get_multiomics_feature_dataset
 from drevalpy.data.preprocessing import VarianceFeatureSelector
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
-from drevalpy.models.single_drug import SingleDrugModelMixin
 
 from .utils import SuperFELTEncoder, SuperFELTRegressor, train_superfeltr_model
 
 
-class SuperFELTR(SingleDrugModelMixin, LiteratureEngineBase):
+class SuperFELTR(LiteratureEngineBase):
     """Regression extension of Super.FELT."""
 
     cell_line_views = ["gene_expression", "mutations", "copy_number_variation_gistic"]
     early_stopping = True
+    is_single_drug_model = True
 
     def __init__(self) -> None:
         """
