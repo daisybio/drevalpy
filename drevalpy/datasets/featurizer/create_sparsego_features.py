@@ -15,7 +15,6 @@ import argparse
 import itertools
 import math
 import os
-import sys
 
 import networkx as nx
 import networkx.algorithms.components.connected as nxacc
@@ -111,9 +110,9 @@ def _fetch_gene_go_annotations(genes: list[str]) -> pd.DataFrame:
     """
     try:
         import mygene
-    except ImportError:
-        print("ERROR: mygene is required.  Run: pip install mygene", file=sys.stderr)
-        sys.exit(1)
+    except ImportError as exc:
+        msg = "mygene is required. Run: pip install 'drevalpy[sparsego]' (or: pip install mygene)"
+        raise ImportError(msg) from exc
 
     mg = mygene.MyGeneInfo()
 
@@ -180,9 +179,9 @@ def _build_pruned_graph(
     """
     try:
         import obonet
-    except ImportError:
-        print("ERROR: obonet is required.  Run: pip install obonet", file=sys.stderr)
-        sys.exit(1)
+    except ImportError as exc:
+        msg = "obonet is required. Run: pip install 'drevalpy[sparsego]' (or: pip install obonet)"
+        raise ImportError(msg) from exc
 
     if obo_file is None:
         obo_url = "https://current.geneontology.org/ontology/go-basic.obo"
