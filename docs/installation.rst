@@ -72,7 +72,11 @@ default ``pip install drevalpy``. They are provided as optional `extras`:
      - The ``SparseGO`` model (MyGene / OBO ontology helpers)
      - ``mygene``, ``obonet``
 
-Ray Tune hyperparameter optimization (``ray[tune]`` and ``optuna``) is included in the core install.
+Ray Tune hyperparameter optimization (``ray[tune]`` and ``optuna``) is included in
+the core install on platforms where Ray publishes wheels. On Windows with
+Python 3.13+, ``ray[tune]`` is skipped until upstream wheels are available; Optuna
+HPO still works, and Ray Tune remains available on Linux/macOS (and Windows with
+Python 3.12).
 
 Install one or more extras by listing them in square brackets, for example:
 

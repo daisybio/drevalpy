@@ -68,8 +68,10 @@ Using pip:
 pip install drevalpy
 ```
 
-Optional Ray Tune support is included in the default install (`ray[tune]` and `optuna`).
-For model-specific extras such as Precily or XGBoost, see the installation docs.
+Ray Tune (`ray[tune]`) and Optuna are included in the default install where Ray
+wheels exist. On Windows with Python 3.13+, Ray is skipped until upstream provides
+wheels; Optuna HPO still works. For model-specific extras such as Precily or
+XGBoost, see the installation docs.
 
 On a regular machine, the installation should take about a minute.
 

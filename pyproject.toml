@@ -69,8 +69,10 @@ precily = ["gseapy"]
 sparsego = ["mygene", "obonet"]
 
 [tool.poetry.dependencies.ray]
+# Ray has no Windows wheels for Python >= 3.13 yet; skip there so installs/CI succeed.
 extras = ["tune"]
 version = "*"
+markers = "sys_platform != 'win32' or python_version < '3.13'"
 
 [tool.poetry.group.development.dependencies]
 sphinx-autodoc-typehints = "*"
