@@ -237,7 +237,7 @@ class StructuredLiteratureEnginePredictor(StructuredPredictor):
         engine = _rebind_engine_class(self._engine, self._engine_class_name)
         self._engine = engine
         # Keep the class-level cache aligned with the rebound class.
-        setattr(type(self), "_cached_engine_cls", type(engine))
+        type(self)._cached_engine_cls = type(engine)
         buffer = io.BytesIO()
         joblib.dump(engine, buffer)
         return {

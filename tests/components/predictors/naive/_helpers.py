@@ -15,7 +15,14 @@ def naive_batch(
     response: np.ndarray | None = None,
     cell_line_input: FeatureDataset | None = None,
 ) -> ModelInputBatch:
-    """Build a minimal batch for naive predictor tests."""
+    """Build a minimal batch for naive predictor tests.
+
+    :param cell_line_ids: Pair-aligned cell-line identifiers.
+    :param drug_ids: Pair-aligned drug identifiers.
+    :param response: Optional response values aligned with the pairs.
+    :param cell_line_input: Optional cell-line feature dataset for tissue lookups.
+    :returns: Minimal ``ModelInputBatch`` for naive predictor unit tests.
+    """
     n_pairs = len(cell_line_ids)
     empty = np.array([], dtype=np.float64)
     return ModelInputBatch(

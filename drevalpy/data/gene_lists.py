@@ -10,7 +10,10 @@ _GENE_NAME_COLUMNS = ("Symbol", "gene_name", "symbol", "Gene", "gene")
 
 
 def _candidate_gene_lists_dirs() -> list[Path]:
-    """Return directories that may contain package/repo gene-list CSVs."""
+    """Return directories that may contain package/repo gene-list CSVs.
+
+    :returns: Candidate gene-list directories in search order.
+    """
     package_root = Path(__file__).resolve().parents[1]
     repo_root = Path(__file__).resolve().parents[2]
     return [
@@ -21,7 +24,10 @@ def _candidate_gene_lists_dirs() -> list[Path]:
 
 
 def default_gene_lists_dir() -> Path:
-    """Return the first existing package/repo gene-lists directory."""
+    """Return the first existing package/repo gene-lists directory.
+
+    :returns: First existing candidate directory, or the primary default path.
+    """
     for path in _candidate_gene_lists_dirs():
         if path.is_dir():
             return path
@@ -33,7 +39,13 @@ def resolve_gene_list_path(
     *,
     data_path: str | Path | None = None,
 ) -> Path:
-    """Resolve ``{stem}.csv`` under ``data_path/meta/gene_lists`` or package defaults."""
+    """Resolve ``{stem}.csv`` under ``data_path/meta/gene_lists`` or package defaults.
+
+    :param gene_list_stem: Gene-list filename stem without ``.csv``.
+    :param data_path: Optional dataset root that may contain ``meta/gene_lists``.
+    :returns: Path to the resolved gene-list CSV.
+    :raises FileNotFoundError: If no matching gene-list file exists.
+    """
     candidates: list[Path] = []
     if data_path is not None:
         candidates.append(Path(data_path) / "meta" / "gene_lists" / f"{gene_list_stem}.csv")
@@ -49,7 +61,11 @@ def resolve_gene_list_path(
 def gene_names_from_list_csv(path: Path | str) -> list[str]:
     """Return ordered gene symbols from a gene-list CSV.
 
-    Accepts common column names (``Symbol``, ``gene_name``, …). Raises if none match.
+    Accepts common column names (``Symbol``, ``gene_name``, …).
+
+    :param path: Path to a gene-list CSV.
+    :returns: Ordered gene symbol strings.
+    :raises ValueError: If the CSV has no recognized gene-name column.
     """
     gene_info = pd.read_csv(path)
     for column in _GENE_NAME_COLUMNS:
