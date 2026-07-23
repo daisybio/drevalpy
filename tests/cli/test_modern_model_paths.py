@@ -45,7 +45,7 @@ def test_check_arguments_and_model_lookup_do_not_warn(tmp_path: pathlib.Path) ->
         path_data = str(tmp_path / "drevalpy-data")
         no_refitting = True
         curve_curator_cores = 1
-        cross_study_datasets = []
+        cross_study_datasets: list[str] = []
         n_cv_splits = 2
         custom_splitter_path = None
         custom_split_name = None
