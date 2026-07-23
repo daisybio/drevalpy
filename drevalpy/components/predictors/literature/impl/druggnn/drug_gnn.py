@@ -1,6 +1,5 @@
 """DrugGNN model."""
 
-import json
 from pathlib import Path
 from typing import Any
 
@@ -453,53 +452,3 @@ class DrugGNN(LiteratureEngineBase):
         feature_dict = {drug_id: {"drug_graph": graph} for drug_id, graph in drug_graphs.items()}
 
         return FeatureDataset(features=feature_dict)
-
-    def save(self, directory: str) -> None:
-        """Save DrugGNN checkpoint and hyperparameters for DrEval round-trips."""
-        self.save_model(directory)
-
-    @classmethod
-    def load(cls, directory: str) -> "DrugGNN":
-        """Load a DrugGNN model saved with `save`."""
-        instance = cls()
-        instance.load_model(directory)
-        return instance
-
-    def save_model(self, path: str | Path, drug_name=None):
-        """Save the model.
-
-        :param path: The path to save the model to.
-        :param drug_name: The name of the drug.
-        :raises RuntimeError: If there is no model to save.
-        """
-        if self.model is None:
-            raise RuntimeError("No model to save.")
-        path = Path(path)
-        path.mkdir(parents=True, exist_ok=True)
-
-        trainer = pl.Trainer()
-        trainer.save_checkpoint(path / "model.ckpt", weights_only=True)
-
-        with open(path / "config.json", "w") as f:
-            json.dump(self.hyperparameters, f, indent=4)
-
-    def load_model(self, path: str | Path, drug_name=None):
-        """Load the model.
-
-        :param path: The path to load the model from.
-        :param drug_name: The name of the drug.
-        """
-        path = Path(path)
-
-        config_path = path / "config.json"
-        with open(config_path) as f:
-            self.hyperparameters = json.load(f)
-
-        self.model = DrugGNNModule.load_from_checkpoint(
-            path / "model.ckpt",
-            num_node_features=self.hyperparameters["num_node_features"],
-            num_cell_features=self.hyperparameters["num_cell_features"],
-            hidden_dim=self.hyperparameters.get("hidden_dim", 64),
-            dropout=self.hyperparameters.get("dropout", 0.2),
-            learning_rate=self.hyperparameters.get("learning_rate", 0.001),
-        )

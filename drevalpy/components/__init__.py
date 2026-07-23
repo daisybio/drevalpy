@@ -1,8 +1,8 @@
 """Composable model components: featurizers, predictors, registries, and extensions.
 
 Model orchestration (config, factory, config IO/spec, zoo, composed training) lives under
-`drevalpy.models`. Legacy experiment workflows use `~drevalpy.models.drp_model.DRPModel`
-subclasses from `drevalpy.models`.
+`drevalpy.models`. Experiment workflows use the generated `NativeDRPModel` facades from
+`MODEL_FACTORY` / `construct_model`, which compose these components via `ModelConfig`.
 """
 
 from drevalpy.components.extensions import (

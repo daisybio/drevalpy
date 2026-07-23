@@ -7,10 +7,9 @@ Pengyong Li, Zhengxiang Jiang, Tianxiao Liu, Xinyu Liu, Hui Qiao, Xiaojun Yao
 Briefings in Bioinformatics, Volume 25, Issue 3, May 2024, bbae153, https://doi.org/10.1093/bib/bbae153
 """
 
-import json
 import os
 import secrets
-from typing import Any, cast
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -393,62 +392,3 @@ class DIPKModel(LiteratureEngineBase):
         )
 
         return f
-
-    def save(self, directory: str) -> None:
-        """
-        Save the DIPK model and gene expression encoder using PyTorch conventions.
-
-        This method stores:
-
-        - "dipk_model.pt": PyTorch state_dict of the DIPK predictor model
-        - "gene_encoder.pt": PyTorch state_dict of the trained gene expression encoder
-        - "hyperparameters.json": All hyperparameters including encoder input_dim
-
-        :param directory: Target directory where the model files will be saved
-        :raises ValueError: If model or encoder is not built
-        """
-        os.makedirs(directory, exist_ok=True)
-        if self.model is None or self.gene_expression_encoder is None:
-            raise ValueError("Cannot save model: model is not built.")
-        model = cast(Predictor, self.model)
-
-        torch.save(model.state_dict(), os.path.join(directory, "dipk_model.pt"))  # noqa: S614
-        torch.save(self.gene_expression_encoder.state_dict(), os.path.join(directory, "gene_encoder.pt"))  # noqa: S614
-        with open(os.path.join(directory, "hyperparameters.json"), "w") as f:
-            json.dump(self.hyperparameters, f)
-
-    @classmethod
-    def load(cls, directory: str) -> "DIPKModel":
-        """
-        Load the DIPK model and gene expression encoder using PyTorch conventions.
-
-        This method expects the following files in the given directory:
-
-        - "dipk_model.pt": PyTorch state_dict of the DIPK predictor model
-        - "gene_encoder.pt": PyTorch state_dict of the gene expression encoder
-        - "hyperparameters.json": Dictionary of hyperparameters, must include "gene_encoder_input_dim"
-
-        :param directory: Path to the directory containing the model files
-        :return: An instance of DIPK with loaded model and encoder
-        """
-        instance = cls()
-
-        with open(os.path.join(directory, "hyperparameters.json")) as f:
-            instance.hyperparameters = json.load(f)
-
-        instance.build_model(instance.hyperparameters)
-        instance.model = cast(Predictor, instance.model)
-
-        instance.model.load_state_dict(
-            torch.load(os.path.join(directory, "dipk_model.pt"), map_location=instance.DEVICE)  # noqa: S614
-        )
-        instance.model.eval()
-
-        input_dim = instance.hyperparameters["gene_encoder_input_dim"]
-        instance.gene_expression_encoder = GeneExpressionEncoder(input_dim=input_dim)
-        instance.gene_expression_encoder.load_state_dict(
-            torch.load(os.path.join(directory, "gene_encoder.pt"), map_location=instance.DEVICE)  # noqa: S614
-        )
-        instance.gene_expression_encoder.eval()
-
-        return instance

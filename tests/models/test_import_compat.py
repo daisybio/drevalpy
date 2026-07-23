@@ -6,10 +6,11 @@ import importlib
 
 import pytest
 
-from drevalpy.models import MODEL_FACTORY, __all__ as models_all
+from drevalpy.models import MODEL_FACTORY
+from drevalpy.models import __all__ as models_all
 
 
-@pytest.mark.parametrize("symbol", [name for name in models_all if name not in {"DRPModel", "SingleDrugModelMixin"}])
+@pytest.mark.parametrize("symbol", [name for name in models_all if name != "DRPModel"])
 def test_root_symbol_exportable(symbol: str) -> None:
     module = importlib.import_module("drevalpy.models")
     value = getattr(module, symbol)

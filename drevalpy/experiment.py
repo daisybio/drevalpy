@@ -1004,7 +1004,7 @@ def randomize_train_predict(
     :param response_transformation: sklearn.preprocessing scaler like StandardScaler or MinMaxScaler to use to scale
     """
     # build_model must be called before load_features so that models whose cell_line_views/drug_views
-    # are populated dynamically by build_model (e.g. SklearnModel subclasses) have their views set.
+    # are populated dynamically by build_model (e.g. zoo/ModelConfig view overrides) have their views set.
     model.build_model(hyperparameters=hpam_set)
     cl_features, drug_features = load_features(model, path_data, train_dataset)
 

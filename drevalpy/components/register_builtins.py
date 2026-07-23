@@ -137,18 +137,27 @@ def register_optional_components() -> None:
 
 def register_literature_components() -> None:
     """Register literature predictors and their neural dependencies."""
-    for name in ("neuralNetwork", "drugGNN", "precily"):
+    for name in (
+        "neuralNetwork",
+        "drugGNN",
+        "precily",
+        "srmf",
+        "molir",
+        "superfeltr",
+        "pharmaFormer",
+        "dipk",
+        "sparsego",
+    ):
         ensure_predictor_registered(name)
 
 
-def register_builtin_components(*, include_legacy: bool = False) -> None:
+def register_builtin_components() -> None:
     """Register every built-in component for discovery and compatibility tests."""
-    _ = include_legacy
     register_native_components()
     register_optional_components()
     register_literature_components()
 
 
-def ensure_components_registered(*, include_legacy: bool = False) -> None:
+def ensure_components_registered() -> None:
     """Compatibility helper that registers every built-in component."""
-    register_builtin_components(include_legacy=include_legacy)
+    register_builtin_components()

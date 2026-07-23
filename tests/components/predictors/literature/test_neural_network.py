@@ -31,7 +31,7 @@ def _synthetic_data() -> tuple[DrugResponseDataset, FeatureDataset, FeatureDatas
 
 
 def test_neural_network_zoo_trains_on_synthetic_data() -> None:
-    register_builtin_components(include_legacy=False)
+    register_builtin_components()
     response, cell_line_input, drug_input = _synthetic_data()
     config = ModelConfig.from_spec(
         "SimpleNeuralNetwork",

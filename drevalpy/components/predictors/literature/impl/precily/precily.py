@@ -10,9 +10,8 @@ Reference code: https://github.com/SmritiChawla/Precily
 
 """
 
-import json
 import os
-from typing import Any, cast
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -302,62 +301,3 @@ class PrecilyModel(LiteratureEngineBase):
             features[drug_id] = {"smilesvec": embedding}
 
         return FeatureDataset(features)
-
-    def save(self, directory: str) -> None:
-        """
-        Save the Precily model using PyTorch conventions.
-
-        Stores:
-
-        - "precily_model.pt": PyTorch state_dict of the network
-        - "hyperparameters.json": all hyperparameters plus the resolved
-          input_dim (so the network can be rebuilt with the right shape)
-
-        :param directory: target directory
-        :raises ValueError: if the model is not built
-        """
-        os.makedirs(directory, exist_ok=True)
-        if self.model is None:
-            raise ValueError("Cannot save model: model is not built.")
-
-        model = cast(PrecilyNetwork, self.model)
-        torch.save(model.state_dict(), os.path.join(directory, "precily_model.pt"))
-
-        save_hyperparameters = self.hyperparameters.copy()
-        save_hyperparameters["input_dim"] = model.net[0].in_features
-        with open(os.path.join(directory, "hyperparameters.json"), "w") as f:
-            json.dump(save_hyperparameters, f)
-
-    @classmethod
-    def load(cls, directory: str) -> "PrecilyModel":
-        """
-        Load a Precily model saved with save method.
-
-        Expects in ``directory``:
-
-        - "precily_model.pt": network state_dict
-        - "hyperparameters.json": hyperparameters incl. "input_dim"
-
-        :param directory: directory containing the saved files
-        :return: a restored PrecilyModel
-        """
-        instance = cls()
-
-        with open(os.path.join(directory, "hyperparameters.json")) as f:
-            instance.hyperparameters = json.load(f)
-
-        if "input_dim" in instance.hyperparameters:
-            instance.model = PrecilyNetwork(
-                input_dim=instance.hyperparameters["input_dim"],
-                dropout=instance.hyperparameters.get("dropout", 0.1),
-            ).to(instance.DEVICE)
-            instance.model.load_state_dict(
-                torch.load(
-                    os.path.join(directory, "precily_model.pt"),
-                    map_location=instance.DEVICE,
-                    weights_only=True,
-                )
-            )
-            instance.model.eval()
-
-        return instance

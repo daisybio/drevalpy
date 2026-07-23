@@ -117,7 +117,7 @@ def test_literature_models_build_with_defaults(model_name: str) -> None:
         ("NaiveDrugMeanPredictor", {}, "_synthetic_data"),
     ],
 )
-def test_literature_or_bridge_model_lifecycle(
+def test_literature_model_lifecycle(
     model_name: str,
     hyperparameters: dict,
     data_factory: str,

@@ -31,10 +31,13 @@ def test_sklearn_model_config_builds_composed_model() -> None:
     model.train(response, cell_line_input, drug_input)
     preds = model.predict(response.cell_line_ids, response.drug_ids, cell_line_input, drug_input)
     assert preds.shape == (4,)
+    assert np.isfinite(preds).all()
 
 
 def test_ridge_predictor_via_recipe() -> None:
-    model = ModelConfig.from_spec("scaledGeneExpression:fingerprints:ridge", hyperparameters={"alpha": 1.0}).create_model()
+    model = ModelConfig.from_spec(
+        "scaledGeneExpression:fingerprints:ridge", hyperparameters={"alpha": 1.0}
+    ).create_model()
     response = DrugResponseDataset(
         response=np.array([1.0, 2.0]),
         cell_line_ids=np.array(["cl1", "cl2"]),

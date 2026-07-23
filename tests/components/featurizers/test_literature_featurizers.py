@@ -11,7 +11,7 @@ from drevalpy.components.registry import get_cell_line_featurizer, get_drug_feat
 
 @pytest.fixture(autouse=True)
 def _register_components() -> None:
-    register_builtin_components(include_legacy=False)
+    register_builtin_components()
 
 
 @pytest.mark.parametrize(

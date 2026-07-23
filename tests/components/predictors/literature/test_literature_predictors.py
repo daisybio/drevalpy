@@ -13,7 +13,7 @@ from drevalpy.components.registry import get_predictor
 
 @pytest.fixture(autouse=True)
 def _register_components() -> None:
-    register_builtin_components(include_legacy=False)
+    register_builtin_components()
 
 
 @pytest.mark.parametrize(

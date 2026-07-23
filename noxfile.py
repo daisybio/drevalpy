@@ -166,6 +166,10 @@ def tests_light_models(session: Session) -> None:
     """
     Run dependency-light model execution gates without optional extras.
 
+    Covers naive/sklearn/single-drug execution, import isolation, and architecture
+    policy. Full factory ``build_model`` over literature / optional-extra models
+    (Precily, SparseGO, XGBoost, LightGBM, …) stays in the ``tests`` session.
+
     :param session: The Session object.
     """
     session.install(".")
@@ -177,6 +181,8 @@ def tests_light_models(session: Session) -> None:
         "tests/models/test_facade_parity.py",
         "tests/models/test_architecture_policy.py",
         "tests/models/test_import_compat.py",
+        "-k",
+        "not builds_flat_hyperparameters_full",
         *session.posargs,
     )
 

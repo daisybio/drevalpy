@@ -78,7 +78,7 @@ Scope and early stopping
 - Single-drug models set ``scope: single_drug`` in their zoo YAML; the facade
   exposes ``is_single_drug_model`` for experiment routing.
 - Early stopping is derived from predictor capability metadata
-  (``supports_early_stopping``), not from adapter mixins.
+  (``supports_early_stopping``) via the zoo predictor name.
 
 Persistence
 -----------

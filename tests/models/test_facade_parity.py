@@ -15,26 +15,30 @@ from tests.models.synthetic_fixtures import (
     multi_drug_response,
 )
 
-_PARITY_MODELS = ("NaivePredictor", "ElasticNet", "RandomForest")
+_PARITY_MODELS = ("NaivePredictor", "NaiveDrugMeanPredictor", "ElasticNet", "RandomForest")
 
 
 @pytest.mark.parametrize("model_name", _PARITY_MODELS)
 def test_facade_matches_direct_composed_model(model_name: str) -> None:
     response = multi_drug_response()
-    if model_name == "NaivePredictor":
+    if model_name.startswith("Naive"):
         cell_line_input = identity_cell_line_features()
         drug_input = identity_drug_features()
         hp: dict = {}
     else:
         cell_line_input = cell_line_gene_expression()
         drug_input = drug_fingerprints()
-        hp = {"alpha": 0.1, "l1_ratio": 0.5} if model_name == "ElasticNet" else {
-            "n_estimators": 8,
-            "max_depth": 3,
-            "max_samples": 1.0,
-            "random_state": 0,
-            "n_jobs": 1,
-        }
+        hp = (
+            {"alpha": 0.1, "l1_ratio": 0.5}
+            if model_name == "ElasticNet"
+            else {
+                "n_estimators": 8,
+                "max_depth": 3,
+                "max_samples": 1.0,
+                "random_state": 0,
+                "n_jobs": 1,
+            }
+        )
 
     config = ModelConfig.from_spec(model_name, hyperparameters=hp)
     facade = MODEL_FACTORY[model_name]()

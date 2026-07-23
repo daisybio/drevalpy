@@ -1,12 +1,10 @@
-"""Single-drug scope contracts for root facades and mixin marker."""
+"""Single-drug scope contracts for zoo facades and ModelScope."""
 
 from __future__ import annotations
 
-from drevalpy.models import (
-    MODEL_FACTORY,
-    SINGLE_DRUG_MODEL_FACTORY,
-    SingleDrugModelMixin,
-)
+from drevalpy.models import MODEL_FACTORY, SINGLE_DRUG_MODEL_FACTORY
+from drevalpy.models.config import ModelScope
+from drevalpy.models.zoo import get_zoo_config
 
 
 def test_single_drug_factory_membership() -> None:
@@ -19,11 +17,12 @@ def test_single_drug_factory_membership() -> None:
     for name, model_class in SINGLE_DRUG_MODEL_FACTORY.items():
         assert model_class.is_single_drug_model is True
         assert MODEL_FACTORY[name] is model_class
+        assert get_zoo_config(name).scope == ModelScope.SINGLE_DRUG
 
 
-def test_single_drug_mixin_still_marks_scope() -> None:
-    class EarlyStoppingSingleDrugModel(SingleDrugModelMixin):
-        early_stopping = True
-
-    assert EarlyStoppingSingleDrugModel.is_single_drug_model is True
-    assert EarlyStoppingSingleDrugModel.early_stopping is True
+def test_multi_drug_factory_excludes_single_drug_scope() -> None:
+    for name in MODEL_FACTORY:
+        if name in SINGLE_DRUG_MODEL_FACTORY:
+            continue
+        assert MODEL_FACTORY[name].is_single_drug_model is False
+        assert get_zoo_config(name).scope == ModelScope.MULTI_DRUG

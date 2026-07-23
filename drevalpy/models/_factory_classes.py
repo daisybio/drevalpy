@@ -21,18 +21,6 @@ SYMBOL_TO_FACTORY_NAME: dict[str, str] = {
 
 FACTORY_NAME_TO_SYMBOL: dict[str, str] = {factory: symbol for symbol, factory in SYMBOL_TO_FACTORY_NAME.items()}
 
-# Declared from zoo/predictor capability metadata without importing engines.
-_EARLY_STOPPING_FACTORY_NAMES = frozenset(
-    {
-        "DIPK",
-        "MOLIR",
-        "MultiViewNeuralNetwork",
-        "PharmaFormer",
-        "SimpleNeuralNetwork",
-        "SuperFELTR",
-    }
-)
-
 
 def symbol_for_factory_name(factory_name: str) -> str:
     """Return the root-exported Python symbol for a factory name."""
@@ -44,6 +32,17 @@ def factory_name_for_symbol(symbol: str) -> str:
     return SYMBOL_TO_FACTORY_NAME.get(symbol, symbol)
 
 
+def _early_stopping_from_predictor(config) -> bool:
+    """Derive class-level early_stopping from the zoo predictor capability."""
+    from drevalpy.components.registry import get_predictor
+
+    try:
+        predictor_cls = get_predictor(config.predictor.name)
+    except ImportError:
+        return False
+    return bool(getattr(predictor_cls, "supports_early_stopping", False))
+
+
 def create_factory_class(factory_name: str) -> type[NativeDRPModel]:
     """Create the canonical facade class for one zoo factory entry."""
     config = get_zoo_config(factory_name)
@@ -53,7 +52,7 @@ def create_factory_class(factory_name: str) -> type[NativeDRPModel]:
         class_name=symbol_for_factory_name(factory_name),
         scope=config.scope,
         validate_spec=False,
-        class_dict={"early_stopping": factory_name in _EARLY_STOPPING_FACTORY_NAMES},
+        class_dict={"early_stopping": _early_stopping_from_predictor(config)},
     )
 
 
@@ -72,8 +71,6 @@ def build_factory_tables() -> tuple[
         config = get_zoo_config(factory_name)
         cls = create_factory_class(factory_name)
         symbols[symbol_for_factory_name(factory_name)] = cls
-        if factory_name == "SparseGO":
-            symbols["SparseGOModel"] = cls
         if config.scope == ModelScope.SINGLE_DRUG:
             single[factory_name] = cls
         else:

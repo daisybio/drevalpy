@@ -8,10 +8,9 @@ Original authors: Zhou et al. (2025, 10.1038/s41698-025-01082-6)
 Code adapted from their Github: https://github.com/zhouyuru1205/PharmaFormer
 """
 
-import json
 import os
 import secrets
-from typing import Any, cast
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -434,93 +433,3 @@ class PharmaFormerModel(LiteratureEngineBase):
             features[drug_id] = {"bpe_smiles": embedding}
 
         return FeatureDataset(features)
-
-    def save(self, directory: str) -> None:
-        """
-        Save the PharmaFormer model using PyTorch conventions.
-
-        This method stores:
-
-        - "pharmaformer_model.pt": PyTorch state_dict of the model
-        - "hyperparameters.json": All hyperparameters
-        - "gene_scaler.pkl": Fitted StandardScaler for gene expression
-        - "gene_normalizer.pkl": Fitted MinMaxScaler for gene expression
-
-        :param directory: Target directory where the model files will be saved
-        :raises ValueError: If model is not built
-        """
-        import joblib
-
-        os.makedirs(directory, exist_ok=True)
-        if self.model is None:
-            raise ValueError("Cannot save model: model is not built.")
-
-        model = cast(CombinedModel, self.model)
-
-        torch.save(model.state_dict(), os.path.join(directory, "pharmaformer_model.pt"))  # noqa: S614
-
-        # Save hyperparameters including gene_input_size
-        save_hyperparameters = self.hyperparameters.copy()
-        if self.model is not None:
-            # Extract gene_input_size from the model
-            save_hyperparameters["gene_input_size"] = self.model.feature_extractor.gene_fc1.in_features
-
-        with open(os.path.join(directory, "hyperparameters.json"), "w") as f:
-            json.dump(save_hyperparameters, f)
-
-        if self.gene_expression_scaler is not None:
-            joblib.dump(self.gene_expression_scaler, os.path.join(directory, "gene_scaler.pkl"))
-        if self.gene_expression_normalizer is not None:
-            joblib.dump(self.gene_expression_normalizer, os.path.join(directory, "gene_normalizer.pkl"))
-
-    @classmethod
-    def load(cls, directory: str) -> "PharmaFormerModel":
-        """
-        Load the PharmaFormer model using PyTorch conventions.
-
-        This method expects the following files in the given directory:
-
-        - "pharmaformer_model.pt": PyTorch state_dict of the model
-        - "hyperparameters.json": Dictionary of hyperparameters
-        - "gene_scaler.pkl": Fitted StandardScaler (optional)
-        - "gene_normalizer.pkl": Fitted MinMaxScaler (optional)
-
-        :param directory: Path to the directory containing the model files
-        :return: An instance of PharmaFormerModel with loaded model
-        """
-        import joblib
-
-        instance = cls()
-
-        with open(os.path.join(directory, "hyperparameters.json")) as f:
-            instance.hyperparameters = json.load(f)
-
-        # Load scalers if they exist
-        scaler_path = os.path.join(directory, "gene_scaler.pkl")
-        normalizer_path = os.path.join(directory, "gene_normalizer.pkl")
-        if os.path.exists(scaler_path):
-            instance.gene_expression_scaler = joblib.load(scaler_path)
-        if os.path.exists(normalizer_path):
-            instance.gene_expression_normalizer = joblib.load(normalizer_path)
-
-        # Model will be built when needed (requires input dimensions)
-        # For now, we'll need to rebuild it with the saved hyperparameters
-        # This requires knowing the gene_input_size, which should be saved in hyperparameters
-        if "gene_input_size" in instance.hyperparameters:
-            instance.model = CombinedModel(
-                gene_input_size=instance.hyperparameters["gene_input_size"],
-                gene_hidden_size=instance.hyperparameters["gene_hidden_size"],
-                drug_hidden_size=instance.hyperparameters["drug_hidden_size"],
-                feature_dim=instance.hyperparameters["feature_dim"],
-                nhead=instance.hyperparameters["nhead"],
-                num_layers=instance.hyperparameters.get("num_layers", 3),
-                dim_feedforward=instance.hyperparameters.get("dim_feedforward", 2048),
-                dropout=instance.hyperparameters.get("dropout", 0.1),
-            ).to(instance.DEVICE)
-
-            instance.model.load_state_dict(
-                torch.load(os.path.join(directory, "pharmaformer_model.pt"), map_location=instance.DEVICE)  # noqa: S614
-            )
-            instance.model.eval()
-
-        return instance

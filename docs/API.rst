@@ -10,11 +10,16 @@ Import DrEvalPy using
 Subpackages
 -----------
 
-DrEvalPy consists of three major subpackages:
+DrEvalPy consists of four major subpackages:
 
 * Datasets
-* Models
+* Models (``ModelConfig``, zoo, ``ComposedModel``, ``MODEL_FACTORY``)
+* Components (featurizers, predictors, registries — first-class building blocks)
 * Visualization
+
+Built-in models are composed from registered components; there is a single
+construction path via ``ModelConfig`` / zoo presets. See
+:doc:`model_architecture` and :doc:`runyourmodel`.
 
 .. toctree::
    :maxdepth: 3

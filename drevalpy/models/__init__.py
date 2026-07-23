@@ -10,11 +10,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from .drp_model import DRPModel
-from .single_drug import SingleDrugModelMixin
 
 __all__ = [
     "DRPModel",
-    "SingleDrugModelMixin",
     "construct_model",
     "MULTI_DRUG_MODEL_FACTORY",
     "SINGLE_DRUG_MODEL_FACTORY",

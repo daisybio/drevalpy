@@ -17,7 +17,7 @@ def _register_components() -> None:
     register_builtin_components()
 
 
-def test_build_model_config_from_legacy_zoo_name() -> None:
+def test_build_model_config_from_zoo_name() -> None:
     config = build_model_config_from_spec("ElasticNet")
     assert config.cell_line_featurizer is not None
     assert config.cell_line_featurizer.name == "scaledGeneExpression"
@@ -25,7 +25,7 @@ def test_build_model_config_from_legacy_zoo_name() -> None:
     assert config.predictor.name == "elasticNet"
 
 
-def test_build_model_config_from_legacy_name_with_hyperparameters() -> None:
+def test_build_model_config_from_zoo_name_with_hyperparameters() -> None:
     config = build_model_config_from_spec("ElasticNet", hyperparameters={"alpha": 0.2})
     assert config.predictor.hyperparameters["alpha"] == 0.2
 

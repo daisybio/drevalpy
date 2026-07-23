@@ -362,7 +362,7 @@ class DRPModel(ABC):
         Load the cell line features before the train/predict method is called.
 
         Required to implement for all models. Could, e.g., call get_multiomics_feature_dataset() or
-        load_and_select_gene_features() from models/utils.py.
+        load_and_select_gene_features() from ``drevalpy.data.features``.
 
         :param data_path: path to the data, e.g., data/
         :param dataset_name: name of the dataset, e.g., "GDSC2"
@@ -376,7 +376,8 @@ class DRPModel(ABC):
         Load the drug features before the train/predict method is called.
 
         Required to implement for all models that use drug features. Could, e.g.,
-        call load_drug_fingerprint_features() or load_drug_ids_from_csv() from models/utils.py.
+        call load_drug_fingerprint_features() or load_drug_ids_from_csv() from
+        ``drevalpy.data.features``.
 
         For single drug models, this method can return None.
 

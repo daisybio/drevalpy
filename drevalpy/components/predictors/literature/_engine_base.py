@@ -13,7 +13,12 @@ from drevalpy.evaluation import AVAILABLE_METRICS
 
 
 class LiteratureEngineBase:
-    """Optional wandb/logging helpers and shared feature utilities for literature engines."""
+    """Algorithm build/fit/predict helpers for component-owned literature engines.
+
+    Persistence is owned by predictors (``get_state`` / ``set_state``). This base
+    keeps FeatureDataset batch support, optional wandb logging, and the
+    load_*_features hooks used by structured predictors / NativeDRPModel.
+    """
 
     early_stopping = False
     is_single_drug_model = False
@@ -76,10 +81,6 @@ class LiteratureEngineBase:
     @classmethod
     def get_default_hyperparameters(cls) -> dict[str, Any]:
         return {}
-
-    @classmethod
-    def get_hyperparameter_set(cls) -> list[dict[str, Any]]:
-        return [cls.get_default_hyperparameters()]
 
     def log_hyperparameters(self, hyperparameters: dict[str, Any]) -> None:
         if not self.is_wandb_enabled():

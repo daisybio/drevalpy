@@ -36,17 +36,49 @@ _FAST_EXECUTION_MODELS = (
     "SingleDrugElasticNet",
 )
 
-_SINGLE_DRUG_NAMES = frozenset({"SingleDrugElasticNet", "SingleDrugRandomForest", "MOLIR", "SuperFELTR"})
-_EARLY_STOPPING_NAMES = frozenset(
+# Dependency-light build coverage for tests-light-models (no optional extras).
+_LIGHT_BUILD_MODELS = frozenset(
     {
-        "DIPK",
-        "MOLIR",
-        "MultiViewNeuralNetwork",
-        "PharmaFormer",
-        "SimpleNeuralNetwork",
-        "SuperFELTR",
+        "NaivePredictor",
+        "NaiveDrugMeanPredictor",
+        "NaiveCellLineMeanPredictor",
+        "NaiveTissueMeanPredictor",
+        "NaiveTissueDrugMeanPredictor",
+        "NaiveMeanEffectsPredictor",
+        "ElasticNet",
+        "Lasso",
+        "RandomForest",
+        "SVR",
+        "GradientBoosting",
+        "AdaBoostDecisionTree",
+        "KNNRegressor",
+        "SingleDrugElasticNet",
+        "SingleDrugRandomForest",
+        "MultiViewRandomForest",
     }
 )
+
+_OPTIONAL_EXTRA_MODELS = frozenset(
+    {
+        "MultiViewXGBoost",
+        "MultiViewLightGBM",
+        "Precily",
+        "SparseGO",
+    }
+)
+
+_SINGLE_DRUG_NAMES = frozenset({"SingleDrugElasticNet", "SingleDrugRandomForest", "MOLIR", "SuperFELTR"})
+
+
+def _predictor_supports_early_stopping(model_name: str) -> bool:
+    from drevalpy.components.registry import get_predictor
+    from drevalpy.models.zoo import get_zoo_config
+
+    try:
+        predictor_cls = get_predictor(get_zoo_config(model_name).predictor.name)
+    except ImportError:
+        return False
+    return bool(getattr(predictor_cls, "supports_early_stopping", False))
 
 
 def _minimal_hyperparameters(model_name: str) -> dict:
@@ -78,13 +110,24 @@ def test_factory_entry_is_native_facade(model_name: str) -> None:
     assert issubclass(model_cls, NativeDRPModel)
     assert model_cls.get_model_name() == model_name
     assert model_cls.is_single_drug_model is (model_name in _SINGLE_DRUG_NAMES)
-    assert model_cls.early_stopping is (model_name in _EARLY_STOPPING_NAMES)
+    assert model_cls.early_stopping is _predictor_supports_early_stopping(model_name)
     symbol = symbol_for_factory_name(model_name)
     assert SYMBOL_TO_FACTORY_NAME.get(symbol, symbol) == model_name
 
 
-@pytest.mark.parametrize("model_name", sorted(MODEL_FACTORY))
-def test_factory_entry_builds_flat_hyperparameters(model_name: str) -> None:
+@pytest.mark.parametrize("model_name", sorted(_LIGHT_BUILD_MODELS))
+def test_factory_entry_builds_flat_hyperparameters_light(model_name: str) -> None:
+    model = MODEL_FACTORY[model_name]()
+    defaults = model.get_default_hyperparameters()
+    assert isinstance(defaults, dict)
+    space = model.get_structured_hyperparameter_space()
+    assert isinstance(space, dict)
+    model.build_model(_minimal_hyperparameters(model_name))
+
+
+@pytest.mark.parametrize("model_name", sorted(set(MODEL_FACTORY) - _LIGHT_BUILD_MODELS))
+def test_factory_entry_builds_flat_hyperparameters_full(model_name: str) -> None:
+    # Full-suite build coverage for literature / optional-extra models.
     model = MODEL_FACTORY[model_name]()
     defaults = model.get_default_hyperparameters()
     assert isinstance(defaults, dict)
@@ -93,7 +136,7 @@ def test_factory_entry_builds_flat_hyperparameters(model_name: str) -> None:
     try:
         model.build_model(_minimal_hyperparameters(model_name))
     except ImportError as exc:
-        if model_name in {"MultiViewXGBoost", "MultiViewLightGBM"}:
+        if model_name in _OPTIONAL_EXTRA_MODELS:
             pytest.skip(str(exc))
         raise
 

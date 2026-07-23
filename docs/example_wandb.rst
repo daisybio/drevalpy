@@ -14,7 +14,7 @@ wandb account and you can look at your models online.
 Example: Compare Flexible Inputs for DrEvalPy's Baselines
 -------------------------------------------------------------
 
-Through the :ref:`flexible-inputs`, we now treat omic input as hyperparameter for our sklearn baselines.
+Through :ref:`flexible-inputs`, omic input is a hyperparameter for sklearn and neural-network baselines.
 With wandb, we can compare model performances:
 
 .. code-block:: yaml

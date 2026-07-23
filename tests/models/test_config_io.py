@@ -40,7 +40,7 @@ def test_model_config_from_triple_spec_with_plus_concat() -> None:
     assert config.predictor.name == "randomForest"
 
 
-def test_model_config_from_legacy_name() -> None:
+def test_model_config_from_zoo_name() -> None:
     from drevalpy.components.register_builtins import register_builtin_components
 
     register_builtin_components()
