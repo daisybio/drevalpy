@@ -41,7 +41,7 @@ def test_model_config_and_factory_share_zoo_name(name: str) -> None:
 
 
 def test_structured_predictors_do_not_import_models_package_implementations() -> None:
-    module = importlib.import_module("drevalpy.components.predictors.literature.structured_predictors")
+    module = importlib.import_module("drevalpy.components.predictors.literature.structured_engine_adapter")
     source_path = module.__file__
     assert source_path is not None
     text = Path(source_path).read_text(encoding="utf-8")
@@ -53,7 +53,8 @@ def test_structured_predictors_do_not_import_models_package_implementations() ->
 
 def test_literature_predictor_modules_avoid_legacy_adapter_modules() -> None:
     for module_name in (
-        "drevalpy.components.predictors.literature.structured_predictors",
+        "drevalpy.components.predictors.literature.structured_engine_adapter",
+        "drevalpy.components.predictors.literature.precily_predictor",
         "drevalpy.components.predictors.literature.druggnn",
         "drevalpy.components.predictors.literature.neural_network",
     ):

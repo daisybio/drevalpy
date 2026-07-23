@@ -8,9 +8,6 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from drevalpy.datasets.dataset import DrugResponseDataset
-from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, TISSUE_IDENTIFIER
-from drevalpy.models import MODEL_FACTORY
 from drevalpy.data.features import (
     get_multiomics_feature_dataset,
     iterate_features,
@@ -22,6 +19,9 @@ from drevalpy.data.features import (
     load_tissues_from_csv,
     unique,
 )
+from drevalpy.datasets.dataset import DrugResponseDataset
+from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, TISSUE_IDENTIFIER
+from drevalpy.models import MODEL_FACTORY
 
 
 def test_factory() -> None:

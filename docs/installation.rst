@@ -65,23 +65,28 @@ default ``pip install drevalpy``. They are provided as optional `extras`:
    * - ``xgboost``
      - The ``MultiViewXGBoost`` baseline model
      - ``xgboost``
-   * - ``multiprocessing``
-     - Parallelized cross-validation / tuning via Ray
-     - ``ray`` (and ``pydantic``, usually already present)
+   * - ``lightgbm``
+     - The ``MultiViewLightGBM`` baseline model
+     - ``lightgbm``
+   * - ``sparsego``
+     - The ``SparseGO`` model (MyGene / OBO ontology helpers)
+     - ``mygene``, ``obonet``
+
+Ray Tune hyperparameter optimization (``ray[tune]`` and ``optuna``) is included in the core install.
 
 Install one or more extras by listing them in square brackets, for example:
 
 .. code-block:: bash
 
    pip install "drevalpy[precily]"
-   pip install "drevalpy[precily,xgboost,multiprocessing]"
+   pip install "drevalpy[precily,xgboost,lightgbm]"
 
 If you install from source with Poetry, install the extras with ``-E`` (or use
 ``--all-extras`` to install all of them):
 
 .. code-block:: bash
 
-   poetry install -E precily -E xgboost -E multiprocessing
+   poetry install -E precily -E xgboost -E lightgbm
    # or, equivalently
    poetry install --all-extras
 

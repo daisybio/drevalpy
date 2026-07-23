@@ -199,6 +199,29 @@ class ComposedModel:
         """Return whether the predictor has fitted state."""
         return self._predictor.is_fitted()
 
+    def update_predictor_hyperparameters(self, updates: dict[str, Any]) -> None:
+        """Merge predictor hyperparameters into the live stack and stored config."""
+        filtered = {key: value for key, value in updates.items() if key not in {"cell_line_views", "drug_views"}}
+        if not filtered:
+            return
+        self._predictor_hp.update(filtered)
+        if self._config is None:
+            return
+        self._config = self._config.model_copy(
+            update={
+                "predictor": self._config.predictor.model_copy(
+                    update={
+                        "hyperparameters": {
+                            **self._config.predictor.hyperparameters,
+                            **filtered,
+                        }
+                    },
+                    deep=True,
+                )
+            },
+            deep=True,
+        )
+
     def component_state(self) -> dict[str, object]:
         """Return serializable state owned by the component stack."""
         return {
@@ -245,6 +268,9 @@ class ComposedModel:
         cell_line_input: FeatureDataset,
         drug_input: FeatureDataset | None = None,
     ) -> np.ndarray:
+        if not self.is_fitted():
+            msg = "Model has not been trained; call train() or load() before predict()"
+            raise RuntimeError(msg)
         if len(cell_line_ids) == 0:
             return np.array([])
 

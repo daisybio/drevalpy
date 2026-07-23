@@ -81,7 +81,12 @@ def run_hpam_split(
     model_name: str,
     hyperparameter_tuning: bool = False,
 ) -> None:
-    """Write one YAML per hyperparameter combination for a model."""
+    """Write ``hpam_0.yaml`` with a model's default hyperparameters.
+
+    Ray/Optuna tuning runs at experiment time; this helper no longer emits search grids.
+    """
+    import warnings
+
     from drevalpy.models import MODEL_FACTORY, MULTI_DRUG_MODEL_FACTORY, SINGLE_DRUG_MODEL_FACTORY
 
     if model_name in MULTI_DRUG_MODEL_FACTORY:
@@ -91,14 +96,16 @@ def run_hpam_split(
         if resolved_name not in SINGLE_DRUG_MODEL_FACTORY:
             raise ValueError(f"{resolved_name} neither in SINGLE_DRUG_MODEL_FACTORY nor in MULTI_DRUG_MODEL_FACTORY.")
     model_class = MODEL_FACTORY[resolved_name]
-    hyperparameters = model_class.get_hyperparameter_set()
-    if not hyperparameter_tuning:
-        hyperparameters = [hyperparameters[0]]
-    hpam_idx = 0
-    for hpam_combi in hyperparameters:
-        with open(f"hpam_{hpam_idx}.yaml", "w") as yaml_file:
-            hpam_idx += 1
-            yaml.dump(hpam_combi, yaml_file, default_flow_style=False)
+    if hyperparameter_tuning:
+        warnings.warn(
+            "hyperparameter_tuning=True no longer emits a YAML search grid; "
+            "enable Ray/Optuna tuning in the experiment CLI instead. "
+            "Writing default hyperparameters to hpam_0.yaml.",
+            stacklevel=2,
+        )
+    defaults = model_class.get_default_hyperparameters()
+    with open("hpam_0.yaml", "w", encoding="utf-8") as yaml_file:
+        yaml.dump(defaults, yaml_file, default_flow_style=False)
 
 
 def run_train_and_predict_cv(

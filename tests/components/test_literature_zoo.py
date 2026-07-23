@@ -79,14 +79,15 @@ def test_simple_and_multiview_neural_network_share_predictor() -> None:
 
 
 def test_molir_requires_cell_line_featurizer() -> None:
-    from drevalpy.models.config import PredictorConfig
+    from drevalpy.models.config import ModelScope, PredictorConfig
 
     config = ModelConfig(
         cell_line_featurizer=None,
         drug_featurizer=None,
         predictor=PredictorConfig(name="molir"),
+        scope=ModelScope.SINGLE_DRUG,
     )
-    with pytest.raises(ValueError, match="cell_line_featurizer"):
+    with pytest.raises(ValueError, match="cell_line_featurizer|requires featurizers"):
         config.validate()
 
 

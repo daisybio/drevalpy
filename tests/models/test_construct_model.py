@@ -15,6 +15,11 @@ def test_construct_model_returns_drp_model_subclass() -> None:
     assert model_cls.get_model_name() == "PcaIdentityRF"
 
 
+def test_construct_model_derives_early_stopping_from_predictor() -> None:
+    model_cls = construct_model("DipkFacade", "DIPK")
+    assert model_cls.early_stopping is True
+
+
 def test_construct_model_invalid_spec_raises() -> None:
     with pytest.raises(ValueError, match="Unknown model spec"):
         construct_model("BadModel", "not-a-valid-spec")

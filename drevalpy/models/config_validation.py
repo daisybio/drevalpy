@@ -50,9 +50,28 @@ def _allows_no_featurizers(pred_cls: type[Any]) -> bool:
     return getattr(pred_cls, "category", "") == "baseline"
 
 
+def _validate_scope(config: ModelConfig, pred_cls: type[Any]) -> None:
+    from drevalpy.models.config import ModelScope
+
+    supported_scopes = getattr(pred_cls, "supported_scopes", None)
+    if supported_scopes is not None and config.scope not in supported_scopes:
+        msg = (
+            f"Predictor {config.predictor.name!r} does not support "
+            f"scope={config.scope!r}; supported_scopes={sorted(supported_scopes)}"
+        )
+        raise ValueError(msg)
+    if config.scope == ModelScope.SINGLE_DRUG and config.drug_featurizer is not None:
+        msg = (
+            f"Model scope {ModelScope.SINGLE_DRUG!r} forbids a drug_featurizer "
+            f"(predictor {config.predictor.name!r})"
+        )
+        raise ValueError(msg)
+
+
 def validate_model_config(config: ModelConfig) -> None:
     """Check registry slots, feature compatibility, and prediction mode."""
     pred_cls = _registry_lookup.get_predictor(config.predictor.name)
+    _validate_scope(config, pred_cls)
 
     if config.cell_line_featurizer is None and config.drug_featurizer is None:
         if not _allows_no_featurizers(pred_cls):

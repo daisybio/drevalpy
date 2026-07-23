@@ -26,6 +26,7 @@ construction path via ``ModelConfig`` / zoo presets. See
 
    drevalpy.datasets
    drevalpy.models
+   drevalpy.components
    drevalpy.visualization
 
 Other functions

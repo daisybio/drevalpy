@@ -29,7 +29,10 @@ class DrugGraphFeaturizer(DrugFeaturizer):
         *,
         entity_ids: np.ndarray | None = None,
     ) -> DrugGraphFeaturizer:
-        for drug_id, views in features.features.items():
+        ids = entity_ids if entity_ids is not None else np.array(list(features.features.keys()))
+        self._graphs = {}
+        for drug_id in ids:
+            views = features.features[str(drug_id)]
             if self._view not in views:
                 msg = f"View {self._view!r} missing for drug {drug_id!r}"
                 raise KeyError(msg)

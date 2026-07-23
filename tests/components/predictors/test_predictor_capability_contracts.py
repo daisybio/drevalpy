@@ -1,0 +1,272 @@
+"""Capability-contract tests for predictor state and lifecycle."""
+
+from __future__ import annotations
+
+import importlib
+import sys
+import tempfile
+from unittest.mock import patch
+
+import numpy as np
+import pytest
+import torch
+from torch_geometric.data import Data
+
+from drevalpy.components.model_input_batch import ModelInputBatch
+from drevalpy.components.predictors.literature.druggnn import DrugGNNPredictor
+from drevalpy.components.predictors.literature.neural_network import NeuralNetworkPredictor
+from drevalpy.components.predictors.literature.structured_engine_adapter import StructuredLiteratureEnginePredictor
+from drevalpy.components.predictors.literature.srmf_predictor import SRMFPredictor
+from drevalpy.components.predictors.sklearn_models import AdaBoostPredictor, RidgePredictor
+from drevalpy.components.predictors.state_errors import PredictorStateError
+from drevalpy.components.register_builtins import ensure_predictor_registered, register_builtin_components
+from drevalpy.components.registry import get_predictor
+from drevalpy.components.training_context import TrainingContext
+from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.models.config import ModelConfig
+from tests.models.synthetic_fixtures import (
+    cell_line_gene_expression,
+    drug_fingerprints,
+    identity_cell_line_features,
+    multi_drug_response,
+)
+
+
+@pytest.fixture(autouse=True)
+def _register_components() -> None:
+    register_builtin_components()
+
+
+def _neural_batch(*, with_early_stopping: bool = False) -> ModelInputBatch:
+    response = multi_drug_response()
+    cell_line_features = np.vstack(
+        [
+            cell_line_gene_expression().features["cl1"]["gene_expression"],
+            cell_line_gene_expression().features["cl2"]["gene_expression"],
+        ]
+    )
+    drug_features = np.vstack(
+        [
+            drug_fingerprints().features["d1"]["fingerprints"],
+            drug_fingerprints().features["d2"]["fingerprints"],
+        ]
+    )
+    early_stopping = None
+    if with_early_stopping:
+        early_stopping = DrugResponseDataset(
+            response=np.array([1.5, 2.5]),
+            cell_line_ids=np.array(["cl1", "cl2"]),
+            drug_ids=np.array(["d1", "d2"]),
+        )
+    return ModelInputBatch.from_response(
+        response,
+        cell_line_entity_ids=np.array(["cl1", "cl2"]),
+        drug_entity_ids=np.array(["d1", "d2"]),
+        cell_line_features=cell_line_features,
+        drug_features=drug_features,
+        cell_line_pair_idx=np.array([0, 0, 1, 1]),
+        drug_pair_idx=np.array([0, 1, 0, 1]),
+        cell_line_input=cell_line_gene_expression(),
+        drug_input=drug_fingerprints(),
+        early_stopping_response=early_stopping,
+        training_context=TrainingContext(checkpoint_dir=tempfile.mkdtemp()),
+    )
+
+
+def _drug_graph(*, num_features: int = 9) -> Data:
+    return Data(
+        x=torch.randn(4, num_features),
+        edge_index=torch.tensor([[0, 1, 2], [1, 2, 3]], dtype=torch.long),
+        batch=torch.zeros(4, dtype=torch.long),
+    )
+
+
+def _druggnn_batch(*, with_early_stopping: bool = False) -> ModelInputBatch:
+    response = multi_drug_response()
+    cell_line_input = FeatureDataset(
+        features={
+            "cl1": {"gene_expression": np.array([0.1, 0.2, 0.3])},
+            "cl2": {"gene_expression": np.array([0.4, 0.5, 0.6])},
+        }
+    )
+    drug_input = FeatureDataset(
+        features={
+            "d1": {"drug_graph": _drug_graph()},
+            "d2": {"drug_graph": _drug_graph()},
+        }
+    )
+    early_stopping = None
+    if with_early_stopping:
+        early_stopping = DrugResponseDataset(
+            response=np.array([1.5, 2.5]),
+            cell_line_ids=np.array(["cl1", "cl2"]),
+            drug_ids=np.array(["d1", "d2"]),
+        )
+    return ModelInputBatch.from_response(
+        response,
+        cell_line_entity_ids=np.array(["cl1", "cl2"]),
+        drug_entity_ids=np.array(["d1", "d2"]),
+        cell_line_features=np.empty((0, 0), dtype=np.float32),
+        drug_features=None,
+        cell_line_pair_idx=np.zeros(4, dtype=np.int64),
+        drug_pair_idx=None,
+        cell_line_input=cell_line_input,
+        drug_input=drug_input,
+        early_stopping_response=early_stopping,
+        training_context=TrainingContext(checkpoint_dir=tempfile.mkdtemp()),
+    )
+
+
+def test_neural_network_build_is_not_fitted() -> None:
+    predictor = NeuralNetworkPredictor()
+    predictor.build({"max_epochs": 1, "units_per_layer": [4, 2]}, {"cell_line": 3, "drug": 2})
+    assert predictor._model is not None
+    assert predictor.is_fitted() is False
+
+
+def test_neural_network_early_stopping_wires_validation_loader() -> None:
+    predictor = NeuralNetworkPredictor()
+    predictor.build({"max_epochs": 1, "batch_size": 2, "units_per_layer": [4, 2]}, {"cell_line": 3, "drug": 2})
+    batch = _neural_batch(with_early_stopping=True)
+    captured: dict[str, object] = {}
+
+    def _capture_fit(self, model, train_dataloaders, val_dataloaders=None):
+        captured["val_loader"] = val_dataloaders
+        return None
+
+    with patch("pytorch_lightning.Trainer.fit", _capture_fit):
+        predictor.fit(batch)
+    assert captured["val_loader"] is not None
+
+
+def test_neural_network_round_trip_state() -> None:
+    predictor = NeuralNetworkPredictor()
+    predictor.build({"max_epochs": 1, "batch_size": 2, "units_per_layer": [4, 2]}, {"cell_line": 3, "drug": 2})
+    predictor.fit(_neural_batch())
+    preds = predictor.predict(_neural_batch())
+    assert preds.shape == (4,)
+    assert np.isfinite(preds).all()
+
+    restored = NeuralNetworkPredictor()
+    restored.set_state(predictor.get_state())
+    assert restored.is_fitted()
+    restored_preds = restored.predict(_neural_batch())
+    assert np.allclose(preds, restored_preds)
+
+
+def test_neural_network_set_state_raises_on_invalid_payload() -> None:
+    predictor = NeuralNetworkPredictor()
+    with pytest.raises(PredictorStateError):
+        predictor.set_state({"checkpoint": b"not-a-torch-checkpoint"})
+
+
+def test_druggnn_delegates_training_to_engine() -> None:
+    predictor = DrugGNNPredictor()
+    predictor.build({"epochs": 1, "batch_size": 2, "num_workers": 0}, {"cell_line": 3, "drug": 9})
+    batch = _druggnn_batch(with_early_stopping=True)
+    with patch(
+        "drevalpy.components.predictors.literature.druggnn.DrugGNNEngine.train",
+        autospec=True,
+    ) as train_mock:
+        predictor.fit(batch)
+        train_mock.assert_called_once()
+        kwargs = train_mock.call_args.kwargs
+        assert kwargs["output_earlystopping"] is batch.early_stopping_response
+
+
+def test_druggnn_supports_early_stopping_flag() -> None:
+    assert DrugGNNPredictor.supports_early_stopping is True
+
+
+def test_druggnn_round_trip_state() -> None:
+    predictor = DrugGNNPredictor()
+    predictor.build({"epochs": 1, "batch_size": 2, "num_workers": 0}, {"cell_line": 3, "drug": 9})
+    batch = _druggnn_batch()
+    predictor.fit(batch)
+    assert predictor.is_fitted()
+    assert predictor._engine is not None
+    assert predictor._engine.model is not None
+    original_weight = next(predictor._engine.model.parameters()).detach().cpu()
+
+    restored = DrugGNNPredictor()
+    restored.set_state(predictor.get_state())
+    assert restored.is_fitted()
+    assert restored._engine is not None
+    assert restored._engine.model is not None
+    restored_weight = next(restored._engine.model.parameters()).detach().cpu()
+    assert torch.allclose(original_weight, restored_weight)
+
+
+def test_structured_predictor_lazy_engine_import() -> None:
+    ensure_predictor_registered("dipk")
+    precily_module = "drevalpy.components.predictors.literature.impl.precily.precily"
+    sys.modules.pop(precily_module, None)
+    cls = get_predictor("dipk")
+    assert cls.engine_cls().__name__ == "DIPKModel"
+    assert precily_module not in sys.modules
+
+
+def test_structured_predictor_set_state_raises_on_invalid_blob() -> None:
+    predictor = SRMFPredictor()
+    with pytest.raises(PredictorStateError):
+        predictor.set_state({"engine": b"invalid"})
+
+
+def test_ridge_zoo_preset_exists() -> None:
+    config = ModelConfig.from_spec("Ridge")
+    assert config.predictor.name == "ridge"
+
+
+def test_adaboost_default_depth_matches_space() -> None:
+    predictor = AdaBoostPredictor()
+    predictor.build(predictor.get_default_hyperparameters(), {"cell_line": 3, "drug": 2})
+    estimator = predictor._make_estimator()
+    assert estimator.estimator.max_depth == 4
+
+
+def test_sklearn_set_state_raises_when_estimator_missing() -> None:
+    predictor = RidgePredictor()
+    with pytest.raises(PredictorStateError):
+        predictor.set_state({"hyperparameters": {"alpha": 1.0}, "mode": "regression"})
+
+
+def test_naive_tissue_round_trip() -> None:
+    response = multi_drug_response()
+    cell_line_input = identity_cell_line_features(with_tissue=True)
+    model = ModelConfig.from_spec("NaiveTissueMeanPredictor").create_model()
+    model.train(response, cell_line_input, None)
+    preds = model.predict(response.cell_line_ids, response.drug_ids, cell_line_input, None)
+    assert np.isfinite(preds).all()
+    with tempfile.TemporaryDirectory() as tmp:
+        model.save(tmp)
+        loaded = type(model).load(tmp)
+        loaded_preds = loaded.predict(response.cell_line_ids, response.drug_ids, cell_line_input, None)
+    assert np.allclose(preds, loaded_preds)
+
+
+def test_xgboost_load_applies_thread_defaults_before_restore() -> None:
+    pytest.importorskip("xgboost")
+    from drevalpy.components.predictors.xgboost_pred import XGBoostPredictor, _set_xgboost_thread_defaults
+
+    predictor = XGBoostPredictor()
+    predictor.build({"n_estimators": 5}, {"cell_line": 3, "drug": 2})
+    predictor.fit(_neural_batch())
+    state = predictor.get_state()
+
+    with patch(
+        "drevalpy.components.predictors.xgboost_pred._set_xgboost_thread_defaults",
+        wraps=_set_xgboost_thread_defaults,
+    ) as thread_defaults:
+        restored = XGBoostPredictor()
+        restored.set_state(state)
+        thread_defaults.assert_called_once()
+    assert restored.is_fitted()
+
+
+def test_pharmaformer_landmark_preload_round_trip() -> None:
+    module = importlib.import_module("drevalpy.components.predictors.literature.pharmaformer_predictor")
+    predictor_cls = module.PharmaFormerPredictor
+    predictor = predictor_cls()
+    predictor.build({"epochs": 1}, {"cell_line": 10, "drug": 5})
+    predictor.set_engine_preload_state({"gene_dim_input": 978})
+    assert predictor._engine_preload_state["gene_dim_input"] == 978

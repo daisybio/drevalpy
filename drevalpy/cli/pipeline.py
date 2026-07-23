@@ -158,8 +158,30 @@ def register_pipeline_callback(app: typer.Typer) -> None:
         ] = "None",
         multiprocessing: Annotated[
             bool,
-            typer.Option("--multiprocessing", help="If set, we will use raytune for fitting. Default is False."),
+            typer.Option(
+                "--multiprocessing",
+                help="Deprecated alias; use --hpo_num_samples with hyperparameter tuning instead.",
+            ),
         ] = False,
+        hpo_num_samples: Annotated[
+            int,
+            typer.Option(
+                "--hpo_num_samples",
+                help="Number of Ray/Optuna trials when hyperparameter tuning is enabled.",
+            ),
+        ] = 16,
+        hpo_random_state: Annotated[
+            int,
+            typer.Option("--hpo_random_state", help="Random seed for the Optuna search algorithm."),
+        ] = 42,
+        hpo_cpu: Annotated[
+            float | None,
+            typer.Option("--hpo_cpu", help="Ray CPU resources per HPO trial (defaults to 1 or GPU policy)."),
+        ] = None,
+        hpo_gpu: Annotated[
+            float | None,
+            typer.Option("--hpo_gpu", help="Ray GPU resources per HPO trial (defaults to 1 when CUDA is available)."),
+        ] = None,
         model_checkpoint_dir: Annotated[
             str, typer.Option("--model_checkpoint_dir", help="Directory to save model checkpoints.")
         ] = "TEMPORARY",
@@ -173,7 +195,8 @@ def register_pipeline_callback(app: typer.Typer) -> None:
         no_hyperparameter_tuning: Annotated[
             bool,
             typer.Option(
-                "--no_hyperparameter_tuning", help="Disable hyperparameter tuning and use first hyperparameter set."
+                "--no_hyperparameter_tuning",
+                help="Disable Ray/Optuna tuning and use each model's default hyperparameters.",
             ),
         ] = False,
         custom_splitter_path: Annotated[
@@ -195,6 +218,14 @@ def register_pipeline_callback(app: typer.Typer) -> None:
         """Run the drug response prediction model test suite."""
         if ctx.invoked_subcommand is not None:
             return
+        hpo_resources: dict[str, float] | None = None
+        if hpo_cpu is not None or hpo_gpu is not None:
+            hpo_resources = {}
+            if hpo_cpu is not None:
+                hpo_resources["cpu"] = hpo_cpu
+            if hpo_gpu is not None:
+                hpo_resources["gpu"] = hpo_gpu
+
         args = pipeline_namespace(
             run_id=run_id,
             path_data=path_data,
@@ -217,6 +248,9 @@ def register_pipeline_callback(app: typer.Typer) -> None:
             n_cv_splits=n_cv_splits,
             response_transformation=response_transformation,
             multiprocessing=multiprocessing,
+            hpo_num_samples=hpo_num_samples,
+            hpo_random_state=hpo_random_state,
+            hpo_resources_per_trial=hpo_resources,
             model_checkpoint_dir=model_checkpoint_dir,
             final_model_on_full_data=final_model_on_full_data,
             no_hyperparameter_tuning=no_hyperparameter_tuning,

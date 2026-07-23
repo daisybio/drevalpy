@@ -260,7 +260,10 @@ class DRPModel(ABC):
     @classmethod
     @pipeline_function
     def get_structured_hyperparameter_space(cls) -> dict[str, Any]:
-        """Return the merged structured hyperparameter space for this model."""
+        """Return the merged structured hyperparameter space for this model.
+
+        :returns: Mapping of hyperparameter names to search-space specs.
+        """
         from drevalpy.components.tuning.drp_hyperparameters import structured_space_for_drp_model
 
         return structured_space_for_drp_model(cls)
@@ -268,7 +271,10 @@ class DRPModel(ABC):
     @classmethod
     @pipeline_function
     def get_default_hyperparameters(cls) -> dict[str, Any]:
-        """Return default hyperparameters for ``build_model``."""
+        """Return default hyperparameters for ``build_model``.
+
+        :returns: Flat public hyperparameter dictionary.
+        """
         from drevalpy.components.tuning.drp_hyperparameters import default_hyperparameters_for_drp_model
 
         return default_hyperparameters_for_drp_model(cls)
@@ -276,7 +282,10 @@ class DRPModel(ABC):
     @classmethod
     @pipeline_function
     def get_hyperparameter_set(cls) -> list[dict[str, Any]]:
-        """Return the default hyperparameter configuration for this model."""
+        """Return the default hyperparameter configuration for this model.
+
+        :returns: Single-element list containing the default hyperparameters.
+        """
         return [cls.get_default_hyperparameters()]
 
     @property

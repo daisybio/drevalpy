@@ -10,7 +10,6 @@ from drevalpy.components.featurizers._matrix import stack_view_matrix
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.registry import register_cell_line_featurizer
 from drevalpy.data.preprocessing import scale_gene_expression
-from drevalpy.datasets.dataset import FeatureDataset
 
 
 @register_cell_line_featurizer(
@@ -26,7 +25,6 @@ class ScaledGeneExpressionFeaturizer(CellLineFeaturizer):
         self._view = view
         self._scaler = StandardScaler()
         self._output_dim = 0
-        self._fitted_features: FeatureDataset | None = None
         self._is_fitted = False
 
     def fit(
@@ -42,7 +40,6 @@ class ScaledGeneExpressionFeaturizer(CellLineFeaturizer):
             training=True,
             gene_expression_scaler=self._scaler,
         )
-        self._fitted_features = scaled
         matrix = stack_view_matrix(scaled, self._view, np.array(list(scaled.features.keys())))
         self._output_dim = int(matrix.shape[1])
         self._is_fitted = True
@@ -65,15 +62,24 @@ class ScaledGeneExpressionFeaturizer(CellLineFeaturizer):
         return self._output_dim
 
     def get_state(self) -> dict[str, object]:
+        if not self._is_fitted:
+            return {}
         return {
             "gene_expression_scaler": self._scaler,
-            "fitted": self._is_fitted,
+            "view": self._view,
+            "output_dim": self._output_dim,
+            "fitted": True,
         }
 
     def set_state(self, state: dict[str, object]) -> None:
         scaler = state.get("gene_expression_scaler")
         if isinstance(scaler, StandardScaler):
             self._scaler = scaler
+        view = state.get("view")
+        if isinstance(view, str):
+            self._view = view
+        output_dim = state.get("output_dim")
+        if isinstance(output_dim, int):
+            self._output_dim = output_dim
         if state.get("fitted"):
             self._is_fitted = True
-            self._fitted_features = None

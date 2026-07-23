@@ -98,6 +98,34 @@ def _drug_feature_dataset() -> FeatureDataset:
     )
 
 
+def test_concat_duplicate_same_name_view_gets_occurrence_labels() -> None:
+    register_builtin_components()
+    featurizer = ConcatFeaturizersCellLineFeaturizer(
+        featurizers=[
+            FeaturizerConfig(name="raw", view="gene_expression", registry="cell_line"),
+            FeaturizerConfig(name="raw", view="gene_expression", registry="cell_line"),
+        ],
+    )
+    features = _feature_dataset()
+    ids = np.array(["cl1", "cl2"])
+    featurizer.fit(features, entity_ids=ids)
+    blocks = featurizer.transform_blocks(features, ids)
+    assert set(blocks) == {"raw[expression]", "raw[expression]#1"}
+    assert featurizer.block_dims == {"raw[expression]": 2, "raw[expression]#1": 2}
+
+    restored = ConcatFeaturizersCellLineFeaturizer(
+        featurizers=[
+            FeaturizerConfig(name="raw", view="gene_expression", registry="cell_line"),
+            FeaturizerConfig(name="raw", view="gene_expression", registry="cell_line"),
+        ],
+    )
+    restored.set_state(featurizer.get_state())
+    restored_blocks = restored.transform_blocks(features, ids)
+    assert set(restored_blocks) == set(blocks)
+    for key in blocks:
+        np.testing.assert_allclose(restored_blocks[key], blocks[key])
+
+
 def test_drug_concat_featurizers_fit_transform_and_blocks() -> None:
     register_builtin_components()
     featurizer = ConcatFeaturizersDrugFeaturizer(

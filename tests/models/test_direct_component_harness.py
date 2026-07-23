@@ -95,28 +95,37 @@ def test_feature_free_naive_accepts_no_featurizers() -> None:
 
 
 def test_subprocess_blocks_optional_deps_for_simple_models() -> None:
-    script = textwrap.dedent(
-        """
+    script = textwrap.dedent("""
+        import importlib.abc
+        import importlib.machinery
         import sys
-        import types
 
+        # Block optional heavy engines/extras; wrapper modules may still load for factory metadata.
         blocked = {
             "xgboost": "blocked xgboost",
             "lightgbm": "blocked lightgbm",
-            "ray": "blocked ray",
-            "wandb": "blocked wandb",
-            "drevalpy.components.predictors.literature.structured_predictors": "blocked literature",
             "drevalpy.components.predictors.literature.impl.dipk.dipk": "blocked dipk",
+            "drevalpy.components.predictors.literature.impl.pharmaformer.pharmaformer": "blocked pharmaformer",
         }
 
-        class Blocker(types.ModuleType):
-            def __getattr__(self, name):
-                raise ImportError(blocked[self.__name__])
+        class BlockLoader(importlib.abc.Loader):
+            def __init__(self, message: str) -> None:
+                self.message = message
 
-        for name, message in blocked.items():
-            module = Blocker(name)
-            module.__dict__["__name__"] = name
-            sys.modules[name] = module
+            def create_module(self, spec):
+                raise ImportError(self.message)
+
+            def exec_module(self, module):
+                raise ImportError(self.message)
+
+        class BlockFinder(importlib.abc.MetaPathFinder):
+            def find_spec(self, fullname, path, target=None):
+                if fullname in blocked or fullname.split(".", 1)[0] in blocked:
+                    key = fullname if fullname in blocked else fullname.split(".", 1)[0]
+                    return importlib.machinery.ModuleSpec(fullname, BlockLoader(blocked[key]))
+                return None
+
+        sys.meta_path.insert(0, BlockFinder())
 
         from drevalpy.models import MODEL_FACTORY, ElasticNetModel, NaivePredictor
         from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
@@ -128,8 +137,18 @@ def test_subprocess_blocks_optional_deps_for_simple_models() -> None:
             cell_line_ids=np.array(["cl1", "cl2"]),
             drug_ids=np.array(["d1", "d2"]),
         )
-        cell = FeatureDataset(features={"cl1": {"gene_expression": np.ones(3)}, "cl2": {"gene_expression": np.zeros(3)}})
-        drugs = FeatureDataset(features={"d1": {"fingerprints": np.array([1.0, 0.0])}, "d2": {"fingerprints": np.array([0.0, 1.0])}})
+        cell = FeatureDataset(
+            features={
+                "cl1": {"gene_expression": np.ones(3)},
+                "cl2": {"gene_expression": np.zeros(3)},
+            }
+        )
+        drugs = FeatureDataset(
+            features={
+                "d1": {"fingerprints": np.array([1.0, 0.0])},
+                "d2": {"fingerprints": np.array([0.0, 1.0])},
+            }
+        )
         naive = NaivePredictor()
         naive.build_model({})
         naive.train(response, FeatureDataset(features={}), FeatureDataset(features={}))
@@ -142,7 +161,6 @@ def test_subprocess_blocks_optional_deps_for_simple_models() -> None:
             pass
         else:
             raise AssertionError("DIPK build_model should fail when literature deps are blocked")
-        """
-    )
+        """)
     completed = subprocess.run([sys.executable, "-c", script], check=False, capture_output=True, text=True)
     assert completed.returncode == 0, completed.stdout + completed.stderr

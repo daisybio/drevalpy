@@ -17,9 +17,12 @@ def register(app: typer.Typer) -> None:
             bool,
             typer.Option(
                 "--hyperparameter_tuning",
-                help="If set, hyperparameter tuning is performed, otherwise only the first combination is used",
+                help=(
+                    "Deprecated flag kept for nf-core compatibility. Always writes default "
+                    "hyperparameters to hpam_0.yaml; Ray/Optuna tuning runs at experiment time."
+                ),
             ),
         ] = False,
     ) -> None:
-        """Create one yaml for each unique hyperparameter combination (hpam_0.yaml, hpam_1.yaml, ...)."""
+        """Write default hyperparameters to ``hpam_0.yaml`` for nf-core CV subworkflows."""
         run_hpam_split(model_name=model_name, hyperparameter_tuning=hyperparameter_tuning)

@@ -29,7 +29,17 @@ class FeatureContract:
 
 
 def normalize_feature_contract(contract: FeatureContract | FeatureKind) -> FeatureContract:
-    """Return a ``FeatureContract`` from a contract object or kind shorthand."""
+    """Return a ``FeatureContract`` from a contract object or kind shorthand.
+
+    Args:
+        contract: A ``FeatureContract`` instance or ``FeatureKind`` enum member.
+
+    Returns:
+        Normalized ``FeatureContract`` instance.
+
+    Raises:
+        TypeError: If *contract* is neither ``FeatureContract`` nor ``FeatureKind``.
+    """
     if isinstance(contract, FeatureContract):
         return contract
     if isinstance(contract, FeatureKind):
@@ -39,7 +49,17 @@ def normalize_feature_contract(contract: FeatureContract | FeatureKind) -> Featu
 
 
 def featurizer_contract(cls: type[Any]) -> FeatureContract:
-    """Return the featurizer contract, preferring ``contract`` over legacy ``output_contract``."""
+    """Return the featurizer contract, preferring ``contract`` over legacy ``output_contract``.
+
+    Args:
+        cls: Featurizer class registered in the component registry.
+
+    Returns:
+        Resolved ``FeatureContract`` for the featurizer class.
+
+    Raises:
+        TypeError: If the class contract attribute is not a ``FeatureContract``.
+    """
     contract = getattr(cls, "contract", None)
     if contract is None:
         contract = getattr(cls, "output_contract", None)
@@ -52,7 +72,17 @@ def featurizer_contract(cls: type[Any]) -> FeatureContract:
 
 
 def predictor_contracts(cls: type[Any]) -> tuple[FeatureContract, FeatureContract]:
-    """Return predictor input contracts, preferring canonical attribute names."""
+    """Return predictor input contracts, preferring canonical attribute names.
+
+    Args:
+        cls: Predictor class registered in the component registry.
+
+    Returns:
+        ``(cell_line_contract, drug_contract)`` pair for compatibility checks.
+
+    Raises:
+        TypeError: If either contract attribute is not a ``FeatureContract``.
+    """
     cell_line = getattr(cls, "cell_line_contract", None)
     if cell_line is None:
         cell_line = getattr(cls, "required_cell_line_contract", None)
@@ -70,5 +100,13 @@ def predictor_contracts(cls: type[Any]) -> tuple[FeatureContract, FeatureContrac
 
 
 def contracts_compatible(produced: FeatureContract, required: FeatureContract) -> bool:
-    """Return whether *produced* satisfies *required*."""
+    """Return whether *produced* satisfies *required*.
+
+    Args:
+        produced: Feature contract emitted by a featurizer.
+        required: Feature contract declared by a predictor input slot.
+
+    Returns:
+        ``True`` when both contracts share the same ``FeatureKind``.
+    """
     return produced.kind == required.kind

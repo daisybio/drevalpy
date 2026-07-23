@@ -72,9 +72,19 @@ class NormalizedProteomicsCellLineFeaturizer(CellLineFeaturizer):
         return self._output_dim
 
     def get_state(self) -> dict[str, object]:
-        return {"proteomics_transformer": self._transformer}
+        return {
+            "proteomics_transformer": self._transformer,
+            "view": self._view,
+            "output_dim": self._output_dim,
+        }
 
     def set_state(self, state: dict[str, object]) -> None:
         transformer = state.get("proteomics_transformer")
         if isinstance(transformer, ProteomicsMedianCenterAndImputeTransformer):
             self._transformer = transformer
+        view = state.get("view")
+        if isinstance(view, str):
+            self._view = view
+        output_dim = state.get("output_dim")
+        if isinstance(output_dim, int):
+            self._output_dim = output_dim

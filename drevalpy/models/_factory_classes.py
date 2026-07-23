@@ -33,13 +33,14 @@ def factory_name_for_symbol(symbol: str) -> str:
 
 
 def _early_stopping_from_predictor(config) -> bool:
-    """Derive class-level early_stopping from the zoo predictor capability."""
+    """Derive class-level early_stopping from the zoo predictor capability.
+
+    Import failures are not swallowed as ``False``; callers should only invoke
+    this when the predictor can be resolved.
+    """
     from drevalpy.components.registry import get_predictor
 
-    try:
-        predictor_cls = get_predictor(config.predictor.name)
-    except ImportError:
-        return False
+    predictor_cls = get_predictor(config.predictor.name)
     return bool(getattr(predictor_cls, "supports_early_stopping", False))
 
 

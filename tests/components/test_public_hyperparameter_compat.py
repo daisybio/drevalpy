@@ -87,6 +87,28 @@ def test_apply_merged_never_leaks_namespaced_keys_into_components() -> None:
     assert_component_local_hyperparameters(updated)
 
 
+def test_pca_methylation_pca_components_alias_round_trip() -> None:
+    rebuilt = config_from_public_hyperparameters(
+        MODEL_FACTORY["MultiViewRandomForest"],
+        {"methylation_pca_components": 9},
+    )
+    assert rebuilt is not None
+    assert rebuilt.cell_line_featurizer is not None
+    children = rebuilt.cell_line_featurizer.hyperparameters["featurizers"]
+    pca_child = next(child for child in children if child["name"] == "pca")
+    assert pca_child["hyperparameters"]["n_components"] == 9
+
+
+def test_cell_line_views_override_on_build_model_path() -> None:
+    rebuilt = config_from_public_hyperparameters(
+        MODEL_FACTORY["MultiViewRandomForest"],
+        {"cell_line_views": ["gene_expression"]},
+    )
+    assert rebuilt is not None
+    assert rebuilt.cell_line_featurizer is not None
+    assert rebuilt.cell_line_featurizer.name == "scaledGeneExpression"
+
+
 def test_pca_methylation_flat_key_round_trip() -> None:
     from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
     from drevalpy.models.config import FeaturizerConfig, ModelConfig, PredictorConfig

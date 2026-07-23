@@ -110,7 +110,9 @@ class NativeDRPModel(DRPModel):
         self.build_from_model_config(config)
 
     def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
-        config = self._resolved_config(self.hyperparameters or None)
+        # Prefer the already-resolved config; re-applying public flat HPs can reject
+        # featurizer-local keys that were round-tripped into ``self.hyperparameters``.
+        config = self._resolved_config()
         predictor_class = get_predictor(config.predictor.name)
         loader = getattr(predictor_class, "load_dataset_cell_line_features", None)
         if callable(loader):
@@ -135,7 +137,7 @@ class NativeDRPModel(DRPModel):
         )
 
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset | None:
-        config = self._resolved_config(self.hyperparameters or None)
+        config = self._resolved_config()
         predictor_class = get_predictor(config.predictor.name)
         loader = getattr(predictor_class, "load_dataset_drug_features", None)
         if callable(loader):
@@ -158,18 +160,17 @@ class NativeDRPModel(DRPModel):
         """Push facade hyperparameter updates into the resolved config/composed stack."""
         if not self.hyperparameters:
             return
-        if self._resolved_model_config is not None:
+        filtered = {
+            key: value for key, value in self.hyperparameters.items() if key not in {"cell_line_views", "drug_views"}
+        }
+        if self._resolved_model_config is not None and filtered:
             self._resolved_model_config = self._resolved_model_config.model_copy(
                 update={
                     "predictor": self._resolved_model_config.predictor.model_copy(
                         update={
                             "hyperparameters": {
                                 **self._resolved_model_config.predictor.hyperparameters,
-                                **{
-                                    key: value
-                                    for key, value in self.hyperparameters.items()
-                                    if key not in {"cell_line_views", "drug_views"}
-                                },
+                                **filtered,
                             }
                         },
                         deep=True,
@@ -178,13 +179,7 @@ class NativeDRPModel(DRPModel):
                 deep=True,
             )
         if self._composed is not None:
-            self._composed._predictor_hp.update(
-                {
-                    key: value
-                    for key, value in self.hyperparameters.items()
-                    if key not in {"cell_line_views", "drug_views"}
-                }
-            )
+            self._composed.update_predictor_hyperparameters(filtered)
 
     def train(
         self,
@@ -203,6 +198,7 @@ class NativeDRPModel(DRPModel):
         if composed is None:
             msg = "Model has not been built; call build_model() before train()"
             raise RuntimeError(msg)
+        self._empty_training = False
         set_preload = getattr(composed._predictor, "set_engine_preload_state", None)
         if callable(set_preload) and self._engine_preload_state:
             set_preload(self._engine_preload_state)
@@ -257,6 +253,7 @@ class NativeDRPModel(DRPModel):
         predictor_class = get_predictor(config.predictor.name)
         instance.early_stopping = bool(getattr(predictor_class, "supports_early_stopping", False))
         instance._composed = composed
+        instance._empty_training = False
         return instance
 
 

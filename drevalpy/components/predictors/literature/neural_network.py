@@ -2,17 +2,24 @@
 
 from __future__ import annotations
 
+import io
+import os
+import secrets
 from typing import Any, ClassVar
 
 import numpy as np
 import pytorch_lightning as pl
 import torch
+from pytorch_lightning.callbacks import EarlyStopping
 from torch.utils.data import DataLoader
 
 from drevalpy.components.contracts import FeatureKind
+from drevalpy.components.model_input_batch import ModelInputBatch
+from drevalpy.components.predictors._matrix_fit import validate_matrix_fit
 from drevalpy.components.predictors.literature._batch_dataset import PairMatrixDataset
 from drevalpy.components.predictors.literature.impl.simple_neural_network.utils import FeedForwardNetwork
 from drevalpy.components.predictors.matrix import MatrixPredictor
+from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.components.registry import register_predictor
 from drevalpy.models.config import PredictionMode
 
@@ -34,6 +41,7 @@ class NeuralNetworkPredictor(MatrixPredictor):
         self._hyperparameters: dict[str, Any] = {}
         self._model: FeedForwardNetwork | None = None
         self._input_dim: int | None = None
+        self._is_fitted = False
 
     @classmethod
     def get_default_hyperparameters(cls) -> dict[str, object]:
@@ -42,6 +50,7 @@ class NeuralNetworkPredictor(MatrixPredictor):
             "dropout_prob": 0.2,
             "max_epochs": 50,
             "batch_size": 16,
+            "patience": 5,
         }
 
     @classmethod
@@ -65,29 +74,92 @@ class NeuralNetworkPredictor(MatrixPredictor):
             },
             input_dim=input_dim,
         )
+        self._is_fitted = False
 
-    def _fit_matrix(self, x: np.ndarray, y: np.ndarray) -> None:
-        if self._model is None or len(x) == 0:
+    def fit(self, batch: ModelInputBatch) -> None:
+        if batch.response is None:
+            msg = "Matrix predictors require response values during fit"
+            raise ValueError(msg)
+        if self._model is None:
+            msg = "NeuralNetworkPredictor.build() must be called before fit()"
+            raise RuntimeError(msg)
+        x = batch.to_feature_matrix()
+        y = np.asarray(batch.response, dtype=np.float64)
+        validate_matrix_fit(x, y, n_pairs=batch.n_pairs)
+        if batch.n_pairs == 0:
+            self._is_fitted = False
             return
-        dataset = PairMatrixDataset(x, y)
+        self._train_with_optional_early_stopping(batch, x, y)
+        self._is_fitted = True
+
+    def _train_with_optional_early_stopping(
+        self,
+        batch: ModelInputBatch,
+        x: np.ndarray,
+        y: np.ndarray,
+    ) -> None:
+        if self._model is None:
+            msg = "Neural network predictor must be built before training"
+            raise RuntimeError(msg)
         batch_size = min(int(self._hyperparameters.get("batch_size", 16)), len(x))
-        loader = DataLoader(
-            dataset,
+        train_loader = DataLoader(
+            PairMatrixDataset(x, y),
             batch_size=batch_size,
             shuffle=True,
             drop_last=batch_size < len(x),
         )
+
+        val_loader = None
+        x_val = batch.early_stopping_feature_matrix()
+        if x_val is not None and batch.early_stopping_response is not None:
+            y_val = np.asarray(batch.early_stopping_response.response, dtype=np.float64)
+            if len(x_val) > 0 and len(x_val) == len(y_val):
+                val_loader = DataLoader(
+                    PairMatrixDataset(x_val, y_val),
+                    batch_size=batch_size,
+                    shuffle=False,
+                )
+
+        monitor = "val_loss" if val_loader is not None else "train_loss"
+        patience = int(self._hyperparameters.get("patience", 5))
+        callbacks: list[pl.Callback] = [
+            EarlyStopping(monitor=monitor, mode="min", patience=patience),
+        ]
+
+        checkpoint_dir = batch.training_context.checkpoint_dir
+        unique_subfolder = os.path.join(checkpoint_dir, "run_" + secrets.token_hex(8))
+        os.makedirs(unique_subfolder, exist_ok=True)
+        checkpoint_callback = pl.callbacks.ModelCheckpoint(
+            dirpath=unique_subfolder,
+            monitor=monitor,
+            mode="min",
+            save_top_k=1,
+            filename="best",
+        )
+        callbacks.append(checkpoint_callback)
+
         trainer = pl.Trainer(
             max_epochs=int(self._hyperparameters.get("max_epochs", 50)),
             accelerator="cpu",
             devices=1,
+            callbacks=callbacks,
             enable_progress_bar=False,
             logger=False,
         )
-        trainer.fit(self._model, train_dataloaders=loader)
+        if val_loader is None:
+            trainer.fit(self._model, train_dataloaders=train_loader)
+        else:
+            trainer.fit(self._model, train_dataloaders=train_loader, val_dataloaders=val_loader)
+
+        if checkpoint_callback.best_model_path:
+            checkpoint = torch.load(checkpoint_callback.best_model_path, weights_only=True)  # noqa: S614
+            self._model.load_state_dict(checkpoint["state_dict"])
+
+    def _fit_matrix(self, x: np.ndarray, y: np.ndarray) -> None:
+        _ = x, y
 
     def _predict_matrix(self, x: np.ndarray) -> np.ndarray:
-        if self._model is None or len(x) == 0:
+        if not self._is_fitted or self._model is None or len(x) == 0:
             return np.full(len(x), np.nan, dtype=np.float64)
         self._model.eval()
         with torch.no_grad():
@@ -95,13 +167,11 @@ class NeuralNetworkPredictor(MatrixPredictor):
         return np.asarray(preds, dtype=np.float64).reshape(-1)
 
     def is_fitted(self) -> bool:
-        return self._model is not None
+        return self._is_fitted
 
     def get_state(self) -> dict[str, object]:
-        if self._model is None:
+        if not self._is_fitted or self._model is None:
             return {}
-        import io
-
         buffer = io.BytesIO()
         torch.save(
             {
@@ -116,26 +186,37 @@ class NeuralNetworkPredictor(MatrixPredictor):
     def set_state(self, state: dict[str, object]) -> None:
         checkpoint = state.get("checkpoint")
         if not isinstance(checkpoint, (bytes, bytearray)):
-            return
-        import io
-
-        data = torch.load(io.BytesIO(checkpoint), weights_only=False)  # noqa: S614
+            msg = "NeuralNetworkPredictor state requires a checkpoint byte blob"
+            raise PredictorStateError(msg)
+        try:
+            data = torch.load(io.BytesIO(checkpoint), weights_only=False)  # noqa: S614
+        except Exception as exc:
+            msg = "NeuralNetworkPredictor checkpoint could not be deserialized"
+            raise PredictorStateError(msg) from exc
         if not isinstance(data, dict):
-            return
+            msg = "NeuralNetworkPredictor checkpoint payload must be a mapping"
+            raise PredictorStateError(msg)
         hyperparameters = data.get("hyperparameters")
-        if isinstance(hyperparameters, dict):
-            self._hyperparameters = dict(hyperparameters)
+        if not isinstance(hyperparameters, dict):
+            msg = "NeuralNetworkPredictor checkpoint is missing hyperparameters"
+            raise PredictorStateError(msg)
         input_dim = data.get("input_dim")
         if input_dim is None:
-            return
+            msg = "NeuralNetworkPredictor checkpoint is missing input_dim"
+            raise PredictorStateError(msg)
+        state_dict = data.get("state_dict")
+        if state_dict is None:
+            msg = "NeuralNetworkPredictor checkpoint is missing state_dict"
+            raise PredictorStateError(msg)
+        self._hyperparameters = dict(hyperparameters)
+        self._input_dim = int(input_dim)
         merged = self._hyperparameters
         self._model = FeedForwardNetwork(
             hyperparameters={
                 "units_per_layer": merged.get("units_per_layer", [512, 256, 128]),
                 "dropout_prob": merged.get("dropout_prob", 0.2),
             },
-            input_dim=int(input_dim),
+            input_dim=self._input_dim,
         )
-        state_dict = data.get("state_dict")
-        if state_dict is not None:
-            self._model.load_state_dict(state_dict)
+        self._model.load_state_dict(state_dict)
+        self._is_fitted = True

@@ -2,34 +2,33 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from typing import Any
 
 import numpy as np
-import pandas as pd
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 from drevalpy.components.contracts import FeatureKind
 from drevalpy.components.featurizers._matrix import stack_view_matrix
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.registry import register_cell_line_featurizer
+from drevalpy.data.gene_lists import gene_names_from_list_csv, resolve_gene_list_path
 
 
-def _load_gene_indices(feature_dataset, view: str, gene_list_stem: str) -> list[int]:
+def _load_gene_indices(
+    feature_dataset,
+    view: str,
+    gene_list_stem: str,
+    *,
+    data_path: str | None = None,
+) -> list[int]:
     meta = feature_dataset.meta_info.get(view)
     if meta is None:
         msg = f"FeatureDataset meta_info missing view {view!r}"
         raise ValueError(msg)
-    gene_list_path = Path("data/meta/gene_lists") / f"{gene_list_stem}.csv"
-    if not gene_list_path.is_file():
-        return list(range(len(meta)))
-    gene_info = pd.read_csv(gene_list_path)
-    if "gene_name" not in gene_info.columns:
-        return list(range(len(meta)))
-    selected = set(gene_info["gene_name"].astype(str))
-    indices: list[int] = []
-    for index, gene in enumerate(meta):
-        if str(gene) in selected:
-            indices.append(index)
+    gene_list_path = resolve_gene_list_path(gene_list_stem, data_path=data_path)
+    selected_genes = gene_names_from_list_csv(gene_list_path)
+    gene_to_idx = {str(gene): index for index, gene in enumerate(meta)}
+    indices = [gene_to_idx[gene] for gene in selected_genes if gene in gene_to_idx]
     if not indices:
         msg = f"No genes from {gene_list_stem!r} matched view {view!r}"
         raise ValueError(msg)
@@ -74,19 +73,27 @@ class LandmarkGenesFeaturizer(CellLineFeaturizer):
         gene_list_stem: str = "landmark_genes",
         standardize: bool = True,
         minmax_scale: bool = False,
+        data_path: str | None = None,
     ) -> None:
         self._view = view
         self._gene_list_stem = gene_list_stem
         self._standardize = standardize
         self._minmax_scale = minmax_scale
+        self._data_path = data_path
         self._gene_indices: list[int] = []
         self._scaler: StandardScaler | None = None
         self._minmax: MinMaxScaler | None = None
         self._output_dim = 0
+        self._is_fitted = False
 
     def fit(self, features, *, entity_ids: np.ndarray | None = None) -> LandmarkGenesFeaturizer:
         ids = entity_ids if entity_ids is not None else np.array(list(features.features.keys()))
-        self._gene_indices = _load_gene_indices(features, self._view, self._gene_list_stem)
+        self._gene_indices = _load_gene_indices(
+            features,
+            self._view,
+            self._gene_list_stem,
+            data_path=self._data_path,
+        )
         self._output_dim = len(self._gene_indices)
         matrix = stack_view_matrix(features, self._view, ids).astype(np.float64)[:, self._gene_indices]
         matrix = np.nan_to_num(matrix, nan=0.0, posinf=0.0, neginf=0.0)
@@ -103,9 +110,13 @@ class LandmarkGenesFeaturizer(CellLineFeaturizer):
         else:
             self._scaler = None
             self._minmax = None
+        self._is_fitted = True
         return self
 
     def transform(self, features, entity_ids: np.ndarray) -> np.ndarray:
+        if not self._is_fitted:
+            msg = "LandmarkGenesFeaturizer must be fit before transform"
+            raise RuntimeError(msg)
         return _subset_matrix(
             features,
             entity_ids,
@@ -118,6 +129,60 @@ class LandmarkGenesFeaturizer(CellLineFeaturizer):
     @property
     def output_dim(self) -> int:
         return self._output_dim
+
+    @classmethod
+    def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
+        return {
+            "standardize": {"type": "categorical", "choices": [True, False], "default": True},
+            "minmax_scale": {"type": "categorical", "choices": [True, False], "default": False},
+        }
+
+    def get_state(self) -> dict[str, object]:
+        if not self._is_fitted:
+            return {}
+        return {
+            "view": self._view,
+            "gene_list_stem": self._gene_list_stem,
+            "standardize": self._standardize,
+            "minmax_scale": self._minmax_scale,
+            "data_path": self._data_path,
+            "gene_indices": list(self._gene_indices),
+            "scaler": self._scaler,
+            "minmax": self._minmax,
+            "output_dim": self._output_dim,
+            "fitted": True,
+        }
+
+    def set_state(self, state: dict[str, object]) -> None:
+        view = state.get("view")
+        if isinstance(view, str):
+            self._view = view
+        stem = state.get("gene_list_stem")
+        if isinstance(stem, str):
+            self._gene_list_stem = stem
+        if "standardize" in state:
+            self._standardize = bool(state["standardize"])
+        if "minmax_scale" in state:
+            self._minmax_scale = bool(state["minmax_scale"])
+        data_path = state.get("data_path")
+        if isinstance(data_path, str) or data_path is None:
+            self._data_path = data_path
+        gene_indices = state.get("gene_indices")
+        if isinstance(gene_indices, list):
+            self._gene_indices = [int(index) for index in gene_indices]
+        scaler = state.get("scaler")
+        if isinstance(scaler, StandardScaler) or scaler is None:
+            self._scaler = scaler
+        minmax = state.get("minmax")
+        if isinstance(minmax, MinMaxScaler) or minmax is None:
+            self._minmax = minmax
+        output_dim = state.get("output_dim")
+        if isinstance(output_dim, int):
+            self._output_dim = output_dim
+        elif self._gene_indices:
+            self._output_dim = len(self._gene_indices)
+        if state.get("fitted"):
+            self._is_fitted = True
 
 
 @register_cell_line_featurizer(
@@ -135,10 +200,13 @@ class LandmarkGenesReducedFeaturizer(LandmarkGenesFeaturizer):
         view: str = "gene_expression",
         standardize: bool = False,
         minmax_scale: bool = False,
+        data_path: str | None = None,
+        **_: Any,
     ) -> None:
         super().__init__(
             view=view,
             gene_list_stem="landmark_genes_reduced",
             standardize=standardize,
             minmax_scale=minmax_scale,
+            data_path=data_path,
         )

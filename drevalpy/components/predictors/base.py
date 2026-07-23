@@ -8,7 +8,8 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import numpy as np
 
 from drevalpy.components.contracts import FeatureContract, FeatureKind
-from drevalpy.models.config import PredictionMode
+from drevalpy.types.model_scope import ModelScope
+from drevalpy.types.prediction_mode import PredictionMode
 
 if TYPE_CHECKING:
     from drevalpy.components.model_input_batch import ModelInputBatch
@@ -22,6 +23,7 @@ class Predictor(ABC):
     requires_drug_featurizer: ClassVar[bool] = True
     supports_early_stopping: ClassVar[bool] = False
     supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset(PredictionMode)
+    supported_scopes: ClassVar[frozenset[ModelScope]] = frozenset({ModelScope.MULTI_DRUG})
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:

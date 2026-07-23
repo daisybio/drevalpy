@@ -20,8 +20,6 @@ from drevalpy.models.featurizer_mapping import (
     drug_views_from_model_config,
 )
 
-_TISSUE_AWARE_PREDICTORS = frozenset({"naiveMeanEffects", "naiveTissueMean", "naiveTissueDrugMean"})
-
 
 def load_cell_line_feature_views(
     views: list[str],
@@ -70,13 +68,8 @@ def load_cell_line_features_for_model_config(
     featurizer = config.cell_line_featurizer
     if featurizer is not None and featurizer.name == "tissue":
         return load_tissues_from_csv(data_path, dataset_name)
-    if config.predictor.name in _TISSUE_AWARE_PREDICTORS and (
-        featurizer is None or featurizer.name in {"identity", "tissue"}
-    ):
-        if featurizer is not None and featurizer.name == "tissue":
-            return load_tissues_from_csv(data_path, dataset_name)
-        if config.predictor.name == "naiveMeanEffects":
-            return load_cl_ids_and_tissues_from_csv(data_path, dataset_name)
+    if config.predictor.name == "naiveMeanEffects" and (featurizer is None or featurizer.name == "identity"):
+        return load_cl_ids_and_tissues_from_csv(data_path, dataset_name)
     if cell_line_entity_id_only_from_model_config(config):
         return load_cl_ids_from_csv(data_path, dataset_name)
     if featurizer is None:

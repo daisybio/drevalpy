@@ -46,10 +46,15 @@ class ConcatFeaturizersMixin:
     def _materialize_children(self) -> None:
         if len(self._children) == len(self._child_configs):
             return
-        self._children = [
-            (featurizer_config_block_label(config.name, config.view), config.create_instance())
-            for config in self._child_configs
-        ]
+        occurrence_counts: dict[str, int] = {}
+        children: list[tuple[str, Featurizer]] = []
+        for config in self._child_configs:
+            base_label = featurizer_config_block_label(config.name, config.view)
+            occurrence = occurrence_counts.get(base_label, 0)
+            occurrence_counts[base_label] = occurrence + 1
+            label = featurizer_config_block_label(config.name, config.view, occurrence=occurrence)
+            children.append((label, config.create_instance()))
+        self._children = children
 
     def fit(
         self,

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, ClassVar
 
 from sklearn.ensemble import AdaBoostRegressor, HistGradientBoostingRegressor, RandomForestRegressor
 from sklearn.linear_model import ElasticNet, Lasso, Ridge
@@ -12,6 +12,7 @@ from sklearn.tree import DecisionTreeRegressor
 
 from drevalpy.components.predictors.sklearn_tabular import SklearnTabularPredictor
 from drevalpy.components.registry import register_predictor
+from drevalpy.models.config import ModelScope
 
 
 @register_predictor(
@@ -21,6 +22,13 @@ from drevalpy.components.registry import register_predictor
 )
 class ElasticNetPredictor(SklearnTabularPredictor):
     """Elastic net predictor component."""
+
+    non_tunable_hyperparameters: ClassVar[dict[str, object]] = {
+        "max_iter": 1000,
+        "tol": 1e-4,
+        "selection": "cyclic",
+        "random_state": None,
+    }
 
     def _make_estimator(self):
         l1_ratio = float(self._h.get("l1_ratio", 0.5))
@@ -48,11 +56,17 @@ class SingleDrugElasticNetPredictor(ElasticNetPredictor):
     """Single-drug ElasticNet predictor component."""
 
     requires_drug_featurizer = False
+    supported_scopes: ClassVar[frozenset[ModelScope]] = frozenset({ModelScope.SINGLE_DRUG})
 
 
 @register_predictor("lasso", description="Lasso regression on dense features.", category="general_purpose")
 class LassoPredictor(SklearnTabularPredictor):
     """Lasso predictor component."""
+
+    non_tunable_hyperparameters: ClassVar[dict[str, object]] = {
+        "tol": 1e-3,
+        "selection": "random",
+    }
 
     def _make_estimator(self):
         return Lasso(
@@ -77,6 +91,12 @@ class RidgePredictor(SklearnTabularPredictor):
     def _make_estimator(self):
         return Ridge(alpha=float(self._h.get("alpha", 1.0)))
 
+    @classmethod
+    def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
+        return {
+            "alpha": {"type": "float", "low": 1e-4, "high": 10.0, "log": True, "default": 1.0},
+        }
+
 
 @register_predictor(
     "randomForest",
@@ -85,6 +105,11 @@ class RidgePredictor(SklearnTabularPredictor):
 )
 class RandomForestPredictor(SklearnTabularPredictor):
     """Random forest predictor component."""
+
+    non_tunable_hyperparameters: ClassVar[dict[str, object]] = {
+        "n_jobs": -1,
+        "random_state": None,
+    }
 
     def _make_estimator(self):
         max_depth_raw = self._h.get("max_depth", 20)
@@ -121,11 +146,16 @@ class SingleDrugRandomForestPredictor(RandomForestPredictor):
     """Single-drug random-forest predictor component."""
 
     requires_drug_featurizer = False
+    supported_scopes: ClassVar[frozenset[ModelScope]] = frozenset({ModelScope.SINGLE_DRUG})
 
 
 @register_predictor("svr", description="Support vector regression on dense features.", category="general_purpose")
 class SVRPredictor(SklearnTabularPredictor):
     """Svrpredictor component."""
+
+    non_tunable_hyperparameters: ClassVar[dict[str, object]] = {
+        "max_iter": -1,
+    }
 
     def _make_estimator(self):
         return SVR(
@@ -152,11 +182,18 @@ class SVRPredictor(SklearnTabularPredictor):
 class GradientBoostingPredictor(SklearnTabularPredictor):
     """Gradient boosting predictor component."""
 
+    # Legacy public keys accepted for compatibility with older experiment YAMLs/tests.
+    non_tunable_hyperparameters: ClassVar[dict[str, object]] = {
+        "n_estimators": 100,
+        "subsample": 1.0,
+    }
+
     def _make_estimator(self):
+        max_iter = int(self._h.get("max_iter", self._h.get("n_estimators", 100)))
         return HistGradientBoostingRegressor(
             max_depth=int(self._h.get("max_depth", 6)),
             learning_rate=float(self._h.get("learning_rate", 0.1)),
-            max_iter=int(self._h.get("max_iter", 100)),
+            max_iter=max_iter,
         )
 
     @classmethod
@@ -179,7 +216,7 @@ class AdaBoostPredictor(SklearnTabularPredictor):
     def _make_estimator(self):
         return AdaBoostRegressor(
             estimator=DecisionTreeRegressor(
-                max_depth=int(self._h.get("max_depth", 3)),
+                max_depth=int(self._h.get("max_depth", 4)),
                 min_samples_split=int(self._h.get("min_samples_split", 2)),
                 min_samples_leaf=int(self._h.get("min_samples_leaf", 1)),
             ),
@@ -200,6 +237,11 @@ class AdaBoostPredictor(SklearnTabularPredictor):
 @register_predictor("knn", description="K-nearest neighbors on dense features.", category="general_purpose")
 class KNNPredictor(SklearnTabularPredictor):
     """Knnpredictor component."""
+
+    # Legacy variance-threshold key accepted but unused by the estimator itself.
+    non_tunable_hyperparameters: ClassVar[dict[str, object]] = {
+        "variance": 0.0,
+    }
 
     def _make_estimator(self):
         return KNeighborsRegressor(

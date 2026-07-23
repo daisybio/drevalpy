@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models.config import ModelConfig
@@ -71,3 +72,33 @@ def test_naive_model_config_train_predict_on_synthetic_data() -> None:
     model.train(response, empty, empty)
     preds = model.predict(response.cell_line_ids, response.drug_ids, empty, empty)
     assert np.allclose(preds, np.array([2.0, 2.0]))
+
+
+def test_untrained_composed_model_predict_raises() -> None:
+    model = ModelConfig.from_spec("ElasticNet", hyperparameters={"alpha": 0.1, "l1_ratio": 0.5}).create_model()
+    response = DrugResponseDataset(
+        response=np.array([1.0, 2.0]),
+        cell_line_ids=np.array(["cl1", "cl2"]),
+        drug_ids=np.array(["d1", "d2"]),
+    )
+    cell_line_input = FeatureDataset(
+        features={
+            "cl1": {"gene_expression": np.array([0.1, 0.2])},
+            "cl2": {"gene_expression": np.array([0.3, 0.4])},
+        }
+    )
+    drug_input = FeatureDataset(
+        features={
+            "d1": {"fingerprints": np.array([1.0])},
+            "d2": {"fingerprints": np.array([0.0])},
+        }
+    )
+    with pytest.raises(RuntimeError, match="not been trained"):
+        model.predict(response.cell_line_ids, response.drug_ids, cell_line_input, drug_input)
+
+
+def test_update_predictor_hyperparameters_syncs_config() -> None:
+    model = ModelConfig.from_spec("ElasticNet", hyperparameters={"alpha": 0.1, "l1_ratio": 0.5}).create_model()
+    model.update_predictor_hyperparameters({"alpha": 0.5})
+    assert model.config is not None
+    assert model.config.predictor.hyperparameters["alpha"] == 0.5

@@ -25,19 +25,24 @@ def _config_from_recipe_triple(
     spec: str,
     *,
     hyperparameters: dict[str, Any] | None = None,
+    prediction_mode: PredictionMode | str = PredictionMode.REGRESSION,
 ) -> ModelConfig:
     cell_line_type, drug_type, predictor_type = parse_model_id(spec.strip())
     predictor = PredictorConfig(name=predictor_type, hyperparameters=dict(hyperparameters or {}))
+    mode = _coerce_prediction_mode(prediction_mode)
     if cell_line_type is None:
-        return ModelConfig(
+        config = ModelConfig(
             cell_line_featurizer=None,
             drug_featurizer=None,
             predictor=predictor,
+            prediction_mode=mode,
         )
+        config.validate()
+        return config
     if drug_type is None:
         msg = "recipe triple requires a drug featurizer when a cell-line featurizer is set"
         raise ValueError(msg)
-    return ModelConfig(
+    config = ModelConfig(
         cell_line_featurizer=FeaturizerConfig.model_validate(
             normalize_featurizer_config(cell_line_type, default_registry="cell_line"),
         ),
@@ -45,7 +50,10 @@ def _config_from_recipe_triple(
             normalize_featurizer_config(drug_type, default_registry="drug"),
         ),
         predictor=predictor,
+        prediction_mode=mode,
     )
+    config.validate()
+    return config
 
 
 def _config_from_baseline_predictor_token(
@@ -93,13 +101,24 @@ def build_model_config_from_spec(
         msg = "model spec must be a non-empty string"
         raise ValueError(msg)
 
+    mode = _coerce_prediction_mode(prediction_mode)
+
     if ":" in trimmed:
-        return _config_from_recipe_triple(trimmed, hyperparameters=hyperparameters)
+        return _config_from_recipe_triple(
+            trimmed,
+            hyperparameters=hyperparameters,
+            prediction_mode=mode,
+        )
 
     try:
-        return model_config_for_name(trimmed, hyperparameters)
+        config = model_config_for_name(trimmed, hyperparameters)
     except KeyError:
-        pass
+        config = None
+    if config is not None:
+        if config.prediction_mode != mode:
+            config = config.model_copy(update={"prediction_mode": mode}, deep=True)
+            config.validate()
+        return config
 
     baseline = _config_from_baseline_predictor_token(trimmed, prediction_mode=prediction_mode)
     if baseline is not None:

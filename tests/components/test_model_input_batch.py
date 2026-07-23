@@ -97,7 +97,39 @@ def test_to_feature_matrix_empty_baseline() -> None:
     assert matrix.shape == (2, 0)
 
 
-def test_to_feature_matrix_requires_drug_pair_idx() -> None:
+def test_build_model_input_batch_rejects_mismatched_entity_rows() -> None:
+    response = DrugResponseDataset(
+        response=np.array([1.0]),
+        cell_line_ids=np.array(["cl1"]),
+        drug_ids=np.array(["d1"]),
+    )
+    with pytest.raises(ValueError, match="cell_line_entity_ids length"):
+        build_model_input_batch(
+            response,
+            cell_line_entity_ids=np.array(["cl1"]),
+            drug_entity_ids=np.array(["d1"]),
+            cell_line_features=np.array([[0.1], [0.2]], dtype=np.float32),
+            drug_features=np.array([[1.0]], dtype=np.float32),
+        )
+
+
+def test_build_model_input_batch_rejects_missing_pair_ids() -> None:
+    response = DrugResponseDataset(
+        response=np.array([1.0]),
+        cell_line_ids=np.array(["missing"]),
+        drug_ids=np.array(["d1"]),
+    )
+    with pytest.raises(ValueError, match="Missing cell-line identifiers"):
+        build_model_input_batch(
+            response,
+            cell_line_entity_ids=np.array(["cl1"]),
+            drug_entity_ids=np.array(["d1"]),
+            cell_line_features=np.array([[0.1]], dtype=np.float32),
+            drug_features=np.array([[1.0]], dtype=np.float32),
+        )
+
+
+def test_to_feature_matrix_builds_drug_indices_from_entity_maps() -> None:
     batch = ModelInputBatch(
         cell_line_ids=np.array(["cl1"]),
         drug_ids=np.array(["d1"]),
@@ -109,5 +141,6 @@ def test_to_feature_matrix_requires_drug_pair_idx() -> None:
         cell_line_pair_idx=np.array([0]),
         drug_pair_idx=None,
     )
-    with pytest.raises(ValueError, match="drug_pair_idx is required"):
-        batch.to_feature_matrix()
+    matrix = batch.to_feature_matrix()
+    assert matrix.shape == (1, 2)
+    np.testing.assert_allclose(matrix, np.array([[0.1, 1.0]], dtype=np.float32))

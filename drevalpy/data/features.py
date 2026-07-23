@@ -1,5 +1,8 @@
 """Load feature tables for drevalpy models and components."""
 
+from __future__ import annotations
+
+import logging
 import os.path
 
 import numpy as np
@@ -7,6 +10,8 @@ import pandas as pd
 
 from drevalpy.datasets.dataset import FeatureDataset
 from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, TISSUE_IDENTIFIER
+
+logger = logging.getLogger(__name__)
 
 
 def load_generic_csv(path: str, dataset_name: str, feature_name: str, index_col=CELL_LINE_IDENTIFIER) -> FeatureDataset:
@@ -122,11 +127,9 @@ def load_and_select_gene_features(
     if gene_list is None:
         return cl_features
 
-    gene_info = pd.read_csv(
-        f"{data_path}/meta/gene_lists/{gene_list}.csv",
-        sep=",",
-    )
-    ordered_genes = gene_info["Symbol"].tolist()
+    from drevalpy.data.gene_lists import gene_names_from_list_csv, resolve_gene_list_path
+
+    ordered_genes = gene_names_from_list_csv(resolve_gene_list_path(gene_list, data_path=data_path))
 
     genes_in_features = set(cl_features.meta_info[feature_type])
     missing_genes = [gene for gene in ordered_genes if gene not in genes_in_features]
@@ -141,7 +144,8 @@ def load_and_select_gene_features(
             f"The following genes are missing from the dataset {dataset_name} for {feature_type}: {missing_str}"
         )
 
-    indices_to_keep = [i for i, gene in enumerate(cl_features.meta_info[feature_type]) if gene in ordered_genes]
+    gene_to_idx = {str(gene): index for index, gene in enumerate(cl_features.meta_info[feature_type])}
+    indices_to_keep = [gene_to_idx[str(gene)] for gene in ordered_genes]
 
     cl_features.meta_info[feature_type] = np.array(ordered_genes)
 
@@ -288,7 +292,7 @@ def load_single_cell_line_view(
         )
     if len(cell_line_views) > 1:
         raise ValueError(f"Only one cell line view is supported for {model_name}.")
-    print(f"Loading a {model_name} with the following cell line views: {cell_line_views}")
+    logger.debug("Loading a %s with the following cell line views: %s", model_name, cell_line_views)
 
     if "gene_expression" in cell_line_views:
         return load_and_select_gene_features(
@@ -329,7 +333,7 @@ def load_multi_cell_line_view(
             "cell_line_views is empty. Call build_model() before load_cell_line_features() "
             "so the model knows which omics to load."
         )
-    print(f"Loading a {model_name} with the following cell line views: {cell_line_views}")
+    logger.debug("Loading a %s with the following cell line views: %s", model_name, cell_line_views)
 
     gene_list_defaults = {
         "gene_expression": "drug_target_genes_all_drugs",
@@ -366,7 +370,7 @@ def load_single_drug_view(
     """
     if len(drug_views) > 1:
         raise ValueError(f"Only one drug view is supported for {model_name}.")
-    print(f"Loading a {model_name} with the following drug views: {drug_views}")
+    logger.debug("Loading a %s with the following drug views: %s", model_name, drug_views)
 
     if len(drug_views) == 0:
         return load_drug_ids_from_csv(data_path, dataset_name)

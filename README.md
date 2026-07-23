@@ -68,11 +68,8 @@ Using pip:
 pip install drevalpy
 ```
 
-Optional Ray Tune support (for parallel hyperparameter tuning):
-
-```bash
-pip install drevalpy[multiprocessing]
-```
+Optional Ray Tune support is included in the default install (`ray[tune]` and `optuna`).
+For model-specific extras such as Precily or XGBoost, see the installation docs.
 
 On a regular machine, the installation should take about a minute.
 
@@ -146,7 +143,7 @@ drug_response_experiment(
             run_id="my_first_run",
             path_data="data", # where the downloaded drug response and feature data is stored
             path_out="results", # results are stored here :)
-            hyperparameter_tuning=False) # if True (default), hyperparameters of the models and baselines are tuned.
+            hyperparameter_tuning=False) # if True, Ray/Optuna tunes structured search spaces (default)
 ```
 
 This will run the Random Forest and Simple Neural Network models on the CTRPv2 dataset, using the Naive Mean Effects Predictor as a baseline. The results will be stored in `results/my_second_run/CTRPv2/LCO`.

@@ -128,9 +128,7 @@ def test_random_forest_respects_max_depth() -> None:
         drug_ids=np.array(["d1", "d2", "d1", "d2", "d1", "d2", "d1", "d2"]),
     )
     cell_line_input = FeatureDataset(
-        features={
-            f"cl{i}": {"gene_expression": np.linspace(i, i + 1, 4)} for i in range(1, 5)
-        }
+        features={f"cl{i}": {"gene_expression": np.linspace(i, i + 1, 4)} for i in range(1, 5)}
     )
     drug_input = FeatureDataset(
         features={

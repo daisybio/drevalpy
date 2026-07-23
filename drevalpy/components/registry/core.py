@@ -97,6 +97,13 @@ class Registry:
         with self._lock:
             self._store.clear()
 
+    def retain_only(self, names: frozenset[str]) -> None:
+        """Drop entries whose names are not in *names*."""
+        with self._lock:
+            for registered_name in list(self._store):
+                if registered_name not in names:
+                    del self._store[registered_name]
+
     def register_existing(self, name: str, cls: type[Any]) -> None:
         """Register a class that was previously decorated but removed via `clear`."""
         with self._lock:

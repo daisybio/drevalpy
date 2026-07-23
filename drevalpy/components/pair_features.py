@@ -5,12 +5,36 @@ from __future__ import annotations
 import numpy as np
 
 
+def _map_pair_indices(
+    entity_ids: np.ndarray,
+    id_to_row: dict[str, int],
+    *,
+    side: str,
+) -> np.ndarray:
+    """Map pair identifiers to featurizer row indices with contextual errors."""
+    missing: list[str] = []
+    rows: list[int] = []
+    for entity_id in entity_ids:
+        key = str(entity_id)
+        row = id_to_row.get(key)
+        if row is None:
+            missing.append(key)
+        else:
+            rows.append(row)
+    if missing:
+        preview = ", ".join(repr(item) for item in missing[:5])
+        suffix = f" (+{len(missing) - 5} more)" if len(missing) > 5 else ""
+        msg = f"Missing {side} identifiers in featurizer rows: {preview}{suffix}"
+        raise ValueError(msg)
+    return np.asarray(rows, dtype=np.int64)
+
+
 def pair_cell_line_indices(
     cell_line_ids: np.ndarray,
     cell_line_id_to_row: dict[str, int],
 ) -> np.ndarray:
     """Map pair cell-line identifiers to featurizer row indices."""
-    return np.array([cell_line_id_to_row[str(cell_id)] for cell_id in cell_line_ids], dtype=np.int64)
+    return _map_pair_indices(cell_line_ids, cell_line_id_to_row, side="cell-line")
 
 
 def pair_drug_indices(
@@ -18,4 +42,4 @@ def pair_drug_indices(
     drug_id_to_row: dict[str, int],
 ) -> np.ndarray:
     """Map pair drug identifiers to featurizer row indices."""
-    return np.array([drug_id_to_row[str(drug_id)] for drug_id in drug_ids], dtype=np.int64)
+    return _map_pair_indices(drug_ids, drug_id_to_row, side="drug")

@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import tempfile
+
 import numpy as np
 import pytest
 
-from drevalpy.models import MODEL_FACTORY
+from drevalpy.models import MODEL_FACTORY, construct_model
 from drevalpy.models.config import ModelConfig
 from tests.models.synthetic_fixtures import (
     cell_line_gene_expression,
@@ -15,34 +17,51 @@ from tests.models.synthetic_fixtures import (
     multi_drug_response,
 )
 
-_PARITY_MODELS = ("NaivePredictor", "NaiveDrugMeanPredictor", "ElasticNet", "RandomForest")
+_PARITY_CASES = (
+    ("NaivePredictor", "factory"),
+    ("NaiveDrugMeanPredictor", "factory"),
+    ("ElasticNet", "factory"),
+    ("RandomForest", "factory"),
+    ("PcaIdentityRF", "construct_model"),
+)
 
 
-@pytest.mark.parametrize("model_name", _PARITY_MODELS)
-def test_facade_matches_direct_composed_model(model_name: str) -> None:
+def _training_inputs(model_name: str) -> tuple:
     response = multi_drug_response()
     if model_name.startswith("Naive"):
-        cell_line_input = identity_cell_line_features()
-        drug_input = identity_drug_features()
-        hp: dict = {}
+        return response, identity_cell_line_features(), identity_drug_features(), {}
+    if model_name == "ElasticNet":
+        hp = {"alpha": 0.1, "l1_ratio": 0.5}
     else:
-        cell_line_input = cell_line_gene_expression()
-        drug_input = drug_fingerprints()
-        hp = (
-            {"alpha": 0.1, "l1_ratio": 0.5}
-            if model_name == "ElasticNet"
-            else {
-                "n_estimators": 8,
-                "max_depth": 3,
-                "max_samples": 1.0,
-                "random_state": 0,
-                "n_jobs": 1,
-            }
-        )
+        hp = {
+            "n_estimators": 8,
+            "max_depth": 3,
+            "max_samples": 1.0,
+            "random_state": 0,
+            "n_jobs": 1,
+        }
+    return response, cell_line_gene_expression(), drug_fingerprints(), hp
 
-    config = ModelConfig.from_spec(model_name, hyperparameters=hp)
-    facade = MODEL_FACTORY[model_name]()
-    facade.build_from_model_config(config)
+
+def _model_class(model_name: str, entrypoint: str):
+    if entrypoint == "construct_model":
+        return construct_model(model_name, "pca[expression]:identity:randomForest")
+    return MODEL_FACTORY[model_name]
+
+
+@pytest.mark.parametrize(("model_name", "entrypoint"), _PARITY_CASES)
+def test_facade_matches_direct_composed_model(model_name: str, entrypoint: str) -> None:
+    response, cell_line_input, drug_input, hp = _training_inputs(model_name)
+    model_cls = _model_class(model_name, entrypoint)
+
+    config = (
+        ModelConfig.from_spec("pca[expression]:identity:randomForest", hyperparameters=hp)
+        if entrypoint == "construct_model"
+        else ModelConfig.from_spec(model_name, hyperparameters=hp)
+    )
+    facade = model_cls()
+    flat_hp = model_cls.get_default_hyperparameters() if not hp else hp
+    facade.build_model(flat_hp)
     facade.train(response, cell_line_input, drug_input)
     facade_preds = facade.predict(response.cell_line_ids, response.drug_ids, cell_line_input, drug_input)
 
@@ -53,3 +72,25 @@ def test_facade_matches_direct_composed_model(model_name: str) -> None:
     assert facade._resolved_model_config is not None
     assert facade._resolved_model_config.predictor.name == config.predictor.name
     assert np.allclose(facade_preds, direct_preds, equal_nan=True)
+
+
+@pytest.mark.parametrize(("model_name", "entrypoint"), _PARITY_CASES)
+def test_facade_save_load_preserves_predictions(model_name: str, entrypoint: str) -> None:
+    response, cell_line_input, drug_input, hp = _training_inputs(model_name)
+    model_cls = _model_class(model_name, entrypoint)
+    flat_hp = model_cls.get_default_hyperparameters() if not hp else hp
+
+    model = model_cls()
+    model.build_model(flat_hp)
+    model.train(response, cell_line_input, drug_input)
+    before_preds = model.predict(response.cell_line_ids, response.drug_ids, cell_line_input, drug_input)
+    before_state = model._composed.component_state() if model._composed is not None else {}
+
+    with tempfile.TemporaryDirectory() as model_dir:
+        model.save(model_dir)
+        loaded = model_cls.load(model_dir)
+        after_preds = loaded.predict(response.cell_line_ids, response.drug_ids, cell_line_input, drug_input)
+        after_state = loaded._composed.component_state() if loaded._composed is not None else {}
+
+    assert np.allclose(before_preds, after_preds, equal_nan=True)
+    assert before_state.keys() == after_state.keys()

@@ -2,13 +2,30 @@
 
 from __future__ import annotations
 
+import hashlib
+import subprocess
+import sys
+import textwrap
 from pathlib import Path
 
 import numpy as np
 import pytest
 
-from drevalpy.components.extensions import load_extension_dir, load_extension_file, load_extensions
-from drevalpy.components.registry import get_cell_line_featurizer, get_predictor, list_cell_line_featurizers
+from drevalpy.components.extensions import (
+    _extension_module_name,
+    load_extension_dir,
+    load_extension_file,
+    load_extensions,
+)
+from drevalpy.components.register_builtins import is_known_builtin_predictor
+from drevalpy.components.registry import (
+    clear_cell_line_featurizer_registry,
+    clear_predictor_registry,
+    get_cell_line_featurizer,
+    get_predictor,
+    list_cell_line_featurizers,
+    list_predictors,
+)
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models.config import ModelConfig
 from drevalpy.models.zoo import get_zoo_config, list_zoo_names, load_external_zoo_file
@@ -133,6 +150,18 @@ class ExternalPredictor(BaselinePredictor):
 
     def predict(self, batch: ModelInputBatch) -> np.ndarray:
         return np.full(batch.n_pairs, self._mean, dtype=np.float64)
+
+    def get_state(self) -> dict[str, object]:
+        if not hasattr(self, "_mean"):
+            return {}
+        return {"mean": self._mean}
+
+    def set_state(self, state: dict[str, object]) -> None:
+        if "mean" in state:
+            self._mean = float(state["mean"])
+
+    def is_fitted(self) -> bool:
+        return hasattr(self, "_mean")
 """,
         encoding="utf-8",
     )
@@ -192,3 +221,169 @@ brokenEntry:
     )
     with pytest.raises(ValueError, match="brokenEntry"):
         load_external_zoo_file(zoo_file)
+
+
+def test_extension_module_name_uses_stable_path_digest(tmp_path: Path) -> None:
+    ext_file = tmp_path / "stable.py"
+    ext_file.write_text("# noop\n", encoding="utf-8")
+    resolved = ext_file.resolve()
+    expected_digest = hashlib.sha256(str(resolved).encode()).hexdigest()[:16]
+    assert _extension_module_name(resolved) == f"drevalpy_user_extension_stable_{expected_digest}"
+
+
+def test_failed_extension_file_does_not_leave_sys_modules_or_registry_mutation(tmp_path: Path) -> None:
+    ext_file = tmp_path / "broken_extension.py"
+    ext_file.write_text(
+        """
+from drevalpy.components.registry import register_predictor
+from drevalpy.components.model_input_batch import ModelInputBatch
+from drevalpy.components.predictors.baseline import BaselinePredictor
+import numpy as np
+
+@register_predictor("brokenPartial", description="partial", category="general_purpose")
+class BrokenPartial(BaselinePredictor):
+    def fit(self, batch: ModelInputBatch) -> None:
+        return None
+
+    def predict(self, batch: ModelInputBatch) -> np.ndarray:
+        return np.zeros(batch.n_pairs)
+
+raise RuntimeError("fail after partial registration")
+""",
+        encoding="utf-8",
+    )
+    module_name = _extension_module_name(ext_file.resolve())
+    before_predictors = set(list_predictors())
+    with pytest.raises(ImportError, match="broken_extension.py"):
+        load_extension_file(ext_file)
+    assert module_name not in sys.modules
+    assert set(list_predictors()) == before_predictors
+
+
+def test_is_known_builtin_predictor_public_query() -> None:
+    assert is_known_builtin_predictor("elasticNet")
+    assert not is_known_builtin_predictor("notARealPredictor")
+
+
+def test_subprocess_extension_load_does_not_import_optional_families(tmp_path: Path) -> None:
+    ext_file = tmp_path / "isolated_extension.py"
+    ext_file.write_text(
+        """
+from drevalpy.components.registry import register_predictor
+from drevalpy.components.model_input_batch import ModelInputBatch
+from drevalpy.components.predictors.baseline import BaselinePredictor
+import numpy as np
+
+@register_predictor("isolatedPredictor", description="isolated", category="general_purpose")
+class IsolatedPredictor(BaselinePredictor):
+    def fit(self, batch: ModelInputBatch) -> None:
+        return None
+
+    def predict(self, batch: ModelInputBatch) -> np.ndarray:
+        return np.zeros(batch.n_pairs, dtype=np.float64)
+""",
+        encoding="utf-8",
+    )
+    script = textwrap.dedent(f"""
+        import importlib.abc
+        import importlib.machinery
+        import sys
+
+        blocked = {{
+            "xgboost": "blocked xgboost",
+            "lightgbm": "blocked lightgbm",
+            "drevalpy.components.predictors.literature.structured_predictors": "blocked literature",
+            "drevalpy.components.predictors.literature.impl.dipk.dipk": "blocked dipk",
+        }}
+
+        class BlockLoader(importlib.abc.Loader):
+            def __init__(self, message: str) -> None:
+                self.message = message
+
+            def create_module(self, spec):
+                raise ImportError(self.message)
+
+            def exec_module(self, module):
+                raise ImportError(self.message)
+
+        class BlockFinder(importlib.abc.MetaPathFinder):
+            def find_spec(self, fullname, path, target=None):
+                if fullname in blocked:
+                    return importlib.machinery.ModuleSpec(fullname, BlockLoader(blocked[fullname]))
+                return None
+
+        sys.meta_path.insert(0, BlockFinder())
+
+        from drevalpy.components.extensions import load_extension_file
+        from drevalpy.components.registry import get_predictor
+
+        load_extension_file({str(ext_file)!r})
+        cls = get_predictor("isolatedPredictor")
+        assert cls.__name__ == "IsolatedPredictor"
+        """)
+    completed = subprocess.run([sys.executable, "-c", script], check=False, capture_output=True, text=True)
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+
+
+def test_subprocess_native_lookup_does_not_import_optional_families() -> None:
+    script = textwrap.dedent("""
+        import importlib.abc
+        import importlib.machinery
+        import sys
+
+        blocked = {
+            "xgboost": "blocked xgboost",
+            "lightgbm": "blocked lightgbm",
+            "drevalpy.components.predictors.literature.structured_predictors": "blocked literature",
+            "drevalpy.components.predictors.literature.impl.dipk.dipk": "blocked dipk",
+        }
+
+        class BlockLoader(importlib.abc.Loader):
+            def __init__(self, message: str) -> None:
+                self.message = message
+
+            def create_module(self, spec):
+                raise ImportError(self.message)
+
+            def exec_module(self, module):
+                raise ImportError(self.message)
+
+        class BlockFinder(importlib.abc.MetaPathFinder):
+            def find_spec(self, fullname, path, target=None):
+                if fullname in blocked:
+                    return importlib.machinery.ModuleSpec(fullname, BlockLoader(blocked[fullname]))
+                return None
+
+        sys.meta_path.insert(0, BlockFinder())
+
+        from drevalpy.components.registry import get_cell_line_featurizer, get_predictor
+
+        get_cell_line_featurizer("identity")
+        get_predictor("elasticNet")
+        """)
+    completed = subprocess.run([sys.executable, "-c", script], check=False, capture_output=True, text=True)
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+
+
+def test_unknown_builtin_predictor_raises_value_error() -> None:
+    clear_predictor_registry()
+    try:
+        with pytest.raises(ValueError, match="Unknown Predictor"):
+            get_predictor("notRegisteredAnywhere")
+    finally:
+        from drevalpy.components.register_builtins import ensure_components_registered
+
+        clear_predictor_registry()
+        ensure_components_registered()
+
+
+def test_unknown_builtin_featurizer_raises_value_error() -> None:
+    clear_cell_line_featurizer_registry()
+    try:
+        with pytest.raises(ValueError, match="Unknown Cell line featurizer"):
+            get_cell_line_featurizer("notRegisteredAnywhere")
+    finally:
+        from drevalpy.components.register_builtins import ensure_components_registered
+
+        clear_cell_line_featurizer_registry()
+        ensure_components_registered()

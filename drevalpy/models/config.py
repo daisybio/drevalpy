@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from enum import StrEnum
 from pathlib import Path
 from typing import Any, Literal
 
@@ -11,20 +10,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
 from drevalpy.components.featurizer_label import requires_explicit_view
 from drevalpy.components.predictor_config_parse import normalize_predictor_config
-
-
-class PredictionMode(StrEnum):
-    """Whether the model predicts a continuous response or a discrete class."""
-
-    REGRESSION = "regression"
-    CLASSIFICATION = "classification"
-
-
-class ModelScope(StrEnum):
-    """Whether one model is fitted globally or independently per drug."""
-
-    MULTI_DRUG = "multi_drug"
-    SINGLE_DRUG = "single_drug"
+from drevalpy.types.model_scope import ModelScope
+from drevalpy.types.prediction_mode import PredictionMode
 
 
 class FeaturizerConfig(BaseModel):

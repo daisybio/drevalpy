@@ -68,10 +68,13 @@ _PREDICTOR_MODULES = {
     "lightgbm": "drevalpy.components.predictors.lightgbm_pred",
     "neuralNetwork": "drevalpy.components.predictors.literature.neural_network",
     "drugGNN": "drevalpy.components.predictors.literature.druggnn",
-    **{
-        name: "drevalpy.components.predictors.literature.structured_predictors"
-        for name in ("precily", "srmf", "molir", "superfeltr", "pharmaFormer", "dipk", "sparsego")
-    },
+    "precily": "drevalpy.components.predictors.literature.precily_predictor",
+    "srmf": "drevalpy.components.predictors.literature.srmf_predictor",
+    "molir": "drevalpy.components.predictors.literature.molir_predictor",
+    "superfeltr": "drevalpy.components.predictors.literature.superfeltr_predictor",
+    "pharmaFormer": "drevalpy.components.predictors.literature.pharmaformer_predictor",
+    "dipk": "drevalpy.components.predictors.literature.dipk_predictor",
+    "sparsego": "drevalpy.components.predictors.literature.sparsego_predictor",
 }
 
 
@@ -109,6 +112,21 @@ def ensure_drug_featurizer_registered(name: str) -> None:
 def ensure_predictor_registered(name: str) -> None:
     """Import only the module that provides one predictor."""
     _register_named(name, _PREDICTOR_MODULES, predictor_registry)
+
+
+def is_known_builtin_cell_line_featurizer(name: str) -> bool:
+    """Return whether *name* maps to a built-in cell-line featurizer module."""
+    return name in _CELL_LINE_MODULES
+
+
+def is_known_builtin_drug_featurizer(name: str) -> bool:
+    """Return whether *name* maps to a built-in drug featurizer module."""
+    return name in _DRUG_MODULES
+
+
+def is_known_builtin_predictor(name: str) -> bool:
+    """Return whether *name* maps to a built-in predictor module."""
+    return name in _PREDICTOR_MODULES
 
 
 def register_native_components() -> None:

@@ -6,6 +6,7 @@ import os
 from typing import Any
 
 from drevalpy.components.predictors.sklearn_tabular import SklearnTabularPredictor
+from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.components.registry import register_predictor
 
 _XGBOOST_THREAD_ENV_DEFAULTS = {
@@ -44,7 +45,7 @@ class XGBoostPredictor(SklearnTabularPredictor):
             _set_xgboost_thread_defaults()
             from xgboost import XGBRegressor
         except ImportError as exc:
-            msg = "xgboost extra is required for XGBoostPredictor"
+            msg = "xgboost extra is required for XGBoostPredictor. Install it with: pip install drevalpy[xgboost]"
             raise ImportError(msg) from exc
         return XGBRegressor(
             n_estimators=int(self._h.get("n_estimators", 100)),
@@ -56,6 +57,13 @@ class XGBoostPredictor(SklearnTabularPredictor):
             random_state=int(self._h.get("random_state", 42)),
             n_jobs=-1,
         )
+
+    def set_state(self, state: dict[str, object]) -> None:
+        _set_xgboost_thread_defaults()
+        super().set_state(state)
+        if self._estimator is None:
+            msg = "XGBoostPredictor state did not restore a fitted estimator"
+            raise PredictorStateError(msg)
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:

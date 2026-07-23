@@ -9,10 +9,11 @@ import yaml
 
 from drevalpy.models.config import ModelConfig
 from drevalpy.models.config_io import model_config_from_dict, model_config_from_yaml
-from drevalpy.models.featurizer_mapping import cell_line_featurizer_from_views, drug_featurizer_from_view
+from drevalpy.models.flat_hyperparameters import apply_public_flat_hyperparameters
 
 _BUILTIN_ZOO_DIR = Path(__file__).resolve().parent
 _EXTERNAL_ZOO: dict[str, ModelConfig] = {}
+_VALIDATED_BUILTIN_NAMES: set[str] = set()
 
 
 def _load_builtin_entries() -> dict[str, ModelConfig]:
@@ -24,6 +25,7 @@ def _load_builtin_entries() -> dict[str, ModelConfig]:
 
 
 _BUILTIN_ZOO = _load_builtin_entries()
+_BUILTIN_ZOO_NAMES = frozenset(_BUILTIN_ZOO)
 
 
 def list_zoo_names(*, include_external: bool = True) -> list[str]:
@@ -41,16 +43,39 @@ def get_zoo_config(name: str) -> ModelConfig:
     if name not in _BUILTIN_ZOO:
         msg = f"Unknown zoo entry: {name}"
         raise KeyError(msg)
+    if name not in _VALIDATED_BUILTIN_NAMES:
+        _BUILTIN_ZOO[name].validate()
+        _VALIDATED_BUILTIN_NAMES.add(name)
     return _clone_model_config(_BUILTIN_ZOO[name])
 
 
-def register_external_zoo_entry(name: str, config: ModelConfig) -> None:
-    """Register or replace an external zoo entry."""
+def register_external_zoo_entry(name: str, config: ModelConfig, *, replace: bool = True) -> None:
+    """Register an external zoo entry.
+
+    External entries are resolved through ``ModelConfig`` / ``construct_model``
+    rather than dynamically extending an already-built ``MODEL_FACTORY``.
+    Built-in names are rejected by default.
+    """
+    if name in _BUILTIN_ZOO_NAMES:
+        msg = f"External zoo entry {name!r} collides with a built-in preset"
+        raise ValueError(msg)
+    if name in _EXTERNAL_ZOO and not replace:
+        msg = f"External zoo entry {name!r} is already registered"
+        raise ValueError(msg)
+    config.validate()
     _EXTERNAL_ZOO[name] = _clone_model_config(config)
 
 
+def clear_external_zoo() -> None:
+    """Remove all externally registered zoo entries (primarily for tests)."""
+    _EXTERNAL_ZOO.clear()
+
+
 def load_external_zoo_file(path: Path | str) -> list[str]:
-    """Load one or more zoo entries from a YAML file."""
+    """Load one or more zoo entries from a YAML file.
+
+    Validates the complete file before mutating global external zoo state.
+    """
     yaml_path = Path(path)
     if not yaml_path.is_file():
         msg = f"External zoo YAML not found: {yaml_path}"
@@ -61,67 +86,51 @@ def load_external_zoo_file(path: Path | str) -> list[str]:
         msg = f"External zoo YAML must contain a mapping: {yaml_path}"
         raise ValueError(msg)
 
-    loaded: list[str] = []
+    parsed: list[tuple[str, ModelConfig]] = []
     if "predictor" in data:
         payload = dict(data)
         entry_name = str(payload.pop("name", yaml_path.stem))
         try:
-            register_external_zoo_entry(entry_name, model_config_from_dict(payload, source=yaml_path))
+            config = model_config_from_dict(payload, source=yaml_path)
+            config.validate()
         except ValueError as exc:
             msg = f"Invalid zoo entry {entry_name!r} in {yaml_path}: {exc}"
             raise ValueError(msg) from exc
-        loaded.append(entry_name)
-        return loaded
-
-    for entry_name, entry_data in data.items():
-        if not isinstance(entry_data, dict):
-            msg = f"Zoo entry '{entry_name}' must be a mapping in {yaml_path}"
+        if entry_name in _BUILTIN_ZOO_NAMES:
+            msg = f"External zoo entry {entry_name!r} collides with a built-in preset"
             raise ValueError(msg)
-        payload = dict(entry_data)
-        payload.pop("name", None)
-        try:
-            register_external_zoo_entry(str(entry_name), model_config_from_dict(payload, source=yaml_path))
-        except ValueError as exc:
-            msg = f"Invalid zoo entry {entry_name!r} in {yaml_path}: {exc}"
-            raise ValueError(msg) from exc
-        loaded.append(str(entry_name))
-    return loaded
+        parsed.append((entry_name, config))
+    else:
+        for entry_name, entry_data in data.items():
+            if not isinstance(entry_data, dict):
+                msg = f"Zoo entry '{entry_name}' must be a mapping in {yaml_path}"
+                raise ValueError(msg)
+            payload = dict(entry_data)
+            payload.pop("name", None)
+            name = str(entry_name)
+            try:
+                config = model_config_from_dict(payload, source=yaml_path)
+                config.validate()
+            except ValueError as exc:
+                msg = f"Invalid zoo entry {name!r} in {yaml_path}: {exc}"
+                raise ValueError(msg) from exc
+            if name in _BUILTIN_ZOO_NAMES:
+                msg = f"External zoo entry {name!r} collides with a built-in preset"
+                raise ValueError(msg)
+            parsed.append((name, config))
+
+    for entry_name, config in parsed:
+        _EXTERNAL_ZOO[entry_name] = _clone_model_config(config)
+    return [entry_name for entry_name, _ in parsed]
 
 
 def zoo_model_config(name: str, hyperparameters: dict[str, Any] | None = None) -> ModelConfig:
-    """Return a zoo config with optional predictor and view hyperparameter overrides."""
+    """Return a zoo config with optional public flat hyperparameter overrides."""
     config = get_zoo_config(name)
     if not hyperparameters:
         return config
-    merged_hp = {**config.predictor.hyperparameters, **hyperparameters}
-    cell_line_featurizer = config.cell_line_featurizer
-    drug_featurizer = config.drug_featurizer
-    cell_line_override = None
-    if "cell_line_views" in hyperparameters:
-        views = _view_list(hyperparameters["cell_line_views"])
-        cell_line_override = cell_line_featurizer_from_views(views, hyperparameters)
-    if "drug_views" in hyperparameters:
-        views = _view_list(hyperparameters["drug_views"])
-        drug_featurizer = drug_featurizer_from_view(views[0]) if views else None
-    if cell_line_override is not None:
-        cell_line_featurizer = cell_line_override
-    return config.model_copy(
-        update={
-            "cell_line_featurizer": cell_line_featurizer,
-            "drug_featurizer": drug_featurizer,
-            "predictor": config.predictor.model_copy(update={"hyperparameters": merged_hp}),
-        },
-        deep=True,
-    )
+    return apply_public_flat_hyperparameters(config, hyperparameters)
 
 
 def _clone_model_config(config: ModelConfig) -> ModelConfig:
     return config.model_copy(deep=True)
-
-
-def _view_list(value: object) -> list[str]:
-    if isinstance(value, str):
-        return [value]
-    if isinstance(value, list):
-        return [str(item) for item in value]
-    raise ValueError(f"view override must be a string or list, got {type(value).__name__}")

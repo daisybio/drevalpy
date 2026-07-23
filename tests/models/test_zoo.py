@@ -40,6 +40,58 @@ def test_zoo_model_config_merges_hyperparameters() -> None:
     assert config.predictor.hyperparameters["alpha"] == 0.25
 
 
+def test_zoo_model_config_does_not_leak_view_keys_into_predictor() -> None:
+    config = zoo_model_config(
+        "ElasticNet",
+        {"cell_line_views": ["gene_expression"], "alpha": 0.1},
+    )
+    assert config.cell_line_featurizer is not None
+    assert config.cell_line_featurizer.name == "scaledGeneExpression"
+    assert "cell_line_views" not in config.predictor.hyperparameters
+    assert config.predictor.hyperparameters["alpha"] == 0.1
+
+
+def test_zoo_model_config_routes_methylation_flat_key_to_pca_child() -> None:
+    from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
+    from drevalpy.models.config import FeaturizerConfig
+
+    config = zoo_model_config("MultiViewRandomForest", {"methylation_n_components": 11})
+    assert "methylation_n_components" not in config.predictor.hyperparameters
+    assert config.cell_line_featurizer is not None
+    for child in config.cell_line_featurizer.hyperparameters.get("featurizers", []):
+        child_cfg = FeaturizerConfig.model_validate(
+            normalize_featurizer_config(child, default_registry="cell_line"),
+        )
+        if child_cfg.name == "pca" and child_cfg.view == "methylation":
+            assert child_cfg.hyperparameters["n_components"] == 11
+            return
+    raise AssertionError("methylation PCA child not found")
+
+
+def test_external_zoo_rejects_builtin_collision_and_is_atomic(tmp_path) -> None:
+    from drevalpy.models.zoo import clear_external_zoo, load_external_zoo_file
+
+    clear_external_zoo()
+    bad = tmp_path / "zoo.yaml"
+    bad.write_text(
+        """
+goodEntry:
+  cell_line_featurizer: scaledGeneExpression
+  drug_featurizer: fingerprints
+  predictor: elasticNet
+ElasticNet:
+  cell_line_featurizer: scaledGeneExpression
+  drug_featurizer: fingerprints
+  predictor: elasticNet
+""",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="collides with a built-in"):
+        load_external_zoo_file(bad)
+    assert "goodEntry" not in list_zoo_names(include_external=True)
+    clear_external_zoo()
+
+
 def test_model_config_for_name_uses_zoo_entry() -> None:
     config = model_config_for_name("ElasticNet", {"alpha": 0.5})
     assert config.predictor.name == "elasticNet"

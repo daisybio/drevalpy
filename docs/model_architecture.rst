@@ -6,7 +6,7 @@ DrEvalPy has two cooperating layers:
 1. **Component stack** under ``drevalpy.components`` with featurizers, predictors,
    registries, and tuning helpers.
 2. **Public orchestration** under ``drevalpy.models`` with ``ModelConfig``, zoo YAML,
-   ``ComposedModel``, and a single generated ``NativeDRPModel`` facade exposed via
+   ``ComposedModel``, and generated ``NativeDRPModel`` facades exposed via
    ``MODEL_FACTORY``.
 
 Typical composition:
@@ -32,7 +32,10 @@ metadata).
 - Literature predictors that declare ``requires_raw_feature_datasets`` read the
   raw ``FeatureDataset`` inputs carried on the batch.
 
-Public callers continue to use:
+Using the catalog (``MODEL_FACTORY``)
+-------------------------------------
+
+Most callers use the generated facades:
 
 .. code-block:: python
 
@@ -43,15 +46,30 @@ Public callers continue to use:
     model.train(...)
     model.predict(...)
 
-Programmatic composition:
+Programmatic composition
+------------------------
+
+For custom stacks without adding a zoo file, use ``construct_model`` or resolve
+a built-in preset with ``ModelConfig.from_spec``:
 
 .. code-block:: python
 
     from drevalpy.models import construct_model
     from drevalpy.models.config import ModelConfig
 
-    model = construct_model("myModel", "scaledGeneExpression:fingerprints:elasticNet")
-    composed = ModelConfig.from_spec("ElasticNet").create_model()
+    CustomElasticNet = construct_model(
+        "myElasticNet",
+        "scaledGeneExpression:fingerprints:elasticNet",
+    )
+    model = CustomElasticNet()
+    model.build_model({"alpha": 0.1, "l1_ratio": 0.5})
+
+    # Built-in zoo name (same stack as MODEL_FACTORY["ElasticNet"])
+    config = ModelConfig.from_spec("ElasticNet")
+    composed = config.create_model()
+
+``construct_model(name, spec)`` returns a **class**; ``ModelConfig.create_model()``
+returns a **trained-ready instance** of the facade.
 
 Explicit omics view grammar
 ---------------------------
@@ -70,6 +88,41 @@ Supported view aliases include ``expression`` (gene expression), ``methylation``
 ``mutations``, ``proteomics``, and ``cnv`` (copy-number variation). YAML presets use
 the same atoms.
 
+Featurizer hyperparameter tuning (dotted keys)
+----------------------------------------------
+
+Ray/Optuna search spaces use **dotted keys** that mirror the composed stack.
+Predictor parameters look like ``predictor.<registryName>.<param>``; featurizer
+parameters look like ``featurizer.<registry>.<featurizerName>.<index>.<param>``.
+
+Examples for ``ElasticNet`` (``scaledGeneExpression`` + ``fingerprints`` + ``elasticNet``):
+
+.. code-block:: text
+
+    predictor.elasticNet.alpha
+    predictor.elasticNet.l1_ratio
+    featurizer.cell_line.pca.0.n_components
+
+For ``concatFeaturizers``, each child featurizer gets a zero-based index per name
+(``featurizer.cell_line.landmarkGenes.0.standardize``, ``...1.minmax_scale``, …).
+
+Flat ``build_model`` dicts remain supported for public keys such as ``alpha``,
+``cell_line_views``, and legacy featurizer aliases (``methylation_n_components``).
+Structured overrides may also use dotted keys directly.
+
+Feature contracts and validation limits
+---------------------------------------
+
+Each featurizer declares a ``FeatureKind`` (``dense``, ``graph``, or ``sequence``)
+via its registration decorator. Predictors declare ``cell_line_contract`` and
+``drug_contract``. ``ModelConfig`` validation checks that featurizer output kinds
+match predictor input kinds.
+
+``FeatureContract`` currently compares **only the broad ``FeatureKind``**. Graph
+compatibility is therefore ``graph`` expected and ``graph`` provided — finer
+details such as node feature dimension or edge semantics are **not** validated yet.
+Extend contracts carefully when pairing new featurizers with structured predictors.
+
 Scope and early stopping
 ------------------------
 
@@ -85,11 +138,11 @@ Persistence
 
 Native checkpoints store a versioned payload with the resolved ``ModelConfig``
 and fitted component state (``composed_model.joblib``). Legacy checkpoint formats
-and deep model import paths are unsupported.
+and deep model import paths are unsupported; see :doc:`runyourmodel`.
 
 Extension path
 --------------
 
 Register featurizers/predictors, compose a ``ModelConfig`` or zoo YAML, and use
-``construct_model`` / ``MODEL_FACTORY``. Direct ``DRPModel`` subclass authoring is
-not the supported extension mechanism.
+``construct_model`` / ``load_extensions``. Direct ``DRPModel`` subclass authoring is
+not the supported extension mechanism. See :doc:`runyourmodel` for a full example.

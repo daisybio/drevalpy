@@ -15,7 +15,11 @@ def _get_view_as_list(value: str | list[str]) -> list[str]:
 def featurizer_configs_from_view_hyperparameters(
     hyperparameters: dict[str, Any],
 ) -> tuple[Any, Any]:
-    """Build featurizer configs when view hyperparameters are explicitly set."""
+    """Build featurizer configs when view hyperparameters are explicitly set.
+
+    Prefer ``drevalpy.models.flat_hyperparameters.apply_public_flat_hyperparameters``
+    for full flat-HP application; this helper remains for view-only construction.
+    """
     cell_line_featurizer = None
     drug_featurizer = None
 
@@ -32,11 +36,10 @@ def featurizer_configs_from_view_hyperparameters(
 
 
 def model_config_for_name(model_name: str, hyperparameters: dict[str, Any] | None = None) -> ModelConfig:
-    """Resolve a factory/zoo name to a modular config."""
+    """Resolve a factory/zoo name to a modular config with public flat HP applied."""
     from drevalpy.models.zoo import list_zoo_names, zoo_model_config
 
-    hp = hyperparameters or {}
-    if model_name in list_zoo_names(include_external=True):
-        return zoo_model_config(model_name, hp)
-    msg = f"Unknown model name: {model_name}"
-    raise KeyError(msg)
+    if model_name not in list_zoo_names(include_external=True):
+        msg = f"Unknown model name: {model_name}"
+        raise KeyError(msg)
+    return zoo_model_config(model_name, hyperparameters)

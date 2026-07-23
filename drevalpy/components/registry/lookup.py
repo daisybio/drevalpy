@@ -42,9 +42,21 @@ def register_cell_line_featurizer(
 def get_cell_line_featurizer(name: str) -> type[Any]:
     """Return the cell-line featurizer class registered under *name*."""
     if name not in cell_line_featurizer_registry.list_names():
-        from drevalpy.components.register_builtins import ensure_cell_line_featurizer_registered
+        from drevalpy.components.register_builtins import (
+            ensure_cell_line_featurizer_registered,
+            is_known_builtin_cell_line_featurizer,
+        )
 
-        ensure_cell_line_featurizer_registered(name)
+        if not is_known_builtin_cell_line_featurizer(name):
+            raise ValueError(f"Unknown Cell line featurizer: {name!r}")
+        try:
+            ensure_cell_line_featurizer_registered(name)
+        except ImportError:
+            raise
+        except Exception as exc:
+            raise ImportError(f"Cell line featurizer {name!r} could not be imported: {exc}") from exc
+    if name not in cell_line_featurizer_registry.list_names():
+        raise ImportError(f"Cell line featurizer {name!r} is unavailable; its optional dependency was not registered.")
     return cell_line_featurizer_registry.get(name)
 
 
@@ -97,9 +109,21 @@ def register_drug_featurizer(
 def get_drug_featurizer(name: str) -> type[Any]:
     """Return the drug featurizer class registered under *name*."""
     if name not in drug_featurizer_registry.list_names():
-        from drevalpy.components.register_builtins import ensure_drug_featurizer_registered
+        from drevalpy.components.register_builtins import (
+            ensure_drug_featurizer_registered,
+            is_known_builtin_drug_featurizer,
+        )
 
-        ensure_drug_featurizer_registered(name)
+        if not is_known_builtin_drug_featurizer(name):
+            raise ValueError(f"Unknown Drug featurizer: {name!r}")
+        try:
+            ensure_drug_featurizer_registered(name)
+        except ImportError:
+            raise
+        except Exception as exc:
+            raise ImportError(f"Drug featurizer {name!r} could not be imported: {exc}") from exc
+    if name not in drug_featurizer_registry.list_names():
+        raise ImportError(f"Drug featurizer {name!r} is unavailable; its optional dependency was not registered.")
     return drug_featurizer_registry.get(name)
 
 
@@ -153,10 +177,13 @@ def register_predictor(
 
 def get_predictor(name: str) -> type[Any]:
     """Return the predictor class registered under *name*."""
-    from drevalpy.components.register_builtins import _PREDICTOR_MODULES, ensure_predictor_registered
-
     if name not in predictor_registry.list_names():
-        if name not in _PREDICTOR_MODULES:
+        from drevalpy.components.register_builtins import (
+            ensure_predictor_registered,
+            is_known_builtin_predictor,
+        )
+
+        if not is_known_builtin_predictor(name):
             raise ValueError(f"Unknown Predictor: {name!r}")
         try:
             ensure_predictor_registered(name)

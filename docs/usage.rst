@@ -135,7 +135,23 @@ Example:
 
 .. option:: --multiprocessing
 
-   If set, we will use raytune for fitting. Default is False. [default: ``False``]
+   Deprecated alias kept for backward compatibility. Prefer ``--hpo_num_samples`` with hyperparameter tuning enabled.
+
+.. option:: --hpo_num_samples INTEGER
+
+   Number of Ray/Optuna trials when hyperparameter tuning is enabled. [default: ``16``]
+
+.. option:: --hpo_random_state INTEGER
+
+   Random seed for the Optuna search algorithm. [default: ``42``]
+
+.. option:: --hpo_cpu FLOAT
+
+   Ray CPU resources per HPO trial. Defaults to ``1`` (or GPU policy when CUDA is available).
+
+.. option:: --hpo_gpu FLOAT
+
+   Ray GPU resources per HPO trial. Defaults to ``1`` when CUDA is available.
 
 .. option:: --model_checkpoint_dir TEXT
 
@@ -147,7 +163,8 @@ Example:
 
 .. option:: --no_hyperparameter_tuning
 
-   Disable hyperparameter tuning and use the first hyperparameter set.
+   Disable Ray/Optuna hyperparameter tuning and use each model's default
+   hyperparameters (``get_default_hyperparameters()``).
 
 
 Visualize and evaluate results with ``drevalpy-report``

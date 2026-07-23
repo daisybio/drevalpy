@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from drevalpy.components.predictors.literature.neural_network import NeuralNetworkPredictor
 from drevalpy.components.register_builtins import register_builtin_components
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models.config import ModelConfig
@@ -47,3 +48,10 @@ def test_neural_network_zoo_trains_on_synthetic_data() -> None:
     )
     assert preds.shape == (4,)
     assert np.isfinite(preds).all()
+
+
+def test_neural_network_build_is_not_fitted_before_training() -> None:
+    register_builtin_components()
+    predictor = NeuralNetworkPredictor()
+    predictor.build({"max_epochs": 1, "units_per_layer": [4, 2]}, {"cell_line": 4, "drug": 4})
+    assert predictor.is_fitted() is False

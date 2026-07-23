@@ -102,6 +102,10 @@ def check_arguments(args) -> None:
     if args.n_trials_robustness < 0:
         raise ValueError("Number of trials for robustness test must be greater than or equal to 0")
 
+    hpo_num_samples = getattr(args, "hpo_num_samples", 16)
+    if hpo_num_samples < 0:
+        raise ValueError("hpo_num_samples must be greater than or equal to 0")
+
     if args.measure not in ALLOWED_MEASURES:
         raise ValueError(
             "Only 'LN_IC50', 'EC50', 'IC50', 'pEC50', 'AUC', 'response' or their equivalents including "
@@ -169,6 +173,9 @@ def main(args) -> None:
             wandb_project=args.wandb_project,
             custom_splitter=getattr(args, "custom_splitter_path", None),
             custom_split_name=getattr(args, "custom_split_name", None),
+            hpo_num_samples=getattr(args, "hpo_num_samples", 16),
+            hpo_random_state=getattr(args, "hpo_random_state", 42),
+            hpo_resources_per_trial=getattr(args, "hpo_resources_per_trial", None),
         )
 
 

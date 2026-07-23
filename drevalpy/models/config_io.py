@@ -34,11 +34,19 @@ def model_config_from_spec(
     spec: str,
     *,
     hyperparameters: dict[str, Any] | None = None,
+    prediction_mode: str | None = None,
 ) -> ModelConfig:
     """Build a `ModelConfig` from a recipe, zoo, legacy, or baseline spec."""
+    from drevalpy.models.config import PredictionMode
     from drevalpy.models.model_config_spec import build_model_config_from_spec
 
-    return build_model_config_from_spec(spec, hyperparameters=hyperparameters)
+    if prediction_mode is None:
+        return build_model_config_from_spec(spec, hyperparameters=hyperparameters)
+    return build_model_config_from_spec(
+        spec,
+        hyperparameters=hyperparameters,
+        prediction_mode=PredictionMode(prediction_mode),
+    )
 
 
 def model_config_from_yaml(path: Path | str) -> ModelConfig:

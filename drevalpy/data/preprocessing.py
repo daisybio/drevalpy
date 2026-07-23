@@ -31,8 +31,13 @@ def prepare_expression_and_methylation(
     :returns: FeatureDataset with the transformed features
     """
     cell_line_input = cell_line_input.copy()
-    first_feature = next(iter(cell_line_input.features.values()))
-    if ("gene_expression" in first_feature.keys()) and (gene_expression_scaler is not None):
+    has_gene_expression = "gene_expression" in cell_line_input.meta_info or any(
+        "gene_expression" in views for views in cell_line_input.features.values()
+    )
+    has_methylation = "methylation" in cell_line_input.meta_info or any(
+        "methylation" in views for views in cell_line_input.features.values()
+    )
+    if has_gene_expression and (gene_expression_scaler is not None):
         cell_line_input.apply(function=np.arcsinh, view="gene_expression")
         if training:
             cell_line_input.fit_transform_features(
@@ -47,7 +52,7 @@ def prepare_expression_and_methylation(
                 view="gene_expression",
             )
 
-    if ("methylation" in first_feature.keys()) and (methylation_scaler is not None) and (methylation_pca is not None):
+    if has_methylation and (methylation_scaler is not None) and (methylation_pca is not None):
         if training:
             cell_line_input.fit_transform_features(
                 train_ids=cell_line_ids,

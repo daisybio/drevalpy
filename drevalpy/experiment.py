@@ -187,7 +187,8 @@ def drug_response_experiment(
     :param overwrite: whether to overwrite existing results
     :param path_data: path to the data directory, usually data/
     :param model_checkpoint_dir: directory to save model checkpoints. If "TEMPORARY", a temporary directory is created.
-    :param hyperparameter_tuning: whether to run in debug mode - if False, only select first hyperparameter set
+    :param hyperparameter_tuning: when True, run Ray Tune + Optuna over structured
+        search spaces; when False, use each model's default hyperparameters only
     :param final_model_on_full_data: if True, a final/production model is saved in the results directory.
         If hyperparameter_tuning is true, the final model is produced according to the hyperparameter tuning procedure
         which was evaluated in the nested cross validation.
@@ -316,16 +317,15 @@ def drug_response_experiment(
                     tuning_inputs["split_index"] = split_index
                     tuning_inputs["wandb_base_config"] = base_wandb_config
 
-                from drevalpy.components.tuning.config import HPOConfig
+                from drevalpy.components.tuning.config import build_experiment_hpo_config
                 from drevalpy.components.tuning.drp_hyperparameters import has_tunable_hyperparameters
                 from drevalpy.components.tuning.hpo import hpam_tune_ray_optuna
 
-                resources = hpo_resources_per_trial or ({"gpu": 1} if torch.cuda.is_available() else {"cpu": 1})
-                hpo_cfg = HPOConfig.from_metric(
+                hpo_cfg = build_experiment_hpo_config(
                     hpam_optimization_metric,
                     n_trials=hpo_num_samples,
                     random_state=hpo_random_state,
-                    resources_per_trial=resources,
+                    resources_per_trial=hpo_resources_per_trial,
                     storage_path=os.path.abspath(os.path.join(result_path, "raytune")),
                 )
                 tuning_inputs["hpo_config"] = hpo_cfg
@@ -482,6 +482,10 @@ def drug_response_experiment(
                 test_mode=test_mode,
                 val_ratio=0.1,
                 hyperparameter_tuning=hyperparameter_tuning,
+                hpo_num_samples=hpo_num_samples,
+                hpo_random_state=hpo_random_state,
+                hpo_resources_per_trial=hpo_resources_per_trial,
+                hpo_storage_path=os.path.abspath(os.path.join(result_path, "raytune_final")),
             )
 
     consolidate_single_drug_model_predictions(
@@ -1268,6 +1272,9 @@ def hpam_tune(
     """
     Tune the hyperparameters for the given model in an iterative manner.
 
+    Sequential grid search for programmatic callers that supply an explicit
+    ``hpam_set``. Experiment pipelines use ``hpam_tune_ray_optuna`` instead.
+
     :param model: model to use
     :param train_dataset: training dataset
     :param validation_dataset: validation dataset
@@ -1404,11 +1411,11 @@ def hpam_tune_raytune(
     :returns: best hyperparameters for ``build_model``
     """
     _ = hpam_set
-    from drevalpy.components.tuning.config import HPOConfig
+    from drevalpy.components.tuning.config import build_experiment_hpo_config
     from drevalpy.components.tuning.hpo import hpam_tune_ray_optuna
 
     resolved_class = model_class or type(model)
-    cfg = hpo_config or HPOConfig.from_metric(metric, storage_path=ray_path)
+    cfg = hpo_config or build_experiment_hpo_config(metric, storage_path=ray_path)
     return hpam_tune_ray_optuna(
         model=model,
         train_dataset=train_dataset,
@@ -1549,6 +1556,10 @@ def train_final_model(
     test_mode: str = "LCO",
     val_ratio: float = 0.1,
     hyperparameter_tuning: bool = True,
+    hpo_num_samples: int = 16,
+    hpo_random_state: int = 42,
+    hpo_resources_per_trial: dict[str, float] | None = None,
+    hpo_storage_path: str | None = None,
 ) -> None:
     """
     Final Production Model Training.
@@ -1572,6 +1583,10 @@ def train_final_model(
     :param test_mode: split logic for validation (LCO, LDO, LTO, LPO)
     :param val_ratio: validation size ratio
     :param hyperparameter_tuning: whether to perform hyperparameter tuning
+    :param hpo_num_samples: number of Ray/Optuna trials when tuning is enabled
+    :param hpo_random_state: random seed for the Optuna search algorithm
+    :param hpo_resources_per_trial: Ray resources per HPO trial
+    :param hpo_storage_path: Ray Tune storage directory for final-model tuning
     """
     print("Training final model with application-specific validation strategy ...")
 
@@ -1586,11 +1601,18 @@ def train_final_model(
 
     default_hpams = model_class.get_default_hyperparameters()
     if hyperparameter_tuning:
-        from drevalpy.components.tuning.config import HPOConfig
+        from drevalpy.components.tuning.config import build_experiment_hpo_config
         from drevalpy.components.tuning.drp_hyperparameters import has_tunable_hyperparameters
         from drevalpy.components.tuning.hpo import hpam_tune_ray_optuna
 
         if has_tunable_hyperparameters(model_class):
+            hpo_cfg = build_experiment_hpo_config(
+                metric,
+                n_trials=hpo_num_samples,
+                random_state=hpo_random_state,
+                resources_per_trial=hpo_resources_per_trial,
+                storage_path=hpo_storage_path,
+            )
             best_hpams = hpam_tune_ray_optuna(
                 model=model,
                 train_dataset=train_dataset,
@@ -1601,7 +1623,7 @@ def train_final_model(
                 metric=metric,
                 path_data=path_data,
                 model_checkpoint_dir=model_checkpoint_dir,
-                hpo_config=HPOConfig.from_metric(metric),
+                hpo_config=hpo_cfg,
             )
         else:
             best_hpams = default_hpams

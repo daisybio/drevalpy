@@ -5,17 +5,15 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from drevalpy.components.predictors.literature.dipk_predictor import DIPKPredictor
     from drevalpy.components.predictors.literature.druggnn import DrugGNNPredictor
+    from drevalpy.components.predictors.literature.molir_predictor import MOLIRPredictor
     from drevalpy.components.predictors.literature.neural_network import NeuralNetworkPredictor
-    from drevalpy.components.predictors.literature.structured_predictors import (
-        DIPKPredictor,
-        MOLIRPredictor,
-        PharmaFormerPredictor,
-        PrecilyPredictor,
-        SparseGOPredictor,
-        SRMFPredictor,
-        SuperFELTRPredictor,
-    )
+    from drevalpy.components.predictors.literature.pharmaformer_predictor import PharmaFormerPredictor
+    from drevalpy.components.predictors.literature.precily_predictor import PrecilyPredictor
+    from drevalpy.components.predictors.literature.sparsego_predictor import SparseGOPredictor
+    from drevalpy.components.predictors.literature.srmf_predictor import SRMFPredictor
+    from drevalpy.components.predictors.literature.superfeltr_predictor import SuperFELTRPredictor
 
 __all__ = [
     "DIPKPredictor",
@@ -30,22 +28,22 @@ __all__ = [
 ]
 
 _LAZY_EXPORTS = {
-    "DIPKPredictor": ("drevalpy.components.predictors.literature.structured_predictors", "DIPKPredictor"),
+    "DIPKPredictor": ("drevalpy.components.predictors.literature.dipk_predictor", "DIPKPredictor"),
     "DrugGNNPredictor": ("drevalpy.components.predictors.literature.druggnn", "DrugGNNPredictor"),
-    "MOLIRPredictor": ("drevalpy.components.predictors.literature.structured_predictors", "MOLIRPredictor"),
+    "MOLIRPredictor": ("drevalpy.components.predictors.literature.molir_predictor", "MOLIRPredictor"),
     "NeuralNetworkPredictor": (
         "drevalpy.components.predictors.literature.neural_network",
         "NeuralNetworkPredictor",
     ),
     "PharmaFormerPredictor": (
-        "drevalpy.components.predictors.literature.structured_predictors",
+        "drevalpy.components.predictors.literature.pharmaformer_predictor",
         "PharmaFormerPredictor",
     ),
-    "PrecilyPredictor": ("drevalpy.components.predictors.literature.structured_predictors", "PrecilyPredictor"),
-    "SRMFPredictor": ("drevalpy.components.predictors.literature.structured_predictors", "SRMFPredictor"),
-    "SparseGOPredictor": ("drevalpy.components.predictors.literature.structured_predictors", "SparseGOPredictor"),
+    "PrecilyPredictor": ("drevalpy.components.predictors.literature.precily_predictor", "PrecilyPredictor"),
+    "SRMFPredictor": ("drevalpy.components.predictors.literature.srmf_predictor", "SRMFPredictor"),
+    "SparseGOPredictor": ("drevalpy.components.predictors.literature.sparsego_predictor", "SparseGOPredictor"),
     "SuperFELTRPredictor": (
-        "drevalpy.components.predictors.literature.structured_predictors",
+        "drevalpy.components.predictors.literature.superfeltr_predictor",
         "SuperFELTRPredictor",
     ),
 }

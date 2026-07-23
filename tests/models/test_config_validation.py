@@ -18,6 +18,7 @@ from drevalpy.components.registry import (
 from drevalpy.models.config import (
     FeaturizerConfig,
     ModelConfig,
+    ModelScope,
     PredictionMode,
     PredictorConfig,
 )
@@ -204,4 +205,32 @@ def test_empty_view_string_fails() -> None:
         predictor=PredictorConfig(name="densePred"),
     )
     with pytest.raises(ValueError, match="cell_line_featurizer view must be a non-empty string"):
+        validate_model_config(config)
+
+
+def test_scope_must_match_predictor_capability() -> None:
+    from drevalpy.components.register_builtins import register_builtin_components
+
+    register_builtin_components()
+    config = ModelConfig(
+        cell_line_featurizer=FeaturizerConfig(name="scaledGeneExpression", registry="cell_line"),
+        drug_featurizer=None,
+        predictor=PredictorConfig(name="singleDrugElasticNet"),
+        scope=ModelScope.MULTI_DRUG,
+    )
+    with pytest.raises(ValueError, match="does not support scope"):
+        validate_model_config(config)
+
+
+def test_single_drug_scope_forbids_drug_featurizer() -> None:
+    from drevalpy.components.register_builtins import register_builtin_components
+
+    register_builtin_components()
+    config = ModelConfig(
+        cell_line_featurizer=FeaturizerConfig(name="scaledGeneExpression", registry="cell_line"),
+        drug_featurizer=FeaturizerConfig(name="fingerprints", registry="drug"),
+        predictor=PredictorConfig(name="singleDrugElasticNet"),
+        scope=ModelScope.SINGLE_DRUG,
+    )
+    with pytest.raises(ValueError, match="forbids a drug_featurizer"):
         validate_model_config(config)

@@ -387,8 +387,10 @@ class TestSingleDrugModelSplits:
         if len(SINGLE_DRUG_MODEL_FACTORY) == 0:
             pytest.skip("No single-drug models available")
 
-        # Get the first available single-drug model
-        model_name = list(SINGLE_DRUG_MODEL_FACTORY.keys())[0]
+        # Prefer a non-early-stopping single-drug model; this fixture has no ES splits.
+        model_name = "SingleDrugElasticNet"
+        if model_name not in SINGLE_DRUG_MODEL_FACTORY:
+            model_name = next(name for name, cls in SINGLE_DRUG_MODEL_FACTORY.items() if not cls.early_stopping)
         model_class = SINGLE_DRUG_MODEL_FACTORY[model_name]
 
         target_drug = "DrugA"
@@ -412,7 +414,9 @@ class TestSingleDrugModelSplits:
         if len(SINGLE_DRUG_MODEL_FACTORY) == 0:
             pytest.skip("No single-drug models available")
 
-        model_name = list(SINGLE_DRUG_MODEL_FACTORY.keys())[0]
+        model_name = "SingleDrugElasticNet"
+        if model_name not in SINGLE_DRUG_MODEL_FACTORY:
+            model_name = next(name for name, cls in SINGLE_DRUG_MODEL_FACTORY.items() if not cls.early_stopping)
         model_class = SINGLE_DRUG_MODEL_FACTORY[model_name]
 
         original_train_len = len(sample_cv_split_multi_drug["train"].response)
