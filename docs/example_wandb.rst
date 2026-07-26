@@ -4,8 +4,7 @@ DrEvalPy and Weights & Biases
 Enabling wandb
 --------------
 
-Pass ``--wandb_project`` to log a run to Weights & Biases. You will be asked for
-an API key once; after that, results appear in your wandb project:
+Pass ``--wandb_project`` to enable wandb logging.
 
 .. code-block:: bash
 
@@ -17,7 +16,22 @@ an API key once; after that, results appear in your wandb project:
         --path_data data \
         --wandb_project my_new_project_name
 
-This works whether or not hyperparameter tuning is enabled.
+Each model run logs config such as ``model_name``, ``dataset``, ``test_mode``,
+``split_index``, and the hyperparameters used for that run. After final
+training on the train+validation fold, test metrics are logged with a
+``test_`` prefix — always ``test_R^2`` and ``test_Pearson``, plus
+``test_<optim_metric>`` (for example ``test_RMSE`` when
+``--optim_metric RMSE``). Some neural models also stream epoch-level train/val
+metrics during fitting.
+
+Authentication
+--------------
+
+Auth follows wandb's usual mechanisms:
+
+1. The ``WANDB_API_KEY`` environment variable
+2. Stored credentials from a previous ``wandb login``
+3. Interactive login
 
 Wandb with hyperparameter tuning
 --------------------------------
