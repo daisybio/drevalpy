@@ -21,9 +21,10 @@ Built-in models are composed from registered components. Resolve them with
 ``construct_model``, a zoo preset name, or ``ModelConfig`` (see
 :doc:`model_architecture` and :doc:`runyourmodel`).
 
-Through version 1.5.1, the usual entry point was the ``MODEL_FACTORY``
-dictionaries. Those catalogs remain importable for compatibility but are
-deprecated and emit a ``FutureWarning``; new code should use the paths above.
+Through version 1.5.1, the usual entry point was ``MODEL_FACTORY`` (and the
+related multi-/single-drug factories). They are still supported for
+compatibility but deprecated, and importing them emits a ``FutureWarning``;
+new code should use the paths above.
 
 .. toctree::
    :maxdepth: 3

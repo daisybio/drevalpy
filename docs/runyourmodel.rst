@@ -170,8 +170,8 @@ Previous entry point (through 1.5.1)
 ------------------------------------
 
 Through version 1.5.1, the usual lookup was ``MODEL_FACTORY`` (and the
-multi-/single-drug variants). Those dictionaries remain importable for
-compatibility but emit a ``FutureWarning``. Prefer:
+multi-/single-drug variants). They are still supported for compatibility but
+emit a ``FutureWarning``. Prefer:
 
 .. code-block:: python
 
@@ -196,7 +196,7 @@ Deep imports
 ~~~~~~~~~~~~
 
 Paths such as ``drevalpy.models.DIPK.dipk`` or ``drevalpy.models.baselines.*``
-no longer resolve. Import catalog models from the package root instead:
+no longer resolve. Import built-in models from the package root instead:
 
 .. code-block:: python
 

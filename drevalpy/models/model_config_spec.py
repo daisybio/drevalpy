@@ -91,7 +91,7 @@ def build_model_config_from_spec(
 
     1. ``cellLine:drug:predictor`` registry triple
     2. Built-in or external zoo preset name
-    3. Zoo / catalog model name (PascalCase factory name)
+    3. Zoo / factory model name (PascalCase)
     4. Baseline predictor token (no featurizers required), e.g. ``naiveMean`` or ``dipk``
     """
     from drevalpy.models.factory import model_config_for_name

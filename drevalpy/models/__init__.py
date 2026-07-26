@@ -5,9 +5,9 @@ generated from zoo presets and backed by a single `NativeDRPModel` facade.
 Component registration plus `ModelConfig` is the supported extension path.
 
 The factory dictionaries (`MODEL_FACTORY`, `MULTI_DRUG_MODEL_FACTORY`,
-`SINGLE_DRUG_MODEL_FACTORY`) are deprecated compatibility catalogs. Prefer
-``construct_model(name)``, ``ModelConfig.from_spec(name)``, and
-``list_zoo_names(scope=...)``.
+`SINGLE_DRUG_MODEL_FACTORY`) are deprecated but still supported for
+compatibility. Prefer ``construct_model(name)``, ``ModelConfig.from_spec(name)``,
+and ``list_zoo_names(scope=...)``.
 """
 
 from __future__ import annotations
