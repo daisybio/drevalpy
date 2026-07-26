@@ -120,10 +120,11 @@ Flat ``build_model`` dicts remain supported for predictor keys such as ``alpha``
 legacy featurizer aliases (``methylation_n_components``). Structured overrides may
 also use dotted keys directly.
 
-Deprecated: ``MODEL_FACTORY`` and flexible view keys
-----------------------------------------------------
+Previous APIs (through 1.5.1)
+-----------------------------
 
-The following remain functional for compatibility but emit ``FutureWarning`` and
+Through version 1.5.1, factory dictionaries and flat view keys were the usual
+interfaces. They still work for compatibility but emit ``FutureWarning`` and
 should not be used in new code:
 
 - ``MODEL_FACTORY``, ``MULTI_DRUG_MODEL_FACTORY``, ``SINGLE_DRUG_MODEL_FACTORY`` —

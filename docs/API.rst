@@ -17,10 +17,13 @@ DrEvalPy consists of four major subpackages:
 * Components (featurizers, predictors, registries — first-class building blocks)
 * Visualization
 
-Built-in models are composed from registered components; there is a single
-construction path via ``ModelConfig`` / zoo presets / ``construct_model``.
-The ``MODEL_FACTORY`` dictionaries remain as a deprecated compatibility catalog.
-See :doc:`model_architecture` and :doc:`runyourmodel`.
+Built-in models are composed from registered components. Resolve them with
+``construct_model``, a zoo preset name, or ``ModelConfig`` (see
+:doc:`model_architecture` and :doc:`runyourmodel`).
+
+Through version 1.5.1, the usual entry point was the ``MODEL_FACTORY``
+dictionaries. Those catalogs remain importable for compatibility but are
+deprecated and emit a ``FutureWarning``; new code should use the paths above.
 
 .. toctree::
    :maxdepth: 3

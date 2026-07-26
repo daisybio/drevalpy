@@ -166,12 +166,12 @@ keys). Flat ``cell_line_views`` / ``drug_views`` still work but are
 **deprecated** — prefer zoo featurizer blocks or recipe strings
 (:doc:`example_flexible_inputs`).
 
-Deprecated compatibility catalogs
----------------------------------
+Previous entry point (through 1.5.1)
+------------------------------------
 
-``MODEL_FACTORY``, ``MULTI_DRUG_MODEL_FACTORY``, and
-``SINGLE_DRUG_MODEL_FACTORY`` remain importable for compatibility but emit a
-``FutureWarning``. Prefer:
+Through version 1.5.1, the usual lookup was ``MODEL_FACTORY`` (and the
+multi-/single-drug variants). Those dictionaries remain importable for
+compatibility but emit a ``FutureWarning``. Prefer:
 
 .. code-block:: python
 
