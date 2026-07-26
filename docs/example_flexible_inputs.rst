@@ -1,22 +1,30 @@
 .. _flexible-inputs:
 
-Custom input with drevalpy's baselines
-======================================
+Custom inputs for baseline models
+=================================
 
-Configure cell-line and drug inputs through **explicit featurizer recipes** or
-zoo YAML. Do not introduce a separate model class per omics modality.
+Baselines such as Random Forest or Elastic Net default to gene expression and
+drug fingerprints, but you can reuse the same models with other cell-line or
+drug features. You do **not** need a new model class for each omics type; you
+only change how the inputs are built.
 
-Recommended: recipes and ModelConfig
-------------------------------------
+After 1.5.1, those inputs are part of the **model architecture** (chosen when
+you compose the model), not hyperparameters that HPO can retune. Declare them
+with a short **recipe** string
+(``cellLineFeaturizer:drugFeaturizer:predictor``) or the same composition in
+zoo YAML.
 
-Use a recipe string or zoo featurizer blocks:
+Example: custom cell-line CSV
+-----------------------------
+
+Suppose you have a dense matrix ``mynewdatamodality.csv``. Point a Random Forest
+at it with ``raw[view]``:
 
 .. code-block:: python
 
     from drevalpy.models import construct_model
     from drevalpy.models.config import ModelConfig
 
-    # Unknown / custom dense omics CSV -> raw[view]
     MyRF = construct_model(
         "MyRF",
         "raw[mynewdatamodality]:fingerprints:randomForest",
@@ -24,18 +32,17 @@ Use a recipe string or zoo featurizer blocks:
     model = MyRF()
     model.build_model(model.get_default_hyperparameters())
 
-    # Same stack via ModelConfig
+    # Same composition as a ComposedModel instance
     composed = ModelConfig.from_spec(
         "raw[mynewdatamodality]:fingerprints:randomForest"
     ).create_model()
 
 .. important::
-    If you do not want to write a custom loading function, this requires that
-    there exists a CSV file with that name in ``{path_to_data}/{dataset_name}/``.
-    I.e., if you specify ``mynewdatamodality``, you need
-    ``mynewdatamodality.csv``.
+    Without a custom loader, the CSV must live at
+    ``{path_to_data}/{dataset_name}/mynewdatamodality.csv`` when the view name
+    is ``mynewdatamodality``.
 
-Equivalent zoo YAML (``drevalpy/models/zoo`` style — **not** hpam YAML):
+The same setup as zoo YAML (this is **not** experiment hpam YAML):
 
 .. code-block:: yaml
 
@@ -83,29 +90,22 @@ You can then run it the same way as before:
 
     drevalpy --models RandomForest --dataset_name CTRPv2 --data_path data
 
-Deprecated: flat ``cell_line_views`` / ``drug_views``
------------------------------------------------------
+Through 1.5.1: views as hyperparameters
+---------------------------------------
 
-Historical flat hyperparameters still accept view lists and translate them onto
-featurizer configs, but this path emits a ``FutureWarning`` and will be removed
-in a future release without a fixed deadline.
+Through version 1.5.1, cell-line and drug **views** were treated like
+hyperparameters. You could pass ``cell_line_views`` / ``drug_views`` to
+``build_model`` or put them in experiment hpam YAML, and in principle retune
+which inputs a model used.
 
-**Do not confuse hpam YAML with zoo YAML.** The following is experiment /
-``build_model`` hyperparameter YAML (legacy), not a zoo preset:
+That model of the world changed: inputs are now a fixed part of the
+architecture (recipe / zoo featurizer blocks above). Predictor settings such as
+``alpha`` remain tunable; which omics or drug representation you use does not.
 
-.. code-block:: yaml
-
-    RandomForest:
-      cell_line_views:
-        - mynewdatamodality
-      drug_views:
-        - fingerprints
-
-Legacy Python form:
+The old view keys are still accepted for compatibility, but they emit a
+``FutureWarning``:
 
 .. code-block:: python
-
-    from drevalpy.models import construct_model
 
     model = construct_model("RandomForest")()
     model.build_model(
@@ -115,8 +115,18 @@ Legacy Python form:
         }
     )
 
-Prefer the recipe / zoo forms above. See :doc:`hyperparameter_migration` and
-:doc:`model_architecture` for dotted HPO keys and full composition details.
+Same idea in experiment hpam YAML (not zoo YAML):
 
-For registering entirely new featurizers or predictors, see
-:doc:`runyourmodel`.
+.. code-block:: yaml
+
+    RandomForest:
+      cell_line_views:
+        - mynewdatamodality
+      drug_views:
+        - fingerprints
+
+New code should use the recipe / zoo forms at the top of this page instead.
+
+See :doc:`hyperparameter_migration` and :doc:`model_architecture` for dotted
+HPO keys and full composition details. For registering entirely new
+featurizers or predictors, see :doc:`runyourmodel`.

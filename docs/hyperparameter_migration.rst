@@ -39,11 +39,14 @@ by composing featurizers in zoo YAML, not by special multi-view predictor classe
 Migrating flat ``build_model`` view keys
 ----------------------------------------
 
-Legacy flexible-input keys still work but are deprecated:
+Through version 1.5.1, ``cell_line_views`` / ``drug_views`` were treated as
+hyperparameters. Inputs are now part of the model architecture (recipe / zoo
+featurizer blocks), not something HPO retunes. The old keys still work but
+emit a ``FutureWarning``:
 
 .. code-block:: yaml
 
-    # Deprecated hpam / build_model YAML
+    # Old hpam / build_model YAML (still works, warns)
     cell_line_views: [proteomics]
     drug_views: [fingerprints]
 

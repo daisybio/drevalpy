@@ -131,8 +131,9 @@ should not be used in new code:
   use ``construct_model``, ``ModelConfig.from_spec``, and
   ``list_zoo_names(scope=...)`` instead.
 - Flat ``cell_line_views`` / ``drug_views`` in ``build_model`` / hpam YAML —
-  configure ``cell_line_featurizer`` / ``drug_featurizer`` in zoo YAML or a recipe
-  string instead (see :doc:`example_flexible_inputs`).
+  through 1.5.1 these treated inputs as hyperparameters; now configure
+  ``cell_line_featurizer`` / ``drug_featurizer`` in zoo YAML or a recipe string
+  instead (see :doc:`example_flexible_inputs`).
 
 Feature contracts and validation limits
 ---------------------------------------
