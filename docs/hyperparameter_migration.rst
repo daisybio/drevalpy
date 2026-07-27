@@ -17,6 +17,13 @@ Public API
 - ``DRPModel.get_structured_hyperparameter_space()`` exposes the tunable search space
   with dotted keys (``predictor.elasticNet.alpha``,
   ``featurizer.cell_line.pca.0.n_components``, …).
+  For featurizers, the integer after the name is a **zero-based occurrence
+  index** of that featurizer name in the composed stack (per registry). A single
+  ``pca`` is always ``…pca.0.…``; with ``concatFeaturizers`` and several of the
+  same name you get ``0``, ``1``, …. The index is **required** in structured
+  dotted keys — keys without it are not applied. Flat ``build_model`` dicts
+  still use names without an index (e.g. ``n_components``). See
+  :doc:`model_architecture` for more examples.
 - Experiment tuning uses ``hyperparameter_tuning=True`` with ``hpo_num_samples``,
   ``hpo_random_state``, and ``hpo_resources_per_trial`` (Ray Tune + Optuna).
 
@@ -33,8 +40,13 @@ Use one of:
 - ``ModelConfig.from_spec()`` / ``ModelConfig.from_yaml()``
 - Recipe strings such as ``raw[proteomics]:fingerprints:randomForest``
 
-Multi-view models such as ``MultiViewXGBoost`` and ``MultiViewLightGBM`` are expressed
-by composing featurizers in zoo YAML, not by special multi-view predictor classes.
+In a recipe, ``:`` separates cell-line featurizer, drug featurizer, and
+predictor. Within a featurizer slot, ``+`` concatenates several featurizers into
+``concatFeaturizers`` (for example
+``raw[expression]+pca[methylation]:fingerprints:xgboost``). Multi-view models
+such as ``MultiViewXGBoost`` and ``MultiViewLightGBM`` are expressed this way
+(or with equivalent zoo YAML blocks), not by special multi-view predictor
+classes. See :doc:`model_architecture` for the full recipe grammar.
 
 Migrating flat ``build_model`` view keys
 ----------------------------------------
@@ -115,9 +127,3 @@ CLI notes
 
 - ``--no_hyperparameter_tuning`` disables Ray search and uses predictor defaults.
 - ``--multiprocessing`` is a deprecated alias; prefer ``--hpo_num_samples`` with tuning enabled.
-
-Dependencies
-------------
-
-``ray[tune]``, ``optuna``, and ``pydantic`` are core dependencies (included in the
-default ``pip install drevalpy``). See :doc:`installation`.
