@@ -17,11 +17,16 @@ from drevalpy.models.config import ModelScope
 
 @register_predictor(
     "elasticNet",
-    description="ElasticNet, Ridge, or Lasso on concatenated dense features.",
+    description="Elastic Net regression on concatenated dense features.",
     category="general_purpose",
 )
 class ElasticNetPredictor(SklearnTabularPredictor):
-    """Elastic net predictor component."""
+    """Elastic net predictor component.
+
+    At the extremes of ``l1_ratio`` (0 or 1), the estimator falls back to Ridge
+    or Lasso; prefer the dedicated ``ridge`` / ``lasso`` predictors when that is
+    the intended model.
+    """
 
     non_tunable_hyperparameters: ClassVar[dict[str, object]] = {
         "max_iter": 1000,
