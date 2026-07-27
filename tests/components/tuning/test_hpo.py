@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 
 from drevalpy.components.tuning.config import HPOConfig, build_experiment_hpo_config
-from drevalpy.components.tuning.hpo import hpam_tune_ray_optuna
+from drevalpy.components.tuning.hpo import hpam_tune
 from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.models import construct_model
 
@@ -40,7 +40,7 @@ def _ray_state_fixture(monkeypatch) -> dict[str, int]:
     return state
 
 
-def test_hpam_tune_ray_optuna_no_space_returns_defaults(monkeypatch) -> None:
+def test_hpam_tune_no_space_returns_defaults(monkeypatch) -> None:
     model_cls = construct_model("ElasticNet")
     model = model_cls()
     monkeypatch.setattr(
@@ -53,7 +53,7 @@ def test_hpam_tune_ray_optuna_no_space_returns_defaults(monkeypatch) -> None:
     )
 
     dataset = _tiny_dataset()
-    best = hpam_tune_ray_optuna(
+    best = hpam_tune(
         model=model,
         train_dataset=dataset,
         validation_dataset=dataset.copy(),
@@ -66,7 +66,7 @@ def test_hpam_tune_ray_optuna_no_space_returns_defaults(monkeypatch) -> None:
     assert model._in_hyperparameter_tuning is False
 
 
-def test_hpam_tune_ray_optuna_zero_trials_skips_ray(monkeypatch) -> None:
+def test_hpam_tune_zero_trials_skips_ray(monkeypatch) -> None:
     pytest.importorskip("ray")
     init_calls: list[dict[str, Any]] = []
     monkeypatch.setattr("ray.init", lambda **kwargs: init_calls.append(kwargs))
@@ -75,7 +75,7 @@ def test_hpam_tune_ray_optuna_zero_trials_skips_ray(monkeypatch) -> None:
     model_cls = construct_model("ElasticNet")
     model = model_cls()
     dataset = _tiny_dataset()
-    best = hpam_tune_ray_optuna(
+    best = hpam_tune(
         model=model,
         train_dataset=dataset,
         validation_dataset=dataset.copy(),
@@ -89,7 +89,7 @@ def test_hpam_tune_ray_optuna_zero_trials_skips_ray(monkeypatch) -> None:
     assert model._in_hyperparameter_tuning is False
 
 
-def test_hpam_tune_ray_optuna_one_trial(monkeypatch) -> None:
+def test_hpam_tune_one_trial(monkeypatch) -> None:
     pytest.importorskip("ray")
     pytest.importorskip("optuna")
     captured: dict[str, int] = {}
@@ -125,7 +125,7 @@ def test_hpam_tune_ray_optuna_one_trial(monkeypatch) -> None:
     model_cls = construct_model("ElasticNet")
     model = model_cls()
     dataset = _tiny_dataset()
-    best = hpam_tune_ray_optuna(
+    best = hpam_tune(
         model=model,
         train_dataset=dataset,
         validation_dataset=dataset.copy(),
@@ -141,7 +141,7 @@ def test_hpam_tune_ray_optuna_one_trial(monkeypatch) -> None:
     assert state["shutdown_calls"] == 1
 
 
-def test_hpam_tune_ray_optuna_all_nan_returns_defaults(monkeypatch) -> None:
+def test_hpam_tune_all_nan_returns_defaults(monkeypatch) -> None:
     pytest.importorskip("ray")
     pytest.importorskip("optuna")
 
@@ -171,7 +171,7 @@ def test_hpam_tune_ray_optuna_all_nan_returns_defaults(monkeypatch) -> None:
     model = model_cls()
     dataset = _tiny_dataset()
     with pytest.warns(UserWarning, match="did not find a valid configuration"):
-        best = hpam_tune_ray_optuna(
+        best = hpam_tune(
             model=model,
             train_dataset=dataset,
             validation_dataset=dataset.copy(),
@@ -184,7 +184,7 @@ def test_hpam_tune_ray_optuna_all_nan_returns_defaults(monkeypatch) -> None:
     assert model._in_hyperparameter_tuning is False
 
 
-def test_hpam_tune_ray_optuna_trial_exception_reports_nan(monkeypatch) -> None:
+def test_hpam_tune_trial_exception_reports_nan(monkeypatch) -> None:
     pytest.importorskip("ray")
     pytest.importorskip("optuna")
     reports: list[dict[str, float]] = []
@@ -218,7 +218,7 @@ def test_hpam_tune_ray_optuna_trial_exception_reports_nan(monkeypatch) -> None:
     model = model_cls()
     dataset = _tiny_dataset()
     with pytest.warns(UserWarning, match="did not find a valid configuration"):
-        best = hpam_tune_ray_optuna(
+        best = hpam_tune(
             model=model,
             train_dataset=dataset,
             validation_dataset=dataset.copy(),
@@ -232,7 +232,7 @@ def test_hpam_tune_ray_optuna_trial_exception_reports_nan(monkeypatch) -> None:
     assert best == model_cls.get_default_hyperparameters()
 
 
-def test_hpam_tune_ray_optuna_tuner_exception_cleans_up(monkeypatch) -> None:
+def test_hpam_tune_tuner_exception_cleans_up(monkeypatch) -> None:
     pytest.importorskip("ray")
     pytest.importorskip("optuna")
 
@@ -249,7 +249,7 @@ def test_hpam_tune_ray_optuna_tuner_exception_cleans_up(monkeypatch) -> None:
     model = model_cls()
     dataset = _tiny_dataset()
     with pytest.raises(RuntimeError, match="tuner failed"):
-        hpam_tune_ray_optuna(
+        hpam_tune(
             model=model,
             train_dataset=dataset,
             validation_dataset=dataset.copy(),
@@ -262,7 +262,7 @@ def test_hpam_tune_ray_optuna_tuner_exception_cleans_up(monkeypatch) -> None:
     assert state["shutdown_calls"] == 1
 
 
-def test_hpam_tune_ray_optuna_does_not_shutdown_preexisting_ray(monkeypatch) -> None:
+def test_hpam_tune_does_not_shutdown_preexisting_ray(monkeypatch) -> None:
     pytest.importorskip("ray")
     pytest.importorskip("optuna")
 
@@ -297,7 +297,7 @@ def test_hpam_tune_ray_optuna_does_not_shutdown_preexisting_ray(monkeypatch) -> 
     model_cls = construct_model("ElasticNet")
     model = model_cls()
     dataset = _tiny_dataset()
-    hpam_tune_ray_optuna(
+    hpam_tune(
         model=model,
         train_dataset=dataset,
         validation_dataset=dataset.copy(),
@@ -310,12 +310,12 @@ def test_hpam_tune_ray_optuna_does_not_shutdown_preexisting_ray(monkeypatch) -> 
     assert state["shutdown_calls"] == 0
 
 
-def test_hpam_tune_ray_optuna_rejects_metric_mismatch() -> None:
+def test_hpam_tune_rejects_metric_mismatch() -> None:
     model_cls = construct_model("ElasticNet")
     model = model_cls()
     dataset = _tiny_dataset()
     with pytest.raises(ValueError, match="must match metric argument"):
-        hpam_tune_ray_optuna(
+        hpam_tune(
             model=model,
             train_dataset=dataset,
             validation_dataset=dataset.copy(),
@@ -350,7 +350,7 @@ def test_run_hpam_split_writes_single_default_yaml(tmp_path, monkeypatch) -> Non
 
 
 @pytest.mark.skipif(os.environ.get("DREVALPY_RUN_RAY_TESTS") != "1", reason="optional Ray runtime test")
-def test_hpam_tune_ray_optuna_real_one_trial(tmp_path, data_dir) -> None:
+def test_hpam_tune_real_one_trial(tmp_path, data_dir) -> None:
     pytest.importorskip("ray")
     pytest.importorskip("optuna")
     from drevalpy import experiment
@@ -376,13 +376,12 @@ def test_hpam_tune_ray_optuna_real_one_trial(tmp_path, data_dir) -> None:
     val_dataset.reduce_to(cell_line_ids=cell_line_input.identifiers, drug_ids=drug_input.identifiers)
 
     storage = tmp_path / "ray_storage"
-    best = experiment.hpam_tune_raytune(
+    best = experiment.hpam_tune(
         model=model,
         train_dataset=train_dataset,
         validation_dataset=val_dataset,
         early_stopping_dataset=None,
         metric="RMSE",
-        ray_path=str(storage),
         path_data=str(data_dir),
         model_class=model_cls,
         hpo_config=build_experiment_hpo_config("RMSE", n_trials=1, storage_path=str(storage)),

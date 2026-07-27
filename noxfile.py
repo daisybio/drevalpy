@@ -173,7 +173,7 @@ def tests(session: Session) -> None:
             "--parallel",
             "-m",
             "pytest",
-            "--ignore=tests/test_hpam_tune_raytune.py",  # skip ray, not enough disk space on the runner for ray
+            "--ignore=tests/test_hpam_tune.py",  # skip ray, not enough disk space on the runner for ray
             *session.posargs,
         )
     finally:
@@ -213,7 +213,7 @@ def typeguard(session: Session) -> None:
     session.run(
         "pytest",
         f"--typeguard-packages={package}",
-        "--ignore=tests/test_hpam_tune_raytune.py",
+        "--ignore=tests/test_hpam_tune.py",
         *session.posargs,
     )
 

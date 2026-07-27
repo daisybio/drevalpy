@@ -31,6 +31,20 @@ Public API
 When ``hyperparameter_tuning=False``, experiments use defaults only. This is
 **not** a debug mode and does not iterate legacy grid entries.
 
+Ray vs Optuna
+-------------
+
+These are not two alternate backends. They play different roles in one stack:
+
+- **Ray Tune** runs and schedules trials (parallelism,
+  ``hpo_resources_per_trial``, trial storage).
+- **Optuna** (via Ray’s ``OptunaSearch``) chooses which hyperparameter values
+  to try next and optimizes the chosen metric.
+
+Without Ray installed, ``hyperparameter_tuning=True`` fails at import time.
+Set ``hyperparameter_tuning=False`` for defaults-only runs, or install on a
+platform that has Ray wheels (see :doc:`/getting_started/installation`).
+
 Configuring inputs
 ------------------
 
@@ -107,6 +121,17 @@ featurizer recipe or zoo blocks (see :doc:`model_inputs`):
      - ``raw[view]``
    * - ``drug_views: [fingerprints]``
      - ``fingerprints``
+
+``hpam_tune`` naming
+~~~~~~~~~~~~~~~~~~~
+
+Before 1.6.0, sequential grid search lived in ``drevalpy.experiment.hpam_tune``,
+and Ray-based search was exposed as ``hpam_tune_raytune`` /
+``hpam_tune_ray_optuna``. Those names are gone. ``hpam_tune`` now means only
+the Ray Tune + OptunaSearch path
+(``drevalpy.components.tuning.hpam_tune``, also re-exported from
+``drevalpy.experiment``). Use ``hyperparameter_tuning=True`` in experiments, or
+``hyperparameter_tuning=False`` for defaults.
 
 YAML grids
 ~~~~~~~~~~

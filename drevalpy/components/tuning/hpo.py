@@ -91,7 +91,7 @@ def _select_best_result(results: Any, cfg: HPOConfig) -> Any | None:
     return best_candidate
 
 
-def hpam_tune_ray_optuna(
+def hpam_tune(
     model: DRPModel,
     train_dataset: DrugResponseDataset,
     validation_dataset: DrugResponseDataset,

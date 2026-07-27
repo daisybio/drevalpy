@@ -6,6 +6,15 @@ Installation
 DrEvalPy can be installed on all three major platforms (Linux, MacOS, Windows).
 If something goes wrong, feel free to open an issue on `GitHub <https://github.com/daisybio/drevalpy/issues>`_.
 
+With pip
+--------
+
+DrEvalPy requires Python >=3.11 and is available on PyPI:
+
+.. code-block:: bash
+
+   pip install drevalpy
+
 With Conda
 ----------
 
@@ -20,9 +29,7 @@ Follow the installation guide for your operating system, then create a new envir
 
    mamba create -y -n drevalpy python=3.13
 
-DrEvalPy is listed on the Python Package Index (PyPI) and can be installed with pip.
-Activate your conda environment (or skip this if you use a system wide python installation)
-and install the package using
+Activate your conda environment and install the package using
 
 .. code-block:: bash
 
@@ -44,21 +51,6 @@ Then, install the package using pip:
 .. code-block:: bash
 
    pip install drevalpy
-
-
-Included model libraries
-------------------------
-
-The default install includes libraries used by the full model zoo, including
-``xgboost``, ``lightgbm``, ``gseapy`` (Precily), and ``mygene`` / ``obonet``
-(SparseGO helpers).
-
-Ray Tune hyperparameter optimization (``ray[tune]`` and ``optuna``) is also
-included on platforms where Ray publishes wheels. On Windows with Python
-3.13+, ``ray[tune]`` is skipped until upstream wheels are available; Optuna
-HPO still works, and Ray Tune remains available on Linux/macOS (and Windows
-with Python 3.12).
-
 
 With Docker
 -----------
@@ -94,6 +86,23 @@ To install DrEvalPy from source, clone the repository and install the package us
 
 Now, you can test the functionality quickly via ``drevalpy --help``. Or take a look at the
 :doc:`/cli/quickstart` documentation.
+
+Ray Tune on Windows
+-------------------
+
+Experiment-time hyperparameter search uses **Ray Tune** to schedule and run
+trials (including optional CPU/GPU resource limits) and **Optuna**
+(``OptunaSearch``) only as the sampler that proposes the next configurations.
+There is no Optuna-only path: without Ray, ``hyperparameter_tuning=True``
+fails at import time. You can still run experiments with defaults via
+``--no_hyperparameter_tuning`` / ``hyperparameter_tuning=False``.
+
+Ray publishes ``win_amd64`` wheels for Python 3.10–3.12, so tuning works on
+native Windows with those interpreters. There is still no Windows wheel for
+Python 3.13+, so ``ray[tune]`` is skipped at install time in that case (see
+``pyproject.toml``). If you need Ray Tune on Windows with Python 3.13+, use
+Python 3.12 instead, `WSL <https://learn.microsoft.com/en-us/windows/wsl/install>`_,
+or the :ref:`Docker image <getting_started/installation:With Docker>` above.
 
 Backward compatibility
 ----------------------

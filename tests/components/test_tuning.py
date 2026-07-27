@@ -42,10 +42,10 @@ def test_construct_model_merged_space_has_indexed_concat_keys() -> None:
     assert model_cls.get_structured_hyperparameter_space() == merged
 
 
-def test_hpam_tune_ray_optuna_uses_optuna(monkeypatch) -> None:
+def test_hpam_tune_uses_optuna(monkeypatch) -> None:
     pytest.importorskip("ray")
     pytest.importorskip("optuna")
-    from drevalpy.components.tuning import hpam_tune_ray_optuna
+    from drevalpy.components.tuning import hpam_tune
 
     captured: dict[str, object] = {}
 
@@ -80,7 +80,7 @@ def test_hpam_tune_ray_optuna_uses_optuna(monkeypatch) -> None:
         drug_ids=np.array(["d1", "d1"]),
     )
     val = train.copy()
-    best = hpam_tune_ray_optuna(
+    best = hpam_tune(
         model=model,
         train_dataset=train,
         validation_dataset=val,
@@ -96,7 +96,7 @@ def test_hpam_tune_ray_optuna_uses_optuna(monkeypatch) -> None:
 
 
 @pytest.mark.skipif(os.environ.get("DREVALPY_RUN_RAY_TESTS") != "1", reason="optional Ray runtime test")
-def test_hpam_tune_ray_optuna_smoke(tmp_path, data_dir) -> None:
+def test_hpam_tune_smoke(tmp_path, data_dir) -> None:
     pytest.importorskip("ray")
     pytest.importorskip("optuna")
     import numpy as np
@@ -124,13 +124,12 @@ def test_hpam_tune_ray_optuna_smoke(tmp_path, data_dir) -> None:
     train_dataset.reduce_to(cell_line_ids=cell_line_input.identifiers, drug_ids=drug_input.identifiers)
     val_dataset.reduce_to(cell_line_ids=cell_line_input.identifiers, drug_ids=drug_input.identifiers)
 
-    best = experiment.hpam_tune_raytune(
+    best = experiment.hpam_tune(
         model=model,
         train_dataset=train_dataset,
         validation_dataset=val_dataset,
         early_stopping_dataset=None,
         metric="RMSE",
-        ray_path=str(tmp_path),
         path_data=str(data_dir),
         model_class=model_cls,
         hpo_config=HPOConfig.from_metric("RMSE", n_trials=2, storage_path=str(tmp_path)),

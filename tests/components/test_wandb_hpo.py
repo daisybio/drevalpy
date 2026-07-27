@@ -8,7 +8,7 @@ from drevalpy.components.tuning.config import HPOConfig
 from drevalpy.models import construct_model
 
 
-def test_hpam_tune_ray_optuna_logs_wandb_config(monkeypatch) -> None:
+def test_hpam_tune_logs_wandb_config(monkeypatch) -> None:
     import pytest
 
     pytest.importorskip("ray")
@@ -69,7 +69,7 @@ def test_hpam_tune_ray_optuna_logs_wandb_config(monkeypatch) -> None:
     monkeypatch.setattr("ray.init", lambda **kwargs: None)
     monkeypatch.setattr("ray.is_initialized", lambda: True)
 
-    from drevalpy.components.tuning.hpo import hpam_tune_ray_optuna
+    from drevalpy.components.tuning.hpo import hpam_tune
     from drevalpy.datasets.dataset import DrugResponseDataset
 
     model_cls = construct_model("ElasticNet")
@@ -79,7 +79,7 @@ def test_hpam_tune_ray_optuna_logs_wandb_config(monkeypatch) -> None:
         cell_line_ids=np.array(["cl1", "cl2"]),
         drug_ids=np.array(["d1", "d1"]),
     )
-    hpam_tune_ray_optuna(
+    hpam_tune(
         model=model,
         train_dataset=dataset,
         validation_dataset=dataset.copy(),

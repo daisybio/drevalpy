@@ -5,6 +5,20 @@ Hyperparameter tuning is **on by default**. When you run the root
 ``drevalpy`` command, models with a search space are tuned with Ray Tune and
 Optuna before final fold evaluation.
 
+Ray vs Optuna
+-------------
+
+These are not two alternate backends. They play different roles in one stack:
+
+- **Ray Tune** runs and schedules trials (parallelism, ``--hpo_cpu`` /
+  ``--hpo_gpu``, trial storage under the run directory).
+- **Optuna** (via Ray’s ``OptunaSearch``) chooses which hyperparameter values
+  to try next and optimizes ``--optim_metric``.
+
+Without Ray installed, experiment-time tuning cannot run. Use
+``--no_hyperparameter_tuning`` for defaults-only runs, or install on a
+platform that has Ray wheels (see :doc:`/getting_started/installation`).
+
 Main flags
 ----------
 

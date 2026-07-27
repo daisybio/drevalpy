@@ -19,9 +19,10 @@ try:
 except ImportError:
     wandb = None  # type: ignore[assignment]
 
+from drevalpy.components.tuning.hpo import hpam_tune
+
 from .datasets.dataset import DrugResponseDataset, FeatureDataset, split_early_stopping_data
 from .datasets.splits import ExternalSplitCreator, create_and_record_splits
-from .evaluation import get_mode
 from .models._model_lookup import (
     get_model_class,
     is_multi_drug_model_name,
@@ -324,7 +325,6 @@ def drug_response_experiment(
 
                 from drevalpy.components.tuning.config import build_experiment_hpo_config
                 from drevalpy.components.tuning.drp_hyperparameters import has_tunable_hyperparameters
-                from drevalpy.components.tuning.hpo import hpam_tune_ray_optuna
 
                 hpo_cfg = build_experiment_hpo_config(
                     hpam_optimization_metric,
@@ -336,7 +336,7 @@ def drug_response_experiment(
                 tuning_inputs["hpo_config"] = hpo_cfg
 
                 if hyperparameter_tuning and has_tunable_hyperparameters(model_class):
-                    best_hpams = hpam_tune_ray_optuna(**tuning_inputs)
+                    best_hpams = hpam_tune(**tuning_inputs)
                 else:
                     best_hpams = model_class.get_default_hyperparameters()
 
@@ -1259,185 +1259,6 @@ def train_and_evaluate(
     return results
 
 
-def hpam_tune(
-    model: DRPModel,
-    train_dataset: DrugResponseDataset,
-    validation_dataset: DrugResponseDataset,
-    hpam_set: list[dict],
-    early_stopping_dataset: DrugResponseDataset | None = None,
-    response_transformation: TransformerMixin | None = None,
-    metric: str = "RMSE",
-    path_data: str = "data",
-    model_checkpoint_dir: str = "TEMPORARY",
-    *,
-    split_index: int | None = None,
-    wandb_project: str | None = None,
-    wandb_base_config: dict[str, Any] | None = None,
-) -> dict:
-    """
-    Tune the hyperparameters for the given model in an iterative manner.
-
-    Sequential grid search for programmatic callers that supply an explicit
-    ``hpam_set``. Experiment pipelines use ``hpam_tune_ray_optuna`` instead.
-
-    :param model: model to use
-    :param train_dataset: training dataset
-    :param validation_dataset: validation dataset
-    :param hpam_set: hyperparameters to tune
-    :param early_stopping_dataset: early stopping dataset
-    :param response_transformation: normalizer to use for the response data
-    :param metric: metric to evaluate which model is the best
-    :param path_data: path to the data directory, e.g., data/
-    :param model_checkpoint_dir: directory to save model checkpoints
-    :param split_index: optional CV split index, used for naming wandb runs
-    :param wandb_project: optional wandb project name; if provided, enables per-trial wandb runs
-    :param wandb_base_config: optional base config dict to include in each wandb run
-    :returns: best hyperparameters
-    :raises AssertionError: if hpam_set is empty
-    """
-    if len(hpam_set) == 0:
-        raise AssertionError("hpam_set must contain at least one hyperparameter configuration")
-    if len(hpam_set) == 1:
-        return hpam_set[0]
-
-    # Mark that we're in hyperparameter tuning phase
-    # This prevents updating wandb.config during tuning - we'll only log final best hyperparameters
-    model._in_hyperparameter_tuning = True
-
-    best_hyperparameters = None
-    mode = get_mode(metric)
-    best_score = float("inf") if mode == "min" else float("-inf")
-    for trial_idx, hyperparameter in enumerate(hpam_set):
-        print(f"Training model with hyperparameters: {hyperparameter}")
-
-        # Create a separate wandb run for each hyperparameter trial if enabled
-        if wandb_project is not None:
-            trial_run_name = model.get_model_name()
-            if split_index is not None:
-                trial_run_name += f"_split_{split_index}"
-            trial_run_name += f"_trial_{trial_idx}"
-
-            trial_config: dict[str, Any] = {}
-            if wandb_base_config is not None:
-                trial_config.update(wandb_base_config)
-            trial_config.update(
-                {
-                    "phase": "hyperparameter_tuning",
-                    "trial_index": trial_idx,
-                    "hyperparameters": hyperparameter,
-                }
-            )
-
-            model.init_wandb(
-                project=wandb_project,
-                config=trial_config,
-                name=trial_run_name,
-                tags=[model.get_model_name(), "hpam_tuning"],
-                finish_previous=True,
-            )
-
-        # During hyperparameter tuning, don't update wandb config via log_hyperparameters
-        # Trial hyperparameters are stored in wandb.config for each run
-        score = train_and_evaluate(
-            model=model,
-            hpams=hyperparameter,
-            path_data=path_data,
-            train_dataset=train_dataset,
-            validation_dataset=validation_dataset,
-            early_stopping_dataset=early_stopping_dataset,
-            metric=metric,
-            response_transformation=response_transformation,
-            model_checkpoint_dir=model_checkpoint_dir,
-        )[metric]
-
-        # Note: train_and_evaluate() already logs val_* metrics once via
-        # DRPModel.compute_and_log_final_metrics(..., prefix="val_").
-        # Avoid logging val_{metric} again here (it would create duplicate points).
-        if np.isnan(score):
-            if model.is_wandb_enabled():
-                model.finish_wandb()
-            continue
-
-        if (mode == "min" and score < best_score) or (mode == "max" and score > best_score):
-            print(f"current best {metric} score: {np.round(score, 3)}")
-            best_score = score
-            best_hyperparameters = hyperparameter
-
-        # Close this trial's run after all logging is done
-        if model.is_wandb_enabled():
-            model.finish_wandb()
-
-    if best_hyperparameters is None:
-        warnings.warn("all hpams lead to NaN respone. using last hpam combination.", stacklevel=2)
-        best_hyperparameters = hyperparameter
-
-    return best_hyperparameters
-
-
-def hpam_tune_raytune(
-    model: DRPModel,
-    train_dataset: DrugResponseDataset,
-    validation_dataset: DrugResponseDataset,
-    early_stopping_dataset: DrugResponseDataset | None,
-    hpam_set: list[dict] | None = None,
-    response_transformation: TransformerMixin | None = None,
-    metric: str = "RMSE",
-    ray_path: str = "raytune",
-    path_data: str = "data",
-    model_checkpoint_dir: str = "TEMPORARY",
-    *,
-    model_class: type[DRPModel] | None = None,
-    hpo_config: Any | None = None,
-    split_index: int | None = None,
-    wandb_project: str | None = None,
-    wandb_base_config: dict[str, Any] | None = None,
-) -> dict:
-    """
-    Tune hyperparameters with Ray Tune and OptunaSearch over structured spaces.
-
-    The legacy ``hpam_set`` grid argument is ignored; tuning uses each model's
-    structured hyperparameter space instead.
-
-    :param model: model instance used for naming and wandb context
-    :param train_dataset: training dataset
-    :param validation_dataset: validation dataset
-    :param early_stopping_dataset: optional early stopping dataset
-    :param hpam_set: deprecated grid argument, ignored
-    :param response_transformation: normalizer for response data
-    :param metric: evaluation metric
-    :param ray_path: path to the Ray Tune storage directory
-    :param path_data: path to data directory, e.g., data/
-    :param model_checkpoint_dir: directory for model checkpoints
-    :param model_class: model class to instantiate for each trial
-    :param hpo_config: optional Ray/Optuna search configuration
-    :param split_index: optional CV split index for wandb run naming
-    :param wandb_project: optional wandb project name
-    :param wandb_base_config: optional base config dict for wandb runs
-    :returns: best hyperparameters for ``build_model``
-    """
-    _ = hpam_set
-    from drevalpy.components.tuning.config import build_experiment_hpo_config
-    from drevalpy.components.tuning.hpo import hpam_tune_ray_optuna
-
-    resolved_class = model_class or type(model)
-    cfg = hpo_config or build_experiment_hpo_config(metric, storage_path=ray_path)
-    return hpam_tune_ray_optuna(
-        model=model,
-        train_dataset=train_dataset,
-        validation_dataset=validation_dataset,
-        early_stopping_dataset=early_stopping_dataset,
-        model_class=resolved_class,
-        response_transformation=response_transformation,
-        metric=metric,
-        path_data=path_data,
-        model_checkpoint_dir=model_checkpoint_dir,
-        hpo_config=cfg,
-        split_index=split_index,
-        wandb_project=wandb_project,
-        wandb_base_config=wandb_base_config,
-    )
-
-
 @pipeline_function
 def make_model_list(models: list[type[DRPModel]], response_data: DrugResponseDataset) -> dict[str, str]:
     """
@@ -1608,7 +1429,6 @@ def train_final_model(
     if hyperparameter_tuning:
         from drevalpy.components.tuning.config import build_experiment_hpo_config
         from drevalpy.components.tuning.drp_hyperparameters import has_tunable_hyperparameters
-        from drevalpy.components.tuning.hpo import hpam_tune_ray_optuna
 
         if has_tunable_hyperparameters(model_class):
             hpo_cfg = build_experiment_hpo_config(
@@ -1618,7 +1438,7 @@ def train_final_model(
                 resources_per_trial=hpo_resources_per_trial,
                 storage_path=hpo_storage_path,
             )
-            best_hpams = hpam_tune_ray_optuna(
+            best_hpams = hpam_tune(
                 model=model,
                 train_dataset=train_dataset,
                 validation_dataset=validation_dataset,

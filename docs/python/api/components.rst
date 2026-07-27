@@ -55,7 +55,7 @@ Tuning
 ------
 
 .. automodule:: drevalpy.components.tuning.hpo
-   :members: hpam_tune_ray_optuna
+   :members: hpam_tune
    :undoc-members:
    :show-inheritance:
 

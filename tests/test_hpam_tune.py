@@ -1,8 +1,9 @@
-"""test hpam tune."""
+"""test hpam_tune with Ray Tune."""
 
 import numpy as np
 
 from drevalpy import experiment
+from drevalpy.components.tuning.config import HPOConfig
 from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.models import construct_model
 
@@ -14,13 +15,21 @@ def test_hpam_tune(tmp_path, data_dir):
     :param tmp_path: pytest temporary path fixture
     :param data_dir: path to the data directory
     """
-    hpam_set = [
-        {"alpha": 1.0, "l1_ratio": 0.2, "cell_line_views": "gene_expression", "drug_views": "fingerprints"},
-        {"alpha": 2.0, "l1_ratio": 0.8, "cell_line_views": "gene_expression", "drug_views": "fingerprints"},
-    ]
+    try:
+        import ray  # noqa: F401
+    except ImportError:
+        print("Ray is not installed, skipping test_hpam_tune.")
+        return
+    defaults = {
+        "alpha": 1.0,
+        "l1_ratio": 0.0,
+        "cell_line_views": "gene_expression",
+        "drug_views": "fingerprints",
+    }
 
-    model = construct_model("ElasticNet")()
-    model.build_model(hyperparameters=hpam_set[0])
+    model_cls = construct_model("ElasticNet")
+    model = model_cls()
+    model.build_model(hyperparameters=defaults)
     cell_line_input = model.load_cell_line_features(data_path=str(data_dir), dataset_name="TOYv1")
     drug_input = model.load_drug_features(data_path=str(data_dir), dataset_name="TOYv1")
 
@@ -42,34 +51,15 @@ def test_hpam_tune(tmp_path, data_dir):
         dataset_name="TOYv1",
     )
 
-    model = construct_model("ElasticNet")()
-    model.build_model(hyperparameters=hpam_set[0])
-    cell_line_input = model.load_cell_line_features(data_path=str(data_dir), dataset_name="TOYv1")
-    drug_input = model.load_drug_features(data_path=str(data_dir), dataset_name="TOYv1")
-
-    cell_lines_to_keep = cell_line_input.identifiers
-    drugs_to_keep = drug_input.identifiers
-
-    len_train_before = len(train_dataset)
-    len_val_before = len(val_dataset)
-    train_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
-    val_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
-    print(f"Reduced training dataset from {len_train_before} to {len(train_dataset)}")
-    print(f"Reduced val dataset from {len_val_before} to {len(val_dataset)}")
-
     best = experiment.hpam_tune(
         model=model,
         train_dataset=train_dataset,
         validation_dataset=val_dataset,
         early_stopping_dataset=None,
-        hpam_set=hpam_set,
-        response_transformation=None,
         metric="RMSE",
         path_data=str(data_dir),
-        model_checkpoint_dir="TEMPORARY",
-        split_index=None,
-        wandb_project=None,
-        wandb_base_config=None,
+        model_class=model_cls,
+        hpo_config=HPOConfig.from_metric("RMSE", n_trials=2, storage_path=str(tmp_path)),
     )
-
-    assert best in hpam_set
+    assert isinstance(best, dict)
+    assert "alpha" in best
