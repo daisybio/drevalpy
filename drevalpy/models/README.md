@@ -29,7 +29,7 @@ config = ModelConfig.from_spec("MyModel")
 composed = config.create_model()
 ```
 
-See `docs/runyourmodel.rst` for a complete external extension walkthrough.
+See `docs/python/custom_models.rst` for a complete external extension walkthrough.
 
 ## Breaking changes
 
@@ -50,8 +50,8 @@ model-name strings.
 - Iterating `get_hyperparameter_set()` as a full grid — use
   `hyperparameter_tuning=True` or `get_structured_hyperparameter_space()`.
 
-**Core dependencies:** `pydantic`, `optuna`, and `ray[tune]` ship with the default
-install (not optional extras).
+**Core dependencies:** `pydantic`, `optuna`, `ray[tune]`, `xgboost`, `lightgbm`,
+`gseapy`, `mygene`, and `obonet` ship with the default install.
 
 ## Unsupported
 

@@ -45,7 +45,7 @@ class XGBoostPredictor(SklearnTabularPredictor):
             _set_xgboost_thread_defaults()
             from xgboost import XGBRegressor
         except ImportError as exc:
-            msg = "xgboost extra is required for XGBoostPredictor. Install it with: pip install drevalpy[xgboost]"
+            msg = "xgboost is required for XGBoostPredictor. Reinstall drevalpy (xgboost is a core dependency)."
             raise ImportError(msg) from exc
         return XGBRegressor(
             n_estimators=int(self._h.get("n_estimators", 100)),

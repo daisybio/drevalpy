@@ -143,8 +143,8 @@ def tests(session: Session) -> None:
     Run the test suite.
 
     When run without posargs, first executes dependency-light model execution gates
-    (naive/sklearn/single-drug, import isolation, architecture policy) on a core-only
-    install, then runs the full suite with optional extras.
+    (naive/sklearn/single-drug, import isolation, architecture policy), then runs
+    the full suite.
 
     :param session: The Session object.
     """
@@ -156,18 +156,16 @@ def tests(session: Session) -> None:
         "tests/models/test_import_compat.py",
     )
 
+    session.install(".")
+    session.install("coverage[toml]", "pytest", "pygments")
+
     if not session.posargs:
-        session.install(".")
-        session.install("pytest", "pygments")
         session.run(
             "pytest",
             *light_model_paths,
             "-k",
             "not builds_flat_hyperparameters_full",
         )
-
-    session.install(".[xgboost,precily,sparsego]")
-    session.install("coverage[toml]", "pytest", "pygments")
     try:
         session.run(
             "coverage",
@@ -210,8 +208,7 @@ def typeguard(session: Session) -> None:
 
     :param session: The Session object.
     """
-    session.install(".[xgboost,precily,sparsego]")
-
+    session.install(".")
     session.install("pytest", "typeguard", "pygments")
     session.run(
         "pytest",
@@ -241,7 +238,9 @@ def docs_build(session: Session) -> None:
 
     :param session: The Session object.
     """
-    args = session.posargs or ["docs", "docs/_build"]
+    args = session.posargs or ["-W", "docs", "docs/_build"]
+    # Package install is required for autodoc and the Typer-based CLI reference.
+    session.install(".")
     session.install("-r", "./docs/requirements.txt")
 
     build_dir = Path("docs", "_build")
@@ -263,7 +262,7 @@ def docs(session: Session) -> None:
     session.install(
         "sphinx",
         "sphinx-autobuild",
-        "sphinx-click",
+        "sphinx-reredirects",
         "sphinx-rtd-theme",
         "sphinx-rtd-dark-mode",
     )

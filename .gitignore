@@ -86,6 +86,8 @@ instance/
 
 # Sphinx documentation
 docs/_build/
+docs/cli/_generated_reference.rst
+
 
 # PyBuilder
 .pybuilder/

@@ -46,53 +46,18 @@ Then, install the package using pip:
    pip install drevalpy
 
 
-Optional Features (Extras)
---------------------------
+Included model libraries
+------------------------
 
-Some models and features require additional dependencies that are **not** installed by the
-default ``pip install drevalpy``. They are provided as optional `extras`:
+The default install includes libraries used by the full model zoo, including
+``xgboost``, ``lightgbm``, ``gseapy`` (Precily), and ``mygene`` / ``obonet``
+(SparseGO helpers).
 
-.. list-table::
-   :header-rows: 1
-   :widths: 20 25 55
-
-   * - Extra
-     - Enables
-     - Extra dependencies
-   * - ``precily``
-     - The ``Precily`` model (GSVA pathway features)
-     - ``gseapy``
-   * - ``xgboost``
-     - The ``MultiViewXGBoost`` baseline model
-     - ``xgboost``
-   * - ``lightgbm``
-     - The ``MultiViewLightGBM`` baseline model
-     - ``lightgbm``
-   * - ``sparsego``
-     - The ``SparseGO`` model (MyGene / OBO ontology helpers)
-     - ``mygene``, ``obonet``
-
-Ray Tune hyperparameter optimization (``ray[tune]`` and ``optuna``) is included in
-the core install on platforms where Ray publishes wheels. On Windows with
-Python 3.13+, ``ray[tune]`` is skipped until upstream wheels are available; Optuna
-HPO still works, and Ray Tune remains available on Linux/macOS (and Windows with
-Python 3.12).
-
-Install one or more extras by listing them in square brackets, for example:
-
-.. code-block:: bash
-
-   pip install "drevalpy[precily]"
-   pip install "drevalpy[precily,xgboost,lightgbm]"
-
-If you install from source with Poetry, install the extras with ``-E`` (or use
-``--all-extras`` to install all of them):
-
-.. code-block:: bash
-
-   poetry install -E precily -E xgboost -E lightgbm
-   # or, equivalently
-   poetry install --all-extras
+Ray Tune hyperparameter optimization (``ray[tune]`` and ``optuna``) is also
+included on platforms where Ray publishes wheels. On Windows with Python
+3.13+, ``ray[tune]`` is skipped until upstream wheels are available; Optuna
+HPO still works, and Ray Tune remains available on Linux/macOS (and Windows
+with Python 3.12).
 
 
 With Docker
@@ -127,4 +92,16 @@ To install DrEvalPy from source, clone the repository and install the package us
     pip install poetry-plugin-export
     poetry install
 
-Now, you can test the functionality quickly via `drevalpy --help`. Or take a look at the `Quickstart <./quickstart.html>`_ documentation.
+Now, you can test the functionality quickly via ``drevalpy --help``. Or take a look at the
+:doc:`/cli/quickstart` documentation.
+
+Backward compatibility
+----------------------
+
+Before 1.6.0, Ray Tune was sometimes documented as an optional ``multiprocessing``
+extra, and model libraries such as ``xgboost``, ``lightgbm``, ``gseapy``,
+``mygene``, and ``obonet`` were install extras (``drevalpy[xgboost]``,
+``drevalpy[precily]``, and so on). Those packages are core dependencies now
+(Ray is still skipped on Windows with Python 3.13+, as described above). The
+``multiprocessing`` Poetry extra and the model-library extras are no longer
+used for that purpose.

@@ -2,7 +2,7 @@ Contributor Guide
 =================
 
 Thank you for your interest in improving this project.
-This project is open-source under the `MIT license`_ and
+This project is open-source under the `GPL-3.0 license`_ and
 highly welcomes contributions in the form of bug reports, feature requests, and pull requests.
 
 Here is a list of important resources for contributors:
@@ -11,7 +11,7 @@ Here is a list of important resources for contributors:
 - `Documentation`_
 - `Issue Tracker`_
 
-.. _MIT license: https://opensource.org/license/mit
+.. _GPL-3.0 license: https://www.gnu.org/licenses/gpl-3.0.html
 .. _Source Code: https://github.com/daisybio/drevalpy
 .. _Documentation: https://drevalpy.readthedocs.io/
 .. _Issue Tracker: https://github.com/daisybio/drevalpy/issues
@@ -82,13 +82,15 @@ How to build and view the documentation
 ---------------------------------------
 
 This project uses Sphinx_ together with several extensions to build the documentation.
-To build the documentation, change into the docs/ directory and run:
+To build the documentation, change into the ``docs/`` directory and run:
 
 .. code:: console
 
     $ make html
 
-The generated static HTML files can be found in the `_build/html` folder.
+The generated static HTML files can be found in ``docs/_build/html``.
 Simply open them with your favorite browser.
+For a first run after cloning, ensure the docs dependencies from Poetry are installed
+(for example via ``poetry install``), then build from ``docs/`` as above.
 
 .. _sphinx: https://www.sphinx-doc.org/en/master/

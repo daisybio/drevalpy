@@ -1,3 +1,6 @@
+Key contributors
+================
+
 .. container:: contributors
 
     **Maintainers and Lead Contributors**
@@ -20,4 +23,3 @@
     * `Markus List <https://github.com/mlist>`_: Advisor and PI of Data Science in Systems Biology, TUM
     * `Katharina Baum <https://github.com/kathbaum>`_: Advisor and PI of Data Integration in the Life Sciences, FU Berlin
     * `Mathias Wilhelm <https://github.com/mwilhelm42>`_: Advisor and PI of Computational Mass Spectrometry, TUM
-

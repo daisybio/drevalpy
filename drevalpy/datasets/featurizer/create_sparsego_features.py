@@ -107,12 +107,12 @@ def _fetch_gene_go_annotations(genes: list[str]) -> pd.DataFrame:
 
     :param genes: list of gene symbols
     :returns: DataFrame with columns [0=go_term_id, 1=gene_symbol], no duplicates
-    :raises ImportError: If the optional ``mygene`` dependency is not installed.
+    :raises ImportError: If the ``mygene`` dependency is not installed.
     """
     try:
         import mygene
     except ImportError as exc:
-        msg = "mygene is required. Run: pip install 'drevalpy[sparsego]' (or: pip install mygene)"
+        msg = "mygene is required. Reinstall drevalpy (mygene is a core dependency), or: pip install mygene"
         raise ImportError(msg) from exc
 
     mg = mygene.MyGeneInfo()
@@ -177,12 +177,12 @@ def _build_pruned_graph(
     :param m: minimum extra genes a parent must have over each child
     :param p: max levels above the bottom layer to keep
     :returns: pruned directed graph (parent -> child, genes as leaf nodes)
-    :raises ImportError: If the optional ``obonet`` dependency is not installed.
+    :raises ImportError: If the ``obonet`` dependency is not installed.
     """
     try:
         import obonet
     except ImportError as exc:
-        msg = "obonet is required. Run: pip install 'drevalpy[sparsego]' (or: pip install obonet)"
+        msg = "obonet is required. Reinstall drevalpy (obonet is a core dependency), or: pip install obonet"
         raise ImportError(msg) from exc
 
     if obo_file is None:

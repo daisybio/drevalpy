@@ -1,5 +1,5 @@
-How to cite
-===========
+Citing DrEvalPy
+===============
 
 If you want to cite DrEvalPy or nf-core/drugresponseeval in your work, please use the following:
 

@@ -1,8 +1,11 @@
-Visualization
-==============================
+drevalpy.visualization
+======================
+
+Report plots and leaderboard helpers.
+See :doc:`/python/visualization` for usage.
 
 Outplot
--------------------------------------
+-------
 
 .. automodule:: drevalpy.visualization.outplot
    :members:
@@ -10,7 +13,7 @@ Outplot
    :show-inheritance:
 
 Comparison scatter plot
--------------------------------------------------
+-----------------------
 
 .. automodule:: drevalpy.visualization.comp_scatter
    :members:
@@ -18,7 +21,7 @@ Comparison scatter plot
    :show-inheritance:
 
 Critical difference plot
---------------------------------------------------------
+------------------------
 
 .. automodule:: drevalpy.visualization.critical_difference_plot
    :members:
@@ -26,7 +29,7 @@ Critical difference plot
    :show-inheritance:
 
 Cross study tables
-------------------------------------------
+------------------
 
 .. automodule:: drevalpy.visualization.cross_study_tables
    :members:
@@ -34,7 +37,7 @@ Cross study tables
    :show-inheritance:
 
 Regression slider plot
-------------------------------------------------------
+----------------------
 
 .. automodule:: drevalpy.visualization.regression_slider_plot
    :members:
@@ -42,7 +45,7 @@ Regression slider plot
    :show-inheritance:
 
 Violin and heatmap parent class
--------------------------------------
+-------------------------------
 
 .. automodule:: drevalpy.visualization.vioheat
    :members:
@@ -50,16 +53,15 @@ Violin and heatmap parent class
    :show-inheritance:
 
 Heatmap
--------------------------------------
+-------
 
 .. automodule:: drevalpy.visualization.heatmap
    :members:
    :undoc-members:
    :show-inheritance:
 
-
 Violin plot
-------------------------------------
+-----------
 
 .. automodule:: drevalpy.visualization.violin
    :members:
@@ -67,10 +69,9 @@ Violin plot
    :show-inheritance:
 
 Utility functions
------------------------------------
+-----------------
 
 .. automodule:: drevalpy.visualization.utils
    :members:
    :undoc-members:
    :show-inheritance:
-

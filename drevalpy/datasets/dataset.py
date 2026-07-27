@@ -801,21 +801,21 @@ class FeatureDataset:
     Class for feature datasets.
 
     This class represents datasets with one or more views of features associated with a set of entities,
-    such as drugs or cell lines. The feature data is stored in a nested dictionary structure:
+    such as drugs or cell lines. The feature data is stored in a nested dictionary structure::
 
-    {
-        identifier_1: {
-            view_name_1: feature_vector,
-            view_name_2: feature_vector,
+        {
+            identifier_1: {
+                view_name_1: feature_vector,
+                view_name_2: feature_vector,
+                ...
+            },
+            identifier_2: {
+                view_name_1: feature_vector,
+                view_name_2: feature_vector,
+                ...
+            },
             ...
-        },
-        identifier_2: {
-            view_name_1: feature_vector,
-            view_name_2: feature_vector,
-            ...
-        },
-        ...
-    }
+        }
 
     - Each outer key is a string identifier (e.g. a cell line ID or drug ID)
     - Each inner key is the name of a view (e.g. 'gene_expression', 'fingerprints')

@@ -2,6 +2,7 @@ drevalpy.models package
 =======================
 
 Root public surface for drug response models.
+See :doc:`/python/models` and :doc:`/python/architecture` for usage and design.
 
 .. automodule:: drevalpy.models
    :members: DRPModel, construct_model
@@ -33,12 +34,3 @@ Every built-in factory name has a zoo YAML under ``drevalpy/models/zoo/``.
 Named root exports (for example ``ElasticNetModel``, ``NaivePredictor``,
 ``DIPKModel``) are generated facades backed by those presets. Prefer
 ``construct_model("ElasticNet")`` or ``ModelConfig.from_spec("ElasticNet")``.
-See :doc:`runyourmodel` and :doc:`model_architecture`.
-
-Previous entry point (through 1.5.1)
-------------------------------------
-
-Through version 1.5.1, models were typically looked up via ``MODEL_FACTORY``,
-``MULTI_DRUG_MODEL_FACTORY``, and ``SINGLE_DRUG_MODEL_FACTORY``. They are still
-supported for compatibility but emit a ``FutureWarning``. Prefer
-``construct_model``, ``list_zoo_names(scope=...)``, and ``ModelConfig``.
