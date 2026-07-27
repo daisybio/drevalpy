@@ -205,6 +205,22 @@ def get_dimensions_of_omics_data(cell_line_input: FeatureDataset) -> tuple[int, 
     return dim_gex, dim_mut, dim_cnv
 
 
+def _realign_omic_matrix(
+    values: np.ndarray,
+    model_features: np.ndarray,
+    meta_feature_names: np.ndarray,
+) -> np.ndarray:
+    """Align prediction-time omics columns to the feature order stored on the trained model."""
+    if values.shape[1] == len(model_features):
+        return values
+    realigned = np.zeros((values.shape[0], len(model_features)))
+    lookup_table = {feature: i for i, feature in enumerate(meta_feature_names)}
+    for column, feature in enumerate(model_features):
+        if feature in lookup_table:
+            realigned[:, column] = values[:, lookup_table[feature]]
+    return realigned
+
+
 def filter_and_sort_omics(
     model: LiteratureEngineBase,  # MOLIR or SuperFELTR
     gene_expression: np.ndarray,
@@ -224,30 +240,18 @@ def filter_and_sort_omics(
     :param cell_line_input: needed for meta information (feature names)
     :return: filtered and sorted gene expression, mutations, and copy number variation data
     """
-    for key, features in {
-        "gene_expression": model.gene_expression_features,  # type: ignore
-        "mutations": model.mutations_features,  # type: ignore
-        "copy_number_variation_gistic": model.copy_number_variation_features,  # type: ignore
-    }.items():
-        if key == "gene_expression":
-            values = gene_expression
-        elif key == "mutations":
-            values = mutations
-        else:
-            values = cnvs
-        if values.shape[1] != len(features):
-            new_value = np.zeros((values.shape[0], len(features)))
-            lookup_table = {feature: i for i, feature in enumerate(cell_line_input.meta_info[key])}
-            for i, feature in enumerate(features):
-                if feature in lookup_table:
-                    new_value[:, i] = values[:, lookup_table[feature]]
-            if key == "gene_expression":
-                gene_expression = new_value
-            elif key == "mutations":
-                mutations = new_value
-            else:
-                cnvs = new_value
-    return gene_expression, mutations, cnvs
+    view_keys = ("gene_expression", "mutations", "copy_number_variation_gistic")
+    model_feature_lists = (
+        model.gene_expression_features,  # type: ignore[attr-defined]
+        model.mutations_features,  # type: ignore[attr-defined]
+        model.copy_number_variation_features,  # type: ignore[attr-defined]
+    )
+    value_arrays = (gene_expression, mutations, cnvs)
+    realigned = [
+        _realign_omic_matrix(values, model_features, cell_line_input.meta_info[key])
+        for key, model_features, values in zip(view_keys, model_feature_lists, value_arrays, strict=True)
+    ]
+    return realigned[0], realigned[1], realigned[2]
 
 
 class MOLIEncoder(nn.Module):

@@ -29,6 +29,36 @@ def _validate_entity_feature_alignment(
         raise ValueError(msg)
 
 
+def _cell_line_pair_indices(
+    response: DrugResponseDataset,
+    cell_line_entity_ids: np.ndarray,
+    cell_line_features: np.ndarray,
+) -> np.ndarray:
+    n_pairs = len(response)
+    if cell_line_entity_ids.size == 0:
+        if n_pairs > 0 and cell_line_features.size != 0:
+            msg = "cell_line_entity_ids must be non-empty when cell_line_features are present"
+            raise ValueError(msg)
+        return np.zeros(n_pairs, dtype=np.int64)
+    cell_line_map = {str(entity_id): row for row, entity_id in enumerate(cell_line_entity_ids)}
+    return pair_cell_line_indices(response.cell_line_ids, cell_line_map)
+
+
+def _drug_pair_indices(
+    response: DrugResponseDataset,
+    drug_entity_ids: np.ndarray,
+    drug_features: np.ndarray,
+) -> np.ndarray | None:
+    n_pairs = len(response)
+    if drug_entity_ids.size == 0:
+        if n_pairs > 0 and drug_features.size != 0:
+            msg = "drug_entity_ids must be non-empty when drug_features are present"
+            raise ValueError(msg)
+        return np.zeros(n_pairs, dtype=np.int64)
+    drug_map = {str(entity_id): row for row, entity_id in enumerate(drug_entity_ids)}
+    return pair_drug_indices(response.drug_ids, drug_map)
+
+
 def build_model_input_batch(
     response: DrugResponseDataset,
     *,
@@ -44,30 +74,15 @@ def build_model_input_batch(
     training_context: TrainingContext | None = None,
 ) -> ModelInputBatch:
     """Index entity-level featurizer outputs for each response pair."""
-    n_pairs = len(response)
     _validate_entity_feature_alignment(cell_line_entity_ids, cell_line_features, side="cell_line")
     if drug_entity_ids is not None:
         _validate_entity_feature_alignment(drug_entity_ids, drug_features, side="drug")
 
-    if cell_line_entity_ids.size == 0:
-        if n_pairs > 0 and cell_line_features.size != 0:
-            msg = "cell_line_entity_ids must be non-empty when cell_line_features are present"
-            raise ValueError(msg)
-        cell_line_pair_idx = np.zeros(n_pairs, dtype=np.int64)
-    else:
-        cell_line_map = {str(entity_id): row for row, entity_id in enumerate(cell_line_entity_ids)}
-        cell_line_pair_idx = pair_cell_line_indices(response.cell_line_ids, cell_line_map)
+    cell_line_pair_idx = _cell_line_pair_indices(response, cell_line_entity_ids, cell_line_features)
 
     drug_pair_idx = None
     if drug_entity_ids is not None and drug_features is not None:
-        if drug_entity_ids.size == 0:
-            if n_pairs > 0 and drug_features.size != 0:
-                msg = "drug_entity_ids must be non-empty when drug_features are present"
-                raise ValueError(msg)
-            drug_pair_idx = np.zeros(n_pairs, dtype=np.int64)
-        else:
-            drug_map = {str(entity_id): row for row, entity_id in enumerate(drug_entity_ids)}
-            drug_pair_idx = pair_drug_indices(response.drug_ids, drug_map)
+        drug_pair_idx = _drug_pair_indices(response, drug_entity_ids, drug_features)
 
     return ModelInputBatch.from_response(
         response,

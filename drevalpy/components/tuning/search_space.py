@@ -135,57 +135,80 @@ def _split_predictor_key(key: str) -> tuple[str, str] | None:
     return predictor_name, ".".join(param_parts)
 
 
+def _merged_updates_for_featurizer(
+    merged: dict[str, Any],
+    *,
+    registry: str,
+    featurizer_name: str,
+    index: int,
+) -> dict[str, Any]:
+    return {
+        param: value
+        for key, value in merged.items()
+        if (parsed := _split_prefixed_key(key)) is not None
+        and parsed[0] == registry
+        and parsed[1] == featurizer_name
+        and parsed[3] == index
+        for param in [parsed[4]]
+    }
+
+
+def _apply_hyperparameter_updates(
+    featurizer: FeaturizerConfig,
+    updates: dict[str, Any],
+) -> FeaturizerConfig:
+    if not updates:
+        return featurizer
+    return featurizer.model_copy(
+        update={"hyperparameters": {**featurizer.hyperparameters, **updates}},
+        deep=True,
+    )
+
+
+def _apply_to_concat_featurizer(
+    featurizer: FeaturizerConfig,
+    merged: dict[str, Any],
+    *,
+    registry: str,
+) -> FeaturizerConfig:
+    children = list(featurizer.hyperparameters.get("featurizers", []))
+    updated_children: list[Any] = []
+    name_counts: dict[str, int] = {}
+    for child in children:
+        child_cfg = FeaturizerConfig.model_validate(
+            normalize_featurizer_config(child, default_registry=registry),
+        )
+        child_name = child_cfg.name
+        index = name_counts.get(child_name, 0)
+        name_counts[child_name] = index + 1
+        child_updates = _merged_updates_for_featurizer(
+            merged,
+            registry=registry,
+            featurizer_name=child_name,
+            index=index,
+        )
+        updated_children.append(_apply_hyperparameter_updates(child_cfg, child_updates).model_dump())
+    return featurizer.model_copy(
+        update={"hyperparameters": {**featurizer.hyperparameters, "featurizers": updated_children}},
+        deep=True,
+    )
+
+
 def _apply_to_featurizer(
     featurizer: FeaturizerConfig,
     merged: dict[str, Any],
 ) -> FeaturizerConfig:
     registry = str(featurizer.registry)
     if featurizer.name == "concatFeaturizers":
-        children = list(featurizer.hyperparameters.get("featurizers", []))
-        updated_children: list[Any] = []
-        name_counts: dict[str, int] = {}
-        for child in children:
-            child_cfg = FeaturizerConfig.model_validate(
-                normalize_featurizer_config(child, default_registry=registry),
-            )
-            child_name = child_cfg.name
-            index = name_counts.get(child_name, 0)
-            name_counts[child_name] = index + 1
-            child_updates = {
-                param: value
-                for key, value in merged.items()
-                if (parsed := _split_prefixed_key(key)) is not None
-                and parsed[0] == registry
-                and parsed[1] == child_name
-                and parsed[3] == index
-                for param in [parsed[4]]
-            }
-            if child_updates:
-                child_cfg = child_cfg.model_copy(
-                    update={"hyperparameters": {**child_cfg.hyperparameters, **child_updates}},
-                    deep=True,
-                )
-            updated_children.append(child_cfg.model_dump())
-        return featurizer.model_copy(
-            update={"hyperparameters": {**featurizer.hyperparameters, "featurizers": updated_children}},
-            deep=True,
-        )
+        return _apply_to_concat_featurizer(featurizer, merged, registry=registry)
 
-    updates = {
-        param: value
-        for key, value in merged.items()
-        if (parsed := _split_prefixed_key(key)) is not None
-        and parsed[0] == registry
-        and parsed[1] == featurizer.name
-        and parsed[3] == 0
-        for param in [parsed[4]]
-    }
-    if updates:
-        return featurizer.model_copy(
-            update={"hyperparameters": {**featurizer.hyperparameters, **updates}},
-            deep=True,
-        )
-    return featurizer
+    updates = _merged_updates_for_featurizer(
+        merged,
+        registry=registry,
+        featurizer_name=featurizer.name,
+        index=0,
+    )
+    return _apply_hyperparameter_updates(featurizer, updates)
 
 
 def apply_merged_to_model_config(config: ModelConfig, merged: dict[str, Any]) -> ModelConfig:

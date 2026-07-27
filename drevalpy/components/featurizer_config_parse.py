@@ -72,6 +72,29 @@ def _finalize_featurizer_config(config: dict[str, Any]) -> dict[str, Any]:
     return normalized
 
 
+def _assemble_featurizer_dict(
+    name: str,
+    hyperparameters: dict[str, Any],
+    *,
+    default_registry: str,
+    view: str | None = None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "name": name,
+        "hyperparameters": hyperparameters,
+        "registry": default_registry,
+    }
+    if view is not None:
+        payload["view"] = view
+    return _finalize_featurizer_config(payload)
+
+
+def _require_view_for_parametric(name: str, view: str | None) -> None:
+    if view is None and name in _VIEW_PARAMETRIC_FEATURIZERS:
+        msg = f"Featurizer {name!r} requires an explicit view, e.g. {name}[expression]"
+        raise ValueError(msg)
+
+
 def _parse_featurizer_atom(token: str, *, default_registry: str) -> dict[str, Any]:
     """Normalize one featurizer atom, including optional ``name[view]`` syntax."""
     trimmed = token.strip()
@@ -79,13 +102,13 @@ def _parse_featurizer_atom(token: str, *, default_registry: str) -> dict[str, An
         msg = "Featurizer token must be a non-empty string"
         raise ValueError(msg)
     name, view = _parse_bracket_atom_name(trimmed, default_registry=default_registry)
-    if view is None and name in _VIEW_PARAMETRIC_FEATURIZERS:
-        msg = f"Featurizer {name!r} requires an explicit view, e.g. {name}[expression]"
-        raise ValueError(msg)
-    payload: dict[str, Any] = {"name": name, "hyperparameters": {}, "registry": default_registry}
-    if view is not None:
-        payload["view"] = view
-    return _finalize_featurizer_config(payload)
+    _require_view_for_parametric(name, view)
+    return _assemble_featurizer_dict(
+        name,
+        {},
+        default_registry=default_registry,
+        view=view,
+    )
 
 
 def _parse_featurizer_token(token: str, *, default_registry: str) -> dict[str, Any]:
@@ -111,60 +134,67 @@ def _parse_featurizer_token(token: str, *, default_registry: str) -> dict[str, A
     }
 
 
+def _normalize_featurizer_list(data: list[Any], *, default_registry: str) -> dict[str, Any]:
+    if not data:
+        msg = "Featurizer list must be non-empty"
+        raise ValueError(msg)
+    return {
+        "name": _CONCAT_FEATURIZER_NAME,
+        "hyperparameters": {
+            "featurizers": [normalize_featurizer_config(item, default_registry=default_registry) for item in data],
+        },
+        "registry": default_registry,
+    }
+
+
+def _normalize_named_featurizer_dict(data: dict[str, Any], *, default_registry: str) -> dict[str, Any]:
+    normalized = dict(data)
+    normalized.setdefault("registry", default_registry)
+    hyperparameters = dict(normalized.get("hyperparameters") or {})
+    if "featurizers" in hyperparameters:
+        registry = str(normalized.get("registry", default_registry))
+        hyperparameters["featurizers"] = [
+            normalize_featurizer_config(item, default_registry=registry) for item in hyperparameters["featurizers"]
+        ]
+    normalized["hyperparameters"] = hyperparameters
+    return _finalize_featurizer_config(normalized)
+
+
+def _normalize_one_key_featurizer_dict(data: dict[str, Any], *, default_registry: str) -> dict[str, Any]:
+    name_token, hyperparameters = next(iter(data.items()))
+    if hyperparameters is None:
+        payload: dict[str, Any] = {}
+    elif isinstance(hyperparameters, dict):
+        payload = dict(hyperparameters)
+    else:
+        msg = f"Featurizer {name_token!r} arguments must be a mapping when provided"
+        raise ValueError(msg)
+    name, view = _parse_bracket_atom_name(str(name_token), default_registry=default_registry)
+    _require_view_for_parametric(name, view)
+    if "featurizers" in payload:
+        payload["featurizers"] = [
+            normalize_featurizer_config(item, default_registry=default_registry) for item in payload["featurizers"]
+        ]
+    return _assemble_featurizer_dict(name, payload, default_registry=default_registry, view=view)
+
+
 def normalize_featurizer_config(data: Any, *, default_registry: str = "cell_line") -> dict[str, Any]:
     """Normalize string, list, or one-key mapping featurizer configs."""
     if isinstance(data, str):
         return _parse_featurizer_token(data, default_registry=default_registry)
 
     if isinstance(data, list):
-        if not data:
-            msg = "Featurizer list must be non-empty"
-            raise ValueError(msg)
-        return {
-            "name": _CONCAT_FEATURIZER_NAME,
-            "hyperparameters": {
-                "featurizers": [normalize_featurizer_config(item, default_registry=default_registry) for item in data],
-            },
-            "registry": default_registry,
-        }
+        return _normalize_featurizer_list(data, default_registry=default_registry)
 
     if not isinstance(data, dict):
         msg = f"Featurizer config must be a string, list, or mapping, got {type(data)!r}"
         raise TypeError(msg)
 
     if "name" in data:
-        normalized = dict(data)
-        normalized.setdefault("registry", default_registry)
-        hyperparameters = dict(normalized.get("hyperparameters") or {})
-        if "featurizers" in hyperparameters:
-            registry = str(normalized.get("registry", default_registry))
-            hyperparameters["featurizers"] = [
-                normalize_featurizer_config(item, default_registry=registry) for item in hyperparameters["featurizers"]
-            ]
-        normalized["hyperparameters"] = hyperparameters
-        return _finalize_featurizer_config(normalized)
+        return _normalize_named_featurizer_dict(data, default_registry=default_registry)
 
     if not _RESERVED_FEATURIZER_KEYS.intersection(data.keys()) and len(data) == 1:
-        name_token, hyperparameters = next(iter(data.items()))
-        if hyperparameters is None:
-            payload: dict[str, Any] = {}
-        elif isinstance(hyperparameters, dict):
-            payload = dict(hyperparameters)
-        else:
-            msg = f"Featurizer {name_token!r} arguments must be a mapping when provided"
-            raise ValueError(msg)
-        name, view = _parse_bracket_atom_name(str(name_token), default_registry=default_registry)
-        if view is None and name in _VIEW_PARAMETRIC_FEATURIZERS:
-            msg = f"Featurizer {name!r} requires an explicit view, e.g. {name}[expression]"
-            raise ValueError(msg)
-        config: dict[str, Any] = {"name": name, "hyperparameters": payload, "registry": default_registry}
-        if view is not None:
-            config["view"] = view
-        if "featurizers" in payload:
-            payload["featurizers"] = [
-                normalize_featurizer_config(item, default_registry=default_registry) for item in payload["featurizers"]
-            ]
-        return _finalize_featurizer_config(config)
+        return _normalize_one_key_featurizer_dict(data, default_registry=default_registry)
 
     msg = "Featurizer config must be a string, one-key mapping, or dict with 'name'"
     raise ValueError(msg)

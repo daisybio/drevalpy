@@ -5,12 +5,12 @@ from __future__ import annotations
 import numpy as np
 
 from drevalpy.datasets.dataset import DrugResponseDataset
-from drevalpy.experiment_fold import (
+from drevalpy.experiment.fold import (
     merge_train_validation,
     prepare_final_fold_training_data,
     prepare_fold_datasets,
 )
-from drevalpy.experiment_paths import consolidate_results_path, experiment_result_path
+from drevalpy.experiment.paths import consolidate_results_path, experiment_result_path
 from drevalpy.models import construct_model
 
 

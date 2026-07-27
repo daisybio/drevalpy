@@ -68,50 +68,7 @@ def _validate_scope(config: ModelConfig, pred_cls: type[Any]) -> None:
         raise ValueError(msg)
 
 
-def validate_model_config(config: ModelConfig) -> None:
-    """Check registry slots, feature compatibility, and prediction mode."""
-    pred_cls = _registry_lookup.get_predictor(config.predictor.name)
-    _validate_scope(config, pred_cls)
-
-    if config.cell_line_featurizer is None and config.drug_featurizer is None:
-        if not _allows_no_featurizers(pred_cls):
-            msg = (
-                f"Predictor {config.predictor.name!r} requires featurizers; "
-                "set cell_line_featurizer and drug_featurizer, or use a baseline predictor."
-            )
-            raise ValueError(msg)
-        supported = getattr(pred_cls, "supported_modes", None)
-        if supported is not None and config.prediction_mode not in supported:
-            msg = (
-                f"Predictor {config.predictor.name!r} does not support "
-                f"prediction_mode={config.prediction_mode!r}; "
-                f"supported_modes={sorted(supported)}"
-            )
-            raise ValueError(msg)
-        return
-
-    requires_drug = getattr(pred_cls, "requires_drug_featurizer", True)
-
-    if requires_drug and config.drug_featurizer is None:
-        msg = f"Predictor {config.predictor.name!r} requires a drug_featurizer"
-        raise ValueError(msg)
-
-    if config.cell_line_featurizer is None and not _allows_no_featurizers(pred_cls):
-        msg = "cell_line_featurizer must be set for feature-based predictors"
-        raise ValueError(msg)
-
-    if config.cell_line_featurizer is not None and config.cell_line_featurizer.registry != "cell_line":
-        msg = f"cell_line_featurizer must use registry='cell_line', got {config.cell_line_featurizer.registry!r}"
-        raise ValueError(msg)
-    if config.drug_featurizer is not None and config.drug_featurizer.registry != "drug":
-        msg = "drug_featurizer must use registry='drug', " f"got {config.drug_featurizer.registry!r}"
-        raise ValueError(msg)
-
-    if config.cell_line_featurizer is not None:
-        _validate_view_fields(config.cell_line_featurizer, label="cell_line_featurizer")
-    if config.drug_featurizer is not None:
-        _validate_view_fields(config.drug_featurizer, label="drug_featurizer")
-
+def _validate_prediction_mode(config: ModelConfig, pred_cls: type[Any]) -> None:
     supported = getattr(pred_cls, "supported_modes", None)
     if supported is not None and config.prediction_mode not in supported:
         msg = (
@@ -121,8 +78,46 @@ def validate_model_config(config: ModelConfig) -> None:
         )
         raise ValueError(msg)
 
-    required_cell_line, required_drug = _predictor_contracts(pred_cls)
 
+def _validate_no_featurizer_baseline(config: ModelConfig, pred_cls: type[Any]) -> bool:
+    """Return True when validation is complete (baseline without featurizers)."""
+    if config.cell_line_featurizer is not None or config.drug_featurizer is not None:
+        return False
+    if not _allows_no_featurizers(pred_cls):
+        msg = (
+            f"Predictor {config.predictor.name!r} requires featurizers; "
+            "set cell_line_featurizer and drug_featurizer, or use a baseline predictor."
+        )
+        raise ValueError(msg)
+    _validate_prediction_mode(config, pred_cls)
+    return True
+
+
+def _validate_featurizer_presence(config: ModelConfig, pred_cls: type[Any]) -> None:
+    requires_drug = getattr(pred_cls, "requires_drug_featurizer", True)
+    if requires_drug and config.drug_featurizer is None:
+        msg = f"Predictor {config.predictor.name!r} requires a drug_featurizer"
+        raise ValueError(msg)
+    if config.cell_line_featurizer is None and not _allows_no_featurizers(pred_cls):
+        msg = "cell_line_featurizer must be set for feature-based predictors"
+        raise ValueError(msg)
+    if config.cell_line_featurizer is not None and config.cell_line_featurizer.registry != "cell_line":
+        msg = f"cell_line_featurizer must use registry='cell_line', got {config.cell_line_featurizer.registry!r}"
+        raise ValueError(msg)
+    if config.drug_featurizer is not None and config.drug_featurizer.registry != "drug":
+        msg = "drug_featurizer must use registry='drug', " f"got {config.drug_featurizer.registry!r}"
+        raise ValueError(msg)
+
+
+def _validate_featurizer_views(config: ModelConfig) -> None:
+    if config.cell_line_featurizer is not None:
+        _validate_view_fields(config.cell_line_featurizer, label="cell_line_featurizer")
+    if config.drug_featurizer is not None:
+        _validate_view_fields(config.drug_featurizer, label="drug_featurizer")
+
+
+def _validate_featurizer_contracts(config: ModelConfig, pred_cls: type[Any]) -> None:
+    required_cell_line, required_drug = _predictor_contracts(pred_cls)
     if config.cell_line_featurizer is not None:
         cell_line_cls = _registry_lookup.get_cell_line_featurizer(config.cell_line_featurizer.name)
         cell_line_contract = _featurizer_contract(cell_line_cls)
@@ -132,7 +127,6 @@ def validate_model_config(config: ModelConfig) -> None:
                 f"predictor cell_line_contract {required_cell_line!r}"
             )
             raise ValueError(msg)
-
     if config.drug_featurizer is not None:
         drug_cls = _registry_lookup.get_drug_featurizer(config.drug_featurizer.name)
         drug_contract = _featurizer_contract(drug_cls)
@@ -142,3 +136,15 @@ def validate_model_config(config: ModelConfig) -> None:
                 f"with predictor drug_contract {required_drug!r}"
             )
             raise ValueError(msg)
+
+
+def validate_model_config(config: ModelConfig) -> None:
+    """Check registry slots, feature compatibility, and prediction mode."""
+    pred_cls = _registry_lookup.get_predictor(config.predictor.name)
+    _validate_scope(config, pred_cls)
+    if _validate_no_featurizer_baseline(config, pred_cls):
+        return
+    _validate_featurizer_presence(config, pred_cls)
+    _validate_featurizer_views(config)
+    _validate_prediction_mode(config, pred_cls)
+    _validate_featurizer_contracts(config, pred_cls)

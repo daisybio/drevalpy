@@ -123,6 +123,9 @@ profile = "black"
 known_first_party = ["drevalpy"]
 known_third_party = ["wandb"]
 
+[tool.complexipy]
+max-complexity-allowed = 15
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

@@ -9,14 +9,11 @@ Code adapted from their Github: https://github.com/zhouyuru1205/PharmaFormer
 """
 
 import os
-import secrets
 from typing import Any
 
 import numpy as np
 import pandas as pd
 import torch
-import torch.nn as nn
-import torch.optim as optim
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from torch.utils.data import DataLoader, Dataset
 
@@ -156,180 +153,17 @@ class PharmaFormerModel(LiteratureEngineBase):
         if output_earlystopping is None:
             raise ValueError("PharmaFormer model requires early stopping data.")
 
-        # Get feature dimensions
-        train_gene_features = cell_line_input.get_feature_matrix(
-            view="gene_expression", identifiers=output.cell_line_ids
+        from .pharmaformer_training import run_pharmaformer_training
+
+        run_pharmaformer_training(
+            engine=self,
+            output=output,
+            cell_line_input=cell_line_input,
+            drug_input=drug_input,
+            output_earlystopping=output_earlystopping,
+            model_checkpoint_dir=model_checkpoint_dir,
+            pharmaformer_dataset_cls=_PharmaFormerDataset,
         )
-        gene_input_size = train_gene_features.shape[1]
-
-        # Standardize and normalize gene expression (matching original PharmaFormer)
-        self.gene_expression_scaler = StandardScaler()
-        self.gene_expression_normalizer = MinMaxScaler()
-
-        train_gene_scaled = self.gene_expression_scaler.fit_transform(train_gene_features)
-        self.gene_expression_normalizer.fit_transform(train_gene_scaled)
-
-        # Apply transformations to all gene expression features
-        cell_line_input = cell_line_input.copy()
-        for cell_line_id in cell_line_input.features:
-            gene_expr = cell_line_input.features[cell_line_id]["gene_expression"]
-            gene_expr_scaled = self.gene_expression_scaler.transform(gene_expr.reshape(1, -1))
-            gene_expr_normalized = self.gene_expression_normalizer.transform(gene_expr_scaled)
-            cell_line_input.features[cell_line_id]["gene_expression"] = gene_expr_normalized.flatten()
-
-        # Build model with known input dimensions
-        self.model = CombinedModel(
-            gene_input_size=gene_input_size,
-            gene_hidden_size=self.hyperparameters["gene_hidden_size"],
-            drug_hidden_size=self.hyperparameters["drug_hidden_size"],
-            feature_dim=self.hyperparameters["feature_dim"],
-            nhead=self.hyperparameters["nhead"],
-            num_layers=self.hyperparameters.get("num_layers", 3),
-            dim_feedforward=self.hyperparameters.get("dim_feedforward", 2048),
-            dropout=self.hyperparameters.get("dropout", 0.1),
-        ).to(self.DEVICE)
-
-        loss_func = nn.MSELoss()
-        optimizer = optim.Adam(self.model.parameters(), lr=self.hyperparameters["lr"])
-
-        # Create datasets
-        train_dataset = _PharmaFormerDataset(
-            response=output.response,
-            cell_line_ids=output.cell_line_ids,
-            drug_ids=output.drug_ids,
-            cell_line_features=cell_line_input,
-            drug_features=drug_input,
-        )
-        early_stopping_dataset = _PharmaFormerDataset(
-            response=output_earlystopping.response,
-            cell_line_ids=output_earlystopping.cell_line_ids,
-            drug_ids=output_earlystopping.drug_ids,
-            cell_line_features=cell_line_input,
-            drug_features=drug_input,
-        )
-
-        train_loader = DataLoader(
-            train_dataset,
-            batch_size=self.hyperparameters["batch_size"],
-            shuffle=True,
-        )
-        early_stopping_loader = DataLoader(
-            early_stopping_dataset,
-            batch_size=self.hyperparameters["batch_size"],
-            shuffle=False,
-        )
-
-        # Early stopping parameters
-        best_val_loss = float("inf")
-        epochs_without_improvement = 0
-
-        # Ensure the checkpoint directory exists
-        os.makedirs(model_checkpoint_dir, exist_ok=True)
-        version = "version-" + "".join([secrets.choice("0123456789abcdef") for _ in range(20)])
-
-        checkpoint_path = os.path.join(model_checkpoint_dir, f"{version}_best_PharmaFormer_model.pth")
-
-        # Train model
-        print("Training PharmaFormer model")
-        for epoch in range(self.hyperparameters["epochs"]):
-            self.model.train()
-            epoch_loss = 0.0
-            batch_count = 0
-            train_predictions = []
-            train_targets = []
-
-            # Training phase
-            for gene_inputs, smiles_inputs, targets in train_loader:
-                gene_inputs = gene_inputs.to(self.DEVICE)
-                smiles_inputs = smiles_inputs.to(self.DEVICE)
-                targets = targets.to(self.DEVICE)
-
-                # Forward pass
-                outputs = self.model(gene_inputs, smiles_inputs)
-                loss = loss_func(outputs.squeeze(), targets)
-
-                # Backpropagation
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
-
-                epoch_loss += loss.detach().item()
-                batch_count += 1
-
-                # Store predictions and targets for R^2 and PCC computation
-                train_predictions.append(outputs.squeeze().detach().cpu().numpy())
-                train_targets.append(targets.detach().cpu().numpy())
-
-            epoch_loss /= batch_count
-            print(f"PharmaFormer: Epoch [{epoch + 1}/{self.hyperparameters['epochs']}] Training Loss: {epoch_loss:.4f}")
-
-            # Compute and log training R^2 and PCC using DRPModel helper
-            train_metrics = {"train_loss": epoch_loss}
-            if len(train_predictions) > 0:
-                all_train_preds = np.concatenate(train_predictions)
-                all_train_targets = np.concatenate(train_targets)
-                perf_metrics = self.compute_performance_metrics(all_train_preds, all_train_targets, prefix="train_")
-                train_metrics.update(perf_metrics)
-
-            # Log training metrics to wandb if enabled
-            if self.is_wandb_enabled():
-                self.log_metrics(train_metrics, step=epoch)
-
-            # Validation phase for early stopping
-            self.model.eval()
-            val_loss = 0.0
-            val_batch_count = 0
-            val_predictions = []
-            val_targets = []
-            with torch.no_grad():
-                for gene_inputs, smiles_inputs, targets in early_stopping_loader:
-                    gene_inputs = gene_inputs.to(self.DEVICE)
-                    smiles_inputs = smiles_inputs.to(self.DEVICE)
-                    targets = targets.to(self.DEVICE)
-
-                    outputs = self.model(gene_inputs, smiles_inputs)
-                    loss = loss_func(outputs.squeeze(), targets)
-
-                    val_loss += loss.item()
-                    val_batch_count += 1
-
-                    # Store predictions and targets for R^2 and PCC computation
-                    val_predictions.append(outputs.squeeze().detach().cpu().numpy())
-                    val_targets.append(targets.detach().cpu().numpy())
-
-            val_loss /= val_batch_count
-            print(f"PharmaFormer: Epoch [{epoch + 1}/{self.hyperparameters['epochs']}] Validation Loss: {val_loss:.4f}")
-
-            # Compute and log validation R^2 and PCC using DRPModel helper
-            val_metrics = {"val_loss": val_loss}
-            if len(val_predictions) > 0:
-                all_val_preds = np.concatenate(val_predictions)
-                all_val_targets = np.concatenate(val_targets)
-                perf_metrics = self.compute_performance_metrics(all_val_preds, all_val_targets, prefix="val_")
-                val_metrics.update(perf_metrics)
-
-            # Log validation metrics to wandb if enabled
-            if self.is_wandb_enabled():
-                self.log_metrics(val_metrics, step=epoch)
-
-            # Checkpointing: Save the best model
-            if val_loss < best_val_loss:
-                best_val_loss = val_loss
-                epochs_without_improvement = 0
-                torch.save(self.model.state_dict(), checkpoint_path)  # noqa: S614
-                print(f"PharmaFormer: Saved best model at epoch {epoch + 1}")
-            else:
-                epochs_without_improvement += 1
-                if epochs_without_improvement >= self.hyperparameters.get("patience", 10):
-                    print(f"PharmaFormer: Early stopping triggered at epoch {epoch + 1}")
-                    break
-
-        # Reload the best model after training
-        print("PharmaFormer: Reloading the best model")
-        self.model.load_state_dict(
-            torch.load(checkpoint_path, map_location=self.DEVICE, weights_only=True)
-        )  # noqa: S614
-        self.model.to(self.DEVICE)
 
     def predict(
         self,

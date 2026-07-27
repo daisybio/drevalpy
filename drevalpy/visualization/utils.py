@@ -6,12 +6,10 @@ import shutil
 from typing import TextIO
 
 import importlib_resources
-import numpy as np
 import pandas as pd
 
 from ..datasets.dataset import DrugResponseDataset
 from ..datasets.splits import MANIFEST_FILENAME, read_split_manifest
-from ..datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
 from ..evaluation import AVAILABLE_METRICS, evaluate
 from ..pipeline_function import pipeline_function
 from . import (
@@ -23,34 +21,20 @@ from . import (
     VioHeat,
     Violin,
 )
-
-_RESULT_CATEGORIES = ("predictions", "cross_study", "randomization", "robustness")
+from .prep_results_format import (
+    add_index_columns_from_model,
+    apply_mean_effects_normalization,
+    enrich_eval_results_per_cell_line,
+    enrich_eval_results_per_drug,
+    enrich_true_vs_pred,
+    load_drug_and_cell_line_metadata,
+)
+from .result_csv_discovery import discover_result_csv_files
 
 
 def _discover_result_csv_files(result_dir: pathlib.Path, dataset: str) -> list[pathlib.Path]:
-    """
-    Collect prediction result CSV files from the known experiment directory layout.
-
-    Expected layout: ``{result_dir}/{dataset}/{split_label}/{algorithm}/{category}/*.csv``.
-
-    :param result_dir: root results directory for a run
-    :param dataset: dataset name, e.g., GDSC2
-    :returns: paths to result CSV files
-    """
-    dataset_dir = result_dir / dataset
-    if not dataset_dir.is_dir():
-        return []
-
-    result_files: list[pathlib.Path] = []
-    for split_dir in sorted(path for path in dataset_dir.iterdir() if path.is_dir()):
-        for algorithm_dir in sorted(path for path in split_dir.iterdir() if path.is_dir()):
-            if algorithm_dir.name == "splits":
-                continue
-            for category in _RESULT_CATEGORIES:
-                category_dir = algorithm_dir / category
-                if category_dir.is_dir():
-                    result_files.extend(sorted(category_dir.glob("*.csv")))
-    return result_files
+    """Backward-compatible wrapper around :func:`discover_result_csv_files`."""
+    return discover_result_csv_files(result_dir, dataset)
 
 
 def create_output_directories(result_path: pathlib.Path, custom_id: str) -> None:
@@ -253,87 +237,17 @@ def prep_results(
     :returns: the same dataframes with new columns
     :raises ValueError: if NaiveMeanEffectsPredictor is not found in the evaluation results
     """
-    # get metadata
     print("Getting information about drugs and cell lines ...")
-    drug_metadata: dict[str, str] = dict()
-    cell_line_metadata: dict[str, str] = dict()
-    for root, _, files in os.walk(path_data):
-        for file in files:
-            if file == "drug_names.csv":
-                drug_names = pd.read_csv(os.path.join(root, file))
-                drug_names["pubchem_id"] = drug_names["pubchem_id"].astype(str)
-                # index: pubchem_id, column: drug_name
-                drug_metadata.update(zip(drug_names["pubchem_id"], drug_names["drug_name"]))
-            elif file == "cell_line_names.csv":
-                cell_line_names = pd.read_csv(os.path.join(root, file))
-                # index: cellosaurus_id, column: cell_line_name
-                try:
-                    cellosaurus_ids = cell_line_names["cellosaurus_id"].astype(str)
-                    # replace nan with unknown_id_{i} (patient derived cell lines might not have a cellosaurus id)
-                    n_missing = cellosaurus_ids.isna().sum()
-                    fill_values = [f"unknown_id_{i}" for i in range(n_missing)]
-                    cellosaurus_ids = cellosaurus_ids.where(
-                        cellosaurus_ids.notna(),
-                        pd.Series(fill_values, index=cellosaurus_ids[cellosaurus_ids.isna()].index),
-                    )
+    drug_metadata, cell_line_metadata = load_drug_and_cell_line_metadata(path_data)
 
-                except KeyError:
-                    cellosaurus_ids = pd.Series([f"unknown_id_{i}" for i in range(len(cell_line_names))])
-                cell_line_metadata.update(zip(cell_line_names[CELL_LINE_IDENTIFIER], cellosaurus_ids))
-
-    # add variables
-    # split the index by "_" into: algorithm, randomization, test_mode, split, CV_split
     print("Reformatting the evaluation results ...")
-    new_columns = eval_results.index.str.split("_", expand=True).to_frame()
-    new_columns.columns = [
-        "algorithm",
-        "rand_setting",
-        "test_mode",
-        "split",
-        "CV_split",
-    ]
-    new_columns.index = eval_results.index
-    eval_results = pd.concat([new_columns.drop("split", axis=1), eval_results], axis=1)
-    if eval_results_per_drug is not None:
-        print("Reformatting the evaluation results per drug ...")
-        eval_results_per_drug[["algorithm", "rand_setting", "test_mode", "split", "CV_split"]] = eval_results_per_drug[
-            "model"
-        ].str.split("_", expand=True)
-        all_drugs = [drug_metadata[drug] for drug in eval_results_per_drug["drug"]]
-        eval_results_per_drug["drug_name"] = all_drugs
-        # rename drug to pubchem_id
-        eval_results_per_drug = eval_results_per_drug.rename(columns={"drug": DRUG_IDENTIFIER})
-    if eval_results_per_cell_line is not None:
-        print("Reformatting the evaluation results per cell line ...")
-        eval_results_per_cell_line[["algorithm", "rand_setting", "test_mode", "split", "CV_split"]] = (
-            eval_results_per_cell_line["model"].str.split("_", expand=True)
-        )
-        all_cello_ids = [cell_line_metadata[cell_line] for cell_line in eval_results_per_cell_line["cell_line"]]
-        eval_results_per_cell_line["cellosaurus_id"] = all_cello_ids
-        eval_results_per_cell_line = eval_results_per_cell_line.rename(columns={"cell_line": CELL_LINE_IDENTIFIER})
+    eval_results = add_index_columns_from_model(eval_results)
+    eval_results_per_drug = enrich_eval_results_per_drug(eval_results_per_drug, drug_metadata)
+    eval_results_per_cell_line = enrich_eval_results_per_cell_line(eval_results_per_cell_line, cell_line_metadata)
 
     print("Reformatting the true vs. predicted values ...")
-    t_vs_p[["algorithm", "rand_setting", "test_mode", "split", "CV_split"]] = t_vs_p["model"].str.split(
-        "_", expand=True
-    )
-    t_vs_p = t_vs_p.drop("split", axis=1)
-    all_drugs = [drug_metadata[drug] for drug in t_vs_p["drug"]]
-    t_vs_p["drug_name"] = all_drugs
-    all_cello_ids = [cell_line_metadata[cell_line] for cell_line in t_vs_p["cell_line"]]
-    t_vs_p["cellosaurus_id"] = all_cello_ids
-    t_vs_p = t_vs_p.rename(columns={"cell_line": CELL_LINE_IDENTIFIER, "drug": DRUG_IDENTIFIER})
-    t_vs_p[DRUG_IDENTIFIER] = t_vs_p[DRUG_IDENTIFIER].astype(str)
-
-    if "NaiveMeanEffectsPredictor" in eval_results["algorithm"].unique():
-        eval_results = _normalize_metrics_by_mean_effects(
-            evaluation_results=eval_results,
-            true_vs_pred=t_vs_p,
-        )
-    else:
-        raise ValueError(
-            "NaiveMeanEffectsPredictor not found in evaluation results. "
-            "Please check if the evaluation was run correctly."
-        )
+    t_vs_p = enrich_true_vs_pred(t_vs_p, drug_metadata, cell_line_metadata)
+    eval_results = apply_mean_effects_normalization(eval_results, t_vs_p)
 
     return (
         eval_results,
@@ -341,67 +255,6 @@ def prep_results(
         eval_results_per_cell_line,
         t_vs_p,
     )
-
-
-def _normalize_metrics_by_mean_effects(
-    evaluation_results: pd.DataFrame,
-    true_vs_pred: pd.DataFrame,
-) -> pd.DataFrame:
-    """
-    Normalize the y_true and y_pred values by the predictions of the NaiveMeanEffectsPredictor.
-
-    Then recalculate the metrics.
-    :param evaluation_results: results of the evaluation
-    :param true_vs_pred: all true vs. predicted values
-    :return: modified evaluation results
-    """
-    eval_results_mod = {}
-    naive_mean_effects_dict = {}
-    for rand_setting in evaluation_results["rand_setting"].unique():
-        for test_mode in evaluation_results["test_mode"].unique():
-            naive_mean_effects_dict[f"{test_mode}_{rand_setting}"] = true_vs_pred[
-                (true_vs_pred["algorithm"] == "NaiveMeanEffectsPredictor")
-                & (true_vs_pred["rand_setting"] == rand_setting)
-                & (true_vs_pred["test_mode"] == test_mode)
-            ]
-    # do this: per algorithm, per rand test_mode, per test_mode, per CV split
-    for algorithm in evaluation_results["algorithm"].unique():
-        for rand_setting in evaluation_results["rand_setting"].unique():
-            for test_mode in evaluation_results["test_mode"].unique():
-
-                setting_subset = true_vs_pred[
-                    (true_vs_pred["algorithm"] == algorithm)
-                    & (true_vs_pred["rand_setting"] == rand_setting)
-                    & (true_vs_pred["test_mode"] == test_mode)
-                ]
-                if setting_subset.empty:
-                    continue
-                naive_mean_effects = naive_mean_effects_dict[f"{test_mode}_{rand_setting}"]
-                naive_mean_effects = naive_mean_effects[["drug_name", "cell_line_name", "CV_split", "y_pred"]]
-                naive_mean_effects = naive_mean_effects.rename(columns={"y_pred": "y_pred_naive"})
-                setting_subset = setting_subset[["drug_name", "cell_line_name", "CV_split", "y_true", "y_pred"]]
-                setting_subset = setting_subset.merge(
-                    naive_mean_effects, on=["drug_name", "cell_line_name", "CV_split"], how="left"
-                )
-                setting_subset["y_true"] = setting_subset["y_true"] - setting_subset["y_pred_naive"]
-                setting_subset["y_pred"] = setting_subset["y_pred"] - setting_subset["y_pred_naive"]
-                for cv_split in setting_subset["CV_split"].unique():
-                    setting_subset_cv = setting_subset[setting_subset["CV_split"] == cv_split]
-                    dt = DrugResponseDataset(
-                        response=setting_subset_cv["y_true"].to_numpy(),
-                        cell_line_ids=setting_subset_cv["cell_line_name"].to_numpy(),
-                        drug_ids=setting_subset_cv["drug_name"].to_numpy(),
-                        predictions=setting_subset_cv["y_pred"].to_numpy(),
-                    )
-                    res = evaluate(
-                        dataset=dt,
-                        metric=list(AVAILABLE_METRICS.keys() - {"MAE", "MSE", "RMSE"}),
-                    )
-                    eval_results_mod[f"{algorithm}_{rand_setting}_{test_mode}_split_{cv_split}"] = res
-    mod_table = pd.DataFrame.from_dict(eval_results_mod, orient="index")
-    mod_table.columns = [f"{col}: normalized" for col in mod_table.columns]
-    evaluation_results = evaluation_results.merge(mod_table, left_index=True, right_index=True)
-    return evaluation_results
 
 
 def _generate_model_names(test_mode: str, model_name: str, pred_file: pathlib.Path) -> str:
@@ -607,131 +460,6 @@ def create_html(run_id: str, test_mode: str, files: list, prefix_results: str) -
         f.write("</div>\n")
         f.write("</body>\n")
         f.write("</html>\n")
-
-
-def draw_test_mode_plots(
-    test_mode: str,
-    ev_res: pd.DataFrame,
-    ev_res_per_drug: pd.DataFrame | None,
-    ev_res_per_cell_line: pd.DataFrame | None,
-    custom_id: str,
-    path_data: pathlib.Path,
-    result_path: pathlib.Path,
-) -> np.ndarray:
-    """
-    Draw all plots for a specific test_mode (LPO, LCO, LDO, LTO).
-
-    :param test_mode: test_mode
-    :param ev_res: overall evaluation results
-    :param ev_res_per_drug: evaluation results per drug
-    :param ev_res_per_cell_line: evaluation results per cell line
-    :param custom_id: run id passed via command line
-    :param path_data: path to the data
-    :param result_path: path to the results
-    :returns: list of unique algorithms
-    :raises ValueError: if no evaluation results are found for the given test_mode
-    """
-    if ev_res.empty:
-        raise ValueError(
-            f"No evaluation results found for test_mode {test_mode}. "
-            "Please check if the evaluation was run correctly."
-        )
-    ev_res_subset = ev_res[ev_res["test_mode"] == test_mode]
-
-    # only draw figures for 'real' predictions comparing all models
-    eval_results_preds = ev_res_subset[ev_res_subset["rand_setting"] == "predictions"]
-    if eval_results_preds.empty:
-        raise ValueError(
-            f"No evaluation results found for test_mode {test_mode} with predictions. "
-            "Please check if the evaluation was run correctly."
-        )
-
-    cd_plot = CriticalDifferencePlot(eval_results_preds=eval_results_preds, metric="MSE")
-    cd_plot.draw_and_save(
-        out_prefix=f"{result_path}/{custom_id}/critical_difference_plots/",
-        out_suffix=test_mode,
-    )
-    for plt_type in ["violinplot", "heatmap"]:
-        if plt_type == "violinplot":
-            out_dir = "violin_plots"
-        else:
-            out_dir = "heatmaps"
-        for normalized in [False, True]:
-            if normalized:
-                out_suffix = f"algorithms_{test_mode}_normalized"
-            else:
-                out_suffix = f"algorithms_{test_mode}"
-            out_plot: Violin | Heatmap
-            if plt_type == "violinplot":
-
-                out_plot = Violin(
-                    df=eval_results_preds,
-                    normalized_metrics=normalized,
-                    whole_name=False,
-                )
-
-            else:
-                out_plot = Heatmap(
-                    df=eval_results_preds,
-                    normalized_metrics=normalized,
-                    whole_name=False,
-                )
-            out_plot.draw_and_save(
-                out_prefix=f"{result_path}/{custom_id}/{out_dir}/",
-                out_suffix=out_suffix,
-            )
-
-    # per group plots
-    if test_mode in ("LPO", "LDO"):
-        _draw_per_grouping_setting_plots(
-            grouping="drug_name",
-            ev_res_per_group=ev_res_per_drug,
-            test_mode=test_mode,
-            custom_id=custom_id,
-            result_path=result_path,
-        )
-    if test_mode in ("LPO", "LCO", "LTO"):
-        _draw_per_grouping_setting_plots(
-            grouping="cell_line_name",
-            ev_res_per_group=ev_res_per_cell_line,
-            test_mode=test_mode,
-            custom_id=custom_id,
-            result_path=result_path,
-        )
-
-    # Cross-study evaluation tables
-    cross_study_tables = CrossStudyTables(evaluation_metrics=ev_res_subset, path_data=path_data)
-    cross_study_tables.draw_and_save(
-        out_prefix=f"{result_path}/{custom_id}/html_tables/",
-        out_suffix=test_mode,
-    )
-
-    return eval_results_preds["algorithm"].unique()
-
-
-def _draw_per_grouping_setting_plots(
-    grouping: str, ev_res_per_group: pd.DataFrame, test_mode: str, custom_id: str, result_path: pathlib.Path
-) -> None:
-    """
-    Draw plots for a specific grouping (drug or cell line) for a specific test_mode (LPO, LCO, LDO).
-
-    :param grouping: drug or cell_line
-    :param ev_res_per_group: evaluation results per drug or per cell line
-    :param test_mode: test_mode
-    :param custom_id: run id passed over command line
-    :param result_path: path to the results
-    """
-    corr_comp = ComparisonScatter(
-        df=ev_res_per_group,
-        color_by=grouping,
-        test_mode=test_mode,
-        algorithm="all",
-    )
-    if corr_comp.name is not None:
-        corr_comp.draw_and_save(
-            out_prefix=f"{result_path}/{custom_id}/comp_scatter/",
-            out_suffix=corr_comp.name,
-        )
 
 
 def draw_algorithm_plots(

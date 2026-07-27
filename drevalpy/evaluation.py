@@ -128,6 +128,29 @@ def get_mode(metric: str):
     return mode
 
 
+def _should_return_nan_global(response: np.ndarray, predictions: np.ndarray) -> bool:
+    return len(response) < 2 or np.all(np.isnan(response)) or np.all(np.isnan(predictions))
+
+
+def _masked_metric_inputs(predictions: np.ndarray, response: np.ndarray) -> tuple[np.ndarray, np.ndarray] | None:
+    if not np.any(np.isnan(predictions)):
+        return predictions, response
+    if np.all(np.isnan(predictions)):
+        return None
+    mask = ~np.isnan(predictions)
+    return predictions[mask], response[mask]
+
+
+def _compute_metric_value(metric_name: str, predictions: np.ndarray, response: np.ndarray) -> float:
+    if _should_return_nan_global(response, predictions):
+        return float(np.nan)
+    masked = _masked_metric_inputs(predictions, response)
+    if masked is None:
+        return float(np.nan)
+    y_pred, y_true = masked
+    return float(AVAILABLE_METRICS[metric_name](y_pred=y_pred, y_true=y_true))
+
+
 @pipeline_function
 def evaluate(dataset: DrugResponseDataset, metric: list[str] | str):
     """
@@ -150,19 +173,6 @@ def evaluate(dataset: DrugResponseDataset, metric: list[str] | str):
     for m in metric:
         if m not in AVAILABLE_METRICS:
             raise AssertionError(f"invalid metric {m}. Available: {list(AVAILABLE_METRICS.keys())}")
-        if len(response) < 2 or np.all(np.isnan(response)) or np.all(np.isnan(predictions)):
-            results[m] = float(np.nan)
-        else:
-            # check whether the predictions contain NaNs
-            if np.any(np.isnan(predictions)):
-                # if there are only NaNs in the predictions, the metric is NaN
-                if np.all(np.isnan(predictions)):
-                    results[m] = float(np.nan)
-                else:
-                    # remove the rows with NaNs in the predictions and response
-                    mask = ~np.isnan(predictions)
-                    results[m] = float(AVAILABLE_METRICS[m](y_pred=predictions[mask], y_true=response[mask]))
-            else:
-                results[m] = float(AVAILABLE_METRICS[m](y_pred=predictions, y_true=response))
+        results[m] = _compute_metric_value(m, predictions, response)
 
     return results

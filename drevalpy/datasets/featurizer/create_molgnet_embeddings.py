@@ -7,20 +7,15 @@ Creates MolGNet embeddings for molecules given their SMILES strings. This module
 
 import argparse
 import math
-import os
-import pickle  # noqa: S403
-from pathlib import Path
 from typing import Any, Optional
 
 import numpy as np
-import pandas as pd
 import torch
 import torch.nn.functional as torch_nn_f
 from torch import nn
 from torch.nn import Parameter
 from torch_geometric.data import Data
 from torch_geometric.utils import add_self_loops, softmax
-from tqdm import tqdm
 
 try:
     from rdkit import Chem
@@ -766,110 +761,9 @@ def run(args: argparse.Namespace) -> None:
     :raises ValueError: If expected columns are missing in the input CSV.
     :raises Exception: For various failures during graph building or inference.
     """
-    # Use dataset-oriented paths: {data_path}/{dataset_name}/...
-    # Expand user (~) and resolve to an absolute path.
-    data_dir = Path(args.data_path).expanduser().resolve()
-    dataset_dir = data_dir / args.dataset_name
-    if not dataset_dir.exists():
-        raise FileNotFoundError(f"Dataset directory not found: {dataset_dir}")
+    from .create_molgnet_pipeline import run_molgnet_pipeline
 
-    out_graphs = str(dataset_dir / "GRAPH_dict.pkl")
-    out_molg = str(dataset_dir / "MolGNet_dict.pkl")
-
-    # read input csv (expected at {data_path}/{dataset_name}/drug_smiles.csv)
-    smiles_csv = dataset_dir / "drug_smiles.csv"
-    if not smiles_csv.exists():
-        raise FileNotFoundError(f"Expected SMILES CSV at: {smiles_csv}")
-    df = pd.read_csv(smiles_csv)
-    if args.smiles_col not in df.columns or args.id_col not in df.columns:
-        msg = f"Provided columns not in CSV: {args.smiles_col}, " f"{args.id_col}"
-        raise ValueError(msg)
-    df = df.dropna(subset=[args.smiles_col])
-    smiles_map = dict(zip(df[args.id_col], df[args.smiles_col]))
-
-    # Build graphs
-    graph_dict: dict[Any, Data] = {}
-    failed_conversions = []
-    for idx, smi in tqdm(smiles_map.items(), desc="building graphs"):
-        mol = Chem.MolFromSmiles(smi)
-        if mol is None:
-            failed_conversions.append((idx, smi, "MolFromSmiles returned None"))
-            continue
-        try:
-            graph_dict[idx] = mol_to_graph_data_obj_complex(mol)
-        except Exception as e:
-            failed_conversions.append((idx, smi, str(e)))
-    if failed_conversions:
-        print(f"\n{len(failed_conversions)} molecules failed to convert to graphs.")
-        for idx, smi, err in failed_conversions:
-            print(f"Failed to convert {idx} (SMILES: {smi}): {err}")
-    else:
-        print("\nAll molecules converted to graphs successfully.")
-    # save graphs to dataset folder
-    with open(out_graphs, "wb") as f:
-        pickle.dump(graph_dict, f)
-    # load model
-    if args.device:
-        device = torch.device(args.device)
-    else:
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    num_layer = 5
-    emb_dim = 768
-    heads = 12
-    msg_pass = 3
-    drop = 0.0
-    model = MolGNet(
-        num_layer=num_layer,
-        emb_dim=emb_dim,
-        heads=heads,
-        num_message_passing=msg_pass,
-        drop_ratio=drop,
-    )
-    # Prefer pathlib operations when working with Path objects
-    checkpoint_path = data_dir / args.checkpoint
-    ckpt = torch.load(checkpoint_path, map_location=device)  # noqa S614
-    try:
-        model.load_state_dict(ckpt)
-    except Exception:
-        if isinstance(ckpt, dict) and "state_dict" in ckpt:
-            model.load_state_dict(ckpt["state_dict"])
-        else:
-            raise
-    model = model.to(device)
-    model.eval()
-
-    self_loop = SelfLoop()
-    add_seg = AddSegId()
-
-    molgnet_dict: dict[Any, torch.Tensor] = {}
-    with torch.no_grad():
-        for idx, graph in tqdm(graph_dict.items(), desc="running model"):
-            try:
-                g = self_loop(graph)
-                g = add_seg(g)
-                g = g.to(device)
-                emb = model(g)
-                molgnet_dict[idx] = emb.cpu()
-            except Exception as e:
-                print(f"Inference failed for {idx}: {e}")
-
-    with open(out_molg, "wb") as f:
-        pickle.dump(molgnet_dict, f)
-
-    # write per-drug CSVs to {dataset_dir}/DIPK_features/Drugs
-    out_drugs_dir = dataset_dir / "DIPK_features/Drugs"
-    os.makedirs(out_drugs_dir, exist_ok=True)
-    for idx, emb in tqdm(molgnet_dict.items(), desc="writing csvs"):
-        arr = tensor_to_csv_friendly(emb)
-        df_emb = pd.DataFrame(arr)
-        out_path = out_drugs_dir / f"MolGNet_{idx}.csv"
-        df_emb.to_csv(out_path, sep="\t", index=False)
-
-    print("Done.")
-    print("Graphs saved to:", out_graphs)
-    print("Node embeddings saved to:", out_molg)
-    print("Per-drug CSVs in:", out_drugs_dir)
+    run_molgnet_pipeline(args)
 
 
 def parse_args() -> argparse.Namespace:

@@ -63,3 +63,9 @@ repos:
     rev: v5.0.0
     hooks:
       - id: trailing-whitespace
+  - repo: https://github.com/rohaquinlop/complexipy-pre-commit
+    rev: v6.2.0
+    hooks:
+      - id: complexipy
+        types_or: [python, pyi]
+        files: ^drevalpy/

@@ -5,11 +5,13 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-import yaml
-
 from drevalpy.models.config import ModelConfig
-from drevalpy.models.config_io import model_config_from_dict, model_config_from_yaml
+from drevalpy.models.config_io import model_config_from_yaml
 from drevalpy.models.flat_hyperparameters import apply_public_flat_hyperparameters
+from drevalpy.models.zoo._external_load import (
+    _collect_zoo_entries_from_yaml,
+    _load_zoo_yaml_mapping,
+)
 from drevalpy.types.model_scope import ModelScope
 
 _BUILTIN_ZOO_DIR = Path(__file__).resolve().parent
@@ -99,48 +101,8 @@ def load_external_zoo_file(path: Path | str) -> list[str]:
     Validates the complete file before mutating global external zoo state.
     """
     yaml_path = Path(path)
-    if not yaml_path.is_file():
-        msg = f"External zoo YAML not found: {yaml_path}"
-        raise FileNotFoundError(msg)
-    with yaml_path.open(encoding="utf-8") as handle:
-        data = yaml.safe_load(handle)
-    if not isinstance(data, dict):
-        msg = f"External zoo YAML must contain a mapping: {yaml_path}"
-        raise ValueError(msg)
-
-    parsed: list[tuple[str, ModelConfig]] = []
-    if "predictor" in data:
-        payload = dict(data)
-        entry_name = str(payload.pop("name", yaml_path.stem))
-        try:
-            config = model_config_from_dict(payload, source=yaml_path)
-            config.validate()
-        except ValueError as exc:
-            msg = f"Invalid zoo entry {entry_name!r} in {yaml_path}: {exc}"
-            raise ValueError(msg) from exc
-        if entry_name in _BUILTIN_ZOO_NAMES:
-            msg = f"External zoo entry {entry_name!r} collides with a built-in preset"
-            raise ValueError(msg)
-        parsed.append((entry_name, config))
-    else:
-        for entry_name, entry_data in data.items():
-            if not isinstance(entry_data, dict):
-                msg = f"Zoo entry '{entry_name}' must be a mapping in {yaml_path}"
-                raise ValueError(msg)
-            payload = dict(entry_data)
-            payload.pop("name", None)
-            name = str(entry_name)
-            try:
-                config = model_config_from_dict(payload, source=yaml_path)
-                config.validate()
-            except ValueError as exc:
-                msg = f"Invalid zoo entry {name!r} in {yaml_path}: {exc}"
-                raise ValueError(msg) from exc
-            if name in _BUILTIN_ZOO_NAMES:
-                msg = f"External zoo entry {name!r} collides with a built-in preset"
-                raise ValueError(msg)
-            parsed.append((name, config))
-
+    data = _load_zoo_yaml_mapping(yaml_path)
+    parsed = _collect_zoo_entries_from_yaml(data, source=yaml_path, builtin_names=_BUILTIN_ZOO_NAMES)
     for entry_name, config in parsed:
         _EXTERNAL_ZOO[entry_name] = _clone_model_config(config)
     return [entry_name for entry_name, _ in parsed]

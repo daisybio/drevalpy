@@ -22,6 +22,47 @@ def _featurizer_space_keys(featurizer: FeaturizerConfig, registry: str) -> set[s
     return set(cls.get_hyperparameter_space())
 
 
+def _is_exportable_space_flat_key(registry: str, featurizer_name: str, key: str, flat: dict[str, Any]) -> bool:
+    if key in {"featurizers", "view", "views"}:
+        return False
+    if "." in key or key.startswith(("featurizer.", "predictor.")):
+        return False
+    if (registry, featurizer_name) in _LEGACY_FEATURIZER_FLAT_KEYS:
+        return False
+    return key not in flat
+
+
+def _append_legacy_component_flat_keys(
+    flat: dict[str, Any],
+    featurizer: FeaturizerConfig,
+    registry: str,
+) -> None:
+    mapping = _LEGACY_FEATURIZER_FLAT_KEYS.get((registry, featurizer.name), {})
+    for component_key, flat_key in mapping.items():
+        if component_key in featurizer.hyperparameters:
+            flat[flat_key] = featurizer.hyperparameters[component_key]
+
+
+def _append_methylation_pca_flat_aliases(flat: dict[str, Any], featurizer: FeaturizerConfig) -> None:
+    if featurizer.name == "pca" and featurizer.view == "methylation" and "n_components" in featurizer.hyperparameters:
+        flat["methylation_n_components"] = featurizer.hyperparameters["n_components"]
+        flat.setdefault("methylation_pca_components", featurizer.hyperparameters["n_components"])
+
+
+def _append_hyperparameter_space_flat_keys(
+    flat: dict[str, Any],
+    featurizer: FeaturizerConfig,
+    registry: str,
+) -> None:
+    space_keys = _featurizer_space_keys(featurizer, registry)
+    for key, value in featurizer.hyperparameters.items():
+        if key not in space_keys:
+            continue
+        if not _is_exportable_space_flat_key(registry, featurizer.name, key, flat):
+            continue
+        flat.setdefault(key, value)
+
+
 def append_featurizer_flat_keys(
     flat: dict[str, Any],
     featurizer: FeaturizerConfig | None,
@@ -41,28 +82,7 @@ def append_featurizer_flat_keys(
             )
             append_featurizer_flat_keys(flat, child_cfg, registry)
         return
-    mapping = _LEGACY_FEATURIZER_FLAT_KEYS.get((registry, featurizer.name), {})
-    for component_key, flat_key in mapping.items():
-        if component_key in featurizer.hyperparameters:
-            flat[flat_key] = featurizer.hyperparameters[component_key]
-    if (
-        registry == "cell_line"
-        and featurizer.name == "pca"
-        and featurizer.view == "methylation"
-        and "n_components" in featurizer.hyperparameters
-    ):
-        flat["methylation_n_components"] = featurizer.hyperparameters["n_components"]
-        flat.setdefault("methylation_pca_components", featurizer.hyperparameters["n_components"])
-    space_keys = _featurizer_space_keys(featurizer, registry)
-    for key, value in featurizer.hyperparameters.items():
-        if key not in space_keys:
-            continue
-        if key in {"featurizers", "view", "views"}:
-            continue
-        if "." in key or key.startswith(("featurizer.", "predictor.")):
-            continue
-        if (
-            registry,
-            featurizer.name,
-        ) not in _LEGACY_FEATURIZER_FLAT_KEYS and key not in flat:
-            flat.setdefault(key, value)
+    _append_legacy_component_flat_keys(flat, featurizer, registry)
+    if registry == "cell_line":
+        _append_methylation_pca_flat_aliases(flat, featurizer)
+    _append_hyperparameter_space_flat_keys(flat, featurizer, registry)

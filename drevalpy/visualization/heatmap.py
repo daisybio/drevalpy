@@ -2,7 +2,6 @@
 
 import numpy as np
 import pandas as pd
-import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 from .vioheat import VioHeat
@@ -103,87 +102,9 @@ class Heatmap(VioHeat):
         :param plot_setting: Either  "r2", "correlations", "errors", or "ssmd"
         :raises ValueError: If an unknown plot setting is given
         """
-        idx_split = self.df.index.to_series().str.split("_")
-        setting = idx_split.str[0:3].str.join("_")
-        if plot_setting.startswith("ssmd_"):
-            metric_name = plot_setting.split("_")[1]  # Extract metric name (e.g., "ssmd_r2" → "r2")
-            dt = self._compute_ssmd(metric_name)
-            dt["sort_key"] = dt.max(axis=1)
-            dt = dt.sort_values(by="sort_key", ascending=True).drop(columns=["sort_key"])
-            dt = dt[dt.index]  # Ensure columns match sorted rows
+        from .heatmap_subplots import add_heatmap_subplot
 
-            if dt.empty:
-                print(f"Warning: SSMD heatmap for {metric_name} is empty. Skipping.")
-                return
-            row_idx = self.plot_settings.index(plot_setting) + 1
-
-            colorscale = "RdBu"
-            text_labels = dt.round(3).astype(str)
-        else:
-            dt_std_errs = self.df.groupby(setting).apply(lambda x: self._calc_summary_metric(x, std_error=True))
-
-            if plot_setting == "r2":
-                r2_columns = [col for col in self.df.columns if "R^2" in col]
-
-                dt = self.df[r2_columns].groupby(setting).apply(lambda x: self._calc_summary_metric(x))
-                dt = dt.sort_values(by=r2_columns[0], ascending=True)
-                dt_std_errs = dt_std_errs[r2_columns]
-                dt_std_errs = dt_std_errs.loc[dt.index]
-
-                row_idx = 1
-                colorscale = "Blues"
-            elif plot_setting == "correlations":
-                corr_columns = [
-                    col for col in self.df.columns if "Pearson" in col or "Spearman" in col or "Kendall" in col
-                ]
-                dt = self.df[corr_columns].groupby(setting).apply(lambda x: self._calc_summary_metric(x))
-                dt = dt.sort_values(by=corr_columns[0], ascending=True)
-                dt_std_errs = dt_std_errs[corr_columns]
-                dt_std_errs = dt_std_errs.loc[dt.index]
-
-                row_idx = 2
-                colorscale = "Viridis"
-            elif plot_setting == "errors":
-                error_columns = [col for col in self.df.columns if col in ["MSE", "RMSE", "MAE"]]
-                if not error_columns:
-                    print("Warning: No error metric columns found. Skipping error heatmap.")
-                    return
-                dt = self.df[error_columns].groupby(setting).apply(lambda x: self._calc_summary_metric(x))
-                dt = dt.sort_values(by=error_columns[0], ascending=False)
-                dt_std_errs = dt_std_errs[error_columns]
-                dt_std_errs = dt_std_errs.loc[dt.index]
-
-                row_idx = 3
-                colorscale = "hot"
-            else:
-                raise ValueError(f"Unknown plot setting: {plot_setting}")
-            text_labels = dt.round(3).astype(str) + " ± " + dt_std_errs.round(3).astype(str)
-
-        labels = [i.replace("_", " ") if self.whole_name else i.split("_")[0] for i in dt.index]
-        self.fig.add_trace(
-            go.Heatmap(
-                z=dt.values,
-                x=dt.columns,
-                y=labels,
-                colorscale=colorscale,
-                texttemplate="%{text}",
-                text=text_labels,
-                textfont={"size": 16},  # size of labels of pixels of the heatmap
-            ),
-            row=row_idx,
-            col=1,
-        )
-
-        # Force all y-ticks to be displayed
-        self.fig.update_yaxes(
-            row=row_idx,
-            col=1,
-            tickmode="array",
-            tickvals=list(range(len(dt.index))),  # Force showing all ticks
-            ticktext=labels,
-            automargin=True,  # Prevent cutoff
-            tickfont=dict(size=15),  # Adjust text size
-        )
+        add_heatmap_subplot(self, plot_setting)
 
     def _compute_ssmd(self, metric: str) -> pd.DataFrame:
         """

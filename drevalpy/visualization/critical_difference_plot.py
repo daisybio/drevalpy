@@ -25,7 +25,7 @@ This method performs the following steps:
 import pathlib
 import warnings
 from io import TextIOWrapper
-from typing import Optional, Union
+from typing import Optional
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -33,13 +33,10 @@ import numpy as np
 import pandas as pd
 import plotly.colors as pc
 import scikit_posthocs as sp
-from matplotlib import pyplot
-from matplotlib.axes import Axes
-from pandas import DataFrame, Series
-from scikit_posthocs import sign_array
 from scipy import stats
 
 from ..evaluation import MINIMIZATION_METRICS
+from .critical_difference_layout import critical_difference_diagram as _critical_difference_diagram
 from .outplot import OutPlot
 
 matplotlib.use("agg")
@@ -176,222 +173,6 @@ class CriticalDifferencePlot(OutPlot):
             for line in conover_results:
                 f.write(line)
         return f
-
-
-def _critical_difference_diagram(
-    ranks: Union[dict, Series],
-    sig_matrix: DataFrame,
-    *,
-    color_palette: dict,
-    ax: Optional[Axes] = None,
-    label_fmt_left: str = "{label} ({rank:.2g})",
-    label_fmt_right: str = "({rank:.2g}) {label}",
-    label_props: Optional[dict] = None,
-    marker_props: Optional[dict] = None,
-    elbow_props: Optional[dict] = None,
-    crossbar_props: Optional[dict] = None,
-    text_h_margin: float = 0.01,
-    left_only: bool = False,
-) -> dict[str, list]:
-    """
-    Plot a Critical Difference diagram from ranks and post-hoc results.
-
-    :param ranks : dict or Series
-        Indicates the rank value for each sample or estimator (as keys or index).
-
-    :param sig_matrix : DataFrame
-        The corresponding p-value matrix outputted by post-hoc tests, with
-        indices matching the labels in the ranks argument.
-
-    :param ax : matplotlib.SubplotBase, optional
-        The object in which the plot will be built. Gets the current Axes
-        by default (if None is passed).
-
-    :param label_fmt_left : str, optional
-        The format string to apply to the labels on the left side. The keywords
-        label and rank can be used to specify the sample/estimator name and
-        rank value, respectively, by default '{label} ({rank:.2g})'.
-
-    :param label_fmt_right : str, optional
-        The same, but for the labels on the right side of the plot.
-        By default '({rank:.2g}) {label}'.
-
-    :param label_props : dict, optional
-        Parameters to be passed to pyplot.text() when creating the labels,
-        by default None.
-
-    :param marker_props : dict, optional
-        Parameters to be passed to pyplot.scatter() when plotting the rank
-        markers on the axis, by default None.
-
-    :param elbow_props : dict, optional
-        Parameters to be passed to pyplot.plot() when creating the elbow lines,
-        by default None.
-
-    :param crossbar_props : dict, optional
-        Parameters to be passed to pyplot.plot() when creating the crossbars
-        that indicate lack of statistically significant difference. By default
-        None.
-
-    :param color_palette: dict
-        Parameters to be passed when you need specific colors for each category
-
-    :param text_h_margin : float, optional
-        Space between the text labels and the nearest vertical line of an
-        elbow, by default 0.01.
-
-    :param left_only: boolean, optional
-        Set all labels in a single left-sided block instead of splitting them
-        into two block, one for the left and one for the right.
-    :raises ValueError: If the color_palette keys are not consistent with the ranks.
-    :returns: dict
-    """
-    # check color_palette consistency
-    if isinstance(color_palette, dict) and ((len(set(ranks.keys()) & set(color_palette.keys()))) == len(ranks)):
-        pass
-    elif isinstance(color_palette, list) and (len(ranks) <= len(color_palette)):
-        pass
-    else:
-        raise ValueError("color_palette keys are not consistent, or list size too small")
-
-    elbow_props = elbow_props or {}
-    marker_props = {"zorder": 3, **(marker_props or {})}
-    label_props = {"va": "center", "fontsize": 16, "weight": "heavy", **(label_props or {})}
-    crossbar_props = {
-        "color": "k",
-        "zorder": 3,
-        "linewidth": 4,
-        **(crossbar_props or {}),
-    }
-
-    ax = ax or pyplot.gca()
-    ax.yaxis.set_visible(False)
-    ax.spines["right"].set_visible(False)
-    ax.spines["left"].set_visible(False)
-    ax.spines["bottom"].set_visible(False)
-    ax.xaxis.set_ticks_position("top")
-    ax.spines["top"].set_position("zero")
-
-    # lists of artists to be returned
-    markers = []
-    elbows = []
-    labels = []
-    crossbars = []
-
-    # True if pairwise comparison is NOT significant
-    adj_matrix = DataFrame(
-        1 - sign_array(sig_matrix),
-        index=sig_matrix.index,
-        columns=sig_matrix.columns,
-        dtype=bool,
-    )
-
-    ranks = Series(ranks).sort_values()  # Standardize if ranks is dict
-    if left_only:
-        points_left = ranks
-    else:
-        left_points = len(ranks) // 2
-        points_left, points_right = (
-            ranks.iloc[:left_points],
-            ranks.iloc[left_points:],
-        )
-
-    # for each algorithm: get the set of algorithms that are not significantly different
-    crossbar_sets = dict()
-    for alg, row in adj_matrix.iterrows():
-        not_different = adj_matrix.columns[row].tolist()
-        crossbar_sets[alg] = set(not_different).union({alg})
-
-    # Create stacking of crossbars: make a crossbar of the fitting color for each algorithm
-    crossbar_levels: list[list[set]] = []
-    ypos = -0.5
-    for alg in ranks.index:
-        bar = crossbar_sets[alg]
-        not_different = crossbar_sets[alg]
-        if len(not_different) == 1:
-            continue
-        crossbar_levels.append([bar])
-
-        crossbar_props["color"] = color_palette[alg]
-        crossbars.append(
-            ax.plot(
-                # Adding a separate line between each pair enables showing a
-                # marker over each elbow with crossbar_props={'marker': 'o'}.
-                [ranks[i] for i in bar],
-                [ypos] * len(bar),
-                **crossbar_props,
-            )
-        )
-        ypos -= 0.5
-
-    lowest_crossbar_ypos = ypos
-
-    def plot_items(points, xpos, label_fmt, color_palette, label_props):
-        """
-        Plot each marker + elbow + label.
-
-        :param points: the points to plot
-        :param xpos: the x position of the points
-        :param label_fmt: the format of the label
-        :param color_palette: the color palette to use
-        :param label_props: the label properties
-        """
-        ypos = lowest_crossbar_ypos - 0.5
-        for idx, (label, rank) in enumerate(points.items()):
-            if not color_palette or len(color_palette) == 0:
-                elbow, *_ = ax.plot(
-                    [xpos, rank, rank],
-                    [ypos, ypos, 0],
-                    **elbow_props,
-                )
-            else:
-                elbow, *_ = ax.plot(
-                    [xpos, rank, rank],
-                    [ypos, ypos, 0],
-                    c=color_palette[label] if isinstance(color_palette, dict) else color_palette[idx],
-                    **elbow_props,
-                )
-
-            elbows.append(elbow)
-            curr_color = elbow.get_color()
-            markers.append(ax.scatter(rank, 0, **{"color": curr_color, **marker_props}))
-            labels.append(
-                ax.text(
-                    xpos,
-                    ypos,
-                    label_fmt.format(label=label, rank=rank),
-                    color=curr_color,
-                    **label_props,
-                )
-            )
-            ypos -= 0.5
-
-    plot_items(
-        points_left,
-        xpos=points_left.iloc[0] - text_h_margin,
-        label_fmt=label_fmt_left,
-        color_palette=color_palette,
-        label_props={
-            "ha": "right",
-            **label_props,
-        },
-    )
-
-    if not left_only:
-        plot_items(
-            points_right[::-1],
-            xpos=points_right.iloc[-1] + text_h_margin,
-            label_fmt=label_fmt_right,
-            color_palette=color_palette,
-            label_props={"ha": "left", **label_props},
-        )
-
-    return {
-        "markers": markers,
-        "elbows": elbows,
-        "labels": labels,
-        "crossbars": crossbars,
-    }
 
 
 def _generate_discrete_palette(n_colors):

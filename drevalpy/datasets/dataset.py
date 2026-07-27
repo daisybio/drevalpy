@@ -509,44 +509,10 @@ class DrugResponseDataset:
         :param path: path to the directory containing the cv split files
         :raises AssertionError: if no cv split files are found in path
         """
-        files = os.listdir(path)
-        files = [file for file in files if (file.endswith(".csv") and file.startswith("cv_split"))]
-        if len(files) == 0:
-            raise AssertionError(f"No cv split files found in {path}")
+        from .cv_splits_load import load_cv_splits_from_dir
 
-        train_splits = [file for file in files if "train" in file]
-        test_splits = [file for file in files if "test" in file]
-
-        validation_es_splits = [file for file in files if "validation_es" in file]
-        validation_splits = [file for file in files if "validation" in file and file not in validation_es_splits]
-        early_stopping_splits = [file for file in files if "early_stopping" in file]
-
-        for ds in [
-            train_splits,
-            test_splits,
-            validation_splits,
-            validation_es_splits,
-            early_stopping_splits,
-        ]:
-            ds.sort()
-
-        optional_splits = {
-            "validation": validation_splits,
-            "validation_es": validation_es_splits,
-            "early_stopping": early_stopping_splits,
-        }
         self._cv_splits.clear()
-
-        for split_train, split_test in zip(train_splits, test_splits, strict=True):
-            tr_split = DrugResponseDataset.from_csv(os.path.join(path, split_train), dataset_name=self.dataset_name)
-            te_split = DrugResponseDataset.from_csv(os.path.join(path, split_test), dataset_name=self.dataset_name)
-            self._cv_splits.append({"train": tr_split, "test": te_split})
-
-        for mode in ["validation", "validation_es", "early_stopping"]:
-            if len(optional_splits[mode]) > 0:
-                for i, v_split in enumerate(optional_splits[mode]):
-                    split = DrugResponseDataset.from_csv(os.path.join(path, v_split), dataset_name=self.dataset_name)
-                    self._cv_splits[i][mode] = split
+        self._cv_splits.extend(load_cv_splits_from_dir(path, self.dataset_name))
 
     def copy(self):
         """Returns a copy of the drug response dataset.
@@ -968,27 +934,9 @@ class FeatureDataset:
         :param id_column: Name of the column containing the identifiers.
         :param view_name: Name of the view.
         """
-        data = []
-        feature_names = None
+        from .feature_dataset_csv import feature_dataset_to_csv
 
-        for identifier, feature_dict in self.features.items():
-            vector = feature_dict.get(view_name)
-            if vector is None:
-                raise ValueError(f"View {view_name!r} not found for identifier {identifier!r}.")
-
-            if feature_names is None:
-                meta_names = self.meta_info.get(view_name)
-                if isinstance(meta_names, list) and len(meta_names) == len(vector):
-                    feature_names = meta_names
-                else:
-                    feature_names = [f"feature_{i}" for i in range(len(vector))]
-
-            row = {id_column: identifier}
-            row.update({name: value for name, value in zip(feature_names, vector)})
-            data.append(row)
-
-        df = pd.DataFrame(data)
-        df.to_csv(path, index=False)
+        feature_dataset_to_csv(self, path, id_column, view_name)
 
     @property
     def meta_info(self) -> dict[str, Any]:

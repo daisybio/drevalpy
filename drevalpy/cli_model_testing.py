@@ -13,7 +13,7 @@ import yaml
 def _prep_data_for_final_prediction(arguments: Namespace) -> tuple[Any, Any, Any, Any, Any, Any, Any]:
     """Load data and prepare it for final CV-fold training and prediction."""
     from drevalpy.experiment import get_model_name_and_drug_id
-    from drevalpy.experiment_fold import early_stopping_for_model, prepare_final_fold_training_data
+    from drevalpy.experiment.fold import early_stopping_for_model, prepare_final_fold_training_data
     from drevalpy.models._model_lookup import get_model_class
     from drevalpy.utils import get_response_transformation
 
@@ -365,7 +365,7 @@ def run_consolidate_results(
 ) -> None:
     """Consolidate single-drug model prediction outputs."""
     from drevalpy.experiment import consolidate_single_drug_model_predictions
-    from drevalpy.experiment_paths import consolidate_results_path
+    from drevalpy.experiment.paths import consolidate_results_path
     from drevalpy.models._model_lookup import get_model_class
 
     if dataset_name is None:

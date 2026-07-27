@@ -1,0 +1,67 @@
+"""Load cross-validation split CSV files into a DrugResponseDataset."""
+
+from __future__ import annotations
+
+import os
+
+from .dataset import DrugResponseDataset
+
+
+def _list_cv_split_files(path: str) -> list[str]:
+    files = [file for file in os.listdir(path) if file.endswith(".csv") and file.startswith("cv_split")]
+    if not files:
+        raise AssertionError(f"No cv split files found in {path}")
+    return files
+
+
+def _partition_split_filenames(files: list[str]) -> dict[str, list[str]]:
+    validation_es_splits = [file for file in files if "validation_es" in file]
+    validation_splits = [file for file in files if "validation" in file and file not in validation_es_splits]
+    partitions = {
+        "train": [file for file in files if "train" in file],
+        "test": [file for file in files if "test" in file],
+        "validation": validation_splits,
+        "validation_es": validation_es_splits,
+        "early_stopping": [file for file in files if "early_stopping" in file],
+    }
+    for names in partitions.values():
+        names.sort()
+    return partitions
+
+
+def _load_train_test_splits(
+    path: str,
+    dataset_name: str,
+    train_splits: list[str],
+    test_splits: list[str],
+) -> list[dict[str, DrugResponseDataset]]:
+    cv_splits: list[dict[str, DrugResponseDataset]] = []
+    for split_train, split_test in zip(train_splits, test_splits, strict=True):
+        tr_split = DrugResponseDataset.from_csv(os.path.join(path, split_train), dataset_name=dataset_name)
+        te_split = DrugResponseDataset.from_csv(os.path.join(path, split_test), dataset_name=dataset_name)
+        cv_splits.append({"train": tr_split, "test": te_split})
+    return cv_splits
+
+
+def _attach_optional_split_modes(
+    path: str,
+    dataset_name: str,
+    cv_splits: list[dict[str, DrugResponseDataset]],
+    optional_splits: dict[str, list[str]],
+) -> None:
+    for mode, filenames in optional_splits.items():
+        if not filenames:
+            continue
+        for i, filename in enumerate(filenames):
+            split = DrugResponseDataset.from_csv(os.path.join(path, filename), dataset_name=dataset_name)
+            cv_splits[i][mode] = split
+
+
+def load_cv_splits_from_dir(path: str, dataset_name: str) -> list[dict[str, DrugResponseDataset]]:
+    """Load train/test and optional validation splits from a split directory."""
+    files = _list_cv_split_files(path)
+    partitions = _partition_split_filenames(files)
+    cv_splits = _load_train_test_splits(path, dataset_name, partitions["train"], partitions["test"])
+    optional = {key: partitions[key] for key in ("validation", "validation_es", "early_stopping")}
+    _attach_optional_split_modes(path, dataset_name, cv_splits, optional)
+    return cv_splits

@@ -153,7 +153,7 @@ class LandmarkGenesFeaturizer(CellLineFeaturizer):
             "fitted": True,
         }
 
-    def set_state(self, state: dict[str, object]) -> None:
+    def _restore_landmark_identity(self, state: dict[str, object]) -> None:
         view = state.get("view")
         if isinstance(view, str):
             self._view = view
@@ -167,6 +167,8 @@ class LandmarkGenesFeaturizer(CellLineFeaturizer):
         data_path = state.get("data_path")
         if isinstance(data_path, str) or data_path is None:
             self._data_path = data_path
+
+    def _restore_landmark_fit_state(self, state: dict[str, object]) -> None:
         gene_indices = state.get("gene_indices")
         if isinstance(gene_indices, list):
             self._gene_indices = [int(index) for index in gene_indices]
@@ -183,6 +185,10 @@ class LandmarkGenesFeaturizer(CellLineFeaturizer):
             self._output_dim = len(self._gene_indices)
         if state.get("fitted"):
             self._is_fitted = True
+
+    def set_state(self, state: dict[str, object]) -> None:
+        self._restore_landmark_identity(state)
+        self._restore_landmark_fit_state(state)
 
 
 @register_cell_line_featurizer(

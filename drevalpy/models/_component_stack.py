@@ -119,6 +119,73 @@ class _ComponentStack:
             training_context=training_context,
         )
 
+    def _require_drug_input(self, drug_input: FeatureDataset | None) -> FeatureDataset:
+        drug_source = drug_input if drug_input is not None else _empty_feature_dataset()
+        if drug_input is None and not _entity_id_only_featurizer(self._drug_featurizer):
+            msg = "drug_input is required when a drug featurizer is configured"
+            raise ValueError(msg)
+        return drug_source
+
+    def _fit_transform_featurizer(
+        self,
+        featurizer: Featurizer,
+        source: FeatureDataset,
+        *,
+        train_entity_ids: np.ndarray,
+        feature_input: FeatureDataset | None,
+        entity_id_only_ids: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        featurizer.fit(source, entity_ids=train_entity_ids)
+        if _entity_id_only_featurizer(featurizer):
+            entity_ids = np.asarray(entity_id_only_ids, dtype=str)
+        elif feature_input is not None:
+            entity_ids = np.array(list(feature_input.features.keys()), dtype=str)
+        else:
+            entity_ids = np.asarray(train_entity_ids, dtype=str)
+        matrix = featurizer.transform(source, entity_ids)
+        return entity_ids, matrix
+
+    def _train_cell_line_side(
+        self,
+        output: DrugResponseDataset,
+        cell_line_input: FeatureDataset,
+    ) -> None:
+        if self._cell_line_featurizer is None:
+            self._cell_line_entity_ids = np.array([], dtype=str)
+            self._cell_line_matrix = np.empty((0, 0), dtype=np.float32)
+            return
+        train_cell_lines = unique_entity_ids(output.cell_line_ids)
+        entity_ids, matrix = self._fit_transform_featurizer(
+            self._cell_line_featurizer,
+            cell_line_input,
+            train_entity_ids=train_cell_lines,
+            feature_input=cell_line_input,
+            entity_id_only_ids=train_cell_lines,
+        )
+        self._cell_line_entity_ids = entity_ids
+        self._cell_line_matrix = matrix
+
+    def _train_drug_side(
+        self,
+        output: DrugResponseDataset,
+        drug_input: FeatureDataset | None,
+    ) -> None:
+        if self._drug_featurizer is None:
+            self._drug_entity_ids = np.array([], dtype=str)
+            self._drug_matrix = np.empty((0, 0), dtype=np.float32)
+            return
+        train_drugs = unique_entity_ids(output.drug_ids)
+        drug_source = self._require_drug_input(drug_input)
+        entity_ids, matrix = self._fit_transform_featurizer(
+            self._drug_featurizer,
+            drug_source,
+            train_entity_ids=train_drugs,
+            feature_input=drug_input,
+            entity_id_only_ids=train_drugs,
+        )
+        self._drug_entity_ids = entity_ids
+        self._drug_matrix = matrix
+
     def train(
         self,
         output: DrugResponseDataset,
@@ -131,40 +198,8 @@ class _ComponentStack:
         if len(output) == 0:
             return self
 
-        train_cell_lines = unique_entity_ids(output.cell_line_ids)
-        train_drugs = unique_entity_ids(output.drug_ids)
-
-        if self._cell_line_featurizer is not None:
-            cl_source = cell_line_input
-            self._cell_line_featurizer.fit(cl_source, entity_ids=train_cell_lines)
-            if _entity_id_only_featurizer(self._cell_line_featurizer):
-                self._cell_line_entity_ids = np.asarray(train_cell_lines, dtype=str)
-            else:
-                self._cell_line_entity_ids = np.array(list(cell_line_input.features.keys()), dtype=str)
-            self._cell_line_matrix = self._cell_line_featurizer.transform(cl_source, self._cell_line_entity_ids)
-        else:
-            self._cell_line_entity_ids = np.array([], dtype=str)
-            self._cell_line_matrix = np.empty((0, 0), dtype=np.float32)
-
-        if self._drug_featurizer is not None:
-            drug_source = drug_input if drug_input is not None else _empty_feature_dataset()
-            if drug_input is None and not _entity_id_only_featurizer(self._drug_featurizer):
-                msg = "drug_input is required when a drug featurizer is configured"
-                raise ValueError(msg)
-            self._drug_featurizer.fit(drug_source, entity_ids=train_drugs)
-            if _entity_id_only_featurizer(self._drug_featurizer):
-                self._drug_entity_ids = np.asarray(train_drugs, dtype=str)
-            elif drug_input is not None:
-                self._drug_entity_ids = np.array(list(drug_input.features.keys()), dtype=str)
-            else:
-                self._drug_entity_ids = np.asarray(train_drugs, dtype=str)
-            self._drug_matrix = self._drug_featurizer.transform(
-                drug_source,
-                self._drug_entity_ids,
-            )
-        else:
-            self._drug_entity_ids = np.array([], dtype=str)
-            self._drug_matrix = np.empty((0, 0), dtype=np.float32)
+        self._train_cell_line_side(output, cell_line_input)
+        self._train_drug_side(output, drug_input)
 
         batch = self._build_batch(
             output,

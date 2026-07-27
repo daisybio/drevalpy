@@ -24,6 +24,50 @@ from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from .utils import create_index, load_mapping, load_ontology, pairs_in_layers, sort_pairs
 
 
+def _validate_sparse_linear_dimensions(
+    in_features: int, out_features: int, sparsity: float, connectivity: torch.Tensor | None
+) -> None:
+    if not (in_features < 2**31 and out_features < 2**31 and sparsity < 1.0):
+        raise ValueError("in_features and out_features must be < 2^31, sparsity must be < 1.0")
+    if connectivity is None:
+        return
+    if connectivity.shape[0] != 2 or connectivity.shape[1] <= 0:
+        raise ValueError("Input shape for connectivity should be (2, nnz)")
+    if connectivity.shape[1] > in_features * out_features:
+        raise ValueError("Nnz can't be bigger than the weight matrix")
+
+
+def _sparse_connectivity_indices(
+    in_features: int,
+    out_features: int,
+    sparsity: float,
+    connectivity: torch.Tensor | None,
+    device: torch.device,
+) -> tuple[torch.Tensor, int, float]:
+    """Return COO indices, nnz count, and effective sparsity."""
+    if connectivity is None:
+        nnz = round((1.0 - sparsity) * in_features * out_features)
+        if in_features * out_features <= 10**8:
+            idx = np.random.choice(in_features * out_features, nnz, replace=False)
+            indices = torch.as_tensor(idx, device=device)
+            row_ind = indices.floor_divide(in_features)
+            col_ind = indices.fmod(in_features)
+        else:
+            warnings.warn(
+                "Matrix too large to sample non-zero indices without replacement, sparsity will be approximate",
+                RuntimeWarning,
+                stacklevel=3,
+            )
+            row_ind = torch.randint(0, out_features, (nnz,), device=device)
+            col_ind = torch.randint(0, in_features, (nnz,), device=device)
+        stacked = torch.stack((row_ind, col_ind))
+        return stacked, nnz, sparsity
+
+    nnz = connectivity.shape[1]
+    effective_sparsity = nnz / (out_features * in_features)
+    return connectivity.to(device=device), nnz, effective_sparsity
+
+
 class SparseLinearNew(nn.Module):
     """Sparse linear layer with user-defined connectivity.
 
@@ -56,13 +100,7 @@ class SparseLinearNew(nn.Module):
         :param connectivity: LongTensor of shape (2, nnz) specifying non-zero weight positions.
         :raises ValueError: if connectivity has wrong shape or nnz exceeds matrix size.
         """
-        if not (in_features < 2**31 and out_features < 2**31 and sparsity < 1.0):
-            raise ValueError("in_features and out_features must be < 2^31, sparsity must be < 1.0")
-        if connectivity is not None:
-            if connectivity.shape[0] != 2 or connectivity.shape[1] <= 0:
-                raise ValueError("Input shape for connectivity should be (2, nnz)")
-            if connectivity.shape[1] > in_features * out_features:
-                raise ValueError("Nnz can't be bigger than the weight matrix")
+        _validate_sparse_linear_dimensions(in_features, out_features, sparsity, connectivity)
 
         super().__init__()
         self.in_features = in_features
@@ -70,28 +108,10 @@ class SparseLinearNew(nn.Module):
         self.connectivity = connectivity
 
         coalesce_device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-
-        if connectivity is None:
-            self.sparsity = sparsity
-            nnz = round((1.0 - sparsity) * in_features * out_features)
-            if in_features * out_features <= 10**8:
-                idx = np.random.choice(in_features * out_features, nnz, replace=False)
-                indices: torch.Tensor = torch.as_tensor(idx, device=coalesce_device)
-                row_ind = indices.floor_divide(in_features)
-                col_ind = indices.fmod(in_features)
-            else:
-                warnings.warn(
-                    "Matrix too large to sample non-zero indices without replacement, sparsity will be approximate",
-                    RuntimeWarning,
-                    stacklevel=2,
-                )
-                row_ind = torch.randint(0, out_features, (nnz,), device=coalesce_device)
-                col_ind = torch.randint(0, in_features, (nnz,), device=coalesce_device)
-            indices = torch.stack((row_ind, col_ind))
-        else:
-            nnz = connectivity.shape[1]
-            self.sparsity = nnz / (out_features * in_features)
-            indices = connectivity.to(device=coalesce_device)
+        indices, nnz, effective_sparsity = _sparse_connectivity_indices(
+            in_features, out_features, sparsity, connectivity, coalesce_device
+        )
+        self.sparsity = effective_sparsity
 
         values = torch.empty(nnz, device=coalesce_device)
         sparse = torch.sparse_coo_tensor(indices, values, (out_features, in_features)).coalesce()

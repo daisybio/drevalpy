@@ -255,6 +255,10 @@ nextflow run nf-core/drugresponseeval \
     --measure LN_IC50
 ```
 
+## Development
+
+Pre-commit runs [complexipy](https://github.com/rohaquinlop/complexipy) on the `drevalpy/` package with a maximum cognitive complexity of **15** (`[tool.complexipy]` in `pyproject.toml`). Refactors should stay at or below that limit; do not add `# complexipy: ignore` comments or exclude product paths from the hook.
+
 ## Contact
 
 Main developers:

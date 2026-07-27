@@ -41,6 +41,7 @@ from pathlib import Path
 import pandas as pd
 
 from . import AVAILABLE_DATASETS
+from .cellosaurus_parse import parse_cellosaurus
 from .loader import download_dataset
 
 _tissue_synonyms = {
@@ -193,43 +194,6 @@ _tissue_synonyms = {
 }
 
 
-def _parse_cellosaurus(cellosaurus_path: str | Path) -> tuple[dict, dict, dict]:
-    """
-    Parse Cellosaurus file and return mappings from cellosaurus ID to name, site, and disease.
-
-    :param cellosaurus_path: Path to the Cellosaurus text file
-    :return: Tuple of dictionaries (id_to_name, id_to_site, id_to_disease)
-    """
-    id_to_name, id_to_site, id_to_disease = {}, {}, {}
-    cellosaurus_path = str(cellosaurus_path)
-    with open(cellosaurus_path, encoding="utf-8") as f:
-        current_ids, current_name, site, disease = [], None, None, None
-        for line in f:
-            if line.startswith("ID   "):
-                current_name = line.strip().split("   ")[1]
-            elif line.startswith("AC   "):
-                current_ids = [s.strip() for s in line[5:].split(";") if s.strip()]
-            elif line.startswith("CC   Derived from site:"):
-                parts = line.strip().split(":", 1)[1].split(";")
-                if len(parts) >= 2:
-                    site = parts[1].strip()
-            elif line.startswith("DI   ") and current_ids:
-                parts = line[5:].split(";")
-                if len(parts) >= 3:
-                    disease = parts[2].strip()
-            elif line.strip() == "//":
-                for cid in current_ids:
-                    if current_name:
-                        id_to_name[cid] = current_name
-                    if site:
-                        id_to_site[cid] = site
-                    if disease:
-                        id_to_disease[cid] = disease
-                current_ids, current_name, site, disease = [], None, None, None
-
-    return id_to_name, id_to_site, id_to_disease
-
-
 def _apply_manual_cell_line_corrections(tissue_map: pd.Series) -> pd.Series:
     """Apply manual tissue corrections for misclassified or ambiguous cell lines with documented sources.
 
@@ -354,7 +318,7 @@ def main():
         urllib.request.urlretrieve(url, cellosaurus_path)  # noqa-S310
 
     # Parse Cellosaurus
-    id_to_name, id_to_site, id_to_disease = _parse_cellosaurus(cellosaurus_path)
+    id_to_name, id_to_site, id_to_disease = parse_cellosaurus(cellosaurus_path)
 
     # Build Cellosaurus DataFrame
     df_cellosaurus = pd.DataFrame(

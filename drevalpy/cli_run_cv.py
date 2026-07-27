@@ -124,7 +124,7 @@ def run_train_and_predict_cv(
 ) -> None:
     """Train on a CV split and pickle validation predictions."""
     from drevalpy.experiment import get_model_name_and_drug_id, train_and_predict
-    from drevalpy.experiment_fold import get_datasets_from_cv_split
+    from drevalpy.experiment.fold import get_datasets_from_cv_split
     from drevalpy.models._model_lookup import get_model_class
     from drevalpy.utils import get_response_transformation
 

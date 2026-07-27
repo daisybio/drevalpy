@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+import numpy as np
+
 from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.models._model_lookup import is_single_drug_model_name
 from drevalpy.models.drp_model import DRPModel
@@ -27,7 +29,12 @@ def get_datasets_from_cv_split(
     model_class: type[DRPModel],
     model_name: str,
     drug_id: str | None = None,
-) -> tuple[DrugResponseDataset, DrugResponseDataset, DrugResponseDataset | None, DrugResponseDataset]:
+) -> tuple[
+    DrugResponseDataset,
+    DrugResponseDataset,
+    DrugResponseDataset | None,
+    DrugResponseDataset,
+]:
     """
     Get train, validation, (early stopping), and test datasets from the CV split.
 
@@ -146,3 +153,44 @@ def early_stopping_for_model(
     else:
         supports = bool(getattr(model_or_class, "early_stopping", False))
     return early_stopping_dataset if supports else None
+
+
+def make_train_val_split_impl(
+    dataset: DrugResponseDataset,
+    test_mode: str,
+    val_ratio: float = 0.1,
+    random_state: int = 42,
+) -> tuple[DrugResponseDataset, DrugResponseDataset]:
+    """
+    Split a dataset into train and validation sets according to the test mode and desired ratio.
+
+    :param dataset: full dataset to split
+    :param test_mode: one of "LPO", "LCO", "LDO", "LTO"
+    :param val_ratio: approximate fraction of data to use for validation
+    :param random_state: random seed
+    :returns: (train_dataset, validation_dataset)
+    :raises ValueError: if no tissue information is provided for the DrugResponseDataset
+    """
+    if test_mode == "LTO":
+        if dataset.tissue is not None:
+            n_groups = len(np.unique(dataset.tissue))
+        else:
+            raise ValueError("Tissue information is missing but required for LTO mode.")
+    elif test_mode == "LCO":
+        n_groups = len(np.unique(dataset.cell_line_ids))
+    elif test_mode == "LDO":
+        n_groups = len(np.unique(dataset.drug_ids))
+    else:
+        n_groups = len(dataset)
+
+    n_splits = int(1 / val_ratio)
+    n_splits = min(n_splits, n_groups)
+
+    split = dataset.split_dataset(
+        n_cv_splits=n_splits,
+        mode=test_mode,
+        split_validation=False,
+        random_state=random_state,
+    )[0]
+
+    return split["train"], split["test"]

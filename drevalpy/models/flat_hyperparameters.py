@@ -6,7 +6,7 @@ import logging
 from collections.abc import Iterator
 from typing import Any
 
-from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
+from drevalpy.components.featurizer_tree import iter_featurizer_leaves, map_featurizer_tree
 from drevalpy.components.registry import get_cell_line_featurizer, get_drug_featurizer, get_predictor
 from drevalpy.models.config import FeaturizerConfig, ModelConfig
 from drevalpy.models.featurizer_mapping import (
@@ -125,18 +125,10 @@ def _walk_featurizer_configs(
     featurizer: FeaturizerConfig,
     registry: str,
 ) -> Iterator[FeaturizerConfig]:
-    if featurizer.name == "concatFeaturizers":
-        for child in featurizer.hyperparameters.get("featurizers", []):
-            child_cfg = FeaturizerConfig.model_validate(
-                normalize_featurizer_config(child, default_registry=registry),
-            )
-            yield from _walk_featurizer_configs(child_cfg, registry)
-        return
-    yield featurizer
+    yield from iter_featurizer_leaves(featurizer, registry)
 
 
-def _apply_flat_featurizer_overrides(config: ModelConfig, flat: dict[str, Any]) -> ModelConfig:
-    result = config.model_copy(deep=True)
+def _legacy_featurizer_flat_reverse_map() -> dict[str, tuple[str, str, str]]:
     reverse_map = {
         flat_key: (registry, featurizer_name, component_key)
         for (registry, featurizer_name), mapping in LEGACY_FEATURIZER_FLAT_KEYS.items()
@@ -144,6 +136,45 @@ def _apply_flat_featurizer_overrides(config: ModelConfig, flat: dict[str, Any]) 
     }
     reverse_map["methylation_n_components"] = ("cell_line", "pca", "n_components")
     reverse_map["methylation_pca_components"] = ("cell_line", "pca", "n_components")
+    return reverse_map
+
+
+def _patch_featurizer_legacy_key(
+    target: FeaturizerConfig,
+    *,
+    registry: str,
+    featurizer_name: str,
+    component_key: str,
+    value: Any,
+) -> FeaturizerConfig:
+    if target.name == featurizer_name:
+        return target.model_copy(
+            update={"hyperparameters": {**target.hyperparameters, component_key: value}},
+            deep=True,
+        )
+    if target.name != "concatFeaturizers":
+        return target
+
+    def _patch_leaf(child: FeaturizerConfig) -> FeaturizerConfig:
+        if child.name == featurizer_name and (featurizer_name != "pca" or child.view == "methylation"):
+            return child.model_copy(
+                update={"hyperparameters": {**child.hyperparameters, component_key: value}},
+                deep=True,
+            )
+        return child
+
+    return map_featurizer_tree(target, registry, _patch_leaf)
+
+
+def _assign_featurizer_on_config(config: ModelConfig, registry: str, featurizer: FeaturizerConfig) -> ModelConfig:
+    if registry == "cell_line":
+        return config.model_copy(update={"cell_line_featurizer": featurizer}, deep=True)
+    return config.model_copy(update={"drug_featurizer": featurizer}, deep=True)
+
+
+def _apply_flat_featurizer_overrides(config: ModelConfig, flat: dict[str, Any]) -> ModelConfig:
+    result = config.model_copy(deep=True)
+    reverse_map = _legacy_featurizer_flat_reverse_map()
     for flat_key, value in flat.items():
         if flat_key in _METHYLATION_FLAT_KEYS:
             result = _apply_pca_methylation_flat_key(result, value)
@@ -155,31 +186,14 @@ def _apply_flat_featurizer_overrides(config: ModelConfig, flat: dict[str, Any]) 
         target = result.cell_line_featurizer if registry == "cell_line" else result.drug_featurizer
         if target is None:
             continue
-        if target.name == featurizer_name:
-            target = target.model_copy(
-                update={"hyperparameters": {**target.hyperparameters, component_key: value}},
-                deep=True,
-            )
-        elif target.name == "concatFeaturizers":
-            children = []
-            for child in target.hyperparameters.get("featurizers", []):
-                child_cfg = FeaturizerConfig.model_validate(
-                    normalize_featurizer_config(child, default_registry=registry),
-                )
-                if child_cfg.name == featurizer_name and (featurizer_name != "pca" or child_cfg.view == "methylation"):
-                    child_cfg = child_cfg.model_copy(
-                        update={"hyperparameters": {**child_cfg.hyperparameters, component_key: value}},
-                        deep=True,
-                    )
-                children.append(child_cfg.model_dump())
-            target = target.model_copy(
-                update={"hyperparameters": {**target.hyperparameters, "featurizers": children}},
-                deep=True,
-            )
-        if registry == "cell_line":
-            result.cell_line_featurizer = target
-        else:
-            result.drug_featurizer = target
+        patched = _patch_featurizer_legacy_key(
+            target,
+            registry=registry,
+            featurizer_name=featurizer_name,
+            component_key=component_key,
+            value=value,
+        )
+        result = _assign_featurizer_on_config(result, registry, patched)
     return result
 
 
@@ -197,23 +211,16 @@ def _set_pca_methylation_n_components(featurizer: FeaturizerConfig, value: Any) 
             update={"hyperparameters": {**featurizer.hyperparameters, "n_components": value}},
             deep=True,
         )
-    if featurizer.name != "concatFeaturizers":
-        return featurizer
-    children = []
-    for child in featurizer.hyperparameters.get("featurizers", []):
-        child_cfg = FeaturizerConfig.model_validate(
-            normalize_featurizer_config(child, default_registry="cell_line"),
-        )
-        if child_cfg.name == "pca" and child_cfg.view == "methylation":
-            child_cfg = child_cfg.model_copy(
-                update={"hyperparameters": {**child_cfg.hyperparameters, "n_components": value}},
+
+    def _patch_methylation_pca(child: FeaturizerConfig) -> FeaturizerConfig:
+        if child.name == "pca" and child.view == "methylation":
+            return child.model_copy(
+                update={"hyperparameters": {**child.hyperparameters, "n_components": value}},
                 deep=True,
             )
-        children.append(child_cfg.model_dump())
-    return featurizer.model_copy(
-        update={"hyperparameters": {**featurizer.hyperparameters, "featurizers": children}},
-        deep=True,
-    )
+        return child
+
+    return map_featurizer_tree(featurizer, "cell_line", _patch_methylation_pca)
 
 
 def _apply_featurizer_component_flat_keys(config: ModelConfig, flat: dict[str, Any]) -> ModelConfig:
@@ -232,26 +239,17 @@ def _apply_flat_keys_to_featurizer_tree(
     flat: dict[str, Any],
     registry: str,
 ) -> FeaturizerConfig:
-    if featurizer.name == "concatFeaturizers":
-        children = []
-        for child in featurizer.hyperparameters.get("featurizers", []):
-            child_cfg = FeaturizerConfig.model_validate(
-                normalize_featurizer_config(child, default_registry=registry),
-            )
-            children.append(_apply_flat_keys_to_featurizer_tree(child_cfg, flat, registry).model_dump())
-        return featurizer.model_copy(
-            update={"hyperparameters": {**featurizer.hyperparameters, "featurizers": children}},
+    def _apply_leaf(child: FeaturizerConfig) -> FeaturizerConfig:
+        space_keys = set(_featurizer_cls(child, registry).get_hyperparameter_space())
+        updates = {key: flat[key] for key in space_keys if key in flat}
+        if not updates:
+            return child
+        return child.model_copy(
+            update={"hyperparameters": {**child.hyperparameters, **updates}},
             deep=True,
         )
 
-    space_keys = set(_featurizer_cls(featurizer, registry).get_hyperparameter_space())
-    updates = {key: flat[key] for key in space_keys if key in flat}
-    if not updates:
-        return featurizer
-    return featurizer.model_copy(
-        update={"hyperparameters": {**featurizer.hyperparameters, **updates}},
-        deep=True,
-    )
+    return map_featurizer_tree(featurizer, registry, _apply_leaf)
 
 
 def _featurizer_cls(featurizer: FeaturizerConfig, registry: str) -> type[Any]:

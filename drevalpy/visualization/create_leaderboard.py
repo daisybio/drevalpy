@@ -12,11 +12,31 @@ import argparse
 from pathlib import Path
 from typing import Optional
 
-import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from matplotlib.patches import FancyBboxPatch
+
+from .leaderboard_plot import (
+    draw_bar,
+    draw_footer,
+    draw_gradient_title,
+    draw_leaderboard_legend,
+    draw_leaderboard_panels,
+    draw_logo,
+    draw_subtitle,
+    get_bar_color,
+)
+
+__all__ = [
+    "COLORS",
+    "COMPETITOR_COLOR",
+    "configure_matplotlib",
+    "create_leaderboard",
+    "draw_bar",
+    "get_bar_color",
+    "load_results",
+    "main",
+]
 
 # --- Theme Definitions ---
 DARK_THEME = {
@@ -103,58 +123,6 @@ def load_results(results_path: str, test_mode: str = "LCO") -> pd.DataFrame:
     return df_agg.sort_values("PCC", ascending=False).reset_index(drop=True)
 
 
-def get_bar_color(rank: int, is_baseline: bool) -> dict:
-    """
-    Assign colors based on model rank and type.
-
-    :param rank: Model index in sorted list.
-    :param is_baseline: Boolean if model is a baseline.
-    :return: Styling dictionary.
-    """
-    if is_baseline:
-        return {"color": "#5a5a5a", "alpha": 1.0}
-
-    medal_gold = "#F4D03F"
-    medal_silver = "#BDC3C7"
-    medal_bronze = "#E67E22"
-
-    if rank == 0:
-        return {"color": medal_gold, "alpha": 1.0}
-    elif rank == 1:
-        return {"color": medal_silver, "alpha": 1.0}
-    elif rank == 2:
-        return {"color": medal_bronze, "alpha": 1.0}
-
-    return {"color": COMPETITOR_COLOR, "alpha": 0.85}
-
-
-def draw_bar(ax, x: float, y: float, width: float, height: float, color: str, alpha: float = 1.0):
-    """
-    Draw a custom rounded rectangle bar.
-
-    :param ax: Matplotlib axis.
-    :param x: Origin X.
-    :param y: Origin Y.
-    :param width: Bar width.
-    :param height: Bar height.
-    :param color: Hex color.
-    :param alpha: Transparency.
-    :return: Patch artist.
-    """
-    bar = FancyBboxPatch(
-        (x, y - height / 2),
-        width,
-        height,
-        boxstyle="round,pad=0.01,rounding_size=0.015",
-        facecolor=color,
-        alpha=alpha,
-        edgecolor="none",
-        zorder=3,
-    )
-    ax.add_patch(bar)
-    return bar
-
-
 def create_leaderboard(
     df: pd.DataFrame,
     output_path: str,
@@ -189,220 +157,21 @@ def create_leaderboard(
 
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize, facecolor=COLORS["background"])
     fig.subplots_adjust(wspace=0.4)
-
-    ax1.set_facecolor(COLORS["background"])
-    df_pcc = df.sort_values("PCC", ascending=False).reset_index(drop=True)
-    max_pcc = (df_pcc["PCC"] + df_pcc["PCC_std"]).max() * 1.18
-
-    for i, (_, row) in enumerate(df_pcc.iterrows()):
-        style = get_bar_color(i, row["is_baseline"])
-        draw_bar(ax1, 0, y_positions[i], row["PCC"], bar_height, style["color"], style["alpha"])
-
-        label_color = style["color"] if not row["is_baseline"] else COLORS["text_secondary"]
-        label_x = row["PCC"] + max_pcc * 0.02
-        ax1.text(
-            label_x,
-            y_positions[i],
-            f"{row['PCC']:.3f}",
-            va="center",
-            ha="left",
-            fontsize=9 + font_adder,
-            fontweight="bold",
-            color=label_color,
-            zorder=5,
-        )
-
-        if i < 3 and not row["is_baseline"]:
-            medals = ["①", "②", "③"]
-            ax1.text(
-                -max_pcc * 0.03,
-                y_positions[i],
-                medals[i],
-                va="center",
-                ha="center",
-                fontsize=14 + font_adder,
-                fontweight="bold",
-                color=style["color"],
-                zorder=5,
-            )
-
-    ax1.set_xlim(-max_pcc * 0.06, max_pcc)
-    ax1.set_ylim(-0.8, n_models - 0.2)
-    ax1.set_yticks(y_positions)
-    ax1.set_yticklabels(df_pcc["algorithm"].values, fontsize=10 + font_adder)
-
-    for i, label in enumerate(ax1.get_yticklabels()):
-        if i < 3 and not df_pcc.iloc[i]["is_baseline"]:
-            label.set_fontweight("bold")
-            label.set_color(get_bar_color(i, False)["color"])
-        elif df_pcc.iloc[i]["is_baseline"]:
-            label.set_style("italic")
-            label.set_color(COLORS["text_secondary"])
-        else:
-            label.set_color(COLORS["text"])
-
-    ax1.set_xlabel("Normalized PCC", fontsize=12 + font_adder, fontweight="bold", labelpad=10)
-    ax1.xaxis.grid(True, linestyle="--", alpha=0.3, color=COLORS["grid"])
-    ax1.set_axisbelow(True)
-    ax1.tick_params(axis="x", colors=COLORS["text_secondary"])
-    ax1.set_title(
-        "Normalized Pearson  ↑  higher is better",
-        fontsize=14 + font_adder,
-        fontweight="bold",
-        color="#29ABCA",
-        pad=15,
+    draw_leaderboard_panels(
+        fig,
+        (ax1, ax2),
+        df,
+        y_positions=y_positions,
+        bar_height=bar_height,
+        font_adder=font_adder,
+        colors=COLORS,
     )
 
-    ax2.set_facecolor(COLORS["background"])
-    df_rmse = df.sort_values("RMSE", ascending=True).reset_index(drop=True)
-    max_rmse = (df_rmse["RMSE"] + df_rmse["RMSE_std"]).max() * 1.18
-
-    for i, (_, row) in enumerate(df_rmse.iterrows()):
-        style = get_bar_color(i, row["is_baseline"])
-        draw_bar(ax2, 0, y_positions[i], row["RMSE"], bar_height, style["color"], style["alpha"])
-
-        label_color = style["color"] if not row["is_baseline"] else COLORS["text_secondary"]
-        label_x = row["RMSE"] + max_rmse * 0.02
-        ax2.text(
-            label_x,
-            y_positions[i],
-            f"{row['RMSE']:.3f}",
-            va="center",
-            ha="left",
-            fontsize=9 + font_adder,
-            fontweight="bold",
-            color=label_color,
-            zorder=5,
-        )
-
-        if i < 3 and not row["is_baseline"]:
-            medals = ["①", "②", "③"]
-            ax2.text(
-                -max_rmse * 0.03,
-                y_positions[i],
-                medals[i],
-                va="center",
-                ha="center",
-                fontsize=14 + font_adder,
-                fontweight="bold",
-                color=style["color"],
-                zorder=5,
-            )
-
-    ax2.set_xlim(-max_rmse * 0.06, max_rmse)
-    ax2.set_ylim(-0.8, n_models - 0.2)
-    ax2.set_yticks(y_positions)
-    ax2.set_yticklabels(df_rmse["algorithm"].values, fontsize=10 + font_adder)
-    ax2.set_xlabel("Root Mean Square Error", fontsize=12 + font_adder, fontweight="bold", labelpad=10)
-
-    for i, label in enumerate(ax2.get_yticklabels()):
-        if i < 3 and not df_rmse.iloc[i]["is_baseline"]:
-            label.set_fontweight("bold")
-            label.set_color(get_bar_color(i, False)["color"])
-        elif df_rmse.iloc[i]["is_baseline"]:
-            label.set_style("italic")
-            label.set_color(COLORS["text_secondary"])
-        else:
-            label.set_color(COLORS["text"])
-
-    ax2.xaxis.grid(True, linestyle="--", alpha=0.3, color=COLORS["grid"])
-    ax2.set_axisbelow(True)
-    ax2.tick_params(axis="x", colors=COLORS["text_secondary"])
-    ax2.set_title("RMSE  ↓  lower is better", fontsize=14 + font_adder, fontweight="bold", color="#FF6B9D", pad=15)
-
-    title_text = "DrEval Challenge Leaderboard"
-    n_chars = len(title_text)
-    gradient_colors = []
-    for j in range(n_chars):
-        t = j / max(n_chars - 1, 1)
-        if t < 0.5:
-            t2 = t * 2
-            r = int(0x14 + (0x29 - 0x14) * t2)
-            g = int(0xB8 + (0xAB - 0xB8) * t2)
-            b = int(0xA6 + (0xCA - 0xA6) * t2)
-        else:
-            t2 = (t - 0.5) * 2
-            r = int(0x29 + (0x9D - 0x29) * t2)
-            g = int(0xAB + (0x4E - 0xAB) * t2)
-            b = int(0xCA + (0xDD - 0xCA) * t2)
-        gradient_colors.append(f"#{r:02x}{g:02x}{b:02x}")
-
-    title_x_start = 0.5 - len(title_text) * 0.012
-    for j, char in enumerate(title_text):
-        fig.text(
-            title_x_start + j * 0.024,
-            0.97,
-            char,
-            fontsize=24 + font_adder,
-            fontweight="bold",
-            color=gradient_colors[j],
-            ha="center",
-        )
-    fig.text(
-        0.5,
-        0.92,
-        f"{dataset} Dataset  •  {measure}  •  {_get_test_mode_name(test_mode)}",
-        ha="center",
-        fontsize=12 + font_adder,
-        color=COLORS["text_secondary"],
-    )
-
-    logo_path = Path("docs/_static/img/DrugResponseEvalLogo.svg")
-    if logo_path.exists():
-        try:
-            from io import BytesIO
-
-            import cairosvg
-            from PIL import Image
-
-            png_data = cairosvg.svg2png(url=str(logo_path))
-            logo_img = Image.open(BytesIO(png_data))
-            logo_ax = fig.add_axes((0.8, 0.94, 0.15, 0.06))
-            logo_ax.imshow(logo_img)
-            logo_ax.axis("off")
-        except Exception as e:
-            print(e)
-            pass
-
-    legend_elements = [
-        mpatches.Patch(facecolor="#F4D03F", label="#1 Champion", edgecolor="none"),
-        mpatches.Patch(facecolor="#BDC3C7", label="#2 Runner-up", edgecolor="none"),
-        mpatches.Patch(facecolor="#E67E22", label="#3 Third Place", edgecolor="none"),
-        mpatches.Patch(facecolor=COMPETITOR_COLOR, alpha=0.85, label="Competitor", edgecolor="none"),
-        mpatches.Patch(facecolor="#5a5a5a", alpha=1, label="Baseline", edgecolor="none"),
-    ]
-
-    legend = fig.legend(
-        handles=legend_elements,
-        loc="lower center",
-        ncol=5,
-        frameon=True,
-        facecolor=COLORS["surface"],
-        edgecolor=COLORS["grid"],
-        fontsize=10 + font_adder,
-        bbox_to_anchor=(0.5, 0.02),
-    )
-    legend.get_frame().set_alpha(0.9)
-    for text in legend.get_texts():
-        text.set_color(COLORS["text"])
-
-    footer_text = (
-        "Submit your model → https://drevalpy.readthedocs.io/en/latest/. "
-        "Send us your results.\n\n"
-        "If you significantly outperform the RandomForest, we send you chocolate!"
-    )
-
-    fig.text(
-        0.5,
-        -0.01,
-        footer_text,
-        ha="center",
-        va="top",
-        fontsize=14 + font_adder,
-        color=COLORS["text_secondary"],
-        style="italic",
-        linespacing=1.0,
-    )
+    draw_gradient_title(fig, "DrEval Challenge Leaderboard", font_adder)
+    draw_subtitle(fig, dataset, measure, _get_test_mode_name(test_mode), font_adder, COLORS)
+    draw_logo(fig)
+    draw_leaderboard_legend(fig, font_adder, COLORS)
+    draw_footer(fig, font_adder, COLORS)
 
     plt.tight_layout(rect=(0, 0.06, 1, 0.90))
     fig.savefig(output_path, dpi=150, bbox_inches="tight", facecolor=COLORS["background"], transparent=False)
