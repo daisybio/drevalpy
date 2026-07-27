@@ -61,23 +61,3 @@ Disable tuning when you only want defaults:
 
 For Weights & Biases logging of trials and metrics, see :doc:`wandb`. For the
 full option list, see :doc:`reference`.
-
-Backward compatibility
-----------------------
-
-YAML grids
-~~~~~~~~~~
-
-Before 1.6.0, baseline tuning often relied on YAML hyperparameter grids.
-Those grids are gone for experiment-time search. Each tunable component now
-owns a default configuration and a structured Ray/Optuna search space.
-``make-hpam-yamls`` no longer expands Cartesian grids — it only writes
-``hpam_0.yaml`` with defaults for nf-core wiring. See
-:doc:`pipeline_commands`.
-
-``--multiprocessing``
-~~~~~~~~~~~~~~~~~~~~~
-
-``--multiprocessing`` remains as a deprecated alias. It only warns; it does
-not set trial counts or resources. Use ``--hpo_num_samples`` (and related HPO
-flags) instead.

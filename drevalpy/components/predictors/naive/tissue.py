@@ -8,10 +8,16 @@ import numpy as np
 
 from drevalpy.components.contracts import FeatureKind
 from drevalpy.components.model_input_batch import ModelInputBatch
-from drevalpy.components.predictors._identity_batch import pair_tissue_ids
+from drevalpy.components.predictors.naive._matrix_means import (
+    additive_effects,
+    predict_with_effects,
+    require_pair_matrix,
+    state_float_matrix,
+    state_float_vector,
+)
 from drevalpy.components.predictors.structured import BlockPredictor
 from drevalpy.components.registry import register_predictor
-from drevalpy.components.state_helpers import state_float, state_str_dict
+from drevalpy.components.state_helpers import state_float
 
 
 @register_predictor(
@@ -28,53 +34,48 @@ class NaiveTissueMeanPredictor(BlockPredictor):
 
     def __init__(self) -> None:
         self._dataset_mean: float | None = None
-        self._entity_means: dict[str, float] = {}
+        self._effects: np.ndarray | None = None
 
     def fit(self, batch: ModelInputBatch) -> None:
         if batch.response is None:
             msg = "Naive predictors require response values during fit"
             raise ValueError(msg)
-        tissue_ids = pair_tissue_ids(batch, cell_line_input=batch.cell_line_input)
-        if tissue_ids is None:
+        design = require_pair_matrix(batch, side="cell_line")
+        if design.shape[1] == 0:
             msg = "NaiveTissueMeanPredictor requires tissue featurizer output"
             raise ValueError(msg)
         y = np.asarray(batch.response, dtype=np.float64)
         self._dataset_mean = float(np.mean(y))
-        for tissue in np.unique(tissue_ids.astype(str)):
-            mask = tissue_ids.astype(str) == tissue
-            self._entity_means[str(tissue)] = float(np.mean(y[mask]))
+        self._effects = additive_effects(design, y, baseline=self._dataset_mean)
 
     def predict(self, batch: ModelInputBatch) -> np.ndarray:
-        if self._dataset_mean is None:
+        if self._dataset_mean is None or self._effects is None:
             msg = "Call fit before predict"
             raise RuntimeError(msg)
-        tissue_ids = pair_tissue_ids(batch, cell_line_input=batch.cell_line_input)
-        if tissue_ids is None:
+        design = require_pair_matrix(batch, side="cell_line")
+        if design.shape[1] == 0:
             msg = "NaiveTissueMeanPredictor requires tissue featurizer output"
             raise ValueError(msg)
-        return np.array(
-            [self._entity_means.get(str(tissue), self._dataset_mean) for tissue in tissue_ids],
-            dtype=np.float64,
-        )
+        return predict_with_effects(design, self._effects, baseline=self._dataset_mean)
 
     def get_state(self) -> dict[str, object]:
-        if self._dataset_mean is None:
+        if self._dataset_mean is None or self._effects is None:
             return {}
         return {
             "dataset_mean": self._dataset_mean,
-            "tissue_means": dict(self._entity_means),
+            "effects": self._effects.tolist(),
         }
 
     def set_state(self, state: dict[str, object]) -> None:
         mean = state_float(state, "dataset_mean")
         if mean is not None:
             self._dataset_mean = mean
-        entity_means = state_str_dict(state, "tissue_means")
-        if entity_means:
-            self._entity_means = entity_means
+        effects = state_float_vector(state, "effects")
+        if effects is not None:
+            self._effects = effects
 
     def is_fitted(self) -> bool:
-        return self._dataset_mean is not None
+        return self._dataset_mean is not None and self._effects is not None
 
 
 @register_predictor(
@@ -87,64 +88,61 @@ class NaiveTissueMeanPredictor(BlockPredictor):
 class NaiveTissueDrugMeanPredictor(BlockPredictor):
     """Naive tissue drug mean predictor component."""
 
-    requires_drug_featurizer: ClassVar[bool] = False
+    requires_drug_featurizer: ClassVar[bool] = True
 
     def __init__(self) -> None:
         self._dataset_mean: float | None = None
-        self._combo_means: dict[str, float] = {}
+        self._effects: np.ndarray | None = None
 
     def fit(self, batch: ModelInputBatch) -> None:
         if batch.response is None:
             msg = "Naive predictors require response values during fit"
             raise ValueError(msg)
-        tissue_ids = pair_tissue_ids(batch, cell_line_input=batch.cell_line_input)
-        if tissue_ids is None:
+        tissue = require_pair_matrix(batch, side="cell_line")
+        drugs = require_pair_matrix(batch, side="drug")
+        if tissue.shape[1] == 0 or drugs.shape[1] == 0:
             msg = "NaiveTissueDrugMeanPredictor requires tissue featurizer output"
             raise ValueError(msg)
         y = np.asarray(batch.response, dtype=np.float64)
         self._dataset_mean = float(np.mean(y))
-        keys = [
-            f"{tissue}|{drug}" for tissue, drug in zip(tissue_ids.astype(str), batch.drug_ids.astype(str), strict=True)
-        ]
-        for combo in np.unique(keys):
-            mask = np.array(keys) == combo
-            self._combo_means[str(combo)] = float(np.mean(y[mask]))
+        tissue64 = np.asarray(tissue, dtype=np.float64)
+        drugs64 = np.asarray(drugs, dtype=np.float64)
+        counts = tissue64.T @ drugs64
+        sums = tissue64.T @ (drugs64 * y[:, None])
+        effects = np.zeros_like(counts, dtype=np.float64)
+        np.divide(sums, counts, out=effects, where=counts > 0)
+        effects = effects - self._dataset_mean
+        effects = np.where(counts > 0, effects, 0.0)
+        self._effects = effects
 
     def predict(self, batch: ModelInputBatch) -> np.ndarray:
-        if self._dataset_mean is None:
+        if self._dataset_mean is None or self._effects is None:
             msg = "Call fit before predict"
             raise RuntimeError(msg)
-        tissue_ids = pair_tissue_ids(batch, cell_line_input=batch.cell_line_input)
-        if tissue_ids is None:
+        tissue = require_pair_matrix(batch, side="cell_line")
+        drugs = require_pair_matrix(batch, side="drug")
+        if tissue.shape[1] == 0 or drugs.shape[1] == 0:
             msg = "NaiveTissueDrugMeanPredictor requires tissue featurizer output"
             raise ValueError(msg)
-        keys = [
-            f"{tissue}|{drug}" for tissue, drug in zip(tissue_ids.astype(str), batch.drug_ids.astype(str), strict=True)
-        ]
-        return np.array(
-            [self._combo_means.get(key, self._dataset_mean) for key in keys],
-            dtype=np.float64,
-        )
+        tissue64 = np.asarray(tissue, dtype=np.float64)
+        drugs64 = np.asarray(drugs, dtype=np.float64)
+        return self._dataset_mean + np.einsum("ni,ij,nj->n", tissue64, self._effects, drugs64)
 
     def get_state(self) -> dict[str, object]:
-        if self._dataset_mean is None:
+        if self._dataset_mean is None or self._effects is None:
             return {}
         return {
             "dataset_mean": self._dataset_mean,
-            "tissue_drug_means": {tuple(key.split("|", maxsplit=1)): mean for key, mean in self._combo_means.items()},
+            "effects": self._effects.tolist(),
         }
 
     def set_state(self, state: dict[str, object]) -> None:
         mean = state_float(state, "dataset_mean")
         if mean is not None:
             self._dataset_mean = mean
-        combo_means = state.get("tissue_drug_means")
-        if isinstance(combo_means, dict):
-            self._combo_means = {
-                f"{tissue}|{drug}": float(value)
-                for (tissue, drug), value in combo_means.items()
-                if isinstance(tissue, str) and isinstance(drug, str)
-            }
+        effects = state_float_matrix(state, "effects")
+        if effects is not None:
+            self._effects = effects
 
     def is_fitted(self) -> bool:
-        return self._dataset_mean is not None
+        return self._dataset_mean is not None and self._effects is not None

@@ -115,24 +115,3 @@ pipeline calls the stepwise ``drevalpy`` subcommands documented in
 :doc:`pipeline_commands`.
 
 After a local run, generate the HTML report with :doc:`reporting`.
-
-Backward compatibility
-----------------------
-
-``--multiprocessing``
-~~~~~~~~~~~~~~~~~~~~~
-
-Before 1.6.0, ``--multiprocessing`` was documented as selecting a parallel HPO
-path. It is still accepted and emits a warning, but it does **not** control
-Ray/Optuna trial counts or resources. This remains available for backward
-compatibility, but is deprecated and may be removed in a future release.
-Prefer ``--hpo_num_samples`` (and related HPO flags) with tuning enabled, or
-``--no_hyperparameter_tuning`` for defaults only.
-
-Legacy scripts
-~~~~~~~~~~~~~~
-
-Before 1.6.0, many pipeline steps were exposed as standalone ``drevalpy-*``
-console scripts. They remain available for backward compatibility, but are
-deprecated and may be removed in a future release. Prefer
-``drevalpy <subcommand>``.

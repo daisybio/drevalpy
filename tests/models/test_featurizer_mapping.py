@@ -45,6 +45,21 @@ def test_identity_featurizers_resolve_to_empty_views() -> None:
     assert drug_views_from_model_config(config) == []
 
 
+def test_constant_featurizers_resolve_to_empty_views() -> None:
+    config = _model_config(
+        cell_line_featurizer=FeaturizerConfig.model_validate(
+            normalize_featurizer_config("constant", default_registry="cell_line"),
+        ),
+        drug_featurizer=FeaturizerConfig.model_validate(
+            normalize_featurizer_config("constant", default_registry="drug"),
+        ),
+    )
+    assert cell_line_entity_id_only_from_model_config(config)
+    assert drug_entity_id_only_from_model_config(config)
+    assert cell_line_views_from_model_config(config) == []
+    assert drug_views_from_model_config(config) == []
+
+
 def test_bracket_featurizers_resolve_canonical_views() -> None:
     config = _model_config(
         cell_line_featurizer=FeaturizerConfig.model_validate(

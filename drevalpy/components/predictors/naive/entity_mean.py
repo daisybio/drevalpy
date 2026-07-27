@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-import numpy as np
+from typing import ClassVar
 
 from drevalpy.components.contracts import FeatureKind
-from drevalpy.components.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors.naive._single_entity import SingleEntityNaivePredictor
 from drevalpy.components.registry import register_predictor
 
@@ -20,11 +19,8 @@ from drevalpy.components.registry import register_predictor
 class NaiveDrugMeanPredictor(SingleEntityNaivePredictor):
     """Naive drug mean predictor component."""
 
-    def _entity_keys(self, batch: ModelInputBatch) -> np.ndarray:
-        return batch.drug_ids
-
-    def _legacy_entity_means_key(self) -> str:
-        return "drug_means"
+    requires_drug_featurizer: ClassVar[bool] = True
+    _feature_side: ClassVar[str] = "drug"
 
 
 @register_predictor(
@@ -37,8 +33,4 @@ class NaiveDrugMeanPredictor(SingleEntityNaivePredictor):
 class NaiveCellLineMeanPredictor(SingleEntityNaivePredictor):
     """Naive cell line mean predictor component."""
 
-    def _entity_keys(self, batch: ModelInputBatch) -> np.ndarray:
-        return batch.cell_line_ids
-
-    def _legacy_entity_means_key(self) -> str:
-        return "cell_line_means"
+    _feature_side: ClassVar[str] = "cell_line"

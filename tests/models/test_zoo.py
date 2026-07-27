@@ -36,13 +36,46 @@ def test_zoo_elastic_net_defaults() -> None:
     assert zoo_config.predictor.name == "elasticNet"
 
 
-def test_zoo_naive_has_identity_featurizers() -> None:
-    zoo_config = get_zoo_config("NaivePredictor")
-    assert zoo_config.predictor.name == "naiveMean"
-    assert zoo_config.cell_line_featurizer is not None
-    assert zoo_config.cell_line_featurizer.name == "identity"
-    assert zoo_config.drug_featurizer is not None
-    assert zoo_config.drug_featurizer.name == "identity"
+def test_zoo_naive_presets_use_information_accurate_featurizers() -> None:
+    naive = get_zoo_config("NaivePredictor")
+    assert naive.predictor.name == "naiveMean"
+    assert naive.cell_line_featurizer is not None
+    assert naive.cell_line_featurizer.name == "constant"
+    assert naive.drug_featurizer is not None
+    assert naive.drug_featurizer.name == "constant"
+
+    cell_mean = get_zoo_config("NaiveCellLineMeanPredictor")
+    assert cell_mean.cell_line_featurizer is not None
+    assert cell_mean.cell_line_featurizer.name == "identity"
+    assert cell_mean.drug_featurizer is not None
+    assert cell_mean.drug_featurizer.name == "constant"
+
+    drug_mean = get_zoo_config("NaiveDrugMeanPredictor")
+    assert drug_mean.cell_line_featurizer is not None
+    assert drug_mean.cell_line_featurizer.name == "constant"
+    assert drug_mean.drug_featurizer is not None
+    assert drug_mean.drug_featurizer.name == "identity"
+
+    tissue_mean = get_zoo_config("NaiveTissueMeanPredictor")
+    assert tissue_mean.cell_line_featurizer is not None
+    assert tissue_mean.cell_line_featurizer.name == "tissue"
+    assert tissue_mean.drug_featurizer is not None
+    assert tissue_mean.drug_featurizer.name == "constant"
+
+    tissue_drug = get_zoo_config("NaiveTissueDrugMeanPredictor")
+    assert tissue_drug.cell_line_featurizer is not None
+    assert tissue_drug.cell_line_featurizer.name == "tissue"
+    assert tissue_drug.drug_featurizer is not None
+    assert tissue_drug.drug_featurizer.name == "identity"
+
+    mean_effects = get_zoo_config("NaiveMeanEffectsPredictor")
+    assert mean_effects.cell_line_featurizer is not None
+    assert mean_effects.cell_line_featurizer.name == "concatFeaturizers"
+    children = mean_effects.cell_line_featurizer.hyperparameters["featurizers"]
+    assert [child["name"] for child in children] == ["identity", "tissue"]
+    assert children[1]["hyperparameters"]["allow_missing"] is True
+    assert mean_effects.drug_featurizer is not None
+    assert mean_effects.drug_featurizer.name == "identity"
 
 
 def test_zoo_model_config_merges_hyperparameters() -> None:

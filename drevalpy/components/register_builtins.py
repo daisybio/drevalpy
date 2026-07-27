@@ -23,6 +23,7 @@ _CELL_LINE_MODULES = {
     "pathways": "drevalpy.components.featurizers.cell_line.pathways",
     "bionic": "drevalpy.components.featurizers.cell_line.bionic",
     "identity": "drevalpy.components.featurizers.cell_line.identity",
+    "constant": "drevalpy.components.featurizers.cell_line.constant",
     "tissue": "drevalpy.components.featurizers.cell_line.tissue",
 }
 
@@ -35,6 +36,7 @@ _DRUG_MODULES = {
     "bpePharmaformer": "drevalpy.components.featurizers.drug.bpe_pharmaformer",
     "smilesvec": "drevalpy.components.featurizers.drug.smilesvec",
     "identity": "drevalpy.components.featurizers.drug.identity",
+    "constant": "drevalpy.components.featurizers.drug.constant",
 }
 
 _PREDICTOR_MODULES = {

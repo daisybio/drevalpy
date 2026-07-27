@@ -12,6 +12,13 @@ from drevalpy.datasets.dataset import FeatureDataset
 from drevalpy.datasets.utils import TISSUE_IDENTIFIER
 
 
+def _tissue_label(features: FeatureDataset, entity_id: str) -> str | None:
+    views = features.features.get(str(entity_id))
+    if views is None or TISSUE_IDENTIFIER not in views:
+        return None
+    return str(np.asarray(views[TISSUE_IDENTIFIER]).reshape(-1)[0])
+
+
 @register_cell_line_featurizer(
     "tissue",
     description="One-hot encoding of tissue or lineage labels for cell-line entities.",
@@ -21,8 +28,9 @@ from drevalpy.datasets.utils import TISSUE_IDENTIFIER
 class TissueFeaturizer(CellLineFeaturizer):
     """Map each cell line to a dense one-hot tissue vector."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, allow_missing: bool = False) -> None:
         self._encoder = OneHotCategoryEncoder()
+        self._allow_missing = bool(allow_missing)
 
     def fit(
         self,
@@ -30,17 +38,39 @@ class TissueFeaturizer(CellLineFeaturizer):
         *,
         entity_ids: np.ndarray | None = None,
     ) -> TissueFeaturizer:
-        if not any(TISSUE_IDENTIFIER in views for views in features.features.values()):
+        ids = entity_ids if entity_ids is not None else np.array(list(features.features.keys()), dtype=str)
+        available: list[str] = []
+        for entity_id in ids:
+            label = _tissue_label(features, str(entity_id))
+            if label is None:
+                if not self._allow_missing:
+                    msg = "TissueFeaturizer requires tissue annotations in cell_line_input"
+                    raise ValueError(msg)
+                continue
+            available.append(label)
+        if not available:
+            if self._allow_missing:
+                self._encoder.fit_categories(np.array([], dtype=str))
+                return self
             msg = "TissueFeaturizer requires tissue annotations in cell_line_input"
             raise ValueError(msg)
-        ids = entity_ids if entity_ids is not None else np.array(list(features.features.keys()), dtype=str)
-        tissues = features.get_feature_matrix(view=TISSUE_IDENTIFIER, identifiers=ids)
-        self._encoder.fit_categories(np.asarray(tissues).reshape(-1))
+        self._encoder.fit_categories(np.asarray(available, dtype=str))
         return self
 
     def transform(self, features: FeatureDataset, entity_ids: np.ndarray) -> np.ndarray:
-        tissues = features.get_feature_matrix(view=TISSUE_IDENTIFIER, identifiers=entity_ids)
-        return self._encoder.transform(np.asarray(tissues).reshape(-1))
+        if self._encoder.output_dim == 0:
+            return np.empty((len(entity_ids), 0), dtype=np.float32)
+        categories: list[str] = []
+        for entity_id in entity_ids:
+            label = _tissue_label(features, str(entity_id))
+            if label is None:
+                if not self._allow_missing:
+                    msg = "TissueFeaturizer requires tissue annotations in cell_line_input"
+                    raise ValueError(msg)
+                categories.append("__missing__")
+            else:
+                categories.append(label)
+        return self._encoder.transform(np.asarray(categories, dtype=str))
 
     def transform_blocks(
         self,

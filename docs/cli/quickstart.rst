@@ -40,13 +40,3 @@ Next steps: :doc:`experiment` for more options, :doc:`reporting` for the
 report command, and :doc:`/concepts/datasets` / :doc:`/concepts/evaluation`
 for datasets and evaluation
 settings.
-
-Backward compatibility
-----------------------
-
-Report entry point
-~~~~~~~~~~~~~~~~~~
-
-Before 1.6.0, the report was often invoked as ``drevalpy-report``. Prefer
-``drevalpy report``. Legacy ``drevalpy-*`` console scripts still exist as
-deprecated aliases and may be removed in a later version.

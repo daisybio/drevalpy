@@ -1,3 +1,6 @@
-cell_line_featurizer: identity
+cell_line_featurizer:
+  - identity
+  - tissue:
+      allow_missing: true
 drug_featurizer: identity
 predictor: naiveMeanEffects

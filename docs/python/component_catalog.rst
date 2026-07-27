@@ -34,7 +34,9 @@ Cell-line featurizers
    * - ``bionic``
      - BIONIC embeddings for cell lines
    * - ``identity``
-     - No cell-line features (placeholder for baselines that ignore them)
+     - One-hot encoding of cell-line entity identifiers
+   * - ``constant``
+     - Constant one-column intercept (no cell-line identity)
    * - ``tissue``
      - Tissue label encoding for naive / tissue-aware models
 
@@ -62,7 +64,9 @@ Drug featurizers
    * - ``smilesvec``
      - SMILES vector embeddings
    * - ``identity``
-     - No drug features (single-drug / naive stacks)
+     - One-hot encoding of drug entity identifiers
+   * - ``constant``
+     - Constant one-column intercept (no drug identity)
 
 Predictors
 ----------

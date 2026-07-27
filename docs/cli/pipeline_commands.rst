@@ -55,31 +55,3 @@ When to use the root command instead
 For interactive local runs, prefer the root ``drevalpy`` command
 (:doc:`experiment`). Use these subcommands when you need the same steps the
 Nextflow pipeline runs, or when you are debugging a single stage.
-
-Backward compatibility
-----------------------
-
-Grid YAML era
-~~~~~~~~~~~~~
-
-Before 1.6.0, ``make-hpam-yamls`` could expand hyperparameter grids into many
-``hpam_*.yaml`` files. That behavior is no longer supported.
-``make-hpam-yamls`` always emits a single defaults file (``hpam_0.yaml``).
-
-``--hyperparameter_tuning`` on ``make-hpam-yamls``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Before 1.6.0, ``--hyperparameter_tuning`` on ``make-hpam-yamls`` suggested grid
-expansion. The flag remains for nf-core compatibility, but is deprecated and
-may be removed in a future release. It does not restore grid expansion;
-tuning is controlled at experiment time via ``--hpo_num_samples`` /
-``--no_hyperparameter_tuning`` on the root command (see
-:doc:`hyperparameter_tuning`).
-
-Legacy script names
-~~~~~~~~~~~~~~~~~~~
-
-Before 1.6.0, console scripts such as ``drevalpy-make-hpam-yamls``,
-``drevalpy-train-cv``, and ``drevalpy-report`` were the usual entry points.
-They remain available for backward compatibility, but are deprecated and may
-be removed in a future release. Prefer ``drevalpy <subcommand>``.

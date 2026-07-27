@@ -8,10 +8,16 @@ import numpy as np
 
 from drevalpy.components.contracts import FeatureKind
 from drevalpy.components.model_input_batch import ModelInputBatch
-from drevalpy.components.predictors._identity_batch import pair_tissue_ids
+from drevalpy.components.predictors.naive._matrix_means import (
+    additive_effects,
+    block_pair_matrix,
+    pair_align,
+    require_pair_matrix,
+    state_float_vector,
+)
 from drevalpy.components.predictors.structured import BlockPredictor
 from drevalpy.components.registry import register_predictor
-from drevalpy.components.state_helpers import state_float, state_str_dict
+from drevalpy.components.state_helpers import state_float
 
 
 @register_predictor(
@@ -24,109 +30,95 @@ from drevalpy.components.state_helpers import state_float, state_str_dict
 class NaiveMeanEffectsPredictor(BlockPredictor):
     """Naive mean effects predictor component."""
 
-    requires_drug_featurizer: ClassVar[bool] = False
+    requires_drug_featurizer: ClassVar[bool] = True
 
     def __init__(self) -> None:
         self._dataset_mean: float | None = None
-        self._tissue_effects: dict[str, float] = {}
-        self._cell_line_effects: dict[str, float] = {}
-        self._drug_effects: dict[str, float] = {}
+        self._tissue_effects: np.ndarray | None = None
+        self._cell_line_effects: np.ndarray | None = None
+        self._drug_effects: np.ndarray | None = None
+
+    def _cell_and_tissue(self, batch: ModelInputBatch) -> tuple[np.ndarray, np.ndarray]:
+        if "identity" in batch.cell_line_blocks:
+            cell = block_pair_matrix(batch, "identity")
+        else:
+            cell = require_pair_matrix(batch, side="cell_line")
+        if "tissue" in batch.cell_line_blocks:
+            tissue = pair_align(batch.cell_line_blocks["tissue"], batch.cell_line_pair_idx)
+        else:
+            tissue = np.empty((batch.n_pairs, 0), dtype=np.float64)
+        return np.asarray(cell, dtype=np.float64), np.asarray(tissue, dtype=np.float64)
 
     def fit(self, batch: ModelInputBatch) -> None:
         if batch.response is None:
             msg = "Naive predictors require response values during fit"
             raise ValueError(msg)
         y = np.asarray(batch.response, dtype=np.float64)
+        cell, tissue = self._cell_and_tissue(batch)
+        drugs = np.asarray(require_pair_matrix(batch, side="drug"), dtype=np.float64)
         self._dataset_mean = float(np.mean(y))
-        cell_line_ids = batch.cell_line_ids.astype(str)
-        drug_ids = batch.drug_ids.astype(str)
-
-        cell_line_means: dict[str, float] = {}
-        for cell_id in np.unique(cell_line_ids):
-            mask = cell_line_ids == cell_id
-            cell_line_means[str(cell_id)] = float(np.mean(y[mask]))
-
-        tissue_ids = pair_tissue_ids(batch, cell_line_input=batch.cell_line_input)
-        if tissue_ids is not None:
-            tissue_means: dict[str, float] = {}
-            for tissue in np.unique(tissue_ids.astype(str)):
-                mask = tissue_ids.astype(str) == tissue
-                tissue_means[str(tissue)] = float(np.mean(y[mask]))
-
-            self._tissue_effects = {tissue: mean - self._dataset_mean for tissue, mean in tissue_means.items()}
-
-            cell_line_to_tissue: dict[str, str] = {}
-            for cell_id in np.unique(cell_line_ids):
-                mask = cell_line_ids == cell_id
-                tissue = tissue_ids[mask][0]
-                cell_line_to_tissue[str(cell_id)] = str(tissue)
-
-            self._cell_line_effects = {
-                cell_id: cell_line_means[cell_id] - tissue_means[cell_line_to_tissue[cell_id]]
-                for cell_id in cell_line_means
-            }
+        if tissue.shape[1] > 0:
+            self._tissue_effects = additive_effects(tissue, y, baseline=self._dataset_mean)
+            residual = y - self._dataset_mean - tissue @ self._tissue_effects
+            self._cell_line_effects = additive_effects(cell, residual, baseline=0.0)
         else:
-            self._tissue_effects = {}
-            self._cell_line_effects = {cell_id: mean - self._dataset_mean for cell_id, mean in cell_line_means.items()}
-
-        for drug_id in np.unique(drug_ids):
-            mask = drug_ids == drug_id
-            self._drug_effects[str(drug_id)] = float(np.mean(y[mask]) - self._dataset_mean)
+            self._tissue_effects = np.empty((0,), dtype=np.float64)
+            self._cell_line_effects = additive_effects(cell, y, baseline=self._dataset_mean)
+        self._drug_effects = additive_effects(drugs, y, baseline=self._dataset_mean)
 
     def predict(self, batch: ModelInputBatch) -> np.ndarray:
-        if self._dataset_mean is None:
+        if (
+            self._dataset_mean is None
+            or self._tissue_effects is None
+            or self._cell_line_effects is None
+            or self._drug_effects is None
+        ):
             msg = "Call fit before predict"
             raise RuntimeError(msg)
-        tissue_ids = pair_tissue_ids(batch, cell_line_input=batch.cell_line_input)
-        if self._tissue_effects and tissue_ids is not None:
-            return np.array(
-                [
-                    self._dataset_mean
-                    + self._tissue_effects.get(str(tissue), 0.0)
-                    + self._cell_line_effects.get(str(cell_id), 0.0)
-                    + self._drug_effects.get(str(drug_id), 0.0)
-                    for cell_id, drug_id, tissue in zip(
-                        batch.cell_line_ids,
-                        batch.drug_ids,
-                        tissue_ids,
-                        strict=True,
-                    )
-                ],
-                dtype=np.float64,
-            )
-        return np.array(
-            [
-                self._dataset_mean
-                + self._cell_line_effects.get(str(cell_id), 0.0)
-                + self._drug_effects.get(str(drug_id), 0.0)
-                for cell_id, drug_id in zip(batch.cell_line_ids, batch.drug_ids, strict=True)
-            ],
-            dtype=np.float64,
-        )
+        cell, tissue = self._cell_and_tissue(batch)
+        drugs = np.asarray(require_pair_matrix(batch, side="drug"), dtype=np.float64)
+        preds = np.full(batch.n_pairs, self._dataset_mean, dtype=np.float64)
+        if cell.shape[1] > 0:
+            preds = preds + cell @ self._cell_line_effects
+        if tissue.shape[1] > 0 and self._tissue_effects.size > 0:
+            preds = preds + tissue @ self._tissue_effects
+        if drugs.shape[1] > 0:
+            preds = preds + drugs @ self._drug_effects
+        return preds
 
     def get_state(self) -> dict[str, object]:
-        if self._dataset_mean is None:
+        if (
+            self._dataset_mean is None
+            or self._tissue_effects is None
+            or self._cell_line_effects is None
+            or self._drug_effects is None
+        ):
             return {}
         return {
             "dataset_mean": self._dataset_mean,
-            "tissue_effects": dict(self._tissue_effects),
-            "cell_line_effects": dict(self._cell_line_effects),
-            "drug_effects": dict(self._drug_effects),
+            "tissue_effects": self._tissue_effects.tolist(),
+            "cell_line_effects": self._cell_line_effects.tolist(),
+            "drug_effects": self._drug_effects.tolist(),
         }
 
     def set_state(self, state: dict[str, object]) -> None:
         mean = state_float(state, "dataset_mean")
         if mean is not None:
             self._dataset_mean = mean
-        tissue_effects = state_str_dict(state, "tissue_effects")
-        if tissue_effects:
+        tissue_effects = state_float_vector(state, "tissue_effects")
+        if tissue_effects is not None:
             self._tissue_effects = tissue_effects
-        cell_line_effects = state_str_dict(state, "cell_line_effects")
-        if cell_line_effects:
+        cell_line_effects = state_float_vector(state, "cell_line_effects")
+        if cell_line_effects is not None:
             self._cell_line_effects = cell_line_effects
-        drug_effects = state_str_dict(state, "drug_effects")
-        if drug_effects:
+        drug_effects = state_float_vector(state, "drug_effects")
+        if drug_effects is not None:
             self._drug_effects = drug_effects
 
     def is_fitted(self) -> bool:
-        return self._dataset_mean is not None
+        return (
+            self._dataset_mean is not None
+            and self._tissue_effects is not None
+            and self._cell_line_effects is not None
+            and self._drug_effects is not None
+        )

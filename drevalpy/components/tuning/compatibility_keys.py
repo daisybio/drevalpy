@@ -5,12 +5,21 @@ from __future__ import annotations
 from typing import Any
 
 from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
+from drevalpy.components.registry import get_cell_line_featurizer, get_drug_featurizer
 from drevalpy.models.config import FeaturizerConfig
-from drevalpy.models.flat_hyperparameters import LEGACY_FEATURIZER_FLAT_KEYS, PUBLIC_VIEW_KEYS
+from drevalpy.models.flat_hyperparameters import (
+    LEGACY_FEATURIZER_FLAT_KEYS,
+    PUBLIC_VIEW_KEYS,
+)
 
 # Backward-compatible aliases for callers/tests that import private names.
 _LEGACY_FEATURIZER_FLAT_KEYS = LEGACY_FEATURIZER_FLAT_KEYS
 _PUBLIC_VIEW_KEYS = PUBLIC_VIEW_KEYS
+
+
+def _featurizer_space_keys(featurizer: FeaturizerConfig, registry: str) -> set[str]:
+    cls = get_cell_line_featurizer(featurizer.name) if registry == "cell_line" else get_drug_featurizer(featurizer.name)
+    return set(cls.get_hyperparameter_space())
 
 
 def append_featurizer_flat_keys(
@@ -18,7 +27,11 @@ def append_featurizer_flat_keys(
     featurizer: FeaturizerConfig | None,
     registry: str,
 ) -> None:
-    """Append legacy and component-local featurizer keys into a public flat dict."""
+    """Append legacy and tunable featurizer keys into a public flat dict.
+
+    Architecture-only featurizer kwargs (present in ModelConfig but absent from
+    ``get_hyperparameter_space``) stay on the config tree and are not flattened.
+    """
     if featurizer is None:
         return
     if featurizer.name == "concatFeaturizers":
@@ -40,10 +53,16 @@ def append_featurizer_flat_keys(
     ):
         flat["methylation_n_components"] = featurizer.hyperparameters["n_components"]
         flat.setdefault("methylation_pca_components", featurizer.hyperparameters["n_components"])
+    space_keys = _featurizer_space_keys(featurizer, registry)
     for key, value in featurizer.hyperparameters.items():
+        if key not in space_keys:
+            continue
         if key in {"featurizers", "view", "views"}:
             continue
         if "." in key or key.startswith(("featurizer.", "predictor.")):
             continue
-        if (registry, featurizer.name) not in _LEGACY_FEATURIZER_FLAT_KEYS and key not in flat:
+        if (
+            registry,
+            featurizer.name,
+        ) not in _LEGACY_FEATURIZER_FLAT_KEYS and key not in flat:
             flat.setdefault(key, value)

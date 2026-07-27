@@ -17,24 +17,6 @@ Further reading
 ---------------
 
 - :doc:`from_components_to_models` — recipes, concatenation, and hyperparameter spaces
-- :doc:`/python/models` — constructing and migrating models in Python
+- :doc:`/python/models` — constructing models in Python (including factory migration notes)
 - :doc:`/python/component_catalog` — predictors and featurizers behind the zoo
 - :doc:`/cli/experiment` — selecting zoo names in CLI experiments
-
-Backward compatibility
-----------------------
-
-Deprecated but still supported
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Before 1.6.0, factory dictionaries such as ``MODEL_FACTORY`` were a common
-lookup path. This remains available for backward compatibility, but is
-deprecated and may be removed in a future release. Prefer zoo presets and
-the constructors documented in :doc:`/python/models`.
-
-No longer supported
-~~~~~~~~~~~~~~~~~~~
-
-Deep imports such as ``drevalpy.models.baselines.*`` or
-``drevalpy.models.DIPK.*`` no longer resolve. Use zoo names and the public
-``drevalpy.models`` exports instead.

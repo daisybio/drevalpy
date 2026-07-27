@@ -26,13 +26,3 @@ plots.
 You need enough CV folds for the critical-difference diagram (typically at
 least seven). See :doc:`experiment` for ``--n_cv_splits`` and
 :doc:`/concepts/evaluation` for metrics.
-
-Backward compatibility
-----------------------
-
-Legacy entry point
-~~~~~~~~~~~~~~~~~~
-
-Before 1.6.0, the report was commonly invoked as ``drevalpy-report``. Prefer
-``drevalpy report``. The old console script remains a deprecated alias and may
-be removed in a later version.
