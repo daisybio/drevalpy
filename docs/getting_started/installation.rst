@@ -87,30 +87,17 @@ To install DrEvalPy from source, clone the repository and install the package us
 Now, you can test the functionality quickly via ``drevalpy --help``. Or take a look at the
 :doc:`/cli/quickstart` documentation.
 
-Ray Tune on Windows
--------------------
+Hyperparameter tuning on Windows
+--------------------------------
 
-Experiment-time hyperparameter search uses **Ray Tune** to schedule and run
-trials (including optional CPU/GPU resource limits) and **Optuna**
-(``OptunaSearch``) only as the sampler that proposes the next configurations.
-There is no Optuna-only path: without Ray, ``hyperparameter_tuning=True``
-fails at import time. You can still run experiments with defaults via
-``--no_hyperparameter_tuning`` / ``hyperparameter_tuning=False``.
+Experiment-time HPO depends on `Ray <https://pypi.org/project/ray/>`_.
+Unfortunately, Ray only publishes Windows wheels for Python 3.10-3.12.
+This means, if you are using Windows and a Python version outside of that range, the following will happen:
 
-Ray publishes ``win_amd64`` wheels for Python 3.10–3.12, so tuning works on
-native Windows with those interpreters. There is still no Windows wheel for
-Python 3.13+, so ``ray[tune]`` is skipped at install time in that case (see
-``pyproject.toml``). If you need Ray Tune on Windows with Python 3.13+, use
-Python 3.12 instead, `WSL <https://learn.microsoft.com/en-us/windows/wsl/install>`_,
-or the :ref:`Docker image <getting_started/installation:With Docker>` above.
+1. Installation of DrEvalPy will succeed, but ``ray`` won't be installed.
+2. Running a workflow with hyperparameter tuning (which is enabled by default) will fail with ``ImportError: Ray Tune with Optuna requires ray[tune] and optuna to be installed``.
+3. Running a workflow without hyperparameter tuning (``--no_hyperparameter_tuning``) will succeed
 
-Backward compatibility
-----------------------
-
-Before 1.6.0, Ray Tune was sometimes documented as an optional ``multiprocessing``
-extra, and model libraries such as ``xgboost``, ``lightgbm``, ``gseapy``,
-``mygene``, and ``obonet`` were install extras (``drevalpy[xgboost]``,
-``drevalpy[precily]``, and so on). Those packages are core dependencies now
-(Ray is still skipped on Windows with Python 3.13+, as described above). The
-``multiprocessing`` Poetry extra and the model-library extras are no longer
-used for that purpose.
+To run HPO from Windows make sure to use a supported Python version (3.10-3.12), use
+`WSL <https://learn.microsoft.com/en-us/windows/wsl/install>`_, or the
+:ref:`Docker image <getting_started/installation:With Docker>` above.

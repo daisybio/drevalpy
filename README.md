@@ -70,9 +70,9 @@ pip install drevalpy
 
 Ray Tune (`ray[tune]`) and Optuna are included in the default install. HPO uses
 Ray to run trials and Optuna only as the search sampler — there is no
-Optuna-only fallback. Ray publishes Windows wheels for Python 3.10–3.12; on
-Windows with Python 3.13+, Ray is skipped until upstream provides a wheel (use
-Python 3.12, WSL, or Docker, or run with hyperparameter tuning disabled).
+Optuna-only fallback. On Windows, HPO works with Python 3.10–3.12; with
+Python 3.13+, Ray has no wheel so hyperparameter tuning is unavailable (use
+Python 3.12, WSL, or Docker for HPO, or disable tuning for defaults-only runs).
 
 On a regular machine, the installation should take about a minute.
 
