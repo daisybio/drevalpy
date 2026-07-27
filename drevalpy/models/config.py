@@ -89,7 +89,7 @@ class PredictorConfig(BaseModel):
         from drevalpy.components.registry import lookup as reg
 
         cls = reg.get_predictor(self.name)
-        return cls()
+        return cls(hyperparameters=dict(self.hyperparameters))
 
 
 class ModelConfig(BaseModel):
@@ -151,12 +151,19 @@ class ModelConfig(BaseModel):
         self.validate()
         cell_line = self.cell_line_featurizer.create_instance() if self.cell_line_featurizer else None
         drug = self.drug_featurizer.create_instance() if self.drug_featurizer else None
-        pred = self.predictor.create_instance()
+        predictor_hp = {
+            **dict(self.predictor.hyperparameters),
+            "prediction_mode": self.prediction_mode,
+        }
+        pred = PredictorConfig(
+            name=self.predictor.name,
+            hyperparameters=predictor_hp,
+            hyperparameter_space=self.predictor.hyperparameter_space,
+        ).create_instance()
         return ComposedModel(
             cell_line,
             drug,
             pred,
-            predictor_hyperparameters=self.predictor.hyperparameters,
             prediction_mode=self.prediction_mode,
             config=self,
         )

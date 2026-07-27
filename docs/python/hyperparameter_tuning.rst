@@ -66,6 +66,9 @@ classes. See :doc:`architecture` for the full recipe grammar.
 Running HPO from Python
 -----------------------
 
+Use the root experiment (Ray Tune + Optuna) or call ``hpam_tune`` /
+``tune_fold`` with a model **class**:
+
 .. code-block:: python
 
    from drevalpy.experiment import drug_response_experiment
@@ -79,6 +82,17 @@ Running HPO from Python
        hyperparameter_tuning=True,
        hpo_num_samples=16,
        hpo_random_state=42,
+   )
+
+.. code-block:: python
+
+   from drevalpy.components.tuning import hpam_tune
+
+   best = hpam_tune(
+       model_class=ElasticNet,
+       train_dataset=train,
+       validation_dataset=val,
+       early_stopping_dataset=None,
    )
 
 Component search spaces look like:

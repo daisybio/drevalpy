@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import ClassVar
+from typing import Any, ClassVar
 
 import numpy as np
 
@@ -32,7 +32,8 @@ class NaiveTissueMeanPredictor(BlockPredictor):
 
     requires_drug_featurizer: ClassVar[bool] = False
 
-    def __init__(self) -> None:
+    def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
+        super().__init__(hyperparameters)
         self._dataset_mean: float | None = None
         self._effects: np.ndarray | None = None
 
@@ -90,7 +91,8 @@ class NaiveTissueDrugMeanPredictor(BlockPredictor):
 
     requires_drug_featurizer: ClassVar[bool] = True
 
-    def __init__(self) -> None:
+    def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
+        super().__init__(hyperparameters)
         self._dataset_mean: float | None = None
         self._effects: np.ndarray | None = None
 

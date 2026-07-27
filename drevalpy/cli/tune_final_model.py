@@ -39,7 +39,11 @@ def register(app: typer.Typer) -> None:
             ),
         ] = "TEMPORARY",
     ) -> None:
-        """Find optimal hyperparameters for the final model on full data."""
+        """Score one hyperparameter YAML on the final validation split.
+
+        This does not run Ray/Optuna search. Prefer the root experiment or
+        ``drevalpy.experiment.train_final_model`` for real tuning.
+        """
         run_tune_final_model(
             train_data=train_data,
             val_data=val_data,

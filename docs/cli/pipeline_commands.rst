@@ -18,12 +18,16 @@ Typical CV evaluation path:
 4. ``drevalpy make-cv-pkls`` — build CV split pickles (supports
    ``--custom_splitter_path``)
 5. ``drevalpy make-hpam-yamls`` — write default hyperparameters for a model
+   (no search grid)
 6. ``drevalpy train-cv`` — train and predict on CV folds for one hyperparameter
    file
-7. ``drevalpy evaluate-hpams`` — pick the best hyperparameters from CV
+7. ``drevalpy evaluate-hpams`` — select among YAML prediction artifacts
+   (deprecated for HPO; use Ray/Optuna via the root experiment)
 8. ``drevalpy test-cv`` — train on train+val and evaluate on the test fold
 9. ``drevalpy make-randomization-yamls`` — prepare randomization configs
 10. ``drevalpy consolidate-single-drug`` — consolidate single-drug model outputs
+    (requires ``--dataset_name``; layout is
+    ``outdir/run_id/dataset_name/test_mode``)
 11. ``drevalpy evaluate-test`` — aggregate test metrics
 12. ``drevalpy collect-results`` — collect result files for reporting
 13. ``drevalpy report`` — HTML report for a local-style run layout
@@ -32,8 +36,10 @@ Typical CV evaluation path:
 Optional final-model path after CV:
 
 - ``drevalpy make-final-split-pkls`` — pickles for a final full-data split
-- ``drevalpy tune-final-model`` — tune on the final split
-- ``drevalpy train-final-model`` — train the final model
+- ``drevalpy tune-final-model`` — score one hyperparameter YAML on the final
+  validation split (does **not** run Ray/Optuna; prefer
+  ``train_final_model`` / root ``drevalpy`` for real tuning)
+- ``drevalpy train-final-model`` — train the final model from a selected YAML
 
 ``make-hpam-yamls``
 -------------------
@@ -41,7 +47,7 @@ Optional final-model path after CV:
 ``drevalpy make-hpam-yamls --model_name <Model>`` writes only
 ``hpam_0.yaml`` containing that model’s default hyperparameters. It does
 **not** expand a search grid. Ray/Optuna tuning happens at experiment time
-(root ``drevalpy`` or the tuning steps above), not inside this command.
+(root ``drevalpy`` via ``hpam_tune``), not inside this command.
 
 Example:
 

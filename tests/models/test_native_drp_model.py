@@ -5,6 +5,7 @@ from __future__ import annotations
 import tempfile
 
 import numpy as np
+import pytest
 
 from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.models._native_drp_model import create_native_drp_class
@@ -158,13 +159,70 @@ def test_from_model_config_and_load_skip_default_stack() -> None:
     assert loaded._composed.is_fitted()
 
 
-def test_sync_predictor_hyperparameters_updates_composed_config() -> None:
+def test_facade_hyperparameters_and_views_are_immutable_after_construction() -> None:
     NativeElasticNet = create_native_drp_class("ElasticNet", spec="ElasticNet", validate_spec=False)
     model = NativeElasticNet({"alpha": 0.1, "l1_ratio": 0.5})
     assert model._composed is not None
-    model.hyperparameters["alpha"] = 0.25
-    model._sync_predictor_hyperparameters()
+
+    exposed = model.hyperparameters
+    exposed["alpha"] = 0.25
+    assert model.hyperparameters["alpha"] == 0.1
     assert model._composed.config is not None
-    assert model._composed.config.predictor.hyperparameters["alpha"] == 0.25
+    assert model._composed.config.predictor.hyperparameters["alpha"] == 0.1
+
+    with pytest.raises(AttributeError):
+        model.hyperparameters = {"alpha": 0.25}  # type: ignore[misc]
+
+    views = model.cell_line_views
+    views.append("mutated_view")
+    assert "mutated_view" not in model.cell_line_views
+    with pytest.raises(AttributeError):
+        model.cell_line_views = ["gene_expression"]  # type: ignore[misc]
+    with pytest.raises(AttributeError):
+        model.drug_views = ["fingerprints"]  # type: ignore[misc]
+
+    assert not hasattr(model, "_sync_predictor_hyperparameters")
+
+
+def test_load_drug_features_stores_preload_without_mutating_facade_hyperparameters(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from drevalpy.components.predictors.literature.structured_engine_adapter import (
+        DISCOVERED_HYPERPARAMETERS_KEY,
+    )
+    from drevalpy.components.registry import get_predictor
+    from drevalpy.datasets.dataset import FeatureDataset
+
+    NativeElasticNet = create_native_drp_class("ElasticNet", spec="ElasticNet", validate_spec=False)
+    model = NativeElasticNet({"alpha": 0.1, "l1_ratio": 0.5})
+    original = model.hyperparameters
     assert model._resolved_model_config is not None
-    assert model._resolved_model_config.predictor.hyperparameters["alpha"] == 0.25
+    predictor_cls = get_predictor(model._resolved_model_config.predictor.name)
+
+    def _fake_loader(
+        cls: type,
+        data_path: str,
+        dataset_name: str,
+        *,
+        hyperparameters: dict | None = None,
+        model_name: str | None = None,
+    ):
+        _ = cls, data_path, dataset_name, model_name
+        assert hyperparameters is not None
+        hyperparameters["alpha"] = 999.0
+        return (
+            FeatureDataset(features={"d1": {"fingerprints": np.array([1.0])}}),
+            {DISCOVERED_HYPERPARAMETERS_KEY: {"drug_dim": 64}},
+        )
+
+    monkeypatch.setattr(
+        predictor_cls,
+        "load_dataset_drug_features",
+        classmethod(_fake_loader),
+        raising=False,
+    )
+
+    features = model.load_drug_features(".", "TOY")
+    assert features is not None
+    assert model.hyperparameters == original
+    assert model._engine_preload_state[DISCOVERED_HYPERPARAMETERS_KEY] == {"drug_dim": 64}

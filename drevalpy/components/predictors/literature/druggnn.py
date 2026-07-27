@@ -30,8 +30,8 @@ class DrugGNNPredictor(StructuredPredictor):
 
     supports_early_stopping: ClassVar[bool] = True
 
-    def __init__(self) -> None:
-        self._hyperparameters: dict[str, Any] = {}
+    def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
+        super().__init__(hyperparameters)
         self._engine: DrugGNNEngine | None = None
 
     @classmethod
@@ -77,11 +77,6 @@ class DrugGNNPredictor(StructuredPredictor):
             "epochs": {"type": "int", "low": 1, "high": 10, "default": 2},
             "batch_size": {"type": "int", "low": 4, "high": 32, "default": 8},
         }
-
-    def build(self, hyperparameters: dict[str, Any], input_dims: dict[str, Any]) -> None:
-        _ = input_dims
-        self._hyperparameters = {**self.get_default_hyperparameters(), **hyperparameters}
-        self._engine = None
 
     def fit(self, batch: ModelInputBatch) -> None:
         cell_line_input = batch.cell_line_input

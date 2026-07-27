@@ -42,7 +42,6 @@ def _ray_state_fixture(monkeypatch) -> dict[str, int]:
 
 def test_hpam_tune_no_space_returns_defaults(monkeypatch) -> None:
     model_cls = construct_model("ElasticNet")
-    model = model_cls()
     monkeypatch.setattr(
         "drevalpy.components.tuning.hpo.structured_space_for_drp_model",
         lambda _cls: {},
@@ -54,16 +53,14 @@ def test_hpam_tune_no_space_returns_defaults(monkeypatch) -> None:
 
     dataset = _tiny_dataset()
     best = hpam_tune(
-        model=model,
+        model_class=model_cls,
         train_dataset=dataset,
         validation_dataset=dataset.copy(),
         early_stopping_dataset=None,
-        model_class=model_cls,
         metric="RMSE",
         hpo_config=HPOConfig.from_metric("RMSE", n_trials=5),
     )
     assert best == model_cls.get_default_hyperparameters()
-    assert model._in_hyperparameter_tuning is False
 
 
 def test_hpam_tune_zero_trials_skips_ray(monkeypatch) -> None:
@@ -73,20 +70,17 @@ def test_hpam_tune_zero_trials_skips_ray(monkeypatch) -> None:
     monkeypatch.setattr("ray.is_initialized", lambda: False)
 
     model_cls = construct_model("ElasticNet")
-    model = model_cls()
     dataset = _tiny_dataset()
     best = hpam_tune(
-        model=model,
+        model_class=model_cls,
         train_dataset=dataset,
         validation_dataset=dataset.copy(),
         early_stopping_dataset=None,
-        model_class=model_cls,
         metric="RMSE",
         hpo_config=HPOConfig.from_metric("RMSE", n_trials=0),
     )
     assert best == model_cls.get_default_hyperparameters()
     assert init_calls == []
-    assert model._in_hyperparameter_tuning is False
 
 
 def test_hpam_tune_one_trial(monkeypatch) -> None:
@@ -123,20 +117,17 @@ def test_hpam_tune_one_trial(monkeypatch) -> None:
     )
 
     model_cls = construct_model("ElasticNet")
-    model = model_cls()
     dataset = _tiny_dataset()
     best = hpam_tune(
-        model=model,
+        model_class=model_cls,
         train_dataset=dataset,
         validation_dataset=dataset.copy(),
         early_stopping_dataset=None,
-        model_class=model_cls,
         metric="RMSE",
         hpo_config=HPOConfig.from_metric("RMSE", n_trials=1),
     )
     assert captured["num_samples"] == 1
     assert "alpha" in best
-    assert model._in_hyperparameter_tuning is False
     assert state["init_calls"] == 1
     assert state["shutdown_calls"] == 1
 
@@ -168,20 +159,17 @@ def test_hpam_tune_all_nan_returns_defaults(monkeypatch) -> None:
     _ray_state_fixture(monkeypatch)
     monkeypatch.setattr("ray.tune.Tuner", FakeTuner)
     model_cls = construct_model("ElasticNet")
-    model = model_cls()
     dataset = _tiny_dataset()
     with pytest.warns(UserWarning, match="did not find a valid configuration"):
         best = hpam_tune(
-            model=model,
+            model_class=model_cls,
             train_dataset=dataset,
             validation_dataset=dataset.copy(),
             early_stopping_dataset=None,
-            model_class=model_cls,
             metric="RMSE",
             hpo_config=HPOConfig.from_metric("RMSE", n_trials=2),
         )
     assert best == model_cls.get_default_hyperparameters()
-    assert model._in_hyperparameter_tuning is False
 
 
 def test_hpam_tune_trial_exception_reports_nan(monkeypatch) -> None:
@@ -215,15 +203,13 @@ def test_hpam_tune_trial_exception_reports_nan(monkeypatch) -> None:
     )
 
     model_cls = construct_model("ElasticNet")
-    model = model_cls()
     dataset = _tiny_dataset()
     with pytest.warns(UserWarning, match="did not find a valid configuration"):
         best = hpam_tune(
-            model=model,
+            model_class=model_cls,
             train_dataset=dataset,
             validation_dataset=dataset.copy(),
             early_stopping_dataset=None,
-            model_class=model_cls,
             metric="RMSE",
             hpo_config=HPOConfig.from_metric("RMSE", n_trials=1),
         )
@@ -246,19 +232,16 @@ def test_hpam_tune_tuner_exception_cleans_up(monkeypatch) -> None:
     state = _ray_state_fixture(monkeypatch)
     monkeypatch.setattr("ray.tune.Tuner", BrokenTuner)
     model_cls = construct_model("ElasticNet")
-    model = model_cls()
     dataset = _tiny_dataset()
     with pytest.raises(RuntimeError, match="tuner failed"):
         hpam_tune(
-            model=model,
+            model_class=model_cls,
             train_dataset=dataset,
             validation_dataset=dataset.copy(),
             early_stopping_dataset=None,
-            model_class=model_cls,
             metric="RMSE",
             hpo_config=HPOConfig.from_metric("RMSE", n_trials=2),
         )
-    assert model._in_hyperparameter_tuning is False
     assert state["shutdown_calls"] == 1
 
 
@@ -295,14 +278,12 @@ def test_hpam_tune_does_not_shutdown_preexisting_ray(monkeypatch) -> None:
     )
 
     model_cls = construct_model("ElasticNet")
-    model = model_cls()
     dataset = _tiny_dataset()
     hpam_tune(
-        model=model,
+        model_class=model_cls,
         train_dataset=dataset,
         validation_dataset=dataset.copy(),
         early_stopping_dataset=None,
-        model_class=model_cls,
         metric="RMSE",
         hpo_config=HPOConfig.from_metric("RMSE", n_trials=1),
     )
@@ -312,15 +293,13 @@ def test_hpam_tune_does_not_shutdown_preexisting_ray(monkeypatch) -> None:
 
 def test_hpam_tune_rejects_metric_mismatch() -> None:
     model_cls = construct_model("ElasticNet")
-    model = model_cls()
     dataset = _tiny_dataset()
     with pytest.raises(ValueError, match="must match metric argument"):
         hpam_tune(
-            model=model,
+            model_class=model_cls,
             train_dataset=dataset,
             validation_dataset=dataset.copy(),
             early_stopping_dataset=None,
-            model_class=model_cls,
             metric="RMSE",
             hpo_config=HPOConfig.from_metric("Pearson", n_trials=1),
         )
@@ -376,15 +355,13 @@ def test_hpam_tune_real_one_trial(tmp_path, data_dir) -> None:
 
     storage = tmp_path / "ray_storage"
     best = experiment.hpam_tune(
-        model=model,
+        model_class=model_cls,
         train_dataset=train_dataset,
         validation_dataset=val_dataset,
         early_stopping_dataset=None,
         metric="RMSE",
         path_data=str(data_dir),
-        model_class=model_cls,
         hpo_config=build_experiment_hpo_config("RMSE", n_trials=1, storage_path=str(storage)),
     )
     assert isinstance(best, dict)
     assert "alpha" in best
-    assert model._in_hyperparameter_tuning is False

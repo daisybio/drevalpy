@@ -15,7 +15,6 @@ class BaselinePredictor(Predictor):
     cell_line_contract = Predictor.cell_line_contract
     drug_contract = Predictor.drug_contract
 
-    def build(self, hyperparameters: dict[str, Any], input_dims: dict[str, Any]) -> None:
-        _ = input_dims
-        self._hyperparameters = hyperparameters
-        self._mode = PredictionMode(hyperparameters.get("prediction_mode", PredictionMode.REGRESSION))
+    def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
+        super().__init__(hyperparameters)
+        self._mode = PredictionMode(self._hyperparameters.get("prediction_mode", PredictionMode.REGRESSION))

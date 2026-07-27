@@ -152,13 +152,23 @@ Scope and early stopping
 - Early stopping is derived from predictor capability metadata
   (``supports_early_stopping``) via the zoo predictor name.
 
+Predictors and construction
+---------------------------
+
+Featurizers receive constructor kwargs from ``FeaturizerConfig``. Predictors
+receive static hyperparameters from ``PredictorConfig.create_instance()``.
+``ComposedModel.train`` fits featurizers, builds a ``ModelInputBatch``, and
+calls ``predictor.fit`` — there is no public ``Predictor.build``. Dimension
+allocation that depends on fitted features happens inside ``fit``.
+
 Persistence
 -----------
 
 Native checkpoints store a versioned payload with the resolved ``ModelConfig``
-and fitted component state (``composed_model.joblib``). Legacy checkpoint
-formats and deep model import paths are unsupported; see :doc:`persistence`
-and :doc:`custom_models`.
+and fitted component state (``composed_model.joblib``). Run metadata and CV
+splits live beside checkpoints, not inside them. Legacy checkpoint formats and
+deep model import paths are unsupported; see :doc:`persistence` and
+:doc:`custom_models`.
 
 Extension path
 --------------

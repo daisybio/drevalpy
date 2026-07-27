@@ -20,20 +20,15 @@ class SklearnTabularPredictor(MatrixPredictor):
     # Estimators are regressors only until classifier implementations exist.
     supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset({PredictionMode.REGRESSION})
 
-    def __init__(self) -> None:
-        self._h: dict[str, Any] = {}
-        self._mode: PredictionMode = PredictionMode.REGRESSION
-        self._estimator: Any = None
-
-    def build(self, hyperparameters: dict[str, Any], input_dims: dict[str, Any]) -> None:
-        super().build(hyperparameters, input_dims)
-        merged = {**self.get_default_hyperparameters(), **hyperparameters}
+    def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
+        super().__init__(hyperparameters)
+        merged = dict(self._hyperparameters)
         non_tunable = getattr(self, "non_tunable_hyperparameters", None)
         if isinstance(non_tunable, dict):
             merged = {**non_tunable, **merged}
         self._h = merged
-        self._mode = PredictionMode(hyperparameters.get("prediction_mode", PredictionMode.REGRESSION))
-        self._estimator = None
+        self._mode = PredictionMode(merged.get("prediction_mode", PredictionMode.REGRESSION))
+        self._estimator: Any = None
 
     @abstractmethod
     def _make_estimator(self) -> Any:
@@ -71,6 +66,7 @@ class SklearnTabularPredictor(MatrixPredictor):
             raise PredictorStateError(msg)
         self._estimator = estimator
         self._h = {str(key): value for key, value in hyperparameters.items()}
+        self._hyperparameters = dict(self._h)
         mode = state.get("mode", PredictionMode.REGRESSION)
         if isinstance(mode, str):
             self._mode = PredictionMode(mode)

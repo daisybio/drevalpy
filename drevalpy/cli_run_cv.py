@@ -123,7 +123,8 @@ def run_train_and_predict_cv(
     model_checkpoint_dir: str = "TEMPORARY",
 ) -> None:
     """Train on a CV split and pickle validation predictions."""
-    from drevalpy.experiment import get_datasets_from_cv_split, get_model_name_and_drug_id, train_and_predict
+    from drevalpy.experiment import get_model_name_and_drug_id, train_and_predict
+    from drevalpy.experiment_fold import get_datasets_from_cv_split
     from drevalpy.models._model_lookup import get_model_class
     from drevalpy.utils import get_response_transformation
 
@@ -179,8 +180,21 @@ def run_evaluate_and_find_max(
     pred_datas: list[str],
     optim_metric: str = "RMSE",
 ) -> None:
-    """Pick the best hyperparameter YAML for one CV split."""
+    """Pick the best hyperparameter YAML for one CV split.
+
+    With ``make-hpam-yamls`` emitting a single defaults file, this is usually a
+    no-op selector. Prefer Ray/Optuna via ``hpam_tune`` / the root experiment.
+    """
+    import warnings
+
     from drevalpy.evaluation import MAXIMIZATION_METRICS, MINIMIZATION_METRICS, evaluate
+
+    warnings.warn(
+        "evaluate-hpams selects among YAML prediction artifacts and is not Ray/Optuna "
+        "tuning. Prefer drevalpy.components.tuning.hpam_tune or the root experiment CLI.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
 
     best_hpam_combi = None
     best_result = None

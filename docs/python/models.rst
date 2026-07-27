@@ -57,11 +57,17 @@ Lifecycle
 The public ``DRPModel`` / ``NativeDRPModel`` facade exposes:
 
 1. ``Model([hyperparameters])`` — construct with class defaults or flat
-   overrides (instances are not reconfigured afterward).
+   overrides. Hyperparameters and view lists are immutable after construction;
+   create a new instance to change configuration.
 2. ``train(...)`` / ``predict(...)`` — fit and score on response + feature
    inputs (the experiment runner constructs a fresh instance per fold).
 3. ``save(directory)`` / ``load(directory)`` — native
    ``composed_model.joblib`` checkpoints (see :doc:`persistence`).
+
+Predictors inside a ``ModelConfig`` receive static hyperparameters at
+construction (``PredictorConfig.create_instance()``). Dimension-dependent
+allocation happens privately during ``fit()``; there is no public
+``Predictor.build``.
 
 For day-to-day benchmarking, prefer ``drug_response_experiment`` over a hand-
 rolled train loop (:doc:`experiments`).

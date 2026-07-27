@@ -37,8 +37,8 @@ class NeuralNetworkPredictor(MatrixPredictor):
     supports_early_stopping: ClassVar[bool] = True
     supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset({PredictionMode.REGRESSION})
 
-    def __init__(self) -> None:
-        self._hyperparameters: dict[str, Any] = {}
+    def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
+        super().__init__(hyperparameters)
         self._model: FeedForwardNetwork | None = None
         self._input_dim: int | None = None
         self._is_fitted = False
@@ -61,16 +61,13 @@ class NeuralNetworkPredictor(MatrixPredictor):
             "batch_size": {"type": "int", "low": 8, "high": 64, "default": 16},
         }
 
-    def build(self, hyperparameters: dict[str, Any], input_dims: dict[str, Any]) -> None:
-        super().build(hyperparameters, input_dims)
-        merged = {**self.get_default_hyperparameters(), **hyperparameters}
-        self._hyperparameters = merged
-        input_dim = int(input_dims.get("cell_line", 0)) + int(input_dims.get("drug", 0))
+    def _materialize(self, input_dim: int) -> None:
+        """Allocate the network once input dimensionality is known."""
         self._input_dim = input_dim
         self._model = FeedForwardNetwork(
             hyperparameters={
-                "units_per_layer": merged["units_per_layer"],
-                "dropout_prob": merged["dropout_prob"],
+                "units_per_layer": self._hyperparameters["units_per_layer"],
+                "dropout_prob": self._hyperparameters["dropout_prob"],
             },
             input_dim=input_dim,
         )
@@ -80,12 +77,11 @@ class NeuralNetworkPredictor(MatrixPredictor):
         if batch.response is None:
             msg = "Matrix predictors require response values during fit"
             raise ValueError(msg)
-        if self._model is None:
-            msg = "NeuralNetworkPredictor.build() must be called before fit()"
-            raise RuntimeError(msg)
         x = batch.to_feature_matrix()
         y = np.asarray(batch.response, dtype=np.float64)
         validate_matrix_fit(x, y, n_pairs=batch.n_pairs)
+        input_dim = int(x.shape[1]) if x.ndim == 2 else 0
+        self._materialize(input_dim)
         if batch.n_pairs == 0:
             self._is_fitted = False
             return
@@ -99,7 +95,7 @@ class NeuralNetworkPredictor(MatrixPredictor):
         y: np.ndarray,
     ) -> None:
         if self._model is None:
-            msg = "Neural network predictor must be built before training"
+            msg = "Neural network predictor must be materialized before training"
             raise RuntimeError(msg)
         batch_size = min(int(self._hyperparameters.get("batch_size", 16)), len(x))
         train_loader = DataLoader(
@@ -210,13 +206,9 @@ class NeuralNetworkPredictor(MatrixPredictor):
             raise PredictorStateError(msg)
         self._hyperparameters = dict(hyperparameters)
         self._input_dim = int(input_dim)
-        merged = self._hyperparameters
-        self._model = FeedForwardNetwork(
-            hyperparameters={
-                "units_per_layer": merged.get("units_per_layer", [512, 256, 128]),
-                "dropout_prob": merged.get("dropout_prob", 0.2),
-            },
-            input_dim=self._input_dim,
-        )
+        self._materialize(self._input_dim)
+        if self._model is None:
+            msg = "NeuralNetworkPredictor failed to materialize from checkpoint"
+            raise PredictorStateError(msg)
         self._model.load_state_dict(state_dict)
         self._is_fitted = True

@@ -17,6 +17,7 @@ def register(app: typer.Typer) -> None:
         model_name: Annotated[str, typer.Option("--model_name", help="All Model names")],
         outdir_path: Annotated[str, typer.Option("--outdir_path", help="Output directory path")],
         n_cv_splits: Annotated[int, typer.Option("--n_cv_splits", help="Number of CV splits")],
+        dataset_name: Annotated[str, typer.Option("--dataset_name", help="Response dataset name")],
         test_mode: Annotated[str, typer.Option("--test_mode", help="Test mode (LPO, LCO, LTO, LDO)")] = "LPO",
         cross_study_datasets: Annotated[
             list[str] | None, typer.Option("--cross_study_datasets", help="Cross-study datasets (space-separated).")
@@ -33,6 +34,7 @@ def register(app: typer.Typer) -> None:
             model_name=model_name,
             outdir_path=outdir_path,
             n_cv_splits=n_cv_splits,
+            dataset_name=dataset_name,
             cross_study_datasets=as_list(cross_study_datasets) if cross_study_datasets else None,
             randomization_modes=randomization_modes,
             n_trials_robustness=n_trials_robustness,

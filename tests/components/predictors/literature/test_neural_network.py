@@ -50,8 +50,10 @@ def test_neural_network_zoo_trains_on_synthetic_data() -> None:
     assert np.isfinite(preds).all()
 
 
-def test_neural_network_build_is_not_fitted_before_training() -> None:
+def test_neural_network_configured_is_not_fitted_before_training() -> None:
     register_builtin_components()
-    predictor = NeuralNetworkPredictor()
-    predictor.build({"max_epochs": 1, "units_per_layer": [4, 2]}, {"cell_line": 4, "drug": 4})
+    predictor = NeuralNetworkPredictor(
+        hyperparameters={"max_epochs": 1, "units_per_layer": [4, 2]},
+    )
+    assert predictor._model is None
     assert predictor.is_fitted() is False

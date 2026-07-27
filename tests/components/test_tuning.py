@@ -73,7 +73,6 @@ def test_hpam_tune_uses_optuna(monkeypatch) -> None:
     from drevalpy.datasets.dataset import DrugResponseDataset
 
     model_cls = construct_model("ElasticNet")
-    model = model_cls()
     train = DrugResponseDataset(
         response=np.array([1.0, 2.0]),
         cell_line_ids=np.array(["cl1", "cl2"]),
@@ -81,11 +80,10 @@ def test_hpam_tune_uses_optuna(monkeypatch) -> None:
     )
     val = train.copy()
     best = hpam_tune(
-        model=model,
+        model_class=model_cls,
         train_dataset=train,
         validation_dataset=val,
         early_stopping_dataset=None,
-        model_class=model_cls,
         metric="RMSE",
         path_data="data",
         hpo_config=HPOConfig.from_metric("RMSE", n_trials=3),
@@ -124,13 +122,12 @@ def test_hpam_tune_smoke(tmp_path, data_dir) -> None:
     val_dataset.reduce_to(cell_line_ids=cell_line_input.identifiers, drug_ids=drug_input.identifiers)
 
     best = experiment.hpam_tune(
-        model=model,
+        model_class=model_cls,
         train_dataset=train_dataset,
         validation_dataset=val_dataset,
         early_stopping_dataset=None,
         metric="RMSE",
         path_data=str(data_dir),
-        model_class=model_cls,
         hpo_config=HPOConfig.from_metric("RMSE", n_trials=2, storage_path=str(tmp_path)),
     )
     assert isinstance(best, dict)

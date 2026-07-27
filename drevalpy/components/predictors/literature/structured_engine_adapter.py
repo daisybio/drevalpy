@@ -30,6 +30,9 @@ ENGINE_MODULES: dict[str, str] = {
     "SparseGOModel": "drevalpy.components.predictors.literature.impl.sparsego.sparsego",
 }
 
+# Preload-state key for data-derived hyperparameter discoveries (e.g. SparseGO drug_dim).
+DISCOVERED_HYPERPARAMETERS_KEY = "discovered_hyperparameters"
+
 
 def resolve_engine_cls(class_name: str) -> type[LiteratureEngineBase]:
     """Import a literature engine class by its legacy class name."""
@@ -74,8 +77,8 @@ class StructuredLiteratureEnginePredictor(StructuredPredictor):
         "model",
     )
 
-    def __init__(self) -> None:
-        self._hyperparameters: dict[str, Any] = {}
+    def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
+        super().__init__(hyperparameters)
         self._engine: LiteratureEngineBase | None = None
         self._engine_preload_state: dict[str, Any] = {}
 
@@ -100,11 +103,6 @@ class StructuredLiteratureEnginePredictor(StructuredPredictor):
         if callable(engine_space):
             return dict(engine_space())
         return {}
-
-    def build(self, hyperparameters: dict[str, Any], input_dims: dict[str, Any]) -> None:
-        _ = input_dims
-        self._hyperparameters = dict(hyperparameters)
-        self._engine = None
 
     def set_engine_preload_state(self, state: dict[str, Any]) -> None:
         self._engine_preload_state = dict(state)
@@ -136,15 +134,22 @@ class StructuredLiteratureEnginePredictor(StructuredPredictor):
         *,
         hyperparameters: dict[str, Any] | None = None,
         model_name: str | None = None,
-    ) -> FeatureDataset | None:
+    ) -> tuple[FeatureDataset | None, dict[str, Any]]:
         _ = model_name
         engine = cls.engine_cls()()
-        if hyperparameters:
-            engine.hyperparameters = dict(hyperparameters)
+        seed_hyperparameters = dict(hyperparameters) if hyperparameters else {}
+        if seed_hyperparameters:
+            engine.hyperparameters = dict(seed_hyperparameters)
         features = engine.load_drug_features(data_path, dataset_name)
-        if hyperparameters is not None:
-            hyperparameters.update(dict(engine.hyperparameters))
-        return features
+        discovered = {
+            key: value
+            for key, value in dict(engine.hyperparameters).items()
+            if key not in seed_hyperparameters or seed_hyperparameters[key] != value
+        }
+        preload: dict[str, Any] = {}
+        if discovered:
+            preload[DISCOVERED_HYPERPARAMETERS_KEY] = discovered
+        return features, preload
 
     def _materialize_inputs(
         self,
@@ -194,8 +199,12 @@ class StructuredLiteratureEnginePredictor(StructuredPredictor):
             drug_ids=batch.drug_ids,
         )
         hyperparameters = dict(self._hyperparameters)
+        preload = dict(self._engine_preload_state)
+        discovered = preload.pop(DISCOVERED_HYPERPARAMETERS_KEY, None)
+        if isinstance(discovered, dict):
+            hyperparameters.update(discovered)
         engine = self.engine_cls()()
-        for name, value in self._engine_preload_state.items():
+        for name, value in preload.items():
             setattr(engine, name, value)
         engine.configure(hyperparameters)
         engine.train(

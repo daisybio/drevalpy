@@ -30,8 +30,9 @@ def check_arguments(args) -> None:
     if not all(model in available_models for model in args.models):
         raise AssertionError(
             f"Invalid model name. Available models are {available_models}. If you want to "
-            f"use your own model, register components and a zoo preset, then resolve it with "
-            f"construct_model / ModelConfig.from_spec."
+            f"use your own model, register a zoo YAML under the external zoo path (or "
+            f"package zoo) and resolve it by name; custom recipe strings are available "
+            f"programmatically via construct_model(name, spec) / ModelConfig.from_spec."
         )
     if not all(test in ["LPO", "LCO", "LDO", "LTO"] for test in args.test_mode):
         raise AssertionError("Invalid test mode. Available test modes are LPO, LCO, LDO, LTO")

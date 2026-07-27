@@ -12,7 +12,8 @@ import yaml
 
 def _prep_data_for_final_prediction(arguments: Namespace) -> tuple[Any, Any, Any, Any, Any, Any, Any]:
     """Load data and prepare it for final CV-fold training and prediction."""
-    from drevalpy.experiment import get_datasets_from_cv_split, get_model_name_and_drug_id
+    from drevalpy.experiment import get_model_name_and_drug_id
+    from drevalpy.experiment_fold import early_stopping_for_model, prepare_final_fold_training_data
     from drevalpy.models._model_lookup import get_model_class
     from drevalpy.utils import get_response_transformation
 
@@ -20,23 +21,21 @@ def _prep_data_for_final_prediction(arguments: Namespace) -> tuple[Any, Any, Any
     model_class = get_model_class(model_name)
     with open(arguments.split_dataset_path, "rb") as split_file:
         split = pickle.load(split_file)
-    train_dataset, validation_dataset, es_dataset, test_dataset = get_datasets_from_cv_split(
-        split, model_class, model_name, drug_id
-    )
-
-    if model_class.early_stopping:
-        validation_dataset = split["validation_es"]
-        es_dataset = split["early_stopping"]
-    else:
-        es_dataset = None
-    train_dataset.add_rows(validation_dataset)
-    train_dataset.shuffle(random_state=42)
+    fold = prepare_final_fold_training_data(split, model_class, model_name, drug_id)
     with open(arguments.hyperparameters_path) as f:
         best_hpam_dict = yaml.safe_load(f)
     best_hpams = best_hpam_dict[f"{arguments.model_name}_{arguments.split_id}"]["best_hpam_combi"]
     model = model_class(best_hpams)
     response_transform = get_response_transformation(arguments.response_transformation)
-    return model, drug_id, best_hpams, train_dataset, test_dataset, es_dataset, response_transform
+    return (
+        model,
+        drug_id,
+        best_hpams,
+        fold.train,
+        fold.test,
+        early_stopping_for_model(model, fold.early_stopping),
+        response_transform,
+    )
 
 
 def run_train_and_predict_final(
@@ -143,13 +142,16 @@ def run_train_and_predict_final(
         randomization_test_file = (
             pathlib.Path(rand_path) / f'randomization_{rand_test_view["test_name"]}_{args.split_id}.csv'
         )
+        views = rand_test_view.get("views")
+        if views is None:
+            views = [rand_test_view["view"]]
         randomize_train_predict(
-            view=rand_test_view["view"],
+            views=views,
             test_name=rand_test_view["test_name"],
             randomization_type=args.randomization_type,
             randomization_test_file=str(randomization_test_file),
-            model=selected_model,
-            hpam_set=hpam_combi,
+            model_class=type(selected_model),
+            hyperparameters=hpam_combi,
             path_data=args.path_data,
             train_dataset=train_set,
             test_dataset=test_set,
@@ -171,8 +173,8 @@ def run_train_and_predict_final(
             train_dataset=train_set,
             test_dataset=test_set,
             early_stopping_dataset=es_set,
-            model=selected_model,
-            hpam_set=hpam_combi,
+            model_class=type(selected_model),
+            hyperparameters=hpam_combi,
             path_data=args.path_data,
             response_transformation=transformation,
             model_checkpoint_dir=args.model_checkpoint_dir,
@@ -187,12 +189,11 @@ def run_randomization_split(*, model_name: str, randomization_mode: str) -> None
     from drevalpy.models._model_lookup import get_model_class
 
     model_class = get_model_class(model_name)
-    randomization_test_views: dict[str, list[str]] = {}
-    for hpam_combi in model_class.get_hyperparameter_set():
-        model = model_class(hpam_combi)
-        randomization_test_views.update(
-            get_randomization_test_views(model=model, randomization_mode=[randomization_mode])
-        )
+    randomization_test_views = get_randomization_test_views(
+        model_class=model_class,
+        randomization_mode=[randomization_mode],
+        hyperparameters=model_class.get_default_hyperparameters(),
+    )
 
     if not randomization_test_views:
         raise RuntimeError(
@@ -201,10 +202,9 @@ def run_randomization_split(*, model_name: str, randomization_mode: str) -> None
         )
 
     for test_name, views in randomization_test_views.items():
-        for view in views:
-            rand_dict = {"test_name": test_name, "view": view}
-            with open(f"randomization_test_view_{test_name}.yaml", "w") as f:
-                yaml.dump(rand_dict, f)
+        rand_dict = {"test_name": test_name, "views": views, "view": views[0] if views else None}
+        with open(f"randomization_test_view_{test_name}.yaml", "w") as f:
+            yaml.dump(rand_dict, f)
 
 
 def run_final_split(
@@ -229,7 +229,7 @@ def run_final_split(
     drug_features = model.load_drug_features(data_path=path_data, dataset_name=response_data.dataset_name)
     cell_lines_to_keep = cl_features.identifiers
     drugs_to_keep = drug_features.identifiers if drug_features is not None else None
-    response_data.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
+    response_data = response_data.reduced_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
 
     train_dataset, validation_dataset = make_train_val_split(response_data, test_mode=test_mode, val_ratio=val_ratio)
 
@@ -257,10 +257,24 @@ def run_tune_final_model(
     path_data: str = "data",
     model_checkpoint_dir: str = "TEMPORARY",
 ) -> None:
-    """Tune hyperparameters for the final model on full data."""
+    """Score a final-model candidate on the validation split (no search).
+
+    Despite the historical name, this command evaluates one hyperparameter YAML
+    via ``train_and_predict``. Ray/Optuna search lives in
+    ``drevalpy.experiment.train_final_model`` / ``hpam_tune``.
+    """
+    import warnings
+
     from drevalpy.experiment import get_model_name_and_drug_id, train_and_predict
     from drevalpy.models._model_lookup import get_model_class
     from drevalpy.utils import get_response_transformation
+
+    warnings.warn(
+        "tune-final-model evaluates a single hyperparameter YAML; it does not run "
+        "Ray/Optuna search. Prefer drevalpy.experiment.train_final_model for tuning.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
 
     with open(train_data, "rb") as train_file:
         train_dataset = pickle.load(train_file)
@@ -316,12 +330,11 @@ def run_train_final_model(
         validation_dataset = pickle.load(val_file)
     with open(early_stopping_data, "rb") as es_file:
         es_dataset = pickle.load(es_file)
-    train_dataset.add_rows(validation_dataset)
-    train_dataset.shuffle(random_state=42)
+    train_dataset = train_dataset.with_rows_added(validation_dataset).shuffled(random_state=42)
     if response_transform:
-        train_dataset.fit_transform(response_transform)
+        train_dataset = train_dataset.fit_transformed(response_transform)
         if es_dataset is not None:
-            es_dataset.transform(response_transform)
+            es_dataset = es_dataset.transformed(response_transform)
     with open(best_hpam_combi) as f:
         best_hpam = yaml.safe_load(f)[f"{resolved_name}_final"]["best_hpam_combi"]
     model = get_model_class(resolved_name)(best_hpam)
@@ -348,12 +361,16 @@ def run_consolidate_results(
     cross_study_datasets: list[str] | None = None,
     randomization_modes: str = "[None]",
     n_trials_robustness: int = 0,
+    dataset_name: str | None = None,
 ) -> None:
     """Consolidate single-drug model prediction outputs."""
     from drevalpy.experiment import consolidate_single_drug_model_predictions
+    from drevalpy.experiment_paths import consolidate_results_path
     from drevalpy.models._model_lookup import get_model_class
 
-    results_path = str(pathlib.Path(outdir_path) / run_id / test_mode)
+    if dataset_name is None:
+        raise ValueError("dataset_name is required to locate experiment results")
+    results_path = str(consolidate_results_path(outdir_path, run_id, dataset_name, test_mode))
     if randomization_modes == "[None]":
         randomizations = None
     else:

@@ -25,6 +25,13 @@ class Predictor(ABC):
     supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset(PredictionMode)
     supported_scopes: ClassVar[frozenset[ModelScope]] = frozenset({ModelScope.MULTI_DRUG})
 
+    def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
+        """Store hyperparameters merged with class defaults."""
+        self._hyperparameters: dict[str, Any] = {
+            **self.get_default_hyperparameters(),
+            **(hyperparameters or {}),
+        }
+
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
         """Return tunable hyperparameter specs for HPO."""
@@ -38,10 +45,6 @@ class Predictor(ABC):
             for key, spec in cls.get_hyperparameter_space().items()
             if isinstance(spec, dict) and "default" in spec
         }
-
-    @abstractmethod
-    def build(self, hyperparameters: dict[str, Any], input_dims: dict[str, Any]) -> None:
-        """Allocate the underlying estimator or module."""
 
     @abstractmethod
     def fit(self, batch: ModelInputBatch) -> None:

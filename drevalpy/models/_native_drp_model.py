@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 from typing import Any, ClassVar
 
 from drevalpy.components.data_loading import (
@@ -36,7 +37,7 @@ class NativeDRPModel(DRPModel):
 
         :param hyperparameters: flat public overrides; ``None`` uses class defaults.
         """
-        super().__init__(hyperparameters)
+        self._init_drp_base()
         self._init_runtime_fields()
         if hyperparameters is None:
             self._apply_model_config(self.default_model_config())
@@ -47,10 +48,17 @@ class NativeDRPModel(DRPModel):
             return
         self._apply_model_config(config)
 
+    def _init_drp_base(self) -> None:
+        """Initialize DRPModel fields without assigning the read-only hyperparameters property."""
+        self.wandb_project: str | None = None
+        self.wandb_run: Any = None
+        self.wandb_config: dict[str, Any] | None = None
+        self._in_hyperparameter_tuning: bool = False
+
     def _init_runtime_fields(self) -> None:
         self._composed: ComposedModel | None = None
         self._empty_training = False
-        self.hyperparameters = {}
+        self._hyperparameters: dict[str, Any] = {}
         self._resolved_model_config: ModelConfig | None = None
         self._cell_line_views_list: list[str] = []
         self._drug_views_list: list[str] = []
@@ -60,7 +68,7 @@ class NativeDRPModel(DRPModel):
     def _unmaterialized(cls) -> NativeDRPModel:
         """Return an empty instance without materializing a default stack."""
         instance = object.__new__(cls)
-        DRPModel.__init__(instance)
+        instance._init_drp_base()
         instance._init_runtime_fields()
         return instance
 
@@ -93,20 +101,27 @@ class NativeDRPModel(DRPModel):
         return model_config_for_name(cls._factory_name)
 
     @property
+    def hyperparameters(self) -> dict[str, Any]:
+        """Return a defensive copy of the facade hyperparameters."""
+        return copy.deepcopy(self._hyperparameters)
+
+    @property
     def cell_line_views(self) -> list[str]:
         return list(self._cell_line_views_list)
-
-    @cell_line_views.setter
-    def cell_line_views(self, views: list[str]) -> None:
-        self._cell_line_views_list = list(views)
 
     @property
     def drug_views(self) -> list[str]:
         return list(self._drug_views_list)
 
-    @drug_views.setter
-    def drug_views(self, views: list[str]) -> None:
-        self._drug_views_list = list(views)
+    def log_hyperparameters(self, hyperparameters: dict[str, Any]) -> None:
+        """Store a copy of hyperparameters and optionally log them to wandb."""
+        import wandb
+
+        self._hyperparameters = copy.deepcopy(hyperparameters)
+        if not self.is_wandb_enabled():
+            return
+        if not self._in_hyperparameter_tuning:
+            wandb.config.update({"hyperparameters": self._hyperparameters})
 
     def _resolved_config(self, hyperparameters: dict[str, Any] | None = None) -> ModelConfig:
         if self._resolved_model_config is not None and hyperparameters is None:
@@ -120,8 +135,7 @@ class NativeDRPModel(DRPModel):
 
     def _apply_model_config(self, config: ModelConfig) -> None:
         self._resolved_model_config = config.model_copy(deep=True)
-        self.hyperparameters = public_hyperparameters_from_config(self._resolved_model_config)
-        self.log_hyperparameters(self.hyperparameters)
+        self.log_hyperparameters(public_hyperparameters_from_config(self._resolved_model_config))
         self._cell_line_views_list = cell_line_views_from_model_config(self._resolved_model_config)
         self._drug_views_list = drug_views_from_model_config(self._resolved_model_config)
         self.is_single_drug_model = self._resolved_model_config.scope == ModelScope.SINGLE_DRUG
@@ -162,13 +176,18 @@ class NativeDRPModel(DRPModel):
         predictor_class = get_predictor(config.predictor.name)
         loader = getattr(predictor_class, "load_dataset_drug_features", None)
         if callable(loader):
-            features = loader(
+            loaded = loader(
                 data_path,
                 dataset_name,
                 hyperparameters=self.hyperparameters,
                 model_name=self.get_model_name(),
             )
-            self._sync_predictor_hyperparameters()
+            if isinstance(loaded, tuple):
+                features, preload = loaded
+            else:
+                features, preload = loaded, {}
+            if isinstance(preload, dict):
+                self._engine_preload_state.update(preload)
             return features
         return load_drug_features_for_model_config(
             config,
@@ -176,31 +195,6 @@ class NativeDRPModel(DRPModel):
             dataset_name,
             model_name=self.get_model_name(),
         )
-
-    def _sync_predictor_hyperparameters(self) -> None:
-        """Push facade hyperparameter updates into the resolved config/composed stack."""
-        if not self.hyperparameters:
-            return
-        filtered = {
-            key: value for key, value in self.hyperparameters.items() if key not in {"cell_line_views", "drug_views"}
-        }
-        if self._resolved_model_config is not None and filtered:
-            self._resolved_model_config = self._resolved_model_config.model_copy(
-                update={
-                    "predictor": self._resolved_model_config.predictor.model_copy(
-                        update={
-                            "hyperparameters": {
-                                **self._resolved_model_config.predictor.hyperparameters,
-                                **filtered,
-                            }
-                        },
-                        deep=True,
-                    )
-                },
-                deep=True,
-            )
-        if self._composed is not None:
-            self._composed.update_predictor_hyperparameters(filtered)
 
     def train(
         self,
@@ -265,7 +259,7 @@ class NativeDRPModel(DRPModel):
         if config is None:
             raise RuntimeError("Loaded component stack did not contain a ModelConfig")
         instance._resolved_model_config = config
-        instance.hyperparameters = public_hyperparameters_from_config(config)
+        instance._hyperparameters = public_hyperparameters_from_config(config)
         instance._cell_line_views_list = cell_line_views_from_model_config(config)
         instance._drug_views_list = drug_views_from_model_config(config)
         instance.is_single_drug_model = config.scope == ModelScope.SINGLE_DRUG

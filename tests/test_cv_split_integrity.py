@@ -14,7 +14,7 @@ import numpy as np
 import pytest
 
 from drevalpy.datasets.dataset import DrugResponseDataset
-from drevalpy.experiment import get_datasets_from_cv_split
+from drevalpy.experiment_fold import get_datasets_from_cv_split
 from drevalpy.models import construct_model
 from drevalpy.models._model_lookup import single_drug_model_names
 

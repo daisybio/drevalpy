@@ -13,9 +13,9 @@ from drevalpy.experiment import (
     consolidate_single_drug_model_predictions,
     cross_study_prediction,
     generate_data_saving_path,
-    get_datasets_from_cv_split,
     train_and_predict,
 )
+from drevalpy.experiment_fold import get_datasets_from_cv_split
 from drevalpy.models import construct_model
 from drevalpy.visualization.utils import evaluate_file
 

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 import numpy as np
 
 from drevalpy.components.featurizers._matrix import unique_entity_ids
@@ -14,23 +12,6 @@ from drevalpy.components.predictors.base import Predictor
 from drevalpy.components.training_context import TrainingContext
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models.config import ModelConfig, PredictionMode
-
-
-def _matrix_feature_width(matrix: np.ndarray | None) -> int:
-    """Return the feature width of a featurizer matrix, including object arrays."""
-    if matrix is None or matrix.size == 0:
-        return 0
-    if matrix.dtype == object:
-        first = matrix.reshape(-1)[0]
-        if hasattr(first, "num_node_features"):
-            return int(first.num_node_features)
-        first_array = np.asarray(first)
-        if first_array.ndim == 0:
-            return int(first_array.size)
-        return int(first_array.shape[-1])
-    if matrix.ndim == 1:
-        return int(matrix.shape[0])
-    return int(matrix.shape[1])
 
 
 def _entity_id_only_featurizer(featurizer: Featurizer | None) -> bool:
@@ -50,38 +31,18 @@ class ComposedModel:
         drug_featurizer: Featurizer | None,
         predictor: Predictor,
         *,
-        predictor_hyperparameters: dict[str, Any] | None = None,
         prediction_mode: PredictionMode = PredictionMode.REGRESSION,
         config: ModelConfig | None = None,
     ) -> None:
         self._cell_line_featurizer = cell_line_featurizer
         self._drug_featurizer = drug_featurizer
         self._predictor = predictor
-        self._predictor_hp = predictor_hyperparameters or {}
         self._prediction_mode = prediction_mode
         self._config = config.model_copy(deep=True) if config is not None else None
         self._cell_line_matrix: np.ndarray | None = None
         self._drug_matrix: np.ndarray | None = None
         self._cell_line_entity_ids: np.ndarray | None = None
         self._drug_entity_ids: np.ndarray | None = None
-
-    def _merged_hyperparameters(self) -> dict[str, Any]:
-        return {
-            **self._predictor.get_default_hyperparameters(),
-            **self._predictor_hp,
-            "prediction_mode": self._prediction_mode,
-        }
-
-    def _input_dims(
-        self,
-        cell_line_matrix: np.ndarray,
-        drug_matrix: np.ndarray | None,
-    ) -> dict[str, Any]:
-        return {
-            "cell_line": _matrix_feature_width(cell_line_matrix),
-            "drug": _matrix_feature_width(drug_matrix),
-            "n_classes": 1,
-        }
 
     def _build_batch(
         self,
@@ -183,10 +144,6 @@ class ComposedModel:
             output_earlystopping=output_earlystopping,
             training_context=training_context,
         )
-        self._predictor.build(
-            self._merged_hyperparameters(),
-            self._input_dims(self._cell_line_matrix, self._drug_matrix),
-        )
         self._predictor.fit(batch)
         return self
 
@@ -198,29 +155,6 @@ class ComposedModel:
     def is_fitted(self) -> bool:
         """Return whether the predictor has fitted state."""
         return self._predictor.is_fitted()
-
-    def update_predictor_hyperparameters(self, updates: dict[str, Any]) -> None:
-        """Merge predictor hyperparameters into the live stack and stored config."""
-        filtered = {key: value for key, value in updates.items() if key not in {"cell_line_views", "drug_views"}}
-        if not filtered:
-            return
-        self._predictor_hp.update(filtered)
-        if self._config is None:
-            return
-        self._config = self._config.model_copy(
-            update={
-                "predictor": self._config.predictor.model_copy(
-                    update={
-                        "hyperparameters": {
-                            **self._config.predictor.hyperparameters,
-                            **filtered,
-                        }
-                    },
-                    deep=True,
-                )
-            },
-            deep=True,
-        )
 
     def component_state(self) -> dict[str, object]:
         """Return serializable state owned by the component stack."""

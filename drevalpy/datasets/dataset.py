@@ -139,6 +139,10 @@ class DrugResponseDataset:
         """
         Returns the response values.
 
+        The returned array aliases internal storage; do not mutate it in place.
+        Prefer non-mutating helpers (e.g. ``transformed``) or ``copy()`` at
+        ownership boundaries.
+
         :returns: numpy array containing response values.
         """
         return self._response
@@ -147,6 +151,8 @@ class DrugResponseDataset:
     def cell_line_ids(self) -> np.ndarray:
         """
         Returns the cell_line_ids.
+
+        The returned array aliases internal storage; do not mutate it in place.
 
         :returns: numpy array containing cell_line_ids values.
         """
@@ -157,6 +163,8 @@ class DrugResponseDataset:
         """
         Returns the drug_ids.
 
+        The returned array aliases internal storage; do not mutate it in place.
+
         :returns: numpy array containing drug_ids values.
         """
         return self._drug_ids
@@ -165,6 +173,8 @@ class DrugResponseDataset:
     def predictions(self) -> np.ndarray | None:
         """
         Returns the predictions if they exist.
+
+        The returned array aliases internal storage; do not mutate it in place.
 
         :returns: numpy array containing prediction values or None.
         """
@@ -175,6 +185,8 @@ class DrugResponseDataset:
         """
         Returns the tissue types if they exist.
 
+        The returned array aliases internal storage; do not mutate it in place.
+
         :returns: numpy array containing tissue types or None.
         """
         return self._tissues
@@ -183,6 +195,8 @@ class DrugResponseDataset:
     def cv_splits(self) -> list[dict[str, "DrugResponseDataset"]]:
         """
         Returns the cv_splits.
+
+        The returned list aliases internal storage; do not mutate it in place.
 
         :returns: DrugResponseDatasets containing the CV_splits.
         """
@@ -198,6 +212,9 @@ class DrugResponseDataset:
         :returns: dataset name.
         """
         return self._name
+
+    # Mutable datasets are not hashable (avoids accidental use as dict/set keys).
+    __hash__ = None
 
     def __len__(self) -> int:
         """
@@ -249,22 +266,46 @@ class DrugResponseDataset:
         """
         self.to_dataframe().to_csv(path, index=False)
 
+    def _assign_from(self, other: "DrugResponseDataset") -> None:
+        """Replace this dataset's arrays with those from ``other`` (in-place)."""
+        self._response = other._response
+        self._cell_line_ids = other._cell_line_ids
+        self._drug_ids = other._drug_ids
+        self._predictions = other._predictions
+        self._tissues = other._tissues
+
+    def with_rows_added(self, other: "DrugResponseDataset") -> "DrugResponseDataset":
+        """
+        Return a new dataset with rows from ``other`` appended.
+
+        :param other: other dataset
+        :returns: new dataset with concatenated rows
+        """
+        predictions = None
+        if self.predictions is not None and other.predictions is not None:
+            predictions = np.concatenate([self._predictions, other.predictions])
+        tissues = None
+        if self.tissue is not None and other.tissue is not None:
+            tissues = np.concatenate([self.tissue, other.tissue])
+        return DrugResponseDataset(
+            response=np.concatenate([self._response, other.response]),
+            cell_line_ids=np.concatenate([self._cell_line_ids, other.cell_line_ids]),
+            drug_ids=np.concatenate([self._drug_ids, other.drug_ids]),
+            predictions=predictions,
+            tissues=tissues,
+            dataset_name=self.dataset_name,
+        )
+
     @pipeline_function
     def add_rows(self, other: "DrugResponseDataset") -> None:
         """
-        Adds rows from another dataset.
+        Adds rows from another dataset (in-place).
+
+        Prefer ``with_rows_added`` for non-mutating use.
 
         :param other: other dataset
         """
-        self._response = np.concatenate([self._response, other.response])
-        self._cell_line_ids = np.concatenate([self._cell_line_ids, other.cell_line_ids])
-        self._drug_ids = np.concatenate([self._drug_ids, other.drug_ids])
-
-        if self.tissue is not None and other.tissue is not None:
-            self._tissues = np.concatenate([self.tissue, other.tissue])
-
-        if self.predictions is not None and other.predictions is not None:
-            self._predictions = np.concatenate([self._predictions, other.predictions])
+        self._assign_from(self.with_rows_added(other))
 
     @pipeline_function
     def remove_nan_responses(self) -> None:
@@ -272,23 +313,28 @@ class DrugResponseDataset:
         mask = ~np.isnan(self.response)
         self.mask(mask)
 
-    @pipeline_function
-    def shuffle(self, random_state: int = 42) -> None:
+    def shuffled(self, random_state: int = 42) -> "DrugResponseDataset":
         """
-        Shuffles the dataset.
+        Return a new dataset with rows shuffled.
 
         :param random_state: random state
+        :returns: new shuffled dataset
         """
         indices = np.arange(len(self))
         rng = np.random.default_rng(random_state)
         rng.shuffle(indices)
-        self._response = self.response[indices]
-        self._cell_line_ids = self.cell_line_ids[indices]
-        self._drug_ids = self.drug_ids[indices]
-        if self.predictions is not None:
-            self._predictions = self.predictions[indices]
-        if self.tissue is not None:
-            self._tissues = self.tissue[indices]
+        return self.masked(indices)
+
+    @pipeline_function
+    def shuffle(self, random_state: int = 42) -> None:
+        """
+        Shuffles the dataset (in-place).
+
+        Prefer ``shuffled`` for non-mutating use.
+
+        :param random_state: random state
+        """
+        self._assign_from(self.shuffled(random_state=random_state))
 
     def _remove_drugs(self, drugs_to_remove: str | list[str]) -> None:
         """
@@ -332,18 +378,33 @@ class DrugResponseDataset:
         mask[indices] = False
         self.mask(mask)
 
-    def reduce_to(self, cell_line_ids: np.ndarray | None = None, drug_ids: np.ndarray | None = None) -> None:
+    def reduced_to(
+        self, cell_line_ids: np.ndarray | None = None, drug_ids: np.ndarray | None = None
+    ) -> "DrugResponseDataset":
         """
-        Removes all rows which contain a cell_line not in cell_line_ids or a drug not in drug_ids.
+        Return a new dataset restricted to the given cell line and/or drug IDs.
 
         :param cell_line_ids: cell line IDs or None to keep all cell lines
-        :param drug_ids: drug IDs or None to keep all cell lines
+        :param drug_ids: drug IDs or None to keep all drugs
+        :returns: new reduced dataset
         """
+        result: DrugResponseDataset = self
         if drug_ids is not None:
-            self._remove_drugs(list(set(self.drug_ids) - set(drug_ids.astype(str))))
-
+            result = result.masked(np.isin(result.drug_ids, drug_ids.astype(str)))
         if cell_line_ids is not None:
-            self._remove_cell_lines(list(set(self.cell_line_ids) - set(cell_line_ids.astype(str))))
+            result = result.masked(np.isin(result.cell_line_ids, cell_line_ids.astype(str)))
+        return result
+
+    def reduce_to(self, cell_line_ids: np.ndarray | None = None, drug_ids: np.ndarray | None = None) -> None:
+        """
+        Removes all rows which contain a cell_line not in cell_line_ids or a drug not in drug_ids (in-place).
+
+        Prefer ``reduced_to`` for non-mutating use.
+
+        :param cell_line_ids: cell line IDs or None to keep all cell lines
+        :param drug_ids: drug IDs or None to keep all drugs
+        """
+        self._assign_from(self.reduced_to(cell_line_ids=cell_line_ids, drug_ids=drug_ids))
 
     @pipeline_function
     def split_dataset(
@@ -501,60 +562,90 @@ class DrugResponseDataset:
             dataset_name=self.dataset_name,
         )
 
-    def __hash__(self) -> int:
-        """Overwrites default hash method.
-
-        :returns: hash value of the dataset
+    def masked(self, mask: np.ndarray) -> "DrugResponseDataset":
         """
-        return hash(
-            (
-                self.dataset_name,
-                tuple(self.cell_line_ids),
-                tuple(self.drug_ids),
-                tuple(self.response),
-                (tuple(self.predictions) if self.predictions is not None else None),
-                (tuple(self.tissue) if self.tissue is not None else None),
-            )
-        )
+        Return a new dataset with rows selected by ``mask``.
 
-    def mask(self, mask: np.ndarray) -> None:
-        """
-        Removes rows from the dataset based on a boolean mask.
-
-        :param mask: boolean mask
+        :param mask: boolean or integer index mask
         :raises ValueError: if mask is not boolean or integer
+        :returns: new masked dataset
         """
         if mask.dtype != bool and not np.issubdtype(mask.dtype, np.integer):
             raise ValueError("Mask must be of boolean or integer dtype.")
 
-        self._response = self.response[mask]
-        self._cell_line_ids = self.cell_line_ids[mask]
-        self._drug_ids = self.drug_ids[mask]
+        return DrugResponseDataset(
+            response=self._response[mask],
+            cell_line_ids=self._cell_line_ids[mask],
+            drug_ids=self._drug_ids[mask],
+            predictions=self._predictions[mask] if self._predictions is not None else None,
+            tissues=self._tissues[mask] if self._tissues is not None else None,
+            dataset_name=self._name,
+        )
+
+    def mask(self, mask: np.ndarray) -> None:
+        """
+        Removes rows from the dataset based on a boolean mask (in-place).
+
+        Prefer ``masked`` for non-mutating use.
+
+        :param mask: boolean mask
+        :raises ValueError: if mask is not boolean or integer
+        """
+        self._assign_from(self.masked(mask))
+
+    def transformed(self, response_transformation: TransformerMixin) -> "DrugResponseDataset":
+        """
+        Return a new dataset with response (and predictions) transformed.
+
+        :param response_transformation: e.g., StandardScaler, MinMaxScaler, RobustScaler
+        :returns: new transformed dataset
+        """
+        response = response_transformation.transform(self.response.reshape(-1, 1)).squeeze()
+        predictions = None
         if self.predictions is not None:
-            self._predictions = self.predictions[mask]
-        if self.tissue is not None:
-            self._tissues = self.tissue[mask]
+            predictions = response_transformation.transform(self.predictions.reshape(-1, 1)).squeeze()
+        return DrugResponseDataset(
+            response=response,
+            cell_line_ids=self._cell_line_ids.copy(),
+            drug_ids=self._drug_ids.copy(),
+            predictions=predictions,
+            tissues=self._tissues.copy() if self._tissues is not None else None,
+            dataset_name=self._name,
+        )
 
     @pipeline_function
     def transform(self, response_transformation: TransformerMixin) -> None:
         """
-        Apply transformation to the response data and prediction data of the dataset.
+        Apply transformation to the response data and prediction data of the dataset (in-place).
+
+        Prefer ``transformed`` for non-mutating use.
 
         :param response_transformation: e.g., StandardScaler, MinMaxScaler, RobustScaler
         """
-        self._response = response_transformation.transform(self.response.reshape(-1, 1)).squeeze()
-        if self.predictions is not None:
-            self._predictions = response_transformation.transform(self.predictions.reshape(-1, 1)).squeeze()
+        self._assign_from(self.transformed(response_transformation))
+
+    def fit_transformed(self, response_transformation: TransformerMixin) -> "DrugResponseDataset":
+        """
+        Fit ``response_transformation`` on this dataset and return a transformed copy.
+
+        Fitting still mutates the transformer (sklearn API).
+
+        :param response_transformation: e.g., StandardScaler, MinMaxScaler, RobustScaler
+        :returns: new fit-transformed dataset
+        """
+        response_transformation.fit(self.response.reshape(-1, 1))
+        return self.transformed(response_transformation)
 
     @pipeline_function
     def fit_transform(self, response_transformation: TransformerMixin) -> None:
         """
-        Fit and transform the response data and prediction data of the dataset.
+        Fit and transform the response data and prediction data of the dataset (in-place).
+
+        Prefer ``fit_transformed`` for non-mutating use.
 
         :param response_transformation: e.g., StandardScaler, MinMaxScaler, RobustScaler
         """
-        response_transformation.fit(self.response.reshape(-1, 1))
-        self.transform(response_transformation)
+        self._assign_from(self.fit_transformed(response_transformation))
 
     def inverse_transform(self, response_transformation: TransformerMixin) -> None:
         """
@@ -579,7 +670,7 @@ def split_early_stopping_data(
     :raises ValueError: if test_mode is not one of the expected values
     :returns: the resulting validation and early stopping datasets
     """
-    validation_dataset.shuffle(random_state=42)
+    validation_dataset = validation_dataset.shuffled(random_state=42)
 
     # Determine the number of splits b (default 4,
     # but can be less if there are not enough groups)

@@ -116,16 +116,18 @@ def _druggnn_batch(*, with_early_stopping: bool = False) -> ModelInputBatch:
     )
 
 
-def test_neural_network_build_is_not_fitted() -> None:
-    predictor = NeuralNetworkPredictor()
-    predictor.build({"max_epochs": 1, "units_per_layer": [4, 2]}, {"cell_line": 3, "drug": 2})
-    assert predictor._model is not None
+def test_neural_network_configured_is_not_fitted() -> None:
+    predictor = NeuralNetworkPredictor(
+        hyperparameters={"max_epochs": 1, "units_per_layer": [4, 2]},
+    )
+    assert predictor._model is None
     assert predictor.is_fitted() is False
 
 
 def test_neural_network_early_stopping_wires_validation_loader() -> None:
-    predictor = NeuralNetworkPredictor()
-    predictor.build({"max_epochs": 1, "batch_size": 2, "units_per_layer": [4, 2]}, {"cell_line": 3, "drug": 2})
+    predictor = NeuralNetworkPredictor(
+        hyperparameters={"max_epochs": 1, "batch_size": 2, "units_per_layer": [4, 2]},
+    )
     batch = _neural_batch(with_early_stopping=True)
     captured: dict[str, object] = {}
 
@@ -139,8 +141,9 @@ def test_neural_network_early_stopping_wires_validation_loader() -> None:
 
 
 def test_neural_network_round_trip_state() -> None:
-    predictor = NeuralNetworkPredictor()
-    predictor.build({"max_epochs": 1, "batch_size": 2, "units_per_layer": [4, 2]}, {"cell_line": 3, "drug": 2})
+    predictor = NeuralNetworkPredictor(
+        hyperparameters={"max_epochs": 1, "batch_size": 2, "units_per_layer": [4, 2]},
+    )
     predictor.fit(_neural_batch())
     preds = predictor.predict(_neural_batch())
     assert preds.shape == (4,)
@@ -160,8 +163,9 @@ def test_neural_network_set_state_raises_on_invalid_payload() -> None:
 
 
 def test_druggnn_delegates_training_to_engine() -> None:
-    predictor = DrugGNNPredictor()
-    predictor.build({"epochs": 1, "batch_size": 2, "num_workers": 0}, {"cell_line": 3, "drug": 9})
+    predictor = DrugGNNPredictor(
+        hyperparameters={"epochs": 1, "batch_size": 2, "num_workers": 0},
+    )
     batch = _druggnn_batch(with_early_stopping=True)
     with patch(
         "drevalpy.components.predictors.literature.druggnn.DrugGNNEngine.train",
@@ -178,8 +182,9 @@ def test_druggnn_supports_early_stopping_flag() -> None:
 
 
 def test_druggnn_round_trip_state() -> None:
-    predictor = DrugGNNPredictor()
-    predictor.build({"epochs": 1, "batch_size": 2, "num_workers": 0}, {"cell_line": 3, "drug": 9})
+    predictor = DrugGNNPredictor(
+        hyperparameters={"epochs": 1, "batch_size": 2, "num_workers": 0},
+    )
     batch = _druggnn_batch()
     predictor.fit(batch)
     assert predictor.is_fitted()
@@ -218,7 +223,6 @@ def test_ridge_zoo_preset_exists() -> None:
 
 def test_adaboost_default_depth_matches_space() -> None:
     predictor = AdaBoostPredictor()
-    predictor.build(predictor.get_default_hyperparameters(), {"cell_line": 3, "drug": 2})
     estimator = predictor._make_estimator()
     assert estimator.estimator.max_depth == 4
 
@@ -247,8 +251,7 @@ def test_xgboost_load_applies_thread_defaults_before_restore() -> None:
     pytest.importorskip("xgboost")
     from drevalpy.components.predictors.xgboost_pred import XGBoostPredictor, _set_xgboost_thread_defaults
 
-    predictor = XGBoostPredictor()
-    predictor.build({"n_estimators": 5}, {"cell_line": 3, "drug": 2})
+    predictor = XGBoostPredictor(hyperparameters={"n_estimators": 5})
     predictor.fit(_neural_batch())
     state = predictor.get_state()
 
@@ -265,7 +268,6 @@ def test_xgboost_load_applies_thread_defaults_before_restore() -> None:
 def test_pharmaformer_landmark_preload_round_trip() -> None:
     module = importlib.import_module("drevalpy.components.predictors.literature.pharmaformer_predictor")
     predictor_cls = module.PharmaFormerPredictor
-    predictor = predictor_cls()
-    predictor.build({"epochs": 1}, {"cell_line": 10, "drug": 5})
+    predictor = predictor_cls(hyperparameters={"epochs": 1})
     predictor.set_engine_preload_state({"gene_dim_input": 978})
     assert predictor._engine_preload_state["gene_dim_input"] == 978

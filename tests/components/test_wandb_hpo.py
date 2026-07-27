@@ -73,18 +73,16 @@ def test_hpam_tune_logs_wandb_config(monkeypatch) -> None:
     from drevalpy.datasets.dataset import DrugResponseDataset
 
     model_cls = construct_model("ElasticNet")
-    model = model_cls()
     dataset = DrugResponseDataset(
         response=np.array([1.0, 2.0]),
         cell_line_ids=np.array(["cl1", "cl2"]),
         drug_ids=np.array(["d1", "d1"]),
     )
     hpam_tune(
-        model=model,
+        model_class=model_cls,
         train_dataset=dataset,
         validation_dataset=dataset.copy(),
         early_stopping_dataset=None,
-        model_class=model_cls,
         metric="RMSE",
         path_data="data",
         hpo_config=HPOConfig.from_metric("RMSE", n_trials=2),

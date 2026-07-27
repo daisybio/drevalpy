@@ -97,8 +97,8 @@ def test_untrained_composed_model_predict_raises() -> None:
         model.predict(response.cell_line_ids, response.drug_ids, cell_line_input, drug_input)
 
 
-def test_update_predictor_hyperparameters_syncs_config() -> None:
+def test_composed_model_has_no_predictor_hyperparameter_mutator() -> None:
     model = ModelConfig.from_spec("ElasticNet", hyperparameters={"alpha": 0.1, "l1_ratio": 0.5}).create_model()
-    model.update_predictor_hyperparameters({"alpha": 0.5})
+    assert not hasattr(model, "update_predictor_hyperparameters")
     assert model.config is not None
-    assert model.config.predictor.hyperparameters["alpha"] == 0.5
+    assert model.config.predictor.hyperparameters["alpha"] == 0.1

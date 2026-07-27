@@ -51,13 +51,12 @@ def test_hpam_tune(tmp_path, data_dir):
     )
 
     best = experiment.hpam_tune(
-        model=model,
+        model_class=model_cls,
         train_dataset=train_dataset,
         validation_dataset=val_dataset,
         early_stopping_dataset=None,
         metric="RMSE",
         path_data=str(data_dir),
-        model_class=model_cls,
         hpo_config=HPOConfig.from_metric("RMSE", n_trials=2, storage_path=str(tmp_path)),
     )
     assert isinstance(best, dict)

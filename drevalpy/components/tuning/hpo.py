@@ -91,13 +91,44 @@ def _select_best_result(results: Any, cfg: HPOConfig) -> Any | None:
     return best_candidate
 
 
-def hpam_tune(
-    model: DRPModel,
+def tune_fold(
+    model_class: type[DRPModel],
     train_dataset: DrugResponseDataset,
     validation_dataset: DrugResponseDataset,
     early_stopping_dataset: DrugResponseDataset | None,
     *,
+    response_transformation: TransformerMixin | None = None,
+    metric: str = "RMSE",
+    path_data: str = "data",
+    model_checkpoint_dir: str = "TEMPORARY",
+    hpo_config: HPOConfig | None = None,
+    split_index: int | None = None,
+    wandb_project: str | None = None,
+    wandb_base_config: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Tune hyperparameters for one fold and return the best flat public dict."""
+    return hpam_tune(
+        model_class=model_class,
+        train_dataset=train_dataset,
+        validation_dataset=validation_dataset,
+        early_stopping_dataset=early_stopping_dataset,
+        response_transformation=response_transformation,
+        metric=metric,
+        path_data=path_data,
+        model_checkpoint_dir=model_checkpoint_dir,
+        hpo_config=hpo_config,
+        split_index=split_index,
+        wandb_project=wandb_project,
+        wandb_base_config=wandb_base_config,
+    )
+
+
+def hpam_tune(
+    *,
     model_class: type[DRPModel],
+    train_dataset: DrugResponseDataset,
+    validation_dataset: DrugResponseDataset,
+    early_stopping_dataset: DrugResponseDataset | None,
     response_transformation: TransformerMixin | None = None,
     metric: str = "RMSE",
     path_data: str = "data",
@@ -131,12 +162,12 @@ def hpam_tune(
         raise ImportError(msg) from exc
 
     ray_initialized_here = not ray.is_initialized()
-    model._in_hyperparameter_tuning = True
     try:
         if ray_initialized_here:
             ray.init(ignore_reinit_error=True)
 
         param_space = dict_to_ray_space(structured_space)
+        model_name = model_class.get_model_name()
 
         def _construct_trial_model(sampled: dict[str, Any]) -> DRPModel:
             trial_config = tuned_config_for_drp_model(model_class, sampled)
@@ -171,6 +202,7 @@ def hpam_tune(
                 trainable(sampled)
                 return
             trial_model = _construct_trial_model(sampled)
+            trial_model._in_hyperparameter_tuning = True
             trial_id = _current_trial_id()
             trial_run_config: dict[str, Any] = {
                 "phase": "hyperparameter_tuning",
@@ -182,7 +214,7 @@ def hpam_tune(
             }
             if wandb_base_config is not None:
                 trial_run_config = {**wandb_base_config, **trial_run_config}
-            trial_run_name = model.get_model_name()
+            trial_run_name = model_name
             if split_index is not None:
                 trial_run_name += f"_split_{split_index}"
             trial_run_name += f"_trial_{trial_id}"
@@ -190,7 +222,7 @@ def hpam_tune(
                 project=wandb_project,
                 config=trial_run_config,
                 name=trial_run_name,
-                tags=[model.get_model_name(), "hpam_tuning", "ray", "optuna"],
+                tags=[model_name, "hpam_tuning", "ray", "optuna"],
                 finish_previous=True,
             )
             try:
@@ -241,6 +273,5 @@ def hpam_tune(
             return dict(best_config)
         return public_hyperparameters_from_config(best_model_config)
     finally:
-        model._in_hyperparameter_tuning = False
         if ray_initialized_here and ray.is_initialized():
             ray.shutdown()
