@@ -54,6 +54,18 @@ Prefer ``construct_model``:
 
 .. code-block:: python
 
+   # Preferred
    from drevalpy.models import construct_model
 
    ElasticNet = construct_model("ElasticNet")
+
+   # Equivalent for built-in zoo names (deprecated)
+   from drevalpy.models import MODEL_FACTORY
+
+   ElasticNet = MODEL_FACTORY["ElasticNet"]
+
+The old ``MODEL_FACTORY`` worked for the fixed space of built-in models.
+It cannot resolve custom recipe strings
+(``construct_model("MyModel", "gex:fingerprints:elasticNet")``) or
+externally registered zoo entries. ``construct_model`` covers those
+extension paths without mutating a frozen factory table.
