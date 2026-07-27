@@ -19,7 +19,7 @@ Minimal complete extension example
 
 The following end-to-end sketch registers an external cell-line featurizer and
 predictor, loads a zoo preset, builds a public ``DRPModel`` facade, and wires
-Ray/Optuna tuning through the normal experiment API.
+hyperparameter tuning through the normal experiment API.
 
 **1. Component module** (``my_components/toy_stack.py``):
 
@@ -127,7 +127,7 @@ round-trip.
 ``save``, and ``load``. ``ModelConfig.create_model()`` returns the underlying
 ``ComposedModel``.
 
-**4. Tuning** (structured dotted keys, Ray + Optuna):
+**4. Tuning** (structured dotted keys):
 
 .. code-block:: python
 
@@ -200,7 +200,7 @@ deprecated and may be removed in a future release. Prefer:
    single_drug = list_zoo_names(scope=ModelScope.SINGLE_DRUG)
 
 Before 1.6.0, ``multiprocessing=True`` selected a parallel HPO path. It now
-only warns and does **not** control Ray/Optuna tuning. This remains available
+only warns and does **not** control hyperparameter tuning. This remains available
 for backward compatibility, but is deprecated and may be removed in a future
 release. Prefer ``hyperparameter_tuning=True`` and ``hpo_num_samples``.
 

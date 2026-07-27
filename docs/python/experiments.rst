@@ -1,9 +1,10 @@
 Experiments
 ===========
 
-``drug_response_experiment`` runs nested cross-validation, optional Ray/Optuna
-tuning, baselines, and optional randomization or robustness tests. Results are
-written under ``path_out`` / ``run_id`` / dataset / split label.
+``drug_response_experiment`` runs nested cross-validation, optional
+hyperparameter tuning, baselines, and optional randomization or robustness
+tests. Results are written under ``path_out`` / ``run_id`` / dataset / split
+label.
 
 Minimal call
 ------------
@@ -39,8 +40,8 @@ Common options
   :doc:`/concepts/evaluation`).
 - ``baselines``: extra baseline classes; randomization/robustness apply only to
   ``models``.
-- ``hyperparameter_tuning``: ``True`` runs Ray Tune + Optuna over each model's
-  structured search space; ``False`` uses each model's
+- ``hyperparameter_tuning``: ``True`` tunes over each model's structured
+  search space; ``False`` uses each model's
   ``get_default_hyperparameters()`` only.
 - ``hpo_num_samples``, ``hpo_random_state``, ``hpo_resources_per_trial``:
   control the search when tuning is on.
@@ -69,8 +70,9 @@ Example with tuning enabled:
        hpam_optimization_metric="RMSE",
    )
 
-See :doc:`hyperparameter_tuning` for search spaces and dotted keys, and
-:doc:`visualization` for reports over the written predictions.
+See :doc:`hyperparameter_tuning` for search spaces, dotted keys, and the
+Ray/Optuna backend, and :doc:`visualization` for reports over the written
+predictions.
 
 Backward compatibility
 ----------------------
@@ -79,7 +81,7 @@ multiprocessing
 ~~~~~~~~~~~~~~~
 
 Before 1.6.0, ``multiprocessing=True`` was used as a parallel HPO switch. It
-now only emits a warning and does **not** control Ray/Optuna tuning. This
+now only emits a warning and does **not** control hyperparameter tuning. This
 remains available for backward compatibility, but is deprecated and may be
 removed in a future release. Prefer ``hyperparameter_tuning=True`` with
 ``hpo_num_samples``.

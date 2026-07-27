@@ -36,9 +36,9 @@ Auth follows wandb’s usual mechanisms:
 Wandb with hyperparameter tuning
 --------------------------------
 
-Hyperparameter tuning is **on by default** (Ray Tune + Optuna). Use
+Hyperparameter tuning is **on by default**. Use
 ``--hpo_num_samples`` for the number of trials and ``--optim_metric`` for the
-metric Optuna optimizes. Pass ``--no_hyperparameter_tuning`` only if you want
+optimization metric. Pass ``--no_hyperparameter_tuning`` only if you want
 each model’s default hyperparameters without search.
 
 Example: tune and compare baselines while logging to wandb:

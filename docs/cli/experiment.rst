@@ -72,16 +72,16 @@ For external split scripts, see :doc:`custom_splits`.
 Hyperparameter tuning
 ---------------------
 
-Tuning is on by default (Ray Tune + Optuna). ``--optim_metric`` chooses the
-metric Optuna optimizes; the default is ``RMSE``. Other common choices include
-``MSE``, ``MAE``, ``R^2``, ``Pearson``, ``Spearman``, and ``Kendall``.
+Tuning is on by default. ``--optim_metric`` chooses the metric used for
+hyperparameter optimization; the default is ``RMSE``. Other common choices
+include ``MSE``, ``MAE``, ``R^2``, ``Pearson``, ``Spearman``, and ``Kendall``.
 
 Control search with ``--hpo_num_samples`` (default ``16``),
 ``--hpo_random_state``, and optional ``--hpo_cpu`` / ``--hpo_gpu`` resources
 per trial. Pass ``--no_hyperparameter_tuning`` to skip search and use each
 model’s default hyperparameters.
 
-Details and examples: :doc:`hyperparameter_tuning`.
+Details, including the Ray/Optuna backend: :doc:`hyperparameter_tuning`.
 
 Randomization and robustness
 ----------------------------
