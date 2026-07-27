@@ -25,6 +25,7 @@ For demanding or highly reproducible runs, we also provide the Nextflow pipeline
 
    concepts/datasets
    concepts/evaluation
+   concepts/from_components_to_models
    concepts/model_zoo
 
 .. toctree::

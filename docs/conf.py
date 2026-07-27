@@ -13,7 +13,8 @@ import inspect
 import os
 import sys
 from datetime import datetime
-from importlib.metadata import PackageNotFoundError, version as pkg_version
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as pkg_version
 from pathlib import Path
 
 from jinja2.defaults import DEFAULT_FILTERS
@@ -37,10 +38,12 @@ extensions = [
     "sphinx_reredirects",
 ]
 
-# Generate CLI option inventory from the Typer app before sources are read.
+# Generate CLI option inventory and model-zoo tables before sources are read.
 from _cli_click import write_generated_cli_reference  # noqa: E402
+from _model_zoo import write_generated_model_zoo  # noqa: E402
 
 write_generated_cli_reference()
+write_generated_model_zoo()
 
 
 # Add any paths that contain templates here, relative to this directory.
@@ -72,7 +75,15 @@ language = "en"
 
 # List of patterns relative to source directory that match files and
 # directories to ignore when looking for source files.
-exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", "_cli_click.py", "cli/_generated_reference.rst"]
+exclude_patterns = [
+    "_build",
+    "Thumbs.db",
+    ".DS_Store",
+    "_cli_click.py",
+    "_model_zoo.py",
+    "cli/_generated_reference.rst",
+    "concepts/_generated_model_zoo.rst",
+]
 
 
 # If true, `todo` and `todoList` produce output, else they produce nothing.

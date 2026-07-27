@@ -87,6 +87,7 @@ instance/
 # Sphinx documentation
 docs/_build/
 docs/cli/_generated_reference.rst
+docs/concepts/_generated_model_zoo.rst
 
 
 # PyBuilder

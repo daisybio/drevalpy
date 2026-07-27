@@ -27,6 +27,7 @@ EXEMPT_SUFFIXES = {
     "index.rst",
     "reference.rst",
     "_generated_reference.rst",
+    "_generated_model_zoo.rst",
 }
 
 EXEMPT_RELATIVE = {
@@ -93,24 +94,26 @@ def test_backward_compatibility_sections_are_final_and_substantive() -> None:
         if not matches or matches[-1].group("title").strip() != "Backward compatibility":
             misplaced.append(rel)
             continue
-        section = text[matches[-1].start() :]
+        section = text[matches[-1].start() :]  # noqa: E203
         if re.search(r"no branch-specific", section, flags=re.IGNORECASE):
             empty.append(f"{rel} (no-op branch note)")
         if re.search(r"under-listed|incorrectly stated", section, flags=re.IGNORECASE):
             empty.append(f"{rel} (docs-only note)")
         if "Before 1.6.0" not in section and "before 1.6.0" not in section:
             empty.append(f"{rel} (missing before 1.6.0)")
-    assert not misplaced, "Backward compatibility must be the final top-level section:\n" + "\n".join(
-        misplaced
-    )
+    assert not misplaced, "Backward compatibility must be the final top-level section:\n" + "\n".join(misplaced)
     assert not empty, "Empty or docs-only Backward compatibility sections:\n" + "\n".join(empty)
 
 
 def test_zoo_presets_documented_in_model_zoo() -> None:
+    from _model_zoo import generate_model_zoo_rst
+
     zoo_names = {path.stem for path in ZOO_DIR.glob("*.yaml")}
     catalog = (DOCS / "concepts" / "model_zoo.rst").read_text(encoding="utf-8")
-    missing = sorted(name for name in zoo_names if name not in catalog)
-    assert not missing, f"Zoo presets missing from concepts/model_zoo.rst: {missing}"
+    assert "_generated_model_zoo.rst" in catalog
+    generated = generate_model_zoo_rst()
+    missing = sorted(name for name in zoo_names if name not in generated)
+    assert not missing, f"Zoo presets missing from generated model zoo catalog: {missing}"
 
 
 def test_component_catalog_covers_builtin_registry_names() -> None:

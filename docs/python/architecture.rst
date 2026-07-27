@@ -1,6 +1,10 @@
 Model architecture overview
 ===========================
 
+For the interface-neutral overview of recipes, concatenation, and
+hyperparameter spaces, see :doc:`/concepts/from_components_to_models`. This page covers the
+Python orchestration layer in more detail.
+
 DrEvalPy has two cooperating layers:
 
 1. **Component stack** under ``drevalpy.components`` with featurizers,
