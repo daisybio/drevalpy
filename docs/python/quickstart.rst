@@ -5,7 +5,7 @@ Install DrEvalPy and its dependencies first — see
 :doc:`/getting_started/installation`.
 
 Load the TOYv1 response table, resolve ElasticNet from the model zoo, and hand
-the facade class to ``drug_response_experiment``:
+the model class to ``drug_response_experiment``:
 
 .. code-block:: python
 
@@ -48,9 +48,10 @@ MODEL_FACTORY
 ~~~~~~~~~~~~~
 
 Before 1.6.0, models were resolved through ``MODEL_FACTORY`` (and the
-multi-/single-drug variants). This remains available for backward
-compatibility, but is deprecated and may be removed in a future release.
-Prefer ``construct_model``:
+multi-/single-drug variants). Those dicts remain lazy **built-in-only**
+compatibility views equal to ``construct_model(name)`` for zoo preset names,
+but emit ``FutureWarning`` and may be removed in a future release. Prefer
+``construct_model``:
 
 .. code-block:: python
 

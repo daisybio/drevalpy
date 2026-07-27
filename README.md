@@ -129,7 +129,7 @@ from drevalpy.datasets import AVAILABLE_DATASETS
 from drevalpy.experiment import drug_response_experiment
 from drevalpy.models import construct_model
 
-# Zoo presets resolve to NativeDRPModel facades
+# Zoo presets resolve to DRPModel subclasses via construct_model
 naive_mean = construct_model("NaivePredictor")  # training-mean baseline
 enet = construct_model("ElasticNet")  # fingerprints + scaled landmark expression
 simple_nn = construct_model("SimpleNeuralNetwork")

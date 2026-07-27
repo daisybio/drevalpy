@@ -1,41 +1,48 @@
 Models
 ======
 
-Resolve built-in and custom stacks with ``construct_model`` and
-``ModelConfig``. Named facade classes (``ElasticNetModel``, ``DIPKModel``, …)
-remain first-class exports. For composition details see :doc:`architecture`;
-for registered atoms see :doc:`component_catalog`.
+Resolve built-in and custom stacks with ``construct_model`` and declarative
+``ModelConfig``. For composition details see :doc:`architecture`; for registered
+atoms see :doc:`component_catalog`.
 
-construct_model and ModelConfig
--------------------------------
+Resolution path
+---------------
+
+The usual flow is:
+
+.. code-block:: text
+
+   ModelConfig (recipe / zoo / dict)
+        -> construct_model(name[, spec])
+        -> DRPModel subclass
+        -> fresh instance: ModelClass(hyperparameters=None)
+
+Day-to-day use is two steps: resolve a **class**, then construct an
+**instance**.
 
 .. code-block:: python
 
-   from drevalpy.models import construct_model, ElasticNetModel
+   from drevalpy.models import construct_model
+
+   ElasticNet = construct_model("ElasticNet")  # DRPModel subclass
+   model = ElasticNet()  # instance with class defaults
+   model = ElasticNet({"alpha": 0.1})  # instance with flat overrides
+
+``ModelConfig`` describes the featurizer/predictor stack (from a zoo name,
+recipe string, YAML file, or dict). It does **not** build runnable models by
+itself — pass it to ``construct_model`` when you already have a config object:
+
+.. code-block:: python
+
+   from drevalpy.models import construct_model
    from drevalpy.models.config import ModelConfig
-   from drevalpy.models.zoo import list_zoo_names
-   from drevalpy.types.model_scope import ModelScope
 
-   ElasticNet = construct_model("ElasticNet")
-   model = ElasticNet()  # class defaults
-   model = ElasticNet({"alpha": 0.1})  # flat overrides
+   config = ModelConfig.from_spec("ElasticNet")
+   ElasticNet = construct_model("ElasticNet", config)
+   model = ElasticNet()
 
-   # Same zoo preset as a ComposedModel instance (no DRPModel facade)
-   composed = ModelConfig.from_spec("ElasticNet").create_model()
-
-   # Named root export — not deprecated
-   also = ElasticNetModel()
-
-   single_drug = list_zoo_names(scope=ModelScope.SINGLE_DRUG)
-
-Three related verbs:
-
-- ``construct_model(name)`` / ``construct_model(name, spec)`` — return a
-  ``DRPModel`` **class**
-- ``Model([hyperparameters])`` / ``Model.from_model_config(config)`` —
-  construct a configured **instance** and materialize the composed stack
-- ``ModelConfig.create_model()`` — return a trainable ``ComposedModel``
-  instance (no ``DRPModel`` facade)
+Discover available zoo names with ``list_zoo_names()`` (optionally filter by
+``ModelScope``).
 
 Custom recipe without a zoo file:
 
@@ -47,22 +54,22 @@ Custom recipe without a zoo file:
    )
    model = CustomRF({"n_estimators": 200})
 
-Discover zoo names with ``list_zoo_names()`` (optionally filter by
-``ModelScope``). Recipe grammar and featurizer blocks are covered in
-:doc:`model_inputs` and :doc:`architecture`.
+Recipe grammar and featurizer blocks are covered in :doc:`model_inputs` and
+:doc:`architecture`.
 
 Lifecycle
 ---------
 
-The public ``DRPModel`` / ``NativeDRPModel`` facade exposes:
+Each ``DRPModel`` subclass exposes:
 
-1. ``Model([hyperparameters])`` — construct with class defaults or flat
+1. ``ModelClass(hyperparameters=None)`` — construct with class defaults or flat
    overrides. Hyperparameters and view lists are immutable after construction;
    create a new instance to change configuration.
 2. ``train(...)`` / ``predict(...)`` — fit and score on response + feature
    inputs (the experiment runner constructs a fresh instance per fold).
-3. ``save(directory)`` / ``load(directory)`` — native
-   ``composed_model.joblib`` checkpoints (see :doc:`persistence`).
+3. ``save(directory)`` / ``ModelClass.load(directory)`` — native
+   ``model.joblib`` checkpoints (format ``drevalpy-model``; see
+   :doc:`persistence`).
 
 Predictors inside a ``ModelConfig`` receive static hyperparameters at
 construction (``PredictorConfig.create_instance()``). Dimension-dependent
@@ -79,21 +86,24 @@ Factory dictionaries
 ~~~~~~~~~~~~~~~~~~~~
 
 Before 1.6.0, ``MODEL_FACTORY``, ``MULTI_DRUG_MODEL_FACTORY``, and
-``SINGLE_DRUG_MODEL_FACTORY`` were the usual lookup. This remains available for
-backward compatibility, but is deprecated and may be removed in a future
+``SINGLE_DRUG_MODEL_FACTORY`` were the usual lookup. They remain as **lazy,
+built-in-only** compatibility views equivalent to ``construct_model(name)`` for
+zoo preset names, but emit ``FutureWarning`` and may be removed in a future
 release. Prefer ``construct_model``, ``ModelConfig.from_spec``, and
 ``list_zoo_names(scope=...)``.
+
+Named root exports (``ElasticNetModel``, ``DIPKModel``, …) are removed. Use
+``construct_model("ElasticNet")`` (or the zoo preset string) instead.
+
+``ModelConfig.create_model()`` is removed. Use
+``construct_model(name_or_recipe)()`` or ``construct_model(name, config)()``.
 
 No longer supported
 ~~~~~~~~~~~~~~~~~~~
 
 Deep imports such as ``drevalpy.models.DIPK.dipk`` or
-``drevalpy.models.baselines.*`` no longer resolve. Import built-in models from
-the package root instead:
+``drevalpy.models.baselines.*`` no longer resolve. Resolve models with
+``construct_model`` from ``drevalpy.models``.
 
-.. code-block:: python
-
-   from drevalpy.models import DIPKModel, ElasticNetModel, construct_model
-
-Legacy checkpoint formats from before ``composed_model.joblib`` are not
-loadable.
+Legacy checkpoint formats (including ``composed_model.joblib``) are not loadable.
+Retrain and persist via ``model.save`` / ``ModelClass.load`` (``model.joblib``).

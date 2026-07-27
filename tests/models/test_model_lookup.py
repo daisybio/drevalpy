@@ -68,14 +68,13 @@ def test_factory_dict_import_emits_future_warning() -> None:
     assert any(issubclass(w.category, FutureWarning) and "MODEL_FACTORY" in str(w.message) for w in caught)
 
 
-def test_construct_model_and_named_export_do_not_warn() -> None:
+def test_construct_model_does_not_warn() -> None:
     reset_deprecation_warnings()
     import drevalpy.models as models
 
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
         _ = models.construct_model
-        _ = models.ElasticNetModel
         _ = construct_model("ElasticNet")
 
     assert not any(issubclass(w.category, FutureWarning) for w in caught)

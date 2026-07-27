@@ -183,7 +183,7 @@ def test_cli_reference_documents_all_subcommands() -> None:
     assert not missing_in_docs, f"Generated CLI reference missing commands: {missing_in_docs}"
 
     click_app = get_command(app)
-    names = set(click_app.commands)
+    names = set(getattr(click_app, "commands", {}))
     missing = sorted(set(CLI_COMMANDS) - names)
     assert not missing, f"Typer app missing expected commands: {missing}"
 

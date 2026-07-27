@@ -26,7 +26,7 @@ def load_cell_line_feature_views(
     data_path: str,
     dataset_name: str,
     *,
-    model_name: str = "ComposedModel",
+    model_name: str = "DRPModel",
 ) -> FeatureDataset:
     """Load cell-line features for the configured cell-line views."""
     if len(views) == 1:
@@ -39,7 +39,7 @@ def load_drug_feature_views(
     data_path: str,
     dataset_name: str,
     *,
-    model_name: str = "ComposedModel",
+    model_name: str = "DRPModel",
 ) -> FeatureDataset | None:
     """Load drug features for the configured drug views."""
     if not views:
@@ -62,7 +62,7 @@ def load_cell_line_features_for_model_config(
     data_path: str,
     dataset_name: str,
     *,
-    model_name: str = "ComposedModel",
+    model_name: str = "DRPModel",
 ) -> FeatureDataset:
     """Load cell-line features implied by *config*, including identity-only featurizers."""
     featurizer = config.cell_line_featurizer
@@ -85,7 +85,7 @@ def load_drug_features_for_model_config(
     data_path: str,
     dataset_name: str,
     *,
-    model_name: str = "ComposedModel",
+    model_name: str = "DRPModel",
 ) -> FeatureDataset | None:
     """Load drug features implied by *config*, including identity-only featurizers."""
     if config.drug_featurizer is None:

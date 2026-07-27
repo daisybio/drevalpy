@@ -22,6 +22,7 @@ from drevalpy.components.register_builtins import ensure_predictor_registered, r
 from drevalpy.components.registry import get_predictor
 from drevalpy.components.training_context import TrainingContext
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.models import construct_model
 from drevalpy.models.config import ModelConfig
 from tests.models.synthetic_fixtures import (
     cell_line_gene_expression,
@@ -236,7 +237,7 @@ def test_sklearn_set_state_raises_when_estimator_missing() -> None:
 def test_naive_tissue_round_trip() -> None:
     response = multi_drug_response()
     cell_line_input = identity_cell_line_features(with_tissue=True)
-    model = ModelConfig.from_spec("NaiveTissueMeanPredictor").create_model()
+    model = construct_model("NaiveTissueMeanPredictor")()
     model.train(response, cell_line_input, None)
     preds = model.predict(response.cell_line_ids, response.drug_ids, cell_line_input, None)
     assert np.isfinite(preds).all()

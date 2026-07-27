@@ -7,6 +7,7 @@ import numpy as np
 from drevalpy.components.predictors.literature.neural_network import NeuralNetworkPredictor
 from drevalpy.components.register_builtins import register_builtin_components
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.models import construct_model
 from drevalpy.models.config import ModelConfig
 
 
@@ -38,7 +39,7 @@ def test_neural_network_zoo_trains_on_synthetic_data() -> None:
         "SimpleNeuralNetwork",
         hyperparameters={"max_epochs": 1, "batch_size": 2},
     )
-    model = config.create_model()
+    model = construct_model("SimpleNeuralNetwork", config)()
     model.train(response, cell_line_input, drug_input)
     preds = model.predict(
         response.cell_line_ids,

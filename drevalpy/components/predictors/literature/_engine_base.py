@@ -17,7 +17,7 @@ class LiteratureEngineBase:
 
     Persistence is owned by predictors (``get_state`` / ``set_state``). This base
     keeps FeatureDataset batch support, optional wandb logging, and the
-    load_*_features hooks used by structured predictors / NativeDRPModel.
+    load_*_features hooks used by structured predictors / DRPModel.
     """
 
     early_stopping = False

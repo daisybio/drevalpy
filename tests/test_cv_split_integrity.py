@@ -390,7 +390,7 @@ class TestSingleDrugModelSplits:
         # Prefer a non-early-stopping single-drug model; this fixture has no ES splits.
         model_name = "SingleDrugElasticNet"
         if model_name not in single_drug_names:
-            model_name = next(name for name in single_drug_names if not construct_model(name).early_stopping)
+            model_name = next(name for name in single_drug_names if not construct_model(name).supports_early_stopping())
         model_class = construct_model(model_name)
 
         target_drug = "DrugA"
@@ -415,7 +415,7 @@ class TestSingleDrugModelSplits:
 
         model_name = "SingleDrugElasticNet"
         if model_name not in single_drug_names:
-            model_name = next(name for name in single_drug_names if not construct_model(name).early_stopping)
+            model_name = next(name for name in single_drug_names if not construct_model(name).supports_early_stopping())
         model_class = construct_model(model_name)
 
         original_train_len = len(sample_cv_split_multi_drug["train"].response)

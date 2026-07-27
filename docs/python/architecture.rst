@@ -9,21 +9,21 @@ DrEvalPy has two cooperating layers:
 
 1. **Component stack** under ``drevalpy.components`` with featurizers,
    predictors, registries, and tuning helpers.
-2. **Public orchestration** under ``drevalpy.models`` with ``ModelConfig``,
-   zoo YAML, ``ComposedModel``, and generated ``NativeDRPModel`` facades via
-   ``construct_model``.
+2. **Public orchestration** under ``drevalpy.models`` with declarative
+   ``ModelConfig``, zoo YAML, and ``construct_model`` returning thin
+   ``DRPModel`` subclasses.
 
 Typical composition:
 
 .. code-block:: text
 
-   ModelConfig -> featurizer(s) + predictor -> ComposedModel
-   construct_model(name) / named facade -> NativeDRPModel -> same ComposedModel stack
+   ModelConfig -> construct_model(name[, spec]) -> DRPModel subclass -> instance
+   (instance materializes featurizer(s) + predictor as an internal component stack)
 
 Predictor input batch
 ---------------------
 
-``ComposedModel`` always builds a single ``ModelInputBatch`` before calling
+Training and prediction always build a single ``ModelInputBatch`` before calling
 ``predictor.fit(batch)`` or ``predictor.predict(batch)``. The batch carries
 pair identifiers, optional response values, entity-level feature matrices,
 named featurizer blocks, optional raw ``FeatureDataset`` inputs,
@@ -39,12 +39,11 @@ directory / logging metadata).
 Resolving built-in models
 -------------------------
 
-Prefer zoo names with ``construct_model`` or ``ModelConfig``:
+Prefer zoo names with ``construct_model``:
 
 .. code-block:: python
 
    from drevalpy.models import construct_model
-   from drevalpy.models.config import ModelConfig
    from drevalpy.models.zoo import list_zoo_names
    from drevalpy.types.model_scope import ModelScope
 
@@ -53,14 +52,19 @@ Prefer zoo names with ``construct_model`` or ``ModelConfig``:
    model.train(...)
    model.predict(...)
 
-   # Component-native instance (no DRPModel facade)
-   composed = ModelConfig.from_spec("ElasticNet").create_model()
-
    # Discover presets by scope
    single_drug = list_zoo_names(scope=ModelScope.SINGLE_DRUG)
 
-Named root exports (``ElasticNetModel``, ``DIPKModel``, …) remain available and
-are not deprecated.
+When you already hold a ``ModelConfig``, pass it as the second argument:
+
+.. code-block:: python
+
+   from drevalpy.models import construct_model
+   from drevalpy.models.config import ModelConfig
+
+   config = ModelConfig.from_spec("ElasticNet")
+   ElasticNet = construct_model("ElasticNet", config)
+   model = ElasticNet()
 
 Programmatic composition
 ------------------------
@@ -79,12 +83,12 @@ argument:
    )
    model = CustomElasticNet({"alpha": 0.1, "l1_ratio": 0.5})
 
+   # Same stack, config object instead of recipe string
    config = ModelConfig.from_spec("scaledGeneExpression:fingerprints:elasticNet")
-   composed = config.create_model()
+   CustomElasticNet2 = construct_model("myElasticNet", config)
 
-``construct_model(name)`` / ``construct_model(name, spec)`` return a **class**;
-``ModelConfig.create_model()`` returns a **trained-ready** ``ComposedModel``
-instance.
+``construct_model(name)`` / ``construct_model(name, spec)`` return a **class**.
+Call it with optional flat hyperparameters to get a **fresh instance**.
 
 Explicit omics view grammar
 ---------------------------
@@ -147,7 +151,7 @@ Scope and early stopping
 
 - Multi-drug is the default model scope and requires a drug featurizer for
   feature-based predictors.
-- Single-drug models set ``scope: single_drug`` in their zoo YAML; the facade
+- Single-drug models set ``scope: single_drug`` in their zoo YAML; the class
   exposes ``is_single_drug_model`` for experiment routing.
 - Early stopping is derived from predictor capability metadata
   (``supports_early_stopping``) via the zoo predictor name.
@@ -157,7 +161,7 @@ Predictors and construction
 
 Featurizers receive constructor kwargs from ``FeaturizerConfig``. Predictors
 receive static hyperparameters from ``PredictorConfig.create_instance()``.
-``ComposedModel.train`` fits featurizers, builds a ``ModelInputBatch``, and
+``DRPModel.train`` fits featurizers, builds a ``ModelInputBatch``, and
 calls ``predictor.fit`` — there is no public ``Predictor.build``. Dimension
 allocation that depends on fitted features happens inside ``fit``.
 
@@ -165,10 +169,10 @@ Persistence
 -----------
 
 Native checkpoints store a versioned payload with the resolved ``ModelConfig``
-and fitted component state (``composed_model.joblib``). Run metadata and CV
-splits live beside checkpoints, not inside them. Legacy checkpoint formats and
-deep model import paths are unsupported; see :doc:`persistence` and
-:doc:`custom_models`.
+and fitted component state (``model.joblib``, format ``drevalpy-model``). Run
+metadata and CV splits live beside checkpoints, not inside them. Legacy
+checkpoint formats and deep model import paths are unsupported; see
+:doc:`persistence` and :doc:`custom_models`.
 
 Extension path
 --------------
@@ -185,19 +189,23 @@ Factory dictionaries and view keys
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Before 1.6.0, factory dictionaries and flat view keys were the usual
-interfaces. This remains available for backward compatibility, but is
-deprecated and may be removed in a future release:
+interfaces. Factory dicts remain as lazy built-in-only compatibility views
+(equal to ``construct_model(name)`` for zoo names) but emit ``FutureWarning``
+and may be removed in a future release:
 
 - ``MODEL_FACTORY``, ``MULTI_DRUG_MODEL_FACTORY``, ``SINGLE_DRUG_MODEL_FACTORY``
-  — use ``construct_model``, ``ModelConfig.from_spec``, and
+  — prefer ``construct_model``, ``ModelConfig.from_spec``, and
   ``list_zoo_names(scope=...)`` instead.
 - Flat ``cell_line_views`` / ``drug_views`` in constructor / hpam YAML —
   set ``cell_line_featurizer`` / ``drug_featurizer`` in zoo YAML or a
   recipe string instead (see :doc:`model_inputs`).
+
+Named root exports and ``ModelConfig.create_model()`` are removed; see
+:doc:`models`.
 
 No longer supported
 ~~~~~~~~~~~~~~~~~~~
 
 Deep imports such as ``drevalpy.models.DIPK.dipk`` or
 ``drevalpy.models.baselines.*`` no longer resolve. Legacy checkpoint formats
-from before ``composed_model.joblib`` are not loadable.
+(including ``composed_model.joblib``) are not loadable.

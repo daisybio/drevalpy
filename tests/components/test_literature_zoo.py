@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from drevalpy.components.register_builtins import register_builtin_components
+from drevalpy.models import construct_model
 from drevalpy.models.config import ModelConfig
 from drevalpy.models.zoo import get_zoo_config, list_zoo_names
 
@@ -56,7 +57,7 @@ def test_molir_allows_missing_drug_featurizer() -> None:
 @pytest.mark.parametrize("name", LITERATURE_ZOO_NAMES)
 def test_literature_zoo_entries_create_model(name: str) -> None:
     config = get_zoo_config(name)
-    model = config.create_model()
+    model = construct_model(name, config)()
     assert model is not None
     assert config.cell_line_featurizer is not None
 

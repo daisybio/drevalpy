@@ -124,7 +124,7 @@ def run_train_and_predict_final(
                     test_mode=args.test_mode,
                     train_dataset=train_set,
                     path_data=args.path_data,
-                    early_stopping_dataset=(es_set if selected_model.early_stopping else None),
+                    early_stopping_dataset=(es_set if selected_model.supports_early_stopping() else None),
                     response_transformation=transformation,
                     path_out=str(pathlib.Path(predictions_path).parent),
                     split_index=split_index,
@@ -233,7 +233,7 @@ def run_final_split(
 
     train_dataset, validation_dataset = make_train_val_split(response_data, test_mode=test_mode, val_ratio=val_ratio)
 
-    if model_class.early_stopping:
+    if model_class.supports_early_stopping():
         validation_dataset, early_stopping_dataset = split_early_stopping_data(validation_dataset, test_mode)
     else:
         early_stopping_dataset = None

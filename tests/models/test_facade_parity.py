@@ -1,4 +1,4 @@
-"""Facade vs direct ModelConfig.create_model() parity."""
+"""construct_model vs ModelConfig._from_resolved_config parity."""
 
 from __future__ import annotations
 
@@ -50,7 +50,7 @@ def _model_class(model_name: str, entrypoint: str):
 
 
 @pytest.mark.parametrize(("model_name", "entrypoint"), _PARITY_CASES)
-def test_facade_matches_direct_composed_model(model_name: str, entrypoint: str) -> None:
+def test_construct_model_matches_from_resolved_config(model_name: str, entrypoint: str) -> None:
     response, cell_line_input, drug_input, hp = _training_inputs(model_name)
     model_cls = _model_class(model_name, entrypoint)
 
@@ -64,7 +64,7 @@ def test_facade_matches_direct_composed_model(model_name: str, entrypoint: str) 
     facade.train(response, cell_line_input, drug_input)
     facade_preds = facade.predict(response.cell_line_ids, response.drug_ids, cell_line_input, drug_input)
 
-    direct = config.create_model()
+    direct = model_cls._from_resolved_config(config)
     direct.train(response, cell_line_input, drug_input)
     direct_preds = direct.predict(response.cell_line_ids, response.drug_ids, cell_line_input, drug_input)
 
@@ -74,7 +74,7 @@ def test_facade_matches_direct_composed_model(model_name: str, entrypoint: str) 
 
 
 @pytest.mark.parametrize(("model_name", "entrypoint"), _PARITY_CASES)
-def test_facade_save_load_preserves_predictions(model_name: str, entrypoint: str) -> None:
+def test_construct_model_save_load_preserves_predictions(model_name: str, entrypoint: str) -> None:
     response, cell_line_input, drug_input, hp = _training_inputs(model_name)
     model_cls = _model_class(model_name, entrypoint)
     flat_hp = model_cls.get_default_hyperparameters() if not hp else hp
@@ -82,13 +82,15 @@ def test_facade_save_load_preserves_predictions(model_name: str, entrypoint: str
     model = model_cls(flat_hp)
     model.train(response, cell_line_input, drug_input)
     before_preds = model.predict(response.cell_line_ids, response.drug_ids, cell_line_input, drug_input)
-    before_state = model._composed.component_state() if model._composed is not None else {}
+    assert model._stack is not None
+    before_state = model._stack.component_state()
 
     with tempfile.TemporaryDirectory() as model_dir:
         model.save(model_dir)
         loaded = model_cls.load(model_dir)
         after_preds = loaded.predict(response.cell_line_ids, response.drug_ids, cell_line_input, drug_input)
-        after_state = loaded._composed.component_state() if loaded._composed is not None else {}
+        assert loaded._stack is not None
+        after_state = loaded._stack.component_state()
 
     assert np.allclose(before_preds, after_preds, equal_nan=True)
     assert before_state.keys() == after_state.keys()

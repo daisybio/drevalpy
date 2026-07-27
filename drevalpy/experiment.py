@@ -1296,7 +1296,7 @@ def make_model_list(models: list[type[DRPModel]], response_data: DrugResponseDat
     model_list = {}
     unique_drugs = np.unique(response_data.drug_ids)
     for model in models:
-        if model.is_single_drug_model:
+        if model.is_single_drug():
             for drug in unique_drugs:
                 model_list[f"{model.get_model_name()}.{drug}"] = model.get_model_name()
         else:
@@ -1398,7 +1398,7 @@ def train_final_model(
     full_dataset.remove_nan_responses()
     train_dataset, validation_dataset = make_train_val_split(full_dataset, test_mode=test_mode, val_ratio=val_ratio)
 
-    if model_class.early_stopping:
+    if model_class.supports_early_stopping():
         validation_dataset, early_stopping_dataset = split_early_stopping_data(validation_dataset, test_mode)
     else:
         early_stopping_dataset = None

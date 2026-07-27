@@ -4,7 +4,7 @@ Custom models
 DrEvalPy models are composed from registered **featurizers** and
 **predictors**. Do not subclass ``DRPModel`` directly for new models. Register
 components, describe the stack with a ``ModelConfig`` or zoo preset, and
-expose a generated facade through ``construct_model``.
+resolve a public class with ``construct_model``.
 
 High-level path
 ---------------
@@ -12,13 +12,14 @@ High-level path
 1. Register a featurizer and/or predictor under ``drevalpy.components``.
 2. Describe the stack with a recipe string, YAML zoo entry, or ``ModelConfig``
    dict.
-3. Resolve it with ``construct_model`` or ``ModelConfig.from_spec``.
+3. Resolve a ``DRPModel`` subclass with ``construct_model(name[, spec])`` and
+   construct a fresh instance.
 
 Minimal complete extension example
 ----------------------------------
 
 The following end-to-end sketch registers an external cell-line featurizer and
-predictor, loads a zoo preset, builds a public ``DRPModel`` facade, and wires
+predictor, loads a zoo preset, builds a public ``DRPModel`` class, and wires
 hyperparameter tuning through the normal experiment API.
 
 **1. Component module** (``my_components/toy_stack.py``):
@@ -90,7 +91,7 @@ hyperparameter tuning through the normal experiment API.
 
 Registration decorators attach metadata (name, description, category, and
 optional ``FeatureKind`` contract) to the class. Fitted components must
-implement ``get_state`` / ``set_state`` so ``ComposedModel`` checkpoints
+implement ``get_state`` / ``set_state`` so ``model.joblib`` checkpoints
 round-trip.
 
 **2. External zoo YAML** (``my_zoo/toy.yaml``):
@@ -120,12 +121,16 @@ round-trip.
    # Or resolve the zoo entry by name
    ToyMeanZoo = construct_model("toyMean")
    config = ModelConfig.from_spec("toyMean")
-   composed = config.create_model()
+   ToyMeanFromConfig = construct_model("toyMean", config)
 
-``construct_model`` yields a ``DRPModel`` facade class. Construct with
-``Model()`` / ``Model(hyperparameters)``, then use ``train``, ``predict``,
-``save``, and ``load``. ``ModelConfig.create_model()`` returns the underlying
-``ComposedModel``.
+   model = ToyMeanZoo()
+   model.train(...)
+   model.save("checkpoints/toy_mean")
+   restored = ToyMeanZoo.load("checkpoints/toy_mean")
+
+``construct_model`` yields a ``DRPModel`` subclass. Construct with
+``ModelClass()`` / ``ModelClass(hyperparameters)``, then use ``train``,
+``predict``, ``save``, and ``ModelClass.load``.
 
 **4. Tuning** (structured dotted keys):
 
@@ -176,7 +181,8 @@ The following are intentionally **not** supported:
 * Documented ``DRPModel`` subclass authoring as the extension path
 * Fitted-state introspection on legacy attributes (``.model``, private
   scalers, naive means)
-* Loading checkpoints produced before the ``ComposedModel`` persistence format
+* Loading checkpoints from before the ``drevalpy-model`` / ``model.joblib`` format
+  (including legacy ``composed_model.joblib``)
 
 Backward compatibility
 ----------------------
@@ -185,19 +191,24 @@ Deprecated
 ~~~~~~~~~~
 
 Before 1.6.0, the usual lookup was ``MODEL_FACTORY`` (and the multi-/single-
-drug variants). This remains available for backward compatibility, but is
-deprecated and may be removed in a future release. Prefer:
+drug variants). They remain lazy built-in-only views equal to
+``construct_model(name)`` for zoo names, but emit ``FutureWarning`` and may be
+removed in a future release. Prefer:
 
 .. code-block:: python
 
-   from drevalpy.models import construct_model, ElasticNetModel
+   from drevalpy.models import construct_model
    from drevalpy.models.config import ModelConfig
    from drevalpy.models.zoo import list_zoo_names
    from drevalpy.types.model_scope import ModelScope
 
-   ElasticNet = construct_model("ElasticNet")  # or ElasticNetModel
-   composed = ModelConfig.from_spec("ElasticNet").create_model()
+   ElasticNet = construct_model("ElasticNet")
+   config = ModelConfig.from_spec("ElasticNet")
+   ElasticNetFromConfig = construct_model("ElasticNet", config)
    single_drug = list_zoo_names(scope=ModelScope.SINGLE_DRUG)
+
+Named exports such as ``ElasticNetModel`` and ``ModelConfig.create_model()``
+are removed — use ``construct_model`` as above.
 
 Before 1.6.0, ``multiprocessing=True`` selected a parallel HPO path. It now
 only warns and does **not** control hyperparameter tuning. This remains available
@@ -215,13 +226,8 @@ Deep imports
 ^^^^^^^^^^^^
 
 Paths such as ``drevalpy.models.DIPK.dipk`` or ``drevalpy.models.baselines.*``
-no longer resolve. Import built-in models from the package root instead:
-
-.. code-block:: python
-
-   from drevalpy.models import DIPKModel, ElasticNetModel, construct_model
-
-   model = construct_model("ElasticNet")()
+no longer resolve. Use ``construct_model("DIPK")`` (or the relevant zoo name)
+from ``drevalpy.models``.
 
 For component-level work, use ``drevalpy.components`` and the registry helpers
 documented in :doc:`architecture`.
@@ -229,9 +235,9 @@ documented in :doc:`architecture`.
 Legacy checkpoints
 ^^^^^^^^^^^^^^^^^^
 
-Checkpoints saved before the component-native stack are **not** loadable.
-Retrain and persist via ``composed_model.joblib`` (resolved ``ModelConfig``
-plus fitted component state). See :doc:`persistence`.
+Checkpoints saved before the ``drevalpy-model`` stack are **not** loadable.
+Retrain and persist via ``model.save`` / ``ModelClass.load`` (``model.joblib``).
+See :doc:`persistence`.
 
 Hyperparameter tuning behavior
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

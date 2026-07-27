@@ -63,7 +63,7 @@ def prepare_fold_datasets(
     validation_dataset = split["validation"].copy()
     test_dataset = split["test"].copy()
 
-    if model_class.early_stopping:
+    if model_class.supports_early_stopping():
         validation_dataset = split["validation_es"].copy()
         early_stopping_dataset = split["early_stopping"].copy()
     else:
@@ -124,7 +124,7 @@ def prepare_final_fold_training_data(
     return FoldDatasets(
         train=merged_train,
         validation=fold.validation,
-        early_stopping=fold.early_stopping if model_class.early_stopping else None,
+        early_stopping=fold.early_stopping if model_class.supports_early_stopping() else None,
         test=fold.test,
     )
 
@@ -136,9 +136,13 @@ def early_stopping_for_model(
     """
     Return early-stopping data only when the model supports it.
 
-    :param model_or_class: model instance or class with an ``early_stopping`` attribute
+    :param model_or_class: model instance or class with early-stopping capability
     :param early_stopping_dataset: candidate early-stopping dataset
     :returns: ``early_stopping_dataset`` when supported, otherwise ``None``
     """
-    supports = bool(getattr(model_or_class, "early_stopping", False))
+    supports_fn = getattr(model_or_class, "supports_early_stopping", None)
+    if callable(supports_fn):
+        supports = bool(supports_fn())
+    else:
+        supports = bool(getattr(model_or_class, "early_stopping", False))
     return early_stopping_dataset if supports else None

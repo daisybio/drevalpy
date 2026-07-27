@@ -214,7 +214,7 @@ class DrugResponseDataset:
         return self._name
 
     # Mutable datasets are not hashable (avoids accidental use as dict/set keys).
-    __hash__ = None
+    __hash__ = None  # type: ignore[assignment]
 
     def __len__(self) -> int:
         """

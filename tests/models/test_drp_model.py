@@ -1,4 +1,4 @@
-"""Tests for the shared NativeDRPModel facade."""
+"""Tests for the concrete DRPModel runtime."""
 
 from __future__ import annotations
 
@@ -8,7 +8,8 @@ import numpy as np
 import pytest
 
 from drevalpy.datasets.dataset import DrugResponseDataset
-from drevalpy.models._native_drp_model import create_native_drp_class
+from drevalpy.models import construct_model
+from drevalpy.models.config import ModelConfig
 from tests.models.synthetic_fixtures import (
     cell_line_gene_expression,
     drug_fingerprints,
@@ -18,9 +19,9 @@ from tests.models.synthetic_fixtures import (
 )
 
 
-def test_native_drp_class_supports_factory_lifecycle() -> None:
-    NativeElasticNet = create_native_drp_class("ElasticNet", spec="ElasticNet", validate_spec=False)
-    model = NativeElasticNet({"alpha": 0.1, "l1_ratio": 0.5})
+def test_construct_model_supports_factory_lifecycle() -> None:
+    ElasticNet = construct_model("ElasticNet")
+    model = ElasticNet({"alpha": 0.1, "l1_ratio": 0.5})
     assert model.get_model_name() == "ElasticNet"
     response = multi_drug_response()
     cell_line_input = cell_line_gene_expression()
@@ -30,28 +31,28 @@ def test_native_drp_class_supports_factory_lifecycle() -> None:
     assert preds.shape == (4,)
     with tempfile.TemporaryDirectory() as tmp:
         model.save(tmp)
-        loaded = NativeElasticNet.load(tmp)
+        loaded = ElasticNet.load(tmp)
         loaded_preds = loaded.predict(response.cell_line_ids, response.drug_ids, cell_line_input, drug_input)
     assert np.allclose(preds, loaded_preds)
 
 
-def test_native_naive_class_round_trip() -> None:
-    NativeNaive = create_native_drp_class("NaiveDrugMeanPredictor", spec="NaiveDrugMeanPredictor", validate_spec=False)
-    model = NativeNaive({})
+def test_naive_model_round_trip() -> None:
+    NaiveDrugMean = construct_model("NaiveDrugMeanPredictor")
+    model = NaiveDrugMean({})
     response = multi_drug_response()
     cell_line_input = identity_cell_line_features()
     drug_input = identity_drug_features()
     model.train(response, cell_line_input, drug_input)
     with tempfile.TemporaryDirectory() as tmp:
         model.save(tmp)
-        loaded = NativeNaive.load(tmp)
-    assert loaded._composed is not None
-    assert loaded._composed.is_fitted()
+        loaded = NaiveDrugMean.load(tmp)
+    assert loaded._stack is not None
+    assert loaded._stack.is_fitted()
 
 
 def test_empty_training_transitions() -> None:
-    NativeNaive = create_native_drp_class("NaiveDrugMeanPredictor", spec="NaiveDrugMeanPredictor", validate_spec=False)
-    model = NativeNaive({})
+    NaiveDrugMean = construct_model("NaiveDrugMeanPredictor")
+    model = NaiveDrugMean({})
     cell_line_input = identity_cell_line_features()
     drug_input = identity_drug_features()
     empty = DrugResponseDataset(
@@ -73,8 +74,8 @@ def test_empty_training_transitions() -> None:
 
     model.train(response, cell_line_input, drug_input)
     assert model._empty_training is False
-    assert model._composed is not None
-    assert model._composed.is_fitted()
+    assert model._stack is not None
+    assert model._stack.is_fitted()
     real_preds = model.predict(
         response.cell_line_ids,
         response.drug_ids,
@@ -105,45 +106,43 @@ def test_empty_training_transitions() -> None:
 
 
 def test_constructor_defaults_match_classmethod() -> None:
-    NativeElasticNet = create_native_drp_class("ElasticNet", spec="ElasticNet", validate_spec=False)
-    model = NativeElasticNet()
-    assert model.hyperparameters == NativeElasticNet.get_default_hyperparameters()
+    ElasticNet = construct_model("ElasticNet")
+    model = ElasticNet()
+    assert model.hyperparameters == ElasticNet.get_default_hyperparameters()
     assert not hasattr(model, "configure")
-    assert not hasattr(NativeElasticNet, "configure")
+    assert not hasattr(ElasticNet, "configure")
 
 
 def test_constructor_overrides_affect_views_before_feature_load() -> None:
-    NativeRF = create_native_drp_class("RandomForest", spec="RandomForest", validate_spec=False)
-    defaults = NativeRF()
-    overridden = NativeRF({"n_estimators": 3, "max_depth": 2})
+    RandomForest = construct_model("RandomForest")
+    defaults = RandomForest()
+    overridden = RandomForest({"n_estimators": 3, "max_depth": 2})
     assert overridden.hyperparameters["n_estimators"] == 3
     assert overridden.cell_line_views == defaults.cell_line_views
     assert overridden.drug_views == defaults.drug_views
-    assert overridden._composed is not None
-    assert overridden._composed.config is not None
-    assert overridden._composed.config.predictor.hyperparameters["n_estimators"] == 3
+    assert overridden._stack is not None
+    assert overridden._stack.config is not None
+    assert overridden._stack.config.predictor.hyperparameters["n_estimators"] == 3
 
 
 def test_separate_constructor_calls_have_isolated_fitted_state() -> None:
-    NativeNaive = create_native_drp_class("NaiveDrugMeanPredictor", spec="NaiveDrugMeanPredictor", validate_spec=False)
+    NaiveDrugMean = construct_model("NaiveDrugMeanPredictor")
     response = multi_drug_response()
     cell_line_input = identity_cell_line_features()
     drug_input = identity_drug_features()
-    first = NativeNaive()
-    second = NativeNaive()
+    first = NaiveDrugMean()
+    second = NaiveDrugMean()
     first.train(response, cell_line_input, drug_input)
-    assert first._composed is not None
-    assert first._composed.is_fitted()
-    assert second._composed is not None
-    assert not second._composed.is_fitted()
+    assert first._stack is not None
+    assert first._stack.is_fitted()
+    assert second._stack is not None
+    assert not second._stack.is_fitted()
 
 
-def test_from_model_config_and_load_skip_default_stack() -> None:
-    from drevalpy.models.config import ModelConfig
-
-    NativeElasticNet = create_native_drp_class("ElasticNet", spec="ElasticNet", validate_spec=False)
+def test_from_resolved_config_and_load_skip_default_stack() -> None:
+    ElasticNet = construct_model("ElasticNet")
     config = ModelConfig.from_spec("ElasticNet", hyperparameters={"alpha": 0.2, "l1_ratio": 0.3})
-    model = NativeElasticNet.from_model_config(config)
+    model = ElasticNet._from_resolved_config(config)
     assert model.hyperparameters["alpha"] == 0.2
     response = multi_drug_response()
     cell_line_input = cell_line_gene_expression()
@@ -152,23 +151,23 @@ def test_from_model_config_and_load_skip_default_stack() -> None:
     preds = model.predict(response.cell_line_ids, response.drug_ids, cell_line_input, drug_input)
     with tempfile.TemporaryDirectory() as tmp:
         model.save(tmp)
-        loaded = NativeElasticNet.load(tmp)
+        loaded = ElasticNet.load(tmp)
     loaded_preds = loaded.predict(response.cell_line_ids, response.drug_ids, cell_line_input, drug_input)
     assert np.allclose(preds, loaded_preds)
-    assert loaded._composed is not None
-    assert loaded._composed.is_fitted()
+    assert loaded._stack is not None
+    assert loaded._stack.is_fitted()
 
 
-def test_facade_hyperparameters_and_views_are_immutable_after_construction() -> None:
-    NativeElasticNet = create_native_drp_class("ElasticNet", spec="ElasticNet", validate_spec=False)
-    model = NativeElasticNet({"alpha": 0.1, "l1_ratio": 0.5})
-    assert model._composed is not None
+def test_hyperparameters_and_views_are_immutable_after_construction() -> None:
+    ElasticNet = construct_model("ElasticNet")
+    model = ElasticNet({"alpha": 0.1, "l1_ratio": 0.5})
+    assert model._stack is not None
 
     exposed = model.hyperparameters
     exposed["alpha"] = 0.25
     assert model.hyperparameters["alpha"] == 0.1
-    assert model._composed.config is not None
-    assert model._composed.config.predictor.hyperparameters["alpha"] == 0.1
+    assert model._stack.config is not None
+    assert model._stack.config.predictor.hyperparameters["alpha"] == 0.1
 
     with pytest.raises(AttributeError):
         model.hyperparameters = {"alpha": 0.25}  # type: ignore[misc]
@@ -184,7 +183,7 @@ def test_facade_hyperparameters_and_views_are_immutable_after_construction() -> 
     assert not hasattr(model, "_sync_predictor_hyperparameters")
 
 
-def test_load_drug_features_stores_preload_without_mutating_facade_hyperparameters(
+def test_load_drug_features_stores_preload_without_mutating_hyperparameters(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from drevalpy.components.predictors.literature.structured_engine_adapter import (
@@ -193,8 +192,8 @@ def test_load_drug_features_stores_preload_without_mutating_facade_hyperparamete
     from drevalpy.components.registry import get_predictor
     from drevalpy.datasets.dataset import FeatureDataset
 
-    NativeElasticNet = create_native_drp_class("ElasticNet", spec="ElasticNet", validate_spec=False)
-    model = NativeElasticNet({"alpha": 0.1, "l1_ratio": 0.5})
+    ElasticNet = construct_model("ElasticNet")
+    model = ElasticNet({"alpha": 0.1, "l1_ratio": 0.5})
     original = model.hyperparameters
     assert model._resolved_model_config is not None
     predictor_cls = get_predictor(model._resolved_model_config.predictor.name)

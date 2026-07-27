@@ -33,7 +33,11 @@ def _format_default(value: object) -> str | None:
 
 
 def _render_params(command) -> list[str]:
-    """Render options as a definition list (no section titles)."""
+    """Render options as a definition list (no section titles).
+
+    :param command: Click command whose parameters should be rendered
+    :returns: RST lines for the parameter definition list
+    """
     lines: list[str] = []
     params = [param for param in command.params if getattr(param, "opts", None)]
     skip = {"install_completion", "show_completion"}
@@ -58,7 +62,10 @@ def _render_params(command) -> list[str]:
 
 
 def generate_cli_reference_rst() -> str:
-    """Return RST for the full ``drevalpy`` CLI, including subcommands."""
+    """Return RST for the full ``drevalpy`` CLI, including subcommands.
+
+    :returns: generated CLI reference as an RST document string
+    """
     root = get_command(app)
     lines = [
         "Root command",
@@ -103,7 +110,10 @@ def generate_cli_reference_rst() -> str:
 
 
 def write_generated_cli_reference() -> Path:
-    """Write the generated CLI reference RST consumed by ``cli/reference.rst``."""
+    """Write the generated CLI reference RST consumed by ``cli/reference.rst``.
+
+    :returns: path to the generated RST file
+    """
     GENERATED_REFERENCE.parent.mkdir(parents=True, exist_ok=True)
     GENERATED_REFERENCE.write_text(generate_cli_reference_rst(), encoding="utf-8")
     return GENERATED_REFERENCE

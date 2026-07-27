@@ -64,7 +64,7 @@ def test_models_lightning_metrics_mixin_reexports_component_mixin() -> None:
 
 def test_orchestration_lives_in_models_layer() -> None:
     import drevalpy.components as components_pkg
-    import drevalpy.models.composed_model as models_composed
+    import drevalpy.models._component_stack as component_stack
     import drevalpy.models.config_io as models_config_io
     import drevalpy.models.factory as models_factory
     import drevalpy.models.model_config_spec as models_spec
@@ -74,7 +74,7 @@ def test_orchestration_lives_in_models_layer() -> None:
     assert not hasattr(components_pkg, "model_config_for_name")
     assert not hasattr(components_pkg, "get_zoo_config")
     assert models_factory.model_config_for_name.__module__ == "drevalpy.models.factory"
-    assert models_composed.ComposedModel.__module__ == "drevalpy.models.composed_model"
+    assert component_stack.build_component_stack.__module__ == "drevalpy.models._component_stack"
     assert models_config_io.model_config_from_yaml.__module__ == "drevalpy.models.config_io"
     assert models_spec.build_model_config_from_spec.__module__ == "drevalpy.models.model_config_spec"
     assert models_zoo.get_zoo_config.__module__ == "drevalpy.models.zoo"

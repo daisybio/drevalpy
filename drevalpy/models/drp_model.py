@@ -1,279 +1,107 @@
-"""
-Contains the DRPModel class.
+"""Concrete config-backed drug response prediction model."""
 
-The DRPModel class is an abstract wrapper class for drug response prediction models.
-Built-in models are generated facades under `drevalpy.models` backed by
-`ModelConfig` / `ComposedModel`. Custom models are created by registering
-components and composing a config or zoo preset.
-"""
+from __future__ import annotations
 
-from abc import ABC, abstractmethod
-from contextlib import suppress
-from typing import Any
+import copy
+from typing import Any, ClassVar
 
 import numpy as np
-import wandb
 
-from ..datasets.dataset import DrugResponseDataset, FeatureDataset
-from ..evaluation import AVAILABLE_METRICS, evaluate
-from ..pipeline_function import pipeline_function
+from drevalpy.components.data_loading import (
+    load_cell_line_features_for_model_config,
+    load_drug_features_for_model_config,
+)
+from drevalpy.components.registry import get_predictor
+from drevalpy.components.training_context import TrainingContext
+from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.models._component_stack import _ComponentStack, build_component_stack
+from drevalpy.models._drp_logging import _DRPLoggingMixin
+from drevalpy.models.config import ModelConfig, ModelScope
+from drevalpy.models.featurizer_mapping import cell_line_views_from_model_config, drug_views_from_model_config
+from drevalpy.pipeline_function import pipeline_function
 
 
-class DRPModel(ABC):
-    """
-    Abstract wrapper class for drug response prediction models.
+class DRPModel(_DRPLoggingMixin):
+    """Concrete experiment-facing model backed by an immutable ModelConfig."""
 
-    The DRPModel class is an abstract wrapper class for drug response prediction models.
-    It has a boolean attribute is_single_drug_model indicating whether it is a single drug model and a boolean
-    attribute early_stopping indicating whether early stopping is used.
-    """
+    _model_name: ClassVar[str] = "DRPModel"
+    _base_model_config: ClassVar[ModelConfig | None] = None
 
-    # Used in the pipeline!
-    early_stopping = False
-    # Then, the model is trained per drug
-    is_single_drug_model = False
+    def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
+        """Materialize a fresh component stack from class defaults or flat overrides.
 
-    def __init__(self, hyperparameters: dict[str, Any] | None = None):
-        """Initialize the DRPModel instance.
-
-        :param hyperparameters: optional flat public hyperparameters. Concrete
-            facades materialize their component stack from these (or from class
-            defaults when ``None``).
+        :param hyperparameters: optional flat public overrides; ``None`` uses defaults
         """
-        _ = hyperparameters
+        self._init_runtime_fields()
+        from drevalpy.components.tuning.drp_hyperparameters import (
+            config_from_public_hyperparameters,
+            default_config_for_drp_model,
+        )
+
+        if hyperparameters is None:
+            config = default_config_for_drp_model(type(self))
+            self._apply_model_config(config if config is not None else self.model_config())
+            return
+        config = config_from_public_hyperparameters(type(self), hyperparameters)
+        if config is None:
+            msg = f"Cannot apply hyperparameters for model {self.get_model_name()!r}"
+            raise ValueError(msg)
+        self._apply_model_config(config)
+
+    def _init_runtime_fields(self) -> None:
         self.wandb_project: str | None = None
         self.wandb_run: Any = None
         self.wandb_config: dict[str, Any] | None = None
-        self.hyperparameters: dict[str, Any] = {}
-        self._in_hyperparameter_tuning: bool = False  # Flag to track if we're in hyperparameter tuning
-
-    def init_wandb(
-        self,
-        project: str,
-        config: dict[str, Any] | None = None,
-        name: str | None = None,
-        tags: list[str] | None = None,
-        finish_previous: bool = True,
-    ) -> None:
-        """
-        Initialize wandb logging for this model instance.
-
-        :param project: wandb project name
-        :param config: dictionary of configuration to log (e.g., hyperparameters, dataset info)
-        :param name: run name (defaults to model name)
-        :param tags: list of tags for the run
-        :param finish_previous: whether to finish any existing wandb run before starting a new one
-        """
-        self.wandb_project = project
-        run_config = dict(config or {})
-        # Constructor stores hyperparameters before wandb starts; nest them here.
-        if self.hyperparameters and "hyperparameters" not in run_config:
-            run_config["hyperparameters"] = self.hyperparameters
-        self.wandb_config = run_config
-
-        if finish_previous:
-            wandb.finish()
-
-        run_name = name or self.get_model_name()
-        wandb.init(
-            project=project,
-            config=self.wandb_config,
-            name=run_name,
-            tags=tags,
-        )
-        self.wandb_run = wandb.run
-
-        # Define common metric summaries so final/best values are tracked automatically
-        with suppress(Exception):  # pragma: no cover - wandb may not support define_metric in all contexts
-            wandb.define_metric("epoch", summary="max")
-            wandb.define_metric("train_loss", summary="min")
-            wandb.define_metric("val_loss", summary="min")
-            wandb.define_metric("train_R^2", summary="max")
-            wandb.define_metric("val_R^2", summary="max")
-            wandb.define_metric("train_Pearson", summary="max")
-            wandb.define_metric("val_Pearson", summary="max")
-
-    def log_hyperparameters(self, hyperparameters: dict[str, Any]) -> None:
-        """
-        Log hyperparameters to wandb when a run is already active.
-
-        Construction stores hyperparameters on the instance. When wandb is
-        initialized later via ``init_wandb``, those values are nested into the
-        run config. This helper updates an already-active run.
-
-        During hyperparameter tuning, config updates are skipped to avoid overwriting.
-        Only the final best hyperparameters are logged to wandb.config.
-
-        :param hyperparameters: dictionary of hyperparameters to log
-        """
-        self.hyperparameters = hyperparameters
-        if not self.is_wandb_enabled():
-            return
-        # Only update wandb.config if we're not in hyperparameter tuning phase
-        # During tuning, trial hyperparameters are stored in config.hyperparameters
-        # Nest hyperparameters under a single key to prevent them from appearing as separate table columns
-        if not self._in_hyperparameter_tuning:
-            wandb.config.update({"hyperparameters": hyperparameters})
-
-    def is_wandb_enabled(self) -> bool:
-        """
-        Check if wandb logging is enabled for this model instance.
-
-        :returns: True if wandb is initialized and active, False otherwise
-        """
-        # Check both self.wandb_run and wandb.run to handle cases where
-        # PyTorch Lightning's WandbLogger might have affected the run state
-        return self.wandb_project is not None and (self.wandb_run is not None or wandb.run is not None)
-
-    def get_wandb_logger(self) -> Any | None:
-        """
-        Get a WandbLogger for PyTorch Lightning integration.
-
-        This method creates a WandbLogger that uses the existing wandb run.
-        Returns None if wandb is not enabled.
-
-        :returns: WandbLogger instance or None
-        """
-        if not self.is_wandb_enabled() or self.wandb_project is None:
-            return None
-
-        from pytorch_lightning.loggers import WandbLogger
-
-        return WandbLogger(project=self.wandb_project, log_model=False)
-
-    def log_metrics(self, metrics: dict[str, float], step: int | None = None) -> None:
-        """
-        Log metrics to wandb.
-
-        Subclasses can call this method to log custom metrics during training.
-
-        :param metrics: dictionary of metric names to values
-        :param step: optional step number for the metrics
-        """
-        if not self.is_wandb_enabled():
-            return
-
-        if step is not None:
-            wandb.log(metrics, step=step)
-        else:
-            wandb.log(metrics)
-
-    def compute_performance_metrics(
-        self, predictions: np.ndarray, targets: np.ndarray, prefix: str = ""
-    ) -> dict[str, float]:
-        """
-        Compute R^2 and PCC metrics from predictions and targets.
-
-        This is a convenience method for computing performance metrics consistently
-        across all models. It always computes R^2 and PCC in addition to any other
-        metrics that may be needed.
-
-        :param predictions: model predictions array
-        :param targets: ground truth targets array
-        :param prefix: optional prefix for metric keys (e.g., ``val_``, ``train_``)
-        :returns: dictionary of computed metrics with optional prefix
-        """
-        try:
-            # Always compute R^2 and PCC
-            metrics = {
-                "R^2": AVAILABLE_METRICS["R^2"](y_pred=predictions, y_true=targets),
-                "Pearson": AVAILABLE_METRICS["Pearson"](y_pred=predictions, y_true=targets),
-            }
-
-            # Add prefix if provided
-            if prefix:
-                metrics = {f"{prefix}{k}": v for k, v in metrics.items()}
-
-            return metrics
-        except Exception:
-            # Return empty dict if computation fails
-            return {}
-
-    def compute_and_log_final_metrics(
-        self,
-        dataset: DrugResponseDataset,
-        additional_metrics: list[str] | None = None,
-        prefix: str = "val_",
-    ) -> dict[str, float]:
-        r"""
-        Compute final performance metrics from a dataset and log them to wandb.
-
-        This method computes R^2 and PCC (always), plus any additional metrics specified.
-        The metrics are both logged to wandb history and stored in the run summary.
-
-        :param dataset: DrugResponseDataset with predictions and response
-        :param additional_metrics: optional list of additional metrics to compute (e.g., ["RMSE", "MAE"])
-        :param prefix: metric name prefix indicating which split the metrics belong to
-            (for example, use ``"val"`` for validation and ``"test"`` for test metrics)
-        :returns: dictionary of computed metrics
-        """
-        if dataset.predictions is None:
-            return {}
-
-        # Always compute R^2 and PCC
-        metrics_to_compute = ["R^2", "Pearson"]
-        if additional_metrics:
-            metrics_to_compute.extend(additional_metrics)
-
-        results = evaluate(dataset, metric=metrics_to_compute)
-
-        # Log to wandb if enabled
-        # Check both is_wandb_enabled() and wandb.run to ensure the run is active
-        if self.is_wandb_enabled() and wandb.run is not None:
-            # Prefix indicates which split the metrics belong to (e.g. \"val\" or \"test\")
-            wandb_metrics = {f"{prefix}{k}": v for k, v in results.items()}
-            # Log to summary only (not history) since these are final metrics logged once
-            self.log_final_metrics(wandb_metrics)
-
-        return results
-
-    def log_final_metrics(self, metrics: dict[str, float]) -> None:
-        """
-        Store final metrics in the wandb run summary.
-
-        This method is used to record final metrics (e.g., after validation
-        or after a hyperparameter trial). Metrics are stored with their original
-        names (e.g., val_RMSE, test_RMSE) without additional prefixes.
-
-        :param metrics: dictionary of metric names to values
-        """
-        if not self.is_wandb_enabled():
-            return
-
-        # Ensure wandb.run is active before logging
-        if wandb.run is None:
-            return
-
-        for key, value in metrics.items():
-            # Store metrics directly without adding "final_" prefix
-            # The prefix (val_ or test_) already indicates the split
-            wandb.run.summary[key] = value
-
-    def finish_wandb(self) -> None:
-        """Finish the wandb run. Call this when training is complete."""
-        if not self.is_wandb_enabled():
-            return
-
-        wandb.finish()
-        self.wandb_run = None
+        self._in_hyperparameter_tuning = False
+        self._stack: _ComponentStack | None = None
+        self._empty_training = False
+        self._hyperparameters: dict[str, Any] = {}
+        self._resolved_model_config: ModelConfig | None = None
+        self._engine_preload_state: dict[str, Any] = {}
 
     @classmethod
-    @abstractmethod
+    def _unmaterialized(cls) -> DRPModel:
+        """Return an empty instance without materializing a default stack."""
+        instance = object.__new__(cls)
+        instance._init_runtime_fields()
+        return instance
+
+    @classmethod
+    def _from_resolved_config(cls, config: ModelConfig) -> DRPModel:
+        """Construct an instance from an already-resolved structured config."""
+        instance = cls._unmaterialized()
+        instance._apply_model_config(config)
+        return instance
+
+    @classmethod
     @pipeline_function
     def get_model_name(cls) -> str:
-        """
-        Returns the name of the model.
+        """Return the model identity for this class."""
+        return cls._model_name
 
-        :return: model name
-        """
+    @classmethod
+    def model_config(cls) -> ModelConfig:
+        """Return a defensive deep copy of the class base config."""
+        if cls._base_model_config is None:
+            msg = f"{cls.__name__} has no base ModelConfig; use construct_model(...)"
+            raise RuntimeError(msg)
+        return cls._base_model_config.model_copy(deep=True)
+
+    @classmethod
+    def supports_early_stopping(cls) -> bool:
+        """Return whether the configured predictor supports early stopping."""
+        predictor_class = get_predictor(cls.model_config().predictor.name)
+        return bool(getattr(predictor_class, "supports_early_stopping", False))
+
+    @classmethod
+    def is_single_drug(cls) -> bool:
+        """Return whether this model is scoped to a single drug."""
+        return cls.model_config().scope == ModelScope.SINGLE_DRUG
 
     @classmethod
     @pipeline_function
     def get_structured_hyperparameter_space(cls) -> dict[str, Any]:
-        """Return the merged structured hyperparameter space for this model.
-
-        :returns: Mapping of hyperparameter names to search-space specs.
-        """
+        """Return the merged structured hyperparameter space for this model."""
         from drevalpy.components.tuning.drp_hyperparameters import structured_space_for_drp_model
 
         return structured_space_for_drp_model(cls)
@@ -281,10 +109,7 @@ class DRPModel(ABC):
     @classmethod
     @pipeline_function
     def get_default_hyperparameters(cls) -> dict[str, Any]:
-        """Return default hyperparameters used by ``cls()``.
-
-        :returns: Flat public hyperparameter dictionary.
-        """
+        """Return default hyperparameters used by ``cls()``."""
         from drevalpy.components.tuning.drp_hyperparameters import default_hyperparameters_for_drp_model
 
         return default_hyperparameters_for_drp_model(cls)
@@ -292,34 +117,113 @@ class DRPModel(ABC):
     @classmethod
     @pipeline_function
     def get_hyperparameter_set(cls) -> list[dict[str, Any]]:
-        """Return the default hyperparameter configuration for this model.
-
-        :returns: Single-element list containing the default hyperparameters.
-        """
+        """Return the default hyperparameter configuration for this model."""
         return [cls.get_default_hyperparameters()]
 
     @property
-    @abstractmethod
-    def cell_line_views(self) -> list[str]:
-        """
-        Returns the sources the model needs as input for describing the cell line.
-
-        :return: cell line views, e.g., ["methylation", "gene_expression", "mirna_expression",
-            "mutation"]. If the model does not use cell line features, return an empty list.
-        """
+    def hyperparameters(self) -> dict[str, Any]:
+        """Return a defensive copy of the instance hyperparameters."""
+        return copy.deepcopy(self._hyperparameters)
 
     @property
-    @abstractmethod
-    def drug_views(self) -> list[str]:
-        """
-        Returns the sources the model needs as input for describing the drug.
+    def early_stopping(self) -> bool:
+        """Instance convenience accessor for early-stopping support."""
+        return type(self).supports_early_stopping()
 
-        :return: drug views, e.g., ["descriptors", "fingerprints", "targets"]. If the model does not use drug features,
-            return an empty list.
-        """
+    @property
+    def is_single_drug_model(self) -> bool:
+        """Instance convenience accessor for single-drug scope."""
+        return type(self).is_single_drug()
+
+    @property
+    def cell_line_views(self) -> list[str]:
+        """Return required cell-line views derived from the resolved config."""
+        config = self._resolved_model_config or self.model_config()
+        return cell_line_views_from_model_config(config)
+
+    @property
+    def drug_views(self) -> list[str]:
+        """Return required drug views derived from the resolved config."""
+        config = self._resolved_model_config or self.model_config()
+        return drug_views_from_model_config(config)
+
+    def log_hyperparameters(self, hyperparameters: dict[str, Any]) -> None:
+        """Store a copy of hyperparameters and optionally log them to wandb."""
+        import wandb
+
+        self._hyperparameters = copy.deepcopy(hyperparameters)
+        if not self.is_wandb_enabled():
+            return
+        if not self._in_hyperparameter_tuning:
+            wandb.config.update({"hyperparameters": self._hyperparameters})
+
+    def _apply_model_config(self, config: ModelConfig) -> None:
+        from drevalpy.components.tuning.drp_hyperparameters import public_hyperparameters_from_config
+
+        self._resolved_model_config = config.model_copy(deep=True)
+        self.log_hyperparameters(public_hyperparameters_from_config(self._resolved_model_config))
+        self._stack = build_component_stack(self._resolved_model_config)
+        self._empty_training = False
 
     @pipeline_function
-    @abstractmethod
+    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
+        """Load cell-line features for the resolved model config."""
+        config = self._resolved_model_config
+        if config is None:
+            raise RuntimeError("Model has not been constructed with a ModelConfig")
+        predictor_class = get_predictor(config.predictor.name)
+        loader = getattr(predictor_class, "load_dataset_cell_line_features", None)
+        if callable(loader):
+            loaded = loader(
+                data_path,
+                dataset_name,
+                hyperparameters=self.hyperparameters,
+                model_name=self.get_model_name(),
+            )
+            if isinstance(loaded, tuple):
+                features, preload = loaded
+            else:
+                features, preload = loaded, {}
+            if isinstance(preload, dict):
+                self._engine_preload_state.update(preload)
+            return features
+        return load_cell_line_features_for_model_config(
+            config,
+            data_path,
+            dataset_name,
+            model_name=self.get_model_name(),
+        )
+
+    @pipeline_function
+    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset | None:
+        """Load drug features for the resolved model config."""
+        config = self._resolved_model_config
+        if config is None:
+            raise RuntimeError("Model has not been constructed with a ModelConfig")
+        predictor_class = get_predictor(config.predictor.name)
+        loader = getattr(predictor_class, "load_dataset_drug_features", None)
+        if callable(loader):
+            loaded = loader(
+                data_path,
+                dataset_name,
+                hyperparameters=self.hyperparameters,
+                model_name=self.get_model_name(),
+            )
+            if isinstance(loaded, tuple):
+                features, preload = loaded
+            else:
+                features, preload = loaded, {}
+            if isinstance(preload, dict):
+                self._engine_preload_state.update(preload)
+            return features
+        return load_drug_features_for_model_config(
+            config,
+            data_path,
+            dataset_name,
+            model_name=self.get_model_name(),
+        )
+
+    @pipeline_function
     def train(
         self,
         output: DrugResponseDataset,
@@ -328,17 +232,25 @@ class DRPModel(ABC):
         output_earlystopping: DrugResponseDataset | None = None,
         model_checkpoint_dir: str = "checkpoints",
     ) -> None:
-        """
-        Trains the model.
+        """Train the private component stack on the given response data."""
+        if self._stack is None:
+            raise RuntimeError("Model has not been constructed with a component stack")
+        if len(output) == 0:
+            self._empty_training = True
+            return
+        self._empty_training = False
+        self._stack.apply_preload_state(self._engine_preload_state)
+        self._stack.train(
+            output,
+            cell_line_input,
+            drug_input,
+            output_earlystopping=output_earlystopping,
+            training_context=TrainingContext(
+                checkpoint_dir=model_checkpoint_dir,
+                logging_metadata={"model_name": self.get_model_name()},
+            ),
+        )
 
-        :param output: training data associated with the response output
-        :param cell_line_input: input associated with the cell line, required for all models
-        :param drug_input: input associated with the drug, optional because single drug models do not use drug features
-        :param output_earlystopping: optional early stopping dataset
-        :param model_checkpoint_dir: directory to save the model checkpoints
-        """
-
-    @abstractmethod
     def predict(
         self,
         cell_line_ids: np.ndarray,
@@ -346,78 +258,49 @@ class DRPModel(ABC):
         cell_line_input: FeatureDataset,
         drug_input: FeatureDataset | None = None,
     ) -> np.ndarray:
-        """
-        Predicts the response for the given input.
-
-        :param drug_ids: list of drug ids, also used for single drug models, there it is just an array containing the
-            same drug id
-        :param cell_line_ids: list of cell line ids
-        :param cell_line_input: input associated with the cell line, required for all models
-        :param drug_input: input associated with the drug, optional because single drug models do not use drug features
-        :returns: predicted response
-        """
-
-    @pipeline_function
-    @abstractmethod
-    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
-        """
-        Load the cell line features before the train/predict method is called.
-
-        Required to implement for all models. Could, e.g., call get_multiomics_feature_dataset() or
-        load_and_select_gene_features() from ``drevalpy.data.features``.
-
-        :param data_path: path to the data, e.g., data/
-        :param dataset_name: name of the dataset, e.g., "GDSC2"
-        :returns: FeatureDataset with the cell line features
-        """
-
-    @pipeline_function
-    @abstractmethod
-    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset | None:
-        """
-        Load the drug features before the train/predict method is called.
-
-        Required to implement for all models that use drug features. Could, e.g.,
-        call load_drug_fingerprint_features() or load_drug_ids_from_csv() from
-        ``drevalpy.data.features``.
-
-        For single drug models, this method can return None.
-
-        :param data_path: path to the data, e.g., data/
-        :param dataset_name: name of the dataset, e.g., "GDSC2"
-        :returns: FeatureDataset or None
-        """
+        """Predict responses for the given cell-line/drug pairs."""
+        if self._empty_training:
+            return np.full(len(cell_line_ids), np.nan)
+        if self._stack is None:
+            raise RuntimeError("Model has not been constructed with a component stack")
+        if not self._stack.is_fitted():
+            raise RuntimeError("Model has not been trained; call train() or load() before predict()")
+        return self._stack.predict(cell_line_ids, drug_ids, cell_line_input, drug_input)
 
     @pipeline_function
     def save(self, directory: str) -> None:
-        """
-        Save the model, including trainable parameters, hyperparameters, scalars, encoders.
+        """Persist model identity, config, and fitted component state."""
+        from drevalpy.models._model_persistence import save_model
 
-        This method should serialize all necessary components to allow
-        full reconstruction of the model later via the `load` method.
-
-        Only needs to be implemented for the DrEval evaluation framework, if a final production model should be saved.
-
-        :param directory: Target directory where the model and metadata should be saved
-        :raises NotImplementedError: if the method is not implemented by the subclass
-        """
-        raise NotImplementedError(f"{self.get_model_name()} does not implement model saving.")
+        save_model(self, directory)
 
     @classmethod
-    def load(cls, directory: str) -> "DRPModel":
-        """
-        Load a model, including trainable parameters, hyperparameters, scalars, encoders.
+    def load(cls, directory: str) -> DRPModel:
+        """Load a fitted model checkpoint into a new instance of this class."""
+        from drevalpy.models._model_persistence import (
+            CorruptedCheckpointError,
+            IncompatibleModelCheckpointError,
+            load_model_payload,
+        )
 
-        This method should fully reconstruct an instance of the model using
-        the files in the specified directory.
-
-        Only needs to be implemented for the DrEval evaluation framework, if a final production model should be saved.
-
-
-        :param directory: Source directory containing the saved model files
-        :raises NotImplementedError: if the method is not implemented by the subclass
-        """
-        raise NotImplementedError(f"{cls.get_model_name()} does not implement model loading.")
+        model_name, config, state = load_model_payload(directory)
+        if model_name != cls.get_model_name():
+            raise IncompatibleModelCheckpointError(
+                f"checkpoint model_name {model_name!r} does not match {cls.get_model_name()!r}"
+            )
+        instance = cls._from_resolved_config(config)
+        if instance._stack is None:
+            raise CorruptedCheckpointError("failed to materialize component stack from checkpoint")
+        try:
+            instance._stack.restore_component_state(state)
+        except (ValueError, RuntimeError) as exc:
+            raise CorruptedCheckpointError(
+                f"checkpoint component state is invalid: {exc}" if str(exc) else "checkpoint component state is invalid"
+            ) from exc
+        if not instance._stack.is_fitted():
+            raise CorruptedCheckpointError("checkpoint did not restore a fitted predictor")
+        instance._empty_training = False
+        return instance
 
     def get_concatenated_features(
         self,
@@ -428,61 +311,30 @@ class DRPModel(ABC):
         cell_line_input: FeatureDataset | None,
         drug_input: FeatureDataset | None,
     ) -> np.ndarray:
-        """
-        Concatenates the features to an input matrix X for the given cell line and drug views.
-
-        :param cell_line_view: gene expression, methylation, etc.
-        :param drug_view: ids, fingerprints, etc.
-        :param cell_line_ids_output: cell line ids
-        :param drug_ids_output: drug ids
-        :param cell_line_input: input associated with the cell line
-        :param drug_input: input associated with the drug
-        :returns: X, the feature matrix needed for, e.g., sklearn models
-        :raises ValueError: if no features are provided
-
-        This can, e.g., be done in the training method to produce a large input feature matrix for the model where
-        the rows are the samples and the columns are the cell line and drug features concatenated. This method is an
-        alternative to using DataLoaders. It is used for models operating on the whole input matrix at once.
-
-        Example::
-
-            x = self.get_concatenated_features(
-                cell_line_view="gene_expression",
-                drug_view="fingerprints",
-                cell_line_ids_output=output.cell_line_ids,
-                drug_ids_output=output.drug_ids,
-                cell_line_input=cell_line_input,
-                drug_input=drug_input,
-            )
-            self.model.fit(x, output.response)
-        """
+        """Concatenate selected cell-line and drug feature views into matrix ``X``."""
         inputs = self.get_feature_matrices(
             cell_line_ids=cell_line_ids_output,
             drug_ids=drug_ids_output,
             cell_line_input=cell_line_input,
             drug_input=drug_input,
         )
-        if drug_view is not None:
-            if drug_view not in inputs:
-                raise ValueError(f"Expected drug_view '{drug_view}' to be in inputs, but it was not. Inputs: {inputs}")
-        if cell_line_view is not None:
-            if cell_line_view not in inputs:
-                raise ValueError(
-                    f"Expected cell_line_view '{cell_line_view}' to be in inputs, but it was not. Inputs: {inputs}"
-                )
+        if drug_view is not None and drug_view not in inputs:
+            raise ValueError(f"Expected drug_view '{drug_view}' to be in inputs, but it was not. Inputs: {inputs}")
+        if cell_line_view is not None and cell_line_view not in inputs:
+            raise ValueError(
+                f"Expected cell_line_view '{cell_line_view}' to be in inputs, but it was not. Inputs: {inputs}"
+            )
 
         cell_line_features = None if cell_line_view is None else inputs.get(cell_line_view)
         drug_features = None if drug_view is None else inputs.get(drug_view)
 
         if cell_line_features is not None and drug_features is not None:
-            x = np.concatenate((cell_line_features, drug_features), axis=1)
-        elif cell_line_features is not None:
-            x = cell_line_features
-        elif drug_features is not None:
-            x = drug_features
-        else:
-            raise ValueError("No features provided.")
-        return x
+            return np.concatenate((cell_line_features, drug_features), axis=1)
+        if cell_line_features is not None:
+            return cell_line_features
+        if drug_features is not None:
+            return drug_features
+        raise ValueError("No features provided.")
 
     def get_feature_matrices(
         self,
@@ -491,62 +343,7 @@ class DRPModel(ABC):
         cell_line_input: FeatureDataset | None,
         drug_input: FeatureDataset | None,
     ) -> dict[str, np.ndarray]:
-        """
-        Returns the feature matrices for the given cell line and drug ids by retrieving the correct views.
-
-        :param cell_line_ids: cell line identifiers
-        :param drug_ids: drug identifiers
-        :param cell_line_input: cell line omics features
-        :param drug_input: drug omics features
-        :returns: dictionary with the feature matrices
-        :raises ValueError: if the input does not contain the correct views
-
-        This can e.g., done to produce the input for the predict() method for deep learning models:
-        Example::
-
-            input_data = self.get_feature_matrices(
-                cell_line_ids=cell_line_ids,
-                drug_ids=drug_ids,
-                cell_line_input=cell_line_input,
-                drug_input=drug_input,
-            )
-            (
-                gene_expression,
-                mutations,
-                cnvs
-            ) = (
-                input_data["gene_expression"],
-                input_data["mutations"],
-                input_data["copy_number_variation_gistic"]
-            )
-            return self.model.predict(gene_expression, mutations, cnvs)
-
-        Or to produce separate inputs for the train()/predict() method for other models if the model does not operate
-        on the concatenated input matrix::
-
-            inputs = self.get_feature_matrices(
-                cell_line_ids=output.cell_line_ids,
-                drug_ids=output.drug_ids,
-                cell_line_input=cell_line_input,
-                 drug_input=drug_input,
-            )
-            (
-                gene_expression,
-                methylation,
-                mutations,
-                copy_number_variation_gistic,
-                fingerprints,
-            ) = (
-                inputs["gene_expression"],
-                inputs["methylation"],
-                inputs["mutations"],
-                inputs["copy_number_variation_gistic"],
-                inputs["fingerprints"],
-            )
-            self.model.fit(
-                gene_expression, methylation, mutations, copy_number_variation_gistic, fingerprints, output.response
-            )
-        """
+        """Return feature matrices for the model's required views."""
         cell_line_feature_matrices = {}
         if cell_line_input is not None:
             for cell_line_view in self.cell_line_views:
@@ -561,5 +358,4 @@ class DRPModel(ABC):
                 if drug_view not in drug_input.view_names:
                     raise ValueError(f"Drug input does not contain view {drug_view}")
                 drug_feature_matrices[drug_view] = drug_input.get_feature_matrix(view=drug_view, identifiers=drug_ids)
-
         return {**cell_line_feature_matrices, **drug_feature_matrices}

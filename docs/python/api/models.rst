@@ -17,11 +17,6 @@ Orchestration helpers
    :undoc-members:
    :show-inheritance:
 
-.. automodule:: drevalpy.models.composed_model
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 .. automodule:: drevalpy.models.zoo
    :members:
    :undoc-members:
@@ -31,6 +26,6 @@ Built-in models
 ---------------
 
 Every built-in factory name has a zoo YAML under ``drevalpy/models/zoo/``.
-Named root exports (for example ``ElasticNetModel``, ``NaivePredictor``,
-``DIPKModel``) are generated facades backed by those presets. Prefer
-``construct_model("ElasticNet")`` or ``ModelConfig.from_spec("ElasticNet")``.
+Resolve presets with ``construct_model("ElasticNet")`` or build a
+``ModelConfig`` with ``ModelConfig.from_spec("ElasticNet")`` and pass it to
+``construct_model(name, config)``.

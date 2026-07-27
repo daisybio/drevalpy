@@ -1,4 +1,4 @@
-"""ComposedModel execution through ModelConfig."""
+"""Component stack execution through construct_model and build_component_stack."""
 
 from __future__ import annotations
 
@@ -6,12 +6,14 @@ import numpy as np
 import pytest
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.models import construct_model
+from drevalpy.models._component_stack import build_component_stack
 from drevalpy.models.config import ModelConfig
 
 
-def test_sklearn_model_config_builds_composed_model() -> None:
+def test_sklearn_model_config_builds_runnable_model() -> None:
     config = ModelConfig.from_spec("ElasticNet", hyperparameters={"alpha": 0.1, "l1_ratio": 0.5})
-    model = config.create_model()
+    model = construct_model("ElasticNet", config)()
     response = DrugResponseDataset(
         response=np.array([1.0, 2.0, 3.0, 4.0]),
         cell_line_ids=np.array(["cl1", "cl1", "cl2", "cl2"]),
@@ -35,10 +37,9 @@ def test_sklearn_model_config_builds_composed_model() -> None:
     assert np.isfinite(preds).all()
 
 
-def test_ridge_predictor_via_recipe() -> None:
-    model = ModelConfig.from_spec(
-        "scaledGeneExpression:fingerprints:ridge", hyperparameters={"alpha": 1.0}
-    ).create_model()
+def test_build_component_stack_train_predict() -> None:
+    config = ModelConfig.from_spec("scaledGeneExpression:fingerprints:ridge", hyperparameters={"alpha": 1.0})
+    stack = build_component_stack(config)
     response = DrugResponseDataset(
         response=np.array([1.0, 2.0]),
         cell_line_ids=np.array(["cl1", "cl2"]),
@@ -56,13 +57,13 @@ def test_ridge_predictor_via_recipe() -> None:
             "d2": {"fingerprints": np.array([0.0])},
         }
     )
-    model.train(response, cell_line_input, drug_input)
-    preds = model.predict(response.cell_line_ids, response.drug_ids, cell_line_input, drug_input)
+    stack.train(response, cell_line_input, drug_input)
+    preds = stack.predict(response.cell_line_ids, response.drug_ids, cell_line_input, drug_input)
     assert preds.shape == (2,)
 
 
-def test_naive_model_config_train_predict_on_synthetic_data() -> None:
-    model = ModelConfig.from_spec("NaivePredictor").create_model()
+def test_naive_model_train_predict_on_synthetic_data() -> None:
+    model = construct_model("NaivePredictor")()
     response = DrugResponseDataset(
         response=np.array([1.0, 3.0]),
         cell_line_ids=np.array(["cl1", "cl2"]),
@@ -74,8 +75,8 @@ def test_naive_model_config_train_predict_on_synthetic_data() -> None:
     assert np.allclose(preds, np.array([2.0, 2.0]))
 
 
-def test_untrained_composed_model_predict_raises() -> None:
-    model = ModelConfig.from_spec("ElasticNet", hyperparameters={"alpha": 0.1, "l1_ratio": 0.5}).create_model()
+def test_untrained_model_predict_raises() -> None:
+    model = construct_model("ElasticNet")({"alpha": 0.1, "l1_ratio": 0.5})
     response = DrugResponseDataset(
         response=np.array([1.0, 2.0]),
         cell_line_ids=np.array(["cl1", "cl2"]),
@@ -97,8 +98,8 @@ def test_untrained_composed_model_predict_raises() -> None:
         model.predict(response.cell_line_ids, response.drug_ids, cell_line_input, drug_input)
 
 
-def test_composed_model_has_no_predictor_hyperparameter_mutator() -> None:
-    model = ModelConfig.from_spec("ElasticNet", hyperparameters={"alpha": 0.1, "l1_ratio": 0.5}).create_model()
+def test_model_has_no_predictor_hyperparameter_mutator() -> None:
+    model = construct_model("ElasticNet")({"alpha": 0.1, "l1_ratio": 0.5})
     assert not hasattr(model, "update_predictor_hyperparameters")
-    assert model.config is not None
-    assert model.config.predictor.hyperparameters["alpha"] == 0.1
+    assert model._resolved_model_config is not None
+    assert model._resolved_model_config.predictor.hyperparameters["alpha"] == 0.1

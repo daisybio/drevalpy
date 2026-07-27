@@ -1,4 +1,4 @@
-"""Root public contract tests for MODEL_FACTORY and named facades."""
+"""Root public contract tests for MODEL_FACTORY and construct_model."""
 
 from __future__ import annotations
 
@@ -8,17 +8,8 @@ import numpy as np
 import pytest
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
-from drevalpy.models import (
-    MODEL_FACTORY,
-    MULTI_DRUG_MODEL_FACTORY,
-    SINGLE_DRUG_MODEL_FACTORY,
-    ElasticNetModel,
-    NaivePredictor,
-    RandomForest,
-    SingleDrugElasticNet,
-)
-from drevalpy.models._factory_classes import SYMBOL_TO_FACTORY_NAME, symbol_for_factory_name
-from drevalpy.models._native_drp_model import NativeDRPModel
+from drevalpy.models import MODEL_FACTORY, MULTI_DRUG_MODEL_FACTORY, SINGLE_DRUG_MODEL_FACTORY, construct_model
+from drevalpy.models.drp_model import DRPModel
 from drevalpy.models.zoo import list_zoo_names
 from tests.models.synthetic_fixtures import (
     cell_line_gene_expression,
@@ -105,14 +96,17 @@ def test_factory_names_match_zoo_and_subsets() -> None:
 
 
 @pytest.mark.parametrize("model_name", sorted(MODEL_FACTORY))
-def test_factory_entry_is_native_facade(model_name: str) -> None:
+def test_factory_entry_is_drp_model(model_name: str) -> None:
     model_cls = MODEL_FACTORY[model_name]
-    assert issubclass(model_cls, NativeDRPModel)
+    assert issubclass(model_cls, DRPModel)
     assert model_cls.get_model_name() == model_name
-    assert model_cls.is_single_drug_model is (model_name in _SINGLE_DRUG_NAMES)
-    assert model_cls.early_stopping is _predictor_supports_early_stopping(model_name)
-    symbol = symbol_for_factory_name(model_name)
-    assert SYMBOL_TO_FACTORY_NAME.get(symbol, symbol) == model_name
+    assert model_cls.is_single_drug() is (model_name in _SINGLE_DRUG_NAMES)
+    assert model_cls.supports_early_stopping() is _predictor_supports_early_stopping(model_name)
+
+
+@pytest.mark.parametrize("model_name", sorted(MODEL_FACTORY))
+def test_construct_model_matches_factory(model_name: str) -> None:
+    assert construct_model(model_name) is MODEL_FACTORY[model_name]
 
 
 @pytest.mark.parametrize("model_name", sorted(_LIGHT_BUILD_MODELS))
@@ -165,15 +159,8 @@ def test_fast_execution_matrix_train_predict_save_load(model_name: str) -> None:
     assert np.allclose(preds, loaded_preds, equal_nan=True)
 
 
-def test_named_root_exports_match_factory() -> None:
-    assert NaivePredictor is MODEL_FACTORY["NaivePredictor"]
-    assert ElasticNetModel is MODEL_FACTORY["ElasticNet"]
-    assert RandomForest is MODEL_FACTORY["RandomForest"]
-    assert SingleDrugElasticNet is MODEL_FACTORY["SingleDrugElasticNet"]
-
-
 def test_empty_training_predicts_nan() -> None:
-    model = NaivePredictor({})
+    model = construct_model("NaivePredictor")({})
     empty = DrugResponseDataset(
         response=np.array([]),
         cell_line_ids=np.array([]),

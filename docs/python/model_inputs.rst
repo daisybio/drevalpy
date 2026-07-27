@@ -30,10 +30,11 @@ at it with ``raw[view]``:
    )
    model = MyRF()
 
-   # Same composition as a ComposedModel instance
-   composed = ModelConfig.from_spec(
+   # Same composition via ModelConfig + construct_model
+   config = ModelConfig.from_spec(
        "raw[mynewdatamodality]:fingerprints:randomForest"
-   ).create_model()
+   )
+   MyRF2 = construct_model("MyRF", config)
 
 .. important::
    Without a custom loader, the CSV must live at
@@ -82,8 +83,8 @@ Depending on whether the featurizer is registered under the cell-line or drug
 registry, the index column must be ``CELL_LINE_IDENTIFIER``
 (``"cell_line_name"``) or ``DRUG_IDENTIFIER`` (``"pubchem_id"``).
 
-Then run the composed model through ``drug_response_experiment`` the same way
-as any other facade — see :doc:`experiments`.
+Then run the model class through ``drug_response_experiment`` the same way
+as any other zoo preset — see :doc:`experiments`.
 
 See :doc:`hyperparameter_tuning` and :doc:`architecture` for dotted HPO keys
 and full composition details. For registering entirely new featurizers or

@@ -1,6 +1,8 @@
-"""Training and prediction for composed featurizer/predictor models."""
+"""Private featurizer/predictor execution stack for DRPModel."""
 
 from __future__ import annotations
+
+from typing import Any
 
 import numpy as np
 
@@ -11,7 +13,7 @@ from drevalpy.components.model_input_build import build_model_input_batch
 from drevalpy.components.predictors.base import Predictor
 from drevalpy.components.training_context import TrainingContext
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
-from drevalpy.models.config import ModelConfig, PredictionMode
+from drevalpy.models.config import ModelConfig, PredictionMode, PredictorConfig
 
 
 def _entity_id_only_featurizer(featurizer: Featurizer | None) -> bool:
@@ -22,7 +24,30 @@ def _empty_feature_dataset() -> FeatureDataset:
     return FeatureDataset(features={})
 
 
-class ComposedModel:
+def build_component_stack(config: ModelConfig) -> _ComponentStack:
+    """Instantiate featurizers and predictor for a validated ``ModelConfig``."""
+    config.validate()
+    cell_line = config.cell_line_featurizer.create_instance() if config.cell_line_featurizer else None
+    drug = config.drug_featurizer.create_instance() if config.drug_featurizer else None
+    predictor_hp = {
+        **dict(config.predictor.hyperparameters),
+        "prediction_mode": config.prediction_mode,
+    }
+    predictor = PredictorConfig(
+        name=config.predictor.name,
+        hyperparameters=predictor_hp,
+        hyperparameter_space=config.predictor.hyperparameter_space,
+    ).create_instance()
+    return _ComponentStack(
+        cell_line,
+        drug,
+        predictor,
+        prediction_mode=config.prediction_mode,
+        config=config,
+    )
+
+
+class _ComponentStack:
     """Fit featurizers on training entities, then train a predictor on featurized pairs."""
 
     def __init__(
@@ -43,6 +68,14 @@ class ComposedModel:
         self._drug_matrix: np.ndarray | None = None
         self._cell_line_entity_ids: np.ndarray | None = None
         self._drug_entity_ids: np.ndarray | None = None
+
+    def apply_preload_state(self, preload_state: dict[str, Any]) -> None:
+        """Forward engine preload state to the predictor when supported."""
+        if not preload_state:
+            return
+        set_preload = getattr(self._predictor, "set_engine_preload_state", None)
+        if callable(set_preload):
+            set_preload(preload_state)
 
     def _build_batch(
         self,
@@ -94,7 +127,7 @@ class ComposedModel:
         *,
         output_earlystopping: DrugResponseDataset | None = None,
         training_context: TrainingContext | None = None,
-    ) -> ComposedModel:
+    ) -> _ComponentStack:
         if len(output) == 0:
             return self
 
@@ -181,19 +214,6 @@ class ComposedModel:
                 if not isinstance(value, dict):
                     raise ValueError(f"{key} state is not a mapping")
                 featurizer.set_state(value)
-
-    def save(self, directory: str) -> None:
-        """Persist config and fitted component state."""
-        from drevalpy.models._component_persistence import save_composed_model
-
-        save_composed_model(self, directory)
-
-    @classmethod
-    def load(cls, directory: str) -> ComposedModel:
-        """Load the canonical native component-stack format."""
-        from drevalpy.models._component_persistence import load_composed_model
-
-        return load_composed_model(directory)
 
     def predict(
         self,

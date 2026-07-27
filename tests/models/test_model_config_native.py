@@ -12,7 +12,6 @@ import pytest
 from drevalpy.components.predictors.literature._engine_base import LiteratureEngineBase
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models import construct_model
-from drevalpy.models._native_drp_model import NativeDRPModel
 from drevalpy.models.config import ModelConfig
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.models.factory import model_config_for_name
@@ -51,8 +50,9 @@ def test_model_factory_names_resolve_to_model_config(name: str) -> None:
 def test_zoo_entries_create_runnable_models(name: str) -> None:
     config = ModelConfig.from_spec(name)
     config.validate()
-    composed = config.create_model()
-    assert composed is not None
+    model_cls = construct_model(name)
+    assert issubclass(model_cls, DRPModel)
+    assert model_cls() is not None
 
 
 def test_literature_impl_engines_do_not_subclass_drp_model() -> None:
@@ -79,10 +79,10 @@ def test_no_pair_context_in_production_code() -> None:
     assert not hits, f"pair_context found in production code: {hits}"
 
 
-def test_multiview_baselines_are_native_facades() -> None:
+def test_multiview_baselines_are_construct_model_classes() -> None:
     for name in ("MultiViewRandomForest", "MultiViewXGBoost", "MultiViewLightGBM"):
         cls = construct_model(name)
-        assert issubclass(cls, NativeDRPModel)
+        assert issubclass(cls, DRPModel)
         config = ModelConfig.from_spec(name)
         assert config.cell_line_featurizer is not None
 

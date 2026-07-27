@@ -29,8 +29,8 @@ Minimal call
        hyperparameter_tuning=False,
    )
 
-Pass model **classes** (from ``construct_model`` or named facades), not
-instances. ``NaiveMeanEffectsPredictor`` is always included among baselines
+Pass model **classes** from ``construct_model``, not instances.
+``NaiveMeanEffectsPredictor`` is always included among baselines
 when missing — it is required for normalized metrics.
 
 Common options

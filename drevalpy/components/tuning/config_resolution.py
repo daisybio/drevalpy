@@ -38,9 +38,9 @@ def tuned_config_for_drp_model(
 
 def construct_drp_model_from_config(model_class: type[Any], config: ModelConfig) -> Any:
     """Construct a public DRPModel instance from a resolved ``ModelConfig``."""
-    from_model_config = getattr(model_class, "from_model_config", None)
-    if callable(from_model_config):
-        return from_model_config(config)
+    from_resolved = getattr(model_class, "_from_resolved_config", None)
+    if callable(from_resolved):
+        return from_resolved(config)
     from .public_flat import public_hyperparameters_from_config
 
     return model_class(public_hyperparameters_from_config(config))

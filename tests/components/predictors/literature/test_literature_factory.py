@@ -8,8 +8,8 @@ from pathlib import Path
 import pytest
 
 from drevalpy.models import construct_model
-from drevalpy.models._native_drp_model import NativeDRPModel
 from drevalpy.models.config import ModelConfig
+from drevalpy.models.drp_model import DRPModel
 
 LITERATURE_FACTORY_NAMES = [
     "DrugGNN",
@@ -28,7 +28,7 @@ LITERATURE_FACTORY_NAMES = [
 @pytest.mark.parametrize("name", LITERATURE_FACTORY_NAMES)
 def test_literature_factory_entries_are_native_facades(name: str) -> None:
     cls = construct_model(name)
-    assert issubclass(cls, NativeDRPModel)
+    assert issubclass(cls, DRPModel)
     assert cls.__module__ == "drevalpy.models"
 
 

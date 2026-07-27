@@ -1,4 +1,4 @@
-"""Direct ModelConfig / ComposedModel execution for dependency-light models."""
+"""Direct construct_model execution for dependency-light models."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ import textwrap
 import numpy as np
 import pytest
 
+from drevalpy.models import construct_model
 from drevalpy.models.config import ModelConfig
 from tests.models.synthetic_fixtures import (
     cell_line_gene_expression,
@@ -39,7 +40,7 @@ def test_naive_direct_component_round_trip(preset: str) -> None:
     response = multi_drug_response()
     cell_line_input = identity_cell_line_features()
     drug_input = identity_drug_features()
-    model = ModelConfig.from_spec(preset).create_model()
+    model = construct_model(preset)()
     model.train(response, cell_line_input, drug_input)
     preds = model.predict(response.cell_line_ids, response.drug_ids, cell_line_input, drug_input)
     assert preds.shape == (4,)
@@ -56,7 +57,7 @@ def test_sklearn_direct_component_round_trip(preset: str) -> None:
     response = multi_drug_response()
     cell_line_input = cell_line_gene_expression()
     drug_input = None if preset.startswith("SingleDrug") else drug_fingerprints()
-    model = ModelConfig.from_spec(preset).create_model()
+    model = construct_model(preset)()
     model.train(response, cell_line_input, drug_input)
     preds = model.predict(response.cell_line_ids, response.drug_ids, cell_line_input, drug_input)
     assert preds.shape == (4,)
@@ -127,7 +128,7 @@ def test_subprocess_blocks_optional_deps_for_simple_models() -> None:
 
         sys.meta_path.insert(0, BlockFinder())
 
-        from drevalpy.models import ElasticNetModel, NaivePredictor, construct_model
+        from drevalpy.models import construct_model
         from drevalpy.models._model_lookup import known_model_names
         from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
         import numpy as np
@@ -150,9 +151,9 @@ def test_subprocess_blocks_optional_deps_for_simple_models() -> None:
                 "d2": {"fingerprints": np.array([0.0, 1.0])},
             }
         )
-        naive = NaivePredictor({})
+        naive = construct_model("NaivePredictor")({})
         naive.train(response, FeatureDataset(features={}), FeatureDataset(features={}))
-        elastic = ElasticNetModel(ElasticNetModel.get_hyperparameter_set()[0])
+        elastic = construct_model("ElasticNet")(construct_model("ElasticNet").get_hyperparameter_set()[0])
         elastic.train(response, cell, drugs)
         try:
             construct_model("DIPK")({"epochs": 1})

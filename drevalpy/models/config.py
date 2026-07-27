@@ -144,30 +144,6 @@ class ModelConfig(BaseModel):
 
         validate_model_config(self)
 
-    def create_model(self):
-        """Build a runnable `~drevalpy.models.composed_model.ComposedModel`."""
-        from drevalpy.models.composed_model import ComposedModel
-
-        self.validate()
-        cell_line = self.cell_line_featurizer.create_instance() if self.cell_line_featurizer else None
-        drug = self.drug_featurizer.create_instance() if self.drug_featurizer else None
-        predictor_hp = {
-            **dict(self.predictor.hyperparameters),
-            "prediction_mode": self.prediction_mode,
-        }
-        pred = PredictorConfig(
-            name=self.predictor.name,
-            hyperparameters=predictor_hp,
-            hyperparameter_space=self.predictor.hyperparameter_space,
-        ).create_instance()
-        return ComposedModel(
-            cell_line,
-            drug,
-            pred,
-            prediction_mode=self.prediction_mode,
-            config=self,
-        )
-
     @classmethod
     def from_spec(
         cls,

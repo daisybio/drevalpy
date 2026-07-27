@@ -1,13 +1,10 @@
 """Public drug response prediction models.
 
-Root exports (`MODEL_FACTORY`, named facade classes, `construct_model`) are
-generated from zoo presets and backed by a single `NativeDRPModel` facade.
-Component registration plus `ModelConfig` is the supported extension path.
+``construct_model`` returns thin generated ``DRPModel`` subclasses. Factory
+dictionaries remain lazy built-in-only compatibility views over the same path.
 
-The factory dictionaries (`MODEL_FACTORY`, `MULTI_DRUG_MODEL_FACTORY`,
-`SINGLE_DRUG_MODEL_FACTORY`) are deprecated but still supported for
-compatibility. Prefer ``construct_model(name)``, ``ModelConfig.from_spec(name)``,
-and ``list_zoo_names(scope=...)``.
+Imports from this package are lazy so ``from drevalpy.models.config import ...``
+does not pull the full runtime stack (avoids circular imports with components).
 """
 
 from __future__ import annotations
@@ -16,90 +13,38 @@ from typing import TYPE_CHECKING, Any
 
 from drevalpy._deprecations import FACTORY_DICT_NAMES, warn_deprecated
 
-from .drp_model import DRPModel
-
 __all__ = [
     "DRPModel",
     "construct_model",
     "MULTI_DRUG_MODEL_FACTORY",
     "SINGLE_DRUG_MODEL_FACTORY",
     "MODEL_FACTORY",
-    "NaivePredictor",
-    "NaiveDrugMeanPredictor",
-    "NaiveCellLineMeanPredictor",
-    "NaiveTissueMeanPredictor",
-    "NaiveTissueDrugMeanPredictor",
-    "NaiveMeanEffectsPredictor",
-    "ElasticNetModel",
-    "RandomForest",
-    "SVMRegressor",
-    "SimpleNeuralNetwork",
-    "MultiViewNeuralNetwork",
-    "MultiViewRandomForest",
-    "SingleDrugRandomForest",
-    "SingleDrugElasticNet",
-    "SRMF",
-    "GradientBoosting",
-    "MOLIR",
-    "SuperFELTR",
-    "DIPKModel",
-    "DrugGNN",
-    "PharmaFormerModel",
-    "PrecilyModel",
-    "KNNRegressor",
-    "AdaBoostDecisionTree",
-    "LassoModel",
-    "MultiViewXGBoost",
-    "MultiViewLightGBM",
-    "SparseGO",
 ]
 
 _LAZY_LOADED = False
 
 if TYPE_CHECKING:
-    from drevalpy.models._native_drp_model import NativeDRPModel
-
-    AdaBoostDecisionTree: type[NativeDRPModel]
-    ElasticNetModel: type[NativeDRPModel]
-    GradientBoosting: type[NativeDRPModel]
-    KNNRegressor: type[NativeDRPModel]
-    LassoModel: type[NativeDRPModel]
-    MultiViewRandomForest: type[NativeDRPModel]
-    MultiViewXGBoost: type[NativeDRPModel]
-    MultiViewLightGBM: type[NativeDRPModel]
-    NaiveCellLineMeanPredictor: type[NativeDRPModel]
-    NaiveDrugMeanPredictor: type[NativeDRPModel]
-    NaiveMeanEffectsPredictor: type[NativeDRPModel]
-    NaivePredictor: type[NativeDRPModel]
-    NaiveTissueDrugMeanPredictor: type[NativeDRPModel]
-    NaiveTissueMeanPredictor: type[NativeDRPModel]
-    RandomForest: type[NativeDRPModel]
-    SingleDrugElasticNet: type[NativeDRPModel]
-    SingleDrugRandomForest: type[NativeDRPModel]
-    SVMRegressor: type[NativeDRPModel]
-    DIPKModel: type[NativeDRPModel]
-    DrugGNN: type[NativeDRPModel]
-    MOLIR: type[NativeDRPModel]
-    MultiViewNeuralNetwork: type[NativeDRPModel]
-    PharmaFormerModel: type[NativeDRPModel]
-    PrecilyModel: type[NativeDRPModel]
-    SRMF: type[NativeDRPModel]
-    SimpleNeuralNetwork: type[NativeDRPModel]
-    SparseGO: type[NativeDRPModel]
-    SuperFELTR: type[NativeDRPModel]
+    from .drp_model import DRPModel
 
     SINGLE_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]]
     MULTI_DRUG_MODEL_FACTORY: dict[str, type[DRPModel]]
     MODEL_FACTORY: dict[str, type[DRPModel]]
 
 
-def _lazy_load_public_models() -> None:
+def _lazy_load_factory_tables() -> None:
     global _LAZY_LOADED
     if _LAZY_LOADED:
         return
-    from drevalpy.models._factory_classes import populate_public_model_namespace
+    from drevalpy.models._construct_model_api import build_builtin_factory_tables
 
-    populate_public_model_namespace(globals())
+    multi, single, factory = build_builtin_factory_tables()
+    globals().update(
+        {
+            "_FACTORY_MULTI": multi,
+            "_FACTORY_SINGLE": single,
+            "_FACTORY_ALL": factory,
+        }
+    )
     _LAZY_LOADED = True
 
 
@@ -111,6 +56,11 @@ _FACTORY_PUBLIC_TO_PRIVATE = {
 
 
 def __getattr__(name: str) -> Any:
+    if name == "DRPModel":
+        from .drp_model import DRPModel
+
+        globals()["DRPModel"] = DRPModel
+        return DRPModel
     if name == "construct_model":
         from ._construct_model_api import construct_model
 
@@ -123,13 +73,10 @@ def __getattr__(name: str) -> Any:
             ),
             stacklevel=2,
         )
-        _lazy_load_public_models()
+        _lazy_load_factory_tables()
         value = globals()[_FACTORY_PUBLIC_TO_PRIVATE[name]]
         globals()[name] = value
         return value
-    if name in __all__ and name != "DRPModel":
-        _lazy_load_public_models()
-        return globals()[name]
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 

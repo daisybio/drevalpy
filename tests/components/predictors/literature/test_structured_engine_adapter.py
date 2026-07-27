@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import importlib
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import Any, ClassVar, cast
 
 import numpy as np
 
+from drevalpy.components.predictors.literature._engine_base import LiteratureEngineBase
 from drevalpy.components.predictors.literature.structured_engine_adapter import (
     DISCOVERED_HYPERPARAMETERS_KEY,
     ENGINE_MODULES,
@@ -56,8 +57,8 @@ class _DiscoveringPredictor(StructuredLiteratureEnginePredictor):
     _engine_class_name: ClassVar[str] = "DiscoveringEngine"
 
     @classmethod
-    def engine_cls(cls) -> type[_DiscoveringEngine]:
-        return _DiscoveringEngine
+    def engine_cls(cls) -> type[LiteratureEngineBase]:
+        return cast(type[LiteratureEngineBase], _DiscoveringEngine)
 
 
 def test_load_dataset_drug_features_returns_discovered_hps_without_mutating_caller() -> None:
@@ -85,8 +86,8 @@ def test_fit_merges_discovered_hyperparameters_into_configure() -> None:
 
     class _ConfigurablePredictor(_DiscoveringPredictor):
         @classmethod
-        def engine_cls(cls) -> type[_ConfigurableEngine]:
-            return _ConfigurableEngine
+        def engine_cls(cls) -> type[LiteratureEngineBase]:
+            return cast(type[LiteratureEngineBase], _ConfigurableEngine)
 
     predictor = _ConfigurablePredictor(hyperparameters={"epochs": 1, "drug_dim": 2048})
     predictor.set_engine_preload_state({DISCOVERED_HYPERPARAMETERS_KEY: {"drug_dim": 128}})

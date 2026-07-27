@@ -24,7 +24,16 @@ def test_construct_model_one_arg_zoo_name() -> None:
 
 def test_construct_model_derives_early_stopping_from_predictor() -> None:
     model_cls = construct_model("DipkFacade", "DIPK")
-    assert model_cls.early_stopping is True
+    assert model_cls.supports_early_stopping() is True
+
+
+def test_construct_model_accepts_model_config() -> None:
+    from drevalpy.models.config import ModelConfig
+
+    config = ModelConfig.from_spec("ElasticNet")
+    model_cls = construct_model("ConfiguredElasticNet", config)
+    assert model_cls.get_model_name() == "ConfiguredElasticNet"
+    assert construct_model("ConfiguredElasticNet", config) is model_cls
 
 
 def test_construct_model_invalid_spec_raises() -> None:

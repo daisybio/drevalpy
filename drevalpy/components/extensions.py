@@ -3,14 +3,14 @@
 Example::
 
     from drevalpy.components import load_extensions
-    from drevalpy.models.config import ModelConfig
+    from drevalpy.models import construct_model
 
     load_extensions(
         directories=["./my_components"],
         zoo_files=["./my_zoo.yaml"],
     )
-    config = ModelConfig.from_spec("myZooEntry")
-    model = config.create_model()
+    MyModel = construct_model("myZooEntry")
+    model = MyModel()
 
 Orchestration helpers such as ``build_model_config_from_spec`` and zoo loading live
 under ``drevalpy.models``.

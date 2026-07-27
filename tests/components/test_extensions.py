@@ -27,6 +27,7 @@ from drevalpy.components.registry import (
     list_predictors,
 )
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.models import construct_model
 from drevalpy.models.config import ModelConfig
 from drevalpy.models.zoo import get_zoo_config, list_zoo_names, load_external_zoo_file
 
@@ -177,7 +178,7 @@ externalToy:
     load_extensions(directories=[ext_dir], zoo_files=[zoo_file])
     assert "externalToy" in list_zoo_names(include_external=True)
     config = get_zoo_config("externalToy")
-    model = config.create_model()
+    model = construct_model("externalToy", config)()
     response = DrugResponseDataset(
         response=np.array([1.0, 3.0]),
         cell_line_ids=np.array(["cl1", "cl2"]),
