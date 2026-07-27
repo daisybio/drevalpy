@@ -45,7 +45,7 @@ Backward compatibility
 MODEL_FACTORY
 ~~~~~~~~~~~~~
 
-Before 1.6.0, models were often resolved through ``MODEL_FACTORY`` (and the
+Before 1.6.0, models were resolved through ``MODEL_FACTORY`` (and the
 multi-/single-drug variants). This remains available for backward
 compatibility, but is deprecated and may be removed in a future release.
 Prefer ``construct_model``:

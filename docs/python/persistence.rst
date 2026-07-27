@@ -50,6 +50,6 @@ Backward compatibility
 No longer supported
 ~~~~~~~~~~~~~~~~~~~
 
-Before 1.6.0, checkpoints often stored pickled ``.model`` attributes,
+Before 1.6.0, checkpoints stored pickled ``.model`` attributes,
 standalone scalers, or naive mean buffers. Those formats are **not** loadable.
 Retrain with the current release and persist via ``composed_model.joblib``.
