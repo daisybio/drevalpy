@@ -123,7 +123,7 @@ featurizer recipe or zoo blocks (see :doc:`model_inputs`):
      - ``fingerprints``
 
 ``hpam_tune`` naming
-~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~
 
 Before 1.6.0, sequential grid search lived in ``drevalpy.experiment.hpam_tune``,
 and Ray-based search was exposed as ``hpam_tune_raytune`` /
