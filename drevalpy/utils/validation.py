@@ -2,11 +2,11 @@
 
 from pathlib import Path
 
-from .datasets import AVAILABLE_DATASETS
-from .datasets.splits import validate_split_label
-from .datasets.utils import ALLOWED_MEASURES
-from .evaluation import AVAILABLE_METRICS
-from .models._model_lookup import known_model_names
+from drevalpy.datasets import AVAILABLE_DATASETS
+from drevalpy.datasets.splits import validate_split_label
+from drevalpy.datasets.utils import ALLOWED_MEASURES
+from drevalpy.evaluation import AVAILABLE_METRICS
+from drevalpy.models._model_lookup import known_model_names
 
 _VALID_TEST_MODES = frozenset({"LPO", "LCO", "LDO", "LTO"})
 _VALID_RANDOMIZATION_MODES = frozenset({"SVCC", "SVRC", "SVCD", "SVRD"})

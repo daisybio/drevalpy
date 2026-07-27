@@ -6,13 +6,16 @@ from typing import Annotated
 
 import typer
 
-from drevalpy.cli_preprocess_custom import run_preprocess_raw_viability
+from drevalpy.cli.preprocess_custom import run_preprocess_raw_viability
 
 
 def register(app: typer.Typer) -> None:
     @app.command("viability-preprocess")
     def viability_preprocess(
-        dataset_name: Annotated[str, typer.Option("--dataset_name", help="Dataset name, e.g., MyCustomDataset.")],
+        dataset_name: Annotated[
+            str,
+            typer.Option("--dataset_name", help="Dataset name, e.g., MyCustomDataset."),
+        ],
         path_data: Annotated[
             str,
             typer.Option(
@@ -23,7 +26,10 @@ def register(app: typer.Typer) -> None:
         ] = "./data",
         cores: Annotated[
             int,
-            typer.Option("--cores", help="The number of cores used for CurveCurator fitting, default: 4."),
+            typer.Option(
+                "--cores",
+                help="The number of cores used for CurveCurator fitting, default: 4.",
+            ),
         ] = 4,
     ) -> None:
         """Preprocess CurveCurator viability data."""

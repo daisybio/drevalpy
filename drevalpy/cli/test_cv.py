@@ -7,7 +7,7 @@ from typing import Annotated
 import typer
 
 from drevalpy.cli._helpers import as_list
-from drevalpy.cli_model_testing import run_train_and_predict_final
+from drevalpy.cli.model_testing import run_train_and_predict_final
 
 
 def register(app: typer.Typer) -> None:
@@ -22,21 +22,34 @@ def register(app: typer.Typer) -> None:
         ],
         split_id: Annotated[str, typer.Option("--split_id", help="Split id.")],
         split_dataset_path: Annotated[
-            str, typer.Option("--split_dataset_path", help="Path to the pickled CV split dataset.")
+            str,
+            typer.Option("--split_dataset_path", help="Path to the pickled CV split dataset."),
         ],
         hyperparameters_path: Annotated[
             str,
-            typer.Option("--hyperparameters_path", help="Path to yaml file containing the optimal hyperparameters."),
+            typer.Option(
+                "--hyperparameters_path",
+                help="Path to yaml file containing the optimal hyperparameters.",
+            ),
         ],
         path_data: Annotated[str, typer.Option("--path_data", help="Path to data. Default: data")] = "data",
         mode: Annotated[
-            str, typer.Option("--mode", help="Mode: full, randomization, or robustness. Default: full.")
+            str,
+            typer.Option(
+                "--mode",
+                help="Mode: full, randomization, or robustness. Default: full.",
+            ),
         ] = "full",
         response_transformation: Annotated[
-            str, typer.Option("--response_transformation", help="Response transformation. Default: None.")
+            str,
+            typer.Option(
+                "--response_transformation",
+                help="Response transformation. Default: None.",
+            ),
         ] = "None",
         test_mode: Annotated[
-            str, typer.Option("--test_mode", help="Test mode (LPO, LCO, LTO, LDO). Default: LPO.")
+            str,
+            typer.Option("--test_mode", help="Test mode (LPO, LCO, LTO, LDO). Default: LPO."),
         ] = "LPO",
         randomization_views_path: Annotated[
             str | None,
@@ -56,11 +69,17 @@ def register(app: typer.Typer) -> None:
         ] = "permutation",
         robustness_trial: Annotated[
             int | None,
-            typer.Option("--robustness_trial", help="Robustness trial index. Only relevant if mode=robustness."),
+            typer.Option(
+                "--robustness_trial",
+                help="Robustness trial index. Only relevant if mode=robustness.",
+            ),
         ] = None,
         cross_study_datasets: Annotated[
             list[str] | None,
-            typer.Option("--cross_study_datasets", help="Paths to pickled cross study datasets (space-separated)."),
+            typer.Option(
+                "--cross_study_datasets",
+                help="Paths to pickled cross study datasets (space-separated).",
+            ),
         ] = None,
         model_checkpoint_dir: Annotated[
             str,

@@ -6,7 +6,7 @@ from typing import Annotated
 
 import typer
 
-from drevalpy.cli_run_cv import run_load_response
+from drevalpy.cli.run_cv import run_load_response
 
 
 def register(app: typer.Typer) -> None:
@@ -14,11 +14,17 @@ def register(app: typer.Typer) -> None:
     def load_response(
         response_dataset: Annotated[
             str,
-            typer.Option("--response_dataset", help="Path to the drug response file dataset_name.csv."),
+            typer.Option(
+                "--response_dataset",
+                help="Path to the drug response file dataset_name.csv.",
+            ),
         ],
         cross_study_dataset: Annotated[
             bool,
-            typer.Option("--cross_study_dataset", help="Whether to load cross-study datasets, default: False."),
+            typer.Option(
+                "--cross_study_dataset",
+                help="Whether to load cross-study datasets, default: False.",
+            ),
         ] = False,
         measure: Annotated[
             str,

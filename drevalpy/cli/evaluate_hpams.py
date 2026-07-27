@@ -7,14 +7,20 @@ from typing import Annotated
 import typer
 
 from drevalpy.cli._helpers import as_list
-from drevalpy.cli_run_cv import run_evaluate_and_find_max
+from drevalpy.cli.run_cv import run_evaluate_and_find_max
 
 
 def register(app: typer.Typer) -> None:
     @app.command("evaluate-hpams")
     def evaluate_hpams(
-        model_name: Annotated[str, typer.Option("--model_name", help="Model name, used for naming the output file.")],
-        split_id: Annotated[str, typer.Option("--split_id", help="Split id, used for naming the output file.")],
+        model_name: Annotated[
+            str,
+            typer.Option("--model_name", help="Model name, used for naming the output file."),
+        ],
+        split_id: Annotated[
+            str,
+            typer.Option("--split_id", help="Split id, used for naming the output file."),
+        ],
         hpam_yamls: Annotated[
             list[str],
             typer.Option(
@@ -30,7 +36,8 @@ def register(app: typer.Typer) -> None:
             ),
         ],
         optim_metric: Annotated[
-            str, typer.Option("--optim_metric", help="Optimization metric, default: RMSE.")
+            str,
+            typer.Option("--optim_metric", help="Optimization metric, default: RMSE."),
         ] = "RMSE",
     ) -> None:
         """Evaluate predictions and save the best hyperparameter combination."""

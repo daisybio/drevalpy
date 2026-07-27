@@ -1,4 +1,4 @@
-"""Tests for utils_validation.check_arguments helpers."""
+"""Tests for drevalpy.utils.validation check_arguments helpers."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import pathlib
 
 import pytest
 
-from drevalpy.utils_validation import (
+from drevalpy.utils.validation import (
     check_arguments,
     validate_measure_and_metrics,
     validate_test_modes,

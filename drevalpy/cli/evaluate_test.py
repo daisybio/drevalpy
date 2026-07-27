@@ -6,7 +6,7 @@ from typing import Annotated
 
 import typer
 
-from drevalpy.cli_model_testing import run_evaluate_test_results
+from drevalpy.cli.model_testing import run_evaluate_test_results
 
 
 def register(app: typer.Typer) -> None:

@@ -8,12 +8,12 @@ from typing import Union
 import numpy as np
 import pandas as pd
 
+from drevalpy.visualization.test_mode_plots import draw_test_mode_plots
 from drevalpy.visualization.utils import (
     create_html,
     create_index_html,
     create_output_directories,
     draw_algorithm_plots,
-    draw_test_mode_plots,
     parse_results,
     prep_results,
     write_results,

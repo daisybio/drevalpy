@@ -1,4 +1,4 @@
-"""Tests for drevalpy.cli_run_cv."""
+"""Tests for drevalpy.cli.run_cv."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from drevalpy.cli_run_cv import run_load_response
+from drevalpy.cli.run_cv import run_load_response
 from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
 

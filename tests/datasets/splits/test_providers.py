@@ -148,7 +148,7 @@ def test_make_cv_pkls_with_builtin_splitter_writes_manifest(tmp_path: Path) -> N
 
     :param tmp_path: Temporary path provided by pytest.
     """
-    from drevalpy.cli_run_cv import run_cv_split
+    from drevalpy.cli.run_cv import run_cv_split
 
     dataset = sample_dataset(n_cell_lines=12, n_drugs=2)
     response_pkl = tmp_path / "response.pkl"
@@ -180,7 +180,7 @@ def test_make_cv_pkls_with_external_splitter(tmp_path: Path) -> None:
 
     :param tmp_path: Temporary path provided by pytest.
     """
-    from drevalpy.cli_run_cv import run_cv_split
+    from drevalpy.cli.run_cv import run_cv_split
 
     dataset = sample_dataset(n_cell_lines=4, n_drugs=2)
     response_pkl = tmp_path / "response.pkl"

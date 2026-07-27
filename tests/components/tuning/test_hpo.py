@@ -321,7 +321,7 @@ def test_build_experiment_hpo_config_matches_cv_and_final() -> None:
 
 
 def test_run_hpam_split_writes_single_default_yaml(tmp_path, monkeypatch) -> None:
-    from drevalpy.cli_run_cv import run_hpam_split
+    from drevalpy.cli.run_cv import run_hpam_split
 
     monkeypatch.chdir(tmp_path)
     run_hpam_split(model_name="ElasticNet", hyperparameter_tuning=False)

@@ -16,7 +16,11 @@ def run_load_response(
     """Load drug response CSV and pickle a ``DrugResponseDataset``."""
     from drevalpy.datasets.dataset import DrugResponseDataset
     from drevalpy.datasets.loader import AVAILABLE_DATASETS
-    from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, TISSUE_IDENTIFIER
+    from drevalpy.datasets.utils import (
+        CELL_LINE_IDENTIFIER,
+        DRUG_IDENTIFIER,
+        TISSUE_IDENTIFIER,
+    )
 
     input_file = Path(response_dataset)
     dataset_name = input_file.stem
@@ -39,7 +43,10 @@ def run_load_response(
             tissue_column = None
 
         response_data = DrugResponseDataset.from_csv(
-            input_file=input_file, dataset_name=dataset_name, measure=measure, tissue_column=tissue_column
+            input_file=input_file,
+            dataset_name=dataset_name,
+            measure=measure,
+            tissue_column=tissue_column,
         )
     outfile = f"cross_study_{dataset_name}.pkl" if cross_study_dataset else "response_dataset.pkl"
     with open(outfile, "wb") as f:
@@ -216,6 +223,11 @@ def run_evaluate_and_find_max(
         ):
             best_result = results[optim_metric]
             best_hpam_combi = hpam_combi
-    final_result = {f"{model_name}_{split_id}": {"best_hpam_combi": best_hpam_combi, "best_result": best_result}}
+    final_result = {
+        f"{model_name}_{split_id}": {
+            "best_hpam_combi": best_hpam_combi,
+            "best_result": best_result,
+        }
+    }
     with open(f"best_hpam_combi_{split_id}.yaml", "w") as yaml_file:
         yaml.dump(final_result, yaml_file, default_flow_style=False)

@@ -6,7 +6,7 @@ from typing import Annotated
 
 import typer
 
-from drevalpy.cli_run_cv import run_hpam_split
+from drevalpy.cli.run_cv import run_hpam_split
 
 
 def register(app: typer.Typer) -> None:

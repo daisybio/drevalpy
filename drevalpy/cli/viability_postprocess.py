@@ -6,13 +6,16 @@ from typing import Annotated
 
 import typer
 
-from drevalpy.cli_preprocess_custom import run_postprocess_viability
+from drevalpy.cli.preprocess_custom import run_postprocess_viability
 
 
 def register(app: typer.Typer) -> None:
     @app.command("viability-postprocess")
     def viability_postprocess(
-        dataset_name: Annotated[str, typer.Option("--dataset_name", help="Dataset name, e.g., MyCustomDataset.")],
+        dataset_name: Annotated[
+            str,
+            typer.Option("--dataset_name", help="Dataset name, e.g., MyCustomDataset."),
+        ],
         path_data: Annotated[
             str,
             typer.Option(

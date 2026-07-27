@@ -10,10 +10,15 @@ import pandas as pd
 import yaml
 
 
-def _prep_data_for_final_prediction(arguments: Namespace) -> tuple[Any, Any, Any, Any, Any, Any, Any]:
+def _prep_data_for_final_prediction(
+    arguments: Namespace,
+) -> tuple[Any, Any, Any, Any, Any, Any, Any]:
     """Load data and prepare it for final CV-fold training and prediction."""
     from drevalpy.experiment import get_model_name_and_drug_id
-    from drevalpy.experiment.fold import early_stopping_for_model, prepare_final_fold_training_data
+    from drevalpy.experiment.fold import (
+        early_stopping_for_model,
+        prepare_final_fold_training_data,
+    )
     from drevalpy.models._model_lookup import get_model_class
     from drevalpy.utils import get_response_transformation
 
@@ -140,7 +145,7 @@ def run_train_and_predict_final(
             suffix="randomization",
         )
         randomization_test_file = (
-            pathlib.Path(rand_path) / f'randomization_{rand_test_view["test_name"]}_{args.split_id}.csv'
+            pathlib.Path(rand_path) / f"randomization_{rand_test_view['test_name']}_{args.split_id}.csv"
         )
         views = rand_test_view.get("views")
         if views is None:
@@ -202,7 +207,11 @@ def run_randomization_split(*, model_name: str, randomization_mode: str) -> None
         )
 
     for test_name, views in randomization_test_views.items():
-        rand_dict = {"test_name": test_name, "views": views, "view": views[0] if views else None}
+        rand_dict = {
+            "test_name": test_name,
+            "views": views,
+            "view": views[0] if views else None,
+        }
         with open(f"randomization_test_view_{test_name}.yaml", "w") as f:
             yaml.dump(rand_dict, f)
 
@@ -299,7 +308,10 @@ def run_tune_final_model(
         response_transformation=response_transform,
         model_checkpoint_dir=model_checkpoint_dir,
     )
-    with open(f"final_prediction_dataset_{resolved_name}_" f"{str(hpam_combi).split('.yaml')[0]}.pkl", "wb") as f:
+    with open(
+        f"final_prediction_dataset_{resolved_name}_" f"{str(hpam_combi).split('.yaml')[0]}.pkl",
+        "wb",
+    ) as f:
         pickle.dump(validation_dataset, f)
 
 
@@ -315,7 +327,10 @@ def run_train_final_model(
     best_hpam_combi: str,
 ) -> None:
     """Train and save the final production model."""
-    from drevalpy.experiment import generate_data_saving_path, get_model_name_and_drug_id
+    from drevalpy.experiment import (
+        generate_data_saving_path,
+        get_model_name_and_drug_id,
+    )
     from drevalpy.models._model_lookup import get_model_class
     from drevalpy.utils import get_response_transformation
 
@@ -408,7 +423,9 @@ def run_evaluate_test_results(
     t_vs_pred.to_csv(f"{mname}_true_vs_pred.csv")
 
 
-def _parse_results(outfiles: list[str]) -> tuple[list[str], list[str], list[str], list[str]]:
+def _parse_results(
+    outfiles: list[str],
+) -> tuple[list[str], list[str], list[str], list[str]]:
     result_files = [file for file in outfiles if "evaluation_results.csv" in file]
     result_per_drug_files = [file for file in outfiles if "evaluation_results_per_drug.csv" in file]
     result_per_cl_files = [file for file in outfiles if "evaluation_results_per_cl.csv" in file]
@@ -437,9 +454,12 @@ def run_collect_results(
     from drevalpy.visualization.utils import prep_results, write_results
 
     path_data_path = pathlib.Path(path_data)
-    eval_result_files, eval_result_per_drug_files, eval_result_per_cl_files, true_vs_pred_files = _parse_results(
-        outfiles
-    )
+    (
+        eval_result_files,
+        eval_result_per_drug_files,
+        eval_result_per_cl_files,
+        true_vs_pred_files,
+    ) = _parse_results(outfiles)
     eval_results = _collapse_file(eval_result_files)
     eval_results_per_drug = _collapse_file(eval_result_per_drug_files)
     eval_results_per_cell_line = _collapse_file(eval_result_per_cl_files)

@@ -6,7 +6,7 @@ from typing import Annotated
 
 import typer
 
-from drevalpy.cli_model_testing import run_randomization_split
+from drevalpy.cli.model_testing import run_randomization_split
 
 
 def register(app: typer.Typer) -> None:

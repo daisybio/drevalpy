@@ -6,7 +6,7 @@ from typing import Annotated
 
 import typer
 
-from drevalpy.cli_run_cv import run_train_and_predict_cv
+from drevalpy.cli.run_cv import run_train_and_predict_cv
 
 
 def register(app: typer.Typer) -> None:
@@ -29,7 +29,8 @@ def register(app: typer.Typer) -> None:
         cv_data: Annotated[str, typer.Option("--cv_data", help="Path to the pickled cv data split.")],
         path_data: Annotated[str, typer.Option("--path_data", help="Data directory path, default: data.")] = "data",
         test_mode: Annotated[
-            str, typer.Option("--test_mode", help="Test mode (LPO, LCO, LTO, LDO), default: LPO.")
+            str,
+            typer.Option("--test_mode", help="Test mode (LPO, LCO, LTO, LDO), default: LPO."),
         ] = "LPO",
         response_transformation: Annotated[
             str,

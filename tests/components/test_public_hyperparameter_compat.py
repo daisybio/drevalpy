@@ -140,7 +140,7 @@ def test_pca_methylation_flat_key_round_trip() -> None:
 
 
 def test_cli_resolves_models_through_construct_model() -> None:
-    from drevalpy.cli_run_cv import run_hpam_split
+    from drevalpy.cli.run_cv import run_hpam_split
 
     model_class = construct_model("ElasticNet")
     assert model_class.get_model_name() == "ElasticNet"

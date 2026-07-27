@@ -7,7 +7,7 @@ from typing import Annotated
 import typer
 
 from drevalpy.cli._helpers import as_list
-from drevalpy.cli_model_testing import run_consolidate_results
+from drevalpy.cli.model_testing import run_consolidate_results
 
 
 def register(app: typer.Typer) -> None:
@@ -20,7 +20,8 @@ def register(app: typer.Typer) -> None:
         dataset_name: Annotated[str, typer.Option("--dataset_name", help="Response dataset name")],
         test_mode: Annotated[str, typer.Option("--test_mode", help="Test mode (LPO, LCO, LTO, LDO)")] = "LPO",
         cross_study_datasets: Annotated[
-            list[str] | None, typer.Option("--cross_study_datasets", help="Cross-study datasets (space-separated).")
+            list[str] | None,
+            typer.Option("--cross_study_datasets", help="Cross-study datasets (space-separated)."),
         ] = None,
         randomization_modes: Annotated[
             str, typer.Option("--randomization_modes", help="All randomizations")
