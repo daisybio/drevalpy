@@ -40,7 +40,7 @@ model-name strings.
 **Deprecated (still functional, emits `FutureWarning`):**
 
 - `MODEL_FACTORY`, `MULTI_DRUG_MODEL_FACTORY`, `SINGLE_DRUG_MODEL_FACTORY`
-- Flat `cell_line_views` / `drug_views` in `build_model` / hpam YAML
+- Flat `cell_line_views` / `drug_views` in constructor / hpam YAML
 
 **Removed:**
 

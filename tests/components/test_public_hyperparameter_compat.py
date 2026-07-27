@@ -31,10 +31,10 @@ def _register_components() -> None:
 )
 def test_model_factory_defaults_build_without_error(model_name: str) -> None:
     model_cls = construct_model(model_name)
-    model = model_cls()
     defaults = model_cls.get_default_hyperparameters()
-    model.build_model(defaults)
+    model = model_cls(defaults)
     assert isinstance(defaults, dict)
+    assert model.hyperparameters == defaults
 
 
 def test_construct_model_defaults_have_no_namespaced_keys() -> None:
@@ -42,7 +42,7 @@ def test_construct_model_defaults_have_no_namespaced_keys() -> None:
     defaults = model_cls.get_default_hyperparameters()
     assert not any("." in key for key in defaults)
     assert "featurizer.cell_line.pca.0.n_components" not in defaults
-    model_cls().build_model(defaults)
+    model_cls(defaults)
 
 
 def test_default_config_has_component_local_hyperparameters_only() -> None:
@@ -99,7 +99,7 @@ def test_pca_methylation_pca_components_alias_round_trip() -> None:
     assert pca_child["hyperparameters"]["n_components"] == 9
 
 
-def test_cell_line_views_override_on_build_model_path() -> None:
+def test_cell_line_views_override_on_configure_path() -> None:
     rebuilt = config_from_public_hyperparameters(
         construct_model("MultiViewRandomForest"),
         {"cell_line_views": ["gene_expression"]},

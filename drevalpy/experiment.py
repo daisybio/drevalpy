@@ -343,8 +343,6 @@ def drug_response_experiment(
                 print(f"Best hyperparameters: {best_hpams}")
                 print("Training model on full train and validation set to predict test set")
 
-                # Log best hyperparameters to wandb (they will be logged when build_model is called)
-                # The best hyperparameters will be logged via build_model -> log_hyperparameters
                 # save best hyperparameters as json
                 with open(
                     hpam_save_path,
@@ -355,6 +353,9 @@ def drug_response_experiment(
 
                 train_dataset.add_rows(validation_dataset)  # use full train val set data for final training
                 train_dataset.shuffle(random_state=42)
+
+                # Fresh instance with selected hyperparameters (defaults when tuning is off).
+                model = model_class(best_hpams)
 
                 # Initialize wandb for the final training on the full train+validation set
                 # This happens regardless of whether hyperparameter tuning was performed
@@ -377,7 +378,6 @@ def drug_response_experiment(
 
                 test_dataset = train_and_predict(
                     model=model,
-                    hpams=best_hpams,
                     path_data=path_data,
                     train_dataset=train_dataset,
                     prediction_dataset=test_dataset,
@@ -900,9 +900,9 @@ def robustness_train_predict(
     test_dataset.shuffle(random_state=trial)
     if early_stopping_dataset is not None:
         early_stopping_dataset.shuffle(random_state=trial)
+    trial_model = type(model)(hpam_set)
     test_dataset = train_and_predict(
-        model=model,
-        hpams=hpam_set,
+        model=trial_model,
         path_data=path_data,
         train_dataset=train_dataset,
         prediction_dataset=test_dataset,
@@ -1012,10 +1012,9 @@ def randomize_train_predict(
     :param model_checkpoint_dir: directory to save model checkpoints
     :param response_transformation: sklearn.preprocessing scaler like StandardScaler or MinMaxScaler to use to scale
     """
-    # build_model must be called before load_features so that models whose cell_line_views/drug_views
-    # are populated dynamically by build_model (e.g. zoo/ModelConfig view overrides) have their views set.
-    model.build_model(hyperparameters=hpam_set)
-    cl_features, drug_features = load_features(model, path_data, train_dataset)
+    # Construct a fresh instance so randomization does not reuse fitted state.
+    trial_model = type(model)(hpam_set)
+    cl_features, drug_features = load_features(trial_model, path_data, train_dataset)
 
     # Handle case where both features are None early on
     if cl_features is None and drug_features is None:
@@ -1046,8 +1045,7 @@ def randomize_train_predict(
         drug_features_rand.randomize_features(view, randomization_type=randomization_type)  # type: ignore[union-attr]
 
     test_dataset_rand = train_and_predict(
-        model=model,
-        hpams=hpam_set,
+        model=trial_model,
         path_data=path_data,
         train_dataset=train_dataset,
         prediction_dataset=test_dataset,
@@ -1086,7 +1084,6 @@ def split_early_stopping(
 @pipeline_function
 def train_and_predict(
     model: DRPModel,
-    hpams: dict,
     path_data: str,
     train_dataset: DrugResponseDataset,
     prediction_dataset: DrugResponseDataset,
@@ -1099,8 +1096,7 @@ def train_and_predict(
     """
     Train the model and predict the response for the prediction dataset.
 
-    :param model: model to use, e.g., SimpleNeuralNetwork
-    :param hpams: hyperparameters to use
+    :param model: already-constructed model instance (defaults or hyperparameters applied)
     :param path_data: path to the data directory, e.g., data/
     :param train_dataset: training dataset
     :param prediction_dataset: prediction dataset
@@ -1119,7 +1115,6 @@ def train_and_predict(
     if early_stopping_dataset is not None:
         early_stopping_dataset = early_stopping_dataset.copy()
 
-    model.build_model(hyperparameters=hpams)
     if train_dataset.dataset_name is None:
         raise ValueError("train_dataset must have a dataset_name")
     if cl_features is None:
@@ -1210,7 +1205,6 @@ def train_and_predict(
 
 def train_and_evaluate(
     model: DRPModel,
-    hpams: dict[str, Any],
     path_data: str,
     train_dataset: DrugResponseDataset,
     validation_dataset: DrugResponseDataset,
@@ -1222,8 +1216,7 @@ def train_and_evaluate(
     """
     Train and evaluate the model, i.e., call train_and_predict() and then evaluate().
 
-    :param model: model to use
-    :param hpams: hyperparameters to use
+    :param model: already-constructed model instance
     :param path_data: path to the data directory
     :param train_dataset: training dataset
     :param validation_dataset: validation dataset
@@ -1235,7 +1228,6 @@ def train_and_evaluate(
     """
     validation_dataset = train_and_predict(
         model=model,
-        hpams=hpams,
         path_data=path_data,
         train_dataset=train_dataset,
         prediction_dataset=validation_dataset,
@@ -1456,7 +1448,7 @@ def train_final_model(
         best_hpams = default_hpams
 
     print(f"Best hyperparameters for final model: {best_hpams}")
-    model.build_model(hyperparameters=best_hpams)
+    model = model_class(best_hpams)
 
     cl_features = model.load_cell_line_features(data_path=path_data, dataset_name=full_dataset.dataset_name)
     drug_features = model.load_drug_features(data_path=path_data, dataset_name=full_dataset.dataset_name)

@@ -45,7 +45,7 @@ class SuperFELTR(LiteratureEngineBase):
         Initialization method for SuperFELTR Model.
 
         The encoders and the regressor are initialized to None because they are built later in the first training pass.
-        The hyperparameters are also initialized to an empty dict because they are initialized in build_model. The
+        The hyperparameters are also initialized to an empty dict because they are initialized in configure. The
         ranges are initialized during training which is why here, they get dummy values. The best checkpoint is
         determined after training.
         """
@@ -89,9 +89,9 @@ class SuperFELTR(LiteratureEngineBase):
             "learning_rate": 0.01,
         }
 
-    def build_model(self, hyperparameters) -> None:
+    def configure(self, hyperparameters) -> None:
         """
-        Builds the model from hyperparameters.
+        Configure the model from hyperparameters.
 
         :param hyperparameters: dictionary containing the hyperparameters for the model. Contain mini_batch,
             dropout_rate, weight_decay, out_dim_expr_encoder, out_dim_mutation_encoder, out_dim_cnv_encoder, epochs,

@@ -29,7 +29,6 @@ at it with ``raw[view]``:
        "raw[mynewdatamodality]:fingerprints:randomForest",
    )
    model = MyRF()
-   model.build_model(model.get_default_hyperparameters())
 
    # Same composition as a ComposedModel instance
    composed = ModelConfig.from_spec(
@@ -97,7 +96,7 @@ Views as hyperparameters
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
 Before 1.6.0, cell-line and drug **views** were treated like hyperparameters.
-You could pass ``cell_line_views`` / ``drug_views`` to ``build_model`` or put
+You could pass ``cell_line_views`` / ``drug_views`` to the constructor or put
 them in experiment hpam YAML, and in principle retune which inputs a model
 used. This remains available for backward compatibility, but is deprecated and
 may be removed in a future release.
@@ -109,8 +108,7 @@ omics or drug representation you use does not. The old view keys emit a
 
 .. code-block:: python
 
-   model = construct_model("RandomForest")()
-   model.build_model(
+   model = construct_model("RandomForest")(
        {
            "cell_line_views": ["mynewdatamodality"],
            "drug_views": ["fingerprints"],

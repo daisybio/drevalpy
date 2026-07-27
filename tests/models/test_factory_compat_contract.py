@@ -117,24 +117,24 @@ def test_factory_entry_is_native_facade(model_name: str) -> None:
 
 @pytest.mark.parametrize("model_name", sorted(_LIGHT_BUILD_MODELS))
 def test_factory_entry_builds_flat_hyperparameters_light(model_name: str) -> None:
-    model = MODEL_FACTORY[model_name]()
-    defaults = model.get_default_hyperparameters()
+    model_cls = MODEL_FACTORY[model_name]
+    defaults = model_cls.get_default_hyperparameters()
     assert isinstance(defaults, dict)
-    space = model.get_structured_hyperparameter_space()
+    space = model_cls.get_structured_hyperparameter_space()
     assert isinstance(space, dict)
-    model.build_model(_minimal_hyperparameters(model_name))
+    model_cls(_minimal_hyperparameters(model_name))
 
 
 @pytest.mark.parametrize("model_name", sorted(set(MODEL_FACTORY) - _LIGHT_BUILD_MODELS))
 def test_factory_entry_builds_flat_hyperparameters_full(model_name: str) -> None:
     # Full-suite build coverage for literature / optional-extra models.
-    model = MODEL_FACTORY[model_name]()
-    defaults = model.get_default_hyperparameters()
+    model_cls = MODEL_FACTORY[model_name]
+    defaults = model_cls.get_default_hyperparameters()
     assert isinstance(defaults, dict)
-    space = model.get_structured_hyperparameter_space()
+    space = model_cls.get_structured_hyperparameter_space()
     assert isinstance(space, dict)
     try:
-        model.build_model(_minimal_hyperparameters(model_name))
+        model_cls(_minimal_hyperparameters(model_name))
     except ImportError as exc:
         if model_name in _OPTIONAL_EXTRA_MODELS:
             pytest.skip(str(exc))
@@ -153,8 +153,7 @@ def test_fast_execution_matrix_train_predict_save_load(model_name: str) -> None:
     if model_name.startswith("SingleDrug"):
         drug_input = None
 
-    model = MODEL_FACTORY[model_name]()
-    model.build_model(_minimal_hyperparameters(model_name))
+    model = MODEL_FACTORY[model_name](_minimal_hyperparameters(model_name))
     model.train(response, cell_line_input, drug_input)
     preds = model.predict(response.cell_line_ids, response.drug_ids, cell_line_input, drug_input)
     assert preds.shape == (4,)
@@ -174,8 +173,7 @@ def test_named_root_exports_match_factory() -> None:
 
 
 def test_empty_training_predicts_nan() -> None:
-    model = NaivePredictor()
-    model.build_model({})
+    model = NaivePredictor({})
     empty = DrugResponseDataset(
         response=np.array([]),
         cell_line_ids=np.array([]),

@@ -98,7 +98,7 @@ def test_single_drug_models(
         hpam_combi["epochs"] = 1
 
     for random_drug in random_drugs:
-        model = construct_model(model_name)()
+        model = construct_model(model_name)(hpam_combi)
         predictions_path = generate_data_saving_path(
             model_name=model_name,
             drug_id=str(random_drug),
@@ -120,7 +120,6 @@ def test_single_drug_models(
 
         test_dataset = train_and_predict(
             model=model,
-            hpams=hpam_combi,
             path_data=str(data_dir),
             train_dataset=train_dataset,
             prediction_dataset=test_dataset,

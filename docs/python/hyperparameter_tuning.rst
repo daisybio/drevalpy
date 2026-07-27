@@ -4,8 +4,8 @@ Hyperparameter tuning
 DrEvalPy no longer uses YAML grid files for baseline tuning. Each component
 predictor (and tunable featurizers such as ``pca`` or ``landmarkGenes``) owns:
 
-- ``get_default_hyperparameters()`` for the public flat dict passed to
-  ``build_model()``
+- ``get_default_hyperparameters()`` for the public flat dict used when
+  constructing ``Model()`` / ``Model(hyperparameters)``
 - ``get_hyperparameter_space()`` for structured Ray + Optuna search
 
 Public API
@@ -21,7 +21,7 @@ Public API
   featurizer name in the composed stack (per registry). A single ``pca`` is
   always ``…pca.0.…``; with ``concatFeaturizers`` and several of the same name
   you get ``0``, ``1``, …. The index is **required** in structured dotted keys
-  — keys without it are not applied. Flat ``build_model`` dicts still use
+  — keys without it are not applied. Flat constructor dicts still use
   names without an index (e.g. ``n_components``). See :doc:`architecture` for
   more examples.
 - Experiment tuning uses ``hyperparameter_tuning=True`` with
@@ -87,8 +87,8 @@ Component search spaces look like:
 
    {"alpha": {"type": "float", "low": 1e-4, "high": 10.0, "log": True, "default": 1.0}}
 
-Defaults for ``build_model()`` still come from the predictor's
-``get_default_hyperparameters()`` implementation.
+Defaults for ``Model()`` still come from the classmethod
+``get_default_hyperparameters()``.
 
 Backward compatibility
 ----------------------

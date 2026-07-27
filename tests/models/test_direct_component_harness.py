@@ -150,18 +150,16 @@ def test_subprocess_blocks_optional_deps_for_simple_models() -> None:
                 "d2": {"fingerprints": np.array([0.0, 1.0])},
             }
         )
-        naive = NaivePredictor()
-        naive.build_model({})
+        naive = NaivePredictor({})
         naive.train(response, FeatureDataset(features={}), FeatureDataset(features={}))
-        elastic = ElasticNetModel()
-        elastic.build_model(elastic.get_hyperparameter_set()[0])
+        elastic = ElasticNetModel(ElasticNetModel.get_hyperparameter_set()[0])
         elastic.train(response, cell, drugs)
         try:
-            construct_model("DIPK")().build_model({"epochs": 1})
+            construct_model("DIPK")({"epochs": 1})
         except ImportError:
             pass
         else:
-            raise AssertionError("DIPK build_model should fail when literature deps are blocked")
+            raise AssertionError("DIPK construction should fail when literature deps are blocked")
         """)
     completed = subprocess.run([sys.executable, "-c", script], check=False, capture_output=True, text=True)
     assert completed.returncode == 0, completed.stdout + completed.stderr

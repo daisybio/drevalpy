@@ -12,7 +12,7 @@ from sklearn.base import TransformerMixin
 
 from drevalpy.components.tuning.config import HPOConfig, validate_hpo_metric
 from drevalpy.components.tuning.drp_hyperparameters import (
-    build_drp_model_from_config,
+    construct_drp_model_from_config,
     default_hyperparameters_for_drp_model,
     has_tunable_hyperparameters,
     public_hyperparameters_from_config,
@@ -138,16 +138,16 @@ def hpam_tune(
 
         param_space = dict_to_ray_space(structured_space)
 
-        def _evaluate_sample(sampled: dict[str, Any], trial_model: DRPModel) -> float:
+        def _construct_trial_model(sampled: dict[str, Any]) -> DRPModel:
             trial_config = tuned_config_for_drp_model(model_class, sampled)
             if trial_config is None:
-                trial_model.build_model(sampled)
-            else:
-                build_drp_model_from_config(trial_model, trial_config)
+                return model_class(sampled)
+            return construct_drp_model_from_config(model_class, trial_config)
+
+        def _evaluate_sample(trial_model: DRPModel) -> float:
             trial_checkpoint_dir = _trial_checkpoint_dir(model_checkpoint_dir)
             result = experiment.train_and_evaluate(
                 model=trial_model,
-                hpams=trial_model.hyperparameters,
                 path_data=path_data,
                 train_dataset=train_dataset,
                 validation_dataset=validation_dataset,
@@ -159,9 +159,8 @@ def hpam_tune(
             return float(result[metric])
 
         def trainable(sampled: dict[str, Any]) -> None:
-            trial_model = model_class()
             try:
-                score = _evaluate_sample(sampled, trial_model)
+                score = _evaluate_sample(_construct_trial_model(sampled))
                 tune.report({metric: score})
             except Exception:
                 logger.exception("Ray/Optuna trial failed")
@@ -171,16 +170,14 @@ def hpam_tune(
             if wandb_project is None:
                 trainable(sampled)
                 return
-            trial_model = model_class()
+            trial_model = _construct_trial_model(sampled)
             trial_id = _current_trial_id()
-            trial_config = tuned_config_for_drp_model(model_class, sampled)
-            hpams = public_hyperparameters_from_config(trial_config) if trial_config is not None else dict(sampled)
             trial_run_config: dict[str, Any] = {
                 "phase": "hyperparameter_tuning",
                 "hpo_backend": "ray",
                 "search_alg": cfg.search_alg,
                 "hpo_num_samples": cfg.n_trials,
-                "hyperparameters": hpams,
+                "hyperparameters": trial_model.hyperparameters,
                 "trial_id": trial_id,
             }
             if wandb_base_config is not None:
@@ -197,7 +194,7 @@ def hpam_tune(
                 finish_previous=True,
             )
             try:
-                score = _evaluate_sample(sampled, trial_model)
+                score = _evaluate_sample(trial_model)
                 tune.report({metric: score})
             except Exception:
                 logger.exception("Ray/Optuna trial failed")

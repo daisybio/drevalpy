@@ -59,8 +59,7 @@ def test_default_hyperparameters_for_constructed_pca_model() -> None:
     assert config.cell_line_featurizer.hyperparameters == {"n_components": 128}
     assert_component_local_hyperparameters(config)
 
-    model = model_cls()
-    model.build_model(hp)
+    model = model_cls(hp)
     assert model._resolved_model_config is not None
     assert_component_local_hyperparameters(model._resolved_model_config)
 
@@ -72,7 +71,6 @@ def test_construct_model_train_predict_smoke() -> None:
 
     model_cls = construct_model("ComboRF", "raw[expression]+raw[mutations]:fingerprints+identity:randomForest")
     model = model_cls()
-    model.build_model(model.get_default_hyperparameters())
 
     response = DrugResponseDataset(
         response=np.array([1.0, 2.0, 3.0, 4.0]),

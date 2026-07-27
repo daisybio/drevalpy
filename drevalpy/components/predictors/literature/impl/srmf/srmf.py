@@ -70,7 +70,7 @@ class SRMF(LiteratureEngineBase):
             "n_features": 1036,
         }
 
-    def build_model(self, hyperparameters: dict) -> None:
+    def configure(self, hyperparameters: dict) -> None:
         """
         Initializes hyperparameters for SRMF model.
 

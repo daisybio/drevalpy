@@ -122,9 +122,10 @@ round-trip.
    config = ModelConfig.from_spec("toyMean")
    composed = config.create_model()
 
-``construct_model`` yields a ``DRPModel`` facade with the usual
-``build_model``, ``train``, ``predict``, ``save``, and ``load`` lifecycle.
-``ModelConfig.create_model()`` returns the underlying ``ComposedModel``.
+``construct_model`` yields a ``DRPModel`` facade class. Construct with
+``Model()`` / ``Model(hyperparameters)``, then use ``train``, ``predict``,
+``save``, and ``load``. ``ModelConfig.create_model()`` returns the underlying
+``ComposedModel``.
 
 **4. Tuning** (structured dotted keys, Ray + Optuna):
 
@@ -162,11 +163,10 @@ Example zoo entry:
 Flat hyperparameters
 --------------------
 
-Public ``build_model`` accepts a flat hyperparameter dict. Overrides are
-translated onto the resolved ``ModelConfig`` (predictor and featurizer local
-keys). Flat ``cell_line_views`` / ``drug_views`` still work but are
-**deprecated** — prefer zoo featurizer blocks or recipe strings
-(:doc:`model_inputs`).
+The constructor accepts a flat hyperparameter dict. Overrides are translated
+onto the resolved ``ModelConfig`` (predictor and featurizer local keys). Flat
+``cell_line_views`` / ``drug_views`` still work but are **deprecated** —
+prefer zoo featurizer blocks or recipe strings (:doc:`model_inputs`).
 
 Unsupported extension paths
 ---------------------------
@@ -204,7 +204,7 @@ only warns and does **not** control Ray/Optuna tuning. This remains available
 for backward compatibility, but is deprecated and may be removed in a future
 release. Prefer ``hyperparameter_tuning=True`` and ``hpo_num_samples``.
 
-Flat ``cell_line_views`` / ``drug_views`` in ``build_model`` / hpam YAML also
+Flat ``cell_line_views`` / ``drug_views`` in the constructor / hpam YAML also
 remain available for backward compatibility, but are deprecated and may be
 removed in a future release — see :doc:`model_inputs`.
 

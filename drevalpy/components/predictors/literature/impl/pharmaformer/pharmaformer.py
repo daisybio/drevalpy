@@ -120,7 +120,7 @@ class PharmaFormerModel(LiteratureEngineBase):
             "patience": 10,
         }
 
-    def build_model(self, hyperparameters: dict[str, Any]) -> None:
+    def configure(self, hyperparameters: dict[str, Any]) -> None:
         """
         Builds the PharmaFormer model with the specified hyperparameters.
 

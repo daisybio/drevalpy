@@ -31,15 +31,45 @@ class NativeDRPModel(DRPModel):
     _factory_name: ClassVar[str]
     _model_spec: ClassVar[str | None] = None
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
+        """Materialize the component stack from defaults or flat hyperparameters.
+
+        :param hyperparameters: flat public overrides; ``None`` uses class defaults.
+        """
+        super().__init__(hyperparameters)
+        self._init_runtime_fields()
+        if hyperparameters is None:
+            self._apply_model_config(self.default_model_config())
+            return
+        config = config_from_public_hyperparameters(type(self), hyperparameters)
+        if config is None:
+            self._apply_model_config(model_config_for_name(self._factory_name, hyperparameters))
+            return
+        self._apply_model_config(config)
+
+    def _init_runtime_fields(self) -> None:
         self._composed: ComposedModel | None = None
         self._empty_training = False
-        self.hyperparameters: dict[str, Any] = {}
+        self.hyperparameters = {}
         self._resolved_model_config: ModelConfig | None = None
         self._cell_line_views_list: list[str] = []
         self._drug_views_list: list[str] = []
         self._engine_preload_state: dict[str, Any] = {}
+
+    @classmethod
+    def _unmaterialized(cls) -> NativeDRPModel:
+        """Return an empty instance without materializing a default stack."""
+        instance = object.__new__(cls)
+        DRPModel.__init__(instance)
+        instance._init_runtime_fields()
+        return instance
+
+    @classmethod
+    def from_model_config(cls, config: ModelConfig) -> NativeDRPModel:
+        """Construct a facade from a resolved structured ``ModelConfig``."""
+        instance = cls._unmaterialized()
+        instance._apply_model_config(config)
+        return instance
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -88,7 +118,7 @@ class NativeDRPModel(DRPModel):
             return ModelConfig.from_spec(self._model_spec)
         return model_config_for_name(self._factory_name, hyperparameters or {})
 
-    def build_from_model_config(self, config: ModelConfig) -> None:
+    def _apply_model_config(self, config: ModelConfig) -> None:
         self._resolved_model_config = config.model_copy(deep=True)
         self.hyperparameters = public_hyperparameters_from_config(self._resolved_model_config)
         self.log_hyperparameters(self.hyperparameters)
@@ -99,15 +129,6 @@ class NativeDRPModel(DRPModel):
         self.early_stopping = bool(getattr(predictor_class, "supports_early_stopping", False))
         self._composed = self._resolved_model_config.create_model()
         self._empty_training = False
-
-    def build_model(self, hyperparameters: dict[str, Any]) -> None:
-        config = config_from_public_hyperparameters(type(self), hyperparameters)
-        if config is None:
-            self.log_hyperparameters(hyperparameters)
-            self.hyperparameters = dict(hyperparameters)
-            self.build_from_model_config(model_config_for_name(self._factory_name, hyperparameters))
-            return
-        self.build_from_model_config(config)
 
     def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         # Prefer the already-resolved config; re-applying public flat HPs can reject
@@ -190,14 +211,12 @@ class NativeDRPModel(DRPModel):
         model_checkpoint_dir: str = "checkpoints",
     ) -> None:
         if self._composed is None:
-            self.build_from_model_config(self.default_model_config())
+            msg = "Model has not been constructed with a component stack"
+            raise RuntimeError(msg)
         if len(output) == 0:
             self._empty_training = True
             return
         composed = self._composed
-        if composed is None:
-            msg = "Model has not been built; call build_model() before train()"
-            raise RuntimeError(msg)
         self._empty_training = False
         set_preload = getattr(composed._predictor, "set_engine_preload_state", None)
         if callable(set_preload) and self._engine_preload_state:
@@ -225,7 +244,7 @@ class NativeDRPModel(DRPModel):
 
             return np.full(len(cell_line_ids), np.nan)
         if self._composed is None:
-            msg = "Model has not been built; call build_model() before predict()"
+            msg = "Model has not been constructed with a component stack"
             raise RuntimeError(msg)
         if not self._composed.is_fitted():
             msg = "Model has not been trained; call train() or load() before predict()"
@@ -240,7 +259,7 @@ class NativeDRPModel(DRPModel):
 
     @classmethod
     def load(cls, directory: str) -> NativeDRPModel:
-        instance = cls()
+        instance = cls._unmaterialized()
         composed = ComposedModel.load(directory)
         config = composed.config
         if config is None:

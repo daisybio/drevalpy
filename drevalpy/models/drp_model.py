@@ -33,8 +33,14 @@ class DRPModel(ABC):
     # Then, the model is trained per drug
     is_single_drug_model = False
 
-    def __init__(self):
-        """Initialize the DRPModel instance."""
+    def __init__(self, hyperparameters: dict[str, Any] | None = None):
+        """Initialize the DRPModel instance.
+
+        :param hyperparameters: optional flat public hyperparameters. Concrete
+            facades materialize their component stack from these (or from class
+            defaults when ``None``).
+        """
+        _ = hyperparameters
         self.wandb_project: str | None = None
         self.wandb_run: Any = None
         self.wandb_config: dict[str, Any] | None = None
@@ -59,7 +65,11 @@ class DRPModel(ABC):
         :param finish_previous: whether to finish any existing wandb run before starting a new one
         """
         self.wandb_project = project
-        self.wandb_config = config or {}
+        run_config = dict(config or {})
+        # Constructor stores hyperparameters before wandb starts; nest them here.
+        if self.hyperparameters and "hyperparameters" not in run_config:
+            run_config["hyperparameters"] = self.hyperparameters
+        self.wandb_config = run_config
 
         if finish_previous:
             wandb.finish()
@@ -85,20 +95,20 @@ class DRPModel(ABC):
 
     def log_hyperparameters(self, hyperparameters: dict[str, Any]) -> None:
         """
-        Log hyperparameters to wandb.
+        Log hyperparameters to wandb when a run is already active.
 
-        This method is called automatically by build_model when wandb is enabled.
-        Subclasses can override this to add additional hyperparameter logging.
+        Construction stores hyperparameters on the instance. When wandb is
+        initialized later via ``init_wandb``, those values are nested into the
+        run config. This helper updates an already-active run.
 
         During hyperparameter tuning, config updates are skipped to avoid overwriting.
         Only the final best hyperparameters are logged to wandb.config.
 
         :param hyperparameters: dictionary of hyperparameters to log
         """
+        self.hyperparameters = hyperparameters
         if not self.is_wandb_enabled():
             return
-
-        self.hyperparameters = hyperparameters
         # Only update wandb.config if we're not in hyperparameter tuning phase
         # During tuning, trial hyperparameters are stored in config.hyperparameters
         # Nest hyperparameters under a single key to prevent them from appearing as separate table columns
@@ -271,7 +281,7 @@ class DRPModel(ABC):
     @classmethod
     @pipeline_function
     def get_default_hyperparameters(cls) -> dict[str, Any]:
-        """Return default hyperparameters for ``build_model``.
+        """Return default hyperparameters used by ``cls()``.
 
         :returns: Flat public hyperparameter dictionary.
         """
@@ -306,23 +316,6 @@ class DRPModel(ABC):
 
         :return: drug views, e.g., ["descriptors", "fingerprints", "targets"]. If the model does not use drug features,
             return an empty list.
-        """
-
-    @abstractmethod
-    def build_model(self, hyperparameters: dict[str, Any]) -> None:
-        """
-        Builds the model, for models that use hyperparameters.
-
-        Subclasses should call self.log_hyperparameters(hyperparameters) at the beginning
-        of this method to ensure hyperparameters are logged to wandb if enabled.
-
-        :param hyperparameters: hyperparameters for the model
-
-        Example::
-
-            def build_model(self, hyperparameters: dict[str, Any]) -> None:
-                self.log_hyperparameters(hyperparameters)  # Log to wandb
-                self.model = ElasticNet(alpha=hyperparameters["alpha"], l1_ratio=hyperparameters["l1_ratio"])
         """
 
     @pipeline_function

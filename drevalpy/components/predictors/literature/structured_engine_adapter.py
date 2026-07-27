@@ -197,7 +197,7 @@ class StructuredLiteratureEnginePredictor(StructuredPredictor):
         engine = self.engine_cls()()
         for name, value in self._engine_preload_state.items():
             setattr(engine, name, value)
-        engine.build_model(hyperparameters)
+        engine.configure(hyperparameters)
         engine.train(
             output,
             cell_lines,

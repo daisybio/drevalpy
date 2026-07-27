@@ -8,7 +8,7 @@ from ._model_config_base import base_model_config_for_drp_model
 from .compatibility_keys import append_featurizer_flat_keys
 from .config_resolution import (
     assert_component_local_hyperparameters,
-    build_drp_model_from_config,
+    construct_drp_model_from_config,
     default_config_for_drp_model,
     default_hyperparameters_for_drp_model,
     has_tunable_hyperparameters,
@@ -36,7 +36,7 @@ _apply_public_flat_hyperparameters = apply_public_flat_hyperparameters_alias
 __all__ = [
     "assert_component_local_hyperparameters",
     "base_model_config_for_drp_model",
-    "build_drp_model_from_config",
+    "construct_drp_model_from_config",
     "config_from_build_hyperparameters",
     "config_from_public_hyperparameters",
     "default_config_for_drp_model",

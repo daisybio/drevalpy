@@ -90,11 +90,10 @@ def test_multiview_baselines_are_native_facades() -> None:
 @pytest.mark.parametrize("name", ["ElasticNet", "NaiveDrugMeanPredictor"])
 def test_component_stack_save_load_round_trip(name: str) -> None:
     response, cell_line_input, drug_input = _synthetic_data()
-    model = construct_model(name)()
     if name == "ElasticNet":
-        model.build_model({"alpha": 0.1, "l1_ratio": 0.5, "max_iter": 1000})
+        model = construct_model(name)({"alpha": 0.1, "l1_ratio": 0.5, "max_iter": 1000})
     else:
-        model.build_model({})
+        model = construct_model(name)({})
     model.train(response, cell_line_input, drug_input)
     preds_before = model.predict(
         response.cell_line_ids,

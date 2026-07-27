@@ -3,8 +3,8 @@
 from drevalpy.components.tuning.config import HPOConfig, build_experiment_hpo_config, validate_hpo_metric
 from drevalpy.components.tuning.drp_hyperparameters import (
     assert_component_local_hyperparameters,
-    build_drp_model_from_config,
     config_from_public_hyperparameters,
+    construct_drp_model_from_config,
     default_config_for_drp_model,
     default_hyperparameters_for_drp_model,
     flat_hyperparameters_from_model_config,
@@ -32,7 +32,7 @@ __all__ = [
     "validate_hpo_metric",
     "apply_merged_to_model_config",
     "assert_component_local_hyperparameters",
-    "build_drp_model_from_config",
+    "construct_drp_model_from_config",
     "config_from_public_hyperparameters",
     "default_config_for_drp_model",
     "default_hyperparameters_for_drp_model",

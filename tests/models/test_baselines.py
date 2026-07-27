@@ -43,8 +43,7 @@ def test_naive_mean_effects_predictor_tissue_decomposition() -> None:
         }
     )
 
-    model = NaiveMeanEffectsPredictor()
-    model.build_model({})
+    model = NaiveMeanEffectsPredictor({})
     model.train(output=output, cell_line_input=cell_line_input, drug_input=drug_input)
     preds = model.predict(
         cell_line_ids=np.array(["CL1", "CL2", "CL3"]),
@@ -102,8 +101,7 @@ def test_naive_mean_effects_predictor_without_tissue_matches_previous_decomposit
         }
     )
 
-    model = NaiveMeanEffectsPredictor()
-    model.build_model({})
+    model = NaiveMeanEffectsPredictor({})
     model.train(output=output, cell_line_input=cell_line_input, drug_input=drug_input)
     preds = model.predict(
         cell_line_ids=np.array(["CL1", "CL2"]),
@@ -136,11 +134,9 @@ def test_random_forest_respects_max_depth() -> None:
             "d2": {"fingerprints": np.array([0.0, 1.0, 0.25])},
         }
     )
-    shallow = RandomForest()
-    shallow.build_model({"n_estimators": 5, "max_depth": 1, "n_jobs": 1, "max_samples": 0.9})
+    shallow = RandomForest({"n_estimators": 5, "max_depth": 1, "n_jobs": 1, "max_samples": 0.9})
     shallow.train(response, cell_line_input, drug_input)
-    deep = RandomForest()
-    deep.build_model({"n_estimators": 5, "max_depth": 8, "n_jobs": 1, "max_samples": 0.9})
+    deep = RandomForest({"n_estimators": 5, "max_depth": 8, "n_jobs": 1, "max_samples": 0.9})
     deep.train(response, cell_line_input, drug_input)
     ids = response.cell_line_ids
     drugs = response.drug_ids
@@ -247,8 +243,7 @@ def _train_and_predict(
 def _call_naive_predictor(
     train_dataset: DrugResponseDataset, val_dataset: DrugResponseDataset, test_mode: str, data_dir
 ) -> tuple[DRPModel, np.ndarray]:
-    naive = NaivePredictor()
-    naive.build_model({})
+    naive = NaivePredictor({})
     train_dataset, val_dataset, cell_line_input, drug_input = _subset_dataset(
         model=naive, train_dataset=train_dataset, val_dataset=val_dataset, data_dir=data_dir
     )
@@ -279,7 +274,7 @@ def _call_naive_group_predictor(
         naive = NaiveTissueMeanPredictor()
     else:
         raise ValueError(f"Unknown group: {group}")
-    naive.build_model({})
+    # Defaults already applied by construction.
     train_dataset, val_dataset, cell_line_input, drug_input = _subset_dataset(
         model=naive, train_dataset=train_dataset, val_dataset=val_dataset, data_dir=data_dir
     )
@@ -333,7 +328,7 @@ def _call_other_baselines(model: str, train_dataset: DrugResponseDataset, val_da
             hpams = hpams_subset
         else:
             hpams = hpams[:2]
-    model_instance = model_class()
+    model_instance = None
     for hpam_combi in hpams:
         if model in {"RandomForest", "GradientBoosting"}:
             hpam_combi["n_estimators"] = 2
@@ -351,7 +346,7 @@ def _call_other_baselines(model: str, train_dataset: DrugResponseDataset, val_da
             hpam_combi["n_neighbors"] = 3
             hpam_combi["weights"] = "distance"
             hpam_combi["variance"] = 0.75
-        model_instance.build_model(hpam_combi)
+        model_instance = model_class(hpam_combi)
         train_dataset, val_dataset, cell_line_input, drug_input = _subset_dataset(
             model=model_instance, train_dataset=train_dataset, val_dataset=val_dataset, data_dir=data_dir
         )
@@ -371,8 +366,7 @@ def _call_other_baselines(model: str, train_dataset: DrugResponseDataset, val_da
 def _call_naive_mean_effects_predictor(
     train_dataset: DrugResponseDataset, val_dataset: DrugResponseDataset, test_mode: str, data_dir
 ) -> tuple[DRPModel, np.ndarray]:
-    naive = NaiveMeanEffectsPredictor()
-    naive.build_model({})
+    naive = NaiveMeanEffectsPredictor({})
     train_dataset, val_dataset, cell_line_input, drug_input = _subset_dataset(
         model=naive, train_dataset=train_dataset, val_dataset=val_dataset, data_dir=data_dir
     )
@@ -394,8 +388,7 @@ def _call_naive_mean_effects_predictor(
 def _call_naive_tissue_drug_predictor(
     train_dataset: DrugResponseDataset, val_dataset: DrugResponseDataset, test_mode: str, data_dir
 ) -> tuple[DRPModel, np.ndarray]:
-    naive = NaiveTissueDrugMeanPredictor()
-    naive.build_model({})
+    naive = NaiveTissueDrugMeanPredictor({})
     train_dataset, val_dataset, cell_line_input, drug_input = _subset_dataset(
         model=naive, train_dataset=train_dataset, val_dataset=val_dataset, data_dir=data_dir
     )

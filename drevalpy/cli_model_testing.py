@@ -18,7 +18,6 @@ def _prep_data_for_final_prediction(arguments: Namespace) -> tuple[Any, Any, Any
 
     model_name, drug_id = get_model_name_and_drug_id(arguments.model_name)
     model_class = get_model_class(model_name)
-    model = model_class()
     with open(arguments.split_dataset_path, "rb") as split_file:
         split = pickle.load(split_file)
     train_dataset, validation_dataset, es_dataset, test_dataset = get_datasets_from_cv_split(
@@ -35,6 +34,7 @@ def _prep_data_for_final_prediction(arguments: Namespace) -> tuple[Any, Any, Any
     with open(arguments.hyperparameters_path) as f:
         best_hpam_dict = yaml.safe_load(f)
     best_hpams = best_hpam_dict[f"{arguments.model_name}_{arguments.split_id}"]["best_hpam_combi"]
+    model = model_class(best_hpams)
     response_transform = get_response_transformation(arguments.response_transformation)
     return model, drug_id, best_hpams, train_dataset, test_dataset, es_dataset, response_transform
 
@@ -102,7 +102,6 @@ def run_train_and_predict_final(
 
         test_set = train_and_predict(
             model=selected_model,
-            hpams=hpam_combi,
             path_data=args.path_data,
             train_dataset=train_set,
             prediction_dataset=test_set,
@@ -190,8 +189,7 @@ def run_randomization_split(*, model_name: str, randomization_mode: str) -> None
     model_class = get_model_class(model_name)
     randomization_test_views: dict[str, list[str]] = {}
     for hpam_combi in model_class.get_hyperparameter_set():
-        model = model_class()
-        model.build_model(hpam_combi)
+        model = model_class(hpam_combi)
         randomization_test_views.update(
             get_randomization_test_views(model=model, randomization_mode=[randomization_mode])
         )
@@ -276,11 +274,10 @@ def run_tune_final_model(
     model_class = get_model_class(resolved_name)
     with open(hpam_combi) as f:
         hpams = yaml.safe_load(f)
-    model = model_class()
+    model = model_class(hpams)
 
     validation_dataset = train_and_predict(
         model=model,
-        hpams=hpams,
         path_data=path_data,
         train_dataset=train_dataset,
         prediction_dataset=validation_dataset,
@@ -327,10 +324,9 @@ def run_train_final_model(
             es_dataset.transform(response_transform)
     with open(best_hpam_combi) as f:
         best_hpam = yaml.safe_load(f)[f"{resolved_name}_final"]["best_hpam_combi"]
-    model = get_model_class(resolved_name)()
+    model = get_model_class(resolved_name)(best_hpam)
     cl_features = model.load_cell_line_features(data_path=path_data, dataset_name=train_dataset.dataset_name)
     drug_features = model.load_drug_features(data_path=path_data, dataset_name=train_dataset.dataset_name)
-    model.build_model(hyperparameters=best_hpam)
     model.train(
         output=train_dataset,
         output_earlystopping=es_dataset,

@@ -38,7 +38,7 @@ class DIPKModel(LiteratureEngineBase):
         """Initialize the DIPK model."""
         super().__init__()
         self.DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        # all of this gets initialized in build_model
+        # all of this gets initialized in configure
         self.model: Predictor | None = None
         self.gene_expression_encoder: GeneExpressionEncoder | None = None
         self.hyperparameters: dict[str, Any] = {}
@@ -66,7 +66,7 @@ class DIPKModel(LiteratureEngineBase):
             "patience": 10,
         }
 
-    def build_model(self, hyperparameters: dict[str, Any]) -> None:
+    def configure(self, hyperparameters: dict[str, Any]) -> None:
         """
         Builds the DIPK model with the specified hyperparameters.
 

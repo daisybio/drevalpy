@@ -32,7 +32,7 @@ def test_train_and_predict_does_not_mutate_with_reduce_to(data_dir):
     original_train_len = len(train)
     original_test_len = len(test)
 
-    model = NaivePredictor()
+    model = NaivePredictor({})
 
     # Create FeatureDataset with only some cell lines, forces reduce_to to remove rows
     cl_features = FeatureDataset(
@@ -45,7 +45,6 @@ def test_train_and_predict_does_not_mutate_with_reduce_to(data_dir):
 
     train_and_predict(
         model=model,
-        hpams={},
         path_data=str(data_dir),
         train_dataset=train,
         prediction_dataset=test,

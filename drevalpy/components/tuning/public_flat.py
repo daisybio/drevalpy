@@ -19,7 +19,7 @@ def public_hyperparameters_from_config(
     *,
     include_view_keys: bool = False,
 ) -> dict[str, Any]:
-    """Flatten a model config into public ``build_model`` hyperparameters.
+    """Flatten a model config into public constructor hyperparameters.
 
     By default, deprecated ``cell_line_views`` / ``drug_views`` keys are omitted;
     featurizer composition already encodes the inputs. Pass
@@ -88,7 +88,7 @@ def tuned_flat_hyperparameters(
     model_class: type[Any],
     merged_sample: dict[str, Any],
 ) -> dict[str, Any]:
-    """Convert a merged Ray/Optuna sample into public ``build_model`` hyperparameters."""
+    """Convert a merged Ray/Optuna sample into public constructor hyperparameters."""
     from .config_resolution import tuned_config_for_drp_model
 
     config = tuned_config_for_drp_model(model_class, merged_sample)

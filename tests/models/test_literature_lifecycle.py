@@ -85,8 +85,8 @@ LITERATURE_MODEL_NAMES = (
 
 @pytest.mark.parametrize("model_name", LITERATURE_MODEL_NAMES)
 def test_literature_models_build_with_defaults(model_name: str) -> None:
-    model = construct_model(model_name)()
-    hyperparameters = dict(model.get_hyperparameter_set()[0])
+    model_cls = construct_model(model_name)
+    hyperparameters = dict(model_cls.get_hyperparameter_set()[0])
     if model_name == "DIPK":
         hyperparameters.update({"epochs": 1, "epochs_autoencoder": 1, "heads": 1})
     elif model_name in {"SimpleNeuralNetwork", "MultiViewNeuralNetwork"}:
@@ -97,7 +97,7 @@ def test_literature_models_build_with_defaults(model_name: str) -> None:
         hyperparameters.update({"epochs": 1, "batch_size": 32})
     elif model_name == "SparseGO":
         hyperparameters.update({"epochs": 1, "batch_size": 32})
-    model.build_model(hyperparameters)
+    model_cls(hyperparameters)
 
 
 @pytest.mark.parametrize(
@@ -123,8 +123,7 @@ def test_literature_model_lifecycle(
     data_factory: str,
 ) -> None:
     response, cell_line_input, drug_input = globals()[data_factory]()
-    model = construct_model(model_name)()
-    model.build_model(hyperparameters)
+    model = construct_model(model_name)(hyperparameters)
     model.train(response, cell_line_input, drug_input)
     preds = model.predict(
         response.cell_line_ids,
@@ -151,8 +150,7 @@ def test_untrained_component_model_raises() -> None:
     from drevalpy.models import construct_model
 
     model_cls = construct_model("elasticNet", "raw[expression]:fingerprints:elasticNet")
-    model = model_cls()
-    model.build_model({})
+    model = model_cls({})
     response, cell_line_input, drug_input = _synthetic_data()
     with pytest.raises(RuntimeError, match="not been trained"):
         model.predict(

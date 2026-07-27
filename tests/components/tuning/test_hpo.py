@@ -357,7 +357,6 @@ def test_hpam_tune_real_one_trial(tmp_path, data_dir) -> None:
 
     model_cls = construct_model("ElasticNet")
     model = model_cls()
-    model.build_model(model.get_default_hyperparameters())
     cell_line_input = model.load_cell_line_features(data_path=str(data_dir), dataset_name="TOYv1")
     drug_input = model.load_drug_features(data_path=str(data_dir), dataset_name="TOYv1")
     valid_cell_lines = list(cell_line_input.identifiers)[:2]

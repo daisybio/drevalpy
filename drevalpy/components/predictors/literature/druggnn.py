@@ -98,7 +98,7 @@ class DrugGNNPredictor(StructuredPredictor):
             drug_ids=batch.drug_ids,
         )
         engine = DrugGNNEngine()
-        engine.build_model(dict(self._hyperparameters))
+        engine.configure(dict(self._hyperparameters))
         engine.train(
             output,
             cell_line_input,

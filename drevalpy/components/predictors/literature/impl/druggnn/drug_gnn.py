@@ -253,7 +253,7 @@ class DrugGNN(LiteratureEngineBase):
             "dropout": 0.2,
         }
 
-    def build_model(self, hyperparameters: dict[str, Any]) -> None:
+    def configure(self, hyperparameters: dict[str, Any]) -> None:
         """Build the model.
 
         :param hyperparameters: The hyperparameters.

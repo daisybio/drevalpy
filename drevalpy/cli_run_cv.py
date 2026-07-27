@@ -139,11 +139,10 @@ def run_train_and_predict_cv(
     response_transform = get_response_transformation(response_transformation)
     with open(hyperparameters) as f:
         hpams = yaml.safe_load(f)
-    model = model_class()
+    model = model_class(hpams)
 
     validation_dataset = train_and_predict(
         model=model,
-        hpams=hpams,
         path_data=path_data,
         train_dataset=train_dataset,
         prediction_dataset=validation_dataset,

@@ -41,8 +41,8 @@ class LiteratureEngineBase:
         msg = f"{cls.__name__} must implement get_model_name"
         raise NotImplementedError(msg)
 
-    def build_model(self, hyperparameters: dict[str, Any]) -> None:
-        msg = f"{self.get_model_name()} must implement build_model"
+    def configure(self, hyperparameters: dict[str, Any]) -> None:
+        msg = f"{self.get_model_name()} must implement configure"
         raise NotImplementedError(msg)
 
     def train(

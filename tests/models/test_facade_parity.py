@@ -59,9 +59,8 @@ def test_facade_matches_direct_composed_model(model_name: str, entrypoint: str) 
         if entrypoint == "construct_model"
         else ModelConfig.from_spec(model_name, hyperparameters=hp)
     )
-    facade = model_cls()
     flat_hp = model_cls.get_default_hyperparameters() if not hp else hp
-    facade.build_model(flat_hp)
+    facade = model_cls(flat_hp)
     facade.train(response, cell_line_input, drug_input)
     facade_preds = facade.predict(response.cell_line_ids, response.drug_ids, cell_line_input, drug_input)
 
@@ -80,8 +79,7 @@ def test_facade_save_load_preserves_predictions(model_name: str, entrypoint: str
     model_cls = _model_class(model_name, entrypoint)
     flat_hp = model_cls.get_default_hyperparameters() if not hp else hp
 
-    model = model_cls()
-    model.build_model(flat_hp)
+    model = model_cls(flat_hp)
     model.train(response, cell_line_input, drug_input)
     before_preds = model.predict(response.cell_line_ids, response.drug_ids, cell_line_input, drug_input)
     before_state = model._composed.component_state() if model._composed is not None else {}

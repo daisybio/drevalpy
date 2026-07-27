@@ -454,7 +454,7 @@ class SparseGOModel(LiteratureEngineBase):
         """
         return "SparseGO"
 
-    def build_model(self, hyperparameters: dict[str, Any]) -> None:
+    def configure(self, hyperparameters: dict[str, Any]) -> None:
         """Store hyperparameters and build the network if ontology is already loaded.
 
         If load_cell_line_features() has not been called yet, network construction

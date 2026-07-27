@@ -28,8 +28,7 @@ def test_hpam_tune(tmp_path, data_dir):
     }
 
     model_cls = construct_model("ElasticNet")
-    model = model_cls()
-    model.build_model(hyperparameters=defaults)
+    model = model_cls(defaults)
     cell_line_input = model.load_cell_line_features(data_path=str(data_dir), dataset_name="TOYv1")
     drug_input = model.load_drug_features(data_path=str(data_dir), dataset_name="TOYv1")
 

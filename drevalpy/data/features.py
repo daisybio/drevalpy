@@ -287,8 +287,9 @@ def load_single_cell_line_view(
     """
     if len(cell_line_views) == 0:
         raise ValueError(
-            "cell_line_views is empty. Call build_model() before load_cell_line_features() "
-            "so the model knows which omics to load."
+            "cell_line_views is empty. Construct the model (Model() or "
+            "Model(hyperparameters)) before load_cell_line_features() so the "
+            "model knows which omics to load."
         )
     if len(cell_line_views) > 1:
         raise ValueError(f"Only one cell line view is supported for {model_name}.")
@@ -330,8 +331,9 @@ def load_multi_cell_line_view(
     """
     if len(cell_line_views) == 0:
         raise ValueError(
-            "cell_line_views is empty. Call build_model() before load_cell_line_features() "
-            "so the model knows which omics to load."
+            "cell_line_views is empty. Construct the model (Model() or "
+            "Model(hyperparameters)) before load_cell_line_features() so the "
+            "model knows which omics to load."
         )
     logger.debug("Loading a %s with the following cell line views: %s", model_name, cell_line_views)
 

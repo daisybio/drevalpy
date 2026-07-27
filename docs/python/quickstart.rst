@@ -4,9 +4,8 @@ Quickstart
 Install DrEvalPy and its dependencies first — see
 :doc:`/getting_started/installation`.
 
-Load the TOYv1 response table, resolve ElasticNet from the model zoo, build it
-with default hyperparameters, and hand the facade class to
-``drug_response_experiment``:
+Load the TOYv1 response table, resolve ElasticNet from the model zoo, and hand
+the facade class to ``drug_response_experiment``:
 
 .. code-block:: python
 
@@ -17,8 +16,6 @@ with default hyperparameters, and hand the facade class to
    response_data = load_dataset("TOYv1", path_data="data")
 
    ElasticNet = construct_model("ElasticNet")
-   model = ElasticNet()
-   model.build_model(model.get_default_hyperparameters())
 
    drug_response_experiment(
        models=[ElasticNet],
@@ -30,10 +27,15 @@ with default hyperparameters, and hand the facade class to
        hyperparameter_tuning=False,
    )
 
-``construct_model`` returns a **class**. Instantiating it and calling
-``build_model`` is enough for a single-model workflow; the experiment call
-expects the class (or a list of classes) so each CV fold can construct a fresh
-instance.
+``construct_model`` returns a **class**. The experiment call expects the class
+(or a list of classes) so each CV fold can construct a fresh configured
+instance (``Model()`` or ``Model(best_hpams)``) and call ``train``. For a
+single-model script outside the experiment runner:
+
+.. code-block:: python
+
+   model = ElasticNet()  # or ElasticNet({"alpha": 0.1})
+   model.train(...)
 
 Results land under ``results/my_first_run/TOYv1/LCO``. See
 :doc:`visualization` for ``create_report``, :doc:`datasets` for other screens

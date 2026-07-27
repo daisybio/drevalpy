@@ -133,9 +133,9 @@ get ``0`` and ``1``:
    featurizer.cell_line.landmarkGenes.0.standardize
    featurizer.cell_line.landmarkGenes.1.minmax_scale
 
-Flat keys such as ``alpha`` remain valid for ``build_model``-style defaults;
-legacy featurizer aliases (for example ``methylation_n_components``) still
-work but are deprecated in favor of the dotted form.
+Flat keys such as ``alpha`` remain valid for constructor defaults; legacy
+featurizer aliases (for example ``methylation_n_components``) still work but
+are deprecated in favor of the dotted form.
 
 Further reading
 ---------------

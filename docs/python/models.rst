@@ -17,21 +17,25 @@ construct_model and ModelConfig
    from drevalpy.types.model_scope import ModelScope
 
    ElasticNet = construct_model("ElasticNet")
-   model = ElasticNet()
-   model.build_model(model.get_default_hyperparameters())
+   model = ElasticNet()  # class defaults
+   model = ElasticNet({"alpha": 0.1})  # flat overrides
 
    # Same zoo preset as a ComposedModel instance (no DRPModel facade)
    composed = ModelConfig.from_spec("ElasticNet").create_model()
 
    # Named root export — not deprecated
    also = ElasticNetModel()
-   also.build_model(also.get_default_hyperparameters())
 
    single_drug = list_zoo_names(scope=ModelScope.SINGLE_DRUG)
 
-``construct_model(name)`` / ``construct_model(name, spec)`` return a **class**.
-``ModelConfig.create_model()`` returns a trained-ready ``ComposedModel``
-instance.
+Three related verbs:
+
+- ``construct_model(name)`` / ``construct_model(name, spec)`` — return a
+  ``DRPModel`` **class**
+- ``Model([hyperparameters])`` / ``Model.from_model_config(config)`` —
+  construct a configured **instance** and materialize the composed stack
+- ``ModelConfig.create_model()`` — return a trainable ``ComposedModel``
+  instance (no ``DRPModel`` facade)
 
 Custom recipe without a zoo file:
 
@@ -41,8 +45,7 @@ Custom recipe without a zoo file:
        "MyRF",
        "scaledGeneExpression:fingerprints:randomForest",
    )
-   model = CustomRF()
-   model.build_model({"n_estimators": 200})
+   model = CustomRF({"n_estimators": 200})
 
 Discover zoo names with ``list_zoo_names()`` (optionally filter by
 ``ModelScope``). Recipe grammar and featurizer blocks are covered in
@@ -53,9 +56,10 @@ Lifecycle
 
 The public ``DRPModel`` / ``NativeDRPModel`` facade exposes:
 
-1. ``build_model(hyperparameters)`` — apply flat defaults or overrides.
+1. ``Model([hyperparameters])`` — construct with class defaults or flat
+   overrides (instances are not reconfigured afterward).
 2. ``train(...)`` / ``predict(...)`` — fit and score on response + feature
-   inputs (the experiment runner calls these per fold).
+   inputs (the experiment runner constructs a fresh instance per fold).
 3. ``save(directory)`` / ``load(directory)`` — native
    ``composed_model.joblib`` checkpoints (see :doc:`persistence`).
 
@@ -84,3 +88,6 @@ the package root instead:
 .. code-block:: python
 
    from drevalpy.models import DIPKModel, ElasticNetModel, construct_model
+
+Legacy checkpoint formats from before ``composed_model.joblib`` are not
+loadable.

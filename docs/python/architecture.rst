@@ -50,7 +50,6 @@ Prefer zoo names with ``construct_model`` or ``ModelConfig``:
 
    ElasticNet = construct_model("ElasticNet")
    model = ElasticNet()
-   model.build_model(model.get_default_hyperparameters())
    model.train(...)
    model.predict(...)
 
@@ -78,8 +77,7 @@ argument:
        "myElasticNet",
        "scaledGeneExpression:fingerprints:elasticNet",
    )
-   model = CustomElasticNet()
-   model.build_model({"alpha": 0.1, "l1_ratio": 0.5})
+   model = CustomElasticNet({"alpha": 0.1, "l1_ratio": 0.5})
 
    config = ModelConfig.from_spec("scaledGeneExpression:fingerprints:elasticNet")
    composed = config.create_model()
@@ -126,7 +124,7 @@ For ``concatFeaturizers``, each child featurizer gets a zero-based index per
 name (``featurizer.cell_line.landmarkGenes.0.standardize``,
 ``...1.minmax_scale``, …).
 
-Flat ``build_model`` dicts remain supported for predictor keys such as
+Flat constructor dicts remain supported for predictor keys such as
 ``alpha`` and legacy featurizer aliases (``methylation_n_components``).
 Structured overrides may also use dotted keys directly.
 
@@ -183,8 +181,8 @@ deprecated and may be removed in a future release:
 - ``MODEL_FACTORY``, ``MULTI_DRUG_MODEL_FACTORY``, ``SINGLE_DRUG_MODEL_FACTORY``
   — use ``construct_model``, ``ModelConfig.from_spec``, and
   ``list_zoo_names(scope=...)`` instead.
-- Flat ``cell_line_views`` / ``drug_views`` in ``build_model`` / hpam YAML —
-  configure ``cell_line_featurizer`` / ``drug_featurizer`` in zoo YAML or a
+- Flat ``cell_line_views`` / ``drug_views`` in constructor / hpam YAML —
+  set ``cell_line_featurizer`` / ``drug_featurizer`` in zoo YAML or a
   recipe string instead (see :doc:`model_inputs`).
 
 No longer supported

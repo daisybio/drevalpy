@@ -110,7 +110,7 @@ class PrecilyModel(LiteratureEngineBase):
             "seed": 42,
         }
 
-    def build_model(self, hyperparameters: dict[str, Any]) -> None:
+    def configure(self, hyperparameters: dict[str, Any]) -> None:
         """
         Store hyperparameters.
 

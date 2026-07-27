@@ -60,8 +60,7 @@ def test_global_models(
         model_name = "SimpleNeuralNetwork"
 
     model_class = cast(type[DRPModel], construct_model(model_name))
-    model = model_class()
-    hpams = model.get_hyperparameter_set()
+    hpams = model_class.get_hyperparameter_set()
     hpam_combi = hpams[0]
     if model_name == "DIPK":
         hpam_combi["epochs"] = 1
@@ -88,7 +87,7 @@ def test_global_models(
         hpam_combi["min_samples_split"] = 2
         hpam_combi["min_samples_leaf"] = 2
         hpam_combi["n_estimators"] = 2
-    model.build_model(hyperparameters=hpam_combi)
+    model = model_class(hpam_combi)
 
     cell_line_input = model.load_cell_line_features(data_path=str(data_dir), dataset_name="TOYv1")
     drug_input = model.load_drug_features(data_path=str(data_dir), dataset_name="TOYv1")
@@ -218,7 +217,6 @@ def test_multi_view_neural_network_custom_views(sample_dataset: DrugResponseData
         val_es_dataset = split["validation_es"]
 
         model_class = cast(type[DRPModel], construct_model("MultiViewNeuralNetwork"))
-        model = model_class()
 
         hpam_combi = {
             "cell_line_views": ["custom_test_view"],
@@ -227,7 +225,7 @@ def test_multi_view_neural_network_custom_views(sample_dataset: DrugResponseData
             "dropout_prob": 0.3,
             "max_epochs": 1,
         }
-        model.build_model(hyperparameters=hpam_combi)
+        model = model_class(hpam_combi)
 
         cell_line_input = model.load_cell_line_features(data_path=str(path_data), dataset_name="TOYv1")
         drug_input = model.load_drug_features(data_path=str(path_data), dataset_name="TOYv1")

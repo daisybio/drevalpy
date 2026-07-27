@@ -37,7 +37,7 @@ class MOLIR(LiteratureEngineBase):
         """
         Initializes the MOLIR model.
 
-        The hyperparameters are set in build_model, the model is set in train when we know the dimensionality of the
+        The hyperparameters are set in configure, the model is set in train when we know the dimensionality of the
         gene expression, mutation and copy number variation data.
         """
         super().__init__()
@@ -73,9 +73,9 @@ class MOLIR(LiteratureEngineBase):
             "margin": 1.5,
         }
 
-    def build_model(self, hyperparameters: dict[str, Any]) -> None:
+    def configure(self, hyperparameters: dict[str, Any]) -> None:
         """
-        Builds the model from hyperparameters.
+        Configure the model from hyperparameters.
 
         :param hyperparameters: Custom hyperparameters for the model, includes mini_batch, layer dimensions (h_dim1,
             h_dim2, h_dim3), learning_rate, dropout_rate, weight_decay, gamma, epochs, and margin.

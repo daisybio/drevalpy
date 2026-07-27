@@ -36,15 +36,14 @@ def tuned_config_for_drp_model(
     return apply_merged_to_model_config(config, merged_sample)
 
 
-def build_drp_model_from_config(model: Any, config: ModelConfig) -> None:
-    """Build a public DRPModel instance from a resolved ``ModelConfig``."""
+def construct_drp_model_from_config(model_class: type[Any], config: ModelConfig) -> Any:
+    """Construct a public DRPModel instance from a resolved ``ModelConfig``."""
+    from_model_config = getattr(model_class, "from_model_config", None)
+    if callable(from_model_config):
+        return from_model_config(config)
     from .public_flat import public_hyperparameters_from_config
 
-    build_from_config = getattr(model, "build_from_model_config", None)
-    if callable(build_from_config):
-        build_from_config(config)
-        return
-    model.build_model(public_hyperparameters_from_config(config))
+    return model_class(public_hyperparameters_from_config(config))
 
 
 def structured_space_for_drp_model(model_class: type[Any]) -> dict[str, Any]:
@@ -56,7 +55,7 @@ def structured_space_for_drp_model(model_class: type[Any]) -> dict[str, Any]:
 
 
 def default_hyperparameters_for_drp_model(model_class: type[Any]) -> dict[str, Any]:
-    """Return default hyperparameters suitable for ``build_model``."""
+    """Return default hyperparameters used by ``model_class()``."""
     from .public_flat import public_hyperparameters_from_config
 
     config = default_config_for_drp_model(model_class)

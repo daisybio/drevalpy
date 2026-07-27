@@ -2,7 +2,7 @@ Persistence
 ===========
 
 Trained native models persist as a versioned joblib payload plus the public
-flat hyperparameters used for ``build_model``.
+flat hyperparameters applied at construction.
 
 composed_model.joblib
 ---------------------
@@ -12,17 +12,15 @@ composed_model.joblib
 - ``composed_model.joblib`` — format name/version, resolved ``ModelConfig``,
   and fitted component state (``get_state`` / ``set_state`` on each component)
 
-Public flat hyperparameters live on the facade instance after
-``build_model`` / ``load``; the checkpoint reconstructs them from the stored
-``ModelConfig``.
+Public flat hyperparameters live on the facade instance after construction or
+``load``; the checkpoint reconstructs them from the stored ``ModelConfig``.
 
 .. code-block:: python
 
    from drevalpy.models import construct_model
 
    ElasticNet = construct_model("ElasticNet")
-   model = ElasticNet()
-   model.build_model(model.get_default_hyperparameters())
+   model = ElasticNet()  # or ElasticNet({"alpha": 0.1})
    model.train(...)  # after a normal fit
    model.save("checkpoints/elastic_net")
 
