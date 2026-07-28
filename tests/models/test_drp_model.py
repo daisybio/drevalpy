@@ -186,7 +186,7 @@ def test_hyperparameters_and_views_are_immutable_after_construction() -> None:
 def test_load_drug_features_stores_preload_without_mutating_hyperparameters(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from drevalpy.components.predictors.literature.structured_engine_adapter import (
+    from drevalpy.components.predictors.literature._preload import (
         DISCOVERED_HYPERPARAMETERS_KEY,
     )
     from drevalpy.components.registry import get_predictor

@@ -13,9 +13,9 @@ import torch
 from torch_geometric.data import Data
 
 from drevalpy.components.model_input_batch import ModelInputBatch
-from drevalpy.components.predictors.literature.druggnn import DrugGNNPredictor
-from drevalpy.components.predictors.literature.neural_network import NeuralNetworkPredictor
-from drevalpy.components.predictors.literature.srmf_predictor import SRMFPredictor
+from drevalpy.components.predictors.literature.druggnn.predictor import DrugGNNPredictor
+from drevalpy.components.predictors.literature.srmf.predictor import SRMFPredictor
+from drevalpy.components.predictors.neural_network.predictor import NeuralNetworkPredictor
 from drevalpy.components.predictors.sklearn_models import AdaBoostPredictor, RidgePredictor
 from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.components.register_builtins import ensure_predictor_registered, register_builtin_components
@@ -163,13 +163,13 @@ def test_neural_network_set_state_raises_on_invalid_payload() -> None:
         predictor.set_state({"checkpoint": b"not-a-torch-checkpoint"})
 
 
-def test_druggnn_delegates_training_to_engine() -> None:
+def test_druggnn_delegates_training_to_algorithm() -> None:
     predictor = DrugGNNPredictor(
         hyperparameters={"epochs": 1, "batch_size": 2, "num_workers": 0},
     )
     batch = _druggnn_batch(with_early_stopping=True)
     with patch(
-        "drevalpy.components.predictors.literature.druggnn.DrugGNNEngine.train",
+        "drevalpy.components.predictors.literature.druggnn.algorithm.DrugGNN.train",
         autospec=True,
     ) as train_mock:
         predictor.fit(batch)
@@ -189,32 +189,32 @@ def test_druggnn_round_trip_state() -> None:
     batch = _druggnn_batch()
     predictor.fit(batch)
     assert predictor.is_fitted()
-    assert predictor._engine is not None
-    assert predictor._engine.model is not None
-    original_weight = next(predictor._engine.model.parameters()).detach().cpu()
+    assert predictor._algorithm is not None
+    assert predictor._algorithm.model is not None
+    original_weight = next(predictor._algorithm.model.parameters()).detach().cpu()
 
     restored = DrugGNNPredictor()
     restored.set_state(predictor.get_state())
     assert restored.is_fitted()
-    assert restored._engine is not None
-    assert restored._engine.model is not None
-    restored_weight = next(restored._engine.model.parameters()).detach().cpu()
+    assert restored._algorithm is not None
+    assert restored._algorithm.model is not None
+    restored_weight = next(restored._algorithm.model.parameters()).detach().cpu()
     assert torch.allclose(original_weight, restored_weight)
 
 
-def test_structured_predictor_lazy_engine_import() -> None:
+def test_literature_predictor_lazy_package_import() -> None:
     ensure_predictor_registered("dipk")
-    precily_module = "drevalpy.components.predictors.literature.impl.precily.precily"
+    precily_module = "drevalpy.components.predictors.literature.precily.algorithm"
     sys.modules.pop(precily_module, None)
     cls = get_predictor("dipk")
-    assert cls.engine_cls().__name__ == "DIPKModel"
+    assert cls.__name__ == "DIPKPredictor"
     assert precily_module not in sys.modules
 
 
 def test_structured_predictor_set_state_raises_on_invalid_blob() -> None:
     predictor = SRMFPredictor()
     with pytest.raises(PredictorStateError):
-        predictor.set_state({"engine": b"invalid"})
+        predictor.set_state({"payload": b"invalid"})
 
 
 def test_ridge_zoo_preset_exists() -> None:
@@ -267,7 +267,7 @@ def test_xgboost_load_applies_thread_defaults_before_restore() -> None:
 
 
 def test_pharmaformer_landmark_preload_round_trip() -> None:
-    module = importlib.import_module("drevalpy.components.predictors.literature.pharmaformer_predictor")
+    module = importlib.import_module("drevalpy.components.predictors.literature.pharmaformer.predictor")
     predictor_cls = module.PharmaFormerPredictor
     predictor = predictor_cls(hyperparameters={"epochs": 1})
     predictor.set_engine_preload_state({"gene_dim_input": 978})

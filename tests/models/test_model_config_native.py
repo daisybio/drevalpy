@@ -9,7 +9,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from drevalpy.components.predictors.literature._engine_base import LiteratureEngineBase
+from drevalpy.components.predictors.literature._training_helpers import LiteratureTrainingMixin
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models import construct_model
 from drevalpy.models.config import ModelConfig
@@ -55,17 +55,17 @@ def test_zoo_entries_create_runnable_models(name: str) -> None:
     assert model_cls() is not None
 
 
-def test_literature_impl_engines_do_not_subclass_drp_model() -> None:
-    impl_root = Path(__file__).resolve().parents[2] / "drevalpy" / "components" / "predictors" / "literature" / "impl"
-    for path in impl_root.rglob("*.py"):
-        if path.name.startswith("_"):
-            continue
-        module_name = "drevalpy.components.predictors.literature.impl." + ".".join(
-            path.relative_to(impl_root).with_suffix("").parts
-        )
+def test_literature_algorithms_do_not_subclass_drp_model() -> None:
+    literature_root = Path(__file__).resolve().parents[2] / "drevalpy" / "components" / "predictors" / "literature"
+    for path in literature_root.glob("*/algorithm.py"):
+        module_name = "drevalpy.components.predictors.literature." + path.parent.name + ".algorithm"
         module = importlib.import_module(module_name)
         for obj in vars(module).values():
-            if isinstance(obj, type) and issubclass(obj, LiteratureEngineBase) and obj is not LiteratureEngineBase:
+            if (
+                isinstance(obj, type)
+                and issubclass(obj, LiteratureTrainingMixin)
+                and obj is not LiteratureTrainingMixin
+            ):
                 assert not issubclass(obj, DRPModel)
 
 

@@ -176,6 +176,18 @@ receive static hyperparameters from ``PredictorConfig.create_instance()``.
 calls ``predictor.fit`` — there is no public ``Predictor.build``. Dimension
 allocation that depends on fitted features happens inside ``fit``.
 
+Literature predictor ownership
+------------------------------
+
+Each literature model lives in its own package below
+``drevalpy.components.predictors.literature``. Its ``predictor.py`` directly
+implements one input interface and owns feature loading, validation, fitting,
+prediction, and persistence. Model-specific networks and data/training helpers
+are sibling modules in the same package. The literature root contains only
+behavior-neutral helpers such as raw-view validation, block conversion, and
+reference metadata; there is no shared lifecycle engine or string-based engine
+resolver.
+
 Persistence
 -----------
 

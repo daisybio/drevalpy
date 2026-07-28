@@ -44,8 +44,8 @@ def test_component_predictors_avoid_models_utils() -> None:
     for module_name in (
         "drevalpy.components.predictors.sklearn_models",
         "drevalpy.components.predictors.naive",
-        "drevalpy.components.predictors.literature.impl.dipk.dipk",
-        "drevalpy.components.predictors.literature.impl.simple_neural_network.utils",
+        "drevalpy.components.predictors.literature.dipk.algorithm",
+        "drevalpy.components.predictors.neural_network.network",
     ):
         module = importlib.import_module(module_name)
         source_path = module.__file__

@@ -106,8 +106,8 @@ def test_subprocess_blocks_optional_deps_for_simple_models() -> None:
         blocked = {
             "xgboost": "blocked xgboost",
             "lightgbm": "blocked lightgbm",
-            "drevalpy.components.predictors.literature.impl.dipk.dipk": "blocked dipk",
-            "drevalpy.components.predictors.literature.impl.pharmaformer.pharmaformer": "blocked pharmaformer",
+            "drevalpy.components.predictors.literature.dipk.algorithm": "blocked dipk",
+            "drevalpy.components.predictors.literature.pharmaformer.algorithm": "blocked pharmaformer",
         }
 
         class BlockLoader(importlib.abc.Loader):

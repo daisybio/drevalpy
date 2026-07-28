@@ -290,8 +290,7 @@ class IsolatedPredictor(FeatureFreePredictor):
         blocked = {{
             "xgboost": "blocked xgboost",
             "lightgbm": "blocked lightgbm",
-            "drevalpy.components.predictors.literature.structured_predictors": "blocked literature",
-            "drevalpy.components.predictors.literature.impl.dipk.dipk": "blocked dipk",
+            "drevalpy.components.predictors.literature.dipk.predictor": "blocked dipk",
         }}
 
         class BlockLoader(importlib.abc.Loader):
@@ -332,8 +331,7 @@ def test_subprocess_native_lookup_does_not_import_optional_families() -> None:
         blocked = {
             "xgboost": "blocked xgboost",
             "lightgbm": "blocked lightgbm",
-            "drevalpy.components.predictors.literature.structured_predictors": "blocked literature",
-            "drevalpy.components.predictors.literature.impl.dipk.dipk": "blocked dipk",
+            "drevalpy.components.predictors.literature.dipk.predictor": "blocked dipk",
         }
 
         class BlockLoader(importlib.abc.Loader):

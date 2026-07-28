@@ -17,6 +17,7 @@ _FORBIDDEN_MODULE_FRAGMENTS = (
     "predictors.baselines",
     "models.baselines",
     "literature.public_models",
+    "predictors/literature/impl",
     "_native_drp_model",
     "composed_model",
     "_factory_classes",

@@ -35,11 +35,7 @@ def public_hyperparameters_from_config(
             flat["drug_views"] = drug_views
     if config.predictor is not None:
         predictor_cls = get_predictor(config.predictor.name)
-        engine_cls = getattr(predictor_cls, "_engine_cls", None)
-        if engine_cls is not None:
-            flat.update(engine_cls.get_default_hyperparameters())
-        else:
-            flat.update(predictor_cls.get_default_hyperparameters())
+        flat.update(predictor_cls.get_default_hyperparameters())
         flat.update(config.predictor.hyperparameters)
     append_featurizer_flat_keys(flat, config.cell_line_featurizer, "cell_line")
     append_featurizer_flat_keys(flat, config.drug_featurizer, "drug")

@@ -40,23 +40,12 @@ def test_model_config_and_factory_share_zoo_name(name: str) -> None:
     assert model_cls.get_model_name() == name
 
 
-def test_structured_predictors_do_not_import_models_package_implementations() -> None:
-    module = importlib.import_module("drevalpy.components.predictors.literature._engine_resolve")
-    source_path = module.__file__
-    assert source_path is not None
-    text = Path(source_path).read_text(encoding="utf-8")
-    assert "drevalpy.models.DIPK" not in text
-    assert "drevalpy.models.Precily" not in text
-    assert "drevalpy.components.predictors.literature.impl" in text
-    assert "set_build_context" not in text
-
-
 def test_literature_predictor_modules_avoid_legacy_adapter_modules() -> None:
     for module_name in (
-        "drevalpy.components.predictors.literature.structured_engine_adapter",
-        "drevalpy.components.predictors.literature.precily_predictor",
-        "drevalpy.components.predictors.literature.druggnn",
-        "drevalpy.components.predictors.literature.neural_network",
+        "drevalpy.components.predictors.literature.precily.predictor",
+        "drevalpy.components.predictors.literature.druggnn.predictor",
+        "drevalpy.components.predictors.neural_network.predictor",
+        "drevalpy.components.predictors.literature.dipk.predictor",
     ):
         module = importlib.import_module(module_name)
         source_path = module.__file__
@@ -66,3 +55,5 @@ def test_literature_predictor_modules_avoid_legacy_adapter_modules() -> None:
         assert "FeaturizerValidatedLegacyPredictor" not in text
         assert "legacy_stack" not in text
         assert "public_models" not in text
+        assert "literature.impl" not in text
+        assert "LiteratureEngineMixin" not in text

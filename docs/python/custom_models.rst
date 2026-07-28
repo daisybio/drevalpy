@@ -100,6 +100,11 @@ Every predictor must inherit exactly one input interface:
 - ``RawDatasetPredictor`` — required raw ``FeatureDataset`` views; no featurizers
 
 Neural encoders remain private implementation details inside predictors.
+For larger predictors, use a predictor-owned package: keep the registered
+class and lifecycle orchestration in ``predictor.py`` and place model-specific
+networks, datasets, and training helpers in small sibling modules. Shared
+predictor-root helpers should be behavior-neutral; lifecycle adapters and
+string-based implementation resolvers obscure ownership and are unsupported.
 
 **2. External zoo YAML** (``my_zoo/toy.yaml``):
 

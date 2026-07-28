@@ -259,11 +259,9 @@ def _featurizer_cls(featurizer: FeaturizerConfig, registry: str) -> type[Any]:
 
 
 def _predictor_accepted_keys(predictor_cls: type[Any]) -> set[str]:
-    engine_cls = getattr(predictor_cls, "_engine_cls", None)
-    source = engine_cls if engine_cls is not None else predictor_cls
-    keys = set(source.get_default_hyperparameters())
-    keys.update(source.get_hyperparameter_space())
-    non_tunable = getattr(source, "non_tunable_hyperparameters", None)
+    keys = set(predictor_cls.get_default_hyperparameters())
+    keys.update(predictor_cls.get_hyperparameter_space())
+    non_tunable = getattr(predictor_cls, "non_tunable_hyperparameters", None)
     if isinstance(non_tunable, dict):
         keys.update(non_tunable)
     elif isinstance(non_tunable, (set, frozenset, list, tuple)):
