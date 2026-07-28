@@ -182,7 +182,7 @@ Extension path
 Register featurizers/predictors, compose a ``ModelConfig`` or zoo YAML, and
 use ``construct_model`` / ``load_extensions``. Direct ``DRPModel`` subclass
 authoring is not the supported extension mechanism. See :doc:`custom_models`
-for a full example, and :doc:`component_catalog` for built-in registry names.
+for a full example, and :doc:`/concepts/component_catalog` for built-in registry names.
 
 Backward compatibility
 ----------------------

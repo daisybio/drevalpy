@@ -119,7 +119,7 @@ def test_zoo_presets_documented_in_model_zoo() -> None:
 def test_component_catalog_covers_builtin_registry_names() -> None:
     from drevalpy.components import register_builtins as rb
 
-    catalog = (DOCS / "python" / "component_catalog.rst").read_text(encoding="utf-8")
+    catalog = (DOCS / "concepts" / "component_catalog.rst").read_text(encoding="utf-8")
     expected = set(rb._CELL_LINE_MODULES) | set(rb._DRUG_MODULES) | set(rb._PREDICTOR_MODULES)
     missing = sorted(name for name in expected if name not in catalog)
     assert not missing, f"Registry names missing from component_catalog.rst: {missing}"

@@ -281,6 +281,7 @@ redirects = {
     "example_flexible_inputs.html": "python/model_inputs.html",
     "hyperparameter_migration.html": "python/hyperparameter_tuning.html",
     "model_architecture.html": "python/architecture.html",
+    "python/component_catalog.html": "concepts/component_catalog.html",
     "runyourmodel.html": "python/custom_models.html",
     "API.html": "python/api/index.html",
     "drevalpy.datasets.html": "python/api/datasets.html",

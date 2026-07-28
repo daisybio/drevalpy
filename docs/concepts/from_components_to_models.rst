@@ -1,66 +1,57 @@
 From components to models
 =========================
 
-DrEvalPy models are **composed**, not hard-coded end-to-end classes. A runnable
-model is a stack of registered components:
+The :doc:`component_catalog` introduced the available building blocks. This
+page supplies the grammar for combining them into a runnable model.
+
+A model has three ordered slots:
 
 .. code-block:: text
 
-   cell-line featurizer(s)  +  drug featurizer(s)  +  predictor
+   cell-line featurizer : drug featurizer : predictor
 
-The same stack can be described as a short **recipe string**, as YAML in the
-:doc:`model_zoo`, or (in Python) as a ``ModelConfig``. CLI and Python both
-select models by zoo preset name; custom stacks use the same recipe grammar.
-
-Featurizers and predictors
---------------------------
-
-- **Cell-line featurizers** turn omics (or other sample features) into the
-  tensors or matrices a predictor expects — for example scaled gene
-  expression, PCA on methylation, or landmark genes.
-- **Drug featurizers** do the same for compounds — fingerprints, SMILES-based
-  embeddings, molecular graphs, and so on.
-- **Predictors** map the featurized inputs to a response (Elastic Net, random
-  forest, neural nets, naive baselines, …).
-
-Components are registered by name. Compatibility is checked at composition
-time: each featurizer declares a feature kind (``dense``, ``graph``, or
-``sequence``), and each predictor declares what kinds it accepts.
-
-The :doc:`model_zoo` lists named presets built from these components. The
-full registry of built-in names is in :doc:`/python/component_catalog`.
-
-Recipe strings
---------------
-
-A recipe has three colon-separated slots:
-
-.. code-block:: text
-
-   cellLineFeaturizer:drugFeaturizer:predictor
-
-Examples:
+Colons separate the slots. Starting with the three ingredients from the end of
+the catalog gives the simplest complete recipe:
 
 .. code-block:: text
 
    scaledGeneExpression:fingerprints:elasticNet
-   normalizedProteomics:fingerprints:randomForest
-   landmarkGeneExpression:fingerprints:xgboost
 
-Some cell-line featurizers take an omics **view** in brackets:
+Read it from left to right: scale gene expression for each cell line, compute
+drug fingerprints, then fit an elastic-net predictor. The architecture is
+fully determined by those three names.
+
+Other single-view recipes follow the same pattern:
+
+.. code-block:: text
+
+   normalizedProteomics:fingerprints:randomForest
+   landmarkGenes:fingerprints:xgboost
+
+Composition is validated before training. Each featurizer declares whether it
+produces dense, graph, or sequence features; each predictor declares which
+kinds it accepts. An incompatible recipe fails early rather than reaching the
+training loop.
+
+Qualifying an omics view
+------------------------
+
+The ``raw`` and ``pca`` cell-line featurizers need to know which omics layer to
+read. Put that view in brackets as part of the featurizer's qualified name:
 
 .. code-block:: text
 
    raw[expression]:fingerprints:randomForest
    pca[methylation]:fingerprints:randomForest
-   raw[mynewdatamodality]:fingerprints:randomForest
+   raw[proteomics]:fingerprints:randomForest
 
 Common view aliases include ``expression``, ``methylation``, ``mutations``,
-``proteomics``, and ``cnv``. Zoo YAML uses the same atoms as the recipe
-string (``name`` / ``view`` blocks instead of a single line).
+``proteomics``, and ``cnv``. The bracket is meaningful throughout the
+configuration: ``pca[expression]`` and ``pca[proteomics]`` are different
+qualified featurizers.
 
-Concatenation with ``+``
-~~~~~~~~~~~~~~~~~~~~~~~~
+Combining multiple representations
+----------------------------------
 
 Within a featurizer slot, ``+`` concatenates several featurizers into
 ``concatFeaturizers``. That is how multi-view models are expressed — not with
@@ -69,13 +60,22 @@ special multi-view predictor classes:
 .. code-block:: text
 
    raw[expression]+pca[methylation]:fingerprints:xgboost
-   landmarkGeneExpression+normalizedProteomics:fingerprints:lightgbm
+   landmarkGenes+normalizedProteomics:fingerprints:lightgbm
 
 The left slot can concatenate several cell-line featurizers; the middle slot
 can concatenate drug featurizers the same way when needed. The right slot is
 always a single predictor name.
 
-Equivalent zoo YAML for a concatenated cell-line stack:
+Each qualified featurizer may occur only once per slot. Reusing a base name for
+different views is valid, but repeating the same qualified name is not:
+
+.. code-block:: text
+
+   raw[expression]+raw[mutations]       # valid
+   pca[expression]+pca[expression]      # invalid
+
+The same architecture can be written as structured YAML. For the first
+multi-view recipe above:
 
 .. code-block:: yaml
 
@@ -89,8 +89,20 @@ Equivalent zoo YAML for a concatenated cell-line stack:
    drug_featurizer: fingerprints
    predictor: xgboost
 
-Architecture vs hyperparameters
--------------------------------
+Recipe, YAML, and named preset
+------------------------------
+
+Recipe strings and YAML are two representations of the same component tree.
+Recipes are concise and useful for custom stacks; YAML can also carry
+descriptions and explicit component settings. A model-zoo preset gives a
+validated YAML definition a stable, user-facing name.
+
+CLI and Python workflows normally select that preset name. The
+:doc:`model_zoo` is the next step in this sequence: it shows the ready-made
+architectures shipped with DrEvalPy and the recipe behind each one.
+
+Architecture and hyperparameters
+--------------------------------
 
 The recipe (which featurizers and which predictor) is part of the **model
 architecture**. It is fixed when the model is composed. Hyperparameter
@@ -126,29 +138,21 @@ Examples:
    featurizer.cell_line.pca[expression].n_components
    featurizer.cell_line.landmarkGenes.standardize
 
-Within one registry slot, each **qualified** featurizer may appear at most
-once. Different views of the same base name are distinct and allowed:
-
-.. code-block:: text
-
-   # valid — different views
-   raw[expression]+raw[mutations]:fingerprints:xgboost
-
-   # invalid — duplicate qualified selector
-   pca[expression]+pca[expression]:fingerprints:xgboost
-
 Flat keys such as ``alpha`` remain valid for constructor defaults; legacy
 featurizer aliases (for example ``methylation_n_components``) still work but
 are deprecated in favor of the dotted form.
 
-Further reading
----------------
+Continue the story
+------------------
 
-- :doc:`model_zoo` — named presets and their descriptions
+- **Next:** :doc:`model_zoo` — choose a named, ready-to-run architecture
+- **Previous:** :doc:`component_catalog` — look up a registered component name
 - :doc:`/python/architecture` — composition details and contracts
 - :doc:`/python/model_inputs` — custom views and recipe examples in Python
-- :doc:`/python/component_catalog` — registered featurizer and predictor names
 - :doc:`/python/custom_models` — registering your own components
+
+The compatibility section below is a reference for readers migrating older
+configurations; it is not required before continuing to the model zoo.
 
 Backward compatibility
 ----------------------

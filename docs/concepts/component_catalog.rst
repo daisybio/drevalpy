@@ -1,10 +1,17 @@
 Component catalog
 =================
 
-Built-in featurizers and predictors are registered by name. Use these names in
-recipe strings, zoo YAML, and ``ModelConfig``. To discover what is loaded at
-runtime (including extensions), inspect the registries after import; to add
-external components, call ``load_extensions`` (see :doc:`custom_models`).
+This catalog is the vocabulary of a DrEvalPy model. Every model is assembled
+from components with three distinct roles:
+
+- a **cell-line featurizer** represents the biological sample,
+- a **drug featurizer** represents the compound, and
+- a **predictor** maps those representations to a drug-response estimate.
+
+The names below are the stable registry names used in recipes and model-zoo
+definitions. They are case-sensitive. At this stage, focus on what each
+component contributes; the next page, :doc:`from_components_to_models`,
+explains how the names fit together and how compatibility is checked.
 
 Cell-line featurizers
 ---------------------
@@ -132,23 +139,29 @@ Predictors
    * - ``sparsego``
      - SparseGO (literature)
 
-load_extensions
----------------
+From catalog to composition
+---------------------------
 
-Register external components and optional zoo files before constructing
-models:
+A row from each table gives the ingredients for a model, but not yet the model
+itself. For example:
 
-.. code-block:: python
+- ``scaledGeneExpression`` represents cell lines,
+- ``fingerprints`` represents drugs, and
+- ``elasticNet`` predicts responses from those representations.
 
-   from drevalpy.components import load_extensions
+The next page turns those three names into the recipe
+``scaledGeneExpression:fingerprints:elasticNet``. It also introduces omics-view
+selectors, multi-view concatenation, compatibility checks, and component
+hyperparameters. Continue with :doc:`from_components_to_models`; the remaining
+sections on this page are reference notes for extensions and older interfaces.
 
-   load_extensions(
-       directories=["my_components"],
-       zoo_files=["my_zoo/toy.yaml"],
-   )
+Extensions
+----------
 
-See :doc:`custom_models` for a full registration example and
-:doc:`architecture` for contracts and composition rules.
+External components and optional zoo files can be registered before models are
+constructed (via ``load_extensions`` in the Python API). See
+:doc:`/python/custom_models` for a full registration example and
+:doc:`/python/architecture` for contracts and composition rules.
 
 Backward compatibility
 ----------------------

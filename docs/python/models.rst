@@ -3,7 +3,7 @@ Models
 
 Resolve built-in and custom stacks with ``construct_model`` and declarative
 ``ModelConfig``. For composition details see :doc:`architecture`; for registered
-atoms see :doc:`component_catalog`.
+atoms see :doc:`/concepts/component_catalog`.
 
 Resolution path
 ---------------

@@ -90,10 +90,10 @@ Verify the console script:
 
    drevalpy --help
 
-Then follow :doc:`/cli/quickstart` or :doc:`/python/quickstart` for a first
-experiment. Data downloads on first use into ``--path_data`` (default ``data``);
-predictions and reports go under ``--path_out`` / ``run_id`` (default
-``results/``).
+Then :doc:`choose the CLI or Python API </getting_started/run_first_experiment>`
+for your first experiment. Data downloads on first use into ``--path_data``
+(default ``data``); predictions and reports go under ``--path_out`` /
+``run_id`` (default ``results/``).
 
 Hyperparameter tuning on Windows
 --------------------------------
