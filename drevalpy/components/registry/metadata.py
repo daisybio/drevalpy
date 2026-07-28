@@ -4,54 +4,105 @@ from __future__ import annotations
 
 from typing import Any
 
-from drevalpy.components.contracts import FeatureContract, FeatureKind, featurizer_contract, predictor_contracts
+from drevalpy.components.contracts import FeatureContract, FeatureFormat, featurizer_contract, predictor_contracts
+from drevalpy.types.literature_reference import LiteratureReference
 
 
-def _contract_to_str(contract: FeatureContract | FeatureKind | str | None) -> str:
+def _contract_to_str(contract: FeatureContract | FeatureFormat | str | None) -> str:
     if contract is None:
         return ""
     if isinstance(contract, FeatureContract):
-        return contract.kind.value
-    if isinstance(contract, FeatureKind):
+        return contract.format.value
+    if isinstance(contract, FeatureFormat):
         return contract.value
     return str(contract)
 
 
-def metadata_record(registry_name: str, name: str, cls: type[Any]) -> dict[str, str]:
-    """Flattened metadata dict for internal consumers."""
-    cite = (
-        str(getattr(cls, "citation", "") or "").strip()
-        or str(getattr(cls, "citation_doi", "") or "").strip()
-        or str(getattr(cls, "citation_text", "") or "").strip()
-    )
+def _tags_to_str(tags: object) -> str:
+    if not tags:
+        return ""
+    if isinstance(tags, (frozenset, set, list, tuple)):
+        return ",".join(sorted(str(tag) for tag in tags))
+    return str(tags)
+
+
+def _reference_fields(cls: type[Any]) -> dict[str, str]:
+    reference = getattr(cls, "reference", None)
+    if not isinstance(reference, LiteratureReference):
+        return {
+            "repo_url": "",
+            "citation": "",
+            "citation_doi": "",
+            "citation_text": "",
+            "deviations": "",
+        }
+    cite = reference.citation_doi or reference.citation_text
     if cite.startswith("10."):
         cite = f"https://doi.org/{cite}"
     return {
+        "repo_url": reference.repo_url,
+        "citation": cite,
+        "citation_doi": reference.citation_doi,
+        "citation_text": reference.citation_text,
+        "deviations": reference.deviations,
+    }
+
+
+def _predictor_input_interface(cls: type[Any]) -> str:
+    # Local imports avoid circular dependencies during package import.
+    from drevalpy.components.predictors.feature_free import FeatureFreePredictor
+    from drevalpy.components.predictors.matrix import MatrixPredictor
+    from drevalpy.components.predictors.raw_dataset import RawDatasetPredictor
+    from drevalpy.components.predictors.structured import BlockPredictor
+
+    if issubclass(cls, FeatureFreePredictor):
+        return "feature_free"
+    if issubclass(cls, MatrixPredictor):
+        return "matrix"
+    if issubclass(cls, RawDatasetPredictor):
+        return "raw_dataset"
+    if issubclass(cls, BlockPredictor):
+        return "block"
+    return ""
+
+
+def metadata_record(registry_name: str, name: str, cls: type[Any]) -> dict[str, str]:
+    """Flattened metadata dict for internal consumers."""
+    fields = {
         "registry": registry_name,
         "name": name,
         "class_name": cls.__name__,
         "description": str(getattr(cls, "description", "") or ""),
-        "category": str(getattr(cls, "category", "") or ""),
-        "component_type": str(getattr(cls, "component_type", "") or ""),
-        "template_repo_url": str(getattr(cls, "template_repo_url", "") or ""),
-        "citation": cite,
-        "citation_doi": str(getattr(cls, "citation_doi", "") or ""),
-        "citation_text": str(getattr(cls, "citation_text", "") or ""),
-        "deviations": str(getattr(cls, "deviations", "") or ""),
+        "tags": _tags_to_str(getattr(cls, "tags", frozenset())),
     }
+    fields.update(_reference_fields(cls))
+    return fields
 
 
 def featurizer_component_metadata(registry_name: str, name: str, cls: type[Any]) -> dict[str, str]:
     """Like `metadata_record` plus featurizer contract summary."""
     meta = metadata_record(registry_name, name, cls)
-    meta["output_type"] = _contract_to_str(featurizer_contract(cls))
+    meta["output_format"] = _contract_to_str(featurizer_contract(cls))
     return meta
 
 
 def predictor_component_metadata(registry_name: str, name: str, cls: type[Any]) -> dict[str, str]:
-    """Like `metadata_record` plus predictor input contract summaries."""
+    """Like `metadata_record` plus predictor capability and contract summaries."""
     meta = metadata_record(registry_name, name, cls)
     cell_line, drug = predictor_contracts(cls)
-    meta["required_cell_line_input"] = _contract_to_str(cell_line)
-    meta["required_drug_input"] = _contract_to_str(drug)
+    meta["input_interface"] = _predictor_input_interface(cls)
+    meta["cell_line_format"] = _contract_to_str(cell_line)
+    meta["drug_format"] = _contract_to_str(drug)
+    modes: object = getattr(cls, "supported_modes", frozenset())
+    scopes: object = getattr(cls, "supported_scopes", frozenset())
+    mode_values = modes if isinstance(modes, (frozenset, set, list, tuple)) else ()
+    scope_values = scopes if isinstance(scopes, (frozenset, set, list, tuple)) else ()
+    meta["supported_modes"] = ",".join(sorted(str(mode) for mode in mode_values))
+    meta["supported_scopes"] = ",".join(sorted(str(scope) for scope in scope_values))
+    meta["supports_early_stopping"] = str(bool(getattr(cls, "supports_early_stopping", False))).lower()
+    meta["requires_drug_featurizer"] = str(bool(getattr(cls, "requires_drug_featurizer", True))).lower()
+    cell_views = getattr(cls, "required_cell_line_views", ())
+    drug_views = getattr(cls, "required_drug_views", ())
+    meta["required_cell_line_views"] = ",".join(cell_views) if cell_views else ""
+    meta["required_drug_views"] = ",".join(drug_views) if drug_views else ""
     return meta

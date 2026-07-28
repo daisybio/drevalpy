@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from drevalpy.components.contracts import FeatureKind
+from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.featurizers.drug.base import DrugFeaturizer
 from drevalpy.components.registry import register_drug_featurizer
 
@@ -12,8 +12,7 @@ from drevalpy.components.registry import register_drug_featurizer
 @register_drug_featurizer(
     "drugGraph",
     description="Precomputed PyG molecular graphs stored under the drug_graph view.",
-    category="general_purpose",
-    contract=FeatureKind.GRAPH,
+    contract=FeatureFormat.GRAPH,
 )
 class DrugGraphFeaturizer(DrugFeaturizer):
     """Expose precomputed drug graphs for graph predictors."""
@@ -55,6 +54,9 @@ class DrugGraphFeaturizer(DrugFeaturizer):
                 raise KeyError(msg)
             graphs.append(views[self._view])
         return np.array(graphs, dtype=object)
+
+    def transform_blocks(self, features, entity_ids: np.ndarray) -> dict[str, np.ndarray]:
+        return {self._view: self.transform(features, entity_ids)}
 
     @property
     def output_dim(self) -> int:

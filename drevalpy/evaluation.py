@@ -123,13 +123,13 @@ def get_mode(metric: str):
         mode = "max"
     else:
         raise ValueError(
-            f"Invalid metric: {metric}. Need to add metric to MINIMIZATION_METRICS or " f"MAXIMIZATION_METRICS?"
+            f"Invalid metric: {metric}. Need to add metric to MINIMIZATION_METRICS or MAXIMIZATION_METRICS?"
         )
     return mode
 
 
 def _should_return_nan_global(response: np.ndarray, predictions: np.ndarray) -> bool:
-    return len(response) < 2 or np.all(np.isnan(response)) or np.all(np.isnan(predictions))
+    return bool(len(response) < 2 or np.all(np.isnan(response)) or np.all(np.isnan(predictions)))
 
 
 def _masked_metric_inputs(predictions: np.ndarray, response: np.ndarray) -> tuple[np.ndarray, np.ndarray] | None:

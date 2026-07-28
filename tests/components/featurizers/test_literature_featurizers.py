@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from drevalpy.components.contracts import FeatureContract, FeatureKind, featurizer_contract
+from drevalpy.components.contracts import FeatureContract, FeatureFormat, featurizer_contract
 from drevalpy.components.register_builtins import register_builtin_components
 from drevalpy.components.registry import get_cell_line_featurizer, get_drug_featurizer
 
@@ -15,41 +15,41 @@ def _register_components() -> None:
 
 
 @pytest.mark.parametrize(
-    ("name", "expected_kind"),
+    ("name", "expected_format"),
     [
-        ("landmarkGenes", FeatureKind.DENSE),
-        ("landmarkGenesReduced", FeatureKind.DENSE),
-        ("pathways", FeatureKind.DENSE),
-        ("bionic", FeatureKind.DENSE),
-        ("concatFeaturizers", FeatureKind.DENSE),
-        ("raw", FeatureKind.DENSE),
-        ("pca", FeatureKind.DENSE),
+        ("landmarkGenes", FeatureFormat.NUMERIC_MATRIX),
+        ("landmarkGenesReduced", FeatureFormat.NUMERIC_MATRIX),
+        ("pathways", FeatureFormat.NUMERIC_MATRIX),
+        ("bionic", FeatureFormat.NUMERIC_MATRIX),
+        ("concatFeaturizers", FeatureFormat.NUMERIC_MATRIX),
+        ("raw", FeatureFormat.NUMERIC_MATRIX),
+        ("pca", FeatureFormat.NUMERIC_MATRIX),
     ],
 )
 def test_cell_line_literature_featurizer_contracts(
     name: str,
-    expected_kind: FeatureKind,
+    expected_format: FeatureFormat,
 ) -> None:
     cls = get_cell_line_featurizer(name)
     contract = featurizer_contract(cls)
     assert isinstance(contract, FeatureContract)
-    assert contract.kind == expected_kind
+    assert contract.format == expected_format
 
 
 @pytest.mark.parametrize(
-    ("name", "expected_kind"),
+    ("name", "expected_format"),
     [
-        ("molgnet", FeatureKind.DENSE),
-        ("bpePharmaformer", FeatureKind.DENSE),
-        ("smilesvec", FeatureKind.DENSE),
-        ("drugGraph", FeatureKind.GRAPH),
+        ("molgnet", FeatureFormat.RAGGED_SEQUENCE),
+        ("bpePharmaformer", FeatureFormat.NUMERIC_MATRIX),
+        ("smilesvec", FeatureFormat.NUMERIC_MATRIX),
+        ("drugGraph", FeatureFormat.GRAPH),
     ],
 )
 def test_drug_literature_featurizer_contracts(
     name: str,
-    expected_kind: FeatureKind,
+    expected_format: FeatureFormat,
 ) -> None:
     cls = get_drug_featurizer(name)
     contract = featurizer_contract(cls)
     assert isinstance(contract, FeatureContract)
-    assert contract.kind == expected_kind
+    assert contract.format == expected_format

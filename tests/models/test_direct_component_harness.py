@@ -79,7 +79,7 @@ def test_multi_drug_sklearn_rejects_missing_drug_featurizer() -> None:
         ).validate()
 
 
-def test_single_drug_sklearn_accepts_missing_drug_featurizer() -> None:
+def test_single_drug_sklearn_rejects_missing_drug_identity() -> None:
     config = ModelConfig.from_dict(
         {
             "cell_line_featurizer": "scaledGeneExpression",
@@ -87,7 +87,8 @@ def test_single_drug_sklearn_accepts_missing_drug_featurizer() -> None:
             "scope": "single_drug",
         }
     )
-    config.validate()
+    with pytest.raises(ValueError, match="requires drug_featurizer='identity'"):
+        config.validate()
 
 
 def test_feature_free_naive_accepts_no_featurizers() -> None:

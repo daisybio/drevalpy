@@ -39,10 +39,8 @@ def test_zoo_elastic_net_defaults() -> None:
 def test_zoo_naive_presets_use_information_accurate_featurizers() -> None:
     naive = get_zoo_config("NaivePredictor")
     assert naive.predictor.name == "naiveMean"
-    assert naive.cell_line_featurizer is not None
-    assert naive.cell_line_featurizer.name == "constant"
-    assert naive.drug_featurizer is not None
-    assert naive.drug_featurizer.name == "constant"
+    assert naive.cell_line_featurizer is None
+    assert naive.drug_featurizer is None
 
     cell_mean = get_zoo_config("NaiveCellLineMeanPredictor")
     assert cell_mean.cell_line_featurizer is not None
@@ -141,14 +139,17 @@ def test_model_config_for_name_uses_zoo_entry() -> None:
     assert config.predictor.hyperparameters["alpha"] == 0.5
 
 
-def test_single_drug_sklearn_zoo_entries_use_optional_drug_predictors() -> None:
+def test_single_drug_sklearn_zoo_entries_use_identity_for_routing() -> None:
     elastic_net = get_zoo_config("SingleDrugElasticNet")
     random_forest = get_zoo_config("SingleDrugRandomForest")
 
     assert elastic_net.predictor.name == "singleDrugElasticNet"
     assert random_forest.predictor.name == "singleDrugRandomForest"
-    assert elastic_net.drug_featurizer is None
-    assert random_forest.drug_featurizer is None
+    assert elastic_net.drug_featurizer is not None
+    assert random_forest.drug_featurizer is not None
+    assert elastic_net.drug_featurizer.name == "identity"
+    assert random_forest.drug_featurizer.name == "identity"
+    assert elastic_net.model_id == "scaledGeneExpression:identity:singleDrugElasticNet"
     assert elastic_net.scope.value == "single_drug"
     elastic_net.validate()
     random_forest.validate()

@@ -2,7 +2,7 @@
 
 from drevalpy.components.contracts import (
     FeatureContract,
-    FeatureKind,
+    FeatureFormat,
     contracts_compatible,
     featurizer_contract,
     normalize_feature_contract,
@@ -10,59 +10,56 @@ from drevalpy.components.contracts import (
 )
 
 
-def test_dense_contracts_compatible() -> None:
-    produced = FeatureContract(kind=FeatureKind.DENSE)
-    required = FeatureContract(kind=FeatureKind.DENSE)
+def test_numeric_contracts_compatible() -> None:
+    produced = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
+    required = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
     assert contracts_compatible(produced, required)
 
 
-def test_graph_contracts_compatible_by_kind_only() -> None:
-    produced = FeatureContract(kind=FeatureKind.GRAPH)
-    required = FeatureContract(kind=FeatureKind.GRAPH)
+def test_graph_contracts_compatible_by_format_only() -> None:
+    produced = FeatureContract(format=FeatureFormat.GRAPH)
+    required = FeatureContract(format=FeatureFormat.GRAPH)
     assert contracts_compatible(produced, required)
 
 
-def test_sequence_contracts_compatible() -> None:
-    produced = FeatureContract(kind=FeatureKind.SEQUENCE)
-    required = FeatureContract(kind=FeatureKind.SEQUENCE)
+def test_ragged_contracts_compatible() -> None:
+    produced = FeatureContract(format=FeatureFormat.RAGGED_SEQUENCE)
+    required = FeatureContract(format=FeatureFormat.RAGGED_SEQUENCE)
     assert contracts_compatible(produced, required)
 
 
-def test_kind_mismatch_is_incompatible() -> None:
-    produced = FeatureContract(kind=FeatureKind.GRAPH)
-    required = FeatureContract(kind=FeatureKind.DENSE)
+def test_format_mismatch_is_incompatible() -> None:
+    produced = FeatureContract(format=FeatureFormat.GRAPH)
+    required = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
     assert not contracts_compatible(produced, required)
 
 
 def test_feature_contract_is_frozen() -> None:
-    contract = FeatureContract(kind=FeatureKind.DENSE)
+    contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
     try:
-        contract.kind = FeatureKind.GRAPH  # type: ignore[misc]
+        contract.format = FeatureFormat.GRAPH  # type: ignore[misc]
         raised = False
     except AttributeError:
         raised = True
     assert raised
 
 
-def test_normalize_feature_contract_accepts_kind_shorthand() -> None:
-    assert normalize_feature_contract(FeatureKind.GRAPH) == FeatureContract(kind=FeatureKind.GRAPH)
+def test_normalize_feature_contract_accepts_format_shorthand() -> None:
+    assert normalize_feature_contract(FeatureFormat.GRAPH) == FeatureContract(format=FeatureFormat.GRAPH)
 
 
-def test_featurizer_contract_prefers_canonical_attribute() -> None:
+def test_featurizer_contract_reads_canonical_attribute() -> None:
     class WithContract:
-        contract = FeatureContract(kind=FeatureKind.GRAPH)
-        output_contract = FeatureContract(kind=FeatureKind.DENSE)
+        contract = FeatureContract(format=FeatureFormat.GRAPH)
 
-    assert featurizer_contract(WithContract).kind == FeatureKind.GRAPH
+    assert featurizer_contract(WithContract).format == FeatureFormat.GRAPH
 
 
-def test_predictor_contracts_prefers_canonical_attributes() -> None:
+def test_predictor_contracts_reads_canonical_attributes() -> None:
     class WithContracts:
-        cell_line_contract = FeatureContract(kind=FeatureKind.SEQUENCE)
-        drug_contract = FeatureContract(kind=FeatureKind.GRAPH)
-        required_cell_line_contract = FeatureContract(kind=FeatureKind.DENSE)
-        required_drug_contract = FeatureContract(kind=FeatureKind.DENSE)
+        cell_line_contract = FeatureContract(format=FeatureFormat.RAGGED_SEQUENCE)
+        drug_contract = FeatureContract(format=FeatureFormat.GRAPH)
 
     cell_line, drug = predictor_contracts(WithContracts)
-    assert cell_line.kind == FeatureKind.SEQUENCE
-    assert drug.kind == FeatureKind.GRAPH
+    assert cell_line.format == FeatureFormat.RAGGED_SEQUENCE
+    assert drug.format == FeatureFormat.GRAPH

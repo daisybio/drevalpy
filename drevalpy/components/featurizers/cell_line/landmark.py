@@ -7,7 +7,7 @@ from typing import Any
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
-from drevalpy.components.contracts import FeatureKind
+from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.featurizers._matrix import stack_view_matrix
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.registry import register_cell_line_featurizer
@@ -60,8 +60,7 @@ def _subset_matrix(
 @register_cell_line_featurizer(
     "landmarkGenes",
     description="L1000 landmark genes with arcsinh and optional scaling.",
-    category="general_purpose",
-    contract=FeatureKind.DENSE,
+    contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class LandmarkGenesFeaturizer(CellLineFeaturizer):
     """Landmark genes featurizer component."""
@@ -194,8 +193,7 @@ class LandmarkGenesFeaturizer(CellLineFeaturizer):
 @register_cell_line_featurizer(
     "landmarkGenesReduced",
     description="Reduced landmark gene set used by DrugGNN and PharmaFormer.",
-    category="general_purpose",
-    contract=FeatureKind.DENSE,
+    contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class LandmarkGenesReducedFeaturizer(LandmarkGenesFeaturizer):
     """Landmark genes reduced featurizer component."""

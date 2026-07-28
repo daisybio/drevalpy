@@ -34,7 +34,6 @@ def _set_xgboost_thread_defaults() -> None:
 @register_predictor(
     "xgboost",
     description="XGBoost regressor on concatenated dense features.",
-    category="general_purpose",
 )
 class XGBoostPredictor(SklearnTabularPredictor):
     """XGBoost regressor for dense tabular pair features."""

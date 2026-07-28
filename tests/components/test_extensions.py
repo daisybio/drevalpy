@@ -40,18 +40,17 @@ from __future__ import annotations
 
 import numpy as np
 
-from drevalpy.components.contracts import FeatureKind
+from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.model_input_batch import ModelInputBatch
-from drevalpy.components.predictors.baseline import BaselinePredictor
+from drevalpy.components.predictors.feature_free import FeatureFreePredictor
 from drevalpy.components.registry import register_cell_line_featurizer, register_predictor
 
 
 @register_cell_line_featurizer(
     "toyCellLine",
     description="Toy featurizer",
-    category="general_purpose",
-    contract=FeatureKind.DENSE,
+    contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class ToyCellLineFeaturizer(CellLineFeaturizer):
     def fit(self, features, *, entity_ids=None):
@@ -67,8 +66,8 @@ class ToyCellLineFeaturizer(CellLineFeaturizer):
 
 
 @register_predictor(
-    "toyPredictor", description="Toy predictor", category="general_purpose")
-class ToyPredictor(BaselinePredictor):
+    "toyPredictor", description="Toy predictor")
+class ToyPredictor(FeatureFreePredictor):
     def fit(self, batch: ModelInputBatch) -> None:
         return None
 
@@ -89,10 +88,10 @@ def test_load_extension_dir_imports_sorted_files(tmp_path: Path) -> None:
     (tmp_path / "b_ext.py").write_text(
         "from drevalpy.components.registry import register_predictor\n"
         "from drevalpy.components.model_input_batch import ModelInputBatch\n"
-        "from drevalpy.components.predictors.baseline import BaselinePredictor\n"
+        "from drevalpy.components.predictors.feature_free import FeatureFreePredictor\n"
         "import numpy as np\n"
-        "@register_predictor('toyB', description='b', category='general_purpose')\n"
-        "class ToyB(BaselinePredictor):\n"
+        "@register_predictor('toyB', description='b')\n"
+        "class ToyB(FeatureFreePredictor):\n"
         "    def fit(self, batch: ModelInputBatch): return None\n"
         "    def predict(self, batch: ModelInputBatch): return np.zeros(batch.n_pairs)\n",
         encoding="utf-8",
@@ -100,10 +99,10 @@ def test_load_extension_dir_imports_sorted_files(tmp_path: Path) -> None:
     (tmp_path / "a_ext.py").write_text(
         "from drevalpy.components.registry import register_predictor\n"
         "from drevalpy.components.model_input_batch import ModelInputBatch\n"
-        "from drevalpy.components.predictors.baseline import BaselinePredictor\n"
+        "from drevalpy.components.predictors.feature_free import FeatureFreePredictor\n"
         "import numpy as np\n"
-        "@register_predictor('toyA', description='a', category='general_purpose')\n"
-        "class ToyA(BaselinePredictor):\n"
+        "@register_predictor('toyA', description='a')\n"
+        "class ToyA(FeatureFreePredictor):\n"
         "    def fit(self, batch: ModelInputBatch): return None\n"
         "    def predict(self, batch: ModelInputBatch): return np.zeros(batch.n_pairs)\n",
         encoding="utf-8",
@@ -119,17 +118,16 @@ def test_external_zoo_references_extension_components(tmp_path: Path) -> None:
     (ext_dir / "components.py").write_text(
         """
 import numpy as np
-from drevalpy.components.contracts import FeatureKind
+from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.model_input_batch import ModelInputBatch
-from drevalpy.components.predictors.baseline import BaselinePredictor
+from drevalpy.components.predictors.feature_free import FeatureFreePredictor
 from drevalpy.components.registry import register_cell_line_featurizer, register_predictor
 
 @register_cell_line_featurizer(
     "externalCellLine",
     description="ext",
-    category="general_purpose",
-    contract=FeatureKind.DENSE,
+    contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class ExternalCellLineFeaturizer(CellLineFeaturizer):
     def fit(self, features, *, entity_ids=None):
@@ -141,8 +139,8 @@ class ExternalCellLineFeaturizer(CellLineFeaturizer):
     def output_dim(self):
         return self._output_dim
 
-@register_predictor("externalPredictor", description="ext", category="general_purpose")
-class ExternalPredictor(BaselinePredictor):
+@register_predictor("externalPredictor", description="ext")
+class ExternalPredictor(FeatureFreePredictor):
     def fit(self, batch: ModelInputBatch) -> None:
         if batch.response is None:
             msg = "response required"
@@ -170,7 +168,6 @@ class ExternalPredictor(BaselinePredictor):
     zoo_file.write_text(
         """
 externalToy:
-  cell_line_featurizer: externalCellLine
   predictor: externalPredictor
 """,
         encoding="utf-8",
@@ -238,11 +235,11 @@ def test_failed_extension_file_does_not_leave_sys_modules_or_registry_mutation(t
         """
 from drevalpy.components.registry import register_predictor
 from drevalpy.components.model_input_batch import ModelInputBatch
-from drevalpy.components.predictors.baseline import BaselinePredictor
+from drevalpy.components.predictors.feature_free import FeatureFreePredictor
 import numpy as np
 
-@register_predictor("brokenPartial", description="partial", category="general_purpose")
-class BrokenPartial(BaselinePredictor):
+@register_predictor("brokenPartial", description="partial")
+class BrokenPartial(FeatureFreePredictor):
     def fit(self, batch: ModelInputBatch) -> None:
         return None
 
@@ -272,11 +269,11 @@ def test_subprocess_extension_load_does_not_import_optional_families(tmp_path: P
         """
 from drevalpy.components.registry import register_predictor
 from drevalpy.components.model_input_batch import ModelInputBatch
-from drevalpy.components.predictors.baseline import BaselinePredictor
+from drevalpy.components.predictors.feature_free import FeatureFreePredictor
 import numpy as np
 
-@register_predictor("isolatedPredictor", description="isolated", category="general_purpose")
-class IsolatedPredictor(BaselinePredictor):
+@register_predictor("isolatedPredictor", description="isolated")
+class IsolatedPredictor(FeatureFreePredictor):
     def fit(self, batch: ModelInputBatch) -> None:
         return None
 

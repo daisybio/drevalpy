@@ -9,7 +9,11 @@ from drevalpy.components.predictors.base import Predictor
 
 
 class BlockPredictor(Predictor):
-    """Predictor that reads featurizer outputs from ``ModelInputBatch`` blocks."""
+    """Predictor that reads side-specific or named featurizer output blocks.
+
+    “Block” includes named matrices (for example ``identity`` / ``tissue``) and
+    side-specific design matrices that must not be flattened indiscriminately.
+    """
 
     def fit(self, batch: ModelInputBatch) -> None:
         """Fit on a featurized predictor input batch."""

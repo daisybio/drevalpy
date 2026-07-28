@@ -6,7 +6,10 @@ from collections.abc import Iterator
 
 import pytest
 
-from drevalpy.components.contracts import FeatureKind
+from drevalpy.components.contracts import FeatureFormat
+from drevalpy.components.predictors.feature_free import FeatureFreePredictor
+from drevalpy.components.predictors.matrix import MatrixPredictor
+from drevalpy.components.predictors.structured import BlockPredictor
 from drevalpy.components.registry import (
     clear_cell_line_featurizer_registry,
     clear_drug_featurizer_registry,
@@ -40,8 +43,7 @@ def _register_dense_pair() -> None:
     @register_cell_line_featurizer(
         "denseCellLine",
         description="dense cell line",
-        category="native",
-        contract=FeatureKind.DENSE,
+        contract=FeatureFormat.NUMERIC_MATRIX,
     )
     class DenseCellLine:
         pass
@@ -49,8 +51,7 @@ def _register_dense_pair() -> None:
     @register_drug_featurizer(
         "denseDrug",
         description="dense drug",
-        category="native",
-        contract=FeatureKind.DENSE,
+        contract=FeatureFormat.NUMERIC_MATRIX,
     )
     class DenseDrug:
         pass
@@ -58,12 +59,19 @@ def _register_dense_pair() -> None:
     @register_predictor(
         "densePred",
         description="dense pred",
-        category="general_purpose",
-        cell_line_contract=FeatureKind.DENSE,
-        drug_contract=FeatureKind.DENSE,
+        cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+        drug_contract=FeatureFormat.NUMERIC_MATRIX,
     )
-    class DensePred:
-        supported_modes = {PredictionMode.REGRESSION}
+    class DensePred(MatrixPredictor):
+        supported_modes = frozenset({PredictionMode.REGRESSION})
+
+        def _fit_matrix(self, x, y) -> None:
+            return None
+
+        def _predict_matrix(self, x):
+            import numpy as np
+
+            return np.zeros(len(x), dtype=np.float64)
 
 
 def test_valid_dense_config_passes() -> None:
@@ -98,12 +106,11 @@ def test_wrong_registry_slot_fails() -> None:
         validate_model_config(config)
 
 
-def test_graph_featurizer_with_dense_predictor_fails() -> None:
+def test_graph_featurizer_with_matrix_predictor_fails() -> None:
     @register_cell_line_featurizer(
         "graphCellLine",
         description="graph",
-        category="native",
-        contract=FeatureKind.GRAPH,
+        contract=FeatureFormat.GRAPH,
     )
     class GraphCellLine:
         pass
@@ -111,8 +118,7 @@ def test_graph_featurizer_with_dense_predictor_fails() -> None:
     @register_drug_featurizer(
         "denseDrug",
         description="dense drug",
-        category="native",
-        contract=FeatureKind.DENSE,
+        contract=FeatureFormat.NUMERIC_MATRIX,
     )
     class DenseDrug:
         pass
@@ -120,28 +126,34 @@ def test_graph_featurizer_with_dense_predictor_fails() -> None:
     @register_predictor(
         "densePred",
         description="dense pred",
-        category="general_purpose",
-        cell_line_contract=FeatureKind.DENSE,
-        drug_contract=FeatureKind.DENSE,
+        cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+        drug_contract=FeatureFormat.NUMERIC_MATRIX,
     )
-    class DensePred:
-        supported_modes = {PredictionMode.REGRESSION}
+    class DensePred(MatrixPredictor):
+        supported_modes = frozenset({PredictionMode.REGRESSION})
+
+        def _fit_matrix(self, x, y) -> None:
+            return None
+
+        def _predict_matrix(self, x):
+            import numpy as np
+
+            return np.zeros(len(x), dtype=np.float64)
 
     config = ModelConfig(
         cell_line_featurizer=FeaturizerConfig(name="graphCellLine", registry="cell_line"),
         drug_featurizer=FeaturizerConfig(name="denseDrug", registry="drug"),
         predictor=PredictorConfig(name="densePred"),
     )
-    with pytest.raises(ValueError, match="Cell line featurizer contract"):
+    with pytest.raises(ValueError, match="Cell line featurizer contract|numeric_matrix"):
         validate_model_config(config)
 
 
-def test_graph_kind_match_passes() -> None:
+def test_graph_format_match_passes_for_block_predictor() -> None:
     @register_cell_line_featurizer(
         "graphCellLine",
         description="graph",
-        category="native",
-        contract=FeatureKind.GRAPH,
+        contract=FeatureFormat.GRAPH,
     )
     class GraphCellLine:
         pass
@@ -149,8 +161,7 @@ def test_graph_kind_match_passes() -> None:
     @register_drug_featurizer(
         "graphDrug",
         description="graph drug",
-        category="native",
-        contract=FeatureKind.GRAPH,
+        contract=FeatureFormat.GRAPH,
     )
     class GraphDrug:
         pass
@@ -158,12 +169,11 @@ def test_graph_kind_match_passes() -> None:
     @register_predictor(
         "graphPred",
         description="graph pred",
-        category="general_purpose",
-        cell_line_contract=FeatureKind.GRAPH,
-        drug_contract=FeatureKind.GRAPH,
+        cell_line_contract=FeatureFormat.GRAPH,
+        drug_contract=FeatureFormat.GRAPH,
     )
-    class GraphPred:
-        supported_modes = {PredictionMode.REGRESSION}
+    class GraphPred(BlockPredictor):
+        supported_modes = frozenset({PredictionMode.REGRESSION})
 
     config = ModelConfig(
         cell_line_featurizer=FeaturizerConfig(name="graphCellLine", registry="cell_line"),
@@ -174,9 +184,9 @@ def test_graph_kind_match_passes() -> None:
 
 
 def test_feature_free_predictor_without_featurizers_passes() -> None:
-    @register_predictor("naiveMean", description="naive", category="baseline")
-    class NaiveMean:
-        supported_modes = {PredictionMode.REGRESSION}
+    @register_predictor("naiveMean", description="naive")
+    class NaiveMean(FeatureFreePredictor):
+        pass
 
     config = ModelConfig(
         cell_line_featurizer=None,
@@ -192,6 +202,19 @@ def test_feature_using_predictor_without_featurizers_fails() -> None:
         cell_line_featurizer=None,
         drug_featurizer=None,
         predictor=PredictorConfig(name="densePred"),
+    )
+    with pytest.raises(ValueError, match="requires featurizers"):
+        validate_model_config(config)
+
+
+def test_baseline_tag_does_not_allow_missing_featurizers() -> None:
+    from drevalpy.components.register_builtins import register_builtin_components
+
+    register_builtin_components()
+    config = ModelConfig(
+        cell_line_featurizer=None,
+        drug_featurizer=None,
+        predictor=PredictorConfig(name="naiveMeanEffects"),
     )
     with pytest.raises(ValueError, match="requires featurizers"):
         validate_model_config(config)
@@ -222,7 +245,7 @@ def test_scope_must_match_predictor_capability() -> None:
         validate_model_config(config)
 
 
-def test_single_drug_scope_forbids_drug_featurizer() -> None:
+def test_single_drug_scope_requires_identity_drug_featurizer() -> None:
     from drevalpy.components.register_builtins import register_builtin_components
 
     register_builtin_components()
@@ -232,5 +255,18 @@ def test_single_drug_scope_forbids_drug_featurizer() -> None:
         predictor=PredictorConfig(name="singleDrugElasticNet"),
         scope=ModelScope.SINGLE_DRUG,
     )
-    with pytest.raises(ValueError, match="forbids a drug_featurizer"):
+    with pytest.raises(ValueError, match="requires drug_featurizer='identity'"):
         validate_model_config(config)
+
+
+def test_single_drug_scope_accepts_identity_routing_featurizer() -> None:
+    from drevalpy.components.register_builtins import register_builtin_components
+
+    register_builtin_components()
+    config = ModelConfig(
+        cell_line_featurizer=FeaturizerConfig(name="scaledGeneExpression", registry="cell_line"),
+        drug_featurizer=FeaturizerConfig(name="identity", registry="drug"),
+        predictor=PredictorConfig(name="singleDrugElasticNet"),
+        scope=ModelScope.SINGLE_DRUG,
+    )
+    validate_model_config(config)

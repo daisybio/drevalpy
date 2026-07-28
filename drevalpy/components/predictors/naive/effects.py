@@ -6,7 +6,7 @@ from typing import Any, ClassVar
 
 import numpy as np
 
-from drevalpy.components.contracts import FeatureKind
+from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors.naive._matrix_means import (
     additive_effects,
@@ -22,15 +22,17 @@ from drevalpy.components.state_helpers import state_float
 
 @register_predictor(
     "naiveMeanEffects",
+    tags=("baseline",),
     description="Predict mean plus cell-line and drug effects.",
-    category="baseline",
-    cell_line_contract=FeatureKind.DENSE,
-    drug_contract=FeatureKind.DENSE,
+    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+    drug_contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class NaiveMeanEffectsPredictor(BlockPredictor):
     """Naive mean effects predictor component."""
 
     requires_drug_featurizer: ClassVar[bool] = True
+    required_cell_line_blocks: ClassVar[tuple[str, ...]] = ("identity",)
+    required_drug_blocks: ClassVar[tuple[str, ...]] = ("identity",)
 
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
         super().__init__(hyperparameters)

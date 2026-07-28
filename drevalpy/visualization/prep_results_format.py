@@ -13,7 +13,7 @@ from .normalize_metrics import normalize_metrics_by_mean_effects
 def load_drug_and_cell_line_metadata(path_data: os.PathLike | str) -> tuple[dict[str, str], dict[str, str]]:
     drug_metadata: dict[str, str] = {}
     cell_line_metadata: dict[str, str] = {}
-    for root, _, files in os.walk(path_data):
+    for root, _, files in os.walk(os.fspath(path_data)):
         for file in files:
             if file == "drug_names.csv":
                 drug_names = pd.read_csv(os.path.join(root, file))

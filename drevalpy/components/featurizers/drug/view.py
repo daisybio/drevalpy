@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from drevalpy.components.contracts import FeatureKind
+from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.featurizers._matrix import stack_view_matrix
 from drevalpy.components.featurizers.drug.base import DrugFeaturizer
 from drevalpy.components.registry import register_drug_featurizer
@@ -13,8 +13,7 @@ from drevalpy.components.registry import register_drug_featurizer
 @register_drug_featurizer(
     "view",
     description="Pass through one dense drug view from a FeatureDataset.",
-    category="native",
-    contract=FeatureKind.DENSE,
+    contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class ViewDrugFeaturizer(DrugFeaturizer):
     """Featurize one drug view without additional transformation."""
@@ -36,6 +35,9 @@ class ViewDrugFeaturizer(DrugFeaturizer):
 
     def transform(self, features, entity_ids: np.ndarray) -> np.ndarray:
         return stack_view_matrix(features, self._view, entity_ids).astype(np.float32)
+
+    def transform_blocks(self, features, entity_ids: np.ndarray) -> dict[str, np.ndarray]:
+        return {self._view: self.transform(features, entity_ids)}
 
     @property
     def output_dim(self) -> int:

@@ -100,11 +100,15 @@ ruff = "^0.15.8"
 types-PyYAML = "*"
 types-toml = "*"
 
+[tool.ruff]
+line-length = 120
+
 [tool.black]
 line-length = 120
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = ["--import-mode=importlib"]
 
 [tool.mypy]
 strict = false

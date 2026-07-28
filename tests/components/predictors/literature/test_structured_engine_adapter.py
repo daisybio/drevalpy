@@ -23,8 +23,8 @@ def test_engine_modules_map_to_impl_packages() -> None:
     assert all("literature.impl" in path for path in ENGINE_MODULES.values())
 
 
-def test_structured_engine_adapter_avoids_models_package_imports() -> None:
-    module = importlib.import_module("drevalpy.components.predictors.literature.structured_engine_adapter")
+def test_engine_resolve_avoids_models_package_imports() -> None:
+    module = importlib.import_module("drevalpy.components.predictors.literature._engine_resolve")
     source_path = module.__file__
     assert source_path is not None
     text = Path(source_path).read_text(encoding="utf-8")
@@ -55,6 +55,8 @@ class _DiscoveringEngine:
 
 class _DiscoveringPredictor(StructuredLiteratureEnginePredictor):
     _engine_class_name: ClassVar[str] = "DiscoveringEngine"
+    required_cell_line_blocks: ClassVar[tuple[str, ...]] = ("gene_expression",)
+    required_drug_blocks: ClassVar[tuple[str, ...]] = ("fingerprints",)
 
     @classmethod
     def engine_cls(cls) -> type[LiteratureEngineBase]:
@@ -111,6 +113,8 @@ def test_fit_merges_discovered_hyperparameters_into_configure() -> None:
         drug_features=np.array([[1.0, 0.0]]),
         cell_line_pair_idx=np.array([0]),
         drug_pair_idx=np.array([0]),
+        cell_line_blocks={"gene_expression": np.array([[0.1, 0.2]])},
+        drug_blocks={"fingerprints": np.array([[1.0, 0.0]])},
         cell_line_input=cell_line_input,
         drug_input=drug_input,
         training_context=TrainingContext(checkpoint_dir="checkpoints"),

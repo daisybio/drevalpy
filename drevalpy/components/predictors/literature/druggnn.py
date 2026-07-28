@@ -1,19 +1,23 @@
-"""DrugGNN structured literature predictor."""
+"""DrugGNN raw literature predictor."""
 
 from __future__ import annotations
 
 import io
-from typing import Any, ClassVar
+from typing import Any, ClassVar, cast
 
 import joblib
 import numpy as np
 
-from drevalpy.components.contracts import FeatureKind
+from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.model_input_batch import ModelInputBatch
-from drevalpy.components.predictors.literature._metadata import DRUGGNN_METADATA
+from drevalpy.components.predictors.literature._metadata import DRUGGNN_REFERENCE
+from drevalpy.components.predictors.literature._raw_views import (
+    validate_pyg_drug_graphs,
+    validate_required_views,
+)
 from drevalpy.components.predictors.literature.impl.druggnn.drug_gnn import DrugGNN as DrugGNNEngine
+from drevalpy.components.predictors.raw_dataset import RawDatasetPredictor
 from drevalpy.components.predictors.state_errors import PredictorStateError
-from drevalpy.components.predictors.structured import StructuredPredictor
 from drevalpy.components.registry import register_predictor
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 
@@ -21,14 +25,16 @@ from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 @register_predictor(
     "drugGNN",
     description="DrugGNN: GCN on molecular graphs with dense cell-line features.",
-    cell_line_contract=FeatureKind.DENSE,
-    drug_contract=FeatureKind.GRAPH,
-    **DRUGGNN_METADATA,
+    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+    drug_contract=FeatureFormat.GRAPH,
+    reference=DRUGGNN_REFERENCE,
 )
-class DrugGNNPredictor(StructuredPredictor):
+class DrugGNNPredictor(RawDatasetPredictor):
     """DrugGNN predictor component backed by the parity-checked engine."""
 
     supports_early_stopping: ClassVar[bool] = True
+    required_cell_line_views: ClassVar[tuple[str, ...]] = ("gene_expression",)
+    required_drug_views: ClassVar[tuple[str, ...]] = ("drug_graph",)
 
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
         super().__init__(hyperparameters)
@@ -78,15 +84,34 @@ class DrugGNNPredictor(StructuredPredictor):
             "batch_size": {"type": "int", "low": 4, "high": 32, "default": 8},
         }
 
+    def _validate_inputs(
+        self,
+        cell_line_input: FeatureDataset | None,
+        drug_input: FeatureDataset | None,
+    ) -> tuple[FeatureDataset, FeatureDataset]:
+        name = getattr(self, "registry_name", self.__class__.__name__)
+        validate_required_views(
+            cell_line_input,
+            self.required_cell_line_views,
+            predictor_name=str(name),
+            side="cell_line",
+        )
+        validate_required_views(
+            drug_input,
+            self.required_drug_views,
+            predictor_name=str(name),
+            side="drug",
+        )
+        cell_line_input = cast(FeatureDataset, cell_line_input)
+        drug_input = cast(FeatureDataset, drug_input)
+        validate_pyg_drug_graphs(drug_input, predictor_name=str(name))
+        return cell_line_input, drug_input
+
     def fit(self, batch: ModelInputBatch) -> None:
-        cell_line_input = batch.cell_line_input
-        drug_input = batch.drug_input
         if batch.response is None:
             msg = "DrugGNN requires response data"
             raise RuntimeError(msg)
-        if cell_line_input is None or drug_input is None:
-            msg = "DrugGNN requires cell_line_input and drug_input"
-            raise RuntimeError(msg)
+        cell_line_input, drug_input = self._validate_inputs(batch.cell_line_input, batch.drug_input)
         output = DrugResponseDataset(
             response=batch.response,
             cell_line_ids=batch.cell_line_ids,
@@ -104,10 +129,9 @@ class DrugGNNPredictor(StructuredPredictor):
         self._engine = engine
 
     def predict(self, batch: ModelInputBatch) -> np.ndarray:
-        cell_line_input = batch.cell_line_input
-        drug_input = batch.drug_input
-        if self._engine is None or cell_line_input is None or drug_input is None:
+        if self._engine is None:
             return np.full(batch.n_pairs, np.nan, dtype=np.float64)
+        cell_line_input, drug_input = self._validate_inputs(batch.cell_line_input, batch.drug_input)
         return self._engine.predict(
             batch.cell_line_ids,
             batch.drug_ids,

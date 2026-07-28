@@ -1,6 +1,2 @@
-cell_line_featurizer:
-  - raw[expression]
-  - raw[mutations]
-  - raw[cnv]
 predictor: superfeltr
 scope: single_drug

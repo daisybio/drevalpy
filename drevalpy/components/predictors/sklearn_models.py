@@ -10,15 +10,14 @@ from sklearn.neighbors import KNeighborsRegressor
 from sklearn.svm import SVR
 from sklearn.tree import DecisionTreeRegressor
 
+from drevalpy.components.predictors.single_drug import SingleDrugSklearnPredictor
 from drevalpy.components.predictors.sklearn_tabular import SklearnTabularPredictor
 from drevalpy.components.registry import register_predictor
-from drevalpy.models.config import ModelScope
 
 
 @register_predictor(
     "elasticNet",
     description="Elastic Net regression on concatenated dense features.",
-    category="general_purpose",
 )
 class ElasticNetPredictor(SklearnTabularPredictor):
     """Elastic net predictor component.
@@ -55,16 +54,12 @@ class ElasticNetPredictor(SklearnTabularPredictor):
 @register_predictor(
     "singleDrugElasticNet",
     description="ElasticNet fitted independently per drug on dense cell-line features.",
-    category="general_purpose",
 )
-class SingleDrugElasticNetPredictor(ElasticNetPredictor):
+class SingleDrugElasticNetPredictor(SingleDrugSklearnPredictor, ElasticNetPredictor):
     """Single-drug ElasticNet predictor component."""
 
-    requires_drug_featurizer = False
-    supported_scopes: ClassVar[frozenset[ModelScope]] = frozenset({ModelScope.SINGLE_DRUG})
 
-
-@register_predictor("lasso", description="Lasso regression on dense features.", category="general_purpose")
+@register_predictor("lasso", description="Lasso regression on dense features.")
 class LassoPredictor(SklearnTabularPredictor):
     """Lasso predictor component."""
 
@@ -89,7 +84,7 @@ class LassoPredictor(SklearnTabularPredictor):
         }
 
 
-@register_predictor("ridge", description="Ridge regression on dense features.", category="general_purpose")
+@register_predictor("ridge", description="Ridge regression on dense features.")
 class RidgePredictor(SklearnTabularPredictor):
     """Ridge predictor component."""
 
@@ -106,7 +101,6 @@ class RidgePredictor(SklearnTabularPredictor):
 @register_predictor(
     "randomForest",
     description="Random forest on concatenated dense features.",
-    category="general_purpose",
 )
 class RandomForestPredictor(SklearnTabularPredictor):
     """Random forest predictor component."""
@@ -145,16 +139,12 @@ class RandomForestPredictor(SklearnTabularPredictor):
 @register_predictor(
     "singleDrugRandomForest",
     description="Random forest fitted independently per drug on dense cell-line features.",
-    category="general_purpose",
 )
-class SingleDrugRandomForestPredictor(RandomForestPredictor):
+class SingleDrugRandomForestPredictor(SingleDrugSklearnPredictor, RandomForestPredictor):
     """Single-drug random-forest predictor component."""
 
-    requires_drug_featurizer = False
-    supported_scopes: ClassVar[frozenset[ModelScope]] = frozenset({ModelScope.SINGLE_DRUG})
 
-
-@register_predictor("svr", description="Support vector regression on dense features.", category="general_purpose")
+@register_predictor("svr", description="Support vector regression on dense features.")
 class SVRPredictor(SklearnTabularPredictor):
     """Svrpredictor component."""
 
@@ -182,7 +172,6 @@ class SVRPredictor(SklearnTabularPredictor):
 @register_predictor(
     "gradientBoosting",
     description="Histogram gradient boosting on dense features.",
-    category="general_purpose",
 )
 class GradientBoostingPredictor(SklearnTabularPredictor):
     """Gradient boosting predictor component."""
@@ -213,7 +202,6 @@ class GradientBoostingPredictor(SklearnTabularPredictor):
 @register_predictor(
     "adaboost",
     description="AdaBoost decision tree regressor on dense features.",
-    category="general_purpose",
 )
 class AdaBoostPredictor(SklearnTabularPredictor):
     """Ada boost predictor component."""
@@ -239,7 +227,7 @@ class AdaBoostPredictor(SklearnTabularPredictor):
         }
 
 
-@register_predictor("knn", description="K-nearest neighbors on dense features.", category="general_purpose")
+@register_predictor("knn", description="K-nearest neighbors on dense features.")
 class KNNPredictor(SklearnTabularPredictor):
     """Knnpredictor component."""
 

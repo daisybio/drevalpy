@@ -2,39 +2,41 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from typing import Any
 
-from drevalpy.components.contracts import FeatureContract, FeatureKind
+from drevalpy.components.contracts import FeatureContract, FeatureFormat
 from drevalpy.components.registry.core import (
     cell_line_featurizer_registry,
     drug_featurizer_registry,
     predictor_registry,
 )
+from drevalpy.types.literature_reference import LiteratureReference
+
+
+def _ensure_builtins_for_discovery(*, registry_names: list[str]) -> None:
+    """Register built-ins only when the target registry is still empty."""
+    if registry_names:
+        return
+    from drevalpy.components.register_builtins import register_builtin_components
+
+    register_builtin_components()
 
 
 def register_cell_line_featurizer(
     name: str,
     *,
     description: str,
-    category: str,
-    template_repo_url: str = "",
-    citation: str = "",
-    citation_doi: str = "",
-    citation_text: str = "",
-    deviations: str = "",
-    contract: FeatureContract | FeatureKind | None = None,
+    tags: Iterable[str] | None = None,
+    reference: LiteratureReference | None = None,
+    contract: FeatureContract | FeatureFormat | None = None,
 ) -> Callable[[type[Any]], type[Any]]:
     """Decorator: register a cell-line featurizer."""
     return cell_line_featurizer_registry.register(
         name,
         description=description,
-        category=category,
-        template_repo_url=template_repo_url,
-        citation=citation,
-        citation_doi=citation_doi,
-        citation_text=citation_text,
-        deviations=deviations,
+        tags=tags,
+        reference=reference,
         contract=contract,
     )
 
@@ -62,17 +64,20 @@ def get_cell_line_featurizer(name: str) -> type[Any]:
 
 def list_cell_line_featurizers() -> list[str]:
     """List all registered cell-line featurizer names."""
+    _ensure_builtins_for_discovery(registry_names=cell_line_featurizer_registry.list_names())
     return cell_line_featurizer_registry.list_names()
 
 
 def get_cell_line_featurizer_metadata(name: str) -> dict[str, str]:
     """Return metadata for a registered cell-line featurizer."""
+    get_cell_line_featurizer(name)
     return cell_line_featurizer_registry.get_metadata(name)
 
 
-def list_cell_line_featurizer_metadata(category: str | None = None) -> list[dict[str, str]]:
+def list_cell_line_featurizer_metadata(*, tag: str | None = None) -> list[dict[str, str]]:
     """List metadata for all registered cell-line featurizers."""
-    return cell_line_featurizer_registry.list_metadata(category)
+    _ensure_builtins_for_discovery(registry_names=cell_line_featurizer_registry.list_names())
+    return cell_line_featurizer_registry.list_metadata(tag=tag)
 
 
 def clear_cell_line_featurizer_registry() -> None:
@@ -84,24 +89,16 @@ def register_drug_featurizer(
     name: str,
     *,
     description: str,
-    category: str,
-    template_repo_url: str = "",
-    citation: str = "",
-    citation_doi: str = "",
-    citation_text: str = "",
-    deviations: str = "",
-    contract: FeatureContract | FeatureKind | None = None,
+    tags: Iterable[str] | None = None,
+    reference: LiteratureReference | None = None,
+    contract: FeatureContract | FeatureFormat | None = None,
 ) -> Callable[[type[Any]], type[Any]]:
     """Decorator: register a drug featurizer."""
     return drug_featurizer_registry.register(
         name,
         description=description,
-        category=category,
-        template_repo_url=template_repo_url,
-        citation=citation,
-        citation_doi=citation_doi,
-        citation_text=citation_text,
-        deviations=deviations,
+        tags=tags,
+        reference=reference,
         contract=contract,
     )
 
@@ -129,17 +126,20 @@ def get_drug_featurizer(name: str) -> type[Any]:
 
 def list_drug_featurizers() -> list[str]:
     """List all registered drug featurizer names."""
+    _ensure_builtins_for_discovery(registry_names=drug_featurizer_registry.list_names())
     return drug_featurizer_registry.list_names()
 
 
 def get_drug_featurizer_metadata(name: str) -> dict[str, str]:
     """Return metadata for a registered drug featurizer."""
+    get_drug_featurizer(name)
     return drug_featurizer_registry.get_metadata(name)
 
 
-def list_drug_featurizer_metadata(category: str | None = None) -> list[dict[str, str]]:
+def list_drug_featurizer_metadata(*, tag: str | None = None) -> list[dict[str, str]]:
     """List metadata for all registered drug featurizers."""
-    return drug_featurizer_registry.list_metadata(category)
+    _ensure_builtins_for_discovery(registry_names=drug_featurizer_registry.list_names())
+    return drug_featurizer_registry.list_metadata(tag=tag)
 
 
 def clear_drug_featurizer_registry() -> None:
@@ -151,25 +151,17 @@ def register_predictor(
     name: str,
     *,
     description: str,
-    category: str,
-    template_repo_url: str = "",
-    citation: str = "",
-    citation_doi: str = "",
-    citation_text: str = "",
-    deviations: str = "",
-    cell_line_contract: FeatureContract | FeatureKind | None = None,
-    drug_contract: FeatureContract | FeatureKind | None = None,
+    tags: Iterable[str] | None = None,
+    reference: LiteratureReference | None = None,
+    cell_line_contract: FeatureContract | FeatureFormat | None = None,
+    drug_contract: FeatureContract | FeatureFormat | None = None,
 ) -> Callable[[type[Any]], type[Any]]:
     """Decorator: register a predictor."""
     return predictor_registry.register(
         name,
         description=description,
-        category=category,
-        template_repo_url=template_repo_url,
-        citation=citation,
-        citation_doi=citation_doi,
-        citation_text=citation_text,
-        deviations=deviations,
+        tags=tags,
+        reference=reference,
         cell_line_contract=cell_line_contract,
         drug_contract=drug_contract,
     )
@@ -198,17 +190,20 @@ def get_predictor(name: str) -> type[Any]:
 
 def list_predictors() -> list[str]:
     """List all registered predictor names."""
+    _ensure_builtins_for_discovery(registry_names=predictor_registry.list_names())
     return predictor_registry.list_names()
 
 
 def get_predictor_metadata(name: str) -> dict[str, str]:
     """Return metadata for a registered predictor."""
+    get_predictor(name)
     return predictor_registry.get_metadata(name)
 
 
-def list_predictor_metadata(category: str | None = None) -> list[dict[str, str]]:
+def list_predictor_metadata(*, tag: str | None = None) -> list[dict[str, str]]:
     """List metadata for all registered predictors."""
-    return predictor_registry.list_metadata(category)
+    _ensure_builtins_for_discovery(registry_names=predictor_registry.list_names())
+    return predictor_registry.list_metadata(tag=tag)
 
 
 def clear_predictor_registry() -> None:

@@ -30,18 +30,17 @@ hyperparameter tuning through the normal experiment API.
 
    import numpy as np
 
-   from drevalpy.components.contracts import FeatureKind
+   from drevalpy.components.contracts import FeatureFormat
    from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
    from drevalpy.components.model_input_batch import ModelInputBatch
-   from drevalpy.components.predictors.baseline import BaselinePredictor
+   from drevalpy.components.predictors.feature_free import FeatureFreePredictor
    from drevalpy.components.registry import register_cell_line_featurizer, register_predictor
 
 
    @register_cell_line_featurizer(
        "toyCellLine",
        description="Constant cell-line features for demos.",
-       category="general_purpose",
-       contract=FeatureKind.DENSE,
+       contract=FeatureFormat.NUMERIC_MATRIX,
    )
    class ToyCellLineFeaturizer(CellLineFeaturizer):
        def fit(self, features, *, entity_ids=None):
@@ -67,9 +66,8 @@ hyperparameter tuning through the normal experiment API.
    @register_predictor(
        "toyPredictor",
        description="Predict the training mean response.",
-       category="general_purpose",
    )
-   class ToyPredictor(BaselinePredictor):
+   class ToyPredictor(FeatureFreePredictor):
        def fit(self, batch: ModelInputBatch) -> None:
            if batch.response is None:
                msg = "response required"
@@ -89,17 +87,25 @@ hyperparameter tuning through the normal experiment API.
        def is_fitted(self) -> bool:
            return hasattr(self, "_mean")
 
-Registration decorators attach metadata (name, description, category, and
-optional ``FeatureKind`` contract) to the class. Fitted components must
-implement ``get_state`` / ``set_state`` so ``model.joblib`` checkpoints
-round-trip.
+Registration decorators attach metadata (name, description, optional
+``tags``, optional ``LiteratureReference``, and role-specific
+``FeatureFormat`` contracts) to the class. Fitted components must implement
+``get_state`` / ``set_state`` so ``model.joblib`` checkpoints round-trip.
+
+Every predictor must inherit exactly one input interface:
+
+- ``FeatureFreePredictor`` — response/identifiers only; no featurizers
+- ``MatrixPredictor`` — one numeric pair-level design matrix
+- ``BlockPredictor`` — side-specific or named featurizer blocks
+- ``RawDatasetPredictor`` — required raw ``FeatureDataset`` views; no featurizers
+
+Neural encoders remain private implementation details inside predictors.
 
 **2. External zoo YAML** (``my_zoo/toy.yaml``):
 
 .. code-block:: yaml
 
    toyMean:
-     cell_line_featurizer: toyCellLine
      predictor: toyPredictor
 
 **3. Load extensions and construct the model**:
@@ -115,143 +121,28 @@ round-trip.
        zoo_files=["my_zoo/toy.yaml"],
    )
 
-   # Recipe string: cellLineFeaturizer:drugFeaturizer:predictor
-   ToyMean = construct_model("ToyMean", "toyCellLine:identity:toyPredictor")
+   # Feature-free / raw predictors: predictor-only specs
+   ToyMean = construct_model("ToyMean", "toyPredictor")
 
-   # Or resolve the zoo entry by name
-   ToyMeanZoo = construct_model("toyMean")
-   config = ModelConfig.from_spec("toyMean")
-   ToyMeanFromConfig = construct_model("toyMean", config)
+   # Feature-based models still use the three-slot recipe
+   # ToyRF = construct_model("ToyRF", "toyCellLine:identity:randomForest")
 
-   model = ToyMeanZoo()
-   model.train(...)
-   model.save("checkpoints/toy_mean")
-   restored = ToyMeanZoo.load("checkpoints/toy_mean")
+   model = ToyMean()
 
-``construct_model`` yields a ``DRPModel`` subclass. Construct with
-``ModelClass()`` / ``ModelClass(hyperparameters)``, then use ``train``,
-``predict``, ``save``, and ``ModelClass.load``.
+Discovery and literature references
+-----------------------------------
 
-**4. Tuning** (structured dotted keys):
+Use ``list_*_metadata()`` to inspect registered components. Optional
+``tags`` (for example ``baseline``) are discovery filters only and never
+change validation. Literature ports attach a ``LiteratureReference`` with
+repository URL, citation, and deviations:
 
 .. code-block:: python
 
-   from drevalpy.experiment import drug_response_experiment
+   from drevalpy.types import LiteratureReference
 
-   drug_response_experiment(
-       models=[ToyMean],
-       response_data=...,
-       hyperparameter_tuning=True,
-       hpo_num_samples=16,
-       hpo_random_state=42,
+   reference = LiteratureReference(
+       repo_url="https://github.com/example/repo",
+       citation_doi="10.1234/example",
+       deviations="Modular port; encoders remain inside the predictor.",
    )
-
-When ``hyperparameter_tuning=False``, experiments use each predictor's default
-hyperparameters only (``get_default_hyperparameters()``). See
-:doc:`hyperparameter_tuning` for migrating off old YAML grids.
-
-Zoo presets
------------
-
-Built-in models live under ``drevalpy/models/zoo/*.yaml``. Each file is one
-factory name. Single-drug models set ``scope: single_drug``. Early stopping is
-derived from predictor capability metadata.
-
-Example zoo entry:
-
-.. code-block:: yaml
-
-   cell_line_featurizer: scaledGeneExpression
-   drug_featurizer: fingerprints
-   predictor: elasticNet
-
-Flat hyperparameters
---------------------
-
-The constructor accepts a flat hyperparameter dict. Overrides are translated
-onto the resolved ``ModelConfig`` (predictor and featurizer local keys). Flat
-``cell_line_views`` / ``drug_views`` still work but are **deprecated** —
-prefer zoo featurizer blocks or recipe strings (:doc:`model_inputs`).
-
-Unsupported extension paths
----------------------------
-
-The following are intentionally **not** supported:
-
-* Documented ``DRPModel`` subclass authoring as the extension path
-* Fitted-state introspection on legacy attributes (``.model``, private
-  scalers, naive means)
-* Loading checkpoints from before the ``drevalpy-model`` / ``model.joblib`` format
-  (including legacy ``composed_model.joblib``)
-
-Backward compatibility
-----------------------
-
-Deprecated
-~~~~~~~~~~
-
-Before 1.6.0, the usual lookup was ``MODEL_FACTORY`` (and the multi-/single-
-drug variants). They remain lazy built-in-only views equal to
-``construct_model(name)`` for zoo names, but emit ``FutureWarning`` and may be
-removed in a future release. Prefer:
-
-.. code-block:: python
-
-   from drevalpy.models import construct_model
-   from drevalpy.models.config import ModelConfig
-   from drevalpy.models.zoo import list_zoo_names
-   from drevalpy.types.model_scope import ModelScope
-
-   ElasticNet = construct_model("ElasticNet")
-   config = ModelConfig.from_spec("ElasticNet")
-   ElasticNetFromConfig = construct_model("ElasticNet", config)
-   single_drug = list_zoo_names(scope=ModelScope.SINGLE_DRUG)
-
-Named exports such as ``ElasticNetModel`` and ``ModelConfig.create_model()``
-are removed — use ``construct_model`` as above.
-
-Before 1.6.0, ``multiprocessing=True`` selected a parallel HPO path. It now
-only warns and does **not** control hyperparameter tuning. This remains available
-for backward compatibility, but is deprecated and may be removed in a future
-release. Prefer ``hyperparameter_tuning=True`` and ``hpo_num_samples``.
-
-Flat ``cell_line_views`` / ``drug_views`` in the constructor / hpam YAML also
-remain available for backward compatibility, but are deprecated and may be
-removed in a future release — see :doc:`model_inputs`.
-
-No longer supported
-~~~~~~~~~~~~~~~~~~~
-
-Deep imports
-^^^^^^^^^^^^
-
-Paths such as ``drevalpy.models.DIPK.dipk`` or ``drevalpy.models.baselines.*``
-no longer resolve. Use ``construct_model("DIPK")`` (or the relevant zoo name)
-from ``drevalpy.models``.
-
-For component-level work, use ``drevalpy.components`` and the registry helpers
-documented in :doc:`architecture`.
-
-Legacy checkpoints
-^^^^^^^^^^^^^^^^^^
-
-Checkpoints saved before the ``drevalpy-model`` stack are **not** loadable.
-Retrain and persist via ``model.save`` / ``ModelClass.load`` (``model.joblib``).
-See :doc:`persistence`.
-
-Hyperparameter tuning behavior
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-- ``get_hyperparameter_set()`` returns **one** default dict per model, not a
-  full YAML ``ParameterGrid``.
-- ``hyperparameter_tuning=False`` uses predictor defaults only; it does **not**
-  mean "debug mode" and does **not** silently iterate an old grid.
-
-Dependencies
-^^^^^^^^^^^^
-
-``pydantic``, ``optuna``, ``ray[tune]``, and the former model-library extras
-(``xgboost``, ``lightgbm``, ``gseapy``, ``mygene``, ``obonet``) are **core**
-dependencies. ``ModelConfig`` validation uses Pydantic v2 with
-``extra="forbid"`` on config models — unknown YAML keys raise validation
-errors rather than being ignored.

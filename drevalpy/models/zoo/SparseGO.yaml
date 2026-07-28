@@ -1,3 +1,1 @@
-cell_line_featurizer: raw[expression]
-drug_featurizer: fingerprints
 predictor: sparsego

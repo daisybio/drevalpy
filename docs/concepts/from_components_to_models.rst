@@ -10,6 +10,9 @@ A model has three ordered slots:
 
    cell-line featurizer : drug featurizer : predictor
 
+Feature-free and raw-dataset predictors omit both featurizer slots. Their
+zoo presets are predictor-only.
+
 Colons separate the slots. Starting with the three ingredients from the end of
 the catalog gives the simplest complete recipe:
 
@@ -27,11 +30,37 @@ Other single-view recipes follow the same pattern:
 
    normalizedProteomics:fingerprints:randomForest
    landmarkGenes:fingerprints:xgboost
+   scaledGeneExpression:identity:singleDrugElasticNet
 
-Composition is validated before training. Each featurizer declares whether it
-produces dense, graph, or sequence features; each predictor declares which
-kinds it accepts. An incompatible recipe fails early rather than reaching the
-training loop.
+For a feature-based single-drug predictor, ``identity`` has routing semantics:
+it creates/selects one estimator per drug. The one-hot identity vector is not
+concatenated with the cell-line features seen by that estimator. Raw
+single-drug predictors such as ``molir`` and ``superfeltr`` remain
+predictor-only and have no drug-featurizer slot.
+
+Composition is validated before training. Each featurizer declares a
+``FeatureFormat`` (numeric matrix, graph, or ragged sequence); each predictor
+declares which formats and which input interface
+(``FeatureFreePredictor``, ``MatrixPredictor``, ``BlockPredictor``, or
+``RawDatasetPredictor``) it accepts. Matrix predictors reject graph/ragged
+payloads. Raw-dataset predictors forbid configured featurizers and require
+named ``FeatureDataset`` views. An incompatible recipe fails early rather than
+reaching the training loop.
+
+Predictor-only recipes
+----------------------
+
+Feature-free and raw-dataset predictors omit both featurizer slots:
+
+.. code-block:: text
+
+   naiveMean
+   drugGNN
+   molir
+
+Their zoo YAML has only ``predictor`` (and optional ``scope`` /
+hyperparameters). A bare feature-dependent predictor name without featurizers
+is rejected.
 
 Qualifying an omics view
 ------------------------

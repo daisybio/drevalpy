@@ -13,147 +13,72 @@ definitions. They are case-sensitive. At this stage, focus on what each
 component contributes; the next page, :doc:`from_components_to_models`,
 explains how the names fit together and how compatibility is checked.
 
+Featurizer outputs
+------------------
+
+Every featurizer can expose the same fitted representation in two ways:
+
+- as a **matrix** (``transform``) — one row per entity, used when a
+  ``MatrixPredictor`` builds a single pair-level design matrix;
+- as a **dict of named blocks** (``transform_blocks``) — one or more
+  arrays keyed by block name (for example ``pathways`` or ``gene_expression``),
+  used by a ``BlockPredictor`` that keeps side-specific or named tensors
+  separate.
+
+By default, ``transform_blocks`` wraps the matrix under a single
+``default`` key. Featurizers that preserve view or modality identity
+override that method so block predictors receive the named arrays they
+declare. Feature format (numeric matrix, graph, ragged sequence) applies
+to the payload type inside either form; it does not replace this
+matrix-versus-dict distinction.
+
 Cell-line featurizers
 ---------------------
 
-.. list-table::
-   :header-rows: 1
-   :widths: 28 72
-
-   * - Name
-     - Role
-   * - ``scaledGeneExpression``
-     - Landmark gene expression with arcsinh transform and scaling
-   * - ``normalizedProteomics``
-     - Proteomics with missingness filters and normalization
-   * - ``pca``
-     - PCA on a dense omics view (``pca[view]``)
-   * - ``raw``
-     - Pass-through dense view (``raw[view]``)
-   * - ``concatFeaturizers``
-     - Concatenate several cell-line featurizers (recipe ``+``)
-   * - ``landmarkGenes``
-     - Landmark gene subset from expression
-   * - ``landmarkGenesReduced``
-     - Reduced landmark gene subset
-   * - ``pathways``
-     - Pathway-level cell-line features
-   * - ``bionic``
-     - BIONIC embeddings for cell lines
-   * - ``identity``
-     - One-hot encoding of cell-line entity identifiers
-   * - ``constant``
-     - Constant one-column intercept (no cell-line identity)
-   * - ``tissue``
-     - Tissue label encoding for naive / tissue-aware models
+.. include:: _generated_cell_line_featurizers.rst
 
 Drug featurizers
 ----------------
 
-.. list-table::
-   :header-rows: 1
-   :widths: 28 72
-
-   * - Name
-     - Role
-   * - ``concatFeaturizers``
-     - Concatenate several drug featurizers (recipe ``+``)
-   * - ``view``
-     - Pass-through named drug feature view
-   * - ``fingerprints``
-     - Molecular fingerprints
-   * - ``drugGraph``
-     - Graph representation of the molecule
-   * - ``molgnet``
-     - MolGNet embeddings
-   * - ``bpePharmaformer``
-     - BPE tokenization features for PharmaFormer
-   * - ``smilesvec``
-     - SMILES vector embeddings
-   * - ``identity``
-     - One-hot encoding of drug entity identifiers
-   * - ``constant``
-     - Constant one-column intercept (no drug identity)
+.. include:: _generated_drug_featurizers.rst
 
 Predictors
 ----------
 
-.. list-table::
-   :header-rows: 1
-   :widths: 32 68
+Every predictor inherits exactly one **input interface**. That interface decides whether featurizers are
+required and how features are consumed:
 
-   * - Name
-     - Role
-   * - ``naiveMean``
-     - Global training-mean baseline
-   * - ``naiveDrugMean``
-     - Per-drug mean baseline
-   * - ``naiveCellLineMean``
-     - Per-cell-line mean baseline
-   * - ``naiveTissueMean``
-     - Per-tissue mean baseline
-   * - ``naiveTissueDrugMean``
-     - Per-tissue–drug mean baseline
-   * - ``naiveMeanEffects``
-     - ANOVA-style mean-effects baseline
-   * - ``elasticNet``
-     - Elastic net on dense features
-   * - ``singleDrugElasticNet``
-     - Single-drug elastic net
-   * - ``lasso``
-     - Lasso regression
-   * - ``ridge``
-     - Ridge regression
-   * - ``randomForest``
-     - Random forest regressor
-   * - ``singleDrugRandomForest``
-     - Single-drug random forest
-   * - ``svr``
-     - Support vector regression
-   * - ``gradientBoosting``
-     - Gradient boosting regressor
-   * - ``adaboost``
-     - AdaBoost decision-tree regressor
-   * - ``knn``
-     - k-nearest neighbors regressor
-   * - ``xgboost``
-     - XGBoost regressor
-   * - ``lightgbm``
-     - LightGBM regressor
-   * - ``neuralNetwork``
-     - Feed-forward neural network
-   * - ``drugGNN``
-     - Drug graph neural network (literature)
-   * - ``precily``
-     - Precily (literature)
-   * - ``srmf``
-     - SRMF (literature)
-   * - ``molir``
-     - MOLIR (literature)
-   * - ``superfeltr``
-     - SuperFELTR (literature)
-   * - ``pharmaFormer``
-     - PharmaFormer (literature)
-   * - ``dipk``
-     - DIPK (literature)
-   * - ``sparsego``
-     - SparseGO (literature)
+- **Feature-free** — response / pair identifiers only; no featurizers
+- **Matrix** — one numeric pair-level design matrix from configured featurizers
+- **Block** — side-specific or named featurizer blocks (including side-specific
+  matrices); not a single flattened design matrix
+- **Raw-dataset** — required raw ``FeatureDataset`` views; no featurizers
+
+Feature **format** (``numeric_matrix``, ``graph``, ``ragged_sequence``) is
+orthogonal: matrix predictors reject graph/ragged payloads, while a future
+composed graph model would be block-based with a graph drug format. Neural
+encoders stay private inside predictors.
+
+.. include:: _generated_predictors.rst
+
+Naive baselines carry the discovery tag ``baseline``. Literature ports attach
+a structured ``LiteratureReference``. Neither tags nor references change
+validation or execution.
+
+``drugGraph`` remains a registered drug featurizer for future composed graph
+predictors. Raw DrugGNN does not use it; its zoo preset is predictor-only.
 
 From catalog to composition
 ---------------------------
 
-A row from each table gives the ingredients for a model, but not yet the model
-itself. For example:
+Matrix and block models still take one row from each table — for example
+``scaledGeneExpression:fingerprints:elasticNet``. Feature-free and raw-dataset
+predictors are **predictor-only** (no featurizer slots).
 
-- ``scaledGeneExpression`` represents cell lines,
-- ``fingerprints`` represents drugs, and
-- ``elasticNet`` predicts responses from those representations.
-
-The next page turns those three names into the recipe
-``scaledGeneExpression:fingerprints:elasticNet``. It also introduces omics-view
-selectors, multi-view concatenation, compatibility checks, and component
-hyperparameters. Continue with :doc:`from_components_to_models`; the remaining
-sections on this page are reference notes for extensions and older interfaces.
+The next page turns those names into recipes, omics-view selectors, multi-view
+concatenation, compatibility checks, and component hyperparameters. Continue
+with :doc:`from_components_to_models`; the remaining sections on this page are
+reference notes for extensions and older interfaces.
 
 Extensions
 ----------

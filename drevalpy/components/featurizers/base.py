@@ -7,18 +7,20 @@ from typing import Any, ClassVar
 
 import numpy as np
 
-from drevalpy.components.contracts import FeatureContract, FeatureKind
+from drevalpy.components.contracts import FeatureContract, FeatureFormat
 from drevalpy.datasets.dataset import FeatureDataset
 
 
 class Featurizer(ABC):
-    """Transform feature tables into per-entity representation matrices.
+    """Transform feature tables into per-entity representation payloads.
 
     Cell-line featurizers consume cell-line features; drug featurizers consume
-    drug features. Both declare ``contract`` for predictor matching.
+    drug features. Both declare ``contract`` for predictor matching. Numeric
+    featurizers return 2D matrices; graph and ragged featurizers return object
+    arrays of payloads.
     """
 
-    contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
+    contract: ClassVar[FeatureContract] = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
 
     @abstractmethod
     def fit(
@@ -31,14 +33,14 @@ class Featurizer(ABC):
 
     @abstractmethod
     def transform(self, features: FeatureDataset, entity_ids: np.ndarray) -> np.ndarray:
-        """Return a 2D feature matrix with one row per entity id in *entity_ids*."""
+        """Return one payload row per entity id in *entity_ids*."""
 
     def transform_blocks(
         self,
         features: FeatureDataset,
         entity_ids: np.ndarray,
     ) -> dict[str, np.ndarray]:
-        """Return named feature blocks; default is a single ``default`` dense matrix."""
+        """Return named feature blocks; default is a single ``default`` block."""
         return {"default": self.transform(features, entity_ids)}
 
     @property

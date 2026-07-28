@@ -5,12 +5,15 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from drevalpy.components.contracts import (
-    FeatureContract,
+    FeatureFormat,
     contracts_compatible,
     featurizer_contract,
     predictor_contracts,
 )
-from drevalpy.components.predictors.baseline import BaselinePredictor
+from drevalpy.components.predictors.feature_free import FeatureFreePredictor
+from drevalpy.components.predictors.matrix import MatrixPredictor
+from drevalpy.components.predictors.raw_dataset import RawDatasetPredictor
+from drevalpy.components.predictors.structured import BlockPredictor
 from drevalpy.components.registry import lookup as _registry_lookup
 
 if TYPE_CHECKING:
@@ -30,24 +33,30 @@ def _validate_view_fields(featurizer: FeaturizerConfig, *, label: str) -> None:
             raise ValueError(msg)
 
 
-def _featurizer_contract(cls: type[Any]) -> FeatureContract:
+def _featurizer_contract(cls: type[Any]):
     try:
         return featurizer_contract(cls)
     except TypeError as exc:
         raise ValueError(str(exc)) from exc
 
 
-def _predictor_contracts(cls: type[Any]) -> tuple[FeatureContract, FeatureContract]:
+def _predictor_contracts(cls: type[Any]):
     try:
         return predictor_contracts(cls)
     except TypeError as exc:
         raise ValueError(str(exc)) from exc
 
 
+def _is_feature_free(pred_cls: type[Any]) -> bool:
+    return issubclass(pred_cls, FeatureFreePredictor)
+
+
+def _is_raw_dataset(pred_cls: type[Any]) -> bool:
+    return issubclass(pred_cls, RawDatasetPredictor)
+
+
 def _allows_no_featurizers(pred_cls: type[Any]) -> bool:
-    if issubclass(pred_cls, BaselinePredictor):
-        return True
-    return getattr(pred_cls, "category", "") == "baseline"
+    return _is_feature_free(pred_cls) or _is_raw_dataset(pred_cls)
 
 
 def _validate_scope(config: ModelConfig, pred_cls: type[Any]) -> None:
@@ -60,10 +69,19 @@ def _validate_scope(config: ModelConfig, pred_cls: type[Any]) -> None:
             f"scope={config.scope!r}; supported_scopes={sorted(supported_scopes)}"
         )
         raise ValueError(msg)
-    if config.scope == ModelScope.SINGLE_DRUG and config.drug_featurizer is not None:
+    if config.scope != ModelScope.SINGLE_DRUG or _allows_no_featurizers(pred_cls):
+        return
+    routing_featurizer = getattr(pred_cls, "routing_drug_featurizer", None)
+    if routing_featurizer != "identity":
         msg = (
-            f"Model scope {ModelScope.SINGLE_DRUG!r} forbids a drug_featurizer "
-            f"(predictor {config.predictor.name!r})"
+            f"Feature-based single-drug predictor {config.predictor.name!r} must declare "
+            "routing_drug_featurizer='identity'"
+        )
+        raise ValueError(msg)
+    if config.drug_featurizer is None or config.drug_featurizer.name != routing_featurizer:
+        msg = (
+            f"Feature-based single-drug predictor {config.predictor.name!r} requires "
+            "drug_featurizer='identity' for per-drug routing"
         )
         raise ValueError(msg)
 
@@ -79,14 +97,18 @@ def _validate_prediction_mode(config: ModelConfig, pred_cls: type[Any]) -> None:
         raise ValueError(msg)
 
 
-def _validate_no_featurizer_baseline(config: ModelConfig, pred_cls: type[Any]) -> bool:
-    """Return True when validation is complete (baseline without featurizers)."""
+def _validate_no_featurizer_predictor(config: ModelConfig, pred_cls: type[Any]) -> bool:
+    """Return True when validation is complete (feature-free or raw predictor)."""
     if config.cell_line_featurizer is not None or config.drug_featurizer is not None:
+        if _allows_no_featurizers(pred_cls):
+            kind = "feature-free" if _is_feature_free(pred_cls) else "raw-dataset"
+            msg = f"Predictor {config.predictor.name!r} is a {kind} predictor and forbids configured featurizers"
+            raise ValueError(msg)
         return False
     if not _allows_no_featurizers(pred_cls):
         msg = (
             f"Predictor {config.predictor.name!r} requires featurizers; "
-            "set cell_line_featurizer and drug_featurizer, or use a baseline predictor."
+            "set cell_line_featurizer and drug_featurizer, or use a feature-free/raw predictor."
         )
         raise ValueError(msg)
     _validate_prediction_mode(config, pred_cls)
@@ -105,7 +127,7 @@ def _validate_featurizer_presence(config: ModelConfig, pred_cls: type[Any]) -> N
         msg = f"cell_line_featurizer must use registry='cell_line', got {config.cell_line_featurizer.registry!r}"
         raise ValueError(msg)
     if config.drug_featurizer is not None and config.drug_featurizer.registry != "drug":
-        msg = "drug_featurizer must use registry='drug', " f"got {config.drug_featurizer.registry!r}"
+        msg = f"drug_featurizer must use registry='drug', got {config.drug_featurizer.registry!r}"
         raise ValueError(msg)
 
 
@@ -114,6 +136,29 @@ def _validate_featurizer_views(config: ModelConfig) -> None:
         _validate_view_fields(config.cell_line_featurizer, label="cell_line_featurizer")
     if config.drug_featurizer is not None:
         _validate_view_fields(config.drug_featurizer, label="drug_featurizer")
+
+
+def _validate_matrix_formats(config: ModelConfig, pred_cls: type[Any]) -> None:
+    if not issubclass(pred_cls, MatrixPredictor):
+        return
+    if config.cell_line_featurizer is not None:
+        cell_cls = _registry_lookup.get_cell_line_featurizer(config.cell_line_featurizer.name)
+        cell_contract = _featurizer_contract(cell_cls)
+        if cell_contract.format != FeatureFormat.NUMERIC_MATRIX:
+            msg = (
+                f"Matrix predictor {config.predictor.name!r} requires numeric_matrix "
+                f"cell-line features, got {cell_contract.format.value!r}"
+            )
+            raise ValueError(msg)
+    if config.drug_featurizer is not None:
+        drug_cls = _registry_lookup.get_drug_featurizer(config.drug_featurizer.name)
+        drug_contract = _featurizer_contract(drug_cls)
+        if drug_contract.format != FeatureFormat.NUMERIC_MATRIX:
+            msg = (
+                f"Matrix predictor {config.predictor.name!r} requires numeric_matrix "
+                f"drug features, got {drug_contract.format.value!r}"
+            )
+            raise ValueError(msg)
 
 
 def _validate_featurizer_contracts(config: ModelConfig, pred_cls: type[Any]) -> None:
@@ -136,13 +181,27 @@ def _validate_featurizer_contracts(config: ModelConfig, pred_cls: type[Any]) -> 
                 f"with predictor drug_contract {required_drug!r}"
             )
             raise ValueError(msg)
+    _validate_matrix_formats(config, pred_cls)
+
+
+def _validate_leaf_interface(pred_cls: type[Any], predictor_name: str) -> None:
+    leaf_bases = (FeatureFreePredictor, MatrixPredictor, BlockPredictor, RawDatasetPredictor)
+    matches = [base for base in leaf_bases if issubclass(pred_cls, base)]
+    if len(matches) != 1:
+        msg = (
+            f"Predictor {predictor_name!r} must inherit exactly one of "
+            f"FeatureFreePredictor, MatrixPredictor, BlockPredictor, RawDatasetPredictor; "
+            f"matched={[base.__name__ for base in matches]}"
+        )
+        raise ValueError(msg)
 
 
 def validate_model_config(config: ModelConfig) -> None:
     """Check registry slots, feature compatibility, and prediction mode."""
     pred_cls = _registry_lookup.get_predictor(config.predictor.name)
+    _validate_leaf_interface(pred_cls, config.predictor.name)
     _validate_scope(config, pred_cls)
-    if _validate_no_featurizer_baseline(config, pred_cls):
+    if _validate_no_featurizer_predictor(config, pred_cls):
         return
     _validate_featurizer_presence(config, pred_cls)
     _validate_featurizer_views(config)

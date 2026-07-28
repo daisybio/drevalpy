@@ -11,7 +11,6 @@ from drevalpy.components.registry import register_predictor
 @register_predictor(
     "lightgbm",
     description="LightGBM regressor on concatenated dense features.",
-    category="general_purpose",
 )
 class LightGBMPredictor(SklearnTabularPredictor):
     """LightGBM regressor for dense tabular pair features."""
@@ -21,7 +20,7 @@ class LightGBMPredictor(SklearnTabularPredictor):
         try:
             import lightgbm as lgb
         except ImportError as exc:
-            msg = "lightgbm is required for LightGBMPredictor. " "Reinstall drevalpy (lightgbm is a core dependency)."
+            msg = "lightgbm is required for LightGBMPredictor. Reinstall drevalpy (lightgbm is a core dependency)."
             raise ImportError(msg) from exc
         return lgb.LGBMRegressor(
             n_estimators=int(self._h.get("n_estimators", 100)),

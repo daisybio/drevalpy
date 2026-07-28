@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from drevalpy.components.contracts import FeatureKind
+from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.featurizers.cell_line.dense_view import DenseViewCellLineFeaturizer
 from drevalpy.components.registry import register_cell_line_featurizer
 
@@ -10,8 +10,7 @@ from drevalpy.components.registry import register_cell_line_featurizer
 @register_cell_line_featurizer(
     "bionic",
     description="Precomputed BIONIC cell-line features for DIPK.",
-    category="general_purpose",
-    contract=FeatureKind.DENSE,
+    contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class BionicCellLineFeaturizer(DenseViewCellLineFeaturizer):
     """Bionic cell line featurizer component."""

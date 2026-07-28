@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from drevalpy.components.contracts import FeatureKind
+from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.featurizers.drug.view import ViewDrugFeaturizer
 from drevalpy.components.registry import register_drug_featurizer
 
@@ -10,8 +10,7 @@ from drevalpy.components.registry import register_drug_featurizer
 @register_drug_featurizer(
     "fingerprints",
     description="Precomputed Morgan fingerprints loaded from the fingerprints view.",
-    category="general_purpose",
-    contract=FeatureKind.DENSE,
+    contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class FingerprintsFeaturizer(ViewDrugFeaturizer):
     """Alias for the standard fingerprints view."""

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from drevalpy.components.contracts import FeatureKind
+from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.featurizers._matrix import stack_view_matrix
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.registry import register_cell_line_featurizer
@@ -13,8 +13,7 @@ from drevalpy.components.registry import register_cell_line_featurizer
 @register_cell_line_featurizer(
     "raw",
     description="Pass through one dense omics view without preprocessing.",
-    category="native",
-    contract=FeatureKind.DENSE,
+    contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class RawCellLineFeaturizer(CellLineFeaturizer):
     """Featurize one omics view as a dense matrix without transformation."""
@@ -39,6 +38,9 @@ class RawCellLineFeaturizer(CellLineFeaturizer):
 
     def transform(self, features, entity_ids: np.ndarray) -> np.ndarray:
         return stack_view_matrix(features, self._view, entity_ids).astype(np.float32)
+
+    def transform_blocks(self, features, entity_ids: np.ndarray) -> dict[str, np.ndarray]:
+        return {self._view: self.transform(features, entity_ids)}
 
     @property
     def output_dim(self) -> int:

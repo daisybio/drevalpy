@@ -3,16 +3,17 @@
 from __future__ import annotations
 
 import threading
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from typing import Any
 
-from drevalpy.components.contracts import FeatureContract, FeatureKind
+from drevalpy.components.contracts import FeatureContract, FeatureFormat
 from drevalpy.components.registry._metadata_validate import validate_registered_class_metadata
 from drevalpy.components.registry.common import make_registration_decorator
 from drevalpy.components.registry.metadata import (
     featurizer_component_metadata,
     predictor_component_metadata,
 )
+from drevalpy.types.literature_reference import LiteratureReference
 
 
 class Registry:
@@ -37,15 +38,11 @@ class Registry:
         name: str,
         *,
         description: str,
-        category: str,
-        template_repo_url: str = "",
-        citation: str = "",
-        citation_doi: str = "",
-        citation_text: str = "",
-        deviations: str = "",
-        contract: FeatureContract | FeatureKind | None = None,
-        cell_line_contract: FeatureContract | FeatureKind | None = None,
-        drug_contract: FeatureContract | FeatureKind | None = None,
+        tags: Iterable[str] | None = None,
+        reference: LiteratureReference | None = None,
+        contract: FeatureContract | FeatureFormat | None = None,
+        cell_line_contract: FeatureContract | FeatureFormat | None = None,
+        drug_contract: FeatureContract | FeatureFormat | None = None,
     ) -> Callable[[type[Any]], type[Any]]:
         """Return a class decorator that registers the decorated class under *name*."""
         return make_registration_decorator(
@@ -54,12 +51,8 @@ class Registry:
             self._registry_id,
             name,
             description=description,
-            category=category,
-            template_repo_url=template_repo_url,
-            citation=citation,
-            citation_doi=citation_doi,
-            citation_text=citation_text,
-            deviations=deviations,
+            tags=tags,
+            reference=reference,
             contract=contract,
             cell_line_contract=cell_line_contract,
             drug_contract=drug_contract,
@@ -85,12 +78,13 @@ class Registry:
         cls = self.get(name)
         return self._metadata_fn(self._display_name, name, cls)
 
-    def list_metadata(self, category: str | None = None) -> list[dict[str, str]]:
-        """Return metadata for all components, optionally filtered by taxonomy category."""
+    def list_metadata(self, *, tag: str | None = None) -> list[dict[str, str]]:
+        """Return metadata for all components, optionally filtered by discovery tag."""
         rows = [self.get_metadata(name) for name in self.list_names()]
-        if category is None:
+        if tag is None:
             return rows
-        return [row for row in rows if row["category"] == category]
+        needle = tag.strip()
+        return [row for row in rows if needle in {part for part in row.get("tags", "").split(",") if part}]
 
     def clear(self) -> None:
         """Remove all entries (primarily for testing)."""

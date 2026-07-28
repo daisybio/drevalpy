@@ -1,3 +1,1 @@
-cell_line_featurizer: constant
-drug_featurizer: constant
 predictor: naiveMean

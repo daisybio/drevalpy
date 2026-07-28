@@ -1,73 +1,32 @@
-"""Shared metadata validation for component registries."""
+"""Shared metadata attachment for component registries."""
 
 from __future__ import annotations
 
 import threading
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from typing import Any
 
-from drevalpy.components.contracts import FeatureContract, FeatureKind
+from drevalpy.components.contracts import FeatureContract, FeatureFormat
 from drevalpy.components.registry._contracts import apply_registration_contracts
-from drevalpy.components.registry._metadata_validate import (
-    _VALID_CATEGORIES,
-    validate_registered_class_metadata,
-)
+from drevalpy.components.registry._metadata_validate import validate_registered_class_metadata
+from drevalpy.types.literature_reference import LiteratureReference
 
 
 def apply_registration_metadata(
     cls: type[Any],
     *,
     description: str,
-    category: str,
-    template_repo_url: str = "",
-    citation: str = "",
-    citation_doi: str = "",
-    citation_text: str = "",
-    deviations: str = "",
+    tags: Iterable[str] | None = None,
+    reference: LiteratureReference | None = None,
 ) -> None:
-    """Attach ``description`` / ``category`` and optional reference fields to *cls*."""
-    if category not in _VALID_CATEGORIES:
-        msg = f"category must be one of {sorted(_VALID_CATEGORIES)}, got {category!r}"
-        raise ValueError(msg)
-
-    cite_any = bool(
-        (template_repo_url or "").strip()
-        or (citation or "").strip()
-        or (citation_doi or "").strip()
-        or (citation_text or "").strip()
-    )
-    dev_any = bool((deviations or "").strip())
-
-    if category == "literature":
-        cls.description = description
-        cls.category = category
-        cls.template_repo_url = template_repo_url
-        cls.citation = citation
-        cls.citation_doi = citation_doi
-        cls.citation_text = citation_text
-        cls.deviations = deviations
-        return
-
-    if category == "general_purpose":
-        if dev_any:
-            msg = "deviations is only allowed when category='literature', not 'general_purpose'"
-            raise ValueError(msg)
-        cls.description = description
-        cls.category = category
-        cls.template_repo_url = template_repo_url
-        cls.citation = citation
-        cls.citation_doi = citation_doi
-        cls.citation_text = citation_text
-        return
-
-    if cite_any or dev_any:
-        msg = (
-            "template_repo_url, citation, citation_doi, citation_text, and deviations "
-            f"are not allowed when category is {category!r}"
-        )
-        raise ValueError(msg)
+    """Attach ``description``, optional ``tags``, and optional literature ``reference``."""
     cls.description = description
-    cls.category = category
+    normalized_tags = frozenset(str(tag).strip() for tag in (tags or ()) if str(tag).strip())
+    cls.tags = normalized_tags
+    if reference is not None and not isinstance(reference, LiteratureReference):
+        msg = f"reference must be LiteratureReference, got {type(reference).__name__}"
+        raise TypeError(msg)
+    cls.reference = reference
 
 
 def make_registration_decorator(
@@ -77,15 +36,11 @@ def make_registration_decorator(
     name: str,
     *,
     description: str,
-    category: str,
-    template_repo_url: str = "",
-    citation: str = "",
-    citation_doi: str = "",
-    citation_text: str = "",
-    deviations: str = "",
-    contract: FeatureContract | FeatureKind | None = None,
-    cell_line_contract: FeatureContract | FeatureKind | None = None,
-    drug_contract: FeatureContract | FeatureKind | None = None,
+    tags: Iterable[str] | None = None,
+    reference: LiteratureReference | None = None,
+    contract: FeatureContract | FeatureFormat | None = None,
+    cell_line_contract: FeatureContract | FeatureFormat | None = None,
+    drug_contract: FeatureContract | FeatureFormat | None = None,
     already_registered_label: str | None = None,
 ) -> Callable[[type[Any]], type[Any]]:
     """Build a class decorator that applies metadata, validates, and registers."""
@@ -99,12 +54,8 @@ def make_registration_decorator(
             apply_registration_metadata(
                 cls,
                 description=description,
-                category=category,
-                template_repo_url=template_repo_url,
-                citation=citation,
-                citation_doi=citation_doi,
-                citation_text=citation_text,
-                deviations=deviations,
+                tags=tags,
+                reference=reference,
             )
             apply_registration_contracts(
                 cls,

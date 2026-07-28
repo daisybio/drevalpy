@@ -1,4 +1,4 @@
-"""Feature kind and contract objects for component compatibility."""
+"""Feature format and contract objects for component compatibility."""
 
 from __future__ import annotations
 
@@ -7,49 +7,47 @@ from enum import StrEnum
 from typing import Any
 
 
-class FeatureKind(StrEnum):
-    """Format of featurizer outputs / predictor inputs."""
+class FeatureFormat(StrEnum):
+    """Runtime payload format of featurizer outputs / predictor inputs."""
 
-    DENSE = "dense"
+    NUMERIC_MATRIX = "numeric_matrix"
     GRAPH = "graph"
-    SEQUENCE = "sequence"
+    RAGGED_SEQUENCE = "ragged_sequence"
 
 
 @dataclass(frozen=True)
 class FeatureContract:
     """Structured description of a feature representation.
 
-    Compatibility intentionally checks only the broad feature kind for now.
-    Additional fields may be added later when real compatibility requirements
-    appear; graph compatibility is therefore currently just ``graph`` expected
-    and ``graph`` provided.
+    Compatibility checks the ``FeatureFormat``. Graph and ragged payloads may
+    carry additional validation elsewhere (container type, required attributes).
     """
 
-    kind: FeatureKind
+    format: FeatureFormat
 
 
-def normalize_feature_contract(contract: FeatureContract | FeatureKind) -> FeatureContract:
-    """Return a ``FeatureContract`` from a contract object or kind shorthand.
+def normalize_feature_contract(contract: FeatureContract | FeatureFormat) -> FeatureContract:
+    """Return a ``FeatureContract`` from a contract object or format shorthand.
 
     Args:
-        contract: A ``FeatureContract`` instance or ``FeatureKind`` enum member.
+        contract: A ``FeatureContract`` instance or ``FeatureFormat`` enum member.
 
     Returns:
         Normalized ``FeatureContract`` instance.
 
     Raises:
-        TypeError: If *contract* is neither ``FeatureContract`` nor ``FeatureKind``.
+        TypeError: If *contract* is neither ``FeatureContract`` nor ``FeatureFormat``.
     """
     if isinstance(contract, FeatureContract):
         return contract
-    if isinstance(contract, FeatureKind):
-        return FeatureContract(kind=contract)
-    msg = f"Expected FeatureContract or FeatureKind, got {type(contract).__name__}"
+    if isinstance(contract, FeatureFormat):
+        return FeatureContract(format=contract)
+    msg = f"Expected FeatureContract or FeatureFormat, got {type(contract).__name__}"
     raise TypeError(msg)
 
 
 def featurizer_contract(cls: type[Any]) -> FeatureContract:
-    """Return the featurizer contract, preferring ``contract`` over legacy ``output_contract``.
+    """Return the featurizer contract from ``contract``.
 
     Args:
         cls: Featurizer class registered in the component registry.
@@ -62,9 +60,7 @@ def featurizer_contract(cls: type[Any]) -> FeatureContract:
     """
     contract = getattr(cls, "contract", None)
     if contract is None:
-        contract = getattr(cls, "output_contract", None)
-    if contract is None:
-        return FeatureContract(kind=FeatureKind.DENSE)
+        return FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
     if not isinstance(contract, FeatureContract):
         msg = f"Featurizer {cls.__name__!r} contract must be a FeatureContract"
         raise TypeError(msg)
@@ -72,7 +68,7 @@ def featurizer_contract(cls: type[Any]) -> FeatureContract:
 
 
 def predictor_contracts(cls: type[Any]) -> tuple[FeatureContract, FeatureContract]:
-    """Return predictor input contracts, preferring canonical attribute names.
+    """Return predictor input contracts for cell-line and drug sides.
 
     Args:
         cls: Predictor class registered in the component registry.
@@ -84,15 +80,11 @@ def predictor_contracts(cls: type[Any]) -> tuple[FeatureContract, FeatureContrac
         TypeError: If either contract attribute is not a ``FeatureContract``.
     """
     cell_line = getattr(cls, "cell_line_contract", None)
-    if cell_line is None:
-        cell_line = getattr(cls, "required_cell_line_contract", None)
     drug = getattr(cls, "drug_contract", None)
-    if drug is None:
-        drug = getattr(cls, "required_drug_contract", None)
     if cell_line is None:
-        cell_line = FeatureContract(kind=FeatureKind.DENSE)
+        cell_line = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
     if drug is None:
-        drug = FeatureContract(kind=FeatureKind.DENSE)
+        drug = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
     if not isinstance(cell_line, FeatureContract) or not isinstance(drug, FeatureContract):
         msg = f"Predictor {cls.__name__!r} contracts must be FeatureContract instances"
         raise TypeError(msg)
@@ -107,6 +99,6 @@ def contracts_compatible(produced: FeatureContract, required: FeatureContract) -
         required: Feature contract declared by a predictor input slot.
 
     Returns:
-        ``True`` when both contracts share the same ``FeatureKind``.
+        ``True`` when both contracts share the same ``FeatureFormat``.
     """
-    return produced.kind == required.kind
+    return produced.format == required.format

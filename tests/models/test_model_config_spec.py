@@ -42,6 +42,14 @@ def test_build_model_config_from_recipe_triple() -> None:
     assert config.model_id == "scaledGeneExpression:fingerprints:elasticNet"
 
 
+def test_single_drug_recipe_infers_scope_and_identity_routing() -> None:
+    config = build_model_config_from_spec("scaledGeneExpression:identity:singleDrugElasticNet")
+    assert config.model_id == "scaledGeneExpression:identity:singleDrugElasticNet"
+    assert config.scope.value == "single_drug"
+    assert config.drug_featurizer is not None
+    assert config.drug_featurizer.name == "identity"
+
+
 def test_build_model_config_from_recipe_triple_with_plus_concat() -> None:
     config = build_model_config_from_spec("raw[expression]+raw[mutations]:fingerprints+identity:randomForest")
     assert config.cell_line_featurizer is not None
@@ -75,10 +83,8 @@ def test_build_model_config_from_recipe_triple_with_bracket_views() -> None:
 def test_build_model_config_from_literature_zoo_name() -> None:
     config = build_model_config_from_spec("DIPK")
     assert config.predictor.name == "dipk"
-    assert config.cell_line_featurizer is not None
-    assert config.cell_line_featurizer.name == "concatFeaturizers"
-    assert config.drug_featurizer is not None
-    assert config.drug_featurizer.name == "molgnet"
+    assert config.cell_line_featurizer is None
+    assert config.drug_featurizer is None
 
 
 def test_model_config_from_spec_classmethod_matches_helper() -> None:
@@ -101,17 +107,16 @@ def test_external_extension_resolved_through_spec(tmp_path: Path) -> None:
     (ext_dir / "components.py").write_text(
         """
 import numpy as np
-from drevalpy.components.contracts import FeatureKind
+from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.model_input_batch import ModelInputBatch
-from drevalpy.components.predictors.baseline import BaselinePredictor
+from drevalpy.components.predictors.feature_free import FeatureFreePredictor
 from drevalpy.components.registry import register_cell_line_featurizer, register_predictor
 
 @register_cell_line_featurizer(
     "resolverCellLine",
     description="ext",
-    category="general_purpose",
-    contract=FeatureKind.DENSE,
+    contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class ResolverCellLineFeaturizer(CellLineFeaturizer):
     def fit(self, features, *, entity_ids=None):
@@ -123,8 +128,8 @@ class ResolverCellLineFeaturizer(CellLineFeaturizer):
     def output_dim(self):
         return self._output_dim
 
-@register_predictor("resolverPredictor", description="ext", category="general_purpose")
-class ResolverPredictor(BaselinePredictor):
+@register_predictor("resolverPredictor", description="ext")
+class ResolverPredictor(FeatureFreePredictor):
     def fit(self, batch: ModelInputBatch) -> None:
         if batch.response is None:
             msg = "response required"
@@ -140,13 +145,12 @@ class ResolverPredictor(BaselinePredictor):
     zoo_file.write_text(
         """
 resolverEntry:
-  cell_line_featurizer: resolverCellLine
   predictor: resolverPredictor
 """,
         encoding="utf-8",
     )
     load_extensions(directories=[ext_dir], zoo_files=[zoo_file])
     config = ModelConfig.from_spec("resolverEntry")
-    assert config.cell_line_featurizer is not None
+    assert config.cell_line_featurizer is None
     assert config.predictor.name == "resolverPredictor"
     config.validate()

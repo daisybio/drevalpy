@@ -7,7 +7,7 @@ from typing import Any, ClassVar
 import numpy as np
 
 from drevalpy.components.model_input_batch import ModelInputBatch
-from drevalpy.components.predictors.baseline import BaselinePredictor
+from drevalpy.components.predictors.feature_free import FeatureFreePredictor
 from drevalpy.components.registry import register_predictor
 from drevalpy.components.state_helpers import state_float
 from drevalpy.models.config import PredictionMode
@@ -15,10 +15,10 @@ from drevalpy.models.config import PredictionMode
 
 @register_predictor(
     "naiveMean",
+    tags=("baseline",),
     description="Predict the global mean response.",
-    category="baseline",
 )
-class NaiveMeanPredictor(BaselinePredictor):
+class NaiveMeanPredictor(FeatureFreePredictor):
     """Naive mean predictor component."""
 
     supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset({PredictionMode.REGRESSION})

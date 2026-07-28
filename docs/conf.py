@@ -38,11 +38,13 @@ extensions = [
     "sphinx_reredirects",
 ]
 
-# Generate CLI option inventory and model-zoo tables before sources are read.
+# Generate registry- and application-driven tables before sources are read.
 from _cli_click import write_generated_cli_reference  # noqa: E402
+from _component_catalog import write_generated_component_catalogs  # noqa: E402
 from _model_zoo import write_generated_model_zoo  # noqa: E402
 
 write_generated_cli_reference()
+write_generated_component_catalogs()
 write_generated_model_zoo()
 
 
@@ -80,9 +82,13 @@ exclude_patterns = [
     "Thumbs.db",
     ".DS_Store",
     "_cli_click.py",
+    "_component_catalog.py",
     "_model_zoo.py",
     "cli/_generated_reference.rst",
+    "concepts/_generated_cell_line_featurizers.rst",
+    "concepts/_generated_drug_featurizers.rst",
     "concepts/_generated_model_zoo.rst",
+    "concepts/_generated_predictors.rst",
 ]
 
 

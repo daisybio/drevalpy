@@ -41,7 +41,7 @@ def test_model_config_and_factory_share_zoo_name(name: str) -> None:
 
 
 def test_structured_predictors_do_not_import_models_package_implementations() -> None:
-    module = importlib.import_module("drevalpy.components.predictors.literature.structured_engine_adapter")
+    module = importlib.import_module("drevalpy.components.predictors.literature._engine_resolve")
     source_path = module.__file__
     assert source_path is not None
     text = Path(source_path).read_text(encoding="utf-8")

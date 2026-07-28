@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from drevalpy.components.contracts import FeatureKind
+from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.featurizers._matrix import stack_view_matrix
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.registry import register_cell_line_featurizer
@@ -17,8 +17,7 @@ from drevalpy.data.preprocessing import (
 @register_cell_line_featurizer(
     "normalizedProteomics",
     description="Proteomics view with log10 transform, median centering, and imputation.",
-    category="native",
-    contract=FeatureKind.DENSE,
+    contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class NormalizedProteomicsCellLineFeaturizer(CellLineFeaturizer):
     """Match sklearn baseline proteomics preprocessing."""

@@ -16,7 +16,7 @@ GENERATED_MODEL_ZOO = DOCS_DIR / "concepts" / "_generated_model_zoo.rst"
 
 def _featurizer_recipe(feat: FeaturizerConfig | None) -> str:
     if feat is None:
-        return "identity"
+        return ""
     if feat.name == "concatFeaturizers":
         children = feat.hyperparameters.get("featurizers", [])
         parts: list[str] = []
@@ -32,6 +32,8 @@ def _featurizer_recipe(feat: FeaturizerConfig | None) -> str:
 
 
 def _model_recipe(config: ModelConfig) -> str:
+    if config.cell_line_featurizer is None and config.drug_featurizer is None:
+        return config.predictor.name
     cell = _featurizer_recipe(config.cell_line_featurizer)
     drug = _featurizer_recipe(config.drug_featurizer)
     return f"{cell}:{drug}:{config.predictor.name}"
@@ -83,8 +85,9 @@ def generate_model_zoo_rst() -> str:
         "Single-drug models",
         "------------------",
         "",
-        "Single-drug presets fit one model per drug (no shared drug encoder at",
-        "prediction time for held-out compounds in the usual LDO sense).",
+        "Feature-based single-drug presets use ``identity`` to create and route one",
+        "model per drug; identity is not appended to the predictor matrix. Raw",
+        "single-drug literature models remain predictor-only.",
         "",
         *(_render_scope_table(ModelScope.SINGLE_DRUG)),
     ]

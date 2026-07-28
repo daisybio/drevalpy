@@ -30,11 +30,12 @@ named featurizer blocks, optional raw ``FeatureDataset`` inputs,
 early-stopping response data, and a small ``TrainingContext`` (checkpoint
 directory / logging metadata).
 
-- Matrix predictors flatten the batch with ``batch.to_feature_matrix()``.
-- Block predictors read ``batch.cell_line_blocks`` and ``batch.drug_blocks``.
-- Baseline predictors use pair identifiers and/or response values only.
-- Literature predictors that declare ``requires_raw_feature_datasets`` read
-  the raw ``FeatureDataset`` inputs carried on the batch.
+- ``MatrixPredictor`` flattens the batch with ``batch.to_feature_matrix()``.
+- ``BlockPredictor`` (alias ``StructuredPredictor``) reads side-specific or
+  named featurizer blocks.
+- ``FeatureFreePredictor`` uses pair identifiers and/or response values only.
+- ``RawDatasetPredictor`` reads required views from the raw ``FeatureDataset``
+  inputs on the batch and forbids configured featurizers.
 
 Resolving built-in models
 -------------------------
@@ -134,29 +135,37 @@ Flat constructor dicts remain supported for predictor keys such as
 ``alpha`` and legacy featurizer aliases (``methylation_n_components``).
 Structured overrides may also use dotted keys directly.
 
-Feature contracts and validation limits
----------------------------------------
+Feature formats, interfaces, and validation
+-------------------------------------------
 
-Each featurizer declares a ``FeatureKind`` (``dense``, ``graph``, or
-``sequence``) via its registration decorator. Predictors declare
-``cell_line_contract`` and ``drug_contract``. ``ModelConfig`` validation
-checks that featurizer output kinds match predictor input kinds.
+Each featurizer declares a ``FeatureFormat`` (``numeric_matrix``, ``graph``,
+or ``ragged_sequence``). Predictors declare ``cell_line_contract`` and
+``drug_contract`` plus exactly one input interface
+(``FeatureFreePredictor``, ``MatrixPredictor``, ``BlockPredictor``, or
+``RawDatasetPredictor``). ``ModelConfig`` validation checks formats and
+interface rules; discovery tags and literature references are descriptive
+only.
 
-``FeatureContract`` currently compares **only the broad ``FeatureKind``**.
-Graph compatibility is therefore ``graph`` expected and ``graph`` provided —
-finer details such as node feature dimension or edge semantics are **not**
-validated yet. Extend contracts carefully when pairing new featurizers with
-structured predictors.
+Graph and ragged payloads are not numeric matrices. Matrix predictors reject
+them. Raw graph consumers such as DrugGNN validate PyG ``Data`` objects
+(``x``, ``edge_index``, consistent node-feature dimensions) themselves.
 
 Scope and early stopping
 ------------------------
 
 - Multi-drug is the default model scope and requires a drug featurizer for
-  feature-based predictors.
-- Single-drug models set ``scope: single_drug`` in their zoo YAML; the class
-  exposes ``is_single_drug_model`` for experiment routing.
+  matrix/block predictors that consume the drug side.
+- Feature-based single-drug models use the ``identity`` drug featurizer to
+  create and route per-drug estimators without adding identity columns to
+  their design matrices. A three-slot recipe infers ``scope: single_drug``
+  from the predictor's sole supported scope.
+- Raw single-drug predictors (``molir``, ``superfeltr``) remain
+  predictor-only and forbid configured featurizers.
+- Feature-free and raw-dataset stacks skip featurizer fit/transform entirely.
 - Early stopping is derived from predictor capability metadata
   (``supports_early_stopping``) via the zoo predictor name.
+- Default prediction mode is regression; classification requires an explicit
+  predictor opt-in.
 
 Predictors and construction
 ---------------------------

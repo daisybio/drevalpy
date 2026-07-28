@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 
-from drevalpy.components.contracts import FeatureKind
+from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.featurizers._matrix import stack_view_matrix
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.registry import register_cell_line_featurizer
@@ -15,8 +15,7 @@ from drevalpy.data.preprocessing import scale_gene_expression
 @register_cell_line_featurizer(
     "scaledGeneExpression",
     description="Landmark gene expression with arcsinh transform and scaling.",
-    category="native",
-    contract=FeatureKind.DENSE,
+    contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class ScaledGeneExpressionFeaturizer(CellLineFeaturizer):
     """Match sklearn baseline gene-expression preprocessing."""

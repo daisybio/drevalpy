@@ -1,5 +1,1 @@
-cell_line_featurizer:
-  - raw[expression]
-  - bionic
-drug_featurizer: molgnet
 predictor: dipk

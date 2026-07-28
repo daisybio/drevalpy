@@ -43,11 +43,11 @@ def test_builtin_drug_featurizers_declare_contract() -> None:
         assert isinstance(cls.contract, FeatureContract)
 
 
-def test_bpe_pharmaformer_is_literature_component() -> None:
+def test_bpe_pharmaformer_has_literature_reference() -> None:
     from drevalpy.components.registry import get_drug_featurizer_metadata
 
     meta = get_drug_featurizer_metadata("bpePharmaformer")
-    assert meta["category"] == "literature"
-    assert meta["template_repo_url"] == "https://github.com/zhouyuru1205/PharmaFormer"
+    assert meta["repo_url"] == "https://github.com/zhouyuru1205/PharmaFormer"
     assert meta["citation_doi"] == "10.1038/s41698-025-01082-6"
     assert meta["citation"].startswith("https://doi.org/10.1038/")
+    assert meta["deviations"]

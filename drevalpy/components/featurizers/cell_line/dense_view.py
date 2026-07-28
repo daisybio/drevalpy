@@ -33,6 +33,9 @@ class DenseViewCellLineFeaturizer(CellLineFeaturizer):
     def transform(self, features, entity_ids: np.ndarray) -> np.ndarray:
         return stack_view_matrix(features, self._view, entity_ids).astype(np.float32)
 
+    def transform_blocks(self, features, entity_ids: np.ndarray) -> dict[str, np.ndarray]:
+        return {self._view: self.transform(features, entity_ids)}
+
     @property
     def output_dim(self) -> int:
         return self._output_dim

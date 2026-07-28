@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 
-from drevalpy.components.contracts import FeatureContract, FeatureKind
+from drevalpy.components.contracts import FeatureContract, FeatureFormat
 from drevalpy.types.model_scope import ModelScope
 from drevalpy.types.prediction_mode import PredictionMode
 
@@ -18,12 +18,15 @@ if TYPE_CHECKING:
 class Predictor(ABC):
     """Train and predict drug response from a ``ModelInputBatch``."""
 
-    cell_line_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
-    drug_contract: ClassVar[FeatureContract] = FeatureContract(kind=FeatureKind.DENSE)
+    cell_line_contract: ClassVar[FeatureContract] = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
+    drug_contract: ClassVar[FeatureContract] = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
     requires_drug_featurizer: ClassVar[bool] = True
+    routing_drug_featurizer: ClassVar[str | None] = None
     supports_early_stopping: ClassVar[bool] = False
-    supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset(PredictionMode)
+    supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset({PredictionMode.REGRESSION})
     supported_scopes: ClassVar[frozenset[ModelScope]] = frozenset({ModelScope.MULTI_DRUG})
+    required_cell_line_blocks: ClassVar[tuple[str, ...]] = ()
+    required_drug_blocks: ClassVar[tuple[str, ...]] = ()
 
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
         """Store hyperparameters merged with class defaults."""

@@ -234,16 +234,15 @@ def _train_and_predict(
 def _call_naive_predictor(
     train_dataset: DrugResponseDataset, val_dataset: DrugResponseDataset, test_mode: str, data_dir
 ) -> tuple[DRPModel, np.ndarray]:
+    _ = data_dir
     naive = construct_model("NaivePredictor")({})
-    train_dataset, val_dataset, cell_line_input, drug_input = _subset_dataset(
-        model=naive, train_dataset=train_dataset, val_dataset=val_dataset, data_dir=data_dir
-    )
-    naive.train(output=train_dataset, cell_line_input=cell_line_input, drug_input=drug_input)
+    empty = FeatureDataset(features={})
+    naive.train(output=train_dataset, cell_line_input=empty, drug_input=None)
     val_dataset._predictions = naive.predict(
         cell_line_ids=val_dataset.cell_line_ids,
         drug_ids=val_dataset.drug_ids,
-        cell_line_input=cell_line_input,
-        drug_input=drug_input,
+        cell_line_input=empty,
+        drug_input=None,
     )
     assert val_dataset.predictions is not None
     train_mean = train_dataset.response.mean()
@@ -401,10 +400,12 @@ def _call_naive_tissue_drug_predictor(
 def _subset_dataset(model: DRPModel, train_dataset: DrugResponseDataset, val_dataset: DrugResponseDataset, data_dir):
     cell_line_input = model.load_cell_line_features(data_path=str(data_dir), dataset_name="TOYv1")
     drug_input = model.load_drug_features(data_path=str(data_dir), dataset_name="TOYv1")
-    if drug_input is None:
-        raise ValueError("Drug input is None")
-    cell_lines_to_keep = cell_line_input.identifiers
-    drugs_to_keep = drug_input.identifiers
-    train_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
-    val_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
-    return train_dataset, val_dataset, cell_line_input, drug_input
+    cell_lines_to_keep = cell_line_input.identifiers if cell_line_input.features else None
+    drugs_to_keep = drug_input.identifiers if drug_input is not None and drug_input.features else None
+    if cell_lines_to_keep is not None or drugs_to_keep is not None:
+        train_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
+        val_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
+    if cell_line_input.features or (drug_input is not None and drug_input.features):
+        return train_dataset, val_dataset, cell_line_input, drug_input
+    empty = FeatureDataset(features={})
+    return train_dataset, val_dataset, empty, None

@@ -6,7 +6,7 @@ from typing import ClassVar
 
 import numpy as np
 
-from drevalpy.components.contracts import FeatureKind
+from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.featurizers._one_hot import OneHotCategoryEncoder
 from drevalpy.components.featurizers.drug.base import DrugFeaturizer
 from drevalpy.components.registry import register_drug_featurizer
@@ -16,8 +16,7 @@ from drevalpy.datasets.dataset import FeatureDataset
 @register_drug_featurizer(
     "identity",
     description="One-hot encoding of drug entity identifiers.",
-    category="native",
-    contract=FeatureKind.DENSE,
+    contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class DrugIdentityFeaturizer(DrugFeaturizer):
     """Encode drug IDs as dense one-hot vectors."""

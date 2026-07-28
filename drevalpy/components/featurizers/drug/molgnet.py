@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from drevalpy.components.contracts import FeatureKind
+from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.featurizers.drug.base import DrugFeaturizer
 from drevalpy.components.registry import register_drug_featurizer
 
@@ -12,8 +12,7 @@ from drevalpy.components.registry import register_drug_featurizer
 @register_drug_featurizer(
     "molgnet",
     description="Precomputed MolGNet drug embeddings for DIPK.",
-    category="general_purpose",
-    contract=FeatureKind.DENSE,
+    contract=FeatureFormat.RAGGED_SEQUENCE,
 )
 class MolGNetDrugFeaturizer(DrugFeaturizer):
     """Expose variable-size MolGNet tensors without stacking into one dense matrix."""

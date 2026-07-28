@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from drevalpy.components.contracts import FeatureKind
+from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.featurizers._one_hot import OneHotCategoryEncoder
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.registry import register_cell_line_featurizer
@@ -22,8 +22,7 @@ def _tissue_label(features: FeatureDataset, entity_id: str) -> str | None:
 @register_cell_line_featurizer(
     "tissue",
     description="One-hot encoding of tissue or lineage labels for cell-line entities.",
-    category="native",
-    contract=FeatureKind.DENSE,
+    contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class TissueFeaturizer(CellLineFeaturizer):
     """Map each cell line to a dense one-hot tissue vector."""

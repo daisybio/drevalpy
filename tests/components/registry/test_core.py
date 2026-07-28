@@ -6,7 +6,8 @@ from collections.abc import Iterator
 
 import pytest
 
-from drevalpy.components.contracts import FeatureContract, FeatureKind
+from drevalpy.components.contracts import FeatureContract, FeatureFormat
+from drevalpy.components.predictors.feature_free import FeatureFreePredictor
 from drevalpy.components.registry import (
     clear_cell_line_featurizer_registry,
     clear_drug_featurizer_registry,
@@ -41,14 +42,13 @@ def test_register_and_lookup_cell_line_featurizer() -> None:
     @register_cell_line_featurizer(
         "dummyCellLine",
         description="test cell line",
-        category="native",
-        contract=FeatureKind.DENSE,
+        contract=FeatureFormat.NUMERIC_MATRIX,
     )
     class DummyCellLine:
         pass
 
     assert get_cell_line_featurizer("dummyCellLine") is DummyCellLine
-    assert vars(DummyCellLine)["contract"] == FeatureContract(kind=FeatureKind.DENSE)
+    assert vars(DummyCellLine)["contract"] == FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
     assert "dummyCellLine" in list_cell_line_featurizers()
 
 
@@ -56,14 +56,13 @@ def test_register_and_lookup_drug_featurizer() -> None:
     @register_drug_featurizer(
         "dummyDrug",
         description="test drug",
-        category="native",
-        contract=FeatureKind.DENSE,
+        contract=FeatureFormat.NUMERIC_MATRIX,
     )
     class DummyDrug:
         pass
 
     assert get_drug_featurizer("dummyDrug") is DummyDrug
-    assert vars(DummyDrug)["contract"] == FeatureContract(kind=FeatureKind.DENSE)
+    assert vars(DummyDrug)["contract"] == FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
     assert "dummyDrug" in list_drug_featurizers()
 
 
@@ -71,8 +70,7 @@ def test_duplicate_registration_fails() -> None:
     @register_cell_line_featurizer(
         "dup",
         description="first",
-        category="native",
-        contract=FeatureKind.DENSE,
+        contract=FeatureFormat.NUMERIC_MATRIX,
     )
     class First:
         pass
@@ -82,8 +80,7 @@ def test_duplicate_registration_fails() -> None:
         @register_cell_line_featurizer(
             "dup",
             description="second",
-            category="native",
-            contract=FeatureKind.DENSE,
+            contract=FeatureFormat.NUMERIC_MATRIX,
         )
         class Second:
             pass
@@ -99,85 +96,81 @@ def test_unknown_component_fails() -> None:
         get_cell_line_featurizer("missing")
 
 
-def test_drug_metadata_listing_and_category_filter() -> None:
+def test_drug_metadata_listing_and_tag_filter() -> None:
     @register_drug_featurizer(
-        "nativeDrug",
-        description="native",
-        category="native",
-        contract=FeatureKind.DENSE,
+        "coreDrug",
+        description="core",
+        contract=FeatureFormat.NUMERIC_MATRIX,
     )
-    class NativeDrug:
+    class CoreDrug:
         pass
 
     @register_drug_featurizer(
         "baselineDrug",
         description="baseline",
-        category="baseline",
-        contract=FeatureKind.GRAPH,
+        tags=("baseline",),
+        contract=FeatureFormat.GRAPH,
     )
     class BaselineDrug:
         pass
 
     all_rows = list_drug_featurizer_metadata()
     assert len(all_rows) == 2
-    baseline_rows = list_drug_featurizer_metadata(category="baseline")
+    baseline_rows = list_drug_featurizer_metadata(tag="baseline")
     assert len(baseline_rows) == 1
     assert baseline_rows[0]["name"] == "baselineDrug"
 
 
-def test_metadata_listing_and_category_filter() -> None:
+def test_metadata_listing_and_tag_filter() -> None:
     @register_cell_line_featurizer(
-        "nativeEnc",
-        description="native",
-        category="native",
-        contract=FeatureKind.DENSE,
+        "coreFeat",
+        description="core",
+        contract=FeatureFormat.NUMERIC_MATRIX,
     )
-    class NativeEnc:
+    class CoreFeat:
         pass
 
     @register_cell_line_featurizer(
-        "baselineEnc",
+        "baselineFeat",
         description="baseline",
-        category="baseline",
-        contract=FeatureKind.DENSE,
+        tags=("baseline",),
+        contract=FeatureFormat.NUMERIC_MATRIX,
     )
-    class BaselineEnc:
+    class BaselineFeat:
         pass
 
     all_rows = list_cell_line_featurizer_metadata()
     assert len(all_rows) == 2
-    baseline_rows = list_cell_line_featurizer_metadata(category="baseline")
+    baseline_rows = list_cell_line_featurizer_metadata(tag="baseline")
     assert len(baseline_rows) == 1
-    assert baseline_rows[0]["name"] == "baselineEnc"
+    assert baseline_rows[0]["name"] == "baselineFeat"
 
 
-def test_get_drug_metadata_includes_output_type() -> None:
+def test_get_drug_metadata_includes_output_format() -> None:
     @register_drug_featurizer(
         "graphDrug",
         description="graph",
-        category="native",
-        contract=FeatureKind.GRAPH,
+        contract=FeatureFormat.GRAPH,
     )
     class GraphDrug:
         pass
 
     meta = get_drug_featurizer_metadata("graphDrug")
-    assert meta["output_type"] == "graph"
+    assert meta["output_format"] == "graph"
     assert meta["description"] == "graph"
 
 
-def test_get_metadata_includes_output_type() -> None:
+def test_get_metadata_includes_output_format() -> None:
     @register_cell_line_featurizer(
-        "graphEnc",
+        "graphFeat",
         description="graph",
-        category="native",
-        contract=FeatureKind.GRAPH,
+        contract=FeatureFormat.GRAPH,
     )
-    class GraphEnc:
+    class GraphFeat:
         pass
 
-    meta = get_cell_line_featurizer_metadata("graphEnc")
-    assert meta["output_type"] == "graph"
+    meta = get_cell_line_featurizer_metadata("graphFeat")
+    assert meta["output_format"] == "graph"
     assert meta["description"] == "graph"
 
 
@@ -185,17 +178,15 @@ def test_decorator_returns_original_class() -> None:
     @register_predictor(
         "dummyPred",
         description="pred",
-        category="baseline",
-        cell_line_contract=FeatureKind.DENSE,
-        drug_contract=FeatureKind.DENSE,
+        cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+        drug_contract=FeatureFormat.NUMERIC_MATRIX,
     )
-    class DummyPred:
-        requires_drug_featurizer = False
-        supported_modes = {"regression"}
+    class DummyPred(FeatureFreePredictor):
+        pass
 
     assert vars(DummyPred)["registry_name"] == "dummyPred"
-    assert vars(DummyPred)["cell_line_contract"] == FeatureContract(kind=FeatureKind.DENSE)
-    assert vars(DummyPred)["drug_contract"] == FeatureContract(kind=FeatureKind.DENSE)
+    assert vars(DummyPred)["cell_line_contract"] == FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
+    assert vars(DummyPred)["drug_contract"] == FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
 
 
 def test_duplicate_drug_class_and_decorator_contract_fails() -> None:
@@ -204,11 +195,10 @@ def test_duplicate_drug_class_and_decorator_contract_fails() -> None:
         @register_drug_featurizer(
             "drugConflict",
             description="conflict",
-            category="native",
-            contract=FeatureKind.DENSE,
+            contract=FeatureFormat.NUMERIC_MATRIX,
         )
         class DrugConflict:
-            contract = FeatureContract(kind=FeatureKind.DENSE)
+            contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
 
 
 def test_duplicate_class_and_decorator_contract_fails() -> None:
@@ -217,11 +207,10 @@ def test_duplicate_class_and_decorator_contract_fails() -> None:
         @register_cell_line_featurizer(
             "conflict",
             description="conflict",
-            category="native",
-            contract=FeatureKind.DENSE,
+            contract=FeatureFormat.NUMERIC_MATRIX,
         )
         class Conflict:
-            contract = FeatureContract(kind=FeatureKind.DENSE)
+            contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
 
 
 def test_featurizer_registration_requires_explicit_contract() -> None:
@@ -230,7 +219,6 @@ def test_featurizer_registration_requires_explicit_contract() -> None:
         @register_drug_featurizer(
             "noContractDrug",
             description="missing contract",
-            category="native",
         )
         class NoContractDrug:
             pass
@@ -238,7 +226,7 @@ def test_featurizer_registration_requires_explicit_contract() -> None:
 
 def test_registry_clear() -> None:
     registry = Registry("test", "Test component", "test_components", lambda *_: {})
-    decorated = registry.register("x", description="x", category="native")
+    decorated = registry.register("x", description="x")
 
     @decorated
     class X:

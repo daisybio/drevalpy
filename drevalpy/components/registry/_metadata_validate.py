@@ -4,71 +4,79 @@ from __future__ import annotations
 
 from typing import Any
 
-_VALID_CATEGORIES = frozenset({"literature", "baseline", "general_purpose", "native"})
+from drevalpy.types.literature_reference import LiteratureReference
+
 _FEATURIZER_REGISTRY_IDS = frozenset({"cell_line_featurizer", "drug_featurizer"})
-_FORBIDDEN_ON_BASELINE_NATIVE: frozenset[str] = frozenset(
-    (
-        "template_repo_url",
-        "citation",
-        "citation_doi",
-        "citation_text",
-        "deviations",
-    )
-)
 
 
 def _is_valid_url(url: str) -> bool:
     return url.startswith(("http://", "https://"))
 
 
-def _metadata_fields_from_class(cls: type[Any]) -> dict[str, str]:
-    return {
-        "description": str(getattr(cls, "description", "") or "").strip(),
-        "category": str(getattr(cls, "category", "") or "").strip(),
-        "template_repo_url": str(getattr(cls, "template_repo_url", "") or "").strip(),
-        "citation": str(getattr(cls, "citation", "") or "").strip(),
-        "citation_doi": str(getattr(cls, "citation_doi", "") or "").strip(),
-        "citation_text": str(getattr(cls, "citation_text", "") or "").strip(),
-        "deviations": str(getattr(cls, "deviations", "") or "").strip(),
-    }
-
-
-def _validate_required_base(metadata: dict[str, str]) -> tuple[list[str], list[str]]:
-    missing: list[str] = []
+def validate_literature_reference(reference: LiteratureReference) -> list[str]:
+    """Return invalid-field names for a literature reference, or an empty list."""
     invalid: list[str] = []
-    if not metadata["description"]:
+    if not reference.repo_url:
+        invalid.append("repo_url")
+    elif not _is_valid_url(reference.repo_url):
+        invalid.append("repo_url")
+    if not (reference.citation_text or reference.citation_doi):
+        invalid.append("citation")
+    if not reference.deviations:
+        invalid.append("deviations")
+    return invalid
+
+
+def _missing_metadata_fields(registry_id: str, cls: type[Any]) -> list[str]:
+    """Return required metadata fields missing from ``cls``."""
+    missing: list[str] = []
+    description = str(getattr(cls, "description", "") or "").strip()
+    if not description:
         missing.append("description")
-    if not metadata["category"]:
-        missing.append("category")
-    elif metadata["category"] not in _VALID_CATEGORIES:
-        invalid.append("category")
-    return missing, invalid
+    if registry_id in _FEATURIZER_REGISTRY_IDS and "contract" not in cls.__dict__:
+        missing.append("contract")
+    return missing
 
 
-def _validate_literature(metadata: dict[str, str]) -> tuple[list[str], list[str]]:
-    missing: list[str] = []
+def _has_invalid_tags(tags: object) -> bool:
+    """Return whether ``tags`` is not a collection of non-empty strings."""
+    if tags is None:
+        return False
+    if not isinstance(tags, (frozenset, set, list, tuple)):
+        return True
+    return any(not isinstance(tag, str) or not tag.strip() for tag in tags)
+
+
+def _invalid_metadata_fields(cls: type[Any]) -> list[str]:
+    """Return metadata fields with invalid values on ``cls``."""
     invalid: list[str] = []
-    if not metadata["template_repo_url"]:
-        missing.append("template_repo_url")
-    elif not _is_valid_url(metadata["template_repo_url"]):
-        invalid.append("template_repo_url")
-    has_cite = metadata["citation"] or metadata["citation_doi"] or metadata["citation_text"]
-    if not has_cite:
-        missing.append("citation")
-    if not metadata["deviations"]:
-        missing.append("deviations")
-    return missing, invalid
+    if _has_invalid_tags(getattr(cls, "tags", frozenset())):
+        invalid.append("tags")
+
+    reference = getattr(cls, "reference", None)
+    if reference is None:
+        return invalid
+    if not isinstance(reference, LiteratureReference):
+        invalid.append("reference")
+        return invalid
+    invalid.extend(validate_literature_reference(reference))
+    return invalid
 
 
-def _validate_non_literature_explicit_fields(cls: type[Any], *, category: str) -> list[str]:
-    if category in {"baseline", "native"}:
-        bad = [field for field in _FORBIDDEN_ON_BASELINE_NATIVE if field in cls.__dict__]
-        return [f"non_literature_explicit={bad}"] if bad else []
-    if category == "general_purpose":
-        if "deviations" in cls.__dict__:
-            return ["deviations_only_for_literature"]
-        return []
-    return []
+def _format_validation_error(
+    registry_id: str,
+    name: str,
+    *,
+    missing: list[str],
+    invalid: list[str],
+) -> str:
+    """Format a registry metadata validation error."""
+    parts: list[str] = []
+    if missing:
+        parts.append(f"missing={missing}")
+    if invalid:
+        parts.append(f"invalid={invalid}")
+    return f"{registry_id} '{name}' metadata validation failed: " + ", ".join(parts)
 
 
 def validate_registered_class_metadata(
@@ -77,24 +85,7 @@ def validate_registered_class_metadata(
     cls: type[Any],
 ) -> None:
     """Raise ``ValueError`` if class metadata is inconsistent or incomplete."""
-    meta = _metadata_fields_from_class(cls)
-    missing, invalid = _validate_required_base(meta)
-    category = meta["category"]
-    if category == "literature":
-        lit_m, lit_i = _validate_literature(meta)
-        missing.extend(lit_m)
-        invalid.extend(lit_i)
-    elif category in {"baseline", "general_purpose", "native"}:
-        invalid.extend(_validate_non_literature_explicit_fields(cls, category=category))
-
-    if registry_id in _FEATURIZER_REGISTRY_IDS and "contract" not in cls.__dict__:
-        missing.append("contract")
-
+    missing = _missing_metadata_fields(registry_id, cls)
+    invalid = _invalid_metadata_fields(cls)
     if missing or invalid:
-        parts: list[str] = []
-        if missing:
-            parts.append(f"missing={missing}")
-        if invalid:
-            parts.append(f"invalid={invalid}")
-        msg = f"{registry_id} '{name}' metadata validation failed: " + ", ".join(parts)
-        raise ValueError(msg)
+        raise ValueError(_format_validation_error(registry_id, name, missing=missing, invalid=invalid))

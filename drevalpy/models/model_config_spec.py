@@ -6,10 +6,12 @@ from typing import Any
 
 from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
 from drevalpy.components.model_id import parse_model_id
-from drevalpy.components.predictors.baseline import BaselinePredictor
+from drevalpy.components.predictors.feature_free import FeatureFreePredictor
+from drevalpy.components.predictors.raw_dataset import RawDatasetPredictor
 from drevalpy.models.config import (
     FeaturizerConfig,
     ModelConfig,
+    ModelScope,
     PredictionMode,
     PredictorConfig,
 )
@@ -21,21 +23,33 @@ def _coerce_prediction_mode(mode: PredictionMode | str) -> PredictionMode:
     return PredictionMode(mode)
 
 
+def _default_scope_for_predictor(pred_cls: type[Any]) -> ModelScope:
+    supported_scopes = getattr(pred_cls, "supported_scopes", None)
+    if supported_scopes is not None and len(supported_scopes) == 1:
+        return next(iter(supported_scopes))
+    return ModelScope.MULTI_DRUG
+
+
 def _config_from_recipe_triple(
     spec: str,
     *,
     hyperparameters: dict[str, Any] | None = None,
     prediction_mode: PredictionMode | str = PredictionMode.REGRESSION,
 ) -> ModelConfig:
+    from drevalpy.components.registry import get_predictor
+
     cell_line_type, drug_type, predictor_type = parse_model_id(spec.strip())
+    pred_cls = get_predictor(predictor_type)
     predictor = PredictorConfig(name=predictor_type, hyperparameters=dict(hyperparameters or {}))
     mode = _coerce_prediction_mode(prediction_mode)
+    scope = _default_scope_for_predictor(pred_cls)
     if cell_line_type is None:
         config = ModelConfig(
             cell_line_featurizer=None,
             drug_featurizer=None,
             predictor=predictor,
             prediction_mode=mode,
+            scope=scope,
         )
         config.validate()
         return config
@@ -51,12 +65,13 @@ def _config_from_recipe_triple(
         ),
         predictor=predictor,
         prediction_mode=mode,
+        scope=scope,
     )
     config.validate()
     return config
 
 
-def _config_from_baseline_predictor_token(
+def _config_from_no_featurizer_predictor_token(
     token: str,
     *,
     prediction_mode: PredictionMode | str = PredictionMode.REGRESSION,
@@ -67,7 +82,7 @@ def _config_from_baseline_predictor_token(
         pred_cls = get_predictor(token)
     except (ValueError, ImportError):
         return None
-    if not (issubclass(pred_cls, BaselinePredictor) or getattr(pred_cls, "category", "") == "baseline"):
+    if not (issubclass(pred_cls, FeatureFreePredictor) or issubclass(pred_cls, RawDatasetPredictor)):
         return None
     config = ModelConfig(
         cell_line_featurizer=None,
@@ -75,6 +90,8 @@ def _config_from_baseline_predictor_token(
         predictor=PredictorConfig(name=token),
         prediction_mode=_coerce_prediction_mode(prediction_mode),
     )
+    # Preserve predictor-declared default scope for single-drug raw models.
+    config = config.model_copy(update={"scope": _default_scope_for_predictor(pred_cls)}, deep=True)
     config.validate()
     return config
 
@@ -92,7 +109,7 @@ def build_model_config_from_spec(
     1. ``cellLine:drug:predictor`` registry triple
     2. Built-in or external zoo preset name
     3. Zoo / factory model name (PascalCase)
-    4. Baseline predictor token (no featurizers required), e.g. ``naiveMean`` or ``dipk``
+    4. Feature-free or raw predictor token (no featurizers required), e.g. ``naiveMean`` or ``dipk``
     """
     from drevalpy.models.factory import model_config_for_name
 
@@ -120,21 +137,21 @@ def build_model_config_from_spec(
             config.validate()
         return config
 
-    baseline = _config_from_baseline_predictor_token(trimmed, prediction_mode=prediction_mode)
-    if baseline is not None:
+    no_feat = _config_from_no_featurizer_predictor_token(trimmed, prediction_mode=prediction_mode)
+    if no_feat is not None:
         if hyperparameters:
-            return baseline.model_copy(
+            return no_feat.model_copy(
                 update={
-                    "predictor": baseline.predictor.model_copy(
-                        update={"hyperparameters": {**baseline.predictor.hyperparameters, **hyperparameters}}
+                    "predictor": no_feat.predictor.model_copy(
+                        update={"hyperparameters": {**no_feat.predictor.hyperparameters, **hyperparameters}}
                     )
                 },
                 deep=True,
             )
-        return baseline
+        return no_feat
 
     msg = (
         f"Unknown model spec {spec!r}. Use a recipe triple "
-        "(cellLine:drug:predictor), zoo name, or baseline predictor token."
+        "(cellLine:drug:predictor), zoo name, or feature-free/raw predictor token."
     )
     raise ValueError(msg)

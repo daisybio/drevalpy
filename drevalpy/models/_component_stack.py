@@ -11,6 +11,7 @@ from drevalpy.components.featurizers.base import Featurizer
 from drevalpy.components.model_input_batch import ModelInputBatch
 from drevalpy.components.model_input_build import build_model_input_batch
 from drevalpy.components.predictors.base import Predictor
+from drevalpy.components.predictors.raw_dataset import RawDatasetPredictor
 from drevalpy.components.training_context import TrainingContext
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models.config import ModelConfig, PredictionMode, PredictorConfig
@@ -198,16 +199,43 @@ class _ComponentStack:
         if len(output) == 0:
             return self
 
+        if isinstance(self._predictor, RawDatasetPredictor):
+            self._cell_line_entity_ids = np.array([], dtype=str)
+            self._cell_line_matrix = np.empty((0, 0), dtype=np.float32)
+            self._drug_entity_ids = np.array([], dtype=str)
+            self._drug_matrix = np.empty((0, 0), dtype=np.float32)
+            batch = build_model_input_batch(
+                output,
+                cell_line_entity_ids=self._cell_line_entity_ids,
+                drug_entity_ids=None,
+                cell_line_features=self._cell_line_matrix,
+                drug_features=None,
+                cell_line_blocks={},
+                drug_blocks={},
+                cell_line_input=cell_line_input,
+                drug_input=drug_input,
+                early_stopping_response=output_earlystopping,
+                training_context=training_context,
+            )
+            self._predictor.fit(batch)
+            return self
+
         self._train_cell_line_side(output, cell_line_input)
         self._train_drug_side(output, drug_input)
 
+        cell_line_entity_ids = (
+            self._cell_line_entity_ids if self._cell_line_entity_ids is not None else np.array([], dtype=str)
+        )
+        cell_line_matrix = (
+            self._cell_line_matrix if self._cell_line_matrix is not None else np.empty((0, 0), dtype=np.float32)
+        )
         batch = self._build_batch(
             output,
             cell_line_input=cell_line_input,
             drug_input=drug_input,
-            cell_line_entity_ids=self._cell_line_entity_ids,
+            cell_line_entity_ids=cell_line_entity_ids,
             drug_entity_ids=self._drug_entity_ids,
-            cell_line_matrix=self._cell_line_matrix,
+            cell_line_matrix=cell_line_matrix,
             drug_matrix=self._drug_matrix,
             output_earlystopping=output_earlystopping,
             training_context=training_context,
@@ -263,6 +291,25 @@ class _ComponentStack:
         if len(cell_line_ids) == 0:
             return np.array([])
 
+        response = DrugResponseDataset(
+            response=np.zeros(len(cell_line_ids)),
+            cell_line_ids=cell_line_ids,
+            drug_ids=drug_ids,
+        )
+        if isinstance(self._predictor, RawDatasetPredictor):
+            batch = build_model_input_batch(
+                response,
+                cell_line_entity_ids=np.array([], dtype=str),
+                drug_entity_ids=None,
+                cell_line_features=np.empty((0, 0), dtype=np.float32),
+                drug_features=None,
+                cell_line_blocks={},
+                drug_blocks={},
+                cell_line_input=cell_line_input,
+                drug_input=drug_input,
+            )
+            return self._predictor.predict(batch)
+
         cell_line_entity_ids = np.array([], dtype=str)
         cell_line_matrix = np.empty((0, 0), dtype=np.float32)
         if self._cell_line_featurizer is not None:
@@ -279,11 +326,6 @@ class _ComponentStack:
                 raise ValueError(msg)
             drug_matrix = self._drug_featurizer.transform(drug_source, drug_entity_ids)
 
-        response = DrugResponseDataset(
-            response=np.zeros(len(cell_line_ids)),
-            cell_line_ids=cell_line_ids,
-            drug_ids=drug_ids,
-        )
         batch = self._build_batch(
             response,
             cell_line_input=cell_line_input,

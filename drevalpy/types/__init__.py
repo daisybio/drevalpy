@@ -1,5 +1,7 @@
 """Shared type definitions used across drevalpy layers."""
 
+from drevalpy.types.literature_reference import LiteratureReference
+from drevalpy.types.model_scope import ModelScope
 from drevalpy.types.prediction_mode import PredictionMode
 
-__all__ = ["PredictionMode"]
+__all__ = ["LiteratureReference", "ModelScope", "PredictionMode"]

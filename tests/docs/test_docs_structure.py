@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -27,7 +29,10 @@ EXEMPT_SUFFIXES = {
     "index.rst",
     "reference.rst",
     "_generated_reference.rst",
+    "_generated_cell_line_featurizers.rst",
+    "_generated_drug_featurizers.rst",
     "_generated_model_zoo.rst",
+    "_generated_predictors.rst",
 }
 
 EXEMPT_RELATIVE = {
@@ -114,15 +119,86 @@ def test_zoo_presets_documented_in_model_zoo() -> None:
     generated = generate_model_zoo_rst()
     missing = sorted(name for name in zoo_names if name not in generated)
     assert not missing, f"Zoo presets missing from generated model zoo catalog: {missing}"
+    assert "``scaledGeneExpression:identity:singleDrugElasticNet``" in generated
+    assert "``scaledGeneExpression:identity:singleDrugRandomForest``" in generated
+    assert "``molir``" in generated
+    assert "``superfeltr``" in generated
 
 
-def test_component_catalog_covers_builtin_registry_names() -> None:
+def test_component_catalog_is_registry_driven_and_synchronized() -> None:
     from drevalpy.components import register_builtins as rb
+    from drevalpy.components.registry import (
+        list_cell_line_featurizer_metadata,
+        list_drug_featurizer_metadata,
+        list_predictor_metadata,
+    )
 
     catalog = (DOCS / "concepts" / "component_catalog.rst").read_text(encoding="utf-8")
-    expected = set(rb._CELL_LINE_MODULES) | set(rb._DRUG_MODULES) | set(rb._PREDICTOR_MODULES)
-    missing = sorted(name for name in expected if name not in catalog)
-    assert not missing, f"Registry names missing from component_catalog.rst: {missing}"
+    for include in (
+        "_generated_cell_line_featurizers.rst",
+        "_generated_drug_featurizers.rst",
+        "_generated_predictors.rst",
+    ):
+        assert f".. include:: {include}" in catalog
+    assert ".. list-table::" not in catalog
+    assert "Example recipe" not in catalog
+
+    script = (
+        "import json, sys\n"
+        f"sys.path.insert(0, {str(DOCS)!r})\n"
+        "from _component_catalog import generate_component_catalog_rsts\n"
+        "sys.stdout.write(json.dumps(generate_component_catalog_rsts(), sort_keys=True))\n"
+    )
+    completed = subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=REPO_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert completed.returncode == 0, completed.stderr
+    generated = json.loads(completed.stdout)
+
+    rb.register_builtin_components()
+    expected_featurizers = {
+        "cell_line": {
+            row["name"]: (row["output_format"], " ".join(row["description"].split()))
+            for row in list_cell_line_featurizer_metadata()
+            if row["name"] in rb._CELL_LINE_MODULES
+        },
+        "drug": {
+            row["name"]: (row["output_format"], " ".join(row["description"].split()))
+            for row in list_drug_featurizer_metadata()
+            if row["name"] in rb._DRUG_MODULES
+        },
+    }
+    expected_predictors = {
+        row["name"]: (
+            row["input_interface"].replace("_", "-").capitalize(),
+            " ".join(row["description"].split()),
+        )
+        for row in list_predictor_metadata()
+        if row["name"] in rb._PREDICTOR_MODULES
+    }
+    for registry_name, expected in expected_featurizers.items():
+        matches = re.findall(
+            r"^   \* - ``([^`]+)``\n     - ``([^`]+)``\n     - ([^\n]+)$",
+            generated[registry_name],
+            flags=re.MULTILINE,
+        )
+        observed = {name: (output_format, description) for name, output_format, description in matches}
+        assert observed == expected
+
+    predictor_matches = re.findall(
+        r"^   \* - ``([^`]+)``\n     - ([^\n]+)\n     - ([^\n]+)$",
+        generated["predictor"],
+        flags=re.MULTILINE,
+    )
+    observed_predictors = {name: (interface, description) for name, interface, description in predictor_matches}
+    assert len(expected_featurizers["cell_line"]) == len(rb._CELL_LINE_MODULES) == 12
+    assert len(expected_featurizers["drug"]) == len(rb._DRUG_MODULES) == 9
+    assert len(expected_predictors) == len(rb._PREDICTOR_MODULES) == 27
+    assert observed_predictors == expected_predictors
 
 
 def test_cli_pages_have_no_python_code_blocks() -> None:

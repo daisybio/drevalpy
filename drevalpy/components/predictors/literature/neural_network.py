@@ -13,7 +13,7 @@ import torch
 from pytorch_lightning.callbacks import EarlyStopping
 from torch.utils.data import DataLoader
 
-from drevalpy.components.contracts import FeatureKind
+from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors._matrix_fit import validate_matrix_fit
 from drevalpy.components.predictors.literature._batch_dataset import PairMatrixDataset
@@ -27,9 +27,8 @@ from drevalpy.models.config import PredictionMode
 @register_predictor(
     "neuralNetwork",
     description="Dense feed-forward network on concatenated cell-line and drug features.",
-    category="general_purpose",
-    cell_line_contract=FeatureKind.DENSE,
-    drug_contract=FeatureKind.DENSE,
+    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+    drug_contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class NeuralNetworkPredictor(MatrixPredictor):
     """Neural network predictor component."""

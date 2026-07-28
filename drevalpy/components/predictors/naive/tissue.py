@@ -6,7 +6,7 @@ from typing import Any, ClassVar
 
 import numpy as np
 
-from drevalpy.components.contracts import FeatureKind
+from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors.naive._matrix_means import (
     additive_effects,
@@ -22,15 +22,16 @@ from drevalpy.components.state_helpers import state_float
 
 @register_predictor(
     "naiveTissueMean",
+    tags=("baseline",),
     description="Predict per-tissue mean response with global fallback.",
-    category="baseline",
-    cell_line_contract=FeatureKind.DENSE,
-    drug_contract=FeatureKind.DENSE,
+    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+    drug_contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class NaiveTissueMeanPredictor(BlockPredictor):
     """Naive tissue mean predictor component."""
 
     requires_drug_featurizer: ClassVar[bool] = False
+    required_cell_line_blocks: ClassVar[tuple[str, ...]] = ("tissue",)
 
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
         super().__init__(hyperparameters)
@@ -81,15 +82,17 @@ class NaiveTissueMeanPredictor(BlockPredictor):
 
 @register_predictor(
     "naiveTissueDrugMean",
+    tags=("baseline",),
     description="Predict per tissue-drug combination mean response.",
-    category="baseline",
-    cell_line_contract=FeatureKind.DENSE,
-    drug_contract=FeatureKind.DENSE,
+    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+    drug_contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class NaiveTissueDrugMeanPredictor(BlockPredictor):
     """Naive tissue drug mean predictor component."""
 
     requires_drug_featurizer: ClassVar[bool] = True
+    required_cell_line_blocks: ClassVar[tuple[str, ...]] = ("tissue",)
+    required_drug_blocks: ClassVar[tuple[str, ...]] = ("identity",)
 
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
         super().__init__(hyperparameters)
