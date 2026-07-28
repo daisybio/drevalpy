@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
+from pydantic import ValidationError
 
-from drevalpy.components.featurizers.cell_line.concat import ConcatFeaturizersCellLineFeaturizer
+from drevalpy.components.featurizers.cell_line.concat import (
+    ConcatFeaturizersCellLineFeaturizer,
+)
 from drevalpy.components.featurizers.drug.concat import ConcatFeaturizersDrugFeaturizer
 from drevalpy.components.register_builtins import register_builtin_components
 from drevalpy.datasets.dataset import FeatureDataset
@@ -64,14 +68,25 @@ def test_concat_featurizers_fit_transform_and_blocks() -> None:
     assert set(blocks) == {"raw[expression]", "raw[mutations]"}
     assert blocks["raw[expression]"].shape == (2, 2)
     assert blocks["raw[mutations]"].shape == (2, 2)
-    assert np.allclose(matrix, np.concatenate([blocks["raw[expression]"], blocks["raw[mutations]"]], axis=1))
+    assert np.allclose(
+        matrix,
+        np.concatenate([blocks["raw[expression]"], blocks["raw[mutations]"]], axis=1),
+    )
 
 
 def test_concat_uses_distinct_block_labels_for_same_name_different_views() -> None:
     featurizer = ConcatFeaturizersCellLineFeaturizer(
         featurizers=[
-            {"name": "pca", "view": "gene_expression", "hyperparameters": {"n_components": 1}},
-            {"name": "pca", "view": "proteomics", "hyperparameters": {"n_components": 1}},
+            {
+                "name": "pca",
+                "view": "gene_expression",
+                "hyperparameters": {"n_components": 1},
+            },
+            {
+                "name": "pca",
+                "view": "proteomics",
+                "hyperparameters": {"n_components": 1},
+            },
         ],
     )
     features = _multi_view_feature_dataset()
@@ -98,32 +113,15 @@ def _drug_feature_dataset() -> FeatureDataset:
     )
 
 
-def test_concat_duplicate_same_name_view_gets_occurrence_labels() -> None:
+def test_concat_duplicate_same_name_view_raises() -> None:
     register_builtin_components()
-    featurizer = ConcatFeaturizersCellLineFeaturizer(
-        featurizers=[
-            FeaturizerConfig(name="raw", view="gene_expression", registry="cell_line"),
-            FeaturizerConfig(name="raw", view="gene_expression", registry="cell_line"),
-        ],
-    )
-    features = _feature_dataset()
-    ids = np.array(["cl1", "cl2"])
-    featurizer.fit(features, entity_ids=ids)
-    blocks = featurizer.transform_blocks(features, ids)
-    assert set(blocks) == {"raw[expression]", "raw[expression]#1"}
-    assert featurizer.block_dims == {"raw[expression]": 2, "raw[expression]#1": 2}
-
-    restored = ConcatFeaturizersCellLineFeaturizer(
-        featurizers=[
-            FeaturizerConfig(name="raw", view="gene_expression", registry="cell_line"),
-            FeaturizerConfig(name="raw", view="gene_expression", registry="cell_line"),
-        ],
-    )
-    restored.set_state(featurizer.get_state())
-    restored_blocks = restored.transform_blocks(features, ids)
-    assert set(restored_blocks) == set(blocks)
-    for key in blocks:
-        np.testing.assert_allclose(restored_blocks[key], blocks[key])
+    with pytest.raises(ValidationError, match="Duplicate featurizer selector 'raw\\[expression\\]'"):
+        ConcatFeaturizersCellLineFeaturizer(
+            featurizers=[
+                FeaturizerConfig(name="raw", view="gene_expression", registry="cell_line"),
+                FeaturizerConfig(name="raw", view="gene_expression", registry="cell_line"),
+            ],
+        )
 
 
 def test_drug_concat_featurizers_fit_transform_and_blocks() -> None:

@@ -4,14 +4,32 @@
 
 .. role:: smaller
 
-DrEvalPy documentation is organized into shared concepts plus separate CLI and
-Python tracks. Start with installation, then choose the interface you want to use.
+DrEvalPy documentation is organized into shared **concepts** plus separate **CLI**
+and **Python** tracks. Both interfaces run the same evaluation pipeline; only
+the wiring differs.
 
-- :doc:`cli/quickstart` — run a first experiment with ``drevalpy`` and open the HTML report.
-- :doc:`python/quickstart` — load data, construct a model, and call ``drug_response_experiment``.
+Suggested path
+--------------
 
-For demanding or highly reproducible runs, we also provide the Nextflow pipeline
-`nf-core/drugresponseeval <https://nf-co.re/drugresponseeval/dev/>`_.
+1. :doc:`getting_started/installation` — Python version, pip/Conda/Docker, and
+   verify with ``drevalpy --help``.
+2. Pick one getting-started track:
+
+   - :doc:`cli/quickstart` — smallest ``drevalpy`` command, where results land,
+     and ``drevalpy report``.
+   - :doc:`python/quickstart` — ``load_dataset``, ``construct_model``, and
+     ``drug_response_experiment``.
+
+3. Read :doc:`concepts/datasets` and :doc:`concepts/evaluation` when you change
+   datasets, split modes (LPO/LCO/LTO/LDO), or metrics.
+4. :doc:`concepts/from_components_to_models` and :doc:`concepts/model_zoo` —
+   how zoo preset names map to featurizer + predictor stacks.
+5. Go deeper on your track: :doc:`cli/experiment` or :doc:`python/experiments`,
+   plus :doc:`python/models` for composition in code.
+
+For demanding or highly reproducible runs, use the Nextflow pipeline
+`nf-core/drugresponseeval <https://nf-co.re/drugresponseeval/dev/>`_ (see
+:doc:`cli/pipeline_commands`).
 
 .. toctree::
    :maxdepth: 1

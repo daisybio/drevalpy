@@ -37,7 +37,7 @@ def test_construct_model_merged_space_has_indexed_concat_keys() -> None:
     model_cls = construct_model("ComboRF", "pca[expression]+landmarkGenes:fingerprints:randomForest")
     config = ModelConfig.from_spec("pca[expression]+landmarkGenes:fingerprints:randomForest")
     merged = merge_model_config_spaces(config)
-    assert any("featurizer.cell_line.pca.0." in key for key in merged)
+    assert any("featurizer.cell_line.pca[expression]." in key for key in merged)
     assert any("predictor.randomForest." in key for key in merged)
     assert model_cls.get_structured_hyperparameter_space() == merged
 

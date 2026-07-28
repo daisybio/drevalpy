@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterator
 
 from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
+from drevalpy.components.featurizer_label import qualified_featurizer_selector
 from drevalpy.models.config import FeaturizerConfig
 
 
@@ -37,7 +38,33 @@ def map_featurizer_tree(
             )
             children.append(map_featurizer_tree(child_cfg, registry, transform_leaf).model_dump())
         return featurizer.model_copy(
-            update={"hyperparameters": {**featurizer.hyperparameters, "featurizers": children}},
+            update={
+                "hyperparameters": {
+                    **featurizer.hyperparameters,
+                    "featurizers": children,
+                }
+            },
             deep=True,
         )
     return transform_leaf(featurizer)
+
+
+def ensure_unique_qualified_featurizers(featurizer: FeaturizerConfig, registry: str) -> None:
+    """Raise ``ValueError`` when a registry slot repeats a qualified selector.
+
+    Duplicate means the same qualified selector (for example ``raw[expression]``)
+    appears more than once under one registry. The same base name on different
+    views (``raw[expression]+raw[mutations]``) is allowed.
+    """
+    if featurizer.name != "concatFeaturizers":
+        return
+    seen: set[str] = set()
+    for leaf in iter_featurizer_leaves(featurizer, registry):
+        selector = qualified_featurizer_selector(leaf.name, leaf.view)
+        if selector in seen:
+            msg = (
+                f"Duplicate featurizer selector {selector!r} in registry {registry!r}. "
+                "Each qualified featurizer may appear at most once per slot."
+            )
+            raise ValueError(msg)
+        seen.add(selector)

@@ -16,7 +16,8 @@ Run a small LCO experiment on TOYv1 with naive predictors:
        --test_mode LCO
 
 This trains the models to predict LN_IC50 on the TOYv1 subset of CTRPv2,
-using leave-cell-line-out splits and the default seven-fold CV. Results land
+using leave-cell-line-out splits (LCO; see :doc:`/concepts/evaluation`) and
+the default seven-fold CV. Results land
 under:
 
 .. code-block:: bash

@@ -136,5 +136,6 @@ so the response definition itself is aligned across studies.
 How to run experiments
 ----------------------
 
-- :doc:`/cli/experiment` — CLI experiment settings and report generation
+- :doc:`/cli/experiment` — CLI experiment settings
+- :doc:`/cli/reporting` — HTML report after a run
 - :doc:`/python/experiments` — Python experiment API and result handling

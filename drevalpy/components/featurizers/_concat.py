@@ -6,7 +6,6 @@ from typing import Any, ClassVar
 
 import numpy as np
 
-from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
 from drevalpy.components.featurizer_label import featurizer_config_block_label
 from drevalpy.components.featurizers.base import Featurizer
 from drevalpy.models.config import FeaturizerConfig
@@ -27,15 +26,19 @@ class ConcatFeaturizersMixin:
             msg = "featurizers must be a non-empty list"
             raise ValueError(msg)
         self._registry = registry
+        # Normalize through FeaturizerConfig so uniqueness is checked once, after construction.
+        child_payloads = [item.model_dump() if isinstance(item, FeaturizerConfig) else item for item in featurizers]
+        parent = FeaturizerConfig.model_validate(
+            {
+                "name": "concatFeaturizers",
+                "registry": registry,
+                "hyperparameters": {"featurizers": child_payloads},
+            },
+        )
+        children = parent.hyperparameters.get("featurizers", [])
         self._child_configs = [
-            (
-                FeaturizerConfig.model_validate(
-                    normalize_featurizer_config(item, default_registry=registry),
-                )
-                if not isinstance(item, FeaturizerConfig)
-                else item
-            )
-            for item in featurizers
+            child if isinstance(child, FeaturizerConfig) else FeaturizerConfig.model_validate(child)
+            for child in children
         ]
         self._children: list[tuple[str, Featurizer]] = []
         self._block_dims: dict[str, int] = {}
@@ -46,13 +49,9 @@ class ConcatFeaturizersMixin:
     def _materialize_children(self) -> None:
         if len(self._children) == len(self._child_configs):
             return
-        occurrence_counts: dict[str, int] = {}
         children: list[tuple[str, Featurizer]] = []
         for config in self._child_configs:
-            base_label = featurizer_config_block_label(config.name, config.view)
-            occurrence = occurrence_counts.get(base_label, 0)
-            occurrence_counts[base_label] = occurrence + 1
-            label = featurizer_config_block_label(config.name, config.view, occurrence=occurrence)
+            label = featurizer_config_block_label(config.name, config.view)
             children.append((label, config.create_instance()))
         self._children = children
 

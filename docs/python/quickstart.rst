@@ -39,7 +39,8 @@ single-model script outside the experiment runner:
 
 Results land under ``results/my_first_run/TOYv1/LCO``. See
 :doc:`visualization` for ``create_report``, :doc:`datasets` for other screens
-and custom tables, and :doc:`experiments` for tuning and stress-test options.
+and custom tables, and :doc:`experiments` for baselines, tuning, and
+stress-test options.
 
 Backward compatibility
 ----------------------

@@ -108,30 +108,34 @@ Each tunable component owns:
 Search uses Ray Tune with Optuna as the sampler (see
 :doc:`Hyperparameter tuning (CLI) </cli/hyperparameter_tuning>` and
 :doc:`Hyperparameter tuning (Python API) </python/hyperparameter_tuning>`).
-Structured keys are **dotted** and mirror the composed stack:
+Structured keys are **dotted** and mirror the composed stack. Featurizer keys
+use the same qualified selector as the recipe (including the view bracket when
+present):
 
 .. code-block:: text
 
    predictor.<registryName>.<param>
-   featurizer.<registry>.<featurizerName>.<index>.<param>
+   featurizer.<registry>.<qualifiedFeaturizer>.<param>
 
-Examples for ``scaledGeneExpression:fingerprints:elasticNet``:
+Examples:
 
 .. code-block:: text
 
    predictor.elasticNet.alpha
    predictor.elasticNet.l1_ratio
+   featurizer.cell_line.pca[expression].n_components
+   featurizer.cell_line.landmarkGenes.standardize
 
-The integer after a featurizer name is a **zero-based occurrence index** of
-that name in the slot (required in structured keys). A single ``pca`` is
-always ``…pca.0.…``. With concatenation and two ``landmarkGenes`` children you
-get ``0`` and ``1``:
+Within one registry slot, each **qualified** featurizer may appear at most
+once. Different views of the same base name are distinct and allowed:
 
 .. code-block:: text
 
-   featurizer.cell_line.pca.0.n_components
-   featurizer.cell_line.landmarkGenes.0.standardize
-   featurizer.cell_line.landmarkGenes.1.minmax_scale
+   # valid — different views
+   raw[expression]+raw[mutations]:fingerprints:xgboost
+
+   # invalid — duplicate qualified selector
+   pca[expression]+pca[expression]:fingerprints:xgboost
 
 Flat keys such as ``alpha`` remain valid for constructor defaults; legacy
 featurizer aliases (for example ``methylation_n_components``) still work but

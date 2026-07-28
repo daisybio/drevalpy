@@ -92,78 +92,87 @@ pip install poetry-plugin-export
 poetry install
 ```
 
-Check your installation by running in your console:
+Check your installation:
 
 ```bash
 drevalpy --help
 ```
 
+Full install options (Conda, Docker, Windows HPO): [Installation](https://drevalpy.readthedocs.io/en/latest/getting_started/installation.html).
+
 ## Quickstart
 
-To run models from the catalog, you can run:
+DrEvalPy exposes the same evaluation workflow through the **CLI** and the **Python API**. Pick one track below; both write predictions under `results/<run_id>/<dataset>/<test_mode>/`.
+
+### CLI (smallest runnable example)
+
+After installation, run naive baselines on the small TOYv1 screen with leave-cell-line-out (LCO) splits:
 
 ```bash
-drevalpy --run_id my_first_run --models NaiveTissueMeanPredictor NaiveDrugMeanPredictor --dataset_name TOYv1 --test_mode LCO
+drevalpy \
+  --run_id my_first_run \
+  --models NaiveTissueMeanPredictor NaiveDrugMeanPredictor \
+  --baselines NaiveMeanEffectsPredictor \
+  --dataset_name TOYv1 \
+  --test_mode LCO
 ```
 
-This will download a small toy drug response dataset, train our baseline models which just predict the drug or tissue means or the mean drug and cell line effects.
-It will evaluate in "LCO" which is the leave-cell-line-out splitting strategy using 7 fold cross validation.
-The results will be stored in
+This downloads TOYv1 into `--path_data` (default `data`), trains the listed models, and evaluates with the default seven-fold CV. Outputs go to `results/my_first_run/TOYv1/LCO`.
+
+Build the HTML report:
 
 ```bash
-results/my_first_run/TOYv1/LCO
+drevalpy report --run_id my_first_run --dataset_name TOYv1
 ```
 
-You can visualize them using
+Open `index.html` under the run’s results folder in your browser. The legacy entry point `drevalpy-report` is equivalent.
 
-```bash
-drevalpy-report --run_id my_first_run --dataset_name TOYv1
-```
+More CLI options: [CLI quickstart](https://drevalpy.readthedocs.io/en/latest/cli/quickstart.html).
 
-This will create an index.html file in the results directory which you can open in your web browser.
+### Python API
 
-You can also run a drug response experiment using Python:
+Load the response table, resolve zoo presets with `construct_model` (returns a **class**), and pass that class to `drug_response_experiment`:
 
 ```python
-from drevalpy.datasets import AVAILABLE_DATASETS
+from drevalpy.datasets.loader import load_dataset
 from drevalpy.experiment import drug_response_experiment
 from drevalpy.models import construct_model
 
-# Zoo presets resolve to DRPModel subclasses via construct_model
-naive_mean = construct_model("NaivePredictor")  # training-mean baseline
-enet = construct_model("ElasticNet")  # fingerprints + scaled landmark expression
-simple_nn = construct_model("SimpleNeuralNetwork")
+response_data = load_dataset("TOYv1", path_data="data")
 
-toyv1 = AVAILABLE_DATASETS["TOYv1"](path_data="data")
+ElasticNet = construct_model("ElasticNet")
 
 drug_response_experiment(
-            models=[enet, simple_nn],
-            baselines=[naive_mean], # Ablation studies and robustness tests are not run for baselines.
-            response_data=toyv1,
-            n_cv_splits=2, # the number of cross validation splits. Should be higher in practice :)
-            test_mode="LCO", # LCO means Leave-Cell-Line out. This means that the test and validation splits only contain unseed cell lines.
-            run_id="my_first_run",
-            path_data="data", # where the downloaded drug response and feature data is stored
-            path_out="results", # results are stored here :)
-            hyperparameter_tuning=False) # if True, Ray/Optuna tunes structured search spaces (default)
+    models=[ElasticNet],
+    response_data=response_data,
+    run_id="my_first_run",
+    test_mode="LCO",
+    path_data="data",
+    path_out="results/",
+    hyperparameter_tuning=False,
+)
 ```
 
-This will run the Random Forest and Simple Neural Network models on the CTRPv2 dataset, using the Naive Mean Effects Predictor as a baseline. The results will be stored in `results/my_second_run/CTRPv2/LCO`.
-To obtain evaluation metrics, you can use:
+With `hyperparameter_tuning=True` (the default), Ray Tune and Optuna search each model’s structured hyperparameter space. Set `hyperparameter_tuning=False` for a fast defaults-only run.
+
+Score predictions and render the same style of HTML report from Python:
 
 ```python
 from drevalpy.visualization.create_report import create_report
 
 create_report(
     run_id="my_first_run",
-    dataset=toyv1.dataset_name,
-    path_data= "data",
+    dataset="TOYv1",
+    path_data="data",
     result_path="results",
 )
 ```
 
-We recommend the use of our Nextflow pipeline for computational demanding runs and for improved reproducibility.
-No knowledge of Nextflow is required to run it. The nextflow pipeline is available here: [nf-core-drugresponseeval](https://github.com/JudithBernett/nf-core-drugresponseeval).
+Concepts (datasets, splits, metrics): [documentation index](https://drevalpy.readthedocs.io/en/latest/index.html). Python walkthrough: [Python quickstart](https://drevalpy.readthedocs.io/en/latest/python/quickstart.html).
+
+### Large or highly reproducible runs
+
+For demanding workloads, prefer the Nextflow pipeline [nf-core/drugresponseeval](https://nf-co.re/drugresponseeval/dev/) ([GitHub](https://github.com/nf-core/drugresponseeval)). No Nextflow experience is required for the standard profile.
 
 ## Example Report
 

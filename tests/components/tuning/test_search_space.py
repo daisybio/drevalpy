@@ -1,5 +1,7 @@
 """Tests for internal hyperparameter search-space helpers."""
 
+import pytest
+
 import drevalpy.components.register_builtins as register_builtins
 from drevalpy.components.tuning.search_space import (
     apply_merged_to_model_config,
@@ -43,13 +45,35 @@ def test_split_predictor_only_fallback() -> None:
     assert predictor_hp == {"alpha": 1.0, "l1_ratio": 0.5}
 
 
-def test_merge_concat_child_spaces_use_occurrence_index() -> None:
+def test_merge_concat_child_spaces_use_qualified_selectors() -> None:
     register_builtins.register_builtin_components()
     config = ModelConfig.from_spec("pca[expression]+landmarkGenes:fingerprints:randomForest")
     merged = merge_model_config_spaces(config)
-    pca_keys = [key for key in merged if key.startswith("featurizer.cell_line.pca.0.")]
+    pca_keys = [key for key in merged if key.startswith("featurizer.cell_line.pca[expression].")]
     assert pca_keys
+    assert any(key.startswith("featurizer.cell_line.landmarkGenes.") for key in merged)
     assert any("predictor.randomForest." in key for key in merged)
+
+
+def test_merge_same_name_different_views_get_distinct_keys() -> None:
+    register_builtins.register_builtin_components()
+    config = ModelConfig.from_spec("pca[expression]+pca[proteomics]:fingerprints:randomForest")
+    merged = merge_model_config_spaces(config)
+    assert any(key.startswith("featurizer.cell_line.pca[expression].") for key in merged)
+    assert any(key.startswith("featurizer.cell_line.pca[proteomics].") for key in merged)
+
+
+def test_apply_rejects_indexed_featurizer_keys() -> None:
+    register_builtins.register_builtin_components()
+    config = ModelConfig.from_spec("pca[expression]:identity:randomForest")
+    with pytest.raises(
+        ValueError,
+        match="Indexed featurizer hyperparameter keys are no longer supported",
+    ):
+        apply_merged_to_model_config(
+            config,
+            {"featurizer.cell_line.pca.0.n_components": 8},
+        )
 
 
 def test_apply_merged_to_model_config_strips_featurizer_prefix() -> None:

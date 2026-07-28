@@ -1,36 +1,55 @@
-"""Tests for featurizer config tree helpers."""
+"""Tests for featurizer tree uniqueness helpers."""
 
 from __future__ import annotations
 
-from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
-from drevalpy.components.featurizer_tree import iter_featurizer_leaves, map_featurizer_tree
-from drevalpy.models.config import FeaturizerConfig
+import pytest
+from pydantic import ValidationError
+
+from drevalpy.components.featurizer_tree import ensure_unique_qualified_featurizers
+from drevalpy.components.register_builtins import register_builtin_components
+from drevalpy.models.config import FeaturizerConfig, ModelConfig
 
 
-def test_iter_featurizer_leaves_expands_concat() -> None:
-    root = FeaturizerConfig.model_validate(
-        normalize_featurizer_config("raw[expression]+pca[methylation]", default_registry="cell_line"),
+def test_ensure_unique_allows_same_name_different_views() -> None:
+    config = FeaturizerConfig.model_validate(
+        {
+            "name": "concatFeaturizers",
+            "registry": "cell_line",
+            "hyperparameters": {
+                "featurizers": [
+                    {"name": "raw", "view": "gene_expression"},
+                    {"name": "raw", "view": "mutations"},
+                ],
+            },
+        },
     )
-    names = [leaf.name for leaf in iter_featurizer_leaves(root, "cell_line")]
-    assert names == ["raw", "pca"]
+    ensure_unique_qualified_featurizers(config, "cell_line")
 
 
-def test_map_featurizer_tree_patches_matching_leaf() -> None:
-    root = FeaturizerConfig.model_validate(
-        normalize_featurizer_config("raw[expression]+pca[methylation]", default_registry="cell_line"),
-    )
+def test_featurizer_config_rejects_duplicate_qualified_selector() -> None:
+    with pytest.raises(ValidationError, match="Duplicate featurizer selector 'raw\\[expression\\]'"):
+        FeaturizerConfig.model_validate(
+            {
+                "name": "concatFeaturizers",
+                "registry": "cell_line",
+                "hyperparameters": {
+                    "featurizers": [
+                        {"name": "raw", "view": "gene_expression"},
+                        {"name": "raw", "view": "gene_expression"},
+                    ],
+                },
+            },
+        )
 
-    def bump_n_components(child: FeaturizerConfig) -> FeaturizerConfig:
-        if child.name == "pca" and child.view == "methylation":
-            return child.model_copy(
-                update={"hyperparameters": {**child.hyperparameters, "n_components": 7}},
-                deep=True,
-            )
-        return child
 
-    updated = map_featurizer_tree(root, "cell_line", bump_n_components)
-    for leaf in iter_featurizer_leaves(updated, "cell_line"):
-        if leaf.name == "pca":
-            assert leaf.hyperparameters.get("n_components") == 7
-            return
-    raise AssertionError("pca leaf missing")
+def test_recipe_string_rejects_duplicate_qualified_selector() -> None:
+    register_builtin_components()
+    with pytest.raises(ValidationError, match="Duplicate featurizer selector"):
+        ModelConfig.from_spec("raw[expression]+raw[expression]:fingerprints:randomForest")
+
+
+def test_recipe_string_allows_same_name_different_views() -> None:
+    register_builtin_components()
+    config = ModelConfig.from_spec("raw[expression]+raw[mutations]:fingerprints:randomForest")
+    assert config.cell_line_featurizer is not None
+    assert config.cell_line_featurizer.name == "concatFeaturizers"

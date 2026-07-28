@@ -3,11 +3,20 @@
 from __future__ import annotations
 
 import copy
+import re
 from typing import Any
 
 from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
+from drevalpy.components.featurizer_label import qualified_featurizer_selector
 from drevalpy.components.registry import lookup as reg
 from drevalpy.models.config import FeaturizerConfig, ModelConfig, PredictorConfig
+
+_INDEXED_FEATURIZER_KEY_RE = re.compile(
+    r"^featurizer\.(?P<registry>cell_line|drug)\.(?P<name>[^.]+)\.(?P<index>\d+)\.(?P<param>.+)$"
+)
+_QUALIFIED_FEATURIZER_KEY_RE = re.compile(
+    r"^featurizer\.(?P<registry>cell_line|drug)\.(?P<selector>[^.]+(?:\[[^\]]+\])?)\.(?P<param>.+)$"
+)
 
 
 def _effective_space(config_space: dict[str, dict[str, Any]] | None, cls: type[Any]) -> dict[str, Any]:
@@ -16,12 +25,47 @@ def _effective_space(config_space: dict[str, dict[str, Any]] | None, cls: type[A
     return dict(cls.get_hyperparameter_space())
 
 
-def _featurizer_prefix(registry: str, name: str, index: int, param: str) -> str:
-    return f"featurizer.{registry}.{name}.{index}.{param}"
+def _featurizer_prefix(registry: str, selector: str, param: str) -> str:
+    return f"featurizer.{registry}.{selector}.{param}"
 
 
 def _predictor_prefix(name: str, param: str) -> str:
     return f"predictor.{name}.{param}"
+
+
+def _leaf_selector(featurizer: FeaturizerConfig) -> str:
+    return qualified_featurizer_selector(featurizer.name, featurizer.view)
+
+
+def _accepted_featurizer_selectors(featurizer: FeaturizerConfig, registry: str) -> list[str]:
+    from drevalpy.components.featurizer_tree import iter_featurizer_leaves
+
+    return [_leaf_selector(leaf) for leaf in iter_featurizer_leaves(featurizer, registry)]
+
+
+def _reject_indexed_featurizer_key(key: str) -> None:
+    match = _INDEXED_FEATURIZER_KEY_RE.match(key)
+    if match is None:
+        return
+    registry = match.group("registry")
+    name = match.group("name")
+    param = match.group("param")
+    msg = (
+        f"Indexed featurizer hyperparameter keys are no longer supported: {key!r}. "
+        f"Use a qualified selector such as "
+        f"'featurizer.{registry}.{name}[<view>].{param}' "
+        f"or 'featurizer.{registry}.{name}.{param}'."
+    )
+    raise ValueError(msg)
+
+
+def _split_prefixed_key(key: str) -> tuple[str, str, str] | None:
+    """Parse ``featurizer.<registry>.<selector>.<param>`` into parts."""
+    _reject_indexed_featurizer_key(key)
+    match = _QUALIFIED_FEATURIZER_KEY_RE.match(key)
+    if match is None:
+        return None
+    return match.group("registry"), match.group("selector"), match.group("param")
 
 
 def _featurizer_spaces(featurizer: FeaturizerConfig) -> dict[str, Any]:
@@ -29,20 +73,17 @@ def _featurizer_spaces(featurizer: FeaturizerConfig) -> dict[str, Any]:
     if featurizer.name == "concatFeaturizers":
         merged: dict[str, Any] = {}
         children = featurizer.hyperparameters.get("featurizers", [])
-        name_counts: dict[str, int] = {}
         for child in children:
             child_cfg = FeaturizerConfig.model_validate(
                 normalize_featurizer_config(child, default_registry=registry),
             )
-            child_name = child_cfg.name
-            index = name_counts.get(child_name, 0)
-            name_counts[child_name] = index + 1
             child_space = _featurizer_spaces(child_cfg)
             for key, spec in child_space.items():
                 if key.startswith("featurizer."):
                     merged[key] = spec
                 else:
-                    merged[_featurizer_prefix(registry, child_name, index, key)] = spec
+                    selector = _leaf_selector(child_cfg)
+                    merged[_featurizer_prefix(registry, selector, key)] = spec
         return merged
 
     cls = (
@@ -53,7 +94,8 @@ def _featurizer_spaces(featurizer: FeaturizerConfig) -> dict[str, Any]:
         )
     )
     space = _effective_space(featurizer.hyperparameter_space, cls)
-    return {_featurizer_prefix(registry, featurizer.name, 0, key): value for key, value in space.items()}
+    selector = _leaf_selector(featurizer)
+    return {_featurizer_prefix(registry, selector, key): value for key, value in space.items()}
 
 
 def _predictor_spaces(predictor: PredictorConfig) -> dict[str, Any]:
@@ -111,20 +153,6 @@ def split_hyperparameters(
     return cell_line_hp, drug_hp, predictor_hp
 
 
-def _split_prefixed_key(key: str) -> tuple[str, str, str, int, str] | None:
-    parts = key.split(".")
-    if len(parts) < 5 or parts[0] != "featurizer":
-        return None
-    registry, name, index_str, *param_parts = parts[1:]
-    if not param_parts:
-        return None
-    try:
-        index = int(index_str)
-    except ValueError:
-        return None
-    return registry, name, index_str, index, ".".join(param_parts)
-
-
 def _split_predictor_key(key: str) -> tuple[str, str] | None:
     parts = key.split(".")
     if len(parts) < 3 or parts[0] != "predictor":
@@ -139,17 +167,13 @@ def _merged_updates_for_featurizer(
     merged: dict[str, Any],
     *,
     registry: str,
-    featurizer_name: str,
-    index: int,
+    selector: str,
 ) -> dict[str, Any]:
     return {
         param: value
         for key, value in merged.items()
-        if (parsed := _split_prefixed_key(key)) is not None
-        and parsed[0] == registry
-        and parsed[1] == featurizer_name
-        and parsed[3] == index
-        for param in [parsed[4]]
+        if (parsed := _split_prefixed_key(key)) is not None and parsed[0] == registry and parsed[1] == selector
+        for param in [parsed[2]]
     }
 
 
@@ -165,6 +189,39 @@ def _apply_hyperparameter_updates(
     )
 
 
+def _unknown_featurizer_key_message(
+    key: str,
+    *,
+    registry: str,
+    accepted: list[str],
+) -> str:
+    preview = ", ".join(repr(selector) for selector in accepted) if accepted else "(none)"
+    return (
+        f"Unknown structured featurizer hyperparameter {key!r} for registry {registry!r}. "
+        f"Accepted selectors: {preview}."
+    )
+
+
+def _validate_featurizer_keys_for_tree(
+    merged: dict[str, Any],
+    featurizer: FeaturizerConfig,
+) -> None:
+    registry = str(featurizer.registry)
+    accepted = _accepted_featurizer_selectors(featurizer, registry)
+    accepted_set = set(accepted)
+    for key in merged:
+        if not key.startswith(f"featurizer.{registry}."):
+            continue
+        parsed = _split_prefixed_key(key)
+        if parsed is None:
+            msg = _unknown_featurizer_key_message(key, registry=registry, accepted=accepted)
+            raise ValueError(msg)
+        key_registry, selector, _param = parsed
+        if key_registry != registry or selector not in accepted_set:
+            msg = _unknown_featurizer_key_message(key, registry=registry, accepted=accepted)
+            raise ValueError(msg)
+
+
 def _apply_to_concat_featurizer(
     featurizer: FeaturizerConfig,
     merged: dict[str, Any],
@@ -173,23 +230,27 @@ def _apply_to_concat_featurizer(
 ) -> FeaturizerConfig:
     children = list(featurizer.hyperparameters.get("featurizers", []))
     updated_children: list[Any] = []
-    name_counts: dict[str, int] = {}
     for child in children:
         child_cfg = FeaturizerConfig.model_validate(
             normalize_featurizer_config(child, default_registry=registry),
         )
-        child_name = child_cfg.name
-        index = name_counts.get(child_name, 0)
-        name_counts[child_name] = index + 1
-        child_updates = _merged_updates_for_featurizer(
-            merged,
-            registry=registry,
-            featurizer_name=child_name,
-            index=index,
-        )
-        updated_children.append(_apply_hyperparameter_updates(child_cfg, child_updates).model_dump())
+        if child_cfg.name == "concatFeaturizers":
+            updated = _apply_to_concat_featurizer(child_cfg, merged, registry=registry)
+        else:
+            child_updates = _merged_updates_for_featurizer(
+                merged,
+                registry=registry,
+                selector=_leaf_selector(child_cfg),
+            )
+            updated = _apply_hyperparameter_updates(child_cfg, child_updates)
+        updated_children.append(updated.model_dump())
     return featurizer.model_copy(
-        update={"hyperparameters": {**featurizer.hyperparameters, "featurizers": updated_children}},
+        update={
+            "hyperparameters": {
+                **featurizer.hyperparameters,
+                "featurizers": updated_children,
+            }
+        },
         deep=True,
     )
 
@@ -199,14 +260,14 @@ def _apply_to_featurizer(
     merged: dict[str, Any],
 ) -> FeaturizerConfig:
     registry = str(featurizer.registry)
+    _validate_featurizer_keys_for_tree(merged, featurizer)
     if featurizer.name == "concatFeaturizers":
         return _apply_to_concat_featurizer(featurizer, merged, registry=registry)
 
     updates = _merged_updates_for_featurizer(
         merged,
         registry=registry,
-        featurizer_name=featurizer.name,
-        index=0,
+        selector=_leaf_selector(featurizer),
     )
     return _apply_hyperparameter_updates(featurizer, updates)
 
@@ -226,7 +287,12 @@ def apply_merged_to_model_config(config: ModelConfig, merged: dict[str, Any]) ->
     }
     if predictor_updates:
         result.predictor = result.predictor.model_copy(
-            update={"hyperparameters": {**result.predictor.hyperparameters, **predictor_updates}},
+            update={
+                "hyperparameters": {
+                    **result.predictor.hyperparameters,
+                    **predictor_updates,
+                }
+            },
             deep=True,
         )
     return result

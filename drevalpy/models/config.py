@@ -45,6 +45,17 @@ class FeaturizerConfig(BaseModel):
             raise ValueError(msg)
         return self
 
+    @model_validator(mode="after")
+    def _require_unique_qualified_children(self) -> FeaturizerConfig:
+        if self.name != "concatFeaturizers":
+            return self
+        from drevalpy.components.featurizer_tree import (
+            ensure_unique_qualified_featurizers,
+        )
+
+        ensure_unique_qualified_featurizers(self, str(self.registry))
+        return self
+
     def create_instance(self):
         """Instantiate the configured featurizer from the registry."""
         from drevalpy.components.registry import lookup as reg

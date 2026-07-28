@@ -41,6 +41,7 @@ def test_construct_model_defaults_have_no_namespaced_keys() -> None:
     model_cls = construct_model("PcaOneHotRF", "pca[expression]:identity:randomForest")
     defaults = model_cls.get_default_hyperparameters()
     assert not any("." in key for key in defaults)
+    assert "featurizer.cell_line.pca[expression].n_components" not in defaults
     assert "featurizer.cell_line.pca.0.n_components" not in defaults
     model_cls(defaults)
 
@@ -75,6 +76,7 @@ def test_tuned_config_strips_structured_keys() -> None:
     assert tuned is not None
     assert_component_local_hyperparameters(tuned)
     public = public_hyperparameters_from_config(tuned)
+    assert "featurizer.cell_line.pca[expression].n_components" not in public
     assert "featurizer.cell_line.pca.0.n_components" not in public
 
 

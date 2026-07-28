@@ -84,8 +84,16 @@ To install DrEvalPy from source, clone the repository and install the package us
     pip install poetry-plugin-export
     poetry install
 
-Now, you can test the functionality quickly via ``drevalpy --help``. Or take a look at the
-:doc:`/cli/quickstart` documentation.
+Verify the console script:
+
+.. code-block:: bash
+
+   drevalpy --help
+
+Then follow :doc:`/cli/quickstart` or :doc:`/python/quickstart` for a first
+experiment. Data downloads on first use into ``--path_data`` (default ``data``);
+predictions and reports go under ``--path_out`` / ``run_id`` (default
+``results/``).
 
 Hyperparameter tuning on Windows
 --------------------------------

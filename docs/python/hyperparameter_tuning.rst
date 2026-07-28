@@ -16,14 +16,12 @@ Public API
   grid.
 - ``DRPModel.get_structured_hyperparameter_space()`` exposes the tunable
   search space with dotted keys (``predictor.elasticNet.alpha``,
-  ``featurizer.cell_line.pca.0.n_components``, …). For featurizers, the
-  integer after the name is a **zero-based occurrence index** of that
-  featurizer name in the composed stack (per registry). A single ``pca`` is
-  always ``…pca.0.…``; with ``concatFeaturizers`` and several of the same name
-  you get ``0``, ``1``, …. The index is **required** in structured dotted keys
-  — keys without it are not applied. Flat constructor dicts still use
-  names without an index (e.g. ``n_components``). See :doc:`architecture` for
-  more examples.
+  ``featurizer.cell_line.pca[expression].n_components``, …). Featurizer keys
+  use the **qualified recipe selector** (including the view bracket when the
+  featurizer has a view), for example ``pca[expression]`` or
+  ``landmarkGenes``. Indexed forms such as ``pca.0`` are rejected. Flat
+  constructor dicts still use local names without a selector
+  (e.g. ``n_components``). See :doc:`architecture` for more examples.
 - Experiment tuning uses ``hyperparameter_tuning=True`` with
   ``hpo_num_samples``, ``hpo_random_state``, and ``hpo_resources_per_trial``
   (Ray Tune + Optuna).
