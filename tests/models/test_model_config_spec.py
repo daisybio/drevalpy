@@ -83,8 +83,10 @@ def test_build_model_config_from_recipe_triple_with_bracket_views() -> None:
 def test_build_model_config_from_literature_zoo_name() -> None:
     config = build_model_config_from_spec("DIPK")
     assert config.predictor.name == "dipk"
-    assert config.cell_line_featurizer is None
-    assert config.drug_featurizer is None
+    assert config.cell_line_featurizer is not None
+    assert config.cell_line_featurizer.name == "concatFeaturizers"
+    assert config.drug_featurizer is not None
+    assert config.drug_featurizer.name == "molgnet"
 
 
 def test_model_config_from_spec_classmethod_matches_helper() -> None:

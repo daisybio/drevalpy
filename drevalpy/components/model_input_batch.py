@@ -6,10 +6,11 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
+from drevalpy.components.feature_block import FeatureBlock
 from drevalpy.components.featurizers._matrix import stack_pair_features
 from drevalpy.components.pair_features import pair_cell_line_indices, pair_drug_indices
 from drevalpy.components.training_context import TrainingContext
-from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.datasets.dataset import DrugResponseDataset
 
 
 @dataclass
@@ -25,10 +26,8 @@ class ModelInputBatch:
     drug_features: np.ndarray | None
     cell_line_pair_idx: np.ndarray
     drug_pair_idx: np.ndarray | None
-    cell_line_blocks: dict[str, np.ndarray] = field(default_factory=dict)
-    drug_blocks: dict[str, np.ndarray] = field(default_factory=dict)
-    cell_line_input: FeatureDataset | None = None
-    drug_input: FeatureDataset | None = None
+    cell_line_blocks: dict[str, FeatureBlock] = field(default_factory=dict)
+    drug_blocks: dict[str, FeatureBlock] = field(default_factory=dict)
     early_stopping_response: DrugResponseDataset | None = None
     training_context: TrainingContext = field(default_factory=TrainingContext)
 
@@ -48,10 +47,8 @@ class ModelInputBatch:
         drug_features: np.ndarray | None,
         cell_line_pair_idx: np.ndarray,
         drug_pair_idx: np.ndarray | None,
-        cell_line_blocks: dict[str, np.ndarray] | None = None,
-        drug_blocks: dict[str, np.ndarray] | None = None,
-        cell_line_input: FeatureDataset | None = None,
-        drug_input: FeatureDataset | None = None,
+        cell_line_blocks: dict[str, FeatureBlock] | None = None,
+        drug_blocks: dict[str, FeatureBlock] | None = None,
         early_stopping_response: DrugResponseDataset | None = None,
         training_context: TrainingContext | None = None,
     ) -> ModelInputBatch:
@@ -68,8 +65,6 @@ class ModelInputBatch:
             drug_pair_idx=drug_pair_idx,
             cell_line_blocks=dict(cell_line_blocks or {}),
             drug_blocks=dict(drug_blocks or {}),
-            cell_line_input=cell_line_input,
-            drug_input=drug_input,
             early_stopping_response=early_stopping_response,
             training_context=training_context or TrainingContext(),
         )

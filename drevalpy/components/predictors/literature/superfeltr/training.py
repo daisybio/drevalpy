@@ -47,14 +47,14 @@ def run_superfeltr_training(
     output_earlystopping: DrugResponseDataset | None,
     model_checkpoint_dir: str,
 ) -> None:
-    """Feature selection, sequential encoder training, and regressor training."""
+    """Train encoders and regressor on featurizer-preprocessed omics."""
     if len(output) <= 0:
         print("No training data provided, skipping model")
         model.best_checkpoint = None
         model.expr_encoder, model.mut_encoder, model.cnv_encoder, model.regressor = None, None, None, None
         return
 
-    cell_line_input = model._fit_feature_selection(output=output, cell_line_input=cell_line_input)
+    model.record_feature_names(cell_line_input)
     if output_earlystopping is not None and model.early_stopping and len(output_earlystopping) < 2:
         output_earlystopping = None
     dim_gex, dim_mut, dim_cnv = get_dimensions_of_omics_data(cell_line_input)

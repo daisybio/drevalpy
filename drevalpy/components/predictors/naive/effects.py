@@ -47,7 +47,7 @@ class NaiveMeanEffectsPredictor(BlockPredictor):
         else:
             cell = require_pair_matrix(batch, side="cell_line")
         if "tissue" in batch.cell_line_blocks:
-            tissue = pair_align(batch.cell_line_blocks["tissue"], batch.cell_line_pair_idx)
+            tissue = pair_align(batch.cell_line_blocks["tissue"].values, batch.cell_line_pair_idx)
         else:
             tissue = np.empty((batch.n_pairs, 0), dtype=np.float64)
         return np.asarray(cell, dtype=np.float64), np.asarray(tissue, dtype=np.float64)

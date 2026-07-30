@@ -57,7 +57,6 @@ class DRPModel(_DRPLoggingMixin):
         self._empty_training = False
         self._hyperparameters: dict[str, Any] = {}
         self._resolved_model_config: ModelConfig | None = None
-        self._engine_preload_state: dict[str, Any] = {}
 
     @classmethod
     def _unmaterialized(cls) -> DRPModel:
@@ -171,22 +170,6 @@ class DRPModel(_DRPLoggingMixin):
         config = self._resolved_model_config
         if config is None:
             raise RuntimeError("Model has not been constructed with a ModelConfig")
-        predictor_class = get_predictor(config.predictor.name)
-        loader = getattr(predictor_class, "load_dataset_cell_line_features", None)
-        if callable(loader):
-            loaded = loader(
-                data_path,
-                dataset_name,
-                hyperparameters=self.hyperparameters,
-                model_name=self.get_model_name(),
-            )
-            if isinstance(loaded, tuple):
-                features, preload = loaded
-            else:
-                features, preload = loaded, {}
-            if isinstance(preload, dict):
-                self._engine_preload_state.update(preload)
-            return features
         return load_cell_line_features_for_model_config(
             config,
             data_path,
@@ -200,22 +183,6 @@ class DRPModel(_DRPLoggingMixin):
         config = self._resolved_model_config
         if config is None:
             raise RuntimeError("Model has not been constructed with a ModelConfig")
-        predictor_class = get_predictor(config.predictor.name)
-        loader = getattr(predictor_class, "load_dataset_drug_features", None)
-        if callable(loader):
-            loaded = loader(
-                data_path,
-                dataset_name,
-                hyperparameters=self.hyperparameters,
-                model_name=self.get_model_name(),
-            )
-            if isinstance(loaded, tuple):
-                features, preload = loaded
-            else:
-                features, preload = loaded, {}
-            if isinstance(preload, dict):
-                self._engine_preload_state.update(preload)
-            return features
         return load_drug_features_for_model_config(
             config,
             data_path,
@@ -239,7 +206,6 @@ class DRPModel(_DRPLoggingMixin):
             self._empty_training = True
             return
         self._empty_training = False
-        self._stack.apply_preload_state(self._engine_preload_state)
         self._stack.train(
             output,
             cell_line_input,

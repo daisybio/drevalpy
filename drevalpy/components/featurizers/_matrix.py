@@ -28,6 +28,14 @@ def _entity_views(features: FeatureDataset, entity_id) -> dict:
     raise KeyError(msg)
 
 
+def feature_names_for_view(features: FeatureDataset, view: str) -> tuple[str, ...] | None:
+    """Return ordered feature names for *view* when present in ``meta_info``."""
+    meta = features.meta_info.get(view)
+    if meta is None:
+        return None
+    return tuple(str(name) for name in meta)
+
+
 def stack_view_matrix(
     features: FeatureDataset,
     view: str,

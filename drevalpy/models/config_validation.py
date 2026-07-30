@@ -10,9 +10,9 @@ from drevalpy.components.contracts import (
     featurizer_contract,
     predictor_contracts,
 )
+from drevalpy.components.feature_block import BlockSpec
 from drevalpy.components.predictors.feature_free import FeatureFreePredictor
 from drevalpy.components.predictors.matrix import MatrixPredictor
-from drevalpy.components.predictors.raw_dataset import RawDatasetPredictor
 from drevalpy.components.predictors.structured import BlockPredictor
 from drevalpy.components.registry import lookup as _registry_lookup
 
@@ -51,12 +51,8 @@ def _is_feature_free(pred_cls: type[Any]) -> bool:
     return issubclass(pred_cls, FeatureFreePredictor)
 
 
-def _is_raw_dataset(pred_cls: type[Any]) -> bool:
-    return issubclass(pred_cls, RawDatasetPredictor)
-
-
 def _allows_no_featurizers(pred_cls: type[Any]) -> bool:
-    return _is_feature_free(pred_cls) or _is_raw_dataset(pred_cls)
+    return _is_feature_free(pred_cls)
 
 
 def _validate_scope(config: ModelConfig, pred_cls: type[Any]) -> None:
@@ -98,17 +94,16 @@ def _validate_prediction_mode(config: ModelConfig, pred_cls: type[Any]) -> None:
 
 
 def _validate_no_featurizer_predictor(config: ModelConfig, pred_cls: type[Any]) -> bool:
-    """Return True when validation is complete (feature-free or raw predictor)."""
+    """Return True when validation is complete for a feature-free predictor."""
     if config.cell_line_featurizer is not None or config.drug_featurizer is not None:
         if _allows_no_featurizers(pred_cls):
-            kind = "feature-free" if _is_feature_free(pred_cls) else "raw-dataset"
-            msg = f"Predictor {config.predictor.name!r} is a {kind} predictor and forbids configured featurizers"
+            msg = f"Predictor {config.predictor.name!r} is a feature-free predictor and forbids configured featurizers"
             raise ValueError(msg)
         return False
     if not _allows_no_featurizers(pred_cls):
         msg = (
             f"Predictor {config.predictor.name!r} requires featurizers; "
-            "set cell_line_featurizer and drug_featurizer, or use a feature-free/raw predictor."
+            "set cell_line_featurizer and drug_featurizer, or use a feature-free predictor."
         )
         raise ValueError(msg)
     _validate_prediction_mode(config, pred_cls)
@@ -184,13 +179,121 @@ def _validate_featurizer_contracts(config: ModelConfig, pred_cls: type[Any]) -> 
     _validate_matrix_formats(config, pred_cls)
 
 
+_KNOWN_BLOCK_SPECS: dict[str, tuple[BlockSpec, ...]] = {
+    "bionic": (BlockSpec("bionic_features", FeatureFormat.NUMERIC_MATRIX),),
+    "bpePharmaformer": (BlockSpec("bpe_smiles", FeatureFormat.NUMERIC_MATRIX),),
+    "dipkGeneExpression": (BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),),
+    "drugGraph": (BlockSpec("drug_graph", FeatureFormat.GRAPH),),
+    "fingerprints": (BlockSpec("fingerprints", FeatureFormat.NUMERIC_MATRIX),),
+    "landmarkGenesReduced": (BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),),
+    "molgnet": (BlockSpec("molgnet_features", FeatureFormat.RAGGED_SEQUENCE),),
+    "molirOmics": (
+        BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),
+        BlockSpec("mutations", FeatureFormat.NUMERIC_MATRIX),
+        BlockSpec("copy_number_variation_gistic", FeatureFormat.NUMERIC_MATRIX),
+    ),
+    "pharmaFormerGeneExpression": (BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),),
+    "superfeltrOmics": (
+        BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),
+        BlockSpec("mutations", FeatureFormat.NUMERIC_MATRIX),
+        BlockSpec("copy_number_variation_gistic", FeatureFormat.NUMERIC_MATRIX),
+    ),
+    "identity": (BlockSpec("identity", FeatureFormat.NUMERIC_MATRIX),),
+}
+
+
+def _concat_child_block_specs(config: FeaturizerConfig) -> tuple[BlockSpec, ...]:
+    from drevalpy.models.config import FeaturizerConfig as FeaturizerConfigModel
+
+    specs: list[BlockSpec] = []
+    for child in config.hyperparameters.get("featurizers", []):
+        child_config = (
+            child if isinstance(child, FeaturizerConfigModel) else FeaturizerConfigModel.model_validate(child)
+        )
+        specs.extend(_block_specs_for_featurizer(child_config))
+    return tuple(specs)
+
+
+def _declared_or_view_block_specs(config: FeaturizerConfig) -> tuple[BlockSpec, ...]:
+    cls = (
+        _registry_lookup.get_cell_line_featurizer(config.name)
+        if config.registry == "cell_line"
+        else _registry_lookup.get_drug_featurizer(config.name)
+    )
+    declared = getattr(cls, "output_block_specs", ())
+    if declared:
+        return tuple(spec for spec in declared if isinstance(spec, BlockSpec))
+    view = config.view or config.hyperparameters.get("view") or getattr(cls, "_default_view", None)
+    if isinstance(view, str):
+        return (BlockSpec(view, _featurizer_contract(cls).format),)
+    return ()
+
+
+def _block_specs_for_featurizer(config: FeaturizerConfig) -> tuple[BlockSpec, ...]:
+    """Resolve the named blocks emitted by a configured featurizer tree."""
+    if config.name == "concatFeaturizers":
+        return _concat_child_block_specs(config)
+    if config.name == "sparsegoOntology":
+        input_type = str(config.hyperparameters.get("input_type", "expression"))
+        name = "mutations" if input_type == "mutations" else "gene_expression"
+        return (BlockSpec(name, FeatureFormat.NUMERIC_MATRIX, metadata=True),)
+    known = _KNOWN_BLOCK_SPECS.get(config.name)
+    if known is not None:
+        return known
+    return _declared_or_view_block_specs(config)
+
+
+def _validate_required_block_specs(
+    predictor_name: str,
+    side: str,
+    emitted: tuple[BlockSpec, ...],
+    required: tuple[BlockSpec, ...],
+) -> None:
+    actual = ", ".join(f"{spec.name}:{spec.format.value}" for spec in emitted) or "<none>"
+    for expected in required:
+        actual_spec = next((spec for spec in emitted if spec.name == expected.name), None)
+        if actual_spec is None or actual_spec.format != expected.format:
+            actual_format = actual_spec.format.value if actual_spec is not None else "<missing>"
+            raise ValueError(
+                f"Predictor {predictor_name!r} {side} block schema mismatch: missing block "
+                f"{expected.name!r}; expected format={expected.format.value!r}, "
+                f"actual format={actual_format!r}; emitted blocks=[{actual}]"
+            )
+
+
+def _validate_block_schema(config: ModelConfig, pred_cls: type[Any]) -> None:
+    if not issubclass(pred_cls, BlockPredictor):
+        return
+    for side, featurizer in (
+        ("cell_line", config.cell_line_featurizer),
+        ("drug", config.drug_featurizer),
+    ):
+        if featurizer is None:
+            continue
+        emitted = _block_specs_for_featurizer(featurizer)
+        required = tuple(getattr(pred_cls, f"required_{side}_block_specs", ()))
+        _validate_required_block_specs(config.predictor.name, side, emitted, required)
+        alternatives = tuple(getattr(pred_cls, f"required_{side}_block_alternatives", ()))
+        if alternatives and not any(
+            actual.name == option.name and actual.format == option.format
+            for actual in emitted
+            for option in alternatives
+        ):
+            expected = " or ".join(f"{item.name}:{item.format.value}" for item in alternatives)
+            actual = ", ".join(f"{item.name}:{item.format.value}" for item in emitted) or "<none>"
+            raise ValueError(
+                f"Predictor {config.predictor.name!r} {side} block schema mismatch: expected one of "
+                f"[{expected}], actual emitted blocks=[{actual}]"
+            )
+
+
 def _validate_leaf_interface(pred_cls: type[Any], predictor_name: str) -> None:
-    leaf_bases = (FeatureFreePredictor, MatrixPredictor, BlockPredictor, RawDatasetPredictor)
+    leaf_bases = (FeatureFreePredictor, MatrixPredictor, BlockPredictor)
     matches = [base for base in leaf_bases if issubclass(pred_cls, base)]
     if len(matches) != 1:
         msg = (
             f"Predictor {predictor_name!r} must inherit exactly one of "
-            f"FeatureFreePredictor, MatrixPredictor, BlockPredictor, RawDatasetPredictor; "
+            f"FeatureFreePredictor, MatrixPredictor, BlockPredictor; "
             f"matched={[base.__name__ for base in matches]}"
         )
         raise ValueError(msg)
@@ -207,3 +310,4 @@ def validate_model_config(config: ModelConfig) -> None:
     _validate_featurizer_views(config)
     _validate_prediction_mode(config, pred_cls)
     _validate_featurizer_contracts(config, pred_cls)
+    _validate_block_schema(config, pred_cls)

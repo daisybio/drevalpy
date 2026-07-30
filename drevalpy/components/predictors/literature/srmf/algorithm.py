@@ -12,7 +12,6 @@ import pandas as pd
 from scipy.spatial.distance import jaccard
 
 from drevalpy.components.predictors.literature._training_helpers import LiteratureTrainingMixin
-from drevalpy.data.features import load_and_select_gene_features, load_drug_fingerprint_features
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
 
@@ -280,31 +279,4 @@ class SRMF(LiteratureTrainingMixin):
                 b = a + y + lambda_l * np.eye(u.shape[1])
 
             u0[i, :] = np.linalg.solve(b, x[i, :])
-
         return u0
-
-    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
-        """
-        Loads the cell line features, in this case the gene expression features.
-
-        :param data_path: Path to the gene expression and landmark genes, e.g., data/
-        :param dataset_name: Name of the dataset, e.g., GDSC2
-        :returns: FeatureDataset containing the cell line gene expression features, filtered
-            through the landmark genes
-        """
-        return load_and_select_gene_features(
-            feature_type="gene_expression",
-            gene_list=None,
-            data_path=data_path,
-            dataset_name=dataset_name,
-        )
-
-    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
-        """
-        Loads the drug features, in this case the drug fingerprints.
-
-        :param data_path: Path to the drug features, in this case the drug fingerprints, e.g., data/
-        :param dataset_name: Name of the dataset, e.g., GDSC2
-        :returns: FeatureDataset containing the drug fingerprint features
-        """
-        return load_drug_fingerprint_features(data_path, dataset_name, fill_na=True)

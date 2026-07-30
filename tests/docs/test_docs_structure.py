@@ -121,8 +121,8 @@ def test_zoo_presets_documented_in_model_zoo() -> None:
     assert not missing, f"Zoo presets missing from generated model zoo catalog: {missing}"
     assert "``scaledGeneExpression:identity:singleDrugElasticNet``" in generated
     assert "``scaledGeneExpression:identity:singleDrugRandomForest``" in generated
-    assert "``molir``" in generated
-    assert "``superfeltr``" in generated
+    assert "``molirOmics:identity:molir``" in generated
+    assert "``superfeltrOmics:identity:superfeltr``" in generated
 
 
 def test_component_catalog_is_registry_driven_and_synchronized() -> None:
@@ -195,7 +195,7 @@ def test_component_catalog_is_registry_driven_and_synchronized() -> None:
         flags=re.MULTILINE,
     )
     observed_predictors = {name: (interface, description) for name, interface, description in predictor_matches}
-    assert len(expected_featurizers["cell_line"]) == len(rb._CELL_LINE_MODULES) == 12
+    assert len(expected_featurizers["cell_line"]) == len(rb._CELL_LINE_MODULES) == 17
     assert len(expected_featurizers["drug"]) == len(rb._DRUG_MODULES) == 9
     assert len(expected_predictors) == len(rb._PREDICTOR_MODULES) == 27
     assert observed_predictors == expected_predictors

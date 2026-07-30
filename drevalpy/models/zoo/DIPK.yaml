@@ -1,1 +1,3 @@
+cell_line_featurizer: dipkGeneExpression+bionic
+drug_featurizer: molgnet
 predictor: dipk

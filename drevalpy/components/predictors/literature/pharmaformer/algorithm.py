@@ -8,17 +8,13 @@ Original authors: Zhou et al. (2025, 10.1038/s41698-025-01082-6)
 Code adapted from their Github: https://github.com/zhouyuru1205/PharmaFormer
 """
 
-import os
 from typing import Any
 
 import numpy as np
-import pandas as pd
 import torch
-from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from torch.utils.data import DataLoader, Dataset
 
 from drevalpy.components.predictors.literature._training_helpers import LiteratureTrainingMixin
-from drevalpy.data.features import load_and_select_gene_features
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 
 from .model_utils import CombinedModel
@@ -90,8 +86,6 @@ class PharmaFormerModel(LiteratureTrainingMixin):
         self.model: CombinedModel | None = None
         self.hyperparameters: dict[str, Any] = {}
         self._saved_gene_input_size: int | None = None
-        self.gene_expression_scaler: StandardScaler | None = None
-        self.gene_expression_normalizer: MinMaxScaler | None = None
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -188,16 +182,6 @@ class PharmaFormerModel(LiteratureTrainingMixin):
         if self.model is None:
             raise ValueError("PharmaFormer model not initialized.")
 
-        # Apply transformations to gene expression if scalers are available
-        if self.gene_expression_scaler is not None and self.gene_expression_normalizer is not None:
-            cell_line_input = cell_line_input.copy()
-            for cell_line_id in cell_line_ids:
-                if cell_line_id in cell_line_input.features:
-                    gene_expr = cell_line_input.features[cell_line_id]["gene_expression"]
-                    gene_expr_scaled = self.gene_expression_scaler.transform(gene_expr.reshape(1, -1))
-                    gene_expr_normalized = self.gene_expression_normalizer.transform(gene_expr_scaled)
-                    cell_line_input.features[cell_line_id]["gene_expression"] = gene_expr_normalized.flatten()
-
         # Create dataset
         predict_dataset = _PharmaFormerDataset(
             response=np.zeros(len(cell_line_ids)),
@@ -224,47 +208,4 @@ class PharmaFormerModel(LiteratureTrainingMixin):
                     predictions += outputs.squeeze().cpu().tolist()
                 else:
                     predictions += [outputs.item()]
-
-        return np.array(predictions)
-
-    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
-        """
-        Load cell line features.
-
-        :param data_path: path to the data
-        :param dataset_name: name of the dataset
-        :returns: cell line features
-        """
-        return load_and_select_gene_features(
-            feature_type="gene_expression",
-            gene_list="landmark_genes_reduced",
-            data_path=data_path,
-            dataset_name=dataset_name,
-        )
-
-    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
-        """
-        Load drug features (BPE-encoded SMILES).
-
-        :param data_path: path to the data
-        :param dataset_name: name of the dataset
-        :returns: drug features
-        :raises FileNotFoundError: if the BPE SMILES file is not found
-        """
-        bpe_smiles_file = os.path.join(data_path, dataset_name, "drug_bpe_smiles.csv")
-        if not os.path.exists(bpe_smiles_file):
-            raise FileNotFoundError(
-                f"BPE SMILES file not found: {bpe_smiles_file}. "
-                "Please run the BPE featurizer first: "
-                "python -m drevalpy.datasets.featurizer.create_pharmaformer_drug_embeddings <dataset_name>"
-            )
-
-        bpe_df = pd.read_csv(bpe_smiles_file, dtype={"pubchem_id": str})
-        features = {}
-        for _, row in bpe_df.iterrows():
-            drug_id = row["pubchem_id"]
-            # Extract all feature columns (excluding pubchem_id)
-            embedding = row.drop("pubchem_id").values.astype(np.float32)
-            features[drug_id] = {"bpe_smiles": embedding}
-
-        return FeatureDataset(features)
+        return np.asarray(predictions)

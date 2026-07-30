@@ -1,0 +1,28 @@
+"""Tests for SparseGO ontology metadata blocks."""
+
+from __future__ import annotations
+
+import numpy as np
+
+from drevalpy.components.featurizers.cell_line.sparsego_ontology import SparseGOOntologyFeaturizer
+from drevalpy.datasets.dataset import FeatureDataset
+
+
+def test_sparsego_ontology_emits_active_block_and_round_trips_state() -> None:
+    features = FeatureDataset(
+        {"cl1": {"gene_expression": np.array([1.0, 2.0])}},
+        meta_info={"gene_expression": ["a", "b"]},
+    )
+    features._sparsego_ontology = {  # type: ignore[attr-defined]
+        "layer_connections": [np.array([["term", "a"]])],
+        "gene2id_mapping_ont": {"a": 0, "b": 1},
+        "ontology_gene_order": ("a", "b"),
+        "gene_dim_input": 2,
+    }
+    featurizer = SparseGOOntologyFeaturizer().fit(features)
+    block = featurizer.transform_blocks(features, np.array(["cl1"]))["gene_expression"]
+    assert block.metadata is not None
+    assert block.metadata["gene_dim_input"] == 2
+    restored = SparseGOOntologyFeaturizer()
+    restored.set_state(featurizer.get_state())
+    np.testing.assert_allclose(restored.transform(features, np.array(["cl1"])), block.values)

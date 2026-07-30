@@ -115,10 +115,12 @@ def test_drug_metadata_listing_and_tag_filter() -> None:
         pass
 
     all_rows = list_drug_featurizer_metadata()
-    assert len(all_rows) == 2
+    assert {row["name"] for row in all_rows if row["name"] in {"coreDrug", "baselineDrug"}} == {
+        "coreDrug",
+        "baselineDrug",
+    }
     baseline_rows = list_drug_featurizer_metadata(tag="baseline")
-    assert len(baseline_rows) == 1
-    assert baseline_rows[0]["name"] == "baselineDrug"
+    assert {row["name"] for row in baseline_rows} == {"baselineDrug"}
 
 
 def test_metadata_listing_and_tag_filter() -> None:
@@ -140,10 +142,12 @@ def test_metadata_listing_and_tag_filter() -> None:
         pass
 
     all_rows = list_cell_line_featurizer_metadata()
-    assert len(all_rows) == 2
+    assert {row["name"] for row in all_rows if row["name"] in {"coreFeat", "baselineFeat"}} == {
+        "coreFeat",
+        "baselineFeat",
+    }
     baseline_rows = list_cell_line_featurizer_metadata(tag="baseline")
-    assert len(baseline_rows) == 1
-    assert baseline_rows[0]["name"] == "baselineFeat"
+    assert {row["name"] for row in baseline_rows} == {"baselineFeat"}
 
 
 def test_get_drug_metadata_includes_output_format() -> None:

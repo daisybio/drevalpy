@@ -131,13 +131,21 @@ class VarianceFeatureSelector:
         :param cell_line_input: FeatureDataset containing omics features
         :param output: DrugResponseDataset with the training cell line IDs
         """
+        self.fit_on_ids(cell_line_input, output.cell_line_ids)
+
+    def fit_on_ids(self, features: FeatureDataset, entity_ids: np.ndarray) -> None:
+        """Fit on unique entity identifiers without requiring response values.
+
+        :param features: FeatureDataset containing the target omics view
+        :param entity_ids: entity identifiers used to compute feature variance
+        """
         train_features = np.vstack(
-            [cell_line_input.features[identifier][self.view] for identifier in np.unique(output.cell_line_ids)]
+            [features.features[str(identifier)][self.view] for identifier in np.unique(entity_ids)]
         )
         variances = np.var(train_features, axis=0)
         self.mask = np.zeros(len(variances), dtype=bool)
-        self.mask[np.argsort(variances)[::-1][: self.k]] = True
-        self.selected_meta_info = list(np.array(cell_line_input.meta_info[self.view])[self.mask])
+        self.mask[np.argsort(variances)[::-1][: min(self.k, len(variances))]] = True
+        self.selected_meta_info = list(np.array(features.meta_info[self.view])[self.mask])
 
     def transform(self, cell_line_input: FeatureDataset) -> FeatureDataset:
         """

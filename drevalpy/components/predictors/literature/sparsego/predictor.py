@@ -7,24 +7,20 @@ from typing import Any, ClassVar
 import numpy as np
 
 from drevalpy.components.contracts import FeatureFormat
+from drevalpy.components.feature_block import BlockSpec
 from drevalpy.components.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors.literature._algorithm_lifecycle import (
     predict_with_algorithm,
     train_fitted_algorithm,
 )
+from drevalpy.components.predictors.literature._block_inputs import materialize_block_inputs
 from drevalpy.components.predictors.literature._metadata import SPARSEGO_REFERENCE
-from drevalpy.components.predictors.literature._preload import (
-    load_dataset_cell_line_features,
-    load_dataset_drug_features,
-)
-from drevalpy.components.predictors.literature._raw_inputs import validate_raw_inputs
 from drevalpy.components.predictors.literature._torch_state import load_object_mapping, save_object_mapping
 from drevalpy.components.predictors.literature.sparsego.algorithm import SparseGOModel
 from drevalpy.components.predictors.literature.sparsego.state import apply_state, export_state
-from drevalpy.components.predictors.raw_dataset import RawDatasetPredictor
 from drevalpy.components.predictors.state_errors import PredictorStateError
+from drevalpy.components.predictors.structured import BlockPredictor
 from drevalpy.components.registry import register_predictor
-from drevalpy.datasets.dataset import FeatureDataset
 from drevalpy.models.config import PredictionMode
 
 
@@ -35,21 +31,22 @@ from drevalpy.models.config import PredictionMode
     drug_contract=FeatureFormat.NUMERIC_MATRIX,
     reference=SPARSEGO_REFERENCE,
 )
-class SparseGOPredictor(RawDatasetPredictor):
+class SparseGOPredictor(BlockPredictor):
     """Registered sparsego predictor."""
 
-    required_cell_line_views: ClassVar[tuple[str, ...]] = ("gene_expression", "mutations")
-    required_drug_views: ClassVar[tuple[str, ...]] = ("fingerprints",)
-    requires_drug_featurizer: ClassVar[bool] = False
+    required_cell_line_blocks: ClassVar[tuple[str, ...]] = ()
+    required_cell_line_block_alternatives: ClassVar[tuple[BlockSpec, ...]] = (
+        BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX, metadata=True),
+        BlockSpec("mutations", FeatureFormat.NUMERIC_MATRIX, metadata=True),
+    )
+    required_drug_blocks: ClassVar[tuple[str, ...]] = ("fingerprints",)
+    required_drug_block_specs: ClassVar[tuple[BlockSpec, ...]] = (
+        BlockSpec("fingerprints", FeatureFormat.NUMERIC_MATRIX),
+    )
+    requires_drug_featurizer: ClassVar[bool] = True
     validate_drug_graphs: ClassVar[bool] = False
     supports_early_stopping: ClassVar[bool] = False
     supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset({PredictionMode.REGRESSION})
-
-    def active_cell_line_views(self) -> tuple[str, ...]:
-        input_type = str(self._hyperparameters.get("input_type", "expression"))
-        if input_type == "mutations":
-            return ("mutations",)
-        return ("gene_expression",)
 
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
         super().__init__(hyperparameters)
@@ -67,51 +64,28 @@ class SparseGOPredictor(RawDatasetPredictor):
             return dict(space())
         return {}
 
-    @classmethod
-    def load_dataset_cell_line_features(
-        cls,
-        data_path: str,
-        dataset_name: str,
-        *,
-        hyperparameters: dict[str, Any] | None = None,
-        model_name: str | None = None,
-    ) -> tuple[FeatureDataset, dict[str, Any]]:
-        _ = model_name
-        return load_dataset_cell_line_features(SparseGOModel, data_path, dataset_name, hyperparameters=hyperparameters)
-
-    @classmethod
-    def load_dataset_drug_features(
-        cls,
-        data_path: str,
-        dataset_name: str,
-        *,
-        hyperparameters: dict[str, Any] | None = None,
-        model_name: str | None = None,
-    ) -> tuple[FeatureDataset | None, dict[str, Any]]:
-        _ = model_name
-        return load_dataset_drug_features(SparseGOModel, data_path, dataset_name, hyperparameters=hyperparameters)
-
-    def set_engine_preload_state(self, state: dict[str, Any]) -> None:
-        self._engine_preload_state = dict(state)
-
-    def _validated_inputs(
-        self,
-        batch: ModelInputBatch,
-    ) -> tuple[FeatureDataset, FeatureDataset | None]:
-        cell_views = (
-            self.active_cell_line_views() if hasattr(self, "active_cell_line_views") else self.required_cell_line_views
-        )
-        return validate_raw_inputs(
+    def _materialized_inputs(self, batch: ModelInputBatch):
+        active = [
+            spec.name for spec in self.required_cell_line_block_alternatives if spec.name in batch.cell_line_blocks
+        ]
+        if len(active) != 1:
+            raise ValueError(
+                "SparseGOPredictor requires exactly one cell-line block from " "['gene_expression', 'mutations']"
+            )
+        block = batch.cell_line_blocks[active[0]]
+        if block.metadata is None:
+            raise ValueError("SparseGOPredictor requires ontology metadata on its active cell-line block")
+        self._engine_preload_state = dict(block.metadata)
+        return materialize_block_inputs(
             self,
-            batch.cell_line_input,
-            batch.drug_input,
-            cell_line_views=cell_views,
-            drug_views=self.required_drug_views,
-            validate_drug_graphs=self.validate_drug_graphs,
+            batch,
+            required_cell_line_blocks=(active[0],),
+            required_drug_blocks=self.required_drug_blocks,
+            requires_drug_featurizer=self.requires_drug_featurizer,
         )
 
     def fit(self, batch: ModelInputBatch) -> None:
-        cell_lines, drugs = self._validated_inputs(batch)
+        cell_lines, drugs = self._materialized_inputs(batch)
         self._algorithm = train_fitted_algorithm(
             SparseGOModel,
             dict(self._hyperparameters),
@@ -122,7 +96,7 @@ class SparseGOPredictor(RawDatasetPredictor):
         )
 
     def predict(self, batch: ModelInputBatch) -> np.ndarray:
-        cell_lines, drugs = self._validated_inputs(batch)
+        cell_lines, drugs = self._materialized_inputs(batch)
         return predict_with_algorithm(self._algorithm, batch, cell_lines, drugs)
 
     def is_fitted(self) -> bool:

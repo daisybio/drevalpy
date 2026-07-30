@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any, TypeVar, cast
 
 from drevalpy.components.model_input_batch import ModelInputBatch
-from drevalpy.components.predictors.literature._preload import merge_preload_hyperparameters
 from drevalpy.components.predictors.literature._training_helpers import LiteratureTrainingMixin
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 
@@ -24,11 +23,10 @@ def train_fitted_algorithm(
     if batch.response is None:
         msg = "literature predictor requires response"
         raise RuntimeError(msg)
-    merged_hp, preload = merge_preload_hyperparameters(hyperparameters, preload_state)
     algorithm = algorithm_cls()
-    for name, value in preload.items():
+    for name, value in preload_state.items():
         setattr(algorithm, name, value)
-    algorithm.configure(merged_hp)
+    algorithm.configure(hyperparameters)
     output = DrugResponseDataset(
         response=batch.response,
         cell_line_ids=batch.cell_line_ids,

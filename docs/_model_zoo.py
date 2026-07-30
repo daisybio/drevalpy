@@ -86,8 +86,8 @@ def generate_model_zoo_rst() -> str:
         "------------------",
         "",
         "Feature-based single-drug presets use ``identity`` to create and route one",
-        "model per drug; identity is not appended to the predictor matrix. Raw",
-        "single-drug literature models remain predictor-only.",
+        "model per drug; identity is not appended to the predictor matrix. MOLIR",
+        "and SuperFELTR use the same routing featurizer.",
         "",
         *(_render_scope_table(ModelScope.SINGLE_DRUG)),
     ]

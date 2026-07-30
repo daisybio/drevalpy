@@ -10,8 +10,8 @@ A model has three ordered slots:
 
    cell-line featurizer : drug featurizer : predictor
 
-Feature-free and raw-dataset predictors omit both featurizer slots. Their
-zoo presets are predictor-only.
+Feature-free predictors omit both featurizer slots. All feature-dependent
+predictors, including literature ports, declare their required featurizers.
 
 Colons separate the slots. Starting with the three ingredients from the end of
 the catalog gives the simplest complete recipe:
@@ -34,33 +34,29 @@ Other single-view recipes follow the same pattern:
 
 For a feature-based single-drug predictor, ``identity`` has routing semantics:
 it creates/selects one estimator per drug. The one-hot identity vector is not
-concatenated with the cell-line features seen by that estimator. Raw
-single-drug predictors such as ``molir`` and ``superfeltr`` remain
-predictor-only and have no drug-featurizer slot.
+concatenated with the cell-line features seen by that estimator. Single-drug
+literature predictors such as ``molir`` and ``superfeltr`` use their configured
+``identity`` drug featurizer for routing.
 
 Composition is validated before training. Each featurizer declares a
 ``FeatureFormat`` (numeric matrix, graph, or ragged sequence); each predictor
 declares which formats and which input interface
-(``FeatureFreePredictor``, ``MatrixPredictor``, ``BlockPredictor``, or
-``RawDatasetPredictor``) it accepts. Matrix predictors reject graph/ragged
-payloads. Raw-dataset predictors forbid configured featurizers and require
-named ``FeatureDataset`` views. An incompatible recipe fails early rather than
-reaching the training loop.
+(``FeatureFreePredictor``, ``MatrixPredictor``, or ``BlockPredictor``) it
+accepts. Matrix predictors reject graph/ragged payloads, while block
+predictors consume the corresponding fitted blocks. An incompatible recipe
+fails early rather than reaching the training loop.
 
 Predictor-only recipes
 ----------------------
 
-Feature-free and raw-dataset predictors omit both featurizer slots:
+Feature-free predictors omit both featurizer slots:
 
 .. code-block:: text
 
    naiveMean
-   drugGNN
-   molir
 
-Their zoo YAML has only ``predictor`` (and optional ``scope`` /
-hyperparameters). A bare feature-dependent predictor name without featurizers
-is rejected.
+Its zoo YAML has only ``predictor`` (and optional ``scope`` / hyperparameters).
+A bare feature-dependent predictor name without featurizers is rejected.
 
 Qualifying an omics view
 ------------------------

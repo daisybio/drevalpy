@@ -14,17 +14,12 @@ from drevalpy.components.predictors.literature._algorithm_lifecycle import (
 )
 from drevalpy.components.predictors.literature._block_inputs import materialize_block_inputs
 from drevalpy.components.predictors.literature._metadata import SRMF_REFERENCE
-from drevalpy.components.predictors.literature._preload import (
-    load_dataset_cell_line_features,
-    load_dataset_drug_features,
-)
 from drevalpy.components.predictors.literature._torch_state import load_object_mapping, save_object_mapping
 from drevalpy.components.predictors.literature.srmf.algorithm import SRMF
 from drevalpy.components.predictors.literature.srmf.state import apply_state, export_state
 from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.components.predictors.structured import BlockPredictor
 from drevalpy.components.registry import register_predictor
-from drevalpy.datasets.dataset import FeatureDataset
 from drevalpy.models.config import PredictionMode
 
 
@@ -59,30 +54,6 @@ class SRMFPredictor(BlockPredictor):
         if callable(space):
             return dict(space())
         return {}
-
-    @classmethod
-    def load_dataset_cell_line_features(
-        cls,
-        data_path: str,
-        dataset_name: str,
-        *,
-        hyperparameters: dict[str, Any] | None = None,
-        model_name: str | None = None,
-    ) -> tuple[FeatureDataset, dict[str, Any]]:
-        _ = model_name
-        return load_dataset_cell_line_features(SRMF, data_path, dataset_name, hyperparameters=hyperparameters)
-
-    @classmethod
-    def load_dataset_drug_features(
-        cls,
-        data_path: str,
-        dataset_name: str,
-        *,
-        hyperparameters: dict[str, Any] | None = None,
-        model_name: str | None = None,
-    ) -> tuple[FeatureDataset | None, dict[str, Any]]:
-        _ = model_name
-        return load_dataset_drug_features(SRMF, data_path, dataset_name, hyperparameters=hyperparameters)
 
     def set_engine_preload_state(self, state: dict[str, Any]) -> None:
         self._engine_preload_state = dict(state)

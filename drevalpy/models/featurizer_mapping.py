@@ -91,10 +91,16 @@ def drug_featurizer_from_view(view: str) -> FeaturizerConfig:
 FEATURIZER_NAME_TO_CELL_LINE_VIEW = {value: key for key, value in CELL_LINE_VIEW_TO_FEATURIZER.items()}
 FEATURIZER_NAME_TO_CELL_LINE_VIEW.update(
     {
-        "landmarkGeneExpression": "gene_expression",
+        "landmarkGenes": "gene_expression",
+        "landmarkGenesReduced": "gene_expression",
         "pathways": "pathways",
         "bionic": "bionic_features",
         "normalizedProteomics": "proteomics",
+        "dipkGeneExpression": "gene_expression",
+        "pharmaFormerGeneExpression": "gene_expression",
+        "sparsegoOntology": "gene_expression",
+        "molirOmics": "gene_expression",
+        "superfeltrOmics": "gene_expression",
     }
 )
 
@@ -147,27 +153,46 @@ def drug_entity_id_only_from_model_config(config: ModelConfig) -> bool:
     return entity_id_only_from_featurizer_config(config.drug_featurizer, registry="drug")
 
 
-def _views_from_featurizer_config(config: FeaturizerConfig, *, registry: str) -> list[str]:
-    if config.name == "concatFeaturizers":
-        views: list[str] = []
-        for child in config.hyperparameters.get("featurizers", []):
-            child_cfg = FeaturizerConfig.model_validate(normalize_featurizer_config(child, default_registry=registry))
-            views.extend(_views_from_featurizer_config(child_cfg, registry=registry))
-        return views
+_MULTI_OMICS_VIEWS = ("gene_expression", "mutations", "copy_number_variation_gistic")
+
+
+def _concat_child_views(config: FeaturizerConfig, *, registry: str) -> list[str]:
+    views: list[str] = []
+    for child in config.hyperparameters.get("featurizers", []):
+        child_cfg = FeaturizerConfig.model_validate(normalize_featurizer_config(child, default_registry=registry))
+        views.extend(_views_from_featurizer_config(child_cfg, registry=registry))
+    return views
+
+
+def _special_cell_line_views(config: FeaturizerConfig) -> list[str] | None:
+    if config.name in {"molirOmics", "superfeltrOmics"}:
+        return list(_MULTI_OMICS_VIEWS)
+    if config.name == "sparsegoOntology":
+        return ["mutations" if config.hyperparameters.get("input_type") == "mutations" else "gene_expression"]
+    mapped = FEATURIZER_NAME_TO_CELL_LINE_VIEW.get(config.name)
+    return [mapped] if mapped else None
+
+
+def _mapped_leaf_views(config: FeaturizerConfig, *, registry: str) -> list[str]:
     if config.name in ("raw", "pca"):
         return [str(config.view or config.hyperparameters.get("view"))]
     if config.name == "view":
         return [str(config.hyperparameters.get("view", "fingerprints"))]
-    mapped = FEATURIZER_NAME_TO_CELL_LINE_VIEW.get(config.name) if registry == "cell_line" else None
-    if mapped:
-        return [mapped]
+    if registry == "cell_line":
+        special = _special_cell_line_views(config)
+        if special is not None:
+            return special
     if registry == "drug":
         drug_view = DRUG_FEATURIZER_TO_VIEW.get(config.name)
         if drug_view:
             return [drug_view]
-    if config.view:
-        return [str(config.view)]
-    return []
+    return [str(config.view)] if config.view else []
+
+
+def _views_from_featurizer_config(config: FeaturizerConfig, *, registry: str) -> list[str]:
+    if config.name == "concatFeaturizers":
+        return _concat_child_views(config, registry=registry)
+    return _mapped_leaf_views(config, registry=registry)
 
 
 def cell_line_views_from_model_config(config: ModelConfig) -> list[str]:

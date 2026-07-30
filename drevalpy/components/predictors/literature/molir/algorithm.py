@@ -9,11 +9,8 @@ and Hauptmann et al. (2023, 10.1186/s12859-023-05166-7) https://github.com/krame
 from typing import Any
 
 import numpy as np
-from sklearn.preprocessing import StandardScaler
 
 from drevalpy.components.predictors.literature._training_helpers import LiteratureTrainingMixin
-from drevalpy.data.features import get_multiomics_feature_dataset
-from drevalpy.data.preprocessing import VarianceFeatureSelector, scale_gene_expression
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 
 from .utils import MOLIModel, filter_and_sort_omics, get_dimensions_of_omics_data
@@ -46,8 +43,6 @@ class MOLIR(LiteratureTrainingMixin):
         self.gene_expression_features = None
         self.mutations_features = None
         self.copy_number_variation_features = None
-        self.gene_expression_scaler = StandardScaler()
-        self.selector: VarianceFeatureSelector | None = None
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -84,9 +79,6 @@ class MOLIR(LiteratureTrainingMixin):
         self.log_hyperparameters(hyperparameters)
 
         self.hyperparameters = hyperparameters
-        self.selector = VarianceFeatureSelector(
-            view="gene_expression", k=hyperparameters.get("n_gene_expression_features", 1000)
-        )
 
     def train(
         self,
@@ -111,20 +103,8 @@ class MOLIR(LiteratureTrainingMixin):
         :param drug_input: drug features, not needed
         :param output_earlystopping: early stopping data, not used when there is not enough data
         :param model_checkpoint_dir: directory to save the model checkpoints
-        :raises ValueError: If drug_input is None.
         """
         if len(output) > 0:
-            cell_line_input = scale_gene_expression(
-                cell_line_input=cell_line_input,
-                cell_line_ids=np.unique(output.cell_line_ids),
-                training=True,
-                gene_expression_scaler=self.gene_expression_scaler,
-            )
-            if self.selector is None:
-                raise ValueError("Feature selector not initialized. Build the model first.")
-            self.selector.fit(cell_line_input, output)
-            cell_line_input = self.selector.transform(cell_line_input)
-
             self.gene_expression_features = cell_line_input.meta_info["gene_expression"]
             self.mutations_features = cell_line_input.meta_info["mutations"]
             self.copy_number_variation_features = cell_line_input.meta_info["copy_number_variation_gistic"]
@@ -181,18 +161,6 @@ class MOLIR(LiteratureTrainingMixin):
         ):
             raise ValueError("MOLIR Model not trained, please train the model first.")
 
-        cell_line_input = scale_gene_expression(
-            cell_line_input=cell_line_input,
-            cell_line_ids=np.unique(cell_line_ids),
-            training=False,
-            gene_expression_scaler=self.gene_expression_scaler,
-        )
-        # Apply variance threshold to gene expression features
-
-        if self.selector is None:
-            raise ValueError("Feature selector not initialized. Train the model first.")
-        cell_line_input = self.selector.transform(cell_line_input)
-
         input_data = self.get_feature_matrices(
             cell_line_ids=cell_line_ids,
             drug_ids=drug_ids,
@@ -208,36 +176,4 @@ class MOLIR(LiteratureTrainingMixin):
         gene_expression, mutations, cnvs = filter_and_sort_omics(
             model=self, gene_expression=gene_expression, mutations=mutations, cnvs=cnvs, cell_line_input=cell_line_input
         )
-
-        return self.model.predict(gene_expression, mutations, cnvs)
-
-    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
-        """
-        Loads the cell line features: gene expression, mutations and copy number variation.
-
-        :param data_path: path to the data
-        :param dataset_name: name of the dataset
-        :returns: FeatureDataset with gene expression, mutations and copy number variation
-        """
-        feature_dataset = get_multiomics_feature_dataset(
-            data_path=data_path,
-            dataset_name=dataset_name,
-            gene_lists={
-                "gene_expression": "gene_expression_intersection",
-                "mutations": "mutations_intersection",
-                "copy_number_variation_gistic": "copy_number_variation_gistic_intersection",
-            },
-            omics=self.cell_line_views,
-        )
-
-        return feature_dataset
-
-    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset | None:
-        """
-        Returns None, as drug features are not needed for MOLIR.
-
-        :param data_path: path to the data
-        :param dataset_name: name of the dataset
-        :returns: None
-        """
-        return None
+        return np.atleast_1d(self.model.predict(gene_expression, mutations, cnvs))

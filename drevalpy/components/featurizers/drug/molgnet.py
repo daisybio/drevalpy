@@ -2,11 +2,17 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
+import pandas as pd
 
 from drevalpy.components.contracts import FeatureFormat
+from drevalpy.components.feature_block import FeatureBlock, ragged_feature_block
+from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
 from drevalpy.components.featurizers.drug.base import DrugFeaturizer
 from drevalpy.components.registry import register_drug_featurizer
+from drevalpy.datasets.dataset import FeatureDataset
 
 
 @register_drug_featurizer(
@@ -22,12 +28,31 @@ class MolGNetDrugFeaturizer(DrugFeaturizer):
         self._features_by_drug: dict[str, np.ndarray] = {}
         self._output_dim = 0
 
+    @classmethod
+    def load_features(cls, data_path: str, dataset_name: str, **kwargs: object) -> FeatureDataset:
+        """Load DIPK MolGNet per-drug CSV embeddings."""
+        _ = cls, kwargs
+        directory = Path(data_path) / dataset_name / "DIPK_features" / "Drugs"
+        files = sorted(directory.glob("MolGNet_*.csv"))
+        if not files:
+            raise FileNotFoundError(f"No MolGNet_*.csv files found in {directory}")
+        return FeatureDataset(
+            {
+                file.stem.removeprefix("MolGNet_"): {
+                    "molgnet_features": np.asarray(pd.read_csv(file, index_col=0, sep="\t"))
+                }
+                for file in files
+            }
+        )
+
     def fit(
         self,
         features,
         *,
         entity_ids: np.ndarray | None = None,
+        context: FeaturizerFitContext | None = None,
     ) -> MolGNetDrugFeaturizer:
+        _ = context
         ids = entity_ids if entity_ids is not None else np.array(list(features.features.keys()))
         self._features_by_drug = {}
         for drug_id in ids:
@@ -55,8 +80,8 @@ class MolGNetDrugFeaturizer(DrugFeaturizer):
             rows.append(np.asarray(views[self._view]))
         return np.array(rows, dtype=object)
 
-    def transform_blocks(self, features, entity_ids: np.ndarray) -> dict[str, np.ndarray]:
-        return {self._view: self.transform(features, entity_ids)}
+    def transform_blocks(self, features, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
+        return {"molgnet_features": ragged_feature_block(self.transform(features, entity_ids))}
 
     @property
     def output_dim(self) -> int:

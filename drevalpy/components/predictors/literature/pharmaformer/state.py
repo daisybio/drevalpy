@@ -18,10 +18,6 @@ def export_state(algorithm: PharmaFormerModel) -> dict[str, Any]:
     model = getattr(algorithm, "model", None)
     if model is not None and hasattr(model, "state_dict"):
         payload["model_state"] = save_state_dict(model.state_dict())
-    for attr in ("gene_expression_scaler", "gene_expression_normalizer"):
-        value = getattr(algorithm, attr, None)
-        if value is not None:
-            payload[attr] = value
     return payload
 
 
@@ -39,8 +35,4 @@ def apply_state(payload: dict[str, Any]) -> PharmaFormerModel:
         algorithm._saved_gene_input_size = gene_input_size
         algorithm.model = _build_combined_model(gene_input_size, hyperparameters, algorithm.DEVICE)
         algorithm.model.load_state_dict(load_state_dict(bytes(model_state)))
-    for attr in ("gene_expression_scaler", "gene_expression_normalizer"):
-        value = payload.get(attr)
-        if value is not None:
-            setattr(algorithm, attr, value)
     return algorithm

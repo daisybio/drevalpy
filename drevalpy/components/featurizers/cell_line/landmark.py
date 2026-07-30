@@ -8,6 +8,8 @@ import numpy as np
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 from drevalpy.components.contracts import FeatureFormat
+from drevalpy.components.feature_block import FeatureBlock, numeric_feature_block
+from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
 from drevalpy.components.featurizers._matrix import stack_view_matrix
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.registry import register_cell_line_featurizer
@@ -72,12 +74,14 @@ class LandmarkGenesFeaturizer(CellLineFeaturizer):
         gene_list_stem: str = "landmark_genes",
         standardize: bool = True,
         minmax_scale: bool = False,
+        arcsinh: bool = True,
         data_path: str | None = None,
     ) -> None:
         self._view = view
         self._gene_list_stem = gene_list_stem
         self._standardize = standardize
         self._minmax_scale = minmax_scale
+        self._arcsinh = arcsinh
         self._data_path = data_path
         self._gene_indices: list[int] = []
         self._scaler: StandardScaler | None = None
@@ -85,7 +89,14 @@ class LandmarkGenesFeaturizer(CellLineFeaturizer):
         self._output_dim = 0
         self._is_fitted = False
 
-    def fit(self, features, *, entity_ids: np.ndarray | None = None) -> LandmarkGenesFeaturizer:
+    def fit(
+        self,
+        features,
+        *,
+        entity_ids: np.ndarray | None = None,
+        context: FeaturizerFitContext | None = None,
+    ) -> LandmarkGenesFeaturizer:
+        _ = context
         ids = entity_ids if entity_ids is not None else np.array(list(features.features.keys()))
         self._gene_indices = _load_gene_indices(
             features,
@@ -96,7 +107,8 @@ class LandmarkGenesFeaturizer(CellLineFeaturizer):
         self._output_dim = len(self._gene_indices)
         matrix = stack_view_matrix(features, self._view, ids).astype(np.float64)[:, self._gene_indices]
         matrix = np.nan_to_num(matrix, nan=0.0, posinf=0.0, neginf=0.0)
-        matrix = np.arcsinh(matrix)
+        if self._arcsinh:
+            matrix = np.arcsinh(matrix)
         if self._standardize:
             self._scaler = StandardScaler()
             self._scaler.fit(matrix)
@@ -123,7 +135,23 @@ class LandmarkGenesFeaturizer(CellLineFeaturizer):
             gene_indices=self._gene_indices,
             scaler=self._scaler,
             minmax=self._minmax,
+            arcsinh=self._arcsinh,
         )
+
+    def transform_blocks(self, features, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
+        if not self._is_fitted:
+            msg = "LandmarkGenesFeaturizer must be fit before transform"
+            raise RuntimeError(msg)
+        selected_names = None
+        meta = features.meta_info.get(self._view)
+        if meta is not None:
+            selected_names = tuple(str(meta[index]) for index in self._gene_indices)
+        return {
+            "gene_expression": numeric_feature_block(
+                self.transform(features, entity_ids),
+                feature_names=selected_names,
+            )
+        }
 
     @property
     def output_dim(self) -> int:
@@ -144,6 +172,7 @@ class LandmarkGenesFeaturizer(CellLineFeaturizer):
             "gene_list_stem": self._gene_list_stem,
             "standardize": self._standardize,
             "minmax_scale": self._minmax_scale,
+            "arcsinh": self._arcsinh,
             "data_path": self._data_path,
             "gene_indices": list(self._gene_indices),
             "scaler": self._scaler,
@@ -163,6 +192,8 @@ class LandmarkGenesFeaturizer(CellLineFeaturizer):
             self._standardize = bool(state["standardize"])
         if "minmax_scale" in state:
             self._minmax_scale = bool(state["minmax_scale"])
+        if "arcsinh" in state:
+            self._arcsinh = bool(state["arcsinh"])
         data_path = state.get("data_path")
         if isinstance(data_path, str) or data_path is None:
             self._data_path = data_path
@@ -204,6 +235,7 @@ class LandmarkGenesReducedFeaturizer(LandmarkGenesFeaturizer):
         view: str = "gene_expression",
         standardize: bool = False,
         minmax_scale: bool = False,
+        arcsinh: bool = False,
         data_path: str | None = None,
         **_: Any,
     ) -> None:
@@ -212,5 +244,6 @@ class LandmarkGenesReducedFeaturizer(LandmarkGenesFeaturizer):
             gene_list_stem="landmark_genes_reduced",
             standardize=standardize,
             minmax_scale=minmax_scale,
+            arcsinh=arcsinh,
             data_path=data_path,
         )

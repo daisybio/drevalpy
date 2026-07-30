@@ -28,7 +28,10 @@ def load_generic_csv(path: str, dataset_name: str, feature_name: str, index_col=
     feature_csv.index = feature_csv.index.astype(str)
     if "cellosaurus_id" in feature_csv.columns:
         feature_csv = feature_csv.drop(columns=["cellosaurus_id"])
-    return FeatureDataset(features=iterate_features(df=feature_csv, feature_type=feature_name))
+    return FeatureDataset(
+        features=iterate_features(df=feature_csv, feature_type=feature_name),
+        meta_info={feature_name: feature_csv.columns.values},
+    )
 
 
 def iterate_features(df: pd.DataFrame, feature_type: str) -> dict[str, dict[str, np.ndarray]]:

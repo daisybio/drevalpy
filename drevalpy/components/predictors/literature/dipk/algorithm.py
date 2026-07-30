@@ -12,18 +12,15 @@ import secrets
 from typing import Any
 
 import numpy as np
-import pandas as pd
 import torch
 import torch.optim as optim
 from torch import nn
 from torch.utils.data import DataLoader
 
 from drevalpy.components.predictors.literature._training_helpers import LiteratureTrainingMixin
-from drevalpy.data.features import load_and_select_gene_features
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 
-from .data_utils import CollateFn, DIPKDataset, get_data, load_bionic_features
-from .gene_expression_encoder import GeneExpressionEncoder, encode_gene_expression, train_gene_expession_autoencoder
+from .data_utils import CollateFn, DIPKDataset, get_data
 from .model_utils import Predictor
 
 
@@ -40,7 +37,6 @@ class DIPKModel(LiteratureTrainingMixin):
         self.DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         # all of this gets initialized in configure
         self.model: Predictor | None = None
-        self.gene_expression_encoder: GeneExpressionEncoder | None = None
         self.hyperparameters: dict[str, Any] = {}
 
     @classmethod
@@ -62,7 +58,6 @@ class DIPKModel(LiteratureTrainingMixin):
             "fc_layer_dim": [256, 128, 64, 32, 16, 1],
             "dropout_rate": 0.3,
             "epochs": 100,
-            "epochs_autoencoder": 100,
             "patience": 10,
         }
 
@@ -120,25 +115,6 @@ class DIPKModel(LiteratureTrainingMixin):
         loss_func = nn.MSELoss()
         params = [{"params": self.model.parameters()}]
         optimizer = optim.Adam(params, lr=self.hyperparameters["lr"])
-
-        train_gene_expression = cell_line_input.get_feature_matrix(
-            view="gene_expression", identifiers=output.cell_line_ids
-        )
-        val_gene_expression = cell_line_input.get_feature_matrix(
-            view="gene_expression", identifiers=output_earlystopping.cell_line_ids
-        )
-
-        self.gene_expression_encoder = train_gene_expession_autoencoder(
-            train_gene_expression,
-            val_gene_expression,
-            epochs_autoencoder=self.hyperparameters["epochs_autoencoder"],
-        )
-        self.hyperparameters["gene_encoder_input_dim"] = train_gene_expression.shape[1]
-
-        cell_line_input.apply(
-            lambda x: encode_gene_expression(x, self.gene_expression_encoder),  # type: ignore[arg-type]
-            view="gene_expression",
-        )  # type: ignore[arg-type]
 
         # Load data
         collate = CollateFn(train=True)
@@ -282,27 +258,12 @@ class DIPKModel(LiteratureTrainingMixin):
         :param cell_line_input: input data associated with the cell line
         :param drug_input: input data associated with the drug
         :return: predicted response values
-        :raises ValueError: if drug_input is None or if the model is not initialized or
-            if the gene expression encoder is not initialized
+        :raises ValueError: if drug_input is None or if the model is not initialized.
         """
         if drug_input is None:
             raise ValueError("DIPK model requires drug features.")
         if not isinstance(self.model, Predictor):
             raise ValueError("DIPK model not initialized.")
-
-        # Encode gene expression data if this has not been done yet (e.g., for cross-study predictions)
-        if self.gene_expression_encoder is None:
-            raise ValueError("Gene expression encoder is not initialized.")
-        random_cell_line = next(iter(cell_line_input.features.keys()))
-        if (
-            len(cell_line_input.features[random_cell_line]["gene_expression"])
-            != self.gene_expression_encoder.latent_dim
-        ):
-            print("Encoding gene expression data for cross study prediction")
-            cell_line_input.apply(
-                lambda x: encode_gene_expression(x, self.gene_expression_encoder),  # type: ignore[arg-type]
-                view="gene_expression",
-            )  # type: ignore[arg-type]
 
         # Load data
         collate = CollateFn(train=False)
@@ -336,59 +297,4 @@ class DIPKModel(LiteratureTrainingMixin):
                     predictions += torch.squeeze(prediction).cpu().tolist()
                 else:
                     predictions += [prediction.item()]
-        return np.array(predictions)
-
-    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
-        """
-        Load cell line features.
-
-        :param data_path: path to the data
-        :param dataset_name: path to the dataset
-        :returns: cell line features
-        """
-        # we use the interception of all genes that are present
-        # in the gene expression features of all datasets
-        gene_expression = load_and_select_gene_features(
-            feature_type="gene_expression",
-            gene_list="gene_expression_intersection",
-            data_path=data_path,
-            dataset_name=dataset_name,
-        )
-        bionic_features = load_bionic_features(
-            data_path=data_path,
-            dataset_name=dataset_name,
-        )
-        bionic_features.add_features(gene_expression)
-
-        return bionic_features
-
-    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
-        """
-        Load drug features.
-
-        :param data_path: path to the data
-        :param dataset_name: path to the dataset
-        :returns: drug features
-        """
-
-        def load_feature(file_path, sep="\t"):
-            return np.array(pd.read_csv(file_path, index_col=0, sep=sep))
-
-        drug_path = os.path.join(data_path, dataset_name, "DIPK_features", "Drugs")
-        files_in_drug_path = os.listdir(drug_path)
-        drug_list = [
-            file.split("_")[1].split(".csv")[0]
-            for file in files_in_drug_path
-            if file.endswith(".csv") and file.startswith("MolGNet")
-        ]
-
-        f = FeatureDataset(
-            features={
-                drug: {
-                    "molgnet_features": load_feature(os.path.join(drug_path, f"MolGNet_{drug}.csv")),
-                }
-                for drug in drug_list
-            }
-        )
-
-        return f
+        return np.asarray(predictions)

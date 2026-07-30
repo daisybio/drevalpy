@@ -2,19 +2,44 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Literal
 
 import numpy as np
 
+from drevalpy.components.feature_block import FeatureBlock
+from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
 from drevalpy.components.featurizers._matrix import unique_entity_ids
 from drevalpy.components.featurizers.base import Featurizer
 from drevalpy.components.model_input_batch import ModelInputBatch
 from drevalpy.components.model_input_build import build_model_input_batch
 from drevalpy.components.predictors.base import Predictor
-from drevalpy.components.predictors.raw_dataset import RawDatasetPredictor
 from drevalpy.components.training_context import TrainingContext
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models.config import ModelConfig, PredictionMode, PredictorConfig
+
+
+def _build_fit_context(
+    response: DrugResponseDataset,
+    *,
+    early_stopping: DrugResponseDataset | None,
+    side: Literal["cell_line", "drug"],
+) -> FeaturizerFitContext:
+    if side == "cell_line":
+        train_ids = response.cell_line_ids
+        es_ids = early_stopping.cell_line_ids if early_stopping is not None else np.array([], dtype=str)
+    elif side == "drug":
+        train_ids = response.drug_ids
+        es_ids = early_stopping.drug_ids if early_stopping is not None else np.array([], dtype=str)
+    else:
+        msg = f"Unknown featurizer side {side!r}"
+        raise ValueError(msg)
+    return FeaturizerFitContext(
+        unique_train_ids=unique_entity_ids(train_ids),
+        pair_expanded_train_ids=np.asarray(train_ids, dtype=str),
+        unique_early_stopping_ids=unique_entity_ids(es_ids) if es_ids.size else np.array([], dtype=str),
+        pair_expanded_early_stopping_ids=np.asarray(es_ids, dtype=str) if es_ids.size else np.array([], dtype=str),
+        side=side,
+    )
 
 
 def _entity_id_only_featurizer(featurizer: Featurizer | None) -> bool:
@@ -70,14 +95,6 @@ class _ComponentStack:
         self._cell_line_entity_ids: np.ndarray | None = None
         self._drug_entity_ids: np.ndarray | None = None
 
-    def apply_preload_state(self, preload_state: dict[str, Any]) -> None:
-        """Forward engine preload state to the predictor when supported."""
-        if not preload_state:
-            return
-        set_preload = getattr(self._predictor, "set_engine_preload_state", None)
-        if callable(set_preload):
-            set_preload(preload_state)
-
     def _build_batch(
         self,
         response: DrugResponseDataset,
@@ -91,14 +108,14 @@ class _ComponentStack:
         output_earlystopping: DrugResponseDataset | None = None,
         training_context: TrainingContext | None = None,
     ) -> ModelInputBatch:
-        cell_line_blocks: dict[str, np.ndarray] = {}
+        cell_line_blocks: dict[str, FeatureBlock] = {}
         if self._cell_line_featurizer is not None:
             cell_line_blocks = self._cell_line_featurizer.transform_blocks(
                 cell_line_input,
                 cell_line_entity_ids,
             )
 
-        drug_blocks: dict[str, np.ndarray] = {}
+        drug_blocks: dict[str, FeatureBlock] = {}
         if self._drug_featurizer is not None and drug_entity_ids is not None:
             drug_source = drug_input if drug_input is not None else _empty_feature_dataset()
             if drug_input is None and not _entity_id_only_featurizer(self._drug_featurizer):
@@ -114,8 +131,6 @@ class _ComponentStack:
             drug_features=drug_matrix if self._drug_featurizer is not None else None,
             cell_line_blocks=cell_line_blocks,
             drug_blocks=drug_blocks,
-            cell_line_input=cell_line_input,
-            drug_input=drug_input,
             early_stopping_response=output_earlystopping,
             training_context=training_context,
         )
@@ -135,8 +150,9 @@ class _ComponentStack:
         train_entity_ids: np.ndarray,
         feature_input: FeatureDataset | None,
         entity_id_only_ids: np.ndarray,
+        fit_context: FeaturizerFitContext | None = None,
     ) -> tuple[np.ndarray, np.ndarray]:
-        featurizer.fit(source, entity_ids=train_entity_ids)
+        featurizer.fit(source, entity_ids=train_entity_ids, context=fit_context)
         if _entity_id_only_featurizer(featurizer):
             entity_ids = np.asarray(entity_id_only_ids, dtype=str)
         elif feature_input is not None:
@@ -150,18 +166,26 @@ class _ComponentStack:
         self,
         output: DrugResponseDataset,
         cell_line_input: FeatureDataset,
+        *,
+        output_earlystopping: DrugResponseDataset | None = None,
     ) -> None:
         if self._cell_line_featurizer is None:
             self._cell_line_entity_ids = np.array([], dtype=str)
             self._cell_line_matrix = np.empty((0, 0), dtype=np.float32)
             return
         train_cell_lines = unique_entity_ids(output.cell_line_ids)
+        fit_context = _build_fit_context(
+            output,
+            early_stopping=output_earlystopping,
+            side="cell_line",
+        )
         entity_ids, matrix = self._fit_transform_featurizer(
             self._cell_line_featurizer,
             cell_line_input,
             train_entity_ids=train_cell_lines,
             feature_input=cell_line_input,
             entity_id_only_ids=train_cell_lines,
+            fit_context=fit_context,
         )
         self._cell_line_entity_ids = entity_ids
         self._cell_line_matrix = matrix
@@ -170,6 +194,8 @@ class _ComponentStack:
         self,
         output: DrugResponseDataset,
         drug_input: FeatureDataset | None,
+        *,
+        output_earlystopping: DrugResponseDataset | None = None,
     ) -> None:
         if self._drug_featurizer is None:
             self._drug_entity_ids = np.array([], dtype=str)
@@ -177,12 +203,18 @@ class _ComponentStack:
             return
         train_drugs = unique_entity_ids(output.drug_ids)
         drug_source = self._require_drug_input(drug_input)
+        fit_context = _build_fit_context(
+            output,
+            early_stopping=output_earlystopping,
+            side="drug",
+        )
         entity_ids, matrix = self._fit_transform_featurizer(
             self._drug_featurizer,
             drug_source,
             train_entity_ids=train_drugs,
             feature_input=drug_input,
             entity_id_only_ids=train_drugs,
+            fit_context=fit_context,
         )
         self._drug_entity_ids = entity_ids
         self._drug_matrix = matrix
@@ -199,29 +231,8 @@ class _ComponentStack:
         if len(output) == 0:
             return self
 
-        if isinstance(self._predictor, RawDatasetPredictor):
-            self._cell_line_entity_ids = np.array([], dtype=str)
-            self._cell_line_matrix = np.empty((0, 0), dtype=np.float32)
-            self._drug_entity_ids = np.array([], dtype=str)
-            self._drug_matrix = np.empty((0, 0), dtype=np.float32)
-            batch = build_model_input_batch(
-                output,
-                cell_line_entity_ids=self._cell_line_entity_ids,
-                drug_entity_ids=None,
-                cell_line_features=self._cell_line_matrix,
-                drug_features=None,
-                cell_line_blocks={},
-                drug_blocks={},
-                cell_line_input=cell_line_input,
-                drug_input=drug_input,
-                early_stopping_response=output_earlystopping,
-                training_context=training_context,
-            )
-            self._predictor.fit(batch)
-            return self
-
-        self._train_cell_line_side(output, cell_line_input)
-        self._train_drug_side(output, drug_input)
+        self._train_cell_line_side(output, cell_line_input, output_earlystopping=output_earlystopping)
+        self._train_drug_side(output, drug_input, output_earlystopping=output_earlystopping)
 
         cell_line_entity_ids = (
             self._cell_line_entity_ids if self._cell_line_entity_ids is not None else np.array([], dtype=str)
@@ -296,20 +307,6 @@ class _ComponentStack:
             cell_line_ids=cell_line_ids,
             drug_ids=drug_ids,
         )
-        if isinstance(self._predictor, RawDatasetPredictor):
-            batch = build_model_input_batch(
-                response,
-                cell_line_entity_ids=np.array([], dtype=str),
-                drug_entity_ids=None,
-                cell_line_features=np.empty((0, 0), dtype=np.float32),
-                drug_features=None,
-                cell_line_blocks={},
-                drug_blocks={},
-                cell_line_input=cell_line_input,
-                drug_input=drug_input,
-            )
-            return self._predictor.predict(batch)
-
         cell_line_entity_ids = np.array([], dtype=str)
         cell_line_matrix = np.empty((0, 0), dtype=np.float32)
         if self._cell_line_featurizer is not None:

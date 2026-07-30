@@ -6,7 +6,6 @@ import pytest
 
 from drevalpy.components.predictors.feature_free import FeatureFreePredictor
 from drevalpy.components.predictors.matrix import MatrixPredictor
-from drevalpy.components.predictors.raw_dataset import RawDatasetPredictor
 from drevalpy.components.predictors.structured import BlockPredictor
 from drevalpy.components.register_builtins import register_builtin_components
 from drevalpy.components.registry import get_predictor, list_predictors
@@ -36,8 +35,6 @@ EXPECTED = {
         "naiveMeanEffects",
         "precily",
         "srmf",
-    },
-    "raw": {
         "drugGNN",
         "dipk",
         "pharmaFormer",
@@ -61,8 +58,6 @@ def _interface_name(cls: type) -> str:
         matches.append("matrix")
     if issubclass(cls, BlockPredictor):
         matches.append("block")
-    if issubclass(cls, RawDatasetPredictor):
-        matches.append("raw")
     assert len(matches) == 1, (cls, matches)
     return matches[0]
 
@@ -72,7 +67,6 @@ def test_builtin_predictor_interfaces_partition() -> None:
         "feature_free": set(),
         "matrix": set(),
         "block": set(),
-        "raw": set(),
     }
     for name in list_predictors():
         observed[_interface_name(get_predictor(name))].add(name)

@@ -10,7 +10,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from torch.utils.data import DataLoader
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
@@ -19,30 +18,6 @@ from .model_utils import CombinedModel
 
 if TYPE_CHECKING:
     from .pharmaformer import PharmaFormerModel, _PharmaFormerDataset
-
-
-def _scale_cell_line_gene_expression(
-    cell_line_input: FeatureDataset,
-    output: DrugResponseDataset,
-) -> tuple[FeatureDataset, StandardScaler, MinMaxScaler, int]:
-    """Fit scalers on training genes and return transformed features and input size."""
-    train_gene_features = cell_line_input.get_feature_matrix(view="gene_expression", identifiers=output.cell_line_ids)
-    gene_input_size = train_gene_features.shape[1]
-
-    gene_expression_scaler = StandardScaler()
-    gene_expression_normalizer = MinMaxScaler()
-
-    train_gene_scaled = gene_expression_scaler.fit_transform(train_gene_features)
-    gene_expression_normalizer.fit_transform(train_gene_scaled)
-
-    scaled_input = cell_line_input.copy()
-    for cell_line_id in scaled_input.features:
-        gene_expr = scaled_input.features[cell_line_id]["gene_expression"]
-        gene_expr_scaled = gene_expression_scaler.transform(gene_expr.reshape(1, -1))
-        gene_expr_normalized = gene_expression_normalizer.transform(gene_expr_scaled)
-        scaled_input.features[cell_line_id]["gene_expression"] = gene_expr_normalized.flatten()
-
-    return scaled_input, gene_expression_scaler, gene_expression_normalizer, gene_input_size
 
 
 def _build_combined_model(gene_input_size: int, hyperparameters: dict[str, Any], device: torch.device) -> CombinedModel:
@@ -139,11 +114,9 @@ def run_pharmaformer_training(
     pharmaformer_dataset_cls: type[_PharmaFormerDataset],
 ) -> None:
     """Train PharmaFormer with early stopping and reload the best checkpoint."""
-    cell_line_input, gene_scaler, gene_normalizer, gene_input_size = _scale_cell_line_gene_expression(
-        cell_line_input, output
-    )
-    engine.gene_expression_scaler = gene_scaler
-    engine.gene_expression_normalizer = gene_normalizer
+    gene_input_size = cell_line_input.get_feature_matrix(
+        view="gene_expression", identifiers=output.cell_line_ids
+    ).shape[1]
     engine._saved_gene_input_size = gene_input_size
     engine.model = _build_combined_model(gene_input_size, engine.hyperparameters, engine.DEVICE)
 

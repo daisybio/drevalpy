@@ -8,6 +8,8 @@ from typing import Any, ClassVar
 import numpy as np
 
 from drevalpy.components.contracts import FeatureContract, FeatureFormat
+from drevalpy.components.feature_block import FeatureBlock, numeric_feature_block
+from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
 from drevalpy.datasets.dataset import FeatureDataset
 
 
@@ -28,6 +30,7 @@ class Featurizer(ABC):
         features: FeatureDataset,
         *,
         entity_ids: np.ndarray | None = None,
+        context: FeaturizerFitContext | None = None,
     ) -> Featurizer:
         """Fit on the entities given by *entity_ids* (or all entities when ``None``)."""
 
@@ -39,9 +42,11 @@ class Featurizer(ABC):
         self,
         features: FeatureDataset,
         entity_ids: np.ndarray,
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, FeatureBlock]:
         """Return named feature blocks; default is a single ``default`` block."""
-        return {"default": self.transform(features, entity_ids)}
+        return {
+            "default": numeric_feature_block(self.transform(features, entity_ids)),
+        }
 
     @property
     @abstractmethod
@@ -61,6 +66,16 @@ class Featurizer(ABC):
             for key, spec in cls.get_hyperparameter_space().items()
             if isinstance(spec, dict) and "default" in spec
         }
+
+    @classmethod
+    def load_features(cls, data_path: str, dataset_name: str, **kwargs: object) -> FeatureDataset:
+        """Load the raw dataset required by this featurizer.
+
+        Featurizers that require bespoke on-disk artifacts override this hook.
+        Generic views continue to be loaded by the model data-loading layer.
+        """
+        _ = data_path, dataset_name, kwargs
+        raise NotImplementedError
 
     def get_state(self) -> dict[str, object]:
         """Return serializable fitted state for legacy save/load bridges."""

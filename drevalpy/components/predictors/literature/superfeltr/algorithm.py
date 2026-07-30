@@ -25,8 +25,6 @@ import pytorch_lightning as pl
 
 from drevalpy.components.predictors.literature._training_helpers import LiteratureTrainingMixin
 from drevalpy.components.predictors.literature.molir.utils import filter_and_sort_omics
-from drevalpy.data.features import get_multiomics_feature_dataset
-from drevalpy.data.preprocessing import VarianceFeatureSelector
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 
 from .training import run_superfeltr_training
@@ -63,7 +61,6 @@ class SuperFELTR(LiteratureTrainingMixin):
         self.gene_expression_features = None
         self.mutations_features = None
         self.copy_number_variation_features = None
-        self.selectors: dict[str, VarianceFeatureSelector] = {}
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -100,10 +97,6 @@ class SuperFELTR(LiteratureTrainingMixin):
         self.log_hyperparameters(hyperparameters)
 
         self.hyperparameters = hyperparameters
-
-        n_features = hyperparameters.get("n_features_per_view", 1000)
-        for view in self.cell_line_views:
-            self.selectors[view] = VarianceFeatureSelector(view=view, k=n_features)
 
     def train(
         self,
@@ -170,10 +163,6 @@ class SuperFELTR(LiteratureTrainingMixin):
         if drug_input is not None:
             raise ValueError("SuperFELTR is a single drug model and does not require drug input.")
 
-        for view in self.cell_line_views:
-            selector = self.selectors[view]
-            cell_line_input = selector.transform(cell_line_input)
-
         input_data = self.get_feature_matrices(
             cell_line_ids=cell_line_ids,
             drug_ids=drug_ids,
@@ -195,38 +184,8 @@ class SuperFELTR(LiteratureTrainingMixin):
 
         return self.regressor.predict(gene_expression, mutations, cnvs)
 
-    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
-        """
-        Loads the cell line features: gene expression, mutations, and copy number variation.
-
-        :param data_path: path to the data, e.g., data/
-        :param dataset_name: name of the dataset, e.g., GDSC2
-        :returns: FeatureDataset containing the cell line gene expression features, mutations, and copy number variation
-        """
-        feature_dataset = get_multiomics_feature_dataset(
-            data_path=data_path, dataset_name=dataset_name, gene_lists=None, omics=self.cell_line_views
-        )
-        # log transformation
-        feature_dataset.apply(function=np.arcsinh, view="gene_expression")
-        return feature_dataset
-
-    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset | None:
-        """
-        Returns None, as drug features are not needed for SuperFELTR.
-
-        :param data_path: Path to the fingerprints, e.g., data/
-        :param dataset_name: Name of the dataset
-        :returns: None
-        """
-        return None
-
-    def _fit_feature_selection(self, output: DrugResponseDataset, cell_line_input: FeatureDataset) -> FeatureDataset:
-        for view in self.cell_line_views:
-            selector = self.selectors[view]
-            selector.fit(cell_line_input, output)
-            cell_line_input = selector.transform(cell_line_input)
-
+    def record_feature_names(self, cell_line_input: FeatureDataset) -> None:
+        """Retain the featurizer-selected feature order for prediction alignment."""
         self.gene_expression_features = cell_line_input.meta_info["gene_expression"]
         self.mutations_features = cell_line_input.meta_info["mutations"]
         self.copy_number_variation_features = cell_line_input.meta_info["copy_number_variation_gistic"]
-        return cell_line_input

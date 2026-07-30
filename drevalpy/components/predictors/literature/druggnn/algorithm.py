@@ -1,6 +1,5 @@
 """DrugGNN model."""
 
-from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -14,7 +13,6 @@ from torch_geometric.nn import GCNConv, global_mean_pool
 
 from drevalpy.components.lightning_metrics_mixin import RegressionMetricsMixin
 from drevalpy.components.predictors.literature._training_helpers import LiteratureTrainingMixin
-from drevalpy.data.features import load_and_select_gene_features
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 
 
@@ -412,45 +410,3 @@ class DrugGNN(LiteratureTrainingMixin):
 
         predictions = torch.cat(predictions_flat).cpu().numpy()
         return predictions
-
-    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
-        """Loads the cell line features.
-
-        :param data_path: Path to the gene expression and landmark genes
-        :param dataset_name: name of the dataset
-        :return: FeatureDataset containing the cell line gene expression features.
-        """
-        return load_and_select_gene_features(
-            feature_type="gene_expression",
-            gene_list="landmark_genes_reduced",
-            data_path=data_path,
-            dataset_name=dataset_name,
-        )
-
-    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
-        """Loads the pre-computed drug graph data.
-
-        :param data_path: Path to the data directory.
-        :param dataset_name: Name of the dataset.
-        :raises FileNotFoundError: If the drug graph directory is not found.
-        :raises ValueError: If no drug graphs are loaded.
-        :return: FeatureDataset containing the drug graphs.
-        """
-        graph_path = Path(data_path) / dataset_name / "drug_graphs"
-        if not graph_path.exists():
-            raise FileNotFoundError(
-                f"Drug graph directory not found at {graph_path}. "
-                f"Please run 'create_drug_graphs.py' for the {dataset_name} dataset."
-            )
-
-        drug_graphs = {}
-        for p_file in graph_path.glob("*.pt"):
-            drug_id = p_file.stem
-            drug_graphs[drug_id] = torch.load(p_file, weights_only=False)  # noqa: S614
-
-        if not drug_graphs:
-            raise ValueError(f"No drug graphs loaded from {graph_path}. Check the directory and file contents.")
-
-        feature_dict = {drug_id: {"drug_graph": graph} for drug_id, graph in drug_graphs.items()}
-
-        return FeatureDataset(features=feature_dict)

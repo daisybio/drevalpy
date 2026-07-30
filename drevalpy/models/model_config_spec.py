@@ -7,7 +7,6 @@ from typing import Any
 from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
 from drevalpy.components.model_id import parse_model_id
 from drevalpy.components.predictors.feature_free import FeatureFreePredictor
-from drevalpy.components.predictors.raw_dataset import RawDatasetPredictor
 from drevalpy.models.config import (
     FeaturizerConfig,
     ModelConfig,
@@ -82,7 +81,7 @@ def _config_from_no_featurizer_predictor_token(
         pred_cls = get_predictor(token)
     except (ValueError, ImportError):
         return None
-    if not (issubclass(pred_cls, FeatureFreePredictor) or issubclass(pred_cls, RawDatasetPredictor)):
+    if not issubclass(pred_cls, FeatureFreePredictor):
         return None
     config = ModelConfig(
         cell_line_featurizer=None,
@@ -90,7 +89,7 @@ def _config_from_no_featurizer_predictor_token(
         predictor=PredictorConfig(name=token),
         prediction_mode=_coerce_prediction_mode(prediction_mode),
     )
-    # Preserve predictor-declared default scope for single-drug raw models.
+    # Preserve predictor-declared default scope for feature-free models.
     config = config.model_copy(update={"scope": _default_scope_for_predictor(pred_cls)}, deep=True)
     config.validate()
     return config
@@ -109,7 +108,7 @@ def build_model_config_from_spec(
     1. ``cellLine:drug:predictor`` registry triple
     2. Built-in or external zoo preset name
     3. Zoo / factory model name (PascalCase)
-    4. Feature-free or raw predictor token (no featurizers required), e.g. ``naiveMean`` or ``dipk``
+    4. Feature-free predictor token (no featurizers required), e.g. ``naiveMean``
     """
     from drevalpy.models.factory import model_config_for_name
 
@@ -152,6 +151,6 @@ def build_model_config_from_spec(
 
     msg = (
         f"Unknown model spec {spec!r}. Use a recipe triple "
-        "(cellLine:drug:predictor), zoo name, or feature-free/raw predictor token."
+        "(cellLine:drug:predictor), zoo name, or feature-free predictor token."
     )
     raise ValueError(msg)

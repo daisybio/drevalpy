@@ -7,6 +7,8 @@ from typing import ClassVar
 import numpy as np
 
 from drevalpy.components.contracts import FeatureFormat
+from drevalpy.components.feature_block import FeatureBlock, metadata_feature_block, numeric_feature_block
+from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
 from drevalpy.components.featurizers._one_hot import OneHotCategoryEncoder
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.registry import register_cell_line_featurizer
@@ -31,8 +33,9 @@ class CellLineIdentityFeaturizer(CellLineFeaturizer):
         features: FeatureDataset,
         *,
         entity_ids: np.ndarray | None = None,
+        context: FeaturizerFitContext | None = None,
     ) -> CellLineIdentityFeaturizer:
-        _ = features
+        _ = features, context
         ids = entity_ids if entity_ids is not None else np.array(list(features.features.keys()), dtype=str)
         self._encoder.fit_categories(ids)
         return self
@@ -45,10 +48,12 @@ class CellLineIdentityFeaturizer(CellLineFeaturizer):
         self,
         features: FeatureDataset,
         entity_ids: np.ndarray,
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, FeatureBlock]:
         return {
-            "identity": self.transform(features, entity_ids),
-            "identity_categories": np.asarray(self._encoder.categories, dtype=str),
+            "identity": numeric_feature_block(self.transform(features, entity_ids)),
+            "identity_categories": metadata_feature_block(
+                np.asarray(self._encoder.categories, dtype=str),
+            ),
         }
 
     @property

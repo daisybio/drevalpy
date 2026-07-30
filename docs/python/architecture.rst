@@ -26,16 +26,13 @@ Predictor input batch
 Training and prediction always build a single ``ModelInputBatch`` before calling
 ``predictor.fit(batch)`` or ``predictor.predict(batch)``. The batch carries
 pair identifiers, optional response values, entity-level feature matrices,
-named featurizer blocks, optional raw ``FeatureDataset`` inputs,
-early-stopping response data, and a small ``TrainingContext`` (checkpoint
-directory / logging metadata).
+named featurizer blocks, early-stopping response data, and a small
+``TrainingContext`` (checkpoint directory / logging metadata).
 
 - ``MatrixPredictor`` flattens the batch with ``batch.to_feature_matrix()``.
 - ``BlockPredictor`` (alias ``StructuredPredictor``) reads side-specific or
   named featurizer blocks.
 - ``FeatureFreePredictor`` uses pair identifiers and/or response values only.
-- ``RawDatasetPredictor`` reads required views from the raw ``FeatureDataset``
-  inputs on the batch and forbids configured featurizers.
 
 Resolving built-in models
 -------------------------
@@ -141,14 +138,14 @@ Feature formats, interfaces, and validation
 Each featurizer declares a ``FeatureFormat`` (``numeric_matrix``, ``graph``,
 or ``ragged_sequence``). Predictors declare ``cell_line_contract`` and
 ``drug_contract`` plus exactly one input interface
-(``FeatureFreePredictor``, ``MatrixPredictor``, ``BlockPredictor``, or
-``RawDatasetPredictor``). ``ModelConfig`` validation checks formats and
-interface rules; discovery tags and literature references are descriptive
-only.
+(``FeatureFreePredictor``, ``MatrixPredictor``, or ``BlockPredictor``).
+``ModelConfig`` validation checks formats and interface rules; discovery tags
+and literature references are descriptive only.
 
 Graph and ragged payloads are not numeric matrices. Matrix predictors reject
-them. Raw graph consumers such as DrugGNN validate PyG ``Data`` objects
-(``x``, ``edge_index``, consistent node-feature dimensions) themselves.
+them. Block predictors can consume those payloads and validate their structure;
+for example, DrugGNN validates PyG ``Data`` objects (``x``, ``edge_index``,
+consistent node-feature dimensions).
 
 Scope and early stopping
 ------------------------
@@ -159,9 +156,9 @@ Scope and early stopping
   create and route per-drug estimators without adding identity columns to
   their design matrices. A three-slot recipe infers ``scope: single_drug``
   from the predictor's sole supported scope.
-- Raw single-drug predictors (``molir``, ``superfeltr``) remain
-  predictor-only and forbid configured featurizers.
-- Feature-free and raw-dataset stacks skip featurizer fit/transform entirely.
+- Literature predictors declare the fitted featurizer blocks they need; the
+  single-drug MOLIR and SuperFELTR presets use ``identity`` for drug routing.
+- Feature-free stacks skip featurizer fit/transform entirely.
 - Early stopping is derived from predictor capability metadata
   (``supports_early_stopping``) via the zoo predictor name.
 - Default prediction mode is regression; classification requires an explicit

@@ -14,10 +14,13 @@ from drevalpy.components.registry.core import (
 from drevalpy.types.literature_reference import LiteratureReference
 
 
-def _ensure_builtins_for_discovery(*, registry_names: list[str]) -> None:
-    """Register built-ins only when the target registry is still empty."""
-    if registry_names:
-        return
+def _ensure_builtins_for_discovery(*, registry_names: list[str] | None = None) -> None:
+    """Ensure all built-in components are registered for discovery listings.
+
+    Partial lazy imports can leave a registry non-empty but incomplete; always
+    restore built-ins so listing reflects the full catalog.
+    """
+    _ = registry_names
     from drevalpy.components.register_builtins import register_builtin_components
 
     register_builtin_components()

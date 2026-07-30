@@ -7,24 +7,20 @@ from typing import Any, ClassVar
 import numpy as np
 
 from drevalpy.components.contracts import FeatureFormat
+from drevalpy.components.feature_block import BlockSpec
 from drevalpy.components.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors.literature._algorithm_lifecycle import (
     predict_with_algorithm,
     train_fitted_algorithm,
 )
+from drevalpy.components.predictors.literature._block_inputs import materialize_block_inputs
 from drevalpy.components.predictors.literature._metadata import PHARMAFORMER_REFERENCE
-from drevalpy.components.predictors.literature._preload import (
-    load_dataset_cell_line_features,
-    load_dataset_drug_features,
-)
-from drevalpy.components.predictors.literature._raw_inputs import validate_raw_inputs
 from drevalpy.components.predictors.literature._torch_state import load_object_mapping, save_object_mapping
 from drevalpy.components.predictors.literature.pharmaformer.algorithm import PharmaFormerModel
 from drevalpy.components.predictors.literature.pharmaformer.state import apply_state, export_state
-from drevalpy.components.predictors.raw_dataset import RawDatasetPredictor
 from drevalpy.components.predictors.state_errors import PredictorStateError
+from drevalpy.components.predictors.structured import BlockPredictor
 from drevalpy.components.registry import register_predictor
-from drevalpy.datasets.dataset import FeatureDataset
 from drevalpy.models.config import PredictionMode
 
 
@@ -35,12 +31,18 @@ from drevalpy.models.config import PredictionMode
     drug_contract=FeatureFormat.NUMERIC_MATRIX,
     reference=PHARMAFORMER_REFERENCE,
 )
-class PharmaFormerPredictor(RawDatasetPredictor):
+class PharmaFormerPredictor(BlockPredictor):
     """Registered pharmaformer predictor."""
 
-    required_cell_line_views: ClassVar[tuple[str, ...]] = ("gene_expression",)
-    required_drug_views: ClassVar[tuple[str, ...]] = ("bpe_smiles",)
-    requires_drug_featurizer: ClassVar[bool] = False
+    required_cell_line_blocks: ClassVar[tuple[str, ...]] = ("gene_expression",)
+    required_drug_blocks: ClassVar[tuple[str, ...]] = ("bpe_smiles",)
+    required_cell_line_block_specs: ClassVar[tuple[BlockSpec, ...]] = (
+        BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),
+    )
+    required_drug_block_specs: ClassVar[tuple[BlockSpec, ...]] = (
+        BlockSpec("bpe_smiles", FeatureFormat.NUMERIC_MATRIX),
+    )
+    requires_drug_featurizer: ClassVar[bool] = True
     validate_drug_graphs: ClassVar[bool] = False
     supports_early_stopping: ClassVar[bool] = True
     supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset({PredictionMode.REGRESSION})
@@ -61,53 +63,14 @@ class PharmaFormerPredictor(RawDatasetPredictor):
             return dict(space())
         return {}
 
-    @classmethod
-    def load_dataset_cell_line_features(
-        cls,
-        data_path: str,
-        dataset_name: str,
-        *,
-        hyperparameters: dict[str, Any] | None = None,
-        model_name: str | None = None,
-    ) -> tuple[FeatureDataset, dict[str, Any]]:
-        _ = model_name
-        return load_dataset_cell_line_features(
-            PharmaFormerModel, data_path, dataset_name, hyperparameters=hyperparameters
-        )
-
-    @classmethod
-    def load_dataset_drug_features(
-        cls,
-        data_path: str,
-        dataset_name: str,
-        *,
-        hyperparameters: dict[str, Any] | None = None,
-        model_name: str | None = None,
-    ) -> tuple[FeatureDataset | None, dict[str, Any]]:
-        _ = model_name
-        return load_dataset_drug_features(PharmaFormerModel, data_path, dataset_name, hyperparameters=hyperparameters)
-
-    def set_engine_preload_state(self, state: dict[str, Any]) -> None:
-        self._engine_preload_state = dict(state)
-
-    def _validated_inputs(
-        self,
-        batch: ModelInputBatch,
-    ) -> tuple[FeatureDataset, FeatureDataset | None]:
-        cell_views = (
-            self.active_cell_line_views() if hasattr(self, "active_cell_line_views") else self.required_cell_line_views
-        )
-        return validate_raw_inputs(
-            self,
-            batch.cell_line_input,
-            batch.drug_input,
-            cell_line_views=cell_views,
-            drug_views=self.required_drug_views,
-            validate_drug_graphs=self.validate_drug_graphs,
-        )
-
     def fit(self, batch: ModelInputBatch) -> None:
-        cell_lines, drugs = self._validated_inputs(batch)
+        cell_lines, drugs = materialize_block_inputs(
+            self,
+            batch,
+            required_cell_line_blocks=self.required_cell_line_blocks,
+            required_drug_blocks=self.required_drug_blocks,
+            requires_drug_featurizer=self.requires_drug_featurizer,
+        )
         self._algorithm = train_fitted_algorithm(
             PharmaFormerModel,
             dict(self._hyperparameters),
@@ -118,7 +81,13 @@ class PharmaFormerPredictor(RawDatasetPredictor):
         )
 
     def predict(self, batch: ModelInputBatch) -> np.ndarray:
-        cell_lines, drugs = self._validated_inputs(batch)
+        cell_lines, drugs = materialize_block_inputs(
+            self,
+            batch,
+            required_cell_line_blocks=self.required_cell_line_blocks,
+            required_drug_blocks=self.required_drug_blocks,
+            requires_drug_featurizer=self.requires_drug_featurizer,
+        )
         return predict_with_algorithm(self._algorithm, batch, cell_lines, drugs)
 
     def is_fitted(self) -> bool:

@@ -2,11 +2,17 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
+import torch
 
 from drevalpy.components.contracts import FeatureFormat
+from drevalpy.components.feature_block import FeatureBlock, graph_feature_block
+from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
 from drevalpy.components.featurizers.drug.base import DrugFeaturizer
 from drevalpy.components.registry import register_drug_featurizer
+from drevalpy.datasets.dataset import FeatureDataset
 
 
 @register_drug_featurizer(
@@ -22,12 +28,26 @@ class DrugGraphFeaturizer(DrugFeaturizer):
         self._graphs: dict[str, object] = {}
         self._output_dim = 0
 
+    @classmethod
+    def load_features(cls, data_path: str, dataset_name: str, **kwargs: object) -> FeatureDataset:
+        """Load precomputed DrugGNN graph artifacts."""
+        _ = cls, kwargs
+        directory = Path(data_path) / dataset_name / "drug_graphs"
+        if not directory.exists():
+            raise FileNotFoundError(f"Drug graph directory not found at {directory}")
+        graphs = {path.stem: torch.load(path, weights_only=False) for path in directory.glob("*.pt")}  # noqa: S614
+        if not graphs:
+            raise ValueError(f"No drug graphs loaded from {directory}")
+        return FeatureDataset({drug_id: {"drug_graph": graph} for drug_id, graph in graphs.items()})
+
     def fit(
         self,
         features,
         *,
         entity_ids: np.ndarray | None = None,
+        context: FeaturizerFitContext | None = None,
     ) -> DrugGraphFeaturizer:
+        _ = context
         ids = entity_ids if entity_ids is not None else np.array(list(features.features.keys()))
         self._graphs = {}
         for drug_id in ids:
@@ -53,10 +73,12 @@ class DrugGraphFeaturizer(DrugFeaturizer):
                 msg = f"View {self._view!r} missing for drug {drug_key!r}"
                 raise KeyError(msg)
             graphs.append(views[self._view])
-        return np.array(graphs, dtype=object)
+        payloads = np.empty(len(graphs), dtype=object)
+        payloads[:] = graphs
+        return payloads
 
-    def transform_blocks(self, features, entity_ids: np.ndarray) -> dict[str, np.ndarray]:
-        return {self._view: self.transform(features, entity_ids)}
+    def transform_blocks(self, features, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
+        return {"drug_graph": graph_feature_block(self.transform(features, entity_ids))}
 
     @property
     def output_dim(self) -> int:

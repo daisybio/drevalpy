@@ -32,14 +32,14 @@ class SingleDrugSklearnPredictor(SklearnTabularPredictor):
 
     @staticmethod
     def _routing_keys(batch: ModelInputBatch) -> np.ndarray:
-        identity = batch.drug_blocks.get("identity")
-        categories = batch.drug_blocks.get("identity_categories")
-        if identity is None or categories is None or batch.drug_pair_idx is None:
+        identity_block = batch.drug_blocks.get("identity")
+        categories_block = batch.drug_blocks.get("identity_categories")
+        if identity_block is None or categories_block is None or batch.drug_pair_idx is None:
             msg = "Single-drug predictors require drug identity features for per-drug routing"
             raise ValueError(msg)
 
-        identity_matrix = np.asarray(identity)
-        category_ids = np.asarray(categories, dtype=str).reshape(-1)
+        identity_matrix = np.asarray(identity_block.values)
+        category_ids = np.asarray(categories_block.values, dtype=str).reshape(-1)
         if identity_matrix.ndim != 2 or identity_matrix.shape[1] != len(category_ids):
             msg = "Drug identity features and identity categories are misaligned"
             raise ValueError(msg)

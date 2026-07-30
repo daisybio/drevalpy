@@ -63,16 +63,6 @@ class LiteratureTrainingMixin:
         msg = f"{self.get_model_name()} must implement predict"
         raise NotImplementedError(msg)
 
-    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
-        _ = data_path, dataset_name
-        msg = f"{self.get_model_name()} must implement load_cell_line_features"
-        raise NotImplementedError(msg)
-
-    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset | None:
-        _ = data_path, dataset_name
-        msg = f"{self.get_model_name()} must implement load_drug_features"
-        raise NotImplementedError(msg)
-
     @classmethod
     def get_default_hyperparameters(cls) -> dict[str, Any]:
         return {}

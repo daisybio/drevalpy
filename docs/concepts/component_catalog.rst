@@ -52,7 +52,6 @@ required and how features are consumed:
 - **Matrix** — one numeric pair-level design matrix from configured featurizers
 - **Block** — side-specific or named featurizer blocks (including side-specific
   matrices); not a single flattened design matrix
-- **Raw-dataset** — required raw ``FeatureDataset`` views; no featurizers
 
 Feature **format** (``numeric_matrix``, ``graph``, ``ragged_sequence``) is
 orthogonal: matrix predictors reject graph/ragged payloads, while a future
@@ -65,15 +64,14 @@ Naive baselines carry the discovery tag ``baseline``. Literature ports attach
 a structured ``LiteratureReference``. Neither tags nor references change
 validation or execution.
 
-``drugGraph`` remains a registered drug featurizer for future composed graph
-predictors. Raw DrugGNN does not use it; its zoo preset is predictor-only.
+``drugGraph`` provides the graph block consumed by the DrugGNN zoo preset.
 
 From catalog to composition
 ---------------------------
 
 Matrix and block models still take one row from each table — for example
-``scaledGeneExpression:fingerprints:elasticNet``. Feature-free and raw-dataset
-predictors are **predictor-only** (no featurizer slots).
+``scaledGeneExpression:fingerprints:elasticNet``. Feature-free predictors are
+**predictor-only** (no featurizer slots).
 
 The next page turns those names into recipes, omics-view selectors, multi-view
 concatenation, compatibility checks, and component hyperparameters. Continue

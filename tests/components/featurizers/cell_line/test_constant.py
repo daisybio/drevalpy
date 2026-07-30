@@ -21,7 +21,7 @@ def test_cell_line_constant_is_ones_column() -> None:
     assert featurizer.output_dim == 1
     blocks = featurizer.transform_blocks(features, entity_ids)
     assert list(blocks) == ["constant"]
-    assert np.allclose(blocks["constant"], 1.0)
+    assert np.allclose(blocks["constant"].values, 1.0)
 
 
 def test_cell_line_constant_registered() -> None:

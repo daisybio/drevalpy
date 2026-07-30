@@ -38,6 +38,7 @@ def test_load_generic_csv_reads_feature_table(tmp_path: Path) -> None:
     assert isinstance(loaded, FeatureDataset)
     assert set(loaded.identifiers) == {"cl1", "cl2"}
     np.testing.assert_allclose(loaded.features["cl1"]["custom_view"], np.array([0.1, 0.3]))
+    assert tuple(loaded.meta_info["custom_view"]) == ("feat1", "feat2")
 
 
 def test_load_and_select_gene_features_preserves_gene_list_order(tmp_path: Path) -> None:

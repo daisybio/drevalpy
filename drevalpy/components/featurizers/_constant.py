@@ -6,6 +6,8 @@ from typing import ClassVar
 
 import numpy as np
 
+from drevalpy.components.feature_block import FeatureBlock, numeric_feature_block
+from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
 from drevalpy.datasets.dataset import FeatureDataset
 
 
@@ -19,8 +21,9 @@ class ConstantFeaturizerMixin:
         features: FeatureDataset,
         *,
         entity_ids: np.ndarray | None = None,
+        context: FeaturizerFitContext | None = None,
     ):
-        _ = features, entity_ids
+        _ = features, entity_ids, context
         return self
 
     def transform(self, features: FeatureDataset, entity_ids: np.ndarray) -> np.ndarray:
@@ -31,8 +34,8 @@ class ConstantFeaturizerMixin:
         self,
         features: FeatureDataset,
         entity_ids: np.ndarray,
-    ) -> dict[str, np.ndarray]:
-        return {"constant": self.transform(features, entity_ids)}
+    ) -> dict[str, FeatureBlock]:
+        return {"constant": numeric_feature_block(self.transform(features, entity_ids))}
 
     @property
     def output_dim(self) -> int:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Collection
 from pathlib import Path
 from typing import TypedDict, TypeVar, cast
@@ -24,6 +25,8 @@ GENERATED_CATALOGS = {
     "drug": DOCS_DIR / "concepts" / "_generated_drug_featurizers.rst",
     "predictor": DOCS_DIR / "concepts" / "_generated_predictors.rst",
 }
+EXPECTED_BUILTIN_COMPONENT_COUNTS = {"cell_line": 17, "drug": 9, "predictor": 27}
+EXPECTED_PREDICTOR_INTERFACE_COUNTS = {"feature_free": 1, "matrix": 13, "block": 13}
 
 
 class ComponentCatalogMetadata(TypedDict):
@@ -122,6 +125,38 @@ def _render_predictors(rows: list[PredictorCatalogMetadata]) -> str:
     return "\n".join([*lines, ""])
 
 
+def _validate_builtin_catalog(
+    *,
+    cell_line_rows: list[FeaturizerCatalogMetadata],
+    drug_rows: list[FeaturizerCatalogMetadata],
+    predictor_rows: list[PredictorCatalogMetadata],
+) -> None:
+    """Fail generation when built-in catalogs diverge from supported interfaces.
+
+    :param cell_line_rows: registered cell-line featurizer metadata rows
+    :param drug_rows: registered drug featurizer metadata rows
+    :param predictor_rows: registered predictor metadata rows
+    :raises RuntimeError: if component or interface counts diverge from expectations
+    """
+    observed_counts = {
+        "cell_line": len(cell_line_rows),
+        "drug": len(drug_rows),
+        "predictor": len(predictor_rows),
+    }
+    if observed_counts != EXPECTED_BUILTIN_COMPONENT_COUNTS:
+        raise RuntimeError(
+            "Built-in component catalog counts do not match the supported set: "
+            f"expected {EXPECTED_BUILTIN_COMPONENT_COUNTS}, got {observed_counts}"
+        )
+
+    interface_counts = dict(Counter(row["input_interface"] for row in predictor_rows))
+    if interface_counts != EXPECTED_PREDICTOR_INTERFACE_COUNTS:
+        raise RuntimeError(
+            "Predictor interface counts do not match the supported set: "
+            f"expected {EXPECTED_PREDICTOR_INTERFACE_COUNTS}, got {interface_counts}"
+        )
+
+
 def generate_component_catalog_rsts() -> dict[str, str]:
     """Return deterministic RST tables for every built-in component registry.
 
@@ -142,6 +177,11 @@ def generate_component_catalog_rsts() -> dict[str, str]:
         cast(list[PredictorCatalogMetadata], list_predictor_metadata()),
         _PREDICTOR_MODULES,
         "predictors",
+    )
+    _validate_builtin_catalog(
+        cell_line_rows=cell_line_rows,
+        drug_rows=drug_rows,
+        predictor_rows=predictor_rows,
     )
     return {
         "cell_line": _render_featurizers(cell_line_rows),

@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import numpy as np
 
+from drevalpy.components.feature_block import FeatureBlock
 from drevalpy.components.model_input_batch import ModelInputBatch
 from drevalpy.components.pair_features import pair_cell_line_indices, pair_drug_indices
 from drevalpy.components.training_context import TrainingContext
-from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.datasets.dataset import DrugResponseDataset
 
 
 def _validate_entity_feature_alignment(
@@ -66,10 +67,8 @@ def build_model_input_batch(
     drug_entity_ids: np.ndarray | None,
     cell_line_features: np.ndarray,
     drug_features: np.ndarray | None,
-    cell_line_blocks: dict[str, np.ndarray] | None = None,
-    drug_blocks: dict[str, np.ndarray] | None = None,
-    cell_line_input: FeatureDataset | None = None,
-    drug_input: FeatureDataset | None = None,
+    cell_line_blocks: dict[str, FeatureBlock] | None = None,
+    drug_blocks: dict[str, FeatureBlock] | None = None,
     early_stopping_response: DrugResponseDataset | None = None,
     training_context: TrainingContext | None = None,
 ) -> ModelInputBatch:
@@ -94,8 +93,6 @@ def build_model_input_batch(
         drug_pair_idx=drug_pair_idx,
         cell_line_blocks=cell_line_blocks,
         drug_blocks=drug_blocks,
-        cell_line_input=cell_line_input,
-        drug_input=drug_input,
         early_stopping_response=early_stopping_response,
         training_context=training_context,
     )

@@ -97,7 +97,6 @@ Every predictor must inherit exactly one input interface:
 - ``FeatureFreePredictor`` — response/identifiers only; no featurizers
 - ``MatrixPredictor`` — one numeric pair-level design matrix
 - ``BlockPredictor`` — side-specific or named featurizer blocks
-- ``RawDatasetPredictor`` — required raw ``FeatureDataset`` views; no featurizers
 
 Neural encoders remain private implementation details inside predictors.
 For larger predictors, use a predictor-owned package: keep the registered
@@ -126,7 +125,7 @@ string-based implementation resolvers obscure ownership and are unsupported.
        zoo_files=["my_zoo/toy.yaml"],
    )
 
-   # Feature-free / raw predictors: predictor-only specs
+   # Feature-free predictors: predictor-only specs
    ToyMean = construct_model("ToyMean", "toyPredictor")
 
    # Feature-based models still use the three-slot recipe

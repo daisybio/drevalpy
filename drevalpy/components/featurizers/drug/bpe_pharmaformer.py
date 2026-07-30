@@ -2,9 +2,15 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+
 from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.featurizers.drug.view import ViewDrugFeaturizer
 from drevalpy.components.registry import register_drug_featurizer
+from drevalpy.datasets.dataset import FeatureDataset
 from drevalpy.types.literature_reference import LiteratureReference
 
 _BPE_PHARMAFORMER_REFERENCE = LiteratureReference(
@@ -29,3 +35,18 @@ class BpePharmaformerDrugFeaturizer(ViewDrugFeaturizer):
 
     def __init__(self, *, view: str = "bpe_smiles") -> None:
         super().__init__(view=view)
+
+    @classmethod
+    def load_features(cls, data_path: str, dataset_name: str, **kwargs: object) -> FeatureDataset:
+        """Load precomputed PharmaFormer BPE token embeddings."""
+        _ = cls, kwargs
+        path = Path(data_path) / dataset_name / "drug_bpe_smiles.csv"
+        if not path.exists():
+            raise FileNotFoundError(f"BPE SMILES file not found: {path}")
+        frame = pd.read_csv(path, dtype={"pubchem_id": str})
+        return FeatureDataset(
+            {
+                str(row["pubchem_id"]): {"bpe_smiles": row.drop("pubchem_id").to_numpy(dtype=np.float32)}
+                for _, row in frame.iterrows()
+            }
+        )

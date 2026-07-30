@@ -48,7 +48,7 @@ def test_tissue_one_hot() -> None:
     assert matrix.shape == (2, 2)
     blocks = featurizer.transform_blocks(features, entity_ids)
     assert "tissue_categories" in blocks
-    assert list(blocks["tissue_categories"]) == ["lung", "skin"]
+    assert list(blocks["tissue_categories"].values) == ["lung", "skin"]
 
 
 def test_tissue_strict_missing_raises() -> None:

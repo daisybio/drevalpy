@@ -1,2 +1,4 @@
+cell_line_featurizer: superfeltrOmics
+drug_featurizer: identity
 predictor: superfeltr
 scope: single_drug

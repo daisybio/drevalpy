@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from drevalpy.components.feature_block import FeatureBlock, numeric_feature_block
 from drevalpy.components.model_input_batch import ModelInputBatch
 
 
@@ -23,13 +24,26 @@ def one_hot(labels: list[str] | np.ndarray, categories: list[str]) -> np.ndarray
     return matrix
 
 
+def _as_feature_blocks(blocks: dict[str, np.ndarray | FeatureBlock] | None) -> dict[str, FeatureBlock]:
+    if not blocks:
+        return {}
+    wrapped: dict[str, FeatureBlock] = {}
+    for name, value in blocks.items():
+        if isinstance(value, FeatureBlock):
+            wrapped[name] = value
+        else:
+            wrapped[name] = numeric_feature_block(np.asarray(value, dtype=np.float32))
+    return wrapped
+
+
 def naive_batch(
     *,
     n_pairs: int | None = None,
     response: np.ndarray | None = None,
     cell_line_features: np.ndarray | None = None,
     drug_features: np.ndarray | None = None,
-    cell_line_blocks: dict[str, np.ndarray] | None = None,
+    cell_line_blocks: dict[str, np.ndarray | FeatureBlock] | None = None,
+    drug_blocks: dict[str, np.ndarray | FeatureBlock] | None = None,
     cell_line_pair_idx: np.ndarray | None = None,
     drug_pair_idx: np.ndarray | None = None,
     cell_line_ids: np.ndarray | None = None,
@@ -44,6 +58,7 @@ def naive_batch(
     :param cell_line_features: Entity-level cell-line feature matrix.
     :param drug_features: Entity-level drug feature matrix.
     :param cell_line_blocks: Optional named cell-line feature blocks.
+    :param drug_blocks: Optional named drug feature blocks.
     :param cell_line_pair_idx: Pair-to-cell-line row index.
     :param drug_pair_idx: Pair-to-drug row index.
     :param cell_line_ids: Decoy pair cell-line IDs (ignored by predictors).
@@ -89,5 +104,6 @@ def naive_batch(
         drug_features=np.asarray(drug_features, dtype=np.float64),
         cell_line_pair_idx=np.asarray(cell_line_pair_idx, dtype=np.int64),
         drug_pair_idx=np.asarray(drug_pair_idx, dtype=np.int64),
-        cell_line_blocks=dict(cell_line_blocks or {}),
+        cell_line_blocks=_as_feature_blocks(cell_line_blocks),
+        drug_blocks=_as_feature_blocks(drug_blocks),
     )

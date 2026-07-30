@@ -52,15 +52,12 @@ def _predictor_input_interface(cls: type[Any]) -> str:
     # Local imports avoid circular dependencies during package import.
     from drevalpy.components.predictors.feature_free import FeatureFreePredictor
     from drevalpy.components.predictors.matrix import MatrixPredictor
-    from drevalpy.components.predictors.raw_dataset import RawDatasetPredictor
     from drevalpy.components.predictors.structured import BlockPredictor
 
     if issubclass(cls, FeatureFreePredictor):
         return "feature_free"
     if issubclass(cls, MatrixPredictor):
         return "matrix"
-    if issubclass(cls, RawDatasetPredictor):
-        return "raw_dataset"
     if issubclass(cls, BlockPredictor):
         return "block"
     return ""

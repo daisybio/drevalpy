@@ -183,18 +183,14 @@ def test_hyperparameters_and_views_are_immutable_after_construction() -> None:
     assert not hasattr(model, "_sync_predictor_hyperparameters")
 
 
-def test_load_drug_features_stores_preload_without_mutating_hyperparameters(
+def test_load_drug_features_uses_featurizer_loader_when_configured(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from drevalpy.components.predictors.literature._preload import (
-        DISCOVERED_HYPERPARAMETERS_KEY,
-    )
     from drevalpy.components.registry import get_predictor
     from drevalpy.datasets.dataset import FeatureDataset
 
     ElasticNet = construct_model("ElasticNet")
     model = ElasticNet({"alpha": 0.1, "l1_ratio": 0.5})
-    original = model.hyperparameters
     assert model._resolved_model_config is not None
     predictor_cls = get_predictor(model._resolved_model_config.predictor.name)
 
@@ -207,12 +203,8 @@ def test_load_drug_features_stores_preload_without_mutating_hyperparameters(
         model_name: str | None = None,
     ):
         _ = cls, data_path, dataset_name, model_name
-        assert hyperparameters is not None
-        hyperparameters["alpha"] = 999.0
-        return (
-            FeatureDataset(features={"d1": {"fingerprints": np.array([1.0])}}),
-            {DISCOVERED_HYPERPARAMETERS_KEY: {"drug_dim": 64}},
-        )
+        _ = hyperparameters
+        raise AssertionError("predictor loader must not run when a featurizer is configured")
 
     monkeypatch.setattr(
         predictor_cls,
@@ -221,7 +213,9 @@ def test_load_drug_features_stores_preload_without_mutating_hyperparameters(
         raising=False,
     )
 
-    features = model.load_drug_features(".", "TOY")
-    assert features is not None
-    assert model.hyperparameters == original
-    assert model._engine_preload_state[DISCOVERED_HYPERPARAMETERS_KEY] == {"drug_dim": 64}
+    expected = FeatureDataset(features={"d1": {"fingerprints": np.array([1.0])}})
+    monkeypatch.setattr(
+        "drevalpy.models.drp_model.load_drug_features_for_model_config",
+        lambda *args, **kwargs: expected,
+    )
+    assert model.load_drug_features(".", "TOY") is expected

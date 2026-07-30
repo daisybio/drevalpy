@@ -6,7 +6,6 @@ import pytest
 
 from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.predictors.matrix import MatrixPredictor
-from drevalpy.components.predictors.raw_dataset import RawDatasetPredictor
 from drevalpy.components.predictors.structured import BlockPredictor
 from drevalpy.components.register_builtins import register_builtin_components
 from drevalpy.components.registry import get_predictor
@@ -20,15 +19,15 @@ def _register_components() -> None:
 @pytest.mark.parametrize(
     ("name", "interface", "requires_drug"),
     [
-        ("drugGNN", "raw", False),
+        ("drugGNN", "block", True),
         ("neuralNetwork", "matrix", True),
         ("precily", "block", True),
         ("srmf", "block", True),
-        ("molir", "raw", False),
-        ("superfeltr", "raw", False),
-        ("pharmaFormer", "raw", False),
-        ("dipk", "raw", False),
-        ("sparsego", "raw", False),
+        ("molir", "block", True),
+        ("superfeltr", "block", True),
+        ("pharmaFormer", "block", True),
+        ("dipk", "block", True),
+        ("sparsego", "block", True),
     ],
 )
 def test_literature_predictor_flags(name: str, interface: str, requires_drug: bool) -> None:
@@ -36,22 +35,16 @@ def test_literature_predictor_flags(name: str, interface: str, requires_drug: bo
     if interface == "matrix":
         assert issubclass(cls, MatrixPredictor)
         assert not issubclass(cls, BlockPredictor)
-        assert not issubclass(cls, RawDatasetPredictor)
     elif interface == "block":
         assert issubclass(cls, BlockPredictor)
         assert not issubclass(cls, MatrixPredictor)
-        assert not issubclass(cls, RawDatasetPredictor)
-    else:
-        assert issubclass(cls, RawDatasetPredictor)
-        assert not issubclass(cls, MatrixPredictor)
-        assert not issubclass(cls, BlockPredictor)
     assert getattr(cls, "requires_drug_featurizer", True) is requires_drug
 
 
 def test_druggnn_requires_graph_drug_contract() -> None:
     cls = get_predictor("drugGNN")
     assert cls.drug_contract.format == FeatureFormat.GRAPH
-    assert cls.required_drug_views == ("drug_graph",)
+    assert cls.required_drug_blocks == ("drug_graph",)
     assert cls.supports_early_stopping is True
 
 

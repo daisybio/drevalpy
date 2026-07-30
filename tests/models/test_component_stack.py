@@ -105,10 +105,7 @@ def test_model_has_no_predictor_hyperparameter_mutator() -> None:
     assert model._resolved_model_config.predictor.hyperparameters["alpha"] == 0.1
 
 
-def test_raw_predictor_stack_skips_featurizer_fit() -> None:
-    from drevalpy.components.predictors.raw_dataset import RawDatasetPredictor
-
+def test_druggnn_stack_configures_both_featurizers() -> None:
     stack = build_component_stack(ModelConfig.from_spec("DrugGNN"))
-    assert isinstance(stack._predictor, RawDatasetPredictor)
-    assert stack._cell_line_featurizer is None
-    assert stack._drug_featurizer is None
+    assert stack._cell_line_featurizer is not None
+    assert stack._drug_featurizer is not None

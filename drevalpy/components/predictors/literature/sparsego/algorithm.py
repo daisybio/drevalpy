@@ -7,7 +7,6 @@ Original authors: Sada Del Real & Rubio (2023, 10.1016/j.ebiom.2023.104767)
 Code adapted from https://github.com/KatynaSada/SparseGO_lightning
 """
 
-import os
 import warnings
 from typing import Any, cast
 
@@ -18,10 +17,9 @@ from scipy import sparse
 from torch.utils.data import DataLoader, TensorDataset
 
 from drevalpy.components.predictors.literature._training_helpers import LiteratureTrainingMixin
-from drevalpy.data.features import load_and_select_gene_features, load_drug_fingerprint_features
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 
-from .utils import create_index, load_mapping, load_ontology, pairs_in_layers, sort_pairs
+from .utils import create_index
 
 
 def _validate_sparse_linear_dimensions(
@@ -438,7 +436,6 @@ class SparseGOModel(LiteratureTrainingMixin):
     def get_default_hyperparameters(cls) -> dict[str, Any]:
         """Return default SparseGO hyperparameters."""
         return {
-            "input_type": "expression",
             "num_neurons_per_GO": 6,
             "num_neurons_per_final_GO": 6,
             "num_neurons_drug": [100, 50, 6],
@@ -476,16 +473,13 @@ class SparseGOModel(LiteratureTrainingMixin):
     def configure(self, hyperparameters: dict[str, Any]) -> None:
         """Store hyperparameters and build the network if ontology is already loaded.
 
-        If load_cell_line_features() has not been called yet, network construction
-        is deferred to the first call of train() or predict().
+        Network construction is deferred until ontology metadata has been
+        injected from the active feature block.
 
         :param hyperparameters: Dictionary with model hyperparameters.
         """
         self.log_hyperparameters(hyperparameters)
         self.hyperparameters = hyperparameters
-
-        if self.layer_connections is not None and self.gene2id_mapping_ont is not None:
-            self._build_network()
 
     def _build_network(self) -> None:
         """Build SparseGONetwork once layer_connections and hyperparameters are both available.
@@ -493,7 +487,7 @@ class SparseGOModel(LiteratureTrainingMixin):
         :raises ValueError: if layer_connections or gene2id_mapping_ont are not set.
         """
         if self.layer_connections is None or self.gene2id_mapping_ont is None:
-            raise ValueError("Call load_cell_line_features() before building the network.")
+            raise ValueError("SparseGO ontology metadata must be provided before building the network.")
         self.model = SparseGONetwork(
             layer_connections=self.layer_connections,
             num_neurons_per_GO=self.hyperparameters.get("num_neurons_per_GO", 6),
@@ -527,18 +521,18 @@ class SparseGOModel(LiteratureTrainingMixin):
         """
         if drug_input is None:
             raise ValueError("SparseGO requires drug features (fingerprints).")
+
+        feature_key = self._active_cell_line_view(cell_line_input)
+        cell_matrix = cell_line_input.get_feature_matrix(view=feature_key, identifiers=output.cell_line_ids)
+        drug_matrix = drug_input.get_feature_matrix(view="fingerprints", identifiers=output.drug_ids)
         if self.model is None:
             if self.layer_connections is None or self.gene2id_mapping_ont is None:
-                raise ValueError("Call load_cell_line_features() before train().")
+                raise ValueError("SparseGO ontology metadata must be provided before train().")
+            self.hyperparameters["drug_dim"] = int(drug_matrix.shape[1])
             self._build_network()
         if self.model is None:
             raise ValueError("Model could not be built.")
 
-        input_type = self.hyperparameters.get("input_type", "expression")
-        feature_key = "gene_expression" if input_type == "expression" else "mutations"
-
-        cell_matrix = cell_line_input.get_feature_matrix(view=feature_key, identifiers=output.cell_line_ids)
-        drug_matrix = drug_input.get_feature_matrix(view="fingerprints", identifiers=output.drug_ids)
         features = np.concatenate([cell_matrix, drug_matrix], axis=1)
         labels = output.response.reshape(-1, 1)
 
@@ -598,13 +592,12 @@ class SparseGOModel(LiteratureTrainingMixin):
             raise ValueError("SparseGO requires drug features (fingerprints).")
         if self.model is None:
             if self.layer_connections is None or self.gene2id_mapping_ont is None:
-                raise ValueError("Call load_cell_line_features() before predict().")
+                raise ValueError("SparseGO ontology metadata must be provided before predict().")
             self._build_network()
         if self.model is None:
             raise ValueError("Model could not be built.")
 
-        input_type = self.hyperparameters.get("input_type", "expression")
-        feature_key = "gene_expression" if input_type == "expression" else "mutations"
+        feature_key = self._active_cell_line_view(cell_line_input)
 
         cell_matrix = cell_line_input.get_feature_matrix(view=feature_key, identifiers=cell_line_ids)
         drug_matrix = drug_input.get_feature_matrix(view="fingerprints", identifiers=drug_ids)
@@ -628,84 +621,11 @@ class SparseGOModel(LiteratureTrainingMixin):
 
         return np.concatenate(predictions)
 
-    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
-        """Load cell line features and build the GO ontology structure.
-
-        Loads gene expression features via the standard drevalpy
-        mechanism, then restricts and reorders them to match the ontology's
-        gene order (from gene2ind.txt) after loading.
-
-        :param data_path: Path to the data directory.
-        :param dataset_name: Name of the dataset (e.g. 'CTRPv2').
-        :return: FeatureDataset with gene expression or mutation features,
-            already restricted to and ordered like the ontology genes.
-        :raises FileNotFoundError: if sparseGO_ont.txt or gene2ind.txt are missing.
-        :raises ValueError: if ontology genes are missing from the loaded features.
-        """
-        input_type = self.hyperparameters.get("input_type", "expression")
-        feature_type = "gene_expression" if input_type == "expression" else "mutations"
-
-        ont_file = os.path.join(data_path, dataset_name, "sparseGO_ont.txt")
-        gene2ind_file = os.path.join(data_path, dataset_name, "gene2ind.txt")
-
-        if not os.path.exists(ont_file):
-            raise FileNotFoundError(
-                f"Ontology file not found: {ont_file}. " "Please generate it using create_sparsego_features.py."
-            )
-        if not os.path.exists(gene2ind_file):
-            raise FileNotFoundError(
-                f"Gene index file not found: {gene2ind_file}. " "Please generate it using create_sparsego_features.py."
-            )
-
-        self.gene2id_mapping_ont = load_mapping(gene2ind_file)
-        self.ontology_gene_order = sorted(self.gene2id_mapping_ont, key=self.gene2id_mapping_ont.__getitem__)
-
-        cell_line_features = load_and_select_gene_features(
-            feature_type=feature_type,
-            gene_list=None,
-            data_path=data_path,
-            dataset_name=dataset_name,
-        )
-
-        # Restrict + reorder to ontology gene order
-        feature_gene_names = cell_line_features.meta_info[feature_type]
-        gene_to_col = {gene: i for i, gene in enumerate(feature_gene_names)}
-        missing = [g for g in self.ontology_gene_order if g not in gene_to_col]
-        if missing:
-            raise ValueError(
-                f"Genes from gene2ind.txt missing in {feature_type} for dataset {dataset_name}: "
-                f"{missing[:5]}{'...' if len(missing) > 5 else ''}"
-            )
-        col_idx = [gene_to_col[g] for g in self.ontology_gene_order]
-
-        for cell_line in cell_line_features.features:
-            cell_line_features.features[cell_line][feature_type] = cell_line_features.features[cell_line][feature_type][
-                col_idx
-            ]
-        cell_line_features.meta_info[feature_type] = np.array(self.ontology_gene_order)
-
-        dG, terms_pairs, genes_terms_pairs = load_ontology(ont_file, self.gene2id_mapping_ont)
-        sorted_pairs, level_list, level_number = sort_pairs(
-            genes_terms_pairs, terms_pairs, dG, self.gene2id_mapping_ont
-        )
-        self.layer_connections = pairs_in_layers(sorted_pairs, level_list, level_number)
-        self.gene_dim_input = len(self.gene2id_mapping_ont)
-
-        return cell_line_features
-
-    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
-        """Load drug features (Morgan fingerprints) and auto-detect drug_dim.
-
-        :param data_path: Path to the data directory.
-        :param dataset_name: Name of the dataset.
-        :return: FeatureDataset with Morgan fingerprint features.
-        """
-        features = load_drug_fingerprint_features(
-            data_path=data_path,
-            dataset_name=dataset_name,
-        )
-        sample_id = list(features.identifiers)[0]
-        self.hyperparameters["drug_dim"] = features.get_feature_matrix(
-            view="fingerprints", identifiers=np.array([sample_id])
-        ).shape[1]
-        return features
+    @staticmethod
+    def _active_cell_line_view(cell_line_input: FeatureDataset) -> str:
+        """Return the sole ontology-aligned omics view materialized by the featurizer."""
+        views = set(next(iter(cell_line_input.features.values())).keys())
+        active = views.intersection({"gene_expression", "mutations"})
+        if len(active) != 1:
+            raise ValueError("SparseGO requires exactly one of gene_expression or mutations")
+        return active.pop()

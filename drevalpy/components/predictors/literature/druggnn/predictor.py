@@ -1,30 +1,26 @@
-"""DrugGNN raw literature predictor."""
+"""DrugGNN block literature predictor."""
 
 from __future__ import annotations
 
-from typing import Any, ClassVar, cast
+from typing import Any, ClassVar
 
 import numpy as np
 
 from drevalpy.components.contracts import FeatureFormat
+from drevalpy.components.feature_block import BlockSpec
 from drevalpy.components.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors.literature._algorithm_lifecycle import (
     predict_with_algorithm,
     train_fitted_algorithm,
 )
+from drevalpy.components.predictors.literature._block_inputs import materialize_block_inputs
 from drevalpy.components.predictors.literature._metadata import DRUGGNN_REFERENCE
-from drevalpy.components.predictors.literature._preload import (
-    load_dataset_cell_line_features,
-    load_dataset_drug_features,
-)
-from drevalpy.components.predictors.literature._raw_inputs import validate_raw_inputs
 from drevalpy.components.predictors.literature._torch_state import load_object_mapping, save_object_mapping
 from drevalpy.components.predictors.literature.druggnn.algorithm import DrugGNN
 from drevalpy.components.predictors.literature.druggnn.state import apply_state, export_state
-from drevalpy.components.predictors.raw_dataset import RawDatasetPredictor
 from drevalpy.components.predictors.state_errors import PredictorStateError
+from drevalpy.components.predictors.structured import BlockPredictor
 from drevalpy.components.registry import register_predictor
-from drevalpy.datasets.dataset import FeatureDataset
 from drevalpy.models.config import PredictionMode
 
 
@@ -35,13 +31,17 @@ from drevalpy.models.config import PredictionMode
     drug_contract=FeatureFormat.GRAPH,
     reference=DRUGGNN_REFERENCE,
 )
-class DrugGNNPredictor(RawDatasetPredictor):
+class DrugGNNPredictor(BlockPredictor):
     """Registered DrugGNN predictor."""
 
     supports_early_stopping: ClassVar[bool] = True
-    required_cell_line_views: ClassVar[tuple[str, ...]] = ("gene_expression",)
-    required_drug_views: ClassVar[tuple[str, ...]] = ("drug_graph",)
-    requires_drug_featurizer: ClassVar[bool] = False
+    required_cell_line_blocks: ClassVar[tuple[str, ...]] = ("gene_expression",)
+    required_drug_blocks: ClassVar[tuple[str, ...]] = ("drug_graph",)
+    required_cell_line_block_specs: ClassVar[tuple[BlockSpec, ...]] = (
+        BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),
+    )
+    required_drug_block_specs: ClassVar[tuple[BlockSpec, ...]] = (BlockSpec("drug_graph", FeatureFormat.GRAPH),)
+    requires_drug_featurizer: ClassVar[bool] = True
     validate_drug_graphs: ClassVar[bool] = True
     supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset({PredictionMode.REGRESSION})
 
@@ -66,49 +66,21 @@ class DrugGNNPredictor(RawDatasetPredictor):
             "batch_size": {"type": "int", "low": 4, "high": 32, "default": 8},
         }
 
-    @classmethod
-    def load_dataset_cell_line_features(
-        cls,
-        data_path: str,
-        dataset_name: str,
-        *,
-        hyperparameters: dict[str, Any] | None = None,
-        model_name: str | None = None,
-    ) -> tuple[FeatureDataset, dict[str, Any]]:
-        _ = model_name
-        return load_dataset_cell_line_features(DrugGNN, data_path, dataset_name, hyperparameters=hyperparameters)
-
-    @classmethod
-    def load_dataset_drug_features(
-        cls,
-        data_path: str,
-        dataset_name: str,
-        *,
-        hyperparameters: dict[str, Any] | None = None,
-        model_name: str | None = None,
-    ) -> tuple[FeatureDataset | None, dict[str, Any]]:
-        _ = model_name
-        features, preload = load_dataset_drug_features(
-            DrugGNN, data_path, dataset_name, hyperparameters=hyperparameters
-        )
-        return features, preload
-
-    def set_engine_preload_state(self, state: dict[str, Any]) -> None:
-        self._engine_preload_state = dict(state)
-
-    def _validated_inputs(self, batch: ModelInputBatch) -> tuple[FeatureDataset, FeatureDataset]:
-        cell_lines, drugs = validate_raw_inputs(
+    def _materialized_inputs(self, batch: ModelInputBatch):
+        cell_lines, drugs = materialize_block_inputs(
             self,
-            batch.cell_line_input,
-            batch.drug_input,
-            cell_line_views=self.required_cell_line_views,
-            drug_views=self.required_drug_views,
+            batch,
+            required_cell_line_blocks=self.required_cell_line_blocks,
+            required_drug_blocks=self.required_drug_blocks,
+            requires_drug_featurizer=self.requires_drug_featurizer,
             validate_drug_graphs=self.validate_drug_graphs,
         )
-        return cell_lines, cast(FeatureDataset, drugs)
+        if drugs is None:
+            raise ValueError("DrugGNN requires drug graph blocks")
+        return cell_lines, drugs
 
     def fit(self, batch: ModelInputBatch) -> None:
-        cell_lines, drugs = self._validated_inputs(batch)
+        cell_lines, drugs = self._materialized_inputs(batch)
         self._algorithm = train_fitted_algorithm(
             DrugGNN,
             dict(self._hyperparameters),
@@ -119,7 +91,7 @@ class DrugGNNPredictor(RawDatasetPredictor):
         )
 
     def predict(self, batch: ModelInputBatch) -> np.ndarray:
-        cell_lines, drugs = self._validated_inputs(batch)
+        cell_lines, drugs = self._materialized_inputs(batch)
         return predict_with_algorithm(self._algorithm, batch, cell_lines, drugs)
 
     def is_fitted(self) -> bool:

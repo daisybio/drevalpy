@@ -10,11 +10,9 @@ Reference code: https://github.com/SmritiChawla/Precily
 
 """
 
-import os
 from typing import Any
 
 import numpy as np
-import pandas as pd
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -242,62 +240,4 @@ class PrecilyModel(LiteratureTrainingMixin):
                     predictions += outputs.cpu().tolist()
                 else:
                     predictions += [outputs.item()]
-
-        return np.array(predictions)
-
-    def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
-        r"""
-        Load precomputed GSVA pathway scores.
-
-        Generate it with the Precily pathway featurizer:
-            python -m drevalpy.datasets.featurizer.create_precily_pathway_features <dataset_name> \\
-                --gene_sets <path_to/c2.cp.v6.1.symbols.gmt>
-
-        :param data_path: path to the data
-        :param dataset_name: dataset name
-        :returns: cell line FeatureDataset with the "pathways" view
-        :raises FileNotFoundError: if the pathway feature CSV is missing
-        """
-        pathway_file = os.path.join(data_path, dataset_name, "pathway_features.csv")
-        if not os.path.exists(pathway_file):
-            raise FileNotFoundError(
-                f"Pathway feature file not found: {pathway_file}. "
-                "Run the featurizer first: "
-                "python -m drevalpy.datasets.featurizer.create_precily_pathway_features "
-                f"{dataset_name} --gene_sets <path_to_gmt>"
-            )
-
-        df = pd.read_csv(pathway_file, index_col=0)
-        features = {cell_line_id: {"pathways": row.values.astype(np.float32)} for cell_line_id, row in df.iterrows()}
-        return FeatureDataset(features)
-
-    def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
-        r"""
-        Load precomputed SMILESVec drug embeddings.
-
-        Generate it with the Precily drug featurizer:
-            python -m drevalpy.datasets.featurizer.create_precily_drug_embeddings <dataset_name> \\
-                --smilesvec_model <path_to/drug.l8.pubchem.canon.ws20.txt>
-
-        :param data_path: path to the data
-        :param dataset_name: dataset name
-        :returns: drug FeatureDataset with the "smilesvec" view
-        :raises FileNotFoundError: if the drug feature CSV is missing
-        """
-        drug_file = os.path.join(data_path, dataset_name, "drug_smilesvec.csv")
-        if not os.path.exists(drug_file):
-            raise FileNotFoundError(
-                f"Drug SMILESVec feature file not found: {drug_file}. "
-                "Run the featurizer first: "
-                "python -m drevalpy.datasets.featurizer.create_precily_drug_embeddings "
-                f"{dataset_name} --smilesvec_model <path_to_pretrained_model>"
-            )
-
-        df = pd.read_csv(drug_file, dtype={"pubchem_id": str})
-        features = {}
-        for _, row in df.iterrows():
-            drug_id = row["pubchem_id"]
-            embedding = row.drop("pubchem_id").values.astype(np.float32)
-            features[drug_id] = {"smilesvec": embedding}
-
-        return FeatureDataset(features)
+        return np.asarray(predictions)

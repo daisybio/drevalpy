@@ -40,7 +40,7 @@ def block_pair_matrix(batch: ModelInputBatch, block_name: str) -> np.ndarray:
     if block_name not in batch.cell_line_blocks:
         msg = f"Required cell-line block {block_name!r} is missing"
         raise ValueError(msg)
-    return pair_align(batch.cell_line_blocks[block_name], batch.cell_line_pair_idx)
+    return pair_align(batch.cell_line_blocks[block_name].values, batch.cell_line_pair_idx)
 
 
 def category_means(design: np.ndarray, y: np.ndarray) -> np.ndarray:

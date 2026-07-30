@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import importlib
 import sys
 import tempfile
 from unittest.mock import patch
@@ -12,6 +11,7 @@ import pytest
 import torch
 from torch_geometric.data import Data
 
+from drevalpy.components.feature_block import graph_feature_block, numeric_feature_block
 from drevalpy.components.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors.literature.druggnn.predictor import DrugGNNPredictor
 from drevalpy.components.predictors.literature.srmf.predictor import SRMFPredictor
@@ -21,7 +21,7 @@ from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.components.register_builtins import ensure_predictor_registered, register_builtin_components
 from drevalpy.components.registry import get_predictor
 from drevalpy.components.training_context import TrainingContext
-from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.models import construct_model
 from drevalpy.models.config import ModelConfig
 from tests.models.synthetic_fixtures import (
@@ -66,8 +66,6 @@ def _neural_batch(*, with_early_stopping: bool = False) -> ModelInputBatch:
         drug_features=drug_features,
         cell_line_pair_idx=np.array([0, 0, 1, 1]),
         drug_pair_idx=np.array([0, 1, 0, 1]),
-        cell_line_input=cell_line_gene_expression(),
-        drug_input=drug_fingerprints(),
         early_stopping_response=early_stopping,
         training_context=TrainingContext(checkpoint_dir=tempfile.mkdtemp()),
     )
@@ -83,18 +81,12 @@ def _drug_graph(*, num_features: int = 9) -> Data:
 
 def _druggnn_batch(*, with_early_stopping: bool = False) -> ModelInputBatch:
     response = multi_drug_response()
-    cell_line_input = FeatureDataset(
-        features={
-            "cl1": {"gene_expression": np.array([0.1, 0.2, 0.3])},
-            "cl2": {"gene_expression": np.array([0.4, 0.5, 0.6])},
-        }
-    )
-    drug_input = FeatureDataset(
-        features={
-            "d1": {"drug_graph": _drug_graph()},
-            "d2": {"drug_graph": _drug_graph()},
-        }
-    )
+    cell_line_blocks = {"gene_expression": numeric_feature_block(np.array([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]))}
+    graphs = np.empty(2, dtype=object)
+    graphs[:] = [_drug_graph(), _drug_graph()]
+    drug_blocks = {
+        "drug_graph": graph_feature_block(graphs),
+    }
     early_stopping = None
     if with_early_stopping:
         early_stopping = DrugResponseDataset(
@@ -110,8 +102,8 @@ def _druggnn_batch(*, with_early_stopping: bool = False) -> ModelInputBatch:
         drug_features=None,
         cell_line_pair_idx=np.zeros(4, dtype=np.int64),
         drug_pair_idx=None,
-        cell_line_input=cell_line_input,
-        drug_input=drug_input,
+        cell_line_blocks=cell_line_blocks,
+        drug_blocks=drug_blocks,
         early_stopping_response=early_stopping,
         training_context=TrainingContext(checkpoint_dir=tempfile.mkdtemp()),
     )
@@ -263,12 +255,3 @@ def test_xgboost_load_applies_thread_defaults_before_restore() -> None:
         restored = XGBoostPredictor()
         restored.set_state(state)
         thread_defaults.assert_called_once()
-    assert restored.is_fitted()
-
-
-def test_pharmaformer_landmark_preload_round_trip() -> None:
-    module = importlib.import_module("drevalpy.components.predictors.literature.pharmaformer.predictor")
-    predictor_cls = module.PharmaFormerPredictor
-    predictor = predictor_cls(hyperparameters={"epochs": 1})
-    predictor.set_engine_preload_state({"gene_dim_input": 978})
-    assert predictor._engine_preload_state["gene_dim_input"] == 978

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import numpy as np
 
+from drevalpy.components.contracts import FeatureFormat
+from drevalpy.components.feature_block import FeatureBlock
 from drevalpy.components.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors.literature._feature_dataset_from_batch import feature_dataset_from_blocks
 from drevalpy.datasets.dataset import FeatureDataset
@@ -16,6 +18,7 @@ def materialize_block_inputs(
     required_cell_line_blocks: tuple[str, ...],
     required_drug_blocks: tuple[str, ...],
     requires_drug_featurizer: bool,
+    validate_drug_graphs: bool = False,
 ) -> tuple[FeatureDataset, FeatureDataset | None]:
     """Build cell-line and optional drug FeatureDatasets from batch blocks."""
     cell_lines = _dataset_from_blocks(
@@ -34,13 +37,15 @@ def materialize_block_inputs(
         required=required_drug_blocks,
         side="drug",
     )
+    if validate_drug_graphs:
+        _validate_drug_graphs(predictor, batch.drug_blocks)
     return cell_lines, drugs
 
 
 def _dataset_from_blocks(
     predictor: object,
     entity_ids: np.ndarray | None,
-    blocks: dict[str, np.ndarray],
+    blocks: dict[str, FeatureBlock],
     *,
     required: tuple[str, ...],
     side: str,
@@ -54,3 +59,20 @@ def _dataset_from_blocks(
         raise ValueError(msg)
     selected = {name: blocks[name] for name in required}
     return feature_dataset_from_blocks(entity_ids, selected)
+
+
+def _validate_drug_graphs(predictor: object, blocks: dict[str, FeatureBlock]) -> None:
+    """Reject malformed graph blocks before a graph predictor sees them."""
+    block = blocks.get("drug_graph")
+    if block is None:
+        return
+    if block.format != FeatureFormat.GRAPH:
+        raise ValueError(
+            f"{predictor.__class__.__name__} requires drug_graph blocks with format "
+            f"{FeatureFormat.GRAPH.value!r}, got {block.format.value!r}"
+        )
+    for graph in block.values:
+        if not hasattr(graph, "x") or not hasattr(graph, "edge_index"):
+            raise ValueError(
+                f"{predictor.__class__.__name__} received an invalid drug graph; " "each graph needs x and edge_index"
+            )

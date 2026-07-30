@@ -1,2 +1,4 @@
+cell_line_featurizer: molirOmics
+drug_featurizer: identity
 predictor: molir
 scope: single_drug

@@ -5,7 +5,9 @@ from __future__ import annotations
 import numpy as np
 
 from drevalpy.components.contracts import FeatureFormat
-from drevalpy.components.featurizers._matrix import stack_view_matrix
+from drevalpy.components.feature_block import FeatureBlock, numeric_feature_block
+from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
+from drevalpy.components.featurizers._matrix import feature_names_for_view, stack_view_matrix
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.registry import register_cell_line_featurizer
 from drevalpy.data.preprocessing import (
@@ -45,7 +47,9 @@ class NormalizedProteomicsCellLineFeaturizer(CellLineFeaturizer):
         features,
         *,
         entity_ids: np.ndarray | None = None,
+        context: FeaturizerFitContext | None = None,
     ) -> NormalizedProteomicsCellLineFeaturizer:
+        _ = context
         ids = entity_ids if entity_ids is not None else np.array(list(features.features.keys()))
         processed = prepare_proteomics(
             cell_line_input=features.copy(),
@@ -65,6 +69,14 @@ class NormalizedProteomicsCellLineFeaturizer(CellLineFeaturizer):
             transformer=self._transformer,
         )
         return stack_view_matrix(processed, self._view, entity_ids).astype(np.float32)
+
+    def transform_blocks(self, features, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
+        return {
+            self._view: numeric_feature_block(
+                self.transform(features, entity_ids),
+                feature_names=feature_names_for_view(features, self._view),
+            )
+        }
 
     @property
     def output_dim(self) -> int:

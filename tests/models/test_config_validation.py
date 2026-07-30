@@ -7,6 +7,7 @@ from collections.abc import Iterator
 import pytest
 
 from drevalpy.components.contracts import FeatureFormat
+from drevalpy.components.feature_block import BlockSpec
 from drevalpy.components.predictors.feature_free import FeatureFreePredictor
 from drevalpy.components.predictors.matrix import MatrixPredictor
 from drevalpy.components.predictors.structured import BlockPredictor
@@ -181,6 +182,34 @@ def test_graph_format_match_passes_for_block_predictor() -> None:
         predictor=PredictorConfig(name="graphPred"),
     )
     validate_model_config(config)
+
+
+def test_block_schema_reports_missing_named_block() -> None:
+    @register_cell_line_featurizer("cellBlocks", description="cell blocks", contract=FeatureFormat.NUMERIC_MATRIX)
+    class CellBlocks:
+        output_block_specs = (BlockSpec("wrong_name", FeatureFormat.NUMERIC_MATRIX),)
+
+    @register_drug_featurizer("drugBlocks", description="drug blocks", contract=FeatureFormat.NUMERIC_MATRIX)
+    class DrugBlocks:
+        output_block_specs = (BlockSpec("fingerprints", FeatureFormat.NUMERIC_MATRIX),)
+
+    @register_predictor(
+        "blockPred",
+        description="block pred",
+        cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+        drug_contract=FeatureFormat.NUMERIC_MATRIX,
+    )
+    class BlockPred(BlockPredictor):
+        required_cell_line_block_specs = (BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),)
+        required_drug_block_specs = (BlockSpec("fingerprints", FeatureFormat.NUMERIC_MATRIX),)
+
+    config = ModelConfig(
+        cell_line_featurizer=FeaturizerConfig(name="cellBlocks", registry="cell_line"),
+        drug_featurizer=FeaturizerConfig(name="drugBlocks", registry="drug"),
+        predictor=PredictorConfig(name="blockPred"),
+    )
+    with pytest.raises(ValueError, match="blockPred.*gene_expression.*numeric_matrix.*wrong_name"):
+        validate_model_config(config)
 
 
 def test_feature_free_predictor_without_featurizers_passes() -> None:

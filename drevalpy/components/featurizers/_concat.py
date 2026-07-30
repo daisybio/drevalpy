@@ -6,6 +6,9 @@ from typing import Any, ClassVar
 
 import numpy as np
 
+from drevalpy.components.contracts import FeatureFormat
+from drevalpy.components.feature_block import FeatureBlock, merge_feature_blocks
+from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
 from drevalpy.components.featurizer_label import featurizer_config_block_label
 from drevalpy.components.featurizers.base import Featurizer
 from drevalpy.models.config import FeaturizerConfig
@@ -55,16 +58,28 @@ class ConcatFeaturizersMixin:
             children.append((label, config.create_instance()))
         self._children = children
 
+    @staticmethod
+    def _reject_non_numeric_children(children: list[tuple[str, Featurizer]]) -> None:
+        for label, child in children:
+            if child.contract.format != FeatureFormat.NUMERIC_MATRIX:
+                msg = (
+                    f"concat featurizer child {label!r} emits {child.contract.format.value}; "
+                    "only numeric_matrix children are supported"
+                )
+                raise ValueError(msg)
+
     def fit(
         self,
         features,
         *,
         entity_ids: np.ndarray | None = None,
+        context: FeaturizerFitContext | None = None,
     ):
         self._materialize_children()
+        self._reject_non_numeric_children(self._children)
         self._block_dims = {}
         for name, child in self._children:
-            child.fit(features, entity_ids=entity_ids)
+            child.fit(features, entity_ids=entity_ids, context=context)
             self._block_dims[name] = child.output_dim
         self._output_dim = sum(self._block_dims.values())
         self._is_fitted = True
@@ -72,14 +87,20 @@ class ConcatFeaturizersMixin:
 
     def transform(self, features, entity_ids: np.ndarray) -> np.ndarray:
         blocks = self.transform_blocks(features, entity_ids)
-        if not blocks:
+        numeric_blocks = [
+            block.values.astype(np.float32)
+            for block in blocks.values()
+            if block.entity_aligned and block.format == FeatureFormat.NUMERIC_MATRIX
+        ]
+        if not numeric_blocks:
             return np.empty((len(entity_ids), 0), dtype=np.float32)
-        return np.concatenate([blocks[name] for name, _ in self._children], axis=1).astype(np.float32)
+        return np.concatenate(numeric_blocks, axis=1)
 
-    def transform_blocks(self, features, entity_ids: np.ndarray) -> dict[str, np.ndarray]:
+    def transform_blocks(self, features, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
         if not self._is_fitted:
             raise RuntimeError(self._not_fitted_msg)
-        return {name: child.transform(features, entity_ids).astype(np.float32) for name, child in self._children}
+        child_blocks = [child.transform_blocks(features, entity_ids) for _, child in self._children]
+        return merge_feature_blocks(*child_blocks)
 
     @property
     def output_dim(self) -> int:

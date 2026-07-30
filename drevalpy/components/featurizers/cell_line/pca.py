@@ -7,7 +7,9 @@ from typing import Any
 import numpy as np
 
 from drevalpy.components.contracts import FeatureFormat
-from drevalpy.components.featurizers._matrix import stack_view_matrix
+from drevalpy.components.feature_block import FeatureBlock, numeric_feature_block
+from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
+from drevalpy.components.featurizers._matrix import feature_names_for_view, stack_view_matrix
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.registry import register_cell_line_featurizer
 
@@ -30,24 +32,45 @@ class PCACellLineFeaturizer(CellLineFeaturizer):
         self._n_components = int(n_components)
         self._pca = PCA(n_components=self._n_components)
         self._output_dim = 0
+        self._feature_names: tuple[str, ...] | None = None
 
     def fit(
         self,
         features,
         *,
         entity_ids: np.ndarray | None = None,
+        context: FeaturizerFitContext | None = None,
     ) -> PCACellLineFeaturizer:
+        _ = context
         ids = entity_ids if entity_ids is not None else np.array(list(features.features.keys()))
         matrix = stack_view_matrix(features, self._view, ids)
         n_components = min(self._n_components, matrix.shape[0], matrix.shape[1])
         self._pca.n_components = n_components
         self._pca.fit(matrix)
         self._output_dim = n_components
+        self._feature_names = feature_names_for_view(features, self._view)
         return self
 
     def transform(self, features, entity_ids: np.ndarray) -> np.ndarray:
         matrix = stack_view_matrix(features, self._view, entity_ids)
+        names = feature_names_for_view(features, self._view)
+        if self._feature_names is not None and names is not None:
+            source_indices = {name: index for index, name in enumerate(names)}
+            aligned = np.zeros((len(entity_ids), len(self._feature_names)), dtype=matrix.dtype)
+            for index, name in enumerate(self._feature_names):
+                source_index = source_indices.get(name)
+                if source_index is not None:
+                    aligned[:, index] = matrix[:, source_index]
+            matrix = aligned
         return self._pca.transform(matrix).astype(np.float32)
+
+    def transform_blocks(self, features, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
+        return {
+            self._view: numeric_feature_block(
+                self.transform(features, entity_ids),
+                feature_names=feature_names_for_view(features, self._view),
+            )
+        }
 
     @property
     def output_dim(self) -> int:
@@ -65,6 +88,7 @@ class PCACellLineFeaturizer(CellLineFeaturizer):
             "view": self._view,
             "n_components": self._n_components,
             "output_dim": self._output_dim,
+            "feature_names": self._feature_names,
         }
 
     def set_state(self, state: dict[str, object]) -> None:
@@ -82,3 +106,6 @@ class PCACellLineFeaturizer(CellLineFeaturizer):
         output_dim = state.get("output_dim")
         if isinstance(output_dim, int):
             self._output_dim = output_dim
+        feature_names = state.get("feature_names")
+        if isinstance(feature_names, tuple):
+            self._feature_names = tuple(str(name) for name in feature_names)
