@@ -17,6 +17,7 @@ from drevalpy._deprecations import FACTORY_DICT_NAMES, warn_deprecated
 __all__ = [
     "DRPModel",
     "construct_model",
+    "load_model",
     "MULTI_DRUG_MODEL_FACTORY",
     "SINGLE_DRUG_MODEL_FACTORY",
     "MODEL_FACTORY",
@@ -66,6 +67,10 @@ def __getattr__(name: str) -> Any:
         from ._construct_model_api import construct_model
 
         return construct_model
+    if name == "load_model":
+        from ._model_persistence import load_model
+
+        return load_model
     if name in FACTORY_DICT_NAMES:
         warn_deprecated(
             what=name,

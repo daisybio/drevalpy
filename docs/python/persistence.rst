@@ -17,14 +17,18 @@ Public flat hyperparameters live on the instance after construction or
 
 .. code-block:: python
 
-   from drevalpy.models import construct_model
+   from drevalpy.models import construct_model, load_model
 
    ElasticNet = construct_model("ElasticNet")
    model = ElasticNet()  # or ElasticNet({"alpha": 0.1})
    model.train(...)  # after a normal fit
    model.save("checkpoints/elastic_net")
 
+   # When you already have the class handle:
    loaded = ElasticNet.load("checkpoints/elastic_net")
+
+   # Or reconstruct entirely from the checkpoint (zoo or custom name):
+   loaded = load_model("checkpoints/elastic_net")
 
 Load only artifacts you created with the current native format in the same
 drevalpy version family. Corrupted or unsupported payloads raise

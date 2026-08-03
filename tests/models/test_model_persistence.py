@@ -8,7 +8,7 @@ from pathlib import Path
 import joblib
 import pytest
 
-from drevalpy.models import construct_model
+from drevalpy.models import construct_model, load_model
 from drevalpy.models._model_persistence import (
     FORMAT_NAME,
     FORMAT_VERSION,
@@ -42,6 +42,30 @@ def test_round_trip_save_load() -> None:
     assert loaded._stack.is_fitted()
     assert loaded._resolved_model_config is not None
     assert loaded._resolved_model_config.predictor.hyperparameters["alpha"] == 0.1
+
+
+def test_load_model_reconstructs_without_class_handle() -> None:
+    model = _fitted_model()
+    with tempfile.TemporaryDirectory() as directory:
+        model.save(directory)
+        loaded = load_model(directory)
+    assert loaded.get_model_name() == "ElasticNet"
+    assert loaded._stack is not None
+    assert loaded._stack.is_fitted()
+    assert loaded._resolved_model_config is not None
+    assert loaded._resolved_model_config.predictor.hyperparameters["alpha"] == 0.1
+
+
+def test_load_model_supports_custom_model_names() -> None:
+    model = construct_model("MyRF", "scaledGeneExpression:fingerprints:randomForest")({"n_estimators": 5})
+    response = multi_drug_response()
+    model.train(response, cell_line_gene_expression(), drug_fingerprints())
+    with tempfile.TemporaryDirectory() as directory:
+        model.save(directory)
+        loaded = load_model(directory)
+    assert loaded.get_model_name() == "MyRF"
+    assert loaded._stack is not None
+    assert loaded._stack.is_fitted()
 
 
 def test_load_missing_checkpoint_raises_file_not_found() -> None:

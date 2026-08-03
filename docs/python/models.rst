@@ -89,9 +89,10 @@ Each ``DRPModel`` subclass exposes:
    create a new instance to change configuration.
 2. ``train(...)`` / ``predict(...)`` — fit and score on response + feature
    inputs (the experiment runner constructs a fresh instance per fold).
-3. ``save(directory)`` / ``ModelClass.load(directory)`` — native
-   ``model.joblib`` checkpoints (format ``drevalpy-model``; see
-   :doc:`persistence`).
+3. ``save(directory)`` / ``ModelClass.load(directory)`` / ``load_model(directory)`` —
+   native ``model.joblib`` checkpoints (format ``drevalpy-model``; see
+   :doc:`persistence`). Use ``load_model`` when you do not already have a
+   class handle.
 
 Predictors inside a ``ModelConfig`` receive static hyperparameters at
 construction (``PredictorConfig.create_instance()``). Dimension-dependent

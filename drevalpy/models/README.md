@@ -29,6 +29,14 @@ MyModelFromConfig = construct_model("MyModel", config)
 model = MyModelZoo()
 ```
 
+Reload a fitted checkpoint without a class handle:
+
+```python
+from drevalpy.models import load_model
+
+loaded = load_model("checkpoints/my_model")
+```
+
 See `docs/python/custom_models.rst` for a complete external extension walkthrough.
 
 ## Breaking changes

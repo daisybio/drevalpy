@@ -83,3 +83,20 @@ def load_model_payload(directory: str) -> tuple[str, ModelConfig, dict[str, obje
     if not isinstance(state, dict):
         raise CorruptedCheckpointError("checkpoint state is not a mapping")
     return model_name, config, state
+
+
+def load_model(directory: str) -> DRPModel:
+    """Reconstruct a fitted ``DRPModel`` from a checkpoint directory.
+
+    Reads the stored model name and ``ModelConfig``, builds the matching class
+    via ``construct_model``, then restores fitted state. Use this when you do
+    not already have a class handle for ``ModelClass.load(directory)``.
+
+    Custom featurizers and predictors must already be registered (same as for
+    training). Load only artifacts created with ``save_model`` in the same
+    drevalpy version family.
+    """
+    from drevalpy.models._construct_model_api import construct_model
+
+    model_name, config, _state = load_model_payload(directory)
+    return construct_model(model_name, config).load(directory)
