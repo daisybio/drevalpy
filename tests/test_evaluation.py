@@ -87,10 +87,12 @@ def generate_mock_uncorrelated_data() -> tuple[np.ndarray, np.ndarray]:
     """
     Generate mock data with uncorrelated prediction.
 
+    Uses a fixed RNG seed so correlation asserts stay deterministic across platforms.
+
     :returns: y_pred, response
     """
     response = np.arange(2e6)
-    y_pred = np.random.permutation(response)
+    y_pred = np.random.default_rng(0).permutation(response)
     return y_pred, response
 
 
@@ -177,7 +179,6 @@ def test_spearman_uncorrelated(generate_mock_uncorrelated_data: tuple[np.ndarray
     y_pred, response = generate_mock_uncorrelated_data
 
     sp = spearman(y_pred, response)
-    print(sp)
     assert np.isclose(sp, 0.0, atol=1e-3)
 
 
