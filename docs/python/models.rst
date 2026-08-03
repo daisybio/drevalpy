@@ -10,12 +10,25 @@ Resolution path
 
 The usual flow is:
 
-.. code-block:: text
+.. mermaid::
 
-   ModelConfig (recipe / zoo / dict)
-        -> construct_model(name[, spec])
-        -> DRPModel subclass
-        -> fresh instance: ModelClass(hyperparameters=None)
+   flowchart TD
+      subgraph specInputs ["ModelConfig sources"]
+         zooPreset["Zoo preset name"]
+         recipeString["Recipe string"]
+         yamlOrDict["YAML or dict"]
+      end
+      modelConfig["ModelConfig"]
+      constructModel["construct_model(name, spec)"]
+      drpSubclass["DRPModel subclass"]
+      instance["ModelClass(hyperparameters)"]
+
+      zooPreset --> modelConfig
+      recipeString --> modelConfig
+      yamlOrDict --> modelConfig
+      modelConfig --> constructModel
+      constructModel --> drpSubclass
+      drpSubclass --> instance
 
 Day-to-day use is two steps: resolve a **class**, then construct an
 **instance**.

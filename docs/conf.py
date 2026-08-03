@@ -37,6 +37,7 @@ extensions = [
     "sphinx.ext.autosectionlabel",
     "sphinx_design",
     "sphinx_reredirects",
+    "sphinxcontrib.mermaid",
 ]
 
 # Generate registry- and application-driven tables before sources are read.

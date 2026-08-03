@@ -8,6 +8,22 @@ from components with three distinct roles:
 - a **drug featurizer** represents the compound, and
 - a **predictor** maps those representations to a drug-response estimate.
 
+.. mermaid::
+
+   flowchart LR
+      cellLineData["Cell line"]
+      drugData["Drug"]
+      cellLineFeaturizer["Cell-line featurizer"]
+      drugFeaturizer["Drug featurizer"]
+      predictor["Predictor"]
+      responseEstimate["Drug response estimate"]
+
+      cellLineData --> cellLineFeaturizer
+      drugData --> drugFeaturizer
+      cellLineFeaturizer --> predictor
+      drugFeaturizer --> predictor
+      predictor --> responseEstimate
+
 The names below are the stable registry names used in recipes and model-zoo
 definitions. They are case-sensitive. At this stage, focus on what each
 component contributes; the next page, :doc:`from_components_to_models`,
