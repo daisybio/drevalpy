@@ -6,7 +6,7 @@ from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.featurizers.drug.view import ViewDrugFeaturizer
 from drevalpy.components.registry import register_drug_featurizer
 from drevalpy.datasets.dataset import FeatureDataset
-from drevalpy.features.features import load_generic_csv
+from drevalpy.datasets.feature_tables import load_generic_csv
 
 
 @register_drug_featurizer(

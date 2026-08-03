@@ -1,12 +1,12 @@
-"""Direct tests for drevalpy.features.preprocessing helpers."""
+"""Direct tests for drevalpy.components.preprocessing helpers."""
 
 from __future__ import annotations
 
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 
+from drevalpy.components.preprocessing import prepare_expression_and_methylation, scale_gene_expression
 from drevalpy.datasets.dataset import FeatureDataset
-from drevalpy.features.preprocessing import prepare_expression_and_methylation, scale_gene_expression
 
 
 def _cell_line_input() -> FeatureDataset:

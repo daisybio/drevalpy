@@ -7,7 +7,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from drevalpy.features.gene_lists import gene_names_from_list_csv, resolve_gene_list_path
+from drevalpy.datasets.gene_lists import gene_names_from_list_csv, resolve_gene_list_path
 
 
 def test_gene_names_from_symbol_column(tmp_path: Path) -> None:

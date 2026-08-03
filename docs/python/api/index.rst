@@ -11,7 +11,6 @@ generated recursively from the package tree.
    :recursive:
 
    drevalpy.datasets
-   drevalpy.features
    drevalpy.types
    drevalpy.experiment
    drevalpy.evaluation

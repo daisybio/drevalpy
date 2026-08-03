@@ -6,7 +6,7 @@ from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.featurizers.cell_line.dense_view import DenseViewCellLineFeaturizer
 from drevalpy.components.registry import register_cell_line_featurizer
 from drevalpy.datasets.dataset import FeatureDataset
-from drevalpy.features.features import load_generic_csv
+from drevalpy.datasets.feature_tables import load_generic_csv
 
 
 @register_cell_line_featurizer(

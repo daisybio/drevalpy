@@ -1,20 +1,18 @@
-"""Load raw feature tables for component-based models."""
+"""Config-driven feature loading for component-based models."""
 
 from __future__ import annotations
 
 from typing import Literal
 
+from drevalpy.components.data_loading.views import load_cell_line_feature_views, load_drug_feature_views
 from drevalpy.components.featurizer_tree import iter_featurizer_leaves
 from drevalpy.components.featurizers.base import Featurizer
 from drevalpy.components.registry import get_cell_line_featurizer, get_drug_featurizer
 from drevalpy.datasets.dataset import FeatureDataset
-from drevalpy.features.features import (
+from drevalpy.datasets.feature_tables import (
     load_cl_ids_and_tissues_from_csv,
     load_cl_ids_from_csv,
     load_drug_ids_from_csv,
-    load_multi_cell_line_view,
-    load_single_cell_line_view,
-    load_single_drug_view,
     load_tissues_from_csv,
 )
 from drevalpy.models.config import FeaturizerConfig, ModelConfig
@@ -23,32 +21,6 @@ from drevalpy.models.featurizer_mapping import (
     cell_line_entity_id_only_from_model_config,
     drug_entity_id_only_from_model_config,
 )
-
-
-def load_cell_line_feature_views(
-    views: list[str],
-    data_path: str,
-    dataset_name: str,
-    *,
-    model_name: str = "DRPModel",
-) -> FeatureDataset:
-    """Load cell-line features for the configured cell-line views."""
-    if len(views) == 1:
-        return load_single_cell_line_view(views, data_path, dataset_name, model_name)
-    return load_multi_cell_line_view(views, data_path, dataset_name, model_name)
-
-
-def load_drug_feature_views(
-    views: list[str],
-    data_path: str,
-    dataset_name: str,
-    *,
-    model_name: str = "DRPModel",
-) -> FeatureDataset | None:
-    """Load drug features for the configured drug views."""
-    if not views:
-        return None
-    return load_single_drug_view(views, data_path, dataset_name, model_name)
 
 
 def load_tissue_features(data_path: str, dataset_name: str) -> FeatureDataset:

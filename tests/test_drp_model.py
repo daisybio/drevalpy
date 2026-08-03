@@ -8,12 +8,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from drevalpy.components.data_loading.multiomics import get_multiomics_feature_dataset, load_and_select_gene_features
 from drevalpy.datasets.dataset import DrugResponseDataset
-from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, TISSUE_IDENTIFIER
-from drevalpy.features.features import (
-    get_multiomics_feature_dataset,
+from drevalpy.datasets.feature_tables import (
     iterate_features,
-    load_and_select_gene_features,
     load_cl_ids_and_tissues_from_csv,
     load_cl_ids_from_csv,
     load_drug_fingerprint_features,
@@ -21,6 +19,7 @@ from drevalpy.features.features import (
     load_tissues_from_csv,
     unique,
 )
+from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, TISSUE_IDENTIFIER
 from drevalpy.models._model_lookup import known_model_names
 
 

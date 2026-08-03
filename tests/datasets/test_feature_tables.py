@@ -1,4 +1,4 @@
-"""Direct tests for drevalpy.features.features helpers."""
+"""Direct tests for drevalpy.datasets.feature_tables helpers."""
 
 from __future__ import annotations
 
@@ -8,8 +8,8 @@ import numpy as np
 import pandas as pd
 
 from drevalpy.datasets.dataset import FeatureDataset
+from drevalpy.datasets.feature_tables import iterate_features, load_generic_csv
 from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER
-from drevalpy.features.features import iterate_features, load_and_select_gene_features, load_generic_csv
 
 
 def test_iterate_features_averages_duplicate_rows() -> None:
@@ -39,28 +39,3 @@ def test_load_generic_csv_reads_feature_table(tmp_path: Path) -> None:
     assert set(loaded.identifiers) == {"cl1", "cl2"}
     np.testing.assert_allclose(loaded.features["cl1"]["custom_view"], np.array([0.1, 0.3]))
     assert tuple(loaded.meta_info["custom_view"]) == ("feat1", "feat2")
-
-
-def test_load_and_select_gene_features_preserves_gene_list_order(tmp_path: Path) -> None:
-    dataset_dir = tmp_path / "TOY"
-    dataset_dir.mkdir()
-    gene_dir = tmp_path / "meta" / "gene_lists"
-    gene_dir.mkdir(parents=True)
-    # CSV columns are B, A, C but the gene list asks for A, B, C.
-    pd.DataFrame(
-        {"B": [2.0], "A": [1.0], "C": [3.0]},
-        index=pd.Index(["cl1"], name=CELL_LINE_IDENTIFIER),
-    ).to_csv(dataset_dir / "gene_expression.csv")
-    pd.DataFrame({"Symbol": ["A", "B", "C"]}).to_csv(gene_dir / "ordered_genes.csv", index=False)
-
-    loaded = load_and_select_gene_features(
-        feature_type="gene_expression",
-        gene_list="ordered_genes",
-        data_path=str(tmp_path),
-        dataset_name="TOY",
-    )
-    assert list(loaded.meta_info["gene_expression"]) == ["A", "B", "C"]
-    np.testing.assert_allclose(
-        loaded.features["cl1"]["gene_expression"],
-        np.array([1.0, 2.0, 3.0]),
-    )
