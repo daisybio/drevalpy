@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, ClassVar
 from unittest.mock import patch
 
@@ -213,4 +214,4 @@ def test_per_drug_checkpoint_dirs_are_isolated() -> None:
         predictor.fit(batch)
     assert len(seen_dirs) == 2
     assert len(set(seen_dirs)) == 2
-    assert all(path.startswith("checkpoints/drug_") for path in seen_dirs)
+    assert all(Path(path).as_posix().startswith("checkpoints/drug_") for path in seen_dirs)

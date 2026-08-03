@@ -8,6 +8,7 @@ https://github.com/kramerlab/Multi-Omics_analysis
 
 import os
 import secrets
+from collections.abc import Sequence
 
 import numpy as np
 import pytorch_lightning as pl
@@ -207,8 +208,8 @@ def get_dimensions_of_omics_data(cell_line_input: FeatureDataset) -> tuple[int, 
 
 def _realign_omic_matrix(
     values: np.ndarray,
-    model_features: np.ndarray,
-    meta_feature_names: np.ndarray,
+    model_features: Sequence[str] | np.ndarray,
+    meta_feature_names: Sequence[str] | np.ndarray,
 ) -> np.ndarray:
     """Align prediction-time omics columns to the feature order stored on the trained model."""
     if values.shape[1] == len(model_features):

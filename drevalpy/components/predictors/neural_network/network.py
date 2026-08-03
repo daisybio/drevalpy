@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any
 
 import pytorch_lightning as pl
@@ -64,12 +65,12 @@ class FeedForwardNetwork(RegressionMetricsMixin, pl.LightningModule):
         self._store_predictions(predictions, response, is_training=name == "train_loss")
         return loss
 
-    def training_step(self, batch: tuple[torch.Tensor, torch.Tensor], batch_idx: int) -> torch.Tensor:
+    def training_step(self, batch: Sequence[torch.Tensor], batch_idx: int) -> torch.Tensor:
         """Compute and log training loss for one batch."""
         _ = batch_idx
         return self._loss_and_log(*batch, name="train_loss")
 
-    def validation_step(self, batch: tuple[torch.Tensor, torch.Tensor], batch_idx: int) -> torch.Tensor:
+    def validation_step(self, batch: Sequence[torch.Tensor], batch_idx: int) -> torch.Tensor:
         """Compute and log validation loss for one batch."""
         _ = batch_idx
         return self._loss_and_log(*batch, name="val_loss")

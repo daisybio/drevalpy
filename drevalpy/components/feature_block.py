@@ -22,7 +22,11 @@ class BlockSpec:
 
 @dataclass(frozen=True)
 class FeatureBlock:
-    """Named featurizer output with format and optional feature metadata."""
+    """Named featurizer output with format and optional feature metadata.
+
+    ``values`` is always an ``np.ndarray``. Dense numeric blocks use float arrays;
+    graph and ragged blocks use object-dtype arrays whose elements are arbitrary payloads.
+    """
 
     values: np.ndarray
     format: FeatureFormat

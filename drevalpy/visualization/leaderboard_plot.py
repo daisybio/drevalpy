@@ -24,7 +24,15 @@ def get_bar_color(rank: int, is_baseline: bool) -> dict[str, Any]:
     return {"color": COMPETITOR_COLOR, "alpha": 0.85}
 
 
-def draw_bar(ax, x: float, y: float, width: float, height: float, color: str, alpha: float = 1.0):
+def draw_bar(
+    ax,
+    x: float,
+    y: float | int | np.integer,
+    width: float,
+    height: float,
+    color: str,
+    alpha: float = 1.0,
+):
     """Draw a custom rounded rectangle bar."""
     bar = FancyBboxPatch(
         (x, y - height / 2),

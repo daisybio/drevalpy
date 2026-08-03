@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 
 from drevalpy.components.contracts import FeatureFormat
@@ -9,7 +11,7 @@ from drevalpy.components.feature_block import FeatureBlock
 from drevalpy.datasets.dataset import FeatureDataset
 
 
-def _materialize_row(block: FeatureBlock, row: int) -> np.ndarray:
+def _materialize_row(block: FeatureBlock, row: int) -> Any:
     value = block.values[row]
     if block.format == FeatureFormat.NUMERIC_MATRIX:
         return np.asarray(value, dtype=np.float32)
@@ -35,7 +37,7 @@ def feature_dataset_from_blocks(
         if block.feature_names is not None:
             meta_info[view] = list(block.feature_names)
 
-    features: dict[str, dict[str, np.ndarray]] = {}
+    features: dict[str, dict[str, Any]] = {}
     for row, entity_id in enumerate(entity_ids):
         entity_key = str(entity_id)
         features[entity_key] = {view: _materialize_row(block, row) for view, block in entity_blocks.items()}
