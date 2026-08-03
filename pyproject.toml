@@ -110,6 +110,7 @@ line-length = 120
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
 addopts = ["--import-mode=importlib"]
 
 [tool.mypy]

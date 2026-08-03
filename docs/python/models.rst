@@ -1,19 +1,25 @@
 Models
 ======
 
-Resolve built-in and custom stacks with ``construct_model`` and declarative
-``ModelConfig``. For composition details see :doc:`architecture`; for registered
-atoms see :doc:`/concepts/component_catalog`.
+Every runnable model in DrEvalPy is a thin ``DRPModel`` subclass produced by
+``construct_model``. You never hand-write that subclass: you declare a
+``ModelConfig`` (or something that becomes one), resolve a **class**, then
+construct a fresh **instance**. For composition details see
+:doc:`architecture`; for registered atoms see
+:doc:`/concepts/component_catalog`.
 
-Resolution path
----------------
+From declaration to instance
+----------------------------
 
-The usual flow is:
+A ``ModelConfig`` is only a description of the featurizer/predictor stack.
+``construct_model`` turns that description into a class; calling the class
+produces a runnable object. Three kinds of input all converge on the same
+``ModelConfig`` before resolution:
 
 .. mermaid::
 
    flowchart TD
-      subgraph specInputs ["ModelConfig sources"]
+      subgraph specInputs ["Declare a stack"]
          zooPreset["Zoo preset name"]
          recipeString["Recipe string"]
          yamlOrDict["YAML or dict"]
@@ -30,8 +36,10 @@ The usual flow is:
       constructModel --> drpSubclass
       drpSubclass --> instance
 
-Day-to-day use is two steps: resolve a **class**, then construct an
-**instance**.
+Follow the graph left to right in the examples below.
+
+**Zoo preset.** The shortest path: a registered name is enough. DrEvalPy loads
+the zoo YAML into a ``ModelConfig`` for you.
 
 .. code-block:: python
 
@@ -41,9 +49,12 @@ Day-to-day use is two steps: resolve a **class**, then construct an
    model = ElasticNet()  # instance with class defaults
    model = ElasticNet({"alpha": 0.1})  # instance with flat overrides
 
-``ModelConfig`` describes the featurizer/predictor stack (from a zoo name,
-recipe string, YAML file, or dict). It does **not** build runnable models by
-itself — pass it to ``construct_model`` when you already have a config object:
+Discover available zoo names with ``list_zoo_names()`` (optionally filter by
+``ModelScope``).
+
+**Existing ``ModelConfig``.** When you already hold a config (from
+``ModelConfig.from_spec``, a YAML load, or hand-built configs), pass it as the
+second argument. The config still does not build models by itself.
 
 .. code-block:: python
 
@@ -54,10 +65,8 @@ itself — pass it to ``construct_model`` when you already have a config object:
    ElasticNet = construct_model("ElasticNet", config)
    model = ElasticNet()
 
-Discover available zoo names with ``list_zoo_names()`` (optionally filter by
-``ModelScope``).
-
-Custom recipe without a zoo file:
+**Recipe string.** Skip the zoo file and declare the stack inline. The recipe
+becomes a ``ModelConfig``; the first argument is only the class name.
 
 .. code-block:: python
 
