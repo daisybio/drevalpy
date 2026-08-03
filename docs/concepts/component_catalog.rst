@@ -78,16 +78,3 @@ This is useful if you want to evaluate a new predictor or featurizer that is not
 Details on how to register external components can be found in
 :doc:`/python/custom_models` for the Python API and :doc:`/cli/experiment`
 for the CLI workflow.
-
-Backward compatibility
-----------------------
-
-Registry names
-~~~~~~~~~~~~~~
-
-Before 1.6.0, many of these atoms were reached only through factory dict
-entries or deep model modules. Registry string names
-(``elasticNet``, ``fingerprints``, …) are the stable composition surface.
-Factory dictionaries remain available for backward compatibility, but are
-deprecated and may be removed in a future release — prefer
-``construct_model`` and the names in the tables above.
