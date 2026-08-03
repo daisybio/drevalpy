@@ -4,8 +4,8 @@
 
 .. role:: smaller
 
-DrEvalPy documentation is organized into shared **concepts** plus separate **CLI**
-and **Python** tracks. Both interfaces run the same evaluation pipeline; only
+DrEvalPy documentation is organized into shared **concepts** plus separate **Python**
+and **CLI** tracks. Both interfaces run the same evaluation pipeline; only
 the wiring differs.
 
 Suggested path
@@ -20,7 +20,7 @@ Suggested path
 4. :doc:`concepts/component_catalog` then
    :doc:`concepts/from_components_to_models` and :doc:`concepts/model_zoo` —
    registered atoms, how they compose, and named zoo presets.
-5. Go deeper on your track: :doc:`cli/experiment` or :doc:`python/experiments`,
+5. Go deeper on your track: :doc:`python/experiments` or :doc:`cli/experiment`,
    plus :doc:`python/models` for composition in code.
 
 For demanding or highly reproducible runs, use the Nextflow pipeline
@@ -45,19 +45,6 @@ For demanding or highly reproducible runs, use the Nextflow pipeline
    concepts/model_zoo
 
 .. toctree::
-   :maxdepth: 1
-   :caption: CLI guide
-
-   cli/quickstart
-   cli/experiment
-   cli/hyperparameter_tuning
-   cli/reporting
-   cli/wandb
-   cli/custom_splits
-   cli/pipeline_commands
-   cli/reference
-
-.. toctree::
    :maxdepth: 2
    :caption: Python guide
 
@@ -72,6 +59,19 @@ For demanding or highly reproducible runs, use the Nextflow pipeline
    python/architecture
    python/custom_models
    python/api/index
+
+.. toctree::
+   :maxdepth: 1
+   :caption: CLI guide
+
+   cli/quickstart
+   cli/experiment
+   cli/hyperparameter_tuning
+   cli/reporting
+   cli/wandb
+   cli/custom_splits
+   cli/pipeline_commands
+   cli/reference
 
 .. toctree::
    :maxdepth: 1
