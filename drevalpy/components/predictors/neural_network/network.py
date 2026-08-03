@@ -68,12 +68,12 @@ class FeedForwardNetwork(RegressionMetricsMixin, pl.LightningModule):
     def training_step(self, batch: Sequence[torch.Tensor], batch_idx: int) -> torch.Tensor:
         """Compute and log training loss for one batch."""
         _ = batch_idx
-        return self._loss_and_log(*batch, name="train_loss")
+        return self._loss_and_log(batch[0], batch[1], name="train_loss")
 
     def validation_step(self, batch: Sequence[torch.Tensor], batch_idx: int) -> torch.Tensor:
         """Compute and log validation loss for one batch."""
         _ = batch_idx
-        return self._loss_and_log(*batch, name="val_loss")
+        return self._loss_and_log(batch[0], batch[1], name="val_loss")
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
         """Build the Adam optimizer used by the original predictor."""
