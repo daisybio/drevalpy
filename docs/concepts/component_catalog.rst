@@ -16,6 +16,23 @@ explains how the names fit together and how compatibility is checked.
 Featurizers
 -----------
 
+Featurizers vs encoders
+~~~~~~~~~~~~~~~~~~~~~~~
+
+In DrEvalPy, we distinguish between featurizers and encoders.
+Both are used to transform the input data into a feature space that can be used by the predictor, but they differ in their purpose, how they are trained, and how they are used.
+
+**Featurizers** are strategies for extracting features from the input data in an unsupervised manner.
+They can be precomputed from cell-line or drug data alone, without the need for drug response labels.
+Featurizers can however have hyperparameters, for example the number of principal components to keep in a PCA transformation.
+While featurizer representations are generally predictor-agnostic, the optimal hyperparameters can depend on the predictor, the data, and the task.
+In DrEvalPy, we try to make sure that featurizers can be elegantly combined with different predictors, while ensuring that hyperparameters are optimized jointly with the predictor.
+
+**Encoders** on the other hand are parts of models that are optimized alongside the main prediction head of a model.
+Examples of encoders are the per-omics encoders inside SuperFELTR or the transformer stack inside PharmaFormer.
+As these components are tightly coupled to the prediction head and the weights of both are optimized jointly, they are not considered featurizers.
+In DrEvalPy, encoders are baked into the predictors and cannot be combined with other predictors.
+
 Featurizer types
 ~~~~~~~~~~~~~~~~
 
