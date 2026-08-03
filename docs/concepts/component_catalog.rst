@@ -13,22 +13,41 @@ definitions. They are case-sensitive. At this stage, focus on what each
 component contributes; the next page, :doc:`from_components_to_models`,
 explains how the names fit together and how compatibility is checked.
 
+Featurizers
+-----------
+
+Featurizer types
+~~~~~~~~~~~~~~~~
+
+- ``numeric_matrix`` — one dense numeric row per entity (cell line or drug).
+  Fingerprints, gene expression, and pathways use this format. It is the
+  default and the only format ``MatrixPredictor`` models can consume.
+- ``graph`` — one molecular graph object per entity, held in an object array
+  instead of a stackable matrix. The ``drugGraph`` featurizer loads
+  precomputed PyG graphs (node features ``x``, ``edge_index``); block
+  predictors such as DrugGNN run graph convolutions on them.
+- ``ragged_sequence`` — one variable-size tensor or sequence per entity, also
+  stored as an object array so lengths can differ across drugs. The ``molgnet``
+  featurizer exposes MolGNet embeddings this way; block predictors such as
+  DIPK consume them without forcing a fixed-width dense matrix.
+
 Featurizer outputs
-------------------
+~~~~~~~~~~~~~~~~~~
 
-Every featurizer can expose the same fitted representation in two ways:
+Every featurizer implements two output formats:
 
-- as a **matrix** (``transform``) — one row per entity, used when a
+- a **matrix** (``transform``) — one row per entity, used when a
   ``MatrixPredictor`` builds a single pair-level design matrix;
-- as a **dict of named blocks** (``transform_blocks``) — one or more
+- a **dict of named blocks** (``transform_blocks``) — one or more
   arrays keyed by block name (for example ``pathways`` or ``gene_expression``),
   used by a ``BlockPredictor`` that keeps side-specific or named tensors
   separate.
 
 By default, ``transform_blocks`` wraps the matrix under a single
-``default`` key. Featurizers that preserve view or modality identity
-override that method so block predictors receive the named arrays they
-declare. Feature format (numeric matrix, graph, ragged sequence) applies
+``default`` key. Multi-view featurizers override that method so block
+predictors receive the named arrays they declare; their ``transform``
+may then expose a flattened or primary view rather than every block.
+Feature format (numeric matrix, graph, ragged sequence) applies
 to the payload type inside either form; it does not replace this
 matrix-versus-dict distinction.
 
