@@ -44,10 +44,23 @@ def test_build_model_config_from_recipe_triple() -> None:
 
 def test_single_drug_recipe_infers_scope_and_identity_routing() -> None:
     config = build_model_config_from_spec("scaledGeneExpression:identity:singleDrugElasticNet")
-    assert config.model_id == "scaledGeneExpression:identity:singleDrugElasticNet"
+    assert config.model_id == "scaledGeneExpression:singleDrugElasticNet"
     assert config.scope.value == "single_drug"
     assert config.drug_featurizer is not None
     assert config.drug_featurizer.name == "identity"
+
+
+def test_two_part_single_drug_recipe_matches_explicit_identity() -> None:
+    two_part = build_model_config_from_spec("scaledGeneExpression:singleDrugElasticNet")
+    three_part = build_model_config_from_spec("scaledGeneExpression:identity:singleDrugElasticNet")
+    assert two_part.model_id == three_part.model_id == "scaledGeneExpression:singleDrugElasticNet"
+    assert two_part.drug_featurizer is not None
+    assert two_part.drug_featurizer.name == "identity"
+
+
+def test_two_part_multi_drug_recipe_rejected() -> None:
+    with pytest.raises(ValueError, match="two-part recipes require a single-drug predictor"):
+        build_model_config_from_spec("scaledGeneExpression:elasticNet")
 
 
 def test_build_model_config_from_recipe_triple_with_plus_concat() -> None:

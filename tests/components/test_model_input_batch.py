@@ -144,3 +144,33 @@ def test_to_feature_matrix_builds_drug_indices_from_entity_maps() -> None:
     matrix = batch.to_feature_matrix()
     assert matrix.shape == (1, 2)
     np.testing.assert_allclose(matrix, np.array([[0.1, 1.0]], dtype=np.float32))
+
+
+def test_subset_pairs_filters_pairs_and_early_stopping_by_drug() -> None:
+    response = DrugResponseDataset(
+        response=np.array([1.0, 2.0, 3.0, 4.0]),
+        cell_line_ids=np.array(["cl1", "cl2", "cl1", "cl2"]),
+        drug_ids=np.array(["d1", "d1", "d2", "d2"]),
+    )
+    early_stopping = DrugResponseDataset(
+        response=np.array([0.5, 0.6, 0.7]),
+        cell_line_ids=np.array(["cl1", "cl2", "cl1"]),
+        drug_ids=np.array(["d1", "d1", "d2"]),
+    )
+    batch = ModelInputBatch(
+        cell_line_ids=response.cell_line_ids,
+        drug_ids=response.drug_ids,
+        response=np.asarray(response.response, dtype=np.float64),
+        cell_line_entity_ids=np.array(["cl1", "cl2"]),
+        drug_entity_ids=np.array(["d1", "d2"]),
+        cell_line_features=np.array([[0.1], [0.2]], dtype=np.float32),
+        drug_features=None,
+        cell_line_pair_idx=np.array([0, 1, 0, 1]),
+        drug_pair_idx=np.array([0, 0, 1, 1]),
+        early_stopping_response=early_stopping,
+    )
+    subset = batch.subset_pairs(np.array([True, True, False, False]))
+    assert subset.n_pairs == 2
+    assert subset.drug_ids.tolist() == ["d1", "d1"]
+    assert subset.early_stopping_response is not None
+    assert subset.early_stopping_response.drug_ids.tolist() == ["d1", "d1"]

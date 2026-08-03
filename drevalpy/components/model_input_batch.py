@@ -127,3 +127,37 @@ class ModelInputBatch:
             drug_ids=self.drug_ids,
         )
         return self.feature_matrix_for(response)
+
+    def subset_pairs(self, mask: np.ndarray) -> ModelInputBatch:
+        """Return a batch containing only the selected response pairs."""
+        mask = np.asarray(mask, dtype=bool)
+        if mask.ndim != 1 or mask.shape[0] != self.n_pairs:
+            msg = "subset mask must be a one-dimensional boolean array matching n_pairs"
+            raise ValueError(msg)
+
+        early_stopping = self.early_stopping_response
+        if early_stopping is not None and np.any(mask):
+            selected_drugs = np.unique(self.drug_ids[mask])
+            if len(selected_drugs) != 1:
+                msg = "subset_pairs requires a single drug when early_stopping_response is present"
+                raise ValueError(msg)
+            early_stopping = early_stopping.masked(early_stopping.drug_ids == selected_drugs[0])
+            if len(early_stopping) == 0:
+                early_stopping = None
+
+        drug_pair_idx = self.drug_pair_idx
+        return ModelInputBatch(
+            cell_line_ids=self.cell_line_ids[mask],
+            drug_ids=self.drug_ids[mask],
+            response=None if self.response is None else np.asarray(self.response, dtype=np.float64)[mask],
+            cell_line_entity_ids=self.cell_line_entity_ids,
+            drug_entity_ids=self.drug_entity_ids,
+            cell_line_features=self.cell_line_features,
+            drug_features=self.drug_features,
+            cell_line_pair_idx=self.cell_line_pair_idx[mask],
+            drug_pair_idx=None if drug_pair_idx is None else drug_pair_idx[mask],
+            cell_line_blocks=dict(self.cell_line_blocks),
+            drug_blocks=dict(self.drug_blocks),
+            early_stopping_response=early_stopping,
+            training_context=self.training_context,
+        )

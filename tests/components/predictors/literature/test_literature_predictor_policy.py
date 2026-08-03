@@ -21,6 +21,7 @@ FORBIDDEN_TOKENS = (
     "structured_engine_adapter",
 )
 
+SINGLE_DRUG_PACKAGES = frozenset({"molir", "superfeltr"})
 LITERATURE_PACKAGES = (
     "dipk",
     "sparsego",
@@ -56,16 +57,24 @@ def test_literature_tree_has_no_forbidden_engine_indirection() -> None:
     assert not offenders, "\n".join(offenders)
 
 
-@pytest.mark.parametrize("package", LITERATURE_PACKAGES)
-def test_literature_predictor_modules_own_lifecycle(package: str) -> None:
-    predictor_path = LITERATURE_ROOT / package / "predictor.py"
-    assert predictor_path.is_file()
-    tree = ast.parse(predictor_path.read_text(encoding="utf-8"))
+def _defined_lifecycle_methods(path: Path) -> set[str]:
+    tree = ast.parse(path.read_text(encoding="utf-8"))
     defined_methods: set[str] = set()
     for node in tree.body:
         if isinstance(node, ast.ClassDef):
             for item in node.body:
                 if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
                     defined_methods.add(item.name)
+    return defined_methods
+
+
+@pytest.mark.parametrize("package", LITERATURE_PACKAGES)
+def test_literature_predictor_modules_own_lifecycle(package: str) -> None:
+    predictor_path = LITERATURE_ROOT / package / "predictor.py"
+    assert predictor_path.is_file()
+    defined_methods = _defined_lifecycle_methods(predictor_path)
+    if package in SINGLE_DRUG_PACKAGES:
+        shared_path = LITERATURE_ROOT / "single_drug_block.py"
+        defined_methods |= _defined_lifecycle_methods(shared_path)
     missing = [name for name in LIFECYCLE_METHODS if name not in defined_methods]
     assert not missing, f"{predictor_path} missing lifecycle methods: {missing}"

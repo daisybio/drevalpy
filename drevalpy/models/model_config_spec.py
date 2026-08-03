@@ -54,8 +54,20 @@ def _config_from_recipe_triple(
         config.validate()
         return config
     if drug_type is None:
-        msg = "recipe triple requires a drug featurizer when a cell-line featurizer is set"
-        raise ValueError(msg)
+        if scope != ModelScope.SINGLE_DRUG:
+            msg = "two-part recipes require a single-drug predictor"
+            raise ValueError(msg)
+        config = ModelConfig(
+            cell_line_featurizer=CellLineFeaturizerConfig.model_validate(
+                normalize_featurizer_config(cell_line_type, default_registry="cell_line"),
+            ),
+            drug_featurizer=None,
+            predictor=predictor,
+            prediction_mode=mode,
+            scope=scope,
+        )
+        config.validate()
+        return config
     config = ModelConfig(
         cell_line_featurizer=CellLineFeaturizerConfig.model_validate(
             normalize_featurizer_config(cell_line_type, default_registry="cell_line"),

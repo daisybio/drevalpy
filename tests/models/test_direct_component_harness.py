@@ -79,7 +79,10 @@ def test_multi_drug_sklearn_rejects_missing_drug_featurizer() -> None:
         ).validate()
 
 
-def test_single_drug_sklearn_rejects_missing_drug_identity() -> None:
+def test_single_drug_sklearn_auto_injects_identity() -> None:
+    from drevalpy.components.register_builtins import register_builtin_components
+
+    register_builtin_components()
     config = ModelConfig.from_dict(
         {
             "cell_line_featurizer": "scaledGeneExpression",
@@ -87,8 +90,9 @@ def test_single_drug_sklearn_rejects_missing_drug_identity() -> None:
             "scope": "single_drug",
         }
     )
-    with pytest.raises(ValueError, match="requires drug_featurizer='identity'"):
-        config.validate()
+    config.validate()
+    assert config.drug_featurizer is not None
+    assert config.drug_featurizer.name == "identity"
 
 
 def test_feature_free_naive_accepts_no_featurizers() -> None:

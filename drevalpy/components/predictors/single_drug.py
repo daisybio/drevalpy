@@ -8,6 +8,11 @@ import numpy as np
 
 from drevalpy.components.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors._matrix_fit import validate_matrix_fit
+from drevalpy.components.predictors.single_drug_routing import (
+    iter_drug_masks,
+    require_known_training_keys,
+    routing_keys,
+)
 from drevalpy.components.predictors.sklearn_tabular import SklearnTabularPredictor
 from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.components.state_helpers import state_mapping
@@ -30,27 +35,6 @@ class SingleDrugSklearnPredictor(SklearnTabularPredictor):
             return np.empty((batch.n_pairs, 0), dtype=np.float32)
         return batch.cell_line_features[batch.cell_line_pair_idx]
 
-    @staticmethod
-    def _routing_keys(batch: ModelInputBatch) -> np.ndarray:
-        identity_block = batch.drug_blocks.get("identity")
-        categories_block = batch.drug_blocks.get("identity_categories")
-        if identity_block is None or categories_block is None or batch.drug_pair_idx is None:
-            msg = "Single-drug predictors require drug identity features for per-drug routing"
-            raise ValueError(msg)
-
-        identity_matrix = np.asarray(identity_block.values)
-        category_ids = np.asarray(categories_block.values, dtype=str).reshape(-1)
-        if identity_matrix.ndim != 2 or identity_matrix.shape[1] != len(category_ids):
-            msg = "Drug identity features and identity categories are misaligned"
-            raise ValueError(msg)
-
-        pair_identity = identity_matrix[batch.drug_pair_idx]
-        known = np.isclose(pair_identity.sum(axis=1), 1.0)
-        keys = np.full(batch.n_pairs, "", dtype=object)
-        if np.any(known):
-            keys[known] = category_ids[np.argmax(pair_identity[known], axis=1)]
-        return np.asarray(keys, dtype=str)
-
     def fit(self, batch: ModelInputBatch) -> None:
         if batch.response is None:
             msg = "Single-drug matrix predictors require response values during fit"
@@ -58,27 +42,24 @@ class SingleDrugSklearnPredictor(SklearnTabularPredictor):
         x = self._cell_line_matrix(batch)
         y = np.asarray(batch.response, dtype=np.float64).ravel()
         validate_matrix_fit(x, y, n_pairs=batch.n_pairs)
-        routing_keys = self._routing_keys(batch)
-        if np.any(routing_keys == ""):
-            msg = "Training pairs contain unknown drug identities"
-            raise ValueError(msg)
+        keys = routing_keys(batch)
+        require_known_training_keys(keys)
 
         self._estimators = {}
-        for drug_id in np.unique(routing_keys):
-            mask = routing_keys == drug_id
+        for drug_id, mask in iter_drug_masks(batch):
             estimator = self._make_estimator()
             estimator.fit(x[mask], y[mask])
-            self._estimators[str(drug_id)] = estimator
+            self._estimators[drug_id] = estimator
 
     def predict(self, batch: ModelInputBatch) -> np.ndarray:
         x = self._cell_line_matrix(batch)
-        routing_keys = self._routing_keys(batch)
+        keys = routing_keys(batch)
         predictions = np.full(batch.n_pairs, np.nan, dtype=np.float64)
-        for drug_id in np.unique(routing_keys):
+        for drug_id in np.unique(keys):
             estimator = self._estimators.get(str(drug_id))
             if drug_id == "" or estimator is None:
                 continue
-            mask = routing_keys == drug_id
+            mask = keys == drug_id
             predictions[mask] = np.asarray(estimator.predict(x[mask]), dtype=np.float64)
         return predictions
 

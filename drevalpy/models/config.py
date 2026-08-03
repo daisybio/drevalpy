@@ -14,6 +14,50 @@ from drevalpy.types.model_scope import ModelScope
 from drevalpy.types.prediction_mode import PredictionMode
 
 
+def _infer_scope_for_predictor(pred_cls: type[Any]) -> ModelScope | None:
+    supported_scopes = getattr(pred_cls, "supported_scopes", None)
+    if supported_scopes is not None and len(supported_scopes) == 1:
+        return next(iter(supported_scopes))
+    return None
+
+
+def _normalize_single_drug_identity(data: dict[str, Any]) -> dict[str, Any]:
+    """Inject implicit identity drug featurizer for single-drug feature-based configs."""
+    from drevalpy.components.registry import get_predictor
+
+    predictor = data.get("predictor")
+    if predictor is None:
+        return data
+    if isinstance(predictor, PredictorConfig):
+        predictor_name = predictor.name
+    elif isinstance(predictor, dict):
+        predictor_name = str(predictor.get("name", ""))
+    else:
+        predictor_name = str(predictor)
+    try:
+        pred_cls = get_predictor(predictor_name)
+    except (ValueError, ImportError):
+        return data
+
+    explicit_scope = "scope" in data
+    scope = data.get("scope", ModelScope.MULTI_DRUG)
+    if not explicit_scope:
+        inferred = _infer_scope_for_predictor(pred_cls)
+        if inferred is not None:
+            data = {**data, "scope": inferred}
+            scope = inferred
+
+    if scope != ModelScope.SINGLE_DRUG:
+        return data
+    if data.get("cell_line_featurizer") is None:
+        return data
+    if data.get("drug_featurizer") is not None:
+        return data
+    if getattr(pred_cls, "routing_drug_featurizer", None) != "identity":
+        return data
+    return {**data, "drug_featurizer": DrugFeaturizerConfig(name="identity")}
+
+
 class FeaturizerConfig(BaseModel):
     """Declarative specification for a featurizer."""
 
@@ -180,14 +224,22 @@ class ModelConfig(BaseModel):
         if predictor is not None and not isinstance(predictor, PredictorConfig):
             if isinstance(predictor, (str, dict)):
                 normalized["predictor"] = normalize_predictor_config(predictor)
-        return normalized
+        return _normalize_single_drug_identity(normalized)
 
     @property
     def model_id(self) -> str | None:
         """Stable identifier for a fully specified combination."""
         if self.cell_line_featurizer is None and self.drug_featurizer is None:
             return self.predictor.name
-        if self.cell_line_featurizer is None or self.drug_featurizer is None:
+        if self.cell_line_featurizer is None:
+            return None
+        if (
+            self.scope == ModelScope.SINGLE_DRUG
+            and self.drug_featurizer is not None
+            and self.drug_featurizer.name == "identity"
+        ):
+            return f"{self.cell_line_featurizer.name}:{self.predictor.name}"
+        if self.drug_featurizer is None:
             return None
         return f"{self.cell_line_featurizer.name}:" f"{self.drug_featurizer.name}:" f"{self.predictor.name}"
 
@@ -195,6 +247,11 @@ class ModelConfig(BaseModel):
         """Check registry slots, feature compatibility, and prediction mode."""
         from drevalpy.models.config_validation import validate_model_config
 
+        normalized = _normalize_single_drug_identity(self.model_dump())
+        if normalized != self.model_dump():
+            refreshed = ModelConfig.model_validate(normalized)
+            self.drug_featurizer = refreshed.drug_featurizer
+            self.scope = refreshed.scope
         validate_model_config(self)
 
     @classmethod

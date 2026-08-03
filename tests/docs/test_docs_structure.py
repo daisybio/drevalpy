@@ -119,10 +119,10 @@ def test_zoo_presets_documented_in_model_zoo() -> None:
     generated = generate_model_zoo_rst()
     missing = sorted(name for name in zoo_names if name not in generated)
     assert not missing, f"Zoo presets missing from generated model zoo catalog: {missing}"
-    assert "``scaledGeneExpression:identity:singleDrugElasticNet``" in generated
-    assert "``scaledGeneExpression:identity:singleDrugRandomForest``" in generated
-    assert "``molirOmics:identity:molir``" in generated
-    assert "``superfeltrOmics:identity:superfeltr``" in generated
+    assert "``scaledGeneExpression:singleDrugElasticNet``" in generated
+    assert "``scaledGeneExpression:singleDrugRandomForest``" in generated
+    assert "``molirOmics:molir``" in generated
+    assert "``superfeltrOmics:superfeltr``" in generated
 
 
 def test_component_catalog_is_registry_driven_and_synchronized() -> None:

@@ -4,24 +4,15 @@ from __future__ import annotations
 
 from typing import Any, ClassVar
 
-import numpy as np
-
 from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.feature_block import BlockSpec
-from drevalpy.components.model_input_batch import ModelInputBatch
-from drevalpy.components.predictors.literature._algorithm_lifecycle import (
-    predict_with_algorithm,
-    train_fitted_algorithm,
-)
-from drevalpy.components.predictors.literature._block_inputs import materialize_block_inputs
 from drevalpy.components.predictors.literature._metadata import MOLIR_REFERENCE
-from drevalpy.components.predictors.literature._torch_state import load_object_mapping, save_object_mapping
+from drevalpy.components.predictors.literature._training_helpers import LiteratureTrainingMixin
 from drevalpy.components.predictors.literature.molir.algorithm import MOLIR
 from drevalpy.components.predictors.literature.molir.state import apply_state, export_state
-from drevalpy.components.predictors.state_errors import PredictorStateError
-from drevalpy.components.predictors.structured import BlockPredictor
+from drevalpy.components.predictors.literature.single_drug_block import SingleDrugBlockPredictor
 from drevalpy.components.registry import register_predictor
-from drevalpy.models.config import ModelScope, PredictionMode
+from drevalpy.models.config import PredictionMode
 
 
 @register_predictor(
@@ -31,10 +22,9 @@ from drevalpy.models.config import ModelScope, PredictionMode
     drug_contract=FeatureFormat.NUMERIC_MATRIX,
     reference=MOLIR_REFERENCE,
 )
-class MOLIRPredictor(BlockPredictor):
+class MOLIRPredictor(SingleDrugBlockPredictor):
     """Registered MOLIR predictor."""
 
-    supported_scopes: ClassVar[frozenset[ModelScope]] = frozenset({ModelScope.SINGLE_DRUG})
     required_cell_line_blocks: ClassVar[tuple[str, ...]] = (
         "gene_expression",
         "mutations",
@@ -47,16 +37,19 @@ class MOLIRPredictor(BlockPredictor):
         BlockSpec("copy_number_variation_gistic", FeatureFormat.NUMERIC_MATRIX),
     )
     required_drug_block_specs: ClassVar[tuple[BlockSpec, ...]] = (BlockSpec("identity", FeatureFormat.NUMERIC_MATRIX),)
-    routing_drug_featurizer: ClassVar[str] = "identity"
-    requires_drug_featurizer: ClassVar[bool] = True
     validate_drug_graphs: ClassVar[bool] = False
     supports_early_stopping: ClassVar[bool] = True
     supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset({PredictionMode.REGRESSION})
 
-    def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
-        super().__init__(hyperparameters)
-        self._algorithm: MOLIR | None = None
-        self._engine_preload_state: dict[str, Any] = {}
+    @property
+    def _algorithm_cls(self) -> type[LiteratureTrainingMixin]:
+        return MOLIR
+
+    def _export_algorithm_state(self, algorithm: LiteratureTrainingMixin) -> dict[str, Any]:
+        return export_state(algorithm)  # type: ignore[arg-type]
+
+    def _apply_algorithm_state(self, payload: dict[str, Any]) -> LiteratureTrainingMixin:
+        return apply_state(payload)
 
     @classmethod
     def get_default_hyperparameters(cls) -> dict[str, object]:
@@ -68,57 +61,3 @@ class MOLIRPredictor(BlockPredictor):
         if callable(space):
             return dict(space())
         return {}
-
-    def fit(self, batch: ModelInputBatch) -> None:
-        cell_lines, _ = materialize_block_inputs(
-            self,
-            batch,
-            required_cell_line_blocks=self.required_cell_line_blocks,
-            required_drug_blocks=self.required_drug_blocks,
-            requires_drug_featurizer=True,
-        )
-        self._algorithm = train_fitted_algorithm(
-            MOLIR,
-            dict(self._hyperparameters),
-            self._engine_preload_state,
-            batch,
-            cell_lines,
-            None,
-        )
-
-    def predict(self, batch: ModelInputBatch) -> np.ndarray:
-        cell_lines, _ = materialize_block_inputs(
-            self,
-            batch,
-            required_cell_line_blocks=self.required_cell_line_blocks,
-            required_drug_blocks=self.required_drug_blocks,
-            requires_drug_featurizer=True,
-        )
-        return predict_with_algorithm(self._algorithm, batch, cell_lines, None)
-
-    def is_fitted(self) -> bool:
-        return self._algorithm is not None
-
-    def get_state(self) -> dict[str, object]:
-        if self._algorithm is None:
-            return {}
-        payload = export_state(self._algorithm)
-        payload["predictor_hyperparameters"] = dict(self._hyperparameters)
-        return {"payload": save_object_mapping(payload)}
-
-    def set_state(self, state: dict[str, object]) -> None:
-        blob = state.get("payload")
-        if not isinstance(blob, (bytes, bytearray)):
-            msg = f"{self.__class__.__name__} state requires a payload byte blob"
-            raise PredictorStateError(msg)
-        try:
-            payload = load_object_mapping(bytes(blob))
-        except Exception as exc:
-            msg = f"{self.__class__.__name__} payload could not be deserialized"
-            raise PredictorStateError(msg) from exc
-        hyperparameters = payload.get("predictor_hyperparameters")
-        if not isinstance(hyperparameters, dict):
-            msg = f"{self.__class__.__name__} payload is missing predictor_hyperparameters"
-            raise PredictorStateError(msg)
-        self._hyperparameters = dict(hyperparameters)
-        self._algorithm = apply_state(payload)

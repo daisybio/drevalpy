@@ -121,7 +121,7 @@ Other single-view stacks follow the same pattern:
 
          normalizedProteomics:fingerprints:randomForest
          landmarkGenes:fingerprints:xgboost
-         scaledGeneExpression:identity:singleDrugElasticNet
+         scaledGeneExpression:singleDrugElasticNet
 
    .. tab-item:: YAML
       :sync: yaml
@@ -141,8 +141,8 @@ Other single-view stacks follow the same pattern:
       .. code-block:: yaml
 
          cell_line_featurizer: scaledGeneExpression
-         drug_featurizer: identity
          predictor: singleDrugElasticNet
+         scope: single_drug
 
    .. tab-item:: ModelConfig
       :sync: modelconfig
@@ -153,6 +153,7 @@ Other single-view stacks follow the same pattern:
              CellLineFeaturizerConfig,
              DrugFeaturizerConfig,
              ModelConfig,
+             ModelScope,
              PredictorConfig,
          )
 
@@ -182,13 +183,14 @@ Other single-view stacks follow the same pattern:
              cell_line_featurizer=CellLineFeaturizerConfig(
                  name="scaledGeneExpression"
              ),
-             drug_featurizer=DrugFeaturizerConfig(name="identity"),
              predictor=PredictorConfig(name="singleDrugElasticNet"),
+             scope=ModelScope.SINGLE_DRUG,
          )
 
-In the last example, ``singleDrugElasticNet`` uses the ``identity`` drug
-featurizer, which one-hot encodes drug identifiers, to create a single
-estimator per drug.
+In the last example, ``singleDrugElasticNet`` omits an explicit drug
+featurizer from the recipe. The config normalizer injects the implicit
+``identity`` routing featurizer, which one-hot encodes drug identifiers to
+create a single estimator per drug.
 
 Featurizers that can operate on multiple omics layers
 -----------------------------------------------------

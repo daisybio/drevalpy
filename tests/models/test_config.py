@@ -74,13 +74,29 @@ def test_model_id_for_predictor_only_baseline() -> None:
     assert config.model_id == "naiveMean"
 
 
-def test_model_id_none_for_partial_featurizer_config() -> None:
+def test_model_id_none_for_partial_multi_drug_config() -> None:
     config = ModelConfig(
         cell_line_featurizer=CellLineFeaturizerConfig(name="scaledGeneExpression"),
         drug_featurizer=None,
         predictor=PredictorConfig(name="randomForest"),
     )
     assert config.model_id is None
+
+
+def test_model_id_for_implicit_identity_single_drug() -> None:
+    from drevalpy.components.register_builtins import register_builtin_components
+    from drevalpy.models.config import ModelScope
+
+    register_builtin_components()
+    config = ModelConfig(
+        cell_line_featurizer=CellLineFeaturizerConfig(name="scaledGeneExpression"),
+        drug_featurizer=None,
+        predictor=PredictorConfig(name="singleDrugElasticNet"),
+        scope=ModelScope.SINGLE_DRUG,
+    )
+    assert config.drug_featurizer is not None
+    assert config.drug_featurizer.name == "identity"
+    assert config.model_id == "scaledGeneExpression:singleDrugElasticNet"
 
 
 def test_model_config_parses_compact_featurizer_sections() -> None:

@@ -1,4 +1,3 @@
 cell_line_featurizer: scaledGeneExpression
-drug_featurizer: identity
 predictor: singleDrugElasticNet
 scope: single_drug

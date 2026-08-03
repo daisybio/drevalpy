@@ -26,6 +26,8 @@ REQUIRED_MIRRORS = (
     "components/predictors/literature/_training_helpers.py",
     "components/predictors/literature/precily/predictor.py",
     "components/predictors/literature/srmf/predictor.py",
+    "components/predictors/single_drug_routing.py",
+    "components/predictors/literature/single_drug_block.py",
     "components/predictors/literature/molir/predictor.py",
     "components/predictors/literature/superfeltr/predictor.py",
     "components/predictors/literature/pharmaformer/predictor.py",

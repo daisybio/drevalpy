@@ -149,7 +149,7 @@ def test_single_drug_sklearn_zoo_entries_use_identity_for_routing() -> None:
     assert random_forest.drug_featurizer is not None
     assert elastic_net.drug_featurizer.name == "identity"
     assert random_forest.drug_featurizer.name == "identity"
-    assert elastic_net.model_id == "scaledGeneExpression:identity:singleDrugElasticNet"
+    assert elastic_net.model_id == "scaledGeneExpression:singleDrugElasticNet"
     assert elastic_net.scope.value == "single_drug"
     elastic_net.validate()
     random_forest.validate()

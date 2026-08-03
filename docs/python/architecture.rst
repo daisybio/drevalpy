@@ -153,12 +153,14 @@ Scope and early stopping
 
 - Multi-drug is the default model scope and requires a drug featurizer for
   matrix/block predictors that consume the drug side.
-- Feature-based single-drug models use the ``identity`` drug featurizer to
-  create and route per-drug estimators without adding identity columns to
-  their design matrices. A three-slot recipe infers ``scope: single_drug``
-  from the predictor's sole supported scope.
+- Feature-based single-drug models omit the implicit ``identity`` drug
+  featurizer from recipes. The config normalizer injects it to create and
+  route per-drug estimators without adding identity columns to design
+  matrices. A two-part recipe infers ``scope: single_drug`` from the
+  predictor's sole supported scope.
 - Literature predictors declare the fitted featurizer blocks they need; the
-  single-drug MOLIR and SuperFELTR presets use ``identity`` for drug routing.
+  single-drug MOLIR and SuperFELTR presets follow the same implicit-identity
+  contract and route one algorithm per drug.
 - Feature-free stacks skip featurizer fit/transform entirely.
 - Early stopping is derived from predictor capability metadata
   (``supports_early_stopping``) via the zoo predictor name.

@@ -36,6 +36,14 @@ def _featurizer_recipe(feat: FeaturizerConfig | None) -> str:
 def _model_recipe(config: ModelConfig) -> str:
     if config.cell_line_featurizer is None and config.drug_featurizer is None:
         return config.predictor.name
+    if (
+        config.scope == ModelScope.SINGLE_DRUG
+        and config.drug_featurizer is not None
+        and config.drug_featurizer.name == "identity"
+        and config.cell_line_featurizer is not None
+    ):
+        cell = _featurizer_recipe(config.cell_line_featurizer)
+        return f"{cell}:{config.predictor.name}"
     cell = _featurizer_recipe(config.cell_line_featurizer)
     drug = _featurizer_recipe(config.drug_featurizer)
     return f"{cell}:{drug}:{config.predictor.name}"
@@ -87,9 +95,9 @@ def generate_model_zoo_rst() -> str:
         "Single-drug models",
         "------------------",
         "",
-        "Feature-based single-drug presets use ``identity`` to create and route one",
-        "model per drug; identity is not appended to the predictor matrix. MOLIR",
-        "and SuperFELTR use the same routing featurizer.",
+        "Feature-based single-drug presets omit the implicit ``identity`` drug",
+        "featurizer from recipes; it routes one model per drug without entering",
+        "the predictor matrix. MOLIR and SuperFELTR follow the same contract.",
         "",
         *(_render_scope_table(ModelScope.SINGLE_DRUG)),
     ]
