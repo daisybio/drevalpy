@@ -220,12 +220,21 @@ qualified name:
          drug_featurizer: fingerprints
          predictor: randomForest
 
-         # pca[methylation]:fingerprints:randomForest
-         # cell_line_featurizer:
-         #   name: pca
-         #   view: methylation
-         # drug_featurizer: fingerprints
-         # predictor: randomForest
+      .. code-block:: yaml
+
+         cell_line_featurizer:
+           name: pca
+           view: methylation
+         drug_featurizer: fingerprints
+         predictor: randomForest
+
+      .. code-block:: yaml
+
+         cell_line_featurizer:
+           name: raw
+           view: proteomics
+         drug_featurizer: fingerprints
+         predictor: randomForest
 
    .. tab-item:: ModelConfig
       :sync: modelconfig
@@ -239,6 +248,8 @@ qualified name:
              PredictorConfig,
          )
 
+      .. code-block:: python
+
          config = ModelConfig(
              cell_line_featurizer=CellLineFeaturizerConfig(
                  name="raw",
@@ -248,14 +259,27 @@ qualified name:
              predictor=PredictorConfig(name="randomForest"),
          )
 
-         # pca[methylation]:fingerprints:randomForest
-         # ModelConfig(
-         #     cell_line_featurizer=CellLineFeaturizerConfig(
-         #         name="pca", view="methylation"
-         #     ),
-         #     drug_featurizer=DrugFeaturizerConfig(name="fingerprints"),
-         #     predictor=PredictorConfig(name="randomForest"),
-         # )
+      .. code-block:: python
+
+         config = ModelConfig(
+             cell_line_featurizer=CellLineFeaturizerConfig(
+                 name="pca",
+                 view="methylation",
+             ),
+             drug_featurizer=DrugFeaturizerConfig(name="fingerprints"),
+             predictor=PredictorConfig(name="randomForest"),
+         )
+
+      .. code-block:: python
+
+         config = ModelConfig(
+             cell_line_featurizer=CellLineFeaturizerConfig(
+                 name="raw",
+                 view="proteomics",
+             ),
+             drug_featurizer=DrugFeaturizerConfig(name="fingerprints"),
+             predictor=PredictorConfig(name="randomForest"),
+         )
 
 Common view aliases include ``expression``, ``methylation``, ``mutations``,
 ``proteomics``, and ``cnv``.
@@ -292,6 +316,14 @@ Within a featurizer slot, ``+`` concatenates several featurizers into
          drug_featurizer: fingerprints
          predictor: xgboost
 
+      .. code-block:: yaml
+
+         cell_line_featurizer:
+           - landmarkGenes
+           - normalizedProteomics
+         drug_featurizer: fingerprints
+         predictor: lightgbm
+
    .. tab-item:: ModelConfig
       :sync: modelconfig
 
@@ -303,6 +335,8 @@ Within a featurizer slot, ``+`` concatenates several featurizers into
              ModelConfig,
              PredictorConfig,
          )
+
+      .. code-block:: python
 
          config = ModelConfig(
              cell_line_featurizer=CellLineFeaturizerConfig(
@@ -316,6 +350,22 @@ Within a featurizer slot, ``+`` concatenates several featurizers into
              ),
              drug_featurizer=DrugFeaturizerConfig(name="fingerprints"),
              predictor=PredictorConfig(name="xgboost"),
+         )
+
+      .. code-block:: python
+
+         config = ModelConfig(
+             cell_line_featurizer=CellLineFeaturizerConfig(
+                 name="concatFeaturizers",
+                 hyperparameters={
+                     "featurizers": [
+                         "landmarkGenes",
+                         "normalizedProteomics",
+                     ],
+                 },
+             ),
+             drug_featurizer=DrugFeaturizerConfig(name="fingerprints"),
+             predictor=PredictorConfig(name="lightgbm"),
          )
 
 The left slot can concatenate several cell-line featurizers; the middle slot
