@@ -1,40 +1,22 @@
 Model zoo
 =========
 
-The first two pages established the vocabulary and grammar:
+The previous two pages established the vocabulary and grammar of building models:
 
 - :doc:`component_catalog` lists the available building blocks.
 - :doc:`from_components_to_models` shows how they form a recipe.
 
 While these interfaces allow building models in a flexible way, we are aware that certain featurizer-predictor combinations are used frequently.
-In order to make it easier to use these frequently used combinations, we provide a so-called 'model zoo' which is a collection of named model configurations.
+In order to make it easier to use these frequently used combinations, we provide a so-called 'model zoo' which is a collection of curated model configurations.
 
-Why presets?
-------------
+Each model configuration is a YAML configuration file. The name is derived from the file name.
+Just like any configuration YAML file, zoo YAML files can contain overrides for the hyperparameter spaces and default hyperparameters of the components.
 
-A zoo preset gives an architecture:
+In the table below, you can find the currently available zoo models.
 
-- a short, stable name,
-- a validated combination of featurizers and predictor,
-- documented intent, and
-- one definition shared by every interface.
-
-Use a preset when it already represents the architecture you need. Compose a
-custom recipe when you deliberately want a different combination of registered
-components; register an extension only when the catalog itself lacks a needed
-component.
-
-Reading the catalog
--------------------
-
-Zoo inputs define architecture, not HPO search dimensions. Tuning searches
-predictor (and tunable featurizer) hyperparameters on top of a fixed recipe.
-In the tables below:
-
-- **Name** is the preset selected by a workflow.
-- **Description** states its intended model family.
-- **Composition** is the resolved recipe, using the exact atoms introduced in
-  the component catalog.
+- **Name** is the alias of the zoo model. It can be used everywhere a recipe string is accepted.
+- **Description** the description of the predictor.
+- **Composition** the equivalent recipe string, using the exact atoms introduced in the component catalog.
 
 .. include:: _generated_model_zoo.rst
 

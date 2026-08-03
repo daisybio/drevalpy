@@ -388,7 +388,7 @@ Hyperparameter spaces
 
 Only the YAML and ModelConfig interfaces allow specifying hyperparameter
 spaces. Recipe strings describe architecture only; when you use a recipe,
-each component falls back to its built-in ``get_hyperparameter_space()``.
+each component falls back to its built-in hyperparameter space.
 
 On a YAML or ModelConfig stack, set ``hyperparameter_space`` on a component to
 **replace** that component's built-in search space. Specs use local parameter
