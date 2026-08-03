@@ -482,7 +482,8 @@ dotted and mirror the composed stack:
 .. code-block:: text
 
    predictor.<registryName>.<param>
-   featurizer.<registry>.<qualifiedFeaturizer>.<param>
+   cell_line_featurizer.<qualifiedFeaturizer>.<param>
+   drug_featurizer.<qualifiedFeaturizer>.<param>
 
 The featurizer selector is the same qualified name as in a recipe, including
 the view bracket when present (``pca[expression]``, ``landmarkGenes``, …).
@@ -492,7 +493,7 @@ For the example above, that yields:
 
    predictor.elasticNet.alpha
    predictor.elasticNet.l1_ratio
-   featurizer.cell_line.pca[expression].n_components
+   cell_line_featurizer.pca[expression].n_components
 
 The same base featurizer on different views stays independently tunable
 (``pca[expression]`` vs ``pca[proteomics]``). Repeating the same qualified

@@ -21,16 +21,16 @@ def test_merge_all_three_spaces() -> None:
         predictor_space={"alpha": {"type": "float", "low": 0.1, "high": 1.0, "default": 0.5}},
     )
     assert set(merged) == {
-        "featurizer.cell_line.n_components",
-        "featurizer.drug.n_bits",
+        "cell_line_featurizer.n_components",
+        "drug_featurizer.n_bits",
         "predictor.alpha",
     }
 
 
 def test_split_hyperparameters_inverts_merge() -> None:
     merged = {
-        "featurizer.cell_line.n_components": 8,
-        "featurizer.drug.n_bits": 128,
+        "cell_line_featurizer.n_components": 8,
+        "drug_featurizer.n_bits": 128,
         "predictor.alpha": 0.5,
     }
     cell_line_hp, drug_hp, predictor_hp = split_hyperparameters(merged)
@@ -49,9 +49,9 @@ def test_merge_concat_child_spaces_use_qualified_selectors() -> None:
     register_builtins.register_builtin_components()
     config = ModelConfig.from_spec("pca[expression]+landmarkGenes:fingerprints:randomForest")
     merged = merge_model_config_spaces(config)
-    pca_keys = [key for key in merged if key.startswith("featurizer.cell_line.pca[expression].")]
+    pca_keys = [key for key in merged if key.startswith("cell_line_featurizer.pca[expression].")]
     assert pca_keys
-    assert any(key.startswith("featurizer.cell_line.landmarkGenes.") for key in merged)
+    assert any(key.startswith("cell_line_featurizer.landmarkGenes.") for key in merged)
     assert any("predictor.randomForest." in key for key in merged)
 
 
@@ -59,8 +59,8 @@ def test_merge_same_name_different_views_get_distinct_keys() -> None:
     register_builtins.register_builtin_components()
     config = ModelConfig.from_spec("pca[expression]+pca[proteomics]:fingerprints:randomForest")
     merged = merge_model_config_spaces(config)
-    assert any(key.startswith("featurizer.cell_line.pca[expression].") for key in merged)
-    assert any(key.startswith("featurizer.cell_line.pca[proteomics].") for key in merged)
+    assert any(key.startswith("cell_line_featurizer.pca[expression].") for key in merged)
+    assert any(key.startswith("cell_line_featurizer.pca[proteomics].") for key in merged)
 
 
 def test_apply_rejects_indexed_featurizer_keys() -> None:
@@ -72,7 +72,7 @@ def test_apply_rejects_indexed_featurizer_keys() -> None:
     ):
         apply_merged_to_model_config(
             config,
-            {"featurizer.cell_line.pca.0.n_components": 8},
+            {"cell_line_featurizer.pca.0.n_components": 8},
         )
 
 
@@ -92,6 +92,6 @@ def test_extract_defaults() -> None:
         predictor_space={"alpha": {"type": "float", "default": 0.1}},
     )
     assert defaults == {
-        "featurizer.cell_line.n_components": 16,
+        "cell_line_featurizer.n_components": 16,
         "predictor.alpha": 0.1,
     }

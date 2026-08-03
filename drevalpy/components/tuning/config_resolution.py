@@ -75,10 +75,10 @@ def assert_component_local_hyperparameters(config: ModelConfig) -> None:
         for key in featurizer.hyperparameters:
             if key == "featurizers":
                 continue
-            if "." in key or key.startswith(("featurizer.", "predictor.")):
+            if "." in key or key.startswith(("cell_line_featurizer.", "drug_featurizer.", "predictor.")):
                 msg = f"namespaced key {key!r} found in {featurizer.name} hyperparameters"
                 raise AssertionError(msg)
     for key in config.predictor.hyperparameters:
-        if key.startswith(("featurizer.", "predictor.")) or key.count(".") >= 2:
+        if key.startswith(("cell_line_featurizer.", "drug_featurizer.", "predictor.")) or key.count(".") >= 2:
             msg = f"namespaced key {key!r} found in predictor hyperparameters"
             raise AssertionError(msg)

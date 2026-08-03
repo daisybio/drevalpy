@@ -59,8 +59,8 @@ def test_default_hyperparameters_for_constructed_pca_model() -> None:
     hp = model_cls.get_default_hyperparameters()
 
     assert not any("." in key for key in hp)
-    assert "featurizer.cell_line.pca[expression].n_components" not in hp
-    assert "featurizer.cell_line.pca.0.n_components" not in hp
+    assert "cell_line_featurizer.pca[expression].n_components" not in hp
+    assert "cell_line_featurizer.pca.0.n_components" not in hp
     assert hp["n_components"] == 128
 
     config = default_config_for_drp_model(model_cls)

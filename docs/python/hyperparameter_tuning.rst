@@ -16,7 +16,7 @@ Public API
   grid.
 - ``DRPModel.get_structured_hyperparameter_space()`` exposes the tunable
   search space with dotted keys (``predictor.elasticNet.alpha``,
-  ``featurizer.cell_line.pca[expression].n_components``, …). Featurizer keys
+  ``cell_line_featurizer.pca[expression].n_components``, …). Featurizer keys
   use the **qualified recipe selector** (including the view bracket when the
   featurizer has a view), for example ``pca[expression]`` or
   ``landmarkGenes``. Indexed forms such as ``pca.0`` are rejected. Flat

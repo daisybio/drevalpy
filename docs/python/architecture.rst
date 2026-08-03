@@ -111,7 +111,8 @@ Featurizer hyperparameter tuning (dotted keys)
 Ray/Optuna search spaces use **dotted keys** that mirror the composed stack.
 Predictor parameters look like ``predictor.<registryName>.<param>``; featurizer
 parameters look like
-``featurizer.<registry>.<qualifiedFeaturizer>.<param>``, where the qualified
+``cell_line_featurizer.<qualifiedFeaturizer>.<param>`` or
+``drug_featurizer.<qualifiedFeaturizer>.<param>``, where the qualified
 name matches the recipe atom (for example ``pca[expression]`` or
 ``landmarkGenes``).
 
@@ -121,8 +122,8 @@ Examples:
 
    predictor.elasticNet.alpha
    predictor.elasticNet.l1_ratio
-   featurizer.cell_line.pca[expression].n_components
-   featurizer.cell_line.landmarkGenes.standardize
+   cell_line_featurizer.pca[expression].n_components
+   cell_line_featurizer.landmarkGenes.standardize
 
 The same base featurizer on different views stays independently tunable
 (``pca[expression]`` vs ``pca[proteomics]``). Repeating the same qualified

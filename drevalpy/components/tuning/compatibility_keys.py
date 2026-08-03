@@ -25,7 +25,7 @@ def _featurizer_space_keys(featurizer: FeaturizerConfig, registry: str) -> set[s
 def _is_exportable_space_flat_key(registry: str, featurizer_name: str, key: str, flat: dict[str, Any]) -> bool:
     if key in {"featurizers", "view", "views"}:
         return False
-    if "." in key or key.startswith(("featurizer.", "predictor.")):
+    if "." in key or key.startswith(("cell_line_featurizer.", "drug_featurizer.", "predictor.")):
         return False
     if (registry, featurizer_name) in _LEGACY_FEATURIZER_FLAT_KEYS:
         return False
