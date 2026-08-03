@@ -35,6 +35,7 @@ extensions = [
     "sphinx_autodoc_typehints",
     "sphinx.ext.intersphinx",
     "sphinx.ext.autosectionlabel",
+    "sphinx_design",
     "sphinx_reredirects",
 ]
 

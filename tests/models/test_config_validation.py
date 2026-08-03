@@ -96,15 +96,18 @@ def test_unknown_cell_line_featurizer_fails() -> None:
         validate_model_config(config)
 
 
-def test_wrong_registry_slot_fails() -> None:
+def test_wrong_registry_is_coerced_by_slot_subclasses() -> None:
     _register_dense_pair()
     config = ModelConfig(
         cell_line_featurizer=FeaturizerConfig(name="denseCellLine", registry="drug"),
-        drug_featurizer=FeaturizerConfig(name="denseDrug", registry="drug"),
+        drug_featurizer=FeaturizerConfig(name="denseDrug", registry="cell_line"),
         predictor=PredictorConfig(name="densePred"),
     )
-    with pytest.raises(ValueError, match="cell_line_featurizer must use registry='cell_line'"):
-        validate_model_config(config)
+    assert config.cell_line_featurizer is not None
+    assert config.cell_line_featurizer.registry == "cell_line"
+    assert config.drug_featurizer is not None
+    assert config.drug_featurizer.registry == "drug"
+    validate_model_config(config)
 
 
 def test_graph_featurizer_with_matrix_predictor_fails() -> None:

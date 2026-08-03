@@ -89,6 +89,7 @@ pre-commit = "*"
 pre-commit-hooks = "*"
 pyupgrade = "*"
 pep8-naming = "*"
+sphinx-design = "^0.7.0"
 
 [tool.poetry.group.torch-cuda]
 optional = true

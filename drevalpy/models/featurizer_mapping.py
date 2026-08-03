@@ -5,7 +5,12 @@ from __future__ import annotations
 from typing import Any
 
 from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
-from drevalpy.models.config import FeaturizerConfig, ModelConfig
+from drevalpy.models.config import (
+    CellLineFeaturizerConfig,
+    DrugFeaturizerConfig,
+    FeaturizerConfig,
+    ModelConfig,
+)
 
 CELL_LINE_VIEW_TO_FEATURIZER = {
     "gene_expression": "scaledGeneExpression",
@@ -44,17 +49,17 @@ def _child_config_for_view(view: str, hyperparameters: dict[str, Any]) -> str | 
     return token
 
 
-def cell_line_featurizer_from_views(views: list[str], hyperparameters: dict[str, Any]) -> FeaturizerConfig:
+def cell_line_featurizer_from_views(views: list[str], hyperparameters: dict[str, Any]) -> CellLineFeaturizerConfig:
     """Build a compact featurizer config from legacy cell-line view names."""
     if len(views) == 1:
-        return FeaturizerConfig.model_validate(
+        return CellLineFeaturizerConfig.model_validate(
             normalize_featurizer_config(
                 _child_config_for_view(views[0], hyperparameters),
                 default_registry="cell_line",
             )
         )
     children = [_child_config_for_view(view, hyperparameters) for view in views]
-    return FeaturizerConfig.model_validate(
+    return CellLineFeaturizerConfig.model_validate(
         normalize_featurizer_config(
             {"concatFeaturizers": {"featurizers": children}},
             default_registry="cell_line",
@@ -62,10 +67,10 @@ def cell_line_featurizer_from_views(views: list[str], hyperparameters: dict[str,
     )
 
 
-def drug_featurizer_from_view(view: str) -> FeaturizerConfig:
+def drug_featurizer_from_view(view: str) -> DrugFeaturizerConfig:
     """Build a drug featurizer config from a legacy drug view name."""
     if view == "fingerprints":
-        return FeaturizerConfig.model_validate(
+        return DrugFeaturizerConfig.model_validate(
             normalize_featurizer_config("fingerprints", default_registry="drug"),
         )
     named = {
@@ -76,14 +81,13 @@ def drug_featurizer_from_view(view: str) -> FeaturizerConfig:
         "one_hot": "identity",
     }
     if view in named:
-        return FeaturizerConfig.model_validate(
+        return DrugFeaturizerConfig.model_validate(
             normalize_featurizer_config(named[view], default_registry="drug"),
         )
-    return FeaturizerConfig.model_validate(
+    return DrugFeaturizerConfig.model_validate(
         {
             "name": "view",
             "hyperparameters": {"view": view},
-            "registry": "drug",
         },
     )
 

@@ -26,6 +26,8 @@ def test_model_config_lives_under_models() -> None:
     expected = {
         "ModelConfig",
         "FeaturizerConfig",
+        "CellLineFeaturizerConfig",
+        "DrugFeaturizerConfig",
         "PredictorConfig",
         "PredictionMode",
     }

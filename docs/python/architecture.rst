@@ -167,7 +167,8 @@ Scope and early stopping
 Predictors and construction
 ---------------------------
 
-Featurizers receive constructor kwargs from ``FeaturizerConfig``. Predictors
+Featurizers receive constructor kwargs from ``CellLineFeaturizerConfig`` /
+``DrugFeaturizerConfig`` (subclasses of ``FeaturizerConfig``). Predictors
 receive static hyperparameters from ``PredictorConfig.create_instance()``.
 ``DRPModel.train`` fits featurizers, builds a ``ModelInputBatch``, and
 calls ``predictor.fit`` — there is no public ``Predictor.build``. Dimension

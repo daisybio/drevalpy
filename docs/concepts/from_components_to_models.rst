@@ -5,58 +5,257 @@ The :doc:`component_catalog` introduced the available building blocks. This
 page supplies the grammar for combining them into a runnable model.
 
 A model consists of three components:
+
 - a cell-line featurizer
 - a drug featurizer
 - a predictor
 
-DrEvalPy provides multiple ways of defining which components should be used in a model:
-- Recipe strings (simple, does not allow to specify hyperparameter spaces)
-- YAML files (more verbose, allows to specify hyperparameter spaces)
-- Model configs (same as YAML files, but python-native)
+DrEvalPy provides multiple ways of defining which components should be used in
+a model:
 
-This page mostly focuses on recipe strings, as they form a good foundation for understanding how to compose models.
-The other options will be covered later in the documentation.
+- **Recipe strings** — concise; do not carry hyperparameter spaces
+- **YAML files** — more verbose; can declare hyperparameter spaces
+- **ModelConfig** — same information as YAML, but Python-native
 
-Recipe strings
---------------
+Examples below use a tab switcher so you can compare all three notations for
+the same architecture.
 
-A recipe string is a structured string that describes the components of a model:
+Basic composition
+-----------------
 
-.. code-block:: text
+The three slots are always cell-line featurizer, drug featurizer, then
+predictor:
 
-   cell-line featurizer : drug featurizer : predictor
+.. tab-set::
+   :sync-group: composition
 
-A very simple recipe string is:
+   .. tab-item:: Recipe string
+      :sync: recipe
 
-.. code-block:: text
+      .. code-block:: text
 
-   scaledGeneExpression:fingerprints:elasticNet
+         cell-line featurizer : drug featurizer : predictor
+
+   .. tab-item:: YAML
+      :sync: yaml
+
+      .. code-block:: yaml
+
+         cell_line_featurizer: <name>
+         drug_featurizer: <name>
+         predictor: <name>
+
+   .. tab-item:: ModelConfig
+      :sync: modelconfig
+
+      .. code-block:: python
+
+         from drevalpy.models.config import (
+             CellLineFeaturizerConfig,
+             DrugFeaturizerConfig,
+             ModelConfig,
+             PredictorConfig,
+         )
+
+         config = ModelConfig(
+             cell_line_featurizer=CellLineFeaturizerConfig(name="<name>"),
+             drug_featurizer=DrugFeaturizerConfig(name="<name>"),
+             predictor=PredictorConfig(name="<name>"),
+         )
+
+A very simple complete stack is gene-expression scaling, drug fingerprints,
+and an elastic-net predictor:
+
+.. tab-set::
+   :sync-group: composition
+
+   .. tab-item:: Recipe string
+      :sync: recipe
+
+      .. code-block:: text
+
+         scaledGeneExpression:fingerprints:elasticNet
+
+   .. tab-item:: YAML
+      :sync: yaml
+
+      .. code-block:: yaml
+
+         cell_line_featurizer: scaledGeneExpression
+         drug_featurizer: fingerprints
+         predictor: elasticNet
+
+   .. tab-item:: ModelConfig
+      :sync: modelconfig
+
+      .. code-block:: python
+
+         from drevalpy.models.config import (
+             CellLineFeaturizerConfig,
+             DrugFeaturizerConfig,
+             ModelConfig,
+             PredictorConfig,
+         )
+
+         config = ModelConfig(
+             cell_line_featurizer=CellLineFeaturizerConfig(
+                 name="scaledGeneExpression"
+             ),
+             drug_featurizer=DrugFeaturizerConfig(name="fingerprints"),
+             predictor=PredictorConfig(name="elasticNet"),
+         )
 
 Read it from left to right: scale gene expression for each cell line, compute
 drug fingerprints, then fit an elastic-net predictor. The architecture is
 fully determined by those three names.
 
-Other single-view recipes follow the same pattern:
+Other single-view stacks follow the same pattern:
 
-.. code-block:: text
+.. tab-set::
+   :sync-group: composition
 
-   normalizedProteomics:fingerprints:randomForest
-   landmarkGenes:fingerprints:xgboost
-   scaledGeneExpression:identity:singleDrugElasticNet
+   .. tab-item:: Recipe string
+      :sync: recipe
 
-In the last example, the singleDrugElasticNet uses the identity drug featurizer, which one-hot encodes the drug identifiers, to create a single estimator per drug.
+      .. code-block:: text
+
+         normalizedProteomics:fingerprints:randomForest
+         landmarkGenes:fingerprints:xgboost
+         scaledGeneExpression:identity:singleDrugElasticNet
+
+   .. tab-item:: YAML
+      :sync: yaml
+
+      .. code-block:: yaml
+
+         cell_line_featurizer: normalizedProteomics
+         drug_featurizer: fingerprints
+         predictor: randomForest
+
+      .. code-block:: yaml
+
+         cell_line_featurizer: landmarkGenes
+         drug_featurizer: fingerprints
+         predictor: xgboost
+
+      .. code-block:: yaml
+
+         cell_line_featurizer: scaledGeneExpression
+         drug_featurizer: identity
+         predictor: singleDrugElasticNet
+
+   .. tab-item:: ModelConfig
+      :sync: modelconfig
+
+      .. code-block:: python
+
+         from drevalpy.models.config import (
+             CellLineFeaturizerConfig,
+             DrugFeaturizerConfig,
+             ModelConfig,
+             PredictorConfig,
+         )
+
+      .. code-block:: python
+
+         config = ModelConfig(
+             cell_line_featurizer=CellLineFeaturizerConfig(
+                 name="normalizedProteomics"
+             ),
+             drug_featurizer=DrugFeaturizerConfig(name="fingerprints"),
+             predictor=PredictorConfig(name="randomForest"),
+         )
+
+      .. code-block:: python
+
+         config = ModelConfig(
+             cell_line_featurizer=CellLineFeaturizerConfig(
+                 name="landmarkGenes"
+             ),
+             drug_featurizer=DrugFeaturizerConfig(name="fingerprints"),
+             predictor=PredictorConfig(name="xgboost"),
+         )
+
+      .. code-block:: python
+
+         config = ModelConfig(
+             cell_line_featurizer=CellLineFeaturizerConfig(
+                 name="scaledGeneExpression"
+             ),
+             drug_featurizer=DrugFeaturizerConfig(name="identity"),
+             predictor=PredictorConfig(name="singleDrugElasticNet"),
+         )
+
+In the last example, ``singleDrugElasticNet`` uses the ``identity`` drug
+featurizer, which one-hot encodes drug identifiers, to create a single
+estimator per drug.
 
 Featurizers that can operate on multiple omics layers
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The ``raw`` and ``pca`` cell-line featurizers are flexible towards which omics layer to
-read. Put that view in brackets as part of the featurizer's qualified name:
+The ``raw`` and ``pca`` cell-line featurizers are flexible towards which omics
+layer to read. Put that view in brackets as part of the featurizer's
+qualified name:
 
-.. code-block:: text
+.. tab-set::
+   :sync-group: composition
 
-   raw[expression]:fingerprints:randomForest
-   pca[methylation]:fingerprints:randomForest
-   raw[proteomics]:fingerprints:randomForest
+   .. tab-item:: Recipe string
+      :sync: recipe
+
+      .. code-block:: text
+
+         raw[expression]:fingerprints:randomForest
+         pca[methylation]:fingerprints:randomForest
+         raw[proteomics]:fingerprints:randomForest
+
+   .. tab-item:: YAML
+      :sync: yaml
+
+      .. code-block:: yaml
+
+         cell_line_featurizer:
+           name: raw
+           view: expression
+         drug_featurizer: fingerprints
+         predictor: randomForest
+
+         # pca[methylation]:fingerprints:randomForest
+         # cell_line_featurizer:
+         #   name: pca
+         #   view: methylation
+         # drug_featurizer: fingerprints
+         # predictor: randomForest
+
+   .. tab-item:: ModelConfig
+      :sync: modelconfig
+
+      .. code-block:: python
+
+         from drevalpy.models.config import (
+             CellLineFeaturizerConfig,
+             DrugFeaturizerConfig,
+             ModelConfig,
+             PredictorConfig,
+         )
+
+         config = ModelConfig(
+             cell_line_featurizer=CellLineFeaturizerConfig(
+                 name="raw",
+                 view="expression",
+             ),
+             drug_featurizer=DrugFeaturizerConfig(name="fingerprints"),
+             predictor=PredictorConfig(name="randomForest"),
+         )
+
+         # pca[methylation]:fingerprints:randomForest
+         # ModelConfig(
+         #     cell_line_featurizer=CellLineFeaturizerConfig(
+         #         name="pca", view="methylation"
+         #     ),
+         #     drug_featurizer=DrugFeaturizerConfig(name="fingerprints"),
+         #     predictor=PredictorConfig(name="randomForest"),
+         # )
 
 Common view aliases include ``expression``, ``methylation``, ``mutations``,
 ``proteomics``, and ``cnv``.
@@ -67,10 +266,57 @@ Combining multiple representations
 Within a featurizer slot, ``+`` concatenates several featurizers into
 ``concatFeaturizers``:
 
-.. code-block:: text
+.. tab-set::
+   :sync-group: composition
 
-   raw[expression]+pca[methylation]:fingerprints:xgboost
-   landmarkGenes+normalizedProteomics:fingerprints:lightgbm
+   .. tab-item:: Recipe string
+      :sync: recipe
+
+      .. code-block:: text
+
+         raw[expression]+pca[methylation]:fingerprints:xgboost
+         landmarkGenes+normalizedProteomics:fingerprints:lightgbm
+
+   .. tab-item:: YAML
+      :sync: yaml
+
+      .. code-block:: yaml
+
+         cell_line_featurizer:
+           name: concatFeaturizers
+           featurizers:
+             - name: raw
+               view: expression
+             - name: pca
+               view: methylation
+         drug_featurizer: fingerprints
+         predictor: xgboost
+
+   .. tab-item:: ModelConfig
+      :sync: modelconfig
+
+      .. code-block:: python
+
+         from drevalpy.models.config import (
+             CellLineFeaturizerConfig,
+             DrugFeaturizerConfig,
+             ModelConfig,
+             PredictorConfig,
+         )
+
+         config = ModelConfig(
+             cell_line_featurizer=CellLineFeaturizerConfig(
+                 name="concatFeaturizers",
+                 hyperparameters={
+                     "featurizers": [
+                         {"name": "raw", "view": "expression"},
+                         {"name": "pca", "view": "methylation"},
+                     ],
+                 },
+             ),
+             drug_featurizer=DrugFeaturizerConfig(name="fingerprints"),
+             predictor=PredictorConfig(name="xgboost"),
+         )
 
 The left slot can concatenate several cell-line featurizers; the middle slot
 can concatenate drug featurizers the same way when needed. The right slot is
@@ -86,7 +332,6 @@ declares which formats and which input interface
 accepts. Matrix predictors reject graph/ragged payloads, while block
 predictors consume the corresponding fitted blocks. An incompatible recipe
 fails early rather than reaching the training loop.
-
 
 Recipe, YAML, and named preset
 ------------------------------

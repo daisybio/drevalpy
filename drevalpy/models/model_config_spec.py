@@ -8,7 +8,8 @@ from drevalpy.components.featurizer_config_parse import normalize_featurizer_con
 from drevalpy.components.model_id import parse_model_id
 from drevalpy.components.predictors.feature_free import FeatureFreePredictor
 from drevalpy.models.config import (
-    FeaturizerConfig,
+    CellLineFeaturizerConfig,
+    DrugFeaturizerConfig,
     ModelConfig,
     ModelScope,
     PredictionMode,
@@ -56,10 +57,10 @@ def _config_from_recipe_triple(
         msg = "recipe triple requires a drug featurizer when a cell-line featurizer is set"
         raise ValueError(msg)
     config = ModelConfig(
-        cell_line_featurizer=FeaturizerConfig.model_validate(
+        cell_line_featurizer=CellLineFeaturizerConfig.model_validate(
             normalize_featurizer_config(cell_line_type, default_registry="cell_line"),
         ),
-        drug_featurizer=FeaturizerConfig.model_validate(
+        drug_featurizer=DrugFeaturizerConfig.model_validate(
             normalize_featurizer_config(drug_type, default_registry="drug"),
         ),
         predictor=predictor,

@@ -262,6 +262,7 @@ def docs(session: Session) -> None:
     session.install(
         "sphinx",
         "sphinx-autobuild",
+        "sphinx-design",
         "sphinx-reredirects",
         "sphinx-rtd-theme",
         "sphinx-rtd-dark-mode",

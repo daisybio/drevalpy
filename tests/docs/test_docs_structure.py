@@ -228,11 +228,22 @@ def test_python_guide_pages_have_no_shell_cli_blocks() -> None:
 
 
 def test_concept_pages_have_no_interface_code_blocks() -> None:
+    """Concept pages stay interface-neutral except composition notation tabs.
+
+    ``from_components_to_models`` may show ``ModelConfig`` Python snippets as
+    one of three equivalent notations (recipe / YAML / ModelConfig), not as a
+    Python-API tutorial.
+    """
     offenders: list[str] = []
+    allowed_python = {"concepts/from_components_to_models.rst"}
     for path in _rst_files(DOCS / "concepts"):
+        rel = path.relative_to(DOCS).as_posix()
         text = path.read_text(encoding="utf-8")
-        if any(token in text for token in ("code-block:: bash", "code-block:: shell", "code-block:: python")):
-            offenders.append(path.relative_to(DOCS).as_posix())
+        banned = ["code-block:: bash", "code-block:: shell"]
+        if rel not in allowed_python:
+            banned.append("code-block:: python")
+        if any(token in text for token in banned):
+            offenders.append(rel)
     assert not offenders, f"Concept pages must stay interface-neutral: {offenders}"
 
 

@@ -72,6 +72,38 @@ class FeaturizerConfig(BaseModel):
         return cls(**hp)
 
 
+class CellLineFeaturizerConfig(FeaturizerConfig):
+    """Featurizer config fixed to the cell-line registry."""
+
+    registry: Literal["cell_line"] = "cell_line"
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_shorthand(cls, data: object) -> object:
+        if isinstance(data, (str, list)):
+            return normalize_featurizer_config(data, default_registry="cell_line")
+        if isinstance(data, dict):
+            payload = {**data, "registry": "cell_line"}
+            return normalize_featurizer_config(payload, default_registry="cell_line")
+        return data
+
+
+class DrugFeaturizerConfig(FeaturizerConfig):
+    """Featurizer config fixed to the drug registry."""
+
+    registry: Literal["drug"] = "drug"
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_shorthand(cls, data: object) -> object:
+        if isinstance(data, (str, list)):
+            return normalize_featurizer_config(data, default_registry="drug")
+        if isinstance(data, dict):
+            payload = {**data, "registry": "drug"}
+            return normalize_featurizer_config(payload, default_registry="drug")
+        return data
+
+
 class PredictorConfig(BaseModel):
     """Declarative specification for a predictor."""
 
@@ -103,13 +135,29 @@ class PredictorConfig(BaseModel):
         return cls(hyperparameters=dict(self.hyperparameters))
 
 
+def _as_cell_line_featurizer_config(value: object) -> CellLineFeaturizerConfig:
+    if isinstance(value, CellLineFeaturizerConfig):
+        return value
+    if isinstance(value, FeaturizerConfig):
+        return CellLineFeaturizerConfig.model_validate(value.model_dump())
+    return CellLineFeaturizerConfig.model_validate(value)
+
+
+def _as_drug_featurizer_config(value: object) -> DrugFeaturizerConfig:
+    if isinstance(value, DrugFeaturizerConfig):
+        return value
+    if isinstance(value, FeaturizerConfig):
+        return DrugFeaturizerConfig.model_validate(value.model_dump())
+    return DrugFeaturizerConfig.model_validate(value)
+
+
 class ModelConfig(BaseModel):
     """Full declarative specification for a composed model."""
 
     model_config = ConfigDict(extra="forbid")
 
-    cell_line_featurizer: FeaturizerConfig | None = None
-    drug_featurizer: FeaturizerConfig | None = None
+    cell_line_featurizer: CellLineFeaturizerConfig | None = None
+    drug_featurizer: DrugFeaturizerConfig | None = None
     predictor: PredictorConfig
     prediction_mode: PredictionMode = PredictionMode.REGRESSION
     scope: ModelScope = ModelScope.MULTI_DRUG
@@ -121,19 +169,13 @@ class ModelConfig(BaseModel):
             return data
         normalized = dict(data)
         cell_line = normalized.get("cell_line_featurizer")
-        if cell_line is not None and not isinstance(cell_line, FeaturizerConfig):
-            if isinstance(cell_line, (str, list, dict)):
-                normalized["cell_line_featurizer"] = normalize_featurizer_config(
-                    cell_line,
-                    default_registry="cell_line",
-                )
+        if cell_line is not None and not isinstance(cell_line, CellLineFeaturizerConfig):
+            if isinstance(cell_line, (str, list, dict, FeaturizerConfig)):
+                normalized["cell_line_featurizer"] = _as_cell_line_featurizer_config(cell_line)
         drug = normalized.get("drug_featurizer")
-        if drug is not None and not isinstance(drug, FeaturizerConfig):
-            if isinstance(drug, (str, list, dict)):
-                normalized["drug_featurizer"] = normalize_featurizer_config(
-                    drug,
-                    default_registry="drug",
-                )
+        if drug is not None and not isinstance(drug, DrugFeaturizerConfig):
+            if isinstance(drug, (str, list, dict, FeaturizerConfig)):
+                normalized["drug_featurizer"] = _as_drug_featurizer_config(drug)
         predictor = normalized.get("predictor")
         if predictor is not None and not isinstance(predictor, PredictorConfig):
             if isinstance(predictor, (str, dict)):
