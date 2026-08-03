@@ -3,3 +3,4 @@ sphinx-autodoc-typehints==3.5.2 ; python_version >= "3.11" and python_version <=
 sphinx-design==0.7.0 ; python_version >= "3.11" and python_version <= "3.13"
 sphinx-reredirects==1.1.0 ; python_version >= "3.11" and python_version <= "3.13"
 sphinx-rtd-theme==3.0.2 ; python_version >= "3.11" and python_version <= "3.13"
+sphinxcontrib-mermaid==2.1.0 ; python_version >= "3.11" and python_version <= "3.13"

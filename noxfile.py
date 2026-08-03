@@ -272,6 +272,7 @@ def docs(session: Session) -> None:
         "sphinx-reredirects",
         "sphinx-rtd-theme",
         "sphinx-rtd-dark-mode",
+        "sphinxcontrib-mermaid",
     )
 
     build_dir = Path("docs", "_build")
