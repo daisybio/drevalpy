@@ -499,12 +499,6 @@ The same base featurizer on different views stays independently tunable
 (``pca[expression]`` vs ``pca[proteomics]``). Repeating the same qualified
 selector in one slot is rejected.
 
-Flat constructor keys such as ``alpha`` remain valid for defaults; legacy
-featurizer aliases (for example ``methylation_n_components``) still work but
-are deprecated in favor of the dotted form. See
-:doc:`Hyperparameter tuning (CLI) </cli/hyperparameter_tuning>` and
-:doc:`Hyperparameter tuning (Python API) </python/hyperparameter_tuning>`.
-
 Continue the story
 ------------------
 
