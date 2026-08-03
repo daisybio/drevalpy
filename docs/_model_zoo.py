@@ -95,10 +95,6 @@ def generate_model_zoo_rst() -> str:
         "Single-drug models",
         "------------------",
         "",
-        "Feature-based single-drug presets omit the implicit ``identity`` drug",
-        "featurizer from recipes; it routes one model per drug without entering",
-        "the predictor matrix. MOLIR and SuperFELTR follow the same contract.",
-        "",
         *(_render_scope_table(ModelScope.SINGLE_DRUG)),
     ]
     return "\n".join(lines).rstrip() + "\n"
