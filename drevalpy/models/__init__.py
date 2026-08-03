@@ -2,6 +2,7 @@
 
 ``construct_model`` returns thin generated ``DRPModel`` subclasses. Factory
 dictionaries remain lazy built-in-only compatibility views over the same path.
+Every built-in factory name has a zoo YAML under ``drevalpy/models/zoo/``.
 
 Imports from this package are lazy so ``from drevalpy.models.config import ...``
 does not pull the full runtime stack (avoids circular imports with components).

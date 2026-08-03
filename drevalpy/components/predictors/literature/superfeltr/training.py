@@ -10,7 +10,7 @@ from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from .utils import SuperFELTEncoder, SuperFELTRegressor, train_superfeltr_model
 
 if TYPE_CHECKING:
-    from .superfeltr import SuperFELTR
+    from .algorithm import SuperFELTR
 
 
 def _train_encoder_for_omic(

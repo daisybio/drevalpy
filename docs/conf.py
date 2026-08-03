@@ -174,6 +174,14 @@ man_pages = [
 ]
 
 autodoc_typehints = "description"
+autosummary_generate = True
+autosummary_imported_members = False
+autodoc_default_options = {
+    "members": True,
+    "undoc-members": True,
+    "show-inheritance": True,
+    "member-order": "bysource",
+}
 
 
 # -- Options for Texinfo output ----------------------------------------
@@ -229,8 +237,11 @@ def get_obj_module(qualname):
     # retrieve object and find original module name
     if classname:
         cls = getattr(sys.modules[modname], classname)
-        modname = cls.__module__
-        obj = getattr(cls, attrname) if attrname else cls
+        modname = getattr(cls, "__module__", modname)
+        if attrname:
+            obj = getattr(cls, attrname, None)
+        else:
+            obj = cls
     else:
         obj = None
 
@@ -290,10 +301,19 @@ redirects = {
     "python/component_catalog.html": "concepts/component_catalog.html",
     "runyourmodel.html": "python/custom_models.html",
     "API.html": "python/api/index.html",
-    "drevalpy.datasets.html": "python/api/datasets.html",
-    "drevalpy.models.html": "python/api/models.html",
-    "drevalpy.components.html": "python/api/components.html",
-    "drevalpy.visualization.html": "python/api/visualization.html",
+    "drevalpy.datasets.html": "python/api/_autosummary/drevalpy.datasets.html",
+    "drevalpy.models.html": "python/api/_autosummary/drevalpy.models.html",
+    "drevalpy.components.html": "python/api/_autosummary/drevalpy.components.html",
+    "drevalpy.visualization.html": "python/api/_autosummary/drevalpy.visualization.html",
+    "python/api/datasets.html": "python/api/_autosummary/drevalpy.datasets.html",
+    "python/api/data.html": "python/api/_autosummary/drevalpy.data.html",
+    "python/api/types.html": "python/api/_autosummary/drevalpy.types.html",
+    "python/api/experiment.html": "python/api/_autosummary/drevalpy.experiment.html",
+    "python/api/evaluation.html": "python/api/_autosummary/drevalpy.evaluation.html",
+    "python/api/models.html": "python/api/_autosummary/drevalpy.models.html",
+    "python/api/components.html": "python/api/_autosummary/drevalpy.components.html",
+    "python/api/utils.html": "python/api/_autosummary/drevalpy.utils.html",
+    "python/api/visualization.html": "python/api/_autosummary/drevalpy.visualization.html",
     "contributing.html": "project/contributing.html",
     "reference.html": "project/citing.html",
     "news.html": "project/news.html",

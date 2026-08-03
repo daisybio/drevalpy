@@ -22,7 +22,7 @@ import toml
 
 from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
 
-from ..pipeline_function import pipeline_function
+from ..utils._pipeline_function import pipeline_function
 
 
 def _prepare_raw_data(curve_df: pd.DataFrame, output_dir: Path, prefix: str = ""):

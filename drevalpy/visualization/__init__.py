@@ -1,4 +1,4 @@
-"""Module containing the drevalpy plotly visualizations."""
+"""Report plots and leaderboard helpers."""
 
 __all__ = [
     "ComparisonScatter",

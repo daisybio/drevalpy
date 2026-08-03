@@ -1,4 +1,4 @@
-"""Main module for running the drug response prediction experiment."""
+"""Cross-validation loops and experiment orchestration entry points."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from drevalpy.components.tuning.hpo import hpam_tune
 from ..datasets.dataset import DrugResponseDataset, FeatureDataset
 from ..datasets.splits import ExternalSplitCreator
 from ..models.drp_model import DRPModel
-from ..pipeline_function import pipeline_function
+from ..utils._pipeline_function import pipeline_function
 from . import fold as _fold_module
 from .consolidate import consolidate_single_drug_model_predictions_impl
 from .cross_study import cross_study_prediction_impl

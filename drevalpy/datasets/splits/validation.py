@@ -6,7 +6,7 @@ from typing import Any
 
 import numpy as np
 
-from ...pipeline_function import pipeline_function
+from ...utils._pipeline_function import pipeline_function
 from ..dataset import DrugResponseDataset, split_early_stopping_data
 from .types import OPTIONAL_ROLES, REQUIRED_ROLES, TEST_MODES, SplitError
 

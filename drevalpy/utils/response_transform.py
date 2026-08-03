@@ -3,7 +3,7 @@
 from sklearn.base import TransformerMixin
 from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
 
-from drevalpy.experiment import pipeline_function
+from ._pipeline_function import pipeline_function
 
 
 @pipeline_function

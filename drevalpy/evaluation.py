@@ -5,7 +5,7 @@ from scipy.stats import kendalltau, pearsonr, spearmanr
 from sklearn import metrics
 
 from .datasets.dataset import DrugResponseDataset
-from .pipeline_function import pipeline_function
+from .utils._pipeline_function import pipeline_function
 
 warning_shown = False
 constant_prediction_warning_shown = False

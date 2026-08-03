@@ -6,7 +6,7 @@ import importlib.util
 from pathlib import Path
 from typing import Any
 
-from ...pipeline_function import pipeline_function
+from ...utils._pipeline_function import pipeline_function
 from ..dataset import DrugResponseDataset
 from .manifest import write_split_manifest
 from .types import (

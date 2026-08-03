@@ -7,7 +7,7 @@
 - [ ] This comment contains a description of changes (with reason)
 - [ ] Referenced issue is linked
 - [ ] If you've fixed a bug or added code that should be tested, add tests!
-- [ ] Documentation in `docs` is updated. If you've created a new file, add it to the API documentation pages.
+- [ ] Documentation in `docs` is updated. Public modules under documented packages are picked up automatically by the recursive API autosummary.
 
 <!-- Only applies to PRs for a new version release, delete the lines that don't apply -->
 

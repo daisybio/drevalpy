@@ -18,7 +18,7 @@ from drevalpy.models._component_stack import _ComponentStack, build_component_st
 from drevalpy.models._drp_logging import _DRPLoggingMixin
 from drevalpy.models.config import ModelConfig, ModelScope
 from drevalpy.models.featurizer_mapping import cell_line_views_from_model_config, drug_views_from_model_config
-from drevalpy.pipeline_function import pipeline_function
+from drevalpy.utils._pipeline_function import pipeline_function
 
 
 class DRPModel(_DRPLoggingMixin):

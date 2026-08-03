@@ -1,1 +1,1 @@
-"""Shared feature loading and preprocessing utilities."""
+"""Feature matrices, preprocessing, and gene-list helpers used by featurizers."""

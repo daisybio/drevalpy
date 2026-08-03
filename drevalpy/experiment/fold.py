@@ -10,7 +10,7 @@ import numpy as np
 from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.models._model_lookup import is_single_drug_model_name
 from drevalpy.models.drp_model import DRPModel
-from drevalpy.pipeline_function import pipeline_function
+from drevalpy.utils._pipeline_function import pipeline_function
 
 
 @dataclass(frozen=True)

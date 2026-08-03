@@ -10,3 +10,6 @@ def pipeline_function(func):
     """
     func.is_pipeline_function = True  # Adds a custom attribute to the function
     return func
+
+
+pipeline_function.__module__ = "drevalpy.utils"

@@ -1,4 +1,4 @@
-"""Module for handling datasets."""
+"""Dataset loading, response tables, splits, and CurveCurator helpers."""
 
 from .loader import AVAILABLE_DATASETS
 

@@ -17,7 +17,7 @@ from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from .model_utils import CombinedModel
 
 if TYPE_CHECKING:
-    from .pharmaformer import PharmaFormerModel, _PharmaFormerDataset
+    from .algorithm import PharmaFormerModel, _PharmaFormerDataset
 
 
 def _build_combined_model(gene_input_size: int, hyperparameters: dict[str, Any], device: torch.device) -> CombinedModel:

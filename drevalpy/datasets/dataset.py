@@ -26,7 +26,7 @@ import pandas as pd
 from sklearn.base import TransformerMixin
 from sklearn.model_selection import GroupKFold, train_test_split
 
-from ..pipeline_function import pipeline_function
+from ..utils._pipeline_function import pipeline_function
 from .utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, permute_features, randomize_graph
 
 np.set_printoptions(threshold=6)

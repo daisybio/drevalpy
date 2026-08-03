@@ -1,4 +1,4 @@
-"""Shared type definitions used across drevalpy layers."""
+"""Shared enums and type aliases for prediction modes and model scope."""
 
 from drevalpy.types.literature_reference import LiteratureReference
 from drevalpy.types.model_scope import ModelScope

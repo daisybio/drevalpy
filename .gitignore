@@ -86,6 +86,7 @@ instance/
 
 # Sphinx documentation
 docs/_build/
+docs/python/api/_autosummary/
 docs/cli/_generated_reference.rst
 docs/concepts/_generated_cell_line_featurizers.rst
 docs/concepts/_generated_drug_featurizers.rst
