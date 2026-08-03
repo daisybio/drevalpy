@@ -113,10 +113,10 @@ def test_cell_line_views_override_on_configure_path() -> None:
 
 def test_pca_methylation_flat_key_round_trip() -> None:
     from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
-    from drevalpy.models.config import FeaturizerConfig, ModelConfig, PredictorConfig
+    from drevalpy.models.config import CellLineFeaturizerConfig, DrugFeaturizerConfig, ModelConfig, PredictorConfig
 
     config = ModelConfig(
-        cell_line_featurizer=FeaturizerConfig.model_validate(
+        cell_line_featurizer=CellLineFeaturizerConfig.model_validate(
             normalize_featurizer_config(
                 [
                     "scaledGeneExpression",
@@ -125,7 +125,7 @@ def test_pca_methylation_flat_key_round_trip() -> None:
                 default_registry="cell_line",
             ),
         ),
-        drug_featurizer=FeaturizerConfig.model_validate(
+        drug_featurizer=DrugFeaturizerConfig.model_validate(
             normalize_featurizer_config("fingerprints", default_registry="drug"),
         ),
         predictor=PredictorConfig(name="randomForest"),

@@ -51,7 +51,8 @@ class _FakePredictor(SingleDrugBlockPredictor):
     def _algorithm_cls(self) -> type[_FakeAlgorithm]:
         return _FakeAlgorithm
 
-    def _export_algorithm_state(self, algorithm: _FakeAlgorithm) -> dict[str, Any]:
+    def _export_algorithm_state(self, algorithm: LiteratureTrainingMixin) -> dict[str, Any]:
+        assert isinstance(algorithm, _FakeAlgorithm)
         return {"trained_drug_ids": algorithm.trained_drug_ids}
 
     def _apply_algorithm_state(self, payload: dict[str, Any]) -> _FakeAlgorithm:

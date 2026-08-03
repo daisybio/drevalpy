@@ -8,7 +8,9 @@ reference at Sphinx build time.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import cast
 
+import click
 from _generated_io import write_text_if_changed
 from typer.main import get_command
 
@@ -67,7 +69,7 @@ def generate_cli_reference_rst() -> str:
 
     :returns: generated CLI reference as an RST document string
     """
-    root = get_command(app)
+    root = cast(click.Group, get_command(app))
     lines = [
         "Root command",
         "------------",
@@ -91,7 +93,7 @@ def generate_cli_reference_rst() -> str:
             "",
         ]
     )
-    for name in root.list_commands(None):
+    for name in sorted(root.commands):
         command = root.commands[name]
         heading = f"drevalpy {name}"
         lines.extend([heading, "~" * len(heading), ""])

@@ -20,7 +20,8 @@ from drevalpy.components.registry import (
     register_predictor,
 )
 from drevalpy.models.config import (
-    FeaturizerConfig,
+    CellLineFeaturizerConfig,
+    DrugFeaturizerConfig,
     ModelConfig,
     ModelScope,
     PredictionMode,
@@ -78,8 +79,8 @@ def _register_dense_pair() -> None:
 def test_valid_dense_config_passes() -> None:
     _register_dense_pair()
     config = ModelConfig(
-        cell_line_featurizer=FeaturizerConfig(name="denseCellLine", registry="cell_line", view="gene_expression"),
-        drug_featurizer=FeaturizerConfig(name="denseDrug", registry="drug", view="fingerprints"),
+        cell_line_featurizer=CellLineFeaturizerConfig(name="denseCellLine", view="gene_expression"),
+        drug_featurizer=DrugFeaturizerConfig(name="denseDrug", view="fingerprints"),
         predictor=PredictorConfig(name="densePred"),
     )
     validate_model_config(config)
@@ -88,8 +89,8 @@ def test_valid_dense_config_passes() -> None:
 def test_unknown_cell_line_featurizer_fails() -> None:
     _register_dense_pair()
     config = ModelConfig(
-        cell_line_featurizer=FeaturizerConfig(name="missing", registry="cell_line"),
-        drug_featurizer=FeaturizerConfig(name="denseDrug", registry="drug"),
+        cell_line_featurizer=CellLineFeaturizerConfig(name="missing"),
+        drug_featurizer=DrugFeaturizerConfig(name="denseDrug"),
         predictor=PredictorConfig(name="densePred"),
     )
     with pytest.raises(ValueError, match="Unknown Cell line featurizer"):
@@ -98,10 +99,12 @@ def test_unknown_cell_line_featurizer_fails() -> None:
 
 def test_wrong_registry_is_coerced_by_slot_subclasses() -> None:
     _register_dense_pair()
-    config = ModelConfig(
-        cell_line_featurizer=FeaturizerConfig(name="denseCellLine", registry="drug"),
-        drug_featurizer=FeaturizerConfig(name="denseDrug", registry="cell_line"),
-        predictor=PredictorConfig(name="densePred"),
+    config = ModelConfig.model_validate(
+        {
+            "cell_line_featurizer": {"name": "denseCellLine", "registry": "drug"},
+            "drug_featurizer": {"name": "denseDrug", "registry": "cell_line"},
+            "predictor": {"name": "densePred"},
+        }
     )
     assert config.cell_line_featurizer is not None
     assert config.cell_line_featurizer.registry == "cell_line"
@@ -145,8 +148,8 @@ def test_graph_featurizer_with_matrix_predictor_fails() -> None:
             return np.zeros(len(x), dtype=np.float64)
 
     config = ModelConfig(
-        cell_line_featurizer=FeaturizerConfig(name="graphCellLine", registry="cell_line"),
-        drug_featurizer=FeaturizerConfig(name="denseDrug", registry="drug"),
+        cell_line_featurizer=CellLineFeaturizerConfig(name="graphCellLine"),
+        drug_featurizer=DrugFeaturizerConfig(name="denseDrug"),
         predictor=PredictorConfig(name="densePred"),
     )
     with pytest.raises(ValueError, match="Cell line featurizer contract|numeric_matrix"):
@@ -180,8 +183,8 @@ def test_graph_format_match_passes_for_block_predictor() -> None:
         supported_modes = frozenset({PredictionMode.REGRESSION})
 
     config = ModelConfig(
-        cell_line_featurizer=FeaturizerConfig(name="graphCellLine", registry="cell_line"),
-        drug_featurizer=FeaturizerConfig(name="graphDrug", registry="drug"),
+        cell_line_featurizer=CellLineFeaturizerConfig(name="graphCellLine"),
+        drug_featurizer=DrugFeaturizerConfig(name="graphDrug"),
         predictor=PredictorConfig(name="graphPred"),
     )
     validate_model_config(config)
@@ -207,8 +210,8 @@ def test_block_schema_reports_missing_named_block() -> None:
         required_drug_block_specs = (BlockSpec("fingerprints", FeatureFormat.NUMERIC_MATRIX),)
 
     config = ModelConfig(
-        cell_line_featurizer=FeaturizerConfig(name="cellBlocks", registry="cell_line"),
-        drug_featurizer=FeaturizerConfig(name="drugBlocks", registry="drug"),
+        cell_line_featurizer=CellLineFeaturizerConfig(name="cellBlocks"),
+        drug_featurizer=DrugFeaturizerConfig(name="drugBlocks"),
         predictor=PredictorConfig(name="blockPred"),
     )
     with pytest.raises(ValueError, match="blockPred.*gene_expression.*numeric_matrix.*wrong_name"):
@@ -255,8 +258,8 @@ def test_baseline_tag_does_not_allow_missing_featurizers() -> None:
 def test_empty_view_string_fails() -> None:
     _register_dense_pair()
     config = ModelConfig(
-        cell_line_featurizer=FeaturizerConfig(name="denseCellLine", registry="cell_line", view="   "),
-        drug_featurizer=FeaturizerConfig(name="denseDrug", registry="drug"),
+        cell_line_featurizer=CellLineFeaturizerConfig(name="denseCellLine", view="   "),
+        drug_featurizer=DrugFeaturizerConfig(name="denseDrug"),
         predictor=PredictorConfig(name="densePred"),
     )
     with pytest.raises(ValueError, match="cell_line_featurizer view must be a non-empty string"):
@@ -268,7 +271,7 @@ def test_scope_must_match_predictor_capability() -> None:
 
     register_builtin_components()
     config = ModelConfig(
-        cell_line_featurizer=FeaturizerConfig(name="scaledGeneExpression", registry="cell_line"),
+        cell_line_featurizer=CellLineFeaturizerConfig(name="scaledGeneExpression"),
         drug_featurizer=None,
         predictor=PredictorConfig(name="singleDrugElasticNet"),
         scope=ModelScope.MULTI_DRUG,
@@ -282,8 +285,8 @@ def test_single_drug_scope_requires_identity_drug_featurizer() -> None:
 
     register_builtin_components()
     config = ModelConfig(
-        cell_line_featurizer=FeaturizerConfig(name="scaledGeneExpression", registry="cell_line"),
-        drug_featurizer=FeaturizerConfig(name="fingerprints", registry="drug"),
+        cell_line_featurizer=CellLineFeaturizerConfig(name="scaledGeneExpression"),
+        drug_featurizer=DrugFeaturizerConfig(name="fingerprints"),
         predictor=PredictorConfig(name="singleDrugElasticNet"),
         scope=ModelScope.SINGLE_DRUG,
     )
@@ -296,8 +299,8 @@ def test_single_drug_scope_accepts_identity_routing_featurizer() -> None:
 
     register_builtin_components()
     config = ModelConfig(
-        cell_line_featurizer=FeaturizerConfig(name="scaledGeneExpression", registry="cell_line"),
-        drug_featurizer=FeaturizerConfig(name="identity", registry="drug"),
+        cell_line_featurizer=CellLineFeaturizerConfig(name="scaledGeneExpression"),
+        drug_featurizer=DrugFeaturizerConfig(name="identity"),
         predictor=PredictorConfig(name="singleDrugElasticNet"),
         scope=ModelScope.SINGLE_DRUG,
     )

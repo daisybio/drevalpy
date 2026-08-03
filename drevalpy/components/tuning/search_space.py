@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import copy
 import re
-from typing import Any
+from typing import Any, TypeVar
 
 from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
 from drevalpy.components.featurizer_label import qualified_featurizer_selector
 from drevalpy.components.registry import lookup as reg
 from drevalpy.models.config import FeaturizerConfig, ModelConfig, PredictorConfig
+
+_FeaturizerConfigT = TypeVar("_FeaturizerConfigT", bound=FeaturizerConfig)
 
 _CELL_LINE_FEATURIZER_SLOT = "cell_line_featurizer"
 _DRUG_FEATURIZER_SLOT = "drug_featurizer"
@@ -197,9 +199,9 @@ def _merged_updates_for_featurizer(
 
 
 def _apply_hyperparameter_updates(
-    featurizer: FeaturizerConfig,
+    featurizer: _FeaturizerConfigT,
     updates: dict[str, Any],
-) -> FeaturizerConfig:
+) -> _FeaturizerConfigT:
     if not updates:
         return featurizer
     return featurizer.model_copy(
@@ -243,11 +245,11 @@ def _validate_featurizer_keys_for_tree(
 
 
 def _apply_to_concat_featurizer(
-    featurizer: FeaturizerConfig,
+    featurizer: _FeaturizerConfigT,
     merged: dict[str, Any],
     *,
     registry: str,
-) -> FeaturizerConfig:
+) -> _FeaturizerConfigT:
     children = list(featurizer.hyperparameters.get("featurizers", []))
     updated_children: list[Any] = []
     for child in children:
@@ -276,9 +278,9 @@ def _apply_to_concat_featurizer(
 
 
 def _apply_to_featurizer(
-    featurizer: FeaturizerConfig,
+    featurizer: _FeaturizerConfigT,
     merged: dict[str, Any],
-) -> FeaturizerConfig:
+) -> _FeaturizerConfigT:
     registry = str(featurizer.registry)
     _validate_featurizer_keys_for_tree(merged, featurizer)
     if featurizer.name == "concatFeaturizers":

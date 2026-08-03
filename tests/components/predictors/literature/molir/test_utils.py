@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import numpy as np
 
+from drevalpy.components.predictors.literature._training_helpers import LiteratureTrainingMixin
 from drevalpy.components.predictors.literature.molir.utils import filter_and_sort_omics
 from drevalpy.datasets.dataset import FeatureDataset
 
 
-class _OmicModelStub:
+class _OmicModelStub(LiteratureTrainingMixin):
     def __init__(self) -> None:
+        super().__init__()
         self.gene_expression_features = np.array(["g1", "g2"])
         self.mutations_features = np.array(["m1"])
         self.copy_number_variation_features = np.array(["c2", "c1"])

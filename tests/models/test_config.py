@@ -133,10 +133,12 @@ def test_model_config_parses_predictor_one_key_hyperparameters() -> None:
 
 
 def test_model_config_coerces_base_featurizer_config_to_slot_types() -> None:
-    config = ModelConfig(
-        cell_line_featurizer=FeaturizerConfig(name="scaledGeneExpression", registry="drug"),
-        drug_featurizer=FeaturizerConfig(name="fingerprints", registry="cell_line"),
-        predictor=PredictorConfig(name="elasticNet"),
+    config = ModelConfig.model_validate(
+        {
+            "cell_line_featurizer": FeaturizerConfig(name="scaledGeneExpression", registry="drug"),
+            "drug_featurizer": FeaturizerConfig(name="fingerprints", registry="cell_line"),
+            "predictor": PredictorConfig(name="elasticNet"),
+        }
     )
     assert isinstance(config.cell_line_featurizer, CellLineFeaturizerConfig)
     assert config.cell_line_featurizer.registry == "cell_line"

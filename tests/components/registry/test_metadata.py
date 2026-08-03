@@ -55,7 +55,7 @@ def test_featurizer_metadata_requires_explicit_contract() -> None:
 
 def test_missing_description_fails() -> None:
     class Empty:
-        tags = frozenset()
+        tags: frozenset[str] = frozenset()
 
     with pytest.raises(ValueError, match="missing=\\['description'\\]"):
         validate_registered_class_metadata("predictor", "empty", Empty)
