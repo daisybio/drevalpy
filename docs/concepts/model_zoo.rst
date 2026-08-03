@@ -6,10 +6,8 @@ The first two pages established the vocabulary and grammar:
 - :doc:`component_catalog` lists the available building blocks.
 - :doc:`from_components_to_models` shows how they form a recipe.
 
-The model zoo is the final layer: a collection of named, ready-to-run recipes
-under ``drevalpy/models/zoo/*.yaml``. Instead of spelling out
-``scaledGeneExpression:fingerprints:elasticNet``, workflows can select the
-``ElasticNet`` preset. CLI and Python use the same preset names.
+While these interfaces allow building models in a flexible way, we are aware that certain featurizer-predictor combinations are used frequently.
+In order to make it easier to use these frequently used combinations, we provide a so-called 'model zoo' which is a collection of named model configurations.
 
 Why presets?
 ------------

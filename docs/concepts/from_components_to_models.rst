@@ -4,17 +4,29 @@ From components to models
 The :doc:`component_catalog` introduced the available building blocks. This
 page supplies the grammar for combining them into a runnable model.
 
-A model has three ordered slots:
+A model consists of three components:
+- a cell-line featurizer
+- a drug featurizer
+- a predictor
+
+DrEvalPy provides multiple ways of defining which components should be used in a model:
+- Recipe strings (simple, does not allow to specify hyperparameter spaces)
+- YAML files (more verbose, allows to specify hyperparameter spaces)
+- Model configs (same as YAML files, but python-native)
+
+This page mostly focuses on recipe strings, as they form a good foundation for understanding how to compose models.
+The other options will be covered later in the documentation.
+
+Recipe strings
+--------------
+
+A recipe string is a structured string that describes the components of a model:
 
 .. code-block:: text
 
    cell-line featurizer : drug featurizer : predictor
 
-Feature-free predictors omit both featurizer slots. All feature-dependent
-predictors, including literature ports, declare their required featurizers.
-
-Colons separate the slots. Starting with the three ingredients from the end of
-the catalog gives the simplest complete recipe:
+A very simple recipe string is:
 
 .. code-block:: text
 
@@ -32,36 +44,12 @@ Other single-view recipes follow the same pattern:
    landmarkGenes:fingerprints:xgboost
    scaledGeneExpression:identity:singleDrugElasticNet
 
-For a feature-based single-drug predictor, ``identity`` has routing semantics:
-it creates/selects one estimator per drug. The one-hot identity vector is not
-concatenated with the cell-line features seen by that estimator. Single-drug
-literature predictors such as ``molir`` and ``superfeltr`` use their configured
-``identity`` drug featurizer for routing.
+In the last example, the singleDrugElasticNet uses the identity drug featurizer, which one-hot encodes the drug identifiers, to create a single estimator per drug.
 
-Composition is validated before training. Each featurizer declares a
-``FeatureFormat`` (numeric matrix, graph, or ragged sequence); each predictor
-declares which formats and which input interface
-(``FeatureFreePredictor``, ``MatrixPredictor``, or ``BlockPredictor``) it
-accepts. Matrix predictors reject graph/ragged payloads, while block
-predictors consume the corresponding fitted blocks. An incompatible recipe
-fails early rather than reaching the training loop.
+Featurizers that can operate on multiple omics layers
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Predictor-only recipes
-----------------------
-
-Feature-free predictors omit both featurizer slots:
-
-.. code-block:: text
-
-   naiveMean
-
-Its zoo YAML has only ``predictor`` (and optional ``scope`` / hyperparameters).
-A bare feature-dependent predictor name without featurizers is rejected.
-
-Qualifying an omics view
-------------------------
-
-The ``raw`` and ``pca`` cell-line featurizers need to know which omics layer to
+The ``raw`` and ``pca`` cell-line featurizers are flexible towards which omics layer to
 read. Put that view in brackets as part of the featurizer's qualified name:
 
 .. code-block:: text
@@ -71,16 +59,13 @@ read. Put that view in brackets as part of the featurizer's qualified name:
    raw[proteomics]:fingerprints:randomForest
 
 Common view aliases include ``expression``, ``methylation``, ``mutations``,
-``proteomics``, and ``cnv``. The bracket is meaningful throughout the
-configuration: ``pca[expression]`` and ``pca[proteomics]`` are different
-qualified featurizers.
+``proteomics``, and ``cnv``.
 
 Combining multiple representations
 ----------------------------------
 
 Within a featurizer slot, ``+`` concatenates several featurizers into
-``concatFeaturizers``. That is how multi-view models are expressed — not with
-special multi-view predictor classes:
+``concatFeaturizers``:
 
 .. code-block:: text
 
@@ -91,28 +76,17 @@ The left slot can concatenate several cell-line featurizers; the middle slot
 can concatenate drug featurizers the same way when needed. The right slot is
 always a single predictor name.
 
-Each qualified featurizer may occur only once per slot. Reusing a base name for
-different views is valid, but repeating the same qualified name is not:
+Composition validation
+----------------------
 
-.. code-block:: text
+Composition is validated before training. Each featurizer declares a
+``FeatureFormat`` (numeric matrix, graph, or ragged sequence); each predictor
+declares which formats and which input interface
+(``FeatureFreePredictor``, ``MatrixPredictor``, or ``BlockPredictor``) it
+accepts. Matrix predictors reject graph/ragged payloads, while block
+predictors consume the corresponding fitted blocks. An incompatible recipe
+fails early rather than reaching the training loop.
 
-   raw[expression]+raw[mutations]       # valid
-   pca[expression]+pca[expression]      # invalid
-
-The same architecture can be written as structured YAML. For the first
-multi-view recipe above:
-
-.. code-block:: yaml
-
-   cell_line_featurizer:
-     name: concatFeaturizers
-     featurizers:
-       - name: raw
-         view: expression
-       - name: pca
-         view: methylation
-   drug_featurizer: fingerprints
-   predictor: xgboost
 
 Recipe, YAML, and named preset
 ------------------------------
