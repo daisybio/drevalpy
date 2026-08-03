@@ -66,40 +66,18 @@ required and how features are consumed:
 
 - **Feature-free** — the predictor only receives the drug/cell line identifiers, no featurizers are required.
 - **Matrix** — the predictor receives a single numeric matrix (can be concatenated from multiple featurizers). This is the case for predictors like ``randomForest``, where it does not matter which omics layer the features originate from.
-- **Block** — the predictor receives a dictionary of named featurizer outputs. This is useful for predictors that treat different omics layers separately, e.g. ``molir``, which consumes ``gene_expression``, ``mutations``, and ``copy_number_variation_gistic`` as separate blocks. It also allows for predictors to specify that they require certain featurizers to be present in their input data, otherwise they can't work.
-
-Feature **format** (``numeric_matrix``, ``graph``, ``ragged_sequence``) is
-orthogonal: matrix predictors reject graph/ragged payloads, while a future
-composed graph model would be block-based with a graph drug format. Neural
-encoders stay private inside predictors.
+- **Block** — the predictor receives a dictionary of named featurizer outputs. This is useful for predictors that treat different omics layers separately, e.g. ``molir``, which consumes ``gene_expression``, ``mutations``, and ``copy_number_variation`` as separate blocks. It also allows for predictors to specify that they require certain featurizers to be present in their input data, otherwise they can't work.
 
 .. include:: _generated_predictors.rst
-
-Naive baselines carry the discovery tag ``baseline``. Literature ports attach
-a structured ``LiteratureReference``. Neither tags nor references change
-validation or execution.
-
-``drugGraph`` provides the graph block consumed by the DrugGNN zoo preset.
-
-From catalog to composition
----------------------------
-
-Matrix and block models still take one row from each table — for example
-``scaledGeneExpression:fingerprints:elasticNet``. Feature-free predictors are
-**predictor-only** (no featurizer slots).
-
-The next page turns those names into recipes, omics-view selectors, multi-view
-concatenation, compatibility checks, and component hyperparameters. Continue
-with :doc:`from_components_to_models`; the remaining sections on this page are
-reference notes for extensions and older interfaces.
 
 Extensions
 ----------
 
-External components and optional zoo files can be registered before models are
-constructed (via ``load_extensions`` in the Python API). See
-:doc:`/python/custom_models` for a full registration example and
-:doc:`/python/architecture` for contracts and composition rules.
+DrEvalPy provides a convenient interface to register external components.
+This is useful if you want to evaluate a new predictor or featurizer that is not yet part of the catalog.
+Details on how to register external components can be found in
+:doc:`/python/custom_models` for the Python API and :doc:`/cli/experiment`
+for the CLI workflow.
 
 Backward compatibility
 ----------------------
