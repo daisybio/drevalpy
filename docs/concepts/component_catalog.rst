@@ -31,33 +31,13 @@ Featurizer types
   featurizer exposes MolGNet embeddings this way; block predictors such as
   DIPK consume them without forcing a fixed-width dense matrix.
 
-Featurizer outputs
-~~~~~~~~~~~~~~~~~~
-
-Every featurizer implements two output formats:
-
-- a **matrix** (``transform``) — one row per entity, used when a
-  ``MatrixPredictor`` builds a single pair-level design matrix;
-- a **dict of named blocks** (``transform_blocks``) — one or more
-  arrays keyed by block name (for example ``pathways`` or ``gene_expression``),
-  used by a ``BlockPredictor`` that keeps side-specific or named tensors
-  separate.
-
-By default, ``transform_blocks`` wraps the matrix under a single
-``default`` key. Multi-view featurizers override that method so block
-predictors receive the named arrays they declare; their ``transform``
-may then expose a flattened or primary view rather than every block.
-Feature format (numeric matrix, graph, ragged sequence) applies
-to the payload type inside either form; it does not replace this
-matrix-versus-dict distinction.
-
 Cell-line featurizers
----------------------
+~~~~~~~~~~~~~~~~~~~~~
 
 .. include:: _generated_cell_line_featurizers.rst
 
 Drug featurizers
-----------------
+~~~~~~~~~~~~~~~~
 
 .. include:: _generated_drug_featurizers.rst
 
@@ -67,10 +47,9 @@ Predictors
 Every predictor inherits exactly one **input interface**. That interface decides whether featurizers are
 required and how features are consumed:
 
-- **Feature-free** — response / pair identifiers only; no featurizers
-- **Matrix** — one numeric pair-level design matrix from configured featurizers
-- **Block** — side-specific or named featurizer blocks (including side-specific
-  matrices); not a single flattened design matrix
+- **Feature-free** — the predictor only receives the drug/cell line identifiers, no featurizers are required.
+- **Matrix** — the predictor receives a single numeric matrix (can be concatenated from multiple featurizers). This is the case for predictors like ``randomForest``, where it does not matter which omics layer the features originate from.
+- **Block** — the predictor receives a dictionary of named featurizer outputs. This is useful for predictors that treat different omics layers separately, e.g. ``molir``, which consumes ``gene_expression``, ``mutations``, and ``copy_number_variation_gistic`` as separate blocks. It also allows for predictors to specify that they require certain featurizers to be present in their input data, otherwise they can't work.
 
 Feature **format** (``numeric_matrix``, ``graph``, ``ragged_sequence``) is
 orthogonal: matrix predictors reject graph/ragged payloads, while a future
