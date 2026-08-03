@@ -27,7 +27,7 @@ def test_native_component_registration_does_not_import_literature_models() -> No
         ensure_components_registered()
 
 
-def test_component_featurizers_import_from_data_not_models_utils() -> None:
+def test_component_featurizers_import_from_features_not_models_utils() -> None:
     for module_name in (
         "drevalpy.components.featurizers.cell_line.scaled_gene_expression",
         "drevalpy.components.featurizers.cell_line.normalized_proteomics",
@@ -36,7 +36,7 @@ def test_component_featurizers_import_from_data_not_models_utils() -> None:
         source_path = module.__file__
         assert source_path is not None
         text = Path(source_path).read_text(encoding="utf-8")
-        assert "drevalpy.data.preprocessing" in text
+        assert "drevalpy.features.preprocessing" in text
         assert "drevalpy.models.utils" not in text
 
 

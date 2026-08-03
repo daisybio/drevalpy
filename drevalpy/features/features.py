@@ -130,7 +130,7 @@ def load_and_select_gene_features(
     if gene_list is None:
         return cl_features
 
-    from drevalpy.data.gene_lists import gene_names_from_list_csv, resolve_gene_list_path
+    from drevalpy.features.gene_lists import gene_names_from_list_csv, resolve_gene_list_path
 
     ordered_genes = gene_names_from_list_csv(resolve_gene_list_path(gene_list, data_path=data_path))
 

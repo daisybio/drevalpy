@@ -1,4 +1,4 @@
-"""Direct tests for drevalpy.data.features helpers."""
+"""Direct tests for drevalpy.features.features helpers."""
 
 from __future__ import annotations
 
@@ -7,9 +7,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from drevalpy.data.features import iterate_features, load_and_select_gene_features, load_generic_csv
 from drevalpy.datasets.dataset import FeatureDataset
 from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER
+from drevalpy.features.features import iterate_features, load_and_select_gene_features, load_generic_csv
 
 
 def test_iterate_features_averages_duplicate_rows() -> None:

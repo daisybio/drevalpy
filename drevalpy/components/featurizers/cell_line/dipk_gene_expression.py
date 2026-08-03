@@ -18,8 +18,8 @@ from drevalpy.components.predictors.literature.dipk.gene_expression_encoder impo
     train_gene_expession_autoencoder,
 )
 from drevalpy.components.registry import register_cell_line_featurizer
-from drevalpy.data.features import load_and_select_gene_features
 from drevalpy.datasets.dataset import FeatureDataset
+from drevalpy.features.features import load_and_select_gene_features
 
 
 @register_cell_line_featurizer(

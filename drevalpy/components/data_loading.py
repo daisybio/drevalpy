@@ -7,7 +7,8 @@ from typing import Literal
 from drevalpy.components.featurizer_tree import iter_featurizer_leaves
 from drevalpy.components.featurizers.base import Featurizer
 from drevalpy.components.registry import get_cell_line_featurizer, get_drug_featurizer
-from drevalpy.data.features import (
+from drevalpy.datasets.dataset import FeatureDataset
+from drevalpy.features.features import (
     load_cl_ids_and_tissues_from_csv,
     load_cl_ids_from_csv,
     load_drug_ids_from_csv,
@@ -16,7 +17,6 @@ from drevalpy.data.features import (
     load_single_drug_view,
     load_tissues_from_csv,
 )
-from drevalpy.datasets.dataset import FeatureDataset
 from drevalpy.models.config import FeaturizerConfig, ModelConfig
 from drevalpy.models.featurizer_mapping import (
     _views_from_featurizer_config,

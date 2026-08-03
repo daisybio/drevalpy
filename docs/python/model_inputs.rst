@@ -78,7 +78,7 @@ or in zoo YAML:
    the training split only (``fit_transform``) and applies the learned transform
    to validation/test (``transform``).
 
-Generic CSV loading uses ``load_generic_csv`` from ``drevalpy.data.features``.
+Generic CSV loading uses ``load_generic_csv`` from ``drevalpy.features.features``.
 Depending on whether the featurizer is registered under the cell-line or drug
 registry, the index column must be ``CELL_LINE_IDENTIFIER``
 (``"cell_line_name"``) or ``DRUG_IDENTIFIER`` (``"pubchem_id"``).

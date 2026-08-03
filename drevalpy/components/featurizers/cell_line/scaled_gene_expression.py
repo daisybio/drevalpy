@@ -11,7 +11,7 @@ from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
 from drevalpy.components.featurizers._matrix import feature_names_for_view, stack_view_matrix
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.registry import register_cell_line_featurizer
-from drevalpy.data.preprocessing import scale_gene_expression
+from drevalpy.features.preprocessing import scale_gene_expression
 
 
 @register_cell_line_featurizer(

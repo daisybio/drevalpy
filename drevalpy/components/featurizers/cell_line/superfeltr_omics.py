@@ -12,9 +12,9 @@ from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
 from drevalpy.components.featurizers._matrix import stack_view_matrix
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.registry import register_cell_line_featurizer
-from drevalpy.data.features import get_multiomics_feature_dataset
-from drevalpy.data.preprocessing import VarianceFeatureSelector
 from drevalpy.datasets.dataset import FeatureDataset
+from drevalpy.features.features import get_multiomics_feature_dataset
+from drevalpy.features.preprocessing import VarianceFeatureSelector
 
 _VIEWS = ("gene_expression", "mutations", "copy_number_variation_gistic")
 

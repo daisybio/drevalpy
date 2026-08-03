@@ -13,7 +13,7 @@ from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
 from drevalpy.components.featurizers._matrix import stack_view_matrix
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.registry import register_cell_line_featurizer
-from drevalpy.data.gene_lists import gene_names_from_list_csv, resolve_gene_list_path
+from drevalpy.features.gene_lists import gene_names_from_list_csv, resolve_gene_list_path
 
 
 def _load_gene_indices(
