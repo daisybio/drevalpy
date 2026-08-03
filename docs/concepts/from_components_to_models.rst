@@ -191,7 +191,7 @@ featurizer, which one-hot encodes drug identifiers, to create a single
 estimator per drug.
 
 Featurizers that can operate on multiple omics layers
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-----------------------------------------------------
 
 The ``raw`` and ``pca`` cell-line featurizers are flexible towards which omics
 layer to read. Put that view in brackets as part of the featurizer's
@@ -383,58 +383,126 @@ accepts. Matrix predictors reject graph/ragged payloads, while block
 predictors consume the corresponding fitted blocks. An incompatible recipe
 fails early rather than reaching the training loop.
 
-Recipe, YAML, and named preset
-------------------------------
-
-Recipe strings and YAML are two representations of the same component tree.
-Recipes are concise and useful for custom stacks; YAML can also carry
-descriptions and explicit component settings. A model-zoo preset gives a
-validated YAML definition a stable, user-facing name.
-
-CLI and Python workflows normally select that preset name. The
-:doc:`model_zoo` is the next step in this sequence: it shows the ready-made
-architectures shipped with DrEvalPy and the recipe behind each one.
-
-Architecture and hyperparameters
---------------------------------
-
-The recipe (which featurizers and which predictor) is part of the **model
-architecture**. It is fixed when the model is composed. Hyperparameter
-optimization does **not** search over alternative recipes or omics views; it
-searches numeric/categorical parameters *on top of* a fixed stack.
-
 Hyperparameter spaces
 ---------------------
 
-Each tunable component owns:
+Only the YAML and ModelConfig interfaces allow specifying hyperparameter
+spaces. Recipe strings describe architecture only; when you use a recipe,
+each component falls back to its built-in ``get_hyperparameter_space()``.
 
-- default hyperparameters used when tuning is off
-- a structured search space used when tuning is on
+On a YAML or ModelConfig stack, set ``hyperparameter_space`` on a component to
+**replace** that component's built-in search space. Specs use local parameter
+names (``alpha``, ``n_components``, …); DrEvalPy prefixes them for tuning.
 
-Search uses Ray Tune with Optuna as the sampler (see
-:doc:`Hyperparameter tuning (CLI) </cli/hyperparameter_tuning>` and
-:doc:`Hyperparameter tuning (Python API) </python/hyperparameter_tuning>`).
-Structured keys are **dotted** and mirror the composed stack. Featurizer keys
-use the same qualified selector as the recipe (including the view bracket when
-present):
+.. tab-set::
+   :sync-group: composition
+
+   .. tab-item:: YAML
+      :sync: yaml
+
+      .. code-block:: yaml
+
+         cell_line_featurizer:
+           name: pca
+           view: expression
+           hyperparameter_space:
+             n_components:
+               type: int
+               low: 8
+               high: 512
+               default: 128
+         drug_featurizer: fingerprints
+         predictor:
+           name: elasticNet
+           hyperparameter_space:
+             alpha:
+               type: float
+               low: 1.0e-4
+               high: 10.0
+               log: true
+               default: 1.0
+             l1_ratio:
+               type: float
+               low: 0.0
+               high: 1.0
+               default: 0.5
+
+   .. tab-item:: ModelConfig
+      :sync: modelconfig
+
+      .. code-block:: python
+
+         from drevalpy.models.config import (
+             CellLineFeaturizerConfig,
+             DrugFeaturizerConfig,
+             ModelConfig,
+             PredictorConfig,
+         )
+
+         config = ModelConfig(
+             cell_line_featurizer=CellLineFeaturizerConfig(
+                 name="pca",
+                 view="expression",
+                 hyperparameter_space={
+                     "n_components": {
+                         "type": "int",
+                         "low": 8,
+                         "high": 512,
+                         "default": 128,
+                     },
+                 },
+             ),
+             drug_featurizer=DrugFeaturizerConfig(name="fingerprints"),
+             predictor=PredictorConfig(
+                 name="elasticNet",
+                 hyperparameter_space={
+                     "alpha": {
+                         "type": "float",
+                         "low": 1e-4,
+                         "high": 10.0,
+                         "log": True,
+                         "default": 1.0,
+                     },
+                     "l1_ratio": {
+                         "type": "float",
+                         "low": 0.0,
+                         "high": 1.0,
+                         "default": 0.5,
+                     },
+                 },
+             ),
+         )
+
+Hyperparameter names during search
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When tuning runs, Ray Tune / Optuna see a **merged** space whose keys are
+dotted and mirror the composed stack:
 
 .. code-block:: text
 
    predictor.<registryName>.<param>
    featurizer.<registry>.<qualifiedFeaturizer>.<param>
 
-Examples:
+The featurizer selector is the same qualified name as in a recipe, including
+the view bracket when present (``pca[expression]``, ``landmarkGenes``, …).
+For the example above, that yields:
 
 .. code-block:: text
 
    predictor.elasticNet.alpha
    predictor.elasticNet.l1_ratio
    featurizer.cell_line.pca[expression].n_components
-   featurizer.cell_line.landmarkGenes.standardize
 
-Flat keys such as ``alpha`` remain valid for constructor defaults; legacy
+The same base featurizer on different views stays independently tunable
+(``pca[expression]`` vs ``pca[proteomics]``). Repeating the same qualified
+selector in one slot is rejected.
+
+Flat constructor keys such as ``alpha`` remain valid for defaults; legacy
 featurizer aliases (for example ``methylation_n_components``) still work but
-are deprecated in favor of the dotted form.
+are deprecated in favor of the dotted form. See
+:doc:`Hyperparameter tuning (CLI) </cli/hyperparameter_tuning>` and
+:doc:`Hyperparameter tuning (Python API) </python/hyperparameter_tuning>`.
 
 Continue the story
 ------------------
@@ -442,20 +510,5 @@ Continue the story
 - **Next:** :doc:`model_zoo` — choose a named, ready-to-run architecture
 - **Previous:** :doc:`component_catalog` — look up a registered component name
 - :doc:`/python/architecture` — composition details and contracts
-- :doc:`/python/model_inputs` — custom views and recipe examples in Python
-- :doc:`/python/custom_models` — registering your own components
+- :doc:`/python/hyperparameter_tuning` — running search on a fixed stack
 
-The compatibility section below is a reference for readers migrating older
-configurations; it is not required before continuing to the model zoo.
-
-Backward compatibility
-----------------------
-
-Before 1.6.0, many models were effectively monolithic classes with optional
-``cell_line_views`` / ``drug_views`` treated as hyperparameters, and baseline
-tuning used YAML Cartesian grids. That composition model is gone:
-
-- Prefer recipe strings or zoo featurizer / predictor blocks for architecture.
-- Prefer component ``get_hyperparameter_space()`` / dotted keys for search.
-- View-as-hyperparameter flat keys remain available but are deprecated; see
-  :doc:`/python/hyperparameter_tuning` and :doc:`/python/model_inputs`.
