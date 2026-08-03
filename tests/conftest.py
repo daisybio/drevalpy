@@ -270,22 +270,14 @@ def ensure_sparsego_ontology_features(data_dir) -> None:
     """
     Ensure SparseGO ontology features exist for TOYv1 and TOYv2 before tests run.
 
-    This fixture runs automatically before any tests to ensure that SparseGO
-    has the necessary gene2ind.txt and sparseGO_ont.txt files available. These
-    are generated from go-basic.obo and MyGene.info GO annotations (real
-    network calls), using the same default n/m/p pruning thresholds that were
-    used to originally generate the committed TOYv1/TOYv2 files by hand.
+    Prefers committed fixtures under ``tests/fixtures/sparsego/`` so CI does not
+    depend on MyGene.info / GO network calls. Falls back to generating from
+    go-basic.obo when fixtures are absent and optional deps are installed.
 
     :param data_dir: path to the data directory
     """
     path_data = str(data_dir)
-
-    try:
-        from drevalpy.datasets.featurizer.create_sparsego_features import create_sparsego_files
-    except ImportError:
-        # If obonet/mygene are not installed, skip ontology feature creation
-        # Tests that require SparseGO features will fail with a clear error message
-        return
+    fixture_root = _TESTS_DIR / "fixtures" / "sparsego"
 
     # Ensure datasets are loaded first (this will download them if needed)
     if not _load_toy_datasets(path_data):
@@ -295,12 +287,27 @@ def ensure_sparsego_ontology_features(data_dir) -> None:
         dataset_dir = pathlib.Path(path_data) / dataset_name
         ont_file = dataset_dir / "sparseGO_ont.txt"
         gene2ind_file = dataset_dir / "gene2ind.txt"
-        expr_file = dataset_dir / "gene_expression.csv"
-
         if ont_file.exists() and gene2ind_file.exists():
             continue
+
+        fixture_dir = fixture_root / dataset_name
+        fixture_ont = fixture_dir / "sparseGO_ont.txt"
+        fixture_gene2ind = fixture_dir / "gene2ind.txt"
+        if fixture_ont.exists() and fixture_gene2ind.exists():
+            dataset_dir.mkdir(parents=True, exist_ok=True)
+            ont_file.write_bytes(fixture_ont.read_bytes())
+            gene2ind_file.write_bytes(fixture_gene2ind.read_bytes())
+            continue
+
+        expr_file = dataset_dir / "gene_expression.csv"
         if not expr_file.exists():
             print(f"Warning: gene_expression.csv not found for {dataset_name}, skipping")
+            continue
+
+        try:
+            from drevalpy.datasets.featurizer.create_sparsego_features import create_sparsego_files
+        except ImportError:
+            print(f"Warning: SparseGO feature generators unavailable for {dataset_name}")
             continue
 
         try:
