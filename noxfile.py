@@ -257,7 +257,13 @@ def docs(session: Session) -> None:
 
     :param session: The Session object.
     """
-    args = session.posargs or ["--open-browser", "docs", "docs/_build"]
+    args = session.posargs or [
+        "--open-browser",
+        "--re-ignore",
+        r".*/_generated_.*\.rst$",
+        "docs",
+        "docs/_build",
+    ]
     session.install(".")
     session.install(
         "sphinx",

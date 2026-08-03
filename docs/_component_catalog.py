@@ -7,6 +7,8 @@ from collections.abc import Collection
 from pathlib import Path
 from typing import TypedDict, TypeVar, cast
 
+from _generated_io import write_text_if_changed
+
 from drevalpy.components.register_builtins import (
     _CELL_LINE_MODULES,
     _DRUG_MODULES,
@@ -197,6 +199,5 @@ def write_generated_component_catalogs() -> tuple[Path, ...]:
     """
     generated = generate_component_catalog_rsts()
     for key, path in GENERATED_CATALOGS.items():
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(generated[key], encoding="utf-8")
+        write_text_if_changed(path, generated[key])
     return tuple(GENERATED_CATALOGS.values())

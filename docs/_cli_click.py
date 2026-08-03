@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from _generated_io import write_text_if_changed
 from typer.main import get_command
 
 from drevalpy.cli.main import app
@@ -114,8 +115,7 @@ def write_generated_cli_reference() -> Path:
 
     :returns: path to the generated RST file
     """
-    GENERATED_REFERENCE.parent.mkdir(parents=True, exist_ok=True)
-    GENERATED_REFERENCE.write_text(generate_cli_reference_rst(), encoding="utf-8")
+    write_text_if_changed(GENERATED_REFERENCE, generate_cli_reference_rst())
     return GENERATED_REFERENCE
 
 

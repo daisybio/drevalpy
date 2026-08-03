@@ -84,6 +84,7 @@ exclude_patterns = [
     ".DS_Store",
     "_cli_click.py",
     "_component_catalog.py",
+    "_generated_io.py",
     "_model_zoo.py",
     "cli/_generated_reference.rst",
     "concepts/_generated_cell_line_featurizers.rst",

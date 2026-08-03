@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from _generated_io import write_text_if_changed
+
 from drevalpy.components.register_builtins import register_builtin_components
 from drevalpy.components.registry import get_predictor, get_predictor_metadata
 from drevalpy.models.config import FeaturizerConfig, ModelConfig
@@ -99,6 +101,5 @@ def write_generated_model_zoo() -> Path:
 
     :returns: path to the written ``_generated_model_zoo.rst`` file
     """
-    GENERATED_MODEL_ZOO.parent.mkdir(parents=True, exist_ok=True)
-    GENERATED_MODEL_ZOO.write_text(generate_model_zoo_rst(), encoding="utf-8")
+    write_text_if_changed(GENERATED_MODEL_ZOO, generate_model_zoo_rst())
     return GENERATED_MODEL_ZOO
