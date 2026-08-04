@@ -395,11 +395,11 @@ preset.
 Saving and loading with custom components
 -----------------------------------------
 
-Checkpoints store the resolved ``ModelConfig`` (component **names**) and fitted
-state — not the Python classes themselves. On load, DrEvalPy looks those names
-up in the registries again, then restores state. If a custom featurizer or
-predictor is not registered in the process that calls ``load`` /
-``load_model``, reconstruction fails.
+Checkpoints are ZIP archives that store the resolved ``ModelConfig`` (component
+**names**) and fitted state — not the Python classes themselves. On load,
+DrEvalPy looks those names up in the registries again, then restores state. If
+a custom featurizer or predictor is not registered in the process that calls
+``load`` / ``load_model``, reconstruction fails.
 
 Import the same modules (or call ``load_extensions``) before loading:
 
@@ -410,7 +410,8 @@ Import the same modules (or call ``load_extensions``) before loading:
 
    from drevalpy.models import load_model
 
-   model = load_model("checkpoints/toy_ridge")
+   model = load_model("checkpoints/toy_ridge.zip")
 
 Built-in zoo models need no extra step; only custom component names require
-this. See :doc:`models` for the general save/load lifecycle.
+this. See :doc:`models` for the general save/load lifecycle (``.zip`` is
+appended automatically when the path does not already end with it).

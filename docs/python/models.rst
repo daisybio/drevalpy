@@ -237,7 +237,7 @@ names and format vocabulary are listed in
 calls ``predictor.fit`` — there is no public ``Predictor.build``. Dimension
 allocation that depends on fitted features happens inside ``fit``.
 
-Training, and persistence
+Training and persistence
 -------------------------
 
 Each ``DRPModel`` subclass exposes:
