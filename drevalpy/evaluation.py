@@ -36,13 +36,18 @@ def _check_constant_target_or_small_sample(y_true: np.ndarray) -> bool:
 
 
 def pearson(y_pred: np.ndarray, y_true: np.ndarray) -> float:
-    """
-    Computes the pearson correlation between predictions and response.
+    """Compute Pearson correlation between predictions and response.
 
-    :param y_pred: predictions
-    :param y_true: response
-    :return: pearson correlation float
-    :raises AssertionError: if predictions and response do not have the same length
+    Args:
+        y_pred: Predicted response values.
+        y_true: Observed response values.
+
+    Returns:
+        Pearson correlation, ``0.0`` for constant predictions, or ``nan`` when
+        the target is constant or the sample is too small.
+
+    Raises:
+        AssertionError: If *y_pred* and *y_true* differ in length.
     """
     if len(y_pred) != len(y_true):
         raise AssertionError("predictions, response  must have the same length")
@@ -56,13 +61,18 @@ def pearson(y_pred: np.ndarray, y_true: np.ndarray) -> float:
 
 
 def spearman(y_pred: np.ndarray, y_true: np.ndarray) -> float:
-    """
-    Computes the spearman correlation between predictions and response.
+    """Compute Spearman correlation between predictions and response.
 
-    :param y_pred: predictions
-    :param y_true: response
-    :return: spearman correlation float
-    :raises AssertionError: if predictions and response do not have the same length
+    Args:
+        y_pred: Predicted response values.
+        y_true: Observed response values.
+
+    Returns:
+        Spearman correlation, ``0.0`` for constant predictions, or ``nan`` when
+        the target is constant or the sample is too small.
+
+    Raises:
+        AssertionError: If *y_pred* and *y_true* differ in length.
     """
     # we can use scipy.stats.spearmanr
     if len(y_pred) != len(y_true):
@@ -76,13 +86,18 @@ def spearman(y_pred: np.ndarray, y_true: np.ndarray) -> float:
 
 
 def kendall(y_pred: np.ndarray, y_true: np.ndarray) -> float:
-    """
-    Computes the kendall tau correlation between predictions and response.
+    """Compute Kendall tau correlation between predictions and response.
 
-    :param y_pred: predictions
-    :param y_true: response
-    :return: kendall tau correlation float
-    :raises AssertionError: if predictions and response do not have the same length
+    Args:
+        y_pred: Predicted response values.
+        y_true: Observed response values.
+
+    Returns:
+        Kendall tau, ``0.0`` for constant predictions, or ``nan`` when the target
+        is constant or the sample is too small.
+
+    Raises:
+        AssertionError: If *y_pred* and *y_true* differ in length.
     """
     # we can use scipy.stats.spearmanr
     if len(y_pred) != len(y_true):
@@ -110,12 +125,16 @@ MAXIMIZATION_METRICS = ["R^2", "Pearson", "Spearman", "Kendall"]
 
 
 def get_mode(metric: str):
-    """
-    Get whether the optimum value of the metric is the minimum or maximum.
+    """Return whether lower or higher metric values are better.
 
-    :param metric: metric, e.g., RMSE
-    :returns: whether the optimum value of the metric is the minimum or maximum
-    :raises ValueError: if the metric is not in MINIMIZATION_METRICS or MAXIMIZATION_METRICS
+    Args:
+        metric: Metric name (for example ``"RMSE"`` or ``"Pearson"``).
+
+    Returns:
+        ``"min"`` for error metrics or ``"max"`` for correlation metrics.
+
+    Raises:
+        ValueError: If *metric* is not a known minimization or maximization metric.
     """
     if metric in MINIMIZATION_METRICS:
         mode = "min"
@@ -153,14 +172,18 @@ def _compute_metric_value(metric_name: str, predictions: np.ndarray, response: n
 
 @pipeline_function
 def evaluate(dataset: DrugResponseDataset, metric: list[str] | str):
-    """
-    Evaluates the model on the given dataset.
+    """Compute evaluation metrics from stored predictions on a dataset.
 
-    :param dataset: dataset to evaluate on
-    :param metric: evaluation metric(s) (one or a list of "MSE", "RMSE", "MAE", "R^2", "Pearson",
-        "spearman", "kendall")
-    :return: evaluation metric
-    :raises AssertionError: if metric is not in AVAILABLE
+    Args:
+        dataset: ``DrugResponseDataset`` with ``predictions`` populated.
+        metric: One metric name or a list of names from ``AVAILABLE_METRICS``
+            (for example ``"RMSE"``, ``"Pearson"``).
+
+    Returns:
+        Mapping from metric name to scalar score.
+
+    Raises:
+        AssertionError: If predictions are missing or a metric name is unknown.
     """
     if isinstance(metric, str):
         metric = [metric]

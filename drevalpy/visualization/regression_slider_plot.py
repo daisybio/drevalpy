@@ -22,14 +22,14 @@ class RegressionSliderPlot(OutPlot):
         group_by: str = "drug_name",
         normalize=False,
     ):
-        """
-        Initialize the RegressionSliderPlot class.
+        """Initialize regression slider plot.
 
-        :param df: true vs. predicted values
-        :param test_mode: test_mode, e.g., LPO
-        :param model: model name
-        :param group_by: either "drug_name" or "cell_line_name"
-        :param normalize: whether to normalize the true and predicted values by the mean of the group
+        Args:
+            df: True versus predicted values table.
+            test_mode: Evaluation test mode (for example ``"LPO"``).
+            model: Model name to plot.
+            group_by: Grouping column (``"drug_name"`` or ``"cell_line_name"``).
+            normalize: Subtract NaiveMeanEffectsPredictor predictions per pair.
         """
         self.df = df[(df["test_mode"] == test_mode) & (df["rand_setting"] == "predictions")]
         model_df = self.df[(self.df["algorithm"] == model)]
@@ -72,11 +72,11 @@ class RegressionSliderPlot(OutPlot):
             )
 
     def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
-        """
-        Draw the regression plot and save it to a file.
+        """Draw regression plot and save as HTML.
 
-        :param out_prefix: e.g., results/my_run/regression_plots/
-        :param out_suffix: e.g., LPO_drug_SimpleNeuralNetwork
+        Args:
+            out_prefix: Output directory (for example ``results/my_run/regression_plots/``).
+            out_suffix: Filename suffix (for example ``LPO_drug_SimpleNeuralNetwork``).
         """
         self._draw()
         self.fig.write_html(f"{out_prefix}regression_lines_{out_suffix}.html")
@@ -95,14 +95,16 @@ class RegressionSliderPlot(OutPlot):
 
     @staticmethod
     def write_to_html(test_mode: str, f: TextIOWrapper, *args, **kwargs) -> TextIOWrapper:
-        """
-        Write the plot to the final report file.
+        """Insert regression plot links into the report HTML.
 
-        :param test_mode: test_mode, e.g., LPO
-        :param f: final report file
-        :param args: additional arguments
-        :param kwargs: additional keyword arguments, in this case all files
-        :return: the final report file
+        Args:
+            test_mode: Evaluation test mode (for example ``"LPO"``).
+            f: Open HTML file handle.
+            *args: Unused.
+            **kwargs: Must include ``files``, a list of generated plot filenames.
+
+        Returns:
+            The same file handle after writing.
         """
         files: list[str] = kwargs.get("files", [])
         f.write('<h2 id="regression_plots">Regression plots</h2>\n')

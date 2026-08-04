@@ -54,16 +54,18 @@ class DrugResponseDataset:
         dataset_name: str = "unnamed",
     ) -> None:
         """
-        Initializes the drug response dataset.
+        Initialize a drug response dataset.
 
-        :param response: drug response values per cell line and drug
-        :param cell_line_ids: cell line IDs
-        :param drug_ids: drug IDs
-        :param tissues: Optionally, tissue types of the cell lines for leave-tissue-out cv
-        :param predictions: optional. Predicted drug response values per cell line and drug
-        :param dataset_name: optional. Name of the dataset, default: "unnamed"
-        :raises AssertionError: If response, cell_line_ids, drug_ids, (and the optional predictions) do not all have
-            the same length.
+        Args:
+            response: Drug response values per cell line and drug pair.
+            cell_line_ids: Cell-line identifier for each row.
+            drug_ids: Drug identifier for each row.
+            tissues: Optional tissue labels for leave-tissue-out CV.
+            predictions: Optional predicted response values.
+            dataset_name: Human-readable dataset label.
+
+        Raises:
+            AssertionError: If array lengths are inconsistent.
         """
         super().__init__()
         if len(response) != len(cell_line_ids):
@@ -92,24 +94,22 @@ class DrugResponseDataset:
         measure: str = "response",
         tissue_column: str | None = "tissue",
     ) -> "DrugResponseDataset":
-        """
-        Load a dataset from a csv file.
+        """Load a dataset from a CSV file.
 
-        This function creates a DrugResponseDataset from a provided input file in csv format.
-        The following columns are required:
+        Required columns: ``cell_line_name``, ``pubchem_id``, and the *measure*
+        column. Optional columns: ``predictions``, tissue column.
 
-        - response:         the drug response values as floating point values
-        - cell_line_name:    a string identifier for cell lines
-        - pubchem_id:         a string identifier for drugs
-        - predictions:      an optional column containing drug response predictions
-        - LN_IC50_curvecurator:         the name of the column containing the measure to predict
+        Args:
+            input_file: Path to the CSV file.
+            dataset_name: Label stored on the returned dataset.
+            measure: Response column name to load.
+            tissue_column: Tissue column name, or ``None`` to skip tissues.
 
-        :param input_file: Path to the csv file containing the data to be loaded
-        :param dataset_name: Optional name to associate the dataset with, default = "unknown"
-        :param measure: The name of the column containing the measure to predict, default = "response"
-        :param tissue_column: Optional column name of column containing tissue types
-        :raises ValueError: If the required columns are not found in the input file
-        :returns: DrugResponseDataset object containing data from provided csv file.
+        Returns:
+            ``DrugResponseDataset`` built from the CSV rows.
+
+        Raises:
+            ValueError: If required columns are missing.
         """
         data = pd.read_csv(input_file, dtype={DRUG_IDENTIFIER: str, CELL_LINE_IDENTIFIER: str}, low_memory=False)
 
@@ -416,19 +416,22 @@ class DrugResponseDataset:
         validation_ratio: float = 0.1,
         random_state: int = 42,
     ) -> list[dict]:
-        """
-        Splits the dataset into training, validation and test sets for cross-validation.
+        """Split the dataset into training, validation, and test folds.
 
-        :param n_cv_splits: number of cross-validation splits, e.g., 5
-        :param mode: split mode ('LPO', 'LCO', 'LDO')
-        :param split_validation: if True, a validation set is generated
-        :param split_early_stopping: if True, an early stopping set is generated
-        :param validation_ratio: ratio of validation set size to training set size
-        :param random_state: random state
-        :returns: list of dictionaries containing the cross-validation datasets.
-            Each fold is a dictionary with keys 'train', 'validation', 'test', 'validation_es', 'early_stopping'.
-        :raises ValueError: if mode is not 'LPO', 'LCO', or 'LDO'
-        :raises ValueError: if LTO cross-validation but tissue information not provided
+        Args:
+            n_cv_splits: Number of cross-validation folds.
+            mode: Split mode (``"LPO"``, ``"LCO"``, or ``"LDO"``).
+            split_validation: Whether to create a validation subset per fold.
+            split_early_stopping: Whether to create an early-stopping subset.
+            validation_ratio: Validation size relative to training data.
+            random_state: Random seed for splitting.
+
+        Returns:
+            List of fold dicts with ``train``, ``validation``, ``test``, and
+            optional ``early_stopping`` datasets.
+
+        Raises:
+            ValueError: If *mode* is invalid or tissue information is missing for LTO.
         """
         if mode == "LPO":
             cv_splits = _leave_pair_out_cv(
@@ -628,13 +631,17 @@ class DrugResponseDataset:
 def split_early_stopping_data(
     validation_dataset: DrugResponseDataset, test_mode: str
 ) -> tuple[DrugResponseDataset, DrugResponseDataset]:
-    """
-    Splits the validation dataset into a validation and an early stopping dataset.
+    """Split a validation set into validation and early-stopping partitions.
 
-    :param validation_dataset: input validation dataset
-    :param test_mode: LPO, LCO, LTO, LDO
-    :raises ValueError: if test_mode is not one of the expected values
-    :returns: the resulting validation and early stopping datasets
+    Args:
+        validation_dataset: Validation dataset to subdivide.
+        test_mode: One of ``LPO``, ``LCO``, ``LDO``, or ``LTO``.
+
+    Returns:
+        Validation and early-stopping datasets.
+
+    Raises:
+        ValueError: If *test_mode* is invalid or LTO tissue is missing.
     """
     validation_dataset = validation_dataset.shuffled(random_state=42)
 

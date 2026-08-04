@@ -101,7 +101,11 @@ class FeaturizerConfig(BaseModel):
         return self
 
     def create_instance(self):
-        """Instantiate the configured featurizer from the registry."""
+        """Instantiate the configured featurizer from the registry.
+
+        Returns:
+            Featurizer instance for this config.
+        """
         from drevalpy.components.registry import lookup as reg
 
         if self.registry == "cell_line":
@@ -172,7 +176,11 @@ class PredictorConfig(BaseModel):
         return data
 
     def create_instance(self):
-        """Instantiate the configured predictor from the registry."""
+        """Instantiate the configured predictor from the registry.
+
+        Returns:
+            Predictor instance for this config.
+        """
         from drevalpy.components.registry import lookup as reg
 
         cls = reg.get_predictor(self.name)
@@ -244,7 +252,11 @@ class ModelConfig(BaseModel):
         return f"{self.cell_line_featurizer.name}:" f"{self.drug_featurizer.name}:" f"{self.predictor.name}"
 
     def validate(self) -> None:  # type: ignore[override]
-        """Check registry slots, feature compatibility, and prediction mode."""
+        """Check registry slots, feature compatibility, and prediction mode.
+
+        Raises:
+            ValueError: If featurizers, predictor contracts, or scope are incompatible.
+        """
         from drevalpy.models.config_validation import validate_model_config
 
         normalized = _normalize_single_drug_identity(self.model_dump())
@@ -262,7 +274,19 @@ class ModelConfig(BaseModel):
         hyperparameters: dict[str, Any] | None = None,
         prediction_mode: PredictionMode = PredictionMode.REGRESSION,
     ) -> ModelConfig:
-        """Build a config from a recipe, zoo, legacy, or baseline spec string."""
+        """Build a config from a recipe, zoo, legacy, or baseline spec string.
+
+        Args:
+            spec: Zoo preset name, colon-separated recipe, or legacy baseline token.
+            hyperparameters: Optional flat public hyperparameter overrides.
+            prediction_mode: Regression or classification mode for the predictor.
+
+        Returns:
+            Validated ``ModelConfig`` instance.
+
+        Raises:
+            ValueError: If *spec* is unknown or validation fails.
+        """
         from drevalpy.models.model_config_spec import build_model_config_from_spec
 
         return build_model_config_from_spec(
@@ -273,14 +297,35 @@ class ModelConfig(BaseModel):
 
     @classmethod
     def from_yaml(cls, path: Path | str) -> ModelConfig:
-        """Load a config from a YAML file."""
+        """Load a config from a YAML file.
+
+        Args:
+            path: Path to a YAML mapping describing the model config.
+
+        Returns:
+            Validated ``ModelConfig`` instance.
+
+        Raises:
+            FileNotFoundError: If *path* does not exist.
+            ValueError: If the YAML content is not a valid config mapping.
+        """
         from drevalpy.models.config_io import model_config_from_yaml
 
         return model_config_from_yaml(path)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ModelConfig:
-        """Build a config from a plain dictionary."""
+        """Build a config from a plain dictionary.
+
+        Args:
+            data: Mapping with featurizer and predictor sections.
+
+        Returns:
+            Validated ``ModelConfig`` instance.
+
+        Raises:
+            ValueError: If validation fails.
+        """
         from drevalpy.models.config_io import model_config_from_dict
 
         return model_config_from_dict(data)

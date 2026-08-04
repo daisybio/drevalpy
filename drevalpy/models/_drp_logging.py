@@ -38,7 +38,15 @@ class _DRPLoggingMixin:
         tags: list[str] | None = None,
         finish_previous: bool = True,
     ) -> None:
-        """Initialize wandb logging for this model instance."""
+        """Initialize wandb logging for this model instance.
+
+        Args:
+            project: Weights & Biases project name.
+            config: Optional run configuration dict.
+            name: Optional run display name; defaults to the model name.
+            tags: Optional run tags.
+            finish_previous: Finish any active wandb run before starting a new one.
+        """
         self.wandb_project = project
         run_config = dict(config or {})
         if self.hyperparameters and "hyperparameters" not in run_config:
@@ -109,7 +117,16 @@ class _DRPLoggingMixin:
         additional_metrics: list[str] | None = None,
         prefix: str = "val_",
     ) -> dict[str, float]:
-        """Compute final metrics from a dataset and store them in wandb summary."""
+        """Compute final metrics from a dataset and store them in wandb summary.
+
+        Args:
+            dataset: Dataset with ``predictions`` populated.
+            additional_metrics: Extra metric names beyond R² and Pearson.
+            prefix: Key prefix for logged metric names.
+
+        Returns:
+            Mapping from metric name to scalar score.
+        """
         if dataset.predictions is None:
             return {}
 

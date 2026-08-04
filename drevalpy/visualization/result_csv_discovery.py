@@ -15,10 +15,16 @@ def _csv_files_in_category(algorithm_dir: pathlib.Path, category: str) -> list[p
 
 
 def discover_result_csv_files(result_dir: pathlib.Path, dataset: str) -> list[pathlib.Path]:
-    """
-    Collect prediction result CSV files from the known experiment directory layout.
+    """Collect prediction CSV files from the experiment directory layout.
 
     Expected layout: ``{result_dir}/{dataset}/{split_label}/{algorithm}/{category}/*.csv``.
+
+    Args:
+        result_dir: Root experiment results directory.
+        dataset: Dataset subdirectory name.
+
+    Returns:
+        Sorted list of discovered prediction CSV paths.
     """
     dataset_dir = result_dir / dataset
     if not dataset_dir.is_dir():

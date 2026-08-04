@@ -11,6 +11,16 @@ from .normalize_metrics import normalize_metrics_by_mean_effects
 
 
 def load_drug_and_cell_line_metadata(path_data: os.PathLike | str) -> tuple[dict[str, str], dict[str, str]]:
+    """Walk ``path_data`` and collect drug and cell-line name mappings.
+
+    Args:
+        path_data: Root directory to search for ``drug_names.csv`` and
+            ``cell_line_names.csv``.
+
+    Returns:
+        Tuple of ``pubchem_id → drug_name`` and cell-line id → cellosaurus id
+        mappings.
+    """
     drug_metadata: dict[str, str] = {}
     cell_line_metadata: dict[str, str] = {}
     for root, _, files in os.walk(os.fspath(path_data)):
@@ -40,6 +50,14 @@ def _cell_line_name_mapping(path: str) -> dict[str, str]:
 
 
 def add_index_columns_from_model(eval_results: pd.DataFrame) -> pd.DataFrame:
+    """Split the model index into algorithm, setting, test mode, and CV split columns.
+
+    Args:
+        eval_results: Evaluation results indexed by encoded model run names.
+
+    Returns:
+        Input table with parsed index columns prepended.
+    """
     new_columns = eval_results.index.str.split("_", expand=True).to_frame()
     new_columns.columns = ["algorithm", "rand_setting", "test_mode", "split", "CV_split"]
     new_columns.index = eval_results.index
@@ -50,6 +68,15 @@ def enrich_eval_results_per_drug(
     eval_results_per_drug: pd.DataFrame | None,
     drug_metadata: dict[str, str],
 ) -> pd.DataFrame | None:
+    """Add drug names and parsed model fields to per-drug results.
+
+    Args:
+        eval_results_per_drug: Per-drug evaluation table, or ``None``.
+        drug_metadata: Mapping from drug id to human-readable name.
+
+    Returns:
+        Enriched per-drug table, or ``None`` if input was ``None``.
+    """
     if eval_results_per_drug is None:
         return None
     eval_results_per_drug = eval_results_per_drug.copy()
@@ -64,6 +91,15 @@ def enrich_eval_results_per_cell_line(
     eval_results_per_cell_line: pd.DataFrame | None,
     cell_line_metadata: dict[str, str],
 ) -> pd.DataFrame | None:
+    """Add cellosaurus ids and parsed model fields to per-cell-line results.
+
+    Args:
+        eval_results_per_cell_line: Per-cell-line evaluation table, or ``None``.
+        cell_line_metadata: Mapping from cell-line id to cellosaurus id.
+
+    Returns:
+        Enriched per-cell-line table, or ``None`` if input was ``None``.
+    """
     if eval_results_per_cell_line is None:
         return None
     eval_results_per_cell_line = eval_results_per_cell_line.copy()
@@ -81,6 +117,16 @@ def enrich_true_vs_pred(
     drug_metadata: dict[str, str],
     cell_line_metadata: dict[str, str],
 ) -> pd.DataFrame:
+    """Add metadata columns and parsed model fields to true-versus-predicted rows.
+
+    Args:
+        t_vs_p: True versus predicted values table.
+        drug_metadata: Mapping from drug id to human-readable name.
+        cell_line_metadata: Mapping from cell-line id to cellosaurus id.
+
+    Returns:
+        Enriched true-versus-predicted table with identifier columns.
+    """
     t_vs_p = t_vs_p.copy()
     t_vs_p[["algorithm", "rand_setting", "test_mode", "split", "CV_split"]] = t_vs_p["model"].str.split(
         "_", expand=True
@@ -97,6 +143,18 @@ def apply_mean_effects_normalization(
     eval_results: pd.DataFrame,
     t_vs_p: pd.DataFrame,
 ) -> pd.DataFrame:
+    """Normalize metrics using NaiveMeanEffectsPredictor baselines.
+
+    Args:
+        eval_results: Overall evaluation results.
+        t_vs_p: True versus predicted values for all models.
+
+    Returns:
+        ``eval_results`` merged with normalized metric columns.
+
+    Raises:
+        ValueError: If ``NaiveMeanEffectsPredictor`` is not in the results.
+    """
     if "NaiveMeanEffectsPredictor" not in eval_results["algorithm"].unique():
         raise ValueError(
             "NaiveMeanEffectsPredictor not found in evaluation results. "

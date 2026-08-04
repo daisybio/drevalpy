@@ -10,14 +10,17 @@ from ._pipeline_function import pipeline_function
 def get_response_transformation(
     response_transformation: str | None,
 ) -> TransformerMixin | None:
-    """
-    Get the skelarn response transformation object of choice.
+    """Return the sklearn response transformer for a pipeline option.
 
-    Users can choose from "None", "standard", "minmax", "robust".
+    Args:
+        response_transformation: One of ``"None"``, ``"standard"``, ``"minmax"``,
+            or ``"robust"``.
 
-    :param response_transformation: response transformation to apply
-    :returns: response transformation object
-    :raises ValueError: if the response transformation is not recognized
+    Returns:
+        Fitted-ready sklearn transformer, or ``None`` for no transformation.
+
+    Raises:
+        ValueError: If *response_transformation* is not recognized.
     """
     if (response_transformation == "None") or (response_transformation is None):
         return None

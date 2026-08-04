@@ -46,7 +46,16 @@ def numeric_feature_block(
     feature_names: tuple[str, ...] | None = None,
     metadata: Mapping[str, object] | None = None,
 ) -> FeatureBlock:
-    """Build a dense numeric matrix block."""
+    """Build a dense numeric matrix block.
+
+    Args:
+        values: Entity-aligned 2D float array.
+        feature_names: Optional column names for the matrix.
+        metadata: Optional per-block metadata mapping.
+
+    Returns:
+        ``FeatureBlock`` with ``FeatureFormat.NUMERIC_MATRIX``.
+    """
     return FeatureBlock(
         values=values,
         format=FeatureFormat.NUMERIC_MATRIX,
@@ -56,17 +65,38 @@ def numeric_feature_block(
 
 
 def graph_feature_block(values: np.ndarray) -> FeatureBlock:
-    """Build a graph payload block without dtype coercion."""
+    """Build a graph payload block without dtype coercion.
+
+    Args:
+        values: Object-dtype array of graph payloads, one row per entity.
+
+    Returns:
+        ``FeatureBlock`` with ``FeatureFormat.GRAPH``.
+    """
     return FeatureBlock(values=values, format=FeatureFormat.GRAPH)
 
 
 def ragged_feature_block(values: np.ndarray) -> FeatureBlock:
-    """Build a ragged sequence payload block without dtype coercion."""
+    """Build a ragged sequence payload block without dtype coercion.
+
+    Args:
+        values: Object-dtype array of variable-length sequence payloads.
+
+    Returns:
+        ``FeatureBlock`` with ``FeatureFormat.RAGGED_SEQUENCE``.
+    """
     return FeatureBlock(values=values, format=FeatureFormat.RAGGED_SEQUENCE)
 
 
 def metadata_feature_block(values: np.ndarray) -> FeatureBlock:
-    """Build a global metadata block that is not indexed per entity."""
+    """Build a global metadata block that is not indexed per entity.
+
+    Args:
+        values: Payload array stored once for the whole batch.
+
+    Returns:
+        ``FeatureBlock`` marked with ``entity_aligned=False``.
+    """
     return FeatureBlock(
         values=values,
         format=FeatureFormat.NUMERIC_MATRIX,
@@ -77,7 +107,17 @@ def metadata_feature_block(values: np.ndarray) -> FeatureBlock:
 def merge_feature_blocks(
     *block_maps: Mapping[str, FeatureBlock],
 ) -> dict[str, FeatureBlock]:
-    """Merge child block mappings, rejecting duplicate emitted names."""
+    """Merge child block mappings, rejecting duplicate emitted names.
+
+    Args:
+        *block_maps: Block mappings to combine in order.
+
+    Returns:
+        Single mapping containing every block from *block_maps*.
+
+    Raises:
+        ValueError: If the same block name appears in more than one mapping.
+    """
     merged: dict[str, FeatureBlock] = {}
     for block_map in block_maps:
         for name, block in block_map.items():

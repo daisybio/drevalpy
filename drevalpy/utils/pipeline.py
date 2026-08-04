@@ -10,10 +10,10 @@ from .validation import check_arguments
 
 
 def main(args) -> None:
-    """
-    Main function to run the drug response evaluation pipeline.
+    """Run the drug response evaluation pipeline.
 
-    :param args: passed from command line
+    Args:
+        args: Parsed command-line arguments for the evaluation pipeline.
     """
     check_arguments(args)
     response_data, cross_study_datasets = get_datasets(
@@ -76,30 +76,19 @@ def get_datasets(
     cores: int = 1,
     normalize: bool = False,
 ) -> tuple[DrugResponseDataset, list[DrugResponseDataset] | None]:
-    """
-    Load the response data and cross-study datasets.
+    """Load the primary response dataset and optional cross-study datasets.
 
-    :param dataset_name: The name of the dataset to load. Can be one of ('GDSC1', 'GDSC2', 'CCLE', CTRPv1',
-        'CTRPv2', 'TOYv1', 'TOYv2')
-        to download provided datasets, or any other name to use a custom datasets.
-    :param cross_study_datasets: list of cross-study datasets. CurveCurator is not applicable to these. If you wish
-        to provide custom cross_study_datasets, you have to invoke curve fitting manually using
-        drevalpy.datasets.curvecurator.fit_curves
-    :param path_data: The parent path in which custom or downloaded datasets should be located, or in which raw
-        viability data is to be found for fitting with CurveCurator (see param curve_curator for details).
-        The location of the datasets are resolved by <path_data>/<dataset_name>/<dataset_name>.csv.
-    :param measure: The name of the column containing the measure to predict, default = "response".
-        If curve_curator is True, this measure is appended with "_curvecurator", e.g. "response_curvecurator" to
-        distinguish between measures provided by the original source of a dataset, or the measures fit by
-        CurveCurator.
-    :param curve_curator: If True, the measure is appended with "_curvecurator".
-        If a custom dataset_name was provided, this will invoke the fitting procedure of raw viability data,
-        which is expected to exist at <path_data>/<dataset_name>/<dataset_name>_raw.csv. The fitted dataset will
-        be stored in the same folder, in a file called <dataset_name>.csv
-    :param cores: Number of cores to use for CurveCurator fitting. Only used when curve_curator is True, default = 1
-    :param normalize: Whether to normalize the response values to [0, 1] for curvecurator. Default = False.
-        Only used for custom datasets when curve_curator is True.
-    :returns: response data and, potentially, cross-study datasets
+    Args:
+        dataset_name: Built-in or custom dataset name passed to ``load_dataset``.
+        cross_study_datasets: Names of additional datasets to load.
+        path_data: Root directory for dataset files.
+        measure: Response column name.
+        curve_curator: Whether to fit CurveCurator for custom datasets.
+        cores: Worker count for CurveCurator fitting.
+        normalize: Normalize responses during CurveCurator fitting.
+
+    Returns:
+        Tuple of the primary dataset and loaded cross-study datasets.
     """
     response_data = load_dataset(
         dataset_name=dataset_name,

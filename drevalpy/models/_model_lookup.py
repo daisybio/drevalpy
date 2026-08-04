@@ -9,17 +9,38 @@ from drevalpy.types.model_scope import ModelScope
 
 
 def get_model_class(name: str) -> type[DRPModel]:
-    """Return the DRPModel facade class for a zoo preset name."""
+    """Return the ``DRPModel`` facade class for a zoo preset name.
+
+    Args:
+        name: Built-in or external zoo preset name.
+
+    Returns:
+        Generated ``DRPModel`` subclass for the preset.
+    """
     return construct_model(name)
 
 
 def known_model_names(*, include_external: bool = True) -> list[str]:
-    """Return sorted zoo model names available for CLI/experiment resolution."""
+    """Return sorted zoo model names available for CLI/experiment resolution.
+
+    Args:
+        include_external: Include externally registered zoo entries.
+
+    Returns:
+        Sorted list of resolvable model names.
+    """
     return list_zoo_names(include_external=include_external)
 
 
 def is_single_drug_model_name(name: str) -> bool:
-    """Return whether *name* is a single-drug zoo preset."""
+    """Return whether *name* is a single-drug zoo preset.
+
+    Args:
+        name: Built-in or external zoo preset name.
+
+    Returns:
+        ``True`` when the preset scope is single-drug; ``False`` if unknown.
+    """
     try:
         return get_zoo_config(name).scope == ModelScope.SINGLE_DRUG
     except KeyError:
@@ -27,7 +48,14 @@ def is_single_drug_model_name(name: str) -> bool:
 
 
 def is_multi_drug_model_name(name: str) -> bool:
-    """Return whether *name* is a multi-drug zoo preset."""
+    """Return whether *name* is a multi-drug zoo preset.
+
+    Args:
+        name: Built-in or external zoo preset name.
+
+    Returns:
+        ``True`` when the preset scope is multi-drug; ``False`` if unknown.
+    """
     try:
         return get_zoo_config(name).scope == ModelScope.MULTI_DRUG
     except KeyError:
@@ -35,10 +63,24 @@ def is_multi_drug_model_name(name: str) -> bool:
 
 
 def single_drug_model_names(*, include_external: bool = True) -> list[str]:
-    """Return sorted single-drug zoo names."""
+    """Return sorted single-drug zoo names.
+
+    Args:
+        include_external: Include externally registered zoo entries.
+
+    Returns:
+        Sorted list of single-drug preset names.
+    """
     return list_zoo_names(include_external=include_external, scope=ModelScope.SINGLE_DRUG)
 
 
 def multi_drug_model_names(*, include_external: bool = True) -> list[str]:
-    """Return sorted multi-drug zoo names."""
+    """Return sorted multi-drug zoo names.
+
+    Args:
+        include_external: Include externally registered zoo entries.
+
+    Returns:
+        Sorted list of multi-drug preset names.
+    """
     return list_zoo_names(include_external=include_external, scope=ModelScope.MULTI_DRUG)

@@ -43,15 +43,17 @@ def make_split_params(
     random_state: int = 42,
     split_early_stopping: bool = True,
 ) -> SplitParams:
-    """
-    Build ``SplitParams`` from pipeline keyword arguments.
+    """Build :class:`SplitParams` from pipeline keyword arguments.
 
-    :param test_mode: one of ``LPO``, ``LCO``, ``LDO``, or ``LTO``
-    :param n_cv_splits: requested number of CV splits
-    :param validation_ratio: validation fraction of the training set
-    :param random_state: random seed for splitting
-    :param split_early_stopping: whether to derive early-stopping roles
-    :returns: frozen split settings for providers
+    Args:
+        test_mode: One of ``LPO``, ``LCO``, ``LDO``, or ``LTO``.
+        n_cv_splits: Requested number of CV splits.
+        validation_ratio: Validation fraction of the training set.
+        random_state: Random seed for splitting.
+        split_early_stopping: Whether to derive early-stopping roles.
+
+    Returns:
+        Frozen split settings for providers.
     """
     return SplitParams(
         test_mode=test_mode,

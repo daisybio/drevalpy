@@ -8,15 +8,15 @@ from drevalpy.visualization.outplot import OutPlot
 
 
 class VioHeat(OutPlot):
-    """Parent class for Violin and Heatmap plots of performance measures over CV runs."""
+    """Parent class for violin and heatmap plots over CV runs."""
 
     def __init__(self, df: pd.DataFrame, normalized_metrics=False, whole_name=False):
-        """
-        Initialize the VioHeat class.
+        """Initialize shared violin/heatmap state.
 
-        :param df: evaluation results, either overall or per algorithm
-        :param normalized_metrics: whether the metrics are normalized
-        :param whole_name: whether the whole name should be displayed
+        Args:
+            df: Evaluation results (overall or per algorithm).
+            normalized_metrics: Whether to show only normalized metric columns.
+            whole_name: Whether to display full algorithm setting labels.
         """
         self.df = df.sort_index()
         self.all_metrics = [
@@ -40,11 +40,11 @@ class VioHeat(OutPlot):
             self.all_metrics = [metric for metric in self.all_metrics if "normalized" not in metric]
 
     def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
-        """
-        Draw and save the plot.
+        """Draw and save the plot (implemented by subclasses).
 
-        :param out_prefix: e.g., results/my_run/heatmaps/
-        :param out_suffix: e.g., algorithms_normalized
+        Args:
+            out_prefix: Output directory path.
+            out_suffix: Filename suffix for the saved artifact.
         """
         pass
 
@@ -53,14 +53,16 @@ class VioHeat(OutPlot):
 
     @staticmethod
     def write_to_html(test_mode: str, f: TextIOWrapper, *args, **kwargs) -> TextIOWrapper:
-        """
-        Write the Violin and Heatmap plots into the result HTML file.
+        """Write violin or heatmap sections into the report HTML.
 
-        :param test_mode: test_mode, e.g., LPO
-        :param f: result HTML file
-        :param args: additional arguments
-        :param kwargs: additional keyword arguments, in this case, the plot type and the files
-        :returns: the result HTML file
+        Args:
+            test_mode: Evaluation test mode (for example ``"LPO"``).
+            f: Open HTML file handle.
+            *args: Unused.
+            **kwargs: ``plot`` (``"Violin"`` or ``"Heatmap"``) and ``files`` list.
+
+        Returns:
+            The same file handle after writing.
         """
         plot: str = kwargs.get("plot", "")
         files: list[str] = kwargs.get("files", [])

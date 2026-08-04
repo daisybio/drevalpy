@@ -11,14 +11,15 @@ class Heatmap(VioHeat):
     """Plots a heatmap of the evaluation metrics."""
 
     def __init__(self, df: pd.DataFrame, normalized_metrics=False, whole_name=False):
-        """
-        Initialize the Heatmap class.
+        """Initialize heatmap from evaluation results.
 
-        :param df: either containing all predictions for all algorithms or all tests for one algorithm (including
-            robustness, randomization, … tests then)
-        :param normalized_metrics: whether the metrics are normalized
-        :param whole_name: whether the whole name should be displayed
-        :raises ValueError: If the DataFrame is empty or does not contain the required metrics.
+        Args:
+            df: Predictions for all algorithms or all tests for one algorithm.
+            normalized_metrics: Whether to show only normalized metric columns.
+            whole_name: Whether to display full algorithm setting labels.
+
+        Raises:
+            ValueError: If the DataFrame is empty or lacks required metrics.
         """
         super().__init__(df, normalized_metrics, whole_name)
         if normalized_metrics and not any(["normalized" in col for col in self.df.columns]):
@@ -66,11 +67,11 @@ class Heatmap(VioHeat):
         )
 
     def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
-        """
-        Draw the heatmap and save it to a file.
+        """Draw heatmap and save as HTML.
 
-        :param out_prefix: e.g., results/my_run/heatmaps/
-        :param out_suffix: e.g., algorithms_normalized
+        Args:
+            out_prefix: Output directory (for example ``results/my_run/heatmaps/``).
+            out_suffix: Filename suffix (for example ``algorithms_normalized``).
         """
         self._draw()
         path_out = f"{out_prefix}heatmap_{out_suffix}.html"

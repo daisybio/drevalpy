@@ -141,13 +141,17 @@ def validate_splits(
     splits: list[dict[str, Any]],
     test_mode: str,
 ) -> tuple[list[dict[str, DrugResponseDataset]], list[dict[str, Any]]]:
-    """
-    Validate split output according to ``test_mode`` semantics.
+    """Validate split output according to *test_mode* semantics.
 
-    :param splits: raw split dicts returned by a built-in or external provider
-    :param test_mode: one of ``LPO``, ``LCO``, ``LDO``, or ``LTO``
-    :returns: validated role datasets and optional per-split metadata rows
-    :raises SplitError: if splits are missing roles or leak across groups/rows
+    Args:
+        splits: Raw split dicts returned by a built-in or external provider.
+        test_mode: One of ``LPO``, ``LCO``, ``LDO``, or ``LTO``.
+
+    Returns:
+        Validated role datasets and optional per-split metadata rows.
+
+    Raises:
+        SplitError: If splits are missing roles or leak across groups or rows.
     """
     if test_mode not in TEST_MODES:
         msg = f"Unknown test_mode {test_mode!r}; choose from {sorted(TEST_MODES)}"
@@ -176,11 +180,11 @@ def ensure_early_stopping_splits(
     splits: list[dict[str, DrugResponseDataset]],
     test_mode: str,
 ) -> None:
-    """
-    Fill ``validation_es`` and ``early_stopping`` when absent.
+    """Fill ``validation_es`` and ``early_stopping`` when absent.
 
-    :param splits: validated split dicts to mutate in place
-    :param test_mode: one of ``LPO``, ``LCO``, ``LDO``, or ``LTO``
+    Args:
+        splits: Validated split dicts to mutate in place.
+        test_mode: One of ``LPO``, ``LCO``, ``LDO``, or ``LTO``.
     """
     for split in splits:
         if "validation_es" in split and "early_stopping" in split:

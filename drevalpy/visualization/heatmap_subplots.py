@@ -57,7 +57,15 @@ def _metric_block(
 
 
 def add_heatmap_subplot(heatmap, plot_setting: str) -> None:
-    """Add one heatmap row for ``plot_setting`` to ``heatmap.fig``."""
+    """Add one heatmap row for ``plot_setting`` to ``heatmap.fig``.
+
+    Args:
+        heatmap: ``Heatmap`` instance with prepared figure and data.
+        plot_setting: Subplot key (for example ``"r2"`` or ``"ssmd_MSE"``).
+
+    Raises:
+        ValueError: If ``plot_setting`` is not recognized.
+    """
     setting = _setting_groups(heatmap.df)
 
     if plot_setting.startswith("ssmd_"):

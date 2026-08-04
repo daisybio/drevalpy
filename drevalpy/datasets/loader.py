@@ -82,28 +82,48 @@ _DEFAULT_MEASURE, _SOURCES, _REGISTRY = _load_registry()
 
 
 def list_builtin_datasets() -> list[str]:
-    """Return sorted built-in dataset names from the packaged registry."""
+    """List built-in dataset names from the packaged registry.
+
+    Returns:
+        Sorted dataset names registered for :func:`load_dataset`.
+    """
     return sorted(_REGISTRY)
 
 
 def is_builtin_dataset(name: str) -> bool:
-    """Return whether ``name`` is a built-in dataset in the registry."""
+    """Return whether *name* is a built-in dataset.
+
+    Args:
+        name: Dataset name to look up in the registry.
+
+    Returns:
+        ``True`` when *name* is registered as a built-in dataset.
+    """
     return name in _REGISTRY
 
 
 def get_builtin_dataset_entry(name: str) -> BuiltinDatasetEntry | None:
-    """Return registry metadata for a built-in dataset, or ``None`` if unknown."""
+    """Return registry metadata for a built-in dataset.
+
+    Args:
+        name: Built-in dataset name.
+
+    Returns:
+        Registry entry for *name*, or ``None`` when the name is unknown.
+    """
     return _REGISTRY.get(name)
 
 
 def check_measure(measure_queried: str, measures_data: list[str], dataset_name: str) -> None:
-    """
-    Check if the queried measure is in the dataset.
+    """Validate that a response measure exists in a dataset table.
 
-    :param measure_queried: The measure to check.
-    :param measures_data: The measures in the dataset.
-    :param dataset_name: The name of the dataset.
-    :raises ValueError: If the measure is not found in the dataset.
+    Args:
+        measure_queried: Column name requested for loading.
+        measures_data: Column names present in the response table.
+        dataset_name: Dataset name included in error messages.
+
+    Raises:
+        ValueError: If *measure_queried* is not among *measures_data*.
     """
     measures_available = set(ALLOWED_MEASURES).intersection(set(measures_data))
     if measure_queried not in measures_data:
@@ -173,15 +193,16 @@ def _load_builtin(entry: BuiltinDatasetEntry, path_data: str, measure: str) -> D
 def load_custom(
     path_data: str | Path, dataset_name: str = "custom", measure: str = "response", tissue_column: str | None = None
 ) -> DrugResponseDataset:
-    """
-    Load custom dataset.
+    """Load a custom drug-response table from CSV.
 
-    :param path_data: Path to location of custom dataset
-    :param dataset_name: Name of the dataset.
-    :param measure: The name of the column containing the measure to predict, default = "response"
-    :param tissue_column: The name of the column containing the tissue type. If None, no tissue information is loaded.
+    Args:
+        path_data: Path to the CSV file or directory containing ``{dataset_name}.csv``.
+        dataset_name: Label stored on the returned ``DrugResponseDataset``.
+        measure: Column name for the response values to predict.
+        tissue_column: Optional tissue column name; ``None`` skips tissue loading.
 
-    :return: DrugResponseDataset containing response, cell line IDs, and drug IDs
+    Returns:
+        ``DrugResponseDataset`` with response, identifiers, and optional tissues.
     """
     return DrugResponseDataset.from_csv(
         input_file=path_data, dataset_name=dataset_name, measure=measure, tissue_column=tissue_column
@@ -197,28 +218,27 @@ def load_dataset(
     tissue_column: str | None = None,
     normalize: bool = False,
 ) -> DrugResponseDataset:
-    """
-    Load a dataset based on the dataset name.
+    """Load a built-in or custom drug-response dataset.
 
-    :param dataset_name: Built-in registry name or any other name for custom datasets.
-    :param path_data: The parent path in which custom or downloaded datasets should be located, or in which raw
-        viability data is to be found for fitting with CurveCurator (see param curve_curator for details).
-        The location of the datasets are resolved by <path_data>/<dataset_name>/<dataset_name>.csv.
-    :param measure: The name of the column containing the measure to predict, default = "response".
-        If curve_curator is True, this measure is appended with "_curvecurator", e.g. "response_curvecurator" to
-        distinguish between measures provided by the original source of a dataset, or the measures fit by
-        CurveCurator.
-    :param curve_curator: If True, the measure is appended with "_curvecurator".
-        If a custom dataset_name was provided, this will invoke the fitting procedure of raw viability data,
-        which is expected to exist at <path_data>/<dataset_name>/<dataset_name>_raw.csv. The fitted dataset will
-        be stored in the same folder, in a file called <dataset_name>.csv
-    :param cores: Number of cores to use for CurveCurator fitting. Only used when curve_curator is True, default = 1
-    :param tissue_column: The name of the column containing the tissue type. If None, no tissue information is loaded.
-        This is only used when loading a custom dataset. Default = None.
-    :param normalize: Whether to normalize the response values to [0, 1] for curvecurator. Default = False.
-        Only used for custom datasets when curve_curator is True.
-    :return: A DrugResponseDataset containing response, cell line IDs, drug IDs, and dataset name.
-    :raises FileNotFoundError: If the custom dataset or raw viability data could not be found at the given path.
+    Built-in names resolve through the packaged registry and download artifacts
+    on demand. Custom datasets are read from
+    ``<path_data>/<dataset_name>/<dataset_name>.csv``.
+
+    Args:
+        dataset_name: Built-in registry name or custom dataset folder name.
+        path_data: Parent directory for downloaded or custom datasets.
+        measure: Response column name; ``"_curvecurator"`` is appended when
+            *curve_curator* is ``True``.
+        curve_curator: Fit CurveCurator from raw viability data for custom sets.
+        cores: Worker count for CurveCurator fitting.
+        tissue_column: Tissue column for custom CSV loads only.
+        normalize: Normalize responses to ``[0, 1]`` during CurveCurator fitting.
+
+    Returns:
+        ``DrugResponseDataset`` with response values and identifiers.
+
+    Raises:
+        FileNotFoundError: If a custom dataset CSV cannot be found.
     """
     if curve_curator:
         measure += "_curvecurator"

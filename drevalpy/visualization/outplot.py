@@ -5,15 +5,15 @@ from io import TextIOWrapper
 
 
 class OutPlot(ABC):
-    """Abstract wrapper class for all visualizations."""
+    """Abstract base for report plot classes."""
 
     @abstractmethod
     def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
-        """
-        Draw and save the plot.
+        """Draw the plot and write it to disk.
 
-        :param out_prefix: path to output directory for python package
-        :param out_suffix: custom suffix for output file
+        Args:
+            out_prefix: Output directory path.
+            out_suffix: Filename suffix for the saved artifact.
         """
         pass
 
@@ -25,13 +25,15 @@ class OutPlot(ABC):
     @staticmethod
     @abstractmethod
     def write_to_html(test_mode: str, f: TextIOWrapper, *args, **kwargs) -> TextIOWrapper:
-        """
-        Write the plot to the final report file.
+        """Embed or link the plot in an HTML report.
 
-        :param test_mode: LPO, LCO, LDO
-        :param f: the file to write to
-        :param args: additional arguments
-        :param kwargs: additional keyword arguments
-        :return: the file to write to
+        Args:
+            test_mode: Evaluation test mode (for example ``"LCO"``).
+            f: Open HTML file handle to append content to.
+            *args: Plot-specific positional arguments.
+            **kwargs: Plot-specific keyword arguments.
+
+        Returns:
+            The same file handle after writing.
         """
         pass

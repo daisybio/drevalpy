@@ -24,7 +24,15 @@ from drevalpy.models.featurizer_mapping import (
 
 
 def load_tissue_features(data_path: str, dataset_name: str) -> FeatureDataset:
-    """Load tissue labels keyed by cell line id."""
+    """Load tissue labels keyed by cell line id.
+
+    Args:
+        data_path: Root directory containing dataset feature tables.
+        dataset_name: Dataset subdirectory or registry name.
+
+    Returns:
+        ``FeatureDataset`` with a tissue view indexed by cell-line id.
+    """
     return load_tissues_from_csv(data_path, dataset_name)
 
 
@@ -78,7 +86,15 @@ def _load_from_featurizer_tree(
 
 
 def load_cell_line_id_features(data_path: str, dataset_name: str) -> FeatureDataset:
-    """Load cell-line identifier features."""
+    """Load cell-line identifier features.
+
+    Args:
+        data_path: Root directory containing dataset feature tables.
+        dataset_name: Dataset subdirectory or registry name.
+
+    Returns:
+        ``FeatureDataset`` containing only cell-line identifier metadata.
+    """
     return load_cl_ids_from_csv(data_path, dataset_name)
 
 
@@ -89,7 +105,17 @@ def load_cell_line_features_for_model_config(
     *,
     model_name: str = "DRPModel",
 ) -> FeatureDataset:
-    """Load cell-line features implied by *config*, including identity-only featurizers."""
+    """Load cell-line features implied by *config*, including identity-only featurizers.
+
+    Args:
+        config: Resolved model configuration.
+        data_path: Root directory containing dataset feature tables.
+        dataset_name: Dataset subdirectory or registry name.
+        model_name: Model name used for view-specific loading hooks.
+
+    Returns:
+        ``FeatureDataset`` with views required by the cell-line featurizer tree.
+    """
     featurizer = config.cell_line_featurizer
     if featurizer is not None and featurizer.name == "tissue":
         return load_tissues_from_csv(data_path, dataset_name)
@@ -116,7 +142,18 @@ def load_drug_features_for_model_config(
     *,
     model_name: str = "DRPModel",
 ) -> FeatureDataset | None:
-    """Load drug features implied by *config*, including identity-only featurizers."""
+    """Load drug features implied by *config*, including identity-only featurizers.
+
+    Args:
+        config: Resolved model configuration.
+        data_path: Root directory containing dataset feature tables.
+        dataset_name: Dataset subdirectory or registry name.
+        model_name: Model name used for view-specific loading hooks.
+
+    Returns:
+        ``FeatureDataset`` with drug views, or ``None`` when the model has no
+        drug featurizer.
+    """
     if config.drug_featurizer is None:
         return None
     if drug_entity_id_only_from_model_config(config):

@@ -30,17 +30,17 @@ def generate_reports_for_test_mode(
     path_data: Union[str, pathlib.Path],
     result_path: Union[str, pathlib.Path],
 ) -> None:
-    """
-    Generate reports (plots and HTML) for a single test mode.
+    """Generate plots and HTML for a single test mode.
 
-    :param test_mode: The test mode to generate reports for.
-    :param evaluation_results: Aggregated evaluation results.
-    :param evaluation_results_per_drug: Evaluation results per drug.
-    :param evaluation_results_per_cell_line: Evaluation results per cell line.
-    :param true_vs_pred: True vs predicted values.
-    :param run_id: Unique run identifier.
-    :param path_data: Path to the dataset directory.
-    :param result_path: Path to the results directory.
+    Args:
+        test_mode: Test mode to render (for example ``"LCO"``).
+        evaluation_results: Aggregated evaluation results.
+        evaluation_results_per_drug: Per-drug evaluation results.
+        evaluation_results_per_cell_line: Per-cell-line evaluation results.
+        true_vs_pred: True versus predicted values.
+        run_id: Unique run identifier.
+        path_data: Path to the dataset directory.
+        result_path: Path to the results directory.
     """
     path_data = pathlib.Path(path_data)
     result_path = pathlib.Path(result_path)
@@ -104,17 +104,17 @@ def generate_reports_for_all_test_modes(
     path_data: Union[str, pathlib.Path],
     result_path: Union[str, pathlib.Path],
 ) -> None:
-    """
-    Generate reports for all test modes.
+    """Generate reports for all listed test modes.
 
-    :param test_modes: list of test modes to process.
-    :param evaluation_results: Aggregated evaluation results.
-    :param evaluation_results_per_drug: Evaluation results per drug.
-    :param evaluation_results_per_cell_line: Evaluation results per cell line.
-    :param true_vs_pred: True vs predicted values.
-    :param run_id: Unique run identifier.
-    :param path_data: Path to the dataset directory.
-    :param result_path: Path to the results directory.
+    Args:
+        test_modes: Test modes to process.
+        evaluation_results: Aggregated evaluation results.
+        evaluation_results_per_drug: Per-drug evaluation results.
+        evaluation_results_per_cell_line: Per-cell-line evaluation results.
+        true_vs_pred: True versus predicted values.
+        run_id: Unique run identifier.
+        path_data: Path to the dataset directory.
+        result_path: Path to the results directory.
     """
     for test_mode in test_modes:
         generate_reports_for_test_mode(
@@ -135,15 +135,19 @@ def create_report(
     path_data: Union[str, pathlib.Path] = "data",
     result_path: Union[str, pathlib.Path] = "results",
 ) -> None:
-    """
-    Render a full evaluation report pipeline.
+    """Render a full evaluation report pipeline.
 
-    :param run_id: Unique run identifier for locating results.
-    :param dataset: Dataset name to filter results.
-    :param path_data: Path to the dataset directory. Defaults to "data".
-    :param result_path: Path to the results directory. Defaults to "results".
+    Parses experiment outputs, prepares aggregated tables, writes CSV summaries,
+    and generates HTML plots for each test mode.
 
-    :raises AssertionError: If the folder with the run_id does not exist under result_path.
+    Args:
+        run_id: Unique run identifier for locating results.
+        dataset: Dataset name used to filter parsed results.
+        path_data: Path to the dataset directory.
+        result_path: Path to the experiment results directory.
+
+    Raises:
+        AssertionError: If ``result_path/run_id`` does not exist.
     """
     path_data = pathlib.Path(path_data).resolve()
     result_path = pathlib.Path(result_path).resolve()
@@ -203,7 +207,14 @@ def run_report(
     path_data: str = "data",
     result_path: str = "results",
 ) -> None:
-    """Generate HTML report from a standalone experiment run."""
+    """Generate HTML report from a standalone experiment run.
+
+    Args:
+        run_id: Unique run identifier for locating results.
+        dataset: Dataset name used to filter parsed results.
+        path_data: Path to the dataset directory.
+        result_path: Path to the experiment results directory.
+    """
     create_report(run_id, dataset, path_data, result_path)
 
 
@@ -216,7 +227,16 @@ def run_pipeline_report(
     true_vs_predicted: str,
     path_data: str,
 ) -> None:
-    """Generate HTML report from pipeline evaluation CSVs."""
+    """Generate HTML report from pipeline evaluation CSVs.
+
+    Args:
+        test_modes: Test modes to include in the report.
+        eval_results: Path to aggregated evaluation results CSV.
+        eval_results_per_drug: Path to per-drug CSV, or ``"NO_FILE"``.
+        eval_results_per_cl: Path to per-cell-line CSV, or ``"NO_FILE"``.
+        true_vs_predicted: Path to true-versus-predicted CSV.
+        path_data: Path to the dataset directory.
+    """
     result_path = pathlib.Path(".")
     outdir_name = "report"
     create_output_directories(result_path=result_path, custom_id=outdir_name)

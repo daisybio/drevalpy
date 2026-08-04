@@ -12,11 +12,11 @@ class CrossStudyTables:
     """Generate evaluation tables for cross-study drug response prediction."""
 
     def __init__(self, evaluation_metrics: pd.DataFrame, path_data: pathlib.Path):
-        """
-        Initialize the CrossStudyTables object.
+        """Initialize cross-study evaluation tables.
 
-        :param evaluation_metrics: eval metrics dataframe.
-        :param path_data: Path to data directory (used for context or extensions).
+        Args:
+            evaluation_metrics: Aggregated evaluation metrics dataframe.
+            path_data: Dataset root directory (reserved for extensions).
         """
         self.evaluation_metrics = evaluation_metrics
         self.path_data = path_data
@@ -86,11 +86,11 @@ class CrossStudyTables:
             self.figures[dataset_name] = fig
 
     def draw_and_save(self, out_prefix: str, out_suffix: str):
-        """
-        Generate and save HTML tables for each cross-study dataset.
+        """Generate and save HTML tables for each cross-study dataset.
 
-        :param out_prefix: Directory to save output files.
-        :param out_suffix: Suffix to append to each output filename.
+        Args:
+            out_prefix: Directory for output HTML files.
+            out_suffix: Suffix appended to each output filename.
         """
         os.makedirs(out_prefix, exist_ok=True)
         self.draw()
@@ -100,15 +100,16 @@ class CrossStudyTables:
 
     @staticmethod
     def write_to_html(test_mode: str, f: TextIOWrapper, files: list[str], prefix: str) -> TextIOWrapper:
-        """
-        Embed HTML table files into an open HTML file handle.
+        """Embed cross-study table iframes into the report HTML.
 
-        :param test_mode: Substring to match filenames (e.g., 'lpo', 'lco').
-        :param f: Open writable file handle to insert HTML blocks.
-        :param files: List of filenames in the target directory.
-        :param prefix: Path prefix to locate HTML table files.
+        Args:
+            test_mode: Substring to match filenames (for example ``"LCO"``).
+            f: Open writable HTML file handle.
+            files: Filenames in the html_tables directory.
+            prefix: Path prefix to locate table files.
 
-        :return: Updated file handle with HTML blocks written in.
+        Returns:
+            The same file handle after writing.
         """
         if prefix:
             prefix = os.path.join(prefix, "html_tables")

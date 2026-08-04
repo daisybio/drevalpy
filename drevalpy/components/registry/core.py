@@ -44,7 +44,20 @@ class Registry:
         cell_line_contract: FeatureContract | FeatureFormat | None = None,
         drug_contract: FeatureContract | FeatureFormat | None = None,
     ) -> Callable[[type[Any]], type[Any]]:
-        """Return a class decorator that registers the decorated class under *name*."""
+        """Return a class decorator that registers the decorated class under *name*.
+
+        Args:
+            name: Registry name used in model configs and discovery listings.
+            description: Short human-readable summary.
+            tags: Optional discovery tags.
+            reference: Optional literature citation metadata.
+            contract: Feature format contract for featurizer registries.
+            cell_line_contract: Expected cell-line feature format for predictors.
+            drug_contract: Expected drug feature format for predictors.
+
+        Returns:
+            Class decorator that registers and returns the decorated class.
+        """
         return make_registration_decorator(
             self._store,
             self._lock,
@@ -60,7 +73,17 @@ class Registry:
         )
 
     def get(self, name: str) -> type[Any]:
-        """Return the class registered under *name*, or raise ``ValueError``."""
+        """Return the class registered under *name*.
+
+        Args:
+            name: Registry name of the component.
+
+        Returns:
+            Registered component class.
+
+        Raises:
+            ValueError: If *name* is not registered.
+        """
         with self._lock:
             if name not in self._store:
                 available = list(self._store.keys())
@@ -69,17 +92,38 @@ class Registry:
             return self._store[name]
 
     def list_names(self) -> list[str]:
-        """Return all registered names."""
+        """Return all registered names.
+
+        Returns:
+            Sorted list of registry names currently stored.
+        """
         with self._lock:
             return list(self._store.keys())
 
     def get_metadata(self, name: str) -> dict[str, str]:
-        """Return the metadata record for the component registered under *name*."""
+        """Return the metadata record for the component registered under *name*.
+
+        Args:
+            name: Registry name of the component.
+
+        Returns:
+            Flattened metadata dict for catalog listings.
+
+        Raises:
+            ValueError: If *name* is not registered.
+        """
         cls = self.get(name)
         return self._metadata_fn(self._display_name, name, cls)
 
     def list_metadata(self, *, tag: str | None = None) -> list[dict[str, str]]:
-        """Return metadata for all components, optionally filtered by discovery tag."""
+        """Return metadata for all components, optionally filtered by discovery tag.
+
+        Args:
+            tag: When set, keep only components whose ``tags`` field contains *tag*.
+
+        Returns:
+            List of flattened metadata dicts.
+        """
         rows = [self.get_metadata(name) for name in self.list_names()]
         if tag is None:
             return rows
@@ -92,14 +136,23 @@ class Registry:
             self._store.clear()
 
     def retain_only(self, names: frozenset[str]) -> None:
-        """Drop entries whose names are not in *names*."""
+        """Drop entries whose names are not in *names*.
+
+        Args:
+            names: Registry names to keep after rollback or partial unload.
+        """
         with self._lock:
             for registered_name in list(self._store):
                 if registered_name not in names:
                     del self._store[registered_name]
 
     def register_existing(self, name: str, cls: type[Any]) -> None:
-        """Register a class that was previously decorated but removed via `clear`."""
+        """Register a class that was previously decorated but removed via :meth:`clear`.
+
+        Args:
+            name: Registry name under which *cls* should be restored.
+            cls: Component class with registration metadata attributes.
+        """
         with self._lock:
             if name in self._store:
                 return

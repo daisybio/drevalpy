@@ -12,12 +12,16 @@ MANIFEST_FILENAME = "split_manifest.json"
 
 
 def validate_split_label(label: str) -> str:
-    """
-    Ensure a result-directory label is safe for paths and report parsing.
+    """Ensure a result-directory label is safe for paths and report parsing.
 
-    :param label: directory name used under the dataset results folder
-    :returns: the validated label unchanged
-    :raises SplitError: if the label is empty or contains path separators
+    Args:
+        label: Directory name used under the dataset results folder.
+
+    Returns:
+        The validated *label* unchanged.
+
+    Raises:
+        SplitError: If *label* is empty or contains path separators.
     """
     if not label or label.strip() != label:
         msg = "split label must be a non-empty string without leading or trailing whitespace"
@@ -33,15 +37,18 @@ def build_split_manifest(
     split_label: str,
     splits: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    """
-    Build the JSON-serializable split manifest payload.
+    """Build the JSON-serializable split manifest payload.
 
-    Run-level settings live at the top level; per-fold metadata stays under ``splits``.
+    Run-level settings live at the top level; per-fold metadata stays under
+    ``splits``.
 
-    :param params: pipeline split settings
-    :param split_label: directory label used under the dataset results folder
-    :param splits: per-split metadata rows
-    :returns: manifest payload ready for JSON encoding
+    Args:
+        params: Pipeline split settings.
+        split_label: Directory label used under the dataset results folder.
+        splits: Per-split metadata rows.
+
+    Returns:
+        Manifest payload ready for JSON encoding.
     """
     return {
         "split_label": split_label,
@@ -61,13 +68,13 @@ def write_split_manifest(
     split_label: str,
     splits: list[dict[str, Any]],
 ) -> None:
-    """
-    Write split metadata next to persisted split files.
+    """Write split metadata next to persisted split files.
 
-    :param path: directory where split CSV files are stored
-    :param params: pipeline split settings recorded in the manifest
-    :param split_label: directory label used under the dataset results folder
-    :param splits: per-split metadata collected during validation
+    Args:
+        path: Directory where split CSV files are stored.
+        params: Pipeline split settings recorded in the manifest.
+        split_label: Directory label used under the dataset results folder.
+        splits: Per-split metadata collected during validation.
     """
     out = Path(path)
     out.mkdir(parents=True, exist_ok=True)
@@ -77,11 +84,13 @@ def write_split_manifest(
 
 
 def read_split_manifest(manifest_path: Path | str) -> dict[str, Any] | None:
-    """
-    Read a split manifest file.
+    """Read a split manifest file.
 
-    :param manifest_path: path to ``split_manifest.json``
-    :returns: parsed manifest payload, or ``None`` when absent or invalid
+    Args:
+        manifest_path: Path to ``split_manifest.json``.
+
+    Returns:
+        Parsed manifest payload, or ``None`` when absent or invalid.
     """
     path = Path(manifest_path)
     if not path.is_file():
@@ -93,11 +102,13 @@ def read_split_manifest(manifest_path: Path | str) -> dict[str, Any] | None:
 
 
 def read_manifest_test_mode(manifest_path: Path | str) -> str | None:
-    """
-    Read the semantic ``test_mode`` from a split manifest file.
+    """Read the semantic ``test_mode`` from a split manifest file.
 
-    :param manifest_path: path to ``split_manifest.json``
-    :returns: top-level ``test_mode`` value, or ``None`` when absent
+    Args:
+        manifest_path: Path to ``split_manifest.json``.
+
+    Returns:
+        Top-level ``test_mode`` value, or ``None`` when absent.
     """
     payload = read_split_manifest(manifest_path)
     if payload is None:

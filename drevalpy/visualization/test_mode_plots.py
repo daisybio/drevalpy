@@ -99,10 +99,22 @@ def draw_test_mode_plots(
     path_data: pathlib.Path,
     result_path: pathlib.Path,
 ) -> np.ndarray:
-    """
-    Draw all plots for a specific test_mode (LPO, LCO, LDO, LTO).
+    """Draw all plots for one evaluation test mode.
 
-    :returns: unique algorithms in the prediction subset
+    Args:
+        test_mode: Test mode to render (for example ``"LCO"``).
+        ev_res: Overall evaluation results.
+        ev_res_per_drug: Per-drug evaluation results.
+        ev_res_per_cell_line: Per-cell-line evaluation results.
+        custom_id: Run identifier for output paths.
+        path_data: Dataset root directory.
+        result_path: Root results directory.
+
+    Returns:
+        Unique algorithm names in the prediction subset.
+
+    Raises:
+        ValueError: If no evaluation rows exist for the test mode.
     """
     eval_results_preds = _require_prediction_subset(ev_res, test_mode)
     _draw_critical_difference(eval_results_preds, test_mode, custom_id, result_path)

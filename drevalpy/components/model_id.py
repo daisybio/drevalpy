@@ -10,7 +10,20 @@ def format_model_id(
     drug: str | None,
     predictor: str,
 ) -> str:
-    """Build a stable model identifier from component type names."""
+    """Build a stable model identifier from component type names.
+
+    Args:
+        cell_line: Cell-line featurizer registry name, or ``None`` for
+            feature-free predictors.
+        drug: Drug featurizer registry name, or ``None`` when omitted.
+        predictor: Predictor registry name.
+
+    Returns:
+        Colon-separated model id string.
+
+    Raises:
+        ValueError: If *predictor* is empty or component names are inconsistent.
+    """
     if not predictor:
         msg = "predictor is required"
         raise ValueError(msg)
@@ -25,7 +38,17 @@ def format_model_id(
 
 
 def parse_model_id(model_id: str) -> tuple[str | None, str | None, str]:
-    """Parse a model identifier into featurizer and predictor type names."""
+    """Parse a model identifier into featurizer and predictor type names.
+
+    Args:
+        model_id: ``predictor``, ``cell:predictor``, or ``cell:drug:predictor`` id.
+
+    Returns:
+        ``(cell_line_featurizer, drug_featurizer, predictor)`` names.
+
+    Raises:
+        ValueError: If *model_id* is empty or not a recognized format.
+    """
     if not model_id or not model_id.strip():
         msg = "model_id must be a non-empty string"
         raise ValueError(msg)

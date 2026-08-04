@@ -46,22 +46,21 @@ warnings.filterwarnings("ignore", category=FutureWarning, message=".*swapaxes.*"
 
 
 class CriticalDifferencePlot(OutPlot):
-    """
-    Draws the critical difference diagram.
+    """Critical difference diagram comparing model ranks across CV splits.
 
-    The critical difference diagram is used to compare the performance of multiple classifiers and show whether a
-    model is significantly better than another model. This is calculated over the average ranks of the classifiers
-    which is why there need to be at least 3 classifiers to draw the diagram. Because the ranks are calculated over
-    the cross-validation splits and the significance threshold is set to 0.05, e.g., 10 CV folds are advisable.
+    Requires at least three models; more CV folds improve pairwise significance
+    testing at the default 0.05 threshold.
     """
 
     def __init__(self, eval_results_preds: pd.DataFrame, metric="MSE"):
-        """
-        Initializes the critical difference plot.
+        """Initialize critical difference plot.
 
-        :param eval_results_preds: evaluation results subsetted to predictions only (no randomizations etc)
-        :param metric: to be used to assess the critical difference
-        :raises ValueError: if eval_results_preds is empty or does not contain the metric
+        Args:
+            eval_results_preds: Evaluation results restricted to prediction runs.
+            metric: Metric used for ranking (for example ``"MSE"``).
+
+        Raises:
+            ValueError: If ``eval_results_preds`` is empty or lacks ``metric``.
         """
         eval_results_preds = eval_results_preds[["algorithm", "CV_split", metric]]
         if eval_results_preds.empty:
@@ -77,12 +76,14 @@ class CriticalDifferencePlot(OutPlot):
         self.test_results: Optional[pd.DataFrame] = None
 
     def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
-        """
-        Draws the critical difference plot and saves it to a file.
+        """Draw critical difference plot and save SVG and HTML table.
 
-        :param out_prefix: e.g., results/my_run/critical_difference_plots/
-        :param out_suffix: e.g., LPO
-        :raises ValueError: if the figure is None or the test results are None
+        Args:
+            out_prefix: Output directory (for example ``results/my_run/critical_difference_plots/``).
+            out_suffix: Filename suffix (for example ``LPO``).
+
+        Raises:
+            ValueError: If the figure or test results were not produced.
         """
         try:
             self._draw()
@@ -134,14 +135,16 @@ class CriticalDifferencePlot(OutPlot):
 
     @staticmethod
     def write_to_html(test_mode: str, f: TextIOWrapper, *args, **kwargs) -> TextIOWrapper:
-        """
-        Inserts the critical difference plot into the HTML report file.
+        """Embed critical difference diagram and Conover table in the report HTML.
 
-        :param test_mode: test_mode, e.g., LPO
-        :param f: HTML report file
-        :param args: not needed
-        :param kwargs: not needed
-        :returns: HTML report file
+        Args:
+            test_mode: Evaluation test mode (for example ``"LPO"``).
+            f: Open HTML file handle.
+            *args: Unused.
+            **kwargs: Unused.
+
+        Returns:
+            The same file handle after writing.
         """
         path_out_cd = f"critical_difference_plots/critical_difference_algorithms_{test_mode}.svg"
         f.write(f"<object data={path_out_cd}> </object>")

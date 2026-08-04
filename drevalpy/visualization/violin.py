@@ -10,13 +10,12 @@ class Violin(VioHeat):
     """Plots a violin plot of the evaluation metrics."""
 
     def __init__(self, df: pd.DataFrame, normalized_metrics=False, whole_name=False):
-        """
-        Initialize the Violin class.
+        """Initialize violin plot from evaluation results.
 
-        :param df: either containing all predictions for all algorithms or all tests for one algorithm (including
-            robustness, randomization, … tests then)
-        :param normalized_metrics: whether the metrics are normalized
-        :param whole_name: whether the whole name should be displayed
+        Args:
+            df: Predictions for all algorithms or all tests for one algorithm.
+            normalized_metrics: Whether to show only normalized metric columns.
+            whole_name: Whether to display full algorithm setting labels.
         """
         super().__init__(df, normalized_metrics, whole_name)
         self.df["box"] = self.df["algorithm"] + "_" + self.df["rand_setting"] + "_" + self.df["test_mode"]
@@ -26,11 +25,11 @@ class Violin(VioHeat):
         self.occurring_metrics = [metric for metric in self.all_metrics if metric in self.df.columns]
 
     def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
-        """
-        Draw the violin and save it to a file.
+        """Draw violin plot and save as HTML.
 
-        :param out_prefix: e.g., results/my_run/violin_plots/
-        :param out_suffix: e.g., algorithms_normalized
+        Args:
+            out_prefix: Output directory (for example ``results/my_run/violin_plots/``).
+            out_suffix: Filename suffix (for example ``algorithms_normalized``).
         """
         self._draw()
         path_out = f"{out_prefix}violin_{out_suffix}.html"

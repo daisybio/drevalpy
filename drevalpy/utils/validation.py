@@ -14,7 +14,14 @@ _VALID_RESPONSE_TRANSFORMS = frozenset({"None", "standard", "minmax", "robust"})
 
 
 def validate_models(args) -> None:
-    """Validate primary and baseline model names."""
+    """Validate primary and baseline model names.
+
+    Args:
+        args: Parsed CLI arguments with ``models`` and optional ``baselines``.
+
+    Raises:
+        AssertionError: If no models are given or a name is not registered.
+    """
     available_models = known_model_names(include_external=True)
     if not args.models:
         raise AssertionError("At least one model must be specified")
@@ -36,7 +43,14 @@ def validate_models(args) -> None:
 
 
 def validate_test_modes(args) -> None:
-    """Validate test mode strings."""
+    """Validate test mode strings.
+
+    Args:
+        args: Parsed CLI arguments with ``test_mode``.
+
+    Raises:
+        AssertionError: If any test mode is not LPO, LCO, LDO, or LTO.
+    """
     if not all(test in _VALID_TEST_MODES for test in args.test_mode):
         raise AssertionError("Invalid test mode. Available test modes are LPO, LCO, LDO, LTO")
 
@@ -65,7 +79,15 @@ def _custom_dataset_error_message(args, expected: Path) -> str:
 
 
 def validate_dataset_name_and_paths(args) -> None:
-    """Validate built-in or custom dataset paths."""
+    """Validate built-in or custom dataset paths.
+
+    Args:
+        args: Parsed CLI arguments with ``dataset_name``, ``path_data``, and
+            ``no_refitting``.
+
+    Raises:
+        FileNotFoundError: If a custom dataset CSV is missing at the expected path.
+    """
     if is_builtin_dataset(args.dataset_name):
         return
     expected = _expected_custom_dataset_path(args)
@@ -74,13 +96,27 @@ def validate_dataset_name_and_paths(args) -> None:
 
 
 def validate_curve_curator_cores(args) -> None:
-    """Validate CurveCurator core count when refitting is enabled."""
+    """Validate CurveCurator core count when refitting is enabled.
+
+    Args:
+        args: Parsed CLI arguments with ``no_refitting`` and ``curve_curator_cores``.
+
+    Raises:
+        ValueError: If refitting is enabled and ``curve_curator_cores`` is less than 1.
+    """
     if (not args.no_refitting) and args.curve_curator_cores < 1:
         raise ValueError("Number of cores for CurveCurator must be greater than 0.")
 
 
 def validate_cross_study_dataset_names(args) -> None:
-    """Validate cross-study dataset identifiers."""
+    """Validate cross-study dataset identifiers.
+
+    Args:
+        args: Parsed CLI arguments with ``cross_study_datasets``.
+
+    Raises:
+        AssertionError: If a cross-study name is not a built-in dataset.
+    """
     for dataset in args.cross_study_datasets:
         if not is_builtin_dataset(dataset):
             raise AssertionError(
@@ -91,7 +127,16 @@ def validate_cross_study_dataset_names(args) -> None:
 
 
 def validate_cv_split_settings(args) -> None:
-    """Validate CV split count and custom split script paths."""
+    """Validate CV split count and custom split script paths.
+
+    Args:
+        args: Parsed CLI arguments with ``n_cv_splits`` and optional custom split
+            fields.
+
+    Raises:
+        ValueError: If ``n_cv_splits`` is 1 and no custom splitter path is set.
+        FileNotFoundError: If ``custom_splitter_path`` does not exist.
+    """
     if args.n_cv_splits <= 1 and not getattr(args, "custom_splitter_path", None):
         raise ValueError("Number of cross-validation splits must be greater than 1.")
 
@@ -105,7 +150,15 @@ def validate_cv_split_settings(args) -> None:
 
 
 def validate_randomization_settings(args) -> None:
-    """Validate randomization mode and type."""
+    """Validate randomization mode and type.
+
+    Args:
+        args: Parsed CLI arguments with ``randomization_mode`` and
+            ``randomization_type``.
+
+    Raises:
+        AssertionError: If mode or type values are not recognized.
+    """
     if args.randomization_mode[0] == "None":
         return
     if not all(mode in _VALID_RANDOMIZATION_MODES for mode in args.randomization_mode):
@@ -117,7 +170,15 @@ def validate_randomization_settings(args) -> None:
 
 
 def validate_robustness_and_hpo_settings(args) -> None:
-    """Validate robustness trial count and HPO sample count."""
+    """Validate robustness trial count and HPO sample count.
+
+    Args:
+        args: Parsed CLI arguments with ``n_trials_robustness`` and optional
+            ``hpo_num_samples``.
+
+    Raises:
+        ValueError: If either count is negative.
+    """
     if args.n_trials_robustness < 0:
         raise ValueError("Number of trials for robustness test must be greater than or equal to 0")
 
@@ -127,7 +188,16 @@ def validate_robustness_and_hpo_settings(args) -> None:
 
 
 def validate_measure_and_metrics(args) -> None:
-    """Validate response measure, transformation, and optimization metric."""
+    """Validate response measure, transformation, and optimization metric.
+
+    Args:
+        args: Parsed CLI arguments with ``measure``, ``response_transformation``,
+            and ``optim_metric``.
+
+    Raises:
+        ValueError: If ``measure`` is not an allowed drug-response column.
+        AssertionError: If transformation or optimization metric is invalid.
+    """
     if args.measure not in ALLOWED_MEASURES:
         raise ValueError(
             "Only 'LN_IC50', 'EC50', 'IC50', 'pEC50', 'AUC', 'response' or their equivalents including "
@@ -142,13 +212,15 @@ def validate_measure_and_metrics(args) -> None:
 
 
 def check_arguments(args) -> None:
-    """
-    Check the validity of the arguments for the evaluation pipeline.
+    """Check validity of evaluation pipeline CLI arguments.
 
-    :param args: arguments passed from the command line
-    :raises AssertionError: if any of the arguments is invalid
-    :raises ValueError: if the number of cross-validation splits or curve_curator_cores is less than 1
-    :raises FileNotFoundError: if a custom dataset name was specified and the input file could not be found.
+    Args:
+        args: Parsed command-line arguments for the evaluation pipeline.
+
+    Raises:
+        AssertionError: If models, test modes, or metrics are invalid.
+        ValueError: If CV splits or CurveCurator cores are invalid.
+        FileNotFoundError: If a custom dataset or split script path is missing.
     """
     validate_models(args)
     validate_test_modes(args)

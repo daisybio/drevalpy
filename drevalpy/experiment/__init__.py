@@ -58,7 +58,25 @@ def prepare_response_splits(
     random_state: int = 42,
     split_early_stopping: bool = True,
 ) -> int:
-    """Create, load, or reuse CV splits for an experiment run."""
+    """Create, load, or reuse CV splits for an experiment run.
+
+    Args:
+        response_data: Dataset that receives ``cv_splits`` in place.
+        split_path: Directory for split manifest and fold files.
+        result_path: Experiment result directory.
+        split_label: Label stored in the split manifest.
+        test_mode: Builtin split mode or label for external splits.
+        n_cv_splits: Requested number of folds.
+        overwrite: Rebuild splits even when a manifest already exists.
+        result_folder_exists: Whether ``result_path`` already exists.
+        custom_splitter: External split creator or manifest path.
+        validation_ratio: Fraction of training data held out for validation.
+        random_state: Random seed for builtin splitters.
+        split_early_stopping: Whether to create early-stopping folds.
+
+    Returns:
+        Actual number of CV splits attached to *response_data*.
+    """
     return prepare_response_splits_impl(
         response_data,
         split_path=split_path,
@@ -102,7 +120,40 @@ def drug_response_experiment(
     hpo_random_state: int = 42,
     hpo_resources_per_trial: dict[str, float] | None = None,
 ) -> None:
-    """Run the drug response prediction experiment. Save results to disc."""
+    """Run the drug response prediction experiment and save results to disk.
+
+    Trains each model across CV folds (with optional HPO), writes predictions
+    and hyperparameters under ``path_out``, and optionally runs randomization,
+    robustness, cross-study, and final-model workflows.
+
+    Args:
+        models: ``DRPModel`` subclasses to evaluate (from ``construct_model``).
+        response_data: Training/validation response table with CV splits attached.
+        baselines: Optional baseline models; ``NaiveMeanEffectsPredictor`` is added
+            by default when omitted.
+        response_transformation: Optional sklearn transformer applied to responses.
+        run_id: Subfolder name under ``path_out`` for this run.
+        test_mode: Split mode (``"LPO"``, ``"LCO"``, ``"LDO"``, or custom).
+        hpam_optimization_metric: Metric optimized during HPO (for example ``"RMSE"``).
+        n_cv_splits: Number of cross-validation folds.
+        multiprocessing: Deprecated; routes through Ray Tune when ``True``.
+        randomization_mode: Feature views to permute for randomization tests.
+        randomization_type: Permutation strategy for randomization tests.
+        cross_study_datasets: Additional datasets for cross-study evaluation.
+        n_trials_robustness: Number of robustness-test resampling trials.
+        path_out: Root directory for experiment outputs.
+        overwrite: Recompute splits and predictions even when artifacts exist.
+        path_data: Root directory for feature tables.
+        model_checkpoint_dir: Directory for per-fold model checkpoints.
+        hyperparameter_tuning: Whether to run HPO before final fold training.
+        final_model_on_full_data: Train a production model on all data after CV.
+        wandb_project: Optional Weights & Biases project name.
+        custom_splitter: External split creator or path to split manifest.
+        custom_split_name: Label for custom splits in output paths.
+        hpo_num_samples: Number of HPO trials per fold.
+        hpo_random_state: Random seed for HPO search.
+        hpo_resources_per_trial: Optional Ray resource limits per HPO trial.
+    """
     drug_response_experiment_impl(
         models=models,
         response_data=response_data,
@@ -142,7 +193,17 @@ def consolidate_single_drug_model_predictions(
     n_trials_robustness: int = 0,
     out_path: str = "",
 ) -> None:
-    """Consolidate single drug model predictions into a single file."""
+    """Consolidate per-fold single-drug predictions into summary files.
+
+    Args:
+        models: Model classes whose outputs should be consolidated.
+        n_cv_splits: Number of CV folds written during the experiment.
+        results_path: Experiment result directory to read from.
+        cross_study_datasets: Names of cross-study datasets to include.
+        randomization_mode: Randomization views to consolidate, if any.
+        n_trials_robustness: Number of robustness trials to consolidate.
+        out_path: Output directory; defaults to *results_path* when empty.
+    """
     consolidate_single_drug_model_predictions_impl(
         models=models,
         n_cv_splits=n_cv_splits,
@@ -167,7 +228,20 @@ def cross_study_prediction(
     split_index: int,
     single_drug_id: str | None = None,
 ) -> None:
-    """Run cross-study prediction to assess model generalizability."""
+    """Run cross-study prediction to assess model generalizability.
+
+    Args:
+        dataset: Held-out dataset from another study.
+        model: Trained model instance to evaluate.
+        test_mode: Split mode used for overlap removal.
+        train_dataset: Training dataset from the source study.
+        path_data: Root directory for feature tables.
+        early_stopping_dataset: Optional early-stopping data for retraining.
+        response_transformation: Optional response transformer.
+        path_out: Directory where predictions are written.
+        split_index: CV fold index for output file naming.
+        single_drug_id: Drug identifier when *model* is single-drug scoped.
+    """
     cross_study_prediction_impl(
         dataset=dataset,
         model=model,
@@ -188,7 +262,16 @@ def get_randomization_test_views(
     randomization_mode: list[str],
     hyperparameters: dict[str, Any] | None = None,
 ) -> dict[str, list[str]]:
-    """Get the views to use for the randomization tests."""
+    """Resolve feature views to randomize for stress tests.
+
+    Args:
+        model_class: Model class whose featurizers define available views.
+        randomization_mode: Requested randomization modes (for example ``SVCC``).
+        hyperparameters: Model hyperparameters used to resolve view names.
+
+    Returns:
+        Mapping from test names to feature-view lists.
+    """
     return _build_randomization_test_views(model_class, randomization_mode, hyperparameters)
 
 
@@ -206,7 +289,22 @@ def randomization_test(
     response_transformation: TransformerMixin | None = None,
     model_checkpoint_dir: str = "TEMPORARY",
 ) -> None:
-    """Run randomization tests."""
+    """Run randomization stress tests for one CV fold.
+
+    Args:
+        randomization_test_views: Mapping from test names to feature views.
+        model_class: Model class to train under randomized inputs.
+        hyperparameters: Hyperparameters for model construction.
+        path_data: Root directory for feature tables.
+        train_dataset: Training split for the fold.
+        test_dataset: Test split for the fold.
+        early_stopping_dataset: Optional early-stopping data.
+        path_out: Directory where predictions are written.
+        split_index: CV fold index for output file naming.
+        randomization_type: Randomization strategy (for example ``permutation``).
+        response_transformation: Optional response transformer.
+        model_checkpoint_dir: Directory for model checkpoints.
+    """
     randomization_test_impl(
         randomization_test_views=randomization_test_views,
         model_class=model_class,
@@ -238,7 +336,22 @@ def randomize_train_predict(
     model_checkpoint_dir: str = "TEMPORARY",
     response_transformation: TransformerMixin | None = None,
 ) -> None:
-    """Randomize feature views, then train and predict once."""
+    """Randomize feature views, then train and predict once.
+
+    Args:
+        views: Feature view or views to randomize.
+        test_name: Label for the randomization test output.
+        randomization_type: Randomization strategy (for example ``permutation``).
+        randomization_test_file: Output path for predictions.
+        model_class: Model class to train under randomized inputs.
+        hyperparameters: Hyperparameters for model construction.
+        path_data: Root directory for feature tables.
+        train_dataset: Training split for the fold.
+        test_dataset: Test split for the fold.
+        early_stopping_dataset: Optional early-stopping data.
+        model_checkpoint_dir: Directory for model checkpoints.
+        response_transformation: Optional response transformer.
+    """
     randomize_train_predict_impl(
         views=views,
         test_name=test_name,
@@ -268,7 +381,21 @@ def robustness_test(
     response_transformation: TransformerMixin | None = None,
     model_checkpoint_dir: str = "TEMPORARY",
 ):
-    """Run robustness tests for the given model and dataset."""
+    """Run robustness tests for one CV fold.
+
+    Args:
+        n_trials: Number of robustness trials to run.
+        model_class: Model class to retrain on perturbed data.
+        hyperparameters: Hyperparameters for model construction.
+        path_data: Root directory for feature tables.
+        train_dataset: Training split for the fold.
+        test_dataset: Test split for the fold.
+        early_stopping_dataset: Optional early-stopping data.
+        path_out: Directory where predictions are written.
+        split_index: CV fold index for output file naming.
+        response_transformation: Optional response transformer.
+        model_checkpoint_dir: Directory for model checkpoints.
+    """
     robustness_test_impl(
         n_trials=n_trials,
         model_class=model_class,
@@ -297,7 +424,20 @@ def robustness_train_predict(
     response_transformation: TransformerMixin | None = None,
     model_checkpoint_dir: str = "TEMPORARY",
 ) -> None:
-    """Train and predict for the robustness test with a freshly constructed model."""
+    """Train and predict for one robustness-test trial.
+
+    Args:
+        trial: Trial index within the robustness test.
+        trial_file: Output path for predictions.
+        train_dataset: Training split for the fold.
+        test_dataset: Test split for the fold.
+        early_stopping_dataset: Optional early-stopping data.
+        model_class: Model class to train on perturbed data.
+        hyperparameters: Hyperparameters for model construction.
+        path_data: Root directory for feature tables.
+        response_transformation: Optional response transformer.
+        model_checkpoint_dir: Directory for model checkpoints.
+    """
     robustness_train_predict_impl(
         trial=trial,
         trial_file=trial_file,
@@ -315,7 +455,15 @@ def robustness_train_predict(
 def split_early_stopping(
     validation_dataset: DrugResponseDataset, test_mode: str
 ) -> tuple[DrugResponseDataset, DrugResponseDataset]:
-    """Split the validation dataset into validation and early stopping datasets."""
+    """Split a validation set into validation and early-stopping partitions.
+
+    Args:
+        validation_dataset: Validation dataset to subdivide.
+        test_mode: One of ``LPO``, ``LCO``, ``LDO``, or ``LTO``.
+
+    Returns:
+        Validation and early-stopping datasets.
+    """
     validation_dataset = validation_dataset.shuffled(random_state=42)
     cv_v = validation_dataset.split_dataset(
         n_cv_splits=4,
@@ -340,7 +488,22 @@ def train_and_predict(
     drug_features: FeatureDataset | None = None,
     model_checkpoint_dir: str = "TEMPORARY",
 ) -> DrugResponseDataset:
-    """Train the model and predict the response for the prediction dataset."""
+    """Train the model and predict the response for the prediction dataset.
+
+    Args:
+        model: Trained or untrained ``DRPModel`` instance.
+        path_data: Root directory for feature tables.
+        train_dataset: Training responses and identifiers.
+        prediction_dataset: Pairs to predict; receives predictions in place.
+        early_stopping_dataset: Optional hold-out for early stopping.
+        response_transformation: Optional sklearn response transformer.
+        cl_features: Preloaded cell-line features, or ``None`` to load from disk.
+        drug_features: Preloaded drug features, or ``None`` to load from disk.
+        model_checkpoint_dir: Directory for predictor checkpoints.
+
+    Returns:
+        *prediction_dataset* with ``predictions`` populated.
+    """
     return train_and_predict_impl(
         model=model,
         path_data=path_data,
@@ -364,7 +527,21 @@ def train_and_evaluate(
     metric: str = "RMSE",
     model_checkpoint_dir: str = "TEMPORARY",
 ) -> dict[str, float]:
-    """Train and evaluate the model."""
+    """Train a model and compute validation metrics.
+
+    Args:
+        model: Model instance to train.
+        path_data: Root directory for feature tables.
+        train_dataset: Training split.
+        validation_dataset: Validation split to score.
+        early_stopping_dataset: Optional early-stopping data.
+        response_transformation: Optional response transformer.
+        metric: Primary metric to optimize and return.
+        model_checkpoint_dir: Directory for model checkpoints.
+
+    Returns:
+        Validation metrics keyed by metric name.
+    """
     trial_transform = None if response_transformation is None else clone(response_transformation)
     validation_dataset = train_and_predict(
         model=model,
@@ -388,19 +565,47 @@ def train_and_evaluate(
 
 @pipeline_function
 def make_model_list(models: list[type[DRPModel]], response_data: DrugResponseDataset) -> dict[str, str]:
-    """Make a list of models to evaluate."""
+    """Build experiment run keys for multi- and single-drug models.
+
+    Args:
+        models: Model classes to include in the run.
+        response_data: Dataset used to enumerate single-drug keys.
+
+    Returns:
+        Mapping from run key to base model name.
+    """
     return _make_model_list(models, response_data)
 
 
 @pipeline_function
 def get_model_name_and_drug_id(model_name: str) -> tuple[str, str | None]:
-    """Get the model name and drug id from the model name."""
+    """Parse a run key into model name and optional drug id.
+
+    Args:
+        model_name: Run key, optionally suffixed with ``.<drug_id>``.
+
+    Returns:
+        Base model name and drug id, or ``None`` for multi-drug models.
+
+    Raises:
+        AssertionError: If the base model name is not recognized.
+    """
     return _get_model_name_and_drug_id(model_name)
 
 
 @pipeline_function
 def generate_data_saving_path(model_name, drug_id, result_path, suffix) -> str:
-    """Generate a path to save data to."""
+    """Return an output directory for predictions, HPO, or final models.
+
+    Args:
+        model_name: Base model name.
+        drug_id: Drug identifier for single-drug models.
+        result_path: Experiment result root directory.
+        suffix: Subdirectory label (for example ``predictions``).
+
+    Returns:
+        Created output directory path.
+    """
     return _generate_data_saving_path(model_name, drug_id, result_path, suffix)
 
 
@@ -420,7 +625,24 @@ def train_final_model(
     hpo_resources_per_trial: dict[str, float] | None = None,
     hpo_storage_path: str | None = None,
 ) -> None:
-    """Final production model training."""
+    """Train and persist a final production model on the full dataset.
+
+    Args:
+        model_class: Model class to train.
+        full_dataset: Complete response dataset for final training.
+        response_transformation: Response transformer fitted on training data.
+        path_data: Root directory for feature tables.
+        model_checkpoint_dir: Directory for intermediate checkpoints.
+        metric: Metric optimized during optional hyperparameter tuning.
+        final_model_path: Directory where the final model is saved.
+        test_mode: Split mode for the internal train/validation holdout.
+        val_ratio: Validation fraction for the holdout split.
+        hyperparameter_tuning: Whether to tune hyperparameters before training.
+        hpo_num_samples: Number of HPO trials when tuning is enabled.
+        hpo_random_state: Random seed for hyperparameter search.
+        hpo_resources_per_trial: Ray resource allocation per HPO trial.
+        hpo_storage_path: Optional Ray Tune storage path for HPO results.
+    """
     train_final_model_impl(
         model_class=model_class,
         full_dataset=full_dataset,
@@ -446,7 +668,20 @@ def make_train_val_split(
     val_ratio: float = 0.1,
     random_state: int = 42,
 ) -> tuple[DrugResponseDataset, DrugResponseDataset]:
-    """Split a dataset into train and validation sets."""
+    """Split a dataset into train and validation sets.
+
+    Args:
+        dataset: Full dataset to split.
+        test_mode: One of ``LPO``, ``LCO``, ``LDO``, or ``LTO``.
+        val_ratio: Approximate validation fraction.
+        random_state: Random seed for splitting.
+
+    Returns:
+        Train and validation datasets.
+
+    Raises:
+        ValueError: If tissue information is missing for ``LTO`` mode.
+    """
     return make_train_val_split_impl(dataset, test_mode, val_ratio, random_state)
 
 

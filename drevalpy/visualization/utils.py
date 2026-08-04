@@ -38,11 +38,11 @@ def _discover_result_csv_files(result_dir: pathlib.Path, dataset: str) -> list[p
 
 
 def create_output_directories(result_path: pathlib.Path, custom_id: str) -> None:
-    """
-    If they do not exist yet, make directories for the visualization files.
+    """Create visualization output subdirectories if missing.
 
-    :param result_path: path to the results
-    :param custom_id: run id passed via command line
+    Args:
+        result_path: Root results directory.
+        custom_id: Run identifier subdirectory name.
     """
     for dir in [
         "violin_plots",
@@ -98,13 +98,15 @@ def _resolve_result_test_mode(result_dir: pathlib.Path, dataset: str, split_labe
 
 
 def parse_results(path_to_results: str, dataset: str) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """
-    Parse the results from the given directory.
+    """Parse experiment outputs and compute evaluation metrics.
 
-    :param path_to_results: path to the results directory
-    :param dataset: dataset name, e.g., GDSC2
-    :returns: evaluation results, evaluation results per drug, evaluation results per cell line, and true vs. predicted
-        values
+    Args:
+        path_to_results: Directory containing experiment result CSVs.
+        dataset: Dataset name subdirectory (for example ``"GDSC2"``).
+
+    Returns:
+        Tuple of overall, per-drug, per-cell-line evaluation tables, and true
+        versus predicted values.
     """
     print("Generating result tables ...")
     result_dir = pathlib.Path(path_to_results)
@@ -162,15 +164,17 @@ def parse_results(path_to_results: str, dataset: str) -> tuple[pd.DataFrame, pd.
 def evaluate_file(
     pred_file: pathlib.Path, test_mode: str, model_name: str, dataset_name: str = "NO_DATASET_NAME"
 ) -> tuple[pd.DataFrame, pd.DataFrame | None, pd.DataFrame | None, pd.DataFrame, str]:
-    """
-    Evaluate the predictions from the final models.
+    """Evaluate predictions from a single result CSV file.
 
-    :param pred_file: path to the prediction file
-    :param test_mode: test mode, e.g., LPO
-    :param model_name: model name, e.g., SimpleNeuralNetwork
-    :param dataset_name: name of the dataset, e.g., GDSC2
-    :return: evaluation results, evaluation results per drug, evaluation results per cell line, true vs. predicted
-        values, and model name
+    Args:
+        pred_file: Path to a prediction CSV file.
+        test_mode: Evaluation test mode (for example ``"LPO"``).
+        model_name: Model or algorithm name.
+        dataset_name: Dataset label stored on the loaded ``DrugResponseDataset``.
+
+    Returns:
+        Tuple of overall evaluation, per-drug, per-cell-line tables, true versus
+        predicted values, and the generated model run name.
     """
     print("Parsing file:", os.path.normpath(pred_file))
     dataset = DrugResponseDataset.from_csv(input_file=pred_file, dataset_name=dataset_name)
@@ -226,16 +230,20 @@ def prep_results(
     t_vs_p: pd.DataFrame,
     path_data: pathlib.Path,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """
-    Prepare the results by introducing new columns for algorithm, randomization, test_mode, split, CV_split.
+    """Enrich raw evaluation tables with metadata and normalized metrics.
 
-    :param eval_results: evaluation results
-    :param eval_results_per_drug: evaluation results per drug
-    :param eval_results_per_cell_line: evaluation results per cell line
-    :param t_vs_p: true vs. predicted values
-    :param path_data: path to the data
-    :returns: the same dataframes with new columns
-    :raises ValueError: if NaiveMeanEffectsPredictor is not found in the evaluation results
+    Args:
+        eval_results: Overall evaluation results.
+        eval_results_per_drug: Per-drug evaluation results.
+        eval_results_per_cell_line: Per-cell-line evaluation results.
+        t_vs_p: True versus predicted values.
+        path_data: Dataset root for drug and cell-line metadata files.
+
+    Returns:
+        The same four tables after reformatting and normalization.
+
+    Raises:
+        ValueError: If ``NaiveMeanEffectsPredictor`` is missing from results.
     """
     print("Getting information about drugs and cell lines ...")
     drug_metadata, cell_line_metadata = load_drug_and_cell_line_metadata(path_data)
@@ -306,14 +314,16 @@ def _evaluate_per_group(
 
 
 def compute_evaluation(df: pd.DataFrame, return_df: pd.DataFrame | None, group_by: str, model: str) -> pd.DataFrame:
-    """
-    Compute the evaluation metrics per group.
+    """Compute evaluation metrics per drug or cell-line group.
 
-    :param df: true vs. predicted values with mean_y_true_per_{group_by} column
-    :param return_df: DataFrame to store the results
-    :param group_by: either cell line or drug
-    :param model: model name
-    :returns: dataframe with the evaluation results per group
+    Args:
+        df: True versus predicted values.
+        return_df: Existing results table to append to, or ``None``.
+        group_by: Grouping column (``"drug"`` or ``"cell_line"``).
+        model: Model run name stored on output rows.
+
+    Returns:
+        Evaluation metrics aggregated per group.
     """
     result_per_group = df.groupby(group_by)[["y_true", "cell_line", "drug", "y_pred"]].apply(
         lambda x: evaluate(
@@ -345,14 +355,14 @@ def write_results(
     eval_results_per_cl: pd.DataFrame,
     t_vs_p: pd.DataFrame,
 ) -> None:
-    """
-    Write the results to csv files.
+    """Write evaluation tables to CSV files.
 
-    :param path_out: path to the output directory, e.g., results/my_run/
-    :param eval_results: evaluation results
-    :param eval_results_per_drug: evaluation results per drug
-    :param eval_results_per_cl: evaluation results per cell line
-    :param t_vs_p: true vs. predicted values
+    Args:
+        path_out: Output directory (for example ``results/my_run/``).
+        eval_results: Overall evaluation results.
+        eval_results_per_drug: Per-drug evaluation results.
+        eval_results_per_cl: Per-cell-line evaluation results.
+        t_vs_p: True versus predicted values.
     """
     eval_results.to_csv(f"{path_out}evaluation_results.csv", index=True)
     if eval_results_per_drug is not None:
@@ -364,12 +374,12 @@ def write_results(
 
 @pipeline_function
 def create_index_html(custom_id: str, test_modes: list[str], prefix_results: str) -> None:
-    """
-    Create the index.html file.
+    """Create the report index HTML page.
 
-    :param custom_id: custom id for the results, e.g., my_run
-    :param test_modes: list of test modes, e.g., ["LPO", "LCO", "LDO"]
-    :param prefix_results: path to the results directory, e.g., results/my_run
+    Args:
+        custom_id: Run identifier (for example ``my_run``).
+        test_modes: Test modes to link from the index page.
+        prefix_results: Directory containing per-mode HTML reports.
     """
     # copy images to the results directory
     file_to_copy = [
@@ -421,13 +431,13 @@ def create_index_html(custom_id: str, test_modes: list[str], prefix_results: str
 
 
 def create_html(run_id: str, test_mode: str, files: list, prefix_results: str) -> None:
-    """
-    Create the html file for the given test mode, e.g., LPO.html.
+    """Create the per-test-mode HTML report page.
 
-    :param run_id: custom id for the results, e.g., my_run
-    :param test_mode: test mode, e.g., LPO
-    :param files: list of files in the results directory
-    :param prefix_results: path to the results directory, e.g., results/my_run
+    Args:
+        run_id: Run identifier shown in the page title.
+        test_mode: Test mode for this report (for example ``"LPO"``).
+        files: List of generated artifact filenames in the run directory.
+        prefix_results: Directory containing report assets and subfolders.
     """
     page_layout = os.path.join(
         str(importlib_resources.files("drevalpy")),
@@ -472,17 +482,17 @@ def draw_algorithm_plots(
     custom_id: str,
     result_path: pathlib.Path,
 ) -> None:
-    """
-    Draw all plots for a specific algorithm.
+    """Draw all per-algorithm plots for one test mode.
 
-    :param model: name of the model/algorithm
-    :param ev_res: overall evaluation results
-    :param ev_res_per_drug: evaluation results per drug
-    :param ev_res_per_cell_line: evaluation results per cell line
-    :param t_vs_p: true response values vs. predicted response values
-    :param test_mode: test_mode
-    :param custom_id: run id passed via command line
-    :param result_path: path to the results
+    Args:
+        model: Model or algorithm name.
+        ev_res: Overall evaluation results.
+        ev_res_per_drug: Per-drug evaluation results.
+        ev_res_per_cell_line: Per-cell-line evaluation results.
+        t_vs_p: True versus predicted values.
+        test_mode: Evaluation test mode.
+        custom_id: Run identifier for output paths.
+        result_path: Root results directory.
     """
     eval_results_algorithm = ev_res[(ev_res["test_mode"] == test_mode) & (ev_res["algorithm"] == model)]
     for plt_type in ["violinplot", "heatmap"]:

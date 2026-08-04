@@ -61,12 +61,14 @@ def normalize_metrics_by_mean_effects(
     evaluation_results: pd.DataFrame,
     true_vs_pred: pd.DataFrame,
 ) -> pd.DataFrame:
-    """
-    Normalize metrics by subtracting NaiveMeanEffectsPredictor predictions per setting.
+    """Normalize metrics by subtracting NaiveMeanEffectsPredictor per setting.
 
-    :param evaluation_results: results of the evaluation
-    :param true_vs_pred: all true vs. predicted values
-    :return: evaluation results merged with ``: normalized`` metric columns
+    Args:
+        evaluation_results: Overall evaluation results table.
+        true_vs_pred: True versus predicted values for all models.
+
+    Returns:
+        ``evaluation_results`` merged with ``: normalized`` metric columns.
     """
     naive_by_setting = _index_naive_predictions(true_vs_pred)
     eval_results_mod: dict[str, dict] = {}

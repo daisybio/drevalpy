@@ -53,9 +53,14 @@ def _as_path(path: str | Path) -> Path:
 def resolve_checkpoint_path(path: str | Path) -> Path:
     """Return the archive file path, appending ``.zip`` when missing.
 
-    Paths whose name already ends with ``.zip`` (case insensitive) are returned
-    unchanged; otherwise ``.zip`` is appended. Trailing path separators are
-    rejected because checkpoints must be archive files, not directories.
+    Args:
+        path: Checkpoint archive path; ``.zip`` is appended when missing.
+
+    Returns:
+        Normalized archive ``Path``.
+
+    Raises:
+        ValueError: If *path* ends with a directory separator.
     """
     target = _as_path(path)
     if target.name.lower().endswith(".zip"):
@@ -107,8 +112,12 @@ def _read_payload_from_archive(archive_path: Path) -> Any:
 def save_model(model: DRPModel, path: str | Path) -> None:
     """Save model identity, config, and component state as one ZIP archive.
 
-    ``path`` must be an archive file path. If it does not already end with
-    ``.zip``, ``.zip`` is appended.
+    Args:
+        model: Trained ``DRPModel`` instance to persist.
+        path: Archive file path; ``.zip`` is appended when missing.
+
+    Raises:
+        RuntimeError: If the model is not trained or lacks a ``ModelConfig``.
     """
     stack = model._stack
     if stack is None or not stack.is_fitted():
@@ -129,7 +138,19 @@ def save_model(model: DRPModel, path: str | Path) -> None:
 
 
 def load_model_payload(path: str | Path) -> tuple[str, ModelConfig, dict[str, object]]:
-    """Load and validate a DRPModel checkpoint payload from an archive path."""
+    """Load and validate a ``DRPModel`` checkpoint payload from an archive path.
+
+    Args:
+        path: Archive file path; ``.zip`` is appended when missing.
+
+    Returns:
+        Tuple of ``(model_name, config, component_state)``.
+
+    Raises:
+        FileNotFoundError: If the archive does not exist.
+        UnsupportedCheckpointFormatError: If the format or version is unsupported.
+        CorruptedCheckpointError: If the payload structure is invalid.
+    """
     target = _as_path(path)
     _reject_directory_path(target)
     archive_path = resolve_checkpoint_path(target)
@@ -159,15 +180,25 @@ def load_model_payload(path: str | Path) -> tuple[str, ModelConfig, dict[str, ob
 def load_model(path: str | Path) -> DRPModel:
     """Reconstruct a fitted ``DRPModel`` from a checkpoint archive path.
 
-    ``path`` must be an archive file path. If it does not already end with
-    ``.zip``, ``.zip`` is appended. Reads the stored model name and
-    ``ModelConfig``, builds the matching class via ``construct_model``, then
-    restores fitted state. Use this when you do not already have a class handle
-    for ``ModelClass.load(path)``.
+    Reads the stored model name and ``ModelConfig``, builds the matching class
+    via ``construct_model``, then restores fitted state. Use this when you do not
+    already have a class handle for ``ModelClass.load(path)``.
 
     Custom featurizers and predictors must already be registered (same as for
     training). Load only artifacts created with ``save_model`` in the same
     drevalpy version family.
+
+    Args:
+        path: Archive file path; ``.zip`` is appended when missing.
+
+    Returns:
+        Fitted ``DRPModel`` instance.
+
+    Raises:
+        FileNotFoundError: If the archive does not exist.
+        UnsupportedCheckpointFormatError: If the format or version is unsupported.
+        CorruptedCheckpointError: If the payload structure is invalid.
+        IncompatibleModelCheckpointError: If restoration fails on the rebuilt class.
     """
     from drevalpy.models._construct_model_api import construct_model
 

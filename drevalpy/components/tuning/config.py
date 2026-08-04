@@ -7,7 +7,14 @@ from typing import Any
 
 
 def validate_hpo_metric(metric: str) -> None:
-    """Raise ``ValueError`` when *metric* is not a supported HPO objective."""
+    """Raise ``ValueError`` when *metric* is not a supported HPO objective.
+
+    Args:
+        metric: Evaluation metric name, for example ``"RMSE"``.
+
+    Raises:
+        ValueError: If *metric* is not registered in ``AVAILABLE_METRICS``.
+    """
     from drevalpy.evaluation import AVAILABLE_METRICS
 
     if metric not in AVAILABLE_METRICS:
@@ -29,7 +36,19 @@ class HPOConfig:
 
     @classmethod
     def from_metric(cls, metric: str, *, n_trials: int = 16, **kwargs: Any) -> HPOConfig:
-        """Build an HPO config with ``mode`` inferred from the evaluation metric."""
+        """Build an HPO config with ``mode`` inferred from the evaluation metric.
+
+        Args:
+            metric: Evaluation metric name used as the Ray Tune objective.
+            n_trials: Number of search trials; ``0`` selects defaults only.
+            **kwargs: Additional :class:`HPOConfig` field overrides.
+
+        Returns:
+            Configured :class:`HPOConfig` instance.
+
+        Raises:
+            ValueError: If *metric* is invalid or *n_trials* is negative.
+        """
         from drevalpy.evaluation import get_mode
 
         validate_hpo_metric(metric)
@@ -47,7 +66,19 @@ def build_experiment_hpo_config(
     resources_per_trial: dict[str, float] | None = None,
     storage_path: str | None = None,
 ) -> HPOConfig:
-    """Build shared Ray/Optuna settings for CV and final-model tuning."""
+    """Build shared Ray/Optuna settings for CV and final-model tuning.
+
+    Args:
+        metric: Evaluation metric name used as the Ray Tune objective.
+        n_trials: Number of search trials per tuning run.
+        random_state: Random seed forwarded to the search algorithm.
+        resources_per_trial: Ray resource dict; defaults to one GPU when CUDA is
+            available, otherwise one CPU.
+        storage_path: Optional Ray Tune storage URI.
+
+    Returns:
+        Configured :class:`HPOConfig` instance.
+    """
     import torch
 
     resources = resources_per_trial or ({"gpu": 1} if torch.cuda.is_available() else {"cpu": 1})

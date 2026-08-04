@@ -109,7 +109,25 @@ def critical_difference_diagram(
     text_h_margin: float = 0.01,
     left_only: bool = False,
 ) -> dict[str, list]:
-    """Plot a Critical Difference diagram from ranks and post-hoc results."""
+    """Plot a critical difference diagram from ranks and post-hoc results.
+
+    Args:
+        ranks: Average ranks per algorithm (dict or Series).
+        sig_matrix: Pairwise significance matrix from a post-hoc test.
+        color_palette: Map from algorithm name to color.
+        ax: Optional matplotlib axes; defaults to the current axes.
+        label_fmt_left: Format string for left-side rank labels.
+        label_fmt_right: Format string for right-side rank labels.
+        label_props: Extra matplotlib text properties.
+        marker_props: Extra matplotlib marker properties.
+        elbow_props: Extra matplotlib line properties for elbows.
+        crossbar_props: Extra matplotlib line properties for crossbars.
+        text_h_margin: Horizontal margin for label placement.
+        left_only: If ``True``, draw ranks only on the left side.
+
+    Returns:
+        Dict with drawn matplotlib artists grouped by type.
+    """
     _validate_color_palette(Series(ranks), color_palette)
 
     elbow_props = elbow_props or {}

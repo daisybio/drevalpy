@@ -32,6 +32,7 @@ sys.path.insert(0, os.path.abspath("."))
 extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
+    "sphinx.ext.napoleon",
     "sphinx_autodoc_typehints",
     "sphinx.ext.intersphinx",
     "sphinx.ext.autosectionlabel",
@@ -177,6 +178,10 @@ man_pages = [
 ]
 
 autodoc_typehints = "description"
+napoleon_google_docstring = True
+napoleon_numpy_docstring = False
+napoleon_use_param = True
+napoleon_use_rtype = True
 autosummary_generate = True
 autosummary_imported_members = False
 autodoc_default_options = {

@@ -17,17 +17,22 @@ def load_and_select_gene_features(
     data_path: str,
     dataset_name: str,
 ) -> FeatureDataset:
-    """
-    Load and reduce features of a single feature type, ensuring selection and ordering based on the gene list.
+    """Load and reduce features of a single feature type.
 
-    Attention: if gene_list is None, all features are loaded, which can be problematic for cross study prediction.
+    When *gene_list* is ``None``, all features are loaded, which can be
+    problematic for cross-study prediction.
 
-    :param feature_type: type of feature, e.g., gene_expression, methylation, etc.
-    :param gene_list: list of genes to include, e.g., landmark_genes
-    :param data_path: path to the data, e.g., data/
-    :param dataset_name: name of the dataset, e.g., GDSC2
-    :returns: FeatureDataset with the reduced features
-    :raises ValueError: if genes from gene_list are missing in the dataset
+    Args:
+        feature_type: Feature view name, for example ``gene_expression``.
+        gene_list: Optional gene-list CSV name used for subsetting and ordering.
+        data_path: Root directory containing dataset feature tables.
+        dataset_name: Dataset subdirectory or registry name.
+
+    Returns:
+        ``FeatureDataset`` with the selected features.
+
+    Raises:
+        ValueError: If genes from *gene_list* are missing in the dataset.
     """
     ge = pd.read_csv(f"{data_path}/{dataset_name}/{feature_type}.csv", index_col=CELL_LINE_IDENTIFIER)
     ge.index = ge.index.astype(str)
@@ -73,16 +78,20 @@ def get_multiomics_feature_dataset(
     gene_lists: dict | None = None,
     omics: list[str] | None = None,
 ) -> FeatureDataset:
-    """
-    Get multiomics feature dataset for the given list of OMICs.
+    """Get multiomics feature dataset for the given list of OMICs.
 
-    :param data_path: path to the data, e.g., data/
-    :param dataset_name: name of the dataset, e.g., GDSC2
-    :param gene_lists: dictionary of names of lists of genes to include, for each omics type,
-                e.g., {"gene_expression": "landmark_genes_reduced"}, if None, all features are not reduced
-    :param omics: list of omics to include, e.g., ["gene_expression", "methylation"]
-    :returns: FeatureDataset with the multiomics features
-    :raises ValueError: if no omics features are found
+    Args:
+        data_path: Root directory containing dataset feature tables.
+        dataset_name: Dataset subdirectory or registry name.
+        gene_lists: Optional per-omics gene-list names; ``None`` values load all
+            features for that omics type.
+        omics: Omics view names to include.
+
+    Returns:
+        Combined ``FeatureDataset`` with every requested omics view.
+
+    Raises:
+        ValueError: If gene-list keys do not match *omics* or no views load.
     """
     if omics is None:
         omics = ["gene_expression", "methylation", "mutations", "copy_number_variation_gistic", "proteomics"]

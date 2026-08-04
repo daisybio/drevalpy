@@ -52,7 +52,25 @@ class ModelInputBatch:
         early_stopping_response: DrugResponseDataset | None = None,
         training_context: TrainingContext | None = None,
     ) -> ModelInputBatch:
-        """Build a predictor input batch from a response dataset and featurizer outputs."""
+        """Build a predictor input batch from a response dataset and featurizer outputs.
+
+        Args:
+            response: Cell-line/drug pairs and optional response values.
+            cell_line_entity_ids: Entity ids aligned with cell-line feature rows.
+            drug_entity_ids: Entity ids aligned with drug feature rows, or ``None``.
+            cell_line_features: Dense or object cell-line feature matrix.
+            drug_features: Dense or object drug feature matrix, or ``None``.
+            cell_line_pair_idx: Row index into cell-line features for each pair.
+            drug_pair_idx: Row index into drug features for each pair, or ``None``.
+            cell_line_blocks: Named cell-line feature blocks from featurizers.
+            drug_blocks: Named drug feature blocks from featurizers.
+            early_stopping_response: Optional validation pairs for early stopping.
+            training_context: Runtime metadata for the training call.
+
+        Returns:
+            ``ModelInputBatch`` ready for predictor :meth:`~Predictor.fit` or
+            :meth:`~Predictor.predict`.
+        """
         return cls(
             cell_line_ids=response.cell_line_ids,
             drug_ids=response.drug_ids,
@@ -86,7 +104,18 @@ class ModelInputBatch:
         return cell_line_pair_idx, drug_pair_idx
 
     def feature_matrix_for(self, response: DrugResponseDataset) -> np.ndarray:
-        """Return a dense design matrix for an alternate response dataset."""
+        """Return a dense design matrix for an alternate response dataset.
+
+        Args:
+            response: Pairs whose features should be materialized from stored
+                entity-level featurizer outputs.
+
+        Returns:
+            Design matrix with one row per pair in *response*.
+
+        Raises:
+            ValueError: If drug features are present but pair indices are missing.
+        """
         n_pairs = len(response)
         if n_pairs == 0:
             return np.empty((0, 0), dtype=np.float32)
@@ -111,13 +140,25 @@ class ModelInputBatch:
         )
 
     def early_stopping_feature_matrix(self) -> np.ndarray | None:
-        """Return validation features when early-stopping pairs are present."""
+        """Return validation features when early-stopping pairs are present.
+
+        Returns:
+            Design matrix for :attr:`early_stopping_response`, or ``None`` when
+            early stopping is disabled.
+        """
         if self.early_stopping_response is None or len(self.early_stopping_response) == 0:
             return None
         return self.feature_matrix_for(self.early_stopping_response)
 
     def to_feature_matrix(self) -> np.ndarray:
-        """Return a dense design matrix with one row per response pair."""
+        """Return a dense design matrix with one row per response pair.
+
+        Returns:
+            Design matrix for the batch's primary :attr:`response` pairs.
+
+        Raises:
+            ValueError: If :attr:`response` is ``None``.
+        """
         if self.response is None:
             msg = "ModelInputBatch.response is required to build a feature matrix"
             raise ValueError(msg)
@@ -129,7 +170,18 @@ class ModelInputBatch:
         return self.feature_matrix_for(response)
 
     def subset_pairs(self, mask: np.ndarray) -> ModelInputBatch:
-        """Return a batch containing only the selected response pairs."""
+        """Return a batch containing only the selected response pairs.
+
+        Args:
+            mask: One-dimensional boolean array with length :attr:`n_pairs`.
+
+        Returns:
+            New batch referencing the same entity-level features.
+
+        Raises:
+            ValueError: If *mask* is invalid or spans multiple drugs while
+                early-stopping pairs are present.
+        """
         mask = np.asarray(mask, dtype=bool)
         if mask.ndim != 1 or mask.shape[0] != self.n_pairs:
             msg = "subset mask must be a one-dimensional boolean array matching n_pairs"

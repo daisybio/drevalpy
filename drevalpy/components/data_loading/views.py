@@ -23,7 +23,20 @@ def load_cell_line_feature_views(
     *,
     model_name: str = "DRPModel",
 ) -> FeatureDataset:
-    """Load cell-line features for the configured cell-line views."""
+    """Load cell-line features for the configured cell-line views.
+
+    Args:
+        views: Canonical or legacy view names to load.
+        data_path: Root directory containing dataset feature tables.
+        dataset_name: Dataset subdirectory or registry name.
+        model_name: Model name used in error messages and loading hooks.
+
+    Returns:
+        ``FeatureDataset`` with the requested cell-line views.
+
+    Raises:
+        ValueError: If *views* is empty or incompatible with single-view loading.
+    """
     if len(views) == 1:
         return load_single_cell_line_view(views, data_path, dataset_name, model_name)
     return load_multi_cell_line_view(views, data_path, dataset_name, model_name)
@@ -36,7 +49,18 @@ def load_drug_feature_views(
     *,
     model_name: str = "DRPModel",
 ) -> FeatureDataset | None:
-    """Load drug features for the configured drug views."""
+    """Load drug features for the configured drug views.
+
+    Args:
+        views: Canonical drug view names to load.
+        data_path: Root directory containing dataset feature tables.
+        dataset_name: Dataset subdirectory or registry name.
+        model_name: Model name used in error messages and loading hooks.
+
+    Returns:
+        ``FeatureDataset`` with the requested drug views, or ``None`` when
+        *views* is empty.
+    """
     if not views:
         return None
     return load_single_drug_view(views, data_path, dataset_name, model_name)
@@ -48,18 +72,22 @@ def load_single_cell_line_view(
     dataset_name: str,
     model_name: str,
 ) -> FeatureDataset:
-    """
-    Load cell line features for a single-view model.
+    """Load cell line features for a single-view model.
 
-    If the view is "gene_expression", the landmark_genes_reduced list is used for subsetting.
-    Otherwise, the whole CSV is loaded.
+    If the view is ``gene_expression``, the ``landmark_genes_reduced`` list is
+    used for subsetting. Otherwise, the whole CSV is loaded.
 
-    :param cell_line_views: list of cell line views (must have exactly one element)
-    :param data_path: path to the data, e.g., data/
-    :param dataset_name: name of the dataset, e.g., GDSC1
-    :param model_name: name of the model, used for error messages
-    :returns: FeatureDataset containing the cell line features
-    :raises ValueError: if cell_line_views is empty or has more than one element
+    Args:
+        cell_line_views: View names; must contain exactly one element.
+        data_path: Root directory containing dataset feature tables.
+        dataset_name: Dataset subdirectory or registry name.
+        model_name: Model name used in error messages.
+
+    Returns:
+        ``FeatureDataset`` containing the requested cell-line view.
+
+    Raises:
+        ValueError: If *cell_line_views* is empty or has more than one element.
     """
     if len(cell_line_views) == 0:
         raise ValueError(
@@ -93,17 +121,22 @@ def load_multi_cell_line_view(
     dataset_name: str,
     model_name: str,
 ) -> FeatureDataset:
-    """
-    Load cell line features for a multi-view model.
+    """Load cell line features for a multi-view model.
 
-    Known omics types use specific gene lists for subsetting. Unknown types are loaded in full.
+    Known omics types use specific gene lists for subsetting. Unknown types are
+    loaded in full.
 
-    :param cell_line_views: list of cell line views
-    :param data_path: path to the data, e.g., data/
-    :param dataset_name: name of the dataset, e.g., GDSC1
-    :param model_name: name of the model, used for error messages
-    :returns: FeatureDataset containing the cell line features
-    :raises ValueError: if cell_line_views is empty
+    Args:
+        cell_line_views: View names to combine into one dataset.
+        data_path: Root directory containing dataset feature tables.
+        dataset_name: Dataset subdirectory or registry name.
+        model_name: Model name used in error messages.
+
+    Returns:
+        ``FeatureDataset`` containing every requested cell-line view.
+
+    Raises:
+        ValueError: If *cell_line_views* is empty.
     """
     if len(cell_line_views) == 0:
         raise ValueError(
@@ -133,18 +166,23 @@ def load_single_drug_view(
     dataset_name: str,
     model_name: str,
 ) -> FeatureDataset | None:
-    """
-    Load drug features for a single-view model.
+    """Load drug features for a single-view model.
 
-    If drug_views is empty, drug IDs are loaded. If "fingerprints", fingerprints are loaded.
-    Otherwise, the CSV is loaded generically.
+    When *drug_views* is empty, drug ids are loaded. When it contains
+    ``fingerprints``, Morgan fingerprints are loaded. Otherwise the CSV is loaded
+    generically.
 
-    :param drug_views: list of drug views (at most one element)
-    :param data_path: path to the data, e.g., data/
-    :param dataset_name: name of the dataset, e.g., GDSC1
-    :param model_name: name of the model, used for error messages
-    :returns: FeatureDataset containing the drug features
-    :raises ValueError: if more than one drug view is specified
+    Args:
+        drug_views: View names; at most one element is supported.
+        data_path: Root directory containing dataset feature tables.
+        dataset_name: Dataset subdirectory or registry name.
+        model_name: Model name used in error messages.
+
+    Returns:
+        ``FeatureDataset`` with drug ids or the requested drug view.
+
+    Raises:
+        ValueError: If more than one drug view is specified.
     """
     if len(drug_views) > 1:
         raise ValueError(f"Only one drug view is supported for {model_name}.")

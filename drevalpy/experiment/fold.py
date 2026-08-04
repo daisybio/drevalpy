@@ -35,17 +35,18 @@ def get_datasets_from_cv_split(
     DrugResponseDataset | None,
     DrugResponseDataset,
 ]:
-    """
-    Get train, validation, (early stopping), and test datasets from the CV split.
+    """Extract train, validation, early-stopping, and test sets from a CV fold.
 
-    Returns copies of the datasets to prevent in-place modifications (e.g., add_rows,
-    reduce_to) from affecting the original split data used by subsequent models.
+    Returns copies so in-place edits do not affect other models on the same fold.
 
-    :param split: CV split dictionary with train/validation/test (+ optional ES) keys
-    :param model_class: model class used to decide early-stopping partitions
-    :param model_name: model name used for single-drug masking
-    :param drug_id: drug identifier for single-drug models
-    :returns: train, validation, early_stopping (or None), and test datasets
+      Args:
+          split: CV split dict with ``train``, ``validation``, and ``test`` keys.
+          model_class: Model class used to decide early-stopping partitions.
+          model_name: Run key used for single-drug masking.
+          drug_id: Drug identifier for single-drug models.
+
+      Returns:
+          Train, validation, early-stopping (or ``None``), and test datasets.
     """
     fold = prepare_fold_datasets(split, model_class, model_name, drug_id)
     return fold.train, fold.validation, fold.early_stopping, fold.test
@@ -57,14 +58,16 @@ def prepare_fold_datasets(
     model_name: str,
     drug_id: str | None = None,
 ) -> FoldDatasets:
-    """
-    Copy/mask fold partitions with the same logic for experiment and CLI callers.
+    """Copy and optionally drug-mask fold partitions for experiment runners.
 
-    :param split: CV split dictionary with train/validation/test (+ optional ES) keys
-    :param model_class: model class used to decide early-stopping partitions
-    :param model_name: model name used for single-drug masking
-    :param drug_id: drug identifier for single-drug models
-    :returns: fold datasets with copies and optional drug masks applied
+    Args:
+        split: CV split dict with ``train``, ``validation``, and ``test`` keys.
+        model_class: Model class used to decide early-stopping partitions.
+        model_name: Run key used for single-drug masking.
+        drug_id: Drug identifier for single-drug models.
+
+    Returns:
+        Fold datasets with copies and optional drug masks applied.
     """
     train_dataset = split["train"].copy()
     validation_dataset = split["validation"].copy()
@@ -97,13 +100,15 @@ def merge_train_validation(
     *,
     random_state: int = 42,
 ) -> DrugResponseDataset:
-    """
-    Return a shuffled train+validation copy for final fold training.
+    """Return a shuffled train-plus-validation copy for final fold training.
 
-    :param train_dataset: training dataset
-    :param validation_dataset: validation dataset to merge into training
-    :param random_state: shuffle seed
-    :returns: shuffled concatenated train+validation dataset
+    Args:
+        train_dataset: Training dataset.
+        validation_dataset: Validation dataset to merge into training.
+        random_state: Shuffle seed.
+
+    Returns:
+        Shuffled concatenation of *train_dataset* and *validation_dataset*.
     """
     return train_dataset.with_rows_added(validation_dataset).shuffled(random_state=random_state)
 
@@ -116,15 +121,17 @@ def prepare_final_fold_training_data(
     *,
     random_state: int = 42,
 ) -> FoldDatasets:
-    """
-    Prepare fold data with train+validation already merged for final training.
+    """Prepare fold data with train and validation merged for final training.
 
-    :param split: CV split dictionary with train/validation/test (+ optional ES) keys
-    :param model_class: model class used to decide early-stopping partitions
-    :param model_name: model name used for single-drug masking
-    :param drug_id: drug identifier for single-drug models
-    :param random_state: shuffle seed for the merged train set
-    :returns: fold datasets with merged train and optional early stopping
+    Args:
+        split: CV split dict with ``train``, ``validation``, and ``test`` keys.
+        model_class: Model class used to decide early-stopping partitions.
+        model_name: Run key used for single-drug masking.
+        drug_id: Drug identifier for single-drug models.
+        random_state: Shuffle seed for the merged train set.
+
+    Returns:
+        Fold datasets with merged train and optional early stopping.
     """
     fold = prepare_fold_datasets(split, model_class, model_name, drug_id)
     merged_train = merge_train_validation(fold.train, fold.validation, random_state=random_state)
@@ -140,12 +147,14 @@ def early_stopping_for_model(
     model_or_class: Any,
     early_stopping_dataset: DrugResponseDataset | None,
 ) -> DrugResponseDataset | None:
-    """
-    Return early-stopping data only when the model supports it.
+    """Return early-stopping data only when the model supports it.
 
-    :param model_or_class: model instance or class with early-stopping capability
-    :param early_stopping_dataset: candidate early-stopping dataset
-    :returns: ``early_stopping_dataset`` when supported, otherwise ``None``
+    Args:
+        model_or_class: Model instance or class with early-stopping capability.
+        early_stopping_dataset: Candidate early-stopping dataset.
+
+    Returns:
+        *early_stopping_dataset* when supported, otherwise ``None``.
     """
     supports_fn = getattr(model_or_class, "supports_early_stopping", None)
     if callable(supports_fn):

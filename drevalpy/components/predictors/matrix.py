@@ -15,6 +15,14 @@ class MatrixPredictor(Predictor):
     """Predictor that flattens ``ModelInputBatch`` into one design matrix."""
 
     def fit(self, batch: ModelInputBatch) -> None:
+        """Fit on a dense pair-level design matrix built from *batch*.
+
+        Args:
+            batch: Featurized pairs with training responses.
+
+        Raises:
+            ValueError: If responses are missing or the design matrix is invalid.
+        """
         if batch.response is None:
             msg = "Matrix predictors require response values during fit"
             raise ValueError(msg)
@@ -24,6 +32,14 @@ class MatrixPredictor(Predictor):
         self._fit_matrix(x, y)
 
     def predict(self, batch: ModelInputBatch) -> np.ndarray:
+        """Predict from a dense pair-level design matrix built from *batch*.
+
+        Args:
+            batch: Featurized pairs to score.
+
+        Returns:
+            One predicted response per pair in *batch*.
+        """
         return self._predict_matrix(batch.to_feature_matrix())
 
     @abstractmethod
