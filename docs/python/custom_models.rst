@@ -220,12 +220,8 @@ Feature-free predictors need only a predictor token in ``construct_model``.
 Matrix and block predictors pair with featurizers in a three-slot recipe (see
 below).
 
-Discovery and literature references
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Use ``list_*_metadata()`` (and the generated :doc:`/concepts/component_catalog`)
-to inspect registered components. Optional ``tags`` (for example ``baseline``)
-are discovery filters only and never change validation.
+Literature references
+~~~~~~~~~~~~~~~~~~~~~
 
 ``LiteratureReference`` is optional **provenance metadata** for components
 ported from a paper or external repository. Pass it as ``reference=...`` on
@@ -265,14 +261,88 @@ of these fields are required and validated:
 Built-in literature models (DIPK, SparseGO, …) attach references the same way;
 see their entries in the component catalog.
 
+Discovery
+~~~~~~~~~
+
+Inspect what is registered with the role-specific listing helpers (also
+exported from ``drevalpy.components``):
+
+- :func:`~drevalpy.components.list_cell_line_featurizer_metadata`
+- :func:`~drevalpy.components.list_drug_featurizer_metadata`
+- :func:`~drevalpy.components.list_predictor_metadata`
+
+Each returns a list of dicts with name, description, contracts, tags, and any
+attached ``LiteratureReference``. Pass ``tag=...`` to keep only matching
+entries (for example ``tag="baseline"``). Tags are discovery filters only and
+never change validation. The generated
+:doc:`/concepts/component_catalog` is built from the same metadata.
+
+.. code-block:: python
+
+   from drevalpy.components import (
+       list_cell_line_featurizer_metadata,
+       list_predictor_metadata,
+   )
+
+   predictors = list_predictor_metadata()
+   baselines = list_predictor_metadata(tag="baseline")
+   cell_line = list_cell_line_featurizer_metadata()
+
 Composing models from custom components
 ---------------------------------------
 
 Once components are registered, compose them exactly as on :doc:`models`: a
 recipe string, zoo YAML, or ``ModelConfig``, then ``construct_model``.
 
-Load external packages (and optional zoo files) with ``load_extensions``
-before constructing:
+Import your components
+~~~~~~~~~~~~~~~~~~~~~~
+
+``@register_*`` runs when the module is imported. If your package is
+installable (or otherwise on ``PYTHONPATH``), a normal import is enough:
+
+.. code-block:: python
+
+   import my_components.toy_featurizer  # registers toyCellLine
+   import my_components.toy_predictors  # registers toyMean, toyRidge, …
+
+   from drevalpy.models import construct_model
+
+   ToyRidge = construct_model(
+       "ToyRidge",
+       "toyCellLine:fingerprints:toyRidge",
+   )
+   model = ToyRidge()
+
+Feature-free predictors need only a predictor token
+(``construct_model("ToyMean", "toyMean")``). Block predictors follow the same
+recipe form with the views they require (for example
+``raw[expression]:fingerprints:toyBlockRidge``).
+
+You can also put named presets in a zoo YAML file and load them (see below),
+but recipes and ``ModelConfig`` work immediately after import — no extra
+loader step.
+
+Other layouts: ``load_extensions``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Use :func:`~drevalpy.components.load_extensions` when components are not a
+normal importable package, or when you also want to register external zoo
+YAML in one call:
+
+- ``modules`` — dotted names (same effect as ``import``)
+- ``files`` — individual ``.py`` paths executed as temporary modules
+- ``directories`` — all ``*.py`` in a folder (non-recursive; ``__init__.py``
+  skipped; sorted by filename)
+- ``zoo_files`` — YAML presets that map a **name** to an already-registered
+  stack (not Python classes, not experiment hpam YAML)
+
+.. code-block:: text
+
+   my_components/          # -> directories=[...]  (or import as a package)
+     toy_featurizer.py
+     toy_predictors.py
+   my_zoo/
+     toy.yaml              # -> zoo_files=[...]
 
 .. code-block:: python
 
@@ -283,29 +353,9 @@ before constructing:
        directories=["my_components"],
        zoo_files=["my_zoo/toy.yaml"],
    )
+   ToyMean = construct_model("toyMean")  # zoo preset name
 
-Feature-free predictors need only a predictor token. Feature-based stacks
-use the usual three-slot recipe (or the equivalent YAML / ``ModelConfig``):
-
-.. code-block:: python
-
-   # Feature-free: predictor-only spec
-   ToyMean = construct_model("ToyMean", "toyMean")
-   model = ToyMean()
-
-   # Matrix: custom featurizer + built-in drug side + matrix predictor
-   ToyRidge = construct_model(
-       "ToyRidge",
-       "toyCellLine:fingerprints:toyRidge",
-   )
-
-   # Block: named views that the predictor requires (e.g. expression)
-   ToyBlock = construct_model(
-       "ToyBlock",
-       "raw[expression]:fingerprints:toyBlockRidge",
-   )
-
-Optional zoo YAML for a named preset (this is **not** experiment hpam YAML):
+Example zoo YAML:
 
 .. code-block:: yaml
 
@@ -317,9 +367,8 @@ Optional zoo YAML for a named preset (this is **not** experiment hpam YAML):
      drug_featurizer: fingerprints
      predictor: toyRidge
 
-After ``load_extensions(..., zoo_files=[...])``, ``construct_model("toyMean")``
-resolves the preset like any built-in zoo name. Run the resulting class
-through :doc:`experiments` the same way as ElasticNet or RandomForest.
+Run the resulting class through :doc:`experiments` the same way as any zoo
+preset.
 
 Saving and loading with custom components
 -----------------------------------------
@@ -330,18 +379,16 @@ up in the registries again, then restores state. If a custom featurizer or
 predictor is not registered in the process that calls ``load`` /
 ``load_model``, reconstruction fails.
 
-Before loading, import your component modules or call ``load_extensions`` the
-same way you did before training:
+Import the same modules (or call ``load_extensions``) before loading:
 
 .. code-block:: python
 
-   from drevalpy.components import load_extensions
+   import my_components.toy_featurizer
+   import my_components.toy_predictors
+
    from drevalpy.models import load_model
 
-   load_extensions(directories=["my_components"])
    model = load_model("checkpoints/toy_ridge")
 
-The same rule applies to ``ModelClass.load(path)``: the class must resolve
-against currently registered components. Built-in zoo models need no extra
-step; only custom (or external-zoo) names require this setup. See :doc:`models`
-for the general save/load lifecycle.
+Built-in zoo models need no extra step; only custom component names require
+this. See :doc:`models` for the general save/load lifecycle.
