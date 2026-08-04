@@ -1,11 +1,16 @@
 """Versioned persistence for concrete DRPModel instances.
 
-Joblib checkpoints are trusted-input-only: callers must only load artifacts they
-created with ``save_model`` in the same drevalpy version family.
+Checkpoints are a single ZIP archive written atomically to an archive file path.
+Callers must only load artifacts they created with ``save_model`` in the same
+drevalpy version family.
 """
 
 from __future__ import annotations
 
+import io
+import os
+import tempfile
+import zipfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -18,7 +23,7 @@ if TYPE_CHECKING:
 
 FORMAT_NAME = "drevalpy-model"
 FORMAT_VERSION = 1
-STATE_FILE = "model.joblib"
+PAYLOAD_MEMBER = "payload.joblib"
 
 
 class ModelCheckpointError(Exception):
@@ -37,16 +42,82 @@ class IncompatibleModelCheckpointError(ModelCheckpointError, ValueError):
     """Raised when checkpoint model identity does not match the loader class."""
 
 
-def save_model(model: DRPModel, directory: str) -> None:
-    """Save model identity, config, and component state in one payload."""
+def _as_path(path: str | Path) -> Path:
+    """Normalize a user path to ``Path``, rejecting trailing separators."""
+    if isinstance(path, str) and path.endswith(("/", "\\")):
+        msg = f"Checkpoint path must be an archive file path, not a directory: {path}"
+        raise ValueError(msg)
+    return Path(path)
+
+
+def resolve_checkpoint_path(path: str | Path) -> Path:
+    """Return the archive file path, appending ``.zip`` when missing.
+
+    Paths whose name already ends with ``.zip`` (case insensitive) are returned
+    unchanged; otherwise ``.zip`` is appended. Trailing path separators are
+    rejected because checkpoints must be archive files, not directories.
+    """
+    target = _as_path(path)
+    if target.name.lower().endswith(".zip"):
+        return target
+    return target.with_name(f"{target.name}.zip")
+
+
+def _reject_directory_path(path: Path) -> None:
+    if path.exists() and path.is_dir():
+        msg = f"Checkpoint path must be an archive file path, not a directory: {path}"
+        raise ValueError(msg)
+
+
+def _write_archive_atomically(archive_path: Path, payload: dict[str, Any]) -> None:
+    archive_path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(prefix=f".{archive_path.name}.", suffix=".tmp", dir=archive_path.parent)
+    os.close(fd)
+    tmp_path = Path(tmp_name)
+    try:
+        buffer = io.BytesIO()
+        joblib.dump(payload, buffer)
+        with zipfile.ZipFile(tmp_path, mode="w", compression=zipfile.ZIP_DEFLATED) as archive:
+            archive.writestr(PAYLOAD_MEMBER, buffer.getvalue())
+        os.replace(tmp_path, archive_path)
+    except Exception:
+        tmp_path.unlink(missing_ok=True)
+        raise
+
+
+def _read_payload_from_archive(archive_path: Path) -> Any:
+    try:
+        with zipfile.ZipFile(archive_path, mode="r") as archive:
+            try:
+                info = archive.getinfo(PAYLOAD_MEMBER)
+            except KeyError as exc:
+                raise CorruptedCheckpointError(
+                    f"checkpoint archive {archive_path} is missing {PAYLOAD_MEMBER!r}"
+                ) from exc
+            with archive.open(info) as handle:
+                return joblib.load(handle)
+    except zipfile.BadZipFile as exc:
+        raise CorruptedCheckpointError(f"checkpoint archive {archive_path} is not a valid zip file") from exc
+    except CorruptedCheckpointError:
+        raise
+    except Exception as exc:
+        raise CorruptedCheckpointError(f"Failed to deserialize checkpoint {archive_path}: {exc}") from exc
+
+
+def save_model(model: DRPModel, path: str | Path) -> None:
+    """Save model identity, config, and component state as one ZIP archive.
+
+    ``path`` must be an archive file path. If it does not already end with
+    ``.zip``, ``.zip`` is appended.
+    """
     stack = model._stack
     if stack is None or not stack.is_fitted():
         raise RuntimeError("Cannot save: component stack is not trained")
     config = model._resolved_model_config
     if config is None:
         raise RuntimeError("Cannot save a model without its ModelConfig")
-    target = Path(directory)
-    target.mkdir(parents=True, exist_ok=True)
+    target = _as_path(path)
+    _reject_directory_path(target)
     payload = {
         "format": FORMAT_NAME,
         "version": FORMAT_VERSION,
@@ -54,18 +125,18 @@ def save_model(model: DRPModel, directory: str) -> None:
         "config": config.model_dump(mode="json"),
         "state": stack.component_state(),
     }
-    joblib.dump(payload, target / STATE_FILE)
+    _write_archive_atomically(resolve_checkpoint_path(target), payload)
 
 
-def load_model_payload(directory: str) -> tuple[str, ModelConfig, dict[str, object]]:
-    """Load and validate a DRPModel checkpoint payload."""
-    path = Path(directory) / STATE_FILE
-    if not path.is_file():
-        raise FileNotFoundError(f"Missing model checkpoint: {path}")
-    try:
-        payload: Any = joblib.load(path)
-    except Exception as exc:
-        raise CorruptedCheckpointError(f"Failed to deserialize checkpoint {path}: {exc}") from exc
+def load_model_payload(path: str | Path) -> tuple[str, ModelConfig, dict[str, object]]:
+    """Load and validate a DRPModel checkpoint payload from an archive path."""
+    target = _as_path(path)
+    _reject_directory_path(target)
+    archive_path = resolve_checkpoint_path(target)
+    if not archive_path.is_file():
+        raise FileNotFoundError(f"Missing model checkpoint: {archive_path}")
+
+    payload = _read_payload_from_archive(archive_path)
     if not isinstance(payload, dict):
         raise CorruptedCheckpointError("checkpoint payload is not a mapping")
     if payload.get("format") != FORMAT_NAME or payload.get("version") != FORMAT_VERSION:
@@ -85,12 +156,14 @@ def load_model_payload(directory: str) -> tuple[str, ModelConfig, dict[str, obje
     return model_name, config, state
 
 
-def load_model(directory: str) -> DRPModel:
-    """Reconstruct a fitted ``DRPModel`` from a checkpoint directory.
+def load_model(path: str | Path) -> DRPModel:
+    """Reconstruct a fitted ``DRPModel`` from a checkpoint archive path.
 
-    Reads the stored model name and ``ModelConfig``, builds the matching class
-    via ``construct_model``, then restores fitted state. Use this when you do
-    not already have a class handle for ``ModelClass.load(directory)``.
+    ``path`` must be an archive file path. If it does not already end with
+    ``.zip``, ``.zip`` is appended. Reads the stored model name and
+    ``ModelConfig``, builds the matching class via ``construct_model``, then
+    restores fitted state. Use this when you do not already have a class handle
+    for ``ModelClass.load(path)``.
 
     Custom featurizers and predictors must already be registered (same as for
     training). Load only artifacts created with ``save_model`` in the same
@@ -98,5 +171,5 @@ def load_model(directory: str) -> DRPModel:
     """
     from drevalpy.models._construct_model_api import construct_model
 
-    model_name, config, _state = load_model_payload(directory)
-    return construct_model(model_name, config).load(directory)
+    model_name, config, _state = load_model_payload(path)
+    return construct_model(model_name, config).load(path)

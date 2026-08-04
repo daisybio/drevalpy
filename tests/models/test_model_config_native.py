@@ -102,8 +102,9 @@ def test_component_stack_save_load_round_trip(name: str) -> None:
         drug_input,
     )
     with tempfile.TemporaryDirectory() as directory:
-        model.save(directory)
-        loaded = type(model).load(directory)
+        checkpoint = f"{directory}/model"
+        model.save(checkpoint)
+        loaded = type(model).load(checkpoint)
         preds_after = loaded.predict(
             response.cell_line_ids,
             response.drug_ids,

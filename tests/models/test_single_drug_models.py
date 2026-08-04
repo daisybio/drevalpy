@@ -134,9 +134,9 @@ def test_single_drug_models(
         else:
             with tempfile.TemporaryDirectory() as model_dir:
                 try:
-
-                    model.save(model_dir)
-                    loaded_model = construct_model(model_name).load(model_dir)
+                    checkpoint = f"{model_dir}/model"
+                    model.save(checkpoint)
+                    loaded_model = construct_model(model_name).load(checkpoint)
 
                     # Re-run prediction with loaded model
                     preds_original = model.predict(

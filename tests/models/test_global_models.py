@@ -136,8 +136,9 @@ def test_global_models(
     # Save and load test (should either succeed or raise NotImplementedError)
     with tempfile.TemporaryDirectory() as model_dir:
         try:
-            model.save(model_dir)
-            loaded_model = model_class.load(model_dir)
+            checkpoint = f"{model_dir}/model"
+            model.save(checkpoint)
+            loaded_model = model_class.load(checkpoint)
             if model_name == "SparseGO":
                 loaded_model.load_cell_line_features(data_path=str(data_dir), dataset_name="TOYv1")
             assert isinstance(loaded_model, DRPModel)
@@ -258,12 +259,13 @@ def test_multi_view_neural_network_custom_views(sample_dataset: DrugResponseData
 
         # Save and load roundtrip — no methylation files should be required
         with tempfile.TemporaryDirectory() as model_dir:
-            model.save(model_dir)
+            checkpoint = f"{model_dir}/model"
+            model.save(checkpoint)
             # Verify no methylation files were saved
             assert not os.path.exists(os.path.join(model_dir, "methylation_scaler.pkl"))
             assert not os.path.exists(os.path.join(model_dir, "methylation_pca.pkl"))
 
-            loaded_model = model_class.load(model_dir)
+            loaded_model = model_class.load(checkpoint)
             assert isinstance(loaded_model, DRPModel)
 
             preds_after = loaded_model.predict(

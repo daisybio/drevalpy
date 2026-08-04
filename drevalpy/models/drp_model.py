@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+from pathlib import Path
 from typing import Any, ClassVar
 
 import numpy as np
@@ -234,22 +235,30 @@ class DRPModel(_DRPLoggingMixin):
         return self._stack.predict(cell_line_ids, drug_ids, cell_line_input, drug_input)
 
     @pipeline_function
-    def save(self, directory: str) -> None:
-        """Persist model identity, config, and fitted component state."""
+    def save(self, path: str | Path) -> None:
+        """Persist model identity, config, and fitted component state.
+
+        ``path`` must be an archive file path. If it does not already end with
+        ``.zip``, ``.zip`` is appended.
+        """
         from drevalpy.models._model_persistence import save_model
 
-        save_model(self, directory)
+        save_model(self, path)
 
     @classmethod
-    def load(cls, directory: str) -> DRPModel:
-        """Load a fitted model checkpoint into a new instance of this class."""
+    def load(cls, path: str | Path) -> DRPModel:
+        """Load a fitted model checkpoint into a new instance of this class.
+
+        ``path`` must be an archive file path. If it does not already end with
+        ``.zip``, ``.zip`` is appended.
+        """
         from drevalpy.models._model_persistence import (
             CorruptedCheckpointError,
             IncompatibleModelCheckpointError,
             load_model_payload,
         )
 
-        model_name, config, state = load_model_payload(directory)
+        model_name, config, state = load_model_payload(path)
         if model_name != cls.get_model_name():
             raise IncompatibleModelCheckpointError(
                 f"checkpoint model_name {model_name!r} does not match {cls.get_model_name()!r}"

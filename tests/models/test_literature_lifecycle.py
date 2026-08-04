@@ -135,8 +135,9 @@ def test_literature_model_lifecycle(
     assert np.isfinite(preds).all()
 
     with tempfile.TemporaryDirectory() as directory:
-        model.save(directory)
-        loaded = type(model).load(directory)
+        checkpoint = f"{directory}/model"
+        model.save(checkpoint)
+        loaded = type(model).load(checkpoint)
         loaded_preds = loaded.predict(
             response.cell_line_ids,
             response.drug_ids,

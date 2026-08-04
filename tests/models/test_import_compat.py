@@ -22,6 +22,7 @@ def test_models_all_exports_expected_symbols() -> None:
     assert set(models_all) == {
         "DRPModel",
         "construct_model",
+        "load_model",
         "MULTI_DRUG_MODEL_FACTORY",
         "SINGLE_DRUG_MODEL_FACTORY",
         "MODEL_FACTORY",

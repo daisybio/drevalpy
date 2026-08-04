@@ -30,8 +30,9 @@ def test_construct_model_supports_factory_lifecycle() -> None:
     preds = model.predict(response.cell_line_ids, response.drug_ids, cell_line_input, drug_input)
     assert preds.shape == (4,)
     with tempfile.TemporaryDirectory() as tmp:
-        model.save(tmp)
-        loaded = ElasticNet.load(tmp)
+        checkpoint = f"{tmp}/model"
+        model.save(checkpoint)
+        loaded = ElasticNet.load(checkpoint)
         loaded_preds = loaded.predict(response.cell_line_ids, response.drug_ids, cell_line_input, drug_input)
     assert np.allclose(preds, loaded_preds)
 
@@ -44,8 +45,9 @@ def test_naive_model_round_trip() -> None:
     drug_input = identity_drug_features()
     model.train(response, cell_line_input, drug_input)
     with tempfile.TemporaryDirectory() as tmp:
-        model.save(tmp)
-        loaded = NaiveDrugMean.load(tmp)
+        checkpoint = f"{tmp}/model"
+        model.save(checkpoint)
+        loaded = NaiveDrugMean.load(checkpoint)
     assert loaded._stack is not None
     assert loaded._stack.is_fitted()
 
@@ -150,8 +152,9 @@ def test_from_resolved_config_and_load_skip_default_stack() -> None:
     model.train(response, cell_line_input, drug_input)
     preds = model.predict(response.cell_line_ids, response.drug_ids, cell_line_input, drug_input)
     with tempfile.TemporaryDirectory() as tmp:
-        model.save(tmp)
-        loaded = ElasticNet.load(tmp)
+        checkpoint = f"{tmp}/model"
+        model.save(checkpoint)
+        loaded = ElasticNet.load(checkpoint)
     loaded_preds = loaded.predict(response.cell_line_ids, response.drug_ids, cell_line_input, drug_input)
     assert np.allclose(preds, loaded_preds)
     assert loaded._stack is not None

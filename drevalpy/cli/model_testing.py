@@ -362,7 +362,7 @@ def run_train_final_model(
         drug_input=drug_features,
         model_checkpoint_dir=model_checkpoint_dir,
     )
-    pathlib.Path(final_model_path).mkdir(parents=True, exist_ok=True)
+    pathlib.Path(final_model_path).parent.mkdir(parents=True, exist_ok=True)
     model.save(final_model_path)
 
 

@@ -234,8 +234,9 @@ def test_naive_tissue_round_trip() -> None:
     preds = model.predict(response.cell_line_ids, response.drug_ids, cell_line_input, None)
     assert np.isfinite(preds).all()
     with tempfile.TemporaryDirectory() as tmp:
-        model.save(tmp)
-        loaded = type(model).load(tmp)
+        checkpoint = f"{tmp}/model"
+        model.save(checkpoint)
+        loaded = type(model).load(checkpoint)
         loaded_preds = loaded.predict(response.cell_line_ids, response.drug_ids, cell_line_input, None)
     assert np.allclose(preds, loaded_preds)
 

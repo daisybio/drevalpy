@@ -136,5 +136,5 @@ def train_final_model_impl(
         if early_stopping_dataset is not None:
             early_stopping_dataset.inverse_transform(fold_transform)
 
-    os.makedirs(final_model_path, exist_ok=True)
+    os.makedirs(os.path.dirname(final_model_path) or ".", exist_ok=True)
     model.save(final_model_path)

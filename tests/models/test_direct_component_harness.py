@@ -46,8 +46,9 @@ def test_naive_direct_component_round_trip(preset: str) -> None:
     assert preds.shape == (4,)
     assert np.isfinite(preds).all()
     with tempfile.TemporaryDirectory() as tmp:
-        model.save(tmp)
-        loaded = type(model).load(tmp)
+        checkpoint = f"{tmp}/model"
+        model.save(checkpoint)
+        loaded = type(model).load(checkpoint)
         loaded_preds = loaded.predict(response.cell_line_ids, response.drug_ids, cell_line_input, drug_input)
     assert np.allclose(preds, loaded_preds)
 
@@ -63,8 +64,9 @@ def test_sklearn_direct_component_round_trip(preset: str) -> None:
     assert preds.shape == (4,)
     assert np.isfinite(preds).all()
     with tempfile.TemporaryDirectory() as tmp:
-        model.save(tmp)
-        loaded = type(model).load(tmp)
+        checkpoint = f"{tmp}/model"
+        model.save(checkpoint)
+        loaded = type(model).load(checkpoint)
         loaded_preds = loaded.predict(response.cell_line_ids, response.drug_ids, cell_line_input, drug_input)
     assert np.allclose(preds, loaded_preds)
 

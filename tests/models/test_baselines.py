@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import tempfile
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -63,8 +64,9 @@ def test_naive_mean_effects_predictor_tissue_decomposition() -> None:
     np.testing.assert_allclose(preds, expected)
 
     with tempfile.TemporaryDirectory() as model_dir:
-        model.save(model_dir)
-        loaded = construct_model("NaiveMeanEffectsPredictor").load(model_dir)
+        checkpoint = str(Path(model_dir) / "model")
+        model.save(checkpoint)
+        loaded = construct_model("NaiveMeanEffectsPredictor").load(checkpoint)
         loaded_preds = loaded.predict(
             cell_line_ids=np.array(["CL1"]),
             drug_ids=np.array(["D1"]),
@@ -180,8 +182,9 @@ def test_baselines(
         raise
 
     with tempfile.TemporaryDirectory() as model_dir:
-        model.save(model_dir)
-        loaded_model = construct_model(model_name).load(model_dir)
+        checkpoint = str(Path(model_dir) / "model")
+        model.save(checkpoint)
+        loaded_model = construct_model(model_name).load(checkpoint)
         train_dataset, val_dataset, cell_line_input, drug_input = _subset_dataset(
             model=loaded_model, train_dataset=train_dataset, val_dataset=val_dataset, data_dir=data_dir
         )

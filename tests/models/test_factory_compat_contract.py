@@ -153,8 +153,9 @@ def test_fast_execution_matrix_train_predict_save_load(model_name: str) -> None:
     assert preds.shape == (4,)
     assert np.isfinite(preds).all()
     with tempfile.TemporaryDirectory() as tmp:
-        model.save(tmp)
-        loaded = MODEL_FACTORY[model_name].load(tmp)
+        checkpoint = f"{tmp}/model"
+        model.save(checkpoint)
+        loaded = MODEL_FACTORY[model_name].load(checkpoint)
         loaded_preds = loaded.predict(response.cell_line_ids, response.drug_ids, cell_line_input, drug_input)
     assert np.allclose(preds, loaded_preds, equal_nan=True)
 

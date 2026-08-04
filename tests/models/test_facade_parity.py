@@ -86,8 +86,9 @@ def test_construct_model_save_load_preserves_predictions(model_name: str, entryp
     before_state = model._stack.component_state()
 
     with tempfile.TemporaryDirectory() as model_dir:
-        model.save(model_dir)
-        loaded = model_cls.load(model_dir)
+        checkpoint = f"{model_dir}/model"
+        model.save(checkpoint)
+        loaded = model_cls.load(checkpoint)
         after_preds = loaded.predict(response.cell_line_ids, response.drug_ids, cell_line_input, drug_input)
         assert loaded._stack is not None
         after_state = loaded._stack.component_state()
