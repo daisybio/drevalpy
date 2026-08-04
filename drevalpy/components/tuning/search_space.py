@@ -296,6 +296,9 @@ def _apply_to_featurizer(
 
 def apply_merged_to_model_config(config: ModelConfig, merged: dict[str, Any]) -> ModelConfig:
     """Apply merged prefixed hyperparameters onto a model config."""
+    from drevalpy.components.tuning.hyperparameter_keys import validate_merged_mapping
+
+    validate_merged_mapping(config, merged)
     result = copy.deepcopy(config)
     if result.cell_line_featurizer is not None:
         result.cell_line_featurizer = _apply_to_featurizer(result.cell_line_featurizer, merged)

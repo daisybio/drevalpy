@@ -131,7 +131,7 @@ def test_pca_methylation_flat_key_round_trip() -> None:
         predictor=PredictorConfig(name="randomForest"),
     )
     public = public_hyperparameters_from_config(config)
-    assert public["methylation_n_components"] == 100
+    assert public["n_components"] == 100
     rebuilt = config_from_public_hyperparameters(construct_model("MultiViewRandomForest"), public)
     assert rebuilt is not None
     assert rebuilt.cell_line_featurizer is not None

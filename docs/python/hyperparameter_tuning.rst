@@ -9,17 +9,21 @@ concept:
 Component predictors (and tunable featurizers such as ``pca`` or
 ``landmarkGenes``) own:
 
-- ``get_default_hyperparameters()`` for the public flat dict used when
+- ``get_default_hyperparameters()`` for the public hyperparameter mapping used when
   constructing ``Model()`` / ``Model(hyperparameters)``
 - ``get_hyperparameter_space()`` for structured Ray + Optuna search
 
-The meaning of dotted keys
+The meaning of qualified keys
 (``predictor.elasticNet.alpha``,
 ``cell_line_featurizer.pca[expression].n_components``, …) is defined in
 :doc:`/concepts/from_components_to_models`. Featurizer keys use the
 **qualified recipe selector** (including the view bracket when present).
-Indexed forms such as ``pca.0`` are rejected. Flat constructor dicts still use
-local names without a selector (e.g. ``n_components``).
+Indexed forms such as ``pca.0`` are rejected.
+
+Constructor mappings use local names when they are unambiguous. When a local
+name collides, pass qualified keys instead. ``hpam_tune`` and saved best-result
+JSON use the same collision-aware public mapping: compact short keys when
+possible, qualified keys when required.
 
 Public API
 ----------

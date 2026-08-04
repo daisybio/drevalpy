@@ -40,7 +40,7 @@ def _config_from_recipe_triple(
 
     cell_line_type, drug_type, predictor_type = parse_model_id(spec.strip())
     pred_cls = get_predictor(predictor_type)
-    predictor = PredictorConfig(name=predictor_type, hyperparameters=dict(hyperparameters or {}))
+    predictor = PredictorConfig(name=predictor_type)
     mode = _coerce_prediction_mode(prediction_mode)
     scope = _default_scope_for_predictor(pred_cls)
     if cell_line_type is None:
@@ -52,6 +52,10 @@ def _config_from_recipe_triple(
             scope=scope,
         )
         config.validate()
+        if hyperparameters:
+            from drevalpy.components.tuning.public_flat import apply_public_hyperparameters_to_config
+
+            return apply_public_hyperparameters_to_config(config, hyperparameters)
         return config
     if drug_type is None:
         if scope != ModelScope.SINGLE_DRUG:
@@ -67,6 +71,10 @@ def _config_from_recipe_triple(
             scope=scope,
         )
         config.validate()
+        if hyperparameters:
+            from drevalpy.components.tuning.public_flat import apply_public_hyperparameters_to_config
+
+            return apply_public_hyperparameters_to_config(config, hyperparameters)
         return config
     config = ModelConfig(
         cell_line_featurizer=CellLineFeaturizerConfig.model_validate(
@@ -80,6 +88,10 @@ def _config_from_recipe_triple(
         scope=scope,
     )
     config.validate()
+    if hyperparameters:
+        from drevalpy.components.tuning.public_flat import apply_public_hyperparameters_to_config
+
+        return apply_public_hyperparameters_to_config(config, hyperparameters)
     return config
 
 
@@ -147,19 +159,18 @@ def build_model_config_from_spec(
         if config.prediction_mode != mode:
             config = config.model_copy(update={"prediction_mode": mode}, deep=True)
             config.validate()
+        if hyperparameters:
+            from drevalpy.components.tuning.public_flat import apply_public_hyperparameters_to_config
+
+            return apply_public_hyperparameters_to_config(config, hyperparameters)
         return config
 
     no_feat = _config_from_no_featurizer_predictor_token(trimmed, prediction_mode=prediction_mode)
     if no_feat is not None:
         if hyperparameters:
-            return no_feat.model_copy(
-                update={
-                    "predictor": no_feat.predictor.model_copy(
-                        update={"hyperparameters": {**no_feat.predictor.hyperparameters, **hyperparameters}}
-                    )
-                },
-                deep=True,
-            )
+            from drevalpy.components.tuning.public_flat import apply_public_hyperparameters_to_config
+
+            return apply_public_hyperparameters_to_config(no_feat, hyperparameters)
         return no_feat
 
     msg = (

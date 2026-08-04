@@ -326,6 +326,7 @@ def _call_other_baselines(model: str, train_dataset: DrugResponseDataset, val_da
             if model == "GradientBoosting":
                 hpam_combi["subsample"] = 0.1
         elif model == "MultiViewRandomForest":
+            hpam_combi.pop("n_components", None)
             hpam_combi["methylation_n_components"] = 10
         elif model == "AdaBoostDecisionTree":
             hpam_combi["n_estimators"] = 2

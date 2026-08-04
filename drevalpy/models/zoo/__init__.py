@@ -7,7 +7,6 @@ from typing import Any
 
 from drevalpy.models.config import ModelConfig
 from drevalpy.models.config_io import model_config_from_yaml
-from drevalpy.models.flat_hyperparameters import apply_public_flat_hyperparameters
 from drevalpy.models.zoo._external_load import (
     _collect_zoo_entries_from_yaml,
     _load_zoo_yaml_mapping,
@@ -113,7 +112,9 @@ def zoo_model_config(name: str, hyperparameters: dict[str, Any] | None = None) -
     config = get_zoo_config(name)
     if not hyperparameters:
         return config
-    return apply_public_flat_hyperparameters(config, hyperparameters)
+    from drevalpy.components.tuning.public_flat import apply_public_hyperparameters_to_config
+
+    return apply_public_hyperparameters_to_config(config, hyperparameters)
 
 
 def _clone_model_config(config: ModelConfig) -> ModelConfig:
