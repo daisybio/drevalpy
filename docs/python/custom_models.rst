@@ -96,7 +96,7 @@ hyperparameter tuning through the normal experiment API.
 Registration decorators attach metadata (name, description, optional
 ``tags``, optional ``LiteratureReference``, and role-specific
 ``FeatureFormat`` contracts) to the class. Fitted components must implement
-``get_state`` / ``set_state`` so ``model.joblib`` checkpoints round-trip.
+``get_state`` / ``set_state`` so ``*.zip`` checkpoints round-trip.
 
 Every predictor must inherit exactly one input interface:
 

@@ -34,7 +34,7 @@ Reload a fitted checkpoint without a class handle:
 ```python
 from drevalpy.models import load_model
 
-loaded = load_model("checkpoints/my_model")
+loaded = load_model("checkpoints/my_model")  # reads checkpoints/my_model.zip
 ```
 
 See `docs/python/custom_models.rst` for a complete external extension walkthrough.
@@ -57,7 +57,8 @@ See `docs/python/custom_models.rst` for a complete external extension walkthroug
 - `ModelConfig.create_model()` — use `construct_model(...)()` instead
 - Deep imports such as `drevalpy.models.baselines.*` or `drevalpy.models.DIPK.*`
 - Legacy checkpoint formats (including `composed_model.joblib`) — retrain and
-  save via `model.save` / `ModelClass.load` (`model.joblib`, format `drevalpy-model`)
+  save via `model.save` / `ModelClass.load` (`*.zip` archives, format
+  `drevalpy-model`)
 - Iterating `get_hyperparameter_set()` as a full grid — use
   `hyperparameter_tuning=True` or `get_structured_hyperparameter_space()`
 

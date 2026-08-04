@@ -103,12 +103,12 @@ are in :doc:`model_inputs`.
    CustomElasticNet2 = construct_model("myElasticNet", config)
 
 ``construct_model(name)`` / ``construct_model(name, spec)`` return a **class**.
-Call it with optional flat hyperparameters to get a **fresh instance**.
+Call it with optional public hyperparameter mappings to get a **fresh instance**.
 
-Dotted hyperparameter keys
---------------------------
+Qualified hyperparameter keys
+-----------------------------
 
-Ray/Optuna search spaces use dotted keys that mirror the composed stack
+Ray/Optuna search spaces use qualified keys that mirror the composed stack
 (``predictor.elasticNet.alpha``,
 ``cell_line_featurizer.pca[expression].n_components``, …). The naming rules
 are documented in :doc:`/concepts/from_components_to_models`; how to run search
@@ -121,7 +121,10 @@ Inspect the space for a resolved class:
    ElasticNet = construct_model("ElasticNet")
    space = ElasticNet.get_structured_hyperparameter_space()
 
-Flat constructor dicts still use local names (``alpha``, ``n_components``).
+Constructor mappings use **local** names when they are unambiguous
+(``alpha``, ``n_components``). When a local name collides, pass qualified keys
+instead. ``get_default_hyperparameters()`` and ``model.hyperparameters`` return
+the same collision-aware public mapping.
 
 Scope and early stopping
 ------------------------
@@ -167,11 +170,11 @@ resolver.
 Persistence
 -----------
 
-Native checkpoints store a versioned payload with the resolved ``ModelConfig``
-and fitted component state (``model.joblib``, format ``drevalpy-model``). Run
-metadata and CV splits live beside checkpoints, not inside them. Legacy
-checkpoint formats and deep model import paths are unsupported; see
-:doc:`persistence` and :doc:`custom_models`.
+Native checkpoints are a versioned ZIP archive with the resolved
+``ModelConfig`` and fitted component state (``*.zip``, format
+``drevalpy-model``). Run metadata and CV splits live beside checkpoints, not
+inside them. Legacy checkpoint formats and deep model import paths are
+unsupported; see :doc:`models` and :doc:`custom_models`.
 
 Extension path
 --------------
@@ -198,4 +201,4 @@ and may be removed in a future release — see :doc:`quickstart` for the short
 - Deep imports such as ``drevalpy.models.DIPK.dipk`` or
   ``drevalpy.models.baselines.*`` no longer resolve.
 - Legacy checkpoint formats (including ``composed_model.joblib``) are not
-  loadable; see :doc:`persistence`.
+  loadable; see :doc:`models`.

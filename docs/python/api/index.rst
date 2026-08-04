@@ -33,7 +33,7 @@ APIs from the subpackages in the table.
      - :doc:`/python/visualization`
      - :doc:`/concepts/evaluation`
    * - ``drevalpy.models``
-     - ``construct_model``, ``ModelConfig``, zoo, persistence
+     - ``construct_model``, ``ModelConfig``, zoo, save/load
      - :doc:`/python/models`, :doc:`/python/architecture`
      - :doc:`/concepts/model_zoo`
    * - ``drevalpy.components``

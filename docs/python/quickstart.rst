@@ -78,5 +78,4 @@ but emit ``FutureWarning`` and may be removed in a future release. Prefer
 
 The old ``MODEL_FACTORY`` cannot resolve custom recipe strings or externally
 registered zoo entries. ``construct_model`` covers those paths. Further
-migration notes live on :doc:`models`, :doc:`architecture`, and
-:doc:`persistence`.
+migration notes live on :doc:`models` and :doc:`architecture`.

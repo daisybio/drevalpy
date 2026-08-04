@@ -302,6 +302,7 @@ redirects = {
     "hyperparameter_migration.html": "python/hyperparameter_tuning.html",
     "model_architecture.html": "python/architecture.html",
     "python/component_catalog.html": "concepts/component_catalog.html",
+    "python/persistence.html": "python/models.html",
     "runyourmodel.html": "python/custom_models.html",
     "API.html": "python/api/index.html",
     "drevalpy.datasets.html": "python/api/_autosummary/drevalpy.datasets.html",

@@ -11,6 +11,10 @@ cross-validation, optional hyperparameter tuning, baselines, and optional
 randomization or robustness tests. Results are written under ``path_out`` /
 ``run_id`` / dataset / split label.
 
+For day-to-day benchmarking, prefer this runner over a hand-rolled
+train/predict loop on individual models (see :doc:`models` for the
+low-level lifecycle).
+
 Minimal call
 ------------
 

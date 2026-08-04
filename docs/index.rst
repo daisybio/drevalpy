@@ -23,7 +23,7 @@ Suggested path
 5. Go deeper on your track. For Python: :doc:`python/datasets` →
    :doc:`python/experiments` → :doc:`python/models` →
    :doc:`python/architecture` → :doc:`python/model_inputs` →
-   :doc:`python/hyperparameter_tuning` (then visualization, persistence,
+   :doc:`python/hyperparameter_tuning` (then visualization and
    custom models). For CLI: :doc:`cli/experiment`.
 
 For demanding or highly reproducible runs, use the Nextflow pipeline
@@ -59,7 +59,6 @@ For demanding or highly reproducible runs, use the Nextflow pipeline
    python/model_inputs
    python/hyperparameter_tuning
    python/visualization
-   python/persistence
    python/custom_models
    python/api/index
 

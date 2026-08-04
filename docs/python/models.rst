@@ -17,34 +17,22 @@ details see :doc:`architecture`.
 From declaration to instance
 ----------------------------
 
-A ``ModelConfig`` is only a description of the featurizer/predictor stack.
-``construct_model`` turns that description into a class; calling the class
-produces a runnable object. Three kinds of input all converge on the same
-``ModelConfig`` before resolution:
+Constructing (custom) model classes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. mermaid::
+:func:`~drevalpy.models.construct_model` is the only way of creating DRPModel classes.
+There are two ways to call it:
 
-   flowchart TD
-      subgraph specInputs ["Declare a stack"]
-         zooPreset["Zoo preset name"]
-         recipeString["Recipe string"]
-         yamlOrDict["YAML or dict"]
-      end
-      modelConfig["ModelConfig"]
-      constructModel["construct_model(name, spec)"]
-      drpSubclass["DRPModel subclass"]
-      instance["ModelClass(hyperparameters)"]
+#. With **one argument**, pass a zoo preset name (for example
+   ``construct_model("ElasticNet")``). The name must exist in the model zoo.
+#. With **two arguments**, pass a custom class name and a **spec** (for example
+   ``construct_model("MyRF", spec)``). Use this form when the name is not a zoo
+   preset. ``spec`` must be either a recipe string or a ``ModelConfig`` object —
+   YAML paths are not accepted directly. Build a ``ModelConfig`` with the
+   constructor or ``ModelConfig.from_yaml(...)``, then pass that object as
+   ``spec``.
 
-      zooPreset --> modelConfig
-      recipeString --> modelConfig
-      yamlOrDict --> modelConfig
-      modelConfig --> constructModel
-      constructModel --> drpSubclass
-      drpSubclass --> instance
-
-Follow the graph left to right. The tabs below show equivalent ways to declare
-a stack, resolve a ``DRPModel`` subclass with ``construct_model``, and
-construct an instance:
+The tabs below show each call form:
 
 .. tab-set::
 
@@ -55,8 +43,6 @@ construct an instance:
          from drevalpy.models import construct_model
 
          ElasticNet = construct_model("ElasticNet")
-         model = ElasticNet()
-         model = ElasticNet({"alpha": 0.1})
 
       Discover names with ``list_zoo_names()`` (optionally filter by
       ``ModelScope``). Presets are listed in :doc:`/concepts/model_zoo`.
@@ -71,7 +57,6 @@ construct an instance:
              "MyRF",
              "scaledGeneExpression:fingerprints:randomForest",
          )
-         model = MyRF({"n_estimators": 200})
 
    .. tab-item:: YAML
 
@@ -88,7 +73,6 @@ construct an instance:
 
          config = ModelConfig.from_yaml("my_zoo/custom_rf.yaml")
          MyRF = construct_model("MyRF", config)
-         model = MyRF({"n_estimators": 200})
 
    .. tab-item:: ModelConfig
 
@@ -110,7 +94,6 @@ construct an instance:
              predictor=PredictorConfig(name="randomForest"),
          )
          MyRF = construct_model("MyRF", config)
-         model = MyRF({"n_estimators": 200})
 
    .. tab-item:: ModelConfig + hyperparameter space
 
@@ -153,36 +136,80 @@ construct an instance:
              ),
          )
          MyEN = construct_model("MyElasticNet", config)
-         model = MyEN()
 
 Recipe grammar and YAML field names are documented in
 :doc:`/concepts/from_components_to_models`. Applied featurizer examples (custom
 CSV views) are in :doc:`model_inputs`; batch contracts and scope rules are in
 :doc:`architecture`.
 
-Lifecycle
----------
+Instantiating models
+~~~~~~~~~~~~~~~~~~~~
+
+:func:`~drevalpy.models.construct_model` returns a ``DRPModel`` **subclass**, not a
+runnable model. Call the class to create an instance:
+
+.. code-block:: python
+
+   from drevalpy.models import construct_model
+
+   ElasticNet = construct_model("ElasticNet")
+
+   model = ElasticNet()
+   model = ElasticNet({"alpha": 0.1})
+
+With no arguments, the constructor uses each component's default hyperparameters
+(from the zoo preset, recipe, or ``ModelConfig``). Pass a **public hyperparameter
+mapping** to override values at construction time.
+
+Use **local** parameter names (``alpha``, ``n_components``, …) when the name is
+unique in the stack — the usual case for zoo presets and simple recipes:
+
+.. code-block:: python
+
+   model = ElasticNet({"alpha": 0.1})
+
+When the same local name exists on more than one component, DrEvalPy raises an
+error and lists the accepted **qualified** keys. Target one slot explicitly:
+
+.. code-block:: python
+
+   model = MyModel(
+       {
+           "cell_line_featurizer.pca[expression].n_components": 32,
+           "cell_line_featurizer.pca[proteomics].n_components": 16,
+       }
+   )
+
+Legacy aliases such as ``methylation_n_components`` remain accepted on input.
+Hyperparameters are fixed after construction; create a new instance to change
+them.
+
+Training, and persistence
+-------------------------
 
 Each ``DRPModel`` subclass exposes:
 
-1. ``ModelClass(hyperparameters=None)`` — construct with class defaults or flat
-   overrides. Hyperparameters and view lists are immutable after construction;
-   create a new instance to change configuration.
-2. ``train(...)`` / ``predict(...)`` — fit and score on response + feature
+1. ``train(...)`` / ``predict(...)`` — fit and score on response + feature
    inputs (the experiment runner constructs a fresh instance per fold).
-3. ``save(directory)`` / ``ModelClass.load(directory)`` / ``load_model(directory)`` —
-   native ``model.joblib`` checkpoints (format ``drevalpy-model``; see
-   :doc:`persistence`). Use ``load_model`` when you do not already have a
-   class handle.
+2. ``save(path)`` / ``ModelClass.load(path)`` / ``load_model(path)`` —
+   native ZIP checkpoints (format ``drevalpy-model``).
 
-Predictors inside a ``ModelConfig`` receive static hyperparameters at
-construction (``PredictorConfig.create_instance()``). Dimension-dependent
-allocation happens privately during ``fit()``; there is no public
-``Predictor.build``.
+``save`` writes one deflated ZIP archive containing the resolved
+``ModelConfig`` and fitted component state. If you already have a class handle,
+you can use ``ModelClass.load`` for loading. Otherwise, use ``load_model``:
+It first constructs the model class from the stored checkpoint and then loads the parameters.
 
-For day-to-day benchmarking, prefer
-:func:`~drevalpy.experiment.drug_response_experiment` over a hand-rolled
-train loop (:doc:`experiments`).
+.. code-block:: python
+
+   from drevalpy.models import construct_model, load_model
+
+   ElasticNet = construct_model("ElasticNet")
+   model = ElasticNet()
+   model.train(...)
+   model.save("checkpoints/elastic_net")
+
+   loaded = ElasticNet.load("checkpoints/elastic_net")
+   loaded = load_model("checkpoints/elastic_net.zip")
 
 Migration notes
 ---------------
@@ -205,6 +232,6 @@ Deep imports such as ``drevalpy.models.DIPK.dipk`` or
 ``drevalpy.models.baselines.*`` no longer resolve. Resolve models with
 ``construct_model`` from ``drevalpy.models``.
 
-Legacy checkpoint formats (including ``composed_model.joblib``) are not
-loadable. Retrain and persist via ``model.save`` / ``ModelClass.load``
-(``model.joblib``); see :doc:`persistence`.
+Legacy checkpoint formats (including pickled ``.model`` attributes, standalone
+scalers, and ``composed_model.joblib``) are not loadable. Retrain and persist
+via ``model.save`` / ``ModelClass.load`` (``*.zip`` archives).
