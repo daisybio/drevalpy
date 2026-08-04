@@ -25,10 +25,16 @@ Custom featurizers
 ~~~~~~~~~~~~~~~~~~
 
 Subclass ``CellLineFeaturizer`` or ``DrugFeaturizer`` and register with
-``@register_cell_line_featurizer`` or ``@register_drug_featurizer``. Declare
-a ``FeatureFormat`` contract (``numeric_matrix``, ``graph``, or
-``ragged_sequence``) so composition validation can reject predictors that
-expect a different format on that side.
+``@register_cell_line_featurizer`` or ``@register_drug_featurizer``.
+
+Declare a ``FeatureFormat`` **contract** on registration
+(``numeric_matrix``, ``graph``, or ``ragged_sequence``). That is the payload
+format this featurizer produces. Composition validation compares it to the
+predictor's ``cell_line_contract`` / ``drug_contract`` and rejects stacks
+where the formats disagree (for example a ``graph`` drug featurizer with a
+predictor that expects ``numeric_matrix`` on the drug side). Registry names
+and the format vocabulary are listed in
+:doc:`/concepts/component_catalog`.
 
 .. code-block:: python
 
@@ -69,22 +75,10 @@ expect a different format on that side.
 Custom predictors
 ~~~~~~~~~~~~~~~~~
 
-Every predictor must inherit exactly one input interface. Register with
-``@register_predictor``. Neural encoders stay private inside the predictor.
-For larger literature-style ports, keep the registered class in
-``predictor.py`` and place networks, datasets, and training helpers in
-sibling modules; shared root helpers should stay behavior-neutral.
-
-Compatibility with featurizers is declared up front:
-
-- Featurizers set ``contract=FeatureFormat.…`` (``numeric_matrix``, ``graph``,
-  or ``ragged_sequence``) — see ``toyCellLine`` above.
-- Predictors set ``cell_line_contract`` and ``drug_contract`` to the formats
-  they accept. ``ModelConfig`` / recipe validation rejects stacks where a
-  featurizer's contract does not match the predictor side (for example a
-  ``graph`` drug featurizer with a matrix predictor that expects
-  ``numeric_matrix``). Built-ins such as DrugGNN use
-  ``drug_contract=FeatureFormat.GRAPH`` for that reason.
+Every predictor must inherit exactly one input interface and register with
+``@register_predictor``. The available types were already introduced in
+:doc:`/concepts/component_catalog`.
+The details about what the input for each predictor type looks like are explained in the tab switcher below.
 
 .. tab-set::
 
@@ -344,7 +338,7 @@ You can also put named presets in a zoo YAML file and load them (see below),
 but recipes and ``ModelConfig`` work immediately after import — no extra
 loader step.
 
-Other layouts: ``load_extensions``
+Other sources: ``load_extensions``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Use :func:`~drevalpy.components.load_extensions` when components are not a

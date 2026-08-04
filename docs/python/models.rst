@@ -189,56 +189,11 @@ Legacy aliases such as ``methylation_n_components`` remain accepted on input.
 Hyperparameters are fixed after construction; create a new instance to change
 them.
 
-Scope and early stopping
-~~~~~~~~~~~~~~~~~~~~~~~~
-
-- Multi-drug is the default model scope and requires a drug featurizer for
-  matrix/block predictors that consume the drug side.
-- Feature-based single-drug models omit the implicit ``identity`` drug
-  featurizer from recipes. The config normalizer injects it to create and
-  route per-drug estimators without adding identity columns to design
-  matrices. A two-part recipe infers ``scope: single_drug`` from the
-  predictor's sole supported scope.
-- Literature predictors declare the fitted featurizer blocks they need; the
-  single-drug MOLIR and SuperFELTR presets follow the same implicit-identity
-  contract and route one algorithm per drug.
-- Feature-free stacks skip featurizer fit/transform entirely.
-- Early stopping is derived from predictor capability metadata
-  (``supports_early_stopping``) via the zoo predictor name.
-- Default prediction mode is regression; classification requires an explicit
-  predictor opt-in.
-
-Predictor input batch
-~~~~~~~~~~~~~~~~~~~~~
-
-Training and prediction always build a single ``ModelInputBatch`` before calling
-``predictor.fit(batch)`` or ``predictor.predict(batch)``. The batch carries
-pair identifiers, optional response values, entity-level feature matrices,
-named featurizer blocks, early-stopping response data, and a small
-``TrainingContext`` (checkpoint directory / logging metadata).
-
-- ``MatrixPredictor`` flattens the batch with ``batch.to_feature_matrix()``.
-- ``BlockPredictor`` (alias ``StructuredPredictor``) reads side-specific or
-  named featurizer blocks.
-- ``FeatureFreePredictor`` uses pair identifiers and/or response values only.
-
-Each featurizer declares a ``FeatureFormat`` (``numeric_matrix``, ``graph``,
-or ``ragged_sequence``). Predictors declare ``cell_line_contract`` and
-``drug_contract`` plus exactly one of the interfaces above.
-``ModelConfig`` validation checks formats and interface rules; discovery tags
-and literature references are descriptive only. Graph and ragged payloads are
-not numeric matrices — matrix predictors reject them; block predictors can
-consume them (for example DrugGNN validates PyG ``Data`` objects). Registry
-names and format vocabulary are listed in
-:doc:`/concepts/component_catalog`; composition validation is in
-:doc:`/concepts/from_components_to_models`.
-
-``DRPModel.train`` fits featurizers, builds a ``ModelInputBatch``, and
-calls ``predictor.fit`` — there is no public ``Predictor.build``. Dimension
-allocation that depends on fitted features happens inside ``fit``.
+Implementing predictors (``ModelInputBatch``, input interfaces, and
+``FeatureFormat`` contracts) is covered in :doc:`custom_models`.
 
 Training and persistence
--------------------------
+------------------------
 
 Each ``DRPModel`` subclass exposes:
 

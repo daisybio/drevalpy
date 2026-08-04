@@ -513,8 +513,10 @@ Continue the story
 
 - **Next:** :doc:`model_zoo` — choose a named, ready-to-run architecture
 - **Previous:** :doc:`component_catalog` — look up a registered component name
-- :doc:`/python/models` — ``construct_model``, ``ModelInputBatch``, and scope rules
+- :doc:`/python/models` — ``construct_model``, lifecycle, and scope rules
   (recipe grammar stays on this page)
+- :doc:`/python/custom_models` — registering components, ``ModelInputBatch``,
+  and predictor interfaces
 - :doc:`/python/datasets` — applied recipes for custom CSVs / alternate views
 - :doc:`/python/experiments` — running search on a fixed stack
 
