@@ -513,8 +513,8 @@ Continue the story
 
 - **Next:** :doc:`model_zoo` — choose a named, ready-to-run architecture
 - **Previous:** :doc:`component_catalog` — look up a registered component name
-- :doc:`/python/architecture` — Python orchestration, ``ModelInputBatch``, and
-  contracts (recipe grammar stays on this page)
-- :doc:`/python/model_inputs` — applied recipes for custom CSVs / alternate views
-- :doc:`/python/hyperparameter_tuning` — running search on a fixed stack
+- :doc:`/python/models` — ``construct_model``, ``ModelInputBatch``, and scope rules
+  (recipe grammar stays on this page)
+- :doc:`/python/datasets` — applied recipes for custom CSVs / alternate views
+- :doc:`/python/experiments` — running search on a fixed stack
 

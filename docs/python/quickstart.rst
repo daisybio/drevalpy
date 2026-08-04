@@ -51,8 +51,8 @@ concepts track for Python:
 - :doc:`/concepts/datasets` → :doc:`datasets`
 - :doc:`/concepts/evaluation` → :doc:`experiments` and :doc:`visualization`
 - :doc:`/concepts/component_catalog` → :doc:`custom_models`
-- :doc:`/concepts/from_components_to_models` → :doc:`architecture` and
-  :doc:`hyperparameter_tuning`
+- :doc:`/concepts/from_components_to_models` → :doc:`models` and
+  :doc:`experiments`
 - :doc:`/concepts/model_zoo` → :doc:`models`
 
 Migration note: ``MODEL_FACTORY``
@@ -78,4 +78,4 @@ but emit ``FutureWarning`` and may be removed in a future release. Prefer
 
 The old ``MODEL_FACTORY`` cannot resolve custom recipe strings or externally
 registered zoo entries. ``construct_model`` covers those paths. Further
-migration notes live on :doc:`models` and :doc:`architecture`.
+migration notes live on :doc:`models`.

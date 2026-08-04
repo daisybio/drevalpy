@@ -22,7 +22,7 @@ APIs from the subpackages in the table.
      - :doc:`/concepts/datasets`
    * - ``drevalpy.types``
      - Shared enums and value objects (scopes, literature refs, …)
-     - :doc:`/python/architecture`
+     - :doc:`/python/models`
      - :doc:`/concepts/from_components_to_models`
    * - ``drevalpy.experiment``
      - ``drug_response_experiment`` and related runners
@@ -34,7 +34,7 @@ APIs from the subpackages in the table.
      - :doc:`/concepts/evaluation`
    * - ``drevalpy.models``
      - ``construct_model``, ``ModelConfig``, zoo, save/load
-     - :doc:`/python/models`, :doc:`/python/architecture`
+     - :doc:`/python/models`
      - :doc:`/concepts/model_zoo`
    * - ``drevalpy.components``
      - Featurizers, predictors, registries, tuning

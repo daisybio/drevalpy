@@ -25,6 +25,5 @@ Continue from here
 
 - :doc:`/cli/experiment` — selecting zoo names in CLI experiments
 - :doc:`/python/models` — ``construct_model``, class vs instance, lifecycle
-- :doc:`/python/architecture` — orchestration layer behind zoo presets
-- :doc:`/python/hyperparameter_tuning` — tuning a fixed preset architecture
+- :doc:`/python/experiments` — tuning a fixed preset architecture
 - :doc:`from_components_to_models` — revisit recipes and custom composition

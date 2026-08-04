@@ -1,5 +1,5 @@
-Custom models
-=============
+Custom Components and Models
+============================
 
 If you are reading this, we assume you are already familiar with these
 concepts:
