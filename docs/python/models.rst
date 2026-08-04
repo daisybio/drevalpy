@@ -42,49 +42,123 @@ produces a runnable object. Three kinds of input all converge on the same
       constructModel --> drpSubclass
       drpSubclass --> instance
 
-Follow the graph left to right in the examples below.
+Follow the graph left to right. The tabs below show equivalent ways to declare
+a stack, resolve a ``DRPModel`` subclass with ``construct_model``, and
+construct an instance:
 
-**Zoo preset.** The shortest path: a registered name is enough. DrEvalPy loads
-the zoo YAML into a ``ModelConfig`` for you.
+.. tab-set::
 
-.. code-block:: python
+   .. tab-item:: Zoo
 
-   from drevalpy.models import construct_model
+      .. code-block:: python
 
-   ElasticNet = construct_model("ElasticNet")  # DRPModel subclass
-   model = ElasticNet()  # instance with class defaults
-   model = ElasticNet({"alpha": 0.1})  # instance with flat overrides
+         from drevalpy.models import construct_model
 
-Discover available zoo names with ``list_zoo_names()`` (optionally filter by
-``ModelScope``). Named presets are listed in :doc:`/concepts/model_zoo`.
+         ElasticNet = construct_model("ElasticNet")
+         model = ElasticNet()
+         model = ElasticNet({"alpha": 0.1})
 
-**Existing ``ModelConfig``.** When you already hold a config (from
-``ModelConfig.from_spec``, a YAML load, or hand-built configs), pass it as the
-second argument. The config still does not build models by itself.
+      Discover names with ``list_zoo_names()`` (optionally filter by
+      ``ModelScope``). Presets are listed in :doc:`/concepts/model_zoo`.
 
-.. code-block:: python
+   .. tab-item:: Recipe string
 
-   from drevalpy.models import construct_model
-   from drevalpy.models.config import ModelConfig
+      .. code-block:: python
 
-   config = ModelConfig.from_spec("ElasticNet")
-   ElasticNet = construct_model("ElasticNet", config)
-   model = ElasticNet()
+         from drevalpy.models import construct_model
 
-**Recipe string.** Skip the zoo file and declare the stack inline. The recipe
-becomes a ``ModelConfig``; the first argument is only the class name.
+         MyRF = construct_model(
+             "MyRF",
+             "scaledGeneExpression:fingerprints:randomForest",
+         )
+         model = MyRF({"n_estimators": 200})
 
-.. code-block:: python
+   .. tab-item:: YAML
 
-   CustomRF = construct_model(
-       "MyRF",
-       "scaledGeneExpression:fingerprints:randomForest",
-   )
-   model = CustomRF({"n_estimators": 200})
+      .. code-block:: yaml
 
-Recipe grammar lives in :doc:`/concepts/from_components_to_models`. Applied
-featurizer examples (custom CSV views) are in :doc:`model_inputs`; batch
-contracts and scope rules are in :doc:`architecture`.
+         cell_line_featurizer: scaledGeneExpression
+         drug_featurizer: fingerprints
+         predictor: randomForest
+
+      .. code-block:: python
+
+         from drevalpy.models import construct_model
+         from drevalpy.models.config import ModelConfig
+
+         config = ModelConfig.from_yaml("my_zoo/custom_rf.yaml")
+         MyRF = construct_model("MyRF", config)
+         model = MyRF({"n_estimators": 200})
+
+   .. tab-item:: ModelConfig
+
+      .. code-block:: python
+
+         from drevalpy.models import construct_model
+         from drevalpy.models.config import (
+             CellLineFeaturizerConfig,
+             DrugFeaturizerConfig,
+             ModelConfig,
+             PredictorConfig,
+         )
+
+         config = ModelConfig(
+             cell_line_featurizer=CellLineFeaturizerConfig(
+                 name="scaledGeneExpression"
+             ),
+             drug_featurizer=DrugFeaturizerConfig(name="fingerprints"),
+             predictor=PredictorConfig(name="randomForest"),
+         )
+         MyRF = construct_model("MyRF", config)
+         model = MyRF({"n_estimators": 200})
+
+   .. tab-item:: ModelConfig + hyperparameter space
+
+      Set ``hyperparameter_space`` on a component to **replace** its built-in
+      search space (see :doc:`/concepts/from_components_to_models`). Recipe
+      strings cannot express this; use YAML or ``ModelConfig``.
+
+      .. code-block:: python
+
+         from drevalpy.models import construct_model
+         from drevalpy.models.config import (
+             CellLineFeaturizerConfig,
+             DrugFeaturizerConfig,
+             ModelConfig,
+             PredictorConfig,
+         )
+
+         config = ModelConfig(
+             cell_line_featurizer=CellLineFeaturizerConfig(
+                 name="scaledGeneExpression"
+             ),
+             drug_featurizer=DrugFeaturizerConfig(name="fingerprints"),
+             predictor=PredictorConfig(
+                 name="elasticNet",
+                 hyperparameter_space={
+                     "alpha": {
+                         "type": "float",
+                         "low": 1e-4,
+                         "high": 10.0,
+                         "log": True,
+                         "default": 1.0,
+                     },
+                     "l1_ratio": {
+                         "type": "float",
+                         "low": 0.0,
+                         "high": 1.0,
+                         "default": 0.5,
+                     },
+                 },
+             ),
+         )
+         MyEN = construct_model("MyElasticNet", config)
+         model = MyEN()
+
+Recipe grammar and YAML field names are documented in
+:doc:`/concepts/from_components_to_models`. Applied featurizer examples (custom
+CSV views) are in :doc:`model_inputs`; batch contracts and scope rules are in
+:doc:`architecture`.
 
 Lifecycle
 ---------
