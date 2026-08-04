@@ -27,8 +27,8 @@ Custom featurizers
 Subclass ``CellLineFeaturizer`` or ``DrugFeaturizer`` and register with
 ``@register_cell_line_featurizer`` or ``@register_drug_featurizer``. Declare
 a ``FeatureFormat`` contract (``numeric_matrix``, ``graph``, or
-``ragged_sequence``) so composition validation can reject incompatible
-predictors early.
+``ragged_sequence``) so composition validation can reject predictors that
+expect a different format on that side.
 
 .. code-block:: python
 
@@ -75,12 +75,25 @@ For larger literature-style ports, keep the registered class in
 ``predictor.py`` and place networks, datasets, and training helpers in
 sibling modules; shared root helpers should stay behavior-neutral.
 
+Compatibility with featurizers is declared up front:
+
+- Featurizers set ``contract=FeatureFormat.…`` (``numeric_matrix``, ``graph``,
+  or ``ragged_sequence``) — see ``toyCellLine`` above.
+- Predictors set ``cell_line_contract`` and ``drug_contract`` to the formats
+  they accept. ``ModelConfig`` / recipe validation rejects stacks where a
+  featurizer's contract does not match the predictor side (for example a
+  ``graph`` drug featurizer with a matrix predictor that expects
+  ``numeric_matrix``). Built-ins such as DrugGNN use
+  ``drug_contract=FeatureFormat.GRAPH`` for that reason.
+
 .. tab-set::
 
    .. tab-item:: Feature-free
 
       ``FeatureFreePredictor`` uses pair identifiers and/or response values
-      only — no featurizers.
+      only. It sets ``requires_drug_featurizer=False``, so composition does not
+      need cell-line or drug featurizers — contracts are irrelevant for this
+      path.
 
       .. code-block:: python
 
@@ -117,6 +130,8 @@ sibling modules; shared root helpers should stay behavior-neutral.
       ``MatrixPredictor`` flattens the batch with ``batch.to_feature_matrix()``.
       Implement ``_fit_matrix`` / ``_predict_matrix`` on the dense pair-level
       design matrix (the pattern used by ElasticNet, RandomForest, …).
+      Dense tabular models declare ``numeric_matrix`` on both sides, so they
+      pair with featurizers such as ``toyCellLine`` and ``fingerprints``.
 
       .. code-block:: python
 
@@ -124,6 +139,7 @@ sibling modules; shared root helpers should stay behavior-neutral.
 
          from sklearn.linear_model import Ridge
 
+         from drevalpy.components.contracts import FeatureFormat
          from drevalpy.components.predictors.matrix import MatrixPredictor
          from drevalpy.components.registry import register_predictor
 
@@ -131,6 +147,8 @@ sibling modules; shared root helpers should stay behavior-neutral.
          @register_predictor(
              "toyRidge",
              description="Ridge on concatenated dense cell-line and drug features.",
+             cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+             drug_contract=FeatureFormat.NUMERIC_MATRIX,
          )
          class ToyRidgePredictor(MatrixPredictor):
              @classmethod
@@ -169,9 +187,10 @@ sibling modules; shared root helpers should stay behavior-neutral.
 
       ``BlockPredictor`` (alias ``StructuredPredictor``) reads side-specific
       or named featurizer blocks from ``batch.cell_line_blocks`` /
-      ``batch.drug_blocks``. Use this when views must stay separate instead of
-      being flattened. Declare ``required_cell_line_blocks`` /
-      ``required_drug_blocks`` when the stack must supply named views.
+      ``batch.drug_blocks``. Contracts still constrain the **format** of each
+      side; ``required_cell_line_blocks`` / ``required_drug_blocks`` further
+      require named views in the stack (for example an ``expression`` block
+      from ``raw[expression]``).
 
       .. code-block:: python
 
@@ -179,6 +198,7 @@ sibling modules; shared root helpers should stay behavior-neutral.
 
          from sklearn.linear_model import Ridge
 
+         from drevalpy.components.contracts import FeatureFormat
          from drevalpy.components.model_input_batch import ModelInputBatch
          from drevalpy.components.predictors.structured import BlockPredictor
          from drevalpy.components.registry import register_predictor
@@ -187,6 +207,8 @@ sibling modules; shared root helpers should stay behavior-neutral.
          @register_predictor(
              "toyBlockRidge",
              description="Ridge on a named expression block plus drug features.",
+             cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+             drug_contract=FeatureFormat.NUMERIC_MATRIX,
          )
          class ToyBlockRidgePredictor(BlockPredictor):
              required_cell_line_blocks: ClassVar[tuple[str, ...]] = ("expression",)
@@ -217,8 +239,8 @@ sibling modules; shared root helpers should stay behavior-neutral.
                  return getattr(self, "_estimator", None) is not None
 
 Feature-free predictors need only a predictor token in ``construct_model``.
-Matrix and block predictors pair with featurizers in a three-slot recipe (see
-below).
+Matrix and block predictors pair with featurizers whose ``contract`` matches
+the predictor's ``cell_line_contract`` / ``drug_contract`` (see below).
 
 Literature references
 ~~~~~~~~~~~~~~~~~~~~~
