@@ -138,4 +138,5 @@ How to run experiments
 
 - :doc:`/cli/experiment` — CLI experiment settings
 - :doc:`/cli/reporting` — HTML report after a run
-- :doc:`/python/experiments` — Python experiment API and result handling
+- :doc:`/python/experiments` — ``drug_response_experiment`` options and results
+- :doc:`/python/visualization` — ``evaluate``, plots, and ``create_report``

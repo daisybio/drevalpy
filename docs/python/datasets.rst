@@ -1,9 +1,13 @@
 Datasets
 ========
 
-Load built-in screens and custom response tables with ``load_dataset``. For
-dataset inventory, measures, and split concepts, see
-:doc:`/concepts/datasets` and :doc:`/concepts/evaluation`.
+If you are reading this, we assume you are already familiar with these
+concepts:
+
+- :doc:`/concepts/datasets`
+- :doc:`/concepts/evaluation`
+
+This page explains how to load built-in and custom datasets, and how to split them for training and evaluation.
 
 Built-in names
 --------------
@@ -63,9 +67,10 @@ needs ``tissue`` (pass ``tissue_column`` when the column name differs):
 Splits
 ------
 
-``drug_response_experiment`` splits the loaded ``DrugResponseDataset`` for you
-(``test_mode`` of ``LPO``, ``LCO``, ``LTO``, or ``LDO``). You can also call
-``split_dataset`` yourself before a custom training loop:
+:func:`~drevalpy.experiment.drug_response_experiment` splits the loaded
+``DrugResponseDataset`` for you (``test_mode`` of ``LPO``, ``LCO``, ``LTO``,
+or ``LDO``). You can also call ``split_dataset`` yourself before a custom
+training loop:
 
 .. code-block:: python
 

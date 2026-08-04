@@ -1,9 +1,14 @@
 Visualization and evaluation
 ============================
 
-Score predictions with ``evaluate``, draw comparison plots with the
-``drevalpy.visualization`` classes, or render a full HTML report with
-``create_report``.
+If you are reading this, we assume you are already familiar with this
+concept:
+
+- :doc:`/concepts/evaluation`
+
+Score predictions with :func:`~drevalpy.evaluation.evaluate`, draw comparison
+plots with the ``drevalpy.visualization`` classes, or render a full HTML
+report with ``create_report``.
 
 evaluate
 --------

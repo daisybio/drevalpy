@@ -105,4 +105,5 @@ How to load and run
 -------------------
 
 - :doc:`/cli/experiment` — CLI experiment options for dataset and measure
-- :doc:`/python/datasets` — Python dataset loading and custom tables
+- :doc:`/python/datasets` — ``load_dataset`` and custom tables
+- :doc:`/python/quickstart` — end-to-end Python track map after concepts

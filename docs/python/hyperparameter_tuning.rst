@@ -1,12 +1,25 @@
 Hyperparameter tuning
 =====================
 
-DrEvalPy no longer uses YAML grid files for baseline tuning. Each component
-predictor (and tunable featurizers such as ``pca`` or ``landmarkGenes``) owns:
+If you are reading this, we assume you are already familiar with this
+concept:
+
+- :doc:`/concepts/from_components_to_models`
+
+Component predictors (and tunable featurizers such as ``pca`` or
+``landmarkGenes``) own:
 
 - ``get_default_hyperparameters()`` for the public flat dict used when
   constructing ``Model()`` / ``Model(hyperparameters)``
 - ``get_hyperparameter_space()`` for structured Ray + Optuna search
+
+The meaning of dotted keys
+(``predictor.elasticNet.alpha``,
+``cell_line_featurizer.pca[expression].n_components``, …) is defined in
+:doc:`/concepts/from_components_to_models`. Featurizer keys use the
+**qualified recipe selector** (including the view bracket when present).
+Indexed forms such as ``pca.0`` are rejected. Flat constructor dicts still use
+local names without a selector (e.g. ``n_components``).
 
 Public API
 ----------
@@ -15,13 +28,7 @@ Public API
   configuration (``[get_default_hyperparameters()]``), not a full Cartesian
   grid.
 - ``DRPModel.get_structured_hyperparameter_space()`` exposes the tunable
-  search space with dotted keys (``predictor.elasticNet.alpha``,
-  ``cell_line_featurizer.pca[expression].n_components``, …). Featurizer keys
-  use the **qualified recipe selector** (including the view bracket when the
-  featurizer has a view), for example ``pca[expression]`` or
-  ``landmarkGenes``. Indexed forms such as ``pca.0`` are rejected. Flat
-  constructor dicts still use local names without a selector
-  (e.g. ``n_components``). See :doc:`architecture` for more examples.
+  search space with dotted keys.
 - Experiment tuning uses ``hyperparameter_tuning=True`` with
   ``hpo_num_samples``, ``hpo_random_state``, and ``hpo_resources_per_trial``
   (Ray Tune + Optuna).
@@ -43,23 +50,13 @@ Without Ray installed, ``hyperparameter_tuning=True`` fails at import time.
 Set ``hyperparameter_tuning=False`` for defaults-only runs, or install on a
 platform that has Ray wheels (see :doc:`/getting_started/installation`).
 
-Configuring inputs
-------------------
+Fix the architecture before tuning
+----------------------------------
 
-Use one of:
-
-- Zoo presets in ``drevalpy/models/zoo/*.yaml`` with explicit
-  ``cell_line_featurizer`` / ``drug_featurizer`` blocks
-- ``ModelConfig.from_spec()`` / ``ModelConfig.from_yaml()``
-- Recipe strings such as ``raw[proteomics]:fingerprints:randomForest``
-
-In a recipe, ``:`` separates cell-line featurizer, drug featurizer, and
-predictor. Within a featurizer slot, ``+`` concatenates several featurizers
-into ``concatFeaturizers`` (for example
-``raw[expression]+pca[methylation]:fingerprints:xgboost``). Multi-view models
-such as ``MultiViewXGBoost`` and ``MultiViewLightGBM`` are expressed this way
-(or with equivalent zoo YAML blocks), not by special multi-view predictor
-classes. See :doc:`architecture` for the full recipe grammar.
+Inputs (which omics / drug representation) are part of the model architecture,
+not HPO knobs. Choose a zoo preset, ``ModelConfig``, or recipe first — see
+:doc:`model_inputs` and :doc:`/concepts/from_components_to_models` — then tune
+predictor / featurizer hyperparameters on that fixed stack.
 
 Running HPO from Python
 -----------------------
@@ -93,6 +90,12 @@ Use the root experiment (Ray Tune + Optuna) or call ``hpam_tune`` /
        early_stopping_dataset=None,
    )
 
+Inspect the structured space:
+
+.. code-block:: python
+
+   space = ElasticNet.get_structured_hyperparameter_space()
+
 Component search spaces look like:
 
 .. code-block:: python
@@ -102,37 +105,8 @@ Component search spaces look like:
 Defaults for ``Model()`` still come from the classmethod
 ``get_default_hyperparameters()``.
 
-Backward compatibility
-----------------------
-
-Views as hyperparameters
-~~~~~~~~~~~~~~~~~~~~~~~~
-
-Before 1.6.0, ``cell_line_views`` / ``drug_views`` were treated as
-hyperparameters. This remains available for backward compatibility, but is
-deprecated and may be removed in a future release. Prefer an explicit
-featurizer recipe or zoo blocks (see :doc:`model_inputs`):
-
-.. code-block:: text
-
-   normalizedProteomics:fingerprints:randomForest
-
-.. list-table::
-   :header-rows: 1
-   :widths: 45 55
-
-   * - Legacy flat key
-     - Modern replacement
-   * - ``cell_line_views: [gene_expression]``
-     - ``scaledGeneExpression`` / ``landmarkGeneExpression``
-   * - ``cell_line_views: [proteomics]``
-     - ``normalizedProteomics``
-   * - ``cell_line_views: [methylation]``
-     - ``pca[methylation]`` (+ ``n_components``)
-   * - unknown view name
-     - ``raw[view]``
-   * - ``drug_views: [fingerprints]``
-     - ``fingerprints``
+Migration notes
+---------------
 
 ``hpam_tune`` naming
 ~~~~~~~~~~~~~~~~~~~~
@@ -162,11 +136,13 @@ Those grids are gone. Translate ranges into component search spaces and enable
 Ray search with ``hyperparameter_tuning=True``.
 ``get_hyperparameter_set()`` now returns one default dict only.
 
-multiprocessing
-~~~~~~~~~~~~~~~
+``multiprocessing`` and views
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Before 1.6.0, ``multiprocessing=True`` selected a parallel HPO path. It now
-only emits a warning and does **not** control Ray/Optuna tuning. This remains
-available for backward compatibility, but is deprecated and may be removed in
-a future release. Prefer ``hyperparameter_tuning=True`` and
-``hpo_num_samples``.
+only emits a warning and does **not** control Ray/Optuna tuning. Prefer
+``hyperparameter_tuning=True`` and ``hpo_num_samples``.
+
+Deprecated flat ``cell_line_views`` / ``drug_views`` keys are documented under
+:doc:`architecture` migration notes; prefer recipes or zoo blocks
+(:doc:`model_inputs`).

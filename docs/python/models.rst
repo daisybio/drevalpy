@@ -1,12 +1,18 @@
 Models
 ======
 
+If you are reading this, we assume you are already familiar with these
+concepts:
+
+- :doc:`/concepts/component_catalog`
+- :doc:`/concepts/from_components_to_models`
+- :doc:`/concepts/model_zoo`
+
 Every runnable model in DrEvalPy is a thin ``DRPModel`` subclass produced by
-``construct_model``. You never hand-write that subclass: you declare a
-``ModelConfig`` (or something that becomes one), resolve a **class**, then
-construct a fresh **instance**. For composition details see
-:doc:`architecture`; for registered atoms see
-:doc:`/concepts/component_catalog`.
+:func:`~drevalpy.models.construct_model`. You never hand-write that subclass:
+you declare a ``ModelConfig`` (or something that becomes one), resolve a
+**class**, then construct a fresh **instance**. For Python orchestration
+details see :doc:`architecture`.
 
 From declaration to instance
 ----------------------------
@@ -50,7 +56,7 @@ the zoo YAML into a ``ModelConfig`` for you.
    model = ElasticNet({"alpha": 0.1})  # instance with flat overrides
 
 Discover available zoo names with ``list_zoo_names()`` (optionally filter by
-``ModelScope``).
+``ModelScope``). Named presets are listed in :doc:`/concepts/model_zoo`.
 
 **Existing ``ModelConfig``.** When you already hold a config (from
 ``ModelConfig.from_spec``, a YAML load, or hand-built configs), pass it as the
@@ -76,8 +82,9 @@ becomes a ``ModelConfig``; the first argument is only the class name.
    )
    model = CustomRF({"n_estimators": 200})
 
-Recipe grammar and featurizer blocks are covered in :doc:`model_inputs` and
-:doc:`architecture`.
+Recipe grammar lives in :doc:`/concepts/from_components_to_models`. Applied
+featurizer examples (custom CSV views) are in :doc:`model_inputs`; batch
+contracts and scope rules are in :doc:`architecture`.
 
 Lifecycle
 ---------
@@ -99,21 +106,20 @@ construction (``PredictorConfig.create_instance()``). Dimension-dependent
 allocation happens privately during ``fit()``; there is no public
 ``Predictor.build``.
 
-For day-to-day benchmarking, prefer ``drug_response_experiment`` over a hand-
-rolled train loop (:doc:`experiments`).
+For day-to-day benchmarking, prefer
+:func:`~drevalpy.experiment.drug_response_experiment` over a hand-rolled
+train loop (:doc:`experiments`).
 
-Backward compatibility
-----------------------
-
-Factory dictionaries
-~~~~~~~~~~~~~~~~~~~~
+Migration notes
+---------------
 
 Before 1.6.0, ``MODEL_FACTORY``, ``MULTI_DRUG_MODEL_FACTORY``, and
 ``SINGLE_DRUG_MODEL_FACTORY`` were the usual lookup. They remain as **lazy,
 built-in-only** compatibility views equivalent to ``construct_model(name)`` for
 zoo preset names, but emit ``FutureWarning`` and may be removed in a future
 release. Prefer ``construct_model``, ``ModelConfig.from_spec``, and
-``list_zoo_names(scope=...)``.
+``list_zoo_names(scope=...)``. See :doc:`quickstart` for a short side-by-side
+example.
 
 Named root exports (``ElasticNetModel``, ``DIPKModel``, …) are removed. Use
 ``construct_model("ElasticNet")`` (or the zoo preset string) instead.
@@ -121,12 +127,10 @@ Named root exports (``ElasticNetModel``, ``DIPKModel``, …) are removed. Use
 ``ModelConfig.create_model()`` is removed. Use
 ``construct_model(name_or_recipe)()`` or ``construct_model(name, config)()``.
 
-No longer supported
-~~~~~~~~~~~~~~~~~~~
-
 Deep imports such as ``drevalpy.models.DIPK.dipk`` or
 ``drevalpy.models.baselines.*`` no longer resolve. Resolve models with
 ``construct_model`` from ``drevalpy.models``.
 
-Legacy checkpoint formats (including ``composed_model.joblib``) are not loadable.
-Retrain and persist via ``model.save`` / ``ModelClass.load`` (``model.joblib``).
+Legacy checkpoint formats (including ``composed_model.joblib``) are not
+loadable. Retrain and persist via ``model.save`` / ``ModelClass.load``
+(``model.joblib``); see :doc:`persistence`.

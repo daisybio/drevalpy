@@ -1,10 +1,15 @@
 Experiments
 ===========
 
-``drug_response_experiment`` runs nested cross-validation, optional
-hyperparameter tuning, baselines, and optional randomization or robustness
-tests. Results are written under ``path_out`` / ``run_id`` / dataset / split
-label.
+If you are reading this, we assume you are already familiar with this
+concept:
+
+- :doc:`/concepts/evaluation`
+
+:func:`~drevalpy.experiment.drug_response_experiment` runs nested
+cross-validation, optional hyperparameter tuning, baselines, and optional
+randomization or robustness tests. Results are written under ``path_out`` /
+``run_id`` / dataset / split label.
 
 Minimal call
 ------------
@@ -29,8 +34,8 @@ Minimal call
        hyperparameter_tuning=False,
    )
 
-Pass model **classes** from ``construct_model``, not instances.
-``NaiveMeanEffectsPredictor`` is always included among baselines
+Pass model **classes** from :func:`~drevalpy.models.construct_model`, not
+instances. ``NaiveMeanEffectsPredictor`` is always included among baselines
 when missing — it is required for normalized metrics.
 
 Common options
@@ -72,32 +77,5 @@ Example with tuning enabled:
 
 See :doc:`hyperparameter_tuning` for search spaces, dotted keys, and the
 Ray/Optuna backend, and :doc:`visualization` for reports over the written
-predictions.
-
-Backward compatibility
-----------------------
-
-multiprocessing
-~~~~~~~~~~~~~~~
-
-Before 1.6.0, ``multiprocessing=True`` was used as a parallel HPO switch. It
-now only emits a warning and does **not** control hyperparameter tuning. This
-remains available for backward compatibility, but is deprecated and may be
-removed in a future release. Prefer ``hyperparameter_tuning=True`` with
-``hpo_num_samples``.
-
-get_hyperparameter_set
-~~~~~~~~~~~~~~~~~~~~~~
-
-Before 1.6.0, ``DRPModel.get_hyperparameter_set()`` returned a Cartesian grid
-from YAML. It now returns a **single** default configuration
-(``[get_default_hyperparameters()]``). Callers that looped the old grid should
-switch to ``hyperparameter_tuning=True`` or
-``get_structured_hyperparameter_space()``.
-
-hyperparameter_tuning=False
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Before 1.6.0, disabling tuning could still walk legacy grid entries. Now
-``hyperparameter_tuning=False`` means **defaults only** — it is not a debug
-mode and does not iterate an old ParameterGrid.
+predictions. Deprecated ``multiprocessing`` / grid-search behavior is covered
+under :doc:`hyperparameter_tuning` migration notes.

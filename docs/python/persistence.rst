@@ -35,11 +35,8 @@ drevalpy version family. Corrupted or unsupported payloads raise
 ``ModelCheckpointError`` subclasses (for example
 ``UnsupportedCheckpointFormatError`` or ``IncompatibleModelCheckpointError``).
 
-Backward compatibility
-----------------------
-
-No longer supported
-~~~~~~~~~~~~~~~~~~~
+Migration notes
+---------------
 
 Before 1.6.0, checkpoints stored pickled ``.model`` attributes,
 standalone scalers, naive mean buffers, or the older ``composed_model.joblib``

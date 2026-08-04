@@ -3,6 +3,11 @@
 Custom inputs for baseline models
 =================================
 
+If you are reading this, we assume you are already familiar with this
+concept:
+
+- :doc:`/concepts/from_components_to_models`
+
 Baselines such as Random Forest or Elastic Net default to gene expression and
 drug fingerprints, but you can reuse the same models with other cell-line or
 drug features. You do **not** need a new model class for each omics type; you
@@ -10,8 +15,8 @@ only change how the inputs are built.
 
 Those inputs are part of the **model architecture** (chosen when you compose
 the model), not hyperparameters that HPO can retune. Declare them with a short
-**recipe** string (``cellLineFeaturizer:drugFeaturizer:predictor``) or the
-same composition in zoo YAML.
+**recipe** string or the same composition in zoo YAML — the grammar is in
+:doc:`/concepts/from_components_to_models`.
 
 Example: custom cell-line CSV
 -----------------------------
@@ -83,47 +88,12 @@ Depending on whether the featurizer is registered under the cell-line or drug
 registry, the index column must be ``CELL_LINE_IDENTIFIER``
 (``"cell_line_name"``) or ``DRUG_IDENTIFIER`` (``"pubchem_id"``).
 
-Then run the model class through ``drug_response_experiment`` the same way
-as any other zoo preset — see :doc:`experiments`.
+Then run the model class through
+:func:`~drevalpy.experiment.drug_response_experiment` the same way as any
+other zoo preset — see :doc:`experiments`.
 
-See :doc:`hyperparameter_tuning` and :doc:`architecture` for dotted HPO keys
-and full composition details. For registering entirely new featurizers or
-predictors, see :doc:`custom_models`.
-
-Backward compatibility
-----------------------
-
-Views as hyperparameters
-~~~~~~~~~~~~~~~~~~~~~~~~
-
-Before 1.6.0, cell-line and drug **views** were treated like hyperparameters.
-You could pass ``cell_line_views`` / ``drug_views`` to the constructor or put
-them in experiment hpam YAML, and in principle retune which inputs a model
-used. This remains available for backward compatibility, but is deprecated and
-may be removed in a future release.
-
-Inputs are now a fixed part of the architecture (recipe / zoo featurizer
-blocks above). Predictor settings such as ``alpha`` remain tunable; which
-omics or drug representation you use does not. The old view keys emit a
-``FutureWarning``:
-
-.. code-block:: python
-
-   model = construct_model("RandomForest")(
-       {
-           "cell_line_views": ["mynewdatamodality"],
-           "drug_views": ["fingerprints"],
-       }
-   )
-
-Same idea in experiment hpam YAML (not zoo YAML):
-
-.. code-block:: yaml
-
-   RandomForest:
-     cell_line_views:
-       - mynewdatamodality
-     drug_views:
-       - fingerprints
-
-New code should use the recipe / zoo forms at the top of this page instead.
+See :doc:`hyperparameter_tuning` for running search on a fixed stack, and
+:doc:`architecture` for ``ModelInputBatch`` contracts. For registering entirely
+new featurizers or predictors, see :doc:`custom_models`. Deprecated flat
+``cell_line_views`` / ``drug_views`` keys are covered under
+:doc:`architecture` migration notes.

@@ -1,17 +1,21 @@
 Model architecture overview
 ===========================
 
-For the interface-neutral overview of recipes, concatenation, and
-hyperparameter spaces, see :doc:`/concepts/from_components_to_models`. This page covers the
-Python orchestration layer in more detail.
+If you are reading this, we assume you are already familiar with this
+concept:
+
+- :doc:`/concepts/from_components_to_models`
+
+This page covers the Python orchestration layer only.
 
 DrEvalPy has two cooperating layers:
 
 1. **Component stack** under ``drevalpy.components`` with featurizers,
    predictors, registries, and tuning helpers.
 2. **Public orchestration** under ``drevalpy.models`` with declarative
-   ``ModelConfig``, zoo YAML, and ``construct_model`` returning thin
-   ``DRPModel`` subclasses.
+   ``ModelConfig``, zoo YAML, and
+   :func:`~drevalpy.models.construct_model` returning thin ``DRPModel``
+   subclasses.
 
 Typical composition:
 
@@ -34,10 +38,21 @@ named featurizer blocks, early-stopping response data, and a small
   named featurizer blocks.
 - ``FeatureFreePredictor`` uses pair identifiers and/or response values only.
 
+Each featurizer declares a ``FeatureFormat`` (``numeric_matrix``, ``graph``,
+or ``ragged_sequence``). Predictors declare ``cell_line_contract`` and
+``drug_contract`` plus exactly one of the interfaces above.
+``ModelConfig`` validation checks formats and interface rules; discovery tags
+and literature references are descriptive only. Graph and ragged payloads are
+not numeric matrices — matrix predictors reject them; block predictors can
+consume them (for example DrugGNN validates PyG ``Data`` objects). Registry
+names and format vocabulary are listed in
+:doc:`/concepts/component_catalog`.
+
 Resolving built-in models
 -------------------------
 
-Prefer zoo names with ``construct_model``:
+Prefer zoo names with ``construct_model`` (see :doc:`models` for the full
+declaration → instance story):
 
 .. code-block:: python
 
@@ -68,7 +83,9 @@ Programmatic composition
 ------------------------
 
 For custom stacks without adding a zoo file, pass a recipe as the second
-argument:
+argument. Recipe atoms, view brackets, and ``+`` concatenation are defined in
+:doc:`/concepts/from_components_to_models`; applied examples with custom CSVs
+are in :doc:`model_inputs`.
 
 .. code-block:: python
 
@@ -88,65 +105,23 @@ argument:
 ``construct_model(name)`` / ``construct_model(name, spec)`` return a **class**.
 Call it with optional flat hyperparameters to get a **fresh instance**.
 
-Explicit omics view grammar
----------------------------
+Dotted hyperparameter keys
+--------------------------
 
-Cell-line featurizers that operate on a single omics layer use bracket syntax:
+Ray/Optuna search spaces use dotted keys that mirror the composed stack
+(``predictor.elasticNet.alpha``,
+``cell_line_featurizer.pca[expression].n_components``, …). The naming rules
+are documented in :doc:`/concepts/from_components_to_models`; how to run search
+in Python is in :doc:`hyperparameter_tuning`.
 
-.. code-block:: text
+Inspect the space for a resolved class:
 
-   raw[expression]+pca[proteomics]:identity:randomForest
+.. code-block:: python
 
-- ``raw[view]`` passes through one dense omics view without preprocessing.
-- ``pca[view]`` applies PCA to one dense omics view. The view is required.
-- ``+`` concatenates featurizers into ``concatFeaturizers``.
+   ElasticNet = construct_model("ElasticNet")
+   space = ElasticNet.get_structured_hyperparameter_space()
 
-Supported view aliases include ``expression`` (gene expression),
-``methylation``, ``mutations``, ``proteomics``, and ``cnv`` (copy-number
-variation). YAML presets use the same atoms.
-
-Featurizer hyperparameter tuning (dotted keys)
-----------------------------------------------
-
-Ray/Optuna search spaces use **dotted keys** that mirror the composed stack.
-Predictor parameters look like ``predictor.<registryName>.<param>``; featurizer
-parameters look like
-``cell_line_featurizer.<qualifiedFeaturizer>.<param>`` or
-``drug_featurizer.<qualifiedFeaturizer>.<param>``, where the qualified
-name matches the recipe atom (for example ``pca[expression]`` or
-``landmarkGenes``).
-
-Examples:
-
-.. code-block:: text
-
-   predictor.elasticNet.alpha
-   predictor.elasticNet.l1_ratio
-   cell_line_featurizer.pca[expression].n_components
-   cell_line_featurizer.landmarkGenes.standardize
-
-The same base featurizer on different views stays independently tunable
-(``pca[expression]`` vs ``pca[proteomics]``). Repeating the same qualified
-selector in one slot is rejected.
-
-Flat constructor dicts remain supported for predictor keys such as
-``alpha`` and legacy featurizer aliases (``methylation_n_components``).
-Structured overrides may also use dotted keys directly.
-
-Feature formats, interfaces, and validation
--------------------------------------------
-
-Each featurizer declares a ``FeatureFormat`` (``numeric_matrix``, ``graph``,
-or ``ragged_sequence``). Predictors declare ``cell_line_contract`` and
-``drug_contract`` plus exactly one input interface
-(``FeatureFreePredictor``, ``MatrixPredictor``, or ``BlockPredictor``).
-``ModelConfig`` validation checks formats and interface rules; discovery tags
-and literature references are descriptive only.
-
-Graph and ragged payloads are not numeric matrices. Matrix predictors reject
-them. Block predictors can consume those payloads and validate their structure;
-for example, DrugGNN validates PyG ``Data`` objects (``x``, ``edge_index``,
-consistent node-feature dimensions).
+Flat constructor dicts still use local names (``alpha``, ``n_components``).
 
 Scope and early stopping
 ------------------------
@@ -204,32 +179,23 @@ Extension path
 Register featurizers/predictors, compose a ``ModelConfig`` or zoo YAML, and
 use ``construct_model`` / ``load_extensions``. Direct ``DRPModel`` subclass
 authoring is not the supported extension mechanism. See :doc:`custom_models`
-for a full example, and :doc:`/concepts/component_catalog` for built-in registry names.
+for a full example, and :doc:`/concepts/component_catalog` for built-in
+registry names.
 
-Backward compatibility
-----------------------
-
-Factory dictionaries and view keys
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Migration notes
+---------------
 
 Before 1.6.0, factory dictionaries and flat view keys were the usual
 interfaces. Factory dicts remain as lazy built-in-only compatibility views
 (equal to ``construct_model(name)`` for zoo names) but emit ``FutureWarning``
-and may be removed in a future release:
+and may be removed in a future release — see :doc:`quickstart` for the short
+``MODEL_FACTORY`` note and :doc:`models` for named exports /
+``ModelConfig.create_model()``.
 
-- ``MODEL_FACTORY``, ``MULTI_DRUG_MODEL_FACTORY``, ``SINGLE_DRUG_MODEL_FACTORY``
-  — prefer ``construct_model``, ``ModelConfig.from_spec``, and
-  ``list_zoo_names(scope=...)`` instead.
 - Flat ``cell_line_views`` / ``drug_views`` in constructor / hpam YAML —
   set ``cell_line_featurizer`` / ``drug_featurizer`` in zoo YAML or a
   recipe string instead (see :doc:`model_inputs`).
-
-Named root exports and ``ModelConfig.create_model()`` are removed; see
-:doc:`models`.
-
-No longer supported
-~~~~~~~~~~~~~~~~~~~
-
-Deep imports such as ``drevalpy.models.DIPK.dipk`` or
-``drevalpy.models.baselines.*`` no longer resolve. Legacy checkpoint formats
-(including ``composed_model.joblib``) are not loadable.
+- Deep imports such as ``drevalpy.models.DIPK.dipk`` or
+  ``drevalpy.models.baselines.*`` no longer resolve.
+- Legacy checkpoint formats (including ``composed_model.joblib``) are not
+  loadable; see :doc:`persistence`.

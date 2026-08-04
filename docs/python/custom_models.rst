@@ -1,10 +1,16 @@
 Custom models
 =============
 
+If you are reading this, we assume you are already familiar with these
+concepts:
+
+- :doc:`/concepts/component_catalog`
+- :doc:`/concepts/from_components_to_models`
+
 DrEvalPy models are composed from registered **featurizers** and
 **predictors**. Do not subclass ``DRPModel`` directly for new models. Register
 components, describe the stack with a ``ModelConfig`` or zoo preset, and
-resolve a public class with ``construct_model``.
+resolve a public class with :func:`~drevalpy.models.construct_model`.
 
 High-level path
 ---------------
