@@ -7,7 +7,9 @@ import pandas as pd
 import pytest
 
 from drevalpy.datasets.dataset import DrugResponseDataset
-from drevalpy.datasets.loader import load_toyv1, load_toyv2
+from drevalpy.datasets.loader import load_dataset
+
+_BUILTIN_MEASURE = "LN_IC50_curvecurator"
 
 _TESTS_DIR = pathlib.Path(__file__).parent.resolve()
 _DATA_DIR = (_TESTS_DIR.parent / "data").resolve()
@@ -22,8 +24,8 @@ def _load_toy_datasets(path_data: str) -> bool:
     :returns: False when dataset download fails
     """
     try:
-        load_toyv1(path_data)
-        load_toyv2(path_data)
+        load_dataset("TOYv1", path_data, measure=_BUILTIN_MEASURE)
+        load_dataset("TOYv2", path_data, measure=_BUILTIN_MEASURE)
     except Exception as exc:
         print(f"Warning: could not load TOY datasets: {exc}")
         return False
@@ -134,7 +136,7 @@ def sample_dataset(data_dir) -> DrugResponseDataset:
     :param data_dir: path to the data directory
     :returns: drug_response, cell_line_input, drug_input
     """
-    drug_response = load_toyv1(str(data_dir))
+    drug_response = load_dataset("TOYv1", path_data=str(data_dir), measure=_BUILTIN_MEASURE)
     drug_response.remove_nan_responses()
     return drug_response
 
@@ -147,7 +149,7 @@ def cross_study_dataset(data_dir) -> DrugResponseDataset:
     :param data_dir: path to the data directory
     :returns: drug_response, cell_line_input, drug_input
     """
-    drug_response = load_toyv2(str(data_dir))
+    drug_response = load_dataset("TOYv2", path_data=str(data_dir), measure=_BUILTIN_MEASURE)
     drug_response.remove_nan_responses()
     return drug_response
 

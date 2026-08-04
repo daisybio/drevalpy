@@ -40,9 +40,9 @@ from pathlib import Path
 
 import pandas as pd
 
-from . import AVAILABLE_DATASETS
 from .cellosaurus_parse import parse_cellosaurus
-from .loader import download_dataset
+from .loader import list_builtin_datasets
+from .utils import download_dataset
 
 _tissue_synonyms = {
     "Lung": [
@@ -295,7 +295,7 @@ def main():
     if dataset != "all":
         datasets = [dataset]
     else:
-        datasets = AVAILABLE_DATASETS.keys()
+        datasets = list_builtin_datasets()
 
     cell_lines = []
 

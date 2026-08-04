@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from drevalpy.datasets import AVAILABLE_DATASETS
+from drevalpy.datasets import is_builtin_dataset, list_builtin_datasets
 from drevalpy.datasets.splits import validate_split_label
 from drevalpy.datasets.utils import ALLOWED_MEASURES
 from drevalpy.evaluation import AVAILABLE_METRICS
@@ -66,7 +66,7 @@ def _custom_dataset_error_message(args, expected: Path) -> str:
 
 def validate_dataset_name_and_paths(args) -> None:
     """Validate built-in or custom dataset paths."""
-    if args.dataset_name in AVAILABLE_DATASETS:
+    if is_builtin_dataset(args.dataset_name):
         return
     expected = _expected_custom_dataset_path(args)
     if not expected.is_file():
@@ -82,12 +82,11 @@ def validate_curve_curator_cores(args) -> None:
 def validate_cross_study_dataset_names(args) -> None:
     """Validate cross-study dataset identifiers."""
     for dataset in args.cross_study_datasets:
-        if dataset not in AVAILABLE_DATASETS:
+        if not is_builtin_dataset(dataset):
             raise AssertionError(
                 f"Invalid dataset name in cross_study_datasets. Available datasets are "
-                f"{list(AVAILABLE_DATASETS.keys())} If you want to use your own dataset, you "
-                f"need to implement a new response dataset loader and add it to the "
-                f"AVAILABLE_DATASETS in the response_datasets init."
+                f"{list_builtin_datasets()}. If you want to use your own dataset, place it under "
+                f"<path_data>/<dataset_name>/ and load it with load_dataset."
             )
 
 

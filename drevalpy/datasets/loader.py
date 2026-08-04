@@ -1,8 +1,12 @@
-"""Contains functions to load the GDSC1, GDSC2, CCLE, and Toy datasets."""
+"""Load built-in and custom drug-response datasets."""
 
+from __future__ import annotations
+
+import json
 import os
+from dataclasses import dataclass
+from importlib import resources
 from pathlib import Path
-from typing import Callable
 
 import pandas as pd
 
@@ -17,6 +21,79 @@ from .utils import (
     download_from_url,
     unzip_data,
 )
+
+_REGISTRY_JSON = "available_datasets.json"
+_META_TISSUE_MAPPING = os.path.join("meta", "tissue_mapping.csv")
+
+
+@dataclass(frozen=True)
+class _SourceConfig:
+    kind: str
+    ensure_artifacts: tuple[str, ...]
+    base_url: str | None = None
+
+
+@dataclass(frozen=True)
+class BuiltinDatasetEntry:
+    """Built-in dataset metadata loaded from the packaged registry."""
+
+    name: str
+    source: str
+    response_file: str
+    tissue_override: str | None = None
+
+
+def _load_registry() -> tuple[str, dict[str, _SourceConfig], dict[str, BuiltinDatasetEntry]]:
+    """
+    Loads the registry of built-in datasets from the packaged registry.json file.
+
+    This function only runs once when the module is imported.
+    After that, the registry is cached in the module's namespace.
+
+    :returns: A tuple containing the default measure, the sources, and the registry.
+    :rtype: tuple[str, dict[str, _SourceConfig], dict[str, BuiltinDatasetEntry]]
+    """
+    registry_path = resources.files(__package__).joinpath(_REGISTRY_JSON)
+    with registry_path.open(encoding="utf-8") as handle:
+        raw = json.load(handle)
+
+    default_measure: str = raw["default_measure"]
+    sources = {
+        name: _SourceConfig(
+            kind=cfg["kind"],
+            ensure_artifacts=tuple(cfg.get("ensure_artifacts", [])),
+            base_url=cfg.get("base_url"),
+        )
+        for name, cfg in raw["sources"].items()
+    }
+    registry = {
+        entry["name"]: BuiltinDatasetEntry(
+            name=entry["name"],
+            source=entry["source"],
+            response_file=entry["response_file"],
+            tissue_override=entry.get("tissue_override"),
+        )
+        for entry in raw["datasets"]
+    }
+    return default_measure, sources, registry
+
+
+_DEFAULT_MEASURE, _SOURCES, _REGISTRY = _load_registry()
+
+
+def list_builtin_datasets() -> list[str]:
+    """Return sorted built-in dataset names from the packaged registry."""
+    return sorted(_REGISTRY)
+
+
+def is_builtin_dataset(name: str) -> bool:
+    """Return whether ``name`` is a built-in dataset in the registry."""
+    return name in _REGISTRY
+
+
+def get_builtin_dataset_entry(name: str) -> BuiltinDatasetEntry | None:
+    """Return registry metadata for a built-in dataset, or ``None`` if unknown."""
+    return _REGISTRY.get(name)
 
 
 def check_measure(measure_queried: str, measures_data: list[str], dataset_name: str) -> None:
@@ -36,206 +113,60 @@ def check_measure(measure_queried: str, measures_data: list[str], dataset_name: 
         )
 
 
-def _load_zenodo_dataset(
-    path_data: str = "data",
-    measure: str = "LN_IC50_curvecurator",
-    file_name: str = "dataset_name.csv",
-    dataset_name: str = "dataset_name",
-) -> DrugResponseDataset:
-    """
-    Parent function to load_gdsc1, load_gdsc2, ...
+def _ensure_zenodo_artifacts(path_data: str, entry: BuiltinDatasetEntry, source: _SourceConfig) -> None:
+    response_path = Path(path_data) / entry.response_file
+    if not response_path.is_file():
+        download_dataset(entry.name, path_data, redownload=True)
 
-    :param path_data: Path to the dataset.
-    :param file_name: File name of the dataset, e.g., GDSC1.csv
-    :param measure: File name of the dataset, default = "LN_IC50_curvecurator".
-    :param dataset_name: Name of the dataset, e.g., GDSC1.
-    :return: DrugResponseDataset containing response, cell line IDs, and drug IDs.
-    """
-    path = os.path.join(path_data, dataset_name, file_name)
-    if not os.path.exists(path):
-        download_dataset(dataset_name, path_data, redownload=True)
-    # tissue mapping is not in TOY play dataset
-    meta_path = os.path.join(path_data, "meta", "tissue_mapping.csv")
-    if not os.path.exists(meta_path):
+    meta_path = Path(path_data) / _META_TISSUE_MAPPING
+    if "meta" in source.ensure_artifacts and not meta_path.is_file():
         download_dataset("meta", path_data, redownload=True)
 
-    response_data = pd.read_csv(path, dtype={"pubchem_id": str, "cell_line_name": str})
-    response_data[DRUG_IDENTIFIER] = response_data[DRUG_IDENTIFIER].str.replace(",", "")
-    check_measure(measure, list(response_data.columns), dataset_name)
-    if dataset_name == "BeatAML2":
-        # only has AML patients = blood
-        response_data[TISSUE_IDENTIFIER] = "Blood"
-    elif dataset_name == "PDX_Bruna":
-        # only has breast cancer patients
-        response_data[TISSUE_IDENTIFIER] = "Breast"
-    return DrugResponseDataset(
-        response=response_data[measure].values,
-        cell_line_ids=response_data[CELL_LINE_IDENTIFIER].values,
-        drug_ids=response_data[DRUG_IDENTIFIER].values,
-        tissues=response_data[TISSUE_IDENTIFIER].values,
-        dataset_name=dataset_name,
-    )
 
-
-def load_gdsc1(
-    path_data: str = "data",
-    measure: str = "LN_IC50_curvecurator",
-) -> DrugResponseDataset:
-    """
-    Loads the GDSC1 dataset.
-
-    :param path_data: Path to the dataset.
-    :param measure: The name of the column containing the measure to predict, default = "LN_IC50_curvecurator"
-    :return: DrugResponseDataset containing response, cell line IDs, and drug IDs.
-    """
-    return _load_zenodo_dataset(path_data=path_data, measure=measure, file_name="GDSC1.csv", dataset_name="GDSC1")
-
-
-def load_gdsc2(
-    path_data: str = "data",
-    measure: str = "LN_IC50_curvecurator",
-):
-    """
-    Loads the GDSC2 dataset.
-
-    :param path_data: Path to the dataset.
-    :param measure: The name of the column containing the measure to predict, default = "LN_IC50_curvecurator"
-
-    :return: DrugResponseDataset containing response, cell line IDs, and drug IDs.
-    """
-    return _load_zenodo_dataset(path_data=path_data, measure=measure, file_name="GDSC2.csv", dataset_name="GDSC2")
-
-
-def load_ccle(
-    path_data: str = "data",
-    measure: str = "LN_IC50_curvecurator",
-) -> DrugResponseDataset:
-    """
-    Loads the CCLE dataset.
-
-    :param path_data: Path to the dataset.
-    :param measure: The name of the column containing the measure to predict, default = "LN_IC50_curvecurator"
-
-    :return: DrugResponseDataset containing response, cell line IDs, and drug IDs.
-    """
-    return _load_zenodo_dataset(path_data=path_data, measure=measure, file_name="CCLE.csv", dataset_name="CCLE")
-
-
-def _load_test_data(
-    path_data: str = "data", measure: str = "LN_IC50_curvecurator", dataset_name: str = "TOYv1"
-) -> DrugResponseDataset:
-    # ensure that path_data exists
-    Path(path_data).mkdir(parents=True, exist_ok=True)
-    test_data_path = "https://github.com/nf-core/test-datasets/raw/refs/heads/drugresponseeval/test_data"
-    # first get meta
-    meta_path = os.path.join(path_data, "meta")
-    if not os.path.exists(meta_path):
-        file_url = f"{test_data_path}/meta.zip"
-        file_path = Path(path_data) / "meta.zip"
-        response_meta = download_from_url(dataset_name="meta", file_url=file_url)
-        unzip_data(path_to_zip=file_path, response=response_meta, data_path=path_data)
-    # get raw test data
-    raw_data_path = os.path.join(path_data, "CTRPv2_sample_test")
-    if not os.path.exists(raw_data_path):
-        file_url = f"{test_data_path}/CTRPv2_sample_test.zip"
-        file_path = Path(path_data) / "CTRPv2_sample_test.zip"
-        response_raw = download_from_url(dataset_name="CTRPv2_sample_test", file_url=file_url)
-        unzip_data(path_to_zip=file_path, response=response_raw, data_path=path_data)
-    file_url = f"{test_data_path}/{dataset_name}.zip"
-    file_path = Path(path_data) / f"{dataset_name}.zip"
-    response = download_from_url(dataset_name=dataset_name, file_url=file_url)
+def _download_nfcore_zip(path_data: str, artifact_name: str, base_url: str) -> None:
+    file_url = f"{base_url}/{artifact_name}.zip"
+    file_path = Path(path_data) / f"{artifact_name}.zip"
+    response = download_from_url(dataset_name=artifact_name, file_url=file_url)
     unzip_data(path_to_zip=file_path, response=response, data_path=path_data)
 
-    file_name = Path(path_data) / dataset_name / f"{dataset_name}.csv"
-    response_data = pd.read_csv(file_name, dtype={"pubchem_id": str, "cell_line_name": str})
+
+def _ensure_nfcore_artifacts(path_data: str, entry: BuiltinDatasetEntry, source: _SourceConfig) -> None:
+    Path(path_data).mkdir(parents=True, exist_ok=True)
+    for artifact in source.ensure_artifacts:
+        artifact_path = Path(path_data) / artifact
+        if not artifact_path.exists():
+            _download_nfcore_zip(path_data, artifact, source.base_url)
+
+    _download_nfcore_zip(path_data, entry.name, source.base_url)
+
+
+def _ensure_builtin_artifacts(path_data: str, entry: BuiltinDatasetEntry) -> None:
+    source = _SOURCES[entry.source]
+    if source.kind == "zenodo":
+        _ensure_zenodo_artifacts(path_data, entry, source)
+    else:
+        _ensure_nfcore_artifacts(path_data, entry, source)
+
+
+def _read_response_csv(path: Path) -> pd.DataFrame:
+    response_data = pd.read_csv(path, dtype={"pubchem_id": str, "cell_line_name": str})
     response_data[DRUG_IDENTIFIER] = response_data[DRUG_IDENTIFIER].str.replace(",", "")
-    check_measure(measure, list(response_data.columns), dataset_name)
+    return response_data
+
+
+def _load_builtin(entry: BuiltinDatasetEntry, path_data: str, measure: str) -> DrugResponseDataset:
+    _ensure_builtin_artifacts(path_data, entry)
+    response_path = Path(path_data) / entry.response_file
+    response_data = _read_response_csv(response_path)
+    check_measure(measure, list(response_data.columns), entry.name)
+    if entry.tissue_override is not None:
+        response_data[TISSUE_IDENTIFIER] = entry.tissue_override
     return DrugResponseDataset(
         response=response_data[measure].values,
         cell_line_ids=response_data[CELL_LINE_IDENTIFIER].values,
         drug_ids=response_data[DRUG_IDENTIFIER].values,
         tissues=response_data[TISSUE_IDENTIFIER].values,
-        dataset_name=dataset_name,
-    )
-
-
-def load_toyv1(path_data: str = "data", measure: str = "LN_IC50_curvecurator") -> DrugResponseDataset:
-    """
-    Loads small Toy dataset, subsampled from CTRPv2.
-
-    :param path_data: Path to the dataset.
-    :param measure: The name of the column containing the measure to predict, default = "LN_IC50_curvecurator"
-
-    :return: DrugResponseDataset containing response, cell line IDs, and drug IDs.
-    """
-    return _load_test_data(path_data=path_data, measure=measure, dataset_name="TOYv1")
-
-
-def load_toyv2(path_data: str = "data", measure: str = "LN_IC50_curvecurator") -> DrugResponseDataset:
-    """
-    Loads small Toy dataset, subsampled from GDSC2. Can be used to test cross study prediction.
-
-    :param path_data: Path to the dataset.
-    :param measure: The name of the column containing the measure to predict, default = "LN_IC50_curvecurator"
-
-    :return: DrugResponseDataset containing response, cell line IDs, and drug IDs.
-    """
-    return _load_test_data(path_data=path_data, measure=measure, dataset_name="TOYv2")
-
-
-def load_ctrpv1(path_data: str = "data", measure: str = "LN_IC50_curvecurator") -> DrugResponseDataset:
-    """
-    Load CTRPv1 dataset.
-
-    :param path_data: Path to the location of CTRPv1 dataset
-    :param measure: The name of the column containing the measure to predict, default = "LN_IC50_curvecurator"
-
-    :return: DrugResponseDataset containing response, cell line IDs, and drug IDs
-    """
-    return _load_zenodo_dataset(path_data=path_data, measure=measure, file_name="CTRPv1.csv", dataset_name="CTRPv1")
-
-
-def load_ctrpv2(path_data: str = "data", measure: str = "LN_IC50_curvecurator") -> DrugResponseDataset:
-    """
-    Load CTRPv2 dataset.
-
-    :param path_data: Path to the location of CTRPv2 dataset
-    :param measure: The name of the column containing the measure to predict, default: LN_IC50_curvecurator
-
-    :return: DrugResponseDataset containing response, cell line IDs, and drug IDs
-    """
-    return _load_zenodo_dataset(path_data=path_data, measure=measure, file_name="CTRPv2.csv", dataset_name="CTRPv2")
-
-
-def load_beataml2(
-    path_data: str = "data",
-    measure: str = "LN_IC50_curvecurator",
-) -> DrugResponseDataset:
-    """
-    Loads the BeatAML2 dataset.
-
-    :param path_data: Path to the dataset.
-    :param measure: The name of the column containing the measure to predict, default: LN_IC50_curvecurator
-
-    :return: DrugResponseDataset containing response, cell line IDs, and drug IDs.
-    """
-    return _load_zenodo_dataset(path_data=path_data, measure=measure, file_name="BeatAML2.csv", dataset_name="BeatAML2")
-
-
-def load_pdx_bruna(
-    path_data: str = "data",
-    measure: str = "LN_IC50_curvecurator",
-) -> DrugResponseDataset:
-    """
-    Loads the PDX_Bruna dataset.
-
-    :param path_data: Path to the dataset.
-    :param measure: The name of the column containing the measure to predict, default: LN_IC50_curvecurator
-
-    :return: DrugResponseDataset containing response, cell line IDs, and drug IDs.
-    """
-    return _load_zenodo_dataset(
-        path_data=path_data, measure=measure, file_name="PDX_Bruna.csv", dataset_name="PDX_Bruna"
+        dataset_name=entry.name,
     )
 
 
@@ -257,20 +188,6 @@ def load_custom(
     )
 
 
-# Used in pipeline
-AVAILABLE_DATASETS: dict[str, Callable] = {
-    "GDSC1": load_gdsc1,
-    "GDSC2": load_gdsc2,
-    "CCLE": load_ccle,
-    "TOYv1": load_toyv1,
-    "TOYv2": load_toyv2,
-    "CTRPv1": load_ctrpv1,
-    "CTRPv2": load_ctrpv2,
-    "BeatAML2": load_beataml2,
-    "PDX_Bruna": load_pdx_bruna,
-}
-
-
 def load_dataset(
     dataset_name: str,
     path_data: str = "data",
@@ -283,8 +200,7 @@ def load_dataset(
     """
     Load a dataset based on the dataset name.
 
-    :param dataset_name: The name of the dataset to load. Can be one of ('GDSC1', 'GDSC2', 'CCLE', 'TOYv1', or 'TOYv2')
-        to download provided datasets, or any other name to allow for custom datasets.
+    :param dataset_name: Built-in registry name or any other name for custom datasets.
     :param path_data: The parent path in which custom or downloaded datasets should be located, or in which raw
         viability data is to be found for fitting with CurveCurator (see param curve_curator for details).
         The location of the datasets are resolved by <path_data>/<dataset_name>/<dataset_name>.csv.
@@ -310,8 +226,9 @@ def load_dataset(
     else:
         input_file = Path(path_data).resolve() / dataset_name / f"{dataset_name}.csv"
 
-    if dataset_name in AVAILABLE_DATASETS:
-        return AVAILABLE_DATASETS[dataset_name](path_data, measure=measure)
+    entry = _REGISTRY.get(dataset_name)
+    if entry is not None:
+        return _load_builtin(entry, path_data, measure=measure)
 
     if input_file.is_file():
         if curve_curator:

@@ -15,7 +15,7 @@ def run_load_response(
 ) -> None:
     """Load drug response CSV and pickle a ``DrugResponseDataset``."""
     from drevalpy.datasets.dataset import DrugResponseDataset
-    from drevalpy.datasets.loader import AVAILABLE_DATASETS
+    from drevalpy.datasets.loader import get_builtin_dataset_entry
     from drevalpy.datasets.utils import (
         CELL_LINE_IDENTIFIER,
         DRUG_IDENTIFIER,
@@ -24,12 +24,11 @@ def run_load_response(
 
     input_file = Path(response_dataset)
     dataset_name = input_file.stem
-    if dataset_name in AVAILABLE_DATASETS:
+    entry = get_builtin_dataset_entry(dataset_name)
+    if entry is not None:
         response_file = pd.read_csv(input_file, dtype={"pubchem_id": str})
-        if dataset_name == "BeatAML2":
-            response_file[TISSUE_IDENTIFIER] = "Blood"
-        elif dataset_name == "PDX_Bruna":
-            response_file[TISSUE_IDENTIFIER] = "Breast"
+        if entry.tissue_override is not None:
+            response_file[TISSUE_IDENTIFIER] = entry.tissue_override
         response_data = DrugResponseDataset(
             response=response_file[measure].values,
             cell_line_ids=response_file[CELL_LINE_IDENTIFIER].values,

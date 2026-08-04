@@ -9,18 +9,19 @@ concepts:
 
 This page explains how to load built-in and custom datasets, and how to split them for training and evaluation.
 
-Built-in names
---------------
+Built-in datasets
+-----------------
 
-``AVAILABLE_DATASETS`` maps each built-in name to its loader:
+Built-in names are listed in the packaged registry. Use
+:func:`~drevalpy.datasets.list_builtin_datasets` to discover them and
+:func:`~drevalpy.datasets.loader.load_dataset` to load:
 
 .. code-block:: python
 
-   from drevalpy.datasets import AVAILABLE_DATASETS
-   from drevalpy.datasets.loader import load_dataset
+   from drevalpy.datasets import list_builtin_datasets, load_dataset
 
-   print(sorted(AVAILABLE_DATASETS))
-   # CCLE, CTRPv1, CTRPv2, BeatAML2, GDSC1, GDSC2, PDX_Bruna, TOYv1, TOYv2
+   print(list_builtin_datasets())
+   # BeatAML2, CCLE, CTRPv1, CTRPv2, GDSC1, GDSC2, PDX_Bruna, TOYv1, TOYv2
 
    response = load_dataset("TOYv1", path_data="data", measure="LN_IC50")
 

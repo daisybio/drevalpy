@@ -1,0 +1,51 @@
+{
+  "default_measure": "LN_IC50_curvecurator",
+  "sources": {
+    "zenodo": {
+      "kind": "zenodo",
+      "ensure_artifacts": ["meta"]
+    },
+    "nfcore_test": {
+      "kind": "nfcore_test",
+      "base_url": "https://github.com/nf-core/test-datasets/raw/refs/heads/drugresponseeval/test_data",
+      "ensure_artifacts": ["meta", "CTRPv2_sample_test"]
+    }
+  },
+  "datasets": [
+    { "name": "GDSC1", "source": "zenodo", "response_file": "GDSC1/GDSC1.csv" },
+    { "name": "GDSC2", "source": "zenodo", "response_file": "GDSC2/GDSC2.csv" },
+    { "name": "CCLE", "source": "zenodo", "response_file": "CCLE/CCLE.csv" },
+    {
+      "name": "CTRPv1",
+      "source": "zenodo",
+      "response_file": "CTRPv1/CTRPv1.csv"
+    },
+    {
+      "name": "CTRPv2",
+      "source": "zenodo",
+      "response_file": "CTRPv2/CTRPv2.csv"
+    },
+    {
+      "name": "BeatAML2",
+      "source": "zenodo",
+      "response_file": "BeatAML2/BeatAML2.csv",
+      "tissue_override": "Blood"
+    },
+    {
+      "name": "PDX_Bruna",
+      "source": "zenodo",
+      "response_file": "PDX_Bruna/PDX_Bruna.csv",
+      "tissue_override": "Breast"
+    },
+    {
+      "name": "TOYv1",
+      "source": "nfcore_test",
+      "response_file": "TOYv1/TOYv1.csv"
+    },
+    {
+      "name": "TOYv2",
+      "source": "nfcore_test",
+      "response_file": "TOYv2/TOYv2.csv"
+    }
+  ]
+}
