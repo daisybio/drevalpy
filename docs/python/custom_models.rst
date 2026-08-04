@@ -1,34 +1,34 @@
 Custom Components and Models
 ============================
 
-If you are reading this, we assume you are already familiar with these
-concepts:
+If you are reading this, we assume you are already familiar with:
 
+- :doc:`models` — ``construct_model``, recipes, ``ModelConfig``, and lifecycle
 - :doc:`/concepts/component_catalog`
 - :doc:`/concepts/from_components_to_models`
 
-DrEvalPy models are composed from registered **featurizers** and
-**predictors**. Do not subclass ``DRPModel`` directly for new models. Register
-components, describe the stack with a ``ModelConfig`` or zoo preset, and
-resolve a public class with :func:`~drevalpy.models.construct_model`.
+Built-in models are stacks of registered **featurizers** and **predictors**.
+To add something new, register custom components first, then compose them
+the same way as any zoo preset or recipe. Do not subclass ``DRPModel``
+directly.
 
-High-level path
----------------
+Registering custom components
+-----------------------------
 
-1. Register a featurizer and/or predictor under ``drevalpy.components``.
-2. Describe the stack with a recipe string, YAML zoo entry, or ``ModelConfig``
-   dict.
-3. Resolve a ``DRPModel`` subclass with ``construct_model(name[, spec])`` and
-   construct a fresh instance.
+Components live under ``drevalpy.components``. Decorators register a class by
+name and attach metadata (description, optional ``tags``, optional
+``LiteratureReference``, and role-specific ``FeatureFormat`` contracts).
+Fitted components must implement ``get_state`` / ``set_state`` so ``*.zip``
+checkpoints round-trip.
 
-Minimal complete extension example
-----------------------------------
+Custom featurizers
+~~~~~~~~~~~~~~~~~~
 
-The following end-to-end sketch registers an external cell-line featurizer and
-predictor, loads a zoo preset, builds a public ``DRPModel`` class, and wires
-hyperparameter tuning through the normal experiment API.
-
-**1. Component module** (``my_components/toy_stack.py``):
+Subclass ``CellLineFeaturizer`` or ``DrugFeaturizer`` and register with
+``@register_cell_line_featurizer`` or ``@register_drug_featurizer``. Declare
+a ``FeatureFormat`` contract (``numeric_matrix``, ``graph``, or
+``ragged_sequence``) so composition validation can reject incompatible
+predictors early.
 
 .. code-block:: python
 
@@ -38,9 +38,7 @@ hyperparameter tuning through the normal experiment API.
 
    from drevalpy.components.contracts import FeatureFormat
    from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
-   from drevalpy.components.model_input_batch import ModelInputBatch
-   from drevalpy.components.predictors.feature_free import FeatureFreePredictor
-   from drevalpy.components.registry import register_cell_line_featurizer, register_predictor
+   from drevalpy.components.registry import register_cell_line_featurizer
 
 
    @register_cell_line_featurizer(
@@ -68,91 +66,282 @@ hyperparameter tuning through the normal experiment API.
            if isinstance(output_dim, int):
                self._output_dim = output_dim
 
+Custom predictors
+~~~~~~~~~~~~~~~~~
+
+Every predictor must inherit exactly one input interface. Register with
+``@register_predictor``. Neural encoders stay private inside the predictor.
+For larger literature-style ports, keep the registered class in
+``predictor.py`` and place networks, datasets, and training helpers in
+sibling modules; shared root helpers should stay behavior-neutral.
+
+.. tab-set::
+
+   .. tab-item:: Feature-free
+
+      ``FeatureFreePredictor`` uses pair identifiers and/or response values
+      only — no featurizers.
+
+      .. code-block:: python
+
+         from drevalpy.components.model_input_batch import ModelInputBatch
+         from drevalpy.components.predictors.feature_free import FeatureFreePredictor
+         from drevalpy.components.registry import register_predictor
+
+
+         @register_predictor(
+             "toyMean",
+             description="Predict the training mean response.",
+         )
+         class ToyMeanPredictor(FeatureFreePredictor):
+             def fit(self, batch: ModelInputBatch) -> None:
+                 if batch.response is None:
+                     raise ValueError("response required")
+                 self._mean = float(np.mean(batch.response))
+
+             def predict(self, batch: ModelInputBatch) -> np.ndarray:
+                 return np.full(batch.n_pairs, self._mean, dtype=np.float64)
+
+             def get_state(self) -> dict[str, object]:
+                 return {"mean": self._mean} if hasattr(self, "_mean") else {}
+
+             def set_state(self, state: dict[str, object]) -> None:
+                 if "mean" in state:
+                     self._mean = float(state["mean"])
+
+             def is_fitted(self) -> bool:
+                 return hasattr(self, "_mean")
+
+   .. tab-item:: Matrix
+
+      ``MatrixPredictor`` flattens the batch with ``batch.to_feature_matrix()``.
+      Implement ``_fit_matrix`` / ``_predict_matrix`` on the dense pair-level
+      design matrix (the pattern used by ElasticNet, RandomForest, …).
+
+      .. code-block:: python
+
+         from typing import Any
+
+         from sklearn.linear_model import Ridge
+
+         from drevalpy.components.predictors.matrix import MatrixPredictor
+         from drevalpy.components.registry import register_predictor
+
+
+         @register_predictor(
+             "toyRidge",
+             description="Ridge on concatenated dense cell-line and drug features.",
+         )
+         class ToyRidgePredictor(MatrixPredictor):
+             @classmethod
+             def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
+                 return {
+                     "alpha": {
+                         "type": "float",
+                         "low": 1e-4,
+                         "high": 10.0,
+                         "log": True,
+                         "default": 1.0,
+                     },
+                 }
+
+             def _fit_matrix(self, x: np.ndarray, y: np.ndarray) -> None:
+                 self._estimator = Ridge(alpha=float(self._hyperparameters["alpha"]))
+                 self._estimator.fit(x, y)
+
+             def _predict_matrix(self, x: np.ndarray) -> np.ndarray:
+                 return np.asarray(self._estimator.predict(x), dtype=np.float64)
+
+             def get_state(self) -> dict[str, object]:
+                 return {
+                     "estimator": getattr(self, "_estimator", None),
+                     "hyperparameters": dict(self._hyperparameters),
+                 }
+
+             def set_state(self, state: dict[str, object]) -> None:
+                 self._estimator = state["estimator"]
+                 self._hyperparameters = dict(state["hyperparameters"])
+
+             def is_fitted(self) -> bool:
+                 return getattr(self, "_estimator", None) is not None
+
+   .. tab-item:: Block
+
+      ``BlockPredictor`` (alias ``StructuredPredictor``) reads side-specific
+      or named featurizer blocks from ``batch.cell_line_blocks`` /
+      ``batch.drug_blocks``. Use this when views must stay separate instead of
+      being flattened. Declare ``required_cell_line_blocks`` /
+      ``required_drug_blocks`` when the stack must supply named views.
+
+      .. code-block:: python
+
+         from typing import ClassVar
+
+         from sklearn.linear_model import Ridge
+
+         from drevalpy.components.model_input_batch import ModelInputBatch
+         from drevalpy.components.predictors.structured import BlockPredictor
+         from drevalpy.components.registry import register_predictor
+
+
+         @register_predictor(
+             "toyBlockRidge",
+             description="Ridge on a named expression block plus drug features.",
+         )
+         class ToyBlockRidgePredictor(BlockPredictor):
+             required_cell_line_blocks: ClassVar[tuple[str, ...]] = ("expression",)
+
+             def fit(self, batch: ModelInputBatch) -> None:
+                 if batch.response is None:
+                     raise ValueError("response required")
+                 x = batch.cell_line_blocks["expression"].values[batch.cell_line_pair_idx]
+                 if batch.drug_features is not None and batch.drug_pair_idx is not None:
+                     x = np.hstack([x, batch.drug_features[batch.drug_pair_idx]])
+                 y = np.asarray(batch.response, dtype=np.float64)
+                 self._estimator = Ridge(alpha=1.0)
+                 self._estimator.fit(x, y)
+
+             def predict(self, batch: ModelInputBatch) -> np.ndarray:
+                 x = batch.cell_line_blocks["expression"].values[batch.cell_line_pair_idx]
+                 if batch.drug_features is not None and batch.drug_pair_idx is not None:
+                     x = np.hstack([x, batch.drug_features[batch.drug_pair_idx]])
+                 return np.asarray(self._estimator.predict(x), dtype=np.float64)
+
+             def get_state(self) -> dict[str, object]:
+                 return {"estimator": getattr(self, "_estimator", None)}
+
+             def set_state(self, state: dict[str, object]) -> None:
+                 self._estimator = state["estimator"]
+
+             def is_fitted(self) -> bool:
+                 return getattr(self, "_estimator", None) is not None
+
+Feature-free predictors need only a predictor token in ``construct_model``.
+Matrix and block predictors pair with featurizers in a three-slot recipe (see
+below).
+
+Discovery and literature references
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Use ``list_*_metadata()`` (and the generated :doc:`/concepts/component_catalog`)
+to inspect registered components. Optional ``tags`` (for example ``baseline``)
+are discovery filters only and never change validation.
+
+``LiteratureReference`` is optional **provenance metadata** for components
+ported from a paper or external repository. Pass it as ``reference=...`` on
+the register decorator. It does **not** change training, composition checks,
+or checkpoints — it only documents where the idea came from and how the
+DrEvalPy port differs from the upstream code. When you set a reference, all
+of these fields are required and validated:
+
+- ``repo_url`` — upstream implementation (``http://`` or ``https://``)
+- ``citation_text`` and/or ``citation_doi`` — how to cite the method
+- ``deviations`` — intentional differences from the reference (preprocessing,
+  packaging, defaults, missing pieces, …)
+
+.. code-block:: python
+
+   from drevalpy.types import LiteratureReference
+
+   TOY_RIDGE_REFERENCE = LiteratureReference(
+       repo_url="https://github.com/example/toy-ridge",
+       citation_doi="10.1234/example",
+       citation_text="Example ridge baseline for documentation.",
+       deviations=(
+           "Uses sklearn Ridge on flattened features; "
+           "hyperparameter defaults differ from the upstream script."
+       ),
+   )
+
 
    @register_predictor(
-       "toyPredictor",
-       description="Predict the training mean response.",
+       "toyRidge",
+       description="Ridge on concatenated dense features.",
+       reference=TOY_RIDGE_REFERENCE,
    )
-   class ToyPredictor(FeatureFreePredictor):
-       def fit(self, batch: ModelInputBatch) -> None:
-           if batch.response is None:
-               msg = "response required"
-               raise ValueError(msg)
-           self._mean = float(np.mean(batch.response))
+   class ToyRidgePredictor(MatrixPredictor):
+       ...
 
-       def predict(self, batch: ModelInputBatch) -> np.ndarray:
-           return np.full(batch.n_pairs, self._mean, dtype=np.float64)
+Built-in literature models (DIPK, SparseGO, …) attach references the same way;
+see their entries in the component catalog.
 
-       def get_state(self) -> dict[str, object]:
-           return {"mean": self._mean} if hasattr(self, "_mean") else {}
+Composing models from custom components
+---------------------------------------
 
-       def set_state(self, state: dict[str, object]) -> None:
-           if "mean" in state:
-               self._mean = float(state["mean"])
+Once components are registered, compose them exactly as on :doc:`models`: a
+recipe string, zoo YAML, or ``ModelConfig``, then ``construct_model``.
 
-       def is_fitted(self) -> bool:
-           return hasattr(self, "_mean")
-
-Registration decorators attach metadata (name, description, optional
-``tags``, optional ``LiteratureReference``, and role-specific
-``FeatureFormat`` contracts) to the class. Fitted components must implement
-``get_state`` / ``set_state`` so ``*.zip`` checkpoints round-trip.
-
-Every predictor must inherit exactly one input interface:
-
-- ``FeatureFreePredictor`` — response/identifiers only; no featurizers
-- ``MatrixPredictor`` — one numeric pair-level design matrix
-- ``BlockPredictor`` — side-specific or named featurizer blocks
-
-Neural encoders remain private implementation details inside predictors.
-For larger predictors, use a predictor-owned package: keep the registered
-class and lifecycle orchestration in ``predictor.py`` and place model-specific
-networks, datasets, and training helpers in small sibling modules. Shared
-predictor-root helpers should be behavior-neutral; lifecycle adapters and
-string-based implementation resolvers obscure ownership and are unsupported.
-
-**2. External zoo YAML** (``my_zoo/toy.yaml``):
-
-.. code-block:: yaml
-
-   toyMean:
-     predictor: toyPredictor
-
-**3. Load extensions and construct the model**:
+Load external packages (and optional zoo files) with ``load_extensions``
+before constructing:
 
 .. code-block:: python
 
    from drevalpy.components import load_extensions
    from drevalpy.models import construct_model
-   from drevalpy.models.config import ModelConfig
 
    load_extensions(
        directories=["my_components"],
        zoo_files=["my_zoo/toy.yaml"],
    )
 
-   # Feature-free predictors: predictor-only specs
-   ToyMean = construct_model("ToyMean", "toyPredictor")
-
-   # Feature-based models still use the three-slot recipe
-   # ToyRF = construct_model("ToyRF", "toyCellLine:identity:randomForest")
-
-   model = ToyMean()
-
-Discovery and literature references
------------------------------------
-
-Use ``list_*_metadata()`` to inspect registered components. Optional
-``tags`` (for example ``baseline``) are discovery filters only and never
-change validation. Literature ports attach a ``LiteratureReference`` with
-repository URL, citation, and deviations:
+Feature-free predictors need only a predictor token. Feature-based stacks
+use the usual three-slot recipe (or the equivalent YAML / ``ModelConfig``):
 
 .. code-block:: python
 
-   from drevalpy.types import LiteratureReference
+   # Feature-free: predictor-only spec
+   ToyMean = construct_model("ToyMean", "toyMean")
+   model = ToyMean()
 
-   reference = LiteratureReference(
-       repo_url="https://github.com/example/repo",
-       citation_doi="10.1234/example",
-       deviations="Modular port; encoders remain inside the predictor.",
+   # Matrix: custom featurizer + built-in drug side + matrix predictor
+   ToyRidge = construct_model(
+       "ToyRidge",
+       "toyCellLine:fingerprints:toyRidge",
    )
+
+   # Block: named views that the predictor requires (e.g. expression)
+   ToyBlock = construct_model(
+       "ToyBlock",
+       "raw[expression]:fingerprints:toyBlockRidge",
+   )
+
+Optional zoo YAML for a named preset (this is **not** experiment hpam YAML):
+
+.. code-block:: yaml
+
+   toyMean:
+     predictor: toyMean
+
+   toyRidge:
+     cell_line_featurizer: toyCellLine
+     drug_featurizer: fingerprints
+     predictor: toyRidge
+
+After ``load_extensions(..., zoo_files=[...])``, ``construct_model("toyMean")``
+resolves the preset like any built-in zoo name. Run the resulting class
+through :doc:`experiments` the same way as ElasticNet or RandomForest.
+
+Saving and loading with custom components
+-----------------------------------------
+
+Checkpoints store the resolved ``ModelConfig`` (component **names**) and fitted
+state — not the Python classes themselves. On load, DrEvalPy looks those names
+up in the registries again, then restores state. If a custom featurizer or
+predictor is not registered in the process that calls ``load`` /
+``load_model``, reconstruction fails.
+
+Before loading, import your component modules or call ``load_extensions`` the
+same way you did before training:
+
+.. code-block:: python
+
+   from drevalpy.components import load_extensions
+   from drevalpy.models import load_model
+
+   load_extensions(directories=["my_components"])
+   model = load_model("checkpoints/toy_ridge")
+
+The same rule applies to ``ModelClass.load(path)``: the class must resolve
+against currently registered components. Built-in zoo models need no extra
+step; only custom (or external-zoo) names require this setup. See :doc:`models`
+for the general save/load lifecycle.
