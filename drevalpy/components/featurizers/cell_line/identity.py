@@ -7,7 +7,7 @@ from typing import ClassVar
 import numpy as np
 
 from drevalpy.components.contracts import FeatureFormat
-from drevalpy.components.feature_block import FeatureBlock, metadata_feature_block, numeric_feature_block
+from drevalpy.components.feature_block import BlockSpec, FeatureBlock, metadata_feature_block, numeric_feature_block
 from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
 from drevalpy.components.featurizers._one_hot import OneHotCategoryEncoder
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
@@ -24,6 +24,7 @@ class CellLineIdentityFeaturizer(CellLineFeaturizer):
     """Encode cell-line IDs as dense one-hot vectors."""
 
     entity_id_only: ClassVar[bool] = True
+    output_block_specs: ClassVar[tuple[BlockSpec, ...]] = (BlockSpec("identity", FeatureFormat.NUMERIC_MATRIX),)
 
     def __init__(self) -> None:
         """Initialize instance state."""

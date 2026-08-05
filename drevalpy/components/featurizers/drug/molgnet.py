@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import ClassVar
 
 import numpy as np
 import pandas as pd
 
 from drevalpy.components.contracts import FeatureFormat
-from drevalpy.components.feature_block import FeatureBlock, ragged_feature_block
+from drevalpy.components.feature_block import BlockSpec, FeatureBlock, ragged_feature_block
 from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
 from drevalpy.components.featurizers.drug.base import DrugFeaturizer
 from drevalpy.components.registry import register_drug_featurizer
@@ -22,6 +23,10 @@ from drevalpy.datasets.dataset import FeatureDataset
 )
 class MolGNetDrugFeaturizer(DrugFeaturizer):
     """Expose variable-size MolGNet tensors without stacking into one dense matrix."""
+
+    output_block_specs: ClassVar[tuple[BlockSpec, ...]] = (
+        BlockSpec("molgnet_features", FeatureFormat.RAGGED_SEQUENCE),
+    )
 
     def __init__(self, *, view: str = "molgnet_features") -> None:
         """Store the MolGNet view name and initialize empty caches.

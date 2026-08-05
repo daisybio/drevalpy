@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, ClassVar
 
 import numpy as np
 
@@ -21,6 +21,8 @@ from drevalpy.components.registry import register_cell_line_featurizer
 )
 class PCACellLineFeaturizer(CellLineFeaturizer):
     """Reduce one cell-line view with PCA."""
+
+    requires_view: ClassVar[bool] = True
 
     def __init__(self, *, view: str, n_components: int = 128) -> None:
         """Initialize instance state.

@@ -8,7 +8,6 @@ import drevalpy.models.config as model_config
 
 def test_public_exports_are_importable() -> None:
     expected = {
-        "ensure_components_registered",
         "register_builtin_components",
         "register_cell_line_featurizer",
         "register_drug_featurizer",

@@ -159,12 +159,12 @@ def test_component_catalog_is_registry_driven_and_synchronized() -> None:
         "cell_line": {
             row["name"]: (row["output_format"], " ".join(row["description"].split()))
             for row in list_cell_line_featurizer_metadata()
-            if row["name"] in rb._CELL_LINE_MODULES
+            if row["name"] in rb.BUILTIN_CELL_LINE_FEATURIZER_NAMES
         },
         "drug": {
             row["name"]: (row["output_format"], " ".join(row["description"].split()))
             for row in list_drug_featurizer_metadata()
-            if row["name"] in rb._DRUG_MODULES
+            if row["name"] in rb.BUILTIN_DRUG_FEATURIZER_NAMES
         },
     }
     expected_predictors = {
@@ -173,7 +173,7 @@ def test_component_catalog_is_registry_driven_and_synchronized() -> None:
             " ".join(row["description"].split()),
         )
         for row in list_predictor_metadata()
-        if row["name"] in rb._PREDICTOR_MODULES
+        if row["name"] in rb.BUILTIN_PREDICTOR_NAMES
     }
     for registry_name, expected in expected_featurizers.items():
         matches = re.findall(
@@ -190,9 +190,9 @@ def test_component_catalog_is_registry_driven_and_synchronized() -> None:
         flags=re.MULTILINE,
     )
     observed_predictors = {name: (interface, description) for name, interface, description in predictor_matches}
-    assert len(expected_featurizers["cell_line"]) == len(rb._CELL_LINE_MODULES) == 17
-    assert len(expected_featurizers["drug"]) == len(rb._DRUG_MODULES) == 9
-    assert len(expected_predictors) == len(rb._PREDICTOR_MODULES) == 27
+    assert len(expected_featurizers["cell_line"]) == len(rb.BUILTIN_CELL_LINE_FEATURIZER_NAMES) == 17
+    assert len(expected_featurizers["drug"]) == len(rb.BUILTIN_DRUG_FEATURIZER_NAMES) == 9
+    assert len(expected_predictors) == len(rb.BUILTIN_PREDICTOR_NAMES) == 27
     assert observed_predictors == expected_predictors
 
 

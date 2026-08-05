@@ -1,4 +1,4 @@
-"""Config-driven feature loading for component-based models."""
+"""Feature loaders for component-based models."""
 
 from __future__ import annotations
 

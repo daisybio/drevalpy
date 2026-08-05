@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 from drevalpy.components.contracts import FeatureFormat
+from drevalpy.components.feature_block import BlockSpec
 from drevalpy.components.featurizers.drug.view import ViewDrugFeaturizer
 from drevalpy.components.registry import register_drug_featurizer
 
@@ -14,6 +17,8 @@ from drevalpy.components.registry import register_drug_featurizer
 )
 class FingerprintsFeaturizer(ViewDrugFeaturizer):
     """Alias for the standard fingerprints view."""
+
+    output_block_specs: ClassVar[tuple[BlockSpec, ...]] = (BlockSpec("fingerprints", FeatureFormat.NUMERIC_MATRIX),)
 
     def __init__(self, *, view: str = "fingerprints") -> None:
         """Initialize instance state.

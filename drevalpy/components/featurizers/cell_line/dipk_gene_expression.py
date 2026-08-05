@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, ClassVar
 
 import numpy as np
 
 from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.data_loading.multiomics import load_and_select_gene_features
-from drevalpy.components.feature_block import FeatureBlock, numeric_feature_block
+from drevalpy.components.feature_block import BlockSpec, FeatureBlock, numeric_feature_block
 from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
 from drevalpy.components.featurizers._matrix import stack_view_matrix
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
@@ -29,6 +29,8 @@ from drevalpy.datasets.dataset import FeatureDataset
 )
 class DIPKGeneExpressionFeaturizer(CellLineFeaturizer):
     """Encode intersection genes into the 512-dimensional DIPK representation."""
+
+    output_block_specs: ClassVar[tuple[BlockSpec, ...]] = (BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),)
 
     def __init__(self, *, epochs_autoencoder: int = 100) -> None:
         """Store the autoencoder training epoch budget.

@@ -394,10 +394,10 @@ def test_unknown_builtin_predictor_raises_value_error() -> None:
         with pytest.raises(ValueError, match="Unknown Predictor"):
             get_predictor("notRegisteredAnywhere")
     finally:
-        from drevalpy.components.register_builtins import ensure_components_registered
+        from drevalpy.components.register_builtins import register_builtin_components
 
         predictor_registry.clear()
-        ensure_components_registered()
+        register_builtin_components()
 
 
 def test_unknown_builtin_featurizer_raises_value_error() -> None:
@@ -406,7 +406,7 @@ def test_unknown_builtin_featurizer_raises_value_error() -> None:
         with pytest.raises(ValueError, match="Unknown Cell line featurizer"):
             get_cell_line_featurizer("notRegisteredAnywhere")
     finally:
-        from drevalpy.components.register_builtins import ensure_components_registered
+        from drevalpy.components.register_builtins import register_builtin_components
 
         cell_line_featurizer_registry.clear()
-        ensure_components_registered()
+        register_builtin_components()

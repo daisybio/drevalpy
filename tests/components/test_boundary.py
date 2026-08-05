@@ -21,9 +21,9 @@ def test_native_component_registration_does_not_import_literature_models() -> No
         assert "precily" not in names
     finally:
         predictor_registry.clear()
-        from drevalpy.components.register_builtins import ensure_components_registered
+        from drevalpy.components.register_builtins import register_builtin_components
 
-        ensure_components_registered()
+        register_builtin_components()
 
 
 def test_component_featurizers_import_from_features_not_models_utils() -> None:

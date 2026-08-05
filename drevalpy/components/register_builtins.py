@@ -84,6 +84,10 @@ _PREDICTOR_MODULES = {
     "sparsego": "drevalpy.components.predictors.literature.sparsego.predictor",
 }
 
+BUILTIN_CELL_LINE_FEATURIZER_NAMES = frozenset(_CELL_LINE_MODULES)
+BUILTIN_DRUG_FEATURIZER_NAMES = frozenset(_DRUG_MODULES)
+BUILTIN_PREDICTOR_NAMES = frozenset(_PREDICTOR_MODULES)
+
 
 def _restore_registry_from_module(registry, module: ModuleType) -> None:
     for value in vars(module).values():
@@ -205,8 +209,3 @@ def register_builtin_components() -> None:
     register_native_components()
     register_optional_components()
     register_literature_components()
-
-
-def ensure_components_registered() -> None:
-    """Compatibility helper that registers every built-in component."""
-    register_builtin_components()

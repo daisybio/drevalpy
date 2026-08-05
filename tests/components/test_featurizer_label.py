@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from drevalpy.components.featurizer_label import (
-    featurizer_block_label,
     featurizer_config_block_label,
     qualified_featurizer_selector,
     requires_explicit_view,
@@ -17,7 +16,7 @@ def test_qualified_selector_uses_view_brackets() -> None:
 
 
 def test_block_labels_match_qualified_selectors() -> None:
-    assert featurizer_block_label("pca", "proteomics") == "pca[proteomics]"
+    assert featurizer_config_block_label("pca", "proteomics") == "pca[proteomics]"
     assert featurizer_config_block_label("fingerprints", None) == "fingerprints"
 
 

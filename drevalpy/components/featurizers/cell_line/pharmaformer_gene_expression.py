@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.data_loading.multiomics import load_and_select_gene_features
-from drevalpy.components.feature_block import FeatureBlock, numeric_feature_block
+from drevalpy.components.feature_block import BlockSpec, FeatureBlock, numeric_feature_block
 from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
 from drevalpy.components.featurizers._matrix import feature_names_for_view, stack_view_matrix
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
@@ -22,6 +24,8 @@ from drevalpy.datasets.dataset import FeatureDataset
 )
 class PharmaFormerGeneExpressionFeaturizer(CellLineFeaturizer):
     """Apply the PharmaFormer StandardScaler then MinMaxScaler sequence."""
+
+    output_block_specs: ClassVar[tuple[BlockSpec, ...]] = (BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),)
 
     def __init__(self) -> None:
         """Initialize StandardScaler and MinMaxScaler pipelines."""

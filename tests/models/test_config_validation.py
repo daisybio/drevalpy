@@ -220,6 +220,12 @@ def test_block_schema_reports_missing_named_block() -> None:
         validate_model_config(config)
 
 
+def test_builtin_featurizer_declares_output_block_specs() -> None:
+    from drevalpy.components.featurizers.drug.fingerprints import FingerprintsFeaturizer
+
+    assert FingerprintsFeaturizer.output_block_specs == (BlockSpec("fingerprints", FeatureFormat.NUMERIC_MATRIX),)
+
+
 def test_feature_free_predictor_without_featurizers_passes() -> None:
     @register_predictor(
         "naiveMean",

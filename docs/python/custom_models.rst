@@ -324,8 +324,10 @@ exported from ``drevalpy.components``):
 - :func:`~drevalpy.components.list_drug_featurizer_metadata`
 - :func:`~drevalpy.components.list_predictor_metadata`
 
-Each returns a list of dicts with name, description, contracts, tags, and any
-attached ``LiteratureReference``. Pass ``tag=...`` to keep only matching
+Each returns a list of dicts with name, description, tags, literature reference
+fields (for example ``repo_url``, ``citation``, ``citation_doi``), and either
+``output_format`` (featurizers) or ``input_interface`` (predictors). Pass
+``tag=...`` to keep only matching
 entries (for example ``tag="baseline"``). Tags are discovery filters only and
 never change validation. The generated
 :doc:`/concepts/component_catalog` is built from the same metadata.

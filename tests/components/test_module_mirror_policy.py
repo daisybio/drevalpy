@@ -15,7 +15,7 @@ REQUIRED_MIRRORS = (
     "components/tuning/public_flat.py",
     "components/tuning/compatibility_keys.py",
     "components/register_builtins.py",
-    "components/data_loading/model_config.py",
+    "components/data_loading/feature_loaders.py",
     "components/data_loading/multiomics.py",
     "components/data_loading/views.py",
     "components/pair_features.py",

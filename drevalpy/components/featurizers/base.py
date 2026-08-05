@@ -24,6 +24,8 @@ class Featurizer(ABC):
     """
 
     contract: ClassVar[FeatureContract]
+    requires_view: ClassVar[bool] = False
+    requires_view: ClassVar[bool] = False
 
     def __init_subclass__(cls, **kwargs: object) -> None:
         """Reject class-body ``contract`` assignments; registration sets it later.

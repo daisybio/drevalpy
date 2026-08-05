@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, ClassVar
 
 import numpy as np
 
 from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.data_loading.multiomics import get_multiomics_feature_dataset
-from drevalpy.components.feature_block import FeatureBlock, numeric_feature_block
+from drevalpy.components.feature_block import BlockSpec, FeatureBlock, numeric_feature_block
 from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
 from drevalpy.components.featurizers._matrix import stack_view_matrix
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
@@ -26,6 +26,12 @@ _VIEWS = ("gene_expression", "mutations", "copy_number_variation_gistic")
 )
 class SuperFELTROmicsFeaturizer(CellLineFeaturizer):
     """Select high-variance features independently in each SuperFELTR view."""
+
+    output_block_specs: ClassVar[tuple[BlockSpec, ...]] = (
+        BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),
+        BlockSpec("mutations", FeatureFormat.NUMERIC_MATRIX),
+        BlockSpec("copy_number_variation_gistic", FeatureFormat.NUMERIC_MATRIX),
+    )
 
     def __init__(self, *, n_features_per_view: int = 1000) -> None:
         """Store per-view variance-selection feature count and initialize selectors.

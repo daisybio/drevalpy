@@ -12,7 +12,7 @@ from drevalpy.components.extensions import (
     load_extensions,
 )
 from drevalpy.components.model_id import format_model_id, parse_model_id
-from drevalpy.components.register_builtins import ensure_components_registered, register_builtin_components
+from drevalpy.components.register_builtins import register_builtin_components
 from drevalpy.components.registry import (
     get_cell_line_featurizer,
     get_drug_featurizer,
@@ -29,7 +29,6 @@ from drevalpy.components.registry import (
 )
 
 __all__ = [
-    "ensure_components_registered",
     "format_model_id",
     "get_cell_line_featurizer",
     "get_drug_featurizer",

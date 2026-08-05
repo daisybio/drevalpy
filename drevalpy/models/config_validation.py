@@ -52,7 +52,7 @@ def _predictor_contracts(cls: type[Any]):
 
 
 def _is_feature_free(pred_cls: type[Any]) -> bool:
-    return issubclass(pred_cls, FeatureFreePredictor)
+    return pred_cls.input_interface == "feature_free"
 
 
 def _allows_no_featurizers(pred_cls: type[Any]) -> bool:
@@ -144,7 +144,7 @@ def _validate_featurizer_views(config: ModelConfig) -> None:
 
 
 def _validate_matrix_formats(config: ModelConfig, pred_cls: type[Any]) -> None:
-    if not issubclass(pred_cls, MatrixPredictor):
+    if pred_cls.input_interface != "matrix":
         return
     if config.cell_line_featurizer is not None:
         cell_cls = get_cell_line_featurizer(config.cell_line_featurizer.name)
@@ -189,29 +189,6 @@ def _validate_featurizer_contracts(config: ModelConfig, pred_cls: type[Any]) -> 
     _validate_matrix_formats(config, pred_cls)
 
 
-_KNOWN_BLOCK_SPECS: dict[str, tuple[BlockSpec, ...]] = {
-    "bionic": (BlockSpec("bionic_features", FeatureFormat.NUMERIC_MATRIX),),
-    "bpePharmaformer": (BlockSpec("bpe_smiles", FeatureFormat.NUMERIC_MATRIX),),
-    "dipkGeneExpression": (BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),),
-    "drugGraph": (BlockSpec("drug_graph", FeatureFormat.GRAPH),),
-    "fingerprints": (BlockSpec("fingerprints", FeatureFormat.NUMERIC_MATRIX),),
-    "landmarkGenesReduced": (BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),),
-    "molgnet": (BlockSpec("molgnet_features", FeatureFormat.RAGGED_SEQUENCE),),
-    "molirOmics": (
-        BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),
-        BlockSpec("mutations", FeatureFormat.NUMERIC_MATRIX),
-        BlockSpec("copy_number_variation_gistic", FeatureFormat.NUMERIC_MATRIX),
-    ),
-    "pharmaFormerGeneExpression": (BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),),
-    "superfeltrOmics": (
-        BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),
-        BlockSpec("mutations", FeatureFormat.NUMERIC_MATRIX),
-        BlockSpec("copy_number_variation_gistic", FeatureFormat.NUMERIC_MATRIX),
-    ),
-    "identity": (BlockSpec("identity", FeatureFormat.NUMERIC_MATRIX),),
-}
-
-
 def _concat_child_block_specs(config: FeaturizerConfig) -> tuple[BlockSpec, ...]:
     from drevalpy.models.config import FeaturizerConfig as FeaturizerConfigModel
 
@@ -247,9 +224,6 @@ def _block_specs_for_featurizer(config: FeaturizerConfig) -> tuple[BlockSpec, ..
         input_type = str(config.hyperparameters.get("input_type", "expression"))
         name = "mutations" if input_type == "mutations" else "gene_expression"
         return (BlockSpec(name, FeatureFormat.NUMERIC_MATRIX, metadata=True),)
-    known = _KNOWN_BLOCK_SPECS.get(config.name)
-    if known is not None:
-        return known
     return _declared_or_view_block_specs(config)
 
 
@@ -272,7 +246,7 @@ def _validate_required_block_specs(
 
 
 def _validate_block_schema(config: ModelConfig, pred_cls: type[Any]) -> None:
-    if not issubclass(pred_cls, BlockPredictor):
+    if pred_cls.input_interface != "block":
         return
     for side, featurizer in (
         ("cell_line", config.cell_line_featurizer),

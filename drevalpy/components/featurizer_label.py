@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from drevalpy.components.view_aliases import format_view_alias
 
-_VIEW_PARAMETRIC_FEATURIZERS = frozenset({"raw", "pca"})
-
 
 def qualified_featurizer_selector(name: str, view: str | None = None) -> str:
     """Return the canonical selector for a featurizer leaf.
@@ -20,16 +18,6 @@ def qualified_featurizer_selector(name: str, view: str | None = None) -> str:
     if view is not None:
         return f"{name}[{format_view_alias(view)}]"
     return name
-
-
-def featurizer_block_label(name: str, view: str | None = None) -> str:
-    """Return a stable block label for concat outputs and saved state.
-
-    :param name: name.
-    :param view: view.
-    :returns: Result.
-    """
-    return qualified_featurizer_selector(name, view)
 
 
 def featurizer_config_block_label(name: str, view: str | None) -> str:
@@ -48,4 +36,10 @@ def requires_explicit_view(name: str) -> bool:
     :param name: name.
     :returns: Result.
     """
-    return name in _VIEW_PARAMETRIC_FEATURIZERS
+    from drevalpy.components.registry import get_cell_line_featurizer
+
+    try:
+        cls = get_cell_line_featurizer(name)
+    except (ValueError, ImportError):
+        return False
+    return bool(getattr(cls, "requires_view", False))

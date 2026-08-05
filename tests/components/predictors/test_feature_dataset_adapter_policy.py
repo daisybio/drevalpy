@@ -34,8 +34,6 @@ def test_adapter_subclasses_live_under_literature() -> None:
     for path in PACKAGE_ROOT.rglob("*.py"):
         if path.name in ALLOWED_BASE_MODULES and path.parent == PREDICTORS_ROOT:
             continue
-        if path.resolve() == (PREDICTORS_ROOT / "literature" / "single_drug_block.py").resolve():
-            continue
         tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in tree.body:
             if not isinstance(node, ast.ClassDef):

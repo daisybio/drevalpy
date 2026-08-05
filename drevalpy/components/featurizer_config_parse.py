@@ -11,7 +11,6 @@ from drevalpy.components.view_aliases import resolve_omics_view
 _RESERVED_FEATURIZER_KEYS = frozenset({"name", "hyperparameters", "registry", "view", "views", "hyperparameter_space"})
 _CONCAT_FEATURIZER_NAME = "concatFeaturizers"
 _BRACKET_ATOM_RE = re.compile(r"^([^[\]]+)\[([^\]]+)\]$")
-_VIEW_PARAMETRIC_FEATURIZERS = frozenset({"raw", "pca"})
 
 
 def _split_concat_recipe(token: str) -> list[str]:
@@ -58,7 +57,7 @@ def _parse_bracket_atom_name(name_token: str, *, default_registry: str) -> tuple
         return name_token.strip(), None
     name, view_token = match.groups()
     name = name.strip()
-    if name not in _VIEW_PARAMETRIC_FEATURIZERS:
+    if not requires_explicit_view(name):
         msg = f"Bracket syntax is only supported for raw and pca, got {name!r}"
         raise ValueError(msg)
     if default_registry != "cell_line":
@@ -101,7 +100,7 @@ def _assemble_featurizer_dict(
 
 
 def _require_view_for_parametric(name: str, view: str | None) -> None:
-    if view is None and name in _VIEW_PARAMETRIC_FEATURIZERS:
+    if view is None and requires_explicit_view(name):
         msg = f"Featurizer {name!r} requires an explicit view, e.g. {name}[expression]"
         raise ValueError(msg)
 

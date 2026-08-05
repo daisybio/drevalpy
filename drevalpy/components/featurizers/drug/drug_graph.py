@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import ClassVar
 
 import numpy as np
 
 from drevalpy.components.contracts import FeatureFormat
-from drevalpy.components.feature_block import FeatureBlock, graph_feature_block
+from drevalpy.components.feature_block import BlockSpec, FeatureBlock, graph_feature_block
 from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
 from drevalpy.components.featurizers.drug.base import DrugFeaturizer
 from drevalpy.components.registry import register_drug_featurizer
@@ -22,6 +23,8 @@ from drevalpy.utils.torch_io import load_trusted_payload
 )
 class DrugGraphFeaturizer(DrugFeaturizer):
     """Expose precomputed drug graphs for graph predictors."""
+
+    output_block_specs: ClassVar[tuple[BlockSpec, ...]] = (BlockSpec("drug_graph", FeatureFormat.GRAPH),)
 
     def __init__(self, *, view: str = "drug_graph") -> None:
         """Store the graph view name and initialize empty caches.

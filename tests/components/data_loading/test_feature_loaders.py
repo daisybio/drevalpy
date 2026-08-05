@@ -1,4 +1,4 @@
-"""Tests for config-driven feature loading helpers."""
+"""Tests for drevalpy.components.data_loading.feature_loaders."""
 
 from __future__ import annotations
 

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 import numpy as np
 
 from drevalpy.components.contracts import FeatureFormat
@@ -19,6 +21,8 @@ from drevalpy.components.registry import register_cell_line_featurizer
 )
 class RawCellLineFeaturizer(CellLineFeaturizer):
     """Featurize one omics view as a dense matrix without transformation."""
+
+    requires_view: ClassVar[bool] = True
 
     def __init__(self, *, view: str) -> None:
         """Initialize instance state.

@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import ClassVar
 
 import numpy as np
 import pandas as pd
 
 from drevalpy.components.contracts import FeatureFormat
+from drevalpy.components.feature_block import BlockSpec
 from drevalpy.components.featurizers.drug.view import ViewDrugFeaturizer
 from drevalpy.components.registry import register_drug_featurizer
 from drevalpy.datasets.dataset import FeatureDataset
@@ -32,6 +34,8 @@ _BPE_PHARMAFORMER_REFERENCE = LiteratureReference(
 )
 class BpePharmaformerDrugFeaturizer(ViewDrugFeaturizer):
     """BPE PharmaFormer drug featurizer component."""
+
+    output_block_specs: ClassVar[tuple[BlockSpec, ...]] = (BlockSpec("bpe_smiles", FeatureFormat.NUMERIC_MATRIX),)
 
     def __init__(self, *, view: str = "bpe_smiles") -> None:
         """Initialize instance state.

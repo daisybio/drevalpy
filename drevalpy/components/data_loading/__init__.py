@@ -1,6 +1,6 @@
 """Load raw feature tables for component-based models."""
 
-from drevalpy.components.data_loading.model_config import (
+from drevalpy.components.data_loading.feature_loaders import (
     load_cell_line_features_for_model_config,
     load_cell_line_id_features,
     load_drug_features_for_model_config,
