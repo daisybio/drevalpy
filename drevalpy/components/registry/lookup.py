@@ -275,7 +275,7 @@ def get_predictor_metadata(name: str) -> dict[str, Any]:
 
     :param name: Registry name of the predictor.
 
-    :returns: Metadata dict including contracts and supported modes.
+    :returns: Metadata dict including input interface, tags, and literature fields.
     """
     get_predictor(name)
     return predictor_registry.get_metadata(name)
