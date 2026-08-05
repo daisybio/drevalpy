@@ -6,7 +6,7 @@ from collections.abc import Callable, Iterable
 from typing import Any
 
 from drevalpy.components.contracts import FeatureContract, FeatureFormat
-from drevalpy.components.registry._discovery import ensure_builtins_for_discovery
+from drevalpy.components.register_builtins import register_builtin_components
 from drevalpy.components.registry.predictor_registry import predictor_registry
 from drevalpy.types.literature_reference import LiteratureReference
 
@@ -75,7 +75,7 @@ def list_predictors() -> list[str]:
 
     :returns: Registry names after ensuring built-in components are loaded.
     """
-    ensure_builtins_for_discovery()
+    register_builtin_components()
     return predictor_registry.list_names()
 
 
@@ -97,5 +97,5 @@ def list_predictor_metadata(*, tag: str | None = None) -> list[dict[str, Any]]:
 
     :returns: List of metadata dicts.
     """
-    ensure_builtins_for_discovery()
+    register_builtin_components()
     return predictor_registry.list_metadata(tag=tag)

@@ -6,7 +6,7 @@ from collections.abc import Callable, Iterable
 from typing import Any
 
 from drevalpy.components.contracts import FeatureContract, FeatureFormat
-from drevalpy.components.registry._discovery import ensure_builtins_for_discovery
+from drevalpy.components.register_builtins import register_builtin_components
 from drevalpy.components.registry.featurizer_registry import (
     cell_line_featurizer_registry,
     drug_featurizer_registry,
@@ -75,7 +75,7 @@ def list_cell_line_featurizers() -> list[str]:
 
     :returns: Registry names after ensuring built-in components are loaded.
     """
-    ensure_builtins_for_discovery()
+    register_builtin_components()
     return cell_line_featurizer_registry.list_names()
 
 
@@ -97,7 +97,7 @@ def list_cell_line_featurizer_metadata(*, tag: str | None = None) -> list[dict[s
 
     :returns: List of metadata dicts.
     """
-    ensure_builtins_for_discovery()
+    register_builtin_components()
     return cell_line_featurizer_registry.list_metadata(tag=tag)
 
 
@@ -162,7 +162,7 @@ def list_drug_featurizers() -> list[str]:
 
     :returns: Registry names after ensuring built-in components are loaded.
     """
-    ensure_builtins_for_discovery()
+    register_builtin_components()
     return drug_featurizer_registry.list_names()
 
 
@@ -184,5 +184,5 @@ def list_drug_featurizer_metadata(*, tag: str | None = None) -> list[dict[str, A
 
     :returns: List of metadata dicts.
     """
-    ensure_builtins_for_discovery()
+    register_builtin_components()
     return drug_featurizer_registry.list_metadata(tag=tag)
