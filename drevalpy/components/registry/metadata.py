@@ -30,21 +30,6 @@ def _reference_fields(cls: type[Any]) -> dict[str, str]:
     }
 
 
-def _predictor_input_interface(cls: type[Any]) -> str:
-    # Local imports avoid circular dependencies during package import.
-    from drevalpy.components.predictors.block import BlockPredictor
-    from drevalpy.components.predictors.feature_free import FeatureFreePredictor
-    from drevalpy.components.predictors.matrix import MatrixPredictor
-
-    if issubclass(cls, FeatureFreePredictor):
-        return "feature_free"
-    if issubclass(cls, MatrixPredictor):
-        return "matrix"
-    if issubclass(cls, BlockPredictor):
-        return "block"
-    return ""
-
-
 def base_component_metadata(registry_name: str, name: str, cls: type[Any]) -> dict[str, Any]:
     """Return shared discovery fields for a registered component.
 
@@ -86,5 +71,5 @@ def predictor_component_metadata(registry_name: str, name: str, cls: type[Any]) 
     :returns: Catalog metadata dict.
     """
     meta = base_component_metadata(registry_name, name, cls)
-    meta["input_interface"] = _predictor_input_interface(cls)
+    meta["input_interface"] = getattr(cls, "input_interface", "")
     return meta

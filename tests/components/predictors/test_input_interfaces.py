@@ -43,6 +43,7 @@ EXPECTED = {
         "superfeltr",
     },
 }
+LEAF_BASES = (FeatureFreePredictor, MatrixPredictor, BlockPredictor)
 
 
 @pytest.fixture(autouse=True)
@@ -50,16 +51,10 @@ def _register() -> None:
     register_builtin_components()
 
 
-def _interface_name(cls: type) -> str:
-    matches = []
-    if issubclass(cls, FeatureFreePredictor):
-        matches.append("feature_free")
-    if issubclass(cls, MatrixPredictor):
-        matches.append("matrix")
-    if issubclass(cls, BlockPredictor):
-        matches.append("block")
-    assert len(matches) == 1, (cls, matches)
-    return matches[0]
+def test_interface_bases_declare_input_interface() -> None:
+    assert FeatureFreePredictor.input_interface == "feature_free"
+    assert MatrixPredictor.input_interface == "matrix"
+    assert BlockPredictor.input_interface == "block"
 
 
 def test_builtin_predictor_interfaces_partition() -> None:
@@ -69,5 +64,9 @@ def test_builtin_predictor_interfaces_partition() -> None:
         "block": set(),
     }
     for name in list_predictors():
-        observed[_interface_name(get_predictor(name))].add(name)
+        cls = get_predictor(name)
+        matches = [base for base in LEAF_BASES if issubclass(cls, base)]
+        assert len(matches) == 1, (name, matches)
+        assert cls.input_interface == matches[0].input_interface
+        observed[cls.input_interface].add(name)
     assert observed == EXPECTED

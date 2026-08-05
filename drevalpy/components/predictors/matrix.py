@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from abc import abstractmethod
+from typing import ClassVar
 
 import numpy as np
 
@@ -13,6 +14,8 @@ from drevalpy.components.predictors.base import Predictor
 
 class MatrixPredictor(Predictor):
     """Predictor that flattens ``ModelInputBatch`` into one design matrix."""
+
+    input_interface: ClassVar[str] = "matrix"
 
     def fit(self, batch: ModelInputBatch) -> None:
         """Fit on a dense pair-level design matrix built from *batch*.
