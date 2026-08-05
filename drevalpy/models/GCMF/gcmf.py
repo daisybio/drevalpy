@@ -1346,6 +1346,7 @@ class RGCMF(GCMF):
         :param table_path: path to the (pubchem_id, drug_name, feature) table
         :param drug_ids: ordered drug ids to build the similarity over
         :returns: dense (n_drugs, n_drugs) Jaccard similarity matrix
+        :raises ValueError: if the table carries no feature column besides the join key
         """
         table = pd.read_csv(table_path)
         key = self._relation_key(table, table_path)
