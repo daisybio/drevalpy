@@ -29,7 +29,7 @@ from drevalpy.models.config import (
     PredictionMode,
     PredictorConfig,
 )
-from drevalpy.models.config_validation import validate_model_config
+from drevalpy.models.config.validation import validate_model_config
 
 
 @pytest.fixture(autouse=True)

@@ -1,4 +1,4 @@
-"""Tests for internal ModelConfig models."""
+"""Tests for drevalpy.models.config.model."""
 
 from drevalpy.models.config import (
     CellLineFeaturizerConfig,

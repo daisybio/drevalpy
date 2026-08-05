@@ -8,7 +8,7 @@ from typing import Any
 import yaml
 
 from drevalpy.models.config import ModelConfig
-from drevalpy.models.config_io import model_config_from_dict
+from drevalpy.models.config.io import model_config_from_dict
 
 
 def _load_zoo_yaml_mapping(path: Path) -> dict[str, Any]:

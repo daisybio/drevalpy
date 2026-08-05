@@ -1,4 +1,4 @@
-"""Tests for drevalpy.models.config_io."""
+"""Tests for drevalpy.models.config.io."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from drevalpy.models.config_io import (
+from drevalpy.models.config.io import (
     model_config_from_dict,
     model_config_from_spec,
     model_config_from_yaml,

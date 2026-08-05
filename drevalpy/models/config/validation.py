@@ -21,7 +21,8 @@ from drevalpy.components.registry import (
 )
 
 if TYPE_CHECKING:
-    from drevalpy.models.config import FeaturizerConfig, ModelConfig
+    from drevalpy.models.config.featurizer import FeaturizerConfig
+    from drevalpy.models.config.model import ModelConfig
 
 
 def _validate_view_fields(featurizer: FeaturizerConfig, *, label: str) -> None:
@@ -60,7 +61,7 @@ def _allows_no_featurizers(pred_cls: type[Any]) -> bool:
 
 
 def _validate_scope(config: ModelConfig, pred_cls: type[Any]) -> None:
-    from drevalpy.models.config import ModelScope
+    from drevalpy.types.model_scope import ModelScope
 
     supported_scopes = getattr(pred_cls, "supported_scopes", None)
     if supported_scopes is not None and config.scope not in supported_scopes:
@@ -190,7 +191,7 @@ def _validate_featurizer_contracts(config: ModelConfig, pred_cls: type[Any]) -> 
 
 
 def _concat_child_block_specs(config: FeaturizerConfig) -> tuple[BlockSpec, ...]:
-    from drevalpy.models.config import FeaturizerConfig as FeaturizerConfigModel
+    from drevalpy.models.config.featurizer import FeaturizerConfig as FeaturizerConfigModel
 
     specs: list[BlockSpec] = []
     for child in config.hyperparameters.get("featurizers", []):

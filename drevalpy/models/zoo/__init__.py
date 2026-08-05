@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from drevalpy.models.config import ModelConfig
-from drevalpy.models.config_io import model_config_from_yaml
+from drevalpy.models.config.io import model_config_from_yaml
 from drevalpy.models.zoo._external_load import (
     _collect_zoo_entries_from_yaml,
     _load_zoo_yaml_mapping,

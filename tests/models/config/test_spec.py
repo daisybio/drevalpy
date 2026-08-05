@@ -1,4 +1,4 @@
-"""Tests for drevalpy.models.model_config_spec."""
+"""Tests for drevalpy.models.config.spec."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ import pytest
 from drevalpy.components.extensions import load_extensions
 from drevalpy.components.register_builtins import register_builtin_components
 from drevalpy.models.config import ModelConfig
-from drevalpy.models.model_config_spec import build_model_config_from_spec
+from drevalpy.models.config.spec import build_model_config_from_spec
 
 
 @pytest.fixture(autouse=True)

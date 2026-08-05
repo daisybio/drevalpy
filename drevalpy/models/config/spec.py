@@ -7,14 +7,11 @@ from typing import Any
 from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
 from drevalpy.components.model_id import parse_model_id
 from drevalpy.components.predictors.feature_free import FeatureFreePredictor
-from drevalpy.models.config import (
-    CellLineFeaturizerConfig,
-    DrugFeaturizerConfig,
-    ModelConfig,
-    ModelScope,
-    PredictionMode,
-    PredictorConfig,
-)
+from drevalpy.models.config.featurizer import CellLineFeaturizerConfig, DrugFeaturizerConfig
+from drevalpy.models.config.model import ModelConfig
+from drevalpy.models.config.predictor import PredictorConfig
+from drevalpy.types.model_scope import ModelScope
+from drevalpy.types.prediction_mode import PredictionMode
 
 
 def _coerce_prediction_mode(mode: PredictionMode | str) -> PredictionMode:
