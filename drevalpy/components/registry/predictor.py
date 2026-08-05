@@ -7,7 +7,7 @@ from typing import Any
 
 from drevalpy.components.contracts import FeatureContract, FeatureFormat, normalize_feature_contract
 from drevalpy.components.registry._metadata_validate import (
-    format_validation_error,
+    _format_validation_error,
     validate_shared_registration_metadata,
 )
 from drevalpy.components.registry.base import Registry, apply_shared_registration_metadata
@@ -86,7 +86,7 @@ class PredictorRegistry(Registry):
         if "drug_contract" not in cls.__dict__:
             missing.append("drug_contract")
         if missing:
-            raise ValueError(format_validation_error(self._registry_id, name, missing=missing, invalid=[]))
+            raise ValueError(_format_validation_error(self._registry_id, name, missing=missing, invalid=[]))
 
     def _component_metadata(self, name: str, cls: type[Any]) -> dict[str, Any]:
         return predictor_component_metadata(self._display_name, name, cls)

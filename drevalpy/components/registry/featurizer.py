@@ -7,7 +7,7 @@ from typing import Any
 
 from drevalpy.components.contracts import FeatureContract, FeatureFormat, normalize_feature_contract
 from drevalpy.components.registry._metadata_validate import (
-    format_validation_error,
+    _format_validation_error,
     validate_shared_registration_metadata,
 )
 from drevalpy.components.registry.base import Registry, apply_shared_registration_metadata
@@ -67,7 +67,7 @@ class FeaturizerRegistry(Registry):
     def _validate_role(self, cls: type[Any], name: str) -> None:
         if "contract" in cls.__dict__:
             return
-        raise ValueError(format_validation_error(self._registry_id, name, missing=["contract"], invalid=[]))
+        raise ValueError(_format_validation_error(self._registry_id, name, missing=["contract"], invalid=[]))
 
     def _component_metadata(self, name: str, cls: type[Any]) -> dict[str, Any]:
         return featurizer_component_metadata(self._display_name, name, cls)

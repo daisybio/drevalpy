@@ -98,11 +98,7 @@ class Registry(ABC):
         return [row for row in rows if needle in row.get("tags", frozenset())]
 
     def clear(self) -> None:
-        """Remove all entries.
-
-        Intended for tests and controlled re-registration of built-ins, not as a
-        user-facing API.
-        """
+        """Remove all entries (primarily for testing)."""
         with self._lock:
             self._store.clear()
 

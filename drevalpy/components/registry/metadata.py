@@ -19,12 +19,10 @@ def _contract_to_str(contract: FeatureContract | FeatureFormat | str | None) -> 
 
 
 def _normalize_tags(tags: object) -> frozenset[str]:
-    if not tags:
-        return frozenset()
-    if isinstance(tags, (frozenset, set, list, tuple)):
-        return frozenset(str(tag) for tag in tags)
-    msg = f"tags must be a collection of strings, got {type(tags).__name__}"
-    raise TypeError(msg)
+    if not isinstance(tags, frozenset):
+        msg = f"tags must be frozenset[str], got {type(tags).__name__}"
+        raise TypeError(msg)
+    return tags
 
 
 def _reference_fields(cls: type[Any]) -> dict[str, str]:

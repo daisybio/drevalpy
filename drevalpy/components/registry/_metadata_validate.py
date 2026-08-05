@@ -28,16 +28,19 @@ def validate_literature_reference(reference: LiteratureReference) -> list[str]:
 
 
 def _has_invalid_tags(tags: object) -> bool:
-    """Return whether ``tags`` is not a collection of non-empty strings.
+    """Return ``True`` if ``tags`` fails the registration invariant.
 
-    :param tags: Tag collection stored on a registered class.
-    :returns: ``True`` when *tags* is the wrong type or contains blank entries.
+    Valid tags are a ``frozenset`` of non-empty strings (use an empty
+    ``frozenset`` when there are no tags). Anything else is invalid.
+
+    :param tags: Candidate tag collection from a registered class.
+    :returns: ``True`` when *tags* is not a valid ``frozenset`` of non-empty strings.
     """
-    if tags is None:
-        return False
-    if not isinstance(tags, (frozenset, set, list, tuple)):
+    is_frozenset = isinstance(tags, frozenset)
+    if not is_frozenset:
         return True
-    return any(not isinstance(tag, str) or not tag.strip() for tag in tags)
+    all_nonempty_strings = all(isinstance(tag, str) and tag.strip() for tag in tags)
+    return not all_nonempty_strings
 
 
 def _missing_shared_fields(cls: type[Any]) -> list[str]:
@@ -46,10 +49,11 @@ def _missing_shared_fields(cls: type[Any]) -> list[str]:
     :param cls: Registered component class.
     :returns: Names of required metadata fields that are absent or empty.
     """
+    required = ("description",)
     missing: list[str] = []
-    description = str(getattr(cls, "description", "") or "").strip()
-    if not description:
-        missing.append("description")
+    for field in required:
+        if not str(getattr(cls, field, "") or "").strip():
+            missing.append(field)
     return missing
 
 
@@ -73,7 +77,7 @@ def _invalid_shared_fields(cls: type[Any]) -> list[str]:
     return invalid
 
 
-def format_validation_error(
+def _format_validation_error(
     registry_id: str,
     name: str,
     *,
@@ -114,4 +118,4 @@ def validate_shared_registration_metadata(
     missing = _missing_shared_fields(cls)
     invalid = _invalid_shared_fields(cls)
     if missing or invalid:
-        raise ValueError(format_validation_error(registry_id, name, missing=missing, invalid=invalid))
+        raise ValueError(_format_validation_error(registry_id, name, missing=missing, invalid=invalid))
