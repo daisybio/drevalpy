@@ -371,16 +371,14 @@ def run_train_final_model(
     :param best_hpam_combi: best hpam combi.
     """
     from drevalpy.experiment import (
-        generate_data_saving_path,
+        generate_final_model_checkpoint_path,
         get_model_name_and_drug_id,
     )
     from drevalpy.models._model_lookup import get_model_class
     from drevalpy.utils import get_response_transformation
 
     resolved_name, _drug_id = get_model_name_and_drug_id(model_name)
-    final_model_path = generate_data_saving_path(
-        model_name=resolved_name, drug_id=_drug_id, result_path="", suffix="final_model"
-    )
+    final_model_path = generate_final_model_checkpoint_path(model_name=resolved_name, drug_id=_drug_id, result_path="")
     response_transform = get_response_transformation(response_transformation)
     train_dataset = load_trusted_pickle(train_data)
     validation_dataset = load_trusted_pickle(val_data)

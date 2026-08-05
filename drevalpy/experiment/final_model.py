@@ -85,7 +85,7 @@ def train_final_model_impl(
     :param path_data: Root directory for feature tables.
     :param model_checkpoint_dir: Directory for intermediate checkpoints.
     :param metric: Metric optimized during optional hyperparameter tuning.
-    :param final_model_path: Directory where the final model is saved.
+    :param final_model_path: Archive path stem for the final model (``.zip`` appended on save).
     :param test_mode: Split mode for the internal train/validation holdout.
     :param val_ratio: Validation fraction for the holdout split.
     :param hyperparameter_tuning: Whether to tune hyperparameters before training.

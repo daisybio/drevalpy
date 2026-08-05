@@ -22,6 +22,7 @@ from .cross_study import cross_study_prediction_impl
 from .final_model import train_final_model_impl
 from .fold import make_train_val_split_impl
 from .model_paths import generate_data_saving_path as _generate_data_saving_path
+from .model_paths import generate_final_model_checkpoint_path as _generate_final_model_checkpoint_path
 from .model_paths import get_model_name_and_drug_id as _get_model_name_and_drug_id
 from .model_paths import make_model_list as _make_model_list
 from .randomization import build_randomization_test_views as _build_randomization_test_views
@@ -49,6 +50,7 @@ __all__ = [
     "cross_study_prediction",
     "drug_response_experiment",
     "generate_data_saving_path",
+    "generate_final_model_checkpoint_path",
     "get_datasets_from_cv_split",
     "get_model_name_and_drug_id",
     "get_randomization_test_views",
@@ -597,7 +599,7 @@ def get_model_name_and_drug_id(model_name: str) -> tuple[str, str | None]:
 
 @pipeline_function
 def generate_data_saving_path(model_name, drug_id, result_path, suffix) -> str:
-    """Return an output directory for predictions, HPO, or final models.
+    """Return an output directory for predictions, HPO, and similar artifacts.
 
     :param model_name: Base model name.
     :param drug_id: Drug identifier for single-drug models.
@@ -607,6 +609,18 @@ def generate_data_saving_path(model_name, drug_id, result_path, suffix) -> str:
     :returns: Created output directory path.
     """
     return _generate_data_saving_path(model_name, drug_id, result_path, suffix)
+
+
+@pipeline_function
+def generate_final_model_checkpoint_path(model_name, drug_id, result_path) -> str:
+    """Return archive path stem for a final production model checkpoint.
+
+    :param model_name: Base model name.
+    :param drug_id: Drug identifier for single-drug models.
+    :param result_path: Experiment result root directory.
+    :returns: Checkpoint path stem; ``save_model`` appends ``.zip`` when missing.
+    """
+    return _generate_final_model_checkpoint_path(model_name, drug_id, result_path)
 
 
 def train_final_model(
@@ -633,7 +647,7 @@ def train_final_model(
     :param path_data: Root directory for feature tables.
     :param model_checkpoint_dir: Directory for intermediate checkpoints.
     :param metric: Metric optimized during optional hyperparameter tuning.
-    :param final_model_path: Directory where the final model is saved.
+    :param final_model_path: Archive path stem for the final model (``.zip`` appended on save).
     :param test_mode: Split mode for the internal train/validation holdout.
     :param val_ratio: Validation fraction for the holdout split.
     :param hyperparameter_tuning: Whether to tune hyperparameters before training.

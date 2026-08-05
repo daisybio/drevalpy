@@ -29,6 +29,7 @@ from .hpo import (
 )
 from .model_paths import (
     generate_data_saving_path,
+    generate_final_model_checkpoint_path,
     get_model_name_and_drug_id,
     make_model_list,
 )
@@ -343,11 +344,10 @@ def _run_model_final_production(
 ) -> None:
     if not final_model_on_full_data or model_class in baselines:
         return
-    final_model_path = generate_data_saving_path(
+    final_model_path = generate_final_model_checkpoint_path(
         model_name=model_name,
         drug_id=drug_id,
         result_path=result_path,
-        suffix="final_model",
     )
     train_final_model_impl(
         model_class=model_class,

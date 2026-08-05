@@ -55,7 +55,7 @@ def get_model_name_and_drug_id(model_name: str) -> tuple[str, str | None]:
 
 
 def generate_data_saving_path(model_name, drug_id, result_path, suffix) -> str:
-    """Return output directory for predictions, hpams, final models, etc.
+    """Return output directory for predictions, hpams, and similar artifacts.
 
     :param model_name: Base model name.
     :param drug_id: Drug identifier for single-drug models.
@@ -70,3 +70,23 @@ def generate_data_saving_path(model_name, drug_id, result_path, suffix) -> str:
         model_path = os.path.join(result_path, model_name, suffix)
     os.makedirs(model_path, exist_ok=True)
     return model_path
+
+
+def generate_final_model_checkpoint_path(model_name, drug_id, result_path) -> str:
+    """Return archive path stem for a final production model checkpoint.
+
+    Creates the model (and optional drug) parent directory only. ``save_model``
+    appends ``.zip`` when missing, so this must not create a directory at the
+    returned path itself.
+
+    :param model_name: Base model name.
+    :param drug_id: Drug identifier for single-drug models.
+    :param result_path: Experiment result root directory.
+    :returns: Checkpoint path stem (for example ``.../ElasticNet/final_model``).
+    """
+    if is_single_drug_model_name(model_name):
+        parent = os.path.join(result_path, model_name, "drugs", drug_id)
+    else:
+        parent = os.path.join(result_path, model_name)
+    os.makedirs(parent, exist_ok=True)
+    return os.path.join(parent, "final_model")
