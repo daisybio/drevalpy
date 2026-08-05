@@ -6,11 +6,11 @@ import importlib
 import inspect
 from types import ModuleType
 
-from drevalpy.components.registry.featurizer import (
+from drevalpy.components.registry.featurizer_registry import (
     cell_line_featurizer_registry,
     drug_featurizer_registry,
 )
-from drevalpy.components.registry.predictor import predictor_registry
+from drevalpy.components.registry.predictor_registry import predictor_registry
 
 _CELL_LINE_MODULES = {
     "scaledGeneExpression": "drevalpy.components.featurizers.cell_line.scaled_gene_expression",

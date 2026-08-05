@@ -23,8 +23,8 @@ from drevalpy.components.registry import (
     list_cell_line_featurizers,
     list_predictors,
 )
-from drevalpy.components.registry.featurizer import cell_line_featurizer_registry
-from drevalpy.components.registry.predictor import predictor_registry
+from drevalpy.components.registry.featurizer_registry import cell_line_featurizer_registry
+from drevalpy.components.registry.predictor_registry import predictor_registry
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models import construct_model
 from drevalpy.models.config import ModelConfig

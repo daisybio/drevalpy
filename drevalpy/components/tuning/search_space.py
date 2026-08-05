@@ -8,7 +8,7 @@ from typing import Any, TypeVar
 
 from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
 from drevalpy.components.featurizer_label import qualified_featurizer_selector
-from drevalpy.components.registry import lookup as reg
+from drevalpy.components.registry import get_cell_line_featurizer, get_drug_featurizer, get_predictor
 from drevalpy.models.config import FeaturizerConfig, ModelConfig, PredictorConfig
 
 _FeaturizerConfigT = TypeVar("_FeaturizerConfigT", bound=FeaturizerConfig)
@@ -112,9 +112,9 @@ def _featurizer_spaces(featurizer: FeaturizerConfig) -> dict[str, Any]:
         return merged
 
     cls = (
-        reg.get_cell_line_featurizer(featurizer.name)
+        get_cell_line_featurizer(featurizer.name)
         if registry == "cell_line"
-        else reg.get_drug_featurizer(
+        else get_drug_featurizer(
             featurizer.name,
         )
     )
@@ -124,7 +124,7 @@ def _featurizer_spaces(featurizer: FeaturizerConfig) -> dict[str, Any]:
 
 
 def _predictor_spaces(predictor: PredictorConfig) -> dict[str, Any]:
-    cls = reg.get_predictor(predictor.name)
+    cls = get_predictor(predictor.name)
     space = _effective_space(predictor.hyperparameter_space, cls)
     return {_predictor_prefix(predictor.name, key): value for key, value in space.items()}
 

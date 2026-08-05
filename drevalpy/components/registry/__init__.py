@@ -1,25 +1,27 @@
 """Component registries for cell-line featurizers, drug featurizers, and predictors."""
 
 from drevalpy.components.registry.base import Registry
-from drevalpy.components.registry.featurizer import FeaturizerRegistry
-from drevalpy.components.registry.lookup import (
+from drevalpy.components.registry.featurizer_registration import (
     get_cell_line_featurizer,
     get_cell_line_featurizer_metadata,
     get_drug_featurizer,
     get_drug_featurizer_metadata,
-    get_predictor,
-    get_predictor_metadata,
     list_cell_line_featurizer_metadata,
     list_cell_line_featurizers,
     list_drug_featurizer_metadata,
     list_drug_featurizers,
-    list_predictor_metadata,
-    list_predictors,
     register_cell_line_featurizer,
     register_drug_featurizer,
+)
+from drevalpy.components.registry.featurizer_registry import FeaturizerRegistry
+from drevalpy.components.registry.predictor_registration import (
+    get_predictor,
+    get_predictor_metadata,
+    list_predictor_metadata,
+    list_predictors,
     register_predictor,
 )
-from drevalpy.components.registry.predictor import PredictorRegistry
+from drevalpy.components.registry.predictor_registry import PredictorRegistry
 
 __all__ = [
     "FeaturizerRegistry",

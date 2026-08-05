@@ -10,8 +10,8 @@ from drevalpy.components.registry._registration_metadata import (
     apply_registration_metadata,
     normalize_registration_metadata,
 )
-from drevalpy.components.registry.featurizer import FeaturizerRegistry
-from drevalpy.components.registry.predictor import PredictorRegistry
+from drevalpy.components.registry.featurizer_registry import FeaturizerRegistry
+from drevalpy.components.registry.predictor_registry import PredictorRegistry
 from drevalpy.types.literature_reference import LiteratureReference
 from tests._trusted_subprocess import run_trusted_python
 

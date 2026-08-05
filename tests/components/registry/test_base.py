@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from drevalpy.components.registry.base import Registry
-from drevalpy.components.registry.featurizer import FeaturizerRegistry
-from drevalpy.components.registry.predictor import PredictorRegistry
+from drevalpy.components.registry.featurizer_registry import FeaturizerRegistry
+from drevalpy.components.registry.predictor_registry import PredictorRegistry
 
 
 def test_required_fields_are_explicit_per_registry() -> None:

@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 def test_native_component_registration_does_not_import_literature_models() -> None:
-    from drevalpy.components.registry.predictor import predictor_registry
+    from drevalpy.components.registry.predictor_registry import predictor_registry
 
     predictor_registry.clear()
     try:

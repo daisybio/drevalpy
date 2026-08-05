@@ -1,10 +1,10 @@
-"""Tests for predictor registry type and singleton."""
+"""Tests for PredictorRegistry type and singleton."""
 
 from __future__ import annotations
 
 from drevalpy.components.contracts import FeatureContract, FeatureFormat
 from drevalpy.components.predictors.feature_free import FeatureFreePredictor
-from drevalpy.components.registry.predictor import PredictorRegistry, predictor_registry
+from drevalpy.components.registry.predictor_registry import PredictorRegistry, predictor_registry
 
 
 def test_predictor_registry_uses_fixed_identity() -> None:

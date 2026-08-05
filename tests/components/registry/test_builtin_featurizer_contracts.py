@@ -14,7 +14,7 @@ from drevalpy.components.registry import (
     list_cell_line_featurizers,
     list_drug_featurizers,
 )
-from drevalpy.components.registry.featurizer import (
+from drevalpy.components.registry.featurizer_registry import (
     cell_line_featurizer_registry,
     drug_featurizer_registry,
 )

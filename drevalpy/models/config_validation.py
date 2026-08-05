@@ -14,7 +14,11 @@ from drevalpy.components.feature_block import BlockSpec
 from drevalpy.components.predictors.block import BlockPredictor
 from drevalpy.components.predictors.feature_free import FeatureFreePredictor
 from drevalpy.components.predictors.matrix import MatrixPredictor
-from drevalpy.components.registry import lookup as _registry_lookup
+from drevalpy.components.registry import (
+    get_cell_line_featurizer,
+    get_drug_featurizer,
+    get_predictor,
+)
 
 if TYPE_CHECKING:
     from drevalpy.models.config import FeaturizerConfig, ModelConfig
@@ -143,7 +147,7 @@ def _validate_matrix_formats(config: ModelConfig, pred_cls: type[Any]) -> None:
     if not issubclass(pred_cls, MatrixPredictor):
         return
     if config.cell_line_featurizer is not None:
-        cell_cls = _registry_lookup.get_cell_line_featurizer(config.cell_line_featurizer.name)
+        cell_cls = get_cell_line_featurizer(config.cell_line_featurizer.name)
         cell_contract = _featurizer_contract(cell_cls)
         if cell_contract.format != FeatureFormat.NUMERIC_MATRIX:
             msg = (
@@ -152,7 +156,7 @@ def _validate_matrix_formats(config: ModelConfig, pred_cls: type[Any]) -> None:
             )
             raise ValueError(msg)
     if config.drug_featurizer is not None:
-        drug_cls = _registry_lookup.get_drug_featurizer(config.drug_featurizer.name)
+        drug_cls = get_drug_featurizer(config.drug_featurizer.name)
         drug_contract = _featurizer_contract(drug_cls)
         if drug_contract.format != FeatureFormat.NUMERIC_MATRIX:
             msg = (
@@ -165,7 +169,7 @@ def _validate_matrix_formats(config: ModelConfig, pred_cls: type[Any]) -> None:
 def _validate_featurizer_contracts(config: ModelConfig, pred_cls: type[Any]) -> None:
     required_cell_line, required_drug = _predictor_contracts(pred_cls)
     if config.cell_line_featurizer is not None:
-        cell_line_cls = _registry_lookup.get_cell_line_featurizer(config.cell_line_featurizer.name)
+        cell_line_cls = get_cell_line_featurizer(config.cell_line_featurizer.name)
         cell_line_contract = _featurizer_contract(cell_line_cls)
         if not contracts_compatible(cell_line_contract, required_cell_line):
             msg = (
@@ -174,7 +178,7 @@ def _validate_featurizer_contracts(config: ModelConfig, pred_cls: type[Any]) -> 
             )
             raise ValueError(msg)
     if config.drug_featurizer is not None:
-        drug_cls = _registry_lookup.get_drug_featurizer(config.drug_featurizer.name)
+        drug_cls = get_drug_featurizer(config.drug_featurizer.name)
         drug_contract = _featurizer_contract(drug_cls)
         if not contracts_compatible(drug_contract, required_drug):
             msg = (
@@ -221,11 +225,7 @@ def _concat_child_block_specs(config: FeaturizerConfig) -> tuple[BlockSpec, ...]
 
 
 def _declared_or_view_block_specs(config: FeaturizerConfig) -> tuple[BlockSpec, ...]:
-    cls = (
-        _registry_lookup.get_cell_line_featurizer(config.name)
-        if config.registry == "cell_line"
-        else _registry_lookup.get_drug_featurizer(config.name)
-    )
+    cls = get_cell_line_featurizer(config.name) if config.registry == "cell_line" else get_drug_featurizer(config.name)
     declared = getattr(cls, "output_block_specs", ())
     if declared:
         return tuple(spec for spec in declared if isinstance(spec, BlockSpec))
@@ -314,7 +314,7 @@ def validate_model_config(config: ModelConfig) -> None:
 
     :param config: Model configuration to validate.
     """
-    pred_cls = _registry_lookup.get_predictor(config.predictor.name)
+    pred_cls = get_predictor(config.predictor.name)
     _validate_leaf_interface(pred_cls, config.predictor.name)
     _validate_scope(config, pred_cls)
     if _validate_no_featurizer_predictor(config, pred_cls):

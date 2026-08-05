@@ -127,12 +127,12 @@ class FeaturizerConfig(BaseModel):
 
         :returns: Featurizer instance for this config.
         """
-        from drevalpy.components.registry import lookup as reg
+        from drevalpy.components.registry import get_cell_line_featurizer, get_drug_featurizer
 
         if self.registry == "cell_line":
-            cls = reg.get_cell_line_featurizer(self.name)
+            cls = get_cell_line_featurizer(self.name)
         else:
-            cls = reg.get_drug_featurizer(self.name)
+            cls = get_drug_featurizer(self.name)
         hp = dict(self.hyperparameters)
         if self.view is not None:
             hp.setdefault("view", self.view)
@@ -201,9 +201,9 @@ class PredictorConfig(BaseModel):
 
         :returns: Predictor instance for this config.
         """
-        from drevalpy.components.registry import lookup as reg
+        from drevalpy.components.registry import get_predictor
 
-        cls = reg.get_predictor(self.name)
+        cls = get_predictor(self.name)
         return cls(hyperparameters=dict(self.hyperparameters))
 
 

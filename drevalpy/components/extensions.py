@@ -24,11 +24,11 @@ import importlib.util
 import sys
 from pathlib import Path
 
-from drevalpy.components.registry.featurizer import (
+from drevalpy.components.registry.featurizer_registry import (
     cell_line_featurizer_registry,
     drug_featurizer_registry,
 )
-from drevalpy.components.registry.predictor import predictor_registry
+from drevalpy.components.registry.predictor_registry import predictor_registry
 
 
 def _extension_module_name(file_path: Path) -> str:
