@@ -1084,8 +1084,8 @@ class RGCMF(GCMF):
     * ``mutations`` - Jaccard over binary mutation profiles,
     * ``copy_number_variation_gistic`` - Kendall's tau (rescaled to [0, 1]).
 
-    **Drug relations** are biologically-informed graphs mapped onto this dataset's drugs by
-    drug name:
+    **Drug relations** are biologically-informed graphs joined onto this dataset's drugs on
+    ``pubchem_id``:
 
     * ``drug_pathways`` - Jaccard over the KEGG/Reactome pathways the drug's targets belong to
       (broad mechanism-of-action similarity),
@@ -1127,7 +1127,7 @@ class RGCMF(GCMF):
     # drug-relation resources live under <data_path>/meta/<_DRUG_SIM_DIR>/ (downloaded with the
     # dataset's meta bundle); a configured relation whose resource is absent raises an error.
     _DRUG_SIM_DIR = "gcmf_drug_relations"
-    # how each drug relation is built: "matrix" = precomputed name-indexed similarity CSV;
+    # how each drug relation is built: "matrix" = precomputed pubchem-indexed similarity CSV;
     # "targets" = per-drug (drug_name, feature) long table -> feature-set Jaccard at load time
     _DRUG_RELATION_KIND = {
         "drug_pathways": "targets",  # drugs sharing KEGG/Reactome pathways (via their targets)
@@ -1169,14 +1169,24 @@ class RGCMF(GCMF):
         self.drug_relation_views = drv if isinstance(drv, list) else [drv]
 
     @staticmethod
-    def _norm_name(name: Any) -> str:
+    def _relation_key(table: pd.DataFrame, path: str) -> pd.Series:
         """
-        Normalize a drug name for matching across datasets (case/spacing/hyphen-insensitive).
+        Return the ``pubchem_id`` join key of a drug-relation table.
 
-        :param name: raw drug name
-        :returns: the normalized drug name
+        Relations are joined on ``pubchem_id``, the same identifier the datasets use for drugs,
+        so no drug-name matching is involved.
+
+        :param table: the loaded relation table
+        :param path: path the table was read from (for the error message)
+        :returns: the ``pubchem_id`` column as string
+        :raises ValueError: if the table has no ``pubchem_id`` column
         """
-        return str(name).strip().lower().replace("-", "").replace(" ", "").replace("_", "")
+        if DRUG_IDENTIFIER not in table.columns:
+            raise ValueError(
+                f"drug-relation table {path} has no '{DRUG_IDENTIFIER}' column. Relations are joined on "
+                f"{DRUG_IDENTIFIER}; re-download the meta bundle to get the current tables."
+            )
+        return table[DRUG_IDENTIFIER].astype(str)
 
     @classmethod
     def _drug_resource_path(cls, view: str, data_path: str) -> str | None:
@@ -1279,11 +1289,12 @@ class RGCMF(GCMF):
         """
         Load fingerprint node features and build each drug-relation graph for this dataset.
 
-        Each relation resource lives under ``data/meta/gcmf_drug_relations/`` and is mapped
-        to this dataset's drugs by drug name. ``matrix`` relations are precomputed name-indexed
-        similarity matrices; ``targets`` relations are a (drug_name, target_gene) table from
-        which a drug-target Jaccard graph is computed over this dataset's drugs. Unmatched drugs
-        are left isolated; a missing resource raises an error.
+        Each relation resource lives under ``data/meta/gcmf_drug_relations/`` and is joined to
+        this dataset's drugs on ``pubchem_id``. ``matrix`` relations are precomputed
+        pubchem-indexed similarity matrices; ``targets`` relations are a
+        (pubchem_id, drug_name, feature) table from which a Jaccard graph is computed over this
+        dataset's drugs. Drugs absent from a relation are left isolated; a missing resource
+        raises an error.
 
         :param data_path: path to the data directory
         :param dataset_name: dataset name, e.g. CTRPv2
@@ -1292,12 +1303,6 @@ class RGCMF(GCMF):
         """
         node_fd = super().load_drug_features(data_path, dataset_name)
         drug_ids = node_fd.identifiers
-        names = pd.read_csv(os.path.join(data_path, dataset_name, "drug_names.csv"))
-        name_to_pid: dict[str, str] = {}
-        pid_to_name: dict[str, str] = {}
-        for pid, name in zip(names[DRUG_IDENTIFIER], names["drug_name"]):
-            name_to_pid.setdefault(self._norm_name(name), str(pid))
-            pid_to_name[str(pid)] = name
         self._drug_sims = {}
         for view in self.drug_relation_views:
             csv_path = self._drug_resource_path(view, data_path)
@@ -1309,9 +1314,9 @@ class RGCMF(GCMF):
                     f"the relations you have."
                 )
             if self._DRUG_RELATION_KIND.get(view, "matrix") == "targets":
-                sim = self._build_target_jaccard(csv_path, drug_ids, pid_to_name)
+                sim = self._build_target_jaccard(csv_path, drug_ids)
             else:
-                sim = self._map_named_similarity(csv_path, name_to_pid, drug_ids)
+                sim = self._map_indexed_similarity(csv_path, drug_ids)
             off = sim.copy()
             np.fill_diagonal(off, 0.0)
             covered = int((off.sum(axis=1) > 0).sum())
@@ -1319,24 +1324,29 @@ class RGCMF(GCMF):
             self._drug_sims[view] = (np.asarray(drug_ids), sim)
         return node_fd
 
-    def _build_target_jaccard(self, table_path: str, drug_ids: np.ndarray, pid_to_name: dict[str, str]) -> np.ndarray:
+    def _build_target_jaccard(self, table_path: str, drug_ids: np.ndarray) -> np.ndarray:
         """
-        Build a drug feature-set Jaccard similarity over ``drug_ids`` from a 2-column table.
+        Build a drug feature-set Jaccard similarity over ``drug_ids`` from a relation table.
 
-        The first column is the drug name, the second a set-membership feature (target gene for
-        ``drug_targets``, pathway for ``drug_pathways``). Drugs sharing more features are more
-        similar; drugs with no features are isolated.
+        The table is keyed by ``pubchem_id`` and carries one set-membership feature per row
+        (pathway for ``drug_pathways``, assay id for ``drug_bioassay``, target gene for
+        ``drug_targets``). Drugs sharing more features are more similar; drugs with no features
+        are isolated.
 
-        :param table_path: path to the 2-column (drug name, feature) table
+        :param table_path: path to the (pubchem_id, drug_name, feature) table
         :param drug_ids: ordered drug ids to build the similarity over
-        :param pid_to_name: mapping from drug id to drug name
         :returns: dense (n_drugs, n_drugs) Jaccard similarity matrix
         """
         table = pd.read_csv(table_path)
-        name_to_targets: dict[str, set] = {}
-        for drug_name, target in zip(table.iloc[:, 0], table.iloc[:, 1]):
-            name_to_targets.setdefault(self._norm_name(drug_name), set()).add(str(target))
-        target_sets = [name_to_targets.get(self._norm_name(pid_to_name.get(str(d), "")), set()) for d in drug_ids]
+        key = self._relation_key(table, table_path)
+        # the feature is whichever column is neither the join key nor the human-readable name
+        feature_cols = [c for c in table.columns if c not in (DRUG_IDENTIFIER, "drug_name")]
+        if not feature_cols:
+            raise ValueError(f"drug-relation table {table_path} has no feature column besides {DRUG_IDENTIFIER}")
+        pid_to_targets: dict[str, set] = {}
+        for pid, target in zip(key, table[feature_cols[0]]):
+            pid_to_targets.setdefault(pid, set()).add(str(target))
+        target_sets = [pid_to_targets.get(str(d), set()) for d in drug_ids]
         targets = sorted({t for s in target_sets for t in s})
         t_index = {t: i for i, t in enumerate(targets)}
         binary = np.zeros((len(drug_ids), len(targets)), dtype=np.float64)
@@ -1346,27 +1356,22 @@ class RGCMF(GCMF):
         return _similarity_matrix(binary, "jaccard")
 
     @staticmethod
-    def _map_named_similarity(csv_path: str, name_to_pid: dict[str, str], drug_ids: np.ndarray) -> np.ndarray:
+    def _map_indexed_similarity(csv_path: str, drug_ids: np.ndarray) -> np.ndarray:
         """
-        Reindex a drug-name indexed similarity CSV onto ``drug_ids`` (pubchem), zero-filling misses.
+        Reindex a pubchem-indexed similarity CSV onto ``drug_ids``, zero-filling misses.
 
-        :param csv_path: path to the drug-name indexed similarity CSV
-        :param name_to_pid: mapping from normalized drug name to drug id
+        :param csv_path: path to the similarity CSV, indexed by ``pubchem_id`` on both axes
         :param drug_ids: ordered drug ids to reindex onto
         :returns: dense (n_drugs, n_drugs) similarity matrix in ``drug_ids`` order
         """
         df = pd.read_csv(csv_path, index_col=0)
-        name_to_idx = {name: i for i, name in enumerate(df.index)}
+        df.index = df.index.astype(str)
         src_vals = df.to_numpy(dtype=np.float64)
         pos = {str(d): i for i, d in enumerate(drug_ids)}
         n = len(drug_ids)
         sim = np.zeros((n, n), dtype=np.float64)
-        # rows/cols of the source matrix that map to a drug in this dataset
-        mapped = [
-            (name_to_idx[name], pos[name_to_pid[RGCMF._norm_name(name)]])
-            for name in df.index
-            if RGCMF._norm_name(name) in name_to_pid and name_to_pid[RGCMF._norm_name(name)] in pos
-        ]
+        # rows/cols of the source matrix that correspond to a drug in this dataset
+        mapped = [(i, pos[pid]) for i, pid in enumerate(df.index) if pid in pos]
         if mapped:
             src_idx = np.array([s for s, _ in mapped])
             dst_idx = np.array([d for _, d in mapped])

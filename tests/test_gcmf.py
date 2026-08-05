@@ -132,6 +132,34 @@ def test_rgcmf_drug_relation_resource_resolution(tmp_path) -> None:
     assert resolved is not None and resolved.endswith("drug_pathways.csv.gz")
 
 
+def test_rgcmf_raises_on_relation_without_pubchem_id(tmp_path, data_dir) -> None:
+    """A relation table lacking the pubchem_id join key is rejected instead of guessed at.
+
+    :param tmp_path: pytest-provided temporary directory
+    :param data_dir: path to the test data directory (source of the toy dataset)
+    """
+    import shutil
+
+    import pandas as pd
+
+    from drevalpy.models.GCMF.gcmf import RGCMF
+
+    shutil.copytree(data_dir / "TOYv1", tmp_path / "TOYv1")
+    shutil.copytree(data_dir / "meta", tmp_path / "meta")
+    rel_dir = tmp_path / "meta" / RGCMF._DRUG_SIM_DIR
+    for stale in rel_dir.glob("drug_pathways.csv*"):
+        stale.unlink()
+    # an old-style table keyed only by drug name
+    pd.DataFrame({"drug_name": ["Daporinad", "Axitinib"], "pathway": ["PW0", "PW0"]}).to_csv(
+        rel_dir / "drug_pathways.csv", index=False
+    )
+
+    model = RGCMF()
+    model.build_model(_tiny_hpams(RGCMF))
+    with pytest.raises(ValueError, match="pubchem_id"):
+        model.load_drug_features(data_path=str(tmp_path), dataset_name="TOYv1")
+
+
 def test_rgcmf_raises_on_missing_drug_relation(tmp_path, data_dir) -> None:
     """RGCMF raises (no silent fallback) when a configured drug-relation resource is absent.
 
