@@ -11,9 +11,9 @@ from drevalpy.components.contracts import (
     predictor_contracts,
 )
 from drevalpy.components.feature_block import BlockSpec
+from drevalpy.components.predictors.block import BlockPredictor
 from drevalpy.components.predictors.feature_free import FeatureFreePredictor
 from drevalpy.components.predictors.matrix import MatrixPredictor
-from drevalpy.components.predictors.structured import BlockPredictor
 from drevalpy.components.registry import lookup as _registry_lookup
 
 if TYPE_CHECKING:

@@ -12,6 +12,7 @@ import numpy as np
 from typing_extensions import deprecated
 
 from drevalpy.components.model_input_batch import ModelInputBatch
+from drevalpy.components.predictors.block import BlockPredictor
 from drevalpy.components.predictors.literature._algorithm_lifecycle import (
     predict_with_algorithm,
     train_fitted_algorithm,
@@ -25,7 +26,6 @@ from drevalpy.components.predictors.single_drug_routing import (
     routing_keys,
 )
 from drevalpy.components.predictors.state_errors import PredictorStateError
-from drevalpy.components.predictors.structured import BlockPredictor
 from drevalpy.components.training_context import TrainingContext
 from drevalpy.models.config import ModelScope
 

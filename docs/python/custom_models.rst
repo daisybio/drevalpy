@@ -183,7 +183,7 @@ The details about what the input for each predictor type looks like are explaine
 
    .. tab-item:: Block
 
-      ``BlockPredictor`` (alias ``StructuredPredictor``) reads side-specific
+      ``BlockPredictor`` reads side-specific
       or named featurizer blocks from ``batch.cell_line_blocks`` /
       ``batch.drug_blocks``. Contracts still constrain the **format** of each
       side; ``required_cell_line_blocks`` / ``required_drug_blocks`` further
@@ -198,7 +198,7 @@ The details about what the input for each predictor type looks like are explaine
 
          from drevalpy.components.contracts import FeatureFormat
          from drevalpy.components.model_input_batch import ModelInputBatch
-         from drevalpy.components.predictors.structured import BlockPredictor
+         from drevalpy.components.predictors.block import BlockPredictor
          from drevalpy.components.registry import register_predictor
 
 

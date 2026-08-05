@@ -32,9 +32,9 @@ def _reference_fields(cls: type[Any]) -> dict[str, str]:
 
 def _predictor_input_interface(cls: type[Any]) -> str:
     # Local imports avoid circular dependencies during package import.
+    from drevalpy.components.predictors.block import BlockPredictor
     from drevalpy.components.predictors.feature_free import FeatureFreePredictor
     from drevalpy.components.predictors.matrix import MatrixPredictor
-    from drevalpy.components.predictors.structured import BlockPredictor
 
     if issubclass(cls, FeatureFreePredictor):
         return "feature_free"

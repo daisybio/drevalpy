@@ -9,6 +9,7 @@ import numpy as np
 from typing_extensions import deprecated
 
 from drevalpy.components.model_input_batch import ModelInputBatch
+from drevalpy.components.predictors.block import BlockPredictor
 from drevalpy.components.predictors.literature._algorithm_lifecycle import (
     predict_with_algorithm,
     train_fitted_algorithm,
@@ -17,7 +18,6 @@ from drevalpy.components.predictors.literature._block_inputs import materialize_
 from drevalpy.components.predictors.literature._torch_state import load_object_mapping, save_object_mapping
 from drevalpy.components.predictors.literature._training_helpers import LiteratureTrainingMixin
 from drevalpy.components.predictors.state_errors import PredictorStateError
-from drevalpy.components.predictors.structured import BlockPredictor
 from drevalpy.datasets.dataset import FeatureDataset
 
 _DEPRECATION_MESSAGE = (

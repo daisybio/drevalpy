@@ -29,6 +29,3 @@ class BlockPredictor(Predictor):
         :returns: One predicted response per pair in *batch*.
         """
         return np.full(batch.n_pairs, np.nan, dtype=np.float64)
-
-
-StructuredPredictor = BlockPredictor

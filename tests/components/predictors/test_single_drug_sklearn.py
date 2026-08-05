@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from drevalpy.components.predictors.single_drug import SingleDrugSklearnPredictor
+from drevalpy.components.predictors.single_drug_sklearn import SingleDrugSklearnPredictor
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models._component_stack import build_component_stack
 from drevalpy.models.config import ModelConfig
