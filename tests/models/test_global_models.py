@@ -14,6 +14,111 @@ from drevalpy.models import construct_model
 from drevalpy.models.drp_model import DRPModel
 
 
+def _resolve_global_model_name(model_name: str) -> tuple[str, str]:
+    whole_name = model_name
+    if model_name.startswith("SimpleNeuralNetwork"):
+        model_name = "SimpleNeuralNetwork"
+    return whole_name, model_name
+
+
+def _apply_global_model_hpam_tweaks(model_name: str, whole_name: str, hpam_combi: dict) -> None:
+    if model_name == "DIPK":
+        hpam_combi["epochs"] = 1
+        hpam_combi["epochs_autoencoder"] = 1
+        hpam_combi["heads"] = 1
+    elif model_name in ["SimpleNeuralNetwork", "MultiViewNeuralNetwork"]:
+        hpam_combi["units_per_layer"] = [2, 2]
+        hpam_combi["max_epochs"] = 1
+        if whole_name == "SimpleNeuralNetwork[chemberta]":
+            hpam_combi["drug_views"] = "drug_chemberta_embeddings"
+        elif whole_name == "SimpleNeuralNetwork[fingerprints]":
+            hpam_combi["drug_views"] = "fingerprints"
+    elif model_name == "PharmaFormer":
+        hpam_combi["epochs"] = 1
+        hpam_combi["patience"] = 2
+    elif model_name in {"Precily", "SparseGO"}:
+        hpam_combi["epochs"] = 1
+        hpam_combi["batch_size"] = 32
+    elif model_name == "AdaBoostDecisionTree":
+        hpam_combi["max_depth"] = 2
+        hpam_combi["min_samples_split"] = 2
+        hpam_combi["min_samples_leaf"] = 2
+        hpam_combi["n_estimators"] = 2
+
+
+def _reduce_global_model_datasets(
+    train_dataset: DrugResponseDataset,
+    val_es_dataset: DrugResponseDataset,
+    es_dataset: DrugResponseDataset,
+    val_dataset: DrugResponseDataset,
+    cell_line_input,
+    drug_input,
+) -> None:
+    cell_lines_to_keep = cell_line_input.identifiers
+    drugs_to_keep = drug_input.identifiers
+    for dataset in (train_dataset, val_es_dataset, es_dataset, val_dataset):
+        dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
+
+
+def _train_global_model(
+    model,
+    model_name: str,
+    train_dataset: DrugResponseDataset,
+    cell_line_input,
+    drug_input,
+    es_dataset: DrugResponseDataset,
+    tmpdirname: str,
+) -> None:
+    if model_name == "SRMF":
+        model.train(
+            output=train_dataset,
+            cell_line_input=cell_line_input,
+            drug_input=drug_input,
+            output_earlystopping=None,
+            model_checkpoint_dir=tmpdirname,
+        )
+        return
+    model.train(
+        output=train_dataset,
+        cell_line_input=cell_line_input,
+        drug_input=drug_input,
+        output_earlystopping=es_dataset,
+        model_checkpoint_dir=tmpdirname,
+    )
+
+
+def _assert_global_model_save_load_roundtrip(
+    model,
+    model_class: type[DRPModel],
+    model_name: str,
+    prediction_dataset: DrugResponseDataset,
+    drug_input,
+    cell_line_input,
+    data_dir,
+) -> None:
+    with tempfile.TemporaryDirectory() as model_dir:
+        try:
+            checkpoint = f"{model_dir}/model"
+            model.save(checkpoint)
+            loaded_model = model_class.load(checkpoint)
+            if model_name == "SparseGO":
+                loaded_model.load_cell_line_features(data_path=str(data_dir), dataset_name="TOYv1")
+            assert isinstance(loaded_model, DRPModel)
+
+            preds_after = loaded_model.predict(
+                drug_ids=prediction_dataset.drug_ids,
+                cell_line_ids=prediction_dataset.cell_line_ids,
+                drug_input=drug_input,
+                cell_line_input=cell_line_input,
+            )
+
+            assert prediction_dataset._predictions is not None
+            assert prediction_dataset._predictions.shape == preds_after.shape
+            assert isinstance(preds_after, np.ndarray)
+        except NotImplementedError:
+            print(f"{model_name}: save/load not implemented")
+
+
 @pytest.mark.parametrize("test_mode", ["LTO"])
 @pytest.mark.parametrize(
     "model_name",
@@ -54,105 +159,36 @@ def test_global_models(
     es_dataset = split["early_stopping"]
     val_dataset = split["validation"]
 
-    whole_name = model_name
-    if model_name.startswith("SimpleNeuralNetwork"):
-        model_name = "SimpleNeuralNetwork"
+    whole_name, model_name = _resolve_global_model_name(model_name)
 
     model_class = cast(type[DRPModel], construct_model(model_name))
     hpams = model_class.get_hyperparameter_set()
     hpam_combi = hpams[0]
-    if model_name == "DIPK":
-        hpam_combi["epochs"] = 1
-        hpam_combi["epochs_autoencoder"] = 1
-        hpam_combi["heads"] = 1
-    elif model_name in ["SimpleNeuralNetwork", "MultiViewNeuralNetwork"]:
-        hpam_combi["units_per_layer"] = [2, 2]
-        hpam_combi["max_epochs"] = 1
-        if whole_name == "SimpleNeuralNetwork[chemberta]":
-            hpam_combi["drug_views"] = "drug_chemberta_embeddings"
-        elif whole_name == "SimpleNeuralNetwork[fingerprints]":
-            hpam_combi["drug_views"] = "fingerprints"
-    elif model_name == "PharmaFormer":
-        hpam_combi["epochs"] = 1
-        hpam_combi["patience"] = 2
-    elif model_name == "Precily":
-        hpam_combi["epochs"] = 1
-        hpam_combi["batch_size"] = 32
-    elif model_name == "SparseGO":
-        hpam_combi["epochs"] = 1
-        hpam_combi["batch_size"] = 32
-    elif model_name == "AdaBoostDecisionTree":
-        hpam_combi["max_depth"] = 2
-        hpam_combi["min_samples_split"] = 2
-        hpam_combi["min_samples_leaf"] = 2
-        hpam_combi["n_estimators"] = 2
+    _apply_global_model_hpam_tweaks(model_name, whole_name, hpam_combi)
     model = model_class(hpam_combi)
 
     cell_line_input = model.load_cell_line_features(data_path=str(data_dir), dataset_name="TOYv1")
     drug_input = model.load_drug_features(data_path=str(data_dir), dataset_name="TOYv1")
     if drug_input is None:
         raise ValueError("Drug input is None")
-    cell_lines_to_keep = cell_line_input.identifiers
-    drugs_to_keep = drug_input.identifiers
 
-    train_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
-    val_es_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
-    es_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
-    val_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
+    _reduce_global_model_datasets(train_dataset, val_es_dataset, es_dataset, val_dataset, cell_line_input, drug_input)
 
     with tempfile.TemporaryDirectory() as tmpdirname:
-        if model_name == "SRMF":
-            # no early stopping
-            model.train(
-                output=train_dataset,
-                cell_line_input=cell_line_input,
-                drug_input=drug_input,
-                output_earlystopping=None,
-                model_checkpoint_dir=tmpdirname,
-            )
-        else:
-            model.train(
-                output=train_dataset,
-                cell_line_input=cell_line_input,
-                drug_input=drug_input,
-                output_earlystopping=es_dataset,
-                model_checkpoint_dir=tmpdirname,
-            )
+        _train_global_model(model, model_name, train_dataset, cell_line_input, drug_input, es_dataset, tmpdirname)
     if model_name == "DIPK":
         # test batch size = 1
         model.batch_size = 1  # type: ignore
-    if model_name == "SRMF":
-        # no early stopping
-        prediction_dataset = val_dataset
-    else:
-        prediction_dataset = val_es_dataset
+    prediction_dataset = val_dataset if model_name == "SRMF" else val_es_dataset
     prediction_dataset._predictions = model.predict(
         drug_ids=prediction_dataset.drug_ids,
         cell_line_ids=prediction_dataset.cell_line_ids,
         drug_input=drug_input,
         cell_line_input=cell_line_input,
     )
-    # Save and load test (should either succeed or raise NotImplementedError)
-    with tempfile.TemporaryDirectory() as model_dir:
-        try:
-            checkpoint = f"{model_dir}/model"
-            model.save(checkpoint)
-            loaded_model = model_class.load(checkpoint)
-            if model_name == "SparseGO":
-                loaded_model.load_cell_line_features(data_path=str(data_dir), dataset_name="TOYv1")
-            assert isinstance(loaded_model, DRPModel)
-
-            preds_after = loaded_model.predict(
-                drug_ids=prediction_dataset.drug_ids,
-                cell_line_ids=prediction_dataset.cell_line_ids,
-                drug_input=drug_input,
-                cell_line_input=cell_line_input,
-            )
-
-            assert prediction_dataset._predictions.shape == preds_after.shape
-            assert isinstance(preds_after, np.ndarray)
-        except NotImplementedError:
-            print(f"{model_name}: save/load not implemented")
+    _assert_global_model_save_load_roundtrip(
+        model, model_class, model_name, prediction_dataset, drug_input, cell_line_input, data_dir
+    )
 
     metrics = evaluate(prediction_dataset, metric=["Pearson"])
     print(f"Model: {model_name}, Pearson: {metrics['Pearson']}")

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 import pathlib
-import pickle
 
 import pytest
 import yaml
@@ -12,6 +11,7 @@ from typer.testing import CliRunner
 
 from drevalpy.cli.main import app
 from drevalpy.datasets.dataset import DrugResponseDataset
+from drevalpy.utils.pickle_io import dump_trusted_pickle
 
 runner = CliRunner()
 
@@ -23,13 +23,18 @@ def test_randomization_cli(
     tmp_path: pathlib.Path,
     randomization_type: str,
 ) -> None:
-    """Tests the functionality of the CLI call test-cv --mode randomization."""
+    """Tests the functionality of the CLI call test-cv --mode randomization.
+
+    :param data_dir: Path to the drevalpy data directory.
+    :param sample_dataset: TOYv1 dataset fixture used to build a CV split.
+    :param tmp_path: Temporary directory for split and HPAM artifacts.
+    :param randomization_type: Parametrized randomization mode (``permutation`` or ``invariant``).
+    """
     cv_splits = sample_dataset.split_dataset(n_cv_splits=5, mode="LCO", random_state=42)
     split = cv_splits[0]
 
     split_path = tmp_path / "split_0.pkl"
-    with open(split_path, "wb") as fh:
-        pickle.dump(split, fh)
+    dump_trusted_pickle(split, split_path)
 
     hpam_path = tmp_path / "best_hpam_combi_split_0.yaml"
     with open(hpam_path, "w") as fh:

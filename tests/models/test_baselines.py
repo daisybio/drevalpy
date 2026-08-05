@@ -293,53 +293,64 @@ def _call_naive_group_predictor(
     return naive, val_dataset._predictions
 
 
+_MULTI_VIEW_BASELINE_MODELS = {
+    "RandomForest",
+    "GradientBoosting",
+    "ElasticNet",
+    "AdaBoostDecisionTree",
+    "SVR",
+    "MultiViewXGBoost",
+}
+
+
+def _subset_hpams_for_baseline(model: str, hpams: list) -> list:
+    if len(hpams) <= 2:
+        return hpams
+    if model not in _MULTI_VIEW_BASELINE_MODELS:
+        return hpams[:2]
+
+    covered_gex = False
+    covered_prot = False
+    hpams_subset = []
+    for hpam in hpams:
+        if hpam.get("cell_line_views") == "gene_expression" and not covered_gex:
+            hpams_subset.append(hpam)
+            covered_gex = True
+        if hpam.get("cell_line_views") == "proteomics" and not covered_prot:
+            hpams_subset.append(hpam)
+            covered_prot = True
+        if covered_prot and covered_gex:
+            break
+    assert len(hpams_subset) == 2, "Hpam subset is empty"
+    return hpams_subset
+
+
+def _tune_baseline_hpam(model: str, hpam_combi: dict) -> None:
+    if model in {"RandomForest", "GradientBoosting"}:
+        hpam_combi["n_estimators"] = 2
+        hpam_combi["max_depth"] = 2
+        if model == "GradientBoosting":
+            hpam_combi["subsample"] = 0.1
+    elif model == "MultiViewRandomForest":
+        hpam_combi.pop("n_components", None)
+        hpam_combi["methylation_n_components"] = 10
+    elif model == "AdaBoostDecisionTree":
+        hpam_combi["n_estimators"] = 2
+        hpam_combi["max_depth"] = 2
+        hpam_combi["min_samples_split"] = 2
+        hpam_combi["min_samples_leaf"] = 1
+    elif model == "KNNRegressor":
+        hpam_combi["n_neighbors"] = 3
+        hpam_combi["weights"] = "distance"
+        hpam_combi["variance"] = 0.75
+
+
 def _call_other_baselines(model: str, train_dataset: DrugResponseDataset, val_dataset: DrugResponseDataset, data_dir):
     model_class = construct_model(model)
-    hpams = model_class.get_hyperparameter_set()
-    if len(hpams) > 2:
-        if model in {
-            "RandomForest",
-            "GradientBoosting",
-            "ElasticNet",
-            "AdaBoostDecisionTree",
-            "SVR",
-            "MultiViewXGBoost",
-        }:
-            covered_gex = False
-            covered_prot = False
-            hpams_subset = []
-            for hpam in hpams:
-                if hpam.get("cell_line_views") == "gene_expression" and not covered_gex:
-                    hpams_subset.append(hpam)
-                    covered_gex = True
-                if hpam.get("cell_line_views") == "proteomics" and not covered_prot:
-                    hpams_subset.append(hpam)
-                    covered_prot = True
-                if covered_prot and covered_gex:
-                    break
-            assert len(hpams_subset) == 2, "Hpam subset is empty"
-            hpams = hpams_subset
-        else:
-            hpams = hpams[:2]
+    hpams = _subset_hpams_for_baseline(model, model_class.get_hyperparameter_set())
     model_instance = None
     for hpam_combi in hpams:
-        if model in {"RandomForest", "GradientBoosting"}:
-            hpam_combi["n_estimators"] = 2
-            hpam_combi["max_depth"] = 2
-            if model == "GradientBoosting":
-                hpam_combi["subsample"] = 0.1
-        elif model == "MultiViewRandomForest":
-            hpam_combi.pop("n_components", None)
-            hpam_combi["methylation_n_components"] = 10
-        elif model == "AdaBoostDecisionTree":
-            hpam_combi["n_estimators"] = 2
-            hpam_combi["max_depth"] = 2
-            hpam_combi["min_samples_split"] = 2
-            hpam_combi["min_samples_leaf"] = 1
-        elif model == "KNNRegressor":
-            hpam_combi["n_neighbors"] = 3
-            hpam_combi["weights"] = "distance"
-            hpam_combi["variance"] = 0.75
+        _tune_baseline_hpam(model, hpam_combi)
         model_instance = model_class(hpam_combi)
         train_dataset, val_dataset, cell_line_input, drug_input = _subset_dataset(
             model=model_instance, train_dataset=train_dataset, val_dataset=val_dataset, data_dir=data_dir

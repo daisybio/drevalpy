@@ -1,5 +1,7 @@
 """Pytest configuration file for the tests directory."""
 
+from __future__ import annotations
+
 import pathlib
 
 import numpy as np
@@ -7,7 +9,20 @@ import pandas as pd
 import pytest
 
 from drevalpy.datasets.dataset import DrugResponseDataset
-from drevalpy.datasets.loader import load_dataset
+from drevalpy.datasets.loader import load_response_dataset
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    """Configure pytest session defaults and a headless Matplotlib backend.
+
+    :param config: Pytest configuration object.
+    """
+    import matplotlib
+
+    matplotlib.use("Agg")
+    config.option.flaky_report = "none"
+    config.option.tbstyle = "short"
+
 
 _BUILTIN_MEASURE = "LN_IC50_curvecurator"
 
@@ -23,8 +38,8 @@ def _load_toy_datasets(path_data: str) -> bool:
     :returns: False when dataset download fails
     """
     try:
-        load_dataset("TOYv1", path_data, measure=_BUILTIN_MEASURE)
-        load_dataset("TOYv2", path_data, measure=_BUILTIN_MEASURE)
+        load_response_dataset("TOYv1", path_data, measure=_BUILTIN_MEASURE)
+        load_response_dataset("TOYv2", path_data, measure=_BUILTIN_MEASURE)
     except Exception as exc:
         print(f"Warning: could not load TOY datasets: {exc}")
         return False
@@ -115,16 +130,6 @@ def data_dir() -> pathlib.Path:
 
 
 @pytest.hookimpl(tryfirst=True)
-def pytest_configure(config) -> None:
-    """Configure pytest.
-
-    :param config: pytest config object
-    """
-    # Reduce flaky plugin verbosity
-    config.option.flaky_report = "none"
-    config.option.tbstyle = "short"
-
-
 @pytest.fixture(scope="session")
 def sample_dataset(data_dir) -> DrugResponseDataset:
     """Sample dataset for testing individual models.
@@ -132,7 +137,7 @@ def sample_dataset(data_dir) -> DrugResponseDataset:
     :param data_dir: path to the data directory
     :returns: drug_response, cell_line_input, drug_input
     """
-    drug_response = load_dataset("TOYv1", path_data=str(data_dir), measure=_BUILTIN_MEASURE)
+    drug_response = load_response_dataset("TOYv1", path_data=str(data_dir), measure=_BUILTIN_MEASURE)
     drug_response.remove_nan_responses()
     return drug_response
 
@@ -144,7 +149,7 @@ def cross_study_dataset(data_dir) -> DrugResponseDataset:
     :param data_dir: path to the data directory
     :returns: drug_response, cell_line_input, drug_input
     """
-    drug_response = load_dataset("TOYv2", path_data=str(data_dir), measure=_BUILTIN_MEASURE)
+    drug_response = load_response_dataset("TOYv2", path_data=str(data_dir), measure=_BUILTIN_MEASURE)
     drug_response.remove_nan_responses()
     return drug_response
 
@@ -164,6 +169,63 @@ def ensure_bpe_features(data_dir) -> None:
 
     for dataset_name in _TOY_DATASETS:
         _ensure_bpe_smiles_features(path_data, dataset_name)
+
+
+def _precily_gene_symbols_from_expr(expr_file: pathlib.Path) -> list[str] | None:
+    if not expr_file.exists():
+        return None
+    with open(expr_file, encoding="utf-8") as handle:
+        header = handle.readline().strip().split(",")
+    non_gene_cols = {"cellosaurus_id", "cell_line_name"}
+    return [column for column in header if column not in non_gene_cols]
+
+
+def _write_synthetic_pathway_gmt(gmt_path: pathlib.Path, genes: list[str], min_size: int) -> None:
+    gene_sets = {
+        "SYNTH_PATHWAY_A": genes[: max(min_size, len(genes) // 2)],
+        "SYNTH_PATHWAY_B": genes[-max(min_size, len(genes) // 2) :],
+    }
+    with open(gmt_path, "w", encoding="utf-8") as handle:
+        for name, set_genes in gene_sets.items():
+            handle.write("\t".join([name, "synthetic", *set_genes]) + "\n")
+
+
+def _create_precily_pathway_features_for_dataset(
+    path_data: str,
+    dataset_name: str,
+    create_precily_pathway_features,
+    *,
+    min_size: int = 5,
+) -> None:
+    dataset_dir = pathlib.Path(path_data) / dataset_name
+    pathway_file = dataset_dir / "pathway_features.csv"
+    if pathway_file.exists():
+        return
+
+    expr_file = dataset_dir / "gene_expression.csv"
+    genes = _precily_gene_symbols_from_expr(expr_file)
+    if genes is None:
+        print(f"Warning: gene_expression.csv not found for {dataset_name}, skipping")
+        return
+    if len(genes) < min_size:
+        print(f"Warning: too few genes in {dataset_name} ({len(genes)}), skipping")
+        return
+
+    gmt_path = dataset_dir / "synthetic_pathways.gmt"
+    _write_synthetic_pathway_gmt(gmt_path, genes, min_size)
+    try:
+        print(f"Creating synthetic GSVA pathway features for {dataset_name}...")
+        create_precily_pathway_features(
+            data_path=path_data,
+            dataset_name=dataset_name,
+            gene_sets=str(gmt_path),
+            min_size=min_size,
+        )
+    except Exception as exc:
+        print(f"Warning: could not create pathway features for {dataset_name}: {exc}")
+        import traceback
+
+        traceback.print_exc()
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -190,56 +252,12 @@ def ensure_precily_pathway_features(data_dir) -> None:
     if not _load_toy_datasets(path_data):
         return
 
-    # Create Precily features for both TOYv1 and TOYv2
     for dataset_name in _TOY_DATASETS:
-        dataset_dir = pathlib.Path(path_data) / dataset_name
-        pathway_file = dataset_dir / "pathway_features.csv"
-        expr_file = dataset_dir / "gene_expression.csv"
-
-        if pathway_file.exists():
-            continue
-        if not expr_file.exists():
-            print(f"Warning: gene_expression.csv not found for {dataset_name}, skipping")
-            continue
-
-        # Collect gene symbols from the expression header (drop id/name columns)
-        with open(expr_file, encoding="utf-8") as f:
-            header = f.readline().strip().split(",")
-        non_gene_cols = {"cellosaurus_id", "cell_line_name"}
-        genes = [c for c in header if c not in non_gene_cols]
-
-        # GSVA filters gene sets by min_size (default 5); build overlapping sets
-        # of >=5 genes each so at least a couple survive the size filter.
-        min_size = 5
-        if len(genes) < min_size:
-            print(f"Warning: too few genes in {dataset_name} ({len(genes)}), skipping")
-            continue
-
-        gene_sets = {
-            "SYNTH_PATHWAY_A": genes[: max(min_size, len(genes) // 2)],
-            "SYNTH_PATHWAY_B": genes[-max(min_size, len(genes) // 2) :],
-        }
-
-        # Write a temporary .gmt next to the dataset
-        gmt_path = dataset_dir / "synthetic_pathways.gmt"
-        with open(gmt_path, "w", encoding="utf-8") as f:
-            for name, set_genes in gene_sets.items():
-                f.write("\t".join([name, "synthetic", *set_genes]) + "\n")
-
-        try:
-            print(f"Creating synthetic GSVA pathway features for {dataset_name}...")
-            create_precily_pathway_features(
-                data_path=path_data,
-                dataset_name=dataset_name,
-                gene_sets=str(gmt_path),
-                min_size=min_size,
-            )
-        except Exception as e:
-            # Log but don't fail - let individual tests handle missing features
-            print(f"Warning: could not create pathway features for {dataset_name}: {e}")
-            import traceback
-
-            traceback.print_exc()
+        _create_precily_pathway_features_for_dataset(
+            path_data,
+            dataset_name,
+            create_precily_pathway_features,
+        )
 
 
 @pytest.fixture(scope="session", autouse=True)

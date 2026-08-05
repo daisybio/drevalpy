@@ -21,7 +21,10 @@ def test_legacy_alias_emits_deprecation_warning(monkeypatch: pytest.MonkeyPatch)
 
 
 def test_legacy_alias_invalid_option_exits_without_traceback(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Invalid legacy alias flags should exit via Click, not bubble Python exceptions."""
+    """Invalid legacy alias flags should exit via Click, not bubble Python exceptions.
+
+    :param monkeypatch: Pytest fixture for patching ``sys.argv``.
+    """
     monkeypatch.setattr("sys.argv", ["drevalpy-load-response", "--not-a-real-flag"])
 
     with warnings.catch_warnings():

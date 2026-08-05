@@ -197,7 +197,7 @@ class ProteomicsMedianCenterAndImputeTransformer(BaseEstimator, TransformerMixin
         self.protein_indices = np.array([])
         self.mean_median = 0
 
-    def fit(self, X, y=None):
+    def fit(self, X, y=None):  # noqa: N803  # sklearn API
         """Learns the top n_feature complete proteins and calculates the mean median of the train cell lines.
 
         :param X: input proteomics data
@@ -222,7 +222,7 @@ class ProteomicsMedianCenterAndImputeTransformer(BaseEstimator, TransformerMixin
         self.mean_median = np.nanmean(medians)
         return self
 
-    def transform(self, X):
+    def transform(self, X):  # noqa: N803  # sklearn API
         """Median center the data and impute missing values with downshifted normal distribution.
 
         :param X: input proteomics data

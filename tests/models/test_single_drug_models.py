@@ -20,6 +20,78 @@ from drevalpy.models import construct_model
 from drevalpy.visualization.utils import evaluate_file
 
 
+def _resolve_single_drug_model_name(whole_name: str) -> str:
+    if whole_name.startswith("SingleDrugRandomForest"):
+        return "SingleDrugRandomForest"
+    if whole_name.startswith("SingleDrugElasticNet"):
+        return "SingleDrugElasticNet"
+    return whole_name
+
+
+def _configure_single_drug_hpam(model_name: str, whole_name: str, hpam_combi: dict) -> None:
+    if model_name == "SingleDrugRandomForest":
+        hpam_combi["n_estimators"] = 2
+        hpam_combi["max_depth"] = 2
+        if whole_name == "SingleDrugRandomForest[gex]":
+            hpam_combi["cell_line_views"] = "gene_expression"
+        elif whole_name == "SingleDrugRandomForest[proteomics]":
+            hpam_combi["cell_line_views"] = "proteomics"
+    elif whole_name == "SingleDrugElasticNet[gex]":
+        hpam_combi["cell_line_views"] = "gene_expression"
+    elif whole_name == "SingleDrugElasticNet[proteomics]":
+        hpam_combi["cell_line_views"] = "proteomics"
+    elif model_name in ["MOLIR", "SuperFELTR"]:
+        hpam_combi["epochs"] = 1
+
+
+def _select_single_drug_test_drugs(
+    sample_dataset: DrugResponseDataset,
+    cross_study_dataset: DrugResponseDataset,
+) -> tuple[np.ndarray, str]:
+    exclusive_drugs = list(set(sample_dataset.drug_ids).difference(set(cross_study_dataset.drug_ids)))
+    all_unique_drugs = list(set(sample_dataset.drug_ids).intersection(set(cross_study_dataset.drug_ids)))
+    all_unique_drugs.sort()
+    exclusive_drugs.sort()
+    all_unique_drugs_arr = np.array(all_unique_drugs)
+    exclusive_drugs_arr = np.array(exclusive_drugs)
+    rng = np.random.default_rng(123)
+    rng.shuffle(all_unique_drugs_arr)
+    rng.shuffle(exclusive_drugs_arr)
+    random_drugs = all_unique_drugs_arr[:1]
+    random_drugs = np.concatenate([random_drugs, exclusive_drugs_arr[:1]])
+    drug_to_remove = all_unique_drugs_arr[2]
+    return np.concatenate([random_drugs, [drug_to_remove]]), drug_to_remove
+
+
+def _assert_single_drug_save_load_roundtrip(model, model_name: str, test_dataset, train_dataset, data_dir) -> None:
+    if len(train_dataset) == 0:
+        print("Training dataset empty, continuing with train_and_predict anyway")
+        return
+    with tempfile.TemporaryDirectory() as model_dir:
+        try:
+            checkpoint = f"{model_dir}/model"
+            model.save(checkpoint)
+            loaded_model = construct_model(model_name).load(checkpoint)
+            drug_input = model.load_drug_features(str(data_dir), "TOYv1")
+            cell_line_input = model.load_cell_line_features(str(data_dir), "TOYv1")
+            preds_original = model.predict(
+                drug_ids=test_dataset.drug_ids,
+                cell_line_ids=test_dataset.cell_line_ids,
+                drug_input=drug_input,
+                cell_line_input=cell_line_input,
+            )
+            preds_loaded = loaded_model.predict(
+                drug_ids=test_dataset.drug_ids,
+                cell_line_ids=test_dataset.cell_line_ids,
+                drug_input=drug_input,
+                cell_line_input=cell_line_input,
+            )
+            assert isinstance(preds_loaded, np.ndarray)
+            assert preds_loaded.shape == preds_original.shape
+        except NotImplementedError:
+            print(f"{model_name} does not implement save/load")
+
+
 @pytest.mark.parametrize(
     "model_name",
     [
@@ -52,49 +124,18 @@ def test_single_drug_models(
     seed_everything(42)
 
     whole_name = model_name
-    if model_name.startswith("SingleDrugRandomForest"):
-        model_name = "SingleDrugRandomForest"
-    elif model_name.startswith("SingleDrugElasticNet"):
-        model_name = "SingleDrugElasticNet"
+    model_name = _resolve_single_drug_model_name(whole_name)
 
     sample_dataset.split_dataset(n_cv_splits=2, mode=test_mode, random_state=42, validation_ratio=0.4)
     assert sample_dataset.cv_splits is not None
     split = sample_dataset.cv_splits[0]
     model = construct_model(model_name)()
 
-    # test what happens if a drug is only in the original dataset, not in the cross-study dataset
-    exclusive_drugs = list(set(sample_dataset.drug_ids).difference(set(cross_study_dataset.drug_ids)))
-    all_unique_drugs = list(set(sample_dataset.drug_ids).intersection(set(cross_study_dataset.drug_ids)))
-    all_unique_drugs.sort()
-    exclusive_drugs.sort()
-    all_unique_drugs_arr = np.array(all_unique_drugs)
-    exclusive_drugs_arr = np.array(exclusive_drugs)
-    # randomly sample a drug to speed up testing
-    rng = np.random.default_rng(123)
-    rng.shuffle(all_unique_drugs_arr)
-    rng.shuffle(exclusive_drugs_arr)
-    random_drugs = all_unique_drugs_arr[:1]
-    random_drugs = np.concatenate([random_drugs, exclusive_drugs_arr[:1]])
-    # test what happens if the training and validation dataset is empty for a drug but the test set is not
-    drug_to_remove = all_unique_drugs_arr[2]
-    random_drugs = np.concatenate([random_drugs, [drug_to_remove]])
+    random_drugs, drug_to_remove = _select_single_drug_test_drugs(sample_dataset, cross_study_dataset)
 
     hpam_combi = model.get_hyperparameter_set()[0]
     result_path = tempfile.TemporaryDirectory()
-
-    if model_name == "SingleDrugRandomForest":
-        hpam_combi["n_estimators"] = 2  # reduce test time
-        hpam_combi["max_depth"] = 2  # reduce test time
-        if whole_name == "SingleDrugRandomForest[gex]":
-            hpam_combi["cell_line_views"] = "gene_expression"
-        elif whole_name == "SingleDrugRandomForest[proteomics]":
-            hpam_combi["cell_line_views"] = "proteomics"
-    elif whole_name == "SingleDrugElasticNet[gex]":
-        hpam_combi["cell_line_views"] = "gene_expression"
-    elif whole_name == "SingleDrugElasticNet[proteomics]":
-        hpam_combi["cell_line_views"] = "proteomics"
-    elif model_name in ["MOLIR", "SuperFELTR"]:
-        hpam_combi["epochs"] = 1
+    _configure_single_drug_hpam(model_name, whole_name, hpam_combi)
 
     for random_drug in random_drugs:
         model = construct_model(model_name)(hpam_combi)
@@ -128,32 +169,7 @@ def test_single_drug_models(
         )
 
         # Save and load test (should either succeed or raise NotImplementedError)
-        if len(train_dataset) == 0:
-            print(f"Training dataset empty for drug {random_drug}, continuing with train_and_predict anyway")
-        else:
-            with tempfile.TemporaryDirectory() as model_dir:
-                try:
-                    checkpoint = f"{model_dir}/model"
-                    model.save(checkpoint)
-                    loaded_model = construct_model(model_name).load(checkpoint)
-
-                    # Re-run prediction with loaded model
-                    preds_original = model.predict(
-                        drug_ids=test_dataset.drug_ids,
-                        cell_line_ids=test_dataset.cell_line_ids,
-                        drug_input=model.load_drug_features(str(data_dir), "TOYv1"),
-                        cell_line_input=model.load_cell_line_features(str(data_dir), "TOYv1"),
-                    )
-                    preds_loaded = loaded_model.predict(
-                        drug_ids=test_dataset.drug_ids,
-                        cell_line_ids=test_dataset.cell_line_ids,
-                        drug_input=model.load_drug_features(str(data_dir), "TOYv1"),
-                        cell_line_input=model.load_cell_line_features(str(data_dir), "TOYv1"),
-                    )
-                    assert isinstance(preds_loaded, np.ndarray)
-                    assert preds_loaded.shape == preds_original.shape
-                except NotImplementedError:
-                    print(f"{model_name} does not implement save/load")
+        _assert_single_drug_save_load_roundtrip(model, model_name, test_dataset, train_dataset, data_dir)
 
         cross_study_dataset.remove_nan_responses()
         parent_dir = str(pathlib.Path(predictions_path).parent)

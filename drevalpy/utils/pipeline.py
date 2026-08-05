@@ -1,7 +1,7 @@
 """Main evaluation pipeline entry and dataset loading helpers."""
 
 from drevalpy.datasets.dataset import DrugResponseDataset
-from drevalpy.datasets.loader import load_dataset
+from drevalpy.datasets.loader import load_response_dataset
 from drevalpy.experiment import drug_response_experiment
 from drevalpy.models._model_lookup import get_model_class
 
@@ -77,7 +77,7 @@ def get_datasets(
 ) -> tuple[DrugResponseDataset, list[DrugResponseDataset] | None]:
     """Load the primary response dataset and optional cross-study datasets.
 
-    :param dataset_name: Built-in or custom dataset name passed to ``load_dataset``.
+    :param dataset_name: Built-in or custom dataset name passed to ``load_response_dataset``.
     :param cross_study_datasets: Names of additional datasets to load.
     :param path_data: Root directory for dataset files.
     :param measure: Response column name.
@@ -96,7 +96,7 @@ def get_datasets(
     :param normalize: normalize.
     :returns: Result of the operation.
     """
-    response_data = load_dataset(
+    response_data = load_response_dataset(
         dataset_name=dataset_name,
         path_data=path_data,
         measure=measure,
@@ -106,6 +106,6 @@ def get_datasets(
     )
 
     cross_study_datasets = [
-        load_dataset(dataset_name=dn, path_data=path_data, measure=measure) for dn in cross_study_datasets
+        load_response_dataset(dataset_name=dn, path_data=path_data, measure=measure) for dn in cross_study_datasets
     ]
     return response_data, cross_study_datasets

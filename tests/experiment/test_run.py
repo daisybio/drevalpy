@@ -65,7 +65,11 @@ def test_drug_response_experiment_skips_baseline_stress_when_only_baselines(
     run_one_model: MagicMock,
     tmp_path,
 ) -> None:
-    """Baselines still run through _run_one_model; stress tests are gated inside the fold loop."""
+    """Baselines still run through _run_one_model; stress tests are gated inside the fold loop.
+
+    :param run_one_model: Patched ``_run_one_model`` mock from the decorator stack.
+    :param tmp_path: Temporary directory used for experiment output paths.
+    """
     response = DrugResponseDataset(
         response=np.array([1.0]),
         cell_line_ids=np.array(["A"]),

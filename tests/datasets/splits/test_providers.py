@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import pickle
 from pathlib import Path
 
 import pytest
@@ -20,6 +19,7 @@ from drevalpy.datasets.splits import (
     run_external_splitter,
     validate_split_label,
 )
+from drevalpy.utils.pickle_io import dump_trusted_pickle, load_trusted_pickle
 from tests.datasets.split_helpers import sample_dataset
 
 
@@ -205,8 +205,7 @@ def test_make_cv_pkls_with_builtin_splitter_writes_manifest(tmp_path: Path) -> N
 
     dataset = sample_dataset(n_cell_lines=12, n_drugs=2)
     response_pkl = tmp_path / "response.pkl"
-    with response_pkl.open("wb") as handle:
-        pickle.dump(dataset, handle)
+    dump_trusted_pickle(dataset, response_pkl)
 
     cwd = Path.cwd()
     try:
@@ -236,8 +235,7 @@ def test_make_cv_pkls_with_external_splitter(tmp_path: Path) -> None:
 
     dataset = sample_dataset(n_cell_lines=4, n_drugs=2)
     response_pkl = tmp_path / "response.pkl"
-    with response_pkl.open("wb") as handle:
-        pickle.dump(dataset, handle)
+    dump_trusted_pickle(dataset, response_pkl)
 
     script = tmp_path / "splitter.py"
     script.write_text(
@@ -279,8 +277,7 @@ def create_splits(response_data, params):
         )
         assert (tmp_path / "split_0.pkl").is_file()
         assert (tmp_path / "split_1.pkl").is_file()
-        with (tmp_path / "split_0.pkl").open("rb") as handle:
-            split = pickle.load(handle)
+        split = load_trusted_pickle(tmp_path / "split_0.pkl")
         assert {"train", "validation", "test", "validation_es", "early_stopping"}.issubset(split)
     finally:
         os.chdir(cwd)

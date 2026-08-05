@@ -47,6 +47,102 @@ def trial_checkpoint_dir(base_dir: str) -> str:
     return path
 
 
+def _construct_trial_model(model_class: type[DRPModel], sampled: dict[str, Any]) -> DRPModel:
+    trial_config = tuned_config_for_drp_model(model_class, sampled)
+    if trial_config is None:
+        return model_class(sampled)
+    return construct_drp_model_from_config(model_class, trial_config)
+
+
+def _evaluate_trial_model(
+    trial_model: DRPModel,
+    *,
+    metric: str,
+    path_data: str,
+    train_dataset: DrugResponseDataset,
+    validation_dataset: DrugResponseDataset,
+    early_stopping_dataset: DrugResponseDataset | None,
+    response_transformation: TransformerMixin | None,
+    model_checkpoint_dir: str,
+) -> float:
+    from drevalpy import experiment
+
+    trial_dir = trial_checkpoint_dir(model_checkpoint_dir)
+    result = experiment.train_and_evaluate(
+        model=trial_model,
+        path_data=path_data,
+        train_dataset=train_dataset,
+        validation_dataset=validation_dataset,
+        early_stopping_dataset=early_stopping_dataset,
+        metric=metric,
+        response_transformation=response_transformation,
+        model_checkpoint_dir=trial_dir,
+    )
+    return float(result[metric])
+
+
+def _report_trial_score(metric: str, score: float) -> None:
+    from ray import tune
+
+    tune.report({metric: score})
+
+
+def _report_trial_failure(metric: str) -> None:
+    logger.exception("Ray/Optuna trial failed")
+    _report_trial_score(metric, float("nan"))
+
+
+def _wandb_trial_run_config(
+    *,
+    trial_model: DRPModel,
+    cfg: HPOConfig,
+    wandb_base_config: dict[str, Any] | None,
+    trial_id: str,
+) -> dict[str, Any]:
+    trial_run_config: dict[str, Any] = {
+        "phase": "hyperparameter_tuning",
+        "hpo_backend": "ray",
+        "search_alg": cfg.search_alg,
+        "hpo_num_samples": cfg.n_trials,
+        "hyperparameters": trial_model.hyperparameters,
+        "trial_id": trial_id,
+    }
+    if wandb_base_config is not None:
+        trial_run_config = {**wandb_base_config, **trial_run_config}
+    return trial_run_config
+
+
+def _wandb_trial_run_name(*, model_name: str, split_index: int | None, trial_id: str) -> str:
+    trial_run_name = model_name
+    if split_index is not None:
+        trial_run_name += f"_split_{split_index}"
+    return f"{trial_run_name}_trial_{trial_id}"
+
+
+def _init_trial_wandb(
+    trial_model: DRPModel,
+    *,
+    wandb_project: str,
+    wandb_base_config: dict[str, Any] | None,
+    cfg: HPOConfig,
+    model_name: str,
+    split_index: int | None,
+) -> None:
+    trial_id = current_trial_id()
+    trial_model.init_wandb(
+        project=wandb_project,
+        config=_wandb_trial_run_config(
+            trial_model=trial_model,
+            cfg=cfg,
+            wandb_base_config=wandb_base_config,
+            trial_id=trial_id,
+        ),
+        name=_wandb_trial_run_name(model_name=model_name, split_index=split_index, trial_id=trial_id),
+        tags=[model_name, "hpam_tuning", "ray", "optuna"],
+        finish_previous=True,
+    )
+
+
 def build_ray_trainable(
     *,
     model_class: type[DRPModel],
@@ -80,29 +176,6 @@ def build_ray_trainable(
     :param model_name: model name.
     :returns: Result.
     """
-    from ray import tune
-
-    from drevalpy import experiment
-
-    def _construct_trial_model(sampled: dict[str, Any]) -> DRPModel:
-        trial_config = tuned_config_for_drp_model(model_class, sampled)
-        if trial_config is None:
-            return model_class(sampled)
-        return construct_drp_model_from_config(model_class, trial_config)
-
-    def _evaluate_sample(trial_model: DRPModel) -> float:
-        trial_dir = trial_checkpoint_dir(model_checkpoint_dir)
-        result = experiment.train_and_evaluate(
-            model=trial_model,
-            path_data=path_data,
-            train_dataset=train_dataset,
-            validation_dataset=validation_dataset,
-            early_stopping_dataset=early_stopping_dataset,
-            metric=metric,
-            response_transformation=response_transformation,
-            model_checkpoint_dir=trial_dir,
-        )
-        return float(result[metric])
 
     def trainable(sampled: dict[str, Any]) -> None:
         """Trainable.
@@ -110,11 +183,20 @@ def build_ray_trainable(
         :param sampled: sampled.
         """
         try:
-            score = _evaluate_sample(_construct_trial_model(sampled))
-            tune.report({metric: score})
+            trial_model = _construct_trial_model(model_class, sampled)
+            score = _evaluate_trial_model(
+                trial_model,
+                metric=metric,
+                path_data=path_data,
+                train_dataset=train_dataset,
+                validation_dataset=validation_dataset,
+                early_stopping_dataset=early_stopping_dataset,
+                response_transformation=response_transformation,
+                model_checkpoint_dir=model_checkpoint_dir,
+            )
+            _report_trial_score(metric, score)
         except Exception:
-            logger.exception("Ray/Optuna trial failed")
-            tune.report({metric: float("nan")})
+            _report_trial_failure(metric)
 
     def trainable_with_wandb(sampled: dict[str, Any]) -> None:
         """Trainable with wandb.
@@ -124,36 +206,30 @@ def build_ray_trainable(
         if wandb_project is None:
             trainable(sampled)
             return
-        trial_model = _construct_trial_model(sampled)
+        trial_model = _construct_trial_model(model_class, sampled)
         trial_model._in_hyperparameter_tuning = True
-        trial_id = current_trial_id()
-        trial_run_config: dict[str, Any] = {
-            "phase": "hyperparameter_tuning",
-            "hpo_backend": "ray",
-            "search_alg": cfg.search_alg,
-            "hpo_num_samples": cfg.n_trials,
-            "hyperparameters": trial_model.hyperparameters,
-            "trial_id": trial_id,
-        }
-        if wandb_base_config is not None:
-            trial_run_config = {**wandb_base_config, **trial_run_config}
-        trial_run_name = model_name
-        if split_index is not None:
-            trial_run_name += f"_split_{split_index}"
-        trial_run_name += f"_trial_{trial_id}"
-        trial_model.init_wandb(
-            project=wandb_project,
-            config=trial_run_config,
-            name=trial_run_name,
-            tags=[model_name, "hpam_tuning", "ray", "optuna"],
-            finish_previous=True,
+        _init_trial_wandb(
+            trial_model,
+            wandb_project=wandb_project,
+            wandb_base_config=wandb_base_config,
+            cfg=cfg,
+            model_name=model_name,
+            split_index=split_index,
         )
         try:
-            score = _evaluate_sample(trial_model)
-            tune.report({metric: score})
+            score = _evaluate_trial_model(
+                trial_model,
+                metric=metric,
+                path_data=path_data,
+                train_dataset=train_dataset,
+                validation_dataset=validation_dataset,
+                early_stopping_dataset=early_stopping_dataset,
+                response_transformation=response_transformation,
+                model_checkpoint_dir=model_checkpoint_dir,
+            )
+            _report_trial_score(metric, score)
         except Exception:
-            logger.exception("Ray/Optuna trial failed")
-            tune.report({metric: float("nan")})
+            _report_trial_failure(metric)
         finally:
             if trial_model.is_wandb_enabled():
                 trial_model.finish_wandb()

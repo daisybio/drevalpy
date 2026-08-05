@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import subprocess
 import sys
 import textwrap
 from pathlib import Path
@@ -30,6 +29,7 @@ from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models import construct_model
 from drevalpy.models.config import ModelConfig
 from drevalpy.models.zoo import get_zoo_config, list_zoo_names, load_external_zoo_file
+from tests._trusted_subprocess import run_trusted_python
 
 
 def test_load_extension_file_registers_components(tmp_path: Path) -> None:
@@ -318,7 +318,7 @@ class IsolatedPredictor(FeatureFreePredictor):
         cls = get_predictor("isolatedPredictor")
         assert cls.__name__ == "IsolatedPredictor"
         """)
-    completed = subprocess.run([sys.executable, "-c", script], check=False, capture_output=True, text=True)
+    completed = run_trusted_python(script)
     assert completed.returncode == 0, completed.stdout + completed.stderr
 
 
@@ -357,7 +357,7 @@ def test_subprocess_native_lookup_does_not_import_optional_families() -> None:
         get_cell_line_featurizer("identity")
         get_predictor("elasticNet")
         """)
-    completed = subprocess.run([sys.executable, "-c", script], check=False, capture_output=True, text=True)
+    completed = run_trusted_python(script)
     assert completed.returncode == 0, completed.stdout + completed.stderr
 
 

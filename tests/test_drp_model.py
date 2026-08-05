@@ -288,6 +288,87 @@ def test_load_drugs_from_fingerprints() -> None:
     assert np.all(drug_features_gdsc1.features["3827738"]["fingerprints"] == [1, 1, 0, 1, 1])
 
 
+def _write_gdsc1_small_omics_fixture(temp: tempfile.TemporaryDirectory) -> None:
+    dataset_dir = os.path.join(temp.name, "GDSC1_small")
+    os.mkdir(dataset_dir)
+    files = {
+        "gene_expression.csv": (
+            "cellosaurus_id,cell_line_name,TSPAN6,TNMD,BRCA1,SCYL3,HDAC1,INSIG1,FOXO3\n"
+            "CVCL_1104,CAL-120,7.632023171463389,2.9645851205892404,10.3795526353077,3.61479404843988,"
+            "3.38068143582194,7.09344749430946,3.0222634357817597\n"
+            "CVCL_1174,DMS 114,7.54867116637172,2.77771614989839,11.807341248845802,4.066886747621,"
+            "3.73248465377029,2.8016127581695,6.07851099764176\n"
+            "CVCL_1110,CAL-51,8.71233752103624,2.6435077554121,9.88073281995499,3.95622995046262,"
+            "3.23662007804984,11.394340478134598,4.22471584953505\n"
+            "CVCL_V001,NCI-H2869,7.79714221650204,2.8179230218265,9.88347076381233,4.0637013909818505,"
+            "3.55841402145301,8.76055372116888,4.33420904819493\n"
+            "CVCL_1045,22Rv1,4.8044868436701,2.84812776692645,10.3319941550002,5.14538669275316,"
+            "3.54519297942073,3.9337949618623704,2.8629939819029904\n"
+        ),
+        "methylation.csv": (
+            "cellosaurus_id,cell_line_name,chr1:10003165-10003585,chr1:100315420-100316009,"
+            "chr1:100435297-100436070,chr1:100503482-100504404,chr1:10057121-10058108,"
+            "chr11:107728949-107729586,chr11:107798958-107799980\n"
+            "CVCL_1045,22Rv1,0.192212286,0.20381998,0.277913619,0.1909300789999999,0.544058696\n"
+            "CVCL_1642,PFSK-1,0.1876026089999999,0.2076517789999999,0.400145531,0.195871473,0.76489757\n"
+            "CVCL_1104,CAL-120,0.2101851619999999,0.222116189,0.264730199,0.243298011,0.415484752\n"
+            "CVCL_1199,ES3,0.205613728,0.227570131,0.303640813,0.250454389,0.599274902\n"
+        ),
+        "mutations.csv": (
+            "cellosaurus_id,cell_line_name,TSPAN6,TNMD,BRCA1,SCYL3,HDAC1,INSIG1,FOXO3\n"
+            "CVCL_X481,201T,False,False,False,False,False,True,True\n"
+            "CVCL_1045,22Rv1,False,True,False,True,False,False,True\n"
+            "CVCL_1046,23132/87,False,False,True,True,False,False,False\n"
+            "CVCL_1104,CAL-120,False,False,False,False,False,True,False\n"
+        ),
+        "copy_number_variation_gistic.csv": (
+            "cellosaurus_id,cell_line_name,TSPAN6,TNMD,BRCA1,SCYL3,HDAC1,INSIG1,FOXO3\n"
+            "CVCL_X481,201T,0.0,0.0,-1.0,0.0,0.0,1.0,-1.0\n"
+            "CVCL_1762,TE-12,-1.0,-1.0,0.0,1.0,1.0,0.0,0.0\n"
+            "CVCL_1104,CAL-120,0.0,0.0,0.0,-1.0,-1.0,1.0,0.0\n"
+            "CVCL_X508,STS-0421,0.0,0.0,1.0,0.0,0.0,-1.0,0.0\n"
+            "CVCL_1045,22Rv1,1.0,1.0,-1.0,1.0,1.0,1.0,1.0\n"
+        ),
+    }
+    for filename, contents in files.items():
+        with open(os.path.join(dataset_dir, filename), "w", encoding="utf-8") as handle:
+            handle.write(contents)
+
+
+def _assert_multiomics_gene_list_meta(
+    dataset,
+    gene_list: Optional[str],
+    *,
+    valerr: pytest.ExceptionInfo[ValueError] | None = None,
+) -> None:
+    if gene_list is None:
+        assert dataset.meta_info is not None
+        assert np.all(
+            dataset.meta_info["gene_expression"] == ["TSPAN6", "TNMD", "BRCA1", "SCYL3", "HDAC1", "INSIG1", "FOXO3"]
+        )
+        for key in dataset.meta_info:
+            assert len(dataset.meta_info[key]) == 7
+        return
+
+    if gene_list == "gene_list_paccmann_network_prop":
+        assert valerr is not None
+        assert "The following genes are missing from the dataset GDSC1_small" in str(valerr.value)
+        return
+
+    expected_feature_count = 4 if gene_list == "landmark_genes_reduced" else 3
+    assert dataset.meta_info is not None
+    feature_names: list[str] = []
+    for key in dataset.meta_info:
+        if key == "methylation":
+            assert len(dataset.meta_info[key]) == 7
+            continue
+        assert len(dataset.meta_info[key]) == expected_feature_count
+        if len(feature_names) == 0:
+            feature_names = dataset.meta_info[key]
+        else:
+            assert np.all(dataset.meta_info[key] == feature_names)
+
+
 @pytest.mark.parametrize(
     "gene_list",
     [
@@ -303,117 +384,36 @@ def test_get_multiomics_feature_dataset(gene_list: Optional[str]) -> None:
     :param gene_list: list of genes to keep
     """
     temp = tempfile.TemporaryDirectory()
-    os.mkdir(os.path.join(temp.name, "GDSC1_small"))
-    # gene expression
-    temp_file = os.path.join(temp.name, "GDSC1_small", "gene_expression.csv")
-    with open(temp_file, "w") as f:
-        f.write(
-            "cellosaurus_id,cell_line_name,TSPAN6,TNMD,BRCA1,SCYL3,HDAC1,INSIG1,FOXO3\n"
-            "CVCL_1104,CAL-120,7.632023171463389,2.9645851205892404,10.3795526353077,3.61479404843988,"
-            "3.38068143582194,7.09344749430946,3.0222634357817597\n"
-            "CVCL_1174,DMS 114,7.54867116637172,2.77771614989839,11.807341248845802,4.066886747621,"
-            "3.73248465377029,2.8016127581695,6.07851099764176\n"
-            "CVCL_1110,CAL-51,8.71233752103624,2.6435077554121,9.88073281995499,3.95622995046262,"
-            "3.23662007804984,11.394340478134598,4.22471584953505\n"
-            "CVCL_V001,NCI-H2869,7.79714221650204,2.8179230218265,9.88347076381233,4.0637013909818505,"
-            "3.55841402145301,8.76055372116888,4.33420904819493\n"
-            "CVCL_1045,22Rv1,4.8044868436701,2.84812776692645,10.3319941550002,5.14538669275316,"
-            "3.54519297942073,3.9337949618623704,2.8629939819029904\n"
-        )
-
-    # methylation
-    temp_file = os.path.join(temp.name, "GDSC1_small", "methylation.csv")
-    with open(temp_file, "w") as f:
-        f.write(
-            "cellosaurus_id,cell_line_name,chr1:10003165-10003585,chr1:100315420-100316009,"
-            "chr1:100435297-100436070,chr1:100503482-100504404,chr1:10057121-10058108,"
-            "chr11:107728949-107729586,chr11:107798958-107799980\n"
-            "CVCL_1045,22Rv1,0.192212286,0.20381998,0.277913619,0.1909300789999999,0.544058696\n"
-            "CVCL_1642,PFSK-1,0.1876026089999999,0.2076517789999999,0.400145531,0.195871473,0.76489757\n"
-            "CVCL_1104,CAL-120,0.2101851619999999,0.222116189,0.264730199,0.243298011,0.415484752\n"
-            "CVCL_1199,ES3,0.205613728,0.227570131,0.303640813,0.250454389,0.599274902\n"
-        )
-    # mutations
-    temp_file = os.path.join(temp.name, "GDSC1_small", "mutations.csv")
-    with open(temp_file, "w") as f:
-        f.write(
-            "cellosaurus_id,cell_line_name,TSPAN6,TNMD,BRCA1,SCYL3,HDAC1,INSIG1,FOXO3\n"
-            "CVCL_X481,201T,False,False,False,False,False,True,True\n"
-            "CVCL_1045,22Rv1,False,True,False,True,False,False,True\n"
-            "CVCL_1046,23132/87,False,False,True,True,False,False,False\n"
-            "CVCL_1104,CAL-120,False,False,False,False,False,True,False\n"
-        )
-
-    # copy number variation
-    temp_file = os.path.join(temp.name, "GDSC1_small", "copy_number_variation_gistic.csv")
-    with open(temp_file, "w") as f:
-        f.write(
-            "cellosaurus_id,cell_line_name,TSPAN6,TNMD,BRCA1,SCYL3,HDAC1,INSIG1,FOXO3\n"
-            "CVCL_X481,201T,0.0,0.0,-1.0,0.0,0.0,1.0,-1.0\n"
-            "CVCL_1762,TE-12,-1.0,-1.0,0.0,1.0,1.0,0.0,0.0\n"
-            "CVCL_1104,CAL-120,0.0,0.0,0.0,-1.0,-1.0,1.0,0.0\n"
-            "CVCL_X508,STS-0421,0.0,0.0,1.0,0.0,0.0,-1.0,0.0\n"
-            "CVCL_1045,22Rv1,1.0,1.0,-1.0,1.0,1.0,1.0,1.0\n"
-        )
+    _write_gdsc1_small_omics_fixture(temp)
     if gene_list is not None:
         _write_gene_list(temp, gene_list)
     omics = ["gene_expression", "methylation", "mutations", "copy_number_variation_gistic"]
-    gene_lists = {o: gene_list for o in omics}
+    gene_lists = {omic: gene_list for omic in omics}
     gene_lists["methylation"] = None
     if gene_list == "gene_list_paccmann_network_prop":
         with pytest.raises(ValueError) as valerr:
-            dataset = get_multiomics_feature_dataset(
+            get_multiomics_feature_dataset(
                 data_path=temp.name,
                 dataset_name="GDSC1_small",
                 gene_lists=gene_lists,
                 omics=omics,
             )
-    else:
-        dataset = get_multiomics_feature_dataset(
-            data_path=temp.name,
-            dataset_name="GDSC1_small",
-            gene_lists=gene_lists,
-            omics=omics,
-        )
-        assert len(dataset.features) == 2
-        common_cls = dataset.identifiers
-        common_cls.sort()
-        assert np.all(common_cls == ["22Rv1", "CAL-120"])
-        assert dataset.meta_info is not None
-        assert len(dataset.meta_info) == 4
-    if gene_list is None:
-        assert dataset.meta_info is not None
-        assert np.all(
-            dataset.meta_info["gene_expression"] == ["TSPAN6", "TNMD", "BRCA1", "SCYL3", "HDAC1", "INSIG1", "FOXO3"]
-        )
-        for key in dataset.meta_info:
-            assert len(dataset.meta_info[key]) == 7
-    else:
-        feature_names: list[str] = []
-        if gene_list == "landmark_genes_reduced":
-            assert dataset.meta_info is not None
-            for key in dataset.meta_info:
-                if key == "methylation":
-                    assert len(dataset.meta_info[key]) == 7
-                else:
-                    assert len(dataset.meta_info[key]) == 4
-                    if len(feature_names) == 0:
-                        feature_names = dataset.meta_info[key]
-                    else:
-                        assert np.all(dataset.meta_info[key] == feature_names)
-        elif gene_list == "drug_target_genes_all_drugs":
-            assert dataset.meta_info is not None
-            for key in dataset.meta_info:
-                if key == "methylation":
-                    assert len(dataset.meta_info[key]) == 7
-                else:
-                    assert len(dataset.meta_info[key]) == 3
-                    if len(feature_names) == 0:
-                        feature_names = dataset.meta_info[key]
-                    else:
-                        assert np.all(dataset.meta_info[key] == feature_names)
-        elif gene_list == "gene_list_paccmann_network_prop":
-            assert "The following genes are missing from the dataset GDSC1_small" in str(valerr.value)
+        _assert_multiomics_gene_list_meta(None, gene_list, valerr=valerr)
+        return
+
+    dataset = get_multiomics_feature_dataset(
+        data_path=temp.name,
+        dataset_name="GDSC1_small",
+        gene_lists=gene_lists,
+        omics=omics,
+    )
+    assert len(dataset.features) == 2
+    common_cls = dataset.identifiers
+    common_cls.sort()
+    assert np.all(common_cls == ["22Rv1", "CAL-120"])
+    assert dataset.meta_info is not None
+    assert len(dataset.meta_info) == 4
+    _assert_multiomics_gene_list_meta(dataset, gene_list)
 
 
 def test_unique() -> None:

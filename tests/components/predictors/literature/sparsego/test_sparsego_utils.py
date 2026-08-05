@@ -15,10 +15,10 @@ def test_load_ontology_builds_graph_and_pair_arrays(tmp_path) -> None:
     )
     gene2id = {"GENE1": 0}
 
-    dG, terms_pairs, genes_terms_pairs = load_ontology(str(ont_path), gene2id)
+    ontology_graph, terms_pairs, genes_terms_pairs = load_ontology(str(ont_path), gene2id)
 
-    assert isinstance(dG, nx.DiGraph)
-    assert dG.has_edge("ROOT", "TERM")
+    assert isinstance(ontology_graph, nx.DiGraph)
+    assert ontology_graph.has_edge("ROOT", "TERM")
     assert terms_pairs.shape == (1, 2)
     assert genes_terms_pairs.shape == (1, 2)
     assert genes_terms_pairs[0].tolist() == ["TERM", "GENE1"]

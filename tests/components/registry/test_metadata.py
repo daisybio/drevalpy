@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-import subprocess
-import sys
-
 import pytest
 
 from drevalpy.components.registry._metadata_validate import validate_registered_class_metadata
 from drevalpy.components.registry.common import apply_registration_metadata
 from drevalpy.types.literature_reference import LiteratureReference
+from tests._trusted_subprocess import run_trusted_python
 
 
 def test_literature_reference_is_accepted() -> None:
@@ -73,11 +71,6 @@ assert len(list_drug_featurizer_metadata()) == 9
 assert len(list_predictor_metadata()) == 27
 print("ok")
 """
-    completed = subprocess.run(
-        [sys.executable, "-c", script],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
+    completed = run_trusted_python(script)
     assert completed.returncode == 0, completed.stderr
     assert "ok" in completed.stdout

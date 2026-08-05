@@ -53,7 +53,10 @@ def test_load_response_requires_response_dataset() -> None:
 
 
 def test_legacy_load_response_emits_deprecation_warning(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Legacy script warns and forwards argv to the Typer subcommand."""
+    """Legacy script warns and forwards argv to the Typer subcommand.
+
+    :param monkeypatch: Pytest fixture for patching ``sys.argv``.
+    """
     monkeypatch.setattr("sys.argv", ["drevalpy-load-response", "--help"])
 
     with warnings.catch_warnings(record=True) as caught:
@@ -161,7 +164,10 @@ def test_report_uses_dataset_name_option() -> None:
 
 
 def test_report_forwards_dataset_name(monkeypatch: pytest.MonkeyPatch) -> None:
-    """``report --dataset_name`` is forwarded to ``run_report`` as ``dataset``."""
+    """``report --dataset_name`` is forwarded to ``run_report`` as ``dataset``.
+
+    :param monkeypatch: Pytest fixture for patching ``run_report``.
+    """
     captured: dict[str, object] = {}
 
     def fake_run_report(**kwargs: object) -> None:

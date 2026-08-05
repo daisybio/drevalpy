@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import subprocess
-import sys
 import tempfile
 import textwrap
 
@@ -12,6 +10,7 @@ import pytest
 
 from drevalpy.models import construct_model
 from drevalpy.models.config import ModelConfig
+from tests._trusted_subprocess import run_trusted_python
 from tests.models.synthetic_fixtures import (
     cell_line_gene_expression,
     drug_fingerprints,
@@ -169,5 +168,5 @@ def test_subprocess_blocks_optional_deps_for_simple_models() -> None:
         else:
             raise AssertionError("DIPK construction should fail when literature deps are blocked")
         """)
-    completed = subprocess.run([sys.executable, "-c", script], check=False, capture_output=True, text=True)
+    completed = run_trusted_python(script)
     assert completed.returncode == 0, completed.stdout + completed.stderr

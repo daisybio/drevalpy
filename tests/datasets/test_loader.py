@@ -13,6 +13,7 @@ from drevalpy.datasets.loader import (
     is_builtin_dataset,
     list_builtin_datasets,
     load_dataset,
+    load_response_dataset,
 )
 
 _REGISTRY_JSON = "available_datasets.json"
@@ -117,6 +118,25 @@ def test_load_builtin_rejects_unknown_measure(tmp_path) -> None:
         _load_builtin(entry, str(tmp_path), measure="missing_measure")
 
 
+def test_load_dataset_alias_matches_load_response_dataset(tmp_path) -> None:
+    dataset_name = "AliasStudy"
+    csv_path = tmp_path / dataset_name / f"{dataset_name}.csv"
+    csv_path.parent.mkdir(parents=True)
+    pd.DataFrame(
+        {
+            "cell_line_name": ["A"],
+            "pubchem_id": ["D"],
+            "response": [0.5],
+        }
+    ).to_csv(csv_path, index=False)
+
+    via_alias = load_dataset(dataset_name, path_data=str(tmp_path))  # noqa: S615  # public alias parity
+    via_primary = load_response_dataset(dataset_name, path_data=str(tmp_path))
+    assert via_alias.response == via_primary.response
+    assert via_alias.cell_line_ids == via_primary.cell_line_ids
+    assert via_alias.drug_ids == via_primary.drug_ids
+
+
 def test_load_dataset_custom(tmp_path) -> None:
     dataset_name = "CustomStudy"
     csv_path = tmp_path / dataset_name / f"{dataset_name}.csv"
@@ -129,5 +149,5 @@ def test_load_dataset_custom(tmp_path) -> None:
         }
     ).to_csv(csv_path, index=False)
 
-    dataset = load_dataset(dataset_name, path_data=str(tmp_path))
+    dataset = load_response_dataset(dataset_name, path_data=str(tmp_path))
     assert len(dataset.response) == 1

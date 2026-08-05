@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import json
 import re
-import subprocess
 import sys
 from pathlib import Path
 
 import pytest
 import yaml
+
+from tests._trusted_subprocess import run_trusted_python
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DOCS = REPO_ROOT / "docs"
@@ -149,13 +150,7 @@ def test_component_catalog_is_registry_driven_and_synchronized() -> None:
         "from _component_catalog import generate_component_catalog_rsts\n"
         "sys.stdout.write(json.dumps(generate_component_catalog_rsts(), sort_keys=True))\n"
     )
-    completed = subprocess.run(
-        [sys.executable, "-c", script],
-        cwd=REPO_ROOT,
-        check=False,
-        capture_output=True,
-        text=True,
-    )
+    completed = run_trusted_python(script, cwd=str(REPO_ROOT))
     assert completed.returncode == 0, completed.stderr
     generated = json.loads(completed.stdout)
 

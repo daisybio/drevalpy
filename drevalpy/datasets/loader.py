@@ -83,7 +83,7 @@ _DEFAULT_MEASURE, _SOURCES, _REGISTRY = _load_registry()
 def list_builtin_datasets() -> list[str]:
     """List built-in dataset names from the packaged registry.
 
-    :returns: Sorted dataset names registered for ``load_dataset``.
+    :returns: Sorted dataset names registered for ``load_response_dataset``.
     """
     return sorted(_REGISTRY)
 
@@ -198,7 +198,7 @@ def load_custom(
     )
 
 
-def load_dataset(
+def load_response_dataset(
     dataset_name: str,
     path_data: str = "data",
     measure: str = "response",
@@ -249,3 +249,34 @@ def load_dataset(
             tissue_column=tissue_column,
         )
     raise FileNotFoundError(f"Custom dataset does not exist at given path: {input_file}")
+
+
+def load_dataset(
+    dataset_name: str,
+    path_data: str = "data",
+    measure: str = "response",
+    curve_curator: bool = False,
+    cores: int = 1,
+    tissue_column: str | None = None,
+    normalize: bool = False,
+) -> DrugResponseDataset:
+    """Backward-compatible alias for ``load_response_dataset``.
+
+    :param dataset_name: Dataset name or custom study folder name.
+    :param path_data: Parent directory for downloaded or custom datasets.
+    :param measure: Response measure column to load.
+    :param curve_curator: Whether to fit curves via CurveCurator when needed.
+    :param cores: Parallel cores for CurveCurator fitting.
+    :param tissue_column: Optional tissue annotation column.
+    :param normalize: Whether to normalize responses after loading.
+    :returns: Loaded drug-response dataset.
+    """
+    return load_response_dataset(
+        dataset_name=dataset_name,
+        path_data=path_data,
+        measure=measure,
+        curve_curator=curve_curator,
+        cores=cores,
+        tissue_column=tissue_column,
+        normalize=normalize,
+    )

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import pickle
 import tempfile
 from pathlib import Path
 
@@ -12,6 +11,7 @@ import pandas as pd
 from drevalpy.cli.run_cv import run_load_response
 from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
+from drevalpy.utils.pickle_io import load_trusted_pickle
 
 
 def test_run_load_response_uses_provided_path() -> None:
@@ -38,8 +38,7 @@ def test_run_load_response_uses_provided_path() -> None:
             after = set(work_path.iterdir())
             assert after - before == {work_path / "response_dataset.pkl"}
 
-            with open(work_path / "response_dataset.pkl", "rb") as handle:
-                loaded = pickle.load(handle)
+            loaded = load_trusted_pickle(work_path / "response_dataset.pkl")
 
             assert isinstance(loaded, DrugResponseDataset)
             assert loaded.dataset_name == "custom_response"

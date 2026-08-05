@@ -11,7 +11,7 @@ import pytest
 from flaky import flaky
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
-from drevalpy.datasets.loader import load_dataset
+from drevalpy.datasets.loader import load_response_dataset
 from drevalpy.utils import get_response_transformation
 
 # Tests for the DrugResponseDataset class
@@ -53,7 +53,7 @@ def test_fitting_and_loading_custom_dataset(sample_dataset: DrugResponseDataset,
     assert sample_dataset.dataset_name == "TOYv1"
     dataset_name = "CTRPv2_sample_test"
     path_data = str(data_dir)
-    load_dataset(
+    load_response_dataset(
         dataset_name=dataset_name,
         path_data=path_data,
         measure="IC50",
@@ -94,7 +94,7 @@ def test_curvecurator_measures():
     """
     df = pd.DataFrame({"dose": xvals, "response": yvals, "sample": "cell_line_1", "drug": "drug_1", "replicate": "1"})
     df.to_csv(path_to_temp_dir / "toy_curves" / "toy_curves_raw.csv", index=False)
-    load_dataset(
+    load_response_dataset(
         dataset_name="toy_curves",
         path_data=str(path_to_temp_dir),
         measure="IC50",
@@ -270,6 +270,38 @@ def test_response_dataset_reduce_to():
     assert len(dataset.tissue) == 0
 
 
+_VALIDATION_SPLIT_KEYS = ("validation", "validation_es", "early_stopping")
+
+
+def _assert_disjoint_validation(mode: str, split: dict, test_set: set) -> None:
+    for val_es in _VALIDATION_SPLIT_KEYS:
+        if mode == "LCO":
+            validation_set = set(split[val_es].cell_line_ids)
+        elif mode == "LDO":
+            validation_set = set(split[val_es].drug_ids)
+        else:
+            validation_set = set(zip(split[val_es].cell_line_ids, split[val_es].drug_ids, strict=True))
+        assert validation_set.isdisjoint(test_set)
+
+
+def _assert_cv_split_disjointness(mode: str, split: dict, split_validation: bool) -> None:
+    if mode == "LCO":
+        test_set = set(split["test"].cell_line_ids)
+        assert set(split["train"].cell_line_ids).isdisjoint(test_set)
+    elif mode == "LDO":
+        test_set = set(split["test"].drug_ids)
+        assert set(split["train"].drug_ids).isdisjoint(test_set)
+    elif mode == "LPO":
+        test_set = set(zip(split["test"].cell_line_ids, split["test"].drug_ids, strict=True))
+        train_pairs = set(zip(split["train"].cell_line_ids, split["train"].drug_ids, strict=True))
+        assert train_pairs.isdisjoint(test_set)
+    else:
+        return
+
+    if split_validation:
+        _assert_disjoint_validation(mode, split, test_set)
+
+
 @pytest.mark.parametrize("mode", ["LPO", "LCO", "LDO", "LTO"])
 @pytest.mark.parametrize("split_validation", [True, False])
 def test_split_response_dataset(mode: str, split_validation: bool) -> None:
@@ -312,58 +344,7 @@ def test_split_response_dataset(mode: str, split_validation: bool) -> None:
     for split in cv_splits:
         assert isinstance(split["train"], DrugResponseDataset)
         assert isinstance(split["test"], DrugResponseDataset)
-
-        # Check that drugs/cell lines in the training data are not present in the test data
-        if mode == "LCO":
-            train_cell_lines = set(split["train"].cell_line_ids)
-            test_cell_lines = set(split["test"].cell_line_ids)
-
-            assert train_cell_lines.isdisjoint(test_cell_lines)
-
-            if split_validation:  # Only check if validation split is enabled
-                for val_es in [
-                    "validation",
-                    "validation_es",
-                    "early_stopping",
-                ]:
-                    validation_cell_lines = set(split[val_es].cell_line_ids)
-                    assert validation_cell_lines.isdisjoint(
-                        test_cell_lines
-                    )  # Check for disjointness between validation and test cell lines
-
-        elif mode == "LDO":
-            train_drugs = set(split["train"].drug_ids)
-            test_drugs = set(split["test"].drug_ids)
-
-            assert train_drugs.isdisjoint(test_drugs)
-
-            if split_validation:  # Only check if validation split is enabled
-                for val_es in [
-                    "validation",
-                    "validation_es",
-                    "early_stopping",
-                ]:
-                    validation_drugs = set(split[val_es].drug_ids)
-                    assert validation_drugs.isdisjoint(
-                        test_drugs
-                    )  # Check for disjointness between validation and test drugs
-
-        elif mode == "LPO":
-            train_pairs = set(zip(split["train"].cell_line_ids, split["train"].drug_ids, strict=True))
-            test_pairs = set(zip(split["test"].cell_line_ids, split["test"].drug_ids, strict=True))
-
-            assert train_pairs.isdisjoint(test_pairs)
-
-            if split_validation:  # Only check if validation split is enabled
-                for val_es in [
-                    "validation",
-                    "validation_es",
-                    "early_stopping",
-                ]:
-                    validation_pairs = set(zip(split[val_es].cell_line_ids, split[val_es].drug_ids, strict=True))
-                    assert validation_pairs.isdisjoint(
-                        test_pairs
-                    )  # Check for disjointness between validation and test pairs
+        _assert_cv_split_disjointness(mode, split, split_validation)
 
     tempdir = tempfile.TemporaryDirectory()
     dataset.save_splits(path=tempdir.name)

@@ -20,8 +20,8 @@ from tests.models.synthetic_fixtures import (
 
 
 def test_construct_model_supports_factory_lifecycle() -> None:
-    ElasticNet = construct_model("ElasticNet")
-    model = ElasticNet({"alpha": 0.1, "l1_ratio": 0.5})
+    elastic_net_cls = construct_model("ElasticNet")
+    model = elastic_net_cls({"alpha": 0.1, "l1_ratio": 0.5})
     assert model.get_model_name() == "ElasticNet"
     response = multi_drug_response()
     cell_line_input = cell_line_gene_expression()
@@ -32,14 +32,14 @@ def test_construct_model_supports_factory_lifecycle() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         checkpoint = f"{tmp}/model"
         model.save(checkpoint)
-        loaded = ElasticNet.load(checkpoint)
+        loaded = elastic_net_cls.load(checkpoint)
         loaded_preds = loaded.predict(response.cell_line_ids, response.drug_ids, cell_line_input, drug_input)
     assert np.allclose(preds, loaded_preds)
 
 
 def test_naive_model_round_trip() -> None:
-    NaiveDrugMean = construct_model("NaiveDrugMeanPredictor")
-    model = NaiveDrugMean({})
+    naive_drug_mean_cls = construct_model("NaiveDrugMeanPredictor")
+    model = naive_drug_mean_cls({})
     response = multi_drug_response()
     cell_line_input = identity_cell_line_features()
     drug_input = identity_drug_features()
@@ -47,14 +47,14 @@ def test_naive_model_round_trip() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         checkpoint = f"{tmp}/model"
         model.save(checkpoint)
-        loaded = NaiveDrugMean.load(checkpoint)
+        loaded = naive_drug_mean_cls.load(checkpoint)
     assert loaded._stack is not None
     assert loaded._stack.is_fitted()
 
 
 def test_empty_training_transitions() -> None:
-    NaiveDrugMean = construct_model("NaiveDrugMeanPredictor")
-    model = NaiveDrugMean({})
+    naive_drug_mean_cls = construct_model("NaiveDrugMeanPredictor")
+    model = naive_drug_mean_cls({})
     cell_line_input = identity_cell_line_features()
     drug_input = identity_drug_features()
     empty = DrugResponseDataset(
@@ -108,17 +108,17 @@ def test_empty_training_transitions() -> None:
 
 
 def test_constructor_defaults_match_classmethod() -> None:
-    ElasticNet = construct_model("ElasticNet")
-    model = ElasticNet()
-    assert model.hyperparameters == ElasticNet.get_default_hyperparameters()
+    elastic_net_cls = construct_model("ElasticNet")
+    model = elastic_net_cls()
+    assert model.hyperparameters == elastic_net_cls.get_default_hyperparameters()
     assert not hasattr(model, "configure")
-    assert not hasattr(ElasticNet, "configure")
+    assert not hasattr(elastic_net_cls, "configure")
 
 
 def test_constructor_overrides_affect_views_before_feature_load() -> None:
-    RandomForest = construct_model("RandomForest")
-    defaults = RandomForest()
-    overridden = RandomForest({"n_estimators": 3, "max_depth": 2})
+    random_forest_cls = construct_model("RandomForest")
+    defaults = random_forest_cls()
+    overridden = random_forest_cls({"n_estimators": 3, "max_depth": 2})
     assert overridden.hyperparameters["n_estimators"] == 3
     assert overridden.cell_line_views == defaults.cell_line_views
     assert overridden.drug_views == defaults.drug_views
@@ -128,12 +128,12 @@ def test_constructor_overrides_affect_views_before_feature_load() -> None:
 
 
 def test_separate_constructor_calls_have_isolated_fitted_state() -> None:
-    NaiveDrugMean = construct_model("NaiveDrugMeanPredictor")
+    naive_drug_mean_cls = construct_model("NaiveDrugMeanPredictor")
     response = multi_drug_response()
     cell_line_input = identity_cell_line_features()
     drug_input = identity_drug_features()
-    first = NaiveDrugMean()
-    second = NaiveDrugMean()
+    first = naive_drug_mean_cls()
+    second = naive_drug_mean_cls()
     first.train(response, cell_line_input, drug_input)
     assert first._stack is not None
     assert first._stack.is_fitted()
@@ -142,9 +142,9 @@ def test_separate_constructor_calls_have_isolated_fitted_state() -> None:
 
 
 def test_from_resolved_config_and_load_skip_default_stack() -> None:
-    ElasticNet = construct_model("ElasticNet")
+    elastic_net_cls = construct_model("ElasticNet")
     config = ModelConfig.from_spec("ElasticNet", hyperparameters={"alpha": 0.2, "l1_ratio": 0.3})
-    model = ElasticNet._from_resolved_config(config)
+    model = elastic_net_cls._from_resolved_config(config)
     assert model.hyperparameters["alpha"] == 0.2
     response = multi_drug_response()
     cell_line_input = cell_line_gene_expression()
@@ -154,7 +154,7 @@ def test_from_resolved_config_and_load_skip_default_stack() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         checkpoint = f"{tmp}/model"
         model.save(checkpoint)
-        loaded = ElasticNet.load(checkpoint)
+        loaded = elastic_net_cls.load(checkpoint)
     loaded_preds = loaded.predict(response.cell_line_ids, response.drug_ids, cell_line_input, drug_input)
     assert np.allclose(preds, loaded_preds)
     assert loaded._stack is not None
@@ -162,8 +162,8 @@ def test_from_resolved_config_and_load_skip_default_stack() -> None:
 
 
 def test_hyperparameters_and_views_are_immutable_after_construction() -> None:
-    ElasticNet = construct_model("ElasticNet")
-    model = ElasticNet({"alpha": 0.1, "l1_ratio": 0.5})
+    elastic_net_cls = construct_model("ElasticNet")
+    model = elastic_net_cls({"alpha": 0.1, "l1_ratio": 0.5})
     assert model._stack is not None
 
     exposed = model.hyperparameters
@@ -192,8 +192,8 @@ def test_load_drug_features_uses_featurizer_loader_when_configured(
     from drevalpy.components.registry import get_predictor
     from drevalpy.datasets.dataset import FeatureDataset
 
-    ElasticNet = construct_model("ElasticNet")
-    model = ElasticNet({"alpha": 0.1, "l1_ratio": 0.5})
+    elastic_net_cls = construct_model("ElasticNet")
+    model = elastic_net_cls({"alpha": 0.1, "l1_ratio": 0.5})
     assert model._resolved_model_config is not None
     predictor_cls = get_predictor(model._resolved_model_config.predictor.name)
 

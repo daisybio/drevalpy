@@ -36,6 +36,31 @@ def _as_feature_blocks(blocks: dict[str, np.ndarray | FeatureBlock] | None) -> d
     return wrapped
 
 
+def _infer_n_pairs(
+    *,
+    n_pairs: int | None,
+    response: np.ndarray | None,
+    cell_line_pair_idx: np.ndarray | None,
+    drug_pair_idx: np.ndarray | None,
+    cell_line_features: np.ndarray | None,
+    drug_features: np.ndarray | None,
+) -> int:
+    if n_pairs is not None:
+        return n_pairs
+    if response is not None:
+        return len(response)
+    if cell_line_pair_idx is not None:
+        return len(cell_line_pair_idx)
+    if drug_pair_idx is not None:
+        return len(drug_pair_idx)
+    if cell_line_features is not None and cell_line_features.ndim == 2:
+        return int(cell_line_features.shape[0])
+    if drug_features is not None and drug_features.ndim == 2:
+        return int(drug_features.shape[0])
+    msg = "n_pairs, response, or features are required"
+    raise ValueError(msg)
+
+
 def naive_batch(
     *,
     n_pairs: int | None = None,
@@ -64,22 +89,15 @@ def naive_batch(
     :param cell_line_ids: Decoy pair cell-line IDs (ignored by predictors).
     :param drug_ids: Decoy pair drug IDs (ignored by predictors).
     :returns: Minimal ``ModelInputBatch`` for naive predictor unit tests.
-    :raises ValueError: If pair count cannot be inferred from the inputs.
     """
-    if n_pairs is None:
-        if response is not None:
-            n_pairs = len(response)
-        elif cell_line_pair_idx is not None:
-            n_pairs = len(cell_line_pair_idx)
-        elif drug_pair_idx is not None:
-            n_pairs = len(drug_pair_idx)
-        elif cell_line_features is not None and cell_line_features.ndim == 2:
-            n_pairs = int(cell_line_features.shape[0])
-        elif drug_features is not None and drug_features.ndim == 2:
-            n_pairs = int(drug_features.shape[0])
-        else:
-            msg = "n_pairs, response, or features are required"
-            raise ValueError(msg)
+    n_pairs = _infer_n_pairs(
+        n_pairs=n_pairs,
+        response=response,
+        cell_line_pair_idx=cell_line_pair_idx,
+        drug_pair_idx=drug_pair_idx,
+        cell_line_features=cell_line_features,
+        drug_features=drug_features,
+    )
 
     if cell_line_features is None:
         cell_line_features = np.ones((n_pairs, 1), dtype=np.float64)

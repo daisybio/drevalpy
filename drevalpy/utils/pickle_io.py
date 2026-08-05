@@ -8,6 +8,7 @@ from typing import Any, BinaryIO
 
 PickleDestination = Path | str | BinaryIO
 PickleSource = Path | str | BinaryIO
+UnpicklingError = pickle.UnpicklingError
 
 
 def load_trusted_pickle(source: PickleSource) -> Any:
