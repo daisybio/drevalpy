@@ -7,7 +7,7 @@ import pytest
 from drevalpy.components.contracts import FeatureContract, FeatureFormat
 from drevalpy.components.registry._metadata_validate import validate_shared_registration_metadata
 from drevalpy.components.registry.base import apply_shared_registration_metadata
-from drevalpy.components.registry.featurizer import DrugFeaturizerRegistry
+from drevalpy.components.registry.featurizer import FeaturizerRegistry
 from drevalpy.components.registry.predictor import PredictorRegistry
 from drevalpy.types.literature_reference import LiteratureReference
 from tests._trusted_subprocess import run_trusted_python
@@ -45,7 +45,7 @@ def test_literature_reference_missing_fields_fails() -> None:
 
 
 def test_featurizer_role_validation_requires_contract() -> None:
-    registry = DrugFeaturizerRegistry()
+    registry = FeaturizerRegistry("drug_featurizer", "Drug featurizer", "drug_featurizers")
 
     class Native:
         description = "native"

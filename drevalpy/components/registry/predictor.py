@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
-from typing import Any, ClassVar
+from typing import Any
 
 from drevalpy.components.contracts import FeatureContract, FeatureFormat, normalize_feature_contract
 from drevalpy.components.registry._metadata_validate import (
@@ -23,9 +23,9 @@ from drevalpy.types.literature_reference import LiteratureReference
 class PredictorRegistry(Registry):
     """Registry for predictors that declare cell-line and drug input contracts."""
 
-    _registry_id: ClassVar[str] = "predictor"
-    _label: ClassVar[str] = "Predictor"
-    _display_name: ClassVar[str] = "predictors"
+    def __init__(self) -> None:
+        """Initialize the predictor registry with its fixed identity."""
+        super().__init__("predictor", "Predictor", "predictors")
 
     def register(
         self,

@@ -1,9 +1,9 @@
-"""Featurizer registry classes and module singletons."""
+"""Featurizer registry class and module singletons."""
 
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
-from typing import Any, ClassVar
+from typing import Any
 
 from drevalpy.components.contracts import FeatureContract, FeatureFormat, normalize_feature_contract
 from drevalpy.components.registry._metadata_validate import (
@@ -78,21 +78,13 @@ class FeaturizerRegistry(Registry):
         return featurizer_component_metadata(self._display_name, name, cls)
 
 
-class CellLineFeaturizerRegistry(FeaturizerRegistry):
-    """Registry for cell-line featurizers."""
-
-    _registry_id: ClassVar[str] = "cell_line_featurizer"
-    _label: ClassVar[str] = "Cell line featurizer"
-    _display_name: ClassVar[str] = "cell_line_featurizers"
-
-
-class DrugFeaturizerRegistry(FeaturizerRegistry):
-    """Registry for drug featurizers."""
-
-    _registry_id: ClassVar[str] = "drug_featurizer"
-    _label: ClassVar[str] = "Drug featurizer"
-    _display_name: ClassVar[str] = "drug_featurizers"
-
-
-cell_line_featurizer_registry = CellLineFeaturizerRegistry()
-drug_featurizer_registry = DrugFeaturizerRegistry()
+cell_line_featurizer_registry = FeaturizerRegistry(
+    "cell_line_featurizer",
+    "Cell line featurizer",
+    "cell_line_featurizers",
+)
+drug_featurizer_registry = FeaturizerRegistry(
+    "drug_featurizer",
+    "Drug featurizer",
+    "drug_featurizers",
+)

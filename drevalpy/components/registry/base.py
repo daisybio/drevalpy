@@ -5,7 +5,7 @@ from __future__ import annotations
 import threading
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
-from typing import Any, ClassVar
+from typing import Any
 
 from drevalpy.components.registry._metadata_validate import validate_shared_registration_metadata
 from drevalpy.types.literature_reference import LiteratureReference
@@ -58,12 +58,16 @@ def apply_shared_registration_metadata(
 class Registry(ABC):
     """Thread-safe name-to-class registry with shared store and metadata listing."""
 
-    _registry_id: ClassVar[str]
-    _label: ClassVar[str]
-    _display_name: ClassVar[str]
+    def __init__(self, registry_id: str, label: str, display_name: str) -> None:
+        """Initialize an empty registry store.
 
-    def __init__(self) -> None:
-        """Initialize an empty registry store."""
+        :param registry_id: Stable identifier used in validation messages.
+        :param label: Human-readable label for unknown/duplicate errors.
+        :param display_name: Catalog registry name written into metadata rows.
+        """
+        self._registry_id = registry_id
+        self._label = label
+        self._display_name = display_name
         self._store: dict[str, type[Any]] = {}
         self._lock = threading.Lock()
 

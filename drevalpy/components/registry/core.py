@@ -7,8 +7,6 @@ singletons for existing internal imports.
 
 from drevalpy.components.registry.base import Registry
 from drevalpy.components.registry.featurizer import (
-    CellLineFeaturizerRegistry,
-    DrugFeaturizerRegistry,
     FeaturizerRegistry,
     cell_line_featurizer_registry,
     drug_featurizer_registry,
@@ -16,8 +14,6 @@ from drevalpy.components.registry.featurizer import (
 from drevalpy.components.registry.predictor import PredictorRegistry, predictor_registry
 
 __all__ = [
-    "CellLineFeaturizerRegistry",
-    "DrugFeaturizerRegistry",
     "FeaturizerRegistry",
     "PredictorRegistry",
     "Registry",
