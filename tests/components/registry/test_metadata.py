@@ -12,7 +12,8 @@ from tests._trusted_subprocess import run_trusted_python
 
 def test_literature_reference_is_accepted() -> None:
     class Lit:
-        pass
+        cell_line_contract = object()
+        drug_contract = object()
 
     apply_registration_metadata(
         Lit,
@@ -28,7 +29,8 @@ def test_literature_reference_is_accepted() -> None:
 
 def test_literature_reference_missing_fields_fails() -> None:
     class Lit:
-        pass
+        cell_line_contract = object()
+        drug_contract = object()
 
     apply_registration_metadata(
         Lit,
@@ -51,9 +53,23 @@ def test_featurizer_metadata_requires_explicit_contract() -> None:
         validate_registered_class_metadata("drug_featurizer", "native", Native)
 
 
+def test_predictor_metadata_requires_explicit_contracts() -> None:
+    class Native:
+        pass
+
+    apply_registration_metadata(
+        Native,
+        description="native",
+    )
+    with pytest.raises(ValueError, match="missing=\\['cell_line_contract', 'drug_contract'\\]"):
+        validate_registered_class_metadata("predictor", "native", Native)
+
+
 def test_missing_description_fails() -> None:
     class Empty:
         tags: frozenset[str] = frozenset()
+        cell_line_contract = object()
+        drug_contract = object()
 
     with pytest.raises(ValueError, match="missing=\\['description'\\]"):
         validate_registered_class_metadata("predictor", "empty", Empty)

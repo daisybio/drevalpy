@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.predictors.sklearn_tabular import SklearnTabularPredictor
 from drevalpy.components.registry import register_predictor
 
@@ -11,6 +12,8 @@ from drevalpy.components.registry import register_predictor
 @register_predictor(
     "lightgbm",
     description="LightGBM regressor on concatenated dense features.",
+    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+    drug_contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class LightGBMPredictor(SklearnTabularPredictor):
     """LightGBM regressor for dense tabular pair features."""

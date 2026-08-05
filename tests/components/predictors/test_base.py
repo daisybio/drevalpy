@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 import numpy as np
 
+from drevalpy.components.contracts import FeatureContract, FeatureFormat
 from drevalpy.components.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors.base import Predictor
 from drevalpy.components.predictors.sklearn_models import ElasticNetPredictor
@@ -12,6 +15,9 @@ from drevalpy.models.config import PredictorConfig
 
 
 class _StubPredictor(Predictor):
+    cell_line_contract: ClassVar[FeatureContract] = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
+    drug_contract: ClassVar[FeatureContract] = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
+
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, object]]:
         return {"alpha": {"type": "float", "default": 1.0}}

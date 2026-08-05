@@ -7,7 +7,7 @@ from typing import Any, ClassVar
 
 import numpy as np
 
-from drevalpy.components.contracts import FeatureContract, FeatureFormat
+from drevalpy.components.contracts import FeatureContract
 from drevalpy.components.feature_block import FeatureBlock, numeric_feature_block
 from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
 from drevalpy.datasets.dataset import FeatureDataset
@@ -17,12 +17,12 @@ class Featurizer(ABC):
     """Transform feature tables into per-entity representation payloads.
 
     Cell-line featurizers consume cell-line features; drug featurizers consume
-    drug features. Both declare ``contract`` for predictor matching. Numeric
-    featurizers return 2D matrices; graph and ragged featurizers return object
-    arrays of payloads.
+    drug features. Both must declare ``contract`` explicitly (via registration
+    or on the class) for predictor matching. Numeric featurizers return 2D
+    matrices; graph and ragged featurizers return object arrays of payloads.
     """
 
-    contract: ClassVar[FeatureContract] = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
+    contract: ClassVar[FeatureContract]
 
     @abstractmethod
     def fit(

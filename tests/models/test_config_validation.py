@@ -219,7 +219,12 @@ def test_block_schema_reports_missing_named_block() -> None:
 
 
 def test_feature_free_predictor_without_featurizers_passes() -> None:
-    @register_predictor("naiveMean", description="naive")
+    @register_predictor(
+        "naiveMean",
+        description="naive",
+        cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+        drug_contract=FeatureFormat.NUMERIC_MATRIX,
+    )
     class NaiveMean(FeatureFreePredictor):
         pass
 

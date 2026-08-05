@@ -86,11 +86,13 @@ The details about what the input for each predictor type looks like are explaine
 
       ``FeatureFreePredictor`` uses pair identifiers and/or response values
       only. It sets ``requires_drug_featurizer=False``, so composition does not
-      need cell-line or drug featurizers — contracts are irrelevant for this
-      path.
+      need cell-line or drug featurizers. Registration still requires explicit
+      ``cell_line_contract`` / ``drug_contract`` (typically
+      ``FeatureFormat.NUMERIC_MATRIX``).
 
       .. code-block:: python
 
+         from drevalpy.components.contracts import FeatureFormat
          from drevalpy.components.model_input_batch import ModelInputBatch
          from drevalpy.components.predictors.feature_free import FeatureFreePredictor
          from drevalpy.components.registry import register_predictor
@@ -99,6 +101,8 @@ The details about what the input for each predictor type looks like are explaine
          @register_predictor(
              "toyMean",
              description="Predict the training mean response.",
+             cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+             drug_contract=FeatureFormat.NUMERIC_MATRIX,
          )
          class ToyMeanPredictor(FeatureFreePredictor):
              def fit(self, batch: ModelInputBatch) -> None:

@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 
-from drevalpy.components.contracts import FeatureContract, FeatureFormat
+from drevalpy.components.contracts import FeatureContract
 from drevalpy.types.model_scope import ModelScope
 from drevalpy.types.prediction_mode import PredictionMode
 
@@ -16,10 +16,15 @@ if TYPE_CHECKING:
 
 
 class Predictor(ABC):
-    """Train and predict drug response from a ``ModelInputBatch``."""
+    """Train and predict drug response from a ``ModelInputBatch``.
 
-    cell_line_contract: ClassVar[FeatureContract] = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
-    drug_contract: ClassVar[FeatureContract] = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
+    Subclasses must declare ``cell_line_contract`` and ``drug_contract``
+    explicitly (via registration or on the class). There is no inherited
+    default feature format.
+    """
+
+    cell_line_contract: ClassVar[FeatureContract]
+    drug_contract: ClassVar[FeatureContract]
     requires_drug_featurizer: ClassVar[bool] = True
     routing_drug_featurizer: ClassVar[str | None] = None
     supports_early_stopping: ClassVar[bool] = False

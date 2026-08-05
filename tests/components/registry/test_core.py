@@ -271,6 +271,17 @@ def test_featurizer_registration_requires_explicit_contract() -> None:
             pass
 
 
+def test_predictor_registration_requires_explicit_contracts() -> None:
+    with pytest.raises(ValueError, match="missing=\\['cell_line_contract', 'drug_contract'\\]"):
+
+        @register_predictor(
+            "noContractPred",
+            description="missing contracts",
+        )
+        class NoContractPred(FeatureFreePredictor):
+            pass
+
+
 def test_registry_clear() -> None:
     registry = Registry("test", "Test component", "test_components", lambda *_: {})
     decorated = registry.register("x", description="x")

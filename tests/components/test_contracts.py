@@ -2,6 +2,8 @@
 
 from typing import Any, cast
 
+import pytest
+
 from drevalpy.components.contracts import (
     FeatureContract,
     FeatureFormat,
@@ -57,6 +59,14 @@ def test_featurizer_contract_reads_canonical_attribute() -> None:
     assert featurizer_contract(WithContract).format == FeatureFormat.GRAPH
 
 
+def test_featurizer_contract_requires_contract() -> None:
+    class WithoutContract:
+        pass
+
+    with pytest.raises(TypeError, match="must define a contract"):
+        featurizer_contract(WithoutContract)
+
+
 def test_predictor_contracts_reads_canonical_attributes() -> None:
     class WithContracts:
         cell_line_contract = FeatureContract(format=FeatureFormat.RAGGED_SEQUENCE)
@@ -65,3 +75,11 @@ def test_predictor_contracts_reads_canonical_attributes() -> None:
     cell_line, drug = predictor_contracts(WithContracts)
     assert cell_line.format == FeatureFormat.RAGGED_SEQUENCE
     assert drug.format == FeatureFormat.GRAPH
+
+
+def test_predictor_contracts_requires_both_contracts() -> None:
+    class MissingDrugContract:
+        cell_line_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
+
+    with pytest.raises(TypeError, match="must define both"):
+        predictor_contracts(MissingDrugContract)

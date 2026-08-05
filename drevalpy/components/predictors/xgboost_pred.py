@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from typing import Any
 
+from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.predictors.sklearn_tabular import SklearnTabularPredictor
 from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.components.registry import register_predictor
@@ -34,6 +35,8 @@ def _set_xgboost_thread_defaults() -> None:
 @register_predictor(
     "xgboost",
     description="XGBoost regressor on concatenated dense features.",
+    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+    drug_contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class XGBoostPredictor(SklearnTabularPredictor):
     """XGBoost regressor for dense tabular pair features."""

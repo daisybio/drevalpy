@@ -143,7 +143,12 @@ class ResolverCellLineFeaturizer(CellLineFeaturizer):
     def output_dim(self):
         return self._output_dim
 
-@register_predictor("resolverPredictor", description="ext")
+@register_predictor(
+    "resolverPredictor",
+    description="ext",
+    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+    drug_contract=FeatureFormat.NUMERIC_MATRIX,
+)
 class ResolverPredictor(FeatureFreePredictor):
     def fit(self, batch: ModelInputBatch) -> None:
         if batch.response is None:

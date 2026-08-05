@@ -7,7 +7,7 @@ from typing import Any
 import numpy as np
 import pytest
 
-from drevalpy.components.contracts import FeatureFormat
+from drevalpy.components.contracts import FeatureContract, FeatureFormat
 from drevalpy.components.feature_block import FeatureBlock
 from drevalpy.components.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors.feature_dataset_block import FeatureDatasetBlockPredictor
@@ -46,6 +46,8 @@ class _FakeAlgorithm(LiteratureTrainingMixin):
 
 
 class _FakePredictor(FeatureDatasetBlockPredictor):
+    cell_line_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
+    drug_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
     required_cell_line_blocks = ("gene_expression",)
     required_drug_blocks = ("fingerprints",)
     requires_drug_featurizer = True

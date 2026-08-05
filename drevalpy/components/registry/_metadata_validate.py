@@ -7,6 +7,7 @@ from typing import Any
 from drevalpy.types.literature_reference import LiteratureReference
 
 _FEATURIZER_REGISTRY_IDS = frozenset({"cell_line_featurizer", "drug_featurizer"})
+_PREDICTOR_REGISTRY_ID = "predictor"
 
 
 def _is_valid_url(url: str) -> bool:
@@ -44,6 +45,11 @@ def _missing_metadata_fields(registry_id: str, cls: type[Any]) -> list[str]:
         missing.append("description")
     if registry_id in _FEATURIZER_REGISTRY_IDS and "contract" not in cls.__dict__:
         missing.append("contract")
+    if registry_id == _PREDICTOR_REGISTRY_ID:
+        if "cell_line_contract" not in cls.__dict__:
+            missing.append("cell_line_contract")
+        if "drug_contract" not in cls.__dict__:
+            missing.append("drug_contract")
     return missing
 
 

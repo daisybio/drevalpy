@@ -66,7 +66,11 @@ class ToyCellLineFeaturizer(CellLineFeaturizer):
 
 
 @register_predictor(
-    "toyPredictor", description="Toy predictor")
+    "toyPredictor",
+    description="Toy predictor",
+    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+    drug_contract=FeatureFormat.NUMERIC_MATRIX,
+)
 class ToyPredictor(FeatureFreePredictor):
     def fit(self, batch: ModelInputBatch) -> None:
         return None
@@ -87,10 +91,13 @@ class ToyPredictor(FeatureFreePredictor):
 def test_load_extension_dir_imports_sorted_files(tmp_path: Path) -> None:
     (tmp_path / "b_ext.py").write_text(
         "from drevalpy.components.registry import register_predictor\n"
+        "from drevalpy.components.contracts import FeatureFormat\n"
         "from drevalpy.components.model_input_batch import ModelInputBatch\n"
         "from drevalpy.components.predictors.feature_free import FeatureFreePredictor\n"
         "import numpy as np\n"
-        "@register_predictor('toyB', description='b')\n"
+        "@register_predictor('toyB', description='b',\n"
+        "    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,\n"
+        "    drug_contract=FeatureFormat.NUMERIC_MATRIX)\n"
         "class ToyB(FeatureFreePredictor):\n"
         "    def fit(self, batch: ModelInputBatch): return None\n"
         "    def predict(self, batch: ModelInputBatch): return np.zeros(batch.n_pairs)\n",
@@ -98,10 +105,13 @@ def test_load_extension_dir_imports_sorted_files(tmp_path: Path) -> None:
     )
     (tmp_path / "a_ext.py").write_text(
         "from drevalpy.components.registry import register_predictor\n"
+        "from drevalpy.components.contracts import FeatureFormat\n"
         "from drevalpy.components.model_input_batch import ModelInputBatch\n"
         "from drevalpy.components.predictors.feature_free import FeatureFreePredictor\n"
         "import numpy as np\n"
-        "@register_predictor('toyA', description='a')\n"
+        "@register_predictor('toyA', description='a',\n"
+        "    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,\n"
+        "    drug_contract=FeatureFormat.NUMERIC_MATRIX)\n"
         "class ToyA(FeatureFreePredictor):\n"
         "    def fit(self, batch: ModelInputBatch): return None\n"
         "    def predict(self, batch: ModelInputBatch): return np.zeros(batch.n_pairs)\n",
@@ -139,7 +149,12 @@ class ExternalCellLineFeaturizer(CellLineFeaturizer):
     def output_dim(self):
         return self._output_dim
 
-@register_predictor("externalPredictor", description="ext")
+@register_predictor(
+    "externalPredictor",
+    description="ext",
+    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+    drug_contract=FeatureFormat.NUMERIC_MATRIX,
+)
 class ExternalPredictor(FeatureFreePredictor):
     def fit(self, batch: ModelInputBatch) -> None:
         if batch.response is None:
@@ -234,11 +249,17 @@ def test_failed_extension_file_does_not_leave_sys_modules_or_registry_mutation(t
     ext_file.write_text(
         """
 from drevalpy.components.registry import register_predictor
+from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors.feature_free import FeatureFreePredictor
 import numpy as np
 
-@register_predictor("brokenPartial", description="partial")
+@register_predictor(
+    "brokenPartial",
+    description="partial",
+    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+    drug_contract=FeatureFormat.NUMERIC_MATRIX,
+)
 class BrokenPartial(FeatureFreePredictor):
     def fit(self, batch: ModelInputBatch) -> None:
         return None
@@ -268,11 +289,17 @@ def test_subprocess_extension_load_does_not_import_optional_families(tmp_path: P
     ext_file.write_text(
         """
 from drevalpy.components.registry import register_predictor
+from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors.feature_free import FeatureFreePredictor
 import numpy as np
 
-@register_predictor("isolatedPredictor", description="isolated")
+@register_predictor(
+    "isolatedPredictor",
+    description="isolated",
+    cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+    drug_contract=FeatureFormat.NUMERIC_MATRIX,
+)
 class IsolatedPredictor(FeatureFreePredictor):
     def fit(self, batch: ModelInputBatch) -> None:
         return None

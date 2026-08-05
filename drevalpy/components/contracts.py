@@ -19,8 +19,9 @@ class FeatureFormat(StrEnum):
 class FeatureContract:
     """Structured description of a feature representation.
 
-    Compatibility checks the ``FeatureFormat``. Graph and ragged payloads may
-    carry additional validation elsewhere (container type, required attributes).
+    This class should store all properties that are required to check if a featurizer is compatible with a predictor.
+    Currently, we only store the ``FeatureFormat``.
+    In future, we might want to store additional properties, like the type of graph.
     """
 
     format: FeatureFormat
@@ -28,6 +29,12 @@ class FeatureContract:
 
 def normalize_feature_contract(contract: FeatureContract | FeatureFormat) -> FeatureContract:
     """Return a ``FeatureContract`` from a contract object or format shorthand.
+
+    As our FeatureContracts currently only store the ``FeatureFormat``, the
+    featurizer and predictor decorators allow providing either a full
+    ``FeatureContract`` instance or just the ``FeatureFormat`` enum member.
+    This function makes sure that we always return a ``FeatureContract``
+    instance, even if just a ``FeatureFormat`` is provided.
 
     :param contract: A ``FeatureContract`` instance or ``FeatureFormat`` enum member.
 
@@ -50,14 +57,13 @@ def featurizer_contract(cls: type[Any]) -> FeatureContract:
 
     :returns: Resolved ``FeatureContract`` for the featurizer class.
 
-    :raises TypeError: If the class contract attribute is not a ``FeatureContract``.
+    :raises TypeError: If the class has no ``contract``, or it is not a ``FeatureContract``.
     """
     contract = getattr(cls, "contract", None)
     if contract is None:
-        return FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
+        raise TypeError(f"Featurizer {cls.__name__!r} must define a contract")
     if not isinstance(contract, FeatureContract):
-        msg = f"Featurizer {cls.__name__!r} contract must be a FeatureContract"
-        raise TypeError(msg)
+        raise TypeError(f"Featurizer {cls.__name__!r} contract must be a FeatureContract")
     return contract
 
 
@@ -68,14 +74,13 @@ def predictor_contracts(cls: type[Any]) -> tuple[FeatureContract, FeatureContrac
 
     :returns: ``(cell_line_contract, drug_contract)`` pair for compatibility checks.
 
-    :raises TypeError: If either contract attribute is not a ``FeatureContract``.
+    :raises TypeError: If either contract is missing or not a ``FeatureContract``.
     """
     cell_line = getattr(cls, "cell_line_contract", None)
     drug = getattr(cls, "drug_contract", None)
-    if cell_line is None:
-        cell_line = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
-    if drug is None:
-        drug = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
+    if cell_line is None or drug is None:
+        msg = f"Predictor {cls.__name__!r} must define both " "cell_line_contract and drug_contract"
+        raise TypeError(msg)
     if not isinstance(cell_line, FeatureContract) or not isinstance(drug, FeatureContract):
         msg = f"Predictor {cls.__name__!r} contracts must be FeatureContract instances"
         raise TypeError(msg)
@@ -84,6 +89,10 @@ def predictor_contracts(cls: type[Any]) -> tuple[FeatureContract, FeatureContrac
 
 def contracts_compatible(produced: FeatureContract, required: FeatureContract) -> bool:
     """Return whether *produced* satisfies *required*.
+
+    Currently, this only checks if the ``FeatureFormat`` is the same.
+    In future, we might want to check additional properties, like the type of graph.
+    If we do, we need to ensure that the ``FeatureContract`` class is extended to store the additional properties.
 
     :param produced: Feature contract emitted by a featurizer.
     :param required: Feature contract declared by a predictor input slot.
