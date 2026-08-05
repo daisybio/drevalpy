@@ -1,4 +1,4 @@
-"""Tests for registry metadata validation."""
+"""Tests for registry metadata validation and role checks."""
 
 from __future__ import annotations
 
@@ -6,11 +6,9 @@ import pytest
 
 from drevalpy.components.contracts import FeatureContract, FeatureFormat
 from drevalpy.components.registry._metadata_validate import validate_shared_registration_metadata
-from drevalpy.components.registry.core import (
-    FeaturizerRegistry,
-    PredictorRegistry,
-    _apply_shared_registration_metadata,
-)
+from drevalpy.components.registry.base import apply_shared_registration_metadata
+from drevalpy.components.registry.featurizer import DrugFeaturizerRegistry
+from drevalpy.components.registry.predictor import PredictorRegistry
 from drevalpy.types.literature_reference import LiteratureReference
 from tests._trusted_subprocess import run_trusted_python
 
@@ -20,7 +18,7 @@ def test_literature_reference_is_accepted() -> None:
         cell_line_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
         drug_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
 
-    _apply_shared_registration_metadata(
+    apply_shared_registration_metadata(
         Lit,
         description="lit model",
         reference=LiteratureReference(
@@ -37,7 +35,7 @@ def test_literature_reference_missing_fields_fails() -> None:
         cell_line_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
         drug_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
 
-    _apply_shared_registration_metadata(
+    apply_shared_registration_metadata(
         Lit,
         description="lit model",
         reference=LiteratureReference(repo_url="https://github.com/example/repo"),
@@ -47,7 +45,7 @@ def test_literature_reference_missing_fields_fails() -> None:
 
 
 def test_featurizer_role_validation_requires_contract() -> None:
-    registry = FeaturizerRegistry("drug_featurizer", "Drug featurizer", "drug_featurizers")
+    registry = DrugFeaturizerRegistry()
 
     class Native:
         description = "native"
@@ -59,7 +57,7 @@ def test_featurizer_role_validation_requires_contract() -> None:
 
 
 def test_predictor_role_validation_requires_contracts() -> None:
-    registry = PredictorRegistry("predictor", "Predictor", "predictors")
+    registry = PredictorRegistry()
 
     class Native:
         description = "native"

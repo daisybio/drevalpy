@@ -1,0 +1,161 @@
+"""Shared registry base and registration helpers."""
+
+from __future__ import annotations
+
+import threading
+from abc import ABC, abstractmethod
+from collections.abc import Iterable
+from typing import Any, ClassVar
+
+from drevalpy.components.registry._metadata_validate import validate_shared_registration_metadata
+from drevalpy.types.literature_reference import LiteratureReference
+
+
+def set_class_attribute(cls: type[Any], name: str, value: object) -> None:
+    """Assign a registration attribute on *cls* via ``setattr``.
+
+    :param cls: Component class receiving the attribute.
+    :param name: Attribute name to set.
+    :param value: Attribute value to assign.
+    """
+    setattr(cls, name, value)
+
+
+def contract_defined_on_class(cls: type[Any], *attr_names: str) -> bool:
+    """Return whether any of *attr_names* is defined on the class body.
+
+    :param cls: Class to inspect.
+    :param attr_names: Attribute names to check on ``cls.__dict__``.
+    :returns: ``True`` when at least one name is present on the class body.
+    """
+    return any(name in cls.__dict__ for name in attr_names)
+
+
+def apply_shared_registration_metadata(
+    cls: type[Any],
+    *,
+    description: str,
+    tags: Iterable[str] | None = None,
+    reference: LiteratureReference | None = None,
+) -> None:
+    """Attach ``description``, optional ``tags``, and optional literature ``reference``.
+
+    :param cls: Class receiving registration metadata.
+    :param description: Short human-readable summary.
+    :param tags: Optional discovery tags.
+    :param reference: Optional literature citation metadata.
+    :raises TypeError: If *reference* is not a ``LiteratureReference``.
+    """
+    cls.description = description
+    normalized_tags = frozenset(str(tag).strip() for tag in (tags or ()) if str(tag).strip())
+    cls.tags = normalized_tags
+    if reference is not None and not isinstance(reference, LiteratureReference):
+        msg = f"reference must be LiteratureReference, got {type(reference).__name__}"
+        raise TypeError(msg)
+    cls.reference = reference
+
+
+class Registry(ABC):
+    """Thread-safe name-to-class registry with shared store and metadata listing."""
+
+    _registry_id: ClassVar[str]
+    _label: ClassVar[str]
+    _display_name: ClassVar[str]
+
+    def __init__(self) -> None:
+        """Initialize an empty registry store."""
+        self._store: dict[str, type[Any]] = {}
+        self._lock = threading.Lock()
+
+    def get(self, name: str) -> type[Any]:
+        """Return the class registered under *name*.
+
+        :param name: Registry name of the component.
+
+        :returns: Registered component class.
+
+        :raises ValueError: If *name* is not registered.
+        """
+        with self._lock:
+            if name not in self._store:
+                available = list(self._store.keys())
+                msg = f"Unknown {self._label}: {name!r}. Available: {available}"
+                raise ValueError(msg)
+            return self._store[name]
+
+    def list_names(self) -> list[str]:
+        """Return all registered names.
+
+        :returns: Sorted list of registry names currently stored.
+        """
+        with self._lock:
+            return list(self._store.keys())
+
+    def get_metadata(self, name: str) -> dict[str, str]:
+        """Return the metadata record for the component registered under *name*.
+
+        :param name: Registry name of the component.
+
+        :returns: Flattened metadata dict for catalog listings.
+        """
+        cls = self.get(name)
+        return self._metadata_row(name, cls)
+
+    def list_metadata(self, *, tag: str | None = None) -> list[dict[str, str]]:
+        """Return metadata for all components, optionally filtered by discovery tag.
+
+        :param tag: When set, keep only components whose ``tags`` field contains *tag*.
+
+        :returns: List of flattened metadata dicts.
+        """
+        rows = [self.get_metadata(name) for name in self.list_names()]
+        if tag is None:
+            return rows
+        needle = tag.strip()
+        return [row for row in rows if needle in {part for part in row.get("tags", "").split(",") if part}]
+
+    def clear(self) -> None:
+        """Remove all entries (primarily for testing)."""
+        with self._lock:
+            self._store.clear()
+
+    def retain_only(self, names: frozenset[str]) -> None:
+        """Drop entries whose names are not in *names*.
+
+        :param names: Registry names to keep after rollback or partial unload.
+        """
+        with self._lock:
+            for registered_name in list(self._store):
+                if registered_name not in names:
+                    del self._store[registered_name]
+
+    def register_existing(self, name: str, cls: type[Any]) -> None:
+        """Register a class that was previously decorated but removed via ``clear``.
+
+        :param name: Registry name under which *cls* should be restored.
+        :param cls: Component class with registration metadata attributes.
+        """
+        with self._lock:
+            if name in self._store:
+                return
+            validate_shared_registration_metadata(self._registry_id, name, cls)
+            self._validate_role(cls, name)
+            self._store[name] = cls
+            set_class_attribute(cls, "registry_name", name)
+
+    @abstractmethod
+    def _validate_role(self, cls: type[Any], name: str) -> None:
+        """Raise ``ValueError`` when role-specific registration attributes are missing.
+
+        :param cls: Class being validated.
+        :param name: Registry name used in error messages.
+        """
+
+    @abstractmethod
+    def _metadata_row(self, name: str, cls: type[Any]) -> dict[str, str]:
+        """Return the flattened metadata row for a registered class.
+
+        :param name: Registry name of the component.
+        :param cls: Registered component class.
+        :returns: Flattened metadata dict.
+        """

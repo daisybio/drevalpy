@@ -24,7 +24,7 @@ from drevalpy.components.registry import (
     register_drug_featurizer,
     register_predictor,
 )
-from drevalpy.components.registry.core import FeaturizerRegistry
+from drevalpy.components.registry.featurizer import CellLineFeaturizerRegistry
 
 
 @pytest.fixture(autouse=True)
@@ -244,7 +244,7 @@ def test_duplicate_predictor_drug_class_and_decorator_contract_fails() -> None:
 
 
 def test_register_existing_restores_registry_name() -> None:
-    registry = FeaturizerRegistry("test", "Test component", "test_components")
+    registry = CellLineFeaturizerRegistry()
     decorated = registry.register(
         "restored",
         description="restored",
@@ -275,7 +275,7 @@ def test_predictor_registration_requires_explicit_contracts() -> None:
 
 
 def test_registry_clear() -> None:
-    registry = FeaturizerRegistry("test", "Test component", "test_components")
+    registry = CellLineFeaturizerRegistry()
     decorated = registry.register("x", description="x", contract=FeatureFormat.NUMERIC_MATRIX)
 
     @decorated
