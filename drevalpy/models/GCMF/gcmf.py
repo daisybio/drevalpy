@@ -97,6 +97,12 @@ def _adj_from_numpy(adj: "np.ndarray | list", device: torch.device) -> "torch.Te
     return torch.tensor(adj, device=device)
 
 
+# Bumped whenever a similarity kernel changes, so cached matrices from an older definition are
+# not silently reused. v2: kendall maps tau with the fixed (tau + 1) / 2 instead of rescaling
+# against the cohort's observed minimum.
+_SIM_KERNEL_VERSION = 2
+
+
 def _similarity_matrix(features: np.ndarray, metric: str) -> np.ndarray:
     """
     Compute a dense node-by-node similarity matrix with the requested kernel.
@@ -108,7 +114,8 @@ def _similarity_matrix(features: np.ndarray, metric: str) -> np.ndarray:
       used for fingerprints and binary mutation profiles,
     * ``pearson``  - Pearson correlation between node feature profiles (methylation,
       gene expression),
-    * ``kendall``  - Kendall's tau between profiles, rescaled to [0, 1] (copy number).
+    * ``kendall``  - Kendall's tau between profiles, mapped to [0, 1] as ``(tau + 1) / 2``
+      (copy number).
 
     :param features: (n_nodes, n_feat) feature matrix
     :param metric: kernel name (see above)
@@ -142,8 +149,10 @@ def _similarity_matrix(features: np.ndarray, metric: str) -> np.ndarray:
                 tau = kendalltau(x[i], x[j])[0]
                 tau = 0.0 if np.isnan(tau) else tau
                 sim[i, j] = sim[j, i] = tau
-        lo = sim.min()  # rescale tau in [-1, 1] to [0, 1]
-        return (sim - lo) / (1.0 - lo) if lo < 1.0 else sim
+        # map tau from [-1, 1] to [0, 1] with a fixed transform. Rescaling against the observed
+        # minimum instead would make a pair's similarity depend on which other nodes are in the
+        # cohort, so the same two cell lines would score differently in different CV splits.
+        return (sim + 1.0) / 2.0
     raise ValueError(f"Unknown similarity metric: {metric!r}")
 
 
@@ -1082,7 +1091,7 @@ class RGCMF(GCMF):
     * ``gene_expression`` - Pearson correlation,
     * ``methylation`` - Pearson correlation,
     * ``mutations`` - Jaccard over binary mutation profiles,
-    * ``copy_number_variation_gistic`` - Kendall's tau (rescaled to [0, 1]).
+    * ``copy_number_variation_gistic`` - Kendall's tau, mapped to [0, 1] as ``(tau + 1) / 2``.
 
     **Drug relations** are biologically-informed graphs joined onto this dataset's drugs on
     ``pubchem_id``:
@@ -1213,9 +1222,10 @@ class RGCMF(GCMF):
         """
         Return the dense cell-relation similarity, loading from cache when possible.
 
-        The cache is keyed by (view, kernel, gene list, cell-id set), so a hit skips loading the
-        (large) omics CSV entirely - important for the 10-fold benchmark. Delete
-        ``<dataset>/gcmf_cache/`` to force recomputation if the underlying omics change.
+        The cache is keyed by (view, kernel, kernel version, gene list, cell-id set), so a hit
+        skips loading the (large) omics CSV entirely - important for the 10-fold benchmark. The
+        key does not cover the *contents* of the omics table or gene list, so delete
+        ``<dataset>/gcmf_cache/`` to force recomputation if those change under the same name.
 
         :param data_path: path to the data directory
         :param dataset_name: dataset name, e.g. CTRPv2
@@ -1235,7 +1245,7 @@ class RGCMF(GCMF):
             gene_list = str(self._CELL_GENE_LISTS.get(view, ""))
         # non-cryptographic: SHA1 only forms a stable cache key over the cell-id set
         id_sig = hashlib.sha1(",".join(sorted(str(c) for c in ids)).encode(), usedforsecurity=False).hexdigest()[:16]
-        path = os.path.join(cache_dir, f"cell_{view}_{kernel}_{gene_list}_{id_sig}.npy")
+        path = os.path.join(cache_dir, f"cell_{view}_{kernel}v{_SIM_KERNEL_VERSION}_{gene_list}_{id_sig}.npy")
         if os.path.exists(path):
             return np.load(path)
         if view == "gene_expression":
