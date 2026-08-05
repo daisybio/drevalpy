@@ -4,6 +4,11 @@ from __future__ import annotations
 
 from typing import Literal
 
+from drevalpy.components.data_loading.view_resolution import (
+    _views_from_featurizer_config,
+    cell_line_entity_id_only_from_model_config,
+    drug_entity_id_only_from_model_config,
+)
 from drevalpy.components.data_loading.views import load_cell_line_feature_views, load_drug_feature_views
 from drevalpy.components.featurizer_tree import iter_featurizer_leaves
 from drevalpy.components.featurizers.base import Featurizer
@@ -16,11 +21,6 @@ from drevalpy.datasets.feature_tables import (
     load_tissues_from_csv,
 )
 from drevalpy.models.config import FeaturizerConfig, ModelConfig
-from drevalpy.models.featurizer_mapping import (
-    _views_from_featurizer_config,
-    cell_line_entity_id_only_from_model_config,
-    drug_entity_id_only_from_model_config,
-)
 
 
 def load_tissue_features(data_path: str, dataset_name: str) -> FeatureDataset:

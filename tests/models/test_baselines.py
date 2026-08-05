@@ -308,21 +308,7 @@ def _subset_hpams_for_baseline(model: str, hpams: list) -> list:
         return hpams
     if model not in _MULTI_VIEW_BASELINE_MODELS:
         return hpams[:2]
-
-    covered_gex = False
-    covered_prot = False
-    hpams_subset = []
-    for hpam in hpams:
-        if hpam.get("cell_line_views") == "gene_expression" and not covered_gex:
-            hpams_subset.append(hpam)
-            covered_gex = True
-        if hpam.get("cell_line_views") == "proteomics" and not covered_prot:
-            hpams_subset.append(hpam)
-            covered_prot = True
-        if covered_prot and covered_gex:
-            break
-    assert len(hpams_subset) == 2, "Hpam subset is empty"
-    return hpams_subset
+    return hpams[:2]
 
 
 def _tune_baseline_hpam(model: str, hpam_combi: dict) -> None:

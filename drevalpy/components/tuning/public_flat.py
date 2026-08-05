@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from drevalpy.components.tuning.compatibility_keys import PUBLIC_VIEW_KEYS
 from drevalpy.components.tuning.config_resolution import assert_component_local_hyperparameters
 from drevalpy.components.tuning.hyperparameter_keys import (
     build_ownership_index,
@@ -11,11 +12,6 @@ from drevalpy.components.tuning.hyperparameter_keys import (
     resolve_to_qualified_mapping,
 )
 from drevalpy.models.config import ModelConfig
-from drevalpy.models.flat_hyperparameters import (
-    PUBLIC_VIEW_KEYS,
-    _apply_view_overrides,
-    _warn_legacy_view_keys,
-)
 
 from ._model_config_base import base_model_config_for_drp_model
 from .search_space import apply_merged_to_model_config
@@ -24,32 +20,37 @@ from .search_space import apply_merged_to_model_config
 def apply_public_hyperparameters_to_config(
     config: ModelConfig,
     mapping: dict[str, Any],
-    *,
-    warn_legacy_view_keys: bool = True,
 ) -> ModelConfig:
     """Apply a collision-aware public hyperparameter mapping onto a ``ModelConfig``.
 
     :param config: config.
     :param mapping: mapping.
-    :param warn_legacy_view_keys: warn legacy view keys.
     :returns: Result.
+    :raises ValueError: If legacy view keys are present in *mapping*.
     """
     if not mapping:
         return config.model_copy(deep=True)
-    if warn_legacy_view_keys:
-        _warn_legacy_view_keys(mapping)
+
+    present = sorted(PUBLIC_VIEW_KEYS & mapping.keys())
+    if present:
+        msg = (
+            f"Legacy view keys {present!r} are no longer supported. "
+            "Use explicit cell_line_featurizer/drug_featurizer blocks, recipe strings "
+            "(e.g. raw[view]:fingerprints:randomForest), or dotted HPO keys instead."
+        )
+        raise ValueError(msg)
 
     normalized = dict(mapping)
     if "methylation_n_components" not in normalized and "methylation_pca_components" in normalized:
         normalized["methylation_n_components"] = normalized.pop("methylation_pca_components")
 
-    result = _apply_view_overrides(config.model_copy(deep=True), normalized)
+    result = config.model_copy(deep=True)
     index = build_ownership_index(result)
     qualified = resolve_to_qualified_mapping(
         result,
         normalized,
         index,
-        reserved_keys=PUBLIC_VIEW_KEYS,
+        reserved_keys=frozenset(),
     )
     if qualified:
         result = apply_merged_to_model_config(result, qualified)

@@ -11,7 +11,9 @@ from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.evaluation import evaluate
 from drevalpy.experiment import cross_study_prediction
 from drevalpy.models import construct_model
+from drevalpy.models.config import CellLineFeaturizerConfig, DrugFeaturizerConfig
 from drevalpy.models.drp_model import DRPModel
+from drevalpy.models.zoo import get_zoo_config
 
 
 def _resolve_global_model_name(model_name: str) -> tuple[str, str]:
@@ -21,7 +23,21 @@ def _resolve_global_model_name(model_name: str) -> tuple[str, str]:
     return whole_name, model_name
 
 
-def _apply_global_model_hpam_tweaks(model_name: str, whole_name: str, hpam_combi: dict) -> None:
+def _construct_global_model_class(whole_name: str, model_name: str) -> type[DRPModel]:
+    if whole_name == "SimpleNeuralNetwork[chemberta]":
+        config = get_zoo_config("SimpleNeuralNetwork").model_copy(
+            update={
+                "drug_featurizer": DrugFeaturizerConfig(
+                    name="view",
+                    hyperparameters={"view": "drug_chemberta_embeddings"},
+                ),
+            },
+        )
+        return cast(type[DRPModel], construct_model(model_name, config))
+    return cast(type[DRPModel], construct_model(model_name))
+
+
+def _apply_global_model_hpam_tweaks(model_name: str, hpam_combi: dict) -> None:
     if model_name == "DIPK":
         hpam_combi["batch_size"] = 1
         hpam_combi["epochs"] = 1
@@ -30,10 +46,6 @@ def _apply_global_model_hpam_tweaks(model_name: str, whole_name: str, hpam_combi
     elif model_name in ["SimpleNeuralNetwork", "MultiViewNeuralNetwork"]:
         hpam_combi["units_per_layer"] = [2, 2]
         hpam_combi["max_epochs"] = 1
-        if whole_name == "SimpleNeuralNetwork[chemberta]":
-            hpam_combi["drug_views"] = "drug_chemberta_embeddings"
-        elif whole_name == "SimpleNeuralNetwork[fingerprints]":
-            hpam_combi["drug_views"] = "fingerprints"
     elif model_name == "PharmaFormer":
         hpam_combi["epochs"] = 1
         hpam_combi["patience"] = 2
@@ -162,10 +174,10 @@ def test_global_models(
 
     whole_name, model_name = _resolve_global_model_name(model_name)
 
-    model_class = cast(type[DRPModel], construct_model(model_name))
+    model_class = _construct_global_model_class(whole_name, model_name)
     hpams = model_class.get_hyperparameter_set()
     hpam_combi = hpams[0]
-    _apply_global_model_hpam_tweaks(model_name, whole_name, hpam_combi)
+    _apply_global_model_hpam_tweaks(model_name, hpam_combi)
     model = model_class(hpam_combi)
 
     cell_line_input = model.load_cell_line_features(data_path=str(data_dir), dataset_name="TOYv1")
@@ -249,11 +261,23 @@ def test_multi_view_neural_network_custom_views(sample_dataset: DrugResponseData
         es_dataset = split["early_stopping"]
         val_es_dataset = split["validation_es"]
 
-        model_class = cast(type[DRPModel], construct_model("MultiViewNeuralNetwork"))
+        model_class = cast(
+            type[DRPModel],
+            construct_model(
+                "MultiViewNeuralNetwork",
+                get_zoo_config("MultiViewNeuralNetwork").model_copy(
+                    update={
+                        "cell_line_featurizer": CellLineFeaturizerConfig(
+                            name="raw",
+                            view="custom_test_view",
+                            hyperparameters={},
+                        ),
+                    },
+                ),
+            ),
+        )
 
         hpam_combi = {
-            "cell_line_views": ["custom_test_view"],
-            "drug_views": "fingerprints",
             "units_per_layer": [2, 2],
             "dropout_prob": 0.3,
             "max_epochs": 1,

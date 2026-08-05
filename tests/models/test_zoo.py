@@ -81,15 +81,12 @@ def test_zoo_model_config_merges_hyperparameters() -> None:
     assert config.predictor.hyperparameters["alpha"] == 0.25
 
 
-def test_zoo_model_config_does_not_leak_view_keys_into_predictor() -> None:
-    config = zoo_model_config(
-        "ElasticNet",
-        {"cell_line_views": ["gene_expression"], "alpha": 0.1},
-    )
-    assert config.cell_line_featurizer is not None
-    assert config.cell_line_featurizer.name == "scaledGeneExpression"
-    assert "cell_line_views" not in config.predictor.hyperparameters
-    assert config.predictor.hyperparameters["alpha"] == 0.1
+def test_zoo_model_config_rejects_view_keys() -> None:
+    with pytest.raises(ValueError, match=r"Legacy view keys|no longer supported"):
+        zoo_model_config(
+            "ElasticNet",
+            {"cell_line_views": ["gene_expression"], "alpha": 0.1},
+        )
 
 
 def test_zoo_model_config_routes_methylation_flat_key_to_pca_child() -> None:

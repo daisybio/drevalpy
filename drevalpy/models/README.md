@@ -48,10 +48,11 @@ See `docs/python/custom_models.rst` for a complete external extension walkthroug
 
 - `MODEL_FACTORY`, `MULTI_DRUG_MODEL_FACTORY`, `SINGLE_DRUG_MODEL_FACTORY`
   — lazy built-in-only views equal to `construct_model(name)` for zoo names
-- Flat `cell_line_views` / `drug_views` in constructor / hpam YAML
 
 **Removed:**
 
+- Flat `cell_line_views` / `drug_views` in constructor / hpam YAML — use
+  explicit `cell_line_featurizer` / `drug_featurizer` blocks or recipe strings
 - Named root exports (`ElasticNetModel`, `DIPKModel`, …) — use
   `construct_model("ElasticNet")`
 - `ModelConfig.create_model()` — use `construct_model(...)()` instead

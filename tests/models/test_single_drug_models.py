@@ -28,18 +28,18 @@ def _resolve_single_drug_model_name(whole_name: str) -> str:
     return whole_name
 
 
-def _configure_single_drug_hpam(model_name: str, whole_name: str, hpam_combi: dict) -> None:
+def _construct_single_drug_model(whole_name: str, model_name: str):
+    if whole_name.endswith("[proteomics]"):
+        predictor_token = model_name.replace("SingleDrug", "singleDrug")
+        # Keep zoo identity for result paths; only swap the cell-line featurizer.
+        return construct_model(model_name, f"normalizedProteomics:{predictor_token}")
+    return construct_model(model_name)
+
+
+def _configure_single_drug_hpam(model_name: str, hpam_combi: dict) -> None:
     if model_name == "SingleDrugRandomForest":
         hpam_combi["n_estimators"] = 2
         hpam_combi["max_depth"] = 2
-        if whole_name == "SingleDrugRandomForest[gex]":
-            hpam_combi["cell_line_views"] = "gene_expression"
-        elif whole_name == "SingleDrugRandomForest[proteomics]":
-            hpam_combi["cell_line_views"] = "proteomics"
-    elif whole_name == "SingleDrugElasticNet[gex]":
-        hpam_combi["cell_line_views"] = "gene_expression"
-    elif whole_name == "SingleDrugElasticNet[proteomics]":
-        hpam_combi["cell_line_views"] = "proteomics"
     elif model_name in ["MOLIR", "SuperFELTR"]:
         hpam_combi["epochs"] = 1
 
@@ -63,7 +63,7 @@ def _select_single_drug_test_drugs(
     return np.concatenate([random_drugs, [drug_to_remove]]), drug_to_remove
 
 
-def _assert_single_drug_save_load_roundtrip(model, model_name: str, test_dataset, train_dataset, data_dir) -> None:
+def _assert_single_drug_save_load_roundtrip(model, model_class, test_dataset, train_dataset, data_dir) -> None:
     if len(train_dataset) == 0:
         print("Training dataset empty, continuing with train_and_predict anyway")
         return
@@ -71,7 +71,7 @@ def _assert_single_drug_save_load_roundtrip(model, model_name: str, test_dataset
         try:
             checkpoint = f"{model_dir}/model"
             model.save(checkpoint)
-            loaded_model = construct_model(model_name).load(checkpoint)
+            loaded_model = model_class.load(checkpoint)
             drug_input = model.load_drug_features(str(data_dir), "TOYv1")
             cell_line_input = model.load_cell_line_features(str(data_dir), "TOYv1")
             preds_original = model.predict(
@@ -89,7 +89,7 @@ def _assert_single_drug_save_load_roundtrip(model, model_name: str, test_dataset
             assert isinstance(preds_loaded, np.ndarray)
             assert preds_loaded.shape == preds_original.shape
         except NotImplementedError:
-            print(f"{model_name} does not implement save/load")
+            print(f"{model_class.get_model_name()} does not implement save/load")
 
 
 @pytest.mark.parametrize(
@@ -129,16 +129,17 @@ def test_single_drug_models(
     sample_dataset.split_dataset(n_cv_splits=2, mode=test_mode, random_state=42, validation_ratio=0.4)
     assert sample_dataset.cv_splits is not None
     split = sample_dataset.cv_splits[0]
-    model = construct_model(model_name)()
+    model_class = _construct_single_drug_model(whole_name, model_name)
+    model = model_class()
 
     random_drugs, drug_to_remove = _select_single_drug_test_drugs(sample_dataset, cross_study_dataset)
 
     hpam_combi = model.get_hyperparameter_set()[0]
     result_path = tempfile.TemporaryDirectory()
-    _configure_single_drug_hpam(model_name, whole_name, hpam_combi)
+    _configure_single_drug_hpam(model_name, hpam_combi)
 
     for random_drug in random_drugs:
-        model = construct_model(model_name)(hpam_combi)
+        model = model_class(hpam_combi)
         predictions_path = generate_data_saving_path(
             model_name=model_name,
             drug_id=str(random_drug),
@@ -151,7 +152,7 @@ def test_single_drug_models(
             validation_dataset,
             early_stopping_dataset,
             test_dataset,
-        ) = get_datasets_from_cv_split(split, construct_model(model_name), model_name, random_drug)
+        ) = get_datasets_from_cv_split(split, model_class, model_name, random_drug)
         train_dataset.add_rows(validation_dataset)
         if random_drug == drug_to_remove:
             reduce_to_drugs = np.array(list(set(train_dataset.drug_ids) - {random_drug}))
@@ -169,7 +170,7 @@ def test_single_drug_models(
         )
 
         # Save and load test (should either succeed or raise NotImplementedError)
-        _assert_single_drug_save_load_roundtrip(model, model_name, test_dataset, train_dataset, data_dir)
+        _assert_single_drug_save_load_roundtrip(model, model_class, test_dataset, train_dataset, data_dir)
 
         cross_study_dataset.remove_nan_responses()
         parent_dir = str(pathlib.Path(predictions_path).parent)
@@ -187,7 +188,7 @@ def test_single_drug_models(
         )
         test_dataset.to_csv(prediction_file)
     consolidate_single_drug_model_predictions(
-        models=[construct_model(model_name)],
+        models=[model_class],
         n_cv_splits=1,
         results_path=result_path.name,
         cross_study_datasets=[cross_study_dataset.dataset_name],

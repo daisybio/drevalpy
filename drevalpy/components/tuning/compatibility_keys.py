@@ -7,10 +7,18 @@ from typing import Any
 from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
 from drevalpy.components.registry import get_cell_line_featurizer, get_drug_featurizer
 from drevalpy.models.config import FeaturizerConfig
-from drevalpy.models.flat_hyperparameters import (
-    LEGACY_FEATURIZER_FLAT_KEYS,
-    PUBLIC_VIEW_KEYS,
-)
+
+# Public compatibility shims: old flat experiment keys -> component-local featurizer keys.
+LEGACY_FEATURIZER_FLAT_KEYS: dict[tuple[str, str], dict[str, str]] = {
+    ("cell_line", "normalizedProteomics"): {
+        "feature_threshold": "proteomics_feature_threshold",
+        "n_features": "proteomics_n_features",
+        "normalization_width": "proteomics_normalization_width",
+        "normalization_downshift": "proteomics_normalization_downshift",
+    },
+}
+
+PUBLIC_VIEW_KEYS = frozenset({"cell_line_views", "drug_views"})
 
 # Backward-compatible aliases for callers/tests that import private names.
 _LEGACY_FEATURIZER_FLAT_KEYS = LEGACY_FEATURIZER_FLAT_KEYS

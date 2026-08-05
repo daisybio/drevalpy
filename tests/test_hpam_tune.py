@@ -22,8 +22,6 @@ def test_hpam_tune(tmp_path, data_dir):
     defaults = {
         "alpha": 1.0,
         "l1_ratio": 0.0,
-        "cell_line_views": "gene_expression",
-        "drug_views": "fingerprints",
     }
 
     model_cls = construct_model("ElasticNet")

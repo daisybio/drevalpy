@@ -7,9 +7,9 @@ from drevalpy.models import construct_model
 from drevalpy.models.factory import model_config_for_name
 
 
-def test_model_config_for_name_matches_configure_path_for_views() -> None:
+def test_model_config_for_name_matches_configure_path_for_predictor_hp() -> None:
     model_cls = construct_model("MultiViewRandomForest")
-    flat = {"cell_line_views": ["gene_expression"], "n_estimators": 8}
+    flat = {"n_estimators": 8}
     via_factory = model_config_for_name("MultiViewRandomForest", flat)
     via_configure = config_from_public_hyperparameters(model_cls, flat)
     assert via_configure is not None
@@ -17,4 +17,4 @@ def test_model_config_for_name_matches_configure_path_for_views() -> None:
     assert via_configure.cell_line_featurizer is not None
     assert via_factory.cell_line_featurizer.name == via_configure.cell_line_featurizer.name
     assert via_factory.predictor.hyperparameters["n_estimators"] == 8
-    assert "cell_line_views" not in via_factory.predictor.hyperparameters
+    assert via_configure.predictor.hyperparameters["n_estimators"] == 8

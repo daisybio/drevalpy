@@ -101,14 +101,12 @@ def test_pca_methylation_pca_components_alias_round_trip() -> None:
     assert pca_child["hyperparameters"]["n_components"] == 9
 
 
-def test_cell_line_views_override_on_configure_path() -> None:
-    rebuilt = config_from_public_hyperparameters(
-        construct_model("MultiViewRandomForest"),
-        {"cell_line_views": ["gene_expression"]},
-    )
-    assert rebuilt is not None
-    assert rebuilt.cell_line_featurizer is not None
-    assert rebuilt.cell_line_featurizer.name == "scaledGeneExpression"
+def test_cell_line_views_override_on_configure_path_rejected() -> None:
+    with pytest.raises(ValueError, match=r"Legacy view keys|no longer supported"):
+        config_from_public_hyperparameters(
+            construct_model("MultiViewRandomForest"),
+            {"cell_line_views": ["gene_expression"]},
+        )
 
 
 def test_pca_methylation_flat_key_round_trip() -> None:

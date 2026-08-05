@@ -8,8 +8,8 @@ from typing import Any
 
 from drevalpy.components.featurizer_tree import iter_featurizer_leaves
 from drevalpy.components.registry import get_cell_line_featurizer, get_drug_featurizer, get_predictor
+from drevalpy.components.tuning.compatibility_keys import LEGACY_FEATURIZER_FLAT_KEYS
 from drevalpy.models.config import FeaturizerConfig, ModelConfig
-from drevalpy.models.flat_hyperparameters import LEGACY_FEATURIZER_FLAT_KEYS
 
 from .search_space import (
     _featurizer_prefix,
@@ -343,7 +343,10 @@ def export_public_mapping(
     :param include_view_keys: include view keys.
     :returns: Result.
     """
-    from drevalpy.models.featurizer_mapping import cell_line_views_from_model_config, drug_views_from_model_config
+    from drevalpy.components.data_loading.view_resolution import (
+        cell_line_views_from_model_config,
+        drug_views_from_model_config,
+    )
 
     index = build_ownership_index(config)
     exported = _compact_export_entries(_collect_export_entries(config, index))

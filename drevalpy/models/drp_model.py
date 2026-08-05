@@ -12,13 +12,16 @@ from drevalpy.components.data_loading import (
     load_cell_line_features_for_model_config,
     load_drug_features_for_model_config,
 )
+from drevalpy.components.data_loading.view_resolution import (
+    cell_line_views_from_model_config,
+    drug_views_from_model_config,
+)
 from drevalpy.components.registry import get_predictor
 from drevalpy.components.training_context import TrainingContext
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models._component_stack import _ComponentStack, build_component_stack
 from drevalpy.models._drp_logging import _DRPLoggingMixin
 from drevalpy.models.config import ModelConfig, ModelScope
-from drevalpy.models.featurizer_mapping import cell_line_views_from_model_config, drug_views_from_model_config
 from drevalpy.utils._pipeline_function import pipeline_function
 
 

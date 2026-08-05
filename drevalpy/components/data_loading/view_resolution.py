@@ -1,128 +1,31 @@
-"""Map legacy cell-line view names to explicit featurizer configs."""
+"""Resolve legacy view names from featurizer configs."""
 
 from __future__ import annotations
 
 from typing import Any
 
 from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
-from drevalpy.models.config import (
-    CellLineFeaturizerConfig,
-    DrugFeaturizerConfig,
-    FeaturizerConfig,
-    ModelConfig,
-)
+from drevalpy.models.config import FeaturizerConfig, ModelConfig
 
 _PCA_METHYLATION_TOKEN = "pca[" + "methylation" + "]"
 _NORMALIZED_PROTEOMICS_TOKEN = "normal" + "izedProteomics"
 
-CELL_LINE_VIEW_TO_FEATURIZER = {
-    "gene_expression": "scaledGeneExpression",
-    "methylation": _PCA_METHYLATION_TOKEN,
-    "mutations": "raw[mutations]",
-    "copy_number_variation_gistic": "raw[cnv]",
-    "proteomics": _NORMALIZED_PROTEOMICS_TOKEN,
-    "bionic_features": "bionic",
+FEATURIZER_NAME_TO_CELL_LINE_VIEW = {
+    "scaledGeneExpression": "gene_expression",
+    _PCA_METHYLATION_TOKEN: "methylation",
+    "raw[mutations]": "mutations",
+    "raw[cnv]": "copy_number_variation_gistic",
+    _NORMALIZED_PROTEOMICS_TOKEN: "proteomics",
+    "bionic": "bionic_features",
+    "landmarkGenes": "gene_expression",
+    "landmarkGenesReduced": "gene_expression",
+    "pathways": "pathways",
+    "dipkGeneExpression": "gene_expression",
+    "pharmaFormerGeneExpression": "gene_expression",
+    "sparsegoOntology": "gene_expression",
+    "molirOmics": "gene_expression",
+    "superfeltrOmics": "gene_expression",
 }
-
-PROTEOMICS_HP_KEYS = (
-    "proteomics_feature_threshold",
-    "proteomics_n_features",
-    "proteomics_normalization_width",
-    "proteomics_normalization_downshift",
-)
-
-
-def view_to_concat_block_label(view: str) -> str:
-    """Map a legacy omics view name to a concat block label.
-
-    :param view: Legacy cell-line view name.
-    :returns: Featurizer token or ``raw[view]`` fallback label.
-    """
-    return CELL_LINE_VIEW_TO_FEATURIZER.get(view, f"raw[{view}]")
-
-
-def _child_config_for_view(view: str, hyperparameters: dict[str, Any]) -> str | dict[str, Any]:
-    if view not in CELL_LINE_VIEW_TO_FEATURIZER:
-        return {"name": "raw", "view": view, "hyperparameters": {}}
-    token = CELL_LINE_VIEW_TO_FEATURIZER[view]
-    if token == _PCA_METHYLATION_TOKEN:
-        n_components = hyperparameters.get("methylation_n_components")
-        if n_components is None:
-            n_components = hyperparameters.get("methylation_pca_components", 100)
-        return {token: {"n_components": int(n_components)}}
-    if token == _NORMALIZED_PROTEOMICS_TOKEN:
-        proteomics_hp = {key: hyperparameters[key] for key in PROTEOMICS_HP_KEYS if key in hyperparameters}
-        return {"normalizedProteomics": proteomics_hp} if proteomics_hp else "normalizedProteomics"
-    return token
-
-
-def cell_line_featurizer_from_views(views: list[str], hyperparameters: dict[str, Any]) -> CellLineFeaturizerConfig:
-    """Build a compact featurizer config from legacy cell-line view names.
-
-    :param views: Legacy cell-line view names to combine.
-    :param hyperparameters: Flat hyperparameters for view-specific featurizer options.
-    :returns: Cell-line featurizer config for the requested views.
-    """
-    if len(views) == 1:
-        return CellLineFeaturizerConfig.model_validate(
-            normalize_featurizer_config(
-                _child_config_for_view(views[0], hyperparameters),
-                default_registry="cell_line",
-            )
-        )
-    children = [_child_config_for_view(view, hyperparameters) for view in views]
-    return CellLineFeaturizerConfig.model_validate(
-        normalize_featurizer_config(
-            {"concatFeaturizers": {"featurizers": children}},
-            default_registry="cell_line",
-        )
-    )
-
-
-def drug_featurizer_from_view(view: str) -> DrugFeaturizerConfig:
-    """Build a drug featurizer config from a legacy drug view name.
-
-    :param view: Legacy drug view name.
-    :returns: Drug featurizer config for the view.
-    """
-    if view == "fingerprints":
-        return DrugFeaturizerConfig.model_validate(
-            normalize_featurizer_config("fingerprints", default_registry="drug"),
-        )
-    named = {
-        "smilesvec": "smilesvec",
-        "bpe_smiles": "bpePharmaformer",
-        "molgnet_features": "molgnet",
-        "drug_graph": "drugGraph",
-        "one_hot": "identity",
-    }
-    if view in named:
-        return DrugFeaturizerConfig.model_validate(
-            normalize_featurizer_config(named[view], default_registry="drug"),
-        )
-    return DrugFeaturizerConfig.model_validate(
-        {
-            "name": "view",
-            "hyperparameters": {"view": view},
-        },
-    )
-
-
-FEATURIZER_NAME_TO_CELL_LINE_VIEW = {value: key for key, value in CELL_LINE_VIEW_TO_FEATURIZER.items()}
-FEATURIZER_NAME_TO_CELL_LINE_VIEW.update(
-    {
-        "landmarkGenes": "gene_expression",
-        "landmarkGenesReduced": "gene_expression",
-        "pathways": "pathways",
-        "bionic": "bionic_features",
-        _NORMALIZED_PROTEOMICS_TOKEN: "proteomics",
-        "dipkGeneExpression": "gene_expression",
-        "pharmaFormerGeneExpression": "gene_expression",
-        "sparsegoOntology": "gene_expression",
-        "molirOmics": "gene_expression",
-        "superfeltrOmics": "gene_expression",
-    }
-)
 
 DRUG_FEATURIZER_TO_VIEW = {
     "fingerprints": "fingerprints",

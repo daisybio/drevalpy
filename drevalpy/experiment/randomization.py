@@ -17,11 +17,11 @@ def _resolve_cell_line_and_drug_views(
     model_class: type[DRPModel],
     hyperparameters: dict[str, Any] | None,
 ) -> tuple[list[str], list[str]]:
-    from drevalpy.components.tuning.public_flat import model_config_for_drp_model
-    from drevalpy.models.featurizer_mapping import (
+    from drevalpy.components.data_loading.view_resolution import (
         cell_line_views_from_model_config,
         drug_views_from_model_config,
     )
+    from drevalpy.components.tuning.public_flat import model_config_for_drp_model
 
     config = model_config_for_drp_model(model_class, hyperparameters)
     if config is not None:

@@ -241,7 +241,7 @@ Deep imports such as ``drevalpy.models.DIPK.dipk`` or
 ``construct_model`` from ``drevalpy.models``.
 
 Flat ``cell_line_views`` / ``drug_views`` in constructor or hpam YAML are
-deprecated. Set ``cell_line_featurizer`` / ``drug_featurizer`` in zoo YAML or
+removed. Set ``cell_line_featurizer`` / ``drug_featurizer`` in zoo YAML or
 a recipe string instead (see :doc:`datasets`).
 
 Legacy checkpoint formats (including pickled ``.model`` attributes, standalone

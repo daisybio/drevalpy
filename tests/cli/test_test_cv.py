@@ -42,8 +42,6 @@ def test_randomization_cli(
             {
                 "ElasticNet_split_0": {
                     "best_hpam_combi": {
-                        "cell_line_views": ["gene_expression"],
-                        "drug_views": ["fingerprints"],
                         "alpha": 0.1,
                         "l1_ratio": 0.5,
                     }
