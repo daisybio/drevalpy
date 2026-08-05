@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import sys
-import types
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -153,7 +152,7 @@ def test_evaluate_trial_model_returns_metric(mock_train_eval, mock_trial_dir) ->
 def test_report_trial_score_reports_metric() -> None:
     """Stub ray in sys.modules so the test works when Ray has no Windows/3.13 wheel."""
     fake_tune = MagicMock()
-    fake_ray = types.ModuleType("ray")
+    fake_ray = MagicMock()
     fake_ray.tune = fake_tune
     with patch.dict(sys.modules, {"ray": fake_ray, "ray.tune": fake_tune}):
         _report_trial_score("RMSE", 0.25)
