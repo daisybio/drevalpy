@@ -10,6 +10,11 @@ from drevalpy.cli.model_testing import run_final_split
 
 
 def register(app: typer.Typer) -> None:
+    """Register the ``make-final-split-pkls`` subcommand on ``app``.
+
+    :param app: Root Typer application to register the command on.
+    """
+
     @app.command("make-final-split-pkls")
     def make_final_split_pkls(
         response: Annotated[
@@ -33,7 +38,14 @@ def register(app: typer.Typer) -> None:
         ] = "LPO",
         val_ratio: Annotated[float, typer.Option("--val_ratio", help="Validation ratio.")] = 0.1,
     ) -> None:
-        """Create train/validation/early-stopping pickles for a final production model."""
+        """Create train/validation/early-stopping pickles for a final production model.
+
+        :param response: Path to the pickled primary response dataset.
+        :param model_name: Registered model name used to filter rows by available features.
+        :param path_data: Root data directory passed to feature loaders.
+        :param test_mode: Split label for train/validation partitioning.
+        :param val_ratio: Fraction of rows held out for validation.
+        """
         run_final_split(
             response=response,
             model_name=model_name,

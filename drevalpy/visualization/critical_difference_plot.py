@@ -3,23 +3,23 @@
 This method performs the following steps:
 
 1. **Friedman Test**: First, it performs the Friedman test, which is a non-parametric statistical test used to detect
-   differences in treatments across multiple test attempts. It compares the ranks of multiple groups and is
-   suitable when there are repeated measurements for each group (as is the case here with cross-validation splits).
-   The p-value of this test is used to assess whether there are any significant differences in the performance of the
-   models. We use Benjamini/Hochberg correction for multiple testing.
+differences in treatments across multiple test attempts. It compares the ranks of multiple groups and is
+suitable when there are repeated measurements for each group (as is the case here with cross-validation splits).
+The p-value of this test is used to assess whether there are any significant differences in the performance of the
+models. We use Benjamini/Hochberg correction for multiple testing.
 
 2. **Post-hoc Conover Test**: If the Friedman test returns a significant result (p-value < 0.05), the post-hoc Conover
-   test can be used to identify pairs of algorithms that perform significantly different. This test is necessary
-   because the Friedman test only tells if there is a difference somewhere among the models, but not which ones are
-   different. The `scikit_posthocs` library is used for this step.
+test can be used to identify pairs of algorithms that perform significantly different. This test is necessary
+because the Friedman test only tells if there is a difference somewhere among the models, but not which ones are
+different. The `scikit_posthocs` library is used for this step.
 
 3. **Rank Calculation**: Next, the average ranks of each classifier across all cross-validation splits are computed.
-   The models are ranked based on their performance (lower ranks indicate better performance) and the average rank
-   across all splits is calculated for each model.
+The models are ranked based on their performance (lower ranks indicate better performance) and the average rank
+across all splits is calculated for each model.
 
 4. **Critical Difference Diagram**: Finally, the method draws the critical difference diagram. This diagram visually
-   displays the significant differences between the algorithms. A horizontal line groups a set of models that are
-   not significantly different. The critical difference is determined based on the post-hoc test results.
+displays the significant differences between the algorithms. A horizontal line groups a set of models that are
+not significantly different. The critical difference is determined based on the post-hoc test results.
 """
 
 import pathlib
@@ -55,12 +55,10 @@ class CriticalDifferencePlot(OutPlot):
     def __init__(self, eval_results_preds: pd.DataFrame, metric="MSE"):
         """Initialize critical difference plot.
 
-        Args:
-            eval_results_preds: Evaluation results restricted to prediction runs.
-            metric: Metric used for ranking (for example ``"MSE"``).
+        :param eval_results_preds: Evaluation results restricted to prediction runs.
+        :param metric: Metric used for ranking (for example ``"MSE"``).
 
-        Raises:
-            ValueError: If ``eval_results_preds`` is empty or lacks ``metric``.
+        :raises ValueError: If ``eval_results_preds`` is empty or lacks ``metric``.
         """
         eval_results_preds = eval_results_preds[["algorithm", "CV_split", metric]]
         if eval_results_preds.empty:
@@ -78,12 +76,10 @@ class CriticalDifferencePlot(OutPlot):
     def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
         """Draw critical difference plot and save SVG and HTML table.
 
-        Args:
-            out_prefix: Output directory (for example ``results/my_run/critical_difference_plots/``).
-            out_suffix: Filename suffix (for example ``LPO``).
+        :param out_prefix: Output directory (for example ``results/my_run/critical_difference_plots/``).
+        :param out_suffix: Filename suffix (for example ``LPO``).
 
-        Raises:
-            ValueError: If the figure or test results were not produced.
+        :raises ValueError: If the figure or test results were not produced.
         """
         try:
             self._draw()
@@ -134,17 +130,15 @@ class CriticalDifferencePlot(OutPlot):
         self.fig = plt.gcf()
 
     @staticmethod
-    def write_to_html(test_mode: str, f: TextIOWrapper, *args, **kwargs) -> TextIOWrapper:
+    def write_to_html(test_mode: str, f: TextIOWrapper, *_unused_args, **_unused_kwargs) -> TextIOWrapper:
         """Embed critical difference diagram and Conover table in the report HTML.
 
-        Args:
-            test_mode: Evaluation test mode (for example ``"LPO"``).
-            f: Open HTML file handle.
-            *args: Unused.
-            **kwargs: Unused.
+        :param test_mode: Evaluation test mode (for example ``"LPO"``).
+        :param f: Open HTML file handle.
+        :param _unused_args: Unused positional arguments.
+        :param _unused_kwargs: Unused keyword arguments.
 
-        Returns:
-            The same file handle after writing.
+        :returns: The same file handle after writing.
         """
         path_out_cd = f"critical_difference_plots/critical_difference_algorithms_{test_mode}.svg"
         f.write(f"<object data={path_out_cd}> </object>")

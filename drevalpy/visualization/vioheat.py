@@ -13,10 +13,9 @@ class VioHeat(OutPlot):
     def __init__(self, df: pd.DataFrame, normalized_metrics=False, whole_name=False):
         """Initialize shared violin/heatmap state.
 
-        Args:
-            df: Evaluation results (overall or per algorithm).
-            normalized_metrics: Whether to show only normalized metric columns.
-            whole_name: Whether to display full algorithm setting labels.
+        :param df: Evaluation results (overall or per algorithm).
+        :param normalized_metrics: Whether to show only normalized metric columns.
+        :param whole_name: Whether to display full algorithm setting labels.
         """
         self.df = df.sort_index()
         self.all_metrics = [
@@ -42,9 +41,8 @@ class VioHeat(OutPlot):
     def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
         """Draw and save the plot (implemented by subclasses).
 
-        Args:
-            out_prefix: Output directory path.
-            out_suffix: Filename suffix for the saved artifact.
+        :param out_prefix: Output directory path.
+        :param out_suffix: Filename suffix for the saved artifact.
         """
         pass
 
@@ -52,20 +50,18 @@ class VioHeat(OutPlot):
         pass
 
     @staticmethod
-    def write_to_html(test_mode: str, f: TextIOWrapper, *args, **kwargs) -> TextIOWrapper:
+    def write_to_html(test_mode: str, f: TextIOWrapper, *_unused_args, **_kwargs) -> TextIOWrapper:
         """Write violin or heatmap sections into the report HTML.
 
-        Args:
-            test_mode: Evaluation test mode (for example ``"LPO"``).
-            f: Open HTML file handle.
-            *args: Unused.
-            **kwargs: ``plot`` (``"Violin"`` or ``"Heatmap"``) and ``files`` list.
+        :param test_mode: Evaluation test mode (for example ``"LPO"``).
+        :param f: Open HTML file handle.
+        :param _unused_args: Unused positional arguments.
+        :param _kwargs: Keyword arguments with ``plot`` (``Violin`` or ``Heatmap``) and ``files`` list.
 
-        Returns:
-            The same file handle after writing.
+        :returns: The same file handle after writing.
         """
-        plot: str = kwargs.get("plot", "")
-        files: list[str] = kwargs.get("files", [])
+        plot: str = _kwargs.get("plot", "")
+        files: list[str] = _kwargs.get("files", [])
 
         if plot == "Violin":
             nav_id = "violin"

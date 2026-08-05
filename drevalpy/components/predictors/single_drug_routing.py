@@ -10,7 +10,12 @@ from drevalpy.components.model_input_batch import ModelInputBatch
 
 
 def routing_keys(batch: ModelInputBatch) -> np.ndarray:
-    """Decode per-pair drug IDs from identity blocks."""
+    """Decode per-pair drug IDs from identity blocks.
+
+    :param batch: Featurized batch with drug identity blocks.
+    :returns: Drug id string per pair (empty string when unknown).
+    :raises ValueError: If identity blocks are missing or misaligned.
+    """
     identity_block = batch.drug_blocks.get("identity")
     categories_block = batch.drug_blocks.get("identity_categories")
     if identity_block is None or categories_block is None or batch.drug_pair_idx is None:
@@ -32,7 +37,11 @@ def routing_keys(batch: ModelInputBatch) -> np.ndarray:
 
 
 def require_known_training_keys(keys: np.ndarray) -> None:
-    """Reject unknown drug identities during training."""
+    """Reject unknown drug identities during training.
+
+    :param keys: Per-pair drug id strings from ``routing_keys``.
+    :raises ValueError: If any entry is an empty string.
+    """
     if np.any(keys == ""):
         msg = "Training pairs contain unknown drug identities"
         raise ValueError(msg)
@@ -41,7 +50,8 @@ def require_known_training_keys(keys: np.ndarray) -> None:
 def iter_drug_masks(batch: ModelInputBatch) -> Iterator[tuple[str, np.ndarray]]:
     """Yield ``(drug_id, pair_mask)`` for each known drug in the batch.
 
-    :yields: drug identifier and boolean mask over response pairs
+    :param batch: Featurized batch with drug identity blocks.
+    :yields: Drug identifier and boolean mask over response pairs.
     """
     keys = routing_keys(batch)
     for drug_id in np.unique(keys):

@@ -14,8 +14,7 @@ class AttentionLayer(nn.Module):
     """Custom attention layer for the DIPK model."""
 
     def __init__(self, heads: int = 1):
-        """
-        Initialize the attention layer with a multi-head attention layer with a specified number of heads.
+        """Initialize the attention layer with a multi-head attention layer with a specified number of heads.
 
         :param heads: number of heads for the multi-head attention layer
         """
@@ -28,14 +27,14 @@ class AttentionLayer(nn.Module):
     def forward(
         self, molgnet_features: torch.Tensor, mask: torch.Tensor, gene_expression: torch.Tensor, bionic: torch.Tensor
     ) -> torch.Tensor:
-        """
-        Forward pass of the attention layer.
+        """Forward pass of the attention layer.
 
         :param molgnet_features: MolGNet features
         :param mask: mask for the MolGNet features, as molecules have varying sizes (valid atom features are True)
         :param gene_expression: gene expression features of the graph data
         :param bionic: bionic network features of the graph data
-        :returns: tensor of MolGNet features after attention layer
+
+        :returns: returns: tensor of MolGNet features after attention layer
         """
         gene_expression = nn.functional.relu(self.fc_layer_0(gene_expression))  # Shape: [batch_size, feature_dim_gene]
         bionic = nn.functional.relu(self.fc_layer_1(bionic))  # Shape: [batch_size, feature_dim_bionic]
@@ -63,8 +62,7 @@ class DenseLayers(nn.Module):
     """Custom dense layers for the DIPK model."""
 
     def __init__(self, fc_layer_num: int, fc_layer_dim: list[int], dropout_rate: float):
-        """
-        Initialize the dense layers of the DIPK model which follow the attention layer.
+        """Initialize the dense layers of the DIPK model which follow the attention layer.
 
         :param fc_layer_num: number of fully connected layers
         :param fc_layer_dim: list of dimensions for each fully connected layer
@@ -88,13 +86,13 @@ class DenseLayers(nn.Module):
         self.fc_output = nn.Linear(fc_layer_dim[fc_layer_num - 2], 1)
 
     def forward(self, x: torch.Tensor, gene: torch.Tensor, bionic: torch.Tensor) -> torch.Tensor:
-        """
-        Forward pass of the dense layers.
+        """Forward pass of the dense layers.
 
         :param x: output tensor from the attention layer
         :param gene: gene expression features (GEF) of the graph data
         :param bionic: biological network features (BNF) of the graph data
-        :returns: output tensor after the dense layers
+
+        :returns: returns: output tensor after the dense layers
         """
         if len(x.shape) == 1:  # happens if the batch size is 1
             x = torch.unsqueeze(x, 0)
@@ -114,8 +112,7 @@ class Predictor(nn.Module):
     """Whole DIPK model."""
 
     def __init__(self, heads: int, fc_layer_num: int, fc_layer_dim: list[int], dropout_rate: float):
-        """
-        Initialize the DIPK model with the specified hyperparameters.
+        """Initialize the DIPK model with the specified hyperparameters.
 
         :param heads: number of heads for the multi-head attention layer
         :param fc_layer_num: number of fully connected layers for the dense layers
@@ -133,14 +130,14 @@ class Predictor(nn.Module):
         bionic: torch.Tensor,
         molgnet_mask: torch.Tensor,
     ) -> torch.Tensor:
-        """
-        Forward pass of the DIPK model.
+        """Forward pass of the DIPK model.
 
         :param molgnet_drug_features: tensor of MolGNet features from graph data
         :param gene_expression: gene expression features (GEF) of the graph data
         :param bionic: biological network features (BNF) of the graph data
         :param molgnet_mask: mask for the MolGNet features, as molecules have varying sizes
-        :returns: output tensor of the DIPK model
+
+        :returns: returns: output tensor of the DIPK model
         """
         molgnet_drug_features = self.attention_layer(molgnet_drug_features, molgnet_mask, gene_expression, bionic)
         f = self.dense_layers(molgnet_drug_features, gene_expression, bionic)

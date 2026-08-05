@@ -11,6 +11,11 @@ from drevalpy.cli.run_cv import run_evaluate_and_find_max
 
 
 def register(app: typer.Typer) -> None:
+    """Register the ``evaluate-hpams`` subcommand on ``app``.
+
+    :param app: Root Typer application to register the command on.
+    """
+
     @app.command("evaluate-hpams")
     def evaluate_hpams(
         model_name: Annotated[
@@ -40,7 +45,14 @@ def register(app: typer.Typer) -> None:
             typer.Option("--optim_metric", help="Optimization metric, default: RMSE."),
         ] = "RMSE",
     ) -> None:
-        """Evaluate predictions and save the best hyperparameter combination."""
+        """Evaluate predictions and save the best hyperparameter combination.
+
+        :param model_name: Model name used in output file prefixes.
+        :param split_id: CV split identifier.
+        :param hpam_yamls: Paths to candidate hyperparameter YAML files.
+        :param pred_datas: Paths to pickled validation prediction datasets.
+        :param optim_metric: Metric name used to rank candidates.
+        """
         run_evaluate_and_find_max(
             model_name=model_name,
             split_id=split_id,

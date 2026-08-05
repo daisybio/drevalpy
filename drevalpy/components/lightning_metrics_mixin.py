@@ -6,8 +6,7 @@ from drevalpy.evaluation import AVAILABLE_METRICS
 
 
 class RegressionMetricsMixin:
-    """
-    Mixin class for PyTorch Lightning modules to automatically compute and log R^2 and PCC metrics.
+    """Mixin class for PyTorch Lightning modules to automatically compute and log R^2 and PCC metrics.
 
     This mixin provides:
     - Storage for predictions and targets during training/validation steps
@@ -15,27 +14,27 @@ class RegressionMetricsMixin:
     - Consistent logging to wandb via PyTorch Lightning's logging system
 
     Usage:
-        class MyModel(RegressionMetricsMixin, pl.LightningModule):
-            def __init__(self, ...):
-                super().__init__()
-                # Initialize your model...
-                self._init_metrics_storage()  # Call this in __init__
+    class MyModel(RegressionMetricsMixin, pl.LightningModule):
+    def __init__(self, ...):
+    super().__init__()
+    # Initialize your model...
+    self._init_metrics_storage()  # Call this in __init__
 
-            def training_step(self, batch, batch_idx):
-                # ... your training logic ...
-                predictions = self.forward(...)
-                loss = self.criterion(predictions, targets)
-                self.log("train_loss", loss, ...)
-                self._store_predictions(predictions, targets, is_training=True)
-                return loss
+    def training_step(self, batch, batch_idx):
+    # ... your training logic ...
+    predictions = self.forward(...)
+    loss = self.criterion(predictions, targets)
+    self.log("train_loss", loss, ...)
+    self._store_predictions(predictions, targets, is_training=True)
+    return loss
 
-            def validation_step(self, batch, batch_idx):
-                # ... your validation logic ...
-                predictions = self.forward(...)
-                loss = self.criterion(predictions, targets)
-                self.log("val_loss", loss, ...)
-                self._store_predictions(predictions, targets, is_training=False)
-                return loss
+    def validation_step(self, batch, batch_idx):
+    # ... your validation logic ...
+    predictions = self.forward(...)
+    loss = self.criterion(predictions, targets)
+    self.log("val_loss", loss, ...)
+    self._store_predictions(predictions, targets, is_training=False)
+    return loss
     """
 
     def _init_metrics_storage(self) -> None:
@@ -46,8 +45,7 @@ class RegressionMetricsMixin:
         self.val_targets: list[torch.Tensor] = []
 
     def _store_predictions(self, predictions: torch.Tensor, targets: torch.Tensor, is_training: bool = True) -> None:
-        """
-        Store predictions and targets for epoch-end metric computation.
+        """Store predictions and targets for epoch-end metric computation.
 
         :param predictions: model predictions tensor
         :param targets: ground truth targets tensor
@@ -65,8 +63,7 @@ class RegressionMetricsMixin:
             self.val_targets.append(targets_cpu)
 
     def _compute_epoch_metrics(self, predictions: list[torch.Tensor], targets: list[torch.Tensor]) -> dict[str, float]:
-        """
-        Compute R^2 and PCC metrics from stored predictions and targets.
+        """Compute R^2 and PCC metrics from stored predictions and targets.
 
         :param predictions: list of prediction tensors from the epoch
         :param targets: list of target tensors from the epoch
@@ -90,8 +87,7 @@ class RegressionMetricsMixin:
             return {}
 
     def on_train_epoch_end(self) -> None:
-        """
-        Epoch-end hook for training.
+        """Epoch-end hook for training.
 
         Intentionally does NOT log R^2/Pearson per epoch anymore. We only keep
         these buffers to allow optional debugging or future extensions.
@@ -101,8 +97,7 @@ class RegressionMetricsMixin:
         self.train_targets.clear()
 
     def on_validation_epoch_end(self) -> None:
-        """
-        Epoch-end hook for validation.
+        """Epoch-end hook for validation.
 
         Intentionally does NOT log R^2/Pearson per epoch anymore. Final metrics
         are logged once at the end via DRPModel.compute_and_log_final_metrics().

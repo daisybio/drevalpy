@@ -1,5 +1,4 @@
-"""
-DIPK model. Adapted from https://github.com/user15632/DIPK.
+"""DIPK model. Adapted from https://github.com/user15632/DIPK.
 
 Original publication:
 Improving drug response prediction via integrating gene relationships with deep learning
@@ -19,6 +18,7 @@ from torch.utils.data import DataLoader
 
 from drevalpy.components.predictors.literature._training_helpers import LiteratureTrainingMixin
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.utils.torch_io import load_state_dict, save_torch_payload
 
 from .data_utils import CollateFn, DIPKDataset, get_data
 from .model_utils import Predictor
@@ -41,15 +41,18 @@ class DIPKModel(LiteratureTrainingMixin):
 
     @classmethod
     def get_model_name(cls) -> str:
-        """
-        Get the model name.
+        """Get the model name.
 
-        :returns: DIPK
+        :returns: returns: DIPK
         """
         return "DIPK"
 
     @classmethod
     def get_default_hyperparameters(cls) -> dict[str, Any]:
+        """Return default DIPK hyperparameters.
+
+        :returns: Default hyperparameter mapping.
+        """
         return {
             "batch_size": 64,
             "lr": 0.0001,
@@ -62,21 +65,10 @@ class DIPKModel(LiteratureTrainingMixin):
         }
 
     def configure(self, hyperparameters: dict[str, Any]) -> None:
-        """
-        Builds the DIPK model with the specified hyperparameters.
+        """Builds the DIPK model with the specified hyperparameters.
 
-        :param hyperparameters: embedding_dim, heads, fc_layer_num, fc_layer_dim, dropout_rate, epochs, batch_size, lr
-
-        Details of hyperparameters:
-
-        - embedding_dim: int, embedding dimension used for the graph encoder which is not used in the final model
-        - heads: int, number of heads for the multi-head attention layer, defaults to 1
-        - fc_layer_num: int, number of fully connected layers for the dense layers
-        - fc_layer_dim: list[int], number of neurons for each fully connected layer
-        - dropout_rate: float, dropout rate for all fully connected layers
-        - epochs: int, number of epochs to train the model
-        - batch_size: int, batch size for training
-        - lr: float, learning rate for training
+        :param hyperparameters: Model hyperparameters including ``heads``, ``fc_layer_num``,
+            ``fc_layer_dim``, ``dropout_rate``, ``epochs``, ``batch_size``, and ``lr``.
         """
         self.model = Predictor(
             hyperparameters["heads"],
@@ -95,14 +87,14 @@ class DIPKModel(LiteratureTrainingMixin):
         output_earlystopping: DrugResponseDataset | None = None,
         model_checkpoint_dir: str = "checkpoints",
     ) -> None:
-        """
-        Trains the model.
+        """Trains the model.
 
         :param output: training data associated with the response output
         :param cell_line_input: input data associated with the cell line
         :param drug_input: input data associated with the drug
         :param output_earlystopping: early stopping data associated with the response output
         :param model_checkpoint_dir: directory to save the model checkpoint
+
         :raises ValueError: if drug_input is None or if the model is not initialized
         """
         if drug_input is None:
@@ -228,7 +220,7 @@ class DIPKModel(LiteratureTrainingMixin):
                 best_val_loss = val_loss
                 epochs_without_improvement = 0
                 # Save the model checkpoint securely
-                torch.save(self.model.state_dict(), checkpoint_path)  # noqa S614
+                save_torch_payload(self.model.state_dict(), checkpoint_path)
                 print(f"DIPK: Saved best model at epoch {epoch + 1}")
             else:
                 epochs_without_improvement += 1
@@ -238,9 +230,7 @@ class DIPKModel(LiteratureTrainingMixin):
 
         # Reload the best model after training
         print("DIPK: Reloading the best model")
-        self.model.load_state_dict(
-            torch.load(checkpoint_path, map_location=self.DEVICE, weights_only=True)  # noqa S614
-        )
+        self.model.load_state_dict(load_state_dict(checkpoint_path, map_location=self.DEVICE))
         self.model.to(self.DEVICE)  # Ensure model is on the correct device
 
     def predict(
@@ -250,14 +240,15 @@ class DIPKModel(LiteratureTrainingMixin):
         cell_line_input: FeatureDataset,
         drug_input: FeatureDataset | None = None,
     ) -> np.ndarray:
-        """
-        Predicts the response values for the given cell lines and drugs.
+        """Predicts the response values for the given cell lines and drugs.
 
         :param cell_line_ids: list of cell line IDs
         :param drug_ids: list of drug IDs
         :param cell_line_input: input data associated with the cell line
         :param drug_input: input data associated with the drug
-        :return: predicted response values
+
+        :returns: return: predicted response values
+
         :raises ValueError: if drug_input is None or if the model is not initialized.
         """
         if drug_input is None:

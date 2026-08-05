@@ -1,5 +1,4 @@
-"""
-Preprocesses drug SMILES strings into graph representations.
+"""Preprocesses drug SMILES strings into graph representations.
 
 This script takes a dataset name as input, reads the corresponding
 drug_smiles.csv file, and converts each SMILES string into a
@@ -61,8 +60,7 @@ def _one_hot_encode(value, choices):
 
 
 def _smiles_to_graph(smiles: str):
-    """
-    Converts a SMILES string to a torch_geometric.data.Data object.
+    """Converts a SMILES string to a torch_geometric.data.Data object.
 
     :param smiles: The SMILES string for the drug.
     :return: A Data object representing the molecular graph, or None if conversion fails.

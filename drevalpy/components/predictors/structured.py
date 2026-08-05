@@ -18,18 +18,15 @@ class BlockPredictor(Predictor):
     def fit(self, batch: ModelInputBatch) -> None:
         """Fit on a featurized predictor input batch.
 
-        Args:
-            batch: Featurized pairs with training responses.
+        :param batch: Featurized pairs with training responses.
         """
 
     def predict(self, batch: ModelInputBatch) -> np.ndarray:
         """Predict on a featurized predictor input batch.
 
-        Args:
-            batch: Featurized pairs to score.
+        :param batch: Featurized pairs to score.
 
-        Returns:
-            One predicted response per pair in *batch*.
+        :returns: One predicted response per pair in *batch*.
         """
         return np.full(batch.n_pairs, np.nan, dtype=np.float64)
 

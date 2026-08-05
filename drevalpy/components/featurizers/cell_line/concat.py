@@ -25,4 +25,8 @@ class ConcatFeaturizersCellLineFeaturizer(ConcatFeaturizersMixin, CellLineFeatur
         *,
         featurizers: list[Any] | None = None,
     ) -> None:
+        """Initialize instance state.
+
+        :param featurizers: featurizers.
+        """
         self._init_concat(featurizers=featurizers, registry="cell_line")

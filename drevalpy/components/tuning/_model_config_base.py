@@ -8,7 +8,11 @@ from drevalpy.models.config import ModelConfig
 
 
 def base_model_config_for_drp_model(model_class: type[Any]) -> ModelConfig | None:
-    """Resolve the base modular config for a public DRPModel class without hyperparameters."""
+    """Resolve the base modular config for a public DRPModel class without hyperparameters.
+
+    :param model_class: model class.
+    :returns: Result.
+    """
     base = getattr(model_class, "_base_model_config", None)
     if isinstance(base, ModelConfig):
         return base.model_copy(deep=True)

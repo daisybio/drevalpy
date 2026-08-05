@@ -58,18 +58,9 @@ def construct_model(name: str, spec: str | ModelConfig | None = None) -> type[DR
     The returned class is a thin metadata-only subclass of the concrete ``DRPModel``.
     Instantiating it with optional flat hyperparameters creates a fresh runtime instance.
 
-    Args:
-        name: Model identity for the generated class, or a built-in zoo preset name
-            when *spec* is omitted.
-        spec: Optional recipe string, ``ModelConfig``, or ``None`` to resolve *name*
-            from the zoo.
-
-    Returns:
-        Generated ``DRPModel`` subclass bound to the resolved config.
-
-    Raises:
-        ValueError: If *name* is unknown and *spec* is ``None``, or if the config
-            fails validation.
+    :param name: Model identity for the generated class, or a built-in zoo preset name when ``spec`` is omitted.
+    :param spec: Optional recipe string, ``ModelConfig``, or ``None`` to resolve ``name`` from the zoo.
+    :returns: Generated ``DRPModel`` subclass bound to the resolved config.
     """
     config = _resolve_base_config(name, spec)
     cache_key = (name, _canonical_config_key(config))
@@ -86,7 +77,10 @@ def build_builtin_factory_tables() -> tuple[
     dict[str, type[DRPModel]],
     dict[str, type[DRPModel]],
 ]:
-    """Build multi/single/all factory mappings for built-in zoo names only."""
+    """Build multi/single/all factory mappings for built-in zoo names only.
+
+    :returns: Tuple of multi-drug, single-drug, and combined factory mappings.
+    """
     from drevalpy.models.zoo import get_zoo_config, list_zoo_names
 
     multi: dict[str, type[DRPModel]] = {}

@@ -217,6 +217,49 @@ def test_duplicate_class_and_decorator_contract_fails() -> None:
             contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
 
 
+def test_duplicate_predictor_class_and_decorator_contract_fails() -> None:
+    with pytest.raises(ValueError, match="already defines a cell-line contract"):
+
+        @register_predictor(
+            "predConflict",
+            description="conflict",
+            cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+            drug_contract=FeatureFormat.NUMERIC_MATRIX,
+        )
+        class PredConflict(FeatureFreePredictor):
+            cell_line_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
+
+
+def test_duplicate_predictor_drug_class_and_decorator_contract_fails() -> None:
+    with pytest.raises(ValueError, match="already defines a drug contract"):
+
+        @register_predictor(
+            "predDrugConflict",
+            description="conflict",
+            cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+            drug_contract=FeatureFormat.NUMERIC_MATRIX,
+        )
+        class PredDrugConflict(FeatureFreePredictor):
+            drug_contract = FeatureContract(format=FeatureFormat.GRAPH)
+
+
+def test_register_existing_restores_registry_name() -> None:
+    registry = Registry("test", "Test component", "test_components", lambda *_: {"name": "x"})
+    decorated = registry.register("restored", description="restored")
+
+    @decorated
+    class Restored:
+        pass
+
+    assert vars(Restored)["registry_name"] == "restored"
+    registry.clear()
+    assert registry.list_names() == []
+
+    registry.register_existing("restored", Restored)
+    assert registry.get("restored") is Restored
+    assert vars(Restored)["registry_name"] == "restored"
+
+
 def test_featurizer_registration_requires_explicit_contract() -> None:
     with pytest.raises(ValueError, match="missing=\\['contract'\\]"):
 

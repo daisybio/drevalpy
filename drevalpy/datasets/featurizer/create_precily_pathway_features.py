@@ -1,11 +1,12 @@
-r"""
-GSVA pathway-score featurizer for Precily.
+r"""GSVA pathway-score featurizer for Precily.
 
 Computes GSVA pathway-activity scores for cell lines of a dataset in a
 single pass and writes them to a CSV
 
 Input : data/<dataset>/gene_expression.csv   (cell lines x genes)
 Output: data/<dataset>/precily_pathways.csv   (cell lines x pathways)
+
+Example::
 
     python -m drevalpy.datasets.featurizer.create_precily_pathway_features GDSC2 \\
         --gene_sets data/msigdb/c2.cp.v6.1.symbols.gmt
@@ -21,8 +22,7 @@ import pandas as pd
 
 
 def _load_gene_expression(data_path: str, dataset_name: str) -> pd.DataFrame:
-    """
-    Load the dataset's gene-expression matrix.
+    """Load the dataset's gene-expression matrix.
 
     :param data_path: root data path
     :param dataset_name: dataset name
@@ -47,8 +47,7 @@ def _run_gsva(
     threads: int,
     seed: int,
 ) -> pd.DataFrame:
-    """
-    Run gseapy GSVA and return a [samples x pathways] DataFrame.
+    """Run gseapy GSVA and return a [samples x pathways] DataFrame.
 
     :param expr_genes_by_samples: genes in rows, samples in columns
     :param gene_sets: path to .gmt (MSigDB C2 CP v6.1)
@@ -96,8 +95,7 @@ def create_precily_pathway_features(
     threads: int = 4,
     seed: int = 42,
 ) -> None:
-    """
-    Compute GSVA pathway scores for all cell lines and write precily_pathways.csv.
+    """Compute GSVA pathway scores for all cell lines and write precily_pathways.csv.
 
     :param data_path: root data path
     :param dataset_name: dataset name

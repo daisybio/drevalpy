@@ -1,5 +1,4 @@
-r"""
-Precily model for drug response prediction.
+"""Precily model for drug response prediction.
 
 Contains Precily, a pathway-based deep learning model for drug response
 prediction. A deep neural network that predicts LN(IC50) by combining
@@ -7,7 +6,6 @@ GSVA pathway-activity scores with SMILESVec drug embeddings.
 
 Original authors: Chawla et al. (2022, 10.1038/s41467-022-33291-z)
 Reference code: https://github.com/SmritiChawla/Precily
-
 """
 
 from typing import Any
@@ -35,8 +33,7 @@ class _PrecilyDataset(Dataset):
         cell_line_features: FeatureDataset,
         drug_features: FeatureDataset,
     ):
-        """
-        Initialize the dataset.
+        """Initialize the dataset.
 
         :param response: drug response values
         :param cell_line_ids: cell line identifiers
@@ -51,19 +48,18 @@ class _PrecilyDataset(Dataset):
         self.drug_features = drug_features
 
     def __len__(self) -> int:
-        """
-        Return the number of samples.
+        """Return the number of samples.
 
-        :return: Number of samples in the dataset.
+        :returns: Number of samples in the dataset.
         """
         return len(self.response)
 
     def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """
-        Get a single sample by index.
+        """Get a single sample by index.
 
         :param idx: sample index
-        :return: (pathway_features, drug_features, response) tensors
+
+        :returns: (pathway_features, drug_features, response) tensors
         """
         cell_line_id = self.cell_line_ids[idx]
         drug_id = self.drug_ids[idx]
@@ -91,8 +87,7 @@ class PrecilyModel(LiteratureTrainingMixin):
 
     @classmethod
     def get_model_name(cls) -> str:
-        """
-        Get the model name.
+        """Get the model name.
 
         :returns: Precily
         """
@@ -100,6 +95,10 @@ class PrecilyModel(LiteratureTrainingMixin):
 
     @classmethod
     def get_default_hyperparameters(cls) -> dict[str, Any]:
+        """Return default Precily hyperparameters.
+
+        :returns: Default hyperparameter mapping.
+        """
         return {
             "learning_rate": 1.0e-3,
             "dropout": 0.1,
@@ -109,8 +108,7 @@ class PrecilyModel(LiteratureTrainingMixin):
         }
 
     def configure(self, hyperparameters: dict[str, Any]) -> None:
-        """
-        Store hyperparameters.
+        """Store hyperparameters.
 
         The network is built in train() once the input dimension
         (n_pathways + n_drug_features) is known.
@@ -128,14 +126,14 @@ class PrecilyModel(LiteratureTrainingMixin):
         output_earlystopping: DrugResponseDataset | None = None,
         model_checkpoint_dir: str = "checkpoints",
     ) -> None:
-        """
-        Train the Precily model.
+        """Train the Precily model.
 
         :param output: training response data
         :param cell_line_input: cell line pathway features
         :param drug_input: drug SMILESVec features
         :param output_earlystopping: unused
         :param model_checkpoint_dir: unused
+
         :raises ValueError: if drug_input is None
         """
         if drug_input is None:
@@ -200,14 +198,15 @@ class PrecilyModel(LiteratureTrainingMixin):
         cell_line_input: FeatureDataset,
         drug_input: FeatureDataset | None = None,
     ) -> np.ndarray:
-        """
-        Predict LN(IC50) for the given cell line / drug pairs.
+        """Predict LN(IC50) for the given cell line / drug pairs.
 
         :param cell_line_ids: cell line identifiers
         :param drug_ids: drug identifiers
         :param cell_line_input: cell line pathway features
         :param drug_input: drug SMILESVec features
-        :return: predicted response values
+
+        :returns: predicted response values
+
         :raises ValueError: if drug_input is None or the model is not built
         """
         if drug_input is None:

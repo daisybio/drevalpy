@@ -77,7 +77,23 @@ def train_final_model_impl(
     hpo_resources_per_trial: dict[str, float] | None = None,
     hpo_storage_path: str | None = None,
 ) -> None:
-    """Train and persist a final production model on the full dataset."""
+    """Train and persist a final production model on the full dataset.
+
+    :param model_class: Model class to train.
+    :param full_dataset: Complete response dataset for final training.
+    :param response_transformation: Response transformer fitted on training data.
+    :param path_data: Root directory for feature tables.
+    :param model_checkpoint_dir: Directory for intermediate checkpoints.
+    :param metric: Metric optimized during optional hyperparameter tuning.
+    :param final_model_path: Directory where the final model is saved.
+    :param test_mode: Split mode for the internal train/validation holdout.
+    :param val_ratio: Validation fraction for the holdout split.
+    :param hyperparameter_tuning: Whether to tune hyperparameters before training.
+    :param hpo_num_samples: Number of HPO trials when tuning is enabled.
+    :param hpo_random_state: Random seed for hyperparameter search.
+    :param hpo_resources_per_trial: Ray resource allocation per HPO trial.
+    :param hpo_storage_path: Optional Ray Tune storage path for HPO results.
+    """
     from drevalpy.components.tuning.config import build_experiment_hpo_config
 
     print("Training final model with application-specific validation strategy ...")

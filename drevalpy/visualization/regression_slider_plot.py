@@ -24,12 +24,11 @@ class RegressionSliderPlot(OutPlot):
     ):
         """Initialize regression slider plot.
 
-        Args:
-            df: True versus predicted values table.
-            test_mode: Evaluation test mode (for example ``"LPO"``).
-            model: Model name to plot.
-            group_by: Grouping column (``"drug_name"`` or ``"cell_line_name"``).
-            normalize: Subtract NaiveMeanEffectsPredictor predictions per pair.
+        :param df: True versus predicted values table.
+        :param test_mode: Evaluation test mode (for example ``"LPO"``).
+        :param model: Model name to plot.
+        :param group_by: Grouping column (``"drug_name"`` or ``"cell_line_name"``).
+        :param normalize: Subtract NaiveMeanEffectsPredictor predictions per pair.
         """
         self.df = df[(df["test_mode"] == test_mode) & (df["rand_setting"] == "predictions")]
         model_df = self.df[(self.df["algorithm"] == model)]
@@ -74,9 +73,8 @@ class RegressionSliderPlot(OutPlot):
     def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
         """Draw regression plot and save as HTML.
 
-        Args:
-            out_prefix: Output directory (for example ``results/my_run/regression_plots/``).
-            out_suffix: Filename suffix (for example ``LPO_drug_SimpleNeuralNetwork``).
+        :param out_prefix: Output directory (for example ``results/my_run/regression_plots/``).
+        :param out_suffix: Filename suffix (for example ``LPO_drug_SimpleNeuralNetwork``).
         """
         self._draw()
         self.fig.write_html(f"{out_prefix}regression_lines_{out_suffix}.html")
@@ -94,19 +92,17 @@ class RegressionSliderPlot(OutPlot):
         self._render_plot()
 
     @staticmethod
-    def write_to_html(test_mode: str, f: TextIOWrapper, *args, **kwargs) -> TextIOWrapper:
+    def write_to_html(test_mode: str, f: TextIOWrapper, *_unused_args, **_kwargs) -> TextIOWrapper:
         """Insert regression plot links into the report HTML.
 
-        Args:
-            test_mode: Evaluation test mode (for example ``"LPO"``).
-            f: Open HTML file handle.
-            *args: Unused.
-            **kwargs: Must include ``files``, a list of generated plot filenames.
+        :param test_mode: Evaluation test mode (for example ``"LPO"``).
+        :param f: Open HTML file handle.
+        :param _unused_args: Unused positional arguments.
+        :param _kwargs: Keyword arguments; must include ``files``, a list of generated plot filenames.
 
-        Returns:
-            The same file handle after writing.
+        :returns: The same file handle after writing.
         """
-        files: list[str] = kwargs.get("files", [])
+        files: list[str] = _kwargs.get("files", [])
         f.write('<h2 id="regression_plots">Regression plots</h2>\n')
         f.write("<ul>\n")
         regr_files = [f for f in files if test_mode in f and f.startswith("regression_lines")]
@@ -152,10 +148,9 @@ class RegressionSliderPlot(OutPlot):
         self._make_slider(setting_title)
 
     def _make_slider(self, setting_title: str) -> None:
-        """
-        Make a slider for the Pearson correlation coefficient.
+        """Make a slider for the Pearson correlation coefficient.
 
-        :param setting_title: title of the plot
+        :param setting_title: Title of the plot.
         """
         n_ticks = 21
         steps = []

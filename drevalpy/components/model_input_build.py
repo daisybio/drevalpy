@@ -72,7 +72,19 @@ def build_model_input_batch(
     early_stopping_response: DrugResponseDataset | None = None,
     training_context: TrainingContext | None = None,
 ) -> ModelInputBatch:
-    """Index entity-level featurizer outputs for each response pair."""
+    """Index entity-level featurizer outputs for each response pair.
+
+    :param response: response.
+    :param cell_line_entity_ids: cell line entity ids.
+    :param drug_entity_ids: drug entity ids.
+    :param cell_line_features: cell line features.
+    :param drug_features: drug features.
+    :param cell_line_blocks: cell line blocks.
+    :param drug_blocks: drug blocks.
+    :param early_stopping_response: early stopping response.
+    :param training_context: training context.
+    :returns: Result.
+    """
     _validate_entity_feature_alignment(cell_line_entity_ids, cell_line_features, side="cell_line")
     if drug_entity_ids is not None:
         _validate_entity_feature_alignment(drug_entity_ids, drug_features, side="drug")

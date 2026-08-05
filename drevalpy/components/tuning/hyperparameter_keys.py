@@ -33,7 +33,10 @@ class HyperparameterTarget:
 
     @property
     def qualified_key(self) -> str:
-        """Return the fully qualified public key for this target."""
+        """Return the fully qualified public key for this target.
+
+        :returns: Result.
+        """
         if self.slot == _PREDICTOR_SLOT:
             return _predictor_prefix(self.selector, self.param)
         return _featurizer_prefix(
@@ -108,7 +111,11 @@ def _legacy_alias_targets(targets: tuple[HyperparameterTarget, ...]) -> dict[str
 
 
 def build_ownership_index(config: ModelConfig) -> HyperparameterOwnershipIndex:
-    """Build ownership indexes for every accepted public hyperparameter."""
+    """Build ownership indexes for every accepted public hyperparameter.
+
+    :param config: config.
+    :returns: Result.
+    """
     targets: list[HyperparameterTarget] = []
 
     predictor_cls = get_predictor(config.predictor.name)
@@ -212,7 +219,15 @@ def resolve_to_qualified_mapping(
     *,
     reserved_keys: frozenset[str],
 ) -> dict[str, Any]:
-    """Resolve a public mapping to qualified keys with strict collision checks."""
+    """Resolve a public mapping to qualified keys with strict collision checks.
+
+    :param config: config.
+    :param mapping: mapping.
+    :param index: index.
+    :param reserved_keys: reserved keys.
+    :returns: Result.
+    :raises ValueError: Raised on invalid input.
+    """
     qualified: dict[str, Any] = {}
     seen_targets: dict[HyperparameterTarget, str] = {}
 
@@ -322,7 +337,12 @@ def export_public_mapping(
     *,
     include_view_keys: bool = False,
 ) -> dict[str, Any]:
-    """Export a deterministic collision-aware public hyperparameter mapping."""
+    """Export a deterministic collision-aware public hyperparameter mapping.
+
+    :param config: config.
+    :param include_view_keys: include view keys.
+    :returns: Result.
+    """
     from drevalpy.models.featurizer_mapping import cell_line_views_from_model_config, drug_views_from_model_config
 
     index = build_ownership_index(config)
@@ -338,7 +358,12 @@ def export_public_mapping(
 
 
 def validate_merged_mapping(config: ModelConfig, merged: dict[str, Any]) -> None:
-    """Reject unknown or malformed qualified hyperparameter keys."""
+    """Reject unknown or malformed qualified hyperparameter keys.
+
+    :param config: config.
+    :param merged: merged.
+    :raises ValueError: Raised on invalid input.
+    """
     from .search_space import _reject_indexed_featurizer_key
 
     index = build_ownership_index(config)

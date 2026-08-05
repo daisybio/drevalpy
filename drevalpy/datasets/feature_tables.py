@@ -12,8 +12,7 @@ from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER, TISSU
 
 
 def load_generic_csv(path: str, dataset_name: str, feature_name: str, index_col=CELL_LINE_IDENTIFIER) -> FeatureDataset:
-    """
-    Loads a generic CSV file with cell line IDs as index and features as columns.
+    """Loads a generic CSV file with cell line IDs as index and features as columns.
 
     :param path: path to the data, e.g., data/
     :param dataset_name: name of the dataset, e.g., GDSC2
@@ -32,8 +31,7 @@ def load_generic_csv(path: str, dataset_name: str, feature_name: str, index_col=
 
 
 def iterate_features(df: pd.DataFrame, feature_type: str) -> dict[str, dict[str, np.ndarray]]:
-    """
-    Iterate over features.
+    """Iterate over features.
 
     :param df: DataFrame with the features
     :param feature_type: type of feature, e.g., gene_expression, methylation, etc.
@@ -53,8 +51,7 @@ def iterate_features(df: pd.DataFrame, feature_type: str) -> dict[str, dict[str,
 
 
 def load_cl_ids_from_csv(path: str, dataset_name: str) -> FeatureDataset:
-    """
-    Load cell line ids from csv file.
+    """Load cell line ids from csv file.
 
     :param path: path to the data, e.g., data/
     :param dataset_name: name of the dataset, e.g., GDSC2
@@ -66,8 +63,7 @@ def load_cl_ids_from_csv(path: str, dataset_name: str) -> FeatureDataset:
 
 
 def load_tissues_from_csv(path: str, dataset_name: str) -> FeatureDataset:
-    """
-    Load tissues from csv file.
+    """Load tissues from csv file.
 
     :param path: path to the data, e.g., data/
     :param dataset_name: name of the dataset, e.g., GDSC2
@@ -82,8 +78,7 @@ def load_tissues_from_csv(path: str, dataset_name: str) -> FeatureDataset:
 
 
 def load_cl_ids_and_tissues_from_csv(path: str, dataset_name: str) -> FeatureDataset:
-    """
-    Load cell line ids and optional tissue annotations from csv file.
+    """Load cell line ids and optional tissue annotations from csv file.
 
     :param path: path to the data, e.g., data/
     :param dataset_name: name of the dataset, e.g., GDSC2
@@ -98,8 +93,7 @@ def load_cl_ids_and_tissues_from_csv(path: str, dataset_name: str) -> FeatureDat
 
 
 def load_drug_ids_from_csv(data_path: str, dataset_name: str) -> FeatureDataset:
-    """
-    Load drug ids from csv file.
+    """Load drug ids from csv file.
 
     :param data_path: path to the data, e.g., data/
     :param dataset_name: name of the dataset, e.g., GDSC2
@@ -116,8 +110,7 @@ def load_drug_ids_from_csv(data_path: str, dataset_name: str) -> FeatureDataset:
 
 
 def load_drug_fingerprint_features(data_path: str, dataset_name: str, fill_na=True, n_bits=128) -> FeatureDataset:
-    """
-    Load drug features from fingerprints.
+    """Load drug features from fingerprints.
 
     :param data_path: path to the data, e.g., data/
     :param dataset_name: name of the dataset, e.g., GDSC2
@@ -145,8 +138,7 @@ def load_drug_fingerprint_features(data_path: str, dataset_name: str, fill_na=Tr
 
 
 def unique(array):
-    """
-    Get unique values ordered by first occurrence.
+    """Get unique values ordered by first occurrence.
 
     :param array: array of values
     :returns: unique values ordered by first occurrence

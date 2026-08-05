@@ -70,6 +70,7 @@ def test_qualified_n_components_update_single_leaf() -> None:
     from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
     from drevalpy.models.config import FeaturizerConfig
 
+    assert updated.cell_line_featurizer is not None
     children = updated.cell_line_featurizer.hyperparameters["featurizers"]
     values: dict[str, int] = {}
     for child in children:

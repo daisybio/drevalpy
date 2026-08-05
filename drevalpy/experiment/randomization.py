@@ -58,7 +58,14 @@ def build_randomization_test_views(
     randomization_mode: list[str],
     hyperparameters: dict[str, Any] | None = None,
 ) -> dict[str, list[str]]:
-    """Build mapping of randomization test name to views randomized together."""
+    """Build mapping of randomization test name to views randomized together.
+
+    :param model_class: Model class whose featurizers define available views.
+    :param randomization_mode: Requested randomization modes (for example ``SVCC``).
+    :param hyperparameters: Model hyperparameters used to resolve view names.
+
+    :returns: Mapping from test names to feature-view lists.
+    """
     cell_line_views, drug_views = _resolve_cell_line_and_drug_views(model_class, hyperparameters)
     randomization_test_views: dict[str, list[str]] = {}
     if "SVCC" in randomization_mode:
@@ -119,7 +126,21 @@ def randomize_train_predict_impl(
     model_checkpoint_dir: str = "TEMPORARY",
     response_transformation: TransformerMixin | None = None,
 ) -> None:
-    """Randomize views, train once, and write predictions."""
+    """Randomize views, train once, and write predictions.
+
+    :param views: Feature view or views to randomize.
+    :param test_name: Label for the randomization test output.
+    :param randomization_type: Randomization strategy (for example ``permutation``).
+    :param randomization_test_file: Output path for predictions.
+    :param model_class: Model class to train under randomized inputs.
+    :param hyperparameters: Hyperparameters for model construction.
+    :param path_data: Root directory for feature tables.
+    :param train_dataset: Training split for the fold.
+    :param test_dataset: Test split for the fold.
+    :param early_stopping_dataset: Optional early-stopping data.
+    :param model_checkpoint_dir: Directory for model checkpoints.
+    :param response_transformation: Optional response transformer.
+    """
     view_list = _normalize_view_list(views)
     trial_model = model_class(hyperparameters)
     cl_features, drug_features = load_features(trial_model, path_data, train_dataset)
@@ -171,7 +192,21 @@ def randomization_test_impl(
     response_transformation: TransformerMixin | None = None,
     model_checkpoint_dir: str = "TEMPORARY",
 ) -> None:
-    """Run randomization tests once per view configuration."""
+    """Run randomization tests once per view configuration.
+
+    :param randomization_test_views: Mapping from test names to feature views.
+    :param model_class: Model class to train under randomized inputs.
+    :param hyperparameters: Hyperparameters for model construction.
+    :param path_data: Root directory for feature tables.
+    :param train_dataset: Training split for the fold.
+    :param test_dataset: Test split for the fold.
+    :param early_stopping_dataset: Optional early-stopping data.
+    :param path_out: Directory where predictions are written.
+    :param split_index: CV fold index for output file naming.
+    :param randomization_type: Randomization strategy (for example ``permutation``).
+    :param response_transformation: Optional response transformer.
+    :param model_checkpoint_dir: Directory for model checkpoints.
+    """
     for test_name, views in randomization_test_views.items():
         randomization_test_path = os.path.join(path_out, "randomization")
         os.makedirs(randomization_test_path, exist_ok=True)

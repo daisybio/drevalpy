@@ -10,6 +10,11 @@ from drevalpy.cli.run_cv import run_cv_split
 
 
 def register(app: typer.Typer) -> None:
+    """Register the ``make-cv-pkls`` subcommand on ``app``.
+
+    :param app: Root Typer application to register the command on.
+    """
+
     @app.command("make-cv-pkls")
     def make_cv_pkls(
         response: Annotated[
@@ -37,7 +42,15 @@ def register(app: typer.Typer) -> None:
             ),
         ] = None,
     ) -> None:
-        """Split data into CV splits: split_0.pkl, split_1.pkl, ..."""
+        """Split data into CV splits: split_0.pkl, split_1.pkl, ...
+
+        :param response: Path to the pickled primary response dataset.
+        :param n_cv_splits: Number of cross-validation folds to create.
+        :param test_mode: Split label (LPO, LCO, LTO, or LDO).
+        :param validation_ratio: Fraction of training rows held out for validation.
+        :param seed: Random seed for splitting.
+        :param custom_splitter_path: Optional external Python split script path.
+        """
         run_cv_split(
             response=response,
             n_cv_splits=n_cv_splits,

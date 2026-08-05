@@ -5,7 +5,11 @@ from __future__ import annotations
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 
-from drevalpy.components.preprocessing import prepare_expression_and_methylation, scale_gene_expression
+from drevalpy.components.preprocessing import (
+    ProteomicsMedianCenterAndImputeTransformer,
+    prepare_expression_and_methylation,
+    scale_gene_expression,
+)
 from drevalpy.datasets.dataset import FeatureDataset
 
 
@@ -75,3 +79,24 @@ def test_prepare_expression_and_methylation_training_mode() -> None:
         methylation_pca=methylation_pca,
     )
     assert transformed.features["cl1"]["methylation"].shape == (2,)
+
+
+def test_proteomics_transformer_fit_transform_is_deterministic() -> None:
+    train_features = np.array(
+        [
+            [1.0, 2.0, np.nan, 4.0],
+            [2.0, np.nan, 3.0, 5.0],
+            [np.nan, 3.0, 4.0, 6.0],
+        ]
+    )
+    transformer = ProteomicsMedianCenterAndImputeTransformer(
+        feature_threshold=0.5,
+        n_features=2,
+        imputation_seed=42,
+    )
+    transformer.fit(train_features)
+    first = transformer.transform([np.array([1.5, 2.5, np.nan, 4.5])])[0]
+    second = transformer.transform([np.array([1.5, 2.5, np.nan, 4.5])])[0]
+    assert first.shape == second.shape
+    assert np.allclose(first, second)
+    assert not np.isnan(first).any()

@@ -24,7 +24,16 @@ def feature_dataset_from_blocks(
     *,
     fallback: FeatureDataset | None = None,
 ) -> FeatureDataset:
-    """Materialize per-entity view dicts from named featurizer blocks."""
+    """Materialize per-entity view dicts from named featurizer blocks.
+
+    :param entity_ids: Entity identifiers in batch order.
+    :param blocks: Named featurizer blocks from a structured batch.
+    :param fallback: Dataset returned when no entity-aligned blocks are present.
+
+    :returns: Feature dataset with one feature dict per entity id.
+
+    :raises ValueError: If there are no entity-aligned blocks and no *fallback*.
+    """
     entity_blocks = {name: block for name, block in blocks.items() if block.entity_aligned}
     if not entity_blocks:
         if fallback is None:
@@ -49,7 +58,14 @@ def merge_feature_dataset(
     blocks: dict[str, FeatureBlock],
     entity_ids: np.ndarray,
 ) -> FeatureDataset:
-    """Overlay structured block views onto an existing feature dataset."""
+    """Overlay structured block views onto an existing feature dataset.
+
+    :param primary: Existing feature dataset to extend in place logically.
+    :param blocks: Structured featurizer blocks to merge into *primary*.
+    :param entity_ids: Entity identifiers defining merge order.
+
+    :returns: Feature dataset containing merged views for each entity.
+    """
     entity_blocks = {name: block for name, block in blocks.items() if block.entity_aligned}
     if not entity_blocks:
         return primary

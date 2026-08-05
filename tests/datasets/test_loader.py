@@ -92,7 +92,9 @@ def test_load_builtin_applies_tissue_override(tmp_path) -> None:
     with patch("drevalpy.datasets.loader._ensure_builtin_artifacts"):
         dataset = _load_builtin(entry, str(tmp_path), measure="LN_IC50_curvecurator")
 
-    assert dataset.tissue[0] == "Blood"
+    tissue = dataset.tissue
+    assert tissue is not None
+    assert tissue[0] == "Blood"
 
 
 def test_load_builtin_rejects_unknown_measure(tmp_path) -> None:

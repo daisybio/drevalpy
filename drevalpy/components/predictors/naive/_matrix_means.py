@@ -8,7 +8,13 @@ from drevalpy.components.model_input_batch import ModelInputBatch
 
 
 def pair_align(entity_matrix: np.ndarray, pair_idx: np.ndarray | None) -> np.ndarray:
-    """Index an entity-level feature matrix to pair rows."""
+    """Index an entity-level feature matrix to pair rows.
+
+    :param entity_matrix: entity matrix.
+    :param pair_idx: pair idx.
+    :returns: Result.
+    :raises ValueError: Raised on invalid input.
+    """
     matrix = np.asarray(entity_matrix)
     if matrix.ndim == 1:
         matrix = matrix.reshape(-1, 1)
@@ -23,7 +29,13 @@ def require_pair_matrix(
     *,
     side: str,
 ) -> np.ndarray:
-    """Return a pair-aligned dense matrix for the cell-line or drug side."""
+    """Return a pair-aligned dense matrix for the cell-line or drug side.
+
+    :param batch: batch.
+    :param side: side.
+    :returns: Result.
+    :raises ValueError: Raised on invalid input.
+    """
     if side == "cell_line":
         return pair_align(batch.cell_line_features, batch.cell_line_pair_idx)
     if side == "drug":
@@ -36,7 +48,13 @@ def require_pair_matrix(
 
 
 def block_pair_matrix(batch: ModelInputBatch, block_name: str) -> np.ndarray:
-    """Return a pair-aligned named cell-line block matrix."""
+    """Return a pair-aligned named cell-line block matrix.
+
+    :param batch: batch.
+    :param block_name: block name.
+    :returns: Result.
+    :raises ValueError: Raised on invalid input.
+    """
     if block_name not in batch.cell_line_blocks:
         msg = f"Required cell-line block {block_name!r} is missing"
         raise ValueError(msg)
@@ -44,7 +62,13 @@ def block_pair_matrix(batch: ModelInputBatch, block_name: str) -> np.ndarray:
 
 
 def category_means(design: np.ndarray, y: np.ndarray) -> np.ndarray:
-    """Return per-column means for a one-hot design matrix."""
+    """Return per-column means for a one-hot design matrix.
+
+    :param design: design.
+    :param y: y.
+    :returns: Result.
+    :raises ValueError: Raised on invalid input.
+    """
     matrix = np.asarray(design, dtype=np.float64)
     if matrix.ndim != 2:
         msg = "design matrix must be 2-dimensional"
@@ -63,7 +87,13 @@ def category_means(design: np.ndarray, y: np.ndarray) -> np.ndarray:
 
 
 def additive_effects(design: np.ndarray, y: np.ndarray, *, baseline: float) -> np.ndarray:
-    """Return additive effects relative to *baseline* for observed one-hot columns."""
+    """Return additive effects relative to *baseline* for observed one-hot columns.
+
+    :param design: design.
+    :param y: y.
+    :param baseline: baseline.
+    :returns: Result.
+    """
     matrix = np.asarray(design, dtype=np.float64)
     if matrix.ndim != 2 or matrix.shape[1] == 0:
         return category_means(design, y)
@@ -73,7 +103,14 @@ def additive_effects(design: np.ndarray, y: np.ndarray, *, baseline: float) -> n
 
 
 def predict_with_effects(design: np.ndarray, effects: np.ndarray, *, baseline: float) -> np.ndarray:
-    """Predict baseline + design @ effects for a one-hot design matrix."""
+    """Predict baseline + design @ effects for a one-hot design matrix.
+
+    :param design: design.
+    :param effects: effects.
+    :param baseline: baseline.
+    :returns: Result.
+    :raises ValueError: Raised on invalid input.
+    """
     matrix = np.asarray(design, dtype=np.float64)
     coeffs = np.asarray(effects, dtype=np.float64).reshape(-1)
     if matrix.ndim != 2:
@@ -88,7 +125,12 @@ def predict_with_effects(design: np.ndarray, effects: np.ndarray, *, baseline: f
 
 
 def state_float_vector(state: dict[str, object], key: str) -> np.ndarray | None:
-    """Restore a 1D float vector stored under *key*."""
+    """Restore a 1D float vector stored under *key*.
+
+    :param state: state.
+    :param key: key.
+    :returns: Result.
+    """
     value = state.get(key)
     if value is None:
         return None
@@ -96,7 +138,12 @@ def state_float_vector(state: dict[str, object], key: str) -> np.ndarray | None:
 
 
 def state_float_matrix(state: dict[str, object], key: str) -> np.ndarray | None:
-    """Restore a 2D float matrix stored under *key*."""
+    """Restore a 2D float matrix stored under *key*.
+
+    :param state: state.
+    :param key: key.
+    :returns: Result.
+    """
     value = state.get(key)
     if value is None:
         return None

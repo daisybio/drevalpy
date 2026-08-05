@@ -29,6 +29,10 @@ class MOLIROmicsFeaturizer(CellLineFeaturizer):
     """Arcsinh-scale and select variable gene-expression features for MOLIR."""
 
     def __init__(self, *, n_gene_expression_features: int = 1000) -> None:
+        """Store the variance-selection feature count and initialize scalers.
+
+        :param n_gene_expression_features: Number of gene-expression features to keep.
+        """
         self._n_features = int(n_gene_expression_features)
         self._scaler = StandardScaler()
         self._selector = VarianceFeatureSelector("gene_expression", self._n_features)
@@ -36,7 +40,13 @@ class MOLIROmicsFeaturizer(CellLineFeaturizer):
 
     @classmethod
     def load_features(cls, data_path: str, dataset_name: str, **kwargs: object) -> FeatureDataset:
-        """Load the intersection-gene multi-omics tables required by MOLIR."""
+        """Load the intersection-gene multi-omics tables required by MOLIR.
+
+        :param data_path: Parent directory for dataset artifacts.
+        :param dataset_name: Dataset folder name.
+        :param kwargs: Unused loader keyword arguments.
+        :returns: Multi-omics feature dataset with intersection gene lists.
+        """
         _ = cls, kwargs
         return get_multiomics_feature_dataset(
             data_path,
@@ -56,6 +66,13 @@ class MOLIROmicsFeaturizer(CellLineFeaturizer):
         entity_ids: np.ndarray | None = None,
         context: FeaturizerFitContext | None = None,
     ) -> MOLIROmicsFeaturizer:
+        """Arcsinh-scale gene expression and fit variance selection on training ids.
+
+        :param features: Cell-line multi-omics feature dataset.
+        :param entity_ids: Optional explicit fit ids; otherwise derived from *context*.
+        :param context: Optional fit context supplying unique training ids.
+        :returns: Fitted featurizer instance.
+        """
         ids = np.unique(
             entity_ids if entity_ids is not None else context.unique_train_ids if context else features.identifiers
         )
@@ -77,9 +94,21 @@ class MOLIROmicsFeaturizer(CellLineFeaturizer):
         return self._scaler.transform(matrix)[:, self._selector.mask].astype(np.float32)
 
     def transform(self, features: FeatureDataset, entity_ids: np.ndarray) -> np.ndarray:
+        """Return scaled, variance-selected gene-expression features.
+
+        :param features: Cell-line multi-omics feature dataset.
+        :param entity_ids: Cell-line identifiers to transform.
+        :returns: Float matrix of selected gene-expression features.
+        """
         return self._gene_expression(features, entity_ids)
 
     def transform_blocks(self, features: FeatureDataset, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
+        """Return per-omics numeric blocks for MOLIR.
+
+        :param features: Cell-line multi-omics feature dataset.
+        :param entity_ids: Cell-line identifiers to transform.
+        :returns: Mapping of omics view name to numeric blocks.
+        """
         return {
             "gene_expression": numeric_feature_block(
                 self._gene_expression(features, entity_ids), feature_names=self._feature_names.get("gene_expression")
@@ -95,13 +124,25 @@ class MOLIROmicsFeaturizer(CellLineFeaturizer):
 
     @property
     def output_dim(self) -> int:
+        """Return the number of selected gene-expression features.
+
+        :returns: Selected gene-expression feature count.
+        """
         return int(self._selector.mask.sum())
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
+        """Return tunable variance-selection feature count.
+
+        :returns: Ray Tune-style hyperparameter space mapping.
+        """
         return {"n_gene_expression_features": {"type": "int", "low": 1, "high": 1000, "default": 1000}}
 
     def get_state(self) -> dict[str, object]:
+        """Serialize scaler, selector, and feature-name metadata.
+
+        :returns: Fitted state mapping.
+        """
         return {
             "scaler": self._scaler,
             "selector": self._selector,
@@ -110,6 +151,10 @@ class MOLIROmicsFeaturizer(CellLineFeaturizer):
         }
 
     def set_state(self, state: dict[str, object]) -> None:
+        """Restore scaler, selector, and feature names from ``get_state``.
+
+        :param state: Mapping previously returned by ``get_state``.
+        """
         scaler = state.get("scaler")
         if isinstance(scaler, StandardScaler):
             self._scaler = scaler

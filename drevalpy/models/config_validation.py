@@ -94,7 +94,13 @@ def _validate_prediction_mode(config: ModelConfig, pred_cls: type[Any]) -> None:
 
 
 def _validate_no_featurizer_predictor(config: ModelConfig, pred_cls: type[Any]) -> bool:
-    """Return True when validation is complete for a feature-free predictor."""
+    """Return True when validation is complete for a feature-free predictor.
+
+    :param config: Model configuration to validate.
+    :param pred_cls: Resolved predictor class.
+    :returns: ``True`` when the config is a valid feature-free predictor setup.
+    :raises ValueError: If featurizers are incompatible with the predictor type.
+    """
     if config.cell_line_featurizer is not None or config.drug_featurizer is not None:
         if _allows_no_featurizers(pred_cls):
             msg = f"Predictor {config.predictor.name!r} is a feature-free predictor and forbids configured featurizers"
@@ -230,7 +236,11 @@ def _declared_or_view_block_specs(config: FeaturizerConfig) -> tuple[BlockSpec, 
 
 
 def _block_specs_for_featurizer(config: FeaturizerConfig) -> tuple[BlockSpec, ...]:
-    """Resolve the named blocks emitted by a configured featurizer tree."""
+    """Resolve the named blocks emitted by a configured featurizer tree.
+
+    :param config: Featurizer config node to inspect.
+    :returns: Block specs emitted by the featurizer tree.
+    """
     if config.name == "concatFeaturizers":
         return _concat_child_block_specs(config)
     if config.name == "sparsegoOntology":
@@ -300,7 +310,10 @@ def _validate_leaf_interface(pred_cls: type[Any], predictor_name: str) -> None:
 
 
 def validate_model_config(config: ModelConfig) -> None:
-    """Check registry slots, feature compatibility, and prediction mode."""
+    """Check registry slots, feature compatibility, and prediction mode.
+
+    :param config: Model configuration to validate.
+    """
     pred_cls = _registry_lookup.get_predictor(config.predictor.name)
     _validate_leaf_interface(pred_cls, config.predictor.name)
     _validate_scope(config, pred_cls)

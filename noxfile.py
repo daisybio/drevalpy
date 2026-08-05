@@ -99,8 +99,7 @@ def activate_virtualenv_in_precommit_hooks(session: Session) -> None:
 
 @session(name="pre-commit", python=python_versions)
 def precommit(session: Session) -> None:
-    """
-    Lint using pre-commit.
+    """Lint using pre-commit.
 
     :param session: The Session object.
     """
@@ -126,8 +125,7 @@ def precommit(session: Session) -> None:
 
 @session(python=python_versions)
 def mypy(session: Session) -> None:
-    """
-    Type-check using mypy.
+    """Type-check using mypy.
 
     :param session: The Session object.
     """
@@ -139,8 +137,7 @@ def mypy(session: Session) -> None:
 
 @session(python=python_versions)
 def tests(session: Session) -> None:
-    """
-    Run the test suite.
+    """Run the test suite.
 
     When run without posargs, first executes dependency-light model execution gates
     (naive/sklearn/single-drug, import isolation, architecture policy), then runs
@@ -183,8 +180,7 @@ def tests(session: Session) -> None:
 
 @session
 def coverage(session: Session) -> None:
-    """
-    Produce the coverage report.
+    """Produce the coverage report.
 
     :param session: The Session object.
     """
@@ -203,8 +199,7 @@ def coverage(session: Session) -> None:
 
 @session(python=python_versions)
 def typeguard(session: Session) -> None:
-    """
-    Runtime type checking using Typeguard.
+    """Runtime type checking using Typeguard.
 
     :param session: The Session object.
     """
@@ -220,8 +215,7 @@ def typeguard(session: Session) -> None:
 
 @session(python=python_versions)
 def xdoctest(session: Session) -> None:
-    """
-    Run examples with xdoctest.
+    """Run examples with xdoctest.
 
     :param session: The Session object.
     """
@@ -233,8 +227,7 @@ def xdoctest(session: Session) -> None:
 
 @session(name="docs-build", python=python_versions)
 def docs_build(session: Session) -> None:
-    """
-    Build the documentation.
+    """Build the documentation.
 
     :param session: The Session object.
     """
@@ -252,8 +245,7 @@ def docs_build(session: Session) -> None:
 
 @session(python=python_versions)
 def docs(session: Session) -> None:
-    """
-    Build and serve the documentation with live reloading on file changes.
+    """Build and serve the documentation with live reloading on file changes.
 
     :param session: The Session object.
     """

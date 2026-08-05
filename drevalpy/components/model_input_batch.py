@@ -33,7 +33,10 @@ class ModelInputBatch:
 
     @property
     def n_pairs(self) -> int:
-        """Return the number of cell-line/drug pairs in the batch."""
+        """Return the number of cell-line/drug pairs in the batch.
+
+        :returns: Result.
+        """
         return len(self.cell_line_ids)
 
     @classmethod
@@ -54,22 +57,18 @@ class ModelInputBatch:
     ) -> ModelInputBatch:
         """Build a predictor input batch from a response dataset and featurizer outputs.
 
-        Args:
-            response: Cell-line/drug pairs and optional response values.
-            cell_line_entity_ids: Entity ids aligned with cell-line feature rows.
-            drug_entity_ids: Entity ids aligned with drug feature rows, or ``None``.
-            cell_line_features: Dense or object cell-line feature matrix.
-            drug_features: Dense or object drug feature matrix, or ``None``.
-            cell_line_pair_idx: Row index into cell-line features for each pair.
-            drug_pair_idx: Row index into drug features for each pair, or ``None``.
-            cell_line_blocks: Named cell-line feature blocks from featurizers.
-            drug_blocks: Named drug feature blocks from featurizers.
-            early_stopping_response: Optional validation pairs for early stopping.
-            training_context: Runtime metadata for the training call.
-
-        Returns:
-            ``ModelInputBatch`` ready for predictor :meth:`~Predictor.fit` or
-            :meth:`~Predictor.predict`.
+        :param response: Cell-line/drug pairs and optional response values.
+        :param cell_line_entity_ids: Entity ids aligned with cell-line feature rows.
+        :param drug_entity_ids: Entity ids aligned with drug feature rows, or ``None``.
+        :param cell_line_features: Dense or object cell-line feature matrix.
+        :param drug_features: Dense or object drug feature matrix, or ``None``.
+        :param cell_line_pair_idx: Row index into cell-line features for each pair.
+        :param drug_pair_idx: Row index into drug features for each pair, or ``None``.
+        :param cell_line_blocks: Named cell-line feature blocks from featurizers.
+        :param drug_blocks: Named drug feature blocks from featurizers.
+        :param early_stopping_response: Optional validation pairs for early stopping.
+        :param training_context: Runtime metadata for the training call.
+        :returns: ``ModelInputBatch`` ready for predictor ``fit`` or ``predict``.
         """
         return cls(
             cell_line_ids=response.cell_line_ids,
@@ -106,15 +105,11 @@ class ModelInputBatch:
     def feature_matrix_for(self, response: DrugResponseDataset) -> np.ndarray:
         """Return a dense design matrix for an alternate response dataset.
 
-        Args:
-            response: Pairs whose features should be materialized from stored
-                entity-level featurizer outputs.
+        :param response: Pairs whose features should be materialized from stored
 
-        Returns:
-            Design matrix with one row per pair in *response*.
+        :returns: Design matrix with one row per pair in *response*.
 
-        Raises:
-            ValueError: If drug features are present but pair indices are missing.
+        :raises ValueError: If drug features are present but pair indices are missing.
         """
         n_pairs = len(response)
         if n_pairs == 0:
@@ -142,9 +137,7 @@ class ModelInputBatch:
     def early_stopping_feature_matrix(self) -> np.ndarray | None:
         """Return validation features when early-stopping pairs are present.
 
-        Returns:
-            Design matrix for :attr:`early_stopping_response`, or ``None`` when
-            early stopping is disabled.
+        :returns: Design matrix for ``early_stopping_response``, or ``None`` when early stopping is disabled.
         """
         if self.early_stopping_response is None or len(self.early_stopping_response) == 0:
             return None
@@ -153,11 +146,9 @@ class ModelInputBatch:
     def to_feature_matrix(self) -> np.ndarray:
         """Return a dense design matrix with one row per response pair.
 
-        Returns:
-            Design matrix for the batch's primary :attr:`response` pairs.
+        :returns: Design matrix for the batch's primary ``response`` pairs.
 
-        Raises:
-            ValueError: If :attr:`response` is ``None``.
+        :raises ValueError: If ``response`` is ``None``.
         """
         if self.response is None:
             msg = "ModelInputBatch.response is required to build a feature matrix"
@@ -172,15 +163,11 @@ class ModelInputBatch:
     def subset_pairs(self, mask: np.ndarray) -> ModelInputBatch:
         """Return a batch containing only the selected response pairs.
 
-        Args:
-            mask: One-dimensional boolean array with length :attr:`n_pairs`.
+        :param mask: One-dimensional boolean array with length ``n_pairs``.
 
-        Returns:
-            New batch referencing the same entity-level features.
+        :returns: New batch referencing the same entity-level features.
 
-        Raises:
-            ValueError: If *mask* is invalid or spans multiple drugs while
-                early-stopping pairs are present.
+        :raises ValueError: If *mask* is invalid or spans multiple drugs while early-stopping pairs are present.
         """
         mask = np.asarray(mask, dtype=bool)
         if mask.ndim != 1 or mask.shape[0] != self.n_pairs:

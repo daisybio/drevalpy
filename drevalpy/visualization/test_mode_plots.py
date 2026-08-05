@@ -101,20 +101,15 @@ def draw_test_mode_plots(
 ) -> np.ndarray:
     """Draw all plots for one evaluation test mode.
 
-    Args:
-        test_mode: Test mode to render (for example ``"LCO"``).
-        ev_res: Overall evaluation results.
-        ev_res_per_drug: Per-drug evaluation results.
-        ev_res_per_cell_line: Per-cell-line evaluation results.
-        custom_id: Run identifier for output paths.
-        path_data: Dataset root directory.
-        result_path: Root results directory.
+    :param test_mode: Test mode to render (for example ``"LCO"``).
+    :param ev_res: Overall evaluation results.
+    :param ev_res_per_drug: Per-drug evaluation results.
+    :param ev_res_per_cell_line: Per-cell-line evaluation results.
+    :param custom_id: Run identifier for output paths.
+    :param path_data: Dataset root directory.
+    :param result_path: Root results directory.
 
-    Returns:
-        Unique algorithm names in the prediction subset.
-
-    Raises:
-        ValueError: If no evaluation rows exist for the test mode.
+    :returns: Unique algorithm names in the prediction subset.
     """
     eval_results_preds = _require_prediction_subset(ev_res, test_mode)
     _draw_critical_difference(eval_results_preds, test_mode, custom_id, result_path)

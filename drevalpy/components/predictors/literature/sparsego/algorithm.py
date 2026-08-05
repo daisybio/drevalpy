@@ -42,7 +42,16 @@ def _sparse_connectivity_indices(
     connectivity: torch.Tensor | None,
     device: torch.device,
 ) -> tuple[torch.Tensor, int, float]:
-    """Return COO indices, nnz count, and effective sparsity."""
+    """Return COO indices, nnz count, and effective sparsity.
+
+    :param in_features: Input feature dimension.
+    :param out_features: Output feature dimension.
+    :param sparsity: Target sparsity when *connectivity* is not provided.
+    :param connectivity: Optional fixed sparse connectivity tensor.
+    :param device: Torch device for generated indices.
+
+    :returns: Tuple of connectivity indices, non-zero count, and effective sparsity.
+    """
     if connectivity is None:
         nnz = round((1.0 - sparsity) * in_features * out_features)
         if in_features * out_features <= 10**8:
@@ -77,8 +86,8 @@ class SparseLinearNew(nn.Module):
     :param out_features: Size of each output sample.
     :param bias: If True, adds a learnable bias. Default: True.
     :param sparsity: Sparsity of weight matrix if connectivity is None. Default: 0.9.
-    :param connectivity: LongTensor of shape (2, nnz) specifying the (row, col)
-        indices of non-zero weights. Used for GO-structured layers.
+    :param connectivity: LongTensor of shape ``(2, nnz)`` with non-zero weight indices for
+        GO-structured layers.
     """
 
     def __init__(
@@ -135,7 +144,8 @@ class SparseLinearNew(nn.Module):
         """Forward pass through sparse linear layer.
 
         :param inputs: Input tensor of shape (batch_size, in_features).
-        :return: Output tensor of shape (batch_size, out_features).
+
+        :returns: Output tensor of shape (batch_size, out_features).
         """
         output_shape = list(inputs.shape)
         output_shape[-1] = self.out_features
@@ -172,15 +182,13 @@ class SparseGONetwork(nn.Module):
 
     Adapted from sparseGO_nn in https://github.com/KatynaSada/SparseGO
 
-    :param layer_connections: List of (parent, child) pair arrays per layer,
-        output of pairs_in_layers().
+    :param layer_connections: List of (parent, child) pair arrays per layer, output of pairs_in_layers().
     :param num_neurons_per_GO: Number of neurons per GO term (default 6).
     :param num_neurons_per_final_GO: Number of neurons in the final GO layer.
     :param num_neurons_drug: List of hidden layer sizes for the drug ANN branch.
     :param num_neurons_final: Number of neurons in the final combined layer.
     :param drug_dim: Dimensionality of the drug fingerprint vector.
-    :param gene2id_mapping: Dictionary mapping gene names to indices in the
-        ontology (matches columns of the gene expression matrix).
+    :param gene2id_mapping: Mapping from gene names to ontology indices matching expression columns.
     :param p_drop_final: Dropout rate for the final combined layers.
     :param p_drop_genes: Dropout rate for the gene input layer.
     :param p_drop_terms: Dropout rate for GO term layers.
@@ -190,8 +198,8 @@ class SparseGONetwork(nn.Module):
     def __init__(
         self,
         layer_connections: list,
-        num_neurons_per_GO: int,
-        num_neurons_per_final_GO: int,
+        num_neurons_per_go: int,
+        num_neurons_per_final_go: int,
         num_neurons_drug: list[int],
         num_neurons_final: int,
         drug_dim: int,
@@ -204,8 +212,8 @@ class SparseGONetwork(nn.Module):
         """Initialize SparseGONetwork.
 
         :param layer_connections: List of (parent, child) pair arrays per layer.
-        :param num_neurons_per_GO: Number of neurons per GO term.
-        :param num_neurons_per_final_GO: Number of neurons in the final GO layer.
+        :param num_neurons_per_go: Number of neurons per GO term.
+        :param num_neurons_per_final_go: Number of neurons in the final GO layer.
         :param num_neurons_drug: List of hidden layer sizes for the drug ANN branch.
         :param num_neurons_final: Number of neurons in the final combined layer.
         :param drug_dim: Dimensionality of the drug fingerprint vector.
@@ -217,14 +225,14 @@ class SparseGONetwork(nn.Module):
         """
         super().__init__()
 
-        self.num_neurons_per_GO = num_neurons_per_GO
-        self.num_neurons_per_final_GO = num_neurons_per_final_GO
+        self.num_neurons_per_GO = num_neurons_per_go
+        self.num_neurons_per_final_GO = num_neurons_per_final_go
         self.num_neurons_drug = num_neurons_drug
         self.drug_dim = drug_dim
         self.layer_connections = layer_connections
 
-        print("\nNumber of neurons per GO term: ", num_neurons_per_GO)
-        print("Number of neurons of final GO term: ", num_neurons_per_final_GO)
+        print("\nNumber of neurons per GO term: ", num_neurons_per_go)
+        print("Number of neurons of final GO term: ", num_neurons_per_final_go)
         print("Number of drug neurons: ", num_neurons_drug)
         print("Number of final neurons: ", num_neurons_final)
 
@@ -235,14 +243,14 @@ class SparseGONetwork(nn.Module):
 
         # (2...) Layers of terms with terms
         for i in range(1, len(layer_connections)):
-            neurons = num_neurons_per_final_GO if i == len(layer_connections) - 1 else num_neurons_per_GO
+            neurons = num_neurons_per_final_go if i == len(layer_connections) - 1 else num_neurons_per_go
             input_id = self._terms_layer(input_id, layer_connections[i], str(i), neurons, p_drop_terms)
 
         # Drug ANN branch
         self._construct_drug_branch(p_drop_drugs)
 
         # Final combined layers
-        final_input_size = num_neurons_per_final_GO + num_neurons_drug[-1]
+        final_input_size = num_neurons_per_final_go + num_neurons_drug[-1]
         self.add_module("final_batchnorm_layer", nn.BatchNorm1d(final_input_size))
         self.add_module("drop_final", nn.Dropout(p_drop_final))
         self.add_module("final_linear_layer", nn.Linear(final_input_size, num_neurons_final))
@@ -257,7 +265,9 @@ class SparseGONetwork(nn.Module):
         """Get a registered submodule by name.
 
         :param name: Module name as registered via add_module.
-        :return: The submodule.
+
+        :returns: The submodule.
+
         :raises ValueError: if the module is not found.
         """
         module = self._modules[name]
@@ -271,7 +281,8 @@ class SparseGONetwork(nn.Module):
         :param genes_terms_pairs: Array of (GO_term, gene) pairs.
         :param p_drop_genes: Dropout rate.
         :param gene2id: Dictionary mapping gene names to indices.
-        :return: Dictionary mapping GO term names to their indices in this layer.
+
+        :returns: Dictionary mapping GO term names to their indices in this layer.
         """
         term2id = create_index(genes_terms_pairs[:, 0])
 
@@ -312,7 +323,7 @@ class SparseGONetwork(nn.Module):
         input_id: dict,
         layer_pairs: np.ndarray,
         number: str,
-        neurons_per_GO: int,
+        neurons_per_go: int,
         p_drop_terms: float,
     ) -> dict:
         """Build one sparse layer connecting GO terms to GO terms.
@@ -320,9 +331,10 @@ class SparseGONetwork(nn.Module):
         :param input_id: Dictionary mapping child GO term names to indices.
         :param layer_pairs: Array of (parent_term, child_term) pairs for this layer.
         :param number: Layer number as string, used for module naming.
-        :param neurons_per_GO: Number of neurons for parent terms in this layer.
+        :param neurons_per_go: Number of neurons for parent terms in this layer.
         :param p_drop_terms: Dropout rate.
-        :return: Dictionary mapping parent GO term names to their indices.
+
+        :returns: Dictionary mapping parent GO term names to their indices.
         """
         output_id = create_index(layer_pairs[:, 0])
 
@@ -333,7 +345,7 @@ class SparseGONetwork(nn.Module):
         connections_matrix = sparse.coo_matrix((data, (rows, columns)), shape=(len(output_id), len(input_id)))
 
         # Kronecker product to expand to k neurons per term
-        ones = sparse.csr_matrix(np.ones([neurons_per_GO, self.num_neurons_per_GO], dtype=int))
+        ones = sparse.csr_matrix(np.ones([neurons_per_go, self.num_neurons_per_GO], dtype=int))
         connections_matrix_more_neurons = sparse.csr_matrix(sparse.kron(connections_matrix, ones))
 
         rows_t = torch.from_numpy(sparse.find(connections_matrix_more_neurons)[0]).view(1, -1).long()
@@ -341,7 +353,7 @@ class SparseGONetwork(nn.Module):
         connections = torch.cat((rows_t, cols_t), dim=0)
 
         input_terms = self.num_neurons_per_GO * len(input_id)
-        output_terms = neurons_per_GO * len(output_id)
+        output_terms = neurons_per_go * len(output_id)
 
         self.add_module(
             f"GO_terms_sparse_linear_{number}",
@@ -370,7 +382,8 @@ class SparseGONetwork(nn.Module):
         """Forward pass through the full SparseGO network.
 
         :param x: Input tensor of shape (batch_size, gene_dim + drug_dim).
-        :return: Predicted drug response of shape (batch_size, 1).
+
+        :returns: Predicted drug response of shape (batch_size, 1).
         """
         gene_input = x.narrow(1, 0, self.gene_dim)
         drug_input = x.narrow(1, self.gene_dim, self.drug_dim)
@@ -434,7 +447,10 @@ class SparseGOModel(LiteratureTrainingMixin):
 
     @classmethod
     def get_default_hyperparameters(cls) -> dict[str, Any]:
-        """Return default SparseGO hyperparameters."""
+        """Return default SparseGO hyperparameters.
+
+        :returns: Default hyperparameter mapping for SparseGO training.
+        """
         return {
             "num_neurons_per_GO": 6,
             "num_neurons_per_final_GO": 6,
@@ -466,7 +482,7 @@ class SparseGOModel(LiteratureTrainingMixin):
     def get_model_name(cls) -> str:
         """Return the model name.
 
-        :return: SparseGO
+        :returns: SparseGO
         """
         return "SparseGO"
 
@@ -490,8 +506,8 @@ class SparseGOModel(LiteratureTrainingMixin):
             raise ValueError("SparseGO ontology metadata must be provided before building the network.")
         self.model = SparseGONetwork(
             layer_connections=self.layer_connections,
-            num_neurons_per_GO=self.hyperparameters.get("num_neurons_per_GO", 6),
-            num_neurons_per_final_GO=self.hyperparameters.get("num_neurons_per_final_GO", 6),
+            num_neurons_per_go=self.hyperparameters.get("num_neurons_per_GO", 6),
+            num_neurons_per_final_go=self.hyperparameters.get("num_neurons_per_final_GO", 6),
             num_neurons_drug=self.hyperparameters.get("num_neurons_drug", [200, 100, 50]),
             num_neurons_final=self.hyperparameters.get("num_neurons_final", 12),
             drug_dim=self.hyperparameters.get("drug_dim", 2048),
@@ -517,6 +533,7 @@ class SparseGOModel(LiteratureTrainingMixin):
         :param drug_input: Drug features (Morgan fingerprints).
         :param output_earlystopping: Unused, kept for API compatibility.
         :param model_checkpoint_dir: Unused, kept for API compatibility.
+
         :raises ValueError: if drug_input is None or ontology not loaded.
         """
         if drug_input is None:
@@ -585,7 +602,9 @@ class SparseGOModel(LiteratureTrainingMixin):
         :param drug_ids: Array of drug identifiers.
         :param cell_line_input: Cell line features.
         :param drug_input: Drug features.
-        :return: Predicted response values as a 1D numpy array.
+
+        :returns: Predicted response values as a 1D numpy array.
+
         :raises ValueError: if drug_input is None or ontology not loaded.
         """
         if drug_input is None:
@@ -623,7 +642,14 @@ class SparseGOModel(LiteratureTrainingMixin):
 
     @staticmethod
     def _active_cell_line_view(cell_line_input: FeatureDataset) -> str:
-        """Return the sole ontology-aligned omics view materialized by the featurizer."""
+        """Return the sole ontology-aligned omics view materialized by the featurizer.
+
+        :param cell_line_input: Cell-line feature dataset from the featurizer.
+
+        :returns: Name of the active omics view.
+
+        :raises ValueError: If zero or multiple ontology-aligned views are present.
+        """
         views = set(next(iter(cell_line_input.features.values())).keys())
         active = views.intersection({"gene_expression", "mutations"})
         if len(active) != 1:

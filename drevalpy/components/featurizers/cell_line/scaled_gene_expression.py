@@ -23,6 +23,10 @@ class ScaledGeneExpressionFeaturizer(CellLineFeaturizer):
     """Match sklearn baseline gene-expression preprocessing."""
 
     def __init__(self, *, view: str = "gene_expression") -> None:
+        """Initialize instance state.
+
+        :param view: view.
+        """
         self._view = view
         self._scaler = StandardScaler()
         self._output_dim = 0
@@ -35,6 +39,13 @@ class ScaledGeneExpressionFeaturizer(CellLineFeaturizer):
         entity_ids: np.ndarray | None = None,
         context: FeaturizerFitContext | None = None,
     ) -> ScaledGeneExpressionFeaturizer:
+        """Fit on training data.
+
+        :param features: features.
+        :param entity_ids: entity ids.
+        :param context: context.
+        :returns: Result.
+        """
         _ = context
         ids = entity_ids if entity_ids is not None else np.array(list(features.features.keys()))
         scaled = scale_gene_expression(
@@ -49,6 +60,13 @@ class ScaledGeneExpressionFeaturizer(CellLineFeaturizer):
         return self
 
     def transform(self, features, entity_ids: np.ndarray) -> np.ndarray:
+        """Transform inputs into feature payloads.
+
+        :param features: features.
+        :param entity_ids: entity ids.
+        :returns: Result.
+        :raises RuntimeError: Raised on invalid input.
+        """
         if not self._is_fitted:
             msg = "ScaledGeneExpressionFeaturizer must be fit before transform"
             raise RuntimeError(msg)
@@ -61,6 +79,13 @@ class ScaledGeneExpressionFeaturizer(CellLineFeaturizer):
         return stack_view_matrix(scaled, self._view, entity_ids).astype(np.float32)
 
     def transform_blocks(self, features, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
+        """Transform blocks.
+
+        :param features: features.
+        :param entity_ids: entity ids.
+        :returns: Result.
+        :raises RuntimeError: Raised on invalid input.
+        """
         if not self._is_fitted:
             msg = "ScaledGeneExpressionFeaturizer must be fit before transform"
             raise RuntimeError(msg)
@@ -73,9 +98,17 @@ class ScaledGeneExpressionFeaturizer(CellLineFeaturizer):
 
     @property
     def output_dim(self) -> int:
+        """Return output feature dimension after fitting.
+
+        :returns: Result.
+        """
         return self._output_dim
 
     def get_state(self) -> dict[str, object]:
+        """Return serializable fitted state.
+
+        :returns: Result.
+        """
         if not self._is_fitted:
             return {}
         return {
@@ -86,6 +119,10 @@ class ScaledGeneExpressionFeaturizer(CellLineFeaturizer):
         }
 
     def set_state(self, state: dict[str, object]) -> None:
+        """Restore state from a prior ``get_state`` mapping.
+
+        :param state: state.
+        """
         scaler = state.get("gene_expression_scaler")
         if isinstance(scaler, StandardScaler):
             self._scaler = scaler

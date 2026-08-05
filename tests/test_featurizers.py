@@ -8,8 +8,7 @@ import torch
 
 
 def test_chemberta_featurizer(tmp_path):
-    """
-    Test ChemBERTa featurizer end-to-end.
+    """Test ChemBERTa featurizer end-to-end.
 
     :param tmp_path: Temporary path provided by pytest.
     """
@@ -43,8 +42,7 @@ def test_chemberta_featurizer(tmp_path):
 
 
 def test_graph_featurizer(tmp_path):
-    """
-    Test graph featurizer end-to-end.
+    """Test graph featurizer end-to-end.
 
     :param tmp_path: Temporary path provided by pytest.
     """
@@ -71,8 +69,7 @@ def test_graph_featurizer(tmp_path):
 
 
 def test_molgnet_featurizer(tmp_path):
-    """
-    Test MolGNet featurizer end-to-end.
+    """Test MolGNet featurizer end-to-end.
 
     :param tmp_path: Temporary path provided by pytest.
     """
@@ -113,8 +110,7 @@ def test_molgnet_featurizer(tmp_path):
 
 
 def test_bpe_smiles_featurizer(tmp_path):
-    """
-    Test BPE SMILES featurizer end-to-end.
+    """Test BPE SMILES featurizer end-to-end.
 
     :param tmp_path: Temporary path provided by pytest.
     """

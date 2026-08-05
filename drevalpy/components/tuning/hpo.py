@@ -95,7 +95,22 @@ def tune_fold(
     wandb_project: str | None = None,
     wandb_base_config: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Tune hyperparameters for one fold and return the best flat public dict."""
+    """Tune hyperparameters for one fold and return the best flat public dict.
+
+    :param model_class: model class.
+    :param train_dataset: train dataset.
+    :param validation_dataset: validation dataset.
+    :param early_stopping_dataset: early stopping dataset.
+    :param response_transformation: response transformation.
+    :param metric: metric.
+    :param path_data: path data.
+    :param model_checkpoint_dir: model checkpoint dir.
+    :param hpo_config: hpo config.
+    :param split_index: split index.
+    :param wandb_project: wandb project.
+    :param wandb_base_config: wandb base config.
+    :returns: Result.
+    """
     return hpam_tune(
         model_class=model_class,
         train_dataset=train_dataset,
@@ -127,7 +142,24 @@ def hpam_tune(
     wandb_project: str | None = None,
     wandb_base_config: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Tune hyperparameters with Ray Tune and OptunaSearch over structured spaces."""
+    """Tune hyperparameters with Ray Tune and OptunaSearch over structured spaces.
+
+    :param model_class: model class.
+    :param train_dataset: train dataset.
+    :param validation_dataset: validation dataset.
+    :param early_stopping_dataset: early stopping dataset.
+    :param response_transformation: response transformation.
+    :param metric: metric.
+    :param path_data: path data.
+    :param model_checkpoint_dir: model checkpoint dir.
+    :param hpo_config: hpo config.
+    :param split_index: split index.
+    :param wandb_project: wandb project.
+    :param wandb_base_config: wandb base config.
+    :returns: Result.
+    :raises ValueError: Raised on invalid input.
+    :raises ImportError: Raised on invalid input.
+    """
     validate_hpo_metric(metric)
     cfg = hpo_config or HPOConfig.from_metric(metric)
     if cfg.metric != metric:

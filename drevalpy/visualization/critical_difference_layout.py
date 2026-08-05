@@ -111,22 +111,20 @@ def critical_difference_diagram(
 ) -> dict[str, list]:
     """Plot a critical difference diagram from ranks and post-hoc results.
 
-    Args:
-        ranks: Average ranks per algorithm (dict or Series).
-        sig_matrix: Pairwise significance matrix from a post-hoc test.
-        color_palette: Map from algorithm name to color.
-        ax: Optional matplotlib axes; defaults to the current axes.
-        label_fmt_left: Format string for left-side rank labels.
-        label_fmt_right: Format string for right-side rank labels.
-        label_props: Extra matplotlib text properties.
-        marker_props: Extra matplotlib marker properties.
-        elbow_props: Extra matplotlib line properties for elbows.
-        crossbar_props: Extra matplotlib line properties for crossbars.
-        text_h_margin: Horizontal margin for label placement.
-        left_only: If ``True``, draw ranks only on the left side.
+    :param ranks: Average ranks per algorithm (dict or Series).
+    :param sig_matrix: Pairwise significance matrix from a post-hoc test.
+    :param color_palette: Map from algorithm name to color.
+    :param ax: Optional matplotlib axes; defaults to the current axes.
+    :param label_fmt_left: Format string for left-side rank labels.
+    :param label_fmt_right: Format string for right-side rank labels.
+    :param label_props: Extra matplotlib text properties.
+    :param marker_props: Extra matplotlib marker properties.
+    :param elbow_props: Extra matplotlib line properties for elbows.
+    :param crossbar_props: Extra matplotlib line properties for crossbars.
+    :param text_h_margin: Horizontal margin for label placement.
+    :param left_only: If ``True``, draw ranks only on the left side.
 
-    Returns:
-        Dict with drawn matplotlib artists grouped by type.
+    :returns: Dict with drawn matplotlib artists grouped by type.
     """
     _validate_color_palette(Series(ranks), color_palette)
 

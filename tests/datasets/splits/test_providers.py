@@ -29,9 +29,65 @@ def test_validate_split_label_rejects_path_separators() -> None:
         validate_split_label("scaling/lco")
 
 
-def test_load_external_splitter_requires_create_splits(tmp_path: Path) -> None:
+def test_create_splits_requires_params_or_test_mode() -> None:
+    """Reject split creation when neither params nor test_mode is provided."""
+    dataset = sample_dataset(n_cell_lines=4, n_drugs=2)
+    with pytest.raises(ValueError, match="Either params or test_mode must be provided"):
+        create_splits(dataset)
+
+
+def test_create_splits_accepts_split_params_object() -> None:
+    """Built-in split creation accepts a pre-built SplitParams object."""
+    dataset = sample_dataset(n_cell_lines=4, n_drugs=2)
+    params = SplitParams(
+        test_mode="LPO",
+        n_cv_splits=2,
+        validation_ratio=0.2,
+        random_state=11,
+        split_early_stopping=False,
+    )
+    splits, metadata = create_splits(dataset, params=params)
+    assert len(splits) == 2
+    assert metadata[0]["split_index"] == 0
+
+
+def test_create_and_record_splits_requires_params_or_test_mode(tmp_path: Path) -> None:
+    """Reject manifest recording when neither params nor test_mode is provided.
+
+    :param tmp_path: Temporary path provided by pytest.
     """
-    Require a module-level create_splits function in external scripts.
+    dataset = sample_dataset(n_cell_lines=4, n_drugs=2)
+    with pytest.raises(ValueError, match="Either params or test_mode must be provided"):
+        create_and_record_splits(
+            dataset,
+            split_path=tmp_path,
+            split_label="scaling-lco",
+        )
+
+
+def test_load_external_splitter_missing_file(tmp_path: Path) -> None:
+    """Reject external split scripts that do not exist.
+
+    :param tmp_path: Temporary path provided by pytest.
+    """
+    missing = tmp_path / "missing.py"
+    with pytest.raises(FileNotFoundError, match="External split script not found"):
+        load_external_splitter(missing)
+
+
+def test_load_external_splitter_rejects_non_callable_create_splits(tmp_path: Path) -> None:
+    """Reject external split scripts whose create_splits is not callable.
+
+    :param tmp_path: Temporary path provided by pytest.
+    """
+    script = tmp_path / "not_callable.py"
+    script.write_text("create_splits = 42\n", encoding="utf-8")
+    with pytest.raises(TypeError, match="create_splits must be callable"):
+        load_external_splitter(script)
+
+
+def test_load_external_splitter_requires_create_splits(tmp_path: Path) -> None:
+    """Require a module-level create_splits function in external scripts.
 
     :param tmp_path: Temporary path provided by pytest.
     """
@@ -42,8 +98,7 @@ def test_load_external_splitter_requires_create_splits(tmp_path: Path) -> None:
 
 
 def test_run_external_splitter_adds_early_stopping_roles(tmp_path: Path) -> None:
-    """
-    Add early-stopping roles when running an external splitter script.
+    """Add early-stopping roles when running an external splitter script.
 
     :param tmp_path: Temporary path provided by pytest.
     """
@@ -117,8 +172,7 @@ def test_create_splits_builtin_matches_run_builtin_splitter() -> None:
 
 
 def test_create_and_record_splits_attaches_splits_and_writes_manifest(tmp_path: Path) -> None:
-    """
-    Create splits, attach them to the dataset, and persist the manifest.
+    """Create splits, attach them to the dataset, and persist the manifest.
 
     :param tmp_path: Temporary path provided by pytest.
     """
@@ -143,8 +197,7 @@ def test_create_and_record_splits_attaches_splits_and_writes_manifest(tmp_path: 
 
 
 def test_make_cv_pkls_with_builtin_splitter_writes_manifest(tmp_path: Path) -> None:
-    """
-    Generate split pickle files and a manifest for built-in splitting.
+    """Generate split pickle files and a manifest for built-in splitting.
 
     :param tmp_path: Temporary path provided by pytest.
     """
@@ -175,8 +228,7 @@ def test_make_cv_pkls_with_builtin_splitter_writes_manifest(tmp_path: Path) -> N
 
 
 def test_make_cv_pkls_with_external_splitter(tmp_path: Path) -> None:
-    """
-    Generate split pickle files from an external splitter via run_cv_split.
+    """Generate split pickle files from an external splitter via run_cv_split.
 
     :param tmp_path: Temporary path provided by pytest.
     """
@@ -235,8 +287,7 @@ def create_splits(response_data, params):
 
 
 def test_run_external_splitter_forwards_params_to_script(tmp_path: Path) -> None:
-    """
-    Forward SplitParams fields to create_splits scripts.
+    """Forward SplitParams fields to create_splits scripts.
 
     :param tmp_path: Temporary path provided by pytest.
     """

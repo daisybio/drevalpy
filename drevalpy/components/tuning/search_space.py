@@ -80,7 +80,11 @@ def _reject_indexed_featurizer_key(key: str) -> None:
 
 
 def _split_prefixed_key(key: str) -> tuple[str, str, str] | None:
-    """Parse ``<slot>.<selector>.<param>`` into registry, selector, and param."""
+    """Parse ``<slot>.<selector>.<param>`` into registry, selector, and param.
+
+    :param key: Qualified hyperparameter key from a flat config.
+    :returns: ``(registry, selector, param)`` tuple, or ``None`` when unparsable.
+    """
     _reject_indexed_featurizer_key(key)
     match = _QUALIFIED_FEATURIZER_KEY_RE.match(key)
     if match is None:
@@ -126,7 +130,11 @@ def _predictor_spaces(predictor: PredictorConfig) -> dict[str, Any]:
 
 
 def merge_model_config_spaces(config: ModelConfig) -> dict[str, Any]:
-    """Merge all component spaces for a declarative model config."""
+    """Merge all component spaces for a declarative model config.
+
+    :param config: config.
+    :returns: Result.
+    """
     merged: dict[str, Any] = {}
     if config.cell_line_featurizer is not None:
         merged.update(_featurizer_spaces(config.cell_line_featurizer))
@@ -141,7 +149,13 @@ def merge_search_spaces(
     drug_featurizer_space: dict[str, Any] | None = None,
     predictor_space: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Merge component spaces into a single dict with dot-notation prefixed keys."""
+    """Merge component spaces into a single dict with dot-notation prefixed keys.
+
+    :param cell_line_featurizer_space: cell line featurizer space.
+    :param drug_featurizer_space: drug featurizer space.
+    :param predictor_space: predictor space.
+    :returns: Result.
+    """
     merged: dict[str, Any] = {}
     if cell_line_featurizer_space:
         for key, value in cell_line_featurizer_space.items():
@@ -158,7 +172,11 @@ def merge_search_spaces(
 def split_hyperparameters(
     merged_config: dict[str, Any],
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
-    """Invert merged search spaces into per-role hyperparameter dicts."""
+    """Invert merged search spaces into per-role hyperparameter dicts.
+
+    :param merged_config: merged config.
+    :returns: Result.
+    """
     cell_line_hp: dict[str, Any] = {}
     drug_hp: dict[str, Any] = {}
     predictor_hp: dict[str, Any] = {}
@@ -295,7 +313,12 @@ def _apply_to_featurizer(
 
 
 def apply_merged_to_model_config(config: ModelConfig, merged: dict[str, Any]) -> ModelConfig:
-    """Apply merged prefixed hyperparameters onto a model config."""
+    """Apply merged prefixed hyperparameters onto a model config.
+
+    :param config: config.
+    :param merged: merged.
+    :returns: Result.
+    """
     from drevalpy.components.tuning.hyperparameter_keys import validate_merged_mapping
 
     validate_merged_mapping(config, merged)
@@ -328,7 +351,13 @@ def extract_defaults(
     drug_featurizer_space: dict[str, Any] | None = None,
     predictor_space: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Pull ``default`` values from spec dicts, returning a merged flat dict."""
+    """Pull ``default`` values from spec dicts, returning a merged flat dict.
+
+    :param cell_line_featurizer_space: cell line featurizer space.
+    :param drug_featurizer_space: drug featurizer space.
+    :param predictor_space: predictor space.
+    :returns: Result.
+    """
     defaults: dict[str, Any] = {}
 
     def _pull(space: dict[str, Any], prefix: str) -> None:
@@ -346,7 +375,11 @@ def extract_defaults(
 
 
 def defaults_from_merged_space(space: dict[str, Any]) -> dict[str, Any]:
-    """Extract default values from a merged structured search space."""
+    """Extract default values from a merged structured search space.
+
+    :param space: space.
+    :returns: Result.
+    """
     defaults: dict[str, Any] = {}
     for key, spec in space.items():
         if isinstance(spec, dict) and "default" in spec:
@@ -355,7 +388,12 @@ def defaults_from_merged_space(space: dict[str, Any]) -> dict[str, Any]:
 
 
 def dict_to_ray_space(space_dict: dict[str, Any]) -> dict[str, Any]:
-    """Convert structured specs to Ray Tune distributions."""
+    """Convert structured specs to Ray Tune distributions.
+
+    :param space_dict: space dict.
+    :returns: Result.
+    :raises ValueError: Raised on invalid input.
+    """
     from ray import tune
 
     result: dict[str, Any] = {}

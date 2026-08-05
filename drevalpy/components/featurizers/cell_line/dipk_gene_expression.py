@@ -31,6 +31,10 @@ class DIPKGeneExpressionFeaturizer(CellLineFeaturizer):
     """Encode intersection genes into the 512-dimensional DIPK representation."""
 
     def __init__(self, *, epochs_autoencoder: int = 100) -> None:
+        """Store the autoencoder training epoch budget.
+
+        :param epochs_autoencoder: Number of autoencoder training epochs.
+        """
         self._epochs = int(epochs_autoencoder)
         self._encoder: GeneExpressionEncoder | None = None
         self._input_dim = 0
@@ -38,7 +42,13 @@ class DIPKGeneExpressionFeaturizer(CellLineFeaturizer):
 
     @classmethod
     def load_features(cls, data_path: str, dataset_name: str, **kwargs: object) -> FeatureDataset:
-        """Load the DIPK intersection gene-expression view."""
+        """Load the DIPK intersection gene-expression view.
+
+        :param data_path: Parent directory for dataset artifacts.
+        :param dataset_name: Dataset folder name.
+        :param kwargs: Unused loader keyword arguments.
+        :returns: Feature dataset with intersection gene expression.
+        """
         _ = cls, kwargs
         return load_and_select_gene_features("gene_expression", "gene_expression_intersection", data_path, dataset_name)
 
@@ -49,6 +59,14 @@ class DIPKGeneExpressionFeaturizer(CellLineFeaturizer):
         entity_ids: np.ndarray | None = None,
         context: FeaturizerFitContext | None = None,
     ) -> DIPKGeneExpressionFeaturizer:
+        """Train the DIPK autoencoder on pair-expanded train and validation IDs.
+
+        :param features: Cell-line feature dataset.
+        :param entity_ids: Unused; IDs come from *context*.
+        :param context: Fit context with train and early-stopping cell-line IDs.
+        :returns: Fitted featurizer instance.
+        :raises ValueError: If *context* or required ID sets are missing or empty.
+        """
         _ = entity_ids
         if context is None:
             raise ValueError("dipkGeneExpression requires FeaturizerFitContext")
@@ -64,6 +82,13 @@ class DIPKGeneExpressionFeaturizer(CellLineFeaturizer):
         return self
 
     def transform(self, features: FeatureDataset, entity_ids: np.ndarray) -> np.ndarray:
+        """Encode gene expression into DIPK latent vectors.
+
+        :param features: Cell-line feature dataset.
+        :param entity_ids: Cell-line identifiers to transform.
+        :returns: Float matrix of latent embeddings.
+        :raises RuntimeError: If called before ``fit``.
+        """
         if self._encoder is None:
             raise RuntimeError("DIPKGeneExpressionFeaturizer must be fit before transform")
         return encode_gene_expression(stack_view_matrix(features, "gene_expression", entity_ids), self._encoder).astype(
@@ -71,17 +96,35 @@ class DIPKGeneExpressionFeaturizer(CellLineFeaturizer):
         )
 
     def transform_blocks(self, features: FeatureDataset, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
+        """Return a single ``gene_expression`` numeric block.
+
+        :param features: Cell-line feature dataset.
+        :param entity_ids: Cell-line identifiers to transform.
+        :returns: Mapping with one numeric ``gene_expression`` block.
+        """
         return {"gene_expression": numeric_feature_block(self.transform(features, entity_ids))}
 
     @property
     def output_dim(self) -> int:
+        """Return latent embedding width after fitting.
+
+        :returns: Latent dimensionality, or ``0`` before fitting.
+        """
         return self._latent_dim if self._encoder is not None else 0
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
+        """Return tunable autoencoder epoch count.
+
+        :returns: Ray Tune-style hyperparameter space mapping.
+        """
         return {"epochs_autoencoder": {"type": "int", "low": 1, "high": 500, "default": 100}}
 
     def get_state(self) -> dict[str, object]:
+        """Serialize fitted encoder weights and shape metadata.
+
+        :returns: State mapping, or an empty dict before fitting.
+        """
         if self._encoder is None:
             return {}
         return {
@@ -93,6 +136,10 @@ class DIPKGeneExpressionFeaturizer(CellLineFeaturizer):
         }
 
     def set_state(self, state: dict[str, object]) -> None:
+        """Restore a serialized DIPK encoder from ``get_state``.
+
+        :param state: Mapping previously returned by ``get_state``.
+        """
         blob = state.get("encoder_state")
         input_dim = state.get("input_dim")
         latent_dim = state.get("latent_dim", 512)

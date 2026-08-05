@@ -9,7 +9,12 @@ from drevalpy.components.predictors.literature.sparsego.algorithm import SparseG
 
 
 def export_state(algorithm: SparseGOModel) -> dict[str, Any]:
-    """Serialize a fitted SparseGO algorithm for predictor persistence."""
+    """Serialize a fitted algorithm for predictor persistence.
+
+    :param algorithm: Fitted algorithm instance.
+
+    :returns: JSON-serializable state mapping.
+    """
     payload: dict[str, Any] = {
         "hyperparameters": dict(algorithm.hyperparameters),
         "preload": {
@@ -30,7 +35,14 @@ def export_state(algorithm: SparseGOModel) -> dict[str, Any]:
 
 
 def apply_state(payload: dict[str, Any]) -> SparseGOModel:
-    """Restore a SparseGO algorithm from a persisted payload."""
+    """Restore an algorithm from a persisted payload.
+
+    :param payload: Serialized state produced by ``export_state``.
+
+    :returns: Configured algorithm instance.
+
+    :raises ValueError: If required payload fields are missing.
+    """
     hyperparameters = payload.get("hyperparameters")
     if not isinstance(hyperparameters, dict):
         msg = "missing algorithm hyperparameters"

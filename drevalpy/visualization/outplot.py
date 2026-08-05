@@ -11,9 +11,8 @@ class OutPlot(ABC):
     def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
         """Draw the plot and write it to disk.
 
-        Args:
-            out_prefix: Output directory path.
-            out_suffix: Filename suffix for the saved artifact.
+        :param out_prefix: Output directory path.
+        :param out_suffix: Filename suffix for the saved artifact.
         """
         pass
 
@@ -24,16 +23,14 @@ class OutPlot(ABC):
 
     @staticmethod
     @abstractmethod
-    def write_to_html(test_mode: str, f: TextIOWrapper, *args, **kwargs) -> TextIOWrapper:
+    def write_to_html(test_mode: str, f: TextIOWrapper, *_unused_args, **_kwargs) -> TextIOWrapper:
         """Embed or link the plot in an HTML report.
 
-        Args:
-            test_mode: Evaluation test mode (for example ``"LCO"``).
-            f: Open HTML file handle to append content to.
-            *args: Plot-specific positional arguments.
-            **kwargs: Plot-specific keyword arguments.
+        :param test_mode: Evaluation test mode (for example ``"LCO"``).
+        :param f: Open HTML file handle to append content to.
+        :param _unused_args: Plot-specific positional arguments.
+        :param _kwargs: Plot-specific keyword arguments.
 
-        Returns:
-            The same file handle after writing.
+        :returns: The same file handle after writing.
         """
         pass

@@ -1,5 +1,7 @@
 """test hpam_tune with Ray Tune."""
 
+import importlib.util
+
 import numpy as np
 
 from drevalpy import experiment
@@ -9,15 +11,12 @@ from drevalpy.models import construct_model
 
 
 def test_hpam_tune(tmp_path, data_dir):
-    """
-    Test hpam_tune with a toy dataset and ElasticNet model.
+    """Test hpam_tune with a toy dataset and ElasticNet model.
 
     :param tmp_path: pytest temporary path fixture
     :param data_dir: path to the data directory
     """
-    try:
-        import ray  # noqa: F401
-    except ImportError:
+    if importlib.util.find_spec("ray") is None:
         print("Ray is not installed, skipping test_hpam_tune.")
         return
     defaults = {

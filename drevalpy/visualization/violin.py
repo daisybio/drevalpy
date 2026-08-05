@@ -12,10 +12,9 @@ class Violin(VioHeat):
     def __init__(self, df: pd.DataFrame, normalized_metrics=False, whole_name=False):
         """Initialize violin plot from evaluation results.
 
-        Args:
-            df: Predictions for all algorithms or all tests for one algorithm.
-            normalized_metrics: Whether to show only normalized metric columns.
-            whole_name: Whether to display full algorithm setting labels.
+        :param df: Predictions for all algorithms or all tests for one algorithm.
+        :param normalized_metrics: Whether to show only normalized metric columns.
+        :param whole_name: Whether to display full algorithm setting labels.
         """
         super().__init__(df, normalized_metrics, whole_name)
         self.df["box"] = self.df["algorithm"] + "_" + self.df["rand_setting"] + "_" + self.df["test_mode"]
@@ -27,9 +26,8 @@ class Violin(VioHeat):
     def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
         """Draw violin plot and save as HTML.
 
-        Args:
-            out_prefix: Output directory (for example ``results/my_run/violin_plots/``).
-            out_suffix: Filename suffix (for example ``algorithms_normalized``).
+        :param out_prefix: Output directory (for example ``results/my_run/violin_plots/``).
+        :param out_suffix: Filename suffix (for example ``algorithms_normalized``).
         """
         self._draw()
         path_out = f"{out_prefix}violin_{out_suffix}.html"

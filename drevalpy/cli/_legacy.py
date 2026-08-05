@@ -10,6 +10,15 @@ def warn_deprecated(*, legacy_script: str, replacement: str) -> None:
 
     :param legacy_script: Former console script name (e.g. ``drevalpy-train-cv``).
     :param replacement: Suggested replacement command (e.g. ``drevalpy train-cv``).
+
+    :param legacy_script: legacy script.
+    :param replacement: replacement.
+
+    :param legacy_script: legacy script.
+    :param replacement: replacement.
+
+    :param legacy_script: legacy script.
+    :param replacement: replacement.
     """
     warnings.warn(
         f"{legacy_script} is deprecated; use `{replacement}` instead.",

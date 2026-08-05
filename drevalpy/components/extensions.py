@@ -56,12 +56,10 @@ def _restore_registry_names(
 def load_extension_module(module_name: str) -> None:
     """Import a Python module so its registration decorators run.
 
-    Args:
-        module_name: Dotted import path of an installed or ``PYTHONPATH`` module.
+    :param module_name: Dotted import path of an installed or ``PYTHONPATH`` module.
 
-    Raises:
-        ValueError: If *module_name* is empty.
-        ImportError: If the module cannot be imported or registration fails mid-load.
+    :raises ValueError: If *module_name* is empty.
+    :raises ImportError: If the module cannot be imported or registration fails mid-load.
     """
     if not module_name:
         msg = "module_name must be a non-empty string"
@@ -81,12 +79,10 @@ def load_extension_module(module_name: str) -> None:
 def load_extension_file(path: Path | str) -> None:
     """Import one Python file so its registration decorators run.
 
-    Args:
-        path: Path to a ``.py`` file containing ``@register_*`` decorators.
+    :param path: Path to a ``.py`` file containing ``@register_*`` decorators.
 
-    Raises:
-        FileNotFoundError: If *path* does not exist.
-        ImportError: If the file cannot be executed or registration fails mid-load.
+    :raises FileNotFoundError: If *path* does not exist.
+    :raises ImportError: If the file cannot be executed or registration fails mid-load.
     """
     file_path = Path(path).resolve()
     if not file_path.is_file():
@@ -116,12 +112,9 @@ def load_extension_file(path: Path | str) -> None:
 def load_extension_dir(path: Path | str) -> None:
     """Import all ``*.py`` files in a directory in sorted order.
 
-    Args:
-        path: Directory containing extension modules (non-recursive).
+    :param path: Directory containing extension modules (non-recursive).
 
-    Raises:
-        FileNotFoundError: If *path* is not a directory.
-        ImportError: Propagated from ``load_extension_file`` on failure.
+    :raises FileNotFoundError: If *path* is not a directory.
     """
     dir_path = Path(path).resolve()
     if not dir_path.is_dir():
@@ -145,11 +138,10 @@ def load_extensions(
 ) -> None:
     """Load extension modules/files/directories and optional external zoo YAML.
 
-    Args:
-        modules: Installed module names to import.
-        files: Individual ``.py`` extension files.
-        directories: Directories scanned for ``*.py`` extension files.
-        zoo_files: External zoo YAML files resolved via ``ModelConfig`` / ``construct_model``.
+    :param modules: Installed module names to import.
+    :param files: Individual ``.py`` extension files.
+    :param directories: Directories scanned for ``*.py`` extension files.
+    :param zoo_files: External zoo YAML files resolved via ``ModelConfig`` / ``construct_model``.
     """
     for module_name in modules or []:
         load_extension_module(module_name)

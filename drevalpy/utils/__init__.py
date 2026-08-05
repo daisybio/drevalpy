@@ -25,14 +25,9 @@ _LAZY_EXPORTS = {
 def __getattr__(name: str) -> Any:
     """Lazily import heavier utilities to avoid dataset/utils import cycles.
 
-    Args:
-        name: Attribute name requested from this package.
-
-    Returns:
-        The resolved attribute value.
-
-    Raises:
-        AttributeError: If *name* is not a known lazy export.
+    :param name: Attribute name requested from this package.
+    :returns: The resolved attribute value.
+    :raises AttributeError: If ``name`` is not a known lazy export.
     """
     module_name = _LAZY_EXPORTS.get(name)
     if module_name is None:

@@ -11,6 +11,11 @@ from drevalpy.visualization.create_report import run_pipeline_report
 
 
 def register(app: typer.Typer) -> None:
+    """Register the ``make-pipeline-report`` subcommand on ``app``.
+
+    :param app: Root Typer application to register the command on.
+    """
+
     @app.command("make-pipeline-report")
     def make_pipeline_report(
         test_modes: Annotated[
@@ -32,7 +37,15 @@ def register(app: typer.Typer) -> None:
         ],
         path_data: Annotated[str, typer.Option("--path_data", help="Path to the data.")],
     ) -> None:
-        """Make the HTML report for the pipeline."""
+        """Make the HTML report for the pipeline.
+
+        :param test_modes: Split labels to include in the report.
+        :param eval_results: Path to aggregated evaluation results.
+        :param eval_results_per_drug: Path to per-drug evaluation results.
+        :param eval_results_per_cl: Path to per-cell-line evaluation results.
+        :param true_vs_predicted: Path to true-versus-predicted scatter data.
+        :param path_data: Root data directory for report assets.
+        """
         run_pipeline_report(
             test_modes=as_list(test_modes),
             eval_results=eval_results,

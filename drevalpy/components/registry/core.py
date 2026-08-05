@@ -7,6 +7,7 @@ from collections.abc import Callable, Iterable
 from typing import Any
 
 from drevalpy.components.contracts import FeatureContract, FeatureFormat
+from drevalpy.components.registry._contracts import _set_class_attribute
 from drevalpy.components.registry._metadata_validate import validate_registered_class_metadata
 from drevalpy.components.registry.common import make_registration_decorator
 from drevalpy.components.registry.metadata import (
@@ -26,6 +27,13 @@ class Registry:
         display_name: str,
         metadata_fn: Callable[[str, str, type[Any]], dict[str, str]],
     ) -> None:
+        """Initialize instance state.
+
+        :param registry_id: registry id.
+        :param label: label.
+        :param display_name: display name.
+        :param metadata_fn: metadata fn.
+        """
         self._registry_id = registry_id
         self._label = label
         self._display_name = display_name
@@ -46,17 +54,15 @@ class Registry:
     ) -> Callable[[type[Any]], type[Any]]:
         """Return a class decorator that registers the decorated class under *name*.
 
-        Args:
-            name: Registry name used in model configs and discovery listings.
-            description: Short human-readable summary.
-            tags: Optional discovery tags.
-            reference: Optional literature citation metadata.
-            contract: Feature format contract for featurizer registries.
-            cell_line_contract: Expected cell-line feature format for predictors.
-            drug_contract: Expected drug feature format for predictors.
+        :param name: Registry name used in model configs and discovery listings.
+        :param description: Short human-readable summary.
+        :param tags: Optional discovery tags.
+        :param reference: Optional literature citation metadata.
+        :param contract: Feature format contract for featurizer registries.
+        :param cell_line_contract: Expected cell-line feature format for predictors.
+        :param drug_contract: Expected drug feature format for predictors.
 
-        Returns:
-            Class decorator that registers and returns the decorated class.
+        :returns: Class decorator that registers and returns the decorated class.
         """
         return make_registration_decorator(
             self._store,
@@ -75,14 +81,11 @@ class Registry:
     def get(self, name: str) -> type[Any]:
         """Return the class registered under *name*.
 
-        Args:
-            name: Registry name of the component.
+        :param name: Registry name of the component.
 
-        Returns:
-            Registered component class.
+        :returns: Registered component class.
 
-        Raises:
-            ValueError: If *name* is not registered.
+        :raises ValueError: If *name* is not registered.
         """
         with self._lock:
             if name not in self._store:
@@ -94,8 +97,7 @@ class Registry:
     def list_names(self) -> list[str]:
         """Return all registered names.
 
-        Returns:
-            Sorted list of registry names currently stored.
+        :returns: Sorted list of registry names currently stored.
         """
         with self._lock:
             return list(self._store.keys())
@@ -103,14 +105,9 @@ class Registry:
     def get_metadata(self, name: str) -> dict[str, str]:
         """Return the metadata record for the component registered under *name*.
 
-        Args:
-            name: Registry name of the component.
+        :param name: Registry name of the component.
 
-        Returns:
-            Flattened metadata dict for catalog listings.
-
-        Raises:
-            ValueError: If *name* is not registered.
+        :returns: Flattened metadata dict for catalog listings.
         """
         cls = self.get(name)
         return self._metadata_fn(self._display_name, name, cls)
@@ -118,11 +115,9 @@ class Registry:
     def list_metadata(self, *, tag: str | None = None) -> list[dict[str, str]]:
         """Return metadata for all components, optionally filtered by discovery tag.
 
-        Args:
-            tag: When set, keep only components whose ``tags`` field contains *tag*.
+        :param tag: When set, keep only components whose ``tags`` field contains *tag*.
 
-        Returns:
-            List of flattened metadata dicts.
+        :returns: List of flattened metadata dicts.
         """
         rows = [self.get_metadata(name) for name in self.list_names()]
         if tag is None:
@@ -138,8 +133,7 @@ class Registry:
     def retain_only(self, names: frozenset[str]) -> None:
         """Drop entries whose names are not in *names*.
 
-        Args:
-            names: Registry names to keep after rollback or partial unload.
+        :param names: Registry names to keep after rollback or partial unload.
         """
         with self._lock:
             for registered_name in list(self._store):
@@ -147,18 +141,17 @@ class Registry:
                     del self._store[registered_name]
 
     def register_existing(self, name: str, cls: type[Any]) -> None:
-        """Register a class that was previously decorated but removed via :meth:`clear`.
+        """Register a class that was previously decorated but removed via ``clear``.
 
-        Args:
-            name: Registry name under which *cls* should be restored.
-            cls: Component class with registration metadata attributes.
+        :param name: Registry name under which *cls* should be restored.
+        :param cls: Component class with registration metadata attributes.
         """
         with self._lock:
             if name in self._store:
                 return
             validate_registered_class_metadata(self._registry_id, name, cls)
             self._store[name] = cls
-            cls.registry_name = name  # type: ignore[attr-defined]
+            _set_class_attribute(cls, "registry_name", name)
 
 
 cell_line_featurizer_registry = Registry(

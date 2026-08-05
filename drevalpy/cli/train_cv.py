@@ -10,6 +10,11 @@ from drevalpy.cli.run_cv import run_train_and_predict_cv
 
 
 def register(app: typer.Typer) -> None:
+    """Register the ``train-cv`` subcommand on ``app``.
+
+    :param app: Root Typer application to register the command on.
+    """
+
     @app.command("train-cv")
     def train_cv(
         model_name: Annotated[
@@ -47,7 +52,16 @@ def register(app: typer.Typer) -> None:
             ),
         ] = "TEMPORARY",
     ) -> None:
-        """Train on a CV split and save validation predictions as pickle."""
+        """Train on a CV split and save validation predictions as pickle.
+
+        :param model_name: Registered model name (optionally ``Model.drug`` for single-drug).
+        :param hyperparameters: Path to a YAML hyperparameter file.
+        :param cv_data: Path to a pickled CV split artifact.
+        :param path_data: Root data directory passed to feature loaders.
+        :param test_mode: Split label used when naming outputs.
+        :param response_transformation: Sklearn response transform name.
+        :param model_checkpoint_dir: Directory for model checkpoints.
+        """
         run_train_and_predict_cv(
             model_name=model_name,
             path_data=path_data,

@@ -12,6 +12,10 @@ def qualified_featurizer_selector(name: str, view: str | None = None) -> str:
 
     View-specific featurizers use bracket syntax (``pca[expression]``). Non-view
     featurizers use the bare registry name (``landmarkGenes``).
+
+    :param name: Featurizer registry name.
+    :param view: Optional explicit omics view.
+    :returns: Canonical selector string for HPO keys and concat blocks.
     """
     if view is not None:
         return f"{name}[{format_view_alias(view)}]"
@@ -19,15 +23,29 @@ def qualified_featurizer_selector(name: str, view: str | None = None) -> str:
 
 
 def featurizer_block_label(name: str, view: str | None = None) -> str:
-    """Return a stable block label for concat outputs and saved state."""
+    """Return a stable block label for concat outputs and saved state.
+
+    :param name: name.
+    :param view: view.
+    :returns: Result.
+    """
     return qualified_featurizer_selector(name, view)
 
 
 def featurizer_config_block_label(name: str, view: str | None) -> str:
-    """Return the concat block label for a normalized featurizer config."""
+    """Return the concat block label for a normalized featurizer config.
+
+    :param name: name.
+    :param view: view.
+    :returns: Result.
+    """
     return qualified_featurizer_selector(name, view)
 
 
 def requires_explicit_view(name: str) -> bool:
-    """Return whether a featurizer registry name requires an explicit view."""
+    """Return whether a featurizer registry name requires an explicit view.
+
+    :param name: name.
+    :returns: Result.
+    """
     return name in _VIEW_PARAMETRIC_FEATURIZERS

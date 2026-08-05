@@ -21,7 +21,14 @@ class BionicCellLineFeaturizer(DenseViewCellLineFeaturizer):
 
     @classmethod
     def load_features(cls, data_path: str, dataset_name: str, **kwargs: object) -> FeatureDataset:
-        """Load precomputed DIPK BIONIC features."""
+        """Load precomputed DIPK BIONIC features.
+
+        :param data_path: data path.
+        :param dataset_name: dataset name.
+        :param kwargs: Keyword arguments.
+        :returns: Result.
+        :raises ValueError: Raised on invalid input.
+        """
         _ = cls
         gene_add_num = kwargs.get("gene_add_num", 512)
         if not isinstance(gene_add_num, int):

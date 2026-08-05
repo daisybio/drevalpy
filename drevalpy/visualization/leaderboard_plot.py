@@ -17,12 +17,10 @@ COMPETITOR_COLOR = "#6A5ACD"
 def get_bar_color(rank: int, is_baseline: bool) -> dict[str, Any]:
     """Assign bar colors based on model rank and baseline status.
 
-    Args:
-        rank: Zero-based rank in the sorted leaderboard.
-        is_baseline: Whether the model is a naive baseline.
+    :param rank: Zero-based rank in the sorted leaderboard.
+    :param is_baseline: Whether the model is a naive baseline.
 
-    Returns:
-        Dict with ``color`` and ``alpha`` keys for matplotlib styling.
+    :returns: Dict with ``color`` and ``alpha`` keys for matplotlib styling.
     """
     if is_baseline:
         return {"color": "#5a5a5a", "alpha": 1.0}
@@ -43,17 +41,15 @@ def draw_bar(
 ):
     """Draw a custom rounded rectangle bar.
 
-    Args:
-        ax: Matplotlib axes to draw on.
-        x: Left edge of the bar.
-        y: Center y-coordinate of the bar.
-        width: Bar width.
-        height: Bar height.
-        color: Face color.
-        alpha: Bar transparency.
+    :param ax: Matplotlib axes to draw on.
+    :param x: Left edge of the bar.
+    :param y: Center y-coordinate of the bar.
+    :param width: Bar width.
+    :param height: Bar height.
+    :param color: Face color.
+    :param alpha: Bar transparency.
 
-    Returns:
-        The added ``FancyBboxPatch`` instance.
+    :returns: The added ``FancyBboxPatch`` instance.
     """
     bar = FancyBboxPatch(
         (x, y - height / 2),
@@ -164,10 +160,9 @@ def _gradient_char_colors(title_text: str) -> list[str]:
 def draw_gradient_title(fig, title_text: str, font_adder: int) -> None:
     """Draw a multi-color gradient title on the figure.
 
-    Args:
-        fig: Matplotlib figure.
-        title_text: Title string to render.
-        font_adder: Font size increment.
+    :param fig: Matplotlib figure.
+    :param title_text: Title string to render.
+    :param font_adder: Font size increment.
     """
     title_x_start = 0.5 - len(title_text) * 0.012
     for j, char in enumerate(title_text):
@@ -187,13 +182,12 @@ def draw_subtitle(
 ) -> None:
     """Draw dataset, measure, and test-mode subtitle text.
 
-    Args:
-        fig: Matplotlib figure.
-        dataset: Dataset name for the subtitle.
-        measure: Response measure for the subtitle.
-        test_mode_label: Human-readable test mode label.
-        font_adder: Font size increment.
-        colors: Theme color mapping.
+    :param fig: Matplotlib figure.
+    :param dataset: Dataset name for the subtitle.
+    :param measure: Response measure for the subtitle.
+    :param test_mode_label: Human-readable test mode label.
+    :param font_adder: Font size increment.
+    :param colors: Theme color mapping.
     """
     fig.text(
         0.5,
@@ -208,8 +202,7 @@ def draw_subtitle(
 def draw_logo(fig) -> None:
     """Embed the DrugResponseEval logo when the SVG asset is available.
 
-    Args:
-        fig: Matplotlib figure.
+    :param fig: Matplotlib figure.
     """
     logo_path = Path("docs/_static/img/DrugResponseEvalLogo.svg")
     if not logo_path.exists():
@@ -230,10 +223,9 @@ def draw_logo(fig) -> None:
 def draw_leaderboard_legend(fig, font_adder: int, colors: dict[str, str]) -> None:
     """Draw the rank and baseline legend below the leaderboard.
 
-    Args:
-        fig: Matplotlib figure.
-        font_adder: Font size increment.
-        colors: Theme color mapping.
+    :param fig: Matplotlib figure.
+    :param font_adder: Font size increment.
+    :param colors: Theme color mapping.
     """
     legend_elements = [
         mpatches.Patch(facecolor="#F4D03F", label="#1 Champion", edgecolor="none"),
@@ -260,10 +252,9 @@ def draw_leaderboard_legend(fig, font_adder: int, colors: dict[str, str]) -> Non
 def draw_footer(fig, font_adder: int, colors: dict[str, str]) -> None:
     """Draw submission instructions in the figure footer.
 
-    Args:
-        fig: Matplotlib figure.
-        font_adder: Font size increment.
-        colors: Theme color mapping.
+    :param fig: Matplotlib figure.
+    :param font_adder: Font size increment.
+    :param colors: Theme color mapping.
     """
     footer_text = (
         "Submit your model → https://drevalpy.readthedocs.io/en/latest/. "
@@ -295,14 +286,13 @@ def draw_leaderboard_panels(
 ) -> None:
     """Draw normalized PCC and RMSE panels on a leaderboard figure.
 
-    Args:
-        fig: Matplotlib figure.
-        axes: Tuple of two metric axes.
-        df: Aggregated leaderboard results per algorithm.
-        y_positions: Vertical bar positions.
-        bar_height: Height of each bar.
-        font_adder: Font size increment.
-        colors: Theme color mapping.
+    :param fig: Matplotlib figure.
+    :param axes: Tuple of two metric axes.
+    :param df: Aggregated leaderboard results per algorithm.
+    :param y_positions: Vertical bar positions.
+    :param bar_height: Height of each bar.
+    :param font_adder: Font size increment.
+    :param colors: Theme color mapping.
     """
     ax1, ax2 = axes
     _draw_ranked_metric_axis(

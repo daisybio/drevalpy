@@ -99,7 +99,7 @@ def test_backward_compatibility_sections_are_final_and_substantive() -> None:
         if not matches or matches[-1].group("title").strip() != "Backward compatibility":
             misplaced.append(rel)
             continue
-        section = text[matches[-1].start() :]  # noqa: E203
+        section = text[matches[-1].start() :]
         if re.search(r"no branch-specific", section, flags=re.IGNORECASE):
             empty.append(f"{rel} (no-op branch note)")
         if re.search(r"under-listed|incorrectly stated", section, flags=re.IGNORECASE):

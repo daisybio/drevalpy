@@ -2,8 +2,9 @@
 
 These tests verify the fixes for:
 
-- GitHub Issue #349: Validation data accumulation bug - where validation data was
+- GitHub Issue #349: Validation data accumulation bug where validation data was
   inadvertently accumulated into training data across sequential model runs.
+
 - Tissue column preservation when loading splits from CSV files.
 """
 

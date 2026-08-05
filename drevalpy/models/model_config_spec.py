@@ -134,6 +134,12 @@ def build_model_config_from_spec(
     2. Built-in or external zoo preset name
     3. Zoo / factory model name (PascalCase)
     4. Feature-free predictor token (no featurizers required), e.g. ``naiveMean``
+
+    :param spec: Zoo preset name, recipe triple, or feature-free predictor token.
+    :param hyperparameters: Optional flat public hyperparameter overrides.
+    :param prediction_mode: Regression or classification mode for the predictor.
+    :returns: Validated ``ModelConfig`` instance.
+    :raises ValueError: If ``spec`` is unknown or validation fails.
     """
     from drevalpy.models.factory import model_config_for_name
 

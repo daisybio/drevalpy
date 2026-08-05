@@ -4,22 +4,19 @@ from __future__ import annotations
 
 from typing import Any
 
+from drevalpy.components.predictors.literature._protocols import feature_count
 from drevalpy.components.predictors.literature._torch_state import load_state_dict, save_state_dict
 from drevalpy.components.predictors.literature.molir.algorithm import MOLIR
 from drevalpy.components.predictors.literature.molir.utils import MOLIModel
 
 
-def _feature_count(features: object) -> int | None:
-    if features is None:
-        return None
-    try:
-        return len(features)  # type: ignore[arg-type]
-    except TypeError:
-        return None
-
-
 def export_state(algorithm: MOLIR) -> dict[str, Any]:
-    """Serialize a fitted MOLIR algorithm for predictor persistence."""
+    """Serialize a fitted algorithm for predictor persistence.
+
+    :param algorithm: Fitted algorithm instance.
+
+    :returns: JSON-serializable state mapping.
+    """
     payload: dict[str, Any] = {
         "hyperparameters": dict(algorithm.hyperparameters),
         "gene_expression_features": algorithm.gene_expression_features,
@@ -30,15 +27,22 @@ def export_state(algorithm: MOLIR) -> dict[str, Any]:
     if model is not None and hasattr(model, "state_dict"):
         payload["model_state"] = save_state_dict(model.state_dict())
         payload["input_dims"] = {
-            "expr": _feature_count(algorithm.gene_expression_features),
-            "mut": _feature_count(algorithm.mutations_features),
-            "cnv": _feature_count(algorithm.copy_number_variation_features),
+            "expr": feature_count(algorithm.gene_expression_features),
+            "mut": feature_count(algorithm.mutations_features),
+            "cnv": feature_count(algorithm.copy_number_variation_features),
         }
     return payload
 
 
 def apply_state(payload: dict[str, Any]) -> MOLIR:
-    """Restore a MOLIR algorithm from a persisted payload."""
+    """Restore an algorithm from a persisted payload.
+
+    :param payload: Serialized state produced by ``export_state``.
+
+    :returns: Configured algorithm instance.
+
+    :raises ValueError: If required payload fields are missing.
+    """
     hyperparameters = payload.get("hyperparameters")
     if not isinstance(hyperparameters, dict):
         msg = "missing algorithm hyperparameters"

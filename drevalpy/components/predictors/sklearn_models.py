@@ -45,6 +45,10 @@ class ElasticNetPredictor(SklearnTabularPredictor):
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
+        """Get hyperparameter space.
+
+        :returns: Result.
+        """
         return {
             "alpha": {"type": "float", "low": 1e-4, "high": 10.0, "log": True, "default": 1.0},
             "l1_ratio": {"type": "float", "low": 0.0, "high": 1.0, "default": 0.5},
@@ -78,6 +82,10 @@ class LassoPredictor(SklearnTabularPredictor):
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
+        """Get hyperparameter space.
+
+        :returns: Result.
+        """
         return {
             "alpha": {"type": "float", "low": 1e-4, "high": 10.0, "log": True, "default": 1.0},
             "max_iter": {"type": "int", "low": 1000, "high": 20000, "default": 10000},
@@ -93,6 +101,10 @@ class RidgePredictor(SklearnTabularPredictor):
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
+        """Get hyperparameter space.
+
+        :returns: Result.
+        """
         return {
             "alpha": {"type": "float", "low": 1e-4, "high": 10.0, "log": True, "default": 1.0},
         }
@@ -124,6 +136,10 @@ class RandomForestPredictor(SklearnTabularPredictor):
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
+        """Get hyperparameter space.
+
+        :returns: Result.
+        """
         return {
             "n_estimators": {"type": "int", "low": 20, "high": 300, "default": 100},
             "criterion": {
@@ -162,6 +178,10 @@ class SVRPredictor(SklearnTabularPredictor):
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
+        """Get hyperparameter space.
+
+        :returns: Result.
+        """
         return {
             "C": {"type": "float", "low": 1e-3, "high": 100.0, "log": True, "default": 1.0},
             "epsilon": {"type": "float", "low": 1e-3, "high": 1.0, "log": True, "default": 0.1},
@@ -192,6 +212,10 @@ class GradientBoostingPredictor(SklearnTabularPredictor):
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
+        """Get hyperparameter space.
+
+        :returns: Result.
+        """
         return {
             "max_depth": {"type": "int", "low": 3, "high": 30, "default": 6},
             "learning_rate": {"type": "float", "low": 0.01, "high": 0.3, "log": True, "default": 0.1},
@@ -219,6 +243,10 @@ class AdaBoostPredictor(SklearnTabularPredictor):
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
+        """Get hyperparameter space.
+
+        :returns: Result.
+        """
         return {
             "n_estimators": {"type": "int", "low": 25, "high": 200, "default": 50},
             "max_depth": {"type": "int", "low": 2, "high": 8, "default": 4},
@@ -244,6 +272,10 @@ class KNNPredictor(SklearnTabularPredictor):
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
+        """Get hyperparameter space.
+
+        :returns: Result.
+        """
         return {
             "n_neighbors": {"type": "int", "low": 3, "high": 15, "default": 5},
             "weights": {"type": "categorical", "choices": ["uniform", "distance"], "default": "distance"},

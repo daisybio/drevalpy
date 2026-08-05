@@ -1,12 +1,19 @@
 """Cell-line featurizers."""
 
-from drevalpy.components.featurizers.cell_line import (  # noqa: F401
-    bionic,
-    concat,
-    landmark,
-    normalized_proteomics,
-    pathways,
-    pca,
-    raw,
-    scaled_gene_expression,
+from __future__ import annotations
+
+import importlib
+
+_SUBMODULES = (
+    "bionic",
+    "concat",
+    "landmark",
+    "normalized_proteomics",
+    "pathways",
+    "pca",
+    "raw",
+    "scaled_gene_expression",
 )
+
+for _submodule in _SUBMODULES:
+    importlib.import_module(f"{__name__}.{_submodule}")

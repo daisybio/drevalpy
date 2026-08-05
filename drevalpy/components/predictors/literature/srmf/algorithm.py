@@ -1,5 +1,4 @@
-"""
-Contains the SRMF (Similarity Regularization Matrix Factorization) model.
+"""Contains the SRMF (Similarity Regularization Matrix Factorization) model.
 
 Original publication: Wang, L., Li, X., Zhang, L. et al. Improved anticancer drug response prediction in cell lines
 using matrix factorization with similarity regularization. BMC Cancer 17, 513 (2017).
@@ -17,19 +16,15 @@ from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
 
 
 class SRMF(LiteratureTrainingMixin):
-    r"""
-    SRMF model: Similarity Regularization Matrix Factorization.
+    r"""SRMF model: Similarity Regularization Matrix Factorization.
 
-    The primary idea is to map m drugs and n cell lines into a shared latent space, with a low dimensionality K,
-    where :math:`K << min (m, n)`. The properties of a drug :math:`d_i` and a cell line :math:`c_j` are described by
-    two latent coordinates :math:`u_i` and :math:`v_j` (K dimensional row vectors), respectively. The drug response
-    matrix Y is approximated by: :math:`min_{U,V} || W \cdot (Y - U \cdot V^T) ||^2_F + lambda_l \cdot
-    (||U||^2_F + ||V||^2_F) + lambda_d cdot ||S_d - U \cdot U^T||^2_F +
-    lambda_c \cdot ||S_c - V \cdot V^T||^2_F`
-    where W is a weight matrix (:math:`W_{ij} = 1 if Y_{ij}` is a known response value, else 0). U, V contain
-    :math:`u_i`, :math:`v_j` as row vectors, respectively, :math:`||.||_F` is the Frobenius norm. To avoid overfitting,
-    L2 regularization is used. :math:`S_d, S_c` are drug/cell line similarity matrices. Differences between two
-    drugs/cell lines are minimized in latent space.
+    The primary idea is to map m drugs and n cell lines into a shared latent space with low
+    dimensionality K, where :math:`K << min (m, n)`. Drug :math:`d_i` and cell line :math:`c_j`
+    properties are described by latent coordinates :math:`u_i` and :math:`v_j`. The response matrix
+    Y is approximated by :math:`min_{U,V} || W \cdot (Y - U \cdot V^T) ||^2_F + \lambda_l \cdot
+    (||U||^2_F + ||V||^2_F) + \lambda_d \cdot ||S_d - U \cdot U^T||^2_F + \lambda_c \cdot
+    ||S_c - V \cdot V^T||^2_F`, where W masks known entries. L2 regularization and drug/cell-line
+    similarity matrices :math:`S_d` and :math:`S_c` reduce overfitting in latent space.
     """
 
     cell_line_views = ["gene_expression"]
@@ -50,8 +45,7 @@ class SRMF(LiteratureTrainingMixin):
 
     @classmethod
     def get_model_name(cls) -> str:
-        """
-        Returns the model name.
+        """Returns the model name.
 
         :returns: SRMF
         """
@@ -59,6 +53,10 @@ class SRMF(LiteratureTrainingMixin):
 
     @classmethod
     def get_default_hyperparameters(cls) -> dict[str, object]:
+        """Return default SRMF hyperparameters.
+
+        :returns: Default hyperparameter mapping.
+        """
         return {
             "K": 45,
             "lambda_l": 0.01,
@@ -70,8 +68,7 @@ class SRMF(LiteratureTrainingMixin):
         }
 
     def configure(self, hyperparameters: dict) -> None:
-        """
-        Initializes hyperparameters for SRMF model.
+        """Initializes hyperparameters for SRMF model.
 
         K is the latent dimensionality, lambda_l, lambda_d, lambda_c are regularization parameters, max_iter is the
         number of iterations, seed is the random seed.
@@ -94,14 +91,14 @@ class SRMF(LiteratureTrainingMixin):
         output_earlystopping: DrugResponseDataset | None = None,
         model_checkpoint_dir: str = "checkpoints",
     ) -> None:
-        """
-        Prepares data and trains the SRMF model.
+        """Prepares data and trains the SRMF model.
 
         :param output: response data
         :param cell_line_input: feature data for cell lines
         :param drug_input: feature data for drugs
         :param output_earlystopping: optional early stopping dataset, not used in SRMF
         :param model_checkpoint_dir: directory to save the model checkpoints, not used in SRMF
+
         :raises ValueError: if drug_input is None
         """
         if drug_input is None:
@@ -166,13 +163,13 @@ class SRMF(LiteratureTrainingMixin):
         cell_line_input: FeatureDataset,
         drug_input: FeatureDataset | None = None,
     ) -> np.ndarray:
-        """
-        Predicts the drug response based on the trained latent factors.
+        """Predicts the drug response based on the trained latent factors.
 
         :param drug_ids: drug identifiers
         :param cell_line_ids: cell line identifiers
         :param cell_line_input: not needed for prediction in SRMF
         :param drug_input: not needed for prediction in SRMF
+
         :returns: predicted response matrix
         """
         # Use training mean for missing drugs
@@ -193,13 +190,13 @@ class SRMF(LiteratureTrainingMixin):
         return diagonal_predictions
 
     def _cmf(self, w, int_mat, drug_mat, cell_mat) -> tuple[np.ndarray, np.ndarray]:
-        """
-        Implements the SRMF model with specific update rules and regularization.
+        """Implements the SRMF model with specific update rules and regularization.
 
         :param w: weight matrix
         :param int_mat: interaction matrix
         :param drug_mat: drug similarity matrix
         :param cell_mat: cell line similarity matrix
+
         :returns: best drug and cell line latent factors
         """
         rng = np.random.default_rng(self.seed)
@@ -232,8 +229,7 @@ class SRMF(LiteratureTrainingMixin):
         return best_u, best_v
 
     def _compute_loss(self, u, v, w, int_mat, drug_mat, cell_mat) -> np.float64:
-        """
-        Computes the loss for SRMF, including similarity regularization.
+        """Computes the loss for SRMF, including similarity regularization.
 
         :param u: drug latent factors
         :param v: cell line latent factors
@@ -241,6 +237,7 @@ class SRMF(LiteratureTrainingMixin):
         :param int_mat: interaction matrix
         :param drug_mat: drug similarity matrix
         :param cell_mat: cell line similarity matrix
+
         :returns: loss value
         """
         loss = np.sum((w * (int_mat - np.dot(u, v.T))) ** 2)
@@ -250,8 +247,7 @@ class SRMF(LiteratureTrainingMixin):
         return loss
 
     def _alg_update(self, u, v, w, r, s, lambda_l, lambda_d) -> np.ndarray:
-        """
-        Algorithm update rule for u or v in the SRMF model.
+        """Algorithm update rule for u or v in the SRMF model.
 
         :param u: drug latent factors
         :param v: cell line latent factors
@@ -260,6 +256,7 @@ class SRMF(LiteratureTrainingMixin):
         :param s: drug/cell line similarity matrix
         :param lambda_l: regularization parameter
         :param lambda_d: drug/cell line similarity regularization parameter
+
         :returns: updated u or v
         """
         x = np.dot(r, v) + 2 * lambda_d * np.dot(s, u)

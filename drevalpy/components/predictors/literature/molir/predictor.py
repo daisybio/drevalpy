@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, ClassVar
+from typing import Any, ClassVar, cast
 
 from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.feature_block import BlockSpec
@@ -46,17 +46,25 @@ class MOLIRPredictor(SingleDrugBlockPredictor):
         return MOLIR
 
     def _export_algorithm_state(self, algorithm: LiteratureTrainingMixin) -> dict[str, Any]:
-        return export_state(algorithm)  # type: ignore[arg-type]
+        return export_state(cast(MOLIR, algorithm))
 
     def _apply_algorithm_state(self, payload: dict[str, Any]) -> LiteratureTrainingMixin:
         return apply_state(payload)
 
     @classmethod
     def get_default_hyperparameters(cls) -> dict[str, object]:
+        """Return default hyperparameters from the algorithm class.
+
+        :returns: Default hyperparameter mapping.
+        """
         return dict(MOLIR.get_default_hyperparameters())
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
+        """Return the tunable hyperparameter space when exposed by the algorithm.
+
+        :returns: Ray Tune-style hyperparameter specs.
+        """
         space = getattr(MOLIR, "get_hyperparameter_space", None)
         if callable(space):
             return dict(space())

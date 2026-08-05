@@ -17,8 +17,7 @@ _TOY_DATASETS = ("TOYv1", "TOYv2")
 
 
 def _load_toy_datasets(path_data: str) -> bool:
-    """
-    Download TOYv1/TOYv2 once for session fixtures.
+    """Download TOYv1/TOYv2 once for session fixtures.
 
     :param path_data: path to the data directory
     :returns: False when dataset download fails
@@ -108,8 +107,7 @@ def _ensure_smilesvec_features(path_data: str, dataset_name: str) -> None:
 
 @pytest.fixture(scope="session")
 def data_dir() -> pathlib.Path:
-    """
-    Fixture to provide the path to the data directory for tests.
+    """Fixture to provide the path to the data directory for tests.
 
     :returns: path to the data directory
     """
@@ -118,8 +116,7 @@ def data_dir() -> pathlib.Path:
 
 @pytest.hookimpl(tryfirst=True)
 def pytest_configure(config) -> None:
-    """
-    Configure pytest.
+    """Configure pytest.
 
     :param config: pytest config object
     """
@@ -130,8 +127,7 @@ def pytest_configure(config) -> None:
 
 @pytest.fixture(scope="session")
 def sample_dataset(data_dir) -> DrugResponseDataset:
-    """
-    Sample dataset for testing individual models.
+    """Sample dataset for testing individual models.
 
     :param data_dir: path to the data directory
     :returns: drug_response, cell_line_input, drug_input
@@ -143,8 +139,7 @@ def sample_dataset(data_dir) -> DrugResponseDataset:
 
 @pytest.fixture(scope="session")
 def cross_study_dataset(data_dir) -> DrugResponseDataset:
-    """
-    Sample dataset for testing individual models.
+    """Sample dataset for testing individual models.
 
     :param data_dir: path to the data directory
     :returns: drug_response, cell_line_input, drug_input
@@ -156,8 +151,7 @@ def cross_study_dataset(data_dir) -> DrugResponseDataset:
 
 @pytest.fixture(scope="session", autouse=True)
 def ensure_bpe_features(data_dir) -> None:
-    """
-    Ensure BPE SMILES features are created for TOYv1 and TOYv2 before tests run.
+    """Ensure BPE SMILES features are created for TOYv1 and TOYv2 before tests run.
 
     This fixture runs automatically before any tests to ensure that PharmaFormer
     and other models requiring BPE features have the necessary data available.
@@ -174,8 +168,7 @@ def ensure_bpe_features(data_dir) -> None:
 
 @pytest.fixture(scope="session", autouse=True)
 def ensure_precily_pathway_features(data_dir) -> None:
-    """
-    Ensure GSVA pathway features exist for TOYv1 and TOYv2 before tests run.
+    """Ensure GSVA pathway features exist for TOYv1 and TOYv2 before tests run.
 
     This fixture runs automatically before any tests to ensure that Precily
     and other models requiring Precily features have the necessary data available.
@@ -224,7 +217,7 @@ def ensure_precily_pathway_features(data_dir) -> None:
 
         gene_sets = {
             "SYNTH_PATHWAY_A": genes[: max(min_size, len(genes) // 2)],
-            "SYNTH_PATHWAY_B": genes[-max(min_size, len(genes) // 2) :],  # noqa: E203
+            "SYNTH_PATHWAY_B": genes[-max(min_size, len(genes) // 2) :],
         }
 
         # Write a temporary .gmt next to the dataset
@@ -251,8 +244,7 @@ def ensure_precily_pathway_features(data_dir) -> None:
 
 @pytest.fixture(scope="session", autouse=True)
 def ensure_precily_drug_features(data_dir) -> None:
-    """
-    Ensure SMILESVec drug features exist for TOYv1 and TOYv2 before tests run.
+    """Ensure SMILESVec drug features exist for TOYv1 and TOYv2 before tests run.
 
     This fixture runs automatically before any tests to ensure that Precily
     and other models requiring Precily features have the necessary data available.
@@ -269,8 +261,7 @@ def ensure_precily_drug_features(data_dir) -> None:
 
 @pytest.fixture(scope="session", autouse=True)
 def ensure_sparsego_ontology_features(data_dir) -> None:
-    """
-    Ensure SparseGO ontology features exist for TOYv1 and TOYv2 before tests run.
+    """Ensure SparseGO ontology features exist for TOYv1 and TOYv2 before tests run.
 
     Prefers committed fixtures under ``tests/fixtures/sparsego/`` so CI does not
     depend on MyGene.info / GO network calls. Falls back to generating from
@@ -334,8 +325,7 @@ def ensure_model_drug_embeddings(
     cross_study_dataset,
     ensure_sparsego_ontology_features,
 ) -> None:
-    """
-    Re-ensure PharmaFormer/Precily drug embeddings after TOY datasets are loaded.
+    """Re-ensure PharmaFormer/Precily drug embeddings after TOY datasets are loaded.
 
     Earlier autouse fixtures may run before the first successful TOY download on CI;
     this pass creates any still-missing embedding files once ``sample_dataset`` is ready.

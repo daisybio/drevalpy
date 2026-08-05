@@ -33,8 +33,7 @@ def create_splits(
     response_data: DrugResponseDataset,
     params: SplitParams,
 ) -> list[dict[str, DrugResponseDataset]]:
-    """
-    Return one LCO-style split with configurable train/validation/test cell-line groups.
+    """Return one LCO-style split with configurable train/validation/test cell-line groups.
 
     :param response_data: full response dataset to partition
     :param params: pipeline split settings (seed, validation ratio, fold count, etc.)
@@ -49,8 +48,8 @@ def create_splits(
     n_val = min(n_val, len(shuffled) - n_test - 1)
 
     test_cls = set(shuffled[:n_test])
-    val_cls = set(shuffled[n_test : n_test + n_val])  # noqa: E203
-    train_cls = set(shuffled[n_test + n_val :])  # noqa: E203
+    val_cls = set(shuffled[n_test : n_test + n_val])
+    train_cls = set(shuffled[n_test + n_val :])
 
     train_mask = np.isin(response_data.cell_line_ids, list(train_cls))
     val_mask = np.isin(response_data.cell_line_ids, list(val_cls))

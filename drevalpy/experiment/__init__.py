@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import importlib
+import importlib.util
 from pathlib import Path
+from types import ModuleType
 from typing import Any
 
 from sklearn.base import TransformerMixin, clone
@@ -29,17 +31,42 @@ from .randomization import (
 )
 from .robustness import robustness_test_impl, robustness_train_predict_impl
 from .run import drug_response_experiment_impl
-from .seed import seed_everything as seed_everything  # noqa: F401 — public re-export
+from .seed import seed_everything
 from .splits import prepare_response_splits_impl
 from .training import train_and_predict_impl
 
 # Public compatibility re-export (callers may import from ``drevalpy.experiment``).
 get_datasets_from_cv_split = _fold_module.get_datasets_from_cv_split
 
-if importlib.util.find_spec("ray"):
-    import ray
+ray: ModuleType | None
+if importlib.util.find_spec("ray") is not None:
+    ray = importlib.import_module("ray")
 else:
-    ray = None  # type: ignore[assignment]
+    ray = None
+
+__all__ = [
+    "consolidate_single_drug_model_predictions",
+    "cross_study_prediction",
+    "drug_response_experiment",
+    "generate_data_saving_path",
+    "get_datasets_from_cv_split",
+    "get_model_name_and_drug_id",
+    "get_randomization_test_views",
+    "hpam_tune",
+    "make_model_list",
+    "make_train_val_split",
+    "prepare_response_splits",
+    "randomization_test",
+    "randomize_train_predict",
+    "ray",
+    "robustness_test",
+    "robustness_train_predict",
+    "seed_everything",
+    "split_early_stopping",
+    "train_and_evaluate",
+    "train_and_predict",
+    "train_final_model",
+]
 
 
 @pipeline_function
@@ -60,22 +87,20 @@ def prepare_response_splits(
 ) -> int:
     """Create, load, or reuse CV splits for an experiment run.
 
-    Args:
-        response_data: Dataset that receives ``cv_splits`` in place.
-        split_path: Directory for split manifest and fold files.
-        result_path: Experiment result directory.
-        split_label: Label stored in the split manifest.
-        test_mode: Builtin split mode or label for external splits.
-        n_cv_splits: Requested number of folds.
-        overwrite: Rebuild splits even when a manifest already exists.
-        result_folder_exists: Whether ``result_path`` already exists.
-        custom_splitter: External split creator or manifest path.
-        validation_ratio: Fraction of training data held out for validation.
-        random_state: Random seed for builtin splitters.
-        split_early_stopping: Whether to create early-stopping folds.
+    :param response_data: Dataset that receives ``cv_splits`` in place.
+    :param split_path: Directory for split manifest and fold files.
+    :param result_path: Experiment result directory.
+    :param split_label: Label stored in the split manifest.
+    :param test_mode: Builtin split mode or label for external splits.
+    :param n_cv_splits: Requested number of folds.
+    :param overwrite: Rebuild splits even when a manifest already exists.
+    :param result_folder_exists: Whether ``result_path`` already exists.
+    :param custom_splitter: External split creator or manifest path.
+    :param validation_ratio: Fraction of training data held out for validation.
+    :param random_state: Random seed for builtin splitters.
+    :param split_early_stopping: Whether to create early-stopping folds.
 
-    Returns:
-        Actual number of CV splits attached to *response_data*.
+    :returns: Actual number of CV splits attached to *response_data*.
     """
     return prepare_response_splits_impl(
         response_data,
@@ -126,33 +151,31 @@ def drug_response_experiment(
     and hyperparameters under ``path_out``, and optionally runs randomization,
     robustness, cross-study, and final-model workflows.
 
-    Args:
-        models: ``DRPModel`` subclasses to evaluate (from ``construct_model``).
-        response_data: Training/validation response table with CV splits attached.
-        baselines: Optional baseline models; ``NaiveMeanEffectsPredictor`` is added
-            by default when omitted.
-        response_transformation: Optional sklearn transformer applied to responses.
-        run_id: Subfolder name under ``path_out`` for this run.
-        test_mode: Split mode (``"LPO"``, ``"LCO"``, ``"LDO"``, or custom).
-        hpam_optimization_metric: Metric optimized during HPO (for example ``"RMSE"``).
-        n_cv_splits: Number of cross-validation folds.
-        multiprocessing: Deprecated; routes through Ray Tune when ``True``.
-        randomization_mode: Feature views to permute for randomization tests.
-        randomization_type: Permutation strategy for randomization tests.
-        cross_study_datasets: Additional datasets for cross-study evaluation.
-        n_trials_robustness: Number of robustness-test resampling trials.
-        path_out: Root directory for experiment outputs.
-        overwrite: Recompute splits and predictions even when artifacts exist.
-        path_data: Root directory for feature tables.
-        model_checkpoint_dir: Directory for per-fold model checkpoints.
-        hyperparameter_tuning: Whether to run HPO before final fold training.
-        final_model_on_full_data: Train a production model on all data after CV.
-        wandb_project: Optional Weights & Biases project name.
-        custom_splitter: External split creator or path to split manifest.
-        custom_split_name: Label for custom splits in output paths.
-        hpo_num_samples: Number of HPO trials per fold.
-        hpo_random_state: Random seed for HPO search.
-        hpo_resources_per_trial: Optional Ray resource limits per HPO trial.
+    :param models: ``DRPModel`` subclasses to evaluate (from ``construct_model``).
+    :param response_data: Training/validation response table with CV splits attached.
+    :param baselines: Optional baseline models; ``NaiveMeanEffectsPredictor`` is added by default when omitted.
+    :param response_transformation: Optional sklearn transformer applied to responses.
+    :param run_id: Subfolder name under ``path_out`` for this run.
+    :param test_mode: Split mode (``"LPO"``, ``"LCO"``, ``"LDO"``, or custom).
+    :param hpam_optimization_metric: Metric optimized during HPO (for example ``"RMSE"``).
+    :param n_cv_splits: Number of cross-validation folds.
+    :param multiprocessing: Deprecated; routes through Ray Tune when ``True``.
+    :param randomization_mode: Feature views to permute for randomization tests.
+    :param randomization_type: Permutation strategy for randomization tests.
+    :param cross_study_datasets: Additional datasets for cross-study evaluation.
+    :param n_trials_robustness: Number of robustness-test resampling trials.
+    :param path_out: Root directory for experiment outputs.
+    :param overwrite: Recompute splits and predictions even when artifacts exist.
+    :param path_data: Root directory for feature tables.
+    :param model_checkpoint_dir: Directory for per-fold model checkpoints.
+    :param hyperparameter_tuning: Whether to run HPO before final fold training.
+    :param final_model_on_full_data: Train a production model on all data after CV.
+    :param wandb_project: Optional Weights & Biases project name.
+    :param custom_splitter: External split creator or path to split manifest.
+    :param custom_split_name: Label for custom splits in output paths.
+    :param hpo_num_samples: Number of HPO trials per fold.
+    :param hpo_random_state: Random seed for HPO search.
+    :param hpo_resources_per_trial: Optional Ray resource limits per HPO trial.
     """
     drug_response_experiment_impl(
         models=models,
@@ -195,14 +218,13 @@ def consolidate_single_drug_model_predictions(
 ) -> None:
     """Consolidate per-fold single-drug predictions into summary files.
 
-    Args:
-        models: Model classes whose outputs should be consolidated.
-        n_cv_splits: Number of CV folds written during the experiment.
-        results_path: Experiment result directory to read from.
-        cross_study_datasets: Names of cross-study datasets to include.
-        randomization_mode: Randomization views to consolidate, if any.
-        n_trials_robustness: Number of robustness trials to consolidate.
-        out_path: Output directory; defaults to *results_path* when empty.
+    :param models: Model classes whose outputs should be consolidated.
+    :param n_cv_splits: Number of CV folds written during the experiment.
+    :param results_path: Experiment result directory to read from.
+    :param cross_study_datasets: Names of cross-study datasets to include.
+    :param randomization_mode: Randomization views to consolidate, if any.
+    :param n_trials_robustness: Number of robustness trials to consolidate.
+    :param out_path: Output directory; defaults to *results_path* when empty.
     """
     consolidate_single_drug_model_predictions_impl(
         models=models,
@@ -230,17 +252,16 @@ def cross_study_prediction(
 ) -> None:
     """Run cross-study prediction to assess model generalizability.
 
-    Args:
-        dataset: Held-out dataset from another study.
-        model: Trained model instance to evaluate.
-        test_mode: Split mode used for overlap removal.
-        train_dataset: Training dataset from the source study.
-        path_data: Root directory for feature tables.
-        early_stopping_dataset: Optional early-stopping data for retraining.
-        response_transformation: Optional response transformer.
-        path_out: Directory where predictions are written.
-        split_index: CV fold index for output file naming.
-        single_drug_id: Drug identifier when *model* is single-drug scoped.
+    :param dataset: Held-out dataset from another study.
+    :param model: Trained model instance to evaluate.
+    :param test_mode: Split mode used for overlap removal.
+    :param train_dataset: Training dataset from the source study.
+    :param path_data: Root directory for feature tables.
+    :param early_stopping_dataset: Optional early-stopping data for retraining.
+    :param response_transformation: Optional response transformer.
+    :param path_out: Directory where predictions are written.
+    :param split_index: CV fold index for output file naming.
+    :param single_drug_id: Drug identifier when *model* is single-drug scoped.
     """
     cross_study_prediction_impl(
         dataset=dataset,
@@ -264,13 +285,11 @@ def get_randomization_test_views(
 ) -> dict[str, list[str]]:
     """Resolve feature views to randomize for stress tests.
 
-    Args:
-        model_class: Model class whose featurizers define available views.
-        randomization_mode: Requested randomization modes (for example ``SVCC``).
-        hyperparameters: Model hyperparameters used to resolve view names.
+    :param model_class: Model class whose featurizers define available views.
+    :param randomization_mode: Requested randomization modes (for example ``SVCC``).
+    :param hyperparameters: Model hyperparameters used to resolve view names.
 
-    Returns:
-        Mapping from test names to feature-view lists.
+    :returns: Mapping from test names to feature-view lists.
     """
     return _build_randomization_test_views(model_class, randomization_mode, hyperparameters)
 
@@ -291,19 +310,18 @@ def randomization_test(
 ) -> None:
     """Run randomization stress tests for one CV fold.
 
-    Args:
-        randomization_test_views: Mapping from test names to feature views.
-        model_class: Model class to train under randomized inputs.
-        hyperparameters: Hyperparameters for model construction.
-        path_data: Root directory for feature tables.
-        train_dataset: Training split for the fold.
-        test_dataset: Test split for the fold.
-        early_stopping_dataset: Optional early-stopping data.
-        path_out: Directory where predictions are written.
-        split_index: CV fold index for output file naming.
-        randomization_type: Randomization strategy (for example ``permutation``).
-        response_transformation: Optional response transformer.
-        model_checkpoint_dir: Directory for model checkpoints.
+    :param randomization_test_views: Mapping from test names to feature views.
+    :param model_class: Model class to train under randomized inputs.
+    :param hyperparameters: Hyperparameters for model construction.
+    :param path_data: Root directory for feature tables.
+    :param train_dataset: Training split for the fold.
+    :param test_dataset: Test split for the fold.
+    :param early_stopping_dataset: Optional early-stopping data.
+    :param path_out: Directory where predictions are written.
+    :param split_index: CV fold index for output file naming.
+    :param randomization_type: Randomization strategy (for example ``permutation``).
+    :param response_transformation: Optional response transformer.
+    :param model_checkpoint_dir: Directory for model checkpoints.
     """
     randomization_test_impl(
         randomization_test_views=randomization_test_views,
@@ -338,19 +356,18 @@ def randomize_train_predict(
 ) -> None:
     """Randomize feature views, then train and predict once.
 
-    Args:
-        views: Feature view or views to randomize.
-        test_name: Label for the randomization test output.
-        randomization_type: Randomization strategy (for example ``permutation``).
-        randomization_test_file: Output path for predictions.
-        model_class: Model class to train under randomized inputs.
-        hyperparameters: Hyperparameters for model construction.
-        path_data: Root directory for feature tables.
-        train_dataset: Training split for the fold.
-        test_dataset: Test split for the fold.
-        early_stopping_dataset: Optional early-stopping data.
-        model_checkpoint_dir: Directory for model checkpoints.
-        response_transformation: Optional response transformer.
+    :param views: Feature view or views to randomize.
+    :param test_name: Label for the randomization test output.
+    :param randomization_type: Randomization strategy (for example ``permutation``).
+    :param randomization_test_file: Output path for predictions.
+    :param model_class: Model class to train under randomized inputs.
+    :param hyperparameters: Hyperparameters for model construction.
+    :param path_data: Root directory for feature tables.
+    :param train_dataset: Training split for the fold.
+    :param test_dataset: Test split for the fold.
+    :param early_stopping_dataset: Optional early-stopping data.
+    :param model_checkpoint_dir: Directory for model checkpoints.
+    :param response_transformation: Optional response transformer.
     """
     randomize_train_predict_impl(
         views=views,
@@ -383,18 +400,17 @@ def robustness_test(
 ):
     """Run robustness tests for one CV fold.
 
-    Args:
-        n_trials: Number of robustness trials to run.
-        model_class: Model class to retrain on perturbed data.
-        hyperparameters: Hyperparameters for model construction.
-        path_data: Root directory for feature tables.
-        train_dataset: Training split for the fold.
-        test_dataset: Test split for the fold.
-        early_stopping_dataset: Optional early-stopping data.
-        path_out: Directory where predictions are written.
-        split_index: CV fold index for output file naming.
-        response_transformation: Optional response transformer.
-        model_checkpoint_dir: Directory for model checkpoints.
+    :param n_trials: Number of robustness trials to run.
+    :param model_class: Model class to retrain on perturbed data.
+    :param hyperparameters: Hyperparameters for model construction.
+    :param path_data: Root directory for feature tables.
+    :param train_dataset: Training split for the fold.
+    :param test_dataset: Test split for the fold.
+    :param early_stopping_dataset: Optional early-stopping data.
+    :param path_out: Directory where predictions are written.
+    :param split_index: CV fold index for output file naming.
+    :param response_transformation: Optional response transformer.
+    :param model_checkpoint_dir: Directory for model checkpoints.
     """
     robustness_test_impl(
         n_trials=n_trials,
@@ -426,17 +442,16 @@ def robustness_train_predict(
 ) -> None:
     """Train and predict for one robustness-test trial.
 
-    Args:
-        trial: Trial index within the robustness test.
-        trial_file: Output path for predictions.
-        train_dataset: Training split for the fold.
-        test_dataset: Test split for the fold.
-        early_stopping_dataset: Optional early-stopping data.
-        model_class: Model class to train on perturbed data.
-        hyperparameters: Hyperparameters for model construction.
-        path_data: Root directory for feature tables.
-        response_transformation: Optional response transformer.
-        model_checkpoint_dir: Directory for model checkpoints.
+    :param trial: Trial index within the robustness test.
+    :param trial_file: Output path for predictions.
+    :param train_dataset: Training split for the fold.
+    :param test_dataset: Test split for the fold.
+    :param early_stopping_dataset: Optional early-stopping data.
+    :param model_class: Model class to train on perturbed data.
+    :param hyperparameters: Hyperparameters for model construction.
+    :param path_data: Root directory for feature tables.
+    :param response_transformation: Optional response transformer.
+    :param model_checkpoint_dir: Directory for model checkpoints.
     """
     robustness_train_predict_impl(
         trial=trial,
@@ -457,12 +472,10 @@ def split_early_stopping(
 ) -> tuple[DrugResponseDataset, DrugResponseDataset]:
     """Split a validation set into validation and early-stopping partitions.
 
-    Args:
-        validation_dataset: Validation dataset to subdivide.
-        test_mode: One of ``LPO``, ``LCO``, ``LDO``, or ``LTO``.
+    :param validation_dataset: Validation dataset to subdivide.
+    :param test_mode: One of ``LPO``, ``LCO``, ``LDO``, or ``LTO``.
 
-    Returns:
-        Validation and early-stopping datasets.
+    :returns: Validation and early-stopping datasets.
     """
     validation_dataset = validation_dataset.shuffled(random_state=42)
     cv_v = validation_dataset.split_dataset(
@@ -490,19 +503,17 @@ def train_and_predict(
 ) -> DrugResponseDataset:
     """Train the model and predict the response for the prediction dataset.
 
-    Args:
-        model: Trained or untrained ``DRPModel`` instance.
-        path_data: Root directory for feature tables.
-        train_dataset: Training responses and identifiers.
-        prediction_dataset: Pairs to predict; receives predictions in place.
-        early_stopping_dataset: Optional hold-out for early stopping.
-        response_transformation: Optional sklearn response transformer.
-        cl_features: Preloaded cell-line features, or ``None`` to load from disk.
-        drug_features: Preloaded drug features, or ``None`` to load from disk.
-        model_checkpoint_dir: Directory for predictor checkpoints.
+    :param model: Trained or untrained ``DRPModel`` instance.
+    :param path_data: Root directory for feature tables.
+    :param train_dataset: Training responses and identifiers.
+    :param prediction_dataset: Pairs to predict; receives predictions in place.
+    :param early_stopping_dataset: Optional hold-out for early stopping.
+    :param response_transformation: Optional sklearn response transformer.
+    :param cl_features: Preloaded cell-line features, or ``None`` to load from disk.
+    :param drug_features: Preloaded drug features, or ``None`` to load from disk.
+    :param model_checkpoint_dir: Directory for predictor checkpoints.
 
-    Returns:
-        *prediction_dataset* with ``predictions`` populated.
+    :returns: *prediction_dataset* with ``predictions`` populated.
     """
     return train_and_predict_impl(
         model=model,
@@ -529,18 +540,16 @@ def train_and_evaluate(
 ) -> dict[str, float]:
     """Train a model and compute validation metrics.
 
-    Args:
-        model: Model instance to train.
-        path_data: Root directory for feature tables.
-        train_dataset: Training split.
-        validation_dataset: Validation split to score.
-        early_stopping_dataset: Optional early-stopping data.
-        response_transformation: Optional response transformer.
-        metric: Primary metric to optimize and return.
-        model_checkpoint_dir: Directory for model checkpoints.
+    :param model: Model instance to train.
+    :param path_data: Root directory for feature tables.
+    :param train_dataset: Training split.
+    :param validation_dataset: Validation split to score.
+    :param early_stopping_dataset: Optional early-stopping data.
+    :param response_transformation: Optional response transformer.
+    :param metric: Primary metric to optimize and return.
+    :param model_checkpoint_dir: Directory for model checkpoints.
 
-    Returns:
-        Validation metrics keyed by metric name.
+    :returns: Validation metrics keyed by metric name.
     """
     trial_transform = None if response_transformation is None else clone(response_transformation)
     validation_dataset = train_and_predict(
@@ -567,12 +576,10 @@ def train_and_evaluate(
 def make_model_list(models: list[type[DRPModel]], response_data: DrugResponseDataset) -> dict[str, str]:
     """Build experiment run keys for multi- and single-drug models.
 
-    Args:
-        models: Model classes to include in the run.
-        response_data: Dataset used to enumerate single-drug keys.
+    :param models: Model classes to include in the run.
+    :param response_data: Dataset used to enumerate single-drug keys.
 
-    Returns:
-        Mapping from run key to base model name.
+    :returns: Mapping from run key to base model name.
     """
     return _make_model_list(models, response_data)
 
@@ -581,14 +588,9 @@ def make_model_list(models: list[type[DRPModel]], response_data: DrugResponseDat
 def get_model_name_and_drug_id(model_name: str) -> tuple[str, str | None]:
     """Parse a run key into model name and optional drug id.
 
-    Args:
-        model_name: Run key, optionally suffixed with ``.<drug_id>``.
+    :param model_name: Run key, optionally suffixed with ``.<drug_id>``.
 
-    Returns:
-        Base model name and drug id, or ``None`` for multi-drug models.
-
-    Raises:
-        AssertionError: If the base model name is not recognized.
+    :returns: Base model name and drug id, or ``None`` for multi-drug models.
     """
     return _get_model_name_and_drug_id(model_name)
 
@@ -597,14 +599,12 @@ def get_model_name_and_drug_id(model_name: str) -> tuple[str, str | None]:
 def generate_data_saving_path(model_name, drug_id, result_path, suffix) -> str:
     """Return an output directory for predictions, HPO, or final models.
 
-    Args:
-        model_name: Base model name.
-        drug_id: Drug identifier for single-drug models.
-        result_path: Experiment result root directory.
-        suffix: Subdirectory label (for example ``predictions``).
+    :param model_name: Base model name.
+    :param drug_id: Drug identifier for single-drug models.
+    :param result_path: Experiment result root directory.
+    :param suffix: Subdirectory label (for example ``predictions``).
 
-    Returns:
-        Created output directory path.
+    :returns: Created output directory path.
     """
     return _generate_data_saving_path(model_name, drug_id, result_path, suffix)
 
@@ -627,21 +627,20 @@ def train_final_model(
 ) -> None:
     """Train and persist a final production model on the full dataset.
 
-    Args:
-        model_class: Model class to train.
-        full_dataset: Complete response dataset for final training.
-        response_transformation: Response transformer fitted on training data.
-        path_data: Root directory for feature tables.
-        model_checkpoint_dir: Directory for intermediate checkpoints.
-        metric: Metric optimized during optional hyperparameter tuning.
-        final_model_path: Directory where the final model is saved.
-        test_mode: Split mode for the internal train/validation holdout.
-        val_ratio: Validation fraction for the holdout split.
-        hyperparameter_tuning: Whether to tune hyperparameters before training.
-        hpo_num_samples: Number of HPO trials when tuning is enabled.
-        hpo_random_state: Random seed for hyperparameter search.
-        hpo_resources_per_trial: Ray resource allocation per HPO trial.
-        hpo_storage_path: Optional Ray Tune storage path for HPO results.
+    :param model_class: Model class to train.
+    :param full_dataset: Complete response dataset for final training.
+    :param response_transformation: Response transformer fitted on training data.
+    :param path_data: Root directory for feature tables.
+    :param model_checkpoint_dir: Directory for intermediate checkpoints.
+    :param metric: Metric optimized during optional hyperparameter tuning.
+    :param final_model_path: Directory where the final model is saved.
+    :param test_mode: Split mode for the internal train/validation holdout.
+    :param val_ratio: Validation fraction for the holdout split.
+    :param hyperparameter_tuning: Whether to tune hyperparameters before training.
+    :param hpo_num_samples: Number of HPO trials when tuning is enabled.
+    :param hpo_random_state: Random seed for hyperparameter search.
+    :param hpo_resources_per_trial: Ray resource allocation per HPO trial.
+    :param hpo_storage_path: Optional Ray Tune storage path for HPO results.
     """
     train_final_model_impl(
         model_class=model_class,
@@ -670,17 +669,12 @@ def make_train_val_split(
 ) -> tuple[DrugResponseDataset, DrugResponseDataset]:
     """Split a dataset into train and validation sets.
 
-    Args:
-        dataset: Full dataset to split.
-        test_mode: One of ``LPO``, ``LCO``, ``LDO``, or ``LTO``.
-        val_ratio: Approximate validation fraction.
-        random_state: Random seed for splitting.
+    :param dataset: Full dataset to split.
+    :param test_mode: One of ``LPO``, ``LCO``, ``LDO``, or ``LTO``.
+    :param val_ratio: Approximate validation fraction.
+    :param random_state: Random seed for splitting.
 
-    Returns:
-        Train and validation datasets.
-
-    Raises:
-        ValueError: If tissue information is missing for ``LTO`` mode.
+    :returns: Train and validation datasets.
     """
     return make_train_val_split_impl(dataset, test_mode, val_ratio, random_state)
 

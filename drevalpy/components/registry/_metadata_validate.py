@@ -14,7 +14,11 @@ def _is_valid_url(url: str) -> bool:
 
 
 def validate_literature_reference(reference: LiteratureReference) -> list[str]:
-    """Return invalid-field names for a literature reference, or an empty list."""
+    """Return invalid-field names for a literature reference, or an empty list.
+
+    :param reference: reference.
+    :returns: Result.
+    """
     invalid: list[str] = []
     if not reference.repo_url:
         invalid.append("repo_url")
@@ -28,7 +32,12 @@ def validate_literature_reference(reference: LiteratureReference) -> list[str]:
 
 
 def _missing_metadata_fields(registry_id: str, cls: type[Any]) -> list[str]:
-    """Return required metadata fields missing from ``cls``."""
+    """Return required metadata fields missing from ``cls``.
+
+    :param registry_id: Registry identifier (featurizer or predictor).
+    :param cls: Registered component class.
+    :returns: Names of required metadata fields that are absent or empty.
+    """
     missing: list[str] = []
     description = str(getattr(cls, "description", "") or "").strip()
     if not description:
@@ -39,7 +48,11 @@ def _missing_metadata_fields(registry_id: str, cls: type[Any]) -> list[str]:
 
 
 def _has_invalid_tags(tags: object) -> bool:
-    """Return whether ``tags`` is not a collection of non-empty strings."""
+    """Return whether ``tags`` is not a collection of non-empty strings.
+
+    :param tags: Tag collection stored on a registered class.
+    :returns: ``True`` when *tags* is the wrong type or contains blank entries.
+    """
     if tags is None:
         return False
     if not isinstance(tags, (frozenset, set, list, tuple)):
@@ -48,7 +61,11 @@ def _has_invalid_tags(tags: object) -> bool:
 
 
 def _invalid_metadata_fields(cls: type[Any]) -> list[str]:
-    """Return metadata fields with invalid values on ``cls``."""
+    """Return metadata fields with invalid values on ``cls``.
+
+    :param cls: Registered component class.
+    :returns: Names of metadata fields with invalid values.
+    """
     invalid: list[str] = []
     if _has_invalid_tags(getattr(cls, "tags", frozenset())):
         invalid.append("tags")
@@ -70,7 +87,14 @@ def _format_validation_error(
     missing: list[str],
     invalid: list[str],
 ) -> str:
-    """Format a registry metadata validation error."""
+    """Format a registry metadata validation error.
+
+    :param registry_id: Registry identifier.
+    :param name: Component registry name.
+    :param missing: Required metadata fields that are absent.
+    :param invalid: Metadata fields with invalid values.
+    :returns: Human-readable validation error message.
+    """
     parts: list[str] = []
     if missing:
         parts.append(f"missing={missing}")
@@ -84,7 +108,13 @@ def validate_registered_class_metadata(
     name: str,
     cls: type[Any],
 ) -> None:
-    """Raise ``ValueError`` if class metadata is inconsistent or incomplete."""
+    """Raise ``ValueError`` if class metadata is inconsistent or incomplete.
+
+    :param registry_id: registry id.
+    :param name: name.
+    :param cls: Registered component class.
+    :raises ValueError: Raised on invalid input.
+    """
     missing = _missing_metadata_fields(registry_id, cls)
     invalid = _invalid_metadata_fields(cls)
     if missing or invalid:

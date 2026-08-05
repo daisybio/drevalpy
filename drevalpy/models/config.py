@@ -21,39 +21,55 @@ def _infer_scope_for_predictor(pred_cls: type[Any]) -> ModelScope | None:
     return None
 
 
-def _normalize_single_drug_identity(data: dict[str, Any]) -> dict[str, Any]:
-    """Inject implicit identity drug featurizer for single-drug feature-based configs."""
-    from drevalpy.components.registry import get_predictor
-
+def _predictor_name_from_identity_data(data: dict[str, Any]) -> str | None:
     predictor = data.get("predictor")
     if predictor is None:
-        return data
+        return None
     if isinstance(predictor, PredictorConfig):
-        predictor_name = predictor.name
-    elif isinstance(predictor, dict):
-        predictor_name = str(predictor.get("name", ""))
-    else:
-        predictor_name = str(predictor)
+        return predictor.name
+    if isinstance(predictor, dict):
+        return str(predictor.get("name", ""))
+    return str(predictor)
+
+
+def _maybe_apply_inferred_scope(data: dict[str, Any], pred_cls: type[Any]) -> tuple[dict[str, Any], ModelScope]:
+    scope = data.get("scope", ModelScope.MULTI_DRUG)
+    if "scope" in data:
+        return data, scope
+    inferred = _infer_scope_for_predictor(pred_cls)
+    if inferred is None:
+        return data, scope
+    return {**data, "scope": inferred}, inferred
+
+
+def _needs_identity_drug_featurizer(data: dict[str, Any], pred_cls: type[Any], scope: ModelScope) -> bool:
+    if scope != ModelScope.SINGLE_DRUG:
+        return False
+    if data.get("cell_line_featurizer") is None:
+        return False
+    if data.get("drug_featurizer") is not None:
+        return False
+    return getattr(pred_cls, "routing_drug_featurizer", None) == "identity"
+
+
+def _normalize_single_drug_identity(data: dict[str, Any]) -> dict[str, Any]:
+    """Inject implicit identity drug featurizer for single-drug feature-based configs.
+
+    :param data: Raw model config mapping before pydantic validation.
+    :returns: Mapping with optional ``drug_featurizer`` identity injection.
+    """
+    from drevalpy.components.registry import get_predictor
+
+    predictor_name = _predictor_name_from_identity_data(data)
+    if predictor_name is None:
+        return data
     try:
         pred_cls = get_predictor(predictor_name)
     except (ValueError, ImportError):
         return data
 
-    explicit_scope = "scope" in data
-    scope = data.get("scope", ModelScope.MULTI_DRUG)
-    if not explicit_scope:
-        inferred = _infer_scope_for_predictor(pred_cls)
-        if inferred is not None:
-            data = {**data, "scope": inferred}
-            scope = inferred
-
-    if scope != ModelScope.SINGLE_DRUG:
-        return data
-    if data.get("cell_line_featurizer") is None:
-        return data
-    if data.get("drug_featurizer") is not None:
-        return data
-    if getattr(pred_cls, "routing_drug_featurizer", None) != "identity":
+    data, scope = _maybe_apply_inferred_scope(data, pred_cls)
+    if not _needs_identity_drug_featurizer(data, pred_cls, scope):
         return data
     return {**data, "drug_featurizer": DrugFeaturizerConfig(name="identity")}
 
@@ -103,8 +119,7 @@ class FeaturizerConfig(BaseModel):
     def create_instance(self):
         """Instantiate the configured featurizer from the registry.
 
-        Returns:
-            Featurizer instance for this config.
+        :returns: Featurizer instance for this config.
         """
         from drevalpy.components.registry import lookup as reg
 
@@ -178,8 +193,7 @@ class PredictorConfig(BaseModel):
     def create_instance(self):
         """Instantiate the configured predictor from the registry.
 
-        Returns:
-            Predictor instance for this config.
+        :returns: Predictor instance for this config.
         """
         from drevalpy.components.registry import lookup as reg
 
@@ -236,7 +250,10 @@ class ModelConfig(BaseModel):
 
     @property
     def model_id(self) -> str | None:
-        """Stable identifier for a fully specified combination."""
+        """Stable identifier for a fully specified combination.
+
+        :returns: Colon-separated featurizer and predictor names, or ``None`` when incomplete.
+        """
         if self.cell_line_featurizer is None and self.drug_featurizer is None:
             return self.predictor.name
         if self.cell_line_featurizer is None:
@@ -251,12 +268,8 @@ class ModelConfig(BaseModel):
             return None
         return f"{self.cell_line_featurizer.name}:" f"{self.drug_featurizer.name}:" f"{self.predictor.name}"
 
-    def validate(self) -> None:  # type: ignore[override]
-        """Check registry slots, feature compatibility, and prediction mode.
-
-        Raises:
-            ValueError: If featurizers, predictor contracts, or scope are incompatible.
-        """
+    def validate(self) -> None:  # type: ignore[override]  # supported public API; not pydantic model_validate
+        """Check registry slots, feature compatibility, and prediction mode."""
         from drevalpy.models.config_validation import validate_model_config
 
         normalized = _normalize_single_drug_identity(self.model_dump())
@@ -276,16 +289,10 @@ class ModelConfig(BaseModel):
     ) -> ModelConfig:
         """Build a config from a recipe, zoo, legacy, or baseline spec string.
 
-        Args:
-            spec: Zoo preset name, colon-separated recipe, or legacy baseline token.
-            hyperparameters: Optional flat public hyperparameter overrides.
-            prediction_mode: Regression or classification mode for the predictor.
-
-        Returns:
-            Validated ``ModelConfig`` instance.
-
-        Raises:
-            ValueError: If *spec* is unknown or validation fails.
+        :param spec: Zoo preset name, colon-separated recipe, or legacy baseline token.
+        :param hyperparameters: Optional flat public hyperparameter overrides.
+        :param prediction_mode: Regression or classification mode for the predictor.
+        :returns: Validated ``ModelConfig`` instance.
         """
         from drevalpy.models.model_config_spec import build_model_config_from_spec
 
@@ -299,15 +306,8 @@ class ModelConfig(BaseModel):
     def from_yaml(cls, path: Path | str) -> ModelConfig:
         """Load a config from a YAML file.
 
-        Args:
-            path: Path to a YAML mapping describing the model config.
-
-        Returns:
-            Validated ``ModelConfig`` instance.
-
-        Raises:
-            FileNotFoundError: If *path* does not exist.
-            ValueError: If the YAML content is not a valid config mapping.
+        :param path: Path to a YAML mapping describing the model config.
+        :returns: Validated ``ModelConfig`` instance.
         """
         from drevalpy.models.config_io import model_config_from_yaml
 
@@ -317,14 +317,8 @@ class ModelConfig(BaseModel):
     def from_dict(cls, data: dict[str, Any]) -> ModelConfig:
         """Build a config from a plain dictionary.
 
-        Args:
-            data: Mapping with featurizer and predictor sections.
-
-        Returns:
-            Validated ``ModelConfig`` instance.
-
-        Raises:
-            ValueError: If validation fails.
+        :param data: Mapping with featurizer and predictor sections.
+        :returns: Validated ``ModelConfig`` instance.
         """
         from drevalpy.models.config_io import model_config_from_dict
 

@@ -45,13 +45,9 @@ def list_zoo_names(
 ) -> list[str]:
     """Return sorted built-in (and optional external) zoo entry names.
 
-    Args:
-        include_external: Include externally registered zoo entries.
-        scope: Optional ``ModelScope`` (or its string value) filter for
-            multi-drug vs single-drug presets.
-
-    Returns:
-        Sorted list of zoo preset names matching the filters.
+    :param include_external: Include externally registered zoo entries.
+    :param scope: Optional ``ModelScope`` (or its string value) filter for multi-drug vs single-drug presets.
+    :returns: Sorted list of zoo preset names matching the filters.
     """
     names = set(_BUILTIN_ZOO)
     if include_external:
@@ -66,14 +62,9 @@ def list_zoo_names(
 def get_zoo_config(name: str) -> ModelConfig:
     """Return a copy of a zoo entry by name.
 
-    Args:
-        name: Built-in or externally registered zoo preset name.
-
-    Returns:
-        Deep copy of the zoo ``ModelConfig``.
-
-    Raises:
-        KeyError: If *name* is not a known zoo entry.
+    :param name: Built-in or externally registered zoo preset name.
+    :returns: Deep copy of the zoo ``ModelConfig``.
+    :raises KeyError: If ``name`` is not a known zoo entry.
     """
     if name in _EXTERNAL_ZOO:
         return _clone_model_config(_EXTERNAL_ZOO[name])
@@ -92,15 +83,10 @@ def register_external_zoo_entry(name: str, config: ModelConfig, *, replace: bool
     External entries are resolved through ``ModelConfig`` / ``construct_model``
     rather than dynamically extending an already-built ``MODEL_FACTORY``.
 
-    Args:
-        name: Unique preset name; must not collide with built-in names unless
-            *replace* is used for an existing external entry.
-        config: Validated model configuration for the preset.
-        replace: Allow replacing an existing external entry with the same name.
-
-    Raises:
-        ValueError: If *name* collides with a built-in preset or an existing
-            external entry when *replace* is ``False``.
+    :param name: Unique preset name; must not collide with built-in names unless ``replace`` allows replacement.
+    :param config: Validated model configuration for the preset.
+    :param replace: Allow replacing an existing external entry with the same name.
+    :raises ValueError: If ``name`` collides with a built-in preset.
     """
     if name in _BUILTIN_ZOO_NAMES:
         msg = f"External zoo entry {name!r} collides with a built-in preset"
@@ -122,14 +108,8 @@ def load_external_zoo_file(path: Path | str) -> list[str]:
 
     Validates the complete file before mutating global external zoo state.
 
-    Args:
-        path: YAML file mapping preset names to model configs.
-
-    Returns:
-        Names of entries loaded from the file.
-
-    Raises:
-        ValueError: If the YAML is invalid or collides with built-in names.
+    :param path: YAML file mapping preset names to model configs.
+    :returns: Names of entries loaded from the file.
     """
     yaml_path = Path(path)
     data = _load_zoo_yaml_mapping(yaml_path)
@@ -142,12 +122,9 @@ def load_external_zoo_file(path: Path | str) -> list[str]:
 def zoo_model_config(name: str, hyperparameters: dict[str, Any] | None = None) -> ModelConfig:
     """Return a zoo config with optional public flat hyperparameter overrides.
 
-    Args:
-        name: Built-in or external zoo preset name.
-        hyperparameters: Optional flat public overrides applied to the preset.
-
-    Returns:
-        ``ModelConfig`` copy, with overrides applied when provided.
+    :param name: Built-in or external zoo preset name.
+    :param hyperparameters: Optional flat public overrides applied to the preset.
+    :returns: ``ModelConfig`` copy, with overrides applied when provided.
     """
     config = get_zoo_config(name)
     if not hyperparameters:

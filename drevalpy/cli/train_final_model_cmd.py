@@ -10,6 +10,11 @@ from drevalpy.cli.model_testing import run_train_final_model
 
 
 def register(app: typer.Typer) -> None:
+    """Register the ``train-final-model`` subcommand on ``app``.
+
+    :param app: Root Typer application to register the command on.
+    """
+
     @app.command("train-final-model")
     def train_final_model_cmd(
         train_data: Annotated[str, typer.Option("--train_data", help="Train data, pickled.")],
@@ -45,7 +50,17 @@ def register(app: typer.Typer) -> None:
             ),
         ] = "TEMPORARY",
     ) -> None:
-        """Train a final model on the full dataset using the best hyperparameters."""
+        """Train a final model on the full dataset using the best hyperparameters.
+
+        :param train_data: Path to pickled training dataset.
+        :param val_data: Path to pickled validation dataset.
+        :param early_stopping_data: Path to pickled early-stopping dataset.
+        :param model_name: Registered model name.
+        :param best_hpam_combi: Path to YAML with the selected hyperparameters.
+        :param path_data: Root data directory passed to feature loaders.
+        :param response_transformation: Sklearn response transform name.
+        :param model_checkpoint_dir: Directory for model checkpoints.
+        """
         run_train_final_model(
             train_data=train_data,
             val_data=val_data,

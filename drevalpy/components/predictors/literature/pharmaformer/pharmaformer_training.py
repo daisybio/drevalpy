@@ -13,6 +13,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.utils.torch_io import load_state_dict, save_torch_payload
 
 from .model_utils import CombinedModel
 
@@ -40,7 +41,16 @@ def _run_epoch(
     optimizer: optim.Optimizer | None,
     device: torch.device,
 ) -> tuple[float, list[np.ndarray], list[np.ndarray]]:
-    """Run one train or validation epoch; optimizer None skips backward pass."""
+    """Run one train or validation epoch; optimizer None skips backward pass.
+
+    :param model: Combined PharmaFormer model.
+    :param loader: Training or validation data loader.
+    :param loss_func: Loss function for regression targets.
+    :param optimizer: Optimizer for training; ``None`` runs evaluation only.
+    :param device: Torch device for batch tensors.
+
+    :returns: Tuple of mean epoch loss, prediction batches, and target batches.
+    """
     is_training = optimizer is not None
     if is_training:
         model.train()
@@ -113,7 +123,16 @@ def run_pharmaformer_training(
     model_checkpoint_dir: str,
     pharmaformer_dataset_cls: type[_PharmaFormerDataset],
 ) -> None:
-    """Train PharmaFormer with early stopping and reload the best checkpoint."""
+    """Train PharmaFormer with early stopping and reload the best checkpoint.
+
+    :param engine: PharmaFormer algorithm instance being trained.
+    :param output: Training responses and pair identifiers.
+    :param cell_line_input: Cell-line feature dataset.
+    :param drug_input: Drug feature dataset.
+    :param output_earlystopping: Validation responses for early stopping.
+    :param model_checkpoint_dir: Directory for best-checkpoint persistence.
+    :param pharmaformer_dataset_cls: Dataset class used to build train/val loaders.
+    """
     gene_input_size = cell_line_input.get_feature_matrix(
         view="gene_expression", identifiers=output.cell_line_ids
     ).shape[1]
@@ -179,7 +198,7 @@ def run_pharmaformer_training(
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             epochs_without_improvement = 0
-            torch.save(engine.model.state_dict(), checkpoint_path)  # noqa: S614
+            save_torch_payload(engine.model.state_dict(), checkpoint_path)
             print(f"PharmaFormer: Saved best model at epoch {epoch + 1}")
         else:
             epochs_without_improvement += 1
@@ -189,7 +208,5 @@ def run_pharmaformer_training(
                 break
 
     print("PharmaFormer: Reloading the best model")
-    engine.model.load_state_dict(
-        torch.load(checkpoint_path, map_location=engine.DEVICE, weights_only=True)
-    )  # noqa: S614
+    engine.model.load_state_dict(load_state_dict(checkpoint_path, map_location=engine.DEVICE))
     engine.model.to(engine.DEVICE)

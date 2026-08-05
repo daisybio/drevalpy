@@ -16,6 +16,12 @@ class FeedForwardNetwork(RegressionMetricsMixin, pl.LightningModule):
     """Feed-forward regression network with batch normalization and dropout."""
 
     def __init__(self, hyperparameters: dict[str, Any], input_dim: int) -> None:
+        """Initialize instance state.
+
+        :param hyperparameters: hyperparameters.
+        :param input_dim: input dim.
+        :raises TypeError: Raised on invalid input.
+        """
         super().__init__()
         self.save_hyperparameters()
 
@@ -47,7 +53,11 @@ class FeedForwardNetwork(RegressionMetricsMixin, pl.LightningModule):
         self._init_metrics_storage()
 
     def forward(self, features: torch.Tensor) -> torch.Tensor:
-        """Predict responses from a batch of concatenated feature rows."""
+        """Predict responses from a batch of concatenated feature rows.
+
+        :param features: features.
+        :returns: Result.
+        """
         hidden = features
         for index in range(len(self.fully_connected_layers) - 2):
             hidden = self.fully_connected_layers[index](hidden)
@@ -66,15 +76,28 @@ class FeedForwardNetwork(RegressionMetricsMixin, pl.LightningModule):
         return loss
 
     def training_step(self, batch: Sequence[torch.Tensor], batch_idx: int) -> torch.Tensor:
-        """Compute and log training loss for one batch."""
+        """Compute and log training loss for one batch.
+
+        :param batch: batch.
+        :param batch_idx: batch idx.
+        :returns: Result.
+        """
         _ = batch_idx
         return self._loss_and_log(batch[0], batch[1], name="train_loss")
 
     def validation_step(self, batch: Sequence[torch.Tensor], batch_idx: int) -> torch.Tensor:
-        """Compute and log validation loss for one batch."""
+        """Compute and log validation loss for one batch.
+
+        :param batch: batch.
+        :param batch_idx: batch idx.
+        :returns: Result.
+        """
         _ = batch_idx
         return self._loss_and_log(batch[0], batch[1], name="val_loss")
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
-        """Build the Adam optimizer used by the original predictor."""
+        """Build the Adam optimizer used by the original predictor.
+
+        :returns: Result.
+        """
         return torch.optim.Adam(self.parameters())

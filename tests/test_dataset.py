@@ -45,8 +45,7 @@ def test_response_dataset_load() -> None:
 
 
 def test_fitting_and_loading_custom_dataset(sample_dataset: DrugResponseDataset, data_dir):
-    """
-    Test CurveCurator fitting of raw viability dataset and loading it.
+    """Test CurveCurator fitting of raw viability dataset and loading it.
 
     :param sample_dataset: sample viability dataset
     :param data_dir: path to the data directory
@@ -274,8 +273,7 @@ def test_response_dataset_reduce_to():
 @pytest.mark.parametrize("mode", ["LPO", "LCO", "LDO", "LTO"])
 @pytest.mark.parametrize("split_validation", [True, False])
 def test_split_response_dataset(mode: str, split_validation: bool) -> None:
-    """
-    Test if the split_dataset method works correctly.
+    """Test if the split_dataset method works correctly.
 
     :param mode: test_mode, either LPO, LCO, or LDO
     :param split_validation: whether to split the dataset into validation and early stopping sets
@@ -374,8 +372,7 @@ def test_split_response_dataset(mode: str, split_validation: bool) -> None:
 
 @pytest.mark.parametrize("resp_transform", ["standard", "minmax", "robust"])
 def test_transform(resp_transform: str):
-    """
-    Test if the fit_transform and inverse_transform methods work correctly.
+    """Test if the fit_transform and inverse_transform methods work correctly.
 
     :param resp_transform: response transformation method
     :raises ValueError: if an invalid response transformation method is provided
@@ -410,8 +407,7 @@ def test_transform(resp_transform: str):
 
 @pytest.fixture
 def sample_feature_dataset() -> FeatureDataset:
-    """
-    Create a sample FeatureDataset for testing.
+    """Create a sample FeatureDataset for testing.
 
     :returns: a sample FeatureDataset
     """
@@ -451,8 +447,7 @@ def sample_feature_dataset() -> FeatureDataset:
 
 
 def random_power_law_graph(size: int = 20) -> nx.Graph:
-    """
-    Create a random graph with power law degree distribution.
+    """Create a random graph with power law degree distribution.
 
     :param size: size of the graph
     :returns: a random graph with power law degree distribution
@@ -473,8 +468,7 @@ def random_power_law_graph(size: int = 20) -> nx.Graph:
 
 @pytest.fixture
 def graph_dataset() -> FeatureDataset:
-    """
-    Create a sample FeatureDataset with molecular graphs for testing.
+    """Create a sample FeatureDataset with molecular graphs for testing.
 
     :returns: a sample FeatureDataset with molecular graphs
     """
@@ -502,8 +496,7 @@ def graph_dataset() -> FeatureDataset:
 
 
 def test_feature_dataset_get_ids(sample_feature_dataset: FeatureDataset) -> None:
-    """
-    Test if the get_ids method works correctly.
+    """Test if the get_ids method works correctly.
 
     :param sample_feature_dataset: sample FeatureDataset
     """
@@ -511,8 +504,7 @@ def test_feature_dataset_get_ids(sample_feature_dataset: FeatureDataset) -> None
 
 
 def test_feature_dataset_get_view_names(sample_feature_dataset: FeatureDataset) -> None:
-    """
-    Test if the get_view_names method works correctly.
+    """Test if the get_view_names method works correctly.
 
     :param sample_feature_dataset: sample FeatureDataset
     """
@@ -523,8 +515,7 @@ def test_feature_dataset_get_view_names(sample_feature_dataset: FeatureDataset) 
 
 
 def test_feature_dataset_get_feature_matrix(sample_feature_dataset: FeatureDataset) -> None:
-    """
-    Test if the get_feature_matrix method works correctly.
+    """Test if the get_feature_matrix method works correctly.
 
     :param sample_feature_dataset: sample FeatureDataset
     """
@@ -543,8 +534,7 @@ def test_feature_dataset_get_feature_matrix(sample_feature_dataset: FeatureDatas
 
 
 def test_feature_dataset_copy(sample_feature_dataset: FeatureDataset) -> None:
-    """
-    Test if the copy method works correctly.
+    """Test if the copy method works correctly.
 
     :param sample_feature_dataset: sample FeatureDataset
     """
@@ -566,8 +556,7 @@ def test_feature_dataset_copy(sample_feature_dataset: FeatureDataset) -> None:
 
 @flaky(max_runs=25)  # permutation randomization might map to the same feature vector for some tries
 def test_permutation_randomization(sample_feature_dataset: FeatureDataset) -> None:
-    """
-    Test if the permutation randomization works correctly.
+    """Test if the permutation randomization works correctly.
 
     :param sample_feature_dataset: sample FeatureDataset
     """
@@ -583,8 +572,7 @@ def test_permutation_randomization(sample_feature_dataset: FeatureDataset) -> No
 
 @flaky(max_runs=25)  # permutation randomization might map to the same feature vector for some tries
 def test_permutation_randomization_graph(graph_dataset: FeatureDataset) -> None:
-    """
-    Test if the permutation randomization works correctly for molecular graphs.
+    """Test if the permutation randomization works correctly for molecular graphs.
 
     :param graph_dataset: sample FeatureDataset with molecular graphs
     """
@@ -600,8 +588,7 @@ def test_permutation_randomization_graph(graph_dataset: FeatureDataset) -> None:
 
 
 def test_invariant_randomization_array(sample_feature_dataset: FeatureDataset) -> None:
-    """
-    Test if the invariant randomization works correctly.
+    """Test if the invariant randomization works correctly.
 
     :param sample_feature_dataset: sample FeatureDataset
     """
@@ -617,8 +604,7 @@ def test_invariant_randomization_array(sample_feature_dataset: FeatureDataset) -
 
 @flaky(max_runs=5)  # expected degree randomization might produce the same graph
 def test_invariant_randomization_graph(graph_dataset: FeatureDataset) -> None:
-    """
-    Test if the invariant randomization works correctly for molecular graphs.
+    """Test if the invariant randomization works correctly for molecular graphs.
 
     :param graph_dataset: sample FeatureDataset with molecular graphs
     """
@@ -633,8 +619,7 @@ def test_invariant_randomization_graph(graph_dataset: FeatureDataset) -> None:
 
 
 def test_add_features(sample_feature_dataset: FeatureDataset, graph_dataset: FeatureDataset) -> None:
-    """
-    Test if the add_features method works correctly.
+    """Test if the add_features method works correctly.
 
     :param sample_feature_dataset: sample FeatureDataset
     :param graph_dataset: sample FeatureDataset with molecular graphs

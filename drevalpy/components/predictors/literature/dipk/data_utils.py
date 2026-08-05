@@ -1,10 +1,8 @@
-"""
-Includes functions to load and process the DIPK dataset.
+"""Includes functions to load and process the DIPK dataset.
 
 - get_data: Creates a list of dictionaries with drug and cell line features.
 - CollateFn: Class to collate the DataLoader batches.
 - DIPKDataset: Dataset class for the DIPK model.
-
 """
 
 import os
@@ -19,13 +17,13 @@ from drevalpy.datasets.dataset import FeatureDataset
 
 
 def load_bionic_features(data_path: str, dataset_name: str, gene_add_num: int = 512) -> FeatureDataset:
-    """
-    Load biological network (BIONIC) features for DIPK.
+    """Load biological network (BIONIC) features for DIPK.
 
     :param data_path: Path to the data, e.g., "data/"
     :param dataset_name: Name of the dataset, e.g., GDSC2
     :param gene_add_num: Number of genes to add to the feature set
-    :returns: FeatureDataset with gene expression and biological network features
+
+    :returns: returns: FeatureDataset with gene expression and biological network features
     """
     # Load gene expression dataset
     gene_expression_path = os.path.join(data_path, dataset_name, "gene_expression.csv")
@@ -71,8 +69,7 @@ def get_data(
     drug_features: FeatureDataset,
     ic50: np.ndarray | None = None,
 ) -> list:
-    """
-    Prepare data samples for training or prediction.
+    """Prepare data samples for training or prediction.
 
     Each sample includes:
 
@@ -85,7 +82,8 @@ def get_data(
     :param cell_line_features: Input features associated with the cell lines.
     :param drug_features: Input features associated with the drugs.
     :param ic50: (Optional) Response values (e.g., IC50) to associate with samples.
-    :return: List of dictionaries, each containing drug and cell line features, with optional IC50.
+
+    :returns: return: List of dictionaries, each containing drug and cell line features, with optional IC50.
     """
     data_list = []
     for i in range(len(cell_ids)):
@@ -112,19 +110,18 @@ class CollateFn:
     """Collate function for the DataLoader, either for training or testing."""
 
     def __init__(self, train=True):
-        """
-        Initialize the CollateFn.
+        """Initialize the CollateFn.
 
         :param train: indicates whether the DataLoader is used for training
         """
         self.train = train
 
     def __call__(self, batch):
-        """
-        Collate the batch.
+        """Collate the batch.
 
         :param batch: batch of feature dictionaries
-        :returns: collated node features, gene features, bionic features, and (optional) IC50 values
+
+        :returns: returns: collated node features, gene features, bionic features, and (optional) IC50 values
         """
         # Find the max number of atoms (nodes) in the batch for molgnet_features padding
         max_atoms_molgnet = max([sample["molgnet_features"].size(0) for sample in batch])
@@ -181,8 +178,7 @@ class DIPKDataset(Dataset, ABC):
     """Dataset of graphs from get_data."""
 
     def __init__(self, samples):
-        """
-        Initialize the GraphDataset.
+        """Initialize the GraphDataset.
 
         :param samples: list
         """
@@ -190,19 +186,18 @@ class DIPKDataset(Dataset, ABC):
         self._samples = samples
 
     def __getitem__(self, idx):
-        """
-        Get the sample at index idx.
+        """Get the sample at index idx.
 
         :param idx: index
-        :returns: sample
+
+        :returns: returns: sample
         """
         sample = self._samples[idx]
         return sample
 
     def __len__(self) -> int:
-        """
-        Get the number of graphs in the dataset.
+        """Get the number of graphs in the dataset.
 
-        :return: number of samples
+        :returns: return: number of samples
         """
         return len(self._samples)

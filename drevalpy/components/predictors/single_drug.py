@@ -26,6 +26,10 @@ class SingleDrugSklearnPredictor(SklearnTabularPredictor):
     routing_drug_featurizer: ClassVar[str] = "identity"
 
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
+        """Initialize instance state.
+
+        :param hyperparameters: hyperparameters.
+        """
         super().__init__(hyperparameters)
         self._estimators: dict[str, Any] = {}
 
@@ -36,6 +40,11 @@ class SingleDrugSklearnPredictor(SklearnTabularPredictor):
         return batch.cell_line_features[batch.cell_line_pair_idx]
 
     def fit(self, batch: ModelInputBatch) -> None:
+        """Fit on training data.
+
+        :param batch: batch.
+        :raises ValueError: Raised on invalid input.
+        """
         if batch.response is None:
             msg = "Single-drug matrix predictors require response values during fit"
             raise ValueError(msg)
@@ -52,6 +61,11 @@ class SingleDrugSklearnPredictor(SklearnTabularPredictor):
             self._estimators[drug_id] = estimator
 
     def predict(self, batch: ModelInputBatch) -> np.ndarray:
+        """Predict responses for each pair in the batch.
+
+        :param batch: batch.
+        :returns: Result.
+        """
         x = self._cell_line_matrix(batch)
         keys = routing_keys(batch)
         predictions = np.full(batch.n_pairs, np.nan, dtype=np.float64)
@@ -64,6 +78,10 @@ class SingleDrugSklearnPredictor(SklearnTabularPredictor):
         return predictions
 
     def get_state(self) -> dict[str, object]:
+        """Return serializable fitted state.
+
+        :returns: Result.
+        """
         return {
             "estimators": dict(self._estimators),
             "hyperparameters": dict(self._h),
@@ -71,6 +89,11 @@ class SingleDrugSklearnPredictor(SklearnTabularPredictor):
         }
 
     def set_state(self, state: dict[str, object]) -> None:
+        """Restore state from a prior ``get_state`` mapping.
+
+        :param state: state.
+        :raises PredictorStateError: Raised on invalid input.
+        """
         estimators = state_mapping(state, "estimators")
         if not estimators:
             msg = f"{self.__class__.__name__} state is missing fitted per-drug estimators"
@@ -92,4 +115,8 @@ class SingleDrugSklearnPredictor(SklearnTabularPredictor):
             raise PredictorStateError(msg)
 
     def is_fitted(self) -> bool:
+        """Return whether the component has been fit.
+
+        :returns: Result.
+        """
         return bool(self._estimators)

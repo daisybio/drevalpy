@@ -15,8 +15,7 @@ def prepare_expression_and_methylation(
     methylation_scaler: TransformerMixin | None = None,
     methylation_pca: PCA | None = None,
 ) -> FeatureDataset:
-    """
-    Applies preprocessing to gene expression and optionally methylation views.
+    """Applies preprocessing to gene expression and optionally methylation views.
 
     - Applies arcsinh + scaling to gene expression if a scaler is provided.
     - Applies scaling + PCA to methylation if both a scaler and PCA are provided.
@@ -86,8 +85,7 @@ def scale_gene_expression(
     training: bool,
     gene_expression_scaler: TransformerMixin,
 ) -> FeatureDataset:
-    """
-    Scales gene expression inplace using arcsinh transformation and a provided scaler.
+    """Scales gene expression inplace using arcsinh transformation and a provided scaler.
 
     :param cell_line_input: FeatureDataset with the cell line features
     :param cell_line_ids: IDs of cell lines to use for fitting or transformation
@@ -105,16 +103,14 @@ def scale_gene_expression(
 
 
 class VarianceFeatureSelector:
-    """
-    Selects the top-k features with highest variance for a specific omics view.
+    """Selects the top-k features with highest variance for a specific omics view.
 
     Stores a boolean mask after fitting on training data and applies it
     consistently to other datasets.
     """
 
     def __init__(self, view: str, k: int = 1000):
-        """
-        Initialize the selector.
+        """Initialize the selector.
 
         :param view: omics view to select from, e.g., "gene_expression"
         :param k: number of top-variance features to retain
@@ -125,8 +121,7 @@ class VarianceFeatureSelector:
         self.selected_meta_info: list[str] = []
 
     def fit(self, cell_line_input: FeatureDataset, output: DrugResponseDataset) -> None:
-        """
-        Fit the selector to the training data by computing a variance-based mask.
+        """Fit the selector to the training data by computing a variance-based mask.
 
         :param cell_line_input: FeatureDataset containing omics features
         :param output: DrugResponseDataset with the training cell line IDs
@@ -148,8 +143,7 @@ class VarianceFeatureSelector:
         self.selected_meta_info = list(np.array(features.meta_info[self.view])[self.mask])
 
     def transform(self, cell_line_input: FeatureDataset) -> FeatureDataset:
-        """
-        Apply the feature mask to reduce the dataset to selected features.
+        """Apply the feature mask to reduce the dataset to selected features.
 
         :param cell_line_input: FeatureDataset to transform
         :returns: reduced FeatureDataset
@@ -165,8 +159,7 @@ class VarianceFeatureSelector:
 
 
 def log10_and_set_na(x):
-    """
-    Log10 transform and set NaN for infinite values.
+    """Log10 transform and set NaN for infinite values.
 
     :param x: input array
     :returns: log10 transformed array with NaN for infinite values
@@ -187,18 +180,14 @@ class ProteomicsMedianCenterAndImputeTransformer(BaseEstimator, TransformerMixin
         normalization_width=0.3,
         imputation_seed=100,
     ):
-        """
-        Hyperparameters for the normalization.
+        """Hyperparameters for the normalization.
 
-        :param feature_threshold: Require that, e.g., 70% of the proteins are measured without NAs
-            over all cell lines -> n_complete_features = number of proteins with at least 70% of the cell lines
-        :param n_features: fallback for feature selection. Take top n complete features.
-            Select max(n_complete_features, n_features) features.
-        :param normalization_downshift: downshift factor for the mean
-        :param normalization_width: width factor for the standard deviation
-        :param imputation_seed: seed for the per-call RNG used to impute missing values; kept
-            here (rather than mutating np.random globally) so the transformer stays reproducible
-            without touching the global RNG state.
+        :param feature_threshold: Minimum fraction of non-missing protein values per feature.
+        :param n_features: Fallback feature count when thresholding leaves too few features.
+        :param normalization_downshift: Downshift factor for the mean.
+        :param normalization_width: Width factor for the standard deviation.
+        :param imputation_seed: Seed for per-call missing-value imputation without touching the
+            global NumPy RNG state.
         """
         self.feature_threshold = feature_threshold
         self.n_features = n_features
@@ -209,8 +198,7 @@ class ProteomicsMedianCenterAndImputeTransformer(BaseEstimator, TransformerMixin
         self.mean_median = 0
 
     def fit(self, X, y=None):
-        """
-        Learns the top n_feature complete proteins and calculates the mean median of the train cell lines.
+        """Learns the top n_feature complete proteins and calculates the mean median of the train cell lines.
 
         :param X: input proteomics data
         :param y: not used
@@ -228,34 +216,33 @@ class ProteomicsMedianCenterAndImputeTransformer(BaseEstimator, TransformerMixin
         else:
             # select the features meeting the required threshold
             self.protein_indices = np.where(completeness >= required_proteins)[0]
-        X = X[:, self.protein_indices]
+        selected_proteins = X[:, self.protein_indices]
         # calculate mean of sample medians
-        medians = np.nanmedian(X, axis=1)
+        medians = np.nanmedian(selected_proteins, axis=1)
         self.mean_median = np.nanmean(medians)
         return self
 
     def transform(self, X):
-        """
-        Median center the data and impute missing values with downshifted normal distribution.
+        """Median center the data and impute missing values with downshifted normal distribution.
 
         :param X: input proteomics data
         :returns: transformed proteomics data
         """
-        X = X[0]
+        proteomics_vector = X[0][self.protein_indices]
 
-        X = X[self.protein_indices]
-
-        correction_factor = self.mean_median / np.nanmedian(X)
-        X = X * correction_factor
-        cell_line_mean = np.nanmean(X)
-        cell_line_sd = np.nanstd(X)
+        correction_factor = self.mean_median / np.nanmedian(proteomics_vector)
+        proteomics_vector = proteomics_vector * correction_factor
+        cell_line_mean = np.nanmean(proteomics_vector)
+        cell_line_sd = np.nanstd(proteomics_vector)
         downshifted_mean = cell_line_mean - (self.normalization_downshift * cell_line_sd)
         shrinked_sd = self.normalization_width * cell_line_sd
-        n_missing = np.count_nonzero(np.isnan(X))
+        n_missing = np.count_nonzero(np.isnan(proteomics_vector))
         # local RNG keeps imputation deterministic without poisoning the global np.random state
         rng = np.random.default_rng(self.imputation_seed)
-        X[np.isnan(X)] = rng.normal(loc=downshifted_mean, scale=shrinked_sd, size=n_missing)
-        return [X]
+        proteomics_vector[np.isnan(proteomics_vector)] = rng.normal(
+            loc=downshifted_mean, scale=shrinked_sd, size=n_missing
+        )
+        return [proteomics_vector]
 
 
 def prepare_proteomics(
@@ -264,8 +251,7 @@ def prepare_proteomics(
     training: bool,
     transformer: ProteomicsMedianCenterAndImputeTransformer,
 ) -> FeatureDataset:
-    """
-    Applies log10 transform and proteomics normalization (centering + imputation) to proteomics view.
+    """Applies log10 transform and proteomics normalization (centering + imputation) to proteomics view.
 
     :param cell_line_input: FeatureDataset with proteomics features
     :param cell_line_ids: cell line IDs for training or transformation

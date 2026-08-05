@@ -64,7 +64,13 @@ def _predictor_input_interface(cls: type[Any]) -> str:
 
 
 def metadata_record(registry_name: str, name: str, cls: type[Any]) -> dict[str, str]:
-    """Flattened metadata dict for internal consumers."""
+    """Flattened metadata dict for internal consumers.
+
+    :param registry_name: registry name.
+    :param name: name.
+    :param cls: Registered component class.
+    :returns: Result.
+    """
     fields = {
         "registry": registry_name,
         "name": name,
@@ -77,14 +83,26 @@ def metadata_record(registry_name: str, name: str, cls: type[Any]) -> dict[str, 
 
 
 def featurizer_component_metadata(registry_name: str, name: str, cls: type[Any]) -> dict[str, str]:
-    """Like `metadata_record` plus featurizer contract summary."""
+    """Like `metadata_record` plus featurizer contract summary.
+
+    :param registry_name: registry name.
+    :param name: name.
+    :param cls: Registered featurizer class.
+    :returns: Result.
+    """
     meta = metadata_record(registry_name, name, cls)
     meta["output_format"] = _contract_to_str(featurizer_contract(cls))
     return meta
 
 
 def predictor_component_metadata(registry_name: str, name: str, cls: type[Any]) -> dict[str, str]:
-    """Like `metadata_record` plus predictor capability and contract summaries."""
+    """Like `metadata_record` plus predictor capability and contract summaries.
+
+    :param registry_name: registry name.
+    :param name: name.
+    :param cls: Registered predictor class.
+    :returns: Result.
+    """
     meta = metadata_record(registry_name, name, cls)
     cell_line, drug = predictor_contracts(cls)
     meta["input_interface"] = _predictor_input_interface(cls)

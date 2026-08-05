@@ -122,8 +122,7 @@ def test_load_cl_ids_and_tissues_from_csv_missing_tissue_column() -> None:
 
 
 def _write_gene_list(temp_dir: tempfile.TemporaryDirectory, gene_list: Optional[str] = None) -> None:
-    """
-    Write a gene list to a temporary directory.
+    """Write a gene list to a temporary directory.
 
     :param temp_dir: temporary directory
     :param gene_list: either None, landmark_genes, drug_target_genes_all_drugs, or gene_list_paccmann_network_prop
@@ -158,8 +157,7 @@ def _write_gene_list(temp_dir: tempfile.TemporaryDirectory, gene_list: Optional[
     ],
 )
 def test_load_and_select_gene_features(gene_list: Optional[str]) -> None:
-    """
-    Test the loading and reduction of gene features.
+    """Test the loading and reduction of gene features.
 
     :param gene_list: either None, landmark_genes, drug_target_genes_all_drugs, or gene_list_paccmann_network_prop
     """
@@ -215,8 +213,7 @@ def test_load_and_select_gene_features(gene_list: Optional[str]) -> None:
 def test_order_load_and_select_gene_features(
     sample_dataset: DrugResponseDataset, cross_study_dataset: DrugResponseDataset, data_dir
 ) -> None:
-    """
-    Test the order of the features after loading and reducing gene features. it should be maintained.
+    """Test the order of the features after loading and reducing gene features. it should be maintained.
 
     :param sample_dataset: TOYv1 dataset
     :param cross_study_dataset: TOYv2 dataset
@@ -301,8 +298,7 @@ def test_load_drugs_from_fingerprints() -> None:
     ],
 )
 def test_get_multiomics_feature_dataset(gene_list: Optional[str]) -> None:
-    """
-    Test the loading of multiomics features.
+    """Test the loading of multiomics features.
 
     :param gene_list: list of genes to keep
     """

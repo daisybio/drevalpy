@@ -12,15 +12,14 @@ def get_response_transformation(
 ) -> TransformerMixin | None:
     """Return the sklearn response transformer for a pipeline option.
 
-    Args:
-        response_transformation: One of ``"None"``, ``"standard"``, ``"minmax"``,
-            or ``"robust"``.
+    :param response_transformation: One of ``"None"``, ``"standard"``, ``"minmax"``, or ``"robust"``.
 
-    Returns:
-        Fitted-ready sklearn transformer, or ``None`` for no transformation.
+    :returns: Fitted-ready sklearn transformer, or ``None`` for no transformation.
 
-    Raises:
-        ValueError: If *response_transformation* is not recognized.
+    :raises ValueError: If *response_transformation* is not recognized.
+
+    :param response_transformation: response transformation.
+    :returns: Result of the operation.
     """
     if (response_transformation == "None") or (response_transformation is None):
         return None

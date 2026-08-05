@@ -45,12 +45,20 @@ LIST_OPTIONS = ROOT_LIST_OPTIONS | frozenset().union(*SUBCOMMAND_LIST_OPTIONS.va
 
 
 def _is_option_token(token: str) -> bool:
-    """Return whether *token* begins a new CLI option."""
+    """Return whether *token* begins a new CLI option.
+
+    :param token: Candidate CLI token.
+    :returns: ``True`` when *token* starts a new option.
+    """
     return token.startswith("-") and token not in {"-", "--"}
 
 
 def _active_list_options(argv: list[str]) -> frozenset[str]:
-    """Return list-option names valid for the command invoked by *argv*."""
+    """Return list-option names valid for the command invoked by *argv*.
+
+    :param argv: Command-line tokens without the program name.
+    :returns: List-option names for the invoked subcommand, or root options.
+    """
     for token in argv:
         if not _is_option_token(token) and token in KNOWN_SUBCOMMANDS:
             return SUBCOMMAND_LIST_OPTIONS.get(token, frozenset())

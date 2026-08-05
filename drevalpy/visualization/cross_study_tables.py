@@ -14,9 +14,8 @@ class CrossStudyTables:
     def __init__(self, evaluation_metrics: pd.DataFrame, path_data: pathlib.Path):
         """Initialize cross-study evaluation tables.
 
-        Args:
-            evaluation_metrics: Aggregated evaluation metrics dataframe.
-            path_data: Dataset root directory (reserved for extensions).
+        :param evaluation_metrics: Aggregated evaluation metrics dataframe.
+        :param path_data: Dataset root directory (reserved for extensions).
         """
         self.evaluation_metrics = evaluation_metrics
         self.path_data = path_data
@@ -88,9 +87,8 @@ class CrossStudyTables:
     def draw_and_save(self, out_prefix: str, out_suffix: str):
         """Generate and save HTML tables for each cross-study dataset.
 
-        Args:
-            out_prefix: Directory for output HTML files.
-            out_suffix: Suffix appended to each output filename.
+        :param out_prefix: Directory for output HTML files.
+        :param out_suffix: Suffix appended to each output filename.
         """
         os.makedirs(out_prefix, exist_ok=True)
         self.draw()
@@ -102,14 +100,12 @@ class CrossStudyTables:
     def write_to_html(test_mode: str, f: TextIOWrapper, files: list[str], prefix: str) -> TextIOWrapper:
         """Embed cross-study table iframes into the report HTML.
 
-        Args:
-            test_mode: Substring to match filenames (for example ``"LCO"``).
-            f: Open writable HTML file handle.
-            files: Filenames in the html_tables directory.
-            prefix: Path prefix to locate table files.
+        :param test_mode: Substring to match filenames (for example ``"LCO"``).
+        :param f: Open writable HTML file handle.
+        :param files: Filenames in the html_tables directory.
+        :param prefix: Path prefix to locate table files.
 
-        Returns:
-            The same file handle after writing.
+        :returns: The same file handle after writing.
         """
         if prefix:
             prefix = os.path.join(prefix, "html_tables")

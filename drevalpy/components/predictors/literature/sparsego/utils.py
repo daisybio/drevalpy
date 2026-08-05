@@ -19,7 +19,8 @@ def load_mapping(mapping_file: str) -> dict:
     Used to read gene2ind.txt and drug2ind.txt files.
 
     :param mapping_file: Path to the mapping txt file.
-    :return: Dictionary mapping names (e.g. gene symbols) to integer indices.
+
+    :returns: Dictionary mapping names (e.g. gene symbols) to integer indices.
     """
     mapping = {}
     with open(mapping_file) as file_handle:
@@ -32,7 +33,7 @@ def load_mapping(mapping_file: str) -> dict:
 def _read_ontology_edges(
     ontology_file: str, gene2id_mapping: dict
 ) -> tuple[nx.DiGraph, list[list[str]], list[list[str]], set[str], dict[str, set[int]]]:
-    dG = nx.DiGraph()
+    directed_graph = nx.DiGraph()
     terms_pairs: list[list[str]] = []
     genes_terms_pairs: list[list[str]] = []
     gene_set: set[str] = set()
@@ -43,7 +44,7 @@ def _read_ontology_edges(
             line_parts = line.rstrip().split()
 
             if line_parts[2] == "default":
-                dG.add_edge(line_parts[0], line_parts[1])
+                directed_graph.add_edge(line_parts[0], line_parts[1])
                 terms_pairs.append([line_parts[0], line_parts[1]])
                 continue
 
@@ -53,14 +54,14 @@ def _read_ontology_edges(
             term_direct_gene_map.setdefault(line_parts[0], set()).add(gene2id_mapping[line_parts[1]])
             gene_set.add(line_parts[1])
 
-    return dG, terms_pairs, genes_terms_pairs, gene_set, term_direct_gene_map
+    return directed_graph, terms_pairs, genes_terms_pairs, gene_set, term_direct_gene_map
 
 
-def _annotate_term_gene_counts(dG: nx.DiGraph, term_direct_gene_map: dict[str, set[int]]) -> dict[str, int]:
+def _annotate_term_gene_counts(directed_graph: nx.DiGraph, term_direct_gene_map: dict[str, set[int]]) -> dict[str, int]:
     term_size_map: dict[str, int] = {}
-    for term in dG.nodes():
+    for term in directed_graph.nodes():
         term_gene_set: set[int] = set(term_direct_gene_map.get(term, set()))
-        for child in nxadag.descendants(dG, term):
+        for child in nxadag.descendants(directed_graph, term):
             if child in term_direct_gene_map:
                 term_gene_set |= term_direct_gene_map[child]
         if len(term_gene_set) == 0:
@@ -70,19 +71,19 @@ def _annotate_term_gene_counts(dG: nx.DiGraph, term_direct_gene_map: dict[str, s
     return term_size_map
 
 
-def _validate_ontology_topology(dG: nx.DiGraph) -> None:
-    leaves = [n for n in dG.nodes if dG.in_degree(n) == 0]
-    uG = dG.to_undirected()
-    connected_subG_list = list(nxacc.connected_components(uG))
+def _validate_ontology_topology(directed_graph: nx.DiGraph) -> None:
+    leaves = [n for n in directed_graph.nodes if directed_graph.in_degree(n) == 0]
+    undirected_graph = directed_graph.to_undirected()
+    connected_subgraphs = list(nxacc.connected_components(undirected_graph))
 
     print(f"There are {len(leaves)} roots: {leaves[0]}")
-    print(f"There are {len(dG.nodes())} terms")
-    print(f"There are {len(connected_subG_list)} connected components")
+    print(f"There are {len(directed_graph.nodes())} terms")
+    print(f"There are {len(connected_subgraphs)} connected components")
 
     if len(leaves) > 1:
         print("There are more than 1 root of ontology. Please use only one root.")
         sys.exit(1)
-    if len(connected_subG_list) > 1:
+    if len(connected_subgraphs) > 1:
         print("There are more than connected components. Please connect them.")
         sys.exit(1)
 
@@ -97,9 +98,10 @@ def load_ontology(ontology_file: str, gene2id_mapping: dict) -> tuple:
 
     :param ontology_file: Path to the ontology file (e.g. sparseGO_ont.txt).
     :param gene2id_mapping: Dictionary mapping gene names to integer IDs.
-    :return: Tuple of (directed graph, term-term pairs array, gene-term pairs array).
+
+    :returns: Tuple of (directed graph, term-term pairs array, gene-term pairs array).
     """
-    dG, terms_pairs, genes_terms_pairs, gene_set, term_direct_gene_map = _read_ontology_edges(
+    directed_graph, terms_pairs, genes_terms_pairs, gene_set, term_direct_gene_map = _read_ontology_edges(
         ontology_file, gene2id_mapping
     )
 
@@ -108,23 +110,29 @@ def load_ontology(ontology_file: str, gene2id_mapping: dict) -> tuple:
 
     print(f"There are {len(gene_set)} genes")
 
-    _annotate_term_gene_counts(dG, term_direct_gene_map)
-    _validate_ontology_topology(dG)
+    _annotate_term_gene_counts(directed_graph, term_direct_gene_map)
+    _validate_ontology_topology(directed_graph)
 
-    return dG, terms_pairs_arr, genes_terms_pairs_arr
+    return directed_graph, terms_pairs_arr, genes_terms_pairs_arr
 
 
-def sort_pairs(genes_terms_pairs: np.ndarray, terms_pairs: np.ndarray, dG: nx.DiGraph, gene2id_mapping: dict) -> tuple:
+def sort_pairs(
+    genes_terms_pairs: np.ndarray,
+    terms_pairs: np.ndarray,
+    directed_graph: nx.DiGraph,
+    gene2id_mapping: dict,
+) -> tuple:
     """Concatenate and sort all pairs so the parent term is always in the first column.
 
     :param genes_terms_pairs: Array of (term, gene) pairs.
     :param terms_pairs: Array of (parent_term, child_term) pairs.
-    :param dG: Directed graph of GO terms.
+    :param directed_graph: Directed graph of GO terms.
     :param gene2id_mapping: Dictionary mapping gene names to integer IDs.
-    :return: Tuple of (sorted_pairs, level_list, level_number).
+
+    :returns: Tuple of (sorted_pairs, level_list, level_number).
     """
     all_pairs = np.concatenate((genes_terms_pairs, terms_pairs))
-    graph = dG.copy()
+    graph = directed_graph.copy()
 
     level_list = []
     level_list.append(list(gene2id_mapping.keys()))  # genes are level 0
@@ -162,7 +170,8 @@ def pairs_in_layers(sorted_pairs: np.ndarray, level_list: list, level_number: di
     :param sorted_pairs: Array of (parent, child) pairs sorted by level.
     :param level_list: List of term sets at each level.
     :param level_number: Dictionary mapping each term/gene to its level index.
-    :return: List of numpy arrays, one per layer, each containing (parent, child) pairs.
+
+    :returns: List of numpy arrays, one per layer, each containing (parent, child) pairs.
     """
     total_layers = len(level_list) - 1
     layer_connections: list[list | np.ndarray] = [[] for _ in range(total_layers)]
@@ -191,7 +200,8 @@ def create_index(array: np.ndarray) -> dict:
     """Create a dictionary mapping unique elements to sequential integer indices.
 
     :param array: Array of elements (may contain duplicates).
-    :return: Dictionary mapping each unique element to an integer index.
+
+    :returns: Dictionary mapping each unique element to an integer index.
     """
     unique_array = pd.unique(array)
     return {element: i for i, element in enumerate(unique_array)}

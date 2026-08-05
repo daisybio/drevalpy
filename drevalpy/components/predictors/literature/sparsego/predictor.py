@@ -49,16 +49,28 @@ class SparseGOPredictor(BlockPredictor):
     supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset({PredictionMode.REGRESSION})
 
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
+        """Initialize the predictor.
+
+        :param hyperparameters: Optional overrides for algorithm defaults.
+        """
         super().__init__(hyperparameters)
         self._algorithm: SparseGOModel | None = None
         self._engine_preload_state: dict[str, Any] = {}
 
     @classmethod
     def get_default_hyperparameters(cls) -> dict[str, object]:
+        """Return default hyperparameters from the algorithm class.
+
+        :returns: Default hyperparameter mapping.
+        """
         return dict(SparseGOModel.get_default_hyperparameters())
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
+        """Return the tunable hyperparameter space when exposed by the algorithm.
+
+        :returns: Ray Tune-style hyperparameter specs.
+        """
         space = getattr(SparseGOModel, "get_hyperparameter_space", None)
         if callable(space):
             return dict(space())
@@ -85,6 +97,10 @@ class SparseGOPredictor(BlockPredictor):
         )
 
     def fit(self, batch: ModelInputBatch) -> None:
+        """Train the underlying algorithm on featurized pairs.
+
+        :param batch: Training batch with responses and feature blocks.
+        """
         cell_lines, drugs = self._materialized_inputs(batch)
         self._algorithm = train_fitted_algorithm(
             SparseGOModel,
@@ -96,13 +112,27 @@ class SparseGOPredictor(BlockPredictor):
         )
 
     def predict(self, batch: ModelInputBatch) -> np.ndarray:
+        """Predict responses for pairs in the batch.
+
+        :param batch: Featurized pairs to score.
+
+        :returns: One predicted response per pair.
+        """
         cell_lines, drugs = self._materialized_inputs(batch)
         return predict_with_algorithm(self._algorithm, batch, cell_lines, drugs)
 
     def is_fitted(self) -> bool:
+        """Report whether a trained algorithm is loaded.
+
+        :returns: ``True`` when the algorithm has been fit or restored.
+        """
         return self._algorithm is not None
 
     def get_state(self) -> dict[str, object]:
+        """Serialize fitted predictor state.
+
+        :returns: Mapping with a binary ``payload`` blob when fitted, else empty.
+        """
         if self._algorithm is None:
             return {}
         payload = export_state(self._algorithm)
@@ -110,6 +140,12 @@ class SparseGOPredictor(BlockPredictor):
         return {"payload": save_object_mapping(payload)}
 
     def set_state(self, state: dict[str, object]) -> None:
+        """Restore a predictor from ``get_state`` output.
+
+        :param state: Serialized state containing a ``payload`` byte blob.
+
+        :raises PredictorStateError: If the payload is missing or invalid.
+        """
         blob = state.get("payload")
         if not isinstance(blob, (bytes, bytearray)):
             msg = f"{self.__class__.__name__} state requires a payload byte blob"

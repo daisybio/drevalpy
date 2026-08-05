@@ -1,5 +1,4 @@
-"""
-Contains all function required for CurveCurator fitting.
+"""Contains all function required for CurveCurator fitting.
 
 CurveCurator publication:
 Bayer, F.P., Gander, M., Kuster, B. et al. CurveCurator: a recalibrated F-statistic to assess,
@@ -124,27 +123,42 @@ def _prepare_toml(
     return config
 
 
-def _exec_curvecurator(output_dir: Path, batched: bool = True):
+def _validated_curvecurator_config(output_dir: Path, *, batched: bool) -> Path:
+    """Return the CurveCurator config path after validating local inputs.
+
+    :param output_dir: Directory containing CurveCurator config files.
+    :param batched: Whether batch mode uses ``configlist.txt`` instead of ``config.toml``.
+    :returns: Resolved path to the validated config file.
+    :raises FileNotFoundError: If the output directory or config file is missing.
     """
-    Execute CurveCurator in batch mode.
+    resolved = output_dir.expanduser().resolve()
+    if not resolved.is_dir():
+        msg = f"CurveCurator output directory not found: {resolved}"
+        raise FileNotFoundError(msg)
+    config_path = resolved / ("configlist.txt" if batched else "config.toml")
+    if not config_path.is_file():
+        msg = f"CurveCurator config not found: {config_path}"
+        raise FileNotFoundError(msg)
+    return config_path
+
+
+def _exec_curvecurator(output_dir: Path, batched: bool = True):
+    """Execute CurveCurator in batch mode.
 
     This function spawns a subprocess that runs CurveCurator for all config.toml files that
     are listed in a file "configlist.txt" in the provided output directory.
 
-    :param output_dir: The directory containing einter configlist.txt as well as subfolders for
-        all the paths listed in configlist.txt that function as input and output directories for
-        batched CurveCurator execution, or the directory containig a single config.toml and
-        corresponding viability input.
-    :param batched: If True, run CurveCurator in batched mode (default), iterating over a list
-        of configs spefified in <output_dir>/configlist.txt and consecutively executing each
-        CurveCurator run. If False, run a single CurveCurator run (this can be used for
-        parallelisation).
+    :param output_dir: Directory containing ``configlist.txt`` or a single ``config.toml`` for
+        CurveCurator execution.
+    :param batched: When ``True``, iterate configs listed in ``configlist.txt``; otherwise run one
+        CurveCurator job in ``output_dir``.
     :raises RuntimeError: If CurveCurator fails to execute, the error message is printed to stdout and stderr.
     """
+    config_path = _validated_curvecurator_config(output_dir, batched=batched)
     if batched:
-        command = ["CurveCurator", str(output_dir / "configlist.txt"), "--mad", "--batch"]
+        command = ["CurveCurator", str(config_path), "--mad", "--batch"]
     else:
-        command = ["CurveCurator", str(output_dir / "config.toml"), "--mad"]
+        command = ["CurveCurator", str(config_path), "--mad"]
     process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     stdout, stderr = process.communicate()
 
@@ -158,8 +172,7 @@ def _exec_curvecurator(output_dir: Path, batched: bool = True):
 
 
 def _calc_ic50(model_params_df: pd.DataFrame):
-    """
-    Calculate the IC50 in M from a fitted model.
+    """Calculate the IC50 in M from a fitted model.
 
     This function expects a dataframe that was processed in the postprocess function, containing
     the columns "Front", "Back", "Slope", "pEC50". It calculates the IC50 for all the models in the
@@ -185,8 +198,7 @@ def _calc_ic50(model_params_df: pd.DataFrame):
 
 @pipeline_function
 def preprocess(input_file: str, output_dir: str, dataset_name: str, cores: int, normalize: bool = False):
-    """
-    Preprocess raw viability data and create required input files for CurveCurator.
+    """Preprocess raw viability data and create required input files for CurveCurator.
 
     This function takes an input file containing raw viability in long format. The required columns
     are "dose", "response", "sample", and "drug", with an optional "replicate" column.
@@ -197,13 +209,10 @@ def preprocess(input_file: str, output_dir: str, dataset_name: str, cores: int, 
     All responses must be normalized against the control already without the response for the control.
 
     :param input_file: Path to csv file containing the raw viability data
-    :param output_dir: Path to store all the files to, including the preprocessed data, the config.toml
-        for CurveCurator, CurveCurator's output files, and the postprocessed data
+    :param output_dir: Output directory for CurveCurator inputs, configs, and fitted curves
     :param dataset_name: Name of the dataset
-    :param cores: The number of cores to be used for fitting the curves using CurveCurator.
-        This parameter is written into the config.toml, but it is min of the number of curves to fit
-        and the number given (min(n_curves, cores))
-    :param normalize: Whether to normalize the response values to [0, 1] for curvecurator. Default = False.
+    :param cores: CurveCurator core count written to ``config.toml`` (capped by curve count)
+    :param normalize: Whether to normalize responses to ``[0, 1]`` before fitting
     :raises ValueError: If required columns are not found in the provided input file.
     """
     input_path = Path(input_file)
@@ -266,8 +275,7 @@ def preprocess(input_file: str, output_dir: str, dataset_name: str, cores: int, 
 
 @pipeline_function
 def postprocess(output_folder: str, dataset_name: str):
-    """
-    Postprocess CurveCurator output files.
+    """Postprocess CurveCurator output files.
 
     This function reads all curves.tsv files created by CurveCurator, which contain the
     fitted curve parameters, postprocesses them to be used by drevalpy and combines everything
@@ -317,21 +325,17 @@ def postprocess(output_folder: str, dataset_name: str):
 
 
 def fit_curves(input_file: str, output_dir: str, dataset_name: str, cores: int, normalize: bool = False):
-    """
-    Fit curves for provided raw viability data.
+    """Fit curves for provided raw viability data.
 
     This functions reads viability data in a predefined input format, preprocesses the data
     to be readable by CurveCurator, fits curves to the data using CurveCurator, and postprocesses
     the fitted data to a format required by drevalpy.
 
     :param input_file: Path to the file containing the raw viability data
-    :param output_dir: Path to store all the files to, including the preprocessed data, the config.toml
-        for CurveCurator, CurveCurator's output files, and the postprocessed data
-    :param dataset_name: The name of the dataset, will be used to prepend the postprocessed <dataset_name>.csv file
-    :param cores: The number of cores to be used for fitting the curves using CurveCurator.
-        This parameter is written into the config.toml, but it is min of the number of curves to fit
-        and the number given (min(n_curves, cores))
-    :param normalize: Whether to normalize the response values to [0, 1] for curvecurator. Default = False.
+    :param output_dir: Output directory for CurveCurator inputs, configs, and fitted curves
+    :param dataset_name: Dataset name used for the postprocessed CSV prefix
+    :param cores: CurveCurator core count written to ``config.toml`` (capped by curve count)
+    :param normalize: Whether to normalize responses to ``[0, 1]`` before fitting
     """
     preprocess(
         input_file=input_file, output_dir=output_dir, dataset_name=dataset_name, cores=cores, normalize=normalize

@@ -20,7 +20,17 @@ def materialize_block_inputs(
     requires_drug_featurizer: bool,
     validate_drug_graphs: bool = False,
 ) -> tuple[FeatureDataset, FeatureDataset | None]:
-    """Build cell-line and optional drug FeatureDatasets from batch blocks."""
+    """Build cell-line and optional drug FeatureDatasets from batch blocks.
+
+    :param predictor: Predictor requesting the materialized views.
+    :param batch: Structured input batch with entity ids and feature blocks.
+    :param required_cell_line_blocks: Cell-line block names that must be present.
+    :param required_drug_blocks: Drug block names that must be present when drugs are required.
+    :param requires_drug_featurizer: Whether drug features should be materialized.
+    :param validate_drug_graphs: When ``True``, validate graph blocks before returning.
+
+    :returns: Cell-line dataset and optional drug dataset.
+    """
     cell_lines = _dataset_from_blocks(
         predictor,
         batch.cell_line_entity_ids,
@@ -62,7 +72,13 @@ def _dataset_from_blocks(
 
 
 def _validate_drug_graphs(predictor: object, blocks: dict[str, FeatureBlock]) -> None:
-    """Reject malformed graph blocks before a graph predictor sees them."""
+    """Reject malformed graph blocks before a graph predictor sees them.
+
+    :param predictor: Predictor used only for error-message context.
+    :param blocks: Drug-side feature blocks from the batch.
+
+    :raises ValueError: If ``drug_graph`` is present but malformed.
+    """
     block = blocks.get("drug_graph")
     if block is None:
         return

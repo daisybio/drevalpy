@@ -32,15 +32,14 @@ def generate_reports_for_test_mode(
 ) -> None:
     """Generate plots and HTML for a single test mode.
 
-    Args:
-        test_mode: Test mode to render (for example ``"LCO"``).
-        evaluation_results: Aggregated evaluation results.
-        evaluation_results_per_drug: Per-drug evaluation results.
-        evaluation_results_per_cell_line: Per-cell-line evaluation results.
-        true_vs_pred: True versus predicted values.
-        run_id: Unique run identifier.
-        path_data: Path to the dataset directory.
-        result_path: Path to the results directory.
+    :param test_mode: Test mode to render (for example ``"LCO"``).
+    :param evaluation_results: Aggregated evaluation results.
+    :param evaluation_results_per_drug: Per-drug evaluation results.
+    :param evaluation_results_per_cell_line: Per-cell-line evaluation results.
+    :param true_vs_pred: True versus predicted values.
+    :param run_id: Unique run identifier.
+    :param path_data: Path to the dataset directory.
+    :param result_path: Path to the results directory.
     """
     path_data = pathlib.Path(path_data)
     result_path = pathlib.Path(result_path)
@@ -106,15 +105,14 @@ def generate_reports_for_all_test_modes(
 ) -> None:
     """Generate reports for all listed test modes.
 
-    Args:
-        test_modes: Test modes to process.
-        evaluation_results: Aggregated evaluation results.
-        evaluation_results_per_drug: Per-drug evaluation results.
-        evaluation_results_per_cell_line: Per-cell-line evaluation results.
-        true_vs_pred: True versus predicted values.
-        run_id: Unique run identifier.
-        path_data: Path to the dataset directory.
-        result_path: Path to the results directory.
+    :param test_modes: Test modes to process.
+    :param evaluation_results: Aggregated evaluation results.
+    :param evaluation_results_per_drug: Per-drug evaluation results.
+    :param evaluation_results_per_cell_line: Per-cell-line evaluation results.
+    :param true_vs_pred: True versus predicted values.
+    :param run_id: Unique run identifier.
+    :param path_data: Path to the dataset directory.
+    :param result_path: Path to the results directory.
     """
     for test_mode in test_modes:
         generate_reports_for_test_mode(
@@ -140,14 +138,12 @@ def create_report(
     Parses experiment outputs, prepares aggregated tables, writes CSV summaries,
     and generates HTML plots for each test mode.
 
-    Args:
-        run_id: Unique run identifier for locating results.
-        dataset: Dataset name used to filter parsed results.
-        path_data: Path to the dataset directory.
-        result_path: Path to the experiment results directory.
+    :param run_id: Unique run identifier for locating results.
+    :param dataset: Dataset name used to filter parsed results.
+    :param path_data: Path to the dataset directory.
+    :param result_path: Path to the experiment results directory.
 
-    Raises:
-        AssertionError: If ``result_path/run_id`` does not exist.
+    :raises AssertionError: If ``result_path/run_id`` does not exist.
     """
     path_data = pathlib.Path(path_data).resolve()
     result_path = pathlib.Path(result_path).resolve()
@@ -209,11 +205,10 @@ def run_report(
 ) -> None:
     """Generate HTML report from a standalone experiment run.
 
-    Args:
-        run_id: Unique run identifier for locating results.
-        dataset: Dataset name used to filter parsed results.
-        path_data: Path to the dataset directory.
-        result_path: Path to the experiment results directory.
+    :param run_id: Unique run identifier for locating results.
+    :param dataset: Dataset name used to filter parsed results.
+    :param path_data: Path to the dataset directory.
+    :param result_path: Path to the experiment results directory.
     """
     create_report(run_id, dataset, path_data, result_path)
 
@@ -229,13 +224,12 @@ def run_pipeline_report(
 ) -> None:
     """Generate HTML report from pipeline evaluation CSVs.
 
-    Args:
-        test_modes: Test modes to include in the report.
-        eval_results: Path to aggregated evaluation results CSV.
-        eval_results_per_drug: Path to per-drug CSV, or ``"NO_FILE"``.
-        eval_results_per_cl: Path to per-cell-line CSV, or ``"NO_FILE"``.
-        true_vs_predicted: Path to true-versus-predicted CSV.
-        path_data: Path to the dataset directory.
+    :param test_modes: Test modes to include in the report.
+    :param eval_results: Path to aggregated evaluation results CSV.
+    :param eval_results_per_drug: Path to per-drug CSV, or ``"NO_FILE"``.
+    :param eval_results_per_cl: Path to per-cell-line CSV, or ``"NO_FILE"``.
+    :param true_vs_predicted: Path to true-versus-predicted CSV.
+    :param path_data: Path to the dataset directory.
     """
     result_path = pathlib.Path(".")
     outdir_name = "report"

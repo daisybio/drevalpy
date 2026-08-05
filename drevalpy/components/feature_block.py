@@ -48,13 +48,11 @@ def numeric_feature_block(
 ) -> FeatureBlock:
     """Build a dense numeric matrix block.
 
-    Args:
-        values: Entity-aligned 2D float array.
-        feature_names: Optional column names for the matrix.
-        metadata: Optional per-block metadata mapping.
+    :param values: Entity-aligned 2D float array.
+    :param feature_names: Optional column names for the matrix.
+    :param metadata: Optional per-block metadata mapping.
 
-    Returns:
-        ``FeatureBlock`` with ``FeatureFormat.NUMERIC_MATRIX``.
+    :returns: ``FeatureBlock`` with ``FeatureFormat.NUMERIC_MATRIX``.
     """
     return FeatureBlock(
         values=values,
@@ -67,11 +65,9 @@ def numeric_feature_block(
 def graph_feature_block(values: np.ndarray) -> FeatureBlock:
     """Build a graph payload block without dtype coercion.
 
-    Args:
-        values: Object-dtype array of graph payloads, one row per entity.
+    :param values: Object-dtype array of graph payloads, one row per entity.
 
-    Returns:
-        ``FeatureBlock`` with ``FeatureFormat.GRAPH``.
+    :returns: ``FeatureBlock`` with ``FeatureFormat.GRAPH``.
     """
     return FeatureBlock(values=values, format=FeatureFormat.GRAPH)
 
@@ -79,11 +75,9 @@ def graph_feature_block(values: np.ndarray) -> FeatureBlock:
 def ragged_feature_block(values: np.ndarray) -> FeatureBlock:
     """Build a ragged sequence payload block without dtype coercion.
 
-    Args:
-        values: Object-dtype array of variable-length sequence payloads.
+    :param values: Object-dtype array of variable-length sequence payloads.
 
-    Returns:
-        ``FeatureBlock`` with ``FeatureFormat.RAGGED_SEQUENCE``.
+    :returns: ``FeatureBlock`` with ``FeatureFormat.RAGGED_SEQUENCE``.
     """
     return FeatureBlock(values=values, format=FeatureFormat.RAGGED_SEQUENCE)
 
@@ -91,11 +85,9 @@ def ragged_feature_block(values: np.ndarray) -> FeatureBlock:
 def metadata_feature_block(values: np.ndarray) -> FeatureBlock:
     """Build a global metadata block that is not indexed per entity.
 
-    Args:
-        values: Payload array stored once for the whole batch.
+    :param values: Payload array stored once for the whole batch.
 
-    Returns:
-        ``FeatureBlock`` marked with ``entity_aligned=False``.
+    :returns: ``FeatureBlock`` marked with ``entity_aligned=False``.
     """
     return FeatureBlock(
         values=values,
@@ -109,14 +101,11 @@ def merge_feature_blocks(
 ) -> dict[str, FeatureBlock]:
     """Merge child block mappings, rejecting duplicate emitted names.
 
-    Args:
-        *block_maps: Block mappings to combine in order.
+    :param block_maps: One or more block mappings to combine in order.
 
-    Returns:
-        Single mapping containing every block from *block_maps*.
+    :returns: Single mapping containing every block from ``block_maps``.
 
-    Raises:
-        ValueError: If the same block name appears in more than one mapping.
+    :raises ValueError: If the same block name appears in more than one mapping.
     """
     merged: dict[str, FeatureBlock] = {}
     for block_map in block_maps:

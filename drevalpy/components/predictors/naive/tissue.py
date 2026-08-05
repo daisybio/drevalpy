@@ -34,11 +34,20 @@ class NaiveTissueMeanPredictor(BlockPredictor):
     required_cell_line_blocks: ClassVar[tuple[str, ...]] = ("tissue",)
 
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
+        """Initialize instance state.
+
+        :param hyperparameters: hyperparameters.
+        """
         super().__init__(hyperparameters)
         self._dataset_mean: float | None = None
         self._effects: np.ndarray | None = None
 
     def fit(self, batch: ModelInputBatch) -> None:
+        """Fit on training data.
+
+        :param batch: batch.
+        :raises ValueError: Raised on invalid input.
+        """
         if batch.response is None:
             msg = "Naive predictors require response values during fit"
             raise ValueError(msg)
@@ -51,6 +60,13 @@ class NaiveTissueMeanPredictor(BlockPredictor):
         self._effects = additive_effects(design, y, baseline=self._dataset_mean)
 
     def predict(self, batch: ModelInputBatch) -> np.ndarray:
+        """Predict responses for each pair in the batch.
+
+        :param batch: batch.
+        :returns: Result.
+        :raises RuntimeError: Raised on invalid input.
+        :raises ValueError: Raised on invalid input.
+        """
         if self._dataset_mean is None or self._effects is None:
             msg = "Call fit before predict"
             raise RuntimeError(msg)
@@ -61,6 +77,10 @@ class NaiveTissueMeanPredictor(BlockPredictor):
         return predict_with_effects(design, self._effects, baseline=self._dataset_mean)
 
     def get_state(self) -> dict[str, object]:
+        """Return serializable fitted state.
+
+        :returns: Result.
+        """
         if self._dataset_mean is None or self._effects is None:
             return {}
         return {
@@ -69,6 +89,10 @@ class NaiveTissueMeanPredictor(BlockPredictor):
         }
 
     def set_state(self, state: dict[str, object]) -> None:
+        """Restore state from a prior ``get_state`` mapping.
+
+        :param state: state.
+        """
         mean = state_float(state, "dataset_mean")
         if mean is not None:
             self._dataset_mean = mean
@@ -77,6 +101,10 @@ class NaiveTissueMeanPredictor(BlockPredictor):
             self._effects = effects
 
     def is_fitted(self) -> bool:
+        """Return whether the component has been fit.
+
+        :returns: Result.
+        """
         return self._dataset_mean is not None and self._effects is not None
 
 
@@ -95,11 +123,20 @@ class NaiveTissueDrugMeanPredictor(BlockPredictor):
     required_drug_blocks: ClassVar[tuple[str, ...]] = ("identity",)
 
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
+        """Initialize instance state.
+
+        :param hyperparameters: hyperparameters.
+        """
         super().__init__(hyperparameters)
         self._dataset_mean: float | None = None
         self._effects: np.ndarray | None = None
 
     def fit(self, batch: ModelInputBatch) -> None:
+        """Fit on training data.
+
+        :param batch: batch.
+        :raises ValueError: Raised on invalid input.
+        """
         if batch.response is None:
             msg = "Naive predictors require response values during fit"
             raise ValueError(msg)
@@ -121,6 +158,13 @@ class NaiveTissueDrugMeanPredictor(BlockPredictor):
         self._effects = effects
 
     def predict(self, batch: ModelInputBatch) -> np.ndarray:
+        """Predict responses for each pair in the batch.
+
+        :param batch: batch.
+        :returns: Result.
+        :raises RuntimeError: Raised on invalid input.
+        :raises ValueError: Raised on invalid input.
+        """
         if self._dataset_mean is None or self._effects is None:
             msg = "Call fit before predict"
             raise RuntimeError(msg)
@@ -134,6 +178,10 @@ class NaiveTissueDrugMeanPredictor(BlockPredictor):
         return self._dataset_mean + np.einsum("ni,ij,nj->n", tissue64, self._effects, drugs64)
 
     def get_state(self) -> dict[str, object]:
+        """Return serializable fitted state.
+
+        :returns: Result.
+        """
         if self._dataset_mean is None or self._effects is None:
             return {}
         return {
@@ -142,6 +190,10 @@ class NaiveTissueDrugMeanPredictor(BlockPredictor):
         }
 
     def set_state(self, state: dict[str, object]) -> None:
+        """Restore state from a prior ``get_state`` mapping.
+
+        :param state: state.
+        """
         mean = state_float(state, "dataset_mean")
         if mean is not None:
             self._dataset_mean = mean
@@ -150,4 +202,8 @@ class NaiveTissueDrugMeanPredictor(BlockPredictor):
             self._effects = effects
 
     def is_fitted(self) -> bool:
+        """Return whether the component has been fit.
+
+        :returns: Result.
+        """
         return self._dataset_mean is not None and self._effects is not None

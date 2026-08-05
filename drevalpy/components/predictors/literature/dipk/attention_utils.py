@@ -8,13 +8,13 @@ class MultiHeadAttentionLayer(nn.Module):
     """Custom multi-head attention layer for the DIPK model."""
 
     def __init__(self, hid_dim: int, n_heads: int, dropout: float, device: str | torch.device | int | None):
-        """
-        Initialize the multi-head attention layer.
+        """Initialize the multi-head attention layer.
 
         :param hid_dim: dimension of hidden layer
         :param n_heads: number of heads
         :param dropout: dropout rate
         :param device: which device to use, e.g. "cuda" or "cpu"
+
         :raises ValueError: if hidden dimension is not divisible by the number of heads
         """
         super().__init__()
@@ -41,14 +41,14 @@ class MultiHeadAttentionLayer(nn.Module):
     def forward(
         self, query: torch.Tensor, key: torch.Tensor, value: torch.Tensor, mask: torch.Tensor | None = None
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        """
-        Forward pass of the multi-head attention layer.
+        """Forward pass of the multi-head attention layer.
 
         :param query: query tensor
         :param key: key tensor
         :param value: value tensor
         :param mask: mask tensor
-        :returns: output tensor and attention tensor
+
+        :returns: returns: output tensor and attention tensor
         """
         batch_size = query.size(0)
 

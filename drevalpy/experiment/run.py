@@ -9,11 +9,6 @@ from typing import Any
 
 from sklearn.base import TransformerMixin, clone
 
-try:
-    import wandb
-except ImportError:
-    wandb = None  # type: ignore[assignment]
-
 from drevalpy.components.tuning.config import build_experiment_hpo_config
 
 from ..datasets.dataset import DrugResponseDataset
@@ -43,6 +38,14 @@ from .robustness import robustness_test_impl
 from .seed import seed_everything
 from .splits import prepare_response_splits_impl
 from .training import train_and_predict_impl
+
+wandb: Any | None
+try:
+    import wandb as _wandb_module
+
+    wandb = _wandb_module
+except ImportError:
+    wandb = None
 
 
 def _normalize_baselines(
@@ -535,7 +538,38 @@ def drug_response_experiment_impl(
     hpo_random_state: int = 42,
     hpo_resources_per_trial: dict[str, float] | None = None,
 ) -> None:
-    """Run the drug response prediction experiment and save results to disk."""
+    """Run the drug response prediction experiment and save results to disk.
+
+    Trains each model across CV folds (with optional HPO), writes predictions
+    and hyperparameters under ``path_out``, and optionally runs randomization,
+    robustness, cross-study, and final-model workflows.
+
+    :param models: ``DRPModel`` subclasses to evaluate (from ``construct_model``).
+    :param response_data: Training/validation response table with CV splits attached.
+    :param baselines: Optional baseline models; ``NaiveMeanEffectsPredictor`` is added by default when omitted.
+    :param response_transformation: Optional sklearn transformer applied to responses.
+    :param run_id: Subfolder name under ``path_out`` for this run.
+    :param test_mode: Split mode (``"LPO"``, ``"LCO"``, ``"LDO"``, or custom).
+    :param hpam_optimization_metric: Metric optimized during HPO (for example ``"RMSE"``).
+    :param n_cv_splits: Number of cross-validation folds.
+    :param multiprocessing: Deprecated; routes through Ray Tune when ``True``.
+    :param randomization_mode: Feature views to permute for randomization tests.
+    :param randomization_type: Permutation strategy for randomization tests.
+    :param cross_study_datasets: Additional datasets for cross-study evaluation.
+    :param n_trials_robustness: Number of robustness-test resampling trials.
+    :param path_out: Root directory for experiment outputs.
+    :param overwrite: Recompute splits and predictions even when artifacts exist.
+    :param path_data: Root directory for feature tables.
+    :param model_checkpoint_dir: Directory for per-fold model checkpoints.
+    :param hyperparameter_tuning: Whether to run HPO before final fold training.
+    :param final_model_on_full_data: Train a production model on all data after CV.
+    :param wandb_project: Optional Weights & Biases project name.
+    :param custom_splitter: External split creator or path to split manifest.
+    :param custom_split_name: Label for custom splits in output paths.
+    :param hpo_num_samples: Number of HPO trials per fold.
+    :param hpo_random_state: Random seed for HPO search.
+    :param hpo_resources_per_trial: Optional Ray resource limits per HPO trial.
+    """
     seed_everything(42)
     baselines = _normalize_baselines(baselines)
     cross_study_datasets = cross_study_datasets or []

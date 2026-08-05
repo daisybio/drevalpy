@@ -1,18 +1,10 @@
-# flake8: noqa: RST201, RST203, RST301, RST401
+"""Drug-response and feature dataset containers.
 
-"""
-Defines the different dataset classes.
-
-DrugResponseDataset for response values and FeatureDataset for feature values.
-They both inherit from the abstract class Dataset.
-The DrugResponseDataset class is used
-to store drug response values per cell line and drug.
-The FeatureDataset class is used to store
-feature values per cell line or drug.
-The FeatureDataset class can also store meta information
-for the feature views. The DrugResponseDataset class
-can be split into training, validation and test sets for cross-validation.
-The FeatureDataset class can be used to randomize feature vectors.
+``DrugResponseDataset`` stores response values, identifiers, and optional
+tissue labels for cell-line and drug pairs. ``FeatureDataset`` stores feature
+vectors per cell line or drug, including optional per-view metadata.
+``DrugResponseDataset`` supports built-in and external cross-validation splits;
+``FeatureDataset`` supports feature randomization helpers.
 """
 
 import copy
@@ -53,19 +45,15 @@ class DrugResponseDataset:
         predictions: np.ndarray | None = None,
         dataset_name: str = "unnamed",
     ) -> None:
-        """
-        Initialize a drug response dataset.
+        """Initialize a drug response dataset.
 
-        Args:
-            response: Drug response values per cell line and drug pair.
-            cell_line_ids: Cell-line identifier for each row.
-            drug_ids: Drug identifier for each row.
-            tissues: Optional tissue labels for leave-tissue-out CV.
-            predictions: Optional predicted response values.
-            dataset_name: Human-readable dataset label.
-
-        Raises:
-            AssertionError: If array lengths are inconsistent.
+        :param response: Drug response values per cell line and drug pair.
+        :param cell_line_ids: Cell-line identifier for each row.
+        :param drug_ids: Drug identifier for each row.
+        :param tissues: Optional tissue labels for leave-tissue-out CV.
+        :param predictions: Optional predicted response values.
+        :param dataset_name: Human-readable dataset label.
+        :raises AssertionError: If array lengths are inconsistent.
         """
         super().__init__()
         if len(response) != len(cell_line_ids):
@@ -99,17 +87,12 @@ class DrugResponseDataset:
         Required columns: ``cell_line_name``, ``pubchem_id``, and the *measure*
         column. Optional columns: ``predictions``, tissue column.
 
-        Args:
-            input_file: Path to the CSV file.
-            dataset_name: Label stored on the returned dataset.
-            measure: Response column name to load.
-            tissue_column: Tissue column name, or ``None`` to skip tissues.
-
-        Returns:
-            ``DrugResponseDataset`` built from the CSV rows.
-
-        Raises:
-            ValueError: If required columns are missing.
+        :param input_file: Path to the CSV file.
+        :param dataset_name: Label stored on the returned dataset.
+        :param measure: Response column name to load.
+        :param tissue_column: Tissue column name, or ``None`` to skip tissues.
+        :returns: ``DrugResponseDataset`` built from the CSV rows.
+        :raises ValueError: If required columns are missing.
         """
         data = pd.read_csv(input_file, dtype={DRUG_IDENTIFIER: str, CELL_LINE_IDENTIFIER: str}, low_memory=False)
 
@@ -136,8 +119,7 @@ class DrugResponseDataset:
 
     @property
     def response(self) -> np.ndarray:
-        """
-        Returns the response values.
+        """Returns the response values.
 
         The returned array aliases internal storage; do not mutate it in place.
         Prefer non-mutating helpers (e.g. ``transformed``) or ``copy()`` at
@@ -149,8 +131,7 @@ class DrugResponseDataset:
 
     @property
     def cell_line_ids(self) -> np.ndarray:
-        """
-        Returns the cell_line_ids.
+        """Returns the cell_line_ids.
 
         The returned array aliases internal storage; do not mutate it in place.
 
@@ -160,8 +141,7 @@ class DrugResponseDataset:
 
     @property
     def drug_ids(self) -> np.ndarray:
-        """
-        Returns the drug_ids.
+        """Returns the drug_ids.
 
         The returned array aliases internal storage; do not mutate it in place.
 
@@ -171,8 +151,7 @@ class DrugResponseDataset:
 
     @property
     def predictions(self) -> np.ndarray | None:
-        """
-        Returns the predictions if they exist.
+        """Returns the predictions if they exist.
 
         The returned array aliases internal storage; do not mutate it in place.
 
@@ -182,8 +161,7 @@ class DrugResponseDataset:
 
     @property
     def tissue(self) -> np.ndarray | None:
-        """
-        Returns the tissue types if they exist.
+        """Returns the tissue types if they exist.
 
         The returned array aliases internal storage; do not mutate it in place.
 
@@ -193,8 +171,7 @@ class DrugResponseDataset:
 
     @property
     def cv_splits(self) -> list[dict[str, "DrugResponseDataset"]]:
-        """
-        Returns the cv_splits.
+        """Returns the cv_splits.
 
         The returned list aliases internal storage; do not mutate it in place.
 
@@ -204,8 +181,7 @@ class DrugResponseDataset:
 
     @property
     def dataset_name(self) -> str:
-        """
-        Returns the name of this DrugResponseDataset.
+        """Returns the name of this DrugResponseDataset.
 
         Used in the pipeline.
 
@@ -217,16 +193,14 @@ class DrugResponseDataset:
     __hash__ = None  # type: ignore[assignment]
 
     def __len__(self) -> int:
-        """
-        Overwrites the default length method.
+        """Overwrites the default length method.
 
         :returns: Number of samples in the dataset
         """
         return len(self.response)
 
     def __str__(self) -> str:
-        """
-        Overwrite the default str method.
+        """Overwrite the default str method.
 
         :return: Text summary of the dataset
         """
@@ -241,8 +215,7 @@ class DrugResponseDataset:
         return string
 
     def to_dataframe(self) -> pd.DataFrame:
-        """
-        Convert the dataset into a pandas DataFrame.
+        """Convert the dataset into a pandas DataFrame.
 
         :returns: pandas DataFrame of the dataset)
         """
@@ -259,15 +232,17 @@ class DrugResponseDataset:
         return pd.DataFrame(data)
 
     def to_csv(self, path: str | Path):
-        """
-        Stores the drug response dataset on disk.
+        """Stores the drug response dataset on disk.
 
         :param path: path to desired storage location
         """
         self.to_dataframe().to_csv(path, index=False)
 
     def _assign_from(self, other: "DrugResponseDataset") -> None:
-        """Replace this dataset's arrays with those from ``other`` (in-place)."""
+        """Replace this dataset's arrays with those from ``other`` (in-place).
+
+        :param other: Source dataset whose arrays replace the current values.
+        """
         self._response = other._response
         self._cell_line_ids = other._cell_line_ids
         self._drug_ids = other._drug_ids
@@ -275,8 +250,7 @@ class DrugResponseDataset:
         self._tissues = other._tissues
 
     def with_rows_added(self, other: "DrugResponseDataset") -> "DrugResponseDataset":
-        """
-        Return a new dataset with rows from ``other`` appended.
+        """Return a new dataset with rows from ``other`` appended.
 
         :param other: other dataset
         :returns: new dataset with concatenated rows
@@ -298,8 +272,7 @@ class DrugResponseDataset:
 
     @pipeline_function
     def add_rows(self, other: "DrugResponseDataset") -> None:
-        """
-        Adds rows from another dataset (in-place).
+        """Adds rows from another dataset (in-place).
 
         Prefer ``with_rows_added`` for non-mutating use.
 
@@ -314,8 +287,7 @@ class DrugResponseDataset:
         self.mask(mask)
 
     def shuffled(self, random_state: int = 42) -> "DrugResponseDataset":
-        """
-        Return a new dataset with rows shuffled.
+        """Return a new dataset with rows shuffled.
 
         :param random_state: random state
         :returns: new shuffled dataset
@@ -327,8 +299,7 @@ class DrugResponseDataset:
 
     @pipeline_function
     def shuffle(self, random_state: int = 42) -> None:
-        """
-        Shuffles the dataset (in-place).
+        """Shuffles the dataset (in-place).
 
         Prefer ``shuffled`` for non-mutating use.
 
@@ -337,8 +308,7 @@ class DrugResponseDataset:
         self._assign_from(self.shuffled(random_state=random_state))
 
     def _remove_drugs(self, drugs_to_remove: str | list[str]) -> None:
-        """
-        Removes one or more drugs from the dataset.
+        """Removes one or more drugs from the dataset.
 
         :param drugs_to_remove: A single drug ID (str) or a list of IDs to remove.
         """
@@ -349,8 +319,7 @@ class DrugResponseDataset:
         self.mask(mask)
 
     def _remove_cell_lines(self, cell_lines_to_remove: str | list[str]) -> None:
-        """
-        Removes one or more cell lines from the dataset.
+        """Removes one or more cell lines from the dataset.
 
         :param cell_lines_to_remove: A single cell line ID (str) or a list of IDs to remove.
         """
@@ -361,8 +330,7 @@ class DrugResponseDataset:
         self.mask(mask)
 
     def remove_rows(self, indices: np.ndarray) -> None:
-        """
-        Removes rows from the dataset.
+        """Removes rows from the dataset.
 
         :param indices: indices of rows to remove
         :raises ValueError: if indices are out of bounds or not 1-dimensional
@@ -381,8 +349,7 @@ class DrugResponseDataset:
     def reduced_to(
         self, cell_line_ids: np.ndarray | None = None, drug_ids: np.ndarray | None = None
     ) -> "DrugResponseDataset":
-        """
-        Return a new dataset restricted to the given cell line and/or drug IDs.
+        """Return a new dataset restricted to the given cell line and/or drug IDs.
 
         :param cell_line_ids: cell line IDs or None to keep all cell lines
         :param drug_ids: drug IDs or None to keep all drugs
@@ -396,8 +363,7 @@ class DrugResponseDataset:
         return result
 
     def reduce_to(self, cell_line_ids: np.ndarray | None = None, drug_ids: np.ndarray | None = None) -> None:
-        """
-        Removes all rows which contain a cell_line not in cell_line_ids or a drug not in drug_ids (in-place).
+        """Removes all rows which contain a cell_line not in cell_line_ids or a drug not in drug_ids (in-place).
 
         Prefer ``reduced_to`` for non-mutating use.
 
@@ -418,20 +384,14 @@ class DrugResponseDataset:
     ) -> list[dict]:
         """Split the dataset into training, validation, and test folds.
 
-        Args:
-            n_cv_splits: Number of cross-validation folds.
-            mode: Split mode (``"LPO"``, ``"LCO"``, or ``"LDO"``).
-            split_validation: Whether to create a validation subset per fold.
-            split_early_stopping: Whether to create an early-stopping subset.
-            validation_ratio: Validation size relative to training data.
-            random_state: Random seed for splitting.
-
-        Returns:
-            List of fold dicts with ``train``, ``validation``, ``test``, and
-            optional ``early_stopping`` datasets.
-
-        Raises:
-            ValueError: If *mode* is invalid or tissue information is missing for LTO.
+        :param n_cv_splits: Number of cross-validation folds.
+        :param mode: Split mode (``"LPO"``, ``"LCO"``, or ``"LDO"``).
+        :param split_validation: Whether to create a validation subset per fold.
+        :param split_early_stopping: Whether to create an early-stopping subset.
+        :param validation_ratio: Validation size relative to training data.
+        :param random_state: Random seed for splitting.
+        :returns: List of fold dicts with ``train``, ``validation``, ``test``, and optional ``early_stopping`` datasets.
+        :raises ValueError: If *mode* is invalid or tissue information is missing for LTO.
         """
         if mode == "LPO":
             cv_splits = _leave_pair_out_cv(
@@ -483,8 +443,7 @@ class DrugResponseDataset:
         return cv_splits
 
     def save_splits(self, path: str):
-        """
-        Save cross validation splits to path/cv_split_0_train.csv and path/cv_split_0_test.csv.
+        """Save cross validation splits to path/cv_split_0_train.csv and path/cv_split_0_test.csv.
 
         :param path: path to the directory where the cv split files are saved
         :raises AssertionError: if DrugResponseDataset was not split
@@ -506,11 +465,9 @@ class DrugResponseDataset:
                     split[mode].to_csv(path=split_path)
 
     def load_splits(self, path: str) -> None:
-        """
-        Load cross validation splits from path/cv_split_0_train.csv and path/cv_split_0_test.csv.
+        """Load cross validation splits from path/cv_split_0_train.csv and path/cv_split_0_test.csv.
 
         :param path: path to the directory containing the cv split files
-        :raises AssertionError: if no cv split files are found in path
         """
         from .cv_splits_load import load_cv_splits_from_dir
 
@@ -532,8 +489,7 @@ class DrugResponseDataset:
         )
 
     def masked(self, mask: np.ndarray) -> "DrugResponseDataset":
-        """
-        Return a new dataset with rows selected by ``mask``.
+        """Return a new dataset with rows selected by ``mask``.
 
         :param mask: boolean or integer index mask
         :raises ValueError: if mask is not boolean or integer
@@ -552,19 +508,16 @@ class DrugResponseDataset:
         )
 
     def mask(self, mask: np.ndarray) -> None:
-        """
-        Removes rows from the dataset based on a boolean mask (in-place).
+        """Apply a row mask to the dataset in place.
 
         Prefer ``masked`` for non-mutating use.
 
         :param mask: boolean mask
-        :raises ValueError: if mask is not boolean or integer
         """
         self._assign_from(self.masked(mask))
 
     def transformed(self, response_transformation: TransformerMixin) -> "DrugResponseDataset":
-        """
-        Return a new dataset with response (and predictions) transformed.
+        """Return a new dataset with response (and predictions) transformed.
 
         :param response_transformation: e.g., StandardScaler, MinMaxScaler, RobustScaler
         :returns: new transformed dataset
@@ -584,8 +537,7 @@ class DrugResponseDataset:
 
     @pipeline_function
     def transform(self, response_transformation: TransformerMixin) -> None:
-        """
-        Apply transformation to the response data and prediction data of the dataset (in-place).
+        """Apply transformation to the response data and prediction data of the dataset (in-place).
 
         Prefer ``transformed`` for non-mutating use.
 
@@ -594,8 +546,7 @@ class DrugResponseDataset:
         self._assign_from(self.transformed(response_transformation))
 
     def fit_transformed(self, response_transformation: TransformerMixin) -> "DrugResponseDataset":
-        """
-        Fit ``response_transformation`` on this dataset and return a transformed copy.
+        """Fit ``response_transformation`` on this dataset and return a transformed copy.
 
         Fitting still mutates the transformer (sklearn API).
 
@@ -607,8 +558,7 @@ class DrugResponseDataset:
 
     @pipeline_function
     def fit_transform(self, response_transformation: TransformerMixin) -> None:
-        """
-        Fit and transform the response data and prediction data of the dataset (in-place).
+        """Fit and transform the response data and prediction data of the dataset (in-place).
 
         Prefer ``fit_transformed`` for non-mutating use.
 
@@ -617,8 +567,7 @@ class DrugResponseDataset:
         self._assign_from(self.fit_transformed(response_transformation))
 
     def inverse_transform(self, response_transformation: TransformerMixin) -> None:
-        """
-        Inverse transform the response data and prediction data of the dataset.
+        """Inverse transform the response data and prediction data of the dataset.
 
         :param response_transformation: e.g., StandardScaler, MinMaxScaler, RobustScaler
         """
@@ -633,15 +582,10 @@ def split_early_stopping_data(
 ) -> tuple[DrugResponseDataset, DrugResponseDataset]:
     """Split a validation set into validation and early-stopping partitions.
 
-    Args:
-        validation_dataset: Validation dataset to subdivide.
-        test_mode: One of ``LPO``, ``LCO``, ``LDO``, or ``LTO``.
-
-    Returns:
-        Validation and early-stopping datasets.
-
-    Raises:
-        ValueError: If *test_mode* is invalid or LTO tissue is missing.
+    :param validation_dataset: Validation dataset to subdivide.
+    :param test_mode: One of ``LPO``, ``LCO``, ``LDO``, or ``LTO``.
+    :returns: Validation and early-stopping datasets.
+    :raises ValueError: If *test_mode* is invalid or LTO tissue is missing.
     """
     validation_dataset = validation_dataset.shuffled(random_state=42)
 
@@ -684,8 +628,7 @@ def _leave_pair_out_cv(
     random_state: int = 42,
     dataset_name: str = "unknown",
 ) -> list[dict[str, DrugResponseDataset]]:
-    """
-    Leave pair out cross validation. Splits data into n_cv_splits number of cross validation splits.
+    """Leave pair out cross validation. Splits data into n_cv_splits number of cross validation splits.
 
     :param n_cv_splits: number of cross validation splits
     :param response: response (e.g. ic50 values)
@@ -768,8 +711,7 @@ def _leave_group_out_cv(
     random_state: int = 42,
     dataset_name: str = "unknown",
 ):
-    """
-    Leave group out cross validation: Splits data into n_cv_splits number of cross validation splits.
+    """Leave group out cross validation: Splits data into n_cv_splits number of cross validation splits.
 
     :param group: group to leave out (cell_line or drug)
     :param n_cv_splits: number of cross validation splits
@@ -861,8 +803,7 @@ def _leave_group_out_cv(
 
 
 class FeatureDataset:
-    """
-    Class for feature datasets.
+    """Class for feature datasets.
 
     This class represents datasets with one or more views of features associated with a set of entities,
     such as drugs or cell lines. The feature data is stored in a nested dictionary structure::
@@ -911,8 +852,8 @@ class FeatureDataset:
         :param id_column: name of the column containing the identifiers
         :param drop_columns: list of columns to drop (e.g. other identifier columns)
         :param transpose: if True, the csv is transposed, i.e. the rows become columns and vice versa
-        :param extract_meta_info: if True, extracts meta information from the dataset, e.g. gene names for gene expression
-        :returns: FeatureDataset object containing data from provided csv file.
+        :param extract_meta_info: If ``True``, extract view metadata such as gene names.
+        :returns: ``FeatureDataset`` loaded from the CSV file.
         """
         data = pd.read_csv(path_to_csv).T if transpose else pd.read_csv(path_to_csv)
         data[id_column] = data[id_column].astype(str)
@@ -933,9 +874,10 @@ class FeatureDataset:
         return cls(features=features, meta_info=meta_info)
 
     def to_csv(self, path: str | Path, id_column: str, view_name: str):
-        """
-        Save the feature dataset to a CSV file. If meta_info is available for the view and valid,
-        it will be written as column names.
+        """Save the feature dataset to a CSV file.
+
+        When meta_info is available for the view and valid, column names are taken
+        from the metadata.
 
         :param path: Path to the CSV file.
         :param id_column: Name of the column containing the identifiers.
@@ -947,8 +889,7 @@ class FeatureDataset:
 
     @property
     def meta_info(self) -> dict[str, Any]:
-        """
-        Returns the meta information.
+        """Returns the meta information.
 
         :returns: Meta information of this FeatureDataset
         """
@@ -956,8 +897,7 @@ class FeatureDataset:
 
     @property
     def features(self) -> dict[str, dict[str, Any]]:
-        """
-        Returns the features.
+        """Returns the features.
 
         :returns: features of this FeatureDataset
         """
@@ -965,8 +905,7 @@ class FeatureDataset:
 
     @property
     def identifiers(self) -> np.ndarray:
-        """
-        Returns the identifiers of the features.
+        """Returns the identifiers of the features.
 
         Used in the pipeline.
 
@@ -976,8 +915,7 @@ class FeatureDataset:
 
     @property
     def view_names(self) -> list[str]:
-        """
-        Returns the view_names.
+        """Returns the view_names.
 
         :returns: view_names of this FeatureDataset
         """
@@ -988,13 +926,10 @@ class FeatureDataset:
         features: dict[str, dict[str, Any]],
         meta_info: dict[str, Any] | None = None,
     ):
-        """
-        Initializes the feature dataset.
+        """Initializes the feature dataset.
 
-        :param features: dictionary of features,
-            key: drug ID/cell line ID, value: Dict of feature views,
-            key: feature name, value: feature vector
-        :param meta_info: additional information for the views, e.g. gene names for gene expression
+        :param features: Nested mapping ``{entity_id: {view_name: feature_vector}}``.
+        :param meta_info: Optional per-view metadata, for example gene names.
         :raises AssertionError: if meta_info keys are not in view names
         """
         super().__init__()
@@ -1007,17 +942,15 @@ class FeatureDataset:
             self._meta_info = meta_info
 
     def randomize_features(self, views_to_randomize: str | list[str], randomization_type: str) -> None:
-        """
-        Randomizes the feature vectors.
+        """Randomizes the feature vectors.
 
         Permutation permutes the feature vectors.
         Invariant means that the randomization is done in a way that a key characteristic of the feature is
         preserved. In case of matrices, this is the mean and standard deviation of the feature view for this
         instance, for networks it is the degree distribution.
 
-        :param views_to_randomize: name of feature view or list of names of multiple feature views
-            to randomize. The other views are not randomized.
-        :param randomization_type: randomization type ('permutation', 'invariant').
+        :param views_to_randomize: Feature view name or list of view names to randomize.
+        :param randomization_type: ``permutation`` or ``invariant`` randomization mode.
         :raises AssertionError: if randomization_type is not 'permutation' or 'invariant'
         :raises ValueError: if no invariant randomization is available for the feature view type
         """
@@ -1066,8 +999,7 @@ class FeatureDataset:
                     self.features[identifier][view] = new_features
 
     def get_feature_matrix(self, view: str, identifiers: np.ndarray) -> np.ndarray:
-        """
-        Returns the feature matrix for the given view.
+        """Returns the feature matrix for the given view.
 
         The feature view must be a vector or matrix.
 
@@ -1108,8 +1040,7 @@ class FeatureDataset:
         return FeatureDataset(features=copy.deepcopy(self.features), meta_info=copy.deepcopy(self.meta_info))
 
     def add_features(self, other: "FeatureDataset") -> None:
-        """
-        Adds features views from another dataset. Inner join (only common identifiers are kept).
+        """Adds features views from another dataset. Inner join (only common identifiers are kept).
 
         :param other: other dataset
         :raises AssertionError: if feature views overlap
@@ -1132,8 +1063,7 @@ class FeatureDataset:
         self._features = new_features
 
     def add_meta_info(self, other: "FeatureDataset") -> None:
-        """
-        Adds meta information to the feature dataset.
+        """Adds meta information to the feature dataset.
 
         :param other: other dataset
         """
@@ -1145,8 +1075,7 @@ class FeatureDataset:
                 self.meta_info.update(other_meta)
 
     def transform_features(self, ids: np.ndarray, transformer: TransformerMixin, view: str):
-        """
-        Applies a transformation like standard scaling to features.
+        """Applies a transformation like standard scaling to features.
 
         :param ids: The IDs to transform
         :param transformer: fitted sklearn transformer
@@ -1169,8 +1098,7 @@ class FeatureDataset:
             self.features[identifier][view] = scaled_feature_vector
 
     def fit_transform_features(self, train_ids: np.ndarray, transformer: TransformerMixin, view: str):
-        """
-        Fits and applies a transformation. Fitting is done only on the train_ids.
+        """Fits and applies a transformation. Fitting is done only on the train_ids.
 
         :param train_ids: The IDs corresponding to the training dataset.
         :param transformer: sklearn transformer

@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-DrEvalPy Leaderboard Visualization.
+"""DrEvalPy Leaderboard Visualization.
 
 This script generates a leaderboard visualization (normalized PCC and RMSE) from
 the evaluation results CSV file produced by the DrEvalPy evaluation pipeline.
@@ -63,8 +62,7 @@ COMPETITOR_COLOR = "#6A5ACD"
 def configure_matplotlib(font_adder: int = 0):
     """Configure global matplotlib parameters for the current theme.
 
-    Args:
-        font_adder: Increment added to the base font size.
+    :param font_adder: Increment added to the base font size.
     """
     plt.rcParams.update(
         {
@@ -87,16 +85,13 @@ def configure_matplotlib(font_adder: int = 0):
 def load_results(results_path: str, test_mode: str = "LCO") -> pd.DataFrame:
     """Load and aggregate results from an evaluation CSV.
 
-    Args:
-        results_path: Path to ``evaluation_results.csv``.
-        test_mode: Test mode filter (for example ``"LCO"``).
+    :param results_path: Path to ``evaluation_results.csv``.
+    :param test_mode: Test mode filter (for example ``"LCO"``).
 
-    Returns:
-        DataFrame with mean and std of normalized PCC and RMSE per algorithm.
+    :returns: DataFrame with mean and std of normalized PCC and RMSE per algorithm.
 
-    Raises:
-        FileNotFoundError: If ``results_path`` does not exist.
-        ValueError: If no rows match predictions and the test mode.
+    :raises FileNotFoundError: If ``results_path`` does not exist.
+    :raises ValueError: If no rows match predictions and the test mode.
     """
     path = Path(results_path)
     if not path.exists():
@@ -139,18 +134,16 @@ def create_leaderboard(
 ) -> tuple:
     """Generate the dual-panel leaderboard figure.
 
-    Args:
-        df: Aggregated results per algorithm.
-        output_path: File path for the saved image.
-        test_mode: Evaluation mode label (for example ``"LCO"``).
-        dataset: Dataset name shown in the subtitle.
-        measure: Response measure shown in the subtitle.
-        figsize: Figure dimensions in inches.
-        show_top_n: Optional limit on the number of models displayed.
-        font_adder: Font size increment for labels and titles.
+    :param df: Aggregated results per algorithm.
+    :param output_path: File path for the saved image.
+    :param test_mode: Evaluation mode label (for example ``"LCO"``).
+    :param dataset: Dataset name shown in the subtitle.
+    :param measure: Response measure shown in the subtitle.
+    :param figsize: Figure dimensions in inches.
+    :param show_top_n: Optional limit on the number of models displayed.
+    :param font_adder: Font size increment for labels and titles.
 
-    Returns:
-        Tuple of the matplotlib figure and its two axes.
+    :returns: Tuple of the matplotlib figure and its two axes.
     """
     configure_matplotlib(font_adder=font_adder)
 
@@ -188,11 +181,11 @@ def create_leaderboard(
 
 
 def _get_test_mode_name(test_mode: str) -> str:
-    """
-    Map shorthand mode codes to full descriptive names.
+    """Map shorthand mode codes to full descriptive names.
 
-    :param test_mode: Suffix code (LCO, etc).
-    :return: Full string name.
+    :param test_mode: Suffix code (for example ``LCO``).
+
+    :returns: Full descriptive name for the test mode.
     """
     names = {
         "LCO": "10-Fold Leave-Cell-Out Cross Validation",

@@ -15,7 +15,12 @@ _VIEW_PARAMETRIC_FEATURIZERS = frozenset({"raw", "pca"})
 
 
 def _split_concat_recipe(token: str) -> list[str]:
-    """Split a concat recipe on ``+`` outside square brackets."""
+    """Split a concat recipe on ``+`` outside square brackets.
+
+    :param token: Featurizer recipe string that may join atoms with ``+``.
+    :returns: Non-empty recipe segments outside bracket nesting.
+    :raises ValueError: If ``+`` appears at boundaries or consecutively.
+    """
     if token.startswith("+") or token.endswith("+") or "++" in token:
         msg = "Featurizer recipe segments joined by '+' must be non-empty"
         raise ValueError(msg)
@@ -41,7 +46,13 @@ def _split_concat_recipe(token: str) -> list[str]:
 
 
 def _parse_bracket_atom_name(name_token: str, *, default_registry: str) -> tuple[str, str | None]:
-    """Parse ``name[view]`` into registry name and resolved view."""
+    """Parse ``name[view]`` into registry name and resolved view.
+
+    :param name_token: Bare featurizer name or ``name[view]`` atom.
+    :param default_registry: Registry context (``cell_line`` or ``drug``).
+    :returns: Registry name and resolved view, or ``(name, None)`` when unbracketed.
+    :raises ValueError: If bracket syntax is used for unsupported featurizers or registries.
+    """
     match = _BRACKET_ATOM_RE.match(name_token.strip())
     if not match:
         return name_token.strip(), None
@@ -96,7 +107,13 @@ def _require_view_for_parametric(name: str, view: str | None) -> None:
 
 
 def _parse_featurizer_atom(token: str, *, default_registry: str) -> dict[str, Any]:
-    """Normalize one featurizer atom, including optional ``name[view]`` syntax."""
+    """Normalize one featurizer atom, including optional ``name[view]`` syntax.
+
+    :param token: Single featurizer atom from a concat recipe.
+    :param default_registry: Target featurizer registry name.
+    :returns: Normalized featurizer config mapping.
+    :raises ValueError: If the atom is empty or requires a missing view.
+    """
     trimmed = token.strip()
     if not trimmed:
         msg = "Featurizer token must be a non-empty string"
@@ -112,7 +129,13 @@ def _parse_featurizer_atom(token: str, *, default_registry: str) -> dict[str, An
 
 
 def _parse_featurizer_token(token: str, *, default_registry: str) -> dict[str, Any]:
-    """Normalize a bare featurizer token, including ``+`` concat recipes."""
+    """Normalize a bare featurizer token, including ``+`` concat recipes.
+
+    :param token: String featurizer recipe from a model config.
+    :param default_registry: Target featurizer registry name.
+    :returns: Normalized featurizer or concat-featurizer config mapping.
+    :raises ValueError: If the token is empty or contains invalid concat syntax.
+    """
     trimmed = token.strip()
     if not trimmed:
         msg = "Featurizer token must be a non-empty string"
@@ -179,7 +202,14 @@ def _normalize_one_key_featurizer_dict(data: dict[str, Any], *, default_registry
 
 
 def normalize_featurizer_config(data: Any, *, default_registry: str = "cell_line") -> dict[str, Any]:
-    """Normalize string, list, or one-key mapping featurizer configs."""
+    """Normalize string, list, or one-key mapping featurizer configs.
+
+    :param data: data.
+    :param default_registry: default registry.
+    :returns: Result.
+    :raises ValueError: Raised on invalid input.
+    :raises TypeError: Raised on invalid input.
+    """
     if isinstance(data, str):
         return _parse_featurizer_token(data, default_registry=default_registry)
 

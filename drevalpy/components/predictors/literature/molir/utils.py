@@ -1,5 +1,4 @@
-"""
-Utility functions for the MOLIR model.
+"""Utility functions for the MOLIR model.
 
 Original authors of MOLI: Sharifi-Noghabi et al. (2019, 10.1093/bioinformatics/btz318)
 Code adapted from: Hauptmann et al. (2023, 10.1186/s12859-023-05166-7),
@@ -18,8 +17,9 @@ from torch import nn
 from torch.utils.data import DataLoader, Dataset
 
 from drevalpy.components.lightning_metrics_mixin import RegressionMetricsMixin
-from drevalpy.components.predictors.literature._training_helpers import LiteratureTrainingMixin
+from drevalpy.components.predictors.literature._protocols import MultiOmicsFeatureAttributes
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
+from drevalpy.utils.torch_io import load_state_dict
 
 
 class RegressionDataset(Dataset):
@@ -30,8 +30,7 @@ class RegressionDataset(Dataset):
         output: DrugResponseDataset,
         cell_line_input: FeatureDataset,
     ) -> None:
-        """
-        Initializes the dataset by setting the output and the cell line input.
+        """Initializes the dataset by setting the output and the cell line input.
 
         :param output: drug response dataset
         :param cell_line_input: omics features of the cell lines
@@ -40,11 +39,11 @@ class RegressionDataset(Dataset):
         self.cell_line_input = cell_line_input
 
     def __getitem__(self, idx: int) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.float32]:
-        """
-        Overwrites the getitem method.
+        """Overwrites the getitem method.
 
         :param idx: index of the sample
-        :returns: gene expression, mutations, copy number variation, and response of the sample as numpy arrays
+
+        :returns: returns: gene expression, mutations, copy number variation, and response of the sample as numpy arrays
         """
         response: np.float32 = np.float32(self.output.response[idx])
 
@@ -58,10 +57,9 @@ class RegressionDataset(Dataset):
         return gene_expression, mutations, copy_number, response
 
     def __len__(self) -> int:
-        """
-        Overwrites the len method.
+        """Overwrites the len method.
 
-        :returns: number of samples in the dataset
+        :returns: returns: number of samples in the dataset
         """
         return len(self.output.response)
 
@@ -72,8 +70,7 @@ def generate_triplets_indices(
     negative_range: float,
     random_seed: int | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """
-    Generates triplets for the MOLIR model.
+    """Generates triplets for the MOLIR model.
 
     The positive and negative range are determined by the standard deviation of the response values. A sample is
     considered positive if its response value is within the positive range of the label. The positive range is ±10%
@@ -84,7 +81,8 @@ def generate_triplets_indices(
     :param positive_range: positive range for the triplet loss
     :param negative_range: negative range for the triplet loss
     :param random_seed: random seed for reproducibility
-    :returns: positive and negative sample indices for each sample
+
+    :returns: returns: positive and negative sample indices for each sample
     """
     rng = np.random.default_rng(random_seed)
     positive_sample_indices = []
@@ -101,15 +99,16 @@ def generate_triplets_indices(
 
 
 def _get_positive_class_indices(label: np.float32, idx_label: int, y: np.ndarray, positive_range: float) -> np.ndarray:
-    """
-    Find the samples that are within the positive range of the label except the label itself.
+    """Find the samples that are within the positive range of the label except the label itself.
 
     If there is no similar sample within the positive range, the method returns the closest sample to the label.
+
     :param label: response of interest
     :param idx_label: index of the response of interest
     :param y: all responses
     :param positive_range: 0.1 * the standard deviation of all training responses
-    :returns: indices of the samples that can be considered positive examples (=similar to the response of interest)
+
+    :returns: Indices of samples considered positive examples for the response of interest.
     """
     indices_similar_samples = np.where(np.logical_and(label - positive_range <= y, y <= label + positive_range))[0]
     indices_similar_samples = np.delete(indices_similar_samples, np.where(indices_similar_samples == idx_label))
@@ -123,14 +122,15 @@ def _get_positive_class_indices(label: np.float32, idx_label: int, y: np.ndarray
 
 
 def _get_negative_class_indices(label: np.float32, y: np.ndarray, negative_range: float) -> np.ndarray:
-    """
-    Finds dissimilar samples to the label.
+    """Finds dissimilar samples to the label.
 
     If there is no dissimilar sample within the negative range, the method returns the sample that is the furthest away.
+
     :param label: reponse of interest
     :param y: all responses
     :param negative_range: 1 * the standard deviation of all training responses
-    :returns: indices of the samples that can be considered negative examples (=dissimilar to the response of interest)
+
+    :returns: Indices of samples considered negative examples for the response of interest.
     """
     dissimilar_samples = np.where(np.logical_or(label - negative_range >= y, y >= label + negative_range))[0]
     if len(dissimilar_samples) == 0:
@@ -140,11 +140,11 @@ def _get_negative_class_indices(label: np.float32, y: np.ndarray, negative_range
 
 
 def make_ranges(output: DrugResponseDataset) -> tuple[float, float]:
-    """
-    Compute the positive and negative range for the triplet loss.
+    """Compute the positive and negative range for the triplet loss.
 
     :param output: drug response dataset
-    :returns: positive and negative range for the triplet loss
+
+    :returns: returns: positive and negative range for the triplet loss
     """
     positive_range = float(np.std(output.response) * 0.1)
     negative_range = float(np.std(output.response))
@@ -157,14 +157,14 @@ def create_dataset_and_loaders(
     cell_line_input: FeatureDataset,
     output_earlystopping: DrugResponseDataset | None = None,
 ) -> tuple[DataLoader, DataLoader | None]:
-    """
-    Creates the RegressionDataset (torch Dataset) and the DataLoader for the training and validation data.
+    """Creates the RegressionDataset (torch Dataset) and the DataLoader for the training and validation data.
 
     :param batch_size: specified batch size
     :param output_train: response values for the training data
     :param cell_line_input: omic input features of the cell lines
     :param output_earlystopping: early stopping dataset
-    :returns: training and validation data loaders
+
+    :returns: returns: training and validation data loaders
     """
     train_dataset = RegressionDataset(output_train, cell_line_input)
     train_loader = DataLoader(
@@ -193,11 +193,11 @@ def create_dataset_and_loaders(
 
 
 def get_dimensions_of_omics_data(cell_line_input: FeatureDataset) -> tuple[int, int, int]:
-    """
-    Determines the dimensions of the omics data for the creation of the input layers.
+    """Determines the dimensions of the omics data for the creation of the input layers.
 
     :param cell_line_input: omic input features of the cell lines
-    :returns: dimensions of the gene expression, mutations, and copy number variation data
+
+    :returns: returns: dimensions of the gene expression, mutations, and copy number variation data
     """
     first_item = next(iter(cell_line_input.features.values()))
     dim_gex = first_item["gene_expression"].shape[0]
@@ -211,7 +211,14 @@ def _realign_omic_matrix(
     model_features: Sequence[str] | np.ndarray,
     meta_feature_names: Sequence[str] | np.ndarray,
 ) -> np.ndarray:
-    """Align prediction-time omics columns to the feature order stored on the trained model."""
+    """Align prediction-time omics columns to the feature order stored on the trained model.
+
+    :param values: Omic feature matrix in incoming column order.
+    :param model_features: Feature names used by the trained model.
+    :param meta_feature_names: Feature names available in the incoming data.
+
+    :returns: Matrix with columns reordered to match *model_features*.
+    """
     if values.shape[1] == len(model_features):
         return values
     realigned = np.zeros((values.shape[0], len(model_features)))
@@ -223,14 +230,13 @@ def _realign_omic_matrix(
 
 
 def filter_and_sort_omics(
-    model: LiteratureTrainingMixin,  # MOLIR or SuperFELTR
+    model: MultiOmicsFeatureAttributes,
     gene_expression: np.ndarray,
     mutations: np.ndarray,
     cnvs: np.ndarray,
     cell_line_input: FeatureDataset,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """
-    Filters out features that were not present during training and imputes missing features with zeros.
+    """Filters out features that were not present during training and imputes missing features with zeros.
 
     This is necessary because the feature order might have changed or more features are available (cross-study setting).
 
@@ -239,33 +245,36 @@ def filter_and_sort_omics(
     :param mutations: new mutation data from which to predict
     :param cnvs: new copy number variation data from which to predict
     :param cell_line_input: needed for meta information (feature names)
-    :return: filtered and sorted gene expression, mutations, and copy number variation data
+
+    :returns: Filtered and sorted gene expression, mutations, and copy number variation data.
+
+    :raises ValueError: If required omics views are missing from *cell_line_input*.
     """
     view_keys = ("gene_expression", "mutations", "copy_number_variation_gistic")
     model_feature_lists = (
-        model.gene_expression_features,  # type: ignore[attr-defined]
-        model.mutations_features,  # type: ignore[attr-defined]
-        model.copy_number_variation_features,  # type: ignore[attr-defined]
+        model.gene_expression_features,
+        model.mutations_features,
+        model.copy_number_variation_features,
     )
     value_arrays = (gene_expression, mutations, cnvs)
-    realigned = [
-        _realign_omic_matrix(values, model_features, cell_line_input.meta_info[key])
-        for key, model_features, values in zip(view_keys, model_feature_lists, value_arrays, strict=True)
-    ]
+    realigned: list[np.ndarray] = []
+    for key, model_features, values in zip(view_keys, model_feature_lists, value_arrays, strict=True):
+        if model_features is None:
+            msg = f"Missing trained feature names for {key!r}"
+            raise ValueError(msg)
+        realigned.append(_realign_omic_matrix(values, model_features, cell_line_input.meta_info[key]))
     return realigned[0], realigned[1], realigned[2]
 
 
 class MOLIEncoder(nn.Module):
-    """
-    Encoders of the MOLIR model, which is identical to the encoders of the original MOLI model.
+    """Encoders of the MOLIR model, which is identical to the encoders of the original MOLI model.
 
     The MOLIR model has three encoders for the gene expression, mutations, and copy number variation data which are
     trained together.
     """
 
     def __init__(self, input_size: int, output_size: int, dropout_rate: float) -> None:
-        """
-        Initializes the encoder for the MOLIR model.
+        """Initializes the encoder for the MOLIR model.
 
         :param input_size: input size determined by feature selection.
         :param output_size: output size of the encoder, set as hyperparameter.
@@ -280,26 +289,24 @@ class MOLIEncoder(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Forward pass of the encoder.
+        """Forward pass of the encoder.
 
         :param x: omic input features
-        :returns: encoded omic features
+
+        :returns: returns: encoded omic features
         """
         return self.encode(x)
 
 
 class MOLIRegressor(nn.Module):
-    """
-    Regressor of the MOLIR model.
+    """Regressor of the MOLIR model.
 
     It is identical to the regressor of the original MOLI model, except for the omission of the final sigmoid
     activation function. After the three encoders, the encoded features are concatenated and fed into the regressor.
     """
 
     def __init__(self, input_size: int, dropout_rate: float) -> None:
-        """
-        Initializes the regressor for the MOLIR model.
+        """Initializes the regressor for the MOLIR model.
 
         :param input_size: determined by the output sizes of the encoders.
         :param dropout_rate: set as hyperparameter.
@@ -308,18 +315,17 @@ class MOLIRegressor(nn.Module):
         self.regressor = nn.Sequential(nn.Linear(input_size, 1), nn.Dropout(dropout_rate))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Forward pass of the regressor.
+        """Forward pass of the regressor.
 
         :param x: concatenated encoded features
-        :returns: predicted drug response
+
+        :returns: returns: predicted drug response
         """
         return self.regressor(x)
 
 
 class MOLIModel(RegressionMetricsMixin, pl.LightningModule):
-    """
-    PyTorch Lightning module for the MOLIR model.
+    """PyTorch Lightning module for the MOLIR model.
 
     The architecture of the MOLIR model is identical to the MOLI model, except for the omission of the final sigmoid
     layer and the usage of a regression MSE loss instead of a binary cross-entropy loss. Additionally, early stopping is
@@ -329,14 +335,13 @@ class MOLIModel(RegressionMetricsMixin, pl.LightningModule):
     def __init__(
         self, hpams: dict[str, int | float], input_dim_expr: int, input_dim_mut: int, input_dim_cnv: int
     ) -> None:
-        """
-        Initializes the MOLIR model.
+        """Initializes the MOLIR model.
 
         The MOLIR model uses a combined loss function of a triplet margin loss for the concatenated representation
         and an MSE loss for the regression loss.
 
-        :param hpams: includes mini_batch, layer dimensions (h_dim1, h_dim2, h_dim3), learning_rate, dropout_rate,
-            weight decay, gamma, epochs, and margin.
+        :param hpams: Hyperparameters such as ``mini_batch``, layer sizes, learning rate, and
+            margin.
         :param input_dim_expr: determined by the feature selection of the gene expression data.
         :param input_dim_mut: determined by dataset size
         :param input_dim_cnv: determined by dataset size
@@ -379,8 +384,7 @@ class MOLIModel(RegressionMetricsMixin, pl.LightningModule):
         model_checkpoint_dir: str = "checkpoints",
         wandb_project: str | None = None,
     ) -> None:
-        """
-        Trains the MOLIR model.
+        """Trains the MOLIR model.
 
         First, the ranges for the triplet loss are determined using the standard deviation of the training responses.
         Then, the training and validation data loaders are created. The model is trained using the Lightning Trainer
@@ -391,8 +395,7 @@ class MOLIModel(RegressionMetricsMixin, pl.LightningModule):
         :param output_earlystopping: early stopping dataset
         :param patience: for early stopping
         :param model_checkpoint_dir: directory to save the model checkpoints
-        :param wandb_project: optional wandb project name for logging. If provided, uses WandbLogger
-            for PyTorch Lightning training.
+        :param wandb_project: Optional Weights & Biases project name for Lightning logging.
         """
         self.positive_range, self.negative_range = make_ranges(output_train)
 
@@ -444,7 +447,7 @@ class MOLIModel(RegressionMetricsMixin, pl.LightningModule):
             trainer.fit(self, train_loader, val_loader)
         # load best model
         if self.checkpoint_callback.best_model_path is not None:
-            checkpoint = torch.load(self.checkpoint_callback.best_model_path, weights_only=True)  # noqa: S614
+            checkpoint = load_state_dict(self.checkpoint_callback.best_model_path)
             self.load_state_dict(checkpoint["state_dict"])
 
     def predict(
@@ -453,8 +456,7 @@ class MOLIModel(RegressionMetricsMixin, pl.LightningModule):
         mutations: np.ndarray,
         copy_number: np.ndarray,
     ) -> np.ndarray:
-        """
-        Perform prediction on given input data.
+        """Perform prediction on given input data.
 
         If there was enough training data to train the model, the model from the best epoch was saved in the checkpoint
         callback and is loaded now. If there was not enough training data, the model is only randomly initialized.
@@ -462,7 +464,8 @@ class MOLIModel(RegressionMetricsMixin, pl.LightningModule):
         :param gene_expression: gene expression data
         :param mutations: mutation data
         :param copy_number: copy number variation data
-        :returns: predicted drug response
+
+        :returns: returns: predicted drug response
         """
         # convert to torch tensors
         gene_expression_tensor = torch.from_numpy(gene_expression).float().to(self.device)
@@ -477,13 +480,13 @@ class MOLIModel(RegressionMetricsMixin, pl.LightningModule):
     def _encode_and_concatenate(
         self, gene_expression: torch.Tensor, mutations: torch.Tensor, copy_number: torch.Tensor
     ) -> torch.Tensor:
-        """
-        Encodes the input modalities, concatenates, and normalizes the resulting embeddings.
+        """Encodes the input modalities, concatenates, and normalizes the resulting embeddings.
 
         :param gene_expression: gene expression data
         :param mutations: mutation data
         :param copy_number: copy number variation data
-        :returns: concatenated, normalized embeddings
+
+        :returns: returns: concatenated, normalized embeddings
         """
         z_ex = self.expression_encoder(gene_expression)
         z_mu = self.mutation_encoder(mutations)
@@ -494,26 +497,26 @@ class MOLIModel(RegressionMetricsMixin, pl.LightningModule):
         return z
 
     def forward(self, x_gene: torch.Tensor, x_mutation: torch.Tensor, x_cna: torch.Tensor) -> torch.Tensor:
-        """
-        Forward pass of the MOLIR model.
+        """Forward pass of the MOLIR model.
 
         :param x_gene: gene expression input
         :param x_mutation: mutation input
         :param x_cna: copy number variation input
-        :returns: predicted drug response
+
+        :returns: returns: predicted drug response
         """
         z = self._encode_and_concatenate(x_gene, x_mutation, x_cna)
         preds = self.regressor(z)
         return preds
 
     def _compute_loss(self, z: torch.Tensor, preds: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-        """
-        Computes the combined triplet loss and regression loss.
+        """Computes the combined triplet loss and regression loss.
 
         :param z: concatenated, normalized embeddings on which the triplet loss is calculated
         :param preds: predicted drug response on which the regression loss is calculated
         :param y: true drug response
-        :returns: combined loss
+
+        :returns: returns: combined loss
         """
         positive_indices, negative_indices = generate_triplets_indices(
             y.cpu().detach().numpy(), self.positive_range, self.negative_range
@@ -524,12 +527,12 @@ class MOLIModel(RegressionMetricsMixin, pl.LightningModule):
         return triplet_loss + regression_loss
 
     def training_step(self, batch: list[torch.Tensor], batch_idx: int) -> torch.Tensor:
-        """
-        Training step of the MOLIR model.
+        """Training step of the MOLIR model.
 
         :param batch: batch of gene expression, mutations, copy number variation, and response
         :param batch_idx: index of the batch
-        :returns: combined loss
+
+        :returns: returns: combined loss
         """
         gene_expression, mutations, copy_number, response = batch
 
@@ -549,12 +552,12 @@ class MOLIModel(RegressionMetricsMixin, pl.LightningModule):
         return loss
 
     def validation_step(self, batch: list[torch.Tensor], batch_idx: int) -> torch.Tensor:
-        """
-        Validation step of the MOLIR model.
+        """Validation step of the MOLIR model.
 
         :param batch: batch of gene expression, mutations, copy number variation, and response
         :param batch_idx: index of the batch
-        :returns: combined loss
+
+        :returns: returns: combined loss
         """
         gene_expression, mutations, copy_number, response = batch
 
@@ -574,10 +577,9 @@ class MOLIModel(RegressionMetricsMixin, pl.LightningModule):
         return val_loss
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
-        """
-        Overwrites the configure_optimizers method from PyTorch Lightning.
+        """Overwrites the configure_optimizers method from PyTorch Lightning.
 
-        :returns: optimizers for the MOLIR expression, mutation, copy number variation encoders, and regressor
+        :returns: returns: optimizers for the MOLIR expression, mutation, copy number variation encoders, and regressor
         """
         optimizer = torch.optim.Adagrad(
             [

@@ -32,8 +32,7 @@ def create_pharmaformer_drug_embeddings(
     num_symbols: int = 10000,
     max_length: int = 128,
 ) -> None:
-    """
-    Create BPE-encoded SMILES embeddings for drugs.
+    """Create BPE-encoded SMILES embeddings for drugs.
 
     WARNING: This featurizer produces problematic embeddings and should ONLY be used
     with the PharmaFormer model. It replicates the original PharmaFormer implementation

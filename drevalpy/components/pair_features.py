@@ -11,7 +11,14 @@ def _map_pair_indices(
     *,
     side: str,
 ) -> np.ndarray:
-    """Map pair identifiers to featurizer row indices with contextual errors."""
+    """Map pair identifiers to featurizer row indices with contextual errors.
+
+    :param entity_ids: Entity id per response pair.
+    :param id_to_row: Mapping from entity id to featurizer row index.
+    :param side: Human-readable side label used in error messages.
+    :returns: Integer array of row indices aligned with *entity_ids*.
+    :raises ValueError: If any pair id is missing from *id_to_row*.
+    """
     missing: list[str] = []
     rows: list[int] = []
     for entity_id in entity_ids:
@@ -35,15 +42,10 @@ def pair_cell_line_indices(
 ) -> np.ndarray:
     """Map pair cell-line identifiers to featurizer row indices.
 
-    Args:
-        cell_line_ids: Cell-line id per response pair.
-        cell_line_id_to_row: Mapping from entity id to featurizer row index.
+    :param cell_line_ids: Cell-line id per response pair.
+    :param cell_line_id_to_row: Mapping from entity id to featurizer row index.
 
-    Returns:
-        Integer array of row indices aligned with *cell_line_ids*.
-
-    Raises:
-        ValueError: If any pair id is missing from *cell_line_id_to_row*.
+    :returns: Integer array of row indices aligned with *cell_line_ids*.
     """
     return _map_pair_indices(cell_line_ids, cell_line_id_to_row, side="cell-line")
 
@@ -54,14 +56,9 @@ def pair_drug_indices(
 ) -> np.ndarray:
     """Map pair drug identifiers to featurizer row indices.
 
-    Args:
-        drug_ids: Drug id per response pair.
-        drug_id_to_row: Mapping from entity id to featurizer row index.
+    :param drug_ids: Drug id per response pair.
+    :param drug_id_to_row: Mapping from entity id to featurizer row index.
 
-    Returns:
-        Integer array of row indices aligned with *drug_ids*.
-
-    Raises:
-        ValueError: If any pair id is missing from *drug_id_to_row*.
+    :returns: Integer array of row indices aligned with *drug_ids*.
     """
     return _map_pair_indices(drug_ids, drug_id_to_row, side="drug")

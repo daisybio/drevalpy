@@ -75,6 +75,13 @@ class ConcatFeaturizersMixin:
         entity_ids: np.ndarray | None = None,
         context: FeaturizerFitContext | None = None,
     ):
+        """Fit on training data.
+
+        :param features: features.
+        :param entity_ids: entity ids.
+        :param context: context.
+        :returns: Result.
+        """
         self._materialize_children()
         self._reject_non_numeric_children(self._children)
         self._block_dims = {}
@@ -86,6 +93,12 @@ class ConcatFeaturizersMixin:
         return self
 
     def transform(self, features, entity_ids: np.ndarray) -> np.ndarray:
+        """Transform inputs into feature payloads.
+
+        :param features: features.
+        :param entity_ids: entity ids.
+        :returns: Result.
+        """
         blocks = self.transform_blocks(features, entity_ids)
         numeric_blocks = [
             block.values.astype(np.float32)
@@ -97,6 +110,13 @@ class ConcatFeaturizersMixin:
         return np.concatenate(numeric_blocks, axis=1)
 
     def transform_blocks(self, features, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
+        """Transform blocks.
+
+        :param features: features.
+        :param entity_ids: entity ids.
+        :returns: Result.
+        :raises RuntimeError: Raised on invalid input.
+        """
         if not self._is_fitted:
             raise RuntimeError(self._not_fitted_msg)
         child_blocks = [child.transform_blocks(features, entity_ids) for _, child in self._children]
@@ -104,13 +124,25 @@ class ConcatFeaturizersMixin:
 
     @property
     def output_dim(self) -> int:
+        """Return output feature dimension after fitting.
+
+        :returns: Result.
+        """
         return self._output_dim
 
     @property
     def block_dims(self) -> dict[str, int]:
+        """Return per-child output dimensions after fitting.
+
+        :returns: Result.
+        """
         return dict(self._block_dims)
 
     def get_state(self) -> dict[str, object]:
+        """Return serializable fitted state.
+
+        :returns: Result.
+        """
         return {
             "child_states": {name: child.get_state() for name, child in self._children},
             "block_dims": dict(self._block_dims),
@@ -119,6 +151,10 @@ class ConcatFeaturizersMixin:
         }
 
     def set_state(self, state: dict[str, object]) -> None:
+        """Restore state from a prior ``get_state`` mapping.
+
+        :param state: state.
+        """
         self._materialize_children()
         child_states = state.get("child_states")
         if isinstance(child_states, dict):

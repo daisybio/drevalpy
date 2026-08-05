@@ -34,25 +34,21 @@ class Featurizer(ABC):
     ) -> Featurizer:
         """Fit on the entities given by *entity_ids* (or all entities when ``None``).
 
-        Args:
-            features: Raw feature views for the entity type.
-            entity_ids: Subset of entity identifiers to fit on; ``None`` uses all.
-            context: Optional training context shared across featurizers.
+        :param features: Raw feature views for the entity type.
+        :param entity_ids: Subset of entity identifiers to fit on; ``None`` uses all.
+        :param context: Optional training context shared across featurizers.
 
-        Returns:
-            Fitted featurizer instance (usually ``self``).
+        :returns: Fitted featurizer instance (usually ``self``).
         """
 
     @abstractmethod
     def transform(self, features: FeatureDataset, entity_ids: np.ndarray) -> np.ndarray:
         """Return one payload row per entity id in *entity_ids*.
 
-        Args:
-            features: Raw feature views for the entity type.
-            entity_ids: Entity identifiers to transform.
+        :param features: Raw feature views for the entity type.
+        :param entity_ids: Entity identifiers to transform.
 
-        Returns:
-            Feature payloads aligned with *entity_ids*.
+        :returns: Feature payloads aligned with *entity_ids*.
         """
 
     def transform_blocks(
@@ -62,12 +58,10 @@ class Featurizer(ABC):
     ) -> dict[str, FeatureBlock]:
         """Return named feature blocks; default is a single ``default`` block.
 
-        Args:
-            features: Raw feature views for the entity type.
-            entity_ids: Entity identifiers to transform.
+        :param features: Raw feature views for the entity type.
+        :param entity_ids: Entity identifiers to transform.
 
-        Returns:
-            Mapping of block name to ``FeatureBlock`` payloads aligned with *entity_ids*.
+        :returns: Mapping of block name to ``FeatureBlock`` payloads aligned with *entity_ids*.
         """
         return {
             "default": numeric_feature_block(self.transform(features, entity_ids)),
@@ -76,14 +70,16 @@ class Featurizer(ABC):
     @property
     @abstractmethod
     def output_dim(self) -> int:
-        """Feature dimension after :meth:`fit`."""
+        """Feature dimension after ``fit``.
+
+        :returns: Result.
+        """
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
         """Return tunable hyperparameter specs for HPO.
 
-        Returns:
-            Mapping of parameter name to Ray Tune-style spec dicts.
+        :returns: Mapping of parameter name to Ray Tune-style spec dicts.
         """
         return {}
 
@@ -91,8 +87,7 @@ class Featurizer(ABC):
     def get_default_hyperparameters(cls) -> dict[str, object]:
         """Return default hyperparameter values from the HP space.
 
-        Returns:
-            Parameter names mapped to their declared ``default`` values.
+        :returns: Parameter names mapped to their declared ``default`` values.
         """
         return {
             key: spec["default"]
@@ -107,16 +102,10 @@ class Featurizer(ABC):
         Featurizers that require bespoke on-disk artifacts override this hook.
         Generic views continue to be loaded by the model data-loading layer.
 
-        Args:
-            data_path: Parent directory for dataset artifacts.
-            dataset_name: Dataset folder name (for example ``"GDSC1"``).
-            **kwargs: Featurizer-specific loader options from the model config.
-
-        Returns:
-            Raw ``FeatureDataset`` consumed by :meth:`fit` and :meth:`transform`.
-
-        Raises:
-            NotImplementedError: When the featurizer does not provide a custom loader.
+        :param data_path: Parent directory for dataset artifacts.
+        :param dataset_name: Dataset folder name (for example ``"GDSC1"``).
+        :param kwargs: Featurizer-specific loader options from the model config.
+        :raises NotImplementedError: When the featurizer does not provide a custom loader.
         """
         _ = data_path, dataset_name, kwargs
         raise NotImplementedError
@@ -124,15 +113,13 @@ class Featurizer(ABC):
     def get_state(self) -> dict[str, object]:
         """Return serializable fitted state for legacy save/load bridges.
 
-        Returns:
-            JSON-serializable mapping of fitted attributes.
+        :returns: JSON-serializable mapping of fitted attributes.
         """
         return {}
 
     def set_state(self, state: dict[str, object]) -> None:
-        """Restore fitted state produced by :meth:`get_state`.
+        """Restore fitted state produced by ``get_state``.
 
-        Args:
-            state: Mapping previously returned by :meth:`get_state`.
+        :param state: Mapping previously returned by ``get_state``.
         """
         _ = state

@@ -13,7 +13,12 @@ def iter_featurizer_leaves(
     featurizer: FeaturizerConfig,
     registry: str,
 ) -> Iterator[FeaturizerConfig]:
-    """Yield leaf featurizer configs from a tree (concat parents are expanded)."""
+    """Yield leaf featurizer configs from a tree (concat parents are expanded).
+
+    :param featurizer: Root featurizer config, possibly a concat parent.
+    :param registry: Default registry used when normalizing nested children.
+    :yields: Leaf ``FeaturizerConfig`` nodes.
+    """
     if featurizer.name == "concatFeaturizers":
         for child in featurizer.hyperparameters.get("featurizers", []):
             child_cfg = FeaturizerConfig.model_validate(
@@ -29,7 +34,13 @@ def map_featurizer_tree(
     registry: str,
     transform_leaf: Callable[[FeaturizerConfig], FeaturizerConfig],
 ) -> FeaturizerConfig:
-    """Return a copy of ``featurizer`` with ``transform_leaf`` applied at each leaf."""
+    """Return a copy of ``featurizer`` with ``transform_leaf`` applied at each leaf.
+
+    :param featurizer: Root featurizer config to copy and transform.
+    :param registry: Default registry used when normalizing nested children.
+    :param transform_leaf: Callable applied to each leaf config.
+    :returns: Transformed featurizer tree.
+    """
     if featurizer.name == "concatFeaturizers":
         children = []
         for child in featurizer.hyperparameters.get("featurizers", []):
@@ -55,6 +66,10 @@ def ensure_unique_qualified_featurizers(featurizer: FeaturizerConfig, registry: 
     Duplicate means the same qualified selector (for example ``raw[expression]``)
     appears more than once under one registry. The same base name on different
     views (``raw[expression]+raw[mutations]``) is allowed.
+
+    :param featurizer: Featurizer tree to validate (concat parents are walked).
+    :param registry: Registry slot name used in error messages.
+    :raises ValueError: If the same qualified selector appears twice.
     """
     if featurizer.name != "concatFeaturizers":
         return

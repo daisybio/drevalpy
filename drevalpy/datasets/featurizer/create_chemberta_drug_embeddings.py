@@ -13,9 +13,11 @@ except ImportError:
     raise ImportError(
         "Please install transformers package for ChemBERTa embedding featurizer: pip install transformers"
     )
-# Load ChemBERTa
-tokenizer = AutoTokenizer.from_pretrained("seyonec/ChemBERTa-zinc-base-v1")
-model = AutoModel.from_pretrained("seyonec/ChemBERTa-zinc-base-v1")
+_CHEMBERTA_MODEL = "seyonec/ChemBERTa-zinc-base-v1"
+_CHEMBERTA_REVISION = "761d6a1"
+
+tokenizer = AutoTokenizer.from_pretrained(_CHEMBERTA_MODEL, revision=_CHEMBERTA_REVISION)
+model = AutoModel.from_pretrained(_CHEMBERTA_MODEL, revision=_CHEMBERTA_REVISION)
 model.eval()
 
 

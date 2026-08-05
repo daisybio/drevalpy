@@ -1,5 +1,4 @@
-r"""
-Drug featurizer for the Precily model using SMILESVec embeddings.
+"""Drug featurizer for the Precily model using SMILESVec embeddings.
 
 Reads the SMILES that DrEvalPy already ships for a dataset and writes a CSV
 of drug features keyed by pubchem_id, in the format Precily's
@@ -17,8 +16,7 @@ from gensim.models import KeyedVectors
 
 
 def _load_smiles(data_path: str, dataset_name: str) -> pd.DataFrame:
-    """
-    Load drug SMILES from DrEvalPy's expected file structure.
+    """Load drug SMILES from DrEvalPy's expected file structure.
 
     :param data_path: Root directory containing dataset subfolders.
     :param dataset_name: Name of the dataset (subfolder).
@@ -37,8 +35,7 @@ def _load_smiles(data_path: str, dataset_name: str) -> pd.DataFrame:
 
 
 def _smilesvec(smiles: str, kv: KeyedVectors, k: int = 8, dim: int = 100) -> np.ndarray:
-    """
-    Convert a SMILES string to a vector using SMILESVec (word2vec on substrings).
+    """Convert a SMILES string to a vector using SMILESVec (word2vec on substrings).
 
     :param smiles: Input SMILES string.
     :param kv: Gensim KeyedVectors model.
@@ -49,7 +46,7 @@ def _smilesvec(smiles: str, kv: KeyedVectors, k: int = 8, dim: int = 100) -> np.
     if len(smiles) < k:
         words = [smiles]
     else:
-        words = [smiles[i : i + k] for i in range(len(smiles) - k + 1)]  # noqa: E203
+        words = [smiles[i : i + k] for i in range(len(smiles) - k + 1)]
 
     vecs = [kv[w] for w in words if w in kv.key_to_index]
     if not vecs:
@@ -58,8 +55,7 @@ def _smilesvec(smiles: str, kv: KeyedVectors, k: int = 8, dim: int = 100) -> np.
 
 
 def main() -> None:
-    """
-    Command-line entry point: generate drug features using SMILESVec.
+    """Command-line entry point: generate drug features using SMILESVec.
 
     Reads drug SMILES from a dataset, loads a pre‑trained SMILESVec model,
     computes substring embeddings, and writes a CSV file

@@ -16,4 +16,8 @@ class FingerprintsFeaturizer(ViewDrugFeaturizer):
     """Alias for the standard fingerprints view."""
 
     def __init__(self, *, view: str = "fingerprints") -> None:
+        """Initialize instance state.
+
+        :param view: view.
+        """
         super().__init__(view=view)

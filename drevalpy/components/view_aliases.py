@@ -34,7 +34,12 @@ _PREFERRED_ALIAS_BY_VIEW: dict[str, str] = {
 
 
 def resolve_omics_view(token: str) -> str:
-    """Map a user-facing view token to the canonical storage key."""
+    """Map a user-facing view token to the canonical storage key.
+
+    :param token: token.
+    :returns: Result.
+    :raises ValueError: Raised on invalid input.
+    """
     normalized = token.strip().lower()
     if not normalized:
         msg = "Omics view token must be a non-empty string"
@@ -49,5 +54,9 @@ def resolve_omics_view(token: str) -> str:
 
 
 def format_view_alias(view: str) -> str:
-    """Format a canonical view key for bracket labels."""
+    """Format a canonical view key for bracket labels.
+
+    :param view: view.
+    :returns: Result.
+    """
     return _PREFERRED_ALIAS_BY_VIEW.get(view, view)

@@ -23,15 +23,10 @@ def _format_validation_error(exc: ValidationError, *, source: Path | str | None 
 def model_config_from_dict(data: dict[str, Any], *, source: Path | str | None = None) -> ModelConfig:
     """Build a ``ModelConfig`` from a plain dictionary.
 
-    Args:
-        data: Mapping with featurizer and predictor sections.
-        source: Optional path or label included in validation error messages.
-
-    Returns:
-        Validated ``ModelConfig`` instance.
-
-    Raises:
-        ValueError: If validation fails.
+    :param data: Mapping with featurizer and predictor sections.
+    :param source: Optional path or label included in validation error messages.
+    :returns: Validated ``ModelConfig`` instance.
+    :raises ValueError: If validation fails.
     """
     from drevalpy.models.config import ModelConfig
 
@@ -49,16 +44,10 @@ def model_config_from_spec(
 ) -> ModelConfig:
     """Build a ``ModelConfig`` from a recipe, zoo, legacy, or baseline spec.
 
-    Args:
-        spec: Zoo preset name, colon-separated recipe, or legacy baseline token.
-        hyperparameters: Optional flat public hyperparameter overrides.
-        prediction_mode: Optional prediction mode string; defaults to regression.
-
-    Returns:
-        Validated ``ModelConfig`` instance.
-
-    Raises:
-        ValueError: If *spec* is unknown or validation fails.
+    :param spec: Zoo preset name, colon-separated recipe, or legacy baseline token.
+    :param hyperparameters: Optional flat public hyperparameter overrides.
+    :param prediction_mode: Optional prediction mode string; defaults to regression.
+    :returns: Validated ``ModelConfig`` instance.
     """
     from drevalpy.models.config import PredictionMode
     from drevalpy.models.model_config_spec import build_model_config_from_spec
@@ -75,15 +64,10 @@ def model_config_from_spec(
 def model_config_from_yaml(path: Path | str) -> ModelConfig:
     """Load a ``ModelConfig`` from a YAML file.
 
-    Args:
-        path: Path to a YAML mapping describing the model config.
-
-    Returns:
-        Validated ``ModelConfig`` instance.
-
-    Raises:
-        FileNotFoundError: If *path* does not exist.
-        ValueError: If the YAML content is not a valid config mapping.
+    :param path: Path to a YAML mapping describing the model config.
+    :returns: Validated ``ModelConfig`` instance.
+    :raises FileNotFoundError: If ``path`` does not exist.
+    :raises ValueError: If the YAML content is not a valid config mapping.
     """
     yaml_path = Path(path)
     if not yaml_path.is_file():

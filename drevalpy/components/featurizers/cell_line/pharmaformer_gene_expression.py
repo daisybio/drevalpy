@@ -24,6 +24,7 @@ class PharmaFormerGeneExpressionFeaturizer(CellLineFeaturizer):
     """Apply the PharmaFormer StandardScaler then MinMaxScaler sequence."""
 
     def __init__(self) -> None:
+        """Initialize StandardScaler and MinMaxScaler pipelines."""
         self._scaler = StandardScaler()
         self._minmax = MinMaxScaler()
         self._feature_names: tuple[str, ...] | None = None
@@ -32,7 +33,13 @@ class PharmaFormerGeneExpressionFeaturizer(CellLineFeaturizer):
 
     @classmethod
     def load_features(cls, data_path: str, dataset_name: str, **kwargs: object) -> FeatureDataset:
-        """Load reduced landmark gene-expression values without arcsinh."""
+        """Load reduced landmark gene-expression values without arcsinh.
+
+        :param data_path: Parent directory for dataset artifacts.
+        :param dataset_name: Dataset folder name.
+        :param kwargs: Unused loader keyword arguments.
+        :returns: Feature dataset with reduced landmark genes.
+        """
         _ = cls, kwargs
         return load_and_select_gene_features("gene_expression", "landmark_genes_reduced", data_path, dataset_name)
 
@@ -43,6 +50,14 @@ class PharmaFormerGeneExpressionFeaturizer(CellLineFeaturizer):
         entity_ids: np.ndarray | None = None,
         context: FeaturizerFitContext | None = None,
     ) -> PharmaFormerGeneExpressionFeaturizer:
+        """Fit StandardScaler and MinMaxScaler on pair-expanded training ids.
+
+        :param features: Cell-line gene-expression feature dataset.
+        :param entity_ids: Unused; training ids come from *context*.
+        :param context: Fit context with pair-expanded training cell-line ids.
+        :returns: Fitted featurizer instance.
+        :raises ValueError: If *context* is missing.
+        """
         _ = entity_ids
         if context is None:
             raise ValueError("pharmaFormerGeneExpression requires FeaturizerFitContext")
@@ -54,12 +69,25 @@ class PharmaFormerGeneExpressionFeaturizer(CellLineFeaturizer):
         return self
 
     def transform(self, features: FeatureDataset, entity_ids: np.ndarray) -> np.ndarray:
+        """Apply fitted scalers to gene-expression rows.
+
+        :param features: Cell-line gene-expression feature dataset.
+        :param entity_ids: Cell-line identifiers to transform.
+        :returns: Scaled float matrix.
+        :raises RuntimeError: If called before ``fit``.
+        """
         if not self._is_fitted:
             raise RuntimeError("PharmaFormerGeneExpressionFeaturizer must be fit before transform")
         matrix = stack_view_matrix(features, "gene_expression", entity_ids)
         return self._minmax.transform(self._scaler.transform(matrix)).astype(np.float32)
 
     def transform_blocks(self, features: FeatureDataset, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
+        """Return a single ``gene_expression`` numeric block.
+
+        :param features: Cell-line gene-expression feature dataset.
+        :param entity_ids: Cell-line identifiers to transform.
+        :returns: Mapping with one numeric block.
+        """
         return {
             "gene_expression": numeric_feature_block(
                 self.transform(features, entity_ids),
@@ -69,9 +97,17 @@ class PharmaFormerGeneExpressionFeaturizer(CellLineFeaturizer):
 
     @property
     def output_dim(self) -> int:
+        """Return landmark gene count after fitting.
+
+        :returns: Output feature dimensionality.
+        """
         return self._output_dim
 
     def get_state(self) -> dict[str, object]:
+        """Serialize scaler state and feature names.
+
+        :returns: Fitted state mapping, or empty dict before fitting.
+        """
         if not self._is_fitted:
             return {}
         return {
@@ -83,6 +119,10 @@ class PharmaFormerGeneExpressionFeaturizer(CellLineFeaturizer):
         }
 
     def set_state(self, state: dict[str, object]) -> None:
+        """Restore scaler state from ``get_state``.
+
+        :param state: Mapping previously returned by ``get_state``.
+        """
         scaler, minmax = state.get("scaler"), state.get("minmax")
         if isinstance(scaler, StandardScaler):
             self._scaler = scaler

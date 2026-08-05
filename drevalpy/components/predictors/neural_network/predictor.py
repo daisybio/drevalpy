@@ -22,6 +22,7 @@ from drevalpy.components.predictors.neural_network.network import FeedForwardNet
 from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.components.registry import register_predictor
 from drevalpy.models.config import PredictionMode
+from drevalpy.utils.torch_io import load_state_dict, load_trusted_mapping, save_torch_payload
 
 
 @register_predictor(
@@ -37,6 +38,10 @@ class NeuralNetworkPredictor(MatrixPredictor):
     supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset({PredictionMode.REGRESSION})
 
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
+        """Initialize instance state.
+
+        :param hyperparameters: hyperparameters.
+        """
         super().__init__(hyperparameters)
         self._model: FeedForwardNetwork | None = None
         self._input_dim: int | None = None
@@ -44,6 +49,10 @@ class NeuralNetworkPredictor(MatrixPredictor):
 
     @classmethod
     def get_default_hyperparameters(cls) -> dict[str, object]:
+        """Get default hyperparameters.
+
+        :returns: Result.
+        """
         return {
             "units_per_layer": [512, 256, 128],
             "dropout_prob": 0.2,
@@ -54,6 +63,10 @@ class NeuralNetworkPredictor(MatrixPredictor):
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
+        """Get hyperparameter space.
+
+        :returns: Result.
+        """
         return {
             "dropout_prob": {"type": "float", "low": 0.0, "high": 0.5, "default": 0.2},
             "max_epochs": {"type": "int", "low": 10, "high": 100, "default": 50},
@@ -61,7 +74,10 @@ class NeuralNetworkPredictor(MatrixPredictor):
         }
 
     def _materialize(self, input_dim: int) -> None:
-        """Allocate the network once input dimensionality is known."""
+        """Allocate the network once input dimensionality is known.
+
+        :param input_dim: Flattened feature width for one response pair.
+        """
         self._input_dim = input_dim
         self._model = FeedForwardNetwork(
             hyperparameters={
@@ -73,6 +89,11 @@ class NeuralNetworkPredictor(MatrixPredictor):
         self._is_fitted = False
 
     def fit(self, batch: ModelInputBatch) -> None:
+        """Fit on training data.
+
+        :param batch: batch.
+        :raises ValueError: Raised on invalid input.
+        """
         if batch.response is None:
             msg = "Matrix predictors require response values during fit"
             raise ValueError(msg)
@@ -147,7 +168,7 @@ class NeuralNetworkPredictor(MatrixPredictor):
             trainer.fit(self._model, train_dataloaders=train_loader, val_dataloaders=val_loader)
 
         if checkpoint_callback.best_model_path:
-            checkpoint = torch.load(checkpoint_callback.best_model_path, weights_only=True)  # noqa: S614
+            checkpoint = load_state_dict(checkpoint_callback.best_model_path)
             self._model.load_state_dict(checkpoint["state_dict"])
 
     def _fit_matrix(self, x: np.ndarray, y: np.ndarray) -> None:
@@ -162,13 +183,21 @@ class NeuralNetworkPredictor(MatrixPredictor):
         return np.asarray(preds, dtype=np.float64).reshape(-1)
 
     def is_fitted(self) -> bool:
+        """Return whether the component has been fit.
+
+        :returns: Result.
+        """
         return self._is_fitted
 
     def get_state(self) -> dict[str, object]:
+        """Return serializable fitted state.
+
+        :returns: Result.
+        """
         if not self._is_fitted or self._model is None:
             return {}
         buffer = io.BytesIO()
-        torch.save(
+        save_torch_payload(
             {
                 "hyperparameters": dict(self._hyperparameters),
                 "state_dict": self._model.state_dict(),
@@ -179,12 +208,17 @@ class NeuralNetworkPredictor(MatrixPredictor):
         return {"checkpoint": buffer.getvalue()}
 
     def set_state(self, state: dict[str, object]) -> None:
+        """Restore state from a prior ``get_state`` mapping.
+
+        :param state: state.
+        :raises PredictorStateError: Raised on invalid input.
+        """
         checkpoint = state.get("checkpoint")
         if not isinstance(checkpoint, (bytes, bytearray)):
             msg = "NeuralNetworkPredictor state requires a checkpoint byte blob"
             raise PredictorStateError(msg)
         try:
-            data = torch.load(io.BytesIO(checkpoint), weights_only=False)  # noqa: S614
+            data = load_trusted_mapping(checkpoint)
         except Exception as exc:
             msg = "NeuralNetworkPredictor checkpoint could not be deserialized"
             raise PredictorStateError(msg) from exc

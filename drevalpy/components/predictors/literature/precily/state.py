@@ -4,23 +4,42 @@ from __future__ import annotations
 
 from typing import Any
 
+import torch.nn as nn
+
 from drevalpy.components.predictors.literature._torch_state import load_state_dict, save_state_dict
 from drevalpy.components.predictors.literature.precily.algorithm import PrecilyModel
 from drevalpy.components.predictors.literature.precily.model_utils import PrecilyNetwork
 
 
 def export_state(algorithm: PrecilyModel) -> dict[str, Any]:
-    """Serialize a fitted Precily algorithm for predictor persistence."""
+    """Serialize a fitted algorithm for predictor persistence.
+
+    :param algorithm: Fitted algorithm instance.
+
+    :returns: JSON-serializable state mapping.
+
+    :raises TypeError: If the saved Precily network has an unexpected first layer.
+    """
     payload: dict[str, Any] = {"hyperparameters": dict(algorithm.hyperparameters)}
     if algorithm.model is not None:
         first_layer = algorithm.model.net[0]
-        payload["input_dim"] = int(first_layer.in_features)  # type: ignore[arg-type,misc]
+        if not isinstance(first_layer, nn.Linear):
+            msg = "PrecilyNetwork must start with a Linear layer"
+            raise TypeError(msg)
+        payload["input_dim"] = int(first_layer.in_features)
         payload["model_state"] = save_state_dict(algorithm.model.state_dict())
     return payload
 
 
 def apply_state(payload: dict[str, Any]) -> PrecilyModel:
-    """Restore a Precily algorithm from a persisted payload."""
+    """Restore an algorithm from a persisted payload.
+
+    :param payload: Serialized state produced by ``export_state``.
+
+    :returns: Configured algorithm instance.
+
+    :raises ValueError: If required payload fields are missing.
+    """
     hyperparameters = payload.get("hyperparameters")
     if not isinstance(hyperparameters, dict):
         msg = "missing algorithm hyperparameters"

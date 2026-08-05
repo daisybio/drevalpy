@@ -8,7 +8,13 @@ _RESERVED_PREDICTOR_KEYS = frozenset({"name", "hyperparameters", "hyperparameter
 
 
 def normalize_predictor_config(data: Any) -> dict[str, Any]:
-    """Normalize string or one-key mapping predictor configs."""
+    """Normalize string or one-key mapping predictor configs.
+
+    :param data: data.
+    :returns: Result.
+    :raises ValueError: Raised on invalid input.
+    :raises TypeError: Raised on invalid input.
+    """
     if isinstance(data, str):
         return {"name": data, "hyperparameters": {}}
 

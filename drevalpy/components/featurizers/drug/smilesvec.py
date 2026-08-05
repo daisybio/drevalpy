@@ -18,11 +18,21 @@ class SmilesVecDrugFeaturizer(ViewDrugFeaturizer):
     """Smiles vec drug featurizer component."""
 
     def __init__(self, *, view: str = "smilesvec") -> None:
+        """Initialize instance state.
+
+        :param view: view.
+        """
         super().__init__(view=view)
 
     @classmethod
     def load_features(cls, data_path: str, dataset_name: str, **kwargs: object) -> FeatureDataset:
-        """Load generated SMILESVec embeddings under the predictor block name."""
+        """Load generated SMILESVec embeddings under the predictor block name.
+
+        :param data_path: data path.
+        :param dataset_name: dataset name.
+        :param kwargs: Keyword arguments.
+        :returns: Result.
+        """
         _ = cls, kwargs
         features = load_generic_csv(data_path, dataset_name, "drug_smilesvec", index_col="pubchem_id")
         for views in features.features.values():

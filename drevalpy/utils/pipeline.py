@@ -12,8 +12,7 @@ from .validation import check_arguments
 def main(args) -> None:
     """Run the drug response evaluation pipeline.
 
-    Args:
-        args: Parsed command-line arguments for the evaluation pipeline.
+    :param args: Parsed command-line arguments for the evaluation pipeline.
     """
     check_arguments(args)
     response_data, cross_study_datasets = get_datasets(
@@ -78,17 +77,24 @@ def get_datasets(
 ) -> tuple[DrugResponseDataset, list[DrugResponseDataset] | None]:
     """Load the primary response dataset and optional cross-study datasets.
 
-    Args:
-        dataset_name: Built-in or custom dataset name passed to ``load_dataset``.
-        cross_study_datasets: Names of additional datasets to load.
-        path_data: Root directory for dataset files.
-        measure: Response column name.
-        curve_curator: Whether to fit CurveCurator for custom datasets.
-        cores: Worker count for CurveCurator fitting.
-        normalize: Normalize responses during CurveCurator fitting.
+    :param dataset_name: Built-in or custom dataset name passed to ``load_dataset``.
+    :param cross_study_datasets: Names of additional datasets to load.
+    :param path_data: Root directory for dataset files.
+    :param measure: Response column name.
+    :param curve_curator: Whether to fit CurveCurator for custom datasets.
+    :param cores: Worker count for CurveCurator fitting.
+    :param normalize: Normalize responses during CurveCurator fitting.
 
-    Returns:
-        Tuple of the primary dataset and loaded cross-study datasets.
+    :returns: Tuple of the primary dataset and loaded cross-study datasets.
+
+    :param dataset_name: dataset name.
+    :param cross_study_datasets: cross study datasets.
+    :param path_data: path data.
+    :param measure: measure.
+    :param curve_curator: curve curator.
+    :param cores: cores.
+    :param normalize: normalize.
+    :returns: Result of the operation.
     """
     response_data = load_dataset(
         dataset_name=dataset_name,

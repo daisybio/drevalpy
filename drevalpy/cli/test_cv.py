@@ -11,6 +11,11 @@ from drevalpy.cli.model_testing import run_train_and_predict_final
 
 
 def register(app: typer.Typer) -> None:
+    """Register the ``test-cv`` subcommand on ``app``.
+
+    :param app: Root Typer application to register the command on.
+    """
+
     @app.command("test-cv")
     def test_cv(
         model_name: Annotated[
@@ -89,7 +94,22 @@ def register(app: typer.Typer) -> None:
             ),
         ] = "TEMPORARY",
     ) -> None:
-        """Train and predict on the CV test set (full, randomization, or robustness mode)."""
+        """Train and predict on the CV test set (full, randomization, or robustness mode).
+
+        :param model_name: Registered model name (optionally ``Model.drug`` for single-drug).
+        :param split_id: CV split identifier used in output paths.
+        :param split_dataset_path: Path to a pickled CV split artifact.
+        :param hyperparameters_path: Path to the best-hyperparameter YAML for this split.
+        :param path_data: Root data directory passed to feature loaders.
+        :param mode: One of ``full``, ``randomization``, or ``robustness``.
+        :param response_transformation: Sklearn response transform name.
+        :param test_mode: Split label passed to cross-study prediction.
+        :param randomization_views_path: YAML path when ``mode`` is ``randomization``.
+        :param randomization_type: ``permutation`` or ``invariant`` for randomization mode.
+        :param robustness_trial: Trial index when ``mode`` is ``robustness``.
+        :param cross_study_datasets: Optional pickled cross-study datasets for full mode.
+        :param model_checkpoint_dir: Directory for model checkpoints.
+        """
         run_train_and_predict_final(
             mode=mode,
             model_name=model_name,

@@ -30,6 +30,10 @@ class TissueFeaturizer(CellLineFeaturizer):
     """Map each cell line to a dense one-hot tissue vector."""
 
     def __init__(self, *, allow_missing: bool = False) -> None:
+        """Initialize instance state.
+
+        :param allow_missing: allow missing.
+        """
         self._encoder = OneHotCategoryEncoder()
         self._allow_missing = bool(allow_missing)
 
@@ -40,6 +44,14 @@ class TissueFeaturizer(CellLineFeaturizer):
         entity_ids: np.ndarray | None = None,
         context: FeaturizerFitContext | None = None,
     ) -> TissueFeaturizer:
+        """Fit on training data.
+
+        :param features: features.
+        :param entity_ids: entity ids.
+        :param context: context.
+        :returns: Result.
+        :raises ValueError: Raised on invalid input.
+        """
         _ = context
         ids = entity_ids if entity_ids is not None else np.array(list(features.features.keys()), dtype=str)
         available: list[str] = []
@@ -61,6 +73,13 @@ class TissueFeaturizer(CellLineFeaturizer):
         return self
 
     def transform(self, features: FeatureDataset, entity_ids: np.ndarray) -> np.ndarray:
+        """Transform inputs into feature payloads.
+
+        :param features: features.
+        :param entity_ids: entity ids.
+        :returns: Result.
+        :raises ValueError: Raised on invalid input.
+        """
         if self._encoder.output_dim == 0:
             return np.empty((len(entity_ids), 0), dtype=np.float32)
         categories: list[str] = []
@@ -80,6 +99,12 @@ class TissueFeaturizer(CellLineFeaturizer):
         features: FeatureDataset,
         entity_ids: np.ndarray,
     ) -> dict[str, FeatureBlock]:
+        """Transform blocks.
+
+        :param features: features.
+        :param entity_ids: entity ids.
+        :returns: Result.
+        """
         return {
             "tissue": numeric_feature_block(self.transform(features, entity_ids)),
             "tissue_categories": metadata_feature_block(
@@ -89,10 +114,22 @@ class TissueFeaturizer(CellLineFeaturizer):
 
     @property
     def output_dim(self) -> int:
+        """Return output feature dimension after fitting.
+
+        :returns: Result.
+        """
         return self._encoder.output_dim
 
     def get_state(self) -> dict[str, object]:
+        """Return serializable fitted state.
+
+        :returns: Result.
+        """
         return self._encoder.get_state()
 
     def set_state(self, state: dict[str, object]) -> None:
+        """Restore state from a prior ``get_state`` mapping.
+
+        :param state: state.
+        """
         self._encoder.set_state(state)

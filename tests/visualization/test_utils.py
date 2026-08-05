@@ -9,8 +9,7 @@ from drevalpy.visualization.utils import _discover_result_csv_files, _resolve_re
 
 
 def test_discover_result_csv_files_finds_custom_split_label_results(tmp_path: Path) -> None:
-    """
-    Discover result CSVs under arbitrary split-label directories.
+    """Discover result CSVs under arbitrary split-label directories.
 
     :param tmp_path: Temporary path provided by pytest.
     """
@@ -23,8 +22,7 @@ def test_discover_result_csv_files_finds_custom_split_label_results(tmp_path: Pa
 
 
 def test_discover_result_csv_files_skips_split_role_csvs(tmp_path: Path) -> None:
-    """
-    Ignore split role CSVs stored under ``splits/``.
+    """Ignore split role CSVs stored under ``splits/``.
 
     :param tmp_path: Temporary path provided by pytest.
     """
@@ -36,8 +34,7 @@ def test_discover_result_csv_files_skips_split_role_csvs(tmp_path: Path) -> None
 
 
 def test_discover_result_csv_files_includes_all_result_categories(tmp_path: Path) -> None:
-    """
-    Collect CSVs from predictions, cross_study, randomization, and robustness folders.
+    """Collect CSVs from predictions, cross_study, randomization, and robustness folders.
 
     :param tmp_path: Temporary path provided by pytest.
     """
@@ -59,8 +56,7 @@ def test_discover_result_csv_files_includes_all_result_categories(tmp_path: Path
 
 
 def test_resolve_result_test_mode_uses_manifest(tmp_path: Path) -> None:
-    """
-    Resolve semantic test mode from split manifests for custom result labels.
+    """Resolve semantic test mode from split manifests for custom result labels.
 
     :param tmp_path: Temporary path provided by pytest.
     """
@@ -77,8 +73,7 @@ def test_resolve_result_test_mode_uses_manifest(tmp_path: Path) -> None:
 
 
 def test_resolve_result_test_mode_falls_back_to_split_label(tmp_path: Path) -> None:
-    """
-    Fall back to the result directory label when no manifest exists.
+    """Fall back to the result directory label when no manifest exists.
 
     :param tmp_path: Temporary path provided by pytest.
     """

@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 import numpy as np
 
+from drevalpy.components.predictors.literature._protocols import MultiOmicsFeatureAttributes
 from drevalpy.components.predictors.literature._training_helpers import LiteratureTrainingMixin
 from drevalpy.components.predictors.literature.molir.utils import filter_and_sort_omics
 from drevalpy.datasets.dataset import FeatureDataset
@@ -39,7 +42,7 @@ def test_filter_and_sort_omics_realigns_columns_and_fills_missing() -> None:
     )
 
     gex, mut, cnv = filter_and_sort_omics(
-        model=model,
+        model=cast(MultiOmicsFeatureAttributes, model),
         gene_expression=gene_expression,
         mutations=mutations,
         cnvs=cnvs,

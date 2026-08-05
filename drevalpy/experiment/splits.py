@@ -25,7 +25,23 @@ def prepare_response_splits_impl(
     random_state: int = 42,
     split_early_stopping: bool = True,
 ) -> int:
-    """Create, load, or reuse CV splits for an experiment run."""
+    """Create, load, or reuse CV splits for an experiment run.
+
+    :param response_data: Dataset that receives ``cv_splits`` in place.
+    :param split_path: Directory for split manifest and fold files.
+    :param result_path: Experiment result directory.
+    :param split_label: Label stored in the split manifest.
+    :param test_mode: Builtin split mode or label for external splits.
+    :param n_cv_splits: Requested number of folds.
+    :param overwrite: Rebuild splits even when a manifest already exists.
+    :param result_folder_exists: Whether ``result_path`` already exists.
+    :param custom_splitter: External split creator or manifest path.
+    :param validation_ratio: Fraction of training data held out for validation.
+    :param random_state: Random seed for builtin splitters.
+    :param split_early_stopping: Whether to create early-stopping folds.
+
+    :returns: Actual number of CV splits attached to *response_data*.
+    """
     if result_folder_exists and overwrite:
         print(f"Overwriting existing results at {result_path}")
         shutil.rmtree(result_path)

@@ -36,8 +36,7 @@ def test_global_models(
     cross_study_dataset: DrugResponseDataset,
     data_dir,
 ) -> None:
-    """
-    Test global drug response models.
+    """Test global drug response models.
 
     :param sample_dataset: from conftest.py
     :param model_name: e.g., DIPK, SRMF, SimpleNeuralNetwork, or MultiViewNeuralNetwork
@@ -177,8 +176,7 @@ def test_global_models(
 
 @pytest.mark.parametrize("test_mode", ["LTO"])
 def test_multi_view_neural_network_custom_views(sample_dataset: DrugResponseDataset, test_mode: str, data_dir) -> None:
-    """
-    Test MultiViewNeuralNetwork with a fully custom cell line view (not a built-in omic).
+    """Test MultiViewNeuralNetwork with a fully custom cell line view (not a built-in omic).
 
     Creates a fake CSV feature file and uses it via load_generic_csv to verify
     the flexible input pipeline works end-to-end including save/load without methylation.

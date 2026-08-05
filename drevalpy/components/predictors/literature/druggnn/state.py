@@ -9,7 +9,12 @@ from drevalpy.components.predictors.literature.druggnn.algorithm import DrugGNN,
 
 
 def export_state(algorithm: DrugGNN) -> dict[str, Any]:
-    """Serialize a fitted DrugGNN algorithm for predictor persistence."""
+    """Serialize a fitted algorithm for predictor persistence.
+
+    :param algorithm: Fitted algorithm instance.
+
+    :returns: JSON-serializable state mapping.
+    """
     payload: dict[str, Any] = {"hyperparameters": dict(algorithm.hyperparameters)}
     if algorithm.model is not None:
         payload["model_state"] = save_state_dict(algorithm.model.state_dict())
@@ -24,7 +29,14 @@ def export_state(algorithm: DrugGNN) -> dict[str, Any]:
 
 
 def apply_state(payload: dict[str, Any]) -> DrugGNN:
-    """Restore a DrugGNN algorithm from a persisted payload."""
+    """Restore an algorithm from a persisted payload.
+
+    :param payload: Serialized state produced by ``export_state``.
+
+    :returns: Configured algorithm instance.
+
+    :raises ValueError: If required payload fields are missing.
+    """
     hyperparameters = payload.get("hyperparameters")
     if not isinstance(hyperparameters, dict):
         msg = "missing algorithm hyperparameters"

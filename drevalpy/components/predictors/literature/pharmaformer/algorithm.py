@@ -1,5 +1,4 @@
-"""
-Contains PharmaFormer, a transformer-based deep learning model for drug response prediction.
+"""Contains PharmaFormer, a transformer-based deep learning model for drug response prediction.
 
 A Transformer-based deep learning model designed to predict clinical drug responses
 by integrating gene expression profiles and drug molecular structures.
@@ -31,8 +30,7 @@ class _PharmaFormerDataset(Dataset):
         cell_line_features: FeatureDataset,
         drug_features: FeatureDataset,
     ):
-        """
-        Initialize the dataset.
+        """Initialize the dataset.
 
         :param response: Drug response values
         :param cell_line_ids: Cell line identifiers
@@ -49,16 +47,16 @@ class _PharmaFormerDataset(Dataset):
     def __len__(self) -> int:
         """Return the length of the dataset.
 
-        :return: Length of the dataset
+        :returns: return: Length of the dataset
         """
         return len(self.response)
 
     def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """
-        Get a single item from the dataset.
+        """Get a single item from the dataset.
 
         :param idx: Index of the item
-        :return: Tuple of (gene_features, drug_features, response)
+
+        :returns: return: Tuple of (gene_features, drug_features, response)
         """
         cell_line_id = self.cell_line_ids[idx]
         drug_id = self.drug_ids[idx]
@@ -89,15 +87,18 @@ class PharmaFormerModel(LiteratureTrainingMixin):
 
     @classmethod
     def get_model_name(cls) -> str:
-        """
-        Get the model name.
+        """Get the model name.
 
-        :returns: PharmaFormer
+        :returns: returns: PharmaFormer
         """
         return "PharmaFormer"
 
     @classmethod
     def get_default_hyperparameters(cls) -> dict[str, Any]:
+        """Return default PharmaFormer hyperparameters.
+
+        :returns: Default hyperparameter mapping.
+        """
         return {
             "gene_hidden_size": 2048,
             "drug_hidden_size": 128,
@@ -113,11 +114,10 @@ class PharmaFormerModel(LiteratureTrainingMixin):
         }
 
     def configure(self, hyperparameters: dict[str, Any]) -> None:
-        """
-        Builds the PharmaFormer model with the specified hyperparameters.
+        """Builds the PharmaFormer model with the specified hyperparameters.
 
-        :param hyperparameters: Model hyperparameters including gene_hidden_size, drug_hidden_size,
-            feature_dim, nhead, num_layers, dim_feedforward, dropout, batch_size, lr, epochs, patience
+        :param hyperparameters: Keys include hidden sizes, ``nhead``, ``num_layers``,
+            ``dim_feedforward``, ``dropout``, ``batch_size``, ``lr``, ``epochs``, and ``patience``.
         """
         # Log hyperparameters to wandb if enabled
         self.log_hyperparameters(hyperparameters)
@@ -133,14 +133,14 @@ class PharmaFormerModel(LiteratureTrainingMixin):
         output_earlystopping: DrugResponseDataset | None = None,
         model_checkpoint_dir: str = "checkpoints",
     ) -> None:
-        """
-        Trains the model.
+        """Trains the model.
 
         :param output: training data associated with the response output
         :param cell_line_input: input data associated with the cell line
         :param drug_input: input data associated with the drug
         :param output_earlystopping: early stopping data associated with the response output
         :param model_checkpoint_dir: directory to save the model checkpoint
+
         :raises ValueError: if drug_input is None or if early stopping data is missing
         """
         if drug_input is None:
@@ -167,14 +167,15 @@ class PharmaFormerModel(LiteratureTrainingMixin):
         cell_line_input: FeatureDataset,
         drug_input: FeatureDataset | None = None,
     ) -> np.ndarray:
-        """
-        Predicts the response values for the given cell lines and drugs.
+        """Predicts the response values for the given cell lines and drugs.
 
         :param cell_line_ids: list of cell line IDs
         :param drug_ids: list of drug IDs
         :param cell_line_input: input data associated with the cell line
         :param drug_input: input data associated with the drug
-        :return: predicted response values
+
+        :returns: return: predicted response values
+
         :raises ValueError: if drug_input is None or if the model is not initialized
         """
         if drug_input is None:

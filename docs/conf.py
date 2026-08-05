@@ -229,8 +229,7 @@ intersphinx_mapping = dict(
 
 
 def get_obj_module(qualname):
-    """
-    Get a module/class/attribute and its original module by qualname.
+    """Get a module/class/attribute and its original module by qualname.
 
     :param qualname: The qualified name of the object.
     :returns: The object and its original module.
@@ -257,8 +256,7 @@ def get_obj_module(qualname):
 
 
 def get_linenos(obj):
-    """
-    Get an object's line numbers.
+    """Get an object's line numbers.
 
     :param obj: The object.
     :returns: The start and end line numbers.
@@ -276,8 +274,7 @@ github_url = "https://github.com/{github_user}/{github_repo}/tree/{github_versio
 
 
 def modurl(qualname):
-    """
-    Get the full GitHub URL for some object's qualname.
+    """Get the full GitHub URL for some object's qualname.
 
     :param qualname: The qualified name of the object.
     :returns: The full GitHub URL.

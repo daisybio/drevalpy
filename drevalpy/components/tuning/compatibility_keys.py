@@ -72,6 +72,10 @@ def append_featurizer_flat_keys(
 
     Architecture-only featurizer kwargs (present in ModelConfig but absent from
     ``get_hyperparameter_space``) stay on the config tree and are not flattened.
+
+    :param flat: Mutable public flat hyperparameter mapping to extend in place.
+    :param featurizer: Featurizer config subtree to flatten, or ``None``.
+    :param registry: Registry slot name (``cell_line`` or ``drug``).
     """
     if featurizer is None:
         return

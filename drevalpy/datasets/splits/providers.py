@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from ...utils._pipeline_function import pipeline_function
 from ..dataset import DrugResponseDataset
@@ -23,17 +23,12 @@ from .validation import ensure_early_stopping_splits, validate_splits
 def load_external_splitter(path: Path | str) -> ExternalSplitCreator:
     """Load a module-level ``create_splits`` function from a Python script.
 
-    Args:
-        path: Path to a script defining ``create_splits(response_data, params)``.
-
-    Returns:
-        Callable external split creator.
-
-    Raises:
-        FileNotFoundError: If the script path does not exist.
-        ImportError: If the script cannot be imported.
-        AttributeError: If ``create_splits`` is missing.
-        TypeError: If ``create_splits`` is not callable.
+    :param path: Path to a script defining ``create_splits(response_data, params)``.
+    :returns: Callable external split creator.
+    :raises FileNotFoundError: If the script path does not exist.
+    :raises ImportError: If the script cannot be imported.
+    :raises AttributeError: If ``create_splits`` is missing.
+    :raises TypeError: If ``create_splits`` is not callable.
     """
     script_path = Path(path).expanduser().resolve()
     if not script_path.is_file():
@@ -54,12 +49,11 @@ def load_external_splitter(path: Path | str) -> ExternalSplitCreator:
     if not callable(fn):
         msg = "create_splits must be callable"
         raise TypeError(msg)
-    return fn  # type: ignore[return-value]
+    return cast(ExternalSplitCreator, fn)
 
 
 def _raw_builtin_splits(response_data: DrugResponseDataset, params: SplitParams) -> list[dict[str, Any]]:
-    """
-    Generate raw fold dictionaries from built-in splitting logic.
+    """Generate raw fold dictionaries from built-in splitting logic.
 
     :param response_data: full response dataset to split
     :param params: pipeline split settings
@@ -82,8 +76,7 @@ def _raw_builtin_splits(response_data: DrugResponseDataset, params: SplitParams)
 
 
 def _finalize_splits(raw_splits: list[dict[str, Any]], params: SplitParams) -> SplitResult:
-    """
-    Normalize and validate split output from any provider.
+    """Normalize and validate split output from any provider.
 
     :param raw_splits: fold dictionaries returned by a provider
     :param params: pipeline split settings
@@ -99,12 +92,9 @@ def _finalize_splits(raw_splits: list[dict[str, Any]], params: SplitParams) -> S
 def run_builtin_splitter(response_data: DrugResponseDataset, params: SplitParams) -> SplitResult:
     """Create built-in CV splits using the shared validation path.
 
-    Args:
-        response_data: Full response dataset to split.
-        params: Pipeline split settings.
-
-    Returns:
-        Validated splits and per-split metadata rows.
+    :param response_data: Full response dataset to split.
+    :param params: Pipeline split settings.
+    :returns: Validated splits and per-split metadata rows.
     """
     validated = _raw_builtin_splits(response_data, params)
     metadata_rows = [{"split_index": split_index} for split_index in range(len(validated))]
@@ -121,13 +111,10 @@ def run_external_splitter(
 ) -> SplitResult:
     """Execute an external splitter and validate its output.
 
-    Args:
-        response_data: Full response dataset passed to the splitter.
-        splitter: Callable or path to a script defining ``create_splits``.
-        params: Pipeline split settings.
-
-    Returns:
-        Validated splits and per-split metadata rows.
+    :param response_data: Full response dataset passed to the splitter.
+    :param splitter: Callable or path to a script defining ``create_splits``.
+    :param params: Pipeline split settings.
+    :returns: Validated splits and per-split metadata rows.
     """
     if isinstance(splitter, (str, Path)):
         splitter = load_external_splitter(splitter)
@@ -149,34 +136,30 @@ def create_splits(
 ) -> SplitResult:
     """Create CV splits via built-in or external providers.
 
-    Args:
-        response_data: Full response dataset passed to the splitter.
-        test_mode: One of ``LPO``, ``LCO``, ``LDO``, or ``LTO``; required when
-            *params* is omitted.
-        external_splitter: Optional callable or script path defining
-            ``create_splits``.
-        n_cv_splits: Requested number of CV splits.
-        validation_ratio: Validation fraction of the training set.
-        random_state: Random seed for splitting.
-        split_early_stopping: Whether to derive early-stopping roles when absent.
-        params: Pre-built split settings; overrides individual keyword args.
-
-    Returns:
-        Validated splits and per-split metadata rows.
-
-    Raises:
-        ValueError: If neither *params* nor *test_mode* is provided.
+    :param response_data: Full response dataset passed to the splitter.
+    :param test_mode: One of ``LPO``, ``LCO``, ``LDO``, or ``LTO``; required when ``params`` is omitted.
+    :param external_splitter: Optional callable or script path defining ``create_splits``.
+    :param n_cv_splits: Requested number of CV splits.
+    :param validation_ratio: Validation fraction of the training set.
+    :param random_state: Random seed for splitting.
+    :param split_early_stopping: Whether to derive early-stopping roles when absent.
+    :param params: Pre-built split settings; overrides individual keyword args.
+    :returns: Validated splits and per-split metadata rows.
+    :raises ValueError: If neither ``params`` nor ``test_mode`` is provided.
     """
-    if params is None and test_mode is None:
+    if params is not None:
+        split_params = params
+    elif test_mode is not None:
+        split_params = make_split_params(
+            test_mode=test_mode,
+            n_cv_splits=n_cv_splits,
+            validation_ratio=validation_ratio,
+            random_state=random_state,
+            split_early_stopping=split_early_stopping,
+        )
+    else:
         msg = "Either params or test_mode must be provided"
         raise ValueError(msg)
-    split_params = params or make_split_params(
-        test_mode=test_mode,  # type: ignore[arg-type]
-        n_cv_splits=n_cv_splits,
-        validation_ratio=validation_ratio,
-        random_state=random_state,
-        split_early_stopping=split_early_stopping,
-    )
     if external_splitter is not None:
         return run_external_splitter(response_data, external_splitter, split_params)
     return run_builtin_splitter(response_data, split_params)
@@ -198,31 +181,33 @@ def create_and_record_splits(
 ) -> SplitResult:
     """Create CV splits, attach them to the dataset, and write the manifest.
 
-    Args:
-        response_data: Full response dataset to split.
-        split_path: Directory where the split manifest is written.
-        split_label: Result-directory label recorded in the manifest.
-        external_splitter: Optional callable or script path defining
-            ``create_splits``.
-        test_mode: One of ``LPO``, ``LCO``, ``LDO``, or ``LTO``; required when
-            *params* is omitted.
-        n_cv_splits: Requested number of CV splits.
-        validation_ratio: Validation fraction of the training set.
-        random_state: Random seed for splitting.
-        split_early_stopping: Whether to derive early-stopping roles when absent.
-        params: Pre-built split settings; overrides individual keyword args.
-
-    Returns:
-        Validated splits and per-split metadata rows.
+    :param response_data: Full response dataset to split.
+    :param split_path: Directory where the split manifest is written.
+    :param split_label: Result-directory label recorded in the manifest.
+    :param external_splitter: Optional callable or script path defining ``create_splits``.
+    :param test_mode: One of ``LPO``, ``LCO``, ``LDO``, or ``LTO``; required when ``params`` is omitted.
+    :param n_cv_splits: Requested number of CV splits.
+    :param validation_ratio: Validation fraction of the training set.
+    :param random_state: Random seed for splitting.
+    :param split_early_stopping: Whether to derive early-stopping roles when absent.
+    :param params: Pre-built split settings; overrides individual keyword args.
+    :returns: Validated splits and per-split metadata rows.
+    :raises ValueError: If neither ``params`` nor ``test_mode`` is provided.
     """
     response_data.remove_nan_responses()
-    split_params = params or make_split_params(
-        test_mode=test_mode,  # type: ignore[arg-type]
-        n_cv_splits=n_cv_splits,
-        validation_ratio=validation_ratio,
-        random_state=random_state,
-        split_early_stopping=split_early_stopping,
-    )
+    if params is not None:
+        split_params = params
+    elif test_mode is not None:
+        split_params = make_split_params(
+            test_mode=test_mode,
+            n_cv_splits=n_cv_splits,
+            validation_ratio=validation_ratio,
+            random_state=random_state,
+            split_early_stopping=split_early_stopping,
+        )
+    else:
+        msg = "Either params or test_mode must be provided"
+        raise ValueError(msg)
     cv_splits, metadata_rows = create_splits(
         response_data,
         params=split_params,

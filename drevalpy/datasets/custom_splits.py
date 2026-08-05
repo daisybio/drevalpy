@@ -46,17 +46,14 @@ def run_custom_splitter(
 ) -> SplitResult:
     """Compatibility wrapper for external split scripts.
 
-    Args:
-        response_data: Full response dataset passed to the splitter.
-        splitter: Callable or path to a script defining ``create_splits``.
-        test_mode: One of ``LPO``, ``LCO``, ``LDO``, or ``LTO``.
-        n_cv_splits: Requested number of CV splits.
-        validation_ratio: Validation fraction of the training set.
-        random_state: Random seed for splitting.
-        split_early_stopping: Whether to derive early-stopping roles when absent.
-
-    Returns:
-        Validated splits and per-split metadata rows.
+    :param response_data: Full response dataset passed to the splitter.
+    :param splitter: Callable or path to a script defining ``create_splits``.
+    :param test_mode: One of ``LPO``, ``LCO``, ``LDO``, or ``LTO``.
+    :param n_cv_splits: Requested number of CV splits.
+    :param validation_ratio: Validation fraction of the training set.
+    :param random_state: Random seed for splitting.
+    :param split_early_stopping: Whether to derive early-stopping roles when absent.
+    :returns: Validated splits and per-split metadata rows.
     """
     return create_splits(
         response_data,
@@ -80,38 +77,36 @@ def run_splitter(
     split_early_stopping: bool = True,
     params: SplitParams | None = None,
 ) -> SplitResult:
-    """Compatibility alias for :func:`create_splits` using legacy argument names.
+    """Compatibility alias for ``create_splits`` using legacy argument names.
 
-    Args:
-        response_data: Full response dataset passed to the splitter.
-        custom_splitter: Optional callable or script path defining
-            ``create_splits``.
-        test_mode: One of ``LPO``, ``LCO``, ``LDO``, or ``LTO``; required when
-            *params* is omitted.
-        n_cv_splits: Requested number of CV splits.
-        validation_ratio: Validation fraction of the training set.
-        random_state: Random seed for splitting.
-        split_early_stopping: Whether to derive early-stopping roles when absent.
-        params: Pre-built split settings; overrides individual keyword args.
-
-    Returns:
-        Validated splits and per-split metadata rows.
-
-    Raises:
-        ValueError: If neither *params* nor *test_mode* is provided.
+    :param response_data: Full response dataset passed to the splitter.
+    :param custom_splitter: Optional callable or script path defining ``create_splits``.
+    :param test_mode: One of ``LPO``, ``LCO``, ``LDO``, or ``LTO``; required when ``params`` is omitted.
+    :param n_cv_splits: Requested number of CV splits.
+    :param validation_ratio: Validation fraction of the training set.
+    :param random_state: Random seed for splitting.
+    :param split_early_stopping: Whether to derive early-stopping roles when absent.
+    :param params: Pre-built split settings; overrides individual keyword args.
+    :returns: Validated splits and per-split metadata rows.
+    :raises ValueError: If neither ``params`` nor ``test_mode`` is provided.
     """
-    if params is None and test_mode is None:
+    if params is not None:
+        return create_splits(
+            response_data,
+            params=params,
+            external_splitter=custom_splitter,
+        )
+    if test_mode is None:
         msg = "Either params or test_mode must be provided"
         raise ValueError(msg)
     return create_splits(
         response_data,
-        test_mode=params.test_mode if params is not None else test_mode,  # type: ignore[arg-type]
+        test_mode=test_mode,
         external_splitter=custom_splitter,
-        n_cv_splits=params.n_cv_splits if params is not None else n_cv_splits,
-        validation_ratio=params.validation_ratio if params is not None else validation_ratio,
-        random_state=params.random_state if params is not None else random_state,
-        split_early_stopping=params.split_early_stopping if params is not None else split_early_stopping,
-        params=params,
+        n_cv_splits=n_cv_splits,
+        validation_ratio=validation_ratio,
+        random_state=random_state,
+        split_early_stopping=split_early_stopping,
     )
 
 

@@ -34,6 +34,11 @@ class SparseGOOntologyFeaturizer(CellLineFeaturizer):
     output_block_specs = (BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX, metadata=True),)
 
     def __init__(self, *, input_type: str = "expression") -> None:
+        """Validate *input_type* and initialize ontology metadata placeholders.
+
+        :param input_type: Either ``expression`` or ``mutations``.
+        :raises ValueError: If *input_type* is not supported.
+        """
         if input_type not in {"expression", "mutations"}:
             raise ValueError("input_type must be 'expression' or 'mutations'")
         self._input_type = input_type
@@ -45,7 +50,15 @@ class SparseGOOntologyFeaturizer(CellLineFeaturizer):
 
     @classmethod
     def load_features(cls, data_path: str, dataset_name: str, **kwargs: object) -> FeatureDataset:
-        """Load, align, and annotate the active SparseGO omics feature view."""
+        """Load, align, and annotate the active SparseGO omics feature view.
+
+        :param data_path: Parent directory for dataset artifacts.
+        :param dataset_name: Dataset folder name.
+        :param kwargs: Loader options; ``input_type`` selects expression vs mutations.
+        :returns: Feature dataset with ontology metadata attached.
+        :raises FileNotFoundError: If SparseGO ontology files are missing.
+        :raises ValueError: If ontology genes are absent from the active view.
+        """
         input_type = str(kwargs.get("input_type", "expression"))
         view = "gene_expression" if input_type == "expression" else "mutations"
         root = Path(data_path) / dataset_name
@@ -80,6 +93,14 @@ class SparseGOOntologyFeaturizer(CellLineFeaturizer):
         entity_ids: np.ndarray | None = None,
         context: FeaturizerFitContext | None = None,
     ) -> SparseGOOntologyFeaturizer:
+        """Copy ontology metadata produced by ``load_features`` into fitted state.
+
+        :param features: Feature dataset with ``_sparsego_ontology`` metadata.
+        :param entity_ids: Unused.
+        :param context: Unused featurizer fit context.
+        :returns: Fitted featurizer instance.
+        :raises ValueError: If ontology metadata is missing on *features*.
+        """
         _ = entity_ids, context
         metadata = getattr(features, "_sparsego_ontology", None)
         if not isinstance(metadata, dict):
@@ -91,11 +112,24 @@ class SparseGOOntologyFeaturizer(CellLineFeaturizer):
         return self
 
     def transform(self, features: FeatureDataset, entity_ids: np.ndarray) -> np.ndarray:
+        """Return ontology-aligned omics matrix rows.
+
+        :param features: Cell-line omics feature dataset.
+        :param entity_ids: Cell-line identifiers to transform.
+        :returns: Float matrix aligned to ontology gene order.
+        :raises RuntimeError: If called before ``fit``.
+        """
         if self._gene_dim_input == 0:
             raise RuntimeError("SparseGOOntologyFeaturizer must be fit before transform")
         return stack_view_matrix(features, self._view, entity_ids).astype(np.float32)
 
     def transform_blocks(self, features: FeatureDataset, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
+        """Return an omics block with SparseGO ontology metadata attached.
+
+        :param features: Cell-line omics feature dataset.
+        :param entity_ids: Cell-line identifiers to transform.
+        :returns: Mapping with one metadata-rich numeric block.
+        """
         metadata: dict[str, Any] = {
             "layer_connections": self._layer_connections,
             "gene2id_mapping_ont": self._gene2id_mapping_ont,
@@ -112,13 +146,25 @@ class SparseGOOntologyFeaturizer(CellLineFeaturizer):
 
     @property
     def output_dim(self) -> int:
+        """Return ontology gene dimensionality.
+
+        :returns: Number of ontology-aligned genes.
+        """
         return self._gene_dim_input
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
+        """Return tunable SparseGO input type.
+
+        :returns: Ray Tune-style hyperparameter space mapping.
+        """
         return {"input_type": {"type": "categorical", "choices": ["expression", "mutations"], "default": "expression"}}
 
     def get_state(self) -> dict[str, object]:
+        """Serialize ontology metadata and input type.
+
+        :returns: Fitted state mapping, or empty dict before fitting.
+        """
         if self._gene_dim_input == 0:
             return {}
         return {
@@ -130,6 +176,11 @@ class SparseGOOntologyFeaturizer(CellLineFeaturizer):
         }
 
     def set_state(self, state: dict[str, object]) -> None:
+        """Restore ontology metadata from ``get_state``.
+
+        :param state: Mapping previously returned by ``get_state``.
+        :raises ValueError: If stored ``input_type`` is invalid.
+        """
         input_type = state.get("input_type")
         if isinstance(input_type, str):
             if input_type not in {"expression", "mutations"}:

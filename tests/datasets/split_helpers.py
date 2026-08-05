@@ -8,8 +8,7 @@ from drevalpy.datasets.dataset import DrugResponseDataset
 
 
 def sample_dataset(n_cell_lines: int = 6, n_drugs: int = 4) -> DrugResponseDataset:
-    """
-    Build a small synthetic response dataset for split tests.
+    """Build a small synthetic response dataset for split tests.
 
     :param n_cell_lines: number of distinct cell lines
     :param n_drugs: number of distinct drugs per cell line block
@@ -35,8 +34,7 @@ def role_from_groups(
     test_groups: set[str],
     group_col: str,
 ) -> dict[str, DrugResponseDataset]:
-    """
-    Build one validated split dict from explicit train/validation/test groups.
+    """Build one validated split dict from explicit train/validation/test groups.
 
     :param dataset: source dataset to subset
     :param train_groups: group identifiers assigned to the train role

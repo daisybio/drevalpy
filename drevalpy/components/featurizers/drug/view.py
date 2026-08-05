@@ -21,6 +21,10 @@ class ViewDrugFeaturizer(DrugFeaturizer):
     """Featurize one drug view without additional transformation."""
 
     def __init__(self, *, view: str = "fingerprints") -> None:
+        """Initialize instance state.
+
+        :param view: view.
+        """
         self._view = view
         self._output_dim = 0
 
@@ -31,6 +35,13 @@ class ViewDrugFeaturizer(DrugFeaturizer):
         entity_ids: np.ndarray | None = None,
         context: FeaturizerFitContext | None = None,
     ) -> ViewDrugFeaturizer:
+        """Fit on training data.
+
+        :param features: features.
+        :param entity_ids: entity ids.
+        :param context: context.
+        :returns: Result.
+        """
         _ = context
         ids = entity_ids if entity_ids is not None else np.array(list(features.features.keys()))
         matrix = stack_view_matrix(features, self._view, ids)
@@ -38,9 +49,21 @@ class ViewDrugFeaturizer(DrugFeaturizer):
         return self
 
     def transform(self, features, entity_ids: np.ndarray) -> np.ndarray:
+        """Transform inputs into feature payloads.
+
+        :param features: features.
+        :param entity_ids: entity ids.
+        :returns: Result.
+        """
         return stack_view_matrix(features, self._view, entity_ids).astype(np.float32)
 
     def transform_blocks(self, features, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
+        """Transform blocks.
+
+        :param features: features.
+        :param entity_ids: entity ids.
+        :returns: Result.
+        """
         return {
             self._view: numeric_feature_block(
                 self.transform(features, entity_ids),
@@ -50,4 +73,8 @@ class ViewDrugFeaturizer(DrugFeaturizer):
 
     @property
     def output_dim(self) -> int:
+        """Return output feature dimension after fitting.
+
+        :returns: Result.
+        """
         return self._output_dim

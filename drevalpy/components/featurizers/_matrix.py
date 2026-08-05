@@ -8,13 +8,21 @@ from drevalpy.datasets.dataset import FeatureDataset
 
 
 def unique_entity_ids(entity_ids: np.ndarray) -> np.ndarray:
-    """Return unique entity ids in first-seen order."""
+    """Return unique entity ids in first-seen order.
+
+    :param entity_ids: entity ids.
+    :returns: Result.
+    """
     uniq, index = np.unique(entity_ids, return_index=True)
     return uniq[index.argsort()]
 
 
 def entity_index_map(entity_ids: np.ndarray) -> dict[str, int]:
-    """Map entity id strings to row indices in a dense featurization matrix."""
+    """Map entity id strings to row indices in a dense featurization matrix.
+
+    :param entity_ids: entity ids.
+    :returns: Result.
+    """
     return {str(entity_id): row for row, entity_id in enumerate(entity_ids)}
 
 
@@ -29,7 +37,12 @@ def _entity_views(features: FeatureDataset, entity_id) -> dict:
 
 
 def feature_names_for_view(features: FeatureDataset, view: str) -> tuple[str, ...] | None:
-    """Return ordered feature names for *view* when present in ``meta_info``."""
+    """Return ordered feature names for *view* when present in ``meta_info``.
+
+    :param features: features.
+    :param view: view.
+    :returns: Result.
+    """
     meta = features.meta_info.get(view)
     if meta is None:
         return None
@@ -41,7 +54,14 @@ def stack_view_matrix(
     view: str,
     entity_ids: np.ndarray,
 ) -> np.ndarray:
-    """Stack one view into ``(len(entity_ids), n_features)``."""
+    """Stack one view into ``(len(entity_ids), n_features)``.
+
+    :param features: features.
+    :param view: view.
+    :param entity_ids: entity ids.
+    :returns: Result.
+    :raises KeyError: Raised on invalid input.
+    """
     rows: list[np.ndarray] = []
     for entity_id in entity_ids:
         entity_views = _entity_views(features, entity_id)
@@ -58,7 +78,14 @@ def stack_pair_features(
     cell_line_indices: np.ndarray,
     drug_indices: np.ndarray,
 ) -> np.ndarray:
-    """Concatenate featurized cell-line and drug rows for each pair."""
+    """Concatenate featurized cell-line and drug rows for each pair.
+
+    :param cell_line_matrix: cell line matrix.
+    :param drug_matrix: drug matrix.
+    :param cell_line_indices: cell line indices.
+    :param drug_indices: drug indices.
+    :returns: Result.
+    """
     if cell_line_matrix.size == 0:
         return drug_matrix[drug_indices]
     if drug_matrix.size == 0:

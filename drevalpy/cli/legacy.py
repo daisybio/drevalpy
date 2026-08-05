@@ -10,7 +10,12 @@ from drevalpy.cli._legacy import warn_deprecated
 
 
 def _legacy_alias(legacy_script: str, subcommand: str) -> Callable[[], None]:
-    """Return a Poetry entry point that forwards to ``drevalpy <subcommand>``."""
+    """Return a Poetry entry point that forwards to ``drevalpy <subcommand>``.
+
+    :param legacy_script: Former console script name.
+    :param subcommand: Typer subcommand to invoke.
+    :returns: Callable registered as a legacy Poetry script entry point.
+    """
 
     def entrypoint() -> None:
         warn_deprecated(legacy_script=legacy_script, replacement=f"drevalpy {subcommand}")

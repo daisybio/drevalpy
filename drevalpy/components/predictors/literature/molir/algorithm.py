@@ -1,5 +1,4 @@
-"""
-Contains the MOLIR model, a regression adaptation of the MOLI model.
+"""Contains the MOLIR model, a regression adaptation of the MOLI model.
 
 Original authors: Sharifi-Noghabi et al. (2019, 10.1093/bioinformatics/btz318)
 Code adapted from their Github: https://github.com/hosseinshn/MOLI
@@ -17,8 +16,7 @@ from .utils import MOLIModel, filter_and_sort_omics, get_dimensions_of_omics_dat
 
 
 class MOLIR(LiteratureTrainingMixin):
-    """
-    Regression extension of MOLI: multi-omics late integration deep neural network.
+    """Regression extension of MOLI: multi-omics late integration deep neural network.
 
     Takes somatic mutation, copy number variation and gene expression data as input. MOLI uses type-specific encoding
     subnetworks to learn features for each omics type, concatenates them into one representation and optimizes this
@@ -31,8 +29,7 @@ class MOLIR(LiteratureTrainingMixin):
     is_single_drug_model = True
 
     def __init__(self) -> None:
-        """
-        Initializes the MOLIR model.
+        """Initializes the MOLIR model.
 
         The hyperparameters are set in configure, the model is set in train when we know the dimensionality of the
         gene expression, mutation and copy number variation data.
@@ -46,15 +43,18 @@ class MOLIR(LiteratureTrainingMixin):
 
     @classmethod
     def get_model_name(cls) -> str:
-        """
-        Returns the model name.
+        """Returns the model name.
 
-        :returns: MOLIR
+        :returns: returns: MOLIR
         """
         return "MOLIR"
 
     @classmethod
     def get_default_hyperparameters(cls) -> dict[str, Any]:
+        """Return default MOLIR hyperparameters.
+
+        :returns: Default hyperparameter mapping.
+        """
         return {
             "mini_batch": 32,
             "h_dim1": 64,
@@ -69,11 +69,10 @@ class MOLIR(LiteratureTrainingMixin):
         }
 
     def configure(self, hyperparameters: dict[str, Any]) -> None:
-        """
-        Configure the model from hyperparameters.
+        """Configure the model from hyperparameters.
 
-        :param hyperparameters: Custom hyperparameters for the model, includes mini_batch, layer dimensions (h_dim1,
-            h_dim2, h_dim3), learning_rate, dropout_rate, weight_decay, gamma, epochs, and margin.
+        :param hyperparameters: Keys include ``mini_batch``, layer sizes, ``learning_rate``,
+            ``dropout_rate``, ``weight_decay``, ``gamma``, ``epochs``, and ``margin``.
         """
         # Log hyperparameters to wandb if enabled
         self.log_hyperparameters(hyperparameters)
@@ -88,8 +87,7 @@ class MOLIR(LiteratureTrainingMixin):
         output_earlystopping: DrugResponseDataset | None = None,
         model_checkpoint_dir: str = "checkpoints",
     ) -> None:
-        """
-        Initializes and trains the model.
+        """Initializes and trains the model.
 
         First, the gene expression data was reduced using a variance threshold (0.05) and standardized. We chose to use
         the most variable 1000 genes instead to avoid issues with the variance threshold.
@@ -139,8 +137,7 @@ class MOLIR(LiteratureTrainingMixin):
         cell_line_input: FeatureDataset,
         drug_input: FeatureDataset | None = None,
     ) -> np.ndarray:
-        """
-        Predicts the drug response.
+        """Predicts the drug response.
 
         If there was no training data, only nans will be returned.
 
@@ -148,7 +145,9 @@ class MOLIR(LiteratureTrainingMixin):
         :param drug_ids: Drugs to predict
         :param cell_line_input: cell line omics features
         :param drug_input: drug features, not needed
-        :returns: Predicted drug response
+
+        :returns: returns: Predicted drug response
+
         :raises ValueError: If the model was not trained
         """
         if self.model is None:

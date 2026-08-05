@@ -21,6 +21,10 @@ logger = logging.getLogger(__name__)
 
 
 def current_trial_id() -> str:
+    """Current trial id.
+
+    :returns: Result.
+    """
     try:
         from ray import tune
 
@@ -33,6 +37,11 @@ def current_trial_id() -> str:
 
 
 def trial_checkpoint_dir(base_dir: str) -> str:
+    """Trial checkpoint dir.
+
+    :param base_dir: base dir.
+    :returns: Result.
+    """
     path = os.path.join(base_dir, f"trial_{current_trial_id()}")
     os.makedirs(path, exist_ok=True)
     return path
@@ -54,6 +63,23 @@ def build_ray_trainable(
     split_index: int | None,
     model_name: str,
 ) -> Callable[[dict[str, Any]], None]:
+    """Build ray trainable.
+
+    :param model_class: model class.
+    :param train_dataset: train dataset.
+    :param validation_dataset: validation dataset.
+    :param early_stopping_dataset: early stopping dataset.
+    :param response_transformation: response transformation.
+    :param metric: metric.
+    :param path_data: path data.
+    :param model_checkpoint_dir: model checkpoint dir.
+    :param cfg: cfg.
+    :param wandb_project: wandb project.
+    :param wandb_base_config: wandb base config.
+    :param split_index: split index.
+    :param model_name: model name.
+    :returns: Result.
+    """
     from ray import tune
 
     from drevalpy import experiment
@@ -79,6 +105,10 @@ def build_ray_trainable(
         return float(result[metric])
 
     def trainable(sampled: dict[str, Any]) -> None:
+        """Trainable.
+
+        :param sampled: sampled.
+        """
         try:
             score = _evaluate_sample(_construct_trial_model(sampled))
             tune.report({metric: score})
@@ -87,6 +117,10 @@ def build_ray_trainable(
             tune.report({metric: float("nan")})
 
     def trainable_with_wandb(sampled: dict[str, Any]) -> None:
+        """Trainable with wandb.
+
+        :param sampled: sampled.
+        """
         if wandb_project is None:
             trainable(sampled)
             return
@@ -133,6 +167,13 @@ def run_ray_tuner(
     structured_space: dict[str, Any],
     cfg: HPOConfig,
 ) -> Any:
+    """Run ray tuner.
+
+    :param trainable_fn: trainable fn.
+    :param structured_space: structured space.
+    :param cfg: cfg.
+    :returns: Result.
+    """
     from ray import tune
     from ray.tune.search.optuna import OptunaSearch
 

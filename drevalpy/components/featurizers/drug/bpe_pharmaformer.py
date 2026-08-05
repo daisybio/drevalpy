@@ -34,11 +34,22 @@ class BpePharmaformerDrugFeaturizer(ViewDrugFeaturizer):
     """BPE PharmaFormer drug featurizer component."""
 
     def __init__(self, *, view: str = "bpe_smiles") -> None:
+        """Initialize instance state.
+
+        :param view: view.
+        """
         super().__init__(view=view)
 
     @classmethod
     def load_features(cls, data_path: str, dataset_name: str, **kwargs: object) -> FeatureDataset:
-        """Load precomputed PharmaFormer BPE token embeddings."""
+        """Load precomputed PharmaFormer BPE token embeddings.
+
+        :param data_path: data path.
+        :param dataset_name: dataset name.
+        :param kwargs: Keyword arguments.
+        :returns: Result.
+        :raises FileNotFoundError: Raised on invalid input.
+        """
         _ = cls, kwargs
         path = Path(data_path) / dataset_name / "drug_bpe_smiles.csv"
         if not path.exists():

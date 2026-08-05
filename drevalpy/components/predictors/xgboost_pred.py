@@ -39,7 +39,11 @@ class XGBoostPredictor(SklearnTabularPredictor):
     """XGBoost regressor for dense tabular pair features."""
 
     def _make_estimator(self):
-        """Return an unfitted XGBoost regressor."""
+        """Return an unfitted XGBoost regressor.
+
+        :returns: Unfitted ``XGBRegressor`` configured from hyperparameters.
+        :raises ImportError: If ``xgboost`` is not installed.
+        """
         try:
             _set_xgboost_thread_defaults()
             from xgboost import XGBRegressor
@@ -58,6 +62,11 @@ class XGBoostPredictor(SklearnTabularPredictor):
         )
 
     def set_state(self, state: dict[str, object]) -> None:
+        """Restore state from a prior ``get_state`` mapping.
+
+        :param state: state.
+        :raises PredictorStateError: Raised on invalid input.
+        """
         _set_xgboost_thread_defaults()
         super().set_state(state)
         if self._estimator is None:
@@ -66,7 +75,10 @@ class XGBoostPredictor(SklearnTabularPredictor):
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
-        """Return the tunable XGBoost hyperparameter space."""
+        """Return the tunable XGBoost hyperparameter space.
+
+        :returns: Ray Tune-style specs for XGBoost regressor parameters.
+        """
         return {
             "n_estimators": {"type": "int", "low": 50, "high": 500, "default": 100},
             "max_depth": {"type": "int", "low": 3, "high": 12, "default": 6},

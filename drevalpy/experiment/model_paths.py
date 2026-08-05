@@ -15,7 +15,13 @@ from ..models.drp_model import DRPModel
 
 
 def make_model_list(models: list[type[DRPModel]], response_data: DrugResponseDataset) -> dict[str, str]:
-    """Build model run keys (including per-drug keys for single-drug models)."""
+    """Build model run keys (including per-drug keys for single-drug models).
+
+    :param models: Model classes to include in the run.
+    :param response_data: Dataset used to enumerate single-drug keys.
+
+    :returns: Mapping from run key to base model name.
+    """
     model_list: dict[str, str] = {}
     unique_drugs = np.unique(response_data.drug_ids)
     for model in models:
@@ -28,7 +34,14 @@ def make_model_list(models: list[type[DRPModel]], response_data: DrugResponseDat
 
 
 def get_model_name_and_drug_id(model_name: str) -> tuple[str, str | None]:
-    """Parse a run key into model name and optional drug id."""
+    """Parse a run key into model name and optional drug id.
+
+    :param model_name: Run key, optionally suffixed with ``.<drug_id>``.
+
+    :returns: Base model name and drug id, or ``None`` for multi-drug models.
+
+    :raises AssertionError: If the base model name is not recognized.
+    """
     if is_multi_drug_model_name(model_name):
         return model_name, None
     name_split = model_name.split(".")
@@ -42,7 +55,15 @@ def get_model_name_and_drug_id(model_name: str) -> tuple[str, str | None]:
 
 
 def generate_data_saving_path(model_name, drug_id, result_path, suffix) -> str:
-    """Return output directory for predictions, hpams, final models, etc."""
+    """Return output directory for predictions, hpams, final models, etc.
+
+    :param model_name: Base model name.
+    :param drug_id: Drug identifier for single-drug models.
+    :param result_path: Experiment result root directory.
+    :param suffix: Subdirectory label (for example ``predictions``).
+
+    :returns: Created output directory path.
+    """
     if is_single_drug_model_name(model_name):
         model_path = os.path.join(result_path, model_name, "drugs", drug_id, suffix)
     else:

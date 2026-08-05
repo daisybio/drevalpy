@@ -142,7 +142,16 @@ def consolidate_single_drug_model_predictions_impl(
     n_trials_robustness: int = 0,
     out_path: str = "",
 ) -> None:
-    """Consolidate single-drug per-drug CSVs into model-level files."""
+    """Consolidate single-drug per-drug CSVs into model-level files.
+
+    :param models: Model classes whose outputs should be consolidated.
+    :param n_cv_splits: Number of CV folds written during the experiment.
+    :param results_path: Experiment result directory to read from.
+    :param cross_study_datasets: Names of cross-study datasets to include.
+    :param randomization_mode: Randomization views to consolidate, if any.
+    :param n_trials_robustness: Number of robustness trials to consolidate.
+    :param out_path: Output directory; defaults to *results_path* when empty.
+    """
     for model in models:
         if not is_single_drug_model_name(model.get_model_name()):
             continue

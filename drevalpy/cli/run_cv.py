@@ -1,10 +1,11 @@
 """For the nf-core/drugresponseeval subworkflow run_cv."""
 
-import pickle
 from pathlib import Path
 
 import pandas as pd
 import yaml
+
+from drevalpy.utils.pickle_io import dump_trusted_pickle, load_trusted_pickle
 
 
 def run_load_response(
@@ -13,7 +14,12 @@ def run_load_response(
     cross_study_dataset: bool = False,
     measure: str = "LN_IC50_curvecurator",
 ) -> None:
-    """Load drug response CSV and pickle a ``DrugResponseDataset``."""
+    """Load drug response CSV and pickle a ``DrugResponseDataset``.
+
+    :param response_dataset: response dataset.
+    :param cross_study_dataset: cross study dataset.
+    :param measure: measure.
+    """
     from drevalpy.datasets.dataset import DrugResponseDataset
     from drevalpy.datasets.loader import get_builtin_dataset_entry
     from drevalpy.datasets.utils import (
@@ -48,8 +54,7 @@ def run_load_response(
             tissue_column=tissue_column,
         )
     outfile = f"cross_study_{dataset_name}.pkl" if cross_study_dataset else "response_dataset.pkl"
-    with open(outfile, "wb") as f:
-        pickle.dump(response_data, f)
+    dump_trusted_pickle(response_data, outfile)
 
 
 def run_cv_split(
@@ -61,11 +66,18 @@ def run_cv_split(
     seed: int = 42,
     custom_splitter_path: str | None = None,
 ) -> None:
-    """Split pickled response data into CV fold pickles."""
+    """Split pickled response data into CV fold pickles.
+
+    :param response: response.
+    :param n_cv_splits: n cv splits.
+    :param test_mode: test mode.
+    :param validation_ratio: validation ratio.
+    :param seed: seed.
+    :param custom_splitter_path: custom splitter path.
+    """
     from drevalpy.datasets.splits import create_and_record_splits
 
-    with open(response, "rb") as f:
-        response_data = pickle.load(f)
+    response_data = load_trusted_pickle(response)
     create_and_record_splits(
         response_data,
         split_path=".",
@@ -78,8 +90,7 @@ def run_cv_split(
         split_early_stopping=True,
     )
     for split_index, split in enumerate(response_data.cv_splits):
-        with open(f"split_{split_index}.pkl", "wb") as f:
-            pickle.dump(split, f)
+        dump_trusted_pickle(split, f"split_{split_index}.pkl")
 
 
 def run_hpam_split(
@@ -90,6 +101,10 @@ def run_hpam_split(
     """Write ``hpam_0.yaml`` with a model's default hyperparameters.
 
     Ray/Optuna tuning runs at experiment time; this helper no longer emits search grids.
+
+    :param model_name: model name.
+    :param hyperparameter_tuning: hyperparameter tuning.
+    :raises ValueError: If ``model_name`` is neither a multi-drug nor single-drug zoo name.
     """
     import warnings
 
@@ -128,7 +143,16 @@ def run_train_and_predict_cv(
     response_transformation: str = "None",
     model_checkpoint_dir: str = "TEMPORARY",
 ) -> None:
-    """Train on a CV split and pickle validation predictions."""
+    """Train on a CV split and pickle validation predictions.
+
+    :param model_name: model name.
+    :param path_data: path data.
+    :param test_mode: test mode.
+    :param hyperparameters: hyperparameters.
+    :param cv_data: cv data.
+    :param response_transformation: response transformation.
+    :param model_checkpoint_dir: model checkpoint dir.
+    """
     from drevalpy.experiment import get_model_name_and_drug_id, train_and_predict
     from drevalpy.experiment.fold import get_datasets_from_cv_split
     from drevalpy.models._model_lookup import get_model_class
@@ -136,8 +160,7 @@ def run_train_and_predict_cv(
 
     resolved_name, drug_id = get_model_name_and_drug_id(model_name)
     model_class = get_model_class(resolved_name)
-    with open(cv_data, "rb") as f:
-        split = pickle.load(f)
+    split = load_trusted_pickle(cv_data)
 
     train_dataset, validation_dataset, es_dataset, _test_dataset = get_datasets_from_cv_split(
         split, model_class, resolved_name, drug_id
@@ -158,12 +181,11 @@ def run_train_and_predict_cv(
         model_checkpoint_dir=model_checkpoint_dir,
     )
 
-    with open(
+    dump_trusted_pickle(
+        validation_dataset,
         f"prediction_dataset_{resolved_name}_{str(cv_data).split('.pkl')[0]}_"
         f"{str(hyperparameters).split('.yaml')[0]}.pkl",
-        "wb",
-    ) as f:
-        pickle.dump(validation_dataset, f)
+    )
 
 
 def _best_metric(metric, current_metric, best_metric, minimization_metrics, maximization_metrics):
@@ -190,6 +212,12 @@ def run_evaluate_and_find_max(
 
     With ``make-hpam-yamls`` emitting a single defaults file, this is usually a
     no-op selector. Prefer Ray/Optuna via ``hpam_tune`` / the root experiment.
+
+    :param model_name: model name.
+    :param split_id: split id.
+    :param hpam_yamls: hpam yamls.
+    :param pred_datas: pred datas.
+    :param optim_metric: optim metric.
     """
     import warnings
 
@@ -205,8 +233,7 @@ def run_evaluate_and_find_max(
     best_hpam_combi = None
     best_result = None
     for i in range(0, len(pred_datas)):
-        with open(pred_datas[i], "rb") as pred_file:
-            pred_data = pickle.load(pred_file)
+        pred_data = load_trusted_pickle(pred_datas[i])
         with open(hpam_yamls[i]) as yaml_file:
             hpam_combi = yaml.safe_load(yaml_file)
         results = evaluate(pred_data, optim_metric)

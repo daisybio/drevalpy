@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 import drevalpy.components.register_builtins as register_builtins
+from drevalpy.components.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors.neural_network.predictor import NeuralNetworkPredictor
+from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.components.register_builtins import register_builtin_components
 from drevalpy.components.registry import get_predictor
+from drevalpy.components.training_context import TrainingContext
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models import construct_model
 from drevalpy.models.config import ModelConfig
@@ -65,3 +69,48 @@ def test_neural_network_configured_is_not_fitted_before_training() -> None:
     )
     assert predictor._model is None
     assert predictor.is_fitted() is False
+
+
+def _matrix_batch() -> ModelInputBatch:
+    response = DrugResponseDataset(
+        response=np.array([1.0, 2.0, 3.0, 4.0]),
+        cell_line_ids=np.array(["cl1", "cl1", "cl2", "cl2"]),
+        drug_ids=np.array(["d1", "d2", "d1", "d2"]),
+    )
+    cell_line_features = np.vstack(
+        [
+            np.array([0.1, 0.2, 0.3, 0.4]),
+            np.array([0.5, 0.6, 0.7, 0.8]),
+        ]
+    )
+    drug_features = np.vstack(
+        [
+            np.array([1.0, 0.0, 0.5, 0.2]),
+            np.array([0.0, 1.0, 0.3, 0.7]),
+        ]
+    )
+    return ModelInputBatch.from_response(
+        response,
+        cell_line_entity_ids=np.array(["cl1", "cl2"]),
+        drug_entity_ids=np.array(["d1", "d2"]),
+        cell_line_features=cell_line_features,
+        drug_features=drug_features,
+        cell_line_pair_idx=np.array([0, 0, 1, 1]),
+        drug_pair_idx=np.array([0, 1, 0, 1]),
+        training_context=TrainingContext(),
+    )
+
+
+def test_neural_network_state_round_trip() -> None:
+    predictor = NeuralNetworkPredictor(hyperparameters={"max_epochs": 1, "units_per_layer": [4, 2]})
+    predictor.fit(_matrix_batch())
+    restored = NeuralNetworkPredictor(hyperparameters={"max_epochs": 1, "units_per_layer": [4, 2]})
+    restored.set_state(predictor.get_state())
+    assert restored.is_fitted()
+    assert restored._input_dim == predictor._input_dim
+
+
+def test_neural_network_set_state_rejects_invalid_checkpoint() -> None:
+    predictor = NeuralNetworkPredictor()
+    with pytest.raises(PredictorStateError):
+        predictor.set_state({"checkpoint": b"invalid"})

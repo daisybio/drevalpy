@@ -50,7 +50,8 @@ class DrugGraphNet(nn.Module):
 
         :param drug_graph: The drug graph.
         :param cell_features: The cell line features.
-        :return: The output of the network.
+
+        :returns: return: The output of the network.
         """
         # Process drug graph
         x, edge_index, batch = drug_graph.x, drug_graph.edge_index, drug_graph.batch
@@ -120,7 +121,8 @@ class DrugGNNModule(RegressionMetricsMixin, pl.LightningModule):
         """Forward pass of the module.
 
         :param batch: The batch.
-        :return: The output of the model.
+
+        :returns: return: The output of the model.
         """
         drug_graph, cell_features, _ = batch
         return self.model(drug_graph, cell_features)
@@ -130,7 +132,8 @@ class DrugGNNModule(RegressionMetricsMixin, pl.LightningModule):
 
         :param batch: The batch.
         :param batch_idx: The batch index.
-        :return: The loss.
+
+        :returns: return: The loss.
         """
         drug_graph, cell_features, responses = batch
         outputs = self.model(drug_graph, cell_features)
@@ -162,14 +165,15 @@ class DrugGNNModule(RegressionMetricsMixin, pl.LightningModule):
         :param batch: The batch.
         :param batch_idx: The batch index.
         :param dataloader_idx: The dataloader index.
-        :return: The output of the model.
+
+        :returns: return: The output of the model.
         """
         return self.forward(batch)
 
     def configure_optimizers(self):
         """Configure the optimizer.
 
-        :return: The optimizer.
+        :returns: return: The optimizer.
         """
         return Adam(self.parameters(), lr=self.hparams.learning_rate)
 
@@ -238,12 +242,16 @@ class DrugGNN(LiteratureTrainingMixin):
     def get_model_name(cls) -> str:
         """Return the name of the model.
 
-        :return: The name of the model.
+        :returns: return: The name of the model.
         """
         return "DrugGNN"
 
     @classmethod
     def get_default_hyperparameters(cls) -> dict[str, Any]:
+        """Return default DrugGNN hyperparameters.
+
+        :returns: Default hyperparameter mapping.
+        """
         return {
             "learning_rate": 0.001,
             "epochs": 100,
@@ -281,16 +289,18 @@ class DrugGNN(LiteratureTrainingMixin):
         model_checkpoint_dir: str = "checkpoints",
         **kwargs: Any,
     ) -> None:
-        _ = model_checkpoint_dir, kwargs
         """Train the model.
 
         :param output: The output dataset.
         :param cell_line_input: The cell line input dataset.
         :param drug_input: The drug input dataset.
         :param output_earlystopping: The early stopping output dataset.
+        :param model_checkpoint_dir: Directory for model checkpoints.
         :param kwargs: Additional arguments.
+
         :raises ValueError: If drug input is not provided.
         """
+        _ = model_checkpoint_dir, kwargs
         if drug_input is None:
             raise ValueError("Drug input is required for DrugGNN")
 
@@ -370,9 +380,11 @@ class DrugGNN(LiteratureTrainingMixin):
         :param drug_ids: The drug IDs.
         :param cell_line_input: The cell line input dataset.
         :param drug_input: The drug input dataset.
+
+        :returns: return: The predicted drug response.
+
         :raises RuntimeError: If the model has not been trained yet.
         :raises ValueError: If drug input is not provided.
-        :return: The predicted drug response.
         """
         if len(drug_ids) == 0 or len(cell_line_ids) == 0:
             print("DrugGNN predict: No  drug or cell line IDs provided; returning empty array.")

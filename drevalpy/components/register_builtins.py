@@ -109,8 +109,7 @@ def _register_named(name: str, modules: dict[str, str], registry) -> None:
 def ensure_cell_line_featurizer_registered(name: str) -> None:
     """Import only the module that provides one cell-line featurizer.
 
-    Args:
-        name: Built-in registry name to lazy-load.
+    :param name: Built-in registry name to lazy-load.
     """
     _register_named(name, _CELL_LINE_MODULES, cell_line_featurizer_registry)
 
@@ -118,8 +117,7 @@ def ensure_cell_line_featurizer_registered(name: str) -> None:
 def ensure_drug_featurizer_registered(name: str) -> None:
     """Import only the module that provides one drug featurizer.
 
-    Args:
-        name: Built-in registry name to lazy-load.
+    :param name: Built-in registry name to lazy-load.
     """
     _register_named(name, _DRUG_MODULES, drug_featurizer_registry)
 
@@ -127,8 +125,7 @@ def ensure_drug_featurizer_registered(name: str) -> None:
 def ensure_predictor_registered(name: str) -> None:
     """Import only the module that provides one predictor.
 
-    Args:
-        name: Built-in registry name to lazy-load.
+    :param name: Built-in registry name to lazy-load.
     """
     _register_named(name, _PREDICTOR_MODULES, predictor_registry)
 
@@ -136,11 +133,9 @@ def ensure_predictor_registered(name: str) -> None:
 def is_known_builtin_cell_line_featurizer(name: str) -> bool:
     """Return whether *name* maps to a built-in cell-line featurizer module.
 
-    Args:
-        name: Registry name to check.
+    :param name: Registry name to check.
 
-    Returns:
-        ``True`` when *name* is listed in the built-in catalog.
+    :returns: ``True`` when *name* is listed in the built-in catalog.
     """
     return name in _CELL_LINE_MODULES
 
@@ -148,11 +143,9 @@ def is_known_builtin_cell_line_featurizer(name: str) -> bool:
 def is_known_builtin_drug_featurizer(name: str) -> bool:
     """Return whether *name* maps to a built-in drug featurizer module.
 
-    Args:
-        name: Registry name to check.
+    :param name: Registry name to check.
 
-    Returns:
-        ``True`` when *name* is listed in the built-in catalog.
+    :returns: ``True`` when *name* is listed in the built-in catalog.
     """
     return name in _DRUG_MODULES
 
@@ -160,11 +153,9 @@ def is_known_builtin_drug_featurizer(name: str) -> bool:
 def is_known_builtin_predictor(name: str) -> bool:
     """Return whether *name* maps to a built-in predictor module.
 
-    Args:
-        name: Registry name to check.
+    :param name: Registry name to check.
 
-    Returns:
-        ``True`` when *name* is listed in the built-in catalog.
+    :returns: ``True`` when *name* is listed in the built-in catalog.
     """
     return name in _PREDICTOR_MODULES
 

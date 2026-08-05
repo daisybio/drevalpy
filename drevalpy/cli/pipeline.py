@@ -69,7 +69,12 @@ RESPONSE_TRANSFORMATION_HELP = (
 
 
 def register_pipeline_callback(app: typer.Typer) -> None:
-    """Register the default callback that runs the full pipeline when no subcommand is given."""
+    """Register the default callback that runs the full pipeline when no subcommand is given.
+
+    :param app: app.
+
+    :param app: app.
+    """
 
     @app.callback(invoke_without_command=True)
     def pipeline_root(
@@ -215,7 +220,74 @@ def register_pipeline_callback(app: typer.Typer) -> None:
             ),
         ] = None,
     ) -> None:
-        """Run the drug response prediction model test suite."""
+        """Run the drug response prediction model test suite.
+
+        :param ctx: ctx.
+        :param show_version: show version.
+        :param run_id: run id.
+        :param path_data: path data.
+        :param models: models.
+        :param baselines: baselines.
+        :param test_mode: test mode.
+        :param randomization_mode: randomization mode.
+        :param randomization_type: randomization type.
+        :param n_trials_robustness: n trials robustness.
+        :param dataset_name: dataset name.
+        :param cross_study_datasets: cross study datasets.
+        :param path_out: path out.
+        :param no_refitting: no refitting.
+        :param curve_curator_cores: curve curator cores.
+        :param curve_curator_normalize: curve curator normalize.
+        :param measure: measure.
+        :param overwrite: overwrite.
+        :param optim_metric: optim metric.
+        :param wandb_project: wandb project.
+        :param n_cv_splits: n cv splits.
+        :param response_transformation: response transformation.
+        :param multiprocessing: multiprocessing.
+        :param hpo_num_samples: hpo num samples.
+        :param hpo_random_state: hpo random state.
+        :param hpo_cpu: hpo cpu.
+        :param hpo_gpu: hpo gpu.
+        :param model_checkpoint_dir: model checkpoint dir.
+        :param final_model_on_full_data: final model on full data.
+        :param no_hyperparameter_tuning: no hyperparameter tuning.
+        :param custom_splitter_path: custom splitter path.
+        :param custom_split_name: custom split name.
+
+        :param ctx: ctx.
+        :param show_version: show version.
+        :param run_id: run id.
+        :param path_data: path data.
+        :param models: models.
+        :param baselines: baselines.
+        :param test_mode: test mode.
+        :param randomization_mode: randomization mode.
+        :param randomization_type: randomization type.
+        :param n_trials_robustness: n trials robustness.
+        :param dataset_name: dataset name.
+        :param cross_study_datasets: cross study datasets.
+        :param path_out: path out.
+        :param no_refitting: no refitting.
+        :param curve_curator_cores: curve curator cores.
+        :param curve_curator_normalize: curve curator normalize.
+        :param measure: measure.
+        :param overwrite: overwrite.
+        :param optim_metric: optim metric.
+        :param wandb_project: wandb project.
+        :param n_cv_splits: n cv splits.
+        :param response_transformation: response transformation.
+        :param multiprocessing: multiprocessing.
+        :param hpo_num_samples: hpo num samples.
+        :param hpo_random_state: hpo random state.
+        :param hpo_cpu: hpo cpu.
+        :param hpo_gpu: hpo gpu.
+        :param model_checkpoint_dir: model checkpoint dir.
+        :param final_model_on_full_data: final model on full data.
+        :param no_hyperparameter_tuning: no hyperparameter tuning.
+        :param custom_splitter_path: custom splitter path.
+        :param custom_split_name: custom split name.
+        """
         if ctx.invoked_subcommand is not None:
             return
         hpo_resources: dict[str, float] | None = None

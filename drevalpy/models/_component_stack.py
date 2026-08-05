@@ -51,7 +51,11 @@ def _empty_feature_dataset() -> FeatureDataset:
 
 
 def build_component_stack(config: ModelConfig) -> _ComponentStack:
-    """Instantiate featurizers and predictor for a validated ``ModelConfig``."""
+    """Instantiate featurizers and predictor for a validated ``ModelConfig``.
+
+    :param config: Validated model configuration.
+    :returns: Component stack ready for training.
+    """
     config.validate()
     cell_line = config.cell_line_featurizer.create_instance() if config.cell_line_featurizer else None
     drug = config.drug_featurizer.create_instance() if config.drug_featurizer else None
@@ -256,15 +260,24 @@ class _ComponentStack:
 
     @property
     def config(self) -> ModelConfig | None:
-        """Return a defensive copy of the resolved model config."""
+        """Return a defensive copy of the resolved model config.
+
+        :returns: Deep copy of the stack config, or ``None`` when unset.
+        """
         return self._config.model_copy(deep=True) if self._config is not None else None
 
     def is_fitted(self) -> bool:
-        """Return whether the predictor has fitted state."""
+        """Return whether the predictor has fitted state.
+
+        :returns: ``True`` when the predictor has been fitted.
+        """
         return self._predictor.is_fitted()
 
     def component_state(self) -> dict[str, object]:
-        """Return serializable state owned by the component stack."""
+        """Return serializable state owned by the component stack.
+
+        :returns: Mapping with predictor and featurizer state dicts.
+        """
         return {
             "predictor": self._predictor.get_state(),
             "cell_line_featurizer": (
@@ -274,7 +287,11 @@ class _ComponentStack:
         }
 
     def restore_component_state(self, state: dict[str, object]) -> None:
-        """Restore state produced by ``component_state``."""
+        """Restore state produced by ``component_state``.
+
+        :param state: Serialized component state mapping.
+        :raises ValueError: If predictor or featurizer state is not a mapping.
+        """
         predictor_state = state.get("predictor", {})
         if not isinstance(predictor_state, dict):
             raise ValueError("predictor state is not a mapping")

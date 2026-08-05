@@ -21,7 +21,13 @@ class PathwaysCellLineFeaturizer(DenseViewCellLineFeaturizer):
 
     @classmethod
     def load_features(cls, data_path: str, dataset_name: str, **kwargs: object) -> FeatureDataset:
-        """Load generated GSVA pathway features under the predictor block name."""
+        """Load generated GSVA pathway features under the predictor block name.
+
+        :param data_path: data path.
+        :param dataset_name: dataset name.
+        :param kwargs: Keyword arguments.
+        :returns: Result.
+        """
         _ = cls, kwargs
         features = load_generic_csv(data_path, dataset_name, "pathway_features")
         for views in features.features.values():

@@ -19,13 +19,13 @@ if TYPE_CHECKING:
 def load_features(
     model: DRPModel, path_data: str, dataset: DrugResponseDataset
 ) -> tuple[FeatureDataset, FeatureDataset | None]:
-    """
-    Load and reduce cell line and drug features for a given dataset.
+    """Load and reduce cell line and drug features for a given dataset.
 
-    :param model: model to use, e.g., SimpleNeuralNetwork
-    :param path_data: path to the data directory, e.g., data/
-    :param dataset: dataset to load features for, e.g., GDSC2
-    :returns: tuple of cell line and, potentially, drug features
+    :param model: Model used to load feature views.
+    :param path_data: Root data directory (for example ``data/``).
+    :param dataset: Dataset whose ``dataset_name`` selects feature tables.
+
+    :returns: Cell-line features and optional drug features.
     """
     cl_features = model.load_cell_line_features(data_path=path_data, dataset_name=dataset.dataset_name)
     drug_features = model.load_drug_features(data_path=path_data, dataset_name=dataset.dataset_name)
@@ -187,10 +187,21 @@ def train_and_predict_impl(
     drug_features: FeatureDataset | None = None,
     model_checkpoint_dir: str = "TEMPORARY",
 ) -> DrugResponseDataset:
-    """
-    Train the model and predict the response for the prediction dataset.
+    """Train the model and predict the response for the prediction dataset.
 
-    Implementation for the public ``train_and_predict`` pipeline function.
+    :param model: Trained or untrained ``DRPModel`` instance.
+    :param path_data: Root directory for feature tables.
+    :param train_dataset: Training responses and identifiers.
+    :param prediction_dataset: Pairs to predict; receives predictions in place.
+    :param early_stopping_dataset: Optional hold-out for early stopping.
+    :param response_transformation: Optional sklearn response transformer.
+    :param cl_features: Preloaded cell-line features, or ``None`` to load from disk.
+    :param drug_features: Preloaded drug features, or ``None`` to load from disk.
+    :param model_checkpoint_dir: Directory for predictor checkpoints.
+
+    :returns: *prediction_dataset* with ``predictions`` populated.
+
+    :raises ValueError: If ``train_dataset`` has no ``dataset_name`` or cell-line features are missing.
     """
     train_dataset, prediction_dataset, early_stopping_dataset = _copy_fold_datasets(
         train_dataset, prediction_dataset, early_stopping_dataset
@@ -216,7 +227,8 @@ def train_and_predict_impl(
         train_dataset, prediction_dataset, early_stopping_dataset, fold_transform
     )
 
-    assert cl_features is not None
+    if cl_features is None:
+        raise ValueError("cell line features are required for training")
     _train_model_with_checkpoints(
         model,
         train_dataset,

@@ -42,6 +42,10 @@ class SingleDrugBlockPredictor(BlockPredictor):
     requires_drug_featurizer: ClassVar[bool] = True
 
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
+        """Initialize the predictor.
+
+        :param hyperparameters: Optional overrides for algorithm defaults.
+        """
         super().__init__(hyperparameters)
         self._algorithms: dict[str, LiteratureTrainingMixin] = {}
         self._legacy_algorithm: LiteratureTrainingMixin | None = None
@@ -54,13 +58,27 @@ class SingleDrugBlockPredictor(BlockPredictor):
 
     @abstractmethod
     def _export_algorithm_state(self, algorithm: LiteratureTrainingMixin) -> dict[str, Any]:
-        """Serialize one fitted algorithm."""
+        """Serialize one fitted algorithm.
+
+        :param algorithm: Fitted per-drug algorithm instance.
+
+        :returns: JSON-serializable algorithm state.
+        """
 
     @abstractmethod
     def _apply_algorithm_state(self, payload: dict[str, Any]) -> LiteratureTrainingMixin:
-        """Restore one fitted algorithm from a serialized payload."""
+        """Restore one fitted algorithm from a serialized payload.
+
+        :param payload: Serialized algorithm state for one drug.
+
+        :returns: Restored algorithm instance.
+        """
 
     def fit(self, batch: ModelInputBatch) -> None:
+        """Train the underlying algorithm on featurized pairs.
+
+        :param batch: Training batch with responses and feature blocks.
+        """
         keys = routing_keys(batch)
         require_known_training_keys(keys)
         self._algorithms = {}
@@ -88,6 +106,12 @@ class SingleDrugBlockPredictor(BlockPredictor):
             )
 
     def predict(self, batch: ModelInputBatch) -> np.ndarray:
+        """Predict responses for pairs in the batch.
+
+        :param batch: Featurized pairs to score.
+
+        :returns: One predicted response per pair.
+        """
         keys = routing_keys(batch)
         predictions = np.full(batch.n_pairs, np.nan, dtype=np.float64)
         for drug_id in np.unique(keys):
@@ -125,9 +149,17 @@ class SingleDrugBlockPredictor(BlockPredictor):
         return self._legacy_algorithm
 
     def is_fitted(self) -> bool:
+        """Report whether a trained algorithm is loaded.
+
+        :returns: ``True`` when the algorithm has been fit or restored.
+        """
         return bool(self._algorithms) or self._legacy_algorithm is not None
 
     def get_state(self) -> dict[str, object]:
+        """Serialize fitted predictor state.
+
+        :returns: Mapping with a binary ``payload`` blob when fitted, else empty.
+        """
         if not self._algorithms:
             return {}
         algorithms = {
@@ -177,6 +209,12 @@ class SingleDrugBlockPredictor(BlockPredictor):
         self._legacy_algorithm = self._apply_algorithm_state(algorithm_payload)
 
     def set_state(self, state: dict[str, object]) -> None:
+        """Restore a predictor from ``get_state`` output.
+
+        :param state: Serialized state containing a ``payload`` byte blob.
+
+        :raises PredictorStateError: If the payload is missing or invalid.
+        """
         algorithms_blob = state.get("algorithms")
         if isinstance(algorithms_blob, dict):
             self._set_state_from_algorithms(state, algorithms_blob)

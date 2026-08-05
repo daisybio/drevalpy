@@ -35,6 +35,10 @@ class NaiveMeanEffectsPredictor(BlockPredictor):
     required_drug_blocks: ClassVar[tuple[str, ...]] = ("identity",)
 
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
+        """Initialize instance state.
+
+        :param hyperparameters: hyperparameters.
+        """
         super().__init__(hyperparameters)
         self._dataset_mean: float | None = None
         self._tissue_effects: np.ndarray | None = None
@@ -53,6 +57,11 @@ class NaiveMeanEffectsPredictor(BlockPredictor):
         return np.asarray(cell, dtype=np.float64), np.asarray(tissue, dtype=np.float64)
 
     def fit(self, batch: ModelInputBatch) -> None:
+        """Fit on training data.
+
+        :param batch: batch.
+        :raises ValueError: Raised on invalid input.
+        """
         if batch.response is None:
             msg = "Naive predictors require response values during fit"
             raise ValueError(msg)
@@ -70,6 +79,12 @@ class NaiveMeanEffectsPredictor(BlockPredictor):
         self._drug_effects = additive_effects(drugs, y, baseline=self._dataset_mean)
 
     def predict(self, batch: ModelInputBatch) -> np.ndarray:
+        """Predict responses for each pair in the batch.
+
+        :param batch: batch.
+        :returns: Result.
+        :raises RuntimeError: Raised on invalid input.
+        """
         if (
             self._dataset_mean is None
             or self._tissue_effects is None
@@ -90,6 +105,10 @@ class NaiveMeanEffectsPredictor(BlockPredictor):
         return preds
 
     def get_state(self) -> dict[str, object]:
+        """Return serializable fitted state.
+
+        :returns: Result.
+        """
         if (
             self._dataset_mean is None
             or self._tissue_effects is None
@@ -105,6 +124,10 @@ class NaiveMeanEffectsPredictor(BlockPredictor):
         }
 
     def set_state(self, state: dict[str, object]) -> None:
+        """Restore state from a prior ``get_state`` mapping.
+
+        :param state: state.
+        """
         mean = state_float(state, "dataset_mean")
         if mean is not None:
             self._dataset_mean = mean
@@ -119,6 +142,10 @@ class NaiveMeanEffectsPredictor(BlockPredictor):
             self._drug_effects = drug_effects
 
     def is_fitted(self) -> bool:
+        """Return whether the component has been fit.
+
+        :returns: Result.
+        """
         return (
             self._dataset_mean is not None
             and self._tissue_effects is not None

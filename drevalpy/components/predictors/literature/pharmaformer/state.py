@@ -10,7 +10,12 @@ from drevalpy.components.predictors.literature.pharmaformer.pharmaformer_trainin
 
 
 def export_state(algorithm: PharmaFormerModel) -> dict[str, Any]:
-    """Serialize a fitted PharmaFormer algorithm for predictor persistence."""
+    """Serialize a fitted algorithm for predictor persistence.
+
+    :param algorithm: Fitted algorithm instance.
+
+    :returns: JSON-serializable state mapping.
+    """
     payload: dict[str, Any] = {"hyperparameters": dict(algorithm.hyperparameters)}
     gene_input_size = getattr(algorithm, "_saved_gene_input_size", None)
     if gene_input_size is not None:
@@ -22,7 +27,14 @@ def export_state(algorithm: PharmaFormerModel) -> dict[str, Any]:
 
 
 def apply_state(payload: dict[str, Any]) -> PharmaFormerModel:
-    """Restore a PharmaFormer algorithm from a persisted payload."""
+    """Restore an algorithm from a persisted payload.
+
+    :param payload: Serialized state produced by ``export_state``.
+
+    :returns: Configured algorithm instance.
+
+    :raises ValueError: If required payload fields are missing.
+    """
     hyperparameters = payload.get("hyperparameters")
     if not isinstance(hyperparameters, dict):
         msg = "missing algorithm hyperparameters"

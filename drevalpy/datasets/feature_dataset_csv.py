@@ -29,7 +29,14 @@ def feature_dataset_to_csv(
     id_column: str,
     view_name: str,
 ) -> None:
-    """Write one view of a FeatureDataset to CSV."""
+    """Write one view of a FeatureDataset to CSV.
+
+    :param dataset: Feature dataset to export.
+    :param path: Output CSV path.
+    :param id_column: Column name for row identifiers.
+    :param view_name: Feature view to serialize.
+    :raises ValueError: If *view_name* is missing for an identifier.
+    """
     data: list[dict[str, Any]] = []
     feature_names: list[str] | None = None
 

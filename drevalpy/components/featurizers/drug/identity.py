@@ -26,6 +26,7 @@ class DrugIdentityFeaturizer(DrugFeaturizer):
     entity_id_only: ClassVar[bool] = True
 
     def __init__(self) -> None:
+        """Initialize instance state."""
         self._encoder = OneHotCategoryEncoder()
 
     def fit(
@@ -35,12 +36,25 @@ class DrugIdentityFeaturizer(DrugFeaturizer):
         entity_ids: np.ndarray | None = None,
         context: FeaturizerFitContext | None = None,
     ) -> DrugIdentityFeaturizer:
+        """Fit on training data.
+
+        :param features: features.
+        :param entity_ids: entity ids.
+        :param context: context.
+        :returns: Result.
+        """
         _ = features, context
         ids = entity_ids if entity_ids is not None else np.array(list(features.features.keys()), dtype=str)
         self._encoder.fit_categories(ids)
         return self
 
     def transform(self, features: FeatureDataset, entity_ids: np.ndarray) -> np.ndarray:
+        """Transform inputs into feature payloads.
+
+        :param features: features.
+        :param entity_ids: entity ids.
+        :returns: Result.
+        """
         _ = features
         return self._encoder.transform(entity_ids)
 
@@ -49,6 +63,12 @@ class DrugIdentityFeaturizer(DrugFeaturizer):
         features: FeatureDataset,
         entity_ids: np.ndarray,
     ) -> dict[str, FeatureBlock]:
+        """Transform blocks.
+
+        :param features: features.
+        :param entity_ids: entity ids.
+        :returns: Result.
+        """
         return {
             "identity": numeric_feature_block(self.transform(features, entity_ids)),
             "identity_categories": metadata_feature_block(
@@ -58,10 +78,22 @@ class DrugIdentityFeaturizer(DrugFeaturizer):
 
     @property
     def output_dim(self) -> int:
+        """Return output feature dimension after fitting.
+
+        :returns: Result.
+        """
         return self._encoder.output_dim
 
     def get_state(self) -> dict[str, object]:
+        """Return serializable fitted state.
+
+        :returns: Result.
+        """
         return self._encoder.get_state()
 
     def set_state(self, state: dict[str, object]) -> None:
+        """Restore state from a prior ``get_state`` mapping.
+
+        :param state: state.
+        """
         self._encoder.set_state(state)

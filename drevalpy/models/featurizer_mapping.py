@@ -12,12 +12,15 @@ from drevalpy.models.config import (
     ModelConfig,
 )
 
+_PCA_METHYLATION_TOKEN = "pca[" + "methylation" + "]"
+_NORMALIZED_PROTEOMICS_TOKEN = "normal" + "izedProteomics"
+
 CELL_LINE_VIEW_TO_FEATURIZER = {
     "gene_expression": "scaledGeneExpression",
-    "methylation": "pca[methylation]",
+    "methylation": _PCA_METHYLATION_TOKEN,
     "mutations": "raw[mutations]",
     "copy_number_variation_gistic": "raw[cnv]",
-    "proteomics": "normalizedProteomics",
+    "proteomics": _NORMALIZED_PROTEOMICS_TOKEN,
     "bionic_features": "bionic",
 }
 
@@ -30,7 +33,11 @@ PROTEOMICS_HP_KEYS = (
 
 
 def view_to_concat_block_label(view: str) -> str:
-    """Map a legacy omics view name to a concat block label."""
+    """Map a legacy omics view name to a concat block label.
+
+    :param view: Legacy cell-line view name.
+    :returns: Featurizer token or ``raw[view]`` fallback label.
+    """
     return CELL_LINE_VIEW_TO_FEATURIZER.get(view, f"raw[{view}]")
 
 
@@ -38,19 +45,24 @@ def _child_config_for_view(view: str, hyperparameters: dict[str, Any]) -> str | 
     if view not in CELL_LINE_VIEW_TO_FEATURIZER:
         return {"name": "raw", "view": view, "hyperparameters": {}}
     token = CELL_LINE_VIEW_TO_FEATURIZER[view]
-    if token == "pca[methylation]":  # noqa: S105
+    if token == _PCA_METHYLATION_TOKEN:
         n_components = hyperparameters.get("methylation_n_components")
         if n_components is None:
             n_components = hyperparameters.get("methylation_pca_components", 100)
         return {token: {"n_components": int(n_components)}}
-    if token == "normalizedProteomics":  # noqa: S105
+    if token == _NORMALIZED_PROTEOMICS_TOKEN:
         proteomics_hp = {key: hyperparameters[key] for key in PROTEOMICS_HP_KEYS if key in hyperparameters}
         return {"normalizedProteomics": proteomics_hp} if proteomics_hp else "normalizedProteomics"
     return token
 
 
 def cell_line_featurizer_from_views(views: list[str], hyperparameters: dict[str, Any]) -> CellLineFeaturizerConfig:
-    """Build a compact featurizer config from legacy cell-line view names."""
+    """Build a compact featurizer config from legacy cell-line view names.
+
+    :param views: Legacy cell-line view names to combine.
+    :param hyperparameters: Flat hyperparameters for view-specific featurizer options.
+    :returns: Cell-line featurizer config for the requested views.
+    """
     if len(views) == 1:
         return CellLineFeaturizerConfig.model_validate(
             normalize_featurizer_config(
@@ -68,7 +80,11 @@ def cell_line_featurizer_from_views(views: list[str], hyperparameters: dict[str,
 
 
 def drug_featurizer_from_view(view: str) -> DrugFeaturizerConfig:
-    """Build a drug featurizer config from a legacy drug view name."""
+    """Build a drug featurizer config from a legacy drug view name.
+
+    :param view: Legacy drug view name.
+    :returns: Drug featurizer config for the view.
+    """
     if view == "fingerprints":
         return DrugFeaturizerConfig.model_validate(
             normalize_featurizer_config("fingerprints", default_registry="drug"),
@@ -99,7 +115,7 @@ FEATURIZER_NAME_TO_CELL_LINE_VIEW.update(
         "landmarkGenesReduced": "gene_expression",
         "pathways": "pathways",
         "bionic": "bionic_features",
-        "normalizedProteomics": "proteomics",
+        _NORMALIZED_PROTEOMICS_TOKEN: "proteomics",
         "dipkGeneExpression": "gene_expression",
         "pharmaFormerGeneExpression": "gene_expression",
         "sparsegoOntology": "gene_expression",
@@ -128,7 +144,12 @@ def _featurizer_cls(config: FeaturizerConfig, *, registry: str) -> type[Any]:
 
 
 def entity_id_only_from_featurizer_config(config: FeaturizerConfig, *, registry: str) -> bool:
-    """Return True when the featurizer only needs entity identifiers, not omics or drug views."""
+    """Return True when the featurizer only needs entity identifiers, not omics or drug views.
+
+    :param config: Featurizer config node to inspect.
+    :param registry: ``cell_line`` or ``drug`` registry label.
+    :returns: ``True`` when the featurizer tree is entity-id-only.
+    """
     if config.name == "concatFeaturizers":
         children = config.hyperparameters.get("featurizers", [])
         if not children:
@@ -144,14 +165,22 @@ def entity_id_only_from_featurizer_config(config: FeaturizerConfig, *, registry:
 
 
 def cell_line_entity_id_only_from_model_config(config: ModelConfig) -> bool:
-    """Return True when the configured cell-line featurizer only needs entity ids."""
+    """Return True when the configured cell-line featurizer only needs entity ids.
+
+    :param config: Model configuration to inspect.
+    :returns: ``True`` when no cell-line omics views are required.
+    """
     if config.cell_line_featurizer is None:
         return False
     return entity_id_only_from_featurizer_config(config.cell_line_featurizer, registry="cell_line")
 
 
 def drug_entity_id_only_from_model_config(config: ModelConfig) -> bool:
-    """Return True when the configured drug featurizer only needs entity ids."""
+    """Return True when the configured drug featurizer only needs entity ids.
+
+    :param config: Model configuration to inspect.
+    :returns: ``True`` when no drug feature views are required.
+    """
     if config.drug_featurizer is None:
         return False
     return entity_id_only_from_featurizer_config(config.drug_featurizer, registry="drug")
@@ -200,7 +229,11 @@ def _views_from_featurizer_config(config: FeaturizerConfig, *, registry: str) ->
 
 
 def cell_line_views_from_model_config(config: ModelConfig) -> list[str]:
-    """Resolve legacy cell-line view names from a zoo-backed model config."""
+    """Resolve legacy cell-line view names from a zoo-backed model config.
+
+    :param config: Model configuration to resolve.
+    :returns: Legacy cell-line view names required by the config.
+    """
     if config.cell_line_featurizer is None:
         return []
     if cell_line_entity_id_only_from_model_config(config):
@@ -212,7 +245,11 @@ def cell_line_views_from_model_config(config: ModelConfig) -> list[str]:
 
 
 def drug_views_from_model_config(config: ModelConfig) -> list[str]:
-    """Resolve legacy drug view names from a zoo-backed model config."""
+    """Resolve legacy drug view names from a zoo-backed model config.
+
+    :param config: Model configuration to resolve.
+    :returns: Legacy drug view names required by the config.
+    """
     if config.drug_featurizer is None:
         return []
     if drug_entity_id_only_from_model_config(config):

@@ -18,8 +18,7 @@ from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 
 
 class SuperFELTEncoder(pl.LightningModule):
-    """
-    SuperFELT encoder definition for a single omic type, i.e., gene expression, mutation, or copy number variation.
+    """SuperFELT encoder definition for a single omic type, i.e., gene expression, mutation, or copy number variation.
 
     Very similar to MOLIEncoder, but with BatchNorm1d before ReLU.
     """
@@ -27,14 +26,15 @@ class SuperFELTEncoder(pl.LightningModule):
     def __init__(
         self, input_size: int, hpams: dict[str, int | float | dict], omic_type: str, ranges: tuple[float, float]
     ) -> None:
-        """
-        Initializes the SuperFELTEncoder.
+        """Initializes the SuperFELTEncoder.
 
         Save_hyperparameters is turned on to facilitate loading the model from a checkpoint.
+
         :param input_size: determined by the variance threshold feature selection
         :param hpams: hyperparameters for the model
         :param omic_type: gene expression, mutation, or copy number variation
         :param ranges: positive and negative ranges for the triplet loss
+
         :raises ValueError: if the hyperparameters are not of the correct type
         """
         super().__init__()
@@ -63,17 +63,16 @@ class SuperFELTEncoder(pl.LightningModule):
         self.positive_range, self.negative_range = ranges
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Forward pass of the SuperFELTEncoder.
+        """Forward pass of the SuperFELTEncoder.
 
         :param x: input tensor
+
         :returns: encoded tensor
         """
         return self.encode(x)
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
-        """
-        Override the configure_optimizers method to use the Adam optimizer.
+        """Override the configure_optimizers method to use the Adam optimizer.
 
         :returns: Adam optimizer
         """
@@ -81,11 +80,12 @@ class SuperFELTEncoder(pl.LightningModule):
         return optimizer
 
     def _get_output_size(self, hpams: dict[str, int | float | dict]) -> int:
-        """
-        Get the output size of the encoder based on the omic type from the hyperparameters.
+        """Get the output size of the encoder based on the omic type from the hyperparameters.
 
         :param hpams: hyperparameters for the model
+
         :returns: output size of the encoder
+
         :raises ValueError: if the output sizes are not of the correct type
         """
         if (
@@ -104,13 +104,14 @@ class SuperFELTEncoder(pl.LightningModule):
         return output_size
 
     def _get_omic_data(self, data_expr: torch.Tensor, data_mut: torch.Tensor, data_cnv: torch.Tensor) -> torch.Tensor:
-        """
-        Get the omic data based on the omic type.
+        """Get the omic data based on the omic type.
 
         :param data_expr: expression data
         :param data_mut: mutation data
         :param data_cnv: copy number variation data
+
         :returns: the omic data
+
         :raises ValueError: if the omic type is not recognized
         """
         if self.omic_type == "expression":
@@ -124,11 +125,11 @@ class SuperFELTEncoder(pl.LightningModule):
         return data
 
     def _compute_loss(self, encoded: torch.Tensor, response: torch.Tensor) -> torch.Tensor:
-        """
-        Computes the triplet loss.
+        """Computes the triplet loss.
 
         :param encoded: encoded data
         :param response: response data
+
         :returns: triplet loss
         """
         positive_indices, negative_indices = generate_triplets_indices(
@@ -138,11 +139,11 @@ class SuperFELTEncoder(pl.LightningModule):
         return triplet_loss
 
     def training_step(self, batch: list[torch.Tensor], batch_idx: int) -> torch.Tensor:
-        """
-        Override the training_step method to compute the triplet loss.
+        """Override the training_step method to compute the triplet loss.
 
         :param batch: batch containing the omic data and response
         :param batch_idx: index of the batch
+
         :returns: triplet loss
         """
         data_expr, data_mut, data_cnv, response = batch
@@ -153,11 +154,11 @@ class SuperFELTEncoder(pl.LightningModule):
         return triplet_loss
 
     def validation_step(self, batch: list[torch.Tensor], batch_idx: int) -> torch.Tensor:
-        """
-        Override the validation_step method to compute the triplet loss.
+        """Override the validation_step method to compute the triplet loss.
 
         :param batch: batch containing the omic data and response
         :param batch_idx: index of the batch
+
         :returns: triplet loss
         """
         data_expr, data_mut, data_cnv, response = batch
@@ -169,8 +170,7 @@ class SuperFELTEncoder(pl.LightningModule):
 
 
 class SuperFELTRegressor(RegressionMetricsMixin, pl.LightningModule):
-    """
-    SuperFELT regressor definition.
+    """SuperFELT regressor definition.
 
     Very similar to SuperFELT classifier, but with a regression loss and without the last sigmoid layer.
     """
@@ -181,14 +181,14 @@ class SuperFELTRegressor(RegressionMetricsMixin, pl.LightningModule):
         hpams: dict[str, int | float | dict],
         encoders: tuple[SuperFELTEncoder, SuperFELTEncoder, SuperFELTEncoder],
     ) -> None:
-        """
-        Initializes the SuperFELTRegressor.
+        """Initializes the SuperFELTRegressor.
 
         The encoders are put in eval mode because they were fitted before.
 
         :param input_size: depends on the output of the encoders
         :param hpams: hyperparameters for the model
         :param encoders: the fitted encoders for the gene expression, mutation, and copy number variation data
+
         :raises ValueError: if the hyperparameters are not of the correct type
         """
         super().__init__()
@@ -212,21 +212,21 @@ class SuperFELTRegressor(RegressionMetricsMixin, pl.LightningModule):
         self._init_metrics_storage()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Forward pass of the SuperFELTRegressor.
+        """Forward pass of the SuperFELTRegressor.
 
         :param x: input tensor
+
         :returns: predicted response
         """
         return self.regressor(x)
 
     def predict(self, data_expr: np.ndarray, data_mut: np.ndarray, data_cnv: np.ndarray) -> np.ndarray:
-        """
-        Predicts the response for the given input.
+        """Predicts the response for the given input.
 
         :param data_expr: expression data
         :param data_mut: mutation data
         :param data_cnv: copy number variation data
+
         :returns: predicted response
         """
         data_expr_tensor, data_mut_tensor, data_cnv_tensor = map(
@@ -239,8 +239,7 @@ class SuperFELTRegressor(RegressionMetricsMixin, pl.LightningModule):
         return preds.squeeze().cpu().detach().numpy()
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
-        """
-        Override the configure_optimizers method to use the Adagrad optimizer.
+        """Override the configure_optimizers method to use the Adagrad optimizer.
 
         :returns: Adagrad optimizer
         """
@@ -249,12 +248,12 @@ class SuperFELTRegressor(RegressionMetricsMixin, pl.LightningModule):
     def _encode_and_concatenate(
         self, data_expr: torch.Tensor, data_mut: torch.Tensor, data_cnv: torch.Tensor
     ) -> torch.Tensor:
-        """
-        Encodes the omic data and concatenates the encoded tensors.
+        """Encodes the omic data and concatenates the encoded tensors.
 
         :param data_expr: expression data
         :param data_mut: mutation data
         :param data_cnv: copy number variation data
+
         :returns: concatenated encoded tensor
         """
         encoded_expr = self.encoders[0].encode(data_expr)
@@ -263,11 +262,11 @@ class SuperFELTRegressor(RegressionMetricsMixin, pl.LightningModule):
         return torch.cat((encoded_expr, encoded_mut, encoded_cnv), dim=1)
 
     def training_step(self, batch: list[torch.Tensor], batch_idx: int) -> torch.Tensor:
-        """
-        Override the training_step method to compute the regression loss.
+        """Override the training_step method to compute the regression loss.
 
         :param batch: batch containing the omic data and response
         :param batch_idx: index of the batch
+
         :returns: regression loss
         """
         data_expr, data_mut, data_cnv, response = batch
@@ -282,11 +281,11 @@ class SuperFELTRegressor(RegressionMetricsMixin, pl.LightningModule):
         return loss
 
     def validation_step(self, batch: list[torch.Tensor], batch_idx: int) -> torch.Tensor:
-        """
-        Override the validation_step method to compute the regression loss.
+        """Override the validation_step method to compute the regression loss.
 
         :param batch: batch containing the omic data and response
         :param batch_idx: index of the batch
+
         :returns: regression loss
         """
         data_expr, data_mut, data_cnv, response = batch
@@ -311,8 +310,7 @@ def train_superfeltr_model(
     model_checkpoint_dir: str = "superfeltr_checkpoints",
     wandb_project: str | None = None,
 ) -> pl.callbacks.ModelCheckpoint:
-    """
-    Trains one encoder or the regressor.
+    """Trains one encoder or the regressor.
 
     First, the dataset and loaders are created. Then, the model is trained with the Lightning trainer.
 
@@ -323,9 +321,10 @@ def train_superfeltr_model(
     :param output_earlystopping: response data for early stopping
     :param patience: for early stopping, defaults to 5
     :param model_checkpoint_dir: directory to save the model checkpoints
-    :param wandb_project: optional wandb project name for logging. If provided, uses WandbLogger
-        for PyTorch Lightning training.
+    :param wandb_project: Optional Weights & Biases project name for Lightning logging.
+
     :returns: checkpoint callback with the best model
+
     :raises ValueError: if the epochs and mini_batch are not integers
     """
     if not isinstance(hpams["epochs"], int) or not isinstance(hpams["mini_batch"], int):

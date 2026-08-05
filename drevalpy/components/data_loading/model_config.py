@@ -26,18 +26,24 @@ from drevalpy.models.featurizer_mapping import (
 def load_tissue_features(data_path: str, dataset_name: str) -> FeatureDataset:
     """Load tissue labels keyed by cell line id.
 
-    Args:
-        data_path: Root directory containing dataset feature tables.
-        dataset_name: Dataset subdirectory or registry name.
+    :param data_path: Root directory containing dataset feature tables.
+    :param dataset_name: Dataset subdirectory or registry name.
 
-    Returns:
-        ``FeatureDataset`` with a tissue view indexed by cell-line id.
+    :returns: ``FeatureDataset`` with a tissue view indexed by cell-line id.
     """
     return load_tissues_from_csv(data_path, dataset_name)
 
 
 def _merge_features(current: FeatureDataset | None, incoming: FeatureDataset) -> FeatureDataset:
-    """Merge distinct feature views while rejecting ambiguous collisions."""
+    """Merge distinct feature views while rejecting ambiguous collisions.
+
+    :param current: Existing feature dataset, or ``None`` when this is the first view.
+    :param incoming: New views to add to *current*.
+
+    :returns: Combined ``FeatureDataset`` with views from both inputs.
+
+    :raises ValueError: If *incoming* reuses a view name already present in *current*.
+    """
     if current is None:
         return incoming
     overlap = set(current.view_names).intersection(incoming.view_names)
@@ -48,7 +54,12 @@ def _merge_features(current: FeatureDataset | None, incoming: FeatureDataset) ->
 
 
 def _has_custom_loader(featurizer_cls: type[Featurizer]) -> bool:
-    """Return whether a featurizer overrides the optional disk-loading hook."""
+    """Return whether a featurizer overrides the optional disk-loading hook.
+
+    :param featurizer_cls: Featurizer class to inspect.
+
+    :returns: ``True`` when ``load_features`` is overridden on the subclass.
+    """
     return getattr(featurizer_cls.load_features, "__func__", None) is not getattr(
         Featurizer.load_features, "__func__", None
     )
@@ -62,7 +73,16 @@ def _load_from_featurizer_tree(
     dataset_name: str,
     model_name: str,
 ) -> FeatureDataset | None:
-    """Load every leaf's raw data, using bespoke loaders where available."""
+    """Load every leaf's raw data, using bespoke loaders where available.
+
+    :param config: Featurizer tree configuration for the requested registry.
+    :param registry: Whether to resolve cell-line or drug featurizers.
+    :param data_path: Root directory containing dataset feature tables.
+    :param dataset_name: Dataset subdirectory or registry name.
+    :param model_name: Model name used for view-specific loading hooks.
+
+    :returns: Merged ``FeatureDataset`` for all leaves, or ``None`` when nothing was loaded.
+    """
     loaded: FeatureDataset | None = None
     for leaf in iter_featurizer_leaves(config, registry):
         cls = get_cell_line_featurizer(leaf.name) if registry == "cell_line" else get_drug_featurizer(leaf.name)
@@ -88,12 +108,10 @@ def _load_from_featurizer_tree(
 def load_cell_line_id_features(data_path: str, dataset_name: str) -> FeatureDataset:
     """Load cell-line identifier features.
 
-    Args:
-        data_path: Root directory containing dataset feature tables.
-        dataset_name: Dataset subdirectory or registry name.
+    :param data_path: Root directory containing dataset feature tables.
+    :param dataset_name: Dataset subdirectory or registry name.
 
-    Returns:
-        ``FeatureDataset`` containing only cell-line identifier metadata.
+    :returns: ``FeatureDataset`` containing only cell-line identifier metadata.
     """
     return load_cl_ids_from_csv(data_path, dataset_name)
 
@@ -107,14 +125,12 @@ def load_cell_line_features_for_model_config(
 ) -> FeatureDataset:
     """Load cell-line features implied by *config*, including identity-only featurizers.
 
-    Args:
-        config: Resolved model configuration.
-        data_path: Root directory containing dataset feature tables.
-        dataset_name: Dataset subdirectory or registry name.
-        model_name: Model name used for view-specific loading hooks.
+    :param config: Resolved model configuration.
+    :param data_path: Root directory containing dataset feature tables.
+    :param dataset_name: Dataset subdirectory or registry name.
+    :param model_name: Model name used for view-specific loading hooks.
 
-    Returns:
-        ``FeatureDataset`` with views required by the cell-line featurizer tree.
+    :returns: ``FeatureDataset`` with views required by the cell-line featurizer tree.
     """
     featurizer = config.cell_line_featurizer
     if featurizer is not None and featurizer.name == "tissue":
@@ -144,15 +160,12 @@ def load_drug_features_for_model_config(
 ) -> FeatureDataset | None:
     """Load drug features implied by *config*, including identity-only featurizers.
 
-    Args:
-        config: Resolved model configuration.
-        data_path: Root directory containing dataset feature tables.
-        dataset_name: Dataset subdirectory or registry name.
-        model_name: Model name used for view-specific loading hooks.
+    :param config: Resolved model configuration.
+    :param data_path: Root directory containing dataset feature tables.
+    :param dataset_name: Dataset subdirectory or registry name.
+    :param model_name: Model name used for view-specific loading hooks.
 
-    Returns:
-        ``FeatureDataset`` with drug views, or ``None`` when the model has no
-        drug featurizer.
+    :returns: ``FeatureDataset`` with drug views, or ``None`` when the model has no drug featurizer.
     """
     if config.drug_featurizer is None:
         return None

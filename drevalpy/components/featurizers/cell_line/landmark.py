@@ -77,6 +77,15 @@ class LandmarkGenesFeaturizer(CellLineFeaturizer):
         arcsinh: bool = True,
         data_path: str | None = None,
     ) -> None:
+        """Initialize instance state.
+
+        :param view: view.
+        :param gene_list_stem: gene list stem.
+        :param standardize: standardize.
+        :param minmax_scale: minmax scale.
+        :param arcsinh: arcsinh.
+        :param data_path: data path.
+        """
         self._view = view
         self._gene_list_stem = gene_list_stem
         self._standardize = standardize
@@ -96,6 +105,13 @@ class LandmarkGenesFeaturizer(CellLineFeaturizer):
         entity_ids: np.ndarray | None = None,
         context: FeaturizerFitContext | None = None,
     ) -> LandmarkGenesFeaturizer:
+        """Fit on training data.
+
+        :param features: features.
+        :param entity_ids: entity ids.
+        :param context: context.
+        :returns: Result.
+        """
         _ = context
         ids = entity_ids if entity_ids is not None else np.array(list(features.features.keys()))
         self._gene_indices = _load_gene_indices(
@@ -125,6 +141,13 @@ class LandmarkGenesFeaturizer(CellLineFeaturizer):
         return self
 
     def transform(self, features, entity_ids: np.ndarray) -> np.ndarray:
+        """Transform inputs into feature payloads.
+
+        :param features: features.
+        :param entity_ids: entity ids.
+        :returns: Result.
+        :raises RuntimeError: Raised on invalid input.
+        """
         if not self._is_fitted:
             msg = "LandmarkGenesFeaturizer must be fit before transform"
             raise RuntimeError(msg)
@@ -139,6 +162,13 @@ class LandmarkGenesFeaturizer(CellLineFeaturizer):
         )
 
     def transform_blocks(self, features, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
+        """Transform blocks.
+
+        :param features: features.
+        :param entity_ids: entity ids.
+        :returns: Result.
+        :raises RuntimeError: Raised on invalid input.
+        """
         if not self._is_fitted:
             msg = "LandmarkGenesFeaturizer must be fit before transform"
             raise RuntimeError(msg)
@@ -155,16 +185,28 @@ class LandmarkGenesFeaturizer(CellLineFeaturizer):
 
     @property
     def output_dim(self) -> int:
+        """Return output feature dimension after fitting.
+
+        :returns: Result.
+        """
         return self._output_dim
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
+        """Get hyperparameter space.
+
+        :returns: Result.
+        """
         return {
             "standardize": {"type": "categorical", "choices": [True, False], "default": True},
             "minmax_scale": {"type": "categorical", "choices": [True, False], "default": False},
         }
 
     def get_state(self) -> dict[str, object]:
+        """Return serializable fitted state.
+
+        :returns: Result.
+        """
         if not self._is_fitted:
             return {}
         return {
@@ -217,6 +259,10 @@ class LandmarkGenesFeaturizer(CellLineFeaturizer):
             self._is_fitted = True
 
     def set_state(self, state: dict[str, object]) -> None:
+        """Restore state from a prior ``get_state`` mapping.
+
+        :param state: state.
+        """
         self._restore_landmark_identity(state)
         self._restore_landmark_fit_state(state)
 
@@ -237,8 +283,17 @@ class LandmarkGenesReducedFeaturizer(LandmarkGenesFeaturizer):
         minmax_scale: bool = False,
         arcsinh: bool = False,
         data_path: str | None = None,
-        **_: Any,
+        **kwargs: Any,
     ) -> None:
+        """Initialize the reduced landmark featurizer variant.
+
+        :param view: Omics view name (defaults to ``gene_expression``).
+        :param standardize: Whether to z-score features after loading.
+        :param minmax_scale: Whether to min-max scale features after loading.
+        :param arcsinh: Whether to apply ``arcsinh`` transform after loading.
+        :param data_path: Optional override for dataset artifact root.
+        :param kwargs: Ignored legacy keyword arguments.
+        """
         super().__init__(
             view=view,
             gene_list_stem="landmark_genes_reduced",

@@ -59,7 +59,14 @@ def remove_train_overlap_for_test_mode(
     train_dataset: DrugResponseDataset,
     dataset: DrugResponseDataset,
 ) -> None:
-    """Remove rows from ``dataset`` that overlap training according to ``test_mode``."""
+    """Remove rows from ``dataset`` that overlap training according to ``test_mode``.
+
+    :param test_mode: One of ``LPO``, ``LCO``, ``LDO``, or ``LTO``.
+    :param train_dataset: Training split used to define overlap.
+    :param dataset: Dataset to filter in place.
+
+    :raises ValueError: If ``test_mode`` is invalid or tissue data is missing for ``LTO``.
+    """
     if test_mode == "LPO":
         _remove_lpo_overlap(train_dataset, dataset)
     elif test_mode == "LCO":
@@ -117,7 +124,19 @@ def cross_study_prediction_impl(
     split_index: int,
     single_drug_id: str | None = None,
 ) -> None:
-    """Run cross-study prediction and write CSV output."""
+    """Run cross-study prediction and write CSV output.
+
+    :param dataset: Held-out dataset from another study.
+    :param model: Trained model instance to evaluate.
+    :param test_mode: Split mode used for overlap removal.
+    :param train_dataset: Training dataset from the source study.
+    :param path_data: Root directory for feature tables.
+    :param early_stopping_dataset: Optional early-stopping data for retraining.
+    :param response_transformation: Optional response transformer.
+    :param path_out: Directory where predictions are written.
+    :param split_index: CV fold index for output file naming.
+    :param single_drug_id: Drug identifier when *model* is single-drug scoped.
+    """
     dataset = dataset.copy()
     os.makedirs(os.path.join(path_out, "cross_study"), exist_ok=True)
     if response_transformation:

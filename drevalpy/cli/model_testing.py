@@ -2,18 +2,24 @@
 
 import json
 import pathlib
-import pickle
 from argparse import Namespace
 from typing import Any
 
 import pandas as pd
 import yaml
 
+from drevalpy.utils.pickle_io import dump_trusted_pickle, load_trusted_pickle
+
 
 def _prep_data_for_final_prediction(
     arguments: Namespace,
 ) -> tuple[Any, Any, Any, Any, Any, Any, Any]:
-    """Load data and prepare it for final CV-fold training and prediction."""
+    """Load data and prepare it for final CV-fold training and prediction.
+
+    :param arguments: Namespace with split paths, model name, and transformation options.
+    :returns: Model, drug id, hyperparameters, train/test/early-stopping sets, and response
+        transformer.
+    """
     from drevalpy.experiment import get_model_name_and_drug_id
     from drevalpy.experiment.fold import (
         early_stopping_for_model,
@@ -24,8 +30,7 @@ def _prep_data_for_final_prediction(
 
     model_name, drug_id = get_model_name_and_drug_id(arguments.model_name)
     model_class = get_model_class(model_name)
-    with open(arguments.split_dataset_path, "rb") as split_file:
-        split = pickle.load(split_file)
+    split = load_trusted_pickle(arguments.split_dataset_path)
     fold = prepare_final_fold_training_data(split, model_class, model_name, drug_id)
     with open(arguments.hyperparameters_path) as f:
         best_hpam_dict = yaml.safe_load(f)
@@ -59,7 +64,23 @@ def run_train_and_predict_final(
     cross_study_datasets: list[str] | None = None,
     model_checkpoint_dir: str = "TEMPORARY",
 ) -> None:
-    """Train and predict on the CV test set (full, randomization, or robustness mode)."""
+    """Train and predict on the CV test set (full, randomization, or robustness mode).
+
+    :param mode: mode.
+    :param model_name: model name.
+    :param split_id: split id.
+    :param split_dataset_path: split dataset path.
+    :param hyperparameters_path: hyperparameters path.
+    :param response_transformation: response transformation.
+    :param test_mode: test mode.
+    :param path_data: path data.
+    :param randomization_views_path: randomization views path.
+    :param randomization_type: randomization type.
+    :param robustness_trial: robustness trial.
+    :param cross_study_datasets: cross study datasets.
+    :param model_checkpoint_dir: model checkpoint dir.
+    :raises ValueError: If ``mode`` is not ``full``, ``randomization``, or ``robustness``.
+    """
     from drevalpy.experiment import (
         cross_study_prediction,
         generate_data_saving_path,
@@ -120,8 +141,7 @@ def run_train_and_predict_final(
                 if cs_ds == "NONE.csv":
                     continue
                 split_index = args.split_id.split("split_")[1]
-                with open(cs_ds, "rb") as cs_file:
-                    cross_study_dataset = pickle.load(cs_file)
+                cross_study_dataset = load_trusted_pickle(cs_ds)
                 cross_study_dataset.remove_nan_responses()
                 cross_study_prediction(
                     dataset=cross_study_dataset,
@@ -189,7 +209,12 @@ def run_train_and_predict_final(
 
 
 def run_randomization_split(*, model_name: str, randomization_mode: str) -> None:
-    """Create randomization test view YAML files for a model."""
+    """Create randomization test view YAML files for a model.
+
+    :param model_name: model name.
+    :param randomization_mode: randomization mode.
+    :raises RuntimeError: If no randomization test views are produced for the model.
+    """
     from drevalpy.experiment import get_randomization_test_views
     from drevalpy.models._model_lookup import get_model_class
 
@@ -224,13 +249,19 @@ def run_final_split(
     test_mode: str = "LPO",
     val_ratio: float = 0.1,
 ) -> None:
-    """Create train/validation/early-stopping pickles for a final production model."""
+    """Create train/validation/early-stopping pickles for a final production model.
+
+    :param response: response.
+    :param model_name: model name.
+    :param path_data: path data.
+    :param test_mode: test mode.
+    :param val_ratio: val ratio.
+    """
     from drevalpy.datasets.dataset import split_early_stopping_data
     from drevalpy.experiment import make_train_val_split
     from drevalpy.models._model_lookup import get_model_class
 
-    with open(response, "rb") as response_file:
-        response_data = pickle.load(response_file)
+    response_data = load_trusted_pickle(response)
     response_data.remove_nan_responses()
     model_class = get_model_class(model_name)
     model = model_class()
@@ -247,12 +278,9 @@ def run_final_split(
     else:
         early_stopping_dataset = None
 
-    with open("training_dataset.pkl", "wb") as f:
-        pickle.dump(train_dataset, f)
-    with open("validation_dataset.pkl", "wb") as f:
-        pickle.dump(validation_dataset, f)
-    with open("early_stopping_dataset.pkl", "wb") as f:
-        pickle.dump(early_stopping_dataset, f)
+    dump_trusted_pickle(train_dataset, "training_dataset.pkl")
+    dump_trusted_pickle(validation_dataset, "validation_dataset.pkl")
+    dump_trusted_pickle(early_stopping_dataset, "early_stopping_dataset.pkl")
 
 
 def run_tune_final_model(
@@ -271,6 +299,15 @@ def run_tune_final_model(
     Despite the historical name, this command evaluates one hyperparameter YAML
     via ``train_and_predict``. Ray/Optuna search lives in
     ``drevalpy.experiment.train_final_model`` / ``hpam_tune``.
+
+    :param train_data: train data.
+    :param val_data: val data.
+    :param early_stopping_data: early stopping data.
+    :param model_name: model name.
+    :param hpam_combi: hpam combi.
+    :param response_transformation: response transformation.
+    :param path_data: path data.
+    :param model_checkpoint_dir: model checkpoint dir.
     """
     import warnings
 
@@ -285,12 +322,9 @@ def run_tune_final_model(
         stacklevel=2,
     )
 
-    with open(train_data, "rb") as train_file:
-        train_dataset = pickle.load(train_file)
-    with open(val_data, "rb") as val_file:
-        validation_dataset = pickle.load(val_file)
-    with open(early_stopping_data, "rb") as es_file:
-        early_stopping_dataset = pickle.load(es_file)
+    train_dataset = load_trusted_pickle(train_data)
+    validation_dataset = load_trusted_pickle(val_data)
+    early_stopping_dataset = load_trusted_pickle(early_stopping_data)
     response_transform = get_response_transformation(response_transformation)
 
     resolved_name, _drug_id = get_model_name_and_drug_id(model_name)
@@ -308,11 +342,10 @@ def run_tune_final_model(
         response_transformation=response_transform,
         model_checkpoint_dir=model_checkpoint_dir,
     )
-    with open(
-        f"final_prediction_dataset_{resolved_name}_" f"{str(hpam_combi).split('.yaml')[0]}.pkl",
-        "wb",
-    ) as f:
-        pickle.dump(validation_dataset, f)
+    dump_trusted_pickle(
+        validation_dataset,
+        f"final_prediction_dataset_{resolved_name}_{str(hpam_combi).split('.yaml')[0]}.pkl",
+    )
 
 
 def run_train_final_model(
@@ -326,7 +359,17 @@ def run_train_final_model(
     model_checkpoint_dir: str = "TEMPORARY",
     best_hpam_combi: str,
 ) -> None:
-    """Train and save the final production model."""
+    """Train and save the final production model.
+
+    :param train_data: train data.
+    :param val_data: val data.
+    :param early_stopping_data: early stopping data.
+    :param response_transformation: response transformation.
+    :param model_name: model name.
+    :param path_data: path data.
+    :param model_checkpoint_dir: model checkpoint dir.
+    :param best_hpam_combi: best hpam combi.
+    """
     from drevalpy.experiment import (
         generate_data_saving_path,
         get_model_name_and_drug_id,
@@ -339,12 +382,9 @@ def run_train_final_model(
         model_name=resolved_name, drug_id=_drug_id, result_path="", suffix="final_model"
     )
     response_transform = get_response_transformation(response_transformation)
-    with open(train_data, "rb") as train_file:
-        train_dataset = pickle.load(train_file)
-    with open(val_data, "rb") as val_file:
-        validation_dataset = pickle.load(val_file)
-    with open(early_stopping_data, "rb") as es_file:
-        es_dataset = pickle.load(es_file)
+    train_dataset = load_trusted_pickle(train_data)
+    validation_dataset = load_trusted_pickle(val_data)
+    es_dataset = load_trusted_pickle(early_stopping_data)
     train_dataset = train_dataset.with_rows_added(validation_dataset).shuffled(random_state=42)
     if response_transform:
         train_dataset = train_dataset.fit_transformed(response_transform)
@@ -378,7 +418,19 @@ def run_consolidate_results(
     n_trials_robustness: int = 0,
     dataset_name: str | None = None,
 ) -> None:
-    """Consolidate single-drug model prediction outputs."""
+    """Consolidate single-drug model prediction outputs.
+
+    :param run_id: run id.
+    :param test_mode: test mode.
+    :param model_name: model name.
+    :param outdir_path: outdir path.
+    :param n_cv_splits: n cv splits.
+    :param cross_study_datasets: cross study datasets.
+    :param randomization_modes: randomization modes.
+    :param n_trials_robustness: n trials robustness.
+    :param dataset_name: dataset name.
+    :raises ValueError: If ``dataset_name`` is omitted.
+    """
     from drevalpy.experiment import consolidate_single_drug_model_predictions
     from drevalpy.experiment.paths import consolidate_results_path
     from drevalpy.models._model_lookup import get_model_class
@@ -409,7 +461,12 @@ def run_evaluate_test_results(
     model_name: str,
     pred_file: str,
 ) -> None:
-    """Evaluate test predictions and write metric CSVs."""
+    """Evaluate test predictions and write metric CSVs.
+
+    :param test_mode: test mode.
+    :param model_name: model name.
+    :param pred_file: pred file.
+    """
     from drevalpy.visualization.utils import evaluate_file
 
     results_all, eval_res_d, eval_res_cl, t_vs_pred, mname = evaluate_file(
@@ -450,7 +507,11 @@ def run_collect_results(
     outfiles: list[str],
     path_data: str = "data",
 ) -> None:
-    """Collect parallel Nextflow evaluation outputs into merged CSVs."""
+    """Collect parallel Nextflow evaluation outputs into merged CSVs.
+
+    :param outfiles: outfiles.
+    :param path_data: path data.
+    """
     from drevalpy.visualization.utils import prep_results, write_results
 
     path_data_path = pathlib.Path(path_data)

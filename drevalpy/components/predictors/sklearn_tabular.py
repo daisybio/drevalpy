@@ -21,6 +21,10 @@ class SklearnTabularPredictor(MatrixPredictor):
     supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset({PredictionMode.REGRESSION})
 
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
+        """Initialize instance state.
+
+        :param hyperparameters: hyperparameters.
+        """
         super().__init__(hyperparameters)
         merged = dict(self._hyperparameters)
         non_tunable = getattr(self, "non_tunable_hyperparameters", None)
@@ -49,6 +53,10 @@ class SklearnTabularPredictor(MatrixPredictor):
         return np.asarray(self._estimator.predict(x), dtype=np.float64)
 
     def get_state(self) -> dict[str, object]:
+        """Return serializable fitted state.
+
+        :returns: Result.
+        """
         return {
             "estimator": self._estimator,
             "hyperparameters": dict(self._h),
@@ -56,6 +64,11 @@ class SklearnTabularPredictor(MatrixPredictor):
         }
 
     def set_state(self, state: dict[str, object]) -> None:
+        """Restore state from a prior ``get_state`` mapping.
+
+        :param state: state.
+        :raises PredictorStateError: Raised on invalid input.
+        """
         estimator = state.get("estimator")
         if estimator is None:
             msg = f"{self.__class__.__name__} state is missing a fitted estimator"
@@ -77,4 +90,8 @@ class SklearnTabularPredictor(MatrixPredictor):
             raise PredictorStateError(msg)
 
     def is_fitted(self) -> bool:
+        """Return whether the component has been fit.
+
+        :returns: Result.
+        """
         return self._estimator is not None

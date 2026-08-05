@@ -12,8 +12,7 @@ from .types import OPTIONAL_ROLES, REQUIRED_ROLES, TEST_MODES, SplitError
 
 
 def _row_keys(dataset: DrugResponseDataset) -> set[tuple[str, str, float]]:
-    """
-    Build exact row identifiers for overlap checks.
+    """Build exact row identifiers for overlap checks.
 
     :param dataset: response dataset whose rows are keyed
     :returns: set of ``(cell_line_id, drug_id, response)`` tuples
@@ -25,8 +24,7 @@ def _row_keys(dataset: DrugResponseDataset) -> set[tuple[str, str, float]]:
 
 
 def _group_ids(dataset: DrugResponseDataset, test_mode: str) -> set[Any]:
-    """
-    Extract leave-out group identifiers for a ``test_mode``.
+    """Extract leave-out group identifiers for a ``test_mode``.
 
     :param dataset: response dataset whose groups are extracted
     :param test_mode: one of ``LPO``, ``LCO``, ``LDO``, or ``LTO``
@@ -54,8 +52,7 @@ def _assert_disjoint_groups(
     *,
     split_index: int,
 ) -> None:
-    """
-    Ensure train, validation, and test do not share leave-out groups.
+    """Ensure train, validation, and test do not share leave-out groups.
 
     :param roles: split role datasets to check
     :param test_mode: one of ``LPO``, ``LCO``, ``LDO``, or ``LTO``
@@ -78,8 +75,7 @@ def _assert_disjoint_rows(
     *,
     split_index: int,
 ) -> None:
-    """
-    Ensure train, validation, and test do not share exact response rows.
+    """Ensure train, validation, and test do not share exact response rows.
 
     :param roles: split role datasets to check
     :param split_index: index of the split within the returned list
@@ -97,8 +93,7 @@ def _assert_disjoint_rows(
 def _normalize_split_dict(
     raw: dict[str, Any], *, split_index: int
 ) -> tuple[dict[str, DrugResponseDataset], dict[str, Any]]:
-    """
-    Parse and validate one raw split dict from a split provider.
+    """Parse and validate one raw split dict from a split provider.
 
     :param raw: split dict returned by a provider
     :param split_index: index of the split within the returned list
@@ -143,15 +138,10 @@ def validate_splits(
 ) -> tuple[list[dict[str, DrugResponseDataset]], list[dict[str, Any]]]:
     """Validate split output according to *test_mode* semantics.
 
-    Args:
-        splits: Raw split dicts returned by a built-in or external provider.
-        test_mode: One of ``LPO``, ``LCO``, ``LDO``, or ``LTO``.
-
-    Returns:
-        Validated role datasets and optional per-split metadata rows.
-
-    Raises:
-        SplitError: If splits are missing roles or leak across groups or rows.
+    :param splits: Raw split dicts returned by a built-in or external provider.
+    :param test_mode: One of ``LPO``, ``LCO``, ``LDO``, or ``LTO``.
+    :returns: Validated role datasets and optional per-split metadata rows.
+    :raises SplitError: If splits are missing roles or leak across groups or rows.
     """
     if test_mode not in TEST_MODES:
         msg = f"Unknown test_mode {test_mode!r}; choose from {sorted(TEST_MODES)}"
@@ -182,9 +172,8 @@ def ensure_early_stopping_splits(
 ) -> None:
     """Fill ``validation_es`` and ``early_stopping`` when absent.
 
-    Args:
-        splits: Validated split dicts to mutate in place.
-        test_mode: One of ``LPO``, ``LCO``, ``LDO``, or ``LTO``.
+    :param splits: Validated split dicts to mutate in place.
+    :param test_mode: One of ``LPO``, ``LCO``, ``LDO``, or ``LTO``.
     """
     for split in splits:
         if "validation_es" in split and "early_stopping" in split:

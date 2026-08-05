@@ -11,6 +11,11 @@ from drevalpy.cli.model_testing import run_collect_results
 
 
 def register(app: typer.Typer) -> None:
+    """Register the ``collect-results`` subcommand on ``app``.
+
+    :param app: Root Typer application to register the command on.
+    """
+
     @app.command("collect-results")
     def collect_results(
         outfiles: Annotated[
@@ -23,5 +28,9 @@ def register(app: typer.Typer) -> None:
         ],
         path_data: Annotated[str, typer.Option("--path_data", help="Data directory path. Default: data.")] = "data",
     ) -> None:
-        """Collect results and write to single files."""
+        """Collect results and write to single files.
+
+        :param outfiles: Evaluation CSV paths from parallel workflow tasks.
+        :param path_data: Data directory used when merging result tables.
+        """
         run_collect_results(outfiles=as_list(outfiles), path_data=path_data)

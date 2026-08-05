@@ -33,6 +33,14 @@ class NormalizedProteomicsCellLineFeaturizer(CellLineFeaturizer):
         proteomics_normalization_width: float = 0.3,
         proteomics_normalization_downshift: float = 1.8,
     ) -> None:
+        """Initialize instance state.
+
+        :param view: view.
+        :param proteomics_feature_threshold: proteomics feature threshold.
+        :param proteomics_n_features: proteomics n features.
+        :param proteomics_normalization_width: proteomics normalization width.
+        :param proteomics_normalization_downshift: proteomics normalization downshift.
+        """
         self._view = view
         self._transformer = ProteomicsMedianCenterAndImputeTransformer(
             feature_threshold=proteomics_feature_threshold,
@@ -49,6 +57,13 @@ class NormalizedProteomicsCellLineFeaturizer(CellLineFeaturizer):
         entity_ids: np.ndarray | None = None,
         context: FeaturizerFitContext | None = None,
     ) -> NormalizedProteomicsCellLineFeaturizer:
+        """Fit on training data.
+
+        :param features: features.
+        :param entity_ids: entity ids.
+        :param context: context.
+        :returns: Result.
+        """
         _ = context
         ids = entity_ids if entity_ids is not None else np.array(list(features.features.keys()))
         processed = prepare_proteomics(
@@ -62,6 +77,12 @@ class NormalizedProteomicsCellLineFeaturizer(CellLineFeaturizer):
         return self
 
     def transform(self, features, entity_ids: np.ndarray) -> np.ndarray:
+        """Transform inputs into feature payloads.
+
+        :param features: features.
+        :param entity_ids: entity ids.
+        :returns: Result.
+        """
         processed = prepare_proteomics(
             cell_line_input=features.copy(),
             cell_line_ids=np.unique(entity_ids),
@@ -71,6 +92,12 @@ class NormalizedProteomicsCellLineFeaturizer(CellLineFeaturizer):
         return stack_view_matrix(processed, self._view, entity_ids).astype(np.float32)
 
     def transform_blocks(self, features, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
+        """Transform blocks.
+
+        :param features: features.
+        :param entity_ids: entity ids.
+        :returns: Result.
+        """
         return {
             self._view: numeric_feature_block(
                 self.transform(features, entity_ids),
@@ -80,9 +107,17 @@ class NormalizedProteomicsCellLineFeaturizer(CellLineFeaturizer):
 
     @property
     def output_dim(self) -> int:
+        """Return output feature dimension after fitting.
+
+        :returns: Result.
+        """
         return self._output_dim
 
     def get_state(self) -> dict[str, object]:
+        """Return serializable fitted state.
+
+        :returns: Result.
+        """
         return {
             "proteomics_transformer": self._transformer,
             "view": self._view,
@@ -90,6 +125,10 @@ class NormalizedProteomicsCellLineFeaturizer(CellLineFeaturizer):
         }
 
     def set_state(self, state: dict[str, object]) -> None:
+        """Restore state from a prior ``get_state`` mapping.
+
+        :param state: state.
+        """
         transformer = state.get("proteomics_transformer")
         if isinstance(transformer, ProteomicsMedianCenterAndImputeTransformer):
             self._transformer = transformer

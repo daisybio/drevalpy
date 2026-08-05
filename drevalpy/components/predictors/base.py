@@ -31,9 +31,7 @@ class Predictor(ABC):
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
         """Store hyperparameters merged with class defaults.
 
-        Args:
-            hyperparameters: Optional overrides applied on top of
-                ``get_default_hyperparameters()``.
+        :param hyperparameters: Optional overrides applied on top of
         """
         self._hyperparameters: dict[str, Any] = {
             **self.get_default_hyperparameters(),
@@ -44,8 +42,7 @@ class Predictor(ABC):
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
         """Return tunable hyperparameter specs for HPO.
 
-        Returns:
-            Mapping of parameter name to Ray Tune-style spec dicts.
+        :returns: Mapping of parameter name to Ray Tune-style spec dicts.
         """
         return {}
 
@@ -53,8 +50,7 @@ class Predictor(ABC):
     def get_default_hyperparameters(cls) -> dict[str, object]:
         """Return default hyperparameter values from the HP space.
 
-        Returns:
-            Parameter names mapped to their declared ``default`` values.
+        :returns: Parameter names mapped to their declared ``default`` values.
         """
         return {
             key: spec["default"]
@@ -66,41 +62,35 @@ class Predictor(ABC):
     def fit(self, batch: ModelInputBatch) -> None:
         """Fit on a featurized predictor input batch.
 
-        Args:
-            batch: Featurized cell-line/drug pairs with training responses.
+        :param batch: Featurized cell-line/drug pairs with training responses.
         """
 
     @abstractmethod
     def predict(self, batch: ModelInputBatch) -> np.ndarray:
         """Predict response for each pair in the batch.
 
-        Args:
-            batch: Featurized cell-line/drug pairs to score.
+        :param batch: Featurized cell-line/drug pairs to score.
 
-        Returns:
-            One predicted response per pair in *batch*.
+        :returns: One predicted response per pair in *batch*.
         """
 
     def get_state(self) -> dict[str, object]:
         """Return serializable fitted state for legacy save/load bridges.
 
-        Returns:
-            JSON-serializable mapping of fitted attributes.
+        :returns: JSON-serializable mapping of fitted attributes.
         """
         return {}
 
     def set_state(self, state: dict[str, object]) -> None:
-        """Restore fitted state produced by :meth:`get_state`.
+        """Restore fitted state produced by ``get_state``.
 
-        Args:
-            state: Mapping previously returned by :meth:`get_state`.
+        :param state: Mapping previously returned by ``get_state``.
         """
         _ = state
 
     def is_fitted(self) -> bool:
         """Return whether the predictor has been fit.
 
-        Returns:
-            ``True`` when :meth:`get_state` returns a non-empty mapping.
+        :returns: ``True`` when ``get_state`` returns a non-empty mapping.
         """
         return bool(self.get_state())

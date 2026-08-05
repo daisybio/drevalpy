@@ -27,14 +27,11 @@ class ComparisonScatter(OutPlot):
     ):
         """Initialize comparison scatter plots.
 
-        Args:
-            df: Evaluation results per group (drug or cell line).
-            color_by: Grouping column, for example ``"drug_name"`` or
-                ``"cell_line_name"``.
-            test_mode: Evaluation test mode (for example ``"LCO"``).
-            metric: Correlation metric to compare.
-            algorithm: Model name for per-algorithm plots, or ``"all"`` for all
-                models.
+        :param df: Evaluation results per group (drug or cell line).
+        :param color_by: Grouping column, for example ``"drug_name"`` or ``"cell_line_name"``.
+        :param test_mode: Evaluation test mode (for example ``"LCO"``).
+        :param metric: Correlation metric to compare.
+        :param algorithm: Model name for per-algorithm plots, or ``"all"`` for all models.
         """
         exclude_models = (
             {"NaiveDrugMeanPredictor"}.union(set(single_drug_model_names(include_external=False)))
@@ -77,12 +74,10 @@ class ComparisonScatter(OutPlot):
     def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
         """Draw scatter plots and save as HTML.
 
-        Args:
-            out_prefix: Output directory (for example ``results/my_run/comp_scatter/``).
-            out_suffix: Expected plot name suffix; must match ``self.name``.
+        :param out_prefix: Output directory (for example ``results/my_run/comp_scatter/``).
+        :param out_suffix: Expected plot name suffix; must match ``self.name``.
 
-        Raises:
-            AssertionError: If ``out_suffix`` does not match ``self.name``.
+        :raises AssertionError: If ``out_suffix`` does not match ``self.name``.
         """
         if self.df.empty:
             return
@@ -129,19 +124,17 @@ class ComparisonScatter(OutPlot):
         self.dropdown_fig.update_yaxes(range=[-1, 1])
 
     @staticmethod
-    def write_to_html(test_mode: str, f: TextIOWrapper, *args, **kwargs) -> TextIOWrapper:
+    def write_to_html(test_mode: str, f: TextIOWrapper, *_unused_args, **_kwargs) -> TextIOWrapper:
         """Insert comparison scatter iframes into the report HTML.
 
-        Args:
-            test_mode: Evaluation test mode (for example ``"LCO"``).
-            f: Open HTML file handle.
-            *args: Unused.
-            **kwargs: Must include ``files``, a list of generated plot filenames.
+        :param test_mode: Evaluation test mode (for example ``"LCO"``).
+        :param f: Open HTML file handle.
+        :param _unused_args: Unused positional arguments.
+        :param _kwargs: Keyword arguments; must include ``files``, a list of generated plot filenames.
 
-        Returns:
-            The same file handle after writing.
+        :returns: The same file handle after writing.
         """
-        files: list[str] = kwargs.get("files", [])
+        files: list[str] = _kwargs.get("files", [])
         f.write('<h2 id="corr_comp">Comparison of normalized R^2 values</h2>\n')
         f.write(
             "R^2 values can be compared here between models, either per cell line or per drug. "
@@ -234,11 +227,11 @@ class ComparisonScatter(OutPlot):
                     )
 
     def _subset_df(self, run_id: str) -> pd.DataFrame:
-        """
-        Subsets the dataframe for a given run_id to the relevant columns and sets the index to the color_by variable.
+        """Subsets the dataframe for a given run_id to the relevant columns and sets the index to the color_by variable.
 
-        :param run_id: user-defined ID of the whole run
-        :returns: subsetted dataframe
+        :param run_id: User-defined ID of the whole run.
+
+        :returns: Subsetted dataframe indexed by the color-by column.
         """
         subset_cols = [self.metric, self.color_by, "model"]
         if self.color_by == "drug_name":

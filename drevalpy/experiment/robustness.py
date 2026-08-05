@@ -23,7 +23,19 @@ def robustness_train_predict_impl(
     response_transformation: TransformerMixin | None = None,
     model_checkpoint_dir: str = "TEMPORARY",
 ) -> None:
-    """Train and predict for one robustness trial."""
+    """Train and predict for one robustness trial.
+
+    :param trial: Trial index within the robustness test.
+    :param trial_file: Output path for predictions.
+    :param train_dataset: Training split for the fold.
+    :param test_dataset: Test split for the fold.
+    :param early_stopping_dataset: Optional early-stopping data.
+    :param model_class: Model class to train on perturbed data.
+    :param hyperparameters: Hyperparameters for model construction.
+    :param path_data: Root directory for feature tables.
+    :param response_transformation: Optional response transformer.
+    :param model_checkpoint_dir: Directory for model checkpoints.
+    """
     train_trial = train_dataset.shuffled(random_state=trial)
     test_trial = test_dataset.shuffled(random_state=trial)
     es_trial = early_stopping_dataset.shuffled(random_state=trial) if early_stopping_dataset is not None else None
@@ -54,7 +66,20 @@ def robustness_test_impl(
     response_transformation: TransformerMixin | None = None,
     model_checkpoint_dir: str = "TEMPORARY",
 ) -> None:
-    """Run robustness tests with varying shuffle seeds."""
+    """Run robustness tests with varying shuffle seeds.
+
+    :param n_trials: Number of robustness trials to run.
+    :param model_class: Model class to retrain on perturbed data.
+    :param hyperparameters: Hyperparameters for model construction.
+    :param path_data: Root directory for feature tables.
+    :param train_dataset: Training split for the fold.
+    :param test_dataset: Test split for the fold.
+    :param early_stopping_dataset: Optional early-stopping data.
+    :param path_out: Directory where predictions are written.
+    :param split_index: CV fold index for output file naming.
+    :param response_transformation: Optional response transformer.
+    :param model_checkpoint_dir: Directory for model checkpoints.
+    """
     robustness_test_path = os.path.join(path_out, "robustness")
     os.makedirs(robustness_test_path, exist_ok=True)
     for trial in range(n_trials):

@@ -21,6 +21,7 @@ class LiteratureTrainingMixin:
     drug_views: list[str]
 
     def __init__(self) -> None:
+        """Initialize wandb bookkeeping and default view lists."""
         self.wandb_project: str | None = None
         self.wandb_run: Any = None
         self.wandb_config: dict[str, Any] | None = None
@@ -33,10 +34,20 @@ class LiteratureTrainingMixin:
 
     @classmethod
     def get_model_name(cls) -> str:
+        """Return the registered model name for error messages.
+
+        :raises NotImplementedError: Always raised by the mixin base implementation.
+        """
         msg = f"{cls.__name__} must implement get_model_name"
         raise NotImplementedError(msg)
 
     def configure(self, hyperparameters: dict[str, Any]) -> None:
+        """Apply hyperparameters to the algorithm (subclasses must override).
+
+        :param hyperparameters: Algorithm hyperparameter mapping.
+
+        :raises NotImplementedError: Always raised by the mixin base implementation.
+        """
         msg = f"{self.get_model_name()} must implement configure"
         raise NotImplementedError(msg)
 
@@ -48,6 +59,16 @@ class LiteratureTrainingMixin:
         output_earlystopping: DrugResponseDataset | None = None,
         model_checkpoint_dir: str = "checkpoints",
     ) -> None:
+        """Train the algorithm on response and feature inputs (subclasses must override).
+
+        :param output: Training responses and pair identifiers.
+        :param cell_line_input: Cell-line feature dataset.
+        :param drug_input: Optional drug feature dataset.
+        :param output_earlystopping: Optional early-stopping responses.
+        :param model_checkpoint_dir: Directory for model checkpoints.
+
+        :raises NotImplementedError: Always raised by the mixin base implementation.
+        """
         _ = output, cell_line_input, drug_input, output_earlystopping, model_checkpoint_dir
         msg = f"{self.get_model_name()} must implement train"
         raise NotImplementedError(msg)
@@ -59,15 +80,32 @@ class LiteratureTrainingMixin:
         cell_line_input: FeatureDataset,
         drug_input: FeatureDataset | None = None,
     ) -> np.ndarray:
+        """Predict responses for the requested pairs (subclasses must override).
+
+        :param cell_line_ids: Cell-line identifiers in prediction order.
+        :param drug_ids: Drug identifiers in prediction order.
+        :param cell_line_input: Cell-line feature dataset.
+        :param drug_input: Optional drug feature dataset.
+
+        :raises NotImplementedError: Always raised by the mixin base implementation.
+        """
         _ = cell_line_ids, drug_ids, cell_line_input, drug_input
         msg = f"{self.get_model_name()} must implement predict"
         raise NotImplementedError(msg)
 
     @classmethod
     def get_default_hyperparameters(cls) -> dict[str, Any]:
+        """Return default hyperparameters for literature algorithms.
+
+        :returns: Empty mapping in the mixin base implementation.
+        """
         return {}
 
     def log_hyperparameters(self, hyperparameters: dict[str, Any]) -> None:
+        """Mirror hyperparameters to wandb when logging is enabled.
+
+        :param hyperparameters: Hyperparameters to record for the active run.
+        """
         if not self.is_wandb_enabled():
             return
         self.hyperparameters = hyperparameters
@@ -75,9 +113,18 @@ class LiteratureTrainingMixin:
             wandb.config.update({"hyperparameters": hyperparameters})
 
     def is_wandb_enabled(self) -> bool:
+        """Return whether wandb logging is configured for this run.
+
+        :returns: ``True`` when a wandb project and active run are available.
+        """
         return self.wandb_project is not None and (self.wandb_run is not None or wandb.run is not None)
 
     def log_metrics(self, metrics: dict[str, float], *, step: int | None = None) -> None:
+        """Log evaluation metrics to wandb when enabled.
+
+        :param metrics: Metric name to scalar value mapping.
+        :param step: Optional global step for the wandb log entry.
+        """
         if not self.is_wandb_enabled():
             return
         with suppress(Exception):  # pragma: no cover - wandb may be unavailable
@@ -89,6 +136,14 @@ class LiteratureTrainingMixin:
         targets: np.ndarray,
         prefix: str = "",
     ) -> dict[str, float]:
+        """Compute Pearson and R^2 metrics for predictions and targets.
+
+        :param predictions: Model predictions.
+        :param targets: Ground-truth response values.
+        :param prefix: Optional prefix applied to returned metric names.
+
+        :returns: Metric mapping, or an empty dict when computation fails.
+        """
         try:
             metrics = {
                 "R^2": AVAILABLE_METRICS["R^2"](y_pred=predictions, y_true=targets),
@@ -107,6 +162,17 @@ class LiteratureTrainingMixin:
         cell_line_input: FeatureDataset | None,
         drug_input: FeatureDataset | None,
     ) -> dict[str, np.ndarray]:
+        """Collect per-view feature matrices for the requested entity ids.
+
+        :param cell_line_ids: Cell-line identifiers in batch order.
+        :param drug_ids: Drug identifiers in batch order.
+        :param cell_line_input: Optional cell-line feature dataset.
+        :param drug_input: Optional drug feature dataset.
+
+        :returns: Mapping from view name to feature matrix.
+
+        :raises ValueError: If a configured view is missing from the input dataset.
+        """
         cell_line_feature_matrices: dict[str, np.ndarray] = {}
         if cell_line_input is not None:
             for cell_line_view in self.cell_line_views:
@@ -138,7 +204,19 @@ class LiteratureTrainingMixin:
         cell_line_input: FeatureDataset | None,
         drug_input: FeatureDataset | None,
     ) -> np.ndarray:
-        """Concatenate cell-line and drug views into a single feature matrix."""
+        """Concatenate cell-line and drug views into a single feature matrix.
+
+        :param cell_line_view: Cell-line view to include, if any.
+        :param drug_view: Drug view to include, if any.
+        :param cell_line_ids_output: Cell-line ids in prediction order.
+        :param drug_ids_output: Drug ids in prediction order.
+        :param cell_line_input: Cell-line feature dataset.
+        :param drug_input: Drug feature dataset.
+
+        :returns: Concatenated feature matrix with one row per pair.
+
+        :raises ValueError: If requested views are missing or no features are available.
+        """
         inputs = self.get_feature_matrices(
             cell_line_ids=cell_line_ids_output,
             drug_ids=drug_ids_output,

@@ -21,6 +21,11 @@ class RawCellLineFeaturizer(CellLineFeaturizer):
     """Featurize one omics view as a dense matrix without transformation."""
 
     def __init__(self, *, view: str) -> None:
+        """Initialize instance state.
+
+        :param view: view.
+        :raises ValueError: Raised on invalid input.
+        """
         if not view or not view.strip():
             msg = "raw featurizer requires an explicit view"
             raise ValueError(msg)
@@ -34,6 +39,13 @@ class RawCellLineFeaturizer(CellLineFeaturizer):
         entity_ids: np.ndarray | None = None,
         context: FeaturizerFitContext | None = None,
     ) -> RawCellLineFeaturizer:
+        """Fit on training data.
+
+        :param features: features.
+        :param entity_ids: entity ids.
+        :param context: context.
+        :returns: Result.
+        """
         _ = context
         ids = entity_ids if entity_ids is not None else np.array(list(features.features.keys()))
         matrix = stack_view_matrix(features, self._view, ids)
@@ -41,9 +53,21 @@ class RawCellLineFeaturizer(CellLineFeaturizer):
         return self
 
     def transform(self, features, entity_ids: np.ndarray) -> np.ndarray:
+        """Transform inputs into feature payloads.
+
+        :param features: features.
+        :param entity_ids: entity ids.
+        :returns: Result.
+        """
         return stack_view_matrix(features, self._view, entity_ids).astype(np.float32)
 
     def transform_blocks(self, features, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
+        """Transform blocks.
+
+        :param features: features.
+        :param entity_ids: entity ids.
+        :returns: Result.
+        """
         return {
             self._view: numeric_feature_block(
                 self.transform(features, entity_ids),
@@ -53,4 +77,8 @@ class RawCellLineFeaturizer(CellLineFeaturizer):
 
     @property
     def output_dim(self) -> int:
+        """Return output feature dimension after fitting.
+
+        :returns: Result.
+        """
         return self._output_dim

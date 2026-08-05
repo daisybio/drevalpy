@@ -59,8 +59,7 @@ def _flush_cellosaurus_record(
 
 
 def parse_cellosaurus(cellosaurus_path: str | Path) -> tuple[dict[str, str], dict[str, str], dict[str, str]]:
-    """
-    Parse Cellosaurus file and return mappings from cellosaurus ID to name, site, and disease.
+    """Parse Cellosaurus file and return mappings from cellosaurus ID to name, site, and disease.
 
     :param cellosaurus_path: Path to the Cellosaurus text file
     :return: Tuple of dictionaries (id_to_name, id_to_site, id_to_disease)

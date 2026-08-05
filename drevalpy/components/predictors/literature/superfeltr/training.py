@@ -47,7 +47,14 @@ def run_superfeltr_training(
     output_earlystopping: DrugResponseDataset | None,
     model_checkpoint_dir: str,
 ) -> None:
-    """Train encoders and regressor on featurizer-preprocessed omics."""
+    """Train encoders and regressor on featurizer-preprocessed omics.
+
+    :param model: SuperFELTR algorithm instance being trained.
+    :param output: Training responses and pair identifiers.
+    :param cell_line_input: Cell-line omics feature dataset.
+    :param output_earlystopping: Optional validation responses for early stopping.
+    :param model_checkpoint_dir: Directory for encoder checkpoint persistence.
+    """
     if len(output) <= 0:
         print("No training data provided, skipping model")
         model.best_checkpoint = None

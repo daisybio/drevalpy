@@ -23,6 +23,12 @@ class PCACellLineFeaturizer(CellLineFeaturizer):
     """Reduce one cell-line view with PCA."""
 
     def __init__(self, *, view: str, n_components: int = 128) -> None:
+        """Initialize instance state.
+
+        :param view: view.
+        :param n_components: n components.
+        :raises ValueError: Raised on invalid input.
+        """
         from sklearn.decomposition import PCA
 
         if not view or not view.strip():
@@ -41,6 +47,13 @@ class PCACellLineFeaturizer(CellLineFeaturizer):
         entity_ids: np.ndarray | None = None,
         context: FeaturizerFitContext | None = None,
     ) -> PCACellLineFeaturizer:
+        """Fit on training data.
+
+        :param features: features.
+        :param entity_ids: entity ids.
+        :param context: context.
+        :returns: Result.
+        """
         _ = context
         ids = entity_ids if entity_ids is not None else np.array(list(features.features.keys()))
         matrix = stack_view_matrix(features, self._view, ids)
@@ -52,6 +65,12 @@ class PCACellLineFeaturizer(CellLineFeaturizer):
         return self
 
     def transform(self, features, entity_ids: np.ndarray) -> np.ndarray:
+        """Transform inputs into feature payloads.
+
+        :param features: features.
+        :param entity_ids: entity ids.
+        :returns: Result.
+        """
         matrix = stack_view_matrix(features, self._view, entity_ids)
         names = feature_names_for_view(features, self._view)
         if self._feature_names is not None and names is not None:
@@ -65,6 +84,12 @@ class PCACellLineFeaturizer(CellLineFeaturizer):
         return self._pca.transform(matrix).astype(np.float32)
 
     def transform_blocks(self, features, entity_ids: np.ndarray) -> dict[str, FeatureBlock]:
+        """Transform blocks.
+
+        :param features: features.
+        :param entity_ids: entity ids.
+        :returns: Result.
+        """
         return {
             self._view: numeric_feature_block(
                 self.transform(features, entity_ids),
@@ -74,15 +99,27 @@ class PCACellLineFeaturizer(CellLineFeaturizer):
 
     @property
     def output_dim(self) -> int:
+        """Return output feature dimension after fitting.
+
+        :returns: Result.
+        """
         return self._output_dim
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
+        """Get hyperparameter space.
+
+        :returns: Result.
+        """
         return {
             "n_components": {"type": "int", "low": 8, "high": 512, "default": 128},
         }
 
     def get_state(self) -> dict[str, object]:
+        """Return serializable fitted state.
+
+        :returns: Result.
+        """
         return {
             "pca": self._pca,
             "view": self._view,
@@ -92,6 +129,10 @@ class PCACellLineFeaturizer(CellLineFeaturizer):
         }
 
     def set_state(self, state: dict[str, object]) -> None:
+        """Restore state from a prior ``get_state`` mapping.
+
+        :param state: state.
+        """
         from sklearn.decomposition import PCA
 
         pca = state.get("pca")

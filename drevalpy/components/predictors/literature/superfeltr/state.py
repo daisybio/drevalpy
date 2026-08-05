@@ -4,18 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from drevalpy.components.predictors.literature._protocols import feature_count
 from drevalpy.components.predictors.literature._torch_state import load_state_dict, save_state_dict
 from drevalpy.components.predictors.literature.superfeltr.algorithm import SuperFELTR
 from drevalpy.components.predictors.literature.superfeltr.utils import SuperFELTEncoder, SuperFELTRegressor
-
-
-def _feature_count(features: object) -> int | None:
-    if features is None:
-        return None
-    try:
-        return len(features)  # type: ignore[arg-type]
-    except TypeError:
-        return None
 
 
 def _save_module_state(algorithm: SuperFELTR, payload: dict[str, Any], attr: str) -> None:
@@ -25,7 +17,12 @@ def _save_module_state(algorithm: SuperFELTR, payload: dict[str, Any], attr: str
 
 
 def export_state(algorithm: SuperFELTR) -> dict[str, Any]:
-    """Serialize a fitted SuperFELTR algorithm for predictor persistence."""
+    """Serialize a fitted algorithm for predictor persistence.
+
+    :param algorithm: Fitted algorithm instance.
+
+    :returns: JSON-serializable state mapping.
+    """
     payload: dict[str, Any] = {
         "hyperparameters": dict(algorithm.hyperparameters),
         "ranges": algorithm.ranges,
@@ -33,9 +30,9 @@ def export_state(algorithm: SuperFELTR) -> dict[str, Any]:
         "mutations_features": algorithm.mutations_features,
         "copy_number_variation_features": algorithm.copy_number_variation_features,
         "input_dims": {
-            "expression": _feature_count(algorithm.gene_expression_features),
-            "mutation": _feature_count(algorithm.mutations_features),
-            "cnv": _feature_count(algorithm.copy_number_variation_features),
+            "expression": feature_count(algorithm.gene_expression_features),
+            "mutation": feature_count(algorithm.mutations_features),
+            "cnv": feature_count(algorithm.copy_number_variation_features),
         },
     }
     for attr in ("expr_encoder", "mut_encoder", "cnv_encoder", "regressor"):
@@ -44,7 +41,14 @@ def export_state(algorithm: SuperFELTR) -> dict[str, Any]:
 
 
 def apply_state(payload: dict[str, Any]) -> SuperFELTR:
-    """Restore a SuperFELTR algorithm from a persisted payload."""
+    """Restore an algorithm from a persisted payload.
+
+    :param payload: Serialized state produced by ``export_state``.
+
+    :returns: Configured algorithm instance.
+
+    :raises ValueError: If required payload fields are missing.
+    """
     hyperparameters = payload.get("hyperparameters")
     if not isinstance(hyperparameters, dict):
         msg = "missing algorithm hyperparameters"

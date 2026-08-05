@@ -9,8 +9,7 @@ class FeatureExtractor(nn.Module):
     """Feature extractor for gene expression and drug SMILES."""
 
     def __init__(self, gene_input_size: int, gene_hidden_size: int, drug_hidden_size: int):
-        """
-        Initialize the feature extractor.
+        """Initialize the feature extractor.
 
         :param gene_input_size: Input size for gene expression features
         :param gene_hidden_size: Hidden size for gene expression MLP
@@ -22,12 +21,12 @@ class FeatureExtractor(nn.Module):
         self.smiles_fc = nn.Linear(128, drug_hidden_size)
 
     def forward(self, gene_expr: torch.Tensor, smiles: torch.Tensor) -> torch.Tensor:
-        """
-        Forward pass of the feature extractor.
+        """Forward pass of the feature extractor.
 
         :param gene_expr: Gene expression features [batch_size, gene_input_size]
         :param smiles: BPE-encoded SMILES features [batch_size, 128]
-        :return: Combined features [batch_size, gene_hidden_size + drug_hidden_size]
+
+        :returns: return: Combined features [batch_size, gene_hidden_size + drug_hidden_size]
         """
         gene_out = functional.relu(self.gene_fc1(gene_expr))
         gene_out = functional.relu(self.gene_fc2(gene_out))
@@ -48,8 +47,7 @@ class TransModel(nn.Module):
         dropout: float = 0.1,
         num_layers: int = 3,
     ):
-        """
-        Initialize the transformer model.
+        """Initialize the transformer model.
 
         :param feature_dim: Dimension of each feature in the sequence
         :param nhead: Number of attention heads
@@ -75,11 +73,11 @@ class TransModel(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Forward pass of the transformer model.
+        """Forward pass of the transformer model.
 
         :param x: Input tensor [batch_size, seq_len, feature_dim]
-        :return: Output predictions [batch_size, 1]
+
+        :returns: return: Output predictions [batch_size, 1]
         """
         x = self.transformer_encoder(x)
         x = torch.flatten(x, 1)
@@ -100,8 +98,7 @@ class CombinedModel(nn.Module):
         dim_feedforward: int = 2048,
         dropout: float = 0.1,
     ):
-        """
-        Initialize the combined model.
+        """Initialize the combined model.
 
         :param gene_input_size: Input size for gene expression features
         :param gene_hidden_size: Hidden size for gene expression MLP
@@ -126,12 +123,12 @@ class CombinedModel(nn.Module):
         )
 
     def forward(self, gene_expr: torch.Tensor, smiles: torch.Tensor) -> torch.Tensor:
-        """
-        Forward pass of the combined model.
+        """Forward pass of the combined model.
 
         :param gene_expr: Gene expression features [batch_size, gene_input_size]
         :param smiles: BPE-encoded SMILES features [batch_size, 128]
-        :return: Output predictions [batch_size, 1]
+
+        :returns: return: Output predictions [batch_size, 1]
         """
         features = self.feature_extractor(gene_expr, smiles)
         batch_size = features.size(0)

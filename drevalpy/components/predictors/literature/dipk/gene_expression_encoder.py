@@ -50,7 +50,8 @@ class GeneExpressionEncoder(nn.Module):
         """Forward pass of the gene expression encoder.
 
         :param input: input data
-        :return: encoded data
+
+        :returns: return: encoded data
         """
         result = self.encoder(input)
         embedding = functional.relu(self.bottleneck(result))
@@ -89,11 +90,11 @@ class GeneExpressionDecoder(nn.Module):
         self.decoder_output = nn.Linear(hidden_dims[-2], hidden_dims[-1])
 
     def forward(self, embedding):
-        """
-        Forward pass of the gene expression decoder.
+        """Forward pass of the gene expression decoder.
 
         :param embedding: input data
-        :return: decoded data
+
+        :returns: return: decoded data
         """
         result = self.decoder_input(embedding)
         result = self.decoder(result)
@@ -108,7 +109,8 @@ class CollateFn:
         """Collate the batch.
 
         :param batch: batch of PyG Data objects
-        :returns: PyG Batch, gene features, and bionic features
+
+        :returns: returns: PyG Batch, gene features, and bionic features
         """
         batch_data = torch.stack(batch)
         return batch_data
@@ -128,7 +130,8 @@ class DataSet(Dataset, ABC):
         """Return the data at the given index.
 
         :param idx: index
-        :return: data
+
+        :returns: return: data
         """
         data = self._data[idx]
         return data
@@ -136,7 +139,7 @@ class DataSet(Dataset, ABC):
     def __len__(self):
         """Return the length of the dataset.
 
-        :return: length of the dataset
+        :returns: return: length of the dataset
         """
         return len(self._data)
 
@@ -149,7 +152,8 @@ def train_gene_expession_autoencoder(
     :param gene_expression_input: gene expression data
     :param gene_expression_input_early_stopping: validation data for early stopping
     :param epochs_autoencoder: number of epochs for training the autoencoder
-    :return: trained encoder model
+
+    :returns: return: trained encoder model
     """
     lr = 1e-4
     batch_size = 1024
@@ -231,7 +235,8 @@ def encode_gene_expression(gene_expression_input: np.ndarray, encoder: GeneExpre
 
     :param gene_expression_input: gene expression data
     :param encoder: trained encoder model
-    :return: encoded gene expression data
+
+    :returns: return: encoded gene expression data
     """
     encoder.eval()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

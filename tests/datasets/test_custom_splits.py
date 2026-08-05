@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from drevalpy.datasets import custom_splits
 from drevalpy.datasets.custom_splits import (
     CustomSplitError,
@@ -25,8 +27,7 @@ def test_custom_splits_exports_aliases() -> None:
 
 
 def test_load_custom_splitter_alias(tmp_path: Path) -> None:
-    """
-    Legacy loader alias resolves external split scripts.
+    """Legacy loader alias resolves external split scripts.
 
     :param tmp_path: Temporary path provided by pytest.
     """
@@ -52,5 +53,27 @@ def test_run_splitter_alias_delegates_to_create_splits() -> None:
         random_state=11,
         split_early_stopping=False,
     )
+    assert len(splits) == 2
+    assert metadata[0]["split_index"] == 0
+
+
+def test_run_splitter_requires_params_or_test_mode() -> None:
+    """Reject compatibility alias calls without params or test_mode."""
+    dataset = sample_dataset(n_cell_lines=4, n_drugs=2)
+    with pytest.raises(ValueError, match="Either params or test_mode must be provided"):
+        run_splitter(dataset)
+
+
+def test_run_splitter_accepts_split_params_object() -> None:
+    """Compatibility alias accepts a pre-built SplitParams object."""
+    dataset = sample_dataset(n_cell_lines=4, n_drugs=2)
+    params = SplitParams(
+        test_mode="LPO",
+        n_cv_splits=2,
+        validation_ratio=0.2,
+        random_state=11,
+        split_early_stopping=False,
+    )
+    splits, metadata = run_splitter(dataset, params=params)
     assert len(splits) == 2
     assert metadata[0]["split_index"] == 0

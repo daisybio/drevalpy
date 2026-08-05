@@ -45,8 +45,7 @@ from drevalpy.visualization.utils import (
     ],
 )
 def test_drevalpy_main(args, data_dir):
-    """
-    Tests drevalpy, i.e., all functionality of the main experiment and report.
+    """Tests drevalpy, i.e., all functionality of the main experiment and report.
 
     :param args: arguments for the main function
     :param data_dir: path to the data directory

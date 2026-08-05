@@ -39,8 +39,7 @@ def test_single_drug_models(
     cross_study_dataset: DrugResponseDataset,
     data_dir,
 ) -> None:
-    """
-    Test the SingleDrugRandomForest model, can also test other baseline single drug models.
+    """Test the SingleDrugRandomForest model, can also test other baseline single drug models.
 
     :param sample_dataset: from conftest.py
     :param model_name: model name

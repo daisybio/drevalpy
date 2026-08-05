@@ -9,7 +9,12 @@ from drevalpy.components.predictors.literature.dipk.algorithm import DIPKModel
 
 
 def export_state(algorithm: DIPKModel) -> dict[str, Any]:
-    """Serialize a fitted DIPK algorithm for predictor persistence."""
+    """Serialize a fitted algorithm for predictor persistence.
+
+    :param algorithm: Fitted algorithm instance.
+
+    :returns: JSON-serializable state mapping.
+    """
     payload: dict[str, Any] = {"hyperparameters": dict(algorithm.hyperparameters)}
     model = getattr(algorithm, "model", None)
     if model is not None and hasattr(model, "state_dict"):
@@ -18,7 +23,14 @@ def export_state(algorithm: DIPKModel) -> dict[str, Any]:
 
 
 def apply_state(payload: dict[str, Any]) -> DIPKModel:
-    """Restore a DIPK algorithm from a persisted payload."""
+    """Restore an algorithm from a persisted payload.
+
+    :param payload: Serialized state produced by ``export_state``.
+
+    :returns: Configured algorithm instance.
+
+    :raises ValueError: If required payload fields are missing.
+    """
     hyperparameters = payload.get("hyperparameters")
     if not isinstance(hyperparameters, dict):
         msg = "missing algorithm hyperparameters"

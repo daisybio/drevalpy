@@ -10,7 +10,12 @@ from drevalpy.components.predictors.literature.srmf.algorithm import SRMF
 
 
 def export_state(algorithm: SRMF) -> dict[str, Any]:
-    """Serialize a fitted SRMF algorithm for predictor persistence."""
+    """Serialize a fitted algorithm for predictor persistence.
+
+    :param algorithm: Fitted algorithm instance.
+
+    :returns: JSON-serializable state mapping.
+    """
     return {
         "hyperparameters": dict(algorithm.hyperparameters),
         "best_u": algorithm.best_u.to_dict(orient="split"),
@@ -27,7 +32,14 @@ def export_state(algorithm: SRMF) -> dict[str, Any]:
 
 
 def apply_state(payload: dict[str, Any]) -> SRMF:
-    """Restore an SRMF algorithm from a persisted payload."""
+    """Restore an algorithm from a persisted payload.
+
+    :param payload: Serialized state produced by ``export_state``.
+
+    :returns: Configured algorithm instance.
+
+    :raises ValueError: If required payload fields are missing.
+    """
     hyperparameters = payload.get("hyperparameters")
     if not isinstance(hyperparameters, dict):
         msg = "missing algorithm hyperparameters"

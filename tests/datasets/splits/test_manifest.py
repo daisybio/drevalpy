@@ -27,8 +27,7 @@ def _sample_params(**overrides: object) -> SplitParams:
 
 
 def test_write_split_manifest(tmp_path: Path) -> None:
-    """
-    Write split metadata to split_manifest.json.
+    """Write split metadata to split_manifest.json.
 
     :param tmp_path: Temporary path provided by pytest.
     """
@@ -48,8 +47,7 @@ def test_write_split_manifest(tmp_path: Path) -> None:
 
 
 def test_write_split_manifest_supports_nested_metadata(tmp_path: Path) -> None:
-    """
-    Persist nested metadata from external split scripts.
+    """Persist nested metadata from external split scripts.
 
     :param tmp_path: Temporary path provided by pytest.
     """
@@ -70,8 +68,7 @@ def test_write_split_manifest_supports_nested_metadata(tmp_path: Path) -> None:
 
 
 def test_write_split_manifest_writes_test_mode_when_metadata_empty(tmp_path: Path) -> None:
-    """
-    Write a minimal manifest when no split metadata is provided.
+    """Write a minimal manifest when no split metadata is provided.
 
     :param tmp_path: Temporary path provided by pytest.
     """
@@ -86,8 +83,7 @@ def test_write_split_manifest_writes_test_mode_when_metadata_empty(tmp_path: Pat
 
 
 def test_read_split_manifest_returns_none_for_missing_file(tmp_path: Path) -> None:
-    """
-    Return ``None`` when the manifest file does not exist.
+    """Return ``None`` when the manifest file does not exist.
 
     :param tmp_path: Temporary path provided by pytest.
     """

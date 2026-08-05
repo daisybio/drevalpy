@@ -10,6 +10,11 @@ from drevalpy.cli.model_testing import run_tune_final_model
 
 
 def register(app: typer.Typer) -> None:
+    """Register the ``tune-final-model`` subcommand on ``app``.
+
+    :param app: Root Typer application to register the command on.
+    """
+
     @app.command("tune-final-model")
     def tune_final_model(
         train_data: Annotated[str, typer.Option("--train_data", help="Train dataset, pickled.")],
@@ -52,6 +57,15 @@ def register(app: typer.Typer) -> None:
 
         This does not run Ray/Optuna search. Prefer the root experiment or
         ``drevalpy.experiment.train_final_model`` for real tuning.
+
+        :param train_data: Path to pickled training dataset.
+        :param val_data: Path to pickled validation dataset.
+        :param early_stopping_data: Path to pickled early-stopping dataset.
+        :param model_name: Registered model name.
+        :param hpam_combi: Path to a YAML hyperparameter file.
+        :param path_data: Root data directory passed to feature loaders.
+        :param response_transformation: Sklearn response transform name.
+        :param model_checkpoint_dir: Directory for model checkpoints.
         """
         run_tune_final_model(
             train_data=train_data,

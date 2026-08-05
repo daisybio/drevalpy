@@ -58,7 +58,12 @@ def _attach_optional_split_modes(
 
 
 def load_cv_splits_from_dir(path: str, dataset_name: str) -> list[dict[str, DrugResponseDataset]]:
-    """Load train/test and optional validation splits from a split directory."""
+    """Load train/test and optional validation splits from a split directory.
+
+    :param path: Directory containing ``cv_split*.csv`` files.
+    :param dataset_name: Dataset label passed to ``DrugResponseDataset.from_csv``.
+    :returns: List of split dicts keyed by role names such as ``train`` and ``test``.
+    """
     files = _list_cv_split_files(path)
     partitions = _partition_split_filenames(files)
     cv_splits = _load_train_test_splits(path, dataset_name, partitions["train"], partitions["test"])

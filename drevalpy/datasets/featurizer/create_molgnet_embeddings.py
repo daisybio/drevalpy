@@ -2,7 +2,7 @@
 """MolGNet feature extraction utilities (needed for DIPK and adapted from the DIPK github).
 
 Creates MolGNet embeddings for molecules given their SMILES strings. This module needs torch_scatter.
-    python create_molgnet_embeddings.py dataset_name --checkpoint meta/MolGNet.pt --data_path data
+python create_molgnet_embeddings.py dataset_name --checkpoint meta/MolGNet.pt --data_path data
 """
 
 import argparse
@@ -284,8 +284,7 @@ class LinearActivation(nn.Module):
     """
 
     def __init__(self, in_features: int, out_features: int, bias: bool = True) -> None:
-        """
-        Create a LinearActivation module.
+        """Create a LinearActivation module.
 
         :param in_features: Input feature dimension.
         :param out_features: Output feature dimension.
@@ -757,9 +756,6 @@ def run(args: argparse.Namespace) -> None:
     the dataset folder.
 
     :param args: Parsed CLI arguments.
-    :raises FileNotFoundError: If expected files or directories are missing.
-    :raises ValueError: If expected columns are missing in the input CSV.
-    :raises Exception: For various failures during graph building or inference.
     """
     from .create_molgnet_pipeline import run_molgnet_pipeline
 

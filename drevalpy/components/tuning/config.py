@@ -9,11 +9,8 @@ from typing import Any
 def validate_hpo_metric(metric: str) -> None:
     """Raise ``ValueError`` when *metric* is not a supported HPO objective.
 
-    Args:
-        metric: Evaluation metric name, for example ``"RMSE"``.
-
-    Raises:
-        ValueError: If *metric* is not registered in ``AVAILABLE_METRICS``.
+    :param metric: Evaluation metric name, for example ``"RMSE"``.
+    :raises ValueError: If *metric* is not registered in ``AVAILABLE_METRICS``.
     """
     from drevalpy.evaluation import AVAILABLE_METRICS
 
@@ -38,16 +35,11 @@ class HPOConfig:
     def from_metric(cls, metric: str, *, n_trials: int = 16, **kwargs: Any) -> HPOConfig:
         """Build an HPO config with ``mode`` inferred from the evaluation metric.
 
-        Args:
-            metric: Evaluation metric name used as the Ray Tune objective.
-            n_trials: Number of search trials; ``0`` selects defaults only.
-            **kwargs: Additional :class:`HPOConfig` field overrides.
-
-        Returns:
-            Configured :class:`HPOConfig` instance.
-
-        Raises:
-            ValueError: If *metric* is invalid or *n_trials* is negative.
+        :param metric: Evaluation metric name used as the Ray Tune objective.
+        :param n_trials: Number of search trials; ``0`` selects defaults only.
+        :param kwargs: Additional ``HPOConfig`` field overrides.
+        :returns: Configured ``HPOConfig`` instance.
+        :raises ValueError: If *metric* is invalid or *n_trials* is negative.
         """
         from drevalpy.evaluation import get_mode
 
@@ -68,16 +60,12 @@ def build_experiment_hpo_config(
 ) -> HPOConfig:
     """Build shared Ray/Optuna settings for CV and final-model tuning.
 
-    Args:
-        metric: Evaluation metric name used as the Ray Tune objective.
-        n_trials: Number of search trials per tuning run.
-        random_state: Random seed forwarded to the search algorithm.
-        resources_per_trial: Ray resource dict; defaults to one GPU when CUDA is
-            available, otherwise one CPU.
-        storage_path: Optional Ray Tune storage URI.
-
-    Returns:
-        Configured :class:`HPOConfig` instance.
+    :param metric: Evaluation metric name used as the Ray Tune objective.
+    :param n_trials: Number of search trials per tuning run.
+    :param random_state: Random seed forwarded to the search algorithm.
+    :param resources_per_trial: Ray resource dict; defaults to one GPU when CUDA is available, otherwise one CPU.
+    :param storage_path: Optional Ray Tune storage URI.
+    :returns: Configured ``HPOConfig`` instance.
     """
     import torch
 

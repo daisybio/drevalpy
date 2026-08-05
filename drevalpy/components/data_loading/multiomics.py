@@ -22,17 +22,14 @@ def load_and_select_gene_features(
     When *gene_list* is ``None``, all features are loaded, which can be
     problematic for cross-study prediction.
 
-    Args:
-        feature_type: Feature view name, for example ``gene_expression``.
-        gene_list: Optional gene-list CSV name used for subsetting and ordering.
-        data_path: Root directory containing dataset feature tables.
-        dataset_name: Dataset subdirectory or registry name.
+    :param feature_type: Feature view name, for example ``gene_expression``.
+    :param gene_list: Optional gene-list CSV name used for subsetting and ordering.
+    :param data_path: Root directory containing dataset feature tables.
+    :param dataset_name: Dataset subdirectory or registry name.
 
-    Returns:
-        ``FeatureDataset`` with the selected features.
+    :returns: ``FeatureDataset`` with the selected features.
 
-    Raises:
-        ValueError: If genes from *gene_list* are missing in the dataset.
+    :raises ValueError: If genes from *gene_list* are missing in the dataset.
     """
     ge = pd.read_csv(f"{data_path}/{dataset_name}/{feature_type}.csv", index_col=CELL_LINE_IDENTIFIER)
     ge.index = ge.index.astype(str)
@@ -80,18 +77,14 @@ def get_multiomics_feature_dataset(
 ) -> FeatureDataset:
     """Get multiomics feature dataset for the given list of OMICs.
 
-    Args:
-        data_path: Root directory containing dataset feature tables.
-        dataset_name: Dataset subdirectory or registry name.
-        gene_lists: Optional per-omics gene-list names; ``None`` values load all
-            features for that omics type.
-        omics: Omics view names to include.
+    :param data_path: Root directory containing dataset feature tables.
+    :param dataset_name: Dataset subdirectory or registry name.
+    :param gene_lists: Optional per-omics gene-list names; ``None`` loads all features for that omics type.
+    :param omics: Omics view names to include.
 
-    Returns:
-        Combined ``FeatureDataset`` with every requested omics view.
+    :returns: Combined ``FeatureDataset`` with every requested omics view.
 
-    Raises:
-        ValueError: If gene-list keys do not match *omics* or no views load.
+    :raises ValueError: If gene-list keys do not match *omics* or no views load.
     """
     if omics is None:
         omics = ["gene_expression", "methylation", "mutations", "copy_number_variation_gistic", "proteomics"]

@@ -13,13 +13,11 @@ class Heatmap(VioHeat):
     def __init__(self, df: pd.DataFrame, normalized_metrics=False, whole_name=False):
         """Initialize heatmap from evaluation results.
 
-        Args:
-            df: Predictions for all algorithms or all tests for one algorithm.
-            normalized_metrics: Whether to show only normalized metric columns.
-            whole_name: Whether to display full algorithm setting labels.
+        :param df: Predictions for all algorithms or all tests for one algorithm.
+        :param normalized_metrics: Whether to show only normalized metric columns.
+        :param whole_name: Whether to display full algorithm setting labels.
 
-        Raises:
-            ValueError: If the DataFrame is empty or lacks required metrics.
+        :raises ValueError: If the DataFrame is empty or lacks required metrics.
         """
         super().__init__(df, normalized_metrics, whole_name)
         if normalized_metrics and not any(["normalized" in col for col in self.df.columns]):
@@ -69,9 +67,8 @@ class Heatmap(VioHeat):
     def draw_and_save(self, out_prefix: str, out_suffix: str) -> None:
         """Draw heatmap and save as HTML.
 
-        Args:
-            out_prefix: Output directory (for example ``results/my_run/heatmaps/``).
-            out_suffix: Filename suffix (for example ``algorithms_normalized``).
+        :param out_prefix: Output directory (for example ``results/my_run/heatmaps/``).
+        :param out_suffix: Filename suffix (for example ``algorithms_normalized``).
         """
         self._draw()
         path_out = f"{out_prefix}heatmap_{out_suffix}.html"
@@ -97,22 +94,20 @@ class Heatmap(VioHeat):
         self.fig.update_traces(showscale=False)
 
     def _draw_subplots(self, plot_setting: str) -> None:
-        """
-        Draw the subplots of the heatmap.
+        """Draw the subplots of the heatmap.
 
-        :param plot_setting: Either  "r2", "correlations", "errors", or "ssmd"
-        :raises ValueError: If an unknown plot setting is given
+        :param plot_setting: One of ``r2``, ``correlations``, ``errors``, or ``ssmd``.
         """
         from .heatmap_subplots import add_heatmap_subplot
 
         add_heatmap_subplot(self, plot_setting)
 
     def _compute_ssmd(self, metric: str) -> pd.DataFrame:
-        """
-        Compute Strictly Standardized Mean Difference (SSMD) for a given metric across splits.
+        """Compute Strictly Standardized Mean Difference (SSMD) for a given metric across splits.
 
-        :param metric: The evaluation metric to compute SSMD for (e.g., "R^2", "RMSE", "MAE", "Pearson").
-        :return: SSMD heatmap matrix (models × models) as a DataFrame.
+        :param metric: Evaluation metric to compute SSMD for (for example ``R^2``, ``RMSE``).
+
+        :returns: SSMD heatmap matrix (models × models) as a DataFrame.
         """
         if metric not in self.df.columns:
             print(f"Warning: '{metric}' metric not found in DataFrame. Skipping SSMD heatmap.")
@@ -145,12 +140,12 @@ class Heatmap(VioHeat):
 
     @staticmethod
     def _calc_summary_metric(x: pd.DataFrame, std_error: bool = False):
-        """
-        Calculate the mean or standard error of the metrics.
+        """Calculate the mean or standard error of the metrics.
 
-        :param x: DataFrame containing the metrics
-        :param std_error: whether to calculate the standard error or the mean
-        :returns: Series containing the mean or standard error of the metrics
+        :param x: DataFrame containing the metrics.
+        :param std_error: Whether to calculate standard error instead of mean.
+
+        :returns: Series containing the mean or standard error of the metrics.
         """
         results = pd.Series(index=x.columns)
         for col in x.columns:

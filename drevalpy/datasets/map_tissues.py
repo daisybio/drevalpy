@@ -1,5 +1,4 @@
-"""
-Command-line tool to generate and update harmonized tissue annotations for cancer cell lines.
+"""Command-line tool to generate and update harmonized tissue annotations for cancer cell lines.
 
 Uses Cellosaurus and DepMap metadata (and some errors in these datasets are fixed manually)
 and adds it to the response datasets e.g. for LTO splits.
@@ -30,19 +29,35 @@ for special cases based on literature or database references.
 - The output `tissue_mapping.csv` is saved in `<data_path>/meta/`.
 
 Example usage:
-    python -m mymodule.add_tissue_mapping data/ all
+python -m mymodule.add_tissue_mapping data/ all
 """
 
 import argparse
 import os
-import urllib.request
 from pathlib import Path
 
 import pandas as pd
+import requests
 
 from .cellosaurus_parse import parse_cellosaurus
 from .loader import list_builtin_datasets
 from .utils import download_dataset
+
+_DEFAULT_DOWNLOAD_TIMEOUT_SECONDS = 120
+
+
+def _download_https_file(url: str, destination: Path, *, timeout: float = _DEFAULT_DOWNLOAD_TIMEOUT_SECONDS) -> None:
+    if not url.startswith("https://"):
+        msg = f"Refusing non-HTTPS download URL: {url}"
+        raise ValueError(msg)
+    response = requests.get(url, timeout=timeout, stream=True)
+    response.raise_for_status()
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with open(destination, "wb") as handle:
+        for chunk in response.iter_content(chunk_size=1024 * 64):
+            if chunk:
+                handle.write(chunk)
+
 
 _tissue_synonyms = {
     "Lung": [
@@ -251,7 +266,6 @@ def _harmonize_disease_annotations(df_cellosaurus: pd.DataFrame, sample_info: pd
     :param df_cellosaurus: DataFrame containing Cellosaurus data
     :param sample_info: DataFrame containing DepMap sample information
     :return: Merged DataFrame with harmonized disease annotations
-
     """
     df_cellosaurus["name_norm"] = df_cellosaurus["cell_line_name"].str.lower().str.replace(r"[^a-z0-9]", "", regex=True)
     sample_info["name_norm"] = (
@@ -315,7 +329,7 @@ def main():
 
     if not cellosaurus_path.exists():
         url = "https://ftp.expasy.org/databases/cellosaurus/cellosaurus.txt"
-        urllib.request.urlretrieve(url, cellosaurus_path)  # noqa-S310
+        _download_https_file(url, cellosaurus_path)
 
     # Parse Cellosaurus
     id_to_name, id_to_site, id_to_disease = parse_cellosaurus(cellosaurus_path)

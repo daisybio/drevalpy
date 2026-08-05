@@ -19,6 +19,8 @@ def _ensure_builtins_for_discovery(*, registry_names: list[str] | None = None) -
 
     Partial lazy imports can leave a registry non-empty but incomplete; always
     restore built-ins so listing reflects the full catalog.
+
+    :param registry_names: Optional registry snapshot (reserved for future use).
     """
     _ = registry_names
     from drevalpy.components.register_builtins import register_builtin_components
@@ -36,15 +38,13 @@ def register_cell_line_featurizer(
 ) -> Callable[[type[Any]], type[Any]]:
     """Decorator: register a cell-line featurizer.
 
-    Args:
-        name: Registry name used in ``ModelConfig`` and recipes.
-        description: Short human-readable summary for catalog listings.
-        tags: Optional discovery tags (for example ``"omics"``).
-        reference: Optional literature citation metadata.
-        contract: Feature format contract for predictor compatibility checks.
+    :param name: Registry name used in ``ModelConfig`` and recipes.
+    :param description: Short human-readable summary for catalog listings.
+    :param tags: Optional discovery tags (for example ``"omics"``).
+    :param reference: Optional literature citation metadata.
+    :param contract: Feature format contract for predictor compatibility checks.
 
-    Returns:
-        Class decorator that registers the decorated featurizer under *name*.
+    :returns: Class decorator that registers the decorated featurizer under *name*.
     """
     return cell_line_featurizer_registry.register(
         name,
@@ -58,15 +58,12 @@ def register_cell_line_featurizer(
 def get_cell_line_featurizer(name: str) -> type[Any]:
     """Return the cell-line featurizer class registered under *name*.
 
-    Args:
-        name: Registry name of the featurizer.
+    :param name: Registry name of the featurizer.
 
-    Returns:
-        Featurizer class registered under *name*.
+    :returns: Featurizer class registered under *name*.
 
-    Raises:
-        ValueError: If *name* is not a known built-in featurizer.
-        ImportError: If the featurizer's optional dependency is unavailable.
+    :raises ValueError: If *name* is not a known built-in featurizer.
+    :raises ImportError: If the featurizer's optional dependency is unavailable.
     """
     if name not in cell_line_featurizer_registry.list_names():
         from drevalpy.components.register_builtins import (
@@ -90,8 +87,7 @@ def get_cell_line_featurizer(name: str) -> type[Any]:
 def list_cell_line_featurizers() -> list[str]:
     """List all registered cell-line featurizer names.
 
-    Returns:
-        Registry names after ensuring built-in components are loaded.
+    :returns: Registry names after ensuring built-in components are loaded.
     """
     _ensure_builtins_for_discovery(registry_names=cell_line_featurizer_registry.list_names())
     return cell_line_featurizer_registry.list_names()
@@ -100,15 +96,9 @@ def list_cell_line_featurizers() -> list[str]:
 def get_cell_line_featurizer_metadata(name: str) -> dict[str, str]:
     """Return metadata for a registered cell-line featurizer.
 
-    Args:
-        name: Registry name of the featurizer.
+    :param name: Registry name of the featurizer.
 
-    Returns:
-        Flattened metadata dict including output format and tags.
-
-    Raises:
-        ValueError: If *name* is not a known built-in featurizer.
-        ImportError: If the featurizer's optional dependency is unavailable.
+    :returns: Flattened metadata dict including output format and tags.
     """
     get_cell_line_featurizer(name)
     return cell_line_featurizer_registry.get_metadata(name)
@@ -117,11 +107,9 @@ def get_cell_line_featurizer_metadata(name: str) -> dict[str, str]:
 def list_cell_line_featurizer_metadata(*, tag: str | None = None) -> list[dict[str, str]]:
     """List metadata for all registered cell-line featurizers.
 
-    Args:
-        tag: When set, keep only featurizers whose ``tags`` field contains *tag*.
+    :param tag: When set, keep only featurizers whose ``tags`` field contains *tag*.
 
-    Returns:
-        List of flattened metadata dicts.
+    :returns: List of flattened metadata dicts.
     """
     _ensure_builtins_for_discovery(registry_names=cell_line_featurizer_registry.list_names())
     return cell_line_featurizer_registry.list_metadata(tag=tag)
@@ -142,15 +130,13 @@ def register_drug_featurizer(
 ) -> Callable[[type[Any]], type[Any]]:
     """Decorator: register a drug featurizer.
 
-    Args:
-        name: Registry name used in ``ModelConfig`` and recipes.
-        description: Short human-readable summary for catalog listings.
-        tags: Optional discovery tags.
-        reference: Optional literature citation metadata.
-        contract: Feature format contract for predictor compatibility checks.
+    :param name: Registry name used in ``ModelConfig`` and recipes.
+    :param description: Short human-readable summary for catalog listings.
+    :param tags: Optional discovery tags.
+    :param reference: Optional literature citation metadata.
+    :param contract: Feature format contract for predictor compatibility checks.
 
-    Returns:
-        Class decorator that registers the decorated featurizer under *name*.
+    :returns: Class decorator that registers the decorated featurizer under *name*.
     """
     return drug_featurizer_registry.register(
         name,
@@ -164,15 +150,12 @@ def register_drug_featurizer(
 def get_drug_featurizer(name: str) -> type[Any]:
     """Return the drug featurizer class registered under *name*.
 
-    Args:
-        name: Registry name of the featurizer.
+    :param name: Registry name of the featurizer.
 
-    Returns:
-        Featurizer class registered under *name*.
+    :returns: Featurizer class registered under *name*.
 
-    Raises:
-        ValueError: If *name* is not a known built-in featurizer.
-        ImportError: If the featurizer's optional dependency is unavailable.
+    :raises ValueError: If *name* is not a known built-in featurizer.
+    :raises ImportError: If the featurizer's optional dependency is unavailable.
     """
     if name not in drug_featurizer_registry.list_names():
         from drevalpy.components.register_builtins import (
@@ -196,8 +179,7 @@ def get_drug_featurizer(name: str) -> type[Any]:
 def list_drug_featurizers() -> list[str]:
     """List all registered drug featurizer names.
 
-    Returns:
-        Registry names after ensuring built-in components are loaded.
+    :returns: Registry names after ensuring built-in components are loaded.
     """
     _ensure_builtins_for_discovery(registry_names=drug_featurizer_registry.list_names())
     return drug_featurizer_registry.list_names()
@@ -206,15 +188,9 @@ def list_drug_featurizers() -> list[str]:
 def get_drug_featurizer_metadata(name: str) -> dict[str, str]:
     """Return metadata for a registered drug featurizer.
 
-    Args:
-        name: Registry name of the featurizer.
+    :param name: Registry name of the featurizer.
 
-    Returns:
-        Flattened metadata dict including output format and tags.
-
-    Raises:
-        ValueError: If *name* is not a known built-in featurizer.
-        ImportError: If the featurizer's optional dependency is unavailable.
+    :returns: Flattened metadata dict including output format and tags.
     """
     get_drug_featurizer(name)
     return drug_featurizer_registry.get_metadata(name)
@@ -223,11 +199,9 @@ def get_drug_featurizer_metadata(name: str) -> dict[str, str]:
 def list_drug_featurizer_metadata(*, tag: str | None = None) -> list[dict[str, str]]:
     """List metadata for all registered drug featurizers.
 
-    Args:
-        tag: When set, keep only featurizers whose ``tags`` field contains *tag*.
+    :param tag: When set, keep only featurizers whose ``tags`` field contains *tag*.
 
-    Returns:
-        List of flattened metadata dicts.
+    :returns: List of flattened metadata dicts.
     """
     _ensure_builtins_for_discovery(registry_names=drug_featurizer_registry.list_names())
     return drug_featurizer_registry.list_metadata(tag=tag)
@@ -249,16 +223,14 @@ def register_predictor(
 ) -> Callable[[type[Any]], type[Any]]:
     """Decorator: register a predictor.
 
-    Args:
-        name: Registry name used in ``ModelConfig`` and recipes.
-        description: Short human-readable summary for catalog listings.
-        tags: Optional discovery tags.
-        reference: Optional literature citation metadata.
-        cell_line_contract: Expected cell-line feature format.
-        drug_contract: Expected drug feature format.
+    :param name: Registry name used in ``ModelConfig`` and recipes.
+    :param description: Short human-readable summary for catalog listings.
+    :param tags: Optional discovery tags.
+    :param reference: Optional literature citation metadata.
+    :param cell_line_contract: Expected cell-line feature format.
+    :param drug_contract: Expected drug feature format.
 
-    Returns:
-        Class decorator that registers the decorated predictor under *name*.
+    :returns: Class decorator that registers the decorated predictor under *name*.
     """
     return predictor_registry.register(
         name,
@@ -273,15 +245,12 @@ def register_predictor(
 def get_predictor(name: str) -> type[Any]:
     """Return the predictor class registered under *name*.
 
-    Args:
-        name: Registry name of the predictor.
+    :param name: Registry name of the predictor.
 
-    Returns:
-        Predictor class registered under *name*.
+    :returns: Predictor class registered under *name*.
 
-    Raises:
-        ValueError: If *name* is not a known built-in predictor.
-        ImportError: If the predictor's optional dependency is unavailable.
+    :raises ValueError: If *name* is not a known built-in predictor.
+    :raises ImportError: If the predictor's optional dependency is unavailable.
     """
     if name not in predictor_registry.list_names():
         from drevalpy.components.register_builtins import (
@@ -305,8 +274,7 @@ def get_predictor(name: str) -> type[Any]:
 def list_predictors() -> list[str]:
     """List all registered predictor names.
 
-    Returns:
-        Registry names after ensuring built-in components are loaded.
+    :returns: Registry names after ensuring built-in components are loaded.
     """
     _ensure_builtins_for_discovery(registry_names=predictor_registry.list_names())
     return predictor_registry.list_names()
@@ -315,15 +283,9 @@ def list_predictors() -> list[str]:
 def get_predictor_metadata(name: str) -> dict[str, str]:
     """Return metadata for a registered predictor.
 
-    Args:
-        name: Registry name of the predictor.
+    :param name: Registry name of the predictor.
 
-    Returns:
-        Flattened metadata dict including contracts and supported modes.
-
-    Raises:
-        ValueError: If *name* is not a known built-in predictor.
-        ImportError: If the predictor's optional dependency is unavailable.
+    :returns: Flattened metadata dict including contracts and supported modes.
     """
     get_predictor(name)
     return predictor_registry.get_metadata(name)
@@ -332,11 +294,9 @@ def get_predictor_metadata(name: str) -> dict[str, str]:
 def list_predictor_metadata(*, tag: str | None = None) -> list[dict[str, str]]:
     """List metadata for all registered predictors.
 
-    Args:
-        tag: When set, keep only predictors whose ``tags`` field contains *tag*.
+    :param tag: When set, keep only predictors whose ``tags`` field contains *tag*.
 
-    Returns:
-        List of flattened metadata dicts.
+    :returns: List of flattened metadata dicts.
     """
     _ensure_builtins_for_discovery(registry_names=predictor_registry.list_names())
     return predictor_registry.list_metadata(tag=tag)

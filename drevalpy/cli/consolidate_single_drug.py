@@ -11,6 +11,11 @@ from drevalpy.cli.model_testing import run_consolidate_results
 
 
 def register(app: typer.Typer) -> None:
+    """Register the ``consolidate-single-drug`` subcommand on ``app``.
+
+    :param app: Root Typer application to register the command on.
+    """
+
     @app.command("consolidate-single-drug")
     def consolidate_single_drug(
         run_id: Annotated[str, typer.Option("--run_id", help="Run ID")],
@@ -28,7 +33,18 @@ def register(app: typer.Typer) -> None:
         ] = "[None]",
         n_trials_robustness: Annotated[int, typer.Option("--n_trials_robustness", help="Number of trials")] = 0,
     ) -> None:
-        """Consolidate results for SingleDrugModels."""
+        """Consolidate results for SingleDrugModels.
+
+        :param run_id: Experiment run identifier.
+        :param model_name: Registered model name.
+        :param outdir_path: Base directory containing experiment outputs.
+        :param n_cv_splits: Number of CV folds to consolidate.
+        :param dataset_name: Dataset name used to locate result files.
+        :param test_mode: Split label used in result paths.
+        :param cross_study_datasets: Optional cross-study dataset names.
+        :param randomization_modes: Serialized list of randomization modes or ``[None]``.
+        :param n_trials_robustness: Number of robustness trials to include.
+        """
         run_consolidate_results(
             run_id=run_id,
             test_mode=test_mode,

@@ -29,14 +29,11 @@ class FeatureContract:
 def normalize_feature_contract(contract: FeatureContract | FeatureFormat) -> FeatureContract:
     """Return a ``FeatureContract`` from a contract object or format shorthand.
 
-    Args:
-        contract: A ``FeatureContract`` instance or ``FeatureFormat`` enum member.
+    :param contract: A ``FeatureContract`` instance or ``FeatureFormat`` enum member.
 
-    Returns:
-        Normalized ``FeatureContract`` instance.
+    :returns: Normalized ``FeatureContract`` instance.
 
-    Raises:
-        TypeError: If *contract* is neither ``FeatureContract`` nor ``FeatureFormat``.
+    :raises TypeError: If *contract* is neither ``FeatureContract`` nor ``FeatureFormat``.
     """
     if isinstance(contract, FeatureContract):
         return contract
@@ -49,14 +46,11 @@ def normalize_feature_contract(contract: FeatureContract | FeatureFormat) -> Fea
 def featurizer_contract(cls: type[Any]) -> FeatureContract:
     """Return the featurizer contract from ``contract``.
 
-    Args:
-        cls: Featurizer class registered in the component registry.
+    :param cls: Featurizer class registered in the component registry.
 
-    Returns:
-        Resolved ``FeatureContract`` for the featurizer class.
+    :returns: Resolved ``FeatureContract`` for the featurizer class.
 
-    Raises:
-        TypeError: If the class contract attribute is not a ``FeatureContract``.
+    :raises TypeError: If the class contract attribute is not a ``FeatureContract``.
     """
     contract = getattr(cls, "contract", None)
     if contract is None:
@@ -70,14 +64,11 @@ def featurizer_contract(cls: type[Any]) -> FeatureContract:
 def predictor_contracts(cls: type[Any]) -> tuple[FeatureContract, FeatureContract]:
     """Return predictor input contracts for cell-line and drug sides.
 
-    Args:
-        cls: Predictor class registered in the component registry.
+    :param cls: Predictor class registered in the component registry.
 
-    Returns:
-        ``(cell_line_contract, drug_contract)`` pair for compatibility checks.
+    :returns: ``(cell_line_contract, drug_contract)`` pair for compatibility checks.
 
-    Raises:
-        TypeError: If either contract attribute is not a ``FeatureContract``.
+    :raises TypeError: If either contract attribute is not a ``FeatureContract``.
     """
     cell_line = getattr(cls, "cell_line_contract", None)
     drug = getattr(cls, "drug_contract", None)
@@ -94,11 +85,9 @@ def predictor_contracts(cls: type[Any]) -> tuple[FeatureContract, FeatureContrac
 def contracts_compatible(produced: FeatureContract, required: FeatureContract) -> bool:
     """Return whether *produced* satisfies *required*.
 
-    Args:
-        produced: Feature contract emitted by a featurizer.
-        required: Feature contract declared by a predictor input slot.
+    :param produced: Feature contract emitted by a featurizer.
+    :param required: Feature contract declared by a predictor input slot.
 
-    Returns:
-        ``True`` when both contracts share the same ``FeatureFormat``.
+    :returns: ``True`` when both contracts share the same ``FeatureFormat``.
     """
     return produced.format == required.format

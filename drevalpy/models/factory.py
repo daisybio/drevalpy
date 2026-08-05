@@ -20,6 +20,9 @@ def featurizer_configs_from_view_hyperparameters(
     Prefer ``drevalpy.models.flat_hyperparameters.apply_public_flat_hyperparameters``
     for full flat-HP application. This helper remains for view-only construction
     and is deprecated alongside ``cell_line_views`` / ``drug_views``.
+
+    :param hyperparameters: Flat hyperparameters that may include legacy view keys.
+    :returns: Tuple of ``(cell_line_featurizer, drug_featurizer)`` configs or ``None`` values.
     """
     if "cell_line_views" in hyperparameters or "drug_views" in hyperparameters:
         from drevalpy._deprecations import warn_deprecated
@@ -49,7 +52,13 @@ def featurizer_configs_from_view_hyperparameters(
 
 
 def model_config_for_name(model_name: str, hyperparameters: dict[str, Any] | None = None) -> ModelConfig:
-    """Resolve a factory/zoo name to a modular config with public flat HP applied."""
+    """Resolve a factory/zoo name to a modular config with public flat HP applied.
+
+    :param model_name: Built-in or external zoo preset name.
+    :param hyperparameters: Optional flat public hyperparameter overrides.
+    :returns: ``ModelConfig`` for the preset with overrides applied.
+    :raises KeyError: If ``model_name`` is not a known zoo entry.
+    """
     from drevalpy.models.zoo import list_zoo_names, zoo_model_config
 
     if model_name not in list_zoo_names(include_external=True):

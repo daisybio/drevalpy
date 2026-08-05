@@ -10,6 +10,11 @@ from drevalpy.cli.preprocess_custom import run_postprocess_viability
 
 
 def register(app: typer.Typer) -> None:
+    """Register the ``viability-postprocess`` subcommand on ``app``.
+
+    :param app: Root Typer application to register the command on.
+    """
+
     @app.command("viability-postprocess")
     def viability_postprocess(
         dataset_name: Annotated[
@@ -24,5 +29,9 @@ def register(app: typer.Typer) -> None:
             ),
         ] = "./",
     ) -> None:
-        """Postprocess CurveCurator viability data into one CSV."""
+        """Postprocess CurveCurator viability data into one CSV.
+
+        :param dataset_name: Custom dataset name.
+        :param path_data: Directory containing CurveCurator output files.
+        """
         run_postprocess_viability(dataset_name=dataset_name, path_data=path_data)

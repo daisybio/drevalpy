@@ -10,6 +10,11 @@ from drevalpy.cli.preprocess_custom import run_preprocess_raw_viability
 
 
 def register(app: typer.Typer) -> None:
+    """Register the ``viability-preprocess`` subcommand on ``app``.
+
+    :param app: Root Typer application to register the command on.
+    """
+
     @app.command("viability-preprocess")
     def viability_preprocess(
         dataset_name: Annotated[
@@ -32,5 +37,10 @@ def register(app: typer.Typer) -> None:
             ),
         ] = 4,
     ) -> None:
-        """Preprocess CurveCurator viability data."""
+        """Preprocess CurveCurator viability data.
+
+        :param dataset_name: Custom dataset name.
+        :param path_data: Root data directory containing raw viability CSVs.
+        :param cores: Worker count for CurveCurator fitting.
+        """
         run_preprocess_raw_viability(path_data=path_data, dataset_name=dataset_name, cores=cores)

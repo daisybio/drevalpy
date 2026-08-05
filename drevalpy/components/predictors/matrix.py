@@ -17,11 +17,9 @@ class MatrixPredictor(Predictor):
     def fit(self, batch: ModelInputBatch) -> None:
         """Fit on a dense pair-level design matrix built from *batch*.
 
-        Args:
-            batch: Featurized pairs with training responses.
+        :param batch: Featurized pairs with training responses.
 
-        Raises:
-            ValueError: If responses are missing or the design matrix is invalid.
+        :raises ValueError: If responses are missing or the design matrix is invalid.
         """
         if batch.response is None:
             msg = "Matrix predictors require response values during fit"
@@ -34,18 +32,24 @@ class MatrixPredictor(Predictor):
     def predict(self, batch: ModelInputBatch) -> np.ndarray:
         """Predict from a dense pair-level design matrix built from *batch*.
 
-        Args:
-            batch: Featurized pairs to score.
+        :param batch: Featurized pairs to score.
 
-        Returns:
-            One predicted response per pair in *batch*.
+        :returns: One predicted response per pair in *batch*.
         """
         return self._predict_matrix(batch.to_feature_matrix())
 
     @abstractmethod
     def _fit_matrix(self, x: np.ndarray, y: np.ndarray) -> None:
-        """Fit on a dense pair-level design matrix."""
+        """Fit on a dense pair-level design matrix.
+
+        :param x: Pair-level feature matrix.
+        :param y: Training responses aligned with *x*.
+        """
 
     @abstractmethod
     def _predict_matrix(self, x: np.ndarray) -> np.ndarray:
-        """Predict from a dense pair-level design matrix."""
+        """Predict from a dense pair-level design matrix.
+
+        :param x: Pair-level feature matrix.
+        :returns: Predicted responses aligned with rows of *x*.
+        """

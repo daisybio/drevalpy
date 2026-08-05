@@ -1,13 +1,12 @@
-"""
-Contains the SuperFELTR model.
+"""Contains the SuperFELTR model.
 
 Regression extension of Super.FELT: supervised feature extraction learning using triplet loss for drug response
 prediction with multi-omics data.
 Very similar to MOLI. Differences:
 
-    * In MOLI, encoders and the classifier were trained jointly. Super.FELT trains them independently
-    * MOLI was trained without feature selection (except for the Variance Threshold on the gene expression).
-        Super.FELT uses feature selection for all omics data.
+* In MOLI, encoders and the classifier were trained jointly. Super.FELT trains them independently
+* MOLI was trained without feature selection (except for the Variance Threshold on the gene
+  expression). Super.FELT uses feature selection for all omics data.
 
 The input remains the same: somatic mutation, copy number variation and gene expression data.
 Original authors of SuperFELT: Park, Soh & Lee. (2021, 10.1186/s12859-021-04146-z)
@@ -38,8 +37,7 @@ class SuperFELTR(LiteratureTrainingMixin):
     is_single_drug_model = True
 
     def __init__(self) -> None:
-        """
-        Initialization method for SuperFELTR Model.
+        """Initialization method for SuperFELTR Model.
 
         The encoders and the regressor are initialized to None because they are built later in the first training pass.
         The hyperparameters are also initialized to an empty dict because they are initialized in configure. The
@@ -64,8 +62,7 @@ class SuperFELTR(LiteratureTrainingMixin):
 
     @classmethod
     def get_model_name(cls) -> str:
-        """
-        Returns the model name.
+        """Returns the model name.
 
         :returns: SuperFELTR
         """
@@ -73,6 +70,10 @@ class SuperFELTR(LiteratureTrainingMixin):
 
     @classmethod
     def get_default_hyperparameters(cls) -> dict[str, object]:
+        """Return default SuperFELTR hyperparameters.
+
+        :returns: Default hyperparameter mapping.
+        """
         return {
             "mini_batch": 55,
             "dropout_rate": 0.5,
@@ -86,12 +87,11 @@ class SuperFELTR(LiteratureTrainingMixin):
         }
 
     def configure(self, hyperparameters) -> None:
-        """
-        Configure the model from hyperparameters.
+        """Configure the model from hyperparameters.
 
-        :param hyperparameters: dictionary containing the hyperparameters for the model. Contain mini_batch,
-            dropout_rate, weight_decay, out_dim_expr_encoder, out_dim_mutation_encoder, out_dim_cnv_encoder, epochs,
-            variance thresholds for gene expression, mutation, and copy number variation, margin, and learning rate.
+        :param hyperparameters: Keys include ``mini_batch``, encoder output dimensions,
+            ``dropout_rate``, ``weight_decay``, variance thresholds, ``margin``, and
+            ``learning_rate``.
         """
         # Log hyperparameters to wandb if enabled
         self.log_hyperparameters(hyperparameters)
@@ -106,8 +106,7 @@ class SuperFELTR(LiteratureTrainingMixin):
         output_earlystopping: DrugResponseDataset | None = None,
         model_checkpoint_dir: str = "superfeltr_checkpoints",
     ) -> None:
-        """
-        Does feature selection, trains the encoders sequentially, and then trains the regressor.
+        """Does feature selection, trains the encoders sequentially, and then trains the regressor.
 
         If there is not enough training data, the model is trained with random initialization, if there is no
         training data at all, the model is skipped and later on, NA is predicted.
@@ -117,6 +116,7 @@ class SuperFELTR(LiteratureTrainingMixin):
         :param drug_input: not needed, as it is a single drug model
         :param output_earlystopping: optional early stopping dataset
         :param model_checkpoint_dir: not needed
+
         :raises ValueError: if drug_input is not None
         """
         if drug_input is not None:
@@ -137,8 +137,7 @@ class SuperFELTR(LiteratureTrainingMixin):
         cell_line_input: FeatureDataset,
         drug_input: FeatureDataset | None = None,
     ) -> np.ndarray:
-        """
-        Predicts the drug response.
+        """Predicts the drug response.
 
         If there is no training data, NA is predicted. If there was not enough training data, predictions are made
         with the randomly initialized model.
@@ -147,7 +146,9 @@ class SuperFELTR(LiteratureTrainingMixin):
         :param drug_ids: drug ids
         :param cell_line_input: cell line omics features
         :param drug_input: drug omics features, not needed
+
         :returns: predicted drug response
+
         :raises ValueError: if drug_input is not None
         """
         if self.expr_encoder is None or self.mut_encoder is None or self.cnv_encoder is None or self.regressor is None:
@@ -185,7 +186,10 @@ class SuperFELTR(LiteratureTrainingMixin):
         return self.regressor.predict(gene_expression, mutations, cnvs)
 
     def record_feature_names(self, cell_line_input: FeatureDataset) -> None:
-        """Retain the featurizer-selected feature order for prediction alignment."""
+        """Retain the featurizer-selected feature order for prediction alignment.
+
+        :param cell_line_input: Training cell-line dataset with omics view metadata.
+        """
         self.gene_expression_features = cell_line_input.meta_info["gene_expression"]
         self.mutations_features = cell_line_input.meta_info["mutations"]
         self.copy_number_variation_features = cell_line_input.meta_info["copy_number_variation_gistic"]

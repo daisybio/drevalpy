@@ -12,11 +12,11 @@ constant_prediction_warning_shown = False
 
 
 def _check_constant_prediction(y_pred: np.ndarray) -> bool:
-    """
-    Check if predictions are constant.
+    """Check if predictions are constant.
 
-    :param y_pred: predictions
-    :return: bool whether predictions are constant
+    :param y_pred: Predicted values.
+
+    :returns: Whether all predictions are equal within tolerance.
     """
     tol = 1e-6
     # no variation in predictions
@@ -24,11 +24,11 @@ def _check_constant_prediction(y_pred: np.ndarray) -> bool:
 
 
 def _check_constant_target_or_small_sample(y_true: np.ndarray) -> bool:
-    """
-    Check if target is constant or sample size is too small.
+    """Check if target is constant or sample size is too small.
 
-    :param y_true: true response
-    :returns: bool whether target is constant or sample size is too small
+    :param y_true: Observed response values.
+
+    :returns: Whether the sample is too small or the target has no variation.
     """
     tol = 1e-6
     # Check for insufficient sample size or no variation in target
@@ -38,16 +38,12 @@ def _check_constant_target_or_small_sample(y_true: np.ndarray) -> bool:
 def pearson(y_pred: np.ndarray, y_true: np.ndarray) -> float:
     """Compute Pearson correlation between predictions and response.
 
-    Args:
-        y_pred: Predicted response values.
-        y_true: Observed response values.
+    :param y_pred: Predicted response values.
+    :param y_true: Observed response values.
 
-    Returns:
-        Pearson correlation, ``0.0`` for constant predictions, or ``nan`` when
-        the target is constant or the sample is too small.
+    :returns: Pearson correlation, or ``0.0`` / ``nan`` for degenerate inputs.
 
-    Raises:
-        AssertionError: If *y_pred* and *y_true* differ in length.
+    :raises AssertionError: If ``y_pred`` and ``y_true`` differ in length.
     """
     if len(y_pred) != len(y_true):
         raise AssertionError("predictions, response  must have the same length")
@@ -63,16 +59,12 @@ def pearson(y_pred: np.ndarray, y_true: np.ndarray) -> float:
 def spearman(y_pred: np.ndarray, y_true: np.ndarray) -> float:
     """Compute Spearman correlation between predictions and response.
 
-    Args:
-        y_pred: Predicted response values.
-        y_true: Observed response values.
+    :param y_pred: Predicted response values.
+    :param y_true: Observed response values.
 
-    Returns:
-        Spearman correlation, ``0.0`` for constant predictions, or ``nan`` when
-        the target is constant or the sample is too small.
+    :returns: Spearman correlation, or ``0.0`` / ``nan`` for degenerate inputs.
 
-    Raises:
-        AssertionError: If *y_pred* and *y_true* differ in length.
+    :raises AssertionError: If ``y_pred`` and ``y_true`` differ in length.
     """
     # we can use scipy.stats.spearmanr
     if len(y_pred) != len(y_true):
@@ -88,16 +80,12 @@ def spearman(y_pred: np.ndarray, y_true: np.ndarray) -> float:
 def kendall(y_pred: np.ndarray, y_true: np.ndarray) -> float:
     """Compute Kendall tau correlation between predictions and response.
 
-    Args:
-        y_pred: Predicted response values.
-        y_true: Observed response values.
+    :param y_pred: Predicted response values.
+    :param y_true: Observed response values.
 
-    Returns:
-        Kendall tau, ``0.0`` for constant predictions, or ``nan`` when the target
-        is constant or the sample is too small.
+    :returns: Kendall tau, or ``0.0`` / ``nan`` for degenerate inputs.
 
-    Raises:
-        AssertionError: If *y_pred* and *y_true* differ in length.
+    :raises AssertionError: If ``y_pred`` and ``y_true`` differ in length.
     """
     # we can use scipy.stats.spearmanr
     if len(y_pred) != len(y_true):
@@ -127,14 +115,11 @@ MAXIMIZATION_METRICS = ["R^2", "Pearson", "Spearman", "Kendall"]
 def get_mode(metric: str):
     """Return whether lower or higher metric values are better.
 
-    Args:
-        metric: Metric name (for example ``"RMSE"`` or ``"Pearson"``).
+    :param metric: Metric name (for example ``"RMSE"`` or ``"Pearson"``).
 
-    Returns:
-        ``"min"`` for error metrics or ``"max"`` for correlation metrics.
+    :returns: ``"min"`` for error metrics or ``"max"`` for correlation metrics.
 
-    Raises:
-        ValueError: If *metric* is not a known minimization or maximization metric.
+    :raises ValueError: If ``metric`` is not a known minimization or maximization metric.
     """
     if metric in MINIMIZATION_METRICS:
         mode = "min"
@@ -174,16 +159,12 @@ def _compute_metric_value(metric_name: str, predictions: np.ndarray, response: n
 def evaluate(dataset: DrugResponseDataset, metric: list[str] | str):
     """Compute evaluation metrics from stored predictions on a dataset.
 
-    Args:
-        dataset: ``DrugResponseDataset`` with ``predictions`` populated.
-        metric: One metric name or a list of names from ``AVAILABLE_METRICS``
-            (for example ``"RMSE"``, ``"Pearson"``).
+    :param dataset: ``DrugResponseDataset`` with ``predictions`` populated.
+    :param metric: One metric name or a list of names from ``AVAILABLE_METRICS``.
 
-    Returns:
-        Mapping from metric name to scalar score.
+    :returns: Mapping from metric name to scalar score.
 
-    Raises:
-        AssertionError: If predictions are missing or a metric name is unknown.
+    :raises AssertionError: If predictions are missing or a metric name is unknown.
     """
     if isinstance(metric, str):
         metric = [metric]

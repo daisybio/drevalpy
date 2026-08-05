@@ -14,7 +14,12 @@ GO_ROOT = "GO:0008150"
 
 
 def _remove_node(g: nx.DiGraph, node: str) -> nx.DiGraph:
-    """Remove a node and reconnect its parents directly to its children."""
+    """Remove a node and reconnect its parents directly to its children.
+
+    :param g: Directed GO graph to mutate.
+    :param node: Node identifier to remove.
+    :returns: The mutated graph.
+    """
     parents = [src for src, _ in g.in_edges(node)]
     children = [dst for _, dst in g.out_edges(node)]
     new_edges = [(src, dst) for src, dst in itertools.product(parents, children) if src != dst]
@@ -24,7 +29,11 @@ def _remove_node(g: nx.DiGraph, node: str) -> nx.DiGraph:
 
 
 def build_level_list(g: nx.DiGraph) -> list[list[str]]:
-    """Iteratively peel leaves to get nodes organised by level."""
+    """Iteratively peel leaves to get nodes organised by level.
+
+    :param g: Directed GO graph.
+    :returns: Nodes grouped from deepest leaves to shallowest roots.
+    """
     g_copy = g.copy()
     level_list: list[list[str]] = []
     while True:
@@ -37,7 +46,12 @@ def build_level_list(g: nx.DiGraph) -> list[list[str]]:
 
 
 def download_obo(url: str, dest: str) -> None:
-    """Download a file with a browser-like User-Agent to avoid 403 errors."""
+    """Download a file with a browser-like User-Agent to avoid 403 errors.
+
+    :param url: Remote OBO file URL.
+    :param dest: Local destination path.
+    :raises RuntimeError: If ``requests`` is not installed.
+    """
     try:
         import requests
 
@@ -64,7 +78,12 @@ def _pairs_from_go_bp_row(row: pd.Series) -> list[tuple[str, str]]:
 
 
 def fetch_gene_go_annotations(genes: list[str]) -> pd.DataFrame:
-    """Query MyGene.info and return a DataFrame of (go_term, gene_symbol) pairs."""
+    """Query MyGene.info and return a DataFrame of (go_term, gene_symbol) pairs.
+
+    :param genes: Gene symbols to annotate.
+    :returns: Two-column dataframe of GO term and gene symbol pairs.
+    :raises ImportError: If ``mygene`` is not installed.
+    """
     try:
         import mygene
     except ImportError as exc:
@@ -208,15 +227,15 @@ def _apply_nm_pruning(graph: nx.DiGraph, level_list: list[list[str]], *, n: int,
 def _apply_p_pruning(graph: nx.DiGraph, *, p: int) -> None:
     level_list_pruned = build_level_list(graph)
     print(f"Depth after n/m: {len(level_list_pruned)} levels. Applying p={p} ...")
-    for level in level_list_pruned[p + 1 : len(level_list_pruned) - 1]:  # noqa: E203
+    for level in level_list_pruned[p + 1 : len(level_list_pruned) - 1]:
         for term in level:
             if term in graph:
                 _remove_node(graph, term)
 
 
 def _report_connectivity(graph: nx.DiGraph) -> None:
-    uG = graph.to_undirected()
-    components = list(nxacc.connected_components(uG))
+    undirected_graph = graph.to_undirected()
+    components = list(nxacc.connected_components(undirected_graph))
     final_roots = [n_id for n_id in graph.nodes if graph.in_degree(n_id) == 0]
     print(f"Final graph: {len(graph.nodes)} nodes, {len(components)} component(s), roots: {final_roots[:3]}")
     if len(components) > 1:
@@ -230,7 +249,15 @@ def build_pruned_graph(
     m: int,
     p: int,
 ) -> nx.DiGraph:
-    """Build the GO hierarchy and prune it according to conditions n, m, p."""
+    """Build the GO hierarchy and prune it according to conditions n, m, p.
+
+    :param gene_go_df: Gene-to-GO annotation pairs.
+    :param obo_file: Optional local OBO path; downloaded when ``None``.
+    :param n: Minimum annotated genes per retained GO term.
+    :param m: Minimum child terms required before removing a parent.
+    :param p: Minimum annotated genes per connected component.
+    :returns: Pruned directed GO graph with gene nodes attached.
+    """
     obo_path = _ensure_obo_path(obo_file)
     full_graph = _load_reversed_obo(obo_path)
     keep_nodes = _annotated_keep_nodes(full_graph, gene_go_df)

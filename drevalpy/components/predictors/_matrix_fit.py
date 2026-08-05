@@ -6,7 +6,13 @@ import numpy as np
 
 
 def validate_matrix_fit(x: np.ndarray, y: np.ndarray, *, n_pairs: int) -> None:
-    """Reject empty or misaligned design matrices before fitting."""
+    """Reject empty or misaligned design matrices before fitting.
+
+    :param x: x.
+    :param y: y.
+    :param n_pairs: n pairs.
+    :raises ValueError: Raised on invalid input.
+    """
     if n_pairs == 0:
         return
     if len(x) == 0:

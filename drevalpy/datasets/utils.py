@@ -19,8 +19,7 @@ ALLOWED_MEASURES.extend([f"{m}_curvecurator" for m in ALLOWED_MEASURES])
 
 
 def unzip_data(path_to_zip: Path, response: Response, data_path: str):
-    """
-    Unzips the downloaded data.
+    """Unzips the downloaded data.
 
     :param path_to_zip: Path to the zip file to be unzipped.
     :param response: HTML response containing response.content
@@ -37,8 +36,7 @@ def unzip_data(path_to_zip: Path, response: Response, data_path: str):
 
 
 def download_from_url(dataset_name: str, file_url: str) -> Response:
-    """
-    Download a file from a given URL.
+    """Download a file from a given URL.
 
     :param dataset_name: how the dataset is called
     :param file_url: exact URL to the zip file
@@ -57,8 +55,7 @@ def download_dataset(
     data_path: str = "data",
     redownload: bool = False,
 ):
-    """
-    Download the latets dataset from Zenodo.
+    """Download the latets dataset from Zenodo.
 
     :param dataset_name: dataset name, from "GDSC1", "GDSC2", "CCLE", "CTRPv1", "CTRPv2", "TOYv1", "TOYv2", "meta"
     :param data_path: where to save the data
@@ -98,8 +95,7 @@ def download_dataset(
 
 
 def randomize_graph(original_graph: nx.Graph) -> nx.Graph:
-    """
-    Randomizes the graph by shuffling the edges while preserving the degree sequence.
+    """Randomizes the graph by shuffling the edges while preserving the degree sequence.
 
     :param original_graph: The original graph
     :return: Randomized graph with the same degree sequence and node attributes
@@ -136,8 +132,7 @@ def permute_features(
     views_to_permute: list[str],
     all_views: list[str],
 ) -> dict:
-    """
-    Permute the specified views for each entity (= cell line or drug).
+    """Permute the specified views for each entity (= cell line or drug).
 
     E.g. each cell line gets the feature vector/graph/image... of another cell line.
     Drawn without replacement.

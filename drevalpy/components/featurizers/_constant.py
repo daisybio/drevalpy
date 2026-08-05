@@ -23,10 +23,23 @@ class ConstantFeaturizerMixin:
         entity_ids: np.ndarray | None = None,
         context: FeaturizerFitContext | None = None,
     ):
+        """Fit on training data.
+
+        :param features: features.
+        :param entity_ids: entity ids.
+        :param context: context.
+        :returns: Result.
+        """
         _ = features, entity_ids, context
         return self
 
     def transform(self, features: FeatureDataset, entity_ids: np.ndarray) -> np.ndarray:
+        """Transform inputs into feature payloads.
+
+        :param features: features.
+        :param entity_ids: entity ids.
+        :returns: Result.
+        """
         _ = features
         return np.ones((len(entity_ids), 1), dtype=np.float32)
 
@@ -35,14 +48,32 @@ class ConstantFeaturizerMixin:
         features: FeatureDataset,
         entity_ids: np.ndarray,
     ) -> dict[str, FeatureBlock]:
+        """Transform blocks.
+
+        :param features: features.
+        :param entity_ids: entity ids.
+        :returns: Result.
+        """
         return {"constant": numeric_feature_block(self.transform(features, entity_ids))}
 
     @property
     def output_dim(self) -> int:
+        """Return output feature dimension after fitting.
+
+        :returns: Result.
+        """
         return 1
 
     def get_state(self) -> dict[str, object]:
+        """Return serializable fitted state.
+
+        :returns: Result.
+        """
         return {}
 
     def set_state(self, state: dict[str, object]) -> None:
+        """Restore state from a prior ``get_state`` mapping.
+
+        :param state: state.
+        """
         _ = state

@@ -51,7 +51,12 @@ def _warn_legacy_view_keys(flat: dict[str, Any]) -> None:
 
 
 def _apply_view_overrides(config: ModelConfig, flat: dict[str, Any]) -> ModelConfig:
-    """Rewrite featurizers when legacy view lists change."""
+    """Rewrite featurizers when legacy view lists change.
+
+    :param config: Base model configuration.
+    :param flat: Flat hyperparameters that may include legacy view keys.
+    :returns: Updated config when view overrides differ from the base config.
+    """
     updates: dict[str, Any] = {}
     if "cell_line_views" in flat:
         views = _view_list(flat["cell_line_views"])
@@ -73,7 +78,14 @@ def apply_public_flat_hyperparameters(
     reject_unknown: bool = True,
     warn_legacy_view_keys: bool = True,
 ) -> ModelConfig:
-    """Backward-compatible wrapper around the collision-aware resolver."""
+    """Backward-compatible wrapper around the collision-aware resolver.
+
+    :param config: Base model configuration.
+    :param flat: Flat public hyperparameters to apply.
+    :param reject_unknown: Ignored; retained for API compatibility.
+    :param warn_legacy_view_keys: Emit deprecation warnings for legacy view keys.
+    :returns: Config with public flat hyperparameters applied.
+    """
     del reject_unknown
     from drevalpy.components.tuning.public_flat import apply_public_hyperparameters_to_config
 

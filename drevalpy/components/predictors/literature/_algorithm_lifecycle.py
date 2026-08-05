@@ -19,7 +19,19 @@ def train_fitted_algorithm(
     cell_lines: FeatureDataset,
     drugs: FeatureDataset | None,
 ) -> TAlgorithm:
-    """Configure, train, and return a fitted literature algorithm."""
+    """Configure, train, and return a fitted literature algorithm.
+
+    :param algorithm_cls: Literature algorithm class to instantiate.
+    :param hyperparameters: Hyperparameters passed to ``configure``.
+    :param preload_state: Attributes to set on the algorithm before training.
+    :param batch: Training batch with responses and checkpoint metadata.
+    :param cell_lines: Cell-line feature dataset for training.
+    :param drugs: Optional drug feature dataset for training.
+
+    :returns: Fitted algorithm instance.
+
+    :raises RuntimeError: If *batch* has no response values.
+    """
     if batch.response is None:
         msg = "literature predictor requires response"
         raise RuntimeError(msg)
@@ -48,7 +60,15 @@ def predict_with_algorithm(
     cell_lines: FeatureDataset,
     drugs: FeatureDataset | None,
 ) -> Any:
-    """Run algorithm prediction or return NaNs when no model is loaded."""
+    """Run algorithm prediction or return NaNs when no model is loaded.
+
+    :param algorithm: Fitted algorithm, or ``None`` to emit NaN predictions.
+    :param batch: Pairs to score.
+    :param cell_lines: Cell-line features aligned with *batch*.
+    :param drugs: Optional drug features aligned with *batch*.
+
+    :returns: Predicted responses as a NumPy array.
+    """
     import numpy as np
 
     if algorithm is None:
