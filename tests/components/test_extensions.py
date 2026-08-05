@@ -18,13 +18,13 @@ from drevalpy.components.extensions import (
 )
 from drevalpy.components.register_builtins import is_known_builtin_predictor
 from drevalpy.components.registry import (
-    clear_cell_line_featurizer_registry,
-    clear_predictor_registry,
     get_cell_line_featurizer,
     get_predictor,
     list_cell_line_featurizers,
     list_predictors,
 )
+from drevalpy.components.registry.featurizer import cell_line_featurizer_registry
+from drevalpy.components.registry.predictor import predictor_registry
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models import construct_model
 from drevalpy.models.config import ModelConfig
@@ -389,24 +389,24 @@ def test_subprocess_native_lookup_does_not_import_optional_families() -> None:
 
 
 def test_unknown_builtin_predictor_raises_value_error() -> None:
-    clear_predictor_registry()
+    predictor_registry.clear()
     try:
         with pytest.raises(ValueError, match="Unknown Predictor"):
             get_predictor("notRegisteredAnywhere")
     finally:
         from drevalpy.components.register_builtins import ensure_components_registered
 
-        clear_predictor_registry()
+        predictor_registry.clear()
         ensure_components_registered()
 
 
 def test_unknown_builtin_featurizer_raises_value_error() -> None:
-    clear_cell_line_featurizer_registry()
+    cell_line_featurizer_registry.clear()
     try:
         with pytest.raises(ValueError, match="Unknown Cell line featurizer"):
             get_cell_line_featurizer("notRegisteredAnywhere")
     finally:
         from drevalpy.components.register_builtins import ensure_components_registered
 
-        clear_cell_line_featurizer_registry()
+        cell_line_featurizer_registry.clear()
         ensure_components_registered()

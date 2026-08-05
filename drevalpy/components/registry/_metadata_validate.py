@@ -18,9 +18,7 @@ def validate_literature_reference(reference: LiteratureReference) -> list[str]:
     :returns: Result.
     """
     invalid: list[str] = []
-    if not reference.repo_url:
-        invalid.append("repo_url")
-    elif not _is_valid_url(reference.repo_url):
+    if not reference.repo_url or not _is_valid_url(reference.repo_url):
         invalid.append("repo_url")
     if not (reference.citation_text or reference.citation_doi):
         invalid.append("citation")

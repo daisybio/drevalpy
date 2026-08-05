@@ -7,10 +7,9 @@ from pathlib import Path
 
 
 def test_native_component_registration_does_not_import_literature_models() -> None:
-    from drevalpy.components.registry import clear_predictor_registry
     from drevalpy.components.registry.predictor import predictor_registry
 
-    clear_predictor_registry()
+    predictor_registry.clear()
     try:
         from drevalpy.components.register_builtins import register_native_components
 
@@ -21,7 +20,7 @@ def test_native_component_registration_does_not_import_literature_models() -> No
         assert "dipk" not in names
         assert "precily" not in names
     finally:
-        clear_predictor_registry()
+        predictor_registry.clear()
         from drevalpy.components.register_builtins import ensure_components_registered
 
         ensure_components_registered()

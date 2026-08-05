@@ -43,7 +43,7 @@ class Registry(ABC):
 
         :param registry_id: Stable identifier used in validation messages.
         :param label: Human-readable label for unknown/duplicate errors.
-        :param display_name: Catalog registry name written into metadata rows.
+        :param display_name: Catalog registry name written into component metadata.
         """
         self._registry_id = registry_id
         self._label = label
@@ -82,7 +82,7 @@ class Registry(ABC):
         :returns: Metadata dict for catalog listings.
         """
         cls = self.get(name)
-        return self._metadata_row(name, cls)
+        return self._component_metadata(name, cls)
 
     def list_metadata(self, *, tag: str | None = None) -> list[dict[str, Any]]:
         """Return metadata for all components, optionally filtered by discovery tag.
@@ -98,7 +98,11 @@ class Registry(ABC):
         return [row for row in rows if needle in row.get("tags", frozenset())]
 
     def clear(self) -> None:
-        """Remove all entries (primarily for testing)."""
+        """Remove all entries.
+
+        Intended for tests and controlled re-registration of built-ins, not as a
+        user-facing API.
+        """
         with self._lock:
             self._store.clear()
 
@@ -135,8 +139,8 @@ class Registry(ABC):
         """
 
     @abstractmethod
-    def _metadata_row(self, name: str, cls: type[Any]) -> dict[str, Any]:
-        """Return the metadata row for a registered class.
+    def _component_metadata(self, name: str, cls: type[Any]) -> dict[str, Any]:
+        """Return component metadata for a registered class.
 
         :param name: Registry name of the component.
         :param cls: Registered component class.

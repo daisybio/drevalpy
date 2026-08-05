@@ -115,11 +115,6 @@ def list_cell_line_featurizer_metadata(*, tag: str | None = None) -> list[dict[s
     return cell_line_featurizer_registry.list_metadata(tag=tag)
 
 
-def clear_cell_line_featurizer_registry() -> None:
-    """Clear the cell-line featurizer registry (primarily for testing)."""
-    cell_line_featurizer_registry.clear()
-
-
 def register_drug_featurizer(
     name: str,
     *,
@@ -205,11 +200,6 @@ def list_drug_featurizer_metadata(*, tag: str | None = None) -> list[dict[str, A
     """
     _ensure_builtins_for_discovery(registry_names=drug_featurizer_registry.list_names())
     return drug_featurizer_registry.list_metadata(tag=tag)
-
-
-def clear_drug_featurizer_registry() -> None:
-    """Clear the drug featurizer registry (primarily for testing)."""
-    drug_featurizer_registry.clear()
 
 
 def register_predictor(
@@ -300,8 +290,3 @@ def list_predictor_metadata(*, tag: str | None = None) -> list[dict[str, Any]]:
     """
     _ensure_builtins_for_discovery(registry_names=predictor_registry.list_names())
     return predictor_registry.list_metadata(tag=tag)
-
-
-def clear_predictor_registry() -> None:
-    """Clear the predictor registry (primarily for testing)."""
-    predictor_registry.clear()

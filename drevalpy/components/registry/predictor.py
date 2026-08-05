@@ -88,7 +88,7 @@ class PredictorRegistry(Registry):
         if missing:
             raise ValueError(format_validation_error(self._registry_id, name, missing=missing, invalid=[]))
 
-    def _metadata_row(self, name: str, cls: type[Any]) -> dict[str, Any]:
+    def _component_metadata(self, name: str, cls: type[Any]) -> dict[str, Any]:
         return predictor_component_metadata(self._display_name, name, cls)
 
 

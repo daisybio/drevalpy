@@ -12,13 +12,15 @@ from drevalpy.components.predictors.feature_free import FeatureFreePredictor
 from drevalpy.components.predictors.matrix import MatrixPredictor
 from drevalpy.components.predictors.structured import BlockPredictor
 from drevalpy.components.registry import (
-    clear_cell_line_featurizer_registry,
-    clear_drug_featurizer_registry,
-    clear_predictor_registry,
     register_cell_line_featurizer,
     register_drug_featurizer,
     register_predictor,
 )
+from drevalpy.components.registry.featurizer import (
+    cell_line_featurizer_registry,
+    drug_featurizer_registry,
+)
+from drevalpy.components.registry.predictor import predictor_registry
 from drevalpy.models.config import (
     CellLineFeaturizerConfig,
     DrugFeaturizerConfig,
@@ -32,9 +34,9 @@ from drevalpy.models.config_validation import validate_model_config
 
 @pytest.fixture(autouse=True)
 def _clear_registries() -> Iterator[None]:
-    clear_cell_line_featurizer_registry()
-    clear_drug_featurizer_registry()
-    clear_predictor_registry()
+    cell_line_featurizer_registry.clear()
+    drug_featurizer_registry.clear()
+    predictor_registry.clear()
     yield
     from drevalpy.components.register_builtins import register_builtin_components
 

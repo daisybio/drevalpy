@@ -9,23 +9,25 @@ import pytest
 from drevalpy.components.contracts import FeatureContract
 from drevalpy.components.register_builtins import register_builtin_components
 from drevalpy.components.registry import (
-    clear_cell_line_featurizer_registry,
-    clear_drug_featurizer_registry,
     get_cell_line_featurizer,
     get_drug_featurizer,
     list_cell_line_featurizers,
     list_drug_featurizers,
 )
+from drevalpy.components.registry.featurizer import (
+    cell_line_featurizer_registry,
+    drug_featurizer_registry,
+)
 
 
 @pytest.fixture(autouse=True)
 def _register_components() -> Iterator[None]:
-    clear_cell_line_featurizer_registry()
-    clear_drug_featurizer_registry()
+    cell_line_featurizer_registry.clear()
+    drug_featurizer_registry.clear()
     register_builtin_components()
     yield
-    clear_cell_line_featurizer_registry()
-    clear_drug_featurizer_registry()
+    cell_line_featurizer_registry.clear()
+    drug_featurizer_registry.clear()
     register_builtin_components()
 
 

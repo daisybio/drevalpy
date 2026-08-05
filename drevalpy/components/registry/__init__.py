@@ -3,9 +3,6 @@
 from drevalpy.components.registry.base import Registry
 from drevalpy.components.registry.featurizer import FeaturizerRegistry
 from drevalpy.components.registry.lookup import (
-    clear_cell_line_featurizer_registry,
-    clear_drug_featurizer_registry,
-    clear_predictor_registry,
     get_cell_line_featurizer,
     get_cell_line_featurizer_metadata,
     get_drug_featurizer,
@@ -28,9 +25,6 @@ __all__ = [
     "FeaturizerRegistry",
     "PredictorRegistry",
     "Registry",
-    "clear_cell_line_featurizer_registry",
-    "clear_drug_featurizer_registry",
-    "clear_predictor_registry",
     "get_cell_line_featurizer",
     "get_cell_line_featurizer_metadata",
     "get_drug_featurizer",

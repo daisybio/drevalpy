@@ -1,4 +1,4 @@
-"""Flatten registry metadata rows for featurizers and predictors."""
+"""Flatten component metadata for featurizers and predictors."""
 
 from __future__ import annotations
 
