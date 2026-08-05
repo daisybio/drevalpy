@@ -81,12 +81,16 @@ def _tiny_hpams(model_cls) -> dict:
 
 
 @pytest.mark.parametrize("model_name", GCMF_FAMILY)
-def test_gcmf_family_train_predict_save_load(model_name: str, data_dir) -> None:
+def test_gcmf_family_train_predict_save_load(model_name: str, data_dir, sample_dataset) -> None:
     """
-    Each model trains on TOYv1, predicts finite values, and round-trips through save/load.
+    Each model trains on TOYv1's measured responses, predicts, and round-trips save/load.
+
+    The targets are the real TOYv1 responses rather than synthetic values, so the model is
+    trained on actual signal and the fit is checked, not just the plumbing.
 
     :param model_name: name of the GCMF-family model under test
     :param data_dir: path to the test data directory (session fixture from conftest)
+    :param sample_dataset: measured TOYv1 responses (session fixture from conftest)
     """
     data_path = str(data_dir)
     model = MODEL_FACTORY[model_name]()
@@ -94,17 +98,19 @@ def test_gcmf_family_train_predict_save_load(model_name: str, data_dir) -> None:
     cell_input = model.load_cell_line_features(data_path=data_path, dataset_name="TOYv1")
     drug_input = model.load_drug_features(data_path=data_path, dataset_name="TOYv1")
 
-    cells = list(cell_input.identifiers)[:8]
-    drugs = list(drug_input.identifiers)[:5]
-    cl_ids = np.array([c for c in cells for _ in drugs])
-    dr_ids = np.array([d for _ in cells for d in drugs])
-    responses = np.random.default_rng(0).normal(size=len(cl_ids)).astype(float)
+    # copied off the session fixture so splitting it elsewhere cannot affect this test
+    cl_ids = np.asarray(sample_dataset.cell_line_ids)
+    dr_ids = np.asarray(sample_dataset.drug_ids)
+    responses = np.asarray(sample_dataset.response, dtype=float)
     train = DrugResponseDataset(response=responses, cell_line_ids=cl_ids, drug_ids=dr_ids, dataset_name="TOYv1")
 
     model.train(output=train, cell_line_input=cell_input, drug_input=drug_input)
     preds = model.predict(cell_line_ids=cl_ids, drug_ids=dr_ids, cell_line_input=cell_input, drug_input=drug_input)
     assert preds.shape == cl_ids.shape
     assert np.isfinite(preds).all()
+    # training on real responses has to leave the predictions correlated with them; a model that
+    # learned nothing, or collapsed to a constant, would not clear this
+    assert np.corrcoef(preds, responses)[0, 1] > 0.2
 
     # save -> load -> predict must reproduce the same predictions
     with tempfile.TemporaryDirectory() as directory:
@@ -149,10 +155,9 @@ def test_rgcmf_raises_on_relation_without_pubchem_id(tmp_path, data_dir) -> None
     rel_dir = tmp_path / "meta" / RGCMF._DRUG_SIM_DIR
     for stale in rel_dir.glob("drug_pathways.csv*"):
         stale.unlink()
-    # an old-style table keyed only by drug name
-    pd.DataFrame({"drug_name": ["Daporinad", "Axitinib"], "pathway": ["PW0", "PW0"]}).to_csv(
-        rel_dir / "drug_pathways.csv", index=False
-    )
+    # an old-style table keyed on drug name; the join key is checked before any row is read,
+    # so the header alone is what this exercises
+    pd.DataFrame(columns=["drug_name", "pathway"]).to_csv(rel_dir / "drug_pathways.csv", index=False)
 
     model = RGCMF()
     model.build_model(_tiny_hpams(RGCMF))
