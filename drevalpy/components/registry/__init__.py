@@ -1,6 +1,6 @@
 """Component registries for cell-line featurizers, drug featurizers, and predictors."""
 
-from drevalpy.components.registry.core import Registry
+from drevalpy.components.registry.core import FeaturizerRegistry, PredictorRegistry, Registry
 from drevalpy.components.registry.lookup import (
     clear_cell_line_featurizer_registry,
     clear_drug_featurizer_registry,
@@ -23,6 +23,8 @@ from drevalpy.components.registry.lookup import (
 )
 
 __all__ = [
+    "FeaturizerRegistry",
+    "PredictorRegistry",
     "Registry",
     "clear_cell_line_featurizer_registry",
     "clear_drug_featurizer_registry",

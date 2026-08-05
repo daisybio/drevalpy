@@ -1,13 +1,10 @@
-"""Post-decorator validation for registry class metadata."""
+"""Shared registration metadata validation (description, tags, literature)."""
 
 from __future__ import annotations
 
 from typing import Any
 
 from drevalpy.types.literature_reference import LiteratureReference
-
-_FEATURIZER_REGISTRY_IDS = frozenset({"cell_line_featurizer", "drug_featurizer"})
-_PREDICTOR_REGISTRY_ID = "predictor"
 
 
 def _is_valid_url(url: str) -> bool:
@@ -32,27 +29,6 @@ def validate_literature_reference(reference: LiteratureReference) -> list[str]:
     return invalid
 
 
-def _missing_metadata_fields(registry_id: str, cls: type[Any]) -> list[str]:
-    """Return required metadata fields missing from ``cls``.
-
-    :param registry_id: Registry identifier (featurizer or predictor).
-    :param cls: Registered component class.
-    :returns: Names of required metadata fields that are absent or empty.
-    """
-    missing: list[str] = []
-    description = str(getattr(cls, "description", "") or "").strip()
-    if not description:
-        missing.append("description")
-    if registry_id in _FEATURIZER_REGISTRY_IDS and "contract" not in cls.__dict__:
-        missing.append("contract")
-    if registry_id == _PREDICTOR_REGISTRY_ID:
-        if "cell_line_contract" not in cls.__dict__:
-            missing.append("cell_line_contract")
-        if "drug_contract" not in cls.__dict__:
-            missing.append("drug_contract")
-    return missing
-
-
 def _has_invalid_tags(tags: object) -> bool:
     """Return whether ``tags`` is not a collection of non-empty strings.
 
@@ -66,8 +42,21 @@ def _has_invalid_tags(tags: object) -> bool:
     return any(not isinstance(tag, str) or not tag.strip() for tag in tags)
 
 
-def _invalid_metadata_fields(cls: type[Any]) -> list[str]:
-    """Return metadata fields with invalid values on ``cls``.
+def _missing_shared_fields(cls: type[Any]) -> list[str]:
+    """Return required shared metadata fields missing from ``cls``.
+
+    :param cls: Registered component class.
+    :returns: Names of required metadata fields that are absent or empty.
+    """
+    missing: list[str] = []
+    description = str(getattr(cls, "description", "") or "").strip()
+    if not description:
+        missing.append("description")
+    return missing
+
+
+def _invalid_shared_fields(cls: type[Any]) -> list[str]:
+    """Return shared metadata fields with invalid values on ``cls``.
 
     :param cls: Registered component class.
     :returns: Names of metadata fields with invalid values.
@@ -86,7 +75,7 @@ def _invalid_metadata_fields(cls: type[Any]) -> list[str]:
     return invalid
 
 
-def _format_validation_error(
+def format_validation_error(
     registry_id: str,
     name: str,
     *,
@@ -109,19 +98,22 @@ def _format_validation_error(
     return f"{registry_id} '{name}' metadata validation failed: " + ", ".join(parts)
 
 
-def validate_registered_class_metadata(
+def validate_shared_registration_metadata(
     registry_id: str,
     name: str,
     cls: type[Any],
 ) -> None:
-    """Raise ``ValueError`` if class metadata is inconsistent or incomplete.
+    """Raise ``ValueError`` if shared class metadata is inconsistent or incomplete.
+
+    Validates description, tags, and literature reference. Role-specific contract
+    checks live on ``FeaturizerRegistry`` / ``PredictorRegistry``.
 
     :param registry_id: registry id.
     :param name: name.
     :param cls: Registered component class.
     :raises ValueError: Raised on invalid input.
     """
-    missing = _missing_metadata_fields(registry_id, cls)
-    invalid = _invalid_metadata_fields(cls)
+    missing = _missing_shared_fields(cls)
+    invalid = _invalid_shared_fields(cls)
     if missing or invalid:
-        raise ValueError(_format_validation_error(registry_id, name, missing=missing, invalid=invalid))
+        raise ValueError(format_validation_error(registry_id, name, missing=missing, invalid=invalid))

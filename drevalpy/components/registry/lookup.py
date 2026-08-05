@@ -32,17 +32,17 @@ def register_cell_line_featurizer(
     name: str,
     *,
     description: str,
+    contract: FeatureContract | FeatureFormat,
     tags: Iterable[str] | None = None,
     reference: LiteratureReference | None = None,
-    contract: FeatureContract | FeatureFormat | None = None,
 ) -> Callable[[type[Any]], type[Any]]:
     """Decorator: register a cell-line featurizer.
 
     :param name: Registry name used in ``ModelConfig`` and recipes.
     :param description: Short human-readable summary for catalog listings.
+    :param contract: Feature format contract for predictor compatibility checks.
     :param tags: Optional discovery tags (for example ``"omics"``).
     :param reference: Optional literature citation metadata.
-    :param contract: Feature format contract for predictor compatibility checks.
 
     :returns: Class decorator that registers the decorated featurizer under *name*.
     """
@@ -124,17 +124,17 @@ def register_drug_featurizer(
     name: str,
     *,
     description: str,
+    contract: FeatureContract | FeatureFormat,
     tags: Iterable[str] | None = None,
     reference: LiteratureReference | None = None,
-    contract: FeatureContract | FeatureFormat | None = None,
 ) -> Callable[[type[Any]], type[Any]]:
     """Decorator: register a drug featurizer.
 
     :param name: Registry name used in ``ModelConfig`` and recipes.
     :param description: Short human-readable summary for catalog listings.
+    :param contract: Feature format contract for predictor compatibility checks.
     :param tags: Optional discovery tags.
     :param reference: Optional literature citation metadata.
-    :param contract: Feature format contract for predictor compatibility checks.
 
     :returns: Class decorator that registers the decorated featurizer under *name*.
     """
@@ -216,19 +216,19 @@ def register_predictor(
     name: str,
     *,
     description: str,
+    cell_line_contract: FeatureContract | FeatureFormat,
+    drug_contract: FeatureContract | FeatureFormat,
     tags: Iterable[str] | None = None,
     reference: LiteratureReference | None = None,
-    cell_line_contract: FeatureContract | FeatureFormat | None = None,
-    drug_contract: FeatureContract | FeatureFormat | None = None,
 ) -> Callable[[type[Any]], type[Any]]:
     """Decorator: register a predictor.
 
     :param name: Registry name used in ``ModelConfig`` and recipes.
     :param description: Short human-readable summary for catalog listings.
-    :param tags: Optional discovery tags.
-    :param reference: Optional literature citation metadata.
     :param cell_line_contract: Expected cell-line feature format.
     :param drug_contract: Expected drug feature format.
+    :param tags: Optional discovery tags.
+    :param reference: Optional literature citation metadata.
 
     :returns: Class decorator that registers the decorated predictor under *name*.
     """

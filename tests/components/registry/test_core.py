@@ -24,7 +24,7 @@ from drevalpy.components.registry import (
     register_drug_featurizer,
     register_predictor,
 )
-from drevalpy.components.registry.core import Registry
+from drevalpy.components.registry.core import FeaturizerRegistry
 
 
 @pytest.fixture(autouse=True)
@@ -244,8 +244,12 @@ def test_duplicate_predictor_drug_class_and_decorator_contract_fails() -> None:
 
 
 def test_register_existing_restores_registry_name() -> None:
-    registry = Registry("test", "Test component", "test_components", lambda *_: {"name": "x"})
-    decorated = registry.register("restored", description="restored")
+    registry = FeaturizerRegistry("test", "Test component", "test_components")
+    decorated = registry.register(
+        "restored",
+        description="restored",
+        contract=FeatureFormat.NUMERIC_MATRIX,
+    )
 
     @decorated
     class Restored:
@@ -261,30 +265,18 @@ def test_register_existing_restores_registry_name() -> None:
 
 
 def test_featurizer_registration_requires_explicit_contract() -> None:
-    with pytest.raises(ValueError, match="missing=\\['contract'\\]"):
-
-        @register_drug_featurizer(
-            "noContractDrug",
-            description="missing contract",
-        )
-        class NoContractDrug:
-            pass
+    with pytest.raises(TypeError, match="contract"):
+        register_drug_featurizer("noContractDrug", description="missing contract")  # type: ignore[call-arg]
 
 
 def test_predictor_registration_requires_explicit_contracts() -> None:
-    with pytest.raises(ValueError, match="missing=\\['cell_line_contract', 'drug_contract'\\]"):
-
-        @register_predictor(
-            "noContractPred",
-            description="missing contracts",
-        )
-        class NoContractPred(FeatureFreePredictor):
-            pass
+    with pytest.raises(TypeError, match="contract"):
+        register_predictor("noContractPred", description="missing contracts")  # type: ignore[call-arg]
 
 
 def test_registry_clear() -> None:
-    registry = Registry("test", "Test component", "test_components", lambda *_: {})
-    decorated = registry.register("x", description="x")
+    registry = FeaturizerRegistry("test", "Test component", "test_components")
+    decorated = registry.register("x", description="x", contract=FeatureFormat.NUMERIC_MATRIX)
 
     @decorated
     class X:

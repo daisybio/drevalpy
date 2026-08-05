@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import threading
+from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable
 from typing import Any
 
-from drevalpy.components.contracts import FeatureContract, FeatureFormat
-from drevalpy.components.registry._contracts import _set_class_attribute
-from drevalpy.components.registry._metadata_validate import validate_registered_class_metadata
-from drevalpy.components.registry.common import make_registration_decorator
+from drevalpy.components.contracts import FeatureContract, FeatureFormat, normalize_feature_contract
+from drevalpy.components.registry._metadata_validate import (
+    format_validation_error,
+    validate_shared_registration_metadata,
+)
 from drevalpy.components.registry.metadata import (
     featurizer_component_metadata,
     predictor_component_metadata,
@@ -17,66 +19,59 @@ from drevalpy.components.registry.metadata import (
 from drevalpy.types.literature_reference import LiteratureReference
 
 
-class Registry:
-    """Thread-safe name-to-class registry with metadata validation."""
+def _set_class_attribute(cls: type[Any], name: str, value: object) -> None:
+    """Assign a registration attribute on *cls* via ``setattr``.
 
-    def __init__(
-        self,
-        registry_id: str,
-        label: str,
-        display_name: str,
-        metadata_fn: Callable[[str, str, type[Any]], dict[str, str]],
-    ) -> None:
+    :param cls: Component class receiving the attribute.
+    :param name: Attribute name to set.
+    :param value: Attribute value to assign.
+    """
+    setattr(cls, name, value)
+
+
+def _contract_defined_on_class(cls: type[Any], *attr_names: str) -> bool:
+    return any(name in cls.__dict__ for name in attr_names)
+
+
+def _apply_shared_registration_metadata(
+    cls: type[Any],
+    *,
+    description: str,
+    tags: Iterable[str] | None = None,
+    reference: LiteratureReference | None = None,
+) -> None:
+    """Attach ``description``, optional ``tags``, and optional literature ``reference``.
+
+    :param cls: Class receiving registration metadata.
+    :param description: Short human-readable summary.
+    :param tags: Optional discovery tags.
+    :param reference: Optional literature citation metadata.
+    :raises TypeError: If *reference* is not a ``LiteratureReference``.
+    """
+    cls.description = description
+    normalized_tags = frozenset(str(tag).strip() for tag in (tags or ()) if str(tag).strip())
+    cls.tags = normalized_tags
+    if reference is not None and not isinstance(reference, LiteratureReference):
+        msg = f"reference must be LiteratureReference, got {type(reference).__name__}"
+        raise TypeError(msg)
+    cls.reference = reference
+
+
+class Registry(ABC):
+    """Thread-safe name-to-class registry with shared store and metadata listing."""
+
+    def __init__(self, registry_id: str, label: str, display_name: str) -> None:
         """Initialize instance state.
 
-        :param registry_id: registry id.
-        :param label: label.
-        :param display_name: display name.
-        :param metadata_fn: metadata fn.
+        :param registry_id: Stable identifier used in validation messages.
+        :param label: Human-readable label for unknown/duplicate errors.
+        :param display_name: Catalog registry name written into metadata rows.
         """
         self._registry_id = registry_id
         self._label = label
         self._display_name = display_name
-        self._metadata_fn = metadata_fn
         self._store: dict[str, type[Any]] = {}
         self._lock = threading.Lock()
-
-    def register(
-        self,
-        name: str,
-        *,
-        description: str,
-        tags: Iterable[str] | None = None,
-        reference: LiteratureReference | None = None,
-        contract: FeatureContract | FeatureFormat | None = None,
-        cell_line_contract: FeatureContract | FeatureFormat | None = None,
-        drug_contract: FeatureContract | FeatureFormat | None = None,
-    ) -> Callable[[type[Any]], type[Any]]:
-        """Return a class decorator that registers the decorated class under *name*.
-
-        :param name: Registry name used in model configs and discovery listings.
-        :param description: Short human-readable summary.
-        :param tags: Optional discovery tags.
-        :param reference: Optional literature citation metadata.
-        :param contract: Feature format contract for featurizer registries.
-        :param cell_line_contract: Expected cell-line feature format for predictors.
-        :param drug_contract: Expected drug feature format for predictors.
-
-        :returns: Class decorator that registers and returns the decorated class.
-        """
-        return make_registration_decorator(
-            self._store,
-            self._lock,
-            self._registry_id,
-            name,
-            description=description,
-            tags=tags,
-            reference=reference,
-            contract=contract,
-            cell_line_contract=cell_line_contract,
-            drug_contract=drug_contract,
-            already_registered_label=self._label,
-        )
 
     def get(self, name: str) -> type[Any]:
         """Return the class registered under *name*.
@@ -110,7 +105,7 @@ class Registry:
         :returns: Flattened metadata dict for catalog listings.
         """
         cls = self.get(name)
-        return self._metadata_fn(self._display_name, name, cls)
+        return self._metadata_row(name, cls)
 
     def list_metadata(self, *, tag: str | None = None) -> list[dict[str, str]]:
         """Return metadata for all components, optionally filtered by discovery tag.
@@ -149,26 +144,172 @@ class Registry:
         with self._lock:
             if name in self._store:
                 return
-            validate_registered_class_metadata(self._registry_id, name, cls)
+            validate_shared_registration_metadata(self._registry_id, name, cls)
+            self._validate_role(cls, name)
             self._store[name] = cls
             _set_class_attribute(cls, "registry_name", name)
 
+    @abstractmethod
+    def _validate_role(self, cls: type[Any], name: str) -> None:
+        """Raise ``ValueError`` when role-specific registration attributes are missing.
 
-cell_line_featurizer_registry = Registry(
+        :param cls: Class being validated.
+        :param name: Registry name used in error messages.
+        """
+
+    @abstractmethod
+    def _metadata_row(self, name: str, cls: type[Any]) -> dict[str, str]:
+        """Return the flattened metadata row for a registered class.
+
+        :param name: Registry name of the component.
+        :param cls: Registered component class.
+        :returns: Flattened metadata dict.
+        """
+
+
+class FeaturizerRegistry(Registry):
+    """Registry for cell-line or drug featurizers that emit one feature contract."""
+
+    def register(
+        self,
+        name: str,
+        *,
+        description: str,
+        contract: FeatureContract | FeatureFormat,
+        tags: Iterable[str] | None = None,
+        reference: LiteratureReference | None = None,
+    ) -> Callable[[type[Any]], type[Any]]:
+        """Return a class decorator that registers a featurizer under *name*.
+
+        :param name: Registry name used in model configs and discovery listings.
+        :param description: Short human-readable summary.
+        :param contract: Feature format contract for predictor matching.
+        :param tags: Optional discovery tags.
+        :param reference: Optional literature citation metadata.
+
+        :returns: Class decorator that registers and returns the decorated class.
+        """
+
+        def decorator(cls: type[Any]) -> type[Any]:
+            with self._lock:
+                if name in self._store:
+                    msg = f"{self._label} {name!r} already registered"
+                    raise ValueError(msg)
+                self._apply_contract(cls, contract)
+                _apply_shared_registration_metadata(
+                    cls,
+                    description=description,
+                    tags=tags,
+                    reference=reference,
+                )
+                validate_shared_registration_metadata(self._registry_id, name, cls)
+                self._validate_role(cls, name)
+                self._store[name] = cls
+                _set_class_attribute(cls, "registry_name", name)
+            return cls
+
+        return decorator
+
+    def _apply_contract(self, cls: type[Any], contract: FeatureContract | FeatureFormat) -> None:
+        if _contract_defined_on_class(cls, "contract"):
+            msg = f"{cls.__name__!r} already defines a featurizer contract on the class body"
+            raise ValueError(msg)
+        _set_class_attribute(cls, "contract", normalize_feature_contract(contract))
+
+    def _validate_role(self, cls: type[Any], name: str) -> None:
+        if "contract" in cls.__dict__:
+            return
+        raise ValueError(format_validation_error(self._registry_id, name, missing=["contract"], invalid=[]))
+
+    def _metadata_row(self, name: str, cls: type[Any]) -> dict[str, str]:
+        return featurizer_component_metadata(self._display_name, name, cls)
+
+
+class PredictorRegistry(Registry):
+    """Registry for predictors that declare cell-line and drug input contracts."""
+
+    def register(
+        self,
+        name: str,
+        *,
+        description: str,
+        cell_line_contract: FeatureContract | FeatureFormat,
+        drug_contract: FeatureContract | FeatureFormat,
+        tags: Iterable[str] | None = None,
+        reference: LiteratureReference | None = None,
+    ) -> Callable[[type[Any]], type[Any]]:
+        """Return a class decorator that registers a predictor under *name*.
+
+        :param name: Registry name used in model configs and discovery listings.
+        :param description: Short human-readable summary.
+        :param cell_line_contract: Expected cell-line feature format.
+        :param drug_contract: Expected drug feature format.
+        :param tags: Optional discovery tags.
+        :param reference: Optional literature citation metadata.
+
+        :returns: Class decorator that registers and returns the decorated class.
+        """
+
+        def decorator(cls: type[Any]) -> type[Any]:
+            with self._lock:
+                if name in self._store:
+                    msg = f"{self._label} {name!r} already registered"
+                    raise ValueError(msg)
+                self._apply_contracts(cls, cell_line_contract, drug_contract)
+                _apply_shared_registration_metadata(
+                    cls,
+                    description=description,
+                    tags=tags,
+                    reference=reference,
+                )
+                validate_shared_registration_metadata(self._registry_id, name, cls)
+                self._validate_role(cls, name)
+                self._store[name] = cls
+                _set_class_attribute(cls, "registry_name", name)
+            return cls
+
+        return decorator
+
+    def _apply_contracts(
+        self,
+        cls: type[Any],
+        cell_line_contract: FeatureContract | FeatureFormat,
+        drug_contract: FeatureContract | FeatureFormat,
+    ) -> None:
+        if _contract_defined_on_class(cls, "cell_line_contract"):
+            msg = f"{cls.__name__!r} already defines a cell-line contract on the class body"
+            raise ValueError(msg)
+        if _contract_defined_on_class(cls, "drug_contract"):
+            msg = f"{cls.__name__!r} already defines a drug contract on the class body"
+            raise ValueError(msg)
+        _set_class_attribute(cls, "cell_line_contract", normalize_feature_contract(cell_line_contract))
+        _set_class_attribute(cls, "drug_contract", normalize_feature_contract(drug_contract))
+
+    def _validate_role(self, cls: type[Any], name: str) -> None:
+        missing: list[str] = []
+        if "cell_line_contract" not in cls.__dict__:
+            missing.append("cell_line_contract")
+        if "drug_contract" not in cls.__dict__:
+            missing.append("drug_contract")
+        if missing:
+            raise ValueError(format_validation_error(self._registry_id, name, missing=missing, invalid=[]))
+
+    def _metadata_row(self, name: str, cls: type[Any]) -> dict[str, str]:
+        return predictor_component_metadata(self._display_name, name, cls)
+
+
+cell_line_featurizer_registry = FeaturizerRegistry(
     "cell_line_featurizer",
     "Cell line featurizer",
     "cell_line_featurizers",
-    featurizer_component_metadata,
 )
-drug_featurizer_registry = Registry(
+drug_featurizer_registry = FeaturizerRegistry(
     "drug_featurizer",
     "Drug featurizer",
     "drug_featurizers",
-    featurizer_component_metadata,
 )
-predictor_registry = Registry(
+predictor_registry = PredictorRegistry(
     "predictor",
     "Predictor",
     "predictors",
-    predictor_component_metadata,
 )

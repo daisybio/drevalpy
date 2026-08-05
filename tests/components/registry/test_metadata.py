@@ -4,18 +4,23 @@ from __future__ import annotations
 
 import pytest
 
-from drevalpy.components.registry._metadata_validate import validate_registered_class_metadata
-from drevalpy.components.registry.common import apply_registration_metadata
+from drevalpy.components.contracts import FeatureContract, FeatureFormat
+from drevalpy.components.registry._metadata_validate import validate_shared_registration_metadata
+from drevalpy.components.registry.core import (
+    FeaturizerRegistry,
+    PredictorRegistry,
+    _apply_shared_registration_metadata,
+)
 from drevalpy.types.literature_reference import LiteratureReference
 from tests._trusted_subprocess import run_trusted_python
 
 
 def test_literature_reference_is_accepted() -> None:
     class Lit:
-        cell_line_contract = object()
-        drug_contract = object()
+        cell_line_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
+        drug_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
 
-    apply_registration_metadata(
+    _apply_shared_registration_metadata(
         Lit,
         description="lit model",
         reference=LiteratureReference(
@@ -24,55 +29,53 @@ def test_literature_reference_is_accepted() -> None:
             deviations="none",
         ),
     )
-    validate_registered_class_metadata("predictor", "lit", Lit)
+    validate_shared_registration_metadata("predictor", "lit", Lit)
 
 
 def test_literature_reference_missing_fields_fails() -> None:
     class Lit:
-        cell_line_contract = object()
-        drug_contract = object()
+        cell_line_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
+        drug_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
 
-    apply_registration_metadata(
+    _apply_shared_registration_metadata(
         Lit,
         description="lit model",
         reference=LiteratureReference(repo_url="https://github.com/example/repo"),
     )
     with pytest.raises(ValueError, match="metadata validation failed"):
-        validate_registered_class_metadata("predictor", "lit", Lit)
+        validate_shared_registration_metadata("predictor", "lit", Lit)
 
 
-def test_featurizer_metadata_requires_explicit_contract() -> None:
+def test_featurizer_role_validation_requires_contract() -> None:
+    registry = FeaturizerRegistry("drug_featurizer", "Drug featurizer", "drug_featurizers")
+
     class Native:
-        pass
+        description = "native"
+        tags = frozenset()
+        reference = None
 
-    apply_registration_metadata(
-        Native,
-        description="native",
-    )
     with pytest.raises(ValueError, match="missing=\\['contract'\\]"):
-        validate_registered_class_metadata("drug_featurizer", "native", Native)
+        registry._validate_role(Native, "native")
 
 
-def test_predictor_metadata_requires_explicit_contracts() -> None:
+def test_predictor_role_validation_requires_contracts() -> None:
+    registry = PredictorRegistry("predictor", "Predictor", "predictors")
+
     class Native:
-        pass
+        description = "native"
+        tags = frozenset()
+        reference = None
 
-    apply_registration_metadata(
-        Native,
-        description="native",
-    )
     with pytest.raises(ValueError, match="missing=\\['cell_line_contract', 'drug_contract'\\]"):
-        validate_registered_class_metadata("predictor", "native", Native)
+        registry._validate_role(Native, "native")
 
 
 def test_missing_description_fails() -> None:
     class Empty:
         tags: frozenset[str] = frozenset()
-        cell_line_contract = object()
-        drug_contract = object()
 
     with pytest.raises(ValueError, match="missing=\\['description'\\]"):
-        validate_registered_class_metadata("predictor", "empty", Empty)
+        validate_shared_registration_metadata("predictor", "empty", Empty)
 
 
 def test_fresh_process_discovery_returns_all_builtins() -> None:
