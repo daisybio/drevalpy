@@ -10,12 +10,7 @@ from drevalpy.components.registry._metadata_validate import (
     format_validation_error,
     validate_shared_registration_metadata,
 )
-from drevalpy.components.registry.base import (
-    Registry,
-    apply_shared_registration_metadata,
-    contract_defined_on_class,
-    set_class_attribute,
-)
+from drevalpy.components.registry.base import Registry, apply_shared_registration_metadata
 from drevalpy.components.registry.metadata import featurizer_component_metadata
 from drevalpy.types.literature_reference import LiteratureReference
 
@@ -58,16 +53,16 @@ class FeaturizerRegistry(Registry):
                 validate_shared_registration_metadata(self._registry_id, name, cls)
                 self._validate_role(cls, name)
                 self._store[name] = cls
-                set_class_attribute(cls, "registry_name", name)
+                cls.registry_name = name
             return cls
 
         return decorator
 
     def _apply_contract(self, cls: type[Any], contract: FeatureContract | FeatureFormat) -> None:
-        if contract_defined_on_class(cls, "contract"):
+        if "contract" in cls.__dict__:
             msg = f"{cls.__name__!r} already defines a featurizer contract on the class body"
             raise ValueError(msg)
-        set_class_attribute(cls, "contract", normalize_feature_contract(contract))
+        cls.contract = normalize_feature_contract(contract)
 
     def _validate_role(self, cls: type[Any], name: str) -> None:
         if "contract" in cls.__dict__:

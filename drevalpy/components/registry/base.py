@@ -11,26 +11,6 @@ from drevalpy.components.registry._metadata_validate import validate_shared_regi
 from drevalpy.types.literature_reference import LiteratureReference
 
 
-def set_class_attribute(cls: type[Any], name: str, value: object) -> None:
-    """Assign a registration attribute on *cls* via ``setattr``.
-
-    :param cls: Component class receiving the attribute.
-    :param name: Attribute name to set.
-    :param value: Attribute value to assign.
-    """
-    setattr(cls, name, value)
-
-
-def contract_defined_on_class(cls: type[Any], *attr_names: str) -> bool:
-    """Return whether any of *attr_names* is defined on the class body.
-
-    :param cls: Class to inspect.
-    :param attr_names: Attribute names to check on ``cls.__dict__``.
-    :returns: ``True`` when at least one name is present on the class body.
-    """
-    return any(name in cls.__dict__ for name in attr_names)
-
-
 def apply_shared_registration_metadata(
     cls: type[Any],
     *,
@@ -144,7 +124,7 @@ class Registry(ABC):
             validate_shared_registration_metadata(self._registry_id, name, cls)
             self._validate_role(cls, name)
             self._store[name] = cls
-            set_class_attribute(cls, "registry_name", name)
+            cls.registry_name = name
 
     @abstractmethod
     def _validate_role(self, cls: type[Any], name: str) -> None:

@@ -1,4 +1,4 @@
-"""Tests for internal component registries."""
+"""Tests for public registry lookup and registration decorators."""
 
 from __future__ import annotations
 

@@ -10,12 +10,7 @@ from drevalpy.components.registry._metadata_validate import (
     format_validation_error,
     validate_shared_registration_metadata,
 )
-from drevalpy.components.registry.base import (
-    Registry,
-    apply_shared_registration_metadata,
-    contract_defined_on_class,
-    set_class_attribute,
-)
+from drevalpy.components.registry.base import Registry, apply_shared_registration_metadata
 from drevalpy.components.registry.metadata import predictor_component_metadata
 from drevalpy.types.literature_reference import LiteratureReference
 
@@ -64,7 +59,7 @@ class PredictorRegistry(Registry):
                 validate_shared_registration_metadata(self._registry_id, name, cls)
                 self._validate_role(cls, name)
                 self._store[name] = cls
-                set_class_attribute(cls, "registry_name", name)
+                cls.registry_name = name
             return cls
 
         return decorator
@@ -75,14 +70,14 @@ class PredictorRegistry(Registry):
         cell_line_contract: FeatureContract | FeatureFormat,
         drug_contract: FeatureContract | FeatureFormat,
     ) -> None:
-        if contract_defined_on_class(cls, "cell_line_contract"):
+        if "cell_line_contract" in cls.__dict__:
             msg = f"{cls.__name__!r} already defines a cell-line contract on the class body"
             raise ValueError(msg)
-        if contract_defined_on_class(cls, "drug_contract"):
+        if "drug_contract" in cls.__dict__:
             msg = f"{cls.__name__!r} already defines a drug contract on the class body"
             raise ValueError(msg)
-        set_class_attribute(cls, "cell_line_contract", normalize_feature_contract(cell_line_contract))
-        set_class_attribute(cls, "drug_contract", normalize_feature_contract(drug_contract))
+        cls.cell_line_contract = normalize_feature_contract(cell_line_contract)
+        cls.drug_contract = normalize_feature_contract(drug_contract)
 
     def _validate_role(self, cls: type[Any], name: str) -> None:
         missing: list[str] = []

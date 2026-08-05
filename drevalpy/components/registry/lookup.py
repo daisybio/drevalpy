@@ -6,11 +6,11 @@ from collections.abc import Callable, Iterable
 from typing import Any
 
 from drevalpy.components.contracts import FeatureContract, FeatureFormat
-from drevalpy.components.registry.core import (
+from drevalpy.components.registry.featurizer import (
     cell_line_featurizer_registry,
     drug_featurizer_registry,
-    predictor_registry,
 )
+from drevalpy.components.registry.predictor import predictor_registry
 from drevalpy.types.literature_reference import LiteratureReference
 
 
