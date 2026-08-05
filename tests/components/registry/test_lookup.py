@@ -198,7 +198,7 @@ def test_decorator_returns_original_class() -> None:
 
 
 def test_duplicate_drug_class_and_decorator_contract_fails() -> None:
-    with pytest.raises(ValueError, match="already defines a featurizer contract"):
+    with pytest.raises(ValueError, match="do not set contract on the class body"):
 
         @register_drug_featurizer(
             "drugConflict",
@@ -210,7 +210,7 @@ def test_duplicate_drug_class_and_decorator_contract_fails() -> None:
 
 
 def test_duplicate_class_and_decorator_contract_fails() -> None:
-    with pytest.raises(ValueError, match="already defines a featurizer contract"):
+    with pytest.raises(ValueError, match="do not set contract on the class body"):
 
         @register_cell_line_featurizer(
             "conflict",
@@ -222,7 +222,7 @@ def test_duplicate_class_and_decorator_contract_fails() -> None:
 
 
 def test_duplicate_predictor_class_and_decorator_contract_fails() -> None:
-    with pytest.raises(ValueError, match="already defines a cell-line contract"):
+    with pytest.raises(ValueError, match="do not set cell_line_contract on the class body"):
 
         @register_predictor(
             "predConflict",
@@ -230,12 +230,12 @@ def test_duplicate_predictor_class_and_decorator_contract_fails() -> None:
             cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
             drug_contract=FeatureFormat.NUMERIC_MATRIX,
         )
-        class PredConflict(FeatureFreePredictor):
+        class PredConflict:
             cell_line_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
 
 
 def test_duplicate_predictor_drug_class_and_decorator_contract_fails() -> None:
-    with pytest.raises(ValueError, match="already defines a drug contract"):
+    with pytest.raises(ValueError, match="do not set drug_contract on the class body"):
 
         @register_predictor(
             "predDrugConflict",
@@ -243,7 +243,7 @@ def test_duplicate_predictor_drug_class_and_decorator_contract_fails() -> None:
             cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
             drug_contract=FeatureFormat.NUMERIC_MATRIX,
         )
-        class PredDrugConflict(FeatureFreePredictor):
+        class PredDrugConflict:
             drug_contract = FeatureContract(format=FeatureFormat.GRAPH)
 
 

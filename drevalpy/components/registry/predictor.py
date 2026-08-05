@@ -71,10 +71,10 @@ class PredictorRegistry(Registry):
         drug_contract: FeatureContract | FeatureFormat,
     ) -> None:
         if "cell_line_contract" in cls.__dict__:
-            msg = f"{cls.__name__!r} already defines a cell-line contract on the class body"
+            msg = f"{cls.__name__}: do not set cell_line_contract on the class body; " "pass it to @register_predictor"
             raise ValueError(msg)
         if "drug_contract" in cls.__dict__:
-            msg = f"{cls.__name__!r} already defines a drug contract on the class body"
+            msg = f"{cls.__name__}: do not set drug_contract on the class body; " "pass it to @register_predictor"
             raise ValueError(msg)
         cls.cell_line_contract = normalize_feature_contract(cell_line_contract)
         cls.drug_contract = normalize_feature_contract(drug_contract)

@@ -18,9 +18,9 @@ if TYPE_CHECKING:
 class Predictor(ABC):
     """Train and predict drug response from a ``ModelInputBatch``.
 
-    Subclasses must declare ``cell_line_contract`` and ``drug_contract``
-    explicitly (via registration or on the class). There is no inherited
-    default feature format.
+    Predictors take featurizer outputs and predict a response for each drug/cell-line pair in the batch.
+    Subclasses must be registered to the predictor registry using ``@register_predictor``,
+    so that they can be discovered and used in models.
     """
 
     cell_line_contract: ClassVar[FeatureContract]
@@ -32,6 +32,21 @@ class Predictor(ABC):
     supported_scopes: ClassVar[frozenset[ModelScope]] = frozenset({ModelScope.MULTI_DRUG})
     required_cell_line_blocks: ClassVar[tuple[str, ...]] = ()
     required_drug_blocks: ClassVar[tuple[str, ...]] = ()
+
+    def __init_subclass__(cls, **kwargs: object) -> None:
+        """Reject class-body contract assignments; registration sets them later.
+
+        :param kwargs: Forwarded to ``ABC.__init_subclass__``.
+        :raises TypeError: If a contract is assigned on the subclass body.
+        """
+        super().__init_subclass__(**kwargs)
+        forbidden = [name for name in ("cell_line_contract", "drug_contract") if name in cls.__dict__]
+        if forbidden:
+            msg = (
+                f"{cls.__name__}: do not set {', '.join(forbidden)} on the class body; "
+                "pass them to @register_predictor"
+            )
+            raise TypeError(msg)
 
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
         """Store hyperparameters merged with class defaults.

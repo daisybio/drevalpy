@@ -17,12 +17,27 @@ class Featurizer(ABC):
     """Transform feature tables into per-entity representation payloads.
 
     Cell-line featurizers consume cell-line features; drug featurizers consume
-    drug features. Both must declare ``contract`` explicitly (via registration
-    or on the class) for predictor matching. Numeric featurizers return 2D
-    matrices; graph and ragged featurizers return object arrays of payloads.
+    drug features. Subclasses must be registered
+    to the cell-line or drug featurizer registry using
+    ``@register_cell_line_featurizer`` or ``@register_drug_featurizer``, so that
+    they can be discovered and used in models.
     """
 
     contract: ClassVar[FeatureContract]
+
+    def __init_subclass__(cls, **kwargs: object) -> None:
+        """Reject class-body ``contract`` assignments; registration sets it later.
+
+        :param kwargs: Forwarded to ``ABC.__init_subclass__``.
+        :raises TypeError: If ``contract`` is assigned on the subclass body.
+        """
+        super().__init_subclass__(**kwargs)
+        if "contract" in cls.__dict__:
+            msg = (
+                f"{cls.__name__}: do not set contract on the class body; "
+                "pass contract= to @register_cell_line_featurizer / @register_drug_featurizer"
+            )
+            raise TypeError(msg)
 
     @abstractmethod
     def fit(

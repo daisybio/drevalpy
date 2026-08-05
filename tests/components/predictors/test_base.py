@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from typing import ClassVar
-
 import numpy as np
+import pytest
 
 from drevalpy.components.contracts import FeatureContract, FeatureFormat
 from drevalpy.components.model_input_batch import ModelInputBatch
@@ -15,9 +14,6 @@ from drevalpy.models.config import PredictorConfig
 
 
 class _StubPredictor(Predictor):
-    cell_line_contract: ClassVar[FeatureContract] = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
-    drug_contract: ClassVar[FeatureContract] = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
-
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, object]]:
         return {"alpha": {"type": "float", "default": 1.0}}
@@ -27,6 +23,17 @@ class _StubPredictor(Predictor):
 
     def predict(self, batch: ModelInputBatch) -> np.ndarray:
         return np.zeros(batch.n_pairs, dtype=np.float64)
+
+
+_StubPredictor.cell_line_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
+_StubPredictor.drug_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
+
+
+def test_predictor_rejects_class_body_contracts() -> None:
+    with pytest.raises(TypeError, match="do not set cell_line_contract"):
+
+        class BadPredictor(Predictor):  # type: ignore[misc]
+            cell_line_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
 
 
 def test_predictor_init_merges_default_hyperparameters() -> None:

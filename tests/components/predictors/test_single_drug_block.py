@@ -45,8 +45,6 @@ class _FakeAlgorithm(LiteratureTrainingMixin):
 
 
 class _FakePredictor(SingleDrugBlockPredictor):
-    cell_line_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
-    drug_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
     required_cell_line_blocks = ("gene_expression",)
     required_drug_blocks = ("identity",)
 
@@ -62,6 +60,10 @@ class _FakePredictor(SingleDrugBlockPredictor):
         algorithm = _FakeAlgorithm()
         algorithm.trained_drug_ids = list(payload.get("trained_drug_ids", []))
         return algorithm
+
+
+_FakePredictor.cell_line_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
+_FakePredictor.drug_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
 
 
 def _omics_batch() -> ModelInputBatch:

@@ -60,7 +60,10 @@ class FeaturizerRegistry(Registry):
 
     def _apply_contract(self, cls: type[Any], contract: FeatureContract | FeatureFormat) -> None:
         if "contract" in cls.__dict__:
-            msg = f"{cls.__name__!r} already defines a featurizer contract on the class body"
+            msg = (
+                f"{cls.__name__}: do not set contract on the class body; "
+                "pass contract= to @register_cell_line_featurizer / @register_drug_featurizer instead"
+            )
             raise ValueError(msg)
         cls.contract = normalize_feature_contract(contract)
 

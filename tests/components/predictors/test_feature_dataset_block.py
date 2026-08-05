@@ -46,8 +46,6 @@ class _FakeAlgorithm(LiteratureTrainingMixin):
 
 
 class _FakePredictor(FeatureDatasetBlockPredictor):
-    cell_line_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
-    drug_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
     required_cell_line_blocks = ("gene_expression",)
     required_drug_blocks = ("fingerprints",)
     requires_drug_featurizer = True
@@ -69,6 +67,10 @@ class _FakePredictor(FeatureDatasetBlockPredictor):
     @classmethod
     def get_default_hyperparameters(cls) -> dict[str, object]:
         return dict(_FakeAlgorithm.get_default_hyperparameters())
+
+
+_FakePredictor.cell_line_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
+_FakePredictor.drug_contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
 
 
 class _StrictFittedPredictor(_FakePredictor):
