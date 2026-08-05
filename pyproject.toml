@@ -58,6 +58,7 @@ gseapy = ">=1.1.0"
 mygene = "*"
 obonet = "*"
 optuna = "*"
+typing-extensions = ">=4.12.0"
 
 [tool.poetry.requires-plugins]
 poetry-plugin-export = ">=1.8"

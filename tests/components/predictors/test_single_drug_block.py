@@ -14,7 +14,7 @@ from drevalpy.components.feature_block import FeatureBlock
 from drevalpy.components.model_input_batch import ModelInputBatch
 from drevalpy.components.predictors.literature._torch_state import save_object_mapping
 from drevalpy.components.predictors.literature._training_helpers import LiteratureTrainingMixin
-from drevalpy.components.predictors.literature.single_drug_block import SingleDrugBlockPredictor
+from drevalpy.components.predictors.single_drug_block import SingleDrugBlockPredictor
 from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.components.training_context import TrainingContext
 from drevalpy.datasets.dataset import DrugResponseDataset
@@ -208,7 +208,7 @@ def test_per_drug_checkpoint_dirs_are_isolated() -> None:
         return algorithm
 
     with patch(
-        "drevalpy.components.predictors.literature.single_drug_block.train_fitted_algorithm",
+        "drevalpy.components.predictors.single_drug_block.train_fitted_algorithm",
         side_effect=_capture_train,
     ):
         predictor.fit(batch)

@@ -8,7 +8,8 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
-LITERATURE_ROOT = REPO_ROOT / "drevalpy" / "components" / "predictors" / "literature"
+PREDICTORS_ROOT = REPO_ROOT / "drevalpy" / "components" / "predictors"
+LITERATURE_ROOT = PREDICTORS_ROOT / "literature"
 
 FORBIDDEN_TOKENS = (
     "literature.impl",
@@ -22,6 +23,16 @@ FORBIDDEN_TOKENS = (
 )
 
 SINGLE_DRUG_PACKAGES = frozenset({"molir", "superfeltr"})
+FEATURE_DATASET_BLOCK_PACKAGES = frozenset(
+    {
+        "dipk",
+        "sparsego",
+        "pharmaformer",
+        "precily",
+        "srmf",
+        "druggnn",
+    }
+)
 LITERATURE_PACKAGES = (
     "dipk",
     "sparsego",
@@ -74,7 +85,10 @@ def test_literature_predictor_modules_own_lifecycle(package: str) -> None:
     assert predictor_path.is_file()
     defined_methods = _defined_lifecycle_methods(predictor_path)
     if package in SINGLE_DRUG_PACKAGES:
-        shared_path = LITERATURE_ROOT / "single_drug_block.py"
+        shared_path = PREDICTORS_ROOT / "single_drug_block.py"
+        defined_methods |= _defined_lifecycle_methods(shared_path)
+    elif package in FEATURE_DATASET_BLOCK_PACKAGES:
+        shared_path = PREDICTORS_ROOT / "feature_dataset_block.py"
         defined_methods |= _defined_lifecycle_methods(shared_path)
     missing = [name for name in LIFECYCLE_METHODS if name not in defined_methods]
     assert not missing, f"{predictor_path} missing lifecycle methods: {missing}"

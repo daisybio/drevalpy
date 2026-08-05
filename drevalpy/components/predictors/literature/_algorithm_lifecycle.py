@@ -21,6 +21,9 @@ def train_fitted_algorithm(
 ) -> TAlgorithm:
     """Configure, train, and return a fitted literature algorithm.
 
+    **Deprecated** for new predictors: prefer ``ModelInputBatch``-native
+    ``fit`` implementations. Part of the FeatureDataset predictor bridge.
+
     :param algorithm_cls: Literature algorithm class to instantiate.
     :param hyperparameters: Hyperparameters passed to ``configure``.
     :param preload_state: Attributes to set on the algorithm before training.

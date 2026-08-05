@@ -10,7 +10,7 @@ from drevalpy.components.predictors.literature._metadata import MOLIR_REFERENCE
 from drevalpy.components.predictors.literature._training_helpers import LiteratureTrainingMixin
 from drevalpy.components.predictors.literature.molir.algorithm import MOLIR
 from drevalpy.components.predictors.literature.molir.state import apply_state, export_state
-from drevalpy.components.predictors.literature.single_drug_block import SingleDrugBlockPredictor
+from drevalpy.components.predictors.single_drug_block import SingleDrugBlockPredictor
 from drevalpy.components.registry import register_predictor
 from drevalpy.models.config import PredictionMode
 

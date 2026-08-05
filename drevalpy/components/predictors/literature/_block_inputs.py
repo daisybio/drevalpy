@@ -22,6 +22,10 @@ def materialize_block_inputs(
 ) -> tuple[FeatureDataset, FeatureDataset | None]:
     """Build cell-line and optional drug FeatureDatasets from batch blocks.
 
+    **Deprecated** for new predictors: prefer reading ``ModelInputBatch`` blocks
+    directly via ``BlockPredictor`` / ``MatrixPredictor`` /
+    ``FeatureFreePredictor``. Part of the FeatureDataset predictor bridge.
+
     :param predictor: Predictor requesting the materialized views.
     :param batch: Structured input batch with entity ids and feature blocks.
     :param required_cell_line_blocks: Cell-line block names that must be present.
