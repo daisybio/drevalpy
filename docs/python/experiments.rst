@@ -94,7 +94,7 @@ Configure the search with:
    )
 
 Ray and Optuna
-~~~~~~~~~~~~~
+~~~~~~~~~~~~~~
 
 Ray and Optuna fulfill different roles in the hyperparameter tuning process:
 
