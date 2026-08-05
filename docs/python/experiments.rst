@@ -1,5 +1,5 @@
-Experiments
-===========
+Experiments and Hyperparameter Optimization
+===========================================
 
 If you are reading this, we assume you are already familiar with these
 concepts:
@@ -48,24 +48,37 @@ Common options
 
 - ``test_mode``: ``LPO``, ``LCO``, ``LTO``, or ``LDO`` (see
   :doc:`/concepts/evaluation`).
-- ``baselines``: extra baseline classes; randomization/robustness apply only to
-  ``models``.
-- ``hyperparameter_tuning``: ``True`` tunes over each model's structured
-  search space; ``False`` uses each model's
-  ``get_default_hyperparameters()`` only.
-- ``hpo_num_samples``, ``hpo_random_state``, ``hpo_resources_per_trial``:
-  control the search when tuning is on.
-- ``randomization_mode`` / ``randomization_type`` / ``n_trials_robustness``:
-  stress tests (see :doc:`/concepts/evaluation`).
+- ``baselines``: extra baseline classes; randomization and robustness apply
+  only to ``models``.
+- ``n_cv_splits``: number of outer CV folds (default ``5``).
+- ``path_data`` / ``path_out`` / ``run_id``: where features are cached and
+  where predictions are written.
+- ``randomization_mode`` / ``n_trials_robustness``: optional stress tests
+  (see :doc:`/concepts/evaluation`).
 - ``cross_study_datasets``: other ``DrugResponseDataset`` instances for
   transfer evaluation.
-- ``custom_splitter`` / ``custom_split_name``: replace built-in
-  ``split_dataset`` with an external split creator.
-- ``final_model_on_full_data``: optionally fit and persist a production model
-  after CV.
 - ``wandb_project``: enable Weights & Biases logging when set.
 
-Example with tuning enabled:
+Hyperparameter options are covered below. See :doc:`visualization` for
+reports over the written predictions.
+
+Hyperparameter tuning
+---------------------
+
+Tuning is **on by default**. When ``hyperparameter_tuning=True``, each model
+with a search space is tuned with Ray Tune and Optuna before final fold
+evaluation. Set ``hyperparameter_tuning=False`` to skip search and use each
+model's ``get_default_hyperparameters()`` only (as in the minimal example
+above).
+
+Configure the search with:
+
+- ``hpam_optimization_metric`` — metric Optuna optimizes (default ``RMSE``;
+  also ``MSE``, ``MAE``, ``R^2``, ``Pearson``, ``Spearman``, ``Kendall``)
+- ``hpo_num_samples`` — number of Optuna trials per fold (default ``16``)
+- ``hpo_random_state`` — seed for the Optuna sampler (default ``42``)
+- ``hpo_resources_per_trial`` — optional Ray resource dict (for example
+  ``{"cpu": 2, "gpu": 0.5}``); GPU defaults apply when CUDA is available
 
 .. code-block:: python
 
@@ -80,153 +93,131 @@ Example with tuning enabled:
        hpam_optimization_metric="RMSE",
    )
 
-See :doc:`visualization` for reports over the written predictions.
-
-Hyperparameter tuning
----------------------
-
-Component predictors (and tunable featurizers such as ``pca`` or
-``landmarkGenes``) own:
-
-- ``get_default_hyperparameters()`` for the public hyperparameter mapping used when
-  constructing ``Model()`` / ``Model(hyperparameters)``
-- ``get_hyperparameter_space()`` for structured Ray + Optuna search
-
-The meaning of qualified keys
-(``predictor.elasticNet.alpha``,
-``cell_line_featurizer.pca[expression].n_components``, …) is defined in
-:doc:`/concepts/from_components_to_models`. Featurizer keys use the
-**qualified recipe selector** (including the view bracket when present).
-Indexed forms such as ``pca.0`` are rejected.
-
-Constructor mappings use local names when they are unambiguous. When a local
-name collides, pass qualified keys instead. ``hpam_tune`` and saved best-result
-JSON use the same collision-aware public mapping: compact short keys when
-possible, qualified keys when required. See :doc:`models` for construction-time
-overrides.
-
-Public API
-~~~~~~~~~~
-
-- ``DRPModel.get_hyperparameter_set()`` returns a **single** default
-  configuration (``[get_default_hyperparameters()]``), not a full Cartesian
-  grid.
-- ``DRPModel.get_structured_hyperparameter_space()`` exposes the tunable
-  search space with dotted keys.
-- Experiment tuning uses ``hyperparameter_tuning=True`` with
-  ``hpo_num_samples``, ``hpo_random_state``, and ``hpo_resources_per_trial``
-  (Ray Tune + Optuna).
-
-When ``hyperparameter_tuning=False``, experiments use defaults only. This is
-**not** a debug mode and does not iterate legacy grid entries.
-
-Ray vs Optuna
+Ray and Optuna
 ~~~~~~~~~~~~~
 
-These are not two alternate backends. They play different roles in one stack:
+Ray and Optuna fulfill different roles in the hyperparameter tuning process:
 
 - **Ray Tune** runs and schedules trials (parallelism,
-  ``hpo_resources_per_trial``, trial storage).
+  ``hpo_resources_per_trial``, trial storage under the run directory).
 - **Optuna** (via Ray's ``OptunaSearch``) chooses which hyperparameter values
-  to try next and optimizes the chosen metric.
+  to try next and optimizes ``hpam_optimization_metric``.
 
-Without Ray installed, ``hyperparameter_tuning=True`` fails at import time.
-Set ``hyperparameter_tuning=False`` for defaults-only runs, or install on a
-platform that has Ray wheels (see :doc:`/getting_started/installation`).
+.. note::
 
-Fix the architecture before tuning
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   Ray is generally installed as a dependency of drevalpy.
+   However, Ray is only compatible with a limited set of Python versions on
+   Windows. See
+   :ref:`getting_started/installation:Hyperparameter tuning on Windows`
+   for more details.
 
-Inputs (which omics / drug representation) are part of the model architecture,
-not HPO knobs. Choose a zoo preset, ``ModelConfig``, or recipe first — see
-:doc:`datasets` and :doc:`/concepts/from_components_to_models` — then tune
-predictor / featurizer hyperparameters on that fixed stack.
+Search spaces
+~~~~~~~~~~~~~
 
-Running HPO from Python
-~~~~~~~~~~~~~~~~~~~~~~~
+The hyperparameter search space of a model is fixed when you
+:func:`~drevalpy.models.construct_model` the class.
+Whether you can customize the space depends on how you construct the class:
 
-Use the root experiment (Ray Tune + Optuna) or call ``hpam_tune`` /
-``tune_fold`` with a model **class**:
+- **Recipe strings** always use each component's built-in search space; they
+  cannot express overrides.
+- **Built-in zoo presets** ship as YAML inside the ``drevalpy`` package, so
+  you cannot override their search space from the call site. A preset may
+  still deviate from each component's built-in defaults when its YAML sets
+  ``hyperparameter_space``; otherwise it falls back to those defaults.
+- **YAML** (via ``ModelConfig.from_yaml``) and the **``ModelConfig``
+  constructor** let you set ``hyperparameter_space`` on a component to
+  **replace** its built-in space. Use these when you need a custom search
+  space (including your own zoo-style YAML files).
 
-.. code-block:: python
+.. tab-set::
 
-   from drevalpy.experiment import drug_response_experiment
-   from drevalpy.models import construct_model
+   .. tab-item:: YAML
 
-   ElasticNet = construct_model("ElasticNet")
+      .. code-block:: yaml
 
-   drug_response_experiment(
-       models=[ElasticNet],
-       response_data=response_data,
-       hyperparameter_tuning=True,
-       hpo_num_samples=16,
-       hpo_random_state=42,
-   )
+         cell_line_featurizer:
+           name: pca
+           view: expression
+           hyperparameter_space:
+             n_components:
+               type: int
+               low: 8
+               high: 512
+               default: 128
+         drug_featurizer: fingerprints
+         predictor:
+           name: elasticNet
+           hyperparameter_space:
+             alpha:
+               type: float
+               low: 1.0e-4
+               high: 10.0
+               log: true
+               default: 1.0
+             l1_ratio:
+               type: float
+               low: 0.0
+               high: 1.0
+               default: 0.5
 
-.. code-block:: python
+      .. code-block:: python
 
-   from drevalpy.components.tuning import hpam_tune
+         from drevalpy.models import construct_model
+         from drevalpy.models.config import ModelConfig
 
-   best = hpam_tune(
-       model_class=ElasticNet,
-       train_dataset=train,
-       validation_dataset=val,
-       early_stopping_dataset=None,
-   )
+         config = ModelConfig.from_yaml("my_zoo/custom_en.yaml")
+         MyEN = construct_model("MyElasticNet", config)
 
-Inspect the structured space:
+   .. tab-item:: ModelConfig
 
-.. code-block:: python
+      .. code-block:: python
 
-   space = ElasticNet.get_structured_hyperparameter_space()
+         from drevalpy.models import construct_model
+         from drevalpy.models.config import (
+             CellLineFeaturizerConfig,
+             DrugFeaturizerConfig,
+             ModelConfig,
+             PredictorConfig,
+         )
 
-Component search spaces look like:
+         config = ModelConfig(
+             cell_line_featurizer=CellLineFeaturizerConfig(
+                 name="pca",
+                 view="expression",
+                 hyperparameter_space={
+                     "n_components": {
+                         "type": "int",
+                         "low": 8,
+                         "high": 512,
+                         "default": 128,
+                     },
+                 },
+             ),
+             drug_featurizer=DrugFeaturizerConfig(name="fingerprints"),
+             predictor=PredictorConfig(
+                 name="elasticNet",
+                 hyperparameter_space={
+                     "alpha": {
+                         "type": "float",
+                         "low": 1e-4,
+                         "high": 10.0,
+                         "log": True,
+                         "default": 1.0,
+                     },
+                     "l1_ratio": {
+                         "type": "float",
+                         "low": 0.0,
+                         "high": 1.0,
+                         "default": 0.5,
+                     },
+                 },
+             ),
+         )
+         MyEN = construct_model("MyElasticNet", config)
 
-.. code-block:: python
-
-   {"alpha": {"type": "float", "low": 1e-4, "high": 10.0, "log": True, "default": 1.0}}
-
-Defaults for ``Model()`` still come from the classmethod
-``get_default_hyperparameters()``.
-
-HPO migration notes
-~~~~~~~~~~~~~~~~~~~
-
-``hpam_tune`` naming
-^^^^^^^^^^^^^^^^^^^^
-
-Before 1.6.0, sequential grid search lived in ``drevalpy.experiment.hpam_tune``,
-and Ray-based search was exposed as ``hpam_tune_raytune`` /
-``hpam_tune_ray_optuna``. Those names are gone. ``hpam_tune`` now means only
-the Ray Tune + OptunaSearch path
-(``drevalpy.components.tuning.hpam_tune``, also re-exported from
-``drevalpy.experiment``). Use ``hyperparameter_tuning=True`` in experiments, or
-``hyperparameter_tuning=False`` for defaults.
-
-YAML grids
-^^^^^^^^^^
-
-Before 1.6.0, baseline tuning used YAML grids such as:
-
-.. code-block:: yaml
-
-   ElasticNet:
-     alpha:
-       - 1
-       - 0.1
-       - 10
-
-Those grids are gone. Translate ranges into component search spaces and enable
-Ray search with ``hyperparameter_tuning=True``.
-``get_hyperparameter_set()`` now returns one default dict only.
-
-``multiprocessing`` and views
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Before 1.6.0, ``multiprocessing=True`` selected a parallel HPO path. It now
-only emits a warning and does **not** control Ray/Optuna tuning. Prefer
-``hyperparameter_tuning=True`` and ``hpo_num_samples``.
-
-Deprecated flat ``cell_line_views`` / ``drug_views`` keys are documented under
-:doc:`models` migration notes; prefer recipes or zoo blocks
-(:doc:`datasets`).
+Specs use local parameter names (``alpha``, ``n_components``, …). During
+search, Ray Tune / Optuna see dotted qualified keys to prevent name collisions, for example
+``predictor.elasticNet.alpha`` and
+``cell_line_featurizer.pca[expression].n_components``. See
+:doc:`/concepts/from_components_to_models` for the full key rules and
+:doc:`models` for how to construct classes from YAML or ``ModelConfig``.
