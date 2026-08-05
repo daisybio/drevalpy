@@ -17,6 +17,25 @@ def test_gcmf_family_in_factory() -> None:
         assert name in MODEL_FACTORY
 
 
+def test_default_drug_relations_ship_with_meta_bundle(data_dir, sample_dataset) -> None:
+    """
+    Every default RGCMF drug relation is present in the downloaded meta bundle.
+
+    Guards the data dependency directly: if a relation is ever dropped from the bundle this
+    fails here with a clear message instead of surfacing as a training error downstream.
+
+    :param data_dir: path to the test data directory (session fixture from conftest)
+    :param sample_dataset: session fixture; ensures the toy data and meta bundle are downloaded
+    """
+    from drevalpy.models.GCMF.gcmf import RGCMF
+
+    for view in RGCMF().drug_relation_views:
+        assert RGCMF._drug_resource_path(view, data_path=str(data_dir)) is not None, (
+            f"drug relation '{view}' is missing from <data>/meta/{RGCMF._DRUG_SIM_DIR}/; "
+            "it must ship with the meta bundle"
+        )
+
+
 def _tiny_hpams(model_cls) -> dict:
     """
     First hyperparameter set with the expensive knobs shrunk so a smoke test runs fast.
@@ -38,45 +57,21 @@ def _tiny_hpams(model_cls) -> dict:
         gene_list=None,  # toy data lacks most landmark genes; use all available genes
         n_bits=128,  # toy data ships only 128-bit fingerprints
     )
-    # For the relational models, keep a single (fast) cell relation built from the node features
-    # and a single drug relation (drug_pathways), whose resource the synthetic_drug_relation
-    # fixture provides under the toy data dir.
+    # For the relational models, keep a single (fast) cell relation built from the node features.
+    # The drug relations keep their real defaults (drug_pathways, drug_bioassay) so the test
+    # exercises the resources shipped in the meta bundle and fails if they ever go missing.
     if "cell_relation_views" in hp:
         hp["cell_relation_views"] = ["gene_expression"]
-        hp["drug_relation_views"] = ["drug_pathways"]
     return hp
 
 
-@pytest.fixture
-def synthetic_drug_relation(data_dir):
-    """Write a tiny ``drug_pathways`` relation over the toy drugs so RGCMF has a real relation.
-
-    :param data_dir: path to the test data directory
-    :yields: nothing; the resource file exists for the duration of the test
-    """
-    import pandas as pd
-
-    from drevalpy.models.GCMF.gcmf import RGCMF
-
-    names = pd.read_csv(data_dir / "TOYv1" / "drug_names.csv")["drug_name"].tolist()
-    rel_dir = data_dir / "meta" / RGCMF._DRUG_SIM_DIR
-    rel_dir.mkdir(parents=True, exist_ok=True)
-    rel_path = rel_dir / "drug_pathways.csv"
-    # assign each drug to two of four shared pathways so the Jaccard graph has edges
-    rows = [(n, f"PW{i % 4}") for i, n in enumerate(names)] + [(n, f"PW{(i + 1) % 4}") for i, n in enumerate(names)]
-    pd.DataFrame(rows, columns=["drug_name", "pathway"]).to_csv(rel_path, index=False)
-    yield
-    rel_path.unlink(missing_ok=True)
-
-
 @pytest.mark.parametrize("model_name", GCMF_FAMILY)
-def test_gcmf_family_train_predict_save_load(model_name: str, data_dir, synthetic_drug_relation) -> None:
+def test_gcmf_family_train_predict_save_load(model_name: str, data_dir) -> None:
     """
     Each model trains on TOYv1, predicts finite values, and round-trips through save/load.
 
     :param model_name: name of the GCMF-family model under test
     :param data_dir: path to the test data directory (session fixture from conftest)
-    :param synthetic_drug_relation: fixture providing a toy drug_pathways relation for RGCMF/PRGCMF
     """
     data_path = str(data_dir)
     model = MODEL_FACTORY[model_name]()
