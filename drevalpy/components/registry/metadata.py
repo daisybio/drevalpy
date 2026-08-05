@@ -18,12 +18,13 @@ def _contract_to_str(contract: FeatureContract | FeatureFormat | str | None) -> 
     return str(contract)
 
 
-def _tags_to_str(tags: object) -> str:
+def _normalize_tags(tags: object) -> frozenset[str]:
     if not tags:
-        return ""
+        return frozenset()
     if isinstance(tags, (frozenset, set, list, tuple)):
-        return ",".join(sorted(str(tag) for tag in tags))
-    return str(tags)
+        return frozenset(str(tag) for tag in tags)
+    msg = f"tags must be a collection of strings, got {type(tags).__name__}"
+    raise TypeError(msg)
 
 
 def _reference_fields(cls: type[Any]) -> dict[str, str]:
@@ -63,26 +64,26 @@ def _predictor_input_interface(cls: type[Any]) -> str:
     return ""
 
 
-def metadata_record(registry_name: str, name: str, cls: type[Any]) -> dict[str, str]:
-    """Flattened metadata dict for internal consumers.
+def metadata_record(registry_name: str, name: str, cls: type[Any]) -> dict[str, Any]:
+    """Return metadata for a registered component.
 
     :param registry_name: registry name.
     :param name: name.
     :param cls: Registered component class.
     :returns: Result.
     """
-    fields = {
+    fields: dict[str, Any] = {
         "registry": registry_name,
         "name": name,
         "class_name": cls.__name__,
         "description": str(getattr(cls, "description", "") or ""),
-        "tags": _tags_to_str(getattr(cls, "tags", frozenset())),
+        "tags": _normalize_tags(getattr(cls, "tags", frozenset())),
     }
     fields.update(_reference_fields(cls))
     return fields
 
 
-def featurizer_component_metadata(registry_name: str, name: str, cls: type[Any]) -> dict[str, str]:
+def featurizer_component_metadata(registry_name: str, name: str, cls: type[Any]) -> dict[str, Any]:
     """Like `metadata_record` plus featurizer contract summary.
 
     :param registry_name: registry name.
@@ -95,7 +96,7 @@ def featurizer_component_metadata(registry_name: str, name: str, cls: type[Any])
     return meta
 
 
-def predictor_component_metadata(registry_name: str, name: str, cls: type[Any]) -> dict[str, str]:
+def predictor_component_metadata(registry_name: str, name: str, cls: type[Any]) -> dict[str, Any]:
     """Like `metadata_record` plus predictor capability and contract summaries.
 
     :param registry_name: registry name.

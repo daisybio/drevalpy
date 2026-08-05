@@ -93,23 +93,23 @@ def list_cell_line_featurizers() -> list[str]:
     return cell_line_featurizer_registry.list_names()
 
 
-def get_cell_line_featurizer_metadata(name: str) -> dict[str, str]:
+def get_cell_line_featurizer_metadata(name: str) -> dict[str, Any]:
     """Return metadata for a registered cell-line featurizer.
 
     :param name: Registry name of the featurizer.
 
-    :returns: Flattened metadata dict including output format and tags.
+    :returns: Metadata dict including output format and tags.
     """
     get_cell_line_featurizer(name)
     return cell_line_featurizer_registry.get_metadata(name)
 
 
-def list_cell_line_featurizer_metadata(*, tag: str | None = None) -> list[dict[str, str]]:
+def list_cell_line_featurizer_metadata(*, tag: str | None = None) -> list[dict[str, Any]]:
     """List metadata for all registered cell-line featurizers.
 
-    :param tag: When set, keep only featurizers whose ``tags`` field contains *tag*.
+    :param tag: When set, keep only featurizers whose ``tags`` contain *tag*.
 
-    :returns: List of flattened metadata dicts.
+    :returns: List of metadata dicts.
     """
     _ensure_builtins_for_discovery(registry_names=cell_line_featurizer_registry.list_names())
     return cell_line_featurizer_registry.list_metadata(tag=tag)
@@ -185,23 +185,23 @@ def list_drug_featurizers() -> list[str]:
     return drug_featurizer_registry.list_names()
 
 
-def get_drug_featurizer_metadata(name: str) -> dict[str, str]:
+def get_drug_featurizer_metadata(name: str) -> dict[str, Any]:
     """Return metadata for a registered drug featurizer.
 
     :param name: Registry name of the featurizer.
 
-    :returns: Flattened metadata dict including output format and tags.
+    :returns: Metadata dict including output format and tags.
     """
     get_drug_featurizer(name)
     return drug_featurizer_registry.get_metadata(name)
 
 
-def list_drug_featurizer_metadata(*, tag: str | None = None) -> list[dict[str, str]]:
+def list_drug_featurizer_metadata(*, tag: str | None = None) -> list[dict[str, Any]]:
     """List metadata for all registered drug featurizers.
 
-    :param tag: When set, keep only featurizers whose ``tags`` field contains *tag*.
+    :param tag: When set, keep only featurizers whose ``tags`` contain *tag*.
 
-    :returns: List of flattened metadata dicts.
+    :returns: List of metadata dicts.
     """
     _ensure_builtins_for_discovery(registry_names=drug_featurizer_registry.list_names())
     return drug_featurizer_registry.list_metadata(tag=tag)
@@ -280,23 +280,23 @@ def list_predictors() -> list[str]:
     return predictor_registry.list_names()
 
 
-def get_predictor_metadata(name: str) -> dict[str, str]:
+def get_predictor_metadata(name: str) -> dict[str, Any]:
     """Return metadata for a registered predictor.
 
     :param name: Registry name of the predictor.
 
-    :returns: Flattened metadata dict including contracts and supported modes.
+    :returns: Metadata dict including contracts and supported modes.
     """
     get_predictor(name)
     return predictor_registry.get_metadata(name)
 
 
-def list_predictor_metadata(*, tag: str | None = None) -> list[dict[str, str]]:
+def list_predictor_metadata(*, tag: str | None = None) -> list[dict[str, Any]]:
     """List metadata for all registered predictors.
 
-    :param tag: When set, keep only predictors whose ``tags`` field contains *tag*.
+    :param tag: When set, keep only predictors whose ``tags`` contain *tag*.
 
-    :returns: List of flattened metadata dicts.
+    :returns: List of metadata dicts.
     """
     _ensure_builtins_for_discovery(registry_names=predictor_registry.list_names())
     return predictor_registry.list_metadata(tag=tag)

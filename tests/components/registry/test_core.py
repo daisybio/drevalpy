@@ -121,6 +121,7 @@ def test_drug_metadata_listing_and_tag_filter() -> None:
     }
     baseline_rows = list_drug_featurizer_metadata(tag="baseline")
     assert {row["name"] for row in baseline_rows} == {"baselineDrug"}
+    assert baseline_rows[0]["tags"] == frozenset({"baseline"})
 
 
 def test_metadata_listing_and_tag_filter() -> None:
@@ -176,6 +177,7 @@ def test_get_metadata_includes_output_format() -> None:
     meta = get_cell_line_featurizer_metadata("graphFeat")
     assert meta["output_format"] == "graph"
     assert meta["description"] == "graph"
+    assert meta["tags"] == frozenset()
 
 
 def test_decorator_returns_original_class() -> None:

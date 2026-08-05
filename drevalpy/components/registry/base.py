@@ -83,8 +83,7 @@ class Registry(ABC):
         with self._lock:
             if name not in self._store:
                 available = list(self._store.keys())
-                msg = f"Unknown {self._label}: {name!r}. Available: {available}"
-                raise ValueError(msg)
+                raise ValueError(f"Unknown {self._label}: {name!r}. Available: {available}")
             return self._store[name]
 
     def list_names(self) -> list[str]:
@@ -95,28 +94,28 @@ class Registry(ABC):
         with self._lock:
             return list(self._store.keys())
 
-    def get_metadata(self, name: str) -> dict[str, str]:
+    def get_metadata(self, name: str) -> dict[str, Any]:
         """Return the metadata record for the component registered under *name*.
 
         :param name: Registry name of the component.
 
-        :returns: Flattened metadata dict for catalog listings.
+        :returns: Metadata dict for catalog listings.
         """
         cls = self.get(name)
         return self._metadata_row(name, cls)
 
-    def list_metadata(self, *, tag: str | None = None) -> list[dict[str, str]]:
+    def list_metadata(self, *, tag: str | None = None) -> list[dict[str, Any]]:
         """Return metadata for all components, optionally filtered by discovery tag.
 
-        :param tag: When set, keep only components whose ``tags`` field contains *tag*.
+        :param tag: When set, keep only components whose ``tags`` contain *tag*.
 
-        :returns: List of flattened metadata dicts.
+        :returns: List of metadata dicts.
         """
         rows = [self.get_metadata(name) for name in self.list_names()]
         if tag is None:
             return rows
         needle = tag.strip()
-        return [row for row in rows if needle in {part for part in row.get("tags", "").split(",") if part}]
+        return [row for row in rows if needle in row.get("tags", frozenset())]
 
     def clear(self) -> None:
         """Remove all entries (primarily for testing)."""
@@ -156,10 +155,10 @@ class Registry(ABC):
         """
 
     @abstractmethod
-    def _metadata_row(self, name: str, cls: type[Any]) -> dict[str, str]:
-        """Return the flattened metadata row for a registered class.
+    def _metadata_row(self, name: str, cls: type[Any]) -> dict[str, Any]:
+        """Return the metadata row for a registered class.
 
         :param name: Registry name of the component.
         :param cls: Registered component class.
-        :returns: Flattened metadata dict.
+        :returns: Metadata dict.
         """

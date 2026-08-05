@@ -74,7 +74,7 @@ class FeaturizerRegistry(Registry):
             return
         raise ValueError(format_validation_error(self._registry_id, name, missing=["contract"], invalid=[]))
 
-    def _metadata_row(self, name: str, cls: type[Any]) -> dict[str, str]:
+    def _metadata_row(self, name: str, cls: type[Any]) -> dict[str, Any]:
         return featurizer_component_metadata(self._display_name, name, cls)
 
 
