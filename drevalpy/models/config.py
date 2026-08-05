@@ -32,8 +32,14 @@ def _predictor_name_from_identity_data(data: dict[str, Any]) -> str | None:
     return str(predictor)
 
 
+def _coerce_model_scope(scope: object) -> ModelScope:
+    if isinstance(scope, ModelScope):
+        return scope
+    return ModelScope(str(scope))
+
+
 def _maybe_apply_inferred_scope(data: dict[str, Any], pred_cls: type[Any]) -> tuple[dict[str, Any], ModelScope]:
-    scope = data.get("scope", ModelScope.MULTI_DRUG)
+    scope = _coerce_model_scope(data.get("scope", ModelScope.MULTI_DRUG))
     if "scope" in data:
         return data, scope
     inferred = _infer_scope_for_predictor(pred_cls)

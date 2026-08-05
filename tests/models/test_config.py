@@ -99,6 +99,25 @@ def test_model_id_for_implicit_identity_single_drug() -> None:
     assert config.model_id == "scaledGeneExpression:singleDrugElasticNet"
 
 
+def test_string_scope_from_yaml_coerces_to_model_scope() -> None:
+    """YAML leaves scope as str; normalization must still yield ModelScope."""
+    from drevalpy.components.register_builtins import register_builtin_components
+    from drevalpy.models.config import ModelScope
+
+    register_builtin_components()
+    config = ModelConfig.model_validate(
+        {
+            "cell_line_featurizer": "scaledGeneExpression",
+            "predictor": "singleDrugElasticNet",
+            "scope": "single_drug",
+        }
+    )
+    assert config.scope == ModelScope.SINGLE_DRUG
+    assert isinstance(config.scope, ModelScope)
+    assert config.drug_featurizer is not None
+    assert config.drug_featurizer.name == "identity"
+
+
 def test_model_config_parses_compact_featurizer_sections() -> None:
     config = ModelConfig.model_validate(
         {
