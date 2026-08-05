@@ -70,7 +70,7 @@ class _DRPLoggingMixin:
         )
         self.wandb_run = wandb.run
 
-        with suppress(Exception):  # pragma: no cover
+        with suppress(Exception):
             wandb.define_metric("epoch", summary="max")
             wandb.define_metric("train_loss", summary="min")
             wandb.define_metric("val_loss", summary="min")

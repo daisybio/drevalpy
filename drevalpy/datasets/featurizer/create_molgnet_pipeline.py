@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import os
-import pickle  # noqa: S403
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +12,7 @@ import torch
 from torch_geometric.data import Data
 from tqdm import tqdm
 
+from drevalpy.utils.pickle_io import dump_trusted_pickle
 from drevalpy.utils.torch_io import load_state_dict
 
 
@@ -92,8 +92,7 @@ def save_graph_dict(graph_dict: dict[Any, Data], path: str) -> None:
     :param graph_dict: Mapping from drug id to graph objects.
     :param path: Output pickle path.
     """
-    with open(path, "wb") as handle:
-        pickle.dump(graph_dict, handle)
+    dump_trusted_pickle(graph_dict, path)
 
 
 def resolve_torch_device(device_arg: str | None) -> torch.device:
@@ -206,8 +205,7 @@ def run_molgnet_pipeline(args: argparse.Namespace) -> None:
     model.eval()
 
     molgnet_dict = run_molgnet_inference(graph_dict, model, device)
-    with open(out_molg, "wb") as handle:
-        pickle.dump(molgnet_dict, handle)
+    dump_trusted_pickle(molgnet_dict, out_molg)
 
     out_drugs_dir = dataset_dir / "DIPK_features/Drugs"
     write_molgnet_drug_csvs(molgnet_dict, out_drugs_dir)

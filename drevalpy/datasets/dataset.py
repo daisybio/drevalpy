@@ -10,7 +10,7 @@ vectors per cell line or drug, including optional per-view metadata.
 import copy
 import os
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, ClassVar
 
 import networkx as nx
 import numpy as np
@@ -190,7 +190,8 @@ class DrugResponseDataset:
         return self._name
 
     # Mutable datasets are not hashable (avoids accidental use as dict/set keys).
-    __hash__ = None  # type: ignore[assignment]
+    # mypy#4266: ClassVar[None] is incompatible with object.__hash__; assignment ignore required.
+    __hash__: ClassVar[None] = None  # type: ignore[assignment]
 
     def __len__(self) -> int:
         """Overwrites the default length method.

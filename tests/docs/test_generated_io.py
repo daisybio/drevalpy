@@ -11,10 +11,10 @@ DOCS = REPO_ROOT / "docs"
 if str(DOCS) not in sys.path:
     sys.path.insert(0, str(DOCS))
 
-from _generated_io import write_text_if_changed  # noqa: E402
-
 
 def test_write_text_if_changed_skips_identical_content(tmp_path: Path) -> None:
+    from _generated_io import write_text_if_changed
+
     path = tmp_path / "generated.rst"
     assert write_text_if_changed(path, "same\n") is True
     mtime = path.stat().st_mtime_ns

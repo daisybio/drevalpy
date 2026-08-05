@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 """Configuration file for the Sphinx documentation builder."""
 
-# mypy: ignore-errors
 # drevalpy documentation build configuration file
 #
 # If extensions (or modules to document with autodoc) are in another
@@ -42,13 +41,19 @@ extensions = [
 ]
 
 # Generate registry- and application-driven tables before sources are read.
-from _cli_click import write_generated_cli_reference  # noqa: E402
-from _component_catalog import write_generated_component_catalogs  # noqa: E402
-from _model_zoo import write_generated_model_zoo  # noqa: E402
 
-write_generated_cli_reference()
-write_generated_component_catalogs()
-write_generated_model_zoo()
+
+def _write_generated_references() -> None:
+    from _cli_click import write_generated_cli_reference
+    from _component_catalog import write_generated_component_catalogs
+    from _model_zoo import write_generated_model_zoo
+
+    write_generated_cli_reference()
+    write_generated_component_catalogs()
+    write_generated_model_zoo()
+
+
+_write_generated_references()
 
 
 # Add any paths that contain templates here, relative to this directory.
@@ -134,7 +139,7 @@ htmlhelp_basename = "drevalpydoc"
 
 # -- Options for LaTeX output ------------------------------------------
 
-latex_elements = {
+latex_elements: dict[str, str] = {
     # The paper size ("letterpaper" or "a4paper").
     #
     # "papersize": "letterpaper",

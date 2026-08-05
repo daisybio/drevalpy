@@ -127,7 +127,7 @@ class LiteratureTrainingMixin:
         """
         if not self.is_wandb_enabled():
             return
-        with suppress(Exception):  # pragma: no cover - wandb may be unavailable
+        with suppress(Exception):
             wandb.log(metrics, step=step)
 
     def compute_performance_metrics(

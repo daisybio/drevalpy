@@ -36,8 +36,10 @@ def activate_virtualenv_in_precommit_hooks(session: Session) -> None:
     that environment when invoked from git.
 
     :param session: The Session object.
+    :raises RuntimeError: If the nox session bindir is unavailable.
     """
-    assert session.bin is not None  # noqa: S101
+    if session.bin is None:
+        raise RuntimeError("nox session bindir is required to patch pre-commit hooks")
 
     # Only patch hooks containing a reference to this session's bindir. Support
     # quoting rules for Python and bash, but strip the outermost quotes so we
@@ -185,7 +187,7 @@ def coverage(session: Session) -> None:
     :param session: The Session object.
     """
     # Do not use session.posargs unless this is the only session.
-    nsessions = len(session._runner.manifest)  # type: ignore[attr-defined]
+    nsessions = len(session._runner.manifest)
     has_args = session.posargs and nsessions == 1
     args = session.posargs if has_args else ["report", "-i"]
 

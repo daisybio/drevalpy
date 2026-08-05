@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from types import MappingProxyType
+from typing import Any, cast
 
 import numpy as np
 import pytest
@@ -36,7 +37,7 @@ def test_feature_block_metadata_is_immutable() -> None:
     block = numeric_feature_block(np.ones((1, 1)), metadata={"dim": 4})
     assert isinstance(block.metadata, MappingProxyType)
     with pytest.raises(TypeError):
-        block.metadata["dim"] = 8  # type: ignore[index]
+        cast(Any, block.metadata)["dim"] = 8
 
 
 def test_graph_and_ragged_blocks_preserve_object_dtype() -> None:

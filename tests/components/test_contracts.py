@@ -1,5 +1,7 @@
 """Tests for internal feature contracts."""
 
+from typing import Any, cast
+
 from drevalpy.components.contracts import (
     FeatureContract,
     FeatureFormat,
@@ -37,7 +39,7 @@ def test_format_mismatch_is_incompatible() -> None:
 def test_feature_contract_is_frozen() -> None:
     contract = FeatureContract(format=FeatureFormat.NUMERIC_MATRIX)
     try:
-        contract.format = FeatureFormat.GRAPH  # type: ignore[misc]
+        cast(Any, contract).format = FeatureFormat.GRAPH
         raised = False
     except AttributeError:
         raised = True

@@ -12,6 +12,11 @@ from drevalpy.components.data_loading.multiomics import load_and_select_gene_fea
 from drevalpy.components.feature_block import BlockSpec, FeatureBlock, numeric_feature_block
 from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
 from drevalpy.components.featurizers._matrix import feature_names_for_view, stack_view_matrix
+from drevalpy.components.featurizers.cell_line._sparsego_metadata import (
+    SparseGOOntologyMetadata,
+    attach_sparsego_ontology_metadata,
+    read_sparsego_ontology_metadata,
+)
 from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.predictors.literature.sparsego.utils import (
     load_mapping,
@@ -78,12 +83,13 @@ class SparseGOOntologyFeaturizer(CellLineFeaturizer):
         features.meta_info[view] = np.asarray(order)
         graph, term_pairs, gene_term_pairs = load_ontology(str(ontology_file), mapping)
         sorted_pairs, level_list, level_numbers = sort_pairs(gene_term_pairs, term_pairs, graph, mapping)
-        features._sparsego_ontology = {  # type: ignore[attr-defined]
-            "layer_connections": pairs_in_layers(sorted_pairs, level_list, level_numbers),
-            "gene2id_mapping_ont": mapping,
-            "ontology_gene_order": order,
-            "gene_dim_input": len(mapping),
-        }
+        metadata = SparseGOOntologyMetadata(
+            layer_connections=pairs_in_layers(sorted_pairs, level_list, level_numbers),
+            gene2id_mapping_ont=mapping,
+            ontology_gene_order=order,
+            gene_dim_input=len(mapping),
+        )
+        attach_sparsego_ontology_metadata(features, metadata)
         return features
 
     def fit(
@@ -102,8 +108,8 @@ class SparseGOOntologyFeaturizer(CellLineFeaturizer):
         :raises ValueError: If ontology metadata is missing on *features*.
         """
         _ = entity_ids, context
-        metadata = getattr(features, "_sparsego_ontology", None)
-        if not isinstance(metadata, dict):
+        metadata = read_sparsego_ontology_metadata(features)
+        if metadata is None:
             raise ValueError("SparseGO ontology metadata is missing; load features through sparsegoOntology")
         self._layer_connections = list(metadata["layer_connections"])
         self._gene2id_mapping_ont = dict(metadata["gene2id_mapping_ont"])

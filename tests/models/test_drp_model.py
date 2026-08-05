@@ -173,15 +173,15 @@ def test_hyperparameters_and_views_are_immutable_after_construction() -> None:
     assert model._stack.config.predictor.hyperparameters["alpha"] == 0.1
 
     with pytest.raises(AttributeError):
-        model.hyperparameters = {"alpha": 0.25}  # type: ignore[misc]
+        model.hyperparameters = {"alpha": 0.25}
 
     views = model.cell_line_views
     views.append("mutated_view")
     assert "mutated_view" not in model.cell_line_views
     with pytest.raises(AttributeError):
-        model.cell_line_views = ["gene_expression"]  # type: ignore[misc]
+        model.cell_line_views = ["gene_expression"]
     with pytest.raises(AttributeError):
-        model.drug_views = ["fingerprints"]  # type: ignore[misc]
+        model.drug_views = ["fingerprints"]
 
     assert not hasattr(model, "_sync_predictor_hyperparameters")
 

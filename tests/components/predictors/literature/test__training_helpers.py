@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 import numpy as np
 
 from drevalpy.components.predictors.literature._training_helpers import LiteratureTrainingMixin
@@ -41,3 +43,25 @@ def test_get_concatenated_features_concatenates_views() -> None:
         drugs,
     )
     assert matrix.shape == (1, 4)
+
+
+def test_log_metrics_calls_wandb_when_enabled() -> None:
+    algorithm = _StubAlgorithm()
+    algorithm.wandb_project = "proj"
+    algorithm.wandb_run = object()
+    metrics = {"loss": 0.5}
+
+    with patch("drevalpy.components.predictors.literature._training_helpers.wandb.log") as mock_log:
+        algorithm.log_metrics(metrics, step=1)
+        mock_log.assert_called_once_with(metrics, step=1)
+
+
+def test_log_metrics_swallows_wandb_exceptions() -> None:
+    algorithm = _StubAlgorithm()
+    algorithm.wandb_project = "proj"
+    algorithm.wandb_run = object()
+    metrics = {"loss": 0.5}
+
+    with patch("drevalpy.components.predictors.literature._training_helpers.wandb.log") as mock_log:
+        mock_log.side_effect = RuntimeError("wandb unavailable")
+        algorithm.log_metrics(metrics)

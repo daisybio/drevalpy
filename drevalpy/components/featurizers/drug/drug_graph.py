@@ -5,7 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
-import torch
 
 from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.feature_block import FeatureBlock, graph_feature_block
@@ -13,6 +12,7 @@ from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
 from drevalpy.components.featurizers.drug.base import DrugFeaturizer
 from drevalpy.components.registry import register_drug_featurizer
 from drevalpy.datasets.dataset import FeatureDataset
+from drevalpy.utils.torch_io import load_trusted_payload
 
 
 @register_drug_featurizer(
@@ -47,7 +47,7 @@ class DrugGraphFeaturizer(DrugFeaturizer):
         directory = Path(data_path) / dataset_name / "drug_graphs"
         if not directory.exists():
             raise FileNotFoundError(f"Drug graph directory not found at {directory}")
-        graphs = {path.stem: torch.load(path, weights_only=False) for path in directory.glob("*.pt")}  # noqa: S614
+        graphs = {path.stem: load_trusted_payload(path) for path in directory.glob("*.pt")}
         if not graphs:
             raise ValueError(f"No drug graphs loaded from {directory}")
         return FeatureDataset({drug_id: {"drug_graph": graph} for drug_id, graph in graphs.items()})

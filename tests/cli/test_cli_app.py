@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 import warnings
-from typing import cast
+from typing import Protocol, cast
 
 import pytest
 from typer.testing import CliRunner
@@ -83,11 +83,15 @@ def test_pipeline_root_missing_models_fails_fast() -> None:
     assert "At least one model must be specified" in str(result.exception)
 
 
+class _ModelsArg(Protocol):
+    models: list[str]
+
+
 def test_pipeline_accepts_space_separated_models(monkeypatch: pytest.MonkeyPatch) -> None:
     captured: dict[str, list[str]] = {}
 
-    def fake_check(args: object) -> None:
-        captured["models"] = list(args.models)  # type: ignore[attr-defined]
+    def fake_check(args: _ModelsArg) -> None:
+        captured["models"] = list(args.models)
 
     def fake_main(args: object) -> None:
         return None

@@ -23,6 +23,7 @@ def _resolve_global_model_name(model_name: str) -> tuple[str, str]:
 
 def _apply_global_model_hpam_tweaks(model_name: str, whole_name: str, hpam_combi: dict) -> None:
     if model_name == "DIPK":
+        hpam_combi["batch_size"] = 1
         hpam_combi["epochs"] = 1
         hpam_combi["epochs_autoencoder"] = 1
         hpam_combi["heads"] = 1
@@ -176,9 +177,6 @@ def test_global_models(
 
     with tempfile.TemporaryDirectory() as tmpdirname:
         _train_global_model(model, model_name, train_dataset, cell_line_input, drug_input, es_dataset, tmpdirname)
-    if model_name == "DIPK":
-        # test batch size = 1
-        model.batch_size = 1  # type: ignore
     prediction_dataset = val_dataset if model_name == "SRMF" else val_es_dataset
     prediction_dataset._predictions = model.predict(
         drug_ids=prediction_dataset.drug_ids,

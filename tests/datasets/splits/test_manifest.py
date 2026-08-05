@@ -8,22 +8,21 @@ from pathlib import Path
 from drevalpy.datasets.splits import (
     MANIFEST_FILENAME,
     SplitParams,
+    make_split_params,
     read_manifest_test_mode,
     read_split_manifest,
     write_split_manifest,
 )
 
 
-def _sample_params(**overrides: object) -> SplitParams:
-    defaults = {
-        "test_mode": "LCO",
-        "n_cv_splits": 2,
-        "validation_ratio": 0.1,
-        "random_state": 42,
-        "split_early_stopping": True,
-    }
-    defaults.update(overrides)
-    return SplitParams(**defaults)  # type: ignore[arg-type]
+def _sample_params() -> SplitParams:
+    return make_split_params(
+        test_mode="LCO",
+        n_cv_splits=2,
+        validation_ratio=0.1,
+        random_state=42,
+        split_early_stopping=True,
+    )
 
 
 def test_write_split_manifest(tmp_path: Path) -> None:

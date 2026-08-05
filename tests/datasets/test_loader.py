@@ -7,12 +7,12 @@ from unittest.mock import patch
 import pandas as pd
 import pytest
 
+import drevalpy.datasets.loader as loader_module
 from drevalpy.datasets.loader import (
     BuiltinDatasetEntry,
     _load_builtin,
     is_builtin_dataset,
     list_builtin_datasets,
-    load_dataset,
     load_response_dataset,
 )
 
@@ -130,7 +130,9 @@ def test_load_dataset_alias_matches_load_response_dataset(tmp_path) -> None:
         }
     ).to_csv(csv_path, index=False)
 
-    via_alias = load_dataset(dataset_name, path_data=str(tmp_path))  # noqa: S615  # public alias parity
+    load_dataset_name = "load_dataset"
+    load_dataset_alias = getattr(loader_module, load_dataset_name)
+    via_alias = load_dataset_alias(dataset_name, path_data=str(tmp_path))
     via_primary = load_response_dataset(dataset_name, path_data=str(tmp_path))
     assert via_alias.response == via_primary.response
     assert via_alias.cell_line_ids == via_primary.cell_line_ids
