@@ -17,22 +17,36 @@ def test_gcmf_family_in_factory() -> None:
         assert name in MODEL_FACTORY
 
 
-def test_default_drug_relations_ship_with_meta_bundle(data_dir, sample_dataset) -> None:
+def test_default_relations_ship_with_meta_bundle(data_dir, sample_dataset) -> None:
     """
-    Every default RGCMF drug relation is present in the downloaded meta bundle.
+    Every resource the default RGCMF relations read is present in the downloaded meta bundle.
 
-    Guards the data dependency directly: if a relation is ever dropped from the bundle this
-    fails here with a clear message instead of surfacing as a training error downstream.
+    Guards the data dependency directly, on both sides: the drug relations under
+    ``meta/gcmf_drug_relations/`` and the per-omics gene lists the cell relations reduce with.
+    If any is ever dropped from the bundle this fails here with a clear message instead of
+    surfacing as a training error downstream.
 
     :param data_dir: path to the test data directory (session fixture from conftest)
     :param sample_dataset: session fixture; ensures the toy data and meta bundle are downloaded
     """
     from drevalpy.models.GCMF.gcmf import RGCMF
 
-    for view in RGCMF().drug_relation_views:
+    model = RGCMF()
+    for view in model.drug_relation_views:
         assert RGCMF._drug_resource_path(view, data_path=str(data_dir)) is not None, (
             f"drug relation '{view}' is missing from <data>/meta/{RGCMF._DRUG_SIM_DIR}/; "
             "it must ship with the meta bundle"
+        )
+    # the gene_expression relation is built from the node features (hp gene_list), so only the
+    # omics views loaded from disk need their gene list to be present
+    for view in model.cell_relation_views:
+        if view == "gene_expression":
+            continue
+        gene_list = RGCMF._CELL_GENE_LISTS[view]
+        path = data_dir / "meta" / "gene_lists" / f"{gene_list}.csv"
+        assert path.is_file(), (
+            f"gene list '{gene_list}' for cell relation '{view}' is missing from "
+            "<data>/meta/gene_lists/; it must ship with the meta bundle"
         )
 
 
@@ -54,14 +68,15 @@ def _tiny_hpams(model_cls) -> dict:
         batch_size=64,
         k_cell=4,
         k_drug=4,
-        gene_list=None,  # toy data lacks most landmark genes; use all available genes
         n_bits=128,  # toy data ships only 128-bit fingerprints
     )
-    # For the relational models, keep a single (fast) cell relation built from the node features.
-    # The drug relations keep their real defaults (drug_pathways, drug_bioassay) so the test
-    # exercises the resources shipped in the meta bundle and fails if they ever go missing.
-    if "cell_relation_views" in hp:
-        hp["cell_relation_views"] = ["gene_expression"]
+    # The relational models keep their real relation defaults on both sides (four cell relations;
+    # drug_pathways + drug_bioassay) and their real gene list, so the test exercises every
+    # resource they read from the meta bundle and fails if any of them goes missing.
+    # The base models default to landmark_genes, which the toy meta bundle does not ship, so only
+    # they need the gene list relaxed to all available genes.
+    if "cell_relation_views" not in hp:
+        hp["gene_list"] = None
     return hp
 
 
