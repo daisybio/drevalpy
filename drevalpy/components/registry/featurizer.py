@@ -3,20 +3,22 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
-from typing import Any
+from typing import Any, ClassVar
 
 from drevalpy.components.contracts import FeatureContract, FeatureFormat, normalize_feature_contract
-from drevalpy.components.registry._metadata_validate import (
-    _format_validation_error,
-    validate_shared_registration_metadata,
+from drevalpy.components.registry._registration_metadata import (
+    apply_registration_metadata,
+    normalize_registration_metadata,
 )
-from drevalpy.components.registry.base import Registry, apply_shared_registration_metadata
+from drevalpy.components.registry.base import Registry
 from drevalpy.components.registry.metadata import featurizer_component_metadata
 from drevalpy.types.literature_reference import LiteratureReference
 
 
 class FeaturizerRegistry(Registry):
     """Registry for featurizers that emit one feature contract."""
+
+    _required_fields: ClassVar[tuple[str, ...]] = ("description", "contract")
 
     def register(
         self,
@@ -37,40 +39,21 @@ class FeaturizerRegistry(Registry):
 
         :returns: Class decorator that registers and returns the decorated class.
         """
+        metadata = normalize_registration_metadata(description, tags, reference)
+        normalized_contract = normalize_feature_contract(contract)
 
         def decorator(cls: type[Any]) -> type[Any]:
             with self._lock:
                 if name in self._store:
                     msg = f"{self._label} {name!r} already registered"
                     raise ValueError(msg)
-                self._apply_contract(cls, contract)
-                apply_shared_registration_metadata(
-                    cls,
-                    description=description,
-                    tags=tags,
-                    reference=reference,
-                )
-                validate_shared_registration_metadata(self._registry_id, name, cls)
-                self._validate_role(cls, name)
+                self._apply_contract(cls, "contract", normalized_contract)
+                apply_registration_metadata(cls, metadata)
                 self._store[name] = cls
                 cls.registry_name = name
             return cls
 
         return decorator
-
-    def _apply_contract(self, cls: type[Any], contract: FeatureContract | FeatureFormat) -> None:
-        if "contract" in cls.__dict__:
-            msg = (
-                f"{cls.__name__}: do not set contract on the class body; "
-                "pass contract= to @register_cell_line_featurizer / @register_drug_featurizer instead"
-            )
-            raise ValueError(msg)
-        cls.contract = normalize_feature_contract(contract)
-
-    def _validate_role(self, cls: type[Any], name: str) -> None:
-        if "contract" in cls.__dict__:
-            return
-        raise ValueError(_format_validation_error(self._registry_id, name, missing=["contract"], invalid=[]))
 
     def _component_metadata(self, name: str, cls: type[Any]) -> dict[str, Any]:
         return featurizer_component_metadata(self._display_name, name, cls)

@@ -1,10 +1,13 @@
-"""Shared registration metadata validation (description, tags, literature)."""
+"""Class-state validation for restored registered components."""
 
 from __future__ import annotations
 
 from typing import Any
 
+from drevalpy.components.contracts import FeatureContract
 from drevalpy.types.literature_reference import LiteratureReference
+
+_CONTRACT_FIELDS = frozenset({"contract", "cell_line_contract", "drug_contract"})
 
 
 def _is_valid_url(url: str) -> bool:
@@ -36,23 +39,25 @@ def _has_invalid_tags(tags: object) -> bool:
     :param tags: Candidate tag collection from a registered class.
     :returns: ``True`` when *tags* is not a valid ``frozenset`` of non-empty strings.
     """
-    is_frozenset = isinstance(tags, frozenset)
-    if not is_frozenset:
+    if not isinstance(tags, frozenset):
         return True
-    all_nonempty_strings = all(isinstance(tag, str) and tag.strip() for tag in tags)
-    return not all_nonempty_strings
+    return any(not isinstance(tag, str) or not tag for tag in tags)
 
 
-def _missing_shared_fields(cls: type[Any]) -> list[str]:
-    """Return required shared metadata fields missing from ``cls``.
+def _missing_fields(cls: type[Any], required_fields: tuple[str, ...]) -> list[str]:
+    """Return required fields missing from ``cls`` or present as blank strings.
 
     :param cls: Registered component class.
-    :returns: Names of required metadata fields that are absent or empty.
+    :param required_fields: Field names that must appear on the class body.
+    :returns: Names of required fields that are absent or empty.
     """
-    required = ("description",)
     missing: list[str] = []
-    for field in required:
-        if not str(getattr(cls, field, "") or "").strip():
+    for field in required_fields:
+        if field not in cls.__dict__:
+            missing.append(field)
+            continue
+        value = cls.__dict__[field]
+        if isinstance(value, str) and not value.strip():
             missing.append(field)
     return missing
 
@@ -74,6 +79,22 @@ def _invalid_shared_fields(cls: type[Any]) -> list[str]:
         invalid.append("reference")
         return invalid
     invalid.extend(validate_literature_reference(reference))
+    return invalid
+
+
+def _invalid_contract_fields(cls: type[Any], required_fields: tuple[str, ...]) -> list[str]:
+    """Return required contract fields that are not ``FeatureContract`` instances.
+
+    :param cls: Registered component class.
+    :param required_fields: Field names required on the class body.
+    :returns: Contract field names with the wrong runtime type.
+    """
+    invalid: list[str] = []
+    for field in required_fields:
+        if field not in _CONTRACT_FIELDS or field not in cls.__dict__:
+            continue
+        if not isinstance(cls.__dict__[field], FeatureContract):
+            invalid.append(field)
     return invalid
 
 
@@ -100,22 +121,25 @@ def _format_validation_error(
     return f"{registry_id} '{name}' metadata validation failed: " + ", ".join(parts)
 
 
-def validate_shared_registration_metadata(
+def validate_registered_class(
     registry_id: str,
     name: str,
     cls: type[Any],
+    *,
+    required_fields: tuple[str, ...],
 ) -> None:
-    """Raise ``ValueError`` if shared class metadata is inconsistent or incomplete.
+    """Raise ``ValueError`` if a restored class lacks valid registration state.
 
-    Validates description, tags, and literature reference. Role-specific contract
-    checks live on ``FeaturizerRegistry`` / ``PredictorRegistry``.
+    Used by ``register_existing`` when decorator kwargs are unavailable.
 
     :param registry_id: registry id.
-    :param name: name.
-    :param cls: Registered component class.
+    :param name: Component registry name.
+    :param cls: Previously registered component class.
+    :param required_fields: Field names required on the class body for this registry.
     :raises ValueError: Raised on invalid input.
     """
-    missing = _missing_shared_fields(cls)
+    missing = _missing_fields(cls, required_fields)
     invalid = _invalid_shared_fields(cls)
+    invalid.extend(_invalid_contract_fields(cls, required_fields))
     if missing or invalid:
         raise ValueError(_format_validation_error(registry_id, name, missing=missing, invalid=invalid))

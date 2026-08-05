@@ -4,39 +4,16 @@ from __future__ import annotations
 
 import threading
 from abc import ABC, abstractmethod
-from collections.abc import Iterable
-from typing import Any
+from typing import Any, ClassVar
 
-from drevalpy.components.registry._metadata_validate import validate_shared_registration_metadata
-from drevalpy.types.literature_reference import LiteratureReference
-
-
-def apply_shared_registration_metadata(
-    cls: type[Any],
-    *,
-    description: str,
-    tags: Iterable[str] | None = None,
-    reference: LiteratureReference | None = None,
-) -> None:
-    """Attach ``description``, optional ``tags``, and optional literature ``reference``.
-
-    :param cls: Class receiving registration metadata.
-    :param description: Short human-readable summary.
-    :param tags: Optional discovery tags.
-    :param reference: Optional literature citation metadata.
-    :raises TypeError: If *reference* is not a ``LiteratureReference``.
-    """
-    cls.description = description
-    normalized_tags = frozenset(str(tag).strip() for tag in (tags or ()) if str(tag).strip())
-    cls.tags = normalized_tags
-    if reference is not None and not isinstance(reference, LiteratureReference):
-        msg = f"reference must be LiteratureReference, got {type(reference).__name__}"
-        raise TypeError(msg)
-    cls.reference = reference
+from drevalpy.components.contracts import FeatureContract
+from drevalpy.components.registry._metadata_validate import validate_registered_class
 
 
 class Registry(ABC):
     """Thread-safe name-to-class registry with shared store and metadata listing."""
+
+    _required_fields: ClassVar[tuple[str, ...]] = ("description",)
 
     def __init__(self, registry_id: str, label: str, display_name: str) -> None:
         """Initialize an empty registry store.
@@ -50,6 +27,22 @@ class Registry(ABC):
         self._display_name = display_name
         self._store: dict[str, type[Any]] = {}
         self._lock = threading.Lock()
+
+    def _apply_contract(self, cls: type[Any], attr_name: str, contract: FeatureContract) -> None:
+        """Assign a normalized contract attribute, rejecting class-body definitions.
+
+        :param cls: Class being registered.
+        :param attr_name: Attribute name such as ``contract`` or ``cell_line_contract``.
+        :param contract: Already-normalized feature contract to attach.
+        :raises ValueError: If *attr_name* is already defined on the class body.
+        """
+        if attr_name in cls.__dict__:
+            msg = (
+                f"{cls.__name__}: do not set {attr_name} on the class body; "
+                "pass it to the registration decorator instead"
+            )
+            raise ValueError(msg)
+        setattr(cls, attr_name, contract)
 
     def get(self, name: str) -> type[Any]:
         """Return the class registered under *name*.
@@ -121,18 +114,14 @@ class Registry(ABC):
         with self._lock:
             if name in self._store:
                 return
-            validate_shared_registration_metadata(self._registry_id, name, cls)
-            self._validate_role(cls, name)
+            validate_registered_class(
+                self._registry_id,
+                name,
+                cls,
+                required_fields=self._required_fields,
+            )
             self._store[name] = cls
             cls.registry_name = name
-
-    @abstractmethod
-    def _validate_role(self, cls: type[Any], name: str) -> None:
-        """Raise ``ValueError`` when role-specific registration attributes are missing.
-
-        :param cls: Class being validated.
-        :param name: Registry name used in error messages.
-        """
 
     @abstractmethod
     def _component_metadata(self, name: str, cls: type[Any]) -> dict[str, Any]:
