@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, field_serializer, field_validator, m
 
 from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
 from drevalpy.components.featurizer_label import requires_explicit_view
-from drevalpy.models.config.immutable import freeze_value, thaw_value
+from drevalpy.models.config.immutable import FrozenMapping, thaw_value
 
 
 class FeaturizerConfig(BaseModel):
@@ -22,8 +22,8 @@ class FeaturizerConfig(BaseModel):
     view: str | None = None
     views: tuple[str, ...] | None = None
     featurizers: tuple[FeaturizerConfig, ...] | None = None
-    options: Mapping[str, Any] | None = None
-    hyperparameter_space: Mapping[str, Any] | None = None
+    options: FrozenMapping | None = None
+    hyperparameter_space: FrozenMapping | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -55,20 +55,6 @@ class FeaturizerConfig(BaseModel):
             return tuple(value)
         return value
 
-    @field_serializer("options", when_used="always")
-    def _serialize_options(self, value: Mapping[str, Any] | None) -> dict[str, Any] | None:
-        if value is None:
-            return None
-        dumped = thaw_value(value)
-        return dumped if isinstance(dumped, dict) else dict(dumped)
-
-    @field_serializer("hyperparameter_space", when_used="always")
-    def _serialize_hyperparameter_space(self, value: Mapping[str, Any] | None) -> dict[str, Any] | None:
-        if value is None:
-            return None
-        dumped = thaw_value(value)
-        return dumped if isinstance(dumped, dict) else dict(dumped)
-
     @field_serializer("views", when_used="always")
     def _serialize_views(self, value: tuple[str, ...] | None) -> list[str] | None:
         return None if value is None else list(value)
@@ -80,7 +66,7 @@ class FeaturizerConfig(BaseModel):
         return [child.model_dump(mode="python") for child in value]
 
     @model_validator(mode="after")
-    def _freeze_nested_mappings(self) -> FeaturizerConfig:
+    def _validate_hyperparameter_space(self) -> FeaturizerConfig:
         if self.hyperparameter_space is not None:
             from drevalpy.components.hyperparameter_space import validate_hyperparameter_space
 
@@ -88,12 +74,6 @@ class FeaturizerConfig(BaseModel):
                 self.hyperparameter_space,
                 context=f"FeaturizerConfig({self.name!r}).hyperparameter_space",
             )
-        object.__setattr__(self, "options", freeze_value(self.options) if self.options is not None else None)
-        object.__setattr__(
-            self,
-            "hyperparameter_space",
-            freeze_value(self.hyperparameter_space) if self.hyperparameter_space is not None else None,
-        )
         return self
 
     @model_validator(mode="after")

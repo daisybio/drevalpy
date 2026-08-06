@@ -5,10 +5,10 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, field_serializer, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
 from drevalpy.components.predictor_config_parse import normalize_predictor_config
-from drevalpy.models.config.immutable import freeze_value, thaw_value
+from drevalpy.models.config.immutable import FrozenMapping, thaw_value
 
 
 class PredictorConfig(BaseModel):
@@ -17,7 +17,7 @@ class PredictorConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     name: str
-    hyperparameter_space: Mapping[str, Any] | None = None
+    hyperparameter_space: FrozenMapping | None = None
 
     @field_validator("name", mode="before")
     @classmethod
@@ -35,15 +35,8 @@ class PredictorConfig(BaseModel):
             return normalize_predictor_config(data)
         return data
 
-    @field_serializer("hyperparameter_space", when_used="always")
-    def _serialize_hyperparameter_space(self, value: Mapping[str, Any] | None) -> dict[str, Any] | None:
-        if value is None:
-            return None
-        dumped = thaw_value(value)
-        return dumped if isinstance(dumped, dict) else dict(dumped)
-
     @model_validator(mode="after")
-    def _freeze_nested_mappings(self) -> PredictorConfig:
+    def _validate_hyperparameter_space(self) -> PredictorConfig:
         if self.hyperparameter_space is not None:
             from drevalpy.components.hyperparameter_space import validate_hyperparameter_space
 
@@ -51,11 +44,6 @@ class PredictorConfig(BaseModel):
                 self.hyperparameter_space,
                 context=f"PredictorConfig({self.name!r}).hyperparameter_space",
             )
-        object.__setattr__(
-            self,
-            "hyperparameter_space",
-            freeze_value(self.hyperparameter_space) if self.hyperparameter_space is not None else None,
-        )
         return self
 
     def create_instance(self, hyperparameters: Mapping[str, Any] | None = None):

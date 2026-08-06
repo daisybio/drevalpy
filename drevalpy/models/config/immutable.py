@@ -4,17 +4,9 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from types import MappingProxyType
-from typing import Any, Protocol, TypeVar, cast
+from typing import Annotated, Any
 
-
-class _PydanticModel(Protocol):
-    def model_dump(self, *, mode: str = "python") -> dict[str, Any]: ...
-
-    @classmethod
-    def model_validate(cls, obj: Any) -> Any: ...
-
-
-_T = TypeVar("_T", bound=_PydanticModel)
+from pydantic import AfterValidator, PlainSerializer
 
 
 def freeze_value(value: Any) -> Any:
@@ -55,16 +47,14 @@ def thaw_value(value: Any) -> Any:
     return value
 
 
-def rebuild_model(model: _T, **updates: Any) -> _T:
-    """Return a validated replacement for a Pydantic model with field updates.
+FrozenMapping = Annotated[
+    Mapping[str, Any],
+    AfterValidator(freeze_value),
+    PlainSerializer(thaw_value, return_type=dict),
+]
+"""Untyped config mapping that is frozen on validation and thawed on dump.
 
-    Pydantic ``model_copy(update=...)`` skips validators; this helper dumps,
-    merges updates, and re-validates so frozen/semantic invariants always run.
-
-    :param model: Existing Pydantic model instance.
-    :param updates: Field overrides to apply.
-    :returns: Newly validated model of the same type.
-    """
-    payload = model.model_dump(mode="python")
-    payload.update(updates)
-    return cast(_T, type(model).model_validate(payload))
+Pydantic's ``frozen=True`` is shallow, so the arbitrary nested contents of these
+escape-hatch fields need the recursive walk in :func:`freeze_value`; ``model_dump``
+must still hand out plain dicts and lists for YAML and checkpoint persistence.
+"""

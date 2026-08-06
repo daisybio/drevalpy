@@ -161,17 +161,16 @@ def _build_from_spec(
         )
 
     try:
-        config = model_config_for_name(trimmed, hyperparameters)
+        # When hyperparameters are given, model_config_for_name resolves them and the
+        # requested prediction mode is not applied on that path (historical behaviour).
+        config = model_config_for_name(
+            trimmed,
+            hyperparameters,
+            prediction_mode=None if hyperparameters else mode,
+        )
     except KeyError:
         config = None
     if config is not None:
-        # model_config_for_name already applied hyperparameters when provided.
-        if hyperparameters:
-            return config
-        if isinstance(config, ResolvedModelConfig):
-            return config
-        if config.prediction_mode != mode:
-            return config.replace(prediction_mode=mode)
         return config
 
     no_feat = _config_from_no_featurizer_predictor_token(trimmed, prediction_mode=prediction_mode)

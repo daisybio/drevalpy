@@ -104,6 +104,20 @@ def test_zoo_model_config_routes_methylation_flat_key_to_pca_child() -> None:
     assert resolved.featurizer_values("cell_line", "pca[methylation]")["n_components"] == 11
 
 
+def test_get_zoo_config_applies_prediction_mode_override(monkeypatch: pytest.MonkeyPatch) -> None:
+    from drevalpy.components.registry import get_predictor
+    from drevalpy.models.config import ModelConfig
+    from drevalpy.types.prediction_mode import PredictionMode
+
+    monkeypatch.setattr(get_predictor("elasticNet"), "supported_modes", frozenset(PredictionMode))
+    assert get_zoo_config("ElasticNet").prediction_mode == PredictionMode.REGRESSION
+    overridden = get_zoo_config("ElasticNet", prediction_mode=PredictionMode.CLASSIFICATION)
+    assert overridden.prediction_mode == PredictionMode.CLASSIFICATION
+    via_zoo = zoo_model_config("ElasticNet", prediction_mode=PredictionMode.CLASSIFICATION)
+    assert isinstance(via_zoo, ModelConfig)
+    assert via_zoo.prediction_mode == PredictionMode.CLASSIFICATION
+
+
 def test_external_zoo_rejects_builtin_collision_and_is_atomic(tmp_path) -> None:
     from drevalpy.models.zoo import clear_external_zoo, load_external_zoo_file
 
@@ -156,5 +170,14 @@ def test_single_drug_sklearn_zoo_entries_use_identity_for_routing() -> None:
 def test_multi_drug_sklearn_predictor_without_drug_featurizer_fails() -> None:
     from pydantic import ValidationError
 
+    from drevalpy.models.config import ModelConfig
+
+    preset = get_zoo_config("ElasticNet")
     with pytest.raises(ValidationError, match="requires a drug_featurizer"):
-        get_zoo_config("ElasticNet").replace(drug_featurizer=None)
+        ModelConfig(
+            cell_line_featurizer=preset.cell_line_featurizer,
+            drug_featurizer=None,
+            predictor=preset.predictor,
+            prediction_mode=preset.prediction_mode,
+            scope=preset.scope,
+        )

@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_serializer, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from drevalpy.models.config.immutable import freeze_value, thaw_value
+from drevalpy.models.config.immutable import FrozenMapping
 from drevalpy.models.config.model import ModelConfig
 
 
@@ -23,16 +22,10 @@ class ResolvedModelConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     template: ModelConfig
-    values: Mapping[str, Any] = Field(default_factory=dict)
-
-    @field_serializer("values", when_used="always")
-    def _serialize_values(self, value: Mapping[str, Any]) -> dict[str, Any]:
-        dumped = thaw_value(value)
-        return dumped if isinstance(dumped, dict) else dict(dumped)
+    values: FrozenMapping = Field(default_factory=dict, validate_default=True)
 
     @model_validator(mode="after")
-    def _freeze_and_validate_values(self) -> ResolvedModelConfig:
-        object.__setattr__(self, "values", freeze_value(dict(self.values)))
+    def _validate_values(self) -> ResolvedModelConfig:
         from drevalpy.components.tuning.hyperparameter_keys import validate_merged_mapping
 
         validate_merged_mapping(self.template, dict(self.values))

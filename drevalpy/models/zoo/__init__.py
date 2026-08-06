@@ -12,6 +12,7 @@ from drevalpy.models.zoo._external_load import (
     _load_zoo_yaml_mapping,
 )
 from drevalpy.types.model_scope import ModelScope
+from drevalpy.types.prediction_mode import PredictionMode
 
 _BUILTIN_ZOO_DIR = Path(__file__).resolve().parent
 _EXTERNAL_ZOO: dict[str, ModelConfig] = {}
@@ -58,19 +59,20 @@ def list_zoo_names(
     return sorted(filtered)
 
 
-def get_zoo_config(name: str) -> ModelConfig:
+def get_zoo_config(name: str, *, prediction_mode: PredictionMode | None = None) -> ModelConfig:
     """Return a copy of a zoo entry by name.
 
     :param name: Built-in or externally registered zoo preset name.
+    :param prediction_mode: Optional prediction mode overriding the preset's own value.
     :returns: Deep copy of the zoo ``ModelConfig``.
     :raises KeyError: If ``name`` is not a known zoo entry.
     """
     if name in _EXTERNAL_ZOO:
-        return _clone_model_config(_EXTERNAL_ZOO[name])
+        return _clone_model_config(_EXTERNAL_ZOO[name], prediction_mode=prediction_mode)
     if name not in _BUILTIN_ZOO:
         msg = f"Unknown zoo entry: {name}"
         raise KeyError(msg)
-    return _clone_model_config(_BUILTIN_ZOO[name])
+    return _clone_model_config(_BUILTIN_ZOO[name], prediction_mode=prediction_mode)
 
 
 def register_external_zoo_entry(name: str, config: ModelConfig, *, replace: bool = True) -> None:
@@ -117,6 +119,8 @@ def load_external_zoo_file(path: Path | str) -> list[str]:
 def zoo_model_config(
     name: str,
     hyperparameters: dict[str, Any] | None = None,
+    *,
+    prediction_mode: PredictionMode | None = None,
 ) -> ModelConfig | ResolvedModelConfig:
     """Return a zoo config with optional public flat hyperparameter overrides.
 
@@ -124,9 +128,10 @@ def zoo_model_config(
 
     :param name: Built-in or external zoo preset name.
     :param hyperparameters: Optional flat public overrides applied to the preset.
+    :param prediction_mode: Optional prediction mode overriding the preset's own value.
     :returns: ``ModelConfig`` copy, or resolved config when overrides are provided.
     """
-    config = get_zoo_config(name)
+    config = get_zoo_config(name, prediction_mode=prediction_mode)
     if not hyperparameters:
         return config
     from drevalpy.components.tuning.public_flat import apply_public_hyperparameters_to_config
@@ -134,5 +139,8 @@ def zoo_model_config(
     return apply_public_hyperparameters_to_config(config, hyperparameters)
 
 
-def _clone_model_config(config: ModelConfig) -> ModelConfig:
-    return ModelConfig.model_validate(config.model_dump(mode="python"))
+def _clone_model_config(config: ModelConfig, *, prediction_mode: PredictionMode | None = None) -> ModelConfig:
+    payload = config.model_dump(mode="python")
+    if prediction_mode is not None:
+        payload["prediction_mode"] = prediction_mode
+    return ModelConfig.model_validate(payload)

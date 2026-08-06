@@ -1,8 +1,8 @@
-"""Walk and transform featurizer config trees."""
+"""Walk and validate featurizer config trees."""
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator
+from collections.abc import Iterator
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -24,28 +24,6 @@ def iter_featurizer_leaves(
             yield from iter_featurizer_leaves(child, registry)
         return
     yield featurizer
-
-
-def map_featurizer_tree(
-    featurizer: FeaturizerConfig,
-    registry: str,
-    transform_leaf: Callable[[FeaturizerConfig], FeaturizerConfig],
-) -> FeaturizerConfig:
-    """Return a copy of ``featurizer`` with ``transform_leaf`` applied at each leaf.
-
-    :param featurizer: Root featurizer config to copy and transform.
-    :param registry: Default registry used when normalizing nested children.
-    :param transform_leaf: Callable applied to each leaf config.
-    :returns: Transformed featurizer tree.
-    """
-    from drevalpy.models.config.immutable import rebuild_model
-
-    if featurizer.name == "concatFeaturizers":
-        children = tuple(
-            map_featurizer_tree(child, registry, transform_leaf) for child in (featurizer.featurizers or ())
-        )
-        return rebuild_model(featurizer, featurizers=children)
-    return transform_leaf(featurizer)
 
 
 def ensure_unique_qualified_featurizers(featurizer: FeaturizerConfig, registry: str) -> None:

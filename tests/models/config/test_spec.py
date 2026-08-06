@@ -33,6 +33,36 @@ def test_build_model_config_from_zoo_name_with_hyperparameters() -> None:
     assert config.predictor_values()["alpha"] == 0.2
 
 
+def test_zoo_name_prediction_mode_is_threaded_but_ignored_with_hyperparameters(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Zoo presets honour ``prediction_mode`` only when no hyperparameters are given.
+
+    The hyperparameters path returns the resolved config without applying the
+    requested mode; this asserts that long-standing quirk so a future fix is a
+    deliberate change rather than an accident.
+
+    :param monkeypatch: Pytest fixture used to widen the predictor's supported modes.
+    """
+    from drevalpy.components.registry import get_predictor
+    from drevalpy.models.config import ResolvedModelConfig
+    from drevalpy.types.prediction_mode import PredictionMode
+
+    monkeypatch.setattr(get_predictor("elasticNet"), "supported_modes", frozenset(PredictionMode))
+
+    template = _build_from_spec("ElasticNet", prediction_mode=PredictionMode.CLASSIFICATION)
+    assert not isinstance(template, ResolvedModelConfig)
+    assert template.prediction_mode == PredictionMode.CLASSIFICATION
+
+    resolved = _build_from_spec(
+        "ElasticNet",
+        hyperparameters={"alpha": 0.2},
+        prediction_mode=PredictionMode.CLASSIFICATION,
+    )
+    assert isinstance(resolved, ResolvedModelConfig)
+    assert resolved.template.prediction_mode == PredictionMode.REGRESSION
+
+
 def test_build_model_config_from_baseline_predictor_token() -> None:
     config = _build_from_spec("naiveMean")
     assert config.predictor.name == "naiveMean"

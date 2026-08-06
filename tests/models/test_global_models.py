@@ -2,7 +2,7 @@
 
 import os
 import tempfile
-from typing import cast
+from typing import Any, cast
 
 import numpy as np
 import pytest
@@ -11,10 +11,21 @@ from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.evaluation import evaluate
 from drevalpy.experiment import cross_study_prediction
 from drevalpy.models import construct_model
-from drevalpy.models.config import CellLineFeaturizerConfig, DrugFeaturizerConfig
-from drevalpy.models.config.immutable import rebuild_model
+from drevalpy.models.config import CellLineFeaturizerConfig, DrugFeaturizerConfig, ModelConfig
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.models.zoo import get_zoo_config
+
+
+def _zoo_config_variant(name: str, **updates: Any) -> ModelConfig:
+    """Build a variant of a zoo preset by re-validating an updated dump.
+
+    :param name: Zoo preset name.
+    :param updates: ``ModelConfig`` field overrides.
+    :returns: Newly validated ``ModelConfig``.
+    """
+    payload = get_zoo_config(name).model_dump(mode="python")
+    payload.update(updates)
+    return ModelConfig.model_validate(payload)
 
 
 def _resolve_global_model_name(model_name: str) -> tuple[str, str]:
@@ -26,8 +37,8 @@ def _resolve_global_model_name(model_name: str) -> tuple[str, str]:
 
 def _construct_global_model_class(whole_name: str, model_name: str) -> type[DRPModel]:
     if whole_name == "SimpleNeuralNetwork[chemberta]":
-        config = rebuild_model(
-            get_zoo_config("SimpleNeuralNetwork"),
+        config = _zoo_config_variant(
+            "SimpleNeuralNetwork",
             drug_featurizer=DrugFeaturizerConfig(
                 name="view",
                 options={"view": "drug_chemberta_embeddings"},
@@ -265,8 +276,8 @@ def test_multi_view_neural_network_custom_views(sample_dataset: DrugResponseData
             type[DRPModel],
             construct_model(
                 "MultiViewNeuralNetwork",
-                rebuild_model(
-                    get_zoo_config("MultiViewNeuralNetwork"),
+                _zoo_config_variant(
+                    "MultiViewNeuralNetwork",
                     cell_line_featurizer=CellLineFeaturizerConfig(
                         name="raw",
                         view="custom_test_view",

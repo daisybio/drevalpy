@@ -7,7 +7,6 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, model_validator
 
 from drevalpy.models.config.featurizer import CellLineFeaturizerConfig, DrugFeaturizerConfig
-from drevalpy.models.config.immutable import rebuild_model
 from drevalpy.models.config.predictor import PredictorConfig
 from drevalpy.models.config.validation import validate
 from drevalpy.types.model_scope import ModelScope
@@ -77,11 +76,3 @@ class ModelConfig(BaseModel):
             parts.append(drug.name)
         parts.append(self.predictor.name)
         return ":".join(parts)
-
-    def replace(self, **updates: Any) -> ModelConfig:
-        """Return a validated copy with the given field updates.
-
-        :param updates: Field overrides.
-        :returns: Newly validated ``ModelConfig``.
-        """
-        return rebuild_model(self, **updates)
