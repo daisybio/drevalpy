@@ -13,6 +13,7 @@ from drevalpy.components.predictors.matrix import MatrixPredictor
 from drevalpy.components.registry import register_predictor
 from drevalpy.components.registry.featurizer_registry import cell_line_featurizer_registry, drug_featurizer_registry
 from drevalpy.components.registry.predictor_registry import predictor_registry
+from drevalpy.models.config._predictor_traits import needs_identity_drug_routing
 from drevalpy.types.model_scope import ModelScope
 
 
@@ -53,17 +54,18 @@ def test_matrix_predictor_requires_numeric_contracts() -> None:
             pass
 
 
-def test_single_drug_feature_predictor_requires_identity_routing() -> None:
-    with pytest.raises(ValueError, match="routing_drug_featurizer='identity'"):
+def test_single_drug_feature_predictor_needs_no_routing_declaration() -> None:
+    @register_predictor(
+        "plainSingleDrug",
+        description="declares only its scope",
+        cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+        drug_contract=FeatureFormat.NUMERIC_MATRIX,
+    )
+    class PlainSingleDrug(MatrixPredictor):
+        scope = ModelScope.SINGLE_DRUG
 
-        @register_predictor(
-            "badSingleDrug",
-            description="missing identity routing",
-            cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
-            drug_contract=FeatureFormat.NUMERIC_MATRIX,
-        )
-        class BadSingleDrug(MatrixPredictor):
-            scope = ModelScope.SINGLE_DRUG
+    assert predictor_registry.get("plainSingleDrug") is PlainSingleDrug
+    assert needs_identity_drug_routing("plainSingleDrug") is True
 
 
 def test_feature_free_single_drug_skips_identity_routing() -> None:
@@ -77,6 +79,7 @@ def test_feature_free_single_drug_skips_identity_routing() -> None:
         scope = ModelScope.SINGLE_DRUG
 
     assert predictor_registry.get("freeSingleDrug") is FreeSingleDrug
+    assert needs_identity_drug_routing("freeSingleDrug") is False
 
 
 def test_registered_predictor_scope_defaults_to_multi_drug() -> None:

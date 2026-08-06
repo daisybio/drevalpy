@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 from drevalpy.components.contracts import contracts_compatible, featurizer_contract, predictor_contracts
 from drevalpy.components.feature_block import BlockSpec
 from drevalpy.components.predictors.feature_free import FeatureFreePredictor
+from drevalpy.components.predictors.single_drug_routing import ROUTING_DRUG_FEATURIZER
 from drevalpy.components.registry import (
     get_cell_line_featurizer,
     get_drug_featurizer,
@@ -55,11 +56,10 @@ def _validate_featurizer_presence(config: ModelConfig, pred_cls: type[Any]) -> N
 def _validate_single_drug_pairing(config: ModelConfig, pred_cls: type[Any]) -> None:
     if pred_cls.scope != ModelScope.SINGLE_DRUG:
         return
-    routing_featurizer = getattr(pred_cls, "routing_drug_featurizer", None)
-    if config.drug_featurizer is None or config.drug_featurizer.name != routing_featurizer:
+    if config.drug_featurizer is None or config.drug_featurizer.name != ROUTING_DRUG_FEATURIZER:
         msg = (
             f"Feature-based single-drug predictor {config.predictor.name!r} requires "
-            "drug_featurizer='identity' for per-drug routing"
+            f"drug_featurizer={ROUTING_DRUG_FEATURIZER!r} for per-drug routing"
         )
         raise ValueError(msg)
 

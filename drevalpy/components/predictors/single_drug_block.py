@@ -60,7 +60,6 @@ class SingleDrugBlockPredictor(BlockPredictor):
     """
 
     scope: ClassVar[ModelScope] = ModelScope.SINGLE_DRUG
-    routing_drug_featurizer: ClassVar[str] = "identity"
     requires_drug_featurizer: ClassVar[bool] = True
 
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:

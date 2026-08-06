@@ -24,7 +24,6 @@ class SingleDrugSklearnPredictor(SklearnTabularPredictor):
     """Fit one estimator per drug, using drug identity only for routing."""
 
     scope: ClassVar[ModelScope] = ModelScope.SINGLE_DRUG
-    routing_drug_featurizer: ClassVar[str] = "identity"
 
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
         """Initialize instance state.

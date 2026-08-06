@@ -7,7 +7,7 @@ import pytest
 from drevalpy.components.register_builtins import register_builtin_components
 from drevalpy.models.config import PredictorConfig
 from drevalpy.models.config._predictor_traits import (
-    routing_drug_featurizer_for_slot,
+    needs_identity_drug_routing,
     scope_for_predictor,
 )
 from drevalpy.types.model_scope import ModelScope
@@ -46,12 +46,12 @@ def test_scope_for_predictor_rejects_an_unknown_name() -> None:
         PredictorConfig(name="singleDrugElasticNet"),
     ],
 )
-def test_routing_drug_featurizer_reads_every_predictor_spelling(slot: object) -> None:
-    assert routing_drug_featurizer_for_slot(slot) == "identity"
+def test_routing_is_needed_for_every_predictor_spelling(slot: object) -> None:
+    assert needs_identity_drug_routing(slot) is True
 
 
-def test_routing_drug_featurizer_is_none_for_a_multi_drug_predictor() -> None:
-    assert routing_drug_featurizer_for_slot("elasticNet") is None
+def test_routing_is_not_needed_for_a_multi_drug_predictor() -> None:
+    assert needs_identity_drug_routing("elasticNet") is False
 
 
 @pytest.mark.parametrize(
@@ -66,5 +66,5 @@ def test_routing_drug_featurizer_is_none_for_a_multi_drug_predictor() -> None:
         {"name": "singleDrugElasticNet", "unexpected": 1},
     ],
 )
-def test_routing_drug_featurizer_returns_none_for_unusable_slots(slot: object) -> None:
-    assert routing_drug_featurizer_for_slot(slot) is None
+def test_routing_is_not_needed_for_unusable_slots(slot: object) -> None:
+    assert needs_identity_drug_routing(slot) is False

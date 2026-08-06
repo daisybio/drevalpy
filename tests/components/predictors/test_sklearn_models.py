@@ -33,4 +33,3 @@ def test_single_drug_sklearn_predictors_route_by_identity(
     assert issubclass(predictor_class, shared_predictor_class)
     assert issubclass(predictor_class, SingleDrugSklearnPredictor)
     assert predictor_class.requires_drug_featurizer is True
-    assert predictor_class.routing_drug_featurizer == "identity"

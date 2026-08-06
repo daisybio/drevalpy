@@ -8,6 +8,15 @@ import numpy as np
 
 from drevalpy.components.model_input_batch import ModelInputBatch
 
+ROUTING_DRUG_FEATURIZER = "identity"
+"""The drug featurizer per-drug routing is built on.
+
+Not a choice: a single-drug predictor fits one estimator per drug, so it needs the drug's
+identity to dispatch each pair to the right one. The identity featurizer emits exactly that,
+and its output is used as a routing key rather than as features, which is why the design
+matrix below is cell-line columns only.
+"""
+
 
 def routing_keys(batch: ModelInputBatch) -> np.ndarray:
     """Decode per-pair drug IDs from identity blocks.
@@ -16,8 +25,8 @@ def routing_keys(batch: ModelInputBatch) -> np.ndarray:
     :returns: Drug id string per pair (empty string when unknown).
     :raises ValueError: If identity blocks are missing or misaligned.
     """
-    identity_block = batch.drug_blocks.get("identity")
-    categories_block = batch.drug_blocks.get("identity_categories")
+    identity_block = batch.drug_blocks.get(ROUTING_DRUG_FEATURIZER)
+    categories_block = batch.drug_blocks.get(f"{ROUTING_DRUG_FEATURIZER}_categories")
     if identity_block is None or categories_block is None or batch.drug_pair_idx is None:
         msg = "Single-drug predictors require drug identity features for per-drug routing"
         raise ValueError(msg)

@@ -1,14 +1,19 @@
 """What a registered predictor implies about the config around it.
 
-A predictor class is written for one training scope and, when it trains one estimator per
-drug, for one routing drug featurizer. Both are properties of the component, not choices a
-``ModelConfig`` makes, so they are read off the registry rather than stored as fields.
+A predictor class is written for one training scope, and a single-drug one fits a separate
+estimator per drug. Both facts are properties of the component, not choices a ``ModelConfig``
+makes, so they are read off the registry rather than stored as fields.
+
+The two readers sit on opposite sides of field validation. ``scope_for_predictor`` takes a
+resolved name and is free to raise; ``needs_identity_drug_routing`` runs before validation on
+a slot that may be written in any accepted spelling, or be unusable, so it never raises.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
+from drevalpy.components.predictors.feature_free import FeatureFreePredictor
 from drevalpy.components.registry import get_predictor
 from drevalpy.models.config.predictor import PredictorConfig
 from drevalpy.types.model_scope import ModelScope
@@ -23,22 +28,29 @@ def scope_for_predictor(name: str) -> ModelScope:
     return get_predictor(name).scope
 
 
-def routing_drug_featurizer_for_slot(slot: Any) -> str | None:
-    """Return the drug featurizer a predictor's per-drug routing needs.
+def needs_identity_drug_routing(slot: Any) -> bool:
+    """Report whether a predictor slot names a predictor that routes per drug by identity.
+
+    True for a single-drug predictor that consumes features: it fits one estimator per drug, so
+    it needs the drug's identity to dispatch each pair to the right one. Which featurizer that
+    is was never a choice, so this answers yes or no rather than naming one.
 
     Written for a ``mode="before"`` validator, so *slot* may be any spelling a predictor slot
     accepts -- a bare name, a one-key mapping, a ``name`` mapping, or a ``PredictorConfig`` --
-    and may equally be unusable. Anything that cannot be read as a registered predictor yields
-    ``None`` instead of raising, leaving the bad value for normal field validation to report.
-    Pydantic's ``ValidationError`` is a ``ValueError``, so one ``ValueError`` catch covers both
-    a malformed slot and an unknown predictor name.
+    and may equally be unusable. Anything that cannot be read as a registered predictor is
+    reported as ``False`` rather than raising, leaving the bad value for normal field validation
+    to report. Pydantic's ``ValidationError`` is a ``ValueError``, so one ``ValueError`` catch
+    covers both a malformed slot and an unknown predictor name.
 
     :param slot: Raw value of a config payload's ``predictor`` slot.
-    :returns: The predictor's ``routing_drug_featurizer``, or ``None`` when there is none or
-        the slot cannot be resolved.
+    :returns: Whether the slot's predictor needs the identity drug featurizer for routing.
     """
     try:
         cls = get_predictor(PredictorConfig.model_validate(slot).name)
     except (TypeError, ValueError, ImportError):
-        return None
-    return cls.routing_drug_featurizer
+        return False
+    return (
+        cls.scope is ModelScope.SINGLE_DRUG
+        and getattr(cls, "requires_drug_featurizer", True)
+        and not issubclass(cls, FeatureFreePredictor)
+    )

@@ -6,7 +6,8 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
-from drevalpy.models.config._predictor_traits import routing_drug_featurizer_for_slot, scope_for_predictor
+from drevalpy.components.predictors.single_drug_routing import ROUTING_DRUG_FEATURIZER
+from drevalpy.models.config._predictor_traits import needs_identity_drug_routing, scope_for_predictor
 from drevalpy.models.config._recipe import format_model_recipe
 from drevalpy.models.config.featurizer import CellLineFeaturizerConfig, DrugFeaturizerConfig
 from drevalpy.models.config.predictor import PredictorConfig
@@ -48,13 +49,12 @@ class ModelConfig(BaseModel):
         if not isinstance(data, dict):
             return data
         payload = dict(data)
-        routing = routing_drug_featurizer_for_slot(payload.get("predictor"))
         if (
-            routing is not None
+            needs_identity_drug_routing(payload.get("predictor"))
             and payload.get("cell_line_featurizer") is not None
             and payload.get("drug_featurizer") is None
         ):
-            payload["drug_featurizer"] = DrugFeaturizerConfig(name=routing)
+            payload["drug_featurizer"] = DrugFeaturizerConfig(name=ROUTING_DRUG_FEATURIZER)
         return payload
 
     @property
@@ -86,5 +86,5 @@ class ModelConfig(BaseModel):
             return None
         # Single-drug stacks route per drug through the identity featurizer rather than
         # featurizing it, so naming it would suggest a choice the user never made.
-        omit_drug = self.scope == ModelScope.SINGLE_DRUG and drug.name == "identity"
+        omit_drug = self.scope == ModelScope.SINGLE_DRUG and drug.name == ROUTING_DRUG_FEATURIZER
         return format_model_recipe(cell.name, None if omit_drug else drug.name, self.predictor.name)

@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any
 
 from drevalpy.components.contracts import FeatureFormat
-from drevalpy.types.model_scope import ModelScope
 
 
 def _leaf_interface_match(name: str, cls: type[Any], leaf_bases: tuple[type[Any], ...]) -> type[Any]:
@@ -31,20 +30,6 @@ def _validate_matrix_contracts(name: str, cls: type[Any]) -> None:
             raise ValueError(msg)
 
 
-def _validate_single_drug_routing(name: str, cls: type[Any], leaf_base: type[Any]) -> None:
-    from drevalpy.components.predictors.feature_free import FeatureFreePredictor
-
-    requires_drug = getattr(cls, "requires_drug_featurizer", True)
-    if (
-        cls.scope is ModelScope.SINGLE_DRUG
-        and requires_drug
-        and leaf_base is not FeatureFreePredictor
-        and getattr(cls, "routing_drug_featurizer", None) != "identity"
-    ):
-        msg = f"Feature-based single-drug predictor {name!r} must declare " "routing_drug_featurizer='identity'"
-        raise ValueError(msg)
-
-
 def validate_predictor_registration(name: str, cls: type[Any]) -> None:
     """Raise ``ValueError`` if a predictor class violates registration invariants.
 
@@ -60,5 +45,4 @@ def validate_predictor_registration(name: str, cls: type[Any]) -> None:
     leaf_base = _leaf_interface_match(name, cls, leaf_bases)
     if leaf_base is MatrixPredictor:
         _validate_matrix_contracts(name, cls)
-    _validate_single_drug_routing(name, cls, leaf_base)
     validate_component_hyperparameter_space(name, cls)
