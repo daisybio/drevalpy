@@ -6,6 +6,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
+from drevalpy.models.config._recipe import format_model_recipe
 from drevalpy.models.config.featurizer import CellLineFeaturizerConfig, DrugFeaturizerConfig
 from drevalpy.models.config.predictor import PredictorConfig
 from drevalpy.models.config.validation import validate
@@ -63,6 +64,10 @@ class ModelConfig(BaseModel):
     def model_id(self) -> str | None:
         """Stable identifier for a fully specified combination.
 
+        The identifier is a model recipe, so it is written by the same code that reads one.
+        A half-specified stack has no name: one featurizer without the other cannot be
+        expressed as a recipe.
+
         :returns: Colon-separated featurizer and predictor names, or ``None`` when incomplete.
         """
         cell = self.cell_line_featurizer
@@ -71,8 +76,7 @@ class ModelConfig(BaseModel):
             return self.predictor.name if drug is None else None
         if drug is None:
             return None
-        parts = [cell.name]
-        if self.scope != ModelScope.SINGLE_DRUG or drug.name != "identity":
-            parts.append(drug.name)
-        parts.append(self.predictor.name)
-        return ":".join(parts)
+        # Single-drug stacks route per drug through the identity featurizer rather than
+        # featurizing it, so naming it would suggest a choice the user never made.
+        omit_drug = self.scope == ModelScope.SINGLE_DRUG and drug.name == "identity"
+        return format_model_recipe(cell.name, None if omit_drug else drug.name, self.predictor.name)

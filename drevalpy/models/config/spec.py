@@ -9,9 +9,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from drevalpy.components.model_id import parse_model_id
 from drevalpy.components.registry import get_predictor
 from drevalpy.models.config._from_dict import from_dict
+from drevalpy.models.config._recipe import parse_model_recipe
 from drevalpy.models.config.model import ModelConfig
 from drevalpy.models.config.resolved import ResolvedModelConfig
 from drevalpy.types.model_scope import ModelScope
@@ -60,7 +60,7 @@ def _recipe_slots(recipe: str) -> tuple[str | None, str | None, str, ModelScope]
     :raises ImportError: If a recipe's predictor is registered but its module fails to load.
     """
     try:
-        cell_line, drug, predictor = parse_model_id(recipe)
+        cell_line, drug, predictor = parse_model_recipe(recipe)
         scope = _default_scope_for_predictor(get_predictor(predictor))
     except (ValueError, ImportError) as exc:
         if ":" in recipe:

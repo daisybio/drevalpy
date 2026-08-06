@@ -1,10 +1,10 @@
-"""Tests for the shared recipe-string grammar."""
+"""Tests for the recipe language: the parsing grammar and the formatter."""
 
 from __future__ import annotations
 
 import pytest
 
-from drevalpy.models.config._recipe import parse_featurizer_atoms, parse_model_recipe
+from drevalpy.models.config._recipe import format_model_recipe, parse_featurizer_atoms, parse_model_recipe
 
 
 @pytest.mark.parametrize(
@@ -90,7 +90,7 @@ def test_model_recipe_slots_are_split(spec: str, expected: tuple[str | None, str
     assert parse_model_recipe(spec) == expected
 
 
-@pytest.mark.parametrize("spec", ["", "   ", "a:b:c:d", " :b:c", ":x", "a::b", "a:", "raw[a:b]:x:y"])
+@pytest.mark.parametrize("spec", ["a:b:c:d", " :b:c", ":x", "a::b", "a:", "raw[a:b]:x:y"])
 def test_model_recipe_rejects_malformed_specs(spec: str) -> None:
     """Wrong slot counts and empty slots are rejected by the grammar itself.
 
@@ -100,7 +100,55 @@ def test_model_recipe_rejects_malformed_specs(spec: str) -> None:
         parse_model_recipe(spec)
 
 
+@pytest.mark.parametrize("spec", ["", "   "])
+def test_model_recipe_rejects_blank_specs(spec: str) -> None:
+    """A blank recipe is reported as empty rather than as a grammar failure.
+
+    :param spec: Blank model recipe string.
+    """
+    with pytest.raises(ValueError, match="must be a non-empty string"):
+        parse_model_recipe(spec)
+
+
 def test_colon_inside_a_view_is_not_a_slot_separator() -> None:
     """The old ``str.split(':')`` was bracket-unaware; the grammar is not."""
     with pytest.raises(ValueError, match="Malformed model recipe"):
         parse_model_recipe("raw[a:b]:fingerprints:randomForest")
+
+
+@pytest.mark.parametrize(
+    ("slots", "expected"),
+    [
+        ((None, None, "naiveMean"), "naiveMean"),
+        (("scaledGeneExpression", None, "singleDrugElasticNet"), "scaledGeneExpression:singleDrugElasticNet"),
+        (
+            ("scaledGeneExpression", "fingerprints", "elasticNet"),
+            "scaledGeneExpression:fingerprints:elasticNet",
+        ),
+        (
+            ("raw[expression]+raw[mutations]", "fingerprints", "randomForest"),
+            "raw[expression]+raw[mutations]:fingerprints:randomForest",
+        ),
+    ],
+    ids=["predictor-only", "two-slot", "three-slot", "concat-slot"],
+)
+def test_model_recipe_is_formatted_from_slots(slots: tuple[str | None, str | None, str], expected: str) -> None:
+    """Formatting produces a recipe that parses back to the same slots.
+
+    :param slots: ``(cell_line, drug, predictor)`` names to join.
+    :param expected: Expected recipe string.
+    """
+    recipe = format_model_recipe(*slots)
+    assert recipe == expected
+    assert parse_model_recipe(recipe) == slots
+
+
+def test_formatting_requires_a_predictor() -> None:
+    with pytest.raises(ValueError, match="predictor is required"):
+        format_model_recipe("scaledGeneExpression", "fingerprints", "")
+
+
+def test_formatting_rejects_a_drug_slot_without_a_cell_line_slot() -> None:
+    """A recipe fills its slots left to right, so this pair has no representation."""
+    with pytest.raises(ValueError, match="cell_line is required when drug is set"):
+        format_model_recipe(None, "fingerprints", "elasticNet")

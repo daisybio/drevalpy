@@ -12,8 +12,6 @@ def test_public_exports_are_importable() -> None:
         "register_cell_line_featurizer",
         "register_drug_featurizer",
         "register_predictor",
-        "format_model_id",
-        "parse_model_id",
         "load_extensions",
         "list_predictor_metadata",
     }
@@ -45,6 +43,8 @@ def test_components_do_not_reexport_orchestration() -> None:
         "get_zoo_config",
         "list_zoo_names",
         "ComponentDRPBridge",
+        "format_model_id",
+        "parse_model_id",
     }
     for name in orchestration_exports:
         assert not hasattr(components, name), name
