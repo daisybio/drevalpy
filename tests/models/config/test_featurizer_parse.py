@@ -142,25 +142,114 @@ _EXPLICIT_SPACE = {"n_components": {"type": "int", "low": 2, "high": 99, "defaul
 
 
 @pytest.mark.parametrize(
-    ("one_key_body", "legacy_extra"),
+    ("body", "expected_space_default", "expected_options"),
     [
-        ({"n_components": 8}, {"n_components": 8}),
-        ({"hyperparameter_space": _EXPLICIT_SPACE, "n_components": 8}, {"n_components": 8}),
-        ({"options": {"foo": 1}, "bar": 2}, {"bar": 2}),
+        ({"n_components": 8}, 8, None),
+        ({"hyperparameter_space": _EXPLICIT_SPACE, "n_components": 8}, 5, None),
+        ({"options": {"foo": 1}, "bar": 2}, None, {"foo": 1, "bar": 2}),
     ],
     ids=["simple-value", "explicit-space-wins", "options-and-simple"],
 )
-def test_one_key_and_legacy_notations_agree(one_key_body: dict, legacy_extra: dict) -> None:
-    """Both mapping notations share one merge rule, so they must normalize identically.
+def test_one_key_body_folds_loose_values(
+    body: dict,
+    expected_space_default: int | None,
+    expected_options: dict | None,
+) -> None:
+    """A loose value moves a declared default; anything undeclared becomes a fixed option.
 
-    :param one_key_body: Body of the one-key mapping form.
-    :param legacy_extra: Values nested under ``hyperparameters`` in the legacy form.
+    :param body: Body of the one-key mapping form.
+    :param expected_space_default: Expected ``n_components`` default, when relevant.
+    :param expected_options: Expected ``options`` mapping, when relevant.
     """
-    legacy: dict = {"name": "pca", "view": "methylation", "hyperparameters": legacy_extra}
-    for key in ("hyperparameter_space", "options"):
-        if key in one_key_body:
-            legacy[key] = one_key_body[key]
+    payload = normalize_featurizer_config({"pca[methylation]": body}, default_registry="cell_line")
+    if expected_space_default is not None:
+        assert payload["hyperparameter_space"]["n_components"]["default"] == expected_space_default
+    if expected_options is not None:
+        assert payload["options"] == expected_options
 
-    from_one_key = normalize_featurizer_config({"pca[methylation]": one_key_body}, default_registry="cell_line")
-    from_legacy = normalize_featurizer_config(legacy, default_registry="cell_line")
-    assert from_one_key == from_legacy
+
+def test_legacy_hyperparameters_mapping_points_at_the_replacement() -> None:
+    """The removed notation reports the one-key form that replaces it."""
+    with pytest.raises(ValueError, match="no longer accept a nested 'hyperparameters' mapping"):
+        normalize_featurizer_config(
+            {"name": "pca", "view": "methylation", "hyperparameters": {"n_components": 8}},
+            default_registry="cell_line",
+        )
+
+
+def test_legacy_hyperparameters_without_a_name_still_reports_the_replacement() -> None:
+    """``hyperparameters`` is reserved, so it cannot be mistaken for a one-key shorthand."""
+    with pytest.raises(ValueError, match="no longer accept a nested 'hyperparameters' mapping"):
+        normalize_featurizer_config({"hyperparameters": {"n_components": 8}}, default_registry="cell_line")
+
+
+def test_bracket_syntax_is_rejected_for_non_parametric_featurizers() -> None:
+    with pytest.raises(ValueError, match="only supported for raw and pca"):
+        normalize_featurizer_config("scaledGeneExpression[gene_expression]", default_registry="cell_line")
+
+
+def test_non_atom_one_key_falls_back_to_the_registry_error() -> None:
+    """A key that is not a single atom is looked up verbatim, so the registry reports it."""
+    with pytest.raises(ValueError, match="Unknown Cell line featurizer: 'a\\+b'"):
+        normalize_featurizer_config({"a+b": {"foo": 1}}, default_registry="cell_line")
+
+
+def test_unparsable_one_key_falls_back_to_the_registry_error() -> None:
+    """A key the grammar rejects outright is also looked up verbatim, not reported as syntax."""
+    with pytest.raises(ValueError, match="Unknown Cell line featurizer: 'raw\\['"):
+        normalize_featurizer_config({"raw[": {"foo": 1}}, default_registry="cell_line")
+
+
+def test_one_key_loose_values_resolve_against_the_drug_registry() -> None:
+    """No drug featurizer declares a space, so a loose value becomes a fixed option."""
+    payload = normalize_featurizer_config({"fingerprints": {"n_bits": 512}}, default_registry="drug")
+    assert payload["registry"] == "drug"
+    assert payload["options"] == {"n_bits": 512}
+    assert "hyperparameter_space" not in payload
+
+
+def test_named_mapping_without_a_view_is_rejected() -> None:
+    with pytest.raises(ValueError, match="requires an explicit view"):
+        normalize_featurizer_config({"name": "pca"}, default_registry="cell_line")
+
+
+def test_named_mapping_with_a_blank_view_is_rejected() -> None:
+    with pytest.raises(ValueError, match="requires an explicit view"):
+        normalize_featurizer_config({"name": "pca", "view": "  "}, default_registry="cell_line")
+
+
+def test_empty_token_is_rejected() -> None:
+    with pytest.raises(ValueError, match="non-empty string"):
+        normalize_featurizer_config("   ", default_registry="cell_line")
+
+
+def test_one_key_body_must_be_a_mapping() -> None:
+    with pytest.raises(ValueError, match="must be a mapping when provided"):
+        normalize_featurizer_config({"scaledGeneExpression": 5}, default_registry="cell_line")
+
+
+def test_one_key_body_may_be_null() -> None:
+    payload = normalize_featurizer_config({"scaledGeneExpression": None}, default_registry="cell_line")
+    assert payload == {"name": "scaledGeneExpression", "registry": "cell_line"}
+
+
+def test_one_key_body_may_declare_children() -> None:
+    payload = normalize_featurizer_config(
+        {"concatFeaturizers": {"featurizers": ["scaledGeneExpression", "raw[mutations]"]}},
+        default_registry="cell_line",
+    )
+    assert payload["name"] == "concatFeaturizers"
+    assert [child["name"] for child in payload["featurizers"]] == ["scaledGeneExpression", "raw"]
+
+
+def test_children_must_be_a_list() -> None:
+    with pytest.raises(ValueError, match="featurizers must be a list when set"):
+        normalize_featurizer_config(
+            {"name": "concatFeaturizers", "featurizers": "scaledGeneExpression"},
+            default_registry="cell_line",
+        )
+
+
+def test_mapping_without_name_or_one_key_shape_is_rejected() -> None:
+    with pytest.raises(ValueError, match="string, one-key mapping, or dict with 'name'"):
+        normalize_featurizer_config({"view": "methylation", "options": {}}, default_registry="cell_line")

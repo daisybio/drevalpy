@@ -15,12 +15,10 @@ def test_ensure_unique_allows_same_name_different_views() -> None:
         {
             "name": "concatFeaturizers",
             "registry": "cell_line",
-            "hyperparameters": {
-                "featurizers": [
-                    {"name": "raw", "view": "gene_expression"},
-                    {"name": "raw", "view": "mutations"},
-                ],
-            },
+            "featurizers": [
+                {"name": "raw", "view": "gene_expression"},
+                {"name": "raw", "view": "mutations"},
+            ],
         },
     )
     ensure_unique_qualified_featurizers(config, "cell_line")
@@ -32,12 +30,10 @@ def test_featurizer_config_rejects_duplicate_qualified_selector() -> None:
             {
                 "name": "concatFeaturizers",
                 "registry": "cell_line",
-                "hyperparameters": {
-                    "featurizers": [
-                        {"name": "raw", "view": "gene_expression"},
-                        {"name": "raw", "view": "gene_expression"},
-                    ],
-                },
+                "featurizers": [
+                    {"name": "raw", "view": "gene_expression"},
+                    {"name": "raw", "view": "gene_expression"},
+                ],
             },
         )
 

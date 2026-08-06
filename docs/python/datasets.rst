@@ -129,8 +129,7 @@ or in zoo YAML:
 .. code-block:: yaml
 
    cell_line_featurizer:
-     name: normalizedProteomics
-     hyperparameters:
+     normalizedProteomics:
        feature_threshold: 0.7
        n_features: 1000
        normalization_width: 0.3

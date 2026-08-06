@@ -41,5 +41,4 @@ def routing_drug_featurizer_for_slot(slot: Any) -> str | None:
         cls = get_predictor(PredictorConfig.model_validate(slot).name)
     except (TypeError, ValueError, ImportError):
         return None
-    routing = getattr(cls, "routing_drug_featurizer", None)
-    return routing if isinstance(routing, str) else None
+    return cls.routing_drug_featurizer

@@ -10,8 +10,10 @@ from __future__ import annotations
 from typing import Any
 
 from drevalpy.components.featurizer_label import requires_explicit_view
+from drevalpy.components.registry import get_cell_line_featurizer, get_drug_featurizer
 from drevalpy.components.view_aliases import resolve_omics_view
 from drevalpy.models.config._recipe import parse_featurizer_atoms
+from drevalpy.models.config._space_defaults import split_space_and_options
 
 _RESERVED_FEATURIZER_KEYS = frozenset(
     {
@@ -70,6 +72,13 @@ def _parse_atom_name(name_token: str, *, default_registry: str) -> tuple[str, st
 
 
 def _validate_view_required(config: dict[str, Any]) -> None:
+    """Reject a featurizer that only means something for a named view without one.
+
+    Every notation funnels through here, so this is the single place the rule is enforced.
+
+    :param config: Normalized featurizer mapping.
+    :raises ValueError: If *config* names a view-parametric featurizer but sets no view.
+    """
     name = str(config.get("name", ""))
     if not requires_explicit_view(name):
         return
@@ -79,91 +88,16 @@ def _validate_view_required(config: dict[str, Any]) -> None:
         raise ValueError(msg)
 
 
-def _lift_featurizers_from_hyperparameters(
-    normalized: dict[str, Any],
-    leftover: dict[str, Any],
-) -> None:
-    if "featurizers" not in leftover:
-        return
-    if "featurizers" in normalized and normalized["featurizers"] is not None:
-        msg = "Featurizer config cannot set both 'featurizers' and hyperparameters['featurizers']"
-        raise ValueError(msg)
-    normalized["featurizers"] = leftover.pop("featurizers")
+def _featurizer_class(name: str, registry: str) -> type[Any]:
+    """Look up a featurizer class in the registry the config is written against.
 
-
-def _fold_simple_values(
-    name: str,
-    simple_values: dict[str, Any],
-    *,
-    registry: str,
-    hyperparameter_space: dict[str, Any] | None,
-    options: dict[str, Any] | None,
-) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
-    """Fold loose parameter values into a tuning space and fixed constructor options.
-
-    Shared by both mapping notations: a one-key body writes its parameters alongside the
-    reserved keys, while the legacy form nests them under ``hyperparameters``. Once the
-    caller has separated the two, the merge rule is the same, so it lives here only.
-    Explicitly declared entries always win over values derived from *simple_values*.
-
-    :param name: Featurizer registry name, used to look up the declared space.
-    :param simple_values: Loose ``parameter: value`` pairs to classify.
+    :param name: Featurizer registry name.
     :param registry: ``cell_line`` or ``drug``.
-    :param hyperparameter_space: Space the config declared explicitly, if any.
-    :param options: Options the config declared explicitly, if any.
-    :returns: ``(hyperparameter_space, options)`` with derived values merged underneath.
+    :returns: The registered featurizer class.
     """
-    if not simple_values:
-        return hyperparameter_space, options
-    derived_space, derived_options = _space_defaults_from_simple_values(
-        name,
-        simple_values,
-        default_registry=registry,
-    )
-    if derived_space:
-        hyperparameter_space = {**derived_space, **(hyperparameter_space or {})}
-    if derived_options:
-        options = {**derived_options, **(options or {})}
-    return hyperparameter_space, options
-
-
-def _lift_legacy_hyperparameters(config: dict[str, Any], *, default_registry: str) -> dict[str, Any]:
-    """Move legacy ``hyperparameters`` into ``featurizers`` / ``options`` / space defaults.
-
-    :param config: Partially normalized featurizer mapping.
-    :param default_registry: Registry used when converting tunable shorthand values.
-    :returns: Mapping without a ``hyperparameters`` key.
-    :raises ValueError: If ``hyperparameters`` is malformed.
-    """
-    normalized = dict(config)
-    hyperparameters = normalized.pop("hyperparameters", None)
-    if hyperparameters is None:
-        return normalized
-    if not isinstance(hyperparameters, dict):
-        msg = "Featurizer hyperparameters must be a mapping when provided"
-        raise ValueError(msg)
-    if not hyperparameters:
-        return normalized
-    leftover = dict(hyperparameters)
-    _lift_featurizers_from_hyperparameters(normalized, leftover)
-    space, options = _fold_simple_values(
-        str(normalized.get("name", "")),
-        leftover,
-        registry=str(normalized.get("registry", default_registry)),
-        hyperparameter_space=normalized.get("hyperparameter_space"),
-        options=normalized.get("options"),
-    )
-    if space is not None:
-        normalized["hyperparameter_space"] = space
-    if options is not None:
-        normalized["options"] = options
-    return normalized
-
-
-def _finalize_featurizer_config(config: dict[str, Any], *, default_registry: str = "cell_line") -> dict[str, Any]:
-    normalized = _lift_legacy_hyperparameters(config, default_registry=default_registry)
-    _validate_view_required(normalized)
-    return normalized
+    if registry == "cell_line":
+        return get_cell_line_featurizer(name)
+    return get_drug_featurizer(name)
 
 
 def _assemble_featurizer_dict(
@@ -175,6 +109,16 @@ def _assemble_featurizer_dict(
     hyperparameter_space: dict[str, Any] | None = None,
     options: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    """Build a canonical featurizer mapping, omitting the fields that were never set.
+
+    :param name: Featurizer registry name.
+    :param default_registry: Registry recorded on the mapping.
+    :param view: Resolved view, when the featurizer takes one.
+    :param featurizers: Normalized children, for a concat node.
+    :param hyperparameter_space: Search space to record.
+    :param options: Fixed constructor options to record.
+    :returns: Normalized featurizer config mapping.
+    """
     payload: dict[str, Any] = {
         "name": name,
         "registry": default_registry,
@@ -187,13 +131,8 @@ def _assemble_featurizer_dict(
         payload["hyperparameter_space"] = hyperparameter_space
     if options is not None:
         payload["options"] = options
-    return _finalize_featurizer_config(payload, default_registry=default_registry)
-
-
-def _require_view_for_parametric(name: str, view: str | None) -> None:
-    if view is None and requires_explicit_view(name):
-        msg = f"Featurizer {name!r} requires an explicit view, e.g. {name}[expression]"
-        raise ValueError(msg)
+    _validate_view_required(payload)
+    return payload
 
 
 def _featurizer_dict_from_atom(
@@ -210,7 +149,6 @@ def _featurizer_dict_from_atom(
     :returns: Normalized featurizer config mapping.
     """
     name, view = _resolve_atom_view(name, view_token, default_registry=default_registry)
-    _require_view_for_parametric(name, view)
     return _assemble_featurizer_dict(
         name,
         default_registry=default_registry,
@@ -243,6 +181,13 @@ def _parse_featurizer_token(token: str, *, default_registry: str) -> dict[str, A
 
 
 def _normalize_featurizer_list(data: list[Any], *, default_registry: str) -> dict[str, Any]:
+    """Normalize a list of featurizers into a concat node over them.
+
+    :param data: List of recipe strings or mappings.
+    :param default_registry: Target featurizer registry name.
+    :returns: Normalized concat-featurizer config mapping.
+    :raises ValueError: If *data* is empty.
+    """
     if not data:
         msg = "Featurizer list must be non-empty"
         raise ValueError(msg)
@@ -254,6 +199,13 @@ def _normalize_featurizer_list(data: list[Any], *, default_registry: str) -> dic
 
 
 def _normalize_child_list(children: Any, *, default_registry: str) -> list[Any]:
+    """Normalize the children declared under a ``featurizers`` key.
+
+    :param children: Value found under ``featurizers``.
+    :param default_registry: Registry the children are resolved against.
+    :returns: List of normalized child mappings.
+    :raises ValueError: If *children* is not a list or tuple.
+    """
     if isinstance(children, (str, bytes, bytearray)) or not isinstance(children, (list, tuple)):
         msg = "featurizers must be a list when set"
         raise ValueError(msg)
@@ -261,6 +213,12 @@ def _normalize_child_list(children: Any, *, default_registry: str) -> list[Any]:
 
 
 def _normalize_named_featurizer_dict(data: dict[str, Any], *, default_registry: str) -> dict[str, Any]:
+    """Normalize a mapping that already names its featurizer.
+
+    :param data: Mapping carrying at least ``name``.
+    :param default_registry: Registry used when the mapping declares none.
+    :returns: Normalized featurizer config mapping.
+    """
     normalized = dict(data)
     normalized.setdefault("registry", default_registry)
     registry = str(normalized.get("registry", default_registry))
@@ -269,38 +227,8 @@ def _normalize_named_featurizer_dict(data: dict[str, Any], *, default_registry: 
             normalized["featurizers"],
             default_registry=registry,
         )
-    return _finalize_featurizer_config(normalized, default_registry=registry)
-
-
-def _space_defaults_from_simple_values(
-    name: str,
-    simple_values: dict[str, Any],
-    *,
-    default_registry: str,
-) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
-    """Split shorthand values into space-default overrides and fixed options.
-
-    Tunable keys update ``hyperparameter_space`` defaults. Non-tunable keys become
-    template ``options`` passed through to the featurizer constructor.
-
-    :param name: Featurizer registry name.
-    :param simple_values: Mapping of local parameter name to concrete value.
-    :param default_registry: ``cell_line`` or ``drug``.
-    :returns: ``(hyperparameter_space, options)``.
-    """
-    from drevalpy.components.registry import get_cell_line_featurizer, get_drug_featurizer
-
-    cls = get_cell_line_featurizer(name) if default_registry == "cell_line" else get_drug_featurizer(name)
-    space = {
-        key: dict(spec) if isinstance(spec, dict) else spec for key, spec in cls.get_hyperparameter_space().items()
-    }
-    options: dict[str, Any] = {}
-    for key, value in simple_values.items():
-        if key in space and isinstance(space[key], dict):
-            space[key] = {**space[key], "default": value}
-        else:
-            options[key] = value
-    return (space if space else None), (options or None)
+    _validate_view_required(normalized)
+    return normalized
 
 
 def _split_one_key_payload(
@@ -311,8 +239,10 @@ def _split_one_key_payload(
 ) -> tuple[list[Any] | None, dict[str, Any] | None, dict[str, Any] | None]:
     """Split a one-key mapping body into template fields.
 
-    Reserved keys are taken as declared; everything left over is a loose parameter value
-    folded in by ``_fold_simple_values``.
+    Reserved keys are taken as declared. Everything left over is a loose parameter value,
+    classified against the featurizer's declared space: a tunable moves that entry's
+    ``default``, anything else becomes a fixed constructor option. Explicitly declared
+    entries always win over the derived ones.
 
     :param payload: Body of a one-key featurizer mapping.
     :param name: Featurizer registry name.
@@ -324,17 +254,26 @@ def _split_one_key_payload(
     hyperparameter_space = body.pop("hyperparameter_space", None)
     options = body.pop("options", None)
     body.pop("view", None)
-    hyperparameter_space, options = _fold_simple_values(
-        name,
-        body,
-        registry=default_registry,
-        hyperparameter_space=hyperparameter_space,
-        options=options,
-    )
+    if body:
+        derived_space, derived_options = split_space_and_options(
+            _featurizer_class(name, default_registry),
+            body,
+        )
+        if derived_space:
+            hyperparameter_space = {**derived_space, **(hyperparameter_space or {})}
+        if derived_options:
+            options = {**derived_options, **(options or {})}
     return featurizers, hyperparameter_space, options
 
 
 def _normalize_one_key_featurizer_dict(data: dict[str, Any], *, default_registry: str) -> dict[str, Any]:
+    """Normalize the ``{"pca[methylation]": {...}}`` notation.
+
+    :param data: Single-entry mapping of atom to arguments.
+    :param default_registry: Target featurizer registry name.
+    :returns: Normalized featurizer config mapping.
+    :raises ValueError: If the arguments are neither ``None`` nor a mapping.
+    """
     name_token, body = next(iter(data.items()))
     if body is None:
         payload: dict[str, Any] = {}
@@ -344,7 +283,6 @@ def _normalize_one_key_featurizer_dict(data: dict[str, Any], *, default_registry
         msg = f"Featurizer {name_token!r} arguments must be a mapping when provided"
         raise ValueError(msg)
     name, view = _parse_atom_name(str(name_token), default_registry=default_registry)
-    _require_view_for_parametric(name, view)
     featurizers, hyperparameter_space, options = _split_one_key_payload(
         payload,
         name=name,
@@ -360,6 +298,27 @@ def _normalize_one_key_featurizer_dict(data: dict[str, Any], *, default_registry
         hyperparameter_space=hyperparameter_space,
         options=options,
     )
+
+
+def _reject_legacy_hyperparameters(data: dict[str, Any]) -> None:
+    """Report the removed ``hyperparameters:`` mapping in terms of its replacement.
+
+    The notation used to nest parameter values one level deeper. Writing them directly under
+    the featurizer name means the same thing, so the fix is mechanical.
+
+    :param data: Featurizer mapping to inspect.
+    :raises ValueError: If *data* carries a ``hyperparameters`` key.
+    """
+    if "hyperparameters" not in data:
+        return
+    name = data.get("name")
+    example = f"{name}:" if isinstance(name, str) and name else "<featurizer>:"
+    msg = (
+        "Featurizer configs no longer accept a nested 'hyperparameters' mapping. Write the "
+        f"values directly under the featurizer name instead, as in '{example}' with the "
+        "parameters below it, or set 'hyperparameter_space' / 'options' explicitly."
+    )
+    raise ValueError(msg)
 
 
 def normalize_featurizer_config(data: Any, *, default_registry: str = "cell_line") -> dict[str, Any]:
@@ -384,6 +343,8 @@ def normalize_featurizer_config(data: Any, *, default_registry: str = "cell_line
     if not isinstance(data, dict):
         msg = f"Featurizer config must be a string, list, or mapping, got {type(data)!r}"
         raise TypeError(msg)
+
+    _reject_legacy_hyperparameters(data)
 
     if "name" in data:
         return _normalize_named_featurizer_dict(data, default_registry=default_registry)
