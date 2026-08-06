@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
 from drevalpy.components.model_id import parse_model_id
 from drevalpy.components.predictors.feature_free import FeatureFreePredictor
+from drevalpy.models.config._featurizer_parse import normalize_featurizer_config
 from drevalpy.models.config.featurizer import CellLineFeaturizerConfig, DrugFeaturizerConfig
 from drevalpy.models.config.model import ModelConfig
 from drevalpy.models.config.predictor import PredictorConfig

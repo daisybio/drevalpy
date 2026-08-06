@@ -7,7 +7,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
-from drevalpy.components.predictor_config_parse import normalize_predictor_config
+from drevalpy.models.config._predictor_parse import normalize_predictor_config
 from drevalpy.models.config.immutable import FrozenMapping, thaw_value
 
 
@@ -26,7 +26,17 @@ class PredictorConfig(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def _coerce_shorthand(cls, data: object) -> object:
+    def _normalize_recipe_input(cls, data: object) -> object:
+        """Rewrite the various ways of writing a predictor into this model's own fields.
+
+        The featurizer counterpart of this hook, for the predictor slot: accepts a bare
+        recipe string such as ``"elasticNet"``, a one-key mapping like
+        ``{"randomForest": {"n_estimators": 10}}``, or a legacy mapping carrying
+        ``hyperparameters``, and reduces each to ``name`` plus ``hyperparameter_space``.
+
+        :param data: A recipe string or a mapping of fields.
+        :returns: Canonical field mapping, or *data* unchanged if it is already canonical.
+        """
         if isinstance(data, str):
             return normalize_predictor_config(data)
         if isinstance(data, dict) and "name" not in data:

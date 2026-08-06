@@ -1,4 +1,4 @@
-"""Parse compact predictor config shorthand into normalized dicts."""
+"""Normalize predictor recipe strings and mappings into canonical config fields."""
 
 from __future__ import annotations
 

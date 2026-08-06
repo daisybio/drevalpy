@@ -1,4 +1,9 @@
-"""Parse compact featurizer config shorthand into normalized dicts."""
+"""Normalize featurizer recipe strings and mappings into canonical config fields.
+
+Turns the notations users write (see the recipe-string and YAML tabs in the docs) into
+the plain field mappings ``FeaturizerConfig`` validates. Kept next to the config models
+it feeds rather than in ``drevalpy.components``, since no component consumes it.
+"""
 
 from __future__ import annotations
 
@@ -362,13 +367,17 @@ def _normalize_one_key_featurizer_dict(data: dict[str, Any], *, default_registry
 
 
 def normalize_featurizer_config(data: Any, *, default_registry: str = "cell_line") -> dict[str, Any]:
-    """Normalize string, list, or one-key mapping featurizer configs.
+    """Normalize any accepted featurizer notation into a canonical field mapping.
 
-    :param data: data.
-    :param default_registry: default registry.
-    :returns: Result.
-    :raises ValueError: Raised on invalid input.
-    :raises TypeError: Raised on invalid input.
+    Accepts a recipe string (``"raw[gene_expression]"``, or ``+``-joined atoms), a list of
+    those (equivalent to a concat node), a one-key mapping (``{"pca[methylation]": {...}}``),
+    or a mapping that already has ``name``.
+
+    :param data: Recipe string, list of recipes, or field mapping.
+    :param default_registry: Registry used to resolve bare names (``cell_line`` or ``drug``).
+    :returns: Mapping of canonical ``FeaturizerConfig`` fields.
+    :raises ValueError: If the mapping form is not a one-key shorthand and lacks ``name``.
+    :raises TypeError: If *data* is not a string, list, or mapping.
     """
     if isinstance(data, str):
         return _parse_featurizer_token(data, default_registry=default_registry)

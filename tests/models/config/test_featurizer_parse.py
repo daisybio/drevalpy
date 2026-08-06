@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
+from drevalpy.models.config._featurizer_parse import normalize_featurizer_config
 
 
 def test_normalize_string_shorthand() -> None:

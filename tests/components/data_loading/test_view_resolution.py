@@ -12,9 +12,9 @@ from drevalpy.components.data_loading.view_resolution import (
     drug_entity_id_only_from_model_config,
     drug_views_from_model_config,
 )
-from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
 from drevalpy.components.register_builtins import register_builtin_components
 from drevalpy.models.config import CellLineFeaturizerConfig, DrugFeaturizerConfig, ModelConfig, PredictorConfig
+from drevalpy.models.config._featurizer_parse import normalize_featurizer_config
 
 
 @pytest.fixture(autouse=True)

@@ -7,11 +7,11 @@ from typing import Any, Literal, get_args
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
-from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
 from drevalpy.components.featurizer_label import requires_explicit_view
 from drevalpy.components.featurizer_tree import ensure_unique_qualified_featurizers
 from drevalpy.components.hyperparameter_space import validate_hyperparameter_space
 from drevalpy.components.registry import get_cell_line_featurizer, get_drug_featurizer
+from drevalpy.models.config._featurizer_parse import normalize_featurizer_config
 from drevalpy.models.config.immutable import FrozenMapping, thaw_value
 
 
@@ -26,9 +26,10 @@ class FeaturizerConfig(BaseModel):
     Combine several views by nesting one single-``view`` child per view under a concat
     node, which is what the ``raw[expression]+raw[mutations]`` shorthand expands to.
 
-    Accepts the same shorthands users write in YAML (a bare name, a ``name[view]`` label,
-    a list, or a one-key mapping) and normalizes them into these fields. Validation is
-    front-loaded here so a bad recipe fails at load time instead of mid-run.
+    Accepts the same notations users write in the docs' recipe strings and YAML (a bare
+    name, a ``name[view]`` label, a list, or a one-key mapping) and normalizes them into
+    these fields. Validation is front-loaded here so a bad recipe fails at load time
+    instead of mid-run.
 
     ``tuple`` fields plus ``frozen=True`` make an accidental in-place edit of a shared or
     cached config fail loudly. Note this buys *safety*, not hashability: ``options`` and
@@ -62,14 +63,26 @@ class FeaturizerConfig(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def _coerce_shorthand(cls, data: object) -> object:
-        """Normalize shorthand payloads against the registry this class targets.
+    def _normalize_recipe_input(cls, data: object) -> object:
+        """Rewrite the various ways of writing one featurizer into this model's own fields.
 
-        A pinned class overrides a conflicting ``registry`` in the payload; the open base
-        class honors it and threads it through to nested children.
+        A featurizer can be given as a compact recipe string or spelled out as a mapping.
+        This runs before field validation and reduces every accepted form to the canonical
+        ``name`` / ``view`` / ``featurizers`` fields::
 
-        :param data: Raw string, list, or mapping payload.
-        :returns: Normalized mapping, or *data* unchanged when it is not a shorthand form.
+            "scaledGeneExpression"                     name=scaledGeneExpression
+            "raw[gene_expression]"                     name=raw, view=gene_expression
+            "raw[gene_expression]+raw[mutations]"      name=concatFeaturizers, two children
+            ["raw[gene_expression]", "raw[mutations]"] name=concatFeaturizers, two children
+            {"pca[methylation]": {"n_components": 8}}  name=pca, view=methylation, + space
+            {"name": "raw", "view": "gene_expression"} already canonical, passed through
+
+        Turning a bare name into a component needs a registry to look it up in. A pinned
+        subclass uses its own and overwrites a conflicting ``registry`` key; the base class
+        reads it from the input, falling back to the field default.
+
+        :param data: A recipe string, a list of them, or a mapping of fields.
+        :returns: Canonical field mapping, or *data* unchanged if it is none of these forms.
         """
         if not isinstance(data, (str, list, dict)):
             return data
@@ -78,9 +91,9 @@ class FeaturizerConfig(BaseModel):
             if isinstance(data, dict) and "registry" in data:
                 data = {**data, "registry": pinned}
             return normalize_featurizer_config(data, default_registry=pinned)
-        declared = data.get("registry") if isinstance(data, dict) else None
-        default = cls.model_fields["registry"].default
-        return normalize_featurizer_config(data, default_registry=str(declared or default))
+        requested = data.get("registry") if isinstance(data, dict) else None
+        fallback = cls.model_fields["registry"].default
+        return normalize_featurizer_config(data, default_registry=str(requested or fallback))
 
     @model_validator(mode="after")
     def _validate_hyperparameter_space(self) -> FeaturizerConfig:

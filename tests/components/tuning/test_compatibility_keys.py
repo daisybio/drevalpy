@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
 from drevalpy.components.tuning.compatibility_keys import append_featurizer_flat_keys
 from drevalpy.models.config import CellLineFeaturizerConfig, DrugFeaturizerConfig, ModelConfig, PredictorConfig
+from drevalpy.models.config._featurizer_parse import normalize_featurizer_config
 
 
 def test_append_featurizer_flat_keys_exports_methylation_alias() -> None:

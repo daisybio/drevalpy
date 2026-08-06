@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from drevalpy.components.predictor_config_parse import normalize_predictor_config
+from drevalpy.models.config._predictor_parse import normalize_predictor_config
 
 
 def test_normalize_string_shorthand() -> None:
