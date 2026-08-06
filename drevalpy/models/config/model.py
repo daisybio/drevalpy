@@ -30,6 +30,8 @@ class ModelConfig(BaseModel):
     prediction_mode: PredictionMode = PredictionMode.REGRESSION
     scope: ModelScope = ModelScope.MULTI_DRUG
 
+    _validate_semantics = model_validator(mode="after")(validate)
+
     @model_validator(mode="before")
     @classmethod
     def _inject_single_drug_identity(cls, data: Any) -> Any:
@@ -57,15 +59,6 @@ class ModelConfig(BaseModel):
         ):
             payload["drug_featurizer"] = DrugFeaturizerConfig(name="identity")
         return payload
-
-    @model_validator(mode="after")
-    def _validate_semantics(self) -> ModelConfig:
-        """Run registry / contract / block-schema checks once at construction.
-
-        :returns: This validated config.
-        """
-        validate(self)
-        return self
 
     @property
     def model_id(self) -> str | None:

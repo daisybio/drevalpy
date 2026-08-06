@@ -148,18 +148,20 @@ def _validate_block_schema(config: ModelConfig, pred_cls: type[Any]) -> None:
             )
 
 
-def validate(config: ModelConfig) -> None:
+def validate(config: ModelConfig) -> ModelConfig:
     """Check registry slots, feature compatibility, and prediction mode.
 
     :param config: Model configuration to validate.
+    :returns: The unchanged *config*, so this doubles as a Pydantic ``after`` validator.
     """
     pred_cls = get_predictor(config.predictor.name)
     _validate_scope_support(config, pred_cls)
     _validate_prediction_mode(config, pred_cls)
     if issubclass(pred_cls, FeatureFreePredictor):
         _validate_feature_free_config(config)
-        return
+        return config
     _validate_featurizer_presence(config, pred_cls)
     _validate_single_drug_pairing(config, pred_cls)
     _validate_featurizer_contracts(config, pred_cls)
     _validate_block_schema(config, pred_cls)
+    return config
