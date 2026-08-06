@@ -132,6 +132,12 @@ def test_normalize_rejects_unknown_view() -> None:
         normalize_featurizer_config("raw[not_a_view]", default_registry="cell_line")
 
 
+def test_plus_inside_brackets_does_not_split_the_recipe() -> None:
+    """A ``+`` within a view must stay in its atom, so the error names the bad view."""
+    with pytest.raises(ValueError, match="Unknown omics view 'a\\+b'"):
+        normalize_featurizer_config("raw[a+b]", default_registry="cell_line")
+
+
 _EXPLICIT_SPACE = {"n_components": {"type": "int", "low": 2, "high": 99, "default": 5}}
 
 

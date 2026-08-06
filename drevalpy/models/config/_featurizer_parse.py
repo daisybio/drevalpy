@@ -31,6 +31,9 @@ _BRACKET_ATOM_RE = re.compile(r"^([^[\]]+)\[([^\]]+)\]$")
 def _split_concat_recipe(token: str) -> list[str]:
     """Split a concat recipe on ``+`` outside square brackets.
 
+    Bracket depth is tracked so a ``+`` inside a view (``raw[a+b]``) does not split the
+    recipe, which keeps the error pointing at the bad view rather than at a truncated name.
+
     :param token: Featurizer recipe string that may join atoms with ``+``.
     :returns: Non-empty recipe segments outside bracket nesting.
     :raises ValueError: If ``+`` appears at boundaries or consecutively.
@@ -39,24 +42,15 @@ def _split_concat_recipe(token: str) -> list[str]:
         msg = "Featurizer recipe segments joined by '+' must be non-empty"
         raise ValueError(msg)
     parts: list[str] = []
-    current: list[str] = []
     depth = 0
-    for char in token:
-        if char == "[":
-            depth += 1
-        elif char == "]":
-            depth -= 1
-        elif char == "+" and depth == 0:
-            part = "".join(current).strip()
-            if part:
-                parts.append(part)
-            current = []
-            continue
-        current.append(char)
-    part = "".join(current).strip()
-    if part:
-        parts.append(part)
-    return parts
+    start = 0
+    for index, char in enumerate(token):
+        depth += (char == "[") - (char == "]")
+        if char == "+" and depth == 0:
+            parts.append(token[start:index])
+            start = index + 1
+    parts.append(token[start:])
+    return [part.strip() for part in parts if part.strip()]
 
 
 def _parse_bracket_atom_name(name_token: str, *, default_registry: str) -> tuple[str, str | None]:
