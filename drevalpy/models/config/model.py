@@ -9,7 +9,6 @@ from drevalpy.types.prediction_mode import PredictionMode
 
 from .featurizer import CellLineFeaturizerConfig, DrugFeaturizerConfig
 from .predictor import PredictorConfig
-from .single_drug import normalize_single_drug_identity
 
 
 class ModelConfig(BaseModel):
@@ -23,13 +22,19 @@ class ModelConfig(BaseModel):
     prediction_mode: PredictionMode = PredictionMode.REGRESSION
     scope: ModelScope = ModelScope.MULTI_DRUG
 
-    @model_validator(mode="before")
-    @classmethod
-    def _normalize_sections(cls, data: object) -> object:
-        if not isinstance(data, dict):
-            return data
-        # Slot types coerce str/list/dict themselves; only single-drug identity needs a pass here.
-        return normalize_single_drug_identity(dict(data))
+    @model_validator(mode="after")
+    def _inject_single_drug_identity(self) -> ModelConfig:
+        """Fill ``drug_featurizer: identity`` for single-drug feature stacks that omit it.
+
+        :returns: This config, with identity injected when applicable.
+        """
+        if (
+            self.scope == ModelScope.SINGLE_DRUG
+            and self.cell_line_featurizer is not None
+            and self.drug_featurizer is None
+        ):
+            self.drug_featurizer = DrugFeaturizerConfig(name="identity")
+        return self
 
     @property
     def model_id(self) -> str | None:

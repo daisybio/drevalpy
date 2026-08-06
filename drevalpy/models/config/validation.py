@@ -21,7 +21,6 @@ from drevalpy.components.registry import (
 )
 from drevalpy.models.config.featurizer import FeaturizerConfig
 from drevalpy.models.config.model import ModelConfig
-from drevalpy.models.config.single_drug import normalize_single_drug_identity
 
 
 def _validate_view_fields(featurizer: FeaturizerConfig, *, label: str) -> None:
@@ -286,15 +285,8 @@ def _validate_leaf_interface(pred_cls: type[Any], predictor_name: str) -> None:
 def validate(config: ModelConfig) -> None:
     """Check registry slots, feature compatibility, and prediction mode.
 
-    In-place single-drug identity normalization is applied before registry checks.
-
     :param config: Model configuration to validate.
     """
-    normalized = normalize_single_drug_identity(config.model_dump())
-    if normalized != config.model_dump():
-        refreshed = ModelConfig.model_validate(normalized)
-        config.drug_featurizer = refreshed.drug_featurizer
-        config.scope = refreshed.scope
     pred_cls = get_predictor(config.predictor.name)
     _validate_leaf_interface(pred_cls, config.predictor.name)
     _validate_scope(config, pred_cls)

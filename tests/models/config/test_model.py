@@ -8,6 +8,7 @@ from drevalpy.models.config import (
     DrugFeaturizerConfig,
     FeaturizerConfig,
     ModelConfig,
+    ModelScope,
     PredictionMode,
     PredictorConfig,
     from_dict,
@@ -90,7 +91,6 @@ def test_model_id_none_for_partial_multi_drug_config() -> None:
 
 def test_model_id_for_implicit_identity_single_drug() -> None:
     from drevalpy.components.register_builtins import register_builtin_components
-    from drevalpy.models.config import ModelScope
 
     register_builtin_components()
     config = ModelConfig(
@@ -102,6 +102,27 @@ def test_model_id_for_implicit_identity_single_drug() -> None:
     assert config.drug_featurizer is not None
     assert config.drug_featurizer.name == "identity"
     assert config.model_id == "scaledGeneExpression:singleDrugElasticNet"
+
+
+def test_single_drug_does_not_override_explicit_drug_featurizer() -> None:
+    config = ModelConfig(
+        cell_line_featurizer=CellLineFeaturizerConfig(name="scaledGeneExpression"),
+        drug_featurizer=DrugFeaturizerConfig(name="fingerprints"),
+        predictor=PredictorConfig(name="singleDrugElasticNet"),
+        scope=ModelScope.SINGLE_DRUG,
+    )
+    assert config.drug_featurizer is not None
+    assert config.drug_featurizer.name == "fingerprints"
+
+
+def test_multi_drug_scope_does_not_inject_identity() -> None:
+    config = ModelConfig(
+        cell_line_featurizer=CellLineFeaturizerConfig(name="scaledGeneExpression"),
+        drug_featurizer=None,
+        predictor=PredictorConfig(name="elasticNet"),
+        scope=ModelScope.MULTI_DRUG,
+    )
+    assert config.drug_featurizer is None
 
 
 def test_string_scope_from_yaml_coerces_to_model_scope() -> None:
