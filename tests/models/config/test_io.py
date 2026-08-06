@@ -8,11 +8,17 @@ from pathlib import Path
 import pytest
 import yaml
 
+from drevalpy.components.register_builtins import register_builtin_components
 from drevalpy.models.config.io import (
     from_dict,
     from_spec,
     from_yaml,
 )
+
+
+@pytest.fixture(autouse=True)
+def _register_components() -> None:
+    register_builtin_components()
 
 
 def test_model_config_from_predictor_only_spec() -> None:
@@ -41,9 +47,6 @@ def test_model_config_from_triple_spec_with_plus_concat() -> None:
 
 
 def test_model_config_from_zoo_name() -> None:
-    from drevalpy.components.register_builtins import register_builtin_components
-
-    register_builtin_components()
     config = from_spec("ElasticNet")
     assert config.predictor.name == "elasticNet"
 
@@ -60,10 +63,21 @@ def test_from_dict_with_sections() -> None:
     assert config.predictor.hyperparameter_space["n_estimators"]["default"] == 10
 
 
-def test_from_yaml(tmp_path: Path) -> None:
-    from drevalpy.components.register_builtins import register_builtin_components
+def test_from_dict_accepts_recipe_strings_in_slots() -> None:
+    """Slots may hold recipe strings, which is what lets ``from_spec`` reuse this."""
+    config = from_dict(
+        {
+            "cell_line_featurizer": "raw[expression]+raw[mutations]",
+            "drug_featurizer": "fingerprints",
+            "predictor": "randomForest",
+        }
+    )
+    assert config.cell_line_featurizer is not None
+    assert config.cell_line_featurizer.name == "concatFeaturizers"
+    assert config.predictor.name == "randomForest"
 
-    register_builtin_components()
+
+def test_from_yaml(tmp_path: Path) -> None:
     path = tmp_path / "model.yaml"
     path.write_text(
         yaml.safe_dump(
@@ -99,9 +113,25 @@ def test_from_dict_rejects_invalid_prediction_mode() -> None:
         from_dict({"predictor": "naiveMean", "prediction_mode": "invalid"})
 
 
-def test_from_dict_rejects_invalid_predictor_shape() -> None:
-    with pytest.raises(ValueError, match="predictor"):
+def test_from_dict_source_label_is_included_in_the_error() -> None:
+    with pytest.raises(ValueError, match=r"Invalid model config in my-label:"):
+        from_dict({"predictor": "naiveMean", "unknown_key": True}, source="my-label")
+
+
+def test_from_dict_error_without_source_omits_the_location() -> None:
+    with pytest.raises(ValueError, match=r"Invalid model config: "):
+        from_dict({"predictor": "naiveMean", "unknown_key": True})
+
+
+def test_from_dict_field_level_error_names_the_field() -> None:
+    with pytest.raises(ValueError, match=r"predictor: "):
         from_dict({"predictor": 123})
+
+
+def test_from_dict_model_level_error_has_no_empty_field_prefix() -> None:
+    """Whole-model errors carry an empty ``loc``, which must not render as a bare colon."""
+    with pytest.raises(ValueError, match=r"Invalid model config: Value error, Predictor 'elasticNet' requires"):
+        from_dict({"predictor": "elasticNet"})
 
 
 def test_from_yaml_reports_path_on_error(tmp_path: Path) -> None:

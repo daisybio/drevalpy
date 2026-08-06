@@ -2,7 +2,7 @@
 
 The pieces ``drevalpy.models.config.io.from_spec`` composes around the two generic halves of
 config construction: ``drevalpy.models.config._recipe.parse_model_recipe`` reads recipe syntax
-into a plain mapping, and ``drevalpy.models.config._from_dict.from_dict`` resolves that mapping
+into a plain mapping, and ``drevalpy.models.config.io.from_dict`` resolves that mapping
 against the registry exactly like it does for YAML.
 """
 
