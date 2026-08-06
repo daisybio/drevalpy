@@ -34,6 +34,10 @@ class ModelConfig(BaseModel):
     def _inject_single_drug_identity(cls, data: Any) -> Any:
         """Fill ``drug_featurizer: identity`` for single-drug stacks that omit it.
 
+        Runs before Pydantic parses fields, so ``data`` may not be a dict and ``scope`` may still
+        be a raw string (e.g. straight from YAML). Bad values are passed through untouched so that
+        normal field validation reports the error later.
+
         :param data: Raw constructor / validation payload.
         :returns: Payload with identity drug featurizer injected when applicable.
         """
