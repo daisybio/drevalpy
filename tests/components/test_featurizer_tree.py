@@ -43,8 +43,9 @@ def test_featurizer_config_rejects_duplicate_qualified_selector() -> None:
 
 
 def test_recipe_string_rejects_duplicate_qualified_selector() -> None:
+    """``from_spec`` reports the duplicate as a config error naming the offending recipe."""
     register_builtin_components()
-    with pytest.raises(ValidationError, match="Duplicate featurizer selector"):
+    with pytest.raises(ValueError, match="Duplicate featurizer selector"):
         from_spec("raw[expression]+raw[expression]:fingerprints:randomForest")
 
 

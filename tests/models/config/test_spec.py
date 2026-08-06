@@ -10,6 +10,7 @@ from drevalpy.components.extensions import load_extensions
 from drevalpy.components.register_builtins import register_builtin_components
 from drevalpy.models.config import from_spec, validate
 from drevalpy.models.config.spec import _build_from_spec
+from drevalpy.types.model_scope import ModelScope
 
 
 @pytest.fixture(autouse=True)
@@ -149,6 +150,53 @@ def test_from_spec_classmethod_matches_helper() -> None:
 def test_unknown_spec_raises_helpful_error() -> None:
     with pytest.raises(ValueError, match="Unknown model spec"):
         _build_from_spec("definitelyNotARealModelName")
+
+
+def test_recipe_payload_leaves_slots_as_recipe_strings() -> None:
+    """The syntax step must not resolve names; that is ``from_dict``'s job."""
+    from drevalpy.models.config.spec import _recipe_payload
+
+    payload = _recipe_payload("raw[expression]+landmarkGenes:fingerprints:randomForest")
+    assert payload["cell_line_featurizer"] == "raw[expression]+landmarkGenes"
+    assert payload["drug_featurizer"] == "fingerprints"
+    assert payload["predictor"] == "randomForest"
+
+
+def test_two_part_recipe_payload_omits_the_drug_slot() -> None:
+    """``ModelConfig`` injects the identity featurizer, so the payload leaves it unset."""
+    from drevalpy.models.config.spec import _recipe_payload
+
+    payload = _recipe_payload("scaledGeneExpression:singleDrugElasticNet")
+    assert payload["drug_featurizer"] is None
+    assert payload["scope"] is ModelScope.SINGLE_DRUG
+
+
+def test_bare_predictor_requiring_featurizers_reports_the_missing_featurizers() -> None:
+    """A registered predictor that needs featurizers is a config error, not an unknown spec."""
+    with pytest.raises(ValueError, match="Predictor 'randomForest' requires featurizers"):
+        _build_from_spec("randomForest")
+
+
+def test_malformed_recipe_keeps_the_grammar_error() -> None:
+    """With a colon the intent is unambiguous, so the grammar's message survives."""
+    with pytest.raises(ValueError, match="Malformed model recipe"):
+        _build_from_spec("scaledGeneExpression:fingerprints:elasticNet:extra")
+
+
+def test_unknown_predictor_in_a_recipe_names_the_predictor() -> None:
+    with pytest.raises(ValueError, match="Unknown Predictor: 'bogusPredictor'"):
+        _build_from_spec("scaledGeneExpression:fingerprints:bogusPredictor")
+
+
+def test_recipe_validation_error_names_the_recipe() -> None:
+    with pytest.raises(ValueError, match=r"in recipe 'bogusFeaturizer:fingerprints:elasticNet'"):
+        _build_from_spec("bogusFeaturizer:fingerprints:elasticNet")
+
+
+def test_zoo_name_wins_over_a_bare_predictor_name() -> None:
+    """``ElasticNet`` is a preset; the recipe path would reject it for missing featurizers."""
+    config = _build_from_spec("ElasticNet")
+    assert config.cell_line_featurizer is not None
 
 
 def test_external_extension_resolved_through_spec(tmp_path: Path) -> None:

@@ -1,24 +1,21 @@
-"""Build `~drevalpy.models.config.ModelConfig` from recipe, zoo, or legacy names."""
+"""Build `~drevalpy.models.config.ModelConfig` from a zoo name or a recipe string.
+
+A recipe is turned into a config in two steps: this module reads the syntax into a plain
+field mapping, and ``drevalpy.models.config._from_dict.from_dict`` then resolves the names
+against the registry. Only the scope is looked up here, since a recipe never spells it out.
+"""
 
 from __future__ import annotations
 
 from typing import Any
 
 from drevalpy.components.model_id import parse_model_id
-from drevalpy.components.predictors.feature_free import FeatureFreePredictor
-from drevalpy.models.config._featurizer_parse import normalize_featurizer_config
-from drevalpy.models.config.featurizer import CellLineFeaturizerConfig, DrugFeaturizerConfig
+from drevalpy.components.registry import get_predictor
+from drevalpy.models.config._from_dict import from_dict
 from drevalpy.models.config.model import ModelConfig
-from drevalpy.models.config.predictor import PredictorConfig
 from drevalpy.models.config.resolved import ResolvedModelConfig
 from drevalpy.types.model_scope import ModelScope
 from drevalpy.types.prediction_mode import PredictionMode
-
-
-def _coerce_prediction_mode(mode: PredictionMode | str) -> PredictionMode:
-    if isinstance(mode, PredictionMode):
-        return mode
-    return PredictionMode(mode)
 
 
 def _default_scope_for_predictor(pred_cls: type[Any]) -> ModelScope:
@@ -50,76 +47,91 @@ def _apply_optional_hyperparameters(
     return apply_public_hyperparameters_to_config(config, hyperparameters)
 
 
-def _config_from_recipe_triple(
-    spec: str,
-    *,
-    hyperparameters: dict[str, Any] | None = None,
-    prediction_mode: PredictionMode | str = PredictionMode.REGRESSION,
-) -> ModelConfig | ResolvedModelConfig:
-    from drevalpy.components.registry import get_predictor
+def _recipe_slots(recipe: str) -> tuple[str | None, str | None, str, ModelScope]:
+    """Read a recipe's syntax and look up the scope its predictor implies.
 
-    cell_line_type, drug_type, predictor_type = parse_model_id(spec.strip())
-    pred_cls = get_predictor(predictor_type)
-    predictor = PredictorConfig(name=predictor_type)
-    mode = _coerce_prediction_mode(prediction_mode)
-    scope = _default_scope_for_predictor(pred_cls)
-    if cell_line_type is None:
-        config = ModelConfig(
-            cell_line_featurizer=None,
-            drug_featurizer=None,
-            predictor=predictor,
-            prediction_mode=mode,
-            scope=scope,
+    A bare token that names no known predictor is most likely a mistyped zoo name, so that
+    one case is reported in terms of both options. Anything with a colon is unambiguously
+    meant as a recipe, and keeps the grammar's or the registry's own message.
+
+    :param recipe: ``predictor``, ``cell:predictor``, or ``cell:drug:predictor``.
+    :returns: Cell-line slot, drug slot, predictor name, and the implied scope.
+    :raises ValueError: If the recipe is malformed or names an unknown predictor.
+    :raises ImportError: If a recipe's predictor is registered but its module fails to load.
+    """
+    try:
+        cell_line, drug, predictor = parse_model_id(recipe)
+        scope = _default_scope_for_predictor(get_predictor(predictor))
+    except (ValueError, ImportError) as exc:
+        if ":" in recipe:
+            raise
+        msg = (
+            f"Unknown model spec {recipe!r}. Use a recipe triple "
+            "(cellLine:drug:predictor), zoo name, or feature-free predictor token."
         )
-        return _apply_optional_hyperparameters(config, hyperparameters)
-    if drug_type is None:
-        if scope != ModelScope.SINGLE_DRUG:
-            msg = "two-part recipes require a single-drug predictor"
-            raise ValueError(msg)
-        config = ModelConfig(
-            cell_line_featurizer=CellLineFeaturizerConfig.model_validate(
-                normalize_featurizer_config(cell_line_type, default_registry="cell_line"),
-            ),
-            drug_featurizer=None,
-            predictor=predictor,
-            prediction_mode=mode,
-            scope=scope,
-        )
-        return _apply_optional_hyperparameters(config, hyperparameters)
-    config = ModelConfig(
-        cell_line_featurizer=CellLineFeaturizerConfig.model_validate(
-            normalize_featurizer_config(cell_line_type, default_registry="cell_line"),
-        ),
-        drug_featurizer=DrugFeaturizerConfig.model_validate(
-            normalize_featurizer_config(drug_type, default_registry="drug"),
-        ),
-        predictor=predictor,
-        prediction_mode=mode,
-        scope=scope,
-    )
-    return _apply_optional_hyperparameters(config, hyperparameters)
+        raise ValueError(msg) from exc
+    return cell_line, drug, predictor, scope
 
 
-def _config_from_no_featurizer_predictor_token(
-    token: str,
+def _recipe_payload(
+    recipe: str,
     *,
     prediction_mode: PredictionMode | str = PredictionMode.REGRESSION,
-) -> ModelConfig | None:
-    from drevalpy.components.registry import get_predictor
+) -> dict[str, Any]:
+    """Turn a recipe string into the field mapping ``from_dict`` expects.
+
+    This is the syntax half of ``from_spec``: it splits the recipe into its slots and picks
+    the scope the predictor implies, but leaves the featurizer and predictor slots as recipe
+    strings, since their own validators know how to read them. Only the scope needs a
+    registry lookup, because it is the one field a recipe never spells out.
+
+    A two-part recipe omits the drug slot; ``ModelConfig`` fills in the identity featurizer
+    that single-drug routing requires.
+
+    :param recipe: ``predictor``, ``cell:predictor``, or ``cell:drug:predictor``.
+    :param prediction_mode: Regression or classification mode for the predictor.
+    :returns: Mapping of ``ModelConfig`` fields, with slots left as recipe strings.
+    :raises ValueError: If a two-part recipe names a predictor that is not single-drug.
+    """
+    cell_line, drug, predictor, scope = _recipe_slots(recipe)
+    if cell_line is not None and drug is None and scope != ModelScope.SINGLE_DRUG:
+        msg = "two-part recipes require a single-drug predictor"
+        raise ValueError(msg)
+    return {
+        "cell_line_featurizer": cell_line,
+        "drug_featurizer": drug,
+        "predictor": predictor,
+        "prediction_mode": prediction_mode,
+        "scope": scope,
+    }
+
+
+def _zoo_config(
+    name: str,
+    hyperparameters: dict[str, Any] | None,
+    prediction_mode: PredictionMode | str,
+) -> ModelConfig | ResolvedModelConfig | None:
+    """Resolve a registered zoo preset, or report that *name* is not one.
+
+    :param name: Candidate zoo preset name.
+    :param hyperparameters: Optional flat public hyperparameter overrides.
+    :param prediction_mode: Mode to apply, honoured only when no overrides are given.
+    :returns: The preset's config, or ``None`` when *name* is not a zoo entry.
+    """
+    # Imported lazily: drevalpy.models.factory imports the config package, which imports
+    # this module, so a module-scope import here would be circular.
+    from drevalpy.models.factory import model_config_for_name
 
     try:
-        pred_cls = get_predictor(token)
-    except (ValueError, ImportError):
+        # When hyperparameters are given, model_config_for_name resolves them and the
+        # requested prediction mode is not applied on that path (historical behaviour).
+        return model_config_for_name(
+            name,
+            hyperparameters,
+            prediction_mode=None if hyperparameters else PredictionMode(prediction_mode),
+        )
+    except KeyError:
         return None
-    if not issubclass(pred_cls, FeatureFreePredictor):
-        return None
-    return ModelConfig(
-        cell_line_featurizer=None,
-        drug_featurizer=None,
-        predictor=PredictorConfig(name=token),
-        prediction_mode=_coerce_prediction_mode(prediction_mode),
-        scope=_default_scope_for_predictor(pred_cls),
-    )
 
 
 def _build_from_spec(
@@ -130,55 +142,27 @@ def _build_from_spec(
 ) -> ModelConfig | ResolvedModelConfig:
     """Parse a model specification string.
 
-    Resolution order:
+    A spec is either the name of a registered zoo preset or a recipe naming the parts
+    directly. Zoo names win, so a preset can shadow a bare predictor name. Recipes are
+    handled in two steps: ``_recipe_payload`` reads the syntax, then ``from_dict`` resolves
+    the names against the registry and checks that the combination is legal.
 
-    1. ``cellLine:drug:predictor`` registry triple
-    2. Built-in or external zoo preset name
-    3. Zoo / factory model name (PascalCase)
-    4. Feature-free predictor token (no featurizers required), e.g. ``naiveMean``
-
-    :param spec: Zoo preset name, recipe triple, or feature-free predictor token.
+    :param spec: Zoo preset name, or a recipe of one to three colon-separated parts.
     :param hyperparameters: Optional flat public hyperparameter overrides.
     :param prediction_mode: Regression or classification mode for the predictor.
     :returns: Validated ``ModelConfig`` instance, or ``ResolvedModelConfig`` when
         *hyperparameters* are provided.
     :raises ValueError: If ``spec`` is unknown or validation fails.
     """
-    from drevalpy.models.factory import model_config_for_name
-
     trimmed = spec.strip()
     if not trimmed:
         msg = "model spec must be a non-empty string"
         raise ValueError(msg)
 
-    mode = _coerce_prediction_mode(prediction_mode)
+    zoo_config = _zoo_config(trimmed, hyperparameters, prediction_mode)
+    if zoo_config is not None:
+        return zoo_config
 
-    if ":" in trimmed:
-        return _config_from_recipe_triple(
-            trimmed,
-            hyperparameters=hyperparameters,
-            prediction_mode=mode,
-        )
-
-    try:
-        # When hyperparameters are given, model_config_for_name resolves them and the
-        # requested prediction mode is not applied on that path (historical behaviour).
-        config = model_config_for_name(
-            trimmed,
-            hyperparameters,
-            prediction_mode=None if hyperparameters else mode,
-        )
-    except KeyError:
-        config = None
-    if config is not None:
-        return config
-
-    no_feat = _config_from_no_featurizer_predictor_token(trimmed, prediction_mode=prediction_mode)
-    if no_feat is not None:
-        return _apply_optional_hyperparameters(no_feat, hyperparameters)
-
-    msg = (
-        f"Unknown model spec {spec!r}. Use a recipe triple "
-        "(cellLine:drug:predictor), zoo name, or feature-free predictor token."
-    )
-    raise ValueError(msg)
+    payload = _recipe_payload(trimmed, prediction_mode=prediction_mode)
+    config = from_dict(payload, source=f"recipe {trimmed!r}")
+    return _apply_optional_hyperparameters(config, hyperparameters)

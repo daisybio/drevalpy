@@ -6,34 +6,14 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import ValidationError
 
+from drevalpy.models.config._from_dict import from_dict
 from drevalpy.models.config.model import ModelConfig
 from drevalpy.models.config.resolved import ResolvedModelConfig
 from drevalpy.models.config.spec import _build_from_spec
 from drevalpy.types.prediction_mode import PredictionMode
 
-
-def _format_validation_error(exc: ValidationError, *, source: Path | str | None = None) -> str:
-    prefix = "Invalid model config"
-    if source is not None:
-        prefix = f"{prefix} in {source}"
-    details = "; ".join(f"{' -> '.join(str(part) for part in error['loc'])}: {error['msg']}" for error in exc.errors())
-    return f"{prefix}: {details}"
-
-
-def from_dict(data: dict[str, Any], *, source: Path | str | None = None) -> ModelConfig:
-    """Build a ``ModelConfig`` from a plain dictionary.
-
-    :param data: Mapping with featurizer and predictor sections.
-    :param source: Optional path or label included in validation error messages.
-    :returns: Validated ``ModelConfig`` instance.
-    :raises ValueError: If validation fails.
-    """
-    try:
-        return ModelConfig.model_validate(data)
-    except ValidationError as exc:
-        raise ValueError(_format_validation_error(exc, source=source)) from exc
+__all__ = ["from_dict", "from_spec", "from_yaml"]
 
 
 def from_spec(
@@ -42,9 +22,9 @@ def from_spec(
     hyperparameters: dict[str, Any] | None = None,
     prediction_mode: str | None = None,
 ) -> ModelConfig | ResolvedModelConfig:
-    """Build a ``ModelConfig`` from a recipe, zoo, legacy, or baseline spec.
+    """Build a ``ModelConfig`` from a zoo name or a recipe string.
 
-    :param spec: Zoo preset name, colon-separated recipe, or legacy baseline token.
+    :param spec: Zoo preset name, or a colon-separated recipe.
     :param hyperparameters: Optional flat public hyperparameter overrides.
     :param prediction_mode: Optional prediction mode string; defaults to regression.
     :returns: Validated ``ModelConfig`` template, or ``ResolvedModelConfig`` when
