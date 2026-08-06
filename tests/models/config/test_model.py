@@ -1,5 +1,8 @@
 """Tests for drevalpy.models.config.model."""
 
+import pytest
+from pydantic import ValidationError
+
 from drevalpy.models.config import (
     CellLineFeaturizerConfig,
     DrugFeaturizerConfig,
@@ -153,18 +156,15 @@ def test_model_config_parses_predictor_one_key_hyperparameters() -> None:
     assert config.predictor.hyperparameters["n_estimators"] == 10
 
 
-def test_model_config_coerces_base_featurizer_config_to_slot_types() -> None:
-    config = ModelConfig.model_validate(
-        {
-            "cell_line_featurizer": FeaturizerConfig(name="scaledGeneExpression", registry="drug"),
-            "drug_featurizer": FeaturizerConfig(name="fingerprints", registry="cell_line"),
-            "predictor": PredictorConfig(name="elasticNet"),
-        }
-    )
-    assert isinstance(config.cell_line_featurizer, CellLineFeaturizerConfig)
-    assert config.cell_line_featurizer.registry == "cell_line"
-    assert isinstance(config.drug_featurizer, DrugFeaturizerConfig)
-    assert config.drug_featurizer.registry == "drug"
+def test_model_config_rejects_base_featurizer_config_in_slots() -> None:
+    with pytest.raises(ValidationError):
+        ModelConfig.model_validate(
+            {
+                "cell_line_featurizer": FeaturizerConfig(name="scaledGeneExpression", registry="drug"),
+                "drug_featurizer": FeaturizerConfig(name="fingerprints", registry="cell_line"),
+                "predictor": PredictorConfig(name="elasticNet"),
+            }
+        )
 
 
 def test_config_is_serializable() -> None:
