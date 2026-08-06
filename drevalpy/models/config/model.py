@@ -6,6 +6,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
+from drevalpy.models.config._predictor_traits import routing_drug_featurizer_for_slot, scope_for_predictor
 from drevalpy.models.config._recipe import format_model_recipe
 from drevalpy.models.config.featurizer import CellLineFeaturizerConfig, DrugFeaturizerConfig
 from drevalpy.models.config.predictor import PredictorConfig
@@ -17,9 +18,9 @@ from drevalpy.types.prediction_mode import PredictionMode
 class ModelConfig(BaseModel):
     """Immutable class-level template for a composed model.
 
-    Stores architecture (featurizers / predictor), prediction mode, scope, and
-    optional hyperparameter-space overrides. Concrete selected hyperparameter
-    values live on ``ResolvedModelConfig``.
+    Stores architecture (featurizers / predictor), prediction mode, and optional
+    hyperparameter-space overrides. Concrete selected hyperparameter values live on
+    ``ResolvedModelConfig``.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -28,37 +29,44 @@ class ModelConfig(BaseModel):
     drug_featurizer: DrugFeaturizerConfig | None = None
     predictor: PredictorConfig
     prediction_mode: PredictionMode = PredictionMode.REGRESSION
-    scope: ModelScope = ModelScope.MULTI_DRUG
 
     _validate_semantics = model_validator(mode="after")(validate)
 
     @model_validator(mode="before")
     @classmethod
     def _inject_single_drug_identity(cls, data: Any) -> Any:
-        """Fill ``drug_featurizer: identity`` for single-drug stacks that omit it.
+        """Fill the routing drug featurizer for per-drug stacks that omit it.
 
-        Runs before Pydantic parses fields, so ``data`` may not be a dict and ``scope`` may still
-        be a raw string (e.g. straight from YAML). Bad values are passed through untouched so that
-        normal field validation reports the error later.
+        Runs before Pydantic parses fields, so ``data`` may not be a dict and the predictor slot
+        may still be written in any of its accepted spellings. A predictor that cannot be read
+        contributes no routing featurizer, leaving the payload untouched so that normal field
+        validation reports the error later.
 
         :param data: Raw constructor / validation payload.
-        :returns: Payload with identity drug featurizer injected when applicable.
+        :returns: Payload with the routing drug featurizer injected when applicable.
         """
         if not isinstance(data, dict):
             return data
         payload = dict(data)
-        scope = payload.get("scope", ModelScope.MULTI_DRUG)
-        try:
-            scope = scope if isinstance(scope, ModelScope) else ModelScope(scope)
-        except (TypeError, ValueError):
-            return payload
+        routing = routing_drug_featurizer_for_slot(payload.get("predictor"))
         if (
-            scope == ModelScope.SINGLE_DRUG
+            routing is not None
             and payload.get("cell_line_featurizer") is not None
             and payload.get("drug_featurizer") is None
         ):
-            payload["drug_featurizer"] = DrugFeaturizerConfig(name="identity")
+            payload["drug_featurizer"] = DrugFeaturizerConfig(name=routing)
         return payload
+
+    @property
+    def scope(self) -> ModelScope:
+        """Whether this stack trains one model per drug or one across all drugs.
+
+        Not a choice a config makes: single-drug variants are separate registered predictors,
+        so the scope follows from the predictor and the two can never disagree.
+
+        :returns: The scope declared by the configured predictor.
+        """
+        return scope_for_predictor(self.predictor.name)
 
     @property
     def model_id(self) -> str | None:

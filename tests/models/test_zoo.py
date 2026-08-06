@@ -179,5 +179,4 @@ def test_multi_drug_sklearn_predictor_without_drug_featurizer_fails() -> None:
             drug_featurizer=None,
             predictor=preset.predictor,
             prediction_mode=preset.prediction_mode,
-            scope=preset.scope,
         )

@@ -26,7 +26,6 @@ from drevalpy.models.config import (
     CellLineFeaturizerConfig,
     DrugFeaturizerConfig,
     ModelConfig,
-    ModelScope,
     PredictionMode,
     PredictorConfig,
     validate,
@@ -264,19 +263,6 @@ def test_baseline_tag_does_not_allow_missing_featurizers() -> None:
         )
 
 
-def test_scope_must_match_predictor_capability() -> None:
-    from drevalpy.components.register_builtins import register_builtin_components
-
-    register_builtin_components()
-    with pytest.raises((ValueError, ValidationError), match="does not support scope"):
-        ModelConfig(
-            cell_line_featurizer=CellLineFeaturizerConfig(name="scaledGeneExpression"),
-            drug_featurizer=None,
-            predictor=PredictorConfig(name="singleDrugElasticNet"),
-            scope=ModelScope.MULTI_DRUG,
-        )
-
-
 def test_single_drug_scope_requires_identity_drug_featurizer() -> None:
     from drevalpy.components.register_builtins import register_builtin_components
 
@@ -286,7 +272,6 @@ def test_single_drug_scope_requires_identity_drug_featurizer() -> None:
             cell_line_featurizer=CellLineFeaturizerConfig(name="scaledGeneExpression"),
             drug_featurizer=DrugFeaturizerConfig(name="fingerprints"),
             predictor=PredictorConfig(name="singleDrugElasticNet"),
-            scope=ModelScope.SINGLE_DRUG,
         )
 
 
@@ -298,6 +283,5 @@ def test_single_drug_scope_accepts_identity_routing_featurizer() -> None:
         cell_line_featurizer=CellLineFeaturizerConfig(name="scaledGeneExpression"),
         drug_featurizer=DrugFeaturizerConfig(name="identity"),
         predictor=PredictorConfig(name="singleDrugElasticNet"),
-        scope=ModelScope.SINGLE_DRUG,
     )
     validate(config)

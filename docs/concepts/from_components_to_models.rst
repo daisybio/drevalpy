@@ -132,7 +132,6 @@ Other single-view stacks follow the same pattern:
 
          cell_line_featurizer: scaledGeneExpression
          predictor: singleDrugElasticNet
-         scope: single_drug
 
    .. tab-item:: ModelConfig
       :sync: modelconfig
@@ -168,13 +167,14 @@ Other single-view stacks follow the same pattern:
                  name="scaledGeneExpression"
              ),
              predictor=config.PredictorConfig(name="singleDrugElasticNet"),
-             scope=config.ModelScope.SINGLE_DRUG,
          )
 
 In the last example, ``singleDrugElasticNet`` omits an explicit drug
 featurizer from the recipe. The config normalizer injects the implicit
 ``identity`` routing featurizer, which one-hot encodes drug identifiers to
-create a single estimator per drug.
+create a single estimator per drug. Nothing states the training scope either:
+``singleDrugElasticNet`` is a per-drug predictor, so ``cfg.scope`` reads
+``single_drug`` off the predictor rather than off the config.
 
 Featurizers that can operate on multiple omics layers
 -----------------------------------------------------

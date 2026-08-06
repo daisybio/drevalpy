@@ -37,7 +37,7 @@ def test_model_config_lives_under_models() -> None:
 def test_components_do_not_reexport_orchestration() -> None:
     orchestration_exports = {
         "ComposedModel",
-        "recipe_payload",
+        "zoo_config",
         "from_spec",
         "model_config_for_name",
         "get_zoo_config",

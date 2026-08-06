@@ -1,28 +1,20 @@
-"""Read a recipe string into the plain field mapping a ``ModelConfig`` is built from.
+"""Zoo lookup, hyperparameter application, and the bare-token typo guard.
 
-Recipes get no special construction path: ``recipe_payload`` reads the syntax, and
-``drevalpy.models.config._from_dict.from_dict`` then resolves the names against the registry
-like it does for YAML. Only the scope is looked up here, since a recipe never spells it out.
-``drevalpy.models.config.io.from_spec`` composes these pieces.
+The pieces ``drevalpy.models.config.io.from_spec`` composes around the two generic halves of
+config construction: ``drevalpy.models.config._recipe.parse_model_recipe`` reads recipe syntax
+into a plain mapping, and ``drevalpy.models.config._from_dict.from_dict`` resolves that mapping
+against the registry exactly like it does for YAML.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from drevalpy.components.registry import get_predictor
-from drevalpy.models.config._recipe import parse_model_recipe
+from drevalpy.components.register_builtins import is_known_builtin_predictor
+from drevalpy.components.registry import list_predictors
 from drevalpy.models.config.model import ModelConfig
 from drevalpy.models.config.resolved import ResolvedModelConfig
-from drevalpy.types.model_scope import ModelScope
 from drevalpy.types.prediction_mode import PredictionMode
-
-
-def _default_scope_for_predictor(pred_cls: type[Any]) -> ModelScope:
-    supported_scopes = getattr(pred_cls, "supported_scopes", None)
-    if supported_scopes is not None and len(supported_scopes) == 1:
-        return next(iter(supported_scopes))
-    return ModelScope.MULTI_DRUG
 
 
 def apply_optional_hyperparameters(
@@ -47,63 +39,29 @@ def apply_optional_hyperparameters(
     return apply_public_hyperparameters_to_config(config, hyperparameters)
 
 
-def _recipe_slots(recipe: str) -> tuple[str | None, str | None, str, ModelScope]:
-    """Read a recipe's syntax and look up the scope its predictor implies.
+def reject_unknown_spec(token: str) -> None:
+    """Report a bare token that names neither a zoo preset nor a predictor drevalpy knows.
 
-    A bare token that names no known predictor is most likely a mistyped zoo name, so that
-    one case is reported in terms of both options. Anything with a colon is unambiguously
-    meant as a recipe, and keeps the grammar's or the registry's own message.
+    Such a token is most likely a mistyped zoo name, so it is reported in terms of both
+    options rather than as a predictor-shaped config error. A name in the built-in catalog or
+    in the registry is passed through instead, so that ``from_dict`` reaches ``get_predictor``
+    and the far more useful "is unavailable; its optional/literature dependency was not
+    registered" message, or the underlying ``ImportError``, survives.
 
-    :param recipe: ``predictor``, ``cell:predictor``, or ``cell:drug:predictor``.
-    :returns: Cell-line slot, drug slot, predictor name, and the implied scope.
-    :raises ValueError: If the recipe is malformed or names an unknown predictor.
-    :raises ImportError: If a recipe's predictor is registered but its module fails to load.
+    The catalog is consulted first because ``list_predictors`` registers every built-in on the
+    way, so a built-in token would otherwise be answered by whichever unrelated optional
+    dependency happened to fail during that sweep.
+
+    :param token: The single-part recipe, already known not to be a zoo preset.
+    :raises ValueError: If *token* names no known built-in or registered predictor.
     """
-    try:
-        cell_line, drug, predictor = parse_model_recipe(recipe)
-        scope = _default_scope_for_predictor(get_predictor(predictor))
-    except (ValueError, ImportError) as exc:
-        if ":" in recipe:
-            raise
-        msg = (
-            f"Unknown model spec {recipe!r}. Use a recipe triple "
-            "(cellLine:drug:predictor), zoo name, or feature-free predictor token."
-        )
-        raise ValueError(msg) from exc
-    return cell_line, drug, predictor, scope
-
-
-def recipe_payload(
-    recipe: str,
-    *,
-    prediction_mode: PredictionMode | str = PredictionMode.REGRESSION,
-) -> dict[str, Any]:
-    """Turn a recipe string into the field mapping ``from_dict`` expects.
-
-    This is the syntax half of ``from_spec``: it splits the recipe into its slots and picks
-    the scope the predictor implies, but leaves the featurizer and predictor slots as recipe
-    strings, since their own validators know how to read them. Only the scope needs a
-    registry lookup, because it is the one field a recipe never spells out.
-
-    A two-part recipe omits the drug slot; ``ModelConfig`` fills in the identity featurizer
-    that single-drug routing requires.
-
-    :param recipe: ``predictor``, ``cell:predictor``, or ``cell:drug:predictor``.
-    :param prediction_mode: Regression or classification mode for the predictor.
-    :returns: Mapping of ``ModelConfig`` fields, with slots left as recipe strings.
-    :raises ValueError: If a two-part recipe names a predictor that is not single-drug.
-    """
-    cell_line, drug, predictor, scope = _recipe_slots(recipe)
-    if cell_line is not None and drug is None and scope != ModelScope.SINGLE_DRUG:
-        msg = "two-part recipes require a single-drug predictor"
-        raise ValueError(msg)
-    return {
-        "cell_line_featurizer": cell_line,
-        "drug_featurizer": drug,
-        "predictor": predictor,
-        "prediction_mode": prediction_mode,
-        "scope": scope,
-    }
+    if is_known_builtin_predictor(token) or token in list_predictors():
+        return
+    msg = (
+        f"Unknown model spec {token!r}. Use a recipe triple "
+        "(cellLine:drug:predictor), zoo name, or feature-free predictor token."
+    )
+    raise ValueError(msg)
 
 
 def zoo_config(

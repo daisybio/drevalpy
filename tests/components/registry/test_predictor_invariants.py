@@ -63,7 +63,7 @@ def test_single_drug_feature_predictor_requires_identity_routing() -> None:
             drug_contract=FeatureFormat.NUMERIC_MATRIX,
         )
         class BadSingleDrug(MatrixPredictor):
-            supported_scopes = frozenset({ModelScope.SINGLE_DRUG})
+            scope = ModelScope.SINGLE_DRUG
 
 
 def test_feature_free_single_drug_skips_identity_routing() -> None:
@@ -74,9 +74,22 @@ def test_feature_free_single_drug_skips_identity_routing() -> None:
         drug_contract=FeatureFormat.NUMERIC_MATRIX,
     )
     class FreeSingleDrug(FeatureFreePredictor):
-        supported_scopes = frozenset({ModelScope.SINGLE_DRUG})
+        scope = ModelScope.SINGLE_DRUG
 
     assert predictor_registry.get("freeSingleDrug") is FreeSingleDrug
+
+
+def test_registered_predictor_scope_defaults_to_multi_drug() -> None:
+    @register_predictor(
+        "scopedPred",
+        description="scope default",
+        cell_line_contract=FeatureFormat.NUMERIC_MATRIX,
+        drug_contract=FeatureFormat.NUMERIC_MATRIX,
+    )
+    class ScopedPred(BlockPredictor):
+        pass
+
+    assert ScopedPred.scope is ModelScope.MULTI_DRUG
 
 
 def test_register_existing_rejects_invalid_predictor_class() -> None:

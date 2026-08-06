@@ -34,10 +34,9 @@ def _validate_matrix_contracts(name: str, cls: type[Any]) -> None:
 def _validate_single_drug_routing(name: str, cls: type[Any], leaf_base: type[Any]) -> None:
     from drevalpy.components.predictors.feature_free import FeatureFreePredictor
 
-    supported_scopes = getattr(cls, "supported_scopes", None) or frozenset()
     requires_drug = getattr(cls, "requires_drug_featurizer", True)
     if (
-        ModelScope.SINGLE_DRUG in supported_scopes
+        cls.scope is ModelScope.SINGLE_DRUG
         and requires_drug
         and leaf_base is not FeatureFreePredictor
         and getattr(cls, "routing_drug_featurizer", None) != "identity"

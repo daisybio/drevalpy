@@ -23,7 +23,7 @@ from drevalpy.types.prediction_mode import PredictionMode
 class SingleDrugSklearnPredictor(SklearnTabularPredictor):
     """Fit one estimator per drug, using drug identity only for routing."""
 
-    supported_scopes: ClassVar[frozenset[ModelScope]] = frozenset({ModelScope.SINGLE_DRUG})
+    scope: ClassVar[ModelScope] = ModelScope.SINGLE_DRUG
     routing_drug_featurizer: ClassVar[str] = "identity"
 
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:

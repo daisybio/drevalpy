@@ -19,16 +19,6 @@ if TYPE_CHECKING:
     from drevalpy.models.config.model import ModelConfig
 
 
-def _validate_scope_support(config: ModelConfig, pred_cls: type[Any]) -> None:
-    supported_scopes = getattr(pred_cls, "supported_scopes", None)
-    if supported_scopes is not None and config.scope not in supported_scopes:
-        msg = (
-            f"Predictor {config.predictor.name!r} does not support "
-            f"scope={config.scope!r}; supported_scopes={sorted(supported_scopes)}"
-        )
-        raise ValueError(msg)
-
-
 def _validate_prediction_mode(config: ModelConfig, pred_cls: type[Any]) -> None:
     supported = getattr(pred_cls, "supported_modes", None)
     if supported is not None and config.prediction_mode not in supported:
@@ -63,7 +53,7 @@ def _validate_featurizer_presence(config: ModelConfig, pred_cls: type[Any]) -> N
 
 
 def _validate_single_drug_pairing(config: ModelConfig, pred_cls: type[Any]) -> None:
-    if config.scope != ModelScope.SINGLE_DRUG:
+    if pred_cls.scope != ModelScope.SINGLE_DRUG:
         return
     routing_featurizer = getattr(pred_cls, "routing_drug_featurizer", None)
     if config.drug_featurizer is None or config.drug_featurizer.name != routing_featurizer:
@@ -155,7 +145,6 @@ def validate(config: ModelConfig) -> ModelConfig:
     :returns: The unchanged *config*, so this doubles as a Pydantic ``after`` validator.
     """
     pred_cls = get_predictor(config.predictor.name)
-    _validate_scope_support(config, pred_cls)
     _validate_prediction_mode(config, pred_cls)
     if issubclass(pred_cls, FeatureFreePredictor):
         _validate_feature_free_config(config)

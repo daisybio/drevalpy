@@ -29,7 +29,7 @@ class Predictor(ABC):
     routing_drug_featurizer: ClassVar[str | None] = None
     supports_early_stopping: ClassVar[bool] = False
     supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset({PredictionMode.REGRESSION})
-    supported_scopes: ClassVar[frozenset[ModelScope]] = frozenset({ModelScope.MULTI_DRUG})
+    scope: ClassVar[ModelScope] = ModelScope.MULTI_DRUG
     required_cell_line_blocks: ClassVar[tuple[str, ...]] = ()
     required_drug_blocks: ClassVar[tuple[str, ...]] = ()
 

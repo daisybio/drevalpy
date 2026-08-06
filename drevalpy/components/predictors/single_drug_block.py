@@ -59,7 +59,7 @@ class SingleDrugBlockPredictor(BlockPredictor):
     ``train`` / ``predict`` with ``FeatureDataset``.
     """
 
-    supported_scopes: ClassVar[frozenset[ModelScope]] = frozenset({ModelScope.SINGLE_DRUG})
+    scope: ClassVar[ModelScope] = ModelScope.SINGLE_DRUG
     routing_drug_featurizer: ClassVar[str] = "identity"
     requires_drug_featurizer: ClassVar[bool] = True
 

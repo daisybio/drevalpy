@@ -1,3 +1,2 @@
 cell_line_featurizer: molirOmics
 predictor: molir
-scope: single_drug

@@ -147,7 +147,6 @@ def _resolved_config_from_checkpoint_payload(payload: dict[str, Any]) -> Resolve
             "drug_featurizer": _strip_legacy_hyperparameters(legacy.get("drug_featurizer")),
             "predictor": _strip_legacy_hyperparameters(legacy.get("predictor")),
             "prediction_mode": legacy.get("prediction_mode", "regression"),
-            "scope": legacy.get("scope", "multi_drug"),
         }
         template = ModelConfig.model_validate(template_payload)
         from drevalpy.components.tuning.search_space import resolve_model_config

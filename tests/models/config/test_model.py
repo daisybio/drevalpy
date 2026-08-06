@@ -113,7 +113,6 @@ def test_model_id_for_implicit_identity_single_drug() -> None:
         cell_line_featurizer=CellLineFeaturizerConfig(name="scaledGeneExpression"),
         drug_featurizer=None,
         predictor=PredictorConfig(name="singleDrugElasticNet"),
-        scope=ModelScope.SINGLE_DRUG,
     )
     assert config.drug_featurizer is not None
     assert config.drug_featurizer.name == "identity"
@@ -129,7 +128,6 @@ def test_single_drug_does_not_override_explicit_drug_featurizer() -> None:
             cell_line_featurizer=CellLineFeaturizerConfig(name="scaledGeneExpression"),
             drug_featurizer=DrugFeaturizerConfig(name="fingerprints"),
             predictor=PredictorConfig(name="singleDrugElasticNet"),
-            scope=ModelScope.SINGLE_DRUG,
         )
 
 
@@ -142,27 +140,38 @@ def test_multi_drug_scope_does_not_inject_identity() -> None:
             cell_line_featurizer=CellLineFeaturizerConfig(name="scaledGeneExpression"),
             drug_featurizer=None,
             predictor=PredictorConfig(name="elasticNet"),
-            scope=ModelScope.MULTI_DRUG,
         )
 
 
-def test_string_scope_from_yaml_coerces_to_model_scope() -> None:
-    """YAML leaves scope as str; normalization must still yield ModelScope."""
+def test_scope_is_derived_from_the_predictor() -> None:
+    """A config never states a scope; naming a per-drug predictor is enough."""
     from drevalpy.components.register_builtins import register_builtin_components
-    from drevalpy.models.config import ModelScope
 
     register_builtin_components()
     config = ModelConfig.model_validate(
         {
             "cell_line_featurizer": "scaledGeneExpression",
             "predictor": "singleDrugElasticNet",
-            "scope": "single_drug",
         }
     )
-    assert config.scope == ModelScope.SINGLE_DRUG
-    assert isinstance(config.scope, ModelScope)
+    assert config.scope is ModelScope.SINGLE_DRUG
     assert config.drug_featurizer is not None
     assert config.drug_featurizer.name == "identity"
+    assert "scope" not in config.model_dump()
+
+
+def test_explicit_scope_key_is_rejected() -> None:
+    from drevalpy.components.register_builtins import register_builtin_components
+
+    register_builtin_components()
+    with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+        ModelConfig.model_validate(
+            {
+                "cell_line_featurizer": "scaledGeneExpression",
+                "predictor": "singleDrugElasticNet",
+                "scope": "single_drug",
+            }
+        )
 
 
 def test_model_config_parses_compact_featurizer_sections() -> None:

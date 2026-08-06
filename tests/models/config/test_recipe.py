@@ -61,6 +61,34 @@ def test_unregistered_names_are_left_to_the_registry() -> None:
     assert parse_featurizer_atoms("notARegisteredName") == [("notARegisteredName", None)]
 
 
+def _slots(spec: str) -> tuple[str | None, str | None, str]:
+    """Read a recipe's payload back as the triple the formatter takes.
+
+    :param spec: Model recipe string.
+    :returns: Cell-line slot, drug slot, and predictor name.
+    """
+    payload = parse_model_recipe(spec)
+    return payload["cell_line_featurizer"], payload["drug_featurizer"], payload["predictor"]
+
+
+def test_model_recipe_payload_carries_exactly_the_config_field_keys() -> None:
+    """The mapping goes straight into ``from_dict``, so it names config fields and nothing else."""
+    assert parse_model_recipe("raw[expression]+landmarkGenes:fingerprints:randomForest") == {
+        "cell_line_featurizer": "raw[expression]+landmarkGenes",
+        "drug_featurizer": "fingerprints",
+        "predictor": "randomForest",
+    }
+
+
+def test_two_part_model_recipe_leaves_the_drug_slot_unset() -> None:
+    """``ModelConfig`` injects the routing featurizer, so the payload states no drug slot."""
+    assert parse_model_recipe("scaledGeneExpression:singleDrugElasticNet") == {
+        "cell_line_featurizer": "scaledGeneExpression",
+        "drug_featurizer": None,
+        "predictor": "singleDrugElasticNet",
+    }
+
+
 @pytest.mark.parametrize(
     ("spec", "expected"),
     [
@@ -87,7 +115,7 @@ def test_model_recipe_slots_are_split(spec: str, expected: tuple[str | None, str
     :param spec: Model recipe string.
     :param expected: Expected ``(cell_line, drug, predictor)`` tuple.
     """
-    assert parse_model_recipe(spec) == expected
+    assert _slots(spec) == expected
 
 
 @pytest.mark.parametrize("spec", ["a:b:c:d", " :b:c", ":x", "a::b", "a:", "raw[a:b]:x:y"])
@@ -140,7 +168,7 @@ def test_model_recipe_is_formatted_from_slots(slots: tuple[str | None, str | Non
     """
     recipe = format_model_recipe(*slots)
     assert recipe == expected
-    assert parse_model_recipe(recipe) == slots
+    assert _slots(recipe) == slots
 
 
 def test_formatting_requires_a_predictor() -> None:

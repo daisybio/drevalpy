@@ -1,3 +1,2 @@
 cell_line_featurizer: scaledGeneExpression
 predictor: singleDrugRandomForest
-scope: single_drug

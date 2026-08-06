@@ -8,11 +8,12 @@ from typing import Any
 import yaml
 
 from drevalpy.models.config._from_dict import from_dict
+from drevalpy.models.config._recipe import parse_model_recipe
 from drevalpy.models.config.model import ModelConfig
 from drevalpy.models.config.resolved import ResolvedModelConfig
 from drevalpy.models.config.spec import (
     apply_optional_hyperparameters,
-    recipe_payload,
+    reject_unknown_spec,
     zoo_config,
 )
 from drevalpy.types.prediction_mode import PredictionMode
@@ -30,9 +31,10 @@ def from_spec(
 
     A spec is either the name of a registered zoo preset or a recipe naming the parts
     directly. Zoo names win, so a preset can shadow a bare predictor name. Recipes take the
-    same two steps as any other config source: ``recipe_payload`` reads the syntax into a
-    field mapping, then ``from_dict`` resolves the names against the registry and checks
-    that the combination is legal.
+    same two steps as any other config source: ``parse_model_recipe`` reads the syntax into a
+    plain field mapping, then ``from_dict`` resolves the names against the registry and checks
+    that the combination is legal. A bare token is exactly the recipe with no cell-line slot,
+    so that is where a mistyped zoo name is caught before it is read as a predictor.
 
     :param spec: Zoo preset name, or a recipe of one to three colon-separated parts.
     :param hyperparameters: Optional flat public hyperparameter overrides.
@@ -51,7 +53,10 @@ def from_spec(
     if preset is not None:
         return preset
 
-    config = from_dict(recipe_payload(trimmed, prediction_mode=mode), source=f"recipe {trimmed!r}")
+    payload = parse_model_recipe(trimmed)
+    if payload["cell_line_featurizer"] is None:
+        reject_unknown_spec(payload["predictor"])
+    config = from_dict({**payload, "prediction_mode": mode}, source=f"recipe {trimmed!r}")
     return apply_optional_hyperparameters(config, hyperparameters)
 
 

@@ -14,6 +14,8 @@ and whether a view alias resolves are semantic questions answered by the registr
 
 from __future__ import annotations
 
+from typing import Any
+
 import pyparsing as pp
 
 _NAME = pp.Regex(r"[^\[\]+:\s]+")
@@ -59,15 +61,18 @@ def parse_featurizer_atoms(token: str) -> list[tuple[str, str | None]]:
     return [(atom["name"], atom.get("view")) for atom in parsed]
 
 
-def parse_model_recipe(spec: str) -> tuple[str | None, str | None, str]:
-    """Split a model recipe into its featurizer slots and predictor name.
+def parse_model_recipe(spec: str) -> dict[str, Any]:
+    """Read a model recipe into the plain field mapping a model config is built from.
 
-    The slots are returned as unparsed recipe strings, since each is normalized separately
-    against its own registry. Splitting happens through the grammar rather than on ``:``,
-    so a colon inside a view cannot be mistaken for a slot separator.
+    This is to a recipe string what ``yaml.safe_load`` is to a YAML file: source syntax in,
+    plain mapping out, no registry involved. The featurizer slots stay unparsed recipe
+    strings, since each is normalized separately against its own registry. Splitting happens
+    through the grammar rather than on ``:``, so a colon inside a view cannot be mistaken for
+    a slot separator.
 
     :param spec: ``predictor``, ``cell:predictor``, or ``cell:drug:predictor``.
-    :returns: ``(cell_line_recipe, drug_recipe, predictor_name)``; slots are ``None`` when absent.
+    :returns: ``cell_line_featurizer``, ``drug_featurizer`` and ``predictor`` entries; the two
+        featurizer slots are ``None`` when the recipe omits them.
     :raises ValueError: If *spec* is empty or not a well-formed model recipe.
     """
     if not spec or not spec.strip():
@@ -80,19 +85,19 @@ def parse_model_recipe(spec: str) -> tuple[str | None, str | None, str]:
         raise ValueError(msg) from exc
     cell_line = parsed.get("cell_line")
     drug = parsed.get("drug")
-    return (
-        cell_line.strip() if cell_line is not None else None,
-        drug.strip() if drug is not None else None,
-        parsed["predictor"],
-    )
+    return {
+        "cell_line_featurizer": cell_line.strip() if cell_line is not None else None,
+        "drug_featurizer": drug.strip() if drug is not None else None,
+        "predictor": parsed["predictor"],
+    }
 
 
 def format_model_recipe(cell_line: str | None, drug: str | None, predictor: str) -> str:
     """Join component names back into a model recipe.
 
-    The inverse of ``parse_model_recipe``, and the only place the slot separator is written
-    out. A recipe names its slots left to right, so a drug slot without a cell-line slot has
-    nowhere to go.
+    Writes the grammar that ``parse_model_recipe`` reads, and the only place the slot
+    separator is written out. A recipe names its slots left to right, so a drug slot without
+    a cell-line slot has nowhere to go.
 
     :param cell_line: Cell-line featurizer name, or ``None`` for feature-free predictors.
     :param drug: Drug featurizer name, or ``None`` when omitted.

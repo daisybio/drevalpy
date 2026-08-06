@@ -27,7 +27,13 @@ def test_model_config_rejects_field_assignment() -> None:
         predictor=PredictorConfig(name="elasticNet"),
     )
     with pytest.raises(ValidationError, match="frozen"):
-        config.scope = "single_drug"  # type: ignore[misc]
+        config.drug_featurizer = None
+
+
+def test_model_config_scope_is_a_read_only_property() -> None:
+    register_builtin_components()
+    assert isinstance(ModelConfig.scope, property)
+    assert ModelConfig.scope.fset is None
 
 
 def test_featurizer_config_rejects_deep_options_mutation() -> None:

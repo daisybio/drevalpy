@@ -1,7 +1,7 @@
 """Tests for drevalpy.models.config.spec.
 
-Recipe and zoo resolution is what this module implements, so most cases drive it through
-``from_spec``, which composes it. Tests naming ``recipe_payload`` or ``zoo_config`` pin the
+Recipe and zoo resolution is what this module supports, so most cases drive it through
+``from_spec``, which composes it. Tests naming ``reject_unknown_spec`` or ``zoo_config`` pin the
 individual steps.
 """
 
@@ -14,8 +14,7 @@ import pytest
 from drevalpy.components.extensions import load_extensions
 from drevalpy.components.register_builtins import register_builtin_components
 from drevalpy.models.config import from_spec, validate
-from drevalpy.models.config.spec import recipe_payload, zoo_config
-from drevalpy.types.model_scope import ModelScope
+from drevalpy.models.config.spec import reject_unknown_spec, zoo_config
 from drevalpy.types.prediction_mode import PredictionMode
 
 
@@ -98,7 +97,8 @@ def test_two_part_single_drug_recipe_matches_explicit_identity() -> None:
 
 
 def test_two_part_multi_drug_recipe_rejected() -> None:
-    with pytest.raises(ValueError, match="two-part recipes require a single-drug predictor"):
+    """A multi-drug predictor needs its drug featurizer named, as in an equivalent YAML file."""
+    with pytest.raises(ValueError, match="Predictor 'elasticNet' requires a drug_featurizer"):
         from_spec("scaledGeneExpression:elasticNet")
 
 
@@ -160,19 +160,36 @@ def test_unknown_spec_raises_helpful_error() -> None:
         from_spec("definitelyNotARealModelName")
 
 
-def test_recipe_payload_leaves_slots_as_recipe_strings() -> None:
-    """The syntax step must not resolve names; that is ``from_dict``'s job."""
-    payload = recipe_payload("raw[expression]+landmarkGenes:fingerprints:randomForest")
-    assert payload["cell_line_featurizer"] == "raw[expression]+landmarkGenes"
-    assert payload["drug_featurizer"] == "fingerprints"
-    assert payload["predictor"] == "randomForest"
+def test_reject_unknown_spec_passes_a_known_builtin_predictor_through() -> None:
+    """A predictor drevalpy knows is left for ``from_dict`` to resolve and report on."""
+    assert reject_unknown_spec("randomForest") is None
 
 
-def test_two_part_recipe_payload_omits_the_drug_slot() -> None:
-    """``ModelConfig`` injects the identity featurizer, so the payload leaves it unset."""
-    payload = recipe_payload("scaledGeneExpression:singleDrugElasticNet")
-    assert payload["drug_featurizer"] is None
-    assert payload["scope"] is ModelScope.SINGLE_DRUG
+def test_reject_unknown_spec_passes_an_unregistered_builtin_through(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An optional or literature predictor that never registered keeps the registry's own error.
+
+    Registration is faked away rather than relying on a genuinely missing dependency, so the
+    built-in catalog is what has to let the name through.
+
+    :param monkeypatch: Pytest fixture used to empty the registered-predictor list.
+    """
+    monkeypatch.setattr("drevalpy.models.config.spec.list_predictors", lambda: [])
+    assert reject_unknown_spec("dipk") is None
+
+
+def test_reject_unknown_spec_passes_a_registered_non_builtin_through(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An extension predictor is not in the built-in catalog, so the registry has to accept it.
+
+    :param monkeypatch: Pytest fixture used to deny that the name is a built-in.
+    """
+    monkeypatch.setattr("drevalpy.models.config.spec.is_known_builtin_predictor", lambda name: False)
+    assert reject_unknown_spec("randomForest") is None
+
+
+def test_reject_unknown_spec_reports_a_typo_as_an_unknown_spec() -> None:
+    """A token that names neither a preset nor a predictor is most likely a mistyped zoo name."""
+    with pytest.raises(ValueError, match="Unknown model spec 'definitelyNotARealModelName'"):
+        reject_unknown_spec("definitelyNotARealModelName")
 
 
 def test_zoo_config_returns_none_for_a_name_that_is_not_a_preset() -> None:

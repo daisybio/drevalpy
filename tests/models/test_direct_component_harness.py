@@ -92,7 +92,6 @@ def test_single_drug_sklearn_auto_injects_identity() -> None:
         {
             "cell_line_featurizer": "scaledGeneExpression",
             "predictor": "singleDrugElasticNet",
-            "scope": "single_drug",
         }
     )
     validate(config)
