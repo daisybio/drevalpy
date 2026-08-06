@@ -7,8 +7,8 @@ from typing import Any, ClassVar
 
 import numpy as np
 
-from drevalpy.components.contracts import FeatureContract
-from drevalpy.components.feature_block import FeatureBlock, numeric_feature_block
+from drevalpy.components.contracts import FeatureContract, featurizer_contract
+from drevalpy.components.feature_block import BlockSpec, FeatureBlock, numeric_feature_block
 from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
 from drevalpy.datasets.dataset import FeatureDataset
 
@@ -24,7 +24,6 @@ class Featurizer(ABC):
     """
 
     contract: ClassVar[FeatureContract]
-    requires_view: ClassVar[bool] = False
     requires_view: ClassVar[bool] = False
 
     def __init_subclass__(cls, **kwargs: object) -> None:
@@ -91,6 +90,29 @@ class Featurizer(ABC):
 
         :returns: Result.
         """
+
+    @classmethod
+    def output_block_specs_for_config(cls, config: Any) -> tuple[BlockSpec, ...]:
+        """Return named output blocks for a featurizer config node.
+
+        Declared ``output_block_specs`` win when present; otherwise a single
+        block named after the configured (or default) view is emitted.
+
+        :param config: Featurizer config with optional ``view`` / ``hyperparameters``.
+        :returns: Block specs emitted by this featurizer under *config*.
+        """
+        declared = getattr(cls, "output_block_specs", ())
+        if declared:
+            return tuple(spec for spec in declared if isinstance(spec, BlockSpec))
+        view = getattr(config, "view", None)
+        hyperparams = getattr(config, "hyperparameters", None) or {}
+        if not isinstance(view, str):
+            view = hyperparams.get("view") if isinstance(hyperparams, dict) else None
+        if not isinstance(view, str):
+            view = getattr(cls, "_default_view", None)
+        if isinstance(view, str):
+            return (BlockSpec(view, featurizer_contract(cls).format),)
+        return ()
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:

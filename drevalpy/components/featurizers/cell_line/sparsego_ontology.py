@@ -38,6 +38,18 @@ class SparseGOOntologyFeaturizer(CellLineFeaturizer):
 
     output_block_specs = (BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX, metadata=True),)
 
+    @classmethod
+    def output_block_specs_for_config(cls, config: Any) -> tuple[BlockSpec, ...]:
+        """Name the active SparseGO block from ``input_type``.
+
+        :param config: Featurizer config whose hyperparameters select expression vs mutations.
+        :returns: Single metadata-bearing numeric block for the active omics view.
+        """
+        hyperparams = getattr(config, "hyperparameters", None) or {}
+        input_type = str(hyperparams.get("input_type", "expression") if isinstance(hyperparams, dict) else "expression")
+        name = "mutations" if input_type == "mutations" else "gene_expression"
+        return (BlockSpec(name, FeatureFormat.NUMERIC_MATRIX, metadata=True),)
+
     def __init__(self, *, input_type: str = "expression") -> None:
         """Validate *input_type* and initialize ontology metadata placeholders.
 

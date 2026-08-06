@@ -15,8 +15,6 @@ from ._construct_model_api import build_builtin_factory_tables, construct_model
 from ._model_persistence import load_model
 from .drp_model import DRPModel
 
-_FACTORY_MULTI, _FACTORY_SINGLE, _FACTORY_ALL = build_builtin_factory_tables()
-
 __all__ = [
     "DRPModel",
     "MODEL_FACTORY",
@@ -32,6 +30,18 @@ _FACTORY_PUBLIC_TO_PRIVATE = {
     "MODEL_FACTORY": "_FACTORY_ALL",
 }
 
+_FACTORY_MULTI: dict[str, type[Any]] | None = None
+_FACTORY_SINGLE: dict[str, type[Any]] | None = None
+_FACTORY_ALL: dict[str, type[Any]] | None = None
+
+
+def _ensure_factory_tables() -> None:
+    """Build built-in factory tables once, after package import has finished."""
+    global _FACTORY_MULTI, _FACTORY_SINGLE, _FACTORY_ALL
+    if _FACTORY_ALL is not None:
+        return
+    _FACTORY_MULTI, _FACTORY_SINGLE, _FACTORY_ALL = build_builtin_factory_tables()
+
 
 def __getattr__(name: str) -> Any:
     if name in FACTORY_DICT_NAMES:
@@ -40,7 +50,8 @@ def __getattr__(name: str) -> Any:
             replacement=('construct_model("ModelName"), config.from_spec("ModelName"), or list_zoo_names(scope=...)'),
             stacklevel=2,
         )
+        _ensure_factory_tables()
         value = globals()[_FACTORY_PUBLIC_TO_PRIVATE[name]]
         globals()[name] = value
         return value
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    raise AttributeError(f"module {__name__!r} has no attribute {name}")

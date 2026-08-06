@@ -35,6 +35,20 @@ class FeaturizerConfig(BaseModel):
         return data
 
     @model_validator(mode="after")
+    def _require_non_empty_view_fields(self) -> FeaturizerConfig:
+        if self.view is not None and not str(self.view).strip():
+            msg = "view must be a non-empty string when set"
+            raise ValueError(msg)
+        if self.views is not None:
+            if not self.views:
+                msg = "views must be a non-empty list when set"
+                raise ValueError(msg)
+            if any(not str(view).strip() for view in self.views):
+                msg = "views must contain non-empty strings"
+                raise ValueError(msg)
+        return self
+
+    @model_validator(mode="after")
     def _require_explicit_view_for_parametric_featurizers(self) -> FeaturizerConfig:
         if requires_explicit_view(self.name) and not self.view:
             msg = f"Featurizer {self.name!r} requires an explicit view, e.g. {self.name}[expression]"

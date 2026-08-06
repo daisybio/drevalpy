@@ -120,8 +120,17 @@ class Registry(ABC):
                 cls,
                 required_fields=self._required_fields,
             )
+            self._validate_registration(name, cls)
             self._store[name] = cls
             cls.registry_name = name
+
+    def _validate_registration(self, name: str, cls: type[Any]) -> None:
+        """Run registry-specific class invariants after metadata validation.
+
+        :param name: Registry name under which *cls* is being registered.
+        :param cls: Component class being registered or restored.
+        """
+        return
 
     @abstractmethod
     def _component_metadata(self, name: str, cls: type[Any]) -> dict[str, Any]:

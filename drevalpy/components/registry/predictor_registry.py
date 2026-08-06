@@ -61,11 +61,22 @@ class PredictorRegistry(Registry):
                 self._apply_contract(cls, "cell_line_contract", normalized_cell_line_contract)
                 self._apply_contract(cls, "drug_contract", normalized_drug_contract)
                 apply_registration_metadata(cls, metadata)
+                self._validate_registration(name, cls)
                 self._store[name] = cls
                 cls.registry_name = name
             return cls
 
         return decorator
+
+    def _validate_registration(self, name: str, cls: type[Any]) -> None:
+        """Enforce predictor leaf-interface and capability invariants.
+
+        :param name: Registry name under which *cls* is being registered.
+        :param cls: Predictor class with contracts already attached.
+        """
+        from drevalpy.components.registry._predictor_validate import validate_predictor_registration
+
+        validate_predictor_registration(name, cls)
 
     def _component_metadata(self, name: str, cls: type[Any]) -> dict[str, Any]:
         return predictor_component_metadata(self._display_name, name, cls)

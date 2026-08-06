@@ -268,17 +268,6 @@ def test_baseline_tag_does_not_allow_missing_featurizers() -> None:
         validate(config)
 
 
-def test_empty_view_string_fails() -> None:
-    _register_dense_pair()
-    config = ModelConfig(
-        cell_line_featurizer=CellLineFeaturizerConfig(name="denseCellLine", view="   "),
-        drug_featurizer=DrugFeaturizerConfig(name="denseDrug"),
-        predictor=PredictorConfig(name="densePred"),
-    )
-    with pytest.raises(ValueError, match="cell_line_featurizer view must be a non-empty string"):
-        validate(config)
-
-
 def test_scope_must_match_predictor_capability() -> None:
     from drevalpy.components.register_builtins import register_builtin_components
 

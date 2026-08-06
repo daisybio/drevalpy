@@ -3,10 +3,19 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterator
+from typing import TYPE_CHECKING
 
 from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
 from drevalpy.components.featurizer_label import qualified_featurizer_selector
-from drevalpy.models.config import FeaturizerConfig
+
+if TYPE_CHECKING:
+    from drevalpy.models.config.featurizer import FeaturizerConfig
+
+
+def _featurizer_config_cls() -> type[FeaturizerConfig]:
+    from drevalpy.models.config.featurizer import FeaturizerConfig
+
+    return FeaturizerConfig
 
 
 def iter_featurizer_leaves(
@@ -19,9 +28,10 @@ def iter_featurizer_leaves(
     :param registry: Default registry used when normalizing nested children.
     :yields: Leaf ``FeaturizerConfig`` nodes.
     """
+    featurizer_config_cls = _featurizer_config_cls()
     if featurizer.name == "concatFeaturizers":
         for child in featurizer.hyperparameters.get("featurizers", []):
-            child_cfg = FeaturizerConfig.model_validate(
+            child_cfg = featurizer_config_cls.model_validate(
                 normalize_featurizer_config(child, default_registry=registry),
             )
             yield from iter_featurizer_leaves(child_cfg, registry)
@@ -41,10 +51,11 @@ def map_featurizer_tree(
     :param transform_leaf: Callable applied to each leaf config.
     :returns: Transformed featurizer tree.
     """
+    featurizer_config_cls = _featurizer_config_cls()
     if featurizer.name == "concatFeaturizers":
         children = []
         for child in featurizer.hyperparameters.get("featurizers", []):
-            child_cfg = FeaturizerConfig.model_validate(
+            child_cfg = featurizer_config_cls.model_validate(
                 normalize_featurizer_config(child, default_registry=registry),
             )
             children.append(map_featurizer_tree(child_cfg, registry, transform_leaf).model_dump())

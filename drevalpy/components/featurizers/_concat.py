@@ -11,7 +11,6 @@ from drevalpy.components.feature_block import FeatureBlock, merge_feature_blocks
 from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
 from drevalpy.components.featurizer_label import featurizer_config_block_label
 from drevalpy.components.featurizers.base import Featurizer
-from drevalpy.models.config import FeaturizerConfig
 
 
 class ConcatFeaturizersMixin:
@@ -25,6 +24,9 @@ class ConcatFeaturizersMixin:
         featurizers: list[Any] | None,
         registry: str,
     ) -> None:
+        # Local import avoids models↔featurizer package cycles during module import.
+        from drevalpy.models.config.featurizer import FeaturizerConfig
+
         if not featurizers:
             msg = "featurizers must be a non-empty list"
             raise ValueError(msg)

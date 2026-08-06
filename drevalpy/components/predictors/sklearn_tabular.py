@@ -11,7 +11,7 @@ from drevalpy.components.predictors._matrix_fit import validate_matrix_fit
 from drevalpy.components.predictors.matrix import MatrixPredictor
 from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.components.state_helpers import state_mapping
-from drevalpy.models.config import PredictionMode
+from drevalpy.types.prediction_mode import PredictionMode
 
 
 class SklearnTabularPredictor(MatrixPredictor):

@@ -8,10 +8,6 @@ from typing import Any, ClassVar
 
 import numpy as np
 
-from drevalpy.components.data_loading import (
-    load_cell_line_features_for_model_config,
-    load_drug_features_for_model_config,
-)
 from drevalpy.components.data_loading.view_resolution import (
     cell_line_views_from_model_config,
     drug_views_from_model_config,
@@ -233,6 +229,8 @@ class DRPModel(_DRPLoggingMixin):
         config = self._resolved_model_config
         if config is None:
             raise RuntimeError("Model has not been constructed with a ModelConfig")
+        from drevalpy.components.data_loading import load_cell_line_features_for_model_config
+
         return load_cell_line_features_for_model_config(
             config,
             data_path,
@@ -253,6 +251,8 @@ class DRPModel(_DRPLoggingMixin):
         config = self._resolved_model_config
         if config is None:
             raise RuntimeError("Model has not been constructed with a ModelConfig")
+        from drevalpy.components.data_loading import load_drug_features_for_model_config
+
         return load_drug_features_for_model_config(
             config,
             data_path,

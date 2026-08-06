@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
-from drevalpy.models.config import FeaturizerConfig, ModelConfig
+
+if TYPE_CHECKING:
+    from drevalpy.models.config.featurizer import FeaturizerConfig
+    from drevalpy.models.config.model import ModelConfig
 
 _PCA_METHYLATION_TOKEN = "pca[" + "methylation" + "]"
 _NORMALIZED_PROTEOMICS_TOKEN = "normal" + "izedProteomics"
@@ -38,6 +41,12 @@ DRUG_FEATURIZER_TO_VIEW = {
 }
 
 
+def _featurizer_config_cls() -> type[FeaturizerConfig]:
+    from drevalpy.models.config.featurizer import FeaturizerConfig
+
+    return FeaturizerConfig
+
+
 def _featurizer_cls(config: FeaturizerConfig, *, registry: str) -> type[Any]:
     from drevalpy.components.registry import get_cell_line_featurizer, get_drug_featurizer
 
@@ -53,13 +62,14 @@ def entity_id_only_from_featurizer_config(config: FeaturizerConfig, *, registry:
     :param registry: ``cell_line`` or ``drug`` registry label.
     :returns: ``True`` when the featurizer tree is entity-id-only.
     """
+    featurizer_config_cls = _featurizer_config_cls()
     if config.name == "concatFeaturizers":
         children = config.hyperparameters.get("featurizers", [])
         if not children:
             return False
         return all(
             entity_id_only_from_featurizer_config(
-                FeaturizerConfig.model_validate(normalize_featurizer_config(child, default_registry=registry)),
+                featurizer_config_cls.model_validate(normalize_featurizer_config(child, default_registry=registry)),
                 registry=registry,
             )
             for child in children
@@ -93,9 +103,10 @@ _MULTI_OMICS_VIEWS = ("gene_expression", "mutations", "copy_number_variation_gis
 
 
 def _concat_child_views(config: FeaturizerConfig, *, registry: str) -> list[str]:
+    featurizer_config_cls = _featurizer_config_cls()
     views: list[str] = []
     for child in config.hyperparameters.get("featurizers", []):
-        child_cfg = FeaturizerConfig.model_validate(normalize_featurizer_config(child, default_registry=registry))
+        child_cfg = featurizer_config_cls.model_validate(normalize_featurizer_config(child, default_registry=registry))
         views.extend(_views_from_featurizer_config(child_cfg, registry=registry))
     return views
 
