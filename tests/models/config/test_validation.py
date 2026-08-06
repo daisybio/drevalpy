@@ -29,7 +29,7 @@ from drevalpy.models.config import (
     PredictionMode,
     PredictorConfig,
 )
-from drevalpy.models.config.validation import validate_model_config
+from drevalpy.models.config.validation import validate
 
 
 @pytest.fixture(autouse=True)
@@ -85,7 +85,7 @@ def test_valid_dense_config_passes() -> None:
         drug_featurizer=DrugFeaturizerConfig(name="denseDrug", view="fingerprints"),
         predictor=PredictorConfig(name="densePred"),
     )
-    validate_model_config(config)
+    validate(config)
 
 
 def test_unknown_cell_line_featurizer_fails() -> None:
@@ -96,7 +96,7 @@ def test_unknown_cell_line_featurizer_fails() -> None:
         predictor=PredictorConfig(name="densePred"),
     )
     with pytest.raises(ValueError, match="Unknown Cell line featurizer"):
-        validate_model_config(config)
+        validate(config)
 
 
 def test_wrong_registry_is_coerced_by_slot_subclasses() -> None:
@@ -112,7 +112,7 @@ def test_wrong_registry_is_coerced_by_slot_subclasses() -> None:
     assert config.cell_line_featurizer.registry == "cell_line"
     assert config.drug_featurizer is not None
     assert config.drug_featurizer.registry == "drug"
-    validate_model_config(config)
+    validate(config)
 
 
 def test_graph_featurizer_with_matrix_predictor_fails() -> None:
@@ -155,7 +155,7 @@ def test_graph_featurizer_with_matrix_predictor_fails() -> None:
         predictor=PredictorConfig(name="densePred"),
     )
     with pytest.raises(ValueError, match="Cell line featurizer contract|numeric_matrix"):
-        validate_model_config(config)
+        validate(config)
 
 
 def test_graph_format_match_passes_for_block_predictor() -> None:
@@ -189,7 +189,7 @@ def test_graph_format_match_passes_for_block_predictor() -> None:
         drug_featurizer=DrugFeaturizerConfig(name="graphDrug"),
         predictor=PredictorConfig(name="graphPred"),
     )
-    validate_model_config(config)
+    validate(config)
 
 
 def test_block_schema_reports_missing_named_block() -> None:
@@ -217,7 +217,7 @@ def test_block_schema_reports_missing_named_block() -> None:
         predictor=PredictorConfig(name="blockPred"),
     )
     with pytest.raises(ValueError, match="blockPred.*gene_expression.*numeric_matrix.*wrong_name"):
-        validate_model_config(config)
+        validate(config)
 
 
 def test_builtin_featurizer_declares_output_block_specs() -> None:
@@ -241,7 +241,7 @@ def test_feature_free_predictor_without_featurizers_passes() -> None:
         drug_featurizer=None,
         predictor=PredictorConfig(name="naiveMean"),
     )
-    validate_model_config(config)
+    validate(config)
 
 
 def test_feature_using_predictor_without_featurizers_fails() -> None:
@@ -252,7 +252,7 @@ def test_feature_using_predictor_without_featurizers_fails() -> None:
         predictor=PredictorConfig(name="densePred"),
     )
     with pytest.raises(ValueError, match="requires featurizers"):
-        validate_model_config(config)
+        validate(config)
 
 
 def test_baseline_tag_does_not_allow_missing_featurizers() -> None:
@@ -265,7 +265,7 @@ def test_baseline_tag_does_not_allow_missing_featurizers() -> None:
         predictor=PredictorConfig(name="naiveMeanEffects"),
     )
     with pytest.raises(ValueError, match="requires featurizers"):
-        validate_model_config(config)
+        validate(config)
 
 
 def test_empty_view_string_fails() -> None:
@@ -276,7 +276,7 @@ def test_empty_view_string_fails() -> None:
         predictor=PredictorConfig(name="densePred"),
     )
     with pytest.raises(ValueError, match="cell_line_featurizer view must be a non-empty string"):
-        validate_model_config(config)
+        validate(config)
 
 
 def test_scope_must_match_predictor_capability() -> None:
@@ -290,7 +290,7 @@ def test_scope_must_match_predictor_capability() -> None:
         scope=ModelScope.MULTI_DRUG,
     )
     with pytest.raises(ValueError, match="does not support scope"):
-        validate_model_config(config)
+        validate(config)
 
 
 def test_single_drug_scope_requires_identity_drug_featurizer() -> None:
@@ -304,7 +304,7 @@ def test_single_drug_scope_requires_identity_drug_featurizer() -> None:
         scope=ModelScope.SINGLE_DRUG,
     )
     with pytest.raises(ValueError, match="requires drug_featurizer='identity'"):
-        validate_model_config(config)
+        validate(config)
 
 
 def test_single_drug_scope_accepts_identity_routing_featurizer() -> None:
@@ -317,4 +317,4 @@ def test_single_drug_scope_accepts_identity_routing_featurizer() -> None:
         predictor=PredictorConfig(name="singleDrugElasticNet"),
         scope=ModelScope.SINGLE_DRUG,
     )
-    validate_model_config(config)
+    validate(config)

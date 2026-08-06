@@ -124,7 +124,7 @@ Whether you can customize the space depends on how you construct the class:
   you cannot override their search space from the call site. A preset may
   still deviate from each component's built-in defaults when its YAML sets
   ``hyperparameter_space``; otherwise it falls back to those defaults.
-- **YAML** (via ``model_config_from_yaml``) and the **``ModelConfig``
+- **YAML** (via ``config.from_yaml``) and the **``ModelConfig``
   constructor** let you set ``hyperparameter_space`` on a component to
   **replace** its built-in space. Use these when you need a custom search
   space (including your own zoo-style YAML files).
@@ -162,26 +162,19 @@ Whether you can customize the space depends on how you construct the class:
 
       .. code-block:: python
 
-         from drevalpy.models import construct_model
-         from drevalpy.models.config import ModelConfig, model_config_from_yaml
+         from drevalpy.models import config, construct_model
 
-         config = model_config_from_yaml("my_zoo/custom_en.yaml")
-         MyEN = construct_model("MyElasticNet", config)
+         cfg = config.from_yaml("my_zoo/custom_en.yaml")
+         MyEN = construct_model("MyElasticNet", cfg)
 
    .. tab-item:: ModelConfig
 
       .. code-block:: python
 
-         from drevalpy.models import construct_model
-         from drevalpy.models.config import (
-             CellLineFeaturizerConfig,
-             DrugFeaturizerConfig,
-             ModelConfig,
-             PredictorConfig,
-         )
+         from drevalpy.models import config, construct_model
 
-         config = ModelConfig(
-             cell_line_featurizer=CellLineFeaturizerConfig(
+         cfg = config.ModelConfig(
+             cell_line_featurizer=config.CellLineFeaturizerConfig(
                  name="pca",
                  view="expression",
                  hyperparameter_space={
@@ -193,8 +186,8 @@ Whether you can customize the space depends on how you construct the class:
                      },
                  },
              ),
-             drug_featurizer=DrugFeaturizerConfig(name="fingerprints"),
-             predictor=PredictorConfig(
+             drug_featurizer=config.DrugFeaturizerConfig(name="fingerprints"),
+             predictor=config.PredictorConfig(
                  name="elasticNet",
                  hyperparameter_space={
                      "alpha": {
@@ -213,7 +206,7 @@ Whether you can customize the space depends on how you construct the class:
                  },
              ),
          )
-         MyEN = construct_model("MyElasticNet", config)
+         MyEN = construct_model("MyElasticNet", cfg)
 
 Specs use local parameter names (``alpha``, ``n_components``, …). During
 search, Ray Tune / Optuna see dotted qualified keys to prevent name collisions, for example

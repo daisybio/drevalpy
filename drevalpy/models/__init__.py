@@ -37,9 +37,7 @@ def __getattr__(name: str) -> Any:
     if name in FACTORY_DICT_NAMES:
         warn_deprecated(
             what=name,
-            replacement=(
-                'construct_model("ModelName"), model_config_from_spec("ModelName"), or list_zoo_names(scope=...)'
-            ),
+            replacement=('construct_model("ModelName"), config.from_spec("ModelName"), or list_zoo_names(scope=...)'),
             stacklevel=2,
         )
         value = globals()[_FACTORY_PUBLIC_TO_PRIVATE[name]]

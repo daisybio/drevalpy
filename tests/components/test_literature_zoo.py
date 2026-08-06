@@ -8,7 +8,7 @@ from drevalpy.components.predictors.block import BlockPredictor
 from drevalpy.components.register_builtins import register_builtin_components
 from drevalpy.components.registry import get_predictor
 from drevalpy.models import construct_model
-from drevalpy.models.config import model_config_from_spec, validate_model_config
+from drevalpy.models.config import from_spec, validate
 from drevalpy.models.zoo import get_zoo_config, list_zoo_names
 
 LITERATURE_ZOO_NAMES = [
@@ -36,7 +36,7 @@ def _register_components() -> None:
 def test_literature_zoo_entries_validate(name: str) -> None:
     assert name in list_zoo_names(include_external=False)
     config = get_zoo_config(name)
-    validate_model_config(config)
+    validate(config)
     assert config.cell_line_featurizer is not None
     if name in BLOCK_ZOO_NAMES:
         assert config.drug_featurizer is not None
@@ -55,11 +55,11 @@ def test_single_drug_zoo_entries_route_with_identity(name: str) -> None:
     config = get_zoo_config(name)
     assert config.drug_featurizer is not None
     assert config.drug_featurizer.name == "identity"
-    validate_model_config(config)
+    validate(config)
 
 
-def test_model_config_from_spec_resolves_literature_zoo() -> None:
-    config = model_config_from_spec("DrugGNN")
+def test_from_spec_resolves_literature_zoo() -> None:
+    config = from_spec("DrugGNN")
     assert config.predictor.name == "drugGNN"
     assert config.cell_line_featurizer is not None
     assert config.drug_featurizer is not None

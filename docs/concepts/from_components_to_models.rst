@@ -50,17 +50,12 @@ predictor:
 
       .. code-block:: python
 
-         from drevalpy.models.config import (
-             CellLineFeaturizerConfig,
-             DrugFeaturizerConfig,
-             ModelConfig,
-             PredictorConfig,
-         )
+         from drevalpy.models import config
 
-         config = ModelConfig(
-             cell_line_featurizer=CellLineFeaturizerConfig(name="<name>"),
-             drug_featurizer=DrugFeaturizerConfig(name="<name>"),
-             predictor=PredictorConfig(name="<name>"),
+         cfg = config.ModelConfig(
+             cell_line_featurizer=config.CellLineFeaturizerConfig(name="<name>"),
+             drug_featurizer=config.DrugFeaturizerConfig(name="<name>"),
+             predictor=config.PredictorConfig(name="<name>"),
          )
 
 A very simple complete stack is gene-expression scaling, drug fingerprints,
@@ -90,19 +85,14 @@ and an elastic-net predictor:
 
       .. code-block:: python
 
-         from drevalpy.models.config import (
-             CellLineFeaturizerConfig,
-             DrugFeaturizerConfig,
-             ModelConfig,
-             PredictorConfig,
-         )
+         from drevalpy.models import config
 
-         config = ModelConfig(
-             cell_line_featurizer=CellLineFeaturizerConfig(
+         cfg = config.ModelConfig(
+             cell_line_featurizer=config.CellLineFeaturizerConfig(
                  name="scaledGeneExpression"
              ),
-             drug_featurizer=DrugFeaturizerConfig(name="fingerprints"),
-             predictor=PredictorConfig(name="elasticNet"),
+             drug_featurizer=config.DrugFeaturizerConfig(name="fingerprints"),
+             predictor=config.PredictorConfig(name="elasticNet"),
          )
 
 Read it from left to right: scale gene expression for each cell line, compute
@@ -149,42 +139,36 @@ Other single-view stacks follow the same pattern:
 
       .. code-block:: python
 
-         from drevalpy.models.config import (
-             CellLineFeaturizerConfig,
-             DrugFeaturizerConfig,
-             ModelConfig,
-             ModelScope,
-             PredictorConfig,
-         )
+         from drevalpy.models import config
 
       .. code-block:: python
 
-         config = ModelConfig(
-             cell_line_featurizer=CellLineFeaturizerConfig(
+         cfg = config.ModelConfig(
+             cell_line_featurizer=config.CellLineFeaturizerConfig(
                  name="normalizedProteomics"
              ),
-             drug_featurizer=DrugFeaturizerConfig(name="fingerprints"),
-             predictor=PredictorConfig(name="randomForest"),
+             drug_featurizer=config.DrugFeaturizerConfig(name="fingerprints"),
+             predictor=config.PredictorConfig(name="randomForest"),
          )
 
       .. code-block:: python
 
-         config = ModelConfig(
-             cell_line_featurizer=CellLineFeaturizerConfig(
+         cfg = config.ModelConfig(
+             cell_line_featurizer=config.CellLineFeaturizerConfig(
                  name="landmarkGenes"
              ),
-             drug_featurizer=DrugFeaturizerConfig(name="fingerprints"),
-             predictor=PredictorConfig(name="xgboost"),
+             drug_featurizer=config.DrugFeaturizerConfig(name="fingerprints"),
+             predictor=config.PredictorConfig(name="xgboost"),
          )
 
       .. code-block:: python
 
-         config = ModelConfig(
-             cell_line_featurizer=CellLineFeaturizerConfig(
+         cfg = config.ModelConfig(
+             cell_line_featurizer=config.CellLineFeaturizerConfig(
                  name="scaledGeneExpression"
              ),
-             predictor=PredictorConfig(name="singleDrugElasticNet"),
-             scope=ModelScope.SINGLE_DRUG,
+             predictor=config.PredictorConfig(name="singleDrugElasticNet"),
+             scope=config.ModelScope.SINGLE_DRUG,
          )
 
 In the last example, ``singleDrugElasticNet`` omits an explicit drug
@@ -243,44 +227,39 @@ qualified name:
 
       .. code-block:: python
 
-         from drevalpy.models.config import (
-             CellLineFeaturizerConfig,
-             DrugFeaturizerConfig,
-             ModelConfig,
-             PredictorConfig,
-         )
+         from drevalpy.models import config
 
       .. code-block:: python
 
-         config = ModelConfig(
-             cell_line_featurizer=CellLineFeaturizerConfig(
+         cfg = config.ModelConfig(
+             cell_line_featurizer=config.CellLineFeaturizerConfig(
                  name="raw",
                  view="expression",
              ),
-             drug_featurizer=DrugFeaturizerConfig(name="fingerprints"),
-             predictor=PredictorConfig(name="randomForest"),
+             drug_featurizer=config.DrugFeaturizerConfig(name="fingerprints"),
+             predictor=config.PredictorConfig(name="randomForest"),
          )
 
       .. code-block:: python
 
-         config = ModelConfig(
-             cell_line_featurizer=CellLineFeaturizerConfig(
+         cfg = config.ModelConfig(
+             cell_line_featurizer=config.CellLineFeaturizerConfig(
                  name="pca",
                  view="methylation",
              ),
-             drug_featurizer=DrugFeaturizerConfig(name="fingerprints"),
-             predictor=PredictorConfig(name="randomForest"),
+             drug_featurizer=config.DrugFeaturizerConfig(name="fingerprints"),
+             predictor=config.PredictorConfig(name="randomForest"),
          )
 
       .. code-block:: python
 
-         config = ModelConfig(
-             cell_line_featurizer=CellLineFeaturizerConfig(
+         cfg = config.ModelConfig(
+             cell_line_featurizer=config.CellLineFeaturizerConfig(
                  name="raw",
                  view="proteomics",
              ),
-             drug_featurizer=DrugFeaturizerConfig(name="fingerprints"),
-             predictor=PredictorConfig(name="randomForest"),
+             drug_featurizer=config.DrugFeaturizerConfig(name="fingerprints"),
+             predictor=config.PredictorConfig(name="randomForest"),
          )
 
 Common view aliases include ``expression``, ``methylation``, ``mutations``,
@@ -331,17 +310,12 @@ Within a featurizer slot, ``+`` concatenates several featurizers into
 
       .. code-block:: python
 
-         from drevalpy.models.config import (
-             CellLineFeaturizerConfig,
-             DrugFeaturizerConfig,
-             ModelConfig,
-             PredictorConfig,
-         )
+         from drevalpy.models import config
 
       .. code-block:: python
 
-         config = ModelConfig(
-             cell_line_featurizer=CellLineFeaturizerConfig(
+         cfg = config.ModelConfig(
+             cell_line_featurizer=config.CellLineFeaturizerConfig(
                  name="concatFeaturizers",
                  hyperparameters={
                      "featurizers": [
@@ -350,14 +324,14 @@ Within a featurizer slot, ``+`` concatenates several featurizers into
                      ],
                  },
              ),
-             drug_featurizer=DrugFeaturizerConfig(name="fingerprints"),
-             predictor=PredictorConfig(name="xgboost"),
+             drug_featurizer=config.DrugFeaturizerConfig(name="fingerprints"),
+             predictor=config.PredictorConfig(name="xgboost"),
          )
 
       .. code-block:: python
 
-         config = ModelConfig(
-             cell_line_featurizer=CellLineFeaturizerConfig(
+         cfg = config.ModelConfig(
+             cell_line_featurizer=config.CellLineFeaturizerConfig(
                  name="concatFeaturizers",
                  hyperparameters={
                      "featurizers": [
@@ -366,8 +340,8 @@ Within a featurizer slot, ``+`` concatenates several featurizers into
                      ],
                  },
              ),
-             drug_featurizer=DrugFeaturizerConfig(name="fingerprints"),
-             predictor=PredictorConfig(name="lightgbm"),
+             drug_featurizer=config.DrugFeaturizerConfig(name="fingerprints"),
+             predictor=config.PredictorConfig(name="lightgbm"),
          )
 
 The left slot can concatenate several cell-line featurizers; the middle slot
@@ -434,15 +408,10 @@ names (``alpha``, ``n_components``, …); DrEvalPy prefixes them for tuning.
 
       .. code-block:: python
 
-         from drevalpy.models.config import (
-             CellLineFeaturizerConfig,
-             DrugFeaturizerConfig,
-             ModelConfig,
-             PredictorConfig,
-         )
+         from drevalpy.models import config
 
-         config = ModelConfig(
-             cell_line_featurizer=CellLineFeaturizerConfig(
+         cfg = config.ModelConfig(
+             cell_line_featurizer=config.CellLineFeaturizerConfig(
                  name="pca",
                  view="expression",
                  hyperparameter_space={
@@ -454,8 +423,8 @@ names (``alpha``, ``n_components``, …); DrEvalPy prefixes them for tuning.
                      },
                  },
              ),
-             drug_featurizer=DrugFeaturizerConfig(name="fingerprints"),
-             predictor=PredictorConfig(
+             drug_featurizer=config.DrugFeaturizerConfig(name="fingerprints"),
+             predictor=config.PredictorConfig(
                  name="elasticNet",
                  hyperparameter_space={
                      "alpha": {

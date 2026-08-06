@@ -16,16 +16,15 @@ Example:
 
 ```python
 from drevalpy.components import load_extensions
-from drevalpy.models import construct_model
-from drevalpy.models.config import ModelConfig, model_config_from_spec
+from drevalpy.models import config, construct_model
 
 load_extensions(directories=["./my_components"], zoo_files=["./my_zoo.yaml"])
 
 MyModel = construct_model("MyModel", "scaledGeneExpression:fingerprints:elasticNet")
 # Or resolve a registered zoo name:
 MyModelZoo = construct_model("MyModel")
-config = model_config_from_spec("MyModel")
-MyModelFromConfig = construct_model("MyModel", config)
+cfg = config.from_spec("MyModel")
+MyModelFromConfig = construct_model("MyModel", cfg)
 model = MyModelZoo()
 ```
 

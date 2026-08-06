@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 
 from drevalpy.models import construct_model
-from drevalpy.models.config import model_config_from_dict, validate_model_config
+from drevalpy.models.config import from_dict, validate
 from tests._trusted_subprocess import run_trusted_python
 from tests.models.synthetic_fixtures import (
     cell_line_gene_expression,
@@ -71,11 +71,11 @@ def test_sklearn_direct_component_round_trip(preset: str) -> None:
 
 
 def test_multi_drug_sklearn_rejects_missing_drug_featurizer() -> None:
-    from drevalpy.models.config import model_config_from_dict, validate_model_config
+    from drevalpy.models.config import from_dict, validate
 
     with pytest.raises(ValueError, match="requires a drug_featurizer"):
-        validate_model_config(
-            model_config_from_dict(
+        validate(
+            from_dict(
                 {
                     "cell_line_featurizer": "scaledGeneExpression",
                     "predictor": "elasticNet",
@@ -88,21 +88,21 @@ def test_single_drug_sklearn_auto_injects_identity() -> None:
     from drevalpy.components.register_builtins import register_builtin_components
 
     register_builtin_components()
-    config = model_config_from_dict(
+    config = from_dict(
         {
             "cell_line_featurizer": "scaledGeneExpression",
             "predictor": "singleDrugElasticNet",
             "scope": "single_drug",
         }
     )
-    validate_model_config(config)
+    validate(config)
     assert config.drug_featurizer is not None
     assert config.drug_featurizer.name == "identity"
 
 
 def test_feature_free_naive_accepts_no_featurizers() -> None:
-    config = model_config_from_dict({"predictor": "naiveMean"})
-    validate_model_config(config)
+    config = from_dict({"predictor": "naiveMean"})
+    validate(config)
 
 
 def test_subprocess_blocks_optional_deps_for_simple_models() -> None:

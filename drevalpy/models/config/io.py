@@ -9,7 +9,7 @@ import yaml
 from pydantic import ValidationError
 
 from drevalpy.models.config.model import ModelConfig
-from drevalpy.models.config.spec import build_model_config_from_spec
+from drevalpy.models.config.spec import _build_from_spec
 from drevalpy.types.prediction_mode import PredictionMode
 
 
@@ -21,7 +21,7 @@ def _format_validation_error(exc: ValidationError, *, source: Path | str | None 
     return f"{prefix}: {details}"
 
 
-def model_config_from_dict(data: dict[str, Any], *, source: Path | str | None = None) -> ModelConfig:
+def from_dict(data: dict[str, Any], *, source: Path | str | None = None) -> ModelConfig:
     """Build a ``ModelConfig`` from a plain dictionary.
 
     :param data: Mapping with featurizer and predictor sections.
@@ -35,7 +35,7 @@ def model_config_from_dict(data: dict[str, Any], *, source: Path | str | None = 
         raise ValueError(_format_validation_error(exc, source=source)) from exc
 
 
-def model_config_from_spec(
+def from_spec(
     spec: str,
     *,
     hyperparameters: dict[str, Any] | None = None,
@@ -49,15 +49,15 @@ def model_config_from_spec(
     :returns: Validated ``ModelConfig`` instance.
     """
     if prediction_mode is None:
-        return build_model_config_from_spec(spec, hyperparameters=hyperparameters)
-    return build_model_config_from_spec(
+        return _build_from_spec(spec, hyperparameters=hyperparameters)
+    return _build_from_spec(
         spec,
         hyperparameters=hyperparameters,
         prediction_mode=PredictionMode(prediction_mode),
     )
 
 
-def model_config_from_yaml(path: Path | str) -> ModelConfig:
+def from_yaml(path: Path | str) -> ModelConfig:
     """Load a ``ModelConfig`` from a YAML file.
 
     :param path: Path to a YAML mapping describing the model config.
@@ -74,4 +74,4 @@ def model_config_from_yaml(path: Path | str) -> ModelConfig:
     if not isinstance(data, dict):
         msg = f"Model config YAML must contain a mapping: {yaml_path}"
         raise ValueError(msg)
-    return model_config_from_dict(data, source=yaml_path)
+    return from_dict(data, source=yaml_path)

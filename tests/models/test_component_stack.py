@@ -8,11 +8,11 @@ import pytest
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models import construct_model
 from drevalpy.models._component_stack import build_component_stack
-from drevalpy.models.config import model_config_from_spec
+from drevalpy.models.config import from_spec
 
 
 def test_sklearn_model_config_builds_runnable_model() -> None:
-    config = model_config_from_spec("ElasticNet", hyperparameters={"alpha": 0.1, "l1_ratio": 0.5})
+    config = from_spec("ElasticNet", hyperparameters={"alpha": 0.1, "l1_ratio": 0.5})
     model = construct_model("ElasticNet", config)()
     response = DrugResponseDataset(
         response=np.array([1.0, 2.0, 3.0, 4.0]),
@@ -38,7 +38,7 @@ def test_sklearn_model_config_builds_runnable_model() -> None:
 
 
 def test_build_component_stack_train_predict() -> None:
-    config = model_config_from_spec("scaledGeneExpression:fingerprints:ridge", hyperparameters={"alpha": 1.0})
+    config = from_spec("scaledGeneExpression:fingerprints:ridge", hyperparameters={"alpha": 1.0})
     stack = build_component_stack(config)
     response = DrugResponseDataset(
         response=np.array([1.0, 2.0]),
@@ -106,6 +106,6 @@ def test_model_has_no_predictor_hyperparameter_mutator() -> None:
 
 
 def test_druggnn_stack_configures_both_featurizers() -> None:
-    stack = build_component_stack(model_config_from_spec("DrugGNN"))
+    stack = build_component_stack(from_spec("DrugGNN"))
     assert stack._cell_line_featurizer is not None
     assert stack._drug_featurizer is not None

@@ -35,7 +35,7 @@ There are two ways to call it:
    ``construct_model("MyRF", spec)``). Use this form when the name is not a zoo
    preset. ``spec`` must be either a recipe string or a ``ModelConfig`` object —
    YAML paths are not accepted directly. Build a ``ModelConfig`` with the
-   constructor or ``model_config_from_yaml(...)``, then pass that object as
+   constructor or ``config.from_yaml(...)``, then pass that object as
    ``spec``.
 
 The tabs below show each call form:
@@ -74,32 +74,25 @@ The tabs below show each call form:
 
       .. code-block:: python
 
-         from drevalpy.models import construct_model
-         from drevalpy.models.config import ModelConfig, model_config_from_yaml
+         from drevalpy.models import config, construct_model
 
-         config = model_config_from_yaml("my_zoo/custom_rf.yaml")
-         MyRF = construct_model("MyRF", config)
+         cfg = config.from_yaml("my_zoo/custom_rf.yaml")
+         MyRF = construct_model("MyRF", cfg)
 
    .. tab-item:: ModelConfig
 
       .. code-block:: python
 
-         from drevalpy.models import construct_model
-         from drevalpy.models.config import (
-             CellLineFeaturizerConfig,
-             DrugFeaturizerConfig,
-             ModelConfig,
-             PredictorConfig,
-         )
+         from drevalpy.models import config, construct_model
 
-         config = ModelConfig(
-             cell_line_featurizer=CellLineFeaturizerConfig(
+         cfg = config.ModelConfig(
+             cell_line_featurizer=config.CellLineFeaturizerConfig(
                  name="scaledGeneExpression"
              ),
-             drug_featurizer=DrugFeaturizerConfig(name="fingerprints"),
-             predictor=PredictorConfig(name="randomForest"),
+             drug_featurizer=config.DrugFeaturizerConfig(name="fingerprints"),
+             predictor=config.PredictorConfig(name="randomForest"),
          )
-         MyRF = construct_model("MyRF", config)
+         MyRF = construct_model("MyRF", cfg)
 
    .. tab-item:: ModelConfig + hyperparameter space
 
@@ -109,20 +102,14 @@ The tabs below show each call form:
 
       .. code-block:: python
 
-         from drevalpy.models import construct_model
-         from drevalpy.models.config import (
-             CellLineFeaturizerConfig,
-             DrugFeaturizerConfig,
-             ModelConfig,
-             PredictorConfig,
-         )
+         from drevalpy.models import config, construct_model
 
-         config = ModelConfig(
-             cell_line_featurizer=CellLineFeaturizerConfig(
+         cfg = config.ModelConfig(
+             cell_line_featurizer=config.CellLineFeaturizerConfig(
                  name="scaledGeneExpression"
              ),
-             drug_featurizer=DrugFeaturizerConfig(name="fingerprints"),
-             predictor=PredictorConfig(
+             drug_featurizer=config.DrugFeaturizerConfig(name="fingerprints"),
+             predictor=config.PredictorConfig(
                  name="elasticNet",
                  hyperparameter_space={
                      "alpha": {
@@ -141,7 +128,7 @@ The tabs below show each call form:
                  },
              ),
          )
-         MyEN = construct_model("MyElasticNet", config)
+         MyEN = construct_model("MyElasticNet", cfg)
 
 Recipe grammar and YAML field names are documented in
 :doc:`/concepts/from_components_to_models`. Applied featurizer examples with
@@ -226,7 +213,7 @@ Before 1.6.0, ``MODEL_FACTORY``, ``MULTI_DRUG_MODEL_FACTORY``, and
 ``SINGLE_DRUG_MODEL_FACTORY`` were the usual lookup. They remain as **lazy,
 built-in-only** compatibility views equivalent to ``construct_model(name)`` for
 zoo preset names, but emit ``FutureWarning`` and may be removed in a future
-release. Prefer ``construct_model``, ``model_config_from_spec``, and
+release. Prefer ``construct_model``, ``config.from_spec``, and
 ``list_zoo_names(scope=...)``. See :doc:`quickstart` for a short side-by-side
 example.
 

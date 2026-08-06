@@ -81,9 +81,9 @@ def test_tuned_config_strips_structured_keys() -> None:
 
 
 def test_apply_merged_never_leaks_namespaced_keys_into_components() -> None:
-    from drevalpy.models.config import model_config_from_spec
+    from drevalpy.models.config import from_spec
 
-    config = model_config_from_spec("pca[expression]:identity:randomForest")
+    config = from_spec("pca[expression]:identity:randomForest")
     merged = defaults_from_merged_space(merge_model_config_spaces(config))
     updated = apply_merged_to_model_config(config, merged)
     assert_component_local_hyperparameters(updated)

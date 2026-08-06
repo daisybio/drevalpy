@@ -7,8 +7,8 @@ from drevalpy.models.config import (
     ModelConfig,
     PredictionMode,
     PredictorConfig,
-    model_config_from_dict,
-    model_config_from_spec,
+    from_dict,
+    from_spec,
 )
 
 
@@ -180,14 +180,14 @@ def test_config_is_serializable() -> None:
     assert payload["predictor"]["hyperparameters"]["alpha"] == 1.0
 
 
-def test_model_config_from_spec_classmethod() -> None:
+def test_from_spec_classmethod() -> None:
     from drevalpy.components.register_builtins import register_builtin_components
 
     register_builtin_components()
-    config = model_config_from_spec("NaivePredictor")
+    config = from_spec("NaivePredictor")
     assert config.predictor.name == "naiveMean"
 
 
-def test_model_config_from_dict_classmethod() -> None:
-    config = model_config_from_dict({"predictor": "naiveMean"})
+def test_from_dict_classmethod() -> None:
+    config = from_dict({"predictor": "naiveMean"})
     assert config.predictor.name == "naiveMean"

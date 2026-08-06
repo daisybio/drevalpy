@@ -5,8 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from drevalpy.models.config import ModelConfig, validate_model_config
-from drevalpy.models.config.io import model_config_from_yaml
+from drevalpy.models.config import ModelConfig, validate
+from drevalpy.models.config.io import from_yaml
 from drevalpy.models.zoo._external_load import (
     _collect_zoo_entries_from_yaml,
     _load_zoo_yaml_mapping,
@@ -21,7 +21,7 @@ _VALIDATED_BUILTIN_NAMES: set[str] = set()
 def _load_builtin_entries() -> dict[str, ModelConfig]:
     entries: dict[str, ModelConfig] = {}
     for path in sorted(_BUILTIN_ZOO_DIR.glob("*.yaml")):
-        config = model_config_from_yaml(path)
+        config = from_yaml(path)
         entries[path.stem] = config
     return entries
 
@@ -72,7 +72,7 @@ def get_zoo_config(name: str) -> ModelConfig:
         msg = f"Unknown zoo entry: {name}"
         raise KeyError(msg)
     if name not in _VALIDATED_BUILTIN_NAMES:
-        validate_model_config(_BUILTIN_ZOO[name])
+        validate(_BUILTIN_ZOO[name])
         _VALIDATED_BUILTIN_NAMES.add(name)
     return _clone_model_config(_BUILTIN_ZOO[name])
 
@@ -94,7 +94,7 @@ def register_external_zoo_entry(name: str, config: ModelConfig, *, replace: bool
     if name in _EXTERNAL_ZOO and not replace:
         msg = f"External zoo entry {name!r} is already registered"
         raise ValueError(msg)
-    validate_model_config(config)
+    validate(config)
     _EXTERNAL_ZOO[name] = _clone_model_config(config)
 
 

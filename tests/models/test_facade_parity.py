@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 
 from drevalpy.models import construct_model
-from drevalpy.models.config import model_config_from_spec
+from drevalpy.models.config import from_spec
 from tests.models.synthetic_fixtures import (
     cell_line_gene_expression,
     drug_fingerprints,
@@ -55,9 +55,9 @@ def test_construct_model_matches_from_resolved_config(model_name: str, entrypoin
     model_cls = _model_class(model_name, entrypoint)
 
     config = (
-        model_config_from_spec("pca[expression]:identity:randomForest", hyperparameters=hp)
+        from_spec("pca[expression]:identity:randomForest", hyperparameters=hp)
         if entrypoint == "construct_model"
-        else model_config_from_spec(model_name, hyperparameters=hp)
+        else from_spec(model_name, hyperparameters=hp)
     )
     flat_hp = model_cls.get_default_hyperparameters() if not hp else hp
     facade = model_cls(flat_hp)

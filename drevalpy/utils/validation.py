@@ -24,7 +24,7 @@ def validate_models(args) -> None:
             f"Invalid model name. Available models are {available_models}. If you want to "
             f"use your own model, register a zoo YAML under the external zoo path (or "
             f"package zoo) and resolve it by name; custom recipe strings are available "
-            f"programmatically via construct_model(name, spec) / model_config_from_spec."
+            f"programmatically via construct_model(name, spec) / from_spec."
         )
     if args.baselines is None:
         return
@@ -32,7 +32,7 @@ def validate_models(args) -> None:
         raise AssertionError(
             f"Invalid baseline name. Available baselines are {available_models}. If you "
             f"want to use your own baseline, register components and a zoo preset, then "
-            f"resolve it with construct_model / model_config_from_spec."
+            f"resolve it with construct_model / from_spec."
         )
 
 

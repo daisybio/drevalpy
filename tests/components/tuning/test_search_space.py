@@ -11,7 +11,7 @@ from drevalpy.components.tuning.search_space import (
     merge_search_spaces,
     split_hyperparameters,
 )
-from drevalpy.models.config import model_config_from_spec
+from drevalpy.models.config import from_spec
 
 
 def test_merge_all_three_spaces() -> None:
@@ -47,7 +47,7 @@ def test_split_predictor_only_fallback() -> None:
 
 def test_merge_concat_child_spaces_use_qualified_selectors() -> None:
     register_builtins.register_builtin_components()
-    config = model_config_from_spec("pca[expression]+landmarkGenes:fingerprints:randomForest")
+    config = from_spec("pca[expression]+landmarkGenes:fingerprints:randomForest")
     merged = merge_model_config_spaces(config)
     pca_keys = [key for key in merged if key.startswith("cell_line_featurizer.pca[expression].")]
     assert pca_keys
@@ -57,7 +57,7 @@ def test_merge_concat_child_spaces_use_qualified_selectors() -> None:
 
 def test_merge_same_name_different_views_get_distinct_keys() -> None:
     register_builtins.register_builtin_components()
-    config = model_config_from_spec("pca[expression]+pca[proteomics]:fingerprints:randomForest")
+    config = from_spec("pca[expression]+pca[proteomics]:fingerprints:randomForest")
     merged = merge_model_config_spaces(config)
     assert any(key.startswith("cell_line_featurizer.pca[expression].") for key in merged)
     assert any(key.startswith("cell_line_featurizer.pca[proteomics].") for key in merged)
@@ -65,7 +65,7 @@ def test_merge_same_name_different_views_get_distinct_keys() -> None:
 
 def test_apply_rejects_indexed_featurizer_keys() -> None:
     register_builtins.register_builtin_components()
-    config = model_config_from_spec("pca[expression]:identity:randomForest")
+    config = from_spec("pca[expression]:identity:randomForest")
     with pytest.raises(
         ValueError,
         match="Indexed featurizer hyperparameter keys are no longer supported",
@@ -78,7 +78,7 @@ def test_apply_rejects_indexed_featurizer_keys() -> None:
 
 def test_apply_merged_to_model_config_strips_featurizer_prefix() -> None:
     register_builtins.register_builtin_components()
-    config = model_config_from_spec("pca[expression]:identity:randomForest")
+    config = from_spec("pca[expression]:identity:randomForest")
     merged = defaults_from_merged_space(merge_model_config_spaces(config))
     updated = apply_merged_to_model_config(config, merged)
     assert updated.cell_line_featurizer is not None

@@ -88,8 +88,7 @@ at it with ``raw[view]``:
 
 .. code-block:: python
 
-   from drevalpy.models import construct_model
-   from drevalpy.models.config import model_config_from_spec
+   from drevalpy.models import config, construct_model
 
    MyRF = construct_model(
        "MyRF",
@@ -98,10 +97,10 @@ at it with ``raw[view]``:
    model = MyRF()
 
    # Same composition via ModelConfig + construct_model
-   config = model_config_from_spec(
+   cfg = config.from_spec(
        "raw[mynewdatamodality]:fingerprints:randomForest"
    )
-   MyRF2 = construct_model("MyRF", config)
+   MyRF2 = construct_model("MyRF", cfg)
 
 .. important::
    Without a custom loader, the CSV must live at

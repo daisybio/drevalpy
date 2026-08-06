@@ -7,7 +7,7 @@ import pytest
 
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models import DRPModel, construct_model
-from drevalpy.models.config import model_config_from_spec
+from drevalpy.models.config import from_spec
 
 
 def test_construct_model_returns_drp_model_subclass() -> None:
@@ -29,7 +29,7 @@ def test_construct_model_derives_early_stopping_from_predictor() -> None:
 
 
 def test_construct_model_accepts_model_config() -> None:
-    config = model_config_from_spec("ElasticNet")
+    config = from_spec("ElasticNet")
     model_cls = construct_model("ConfiguredElasticNet", config)
     assert model_cls.get_model_name() == "ConfiguredElasticNet"
     assert construct_model("ConfiguredElasticNet", config) is model_cls

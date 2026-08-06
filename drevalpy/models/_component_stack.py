@@ -15,7 +15,7 @@ from drevalpy.components.model_input_build import build_model_input_batch
 from drevalpy.components.predictors.base import Predictor
 from drevalpy.components.training_context import TrainingContext
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
-from drevalpy.models.config import ModelConfig, PredictionMode, PredictorConfig, validate_model_config
+from drevalpy.models.config import ModelConfig, PredictionMode, PredictorConfig, validate
 
 
 def _build_fit_context(
@@ -56,7 +56,7 @@ def build_component_stack(config: ModelConfig) -> _ComponentStack:
     :param config: Validated model configuration.
     :returns: Component stack ready for training.
     """
-    validate_model_config(config)
+    validate(config)
     cell_line = config.cell_line_featurizer.create_instance() if config.cell_line_featurizer else None
     drug = config.drug_featurizer.create_instance() if config.drug_featurizer else None
     predictor_hp = {

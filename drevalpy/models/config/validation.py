@@ -283,7 +283,7 @@ def _validate_leaf_interface(pred_cls: type[Any], predictor_name: str) -> None:
         raise ValueError(msg)
 
 
-def validate_model_config(config: ModelConfig) -> None:
+def validate(config: ModelConfig) -> None:
     """Check registry slots, feature compatibility, and prediction mode.
 
     In-place single-drug identity normalization is applied before registry checks.

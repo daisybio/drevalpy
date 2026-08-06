@@ -12,7 +12,7 @@ Example::
     MyModel = construct_model("myZooEntry")
     model = MyModel()
 
-Orchestration helpers such as ``build_model_config_from_spec`` and zoo loading live
+Orchestration helpers such as ``config.from_spec`` and zoo loading live
 under ``drevalpy.models``.
 """
 

@@ -8,8 +8,8 @@ import pytest
 
 from drevalpy.components.extensions import load_extensions
 from drevalpy.components.register_builtins import register_builtin_components
-from drevalpy.models.config import model_config_from_spec, validate_model_config
-from drevalpy.models.config.spec import build_model_config_from_spec
+from drevalpy.models.config import from_spec, validate
+from drevalpy.models.config.spec import _build_from_spec
 
 
 @pytest.fixture(autouse=True)
@@ -18,7 +18,7 @@ def _register_components() -> None:
 
 
 def test_build_model_config_from_zoo_name() -> None:
-    config = build_model_config_from_spec("ElasticNet")
+    config = _build_from_spec("ElasticNet")
     assert config.cell_line_featurizer is not None
     assert config.cell_line_featurizer.name == "scaledGeneExpression"
     assert config.drug_featurizer is not None
@@ -26,24 +26,24 @@ def test_build_model_config_from_zoo_name() -> None:
 
 
 def test_build_model_config_from_zoo_name_with_hyperparameters() -> None:
-    config = build_model_config_from_spec("ElasticNet", hyperparameters={"alpha": 0.2})
+    config = _build_from_spec("ElasticNet", hyperparameters={"alpha": 0.2})
     assert config.predictor.hyperparameters["alpha"] == 0.2
 
 
 def test_build_model_config_from_baseline_predictor_token() -> None:
-    config = build_model_config_from_spec("naiveMean")
+    config = _build_from_spec("naiveMean")
     assert config.predictor.name == "naiveMean"
     assert config.cell_line_featurizer is None
     assert config.drug_featurizer is None
 
 
 def test_build_model_config_from_recipe_triple() -> None:
-    config = build_model_config_from_spec("scaledGeneExpression:fingerprints:elasticNet")
+    config = _build_from_spec("scaledGeneExpression:fingerprints:elasticNet")
     assert config.model_id == "scaledGeneExpression:fingerprints:elasticNet"
 
 
 def test_single_drug_recipe_infers_scope_and_identity_routing() -> None:
-    config = build_model_config_from_spec("scaledGeneExpression:identity:singleDrugElasticNet")
+    config = _build_from_spec("scaledGeneExpression:identity:singleDrugElasticNet")
     assert config.model_id == "scaledGeneExpression:singleDrugElasticNet"
     assert config.scope.value == "single_drug"
     assert config.drug_featurizer is not None
@@ -51,8 +51,8 @@ def test_single_drug_recipe_infers_scope_and_identity_routing() -> None:
 
 
 def test_two_part_single_drug_recipe_matches_explicit_identity() -> None:
-    two_part = build_model_config_from_spec("scaledGeneExpression:singleDrugElasticNet")
-    three_part = build_model_config_from_spec("scaledGeneExpression:identity:singleDrugElasticNet")
+    two_part = _build_from_spec("scaledGeneExpression:singleDrugElasticNet")
+    three_part = _build_from_spec("scaledGeneExpression:identity:singleDrugElasticNet")
     assert two_part.model_id == three_part.model_id == "scaledGeneExpression:singleDrugElasticNet"
     assert two_part.drug_featurizer is not None
     assert two_part.drug_featurizer.name == "identity"
@@ -60,11 +60,11 @@ def test_two_part_single_drug_recipe_matches_explicit_identity() -> None:
 
 def test_two_part_multi_drug_recipe_rejected() -> None:
     with pytest.raises(ValueError, match="two-part recipes require a single-drug predictor"):
-        build_model_config_from_spec("scaledGeneExpression:elasticNet")
+        _build_from_spec("scaledGeneExpression:elasticNet")
 
 
 def test_build_model_config_from_recipe_triple_with_plus_concat() -> None:
-    config = build_model_config_from_spec("raw[expression]+raw[mutations]:fingerprints+identity:randomForest")
+    config = _build_from_spec("raw[expression]+raw[mutations]:fingerprints+identity:randomForest")
     assert config.cell_line_featurizer is not None
     assert config.cell_line_featurizer.name == "concatFeaturizers"
     assert config.drug_featurizer is not None
@@ -80,7 +80,7 @@ def test_build_model_config_from_recipe_triple_with_plus_concat() -> None:
 
 
 def test_build_model_config_from_recipe_triple_with_bracket_views() -> None:
-    config = build_model_config_from_spec("raw[expression]+pca[proteomics]:identity:randomForest")
+    config = _build_from_spec("raw[expression]+pca[proteomics]:identity:randomForest")
     assert config.cell_line_featurizer is not None
     assert config.cell_line_featurizer.name == "concatFeaturizers"
     assert config.drug_featurizer is not None
@@ -94,7 +94,7 @@ def test_build_model_config_from_recipe_triple_with_bracket_views() -> None:
 
 
 def test_build_model_config_from_literature_zoo_name() -> None:
-    config = build_model_config_from_spec("DIPK")
+    config = _build_from_spec("DIPK")
     assert config.predictor.name == "dipk"
     assert config.cell_line_featurizer is not None
     assert config.cell_line_featurizer.name == "concatFeaturizers"
@@ -102,9 +102,9 @@ def test_build_model_config_from_literature_zoo_name() -> None:
     assert config.drug_featurizer.name == "molgnet"
 
 
-def test_model_config_from_spec_classmethod_matches_helper() -> None:
-    helper_config = build_model_config_from_spec("RandomForest")
-    class_config = model_config_from_spec("RandomForest")
+def test_from_spec_classmethod_matches_helper() -> None:
+    helper_config = _build_from_spec("RandomForest")
+    class_config = from_spec("RandomForest")
     assert helper_config.predictor.name == class_config.predictor.name
     assert helper_config.cell_line_featurizer is not None
     assert class_config.cell_line_featurizer is not None
@@ -113,7 +113,7 @@ def test_model_config_from_spec_classmethod_matches_helper() -> None:
 
 def test_unknown_spec_raises_helpful_error() -> None:
     with pytest.raises(ValueError, match="Unknown model spec"):
-        build_model_config_from_spec("definitelyNotARealModelName")
+        _build_from_spec("definitelyNotARealModelName")
 
 
 def test_external_extension_resolved_through_spec(tmp_path: Path) -> None:
@@ -170,7 +170,7 @@ resolverEntry:
         encoding="utf-8",
     )
     load_extensions(directories=[ext_dir], zoo_files=[zoo_file])
-    config = model_config_from_spec("resolverEntry")
+    config = from_spec("resolverEntry")
     assert config.cell_line_featurizer is None
     assert config.predictor.name == "resolverPredictor"
-    validate_model_config(config)
+    validate(config)

@@ -7,8 +7,8 @@ from typing import Any
 
 import yaml
 
-from drevalpy.models.config import ModelConfig, validate_model_config
-from drevalpy.models.config.io import model_config_from_dict
+from drevalpy.models.config import ModelConfig, validate
+from drevalpy.models.config.io import from_dict
 
 
 def _load_zoo_yaml_mapping(path: Path) -> dict[str, Any]:
@@ -38,8 +38,8 @@ def _parse_zoo_entry(
 ) -> tuple[str, ModelConfig]:
     _assert_not_builtin_zoo_name(entry_name, builtin_names)
     try:
-        config = model_config_from_dict(payload, source=source)
-        validate_model_config(config)
+        config = from_dict(payload, source=source)
+        validate(config)
     except ValueError as exc:
         msg = f"Invalid zoo entry {entry_name!r} in {source}: {exc}"
         raise ValueError(msg) from exc
