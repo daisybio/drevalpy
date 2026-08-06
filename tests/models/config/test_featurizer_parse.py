@@ -267,5 +267,5 @@ def test_children_must_be_a_list() -> None:
 
 
 def test_mapping_without_name_or_one_key_shape_is_rejected() -> None:
-    with pytest.raises(ValueError, match="string, one-key mapping, or dict with 'name'"):
+    with pytest.raises(ValueError, match="list, one-key mapping, or dict with 'name'"):
         normalize_featurizer_config({"view": "methylation", "options": {}}, default_registry="cell_line")

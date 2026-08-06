@@ -309,5 +309,5 @@ def normalize_featurizer_config(data: Any, *, default_registry: str = "cell_line
     if not _RESERVED_FEATURIZER_KEYS.intersection(data.keys()) and len(data) == 1:
         return _normalize_one_key_featurizer_dict(data, default_registry=default_registry)
 
-    msg = "Featurizer config must be a string, one-key mapping, or dict with 'name'"
+    msg = "Featurizer config must be a list, one-key mapping, or dict with 'name'"
     raise ValueError(msg)
