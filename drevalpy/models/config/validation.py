@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from drevalpy.components.contracts import contracts_compatible, featurizer_contract, predictor_contracts
 from drevalpy.components.feature_block import BlockSpec
@@ -13,8 +13,10 @@ from drevalpy.components.registry import (
     get_predictor,
 )
 from drevalpy.models.config._block_specs import resolve_output_block_specs
-from drevalpy.models.config.model import ModelConfig
 from drevalpy.types.model_scope import ModelScope
+
+if TYPE_CHECKING:
+    from drevalpy.models.config.model import ModelConfig
 
 
 def _validate_scope_support(config: ModelConfig, pred_cls: type[Any]) -> None:

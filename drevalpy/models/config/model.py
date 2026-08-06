@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, ValidationInfo, model_validator
+from pydantic import BaseModel, ConfigDict, model_validator
 
 from drevalpy.models.config.featurizer import CellLineFeaturizerConfig, DrugFeaturizerConfig
 from drevalpy.models.config.immutable import rebuild_model
 from drevalpy.models.config.predictor import PredictorConfig
+from drevalpy.models.config.validation import validate
 from drevalpy.types.model_scope import ModelScope
 from drevalpy.types.prediction_mode import PredictionMode
 
@@ -58,17 +59,11 @@ class ModelConfig(BaseModel):
         return payload
 
     @model_validator(mode="after")
-    def _validate_semantics(self, info: ValidationInfo) -> ModelConfig:
+    def _validate_semantics(self) -> ModelConfig:
         """Run registry / contract / block-schema checks once at construction.
 
-        :param info: Pydantic validation context.
         :returns: This validated config.
         """
-        # Skip when rebuilding from an already-validated dump with context flag.
-        if info.context and info.context.get("skip_semantic_validation"):
-            return self
-        from drevalpy.models.config.validation import validate
-
         validate(self)
         return self
 
