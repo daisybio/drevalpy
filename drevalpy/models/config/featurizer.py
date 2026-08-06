@@ -20,9 +20,11 @@ class FeaturizerConfig(BaseModel):
 
     Describes *which* featurizer to build and how to address it, not the built object:
     a ``name`` looked up in one of the two registries (``cell_line`` or ``drug``), an
-    optional ``view`` / ``views`` selecting input matrices, ``options`` fixing concrete
+    optional ``view`` selecting the input matrix, ``options`` fixing concrete
     constructor values, and ``hyperparameter_space`` declaring what tuning may vary.
     ``featurizers`` makes the node a tree, holding children for ``concatFeaturizers``.
+    Combine several views by nesting one single-``view`` child per view under a concat
+    node, which is what the ``raw[expression]+raw[mutations]`` shorthand expands to.
 
     Accepts the same shorthands users write in YAML (a bare name, a ``name[view]`` label,
     a list, or a one-key mapping) and normalizes them into these fields. Validation is
@@ -42,7 +44,6 @@ class FeaturizerConfig(BaseModel):
     name: str
     registry: Literal["cell_line", "drug"] = "cell_line"
     view: str | None = None
-    views: tuple[str, ...] | None = None
     featurizers: tuple[FeaturizerConfig, ...] | None = None
     options: FrozenMapping | None = None
     hyperparameter_space: FrozenMapping | None = None
@@ -98,25 +99,18 @@ class FeaturizerConfig(BaseModel):
         return self
 
     @model_validator(mode="after")
-    def _require_non_empty_view_fields(self) -> FeaturizerConfig:
-        """Reject blank ``view`` and empty or blank ``views`` entries.
+    def _require_non_empty_view(self) -> FeaturizerConfig:
+        """Reject a blank ``view``.
 
         A whitespace-only view would otherwise reach the registry and fail much later
         with a far less obvious error.
 
         :returns: This config, unchanged.
-        :raises ValueError: If ``view`` is blank, or ``views`` is empty or holds a blank entry.
+        :raises ValueError: If ``view`` is set but blank.
         """
         if self.view is not None and not str(self.view).strip():
             msg = "view must be a non-empty string when set"
             raise ValueError(msg)
-        if self.views is not None:
-            if not self.views:
-                msg = "views must be a non-empty list when set"
-                raise ValueError(msg)
-            if any(not str(view).strip() for view in self.views):
-                msg = "views must contain non-empty strings"
-                raise ValueError(msg)
         return self
 
     @model_validator(mode="after")
@@ -173,7 +167,7 @@ class FeaturizerConfig(BaseModel):
         Turns this declarative template into a live object: resolves ``name`` in the
         registry named by ``registry``, then merges constructor arguments so that
         *hyperparameters* (typically a tuning trial's picks) override the config's own
-        ``options``. ``view`` / ``views`` / ``featurizers`` are filled in only when the
+        ``options``. ``view`` and ``featurizers`` are filled in only when the
         caller has not already supplied them.
 
         :param hyperparameters: Concrete constructor values for this node. Nested
@@ -189,8 +183,6 @@ class FeaturizerConfig(BaseModel):
         hp.update(thaw_value(dict(hyperparameters or {})))
         if self.view is not None:
             hp.setdefault("view", self.view)
-        if self.views is not None:
-            hp.setdefault("views", list(self.views))
         if self.featurizers is not None and "featurizers" not in hp:
             hp["featurizers"] = [child.model_dump(mode="python") for child in self.featurizers]
         return cls(**hp)

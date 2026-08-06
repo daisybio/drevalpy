@@ -13,14 +13,10 @@ def test_empty_view_string_fails() -> None:
         CellLineFeaturizerConfig(name="denseCellLine", view="   ")
 
 
-def test_empty_views_list_fails() -> None:
-    with pytest.raises(ValidationError, match="views must be a non-empty list when set"):
-        FeaturizerConfig(name="landmarkGenes", views=[])
-
-
-def test_blank_views_entry_fails() -> None:
-    with pytest.raises(ValidationError, match="views must contain non-empty strings"):
-        FeaturizerConfig(name="landmarkGenes", views=["gene_expression", "  "])
+def test_views_plural_is_rejected_as_unknown_field() -> None:
+    """The vestigial ``views`` field is gone; ``extra="forbid"`` must reject it."""
+    with pytest.raises(ValidationError):
+        FeaturizerConfig(name="landmarkGenes", views=["gene_expression"])  # type: ignore[call-arg]
 
 
 def test_non_empty_view_is_accepted() -> None:
@@ -41,14 +37,14 @@ def test_one_key_shorthand_is_accepted_by_base_and_pinned(cls: type[FeaturizerCo
 
 def test_list_sequence_fields_are_stored_as_tuples() -> None:
     """Pydantic coerces incoming lists to tuples, so no hand-written validator is needed."""
-    config = FeaturizerConfig(name="landmarkGenes", views=["gene_expression", "mutations"])
-    assert config.views == ("gene_expression", "mutations")
+    from drevalpy.components.register_builtins import register_builtin_components
 
-
-def test_bare_string_is_not_exploded_into_character_views() -> None:
-    """A string must not be accepted as a sequence of single-character views."""
-    with pytest.raises(ValidationError):
-        FeaturizerConfig(name="landmarkGenes", views="gene_expression")  # type: ignore[arg-type]
+    register_builtin_components()
+    config = CellLineFeaturizerConfig.model_validate(
+        {"name": "concatFeaturizers", "featurizers": ["raw[gene_expression]", "raw[mutations]"]},
+    )
+    assert isinstance(config.featurizers, tuple)
+    assert [child.view for child in config.featurizers] == ["gene_expression", "mutations"]
 
 
 def test_json_dump_renders_sequences_as_lists() -> None:

@@ -15,7 +15,6 @@ _RESERVED_FEATURIZER_KEYS = frozenset(
         "featurizers",
         "registry",
         "view",
-        "views",
         "hyperparameter_space",
         "options",
     }
@@ -165,7 +164,6 @@ def _assemble_featurizer_dict(
     view: str | None = None,
     featurizers: list[Any] | None = None,
     hyperparameter_space: dict[str, Any] | None = None,
-    views: list[str] | None = None,
     options: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {
@@ -174,8 +172,6 @@ def _assemble_featurizer_dict(
     }
     if view is not None:
         payload["view"] = view
-    if views is not None:
-        payload["views"] = views
     if featurizers is not None:
         payload["featurizers"] = featurizers
     if hyperparameter_space is not None:
@@ -305,19 +301,18 @@ def _split_one_key_payload(
     *,
     name: str,
     default_registry: str,
-) -> tuple[list[Any] | None, dict[str, Any] | None, list[str] | None, dict[str, Any] | None]:
+) -> tuple[list[Any] | None, dict[str, Any] | None, dict[str, Any] | None]:
     """Split a one-key shorthand body into template fields.
 
     :param payload: Mapping from a one-key featurizer shorthand.
     :param name: Featurizer registry name.
     :param default_registry: ``cell_line`` or ``drug``.
-    :returns: ``(featurizers, hyperparameter_space, views, options)``.
+    :returns: ``(featurizers, hyperparameter_space, options)``.
     """
     body = dict(payload)
     featurizers = body.pop("featurizers", None)
     hyperparameter_space = body.pop("hyperparameter_space", None)
     options = body.pop("options", None)
-    views = body.pop("views", None)
     body.pop("view", None)
     if body:
         derived_space, derived_options = _space_defaults_from_simple_values(
@@ -335,7 +330,7 @@ def _split_one_key_payload(
             options = derived_options
         elif derived_options:
             options = {**derived_options, **options}
-    return featurizers, hyperparameter_space, views, options
+    return featurizers, hyperparameter_space, options
 
 
 def _normalize_one_key_featurizer_dict(data: dict[str, Any], *, default_registry: str) -> dict[str, Any]:
@@ -349,7 +344,7 @@ def _normalize_one_key_featurizer_dict(data: dict[str, Any], *, default_registry
         raise ValueError(msg)
     name, view = _parse_bracket_atom_name(str(name_token), default_registry=default_registry)
     _require_view_for_parametric(name, view)
-    featurizers, hyperparameter_space, views, options = _split_one_key_payload(
+    featurizers, hyperparameter_space, options = _split_one_key_payload(
         payload,
         name=name,
         default_registry=default_registry,
@@ -362,7 +357,6 @@ def _normalize_one_key_featurizer_dict(data: dict[str, Any], *, default_registry
         view=view,
         featurizers=featurizers,
         hyperparameter_space=hyperparameter_space,
-        views=views,
         options=options,
     )
 
