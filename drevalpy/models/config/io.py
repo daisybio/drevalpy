@@ -10,7 +10,11 @@ import yaml
 from drevalpy.models.config._from_dict import from_dict
 from drevalpy.models.config.model import ModelConfig
 from drevalpy.models.config.resolved import ResolvedModelConfig
-from drevalpy.models.config.spec import _build_from_spec
+from drevalpy.models.config.spec import (
+    apply_optional_hyperparameters,
+    recipe_payload,
+    zoo_config,
+)
 from drevalpy.types.prediction_mode import PredictionMode
 
 __all__ = ["from_dict", "from_spec", "from_yaml"]
@@ -20,23 +24,35 @@ def from_spec(
     spec: str,
     *,
     hyperparameters: dict[str, Any] | None = None,
-    prediction_mode: str | None = None,
+    prediction_mode: PredictionMode | str | None = None,
 ) -> ModelConfig | ResolvedModelConfig:
-    """Build a ``ModelConfig`` from a zoo name or a recipe string.
+    """Build a ``ModelConfig`` from a zoo preset name or a recipe string.
 
-    :param spec: Zoo preset name, or a colon-separated recipe.
+    A spec is either the name of a registered zoo preset or a recipe naming the parts
+    directly. Zoo names win, so a preset can shadow a bare predictor name. Recipes take the
+    same two steps as any other config source: ``recipe_payload`` reads the syntax into a
+    field mapping, then ``from_dict`` resolves the names against the registry and checks
+    that the combination is legal.
+
+    :param spec: Zoo preset name, or a recipe of one to three colon-separated parts.
     :param hyperparameters: Optional flat public hyperparameter overrides.
-    :param prediction_mode: Optional prediction mode string; defaults to regression.
+    :param prediction_mode: Prediction mode for the predictor; defaults to regression.
     :returns: Validated ``ModelConfig`` template, or ``ResolvedModelConfig`` when
         *hyperparameters* are provided.
+    :raises ValueError: If *spec* is unknown or validation fails.
     """
-    if prediction_mode is None:
-        return _build_from_spec(spec, hyperparameters=hyperparameters)
-    return _build_from_spec(
-        spec,
-        hyperparameters=hyperparameters,
-        prediction_mode=PredictionMode(prediction_mode),
-    )
+    trimmed = spec.strip()
+    if not trimmed:
+        msg = "model spec must be a non-empty string"
+        raise ValueError(msg)
+    mode = PredictionMode.REGRESSION if prediction_mode is None else PredictionMode(prediction_mode)
+
+    preset = zoo_config(trimmed, hyperparameters, mode)
+    if preset is not None:
+        return preset
+
+    config = from_dict(recipe_payload(trimmed, prediction_mode=mode), source=f"recipe {trimmed!r}")
+    return apply_optional_hyperparameters(config, hyperparameters)
 
 
 def from_yaml(path: Path | str) -> ModelConfig:

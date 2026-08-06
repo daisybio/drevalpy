@@ -75,5 +75,6 @@ def test_orchestration_lives_in_models_layer() -> None:
     assert models_factory.model_config_for_name.__module__ == "drevalpy.models.factory"
     assert component_stack.build_component_stack.__module__ == "drevalpy.models._component_stack"
     assert models_config_io.from_yaml.__module__ == "drevalpy.models.config.io"
-    assert models_spec._build_from_spec.__module__ == "drevalpy.models.config.spec"
+    assert models_config_io.from_spec.__module__ == "drevalpy.models.config.io"
+    assert models_spec.recipe_payload.__module__ == "drevalpy.models.config.spec"
     assert models_zoo.get_zoo_config.__module__ == "drevalpy.models.zoo"

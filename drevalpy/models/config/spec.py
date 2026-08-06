@@ -1,8 +1,9 @@
-"""Build `~drevalpy.models.config.ModelConfig` from a zoo name or a recipe string.
+"""Read a recipe string into the plain field mapping a ``ModelConfig`` is built from.
 
-A recipe is turned into a config in two steps: this module reads the syntax into a plain
-field mapping, and ``drevalpy.models.config._from_dict.from_dict`` then resolves the names
-against the registry. Only the scope is looked up here, since a recipe never spells it out.
+Recipes get no special construction path: ``recipe_payload`` reads the syntax, and
+``drevalpy.models.config._from_dict.from_dict`` then resolves the names against the registry
+like it does for YAML. Only the scope is looked up here, since a recipe never spells it out.
+``drevalpy.models.config.io.from_spec`` composes these pieces.
 """
 
 from __future__ import annotations
@@ -10,7 +11,6 @@ from __future__ import annotations
 from typing import Any
 
 from drevalpy.components.registry import get_predictor
-from drevalpy.models.config._from_dict import from_dict
 from drevalpy.models.config._recipe import parse_model_recipe
 from drevalpy.models.config.model import ModelConfig
 from drevalpy.models.config.resolved import ResolvedModelConfig
@@ -25,7 +25,7 @@ def _default_scope_for_predictor(pred_cls: type[Any]) -> ModelScope:
     return ModelScope.MULTI_DRUG
 
 
-def _apply_optional_hyperparameters(
+def apply_optional_hyperparameters(
     config: ModelConfig,
     hyperparameters: dict[str, Any] | None,
 ) -> ModelConfig | ResolvedModelConfig:
@@ -73,7 +73,7 @@ def _recipe_slots(recipe: str) -> tuple[str | None, str | None, str, ModelScope]
     return cell_line, drug, predictor, scope
 
 
-def _recipe_payload(
+def recipe_payload(
     recipe: str,
     *,
     prediction_mode: PredictionMode | str = PredictionMode.REGRESSION,
@@ -106,7 +106,7 @@ def _recipe_payload(
     }
 
 
-def _zoo_config(
+def zoo_config(
     name: str,
     hyperparameters: dict[str, Any] | None,
     prediction_mode: PredictionMode | str,
@@ -132,37 +132,3 @@ def _zoo_config(
         )
     except KeyError:
         return None
-
-
-def _build_from_spec(
-    spec: str,
-    *,
-    hyperparameters: dict[str, Any] | None = None,
-    prediction_mode: PredictionMode | str = PredictionMode.REGRESSION,
-) -> ModelConfig | ResolvedModelConfig:
-    """Parse a model specification string.
-
-    A spec is either the name of a registered zoo preset or a recipe naming the parts
-    directly. Zoo names win, so a preset can shadow a bare predictor name. Recipes are
-    handled in two steps: ``_recipe_payload`` reads the syntax, then ``from_dict`` resolves
-    the names against the registry and checks that the combination is legal.
-
-    :param spec: Zoo preset name, or a recipe of one to three colon-separated parts.
-    :param hyperparameters: Optional flat public hyperparameter overrides.
-    :param prediction_mode: Regression or classification mode for the predictor.
-    :returns: Validated ``ModelConfig`` instance, or ``ResolvedModelConfig`` when
-        *hyperparameters* are provided.
-    :raises ValueError: If ``spec`` is unknown or validation fails.
-    """
-    trimmed = spec.strip()
-    if not trimmed:
-        msg = "model spec must be a non-empty string"
-        raise ValueError(msg)
-
-    zoo_config = _zoo_config(trimmed, hyperparameters, prediction_mode)
-    if zoo_config is not None:
-        return zoo_config
-
-    payload = _recipe_payload(trimmed, prediction_mode=prediction_mode)
-    config = from_dict(payload, source=f"recipe {trimmed!r}")
-    return _apply_optional_hyperparameters(config, hyperparameters)
