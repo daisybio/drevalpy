@@ -9,6 +9,9 @@ from pydantic import BaseModel, ConfigDict, model_validator
 
 from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
 from drevalpy.components.featurizer_label import requires_explicit_view
+from drevalpy.components.featurizer_tree import ensure_unique_qualified_featurizers
+from drevalpy.components.hyperparameter_space import validate_hyperparameter_space
+from drevalpy.components.registry import get_cell_line_featurizer, get_drug_featurizer
 from drevalpy.models.config.immutable import FrozenMapping, thaw_value
 
 
@@ -88,8 +91,6 @@ class FeaturizerConfig(BaseModel):
         :returns: This config, unchanged.
         """
         if self.hyperparameter_space is not None:
-            from drevalpy.components.hyperparameter_space import validate_hyperparameter_space
-
             validate_hyperparameter_space(
                 self.hyperparameter_space,
                 context=f"FeaturizerConfig({self.name!r}).hyperparameter_space",
@@ -163,10 +164,6 @@ class FeaturizerConfig(BaseModel):
         """
         if self.name != "concatFeaturizers":
             return self
-        from drevalpy.components.featurizer_tree import (
-            ensure_unique_qualified_featurizers,
-        )
-
         ensure_unique_qualified_featurizers(self, str(self.registry))
         return self
 
@@ -184,8 +181,6 @@ class FeaturizerConfig(BaseModel):
             or config payloads under the ``featurizers`` key.
         :returns: Featurizer instance for this config.
         """
-        from drevalpy.components.registry import get_cell_line_featurizer, get_drug_featurizer
-
         if self.registry == "cell_line":
             cls = get_cell_line_featurizer(self.name)
         else:
