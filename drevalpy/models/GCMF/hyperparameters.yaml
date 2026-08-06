@@ -106,15 +106,17 @@ PGCMF:
     - 0
 
 RGCMF:
+  # all four omics are loaded as views so the randomization tests cover every cell graph;
+  # only node_feature_views becomes the node feature matrix, the rest are edge structure
   cell_line_views:
-    - - gene_expression
-  drug_views:
-    - - fingerprints
-  cell_relation_views:
     - - gene_expression
       - methylation
       - mutations
       - copy_number_variation_gistic
+  node_feature_views:
+    - - gene_expression
+  drug_views:
+    - - fingerprints
   drug_relation_views:
     - - drug_pathways
       - drug_bioassay
@@ -172,15 +174,17 @@ RGCMF:
     - 0
 
 PRGCMF:
+  # all four omics are loaded as views so the randomization tests cover every cell graph;
+  # only node_feature_views becomes the node feature matrix, the rest are edge structure
   cell_line_views:
-    - - gene_expression
-  drug_views:
-    - - fingerprints
-  cell_relation_views:
     - - gene_expression
       - methylation
       - mutations
       - copy_number_variation_gistic
+  node_feature_views:
+    - - gene_expression
+  drug_views:
+    - - fingerprints
   drug_relation_views:
     - - drug_pathways
       - drug_bioassay

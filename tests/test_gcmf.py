@@ -75,7 +75,7 @@ def _tiny_hpams(model_cls) -> dict:
     # resource they read from the meta bundle and fails if any of them goes missing.
     # The base models default to landmark_genes, which the toy meta bundle does not ship, so only
     # they need the gene list relaxed to all available genes.
-    if "cell_relation_views" not in hp:
+    if model_cls.get_model_name() in ("GCMF", "PGCMF"):
         hp["gene_list"] = None
     return hp
 
@@ -120,6 +120,41 @@ def test_gcmf_family_train_predict_save_load(model_name: str, data_dir, sample_d
         cell_line_ids=cl_ids, drug_ids=dr_ids, cell_line_input=cell_input, drug_input=drug_input
     )
     assert np.allclose(preds, preds_reloaded, atol=1e-4)
+
+
+def test_rgcmf_cell_graphs_follow_randomized_features(data_dir, sample_dataset) -> None:
+    """
+    Randomizing a cell-line view rebuilds that relation's graph and leaves the others alone.
+
+    This is what makes the SVCC/SVRC randomization tests meaningful for RGCMF: the graphs are the
+    model's main inductive bias, so if they were derived once at load time they would survive the
+    permutation intact and the model would look far more robust to randomized features than it is.
+
+    :param data_dir: path to the test data directory (session fixture from conftest)
+    :param sample_dataset: session fixture; ensures the toy data and meta bundle are downloaded
+    """
+    import torch
+
+    from drevalpy.models.GCMF.gcmf import RGCMF
+
+    model = RGCMF()
+    model.build_model(_tiny_hpams(RGCMF))
+    cell_input = model.load_cell_line_features(data_path=str(data_dir), dataset_name="TOYv1")
+    cell_ids = np.unique(cell_input.identifiers)
+    # every omics view the model builds a graph from must be randomizable by the framework
+    assert model.cell_relation_views == model.cell_line_views
+    x_cell = np.zeros((len(cell_ids), 1), dtype=np.float32)  # unused by the relational builder
+
+    adj = model._build_cell_adj(x_cell, cell_input, cell_ids, model.hyperparameters)
+    randomized = cell_input.copy()
+    randomized.randomize_features("gene_expression", randomization_type="permutation")
+    adj_randomized = model._build_cell_adj(x_cell, randomized, cell_ids, model.hyperparameters)
+
+    gene_expression = model.cell_relation_views.index("gene_expression")
+    assert not torch.allclose(adj[gene_expression], adj_randomized[gene_expression])
+    for i, view in enumerate(model.cell_relation_views):
+        if i != gene_expression:
+            assert torch.allclose(adj[i], adj_randomized[i]), f"relation {view} changed unexpectedly"
 
 
 def test_rgcmf_drug_relation_resource_resolution(tmp_path) -> None:

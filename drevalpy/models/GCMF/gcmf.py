@@ -61,15 +61,15 @@ from ..utils import (
 
 def _select_device() -> torch.device:
     """
-    Pick CUDA, then Apple MPS, then CPU.
+    Pick CUDA if available, else CPU.
+
+    Deliberately no Apple MPS fallback: every other model in the repo is CUDA-or-CPU, and a
+    GCMF that silently ran on a third backend would not be numerically comparable to the models
+    it is benchmarked against on the same machine.
 
     :returns: the selected torch device
     """
-    if torch.cuda.is_available():
-        return torch.device("cuda")
-    if getattr(torch.backends, "mps", None) is not None and torch.backends.mps.is_available():
-        return torch.device("mps")
-    return torch.device("cpu")
+    return torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def _adj_to_numpy(adj: "torch.Tensor | list[torch.Tensor]") -> "np.ndarray | list[np.ndarray]":
@@ -537,6 +537,10 @@ class GCMF(DRPModel):
 
     cell_line_views = ["gene_expression"]
     drug_views = ["fingerprints"]
+    # subset of ``cell_line_views`` used as graph *node features*; None means "all of them".
+    # RGCMF loads several omics as views (so the randomization tests cover every graph it builds)
+    # but keeps its node features gene-expression only, hence the split.
+    node_feature_views: list[str] | None = None
     early_stopping = True
 
     def __init__(self) -> None:
@@ -576,13 +580,28 @@ class GCMF(DRPModel):
         """
         self.log_hyperparameters(hyperparameters)
         self.hyperparameters = dict(hyperparameters)
-        cl_views = hyperparameters.get("cell_line_views", ["gene_expression"])
-        dr_views = hyperparameters.get("drug_views", ["fingerprints"])
+        # fall back to the class defaults, not to a previous build_model() call: hpam_tune reuses
+        # one model instance across trials, so an instance attribute would leak between them
+        cl_views = hyperparameters.get("cell_line_views", type(self).cell_line_views)
+        dr_views = hyperparameters.get("drug_views", type(self).drug_views)
+        nf_views = hyperparameters.get("node_feature_views", type(self).node_feature_views)
         self.cell_line_views = cl_views if isinstance(cl_views, list) else [cl_views]
         self.drug_views = dr_views if isinstance(dr_views, list) else [dr_views]
+        if nf_views is None:
+            self.node_feature_views = None
+        else:
+            self.node_feature_views = nf_views if isinstance(nf_views, list) else [nf_views]
         if int(hyperparameters.get("seed", 0)) >= 0:
             torch.manual_seed(int(hyperparameters.get("seed", 0)))
             np.random.seed(int(hyperparameters.get("seed", 0)))
+
+    def _node_views(self) -> list[str]:
+        """
+        Return the views that make up the graph node features.
+
+        :returns: ``node_feature_views`` if set, else every loaded cell-line view
+        """
+        return self.node_feature_views or self.cell_line_views
 
     def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         """
@@ -628,7 +647,7 @@ class GCMF(DRPModel):
 
     def _build_cell_matrix(self, cell_line_input: FeatureDataset, cell_ids: np.ndarray, training: bool) -> np.ndarray:
         """
-        Concatenate (and scale) the requested cell-line views into one matrix.
+        Concatenate (and scale) the node-feature views into one matrix.
 
         Gene expression is transformed (``feature_transform`` hp: ``arcsinh`` default, or
         ``rank`` = per-gene rank across cells in [0, 1], which resolves cell-specific signal
@@ -643,7 +662,7 @@ class GCMF(DRPModel):
         train_mask = np.isin(cell_ids, train_ids)
         transform = str(self.hyperparameters.get("feature_transform", "arcsinh"))
         blocks = []
-        for view in self.cell_line_views:
+        for view in self._node_views():
             mat = cell_line_input.get_feature_matrix(view=view, identifiers=cell_ids).astype(np.float64)
             if view == "gene_expression":
                 if transform == "rank":  # per-gene rank across cells -> [0,1] (transductive feature transform)
@@ -940,7 +959,15 @@ class GCMF(DRPModel):
         """
         Predict responses for (cell, drug) pairs.
 
-        Cell lines / drugs unseen at training (no features) fall back to the training mean.
+        The model is transductive over features (like ``SRMF``): the embeddings and graphs are
+        those built in ``train``, and a pair is scored by looking its ids up in the train-time
+        index. Cell lines / drugs that were not in the training dataset's feature set therefore
+        fall back to the training mean, and ``cell_line_input`` / ``drug_input`` are ignored.
+
+        This matters for **cross-study prediction**: the features loaded for the cross-study
+        dataset are not used, so only entities that also appear in the training dataset's feature
+        set get a real prediction. Under LCO the framework removes the training split's cell lines
+        from the cross-study set, so the fraction falling back to the mean is largest there.
 
         :param cell_line_ids: cell-line ids to predict
         :param drug_ids: drug ids to predict
@@ -1013,6 +1040,7 @@ class GCMF(DRPModel):
                 "training_mean": self.training_mean,
                 "cell_line_views": self.cell_line_views,
                 "drug_views": self.drug_views,
+                "node_feature_views": self.node_feature_views,
             },
             os.path.join(directory, "state.pkl"),
         )
@@ -1033,6 +1061,7 @@ class GCMF(DRPModel):
         instance.training_mean = state["training_mean"]
         instance.cell_line_views = state["cell_line_views"]
         instance.drug_views = state["drug_views"]
+        instance.node_feature_views = state.get("node_feature_views")
         instance._x_cell = torch.tensor(state["x_cell"], device=instance.device)
         instance._adj_cell = _adj_from_numpy(state["adj_cell"], instance.device)
         instance._x_drug = torch.tensor(state["x_drug"], device=instance.device)
@@ -1042,7 +1071,8 @@ class GCMF(DRPModel):
         instance._n_drugs = instance._x_drug.shape[0]
         instance._n_cell_relations = len(instance._adj_cell) if isinstance(instance._adj_cell, list) else 1
         instance._n_drug_relations = len(instance._adj_drug) if isinstance(instance._adj_drug, list) else 1
-        state_dicts = torch.load(os.path.join(directory, "nets.pt"))  # noqa: S614
+        # map_location: a model trained on a GPU node must still load on a CPU-only machine
+        state_dicts = torch.load(os.path.join(directory, "nets.pt"), map_location=instance.device)  # noqa: S614
         instance.nets = []
         for sd in state_dicts:
             net = instance._build_net().to(instance.device)
@@ -1113,10 +1143,24 @@ class RGCMF(GCMF):
     Relation sets are configurable via the ``cell_relation_views`` / ``drug_relation_views``
     hyperparameters; dense cell similarities are cached under ``<dataset>/gcmf_cache/``
     (the Kendall CNV kernel is slow to recompute).
+
+    All four omics are declared as ``cell_line_views``, so the randomization tests generate an
+    SVCC/SVRC case per relation, and every cell graph is rebuilt in ``_build_cell_adj`` from the
+    feature dataset handed to ``train`` - a permuted view therefore yields a permuted graph
+    instead of the graph silently surviving the test. The cache is keyed on the *content* of that
+    feature matrix for the same reason. Only ``node_feature_views`` (gene expression by default)
+    becomes the node feature matrix; the other omics contribute edge structure only, and a cell
+    line missing from one of them is zero-filled rather than dropped (an inner join over the four
+    omics would lose roughly half of CTRPv2).
+
+    The drug relations are external prior knowledge keyed on ``pubchem_id`` rather than dataset
+    features, so - like SparseGO's gene ontology - they are not ``drug_views`` and the
+    randomization tests do not cover them.
     """
 
-    cell_line_views = ["gene_expression"]
+    cell_line_views = ["gene_expression", "methylation", "mutations", "copy_number_variation_gistic"]
     drug_views = ["fingerprints"]
+    node_feature_views = ["gene_expression"]
     early_stopping = True
 
     # similarity kernel per cell-line omics view (built from this dataset's own omics)
@@ -1126,9 +1170,9 @@ class RGCMF(GCMF):
         "mutations": "jaccard",
         "copy_number_variation_gistic": "kendall",
     }
-    # gene list used to reduce each omics view before computing its similarity (None = no reduction)
+    # gene list used to reduce each omics view on load (None = no reduction). gene_expression is
+    # absent on purpose: it carries the node features, so its gene list is the ``gene_list`` hp.
     _CELL_GENE_LISTS = {
-        "gene_expression": "landmark_genes",
         "methylation": "methylation_intersection",
         "mutations": "drug_target_genes_all_drugs",
         "copy_number_variation_gistic": "drug_target_genes_all_drugs",
@@ -1136,6 +1180,7 @@ class RGCMF(GCMF):
     # drug-relation resources live under <data_path>/meta/<_DRUG_SIM_DIR>/ (downloaded with the
     # dataset's meta bundle); a configured relation whose resource is absent raises an error.
     _DRUG_SIM_DIR = "gcmf_drug_relations"
+    _DEFAULT_DRUG_RELATIONS = ["drug_pathways", "drug_bioassay"]
     # how each drug relation is built: "matrix" = precomputed pubchem-indexed similarity CSV;
     # "targets" = per-drug (drug_name, feature) long table -> feature-set Jaccard at load time
     _DRUG_RELATION_KIND = {
@@ -1149,16 +1194,15 @@ class RGCMF(GCMF):
     def __init__(self) -> None:
         """Initialize the model; relation sets are resolved in ``build_model``."""
         super().__init__()
-        self.cell_relation_views: list[str] = [
-            "gene_expression",
-            "methylation",
-            "mutations",
-            "copy_number_variation_gistic",
-        ]
-        self.drug_relation_views: list[str] = ["drug_pathways", "drug_bioassay"]
-        # view -> (ids, dense similarity matrix), precomputed once in the loaders
-        self._cell_sims: dict[str, tuple[np.ndarray, np.ndarray]] = {}
+        self.cell_relation_views: list[str] = list(type(self).cell_line_views)
+        self.drug_relation_views: list[str] = list(type(self)._DEFAULT_DRUG_RELATIONS)
+        # drug relations are prior knowledge, not features: view -> (ids, dense similarity),
+        # built once in load_drug_features. Cell relations are *not* cached here - they are
+        # rebuilt per train() from the (possibly randomized) feature dataset.
         self._drug_sims: dict[str, tuple[np.ndarray, np.ndarray]] = {}
+        # remembered by load_cell_line_features so _build_cell_adj can reach the similarity cache
+        self._data_path: str = ""
+        self._dataset_name: str = ""
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -1172,8 +1216,10 @@ class RGCMF(GCMF):
         :param hyperparameters: hyperparameter dictionary (see hyperparameters.yaml)
         """
         super().build_model(hyperparameters)
-        crv = hyperparameters.get("cell_relation_views", self.cell_relation_views)
-        drv = hyperparameters.get("drug_relation_views", self.drug_relation_views)
+        # every loaded omics view is a relation by default, so cell_line_views (what the
+        # randomization tests act on) and the graphs actually built stay in step
+        crv = hyperparameters.get("cell_relation_views", self.cell_line_views)
+        drv = hyperparameters.get("drug_relation_views", type(self)._DEFAULT_DRUG_RELATIONS)
         self.cell_relation_views = crv if isinstance(crv, list) else [crv]
         self.drug_relation_views = drv if isinstance(drv, list) else [drv]
 
@@ -1216,84 +1262,101 @@ class RGCMF(GCMF):
                 return path
         return None
 
-    def _relation_similarity(
-        self, data_path: str, dataset_name: str, view: str, kernel: str, ids: np.ndarray, node_fd: FeatureDataset
-    ) -> np.ndarray:
+    def _cell_gene_list(self, view: str) -> str | None:
         """
-        Return the dense cell-relation similarity, loading from cache when possible.
+        Return the gene list an omics view is reduced with on load.
 
-        The cache is keyed by (view, kernel, kernel version, gene list, cell-id set), so a hit
-        skips loading the (large) omics CSV entirely - important for the 10-fold benchmark. The
-        key does not cover the *contents* of the omics table or gene list, so delete
-        ``<dataset>/gcmf_cache/`` to force recomputation if those change under the same name.
+        :param view: cell-line omics view name
+        :returns: gene list name, or None for no reduction
+        """
+        if view in self._node_views():
+            return self.hyperparameters.get("gene_list", "landmark_genes")
+        return self._CELL_GENE_LISTS.get(view)
 
-        :param data_path: path to the data directory
-        :param dataset_name: dataset name, e.g. CTRPv2
+    def _cached_similarity(self, view: str, kernel: str, features: np.ndarray) -> np.ndarray:
+        """
+        Compute a dense cell-relation similarity, reusing the on-disk cache when possible.
+
+        The key is the *content* of ``features`` (plus view, kernel and kernel version), so the
+        expensive kernels - Kendall on copy number above all - are computed once and shared by
+        every fold, while any change to the omics table, the gene list or the cell-line set
+        misses the cache instead of silently returning a stale matrix. Content keying is also what
+        makes the randomization tests honest: permuted features hash differently, so the graph is
+        genuinely rebuilt from them.
+
         :param view: cell-relation omics view name
         :param kernel: similarity kernel for this view
-        :param ids: ordered cell-line ids the similarity is computed over
-        :param node_fd: node-feature dataset (source of the gene-expression relation)
+        :param features: (n_cells, n_feat) matrix the similarity is computed over
         :returns: dense (n_cells, n_cells) similarity matrix
         """
-        cache_dir = os.path.join(data_path, dataset_name, "gcmf_cache")
+        if not self._data_path or not self._dataset_name:  # loaders never ran; compute uncached
+            return _similarity_matrix(features, kernel)
+        # non-cryptographic: SHA1 only forms a stable cache key over the feature matrix
+        sig = hashlib.sha1(
+            np.ascontiguousarray(features, dtype=np.float64).tobytes(), usedforsecurity=False
+        ).hexdigest()[:16]
+        cache_dir = os.path.join(self._data_path, self._dataset_name, "gcmf_cache")
         os.makedirs(cache_dir, exist_ok=True)
-        # the gene_expression relation is built from the node features (hp gene_list), so its
-        # cache key must reflect that list, not the hardcoded default (else gene-set sweeps collide)
-        if view == "gene_expression":
-            gene_list = str(self.hyperparameters.get("gene_list", "landmark_genes"))
-        else:
-            gene_list = str(self._CELL_GENE_LISTS.get(view, ""))
-        # non-cryptographic: SHA1 only forms a stable cache key over the cell-id set
-        id_sig = hashlib.sha1(",".join(sorted(str(c) for c in ids)).encode(), usedforsecurity=False).hexdigest()[:16]
-        path = os.path.join(cache_dir, f"cell_{view}_{kernel}v{_SIM_KERNEL_VERSION}_{gene_list}_{id_sig}.npy")
+        path = os.path.join(cache_dir, f"cell_{view}_{kernel}v{_SIM_KERNEL_VERSION}_{sig}.npy")
         if os.path.exists(path):
             return np.load(path)
-        if view == "gene_expression":
-            feats = node_fd.get_feature_matrix(view="gene_expression", identifiers=ids).astype(np.float64)
-        else:
-            feats = self._load_omics_matrix(data_path, dataset_name, view, ids)
-        sim = _similarity_matrix(feats, kernel)
-        np.save(path, sim)
+        sim = _similarity_matrix(features, kernel)
+        # folds run as parallel processes, so write to a private file and rename it into place:
+        # a half-written .npy must never be visible under the key another process is reading
+        tmp = f"{path}.{os.getpid()}.tmp.npy"
+        np.save(tmp, sim)
+        os.replace(tmp, path)
         return sim
 
     def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         """
-        Load gene-expression node features and precompute each cell-relation similarity graph.
+        Load every omics view the model uses, as one FeatureDataset.
+
+        The cell lines are those carrying the node-feature views; the remaining omics are aligned
+        onto them and zero-filled where a cell line is missing. Loading them as views (rather than
+        reading them off disk behind the framework's back) is what lets the randomization tests
+        randomize each relation, and an inner join over the four omics would drop roughly half of
+        CTRPv2 - hence the zero-fill.
 
         :param data_path: path to the data directory
         :param dataset_name: dataset name, e.g. CTRPv2
-        :returns: FeatureDataset with the gene-expression node features
+        :returns: FeatureDataset with one view per cell-line omics
+        :raises ValueError: if no cell line carries all the node-feature views
         """
-        node_fd = super().load_cell_line_features(data_path, dataset_name)
-        ids = node_fd.identifiers
-        self._cell_sims = {}
-        for view in self.cell_relation_views:
-            kernel = self._CELL_KERNELS.get(view, "pearson")
-            sim = self._relation_similarity(data_path, dataset_name, view, kernel, ids, node_fd)
-            self._cell_sims[view] = (np.asarray(ids), sim)
-        return node_fd
+        self._data_path = data_path
+        self._dataset_name = dataset_name
+        per_view = {
+            view: load_and_select_gene_features(
+                feature_type=view,
+                gene_list=self._cell_gene_list(view),
+                data_path=data_path,
+                dataset_name=dataset_name,
+            )
+            for view in self.cell_line_views
+        }
+        ids: set[str] | None = None
+        for view in self._node_views():
+            view_ids = set(per_view[view].identifiers)
+            ids = view_ids if ids is None else ids & view_ids
+        identifiers = sorted(ids or set())
+        if not identifiers:
+            raise ValueError(f"No cell line in {dataset_name} carries all of {self._node_views()}.")
 
-    def _load_omics_matrix(self, data_path: str, dataset_name: str, view: str, ids: np.ndarray) -> np.ndarray:
-        """
-        Load one omics view (gene-list reduced) and align it to ``ids``, zero-filling missing cells.
-
-        :param data_path: path to the data directory
-        :param dataset_name: dataset name, e.g. CTRPv2
-        :param view: omics view name to load
-        :param ids: ordered cell-line ids to align the matrix to
-        :returns: (n_cells, n_feat) omics matrix aligned to ``ids``
-        """
-        gene_list = self._CELL_GENE_LISTS.get(view)
-        fd = load_and_select_gene_features(
-            feature_type=view, gene_list=gene_list, data_path=data_path, dataset_name=dataset_name
-        )
-        feats = fd.features
-        dim = next(len(v[view]) for v in feats.values())
-        mat = np.zeros((len(ids), dim), dtype=np.float64)
-        for i, cid in enumerate(ids):
-            if cid in feats:
-                mat[i] = feats[cid][view]
-        return mat
+        dims = {view: len(next(iter(fd.features.values()))[view]) for view, fd in per_view.items()}
+        features: dict[str, dict[str, Any]] = {}
+        for cid in identifiers:
+            features[cid] = {
+                view: (
+                    np.asarray(fd.features[cid][view], dtype=float)
+                    if cid in fd.features
+                    else np.zeros(dims[view], dtype=float)
+                )
+                for view, fd in per_view.items()
+            }
+        meta_info: dict[str, Any] = {}
+        for fd in per_view.values():
+            meta_info.update(fd.meta_info)
+        return FeatureDataset(features=features, meta_info=meta_info)
 
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         """
@@ -1318,10 +1381,14 @@ class RGCMF(GCMF):
             csv_path = self._drug_resource_path(view, data_path)
             if csv_path is None:
                 expected = os.path.join(data_path, "meta", self._DRUG_SIM_DIR, f"{view}.csv[.gz]")
+                meta_dir = os.path.join(data_path, "meta")
+                # download_dataset() skips any dataset whose folder already exists, so a data
+                # directory predating these relations is never refreshed just by re-running
                 raise FileNotFoundError(
-                    f"RGCMF drug relation '{view}' needs {expected}, which is missing. It is distributed "
-                    f"with the dataset's meta bundle - download the data, or set 'drug_relation_views' to "
-                    f"the relations you have."
+                    f"RGCMF drug relation '{view}' needs {expected}, which is missing. It ships with the "
+                    f"meta bundle, but an existing {meta_dir} is never re-downloaded automatically: delete "
+                    f"it and re-run, or call download_dataset('meta', ..., redownload=True). Alternatively "
+                    f"set 'drug_relation_views' to the relations you have."
                 )
             if self._DRUG_RELATION_KIND.get(view, "matrix") == "targets":
                 sim = self._build_target_jaccard(csv_path, drug_ids)
@@ -1412,10 +1479,15 @@ class RGCMF(GCMF):
         self, x_cell: np.ndarray, cell_line_input: FeatureDataset, cell_ids: np.ndarray, hp: dict[str, Any]
     ) -> list[torch.Tensor]:
         """
-        Sparsify each precomputed cell-relation similarity to a k-NN adjacency.
+        Build one k-NN adjacency per cell relation from the features handed to ``train``.
 
-        :param x_cell: (n_cells, cell_in_dim) fused cell feature matrix (unused; relations are precomputed)
-        :param cell_line_input: cell-line FeatureDataset (unused; relations are precomputed)
+        Deliberately re-derived here rather than at load time: ``train`` is where the model sees
+        the feature dataset the framework actually wants it to use, which under a randomization
+        test is the permuted one. Computing the graphs earlier would leave them intact through
+        SVCC/SVRC and overstate the model.
+
+        :param x_cell: (n_cells, cell_in_dim) fused node feature matrix (unused; relations use the raw views)
+        :param cell_line_input: cell-line FeatureDataset the relations are computed from
         :param cell_ids: ordered cell-line ids to align each relation to
         :param hp: hyperparameter dictionary
         :returns: one normalized cell adjacency per cell relation
@@ -1425,8 +1497,8 @@ class RGCMF(GCMF):
         k = int(hp.get("k_cell", 15))
         adjs = []
         for view in self.cell_relation_views:
-            ids, sim = self._cell_sims[view]
-            sim = self._align_similarity(sim, ids, cell_ids)
+            features = cell_line_input.get_feature_matrix(view=view, identifiers=cell_ids).astype(np.float64)
+            sim = self._cached_similarity(view, self._CELL_KERNELS.get(view, "pearson"), features)
             adjs.append(torch.tensor(_knn_normalize(sim, k, use_weights), device=self.device))
         if not adjs:
             raise ValueError("RGCMF has no cell relations; set 'cell_relation_views' or use GCMF instead.")
