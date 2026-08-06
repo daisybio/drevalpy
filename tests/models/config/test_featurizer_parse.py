@@ -130,3 +130,31 @@ def test_normalize_rejects_brackets_on_drug_registry() -> None:
 def test_normalize_rejects_unknown_view() -> None:
     with pytest.raises(ValueError, match="Unknown omics view"):
         normalize_featurizer_config("raw[not_a_view]", default_registry="cell_line")
+
+
+_EXPLICIT_SPACE = {"n_components": {"type": "int", "low": 2, "high": 99, "default": 5}}
+
+
+@pytest.mark.parametrize(
+    ("one_key_body", "legacy_extra"),
+    [
+        ({"n_components": 8}, {"n_components": 8}),
+        ({"hyperparameter_space": _EXPLICIT_SPACE, "n_components": 8}, {"n_components": 8}),
+        ({"options": {"foo": 1}, "bar": 2}, {"bar": 2}),
+    ],
+    ids=["simple-value", "explicit-space-wins", "options-and-simple"],
+)
+def test_one_key_and_legacy_notations_agree(one_key_body: dict, legacy_extra: dict) -> None:
+    """Both mapping notations share one merge rule, so they must normalize identically.
+
+    :param one_key_body: Body of the one-key mapping form.
+    :param legacy_extra: Values nested under ``hyperparameters`` in the legacy form.
+    """
+    legacy: dict = {"name": "pca", "view": "methylation", "hyperparameters": legacy_extra}
+    for key in ("hyperparameter_space", "options"):
+        if key in one_key_body:
+            legacy[key] = one_key_body[key]
+
+    from_one_key = normalize_featurizer_config({"pca[methylation]": one_key_body}, default_registry="cell_line")
+    from_legacy = normalize_featurizer_config(legacy, default_registry="cell_line")
+    assert from_one_key == from_legacy

@@ -91,16 +91,6 @@ def _validate_view_required(config: dict[str, Any]) -> None:
         raise ValueError(msg)
 
 
-def _merge_hyperparameter_space(
-    normalized: dict[str, Any],
-    space: dict[str, Any] | None,
-) -> None:
-    if space is None:
-        return
-    existing = normalized.get("hyperparameter_space")
-    normalized["hyperparameter_space"] = {**(space or {}), **(existing or {})} if existing else space
-
-
 def _lift_featurizers_from_hyperparameters(
     normalized: dict[str, Any],
     leftover: dict[str, Any],
@@ -113,24 +103,40 @@ def _lift_featurizers_from_hyperparameters(
     normalized["featurizers"] = leftover.pop("featurizers")
 
 
-def _apply_leftover_hyperparameters(
-    normalized: dict[str, Any],
-    leftover: dict[str, Any],
+def _fold_simple_values(
+    name: str,
+    simple_values: dict[str, Any],
     *,
-    default_registry: str,
-) -> None:
-    if not leftover:
-        return
-    name = str(normalized.get("name", ""))
-    space, options = _space_defaults_from_simple_values(
+    registry: str,
+    hyperparameter_space: dict[str, Any] | None,
+    options: dict[str, Any] | None,
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    """Fold loose parameter values into a tuning space and fixed constructor options.
+
+    Shared by both mapping notations: a one-key body writes its parameters alongside the
+    reserved keys, while the legacy form nests them under ``hyperparameters``. Once the
+    caller has separated the two, the merge rule is the same, so it lives here only.
+    Explicitly declared entries always win over values derived from *simple_values*.
+
+    :param name: Featurizer registry name, used to look up the declared space.
+    :param simple_values: Loose ``parameter: value`` pairs to classify.
+    :param registry: ``cell_line`` or ``drug``.
+    :param hyperparameter_space: Space the config declared explicitly, if any.
+    :param options: Options the config declared explicitly, if any.
+    :returns: ``(hyperparameter_space, options)`` with derived values merged underneath.
+    """
+    if not simple_values:
+        return hyperparameter_space, options
+    derived_space, derived_options = _space_defaults_from_simple_values(
         name,
-        leftover,
-        default_registry=str(normalized.get("registry", default_registry)),
+        simple_values,
+        default_registry=registry,
     )
-    _merge_hyperparameter_space(normalized, space)
-    if options:
-        existing_options = dict(normalized.get("options") or {})
-        normalized["options"] = {**options, **existing_options}
+    if derived_space:
+        hyperparameter_space = {**derived_space, **(hyperparameter_space or {})}
+    if derived_options:
+        options = {**derived_options, **(options or {})}
+    return hyperparameter_space, options
 
 
 def _lift_legacy_hyperparameters(config: dict[str, Any], *, default_registry: str) -> dict[str, Any]:
@@ -152,7 +158,17 @@ def _lift_legacy_hyperparameters(config: dict[str, Any], *, default_registry: st
         return normalized
     leftover = dict(hyperparameters)
     _lift_featurizers_from_hyperparameters(normalized, leftover)
-    _apply_leftover_hyperparameters(normalized, leftover, default_registry=default_registry)
+    space, options = _fold_simple_values(
+        str(normalized.get("name", "")),
+        leftover,
+        registry=str(normalized.get("registry", default_registry)),
+        hyperparameter_space=normalized.get("hyperparameter_space"),
+        options=normalized.get("options"),
+    )
+    if space is not None:
+        normalized["hyperparameter_space"] = space
+    if options is not None:
+        normalized["options"] = options
     return normalized
 
 
@@ -307,9 +323,12 @@ def _split_one_key_payload(
     name: str,
     default_registry: str,
 ) -> tuple[list[Any] | None, dict[str, Any] | None, dict[str, Any] | None]:
-    """Split a one-key shorthand body into template fields.
+    """Split a one-key mapping body into template fields.
 
-    :param payload: Mapping from a one-key featurizer shorthand.
+    Reserved keys are taken as declared; everything left over is a loose parameter value
+    folded in by ``_fold_simple_values``.
+
+    :param payload: Body of a one-key featurizer mapping.
     :param name: Featurizer registry name.
     :param default_registry: ``cell_line`` or ``drug``.
     :returns: ``(featurizers, hyperparameter_space, options)``.
@@ -319,22 +338,13 @@ def _split_one_key_payload(
     hyperparameter_space = body.pop("hyperparameter_space", None)
     options = body.pop("options", None)
     body.pop("view", None)
-    if body:
-        derived_space, derived_options = _space_defaults_from_simple_values(
-            name,
-            body,
-            default_registry=default_registry,
-        )
-        if hyperparameter_space is None:
-            hyperparameter_space = derived_space
-        elif derived_space:
-            merged = dict(derived_space)
-            merged.update(hyperparameter_space)
-            hyperparameter_space = merged
-        if options is None:
-            options = derived_options
-        elif derived_options:
-            options = {**derived_options, **options}
+    hyperparameter_space, options = _fold_simple_values(
+        name,
+        body,
+        registry=default_registry,
+        hyperparameter_space=hyperparameter_space,
+        options=options,
+    )
     return featurizers, hyperparameter_space, options
 
 
