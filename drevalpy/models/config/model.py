@@ -47,17 +47,22 @@ class ModelConfig(BaseModel):
             return data
         normalized = dict(data)
         cell_line = normalized.get("cell_line_featurizer")
-        if cell_line is not None and not isinstance(cell_line, CellLineFeaturizerConfig):
-            if isinstance(cell_line, (str, list, dict, FeaturizerConfig)):
-                normalized["cell_line_featurizer"] = _as_cell_line_featurizer_config(cell_line)
+        if (
+            cell_line is not None
+            and not isinstance(cell_line, CellLineFeaturizerConfig)
+            and isinstance(cell_line, (str, list, dict, FeaturizerConfig))
+        ):
+            normalized["cell_line_featurizer"] = _as_cell_line_featurizer_config(cell_line)
         drug = normalized.get("drug_featurizer")
-        if drug is not None and not isinstance(drug, DrugFeaturizerConfig):
-            if isinstance(drug, (str, list, dict, FeaturizerConfig)):
-                normalized["drug_featurizer"] = _as_drug_featurizer_config(drug)
+        if (
+            drug is not None
+            and not isinstance(drug, DrugFeaturizerConfig)
+            and isinstance(drug, (str, list, dict, FeaturizerConfig))
+        ):
+            normalized["drug_featurizer"] = _as_drug_featurizer_config(drug)
         predictor = normalized.get("predictor")
-        if predictor is not None and not isinstance(predictor, PredictorConfig):
-            if isinstance(predictor, (str, dict)):
-                normalized["predictor"] = normalize_predictor_config(predictor)
+        if predictor is not None and not isinstance(predictor, PredictorConfig) and isinstance(predictor, (str, dict)):
+            normalized["predictor"] = normalize_predictor_config(predictor)
         return normalize_single_drug_identity(normalized)
 
     @property
