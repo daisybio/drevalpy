@@ -65,7 +65,7 @@ def from_yaml(path: Path | str) -> ModelConfig:
     :param path: Path to a YAML mapping describing the model config.
     :returns: Validated ``ModelConfig`` instance.
     :raises FileNotFoundError: If ``path`` does not exist.
-    :raises ValueError: If the YAML content is not a valid config mapping.
+    :raises TypeError: If the YAML top-level node is not a mapping.
     """
     yaml_path = Path(path)
     if not yaml_path.is_file():
@@ -75,5 +75,5 @@ def from_yaml(path: Path | str) -> ModelConfig:
         data = yaml.safe_load(handle)
     if not isinstance(data, dict):
         msg = f"Model config YAML must contain a mapping: {yaml_path}"
-        raise ValueError(msg)
+        raise TypeError(msg)
     return from_dict(data, source=yaml_path)

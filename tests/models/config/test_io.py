@@ -109,3 +109,10 @@ def test_from_yaml_reports_path_on_error(tmp_path: Path) -> None:
     path.write_text("predictor: naiveMean\nunknown_key: true\n", encoding="utf-8")
     with pytest.raises(ValueError, match=re.escape(str(path))):
         from_yaml(path)
+
+
+def test_from_yaml_rejects_non_mapping_top_level(tmp_path: Path) -> None:
+    path = tmp_path / "list.yaml"
+    path.write_text("- naiveMean\n", encoding="utf-8")
+    with pytest.raises(TypeError, match=re.escape(str(path))):
+        from_yaml(path)
