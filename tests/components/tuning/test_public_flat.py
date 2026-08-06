@@ -19,7 +19,7 @@ def test_public_round_trip_for_factory_model() -> None:
     public = public_hyperparameters_from_config(config)
     rebuilt = config_from_public_hyperparameters(model_cls, public)
     assert rebuilt is not None
-    assert rebuilt.predictor.name == "elasticNet"
+    assert rebuilt.template.predictor.name == "elasticNet"
 
 
 def test_construct_model_spec_resolves_without_hyperparameters() -> None:

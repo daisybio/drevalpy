@@ -43,6 +43,9 @@ def test_slot_subclasses_override_mismatched_registry() -> None:
 
 
 def test_featurizer_config_compact_one_key_mapping() -> None:
+    from drevalpy.components.register_builtins import register_builtin_components
+
+    register_builtin_components()
     config = FeaturizerConfig.model_validate(
         {
             "pca[methylation]": {"n_components": 64},
@@ -50,19 +53,26 @@ def test_featurizer_config_compact_one_key_mapping() -> None:
     )
     assert config.name == "pca"
     assert config.view == "methylation"
-    assert config.hyperparameters["n_components"] == 64
+    assert config.hyperparameter_space is not None
+    assert config.hyperparameter_space["n_components"]["default"] == 64
 
 
 def test_featurizer_config_preserves_view_fields() -> None:
+    from drevalpy.components.register_builtins import register_builtin_components
+
+    register_builtin_components()
     cell_line = CellLineFeaturizerConfig(
         name="pca",
         view="gene_expression",
-        hyperparameters={"n_components": 128},
+        hyperparameter_space={"n_components": {"type": "int", "low": 8, "high": 512, "default": 128}},
     )
     assert cell_line.view == "gene_expression"
 
 
 def test_model_id_for_full_triple() -> None:
+    from drevalpy.components.register_builtins import register_builtin_components
+
+    register_builtin_components()
     config = ModelConfig(
         cell_line_featurizer=CellLineFeaturizerConfig(name="scaledGeneExpression"),
         drug_featurizer=DrugFeaturizerConfig(name="identity"),
@@ -72,6 +82,9 @@ def test_model_id_for_full_triple() -> None:
 
 
 def test_model_id_for_predictor_only_baseline() -> None:
+    from drevalpy.components.register_builtins import register_builtin_components
+
+    register_builtin_components()
     config = ModelConfig(
         cell_line_featurizer=None,
         drug_featurizer=None,
@@ -81,12 +94,15 @@ def test_model_id_for_predictor_only_baseline() -> None:
 
 
 def test_model_id_none_for_partial_multi_drug_config() -> None:
-    config = ModelConfig(
-        cell_line_featurizer=CellLineFeaturizerConfig(name="scaledGeneExpression"),
-        drug_featurizer=None,
-        predictor=PredictorConfig(name="randomForest"),
-    )
-    assert config.model_id is None
+    from drevalpy.components.register_builtins import register_builtin_components
+
+    register_builtin_components()
+    with pytest.raises(ValidationError, match="requires.*drug_featurizer|requires featurizers"):
+        ModelConfig(
+            cell_line_featurizer=CellLineFeaturizerConfig(name="scaledGeneExpression"),
+            drug_featurizer=None,
+            predictor=PredictorConfig(name="randomForest"),
+        )
 
 
 def test_model_id_for_implicit_identity_single_drug() -> None:
@@ -105,24 +121,29 @@ def test_model_id_for_implicit_identity_single_drug() -> None:
 
 
 def test_single_drug_does_not_override_explicit_drug_featurizer() -> None:
-    config = ModelConfig(
-        cell_line_featurizer=CellLineFeaturizerConfig(name="scaledGeneExpression"),
-        drug_featurizer=DrugFeaturizerConfig(name="fingerprints"),
-        predictor=PredictorConfig(name="singleDrugElasticNet"),
-        scope=ModelScope.SINGLE_DRUG,
-    )
-    assert config.drug_featurizer is not None
-    assert config.drug_featurizer.name == "fingerprints"
+    from drevalpy.components.register_builtins import register_builtin_components
+
+    register_builtin_components()
+    with pytest.raises(ValidationError, match="requires drug_featurizer='identity'"):
+        ModelConfig(
+            cell_line_featurizer=CellLineFeaturizerConfig(name="scaledGeneExpression"),
+            drug_featurizer=DrugFeaturizerConfig(name="fingerprints"),
+            predictor=PredictorConfig(name="singleDrugElasticNet"),
+            scope=ModelScope.SINGLE_DRUG,
+        )
 
 
 def test_multi_drug_scope_does_not_inject_identity() -> None:
-    config = ModelConfig(
-        cell_line_featurizer=CellLineFeaturizerConfig(name="scaledGeneExpression"),
-        drug_featurizer=None,
-        predictor=PredictorConfig(name="elasticNet"),
-        scope=ModelScope.MULTI_DRUG,
-    )
-    assert config.drug_featurizer is None
+    from drevalpy.components.register_builtins import register_builtin_components
+
+    register_builtin_components()
+    with pytest.raises(ValidationError, match="requires.*drug_featurizer|requires featurizers"):
+        ModelConfig(
+            cell_line_featurizer=CellLineFeaturizerConfig(name="scaledGeneExpression"),
+            drug_featurizer=None,
+            predictor=PredictorConfig(name="elasticNet"),
+            scope=ModelScope.MULTI_DRUG,
+        )
 
 
 def test_string_scope_from_yaml_coerces_to_model_scope() -> None:
@@ -145,6 +166,9 @@ def test_string_scope_from_yaml_coerces_to_model_scope() -> None:
 
 
 def test_model_config_parses_compact_featurizer_sections() -> None:
+    from drevalpy.components.register_builtins import register_builtin_components
+
+    register_builtin_components()
     config = ModelConfig.model_validate(
         {
             "cell_line_featurizer": [
@@ -166,6 +190,9 @@ def test_model_config_parses_compact_featurizer_sections() -> None:
 
 
 def test_model_config_parses_predictor_one_key_hyperparameters() -> None:
+    from drevalpy.components.register_builtins import register_builtin_components
+
+    register_builtin_components()
     config = ModelConfig.model_validate(
         {
             "cell_line_featurizer": "scaledGeneExpression",
@@ -174,7 +201,8 @@ def test_model_config_parses_predictor_one_key_hyperparameters() -> None:
         }
     )
     assert config.predictor.name == "randomForest"
-    assert config.predictor.hyperparameters["n_estimators"] == 10
+    assert config.predictor.hyperparameter_space is not None
+    assert config.predictor.hyperparameter_space["n_estimators"]["default"] == 10
 
 
 def test_model_config_rejects_base_featurizer_config_in_slots() -> None:
@@ -189,16 +217,22 @@ def test_model_config_rejects_base_featurizer_config_in_slots() -> None:
 
 
 def test_config_is_serializable() -> None:
+    from drevalpy.components.register_builtins import register_builtin_components
+
+    register_builtin_components()
     config = ModelConfig(
         cell_line_featurizer=CellLineFeaturizerConfig(name="scaledGeneExpression"),
         drug_featurizer=DrugFeaturizerConfig(name="fingerprints"),
-        predictor=PredictorConfig(name="elasticNet", hyperparameters={"alpha": 1.0}),
+        predictor=PredictorConfig(
+            name="elasticNet",
+            hyperparameter_space={"alpha": {"type": "float", "low": 1e-4, "high": 10.0, "log": True, "default": 1.0}},
+        ),
         prediction_mode=PredictionMode.REGRESSION,
     )
     payload = config.model_dump(mode="python")
     assert payload["cell_line_featurizer"]["name"] == "scaledGeneExpression"
     assert payload["predictor"]["name"] == "elasticNet"
-    assert payload["predictor"]["hyperparameters"]["alpha"] == 1.0
+    assert payload["predictor"]["hyperparameter_space"]["alpha"]["default"] == 1.0
 
 
 def test_from_spec_classmethod() -> None:

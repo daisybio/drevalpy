@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
+from drevalpy.components.featurizer_tree import iter_featurizer_leaves
 from drevalpy.components.registry import get_cell_line_featurizer, get_drug_featurizer
 from drevalpy.models.config import FeaturizerConfig
 
@@ -27,7 +27,12 @@ _PUBLIC_VIEW_KEYS = PUBLIC_VIEW_KEYS
 
 def _featurizer_space_keys(featurizer: FeaturizerConfig, registry: str) -> set[str]:
     cls = get_cell_line_featurizer(featurizer.name) if registry == "cell_line" else get_drug_featurizer(featurizer.name)
-    return set(cls.get_hyperparameter_space())
+    space = (
+        dict(featurizer.hyperparameter_space)
+        if featurizer.hyperparameter_space is not None
+        else dict(cls.get_hyperparameter_space())
+    )
+    return set(space)
 
 
 def _is_exportable_space_flat_key(registry: str, featurizer_name: str, key: str, flat: dict[str, Any]) -> bool:
@@ -40,35 +45,24 @@ def _is_exportable_space_flat_key(registry: str, featurizer_name: str, key: str,
     return key not in flat
 
 
-def _append_legacy_component_flat_keys(
+def _append_space_default_flat_keys(
     flat: dict[str, Any],
     featurizer: FeaturizerConfig,
     registry: str,
 ) -> None:
-    mapping = _LEGACY_FEATURIZER_FLAT_KEYS.get((registry, featurizer.name), {})
-    for component_key, flat_key in mapping.items():
-        if component_key in featurizer.hyperparameters:
-            flat[flat_key] = featurizer.hyperparameters[component_key]
-
-
-def _append_methylation_pca_flat_aliases(flat: dict[str, Any], featurizer: FeaturizerConfig) -> None:
-    if featurizer.name == "pca" and featurizer.view == "methylation" and "n_components" in featurizer.hyperparameters:
-        flat["methylation_n_components"] = featurizer.hyperparameters["n_components"]
-        flat.setdefault("methylation_pca_components", featurizer.hyperparameters["n_components"])
-
-
-def _append_hyperparameter_space_flat_keys(
-    flat: dict[str, Any],
-    featurizer: FeaturizerConfig,
-    registry: str,
-) -> None:
-    space_keys = _featurizer_space_keys(featurizer, registry)
-    for key, value in featurizer.hyperparameters.items():
-        if key not in space_keys:
-            continue
+    cls = get_cell_line_featurizer(featurizer.name) if registry == "cell_line" else get_drug_featurizer(featurizer.name)
+    space = (
+        dict(featurizer.hyperparameter_space)
+        if featurizer.hyperparameter_space is not None
+        else dict(cls.get_hyperparameter_space())
+    )
+    for key, spec in space.items():
         if not _is_exportable_space_flat_key(registry, featurizer.name, key, flat):
             continue
-        flat.setdefault(key, value)
+        flat.setdefault(key, spec["default"])
+        if featurizer.name == "pca" and featurizer.view == "methylation" and key == "n_components":
+            flat["methylation_n_components"] = spec["default"]
+            flat.setdefault("methylation_pca_components", spec["default"])
 
 
 def append_featurizer_flat_keys(
@@ -76,10 +70,10 @@ def append_featurizer_flat_keys(
     featurizer: FeaturizerConfig | None,
     registry: str,
 ) -> None:
-    """Append legacy and tunable featurizer keys into a public flat dict.
+    """Append tunable featurizer defaults into a public flat dict.
 
-    Architecture-only featurizer kwargs (present in ModelConfig but absent from
-    ``get_hyperparameter_space``) stay on the config tree and are not flattened.
+    Architecture-only featurizer kwargs stay on the config tree and are not flattened.
+    Concrete selected values live on ``ResolvedModelConfig`` and are exported elsewhere.
 
     :param flat: Mutable public flat hyperparameter mapping to extend in place.
     :param featurizer: Featurizer config subtree to flatten, or ``None``.
@@ -87,14 +81,6 @@ def append_featurizer_flat_keys(
     """
     if featurizer is None:
         return
-    if featurizer.name == "concatFeaturizers":
-        for child in featurizer.hyperparameters.get("featurizers", []):
-            child_cfg = FeaturizerConfig.model_validate(
-                normalize_featurizer_config(child, default_registry=registry),
-            )
-            append_featurizer_flat_keys(flat, child_cfg, registry)
-        return
-    _append_legacy_component_flat_keys(flat, featurizer, registry)
-    if registry == "cell_line":
-        _append_methylation_pca_flat_aliases(flat, featurizer)
-    _append_hyperparameter_space_flat_keys(flat, featurizer, registry)
+    for leaf in iter_featurizer_leaves(featurizer, registry):
+        _append_space_default_flat_keys(flat, leaf, registry)
+        _ = _featurizer_space_keys(leaf, registry)

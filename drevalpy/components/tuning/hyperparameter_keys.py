@@ -247,8 +247,13 @@ def resolve_to_qualified_mapping(
 
 
 def _predictor_value(config: ModelConfig, param: str, predictor_cls: type[Any]) -> Any | None:
-    if param in config.predictor.hyperparameters:
-        return config.predictor.hyperparameters[param]
+    space = (
+        dict(config.predictor.hyperparameter_space)
+        if config.predictor.hyperparameter_space is not None
+        else dict(predictor_cls.get_hyperparameter_space())
+    )
+    if param in space:
+        return space[param]["default"]
     defaults = predictor_cls.get_default_hyperparameters()
     if param in defaults:
         return defaults[param]
@@ -257,46 +262,75 @@ def _predictor_value(config: ModelConfig, param: str, predictor_cls: type[Any]) 
 
 def _predictor_export_params(config: ModelConfig, predictor_cls: type[Any]) -> list[str]:
     keys = set(predictor_cls.get_default_hyperparameters())
-    keys.update(config.predictor.hyperparameters)
+    keys.update(predictor_cls.get_hyperparameter_space())
+    if config.predictor.hyperparameter_space is not None:
+        keys.update(config.predictor.hyperparameter_space)
     return sorted(keys)
 
 
 def _featurizer_export_params(featurizer: FeaturizerConfig, registry: str) -> list[str]:
     cls = get_cell_line_featurizer(featurizer.name) if registry == "cell_line" else get_drug_featurizer(featurizer.name)
-    space = cls.get_hyperparameter_space()
-    keys = set(featurizer.hyperparameters)
-    for param, spec in space.items():
-        if isinstance(spec, dict) and "default" in spec:
-            keys.add(param)
-    return sorted(keys)
+    space = (
+        dict(featurizer.hyperparameter_space)
+        if featurizer.hyperparameter_space is not None
+        else dict(cls.get_hyperparameter_space())
+    )
+    return sorted(space)
 
 
 def _featurizer_value(featurizer: FeaturizerConfig, param: str, registry: str) -> Any | None:
     cls = get_cell_line_featurizer(featurizer.name) if registry == "cell_line" else get_drug_featurizer(featurizer.name)
-    space = cls.get_hyperparameter_space()
+    space = (
+        dict(featurizer.hyperparameter_space)
+        if featurizer.hyperparameter_space is not None
+        else dict(cls.get_hyperparameter_space())
+    )
     if param not in space:
         return None
-    if param in featurizer.hyperparameters:
-        return featurizer.hyperparameters[param]
-    spec = space[param]
-    if isinstance(spec, dict) and "default" in spec:
-        return spec["default"]
-    return None
+    return space[param]["default"]
 
 
-def _collect_export_entries(
+def _append_export_entry(
+    entries: list[tuple[HyperparameterTarget, Any]],
+    *,
+    qualified: str,
+    index: HyperparameterOwnershipIndex,
+    concrete: dict[str, Any],
+    default_value: Any | None,
+) -> None:
+    target = index.qualified_to_target[qualified]
+    if qualified in concrete:
+        entries.append((target, concrete[qualified]))
+        return
+    if default_value is not None:
+        entries.append((target, default_value))
+
+
+def _collect_predictor_export_entries(
     config: ModelConfig,
     index: HyperparameterOwnershipIndex,
+    concrete: dict[str, Any],
 ) -> list[tuple[HyperparameterTarget, Any]]:
     entries: list[tuple[HyperparameterTarget, Any]] = []
     predictor_cls = get_predictor(config.predictor.name)
-
     for param in _predictor_export_params(config, predictor_cls):
-        target = index.qualified_to_target[_predictor_prefix(config.predictor.name, param)]
-        value = _predictor_value(config, param, predictor_cls)
-        if value is not None:
-            entries.append((target, value))
+        qualified = _predictor_prefix(config.predictor.name, param)
+        _append_export_entry(
+            entries,
+            qualified=qualified,
+            index=index,
+            concrete=concrete,
+            default_value=_predictor_value(config, param, predictor_cls),
+        )
+    return entries
 
+
+def _collect_featurizer_export_entries(
+    config: ModelConfig,
+    index: HyperparameterOwnershipIndex,
+    concrete: dict[str, Any],
+) -> list[tuple[HyperparameterTarget, Any]]:
+    entries: list[tuple[HyperparameterTarget, Any]] = []
     for registry, slot_config in (
         ("cell_line", config.cell_line_featurizer),
         ("drug", config.drug_featurizer),
@@ -306,11 +340,26 @@ def _collect_export_entries(
         for leaf in iter_featurizer_leaves(slot_config, registry):
             selector = _leaf_selector(leaf)
             for param in _featurizer_export_params(leaf, registry):
-                value = _featurizer_value(leaf, param, registry)
-                if value is None:
-                    continue
                 qualified = _featurizer_prefix(registry, selector, param)
-                entries.append((index.qualified_to_target[qualified], value))
+                _append_export_entry(
+                    entries,
+                    qualified=qualified,
+                    index=index,
+                    concrete=concrete,
+                    default_value=_featurizer_value(leaf, param, registry),
+                )
+    return entries
+
+
+def _collect_export_entries(
+    config: ModelConfig,
+    index: HyperparameterOwnershipIndex,
+    *,
+    values: dict[str, Any] | None = None,
+) -> list[tuple[HyperparameterTarget, Any]]:
+    concrete = values or {}
+    entries = _collect_predictor_export_entries(config, index, concrete)
+    entries.extend(_collect_featurizer_export_entries(config, index, concrete))
     return entries
 
 
@@ -336,11 +385,13 @@ def export_public_mapping(
     config: ModelConfig,
     *,
     include_view_keys: bool = False,
+    values: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Export a deterministic collision-aware public hyperparameter mapping.
 
-    :param config: config.
+    :param config: Template model configuration.
     :param include_view_keys: include view keys.
+    :param values: Optional concrete qualified values from a resolved config.
     :returns: Result.
     """
     from drevalpy.components.data_loading.view_resolution import (
@@ -349,10 +400,40 @@ def export_public_mapping(
     )
 
     index = build_ownership_index(config)
-    exported = _compact_export_entries(_collect_export_entries(config, index))
+    exported = _compact_export_entries(_collect_export_entries(config, index, values=values))
     if include_view_keys:
         cell_line_views = cell_line_views_from_model_config(config)
         drug_views = drug_views_from_model_config(config)
+        if cell_line_views:
+            exported["cell_line_views"] = cell_line_views
+        if drug_views:
+            exported["drug_views"] = drug_views
+    return exported
+
+
+def export_public_mapping_from_resolved(
+    resolved: Any,
+    *,
+    include_view_keys: bool = False,
+) -> dict[str, Any]:
+    """Export public hyperparameters from a resolved instance config.
+
+    :param resolved: ``ResolvedModelConfig`` instance.
+    :param include_view_keys: Whether to include legacy view keys.
+    :returns: Compact public hyperparameter mapping.
+    """
+    from drevalpy.components.data_loading.view_resolution import (
+        cell_line_views_from_resolved,
+        drug_views_from_resolved,
+    )
+
+    exported = export_public_mapping(
+        resolved.template,
+        values=dict(resolved.values),
+    )
+    if include_view_keys:
+        cell_line_views = cell_line_views_from_resolved(resolved)
+        drug_views = drug_views_from_resolved(resolved)
         if cell_line_views:
             exported["cell_line_views"] = cell_line_views
         if drug_views:

@@ -56,14 +56,20 @@ def test_from_dict_with_sections() -> None:
             "predictor": {"randomForest": {"n_estimators": 10}},
         }
     )
-    assert config.predictor.hyperparameters["n_estimators"] == 10
+    assert config.predictor.hyperparameter_space is not None
+    assert config.predictor.hyperparameter_space["n_estimators"]["default"] == 10
 
 
 def test_from_yaml(tmp_path: Path) -> None:
+    from drevalpy.components.register_builtins import register_builtin_components
+
+    register_builtin_components()
     path = tmp_path / "model.yaml"
     path.write_text(
         yaml.safe_dump(
             {
+                "cell_line_featurizer": "constant",
+                "drug_featurizer": "identity",
                 "predictor": "naiveDrugMean",
             }
         ),

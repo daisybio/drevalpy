@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from collections.abc import Mapping
+from typing import Any, Literal
 
 from drevalpy.components.data_loading.view_resolution import (
     _views_from_featurizer_config,
@@ -10,6 +11,7 @@ from drevalpy.components.data_loading.view_resolution import (
     drug_entity_id_only_from_model_config,
 )
 from drevalpy.components.data_loading.views import load_cell_line_feature_views, load_drug_feature_views
+from drevalpy.components.featurizer_label import qualified_featurizer_selector
 from drevalpy.components.featurizer_tree import iter_featurizer_leaves
 from drevalpy.components.featurizers.base import Featurizer
 from drevalpy.components.registry import get_cell_line_featurizer, get_drug_featurizer
@@ -20,7 +22,7 @@ from drevalpy.datasets.feature_tables import (
     load_drug_ids_from_csv,
     load_tissues_from_csv,
 )
-from drevalpy.models.config import FeaturizerConfig, ModelConfig
+from drevalpy.models.config import FeaturizerConfig, ModelConfig, ResolvedModelConfig
 
 
 def load_tissue_features(data_path: str, dataset_name: str) -> FeatureDataset:
@@ -65,6 +67,41 @@ def _has_custom_loader(featurizer_cls: type[Featurizer]) -> bool:
     )
 
 
+def _unwrap_model_config(config: ModelConfig | ResolvedModelConfig) -> tuple[ModelConfig, ResolvedModelConfig | None]:
+    if isinstance(config, ResolvedModelConfig):
+        return config.template, config
+    return config, None
+
+
+def _leaf_loader_kwargs(
+    leaf: FeaturizerConfig,
+    *,
+    registry: Literal["cell_line", "drug"],
+    resolved: ResolvedModelConfig | None,
+) -> dict[str, Any]:
+    """Build kwargs for ``load_features`` from options, defaults, and resolved values.
+
+    :param leaf: Featurizer leaf configuration.
+    :param registry: ``cell_line`` or ``drug``.
+    :param resolved: Optional resolved instance values for tunable kwargs.
+    :returns: Keyword arguments for ``load_features`` / featurizer construction.
+    """
+    kwargs: dict[str, Any] = dict(leaf.options or {})
+    space = dict(leaf.hyperparameter_space or {})
+    if not space:
+        cls = get_cell_line_featurizer(leaf.name) if registry == "cell_line" else get_drug_featurizer(leaf.name)
+        space = dict(cls.get_hyperparameter_space())
+    for key, spec in space.items():
+        if isinstance(spec, Mapping) and "default" in spec:
+            kwargs.setdefault(key, spec["default"])
+    if resolved is not None:
+        selector = qualified_featurizer_selector(leaf.name, leaf.view)
+        kwargs.update(resolved.featurizer_values(registry, selector))
+    if leaf.view is not None:
+        kwargs.setdefault("view", leaf.view)
+    return kwargs
+
+
 def _load_from_featurizer_tree(
     config: FeaturizerConfig,
     *,
@@ -72,6 +109,7 @@ def _load_from_featurizer_tree(
     data_path: str,
     dataset_name: str,
     model_name: str,
+    resolved: ResolvedModelConfig | None = None,
 ) -> FeatureDataset | None:
     """Load every leaf's raw data, using bespoke loaders where available.
 
@@ -80,19 +118,18 @@ def _load_from_featurizer_tree(
     :param data_path: Root directory containing dataset feature tables.
     :param dataset_name: Dataset subdirectory or registry name.
     :param model_name: Model name used for view-specific loading hooks.
+    :param resolved: Optional resolved instance values for tunable loader kwargs.
 
     :returns: Merged ``FeatureDataset`` for all leaves, or ``None`` when nothing was loaded.
     """
     loaded: FeatureDataset | None = None
     for leaf in iter_featurizer_leaves(config, registry):
         cls = get_cell_line_featurizer(leaf.name) if registry == "cell_line" else get_drug_featurizer(leaf.name)
-        kwargs = dict(leaf.hyperparameters)
-        if leaf.view is not None:
-            kwargs.setdefault("view", leaf.view)
+        kwargs = _leaf_loader_kwargs(leaf, registry=registry, resolved=resolved)
         if _has_custom_loader(cls):
             loaded = _merge_features(loaded, cls.load_features(data_path, dataset_name, **kwargs))
             continue
-        views = _views_from_featurizer_config(leaf, registry=registry)
+        views = _views_from_featurizer_config(leaf, registry=registry, resolved=resolved)
         if not views:
             continue
         fallback = (
@@ -117,7 +154,7 @@ def load_cell_line_id_features(data_path: str, dataset_name: str) -> FeatureData
 
 
 def load_cell_line_features_for_model_config(
-    config: ModelConfig,
+    config: ModelConfig | ResolvedModelConfig,
     data_path: str,
     dataset_name: str,
     *,
@@ -125,19 +162,20 @@ def load_cell_line_features_for_model_config(
 ) -> FeatureDataset:
     """Load cell-line features implied by *config*, including identity-only featurizers.
 
-    :param config: Resolved model configuration.
+    :param config: Template or resolved model configuration.
     :param data_path: Root directory containing dataset feature tables.
     :param dataset_name: Dataset subdirectory or registry name.
     :param model_name: Model name used for view-specific loading hooks.
 
     :returns: ``FeatureDataset`` with views required by the cell-line featurizer tree.
     """
-    featurizer = config.cell_line_featurizer
+    template, resolved = _unwrap_model_config(config)
+    featurizer = template.cell_line_featurizer
     if featurizer is not None and featurizer.name == "tissue":
         return load_tissues_from_csv(data_path, dataset_name)
-    if config.predictor.name == "naiveMeanEffects" and (featurizer is None or featurizer.name == "identity"):
+    if template.predictor.name == "naiveMeanEffects" and (featurizer is None or featurizer.name == "identity"):
         return load_cl_ids_and_tissues_from_csv(data_path, dataset_name)
-    if cell_line_entity_id_only_from_model_config(config):
+    if cell_line_entity_id_only_from_model_config(template):
         return load_cl_ids_from_csv(data_path, dataset_name)
     if featurizer is None:
         return load_cl_ids_from_csv(data_path, dataset_name)
@@ -147,12 +185,13 @@ def load_cell_line_features_for_model_config(
         data_path=data_path,
         dataset_name=dataset_name,
         model_name=model_name,
+        resolved=resolved,
     )
     return loaded if loaded is not None else load_cl_ids_from_csv(data_path, dataset_name)
 
 
 def load_drug_features_for_model_config(
-    config: ModelConfig,
+    config: ModelConfig | ResolvedModelConfig,
     data_path: str,
     dataset_name: str,
     *,
@@ -160,21 +199,23 @@ def load_drug_features_for_model_config(
 ) -> FeatureDataset | None:
     """Load drug features implied by *config*, including identity-only featurizers.
 
-    :param config: Resolved model configuration.
+    :param config: Template or resolved model configuration.
     :param data_path: Root directory containing dataset feature tables.
     :param dataset_name: Dataset subdirectory or registry name.
     :param model_name: Model name used for view-specific loading hooks.
 
     :returns: ``FeatureDataset`` with drug views, or ``None`` when the model has no drug featurizer.
     """
-    if config.drug_featurizer is None:
+    template, resolved = _unwrap_model_config(config)
+    if template.drug_featurizer is None:
         return None
-    if drug_entity_id_only_from_model_config(config):
+    if drug_entity_id_only_from_model_config(template):
         return load_drug_ids_from_csv(data_path, dataset_name)
     return _load_from_featurizer_tree(
-        config.drug_featurizer,
+        template.drug_featurizer,
         registry="drug",
         data_path=data_path,
         dataset_name=dataset_name,
         model_name=model_name,
+        resolved=resolved,
     )

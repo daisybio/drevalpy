@@ -64,8 +64,7 @@ def test_default_hyperparameters_for_constructed_pca_model() -> None:
 
     config = default_config_for_drp_model(model_cls)
     assert config is not None
-    assert config.cell_line_featurizer is not None
-    assert config.cell_line_featurizer.hyperparameters == {"n_components": 128}
+    assert config.featurizer_values("cell_line", "pca[expression]")["n_components"] == 128
     assert_component_local_hyperparameters(config)
 
     model = model_cls(hp)

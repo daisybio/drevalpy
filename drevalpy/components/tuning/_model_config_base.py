@@ -15,7 +15,7 @@ def base_model_config_for_drp_model(model_class: type[Any]) -> ModelConfig | Non
     """
     base = getattr(model_class, "_base_model_config", None)
     if isinstance(base, ModelConfig):
-        return base.model_copy(deep=True)
+        return ModelConfig.model_validate(base.model_dump(mode="python"))
 
     model_config = getattr(model_class, "model_config", None)
     if callable(model_config):
@@ -33,6 +33,9 @@ def base_model_config_for_drp_model(model_class: type[Any]) -> ModelConfig | Non
     from drevalpy.models.factory import model_config_for_name
 
     try:
-        return model_config_for_name(model_name, {})
+        config = model_config_for_name(model_name, None)
     except KeyError:
         return None
+    if isinstance(config, ModelConfig):
+        return config
+    return None

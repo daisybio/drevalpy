@@ -14,7 +14,7 @@ from drevalpy.components.data_loading.view_resolution import (
 )
 from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
 from drevalpy.components.register_builtins import register_builtin_components
-from drevalpy.models.config import FeaturizerConfig, ModelConfig, PredictorConfig
+from drevalpy.models.config import CellLineFeaturizerConfig, DrugFeaturizerConfig, ModelConfig, PredictorConfig
 
 
 @pytest.fixture(autouse=True)
@@ -25,6 +25,8 @@ def _register_components() -> None:
 def _model_config(**kwargs: object) -> ModelConfig:
     defaults: dict[str, object] = {
         "predictor": PredictorConfig(name="randomForest"),
+        "cell_line_featurizer": CellLineFeaturizerConfig(name="scaledGeneExpression"),
+        "drug_featurizer": DrugFeaturizerConfig(name="fingerprints"),
     }
     defaults.update(kwargs)
     return ModelConfig.model_validate(defaults)
@@ -32,10 +34,10 @@ def _model_config(**kwargs: object) -> ModelConfig:
 
 def test_identity_featurizers_resolve_to_empty_views() -> None:
     config = _model_config(
-        cell_line_featurizer=FeaturizerConfig.model_validate(
+        cell_line_featurizer=CellLineFeaturizerConfig.model_validate(
             normalize_featurizer_config("identity", default_registry="cell_line"),
         ),
-        drug_featurizer=FeaturizerConfig.model_validate(
+        drug_featurizer=DrugFeaturizerConfig.model_validate(
             normalize_featurizer_config("identity", default_registry="drug"),
         ),
     )
@@ -47,10 +49,10 @@ def test_identity_featurizers_resolve_to_empty_views() -> None:
 
 def test_constant_featurizers_resolve_to_empty_views() -> None:
     config = _model_config(
-        cell_line_featurizer=FeaturizerConfig.model_validate(
+        cell_line_featurizer=CellLineFeaturizerConfig.model_validate(
             normalize_featurizer_config("constant", default_registry="cell_line"),
         ),
-        drug_featurizer=FeaturizerConfig.model_validate(
+        drug_featurizer=DrugFeaturizerConfig.model_validate(
             normalize_featurizer_config("constant", default_registry="drug"),
         ),
     )
@@ -62,7 +64,7 @@ def test_constant_featurizers_resolve_to_empty_views() -> None:
 
 def test_bracket_featurizers_resolve_canonical_views() -> None:
     config = _model_config(
-        cell_line_featurizer=FeaturizerConfig.model_validate(
+        cell_line_featurizer=CellLineFeaturizerConfig.model_validate(
             normalize_featurizer_config("raw[mutations]+pca[methylation]", default_registry="cell_line"),
         ),
     )
@@ -75,7 +77,7 @@ def test_bracket_featurizers_resolve_canonical_views() -> None:
 @pytest.mark.parametrize("name", ["landmarkGenes", "landmarkGenesReduced"])
 def test_landmark_featurizers_resolve_gene_expression(name: str) -> None:
     config = _model_config(
-        cell_line_featurizer=FeaturizerConfig.model_validate(
+        cell_line_featurizer=CellLineFeaturizerConfig.model_validate(
             normalize_featurizer_config(name, default_registry="cell_line"),
         ),
     )
@@ -84,7 +86,7 @@ def test_landmark_featurizers_resolve_gene_expression(name: str) -> None:
 
 def test_fingerprint_featurizer_still_resolves_fingerprints_view() -> None:
     config = _model_config(
-        drug_featurizer=FeaturizerConfig.model_validate(
+        drug_featurizer=DrugFeaturizerConfig.model_validate(
             normalize_featurizer_config("fingerprints", default_registry="drug"),
         ),
     )
@@ -92,11 +94,21 @@ def test_fingerprint_featurizer_still_resolves_fingerprints_view() -> None:
     assert drug_views_from_model_config(config) == ["fingerprints"]
 
 
+def test_view_featurizer_resolves_options_view() -> None:
+    config = _model_config(
+        drug_featurizer=DrugFeaturizerConfig(
+            name="view",
+            options={"view": "drug_chemberta_embeddings"},
+        ),
+    )
+    assert drug_views_from_model_config(config) == ["drug_chemberta_embeddings"]
+
+
 def test_identity_drug_loading_uses_drug_ids_not_fingerprints() -> None:
     from drevalpy.components.data_loading import load_drug_features_for_model_config
 
     config = _model_config(
-        drug_featurizer=FeaturizerConfig.model_validate(
+        drug_featurizer=DrugFeaturizerConfig.model_validate(
             normalize_featurizer_config("identity", default_registry="drug"),
         ),
     )
@@ -110,7 +122,10 @@ def test_identity_drug_loading_uses_drug_ids_not_fingerprints() -> None:
 def test_no_drug_featurizer_skips_drug_loading() -> None:
     from drevalpy.components.data_loading import load_drug_features_for_model_config
 
-    config = _model_config()
+    config = _model_config(
+        predictor=PredictorConfig(name="naiveCellLineMean"),
+        drug_featurizer=None,
+    )
     with patch("drevalpy.components.data_loading.feature_loaders.load_drug_ids_from_csv") as load_ids:
         with patch("drevalpy.components.data_loading.feature_loaders.load_drug_feature_views") as load_views:
             result = load_drug_features_for_model_config(config, "/data", "GDSC1")

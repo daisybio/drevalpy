@@ -26,8 +26,11 @@ def test_build_model_config_from_zoo_name() -> None:
 
 
 def test_build_model_config_from_zoo_name_with_hyperparameters() -> None:
+    from drevalpy.models.config import ResolvedModelConfig
+
     config = _build_from_spec("ElasticNet", hyperparameters={"alpha": 0.2})
-    assert config.predictor.hyperparameters["alpha"] == 0.2
+    assert isinstance(config, ResolvedModelConfig)
+    assert config.predictor_values()["alpha"] == 0.2
 
 
 def test_build_model_config_from_baseline_predictor_token() -> None:
@@ -70,12 +73,13 @@ def test_build_model_config_from_recipe_triple_with_plus_concat() -> None:
     assert config.drug_featurizer is not None
     assert config.drug_featurizer.name == "concatFeaturizers"
     assert config.predictor.name == "randomForest"
-    cell_children = config.cell_line_featurizer.hyperparameters["featurizers"]
-    drug_children = config.drug_featurizer.hyperparameters["featurizers"]
-    assert [child["name"] for child in cell_children] == ["raw", "raw"]
-    assert cell_children[0]["view"] == "gene_expression"
-    assert cell_children[1]["view"] == "mutations"
-    assert [child["name"] for child in drug_children] == ["fingerprints", "identity"]
+    cell_children = config.cell_line_featurizer.featurizers
+    drug_children = config.drug_featurizer.featurizers
+    assert cell_children is not None and drug_children is not None
+    assert [child.name for child in cell_children] == ["raw", "raw"]
+    assert cell_children[0].view == "gene_expression"
+    assert cell_children[1].view == "mutations"
+    assert [child.name for child in drug_children] == ["fingerprints", "identity"]
     assert config.model_id == "concatFeaturizers:concatFeaturizers:randomForest"
 
 
@@ -86,11 +90,12 @@ def test_build_model_config_from_recipe_triple_with_bracket_views() -> None:
     assert config.drug_featurizer is not None
     assert config.drug_featurizer.name == "identity"
     assert config.predictor.name == "randomForest"
-    cell_children = config.cell_line_featurizer.hyperparameters["featurizers"]
-    assert cell_children[0]["name"] == "raw"
-    assert cell_children[0]["view"] == "gene_expression"
-    assert cell_children[1]["name"] == "pca"
-    assert cell_children[1]["view"] == "proteomics"
+    cell_children = config.cell_line_featurizer.featurizers
+    assert cell_children is not None
+    assert cell_children[0].name == "raw"
+    assert cell_children[0].view == "gene_expression"
+    assert cell_children[1].name == "pca"
+    assert cell_children[1].view == "proteomics"
 
 
 def test_build_model_config_from_literature_zoo_name() -> None:

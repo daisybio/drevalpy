@@ -7,7 +7,6 @@ from typing import Any
 
 import yaml
 
-from drevalpy.models.config import ModelConfig, validate
 from drevalpy.models.config.io import from_dict
 
 
@@ -35,14 +34,18 @@ def _parse_zoo_entry(
     *,
     source: Path,
     builtin_names: frozenset[str],
-) -> tuple[str, ModelConfig]:
+) -> tuple[str, Any]:
+    from drevalpy.models.config import ModelConfig
+
     _assert_not_builtin_zoo_name(entry_name, builtin_names)
     try:
         config = from_dict(payload, source=source)
-        validate(config)
     except ValueError as exc:
         msg = f"Invalid zoo entry {entry_name!r} in {source}: {exc}"
         raise ValueError(msg) from exc
+    if not isinstance(config, ModelConfig):
+        msg = f"Invalid zoo entry {entry_name!r} in {source}: expected ModelConfig"
+        raise ValueError(msg)
     return entry_name, config
 
 
@@ -51,8 +54,8 @@ def _collect_zoo_entries_from_yaml(
     *,
     source: Path,
     builtin_names: frozenset[str],
-) -> list[tuple[str, ModelConfig]]:
-    parsed: list[tuple[str, ModelConfig]] = []
+) -> list[tuple[str, Any]]:
+    parsed: list[tuple[str, Any]] = []
     if "predictor" in data:
         payload = dict(data)
         entry_name = str(payload.pop("name", source.stem))

@@ -1,20 +1,27 @@
-"""Full declarative model configuration."""
+"""Full declarative model configuration template."""
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, model_validator
+from typing import Any
 
+from pydantic import BaseModel, ConfigDict, ValidationInfo, model_validator
+
+from drevalpy.models.config.featurizer import CellLineFeaturizerConfig, DrugFeaturizerConfig
+from drevalpy.models.config.immutable import rebuild_model
+from drevalpy.models.config.predictor import PredictorConfig
 from drevalpy.types.model_scope import ModelScope
 from drevalpy.types.prediction_mode import PredictionMode
 
-from .featurizer import CellLineFeaturizerConfig, DrugFeaturizerConfig
-from .predictor import PredictorConfig
-
 
 class ModelConfig(BaseModel):
-    """Full declarative specification for a composed model."""
+    """Immutable class-level template for a composed model.
 
-    model_config = ConfigDict(extra="forbid")
+    Stores architecture (featurizers / predictor), prediction mode, scope, and
+    optional hyperparameter-space overrides. Concrete selected hyperparameter
+    values live on ``ResolvedModelConfig``.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     cell_line_featurizer: CellLineFeaturizerConfig | None = None
     drug_featurizer: DrugFeaturizerConfig | None = None
@@ -22,18 +29,43 @@ class ModelConfig(BaseModel):
     prediction_mode: PredictionMode = PredictionMode.REGRESSION
     scope: ModelScope = ModelScope.MULTI_DRUG
 
-    @model_validator(mode="after")
-    def _inject_single_drug_identity(self) -> ModelConfig:
-        """Fill ``drug_featurizer: identity`` for single-drug feature stacks that omit it.
+    @model_validator(mode="before")
+    @classmethod
+    def _inject_single_drug_identity(cls, data: Any) -> Any:
+        """Fill ``drug_featurizer: identity`` for single-drug stacks that omit it.
 
-        :returns: This config, with identity injected when applicable.
+        :param data: Raw constructor / validation payload.
+        :returns: Payload with identity drug featurizer injected when applicable.
         """
+        if not isinstance(data, dict):
+            return data
+        payload = dict(data)
+        scope = payload.get("scope", ModelScope.MULTI_DRUG)
+        try:
+            scope = scope if isinstance(scope, ModelScope) else ModelScope(scope)
+        except (TypeError, ValueError):
+            return payload
         if (
-            self.scope == ModelScope.SINGLE_DRUG
-            and self.cell_line_featurizer is not None
-            and self.drug_featurizer is None
+            scope == ModelScope.SINGLE_DRUG
+            and payload.get("cell_line_featurizer") is not None
+            and payload.get("drug_featurizer") is None
         ):
-            self.drug_featurizer = DrugFeaturizerConfig(name="identity")
+            payload["drug_featurizer"] = DrugFeaturizerConfig(name="identity")
+        return payload
+
+    @model_validator(mode="after")
+    def _validate_semantics(self, info: ValidationInfo) -> ModelConfig:
+        """Run registry / contract / block-schema checks once at construction.
+
+        :param info: Pydantic validation context.
+        :returns: This validated config.
+        """
+        # Skip when rebuilding from an already-validated dump with context flag.
+        if info.context and info.context.get("skip_semantic_validation"):
+            return self
+        from drevalpy.models.config.validation import validate
+
+        validate(self)
         return self
 
     @property
@@ -53,3 +85,11 @@ class ModelConfig(BaseModel):
             parts.append(drug.name)
         parts.append(self.predictor.name)
         return ":".join(parts)
+
+    def replace(self, **updates: Any) -> ModelConfig:
+        """Return a validated copy with the given field updates.
+
+        :param updates: Field overrides.
+        :returns: Newly validated ``ModelConfig``.
+        """
+        return rebuild_model(self, **updates)

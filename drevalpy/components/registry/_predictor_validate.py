@@ -52,6 +52,7 @@ def validate_predictor_registration(name: str, cls: type[Any]) -> None:
     :param name: Registry name under which *cls* is being registered.
     :param cls: Predictor class with contracts already attached by the decorator.
     """
+    from drevalpy.components.hyperparameter_space import validate_component_hyperparameter_space
     from drevalpy.components.predictors.block import BlockPredictor
     from drevalpy.components.predictors.feature_free import FeatureFreePredictor
     from drevalpy.components.predictors.matrix import MatrixPredictor
@@ -61,3 +62,4 @@ def validate_predictor_registration(name: str, cls: type[Any]) -> None:
     if leaf_base is MatrixPredictor:
         _validate_matrix_contracts(name, cls)
     _validate_single_drug_routing(name, cls, leaf_base)
+    validate_component_hyperparameter_space(name, cls)

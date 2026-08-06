@@ -317,12 +317,10 @@ Within a featurizer slot, ``+`` concatenates several featurizers into
          cfg = config.ModelConfig(
              cell_line_featurizer=config.CellLineFeaturizerConfig(
                  name="concatFeaturizers",
-                 hyperparameters={
-                     "featurizers": [
-                         {"name": "raw", "view": "expression"},
-                         {"name": "pca", "view": "methylation"},
-                     ],
-                 },
+                 featurizers=(
+                     {"name": "raw", "view": "expression"},
+                     {"name": "pca", "view": "methylation"},
+                 ),
              ),
              drug_featurizer=config.DrugFeaturizerConfig(name="fingerprints"),
              predictor=config.PredictorConfig(name="xgboost"),
@@ -333,12 +331,10 @@ Within a featurizer slot, ``+`` concatenates several featurizers into
          cfg = config.ModelConfig(
              cell_line_featurizer=config.CellLineFeaturizerConfig(
                  name="concatFeaturizers",
-                 hyperparameters={
-                     "featurizers": [
-                         "landmarkGenes",
-                         "normalizedProteomics",
-                     ],
-                 },
+                 featurizers=(
+                     "landmarkGenes",
+                     "normalizedProteomics",
+                 ),
              ),
              drug_featurizer=config.DrugFeaturizerConfig(name="fingerprints"),
              predictor=config.PredictorConfig(name="lightgbm"),

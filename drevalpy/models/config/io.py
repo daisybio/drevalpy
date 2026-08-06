@@ -9,6 +9,7 @@ import yaml
 from pydantic import ValidationError
 
 from drevalpy.models.config.model import ModelConfig
+from drevalpy.models.config.resolved import ResolvedModelConfig
 from drevalpy.models.config.spec import _build_from_spec
 from drevalpy.types.prediction_mode import PredictionMode
 
@@ -40,13 +41,14 @@ def from_spec(
     *,
     hyperparameters: dict[str, Any] | None = None,
     prediction_mode: str | None = None,
-) -> ModelConfig:
+) -> ModelConfig | ResolvedModelConfig:
     """Build a ``ModelConfig`` from a recipe, zoo, legacy, or baseline spec.
 
     :param spec: Zoo preset name, colon-separated recipe, or legacy baseline token.
     :param hyperparameters: Optional flat public hyperparameter overrides.
     :param prediction_mode: Optional prediction mode string; defaults to regression.
-    :returns: Validated ``ModelConfig`` instance.
+    :returns: Validated ``ModelConfig`` template, or ``ResolvedModelConfig`` when
+        *hyperparameters* are provided.
     """
     if prediction_mode is None:
         return _build_from_spec(spec, hyperparameters=hyperparameters)

@@ -25,22 +25,9 @@ def test_view_keys_rejected() -> None:
 
 
 def test_methylation_pca_components_alias() -> None:
-    from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
-    from drevalpy.models.config import FeaturizerConfig
-
     config = get_zoo_config("MultiViewRandomForest")
     updated = apply_public_hyperparameters_to_config(config, {"methylation_pca_components": 7})
-    assert updated.cell_line_featurizer is not None
-    children = updated.cell_line_featurizer.hyperparameters.get("featurizers", [])
-    n_components: int | None = None
-    for child in children:
-        child_cfg = FeaturizerConfig.model_validate(
-            normalize_featurizer_config(child, default_registry="cell_line"),
-        )
-        if child_cfg.name == "pca" and child_cfg.view == "methylation":
-            n_components = int(child_cfg.hyperparameters["n_components"])
-            break
-    assert n_components == 7
+    assert updated.featurizer_values("cell_line", "pca[methylation]")["n_components"] == 7
 
 
 def test_unknown_flat_keys_rejected() -> None:
@@ -64,16 +51,5 @@ def test_qualified_n_components_update_single_leaf() -> None:
             "cell_line_featurizer.pca[proteomics].n_components": 16,
         },
     )
-    from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
-    from drevalpy.models.config import FeaturizerConfig
-
-    assert updated.cell_line_featurizer is not None
-    children = updated.cell_line_featurizer.hyperparameters["featurizers"]
-    values: dict[str, int] = {}
-    for child in children:
-        child_cfg = FeaturizerConfig.model_validate(
-            normalize_featurizer_config(child, default_registry="cell_line"),
-        )
-        if child_cfg.name == "pca":
-            values[str(child_cfg.view)] = int(child_cfg.hyperparameters["n_components"])
-    assert values == {"gene_expression": 32, "proteomics": 16}
+    assert updated.featurizer_values("cell_line", "pca[expression]")["n_components"] == 32
+    assert updated.featurizer_values("cell_line", "pca[proteomics]")["n_components"] == 16

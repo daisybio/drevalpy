@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 import numpy as np
 
 from drevalpy.components.feature_block import FeatureBlock
 from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
+from drevalpy.components.featurizer_label import qualified_featurizer_selector
 from drevalpy.components.featurizers._matrix import unique_entity_ids
 from drevalpy.components.featurizers.base import Featurizer
 from drevalpy.components.model_input_batch import ModelInputBatch
@@ -15,7 +16,8 @@ from drevalpy.components.model_input_build import build_model_input_batch
 from drevalpy.components.predictors.base import Predictor
 from drevalpy.components.training_context import TrainingContext
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
-from drevalpy.models.config import ModelConfig, PredictionMode, PredictorConfig, validate
+from drevalpy.models.config import FeaturizerConfig, ModelConfig, PredictionMode
+from drevalpy.models.config.resolved import ResolvedModelConfig
 
 
 def _build_fit_context(
@@ -50,30 +52,45 @@ def _empty_feature_dataset() -> FeatureDataset:
     return FeatureDataset(features={})
 
 
-def build_component_stack(config: ModelConfig) -> _ComponentStack:
-    """Instantiate featurizers and predictor for a validated ``ModelConfig``.
+def _instantiate_featurizer(
+    config: FeaturizerConfig,
+    resolved: ResolvedModelConfig,
+) -> Featurizer:
+    registry = str(config.registry)
+    if config.name == "concatFeaturizers":
+        children = [_instantiate_featurizer(child, resolved) for child in (config.featurizers or ())]
+        return config.create_instance({"featurizers": children})
+    selector = qualified_featurizer_selector(config.name, config.view)
+    return config.create_instance(resolved.featurizer_values(registry, selector))
 
-    :param config: Validated model configuration.
+
+def build_component_stack(config: ModelConfig | ResolvedModelConfig) -> _ComponentStack:
+    """Instantiate featurizers and predictor for a validated config.
+
+    :param config: Template or resolved model configuration.
     :returns: Component stack ready for training.
     """
-    validate(config)
-    cell_line = config.cell_line_featurizer.create_instance() if config.cell_line_featurizer else None
-    drug = config.drug_featurizer.create_instance() if config.drug_featurizer else None
-    predictor_hp = {
-        **dict(config.predictor.hyperparameters),
-        "prediction_mode": config.prediction_mode,
+    from drevalpy.components.tuning.search_space import resolve_model_config
+
+    resolved = config if isinstance(config, ResolvedModelConfig) else resolve_model_config(config)
+    template = resolved.template
+    cell_line = (
+        _instantiate_featurizer(template.cell_line_featurizer, resolved)
+        if template.cell_line_featurizer is not None
+        else None
+    )
+    drug = _instantiate_featurizer(template.drug_featurizer, resolved) if template.drug_featurizer is not None else None
+    predictor_hp: dict[str, Any] = {
+        **resolved.predictor_values(),
+        "prediction_mode": template.prediction_mode,
     }
-    predictor = PredictorConfig(
-        name=config.predictor.name,
-        hyperparameters=predictor_hp,
-        hyperparameter_space=config.predictor.hyperparameter_space,
-    ).create_instance()
+    predictor = template.predictor.create_instance(predictor_hp)
     return _ComponentStack(
         cell_line,
         drug,
         predictor,
-        prediction_mode=config.prediction_mode,
-        config=config,
+        prediction_mode=template.prediction_mode,
+        resolved=resolved,
     )
 
 
@@ -87,17 +104,42 @@ class _ComponentStack:
         predictor: Predictor,
         *,
         prediction_mode: PredictionMode = PredictionMode.REGRESSION,
+        resolved: ResolvedModelConfig | None = None,
         config: ModelConfig | None = None,
     ) -> None:
         self._cell_line_featurizer = cell_line_featurizer
         self._drug_featurizer = drug_featurizer
         self._predictor = predictor
         self._prediction_mode = prediction_mode
-        self._config = config.model_copy(deep=True) if config is not None else None
+        self._resolved: ResolvedModelConfig | None
+        if resolved is not None:
+            self._resolved = ResolvedModelConfig.model_validate(resolved.model_dump(mode="python"))
+        elif config is not None:
+            from drevalpy.components.tuning.search_space import resolve_model_config
+
+            self._resolved = resolve_model_config(config)
+        else:
+            self._resolved = None
         self._cell_line_matrix: np.ndarray | None = None
         self._drug_matrix: np.ndarray | None = None
         self._cell_line_entity_ids: np.ndarray | None = None
         self._drug_entity_ids: np.ndarray | None = None
+
+    @property
+    def config(self) -> ModelConfig | None:
+        """Return the immutable template associated with this stack.
+
+        :returns: Template ``ModelConfig``, or ``None``.
+        """
+        return self._resolved.template if self._resolved is not None else None
+
+    @property
+    def resolved(self) -> ResolvedModelConfig | None:
+        """Return the resolved instance configuration.
+
+        :returns: ``ResolvedModelConfig``, or ``None``.
+        """
+        return self._resolved
 
     def _build_batch(
         self,
@@ -257,14 +299,6 @@ class _ComponentStack:
         )
         self._predictor.fit(batch)
         return self
-
-    @property
-    def config(self) -> ModelConfig | None:
-        """Return a defensive copy of the resolved model config.
-
-        :returns: Deep copy of the stack config, or ``None`` when unset.
-        """
-        return self._config.model_copy(deep=True) if self._config is not None else None
 
     def is_fitted(self) -> bool:
         """Return whether the predictor has fitted state.

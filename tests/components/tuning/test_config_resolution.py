@@ -16,7 +16,7 @@ def test_default_config_for_elastic_net_is_component_local() -> None:
     register_builtins.register_builtin_components()
     config = default_config_for_drp_model(construct_model("ElasticNet"))
     assert config is not None
-    assert config.predictor.name == "elasticNet"
+    assert config.template.predictor.name == "elasticNet"
     assert_component_local_hyperparameters(config)
 
 

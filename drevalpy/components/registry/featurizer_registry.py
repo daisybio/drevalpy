@@ -49,11 +49,22 @@ class FeaturizerRegistry(Registry):
                     raise ValueError(msg)
                 self._apply_contract(cls, "contract", normalized_contract)
                 apply_registration_metadata(cls, metadata)
+                self._validate_registration(name, cls)
                 self._store[name] = cls
                 cls.registry_name = name
             return cls
 
         return decorator
+
+    def _validate_registration(self, name: str, cls: type[Any]) -> None:
+        """Enforce featurizer class invariants at registration time.
+
+        :param name: Registry name under which *cls* is being registered.
+        :param cls: Featurizer class with contract metadata already attached.
+        """
+        from drevalpy.components.hyperparameter_space import validate_component_hyperparameter_space
+
+        validate_component_hyperparameter_space(name, cls)
 
     def _component_metadata(self, name: str, cls: type[Any]) -> dict[str, Any]:
         return featurizer_component_metadata(self._display_name, name, cls)

@@ -2,16 +2,17 @@
 
 from __future__ import annotations
 
-import copy
 import re
-from typing import Any, TypeVar
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Any
 
-from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
 from drevalpy.components.featurizer_label import qualified_featurizer_selector
+from drevalpy.components.featurizer_tree import iter_featurizer_leaves
 from drevalpy.components.registry import get_cell_line_featurizer, get_drug_featurizer, get_predictor
 from drevalpy.models.config import FeaturizerConfig, ModelConfig, PredictorConfig
 
-_FeaturizerConfigT = TypeVar("_FeaturizerConfigT", bound=FeaturizerConfig)
+if TYPE_CHECKING:
+    from drevalpy.models.config.resolved import ResolvedModelConfig
 
 _CELL_LINE_FEATURIZER_SLOT = "cell_line_featurizer"
 _DRUG_FEATURIZER_SLOT = "drug_featurizer"
@@ -30,9 +31,9 @@ _QUALIFIED_FEATURIZER_KEY_RE = re.compile(
 )
 
 
-def _effective_space(config_space: dict[str, dict[str, Any]] | None, cls: type[Any]) -> dict[str, Any]:
+def _effective_space(config_space: Mapping[str, Any] | None, cls: type[Any]) -> dict[str, Any]:
     if config_space is not None:
-        return dict(config_space)
+        return {key: dict(value) if isinstance(value, Mapping) else value for key, value in config_space.items()}
     return dict(cls.get_hyperparameter_space())
 
 
@@ -58,8 +59,6 @@ def _leaf_selector(featurizer: FeaturizerConfig) -> str:
 
 
 def _accepted_featurizer_selectors(featurizer: FeaturizerConfig, registry: str) -> list[str]:
-    from drevalpy.components.featurizer_tree import iter_featurizer_leaves
-
     return [_leaf_selector(leaf) for leaf in iter_featurizer_leaves(featurizer, registry)]
 
 
@@ -93,24 +92,23 @@ def _split_prefixed_key(key: str) -> tuple[str, str, str] | None:
     return _SLOT_TO_REGISTRY[slot], match.group("selector"), match.group("param")
 
 
-def _featurizer_spaces(featurizer: FeaturizerConfig) -> dict[str, Any]:
-    registry = str(featurizer.registry)
-    if featurizer.name == "concatFeaturizers":
-        merged: dict[str, Any] = {}
-        children = featurizer.hyperparameters.get("featurizers", [])
-        for child in children:
-            child_cfg = FeaturizerConfig.model_validate(
-                normalize_featurizer_config(child, default_registry=registry),
-            )
-            child_space = _featurizer_spaces(child_cfg)
-            for key, spec in child_space.items():
-                if _is_featurizer_slot_key(key):
-                    merged[key] = spec
-                else:
-                    selector = _leaf_selector(child_cfg)
-                    merged[_featurizer_prefix(registry, selector, key)] = spec
-        return merged
+def _merge_concat_child_spaces(
+    featurizer: FeaturizerConfig,
+    registry: str,
+) -> dict[str, Any]:
+    merged: dict[str, Any] = {}
+    for child_cfg in featurizer.featurizers or ():
+        child_space = _featurizer_spaces(child_cfg)
+        for key, spec in child_space.items():
+            if _is_featurizer_slot_key(key):
+                merged[key] = spec
+            else:
+                selector = _leaf_selector(child_cfg)
+                merged[_featurizer_prefix(registry, selector, key)] = spec
+    return merged
 
+
+def _leaf_featurizer_spaces(featurizer: FeaturizerConfig, registry: str) -> dict[str, Any]:
     cls = (
         get_cell_line_featurizer(featurizer.name)
         if registry == "cell_line"
@@ -118,14 +116,27 @@ def _featurizer_spaces(featurizer: FeaturizerConfig) -> dict[str, Any]:
             featurizer.name,
         )
     )
-    space = _effective_space(featurizer.hyperparameter_space, cls)
+    space = _effective_space(
+        dict(featurizer.hyperparameter_space) if featurizer.hyperparameter_space is not None else None,
+        cls,
+    )
     selector = _leaf_selector(featurizer)
     return {_featurizer_prefix(registry, selector, key): value for key, value in space.items()}
 
 
+def _featurizer_spaces(featurizer: FeaturizerConfig) -> dict[str, Any]:
+    registry = str(featurizer.registry)
+    if featurizer.name == "concatFeaturizers":
+        return _merge_concat_child_spaces(featurizer, registry)
+    return _leaf_featurizer_spaces(featurizer, registry)
+
+
 def _predictor_spaces(predictor: PredictorConfig) -> dict[str, Any]:
     cls = get_predictor(predictor.name)
-    space = _effective_space(predictor.hyperparameter_space, cls)
+    space = _effective_space(
+        dict(predictor.hyperparameter_space) if predictor.hyperparameter_space is not None else None,
+        cls,
+    )
     return {_predictor_prefix(predictor.name, key): value for key, value in space.items()}
 
 
@@ -202,148 +213,44 @@ def _split_predictor_key(key: str) -> tuple[str, str] | None:
     return predictor_name, ".".join(param_parts)
 
 
-def _merged_updates_for_featurizer(
-    merged: dict[str, Any],
+def resolve_model_config(
+    template: ModelConfig,
+    overrides: dict[str, Any] | None = None,
     *,
-    registry: str,
-    selector: str,
-) -> dict[str, Any]:
-    return {
-        param: value
-        for key, value in merged.items()
-        if (parsed := _split_prefixed_key(key)) is not None and parsed[0] == registry and parsed[1] == selector
-        for param in [parsed[2]]
-    }
+    include_defaults: bool = True,
+) -> ResolvedModelConfig:
+    """Build a resolved instance config from a template and qualified overrides.
 
-
-def _apply_hyperparameter_updates(
-    featurizer: _FeaturizerConfigT,
-    updates: dict[str, Any],
-) -> _FeaturizerConfigT:
-    if not updates:
-        return featurizer
-    return featurizer.model_copy(
-        update={"hyperparameters": {**featurizer.hyperparameters, **updates}},
-        deep=True,
-    )
-
-
-def _unknown_featurizer_key_message(
-    key: str,
-    *,
-    registry: str,
-    accepted: list[str],
-) -> str:
-    preview = ", ".join(repr(selector) for selector in accepted) if accepted else "(none)"
-    return (
-        f"Unknown structured featurizer hyperparameter {key!r} for registry {registry!r}. "
-        f"Accepted selectors: {preview}."
-    )
-
-
-def _validate_featurizer_keys_for_tree(
-    merged: dict[str, Any],
-    featurizer: FeaturizerConfig,
-) -> None:
-    registry = str(featurizer.registry)
-    accepted = _accepted_featurizer_selectors(featurizer, registry)
-    accepted_set = set(accepted)
-    slot_prefix = _featurizer_slot_prefix(registry)
-    for key in merged:
-        if not key.startswith(slot_prefix):
-            continue
-        parsed = _split_prefixed_key(key)
-        if parsed is None:
-            msg = _unknown_featurizer_key_message(key, registry=registry, accepted=accepted)
-            raise ValueError(msg)
-        key_registry, selector, _param = parsed
-        if key_registry != registry or selector not in accepted_set:
-            msg = _unknown_featurizer_key_message(key, registry=registry, accepted=accepted)
-            raise ValueError(msg)
-
-
-def _apply_to_concat_featurizer(
-    featurizer: _FeaturizerConfigT,
-    merged: dict[str, Any],
-    *,
-    registry: str,
-) -> _FeaturizerConfigT:
-    children = list(featurizer.hyperparameters.get("featurizers", []))
-    updated_children: list[Any] = []
-    for child in children:
-        child_cfg = FeaturizerConfig.model_validate(
-            normalize_featurizer_config(child, default_registry=registry),
-        )
-        if child_cfg.name == "concatFeaturizers":
-            updated = _apply_to_concat_featurizer(child_cfg, merged, registry=registry)
-        else:
-            child_updates = _merged_updates_for_featurizer(
-                merged,
-                registry=registry,
-                selector=_leaf_selector(child_cfg),
-            )
-            updated = _apply_hyperparameter_updates(child_cfg, child_updates)
-        updated_children.append(updated.model_dump())
-    return featurizer.model_copy(
-        update={
-            "hyperparameters": {
-                **featurizer.hyperparameters,
-                "featurizers": updated_children,
-            }
-        },
-        deep=True,
-    )
-
-
-def _apply_to_featurizer(
-    featurizer: _FeaturizerConfigT,
-    merged: dict[str, Any],
-) -> _FeaturizerConfigT:
-    registry = str(featurizer.registry)
-    _validate_featurizer_keys_for_tree(merged, featurizer)
-    if featurizer.name == "concatFeaturizers":
-        return _apply_to_concat_featurizer(featurizer, merged, registry=registry)
-
-    updates = _merged_updates_for_featurizer(
-        merged,
-        registry=registry,
-        selector=_leaf_selector(featurizer),
-    )
-    return _apply_hyperparameter_updates(featurizer, updates)
-
-
-def apply_merged_to_model_config(config: ModelConfig, merged: dict[str, Any]) -> ModelConfig:
-    """Apply merged prefixed hyperparameters onto a model config.
-
-    :param config: config.
-    :param merged: merged.
-    :returns: Result.
+    :param template: Immutable class-level ``ModelConfig``.
+    :param overrides: Qualified concrete values to apply on top of defaults.
+    :param include_defaults: When ``True``, fill omitted keys from effective spaces.
+    :returns: Validated ``ResolvedModelConfig``.
     """
     from drevalpy.components.tuning.hyperparameter_keys import validate_merged_mapping
+    from drevalpy.models.config.resolved import ResolvedModelConfig
 
-    validate_merged_mapping(config, merged)
-    result = copy.deepcopy(config)
-    if result.cell_line_featurizer is not None:
-        result.cell_line_featurizer = _apply_to_featurizer(result.cell_line_featurizer, merged)
-    if result.drug_featurizer is not None:
-        result.drug_featurizer = _apply_to_featurizer(result.drug_featurizer, merged)
-    predictor_updates = {
-        param: value
-        for key, value in merged.items()
-        if (parsed := _split_predictor_key(key)) is not None and parsed[0] == result.predictor.name
-        for param in [parsed[1]]
-    }
-    if predictor_updates:
-        result.predictor = result.predictor.model_copy(
-            update={
-                "hyperparameters": {
-                    **result.predictor.hyperparameters,
-                    **predictor_updates,
-                }
-            },
-            deep=True,
-        )
-    return result
+    qualified = dict(overrides or {})
+    if include_defaults:
+        defaults = defaults_from_merged_space(merge_model_config_spaces(template))
+        values = {**defaults, **qualified}
+    else:
+        values = qualified
+    validate_merged_mapping(template, values)
+    return ResolvedModelConfig(template=template, values=values)
+
+
+def apply_merged_to_model_config(config: ModelConfig, merged: dict[str, Any]) -> ResolvedModelConfig:
+    """Apply merged prefixed hyperparameters onto a model template.
+
+    Historically returned a ``ModelConfig`` with concrete values written into
+    component ``hyperparameters``. It now returns a ``ResolvedModelConfig``
+    and leaves the template unchanged.
+
+    :param config: Immutable model template.
+    :param merged: Qualified concrete hyperparameter mapping.
+    :returns: Resolved instance configuration.
+    """
+    return resolve_model_config(config, merged, include_defaults=True)
 
 
 def extract_defaults(
@@ -361,9 +268,11 @@ def extract_defaults(
     defaults: dict[str, Any] = {}
 
     def _pull(space: dict[str, Any], prefix: str) -> None:
+        from drevalpy.components.hyperparameter_space import validate_hyperparameter_space
+
+        validate_hyperparameter_space(space, context=f"hyperparameter space under {prefix!r}")
         for name, spec in space.items():
-            if isinstance(spec, dict) and "default" in spec:
-                defaults[f"{prefix}.{name}"] = spec["default"]
+            defaults[f"{prefix}.{name}"] = spec["default"]
 
     if cell_line_featurizer_space:
         _pull(cell_line_featurizer_space, _CELL_LINE_FEATURIZER_SLOT)
@@ -380,11 +289,10 @@ def defaults_from_merged_space(space: dict[str, Any]) -> dict[str, Any]:
     :param space: space.
     :returns: Result.
     """
-    defaults: dict[str, Any] = {}
-    for key, spec in space.items():
-        if isinstance(spec, dict) and "default" in spec:
-            defaults[key] = spec["default"]
-    return defaults
+    from drevalpy.components.hyperparameter_space import validate_hyperparameter_space
+
+    validate_hyperparameter_space(space, context="merged hyperparameter space")
+    return {key: spec["default"] for key, spec in space.items()}
 
 
 def dict_to_ray_space(space_dict: dict[str, Any]) -> dict[str, Any]:
@@ -398,7 +306,7 @@ def dict_to_ray_space(space_dict: dict[str, Any]) -> dict[str, Any]:
 
     result: dict[str, Any] = {}
     for name, spec in space_dict.items():
-        if not isinstance(spec, dict):
+        if not isinstance(spec, Mapping):
             result[name] = spec
             continue
         kind = spec.get("type", "categorical")

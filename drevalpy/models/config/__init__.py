@@ -10,6 +10,7 @@ from drevalpy.models.config.featurizer import (
 from drevalpy.models.config.io import from_dict, from_spec, from_yaml
 from drevalpy.models.config.model import ModelConfig
 from drevalpy.models.config.predictor import PredictorConfig
+from drevalpy.models.config.resolved import ResolvedModelConfig
 from drevalpy.models.config.validation import validate
 from drevalpy.types.model_scope import ModelScope
 from drevalpy.types.prediction_mode import PredictionMode
@@ -22,6 +23,7 @@ __all__ = [
     "ModelScope",
     "PredictionMode",
     "PredictorConfig",
+    "ResolvedModelConfig",
     "from_dict",
     "from_spec",
     "from_yaml",

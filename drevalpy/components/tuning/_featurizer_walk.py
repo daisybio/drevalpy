@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 
-from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
+from drevalpy.components.featurizer_tree import iter_featurizer_leaves
 from drevalpy.models.config import FeaturizerConfig, ModelConfig
 
 
@@ -30,11 +30,4 @@ def walk_featurizer_configs(
     :param registry: Default registry used when normalizing nested children.
     :yields: Leaf ``FeaturizerConfig`` nodes (concat parents are expanded).
     """
-    if featurizer.name == "concatFeaturizers":
-        for child in featurizer.hyperparameters.get("featurizers", []):
-            child_cfg = FeaturizerConfig.model_validate(
-                normalize_featurizer_config(child, default_registry=registry),
-            )
-            yield from walk_featurizer_configs(child_cfg, registry)
-        return
-    yield featurizer
+    yield from iter_featurizer_leaves(featurizer, registry)

@@ -12,8 +12,7 @@ from drevalpy.models.config import from_spec
 
 
 def test_sklearn_model_config_builds_runnable_model() -> None:
-    config = from_spec("ElasticNet", hyperparameters={"alpha": 0.1, "l1_ratio": 0.5})
-    model = construct_model("ElasticNet", config)()
+    model = construct_model("ElasticNet")({"alpha": 0.1, "l1_ratio": 0.5})
     response = DrugResponseDataset(
         response=np.array([1.0, 2.0, 3.0, 4.0]),
         cell_line_ids=np.array(["cl1", "cl1", "cl2", "cl2"]),
@@ -102,7 +101,7 @@ def test_model_has_no_predictor_hyperparameter_mutator() -> None:
     model = construct_model("ElasticNet")({"alpha": 0.1, "l1_ratio": 0.5})
     assert not hasattr(model, "update_predictor_hyperparameters")
     assert model._resolved_model_config is not None
-    assert model._resolved_model_config.predictor.hyperparameters["alpha"] == 0.1
+    assert model._resolved_model_config.predictor_values()["alpha"] == 0.1
 
 
 def test_druggnn_stack_configures_both_featurizers() -> None:

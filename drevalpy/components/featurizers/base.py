@@ -105,9 +105,6 @@ class Featurizer(ABC):
         if declared:
             return tuple(spec for spec in declared if isinstance(spec, BlockSpec))
         view = getattr(config, "view", None)
-        hyperparams = getattr(config, "hyperparameters", None) or {}
-        if not isinstance(view, str):
-            view = hyperparams.get("view") if isinstance(hyperparams, dict) else None
         if not isinstance(view, str):
             view = getattr(cls, "_default_view", None)
         if isinstance(view, str):
@@ -128,11 +125,11 @@ class Featurizer(ABC):
 
         :returns: Parameter names mapped to their declared ``default`` values.
         """
-        return {
-            key: spec["default"]
-            for key, spec in cls.get_hyperparameter_space().items()
-            if isinstance(spec, dict) and "default" in spec
-        }
+        from drevalpy.components.hyperparameter_space import validate_hyperparameter_space
+
+        space = cls.get_hyperparameter_space()
+        validate_hyperparameter_space(space, context=f"{cls.__name__}.get_hyperparameter_space()")
+        return {key: spec["default"] for key, spec in space.items()}
 
     @classmethod
     def load_features(cls, data_path: str, dataset_name: str, **kwargs: object) -> FeatureDataset:

@@ -71,19 +71,15 @@ def test_nested_concat_flattens_child_blocks() -> None:
     config = CellLineFeaturizerConfig.model_validate(
         {
             "name": "concatFeaturizers",
-            "hyperparameters": {
-                "featurizers": [
-                    {"name": "denseCellLine", "view": "gene_expression"},
-                    {
-                        "name": "concatFeaturizers",
-                        "hyperparameters": {
-                            "featurizers": [
-                                {"name": "denseCellLine", "view": "mutations"},
-                            ]
-                        },
-                    },
-                ]
-            },
+            "featurizers": [
+                {"name": "denseCellLine", "view": "gene_expression"},
+                {
+                    "name": "concatFeaturizers",
+                    "featurizers": [
+                        {"name": "denseCellLine", "view": "mutations"},
+                    ],
+                },
+            ],
         }
     )
     assert resolve_output_block_specs(config) == (
@@ -99,12 +95,16 @@ def test_sparsego_expression_and_mutations_block_names() -> None:
     expression = FeaturizerConfig(
         name="sparsegoOntology",
         registry="cell_line",
-        hyperparameters={"input_type": "expression"},
+        hyperparameter_space={
+            "input_type": {"type": "categorical", "choices": ["expression", "mutations"], "default": "expression"}
+        },
     )
     mutations = FeaturizerConfig(
         name="sparsegoOntology",
         registry="cell_line",
-        hyperparameters={"input_type": "mutations"},
+        hyperparameter_space={
+            "input_type": {"type": "categorical", "choices": ["expression", "mutations"], "default": "mutations"}
+        },
     )
     assert resolve_output_block_specs(expression) == (
         BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX, metadata=True),

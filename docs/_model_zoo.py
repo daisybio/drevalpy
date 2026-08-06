@@ -20,13 +20,7 @@ def _featurizer_recipe(feat: FeaturizerConfig | None) -> str:
     if feat is None:
         return ""
     if feat.name == "concatFeaturizers":
-        children = feat.hyperparameters.get("featurizers", [])
-        parts: list[str] = []
-        for child in children:
-            if isinstance(child, FeaturizerConfig):
-                parts.append(_featurizer_recipe(child))
-            else:
-                parts.append(_featurizer_recipe(FeaturizerConfig.model_validate(child)))
+        parts = [_featurizer_recipe(child) for child in (feat.featurizers or ())]
         return "+".join(parts) if parts else "concatFeaturizers"
     if feat.view:
         return f"{feat.name}[{feat.view}]"

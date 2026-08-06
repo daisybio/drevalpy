@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from drevalpy.models.config import ModelConfig, validate
+from drevalpy.models.config import ModelConfig, ResolvedModelConfig
 from drevalpy.models.config.io import from_yaml
 from drevalpy.models.zoo._external_load import (
     _collect_zoo_entries_from_yaml,
@@ -15,7 +15,6 @@ from drevalpy.types.model_scope import ModelScope
 
 _BUILTIN_ZOO_DIR = Path(__file__).resolve().parent
 _EXTERNAL_ZOO: dict[str, ModelConfig] = {}
-_VALIDATED_BUILTIN_NAMES: set[str] = set()
 
 
 def _load_builtin_entries() -> dict[str, ModelConfig]:
@@ -71,9 +70,6 @@ def get_zoo_config(name: str) -> ModelConfig:
     if name not in _BUILTIN_ZOO:
         msg = f"Unknown zoo entry: {name}"
         raise KeyError(msg)
-    if name not in _VALIDATED_BUILTIN_NAMES:
-        validate(_BUILTIN_ZOO[name])
-        _VALIDATED_BUILTIN_NAMES.add(name)
     return _clone_model_config(_BUILTIN_ZOO[name])
 
 
@@ -94,7 +90,6 @@ def register_external_zoo_entry(name: str, config: ModelConfig, *, replace: bool
     if name in _EXTERNAL_ZOO and not replace:
         msg = f"External zoo entry {name!r} is already registered"
         raise ValueError(msg)
-    validate(config)
     _EXTERNAL_ZOO[name] = _clone_model_config(config)
 
 
@@ -119,12 +114,17 @@ def load_external_zoo_file(path: Path | str) -> list[str]:
     return [entry_name for entry_name, _ in parsed]
 
 
-def zoo_model_config(name: str, hyperparameters: dict[str, Any] | None = None) -> ModelConfig:
+def zoo_model_config(
+    name: str,
+    hyperparameters: dict[str, Any] | None = None,
+) -> ModelConfig | ResolvedModelConfig:
     """Return a zoo config with optional public flat hyperparameter overrides.
+
+    When *hyperparameters* are provided, returns a ``ResolvedModelConfig``.
 
     :param name: Built-in or external zoo preset name.
     :param hyperparameters: Optional flat public overrides applied to the preset.
-    :returns: ``ModelConfig`` copy, with overrides applied when provided.
+    :returns: ``ModelConfig`` copy, or resolved config when overrides are provided.
     """
     config = get_zoo_config(name)
     if not hyperparameters:
@@ -135,4 +135,4 @@ def zoo_model_config(name: str, hyperparameters: dict[str, Any] | None = None) -
 
 
 def _clone_model_config(config: ModelConfig) -> ModelConfig:
-    return config.model_copy(deep=True)
+    return ModelConfig.model_validate(config.model_dump(mode="python"))

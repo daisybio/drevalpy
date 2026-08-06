@@ -13,7 +13,7 @@ from drevalpy.components.featurizers.cell_line.concat import (
 from drevalpy.components.featurizers.drug.concat import ConcatFeaturizersDrugFeaturizer
 from drevalpy.components.register_builtins import register_builtin_components
 from drevalpy.datasets.dataset import FeatureDataset
-from drevalpy.models.config import FeaturizerConfig
+from drevalpy.models.config import CellLineFeaturizerConfig, FeaturizerConfig
 
 
 def _feature_dataset() -> FeatureDataset:
@@ -83,16 +83,8 @@ def test_concat_featurizers_fit_transform_and_blocks() -> None:
 def test_concat_uses_canonical_block_names_for_same_name_different_views() -> None:
     featurizer = ConcatFeaturizersCellLineFeaturizer(
         featurizers=[
-            {
-                "name": "pca",
-                "view": "gene_expression",
-                "hyperparameters": {"n_components": 1},
-            },
-            {
-                "name": "pca",
-                "view": "proteomics",
-                "hyperparameters": {"n_components": 1},
-            },
+            CellLineFeaturizerConfig(name="pca", view="gene_expression", options={"n_components": 1}),
+            CellLineFeaturizerConfig(name="pca", view="proteomics", options={"n_components": 1}),
         ],
     )
     features = _multi_view_feature_dataset()

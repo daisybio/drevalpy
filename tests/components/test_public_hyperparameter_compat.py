@@ -50,8 +50,7 @@ def test_default_config_has_component_local_hyperparameters_only() -> None:
     model_cls = construct_model("PcaOneHotRF", "pca[expression]:identity:randomForest")
     config = default_config_for_drp_model(model_cls)
     assert config is not None
-    assert config.cell_line_featurizer is not None
-    assert config.cell_line_featurizer.hyperparameters == {"n_components": 128}
+    assert config.featurizer_values("cell_line", "pca[expression]")["n_components"] == 128
     assert_component_local_hyperparameters(config)
 
 
@@ -62,8 +61,7 @@ def test_public_round_trip_for_constructed_model() -> None:
     public = public_hyperparameters_from_config(config)
     rebuilt = config_from_public_hyperparameters(model_cls, public)
     assert rebuilt is not None
-    assert rebuilt.cell_line_featurizer is not None
-    assert rebuilt.cell_line_featurizer.hyperparameters == {"n_components": 128}
+    assert rebuilt.featurizer_values("cell_line", "pca[expression]")["n_components"] == 128
     assert_component_local_hyperparameters(rebuilt)
 
 
@@ -71,7 +69,7 @@ def test_tuned_config_strips_structured_keys() -> None:
     model_cls = construct_model("PcaOneHotRF", "pca[expression]:identity:randomForest")
     base = default_config_for_drp_model(model_cls)
     assert base is not None
-    merged = defaults_from_merged_space(merge_model_config_spaces(base))
+    merged = defaults_from_merged_space(merge_model_config_spaces(base.template))
     tuned = tuned_config_for_drp_model(model_cls, merged)
     assert tuned is not None
     assert_component_local_hyperparameters(tuned)
@@ -95,10 +93,7 @@ def test_pca_methylation_pca_components_alias_round_trip() -> None:
         {"methylation_pca_components": 9},
     )
     assert rebuilt is not None
-    assert rebuilt.cell_line_featurizer is not None
-    children = rebuilt.cell_line_featurizer.hyperparameters["featurizers"]
-    pca_child = next(child for child in children if child["name"] == "pca")
-    assert pca_child["hyperparameters"]["n_components"] == 9
+    assert rebuilt.featurizer_values("cell_line", "pca[methylation]")["n_components"] == 9
 
 
 def test_cell_line_views_override_on_configure_path_rejected() -> None:
@@ -110,33 +105,28 @@ def test_cell_line_views_override_on_configure_path_rejected() -> None:
 
 
 def test_pca_methylation_flat_key_round_trip() -> None:
-    from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
+    from drevalpy.components.tuning.search_space import resolve_model_config
     from drevalpy.models.config import CellLineFeaturizerConfig, DrugFeaturizerConfig, ModelConfig, PredictorConfig
 
-    config = ModelConfig(
+    template = ModelConfig(
         cell_line_featurizer=CellLineFeaturizerConfig.model_validate(
-            normalize_featurizer_config(
-                [
-                    "scaledGeneExpression",
-                    {"pca[methylation]": {"n_components": 100}},
-                ],
-                default_registry="cell_line",
-            ),
+            [
+                "scaledGeneExpression",
+                {"pca[methylation]": {"n_components": 100}},
+            ],
         ),
-        drug_featurizer=DrugFeaturizerConfig.model_validate(
-            normalize_featurizer_config("fingerprints", default_registry="drug"),
-        ),
+        drug_featurizer=DrugFeaturizerConfig.model_validate("fingerprints"),
         predictor=PredictorConfig(name="randomForest"),
+    )
+    config = resolve_model_config(
+        template,
+        {"cell_line_featurizer.pca[methylation].n_components": 100},
     )
     public = public_hyperparameters_from_config(config)
     assert public["n_components"] == 100
     rebuilt = config_from_public_hyperparameters(construct_model("MultiViewRandomForest"), public)
     assert rebuilt is not None
-    assert rebuilt.cell_line_featurizer is not None
-    children = rebuilt.cell_line_featurizer.hyperparameters["featurizers"]
-    pca_child = next(child for child in children if child["name"] == "pca")
-    assert pca_child["view"] == "methylation"
-    assert pca_child["hyperparameters"]["n_components"] == 100
+    assert rebuilt.featurizer_values("cell_line", "pca[methylation]")["n_components"] == 100
 
 
 def test_cli_resolves_models_through_construct_model() -> None:

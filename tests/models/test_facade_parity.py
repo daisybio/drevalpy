@@ -69,7 +69,9 @@ def test_construct_model_matches_from_resolved_config(model_name: str, entrypoin
     direct_preds = direct.predict(response.cell_line_ids, response.drug_ids, cell_line_input, drug_input)
 
     assert facade._resolved_model_config is not None
-    assert facade._resolved_model_config.predictor.name == config.predictor.name
+    assert facade._resolved_model_config.predictor_name == (
+        config.predictor_name if hasattr(config, "predictor_name") else config.predictor.name
+    )
     assert np.allclose(facade_preds, direct_preds, equal_nan=True)
 
 

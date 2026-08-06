@@ -124,7 +124,8 @@ def test_constructor_overrides_affect_views_before_feature_load() -> None:
     assert overridden.drug_views == defaults.drug_views
     assert overridden._stack is not None
     assert overridden._stack.config is not None
-    assert overridden._stack.config.predictor.hyperparameters["n_estimators"] == 3
+    assert overridden._resolved_model_config is not None
+    assert overridden._resolved_model_config.predictor_values()["n_estimators"] == 3
 
 
 def test_separate_constructor_calls_have_isolated_fitted_state() -> None:
@@ -170,7 +171,8 @@ def test_hyperparameters_and_views_are_immutable_after_construction() -> None:
     exposed["alpha"] = 0.25
     assert model.hyperparameters["alpha"] == 0.1
     assert model._stack.config is not None
-    assert model._stack.config.predictor.hyperparameters["alpha"] == 0.1
+    assert model._resolved_model_config is not None
+    assert model._resolved_model_config.predictor_values()["alpha"] == 0.1
 
     with pytest.raises(AttributeError):
         model.hyperparameters = {"alpha": 0.25}
@@ -195,7 +197,7 @@ def test_load_drug_features_uses_featurizer_loader_when_configured(
     elastic_net_cls = construct_model("ElasticNet")
     model = elastic_net_cls({"alpha": 0.1, "l1_ratio": 0.5})
     assert model._resolved_model_config is not None
-    predictor_cls = get_predictor(model._resolved_model_config.predictor.name)
+    predictor_cls = get_predictor(model._resolved_model_config.template.predictor.name)
 
     def _fake_loader(
         cls: type,
@@ -218,7 +220,7 @@ def test_load_drug_features_uses_featurizer_loader_when_configured(
 
     expected = FeatureDataset(features={"d1": {"fingerprints": np.array([1.0])}})
     monkeypatch.setattr(
-        "drevalpy.models.drp_model.load_drug_features_for_model_config",
+        "drevalpy.components.data_loading.load_drug_features_for_model_config",
         lambda *args, **kwargs: expected,
     )
     assert model.load_drug_features(".", "TOY") is expected

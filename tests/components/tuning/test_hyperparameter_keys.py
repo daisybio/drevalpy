@@ -25,7 +25,7 @@ def test_elastic_net_alpha_has_single_owner() -> None:
 
     config = default_config_for_drp_model(model_cls)
     assert config is not None
-    index = build_ownership_index(config)
+    index = build_ownership_index(config.template)
     assert len(index.short_to_targets["alpha"]) == 1
     assert index.short_to_targets["alpha"][0].qualified_key == "predictor.elasticNet.alpha"
 
@@ -61,10 +61,10 @@ def test_duplicate_short_and_qualified_assignments_rejected() -> None:
 
     config = default_config_for_drp_model(model_cls)
     assert config is not None
-    index = build_ownership_index(config)
+    index = build_ownership_index(config.template)
     with pytest.raises(ValueError, match="Duplicate hyperparameter assignment"):
         resolve_to_qualified_mapping(
-            config,
+            config.template,
             {"alpha": 0.2, "predictor.elasticNet.alpha": 0.3},
             index,
             reserved_keys=frozenset(),

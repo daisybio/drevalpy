@@ -49,7 +49,7 @@ def test_predictor_has_no_public_build() -> None:
 
 def test_predictor_config_create_instance_passes_hyperparameters() -> None:
     register_builtin_components()
-    predictor = PredictorConfig(name="elasticNet", hyperparameters={"alpha": 0.25}).create_instance()
+    predictor = PredictorConfig(name="elasticNet").create_instance({"alpha": 0.25})
     assert isinstance(predictor, ElasticNetPredictor)
     assert predictor._hyperparameters["alpha"] == 0.25
     assert predictor._h["alpha"] == 0.25

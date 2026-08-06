@@ -55,7 +55,7 @@ def test_round_trip_save_load() -> None:
     assert loaded._stack is not None
     assert loaded._stack.is_fitted()
     assert loaded._resolved_model_config is not None
-    assert loaded._resolved_model_config.predictor.hyperparameters["alpha"] == 0.1
+    assert loaded._resolved_model_config.predictor_values()["alpha"] == 0.1
 
 
 def test_round_trip_save_load_explicit_zip_path() -> None:
@@ -80,7 +80,7 @@ def test_load_model_reconstructs_without_class_handle() -> None:
     assert loaded._stack is not None
     assert loaded._stack.is_fitted()
     assert loaded._resolved_model_config is not None
-    assert loaded._resolved_model_config.predictor.hyperparameters["alpha"] == 0.1
+    assert loaded._resolved_model_config.predictor_values()["alpha"] == 0.1
 
 
 def test_load_model_supports_custom_model_names() -> None:

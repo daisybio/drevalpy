@@ -81,9 +81,8 @@ def test_apply_merged_to_model_config_strips_featurizer_prefix() -> None:
     config = from_spec("pca[expression]:identity:randomForest")
     merged = defaults_from_merged_space(merge_model_config_spaces(config))
     updated = apply_merged_to_model_config(config, merged)
-    assert updated.cell_line_featurizer is not None
-    assert updated.cell_line_featurizer.hyperparameters == {"n_components": 128}
-    assert not any("." in key for key in updated.cell_line_featurizer.hyperparameters)
+    assert updated.featurizer_values("cell_line", "pca[expression]")["n_components"] == 128
+    assert all("." in key for key in updated.values)
 
 
 def test_extract_defaults() -> None:

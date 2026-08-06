@@ -5,7 +5,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from drevalpy.models.config import ModelConfig, ModelScope, from_spec, validate
+from drevalpy.models.config import ModelConfig, ModelScope, from_spec
+from drevalpy.models.config.resolved import ResolvedModelConfig
 from drevalpy.models.drp_model import DRPModel
 
 _CONSTRUCTED_CACHE: dict[tuple[str, str], type[DRPModel]] = {}
@@ -15,7 +16,13 @@ def _canonical_config_key(config: ModelConfig) -> str:
     return json.dumps(config.model_dump(mode="json"), sort_keys=True, separators=(",", ":"))
 
 
-def _resolve_base_config(name: str, spec: str | ModelConfig | None) -> ModelConfig:
+def _as_template(config: ModelConfig | ResolvedModelConfig) -> ModelConfig:
+    if isinstance(config, ResolvedModelConfig):
+        return config.template
+    return config
+
+
+def _resolve_base_config(name: str, spec: str | ModelConfig | ResolvedModelConfig | None) -> ModelConfig:
     if spec is None:
         from drevalpy.models.zoo import list_zoo_names
 
@@ -27,25 +34,26 @@ def _resolve_base_config(name: str, spec: str | ModelConfig | None) -> ModelConf
             )
             raise ValueError(msg)
         config = from_spec(name)
+    elif isinstance(spec, ResolvedModelConfig):
+        config = ModelConfig.model_validate(spec.template.model_dump(mode="python"))
     elif isinstance(spec, ModelConfig):
-        config = spec.model_copy(deep=True)
+        config = ModelConfig.model_validate(spec.model_dump(mode="python"))
     else:
         config = from_spec(spec)
-    validate(config)
-    return config
+    return _as_template(config)
 
 
 def _generate_model_class(name: str, config: ModelConfig) -> type[DRPModel]:
     attrs: dict[str, Any] = {
         "_model_name": name,
-        "_base_model_config": config.model_copy(deep=True),
+        "_base_model_config": ModelConfig.model_validate(config.model_dump(mode="python")),
     }
     cls = type(name, (DRPModel,), attrs)
     cls.__module__ = "drevalpy.models"
     return cls
 
 
-def construct_model(name: str, spec: str | ModelConfig | None = None) -> type[DRPModel]:
+def construct_model(name: str, spec: str | ModelConfig | ResolvedModelConfig | None = None) -> type[DRPModel]:
     """Return a ``DRPModel`` subclass for a zoo name, recipe, or ``ModelConfig``.
 
     Call forms:

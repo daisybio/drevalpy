@@ -26,7 +26,7 @@ def _fallback_block_specs(cls: type[Any], config: FeaturizerConfig) -> tuple[Blo
     declared = getattr(cls, "output_block_specs", ())
     if declared:
         return tuple(spec for spec in declared if isinstance(spec, BlockSpec))
-    view = config.view or config.hyperparameters.get("view") or getattr(cls, "_default_view", None)
+    view = config.view or getattr(cls, "_default_view", None)
     if isinstance(view, str):
         return (BlockSpec(view, featurizer_contract(cls).format),)
     return ()
@@ -44,9 +44,8 @@ def resolve_output_block_specs(config: FeaturizerConfig) -> tuple[BlockSpec, ...
     cls = _lookup_featurizer_class(config)
     if issubclass(cls, ConcatFeaturizersMixin):
         specs: list[BlockSpec] = []
-        for child in config.hyperparameters.get("featurizers", []):
-            child_config = child if isinstance(child, FeaturizerConfig) else FeaturizerConfig.model_validate(child)
-            specs.extend(resolve_output_block_specs(child_config))
+        for child in config.featurizers or ():
+            specs.extend(resolve_output_block_specs(child))
         return tuple(specs)
 
     hook = getattr(cls, "output_block_specs_for_config", None)

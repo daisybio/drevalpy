@@ -1,10 +1,11 @@
-"""Tests for internal ModelConfig validation."""
+"""Tests for ModelConfig construction-time validation."""
 
 from __future__ import annotations
 
 from collections.abc import Iterator
 
 import pytest
+from pydantic import ValidationError
 
 from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.feature_block import BlockSpec
@@ -28,8 +29,8 @@ from drevalpy.models.config import (
     ModelScope,
     PredictionMode,
     PredictorConfig,
+    validate,
 )
-from drevalpy.models.config.validation import validate
 
 
 @pytest.fixture(autouse=True)
@@ -90,13 +91,12 @@ def test_valid_dense_config_passes() -> None:
 
 def test_unknown_cell_line_featurizer_fails() -> None:
     _register_dense_pair()
-    config = ModelConfig(
-        cell_line_featurizer=CellLineFeaturizerConfig(name="missing"),
-        drug_featurizer=DrugFeaturizerConfig(name="denseDrug"),
-        predictor=PredictorConfig(name="densePred"),
-    )
-    with pytest.raises(ValueError, match="Unknown Cell line featurizer"):
-        validate(config)
+    with pytest.raises((ValueError, ValidationError), match="Unknown Cell line featurizer"):
+        ModelConfig(
+            cell_line_featurizer=CellLineFeaturizerConfig(name="missing"),
+            drug_featurizer=DrugFeaturizerConfig(name="denseDrug"),
+            predictor=PredictorConfig(name="densePred"),
+        )
 
 
 def test_wrong_registry_is_coerced_by_slot_subclasses() -> None:
@@ -149,13 +149,12 @@ def test_graph_featurizer_with_matrix_predictor_fails() -> None:
 
             return np.zeros(len(x), dtype=np.float64)
 
-    config = ModelConfig(
-        cell_line_featurizer=CellLineFeaturizerConfig(name="graphCellLine"),
-        drug_featurizer=DrugFeaturizerConfig(name="denseDrug"),
-        predictor=PredictorConfig(name="densePred"),
-    )
-    with pytest.raises(ValueError, match="Cell line featurizer contract|numeric_matrix"):
-        validate(config)
+    with pytest.raises((ValueError, ValidationError), match="Cell line featurizer contract|numeric_matrix"):
+        ModelConfig(
+            cell_line_featurizer=CellLineFeaturizerConfig(name="graphCellLine"),
+            drug_featurizer=DrugFeaturizerConfig(name="denseDrug"),
+            predictor=PredictorConfig(name="densePred"),
+        )
 
 
 def test_graph_format_match_passes_for_block_predictor() -> None:
@@ -211,13 +210,12 @@ def test_block_schema_reports_missing_named_block() -> None:
         required_cell_line_block_specs = (BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),)
         required_drug_block_specs = (BlockSpec("fingerprints", FeatureFormat.NUMERIC_MATRIX),)
 
-    config = ModelConfig(
-        cell_line_featurizer=CellLineFeaturizerConfig(name="cellBlocks"),
-        drug_featurizer=DrugFeaturizerConfig(name="drugBlocks"),
-        predictor=PredictorConfig(name="blockPred"),
-    )
-    with pytest.raises(ValueError, match="blockPred.*gene_expression.*numeric_matrix.*wrong_name"):
-        validate(config)
+    with pytest.raises((ValueError, ValidationError), match="blockPred.*gene_expression.*numeric_matrix.*wrong_name"):
+        ModelConfig(
+            cell_line_featurizer=CellLineFeaturizerConfig(name="cellBlocks"),
+            drug_featurizer=DrugFeaturizerConfig(name="drugBlocks"),
+            predictor=PredictorConfig(name="blockPred"),
+        )
 
 
 def test_builtin_featurizer_declares_output_block_specs() -> None:
@@ -246,54 +244,50 @@ def test_feature_free_predictor_without_featurizers_passes() -> None:
 
 def test_feature_using_predictor_without_featurizers_fails() -> None:
     _register_dense_pair()
-    config = ModelConfig(
-        cell_line_featurizer=None,
-        drug_featurizer=None,
-        predictor=PredictorConfig(name="densePred"),
-    )
-    with pytest.raises(ValueError, match="requires featurizers"):
-        validate(config)
+    with pytest.raises((ValueError, ValidationError), match="requires featurizers"):
+        ModelConfig(
+            cell_line_featurizer=None,
+            drug_featurizer=None,
+            predictor=PredictorConfig(name="densePred"),
+        )
 
 
 def test_baseline_tag_does_not_allow_missing_featurizers() -> None:
     from drevalpy.components.register_builtins import register_builtin_components
 
     register_builtin_components()
-    config = ModelConfig(
-        cell_line_featurizer=None,
-        drug_featurizer=None,
-        predictor=PredictorConfig(name="naiveMeanEffects"),
-    )
-    with pytest.raises(ValueError, match="requires featurizers"):
-        validate(config)
+    with pytest.raises((ValueError, ValidationError), match="requires featurizers"):
+        ModelConfig(
+            cell_line_featurizer=None,
+            drug_featurizer=None,
+            predictor=PredictorConfig(name="naiveMeanEffects"),
+        )
 
 
 def test_scope_must_match_predictor_capability() -> None:
     from drevalpy.components.register_builtins import register_builtin_components
 
     register_builtin_components()
-    config = ModelConfig(
-        cell_line_featurizer=CellLineFeaturizerConfig(name="scaledGeneExpression"),
-        drug_featurizer=None,
-        predictor=PredictorConfig(name="singleDrugElasticNet"),
-        scope=ModelScope.MULTI_DRUG,
-    )
-    with pytest.raises(ValueError, match="does not support scope"):
-        validate(config)
+    with pytest.raises((ValueError, ValidationError), match="does not support scope"):
+        ModelConfig(
+            cell_line_featurizer=CellLineFeaturizerConfig(name="scaledGeneExpression"),
+            drug_featurizer=None,
+            predictor=PredictorConfig(name="singleDrugElasticNet"),
+            scope=ModelScope.MULTI_DRUG,
+        )
 
 
 def test_single_drug_scope_requires_identity_drug_featurizer() -> None:
     from drevalpy.components.register_builtins import register_builtin_components
 
     register_builtin_components()
-    config = ModelConfig(
-        cell_line_featurizer=CellLineFeaturizerConfig(name="scaledGeneExpression"),
-        drug_featurizer=DrugFeaturizerConfig(name="fingerprints"),
-        predictor=PredictorConfig(name="singleDrugElasticNet"),
-        scope=ModelScope.SINGLE_DRUG,
-    )
-    with pytest.raises(ValueError, match="requires drug_featurizer='identity'"):
-        validate(config)
+    with pytest.raises((ValueError, ValidationError), match="requires drug_featurizer='identity'"):
+        ModelConfig(
+            cell_line_featurizer=CellLineFeaturizerConfig(name="scaledGeneExpression"),
+            drug_featurizer=DrugFeaturizerConfig(name="fingerprints"),
+            predictor=PredictorConfig(name="singleDrugElasticNet"),
+            scope=ModelScope.SINGLE_DRUG,
+        )
 
 
 def test_single_drug_scope_accepts_identity_routing_featurizer() -> None:

@@ -72,11 +72,11 @@ class Predictor(ABC):
 
         :returns: Parameter names mapped to their declared ``default`` values.
         """
-        return {
-            key: spec["default"]
-            for key, spec in cls.get_hyperparameter_space().items()
-            if isinstance(spec, dict) and "default" in spec
-        }
+        from drevalpy.components.hyperparameter_space import validate_hyperparameter_space
+
+        space = cls.get_hyperparameter_space()
+        validate_hyperparameter_space(space, context=f"{cls.__name__}.get_hyperparameter_space()")
+        return {key: spec["default"] for key, spec in space.items()}
 
     @abstractmethod
     def fit(self, batch: ModelInputBatch) -> None:

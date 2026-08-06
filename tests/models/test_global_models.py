@@ -12,6 +12,7 @@ from drevalpy.evaluation import evaluate
 from drevalpy.experiment import cross_study_prediction
 from drevalpy.models import construct_model
 from drevalpy.models.config import CellLineFeaturizerConfig, DrugFeaturizerConfig
+from drevalpy.models.config.immutable import rebuild_model
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.models.zoo import get_zoo_config
 
@@ -25,13 +26,12 @@ def _resolve_global_model_name(model_name: str) -> tuple[str, str]:
 
 def _construct_global_model_class(whole_name: str, model_name: str) -> type[DRPModel]:
     if whole_name == "SimpleNeuralNetwork[chemberta]":
-        config = get_zoo_config("SimpleNeuralNetwork").model_copy(
-            update={
-                "drug_featurizer": DrugFeaturizerConfig(
-                    name="view",
-                    hyperparameters={"view": "drug_chemberta_embeddings"},
-                ),
-            },
+        config = rebuild_model(
+            get_zoo_config("SimpleNeuralNetwork"),
+            drug_featurizer=DrugFeaturizerConfig(
+                name="view",
+                options={"view": "drug_chemberta_embeddings"},
+            ),
         )
         return cast(type[DRPModel], construct_model(model_name, config))
     return cast(type[DRPModel], construct_model(model_name))
@@ -265,14 +265,12 @@ def test_multi_view_neural_network_custom_views(sample_dataset: DrugResponseData
             type[DRPModel],
             construct_model(
                 "MultiViewNeuralNetwork",
-                get_zoo_config("MultiViewNeuralNetwork").model_copy(
-                    update={
-                        "cell_line_featurizer": CellLineFeaturizerConfig(
-                            name="raw",
-                            view="custom_test_view",
-                            hyperparameters={},
-                        ),
-                    },
+                rebuild_model(
+                    get_zoo_config("MultiViewNeuralNetwork"),
+                    cell_line_featurizer=CellLineFeaturizerConfig(
+                        name="raw",
+                        view="custom_test_view",
+                    ),
                 ),
             ),
         )

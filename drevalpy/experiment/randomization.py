@@ -22,9 +22,15 @@ def _resolve_cell_line_and_drug_views(
         drug_views_from_model_config,
     )
     from drevalpy.components.tuning.public_flat import model_config_for_drp_model
+    from drevalpy.models.config.resolved import ResolvedModelConfig
 
     config = model_config_for_drp_model(model_class, hyperparameters)
     if config is not None:
+        if isinstance(config, ResolvedModelConfig):
+            return (
+                list(cell_line_views_from_model_config(config.template, resolved=config)),
+                list(drug_views_from_model_config(config.template, resolved=config)),
+            )
         return (
             list(cell_line_views_from_model_config(config)),
             list(drug_views_from_model_config(config)),

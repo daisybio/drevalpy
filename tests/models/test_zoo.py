@@ -70,16 +70,21 @@ def test_zoo_naive_presets_use_information_accurate_featurizers() -> None:
     mean_effects = get_zoo_config("NaiveMeanEffectsPredictor")
     assert mean_effects.cell_line_featurizer is not None
     assert mean_effects.cell_line_featurizer.name == "concatFeaturizers"
-    children = mean_effects.cell_line_featurizer.hyperparameters["featurizers"]
-    assert [child["name"] for child in children] == ["identity", "tissue"]
-    assert children[1]["hyperparameters"]["allow_missing"] is True
+    children = mean_effects.cell_line_featurizer.featurizers
+    assert children is not None
+    assert [child.name for child in children] == ["identity", "tissue"]
+    assert children[1].options is not None
+    assert children[1].options["allow_missing"] is True
     assert mean_effects.drug_featurizer is not None
     assert mean_effects.drug_featurizer.name == "identity"
 
 
 def test_zoo_model_config_merges_hyperparameters() -> None:
+    from drevalpy.models.config import ResolvedModelConfig
+
     config = zoo_model_config("ElasticNet", {"alpha": 0.25})
-    assert config.predictor.hyperparameters["alpha"] == 0.25
+    assert isinstance(config, ResolvedModelConfig)
+    assert config.predictor_values()["alpha"] == 0.25
 
 
 def test_zoo_model_config_rejects_view_keys() -> None:
@@ -91,20 +96,12 @@ def test_zoo_model_config_rejects_view_keys() -> None:
 
 
 def test_zoo_model_config_routes_methylation_flat_key_to_pca_child() -> None:
-    from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
-    from drevalpy.models.config import FeaturizerConfig
+    from drevalpy.models.config import ResolvedModelConfig
 
-    config = zoo_model_config("MultiViewRandomForest", {"methylation_n_components": 11})
-    assert "methylation_n_components" not in config.predictor.hyperparameters
-    assert config.cell_line_featurizer is not None
-    for child in config.cell_line_featurizer.hyperparameters.get("featurizers", []):
-        child_cfg = FeaturizerConfig.model_validate(
-            normalize_featurizer_config(child, default_registry="cell_line"),
-        )
-        if child_cfg.name == "pca" and child_cfg.view == "methylation":
-            assert child_cfg.hyperparameters["n_components"] == 11
-            return
-    raise AssertionError("methylation PCA child not found")
+    resolved = zoo_model_config("MultiViewRandomForest", {"methylation_n_components": 11})
+    assert isinstance(resolved, ResolvedModelConfig)
+    assert resolved.predictor_values().get("methylation_n_components") is None
+    assert resolved.featurizer_values("cell_line", "pca[methylation]")["n_components"] == 11
 
 
 def test_external_zoo_rejects_builtin_collision_and_is_atomic(tmp_path) -> None:
@@ -132,9 +129,12 @@ ElasticNet:
 
 
 def test_model_config_for_name_uses_zoo_entry() -> None:
+    from drevalpy.models.config import ResolvedModelConfig
+
     config = model_config_for_name("ElasticNet", {"alpha": 0.5})
-    assert config.predictor.name == "elasticNet"
-    assert config.predictor.hyperparameters["alpha"] == 0.5
+    assert isinstance(config, ResolvedModelConfig)
+    assert config.template.predictor.name == "elasticNet"
+    assert config.predictor_values()["alpha"] == 0.5
 
 
 def test_single_drug_sklearn_zoo_entries_use_identity_for_routing() -> None:
@@ -154,7 +154,7 @@ def test_single_drug_sklearn_zoo_entries_use_identity_for_routing() -> None:
 
 
 def test_multi_drug_sklearn_predictor_without_drug_featurizer_fails() -> None:
-    config = get_zoo_config("ElasticNet").model_copy(update={"drug_featurizer": None})
+    from pydantic import ValidationError
 
-    with pytest.raises(ValueError, match="requires a drug_featurizer"):
-        validate(config)
+    with pytest.raises(ValidationError, match="requires a drug_featurizer"):
+        get_zoo_config("ElasticNet").replace(drug_featurizer=None)

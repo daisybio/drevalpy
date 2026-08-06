@@ -42,11 +42,20 @@ class SparseGOOntologyFeaturizer(CellLineFeaturizer):
     def output_block_specs_for_config(cls, config: Any) -> tuple[BlockSpec, ...]:
         """Name the active SparseGO block from ``input_type``.
 
-        :param config: Featurizer config whose hyperparameters select expression vs mutations.
+        :param config: Featurizer template; uses space default when unresolved.
         :returns: Single metadata-bearing numeric block for the active omics view.
         """
-        hyperparams = getattr(config, "hyperparameters", None) or {}
-        input_type = str(hyperparams.get("input_type", "expression") if isinstance(hyperparams, dict) else "expression")
+        from collections.abc import Mapping
+
+        raw_space = getattr(config, "hyperparameter_space", None) or {}
+        space = dict(raw_space) if isinstance(raw_space, Mapping) else {}
+        if not space:
+            space = dict(cls.get_hyperparameter_space())
+        spec = space.get("input_type")
+        if isinstance(spec, Mapping) and "default" in spec:
+            input_type = str(spec["default"])
+        else:
+            input_type = "expression"
         name = "mutations" if input_type == "mutations" else "gene_expression"
         return (BlockSpec(name, FeatureFormat.NUMERIC_MATRIX, metadata=True),)
 

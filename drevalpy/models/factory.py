@@ -4,15 +4,18 @@ from __future__ import annotations
 
 from typing import Any
 
-from drevalpy.models.config import ModelConfig
+from drevalpy.models.config import ModelConfig, ResolvedModelConfig
 
 
-def model_config_for_name(model_name: str, hyperparameters: dict[str, Any] | None = None) -> ModelConfig:
+def model_config_for_name(
+    model_name: str,
+    hyperparameters: dict[str, Any] | None = None,
+) -> ModelConfig | ResolvedModelConfig:
     """Resolve a factory/zoo name to a modular config with public flat HP applied.
 
     :param model_name: Built-in or external zoo preset name.
     :param hyperparameters: Optional flat public hyperparameter overrides.
-    :returns: ``ModelConfig`` for the preset with overrides applied.
+    :returns: Template ``ModelConfig``, or ``ResolvedModelConfig`` when overrides are given.
     :raises KeyError: If ``model_name`` is not a known zoo entry.
     """
     from drevalpy.models.zoo import list_zoo_names, zoo_model_config

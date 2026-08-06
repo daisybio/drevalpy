@@ -31,28 +31,39 @@ class ConcatFeaturizersMixin:
             msg = "featurizers must be a non-empty list"
             raise ValueError(msg)
         self._registry = registry
-        # Normalize through FeaturizerConfig so uniqueness is checked once, after construction.
-        child_payloads = [item.model_dump() if isinstance(item, FeaturizerConfig) else item for item in featurizers]
+        self._children: list[tuple[str, Featurizer]] = []
+        self._child_configs: list[FeaturizerConfig] = []
+        self._block_dims: dict[str, int] = {}
+        self._output_dim = 0
+        self._is_fitted = False
+
+        # Accept either already-built Featurizer instances or template configs/dicts.
+        if all(isinstance(item, Featurizer) for item in featurizers):
+            for item in featurizers:
+                label = getattr(item, "registry_name", type(item).__name__)
+                view = getattr(item, "_view", None)
+                self._children.append(
+                    (featurizer_config_block_label(str(label), view if isinstance(view, str) else None), item)
+                )
+            return
+
         parent = FeaturizerConfig.model_validate(
             {
                 "name": "concatFeaturizers",
                 "registry": registry,
-                "hyperparameters": {"featurizers": child_payloads},
+                "featurizers": [
+                    item.model_dump(mode="python") if isinstance(item, FeaturizerConfig) else item
+                    for item in featurizers
+                ],
             },
         )
-        children = parent.hyperparameters.get("featurizers", [])
-        self._child_configs = [
-            child if isinstance(child, FeaturizerConfig) else FeaturizerConfig.model_validate(child)
-            for child in children
-        ]
-        self._children: list[tuple[str, Featurizer]] = []
-        self._block_dims: dict[str, int] = {}
-        self._output_dim = 0
-        self._is_fitted = False
+        self._child_configs = list(parent.featurizers or ())
         self._materialize_children()
 
     def _materialize_children(self) -> None:
-        if len(self._children) == len(self._child_configs):
+        if self._children:
+            return
+        if not self._child_configs:
             return
         children: list[tuple[str, Featurizer]] = []
         for config in self._child_configs:

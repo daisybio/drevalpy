@@ -5,18 +5,18 @@ from __future__ import annotations
 from typing import Any
 
 from drevalpy.models.config import ModelConfig
+from drevalpy.models.config.resolved import ResolvedModelConfig
 
 from ._featurizer_walk import iter_featurizer_configs
 from ._model_config_base import base_model_config_for_drp_model
 from .search_space import (
-    apply_merged_to_model_config,
-    defaults_from_merged_space,
     merge_model_config_spaces,
+    resolve_model_config,
 )
 
 
-def default_config_for_drp_model(model_class: type[Any]) -> ModelConfig | None:
-    """Return a ``ModelConfig`` with structured defaults applied.
+def default_config_for_drp_model(model_class: type[Any]) -> ResolvedModelConfig | None:
+    """Return a resolved config with structured defaults applied.
 
     :param model_class: Public ``DRPModel`` subclass.
 
@@ -25,38 +25,38 @@ def default_config_for_drp_model(model_class: type[Any]) -> ModelConfig | None:
     config = base_model_config_for_drp_model(model_class)
     if config is None:
         return None
-    space = merge_model_config_spaces(config)
-    merged_defaults = defaults_from_merged_space(space)
-    return apply_merged_to_model_config(config, merged_defaults)
+    return resolve_model_config(config)
 
 
 def tuned_config_for_drp_model(
     model_class: type[Any],
     merged_sample: dict[str, Any],
-) -> ModelConfig | None:
-    """Apply a structured Ray/Optuna sample onto the base model config.
+) -> ResolvedModelConfig | None:
+    """Apply a structured Ray/Optuna sample onto the base model template.
 
     :param model_class: Public ``DRPModel`` subclass.
     :param merged_sample: Flat structured hyperparameter sample from Ray Tune.
 
-    :returns: Updated ``ModelConfig``, or ``None`` when the model has no modular config.
+    :returns: Resolved ``ResolvedModelConfig``, or ``None`` when the model has no modular config.
     """
     config = base_model_config_for_drp_model(model_class)
     if config is None:
         return None
-    return apply_merged_to_model_config(config, merged_sample)
+    return resolve_model_config(config, merged_sample)
 
 
-def construct_drp_model_from_config(model_class: type[Any], config: ModelConfig) -> Any:
-    """Construct a public DRPModel instance from a resolved ``ModelConfig``.
+def construct_drp_model_from_config(model_class: type[Any], config: ModelConfig | ResolvedModelConfig) -> Any:
+    """Construct a public DRPModel instance from a template or resolved config.
 
     :param model_class: Public ``DRPModel`` subclass.
-    :param config: Fully resolved modular configuration.
+    :param config: Template or resolved modular configuration.
 
     :returns: Instantiated model object.
     """
     from_resolved = getattr(model_class, "_from_resolved_config", None)
     if callable(from_resolved):
+        if isinstance(config, ModelConfig):
+            return from_resolved(resolve_model_config(config))
         return from_resolved(config)
     from .public_flat import public_hyperparameters_from_config
 
@@ -101,21 +101,22 @@ def has_tunable_hyperparameters(model_class: type[Any]) -> bool:
     return bool(structured_space_for_drp_model(model_class))
 
 
-def assert_component_local_hyperparameters(config: ModelConfig) -> None:
+def assert_component_local_hyperparameters(config: ModelConfig | ResolvedModelConfig) -> None:
     """Raise if namespaced keys leaked into component-local hyperparameter dicts.
+
+    For templates this is a no-op (templates store no concrete values). For
+    resolved configs, qualified keys in ``values`` are expected.
 
     :param config: Model configuration to validate.
 
     :raises AssertionError: If a featurizer or predictor hyperparameter dict contains
     """
-    for featurizer in iter_featurizer_configs(config):
-        for key in featurizer.hyperparameters:
-            if key == "featurizers":
-                continue
-            if "." in key or key.startswith(("cell_line_featurizer.", "drug_featurizer.", "predictor.")):
-                msg = f"namespaced key {key!r} found in {featurizer.name} hyperparameters"
+    if isinstance(config, ResolvedModelConfig):
+        for key in config.values:
+            if key.count(".") < 2:
+                msg = f"resolved hyperparameter key {key!r} must be qualified"
                 raise AssertionError(msg)
-    for key in config.predictor.hyperparameters:
-        if key.startswith(("cell_line_featurizer.", "drug_featurizer.", "predictor.")) or key.count(".") >= 2:
-            msg = f"namespaced key {key!r} found in predictor hyperparameters"
-            raise AssertionError(msg)
+        return
+    # Templates have no concrete hyperparameters by design.
+    for _featurizer in iter_featurizer_configs(config):
+        pass

@@ -9,12 +9,13 @@ from drevalpy.components.predictor_config_parse import normalize_predictor_confi
 
 def test_normalize_string_shorthand() -> None:
     payload = normalize_predictor_config("randomForest")
-    assert payload == {"name": "randomForest", "hyperparameters": {}}
+    assert payload == {"name": "randomForest"}
 
 
 def test_normalize_one_key_mapping() -> None:
     payload = normalize_predictor_config({"randomForest": {"n_estimators": 10}})
-    assert payload == {"name": "randomForest", "hyperparameters": {"n_estimators": 10}}
+    assert payload["name"] == "randomForest"
+    assert payload["hyperparameter_space"]["n_estimators"]["default"] == 10
 
 
 def test_normalize_rejects_invalid_shape() -> None:
