@@ -30,7 +30,6 @@ from drevalpy.components.state_helpers import state_float
 class NaiveTissueMeanPredictor(BlockPredictor):
     """Naive tissue mean predictor component."""
 
-    requires_drug_featurizer: ClassVar[bool] = False
     required_cell_line_blocks: ClassVar[tuple[str, ...]] = ("tissue",)
 
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
@@ -118,7 +117,6 @@ class NaiveTissueMeanPredictor(BlockPredictor):
 class NaiveTissueDrugMeanPredictor(BlockPredictor):
     """Naive tissue drug mean predictor component."""
 
-    requires_drug_featurizer: ClassVar[bool] = True
     required_cell_line_blocks: ClassVar[tuple[str, ...]] = ("tissue",)
     required_drug_blocks: ClassVar[tuple[str, ...]] = ("identity",)
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 from unittest.mock import patch
 
 import pytest
+from pydantic import ValidationError
 
 from drevalpy.components.data_loading.view_resolution import (
     cell_line_entity_id_only_from_model_config,
@@ -105,13 +106,18 @@ def test_identity_drug_loading_uses_drug_ids_not_fingerprints() -> None:
 def test_no_drug_featurizer_skips_drug_loading() -> None:
     from drevalpy.components.data_loading import load_drug_features_for_model_config
 
-    config = _model_config(
-        predictor=PredictorConfig(name="naiveCellLineMean"),
-        drug_featurizer=None,
-    )
+    config = ModelConfig.model_validate({"predictor": PredictorConfig(name="naiveMean")})
     with patch("drevalpy.components.data_loading.feature_loaders.load_drug_ids_from_csv") as load_ids:
         with patch("drevalpy.components.data_loading.feature_loaders.load_drug_feature_views") as load_views:
             result = load_drug_features_for_model_config(config, "/data", "GDSC1")
     assert result is None
     load_ids.assert_not_called()
     load_views.assert_not_called()
+
+
+def test_feature_based_predictor_requires_a_drug_featurizer() -> None:
+    with pytest.raises(ValidationError, match="requires a drug_featurizer"):
+        _model_config(
+            predictor=PredictorConfig(name="naiveCellLineMean"),
+            drug_featurizer=None,
+        )

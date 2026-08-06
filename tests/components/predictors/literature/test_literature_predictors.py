@@ -17,20 +17,20 @@ def _register_components() -> None:
 
 
 @pytest.mark.parametrize(
-    ("name", "interface", "requires_drug"),
+    ("name", "interface"),
     [
-        ("drugGNN", "block", True),
-        ("neuralNetwork", "matrix", True),
-        ("precily", "block", True),
-        ("srmf", "block", True),
-        ("molir", "block", True),
-        ("superfeltr", "block", True),
-        ("pharmaFormer", "block", True),
-        ("dipk", "block", True),
-        ("sparsego", "block", True),
+        ("drugGNN", "block"),
+        ("neuralNetwork", "matrix"),
+        ("precily", "block"),
+        ("srmf", "block"),
+        ("molir", "block"),
+        ("superfeltr", "block"),
+        ("pharmaFormer", "block"),
+        ("dipk", "block"),
+        ("sparsego", "block"),
     ],
 )
-def test_literature_predictor_flags(name: str, interface: str, requires_drug: bool) -> None:
+def test_literature_predictor_flags(name: str, interface: str) -> None:
     cls = get_predictor(name)
     if interface == "matrix":
         assert issubclass(cls, MatrixPredictor)
@@ -38,7 +38,6 @@ def test_literature_predictor_flags(name: str, interface: str, requires_drug: bo
     elif interface == "block":
         assert issubclass(cls, BlockPredictor)
         assert not issubclass(cls, MatrixPredictor)
-    assert getattr(cls, "requires_drug_featurizer", True) is requires_drug
 
 
 def test_druggnn_requires_graph_drug_contract() -> None:

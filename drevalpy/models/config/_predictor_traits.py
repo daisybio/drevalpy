@@ -19,7 +19,7 @@ from drevalpy.models.config.predictor import PredictorConfig
 from drevalpy.types.model_scope import ModelScope
 
 
-def scope_for_predictor(name: str) -> ModelScope:
+def scope(name: str) -> ModelScope:
     """Return the training scope the registered predictor is written for.
 
     :param name: Registry name of the predictor.
@@ -49,8 +49,4 @@ def needs_identity_drug_routing(slot: Any) -> bool:
         cls = get_predictor(PredictorConfig.model_validate(slot).name)
     except (TypeError, ValueError, ImportError):
         return False
-    return (
-        cls.scope is ModelScope.SINGLE_DRUG
-        and getattr(cls, "requires_drug_featurizer", True)
-        and not issubclass(cls, FeatureFreePredictor)
-    )
+    return cls.scope is ModelScope.SINGLE_DRUG and not issubclass(cls, FeatureFreePredictor)

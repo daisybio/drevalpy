@@ -26,7 +26,6 @@ class SRMFPredictor(FeatureDatasetBlockPredictor):
 
     required_cell_line_blocks: ClassVar[tuple[str, ...]] = ("gene_expression",)
     required_drug_blocks: ClassVar[tuple[str, ...]] = ("fingerprints",)
-    requires_drug_featurizer: ClassVar[bool] = True
     supports_early_stopping: ClassVar[bool] = False
     supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset({PredictionMode.REGRESSION})
 

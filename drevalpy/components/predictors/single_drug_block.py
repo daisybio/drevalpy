@@ -60,7 +60,6 @@ class SingleDrugBlockPredictor(BlockPredictor):
     """
 
     scope: ClassVar[ModelScope] = ModelScope.SINGLE_DRUG
-    requires_drug_featurizer: ClassVar[bool] = True
 
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
         """Initialize the predictor.
@@ -115,7 +114,6 @@ class SingleDrugBlockPredictor(BlockPredictor):
                 sub,
                 required_cell_line_blocks=self.required_cell_line_blocks,
                 required_drug_blocks=self.required_drug_blocks,
-                requires_drug_featurizer=True,
             )
             self._algorithms[drug_id] = train_fitted_algorithm(
                 self._algorithm_cls,
@@ -148,7 +146,6 @@ class SingleDrugBlockPredictor(BlockPredictor):
                 sub,
                 required_cell_line_blocks=self.required_cell_line_blocks,
                 required_drug_blocks=self.required_drug_blocks,
-                requires_drug_featurizer=True,
             )
             routed = predict_with_algorithm(algorithm, sub, cell_lines, None)
             predictions[mask] = np.asarray(routed, dtype=np.float64).ravel()

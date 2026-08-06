@@ -30,7 +30,6 @@ from drevalpy.components.state_helpers import state_float
 class NaiveMeanEffectsPredictor(BlockPredictor):
     """Naive mean effects predictor component."""
 
-    requires_drug_featurizer: ClassVar[bool] = True
     required_cell_line_blocks: ClassVar[tuple[str, ...]] = ("identity",)
     required_drug_blocks: ClassVar[tuple[str, ...]] = ("identity",)
 

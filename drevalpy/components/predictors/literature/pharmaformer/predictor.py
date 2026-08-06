@@ -33,7 +33,6 @@ class PharmaFormerPredictor(FeatureDatasetBlockPredictor):
     required_drug_block_specs: ClassVar[tuple[BlockSpec, ...]] = (
         BlockSpec("bpe_smiles", FeatureFormat.NUMERIC_MATRIX),
     )
-    requires_drug_featurizer: ClassVar[bool] = True
     validate_drug_graphs: ClassVar[bool] = False
     supports_early_stopping: ClassVar[bool] = True
     supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset({PredictionMode.REGRESSION})

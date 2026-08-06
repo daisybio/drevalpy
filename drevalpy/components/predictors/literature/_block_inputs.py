@@ -17,7 +17,6 @@ def materialize_block_inputs(
     *,
     required_cell_line_blocks: tuple[str, ...],
     required_drug_blocks: tuple[str, ...],
-    requires_drug_featurizer: bool,
     validate_drug_graphs: bool = False,
 ) -> tuple[FeatureDataset, FeatureDataset | None]:
     """Build cell-line and optional drug FeatureDatasets from batch blocks.
@@ -30,7 +29,6 @@ def materialize_block_inputs(
     :param batch: Structured input batch with entity ids and feature blocks.
     :param required_cell_line_blocks: Cell-line block names that must be present.
     :param required_drug_blocks: Drug block names that must be present when drugs are required.
-    :param requires_drug_featurizer: Whether drug features should be materialized.
     :param validate_drug_graphs: When ``True``, validate graph blocks before returning.
 
     :returns: Cell-line dataset and optional drug dataset.
@@ -42,8 +40,6 @@ def materialize_block_inputs(
         required=required_cell_line_blocks,
         side="cell_line",
     )
-    if not requires_drug_featurizer:
-        return cell_lines, None
     drugs = _dataset_from_blocks(
         predictor,
         batch.drug_entity_ids,

@@ -97,7 +97,6 @@ class FeatureDatasetBlockPredictor(BlockPredictor):
             batch,
             required_cell_line_blocks=self.required_cell_line_blocks,
             required_drug_blocks=self.required_drug_blocks,
-            requires_drug_featurizer=self.requires_drug_featurizer,
             validate_drug_graphs=self.validate_drug_graphs,
         )
 

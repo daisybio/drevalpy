@@ -11,4 +11,3 @@ class FeatureFreePredictor(Predictor):
     """Predictors that do not consume featurizer outputs or raw feature datasets."""
 
     input_interface: ClassVar[str] = "feature_free"
-    requires_drug_featurizer: ClassVar[bool] = False

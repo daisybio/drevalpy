@@ -37,7 +37,6 @@ class SparseGOPredictor(FeatureDatasetBlockPredictor):
     required_drug_block_specs: ClassVar[tuple[BlockSpec, ...]] = (
         BlockSpec("fingerprints", FeatureFormat.NUMERIC_MATRIX),
     )
-    requires_drug_featurizer: ClassVar[bool] = True
     validate_drug_graphs: ClassVar[bool] = False
     supports_early_stopping: ClassVar[bool] = False
     supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset({PredictionMode.REGRESSION})
@@ -69,7 +68,6 @@ class SparseGOPredictor(FeatureDatasetBlockPredictor):
             batch,
             required_cell_line_blocks=(active[0],),
             required_drug_blocks=self.required_drug_blocks,
-            requires_drug_featurizer=self.requires_drug_featurizer,
         )
 
     @classmethod

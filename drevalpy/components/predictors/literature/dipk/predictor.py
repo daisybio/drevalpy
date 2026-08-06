@@ -34,7 +34,6 @@ class DIPKPredictor(FeatureDatasetBlockPredictor):
     required_drug_block_specs: ClassVar[tuple[BlockSpec, ...]] = (
         BlockSpec("molgnet_features", FeatureFormat.RAGGED_SEQUENCE),
     )
-    requires_drug_featurizer: ClassVar[bool] = True
     validate_drug_graphs: ClassVar[bool] = False
     supports_early_stopping: ClassVar[bool] = True
     supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset({PredictionMode.REGRESSION})

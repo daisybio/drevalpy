@@ -19,7 +19,6 @@ from drevalpy.components.registry import register_predictor
 class NaiveDrugMeanPredictor(SingleEntityNaivePredictor):
     """Naive drug mean predictor component."""
 
-    requires_drug_featurizer: ClassVar[bool] = True
     _feature_side: ClassVar[str] = "drug"
 
 

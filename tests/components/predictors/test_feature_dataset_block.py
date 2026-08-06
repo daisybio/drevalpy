@@ -48,7 +48,6 @@ class _FakeAlgorithm(LiteratureTrainingMixin):
 class _FakePredictor(FeatureDatasetBlockPredictor):
     required_cell_line_blocks = ("gene_expression",)
     required_drug_blocks = ("fingerprints",)
-    requires_drug_featurizer = True
 
     @property
     def _algorithm_cls(self) -> type[LiteratureTrainingMixin]:

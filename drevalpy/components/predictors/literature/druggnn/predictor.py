@@ -35,7 +35,6 @@ class DrugGNNPredictor(FeatureDatasetBlockPredictor):
         BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),
     )
     required_drug_block_specs: ClassVar[tuple[BlockSpec, ...]] = (BlockSpec("drug_graph", FeatureFormat.GRAPH),)
-    requires_drug_featurizer: ClassVar[bool] = True
     validate_drug_graphs: ClassVar[bool] = True
     supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset({PredictionMode.REGRESSION})
 

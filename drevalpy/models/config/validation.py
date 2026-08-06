@@ -37,15 +37,14 @@ def _validate_feature_free_config(config: ModelConfig) -> None:
         raise ValueError(msg)
 
 
-def _validate_featurizer_presence(config: ModelConfig, pred_cls: type[Any]) -> None:
+def _validate_featurizer_presence(config: ModelConfig) -> None:
     if config.cell_line_featurizer is None and config.drug_featurizer is None:
         msg = (
             f"Predictor {config.predictor.name!r} requires featurizers; "
             "set cell_line_featurizer and drug_featurizer, or use a feature-free predictor."
         )
         raise ValueError(msg)
-    requires_drug = getattr(pred_cls, "requires_drug_featurizer", True)
-    if requires_drug and config.drug_featurizer is None:
+    if config.drug_featurizer is None:
         msg = f"Predictor {config.predictor.name!r} requires a drug_featurizer"
         raise ValueError(msg)
     if config.cell_line_featurizer is None:
@@ -149,7 +148,7 @@ def validate(config: ModelConfig) -> ModelConfig:
     if issubclass(pred_cls, FeatureFreePredictor):
         _validate_feature_free_config(config)
         return config
-    _validate_featurizer_presence(config, pred_cls)
+    _validate_featurizer_presence(config)
     _validate_single_drug_pairing(config, pred_cls)
     _validate_featurizer_contracts(config, pred_cls)
     _validate_block_schema(config, pred_cls)

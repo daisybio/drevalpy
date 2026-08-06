@@ -8,7 +8,7 @@ from drevalpy.components.register_builtins import register_builtin_components
 from drevalpy.models.config import PredictorConfig
 from drevalpy.models.config._predictor_traits import (
     needs_identity_drug_routing,
-    scope_for_predictor,
+    scope,
 )
 from drevalpy.types.model_scope import ModelScope
 
@@ -28,12 +28,12 @@ def _register_builtins() -> None:
     ],
 )
 def test_scope_for_predictor_reads_the_class_declaration(name: str, expected: ModelScope) -> None:
-    assert scope_for_predictor(name) is expected
+    assert scope(name) is expected
 
 
 def test_scope_for_predictor_rejects_an_unknown_name() -> None:
     with pytest.raises(ValueError, match="Unknown Predictor"):
-        scope_for_predictor("noSuchPredictor")
+        scope("noSuchPredictor")
 
 
 @pytest.mark.parametrize(

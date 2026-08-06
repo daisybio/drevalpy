@@ -85,8 +85,8 @@ The details about what the input for each predictor type looks like are explaine
    .. tab-item:: Feature-free
 
       ``FeatureFreePredictor`` uses pair identifiers and/or response values
-      only. It sets ``requires_drug_featurizer=False``, so composition does not
-      need cell-line or drug featurizers. Registration still requires explicit
+      only. Composition forbids cell-line and drug featurizers for it, since it
+      would consume neither. Registration still requires explicit
       ``cell_line_contract`` / ``drug_contract`` (typically
       ``FeatureFormat.NUMERIC_MATRIX``).
 

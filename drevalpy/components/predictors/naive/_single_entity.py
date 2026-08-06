@@ -20,7 +20,6 @@ from drevalpy.components.state_helpers import state_float
 class SingleEntityNaivePredictor(BlockPredictor):
     """Predict per-entity means from a one-hot design matrix."""
 
-    requires_drug_featurizer: ClassVar[bool] = False
     _feature_side: ClassVar[str] = "cell_line"
 
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:

@@ -7,7 +7,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, model_validator
 
 from drevalpy.components.predictors.single_drug_routing import ROUTING_DRUG_FEATURIZER
-from drevalpy.models.config._predictor_traits import needs_identity_drug_routing, scope_for_predictor
+from drevalpy.models.config._predictor_traits import needs_identity_drug_routing, scope
 from drevalpy.models.config._recipe import format_model_recipe
 from drevalpy.models.config.featurizer import CellLineFeaturizerConfig, DrugFeaturizerConfig
 from drevalpy.models.config.predictor import PredictorConfig
@@ -66,7 +66,7 @@ class ModelConfig(BaseModel):
 
         :returns: The scope declared by the configured predictor.
         """
-        return scope_for_predictor(self.predictor.name)
+        return scope(self.predictor.name)
 
     @property
     def model_id(self) -> str | None:

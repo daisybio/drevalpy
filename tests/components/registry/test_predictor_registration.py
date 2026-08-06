@@ -59,7 +59,6 @@ def test_predictor_metadata_catalog_shape() -> None:
         "supported_modes",
         "scope",
         "supports_early_stopping",
-        "requires_drug_featurizer",
         "required_cell_line_views",
         "required_drug_views",
     ):
