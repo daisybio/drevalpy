@@ -42,16 +42,14 @@ class ModelConfig(BaseModel):
 
         :returns: Colon-separated featurizer and predictor names, or ``None`` when incomplete.
         """
-        if self.cell_line_featurizer is None and self.drug_featurizer is None:
-            return self.predictor.name
-        if self.cell_line_featurizer is None:
+        cell = self.cell_line_featurizer
+        drug = self.drug_featurizer
+        if cell is None:
+            return self.predictor.name if drug is None else None
+        if drug is None:
             return None
-        if (
-            self.scope == ModelScope.SINGLE_DRUG
-            and self.drug_featurizer is not None
-            and self.drug_featurizer.name == "identity"
-        ):
-            return f"{self.cell_line_featurizer.name}:{self.predictor.name}"
-        if self.drug_featurizer is None:
-            return None
-        return f"{self.cell_line_featurizer.name}:" f"{self.drug_featurizer.name}:" f"{self.predictor.name}"
+        parts = [cell.name]
+        if self.scope != ModelScope.SINGLE_DRUG or drug.name != "identity":
+            parts.append(drug.name)
+        parts.append(self.predictor.name)
+        return ":".join(parts)
