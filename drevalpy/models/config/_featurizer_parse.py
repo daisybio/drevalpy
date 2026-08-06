@@ -7,11 +7,11 @@ it feeds rather than in ``drevalpy.components``, since no component consumes it.
 
 from __future__ import annotations
 
-import re
 from typing import Any
 
 from drevalpy.components.featurizer_label import requires_explicit_view
 from drevalpy.components.view_aliases import resolve_omics_view
+from drevalpy.models.config._recipe import parse_featurizer_atoms
 
 _RESERVED_FEATURIZER_KEYS = frozenset(
     {
@@ -25,47 +25,22 @@ _RESERVED_FEATURIZER_KEYS = frozenset(
     }
 )
 _CONCAT_FEATURIZER_NAME = "concatFeaturizers"
-_BRACKET_ATOM_RE = re.compile(r"^([^[\]]+)\[([^\]]+)\]$")
 
 
-def _split_concat_recipe(token: str) -> list[str]:
-    """Split a concat recipe on ``+`` outside square brackets.
+def _resolve_atom_view(name: str, view_token: str | None, *, default_registry: str) -> tuple[str, str | None]:
+    """Apply the semantic rules for a parsed ``name[view]`` atom.
 
-    Bracket depth is tracked so a ``+`` inside a view (``raw[a+b]``) does not split the
-    recipe, which keeps the error pointing at the bad view rather than at a truncated name.
+    The grammar has already established the shape; this decides whether a bracketed view is
+    allowed here at all and maps the alias to its canonical storage key.
 
-    :param token: Featurizer recipe string that may join atoms with ``+``.
-    :returns: Non-empty recipe segments outside bracket nesting.
-    :raises ValueError: If ``+`` appears at boundaries or consecutively.
-    """
-    if token.startswith("+") or token.endswith("+") or "++" in token:
-        msg = "Featurizer recipe segments joined by '+' must be non-empty"
-        raise ValueError(msg)
-    parts: list[str] = []
-    depth = 0
-    start = 0
-    for index, char in enumerate(token):
-        depth += (char == "[") - (char == "]")
-        if char == "+" and depth == 0:
-            parts.append(token[start:index])
-            start = index + 1
-    parts.append(token[start:])
-    return [part.strip() for part in parts if part.strip()]
-
-
-def _parse_bracket_atom_name(name_token: str, *, default_registry: str) -> tuple[str, str | None]:
-    """Parse ``name[view]`` into registry name and resolved view.
-
-    :param name_token: Bare featurizer name or ``name[view]`` atom.
+    :param name: Featurizer registry name from the recipe.
+    :param view_token: View written inside brackets, or ``None`` when unbracketed.
     :param default_registry: Registry context (``cell_line`` or ``drug``).
     :returns: Registry name and resolved view, or ``(name, None)`` when unbracketed.
     :raises ValueError: If bracket syntax is used for unsupported featurizers or registries.
     """
-    match = _BRACKET_ATOM_RE.match(name_token.strip())
-    if not match:
-        return name_token.strip(), None
-    name, view_token = match.groups()
-    name = name.strip()
+    if view_token is None:
+        return name, None
     if not requires_explicit_view(name):
         msg = f"Bracket syntax is only supported for raw and pca, got {name!r}"
         raise ValueError(msg)
@@ -73,6 +48,25 @@ def _parse_bracket_atom_name(name_token: str, *, default_registry: str) -> tuple
         msg = f"Bracket view syntax is only supported for cell-line featurizers, got registry {default_registry!r}"
         raise ValueError(msg)
     return name, resolve_omics_view(view_token)
+
+
+def _parse_atom_name(name_token: str, *, default_registry: str) -> tuple[str, str | None]:
+    """Parse a standalone atom token, as used for the key of a one-key mapping.
+
+    A key that is not a single atom (``"a+b"``) is taken verbatim as a name so it fails with
+    the registry's "unknown featurizer" error, which is what this notation did before.
+
+    :param name_token: Bare featurizer name or ``name[view]`` atom.
+    :param default_registry: Registry context (``cell_line`` or ``drug``).
+    :returns: Registry name and resolved view, or ``(name, None)`` when unbracketed.
+    """
+    try:
+        atoms = parse_featurizer_atoms(name_token)
+    except ValueError:
+        return name_token.strip(), None
+    if len(atoms) != 1:
+        return name_token.strip(), None
+    return _resolve_atom_view(*atoms[0], default_registry=default_registry)
 
 
 def _validate_view_required(config: dict[str, Any]) -> None:
@@ -202,19 +196,20 @@ def _require_view_for_parametric(name: str, view: str | None) -> None:
         raise ValueError(msg)
 
 
-def _parse_featurizer_atom(token: str, *, default_registry: str) -> dict[str, Any]:
-    """Normalize one featurizer atom, including optional ``name[view]`` syntax.
+def _featurizer_dict_from_atom(
+    name: str,
+    view_token: str | None,
+    *,
+    default_registry: str,
+) -> dict[str, Any]:
+    """Build the config mapping for one parsed atom.
 
-    :param token: Single featurizer atom from a concat recipe.
+    :param name: Featurizer registry name.
+    :param view_token: View written inside brackets, or ``None`` when unbracketed.
     :param default_registry: Target featurizer registry name.
     :returns: Normalized featurizer config mapping.
-    :raises ValueError: If the atom is empty or requires a missing view.
     """
-    trimmed = token.strip()
-    if not trimmed:
-        msg = "Featurizer token must be a non-empty string"
-        raise ValueError(msg)
-    name, view = _parse_bracket_atom_name(trimmed, default_registry=default_registry)
+    name, view = _resolve_atom_view(name, view_token, default_registry=default_registry)
     _require_view_for_parametric(name, view)
     return _assemble_featurizer_dict(
         name,
@@ -224,28 +219,25 @@ def _parse_featurizer_atom(token: str, *, default_registry: str) -> dict[str, An
 
 
 def _parse_featurizer_token(token: str, *, default_registry: str) -> dict[str, Any]:
-    """Normalize a bare featurizer token, including ``+`` concat recipes.
+    """Normalize a featurizer recipe string, including ``+`` concat recipes.
 
     :param token: String featurizer recipe from a model config.
     :param default_registry: Target featurizer registry name.
     :returns: Normalized featurizer or concat-featurizer config mapping.
-    :raises ValueError: If the token is empty or contains invalid concat syntax.
+    :raises ValueError: If the token is empty or is not a well-formed recipe.
     """
     trimmed = token.strip()
     if not trimmed:
         msg = "Featurizer token must be a non-empty string"
         raise ValueError(msg)
-    parts = _split_concat_recipe(trimmed)
-    if len(parts) == 1:
-        return _parse_featurizer_atom(parts[0], default_registry=default_registry)
-
-    if any(not part for part in parts):
-        msg = "Featurizer recipe segments joined by '+' must be non-empty"
-        raise ValueError(msg)
-
+    atoms = parse_featurizer_atoms(trimmed)
+    if len(atoms) == 1:
+        return _featurizer_dict_from_atom(*atoms[0], default_registry=default_registry)
     return {
         "name": _CONCAT_FEATURIZER_NAME,
-        "featurizers": [_parse_featurizer_atom(part, default_registry=default_registry) for part in parts],
+        "featurizers": [
+            _featurizer_dict_from_atom(name, view, default_registry=default_registry) for name, view in atoms
+        ],
         "registry": default_registry,
     }
 
@@ -351,7 +343,7 @@ def _normalize_one_key_featurizer_dict(data: dict[str, Any], *, default_registry
     else:
         msg = f"Featurizer {name_token!r} arguments must be a mapping when provided"
         raise ValueError(msg)
-    name, view = _parse_bracket_atom_name(str(name_token), default_registry=default_registry)
+    name, view = _parse_atom_name(str(name_token), default_registry=default_registry)
     _require_view_for_parametric(name, view)
     featurizers, hyperparameter_space, options = _split_one_key_payload(
         payload,

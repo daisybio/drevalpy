@@ -36,6 +36,10 @@ def format_model_id(
 def parse_model_id(model_id: str) -> tuple[str | None, str | None, str]:
     """Parse a model identifier into featurizer and predictor type names.
 
+    Splitting goes through the shared recipe grammar, so a colon inside a bracketed view
+    cannot be mistaken for a slot separator. The featurizer slots are returned as unparsed
+    recipe strings, since each is normalized against its own registry.
+
     :param model_id: ``predictor``, ``cell:predictor``, or ``cell:drug:predictor`` id.
 
     :returns: ``(cell_line_featurizer, drug_featurizer, predictor)`` names.
@@ -45,15 +49,8 @@ def parse_model_id(model_id: str) -> tuple[str | None, str | None, str]:
     if not model_id or not model_id.strip():
         msg = "model_id must be a non-empty string"
         raise ValueError(msg)
-    parts = model_id.split(_MODEL_ID_SEP)
-    if len(parts) == 1:
-        return None, None, parts[0]
-    if len(parts) == 2 and all(part.strip() for part in parts):
-        return parts[0], None, parts[1]
-    if len(parts) == 3 and all(part.strip() for part in parts):
-        return parts[0], parts[1], parts[2]
-    msg = (
-        "model_id must be 'predictor', 'cellLineFeaturizer:predictor', "
-        "or 'cellLineFeaturizer:drugFeaturizer:predictor'"
-    )
-    raise ValueError(msg)
+    # Imported lazily: drevalpy.models.__init__ eagerly pulls in models.config, whose
+    # spec module imports this one, so a module-scope import here would be circular.
+    from drevalpy.models.config._recipe import parse_model_recipe
+
+    return parse_model_recipe(model_id)
