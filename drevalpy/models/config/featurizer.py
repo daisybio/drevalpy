@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
-from typing import Any, Literal
+from collections.abc import Mapping
+from typing import Any, Literal, get_args
 
-from pydantic import BaseModel, ConfigDict, field_serializer, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, model_validator
 
 from drevalpy.components.featurizer_config_parse import normalize_featurizer_config
 from drevalpy.components.featurizer_label import requires_explicit_view
@@ -13,7 +13,26 @@ from drevalpy.models.config.immutable import FrozenMapping, thaw_value
 
 
 class FeaturizerConfig(BaseModel):
-    """Immutable template for a featurizer node in a model stack."""
+    """Immutable template for a featurizer node in a model stack.
+
+    Describes *which* featurizer to build and how to address it, not the built object:
+    a ``name`` looked up in one of the two registries (``cell_line`` or ``drug``), an
+    optional ``view`` / ``views`` selecting input matrices, ``options`` fixing concrete
+    constructor values, and ``hyperparameter_space`` declaring what tuning may vary.
+    ``featurizers`` makes the node a tree, holding children for ``concatFeaturizers``.
+
+    Accepts the same shorthands users write in YAML (a bare name, a ``name[view]`` label,
+    a list, or a one-key mapping) and normalizes them into these fields. Validation is
+    front-loaded here so a bad recipe fails at load time instead of mid-run.
+
+    ``tuple`` fields plus ``frozen=True`` make an accidental in-place edit of a shared or
+    cached config fail loudly. Note this buys *safety*, not hashability: ``options`` and
+    ``hyperparameter_space`` hold arbitrary nested data, so a config carrying either is
+    unhashable regardless. Configs are compared and copied by value via ``model_dump``.
+
+    Subclasses pin ``registry`` to a single value; see ``CellLineFeaturizerConfig``
+    and ``DrugFeaturizerConfig``.
+    """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -25,48 +44,49 @@ class FeaturizerConfig(BaseModel):
     options: FrozenMapping | None = None
     hyperparameter_space: FrozenMapping | None = None
 
+    @classmethod
+    def _pinned_registry(cls) -> str | None:
+        """Return the single registry this class is locked to, if any.
+
+        Subclasses narrow ``registry`` to a one-value ``Literal``, so that annotation is
+        the only place each registry name is declared.
+
+        :returns: The sole allowed ``registry`` value, or ``None`` when several are allowed.
+        """
+        allowed = get_args(cls.model_fields["registry"].annotation)
+        return str(allowed[0]) if len(allowed) == 1 else None
+
     @model_validator(mode="before")
     @classmethod
     def _coerce_shorthand(cls, data: object) -> object:
-        if isinstance(data, (str, list)):
-            return normalize_featurizer_config(data)
-        if isinstance(data, dict):
-            if "name" in data:
-                registry = str(data.get("registry", "cell_line"))
-                return normalize_featurizer_config(data, default_registry=registry)
-            return normalize_featurizer_config(data)
-        return data
+        """Normalize shorthand payloads against the registry this class targets.
 
-    @field_validator("views", mode="before")
-    @classmethod
-    def _coerce_views(cls, value: object) -> object:
-        if value is None or isinstance(value, tuple):
-            return value
-        if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
-            return tuple(value)
-        return value
+        A pinned class overrides a conflicting ``registry`` in the payload; the open base
+        class honors it and threads it through to nested children.
 
-    @field_validator("featurizers", mode="before")
-    @classmethod
-    def _coerce_featurizers(cls, value: object) -> object:
-        if value is None or isinstance(value, tuple):
-            return value
-        if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
-            return tuple(value)
-        return value
-
-    @field_serializer("views", when_used="always")
-    def _serialize_views(self, value: tuple[str, ...] | None) -> list[str] | None:
-        return None if value is None else list(value)
-
-    @field_serializer("featurizers", when_used="always")
-    def _serialize_featurizers(self, value: tuple[FeaturizerConfig, ...] | None) -> list[dict[str, Any]] | None:
-        if value is None:
-            return None
-        return [child.model_dump(mode="python") for child in value]
+        :param data: Raw string, list, or mapping payload.
+        :returns: Normalized mapping, or *data* unchanged when it is not a shorthand form.
+        """
+        if not isinstance(data, (str, list, dict)):
+            return data
+        pinned = cls._pinned_registry()
+        if pinned is not None:
+            if isinstance(data, dict) and "registry" in data:
+                data = {**data, "registry": pinned}
+            return normalize_featurizer_config(data, default_registry=pinned)
+        declared = data.get("registry") if isinstance(data, dict) else None
+        default = cls.model_fields["registry"].default
+        return normalize_featurizer_config(data, default_registry=str(declared or default))
 
     @model_validator(mode="after")
     def _validate_hyperparameter_space(self) -> FeaturizerConfig:
+        """Check this node's tuning search space against the shared space schema.
+
+        Catches a malformed space at config load time rather than deep inside a tuning
+        run. The featurizer name is passed as context so the error names the offender.
+
+        :returns: This config, unchanged.
+        """
         if self.hyperparameter_space is not None:
             from drevalpy.components.hyperparameter_space import validate_hyperparameter_space
 
@@ -78,6 +98,14 @@ class FeaturizerConfig(BaseModel):
 
     @model_validator(mode="after")
     def _require_non_empty_view_fields(self) -> FeaturizerConfig:
+        """Reject blank ``view`` and empty or blank ``views`` entries.
+
+        A whitespace-only view would otherwise reach the registry and fail much later
+        with a far less obvious error.
+
+        :returns: This config, unchanged.
+        :raises ValueError: If ``view`` is blank, or ``views`` is empty or holds a blank entry.
+        """
         if self.view is not None and not str(self.view).strip():
             msg = "view must be a non-empty string when set"
             raise ValueError(msg)
@@ -92,6 +120,14 @@ class FeaturizerConfig(BaseModel):
 
     @model_validator(mode="after")
     def _require_explicit_view_for_parametric_featurizers(self) -> FeaturizerConfig:
+        """Require a view for featurizers that are only meaningful per view.
+
+        Such featurizers are addressed with a parametric label like ``pca[expression]``,
+        so a bare name is ambiguous rather than defaultable.
+
+        :returns: This config, unchanged.
+        :raises ValueError: If the featurizer needs an explicit view and none is set.
+        """
         if requires_explicit_view(self.name) and not self.view:
             msg = f"Featurizer {self.name!r} requires an explicit view, e.g. {self.name}[expression]"
             raise ValueError(msg)
@@ -99,6 +135,14 @@ class FeaturizerConfig(BaseModel):
 
     @model_validator(mode="after")
     def _require_concat_children(self) -> FeaturizerConfig:
+        """Confine nested ``featurizers`` to ``concatFeaturizers``, which must have some.
+
+        Keeps the tree shape honest: only the concat node combines children, and an empty
+        concat node would build no features at all.
+
+        :returns: This config, unchanged.
+        :raises ValueError: If concat has no children, or a non-concat featurizer has any.
+        """
         if self.name == "concatFeaturizers":
             if not self.featurizers:
                 msg = "concatFeaturizers requires a non-empty featurizers list"
@@ -110,6 +154,13 @@ class FeaturizerConfig(BaseModel):
 
     @model_validator(mode="after")
     def _require_unique_qualified_children(self) -> FeaturizerConfig:
+        """Reject a concat tree that repeats the same qualified leaf, e.g. ``raw[expression]``.
+
+        Duplicates would silently emit the same feature block twice. The same base name on
+        different views is fine.
+
+        :returns: This config, unchanged.
+        """
         if self.name != "concatFeaturizers":
             return self
         from drevalpy.components.featurizer_tree import (
@@ -121,6 +172,12 @@ class FeaturizerConfig(BaseModel):
 
     def create_instance(self, hyperparameters: Mapping[str, Any] | None = None):
         """Instantiate the configured featurizer from the registry.
+
+        Turns this declarative template into a live object: resolves ``name`` in the
+        registry named by ``registry``, then merges constructor arguments so that
+        *hyperparameters* (typically a tuning trial's picks) override the config's own
+        ``options``. ``view`` / ``views`` / ``featurizers`` are filled in only when the
+        caller has not already supplied them.
 
         :param hyperparameters: Concrete constructor values for this node. Nested
             concat children should already be resolved by the caller into instances
@@ -145,35 +202,22 @@ class FeaturizerConfig(BaseModel):
 
 
 class CellLineFeaturizerConfig(FeaturizerConfig):
-    """Featurizer config fixed to the cell-line registry."""
+    """Featurizer config fixed to the cell-line registry.
+
+    Use in a slot that must hold cell-line features: a mismatched ``registry`` in the
+    payload is corrected to ``cell_line`` rather than accepted.
+    """
 
     registry: Literal["cell_line"] = "cell_line"
 
-    @model_validator(mode="before")
-    @classmethod
-    def _coerce_shorthand(cls, data: object) -> object:
-        if isinstance(data, (str, list)):
-            return normalize_featurizer_config(data, default_registry="cell_line")
-        if isinstance(data, dict):
-            payload = {**data, "registry": "cell_line"}
-            return normalize_featurizer_config(payload, default_registry="cell_line")
-        return data
-
 
 class DrugFeaturizerConfig(FeaturizerConfig):
-    """Featurizer config fixed to the drug registry."""
+    """Featurizer config fixed to the drug registry.
+
+    Drug-side counterpart of ``CellLineFeaturizerConfig``.
+    """
 
     registry: Literal["drug"] = "drug"
-
-    @model_validator(mode="before")
-    @classmethod
-    def _coerce_shorthand(cls, data: object) -> object:
-        if isinstance(data, (str, list)):
-            return normalize_featurizer_config(data, default_registry="drug")
-        if isinstance(data, dict):
-            payload = {**data, "registry": "drug"}
-            return normalize_featurizer_config(payload, default_registry="drug")
-        return data
 
 
 FeaturizerConfig.model_rebuild()
