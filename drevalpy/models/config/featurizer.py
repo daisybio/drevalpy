@@ -12,6 +12,7 @@ from drevalpy.components.featurizer_tree import ensure_unique_qualified_featuriz
 from drevalpy.components.hyperparameter_space import validate_hyperparameter_space
 from drevalpy.components.registry import get_cell_line_featurizer, get_drug_featurizer
 from drevalpy.models.config._featurizer_parse import normalize_featurizer_config
+from drevalpy.models.config._recipe import expand_featurizer_recipe
 from drevalpy.models.config.immutable import FrozenMapping, thaw_value
 
 
@@ -77,15 +78,19 @@ class FeaturizerConfig(BaseModel):
             {"pca[methylation]": {"n_components": 8}}  name=pca, view=methylation, + space
             {"name": "raw", "view": "gene_expression"} already canonical, passed through
 
-        Turning a bare name into a component needs a registry to look it up in. A pinned
-        subclass uses its own and overwrites a conflicting ``registry`` key; the base class
-        reads it from the input, falling back to the field default.
+        A recipe string is expanded into the mapping it stands for first, so the mapping
+        normalizer sees the same input whichever notation was used. Turning a bare name into a
+        component needs a registry to look it up in. A pinned subclass uses its own and
+        overwrites a conflicting ``registry`` key; the base class reads it from the input,
+        falling back to the field default.
 
         :param data: A recipe string, a list of them, or a mapping of fields.
         :returns: Canonical field mapping, or *data* unchanged if it is none of these forms.
         """
         if not isinstance(data, (str, list, dict)):
             return data
+        if isinstance(data, str):
+            data = expand_featurizer_recipe(data)
         pinned = cls._pinned_registry()
         if pinned is not None:
             if isinstance(data, dict) and "registry" in data:

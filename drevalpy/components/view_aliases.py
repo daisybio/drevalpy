@@ -53,6 +53,23 @@ def resolve_omics_view(token: str) -> str:
     raise ValueError(msg)
 
 
+def canonicalize_omics_view(token: str) -> str:
+    """Resolve a known view alias, passing anything else through untouched.
+
+    Used where a view may legitimately name something outside the built-in omics set, such as
+    a custom matrix supplied with a dataset. Only spellings this module knows about are
+    rewritten, so ``expression`` and ``gene_expression`` converge without a custom view being
+    mistaken for a typo.
+
+    :param token: User-facing view token.
+    :returns: The canonical storage key for a known alias, else *token* unchanged.
+    """
+    normalized = token.strip().lower()
+    if normalized in CANONICAL_OMICS_VIEWS:
+        return normalized
+    return _OMICS_VIEW_ALIASES.get(normalized, token)
+
+
 def format_view_alias(view: str) -> str:
     """Format a canonical view key for bracket labels.
 

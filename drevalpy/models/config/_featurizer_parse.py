@@ -1,8 +1,11 @@
-"""Normalize featurizer recipe strings and mappings into canonical config fields.
+"""Normalize featurizer mappings into canonical config fields.
 
-Turns the notations users write (see the recipe-string and YAML tabs in the docs) into
-the plain field mappings ``FeaturizerConfig`` validates. Kept next to the config models
-it feeds rather than in ``drevalpy.components``, since no component consumes it.
+Turns the mappings users write (see the YAML tab in the docs) into the plain field mappings
+``FeaturizerConfig`` validates. Recipe strings are expanded by
+``drevalpy.models.config._recipe`` before they reach here, so by this point a model written
+as a recipe and the same model written as YAML are the same mapping and this module needs to
+know nothing about recipe notation. Kept next to the config models it feeds rather than in
+``drevalpy.components``, since no component consumes it.
 """
 
 from __future__ import annotations
@@ -11,8 +14,8 @@ from typing import Any
 
 from drevalpy.components.featurizer_label import requires_explicit_view
 from drevalpy.components.registry import get_cell_line_featurizer, get_drug_featurizer
-from drevalpy.components.view_aliases import resolve_omics_view
-from drevalpy.models.config._recipe import parse_featurizer_atoms
+from drevalpy.components.view_aliases import canonicalize_omics_view
+from drevalpy.models.config._recipe import CONCAT_FEATURIZER_NAME, expand_featurizer_recipe
 from drevalpy.models.config._space_defaults import split_space_and_options
 
 _RESERVED_FEATURIZER_KEYS = frozenset(
@@ -26,58 +29,22 @@ _RESERVED_FEATURIZER_KEYS = frozenset(
         "options",
     }
 )
-_CONCAT_FEATURIZER_NAME = "concatFeaturizers"
 
 
-def _resolve_atom_view(name: str, view_token: str | None, *, default_registry: str) -> tuple[str, str | None]:
-    """Apply the semantic rules for a parsed ``name[view]`` atom.
+def _finalize_view(config: dict[str, Any]) -> None:
+    """Settle the ``view`` of a normalized mapping, in place.
 
-    The grammar has already established the shape; this decides whether a bracketed view is
-    allowed here at all and maps the alias to its canonical storage key.
+    Every notation funnels through here, so this is the single place a view is required and the
+    single place an alias is resolved. Doing it here rather than while reading a recipe is what
+    makes ``raw[expression]`` and a spelled-out ``view: expression`` mean the same thing.
 
-    :param name: Featurizer registry name from the recipe.
-    :param view_token: View written inside brackets, or ``None`` when unbracketed.
-    :param default_registry: Registry context (``cell_line`` or ``drug``).
-    :returns: Registry name and resolved view, or ``(name, None)`` when unbracketed.
-    :raises ValueError: If bracket syntax is used for unsupported featurizers or registries.
-    """
-    if view_token is None:
-        return name, None
-    if not requires_explicit_view(name):
-        msg = f"Bracket syntax is only supported for raw and pca, got {name!r}"
-        raise ValueError(msg)
-    if default_registry != "cell_line":
-        msg = f"Bracket view syntax is only supported for cell-line featurizers, got registry {default_registry!r}"
-        raise ValueError(msg)
-    return name, resolve_omics_view(view_token)
+    Only featurizers that are parametric in a view are touched, and only known aliases are
+    rewritten: a view may also name a custom matrix shipped with a dataset, which is no alias
+    and must survive untouched. Elsewhere ``view`` names an output block rather than an omics
+    matrix, and those names are not omics aliases either.
 
-
-def _parse_atom_name(name_token: str, *, default_registry: str) -> tuple[str, str | None]:
-    """Parse a standalone atom token, as used for the key of a one-key mapping.
-
-    A key that is not a single atom (``"a+b"``) is taken verbatim as a name so it fails with
-    the registry's "unknown featurizer" error, which is what this notation did before.
-
-    :param name_token: Bare featurizer name or ``name[view]`` atom.
-    :param default_registry: Registry context (``cell_line`` or ``drug``).
-    :returns: Registry name and resolved view, or ``(name, None)`` when unbracketed.
-    """
-    try:
-        atoms = parse_featurizer_atoms(name_token)
-    except ValueError:
-        return name_token.strip(), None
-    if len(atoms) != 1:
-        return name_token.strip(), None
-    return _resolve_atom_view(*atoms[0], default_registry=default_registry)
-
-
-def _validate_view_required(config: dict[str, Any]) -> None:
-    """Reject a featurizer that only means something for a named view without one.
-
-    Every notation funnels through here, so this is the single place the rule is enforced.
-
-    :param config: Normalized featurizer mapping.
-    :raises ValueError: If *config* names a view-parametric featurizer but sets no view.
+    :param config: Normalized featurizer mapping, updated in place.
+    :raises ValueError: If *config* names a view-parametric featurizer but sets no usable view.
     """
     name = str(config.get("name", ""))
     if not requires_explicit_view(name):
@@ -86,6 +53,8 @@ def _validate_view_required(config: dict[str, Any]) -> None:
     if view is None or (isinstance(view, str) and not view.strip()):
         msg = f"Featurizer {name!r} requires an explicit view, e.g. {name}[expression]"
         raise ValueError(msg)
+    if config.get("registry") == "cell_line" and isinstance(view, str):
+        config["view"] = canonicalize_omics_view(view)
 
 
 def _featurizer_class(name: str, registry: str) -> type[Any]:
@@ -113,7 +82,7 @@ def _assemble_featurizer_dict(
 
     :param name: Featurizer registry name.
     :param default_registry: Registry recorded on the mapping.
-    :param view: Resolved view, when the featurizer takes one.
+    :param view: View to record, when the featurizer takes one.
     :param featurizers: Normalized children, for a concat node.
     :param hyperparameter_space: Search space to record.
     :param options: Fixed constructor options to record.
@@ -131,53 +100,37 @@ def _assemble_featurizer_dict(
         payload["hyperparameter_space"] = hyperparameter_space
     if options is not None:
         payload["options"] = options
-    _validate_view_required(payload)
+    _finalize_view(payload)
     return payload
 
 
-def _featurizer_dict_from_atom(
-    name: str,
-    view_token: str | None,
-    *,
-    default_registry: str,
-) -> dict[str, Any]:
-    """Build the config mapping for one parsed atom.
+def _normalize_child(child: Any, *, default_registry: str) -> dict[str, Any]:
+    """Normalize one declared child of a concat node.
 
-    :param name: Featurizer registry name.
-    :param view_token: View written inside brackets, or ``None`` when unbracketed.
-    :param default_registry: Target featurizer registry name.
-    :returns: Normalized featurizer config mapping.
+    A child may be written as a recipe string, which the recipe layer expands into the mapping
+    it stands for before normalization proper.
+
+    :param child: Recipe string or mapping for one child.
+    :param default_registry: Registry the child is resolved against.
+    :returns: Normalized child mapping.
     """
-    name, view = _resolve_atom_view(name, view_token, default_registry=default_registry)
-    return _assemble_featurizer_dict(
-        name,
-        default_registry=default_registry,
-        view=view,
-    )
+    if isinstance(child, str):
+        child = expand_featurizer_recipe(child)
+    return normalize_featurizer_config(child, default_registry=default_registry)
 
 
-def _parse_featurizer_token(token: str, *, default_registry: str) -> dict[str, Any]:
-    """Normalize a featurizer recipe string, including ``+`` concat recipes.
+def _normalize_child_list(children: Any, *, default_registry: str) -> list[Any]:
+    """Normalize the children declared under a ``featurizers`` key.
 
-    :param token: String featurizer recipe from a model config.
-    :param default_registry: Target featurizer registry name.
-    :returns: Normalized featurizer or concat-featurizer config mapping.
-    :raises ValueError: If the token is empty or is not a well-formed recipe.
+    :param children: Value found under ``featurizers``.
+    :param default_registry: Registry the children are resolved against.
+    :returns: List of normalized child mappings.
+    :raises ValueError: If *children* is not a list or tuple.
     """
-    trimmed = token.strip()
-    if not trimmed:
-        msg = "Featurizer token must be a non-empty string"
+    if isinstance(children, (str, bytes, bytearray)) or not isinstance(children, (list, tuple)):
+        msg = "featurizers must be a list when set"
         raise ValueError(msg)
-    atoms = parse_featurizer_atoms(trimmed)
-    if len(atoms) == 1:
-        return _featurizer_dict_from_atom(*atoms[0], default_registry=default_registry)
-    return {
-        "name": _CONCAT_FEATURIZER_NAME,
-        "featurizers": [
-            _featurizer_dict_from_atom(name, view, default_registry=default_registry) for name, view in atoms
-        ],
-        "registry": default_registry,
-    }
+    return [_normalize_child(child, default_registry=default_registry) for child in children]
 
 
 def _normalize_featurizer_list(data: list[Any], *, default_registry: str) -> dict[str, Any]:
@@ -192,24 +145,10 @@ def _normalize_featurizer_list(data: list[Any], *, default_registry: str) -> dic
         msg = "Featurizer list must be non-empty"
         raise ValueError(msg)
     return {
-        "name": _CONCAT_FEATURIZER_NAME,
-        "featurizers": [normalize_featurizer_config(item, default_registry=default_registry) for item in data],
+        "name": CONCAT_FEATURIZER_NAME,
+        "featurizers": _normalize_child_list(data, default_registry=default_registry),
         "registry": default_registry,
     }
-
-
-def _normalize_child_list(children: Any, *, default_registry: str) -> list[Any]:
-    """Normalize the children declared under a ``featurizers`` key.
-
-    :param children: Value found under ``featurizers``.
-    :param default_registry: Registry the children are resolved against.
-    :returns: List of normalized child mappings.
-    :raises ValueError: If *children* is not a list or tuple.
-    """
-    if isinstance(children, (str, bytes, bytearray)) or not isinstance(children, (list, tuple)):
-        msg = "featurizers must be a list when set"
-        raise ValueError(msg)
-    return [normalize_featurizer_config(item, default_registry=default_registry) for item in children]
 
 
 def _normalize_named_featurizer_dict(data: dict[str, Any], *, default_registry: str) -> dict[str, Any]:
@@ -227,7 +166,7 @@ def _normalize_named_featurizer_dict(data: dict[str, Any], *, default_registry: 
             normalized["featurizers"],
             default_registry=registry,
         )
-    _validate_view_required(normalized)
+    _finalize_view(normalized)
     return normalized
 
 
@@ -266,6 +205,25 @@ def _split_one_key_payload(
     return featurizers, hyperparameter_space, options
 
 
+def _one_key_name_and_view(name_token: str) -> tuple[str, str | None]:
+    """Read the key of a one-key mapping, which is written as a single recipe atom.
+
+    A key that is not shaped like a single atom (``"a+b"``, ``"raw["``) is taken verbatim as a
+    name so it fails with the registry's "unknown featurizer" error, which is what this notation
+    did before.
+
+    :param name_token: Bare featurizer name or ``name[view]`` atom.
+    :returns: Featurizer name and the view written in brackets, if any.
+    """
+    try:
+        payload = expand_featurizer_recipe(name_token)
+    except ValueError:
+        return name_token.strip(), None
+    if payload["name"] == CONCAT_FEATURIZER_NAME:
+        return name_token.strip(), None
+    return str(payload["name"]), payload.get("view")
+
+
 def _normalize_one_key_featurizer_dict(data: dict[str, Any], *, default_registry: str) -> dict[str, Any]:
     """Normalize the ``{"pca[methylation]": {...}}`` notation.
 
@@ -282,7 +240,7 @@ def _normalize_one_key_featurizer_dict(data: dict[str, Any], *, default_registry
     else:
         msg = f"Featurizer {name_token!r} arguments must be a mapping when provided"
         raise ValueError(msg)
-    name, view = _parse_atom_name(str(name_token), default_registry=default_registry)
+    name, view = _one_key_name_and_view(str(name_token))
     featurizers, hyperparameter_space, options = _split_one_key_payload(
         payload,
         name=name,
@@ -322,26 +280,25 @@ def _reject_legacy_hyperparameters(data: dict[str, Any]) -> None:
 
 
 def normalize_featurizer_config(data: Any, *, default_registry: str = "cell_line") -> dict[str, Any]:
-    """Normalize any accepted featurizer notation into a canonical field mapping.
+    """Normalize a featurizer mapping into a canonical field mapping.
 
-    Accepts a recipe string (``"raw[gene_expression]"``, or ``+``-joined atoms), a list of
-    those (equivalent to a concat node), a one-key mapping (``{"pca[methylation]": {...}}``),
-    or a mapping that already has ``name``.
+    Accepts a list of featurizers (equivalent to a concat node), a one-key mapping
+    (``{"pca[methylation]": {...}}``), or a mapping that already has ``name``. A recipe string
+    is not a mapping: callers expand one with
+    ``drevalpy.models.config._recipe.expand_featurizer_recipe`` first, so that a model written
+    as a recipe arrives here as the same mapping the equivalent YAML would produce.
 
-    :param data: Recipe string, list of recipes, or field mapping.
+    :param data: List of featurizers, or a field mapping.
     :param default_registry: Registry used to resolve bare names (``cell_line`` or ``drug``).
     :returns: Mapping of canonical ``FeaturizerConfig`` fields.
     :raises ValueError: If the mapping form is not a one-key shorthand and lacks ``name``.
-    :raises TypeError: If *data* is not a string, list, or mapping.
+    :raises TypeError: If *data* is not a list or mapping.
     """
-    if isinstance(data, str):
-        return _parse_featurizer_token(data, default_registry=default_registry)
-
     if isinstance(data, list):
         return _normalize_featurizer_list(data, default_registry=default_registry)
 
     if not isinstance(data, dict):
-        msg = f"Featurizer config must be a string, list, or mapping, got {type(data)!r}"
+        msg = f"Featurizer config must be a list or mapping, got {type(data)!r}"
         raise TypeError(msg)
 
     _reject_legacy_hyperparameters(data)

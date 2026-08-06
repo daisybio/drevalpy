@@ -4,17 +4,12 @@ from __future__ import annotations
 
 from drevalpy.components.tuning.compatibility_keys import append_featurizer_flat_keys
 from drevalpy.models.config import CellLineFeaturizerConfig, DrugFeaturizerConfig, ModelConfig, PredictorConfig
-from drevalpy.models.config._featurizer_parse import normalize_featurizer_config
 
 
 def test_append_featurizer_flat_keys_exports_methylation_alias() -> None:
     config = ModelConfig(
-        cell_line_featurizer=CellLineFeaturizerConfig.model_validate(
-            normalize_featurizer_config({"pca[methylation]": {"n_components": 42}}, default_registry="cell_line"),
-        ),
-        drug_featurizer=DrugFeaturizerConfig.model_validate(
-            normalize_featurizer_config("fingerprints", default_registry="drug"),
-        ),
+        cell_line_featurizer=CellLineFeaturizerConfig.model_validate({"pca[methylation]": {"n_components": 42}}),
+        drug_featurizer=DrugFeaturizerConfig.model_validate("fingerprints"),
         predictor=PredictorConfig(name="randomForest"),
     )
     flat: dict = {}
@@ -26,14 +21,9 @@ def test_append_featurizer_flat_keys_exports_methylation_alias() -> None:
 def test_append_featurizer_flat_keys_skips_architecture_only_kwargs() -> None:
     config = ModelConfig(
         cell_line_featurizer=CellLineFeaturizerConfig.model_validate(
-            normalize_featurizer_config(
-                [{"name": "identity"}, {"name": "tissue", "options": {"allow_missing": True}}],
-                default_registry="cell_line",
-            ),
+            [{"name": "identity"}, {"name": "tissue", "options": {"allow_missing": True}}],
         ),
-        drug_featurizer=DrugFeaturizerConfig.model_validate(
-            normalize_featurizer_config("identity", default_registry="drug"),
-        ),
+        drug_featurizer=DrugFeaturizerConfig.model_validate("identity"),
         predictor=PredictorConfig(name="naiveMeanEffects"),
     )
     flat: dict = {}

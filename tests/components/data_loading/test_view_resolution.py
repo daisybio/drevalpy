@@ -14,7 +14,6 @@ from drevalpy.components.data_loading.view_resolution import (
 )
 from drevalpy.components.register_builtins import register_builtin_components
 from drevalpy.models.config import CellLineFeaturizerConfig, DrugFeaturizerConfig, ModelConfig, PredictorConfig
-from drevalpy.models.config._featurizer_parse import normalize_featurizer_config
 
 
 @pytest.fixture(autouse=True)
@@ -34,12 +33,8 @@ def _model_config(**kwargs: object) -> ModelConfig:
 
 def test_identity_featurizers_resolve_to_empty_views() -> None:
     config = _model_config(
-        cell_line_featurizer=CellLineFeaturizerConfig.model_validate(
-            normalize_featurizer_config("identity", default_registry="cell_line"),
-        ),
-        drug_featurizer=DrugFeaturizerConfig.model_validate(
-            normalize_featurizer_config("identity", default_registry="drug"),
-        ),
+        cell_line_featurizer=CellLineFeaturizerConfig.model_validate("identity"),
+        drug_featurizer=DrugFeaturizerConfig.model_validate("identity"),
     )
     assert cell_line_entity_id_only_from_model_config(config)
     assert drug_entity_id_only_from_model_config(config)
@@ -49,12 +44,8 @@ def test_identity_featurizers_resolve_to_empty_views() -> None:
 
 def test_constant_featurizers_resolve_to_empty_views() -> None:
     config = _model_config(
-        cell_line_featurizer=CellLineFeaturizerConfig.model_validate(
-            normalize_featurizer_config("constant", default_registry="cell_line"),
-        ),
-        drug_featurizer=DrugFeaturizerConfig.model_validate(
-            normalize_featurizer_config("constant", default_registry="drug"),
-        ),
+        cell_line_featurizer=CellLineFeaturizerConfig.model_validate("constant"),
+        drug_featurizer=DrugFeaturizerConfig.model_validate("constant"),
     )
     assert cell_line_entity_id_only_from_model_config(config)
     assert drug_entity_id_only_from_model_config(config)
@@ -64,9 +55,7 @@ def test_constant_featurizers_resolve_to_empty_views() -> None:
 
 def test_bracket_featurizers_resolve_canonical_views() -> None:
     config = _model_config(
-        cell_line_featurizer=CellLineFeaturizerConfig.model_validate(
-            normalize_featurizer_config("raw[mutations]+pca[methylation]", default_registry="cell_line"),
-        ),
+        cell_line_featurizer=CellLineFeaturizerConfig.model_validate("raw[mutations]+pca[methylation]"),
     )
     assert cell_line_views_from_model_config(config) == [
         "mutations",
@@ -77,18 +66,14 @@ def test_bracket_featurizers_resolve_canonical_views() -> None:
 @pytest.mark.parametrize("name", ["landmarkGenes", "landmarkGenesReduced"])
 def test_landmark_featurizers_resolve_gene_expression(name: str) -> None:
     config = _model_config(
-        cell_line_featurizer=CellLineFeaturizerConfig.model_validate(
-            normalize_featurizer_config(name, default_registry="cell_line"),
-        ),
+        cell_line_featurizer=CellLineFeaturizerConfig.model_validate(name),
     )
     assert cell_line_views_from_model_config(config) == ["gene_expression"]
 
 
 def test_fingerprint_featurizer_still_resolves_fingerprints_view() -> None:
     config = _model_config(
-        drug_featurizer=DrugFeaturizerConfig.model_validate(
-            normalize_featurizer_config("fingerprints", default_registry="drug"),
-        ),
+        drug_featurizer=DrugFeaturizerConfig.model_validate("fingerprints"),
     )
     assert not drug_entity_id_only_from_model_config(config)
     assert drug_views_from_model_config(config) == ["fingerprints"]
@@ -108,9 +93,7 @@ def test_identity_drug_loading_uses_drug_ids_not_fingerprints() -> None:
     from drevalpy.components.data_loading import load_drug_features_for_model_config
 
     config = _model_config(
-        drug_featurizer=DrugFeaturizerConfig.model_validate(
-            normalize_featurizer_config("identity", default_registry="drug"),
-        ),
+        drug_featurizer=DrugFeaturizerConfig.model_validate("identity"),
     )
     with patch("drevalpy.components.data_loading.feature_loaders.load_drug_ids_from_csv") as load_ids:
         with patch("drevalpy.components.data_loading.feature_loaders.load_drug_feature_views") as load_views:
