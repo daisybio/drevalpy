@@ -11,7 +11,7 @@ from drevalpy.components.tuning.hyperparameter_keys import (
     resolve_to_qualified_mapping,
 )
 from drevalpy.models import construct_model
-from drevalpy.models.config import ModelConfig
+from drevalpy.models.config import model_config_from_spec
 
 
 @pytest.fixture(autouse=True)
@@ -31,7 +31,7 @@ def test_elastic_net_alpha_has_single_owner() -> None:
 
 
 def test_two_pca_views_make_n_components_ambiguous() -> None:
-    config = ModelConfig.from_spec("pca[expression]+pca[proteomics]:fingerprints:randomForest")
+    config = model_config_from_spec("pca[expression]+pca[proteomics]:fingerprints:randomForest")
     index = build_ownership_index(config)
     owners = index.short_to_targets["n_components"]
     assert len(owners) == 2
@@ -49,7 +49,7 @@ def test_two_pca_views_make_n_components_ambiguous() -> None:
 
 
 def test_ambiguous_short_key_lists_qualified_alternatives() -> None:
-    config = ModelConfig.from_spec("pca[expression]+pca[proteomics]:fingerprints:randomForest")
+    config = model_config_from_spec("pca[expression]+pca[proteomics]:fingerprints:randomForest")
     index = build_ownership_index(config)
     with pytest.raises(ValueError, match="Ambiguous hyperparameter 'n_components'"):
         resolve_to_qualified_mapping(config, {"n_components": 64}, index, reserved_keys=frozenset())
@@ -72,7 +72,7 @@ def test_duplicate_short_and_qualified_assignments_rejected() -> None:
 
 
 def test_export_uses_qualified_keys_for_collisions() -> None:
-    config = ModelConfig.from_spec("pca[expression]+pca[proteomics]:fingerprints:randomForest")
+    config = model_config_from_spec("pca[expression]+pca[proteomics]:fingerprints:randomForest")
     exported = export_public_mapping(config)
     assert "n_components" not in exported
     assert "cell_line_featurizer.pca[expression].n_components" in exported

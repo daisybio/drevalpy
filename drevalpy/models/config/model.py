@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any
-
 from pydantic import BaseModel, ConfigDict, model_validator
 
 from drevalpy.components.predictor_config_parse import normalize_predictor_config
@@ -82,59 +79,3 @@ class ModelConfig(BaseModel):
         if self.drug_featurizer is None:
             return None
         return f"{self.cell_line_featurizer.name}:" f"{self.drug_featurizer.name}:" f"{self.predictor.name}"
-
-    def validate(self) -> None:  # type: ignore[override]  # supported public API; not pydantic model_validate
-        """Check registry slots, feature compatibility, and prediction mode."""
-        from drevalpy.models.config.validation import validate_model_config
-
-        normalized = normalize_single_drug_identity(self.model_dump())
-        if normalized != self.model_dump():
-            refreshed = ModelConfig.model_validate(normalized)
-            self.drug_featurizer = refreshed.drug_featurizer
-            self.scope = refreshed.scope
-        validate_model_config(self)
-
-    @classmethod
-    def from_spec(
-        cls,
-        spec: str,
-        *,
-        hyperparameters: dict[str, Any] | None = None,
-        prediction_mode: PredictionMode = PredictionMode.REGRESSION,
-    ) -> ModelConfig:
-        """Build a config from a recipe, zoo, legacy, or baseline spec string.
-
-        :param spec: Zoo preset name, colon-separated recipe, or legacy baseline token.
-        :param hyperparameters: Optional flat public hyperparameter overrides.
-        :param prediction_mode: Regression or classification mode for the predictor.
-        :returns: Validated ``ModelConfig`` instance.
-        """
-        from drevalpy.models.config.spec import build_model_config_from_spec
-
-        return build_model_config_from_spec(
-            spec,
-            hyperparameters=hyperparameters,
-            prediction_mode=prediction_mode,
-        )
-
-    @classmethod
-    def from_yaml(cls, path: Path | str) -> ModelConfig:
-        """Load a config from a YAML file.
-
-        :param path: Path to a YAML mapping describing the model config.
-        :returns: Validated ``ModelConfig`` instance.
-        """
-        from drevalpy.models.config.io import model_config_from_yaml
-
-        return model_config_from_yaml(path)
-
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> ModelConfig:
-        """Build a config from a plain dictionary.
-
-        :param data: Mapping with featurizer and predictor sections.
-        :returns: Validated ``ModelConfig`` instance.
-        """
-        from drevalpy.models.config.io import model_config_from_dict
-
-        return model_config_from_dict(data)

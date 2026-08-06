@@ -35,7 +35,7 @@ There are two ways to call it:
    ``construct_model("MyRF", spec)``). Use this form when the name is not a zoo
    preset. ``spec`` must be either a recipe string or a ``ModelConfig`` object —
    YAML paths are not accepted directly. Build a ``ModelConfig`` with the
-   constructor or ``ModelConfig.from_yaml(...)``, then pass that object as
+   constructor or ``model_config_from_yaml(...)``, then pass that object as
    ``spec``.
 
 The tabs below show each call form:
@@ -75,9 +75,9 @@ The tabs below show each call form:
       .. code-block:: python
 
          from drevalpy.models import construct_model
-         from drevalpy.models.config import ModelConfig
+         from drevalpy.models.config import ModelConfig, model_config_from_yaml
 
-         config = ModelConfig.from_yaml("my_zoo/custom_rf.yaml")
+         config = model_config_from_yaml("my_zoo/custom_rf.yaml")
          MyRF = construct_model("MyRF", config)
 
    .. tab-item:: ModelConfig
@@ -226,7 +226,7 @@ Before 1.6.0, ``MODEL_FACTORY``, ``MULTI_DRUG_MODEL_FACTORY``, and
 ``SINGLE_DRUG_MODEL_FACTORY`` were the usual lookup. They remain as **lazy,
 built-in-only** compatibility views equivalent to ``construct_model(name)`` for
 zoo preset names, but emit ``FutureWarning`` and may be removed in a future
-release. Prefer ``construct_model``, ``ModelConfig.from_spec``, and
+release. Prefer ``construct_model``, ``model_config_from_spec``, and
 ``list_zoo_names(scope=...)``. See :doc:`quickstart` for a short side-by-side
 example.
 

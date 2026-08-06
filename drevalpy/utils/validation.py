@@ -2,12 +2,6 @@
 
 from pathlib import Path
 
-from drevalpy.datasets import is_builtin_dataset, list_builtin_datasets
-from drevalpy.datasets.splits import validate_split_label
-from drevalpy.datasets.utils import ALLOWED_MEASURES
-from drevalpy.evaluation import AVAILABLE_METRICS
-from drevalpy.models._model_lookup import known_model_names
-
 _VALID_TEST_MODES = frozenset({"LPO", "LCO", "LDO", "LTO"})
 _VALID_RANDOMIZATION_MODES = frozenset({"SVCC", "SVRC", "SVCD", "SVRD"})
 _VALID_RESPONSE_TRANSFORMS = frozenset({"None", "standard", "minmax", "robust"})
@@ -20,6 +14,8 @@ def validate_models(args) -> None:
 
     :raises AssertionError: If no models are given or a name is not registered.
     """
+    from drevalpy.models._model_lookup import known_model_names
+
     available_models = known_model_names(include_external=True)
     if not args.models:
         raise AssertionError("At least one model must be specified")
@@ -28,7 +24,7 @@ def validate_models(args) -> None:
             f"Invalid model name. Available models are {available_models}. If you want to "
             f"use your own model, register a zoo YAML under the external zoo path (or "
             f"package zoo) and resolve it by name; custom recipe strings are available "
-            f"programmatically via construct_model(name, spec) / ModelConfig.from_spec."
+            f"programmatically via construct_model(name, spec) / model_config_from_spec."
         )
     if args.baselines is None:
         return
@@ -36,7 +32,7 @@ def validate_models(args) -> None:
         raise AssertionError(
             f"Invalid baseline name. Available baselines are {available_models}. If you "
             f"want to use your own baseline, register components and a zoo preset, then "
-            f"resolve it with construct_model / ModelConfig.from_spec."
+            f"resolve it with construct_model / model_config_from_spec."
         )
 
 
@@ -81,6 +77,8 @@ def validate_dataset_name_and_paths(args) -> None:
 
     :raises FileNotFoundError: If a custom dataset CSV is missing at the expected path.
     """
+    from drevalpy.datasets.loader import is_builtin_dataset
+
     if is_builtin_dataset(args.dataset_name):
         return
     expected = _expected_custom_dataset_path(args)
@@ -106,6 +104,8 @@ def validate_cross_study_dataset_names(args) -> None:
 
     :raises AssertionError: If a cross-study name is not a built-in dataset.
     """
+    from drevalpy.datasets.loader import is_builtin_dataset, list_builtin_datasets
+
     for dataset in args.cross_study_datasets:
         if not is_builtin_dataset(dataset):
             raise AssertionError(
@@ -132,6 +132,8 @@ def validate_cv_split_settings(args) -> None:
 
     custom_split_name = getattr(args, "custom_split_name", None)
     if custom_split_name is not None:
+        from drevalpy.datasets.splits import validate_split_label
+
         validate_split_label(custom_split_name)
 
 
@@ -175,6 +177,9 @@ def validate_measure_and_metrics(args) -> None:
     :raises ValueError: If ``measure`` is not an allowed drug-response column.
     :raises AssertionError: If transformation or optimization metric is invalid.
     """
+    from drevalpy.datasets.utils import ALLOWED_MEASURES
+    from drevalpy.evaluation import AVAILABLE_METRICS
+
     if args.measure not in ALLOWED_MEASURES:
         raise ValueError(
             "Only 'LN_IC50', 'EC50', 'IC50', 'pEC50', 'AUC', 'response' or their equivalents including "

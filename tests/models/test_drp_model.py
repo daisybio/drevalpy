@@ -9,7 +9,7 @@ import pytest
 
 from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.models import construct_model
-from drevalpy.models.config import ModelConfig
+from drevalpy.models.config import model_config_from_spec
 from tests.models.synthetic_fixtures import (
     cell_line_gene_expression,
     drug_fingerprints,
@@ -143,7 +143,7 @@ def test_separate_constructor_calls_have_isolated_fitted_state() -> None:
 
 def test_from_resolved_config_and_load_skip_default_stack() -> None:
     elastic_net_cls = construct_model("ElasticNet")
-    config = ModelConfig.from_spec("ElasticNet", hyperparameters={"alpha": 0.2, "l1_ratio": 0.3})
+    config = model_config_from_spec("ElasticNet", hyperparameters={"alpha": 0.2, "l1_ratio": 0.3})
     model = elastic_net_cls._from_resolved_config(config)
     assert model.hyperparameters["alpha"] == 0.2
     response = multi_drug_response()

@@ -7,6 +7,8 @@ from drevalpy.models.config import (
     ModelConfig,
     PredictionMode,
     PredictorConfig,
+    model_config_from_dict,
+    model_config_from_spec,
 )
 
 
@@ -182,10 +184,10 @@ def test_model_config_from_spec_classmethod() -> None:
     from drevalpy.components.register_builtins import register_builtin_components
 
     register_builtin_components()
-    config = ModelConfig.from_spec("NaivePredictor")
+    config = model_config_from_spec("NaivePredictor")
     assert config.predictor.name == "naiveMean"
 
 
 def test_model_config_from_dict_classmethod() -> None:
-    config = ModelConfig.from_dict({"predictor": "naiveMean"})
+    config = model_config_from_dict({"predictor": "naiveMean"})
     assert config.predictor.name == "naiveMean"

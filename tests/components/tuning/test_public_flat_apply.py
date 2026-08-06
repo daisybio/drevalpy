@@ -6,7 +6,7 @@ import pytest
 
 import drevalpy.components.register_builtins as register_builtins
 from drevalpy.components.tuning.public_flat import apply_public_hyperparameters_to_config
-from drevalpy.models.config import ModelConfig
+from drevalpy.models.config import model_config_from_spec
 from drevalpy.models.zoo import get_zoo_config
 
 
@@ -50,13 +50,13 @@ def test_unknown_flat_keys_rejected() -> None:
 
 
 def test_ambiguous_n_components_rejected_for_multi_pca_stack() -> None:
-    config = ModelConfig.from_spec("pca[expression]+pca[proteomics]:fingerprints:randomForest")
+    config = model_config_from_spec("pca[expression]+pca[proteomics]:fingerprints:randomForest")
     with pytest.raises(ValueError, match="Ambiguous hyperparameter 'n_components'"):
         apply_public_hyperparameters_to_config(config, {"n_components": 64})
 
 
 def test_qualified_n_components_update_single_leaf() -> None:
-    config = ModelConfig.from_spec("pca[expression]+pca[proteomics]:fingerprints:randomForest")
+    config = model_config_from_spec("pca[expression]+pca[proteomics]:fingerprints:randomForest")
     updated = apply_public_hyperparameters_to_config(
         config,
         {

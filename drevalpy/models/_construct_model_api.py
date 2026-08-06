@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from drevalpy.models.config import ModelConfig, ModelScope
+from drevalpy.models.config import ModelConfig, ModelScope, model_config_from_spec, validate_model_config
 from drevalpy.models.drp_model import DRPModel
 
 _CONSTRUCTED_CACHE: dict[tuple[str, str], type[DRPModel]] = {}
@@ -26,12 +26,12 @@ def _resolve_base_config(name: str, spec: str | ModelConfig | None) -> ModelConf
                 'construct_model("MyModel", "cellLine:drug:predictor").'
             )
             raise ValueError(msg)
-        config = ModelConfig.from_spec(name)
+        config = model_config_from_spec(name)
     elif isinstance(spec, ModelConfig):
         config = spec.model_copy(deep=True)
     else:
-        config = ModelConfig.from_spec(spec)
-    config.validate()
+        config = model_config_from_spec(spec)
+    validate_model_config(config)
     return config
 
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from drevalpy.models.config import validate_model_config
 from drevalpy.models.factory import model_config_for_name
 from drevalpy.models.zoo import get_zoo_config, list_zoo_names, zoo_model_config
 
@@ -148,12 +149,12 @@ def test_single_drug_sklearn_zoo_entries_use_identity_for_routing() -> None:
     assert random_forest.drug_featurizer.name == "identity"
     assert elastic_net.model_id == "scaledGeneExpression:singleDrugElasticNet"
     assert elastic_net.scope.value == "single_drug"
-    elastic_net.validate()
-    random_forest.validate()
+    validate_model_config(elastic_net)
+    validate_model_config(random_forest)
 
 
 def test_multi_drug_sklearn_predictor_without_drug_featurizer_fails() -> None:
     config = get_zoo_config("ElasticNet").model_copy(update={"drug_featurizer": None})
 
     with pytest.raises(ValueError, match="requires a drug_featurizer"):
-        config.validate()
+        validate_model_config(config)

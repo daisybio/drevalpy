@@ -1,12 +1,11 @@
 """Main evaluation pipeline entry and dataset loading helpers."""
 
-from drevalpy.datasets.dataset import DrugResponseDataset
-from drevalpy.datasets.loader import load_response_dataset
-from drevalpy.experiment import drug_response_experiment
-from drevalpy.models._model_lookup import get_model_class
+from __future__ import annotations
 
-from .response_transform import get_response_transformation
-from .validation import check_arguments
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from drevalpy.datasets.dataset import DrugResponseDataset
 
 
 def main(args) -> None:
@@ -14,6 +13,9 @@ def main(args) -> None:
 
     :param args: Parsed command-line arguments for the evaluation pipeline.
     """
+    from .response_transform import get_response_transformation
+    from .validation import check_arguments
+
     check_arguments(args)
     response_data, cross_study_datasets = get_datasets(
         dataset_name=args.dataset_name,
@@ -24,6 +26,9 @@ def main(args) -> None:
         cores=args.curve_curator_cores,
         normalize=getattr(args, "curve_curator_normalize", False),
     )
+
+    from drevalpy.experiment import drug_response_experiment
+    from drevalpy.models._model_lookup import get_model_class
 
     models = [get_model_class(model) for model in args.models]
 
@@ -96,6 +101,8 @@ def get_datasets(
     :param normalize: normalize.
     :returns: Result of the operation.
     """
+    from drevalpy.datasets.loader import load_response_dataset
+
     response_data = load_response_dataset(
         dataset_name=dataset_name,
         path_data=path_data,

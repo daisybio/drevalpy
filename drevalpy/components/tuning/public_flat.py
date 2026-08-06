@@ -11,7 +11,7 @@ from drevalpy.components.tuning.hyperparameter_keys import (
     export_public_mapping,
     resolve_to_qualified_mapping,
 )
-from drevalpy.models.config import ModelConfig
+from drevalpy.models.config import ModelConfig, validate_model_config
 
 from ._model_config_base import base_model_config_for_drp_model
 from .search_space import apply_merged_to_model_config
@@ -54,7 +54,7 @@ def apply_public_hyperparameters_to_config(
     )
     if qualified:
         result = apply_merged_to_model_config(result, qualified)
-    result.validate()
+    validate_model_config(result)
     assert_component_local_hyperparameters(result)
     return result
 

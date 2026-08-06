@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import yaml
 from pydantic import ValidationError
 
-if TYPE_CHECKING:
-    from drevalpy.models.config.model import ModelConfig
+from drevalpy.models.config.model import ModelConfig
+from drevalpy.models.config.spec import build_model_config_from_spec
+from drevalpy.types.prediction_mode import PredictionMode
 
 
 def _format_validation_error(exc: ValidationError, *, source: Path | str | None = None) -> str:
@@ -28,8 +29,6 @@ def model_config_from_dict(data: dict[str, Any], *, source: Path | str | None = 
     :returns: Validated ``ModelConfig`` instance.
     :raises ValueError: If validation fails.
     """
-    from drevalpy.models.config.model import ModelConfig
-
     try:
         return ModelConfig.model_validate(data)
     except ValidationError as exc:
@@ -49,9 +48,6 @@ def model_config_from_spec(
     :param prediction_mode: Optional prediction mode string; defaults to regression.
     :returns: Validated ``ModelConfig`` instance.
     """
-    from drevalpy.models.config.spec import build_model_config_from_spec
-    from drevalpy.types.prediction_mode import PredictionMode
-
     if prediction_mode is None:
         return build_model_config_from_spec(spec, hyperparameters=hyperparameters)
     return build_model_config_from_spec(

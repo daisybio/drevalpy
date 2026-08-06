@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from drevalpy.models import construct_model
-from drevalpy.models.config import ModelConfig
+from drevalpy.models.config import model_config_from_spec, validate_model_config
 from drevalpy.models.drp_model import DRPModel
 
 LITERATURE_FACTORY_NAMES = [
@@ -34,9 +34,9 @@ def test_literature_factory_entries_are_native_facades(name: str) -> None:
 
 @pytest.mark.parametrize("name", LITERATURE_FACTORY_NAMES)
 def test_model_config_and_factory_share_zoo_name(name: str) -> None:
-    config = ModelConfig.from_spec(name)
+    config = model_config_from_spec(name)
     model_cls = construct_model(name)
-    config.validate()
+    validate_model_config(config)
     assert model_cls.get_model_name() == name
 
 

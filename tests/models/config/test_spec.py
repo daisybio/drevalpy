@@ -8,7 +8,7 @@ import pytest
 
 from drevalpy.components.extensions import load_extensions
 from drevalpy.components.register_builtins import register_builtin_components
-from drevalpy.models.config import ModelConfig
+from drevalpy.models.config import model_config_from_spec, validate_model_config
 from drevalpy.models.config.spec import build_model_config_from_spec
 
 
@@ -104,7 +104,7 @@ def test_build_model_config_from_literature_zoo_name() -> None:
 
 def test_model_config_from_spec_classmethod_matches_helper() -> None:
     helper_config = build_model_config_from_spec("RandomForest")
-    class_config = ModelConfig.from_spec("RandomForest")
+    class_config = model_config_from_spec("RandomForest")
     assert helper_config.predictor.name == class_config.predictor.name
     assert helper_config.cell_line_featurizer is not None
     assert class_config.cell_line_featurizer is not None
@@ -170,7 +170,7 @@ resolverEntry:
         encoding="utf-8",
     )
     load_extensions(directories=[ext_dir], zoo_files=[zoo_file])
-    config = ModelConfig.from_spec("resolverEntry")
+    config = model_config_from_spec("resolverEntry")
     assert config.cell_line_featurizer is None
     assert config.predictor.name == "resolverPredictor"
-    config.validate()
+    validate_model_config(config)

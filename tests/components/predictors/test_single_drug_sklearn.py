@@ -7,11 +7,11 @@ import numpy as np
 from drevalpy.components.predictors.single_drug_sklearn import SingleDrugSklearnPredictor
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models._component_stack import build_component_stack
-from drevalpy.models.config import ModelConfig
+from drevalpy.models.config import model_config_from_spec
 
 
 def test_identity_routes_estimators_without_entering_design_matrix() -> None:
-    config = ModelConfig.from_spec(
+    config = model_config_from_spec(
         "scaledGeneExpression:identity:singleDrugElasticNet",
         hyperparameters={"alpha": 0.1, "l1_ratio": 0.5},
     )

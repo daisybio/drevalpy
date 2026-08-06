@@ -17,14 +17,14 @@ Example:
 ```python
 from drevalpy.components import load_extensions
 from drevalpy.models import construct_model
-from drevalpy.models.config import ModelConfig
+from drevalpy.models.config import ModelConfig, model_config_from_spec
 
 load_extensions(directories=["./my_components"], zoo_files=["./my_zoo.yaml"])
 
 MyModel = construct_model("MyModel", "scaledGeneExpression:fingerprints:elasticNet")
 # Or resolve a registered zoo name:
 MyModelZoo = construct_model("MyModel")
-config = ModelConfig.from_spec("MyModel")
+config = model_config_from_spec("MyModel")
 MyModelFromConfig = construct_model("MyModel", config)
 model = MyModelZoo()
 ```

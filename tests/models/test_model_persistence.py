@@ -21,7 +21,7 @@ from drevalpy.models._model_persistence import (
     resolve_checkpoint_path,
     save_model,
 )
-from drevalpy.models.config import ModelConfig
+from drevalpy.models.config import model_config_from_spec
 from tests.models.synthetic_fixtures import (
     cell_line_gene_expression,
     drug_fingerprints,
@@ -110,7 +110,7 @@ def test_save_rejects_directory_path() -> None:
 
 
 def test_load_rejects_non_mapping_state() -> None:
-    config = ModelConfig.from_spec("ElasticNet", hyperparameters={"alpha": 0.1, "l1_ratio": 0.5})
+    config = model_config_from_spec("ElasticNet", hyperparameters={"alpha": 0.1, "l1_ratio": 0.5})
     payload = {
         "format": FORMAT_NAME,
         "version": FORMAT_VERSION,
@@ -186,7 +186,7 @@ def test_load_rejects_malformed_or_unsupported_payloads(
 
 
 def test_load_rejects_unfitted_checkpoint_state() -> None:
-    config = ModelConfig.from_spec("ElasticNet", hyperparameters={"alpha": 0.1, "l1_ratio": 0.5})
+    config = model_config_from_spec("ElasticNet", hyperparameters={"alpha": 0.1, "l1_ratio": 0.5})
     payload = {
         "format": FORMAT_NAME,
         "version": FORMAT_VERSION,

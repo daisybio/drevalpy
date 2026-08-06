@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from drevalpy.models.config import ModelConfig
+from drevalpy.models.config import ModelConfig, validate_model_config
 from drevalpy.models.config.io import model_config_from_yaml
 from drevalpy.models.zoo._external_load import (
     _collect_zoo_entries_from_yaml,
@@ -72,7 +72,7 @@ def get_zoo_config(name: str) -> ModelConfig:
         msg = f"Unknown zoo entry: {name}"
         raise KeyError(msg)
     if name not in _VALIDATED_BUILTIN_NAMES:
-        _BUILTIN_ZOO[name].validate()
+        validate_model_config(_BUILTIN_ZOO[name])
         _VALIDATED_BUILTIN_NAMES.add(name)
     return _clone_model_config(_BUILTIN_ZOO[name])
 
@@ -94,7 +94,7 @@ def register_external_zoo_entry(name: str, config: ModelConfig, *, replace: bool
     if name in _EXTERNAL_ZOO and not replace:
         msg = f"External zoo entry {name!r} is already registered"
         raise ValueError(msg)
-    config.validate()
+    validate_model_config(config)
     _EXTERNAL_ZOO[name] = _clone_model_config(config)
 
 

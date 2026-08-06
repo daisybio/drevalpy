@@ -89,7 +89,7 @@ at it with ``raw[view]``:
 .. code-block:: python
 
    from drevalpy.models import construct_model
-   from drevalpy.models.config import ModelConfig
+   from drevalpy.models.config import model_config_from_spec
 
    MyRF = construct_model(
        "MyRF",
@@ -98,7 +98,7 @@ at it with ``raw[view]``:
    model = MyRF()
 
    # Same composition via ModelConfig + construct_model
-   config = ModelConfig.from_spec(
+   config = model_config_from_spec(
        "raw[mynewdatamodality]:fingerprints:randomForest"
    )
    MyRF2 = construct_model("MyRF", config)

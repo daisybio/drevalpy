@@ -124,7 +124,7 @@ Whether you can customize the space depends on how you construct the class:
   you cannot override their search space from the call site. A preset may
   still deviate from each component's built-in defaults when its YAML sets
   ``hyperparameter_space``; otherwise it falls back to those defaults.
-- **YAML** (via ``ModelConfig.from_yaml``) and the **``ModelConfig``
+- **YAML** (via ``model_config_from_yaml``) and the **``ModelConfig``
   constructor** let you set ``hyperparameter_space`` on a component to
   **replace** its built-in space. Use these when you need a custom search
   space (including your own zoo-style YAML files).
@@ -163,9 +163,9 @@ Whether you can customize the space depends on how you construct the class:
       .. code-block:: python
 
          from drevalpy.models import construct_model
-         from drevalpy.models.config import ModelConfig
+         from drevalpy.models.config import ModelConfig, model_config_from_yaml
 
-         config = ModelConfig.from_yaml("my_zoo/custom_en.yaml")
+         config = model_config_from_yaml("my_zoo/custom_en.yaml")
          MyEN = construct_model("MyElasticNet", config)
 
    .. tab-item:: ModelConfig

@@ -14,7 +14,7 @@ from drevalpy.components.registry import get_predictor
 from drevalpy.components.training_context import TrainingContext
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models import construct_model
-from drevalpy.models.config import ModelConfig
+from drevalpy.models.config import model_config_from_spec
 
 
 def test_neural_network_predictor_registry_name() -> None:
@@ -46,7 +46,7 @@ def _synthetic_data() -> tuple[DrugResponseDataset, FeatureDataset, FeatureDatas
 def test_neural_network_zoo_trains_on_synthetic_data() -> None:
     register_builtin_components()
     response, cell_line_input, drug_input = _synthetic_data()
-    config = ModelConfig.from_spec(
+    config = model_config_from_spec(
         "SimpleNeuralNetwork",
         hyperparameters={"max_epochs": 1, "batch_size": 2},
     )

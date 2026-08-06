@@ -10,6 +10,7 @@ from drevalpy.components.predictors.feature_free import FeatureFreePredictor
 from drevalpy.models.config.featurizer import CellLineFeaturizerConfig, DrugFeaturizerConfig
 from drevalpy.models.config.model import ModelConfig
 from drevalpy.models.config.predictor import PredictorConfig
+from drevalpy.models.config.validation import validate_model_config
 from drevalpy.types.model_scope import ModelScope
 from drevalpy.types.prediction_mode import PredictionMode
 
@@ -48,7 +49,7 @@ def _config_from_recipe_triple(
             prediction_mode=mode,
             scope=scope,
         )
-        config.validate()
+        validate_model_config(config)
         if hyperparameters:
             from drevalpy.components.tuning.public_flat import apply_public_hyperparameters_to_config
 
@@ -67,7 +68,7 @@ def _config_from_recipe_triple(
             prediction_mode=mode,
             scope=scope,
         )
-        config.validate()
+        validate_model_config(config)
         if hyperparameters:
             from drevalpy.components.tuning.public_flat import apply_public_hyperparameters_to_config
 
@@ -84,7 +85,7 @@ def _config_from_recipe_triple(
         prediction_mode=mode,
         scope=scope,
     )
-    config.validate()
+    validate_model_config(config)
     if hyperparameters:
         from drevalpy.components.tuning.public_flat import apply_public_hyperparameters_to_config
 
@@ -113,7 +114,7 @@ def _config_from_no_featurizer_predictor_token(
     )
     # Preserve predictor-declared default scope for feature-free models.
     config = config.model_copy(update={"scope": _default_scope_for_predictor(pred_cls)}, deep=True)
-    config.validate()
+    validate_model_config(config)
     return config
 
 
@@ -161,7 +162,7 @@ def build_model_config_from_spec(
     if config is not None:
         if config.prediction_mode != mode:
             config = config.model_copy(update={"prediction_mode": mode}, deep=True)
-            config.validate()
+            validate_model_config(config)
         if hyperparameters:
             from drevalpy.components.tuning.public_flat import apply_public_hyperparameters_to_config
 
