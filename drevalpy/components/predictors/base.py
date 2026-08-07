@@ -92,14 +92,14 @@ class Predictor(ABC):
         """
 
     def get_state(self) -> dict[str, object]:
-        """Return serializable fitted state for legacy save/load bridges.
+        """Return serializable fitted state for checkpoint persistence.
 
         :returns: JSON-serializable mapping of fitted attributes.
         """
         return {}
 
     def set_state(self, state: dict[str, object]) -> None:
-        """Restore fitted state produced by ``get_state``.
+        """Restore fitted state from a checkpoint produced by ``get_state``.
 
         :param state: Mapping previously returned by ``get_state``.
         """
