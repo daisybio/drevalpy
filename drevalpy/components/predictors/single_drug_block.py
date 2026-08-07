@@ -94,7 +94,7 @@ class SingleDrugBlockPredictor(BlockPredictor):
         :returns: Restored algorithm instance.
         """
 
-    def fit(self, batch: ModelInputBatch) -> None:
+    def _fit(self, batch: ModelInputBatch) -> None:
         """Train the underlying algorithm on featurized pairs.
 
         :param batch: Training batch with responses and feature blocks.

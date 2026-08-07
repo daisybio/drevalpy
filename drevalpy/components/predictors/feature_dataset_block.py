@@ -115,7 +115,7 @@ class FeatureDatasetBlockPredictor(BlockPredictor):
         :param payload: Mapping loaded from the state blob.
         """
 
-    def fit(self, batch: ModelInputBatch) -> None:
+    def _fit(self, batch: ModelInputBatch) -> None:
         """Train the underlying algorithm on featurized pairs.
 
         :param batch: Training batch with responses and feature blocks.

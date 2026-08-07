@@ -34,15 +34,11 @@ class NaiveMeanPredictor(FeatureFreePredictor):
         super().__init__(hyperparameters)
         self._dataset_mean: float | None = None
 
-    def fit(self, batch: ModelInputBatch) -> None:
+    def _fit(self, batch: ModelInputBatch) -> None:
         """Fit on training data.
 
         :param batch: batch.
-        :raises ValueError: Raised on invalid input.
         """
-        if batch.response is None:
-            msg = "Naive predictors require response values during fit"
-            raise ValueError(msg)
         self._dataset_mean = float(np.mean(batch.response))
 
     def predict(self, batch: ModelInputBatch) -> np.ndarray:

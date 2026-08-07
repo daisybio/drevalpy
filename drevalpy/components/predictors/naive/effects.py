@@ -55,15 +55,11 @@ class NaiveMeanEffectsPredictor(BlockPredictor):
             tissue = np.empty((batch.n_pairs, 0), dtype=np.float64)
         return np.asarray(cell, dtype=np.float64), np.asarray(tissue, dtype=np.float64)
 
-    def fit(self, batch: ModelInputBatch) -> None:
+    def _fit(self, batch: ModelInputBatch) -> None:
         """Fit on training data.
 
         :param batch: batch.
-        :raises ValueError: Raised on invalid input.
         """
-        if batch.response is None:
-            msg = "Naive predictors require response values during fit"
-            raise ValueError(msg)
         y = np.asarray(batch.response, dtype=np.float64)
         cell, tissue = self._cell_and_tissue(batch)
         drugs = np.asarray(require_pair_matrix(batch, side="drug"), dtype=np.float64)

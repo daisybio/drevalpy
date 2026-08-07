@@ -44,7 +44,7 @@ LITERATURE_PACKAGES = (
     "druggnn",
 )
 
-LIFECYCLE_METHODS = ("fit", "predict", "get_state", "set_state", "is_fitted")
+LIFECYCLE_METHODS = ("_fit", "predict", "get_state", "set_state", "is_fitted")
 
 
 def _python_files_under(root: Path) -> list[Path]:

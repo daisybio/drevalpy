@@ -39,15 +39,11 @@ class SingleDrugSklearnPredictor(SklearnTabularPredictor):
             return np.empty((batch.n_pairs, 0), dtype=np.float32)
         return batch.cell_line_features[batch.cell_line_pair_idx]
 
-    def fit(self, batch: ModelInputBatch) -> None:
+    def _fit(self, batch: ModelInputBatch) -> None:
         """Fit on training data.
 
         :param batch: batch.
-        :raises ValueError: Raised on invalid input.
         """
-        if batch.response is None:
-            msg = "Single-drug matrix predictors require response values during fit"
-            raise ValueError(msg)
         x = self._cell_line_matrix(batch)
         y = np.asarray(batch.response, dtype=np.float64).ravel()
         validate_matrix_fit(x, y, n_pairs=batch.n_pairs)

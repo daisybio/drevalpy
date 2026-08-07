@@ -31,15 +31,11 @@ class SingleEntityNaivePredictor(BlockPredictor):
         self._dataset_mean: float | None = None
         self._effects: np.ndarray | None = None
 
-    def fit(self, batch: ModelInputBatch) -> None:
+    def _fit(self, batch: ModelInputBatch) -> None:
         """Fit on training data.
 
         :param batch: batch.
-        :raises ValueError: Raised on invalid input.
         """
-        if batch.response is None:
-            msg = "Naive predictors require response values during fit"
-            raise ValueError(msg)
         y = np.asarray(batch.response, dtype=np.float64)
         design = require_pair_matrix(batch, side=self._feature_side)
         self._dataset_mean = float(np.mean(y))

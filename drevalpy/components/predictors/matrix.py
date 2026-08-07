@@ -17,16 +17,11 @@ class MatrixPredictor(Predictor):
 
     input_interface: ClassVar[str] = "matrix"
 
-    def fit(self, batch: ModelInputBatch) -> None:
+    def _fit(self, batch: ModelInputBatch) -> None:
         """Fit on a dense pair-level design matrix built from *batch*.
 
         :param batch: Featurized pairs with training responses.
-
-        :raises ValueError: If responses are missing or the design matrix is invalid.
         """
-        if batch.response is None:
-            msg = "Matrix predictors require response values during fit"
-            raise ValueError(msg)
         x = batch.to_feature_matrix()
         y = np.asarray(batch.response, dtype=np.float64)
         validate_matrix_fit(x, y, n_pairs=batch.n_pairs)

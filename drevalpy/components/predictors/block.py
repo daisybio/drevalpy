@@ -19,7 +19,7 @@ class BlockPredictor(Predictor):
 
     input_interface: ClassVar[str] = "block"
 
-    def fit(self, batch: ModelInputBatch) -> None:
+    def _fit(self, batch: ModelInputBatch) -> None:
         """Fit on a featurized predictor input batch.
 
         :param batch: Featurized pairs with training responses.

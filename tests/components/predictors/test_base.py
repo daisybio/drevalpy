@@ -18,7 +18,7 @@ class _StubPredictor(Predictor):
     def get_hyperparameter_space(cls) -> dict[str, dict[str, object]]:
         return {"alpha": {"type": "float", "default": 1.0}}
 
-    def fit(self, batch: ModelInputBatch) -> None:
+    def _fit(self, batch: ModelInputBatch) -> None:
         _ = batch
 
     def predict(self, batch: ModelInputBatch) -> np.ndarray:

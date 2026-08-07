@@ -88,15 +88,11 @@ class NeuralNetworkPredictor(MatrixPredictor):
         )
         self._is_fitted = False
 
-    def fit(self, batch: ModelInputBatch) -> None:
+    def _fit(self, batch: ModelInputBatch) -> None:
         """Fit on training data.
 
         :param batch: batch.
-        :raises ValueError: Raised on invalid input.
         """
-        if batch.response is None:
-            msg = "Matrix predictors require response values during fit"
-            raise ValueError(msg)
         x = batch.to_feature_matrix()
         y = np.asarray(batch.response, dtype=np.float64)
         validate_matrix_fit(x, y, n_pairs=batch.n_pairs)

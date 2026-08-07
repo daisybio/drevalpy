@@ -32,12 +32,7 @@ def train_fitted_algorithm(
     :param drugs: Optional drug feature dataset for training.
 
     :returns: Fitted algorithm instance.
-
-    :raises RuntimeError: If *batch* has no response values.
     """
-    if batch.response is None:
-        msg = "literature predictor requires response"
-        raise RuntimeError(msg)
     algorithm = algorithm_cls()
     for name, value in preload_state.items():
         setattr(algorithm, name, value)

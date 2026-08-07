@@ -75,9 +75,20 @@ class Predictor(ABC):
         validate_hyperparameter_space(space, context=f"{cls.__name__}.get_hyperparameter_space()")
         return {key: spec["default"] for key, spec in space.items()}
 
-    @abstractmethod
     def fit(self, batch: ModelInputBatch) -> None:
-        """Fit on a featurized predictor input batch.
+        """Validate the batch and delegate to ``_fit``.
+
+        :param batch: Featurized cell-line/drug pairs with training responses.
+        :raises ValueError: If *batch* has no response values.
+        """
+        if batch.response is None:
+            msg = "Predictors require response values during fit"
+            raise ValueError(msg)
+        self._fit(batch)
+
+    @abstractmethod
+    def _fit(self, batch: ModelInputBatch) -> None:
+        """Subclass fitting logic (response is guaranteed non-None).
 
         :param batch: Featurized cell-line/drug pairs with training responses.
         """

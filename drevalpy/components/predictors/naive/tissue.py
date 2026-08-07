@@ -41,15 +41,12 @@ class NaiveTissueMeanPredictor(BlockPredictor):
         self._dataset_mean: float | None = None
         self._effects: np.ndarray | None = None
 
-    def fit(self, batch: ModelInputBatch) -> None:
+    def _fit(self, batch: ModelInputBatch) -> None:
         """Fit on training data.
 
         :param batch: batch.
         :raises ValueError: Raised on invalid input.
         """
-        if batch.response is None:
-            msg = "Naive predictors require response values during fit"
-            raise ValueError(msg)
         design = require_pair_matrix(batch, side="cell_line")
         if design.shape[1] == 0:
             msg = "NaiveTissueMeanPredictor requires tissue featurizer output"
@@ -129,15 +126,12 @@ class NaiveTissueDrugMeanPredictor(BlockPredictor):
         self._dataset_mean: float | None = None
         self._effects: np.ndarray | None = None
 
-    def fit(self, batch: ModelInputBatch) -> None:
+    def _fit(self, batch: ModelInputBatch) -> None:
         """Fit on training data.
 
         :param batch: batch.
         :raises ValueError: Raised on invalid input.
         """
-        if batch.response is None:
-            msg = "Naive predictors require response values during fit"
-            raise ValueError(msg)
         tissue = require_pair_matrix(batch, side="cell_line")
         drugs = require_pair_matrix(batch, side="drug")
         if tissue.shape[1] == 0 or drugs.shape[1] == 0:
