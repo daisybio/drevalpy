@@ -126,9 +126,9 @@ def test_kendall_contingency_matches_scipy() -> None:
     """
     The vectorized Kendall used for copy number reproduces ``scipy.stats.kendalltau`` exactly.
 
-    The graphs are rebuilt on every train() rather than cached, which is only affordable because
-    this path replaces the O(n^2) loop of scipy calls. It has to be the same tau-b, ties included,
-    or the relation silently changes meaning.
+    The graphs are rebuilt on every train(), which is only affordable because this path avoids an
+    O(n^2) loop of scipy calls. It has to be the same tau-b, ties included, or the copy-number
+    relation quietly means something different from what the docstring claims.
     """
     from scipy.stats import kendalltau
 

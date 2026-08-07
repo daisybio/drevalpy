@@ -62,9 +62,8 @@ def _select_device() -> torch.device:
     """
     Pick CUDA if available, else CPU.
 
-    Deliberately no Apple MPS fallback: every other model in the repo is CUDA-or-CPU, and a
-    GCMF that silently ran on a third backend would not be numerically comparable to the models
-    it is benchmarked against on the same machine.
+    Kept to the same two backends as every other model in the repo, so results stay numerically
+    comparable to the models GCMF is benchmarked against on the same machine.
 
     :returns: the selected torch device
     """
@@ -189,9 +188,8 @@ def _similarity_matrix(features: np.ndarray, metric: str) -> np.ndarray:
                     tau = kendalltau(x[i], x[j])[0]
                     tau = 0.0 if np.isnan(tau) else tau
                     sim[i, j] = sim[j, i] = tau
-        # map tau from [-1, 1] to [0, 1] with a fixed transform. Rescaling against the observed
-        # minimum instead would make a pair's similarity depend on which other nodes are in the
-        # cohort, so the same two cell lines would score differently in different CV splits.
+        # fixed map from [-1, 1] to [0, 1]: it does not depend on the cohort, so a pair of cell
+        # lines scores the same no matter which other nodes share the split
         return (sim + 1.0) / 2.0
     raise ValueError(f"Unknown similarity metric: {metric!r}")
 
@@ -1185,10 +1183,9 @@ class RGCMF(GCMF):
 
     All four omics are declared as ``cell_line_views``, so the randomization tests generate an
     SVCC/SVRC case per relation, and every cell graph is rebuilt in ``_build_cell_adj`` from the
-    feature dataset handed to ``train`` - a permuted view therefore yields a permuted graph
-    instead of the graph silently surviving the test. The graphs are recomputed rather than cached
-    for exactly that reason, which the contingency-table Kendall in ``_kendall_ordinal`` makes
-    cheap enough to do every time. Only ``node_feature_views`` (gene expression by default)
+    feature dataset handed to ``train`` - a permuted view therefore yields a permuted graph. All
+    four graphs come out of ``_similarity_matrix`` in about a second on CTRPv2, so they are built
+    fresh on every call. Only ``node_feature_views`` (gene expression by default)
     becomes the node feature matrix; the other omics contribute edge structure only, and a cell
     line missing from one of them is zero-filled rather than dropped (an inner join over the four
     omics would lose roughly half of CTRPv2).
@@ -1237,8 +1234,7 @@ class RGCMF(GCMF):
         self.cell_relation_views: list[str] = list(type(self).cell_line_views)
         self.drug_relation_views: list[str] = list(type(self)._DEFAULT_DRUG_RELATIONS)
         # drug relations are prior knowledge, not features: view -> (ids, dense similarity),
-        # built once in load_drug_features. Cell relations are *not* cached here - they are
-        # rebuilt per train() from the (possibly randomized) feature dataset.
+        # built once in load_drug_features. Cell relations live in _build_cell_adj instead.
         self._drug_sims: dict[str, tuple[np.ndarray, np.ndarray]] = {}
 
     @classmethod
@@ -1315,10 +1311,10 @@ class RGCMF(GCMF):
         Load every omics view the model uses, as one FeatureDataset.
 
         The cell lines are those carrying the node-feature views; the remaining omics are aligned
-        onto them and zero-filled where a cell line is missing. Loading them as views (rather than
-        reading them off disk behind the framework's back) is what lets the randomization tests
-        randomize each relation, and an inner join over the four omics would drop roughly half of
-        CTRPv2 - hence the zero-fill.
+        onto them and zero-filled where a cell line is missing. Every omics the model uses is a
+        declared view, which is what lets the randomization tests reach each relation, and the
+        zero-fill keeps the cell-line set: an inner join over the four omics would drop roughly
+        half of CTRPv2.
 
         :param data_path: path to the data directory
         :param dataset_name: dataset name, e.g. CTRPv2
@@ -1481,10 +1477,10 @@ class RGCMF(GCMF):
         """
         Build one k-NN adjacency per cell relation from the features handed to ``train``.
 
-        Deliberately re-derived here rather than at load time: ``train`` is where the model sees
-        the feature dataset the framework actually wants it to use, which under a randomization
-        test is the permuted one. Computing the graphs earlier would leave them intact through
-        SVCC/SVRC and overstate the model.
+        The relations are computed from ``cell_line_input``, the dataset ``train`` was handed.
+        That is the one the framework wants the model to use, and under a randomization test it is
+        the permuted one - so a permuted view yields a permuted graph and SVCC/SVRC measure what
+        they claim to.
 
         :param x_cell: (n_cells, cell_in_dim) fused node feature matrix (unused; relations use the raw views)
         :param cell_line_input: cell-line FeatureDataset the relations are computed from
