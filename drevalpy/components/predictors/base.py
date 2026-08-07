@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import numpy as np
 
 from drevalpy.components.contracts import FeatureContract
+from drevalpy.components.hyperparameter_space import validate_hyperparameter_space
 from drevalpy.types.model_scope import ModelScope
 from drevalpy.types.prediction_mode import PredictionMode
 
@@ -70,8 +71,6 @@ class Predictor(ABC):
 
         :returns: Parameter names mapped to their declared ``default`` values.
         """
-        from drevalpy.components.hyperparameter_space import validate_hyperparameter_space
-
         space = cls.get_hyperparameter_space()
         validate_hyperparameter_space(space, context=f"{cls.__name__}.get_hyperparameter_space()")
         return {key: spec["default"] for key, spec in space.items()}
