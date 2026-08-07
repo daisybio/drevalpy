@@ -7,7 +7,6 @@ from typing import Any, ClassVar
 
 import numpy as np
 
-from drevalpy.components.predictors._matrix_fit import validate_matrix_fit
 from drevalpy.components.predictors.matrix import MatrixPredictor
 from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.components.state_helpers import state_mapping
@@ -40,7 +39,6 @@ class SklearnTabularPredictor(MatrixPredictor):
 
     def _fit_matrix(self, x: np.ndarray, y: np.ndarray) -> None:
         y_arr = np.asarray(y, dtype=np.float64).ravel()
-        validate_matrix_fit(x, y_arr, n_pairs=len(y_arr))
         if len(x) == 0:
             self._estimator = None
             return

@@ -15,7 +15,6 @@ from torch.utils.data import DataLoader
 
 from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.model_input_batch import ModelInputBatch
-from drevalpy.components.predictors._matrix_fit import validate_matrix_fit
 from drevalpy.components.predictors.matrix import MatrixPredictor
 from drevalpy.components.predictors.neural_network.data import PairMatrixDataset
 from drevalpy.components.predictors.neural_network.network import FeedForwardNetwork
@@ -95,7 +94,6 @@ class NeuralNetworkPredictor(MatrixPredictor):
         """
         x = batch.to_feature_matrix()
         y = np.asarray(batch.response, dtype=np.float64)
-        validate_matrix_fit(x, y, n_pairs=batch.n_pairs)
         input_dim = int(x.shape[1]) if x.ndim == 2 else 0
         self._materialize(input_dim)
         if batch.n_pairs == 0:

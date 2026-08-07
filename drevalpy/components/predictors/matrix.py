@@ -8,7 +8,6 @@ from typing import ClassVar
 import numpy as np
 
 from drevalpy.components.model_input_batch import ModelInputBatch
-from drevalpy.components.predictors._matrix_fit import validate_matrix_fit
 from drevalpy.components.predictors.base import Predictor
 
 
@@ -24,7 +23,6 @@ class MatrixPredictor(Predictor):
         """
         x = batch.to_feature_matrix()
         y = np.asarray(batch.response, dtype=np.float64)
-        validate_matrix_fit(x, y, n_pairs=batch.n_pairs)
         self._fit_matrix(x, y)
 
     def predict(self, batch: ModelInputBatch) -> np.ndarray:

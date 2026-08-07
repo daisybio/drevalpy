@@ -7,7 +7,6 @@ from typing import Any, ClassVar
 import numpy as np
 
 from drevalpy.components.model_input_batch import ModelInputBatch
-from drevalpy.components.predictors._matrix_fit import validate_matrix_fit
 from drevalpy.components.predictors.single_drug_routing import (
     iter_drug_masks,
     require_known_training_keys,
@@ -46,7 +45,6 @@ class SingleDrugSklearnPredictor(SklearnTabularPredictor):
         """
         x = self._cell_line_matrix(batch)
         y = np.asarray(batch.response, dtype=np.float64).ravel()
-        validate_matrix_fit(x, y, n_pairs=batch.n_pairs)
         keys = routing_keys(batch)
         require_known_training_keys(keys)
 

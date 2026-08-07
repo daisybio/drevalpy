@@ -31,6 +31,25 @@ class ModelInputBatch:
     early_stopping_response: DrugResponseDataset | None = None
     training_context: TrainingContext = field(default_factory=TrainingContext)
 
+    def __post_init__(self) -> None:
+        """Validate structural consistency of the batch.
+
+        :raises ValueError: If array lengths are inconsistent with n_pairs.
+        """
+        n = len(self.cell_line_ids)
+        if len(self.drug_ids) != n:
+            msg = f"drug_ids length ({len(self.drug_ids)}) must match cell_line_ids length ({n})"
+            raise ValueError(msg)
+        if self.response is not None and len(self.response) != n:
+            msg = f"response length ({len(self.response)}) must match n_pairs ({n})"
+            raise ValueError(msg)
+        if len(self.cell_line_pair_idx) != n:
+            msg = f"cell_line_pair_idx length ({len(self.cell_line_pair_idx)}) must match n_pairs ({n})"
+            raise ValueError(msg)
+        if self.drug_pair_idx is not None and len(self.drug_pair_idx) != n:
+            msg = f"drug_pair_idx length ({len(self.drug_pair_idx)}) must match n_pairs ({n})"
+            raise ValueError(msg)
+
     @property
     def n_pairs(self) -> int:
         """Return the number of cell-line/drug pairs in the batch.
