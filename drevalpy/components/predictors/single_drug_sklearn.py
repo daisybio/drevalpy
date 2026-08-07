@@ -34,6 +34,15 @@ class SingleDrugSklearnPredictor(SklearnTabularPredictor):
 
     @staticmethod
     def _cell_line_matrix(batch: ModelInputBatch) -> np.ndarray:
+        """Expand deduplicated cell-line features to one row per pair.
+
+        Features are stored entity-level (one row per unique cell line).
+        ``cell_line_pair_idx`` maps each pair to its cell-line row, repeating
+        rows when multiple pairs share the same cell line.
+
+        :param batch: Featurized batch.
+        :returns: Pair-level cell-line feature matrix.
+        """
         if batch.cell_line_features.size == 0:
             return np.empty((batch.n_pairs, 0), dtype=np.float32)
         return batch.cell_line_features[batch.cell_line_pair_idx]
