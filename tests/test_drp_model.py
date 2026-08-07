@@ -184,12 +184,10 @@ def test_load_and_select_gene_features(gene_list: Optional[str]) -> None:
 
 def test_load_and_select_gene_features_reorders_values_to_gene_list() -> None:
     """
-    Regression test: feature values must be reordered to the gene-list order, not the source-CSV order.
+    Feature values must be reordered to the gene-list order, not the source-CSV order.
 
     The ``drug_target_genes_all_drugs`` list is ordered ``[TSPAN6, SCYL3, BRCA1]`` while the source CSV
-    lists these genes as ``..., TSPAN6, ..., BRCA1, SCYL3, ...``. A prior bug selected values in CSV
-    order while relabeling meta_info to the gene-list order, silently misaligning every value with its
-    gene name (which corrupted cross-study prediction across datasets with different CSV orders).
+    lists these genes as ``..., TSPAN6, ..., BRCA1, SCYL3, ...``.
     """
     temp = tempfile.TemporaryDirectory()
     os.mkdir(os.path.join(temp.name, "GDSC1_small"))

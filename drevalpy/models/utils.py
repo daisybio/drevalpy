@@ -127,11 +127,9 @@ def load_and_select_gene_features(
             f"The following genes are missing from the dataset {dataset_name} for {feature_type}: {missing_str}"
         )
 
-    # Select *and reorder* the feature values to match ``ordered_genes`` (which becomes meta_info below).
-    # Iterating the source columns instead would keep the source (CSV) order while relabeling meta_info
-    # to ``ordered_genes``, silently misaligning values and gene names whenever the two orders differ
-    # (e.g. cross-study prediction across datasets whose CSVs list genes in different orders).
-    # All ``ordered_genes`` are guaranteed present by the missing-genes check above.
+    # Reorder feature values to match ordered_genes, since meta_info is relabeled to ordered_genes
+    # below and values must stay aligned with their gene names (all ordered_genes are present, per
+    # the check above).
     source_gene_to_index = {gene: i for i, gene in enumerate(cl_features.meta_info[feature_type])}
     indices_to_keep = [source_gene_to_index[gene] for gene in ordered_genes]
 

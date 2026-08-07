@@ -296,7 +296,7 @@ class FeedForwardNetwork(RegressionMetricsMixin, pl.LightningModule):
         x = torch.relu(self.fully_connected_layers[-2](x))
         x = self.fully_connected_layers[-1](x)
 
-        # squeeze only the output dim, so a batch of size 1 stays 1-D instead of collapsing to a scalar
+        # squeeze only the output dim, so a batch of size 1 stays 1-D
         return x.squeeze(-1)
 
     def _forward_loss_and_log(self, x, y, log_as: str):
