@@ -211,15 +211,12 @@ The details about what the input for each predictor type looks like are explaine
          class ToyBlockRidgePredictor(BlockPredictor):
              required_cell_line_blocks: ClassVar[tuple[str, ...]] = ("expression",)
 
-             def fit(self, batch: ModelInputBatch) -> None:
-                 if batch.response is None:
-                     raise ValueError("response required")
+             def _fit(self, batch: ModelInputBatch) -> None:
                  x = batch.cell_line_blocks["expression"].values[batch.cell_line_pair_idx]
                  if batch.drug_features is not None and batch.drug_pair_idx is not None:
                      x = np.hstack([x, batch.drug_features[batch.drug_pair_idx]])
-                 y = np.asarray(batch.response, dtype=np.float64)
                  self._estimator = Ridge(alpha=1.0)
-                 self._estimator.fit(x, y)
+                 self._estimator.fit(x, batch.response)
 
              def predict(self, batch: ModelInputBatch) -> np.ndarray:
                  x = batch.cell_line_blocks["expression"].values[batch.cell_line_pair_idx]
