@@ -26,17 +26,6 @@ from drevalpy.datasets.loading.views import load_cell_line_feature_views, load_d
 from drevalpy.models.config import FeaturizerConfig, ModelConfig, ResolvedModelConfig
 
 
-def load_tissue_features(data_path: str | Path, dataset_name: str) -> FeatureDataset:
-    """Load tissue labels keyed by cell line id.
-
-    :param data_path: Root directory containing dataset feature tables.
-    :param dataset_name: Dataset subdirectory or registry name.
-
-    :returns: ``FeatureDataset`` with a tissue view indexed by cell-line id.
-    """
-    return load_tissues_from_csv(data_path, dataset_name)
-
-
 def _merge_features(current: FeatureDataset | None, incoming: FeatureDataset) -> FeatureDataset:
     """Merge distinct feature views while rejecting ambiguous collisions.
 
@@ -139,17 +128,6 @@ def _load_from_featurizer_tree(
         if fallback is not None:
             loaded = _merge_features(loaded, fallback)
     return loaded
-
-
-def load_cell_line_id_features(data_path: str | Path, dataset_name: str) -> FeatureDataset:
-    """Load cell-line identifier features.
-
-    :param data_path: Root directory containing dataset feature tables.
-    :param dataset_name: Dataset subdirectory or registry name.
-
-    :returns: ``FeatureDataset`` containing only cell-line identifier metadata.
-    """
-    return load_cl_ids_from_csv(data_path, dataset_name)
 
 
 def load_cell_line_features_for_model_config(
