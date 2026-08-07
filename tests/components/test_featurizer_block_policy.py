@@ -10,7 +10,6 @@ import pytest
 from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.feature_block import graph_feature_block, merge_feature_blocks, numeric_feature_block
 from drevalpy.components.featurizers._concat import ConcatFeaturizersMixin
-from drevalpy.components.predictors.literature._feature_dataset_from_batch import feature_dataset_from_blocks
 from drevalpy.components.register_builtins import register_builtin_components
 from drevalpy.components.registry import list_cell_line_featurizers, list_drug_featurizers, list_predictors
 
@@ -57,12 +56,6 @@ def test_concat_and_materialization_preserve_graph_and_ragged_payloads() -> None
     assert merged["drug_graph"].values[0] is payload
     assert merged["drug_graph"].format is FeatureFormat.GRAPH
 
-    dataset = feature_dataset_from_blocks(
-        np.array(["d1"]),
-        {"drug_graph": graph},
-    )
-    assert dataset.features["d1"]["drug_graph"] is payload
-
 
 def test_concat_rejects_non_numeric_children() -> None:
     from drevalpy.components.contracts import FeatureContract
@@ -76,20 +69,3 @@ def test_concat_rejects_non_numeric_children() -> None:
     mixin._children = [("drugGraph", child)]
     with pytest.raises(ValueError, match="only numeric_matrix"):
         mixin._reject_non_numeric_children(mixin._children)
-
-
-@pytest.mark.parametrize(
-    ("package", "forbidden"),
-    [
-        ("dipk", ("gene_expression_encoder_state", "epochs_autoencoder")),
-        ("pharmaformer", ("gene_expression_scaler", "gene_expression_normalizer")),
-        ("molir", ("gene_expression_scaler", "selector", "gene_expression_encoder_state")),
-        ("superfeltr", ("selectors",)),
-        ("sparsego", ("gene_expression_encoder_state", "input_type")),
-    ],
-)
-def test_moved_preprocessing_keys_absent_from_predictor_state_modules(package: str, forbidden: tuple[str, ...]) -> None:
-    state_path = DREVALPY / "components" / "predictors" / "literature" / package / "state.py"
-    text = state_path.read_text(encoding="utf-8")
-    for key in forbidden:
-        assert key not in text, f"{state_path} still references {key}"

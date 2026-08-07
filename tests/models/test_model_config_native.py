@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-import importlib
 import tempfile
 from pathlib import Path
 
 import numpy as np
 import pytest
 
-from drevalpy.components.predictors.literature._training_helpers import LiteratureTrainingMixin
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 from drevalpy.models import construct_model
 from drevalpy.models.config import from_spec, validate
@@ -53,20 +51,6 @@ def test_zoo_entries_create_runnable_models(name: str) -> None:
     model_cls = construct_model(name)
     assert issubclass(model_cls, DRPModel)
     assert model_cls() is not None
-
-
-def test_literature_algorithms_do_not_subclass_drp_model() -> None:
-    literature_root = Path(__file__).resolve().parents[2] / "drevalpy" / "components" / "predictors" / "literature"
-    for path in literature_root.glob("*/algorithm.py"):
-        module_name = "drevalpy.components.predictors.literature." + path.parent.name + ".algorithm"
-        module = importlib.import_module(module_name)
-        for obj in vars(module).values():
-            if (
-                isinstance(obj, type)
-                and issubclass(obj, LiteratureTrainingMixin)
-                and obj is not LiteratureTrainingMixin
-            ):
-                assert not issubclass(obj, DRPModel)
 
 
 def test_no_pair_context_in_production_code() -> None:

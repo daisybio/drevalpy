@@ -3,19 +3,30 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import Any, Protocol
 
 from drevalpy.components.predictors.literature.molir.utils import get_dimensions_of_omics_data, make_ranges
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
 
 from .utils import SuperFELTEncoder, SuperFELTRegressor, train_superfeltr_model
 
-if TYPE_CHECKING:
-    from .algorithm import SuperFELTR
+
+class _SuperFELTRLike(Protocol):
+    hyperparameters: dict[str, Any]
+    wandb_project: str | None
+    ranges: Any
+    expr_encoder: SuperFELTEncoder | None
+    mut_encoder: SuperFELTEncoder | None
+    cnv_encoder: SuperFELTEncoder | None
+    regressor: SuperFELTRegressor | None
+    best_checkpoint: Any
+    early_stopping: bool
+
+    def record_feature_names(self, cell_line_input: FeatureDataset) -> None: ...
 
 
 def _train_encoder_for_omic(
-    model: SuperFELTR,
+    model: _SuperFELTRLike,
     omic_type: str,
     dim: int,
     output: DrugResponseDataset,
@@ -42,7 +53,7 @@ def _train_encoder_for_omic(
 
 
 def run_superfeltr_training(
-    model: SuperFELTR,
+    model: _SuperFELTRLike,
     output: DrugResponseDataset,
     cell_line_input: FeatureDataset,
     output_earlystopping: DrugResponseDataset | None,

@@ -156,19 +156,14 @@ def test_neural_network_set_state_raises_on_invalid_payload() -> None:
         predictor.set_state({"checkpoint": b"not-a-torch-checkpoint"})
 
 
-def test_druggnn_delegates_training_to_algorithm() -> None:
+def test_druggnn_delegates_training_to_lightning() -> None:
     predictor = DrugGNNPredictor(
         hyperparameters={"epochs": 1, "batch_size": 2, "num_workers": 0},
     )
     batch = _druggnn_batch(with_early_stopping=True)
-    with patch(
-        "drevalpy.components.predictors.literature.druggnn.algorithm.DrugGNN.train",
-        autospec=True,
-    ) as train_mock:
-        predictor.fit(batch)
-        train_mock.assert_called_once()
-        kwargs = train_mock.call_args.kwargs
-        assert kwargs["output_earlystopping"] is batch.early_stopping_response
+    predictor.fit(batch)
+    assert predictor.is_fitted()
+    assert predictor._model is not None
 
 
 def test_druggnn_supports_early_stopping_flag() -> None:
@@ -182,26 +177,28 @@ def test_druggnn_round_trip_state() -> None:
     batch = _druggnn_batch()
     predictor.fit(batch)
     assert predictor.is_fitted()
-    assert predictor._algorithm is not None
-    assert predictor._algorithm.model is not None
-    original_weight = next(predictor._algorithm.model.parameters()).detach().cpu()
+    assert predictor._model is not None
+    original_weight = next(predictor._model.parameters()).detach().cpu()
 
     restored = DrugGNNPredictor()
     restored.set_state(predictor.get_state())
     assert restored.is_fitted()
-    assert restored._algorithm is not None
-    assert restored._algorithm.model is not None
-    restored_weight = next(restored._algorithm.model.parameters()).detach().cpu()
+    assert restored._model is not None
+    restored_weight = next(restored._model.parameters()).detach().cpu()
     assert torch.allclose(original_weight, restored_weight)
 
 
 def test_literature_predictor_lazy_package_import() -> None:
     ensure_predictor_registered("dipk")
-    precily_module = "drevalpy.components.predictors.literature.precily.algorithm"
-    sys.modules.pop(precily_module, None)
-    cls = get_predictor("dipk")
-    assert cls.__name__ == "DIPKPredictor"
-    assert precily_module not in sys.modules
+    precily_module = "drevalpy.components.predictors.literature.precily.predictor"
+    saved = sys.modules.pop(precily_module, None)
+    try:
+        cls = get_predictor("dipk")
+        assert cls.__name__ == "DIPKPredictor"
+        assert precily_module not in sys.modules
+    finally:
+        if saved is not None:
+            sys.modules[precily_module] = saved
 
 
 def test_structured_predictor_set_state_raises_on_invalid_blob() -> None:
