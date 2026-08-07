@@ -33,14 +33,14 @@ def load_and_select_gene_features(
 
     :raises ValueError: If genes from *gene_list* are missing in the dataset.
     """
-    ge = pd.read_csv(Path(data_path) / dataset_name / f"{feature_type}.csv", index_col=CELL_LINE_IDENTIFIER)
-    ge.index = ge.index.astype(str)
-    if "cellosaurus_id" in ge.columns:
-        ge = ge.drop(columns=["cellosaurus_id"])
+    df_feature = pd.read_csv(Path(data_path) / dataset_name / f"{feature_type}.csv", index_col=CELL_LINE_IDENTIFIER)
+    df_feature.index = df_feature.index.astype(str)
+    if "cellosaurus_id" in df_feature.columns:
+        df_feature = df_feature.drop(columns=["cellosaurus_id"])
 
     cl_features = FeatureDataset(
-        features=iterate_features(df=ge, feature_type=feature_type),
-        meta_info={feature_type: ge.columns.values},
+        features=iterate_features(df=df_feature, feature_type=feature_type),
+        meta_info={feature_type: df_feature.columns.values},
     )
     if gene_list is None:
         return cl_features
