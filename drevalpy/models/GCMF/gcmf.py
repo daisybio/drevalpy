@@ -36,7 +36,6 @@ All variants share a per-drug id embedding, an optional within-drug auxiliary lo
 N-model ensemble; see ``hyperparameters.yaml`` for the per-model configurations.
 """
 
-import hashlib
 import os
 from typing import Any, cast
 
@@ -97,10 +96,47 @@ def _adj_from_numpy(adj: "np.ndarray | list", device: torch.device) -> "torch.Te
     return torch.tensor(adj, device=device)
 
 
-# Bumped whenever a similarity kernel changes, so cached matrices from an older definition are
-# not silently reused. v2: kendall maps tau with the fixed (tau + 1) / 2 instead of rescaling
-# against the cohort's observed minimum.
-_SIM_KERNEL_VERSION = 2
+# Above this many distinct values the contingency-table Kendall below needs too many matrix
+# products to be worth it and we fall back to the pairwise scipy call.
+_KENDALL_MAX_LEVELS = 16
+
+
+def _kendall_ordinal(x: np.ndarray, levels: np.ndarray) -> np.ndarray:
+    """
+    All-pairs Kendall's tau-b for low-cardinality ordinal data, from contingency tables.
+
+    Copy-number GISTIC scores take a handful of values (-2..2), so the joint contingency table of
+    any two rows is tiny and every count in it is one matrix product of level indicators. That
+    turns an O(n^2) loop of ``scipy.stats.kendalltau`` calls into a fixed number of BLAS calls -
+    about 0.7 s instead of a minute on CTRPv2 - and it is the same tau-b to machine precision,
+    ties included.
+
+    :param x: (n_nodes, n_feat) ordinal feature matrix
+    :param levels: the distinct values occurring in ``x``, ascending
+    :returns: (n_nodes, n_nodes) Kendall tau-b matrix
+    """
+    n, d = x.shape
+    eq = [(x == lv).astype(np.float64) for lv in levels]
+    gt = [(x > lv).astype(np.float64) for lv in levels]
+    lt = [(x < lv).astype(np.float64) for lv in levels]
+
+    # for the features where row i is at level a and row j at level b, the concordant partners are
+    # the features above both and the discordant ones those above a but below b
+    num = np.zeros((n, n))
+    for a in range(len(levels)):
+        for b in range(len(levels)):
+            both = eq[a] @ eq[b].T
+            num += both * (gt[a] @ gt[b].T)
+            num -= both * (gt[a] @ lt[b].T)
+
+    counts = np.stack([m.sum(axis=1) for m in eq])  # (n_levels, n_nodes) level histogram per row
+    tied = (counts * (counts - 1) / 2).sum(axis=0)  # tied feature pairs within each row
+    n0 = d * (d - 1) / 2.0
+    den = np.sqrt(np.outer(n0 - tied, n0 - tied))
+    with np.errstate(invalid="ignore", divide="ignore"):
+        tau = np.where(den > 0, num / den, 0.0)
+    np.fill_diagonal(tau, 1.0)
+    return tau
 
 
 def _similarity_matrix(features: np.ndarray, metric: str) -> np.ndarray:
@@ -140,15 +176,19 @@ def _similarity_matrix(features: np.ndarray, metric: str) -> np.ndarray:
             sim = np.corrcoef(x)
         return np.asarray(np.nan_to_num(sim, nan=0.0))
     if metric == "kendall":
-        from scipy.stats import kendalltau
+        levels = np.unique(x)
+        if np.isfinite(x).all() and len(levels) <= _KENDALL_MAX_LEVELS:
+            sim = _kendall_ordinal(x, levels)
+        else:
+            from scipy.stats import kendalltau
 
-        n = x.shape[0]
-        sim = np.ones((n, n), dtype=np.float64)
-        for i in range(n):
-            for j in range(i + 1, n):
-                tau = kendalltau(x[i], x[j])[0]
-                tau = 0.0 if np.isnan(tau) else tau
-                sim[i, j] = sim[j, i] = tau
+            n = x.shape[0]
+            sim = np.ones((n, n), dtype=np.float64)
+            for i in range(n):
+                for j in range(i + 1, n):
+                    tau = kendalltau(x[i], x[j])[0]
+                    tau = 0.0 if np.isnan(tau) else tau
+                    sim[i, j] = sim[j, i] = tau
         # map tau from [-1, 1] to [0, 1] with a fixed transform. Rescaling against the observed
         # minimum instead would make a pair's similarity depend on which other nodes are in the
         # cohort, so the same two cell lines would score differently in different CV splits.
@@ -1141,14 +1181,14 @@ class RGCMF(GCMF):
     in that relation. A configured relation whose resource is missing raises an error rather than
     being silently skipped; use ``GCMF`` if you want the single-graph model.
     Relation sets are configurable via the ``cell_relation_views`` / ``drug_relation_views``
-    hyperparameters; dense cell similarities are cached under ``<dataset>/gcmf_cache/``
-    (the Kendall CNV kernel is slow to recompute).
+    hyperparameters.
 
     All four omics are declared as ``cell_line_views``, so the randomization tests generate an
     SVCC/SVRC case per relation, and every cell graph is rebuilt in ``_build_cell_adj`` from the
     feature dataset handed to ``train`` - a permuted view therefore yields a permuted graph
-    instead of the graph silently surviving the test. The cache is keyed on the *content* of that
-    feature matrix for the same reason. Only ``node_feature_views`` (gene expression by default)
+    instead of the graph silently surviving the test. The graphs are recomputed rather than cached
+    for exactly that reason, which the contingency-table Kendall in ``_kendall_ordinal`` makes
+    cheap enough to do every time. Only ``node_feature_views`` (gene expression by default)
     becomes the node feature matrix; the other omics contribute edge structure only, and a cell
     line missing from one of them is zero-filled rather than dropped (an inner join over the four
     omics would lose roughly half of CTRPv2).
@@ -1200,9 +1240,6 @@ class RGCMF(GCMF):
         # built once in load_drug_features. Cell relations are *not* cached here - they are
         # rebuilt per train() from the (possibly randomized) feature dataset.
         self._drug_sims: dict[str, tuple[np.ndarray, np.ndarray]] = {}
-        # remembered by load_cell_line_features so _build_cell_adj can reach the similarity cache
-        self._data_path: str = ""
-        self._dataset_name: str = ""
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -1273,41 +1310,6 @@ class RGCMF(GCMF):
             return self.hyperparameters.get("gene_list", "landmark_genes")
         return self._CELL_GENE_LISTS.get(view)
 
-    def _cached_similarity(self, view: str, kernel: str, features: np.ndarray) -> np.ndarray:
-        """
-        Compute a dense cell-relation similarity, reusing the on-disk cache when possible.
-
-        The key is the *content* of ``features`` (plus view, kernel and kernel version), so the
-        expensive kernels - Kendall on copy number above all - are computed once and shared by
-        every fold, while any change to the omics table, the gene list or the cell-line set
-        misses the cache instead of silently returning a stale matrix. Content keying is also what
-        makes the randomization tests honest: permuted features hash differently, so the graph is
-        genuinely rebuilt from them.
-
-        :param view: cell-relation omics view name
-        :param kernel: similarity kernel for this view
-        :param features: (n_cells, n_feat) matrix the similarity is computed over
-        :returns: dense (n_cells, n_cells) similarity matrix
-        """
-        if not self._data_path or not self._dataset_name:  # loaders never ran; compute uncached
-            return _similarity_matrix(features, kernel)
-        # non-cryptographic: SHA1 only forms a stable cache key over the feature matrix
-        sig = hashlib.sha1(
-            np.ascontiguousarray(features, dtype=np.float64).tobytes(), usedforsecurity=False
-        ).hexdigest()[:16]
-        cache_dir = os.path.join(self._data_path, self._dataset_name, "gcmf_cache")
-        os.makedirs(cache_dir, exist_ok=True)
-        path = os.path.join(cache_dir, f"cell_{view}_{kernel}v{_SIM_KERNEL_VERSION}_{sig}.npy")
-        if os.path.exists(path):
-            return np.load(path)
-        sim = _similarity_matrix(features, kernel)
-        # folds run as parallel processes, so write to a private file and rename it into place:
-        # a half-written .npy must never be visible under the key another process is reading
-        tmp = f"{path}.{os.getpid()}.tmp.npy"
-        np.save(tmp, sim)
-        os.replace(tmp, path)
-        return sim
-
     def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         """
         Load every omics view the model uses, as one FeatureDataset.
@@ -1323,8 +1325,6 @@ class RGCMF(GCMF):
         :returns: FeatureDataset with one view per cell-line omics
         :raises ValueError: if no cell line carries all the node-feature views
         """
-        self._data_path = data_path
-        self._dataset_name = dataset_name
         per_view = {
             view: load_and_select_gene_features(
                 feature_type=view,
@@ -1498,7 +1498,7 @@ class RGCMF(GCMF):
         adjs = []
         for view in self.cell_relation_views:
             features = cell_line_input.get_feature_matrix(view=view, identifiers=cell_ids).astype(np.float64)
-            sim = self._cached_similarity(view, self._CELL_KERNELS.get(view, "pearson"), features)
+            sim = _similarity_matrix(features, self._CELL_KERNELS.get(view, "pearson"))
             adjs.append(torch.tensor(_knn_normalize(sim, k, use_weights), device=self.device))
         if not adjs:
             raise ValueError("RGCMF has no cell relations; set 'cell_relation_views' or use GCMF instead.")

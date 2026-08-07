@@ -122,6 +122,32 @@ def test_gcmf_family_train_predict_save_load(model_name: str, data_dir, sample_d
     assert np.allclose(preds, preds_reloaded, atol=1e-4)
 
 
+def test_kendall_contingency_matches_scipy() -> None:
+    """
+    The vectorized Kendall used for copy number reproduces ``scipy.stats.kendalltau`` exactly.
+
+    The graphs are rebuilt on every train() rather than cached, which is only affordable because
+    this path replaces the O(n^2) loop of scipy calls. It has to be the same tau-b, ties included,
+    or the relation silently changes meaning.
+    """
+    from scipy.stats import kendalltau
+
+    from drevalpy.models.GCMF.gcmf import _similarity_matrix
+
+    rng = np.random.default_rng(0)
+    x = rng.integers(-2, 3, size=(40, 60)).astype(float)  # GISTIC-like: five ordinal levels
+    x[3, :] = 1.0  # a constant row exercises the zero-denominator branch
+    fast = _similarity_matrix(x, "kendall")
+
+    expected = np.ones((x.shape[0], x.shape[0]))
+    for i in range(x.shape[0]):
+        for j in range(i + 1, x.shape[0]):
+            tau = kendalltau(x[i], x[j])[0]
+            expected[i, j] = expected[j, i] = 0.0 if np.isnan(tau) else tau
+    # _similarity_matrix maps tau from [-1, 1] to [0, 1], so compare against the mapped reference
+    assert np.abs(fast - (expected + 1.0) / 2.0).max() < 1e-12
+
+
 def test_rgcmf_cell_graphs_follow_randomized_features(data_dir, sample_dataset) -> None:
     """
     Randomizing a cell-line view rebuilds that relation's graph and leaves the others alone.
