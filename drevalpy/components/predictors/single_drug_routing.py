@@ -37,10 +37,13 @@ def routing_keys(batch: ModelInputBatch) -> np.ndarray:
         msg = "Drug identity features and identity categories are misaligned"
         raise ValueError(msg)
 
+    # Index into entity-level one-hot matrix to get per-pair identity rows
     pair_identity = identity_matrix[batch.drug_pair_idx]
+    # Pairs with a known drug have exactly one active column (sum == 1)
     known = pair_identity.sum(axis=1) == 1.0
     keys = np.full(batch.n_pairs, "", dtype=object)
     if np.any(known):
+        # Map back from column index to drug ID string
         keys[known] = category_ids[np.argmax(pair_identity[known], axis=1)]
     return np.asarray(keys, dtype=str)
 
