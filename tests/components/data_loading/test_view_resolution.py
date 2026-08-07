@@ -73,6 +73,49 @@ def test_landmark_featurizers_resolve_gene_expression(name: str) -> None:
     assert cell_line_views_from_model_config(config) == ["gene_expression"]
 
 
+@pytest.mark.parametrize("name", ["molirOmics", "superfeltrOmics"])
+def test_multi_omics_featurizers_resolve_all_three_views(name: str) -> None:
+    config = _model_config(
+        cell_line_featurizer=CellLineFeaturizerConfig.model_validate(name),
+    )
+    assert cell_line_views_from_model_config(config) == [
+        "gene_expression",
+        "mutations",
+        "copy_number_variation_gistic",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("input_type", "expected"),
+    [("expression", "gene_expression"), ("mutations", "mutations")],
+)
+def test_sparsego_resolves_view_from_input_type(input_type: str, expected: str) -> None:
+    config = _model_config(
+        cell_line_featurizer=CellLineFeaturizerConfig(
+            name="sparsegoOntology",
+            options={"input_type": input_type},
+        ),
+    )
+    assert cell_line_views_from_model_config(config) == [expected]
+
+
+def test_tissue_featurizer_resolves_no_omics_views() -> None:
+    config = _model_config(
+        cell_line_featurizer=CellLineFeaturizerConfig.model_validate("tissue"),
+    )
+    assert cell_line_views_from_model_config(config) == []
+
+
+def test_view_override_is_honoured_over_declared_input_views() -> None:
+    config = _model_config(
+        cell_line_featurizer=CellLineFeaturizerConfig(
+            name="scaledGeneExpression",
+            options={"view": "proteomics"},
+        ),
+    )
+    assert cell_line_views_from_model_config(config) == ["proteomics"]
+
+
 def test_fingerprint_featurizer_still_resolves_fingerprints_view() -> None:
     config = _model_config(
         drug_featurizer=DrugFeaturizerConfig.model_validate("fingerprints"),

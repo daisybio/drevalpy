@@ -2,16 +2,15 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Literal
+from typing import Literal
 
+from drevalpy.components.data_loading.leaf_kwargs import featurizer_leaf_kwargs
 from drevalpy.components.data_loading.view_resolution import (
-    _views_from_featurizer_config,
     cell_line_entity_id_only_from_model_config,
     drug_entity_id_only_from_model_config,
+    views_from_featurizer_config,
 )
-from drevalpy.components.featurizer_label import qualified_featurizer_selector
 from drevalpy.components.featurizer_tree import iter_featurizer_leaves
 from drevalpy.components.featurizers.base import Featurizer
 from drevalpy.components.registry import get_cell_line_featurizer, get_drug_featurizer
@@ -63,35 +62,6 @@ def _unwrap_model_config(config: ModelConfig | ResolvedModelConfig) -> tuple[Mod
     return config, None
 
 
-def _leaf_loader_kwargs(
-    leaf: FeaturizerConfig,
-    *,
-    registry: Literal["cell_line", "drug"],
-    resolved: ResolvedModelConfig | None,
-) -> dict[str, Any]:
-    """Build kwargs for ``load_features`` from options, defaults, and resolved values.
-
-    :param leaf: Featurizer leaf configuration.
-    :param registry: ``cell_line`` or ``drug``.
-    :param resolved: Optional resolved instance values for tunable kwargs.
-    :returns: Keyword arguments for ``load_features`` / featurizer construction.
-    """
-    kwargs: dict[str, Any] = dict(leaf.options or {})
-    space = dict(leaf.hyperparameter_space or {})
-    if not space:
-        cls = get_cell_line_featurizer(leaf.name) if registry == "cell_line" else get_drug_featurizer(leaf.name)
-        space = dict(cls.get_hyperparameter_space())
-    for key, spec in space.items():
-        if isinstance(spec, Mapping) and "default" in spec:
-            kwargs.setdefault(key, spec["default"])
-    if resolved is not None:
-        selector = qualified_featurizer_selector(leaf.name, leaf.view)
-        kwargs.update(resolved.featurizer_values(registry, selector))
-    if leaf.view is not None:
-        kwargs.setdefault("view", leaf.view)
-    return kwargs
-
-
 def _load_from_featurizer_tree(
     config: FeaturizerConfig,
     *,
@@ -113,11 +83,11 @@ def _load_from_featurizer_tree(
     loaded: FeatureDataset | None = None
     for leaf in iter_featurizer_leaves(config, registry):
         cls = get_cell_line_featurizer(leaf.name) if registry == "cell_line" else get_drug_featurizer(leaf.name)
-        kwargs = _leaf_loader_kwargs(leaf, registry=registry, resolved=resolved)
+        kwargs = featurizer_leaf_kwargs(leaf, registry=registry, resolved=resolved)
         if _has_custom_loader(cls):
             loaded = _merge_features(loaded, cls.load_features(data_path, dataset_name, **kwargs))
             continue
-        views = _views_from_featurizer_config(leaf, registry=registry, resolved=resolved)
+        views = views_from_featurizer_config(leaf, registry=registry, resolved=resolved)
         if not views:
             continue
         fallback = (

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import ClassVar
 
 from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.featurizers.drug.view import ViewDrugFeaturizer
@@ -18,6 +19,8 @@ from drevalpy.datasets.feature_tables import load_generic_csv
 )
 class SmilesVecDrugFeaturizer(ViewDrugFeaturizer):
     """Smiles vec drug featurizer component."""
+
+    input_views: ClassVar[tuple[str, ...]] = ("smilesvec",)
 
     def __init__(self, *, view: str = "smilesvec") -> None:
         """Initialize instance state.

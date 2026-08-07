@@ -36,6 +36,7 @@ class BpePharmaformerDrugFeaturizer(ViewDrugFeaturizer):
     """BPE PharmaFormer drug featurizer component."""
 
     output_block_specs: ClassVar[tuple[BlockSpec, ...]] = (BlockSpec("bpe_smiles", FeatureFormat.NUMERIC_MATRIX),)
+    input_views: ClassVar[tuple[str, ...]] = ("bpe_smiles",)
 
     def __init__(self, *, view: str = "bpe_smiles") -> None:
         """Initialize instance state.

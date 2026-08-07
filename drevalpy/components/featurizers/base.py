@@ -22,10 +22,16 @@ class Featurizer(ABC):
     to the cell-line or drug featurizer registry using
     ``@register_cell_line_featurizer`` or ``@register_drug_featurizer``, so that
     they can be discovered and used in models.
+
+    Each subclass declares which raw feature views it reads via ``input_views``
+    (or ``requires_view`` / ``entity_id_only`` / a ``resolve_input_views``
+    override); registration rejects featurizers that declare nothing.
     """
 
     contract: ClassVar[FeatureContract]
     requires_view: ClassVar[bool] = False
+    entity_id_only: ClassVar[bool] = False
+    input_views: ClassVar[tuple[str, ...] | None] = None
 
     def __init_subclass__(cls, **kwargs: object) -> None:
         """Reject class-body ``contract`` assignments; registration sets it later.
@@ -97,7 +103,7 @@ class Featurizer(ABC):
         """Return named output blocks for a featurizer config node.
 
         Declared ``output_block_specs`` win when present; otherwise a single
-        block named after the configured (or default) view is emitted.
+        block named after the configured (or single declared input) view is emitted.
 
         :param config: Featurizer config with optional ``view`` / ``hyperparameters``.
         :returns: Block specs emitted by this featurizer under *config*.
@@ -107,10 +113,39 @@ class Featurizer(ABC):
             return tuple(spec for spec in declared if isinstance(spec, BlockSpec))
         view = getattr(config, "view", None)
         if not isinstance(view, str):
-            view = getattr(cls, "_default_view", None)
+            view = cls.input_views[0] if cls.input_views else None
         if isinstance(view, str):
             return (BlockSpec(view, featurizer_contract(cls).format),)
         return ()
+
+    @classmethod
+    def resolve_input_views(cls, **kwargs: Any) -> tuple[str, ...]:
+        """Return the raw feature views this featurizer reads under *kwargs*.
+
+        An explicit ``view`` kwarg always wins, which covers view-parameterized
+        featurizers such as ``raw`` and ``pca``. Otherwise the declared
+        ``input_views`` are used. Featurizers whose input depends on other
+        hyperparameters override this hook.
+
+        :param kwargs: Featurizer construction / loader kwargs from the model config.
+        :returns: Raw view names required from disk, empty when only entity ids are needed.
+        :raises TypeError: If the views cannot be determined from *kwargs* and the class body.
+        """
+        view = kwargs.get("view")
+        if isinstance(view, str) and view.strip():
+            return (view,)
+        if cls.input_views is not None:
+            return cls.input_views
+        if cls.entity_id_only:
+            return ()
+        if cls.requires_view:
+            msg = f"{cls.__name__} requires an explicit view; pass view= to resolve_input_views"
+            raise TypeError(msg)
+        msg = (
+            f"{cls.__name__}: declare input_views on the class body, set requires_view/entity_id_only, "
+            "or override resolve_input_views"
+        )
+        raise TypeError(msg)
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:

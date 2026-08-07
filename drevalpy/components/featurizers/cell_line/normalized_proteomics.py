@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 import numpy as np
 
 from drevalpy.components.contracts import FeatureFormat
@@ -23,6 +25,8 @@ from drevalpy.components.registry import register_cell_line_featurizer
 )
 class NormalizedProteomicsCellLineFeaturizer(CellLineFeaturizer):
     """Match sklearn baseline proteomics preprocessing."""
+
+    input_views: ClassVar[tuple[str, ...]] = ("proteomics",)
 
     def __init__(
         self,

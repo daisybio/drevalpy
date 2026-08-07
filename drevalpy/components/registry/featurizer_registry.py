@@ -63,8 +63,10 @@ class FeaturizerRegistry(Registry):
         :param cls: Featurizer class with contract metadata already attached.
         """
         from drevalpy.components.hyperparameter_space import validate_component_hyperparameter_space
+        from drevalpy.components.registry._featurizer_validate import validate_featurizer_input_views
 
         validate_component_hyperparameter_space(name, cls)
+        validate_featurizer_input_views(self._registry_id, name, cls)
 
     def _component_metadata(self, name: str, cls: type[Any]) -> dict[str, Any]:
         return featurizer_component_metadata(self._display_name, name, cls)

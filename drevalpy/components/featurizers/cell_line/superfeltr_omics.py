@@ -33,6 +33,7 @@ class SuperFELTROmicsFeaturizer(CellLineFeaturizer):
         BlockSpec("mutations", FeatureFormat.NUMERIC_MATRIX),
         BlockSpec("copy_number_variation_gistic", FeatureFormat.NUMERIC_MATRIX),
     )
+    input_views: ClassVar[tuple[str, ...]] = _VIEWS
 
     def __init__(self, *, n_features_per_view: int = 1000) -> None:
         """Store per-view variance-selection feature count and initialize selectors.

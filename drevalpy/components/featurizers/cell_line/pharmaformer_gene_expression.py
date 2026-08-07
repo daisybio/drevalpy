@@ -27,6 +27,7 @@ class PharmaFormerGeneExpressionFeaturizer(CellLineFeaturizer):
     """Apply the PharmaFormer StandardScaler then MinMaxScaler sequence."""
 
     output_block_specs: ClassVar[tuple[BlockSpec, ...]] = (BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),)
+    input_views: ClassVar[tuple[str, ...]] = ("gene_expression",)
 
     def __init__(self) -> None:
         """Initialize StandardScaler and MinMaxScaler pipelines."""

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 
@@ -21,6 +23,8 @@ from drevalpy.components.registry import register_cell_line_featurizer
 )
 class ScaledGeneExpressionFeaturizer(CellLineFeaturizer):
     """Match sklearn baseline gene-expression preprocessing."""
+
+    input_views: ClassVar[tuple[str, ...]] = ("gene_expression",)
 
     def __init__(self, *, view: str = "gene_expression") -> None:
         """Initialize instance state.

@@ -27,6 +27,17 @@ from drevalpy.components.registry import register_cell_line_featurizer
 from drevalpy.datasets.dataset import FeatureDataset
 from drevalpy.datasets.loading.multiomics import load_and_select_gene_features
 
+_INPUT_TYPES = frozenset({"expression", "mutations"})
+
+
+def _view_for_input_type(input_type: str) -> str:
+    """Map a SparseGO ``input_type`` to the omics view it reads.
+
+    :param input_type: Either ``expression`` or ``mutations``.
+    :returns: Omics view name backing that input type.
+    """
+    return "mutations" if input_type == "mutations" else "gene_expression"
+
 
 @register_cell_line_featurizer(
     "sparsegoOntology",
@@ -56,8 +67,17 @@ class SparseGOOntologyFeaturizer(CellLineFeaturizer):
             input_type = str(spec["default"])
         else:
             input_type = "expression"
-        name = "mutations" if input_type == "mutations" else "gene_expression"
+        name = _view_for_input_type(input_type)
         return (BlockSpec(name, FeatureFormat.NUMERIC_MATRIX, metadata=True),)
+
+    @classmethod
+    def resolve_input_views(cls, **kwargs: Any) -> tuple[str, ...]:
+        """Return the omics view selected by ``input_type``.
+
+        :param kwargs: Featurizer kwargs; ``input_type`` selects expression vs mutations.
+        :returns: Single-element tuple with the active omics view.
+        """
+        return (_view_for_input_type(str(kwargs.get("input_type", "expression"))),)
 
     def __init__(self, *, input_type: str = "expression") -> None:
         """Validate *input_type* and initialize ontology metadata placeholders.
@@ -65,10 +85,10 @@ class SparseGOOntologyFeaturizer(CellLineFeaturizer):
         :param input_type: Either ``expression`` or ``mutations``.
         :raises ValueError: If *input_type* is not supported.
         """
-        if input_type not in {"expression", "mutations"}:
+        if input_type not in _INPUT_TYPES:
             raise ValueError("input_type must be 'expression' or 'mutations'")
         self._input_type = input_type
-        self._view = "gene_expression" if input_type == "expression" else "mutations"
+        self._view = _view_for_input_type(input_type)
         self._layer_connections: list[np.ndarray] | None = None
         self._gene2id_mapping_ont: dict[str, int] | None = None
         self._ontology_gene_order: tuple[str, ...] = ()
@@ -86,7 +106,7 @@ class SparseGOOntologyFeaturizer(CellLineFeaturizer):
         :raises ValueError: If ontology genes are absent from the active view.
         """
         input_type = str(kwargs.get("input_type", "expression"))
-        view = "gene_expression" if input_type == "expression" else "mutations"
+        view = _view_for_input_type(input_type)
         root = Path(data_path) / dataset_name
         ontology_file, gene_index_file = root / "sparseGO_ont.txt", root / "gene2ind.txt"
         if not ontology_file.exists() or not gene_index_file.exists():
@@ -210,10 +230,10 @@ class SparseGOOntologyFeaturizer(CellLineFeaturizer):
         """
         input_type = state.get("input_type")
         if isinstance(input_type, str):
-            if input_type not in {"expression", "mutations"}:
+            if input_type not in _INPUT_TYPES:
                 raise ValueError("input_type must be 'expression' or 'mutations'")
             self._input_type = input_type
-            self._view = "gene_expression" if input_type == "expression" else "mutations"
+            self._view = _view_for_input_type(input_type)
         mapping = state.get("gene2id_mapping_ont")
         if isinstance(mapping, dict):
             self._gene2id_mapping_ont = {str(key): int(value) for key, value in mapping.items()}

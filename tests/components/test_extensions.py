@@ -53,6 +53,8 @@ from drevalpy.components.registry import register_cell_line_featurizer, register
     contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class ToyCellLineFeaturizer(CellLineFeaturizer):
+    entity_id_only = True
+
     def fit(self, features, *, entity_ids=None):
         self._output_dim = 1
         return self
@@ -140,6 +142,8 @@ from drevalpy.components.registry import register_cell_line_featurizer, register
     contract=FeatureFormat.NUMERIC_MATRIX,
 )
 class ExternalCellLineFeaturizer(CellLineFeaturizer):
+    entity_id_only = True
+
     def fit(self, features, *, entity_ids=None):
         self._output_dim = 1
         return self

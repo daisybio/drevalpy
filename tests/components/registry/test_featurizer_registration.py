@@ -206,3 +206,49 @@ def test_duplicate_class_and_decorator_contract_fails() -> None:
 def test_featurizer_registration_requires_explicit_contract() -> None:
     with pytest.raises(TypeError, match="contract"):
         register_drug_featurizer("noContractDrug", description="missing contract")  # type: ignore[call-arg]
+
+
+def test_featurizer_registration_requires_declared_input_views() -> None:
+    from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
+
+    with pytest.raises(ValueError, match="does not declare its input views"):
+
+        @register_cell_line_featurizer(
+            "undeclaredViews",
+            description="no input views declared",
+            contract=FeatureFormat.NUMERIC_MATRIX,
+        )
+        class UndeclaredViews(CellLineFeaturizer):
+            def fit(self, features, *, entity_ids=None, context=None):
+                return self
+
+            def transform(self, features, entity_ids):
+                raise NotImplementedError
+
+            @property
+            def output_dim(self) -> int:
+                return 0
+
+
+def test_declared_input_views_allow_registration() -> None:
+    from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
+
+    @register_cell_line_featurizer(
+        "declaredViews",
+        description="declares its input views",
+        contract=FeatureFormat.NUMERIC_MATRIX,
+    )
+    class DeclaredViews(CellLineFeaturizer):
+        input_views = ("methylation",)
+
+        def fit(self, features, *, entity_ids=None, context=None):
+            return self
+
+        def transform(self, features, entity_ids):
+            raise NotImplementedError
+
+        @property
+        def output_dim(self) -> int:
+            return 0
+
+    assert get_cell_line_featurizer("declaredViews").resolve_input_views() == ("methylation",)

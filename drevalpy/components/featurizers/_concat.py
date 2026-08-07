@@ -18,6 +18,20 @@ class ConcatFeaturizersMixin:
 
     _not_fitted_msg: ClassVar[str] = "ConcatFeaturizers must be fit before transform"
 
+    @classmethod
+    def resolve_input_views(cls, **kwargs: Any) -> tuple[str, ...]:
+        """Reject direct resolution; input views come from the child configs.
+
+        :param kwargs: Unused featurizer kwargs.
+        :raises TypeError: Always; use ``views_from_featurizer_config`` on the tree instead.
+        """
+        _ = kwargs
+        msg = (
+            f"{cls.__name__} has no input views of its own; resolve them from the child configs "
+            "via drevalpy.components.data_loading.view_resolution.views_from_featurizer_config"
+        )
+        raise TypeError(msg)
+
     def _init_concat(
         self,
         *,

@@ -27,6 +27,7 @@ class MolGNetDrugFeaturizer(DrugFeaturizer):
     output_block_specs: ClassVar[tuple[BlockSpec, ...]] = (
         BlockSpec("molgnet_features", FeatureFormat.RAGGED_SEQUENCE),
     )
+    input_views: ClassVar[tuple[str, ...]] = ("molgnet_features",)
 
     def __init__(self, *, view: str = "molgnet_features") -> None:
         """Store the MolGNet view name and initialize empty caches.

@@ -68,6 +68,8 @@ def _subset_matrix(
 class LandmarkGenesFeaturizer(CellLineFeaturizer):
     """Landmark genes featurizer component."""
 
+    input_views: ClassVar[tuple[str, ...]] = ("gene_expression",)
+
     def __init__(
         self,
         *,

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 import numpy as np
 
 from drevalpy.components.contracts import FeatureFormat
@@ -28,6 +30,9 @@ def _tissue_label(features: FeatureDataset, entity_id: str) -> str | None:
 )
 class TissueFeaturizer(CellLineFeaturizer):
     """Map each cell line to a dense one-hot tissue vector."""
+
+    # Tissue labels ship as metadata on the cell-line table, not as an omics view.
+    input_views: ClassVar[tuple[str, ...]] = ()
 
     def __init__(self, *, allow_missing: bool = False) -> None:
         """Initialize instance state.

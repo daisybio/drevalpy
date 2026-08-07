@@ -25,6 +25,7 @@ class DrugGraphFeaturizer(DrugFeaturizer):
     """Expose precomputed drug graphs for graph predictors."""
 
     output_block_specs: ClassVar[tuple[BlockSpec, ...]] = (BlockSpec("drug_graph", FeatureFormat.GRAPH),)
+    input_views: ClassVar[tuple[str, ...]] = ("drug_graph",)
 
     def __init__(self, *, view: str = "drug_graph") -> None:
         """Store the graph view name and initialize empty caches.

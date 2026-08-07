@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import ClassVar
-
 import numpy as np
 
 from drevalpy.components.feature_block import FeatureBlock, numeric_feature_block
@@ -15,14 +13,12 @@ from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 class DenseViewCellLineFeaturizer(CellLineFeaturizer):
     """Pass through one dense cell-line view without additional transformation."""
 
-    _default_view: ClassVar[str]
-
     def __init__(self, *, view: str | None = None) -> None:
         """Initialize instance state.
 
         :param view: view.
         """
-        self._view = view or self._default_view
+        self._view = view or self.resolve_input_views()[0]
         self._output_dim = 0
 
     def fit(

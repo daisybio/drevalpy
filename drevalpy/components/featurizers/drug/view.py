@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 import numpy as np
 
 from drevalpy.components.contracts import FeatureFormat
@@ -19,6 +21,8 @@ from drevalpy.components.registry import register_drug_featurizer
 )
 class ViewDrugFeaturizer(DrugFeaturizer):
     """Featurize one drug view without additional transformation."""
+
+    input_views: ClassVar[tuple[str, ...]] = ("fingerprints",)
 
     def __init__(self, *, view: str = "fingerprints") -> None:
         """Initialize instance state.

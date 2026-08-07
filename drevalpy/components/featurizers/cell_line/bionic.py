@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import ClassVar
 
 from drevalpy.components.contracts import FeatureFormat
 from drevalpy.components.featurizers.cell_line.dense_view import DenseViewCellLineFeaturizer
@@ -19,7 +20,7 @@ from drevalpy.datasets.dataset import FeatureDataset
 class BionicCellLineFeaturizer(DenseViewCellLineFeaturizer):
     """Bionic cell line featurizer component."""
 
-    _default_view = "bionic_features"
+    input_views: ClassVar[tuple[str, ...]] = ("bionic_features",)
 
     @classmethod
     def load_features(cls, data_path: str | Path, dataset_name: str, **kwargs: object) -> FeatureDataset:

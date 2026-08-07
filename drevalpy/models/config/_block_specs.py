@@ -26,7 +26,8 @@ def _fallback_block_specs(cls: type[Any], config: FeaturizerConfig) -> tuple[Blo
     declared = getattr(cls, "output_block_specs", ())
     if declared:
         return tuple(spec for spec in declared if isinstance(spec, BlockSpec))
-    view = config.view or getattr(cls, "_default_view", None)
+    input_views = getattr(cls, "input_views", None)
+    view = config.view or (input_views[0] if input_views else None)
     if isinstance(view, str):
         return (BlockSpec(view, featurizer_contract(cls).format),)
     return ()
