@@ -108,7 +108,6 @@ def _load_from_featurizer_tree(
     registry: Literal["cell_line", "drug"],
     data_path: str,
     dataset_name: str,
-    model_name: str,
     resolved: ResolvedModelConfig | None = None,
 ) -> FeatureDataset | None:
     """Load every leaf's raw data, using bespoke loaders where available.
@@ -117,7 +116,6 @@ def _load_from_featurizer_tree(
     :param registry: Whether to resolve cell-line or drug featurizers.
     :param data_path: Root directory containing dataset feature tables.
     :param dataset_name: Dataset subdirectory or registry name.
-    :param model_name: Model name used for view-specific loading hooks.
     :param resolved: Optional resolved instance values for tunable loader kwargs.
 
     :returns: Merged ``FeatureDataset`` for all leaves, or ``None`` when nothing was loaded.
@@ -133,9 +131,9 @@ def _load_from_featurizer_tree(
         if not views:
             continue
         fallback = (
-            load_cell_line_feature_views(views, data_path, dataset_name, model_name=model_name)
+            load_cell_line_feature_views(views, data_path, dataset_name)
             if registry == "cell_line"
-            else load_drug_feature_views(views, data_path, dataset_name, model_name=model_name)
+            else load_drug_feature_views(views, data_path, dataset_name)
         )
         if fallback is not None:
             loaded = _merge_features(loaded, fallback)
@@ -157,15 +155,12 @@ def load_cell_line_features_for_model_config(
     config: ModelConfig | ResolvedModelConfig,
     data_path: str,
     dataset_name: str,
-    *,
-    model_name: str = "DRPModel",
 ) -> FeatureDataset:
     """Load cell-line features implied by *config*, including identity-only featurizers.
 
     :param config: Template or resolved model configuration.
     :param data_path: Root directory containing dataset feature tables.
     :param dataset_name: Dataset subdirectory or registry name.
-    :param model_name: Model name used for view-specific loading hooks.
 
     :returns: ``FeatureDataset`` with views required by the cell-line featurizer tree.
     """
@@ -184,7 +179,6 @@ def load_cell_line_features_for_model_config(
         registry="cell_line",
         data_path=data_path,
         dataset_name=dataset_name,
-        model_name=model_name,
         resolved=resolved,
     )
     return loaded if loaded is not None else load_cl_ids_from_csv(data_path, dataset_name)
@@ -194,15 +188,12 @@ def load_drug_features_for_model_config(
     config: ModelConfig | ResolvedModelConfig,
     data_path: str,
     dataset_name: str,
-    *,
-    model_name: str = "DRPModel",
 ) -> FeatureDataset | None:
     """Load drug features implied by *config*, including identity-only featurizers.
 
     :param config: Template or resolved model configuration.
     :param data_path: Root directory containing dataset feature tables.
     :param dataset_name: Dataset subdirectory or registry name.
-    :param model_name: Model name used for view-specific loading hooks.
 
     :returns: ``FeatureDataset`` with drug views, or ``None`` when the model has no drug featurizer.
     """
@@ -216,6 +207,5 @@ def load_drug_features_for_model_config(
         registry="drug",
         data_path=data_path,
         dataset_name=dataset_name,
-        model_name=model_name,
         resolved=resolved,
     )

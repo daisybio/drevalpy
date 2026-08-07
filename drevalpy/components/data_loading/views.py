@@ -20,49 +20,42 @@ def load_cell_line_feature_views(
     views: list[str],
     data_path: str,
     dataset_name: str,
-    *,
-    model_name: str = "DRPModel",
 ) -> FeatureDataset:
     """Load cell-line features for the configured cell-line views.
 
     :param views: Canonical or legacy view names to load.
     :param data_path: Root directory containing dataset feature tables.
     :param dataset_name: Dataset subdirectory or registry name.
-    :param model_name: Model name used in error messages and loading hooks.
 
     :returns: ``FeatureDataset`` with the requested cell-line views.
     """
     if len(views) == 1:
-        return load_single_cell_line_view(views, data_path, dataset_name, model_name)
-    return load_multi_cell_line_view(views, data_path, dataset_name, model_name)
+        return load_single_cell_line_view(views, data_path, dataset_name)
+    return load_multi_cell_line_view(views, data_path, dataset_name)
 
 
 def load_drug_feature_views(
     views: list[str],
     data_path: str,
     dataset_name: str,
-    *,
-    model_name: str = "DRPModel",
 ) -> FeatureDataset | None:
     """Load drug features for the configured drug views.
 
     :param views: Canonical drug view names to load.
     :param data_path: Root directory containing dataset feature tables.
     :param dataset_name: Dataset subdirectory or registry name.
-    :param model_name: Model name used in error messages and loading hooks.
 
     :returns: ``FeatureDataset`` with the requested drug views, or ``None`` when *views* is empty.
     """
     if not views:
         return None
-    return load_single_drug_view(views, data_path, dataset_name, model_name)
+    return load_single_drug_view(views, data_path, dataset_name)
 
 
 def load_single_cell_line_view(
     cell_line_views: list[str],
     data_path: str,
     dataset_name: str,
-    model_name: str,
 ) -> FeatureDataset:
     """Load cell line features for a single-view model.
 
@@ -72,7 +65,6 @@ def load_single_cell_line_view(
     :param cell_line_views: View names; must contain exactly one element.
     :param data_path: Root directory containing dataset feature tables.
     :param dataset_name: Dataset subdirectory or registry name.
-    :param model_name: Model name used in error messages.
 
     :returns: ``FeatureDataset`` containing the requested cell-line view.
 
@@ -85,8 +77,8 @@ def load_single_cell_line_view(
             "model knows which omics to load."
         )
     if len(cell_line_views) > 1:
-        raise ValueError(f"Only one cell line view is supported for {model_name}.")
-    logger.debug("Loading a %s with the following cell line views: %s", model_name, cell_line_views)
+        raise ValueError(f"Only one cell line view is supported, got: {cell_line_views}.")
+    logger.debug("Loading the following cell line views: %s", cell_line_views)
 
     if "gene_expression" in cell_line_views:
         return load_and_select_gene_features(
@@ -108,7 +100,6 @@ def load_multi_cell_line_view(
     cell_line_views: list[str],
     data_path: str,
     dataset_name: str,
-    model_name: str,
 ) -> FeatureDataset:
     """Load cell line features for a multi-view model.
 
@@ -118,7 +109,6 @@ def load_multi_cell_line_view(
     :param cell_line_views: View names to combine into one dataset.
     :param data_path: Root directory containing dataset feature tables.
     :param dataset_name: Dataset subdirectory or registry name.
-    :param model_name: Model name used in error messages.
 
     :returns: ``FeatureDataset`` containing every requested cell-line view.
 
@@ -130,7 +120,7 @@ def load_multi_cell_line_view(
             "Model(hyperparameters)) before load_cell_line_features() so the "
             "model knows which omics to load."
         )
-    logger.debug("Loading a %s with the following cell line views: %s", model_name, cell_line_views)
+    logger.debug("Loading the following cell line views: %s", cell_line_views)
 
     gene_list_defaults = {
         "gene_expression": "drug_target_genes_all_drugs",
@@ -150,7 +140,6 @@ def load_single_drug_view(
     drug_views: list[str],
     data_path: str,
     dataset_name: str,
-    model_name: str,
 ) -> FeatureDataset | None:
     """Load drug features for a single-view model.
 
@@ -161,15 +150,14 @@ def load_single_drug_view(
     :param drug_views: View names; at most one element is supported.
     :param data_path: Root directory containing dataset feature tables.
     :param dataset_name: Dataset subdirectory or registry name.
-    :param model_name: Model name used in error messages.
 
     :returns: ``FeatureDataset`` with drug ids or the requested drug view.
 
     :raises ValueError: If more than one drug view is specified.
     """
     if len(drug_views) > 1:
-        raise ValueError(f"Only one drug view is supported for {model_name}.")
-    logger.debug("Loading a %s with the following drug views: %s", model_name, drug_views)
+        raise ValueError(f"Only one drug view is supported, got: {drug_views}.")
+    logger.debug("Loading the following drug views: %s", drug_views)
 
     if len(drug_views) == 0:
         return load_drug_ids_from_csv(data_path, dataset_name)

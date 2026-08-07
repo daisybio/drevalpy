@@ -249,7 +249,6 @@ class DRPModel(_DRPLoggingMixin):
             config,
             data_path,
             dataset_name,
-            model_name=self.get_model_name(),
         )
 
     @pipeline_function
@@ -271,7 +270,6 @@ class DRPModel(_DRPLoggingMixin):
             config,
             data_path,
             dataset_name,
-            model_name=self.get_model_name(),
         )
 
     @pipeline_function
