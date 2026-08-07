@@ -38,7 +38,7 @@ def routing_keys(batch: ModelInputBatch) -> np.ndarray:
         raise ValueError(msg)
 
     pair_identity = identity_matrix[batch.drug_pair_idx]
-    known = np.isclose(pair_identity.sum(axis=1), 1.0)
+    known = pair_identity.sum(axis=1) == 1.0
     keys = np.full(batch.n_pairs, "", dtype=object)
     if np.any(known):
         keys[known] = category_ids[np.argmax(pair_identity[known], axis=1)]
