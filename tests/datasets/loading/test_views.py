@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from drevalpy.components.data_loading.views import load_cell_line_feature_views, load_drug_feature_views
+from drevalpy.datasets.loading.views import load_cell_line_feature_views, load_drug_feature_views
 from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
 
 

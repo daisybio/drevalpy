@@ -1,4 +1,4 @@
-"""Direct tests for drevalpy.components.data_loading.multiomics helpers."""
+"""Direct tests for drevalpy.datasets.loading.multiomics helpers."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from drevalpy.components.data_loading.multiomics import load_and_select_gene_features
+from drevalpy.datasets.loading.multiomics import load_and_select_gene_features
 from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER
 
 

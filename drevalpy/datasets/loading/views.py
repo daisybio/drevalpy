@@ -5,13 +5,13 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from drevalpy.components.data_loading.multiomics import get_multiomics_feature_dataset, load_and_select_gene_features
 from drevalpy.datasets.dataset import FeatureDataset
 from drevalpy.datasets.feature_tables import (
     load_drug_fingerprint_features,
     load_drug_ids_from_csv,
     load_generic_csv,
 )
+from drevalpy.datasets.loading.multiomics import get_multiomics_feature_dataset, load_and_select_gene_features
 from drevalpy.datasets.utils import CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER
 
 logger = logging.getLogger(__name__)

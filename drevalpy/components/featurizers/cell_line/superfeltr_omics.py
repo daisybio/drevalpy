@@ -8,7 +8,6 @@ from typing import Any, ClassVar
 import numpy as np
 
 from drevalpy.components.contracts import FeatureFormat
-from drevalpy.components.data_loading.multiomics import get_multiomics_feature_dataset
 from drevalpy.components.feature_block import BlockSpec, FeatureBlock, numeric_feature_block
 from drevalpy.components.featurizer_fit_context import FeaturizerFitContext
 from drevalpy.components.featurizers._matrix import stack_view_matrix
@@ -16,6 +15,7 @@ from drevalpy.components.featurizers.cell_line.base import CellLineFeaturizer
 from drevalpy.components.preprocessing import VarianceFeatureSelector
 from drevalpy.components.registry import register_cell_line_featurizer
 from drevalpy.datasets.dataset import FeatureDataset
+from drevalpy.datasets.loading.multiomics import get_multiomics_feature_dataset
 
 _VIEWS = ("gene_expression", "mutations", "copy_number_variation_gistic")
 

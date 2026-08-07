@@ -11,7 +11,6 @@ from drevalpy.components.data_loading.view_resolution import (
     cell_line_entity_id_only_from_model_config,
     drug_entity_id_only_from_model_config,
 )
-from drevalpy.components.data_loading.views import load_cell_line_feature_views, load_drug_feature_views
 from drevalpy.components.featurizer_label import qualified_featurizer_selector
 from drevalpy.components.featurizer_tree import iter_featurizer_leaves
 from drevalpy.components.featurizers.base import Featurizer
@@ -23,6 +22,7 @@ from drevalpy.datasets.feature_tables import (
     load_drug_ids_from_csv,
     load_tissues_from_csv,
 )
+from drevalpy.datasets.loading.views import load_cell_line_feature_views, load_drug_feature_views
 from drevalpy.models.config import FeaturizerConfig, ModelConfig, ResolvedModelConfig
 
 
