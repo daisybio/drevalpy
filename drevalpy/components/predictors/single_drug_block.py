@@ -68,7 +68,6 @@ class SingleDrugBlockPredictor(BlockPredictor):
         """
         super().__init__(hyperparameters)
         self._algorithms: dict[str, LiteratureTrainingMixin] = {}
-        self._legacy_algorithm: LiteratureTrainingMixin | None = None
         self._engine_preload_state: dict[str, Any] = {}
 
     @property
@@ -102,7 +101,6 @@ class SingleDrugBlockPredictor(BlockPredictor):
         keys = routing_keys(batch)
         require_known_training_keys(keys)
         self._algorithms = {}
-        self._legacy_algorithm = None
         for drug_id, mask in iter_drug_masks(batch):
             context = TrainingContext(
                 checkpoint_dir=_checkpoint_dir_for_drug(batch.training_context.checkpoint_dir, drug_id),
@@ -136,7 +134,7 @@ class SingleDrugBlockPredictor(BlockPredictor):
         for drug_id in np.unique(keys):
             if drug_id == "":
                 continue
-            algorithm = self._resolve_algorithm(str(drug_id), keys)
+            algorithm = self._algorithms.get(str(drug_id))
             if algorithm is None:
                 continue
             mask = keys == drug_id
@@ -151,32 +149,17 @@ class SingleDrugBlockPredictor(BlockPredictor):
             predictions[mask] = np.asarray(routed, dtype=np.float64).ravel()
         return predictions
 
-    def _resolve_algorithm(self, drug_id: str, keys: np.ndarray) -> LiteratureTrainingMixin | None:
-        algorithm = self._algorithms.get(drug_id)
-        if algorithm is not None:
-            return algorithm
-        if self._legacy_algorithm is None:
-            return None
-        unique_drugs = {str(value) for value in np.unique(keys) if value != ""}
-        if unique_drugs != {drug_id}:
-            msg = (
-                f"{self.__class__.__name__} legacy state supports only single-drug batches; "
-                f"requested drugs={sorted(unique_drugs)}"
-            )
-            raise PredictorStateError(msg)
-        return self._legacy_algorithm
-
     def is_fitted(self) -> bool:
         """Report whether a trained algorithm is loaded.
 
         :returns: ``True`` when the algorithm has been fit or restored.
         """
-        return bool(self._algorithms) or self._legacy_algorithm is not None
+        return bool(self._algorithms)
 
     def get_state(self) -> dict[str, object]:
         """Serialize fitted predictor state.
 
-        :returns: Mapping with a binary ``payload`` blob when fitted, else empty.
+        :returns: Mapping with per-drug algorithm blobs when fitted, else empty.
         """
         if not self._algorithms:
             return {}
@@ -189,6 +172,26 @@ class SingleDrugBlockPredictor(BlockPredictor):
             "predictor_hyperparameters": dict(self._hyperparameters),
         }
 
+    def set_state(self, state: dict[str, object]) -> None:
+        """Restore a predictor from ``get_state`` output.
+
+        :param state: Serialized state with per-drug algorithm blobs.
+
+        :raises PredictorStateError: If the state is missing or invalid.
+        """
+        algorithms_blob = state.get("algorithms")
+        if not isinstance(algorithms_blob, dict):
+            msg = f"{self.__class__.__name__} state requires an 'algorithms' mapping"
+            raise PredictorStateError(msg)
+        hyperparameters = state.get("predictor_hyperparameters")
+        if not isinstance(hyperparameters, dict):
+            msg = f"{self.__class__.__name__} state is missing predictor_hyperparameters"
+            raise PredictorStateError(msg)
+        self._hyperparameters = dict(hyperparameters)
+        self._algorithms = {
+            str(drug_id): self._load_algorithm_blob(str(drug_id), blob) for drug_id, blob in algorithms_blob.items()
+        }
+
     def _load_algorithm_blob(self, drug_id: str, blob: object) -> LiteratureTrainingMixin:
         if not isinstance(blob, (bytes, bytearray)):
             msg = f"{self.__class__.__name__} algorithm payload for {drug_id!r} must be bytes"
@@ -199,47 +202,3 @@ class SingleDrugBlockPredictor(BlockPredictor):
             msg = f"{self.__class__.__name__} algorithm payload for {drug_id!r} could not be deserialized"
             raise PredictorStateError(msg) from exc
         return self._apply_algorithm_state(payload)
-
-    def _set_state_from_algorithms(self, state: dict[str, object], algorithms_blob: dict[object, object]) -> None:
-        hyperparameters = state.get("predictor_hyperparameters")
-        if not isinstance(hyperparameters, dict):
-            msg = f"{self.__class__.__name__} state is missing predictor_hyperparameters"
-            raise PredictorStateError(msg)
-        self._hyperparameters = dict(hyperparameters)
-        self._algorithms = {
-            str(drug_id): self._load_algorithm_blob(str(drug_id), blob) for drug_id, blob in algorithms_blob.items()
-        }
-        self._legacy_algorithm = None
-
-    def _set_state_from_legacy_payload(self, blob: bytes | bytearray) -> None:
-        try:
-            payload = load_object_mapping(bytes(blob))
-        except Exception as exc:
-            msg = f"{self.__class__.__name__} payload could not be deserialized"
-            raise PredictorStateError(msg) from exc
-        hyperparameters = payload.get("predictor_hyperparameters")
-        if not isinstance(hyperparameters, dict):
-            msg = f"{self.__class__.__name__} payload is missing predictor_hyperparameters"
-            raise PredictorStateError(msg)
-        self._hyperparameters = dict(hyperparameters)
-        algorithm_payload = {key: value for key, value in payload.items() if key != "predictor_hyperparameters"}
-        self._algorithms = {}
-        self._legacy_algorithm = self._apply_algorithm_state(algorithm_payload)
-
-    def set_state(self, state: dict[str, object]) -> None:
-        """Restore a predictor from ``get_state`` output.
-
-        :param state: Serialized state containing a ``payload`` byte blob.
-
-        :raises PredictorStateError: If the payload is missing or invalid.
-        """
-        algorithms_blob = state.get("algorithms")
-        if isinstance(algorithms_blob, dict):
-            self._set_state_from_algorithms(state, algorithms_blob)
-            return
-
-        blob = state.get("payload")
-        if not isinstance(blob, (bytes, bytearray)):
-            msg = f"{self.__class__.__name__} state requires algorithms or a legacy payload"
-            raise PredictorStateError(msg)
-        self._set_state_from_legacy_payload(blob)

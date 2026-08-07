@@ -12,10 +12,8 @@ import pytest
 from drevalpy.components.contracts import FeatureContract, FeatureFormat
 from drevalpy.components.feature_block import FeatureBlock
 from drevalpy.components.model_input_batch import ModelInputBatch
-from drevalpy.components.predictors.literature._torch_state import save_object_mapping
 from drevalpy.components.predictors.literature._training_helpers import LiteratureTrainingMixin
 from drevalpy.components.predictors.single_drug_block import SingleDrugBlockPredictor
-from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.components.training_context import TrainingContext
 from drevalpy.datasets.dataset import DrugResponseDataset
 
@@ -147,40 +145,6 @@ def test_predict_routes_rows_and_returns_nan_for_unknown_drug() -> None:
     assert predictions[0] == 1.0
     assert predictions[1] == 2.0
     assert np.isnan(predictions[2])
-
-
-def test_legacy_state_predicts_single_drug_batch_only() -> None:
-    predictor = _FakePredictor()
-    predictor.set_state(
-        {
-            "payload": save_object_mapping(
-                {
-                    "trained_drug_ids": ["d1"],
-                    "predictor_hyperparameters": {},
-                }
-            )
-        }
-    )
-    batch = _omics_batch()
-    single = batch.subset_pairs(np.array([True, False, False, False]))
-    predictions = predictor.predict(single)
-    assert predictions.tolist() == [1.0]
-
-    mixed = ModelInputBatch(
-        cell_line_ids=np.array(["cl1", "cl1"]),
-        drug_ids=np.array(["d1", "d2"]),
-        response=None,
-        cell_line_entity_ids=batch.cell_line_entity_ids,
-        drug_entity_ids=batch.drug_entity_ids,
-        cell_line_features=batch.cell_line_features,
-        drug_features=None,
-        cell_line_pair_idx=np.array([0, 0]),
-        drug_pair_idx=np.array([0, 1]),
-        cell_line_blocks=batch.cell_line_blocks,
-        drug_blocks=batch.drug_blocks,
-    )
-    with pytest.raises(PredictorStateError, match="legacy state supports only single-drug batches"):
-        predictor.predict(mixed)
 
 
 def test_state_round_trip_preserves_per_drug_algorithms() -> None:
