@@ -8,12 +8,6 @@ from typing import Any, ClassVar
 
 import numpy as np
 
-from drevalpy.components.data_loading.view_resolution import (
-    cell_line_views_from_model_config,
-    cell_line_views_from_resolved,
-    drug_views_from_model_config,
-    drug_views_from_resolved,
-)
 from drevalpy.components.registry import get_predictor
 from drevalpy.components.training_context import TrainingContext
 from drevalpy.datasets.dataset import DrugResponseDataset, FeatureDataset
@@ -192,21 +186,21 @@ class DRPModel(_DRPLoggingMixin):
     def cell_line_views(self) -> list[str]:
         """Return required cell-line views derived from the resolved config.
 
-        :returns: Legacy cell-line view names required by the model config.
+        :returns: Cell-line view names required by the model config.
         """
         if self._resolved_model_config is not None:
-            return cell_line_views_from_resolved(self._resolved_model_config)
-        return cell_line_views_from_model_config(self.model_config())
+            return self._resolved_model_config.cell_line_views()
+        return self.model_config().cell_line_views()
 
     @property
     def drug_views(self) -> list[str]:
         """Return required drug views derived from the resolved config.
 
-        :returns: Legacy drug view names required by the model config.
+        :returns: Drug view names required by the model config.
         """
         if self._resolved_model_config is not None:
-            return drug_views_from_resolved(self._resolved_model_config)
-        return drug_views_from_model_config(self.model_config())
+            return self._resolved_model_config.drug_views()
+        return self.model_config().drug_views()
 
     def log_hyperparameters(self, hyperparameters: dict[str, Any]) -> None:
         """Store a copy of hyperparameters and optionally log them to wandb.

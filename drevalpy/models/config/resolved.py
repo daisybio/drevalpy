@@ -57,3 +57,17 @@ class ResolvedModelConfig(BaseModel):
         slot = "cell_line_featurizer" if registry == "cell_line" else "drug_featurizer"
         prefix = f"{slot}.{selector}."
         return {key.removeprefix(prefix): value for key, value in self.values.items() if key.startswith(prefix)}
+
+    def cell_line_views(self) -> list[str]:
+        """Return the raw view names required by the cell-line featurizer tree.
+
+        :returns: View names required by the cell-line featurizer tree.
+        """
+        return self.template.cell_line_views(resolved=self)
+
+    def drug_views(self) -> list[str]:
+        """Return the raw view names required by the drug featurizer tree.
+
+        :returns: View names required by the drug featurizer tree.
+        """
+        return self.template.drug_views(resolved=self)

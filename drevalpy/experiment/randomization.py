@@ -17,24 +17,11 @@ def _resolve_cell_line_and_drug_views(
     model_class: type[DRPModel],
     hyperparameters: dict[str, Any] | None,
 ) -> tuple[list[str], list[str]]:
-    from drevalpy.components.data_loading.view_resolution import (
-        cell_line_views_from_model_config,
-        drug_views_from_model_config,
-    )
     from drevalpy.components.tuning.public_flat import model_config_for_drp_model
-    from drevalpy.models.config.resolved import ResolvedModelConfig
 
     config = model_config_for_drp_model(model_class, hyperparameters)
     if config is not None:
-        if isinstance(config, ResolvedModelConfig):
-            return (
-                list(cell_line_views_from_model_config(config.template, resolved=config)),
-                list(drug_views_from_model_config(config.template, resolved=config)),
-            )
-        return (
-            list(cell_line_views_from_model_config(config)),
-            list(drug_views_from_model_config(config)),
-        )
+        return list(config.cell_line_views()), list(config.drug_views())
     probe = model_class(hyperparameters)
     return list(probe.cell_line_views), list(probe.drug_views)
 

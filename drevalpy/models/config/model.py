@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
@@ -14,6 +14,9 @@ from drevalpy.models.config.predictor import PredictorConfig
 from drevalpy.models.config.validation import validate
 from drevalpy.types.model_scope import ModelScope
 from drevalpy.types.prediction_mode import PredictionMode
+
+if TYPE_CHECKING:
+    from drevalpy.models.config.resolved import ResolvedModelConfig
 
 
 class ModelConfig(BaseModel):
@@ -88,3 +91,49 @@ class ModelConfig(BaseModel):
         # featurizing it, so naming it would suggest a choice the user never made.
         omit_drug = self.scope == ModelScope.SINGLE_DRUG and drug.name == ROUTING_DRUG_FEATURIZER
         return format_model_recipe(cell.name, None if omit_drug else drug.name, self.predictor.name)
+
+    def cell_line_views(self, *, resolved: ResolvedModelConfig | None = None) -> list[str]:
+        """Return the raw view names required by the cell-line featurizer tree.
+
+        :param resolved: Optional resolved instance values that can affect view selection.
+        :returns: View names required by the cell-line featurizer tree.
+        """
+        from drevalpy.components.data_loading.view_resolution import views_from_featurizer_config
+
+        if self.cell_line_featurizer is None:
+            return []
+        return views_from_featurizer_config(self.cell_line_featurizer, registry="cell_line", resolved=resolved)
+
+    def drug_views(self, *, resolved: ResolvedModelConfig | None = None) -> list[str]:
+        """Return the raw view names required by the drug featurizer tree.
+
+        :param resolved: Optional resolved instance values that can affect view selection.
+        :returns: View names required by the drug featurizer tree.
+        """
+        from drevalpy.components.data_loading.view_resolution import views_from_featurizer_config
+
+        if self.drug_featurizer is None:
+            return []
+        return views_from_featurizer_config(self.drug_featurizer, registry="drug", resolved=resolved)
+
+    def cell_line_entity_id_only(self) -> bool:
+        """Return ``True`` when the cell-line featurizer only needs entity identifiers.
+
+        :returns: ``True`` when no cell-line omics views are required.
+        """
+        from drevalpy.components.data_loading.view_resolution import entity_id_only_from_featurizer_config
+
+        if self.cell_line_featurizer is None:
+            return False
+        return entity_id_only_from_featurizer_config(self.cell_line_featurizer, registry="cell_line")
+
+    def drug_entity_id_only(self) -> bool:
+        """Return ``True`` when the drug featurizer only needs entity identifiers.
+
+        :returns: ``True`` when no drug feature views are required.
+        """
+        from drevalpy.components.data_loading.view_resolution import entity_id_only_from_featurizer_config
+
+        if self.drug_featurizer is None:
+            return False
+        return entity_id_only_from_featurizer_config(self.drug_featurizer, registry="drug")

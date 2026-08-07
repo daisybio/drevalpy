@@ -8,12 +8,6 @@ from unittest.mock import patch
 import pytest
 from pydantic import ValidationError
 
-from drevalpy.components.data_loading.view_resolution import (
-    cell_line_entity_id_only_from_model_config,
-    cell_line_views_from_model_config,
-    drug_entity_id_only_from_model_config,
-    drug_views_from_model_config,
-)
 from drevalpy.components.register_builtins import register_builtin_components
 from drevalpy.models.config import CellLineFeaturizerConfig, DrugFeaturizerConfig, ModelConfig, PredictorConfig
 
@@ -38,10 +32,10 @@ def test_identity_featurizers_resolve_to_empty_views() -> None:
         cell_line_featurizer=CellLineFeaturizerConfig.model_validate("identity"),
         drug_featurizer=DrugFeaturizerConfig.model_validate("identity"),
     )
-    assert cell_line_entity_id_only_from_model_config(config)
-    assert drug_entity_id_only_from_model_config(config)
-    assert cell_line_views_from_model_config(config) == []
-    assert drug_views_from_model_config(config) == []
+    assert config.cell_line_entity_id_only()
+    assert config.drug_entity_id_only()
+    assert config.cell_line_views() == []
+    assert config.drug_views() == []
 
 
 def test_constant_featurizers_resolve_to_empty_views() -> None:
@@ -49,17 +43,17 @@ def test_constant_featurizers_resolve_to_empty_views() -> None:
         cell_line_featurizer=CellLineFeaturizerConfig.model_validate("constant"),
         drug_featurizer=DrugFeaturizerConfig.model_validate("constant"),
     )
-    assert cell_line_entity_id_only_from_model_config(config)
-    assert drug_entity_id_only_from_model_config(config)
-    assert cell_line_views_from_model_config(config) == []
-    assert drug_views_from_model_config(config) == []
+    assert config.cell_line_entity_id_only()
+    assert config.drug_entity_id_only()
+    assert config.cell_line_views() == []
+    assert config.drug_views() == []
 
 
 def test_bracket_featurizers_resolve_canonical_views() -> None:
     config = _model_config(
         cell_line_featurizer=CellLineFeaturizerConfig.model_validate("raw[mutations]+pca[methylation]"),
     )
-    assert cell_line_views_from_model_config(config) == [
+    assert config.cell_line_views() == [
         "mutations",
         "methylation",
     ]
@@ -70,7 +64,7 @@ def test_landmark_featurizers_resolve_gene_expression(name: str) -> None:
     config = _model_config(
         cell_line_featurizer=CellLineFeaturizerConfig.model_validate(name),
     )
-    assert cell_line_views_from_model_config(config) == ["gene_expression"]
+    assert config.cell_line_views() == ["gene_expression"]
 
 
 @pytest.mark.parametrize("name", ["molirOmics", "superfeltrOmics"])
@@ -78,7 +72,7 @@ def test_multi_omics_featurizers_resolve_all_three_views(name: str) -> None:
     config = _model_config(
         cell_line_featurizer=CellLineFeaturizerConfig.model_validate(name),
     )
-    assert cell_line_views_from_model_config(config) == [
+    assert config.cell_line_views() == [
         "gene_expression",
         "mutations",
         "copy_number_variation_gistic",
@@ -96,14 +90,14 @@ def test_sparsego_resolves_view_from_input_type(input_type: str, expected: str) 
             options={"input_type": input_type},
         ),
     )
-    assert cell_line_views_from_model_config(config) == [expected]
+    assert config.cell_line_views() == [expected]
 
 
 def test_tissue_featurizer_resolves_no_omics_views() -> None:
     config = _model_config(
         cell_line_featurizer=CellLineFeaturizerConfig.model_validate("tissue"),
     )
-    assert cell_line_views_from_model_config(config) == []
+    assert config.cell_line_views() == []
 
 
 def test_view_override_is_honoured_over_declared_input_views() -> None:
@@ -113,15 +107,15 @@ def test_view_override_is_honoured_over_declared_input_views() -> None:
             options={"view": "proteomics"},
         ),
     )
-    assert cell_line_views_from_model_config(config) == ["proteomics"]
+    assert config.cell_line_views() == ["proteomics"]
 
 
 def test_fingerprint_featurizer_still_resolves_fingerprints_view() -> None:
     config = _model_config(
         drug_featurizer=DrugFeaturizerConfig.model_validate("fingerprints"),
     )
-    assert not drug_entity_id_only_from_model_config(config)
-    assert drug_views_from_model_config(config) == ["fingerprints"]
+    assert not config.drug_entity_id_only()
+    assert config.drug_views() == ["fingerprints"]
 
 
 def test_view_featurizer_resolves_options_view() -> None:
@@ -131,7 +125,7 @@ def test_view_featurizer_resolves_options_view() -> None:
             options={"view": "drug_chemberta_embeddings"},
         ),
     )
-    assert drug_views_from_model_config(config) == ["drug_chemberta_embeddings"]
+    assert config.drug_views() == ["drug_chemberta_embeddings"]
 
 
 def test_identity_drug_loading_uses_drug_ids_not_fingerprints() -> None:

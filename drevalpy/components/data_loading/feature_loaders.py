@@ -6,11 +6,7 @@ from pathlib import Path
 from typing import Literal
 
 from drevalpy.components.data_loading.leaf_kwargs import featurizer_leaf_kwargs
-from drevalpy.components.data_loading.view_resolution import (
-    cell_line_entity_id_only_from_model_config,
-    drug_entity_id_only_from_model_config,
-    views_from_featurizer_config,
-)
+from drevalpy.components.data_loading.view_resolution import views_from_featurizer_config
 from drevalpy.components.featurizer_tree import iter_featurizer_leaves
 from drevalpy.components.featurizers.base import Featurizer
 from drevalpy.components.registry import get_cell_line_featurizer, get_drug_featurizer
@@ -120,7 +116,7 @@ def load_cell_line_features_for_model_config(
         return load_tissues_from_csv(root, dataset_name)
     if template.predictor.name == "naiveMeanEffects" and (featurizer is None or featurizer.name == "identity"):
         return load_cl_ids_and_tissues_from_csv(root, dataset_name)
-    if cell_line_entity_id_only_from_model_config(template):
+    if template.cell_line_entity_id_only():
         return load_cl_ids_from_csv(root, dataset_name)
     if featurizer is None:
         return load_cl_ids_from_csv(root, dataset_name)
@@ -151,7 +147,7 @@ def load_drug_features_for_model_config(
     template, resolved = _unwrap_model_config(config)
     if template.drug_featurizer is None:
         return None
-    if drug_entity_id_only_from_model_config(template):
+    if template.drug_entity_id_only():
         return load_drug_ids_from_csv(root, dataset_name)
     return _load_from_featurizer_tree(
         template.drug_featurizer,
