@@ -38,12 +38,11 @@ class SklearnTabularPredictor(MatrixPredictor):
         """Return an unfitted sklearn-compatible estimator."""
 
     def _fit_matrix(self, x: np.ndarray, y: np.ndarray) -> None:
-        y_arr = np.asarray(y, dtype=np.float64).ravel()
         if len(x) == 0:
             self._estimator = None
             return
         self._estimator = self._make_estimator()
-        self._estimator.fit(x, y_arr)
+        self._estimator.fit(x, y)
 
     def _predict_matrix(self, x: np.ndarray) -> np.ndarray:
         if self._estimator is None:
